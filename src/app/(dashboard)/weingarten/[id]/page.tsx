@@ -15,8 +15,11 @@ interface Props {
   params: Promise<{ id: string }>
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AR = Record<string, any>
+type WeingartenRow = {
+  id: string; name: string; ried: string | null; lage_id: string | null
+  rebsorte: string | null; flaeche_ha: number | null; pflanzjahr: number | null
+  bewirtschaftung: string | null; notizen: string | null; aktiv: boolean
+}
 
 export default async function WeingartenEditPage({ params }: Props) {
   const { id } = await params
@@ -31,7 +34,7 @@ export default async function WeingartenEditPage({ params }: Props) {
     .select('id, name, ried, lage_id, rebsorte, flaeche_ha, pflanzjahr, bewirtschaftung, notizen, aktiv')
     .eq('id', id)
     .limit(1)
-  const weingarten = ((rows as AR[] | null)?.[0]) ?? null
+  const weingarten = ((rows as WeingartenRow[] | null)?.[0]) ?? null
   if (!weingarten) notFound()
 
   // Grundstücke
