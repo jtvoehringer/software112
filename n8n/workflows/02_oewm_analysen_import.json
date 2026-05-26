@@ -1,0 +1,77 @@
+{
+  "_comment": "n8n Workflow: ÖWM Weinanalyse-Import – software:112",
+  "_version": "1.0",
+  "_description": "Import von Weinanalyse-Ergebnissen von Partnerlabors via E-Mail oder API. Parst PDF/CSV, speichert in weinanalysen-Tabelle.",
+
+  "name": "ÖWM Weinanalyse Import",
+  "nodes": [
+    {
+      "id": "trigger_cron",
+      "name": "Täglich 06:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "parameters": {
+        "rule": { "interval": [{ "field": "hours", "hoursInterval": 24 }] },
+        "cronExpression": "0 6 * * *"
+      }
+    },
+    {
+      "id": "check_email",
+      "name": "E-Mail prüfen (Labor)",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [420, 300],
+      "parameters": {
+        "mailbox": "INBOX",
+        "action": "read",
+        "downloadAttachments": true,
+        "filters": {
+          "sender": "labor@",
+          "subject": "Weinanalyse"
+        }
+      },
+      "notes": "IMAP-Credential für labor@<domain> konfigurieren"
+    },
+    {
+      "id": "parse_pdf",
+      "name": "PDF/CSV parsen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 300],
+      "parameters": {
+        "jsCode": "// PDF-Parsing je nach Labor-Format\n// Hier Platzhalter - echte Implementierung je nach Labor-Datenformat\nconst attachments = $input.all();\nconst results = [];\nfor (const item of attachments) {\n  // TODO: PDF-Parser oder CSV-Parser je nach Labor\n  results.push({\n    probe_nr: 'TODO',\n    alkohol_vol: null,\n    restzucker_gl: null,\n    gesamtsaeure_gl: null,\n    freie_so2_mgl: null,\n    gesamt_so2_mgl: null,\n    datei_name: item.json.fileName\n  });\n}\nreturn results.map(r => ({ json: r }));"
+      }
+    },
+    {
+      "id": "insert_analyse",
+      "name": "Analyse in Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [860, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/weinanalysen",
+        "headers": {
+          "apikey": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}",
+          "Authorization": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}",
+          "Content-Type": "application/json",
+          "Prefer": "return=representation"
+        },
+        "body": "={{ JSON.stringify($json) }}"
+      }
+    }
+  ],
+
+  "connections": {
+    "trigger_cron": { "main": [["check_email"]] },
+    "check_email": { "main": [["parse_pdf"]] },
+    "parse_pdf": { "main": [["insert_analyse"]] }
+  },
+
+  "_setup_notes": [
+    "IMAP-Credential für Labor-E-Mail konfigurieren",
+    "parse_pdf Node an tatsächliches Labor-Format anpassen",
+    "tenant_id Mapping: Probe-Nummer → Tenant (z.B. über probe_nr Prefix)"
+  ]
+}

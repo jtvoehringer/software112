@@ -1,0 +1,128 @@
+{
+  "_comment": "n8n Workflow: AMA Erntemeldung – software:112",
+  "_version": "1.0",
+  "_description": "Automatische Einreichung der AMA Jahres-Erntemeldung. Trigger: manuell oder per Cron (Oktober). Liest Erntedaten aus Supabase, erstellt XML-Meldung, schreibt Status zurück.",
+
+  "name": "AMA Erntemeldung",
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "parameters": {
+        "path": "ama-erntemeldung",
+        "method": "POST",
+        "authentication": "headerAuth"
+      },
+      "notes": "Wird von software:112 UI aufgerufen wenn User auf 'AMA Meldung einreichen' klickt. Body: { tenant_id, jahrgang_id, meldung_id }"
+    },
+    {
+      "id": "supabase_read_meldung",
+      "name": "Supabase: Meldung laden",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [420, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/ama_erntemeldungen?id=eq.{{ $json.meldung_id }}&select=*,ama_meldepositionen(*)",
+        "headers": {
+          "apikey": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}",
+          "Authorization": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+        }
+      }
+    },
+    {
+      "id": "validate",
+      "name": "Validierung",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 300],
+      "parameters": {
+        "jsCode": "// Prüfe ob Meldung vollständig ist\nconst meldung = $input.first().json[0];\nif (!meldung) throw new Error('Meldung nicht gefunden');\nif (meldung.status !== 'bereit') throw new Error('Status muss bereit sein');\nif (!meldung.ama_meldepositionen || meldung.ama_meldepositionen.length === 0) throw new Error('Keine Meldepositionen');\nreturn [{ json: meldung }];"
+      }
+    },
+    {
+      "id": "build_xml",
+      "name": "XML-Meldung erstellen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [860, 300],
+      "parameters": {
+        "jsCode": "// AMA XML-Format (vereinfacht, echtes Format nach AMA-Spezifikation anpassen)\nconst m = $input.first().json;\nconst positionen = m.ama_meldepositionen.map(p => `\n  <Position>\n    <Rebsorte>${p.rebsorte_name}</Rebsorte>\n    <FlaecheHa>${p.flaeche_ha}</FlaecheHa>\n    <MengeKg>${p.menge_kg}</MengeKg>\n    <Qualitaet>${p.qualitaetsstufe || 'qualitaetswein'}</Qualitaet>\n  </Position>`).join('');\n\nconst xml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<AMAErntemeldung>\n  <Betriebsnummer>${m.betriebsnummer}</Betriebsnummer>\n  <Jahrgang>${new Date().getFullYear()}</Jahrgang>\n  <Weinbaugebiet>${m.weinbaugebiet}</Weinbaugebiet>\n  <Positionen>${positionen}\n  </Positionen>\n  <GesamtmengeKg>${m.gesamtmenge_kg}</GesamtmengeKg>\n</AMAErntemeldung>`;\n\nreturn [{ json: { ...m, xml_content: xml } }];"
+      }
+    },
+    {
+      "id": "upload_storage",
+      "name": "XML in Storage speichern",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1080, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/storage/v1/object/dokumente/{{ $json.tenant_id }}/ama_{{ $json.jahrgang_id }}.xml",
+        "headers": {
+          "apikey": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}",
+          "Authorization": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}",
+          "Content-Type": "application/xml"
+        },
+        "body": "={{ $json.xml_content }}"
+      }
+    },
+    {
+      "id": "update_status_success",
+      "name": "Status: eingereicht",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1300, 200],
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/ama_erntemeldungen?id=eq.{{ $json.id }}",
+        "headers": {
+          "apikey": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}",
+          "Authorization": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}",
+          "Content-Type": "application/json",
+          "Prefer": "return=minimal"
+        },
+        "body": "={ \"status\": \"eingereicht\", \"eingereicht_am\": \"{{ new Date().toISOString() }}\", \"n8n_status\": \"success\" }"
+      }
+    },
+    {
+      "id": "update_status_error",
+      "name": "Status: Fehler",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1300, 400],
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/ama_erntemeldungen?id=eq.{{ $json.id }}",
+        "headers": {
+          "apikey": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}",
+          "Authorization": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}",
+          "Content-Type": "application/json"
+        },
+        "body": "={ \"n8n_status\": \"error\", \"n8n_fehler\": \"{{ $json.message }}\" }"
+      }
+    }
+  ],
+
+  "connections": {
+    "trigger": { "main": [["supabase_read_meldung"]] },
+    "supabase_read_meldung": { "main": [["validate"]] },
+    "validate": { "main": [["build_xml"]] },
+    "build_xml": { "main": [["upload_storage"]] },
+    "upload_storage": { "main": [["update_status_success"]] }
+  },
+
+  "settings": {
+    "executionOrder": "v1"
+  },
+
+  "_setup_notes": [
+    "Umgebungsvariablen in n8n setzen: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY",
+    "Webhook-URL in software:112 .env eintragen: N8N_WEBHOOK_AMA=https://<n8n-url>/webhook/ama-erntemeldung",
+    "Header-Auth Token in n8n Credential anlegen und in .env: N8N_WEBHOOK_SECRET=<token>",
+    "Echtes AMA-XML-Format nach AMA-Spezifikation anpassen (build_xml Node)"
+  ]
+}
