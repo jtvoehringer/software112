@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>software:112 – Architektur v1.0 (Klassischer Ansatz)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #f0f2f5;
+    color: #1a1a2e;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  .page {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+    color: white;
+    border-radius: 16px;
+    padding: 28px 36px;
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 8px 32px rgba(15,52,96,0.3);
+  }
+  .header-left h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+  .header-left h1 span { color: #e94560; }
+  .header-left p { font-size: 14px; color: #a8b2d8; margin-top: 4px; }
+  .badge {
+    background: rgba(233,69,96,0.2);
+    border: 1px solid rgba(233,69,96,0.5);
+    color: #e94560;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  /* KPI Row */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .kpi-card {
+    background: white;
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    border-top: 3px solid #0f3460;
+  }
+  .kpi-card .label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+  .kpi-card .value { font-size: 22px; font-weight: 700; color: #1a1a2e; }
+  .kpi-card .sub { font-size: 12px; color: #666; margin-top: 2px; }
+
+  /* Phase label */
+  .phase-section { margin-bottom: 20px; }
+  .phase-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .phase-pill {
+    background: #0f3460;
+    color: white;
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .phase-pill.green { background: #1a6b3c; }
+  .phase-title { font-size: 16px; font-weight: 700; color: #1a1a2e; }
+  .phase-subtitle { font-size: 13px; color: #666; }
+
+  /* Architecture canvas */
+  .arch-canvas {
+    background: white;
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.07);
+    margin-bottom: 20px;
+  }
+
+  /* Layers */
+  .layer {
+    border-radius: 12px;
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+  .layer-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 7px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .layer-body {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  /* Layer colors */
+  .layer.user   { background: #f0f9ff; border: 1px solid #bae0fd; }
+  .layer.user .layer-title { background: #e0f2fe; color: #0369a1; }
+  .layer.frontend { background: #fdf4ff; border: 1px solid #e9d5ff; }
+  .layer.frontend .layer-title { background: #f3e8ff; color: #7c3aed; }
+  .layer.api    { background: #fffbeb; border: 1px solid #fde68a; }
+  .layer.api .layer-title { background: #fef3c7; color: #92400e; }
+  .layer.services { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .layer.services .layer-title { background: #dcfce7; color: #166534; }
+  .layer.data   { background: #eff6ff; border: 1px solid #bfdbfe; }
+  .layer.data .layer-title { background: #dbeafe; color: #1d4ed8; }
+  .layer.integration { background: #fef2f2; border: 1px solid #fecaca; }
+  .layer.integration .layer-title { background: #fee2e2; color: #991b1b; }
+  .layer.hosting { background: #f8fafc; border: 1px solid #cbd5e1; }
+  .layer.hosting .layer-title { background: #f1f5f9; color: #475569; }
+
+  /* Component cards */
+  .comp {
+    background: white;
+    border-radius: 8px;
+    padding: 10px 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    min-width: 140px;
+    flex: 1;
+  }
+  .comp .comp-icon { font-size: 18px; margin-bottom: 4px; }
+  .comp .comp-name { font-size: 13px; font-weight: 600; color: #1a1a2e; }
+  .comp .comp-tech { font-size: 11px; color: #666; margin-top: 2px; }
+  .comp .comp-note { font-size: 10px; color: #999; margin-top: 4px; font-style: italic; }
+
+  /* Phase 1 box */
+  .phase1-box {
+    background: linear-gradient(135deg, #1a6b3c 0%, #15803d 100%);
+    border-radius: 16px;
+    padding: 24px;
+    color: white;
+    display: flex;
+    gap: 24px;
+    align-items: stretch;
+    box-shadow: 0 4px 20px rgba(26,107,60,0.25);
+    margin-bottom: 20px;
+  }
+  .phase1-main {
+    flex: 2;
+  }
+  .phase1-main h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .phase1-main p { font-size: 13px; opacity: 0.85; line-height: 1.6; }
+  .phase1-comps {
+    flex: 3;
+    display: flex;
+    gap: 12px;
+  }
+  .phase1-comp {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 10px;
+    padding: 14px 16px;
+    flex: 1;
+    backdrop-filter: blur(4px);
+  }
+  .phase1-comp .icon { font-size: 24px; margin-bottom: 6px; }
+  .phase1-comp .name { font-size: 13px; font-weight: 600; }
+  .phase1-comp .desc { font-size: 11px; opacity: 0.75; margin-top: 3px; }
+
+  /* Arrow */
+  .arrow-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 8px 0;
+    color: #94a3b8;
+    font-size: 13px;
+    gap: 8px;
+  }
+  .arrow-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, transparent, #cbd5e1, transparent);
+  }
+
+  /* Azure wrapper */
+  .azure-wrapper {
+    border: 2px dashed #0078d4;
+    border-radius: 16px;
+    padding: 20px;
+    position: relative;
+  }
+  .azure-label {
+    position: absolute;
+    top: -12px;
+    left: 20px;
+    background: white;
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #0078d4;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Tenant diagram */
+  .tenant-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .tenant-box {
+    flex: 1;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 11px;
+    text-align: center;
+  }
+  .tenant-box.t1 { background: #dbeafe; border: 1px solid #93c5fd; color: #1d4ed8; }
+  .tenant-box.t2 { background: #dcfce7; border: 1px solid #86efac; color: #166534; }
+  .tenant-box.t3 { background: #fef3c7; border: 1px solid #fcd34d; color: #92400e; }
+  .tenant-box.tn { background: #f1f5f9; border: 1px dashed #94a3b8; color: #64748b; }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    font-size: 11px;
+    color: #999;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  /* Timeline */
+  .timeline {
+    display: flex;
+    gap: 0;
+    margin-bottom: 24px;
+  }
+  .tl-item {
+    flex: 1;
+    padding: 14px 18px;
+    position: relative;
+  }
+  .tl-item:first-child { border-radius: 10px 0 0 10px; }
+  .tl-item:last-child { border-radius: 0 10px 10px 0; }
+  .tl-item.p1 { background: #dcfce7; border: 1px solid #86efac; }
+  .tl-item.p2 { background: #dbeafe; border: 1px solid #93c5fd; border-left: none; }
+  .tl-phase { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+  .tl-item.p1 .tl-phase { color: #166534; }
+  .tl-item.p2 .tl-phase { color: #1d4ed8; }
+  .tl-title { font-size: 14px; font-weight: 600; color: #1a1a2e; }
+  .tl-time { font-size: 12px; color: #666; margin-top: 2px; }
+  .tl-arrow {
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+    background: white;
+    color: #94a3b8;
+    font-size: 20px;
+    border-top: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e5e7eb;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <h1><span>software:112</span> – Architektur v1.0</h1>
+      <p>Integrierte Weinbau-Management-Plattform · Klassischer Ansatz · FileMaker Pilot + Azure Web-App SaaS</p>
+    </div>
+    <div class="badge">Klassischer Ansatz</div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="label">Gesamtaufwand</div>
+      <div class="value">600 – 840 PT</div>
+      <div class="sub">Personentage</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">Investition</div>
+      <div class="value">€ 730K – 1,01M</div>
+      <div class="sub">Gesamt Phase 1+2</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">Laufzeit</div>
+      <div class="value">24 – 36 Monate</div>
+      <div class="sub">Bis Produktreife</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">Mandantenfähigkeit</div>
+      <div class="value">Ab Phase 2</div>
+      <div class="sub">Schema-Isolation PostgreSQL</div>
+    </div>
+  </div>
+
+  <!-- Timeline -->
+  <div class="timeline">
+    <div class="tl-item p1">
+      <div class="tl-phase">📌 Phase 1</div>
+      <div class="tl-title">FileMaker Pilot</div>
+      <div class="tl-time">6–12 Monate · 355–495 PT</div>
+    </div>
+    <div class="tl-arrow">→</div>
+    <div class="tl-item p2">
+      <div class="tl-phase">🚀 Phase 2</div>
+      <div class="tl-title">Azure Web-App SaaS-Plattform</div>
+      <div class="tl-time">12–24 Monate · 245–345 PT zusätzlich</div>
+    </div>
+  </div>
+
+  <!-- Phase 1 -->
+  <div class="phase-section">
+    <div class="phase-header">
+      <div class="phase-pill green">Phase 1</div>
+      <div>
+        <div class="phase-title">FileMaker Pilot – MVP mit Erstkunden (Hohenstein)</div>
+        <div class="phase-subtitle">Validierung der Geschäftslogik · Schnelle Entwicklung · Kein Infrastrukturaufwand</div>
+      </div>
+    </div>
+
+    <div class="phase1-box">
+      <div class="phase1-main">
+        <h3>🍇 FileMaker Pilot</h3>
+        <p>Validierung der Datenstrukturen, Geschäftsregeln und Workflows mit dem Erstkunden. FileMaker als RAD-Werkzeug – schnelle Iterationen, iPad-fähig für den Weingarten-Außeneinsatz.</p>
+        <br>
+        <p style="font-size:12px; opacity:0.7">⚠ Phase 1 ist kein Wegwerfprototyp – validierte Datenmodelle werden 1:1 in Phase 2 überführt.</p>
+      </div>
+      <div class="phase1-comps">
+        <div class="phase1-comp">
+          <div class="icon">📱</div>
+          <div class="name">iPad / Mac Client</div>
+          <div class="desc">FileMaker Go · Weingarten-Erfassung · Offline-fähig</div>
+        </div>
+        <div class="phase1-comp">
+          <div class="icon">🗄️</div>
+          <div class="name">FileMaker Server</div>
+          <div class="desc">Gehostet oder lokal · Einzelmandant · Datenhaltung</div>
+        </div>
+        <div class="phase1-comp">
+          <div class="icon">📋</div>
+          <div class="name">7 Epics validiert</div>
+          <div class="desc">Weingarten · Keller · DAC · Handel · Reports · CRM · Kosten</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phase 2 Arrow -->
+  <div class="arrow-row">
+    <div class="arrow-line"></div>
+    <span>Validierte Datenmodelle &amp; Geschäftslogik werden überführt in →</span>
+    <div class="arrow-line"></div>
+  </div>
+
+  <!-- Phase 2 -->
+  <div class="phase-section" style="margin-top:16px;">
+    <div class="phase-header">
+      <div class="phase-pill">Phase 2</div>
+      <div>
+        <div class="phase-title">Azure Web-App SaaS-Plattform – Multi-Tenant</div>
+        <div class="phase-subtitle">Cloud-native · Mandantenfähig · Zentral deployt · Alle Kunden auf einer Codebase</div>
+      </div>
+    </div>
+
+    <div class="arch-canvas">
+
+      <!-- Users -->
+      <div class="layer user">
+        <div class="layer-title">👤 Benutzer / Rollen</div>
+        <div class="layer-body">
+          <div class="comp">
+            <div class="comp-icon">🌾</div>
+            <div class="comp-name">Winzer / Betriebsleiter</div>
+            <div class="comp-tech">Browser · iPad · PWA</div>
+          </div>
+          <div class="comp">
+            <div class="comp-icon">🍷</div>
+            <div class="comp-name">Kellermeister</div>
+            <div class="comp-tech">Browser · Tablet</div>
+          </div>
+          <div class="comp">
+            <div class="comp-icon">📊</div>
+            <div class="comp-name">Buchhalter</div>
+            <div class="comp-tech">Browser · Desktop</div>
+          </div>
+          <div class="comp">
+            <div class="comp-icon">🔍</div>
+            <div class="comp-name">Prüfer (read-only)</div>
+            <div class="comp-tech">Browser · Behörde / Zertifizierung</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow-row" style="margin:4px 0;">↓ HTTPS / PWA</div>
+
+      <!-- Azure wrapper start -->
+      <div class="azure-wrapper">
+        <div class="azure-label">☁️ Microsoft Azure (Region: AT – Wien)</div>
+
+        <!-- Frontend -->
+        <div class="layer frontend">
+          <div class="layer-title">🖥️ Frontend-Schicht</div>
+          <div class="layer-body">
+            <div class="comp">
+              <div class="comp-icon">⚛️</div>
+              <div class="comp-name">React + TypeScript</div>
+              <div class="comp-tech">Next.js SSR/SSG</div>
+              <div class="comp-note">Progressive Web App · Offline-fähig für Weingarten</div>
+            </div>
+            <div class="comp">
+              <div class="comp-icon">📱</div>
+              <div class="comp-name">PWA / Responsive</div>
+              <div class="comp-tech">iPad · Tablet · Desktop</div>
+              <div class="comp-note">Außeneinsatz im Weingarten</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="arrow-row" style="margin:4px 0;">↓ REST / GraphQL</div>
+
+        <!-- API -->
+        <div class="layer api">
+          <div class="layer-title">⚙️ API-Schicht</div>
+          <div class="layer-body">
+            <div class="comp">
+              <div class="comp-icon">🔧</div>
+              <div class="comp-name">NestJS (Node.js)</div>
+              <div class="comp-tech">REST + GraphQL</div>
+              <div class="comp-note">OpenAPI-Dokumentation · Modularer Aufbau</div>
+            </div>
+            <div class="comp">
+              <div class="comp-icon">🏗️</div>
+              <div class="comp-name">Domain-Module</div>
+              <div class="comp-tech">7 Epics als Module</div>
+              <div class="comp-note">Weingarten · Keller · DAC · Handel · CRM</div>
+            </div>
+            <div class="comp">
+              <div class="comp-icon">🔐</div>
+              <div class="comp-name">Azure AD B2C</div>
+              <div class="comp-tech">Auth &amp; Identity</div>
+              <div class="comp-note">Mandanten-aware JWT · RBAC</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="arrow-row" style="margin:4px 0;">↓ Datenbank-Zugriff</div>
+
+        <!-- Services + Data side by side -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+
+          <!-- Services -->
+          <div class="layer services">
+            <div class="layer-title">🔄 Background Services</div>
+            <div class="layer-body" style="flex-direction:column;">
+              <div class="comp" style="min-width:unset;">
+                <div class="comp-icon">📬</div>
+                <div class="comp-name">Bull Queue (Redis)</div>
+                <div class="comp-tech">Hintergrund-Jobs</div>
+                <div class="comp-note">Reports · E-Mail · Schnittstellen-Exports</div>
+              </div>
+              <div class="comp" style="min-width:unset;">
+                <div class="comp-icon">🗂️</div>
+                <div class="comp-name">Azure Blob Storage</div>
+                <div class="comp-tech">Datei-Ablage</div>
+                <div class="comp-note">Prüfprotokolle · Rechnungen · Audit-Log (unveränderlich)</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Data -->
+          <div class="layer data">
+            <div class="layer-title">🗄️ Datenschicht (Multi-Tenant)</div>
+            <div class="layer-body" style="flex-direction:column;">
+              <div class="comp" style="min-width:unset;">
+                <div class="comp-icon">🐘</div>
+                <div class="comp-name">PostgreSQL (Azure Flexible)</div>
+                <div class="comp-tech">Schema-Isolation pro Mandant</div>
+                <div class="comp-note">TimescaleDB für Zeitreihendaten</div>
+              </div>
+              <div class="tenant-row">
+                <div class="tenant-box t1">schema_hohenstein</div>
+                <div class="tenant-box t2">schema_musterweingut</div>
+                <div class="tenant-box tn">schema_n…</div>
+              </div>
+              <div class="comp" style="min-width:unset; margin-top:8px;">
+                <div class="comp-icon">🔴</div>
+                <div class="comp-name">Redis Cache</div>
+                <div class="comp-tech">Session · Queue Backend</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="arrow-row" style="margin:4px 0 8px 0;">↓ Azure API Management</div>
+
+        <!-- Integrations -->
+        <div class="layer integration">
+          <div class="layer-title">🔌 Integrations-Layer (Schnittstellen)</div>
+          <div class="layer-body">
+            <div class="comp">
+              <div class="comp-icon">💼</div>
+              <div class="comp-name">BMD</div>
+              <div class="comp-tech">Buchhaltungs-Export</div>
+            </div>
+            <div class="comp">
+              <div class="comp-icon">🇪🇺</div>
+              <div class="comp-name">EMCS / EVD</div>
+              <div class="comp-tech">EU-Weinbegleitdokument</div>
+            </div>
+            <div class="comp">
+              <div class="comp-icon">🌾</div>
+              <div class="comp-name">AMA</div>
+              <div class="comp-tech">Flächenmeldungen</div>
+            </div>
+            <div class="comp">
+              <div class="comp-icon">🍾</div>
+              <div class="comp-name">ÖWM</div>
+              <div class="comp-tech">Prüfnummern-Anbindung</div>
+            </div>
+            <div class="comp">
+              <div class="comp-icon">🧾</div>
+              <div class="comp-name">POS / RKSV</div>
+              <div class="comp-tech">Registrierkassa-Pflicht</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hosting -->
+        <div class="layer hosting" style="margin-top:12px;">
+          <div class="layer-title">🚀 Hosting &amp; DevOps</div>
+          <div class="layer-body">
+            <div class="comp">
+              <div class="comp-icon">⚓</div>
+              <div class="comp-name">Azure Container Apps</div>
+              <div class="comp-tech">Kubernetes-managed</div>
+              <div class="comp-note">Auto-Scaling · Blue/Green-Deployments</div>
+            </div>
+            <div class="comp">
+              <div class="comp-icon">⚙️</div>
+              <div class="comp-name">GitHub Actions</div>
+              <div class="comp-tech">CI/CD Pipeline</div>
+              <div class="comp-note">Konfiguration als YAML · kein Code-Fork pro Mandant</div>
+            </div>
+            <div class="comp">
+              <div class="comp-icon">📈</div>
+              <div class="comp-name">Azure Monitor</div>
+              <div class="comp-tech">Monitoring &amp; Alerting</div>
+              <div class="comp-note">Application Insights · Log Analytics</div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /azure-wrapper -->
+
+    </div><!-- /arch-canvas -->
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    software:112 · Architektur v1.0 · Hohenstein Consulting / IC&amp;P Consultants · Mai 2026 · Vertraulich – nur für interne Verwendung
+  </div>
+
+</div>
+</body>
+</html>

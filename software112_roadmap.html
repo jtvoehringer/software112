@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>software:112 – Entwicklungs-Roadmap</title>
+<style>
+:root {
+  --bg:        #F8F8F3;
+  --teal:      #025450;
+  --navy:      #0E3C62;
+  --green:     #98C780;
+  --blue:      #98C6DD;
+  --yellow:    #F9E54F;
+  --text:      #025450;
+  --text-2:    rgba(2,84,80,0.55);
+  --text-3:    rgba(2,84,80,0.35);
+  --border:    rgba(2,84,80,0.12);
+  --card:      #ffffff;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'Aptos','Aptos Display','Calibri','Segoe UI',sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* ── PAGE WRAPPERS ── */
+.page {
+  width:100%; min-height:100vh;
+  display:flex; flex-direction:column; align-items:center;
+  padding:52px 36px;
+}
+.page + .page {
+  border-top:2px solid rgba(2,84,80,0.08);
+}
+.page-heading {
+  width:100%; max-width:1120px;
+  font-size:10px; font-weight:700; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--text-3);
+  margin-bottom:28px; display:flex; align-items:center; gap:12px;
+}
+.page-heading::after {
+  content:''; flex:1; height:1px; background:var(--border);
+}
+
+/* ── HEADER ── */
+.header { text-align:center; margin-bottom:36px; max-width:960px; }
+
+.brand-tag {
+  display:inline-flex; align-items:center; gap:8px;
+  background:var(--teal); border-radius:100px;
+  padding:6px 18px; font-size:11px; font-weight:700;
+  letter-spacing:.1em; text-transform:uppercase; color:#F8F8F3;
+  margin-bottom:20px;
+}
+.brand-tag::before {
+  content:''; width:7px; height:7px;
+  background:var(--yellow); border-radius:50%;
+}
+
+h1 {
+  font-size:52px; font-weight:700; letter-spacing:-.02em;
+  line-height:1.1; margin-bottom:14px; color:var(--teal);
+}
+h1 .colon { color:var(--yellow); -webkit-text-stroke:1px rgba(2,84,80,0.4); }
+h1 .version {
+  font-size:26px; font-weight:300; color:var(--text-3);
+  vertical-align:middle; margin-left:10px;
+}
+.subtitle { font-size:15px; color:var(--text-2); line-height:1.6; }
+.subtitle .sep { color:var(--green); margin:0 8px; }
+
+/* ── ADVANTAGE BANNER ── */
+.advantage-banner {
+  width:100%; max-width:1120px;
+  background:rgba(152,199,128,0.12); border:1px solid rgba(152,199,128,0.4);
+  border-radius:14px; padding:14px 22px; margin-bottom:28px;
+  display:flex; align-items:flex-start; gap:14px;
+}
+.advantage-icon { font-size:22px; flex-shrink:0; margin-top:1px; }
+.advantage-text h3 { font-size:12px; font-weight:700; color:#2d7a2a; margin-bottom:3px; }
+.advantage-text p  { font-size:11.5px; color:var(--text-2); line-height:1.55; }
+.advantage-text strong { color:var(--teal); }
+
+/* ── KPI ROW ── */
+.kpi-row {
+  width:100%; max-width:1120px;
+  display:grid; grid-template-columns:repeat(4,1fr);
+  gap:12px; margin-bottom:32px;
+}
+.kpi-card {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:14px; padding:18px 16px; text-align:center;
+  box-shadow:0 1px 4px rgba(2,84,80,0.06);
+}
+.kpi-value { font-size:26px; font-weight:700; letter-spacing:-.02em; margin-bottom:5px; }
+.kv-yellow { color:#8a6f00; }
+.kv-green  { color:#2d7a2a; }
+.kv-blue   { color:#1a5a80; }
+.kv-teal   { color:var(--teal); }
+.kpi-label { font-size:10.5px; color:var(--text-3); font-weight:500; }
+.kpi-note  { font-size:9.5px; color:#2d7a2a; margin-top:3px; font-weight:600; }
+
+/* ── PHASE CARDS ── */
+.phases-grid {
+  display:grid; grid-template-columns:repeat(5,1fr);
+  gap:12px; width:100%; max-width:1120px; margin-bottom:20px;
+}
+.phase-card {
+  border-radius:16px; padding:18px 15px;
+  display:flex; flex-direction:column; gap:11px;
+  border:1px solid transparent;
+  transition:transform .2s ease, box-shadow .2s ease;
+}
+.phase-card:hover { transform:translateY(-3px); }
+
+.p0 { background:var(--card); border-color:var(--border); box-shadow:0 1px 4px rgba(2,84,80,0.06); }
+.p0:hover { box-shadow:0 8px 24px rgba(2,84,80,0.1); }
+.p0 .pa { color:var(--text-3); }
+.p0 .pp { background:rgba(2,84,80,0.07); color:var(--text-2); }
+.p0 .mt { background:rgba(2,84,80,0.05); color:var(--text-2); }
+.p0 .eb { background:rgba(2,84,80,0.3); }
+.p0 .ef { color:var(--text-3); }
+.p0 .crit { background:rgba(249,229,79,0.25); border:1px solid rgba(180,150,0,0.3); color:#6b5000; }
+
+.p1 { background:rgba(152,199,128,0.12); border-color:rgba(152,199,128,0.4); }
+.p1:hover { box-shadow:0 8px 24px rgba(152,199,128,0.2); }
+.p1 .pa { color:#2d7a2a; }
+.p1 .pp { background:rgba(152,199,128,0.2); color:#2d7a2a; }
+.p1 .mt { background:rgba(152,199,128,0.12); color:#2d5a28; }
+.p1 .eb { background:var(--green); }
+.p1 .ef { color:#2d7a2a; }
+
+.p2 { background:rgba(152,198,221,0.12); border-color:rgba(152,198,221,0.4); }
+.p2:hover { box-shadow:0 8px 24px rgba(152,198,221,0.2); }
+.p2 .pa { color:#1a5a80; }
+.p2 .pp { background:rgba(152,198,221,0.2); color:#1a5a80; }
+.p2 .mt { background:rgba(152,198,221,0.12); color:#1a4a6a; }
+.p2 .eb { background:var(--blue); }
+.p2 .ef { color:#1a5a80; }
+
+.p3 { background:rgba(249,229,79,0.12); border-color:rgba(249,229,79,0.5); }
+.p3:hover { box-shadow:0 8px 24px rgba(249,229,79,0.2); }
+.p3 .pa { color:#8a6f00; }
+.p3 .pp { background:rgba(249,229,79,0.2); color:#8a6f00; }
+.p3 .mt { background:rgba(249,229,79,0.12); color:#6b5000; }
+.p3 .eb { background:#c8b000; }
+.p3 .ef { color:#8a6f00; }
+
+.p4 { background:var(--teal); border-color:var(--teal); color:#F8F8F3; }
+.p4:hover { box-shadow:0 8px 24px rgba(2,84,80,0.3); }
+.p4 .pa { color:rgba(248,248,243,0.6); }
+.p4 .pp { background:rgba(248,248,243,0.15); color:rgba(248,248,243,0.85); }
+.p4 .mt { background:rgba(248,248,243,0.1); color:rgba(248,248,243,0.75); }
+.p4 .eb { background:rgba(248,248,243,0.7); }
+.p4 .ef { color:rgba(248,248,243,0.5); border-color:rgba(248,248,243,0.12); }
+.p4 .phase-title { color:#F8F8F3; }
+
+.phase-number { font-size:10px; font-weight:700; letter-spacing:.11em; text-transform:uppercase; opacity:.8; }
+.phase-icon   { font-size:26px; line-height:1; }
+.phase-title  { font-size:13px; font-weight:700; line-height:1.35; color:var(--text); }
+.pp { display:inline-flex; font-size:10px; font-weight:600; padding:3px 9px; border-radius:100px; width:fit-content; }
+.phase-modules { display:flex; flex-direction:column; gap:4px; flex:1; }
+.mt   { font-size:10.5px; padding:4px 8px; border-radius:6px; font-weight:500; line-height:1.35; }
+.crit { font-size:10.5px; padding:4px 8px; border-radius:6px; font-weight:700; line-height:1.35; }
+.ef   { padding-top:10px; border-top:1px solid rgba(2,84,80,0.08); font-size:9.5px; font-weight:600; display:flex; align-items:center; gap:7px; }
+.eb   { width:18px; height:3px; border-radius:2px; flex-shrink:0; }
+
+/* ── VACATION NOTE ── */
+.vacation-note {
+  width:100%; max-width:1120px;
+  display:flex; gap:10px; align-items:center;
+  padding:10px 18px;
+  background:rgba(249,229,79,0.12); border:1px solid rgba(180,150,0,0.25);
+  border-radius:10px;
+}
+.vacation-note p { font-size:11px; color:var(--text-2); }
+.vacation-note strong { color:#6b5000; }
+
+/* ── DIVIDER ── */
+.divider {
+  width:100%; max-width:1120px; height:1px;
+  background:linear-gradient(90deg,transparent,var(--border) 20%,rgba(2,84,80,0.2) 50%,var(--border) 80%,transparent);
+  margin:28px 0; position:relative;
+}
+.divider::before {
+  content:'◆'; position:absolute; left:50%; top:50%;
+  transform:translate(-50%,-50%); font-size:10px; color:var(--teal);
+  background:var(--bg); padding:0 14px; letter-spacing:8px;
+}
+
+/* ── TECH STACK ── */
+.tech-section { width:100%; max-width:1120px; margin-bottom:28px; }
+.section-label { font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--text-3); margin-bottom:11px; }
+.tech-bar { display:flex; gap:7px; flex-wrap:wrap; }
+.tech-chip {
+  display:flex; align-items:center; gap:7px;
+  background:var(--card); border:1px solid var(--border);
+  border-radius:100px; padding:6px 13px;
+  font-size:11.5px; font-weight:500; color:var(--text-2);
+}
+.td    { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.td-g  { background:var(--green); }
+.td-b  { background:var(--blue); }
+.td-y  { background:#c8b000; }
+.td-db { background:var(--navy); }
+.td-t  { background:var(--teal); }
+
+/* ── FOOTER ── */
+.footer { text-align:center; color:var(--text-3); font-size:11px; letter-spacing:.04em; margin-top:4px; }
+.footer strong { color:var(--text-2); }
+
+
+/* ════════════════════ GANTT ════════════════════ */
+.gantt-wrap { width:100%; max-width:1120px; }
+.gantt-months {
+  display:grid; grid-template-columns:200px repeat(12,1fr);
+  margin-bottom:4px;
+}
+.gm-label {}
+.gm-cell {
+  font-size:10px; font-weight:700; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--text-3);
+  text-align:center; padding-bottom:6px;
+  border-bottom:1px solid var(--border);
+}
+.gm-cell.cur { color:var(--teal); font-weight:800; }
+.gantt-legend {
+  display:flex; gap:18px; flex-wrap:wrap;
+  margin-top:20px; padding-top:16px;
+  border-top:1px solid var(--border);
+}
+.gl-item { display:flex; align-items:center; gap:7px; font-size:11px; color:var(--text-2); }
+.gl-box  { width:20px; height:10px; border-radius:3px; }
+.gl-vac  { width:20px; height:10px; border-radius:3px; border:1px dashed rgba(180,150,0,0.5); background:rgba(249,229,79,0.15); }
+
+
+/* ════════════════════ SPRINT PLANNING ════════════════════ */
+.sprint-table {
+  width:100%; max-width:1120px;
+  border-collapse:collapse;
+}
+.sprint-table th {
+  font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--text-3); padding:8px 12px; text-align:left;
+  border-bottom:2px solid var(--border);
+}
+.sprint-table td {
+  padding:10px 12px; font-size:12px;
+  border-bottom:1px solid rgba(2,84,80,0.06);
+  vertical-align:top;
+}
+.sprint-table tr:last-child td { border-bottom:none; }
+.sprint-table tr:hover td { background:rgba(2,84,80,0.02); }
+
+.sprint-num {
+  font-weight:800; font-size:13px;
+  width:60px; color:var(--teal);
+}
+.sprint-date { color:var(--text-2); white-space:nowrap; width:160px; font-size:11px; }
+.sprint-focus { font-weight:600; color:var(--text); }
+.sprint-deliverables { color:var(--text-2); font-size:11px; line-height:1.5; }
+.sprint-pt { font-weight:700; font-size:11px; text-align:right; white-space:nowrap; }
+
+.phase-badge {
+  display:inline-flex; align-items:center; gap:5px;
+  font-size:9.5px; font-weight:700; letter-spacing:.06em;
+  text-transform:uppercase; padding:2px 8px; border-radius:100px;
+  white-space:nowrap; margin-bottom:4px;
+}
+.pb0 { background:rgba(2,84,80,0.08);   color:var(--text-2); }
+.pb1 { background:rgba(152,199,128,0.2); color:#2d7a2a; }
+.pb2 { background:rgba(152,198,221,0.2); color:#1a5a80; }
+.pb3 { background:rgba(249,229,79,0.2);  color:#8a6f00; }
+
+.sprint-vac td { background:rgba(249,229,79,0.08) !important; }
+.sprint-milestone td { background:rgba(2,84,80,0.04) !important; }
+.sprint-milestone .sprint-focus { color:var(--teal); }
+
+
+/* ════════════════════ SUPABASE PATH ════════════════════ */
+.dev-grid {
+  width:100%; max-width:1120px;
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:16px;
+}
+.dev-card {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:14px; padding:22px;
+  box-shadow:0 1px 4px rgba(2,84,80,0.05);
+}
+.dev-card h3 {
+  font-size:13px; font-weight:700; color:var(--teal);
+  margin-bottom:14px; display:flex; align-items:center; gap:8px;
+}
+.dev-card h3 .phase-dot {
+  width:10px; height:10px; border-radius:50%; flex-shrink:0;
+}
+.dev-card h4 {
+  font-size:11px; font-weight:700; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--text-3); margin:12px 0 6px;
+}
+.dev-card ul { list-style:none; display:flex; flex-direction:column; gap:4px; }
+.dev-card li {
+  font-size:11.5px; color:var(--text-2);
+  display:flex; align-items:flex-start; gap:8px; line-height:1.45;
+}
+.dev-card li::before { content:'›'; color:var(--teal); font-weight:700; flex-shrink:0; }
+.dev-card li strong { color:var(--text); font-weight:600; }
+
+.migration-list { display:flex; flex-direction:column; gap:5px; }
+.migration-item {
+  display:flex; align-items:flex-start; gap:10px;
+  font-size:11.5px; padding:6px 10px;
+  background:rgba(2,84,80,0.04); border-radius:7px;
+}
+.migration-num {
+  font-size:10px; font-weight:800; color:var(--teal);
+  font-family:monospace; white-space:nowrap; min-width:32px;
+  margin-top:1px;
+}
+.migration-name { font-weight:600; color:var(--text); }
+.migration-desc { font-size:10.5px; color:var(--text-2); margin-top:1px; }
+
+.rls-box {
+  background:rgba(2,84,80,0.04); border:1px solid rgba(2,84,80,0.1);
+  border-radius:8px; padding:10px 12px; font-size:11px;
+  font-family:monospace; color:var(--text); line-height:1.7;
+  margin-top:8px;
+}
+.rls-comment { color:var(--text-3); }
+.rls-keyword { color:#1a5a80; font-weight:700; }
+
+.bucket-chip {
+  display:inline-flex; align-items:center; gap:6px;
+  background:rgba(152,199,128,0.12); border:1px solid rgba(152,199,128,0.35);
+  border-radius:8px; padding:5px 10px; font-size:11px;
+  font-weight:600; color:#2d7a2a; margin:3px;
+}
+.n8n-chip {
+  display:inline-flex; align-items:center; gap:6px;
+  background:rgba(152,198,221,0.12); border:1px solid rgba(152,198,221,0.35);
+  border-radius:8px; padding:5px 10px; font-size:11px;
+  font-weight:600; color:#1a5a80; margin:3px;
+}
+
+.full-width { grid-column:1/-1; }
+
+.tech-table {
+  width:100%; border-collapse:collapse; font-size:11.5px; margin-top:8px;
+}
+.tech-table th {
+  font-size:10px; font-weight:700; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--text-3);
+  padding:6px 10px; text-align:left;
+  border-bottom:1px solid var(--border); background:rgba(2,84,80,0.02);
+}
+.tech-table td {
+  padding:7px 10px; color:var(--text-2);
+  border-bottom:1px solid rgba(2,84,80,0.05);
+}
+.tech-table td:first-child { font-weight:600; color:var(--text); }
+.tech-table tr:last-child td { border-bottom:none; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ PAGE 1 – OVERVIEW ═══════════════════════════ -->
+<div class="page">
+
+  <div class="header">
+    <div class="brand-tag">Entwicklungs-Roadmap · Start 26. Mai 2026</div>
+    <h1>software<span class="colon">:</span>112<span class="version">v2.0</span></h1>
+    <p class="subtitle">
+      Weinbau-Management-Plattform
+      <span class="sep">·</span>Supabase + Next.js + n8n
+      <span class="sep">·</span>AI-assistierte Entwicklung
+    </p>
+  </div>
+
+  <div class="advantage-banner">
+    <div class="advantage-icon">⚡</div>
+    <div class="advantage-text">
+      <h3>Startvorteil: Bewährte Zusammenarbeit aus Smart Buchhaltung</h3>
+      <p>Stack (Next.js, Supabase, Vercel), Arbeitsweise und Tempo sind bereits eingespielt. <strong>SQL-Editor, RLS-Policies, Storage-Buckets, Deployment</strong> — alles bekannt. Erfahrungsbonus: ~30 % weniger Aufwand.
+      <strong>Kritisch in Phase 0:</strong> Rollenmodell &amp; RLS-Design — das ist der größte Zeitfresser, danach geht alles schnell.</p>
+    </div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="kpi-value kv-yellow">~10 Mo.</div>
+      <div class="kpi-label">Zeit bis Vollversion</div>
+      <div class="kpi-note">Start 26. Mai 2026</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value kv-green">EUR 210–300K</div>
+      <div class="kpi-label">Gesamtbudget (optimistisch)</div>
+      <div class="kpi-note">↓ ~30 % Erfahrungsbonus</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value kv-blue">175–245 PT</div>
+      <div class="kpi-label">Entwicklungsaufwand</div>
+      <div class="kpi-note">Volltagseinsatz</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value kv-teal">65 %</div>
+      <div class="kpi-label">Kostenreduktion vs. klassisch</div>
+      <div class="kpi-note">v2.0 vs. v1.0</div>
+    </div>
+  </div>
+
+  <div class="phases-grid">
+    <div class="phase-card p0">
+      <div class="phase-number pa">Phase 0</div>
+      <div class="phase-icon">⚙️</div>
+      <div class="phase-title">Vorbereitung &amp; Setup</div>
+      <div class="pp">26. Mai – 26. Jun 2026</div>
+      <div class="phase-modules">
+        <div class="crit">🎯 Rollenmodell &amp; RLS-Design</div>
+        <div class="mt">Supabase-Projekt anlegen</div>
+        <div class="mt">GitHub-Repo initialisieren</div>
+        <div class="mt">Vercel-Deployment einrichten</div>
+        <div class="mt">n8n-Instanz aufsetzen</div>
+      </div>
+      <div class="ef"><div class="eb"></div>Infrastruktur · kein Mandant</div>
+    </div>
+    <div class="phase-card p1">
+      <div class="phase-number pa">Phase 1 — MVP</div>
+      <div class="phase-icon">🌿</div>
+      <div class="phase-title">Weingarten &amp; Kellerbuch</div>
+      <div class="pp">12. Jul – Sept. 2026</div>
+      <div class="phase-modules">
+        <div class="mt">🌱 M1 Weingartenbehandlung</div>
+        <div class="mt">🍷 M2 Kellerbuch / Vinifizierung</div>
+        <div class="mt">AMA Erntemeldung</div>
+        <div class="mt">Pflanzenschutzmittel-DB</div>
+        <div class="mt">Weingesetz-Compliance</div>
+      </div>
+      <div class="ef"><div class="eb"></div>55–80 PT · Erster Pilot-Mandant</div>
+    </div>
+    <div class="phase-card p2">
+      <div class="phase-number pa">Phase 2 — Handel &amp; DAC</div>
+      <div class="phase-icon">📜</div>
+      <div class="phase-title">Weinhandel &amp; DAC-Prüfnummern</div>
+      <div class="pp">Okt. – Dez. 2026</div>
+      <div class="phase-modules">
+        <div class="mt">🏷️ M3 DAC / Prüfnummern / Etikett</div>
+        <div class="mt">💼 M4 Weinhandel / CRM</div>
+        <div class="mt">Rechnungswesen (BMD NTCS)</div>
+        <div class="mt">EMCS / EVD Integration</div>
+        <div class="mt">RKSV / POS-Anbindung</div>
+      </div>
+      <div class="ef"><div class="eb"></div>65–90 PT · DAC Thermenregion</div>
+    </div>
+    <div class="phase-card p3">
+      <div class="phase-number pa">Phase 3 — Vollversion</div>
+      <div class="phase-icon">📊</div>
+      <div class="phase-title">Reports &amp; Kostenrechnung</div>
+      <div class="pp">Jan. – März 2027</div>
+      <div class="phase-modules">
+        <div class="mt">📈 M5 Reports / Behörden</div>
+        <div class="mt">Kostenrechnung vollständig</div>
+        <div class="mt">ÖWM Weinanalysen</div>
+        <div class="mt">SharePoint-Integration</div>
+        <div class="mt">EU-Öko-Verordnung</div>
+      </div>
+      <div class="ef"><div class="eb"></div>40–60 PT · Vollversion Live</div>
+    </div>
+    <div class="phase-card p4">
+      <div class="phase-number pa">Phase 4 — Skalierung</div>
+      <div class="phase-icon">🚀</div>
+      <div class="phase-title">Multi-Mandant &amp; Expansion</div>
+      <div class="pp">ab Q2 2027</div>
+      <div class="phase-modules">
+        <div class="mt">Weitere Weinbaugebiete</div>
+        <div class="mt">Onboarding neuer Mandanten</div>
+        <div class="mt">White-Label-Option</div>
+        <div class="mt">SaaS-Preismodell aktiv</div>
+        <div class="mt">Laufende Weiterentwicklung</div>
+      </div>
+      <div class="ef"><div class="eb"></div>Wiederkehrende Einnahmen</div>
+    </div>
+  </div>
+
+  <div class="vacation-note">
+    <span style="font-size:15px">🏖️</span>
+    <p>Urlaubspausen: <strong>27. Jun – 11. Jul 2026</strong> &nbsp;·&nbsp; <strong>25. Jul – 1. Aug 2026</strong> &nbsp;·&nbsp; In Phasenlängen berücksichtigt.</p>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="tech-section">
+    <div class="section-label">Technologie-Stack · erprobt aus Smart Buchhaltung</div>
+    <div class="tech-bar">
+      <div class="tech-chip"><div class="td td-t"></div>Supabase (DB + Auth + RLS)</div>
+      <div class="tech-chip"><div class="td td-b"></div>Next.js + shadcn/ui</div>
+      <div class="tech-chip"><div class="td td-g"></div>n8n Workflow-Automation</div>
+      <div class="tech-chip"><div class="td td-y"></div>Vercel Deployment</div>
+      <div class="tech-chip"><div class="td td-t"></div>PostgreSQL + Row Level Security</div>
+      <div class="tech-chip"><div class="td td-y"></div>Claude AI (Entwicklung)</div>
+      <div class="tech-chip"><div class="td td-b"></div>PWA / iPad-ready</div>
+      <div class="tech-chip"><div class="td td-db"></div>BMD NTCS · AMA · EMCS</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <strong>software:112</strong> &nbsp;·&nbsp; Weinbau-Management-Plattform &nbsp;·&nbsp; ICP Consultants &nbsp;·&nbsp; Entwicklungsstart 26. Mai 2026
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════ PAGE 2 – GANTT ═══════════════════════════ -->
+<div class="page">
+  <div class="page-heading">Gantt-Chart · software:112 v2.0 · Mai 2026 – April 2027</div>
+
+  <div class="gantt-wrap">
+    <div class="gantt-months">
+      <div class="gm-label"></div>
+      <div class="gm-cell cur">Mai</div><div class="gm-cell">Jun</div>
+      <div class="gm-cell">Jul</div><div class="gm-cell">Aug</div>
+      <div class="gm-cell">Sep</div><div class="gm-cell">Okt</div>
+      <div class="gm-cell">Nov</div><div class="gm-cell">Dez</div>
+      <div class="gm-cell">Jan</div><div class="gm-cell">Feb</div>
+      <div class="gm-cell">Mär</div><div class="gm-cell">Apr+</div>
+    </div>
+    <div id="gantt-body" style="position:relative;width:100%;"></div>
+    <div class="gantt-legend">
+      <div class="gl-item"><div class="gl-box" style="background:rgba(2,84,80,0.15)"></div>Phase 0 – Setup</div>
+      <div class="gl-item"><div class="gl-box" style="background:rgba(152,199,128,0.4)"></div>Phase 1 – MVP</div>
+      <div class="gl-item"><div class="gl-box" style="background:rgba(152,198,221,0.4)"></div>Phase 2 – Handel</div>
+      <div class="gl-item"><div class="gl-box" style="background:rgba(200,176,0,0.35)"></div>Phase 3 – Vollversion</div>
+      <div class="gl-item"><div class="gl-box" style="background:rgba(2,84,80,0.7)"></div>Phase 4 – Skalierung</div>
+      <div class="gl-item"><div class="gl-vac"></div>Urlaub</div>
+      <div class="gl-item"><div style="width:12px;height:12px;background:var(--teal);border-radius:2px;transform:rotate(45deg)"></div>&nbsp;Meilenstein</div>
+      <div class="gl-item"><div style="width:2px;height:14px;background:var(--teal);opacity:.7;border-radius:1px"></div>&nbsp;Heute (22. Mai)</div>
+    </div>
+  </div>
+
+  <div class="footer" style="margin-top:32px">
+    <strong>software:112</strong> &nbsp;·&nbsp; ICP Consultants &nbsp;·&nbsp; Stand: Mai 2026
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════ PAGE 3 – SPRINT PLANNING ═══════════════════════════ -->
+<div class="page">
+  <div class="page-heading">Sprint Planning · 2-Wochen-Sprints · 26. Mai 2026 – März 2027</div>
+
+  <table class="sprint-table" style="width:100%;max-width:1120px;">
+    <thead>
+      <tr>
+        <th style="width:60px">#</th>
+        <th style="width:160px">Zeitraum</th>
+        <th style="width:200px">Phase / Schwerpunkt</th>
+        <th>Ziele &amp; Deliverables</th>
+        <th style="width:70px;text-align:right">PT</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- PHASE 0 -->
+      <tr>
+        <td class="sprint-num">S1</td>
+        <td class="sprint-date">26. Mai – 6. Jun 2026</td>
+        <td><div class="phase-badge pb0">⚙️ Phase 0</div><div class="sprint-focus">Fundament &amp; Rollenmodell</div></td>
+        <td class="sprint-deliverables">Supabase-Projekt (EU Frankfurt) · GitHub-Repo · Vercel-Deployment · <strong>Rollenmodell-Design</strong> (tenant_admin, winzer, leser) · Migrations 001–003 (tenants, profiles, memberships)</td>
+        <td class="sprint-pt" style="color:var(--text-2)">10</td>
+      </tr>
+      <tr>
+        <td class="sprint-num">S2</td>
+        <td class="sprint-date">9. Jun – 20. Jun 2026</td>
+        <td><div class="phase-badge pb0">⚙️ Phase 0</div><div class="sprint-focus">Auth &amp; Basis-UI</div></td>
+        <td class="sprint-deliverables">Login / Passwort-Reset · Mandantenverwaltung-UI · RLS-Policies (001–004) · n8n-Instanz live · Sidebar-Navigation &amp; Corporate Design</td>
+        <td class="sprint-pt" style="color:var(--text-2)">10</td>
+      </tr>
+      <!-- VACATION 1 -->
+      <tr class="sprint-vac">
+        <td colspan="5" style="padding:8px 12px;font-size:11px;color:#6b5000;font-weight:600;text-align:center;">
+          🏖️ &nbsp; Urlaub 1: 27. Jun – 11. Jul 2026 — Entwicklungspause
+        </td>
+      </tr>
+      <!-- PHASE 1 -->
+      <tr>
+        <td class="sprint-num">S3</td>
+        <td class="sprint-date">14. Jul – 24. Jul 2026</td>
+        <td><div class="phase-badge pb1">🌿 Phase 1</div><div class="sprint-focus">M1 Weinberge &amp; Rebsorten</div></td>
+        <td class="sprint-deliverables">Migration 005 weinberge · Migration 006 rebsorten (AT-Datenbank) · Weinberg-Übersicht · Kataster-Import</td>
+        <td class="sprint-pt" style="color:#2d7a2a">8</td>
+      </tr>
+      <!-- VACATION 2 -->
+      <tr class="sprint-vac">
+        <td colspan="5" style="padding:8px 12px;font-size:11px;color:#6b5000;font-weight:600;text-align:center;">
+          🏖️ &nbsp; Urlaub 2: 25. Jul – 1. Aug 2026 — Entwicklungspause
+        </td>
+      </tr>
+      <tr>
+        <td class="sprint-num">S4</td>
+        <td class="sprint-date">4. Aug – 15. Aug 2026</td>
+        <td><div class="phase-badge pb1">🌿 Phase 1</div><div class="sprint-focus">M1 Behandlungen &amp; PSM</div></td>
+        <td class="sprint-deliverables">Migration 007 behandlungen · Migration 008 pflanzenschutzmittel · Behandlungserfassung &amp; PSM-Datenbank · Wartezeiten-Prüfung</td>
+        <td class="sprint-pt" style="color:#2d7a2a">10</td>
+      </tr>
+      <tr>
+        <td class="sprint-num">S5</td>
+        <td class="sprint-date">18. Aug – 29. Aug 2026</td>
+        <td><div class="phase-badge pb1">🌿 Phase 1</div><div class="sprint-focus">M2 Kellerbuch Grundstruktur</div></td>
+        <td class="sprint-deliverables">Migration 009 weinjahrgaenge · Migration 010 behaelter · Behälterverwaltung (Tanks, Fässer) · Jahrgangsverwaltung</td>
+        <td class="sprint-pt" style="color:#2d7a2a">10</td>
+      </tr>
+      <tr>
+        <td class="sprint-num">S6</td>
+        <td class="sprint-date">1. Sep – 12. Sep 2026</td>
+        <td><div class="phase-badge pb1">🌿 Phase 1</div><div class="sprint-focus">M2 Vinifizierung &amp; Analysen</div></td>
+        <td class="sprint-deliverables">Migration 011 kellerbuch · Migration 012 analysen · Kelleroperationen · Weinanalyse-Erfassung · Storage Bucket &quot;analysen&quot;</td>
+        <td class="sprint-pt" style="color:#2d7a2a">10</td>
+      </tr>
+      <tr>
+        <td class="sprint-num">S7</td>
+        <td class="sprint-date">15. Sep – 26. Sep 2026</td>
+        <td><div class="phase-badge pb1">🌿 Phase 1</div><div class="sprint-focus">AMA + Abnahme MVP</div></td>
+        <td class="sprint-deliverables">Migration 013 ernte · AMA Erntemeldung (n8n) · Weingesetz-Compliance · <strong>MVP-Abnahme mit Pilot-Mandant</strong></td>
+        <td class="sprint-pt" style="color:#2d7a2a">10</td>
+      </tr>
+      <tr class="sprint-milestone">
+        <td colspan="5" style="padding:8px 12px;font-size:11px;color:var(--teal);font-weight:700;text-align:center;">
+          🎯 &nbsp; Meilenstein: MVP Live — Ende September 2026 · Erster Pilot-Mandant aktiv
+        </td>
+      </tr>
+      <!-- PHASE 2 -->
+      <tr>
+        <td class="sprint-num">S8</td>
+        <td class="sprint-date">1. Okt – 14. Okt 2026</td>
+        <td><div class="phase-badge pb2">📜 Phase 2</div><div class="sprint-focus">M3 DAC-Grundlagen</div></td>
+        <td class="sprint-deliverables">Migration 014 dac_antraege · DAC-Antrag Thermenregion · Prüfnummern-Workflow · Anbindung DAC-Kommission</td>
+        <td class="sprint-pt" style="color:#1a5a80">10</td>
+      </tr>
+      <tr>
+        <td class="sprint-num">S9</td>
+        <td class="sprint-date">15. Okt – 28. Okt 2026</td>
+        <td><div class="phase-badge pb2">📜 Phase 2</div><div class="sprint-focus">M3 Prüfnummern &amp; Etiketten</div></td>
+        <td class="sprint-deliverables">Migration 015 pruefnummern · Migration 016 etiketten · Etiketten-Generator (PDF) · Storage Bucket &quot;etiketten&quot;</td>
+        <td class="sprint-pt" style="color:#1a5a80">10</td>
+      </tr>
+      <tr>
+        <td class="sprint-num">S10</td>
+        <td class="sprint-date">29. Okt – 11. Nov 2026</td>
+        <td><div class="phase-badge pb2">📜 Phase 2</div><div class="sprint-focus">M4 Weinhandel &amp; CRM</div></td>
+        <td class="sprint-deliverables">Migration 017 kunden · Migration 018 auftraege · Kundenverwaltung · Bestellerfassung · CRM-Grundfunktionen</td>
+        <td class="sprint-pt" style="color:#1a5a80">10</td>
+      </tr>
+      <tr>
+        <td class="sprint-num">S11</td>
+        <td class="sprint-date">12. Nov – 25. Nov 2026</td>
+        <td><div class="phase-badge pb2">📜 Phase 2</div><div class="sprint-focus">M4 Rechnungswesen</div></td>
+        <td class="sprint-deliverables">Migration 019 rechnungen · Migration 020 positionen · Rechnungsstellung · PDF-Export · Storage &quot;rechnungen&quot;</td>
+        <td class="sprint-pt" style="color:#1a5a80">10</td>
+      </tr>
+      <tr>
+        <td class="sprint-num">S12</td>
+        <td class="sprint-date">26. Nov – 9. Dez 2026</td>
+        <td><div class="phase-badge pb2">📜 Phase 2</div><div class="sprint-focus">Integrationen BMD &amp; EMCS</div></td>
+        <td class="sprint-deliverables">BMD NTCS Export (n8n) · Migration 021 emcs · EMCS/EVD Bewegungsscheine · FinanzOnline-Vorbereitung</td>
+        <td class="sprint-pt" style="color:#1a5a80">10</td>
+      </tr>
+      <tr>
+        <td class="sprint-num">S13</td>
+        <td class="sprint-date">10. Dez – 23. Dez 2026</td>
+        <td><div class="phase-badge pb2">📜 Phase 2</div><div class="sprint-focus">RKSV + Abnahme Phase 2</div></td>
+        <td class="sprint-deliverables">RKSV / POS-Anbindung · Signaturzertifikat · Testing Phase 2 · <strong>Abnahme</strong></td>
+        <td class="sprint-pt" style="color:#1a5a80">10</td>
+      </tr>
+      <tr class="sprint-milestone">
+        <td colspan="5" style="padding:8px 12px;font-size:11px;color:var(--teal);font-weight:700;text-align:center;">
+          🎯 &nbsp; Meilenstein: DAC-Prüfnummern + Weinhandel Live — Ende Dezember 2026
+        </td>
+      </tr>
+      <!-- PHASE 3 -->
+      <tr>
+        <td class="sprint-num">S14</td>
+        <td class="sprint-date">5. Jan – 16. Jan 2027</td>
+        <td><div class="phase-badge" style="background:rgba(249,229,79,0.2);color:#8a6f00">📊 Phase 3</div><div class="sprint-focus">M5 Reports Grundstruktur</div></td>
+        <td class="sprint-deliverables">Migration 022 kostenstellen · Migration 023 kostenarten · Report-Engine · Dashboard-Auswertungen</td>
+        <td class="sprint-pt" style="color:#8a6f00">10</td>
+      </tr>
+      <tr>
+        <td class="sprint-num">S15</td>
+        <td class="sprint-date">19. Jan – 30. Jan 2027</td>
+        <td><div class="phase-badge" style="background:rgba(249,229,79,0.2);color:#8a6f00">📊 Phase 3</div><div class="sprint-focus">Behörden-Reports</div></td>
+        <td class="sprint-deliverables">AMA Jahresmeldung · ÖWM Weinanalyse-Import (n8n) · Behördenmeldungen automatisiert</td>
+        <td class="sprint-pt" style="color:#8a6f00">10</td>
+      </tr>
+      <tr>
+        <td class="sprint-num">S16</td>
+        <td class="sprint-date">2. Feb – 13. Feb 2027</td>
+        <td><div class="phase-badge" style="background:rgba(249,229,79,0.2);color:#8a6f00">📊 Phase 3</div><div class="sprint-focus">Kostenrechnung</div></td>
+        <td class="sprint-deliverables">Migration 024 kostenrechnung · Kostenstellenrechnung · Deckungsbeitragsrechnung · Weinbergs-Kostenauswertung</td>
+        <td class="sprint-pt" style="color:#8a6f00">10</td>
+      </tr>
+      <tr>
+        <td class="sprint-num">S17</td>
+        <td class="sprint-date">16. Feb – 27. Feb 2027</td>
+        <td><div class="phase-badge" style="background:rgba(249,229,79,0.2);color:#8a6f00">📊 Phase 3</div><div class="sprint-focus">SharePoint &amp; EU-Öko</div></td>
+        <td class="sprint-deliverables">SharePoint-Integration (n8n) · EU-Öko-Verordnung Meldung · Dokumenten-Sync · Migration 025 berichte</td>
+        <td class="sprint-pt" style="color:#8a6f00">10</td>
+      </tr>
+      <tr>
+        <td class="sprint-num">S18</td>
+        <td class="sprint-date">2. Mär – 13. Mär 2027</td>
+        <td><div class="phase-badge" style="background:rgba(249,229,79,0.2);color:#8a6f00">📊 Phase 3</div><div class="sprint-focus">Finalisierung &amp; Go-Live-Test</div></td>
+        <td class="sprint-deliverables">Vollständiger Systemtest · Performance-Optimierung · Dokumentation · Onboarding-Material für neue Mandanten</td>
+        <td class="sprint-pt" style="color:#8a6f00">10</td>
+      </tr>
+      <tr>
+        <td class="sprint-num">S19</td>
+        <td class="sprint-date">16. Mär – 27. Mär 2027</td>
+        <td><div class="phase-badge" style="background:rgba(249,229,79,0.2);color:#8a6f00">📊 Phase 3</div><div class="sprint-focus">Go-Live &amp; Abnahme</div></td>
+        <td class="sprint-deliverables">Go-Live Vorbereitung · <strong>Abnahme Vollversion</strong> · Schulung · Übergabe an Betrieb</td>
+        <td class="sprint-pt" style="color:#8a6f00">10</td>
+      </tr>
+      <tr class="sprint-milestone">
+        <td colspan="5" style="padding:8px 12px;font-size:11px;color:var(--teal);font-weight:700;text-align:center;">
+          🎉 &nbsp; Meilenstein: Vollversion Live — Ende März 2027 · software:112 v2.0 produktionsbereit
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="footer" style="margin-top:32px">
+    <strong>19 Sprints</strong> &nbsp;·&nbsp; je 2 Wochen &nbsp;·&nbsp; Volltagseinsatz &nbsp;·&nbsp; Urlaubspausen berücksichtigt &nbsp;·&nbsp; ~190 effektive Entwicklungstage
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════ PAGE 4 – SUPABASE ENTWICKLUNGSPFAD ═══════════════════════════ -->
+<div class="page">
+  <div class="page-heading">Supabase Entwicklungspfad · Migrationen · RLS · Storage · n8n</div>
+
+  <div class="dev-grid">
+
+    <!-- PHASE 0 -->
+    <div class="dev-card">
+      <h3><div class="phase-dot" style="background:rgba(2,84,80,0.4)"></div>Phase 0 — Fundament &amp; Rollenmodell</h3>
+
+      <h4>Migrationen</h4>
+      <div class="migration-list">
+        <div class="migration-item">
+          <div class="migration-num">001</div>
+          <div><div class="migration-name">tenants.sql</div><div class="migration-desc">Mandantentabelle: id, name, slug, weinbaugebiet, betriebsnummer, created_at</div></div>
+        </div>
+        <div class="migration-item">
+          <div class="migration-num">002</div>
+          <div><div class="migration-name">profiles.sql</div><div class="migration-desc">Benutzerprofile: user_id → auth.users, display_name, avatar_url</div></div>
+        </div>
+        <div class="migration-item">
+          <div class="migration-num">003</div>
+          <div><div class="migration-name">tenant_memberships.sql</div><div class="migration-desc">User↔Tenant: user_id, tenant_id, role (tenant_admin | winzer | leser)</div></div>
+        </div>
+        <div class="migration-item">
+          <div class="migration-num">004</div>
+          <div><div class="migration-name">modules.sql</div><div class="migration-desc">Feature-Flags: tenant_id, module (weingarten | kellerbuch | dac | handel | reports)</div></div>
+        </div>
+      </div>
+
+      <h4>RLS-Grundprinzip (kritisch!)</h4>
+      <div class="rls-box">
+        <span class="rls-comment">-- Jede Tabelle bekommt tenant_id</span><br>
+        <span class="rls-keyword">ALTER TABLE</span> weinberge <span class="rls-keyword">ENABLE ROW LEVEL SECURITY</span>;<br><br>
+        <span class="rls-comment">-- Policy: nur eigener Mandant sichtbar</span><br>
+        <span class="rls-keyword">CREATE POLICY</span> "tenant_select" <span class="rls-keyword">ON</span> weinberge<br>
+        &nbsp;&nbsp;<span class="rls-keyword">FOR SELECT USING</span> (<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;tenant_id <span class="rls-keyword">IN</span> (<span class="rls-keyword">SELECT</span> tenant_id<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="rls-keyword">FROM</span> tenant_memberships<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="rls-keyword">WHERE</span> user_id = auth.uid())<br>
+        &nbsp;&nbsp;);
+      </div>
+
+      <h4>Auth-Rollen</h4>
+      <ul>
+        <li><strong>system_admin</strong> — ICP Consultants, Zugriff auf alle Mandanten</li>
+        <li><strong>tenant_admin</strong> — Weingutbetreiber, verwaltet eigene User</li>
+        <li><strong>winzer</strong> — Erfassung Weingarten + Keller</li>
+        <li><strong>leser</strong> — Read-Only (Außendienst, Berater)</li>
+      </ul>
+    </div>
+
+    <!-- PHASE 1 -->
+    <div class="dev-card">
+      <h3><div class="phase-dot" style="background:var(--green)"></div>Phase 1 — M1 Weingarten &amp; M2 Kellerbuch</h3>
+
+      <h4>Migrationen</h4>
+      <div class="migration-list">
+        <div class="migration-item">
+          <div class="migration-num">005</div>
+          <div><div class="migration-name">weinberge.sql</div><div class="migration-desc">Parzellen: tenant_id, name, riede, flaeche_ha, grundstücksnr, gemeinde</div></div>
+        </div>
+        <div class="migration-item">
+          <div class="migration-num">006</div>
+          <div><div class="migration-name">rebsorten.sql</div><div class="migration-desc">AT-Rebsortenliste (Lookuptabelle), weinberg_id, anteil_pct</div></div>
+        </div>
+        <div class="migration-item">
+          <div class="migration-num">007</div>
+          <div><div class="migration-name">behandlungen.sql</div><div class="migration-desc">Weingartenbehandlungen: weinberg_id, datum, mittel_id, menge, einheit</div></div>
+        </div>
+        <div class="migration-item">
+          <div class="migration-num">008</div>
+          <div><div class="migration-name">pflanzenschutzmittel.sql</div><div class="migration-desc">PSM-Datenbank: name, zulassungsnr, wartezeit_tage, oeko_zugelassen</div></div>
+        </div>
+        <div class="migration-item">
+          <div class="migration-num">009</div>
+          <div><div class="migration-name">weinjahrgaenge.sql</div><div class="migration-desc">Jahrgänge: tenant_id, jahrgang, ernte_datum, ernte_kg, qualitätsstufe</div></div>
+        </div>
+        <div class="migration-item">
+          <div class="migration-num">010</div>
+          <div><div class="migration-name">behaelter.sql</div><div class="migration-desc">Tanks/Fässer: typ (stahl|holz|beton), volumen_l, standort</div></div>
+        </div>
+        <div class="migration-item">
+          <div class="migration-num">011</div>
+          <div><div class="migration-name">kellerbuch.sql</div><div class="migration-desc">Kelleroperationen: behaelter_id, aktion, datum, menge_l, notizen</div></div>
+        </div>
+        <div class="migration-item">
+          <div class="migration-num">012</div>
+          <div><div class="migration-name">analysen.sql</div><div class="migration-desc">Weinanalysen: wein_id, labor, datum, alkohol, saeuren, restzucker, file_url</div></div>
+        </div>
+        <div class="migration-item">
+          <div class="migration-num">013</div>
+          <div><div class="migration-name">ernte.sql</div><div class="migration-desc">AMA Erntemeldungen: jahrgang_id, weinberg_id, menge_kg, gemeldet_am</div></div>
+        </div>
+      </div>
+
+      <h4>Storage Buckets</h4>
+      <div>
+        <span class="bucket-chip">📁 analysen</span>
+        <span class="bucket-chip">📁 dokumente</span>
+      </div>
+
+      <h4>n8n Workflows</h4>
+      <div>
+        <span class="n8n-chip">↗ AMA Erntemeldung</span>
+        <span class="n8n-chip">↗ PSM-Wartezeit Alert</span>
+      </div>
+    </div>
+
+    <!-- PHASE 2 -->
+    <div class="dev-card">
+      <h3><div class="phase-dot" style="background:var(--blue)"></div>Phase 2 — M3 DAC &amp; M4 Weinhandel</h3>
+
+      <h4>Migrationen</h4>
+      <div class="migration-list">
+        <div class="migration-item">
+          <div class="migration-num">014</div>
+          <div><div class="migration-name">dac_antraege.sql</div><div class="migration-desc">DAC-Anträge: wein_id, weinbaugebiet, status, eingereicht_am, pruefnummer</div></div>
+        </div>
+        <div class="migration-item">
+          <div class="migration-num">015</div>
+          <div><div class="migration-name">pruefnummern.sql</div><div class="migration-desc">Prüfnummernvergabe: antrag_id, pruefnummer, ausgestellt_am, gültig_bis</div></div>
+        </div>
+        <div class="migration-item">
+          <div class="migration-num">016</div>
+          <div><div class="migration-name">etiketten.sql</div><div class="migration-desc">Etiketten-Vorlagen: pruefnummer_id, template_json, pdf_url, freigegeben</div></div>
+        </div>
+        <div class="migration-item">
+          <div class="migration-num">017</div>
+          <div><div class="migration-name">kunden.sql</div><div class="migration-desc">CRM Kunden: tenant_id, firma, ansprechpartner, email, uid_nr, zahlungsziel</div></div>
+        </div>
+        <div class="migration-item">
+          <div class="migration-num">018</div>
+          <div><div class="migration-name">auftraege.sql</div><div class="migration-desc">Bestellungen: kunden_id, datum, status, lieferdatum, notizen</div></div>
+        </div>
+        <div class="migration-item">
+          <div class="migration-num">019</div>
+          <div><div class="migration-name">rechnungen.sql</div><div class="migration-desc">Rechnungen: auftrag_id, rechnungsnr, datum, brutto, ust, pdf_url</div></div>
+        </div>
+        <div class="migration-item">
+          <div class="migration-num">020</div>
+          <div><div class="migration-name">rechnungspositionen.sql</div><div class="migration-desc">Positionen: rechnung_id, wein_id, menge, preis, ust_satz</div></div>
+        </div>
+        <div class="migration-item">
+          <div class="migration-num">021</div>
+          <div><div class="migration-name">emcs.sql</div><div class="migration-desc">EMCS/EVD Bewegungsscheine: rechnung_id, evd_nr, status, eingereicht_am</div></div>
+        </div>
+      </div>
+
+      <h4>Storage Buckets</h4>
+      <div>
+        <span class="bucket-chip">📁 etiketten</span>
+        <span class="bucket-chip">📁 rechnungen</span>
+      </div>
+
+      <h4>n8n Workflows</h4>
+      <div>
+        <span class="n8n-chip">↗ BMD NTCS Export</span>
+        <span class="n8n-chip">↗ EMCS/EVD Meldung</span>
+        <span class="n8n-chip">↗ RKSV Signatur</span>
+        <span class="n8n-chip">↗ Rechnung PDF-Versand</span>
+      </div>
+    </div>
+
+    <!-- PHASE 3 -->
+    <div class="dev-card">
+      <h3><div class="phase-dot" style="background:#c8b000"></div>Phase 3 — M5 Reports &amp; Kostenrechnung</h3>
+
+      <h4>Migrationen</h4>
+      <div class="migration-list">
+        <div class="migration-item">
+          <div class="migration-num">022</div>
+          <div><div class="migration-name">kostenstellen.sql</div><div class="migration-desc">Kostenstellen: tenant_id, name (Weinberg, Keller, Verwaltung, Vertrieb)</div></div>
+        </div>
+        <div class="migration-item">
+          <div class="migration-num">023</div>
+          <div><div class="migration-name">kostenarten.sql</div><div class="migration-desc">Kostenarten: Betriebsmittel, Personalkosten, Energie, Abschreibung, Pachten</div></div>
+        </div>
+        <div class="migration-item">
+          <div class="migration-num">024</div>
+          <div><div class="migration-name">kostenrechnung.sql</div><div class="migration-desc">Buchungen: kostenstelle_id, kostenart_id, betrag, datum, periode</div></div>
+        </div>
+        <div class="migration-item">
+          <div class="migration-num">025</div>
+          <div><div class="migration-name">berichte.sql</div><div class="migration-desc">Gespeicherte Reports: typ, parameter_json, erstellt_am, datei_url</div></div>
+        </div>
+      </div>
+
+      <h4>Storage Buckets</h4>
+      <div>
+        <span class="bucket-chip">📁 berichte</span>
+        <span class="bucket-chip">📁 behördenmeldungen</span>
+      </div>
+
+      <h4>n8n Workflows</h4>
+      <div>
+        <span class="n8n-chip">↗ AMA Jahresmeldung</span>
+        <span class="n8n-chip">↗ ÖWM Analyse-Import</span>
+        <span class="n8n-chip">↗ SharePoint-Sync</span>
+        <span class="n8n-chip">↗ EU-Öko-Meldung</span>
+        <span class="n8n-chip">↗ Kostenreport Monat</span>
+      </div>
+    </div>
+
+    <!-- TECH TABLE (full width) -->
+    <div class="dev-card full-width">
+      <h3><div class="phase-dot" style="background:var(--teal)"></div>Technische Roadmap · Supabase-Ausbaustufen</h3>
+      <table class="tech-table">
+        <thead>
+          <tr>
+            <th>Bereich</th>
+            <th>Phase 0 (Start)</th>
+            <th>Phase 1 (MVP)</th>
+            <th>Phase 2 (Handel)</th>
+            <th>Phase 3 (Vollversion)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Hosting</td>
+            <td>Supabase EU (Frankfurt) + Vercel</td>
+            <td>=</td>
+            <td>=</td>
+            <td>ggf. Supabase Pro</td>
+          </tr>
+          <tr>
+            <td>Datenbank</td>
+            <td>4 Basistabellen + RLS</td>
+            <td>+ 9 Tabellen Weingarten/Keller</td>
+            <td>+ 8 Tabellen Handel/DAC</td>
+            <td>+ 4 Tabellen Kostenrechnung</td>
+          </tr>
+          <tr>
+            <td>Auth</td>
+            <td>E-Mail / Passwort + Rollen</td>
+            <td>=</td>
+            <td>+ Magic Link (optional)</td>
+            <td>+ 2FA (optional)</td>
+          </tr>
+          <tr>
+            <td>Storage</td>
+            <td>–</td>
+            <td>analysen, dokumente</td>
+            <td>+ etiketten, rechnungen</td>
+            <td>+ berichte, behörden</td>
+          </tr>
+          <tr>
+            <td>n8n Workflows</td>
+            <td>–</td>
+            <td>AMA, PSM-Alert</td>
+            <td>+ BMD, EMCS, RKSV</td>
+            <td>+ ÖWM, SharePoint, EU-Öko</td>
+          </tr>
+          <tr>
+            <td>Migrationen</td>
+            <td>001–004</td>
+            <td>005–013</td>
+            <td>014–021</td>
+            <td>022–025</td>
+          </tr>
+          <tr>
+            <td>Mobile / PWA</td>
+            <td>Responsive</td>
+            <td>PWA-Vorbereitung (iPad Weingarten)</td>
+            <td>=</td>
+            <td>PWA vollständig + Offline</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div><!-- /dev-grid -->
+
+  <div class="footer" style="margin-top:32px">
+    <strong>software:112 v2.0</strong> &nbsp;·&nbsp; Supabase Entwicklungspfad &nbsp;·&nbsp; 25 Migrationen · 6 Storage Buckets · 11 n8n Workflows &nbsp;·&nbsp; ICP Consultants · Mai 2026
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════ GANTT JS ═══════════════════════════ -->
+<script>
+const LABEL_W = 200;
+const rows = [
+  { label:'Phase 0', sub:'Setup & Rollenmodell',
+    bars:[{ s:.83, e:2.0, bg:'rgba(2,84,80,0.2)', color:'#025450', text:'⚙️ Phase 0: Setup & Rollenmodell' }], ms:[] },
+  { label:'Urlaub 1', sub:'27. Jun – 11. Jul',
+    bars:[{ s:1.87, e:2.37, bg:'rgba(249,229,79,0.25)', color:'#6b5000', text:'🏖️ Urlaub', dashed:true }], ms:[] },
+  { label:'Phase 1 – MVP', sub:'M1 Weingarten · M2 Kellerbuch',
+    bars:[{ s:2.37, e:5.0, bg:'rgba(152,199,128,0.4)', color:'#2d5a28', text:'🌿 M1 Weingarten + M2 Kellerbuch · 55–80 PT' }],
+    ms:[{ pos:5.0, label:'MVP Live' }] },
+  { label:'Urlaub 2', sub:'25. Jul – 1. Aug',
+    bars:[{ s:2.8, e:3.03, bg:'rgba(249,229,79,0.25)', color:'#6b5000', text:'🏖️', dashed:true }], ms:[] },
+  { label:'Phase 2 – Handel', sub:'M3 DAC · M4 Weinhandel',
+    bars:[{ s:5.0, e:8.0, bg:'rgba(152,198,221,0.4)', color:'#1a4a6a', text:'📜 M3 DAC + M4 Weinhandel · 65–90 PT' }],
+    ms:[{ pos:8.0, label:'DAC Live' }] },
+  { label:'Phase 3 – Vollversion', sub:'M5 Reports · Kostenrechnung',
+    bars:[{ s:8.0, e:10.97, bg:'rgba(200,176,0,0.35)', color:'#6b5000', text:'📊 M5 Reports + Kostenrechnung · 40–60 PT' }],
+    ms:[{ pos:10.97, label:'🎉 Vollversion' }] },
+  { label:'Phase 4 – Skalierung', sub:'Multi-Mandant · ab Q2 2027',
+    bars:[{ s:11.0, e:12.0, bg:'rgba(2,84,80,0.6)', color:'#F8F8F3', text:'🚀 Expansion' }], ms:[] },
+  { label:'n8n Integrationen', sub:'BMD · AMA · EMCS · ÖWM',
+    bars:[{ s:3.5, e:10.0, bg:'rgba(152,198,221,0.25)', color:'#1a4a6a', text:'Integrationen (laufend)' }], ms:[] },
+  { label:'Testing / Abnahme', sub:'Abnahme',
+    bars:[{ s:4.5, e:11.5, bg:'rgba(2,84,80,0.1)', color:'#025450', text:'Testing je Phasenende' }], ms:[] }
+];
+
+const todayPos = 0.71;
+
+function render() {
+  const container = document.getElementById('gantt-body');
+  if (!container) return;
+  const totalW = container.clientWidth;
+  const colW = (totalW - LABEL_W) / 12;
+  const ROW_H = 52;
+  const totalH = rows.length * ROW_H;
+
+  let html = '';
+  rows.forEach((row) => {
+    let rh = `<div style="position:relative;height:${ROW_H}px;border-bottom:1px solid rgba(2,84,80,0.05);">`;
+    // Label
+    rh += `<div style="position:absolute;top:0;left:0;width:${LABEL_W}px;height:${ROW_H}px;display:flex;flex-direction:column;justify-content:center;padding-right:12px;">
+      <div style="font-size:12px;font-weight:600;color:#025450;">${row.label}</div>
+      <div style="font-size:10px;color:rgba(2,84,80,0.45);margin-top:1px;">${row.sub}</div>
+    </div>`;
+    // Bars
+    row.bars.forEach(bar => {
+      const x = LABEL_W + bar.s * colW;
+      const w = (bar.e - bar.s) * colW;
+      const barH = 24; const top = (ROW_H - barH) / 2;
+      const border = bar.dashed ? `border:1px dashed rgba(180,150,0,0.5);` : '';
+      rh += `<div style="position:absolute;left:${x}px;top:${top}px;width:${w}px;height:${barH}px;border-radius:6px;${border}background:${bar.bg};display:flex;align-items:center;padding:0 8px;font-size:10px;font-weight:700;color:${bar.color};overflow:hidden;white-space:nowrap;">${bar.text}</div>`;
+    });
+    // Milestones
+    row.ms.forEach(ms => {
+      const x = LABEL_W + ms.pos * colW;
+      const sz = 13; const top = (ROW_H - sz) / 2;
+      rh += `<div style="position:absolute;left:${x - sz/2}px;top:${top}px;width:${sz}px;height:${sz}px;background:#025450;transform:rotate(45deg);z-index:5;border-radius:2px;"></div>
+      <div style="position:absolute;left:${x + sz/2 + 4}px;top:${top - 1}px;font-size:9px;font-weight:700;color:#025450;white-space:nowrap;z-index:6;">${ms.label}</div>`;
+    });
+    rh += '</div>';
+    html += rh;
+  });
+
+  // Today line
+  const todayX = LABEL_W + todayPos * colW;
+  html += `<div style="position:absolute;top:0;left:${todayX}px;width:2px;height:${totalH}px;background:#025450;opacity:0.5;pointer-events:none;z-index:20;">
+    <div style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;color:#025450;white-space:nowrap;letter-spacing:.06em;">Heute</div>
+  </div>`;
+
+  container.style.height = (totalH + 24) + 'px';
+  container.innerHTML = html;
+
+  // Grid lines
+  for (let m = 0; m <= 12; m++) {
+    const line = document.createElement('div');
+    line.style.cssText = `position:absolute;top:0;left:${LABEL_W + m * colW}px;width:1px;height:${totalH}px;background:rgba(2,84,80,0.05);pointer-events:none;`;
+    container.appendChild(line);
+  }
+}
+
+window.addEventListener('load', render);
+window.addEventListener('resize', render);
+</script>
+</body>
+</html>
