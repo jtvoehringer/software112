@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentUserRole, canWrite, canAdmin } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { deactivateWeingarten } from './actions'
@@ -19,6 +20,9 @@ type WRow = {
 
 export default async function WeingartenPage() {
   const supabase = await createSupabaseServerClient()
+  const role = await getCurrentUserRole()
+  const writeOk = canWrite(role)
+  const adminOk = canAdmin(role)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: raw } = await (supabase.from('weingarten') as any)
@@ -38,12 +42,14 @@ export default async function WeingartenPage() {
           <h1 className="text-2xl font-bold text-gray-900">Weingarten</h1>
           <p className="text-sm text-s112-muted mt-0.5">Stammdaten aller Weingartenlagen</p>
         </div>
-        <Link
-          href="/weingarten/neu"
-          className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
-        >
-          <span>＋</span> Neuer Weingarten
-        </Link>
+        {writeOk && (
+          <Link
+            href="/weingarten/neu"
+            className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
+          >
+            <span>＋</span> Neuer Weingarten
+          </Link>
+        )}
       </div>
 
       {/* Stats */}
@@ -109,13 +115,15 @@ export default async function WeingartenPage() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-3">
-                      <Link
-                        href={`/weingarten/${w.id}`}
-                        className="text-s112-teal hover:underline text-xs font-medium"
-                      >
-                        Bearbeiten
-                      </Link>
-                      {w.aktiv && (
+                      {writeOk && (
+                        <Link
+                          href={`/weingarten/${w.id}`}
+                          className="text-s112-teal hover:underline text-xs font-medium"
+                        >
+                          Bearbeiten
+                        </Link>
+                      )}
+                      {adminOk && w.aktiv && (
                         <form action={deactivateWeingarten.bind(null, w.id)}>
                           <button
                             type="submit"
@@ -137,12 +145,14 @@ export default async function WeingartenPage() {
           <p className="text-4xl mb-4">🌿</p>
           <p className="text-gray-700 font-medium">Noch keine Weingärten angelegt</p>
           <p className="text-s112-muted text-sm mt-1 mb-6">Legen Sie Ihren ersten Weingarten an</p>
-          <Link
-            href="/weingarten/neu"
-            className="inline-flex items-center gap-2 bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
-          >
-            ＋ Erster Weingarten
-          </Link>
+          {writeOk && (
+            <Link
+              href="/weingarten/neu"
+              className="inline-flex items-center gap-2 bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
+            >
+              ＋ Erster Weingarten
+            </Link>
+          )}
         </div>
       )}
     </div>

@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
@@ -23,6 +24,8 @@ const TYP_LABELS: Record<string, string> = {
 
 export default async function KellerbuchPage() {
   const supabase = await createSupabaseServerClient()
+  const role = await getCurrentUserRole()
+  const writeOk = canWrite(role)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [{ data: behaelterRaw }, { data: weinausbauRaw }] = await Promise.all([
@@ -72,10 +75,12 @@ export default async function KellerbuchPage() {
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-gray-800">Behälter</h2>
-            <Link href="/kellerbuch/behaelter/neu"
-              className="text-xs text-s112-teal font-semibold hover:underline">
-              ＋ Neuer Behälter
-            </Link>
+            {writeOk && (
+              <Link href="/kellerbuch/behaelter/neu"
+                className="text-xs text-s112-teal font-semibold hover:underline">
+                ＋ Neuer Behälter
+              </Link>
+            )}
           </div>
           {behaelter.length > 0 ? (
             <div className="card p-0 overflow-hidden">
@@ -95,7 +100,9 @@ export default async function KellerbuchPage() {
                       <td className="px-4 py-2 text-s112-muted">{b.typ ? TYP_LABELS[b.typ] : '–'}</td>
                       <td className="px-4 py-2 text-right tabular-nums">{b.volumen_liter ? b.volumen_liter.toLocaleString('de-AT') : '–'}</td>
                       <td className="px-4 py-2 text-right">
-                        <Link href={`/kellerbuch/behaelter/${b.id}`} className="text-s112-teal hover:underline text-xs">Bearbeiten</Link>
+                        {writeOk && (
+                          <Link href={`/kellerbuch/behaelter/${b.id}`} className="text-s112-teal hover:underline text-xs">Bearbeiten</Link>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -106,7 +113,9 @@ export default async function KellerbuchPage() {
             <div className="card text-center py-8">
               <p className="text-2xl mb-2">🛢️</p>
               <p className="text-sm text-s112-muted">Noch keine Behälter angelegt</p>
-              <Link href="/kellerbuch/behaelter/neu" className="text-xs text-s112-teal font-semibold mt-2 inline-block hover:underline">＋ Ersten Behälter anlegen</Link>
+              {writeOk && (
+                <Link href="/kellerbuch/behaelter/neu" className="text-xs text-s112-teal font-semibold mt-2 inline-block hover:underline">＋ Ersten Behälter anlegen</Link>
+              )}
             </div>
           )}
         </section>
@@ -115,10 +124,12 @@ export default async function KellerbuchPage() {
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-gray-800">Weinausbau-Chargen</h2>
-            <Link href="/kellerbuch/weinausbau/neu"
-              className="text-xs text-s112-teal font-semibold hover:underline">
-              ＋ Neue Charge
-            </Link>
+            {writeOk && (
+              <Link href="/kellerbuch/weinausbau/neu"
+                className="text-xs text-s112-teal font-semibold hover:underline">
+                ＋ Neue Charge
+              </Link>
+            )}
           </div>
           {weinausbau.length > 0 ? (
             <div className="card p-0 overflow-hidden">
@@ -144,7 +155,9 @@ export default async function KellerbuchPage() {
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums">{w.menge_liter ? w.menge_liter.toLocaleString('de-AT') : '–'}</td>
                         <td className="px-4 py-2 text-right">
-                          <Link href={`/kellerbuch/weinausbau/${w.id}`} className="text-s112-teal hover:underline text-xs">Bearbeiten</Link>
+                          {writeOk && (
+                            <Link href={`/kellerbuch/weinausbau/${w.id}`} className="text-s112-teal hover:underline text-xs">Bearbeiten</Link>
+                          )}
                         </td>
                       </tr>
                     )
@@ -156,7 +169,9 @@ export default async function KellerbuchPage() {
             <div className="card text-center py-8">
               <p className="text-2xl mb-2">🍷</p>
               <p className="text-sm text-s112-muted">Noch keine Chargen angelegt</p>
-              <Link href="/kellerbuch/weinausbau/neu" className="text-xs text-s112-teal font-semibold mt-2 inline-block hover:underline">＋ Erste Charge anlegen</Link>
+              {writeOk && (
+                <Link href="/kellerbuch/weinausbau/neu" className="text-xs text-s112-teal font-semibold mt-2 inline-block hover:underline">＋ Erste Charge anlegen</Link>
+              )}
             </div>
           )}
         </section>

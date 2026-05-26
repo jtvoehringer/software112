@@ -3,21 +3,25 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import type { UserRole } from '@/lib/auth/roles'
 
 const NAV_ITEMS = [
-  { href: '/dashboard',    label: 'Übersicht',   icon: '⊞' },
-  { href: '/weingarten',   label: 'Weingarten',  icon: '🌿' },
-  { href: '/kellerbuch',   label: 'Kellerbuch',  icon: '🍷' },
-  { href: '/dac',          label: 'DAC',         icon: '📋' },
-  { href: '/weinhandel',   label: 'Weinhandel',  icon: '🛒' },
-  { href: '/reports',      label: 'Reports',     icon: '📁' },
+  { href: '/dashboard',   label: 'Übersicht',  icon: '⊞', phase: 0 },
+  { href: '/weingarten',  label: 'Weingarten', icon: '🌿', phase: 1 },
+  { href: '/kellerbuch',  label: 'Kellerbuch', icon: '🍷', phase: 1 },
+  { href: '/dac',         label: 'DAC',        icon: '📋', phase: 1 },
+  { href: '/weinhandel',  label: 'Weinhandel', icon: '🛒', phase: 2 },
+  { href: '/reports',     label: 'Reports',    icon: '📁', phase: 2 },
+  { href: '/benutzer',    label: 'Benutzer',   icon: '👥', phase: 0, adminOnly: true },
 ]
 
 interface SidebarProps {
   userEmail: string
+  role: UserRole
+  roleLabel: string
 }
 
-export default function Sidebar({ userEmail }: SidebarProps) {
+export default function Sidebar({ userEmail, role, roleLabel }: SidebarProps) {
   const pathname = usePathname()
   const router   = useRouter()
   const supabase = createSupabaseBrowserClient()
@@ -27,6 +31,8 @@ export default function Sidebar({ userEmail }: SidebarProps) {
     router.push('/login')
     router.refresh()
   }
+
+  const isAdmin = role === 'system_admin' || role === 'tenant_admin'
 
   return (
     <aside className="w-60 flex-shrink-0 bg-white border-r border-s112-border flex flex-col">
@@ -43,8 +49,19 @@ export default function Sidebar({ userEmail }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         {NAV_ITEMS.map(item => {
+          if (item.adminOnly && !isAdmin) return null
           const isActive = pathname === item.href ||
             (item.href !== '/dashboard' && pathname.startsWith(item.href))
+          const isDisabled = item.phase === 2
+
+          if (isDisabled) return (
+            <div key={item.href} className="nav-item opacity-40 cursor-not-allowed">
+              <span className="w-5 text-center">{item.icon}</span>
+              {item.label}
+              <span className="ml-auto text-xs">P2</span>
+            </div>
+          )
+
           return (
             <Link
               key={item.href}
@@ -60,10 +77,11 @@ export default function Sidebar({ userEmail }: SidebarProps) {
 
       {/* User Footer */}
       <div className="px-4 py-4 border-t border-s112-border">
-        <p className="text-xs text-s112-muted truncate mb-2">{userEmail}</p>
+        <p className="text-xs text-s112-muted truncate">{userEmail}</p>
+        <p className="text-xs font-medium text-s112-teal mt-0.5">{roleLabel}</p>
         <button
           onClick={handleLogout}
-          className="text-xs text-s112-muted hover:text-red-600 transition-colors"
+          className="text-xs text-s112-muted hover:text-red-600 transition-colors mt-2"
         >
           Abmelden
         </button>

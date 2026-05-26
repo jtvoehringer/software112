@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
@@ -26,6 +27,9 @@ const DAC_REGIONEN: Record<string, string> = {
 
 export default async function DacPage() {
   const supabase = await createSupabaseServerClient()
+  const role = await getCurrentUserRole()
+  const writeOk = canWrite(role)
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: raw } = await (supabase.from('dac_antrag') as any)
     .select('id, bezeichnung, dac_region, jahrgang, rebsorte, status, pruefnummer, eingereicht_am, aktiv')
@@ -43,10 +47,12 @@ export default async function DacPage() {
           <h1 className="text-2xl font-bold text-gray-900">DAC & Prüfnummern</h1>
           <p className="text-sm text-s112-muted mt-0.5">Anträge nach österreichischem Weinrecht</p>
         </div>
-        <Link href="/dac/neu"
-          className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
-          ＋ Neuer Antrag
-        </Link>
+        {writeOk && (
+          <Link href="/dac/neu"
+            className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+            ＋ Neuer Antrag
+          </Link>
+        )}
       </div>
 
       {/* Stats */}
@@ -99,7 +105,9 @@ export default async function DacPage() {
                       {a.eingereicht_am ? new Date(a.eingereicht_am).toLocaleDateString('de-AT') : '–'}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Link href={`/dac/${a.id}`} className="text-s112-teal hover:underline text-xs">Bearbeiten</Link>
+                      {writeOk && (
+                        <Link href={`/dac/${a.id}`} className="text-s112-teal hover:underline text-xs">Bearbeiten</Link>
+                      )}
                     </td>
                   </tr>
                 )
@@ -112,10 +120,12 @@ export default async function DacPage() {
           <p className="text-4xl mb-4">📋</p>
           <p className="text-gray-700 font-medium">Noch keine DAC-Anträge</p>
           <p className="text-s112-muted text-sm mt-1 mb-6">Legen Sie Ihren ersten Antrag an</p>
-          <Link href="/dac/neu"
-            className="inline-flex items-center gap-2 bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
-            ＋ Erster Antrag
-          </Link>
+          {writeOk && (
+            <Link href="/dac/neu"
+              className="inline-flex items-center gap-2 bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+              ＋ Erster Antrag
+            </Link>
+          )}
         </div>
       )}
     </div>
