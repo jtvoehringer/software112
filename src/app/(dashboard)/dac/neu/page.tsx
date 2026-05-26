@@ -15,7 +15,8 @@ export default async function NeuePage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: raw } = await (supabase.from('weinausbau') as any)
     .select('id, name').eq('aktiv', true).order('name')
-  const weinausbau = (raw ?? []) as R[]
+  type NameRow = { id: string; name: string }
+  const weinausbau = (raw ?? []) as NameRow[]
 
   return (
     <div className="max-w-2xl">
