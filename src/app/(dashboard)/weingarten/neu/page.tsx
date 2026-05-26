@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+
+export const dynamic = 'force-dynamic'
 import Link from 'next/link'
 import WeingartenForm from '@/components/weingarten/WeingartenForm'
 import { createWeingarten } from '../actions'
