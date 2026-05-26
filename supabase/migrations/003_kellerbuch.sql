@@ -60,7 +60,9 @@ create index idx_weinausbau_status       on weinausbau(tenant_id, status);
 alter table behaelter enable row level security;
 
 create policy "behaelter_select" on behaelter
-  for select using (tenant_id = any(get_user_tenant_ids()));
+  for select using (
+    tenant_id in (select tenant_id from tenant_memberships where user_id = auth.uid())
+  );
 
 create policy "behaelter_insert" on behaelter
   for insert with check (
@@ -81,7 +83,9 @@ create policy "behaelter_delete" on behaelter
 alter table weinausbau enable row level security;
 
 create policy "weinausbau_select" on weinausbau
-  for select using (tenant_id = any(get_user_tenant_ids()));
+  for select using (
+    tenant_id in (select tenant_id from tenant_memberships where user_id = auth.uid())
+  );
 
 create policy "weinausbau_insert" on weinausbau
   for insert with check (
