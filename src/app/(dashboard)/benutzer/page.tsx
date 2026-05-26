@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
-import { getCurrentMembership, canManageUsers, roleLabel } from '@/lib/auth/roles'
-import { getTenantMembers } from './actions'
+import { getCurrentMembership, canManageUsers } from '@/lib/auth/roles'
+import { getTenantMembers, getUnassignedUsers } from './actions'
 import BenutzerClient from './BenutzerClient'
 
 export const metadata: Metadata = { title: 'Benutzerverwaltung – software:112' }
@@ -10,12 +10,14 @@ export const dynamic = 'force-dynamic'
 export default async function BenutzerPage() {
   const membership = await getCurrentMembership()
 
-  // Nur Admins dürfen diese Seite sehen
   if (!membership || !canManageUsers(membership.role)) {
     redirect('/dashboard')
   }
 
-  const members = await getTenantMembers()
+  const [members, unassigned] = await Promise.all([
+    getTenantMembers(),
+    getUnassignedUsers(),
+  ])
 
   return (
     <div>
@@ -26,25 +28,7 @@ export default async function BenutzerPage() {
         </div>
       </div>
 
-      {/* Info-Box: Benutzer hinzufügen */}
-      <div className="card bg-blue-50 border border-blue-200 mb-6">
-        <div className="flex gap-3">
-          <span className="text-blue-500 text-xl">ℹ️</span>
-          <div>
-            <p className="text-sm font-semibold text-blue-800">Neue Benutzer einladen</p>
-            <p className="text-sm text-blue-700 mt-0.5">
-              Um neue Mitarbeiter hinzuzufügen, gehen Sie im{' '}
-              <strong>Supabase Dashboard → Authentication → Users → Invite user</strong>{' '}
-              und tragen Sie die E-Mail-Adresse ein. Danach weisen Sie die Membership hier zu.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <BenutzerClient
-        members={members}
-        currentMembershipId={membership.tenantId}
-      />
+      <BenutzerClient members={members} unassigned={unassigned} />
     </div>
   )
 }
