@@ -12,15 +12,21 @@ const BEWIRTSCHAFTUNG_LABELS: Record<string, string> = {
   demeter:       'Demeter',
 }
 
+type WRow = {
+  id: string; name: string; ried: string | null; rebsorte: string | null
+  flaeche_ha: number | null; bewirtschaftung: string | null; aktiv: boolean
+}
+
 export default async function WeingartenPage() {
   const supabase = await createSupabaseServerClient()
 
-  const { data: weingaerten } = await supabase
-    .from('weingarten')
-    .select('*')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: raw } = await (supabase.from('weingarten') as any)
+    .select('id, name, ried, rebsorte, flaeche_ha, bewirtschaftung, aktiv')
     .order('name')
+  const weingaerten = (raw ?? []) as WRow[]
 
-  const aktive     = weingaerten?.filter(w => w.aktiv) ?? []
+  const aktive     = weingaerten.filter(w => w.aktiv)
   const gesamtHa   = aktive.reduce((s, w) => s + (w.flaeche_ha ?? 0), 0)
   const anzahl     = aktive.length
 
