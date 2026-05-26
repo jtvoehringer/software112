@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
+import Link from 'next/link'
 
 export const metadata: Metadata = { title: 'Dashboard' }
 
@@ -45,20 +46,30 @@ export default async function DashboardPage() {
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {MODULES.map(mod => (
-            <div
-              key={mod.id}
-              className={`card flex items-start gap-4 ${
-                mod.phase > 1 ? 'opacity-50' : 'hover:border-s112-teal cursor-pointer transition-colors'
-              }`}
-            >
-              <span className="text-2xl">{mod.icon}</span>
-              <div>
-                <h3 className="font-semibold text-gray-800">{mod.label}</h3>
-                <p className="text-xs text-s112-muted mt-0.5">
-                  {mod.phase === 1 ? 'Phase 1' : `Phase ${mod.phase} – geplant`}
-                </p>
+            mod.phase === 1 ? (
+              <Link
+                key={mod.id}
+                href={mod.href}
+                className="card flex items-start gap-4 hover:border-s112-teal transition-colors"
+              >
+                <span className="text-2xl">{mod.icon}</span>
+                <div>
+                  <h3 className="font-semibold text-gray-800">{mod.label}</h3>
+                  <p className="text-xs text-s112-muted mt-0.5">Phase 1</p>
+                </div>
+              </Link>
+            ) : (
+              <div
+                key={mod.id}
+                className="card flex items-start gap-4 opacity-50"
+              >
+                <span className="text-2xl">{mod.icon}</span>
+                <div>
+                  <h3 className="font-semibold text-gray-800">{mod.label}</h3>
+                  <p className="text-xs text-s112-muted mt-0.5">Phase {mod.phase} – geplant</p>
+                </div>
               </div>
-            </div>
+            )
           ))}
         </div>
       </div>
