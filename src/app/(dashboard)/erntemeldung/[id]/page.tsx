@@ -85,7 +85,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     amaMeldung = {
       ...(rawA as AR),
       positionen: (rawPos ?? []) as AMAMeldung['positionen'],
-    }
+    } as AMAMeldung
   }
 
   return (
