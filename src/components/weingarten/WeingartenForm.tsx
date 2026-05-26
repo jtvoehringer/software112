@@ -1,0 +1,178 @@
+'use client'
+
+import { useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+
+const REBSORTEN = [
+  'Grüner Veltliner', 'Riesling', 'Welschriesling', 'Müller-Thurgau',
+  'Chardonnay', 'Sauvignon Blanc', 'Weißburgunder', 'Grauburgunder',
+  'Zweigelt', 'Blaufränkisch', 'St. Laurent', 'Pinot Noir',
+  'Blauburger', 'Merlot', 'Cabernet Sauvignon',
+]
+
+type WeingartenRow = {
+  id: string
+  name: string
+  ried: string | null
+  rebsorte: string | null
+  flaeche_ha: number | null
+  pflanzjahr: number | null
+  bewirtschaftung: string | null
+  notizen: string | null
+  aktiv: boolean
+}
+
+interface Props {
+  weingarten?: WeingartenRow
+  action: (formData: FormData) => Promise<void>
+}
+
+export default function WeingartenForm({ weingarten, action }: Props) {
+  const [isPending, startTransition] = useTransition()
+  const router = useRouter()
+
+  return (
+    <form
+      action={(formData) => startTransition(() => action(formData))}
+      className="space-y-6"
+    >
+      {/* Pflichtfelder */}
+      <div className="card space-y-4">
+        <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Basisdaten</h2>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="form-label">Name *</label>
+            <input
+              name="name"
+              type="text"
+              required
+              defaultValue={weingarten?.name ?? ''}
+              className="form-input"
+              placeholder="z.B. Ried Kremser Schmidt"
+            />
+          </div>
+          <div>
+            <label className="form-label">Ried / Lage</label>
+            <input
+              name="ried"
+              type="text"
+              defaultValue={weingarten?.ried ?? ''}
+              className="form-input"
+              placeholder="z.B. Kremser Schmidt"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="form-label">Rebsorte</label>
+            <input
+              name="rebsorte"
+              type="text"
+              list="rebsorten-list"
+              defaultValue={weingarten?.rebsorte ?? ''}
+              className="form-input"
+              placeholder="Rebsorte wählen oder eingeben"
+            />
+            <datalist id="rebsorten-list">
+              {REBSORTEN.map(r => <option key={r} value={r} />)}
+            </datalist>
+          </div>
+          <div>
+            <label className="form-label">Fläche (ha)</label>
+            <input
+              name="flaeche_ha"
+              type="number"
+              step="0.0001"
+              min="0"
+              defaultValue={weingarten?.flaeche_ha ?? ''}
+              className="form-input"
+              placeholder="z.B. 0.3456"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="form-label">Pflanzjahr</label>
+            <input
+              name="pflanzjahr"
+              type="number"
+              min="1900"
+              max="2100"
+              defaultValue={weingarten?.pflanzjahr ?? ''}
+              className="form-input"
+              placeholder="z.B. 1995"
+            />
+          </div>
+          <div>
+            <label className="form-label">Bewirtschaftung</label>
+            <select
+              name="bewirtschaftung"
+              defaultValue={weingarten?.bewirtschaftung ?? ''}
+              className="form-input"
+            >
+              <option value="">– bitte wählen –</option>
+              <option value="konventionell">Konventionell</option>
+              <option value="bio">Bio</option>
+              <option value="in_umstellung">In Umstellung</option>
+              <option value="demeter">Demeter</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Notizen */}
+      <div className="card space-y-4">
+        <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Notizen</h2>
+        <textarea
+          name="notizen"
+          rows={4}
+          defaultValue={weingarten?.notizen ?? ''}
+          className="form-input resize-none"
+          placeholder="Besonderheiten, Bodenart, Ausrichtung …"
+        />
+      </div>
+
+      {/* Aktiv-Toggle nur beim Bearbeiten */}
+      {weingarten && (
+        <div className="card">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="hidden"
+              name="aktiv"
+              value="false"
+            />
+            <input
+              type="checkbox"
+              name="aktiv"
+              value="true"
+              defaultChecked={weingarten.aktiv}
+              className="w-4 h-4 accent-s112-teal"
+            />
+            <span className="text-sm font-medium text-gray-700">Weingarten aktiv</span>
+          </label>
+        </div>
+      )}
+
+      {/* Aktionen */}
+      <div className="flex items-center gap-3">
+        <button
+          type="submit"
+          disabled={isPending}
+          className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50"
+        >
+          {isPending ? 'Wird gespeichert …' : 'Speichern'}
+        </button>
+        <button
+          type="button"
+          onClick={() => router.push('/weingarten')}
+          className="text-sm text-s112-muted hover:text-gray-700 transition-colors"
+        >
+          Abbrechen
+        </button>
+      </div>
+    </form>
+  )
+}
