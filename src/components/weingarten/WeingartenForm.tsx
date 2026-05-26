@@ -1,6 +1,5 @@
 'use client'
 
-import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 
 const REBSORTEN = [
@@ -27,16 +26,34 @@ interface Props {
   action: (formData: FormData) => Promise<void>
 }
 
+// Dezimalzahl: Komma → Punkt für Datenbankkompatibilität
+function normalizeDecimal(value: string): string {
+  return value.replace(',', '.')
+}
+
 export default function WeingartenForm({ weingarten, action }: Props) {
-  const [isPending, startTransition] = useTransition()
   const router = useRouter()
 
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const raw = new FormData(e.currentTarget)
+
+    // Dezimaltrenner normalisieren (AT/EU: Komma → Punkt)
+    const normalized = new FormData()
+    raw.forEach((value, key) => {
+      if (key === 'flaeche_ha' && typeof value === 'string') {
+        normalized.append(key, normalizeDecimal(value))
+      } else {
+        normalized.append(key, value)
+      }
+    })
+
+    await action(normalized)
+  }
+
   return (
-    <form
-      action={(formData) => startTransition(() => action(formData))}
-      className="space-y-6"
-    >
-      {/* Pflichtfelder */}
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Basisdaten */}
       <div className="card space-y-4">
         <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Basisdaten</h2>
 
@@ -83,13 +100,13 @@ export default function WeingartenForm({ weingarten, action }: Props) {
             <label className="form-label">Fläche (ha)</label>
             <input
               name="flaeche_ha"
-              type="number"
-              step="0.0001"
-              min="0"
-              defaultValue={weingarten?.flaeche_ha ?? ''}
+              type="text"
+              inputMode="decimal"
+              defaultValue={weingarten?.flaeche_ha?.toString().replace('.', ',') ?? ''}
               className="form-input"
-              placeholder="z.B. 0.3456"
+              placeholder="z.B. 0,3456"
             />
+            <p className="text-xs text-s112-muted mt-1">Dezimaltrenner: Komma (z.B. 0,3456)</p>
           </div>
         </div>
 
@@ -140,11 +157,6 @@ export default function WeingartenForm({ weingarten, action }: Props) {
         <div className="card">
           <label className="flex items-center gap-3 cursor-pointer">
             <input
-              type="hidden"
-              name="aktiv"
-              value="false"
-            />
-            <input
               type="checkbox"
               name="aktiv"
               value="true"
@@ -160,10 +172,9 @@ export default function WeingartenForm({ weingarten, action }: Props) {
       <div className="flex items-center gap-3">
         <button
           type="submit"
-          disabled={isPending}
-          className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50"
+          className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
         >
-          {isPending ? 'Wird gespeichert …' : 'Speichern'}
+          Speichern
         </button>
         <button
           type="button"
