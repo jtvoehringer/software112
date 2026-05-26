@@ -39,7 +39,6 @@ export async function createWeingarten(formData: FormData) {
   if (error) throw new Error((error as AnyRecord).message)
 
   revalidatePath('/weingarten')
-  redirect('/weingarten')
 }
 
 export async function updateWeingarten(id: string, formData: FormData) {
@@ -61,7 +60,6 @@ export async function updateWeingarten(id: string, formData: FormData) {
   if (error) throw new Error((error as AnyRecord).message)
 
   revalidatePath('/weingarten')
-  redirect('/weingarten')
 }
 
 export async function deactivateWeingarten(id: string) {

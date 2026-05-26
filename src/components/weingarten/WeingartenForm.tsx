@@ -49,6 +49,8 @@ export default function WeingartenForm({ weingarten, action }: Props) {
     })
 
     await action(normalized)
+    router.push('/weingarten')
+    router.refresh()
   }
 
   return (
