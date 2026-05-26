@@ -69,3 +69,11 @@ export async function deactivateWeingarten(id: string) {
   if (error) throw new Error((error as AnyRecord).message)
   revalidatePath('/weingarten')
 }
+
+export async function deleteWeingarten(id: string) {
+  const supabase = await createSupabaseServerClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('weingarten') as any).delete().eq('id', id)
+  if (error) throw new Error((error as AnyRecord).message)
+  revalidatePath('/weingarten')
+}

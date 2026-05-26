@@ -10,7 +10,7 @@
 
 DO $$
 DECLARE
-  v_tenant_id uuid := '<TENANT_ID>'::uuid;  -- << HIER ERSETZEN
+  v_tenant_id uuid := 'fa22dc07-eca5-43df-af96-f7b9b09f0471'::uuid;
   v_wg_id     uuid;
 BEGIN
 
