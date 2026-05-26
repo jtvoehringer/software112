@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 const REBSORTEN = [
@@ -33,12 +34,15 @@ function normalizeDecimal(value: string): string {
 
 export default function WeingartenForm({ weingarten, action }: Props) {
   const router = useRouter()
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const raw = new FormData(e.currentTarget)
+    setError(null)
+    setSaving(true)
 
-    // Dezimaltrenner normalisieren (AT/EU: Komma → Punkt)
+    const raw = new FormData(e.currentTarget)
     const normalized = new FormData()
     raw.forEach((value, key) => {
       if (key === 'flaeche_ha' && typeof value === 'string') {
@@ -48,13 +52,23 @@ export default function WeingartenForm({ weingarten, action }: Props) {
       }
     })
 
-    await action(normalized)
-    router.push('/weingarten')
-    router.refresh()
+    try {
+      await action(normalized)
+      router.push('/weingarten')
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unbekannter Fehler')
+      setSaving(false)
+    }
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
+          <strong>Fehler:</strong> {error}
+        </div>
+      )}
       {/* Basisdaten */}
       <div className="card space-y-4">
         <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Basisdaten</h2>
@@ -174,9 +188,10 @@ export default function WeingartenForm({ weingarten, action }: Props) {
       <div className="flex items-center gap-3">
         <button
           type="submit"
-          className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
+          disabled={saving}
+          className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50"
         >
-          Speichern
+          {saving ? 'Wird gespeichert …' : 'Speichern'}
         </button>
         <button
           type="button"
