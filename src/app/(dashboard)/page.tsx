@@ -22,9 +22,9 @@ export default async function DashboardPage() {
     .from('tenant_memberships')
     .select('role, tenants(name)')
 
-  const tenantName = memberships?.[0]?.tenants
-    ? (memberships[0].tenants as { name: string }).name
-    : null
+  type MembershipRow = { role: string; tenants: { name: string } | null }
+  const membership = (memberships as MembershipRow[] | null)?.[0]
+  const tenantName = membership?.tenants?.name ?? null
 
   return (
     <div>
