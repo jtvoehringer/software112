@@ -45,3 +45,11 @@ set    flaeche_ha = g.flaeche_ha
 from   grundstuecke g
 where  bg.grundstueck_id = g.id
   and  bg.flaeche_ha is null;
+
+-- ─── Cu-Gehalt: Backfill aus wirkstoffgehalt_pct fuer Kupferpraeparate ────────
+-- Kupferpraeparate haben Wirkstoff = 'Kupfer...' und wirkstoffgehalt_pct > 0
+update pflanzenschutzmittel
+set    cu_gehalt_pct = wirkstoffgehalt_pct
+where  wirkstoff ilike '%kupfer%'
+  and  wirkstoffgehalt_pct > 0
+  and  (cu_gehalt_pct is null or cu_gehalt_pct = 0);

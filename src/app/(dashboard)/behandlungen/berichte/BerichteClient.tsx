@@ -161,12 +161,18 @@ function TabLage({ behandlungen, jahr }: { behandlungen: BehandlungReport[]; jah
 function TabMittel({ behandlungen, jahr }: { behandlungen: BehandlungReport[]; jahr: string }) {
   const filtered = jahr === 'all' ? behandlungen : behandlungen.filter(b => b.datum.startsWith(jahr))
 
-  const mittelMap = new Map<string, { name: string; einheit: string | null; menge: number; anwendungen: number; ha: number }>()
+  const mittelMap = new Map<string, {
+    name: string; einheit: string | null; menge: number; anwendungen: number; ha: number
+    max_aufwand_kg_ha: number | null; max_anwendungen: number | null
+  }>()
   for (const b of filtered) {
     if (!b.psm_name || b.menge_gesamt == null) continue
     const key = b.psm_name
     const totalHa = b.grundstuecke.reduce((s, g) => s + g.flaeche_ha, 0)
-    const curr = mittelMap.get(key) ?? { name: b.psm_name, einheit: b.menge_einheit, menge: 0, anwendungen: 0, ha: 0 }
+    const curr = mittelMap.get(key) ?? {
+      name: b.psm_name, einheit: b.menge_einheit, menge: 0, anwendungen: 0, ha: 0,
+      max_aufwand_kg_ha: b.max_aufwand_kg_ha, max_anwendungen: b.max_anwendungen,
+    }
     curr.menge += b.menge_gesamt
     curr.anwendungen++
     curr.ha += totalHa
@@ -184,25 +190,43 @@ function TabMittel({ behandlungen, jahr }: { behandlungen: BehandlungReport[]; j
             <tr className="border-b border-s112-border">
               <th className="text-left text-xs text-s112-muted font-semibold py-1.5 pr-3">Mittel</th>
               <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Anwendungen</th>
-              <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Behandelte ha (kum.)</th>
-              <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Verbrauch gesamt</th>
-              <th className="text-right text-xs text-s112-muted font-semibold py-1.5">Ø pro ha</th>
+              <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Max. Anw.</th>
+              <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Ø pro ha</th>
+              <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Grenzwert/ha</th>
+              <th className="text-right text-xs text-s112-muted font-semibold py-1.5">Status</th>
             </tr>
           </thead>
           <tbody>
-            {mittel.map(m => (
-              <tr key={m.name} className="border-b border-s112-border/40 hover:bg-s112-bg/30">
-                <td className="py-2.5 pr-3 font-medium">{m.name}</td>
-                <td className="py-2.5 pr-3 text-right tabular-nums">{m.anwendungen}</td>
-                <td className="py-2.5 pr-3 text-right tabular-nums">{fmtHa(m.ha)}</td>
-                <td className="py-2.5 pr-3 text-right tabular-nums font-semibold">
-                  {fmtNum(m.menge, 2)} {m.einheit ?? ''}
-                </td>
-                <td className="py-2.5 text-right tabular-nums text-s112-muted">
-                  {m.ha > 0 ? `${fmtNum(m.menge / m.ha, 3)} ${m.einheit ?? ''}/ha` : '–'}
-                </td>
-              </tr>
-            ))}
+            {mittel.map(m => {
+              const aufwandProHa = m.ha > 0 ? m.menge / m.ha : null
+              const aufwandOk = !m.max_aufwand_kg_ha || !aufwandProHa || aufwandProHa <= m.max_aufwand_kg_ha
+              const anwOk = !m.max_anwendungen || m.anwendungen <= m.max_anwendungen
+              const ok = aufwandOk && anwOk
+
+              return (
+                <tr key={m.name} className="border-b border-s112-border/40 hover:bg-s112-bg/30">
+                  <td className="py-2.5 pr-3 font-medium">{m.name}</td>
+                  <td className={`py-2.5 pr-3 text-right tabular-nums font-semibold ${!anwOk ? 'text-red-600' : ''}`}>
+                    {m.anwendungen}
+                  </td>
+                  <td className="py-2.5 pr-3 text-right tabular-nums text-s112-muted">
+                    {m.max_anwendungen ?? '–'}
+                  </td>
+                  <td className={`py-2.5 pr-3 text-right tabular-nums font-semibold ${!aufwandOk ? 'text-red-600' : ''}`}>
+                    {aufwandProHa != null ? `${fmtNum(aufwandProHa, 3)} ${m.einheit ?? ''}/ha` : '–'}
+                  </td>
+                  <td className="py-2.5 pr-3 text-right tabular-nums text-s112-muted">
+                    {m.max_aufwand_kg_ha != null ? `${m.max_aufwand_kg_ha} kg/ha` : '–'}
+                  </td>
+                  <td className="py-2.5 text-right">
+                    {ok
+                      ? <span className="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full">✓ OK</span>
+                      : <span className="text-xs bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded-full">⚠ Grenzwert</span>
+                    }
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -211,39 +235,72 @@ function TabMittel({ behandlungen, jahr }: { behandlungen: BehandlungReport[]; j
 }
 
 // ─── Cu-Bilanz Tab ────────────────────────────────────────────────────────────
-const CU_LIMIT_G_HA = 4000 // 4 kg Cu/ha/Jahr EU-Bio-Limit
+// EU-Bio-Grenzwert: 4 kg Cu/ha/Jahr (Verordnung EU 2018/848)
+// AT-Grenzwert auf 5-Jahres-Basis: max. 20 kg/ha in 5 Jahren (≈ 4 kg/ha/Jahr Durchschnitt)
+const CU_LIMIT_G_HA_JAHR = 4000       // 4 kg Cu/ha/Jahr
+const CU_LIMIT_G_HA_5JAHRE = 20000    // 20 kg Cu/ha über 5 Jahre
+
+type CuEintrag = {
+  datum: string; name: string; pct: number
+  menge: number; einheit: string; cuG: number
+  max_anwendungen: number | null; wartezeit_tage: number | null
+}
 
 function TabCu({ behandlungen }: { behandlungen: BehandlungReport[] }) {
-  // Nur kg-Mengen mit Cu-Gehalt sinnvoll vergleichbar
-  const cuByYear = new Map<string, { cuG: number; ha: number; eintraege: { datum: string; name: string; pct: number; menge: number; cuG: number }[] }>()
+  const cuByYear = new Map<string, { cuG: number; ha: number; eintraege: CuEintrag[] }>()
 
   for (const b of behandlungen) {
-    if (!b.cu_gehalt_pct || b.menge_gesamt == null || b.menge_einheit !== 'kg') continue
+    // Cu-Gehalt: direktes Feld ODER Fallback aus wirkstoffgehalt_pct (bereits im Server aufgelöst)
+    const cuPct = b.cu_gehalt_pct
+    if (!cuPct || cuPct <= 0 || b.menge_gesamt == null) continue
+
+    // Umrechnung in kg (nur kg und l sinnvoll; g/ml ignorieren da zu kleine Mengen)
+    let mengeKg = 0
+    if (b.menge_einheit === 'kg' || b.menge_einheit == null) {
+      mengeKg = b.menge_gesamt
+    } else if (b.menge_einheit === 'l') {
+      mengeKg = b.menge_gesamt  // Näherung: Dichte ≈ 1 kg/l für wässrige Lösungen
+    } else {
+      continue  // g/ml: keine sinnvolle Cu-Berechnung ohne Verdünnung
+    }
+
     const y = b.datum.slice(0, 4)
     const totalHa = b.grundstuecke.reduce((s, g) => s + g.flaeche_ha, 0)
-    const cuG = b.menge_gesamt * 1000 * (b.cu_gehalt_pct / 100)
+    const cuG = mengeKg * 1000 * (cuPct / 100)
     const curr = cuByYear.get(y) ?? { cuG: 0, ha: 0, eintraege: [] }
     curr.cuG += cuG
     curr.ha += totalHa
     curr.eintraege.push({
-      datum: b.datum,
-      name:  b.psm_name ?? '–',
-      pct:   b.cu_gehalt_pct,
-      menge: b.menge_gesamt,
+      datum:           b.datum,
+      name:            b.psm_name ?? '–',
+      pct:             cuPct,
+      menge:           b.menge_gesamt,
+      einheit:         b.menge_einheit ?? 'kg',
       cuG,
+      max_anwendungen: b.max_anwendungen,
+      wartezeit_tage:  b.wartezeit_tage,
     })
     cuByYear.set(y, curr)
   }
 
   const jahre = Array.from(cuByYear.entries()).sort(([a], [b]) => b.localeCompare(a))
 
+  // 5-Jahres-Summe
+  const cu5JahreG = Array.from(cuByYear.values()).reduce((s, d) => s + d.cuG, 0)
+  const cu5JahreHa = cuByYear.size > 0
+    ? Array.from(cuByYear.values()).reduce((s, d) => s + d.ha, 0) / cuByYear.size
+    : 0
+
   if (jahre.length === 0) {
     return (
       <div className="card">
         <div className="text-center py-12 text-s112-muted">
-          <p className="text-2xl mb-2">🔵</p>
-          <p className="font-medium text-gray-600">Keine Cu-Bilanz verfügbar</p>
-          <p className="text-sm mt-1">Erfassen Sie Behandlungen mit kupferhaltigen Mitteln (cu_gehalt_pct &gt; 0) und Menge in kg.</p>
+          <p className="text-3xl mb-2">🔵</p>
+          <p className="font-medium text-gray-600">Keine Cu-Daten vorhanden</p>
+          <p className="text-sm mt-1 max-w-sm mx-auto">
+            Erfassen Sie Behandlungen mit kupferhaltigen Mitteln. Der Cu-Gehalt muss im
+            PSM-Stammdatum (Feld &quot;cu_gehalt_pct&quot;) hinterlegt sein und die Menge in kg oder l angegeben werden.
+          </p>
         </div>
       </div>
     )
@@ -251,39 +308,74 @@ function TabCu({ behandlungen }: { behandlungen: BehandlungReport[] }) {
 
   return (
     <div className="space-y-4">
+
+      {/* 5-Jahres-Übersicht */}
+      {jahre.length > 1 && (
+        <div className="card bg-blue-50 border-blue-200">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-semibold text-blue-900">5-Jahres-Bilanz (AT-Grenzwert)</h3>
+            <span className="text-xs text-blue-600 font-medium">Limit: 20 kg Cu/ha über 5 Jahre</span>
+          </div>
+          <div className="h-4 bg-blue-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full ${cu5JahreG / Math.max(cu5JahreHa, 0.001) > CU_LIMIT_G_HA_5JAHRE ? 'bg-red-500' : 'bg-blue-500'}`}
+              style={{ width: `${Math.min(100, (cu5JahreG / Math.max(cu5JahreHa, 0.001)) / CU_LIMIT_G_HA_5JAHRE * 100)}%` }}
+            />
+          </div>
+          <p className="text-xs text-blue-700 mt-1.5">
+            Gesamteintrag: <strong>{(cu5JahreG / 1000).toFixed(2)} kg Cu</strong> über {jahre.length} Jahre
+            · Ø {cu5JahreHa > 0 ? ((cu5JahreG / cu5JahreHa) / 1000).toFixed(3) : '–'} kg Cu/ha
+          </p>
+        </div>
+      )}
+
       {jahre.map(([y, data]) => {
-        // Pro ha bezogen auf Gesamtfläche (alle behandelten GST)
-        // Besser: pro ha gesamtbetriebliche Fläche — hier nehmen wir die Summe behandelter ha
         const cuProHa = data.ha > 0 ? data.cuG / data.ha : 0
-        const pct = Math.min(100, (cuProHa / CU_LIMIT_G_HA) * 100)
-        const status = cuProHa > CU_LIMIT_G_HA ? 'red' : cuProHa > CU_LIMIT_G_HA * 0.8 ? 'amber' : 'green'
-        const statusColor = status === 'red' ? 'bg-red-500' : status === 'amber' ? 'bg-amber-400' : 'bg-s112-teal'
-        const badgeColor = status === 'red' ? 'bg-red-50 text-red-700 border-red-200' : status === 'amber' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-green-50 text-green-700 border-green-200'
+        const pct = Math.min(100, (cuProHa / CU_LIMIT_G_HA_JAHR) * 100)
+        const status = cuProHa > CU_LIMIT_G_HA_JAHR ? 'red'
+                     : cuProHa > CU_LIMIT_G_HA_JAHR * 0.8 ? 'amber'
+                     : 'green'
+        const barColor = status === 'red' ? 'bg-red-500' : status === 'amber' ? 'bg-amber-400' : 'bg-s112-teal'
+        const badgeColor = status === 'red'   ? 'bg-red-50 text-red-700 border-red-200'
+                         : status === 'amber' ? 'bg-amber-50 text-amber-700 border-amber-200'
+                         : 'bg-green-50 text-green-700 border-green-200'
+
+        // Anwendungsanzahl je PSM in diesem Jahr
+        const anwByPsm = new Map<string, number>()
+        data.eintraege.forEach(e => anwByPsm.set(e.name, (anwByPsm.get(e.name) ?? 0) + 1))
 
         return (
           <div key={y} className="card space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-bold text-gray-900 tabular-nums">{y}</h3>
-              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${badgeColor}`}>
-                {(cuProHa / 1000).toFixed(3)} kg Cu/ha
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-s112-muted">EU-Bio: 4 kg/ha/Jahr</span>
+                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${badgeColor}`}>
+                  {(cuProHa / 1000).toFixed(3)} kg Cu/ha
+                </span>
+              </div>
             </div>
 
             {/* Progress Bar */}
             <div>
-              <div className="h-5 bg-gray-100 rounded-full overflow-hidden relative border border-s112-border">
-                <div
-                  className={`h-full rounded-full transition-all ${statusColor}`}
-                  style={{ width: `${pct}%` }}
-                />
-                <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-gray-700">
-                  {pct.toFixed(0)} % des EU-Bio-Limits (4 kg/ha/Jahr)
+              <div className="h-6 bg-gray-100 rounded-lg overflow-hidden relative border border-s112-border">
+                <div className={`h-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+                {/* Marker bei 80% */}
+                <div className="absolute top-0 bottom-0 border-l-2 border-dashed border-amber-400 opacity-60" style={{ left: '80%' }} />
+                <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-gray-700 mix-blend-multiply">
+                  {pct.toFixed(1)} % des Grenzwerts
                 </div>
+              </div>
+              <div className="flex justify-between text-xs text-s112-muted mt-1">
+                <span>0</span>
+                <span className="text-amber-600">Warnschwelle 80 %</span>
+                <span className="font-medium">4 kg/ha</span>
               </div>
             </div>
 
             <p className="text-xs text-s112-muted">
-              Gesamteintrag: {(data.cuG / 1000).toFixed(2)} kg Cu auf {fmtHa(data.ha)} (kumuliert behandelt)
+              Gesamteintrag: <strong>{(data.cuG / 1000).toFixed(2)} kg Cu</strong>
+              {' '}auf <strong>{fmtHa(data.ha)}</strong> (Summe behandelter Flächen)
             </p>
 
             {/* Eintragsdetails */}
@@ -294,23 +386,43 @@ function TabCu({ behandlungen }: { behandlungen: BehandlungReport[] }) {
                     <th className="text-left text-xs text-s112-muted font-semibold py-1.5 pr-3">Datum</th>
                     <th className="text-left text-xs text-s112-muted font-semibold py-1.5 pr-3">Mittel</th>
                     <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Cu-%</th>
-                    <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Menge (kg)</th>
-                    <th className="text-right text-xs text-s112-muted font-semibold py-1.5">Cu-Eintrag (g)</th>
+                    <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Menge</th>
+                    <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Cu-Eintrag</th>
+                    <th className="text-right text-xs text-s112-muted font-semibold py-1.5">Anw. / Max.</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {data.eintraege.sort((a, b) => a.datum.localeCompare(b.datum)).map((e, i) => (
-                    <tr key={i} className="border-b border-s112-border/40">
-                      <td className="py-2 pr-3 tabular-nums">{fmtDate(e.datum)}</td>
-                      <td className="py-2 pr-3">{e.name}</td>
-                      <td className="py-2 pr-3 text-right tabular-nums">{e.pct} %</td>
-                      <td className="py-2 pr-3 text-right tabular-nums">{fmtNum(e.menge, 2)}</td>
-                      <td className="py-2 text-right tabular-nums font-semibold text-blue-600">
-                        {Math.round(e.cuG).toLocaleString('de-AT')} g
-                      </td>
-                    </tr>
-                  ))}
+                  {data.eintraege.sort((a, b) => a.datum.localeCompare(b.datum)).map((e, i) => {
+                    const anwBisher = anwByPsm.get(e.name) ?? 1
+                    const anwOk = !e.max_anwendungen || anwBisher <= e.max_anwendungen
+                    return (
+                      <tr key={i} className="border-b border-s112-border/40">
+                        <td className="py-2 pr-3 tabular-nums">{fmtDate(e.datum)}</td>
+                        <td className="py-2 pr-3">{e.name}</td>
+                        <td className="py-2 pr-3 text-right tabular-nums">{e.pct} %</td>
+                        <td className="py-2 pr-3 text-right tabular-nums">
+                          {fmtNum(e.menge, 2)} {e.einheit}
+                        </td>
+                        <td className="py-2 pr-3 text-right tabular-nums font-semibold text-blue-600">
+                          {(e.cuG / 1000).toFixed(3)} kg
+                        </td>
+                        <td className={`py-2 text-right tabular-nums text-xs ${!anwOk ? 'text-red-600 font-semibold' : 'text-s112-muted'}`}>
+                          {e.max_anwendungen ? `${anwBisher} / ${e.max_anwendungen}` : `${anwBisher} / –`}
+                          {!anwOk && ' ⚠'}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-s112-border bg-s112-bg/40">
+                    <td colSpan={4} className="py-2 pr-3 text-xs font-semibold text-gray-600">Summe {y}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums font-bold text-blue-700">
+                      {(data.cuG / 1000).toFixed(3)} kg Cu
+                    </td>
+                    <td />
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>

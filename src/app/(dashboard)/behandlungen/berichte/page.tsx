@@ -19,6 +19,11 @@ export type BehandlungReport = {
   psm_id: string | null
   psm_name: string | null
   cu_gehalt_pct: number | null
+  wirkstoffgehalt_pct: number | null   // Fallback für Cu-Berechnung
+  wirkstoff: string | null
+  max_aufwand_kg_ha: number | null     // EU/AT Grenzwert Aufwandmenge
+  max_anwendungen: number | null       // max. Anwendungen pro Saison
+  wartezeit_tage: number | null
   oeko_zugelassen: boolean
   notizen: string | null
   grundstuecke: {
@@ -40,7 +45,10 @@ export default async function BerichtePage() {
   const { data: rawB } = await (supabase.from('behandlungen') as any)
     .select(`
       id, datum, datum_bis, art, menge_gesamt, menge_einheit, notizen,
-      psm:psm_id(name, cu_gehalt_pct, oeko_zugelassen)
+      psm:psm_id(
+        name, cu_gehalt_pct, wirkstoffgehalt_pct, wirkstoff,
+        max_aufwand_kg_ha, max_anwendungen, wartezeit_tage, oeko_zugelassen
+      )
     `)
     .order('datum', { ascending: false })
 
@@ -79,11 +87,21 @@ export default async function BerichtePage() {
     art:            b.art ?? 'spritzung',
     menge_gesamt:   b.menge_gesamt ?? null,
     menge_einheit:  b.menge_einheit ?? null,
-    psm_id:         b.psm?.id ?? null,
-    psm_name:       b.psm?.name ?? null,
-    cu_gehalt_pct:  b.psm?.cu_gehalt_pct ?? null,
-    oeko_zugelassen: b.psm?.oeko_zugelassen ?? false,
-    notizen:        b.notizen ?? null,
+    psm_id:              b.psm?.id ?? null,
+    psm_name:            b.psm?.name ?? null,
+    // cu_gehalt_pct: eigenes Feld; Fallback auf wirkstoffgehalt_pct bei Kupferpräparaten
+    cu_gehalt_pct:       (b.psm?.cu_gehalt_pct && b.psm.cu_gehalt_pct > 0)
+                           ? b.psm.cu_gehalt_pct
+                           : (b.psm?.wirkstoff?.toLowerCase().includes('kupfer') && b.psm?.wirkstoffgehalt_pct > 0)
+                             ? b.psm.wirkstoffgehalt_pct
+                             : null,
+    wirkstoffgehalt_pct: b.psm?.wirkstoffgehalt_pct ?? null,
+    wirkstoff:           b.psm?.wirkstoff ?? null,
+    max_aufwand_kg_ha:   b.psm?.max_aufwand_kg_ha ?? null,
+    max_anwendungen:     b.psm?.max_anwendungen ?? null,
+    wartezeit_tage:      b.psm?.wartezeit_tage ?? null,
+    oeko_zugelassen:     b.psm?.oeko_zugelassen ?? false,
+    notizen:             b.notizen ?? null,
     grundstuecke:   bgByBeh.get(b.id) ?? [],
   }))
 
