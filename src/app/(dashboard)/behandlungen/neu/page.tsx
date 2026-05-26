@@ -12,11 +12,12 @@ type AR = Record<string, any>
 export type PSM = {
   id: string; name: string; handelsname: string | null
   kategorie: string | null; wartezeit_tage: number | null
-  aufwandmenge_einheit?: string | null; oeko_zugelassen: boolean
+  oeko_zugelassen: boolean; cu_gehalt_pct: number | null
 }
 export type WeingartenOption = {
   id: string; name: string; ried: string | null; lage_id: string | null; lage_name: string | null
-  spritzbar: boolean  // false wenn alle Grundstücke nicht spritzbar
+  spritzbar: boolean       // false wenn alle Grundstücke nicht spritzbar
+  gst_ha_aktiv: number     // Summe flaeche_ha aktiver Grundstücke (für anteilige Berechnung)
 }
 
 export default async function NeueBehandlungPage() {
@@ -25,13 +26,21 @@ export default async function NeueBehandlungPage() {
 
   const supabase = await createSupabaseServerClient()
 
-  // PSM laden (global + eigene)
+  // PSM laden (global + eigene) — inkl. cu_gehalt_pct
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawPSM } = await (supabase.from('pflanzenschutzmittel') as any)
-    .select('id, name, handelsname, kategorie, wartezeit_tage, oeko_zugelassen')
+    .select('id, name, handelsname, kategorie, wartezeit_tage, oeko_zugelassen, cu_gehalt_pct')
     .eq('aktiv', true)
     .order('name')
-  const psm = (rawPSM ?? []) as PSM[]
+  const psm: PSM[] = ((rawPSM ?? []) as AR[]).map(p => ({
+    id:             p.id,
+    name:           p.name,
+    handelsname:    p.handelsname ?? null,
+    kategorie:      p.kategorie ?? null,
+    wartezeit_tage: p.wartezeit_tage ?? null,
+    oeko_zugelassen: p.oeko_zugelassen ?? false,
+    cu_gehalt_pct:  p.cu_gehalt_pct ?? null,
+  }))
 
   // Aktive Weingärten mit Lage
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -39,35 +48,32 @@ export default async function NeueBehandlungPage() {
     .select('id, name, ried, lage_id, lagen:lage_id(name)')
     .eq('aktiv', true)
     .order('name')
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rawWeingarten = (rawW ?? []) as any[]
 
-  // Grundstücke laden um spritzbar zu bestimmen
+  // Grundstücke laden: status + flaeche_ha
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawG } = await (supabase.from('grundstuecke') as any)
-    .select('weingarten_id, status')
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const grundstuecke = (rawG ?? []) as any[]
+    .select('weingarten_id, status, flaeche_ha')
 
-  // Spritzbarkeit je Weingarten berechnen
-  const gstByWG = new Map<string, string[]>()
-  for (const g of grundstuecke) {
+  // Flächensumme und Spritzbarkeit je Weingarten berechnen
+  const gstByWG = new Map<string, { status: string; ha: number }[]>()
+  for (const g of ((rawG ?? []) as AR[])) {
     const arr = gstByWG.get(g.weingarten_id) ?? []
-    arr.push(g.status)
+    arr.push({ status: g.status, ha: g.flaeche_ha ?? 0 })
     gstByWG.set(g.weingarten_id, arr)
   }
 
-  const weingaerten: WeingartenOption[] = rawWeingarten.map((w: AR) => {
-    const stati = gstByWG.get(w.id) ?? []
-    // Spritzbar wenn: keine GST vorhanden ODER mindestens ein aktives GST
-    const spritzbar = stati.length === 0 || stati.some(s => s === 'aktiv')
+  const weingaerten: WeingartenOption[] = ((rawW ?? []) as AR[]).map(w => {
+    const gsts = gstByWG.get(w.id) ?? []
+    const spritzbar = gsts.length === 0 || gsts.some(g => g.status === 'aktiv')
+    const gst_ha_aktiv = gsts.filter(g => g.status === 'aktiv').reduce((s, g) => s + g.ha, 0)
     return {
-      id: w.id,
-      name: w.name,
-      ried: w.ried ?? null,
-      lage_id: w.lage_id ?? null,
-      lage_name: w.lagen?.name ?? null,
+      id:           w.id,
+      name:         w.name,
+      ried:         w.ried ?? null,
+      lage_id:      w.lage_id ?? null,
+      lage_name:    w.lagen?.name ?? null,
       spritzbar,
+      gst_ha_aktiv,
     }
   })
 

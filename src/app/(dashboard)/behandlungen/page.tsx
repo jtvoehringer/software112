@@ -69,14 +69,22 @@ export default async function BehandlungenPage() {
           <h1 className="text-2xl font-bold text-gray-900">Behandlungen</h1>
           <p className="text-sm text-s112-muted mt-0.5">Pflanzenschutz-Protokoll</p>
         </div>
-        {writeOk && (
+        <div className="flex items-center gap-2">
           <Link
-            href="/behandlungen/neu"
-            className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
+            href="/behandlungen/berichte"
+            className="inline-flex items-center gap-2 border border-s112-border text-gray-700 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-bg transition-colors"
           >
-            <span>＋</span> Neue Behandlung
+            📊 Berichte
           </Link>
-        )}
+          {writeOk && (
+            <Link
+              href="/behandlungen/neu"
+              className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
+            >
+              <span>＋</span> Neue Behandlung
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
