@@ -1,0 +1,67 @@
+'use server'
+
+import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AR = Record<string, any>
+
+async function getTenantId(): Promise<string> {
+  const supabase = await createSupabaseServerClient()
+  const { data } = await supabase.from('tenant_memberships').select('tenant_id').limit(1).single()
+  const id = (data as AR | null)?.tenant_id
+  if (!id) throw new Error('Kein Betrieb gefunden')
+  return id
+}
+
+export async function createLage(formData: FormData) {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  const payload: AR = {
+    tenant_id:    tenantId,
+    name:         formData.get('name') as string,
+    gemeinde:     (formData.get('gemeinde') as string) || null,
+    weinbaugebiet:(formData.get('weinbaugebiet') as string) || null,
+    notizen:      (formData.get('notizen') as string) || null,
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('lagen') as any).insert(payload)
+  if (error) throw new Error((error as AR).message)
+  revalidatePath('/lagen')
+  revalidatePath('/weingarten')
+}
+
+export async function updateLage(id: string, formData: FormData) {
+  const supabase = await createSupabaseServerClient()
+  const payload: AR = {
+    name:         formData.get('name') as string,
+    gemeinde:     (formData.get('gemeinde') as string) || null,
+    weinbaugebiet:(formData.get('weinbaugebiet') as string) || null,
+    notizen:      (formData.get('notizen') as string) || null,
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('lagen') as any).update(payload).eq('id', id)
+  if (error) throw new Error((error as AR).message)
+  revalidatePath('/lagen')
+  revalidatePath('/weingarten')
+}
+
+export async function deleteLage(id: string) {
+  const supabase = await createSupabaseServerClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('lagen') as any).delete().eq('id', id)
+  if (error) throw new Error((error as AR).message)
+  revalidatePath('/lagen')
+  revalidatePath('/weingarten')
+}
+
+export async function assignWeingartenToLage(weingartenId: string, lageId: string | null) {
+  const supabase = await createSupabaseServerClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('weingarten') as any)
+    .update({ lage_id: lageId })
+    .eq('id', weingartenId)
+  if (error) throw new Error((error as AR).message)
+  revalidatePath('/lagen')
+  revalidatePath('/weingarten')
+}

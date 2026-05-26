@@ -7,6 +7,7 @@ import type { UserRole } from '@/lib/auth/roles'
 
 const NAV_ITEMS = [
   { href: '/dashboard',   label: 'Übersicht',  icon: '⊞', phase: 0 },
+  { href: '/lagen',       label: 'Lagen',      icon: '🗺', phase: 1 },
   { href: '/weingarten',  label: 'Weingarten', icon: '🌿', phase: 1 },
   { href: '/kellerbuch',  label: 'Kellerbuch', icon: '🍷', phase: 1 },
   { href: '/dac',         label: 'DAC',        icon: '📋', phase: 1 },

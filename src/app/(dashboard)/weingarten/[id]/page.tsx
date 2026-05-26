@@ -1,10 +1,12 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentUserRole, canWrite, canAdmin } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import WeingartenForm from '@/components/weingarten/WeingartenForm'
+import GrundstueckePanel, { type GST } from '../GrundstueckePanel'
 import { updateWeingarten } from '../actions'
 
 export const metadata: Metadata = { title: 'Weingarten bearbeiten – software:112' }
@@ -13,30 +15,32 @@ interface Props {
   params: Promise<{ id: string }>
 }
 
-type WeingartenRow = {
-  id: string
-  name: string
-  ried: string | null
-  rebsorte: string | null
-  flaeche_ha: number | null
-  pflanzjahr: number | null
-  bewirtschaftung: string | null
-  notizen: string | null
-  aktiv: boolean
-}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AR = Record<string, any>
 
 export default async function WeingartenEditPage({ params }: Props) {
   const { id } = await params
   const supabase = await createSupabaseServerClient()
+  const role = await getCurrentUserRole()
+  const writeOk = canWrite(role)
+  const adminOk = canAdmin(role)
 
-  const { data: rows } = await supabase
-    .from('weingarten')
-    .select('id, name, ried, rebsorte, flaeche_ha, pflanzjahr, bewirtschaftung, notizen, aktiv')
+  // Weingarten
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rows } = await (supabase.from('weingarten') as any)
+    .select('id, name, ried, lage_id, rebsorte, flaeche_ha, pflanzjahr, bewirtschaftung, notizen, aktiv')
     .eq('id', id)
     .limit(1)
-
-  const weingarten = (rows as WeingartenRow[] | null)?.[0] ?? null
+  const weingarten = ((rows as AR[] | null)?.[0]) ?? null
   if (!weingarten) notFound()
+
+  // Grundstücke
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawG } = await (supabase.from('grundstuecke') as any)
+    .select('id, weingarten_id, gst_nr, katastralgemeinde, einlagezahl, rebsorte, pflanzjahr, flaeche_ha, status, notizen')
+    .eq('weingarten_id', id)
+    .order('gst_nr')
+  const grundstuecke = (rawG ?? []) as GST[]
 
   const action = updateWeingarten.bind(null, id)
 
@@ -57,7 +61,21 @@ export default async function WeingartenEditPage({ params }: Props) {
         )}
       </div>
 
-      <WeingartenForm weingarten={weingarten} action={action} />
+      {/* Stammdaten-Formular */}
+      <div className="card mb-6">
+        <h2 className="text-base font-semibold text-gray-800 mb-4">Stammdaten</h2>
+        <WeingartenForm weingarten={weingarten} action={action} />
+      </div>
+
+      {/* Grundstücke */}
+      <div className="card">
+        <GrundstueckePanel
+          weingartenId={id}
+          grundstuecke={grundstuecke}
+          writeOk={writeOk}
+          adminOk={adminOk}
+        />
+      </div>
     </div>
   )
 }
