@@ -17,8 +17,9 @@ export default async function NeuePage() {
     (supabase.from('weingarten') as any).select('id, name').eq('aktiv', true).order('name'),
     (supabase.from('behaelter') as any).select('id, name').eq('aktiv', true).order('name'),
   ])
-  const weingaerten = (wgRaw ?? []) as R[]
-  const behaelter   = (bhRaw ?? []) as R[]
+  type NameRow = { id: string; name: string }
+  const weingaerten = (wgRaw ?? []) as NameRow[]
+  const behaelter   = (bhRaw ?? []) as NameRow[]
 
   return (
     <div className="max-w-2xl">

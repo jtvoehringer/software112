@@ -24,10 +24,12 @@ export default async function WeinausbauEditPage({ params }: { params: Promise<{
     (supabase.from('behaelter') as any).select('id, name').eq('aktiv', true).order('name'),
   ])
 
-  const weinausbau  = ((rows ?? []) as R[])[0] ?? null
+  type WeinausbauRow = { id: string; name: string; jahrgang: number | null; rebsorte: string | null; weingarten_id: string | null; behaelter_id: string | null; menge_liter: number | null; status: string; notizen: string | null; aktiv: boolean }
+  type NameRow = { id: string; name: string }
+  const weinausbau  = (((rows ?? []) as R[])[0] ?? null) as WeinausbauRow | null
   if (!weinausbau) notFound()
-  const weingaerten = (wgRaw ?? []) as R[]
-  const behaelter   = (bhRaw ?? []) as R[]
+  const weingaerten = (wgRaw ?? []) as NameRow[]
+  const behaelter   = (bhRaw ?? []) as NameRow[]
 
   return (
     <div className="max-w-2xl">

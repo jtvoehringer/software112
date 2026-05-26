@@ -17,7 +17,8 @@ export default async function BehaelterEditPage({ params }: { params: Promise<{ 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rows } = await (supabase.from('behaelter') as any)
     .select('id, name, typ, volumen_liter, standort, aktiv').eq('id', id).limit(1)
-  const behaelter = ((rows ?? []) as R[])[0] ?? null
+  type BehaelterRow = { id: string; name: string; typ: string | null; volumen_liter: number | null; standort: string | null; aktiv: boolean }
+  const behaelter = (((rows ?? []) as R[])[0] ?? null) as BehaelterRow | null
   if (!behaelter) notFound()
 
   return (
