@@ -24,7 +24,7 @@ async function getTenantId(): Promise<string | null> {
     .select('tenant_id')
     .limit(1)
     .single()
-  return data?.tenant_id ?? null
+  return (data as { tenant_id: string } | null)?.tenant_id ?? null
 }
 
 // ── CREATE ────────────────────────────────────────────────────────────────────
