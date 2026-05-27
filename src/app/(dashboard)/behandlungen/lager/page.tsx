@@ -38,7 +38,7 @@ export default async function LagerPage() {
   // Alle PSM (aktiv)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawPSM } = await (supabase.from('pflanzenschutzmittel') as any)
-    .select('id, name, kategorie, menge_einheit')
+    .select('id, name, kategorie')
     .eq('aktiv', true)
     .order('name')
 
@@ -79,6 +79,8 @@ export default async function LagerPage() {
   const psmOptions: PSMOption[] = psms.map(p => ({
     id: p.id, name: p.name, einheit_default: null, kategorie: p.kategorie ?? null,
   }))
+  // Alle PSM für Dropdown (nicht nur aktive mit Bewegungen)
+  // bereits in rawPSM enthalten
 
   const aktivePsm = psms
     .filter(p => bewegungenByPsm.has(p.id) || verbrauchByPsm.has(p.id))
