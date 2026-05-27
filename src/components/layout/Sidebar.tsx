@@ -202,4 +202,24 @@ export default function Sidebar({ userEmail, role, roleLabel }: SidebarProps) {
               className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors
                 ${active ? 'bg-s112-teal text-white' : 'text-gray-700 hover:bg-s112-bg hover:text-gray-900'}`}
             >
-             
+              <span className="w-5 text-center">{entry.icon}</span>
+              {entry.label}
+            </Link>
+          )
+        })}
+      </nav>
+
+      {/* User Footer */}
+      <div className="px-4 py-4 border-t border-s112-border">
+        <p className="text-xs text-s112-muted truncate">{userEmail}</p>
+        <p className="text-xs font-medium text-s112-teal mt-0.5">{roleLabel}</p>
+        <button
+          onClick={handleLogout}
+          className="text-xs text-s112-muted hover:text-red-600 transition-colors mt-2"
+        >
+          Abmelden
+        </button>
+      </div>
+    </aside>
+  )
+}
