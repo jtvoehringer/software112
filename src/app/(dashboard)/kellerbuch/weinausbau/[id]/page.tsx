@@ -18,13 +18,13 @@ export default async function WeinausbauEditPage({ params }: { params: Promise<{
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [{ data: rows }, { data: wgRaw }, { data: bhRaw }] = await Promise.all([
     (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, rebsorte, weingarten_id, behaelter_id, menge_liter, status, notizen, aktiv')
+      .select('id, name, jahrgang, rebsorte, weingarten_id, behaelter_id, menge_liter, status, qualitaetsstufe, notizen, aktiv')
       .eq('id', id).limit(1),
     (supabase.from('weingarten') as any).select('id, name').eq('aktiv', true).order('name'),
     (supabase.from('behaelter') as any).select('id, name').eq('aktiv', true).order('name'),
   ])
 
-  type WeinausbauRow = { id: string; name: string; jahrgang: number | null; rebsorte: string | null; weingarten_id: string | null; behaelter_id: string | null; menge_liter: number | null; status: string; notizen: string | null; aktiv: boolean }
+  type WeinausbauRow = { id: string; name: string; jahrgang: number | null; rebsorte: string | null; weingarten_id: string | null; behaelter_id: string | null; menge_liter: number | null; status: string; qualitaetsstufe: string | null; notizen: string | null; aktiv: boolean }
   type NameRow = { id: string; name: string }
   const weinausbau  = (((rows ?? []) as R[])[0] ?? null) as WeinausbauRow | null
   if (!weinausbau) notFound()
