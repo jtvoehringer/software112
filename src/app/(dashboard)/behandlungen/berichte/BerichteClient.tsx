@@ -459,10 +459,20 @@ export default function BerichteClient({ behandlungen }: { behandlungen: Behandl
     { id: 'cu',         label: '🔵 Cu-Bilanz' },
   ]
 
+  const TAB_TITLES: Record<Tab, string> = {
+    weingarten: 'Mittelverteilung pro Weingarten',
+    lage:       'Mittelverteilung pro Lage',
+    mittel:     'Mittelverbrauch & Grenzwerte',
+    cu:         'Cu-Bilanz',
+  }
+
+  const heute = new Date().toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const jahrLabel = jahr === 'all' ? 'Alle Jahre' : jahr
+
   return (
     <div>
-      {/* Tab Bar + Jahr-Filter */}
-      <div className="flex items-center justify-between mb-4">
+      {/* Tab Bar + Jahr-Filter + Print-Button */}
+      <div className="flex items-center justify-between mb-4" data-print="hide">
         <div className="flex gap-1 border-b border-s112-border w-full">
           {TABS.map(t => (
             <button
@@ -489,6 +499,27 @@ export default function BerichteClient({ behandlungen }: { behandlungen: Behandl
               </select>
             </div>
           )}
+          <div className="pb-1 self-center ml-2">
+            <button
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-1.5 border border-s112-border text-gray-600 px-3 py-1 rounded-lg text-sm hover:bg-s112-bg transition-colors"
+              title="Als PDF speichern oder drucken"
+            >
+              🖨 Drucken / PDF
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Print-Header (nur beim Drucken sichtbar) */}
+      <div className="hidden print:block mb-6 pb-4 border-b-2 border-gray-300">
+        <div className="flex items-baseline justify-between">
+          <div>
+            <p className="text-xs text-gray-500 font-semibold tracking-widest uppercase">software:112 – Gebeshuber Weinbau</p>
+            <h1 className="text-2xl font-bold text-gray-900 mt-0.5">{TAB_TITLES[tab]}</h1>
+            <p className="text-sm text-gray-500 mt-1">Zeitraum: {jahrLabel}</p>
+          </div>
+          <p className="text-sm text-gray-400">Erstellt: {heute}</p>
         </div>
       </div>
 
