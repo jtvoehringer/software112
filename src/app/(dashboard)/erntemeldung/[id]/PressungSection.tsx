@@ -21,6 +21,7 @@ export type Pressung = {
 export type WGOption  = { id: string; name: string; rebsorte: string | null }
 export type BehOption = { id: string; name: string }
 export type WAOption  = { id: string; name: string; jahrgang: number | null }
+export type LeseParzelle = { weingarten_id: string; weingarten_name: string; menge_kg: number | null; rebsorte: string | null }
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────
 
@@ -38,20 +39,37 @@ type BehRow = { behaelter_id: string; weinausbau_id: string; menge_liter: string
 const emptyWG  = (): WGRow  => ({ weingarten_id: '', trauben_kg: '', rebsorte: '', notizen: '' })
 const emptyBeh = (): BehRow => ({ behaelter_id: '', weinausbau_id: '', menge_liter: '', notizen: '' })
 
-function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, onDone }: {
+function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, leseParzellen, onDone }: {
   jahrgangId: string; pressung?: Pressung
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
-  onDone: () => void
+  leseParzellen: LeseParzelle[]; onDone: () => void
 }) {
   const [datum, setDatum]         = useState(pressung?.datum ?? new Date().toISOString().split('T')[0])
   const [mostLiter, setMostLiter] = useState(pressung?.most_liter_gesamt?.toString().replace('.', ',') ?? '')
   const [notizen, setNotizen]     = useState(pressung?.notizen ?? '')
-  const [wgRows, setWgRows]       = useState<WGRow[]>(
-    pressung?.weingaerten.map(w => ({
-      weingarten_id: w.weingarten_id, trauben_kg: w.trauben_kg.toString().replace('.', ','),
-      rebsorte: w.rebsorte ?? '', notizen: w.notizen ?? '',
-    })) ?? [emptyWG()]
-  )
+  // Pre-fill aus Erntedaten: nach Weingarten gruppieren + kg summieren
+  const defaultWGRows: WGRow[] = pressung
+    ? pressung.weingaerten.map(w => ({
+        weingarten_id: w.weingarten_id, trauben_kg: w.trauben_kg.toString().replace('.', ','),
+        rebsorte: w.rebsorte ?? '', notizen: w.notizen ?? '',
+      }))
+    : leseParzellen.length > 0
+      ? (() => {
+          const grouped = new Map<string, { kg: number; rebsorte: string }>()
+          for (const p of leseParzellen) {
+            const curr = grouped.get(p.weingarten_id) ?? { kg: 0, rebsorte: p.rebsorte ?? '' }
+            curr.kg += p.menge_kg ?? 0
+            grouped.set(p.weingarten_id, curr)
+          }
+          return Array.from(grouped.entries()).map(([wg_id, v]) => ({
+            weingarten_id: wg_id,
+            trauben_kg: v.kg > 0 ? v.kg.toString().replace('.', ',') : '',
+            rebsorte: v.rebsorte,
+            notizen: '',
+          }))
+        })()
+      : [emptyWG()]
+  const [wgRows, setWgRows] = useState<WGRow[]>(defaultWGRows)
   const [behRows, setBehRows] = useState<BehRow[]>(
     pressung?.behaelter.map(b => ({
       behaelter_id: b.behaelter_id ?? '', weinausbau_id: b.weinausbau_id ?? '',
@@ -234,10 +252,10 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
 
 // ── Hauptexport ───────────────────────────────────────────────────────────────
 
-export default function PressungSection({ jahrgangId, pressungen, wgOptions, behOptions, waOptions, writeOk, adminOk }: {
+export default function PressungSection({ jahrgangId, pressungen, wgOptions, behOptions, waOptions, leseParzellen, writeOk, adminOk }: {
   jahrgangId: string; pressungen: Pressung[]
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
-  writeOk: boolean; adminOk: boolean
+  leseParzellen: LeseParzelle[]; writeOk: boolean; adminOk: boolean
 }) {
   const [showForm, setShowForm]   = useState(false)
   const [editId, setEditId]       = useState<string | null>(null)
@@ -255,7 +273,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
   return (
     <div className={`card space-y-4 ${pending ? 'opacity-60 pointer-events-none' : ''}`}>
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-gray-800">Pressungen / Lese</h2>
+        <h2 className="text-base font-semibold text-gray-800">Pressungen</h2>
         <div className="flex items-center gap-3">
           {pressungen.length > 0 && (
             <span className="text-xs text-s112-muted">
@@ -295,7 +313,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
       {/* Neues Formular */}
       {showForm && !editId && (
         <PressungForm jahrgangId={jahrgangId} wgOptions={wgOptions} behOptions={behOptions}
-          waOptions={waOptions} onDone={() => setShowForm(false)} />
+          waOptions={waOptions} leseParzellen={leseParzellen} onDone={() => setShowForm(false)} />
       )}
 
       {/* Pressung-Liste */}
@@ -312,7 +330,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
               <div key={p.id}>
                 {editId === p.id ? (
                   <PressungForm pressung={p} jahrgangId={jahrgangId} wgOptions={wgOptions}
-                    behOptions={behOptions} waOptions={waOptions} onDone={() => setEditId(null)} />
+                    behOptions={behOptions} waOptions={waOptions} leseParzellen={[]} onDone={() => setEditId(null)} />
                 ) : (
                   <div className="border border-s112-border rounded-xl p-3">
                     <div className="flex items-start justify-between gap-2 mb-2">

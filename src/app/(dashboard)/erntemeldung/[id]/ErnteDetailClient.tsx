@@ -192,7 +192,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
               <button onClick={() => { setShowForm(true); setEditId(null) }}
                 data-print="hide"
                 className="text-xs bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-teal font-medium px-3 py-1.5 rounded-lg transition-colors">
-                ＋ Lesedaten erfassen
+                ＋ Ernte
               </button>
             )}
             <button
@@ -361,6 +361,12 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
         wgOptions={wgOptions}
         behOptions={behOptions}
         waOptions={waOptions}
+        leseParzellen={parzellen.map(p => ({
+          weingarten_id: p.weingarten_id,
+          weingarten_name: p.weingarten_name,
+          menge_kg: p.menge_kg,
+          rebsorte: p.weingarten_rebsorte,
+        }))}
         writeOk={writeOk}
         adminOk={adminOk}
       />
