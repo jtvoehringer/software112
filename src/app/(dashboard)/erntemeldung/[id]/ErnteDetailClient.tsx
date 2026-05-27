@@ -3,6 +3,8 @@
 import React, { useState, useTransition } from 'react'
 import { upsertErnteParzelle, deleteErnteParzelle, createOrUpdateAMAMeldung } from '../actions'
 import type { ErnteParzelle, WeingartenOpt, AMAMeldung } from './page'
+import PressungSection from './PressungSection'
+import type { Pressung, WGOption, BehOption, WAOption } from './PressungSection'
 
 const QUALITAET_OPTS = [
   { value: 'tafelwein', label: 'Tafelwein' },
@@ -63,7 +65,7 @@ function ParzellForm({
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-3">
       <h3 className="text-sm font-semibold text-gray-800">
-        {parzelle ? 'Ernte bearbeiten' : 'Ernte erfassen'}
+        {parzelle ? 'Lesedaten bearbeiten' : 'Lesedaten erfassen'}
       </h3>
       {parzelle && <input type="hidden" name="existing_id" value={parzelle.id} />}
 
@@ -145,10 +147,11 @@ function ParzellForm({
 
 // ── Hauptkomponente ─────────────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, amaMeldung, writeOk, adminOk }: {
+export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, amaMeldung, pressungen, wgOptions, behOptions, waOptions, writeOk, adminOk }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   jahrgang: Record<string, any>; parzellen: ErnteParzelle[]
   weingaerten: WeingartenOpt[]; amaMeldung: AMAMeldung | null
+  pressungen: Pressung[]; wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
   writeOk: boolean; adminOk: boolean
 }) {
   const [showForm, setShowForm] = useState(false)
@@ -158,12 +161,12 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
   const gesamtKg = parzellen.reduce((s, p) => s + (p.menge_kg ?? 0), 0)
 
   function handleDelete(id: string) {
-    if (!confirm('Erntedaten löschen?')) return
+    if (!confirm('Lesedaten löschen?')) return
     startTransition(() => deleteErnteParzelle(id, jahrgang.id))
   }
 
   function handleAMA() {
-    if (!confirm('AMA-Meldung aus aktuellen Erntedaten aufbauen?')) return
+    if (!confirm('AMA-Meldung aus aktuellen Lesedaten aufbauen?')) return
     startTransition(() => createOrUpdateAMAMeldung(jahrgang.id))
   }
 
@@ -175,21 +178,21 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
       {/* Print-Header (nur beim Drucken sichtbar) */}
       <div className="hidden print:block mb-4 pb-4 border-b-2 border-gray-300">
         <p className="text-xs text-gray-500 font-semibold tracking-widest uppercase">software:112 – Gebeshuber Weinbau</p>
-        <h1 className="text-2xl font-bold text-gray-900 mt-0.5">Erntemeldung Jahrgang {jahrgang.jahrgang}</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mt-0.5">Jahrgang {jahrgang.jahrgang}</h1>
         <p className="text-sm text-gray-400 mt-1">Erstellt: {heute}</p>
       </div>
 
       {/* Ernte-Übersicht */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-gray-800">Erntedaten</h2>
+          <h2 className="text-base font-semibold text-gray-800">Lesedaten</h2>
           <div className="flex items-center gap-3">
             <span className="text-sm text-s112-muted">{parzellen.length} Parzellen · {(gesamtKg/1000).toFixed(2)} t</span>
             {writeOk && !showForm && (
               <button onClick={() => { setShowForm(true); setEditId(null) }}
                 data-print="hide"
                 className="text-xs bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-teal font-medium px-3 py-1.5 rounded-lg transition-colors">
-                ＋ Parzelle erfassen
+                ＋ Lesedaten erfassen
               </button>
             )}
             <button
@@ -272,7 +275,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
           </div>
         ) : (
           <div className="border border-dashed border-s112-border rounded-xl p-8 text-center text-sm text-s112-muted">
-            Noch keine Erntedaten erfasst.
+            Noch keine Lesedaten erfasst.
           </div>
         )}
       </div>
@@ -339,7 +342,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
           ) : (
             <div>
               <p className="text-sm text-s112-muted mb-4" data-print="hide">
-                Erntedaten aus {parzellen.length} Parzellen zu AMA-Meldung aggregieren.
+                Lesedaten aus {parzellen.length} Parzellen zu AMA-Meldung aggregieren.
               </p>
               <button onClick={handleAMA} disabled={parzellen.length === 0}
                 data-print="hide"
@@ -350,6 +353,17 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
           )}
         </div>
       )}
+
+      {/* Pressungen / Lese */}
+      <PressungSection
+        jahrgangId={jahrgang.id}
+        pressungen={pressungen}
+        wgOptions={wgOptions}
+        behOptions={behOptions}
+        waOptions={waOptions}
+        writeOk={writeOk}
+        adminOk={adminOk}
+      />
     </div>
   )
 }

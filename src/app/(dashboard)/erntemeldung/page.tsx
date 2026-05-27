@@ -4,7 +4,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import JahrgaengeClient from './JahrgaengeClient'
 
-export const metadata: Metadata = { title: 'Erntemeldung – software:112' }
+export const metadata: Metadata = { title: 'Lese – software:112' }
 
 export type Jahrgang = {
   id: string; jahrgang: number; ernte_beginn: string | null; ernte_ende: string | null
@@ -66,8 +66,8 @@ export default async function ErntemeldungPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Erntemeldung</h1>
-          <p className="text-sm text-s112-muted mt-0.5">Jahrgänge, Erntedaten & AMA-Meldung</p>
+          <h1 className="text-2xl font-bold text-gray-900">Lese</h1>
+          <p className="text-sm text-s112-muted mt-0.5">Jahrgänge, Lesedaten & AMA-Meldung</p>
         </div>
         {writeOk && (
           <Link href="/erntemeldung/neu"

@@ -164,3 +164,60 @@ export async function createOrUpdateAMAMeldung(jahrgangId: string) {
 
   revalidatePath(`/erntemeldung/${jahrgangId}`)
 }
+
+// ── Pressungen ────────────────────────────────────────────────────────────────
+
+type PressungWGInput    = { weingarten_id: string; trauben_kg: number; rebsorte?: string; notizen?: string }
+type PressungBehInput   = { behaelter_id?: string; weinausbau_id?: string; menge_liter?: number; notizen?: string }
+
+export async function upsertPressung(fd: FormData) {
+  const supabase    = await createSupabaseServerClient()
+  const tenantId    = await getTenantId()
+  const jahrgangId  = fd.get('jahrgang_id') as string
+  const existingId  = (fd.get('existing_id') as string) || null
+  const datum       = fd.get('datum') as string
+  const mostLiter   = fd.get('most_liter_gesamt') ? parseFloat((fd.get('most_liter_gesamt') as string).replace(',', '.')) : null
+  const notizen     = (fd.get('notizen') as string) || null
+  const wgJson      = fd.get('weingaerten_json') as string
+  const behJson     = fd.get('behaelter_json') as string
+  const weingaerten = JSON.parse(wgJson || '[]') as PressungWGInput[]
+  const behaelter   = JSON.parse(behJson || '[]') as PressungBehInput[]
+
+  if (existingId) {
+    // Update: Zeilen löschen + neu einfügen
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('pressungen') as any).update({ datum, most_liter_gesamt: mostLiter, notizen }).eq('id', existingId)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('pressung_weingaerten') as any).delete().eq('pressung_id', existingId)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('pressung_behaelter') as any).delete().eq('pressung_id', existingId)
+    if (weingaerten.length > 0)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('pressung_weingaerten') as any).insert(weingaerten.map(w => ({ pressung_id: existingId, ...w })))
+    if (behaelter.length > 0)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('pressung_behaelter') as any).insert(behaelter.map(b => ({ pressung_id: existingId, ...b, behaelter_id: b.behaelter_id || null, weinausbau_id: b.weinausbau_id || null })))
+  } else {
+    // Insert
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: neu } = await (supabase.from('pressungen') as any)
+      .insert({ tenant_id: tenantId, jahrgang_id: jahrgangId, datum, most_liter_gesamt: mostLiter, notizen })
+      .select('id').single()
+    const pressungId = (neu as AR).id
+    if (weingaerten.length > 0)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('pressung_weingaerten') as any).insert(weingaerten.map(w => ({ pressung_id: pressungId, ...w })))
+    if (behaelter.length > 0)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('pressung_behaelter') as any).insert(behaelter.map(b => ({ pressung_id: pressungId, ...b, behaelter_id: b.behaelter_id || null, weinausbau_id: b.weinausbau_id || null })))
+  }
+
+  revalidatePath(`/erntemeldung/${jahrgangId}`)
+}
+
+export async function deletePressung(id: string, jahrgangId: string) {
+  const supabase = await createSupabaseServerClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from('pressungen') as any).delete().eq('id', id)
+  revalidatePath(`/erntemeldung/${jahrgangId}`)
+}
