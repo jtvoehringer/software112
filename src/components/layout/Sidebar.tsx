@@ -28,8 +28,9 @@ const NAV: NavEntry[] = [
     items: [
       { href: '/lagen',        label: 'Lagen',         phase: 1 },
       { href: '/weingarten',   label: 'Weingärten',    phase: 1 },
-      { href: '/behandlungen', label: 'Behandlungen',  phase: 1 },
-      { href: '/erntemeldung', label: 'Erntemeldung',  phase: 1 },
+      { href: '/behandlungen',       label: 'Behandlungen',  phase: 1 },
+      { href: '/behandlungen/lager', label: 'PSM-Lager',      phase: 1 },
+      { href: '/erntemeldung',       label: 'Erntemeldung',   phase: 1 },
     ],
   },
 
