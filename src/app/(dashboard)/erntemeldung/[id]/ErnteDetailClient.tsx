@@ -167,8 +167,17 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
     startTransition(() => createOrUpdateAMAMeldung(jahrgang.id))
   }
 
+  const heute = new Date().toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+
   return (
     <div className={`space-y-6 ${pending ? 'opacity-60 pointer-events-none' : ''}`}>
+
+      {/* Print-Header (nur beim Drucken sichtbar) */}
+      <div className="hidden print:block mb-4 pb-4 border-b-2 border-gray-300">
+        <p className="text-xs text-gray-500 font-semibold tracking-widest uppercase">software:112 – Gebeshuber Weinbau</p>
+        <h1 className="text-2xl font-bold text-gray-900 mt-0.5">Erntemeldung Jahrgang {jahrgang.jahrgang}</h1>
+        <p className="text-sm text-gray-400 mt-1">Erstellt: {heute}</p>
+      </div>
 
       {/* Ernte-Übersicht */}
       <div className="card">
@@ -178,15 +187,24 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
             <span className="text-sm text-s112-muted">{parzellen.length} Parzellen · {(gesamtKg/1000).toFixed(2)} t</span>
             {writeOk && !showForm && (
               <button onClick={() => { setShowForm(true); setEditId(null) }}
+                data-print="hide"
                 className="text-xs bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-teal font-medium px-3 py-1.5 rounded-lg transition-colors">
                 ＋ Parzelle erfassen
               </button>
             )}
+            <button
+              onClick={() => window.print()}
+              data-print="hide"
+              className="inline-flex items-center gap-1.5 border border-s112-border text-gray-600 px-3 py-1.5 rounded-lg text-xs hover:bg-s112-bg transition-colors"
+              title="Als PDF speichern oder drucken"
+            >
+              🖨 Drucken / PDF
+            </button>
           </div>
         </div>
 
         {showForm && !editId && (
-          <div className="mb-4">
+          <div className="mb-4" data-print="hide">
             <ParzellForm jahrgangId={jahrgang.id} weingaerten={weingaerten} onDone={() => setShowForm(false)} />
           </div>
         )}
@@ -217,7 +235,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
                       <td className="px-3 py-2 text-right tabular-nums">{p.oechsle ?? '–'}</td>
                       <td className="px-3 py-2 text-xs text-s112-muted capitalize">{p.qualitaetsstufe ?? '–'}</td>
                       {(writeOk || adminOk) && (
-                        <td className="px-3 py-2 text-right">
+                        <td className="px-3 py-2 text-right" data-print="hide">
                           <div className="flex items-center justify-end gap-2">
                             {writeOk && (
                               <button onClick={() => { setEditId(p.id); setShowForm(false) }}
@@ -311,7 +329,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
                 </div>
               )}
 
-              <div className="flex gap-2">
+              <div className="flex gap-2" data-print="hide">
                 <button onClick={handleAMA}
                   className="text-sm bg-s112-bg border border-s112-border hover:border-s112-teal text-gray-700 hover:text-s112-teal px-4 py-2 rounded-lg transition-colors">
                   Neu berechnen
@@ -320,10 +338,11 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
             </div>
           ) : (
             <div>
-              <p className="text-sm text-s112-muted mb-4">
+              <p className="text-sm text-s112-muted mb-4" data-print="hide">
                 Erntedaten aus {parzellen.length} Parzellen zu AMA-Meldung aggregieren.
               </p>
               <button onClick={handleAMA} disabled={parzellen.length === 0}
+                data-print="hide"
                 className="bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
                 AMA-Meldung erstellen
               </button>
