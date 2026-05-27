@@ -9,7 +9,7 @@ import type { UserRole } from '@/lib/auth/roles'
 // ── Navigationsstruktur ───────────────────────────────────────────────────────
 
 type NavItem = {
-  href: string; label: string; phase?: number; adminOnly?: boolean
+  href: string; label: string; phase?: number; adminOnly?: boolean; child?: boolean
 }
 type NavGroup = {
   kind: 'group'; label: string; icon: string; items: NavItem[]
@@ -30,7 +30,7 @@ const NAV: NavEntry[] = [
       { href: '/weingarten',   label: 'Weingärten',    phase: 1 },
       { href: '/pflanzenschutz',     label: 'PSM-Stammdaten', phase: 1 },
       { href: '/behandlungen',       label: 'Behandlungen',   phase: 1 },
-      { href: '/behandlungen/lager', label: 'PSM-Lager',      phase: 1 },
+      { href: '/behandlungen/lager', label: 'PSM-Lager',      phase: 1, child: true },
       { href: '/erntemeldung',       label: 'Erntemeldung',   phase: 1 },
     ],
   },
@@ -64,11 +64,12 @@ function groupIsActive(items: NavItem[], pathname: string) {
 function SubItem({ item, pathname }: { item: NavItem; pathname: string }) {
   const active  = isActive(item.href, pathname)
   const phase2  = item.phase === 2
+  const indent  = item.child
 
   if (phase2) {
     return (
-      <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg opacity-40 cursor-not-allowed text-sm">
-        <span className="w-1.5 h-1.5 rounded-full bg-gray-300 ml-1" />
+      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg opacity-40 cursor-not-allowed text-sm ${indent ? 'ml-3' : ''}`}>
+        <span className={`rounded-full bg-gray-300 ml-1 ${indent ? 'w-1 h-1' : 'w-1.5 h-1.5'}`} />
         <span className="text-gray-500">{item.label}</span>
         <span className="ml-auto text-xs text-gray-400">P2</span>
       </div>
@@ -78,13 +79,13 @@ function SubItem({ item, pathname }: { item: NavItem; pathname: string }) {
   return (
     <Link
       href={item.href}
-      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors
+      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${indent ? 'ml-3' : ''}
         ${active
           ? 'bg-s112-teal/10 text-s112-teal font-medium'
           : 'text-gray-600 hover:bg-s112-bg hover:text-gray-900'
         }`}
     >
-      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${active ? 'bg-s112-teal' : 'bg-gray-300'}`} />
+      <span className={`rounded-full flex-shrink-0 ${indent ? 'w-1 h-1' : 'w-1.5 h-1.5'} ${active ? 'bg-s112-teal' : 'bg-gray-300'}`} />
       {item.label}
     </Link>
   )
