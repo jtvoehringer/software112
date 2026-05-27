@@ -45,7 +45,7 @@ export default async function LagenPage() {
             href="/lagen/neu"
             className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
           >
-            <span>＋</span> Neue Lage
+            <span>＋</span> Neue Ried
           </Link>
         )}
       </div>
