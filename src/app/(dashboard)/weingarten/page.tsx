@@ -44,7 +44,7 @@ export default async function WeingartenPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Weingarten</h1>
-          <p className="text-sm text-s112-muted mt-0.5">Stammdaten aller Weingartenlagen</p>
+          <p className="text-sm text-s112-muted mt-0.5">Rieden & Weingarten-Stammdaten</p>
         </div>
         {writeOk && (
           <Link

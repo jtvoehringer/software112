@@ -4,7 +4,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import LagenClient from './LagenClient'
 
-export const metadata: Metadata = { title: 'Lagen – software:112' }
+export const metadata: Metadata = { title: 'Rieden – software:112' }
 
 export type Lage = {
   id: string; name: string; gemeinde: string | null
@@ -37,8 +37,8 @@ export default async function LagenPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Lagen</h1>
-          <p className="text-sm text-s112-muted mt-0.5">Weingartenlagen und Riede verwalten</p>
+          <h1 className="text-2xl font-bold text-gray-900">Rieden</h1>
+          <p className="text-sm text-s112-muted mt-0.5">Rieden verwalten</p>
         </div>
         {writeOk && (
           <Link

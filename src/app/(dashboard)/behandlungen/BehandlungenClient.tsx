@@ -84,7 +84,7 @@ export default function BehandlungenClient({
         <input
           value={filter}
           onChange={e => setFilter(e.target.value)}
-          placeholder="Filtern nach Weingarten, Mittel, Lage…"
+          placeholder="Filtern nach Weingarten, Mittel, Ried…"
           className="w-full max-w-sm border border-s112-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
         />
       </div>

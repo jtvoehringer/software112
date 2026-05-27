@@ -4,7 +4,7 @@ import { redirect, notFound } from 'next/navigation'
 import { updateLage } from '../actions'
 import type { Metadata } from 'next'
 
-export const metadata: Metadata = { title: 'Lage bearbeiten – software:112' }
+export const metadata: Metadata = { title: 'Ried bearbeiten – software:112' }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -28,7 +28,7 @@ export default async function EditLagePage({ params }: Props) {
   return (
     <div className="max-w-lg">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Lage bearbeiten</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Ried bearbeiten</h1>
         <p className="text-sm text-s112-muted mt-0.5">{lage.name}</p>
       </div>
       <div className="card">

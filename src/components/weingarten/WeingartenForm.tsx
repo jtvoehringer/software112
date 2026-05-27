@@ -86,7 +86,7 @@ export default function WeingartenForm({ weingarten, action }: Props) {
             />
           </div>
           <div>
-            <label className="form-label">Ried / Lage</label>
+            <label className="form-label">Ried</label>
             <input
               name="ried"
               type="text"

@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { createLage } from '../actions'
 import type { Metadata } from 'next'
 
-export const metadata: Metadata = { title: 'Neue Lage – software:112' }
+export const metadata: Metadata = { title: 'Neue Ried – software:112' }
 
 export default async function NeueLagePage() {
   const role = await getCurrentUserRole()
@@ -18,8 +18,8 @@ export default async function NeueLagePage() {
   return (
     <div className="max-w-lg">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Neue Lage</h1>
-        <p className="text-sm text-s112-muted mt-0.5">Neue Weinbaulage / Ried anlegen</p>
+        <h1 className="text-2xl font-bold text-gray-900">Neue Ried</h1>
+        <p className="text-sm text-s112-muted mt-0.5">Neue Ried anlegen</p>
       </div>
       <div className="card">
         <form action={handleSubmit} className="space-y-4">

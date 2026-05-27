@@ -100,7 +100,7 @@ function TabLage({ behandlungen, jahr }: { behandlungen: BehandlungReport[]; jah
     const lageIds = new Set(b.grundstuecke.map(g => g.lage_id ?? '_none'))
     for (const lId of lageIds) {
       const g0 = b.grundstuecke.find(g => (g.lage_id ?? '_none') === lId)!
-      const lName = g0?.lage_name ?? 'Ohne Lage'
+      const lName = g0?.lage_name ?? 'Ohne Ried'
       if (!lageMap.has(lId)) lageMap.set(lId, { name: lName, behandlungen: [] })
       lageMap.get(lId)!.behandlungen.push(b)
     }
@@ -454,14 +454,14 @@ export default function BerichteClient({ behandlungen }: { behandlungen: Behandl
 
   const TABS: { id: Tab; label: string }[] = [
     { id: 'weingarten', label: 'Pro Weingarten' },
-    { id: 'lage',       label: 'Pro Lage' },
+    { id: 'lage',       label: 'Pro Ried' },
     { id: 'mittel',     label: 'Mittelverbrauch' },
     { id: 'cu',         label: '🔵 Cu-Bilanz' },
   ]
 
   const TAB_TITLES: Record<Tab, string> = {
     weingarten: 'Mittelverteilung pro Weingarten',
-    lage:       'Mittelverteilung pro Lage',
+    lage:       'Mittelverteilung pro Ried',
     mittel:     'Mittelverbrauch & Grenzwerte',
     cu:         'Cu-Bilanz',
   }

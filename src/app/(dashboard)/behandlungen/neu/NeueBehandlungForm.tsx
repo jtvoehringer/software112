@@ -74,10 +74,10 @@ export default function NeueBehandlungForm({
     ? (parseFloat(mengeGesamt) * 1000 * ((selectedPsm.cu_gehalt_pct) / 100)).toFixed(0) + ' g Cu'
     : null
 
-  // Weingärten nach Lage gruppieren
+  // Weingärten nach Ried gruppieren
   const lagenMap = new Map<string, WeingartenOption[]>()
   for (const w of weingaerten) {
-    const key = w.lage_name ?? '(Keine Lage)'
+    const key = w.lage_name ?? '(Keine Ried)'
     const arr = lagenMap.get(key) ?? []
     arr.push(w)
     lagenMap.set(key, arr)

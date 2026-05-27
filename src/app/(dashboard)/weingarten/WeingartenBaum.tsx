@@ -203,10 +203,10 @@ export default function WeingartenBaum({
     gstMap.set(g.weingarten_id, arr)
   }
 
-  // Weingärten nach Ried (Lage) gruppieren
+  // Weingärten nach Ried gruppieren
   const lagenMap = new Map<string, WRow[]>()
   for (const w of weingaerten) {
-    const ried = w.ried ?? '(Keine Lage)'
+    const ried = w.ried ?? '(Keine Ried)'
     const arr = lagenMap.get(ried) ?? []
     arr.push(w)
     lagenMap.set(ried, arr)
@@ -218,7 +218,7 @@ export default function WeingartenBaum({
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-s112-bg border-b-2 border-s112-border">
-            <th className="text-left px-4 py-3 font-semibold text-gray-700">Lage / Weingarten / GST</th>
+            <th className="text-left px-4 py-3 font-semibold text-gray-700">Ried / Weingarten / GST</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">Rebsorte</th>
             <th className="text-right px-3 py-3 font-semibold text-gray-700">Fläche (ha)</th>
             <th className="text-center px-3 py-3 font-semibold text-gray-700">Details</th>

@@ -30,10 +30,10 @@ function LageKarte({
 
   function handleDelete() {
     if (weingaerten.length > 0) {
-      alert(`Diese Lage hat noch ${weingaerten.length} Weingarten/Weingärten. Bitte zuerst die Zuordnungen entfernen.`)
+      alert(`Diese Ried hat noch ${weingaerten.length} Weingarten/Weingärten. Bitte zuerst die Zuordnungen entfernen.`)
       return
     }
-    if (!confirm(`Lage "${lage.name}" wirklich löschen?`)) return
+    if (!confirm(`Ried "${lage.name}" wirklich löschen?`)) return
     startTransition(() => deleteLage(lage.id))
   }
 
@@ -166,7 +166,7 @@ export default function LagenClient({
       <div className="card text-center py-16">
         <p className="text-4xl mb-4">🍇</p>
         <p className="text-gray-700 font-medium">Noch keine Lagen angelegt</p>
-        <p className="text-s112-muted text-sm mt-1 mb-6">Legen Sie Ihre erste Weinbaulage an</p>
+        <p className="text-s112-muted text-sm mt-1 mb-6">Legen Sie Ihre erste Ried an</p>
         {writeOk && (
           <Link href="/lagen/neu" className="inline-flex items-center gap-2 bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
             ＋ Erste Lage
@@ -192,7 +192,7 @@ export default function LagenClient({
       {unzugeordnet.length > 0 && (
         <div className="card border-dashed border-amber-300 bg-amber-50/50 p-4">
           <p className="text-sm font-medium text-amber-700 mb-2">
-            ⚠ {unzugeordnet.length} Weingarten/Weingärten ohne Lage
+            ⚠ {unzugeordnet.length} Weingarten/Weingärten ohne Ried
           </p>
           <div className="flex flex-wrap gap-1">
             {unzugeordnet.map(w => (
