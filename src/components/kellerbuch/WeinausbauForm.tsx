@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 
 const REBSORTEN = [
   'Grüner Veltliner','Riesling','Welschriesling','Müller-Thurgau',
@@ -13,7 +14,8 @@ type Row = { id: string; name: string }
 type WeinausbauRow = {
   id: string; name: string; jahrgang: number | null; rebsorte: string | null
   weingarten_id: string | null; behaelter_id: string | null
-  menge_liter: number | null; status: string; notizen: string | null; aktiv: boolean
+  menge_liter: number | null; status: string; qualitaetsstufe: string | null
+  notizen: string | null; aktiv: boolean
 }
 
 interface Props {
@@ -80,6 +82,30 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, act
               className="form-input" placeholder="z.B. 1.500" />
           </div>
         </div>
+
+        {/* Qualitätsstufe */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="form-label">Qualitätsstufe</label>
+            <select name="qualitaetsstufe" defaultValue={weinausbau?.qualitaetsstufe ?? ''} className="form-input">
+              <option value="">– noch nicht festgelegt –</option>
+              {QUALITAET_OPTS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="form-label">Status</label>
+            <select name="status" defaultValue={weinausbau?.status ?? 'ernte'} className="form-input">
+              <option value="ernte">🍇 Ernte</option>
+              <option value="gaerung">🫧 Gärung</option>
+              <option value="ausbau">🛢️ Ausbau</option>
+              <option value="abfuellung">🍾 Abfüllung</option>
+              <option value="abgeschlossen">✅ Abgeschlossen</option>
+            </select>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="form-label">Weingarten</label>
@@ -95,16 +121,6 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, act
               {behaelter.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </div>
-        </div>
-        <div>
-          <label className="form-label">Status</label>
-          <select name="status" defaultValue={weinausbau?.status ?? 'ernte'} className="form-input">
-            <option value="ernte">🍇 Ernte</option>
-            <option value="gaerung">🫧 Gärung</option>
-            <option value="ausbau">🛢️ Ausbau</option>
-            <option value="abfuellung">🍾 Abfüllung</option>
-            <option value="abgeschlossen">✅ Abgeschlossen</option>
-          </select>
         </div>
       </div>
 

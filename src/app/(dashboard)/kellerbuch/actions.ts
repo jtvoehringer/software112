@@ -54,16 +54,17 @@ export async function createWeinausbau(formData: FormData) {
   if (!tenantId) throw new Error('Kein Betrieb gefunden')
 
   const payload: R = {
-    tenant_id:    tenantId,
-    name:         formData.get('name') as string,
-    jahrgang:     formData.get('jahrgang') ? Number(formData.get('jahrgang')) : null,
-    rebsorte:     (formData.get('rebsorte') as string) || null,
-    weingarten_id:(formData.get('weingarten_id') as string) || null,
-    behaelter_id: (formData.get('behaelter_id') as string) || null,
-    menge_liter:  formData.get('menge_liter') ? Number((formData.get('menge_liter') as string).replace(',', '.')) : null,
-    status:       (formData.get('status') as string) || 'ernte',
-    notizen:      (formData.get('notizen') as string) || null,
-    aktiv:        true,
+    tenant_id:       tenantId,
+    name:            formData.get('name') as string,
+    jahrgang:        formData.get('jahrgang') ? Number(formData.get('jahrgang')) : null,
+    rebsorte:        (formData.get('rebsorte') as string) || null,
+    weingarten_id:   (formData.get('weingarten_id') as string) || null,
+    behaelter_id:    (formData.get('behaelter_id') as string) || null,
+    menge_liter:     formData.get('menge_liter') ? Number((formData.get('menge_liter') as string).replace(',', '.')) : null,
+    qualitaetsstufe: (formData.get('qualitaetsstufe') as string) || null,
+    status:          (formData.get('status') as string) || 'ernte',
+    notizen:         (formData.get('notizen') as string) || null,
+    aktiv:           true,
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('weinausbau') as any).insert(payload)
@@ -74,15 +75,16 @@ export async function createWeinausbau(formData: FormData) {
 export async function updateWeinausbau(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const payload: R = {
-    name:         formData.get('name') as string,
-    jahrgang:     formData.get('jahrgang') ? Number(formData.get('jahrgang')) : null,
-    rebsorte:     (formData.get('rebsorte') as string) || null,
-    weingarten_id:(formData.get('weingarten_id') as string) || null,
-    behaelter_id: (formData.get('behaelter_id') as string) || null,
-    menge_liter:  formData.get('menge_liter') ? Number((formData.get('menge_liter') as string).replace(',', '.')) : null,
-    status:       formData.get('status') as string,
-    notizen:      (formData.get('notizen') as string) || null,
-    aktiv:        formData.get('aktiv') === 'true',
+    name:            formData.get('name') as string,
+    jahrgang:        formData.get('jahrgang') ? Number(formData.get('jahrgang')) : null,
+    rebsorte:        (formData.get('rebsorte') as string) || null,
+    weingarten_id:   (formData.get('weingarten_id') as string) || null,
+    behaelter_id:    (formData.get('behaelter_id') as string) || null,
+    menge_liter:     formData.get('menge_liter') ? Number((formData.get('menge_liter') as string).replace(',', '.')) : null,
+    qualitaetsstufe: (formData.get('qualitaetsstufe') as string) || null,
+    status:          formData.get('status') as string,
+    notizen:         (formData.get('notizen') as string) || null,
+    aktiv:           formData.get('aktiv') === 'true',
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('weinausbau') as any).update(payload).eq('id', id)
