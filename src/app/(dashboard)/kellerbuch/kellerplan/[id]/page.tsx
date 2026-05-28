@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import KellerplanEditor from './KellerplanEditor'
+import PrintButton from './PrintButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -87,12 +88,7 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
           <span>/</span>
           <span className="text-gray-800 font-medium">{plan.name}</span>
         </nav>
-        <button
-          onClick={() => window.print()}
-          className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-3 py-1 hover:bg-s112-teal hover:text-white transition-colors"
-        >
-          🖨️ Drucken / PDF
-        </button>
+        <PrintButton />
       </div>
 
       {/* Plan-Titel für Druck */}
