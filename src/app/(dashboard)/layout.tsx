@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, getCurrentMembership, roleLabel } from '@/lib/auth/roles'
-import Sidebar from '@/components/layout/Sidebar'
+import ResponsiveLayout from '@/components/layout/ResponsiveLayout'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -64,19 +64,14 @@ export default async function DashboardLayout({
           --s112-yellow: ${branding.secondary_color};
         }
       `}</style>
-      <div className="flex h-screen bg-s112-bg overflow-hidden">
-        <Sidebar
-          userEmail={user.email ?? ''}
-          role={role}
-          roleLabel={roleLabel(role)}
-          branding={branding}
-        />
-        <main className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto p-6 lg:p-8">
-            {children}
-          </div>
-        </main>
-      </div>
+      <ResponsiveLayout
+        userEmail={user.email ?? ''}
+        role={role}
+        roleLabel={roleLabel(role)}
+        branding={branding}
+      >
+        {children}
+      </ResponsiveLayout>
     </>
   )
 }
