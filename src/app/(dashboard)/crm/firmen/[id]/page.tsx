@@ -30,7 +30,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     { data: pRaw },
   ] = await Promise.all([
     (supabase.from('firmen') as any)
-      .select('id, name, segment, strasse, plz, ort, land, email, telefon, website, uid_nummer, kreditlimit, zahlungsziel_tage, waehrung, notizen, aktiv')
+      .select('id, kundennummer, name, segment, strasse, plz, ort, land, email, telefon, website, uid_nummer, kreditlimit, zahlungsziel_tage, waehrung, notizen, aktiv')
       .eq('id', id)
       .single(),
 
@@ -55,7 +55,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
 
   const f = fRaw as R
   const firma: FirmaRow = {
-    id: f.id, name: f.name, segment: f.segment,
+    id: f.id, kundennummer: f.kundennummer ?? null, name: f.name, segment: f.segment,
     strasse: f.strasse ?? null, plz: f.plz ?? null, ort: f.ort ?? null, land: f.land ?? null,
     email: f.email ?? null, telefon: f.telefon ?? null, website: f.website ?? null,
     uid_nummer: f.uid_nummer ?? null, kreditlimit: f.kreditlimit ?? null,
@@ -64,7 +64,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
   }
 
   const kontakte: KontaktRow[] = ((kRaw ?? []) as R[]).map(k => ({
-    id: k.id, vorname: k.vorname ?? null, nachname: k.nachname,
+    id: k.id, kundennummer: k.kundennummer ?? null, vorname: k.vorname ?? null, nachname: k.nachname,
     segment: k.segment, firma_id: k.firma_id ?? null, firma_name: firma.name,
     email: k.email ?? null, telefon: k.telefon ?? null, mobil: k.mobil ?? null,
     ort: k.ort ?? null, land: k.land ?? null,

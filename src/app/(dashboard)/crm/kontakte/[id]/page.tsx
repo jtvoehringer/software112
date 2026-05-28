@@ -30,7 +30,7 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
     { data: pRaw },
   ] = await Promise.all([
     (supabase.from('kontakte') as any)
-      .select('id, vorname, nachname, segment, firma_id, firmen:firma_id(name, segment), email, telefon, mobil, ort, land, newsletter, newsletter_bestaetigt, stammkunde, notizen, aktiv, erstellt_am')
+      .select('id, kundennummer, vorname, nachname, segment, firma_id, firmen:firma_id(name, segment), email, telefon, mobil, ort, land, newsletter, newsletter_bestaetigt, stammkunde, notizen, aktiv, erstellt_am')
       .eq('id', id)
       .single(),
 
@@ -50,6 +50,7 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
   const k = kRaw as R
   const kontakt: KontaktRow = {
     id:                    k.id,
+    kundennummer:          k.kundennummer ?? null,
     vorname:               k.vorname ?? null,
     nachname:              k.nachname,
     segment:               k.segment,
