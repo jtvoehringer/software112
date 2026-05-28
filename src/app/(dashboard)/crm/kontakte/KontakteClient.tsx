@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
-import { createKontakt, updateKontakt, deleteKontakt, createAktivitaet } from '../actions'
-import { SEGMENTE, AKTIVITAET_ARTEN, segmentLabel, segmentFarbe } from '@/lib/crm/types'
+import Link from 'next/link'
+import { createKontakt, updateKontakt, deleteKontakt, createAktivitaet, createPipelineEintrag } from '../actions'
+import { SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN, segmentLabel, segmentFarbe } from '@/lib/crm/types'
 import type { KontaktRow } from '@/lib/crm/types'
 
 type FirmaOption = { id: string; name: string; segment: string }
@@ -162,6 +163,41 @@ function AktivitaetForm({ kontaktId, onDone }: { kontaktId: string; onDone: () =
   )
 }
 
+// ── Pipeline-Mini-Formular ────────────────────────────────────────────────────
+
+function PipelineForm({ kontaktId, onDone }: { kontaktId: string; onDone: () => void }) {
+  const [pending, startTransition] = useTransition()
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    fd.set('kontakt_id', kontaktId)
+    startTransition(async () => { await createPipelineEintrag(fd); onDone() })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-3 p-3 bg-white border border-s112-border rounded-lg space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        <select name="stufe" defaultValue="interessent" required className={inputCls()}>
+          {PIPELINE_STUFEN.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </select>
+        <input name="titel" placeholder="Titel *" required className={inputCls()} />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <input name="wert_euro" type="number" step="0.01" placeholder="Wert € (optional)" className={inputCls()} />
+        <input name="wahrscheinlichkeit" type="number" min="0" max="100" placeholder="Wahrsch. % (optional)" className={inputCls()} />
+      </div>
+      <div className="flex gap-2">
+        <button type="submit" disabled={pending}
+          className="bg-s112-teal text-white px-3 py-1 rounded-lg text-xs font-medium disabled:opacity-40">
+          {pending ? '…' : 'Eintragen'}
+        </button>
+        <button type="button" onClick={onDone} className="text-xs text-gray-500 hover:text-gray-700">Abbrechen</button>
+      </div>
+    </form>
+  )
+}
+
 // ── Kontakt-Karte ─────────────────────────────────────────────────────────────
 
 function KontaktKarte({
@@ -175,6 +211,7 @@ function KontaktKarte({
   const [editing, setEditing] = useState(false)
   const [showAkt, setShowAkt] = useState(false)
   const [showAktForm, setShowAktForm] = useState(false)
+  const [showPipelineForm, setShowPipelineForm] = useState(false)
   const [pending, startTransition] = useTransition()
 
   const name = [kontakt.vorname, kontakt.nachname].filter(Boolean).join(' ')
@@ -197,12 +234,21 @@ function KontaktKarte({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-gray-900 text-sm">{name}</span>
+            <Link href={`/crm/kontakte/${kontakt.id}`}
+              className="font-semibold text-gray-900 text-sm hover:text-s112-teal hover:underline">
+              {name}
+            </Link>
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${segmentFarbe(kontakt.segment)}`}>
               {segmentLabel(kontakt.segment)}
             </span>
             {kontakt.stammkunde && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-s112-yellow/20 text-amber-700 font-medium">⭐ Stammkunde</span>
+            )}
+            {kontakt.newsletter && kontakt.newsletter_bestaetigt && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">✉ Newsletter</span>
+            )}
+            {kontakt.newsletter && !kontakt.newsletter_bestaetigt && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium">✉ ausstehend</span>
             )}
           </div>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5">
@@ -272,6 +318,20 @@ function KontaktKarte({
           </button>
         )}
       </div>
+
+      {/* Pipeline */}
+      {writeOk && (
+        <div className="mt-2 border-t border-s112-border/60 pt-2">
+          {!showPipelineForm ? (
+            <button onClick={() => setShowPipelineForm(true)}
+              className="text-xs text-s112-teal hover:underline">
+              ＋ Pipeline
+            </button>
+          ) : (
+            <PipelineForm kontaktId={kontakt.id} onDone={() => setShowPipelineForm(false)} />
+          )}
+        </div>
+      )}
     </div>
   )
 }

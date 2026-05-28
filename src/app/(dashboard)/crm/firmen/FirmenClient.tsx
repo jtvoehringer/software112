@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
+import Link from 'next/link'
 import { createFirma, updateFirma, deleteFirma } from '../actions'
 import { SEGMENTE, segmentLabel, segmentFarbe } from '@/lib/crm/types'
 import type { FirmaRow } from '@/lib/crm/types'
@@ -149,7 +150,10 @@ function FirmaKarte({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-gray-900 text-sm">{firma.name}</span>
+            <Link href={`/crm/firmen/${firma.id}`}
+              className="font-semibold text-gray-900 text-sm hover:text-s112-teal hover:underline">
+              {firma.name}
+            </Link>
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${segmentFarbe(firma.segment)}`}>
               {segmentLabel(firma.segment)}
             </span>

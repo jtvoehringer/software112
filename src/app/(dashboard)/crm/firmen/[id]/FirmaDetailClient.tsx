@@ -1,0 +1,232 @@
+'use client'
+
+import { useState, useTransition } from 'react'
+import Link from 'next/link'
+import { createAktivitaet } from '../../actions'
+import {
+  AKTIVITAET_ARTEN,
+  segmentLabel, segmentFarbe,
+} from '@/lib/crm/types'
+import type { FirmaRow, KontaktRow, AktivitaetRow } from '@/lib/crm/types'
+
+function inputCls() {
+  return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+}
+
+// ── Aktivitäts-Formular ───────────────────────────────────────────────────────
+
+function AktivitaetForm({ firmaId, onDone }: { firmaId: string; onDone: () => void }) {
+  const [pending, startTransition] = useTransition()
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    fd.set('firma_id', firmaId)
+    startTransition(async () => { await createAktivitaet(fd); onDone() })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="p-3 bg-white border border-s112-border rounded-lg space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        <select name="art" defaultValue="notiz" required className={inputCls()}>
+          {AKTIVITAET_ARTEN.map(a => <option key={a.value} value={a.value}>{a.icon} {a.label}</option>)}
+        </select>
+        <input name="datum" type="date" defaultValue={new Date().toISOString().split('T')[0]}
+          required className={inputCls()} />
+      </div>
+      <input name="betreff" placeholder="Betreff *" required className={inputCls()} />
+      <textarea name="beschreibung" placeholder="Beschreibung (optional)" rows={2}
+        className={inputCls() + ' resize-none'} />
+      <div className="flex gap-2">
+        <button type="submit" disabled={pending}
+          className="bg-s112-teal text-white px-3 py-1 rounded-lg text-xs font-medium disabled:opacity-40">
+          {pending ? '…' : 'Eintragen'}
+        </button>
+        <button type="button" onClick={onDone} className="text-xs text-gray-500 hover:text-gray-700">Abbrechen</button>
+      </div>
+    </form>
+  )
+}
+
+// ── Hauptkomponente ───────────────────────────────────────────────────────────
+
+type Tab = 'kontakte' | 'aktivitaeten'
+
+export default function FirmaDetailClient({
+  firma, kontakte, aktivitaeten, writeOk,
+}: {
+  firma: FirmaRow
+  kontakte: KontaktRow[]
+  aktivitaeten: AktivitaetRow[]
+  writeOk: boolean
+}) {
+  const [tab, setTab] = useState<Tab>('kontakte')
+  const [showAktForm, setShowAktForm] = useState(false)
+
+  return (
+    <div className="space-y-6">
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-2 text-sm text-s112-muted">
+        <Link href="/crm/firmen" className="hover:text-s112-teal">Firmen</Link>
+        <span>/</span>
+        <span className="text-gray-800 font-medium">{firma.name}</span>
+      </nav>
+
+      {/* Kopfbereich */}
+      <div className="card p-5">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-lg bg-s112-teal/10 flex items-center justify-center text-s112-teal font-bold text-lg flex-shrink-0">
+            {firma.name[0].toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl font-bold text-gray-900">{firma.name}</h1>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${segmentFarbe(firma.segment)}`}>
+                {segmentLabel(firma.segment)}
+              </span>
+              {firma.land && firma.land !== 'AT' && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{firma.land}</span>
+              )}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1">
+              {firma.email && (
+                <a href={`mailto:${firma.email}`} className="text-sm text-s112-teal hover:underline flex items-center gap-1">
+                  <span>✉</span> {firma.email}
+                </a>
+              )}
+              {firma.telefon && (
+                <span className="text-sm text-gray-600 flex items-center gap-1">
+                  <span>📞</span> {firma.telefon}
+                </span>
+              )}
+              {firma.website && (
+                <a href={firma.website} target="_blank" rel="noopener noreferrer"
+                  className="text-sm text-s112-teal hover:underline flex items-center gap-1">
+                  <span>🌐</span> {firma.website.replace(/^https?:\/\//, '')}
+                </a>
+              )}
+              {(firma.plz || firma.ort) && (
+                <span className="text-sm text-gray-600 flex items-center gap-1">
+                  <span>📍</span> {[firma.strasse, firma.plz && firma.ort ? `${firma.plz} ${firma.ort}` : (firma.plz ?? firma.ort)].filter(Boolean).join(', ')}
+                </span>
+              )}
+              {firma.uid_nummer && (
+                <span className="text-sm text-gray-600">UID: {firma.uid_nummer}</span>
+              )}
+              {firma.zahlungsziel_tage != null && (
+                <span className="text-sm text-gray-600">Zahlungsziel: {firma.zahlungsziel_tage} Tage</span>
+              )}
+            </div>
+            {firma.notizen && (
+              <p className="mt-2 text-sm text-gray-500 italic">{firma.notizen}</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="border-b border-s112-border">
+        <div className="flex gap-0">
+          {(['kontakte', 'aktivitaeten'] as Tab[]).map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                tab === t
+                  ? 'border-s112-teal text-s112-teal'
+                  : 'border-transparent text-s112-muted hover:text-gray-700'
+              }`}>
+              {t === 'kontakte'
+                ? `Kontakte (${kontakte.length})`
+                : `Aktivitäten (${aktivitaeten.length})`}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tab: Kontakte */}
+      {tab === 'kontakte' && (
+        <div className="space-y-2">
+          {kontakte.length === 0 ? (
+            <div className="card p-6 text-center text-s112-muted text-sm">
+              Keine Kontakte zu dieser Firma.
+            </div>
+          ) : kontakte.map(k => {
+            const kName = [k.vorname, k.nachname].filter(Boolean).join(' ')
+            return (
+              <div key={k.id} className="card p-4 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-s112-teal/10 flex items-center justify-center text-s112-teal font-semibold text-sm flex-shrink-0">
+                  {(k.vorname?.[0] ?? k.nachname[0]).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Link href={`/crm/kontakte/${k.id}`}
+                      className="text-sm font-medium text-gray-800 hover:text-s112-teal hover:underline">
+                      {kName}
+                    </Link>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${segmentFarbe(k.segment)}`}>
+                      {segmentLabel(k.segment)}
+                    </span>
+                    {k.stammkunde && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-s112-yellow/20 text-amber-700 font-medium">⭐ Stammkunde</span>
+                    )}
+                  </div>
+                  {k.email && (
+                    <a href={`mailto:${k.email}`} className="text-xs text-s112-teal hover:underline">{k.email}</a>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Tab: Aktivitäten */}
+      {tab === 'aktivitaeten' && (
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            {writeOk && !showAktForm && (
+              <button onClick={() => setShowAktForm(true)}
+                className="text-xs text-s112-teal hover:underline font-medium">
+                ＋ Aktivität
+              </button>
+            )}
+          </div>
+
+          {showAktForm && (
+            <AktivitaetForm firmaId={firma.id} onDone={() => setShowAktForm(false)} />
+          )}
+
+          {aktivitaeten.length === 0 && !showAktForm ? (
+            <div className="card p-6 text-center text-s112-muted text-sm">
+              Noch keine Aktivitäten erfasst.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {aktivitaeten.map(a => {
+                const artDef = AKTIVITAET_ARTEN.find(x => x.value === a.art)
+                return (
+                  <div key={a.id} className="card p-4 flex gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-base">
+                      {artDef?.icon ?? '•'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-s112-muted tabular-nums">
+                          {new Date(a.datum).toLocaleDateString('de-AT')}
+                        </span>
+                        <span className="text-xs text-s112-muted">{artDef?.label ?? a.art}</span>
+                      </div>
+                      <p className="text-sm font-medium text-gray-800 mt-0.5">{a.betreff}</p>
+                      {a.beschreibung && (
+                        <p className="text-xs text-gray-500 mt-0.5">{a.beschreibung}</p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}

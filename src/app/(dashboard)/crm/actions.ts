@@ -141,6 +141,8 @@ export async function createAktivitaet(formData: FormData) {
   if (error) throw new Error((error as AR).message)
   revalidatePath('/crm/kontakte')
   revalidatePath('/crm/firmen')
+  revalidatePath('/crm/kontakte/[id]', 'page')
+  revalidatePath('/crm/firmen/[id]', 'page')
 }
 
 // ── Pipeline ──────────────────────────────────────────────────────────────────
@@ -162,6 +164,8 @@ export async function createPipelineEintrag(formData: FormData) {
   const { error } = await (supabase.from('pipeline_eintraege') as any).insert(payload)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/crm/pipeline')
+  revalidatePath('/crm/kontakte/[id]', 'page')
+  revalidatePath('/crm/firmen/[id]', 'page')
 }
 
 export async function updatePipelineStufe(id: string, stufe: string) {
