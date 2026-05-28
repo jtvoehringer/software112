@@ -135,10 +135,11 @@ export async function createAktivitaet(formData: FormData) {
     betreff:      (formData.get('betreff') as string) || null,
     beschreibung: (formData.get('beschreibung') as string) || null,
     datum:        formData.get('datum') as string,
-    erledigt:     formData.get('erledigt') !== 'false',
+    erledigt:     formData.get('erledigt') === 'true',
   }
   const { error } = await (supabase.from('aktivitaeten') as any).insert(payload)
   if (error) throw new Error((error as AR).message)
+  revalidatePath('/crm')
   revalidatePath('/crm/kontakte')
   revalidatePath('/crm/firmen')
   revalidatePath('/crm/kontakte/[id]', 'page')
@@ -163,6 +164,7 @@ export async function createPipelineEintrag(formData: FormData) {
   }
   const { error } = await (supabase.from('pipeline_eintraege') as any).insert(payload)
   if (error) throw new Error((error as AR).message)
+  revalidatePath('/crm')
   revalidatePath('/crm/pipeline')
   revalidatePath('/crm/kontakte/[id]', 'page')
   revalidatePath('/crm/firmen/[id]', 'page')

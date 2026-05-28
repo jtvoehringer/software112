@@ -52,7 +52,7 @@ export default async function CRMUebersichtPage() {
         typ: 'aktivitaet' as const,
         art: a.art as string,
         artIcon: artDef?.icon ?? '📝',
-        ueberfaellig: !a.erledigt && (a.datum as string) < heute,
+        ueberfaellig: (a.datum as string) < heute,
         href: a.kontakt_id
           ? `/crm/kontakte/${a.kontakt_id}`
           : a.firma_id
