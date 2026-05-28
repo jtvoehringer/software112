@@ -302,7 +302,7 @@ function KontaktKarte({
             })}
             {writeOk && !showAktForm && (
               <button onClick={() => setShowAktForm(true)}
-                className="text-xs text-s112-teal hover:underline mt-1">
+                className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors mt-1">
                 ＋ Aktivität eintragen
               </button>
             )}
@@ -313,7 +313,7 @@ function KontaktKarte({
         )}
         {!showAkt && writeOk && (
           <button onClick={() => { setShowAkt(true); setShowAktForm(true) }}
-            className="text-xs text-s112-teal hover:underline mt-1 ml-4">
+            className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors mt-1 ml-4">
             ＋ Aktivität
           </button>
         )}
@@ -324,7 +324,7 @@ function KontaktKarte({
         <div className="mt-2 border-t border-s112-border/60 pt-2">
           {!showPipelineForm ? (
             <button onClick={() => setShowPipelineForm(true)}
-              className="text-xs text-s112-teal hover:underline">
+              className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors">
               ＋ Pipeline
             </button>
           ) : (
