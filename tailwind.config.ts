@@ -10,12 +10,13 @@ const config: Config = {
     extend: {
       colors: {
         // software:112 Brand Palette
+        // teal + yellow werden per CSS-Variable pro Tenant überschrieben (siehe layout.tsx)
         's112': {
-          teal:    '#025450',  // Primärfarbe
+          teal:    'var(--s112-teal, #025450)',    // Primärfarbe → tenant primary_color
+          yellow:  'var(--s112-yellow, #F9E54F)',  // Highlight   → tenant secondary_color
           navy:    '#0E3C62',  // Sekundär/Dark
           green:   '#98C780',  // Akzent Grün
           blue:    '#98C6DD',  // Akzent Blau
-          yellow:  '#F9E54F',  // Highlight
           bg:      '#F8F8F3',  // Hintergrund
           muted:   '#5C6E6B',  // Gedämpfter Text
           border:  '#E2E8E7',  // Rahmenfarbe

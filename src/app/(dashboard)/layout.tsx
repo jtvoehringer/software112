@@ -56,18 +56,27 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-s112-bg overflow-hidden">
-      <Sidebar
-        userEmail={user.email ?? ''}
-        role={role}
-        roleLabel={roleLabel(role)}
-        branding={branding}
-      />
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto p-6 lg:p-8">
-          {children}
-        </div>
-      </main>
-    </div>
+    <>
+      {/* CSS-Variablen pro Tenant — überschreiben die Tailwind-Defaults */}
+      <style>{`
+        :root {
+          --s112-teal:   ${branding.primary_color};
+          --s112-yellow: ${branding.secondary_color};
+        }
+      `}</style>
+      <div className="flex h-screen bg-s112-bg overflow-hidden">
+        <Sidebar
+          userEmail={user.email ?? ''}
+          role={role}
+          roleLabel={roleLabel(role)}
+          branding={branding}
+        />
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-7xl mx-auto p-6 lg:p-8">
+            {children}
+          </div>
+        </main>
+      </div>
+    </>
   )
 }
