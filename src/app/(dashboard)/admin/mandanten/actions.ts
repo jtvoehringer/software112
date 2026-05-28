@@ -39,3 +39,24 @@ export async function renameMandant(id: string, name: string) {
   if (error) throw new Error((error as AR).message)
   revalidatePath('/admin/mandanten')
 }
+
+export async function saveBranding(tenantId: string, formData: FormData) {
+  await assertSystemAdmin()
+  const supabase = createSupabaseAdminClient()
+
+  const payload = {
+    tenant_id:        tenantId,
+    anzeigename:      (formData.get('anzeigename') as string) || null,
+    logo_url:         (formData.get('logo_url') as string) || null,
+    primary_color:    (formData.get('primary_color') as string) || '#2a7c6f',
+    secondary_color:  (formData.get('secondary_color') as string) || '#f5c842',
+    modul_newsletter: formData.get('modul_newsletter') === 'true',
+    aktualisiert_am:  new Date().toISOString(),
+  }
+
+  const { error } = await (supabase.from('tenant_einstellungen') as any)
+    .upsert(payload, { onConflict: 'tenant_id' })
+
+  if (error) throw new Error((error as AR).message)
+  revalidatePath('/admin/mandanten')
+}

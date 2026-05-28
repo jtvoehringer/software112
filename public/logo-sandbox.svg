@@ -1,0 +1,14 @@
+<svg viewBox="0 0 160 44" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Sandbox">
+  <!-- Weinglas -->
+  <g transform="translate(4,3)">
+    <path d="M11 0 Q19 0 21 9 Q13 13 1 9 Q3 0 11 0Z" fill="#2a7c6f" opacity="0.5"/>
+    <path d="M1 9 Q2 18 7 20 L6 26 L16 26 L15 20 Q20 18 21 9 Q13 13 1 9Z" fill="#2a7c6f" opacity="0.18"/>
+    <line x1="11" y1="20" x2="11" y2="26" stroke="#2a7c6f" stroke-width="2" stroke-linecap="round"/>
+    <rect x="5" y="26" width="12" height="2" rx="1" fill="#2a7c6f" opacity="0.4"/>
+  </g>
+  <!-- Wordmark -->
+  <text x="36" y="20" font-family="system-ui,-apple-system,sans-serif"
+        font-size="15" font-weight="700" fill="#2a7c6f" letter-spacing="-0.3">sandbox</text>
+  <text x="37" y="34" font-family="system-ui,-apple-system,sans-serif"
+        font-size="9" font-weight="600" fill="#f5c842" letter-spacing="2.5">WEINBAU</text>
+</svg>

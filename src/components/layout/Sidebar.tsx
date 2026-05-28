@@ -1,10 +1,12 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import type { UserRole } from '@/lib/auth/roles'
+import type { TenantBranding } from '@/app/(dashboard)/layout'
 
 // ── Navigationsstruktur ───────────────────────────────────────────────────────
 
@@ -154,9 +156,10 @@ interface SidebarProps {
   userEmail: string
   role: UserRole
   roleLabel: string
+  branding: TenantBranding
 }
 
-export default function Sidebar({ userEmail, role, roleLabel }: SidebarProps) {
+export default function Sidebar({ userEmail, role, roleLabel, branding }: SidebarProps) {
   const pathname = usePathname()
   const router   = useRouter()
   const supabase = createSupabaseBrowserClient()
@@ -170,14 +173,26 @@ export default function Sidebar({ userEmail, role, roleLabel }: SidebarProps) {
 
   return (
     <aside className="w-60 flex-shrink-0 bg-white border-r border-s112-border flex flex-col">
-      {/* Logo */}
-      <div className="px-6 py-5 border-b border-s112-border">
-        <Link href="/dashboard" className="flex items-baseline gap-0">
-          <span className="text-xl font-bold text-s112-teal">software</span>
-          <span className="text-xl font-bold text-s112-yellow">:</span>
-          <span className="text-xl font-bold text-s112-teal">112</span>
+      {/* Kunden-Logo */}
+      <div className="px-5 py-4 border-b border-s112-border">
+        <Link href="/dashboard" className="block">
+          {branding.logo_url ? (
+            <Image
+              src={branding.logo_url}
+              alt={branding.anzeigename}
+              width={140} height={40}
+              className="object-contain object-left max-h-10 w-auto"
+              priority
+            />
+          ) : (
+            <div className="flex items-baseline gap-0">
+              <span className="text-xl font-bold text-s112-teal">software</span>
+              <span className="text-xl font-bold text-s112-yellow">:</span>
+              <span className="text-xl font-bold text-s112-teal">112</span>
+            </div>
+          )}
+          <p className="text-xs text-s112-muted mt-0.5">{branding.anzeigename !== 'software:112' ? branding.anzeigename : 'Weinbau-Management'}</p>
         </Link>
-        <p className="text-xs text-s112-muted mt-0.5">Weinbau-Management</p>
       </div>
 
       {/* Navigation */}
@@ -227,6 +242,19 @@ export default function Sidebar({ userEmail, role, roleLabel }: SidebarProps) {
         >
           Abmelden
         </button>
+
+        {/* IC&P Branding */}
+        <div className="mt-3 pt-3 border-t border-s112-border/40 flex items-center gap-2">
+          <Image
+            src="/icp-logo.png"
+            alt="IC&P Consultants"
+            width={20} height={20}
+            className="rounded-full opacity-60 flex-shrink-0"
+          />
+          <p className="text-[9px] text-s112-muted/50 leading-tight">
+            &copy; IC&amp;P Consultants e.U.
+          </p>
+        </div>
       </div>
     </aside>
   )

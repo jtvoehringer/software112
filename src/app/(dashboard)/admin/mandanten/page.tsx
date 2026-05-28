@@ -15,6 +15,12 @@ export type MandantRow = {
   name: string
   erstellt_am: string
   benutzer_anzahl: number
+  // Branding
+  anzeigename:      string | null
+  logo_url:         string | null
+  primary_color:    string
+  secondary_color:  string
+  modul_newsletter: boolean
 }
 
 export default async function MandantenPage() {
@@ -23,9 +29,11 @@ export default async function MandantenPage() {
 
   const supabase = createSupabaseAdminClient()
 
-  const [{ data: tenants }, { data: memberships }] = await Promise.all([
+  const [{ data: tenants }, { data: memberships }, { data: einstellungen }] = await Promise.all([
     (supabase.from('tenants') as any).select('id, name, erstellt_am').order('erstellt_am'),
     (supabase.from('tenant_memberships') as any).select('tenant_id'),
+    (supabase.from('tenant_einstellungen') as any)
+      .select('tenant_id, anzeigename, logo_url, primary_color, secondary_color, modul_newsletter'),
   ])
 
   // Benutzeranzahl je Mandant zählen
@@ -34,12 +42,26 @@ export default async function MandantenPage() {
     countMap[m.tenant_id] = (countMap[m.tenant_id] ?? 0) + 1
   }
 
-  const mandanten: MandantRow[] = ((tenants ?? []) as R[]).map(t => ({
-    id:              t.id,
-    name:            t.name,
-    erstellt_am:     t.erstellt_am,
-    benutzer_anzahl: countMap[t.id] ?? 0,
-  }))
+  // Branding-Map
+  const brandingMap: Record<string, R> = {}
+  for (const e of (einstellungen ?? []) as R[]) {
+    brandingMap[e.tenant_id] = e
+  }
+
+  const mandanten: MandantRow[] = ((tenants ?? []) as R[]).map(t => {
+    const b = brandingMap[t.id]
+    return {
+      id:              t.id,
+      name:            t.name,
+      erstellt_am:     t.erstellt_am,
+      benutzer_anzahl: countMap[t.id] ?? 0,
+      anzeigename:     b?.anzeigename ?? null,
+      logo_url:        b?.logo_url ?? null,
+      primary_color:   b?.primary_color ?? '#2a7c6f',
+      secondary_color: b?.secondary_color ?? '#f5c842',
+      modul_newsletter: b?.modul_newsletter ?? false,
+    }
+  })
 
   return (
     <div>
