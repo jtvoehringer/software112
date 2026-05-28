@@ -49,9 +49,9 @@ const NAV: NavEntry[] = [
   {
     kind: 'group', label: 'CRM', icon: '🤝',
     items: [
-      { href: '/crm/kontakte',  label: 'Kontakte',  phase: 2 },
-      { href: '/crm/firmen',    label: 'Firmen',    phase: 2 },
-      { href: '/crm/pipeline',  label: 'Pipeline',  phase: 2 },
+      { href: '/crm/kontakte',  label: 'Kontakte' },
+      { href: '/crm/firmen',    label: 'Firmen'   },
+      { href: '/crm/pipeline',  label: 'Pipeline' },
     ],
   },
 
