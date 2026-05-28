@@ -63,7 +63,7 @@ const NAV: NavEntry[] = [
     kind: 'group', label: 'Administration', icon: '⚙️', adminOnly: true,
     items: [
       { href: '/admin/mandanten', label: 'Mandanten' },
-      { href: '/admin/benutzer',  label: 'Benutzer'  },
+      { href: '/admin/benutzer',  label: 'System-Admin', adminOnly: true },
     ],
   },
 ]
