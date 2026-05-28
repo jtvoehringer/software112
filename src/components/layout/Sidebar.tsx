@@ -12,7 +12,7 @@ type NavItem = {
   href: string; label: string; phase?: number; adminOnly?: boolean; child?: boolean
 }
 type NavGroup = {
-  kind: 'group'; label: string; icon: string; items: NavItem[]
+  kind: 'group'; label: string; icon: string; items: NavItem[]; adminOnly?: boolean
 }
 type NavLink = {
   kind: 'link'; href: string; label: string; icon: string
@@ -56,7 +56,14 @@ const NAV: NavEntry[] = [
   },
 
   { kind: 'link', href: '/reports',    label: 'Reports',    icon: '📁', phase: 2 },
-  { kind: 'link', href: '/benutzer',   label: 'Benutzer',   icon: '👥', adminOnly: true },
+
+  {
+    kind: 'group', label: 'Administration', icon: '⚙️', adminOnly: true,
+    items: [
+      { href: '/admin/mandanten', label: 'Mandanten' },
+      { href: '/admin/benutzer',  label: 'Benutzer'  },
+    ],
+  },
 ]
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────
@@ -177,6 +184,7 @@ export default function Sidebar({ userEmail, role, roleLabel }: SidebarProps) {
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {NAV.map((entry, i) => {
           if (entry.kind === 'group') {
+            if (entry.adminOnly && !isAdmin) return null
             return (
               <NavGroupItem key={i} entry={entry} pathname={pathname} isAdmin={isAdmin} />
             )
