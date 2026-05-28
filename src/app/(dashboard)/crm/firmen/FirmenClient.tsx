@@ -16,7 +16,7 @@ const LAENDER = ['AT', 'DE', 'CH', 'IT', 'FR', 'HU', 'SK', 'CZ', 'US', 'GB']
 
 // ── Formular ──────────────────────────────────────────────────────────────────
 
-function FirmaForm({ initial, onDone }: { initial?: FirmaRow | null; onDone: () => void }) {
+function FirmaForm({ initial, defaultSegment, onDone }: { initial?: FirmaRow | null; defaultSegment?: string; onDone: () => void }) {
   const [pending, startTransition] = useTransition()
   const v = (field: keyof FirmaRow) => (initial?.[field] ?? '') as string
 
@@ -41,7 +41,7 @@ function FirmaForm({ initial, onDone }: { initial?: FirmaRow | null; onDone: () 
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Segment *</label>
-          <select name="segment" defaultValue={v('segment') || 'handel'} required className={inputCls()}>
+          <select name="segment" defaultValue={v('segment') || defaultSegment || 'handel'} required className={inputCls()}>
             {SEGMENTE.filter(s => s.value !== 'privat').map(s =>
               <option key={s.value} value={s.value}>{s.icon} {s.label}</option>
             )}
@@ -250,7 +250,12 @@ export default function FirmenClient({
         )}
       </div>
 
-      {showForm && <FirmaForm onDone={() => setShowForm(false)} />}
+      {showForm && (
+        <FirmaForm
+          defaultSegment={segment !== 'alle' ? segment : undefined}
+          onDone={() => setShowForm(false)}
+        />
+      )}
 
       {gefiltert.length === 0 ? (
         <div className="card text-center py-12 text-s112-muted text-sm">

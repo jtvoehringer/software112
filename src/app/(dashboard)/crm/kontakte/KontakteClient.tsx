@@ -22,10 +22,11 @@ function inputCls() {
 // ── Formular ──────────────────────────────────────────────────────────────────
 
 function KontaktForm({
-  initial, firmen, onDone,
+  initial, firmen, defaultSegment, onDone,
 }: {
   initial?: KontaktRow | null
   firmen: FirmaOption[]
+  defaultSegment?: string
   onDone: () => void
 }) {
   const [pending, startTransition] = useTransition()
@@ -59,7 +60,7 @@ function KontaktForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Segment *</label>
-          <select name="segment" defaultValue={v('segment') || 'privat'} required className={inputCls()}>
+          <select name="segment" defaultValue={v('segment') || defaultSegment || 'privat'} required className={inputCls()}>
             {SEGMENTE.map(s => <option key={s.value} value={s.value}>{s.icon} {s.label}</option>)}
           </select>
         </div>
@@ -325,7 +326,13 @@ export default function KontakteClient({
       </div>
 
       {/* Formular */}
-      {showForm && <KontaktForm firmen={firmen} onDone={() => setShowForm(false)} />}
+      {showForm && (
+        <KontaktForm
+          firmen={firmen}
+          defaultSegment={segment !== 'alle' ? segment : undefined}
+          onDone={() => setShowForm(false)}
+        />
+      )}
 
       {/* Liste */}
       {gefiltert.length === 0 ? (
