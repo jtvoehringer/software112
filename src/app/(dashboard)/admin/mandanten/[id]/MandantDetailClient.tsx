@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import {
   saveTenantSettings,
@@ -51,6 +52,7 @@ function Toggle({ on, onToggle, label }: { on: boolean; onToggle: () => void; la
 // ── Tab: Branding ─────────────────────────────────────────────────────────────
 
 function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
+  const router                     = useRouter()
   const [pending, startTransition] = useTransition()
   const [saved, setSaved]          = useState(false)
   const [primary, setPrimary]      = useState(settings.primary_color)
@@ -60,7 +62,6 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    // Module-Werte ergänzen (werden über eigenen Tab gespeichert, hier mitnehmen)
     fd.set('modul_newsletter', settings.modul_newsletter ? 'true' : 'false')
     fd.set('modul_crm',        settings.modul_crm        ? 'true' : 'false')
     fd.set('modul_kellerbuch', settings.modul_kellerbuch  ? 'true' : 'false')
@@ -68,7 +69,7 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
     startTransition(async () => {
       await saveTenantSettings(tenant.id, fd)
       setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      setTimeout(() => router.push('/admin/mandanten'), 800)
     })
   }
 
@@ -287,6 +288,7 @@ function BenutzerTab({ tenant, members }: { tenant: TenantDetail; members: Tenan
 // ── Tab: Brevo ────────────────────────────────────────────────────────────────
 
 function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
+  const router                     = useRouter()
   const [pending, startTransition] = useTransition()
   const [saved, setSaved]          = useState(false)
 
@@ -304,7 +306,7 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
     startTransition(async () => {
       await saveTenantSettings(tenant.id, fd)
       setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      setTimeout(() => router.push('/admin/mandanten'), 800)
     })
   }
 
@@ -378,6 +380,7 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
 // ── Tab: Module ───────────────────────────────────────────────────────────────
 
 function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
+  const router                     = useRouter()
   const [pending, startTransition] = useTransition()
   const [saved, setSaved]          = useState(false)
   const [mods, setMods]            = useState({
@@ -412,7 +415,7 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
     startTransition(async () => {
       await saveTenantSettings(tenant.id, fd)
       setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      setTimeout(() => router.push('/admin/mandanten'), 800)
     })
   }
 
