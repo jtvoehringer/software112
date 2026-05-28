@@ -389,7 +389,7 @@ export default function NeuerVerkaufPage() {
                     value={pos.menge}
                     onChange={e => updatePos(idx, { menge: e.target.value })}
                     required
-                    min={0.01}
+                    min={pos.typ === 'tank' ? 0.01 : 1}
                     step={pos.typ === 'tank' ? '0.01' : '1'}
                     className={inputCls + ' w-full'}
                   />

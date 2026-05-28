@@ -112,6 +112,44 @@ export async function removeMemberAdmin(membershipId: string, tenantId: string) 
   return { success: true }
 }
 
+// ── Rechnungsnummer-Einstellungen speichern ───────────────────────────────────
+
+export async function saveVerkaufEinstellungen(tenantId: string, formData: FormData) {
+  await assertSystemAdmin()
+  const admin = createSupabaseAdminClient()
+
+  const prefix   = (formData.get('rechnung_prefix') as string)?.trim() || 'RE'
+  const stellen  = Math.max(1, Math.min(8, parseInt(formData.get('rechnung_stellen') as string) || 4))
+
+  const { error } = await (admin.from('tenant_einstellungen') as any)
+    .upsert({
+      tenant_id:        tenantId,
+      rechnung_prefix:  prefix,
+      rechnung_stellen: stellen,
+      aktualisiert_am:  new Date().toISOString(),
+    }, { onConflict: 'tenant_id' })
+
+  if (error) throw new Error((error as R).message)
+  revalidatePath(`/admin/mandanten/${tenantId}`)
+}
+
+// ── Rechnungsnummer-Zähler zurücksetzen ───────────────────────────────────────
+
+export async function resetRechnungsZaehler(tenantId: string, auf: number) {
+  await assertSystemAdmin()
+  const admin = createSupabaseAdminClient()
+
+  const { error } = await (admin.from('tenant_einstellungen') as any)
+    .upsert({
+      tenant_id:        tenantId,
+      rechnung_zaehler: Math.max(1, auf),
+      aktualisiert_am:  new Date().toISOString(),
+    }, { onConflict: 'tenant_id' })
+
+  if (error) throw new Error((error as R).message)
+  revalidatePath(`/admin/mandanten/${tenantId}`)
+}
+
 // ── Tenant umbenennen ─────────────────────────────────────────────────────────
 
 export async function renameTenantAdmin(tenantId: string, name: string) {

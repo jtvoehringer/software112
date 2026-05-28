@@ -29,6 +29,9 @@ export type TenantSettings = {
   brevo_list_handel: number | null
   brevo_list_export: number | null
   brevo_list_grossh: number | null
+  rechnung_prefix:   string
+  rechnung_zaehler:  number
+  rechnung_stellen:  number
 }
 export type TenantMember = {
   id: string; userId: string; email: string; role: string; createdAt: string
@@ -92,6 +95,9 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     brevo_list_handel: s?.brevo_list_handel ?? null,
     brevo_list_export: s?.brevo_list_export ?? null,
     brevo_list_grossh: s?.brevo_list_grossh ?? null,
+    rechnung_prefix:   s?.rechnung_prefix ?? 'RE',
+    rechnung_zaehler:  s?.rechnung_zaehler ?? 1,
+    rechnung_stellen:  s?.rechnung_stellen ?? 4,
   }
 
   const members: TenantMember[] = ((memberships ?? []) as R[]).map(m => ({

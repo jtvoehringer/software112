@@ -16,6 +16,19 @@ async function getTenantId(): Promise<string> {
   return id
 }
 
+// Atomisch: Rechnungsnummer generieren (Zähler +1 in einer DB-Transaktion)
+async function generateRechnungsnummer(tenantId: string): Promise<string | null> {
+  const supabase = await createSupabaseServerClient()
+  const { data, error } = await (supabase.rpc as any)('get_next_rechnungsnummer', {
+    p_tenant_id: tenantId,
+  })
+  if (error) {
+    console.error('generateRechnungsnummer:', error.message)
+    return null
+  }
+  return data as string | null
+}
+
 // Positions-Typ aus der Form
 interface PositionInput {
   typ:               'flasche' | 'tank' | 'sonstiges'
@@ -34,8 +47,10 @@ export async function createVerkauf(formData: FormData) {
   const tenantId = await getTenantId()
 
   // Kopfdaten
-  const datum          = (formData.get('datum') as string) || new Date().toISOString().split('T')[0]
-  const rechnungsnummer = (formData.get('rechnungsnummer') as string) || null
+  const datum               = (formData.get('datum') as string) || new Date().toISOString().split('T')[0]
+  const rechnungsnummerInput = (formData.get('rechnungsnummer') as string).trim()
+  // Wenn keine Nummer eingetragen → automatisch generieren
+  const rechnungsnummer = rechnungsnummerInput || await generateRechnungsnummer(tenantId)
   const kontaktId      = (formData.get('kontakt_id') as string) || null
   const firmaId        = (formData.get('firma_id') as string) || null
   const notizen        = (formData.get('notizen') as string) || null

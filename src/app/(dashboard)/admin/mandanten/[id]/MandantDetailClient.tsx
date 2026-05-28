@@ -9,6 +9,8 @@ import {
   updateMemberRoleAdmin,
   removeMemberAdmin,
   renameTenantAdmin,
+  saveVerkaufEinstellungen,
+  resetRechnungsZaehler,
 } from './actions'
 import type { TenantDetail, TenantSettings, TenantMember } from './page'
 
@@ -439,6 +441,122 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
   )
 }
 
+// ── Tab: Verkauf ──────────────────────────────────────────────────────────────
+
+function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
+  const [pending, startTransition] = useTransition()
+  const [saved,   setSaved]        = useState(false)
+  const [resetVal, setResetVal]    = useState(String(settings.rechnung_zaehler))
+  const [zaehler, setZaehler]      = useState(settings.rechnung_zaehler)
+
+  // Vorschau der nächsten Rechnungsnummer
+  const [prefix,   setPrefix]   = useState(settings.rechnung_prefix)
+  const [stellen,  setStellen]  = useState(settings.rechnung_stellen)
+  const naechste = `${prefix}-${String(zaehler).padStart(stellen, '0')}`
+
+  function handleSave(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    startTransition(async () => {
+      await saveVerkaufEinstellungen(tenant.id, fd)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    })
+  }
+
+  function handleReset() {
+    const neu = parseInt(resetVal)
+    if (isNaN(neu) || neu < 1) return
+    if (!confirm(`Zähler auf ${neu} zurücksetzen? Bereits vergebene Nummern bleiben unverändert.`)) return
+    startTransition(async () => {
+      await resetRechnungsZaehler(tenant.id, neu)
+      setZaehler(neu)
+    })
+  }
+
+  return (
+    <div className="space-y-6 max-w-md">
+
+      {/* Einstellungen */}
+      <form onSubmit={handleSave} className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Präfix</label>
+            <input
+              name="rechnung_prefix"
+              value={prefix}
+              onChange={e => setPrefix(e.target.value.toUpperCase())}
+              maxLength={8}
+              placeholder="RE"
+              className={inputCls()}
+            />
+            <p className="text-xs text-s112-muted mt-1">Buchstaben vor dem Bindestrich</p>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Stellen (Nullen)</label>
+            <input
+              name="rechnung_stellen"
+              type="number"
+              value={stellen}
+              onChange={e => setStellen(Math.max(1, Math.min(8, parseInt(e.target.value) || 4)))}
+              min={1}
+              max={8}
+              className={inputCls()}
+            />
+            <p className="text-xs text-s112-muted mt-1">Länge der Ziffernfolge</p>
+          </div>
+        </div>
+
+        {/* Vorschau */}
+        <div className="bg-s112-bg border border-s112-border rounded-lg px-4 py-3">
+          <p className="text-xs text-s112-muted mb-1">Nächste Rechnungsnummer</p>
+          <p className="text-xl font-mono font-bold text-s112-teal tracking-wider">{naechste}</p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button type="submit" disabled={pending}
+            className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+            {pending ? 'Speichern…' : 'Speichern'}
+          </button>
+          {saved && <span className="text-xs text-s112-teal font-medium">✓ Gespeichert</span>}
+        </div>
+      </form>
+
+      {/* Zähler zurücksetzen */}
+      <div className="border border-s112-border rounded-xl p-4 space-y-3">
+        <div>
+          <p className="text-sm font-semibold text-gray-700">Zählerstand</p>
+          <p className="text-xs text-s112-muted mt-0.5">
+            Aktuell: <span className="font-mono font-semibold text-gray-900">{zaehler}</span>
+            {' '}(nächste vergebene Nummer: <span className="font-mono text-gray-900">{naechste}</span>)
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            value={resetVal}
+            onChange={e => setResetVal(e.target.value)}
+            min={1}
+            className="w-28 border border-s112-border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+          />
+          <button
+            type="button"
+            onClick={handleReset}
+            disabled={pending}
+            className="text-sm text-red-500 hover:text-red-700 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-50 disabled:opacity-40 transition-colors"
+          >
+            Zähler setzen
+          </button>
+        </div>
+        <p className="text-xs text-s112-muted">
+          ⚠ Nur sinnvoll bei Ersteinrichtung oder Jahreswechsel mit neuem Präfix.
+          Bereits vergebene Rechnungsnummern werden nicht verändert.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 // ── Tab: Onboarding-Checkliste ────────────────────────────────────────────────
 
 function CheckItem({ ok, label, hint }: { ok: boolean; label: string; hint?: string }) {
@@ -513,7 +631,7 @@ function ChecklisteTab({ tenant, settings, members }: {
 
 // ── Haupt-Komponente ──────────────────────────────────────────────────────────
 
-type Tab = 'branding' | 'benutzer' | 'brevo' | 'module' | 'checkliste'
+type Tab = 'branding' | 'benutzer' | 'brevo' | 'module' | 'verkauf' | 'checkliste'
 
 export default function MandantDetailClient({ tenant, settings, members }: {
   tenant:   TenantDetail
@@ -538,6 +656,7 @@ export default function MandantDetailClient({ tenant, settings, members }: {
     { id: 'benutzer',    label: 'Benutzer' },
     { id: 'brevo',       label: 'Brevo' },
     { id: 'module',      label: 'Module' },
+    { id: 'verkauf',     label: 'Verkauf' },
     { id: 'checkliste',  label: 'Checkliste' },
   ]
 
@@ -604,6 +723,7 @@ export default function MandantDetailClient({ tenant, settings, members }: {
       {tab === 'benutzer'   && <BenutzerTab   tenant={tenant} members={members} />}
       {tab === 'brevo'      && <BrevoTab      tenant={tenant} settings={settings} />}
       {tab === 'module'     && <ModuleTab     tenant={tenant} settings={settings} />}
+      {tab === 'verkauf'    && <VerkaufTab    tenant={tenant} settings={settings} />}
       {tab === 'checkliste' && <ChecklisteTab tenant={tenant} settings={settings} members={members} />}
     </div>
   )
