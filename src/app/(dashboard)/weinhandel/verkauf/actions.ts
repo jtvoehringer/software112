@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { randomUUID } from 'crypto'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -53,7 +54,7 @@ export async function createVerkauf(formData: FormData) {
   }
 
   // 1. Verkaufsposten anlegen (UUID selbst generieren)
-  const postenId = crypto.randomUUID()
+  const postenId = randomUUID()
   const { error: postenErr } = await (supabase.from('verkaufsposten') as any).insert({
     id:              postenId,
     tenant_id:       tenantId,

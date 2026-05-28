@@ -3,16 +3,18 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { randomUUID } from 'crypto'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
-async function getTenantId(): Promise<string> {
+async function getTenantId(): Promise<string | null> {
   const supabase = await createSupabaseServerClient()
-  const { data } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
-  const id = (data as AR | null)?.tenant_id
-  if (!id) throw new Error('Kein Betrieb gefunden')
-  return id
+  const { data } = await (supabase.from('tenant_memberships') as any)
+    .select('tenant_id')
+    .limit(1)
+    .maybeSingle()
+  return (data as AR | null)?.tenant_id ?? null
 }
 
 // ── Preisliste anlegen ────────────────────────────────────────────────────────
@@ -20,9 +22,9 @@ async function getTenantId(): Promise<string> {
 export async function createPreisliste(formData: FormData) {
   const supabase  = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
+  if (!tenantId) { redirect('/weinhandel/preisliste') }
 
-  // UUID selbst generieren – vermeidet das fragile .select().single() nach INSERT
-  const newId = crypto.randomUUID()
+  const newId = randomUUID()
 
   const { error } = await (supabase.from('preislisten') as any).insert({
     id:           newId,
@@ -35,7 +37,6 @@ export async function createPreisliste(formData: FormData) {
 
   if (error) {
     console.error('createPreisliste:', error.message)
-    revalidatePath('/weinhandel/preisliste')
     redirect('/weinhandel/preisliste')
   }
   revalidatePath('/weinhandel/preisliste')
@@ -75,6 +76,7 @@ export async function deactivatePreisliste(id: string) {
 export async function createPosition(preislisteId: string, formData: FormData) {
   const supabase  = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
+  if (!tenantId) { revalidatePath(`/weinhandel/preisliste/${preislisteId}`); return }
 
   const fuellungId = (formData.get('fuellung_id') as string) || null
   const { error }  = await (supabase.from('preislisten_positionen') as any).insert({
