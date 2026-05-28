@@ -63,6 +63,7 @@ export type KontaktRow = {
   newsletter: boolean
   newsletter_bestaetigt: boolean
   stammkunde: boolean
+  notizen: string | null
   aktiv: boolean
   erstellt_am: string
 }
@@ -107,6 +108,7 @@ export type PipelineEintragRow = {
   wert_euro: number | null
   wahrscheinlichkeit: number | null
   erwartetes_datum: string | null
+  notizen: string | null
   kontakt_id: string | null
   kontakt_name?: string | null
   firma_id: string | null
