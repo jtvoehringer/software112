@@ -16,7 +16,18 @@ export async function createMandant(formData: FormData) {
   await assertSystemAdmin()
   const supabase = await createSupabaseServerClient()
   const name = formData.get('name') as string
-  const { error } = await (supabase.from('tenants') as any).insert({ name })
+
+  // Slug aus Name generieren: Kleinbuchstaben, Leerzeichen → Bindestrich, Sonderzeichen entfernen
+  const baseSlug = name
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')  // Umlaute: ä→a, ö→o, ü→u
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+  // Eindeutigkeit sicherstellen: ggf. Timestamp-Suffix anhängen
+  const slug = `${baseSlug}-${Date.now().toString(36)}`
+
+  const { error } = await (supabase.from('tenants') as any).insert({ name, slug })
   if (error) throw new Error((error as AR).message)
   revalidatePath('/admin/mandanten')
 }
