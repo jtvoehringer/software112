@@ -230,14 +230,16 @@ export default function NeuerVerkaufPage() {
               />
             </div>
             <div>
-              <label className={labelCls}>Beleg-/Rechnungsnummer</label>
+              <label className={labelCls}>Rechnungsnummer</label>
               <input
                 type="text"
-                value={rechnungsnummer}
-                onChange={e => setRechnungsnummer(e.target.value)}
-                placeholder="z.B. 2025-0042"
-                className={inputCls + ' w-full'}
+                value=""
+                readOnly
+                disabled
+                placeholder="Wird automatisch vergeben"
+                className={inputCls + ' w-full bg-s112-bg text-s112-muted cursor-not-allowed'}
               />
+              <p className="text-xs text-s112-muted mt-1">Automatisch generiert beim Speichern</p>
             </div>
             <div>
               <label className={labelCls}>Kontakt (Person)</label>

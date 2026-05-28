@@ -125,6 +125,34 @@ export async function createVerkauf(formData: FormData) {
     }
   }
 
+  // 4. CRM Aktivität auto-loggen (wenn Kontakt oder Firma angegeben)
+  if (kontaktId || firmaId) {
+    try {
+      const gesamtBetrag = positionen.reduce((s, p) => s + (p.preis_brutto ?? 0) * p.menge, 0)
+      const betreff = [
+        rechnungsnummer ? `Verkauf ${rechnungsnummer}` : 'Verkauf',
+        gesamtBetrag > 0
+          ? gesamtBetrag.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+          : null,
+      ].filter(Boolean).join(' · ')
+
+      const { data: { user } } = await supabase.auth.getUser()
+      await (supabase.from('aktivitaeten') as any).insert({
+        tenant_id:    tenantId,
+        kontakt_id:   kontaktId  || null,
+        firma_id:     firmaId    || null,
+        art:          'verkauf',
+        betreff,
+        beschreibung: `Verkaufsposten: ${postenId}`,
+        datum:        datum,
+        erledigt:     true,
+        erstellt_von: user?.id ?? null,
+      })
+    } catch {
+      // CRM-Fehler nicht auf Verkauf durchschlagen
+    }
+  }
+
   revalidatePath('/weinhandel/verkauf')
   redirect(`/weinhandel/verkauf/${postenId}`)
 }
@@ -139,4 +167,45 @@ export async function deactivateVerkauf(id: string) {
   if (error) throw new Error((error as AR).message)
   revalidatePath('/weinhandel/verkauf')
   redirect('/weinhandel/verkauf')
+}
+
+// ── Verkauf stornieren (mit Bestandsrückbuchung) ──────────────────────────────
+
+export async function stornoVerkauf(id: string) {
+  const supabase = await createSupabaseServerClient()
+
+  // Positionen laden für Rückbuchung
+  const { data: posRaw } = await (supabase.from('verkauf_positionen') as any)
+    .select('typ, fuellung_id, weinausbau_id, menge')
+    .eq('verkaufsposten_id', id)
+
+  const positionen = (posRaw ?? []) as AR[]
+
+  // Bestand zurückbuchen
+  for (const p of positionen) {
+    if (p.typ === 'flasche' && p.fuellung_id) {
+      const { data: f } = await (supabase.from('fuellungen') as any)
+        .select('bestand_flaschen').eq('id', p.fuellung_id).single()
+      const aktuell = (f as AR | null)?.bestand_flaschen ?? 0
+      await (supabase.from('fuellungen') as any)
+        .update({ bestand_flaschen: aktuell + Math.round(p.menge), aktualisiert_am: new Date().toISOString() })
+        .eq('id', p.fuellung_id)
+    } else if (p.typ === 'tank' && p.weinausbau_id) {
+      const { data: w } = await (supabase.from('weinausbau') as any)
+        .select('menge_liter').eq('id', p.weinausbau_id).single()
+      const aktuell = parseFloat((w as AR | null)?.menge_liter ?? '0') || 0
+      await (supabase.from('weinausbau') as any)
+        .update({ menge_liter: aktuell + p.menge })
+        .eq('id', p.weinausbau_id)
+    }
+  }
+
+  // Posten als storniert markieren
+  const { error } = await (supabase.from('verkaufsposten') as any)
+    .update({ storniert: true, storniert_am: new Date().toISOString() })
+    .eq('id', id)
+  if (error) throw new Error((error as AR).message)
+
+  revalidatePath('/weinhandel/verkauf')
+  revalidatePath(`/weinhandel/verkauf/${id}`)
 }

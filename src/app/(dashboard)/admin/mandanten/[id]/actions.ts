@@ -118,14 +118,18 @@ export async function saveVerkaufEinstellungen(tenantId: string, formData: FormD
   await assertSystemAdmin()
   const admin = createSupabaseAdminClient()
 
-  const prefix   = (formData.get('rechnung_prefix') as string)?.trim() || 'RE'
-  const stellen  = Math.max(1, Math.min(8, parseInt(formData.get('rechnung_stellen') as string) || 4))
+  const rPrefix  = (formData.get('rechnung_prefix') as string)?.trim() || 'RE'
+  const rStellen = Math.max(1, Math.min(8, parseInt(formData.get('rechnung_stellen') as string) || 4))
+  const kPrefix  = (formData.get('kunden_prefix') as string)?.trim() || 'K'
+  const kStellen = Math.max(1, Math.min(8, parseInt(formData.get('kunden_stellen') as string) || 4))
 
   const { error } = await (admin.from('tenant_einstellungen') as any)
     .upsert({
       tenant_id:        tenantId,
-      rechnung_prefix:  prefix,
-      rechnung_stellen: stellen,
+      rechnung_prefix:  rPrefix,
+      rechnung_stellen: rStellen,
+      kunden_prefix:    kPrefix,
+      kunden_stellen:   kStellen,
       aktualisiert_am:  new Date().toISOString(),
     }, { onConflict: 'tenant_id' })
 
@@ -144,6 +148,23 @@ export async function resetRechnungsZaehler(tenantId: string, auf: number) {
       tenant_id:        tenantId,
       rechnung_zaehler: Math.max(1, auf),
       aktualisiert_am:  new Date().toISOString(),
+    }, { onConflict: 'tenant_id' })
+
+  if (error) throw new Error((error as R).message)
+  revalidatePath(`/admin/mandanten/${tenantId}`)
+}
+
+// ── Kundennummer-Zähler zurücksetzen ─────────────────────────────────────────
+
+export async function resetKundenZaehler(tenantId: string, auf: number) {
+  await assertSystemAdmin()
+  const admin = createSupabaseAdminClient()
+
+  const { error } = await (admin.from('tenant_einstellungen') as any)
+    .upsert({
+      tenant_id:       tenantId,
+      kunden_zaehler:  Math.max(1, auf),
+      aktualisiert_am: new Date().toISOString(),
     }, { onConflict: 'tenant_id' })
 
   if (error) throw new Error((error as R).message)

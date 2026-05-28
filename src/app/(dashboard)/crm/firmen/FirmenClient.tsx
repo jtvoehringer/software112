@@ -150,6 +150,9 @@ function FirmaKarte({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
+            {firma.kundennummer && (
+              <span className="text-xs font-mono text-s112-muted">{firma.kundennummer}</span>
+            )}
             <Link href={`/crm/firmen/${firma.id}`}
               className="font-semibold text-gray-900 text-sm hover:text-s112-teal hover:underline">
               {firma.name}

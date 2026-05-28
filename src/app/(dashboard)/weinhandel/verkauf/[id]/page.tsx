@@ -3,7 +3,7 @@ import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { deactivateVerkauf } from '../actions'
+import { deactivateVerkauf, stornoVerkauf } from '../actions'
 import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButton'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 
@@ -49,7 +49,7 @@ export default async function VerkaufDetailPage({ params }: { params: Promise<{ 
   const [{ data: postenRaw }, settings] = await Promise.all([
     (supabase.from('verkaufsposten') as any)
       .select(`
-        id, datum, rechnungsnummer, notizen, erstellt_am,
+        id, datum, rechnungsnummer, notizen, erstellt_am, storniert, storniert_am,
         kontakt:kontakte(id, vorname, nachname, email, telefon),
         firma:firmen(id, name, email, telefon),
         positionen:verkauf_positionen(
@@ -91,6 +91,7 @@ export default async function VerkaufDetailPage({ params }: { params: Promise<{ 
   }
 
   const deactivateWithId = deactivateVerkauf.bind(null, id)
+  const stornoWithId     = stornoVerkauf.bind(null, id)
   const info = kundenInfo(posten)
 
   const FLASCHEN_LABEL: Record<number, string> = {
@@ -120,14 +121,27 @@ export default async function VerkaufDetailPage({ params }: { params: Promise<{ 
             {posten.rechnungsnummer ?? new Date(posten.datum).toLocaleDateString('de-AT')}
           </span>
         </nav>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {posten.storniert && (
+            <span className="text-xs font-semibold bg-red-100 text-red-700 px-2.5 py-1 rounded-full">
+              STORNIERT
+            </span>
+          )}
           <PrintButton />
+          {writeOk && !posten.storniert && (
+            <ConfirmDeleteForm
+              action={stornoWithId}
+              message="Verkauf stornieren? Der Lagerbestand wird zurückgebucht."
+              label="Stornieren"
+              className="text-xs text-orange-500 hover:text-orange-700 hover:underline"
+            />
+          )}
           {writeOk && (
             <ConfirmDeleteForm
               action={deactivateWithId}
-              message="Verkauf wirklich löschen?"
+              message="Verkauf wirklich löschen (ohne Bestandskorrektur)?"
               label="Löschen"
-              className="text-xs text-red-500 hover:text-red-700 hover:underline"
+              className="text-xs text-red-400 hover:text-red-600 hover:underline"
             />
           )}
         </div>

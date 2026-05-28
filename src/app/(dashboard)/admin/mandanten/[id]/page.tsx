@@ -32,6 +32,9 @@ export type TenantSettings = {
   rechnung_prefix:   string
   rechnung_zaehler:  number
   rechnung_stellen:  number
+  kunden_prefix:     string
+  kunden_zaehler:    number
+  kunden_stellen:    number
 }
 export type TenantMember = {
   id: string; userId: string; email: string; role: string; createdAt: string
@@ -98,6 +101,9 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     rechnung_prefix:   s?.rechnung_prefix ?? 'RE',
     rechnung_zaehler:  s?.rechnung_zaehler ?? 1,
     rechnung_stellen:  s?.rechnung_stellen ?? 4,
+    kunden_prefix:     s?.kunden_prefix ?? 'K',
+    kunden_zaehler:    s?.kunden_zaehler ?? 1,
+    kunden_stellen:    s?.kunden_stellen ?? 4,
   }
 
   const members: TenantMember[] = ((memberships ?? []) as R[]).map(m => ({

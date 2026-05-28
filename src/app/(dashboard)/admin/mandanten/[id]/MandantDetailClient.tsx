@@ -11,6 +11,7 @@ import {
   renameTenantAdmin,
   saveVerkaufEinstellungen,
   resetRechnungsZaehler,
+  resetKundenZaehler,
 } from './actions'
 import type { TenantDetail, TenantSettings, TenantMember } from './page'
 
@@ -446,13 +447,20 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
 function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
   const [pending, startTransition] = useTransition()
   const [saved,   setSaved]        = useState(false)
-  const [resetVal, setResetVal]    = useState(String(settings.rechnung_zaehler))
-  const [zaehler, setZaehler]      = useState(settings.rechnung_zaehler)
+  const [resetVal,  setResetVal]   = useState(String(settings.rechnung_zaehler))
+  const [zaehler,   setZaehler]    = useState(settings.rechnung_zaehler)
+  const [kResetVal, setKResetVal]  = useState(String(settings.kunden_zaehler))
+  const [kZaehler,  setKZaehler]   = useState(settings.kunden_zaehler)
 
   // Vorschau der nächsten Rechnungsnummer
   const [prefix,   setPrefix]   = useState(settings.rechnung_prefix)
   const [stellen,  setStellen]  = useState(settings.rechnung_stellen)
   const naechste = `${prefix}-${String(zaehler).padStart(stellen, '0')}`
+
+  // Vorschau der nächsten Kundennummer
+  const [kPrefix,  setKPrefix]  = useState(settings.kunden_prefix)
+  const [kStellen, setKStellen] = useState(settings.kunden_stellen)
+  const naechsteKunde = `${kPrefix}-${String(kZaehler).padStart(kStellen, '0')}`
 
   function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -467,10 +475,20 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
   function handleReset() {
     const neu = parseInt(resetVal)
     if (isNaN(neu) || neu < 1) return
-    if (!confirm(`Zähler auf ${neu} zurücksetzen? Bereits vergebene Nummern bleiben unverändert.`)) return
+    if (!confirm(`Rechnungs-Zähler auf ${neu} zurücksetzen?`)) return
     startTransition(async () => {
       await resetRechnungsZaehler(tenant.id, neu)
       setZaehler(neu)
+    })
+  }
+
+  function handleKundenReset() {
+    const neu = parseInt(kResetVal)
+    if (isNaN(neu) || neu < 1) return
+    if (!confirm(`Kunden-Zähler auf ${neu} zurücksetzen?`)) return
+    startTransition(async () => {
+      await resetKundenZaehler(tenant.id, neu)
+      setKZaehler(neu)
     })
   }
 
@@ -479,6 +497,8 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
 
       {/* Einstellungen */}
       <form onSubmit={handleSave} className="space-y-4">
+        {/* Rechnungsnummer */}
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Rechnungsnummer</p>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Präfix</label>
@@ -490,27 +510,53 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
               placeholder="RE"
               className={inputCls()}
             />
-            <p className="text-xs text-s112-muted mt-1">Buchstaben vor dem Bindestrich</p>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Stellen (Nullen)</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Stellen</label>
             <input
               name="rechnung_stellen"
               type="number"
               value={stellen}
               onChange={e => setStellen(Math.max(1, Math.min(8, parseInt(e.target.value) || 4)))}
-              min={1}
-              max={8}
+              min={1} max={8}
               className={inputCls()}
             />
-            <p className="text-xs text-s112-muted mt-1">Länge der Ziffernfolge</p>
           </div>
         </div>
+        <div className="bg-s112-bg border border-s112-border rounded-lg px-4 py-2.5 flex items-center justify-between">
+          <p className="text-xs text-s112-muted">Nächste Rechnungsnummer</p>
+          <p className="text-base font-mono font-bold text-s112-teal tracking-wider">{naechste}</p>
+        </div>
 
-        {/* Vorschau */}
-        <div className="bg-s112-bg border border-s112-border rounded-lg px-4 py-3">
-          <p className="text-xs text-s112-muted mb-1">Nächste Rechnungsnummer</p>
-          <p className="text-xl font-mono font-bold text-s112-teal tracking-wider">{naechste}</p>
+        {/* Kundennummer */}
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider pt-2">Kundennummer</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Präfix</label>
+            <input
+              name="kunden_prefix"
+              value={kPrefix}
+              onChange={e => setKPrefix(e.target.value.toUpperCase())}
+              maxLength={8}
+              placeholder="K"
+              className={inputCls()}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Stellen</label>
+            <input
+              name="kunden_stellen"
+              type="number"
+              value={kStellen}
+              onChange={e => setKStellen(Math.max(1, Math.min(8, parseInt(e.target.value) || 4)))}
+              min={1} max={8}
+              className={inputCls()}
+            />
+          </div>
+        </div>
+        <div className="bg-s112-bg border border-s112-border rounded-lg px-4 py-2.5 flex items-center justify-between">
+          <p className="text-xs text-s112-muted">Nächste Kundennummer</p>
+          <p className="text-base font-mono font-bold text-s112-teal tracking-wider">{naechsteKunde}</p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -549,9 +595,36 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
           </button>
         </div>
         <p className="text-xs text-s112-muted">
-          ⚠ Nur sinnvoll bei Ersteinrichtung oder Jahreswechsel mit neuem Präfix.
-          Bereits vergebene Rechnungsnummern werden nicht verändert.
+          ⚠ Nur bei Ersteinrichtung oder Jahreswechsel. Bereits vergebene Nummern bleiben unverändert.
         </p>
+      </div>
+
+      {/* Kundennummer-Zähler */}
+      <div className="border border-s112-border rounded-xl p-4 space-y-3">
+        <div>
+          <p className="text-sm font-semibold text-gray-700">Kunden-Zählerstand</p>
+          <p className="text-xs text-s112-muted mt-0.5">
+            Aktuell: <span className="font-mono font-semibold text-gray-900">{kZaehler}</span>
+            {' '}(nächste: <span className="font-mono text-gray-900">{naechsteKunde}</span>)
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            value={kResetVal}
+            onChange={e => setKResetVal(e.target.value)}
+            min={1}
+            className="w-28 border border-s112-border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+          />
+          <button
+            type="button"
+            onClick={handleKundenReset}
+            disabled={pending}
+            className="text-sm text-red-500 hover:text-red-700 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-50 disabled:opacity-40 transition-colors"
+          >
+            Zähler setzen
+          </button>
+        </div>
       </div>
     </div>
   )

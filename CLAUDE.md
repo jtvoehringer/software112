@@ -60,3 +60,4 @@
 | 024       | Weinhandel: preislisten + preislisten_positionen (Mehrere Preislisten gleichzeitig aktiv) |
 | 025       | Weinhandel: verkaufsposten + verkauf_positionen (Flasche/Tank/Sonstiges, Bestandsreduktion) |
 | 026       | Rechnungsnummer: rechnung_prefix/zaehler/stellen in tenant_einstellungen + get_next_rechnungsnummer() RPC |
+| 027       | Stornierung: storniert/storniert_am in verkaufsposten; Kundennummern in kontakte/firmen; kunden_prefix/zaehler/stellen + get_next_kundennummer() RPC; aktivitaeten.art += 'verkauf' |

@@ -240,6 +240,9 @@ function KontaktKarte({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
+            {kontakt.kundennummer && (
+              <span className="text-xs font-mono text-s112-muted">{kontakt.kundennummer}</span>
+            )}
             <Link href={`/crm/kontakte/${kontakt.id}`}
               className="font-semibold text-gray-900 text-sm hover:text-s112-teal hover:underline">
               {name}

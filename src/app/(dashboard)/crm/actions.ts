@@ -14,6 +14,15 @@ async function getTenantId(): Promise<string> {
   return id
 }
 
+async function generateKundennummer(tenantId: string): Promise<string | null> {
+  const supabase = await createSupabaseServerClient()
+  const { data, error } = await (supabase.rpc as any)('get_next_kundennummer', {
+    p_tenant_id: tenantId,
+  })
+  if (error) { console.error('generateKundennummer:', error.message); return null }
+  return data as string | null
+}
+
 // ── Kontakte ──────────────────────────────────────────────────────────────────
 
 export async function createKontakt(formData: FormData) {
@@ -33,6 +42,7 @@ export async function createKontakt(formData: FormData) {
     stammkunde:  formData.get('stammkunde') === 'true',
     notizen:     (formData.get('notizen') as string) || null,
   }
+  payload.kundennummer = await generateKundennummer(tenantId)
   const { error } = await (supabase.from('kontakte') as any).insert(payload)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/crm/kontakte')
@@ -87,6 +97,7 @@ export async function createFirma(formData: FormData) {
     waehrung:           (formData.get('waehrung') as string) || 'EUR',
     notizen:            (formData.get('notizen') as string) || null,
   }
+  payload.kundennummer = await generateKundennummer(tenantId)
   const { error } = await (supabase.from('firmen') as any).insert(payload)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/crm/firmen')

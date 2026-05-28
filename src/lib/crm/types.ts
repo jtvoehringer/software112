@@ -43,6 +43,7 @@ export const AKTIVITAET_ARTEN = [
   { value: 'messe',       label: 'Messe',        icon: '🏛️'  },
   { value: 'besuch',      label: 'Besuch',       icon: '🚗' },
   { value: 'angebot',     label: 'Angebot',      icon: '📄' },
+  { value: 'verkauf',     label: 'Verkauf',      icon: '🛒' },
   { value: 'sonstiges',   label: 'Sonstiges',    icon: '•'  },
 ] as const
 
@@ -50,6 +51,7 @@ export const AKTIVITAET_ARTEN = [
 
 export type KontaktRow = {
   id: string
+  kundennummer: string | null
   vorname: string | null
   nachname: string
   segment: Kundensegment
@@ -70,6 +72,7 @@ export type KontaktRow = {
 
 export type FirmaRow = {
   id: string
+  kundennummer: string | null
   name: string
   segment: Kundensegment
   strasse: string | null
