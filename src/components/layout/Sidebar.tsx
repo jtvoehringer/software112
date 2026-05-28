@@ -8,7 +8,7 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import type { UserRole } from '@/lib/auth/roles'
 import type { TenantBranding } from '@/app/(dashboard)/layout'
 
-// ── Navigationsstruktur ───────────────────────────────────────────────────────
+// ── Navigationsstruktur ────────────────────────────────────────────
 
 type NavItem = {
   href: string; label: string; phase?: number; adminOnly?: boolean; child?: boolean
@@ -28,8 +28,8 @@ const NAV: NavEntry[] = [
   {
     kind: 'group', label: 'Weingarten', icon: '🌿',
     items: [
-      { href: '/lagen',        label: 'Rieden',         phase: 1 },
-      { href: '/weingarten',   label: 'Weingärten',    phase: 1 },
+      { href: '/lagen',              label: 'Rieden',         phase: 1 },
+      { href: '/weingarten',         label: 'Weingärten',     phase: 1 },
       { href: '/pflanzenschutz',     label: 'PSM-Stammdaten', phase: 1 },
       { href: '/behandlungen',       label: 'Behandlungen',   phase: 1 },
       { href: '/behandlungen/lager', label: 'PSM-Lager',      phase: 1, child: true },
@@ -40,11 +40,11 @@ const NAV: NavEntry[] = [
   {
     kind: 'group', label: 'Kellerbuch', icon: '🍷',
     items: [
-      { href: '/kellerbuch',            label: 'Vinifizierung', phase: 1 },
-      { href: '/dac',                  label: 'DAC & Prüfnr.', phase: 1 },
-      { href: '/kellerbuch/umziehen',  label: 'Umziehen',      phase: 1 },
-      { href: '/kellerbuch/kellerplan',label: 'Kellerplan',     phase: 1 },
-      { href: '/weinhandel/fuellungen/neu', label: 'Füllen', phase: 1 },
+      { href: '/kellerbuch',                label: 'Vinifizierung', phase: 1 },
+      { href: '/dac',                       label: 'DAC & Prüfnr.', phase: 1 },
+      { href: '/kellerbuch/umziehen',       label: 'Umziehen',      phase: 1 },
+      { href: '/kellerbuch/kellerplan',     label: 'Kellerplan',    phase: 1 },
+      { href: '/weinhandel/fuellungen/neu', label: 'Füllen',   phase: 1 },
     ],
   },
 
@@ -60,7 +60,7 @@ const NAV: NavEntry[] = [
     ],
   },
 
-  { kind: 'link', href: '/reports',    label: 'Reports',    icon: '📁', phase: 2 },
+  { kind: 'link', href: '/reports', label: 'Reports', icon: '📁', phase: 2 },
 
   {
     kind: 'group', label: 'Administration', icon: '⚙️', adminOnly: true,
@@ -71,7 +71,7 @@ const NAV: NavEntry[] = [
   },
 ]
 
-// ── Hilfsfunktionen ───────────────────────────────────────────────────────────
+// ── Hilfsfunktionen ───────────────────────────────────────────────
 
 // Paths that only match exactly (no prefix-matching for sub-routes)
 const EXACT_PATHS = new Set(['/dashboard', '/crm', '/weinhandel'])
@@ -84,12 +84,12 @@ function groupIsActive(items: NavItem[], pathname: string) {
   return items.some(i => isActive(i.href, pathname))
 }
 
-// ── Sub-Item ──────────────────────────────────────────────────────────────────
+// ── Sub-Item ──────────────────────────────────────────────────────────────
 
 function SubItem({ item, pathname }: { item: NavItem; pathname: string }) {
-  const active  = isActive(item.href, pathname)
-  const phase2  = item.phase === 2
-  const indent  = item.child
+  const active = isActive(item.href, pathname)
+  const phase2 = item.phase === 2
+  const indent = item.child
 
   if (phase2) {
     return (
@@ -116,7 +116,7 @@ function SubItem({ item, pathname }: { item: NavItem; pathname: string }) {
   )
 }
 
-// ── Gruppe ────────────────────────────────────────────────────────────────────
+// ── Gruppe ────────────────────────────────────────────────────────────────────────
 
 function NavGroupItem({
   entry, pathname, isAdmin,
@@ -156,7 +156,7 @@ function NavGroupItem({
   )
 }
 
-// ── Haupt-Sidebar ─────────────────────────────────────────────────────────────
+// ── Haupt-Sidebar ────────────────────────────────────────────────────────────────
 
 interface SidebarProps {
   userEmail: string
@@ -225,4 +225,43 @@ export default function Sidebar({ userEmail, role, roleLabel, branding }: Sideba
           )
 
           return (
-            <
+            <Link
+              key={entry.href}
+              href={entry.href}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors
+                ${active ? 'bg-s112-teal text-white' : 'text-gray-700 hover:bg-s112-bg hover:text-gray-900'}`}
+            >
+              <span className="w-5 text-center">{entry.icon}</span>
+              {entry.label}
+            </Link>
+          )
+        })}
+      </nav>
+
+      {/* User Footer */}
+      <div className="px-4 py-4 border-t border-s112-border">
+        <p className="text-xs text-s112-muted truncate">{userEmail}</p>
+        <p className="text-xs font-medium text-s112-teal mt-0.5">{roleLabel}</p>
+        <button
+          onClick={handleLogout}
+          className="text-xs text-s112-muted hover:text-red-600 transition-colors mt-2"
+        >
+          Abmelden
+        </button>
+
+        {/* IC&P Branding */}
+        <div className="mt-3 pt-3 border-t border-s112-border/40 flex items-center gap-2">
+          <Image
+            src="/icp-logo.png"
+            alt="IC&P Consultants"
+            width={20} height={20}
+            className="rounded-full opacity-60 flex-shrink-0"
+          />
+          <p className="text-[9px] text-s112-muted/50 leading-tight">
+            &copy; IC&amp;P Consultants e.U.
+          </p>
+        </div>
+      </div>
+    </aside>
+  )
+}

@@ -1,0 +1,43 @@
+13:19:16.195 Running build in Washington, D.C., USA (East) – iad1
+13:19:16.196 Build machine configuration: 2 cores, 8 GB
+13:19:16.441 Cloning github.com/jtvoehringer/software112 (Branch: main, Commit: 586fbdf)
+13:19:18.142 Cloning completed: 1.700s
+13:19:18.347 Restored build cache from previous deployment (ATLoXy5SGStANdVgQYUKZS6NnzFs)
+13:19:18.616 Running "vercel build"
+13:19:18.648 Vercel CLI 54.4.1
+13:19:18.936 Installing dependencies...
+13:19:20.158 
+13:19:20.159 up to date in 1s
+13:19:20.159 
+13:19:20.159 145 packages are looking for funding
+13:19:20.160   run `npm fund` for details
+13:19:20.204 Detected Next.js version: 16.2.6
+13:19:20.210 Running "npm run build"
+13:19:20.356 
+13:19:20.357 > software112@0.1.0 build
+13:19:20.357 > next build
+13:19:20.357 
+13:19:21.405   Applying modifyConfig from Vercel
+13:19:21.425 ▲ Next.js 16.2.6 (Turbopack)
+13:19:21.426 
+13:19:21.481   Creating an optimized production build ...
+13:19:40.315 
+13:19:40.317 > Build error occurred
+13:19:40.321 Error: Turbopack build failed with 1 errors:
+13:19:40.322 ./src/components/layout/Sidebar.tsx:228:13
+13:19:40.322 Expression expected
+13:19:40.323   226 |
+13:19:40.323   227 |           return (
+13:19:40.323 > 228 |             <
+13:19:40.324       |             ^
+13:19:40.324 
+13:19:40.324 Parsing ecmascript source code failed
+13:19:40.324 
+13:19:40.324 Import trace:
+13:19:40.325   Server Component:
+13:19:40.325     ./src/components/layout/Sidebar.tsx
+13:19:40.325     ./src/app/(dashboard)/layout.tsx
+13:19:40.325 
+13:19:40.325 
+13:19:40.326     at <unknown> (./src/components/layout/Sidebar.tsx:228:13)
+13:19:40.453 Error: Command "npm run build" exited with 1
