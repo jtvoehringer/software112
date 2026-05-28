@@ -44,7 +44,7 @@ const NAV: NavEntry[] = [
       { href: '/dac',                  label: 'DAC & Prüfnr.', phase: 1 },
       { href: '/kellerbuch/umziehen',  label: 'Umziehen',      phase: 1 },
       { href: '/kellerbuch/kellerplan',label: 'Kellerplan',     phase: 1 },
-      { href: '/weinhandel/fuellungen/neu', label: 'Neue Füllung', phase: 1 },
+      { href: '/weinhandel/fuellungen/neu', label: 'Füllen', phase: 1 },
     ],
   },
 
@@ -225,43 +225,4 @@ export default function Sidebar({ userEmail, role, roleLabel, branding }: Sideba
           )
 
           return (
-            <Link
-              key={entry.href}
-              href={entry.href}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors
-                ${active ? 'bg-s112-teal text-white' : 'text-gray-700 hover:bg-s112-bg hover:text-gray-900'}`}
-            >
-              <span className="w-5 text-center">{entry.icon}</span>
-              {entry.label}
-            </Link>
-          )
-        })}
-      </nav>
-
-      {/* User Footer */}
-      <div className="px-4 py-4 border-t border-s112-border">
-        <p className="text-xs text-s112-muted truncate">{userEmail}</p>
-        <p className="text-xs font-medium text-s112-teal mt-0.5">{roleLabel}</p>
-        <button
-          onClick={handleLogout}
-          className="text-xs text-s112-muted hover:text-red-600 transition-colors mt-2"
-        >
-          Abmelden
-        </button>
-
-        {/* IC&P Branding */}
-        <div className="mt-3 pt-3 border-t border-s112-border/40 flex items-center gap-2">
-          <Image
-            src="/icp-logo.png"
-            alt="IC&P Consultants"
-            width={20} height={20}
-            className="rounded-full opacity-60 flex-shrink-0"
-          />
-          <p className="text-[9px] text-s112-muted/50 leading-tight">
-            &copy; IC&amp;P Consultants e.U.
-          </p>
-        </div>
-      </div>
-    </aside>
-  )
-}
+            <

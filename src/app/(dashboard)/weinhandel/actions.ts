@@ -58,6 +58,35 @@ export async function createFuellung(formData: FormData) {
   redirect('/weinhandel')
 }
 
+// ── Füllung bearbeiten ────────────────────────────────────────────────────────
+
+export async function updateFuellung(id: string, formData: FormData) {
+  const supabase = await createSupabaseServerClient()
+
+  const anzahl = parseInt(formData.get('anzahl_flaschen') as string)
+  const payload: AR = {
+    name:                 formData.get('name') as string,
+    jahrgang:             parseInt(formData.get('jahrgang') as string) || null,
+    rebsorte:             (formData.get('rebsorte') as string) || null,
+    qualitaet:            formData.get('qualitaet') as string,
+    anbaugebiet:          (formData.get('anbaugebiet') as string) || null,
+    bezeichnung:          (formData.get('bezeichnung') as string) || null,
+    datum:                formData.get('datum') as string,
+    flaschengroesse_ml:   parseInt(formData.get('flaschengroesse_ml') as string) || 750,
+    anzahl_flaschen:      anzahl,
+    bestand_flaschen:     parseInt(formData.get('bestand_flaschen') as string) || anzahl,
+    menge_liter_gefuellt: parseFloat(formData.get('menge_liter_gefuellt') as string) || null,
+    vk_preis_brutto:      parseFloat(formData.get('vk_preis_brutto') as string) || null,
+    notizen:              (formData.get('notizen') as string) || null,
+    aktualisiert_am:      new Date().toISOString(),
+  }
+
+  const { error } = await (supabase.from('fuellungen') as any).update(payload).eq('id', id)
+  if (error) throw new Error((error as AR).message)
+  revalidatePath('/weinhandel')
+  redirect('/weinhandel')
+}
+
 // ── Bestand manuell korrigieren ───────────────────────────────────────────────
 
 export async function updateFuellungBestand(id: string, bestand: number) {

@@ -1,6 +1,8 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import FuellungLoeschen from './FuellungLoeschen'
 
 export const metadata: Metadata = { title: 'Weinhandel – software:112' }
 export const dynamic = 'force-dynamic'
@@ -40,7 +42,9 @@ const STATUS_VERKAUF: Record<string, { label: string; color: string }> = {
 }
 
 export default async function WeinhandelPage() {
-  const supabase = await createSupabaseServerClient()
+  const supabase  = await createSupabaseServerClient()
+  const role      = await getCurrentUserRole()
+  const writeOk   = canWrite(role)
 
   const [
     { data: fuellungenRaw },
@@ -128,6 +132,7 @@ export default async function WeinhandelPage() {
                   <th className="text-right px-4 py-3 font-semibold text-gray-700">VK brutto</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-700">Lagerwert</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-700">Abgefüllt</th>
+                  {writeOk && <th className="px-4 py-3" />}
                 </tr>
               </thead>
               <tbody>
@@ -177,6 +182,19 @@ export default async function WeinhandelPage() {
                       <td className="px-4 py-3 text-right text-s112-muted whitespace-nowrap">
                         {new Date(f.datum).toLocaleDateString('de-AT')}
                       </td>
+                      {writeOk && (
+                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-2">
+                            <Link
+                              href={`/weinhandel/fuellungen/${f.id}/edit`}
+                              className="text-xs text-s112-teal hover:underline"
+                            >
+                              Bearbeiten
+                            </Link>
+                            <FuellungLoeschen id={f.id} name={f.name} />
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   )
                 })}
