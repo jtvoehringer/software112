@@ -66,7 +66,7 @@ const ART_FARBEN: Record<string, string> = {
 }
 
 function chipFarbe(e: KalenderEintrag): string {
-  if (e.ueberfaellig) return 'bg-red-50 text-red-700 border-red-200'
+  if (e.ueberfaellig) return 'bg-red-500 text-white border-red-600'
   if (e.typ === 'pipeline') return 'bg-teal-50 text-teal-700 border-teal-100'
   return ART_FARBEN[e.art ?? ''] ?? 'bg-gray-50 text-gray-600 border-gray-100'
 }
@@ -211,7 +211,7 @@ function MonatView({ eintraege, current, heute }: { eintraege: KalenderEintrag[]
                     ${isToday
                       ? 'bg-s112-teal text-white'
                       : hasOverdue
-                        ? 'text-red-600 font-bold'
+                        ? 'bg-red-500 text-white font-bold'
                         : isThisMonth
                           ? 'text-gray-700'
                           : 'text-gray-300'}`}>
@@ -291,7 +291,7 @@ function MiniMonat({
                   ${isToday
                     ? 'bg-s112-teal text-white'
                     : hasOverdue
-                      ? 'bg-red-100 text-red-700 font-bold'
+                      ? 'bg-red-500 text-white font-bold'
                       : hasItems
                         ? 'bg-s112-teal/10 text-s112-teal font-semibold'
                         : 'text-gray-400'}`}>

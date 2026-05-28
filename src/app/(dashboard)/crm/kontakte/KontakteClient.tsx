@@ -11,6 +11,10 @@ type AktivitaetRow = {
   id: string; art: string; betreff: string | null
   beschreibung: string | null; datum: string; erledigt: boolean
 }
+type PipelineRow = {
+  id: string; stufe: string; titel: string
+  wert_euro: number | null; wahrscheinlichkeit: number | null; erwartetes_datum: string | null
+}
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────
 
@@ -201,16 +205,18 @@ function PipelineForm({ kontaktId, onDone }: { kontaktId: string; onDone: () => 
 // ── Kontakt-Karte ─────────────────────────────────────────────────────────────
 
 function KontaktKarte({
-  kontakt, firmen, aktivitaeten, writeOk,
+  kontakt, firmen, aktivitaeten, pipeline, writeOk,
 }: {
   kontakt: KontaktRow
   firmen: FirmaOption[]
   aktivitaeten: AktivitaetRow[]
+  pipeline: PipelineRow[]
   writeOk: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [showAkt, setShowAkt] = useState(false)
   const [showAktForm, setShowAktForm] = useState(false)
+  const [showPipeline, setShowPipeline] = useState(false)
   const [showPipelineForm, setShowPipelineForm] = useState(false)
   const [pending, startTransition] = useTransition()
 
@@ -320,32 +326,72 @@ function KontaktKarte({
       </div>
 
       {/* Pipeline */}
-      {writeOk && (
-        <div className="mt-2 border-t border-s112-border/60 pt-2">
-          {!showPipelineForm ? (
-            <button onClick={() => setShowPipelineForm(true)}
-              className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors">
+      <div className="mt-2 border-t border-s112-border/60 pt-2">
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowPipeline(o => !o)}
+            className="text-xs text-s112-muted hover:text-gray-700 flex items-center gap-1">
+            {showPipeline ? '▾' : '▸'} {pipeline.length} {pipeline.length === 1 ? 'Pipeline-Eintrag' : 'Pipeline-Einträge'}
+          </button>
+          {writeOk && !showPipeline && (
+            <button onClick={() => { setShowPipeline(true); setShowPipelineForm(true) }}
+              className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors ml-2">
               ＋ Pipeline
             </button>
-          ) : (
-            <PipelineForm kontaktId={kontakt.id} onDone={() => setShowPipelineForm(false)} />
           )}
         </div>
-      )}
+
+        {showPipeline && (
+          <div className="mt-2 space-y-1">
+            {pipeline.length === 0 ? (
+              <p className="text-xs text-s112-muted italic">Noch keine Einträge.</p>
+            ) : pipeline.map(p => {
+              const stufeDef = PIPELINE_STUFEN.find(s => s.value === p.stufe)
+              return (
+                <div key={p.id} className="flex items-center gap-2 text-xs py-1 border-b border-s112-border/40 last:border-0">
+                  <span className={`px-1.5 py-0.5 rounded-full font-medium text-[10px] ${stufeDef?.farbe ?? 'bg-gray-100 text-gray-700'}`}>
+                    {stufeDef?.label ?? p.stufe}
+                  </span>
+                  <span className="font-medium text-gray-700 flex-1 truncate">{p.titel}</span>
+                  {p.wert_euro != null && (
+                    <span className="text-s112-teal font-semibold flex-shrink-0">
+                      {p.wert_euro.toLocaleString('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                    </span>
+                  )}
+                  {p.erwartetes_datum && (
+                    <span className="text-s112-muted flex-shrink-0">
+                      {new Date(p.erwartetes_datum).toLocaleDateString('de-AT')}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+            {writeOk && !showPipelineForm && (
+              <button onClick={() => setShowPipelineForm(true)}
+                className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors mt-1">
+                ＋ Pipeline eintragen
+              </button>
+            )}
+            {showPipelineForm && (
+              <PipelineForm kontaktId={kontakt.id} onDone={() => setShowPipelineForm(false)} />
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
 
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 
-export type { AktivitaetRow }
+export type { AktivitaetRow, PipelineRow }
 
 export default function KontakteClient({
-  kontakte, firmen, aktivitaetenMap, writeOk,
+  kontakte, firmen, aktivitaetenMap, pipelineMap, writeOk,
 }: {
   kontakte: KontaktRow[]
   firmen: FirmaOption[]
   aktivitaetenMap: Record<string, AktivitaetRow[]>
+  pipelineMap: Record<string, PipelineRow[]>
   writeOk: boolean
 }) {
   const [showForm, setShowForm] = useState(false)
@@ -413,6 +459,7 @@ export default function KontakteClient({
               kontakt={k}
               firmen={firmen}
               aktivitaeten={aktivitaetenMap[k.id] ?? []}
+              pipeline={pipelineMap[k.id] ?? []}
               writeOk={writeOk}
             />
           ))}

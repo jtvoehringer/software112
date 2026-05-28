@@ -3,7 +3,7 @@ import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import KontakteClient from './KontakteClient'
 import type { KontaktRow } from '@/lib/crm/types'
-import type { AktivitaetRow } from './KontakteClient'
+import type { AktivitaetRow, PipelineRow } from './KontakteClient'
 
 export const metadata: Metadata = { title: 'Kontakte – software:112' }
 export const dynamic = 'force-dynamic'
@@ -20,6 +20,7 @@ export default async function KontaktePage() {
     { data: kRaw },
     { data: fRaw },
     { data: aRaw },
+    { data: pRaw },
   ] = await Promise.all([
     (supabase.from('kontakte') as any)
       .select('id, vorname, nachname, segment, firma_id, firmen:firma_id(name), email, telefon, mobil, ort, land, newsletter, newsletter_bestaetigt, stammkunde, aktiv, notizen, erstellt_am')
@@ -35,6 +36,11 @@ export default async function KontaktePage() {
       .select('id, art, betreff, beschreibung, datum, erledigt, kontakt_id')
       .not('kontakt_id', 'is', null)
       .order('datum', { ascending: false }),
+
+    (supabase.from('pipeline_eintraege') as any)
+      .select('id, stufe, titel, wert_euro, wahrscheinlichkeit, erwartetes_datum, kontakt_id')
+      .not('kontakt_id', 'is', null)
+      .order('aktualisiert_am', { ascending: false }),
   ])
 
   const kontakte: KontaktRow[] = ((kRaw ?? []) as R[]).map(k => ({
@@ -72,6 +78,19 @@ export default async function KontaktePage() {
     })
   }
 
+  // Pipeline nach kontakt_id gruppieren
+  const pipelineMap: Record<string, PipelineRow[]> = {}
+  for (const p of (pRaw ?? []) as R[]) {
+    if (!p.kontakt_id) continue
+    if (!pipelineMap[p.kontakt_id]) pipelineMap[p.kontakt_id] = []
+    pipelineMap[p.kontakt_id].push({
+      id: p.id, stufe: p.stufe, titel: p.titel,
+      wert_euro: p.wert_euro ?? null,
+      wahrscheinlichkeit: p.wahrscheinlichkeit ?? null,
+      erwartetes_datum: p.erwartetes_datum ?? null,
+    })
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -86,6 +105,7 @@ export default async function KontaktePage() {
         kontakte={kontakte}
         firmen={firmen}
         aktivitaetenMap={aktivitaetenMap}
+        pipelineMap={pipelineMap}
         writeOk={writeOk}
       />
     </div>
