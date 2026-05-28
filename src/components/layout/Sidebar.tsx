@@ -191,7 +191,7 @@ export default function Sidebar({ userEmail, role, roleLabel, branding }: Sideba
               <span className="text-xl font-bold text-s112-teal">112</span>
             </div>
           )}
-          <p className="text-xs text-s112-muted mt-0.5">{branding.anzeigename !== 'software:112' ? branding.anzeigename : 'Weinbau-Management'}</p>
+          <p className="text-xs text-s112-muted mt-0.5">{branding.logo_url ? branding.anzeigename : 'Weinbau-Management'}</p>
         </Link>
       </div>
 

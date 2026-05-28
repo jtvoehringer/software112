@@ -29,12 +29,20 @@ export default async function MandantenPage() {
 
   const supabase = createSupabaseAdminClient()
 
-  const [{ data: tenants }, { data: memberships }, { data: einstellungen }] = await Promise.all([
+  const [{ data: tenants }, { data: memberships }] = await Promise.all([
     (supabase.from('tenants') as any).select('id, name, erstellt_am').order('erstellt_am'),
     (supabase.from('tenant_memberships') as any).select('tenant_id'),
-    (supabase.from('tenant_einstellungen') as any)
-      .select('tenant_id, anzeigename, logo_url, primary_color, secondary_color, modul_newsletter'),
   ])
+
+  // tenant_einstellungen existiert erst nach Migration 021 → graceful fallback
+  let einstellungen: R[] = []
+  try {
+    const { data } = await (supabase.from('tenant_einstellungen') as any)
+      .select('tenant_id, anzeigename, logo_url, primary_color, secondary_color, modul_newsletter')
+    einstellungen = (data ?? []) as R[]
+  } catch {
+    // Tabelle noch nicht migriert – Branding-Felder bleiben leer
+  }
 
   // Benutzeranzahl je Mandant zählen
   const countMap: Record<string, number> = {}
