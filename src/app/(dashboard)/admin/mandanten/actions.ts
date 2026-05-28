@@ -1,6 +1,6 @@
 'use server'
 
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUserRole } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 
@@ -14,7 +14,7 @@ async function assertSystemAdmin() {
 
 export async function createMandant(formData: FormData) {
   await assertSystemAdmin()
-  const supabase = await createSupabaseServerClient()
+  const supabase = createSupabaseAdminClient()
   const name = formData.get('name') as string
 
   // Slug aus Name generieren: Kleinbuchstaben, Leerzeichen → Bindestrich, Sonderzeichen entfernen
@@ -34,7 +34,7 @@ export async function createMandant(formData: FormData) {
 
 export async function renameMandant(id: string, name: string) {
   await assertSystemAdmin()
-  const supabase = await createSupabaseServerClient()
+  const supabase = createSupabaseAdminClient()
   const { error } = await (supabase.from('tenants') as any).update({ name }).eq('id', id)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/admin/mandanten')

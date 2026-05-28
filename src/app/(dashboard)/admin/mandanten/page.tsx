@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUserRole } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -21,7 +21,7 @@ export default async function MandantenPage() {
   const role = await getCurrentUserRole()
   if (role !== 'system_admin') redirect('/dashboard')
 
-  const supabase = await createSupabaseServerClient()
+  const supabase = createSupabaseAdminClient()
 
   const [{ data: tenants }, { data: memberships }] = await Promise.all([
     (supabase.from('tenants') as any).select('id, name, erstellt_am').order('erstellt_am'),
