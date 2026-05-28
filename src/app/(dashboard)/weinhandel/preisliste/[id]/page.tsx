@@ -8,6 +8,7 @@ import {
   createPosition, updatePosition, deletePosition,
 } from '../actions'
 import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButton'
+import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -105,15 +106,14 @@ export default async function PreislisteDetailPage({ params }: { params: Promise
             </div>
           </div>
           {writeOk && (
-            <form action={deactivateWithId} className="no-print">
-              <button
-                type="submit"
+            <div className="no-print">
+              <ConfirmDeleteForm
+                action={deactivateWithId}
+                message="Preisliste wirklich löschen?"
+                label="Löschen"
                 className="text-xs text-red-500 hover:text-red-700 hover:underline"
-                onClick={e => { if (!confirm('Preisliste wirklich löschen?')) e.preventDefault() }}
-              >
-                Löschen
-              </button>
-            </form>
+              />
+            </div>
           )}
         </div>
 
@@ -199,15 +199,11 @@ export default async function PreislisteDetailPage({ params }: { params: Promise
                   </td>
                   {writeOk && (
                     <td className="no-print px-4 py-3 text-right">
-                      <form action={deletePosAction} style={{ display: 'inline' }}>
-                        <button
-                          type="submit"
-                          className="text-xs text-red-400 hover:text-red-600"
-                          onClick={e => { if (!confirm('Position löschen?')) e.preventDefault() }}
-                        >
-                          ×
-                        </button>
-                      </form>
+                      <ConfirmDeleteForm
+                        action={deletePosAction}
+                        message="Position löschen?"
+                        className="text-xs text-red-400 hover:text-red-600"
+                      />
                     </td>
                   )}
                 </tr>

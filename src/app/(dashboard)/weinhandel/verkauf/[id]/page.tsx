@@ -5,6 +5,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { deactivateVerkauf } from '../actions'
 import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButton'
+import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -122,15 +123,12 @@ export default async function VerkaufDetailPage({ params }: { params: Promise<{ 
         <div className="flex items-center gap-2">
           <PrintButton />
           {writeOk && (
-            <form action={deactivateWithId} style={{ display: 'inline' }}>
-              <button
-                type="submit"
-                className="text-xs text-red-500 hover:text-red-700 hover:underline"
-                onClick={e => { if (!confirm('Verkauf wirklich löschen?')) e.preventDefault() }}
-              >
-                Löschen
-              </button>
-            </form>
+            <ConfirmDeleteForm
+              action={deactivateWithId}
+              message="Verkauf wirklich löschen?"
+              label="Löschen"
+              className="text-xs text-red-500 hover:text-red-700 hover:underline"
+            />
           )}
         </div>
       </div>
