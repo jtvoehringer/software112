@@ -75,11 +75,17 @@ function chipFarbe(e: KalenderEintrag): string {
 
 function EintragChip({ e, compact = false }: { e: KalenderEintrag; compact?: boolean }) {
   const farbe = chipFarbe(e)
+  // inline style als Fallback falls Tailwind bg-red-500 nicht im Build-Cache ist
+  const overdueInline = e.ueberfaellig
+    ? { backgroundColor: '#ef4444', color: '#ffffff', borderColor: '#dc2626' }
+    : undefined
   return (
     <Link href={e.href} title={`${e.titel}${e.kontaktName ? ` – ${e.kontaktName}` : ''}${e.firmaName ? ` (${e.firmaName})` : ''}`}>
-      <div className={`border rounded truncate leading-snug transition-opacity hover:opacity-75
-        ${compact ? 'text-[9px] px-1 py-px' : 'text-xs px-2 py-1'}
-        ${farbe}`}>
+      <div
+        className={`border rounded truncate leading-snug transition-opacity hover:opacity-75
+          ${compact ? 'text-[9px] px-1 py-px' : 'text-xs px-2 py-1'}
+          ${farbe}`}
+        style={overdueInline}>
         <span className="mr-0.5">{e.artIcon}</span>
         <span className="font-medium">{e.titel}</span>
         {!compact && (e.kontaktName || e.firmaName) && (
@@ -207,14 +213,10 @@ function MonatView({ eintraege, current, heute }: { eintraege: KalenderEintrag[]
                     ${isToday ? 'ring-2 ring-inset ring-s112-teal/30' : ''}`}>
 
                   {/* Tageszahl */}
-                  <div className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-semibold mb-1
-                    ${isToday
-                      ? 'bg-s112-teal text-white'
-                      : hasOverdue
-                        ? 'bg-red-500 text-white font-bold'
-                        : isThisMonth
-                          ? 'text-gray-700'
-                          : 'text-gray-300'}`}>
+                  <div
+                    className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-semibold mb-1
+                      ${isToday ? 'bg-s112-teal text-white' : isThisMonth ? 'text-gray-700' : 'text-gray-300'}`}
+                    style={!isToday && hasOverdue ? { backgroundColor: '#ef4444', color: '#fff' } : undefined}>
                     {day.getDate()}
                   </div>
 
@@ -290,11 +292,10 @@ function MiniMonat({
                   ${!isThisMonth ? 'opacity-20' : ''}
                   ${isToday
                     ? 'bg-s112-teal text-white'
-                    : hasOverdue
-                      ? 'bg-red-500 text-white font-bold'
-                      : hasItems
-                        ? 'bg-s112-teal/10 text-s112-teal font-semibold'
-                        : 'text-gray-400'}`}>
+                    : hasItems
+                      ? 'bg-s112-teal/10 text-s112-teal font-semibold'
+                      : 'text-gray-400'}`}
+                  style={!isToday && hasOverdue ? { backgroundColor: '#ef4444', color: '#fff' } : undefined}>
                   {day.getDate()}
                 </div>
               </div>

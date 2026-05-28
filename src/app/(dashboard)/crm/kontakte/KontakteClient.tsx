@@ -347,21 +347,23 @@ function KontaktKarte({
             ) : pipeline.map(p => {
               const stufeDef = PIPELINE_STUFEN.find(s => s.value === p.stufe)
               return (
-                <div key={p.id} className="flex items-center gap-2 text-xs py-1 border-b border-s112-border/40 last:border-0">
-                  <span className={`px-1.5 py-0.5 rounded-full font-medium text-[10px] ${stufeDef?.farbe ?? 'bg-gray-100 text-gray-700'}`}>
+                <div key={p.id} className="flex gap-2 text-xs py-1 border-b border-s112-border/40 last:border-0">
+                  <span className={`px-1.5 py-0.5 rounded-full font-medium text-[10px] flex-shrink-0 self-start mt-0.5 ${stufeDef?.farbe ?? 'bg-gray-100 text-gray-700'}`}>
                     {stufeDef?.label ?? p.stufe}
                   </span>
-                  <span className="font-medium text-gray-700 flex-1 truncate">{p.titel}</span>
-                  {p.wert_euro != null && (
-                    <span className="text-s112-teal font-semibold flex-shrink-0">
-                      {p.wert_euro.toLocaleString('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
-                    </span>
-                  )}
-                  {p.erwartetes_datum && (
-                    <span className="text-s112-muted flex-shrink-0">
-                      {new Date(p.erwartetes_datum).toLocaleDateString('de-AT')}
-                    </span>
-                  )}
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium text-gray-700 block truncate">{p.titel}</span>
+                    <div className="flex gap-3 text-s112-muted mt-0.5">
+                      {p.wert_euro != null && (
+                        <span className="text-s112-teal font-semibold">
+                          {p.wert_euro.toLocaleString('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                        </span>
+                      )}
+                      {p.erwartetes_datum && (
+                        <span>{new Date(p.erwartetes_datum).toLocaleDateString('de-AT')}</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )
             })}
