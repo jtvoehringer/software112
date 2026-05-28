@@ -52,6 +52,7 @@ export default async function KontaktePage() {
     newsletter:            k.newsletter ?? false,
     newsletter_bestaetigt: k.newsletter_bestaetigt ?? false,
     stammkunde:            k.stammkunde ?? false,
+    notizen:               k.notizen ?? null,
     aktiv:                 k.aktiv ?? true,
     erstellt_am:           k.erstellt_am,
   }))
