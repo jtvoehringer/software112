@@ -2,12 +2,12 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { createAktivitaet } from '../../actions'
+import { createAktivitaet, createPipelineEintrag } from '../../actions'
 import {
-  AKTIVITAET_ARTEN,
+  AKTIVITAET_ARTEN, PIPELINE_STUFEN,
   segmentLabel, segmentFarbe,
 } from '@/lib/crm/types'
-import type { FirmaRow, KontaktRow, AktivitaetRow } from '@/lib/crm/types'
+import type { FirmaRow, KontaktRow, AktivitaetRow, PipelineEintragRow } from '@/lib/crm/types'
 
 function inputCls() {
   return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
@@ -48,20 +48,57 @@ function AktivitaetForm({ firmaId, onDone }: { firmaId: string; onDone: () => vo
   )
 }
 
+// ── Pipeline-Formular ─────────────────────────────────────────────────────────
+
+function PipelineForm({ firmaId, onDone }: { firmaId: string; onDone: () => void }) {
+  const [pending, startTransition] = useTransition()
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    fd.set('firma_id', firmaId)
+    startTransition(async () => { await createPipelineEintrag(fd); onDone() })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="p-3 bg-white border border-s112-border rounded-lg space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        <select name="stufe" defaultValue="interessent" required className={inputCls()}>
+          {PIPELINE_STUFEN.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </select>
+        <input name="titel" placeholder="Titel *" required className={inputCls()} />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <input name="wert_euro" type="number" step="0.01" placeholder="Wert € (optional)" className={inputCls()} />
+        <input name="erwartetes_datum" type="date" className={inputCls()} />
+      </div>
+      <div className="flex gap-2">
+        <button type="submit" disabled={pending}
+          className="bg-s112-teal text-white px-3 py-1 rounded-lg text-xs font-medium disabled:opacity-40">
+          {pending ? '…' : 'Eintragen'}
+        </button>
+        <button type="button" onClick={onDone} className="text-xs text-gray-500 hover:text-gray-700">Abbrechen</button>
+      </div>
+    </form>
+  )
+}
+
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 
-type Tab = 'kontakte' | 'aktivitaeten'
+type Tab = 'kontakte' | 'aktivitaeten' | 'pipeline'
 
 export default function FirmaDetailClient({
-  firma, kontakte, aktivitaeten, writeOk,
+  firma, kontakte, aktivitaeten, pipeline, writeOk,
 }: {
   firma: FirmaRow
   kontakte: KontaktRow[]
   aktivitaeten: AktivitaetRow[]
+  pipeline: PipelineEintragRow[]
   writeOk: boolean
 }) {
   const [tab, setTab] = useState<Tab>('kontakte')
   const [showAktForm, setShowAktForm] = useState(false)
+  const [showPipelineForm, setShowPipelineForm] = useState(false)
 
   return (
     <div className="space-y-6">
@@ -127,16 +164,18 @@ export default function FirmaDetailClient({
       {/* Tabs */}
       <div className="border-b border-s112-border">
         <div className="flex gap-0">
-          {(['kontakte', 'aktivitaeten'] as Tab[]).map(t => (
-            <button key={t} onClick={() => setTab(t)}
+          {([
+            { id: 'kontakte',    label: `Kontakte (${kontakte.length})`       },
+            { id: 'aktivitaeten', label: `Aktivitäten (${aktivitaeten.length})` },
+            { id: 'pipeline',    label: `Pipeline (${pipeline.length})`       },
+          ] as { id: Tab; label: string }[]).map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                tab === t
+                tab === t.id
                   ? 'border-s112-teal text-s112-teal'
                   : 'border-transparent text-s112-muted hover:text-gray-700'
               }`}>
-              {t === 'kontakte'
-                ? `Kontakte (${kontakte.length})`
-                : `Aktivitäten (${aktivitaeten.length})`}
+              {t.label}
             </button>
           ))}
         </div>
@@ -220,6 +259,61 @@ export default function FirmaDetailClient({
                         <p className="text-xs text-gray-500 mt-0.5">{a.beschreibung}</p>
                       )}
                     </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab: Pipeline */}
+      {tab === 'pipeline' && (
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            {writeOk && !showPipelineForm && (
+              <button onClick={() => setShowPipelineForm(true)}
+                className="text-xs text-s112-teal hover:underline font-medium">
+                ＋ Pipeline-Eintrag
+              </button>
+            )}
+          </div>
+
+          {showPipelineForm && (
+            <PipelineForm firmaId={firma.id} onDone={() => setShowPipelineForm(false)} />
+          )}
+
+          {pipeline.length === 0 && !showPipelineForm ? (
+            <div className="card p-6 text-center text-s112-muted text-sm">
+              Noch keine Pipeline-Einträge zu dieser Firma.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {pipeline.map(p => {
+                const stufeDef = PIPELINE_STUFEN.find(s => s.value === p.stufe)
+                const abschluss = p.erwartetes_datum
+                  ? new Date(p.erwartetes_datum).toLocaleDateString('de-AT')
+                  : null
+                return (
+                  <div key={p.id} className="card p-4 space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${stufeDef?.farbe ?? 'bg-gray-100 text-gray-700'}`}>
+                        {stufeDef?.label ?? p.stufe}
+                      </span>
+                      <span className="text-sm font-medium text-gray-800">{p.titel}</span>
+                    </div>
+                    <div className="flex gap-4 text-xs text-s112-muted flex-wrap">
+                      {p.wert_euro != null && (
+                        <span className="font-semibold text-s112-teal">
+                          {p.wert_euro.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
+                        </span>
+                      )}
+                      {p.wahrscheinlichkeit != null && <span>{p.wahrscheinlichkeit}%</span>}
+                      {abschluss && <span>📅 {abschluss}</span>}
+                    </div>
+                    {p.notizen && (
+                      <p className="text-xs text-gray-500 italic">{p.notizen}</p>
+                    )}
                   </div>
                 )
               })}

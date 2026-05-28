@@ -51,9 +51,10 @@ const NAV: NavEntry[] = [
   {
     kind: 'group', label: 'CRM', icon: '🤝',
     items: [
-      { href: '/crm/kontakte',  label: 'Kontakte' },
-      { href: '/crm/firmen',    label: 'Firmen'   },
-      { href: '/crm/pipeline',  label: 'Pipeline' },
+      { href: '/crm',           label: 'Übersicht' },
+      { href: '/crm/kontakte',  label: 'Kontakte'  },
+      { href: '/crm/firmen',    label: 'Firmen'    },
+      { href: '/crm/pipeline',  label: 'Pipeline'  },
     ],
   },
 
@@ -70,8 +71,11 @@ const NAV: NavEntry[] = [
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────
 
+// Paths that only match exactly (no prefix-matching for sub-routes)
+const EXACT_PATHS = new Set(['/dashboard', '/crm'])
+
 function isActive(href: string, pathname: string) {
-  return pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
+  return pathname === href || (!EXACT_PATHS.has(href) && pathname.startsWith(href))
 }
 
 function groupIsActive(items: NavItem[], pathname: string) {

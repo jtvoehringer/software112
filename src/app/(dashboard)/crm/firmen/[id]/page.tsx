@@ -3,7 +3,7 @@ import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import FirmaDetailClient from './FirmaDetailClient'
-import type { FirmaRow, KontaktRow, AktivitaetRow } from '@/lib/crm/types'
+import type { FirmaRow, KontaktRow, AktivitaetRow, PipelineEintragRow } from '@/lib/crm/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,6 +27,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     { data: fRaw },
     { data: kRaw },
     { data: aRaw },
+    { data: pRaw },
   ] = await Promise.all([
     (supabase.from('firmen') as any)
       .select('id, name, segment, strasse, plz, ort, land, email, telefon, website, uid_nummer, kreditlimit, zahlungsziel_tage, waehrung, notizen, aktiv')
@@ -43,6 +44,11 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
       .select('id, art, betreff, beschreibung, datum, erledigt, kontakt_id, firma_id')
       .eq('firma_id', id)
       .order('datum', { ascending: false }),
+
+    (supabase.from('pipeline_eintraege') as any)
+      .select('id, stufe, titel, wert_euro, wahrscheinlichkeit, erwartetes_datum, notizen, kontakt_id, firma_id, aktualisiert_am')
+      .eq('firma_id', id)
+      .order('aktualisiert_am', { ascending: false }),
   ])
 
   if (!fRaw) notFound()
@@ -73,11 +79,20 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     erledigt: a.erledigt, kontakt_id: a.kontakt_id ?? null, firma_id: a.firma_id ?? null,
   }))
 
+  const pipeline: PipelineEintragRow[] = ((pRaw ?? []) as R[]).map(p => ({
+    id: p.id, stufe: p.stufe, titel: p.titel,
+    wert_euro: p.wert_euro ?? null, wahrscheinlichkeit: p.wahrscheinlichkeit ?? null,
+    erwartetes_datum: p.erwartetes_datum ?? null, notizen: p.notizen ?? null,
+    kontakt_id: p.kontakt_id ?? null, firma_id: p.firma_id ?? null,
+    aktualisiert_am: p.aktualisiert_am,
+  }))
+
   return (
     <FirmaDetailClient
       firma={firma}
       kontakte={kontakte}
       aktivitaeten={aktivitaeten}
+      pipeline={pipeline}
       writeOk={writeOk}
     />
   )
