@@ -44,6 +44,16 @@
 |-----------|--------|
 | 001       | Initial Schema |
 | 002       | RLS Policies |
-| 003       | Kellerbuch (Behälter, Chargen) |
-| 004–012   | DAC, Prüfnummern, Erntemeldung, PSM, Behandlungen |
+| 003       | Kellerbuch: Behälter, Weinausbau-Chargen |
+| 004–012   | DAC, Prüfnummern, Erntemeldung, PSM, Behandlungen, Rebsorten, Jahrgänge, Analysen, Grundstücke |
+| 013       | Lagen-Tabelle (Rieden) + Grundstücke-Status |
+| 014       | Behandlungen auf Grundstück-Ebene (Junction-Tabelle) |
 | 015       | Behandlungen Erweiterung: art, menge, cu_gehalt_pct, flaeche_ha Snapshot |
+| 016       | PSM-Lagerverwaltung: Anfangsbestand, Einkauf, Inventurkorrektur |
+| 017       | Qualitätsstufe in weinausbau + Umziehen-Protokoll |
+| 018       | Pressungen (Lese → Most → Behälter) |
+| 019       | CRM Stammdaten: kontakte, firmen, Kundensegmente |
+| 020       | CRM Bewegung: aktivitaeten, pipeline_eintraege, Preislisten |
+| 021       | Tenant-Einstellungen: Branding, Module-Toggles, Brevo-Key |
+| 022       | Weinhandel: fuellungen (Abfüllungsereignisse = Weinlager-Artikel) |
+| 023       | Kellerplan: kellerplaene + kellerplan_positionen (Behälter-Grundriss) |
