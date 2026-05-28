@@ -327,18 +327,16 @@ function KontaktKarte({
 
       {/* Pipeline */}
       <div className="mt-2 border-t border-s112-border/60 pt-2">
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowPipeline(o => !o)}
-            className="text-xs text-s112-muted hover:text-gray-700 flex items-center gap-1">
-            {showPipeline ? '▾' : '▸'} {pipeline.length} {pipeline.length === 1 ? 'Pipeline-Eintrag' : 'Pipeline-Einträge'}
+        <button onClick={() => setShowPipeline(o => !o)}
+          className="text-xs text-s112-muted hover:text-gray-700 flex items-center gap-1">
+          {showPipeline ? '▾' : '▸'} {pipeline.length} {pipeline.length === 1 ? 'Pipeline-Eintrag' : 'Pipeline-Einträge'}
+        </button>
+        {!showPipeline && writeOk && (
+          <button onClick={() => { setShowPipeline(true); setShowPipelineForm(true) }}
+            className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors mt-1 ml-4">
+            ＋ Pipeline
           </button>
-          {writeOk && !showPipeline && (
-            <button onClick={() => { setShowPipeline(true); setShowPipelineForm(true) }}
-              className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors ml-2">
-              ＋ Pipeline
-            </button>
-          )}
-        </div>
+        )}
 
         {showPipeline && (
           <div className="mt-2 space-y-1">

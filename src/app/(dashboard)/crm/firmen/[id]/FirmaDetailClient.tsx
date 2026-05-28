@@ -224,7 +224,7 @@ export default function FirmaDetailClient({
           <div className="flex justify-end">
             {writeOk && !showAktForm && (
               <button onClick={() => setShowAktForm(true)}
-                className="text-xs text-s112-teal hover:underline font-medium">
+                className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors">
                 ＋ Aktivität
               </button>
             )}
@@ -273,7 +273,7 @@ export default function FirmaDetailClient({
           <div className="flex justify-end">
             {writeOk && !showPipelineForm && (
               <button onClick={() => setShowPipelineForm(true)}
-                className="text-xs text-s112-teal hover:underline font-medium">
+                className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors">
                 ＋ Pipeline-Eintrag
               </button>
             )}
