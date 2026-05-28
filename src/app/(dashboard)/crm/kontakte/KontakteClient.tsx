@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import { createKontakt, updateKontakt, deleteKontakt, createAktivitaet } from '../actions'
 import { SEGMENTE, AKTIVITAET_ARTEN, segmentLabel, segmentFarbe } from '@/lib/crm/types'
 import type { KontaktRow } from '@/lib/crm/types'
@@ -31,6 +31,12 @@ function KontaktForm({
 }) {
   const [pending, startTransition] = useTransition()
   const [stammkunde, setStammkunde] = useState(initial?.stammkunde ?? false)
+  const [segmentVal, setSegmentVal] = useState(initial?.segment ?? defaultSegment ?? 'privat')
+
+  // Folgt dem Filter-Button, solange kein bestehender Kontakt bearbeitet wird
+  useEffect(() => {
+    if (!initial && defaultSegment) setSegmentVal(defaultSegment)
+  }, [defaultSegment, initial])
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -60,7 +66,7 @@ function KontaktForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Segment *</label>
-          <select name="segment" defaultValue={v('segment') || defaultSegment || 'privat'} required className={inputCls()}>
+          <select name="segment" value={segmentVal} onChange={e => setSegmentVal(e.target.value)} required className={inputCls()}>
             {SEGMENTE.map(s => <option key={s.value} value={s.value}>{s.icon} {s.label}</option>)}
           </select>
         </div>

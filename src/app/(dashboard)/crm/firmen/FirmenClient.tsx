@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import { createFirma, updateFirma, deleteFirma } from '../actions'
 import { SEGMENTE, segmentLabel, segmentFarbe } from '@/lib/crm/types'
 import type { FirmaRow } from '@/lib/crm/types'
@@ -18,7 +18,12 @@ const LAENDER = ['AT', 'DE', 'CH', 'IT', 'FR', 'HU', 'SK', 'CZ', 'US', 'GB']
 
 function FirmaForm({ initial, defaultSegment, onDone }: { initial?: FirmaRow | null; defaultSegment?: string; onDone: () => void }) {
   const [pending, startTransition] = useTransition()
+  const [segmentVal, setSegmentVal] = useState(initial?.segment ?? defaultSegment ?? 'handel')
   const v = (field: keyof FirmaRow) => (initial?.[field] ?? '') as string
+
+  useEffect(() => {
+    if (!initial && defaultSegment) setSegmentVal(defaultSegment)
+  }, [defaultSegment, initial])
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -41,7 +46,7 @@ function FirmaForm({ initial, defaultSegment, onDone }: { initial?: FirmaRow | n
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Segment *</label>
-          <select name="segment" defaultValue={v('segment') || defaultSegment || 'handel'} required className={inputCls()}>
+          <select name="segment" value={segmentVal} onChange={e => setSegmentVal(e.target.value)} required className={inputCls()}>
             {SEGMENTE.filter(s => s.value !== 'privat').map(s =>
               <option key={s.value} value={s.value}>{s.icon} {s.label}</option>
             )}
