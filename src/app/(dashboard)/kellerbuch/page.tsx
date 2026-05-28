@@ -155,9 +155,18 @@ export default async function KellerbuchPage() {
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums">{w.menge_liter ? w.menge_liter.toLocaleString('de-AT') : '–'}</td>
                         <td className="px-4 py-2 text-right">
-                          {writeOk && (
-                            <Link href={`/kellerbuch/weinausbau/${w.id}`} className="text-s112-teal hover:underline text-xs">Bearbeiten</Link>
-                          )}
+                          <div className="flex items-center justify-end gap-3">
+                            {writeOk && w.aktiv && w.status !== 'abgeschlossen' && (
+                              <Link
+                                href={`/weinhandel/fuellungen/neu?charge=${w.id}`}
+                                className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-2 py-0.5 hover:bg-s112-teal hover:text-white transition-colors whitespace-nowrap">
+                                🍾 Abfüllen
+                              </Link>
+                            )}
+                            {writeOk && (
+                              <Link href={`/kellerbuch/weinausbau/${w.id}`} className="text-s112-teal hover:underline text-xs">Bearbeiten</Link>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     )
