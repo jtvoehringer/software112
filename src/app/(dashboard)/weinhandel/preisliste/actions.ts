@@ -21,17 +21,25 @@ export async function createPreisliste(formData: FormData) {
   const supabase  = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
 
-  const { data, error } = await (supabase.from('preislisten') as any).insert({
+  // UUID selbst generieren – vermeidet das fragile .select().single() nach INSERT
+  const newId = crypto.randomUUID()
+
+  const { error } = await (supabase.from('preislisten') as any).insert({
+    id:           newId,
     tenant_id:    tenantId,
     name:         formData.get('name') as string,
     beschreibung: (formData.get('beschreibung') as string) || null,
     gueltig_von:  (formData.get('gueltig_von') as string)  || null,
     gueltig_bis:  (formData.get('gueltig_bis') as string)  || null,
-  }).select('id').single()
+  })
 
-  if (error) throw new Error((error as AR).message)
+  if (error) {
+    console.error('createPreisliste:', error.message)
+    revalidatePath('/weinhandel/preisliste')
+    redirect('/weinhandel/preisliste')
+  }
   revalidatePath('/weinhandel/preisliste')
-  redirect(`/weinhandel/preisliste/${(data as AR).id}`)
+  redirect(`/weinhandel/preisliste/${newId}`)
 }
 
 // ── Preisliste bearbeiten ─────────────────────────────────────────────────────

@@ -52,18 +52,19 @@ export async function createVerkauf(formData: FormData) {
     throw new Error('Mindestens eine Position erforderlich')
   }
 
-  // 1. Verkaufsposten anlegen
-  const { data: posten, error: postenErr } = await (supabase.from('verkaufsposten') as any).insert({
+  // 1. Verkaufsposten anlegen (UUID selbst generieren)
+  const postenId = crypto.randomUUID()
+  const { error: postenErr } = await (supabase.from('verkaufsposten') as any).insert({
+    id:              postenId,
     tenant_id:       tenantId,
     datum,
     rechnungsnummer,
     kontakt_id:      kontaktId  || null,
     firma_id:        firmaId    || null,
     notizen,
-  }).select('id').single()
+  })
 
   if (postenErr) throw new Error((postenErr as AR).message)
-  const postenId = (posten as AR).id
 
   // 2. Positionen anlegen
   const posInserts = positionen.map(p => ({
