@@ -71,6 +71,8 @@ export type FirmaRow = {
   id: string
   name: string
   segment: Kundensegment
+  strasse: string | null
+  plz: string | null
   ort: string | null
   land: string | null
   email: string | null
@@ -80,6 +82,7 @@ export type FirmaRow = {
   kreditlimit: number | null
   zahlungsziel_tage: number | null
   waehrung: string | null
+  notizen: string | null
   aktiv: boolean
   kontakt_anzahl?: number
 }
