@@ -30,7 +30,7 @@ export default async function MandantenPage() {
   const supabase = createSupabaseAdminClient()
 
   const [{ data: tenants }, { data: memberships }] = await Promise.all([
-    (supabase.from('tenants') as any).select('id, name, erstellt_am').order('erstellt_am'),
+    (supabase.from('tenants') as any).select('id, name, created_at').order('created_at'),
     (supabase.from('tenant_memberships') as any).select('tenant_id'),
   ])
 
@@ -61,7 +61,7 @@ export default async function MandantenPage() {
     return {
       id:              t.id,
       name:            t.name,
-      erstellt_am:     t.erstellt_am,
+      erstellt_am:     t.created_at,
       benutzer_anzahl: countMap[t.id] ?? 0,
       anzeigename:     b?.anzeigename ?? null,
       logo_url:        b?.logo_url ?? null,
