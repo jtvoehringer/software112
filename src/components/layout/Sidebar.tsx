@@ -48,7 +48,15 @@ const NAV: NavEntry[] = [
     ],
   },
 
-  { kind: 'link', href: '/weinhandel', label: 'Weinhandel', icon: '🛒' },
+  {
+    kind: 'group', label: 'Weinhandel', icon: '🛒',
+    items: [
+      { href: '/weinhandel',              label: 'Lager',       phase: 1 },
+      { href: '/weinhandel/verkauf',      label: 'Verkauf',     phase: 1 },
+      { href: '/weinhandel/preisliste',   label: 'Preisliste',  phase: 1 },
+      { href: '/weinhandel/export',       label: 'Export',      phase: 2 },
+    ],
+  },
 
   {
     kind: 'group', label: 'CRM', icon: '🤝',

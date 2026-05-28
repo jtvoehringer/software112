@@ -57,3 +57,5 @@
 | 021       | Tenant-Einstellungen: Branding, Module-Toggles, Brevo-Key |
 | 022       | Weinhandel: fuellungen (Abfüllungsereignisse = Weinlager-Artikel) |
 | 023       | Kellerplan: kellerplaene + kellerplan_positionen (Behälter-Grundriss) |
+| 024       | Weinhandel: preislisten + preislisten_positionen (Mehrere Preislisten gleichzeitig aktiv) |
+| 025       | Weinhandel: verkaufsposten + verkauf_positionen (Flasche/Tank/Sonstiges, Bestandsreduktion) |
