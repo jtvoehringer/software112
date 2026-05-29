@@ -17,7 +17,7 @@ export default async function PipelinePage() {
 
   const [{ data: pRaw }, { data: kRaw }, { data: fRaw }] = await Promise.all([
     (supabase.from('pipeline_eintraege') as any)
-      .select('id, stufe, titel, kategorie, wert_euro, wahrscheinlichkeit, erwartetes_datum, erledigt, erledigt_am, notizen, aktualisiert_am, kontakt_id, kontakte:kontakt_id(vorname,nachname), firma_id, firmen:firma_id(name)')
+      .select('id, stufe, titel, kategorie, wert_euro, wahrscheinlichkeit, erwartetes_datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, erledigt_am, notizen, aktualisiert_am, kontakt_id, kontakte:kontakt_id(vorname,nachname), firma_id, firmen:firma_id(name)')
       .order('aktualisiert_am', { ascending: false }),
 
     (supabase.from('kontakte') as any)
@@ -49,6 +49,9 @@ export default async function PipelinePage() {
       kontakt_name:        k ? [k.vorname, k.nachname].filter(Boolean).join(' ') : null,
       firma_id:            p.firma_id ?? null,
       firma_name:          f?.name ?? null,
+      ganztags:            p.ganztags ?? true,
+      uhrzeit_von:         p.uhrzeit_von ?? null,
+      uhrzeit_bis:         p.uhrzeit_bis ?? null,
       aktualisiert_am:     p.aktualisiert_am,
     }
   })
