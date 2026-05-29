@@ -236,13 +236,14 @@ function PipelineForm({ kontaktId, onDone }: { kontaktId: string; onDone: () => 
 // ── Kontakt-Karte ─────────────────────────────────────────────────────────────
 
 function KontaktKarte({
-  kontakt, firmen, aktivitaeten, pipeline, writeOk,
+  kontakt, firmen, aktivitaeten, pipeline, writeOk, sortBy,
 }: {
   kontakt: KontaktRow
   firmen: FirmaOption[]
   aktivitaeten: AktivitaetRow[]
   pipeline: PipelineRow[]
   writeOk: boolean
+  sortBy: 'nachname' | 'vorname'
 }) {
   const [editing, setEditing] = useState(false)
   const [showAkt, setShowAkt] = useState(false)
@@ -251,7 +252,9 @@ function KontaktKarte({
   const [showPipelineForm, setShowPipelineForm] = useState(false)
   const [pending, startTransition] = useTransition()
 
-  const name = [kontakt.vorname, kontakt.nachname].filter(Boolean).join(' ')
+  const name = sortBy === 'nachname'
+    ? [kontakt.nachname, kontakt.vorname].filter(Boolean).join(' ')
+    : [kontakt.vorname, kontakt.nachname].filter(Boolean).join(' ')
 
   function handleDelete() {
     if (!confirm(`Kontakt "${name}" wirklich löschen?`)) return
@@ -507,6 +510,7 @@ export default function KontakteClient({
               aktivitaeten={aktivitaetenMap[k.id] ?? []}
               pipeline={pipelineMap[k.id] ?? []}
               writeOk={writeOk}
+              sortBy={sortBy}
             />
           ))}
         </div>
