@@ -38,7 +38,6 @@ function KontaktForm({
   const [stammkunde, setStammkunde] = useState(initial?.stammkunde ?? false)
   const [segmentVal, setSegmentVal] = useState(initial?.segment ?? defaultSegment ?? 'privat')
 
-  // Folgt dem Filter-Button, solange kein bestehender Kontakt bearbeitet wird
   useEffect(() => {
     if (!initial && defaultSegment) setSegmentVal(defaultSegment)
   }, [defaultSegment, initial])
@@ -237,7 +236,6 @@ function KontaktKarte({
   const [pending, startTransition] = useTransition()
 
   const name = [kontakt.vorname, kontakt.nachname].filter(Boolean).join(' ')
-  const aktIcon = AKTIVITAET_ARTEN.find(a => a.value === 'notiz')?.icon ?? '•'
 
   function handleDelete() {
     if (!confirm(`Kontakt "${name}" wirklich löschen?`)) return
