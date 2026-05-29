@@ -58,7 +58,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
         kontakt:kontakte(id, vorname, nachname, email, telefon),
         firma:firmen(id, name, email, telefon),
         positionen:verkauf_positionen(
-          id, typ, name, menge, einheit, preis_brutto,
+          id, typ, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct,
           fuellung:fuellungen(id, name, jahrgang, flaschengroesse_ml),
           weinausbau:weinausbau(id, name)
         )
@@ -77,7 +77,11 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const tankPos   = positionen.filter((p: R) => p.typ === 'tank')
 
   const gesamt = positionen.reduce((s: number, p: R) => {
-    return s + (p.preis_brutto != null ? Number(p.preis_brutto) * Number(p.menge) : 0)
+    if (p.preis_brutto == null) return s
+    const brutto  = Number(p.preis_brutto) * Number(p.menge)
+    const rabatt  = (Number(p.rabatt_pct ?? 0)) / 100
+    const sonder  = (Number(p.sonderrabatt_pct ?? 0)) / 100
+    return s + brutto * (1 - rabatt) * (1 - sonder)
   }, 0)
 
   function kundenName(p: R): string {
@@ -122,9 +126,12 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   // USt-Aufschlüsselung (gruppiert nach Steuersatz)
   const ustGruppen = positionen.reduce((acc: Record<string, number>, pos: R) => {
     const satz = Number(pos.ust_satz ?? 13)
-    const netto = pos.preis_brutto != null
-      ? Number(pos.preis_brutto) / (1 + satz / 100) * Number(pos.menge)
-      : 0
+    if (pos.preis_brutto == null) return acc
+    const brutto  = Number(pos.preis_brutto) * Number(pos.menge)
+    const rabatt  = (Number(pos.rabatt_pct ?? 0)) / 100
+    const sonder  = (Number(pos.sonderrabatt_pct ?? 0)) / 100
+    const effektiv = brutto * (1 - rabatt) * (1 - sonder)
+    const netto = effektiv / (1 + satz / 100)
     const key = String(satz)
     acc[key] = (acc[key] ?? 0) + netto
     return acc
@@ -298,7 +305,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
         )}
       </div>
 
-      {/* Positionen-Tabelle */}
+      {/* Positionen-Tabelle – Lieferschein vs Rechnung */}
       <div className="card p-0 overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -306,14 +313,19 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
               <th className="text-left px-4 py-3 font-semibold text-gray-700">Bezeichnung</th>
               <th className="text-right px-4 py-3 font-semibold text-gray-700">Menge</th>
               <th className="text-left px-4 py-3 font-semibold text-gray-700">Einheit</th>
-              <th className="text-right px-4 py-3 font-semibold text-gray-700">Preis/Einh.</th>
-              <th className="text-right px-4 py-3 font-semibold text-gray-700">Summe</th>
+              {isRechnung && <>
+                <th className="text-right px-4 py-3 font-semibold text-gray-700">Preis/Einh.</th>
+                <th className="text-right px-4 py-3 font-semibold text-gray-700">Rabatt</th>
+                <th className="text-right px-4 py-3 font-semibold text-gray-700">Summe</th>
+              </>}
             </tr>
           </thead>
           <tbody>
             {positionen.map((pos: R, i: number) => {
-              const summe = pos.preis_brutto != null
-                ? Number(pos.preis_brutto) * Number(pos.menge)
+              const brutto   = pos.preis_brutto != null ? Number(pos.preis_brutto) * Number(pos.menge) : null
+              const rabatt   = (Number(pos.rabatt_pct ?? 0) + Number(pos.sonderrabatt_pct ?? 0))
+              const summe    = brutto != null
+                ? brutto * (1 - Number(pos.rabatt_pct ?? 0) / 100) * (1 - Number(pos.sonderrabatt_pct ?? 0) / 100)
                 : null
               const sub: string[] = []
               if (pos.fuellung?.jahrgang) sub.push(String(pos.fuellung.jahrgang))
@@ -331,32 +343,39 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums">{Number(pos.menge).toLocaleString('de-AT')}</td>
                   <td className="px-4 py-3 text-s112-muted">{pos.einheit}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">
-                    {pos.preis_brutto != null
-                      ? Number(pos.preis_brutto).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
-                      : <span className="text-s112-muted">–</span>}
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold text-s112-teal tabular-nums">
-                    {summe != null
-                      ? summe.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
-                      : <span className="text-s112-muted font-normal">–</span>}
-                  </td>
+                  {isRechnung && <>
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      {pos.preis_brutto != null
+                        ? Number(pos.preis_brutto).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+                        : <span className="text-s112-muted">–</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-s112-muted">
+                      {rabatt > 0 ? `${rabatt}%` : '–'}
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold text-s112-teal tabular-nums">
+                      {summe != null
+                        ? summe.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+                        : <span className="text-s112-muted font-normal">–</span>}
+                    </td>
+                  </>}
                 </tr>
               )
             })}
           </tbody>
-          <tfoot>
-            <tr className="border-t-2 border-s112-border bg-s112-bg">
-              <td colSpan={4} className="px-4 py-3 text-right font-semibold text-gray-700">Gesamt brutto</td>
-              <td className="px-4 py-3 text-right font-bold text-lg text-s112-teal tabular-nums">
-                {gesamt.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
-              </td>
-            </tr>
-          </tfoot>
+          {isRechnung && (
+            <tfoot>
+              <tr className="border-t-2 border-s112-border bg-s112-bg">
+                <td colSpan={5} className="px-4 py-3 text-right font-semibold text-gray-700">Gesamt brutto</td>
+                <td className="px-4 py-3 text-right font-bold text-lg text-s112-teal tabular-nums">
+                  {gesamt.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
+                </td>
+              </tr>
+            </tfoot>
+          )}
         </table>
 
         {/* MwSt-Hinweis / Rechnung USt-Aufschlüsselung */}
-        {isRechnung ? (
+        {isRechnung && (
           <div className="px-4 py-3 text-xs text-right border-t border-s112-border space-y-0.5 print-only">
             <p className="text-gray-500">Nettobetrag: {gesamtNetto.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}</p>
             {Object.entries(ustGruppen).map(([satz, netto]) => (
@@ -365,10 +384,6 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
               </p>
             ))}
             <p className="font-semibold text-gray-700">Rechnungsbetrag: {gesamt.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}</p>
-          </div>
-        ) : (
-          <div className="px-4 py-3 text-xs text-gray-400 text-right border-t border-s112-border">
-            Alle Preise inkl. MwSt.
           </div>
         )}
       </div>
