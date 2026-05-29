@@ -236,7 +236,7 @@ export default function FirmenClient({
   const [segment, setSegment] = useState('alle')
 
   const gefiltert = firmen.filter(f => {
-    const text = [f.name, f.ort, f.email].filter(Boolean).join(' ').toLowerCase()
+    const text = [f.kundennummer, f.name, f.ort, f.email, f.telefon].filter(Boolean).join(' ').toLowerCase()
     return (!suche || text.includes(suche.toLowerCase())) &&
            (segment === 'alle' || f.segment === segment)
   })
@@ -246,7 +246,7 @@ export default function FirmenClient({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <input type="search" placeholder="Suche nach Name, Ort, E-Mail…"
+        <input type="search" placeholder="Name, Kundennummer, E-Mail, Ort…"
           value={suche} onChange={e => setSuche(e.target.value)}
           className="border border-s112-border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         <div className="flex gap-1">

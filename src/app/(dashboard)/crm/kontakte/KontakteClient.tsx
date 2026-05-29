@@ -452,7 +452,7 @@ export default function KontakteClient({
 
   const gefiltert = kontakte
     .filter(k => {
-      const name = [k.vorname, k.nachname, k.email, k.firma_name].filter(Boolean).join(' ').toLowerCase()
+      const name = [k.kundennummer, k.vorname, k.nachname, k.email, k.mobil, k.telefon, k.firma_name].filter(Boolean).join(' ').toLowerCase()
       const matchSuche = !suche || name.includes(suche.toLowerCase())
       const matchSeg = segment === 'alle' || k.segment === segment
       return matchSuche && matchSeg
@@ -468,7 +468,7 @@ export default function KontakteClient({
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">
         <input
-          type="search" placeholder="Suche nach Name, E-Mail, Firma…"
+          type="search" placeholder="Name, Kundennummer, E-Mail, Telefon…"
           value={suche} onChange={e => setSuche(e.target.value)}
           className="border border-s112-border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
         />
