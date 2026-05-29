@@ -209,17 +209,19 @@ export async function stornoVerkauf(id: string) {
     }
   }
 
+  // Rechnungsnummer vorab lesen
+  const { data: vorabStorno } = await (supabase.from('verkaufsposten') as any)
+    .select('rechnungsnummer').eq('id', id).single()
+
   // Posten als storniert markieren
-  const { data: postenRaw, error } = await (supabase.from('verkaufsposten') as any)
+  const { error } = await (supabase.from('verkaufsposten') as any)
     .update({ storniert: true, storniert_am: new Date().toISOString() })
     .eq('id', id)
-    .select('rechnungsnummer')
-    .single()
   if (error) throw new Error((error as AR).message)
 
   // CRM-Aktivität auf STORNIERT setzen
   try {
-    const re = (postenRaw as AR | null)?.rechnungsnummer
+    const re = (vorabStorno as AR | null)?.rechnungsnummer
     await (supabase.from('aktivitaeten') as any)
       .update({ betreff: `Verkauf ${re ?? ''} · STORNIERT` })
       .eq('beschreibung', `Verkaufsposten: ${id}`)
