@@ -209,7 +209,7 @@ function AktivitaetKarte({ a, writeOk }: { a: AktivitaetRow; writeOk: boolean })
 
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 
-type Tab = 'kontakte' | 'aktivitaeten' | 'pipeline'
+type Tab = 'kontakte' | 'aktivitaeten' | 'pipeline' | 'verkauefe'
 
 export default function FirmaDetailClient({
   firma, kontakte, aktivitaeten, pipeline, writeOk,
@@ -290,8 +290,9 @@ export default function FirmaDetailClient({
         <div className="flex gap-0">
           {([
             { id: 'kontakte',     label: `Kontakte (${kontakte.length})`        },
-            { id: 'aktivitaeten', label: `Aktivitaeten (${aktivitaeten.length})` },
+            { id: 'aktivitaeten', label: `Aktivitäten (${aktivitaeten.filter(a => a.art !== 'verkauf').length})` },
             { id: 'pipeline',     label: `Pipeline (${pipeline.length})`        },
+            { id: 'verkauefe',    label: `Verkäufe (${aktivitaeten.filter(a => a.art === 'verkauf').length})`  },
           ] as { id: Tab; label: string }[]).map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
@@ -364,7 +365,7 @@ export default function FirmaDetailClient({
             </div>
           ) : (
             <div className="space-y-2">
-              {aktivitaeten.map(a => (
+              {aktivitaeten.filter(a => a.art !== 'verkauf').map(a => (
                 <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} />
               ))}
             </div>
@@ -422,6 +423,57 @@ export default function FirmaDetailClient({
                   </div>
                 )
               })}
+            </div>
+          )}
+        </div>
+      )}
+      {/* Tab: Verkäufe */}
+      {tab === 'verkauefe' && (
+        <div className="space-y-2">
+          {aktivitaeten.filter(a => a.art === 'verkauf').length === 0 ? (
+            <div className="card p-6 text-center text-s112-muted text-sm">Noch keine Verkäufe erfasst.</div>
+          ) : (
+            <div className="card p-0 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-s112-bg border-b border-s112-border">
+                    <th className="text-left px-4 py-2.5 font-semibold text-gray-700">Datum</th>
+                    <th className="text-left px-4 py-2.5 font-semibold text-gray-700">Beleg / Betrag</th>
+                    <th className="text-center px-4 py-2.5 font-semibold text-gray-700">Status</th>
+                    <th className="px-4 py-2.5" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {aktivitaeten.filter(a => a.art === 'verkauf').map(a => {
+                    const postenId = a.beschreibung?.replace('Verkaufsposten: ', '') ?? null
+                    const isStorniert = a.betreff?.includes('STORNIERT')
+                    const isBezahlt  = a.betreff?.includes('Bezahlt')
+                    return (
+                      <tr key={a.id} className="border-b border-s112-border last:border-0 hover:bg-s112-bg/50">
+                        <td className="px-4 py-2.5 text-xs tabular-nums text-s112-muted">
+                          {new Date(a.datum).toLocaleDateString('de-AT')}
+                        </td>
+                        <td className="px-4 py-2.5 text-xs font-medium text-gray-800">{a.betreff}</td>
+                        <td className="px-4 py-2.5 text-center">
+                          {isStorniert ? (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Storniert</span>
+                          ) : isBezahlt ? (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Bezahlt</span>
+                          ) : (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Offen</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-right">
+                          {postenId && (
+                            <a href={`/weinhandel/verkauf/${postenId}`}
+                              className="text-xs text-s112-teal hover:underline">Beleg →</a>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
