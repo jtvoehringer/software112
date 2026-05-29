@@ -259,7 +259,7 @@ export default function KontaktDetailClient({
             </div>
           ) : (
             <div className="space-y-2">
-              {aktivitaeten.map(a => (
+              {aktivitaeten.filter(a => a.art !== 'verkauf').map(a => (
                 <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} />
               ))}
             </div>
@@ -354,6 +354,41 @@ export default function KontaktDetailClient({
               </div>
             )}
           </div>
+
+              {/* Verkäufe aus Aktivitäten-Log */}
+              {(() => {
+                const verkaufAkts = aktivitaeten.filter(a => a.art === 'verkauf')
+                if (verkaufAkts.length === 0) return null
+                return (
+                  <div className="card p-4 space-y-2">
+                    <h2 className="text-sm font-semibold text-gray-800 mb-3">Verkäufe ({verkaufAkts.length})</h2>
+                    <div className="space-y-1">
+                      {verkaufAkts.map(a => {
+                        const postenId = a.beschreibung?.replace('Verkaufsposten: ', '') ?? null
+                        const isStorniert = a.betreff?.includes('STORNIERT')
+                        const isBezahlt  = a.betreff?.includes('Bezahlt')
+                        return (
+                          <div key={a.id} className="flex items-center justify-between text-xs py-1.5 border-b border-s112-border/40 last:border-0">
+                            <div className="flex-1 min-w-0">
+                              <span className="tabular-nums text-s112-muted mr-2">{new Date(a.datum).toLocaleDateString('de-AT')}</span>
+                              <span className="font-medium text-gray-800">{a.betreff}</span>
+                            </div>
+                            <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                              {isStorniert && <span className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Storniert</span>}
+                              {isBezahlt  && <span className="px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Bezahlt</span>}
+                              {!isStorniert && !isBezahlt && <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Offen</span>}
+                              {postenId && (
+                                <a href={`/weinhandel/verkauf/${postenId}`}
+                                  className="text-s112-teal hover:underline">→</a>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })()}
 
         </div>
       </div>

@@ -132,7 +132,12 @@ export async function createVerkauf(formData: FormData) {
   // 4. CRM Aktivität auto-loggen (wenn Kontakt oder Firma angegeben)
   if (kontaktId || firmaId) {
     try {
-      const gesamtBetrag = positionen.reduce((s, p) => s + (p.preis_brutto ?? 0) * p.menge, 0)
+      const gesamtBetrag = positionen.reduce((s, p) => {
+        const brutto = (p.preis_brutto ?? 0) * p.menge
+        const rabatt = (p.rabatt_pct ?? 0) / 100
+        const sonder = (p.sonderrabatt_pct ?? 0) / 100
+        return s + brutto * (1 - rabatt) * (1 - sonder)
+      }, 0)
       const betreff = [
         rechnungsnummer ? `Verkauf ${rechnungsnummer}` : 'Verkauf',
         gesamtBetrag > 0
