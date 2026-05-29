@@ -212,4 +212,44 @@ export async function stornoVerkauf(id: string) {
     .single()
   if (error) throw new Error((error as AR).message)
 
-  // CRM-Aktivität auf ST
+  // CRM-Aktivität auf STORNIERT setzen
+  try {
+    const re = (postenRaw as AR | null)?.rechnungsnummer
+    await (supabase.from('aktivitaeten') as any)
+      .update({ betreff: `Verkauf ${re ?? ''} · STORNIERT` })
+      .eq('beschreibung', `Verkaufsposten: ${id}`)
+  } catch { /* nicht kritisch */ }
+
+  revalidatePath('/weinhandel/verkauf')
+  revalidatePath(`/weinhandel/verkauf/${id}`)
+  revalidatePath('/crm')
+  revalidatePath('/crm/kontakte/[id]', 'page')
+  revalidatePath('/crm/firmen/[id]', 'page')
+}
+
+// ── Verkauf als bezahlt markieren ─────────────────────────────────────────────
+
+export async function markiereAlsBezahlt(id: string) {
+  const supabase = await createSupabaseServerClient()
+
+  const { data: postenRaw, error } = await (supabase.from('verkaufsposten') as any)
+    .update({ bezahlt: true, bezahlt_am: new Date().toISOString() })
+    .eq('id', id)
+    .select('rechnungsnummer')
+    .single()
+  if (error) throw new Error((error as AR).message)
+
+  // CRM-Aktivität aktualisieren
+  try {
+    const re = (postenRaw as AR | null)?.rechnungsnummer
+    await (supabase.from('aktivitaeten') as any)
+      .update({ betreff: `Verkauf ${re ?? ''} · Bezahlt` })
+      .eq('beschreibung', `Verkaufsposten: ${id}`)
+  } catch { /* nicht kritisch */ }
+
+  revalidatePath('/weinhandel/verkauf')
+  revalidatePath('/weinhandel/offene-posten')
+  revalidatePath(`/weinhandel/verkauf/${id}`)
+  revalidatePath('/crm/kontakte/[id]', 'page')
+  revalidatePath('/crm/firmen/[id]', 'page')
+}
