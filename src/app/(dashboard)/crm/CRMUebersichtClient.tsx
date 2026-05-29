@@ -12,6 +12,9 @@ export type KalenderEintrag = {
   typ: 'aktivitaet' | 'pipeline'
   art?: string
   artIcon?: string
+  ganztags?: boolean
+  uhrzeit_von?: string | null   // "HH:MM:SS"
+  uhrzeit_bis?: string | null
   ueberfaellig: boolean
   href: string
   kontaktName?: string | null
@@ -73,12 +76,20 @@ function chipFarbe(e: KalenderEintrag): string {
 
 // ── Eintrag-Chip ──────────────────────────────────────────────────────────────
 
+function fmtT(t: string | null | undefined): string | null {
+  if (!t) return null
+  return t.slice(0, 5)  // "14:30:00" → "14:30"
+}
+
 function EintragChip({ e, compact = false }: { e: KalenderEintrag; compact?: boolean }) {
   const farbe = chipFarbe(e)
-  // inline style als Fallback falls Tailwind bg-red-500 nicht im Build-Cache ist
   const overdueInline = e.ueberfaellig
     ? { backgroundColor: '#ef4444', color: '#ffffff', borderColor: '#dc2626' }
     : undefined
+  const von = !e.ganztags ? fmtT(e.uhrzeit_von) : null
+  const bis = !e.ganztags ? fmtT(e.uhrzeit_bis) : null
+  const zeitLabel = von ? (bis ? `${von}–${bis}` : von) : null
+
   return (
     <Link href={e.href} title={`${e.titel}${e.kontaktName ? ` – ${e.kontaktName}` : ''}${e.firmaName ? ` (${e.firmaName})` : ''}`}>
       <div
@@ -87,6 +98,12 @@ function EintragChip({ e, compact = false }: { e: KalenderEintrag; compact?: boo
           ${farbe}`}
         style={overdueInline}>
         <span className="mr-0.5">{e.artIcon}</span>
+        {zeitLabel && !compact && (
+          <span className="font-semibold mr-1 tabular-nums">{zeitLabel}</span>
+        )}
+        {zeitLabel && compact && (
+          <span className="font-semibold mr-0.5 tabular-nums">{von}</span>
+        )}
         <span className="font-medium">{e.titel}</span>
         {!compact && (e.kontaktName || e.firmaName) && (
           <span className="block text-[9px] opacity-60 truncate mt-px">

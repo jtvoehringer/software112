@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { createAktivitaet, createPipelineEintrag } from '../../actions'
 import {
   AKTIVITAET_ARTEN, PIPELINE_STUFEN,
-  segmentLabel, segmentFarbe,
+  segmentLabel, segmentFarbe, fmtUhrzeit,
 } from '@/lib/crm/types'
 import type { FirmaRow, KontaktRow, AktivitaetRow, PipelineEintragRow } from '@/lib/crm/types'
 
@@ -17,11 +17,13 @@ function inputCls() {
 
 function AktivitaetForm({ firmaId, onDone }: { firmaId: string; onDone: () => void }) {
   const [pending, startTransition] = useTransition()
+  const [ganztags, setGanztags] = useState(true)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
     fd.set('firma_id', firmaId)
+    fd.set('ganztags', ganztags ? 'true' : 'false')
     startTransition(async () => { await createAktivitaet(fd); onDone() })
   }
 
@@ -34,6 +36,23 @@ function AktivitaetForm({ firmaId, onDone }: { firmaId: string; onDone: () => vo
         <input name="datum" type="date" defaultValue={new Date().toISOString().split('T')[0]}
           required className={inputCls()} />
       </div>
+
+      {/* Uhrzeit */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
+          <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)}
+            className="rounded" />
+          Ganztags
+        </label>
+        {!ganztags && (
+          <div className="flex items-center gap-2">
+            <input name="uhrzeit_von" type="time" className="border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            <span className="text-xs text-gray-400">–</span>
+            <input name="uhrzeit_bis" type="time" className="border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+          </div>
+        )}
+      </div>
+
       <input name="betreff" placeholder="Betreff *" required className={inputCls()} />
       <textarea name="beschreibung" placeholder="Beschreibung (optional)" rows={2}
         className={inputCls() + ' resize-none'} />
@@ -242,16 +261,23 @@ export default function FirmaDetailClient({
             <div className="space-y-2">
               {aktivitaeten.map(a => {
                 const artDef = AKTIVITAET_ARTEN.find(x => x.value === a.art)
+                const von = fmtUhrzeit(a.uhrzeit_von)
+                const bis = fmtUhrzeit(a.uhrzeit_bis)
                 return (
                   <div key={a.id} className="card p-4 flex gap-3">
                     <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-base">
                       {artDef?.icon ?? '•'}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs text-s112-muted tabular-nums">
                           {new Date(a.datum).toLocaleDateString('de-AT')}
                         </span>
+                        {!a.ganztags && von && (
+                          <span className="text-xs font-medium text-s112-teal tabular-nums">
+                            {von}{bis ? `–${bis}` : ''}
+                          </span>
+                        )}
                         <span className="text-xs text-s112-muted">{artDef?.label ?? a.art}</span>
                       </div>
                       <p className="text-sm font-medium text-gray-800 mt-0.5">{a.betreff}</p>

@@ -16,7 +16,7 @@ export default async function CRMUebersichtPage() {
 
   // Alle Aktivitäten mit Datum
   const { data: aktivRaw } = await (supabase.from('aktivitaeten') as any)
-    .select('id, art, betreff, datum, erledigt, kontakt_id, firma_id')
+    .select('id, art, betreff, datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, kontakt_id, firma_id')
     .not('datum', 'is', null)
     .order('datum', { ascending: true })
 
@@ -52,7 +52,10 @@ export default async function CRMUebersichtPage() {
         typ: 'aktivitaet' as const,
         art: a.art as string,
         artIcon: artDef?.icon ?? '📝',
-        ueberfaellig: (a.datum as string) < heute,
+        ganztags: (a.ganztags as boolean) ?? true,
+        uhrzeit_von: (a.uhrzeit_von as string | null) ?? null,
+        uhrzeit_bis: (a.uhrzeit_bis as string | null) ?? null,
+        ueberfaellig: !a.erledigt && (a.datum as string) < heute,
         href: a.kontakt_id
           ? `/crm/kontakte/${a.kontakt_id}`
           : a.firma_id

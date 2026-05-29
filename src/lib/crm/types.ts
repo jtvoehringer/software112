@@ -33,6 +33,20 @@ export const PIPELINE_STUFEN = [
 
 export type PipelineStufe = (typeof PIPELINE_STUFEN)[number]['value']
 
+// ── Pipeline-Kategorien ───────────────────────────────────────────────────────
+
+export const PIPELINE_KATEGORIEN = [
+  { value: 'sortiment',     label: 'Sortiment gesamt' },
+  { value: 'weisswein',     label: 'Weißwein'         },
+  { value: 'rotwein',       label: 'Rotwein'          },
+  { value: 'rose',          label: 'Rosé'             },
+  { value: 'sekt',          label: 'Sekt / Perlwein'  },
+  { value: 'fasswein',      label: 'Fasswein'         },
+  { value: 'veranstaltung', label: 'Veranstaltung'    },
+  { value: 'export',        label: 'Export'           },
+  { value: 'sonstiges',     label: 'Sonstiges'        },
+] as const
+
 // ── Aktivitäts-Arten ──────────────────────────────────────────────────────────
 
 export const AKTIVITAET_ARTEN = [
@@ -97,6 +111,9 @@ export type AktivitaetRow = {
   betreff: string | null
   beschreibung: string | null
   datum: string
+  ganztags: boolean
+  uhrzeit_von: string | null   // "HH:MM:SS" aus PostgreSQL time
+  uhrzeit_bis: string | null
   erledigt: boolean
   kontakt_id: string | null
   kontakt_name?: string | null
@@ -108,13 +125,24 @@ export type PipelineEintragRow = {
   id: string
   stufe: PipelineStufe
   titel: string
+  kategorie: string | null
   wert_euro: number | null
   wahrscheinlichkeit: number | null
   erwartetes_datum: string | null
+  erledigt: boolean
+  erledigt_am: string | null
   notizen: string | null
   kontakt_id: string | null
   kontakt_name?: string | null
   firma_id: string | null
   firma_name?: string | null
   aktualisiert_am: string
+}
+
+// ── Hilfsfunktionen ───────────────────────────────────────────────────────────
+
+/** "14:30:00" → "14:30" */
+export function fmtUhrzeit(t: string | null | undefined): string | null {
+  if (!t) return null
+  return t.slice(0, 5)
 }

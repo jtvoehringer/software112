@@ -1,8 +1,11 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { createPipelineEintrag, updatePipelineEintrag, updatePipelineStufe, deletePipelineEintrag } from '../actions'
-import { PIPELINE_STUFEN, segmentLabel } from '@/lib/crm/types'
+import { useState, useTransition, useMemo } from 'react'
+import {
+  createPipelineEintrag, updatePipelineEintrag,
+  updatePipelineStufe, togglePipelineErledigt, deletePipelineEintrag,
+} from '../actions'
+import { PIPELINE_STUFEN, PIPELINE_KATEGORIEN } from '@/lib/crm/types'
 import type { PipelineEintragRow } from '@/lib/crm/types'
 
 type KontaktOption = { id: string; name: string }
@@ -18,7 +21,10 @@ function stufeFarbe(stufe: string) {
 function stufeLabel(stufe: string) {
   return PIPELINE_STUFEN.find(s => s.value === stufe)?.label ?? stufe
 }
-
+function kategorieLabel(value: string | null) {
+  if (!value) return null
+  return PIPELINE_KATEGORIEN.find(k => k.value === value)?.label ?? value
+}
 function fmt(n: number | null) {
   if (n == null) return null
   return n.toLocaleString('de-AT', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' €'
@@ -54,13 +60,20 @@ function PipelineForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-gray-600 mb-1">Titel *</label>
-          <input name="titel" defaultValue={v('titel')} required placeholder="z.B. Weinsortiment 2024 – Restaurant Zum Raben"
-            className={inputCls()} />
+          <input name="titel" defaultValue={v('titel')} required
+            placeholder="z.B. Weinsortiment 2024 – Restaurant Zum Raben" className={inputCls()} />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Stufe *</label>
           <select name="stufe" defaultValue={v('stufe') || 'interessent'} required className={inputCls()}>
             {PIPELINE_STUFEN.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Kategorie</label>
+          <select name="kategorie" defaultValue={v('kategorie')} className={inputCls()}>
+            <option value="">– keine –</option>
+            {PIPELINE_KATEGORIEN.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
           </select>
         </div>
         <div>
@@ -129,7 +142,9 @@ function EintragZeile({
   function handleStufe(stufe: string) {
     startTransition(async () => { await updatePipelineStufe(eintrag.id, stufe) })
   }
-
+  function handleErledigt(checked: boolean) {
+    startTransition(async () => { await togglePipelineErledigt(eintrag.id, checked) })
+  }
   function handleDelete() {
     if (!confirm(`"${eintrag.titel}" wirklich löschen?`)) return
     startTransition(async () => { await deletePipelineEintrag(eintrag.id) })
@@ -142,12 +157,33 @@ function EintragZeile({
   const abschluss = eintrag.erwartetes_datum
     ? new Date(eintrag.erwartetes_datum).toLocaleDateString('de-AT')
     : null
+  const katLabel = kategorieLabel(eintrag.kategorie)
 
   return (
-    <div className="flex items-center gap-3 py-2.5 px-4 hover:bg-s112-bg/60 transition-colors group">
+    <div className={`flex items-center gap-3 py-2.5 px-4 hover:bg-s112-bg/60 transition-colors group ${eintrag.erledigt ? 'opacity-60' : ''}`}>
+
+      {/* Erledigt-Checkbox */}
+      {writeOk && (
+        <input
+          type="checkbox"
+          checked={eintrag.erledigt}
+          onChange={e => handleErledigt(e.target.checked)}
+          disabled={pending}
+          title={eintrag.erledigt ? 'Als offen markieren' : 'Als erledigt markieren'}
+          className="w-4 h-4 rounded border-s112-border text-s112-teal cursor-pointer flex-shrink-0 disabled:opacity-50"
+        />
+      )}
+
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-medium text-sm text-gray-900 truncate">{eintrag.titel}</span>
+          <span className={`font-medium text-sm text-gray-900 truncate ${eintrag.erledigt ? 'line-through text-gray-400' : ''}`}>
+            {eintrag.titel}
+          </span>
+          {katLabel && (
+            <span className="text-xs px-1.5 py-px rounded-full bg-s112-bg border border-s112-border text-s112-muted">
+              {katLabel}
+            </span>
+          )}
           {eintrag.wert_euro != null && (
             <span className="text-xs font-semibold text-s112-teal">{fmt(eintrag.wert_euro)}</span>
           )}
@@ -155,10 +191,15 @@ function EintragZeile({
             <span className="text-xs text-s112-muted">{eintrag.wahrscheinlichkeit}%</span>
           )}
         </div>
-        <div className="flex gap-3 mt-0.5">
+        <div className="flex gap-3 mt-0.5 flex-wrap">
           {eintrag.kontakt_name && <span className="text-xs text-s112-muted">👤 {eintrag.kontakt_name}</span>}
           {eintrag.firma_name && <span className="text-xs text-s112-muted">🏢 {eintrag.firma_name}</span>}
           {abschluss && <span className="text-xs text-s112-muted">📅 {abschluss}</span>}
+          {eintrag.erledigt && eintrag.erledigt_am && (
+            <span className="text-xs text-green-600">
+              ✓ {new Date(eintrag.erledigt_am).toLocaleDateString('de-AT')}
+            </span>
+          )}
         </div>
       </div>
 
@@ -230,7 +271,6 @@ function StufenGruppe({
           ))}
         </div>
       )}
-
       {open && eintraege.length === 0 && (
         <p className="px-4 py-3 text-xs text-s112-muted italic">Keine Einträge in dieser Stufe.</p>
       )}
@@ -248,21 +288,105 @@ export default function PipelineClient({
   firmen: FirmaOption[]
   writeOk: boolean
 }) {
-  const [showForm, setShowForm] = useState(false)
+  const [showForm, setShowForm]           = useState(false)
+  const [filterStufe, setFilterStufe]     = useState<string>('alle')
+  const [filterKategorie, setFilterKategorie] = useState<string>('alle')
+  const [filterStatus, setFilterStatus]   = useState<'alle' | 'offen' | 'erledigt'>('offen')
 
-  const gesamtWert = eintraege
-    .filter(e => !['verloren', 'abschluss', 'stammkunde'].includes(e.stufe))
-    .reduce((s, e) => s + (e.wert_euro ?? 0), 0)
+  // Vorhandene Kategorien für Dropdown
+  const vorhandeneKategorien = useMemo(
+    () => PIPELINE_KATEGORIEN.filter(k => eintraege.some(e => e.kategorie === k.value)),
+    [eintraege],
+  )
+
+  // Gefilterte Einträge
+  const gefiltert = useMemo(() => eintraege.filter(e => {
+    if (filterStufe !== 'alle' && e.stufe !== filterStufe) return false
+    if (filterKategorie !== 'alle' && e.kategorie !== filterKategorie) return false
+    if (filterStatus === 'offen' && e.erledigt) return false
+    if (filterStatus === 'erledigt' && !e.erledigt) return false
+    return true
+  }), [eintraege, filterStufe, filterKategorie, filterStatus])
+
+  const gesamtWert = useMemo(
+    () => gefiltert
+      .filter(e => !['verloren', 'abschluss', 'stammkunde'].includes(e.stufe))
+      .reduce((s, e) => s + (e.wert_euro ?? 0), 0),
+    [gefiltert],
+  )
 
   return (
     <div className="space-y-3">
-      {/* Summary + Button */}
+
+      {/* ── Filter-Bar ── */}
+      <div className="card p-3 space-y-2.5">
+
+        {/* Stufen-Buttons */}
+        <div className="flex gap-1.5 flex-wrap">
+          <button
+            onClick={() => setFilterStufe('alle')}
+            className={`text-xs px-3 py-1 rounded-full font-medium border transition-colors ${
+              filterStufe === 'alle'
+                ? 'bg-s112-teal text-white border-s112-teal'
+                : 'bg-white text-gray-600 border-s112-border hover:border-s112-teal/50'
+            }`}>
+            Alle ({eintraege.length})
+          </button>
+          {PIPELINE_STUFEN.map(s => {
+            const count = eintraege.filter(e => e.stufe === s.value).length
+            return (
+              <button
+                key={s.value}
+                onClick={() => setFilterStufe(f => f === s.value ? 'alle' : s.value)}
+                className={`text-xs px-3 py-1 rounded-full font-medium border transition-colors ${
+                  filterStufe === s.value
+                    ? s.farbe + ' border-transparent'
+                    : 'bg-white text-gray-500 border-s112-border hover:border-s112-teal/50'
+                }`}>
+                {s.label} <span className="opacity-60">({count})</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Kategorie + Status-Toggles */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {vorhandeneKategorien.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-s112-muted">Kategorie:</span>
+              <select
+                value={filterKategorie}
+                onChange={e => setFilterKategorie(e.target.value)}
+                className="text-xs border border-s112-border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                <option value="alle">Alle</option>
+                {vorhandeneKategorien.map(k => (
+                  <option key={k.value} value={k.value}>{k.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="flex items-center gap-px border border-s112-border rounded-lg overflow-hidden text-xs ml-auto">
+            {(['offen', 'alle', 'erledigt'] as const).map(s => (
+              <button key={s} onClick={() => setFilterStatus(s)}
+                className={`px-3 py-1.5 font-medium transition-colors ${
+                  filterStatus === s
+                    ? 'bg-s112-teal text-white'
+                    : 'bg-white text-gray-600 hover:bg-s112-bg'
+                }`}>
+                {s === 'offen' ? 'Offen' : s === 'erledigt' ? 'Erledigt' : 'Alle'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Summary + Button ── */}
       <div className="flex items-center gap-4">
-        <div className="card px-4 py-3 flex gap-6 flex-1">
+        <div className="card px-4 py-3 flex gap-6 flex-1 flex-wrap">
           <div>
             <p className="text-xs text-s112-muted">Aktive Chancen</p>
             <p className="text-lg font-bold text-gray-900">
-              {eintraege.filter(e => !['verloren', 'stammkunde'].includes(e.stufe)).length}
+              {eintraege.filter(e => !['verloren', 'stammkunde'].includes(e.stufe) && !e.erledigt).length}
             </p>
           </div>
           {gesamtWert > 0 && (
@@ -275,6 +399,12 @@ export default function PipelineClient({
             <p className="text-xs text-s112-muted">Stammkunden</p>
             <p className="text-lg font-bold text-gray-900">
               {eintraege.filter(e => e.stufe === 'stammkunde').length}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-s112-muted">Erledigt</p>
+            <p className="text-lg font-bold text-gray-900">
+              {eintraege.filter(e => e.erledigt).length}
             </p>
           </div>
         </div>
@@ -290,17 +420,39 @@ export default function PipelineClient({
         <PipelineForm kontakte={kontakte} firmen={firmen} onDone={() => setShowForm(false)} />
       )}
 
-      {/* Stufen */}
-      {PIPELINE_STUFEN.map(stufe => (
-        <StufenGruppe
-          key={stufe.value}
-          stufe={stufe}
-          eintraege={eintraege.filter(e => e.stufe === stufe.value)}
-          kontakte={kontakte}
-          firmen={firmen}
-          writeOk={writeOk}
-        />
-      ))}
+      {/* ── Einträge: Flachliste (Stufenfilter aktiv) oder Gruppenansicht ── */}
+      {filterStufe !== 'alle' ? (
+        <div className="card p-0 overflow-hidden">
+          <div className="px-4 py-3 bg-s112-bg border-b border-s112-border flex items-center gap-3">
+            <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${stufeFarbe(filterStufe)}`}>
+              {stufeLabel(filterStufe)}
+            </span>
+            <span className="text-sm text-s112-muted">
+              {gefiltert.length} {gefiltert.length === 1 ? 'Eintrag' : 'Einträge'}
+            </span>
+          </div>
+          {gefiltert.length === 0 ? (
+            <p className="px-4 py-4 text-xs text-s112-muted italic">Keine Einträge gefunden.</p>
+          ) : (
+            <div className="divide-y divide-s112-border/40">
+              {gefiltert.map(e => (
+                <EintragZeile key={e.id} eintrag={e} kontakte={kontakte} firmen={firmen} writeOk={writeOk} />
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        PIPELINE_STUFEN.map(stufe => (
+          <StufenGruppe
+            key={stufe.value}
+            stufe={stufe}
+            eintraege={gefiltert.filter(e => e.stufe === stufe.value)}
+            kontakte={kontakte}
+            firmen={firmen}
+            writeOk={writeOk}
+          />
+        ))
+      )}
     </div>
   )
 }

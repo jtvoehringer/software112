@@ -41,12 +41,12 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
       .order('nachname'),
 
     (supabase.from('aktivitaeten') as any)
-      .select('id, art, betreff, beschreibung, datum, erledigt, kontakt_id, firma_id')
+      .select('id, art, betreff, beschreibung, datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, kontakt_id, firma_id')
       .eq('firma_id', id)
       .order('datum', { ascending: false }),
 
     (supabase.from('pipeline_eintraege') as any)
-      .select('id, stufe, titel, wert_euro, wahrscheinlichkeit, erwartetes_datum, notizen, kontakt_id, firma_id, aktualisiert_am')
+      .select('id, stufe, titel, kategorie, wert_euro, wahrscheinlichkeit, erwartetes_datum, erledigt, erledigt_am, notizen, kontakt_id, firma_id, aktualisiert_am')
       .eq('firma_id', id)
       .order('aktualisiert_am', { ascending: false }),
   ])
@@ -76,13 +76,17 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
   const aktivitaeten: AktivitaetRow[] = ((aRaw ?? []) as R[]).map(a => ({
     id: a.id, art: a.art, betreff: a.betreff ?? null,
     beschreibung: a.beschreibung ?? null, datum: a.datum,
+    ganztags: a.ganztags ?? true, uhrzeit_von: a.uhrzeit_von ?? null, uhrzeit_bis: a.uhrzeit_bis ?? null,
     erledigt: a.erledigt, kontakt_id: a.kontakt_id ?? null, firma_id: a.firma_id ?? null,
   }))
 
   const pipeline: PipelineEintragRow[] = ((pRaw ?? []) as R[]).map(p => ({
     id: p.id, stufe: p.stufe, titel: p.titel,
+    kategorie: p.kategorie ?? null,
     wert_euro: p.wert_euro ?? null, wahrscheinlichkeit: p.wahrscheinlichkeit ?? null,
-    erwartetes_datum: p.erwartetes_datum ?? null, notizen: p.notizen ?? null,
+    erwartetes_datum: p.erwartetes_datum ?? null,
+    erledigt: p.erledigt ?? false, erledigt_am: p.erledigt_am ?? null,
+    notizen: p.notizen ?? null,
     kontakt_id: p.kontakt_id ?? null, firma_id: p.firma_id ?? null,
     aktualisiert_am: p.aktualisiert_am,
   }))
