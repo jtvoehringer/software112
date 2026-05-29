@@ -10,6 +10,7 @@ import {
   removeMemberAdmin,
   renameTenantAdmin,
   saveVerkaufEinstellungen,
+  saveBetriebEinstellungen,
   resetRechnungsZaehler,
   resetKundenZaehler,
 } from './actions'
@@ -442,6 +443,108 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
   )
 }
 
+
+// ── Tab: Betrieb ──────────────────────────────────────────────────────────────
+
+function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
+  const router                     = useRouter()
+  const [pending, startTransition] = useTransition()
+  const [saved, setSaved]          = useState(false)
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    startTransition(async () => {
+      await saveBetriebEinstellungen(tenant.id, fd)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6 max-w-lg">
+      <div>
+        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Betriebsdaten (Briefkopf)</p>
+        <div className="grid grid-cols-1 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Betriebsname *</label>
+            <input name="betrieb_name" defaultValue={settings.betrieb_name ?? ''} required className={inputCls()} placeholder="Weingut Gebeshuber" />
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Straße + Nr.</label>
+              <input name="betrieb_strasse" defaultValue={settings.betrieb_strasse ?? ''} className={inputCls()} placeholder="Hauptstraße 1" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">PLZ</label>
+              <input name="betrieb_plz" defaultValue={settings.betrieb_plz ?? ''} className={inputCls()} placeholder="3421" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Ort</label>
+            <input name="betrieb_ort" defaultValue={settings.betrieb_ort ?? ''} className={inputCls()} placeholder="Krems an der Donau" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Telefon</label>
+              <input name="betrieb_telefon" defaultValue={settings.betrieb_telefon ?? ''} className={inputCls()} placeholder="+43 2732 12345" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">E-Mail</label>
+              <input name="betrieb_email" type="email" defaultValue={settings.betrieb_email ?? ''} className={inputCls()} placeholder="office@weingut.at" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Website</label>
+              <input name="betrieb_website" defaultValue={settings.betrieb_website ?? ''} className={inputCls()} placeholder="www.weingut.at" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">UID-Nummer</label>
+              <input name="betrieb_uid" defaultValue={settings.betrieb_uid ?? ''} className={inputCls()} placeholder="ATU12345678" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Bankverbindung</p>
+        <div className="grid grid-cols-1 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">IBAN</label>
+            <input name="rechnung_iban" defaultValue={settings.rechnung_iban ?? ''} className={inputCls()} placeholder="AT12 3456 7890 1234 5678" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">BIC</label>
+              <input name="rechnung_bic" defaultValue={settings.rechnung_bic ?? ''} className={inputCls()} placeholder="RLNWATWWXXX" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Zahlungsziel (Tage)</label>
+              <input name="rechnung_zahlungsziel" type="number" min="0" max="365" defaultValue={settings.rechnung_zahlungsziel ?? 14} className={inputCls()} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Rechnungs-Fußtext</p>
+        <textarea name="rechnung_fusstext" defaultValue={settings.rechnung_fusstext ?? ''}
+          rows={3} placeholder="z.B. Gemäß § 6 Abs. 1 Z 8 UStG befreit von der Umsatzsteuer."
+          className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
+      </div>
+
+      <div className="flex items-center gap-3">
+        <button type="submit" disabled={pending}
+          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          {pending ? 'Speichern…' : 'Speichern'}
+        </button>
+        {saved && <span className="text-xs text-s112-teal font-medium">✓ Gespeichert</span>}
+      </div>
+    </form>
+  )
+}
+
 // ── Tab: Verkauf ──────────────────────────────────────────────────────────────
 
 function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
@@ -704,7 +807,7 @@ function ChecklisteTab({ tenant, settings, members }: {
 
 // ── Haupt-Komponente ──────────────────────────────────────────────────────────
 
-type Tab = 'branding' | 'benutzer' | 'brevo' | 'module' | 'verkauf' | 'checkliste'
+type Tab = 'branding' | 'benutzer' | 'brevo' | 'module' | 'betrieb' | 'verkauf' | 'checkliste'
 
 export default function MandantDetailClient({ tenant, settings, members }: {
   tenant:   TenantDetail
@@ -729,6 +832,7 @@ export default function MandantDetailClient({ tenant, settings, members }: {
     { id: 'benutzer',    label: 'Benutzer' },
     { id: 'brevo',       label: 'Brevo' },
     { id: 'module',      label: 'Module' },
+    { id: 'betrieb',     label: 'Betrieb' },
     { id: 'verkauf',     label: 'Verkauf' },
     { id: 'checkliste',  label: 'Checkliste' },
   ]
@@ -796,6 +900,7 @@ export default function MandantDetailClient({ tenant, settings, members }: {
       {tab === 'benutzer'   && <BenutzerTab   tenant={tenant} members={members} />}
       {tab === 'brevo'      && <BrevoTab      tenant={tenant} settings={settings} />}
       {tab === 'module'     && <ModuleTab     tenant={tenant} settings={settings} />}
+      {tab === 'betrieb'    && <BetriebTab    tenant={tenant} settings={settings} />}
       {tab === 'verkauf'    && <VerkaufTab    tenant={tenant} settings={settings} />}
       {tab === 'checkliste' && <ChecklisteTab tenant={tenant} settings={settings} members={members} />}
     </div>

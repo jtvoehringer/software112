@@ -27,11 +27,14 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: `${label} – software:112` }
 }
 
-// ── Tenant-Einstellungen für Transportschein ──────────────────────────────────
+// ── Tenant-Einstellungen (Briefkopf + Rechnung) ──────────────────────────────
 async function getTenantSettings(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>) {
   try {
-    const { data } = await (supabase.from('tenant_settings') as any)
-      .select('betrieb_name, betrieb_adresse, betrieb_ort, betrieb_telefon, betrieb_email')
+    const { data } = await (supabase.from('tenant_einstellungen') as any)
+      .select(`anzeigename, logo_url,
+               betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort,
+               betrieb_telefon, betrieb_email, betrieb_website, betrieb_uid,
+               rechnung_iban, rechnung_bic, rechnung_zahlungsziel, rechnung_fusstext`)
       .limit(1)
       .single()
     return (data as R | null) ?? {}
@@ -40,8 +43,10 @@ async function getTenantSettings(supabase: Awaited<ReturnType<typeof createSupab
   }
 }
 
-export default async function VerkaufDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function VerkaufDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ mode?: string }> }) {
   const { id }   = await params
+  const { mode } = await searchParams
+  const isRechnung = mode === 'rechnung'
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
   const writeOk  = canWrite(role)
@@ -99,6 +104,37 @@ export default async function VerkaufDetailPage({ params }: { params: Promise<{ 
     1000: '1,0 L', 1500: '1,5 L', 3000: '3,0 L', 6000: '6,0 L',
   }
 
+  // ── Betriebsdaten aufbereiten ──────────────────────────────────────────────
+  const s = settings as R
+  const bName    = s.betrieb_name    ?? s.anzeigename ?? 'Weingut'
+  const bStrasse = s.betrieb_strasse ?? null
+  const bPlzOrt  = [s.betrieb_plz, s.betrieb_ort].filter(Boolean).join(' ') || null
+  const bTel     = s.betrieb_telefon ?? null
+  const bEmail   = s.betrieb_email   ?? null
+  const bWeb     = s.betrieb_website ?? null
+  const bUID     = s.betrieb_uid     ?? null
+  const logoUrl  = s.logo_url        ?? null
+  const iban     = s.rechnung_iban   ?? null
+  const bic      = s.rechnung_bic    ?? null
+  const zahlZiel = s.rechnung_zahlungsziel ?? 14
+  const fusstext = s.rechnung_fusstext    ?? null
+
+  // USt-Aufschlüsselung (gruppiert nach Steuersatz)
+  const ustGruppen = positionen.reduce((acc: Record<string, number>, pos: R) => {
+    const satz = Number(pos.ust_satz ?? 13)
+    const netto = pos.preis_brutto != null
+      ? Number(pos.preis_brutto) / (1 + satz / 100) * Number(pos.menge)
+      : 0
+    const key = String(satz)
+    acc[key] = (acc[key] ?? 0) + netto
+    return acc
+  }, {})
+  const gesamtNetto = Object.values(ustGruppen).reduce((s: number, n) => s + (n as number), 0)
+  const gesamtUst   = gesamt - gesamtNetto
+
+  const faelligkeitsDatum = new Date(posten.datum)
+  faelligkeitsDatum.setDate(faelligkeitsDatum.getDate() + zahlZiel)
+
   return (
     <div className="space-y-6 max-w-3xl">
       {/* Print-Styles */}
@@ -144,33 +180,90 @@ export default async function VerkaufDetailPage({ params }: { params: Promise<{ 
               className="text-xs text-red-400 hover:text-red-600 hover:underline"
             />
           )}
+          <div className="flex items-center border border-s112-border rounded-lg overflow-hidden text-xs">
+            <a href={`/weinhandel/verkauf/${id}`}
+              className={`px-2.5 py-1.5 font-medium transition-colors ${!isRechnung ? 'bg-s112-teal text-white' : 'bg-white text-gray-600 hover:bg-s112-bg'}`}>
+              Lieferschein
+            </a>
+            <a href={`/weinhandel/verkauf/${id}?mode=rechnung`}
+              className={`px-2.5 py-1.5 font-medium transition-colors ${isRechnung ? 'bg-s112-teal text-white' : 'bg-white text-gray-600 hover:bg-s112-bg'}`}>
+              Rechnung
+            </a>
+          </div>
         </div>
       </div>
 
       {/* ── RECHNUNG / LIEFERSCHEIN ─────────────────────────────────────────── */}
 
-      {/* Print-Kopf (Absender) */}
+      {/* ── DRUCK-LAYOUT: Rechnung ODER Lieferschein ──────────────────────── */}
       <div className="print-only px-0 pt-0">
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <p className="font-bold text-lg">{(settings as R).betrieb_name ?? 'Weingut'}</p>
-            {(settings as R).betrieb_adresse && <p className="text-sm">{(settings as R).betrieb_adresse}</p>}
-            {(settings as R).betrieb_ort     && <p className="text-sm">{(settings as R).betrieb_ort}</p>}
-            {(settings as R).betrieb_telefon && <p className="text-sm">Tel: {(settings as R).betrieb_telefon}</p>}
-            {(settings as R).betrieb_email   && <p className="text-sm">{(settings as R).betrieb_email}</p>}
+        {isRechnung ? (
+          /* ── RECHNUNG ─────────────────────────────────────────────────────── */
+          <div className="font-sans text-sm text-gray-900">
+            {/* Briefkopf */}
+            <div className="flex justify-between items-start mb-8">
+              <div>
+                {logoUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={logoUrl} alt="Logo" className="h-14 mb-3 object-contain" />
+                )}
+                <p className="font-bold text-base">{bName}</p>
+                {bStrasse && <p>{bStrasse}</p>}
+                {bPlzOrt  && <p>{bPlzOrt}</p>}
+                {bTel     && <p>Tel: {bTel}</p>}
+                {bEmail   && <p>{bEmail}</p>}
+                {bWeb     && <p>{bWeb}</p>}
+                {bUID     && <p className="mt-1 text-gray-500">UID: {bUID}</p>}
+              </div>
+              <div className="text-right">
+                <p className="text-3xl font-bold text-gray-900">RECHNUNG</p>
+                {posten.rechnungsnummer && (
+                  <p className="text-base font-semibold mt-1">Nr. {posten.rechnungsnummer}</p>
+                )}
+                <p className="text-gray-600 mt-0.5">
+                  Datum: {new Date(posten.datum).toLocaleDateString('de-AT')}
+                </p>
+                <p className="text-gray-600">
+                  Zahlbar bis: {faelligkeitsDatum.toLocaleDateString('de-AT')}
+                </p>
+              </div>
+            </div>
+            {/* Empfänger */}
+            <div className="mb-8 p-4 border border-gray-200 rounded inline-block min-w-[220px]">
+              <p className="font-semibold text-base">{kundenName(posten)}</p>
+              {info.email   && <p className="text-gray-600">{info.email}</p>}
+              {info.telefon && <p className="text-gray-600">{info.telefon}</p>}
+            </div>
           </div>
-          <div className="text-right">
-            <p className="text-2xl font-bold">Lieferschein</p>
-            {posten.rechnungsnummer && <p className="text-sm">Nr. {posten.rechnungsnummer}</p>}
-            <p className="text-sm">{new Date(posten.datum).toLocaleDateString('de-AT')}</p>
+        ) : (
+          /* ── LIEFERSCHEIN ─────────────────────────────────────────────────── */
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              {logoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt="Logo" className="h-12 mb-2 object-contain" />
+              )}
+              <p className="font-bold text-lg">{bName}</p>
+              {bStrasse && <p className="text-sm">{bStrasse}</p>}
+              {bPlzOrt  && <p className="text-sm">{bPlzOrt}</p>}
+              {bTel     && <p className="text-sm">Tel: {bTel}</p>}
+              {bEmail   && <p className="text-sm">{bEmail}</p>}
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-bold">Lieferschein</p>
+              {posten.rechnungsnummer && <p className="text-sm">Nr. {posten.rechnungsnummer}</p>}
+              <p className="text-sm">{new Date(posten.datum).toLocaleDateString('de-AT')}</p>
+            </div>
           </div>
-        </div>
-        {/* Empfänger */}
-        <div className="mb-8">
-          <p className="font-semibold">{kundenName(posten)}</p>
-          {info.email   && <p className="text-sm">{info.email}</p>}
-          {info.telefon && <p className="text-sm">{info.telefon}</p>}
-        </div>
+        )}
+        {/* Empfänger (Lieferschein-Modus) */}
+        {!isRechnung && (
+          <div className="mb-8">
+            <p className="font-semibold">{kundenName(posten)}</p>
+            {info.email   && <p className="text-sm">{info.email}</p>}
+            {info.telefon && <p className="text-sm">{info.telefon}</p>}
+          </div>
+        )}
       </div>
 
       {/* Kopfkarte (Screen) */}
@@ -262,11 +355,43 @@ export default async function VerkaufDetailPage({ params }: { params: Promise<{ 
           </tfoot>
         </table>
 
-        {/* MwSt-Hinweis */}
-        <div className="px-4 py-3 text-xs text-gray-400 text-right border-t border-s112-border">
-          Alle Preise inkl. MwSt.
-        </div>
+        {/* MwSt-Hinweis / Rechnung USt-Aufschlüsselung */}
+        {isRechnung ? (
+          <div className="px-4 py-3 text-xs text-right border-t border-s112-border space-y-0.5 print-only">
+            <p className="text-gray-500">Nettobetrag: {gesamtNetto.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}</p>
+            {Object.entries(ustGruppen).map(([satz, netto]) => (
+              <p key={satz} className="text-gray-500">
+                MwSt {satz}%: {((netto as number) * Number(satz) / 100).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
+              </p>
+            ))}
+            <p className="font-semibold text-gray-700">Rechnungsbetrag: {gesamt.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}</p>
+          </div>
+        ) : (
+          <div className="px-4 py-3 text-xs text-gray-400 text-right border-t border-s112-border">
+            Alle Preise inkl. MwSt.
+          </div>
+        )}
       </div>
+
+      {/* ── RECHNUNG-FOOTER: Bankdaten + Fußtext (nur Druck, Rechnungsmodus) ── */}
+      {isRechnung && (
+        <div className="print-only mt-8 pt-6 border-t border-gray-200 text-sm space-y-3">
+          {(iban || bic) && (
+            <div>
+              <p className="font-semibold text-gray-700 mb-1">Bankverbindung</p>
+              {iban && <p className="text-gray-600">IBAN: {iban}</p>}
+              {bic  && <p className="text-gray-600">BIC: {bic}</p>}
+              <p className="text-gray-600 mt-0.5">Zahlungsziel: {zahlZiel} Tage ({faelligkeitsDatum.toLocaleDateString('de-AT')})</p>
+            </div>
+          )}
+          {fusstext && (
+            <p className="text-xs text-gray-400 pt-2 border-t border-gray-100">{fusstext}</p>
+          )}
+          {bName && (
+            <p className="text-xs text-gray-400">{bName}{bUID ? ` · UID: ${bUID}` : ''}</p>
+          )}
+        </div>
+      )}
 
       {/* ── TRANSPORTSCHEIN (nur bei Tank-Positionen) ─────────────────────── */}
       {hasTank && (
@@ -286,9 +411,9 @@ export default async function VerkaufDetailPage({ params }: { params: Promise<{ 
           <div className="print-only">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <p className="font-bold text-lg">{(settings as R).betrieb_name ?? 'Weingut'}</p>
-                {(settings as R).betrieb_adresse && <p className="text-sm">{(settings as R).betrieb_adresse}</p>}
-                {(settings as R).betrieb_ort     && <p className="text-sm">{(settings as R).betrieb_ort}</p>}
+                <p className="font-bold text-lg">{bName}</p>
+                {bStrasse && <p className="text-sm">{bStrasse}</p>}
+                {bPlzOrt  && <p className="text-sm">{bPlzOrt}</p>}
               </div>
               <div className="text-right">
                 <p className="text-2xl font-bold">Transportschein</p>
@@ -303,9 +428,9 @@ export default async function VerkaufDetailPage({ params }: { params: Promise<{ 
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="text-xs text-s112-muted mb-0.5">Absender</p>
-                <p className="font-medium">{(settings as R).betrieb_name ?? '–'}</p>
-                {(settings as R).betrieb_adresse && <p className="text-xs text-gray-600">{(settings as R).betrieb_adresse}</p>}
-                {(settings as R).betrieb_ort     && <p className="text-xs text-gray-600">{(settings as R).betrieb_ort}</p>}
+                <p className="font-medium">{bName}</p>
+                {bStrasse && <p className="text-xs text-gray-600">{bStrasse}</p>}
+                {bPlzOrt  && <p className="text-xs text-gray-600">{bPlzOrt}</p>}
               </div>
               <div>
                 <p className="text-xs text-s112-muted mb-0.5">Empfänger</p>

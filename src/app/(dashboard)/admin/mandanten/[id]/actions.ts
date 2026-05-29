@@ -112,6 +112,34 @@ export async function removeMemberAdmin(membershipId: string, tenantId: string) 
   return { success: true }
 }
 
+// ── Betriebsdaten + Rechnungs-Einstellungen speichern ────────────────────────
+
+export async function saveBetriebEinstellungen(tenantId: string, formData: FormData) {
+  await assertSystemAdmin()
+  const admin = createSupabaseAdminClient()
+
+  const { error } = await (admin.from('tenant_einstellungen') as any)
+    .upsert({
+      tenant_id:                 tenantId,
+      betrieb_name:              (formData.get('betrieb_name')    as string) || null,
+      betrieb_strasse:           (formData.get('betrieb_strasse') as string) || null,
+      betrieb_plz:               (formData.get('betrieb_plz')     as string) || null,
+      betrieb_ort:               (formData.get('betrieb_ort')     as string) || null,
+      betrieb_telefon:           (formData.get('betrieb_telefon') as string) || null,
+      betrieb_email:             (formData.get('betrieb_email')   as string) || null,
+      betrieb_website:           (formData.get('betrieb_website') as string) || null,
+      betrieb_uid:               (formData.get('betrieb_uid')     as string) || null,
+      rechnung_iban:             (formData.get('rechnung_iban')   as string) || null,
+      rechnung_bic:              (formData.get('rechnung_bic')    as string) || null,
+      rechnung_zahlungsziel:     parseInt(formData.get('rechnung_zahlungsziel') as string) || 14,
+      rechnung_fusstext:         (formData.get('rechnung_fusstext') as string) || null,
+      aktualisiert_am:           new Date().toISOString(),
+    }, { onConflict: 'tenant_id' })
+
+  if (error) throw new Error((error as R).message)
+  revalidatePath(`/admin/mandanten/${tenantId}`)
+}
+
 // ── Rechnungsnummer-Einstellungen speichern ───────────────────────────────────
 
 export async function saveVerkaufEinstellungen(tenantId: string, formData: FormData) {

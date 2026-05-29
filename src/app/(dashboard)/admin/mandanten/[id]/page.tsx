@@ -35,6 +35,19 @@ export type TenantSettings = {
   kunden_prefix:     string
   kunden_zaehler:    number
   kunden_stellen:    number
+  // Migration 030 – Betriebsdaten + Rechnungseinstellungen
+  betrieb_name:             string | null
+  betrieb_strasse:          string | null
+  betrieb_plz:              string | null
+  betrieb_ort:              string | null
+  betrieb_telefon:          string | null
+  betrieb_email:            string | null
+  betrieb_website:          string | null
+  betrieb_uid:              string | null
+  rechnung_iban:            string | null
+  rechnung_bic:             string | null
+  rechnung_zahlungsziel:    number
+  rechnung_fusstext:        string | null
 }
 export type TenantMember = {
   id: string; userId: string; email: string; role: string; createdAt: string
@@ -104,6 +117,18 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     kunden_prefix:     s?.kunden_prefix ?? 'K',
     kunden_zaehler:    s?.kunden_zaehler ?? 1,
     kunden_stellen:    s?.kunden_stellen ?? 4,
+    betrieb_name:      s?.betrieb_name ?? null,
+    betrieb_strasse:   s?.betrieb_strasse ?? null,
+    betrieb_plz:       s?.betrieb_plz ?? null,
+    betrieb_ort:       s?.betrieb_ort ?? null,
+    betrieb_telefon:   s?.betrieb_telefon ?? null,
+    betrieb_email:     s?.betrieb_email ?? null,
+    betrieb_website:   s?.betrieb_website ?? null,
+    betrieb_uid:       s?.betrieb_uid ?? null,
+    rechnung_iban:         s?.rechnung_iban ?? null,
+    rechnung_bic:          s?.rechnung_bic ?? null,
+    rechnung_zahlungsziel: s?.rechnung_zahlungsziel ?? 14,
+    rechnung_fusstext:     s?.rechnung_fusstext ?? null,
   }
 
   const members: TenantMember[] = ((memberships ?? []) as R[]).map(m => ({
