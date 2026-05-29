@@ -1,0 +1,66 @@
+import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import type { Metadata } from 'next'
+import OffenePostenClient from './OffenePostenClient'
+
+export const metadata: Metadata = { title: 'Offene Posten – software:112' }
+export const dynamic = 'force-dynamic'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type R = Record<string, any>
+
+export default async function OffenePostenPage() {
+  const supabase = await createSupabaseServerClient()
+  const role     = await getCurrentUserRole()
+  const writeOk  = canWrite(role)
+
+  const { data: raw } = await (supabase.from('verkaufsposten') as any)
+    .select(`
+      id, datum, rechnungsnummer, storniert, bezahlt, bezahlt_am, erstellt_am,
+      kontakt:kontakte(id, vorname, nachname),
+      firma:firmen(id, name),
+      positionen:verkauf_positionen(preis_brutto, menge)
+    `)
+    .eq('storniert', false)
+    .eq('aktiv',     true)
+    .order('datum', { ascending: false })
+
+  const posten = ((raw ?? []) as R[]).map((p: R) => {
+    const gesamt = ((p.positionen ?? []) as R[]).reduce(
+      (s: number, pos: R) =>
+        s + (pos.preis_brutto != null ? Number(pos.preis_brutto) * Number(pos.menge) : 0),
+      0,
+    )
+    const kontakt = p.kontakt as R | null
+    const firma   = p.firma   as R | null
+    const kundenName = firma
+      ? firma.name
+      : kontakt
+        ? [kontakt.vorname, kontakt.nachname].filter(Boolean).join(' ')
+        : '–'
+    return {
+      id:              p.id as string,
+      datum:           p.datum as string,
+      rechnungsnummer: (p.rechnungsnummer ?? null) as string | null,
+      bezahlt:         (p.bezahlt ?? false) as boolean,
+      bezahlt_am:      (p.bezahlt_am ?? null) as string | null,
+      gesamt,
+      kundenName,
+      kontaktId:       (p.kontakt as R | null)?.id ?? null,
+      firmaId:         (p.firma   as R | null)?.id ?? null,
+    }
+  })
+
+  const offene     = posten.filter(p => !p.bezahlt)
+  const bezahlte   = posten.filter(p => p.bezahlt)
+  const summeOffen = offene.reduce((s, p) => s + p.gesamt, 0)
+
+  return (
+    <OffenePostenClient
+      offene={offene}
+      bezahlte={bezahlte}
+      summeOffen={summeOffen}
+      writeOk={writeOk}
+    />
+  )
+}

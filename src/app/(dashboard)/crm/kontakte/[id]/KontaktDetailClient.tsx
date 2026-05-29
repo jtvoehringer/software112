@@ -121,6 +121,37 @@ function AktivitaetKarte({ a, writeOk }: { a: AktivitaetRow; writeOk: boolean })
     startTransition(async () => { await toggleAktivitaetErledigt(a.id, !a.erledigt) })
   }
 
+  // Verkauf-Aktivität: kein Erledigt-Toggle, kein Strikethrough, UUID → Link
+  if (a.art === 'verkauf') {
+    const postenId = a.beschreibung?.replace('Verkaufsposten: ', '') ?? null
+    const isStorniert = a.betreff?.includes('STORNIERT')
+    return (
+      <div className="card p-4 flex gap-3">
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-base">
+          🧾
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-s112-muted tabular-nums">
+              {new Date(a.datum).toLocaleDateString('de-AT')}
+            </span>
+            <span className="text-xs font-medium text-s112-teal">Verkauf</span>
+            {isStorniert && (
+              <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Storniert</span>
+            )}
+          </div>
+          <p className="text-sm font-medium text-gray-800 mt-0.5">{a.betreff}</p>
+          {postenId && postenId !== a.beschreibung && (
+            <a href={`/weinhandel/verkauf/${postenId}`}
+              className="text-xs text-s112-teal hover:underline mt-0.5 inline-block">
+              → Beleg ansehen
+            </a>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={`card p-4 flex gap-3 ${a.erledigt ? 'opacity-60' : ''}`}>
       {writeOk && (
