@@ -357,7 +357,7 @@ export default function KontaktDetailClient({
 
               {/* Verkäufe aus Aktivitäten-Log */}
               {(() => {
-                const verkaufAkts = aktivitaeten.filter(a => a.art === 'verkauf')
+                const verkaufAkts = aktivitaeten.filter(a => a.art === 'verkauf').sort((a, b) => new Date(b.datum).getTime() - new Date(a.datum).getTime())
                 if (verkaufAkts.length === 0) return null
                 return (
                   <div className="card p-4 space-y-2">

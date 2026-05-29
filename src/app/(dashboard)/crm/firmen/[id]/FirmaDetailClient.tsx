@@ -292,7 +292,7 @@ export default function FirmaDetailClient({
             { id: 'kontakte',     label: `Kontakte (${kontakte.length})`        },
             { id: 'aktivitaeten', label: `Aktivitäten (${aktivitaeten.filter(a => a.art !== 'verkauf').length})` },
             { id: 'pipeline',     label: `Pipeline (${pipeline.length})`        },
-            { id: 'verkauefe',    label: `Verkäufe (${aktivitaeten.filter(a => a.art === 'verkauf').length})`  },
+            { id: 'verkauefe',    label: `Verkäufe (${aktivitaeten.filter(a => a.art === 'verkauf').sort((a, b) => new Date(b.datum).getTime() - new Date(a.datum).getTime()).length})`  },
           ] as { id: Tab; label: string }[]).map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
@@ -430,7 +430,7 @@ export default function FirmaDetailClient({
       {/* Tab: Verkäufe */}
       {tab === 'verkauefe' && (
         <div className="space-y-2">
-          {aktivitaeten.filter(a => a.art === 'verkauf').length === 0 ? (
+          {aktivitaeten.filter(a => a.art === 'verkauf').sort((a, b) => new Date(b.datum).getTime() - new Date(a.datum).getTime()).length === 0 ? (
             <div className="card p-6 text-center text-s112-muted text-sm">Noch keine Verkäufe erfasst.</div>
           ) : (
             <div className="card p-0 overflow-hidden">
@@ -444,7 +444,7 @@ export default function FirmaDetailClient({
                   </tr>
                 </thead>
                 <tbody>
-                  {aktivitaeten.filter(a => a.art === 'verkauf').map(a => {
+                  {aktivitaeten.filter(a => a.art === 'verkauf').sort((a, b) => new Date(b.datum).getTime() - new Date(a.datum).getTime()).map(a => {
                     const postenId = a.beschreibung?.replace('Verkaufsposten: ', '') ?? null
                     const isStorniert = a.betreff?.includes('STORNIERT')
                     const isBezahlt  = a.betreff?.includes('Bezahlt')
