@@ -134,10 +134,11 @@ function FirmaForm({ initial, rabattgruppen, defaultSegment, onDone }: { initial
 // ── Firma-Karte ───────────────────────────────────────────────────────────────
 
 function FirmaKarte({
-  firma, kontakte, writeOk,
+  firma, kontakte, rabattgruppen, writeOk,
 }: {
   firma: FirmaRow
   kontakte: KontaktKurz[]
+  rabattgruppen: {id:string;name:string;rabatt_pct:number}[]
   writeOk: boolean
 }) {
   const [editing, setEditing] = useState(false)
@@ -149,7 +150,7 @@ function FirmaKarte({
     startTransition(async () => { await deleteFirma(firma.id) })
   }
 
-  if (editing) return <FirmaForm initial={firma} onDone={() => setEditing(false)} />
+  if (editing) return <FirmaForm initial={firma} rabattgruppen={rabattgruppen} onDone={() => setEditing(false)} />
 
   return (
     <div className="card p-4">
@@ -274,6 +275,7 @@ export default function FirmenClient({
 
       {showForm && (
         <FirmaForm
+          rabattgruppen={rabattgruppen}
           defaultSegment={segment !== 'alle' ? segment : undefined}
           onDone={() => setShowForm(false)}
         />
@@ -287,7 +289,9 @@ export default function FirmenClient({
         <div className="space-y-2">
           {gefiltert.map(f => (
             <FirmaKarte key={f.id} firma={f}
-              kontakte={kontakteMap[f.id] ?? []} writeOk={writeOk} />
+              kontakte={kontakteMap[f.id] ?? []}
+              rabattgruppen={rabattgruppen}
+              writeOk={writeOk} />
           ))}
         </div>
       )}
