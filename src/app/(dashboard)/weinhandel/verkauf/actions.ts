@@ -1,6 +1,7 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { randomUUID } from 'crypto'
@@ -213,11 +214,15 @@ export async function stornoVerkauf(id: string) {
   const { data: vorabStorno } = await (supabase.from('verkaufsposten') as any)
     .select('rechnungsnummer').eq('id', id).single()
 
-  // Posten als storniert markieren
-  const { error } = await (supabase.from('verkaufsposten') as any)
+  // Posten als storniert markieren (Admin-Client umgeht RLS)
+  const adminClient = createSupabaseAdminClient()
+  const { error } = await (adminClient.from('verkaufsposten') as any)
     .update({ storniert: true, storniert_am: new Date().toISOString() })
     .eq('id', id)
-  if (error) throw new Error((error as AR).message)
+  if (error) {
+    console.error('stornoVerkauf update error:', JSON.stringify(error))
+    throw new Error(`Storno fehlgeschlagen: ${(error as AR).message}`)
+  }
 
   // CRM-Aktivität auf STORNIERT setzen
   try {
@@ -243,10 +248,14 @@ export async function markiereAlsBezahlt(id: string) {
   const { data: vorab } = await (supabase.from('verkaufsposten') as any)
     .select('rechnungsnummer').eq('id', id).single()
 
-  const { error } = await (supabase.from('verkaufsposten') as any)
+  const adminClient2 = createSupabaseAdminClient()
+  const { error } = await (adminClient2.from('verkaufsposten') as any)
     .update({ bezahlt: true, bezahlt_am: new Date().toISOString() })
     .eq('id', id)
-  if (error) throw new Error((error as AR).message)
+  if (error) {
+    console.error('markiereAlsBezahlt update error:', JSON.stringify(error))
+    throw new Error(`Bezahlt-Markierung fehlgeschlagen: ${(error as AR).message}`)
+  }
 
   // CRM-Aktivität aktualisieren
   try {
