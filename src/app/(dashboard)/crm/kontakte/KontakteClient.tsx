@@ -265,13 +265,10 @@ function KontaktKarte({
   return (
     <div className="card p-4">
       <div className="flex items-start gap-3">
-        <div className="w-9 h-9 rounded-full bg-s112-teal/10 flex items-center justify-center text-s112-teal font-semibold text-sm flex-shrink-0">
-          {(kontakt.vorname?.[0] ?? kontakt.nachname[0]).toUpperCase()}
-        </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             {kontakt.kundennummer && (
-              <span className="text-xs font-mono text-s112-muted">{kontakt.kundennummer}</span>
+              <span className="text-xs font-bold text-s112-teal font-mono bg-s112-teal/10 px-2 py-0.5 rounded">{kontakt.kundennummer}</span>
             )}
             <Link href={`/crm/kontakte/${kontakt.id}`}
               className="font-semibold text-gray-900 text-sm hover:text-s112-teal hover:underline">
@@ -431,12 +428,14 @@ export default function KontakteClient({
   const [suche, setSuche] = useState('')
   const [segment, setSegment] = useState<string>('alle')
 
-  const gefiltert = kontakte.filter(k => {
-    const name = [k.vorname, k.nachname, k.email, k.firma_name].filter(Boolean).join(' ').toLowerCase()
-    const matchSuche = !suche || name.includes(suche.toLowerCase())
-    const matchSeg = segment === 'alle' || k.segment === segment
-    return matchSuche && matchSeg
-  })
+  const gefiltert = kontakte
+    .filter(k => {
+      const name = [k.vorname, k.nachname, k.email, k.firma_name].filter(Boolean).join(' ').toLowerCase()
+      const matchSuche = !suche || name.includes(suche.toLowerCase())
+      const matchSeg = segment === 'alle' || k.segment === segment
+      return matchSuche && matchSeg
+    })
+    .sort((a, b) => a.nachname.localeCompare(b.nachname, 'de'))
 
   return (
     <div className="space-y-4">

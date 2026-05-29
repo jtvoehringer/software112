@@ -183,8 +183,9 @@ export default function KontaktDetailClient({
       </nav>
 
       <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-full bg-s112-teal/10 flex items-center justify-center text-s112-teal font-bold text-lg flex-shrink-0">
-          {(kontakt.vorname?.[0] ?? kontakt.nachname[0]).toUpperCase()}
+        <div className="flex flex-col items-center justify-center bg-s112-bg border border-s112-border rounded-xl px-3 py-2 flex-shrink-0 min-w-[72px]">
+          <span className="text-[10px] text-s112-muted font-medium uppercase tracking-wide">Kd.-Nr.</span>
+          <span className="text-sm font-bold text-s112-teal tabular-nums">{kontakt.kundennummer ?? '–'}</span>
         </div>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{name}</h1>
@@ -209,10 +210,10 @@ export default function KontaktDetailClient({
 
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-gray-800">Aktivitaeten</h2>
+            <h2 className="text-base font-semibold text-gray-800">Aktivitäten</h2>
             {writeOk && !showAktForm && (
               <button onClick={() => setShowAktForm(true)} className="text-xs text-s112-teal hover:underline font-medium">
-                + Aktivitaet
+                + Aktivität
               </button>
             )}
           </div>
@@ -223,7 +224,7 @@ export default function KontaktDetailClient({
 
           {aktivitaeten.length === 0 && !showAktForm ? (
             <div className="card p-6 text-center text-s112-muted text-sm">
-              Noch keine Aktivitaeten erfasst.
+              Noch keine Aktivitäten erfasst.
             </div>
           ) : (
             <div className="space-y-2">
@@ -293,7 +294,7 @@ export default function KontaktDetailClient({
             )}
 
             {pipeline.length === 0 && !showPipelineForm ? (
-              <p className="text-xs text-s112-muted italic">Noch keine Pipeline-Eintraege.</p>
+              <p className="text-xs text-s112-muted italic">Noch keine Pipeline-Einträge.</p>
             ) : (
               <div className="space-y-2">
                 {pipeline.map(p => {
