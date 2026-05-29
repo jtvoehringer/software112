@@ -40,7 +40,7 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
       .order('datum', { ascending: false }),
 
     (supabase.from('pipeline_eintraege') as any)
-      .select('id, stufe, titel, kategorie, wert_euro, wahrscheinlichkeit, erwartetes_datum, erledigt, erledigt_am, notizen, kontakt_id, firma_id, aktualisiert_am')
+      .select('id, stufe, titel, kategorie, wert_euro, wahrscheinlichkeit, erwartetes_datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, erledigt_am, notizen, kontakt_id, firma_id, aktualisiert_am')
       .eq('kontakt_id', id)
       .order('aktualisiert_am', { ascending: false }),
   ])
@@ -82,6 +82,7 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
     kategorie: p.kategorie ?? null,
     wert_euro: p.wert_euro ?? null, wahrscheinlichkeit: p.wahrscheinlichkeit ?? null,
     erwartetes_datum: p.erwartetes_datum ?? null,
+    ganztags: p.ganztags ?? true, uhrzeit_von: p.uhrzeit_von ?? null, uhrzeit_bis: p.uhrzeit_bis ?? null,
     erledigt: p.erledigt ?? false, erledigt_am: p.erledigt_am ?? null,
     notizen: p.notizen ?? null,
     kontakt_id: p.kontakt_id ?? null, firma_id: p.firma_id ?? null,
