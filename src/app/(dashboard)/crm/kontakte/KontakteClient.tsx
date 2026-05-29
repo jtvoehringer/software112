@@ -162,10 +162,10 @@ function AktivitaetForm({ kontaktId, onDone }: { kontaktId: string; onDone: () =
         </label>
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-400">Von</span>
-          <input name="uhrzeit_von" type="time" disabled={ganztags}
+          <input name="uhrzeit_von" type="time" step="1800" disabled={ganztags}
             className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-gray-50' : ''}`} />
           <span className="text-xs text-gray-400">–</span>
-          <input name="uhrzeit_bis" type="time" disabled={ganztags}
+          <input name="uhrzeit_bis" type="time" step="1800" disabled={ganztags}
             className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-gray-50' : ''}`} />
         </div>
       </div>
@@ -448,42 +448,4 @@ export default function KontakteClient({
             )
           })}
         </div>
-        {writeOk && !showForm && (
-          <button onClick={() => setShowForm(true)}
-            className="ml-auto inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
-            <span>＋</span> Neuer Kontakt
-          </button>
-        )}
-      </div>
-
-      {/* Formular */}
-      {showForm && (
-        <KontaktForm
-          firmen={firmen}
-          defaultSegment={segment !== 'alle' ? segment : undefined}
-          onDone={() => setShowForm(false)}
-        />
-      )}
-
-      {/* Liste */}
-      {gefiltert.length === 0 ? (
-        <div className="card text-center py-12 text-s112-muted text-sm">
-          {kontakte.length === 0 ? 'Noch keine Kontakte angelegt.' : 'Keine Treffer für diesen Filter.'}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {gefiltert.map(k => (
-            <KontaktKarte
-              key={k.id}
-              kontakt={k}
-              firmen={firmen}
-              aktivitaeten={aktivitaetenMap[k.id] ?? []}
-              pipeline={pipelineMap[k.id] ?? []}
-              writeOk={writeOk}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
+        {writeOk && !show

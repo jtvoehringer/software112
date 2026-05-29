@@ -46,10 +46,10 @@ function AktivitaetForm({ firmaId, onDone }: { firmaId: string; onDone: () => vo
         </label>
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-400">Von</span>
-          <input name="uhrzeit_von" type="time" disabled={ganztags}
+          <input name="uhrzeit_von" type="time" step="1800" disabled={ganztags}
             className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-gray-50' : ''}`} />
           <span className="text-xs text-gray-400">–</span>
-          <input name="uhrzeit_bis" type="time" disabled={ganztags}
+          <input name="uhrzeit_bis" type="time" step="1800" disabled={ganztags}
             className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-gray-50' : ''}`} />
         </div>
       </div>
