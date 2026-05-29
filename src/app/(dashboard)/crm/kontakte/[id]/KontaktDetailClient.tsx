@@ -241,7 +241,10 @@ export default function KontaktDetailClient({
 
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-gray-800">Aktivitäten</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-base font-semibold text-gray-800">Aktivitäten</h2>
+              <Link href="/crm" className="text-xs text-s112-muted hover:text-s112-teal">→ Kalender</Link>
+            </div>
             {writeOk && !showAktForm && (
               <button onClick={() => setShowAktForm(true)} className="text-xs text-s112-teal hover:underline font-medium">
                 + Aktivität
@@ -332,14 +335,17 @@ export default function KontaktDetailClient({
                 {pipeline.map(p => {
                   const stufeDef = PIPELINE_STUFEN.find(s => s.value === p.stufe)
                   return (
-                    <div key={p.id} className="border border-s112-border/60 rounded-lg p-3 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${stufeDef?.farbe ?? 'bg-gray-100 text-gray-700'}`}>
-                          {stufeDef?.label ?? p.stufe}
-                        </span>
-                        {p.erledigt && (
-                          <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Erledigt</span>
-                        )}
+                    <div key={p.id} className="border border-s112-border/60 rounded-lg p-3 space-y-1 hover:border-s112-teal/40 transition-colors">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${stufeDef?.farbe ?? 'bg-gray-100 text-gray-700'}`}>
+                            {stufeDef?.label ?? p.stufe}
+                          </span>
+                          {p.erledigt && (
+                            <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Erledigt</span>
+                          )}
+                        </div>
+                        <Link href="/crm/pipeline" className="text-xs text-s112-teal hover:underline flex-shrink-0">→ Pipeline</Link>
                       </div>
                       <p className="text-sm font-medium text-gray-800">{p.titel}</p>
                       <div className="flex gap-3 text-xs text-s112-muted">

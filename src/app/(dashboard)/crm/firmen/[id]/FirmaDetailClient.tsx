@@ -351,11 +351,12 @@ export default function FirmaDetailClient({
       {/* Tab: Aktivitaeten */}
       {tab === 'aktivitaeten' && (
         <div className="space-y-3">
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-2">
+            <Link href="/crm" className="text-xs text-s112-muted hover:text-s112-teal">→ Kalender</Link>
             {writeOk && !showAktForm && (
               <button onClick={() => setShowAktForm(true)}
                 className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors">
-                + Aktivitaet
+                + Aktivität
               </button>
             )}
           </div>
@@ -407,11 +408,14 @@ export default function FirmaDetailClient({
                   : null
                 return (
                   <div key={p.id} className="card p-4 space-y-2">
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap">
                       <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${stufeDef?.farbe ?? 'bg-gray-100 text-gray-700'}`}>
                         {stufeDef?.label ?? p.stufe}
                       </span>
                       <span className="text-sm font-medium text-gray-800">{p.titel}</span>
+                      </div>
+                      <Link href="/crm/pipeline" className="text-xs text-s112-teal hover:underline flex-shrink-0">→ Pipeline</Link>
                     </div>
                     <div className="flex gap-4 text-xs text-s112-muted flex-wrap">
                       {p.wert_euro != null && (
