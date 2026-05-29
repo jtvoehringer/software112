@@ -15,7 +15,7 @@ export default async function FirmenPage() {
   const role    = await getCurrentUserRole()
   const writeOk = canWrite(role)
 
-  const [{ data: fRaw }, { data: kRaw }, { data: rRaw }] = await Promise.all([
+  const [{ data: fRaw }, { data: kRaw }] = await Promise.all([
     (supabase.from('firmen') as any)
       .select('id, kundennummer, name, segment, strasse, plz, ort, land, telefon, email, website, uid_nummer, kreditlimit, zahlungsziel_tage, waehrung, notizen, aktiv, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
       .eq('aktiv', true)
@@ -26,9 +26,6 @@ export default async function FirmenPage() {
       .eq('aktiv', true)
       .not('firma_id', 'is', null),
 
-    (supabase.from('rabattgruppen') as any)
-      .select('id, name, rabatt_pct')
-      .order('rabatt_pct'),
   ])
 
   const firmen: FirmaRow[] = ((fRaw ?? []) as R[]).map(f => ({
@@ -43,7 +40,15 @@ export default async function FirmenPage() {
     rabattgruppe_pct: (f.rabattgruppe as R | null)?.rabatt_pct ?? null,
   }))
 
-  const rabattgruppen = ((rRaw ?? []) as R[]).map(r => ({
+  // Rabattgruppen (non-fatal – Tabelle existiert erst nach Migration 031)
+  let rRaw: R[] = []
+  try {
+    const { data: r } = await (supabase.from('rabattgruppen') as any)
+      .select('id, name, rabatt_pct').order('rabatt_pct')
+    rRaw = (r ?? []) as R[]
+  } catch { /* Tabelle noch nicht vorhanden */ }
+
+  const rabattgruppen = rRaw.map(r => ({
     id: r.id as string, name: r.name as string, rabatt_pct: Number(r.rabatt_pct),
   }))
 

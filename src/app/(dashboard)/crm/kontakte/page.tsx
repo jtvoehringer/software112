@@ -21,7 +21,6 @@ export default async function KontaktePage() {
     { data: fRaw },
     { data: aRaw },
     { data: pRaw },
-    { data: rRaw },
   ] = await Promise.all([
     (supabase.from('kontakte') as any)
       .select('id, kundennummer, vorname, nachname, segment, firma_id, firmen:firma_id(name), email, telefon, mobil, ort, land, newsletter, newsletter_bestaetigt, stammkunde, aktiv, notizen, erstellt_am, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
@@ -43,9 +42,6 @@ export default async function KontaktePage() {
       .not('kontakt_id', 'is', null)
       .order('aktualisiert_am', { ascending: false }),
 
-    (supabase.from('rabattgruppen') as any)
-      .select('id, name, rabatt_pct')
-      .order('rabatt_pct'),
   ])
 
   const kontakte: KontaktRow[] = ((kRaw ?? []) as R[]).map(k => ({
@@ -76,7 +72,15 @@ export default async function KontaktePage() {
     id: f.id, name: f.name, segment: f.segment,
   }))
 
-  const rabattgruppen = ((rRaw ?? []) as R[]).map(r => ({
+  // Rabattgruppen (non-fatal – Tabelle existiert erst nach Migration 031)
+  let rRaw: R[] = []
+  try {
+    const { data: r } = await (supabase.from('rabattgruppen') as any)
+      .select('id, name, rabatt_pct').order('rabatt_pct')
+    rRaw = (r ?? []) as R[]
+  } catch { /* Tabelle noch nicht vorhanden */ }
+
+  const rabattgruppen = rRaw.map(r => ({
     id: r.id as string,
     name: r.name as string,
     rabatt_pct: Number(r.rabatt_pct),
