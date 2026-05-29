@@ -136,11 +136,13 @@ function KontaktForm({
 
 function AktivitaetForm({ kontaktId, onDone }: { kontaktId: string; onDone: () => void }) {
   const [pending, startTransition] = useTransition()
+  const [ganztags, setGanztags] = useState(true)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
     fd.set('kontakt_id', kontaktId)
+    fd.set('ganztags', ganztags ? 'true' : 'false')
     startTransition(async () => { await createAktivitaet(fd); onDone() })
   }
 
@@ -152,6 +154,20 @@ function AktivitaetForm({ kontaktId, onDone }: { kontaktId: string; onDone: () =
         </select>
         <input name="datum" type="date" defaultValue={new Date().toISOString().split('T')[0]}
           required className={inputCls()} />
+      </div>
+      <div className="flex items-center gap-3 flex-wrap">
+        <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none shrink-0">
+          <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)} className="rounded" />
+          Ganztags
+        </label>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400">Von</span>
+          <input name="uhrzeit_von" type="time" disabled={ganztags}
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-gray-50' : ''}`} />
+          <span className="text-xs text-gray-400">–</span>
+          <input name="uhrzeit_bis" type="time" disabled={ganztags}
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-gray-50' : ''}`} />
+        </div>
       </div>
       <input name="betreff" placeholder="Betreff" required className={inputCls()} />
       <textarea name="beschreibung" placeholder="Beschreibung (optional)" rows={2}
