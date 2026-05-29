@@ -162,16 +162,23 @@ function EintragZeile({
   return (
     <div className={`flex items-center gap-3 py-2.5 px-4 hover:bg-s112-bg/60 transition-colors group ${eintrag.erledigt ? 'opacity-60' : ''}`}>
 
-      {/* Erledigt-Checkbox */}
+      {/* Erledigt-Toggle */}
       {writeOk && (
-        <input
-          type="checkbox"
-          checked={eintrag.erledigt}
-          onChange={e => handleErledigt(e.target.checked)}
+        <button
+          type="button"
+          onClick={() => handleErledigt(!eintrag.erledigt)}
           disabled={pending}
           title={eintrag.erledigt ? 'Als offen markieren' : 'Als erledigt markieren'}
-          className="w-4 h-4 rounded border-s112-border text-s112-teal cursor-pointer flex-shrink-0 disabled:opacity-50"
-        />
+          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-50 ${
+            eintrag.erledigt
+              ? 'bg-green-500 border-green-500 text-white'
+              : 'bg-white border-gray-300 hover:border-green-400 text-transparent'
+          }`}
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          </svg>
+        </button>
       )}
 
       <div className="flex-1 min-w-0">
