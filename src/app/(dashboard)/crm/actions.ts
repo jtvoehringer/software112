@@ -40,7 +40,8 @@ export async function createKontakt(formData: FormData) {
     ort:         (formData.get('ort') as string) || null,
     land:        (formData.get('land') as string) || 'AT',
     stammkunde:  formData.get('stammkunde') === 'true',
-    notizen:     (formData.get('notizen') as string) || null,
+    notizen:         (formData.get('notizen')         as string) || null,
+    rabattgruppe_id: (formData.get('rabattgruppe_id') as string) || null,
   }
   payload.kundennummer = await generateKundennummer(tenantId)
   const { error } = await (supabase.from('kontakte') as any).insert(payload)
@@ -61,7 +62,8 @@ export async function updateKontakt(id: string, formData: FormData) {
     ort:        (formData.get('ort') as string) || null,
     land:       (formData.get('land') as string) || 'AT',
     stammkunde: formData.get('stammkunde') === 'true',
-    notizen:    (formData.get('notizen') as string) || null,
+    notizen:         (formData.get('notizen')         as string) || null,
+    rabattgruppe_id: (formData.get('rabattgruppe_id') as string) || null,
     aktualisiert_am: new Date().toISOString(),
   }
   const { error } = await (supabase.from('kontakte') as any).update(payload).eq('id', id)
@@ -95,7 +97,8 @@ export async function createFirma(formData: FormData) {
     uid_nummer:         (formData.get('uid_nummer') as string) || null,
     zahlungsziel_tage:  parseInt(formData.get('zahlungsziel_tage') as string) || 30,
     waehrung:           (formData.get('waehrung') as string) || 'EUR',
-    notizen:            (formData.get('notizen') as string) || null,
+    notizen:            (formData.get('notizen')         as string) || null,
+    rabattgruppe_id:    (formData.get('rabattgruppe_id') as string) || null,
   }
   payload.kundennummer = await generateKundennummer(tenantId)
   const { error } = await (supabase.from('firmen') as any).insert(payload)
@@ -118,7 +121,8 @@ export async function updateFirma(id: string, formData: FormData) {
     uid_nummer:         (formData.get('uid_nummer') as string) || null,
     zahlungsziel_tage:  parseInt(formData.get('zahlungsziel_tage') as string) || 30,
     waehrung:           (formData.get('waehrung') as string) || 'EUR',
-    notizen:            (formData.get('notizen') as string) || null,
+    notizen:            (formData.get('notizen')         as string) || null,
+    rabattgruppe_id:    (formData.get('rabattgruppe_id') as string) || null,
     aktualisiert_am:    new Date().toISOString(),
   }
   const { error } = await (supabase.from('firmen') as any).update(payload).eq('id', id)

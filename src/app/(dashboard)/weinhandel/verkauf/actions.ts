@@ -38,6 +38,8 @@ interface PositionInput {
   menge:             number
   einheit:           string
   preis_brutto:      number | null
+  rabatt_pct?:       number
+  sonderrabatt_pct?: number
 }
 
 // ── Verkauf anlegen ───────────────────────────────────────────────────────────
@@ -93,6 +95,8 @@ export async function createVerkauf(formData: FormData) {
     menge:             p.menge,
     einheit:           p.einheit || 'Stk',
     preis_brutto:      p.preis_brutto ?? null,
+    rabatt_pct:        p.rabatt_pct ?? 0,
+    sonderrabatt_pct:  p.sonderrabatt_pct ?? 0,
   }))
 
   const { error: posErr } = await (supabase.from('verkauf_positionen') as any).insert(posInserts)
@@ -208,44 +212,4 @@ export async function stornoVerkauf(id: string) {
     .single()
   if (error) throw new Error((error as AR).message)
 
-  // CRM-Aktivität auf STORNIERT setzen
-  try {
-    const re = (postenRaw as AR | null)?.rechnungsnummer
-    await (supabase.from('aktivitaeten') as any)
-      .update({ betreff: `Verkauf ${re ?? ''} · STORNIERT` })
-      .eq('beschreibung', `Verkaufsposten: ${id}`)
-  } catch { /* nicht kritisch */ }
-
-  revalidatePath('/weinhandel/verkauf')
-  revalidatePath(`/weinhandel/verkauf/${id}`)
-  revalidatePath('/crm')
-  revalidatePath('/crm/kontakte/[id]', 'page')
-  revalidatePath('/crm/firmen/[id]', 'page')
-}
-
-// ── Verkauf als bezahlt markieren ─────────────────────────────────────────────
-
-export async function markiereAlsBezahlt(id: string) {
-  const supabase = await createSupabaseServerClient()
-
-  const { data: postenRaw, error } = await (supabase.from('verkaufsposten') as any)
-    .update({ bezahlt: true, bezahlt_am: new Date().toISOString() })
-    .eq('id', id)
-    .select('rechnungsnummer')
-    .single()
-  if (error) throw new Error((error as AR).message)
-
-  // CRM-Aktivität aktualisieren
-  try {
-    const re = (postenRaw as AR | null)?.rechnungsnummer
-    await (supabase.from('aktivitaeten') as any)
-      .update({ betreff: `Verkauf ${re ?? ''} · Bezahlt` })
-      .eq('beschreibung', `Verkaufsposten: ${id}`)
-  } catch { /* nicht kritisch */ }
-
-  revalidatePath('/weinhandel/verkauf')
-  revalidatePath('/weinhandel/offene-posten')
-  revalidatePath(`/weinhandel/verkauf/${id}`)
-  revalidatePath('/crm/kontakte/[id]', 'page')
-  revalidatePath('/crm/firmen/[id]', 'page')
-}
+  // CRM-Aktivität auf ST

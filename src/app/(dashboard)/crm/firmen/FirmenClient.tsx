@@ -17,7 +17,7 @@ const LAENDER = ['AT', 'DE', 'CH', 'IT', 'FR', 'HU', 'SK', 'CZ', 'US', 'GB']
 
 // ── Formular ──────────────────────────────────────────────────────────────────
 
-function FirmaForm({ initial, defaultSegment, onDone }: { initial?: FirmaRow | null; defaultSegment?: string; onDone: () => void }) {
+function FirmaForm({ initial, rabattgruppen, defaultSegment, onDone }: { initial?: FirmaRow | null; rabattgruppen: {id:string;name:string;rabatt_pct:number}[]; defaultSegment?: string; onDone: () => void }) {
   const [pending, startTransition] = useTransition()
   const [segmentVal, setSegmentVal] = useState(initial?.segment ?? defaultSegment ?? 'handel')
   const v = (field: keyof FirmaRow) => (initial?.[field] ?? '') as string
@@ -98,6 +98,15 @@ function FirmaForm({ initial, defaultSegment, onDone }: { initial?: FirmaRow | n
           <label className="block text-xs font-medium text-gray-600 mb-1">Währung</label>
           <select name="waehrung" defaultValue={v('waehrung') || 'EUR'} className={inputCls()}>
             {WAEHRUNGEN.map(w => <option key={w} value={w}>{w}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Rabattgruppe</label>
+          <select name="rabattgruppe_id" defaultValue={initial?.rabattgruppe_id ?? ''} className={inputCls()}>
+            <option value="">– kein Rabatt –</option>
+            {rabattgruppen.map(r => (
+              <option key={r.id} value={r.id}>{r.name} ({r.rabatt_pct}%)</option>
+            ))}
           </select>
         </div>
       </div>
@@ -214,10 +223,11 @@ function FirmaKarte({
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 
 export default function FirmenClient({
-  firmen, kontakteMap, writeOk,
+  firmen, kontakteMap, rabattgruppen, writeOk,
 }: {
   firmen: FirmaRow[]
   kontakteMap: Record<string, KontaktKurz[]>
+  rabattgruppen: {id:string;name:string;rabatt_pct:number}[]
   writeOk: boolean
 }) {
   const [showForm, setShowForm] = useState(false)

@@ -28,11 +28,13 @@ interface Kontakt {
   vorname: string | null
   nachname: string
   firma_id: string | null
+  rabatt_pct: number | null
 }
 
 interface Firma {
   id: string
   name: string
+  rabatt_pct: number | null
 }
 
 interface Position {
@@ -44,6 +46,9 @@ interface Position {
   menge:         string
   einheit:       string
   preis_brutto:  string
+  rabatt_pct:    string  // aus Kundenstamm
+  sonderrabatt:  string  // manuell
+  sonderrabatt_aktiv: boolean
 }
 
 const FLASCHEN_LABEL: Record<number, string> = {
@@ -74,6 +79,7 @@ export default function NeuerVerkaufPage() {
   const [kontaktId,        setKontaktId]       = useState('')
   const [firmaId,          setFirmaId]         = useState('')
   const [notizen,          setNotizen]         = useState('')
+  const [kundenRabatt,     setKundenRabatt]    = useState(0) // % aus Kundenstamm
 
   // Positionen
   const [positionen, setPositionen] = useState<Position[]>([
@@ -90,6 +96,9 @@ export default function NeuerVerkaufPage() {
       menge:         '1',
       einheit:       'Stk',
       preis_brutto:  '',
+      rabatt_pct:    '0',
+      sonderrabatt:  '0',
+      sonderrabatt_aktiv: false,
     }
   }
 
@@ -152,11 +161,14 @@ export default function NeuerVerkaufPage() {
     setPositionen(prev => prev.filter((_, i) => i !== idx))
   }
 
-  // Gesamt berechnen
+  // Gesamt berechnen (mit Rabatten)
   const gesamt = positionen.reduce((s, p) => {
-    const preis = parseFloat(p.preis_brutto) || 0
-    const menge = parseFloat(p.menge) || 0
-    return s + preis * menge
+    const preis  = parseFloat(p.preis_brutto) || 0
+    const menge  = parseFloat(p.menge) || 0
+    const rabatt = (parseFloat(p.rabatt_pct) || 0) / 100
+    const sonder = p.sonderrabatt_aktiv ? (parseFloat(p.sonderrabatt) || 0) / 100 : 0
+    const effektivPreis = preis * (1 - rabatt) * (1 - sonder)
+    return s + effektivPreis * menge
   }, 0)
 
   // Submit
@@ -172,6 +184,8 @@ export default function NeuerVerkaufPage() {
       menge:         parseFloat(p.menge) || 0,
       einheit:       p.einheit,
       preis_brutto:  parseFloat(p.preis_brutto) || null,
+      rabatt_pct:       parseFloat(p.rabatt_pct) || 0,
+      sonderrabatt_pct: p.sonderrabatt_aktiv ? (parseFloat(p.sonderrabatt) || 0) : 0,
     }))
 
     if (posForServer.some(p => !p.name || p.menge <= 0)) {
@@ -245,7 +259,14 @@ export default function NeuerVerkaufPage() {
               <label className={labelCls}>Kontakt (Person)</label>
               <select
                 value={kontaktId}
-                onChange={e => { setKontaktId(e.target.value); if (e.target.value) setFirmaId('') }}
+                onChange={e => {
+                  const kId = e.target.value
+                  setKontaktId(kId)
+                  if (kId) setFirmaId('')
+                  const rabatt = kontakte.find(k => k.id === kId)?.rabatt_pct ?? 0
+                  setKundenRabatt(rabatt)
+                  setPositionen(prev => prev.map(p => ({ ...p, rabatt_pct: String(rabatt) })))
+                }}
                 className={inputCls + ' w-full'}
                 disabled={loading}
               >
@@ -261,7 +282,14 @@ export default function NeuerVerkaufPage() {
               <label className={labelCls}>Firma</label>
               <select
                 value={firmaId}
-                onChange={e => { setFirmaId(e.target.value); if (e.target.value) setKontaktId('') }}
+                onChange={e => {
+                  const fId = e.target.value
+                  setFirmaId(fId)
+                  if (fId) setKontaktId('')
+                  const rabatt = firmen.find(f => f.id === fId)?.rabatt_pct ?? 0
+                  setKundenRabatt(rabatt)
+                  setPositionen(prev => prev.map(p => ({ ...p, rabatt_pct: String(rabatt) })))
+                }}
                 className={inputCls + ' w-full'}
                 disabled={loading}
               >
@@ -432,11 +460,57 @@ export default function NeuerVerkaufPage() {
                   <div className="text-right w-full">
                     <p className="text-xs text-s112-muted mb-1">Zeile</p>
                     <p className="font-semibold text-s112-teal tabular-nums text-sm">
-                      {((parseFloat(pos.preis_brutto) || 0) * (parseFloat(pos.menge) || 0))
-                        .toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
+                      {(() => {
+                        const preis  = parseFloat(pos.preis_brutto) || 0
+                        const menge  = parseFloat(pos.menge) || 0
+                        const rabatt = (parseFloat(pos.rabatt_pct) || 0) / 100
+                        const sonder = pos.sonderrabatt_aktiv ? (parseFloat(pos.sonderrabatt) || 0) / 100 : 0
+                        return (preis * (1 - rabatt) * (1 - sonder) * menge)
+                          .toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+                      })()}
                     </p>
                   </div>
                 </div>
+              </div>
+
+              {/* Rabatt-Zeile */}
+              <div className="flex items-center gap-4 mt-2 flex-wrap">
+                {/* Kundenrabatt (read-only wenn gesetzt) */}
+                {parseFloat(pos.rabatt_pct) > 0 && (
+                  <span className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-full px-2.5 py-0.5 font-medium">
+                    {pos.rabatt_pct}% Kundenrabatt
+                  </span>
+                )}
+
+                {/* Sonderrabatt-Toggle */}
+                <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={pos.sonderrabatt_aktiv}
+                    onChange={e => updatePos(idx, { sonderrabatt_aktiv: e.target.checked })}
+                    className="rounded accent-s112-teal"
+                  />
+                  Sonderrabatt
+                </label>
+                {pos.sonderrabatt_aktiv && (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      value={pos.sonderrabatt}
+                      onChange={e => updatePos(idx, { sonderrabatt: e.target.value })}
+                      min="0" max="100" step="0.5"
+                      placeholder="0"
+                      className="border border-s112-border rounded-lg px-2 py-1 text-xs w-16 focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+                    />
+                    <span className="text-xs text-gray-400">%</span>
+                  </div>
+                )}
+                {(parseFloat(pos.rabatt_pct) > 0 || pos.sonderrabatt_aktiv) && (
+                  <span className="text-xs text-gray-400 ml-auto">
+                    Listenpreis: {((parseFloat(pos.preis_brutto) || 0) * (parseFloat(pos.menge) || 0))
+                      .toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
+                  </span>
+                )}
               </div>
             </div>
           ))}

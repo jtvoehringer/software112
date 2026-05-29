@@ -15,9 +15,9 @@ export default async function FirmenPage() {
   const role    = await getCurrentUserRole()
   const writeOk = canWrite(role)
 
-  const [{ data: fRaw }, { data: kRaw }] = await Promise.all([
+  const [{ data: fRaw }, { data: kRaw }, { data: rRaw }] = await Promise.all([
     (supabase.from('firmen') as any)
-      .select('id, kundennummer, name, segment, strasse, plz, ort, land, telefon, email, website, uid_nummer, kreditlimit, zahlungsziel_tage, waehrung, notizen, aktiv')
+      .select('id, kundennummer, name, segment, strasse, plz, ort, land, telefon, email, website, uid_nummer, kreditlimit, zahlungsziel_tage, waehrung, notizen, aktiv, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
       .eq('aktiv', true)
       .order('name'),
 
@@ -25,6 +25,10 @@ export default async function FirmenPage() {
       .select('id, vorname, nachname, segment, firma_id')
       .eq('aktiv', true)
       .not('firma_id', 'is', null),
+
+    (supabase.from('rabattgruppen') as any)
+      .select('id, name, rabatt_pct')
+      .order('rabatt_pct'),
   ])
 
   const firmen: FirmaRow[] = ((fRaw ?? []) as R[]).map(f => ({
@@ -34,6 +38,13 @@ export default async function FirmenPage() {
     uid_nummer: f.uid_nummer ?? null, kreditlimit: f.kreditlimit ?? null,
     zahlungsziel_tage: f.zahlungsziel_tage ?? null, waehrung: f.waehrung ?? null,
     notizen: f.notizen ?? null, aktiv: f.aktiv ?? true,
+    rabattgruppe_id: f.rabattgruppe_id ?? null,
+    rabattgruppe_name: (f.rabattgruppe as R | null)?.name ?? null,
+    rabattgruppe_pct: (f.rabattgruppe as R | null)?.rabatt_pct ?? null,
+  }))
+
+  const rabattgruppen = ((rRaw ?? []) as R[]).map(r => ({
+    id: r.id as string, name: r.name as string, rabatt_pct: Number(r.rabatt_pct),
   }))
 
   // Kontakte nach firma_id gruppieren
@@ -54,7 +65,7 @@ export default async function FirmenPage() {
         <span className="text-sm text-s112-muted">{firmen.length} Firmen</span>
       </div>
 
-      <FirmenClient firmen={firmen} kontakteMap={kontakteMap} writeOk={writeOk} />
+      <FirmenClient firmen={firmen} kontakteMap={kontakteMap} rabattgruppen={rabattgruppen} writeOk={writeOk} />
     </div>
   )
 }

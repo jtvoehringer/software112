@@ -7,6 +7,7 @@ import { SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN, segmentLabel, segmentFarbe
 import type { KontaktRow } from '@/lib/crm/types'
 
 type FirmaOption = { id: string; name: string; segment: string }
+type RabattgruppeOption = { id: string; name: string; rabatt_pct: number }
 type AktivitaetRow = {
   id: string; art: string; betreff: string | null
   beschreibung: string | null; datum: string; erledigt: boolean
@@ -27,10 +28,11 @@ function inputCls() {
 // ── Formular ──────────────────────────────────────────────────────────────────
 
 function KontaktForm({
-  initial, firmen, defaultSegment, onDone,
+  initial, firmen, rabattgruppen, defaultSegment, onDone,
 }: {
   initial?: KontaktRow | null
   firmen: FirmaOption[]
+  rabattgruppen: RabattgruppeOption[]
   defaultSegment?: string
   onDone: () => void
 }) {
@@ -108,6 +110,15 @@ function KontaktForm({
             onChange={e => setStammkunde(e.target.checked)}
             className="accent-s112-teal w-4 h-4" />
           <label htmlFor="stammkunde" className="text-sm text-gray-700 cursor-pointer">Stammkunde</label>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Rabattgruppe</label>
+          <select name="rabattgruppe_id" defaultValue={initial?.rabattgruppe_id ?? ''} className={inputCls()}>
+            <option value="">– kein Rabatt –</option>
+            {rabattgruppen.map(r => (
+              <option key={r.id} value={r.id}>{r.name} ({r.rabatt_pct}%)</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -262,7 +273,7 @@ function KontaktKarte({
   }
 
   if (editing) return (
-    <KontaktForm initial={kontakt} firmen={firmen} onDone={() => setEditing(false)} />
+    <KontaktForm initial={kontakt} firmen={firmen} rabattgruppen={rabattgruppen} onDone={() => setEditing(false)} />
   )
 
   return (
@@ -282,6 +293,11 @@ function KontaktKarte({
             </span>
             {kontakt.stammkunde && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-s112-yellow/20 text-amber-700 font-medium">⭐ Stammkunde</span>
+            )}
+            {kontakt.rabattgruppe_name && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
+                {kontakt.rabattgruppe_pct}% {kontakt.rabattgruppe_name}
+              </span>
             )}
             {kontakt.newsletter && kontakt.newsletter_bestaetigt && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">✉ Newsletter</span>
@@ -419,10 +435,11 @@ function KontaktKarte({
 export type { AktivitaetRow, PipelineRow }
 
 export default function KontakteClient({
-  kontakte, firmen, aktivitaetenMap, pipelineMap, writeOk,
+  kontakte, firmen, rabattgruppen, aktivitaetenMap, pipelineMap, writeOk,
 }: {
   kontakte: KontaktRow[]
   firmen: FirmaOption[]
+  rabattgruppen: RabattgruppeOption[]
   aktivitaetenMap: Record<string, AktivitaetRow[]>
   pipelineMap: Record<string, PipelineRow[]>
   writeOk: boolean
@@ -490,6 +507,7 @@ export default function KontakteClient({
       {showForm && (
         <KontaktForm
           firmen={firmen}
+          rabattgruppen={rabattgruppen}
           defaultSegment={segment !== 'alle' ? segment : undefined}
           onDone={() => setShowForm(false)}
         />

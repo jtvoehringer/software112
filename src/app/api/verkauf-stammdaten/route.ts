@@ -29,13 +29,13 @@ export async function GET() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('kontakte') as any)
-        .select('id, vorname, nachname, firma_id')
+        .select('id, vorname, nachname, firma_id, rabattgruppe:rabattgruppe_id(rabatt_pct)')
         .eq('aktiv', true)
         .order('nachname'),
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('firmen') as any)
-        .select('id, name')
+        .select('id, name, rabattgruppe:rabattgruppe_id(rabatt_pct)')
         .eq('aktiv', true)
         .order('name'),
     ])
@@ -43,8 +43,14 @@ export async function GET() {
     return NextResponse.json({
       fuellungen:  fuellungen ?? [],
       weinausbau:  weinausbau ?? [],
-      kontakte:    kontakte   ?? [],
-      firmen:      firmen     ?? [],
+      kontakte: (kontakte ?? []).map((k: any) => ({
+        ...k,
+        rabatt_pct: (k.rabattgruppe as any)?.rabatt_pct ?? null,
+      })),
+      firmen: (firmen ?? []).map((f: any) => ({
+        ...f,
+        rabatt_pct: (f.rabattgruppe as any)?.rabatt_pct ?? null,
+      })),
     })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })

@@ -80,6 +80,9 @@ export type KontaktRow = {
   newsletter_bestaetigt: boolean
   stammkunde: boolean
   notizen: string | null
+  rabattgruppe_id: string | null
+  rabattgruppe_name?: string | null
+  rabattgruppe_pct?: number | null
   aktiv: boolean
   erstellt_am: string
 }
@@ -98,6 +101,9 @@ export type FirmaRow = {
   website: string | null
   uid_nummer: string | null
   kreditlimit: number | null
+  rabattgruppe_id: string | null
+  rabattgruppe_name?: string | null
+  rabattgruppe_pct?: number | null
   zahlungsziel_tage: number | null
   waehrung: string | null
   notizen: string | null

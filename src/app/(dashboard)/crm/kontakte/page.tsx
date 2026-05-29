@@ -21,9 +21,10 @@ export default async function KontaktePage() {
     { data: fRaw },
     { data: aRaw },
     { data: pRaw },
+    { data: rRaw },
   ] = await Promise.all([
     (supabase.from('kontakte') as any)
-      .select('id, kundennummer, vorname, nachname, segment, firma_id, firmen:firma_id(name), email, telefon, mobil, ort, land, newsletter, newsletter_bestaetigt, stammkunde, aktiv, notizen, erstellt_am')
+      .select('id, kundennummer, vorname, nachname, segment, firma_id, firmen:firma_id(name), email, telefon, mobil, ort, land, newsletter, newsletter_bestaetigt, stammkunde, aktiv, notizen, erstellt_am, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
       .eq('aktiv', true)
       .order('nachname'),
 
@@ -41,6 +42,10 @@ export default async function KontaktePage() {
       .select('id, stufe, titel, wert_euro, wahrscheinlichkeit, erwartetes_datum, kontakt_id')
       .not('kontakt_id', 'is', null)
       .order('aktualisiert_am', { ascending: false }),
+
+    (supabase.from('rabattgruppen') as any)
+      .select('id, name, rabatt_pct')
+      .order('rabatt_pct'),
   ])
 
   const kontakte: KontaktRow[] = ((kRaw ?? []) as R[]).map(k => ({
@@ -60,12 +65,21 @@ export default async function KontaktePage() {
     newsletter_bestaetigt: k.newsletter_bestaetigt ?? false,
     stammkunde:            k.stammkunde ?? false,
     notizen:               k.notizen ?? null,
+    rabattgruppe_id:       k.rabattgruppe_id ?? null,
+    rabattgruppe_name:     (k.rabattgruppe as R | null)?.name ?? null,
+    rabattgruppe_pct:      (k.rabattgruppe as R | null)?.rabatt_pct ?? null,
     aktiv:                 k.aktiv ?? true,
     erstellt_am:           k.erstellt_am,
   }))
 
   const firmen = ((fRaw ?? []) as R[]).map(f => ({
     id: f.id, name: f.name, segment: f.segment,
+  }))
+
+  const rabattgruppen = ((rRaw ?? []) as R[]).map(r => ({
+    id: r.id as string,
+    name: r.name as string,
+    rabatt_pct: Number(r.rabatt_pct),
   }))
 
   // Aktivitäten nach kontakt_id gruppieren
@@ -105,6 +119,7 @@ export default async function KontaktePage() {
       <KontakteClient
         kontakte={kontakte}
         firmen={firmen}
+        rabattgruppen={rabattgruppen}
         aktivitaetenMap={aktivitaetenMap}
         pipelineMap={pipelineMap}
         writeOk={writeOk}
