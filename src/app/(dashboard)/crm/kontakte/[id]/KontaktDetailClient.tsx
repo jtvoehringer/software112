@@ -357,7 +357,12 @@ export default function KontaktDetailClient({
 
               {/* Verkäufe aus Aktivitäten-Log */}
               {(() => {
-                const verkaufAkts = aktivitaeten.filter(a => a.art === 'verkauf').sort((a, b) => new Date(b.datum).getTime() - new Date(a.datum).getTime())
+                const verkaufAkts = aktivitaeten.filter(a => a.art === 'verkauf').sort((a, b) => {
+        const dateDiff = new Date(b.datum).getTime() - new Date(a.datum).getTime()
+        if (dateDiff !== 0) return dateDiff
+        // Gleicher Tag: nach Rechnungsnummer (im betreff) absteigend
+        return (b.betreff ?? '').localeCompare(a.betreff ?? '', 'de', { numeric: true })
+      })
                 if (verkaufAkts.length === 0) return null
                 return (
                   <div className="card p-4 space-y-2">
