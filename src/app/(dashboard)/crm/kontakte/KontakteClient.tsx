@@ -61,12 +61,12 @@ function KontaktForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Nachname *</label>
-          <input name="nachname" defaultValue={v('nachname')} required className={inputCls()} />
-        </div>
-        <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Vorname</label>
           <input name="vorname" defaultValue={v('vorname')} className={inputCls()} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Nachname *</label>
+          <input name="nachname" defaultValue={v('nachname')} required className={inputCls()} />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Segment *</label>
@@ -427,6 +427,7 @@ export default function KontakteClient({
   const [showForm, setShowForm] = useState(false)
   const [suche, setSuche] = useState('')
   const [segment, setSegment] = useState<string>('alle')
+  const [sortBy, setSortBy] = useState<'nachname' | 'vorname'>('nachname')
 
   const gefiltert = kontakte
     .filter(k => {
@@ -435,7 +436,11 @@ export default function KontakteClient({
       const matchSeg = segment === 'alle' || k.segment === segment
       return matchSuche && matchSeg
     })
-    .sort((a, b) => a.nachname.localeCompare(b.nachname, 'de'))
+    .sort((a, b) => {
+      const ka = sortBy === 'nachname' ? a.nachname : (a.vorname ?? a.nachname)
+      const kb = sortBy === 'nachname' ? b.nachname : (b.vorname ?? b.nachname)
+      return ka.localeCompare(kb, 'de')
+    })
 
   return (
     <div className="space-y-4">
@@ -461,6 +466,15 @@ export default function KontakteClient({
             )
           })}
         </div>
+        <button
+          onClick={() => setSortBy(s => s === 'nachname' ? 'vorname' : 'nachname')}
+          title={`Sortierung: ${sortBy === 'nachname' ? 'nach Nachname' : 'nach Vorname'}`}
+          className="text-xs text-s112-muted border border-s112-border rounded-lg px-2.5 py-1.5 hover:bg-s112-bg transition-colors flex items-center gap-1.5">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+          </svg>
+          {sortBy === 'nachname' ? 'Nachname' : 'Vorname'}
+        </button>
         {writeOk && !showForm && (
           <button onClick={() => setShowForm(true)}
             className="ml-auto inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
