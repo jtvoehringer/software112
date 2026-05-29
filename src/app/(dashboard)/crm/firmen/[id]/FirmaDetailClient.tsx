@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { createAktivitaet, createPipelineEintrag } from '../../actions'
+import { createAktivitaet, createPipelineEintrag, toggleAktivitaetErledigt } from '../../actions'
 import {
   AKTIVITAET_ARTEN, PIPELINE_STUFEN,
   segmentLabel, segmentFarbe, fmtUhrzeit,
@@ -37,20 +37,21 @@ function AktivitaetForm({ firmaId, onDone }: { firmaId: string; onDone: () => vo
           required className={inputCls()} />
       </div>
 
-      {/* Uhrzeit */}
+      {/* Uhrzeit – immer sichtbar, bei Ganztags deaktiviert */}
       <div className="flex items-center gap-3 flex-wrap">
-        <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
+        <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none shrink-0">
           <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)}
             className="rounded" />
           Ganztags
         </label>
-        {!ganztags && (
-          <div className="flex items-center gap-2">
-            <input name="uhrzeit_von" type="time" className="border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
-            <span className="text-xs text-gray-400">–</span>
-            <input name="uhrzeit_bis" type="time" className="border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400">Von</span>
+          <input name="uhrzeit_von" type="time" disabled={ganztags}
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-gray-50' : ''}`} />
+          <span className="text-xs text-gray-400">–</span>
+          <input name="uhrzeit_bis" type="time" disabled={ganztags}
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-gray-50' : ''}`} />
+        </div>
       </div>
 
       <input name="betreff" placeholder="Betreff *" required className={inputCls()} />
@@ -99,6 +100,63 @@ function PipelineForm({ firmaId, onDone }: { firmaId: string; onDone: () => void
         <button type="button" onClick={onDone} className="text-xs text-gray-500 hover:text-gray-700">Abbrechen</button>
       </div>
     </form>
+  )
+}
+
+// ── Aktivitäts-Karte ──────────────────────────────────────────────────────────
+
+function AktivitaetKarte({ a, writeOk }: { a: AktivitaetRow; writeOk: boolean }) {
+  const [pending, startTransition] = useTransition()
+  const artDef = AKTIVITAET_ARTEN.find(x => x.value === a.art)
+  const von = fmtUhrzeit(a.uhrzeit_von)
+  const bis = fmtUhrzeit(a.uhrzeit_bis)
+
+  function handleErledigt() {
+    startTransition(async () => { await toggleAktivitaetErledigt(a.id, !a.erledigt) })
+  }
+
+  return (
+    <div className={`card p-4 flex gap-3 ${a.erledigt ? 'opacity-60' : ''}`}>
+      {writeOk && (
+        <button
+          type="button"
+          onClick={handleErledigt}
+          disabled={pending}
+          title={a.erledigt ? 'Als offen markieren' : 'Als erledigt markieren'}
+          className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-50 ${
+            a.erledigt
+              ? 'bg-green-500 border-green-500 text-white'
+              : 'bg-white border-gray-300 hover:border-green-400 text-transparent'
+          }`}
+        >
+          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          </svg>
+        </button>
+      )}
+      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-base">
+        {artDef?.icon ?? '•'}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-s112-muted tabular-nums">
+            {new Date(a.datum).toLocaleDateString('de-AT')}
+          </span>
+          {!a.ganztags && von && (
+            <span className="text-xs font-medium text-s112-teal tabular-nums">
+              {von}{bis ? `–${bis}` : ''}
+            </span>
+          )}
+          <span className="text-xs text-s112-muted">{artDef?.label ?? a.art}</span>
+        </div>
+        <p className={`text-sm font-medium text-gray-800 mt-0.5 ${a.erledigt ? 'line-through text-gray-400' : ''}`}>
+          {a.betreff}
+        </p>
+        {a.beschreibung && (
+          <p className="text-xs text-gray-500 mt-0.5">{a.beschreibung}</p>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -184,9 +242,9 @@ export default function FirmaDetailClient({
       <div className="border-b border-s112-border">
         <div className="flex gap-0">
           {([
-            { id: 'kontakte',    label: `Kontakte (${kontakte.length})`       },
-            { id: 'aktivitaeten', label: `Aktivitäten (${aktivitaeten.length})` },
-            { id: 'pipeline',    label: `Pipeline (${pipeline.length})`       },
+            { id: 'kontakte',     label: `Kontakte (${kontakte.length})`        },
+            { id: 'aktivitaeten', label: `Aktivitaeten (${aktivitaeten.length})` },
+            { id: 'pipeline',     label: `Pipeline (${pipeline.length})`        },
           ] as { id: Tab; label: string }[]).map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
@@ -224,7 +282,7 @@ export default function FirmaDetailClient({
                       {segmentLabel(k.segment)}
                     </span>
                     {k.stammkunde && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-s112-yellow/20 text-amber-700 font-medium">⭐ Stammkunde</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-s112-yellow/20 text-amber-700 font-medium">Stammkunde</span>
                     )}
                   </div>
                   {k.email && (
@@ -237,14 +295,14 @@ export default function FirmaDetailClient({
         </div>
       )}
 
-      {/* Tab: Aktivitäten */}
+      {/* Tab: Aktivitaeten */}
       {tab === 'aktivitaeten' && (
         <div className="space-y-3">
           <div className="flex justify-end">
             {writeOk && !showAktForm && (
               <button onClick={() => setShowAktForm(true)}
                 className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors">
-                ＋ Aktivität
+                + Aktivitaet
               </button>
             )}
           </div>
@@ -255,39 +313,13 @@ export default function FirmaDetailClient({
 
           {aktivitaeten.length === 0 && !showAktForm ? (
             <div className="card p-6 text-center text-s112-muted text-sm">
-              Noch keine Aktivitäten erfasst.
+              Noch keine Aktivitaeten erfasst.
             </div>
           ) : (
             <div className="space-y-2">
-              {aktivitaeten.map(a => {
-                const artDef = AKTIVITAET_ARTEN.find(x => x.value === a.art)
-                const von = fmtUhrzeit(a.uhrzeit_von)
-                const bis = fmtUhrzeit(a.uhrzeit_bis)
-                return (
-                  <div key={a.id} className="card p-4 flex gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-base">
-                      {artDef?.icon ?? '•'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs text-s112-muted tabular-nums">
-                          {new Date(a.datum).toLocaleDateString('de-AT')}
-                        </span>
-                        {!a.ganztags && von && (
-                          <span className="text-xs font-medium text-s112-teal tabular-nums">
-                            {von}{bis ? `–${bis}` : ''}
-                          </span>
-                        )}
-                        <span className="text-xs text-s112-muted">{artDef?.label ?? a.art}</span>
-                      </div>
-                      <p className="text-sm font-medium text-gray-800 mt-0.5">{a.betreff}</p>
-                      {a.beschreibung && (
-                        <p className="text-xs text-gray-500 mt-0.5">{a.beschreibung}</p>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
+              {aktivitaeten.map(a => (
+                <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} />
+              ))}
             </div>
           )}
         </div>
@@ -300,7 +332,7 @@ export default function FirmaDetailClient({
             {writeOk && !showPipelineForm && (
               <button onClick={() => setShowPipelineForm(true)}
                 className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors">
-                ＋ Pipeline-Eintrag
+                + Pipeline-Eintrag
               </button>
             )}
           </div>
@@ -311,7 +343,7 @@ export default function FirmaDetailClient({
 
           {pipeline.length === 0 && !showPipelineForm ? (
             <div className="card p-6 text-center text-s112-muted text-sm">
-              Noch keine Pipeline-Einträge zu dieser Firma.
+              Noch keine Pipeline-Eintraege zu dieser Firma.
             </div>
           ) : (
             <div className="space-y-2">
@@ -335,7 +367,7 @@ export default function FirmaDetailClient({
                         </span>
                       )}
                       {p.wahrscheinlichkeit != null && <span>{p.wahrscheinlichkeit}%</span>}
-                      {abschluss && <span>📅 {abschluss}</span>}
+                      {abschluss && <span>{abschluss}</span>}
                     </div>
                     {p.notizen && (
                       <p className="text-xs text-gray-500 italic">{p.notizen}</p>

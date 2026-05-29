@@ -190,6 +190,17 @@ export async function deleteAktivitaet(id: string) {
   revalidatePath('/crm/firmen/[id]', 'page')
 }
 
+export async function toggleAktivitaetErledigt(id: string, erledigt: boolean) {
+  const supabase = await createSupabaseServerClient()
+  const { error } = await (supabase.from('aktivitaeten') as any)
+    .update({ erledigt })
+    .eq('id', id)
+  if (error) throw new Error((error as AR).message)
+  revalidatePath('/crm')
+  revalidatePath('/crm/kontakte/[id]', 'page')
+  revalidatePath('/crm/firmen/[id]', 'page')
+}
+
 // ── Pipeline ──────────────────────────────────────────────────────────────────
 
 export async function createPipelineEintrag(formData: FormData) {
