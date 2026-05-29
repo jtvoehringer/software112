@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import Link from 'next/link'
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
@@ -22,7 +22,7 @@ export type KalenderEintrag = {
   stufe?: string
 }
 
-type ViewMode = 'woche' | 'monat' | 'jahr'
+type ViewMode = 'woche' | 'monat' | 'jahr' | 'zeitachse'
 
 // ── Datum-Hilfsfunktionen ─────────────────────────────────────────────────────
 
@@ -32,7 +32,6 @@ function addDays(date: Date, days: number): Date {
   return d
 }
 
-/** Montag der gegebenen Woche */
 function startOfWeek(date: Date): Date {
   const d = new Date(date)
   d.setHours(0, 0, 0, 0)
@@ -78,7 +77,7 @@ function chipFarbe(e: KalenderEintrag): string {
 
 function fmtT(t: string | null | undefined): string | null {
   if (!t) return null
-  return t.slice(0, 5)  // "14:30:00" → "14:30"
+  return t.slice(0, 5)  // "14:30:00" -> "14:30"
 }
 
 function EintragChip({ e, compact = false }: { e: KalenderEintrag; compact?: boolean }) {
@@ -130,7 +129,6 @@ function WochenView({ eintraege, current, heute }: { eintraege: KalenderEintrag[
 
   return (
     <div className="border border-s112-border rounded-xl overflow-hidden">
-      {/* Tag-Kopfzeilen */}
       <div className="grid grid-cols-7 border-b border-s112-border">
         {days.map((d, i) => {
           const isToday = toDateStr(d) === heute
@@ -151,7 +149,6 @@ function WochenView({ eintraege, current, heute }: { eintraege: KalenderEintrag[
         })}
       </div>
 
-      {/* Einträge pro Tag */}
       <div className="grid grid-cols-7 divide-x divide-s112-border bg-white">
         {days.map((d, i) => {
           const dateStr = toDateStr(d)
@@ -167,6 +164,177 @@ function WochenView({ eintraege, current, heute }: { eintraege: KalenderEintrag[
             </div>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+// ── Zeitachsen-Ansicht (Outlook-Style) ────────────────────────────────────────
+
+const HOUR_H = 64  // px per hour
+
+function ZeitachseView({ eintraege, current, heute }: { eintraege: KalenderEintrag[]; current: Date; heute: string }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const monday    = useMemo(() => startOfWeek(current), [current.toDateString()])
+  const days      = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(monday, i)), [monday.getTime()])
+
+  // Scroll to ~1h before current time on mount / week-change
+  useEffect(() => {
+    if (scrollRef.current) {
+      const now = new Date()
+      const top = Math.max(0, (now.getHours() - 1) * HOUR_H)
+      scrollRef.current.scrollTop = top
+    }
+  }, [monday.getTime()])
+
+  const byDay = useMemo(() => {
+    const map: Record<string, { ganztags: KalenderEintrag[]; timed: KalenderEintrag[] }> = {}
+    days.forEach(d => { map[toDateStr(d)] = { ganztags: [], timed: [] } })
+    eintraege.forEach(e => {
+      if (!map[e.datum]) return
+      if (e.ganztags !== false || !e.uhrzeit_von) map[e.datum].ganztags.push(e)
+      else map[e.datum].timed.push(e)
+    })
+    return map
+  }, [eintraege, monday.getTime()])
+
+  const now    = new Date()
+  const nowTop = (now.getHours() * 60 + now.getMinutes()) / 60 * HOUR_H
+
+  function vonTop(t: string): number {
+    const [h, m] = t.split(':').map(Number)
+    return h * HOUR_H + (m / 60) * HOUR_H
+  }
+
+  function blockHeight(von: string, bis: string | null | undefined): number {
+    if (!bis) return HOUR_H / 2          // 30 min default when no end time
+    const [h1, m1] = von.split(':').map(Number)
+    const [h2, m2] = bis.split(':').map(Number)
+    const mins = (h2 * 60 + m2) - (h1 * 60 + m1)
+    return Math.max(HOUR_H / 2, (mins / 60) * HOUR_H)
+  }
+
+  return (
+    <div className="border border-s112-border rounded-xl overflow-hidden">
+
+      {/* ── Sticky header: day names + Ganztags-Zeile ── */}
+      <div className="sticky top-0 z-20 bg-white shadow-sm">
+        {/* Day names */}
+        <div className="grid border-b border-s112-border" style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}>
+          <div className="bg-s112-bg border-r border-s112-border" />
+          {days.map((d, i) => {
+            const isToday = toDateStr(d) === heute
+            return (
+              <div key={i} className={`px-2 py-2 text-center border-l border-s112-border
+                ${isToday ? 'bg-s112-teal text-white' : 'bg-s112-bg'}`}>
+                <div className={`text-[10px] font-medium ${isToday ? 'text-white/80' : 'text-gray-500'}`}>
+                  {WOCHENTAGE[i]}
+                </div>
+                <div className={`text-lg font-bold leading-tight ${isToday ? 'text-white' : 'text-gray-800'}`}>
+                  {d.getDate()}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Ganztags row */}
+        <div className="grid border-b border-s112-border/60" style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}>
+          <div className="bg-s112-bg border-r border-s112-border flex items-center justify-end px-1">
+            <span className="text-[9px] text-gray-400 leading-none">ganztags</span>
+          </div>
+          {days.map((d, i) => {
+            const items = byDay[toDateStr(d)]?.ganztags ?? []
+            return (
+              <div key={i} className="border-l border-s112-border/60 p-1 space-y-0.5 min-h-[28px]">
+                {items.map(e => <EintragChip key={e.id} e={e} compact />)}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* ── Scrollable time grid ── */}
+      <div ref={scrollRef} className="overflow-y-auto bg-white" style={{ height: '560px' }}>
+        <div className="relative" style={{ height: `${24 * HOUR_H}px` }}>
+
+          {/* Background: hour labels + grid lines */}
+          <div className="absolute inset-0 grid pointer-events-none"
+            style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}>
+            {/* Hour label column */}
+            <div className="relative bg-s112-bg border-r border-s112-border">
+              {Array.from({ length: 24 }, (_, h) => (
+                <div key={h} className="absolute w-full flex justify-end pr-2"
+                  style={{ top: `${h * HOUR_H}px`, height: `${HOUR_H}px` }}>
+                  <span className="text-[10px] text-gray-400 tabular-nums mt-1">
+                    {String(h).padStart(2, '0')}:00
+                  </span>
+                </div>
+              ))}
+            </div>
+            {/* Day grid lines */}
+            {days.map((_, i) => (
+              <div key={i} className="relative border-l border-s112-border/30">
+                {Array.from({ length: 24 }, (_, h) => (
+                  <div key={h} className="absolute w-full"
+                    style={{ top: `${h * HOUR_H}px`, height: `${HOUR_H}px` }}>
+                    <div className="absolute top-0 w-full border-t border-s112-border/40" />
+                    <div className="absolute top-1/2 w-full border-t border-s112-border/20 border-dashed" />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          {/* Events + current-time-line per day column */}
+          <div className="absolute inset-0 grid"
+            style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}>
+            <div /> {/* spacer */}
+            {days.map((d, i) => {
+              const dateStr = toDateStr(d)
+              const isToday = dateStr === heute
+              const items   = byDay[dateStr]?.timed ?? []
+              return (
+                <div key={i} className="relative border-l border-s112-border/30">
+                  {/* Timed events */}
+                  {items.map(e => {
+                    const top = vonTop(e.uhrzeit_von!)
+                    const h   = blockHeight(e.uhrzeit_von!, e.uhrzeit_bis)
+                    const farbe = chipFarbe(e)
+                    return (
+                      <Link key={e.id} href={e.href}
+                        className={`absolute left-1 right-1 overflow-hidden rounded border z-10 hover:opacity-80 transition-opacity ${farbe}`}
+                        style={{ top: `${top}px`, height: `${h}px`, minHeight: `${HOUR_H / 2}px` }}>
+                        <div className="px-1.5 py-0.5">
+                          <div className="text-[10px] font-bold tabular-nums leading-tight">
+                            {fmtT(e.uhrzeit_von)}{e.uhrzeit_bis ? `–${fmtT(e.uhrzeit_bis)}` : ''}
+                          </div>
+                          <div className="text-[10px] font-medium truncate leading-tight">
+                            {e.artIcon} {e.titel}
+                          </div>
+                          {h > 50 && (e.kontaktName || e.firmaName) && (
+                            <div className="text-[9px] opacity-60 truncate">
+                              {e.kontaktName ?? e.firmaName}
+                            </div>
+                          )}
+                        </div>
+                      </Link>
+                    )
+                  })}
+                  {/* Current time indicator */}
+                  {isToday && (
+                    <div className="absolute left-0 right-0 z-20 pointer-events-none"
+                      style={{ top: `${nowTop}px` }}>
+                      <div className="relative border-t-2 border-red-500">
+                        <div className="absolute -left-1.5 -top-[5px] w-3 h-3 rounded-full bg-red-500" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -204,14 +372,12 @@ function MonatView({ eintraege, current, heute }: { eintraege: KalenderEintrag[]
 
   return (
     <div>
-      {/* Wochentag-Header */}
       <div className="grid grid-cols-7 mb-1">
         {WOCHENTAGE.map(d => (
           <div key={d} className="text-center text-xs font-medium text-gray-500 py-1">{d}</div>
         ))}
       </div>
 
-      {/* Kalender-Grid */}
       <div className="border border-s112-border rounded-xl overflow-hidden">
         <div className="grid grid-cols-7 divide-x divide-y divide-s112-border">
           {weeks.flatMap((week, wi) =>
@@ -228,16 +394,12 @@ function MonatView({ eintraege, current, heute }: { eintraege: KalenderEintrag[]
                   className={`min-h-[80px] p-1.5 bg-white
                     ${!isThisMonth ? 'bg-s112-bg/50' : ''}
                     ${isToday ? 'ring-2 ring-inset ring-s112-teal/30' : ''}`}>
-
-                  {/* Tageszahl */}
                   <div
                     className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-semibold mb-1
                       ${isToday ? 'bg-s112-teal text-white' : isThisMonth ? 'text-gray-700' : 'text-gray-300'}`}
                     style={!isToday && hasOverdue ? { backgroundColor: '#ef4444', color: '#fff' } : undefined}>
                     {day.getDate()}
                   </div>
-
-                  {/* Einträge (max 3) */}
                   <div className="space-y-0.5">
                     {items.slice(0, 3).map(e => (
                       <EintragChip key={e.id} e={e} compact />
@@ -284,15 +446,11 @@ function MiniMonat({
   return (
     <div className={`border rounded-xl p-2.5 bg-white ${hasAny ? 'border-s112-border' : 'border-s112-border/50'}`}>
       <div className="text-xs font-semibold text-gray-700 mb-2 text-center">{MONATE_KURZ[monthIdx]}</div>
-
-      {/* Wochentag-Buchstaben */}
       <div className="grid grid-cols-7 mb-0.5">
         {WOCHENTAGE_KURZ.map((d, i) => (
           <div key={i} className="text-center text-[8px] text-gray-400">{d}</div>
         ))}
       </div>
-
-      {/* Tage */}
       <div className="grid grid-cols-7">
         {weeks.flatMap((week, wi) =>
           week.map((day, di) => {
@@ -359,9 +517,9 @@ export default function CRMUebersichtClient({ eintraege, heute }: Props) {
   function navigate(dir: number) {
     setCurrent(prev => {
       const d = new Date(prev)
-      if (view === 'woche')  d.setDate(d.getDate() + dir * 7)
+      if (view === 'woche' || view === 'zeitachse') d.setDate(d.getDate() + dir * 7)
       else if (view === 'monat') d.setMonth(d.getMonth() + dir)
-      else                   d.setFullYear(d.getFullYear() + dir)
+      else d.setFullYear(d.getFullYear() + dir)
       return d
     })
   }
@@ -369,12 +527,12 @@ export default function CRMUebersichtClient({ eintraege, heute }: Props) {
   function goToday() { setCurrent(new Date()) }
 
   const periodLabel = useMemo(() => {
-    if (view === 'woche') {
+    if (view === 'woche' || view === 'zeitachse') {
       const mon = startOfWeek(current)
       const sun = addDays(mon, 6)
-      const sameMon = mon.getMonth() === sun.getMonth()
+      const sameMon  = mon.getMonth() === sun.getMonth()
       const sameYear = mon.getFullYear() === sun.getFullYear()
-      if (sameMon) return `${mon.getDate()}. – ${sun.getDate()}. ${MONATE[mon.getMonth()]} ${mon.getFullYear()}`
+      if (sameMon)  return `${mon.getDate()}. – ${sun.getDate()}. ${MONATE[mon.getMonth()]} ${mon.getFullYear()}`
       if (sameYear) return `${mon.getDate()}. ${MONATE_KURZ[mon.getMonth()]} – ${sun.getDate()}. ${MONATE_KURZ[sun.getMonth()]} ${sun.getFullYear()}`
       return `${mon.getDate()}. ${MONATE_KURZ[mon.getMonth()]} ${mon.getFullYear()} – ${sun.getDate()}. ${MONATE_KURZ[sun.getMonth()]} ${sun.getFullYear()}`
     }
@@ -414,13 +572,18 @@ export default function CRMUebersichtClient({ eintraege, heute }: Props) {
 
         {/* View-Toggle */}
         <div className="flex items-center border border-s112-border rounded-lg overflow-hidden text-sm">
-          {(['woche', 'monat', 'jahr'] as ViewMode[]).map(v => (
+          {([
+            { v: 'zeitachse', label: 'Zeitachse' },
+            { v: 'woche',     label: 'Woche'     },
+            { v: 'monat',     label: 'Monat'     },
+            { v: 'jahr',      label: 'Jahr'      },
+          ] as { v: ViewMode; label: string }[]).map(({ v, label }) => (
             <button key={v} onClick={() => setView(v)}
-              className={`px-3 py-1.5 font-medium transition-colors
+              className={`px-3 py-1.5 font-medium transition-colors border-r last:border-r-0 border-s112-border
                 ${view === v
                   ? 'bg-s112-teal text-white'
                   : 'bg-white text-gray-600 hover:bg-s112-bg'}`}>
-              {v === 'woche' ? 'Woche' : v === 'monat' ? 'Monat' : 'Jahr'}
+              {label}
             </button>
           ))}
         </div>
@@ -455,9 +618,10 @@ export default function CRMUebersichtClient({ eintraege, heute }: Props) {
       </div>
 
       {/* ── Kalender ── */}
-      {view === 'woche' && <WochenView eintraege={eintraege} current={current} heute={heute} />}
-      {view === 'monat' && <MonatView eintraege={eintraege} current={current} heute={heute} />}
-      {view === 'jahr'  && <JahrView  eintraege={eintraege} current={current} heute={heute} />}
+      {view === 'zeitachse' && <ZeitachseView eintraege={eintraege} current={current} heute={heute} />}
+      {view === 'woche'     && <WochenView    eintraege={eintraege} current={current} heute={heute} />}
+      {view === 'monat'     && <MonatView     eintraege={eintraege} current={current} heute={heute} />}
+      {view === 'jahr'      && <JahrView      eintraege={eintraege} current={current} heute={heute} />}
 
       {/* ── Legende ── */}
       <div className="flex items-center gap-x-4 gap-y-1.5 pt-1 flex-wrap">
@@ -480,7 +644,6 @@ export default function CRMUebersichtClient({ eintraege, heute }: Props) {
         ))}
       </div>
 
-      {/* Kein Inhalt */}
       {eintraege.length === 0 && (
         <div className="text-center py-12 text-s112-muted text-sm">
           Noch keine Einträge mit Datum vorhanden.
