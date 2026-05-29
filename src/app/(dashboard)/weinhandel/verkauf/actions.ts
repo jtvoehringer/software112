@@ -214,13 +214,10 @@ export async function stornoVerkauf(id: string) {
   const { data: vorabStorno } = await (supabase.from('verkaufsposten') as any)
     .select('rechnungsnummer').eq('id', id).single()
 
-  // Posten als storniert markieren (Admin-Client umgeht RLS)
-  const adminClient = createSupabaseAdminClient()
-  const { error } = await (adminClient.from('verkaufsposten') as any)
-    .update({ storniert: true, storniert_am: new Date().toISOString() })
-    .eq('id', id)
+  // Posten als storniert markieren via RPC (umgeht PostgREST schema cache)
+  const { error } = await (supabase.rpc as any)('set_verkauf_storniert', { posten_id: id })
   if (error) {
-    console.error('stornoVerkauf update error:', JSON.stringify(error))
+    console.error('stornoVerkauf RPC error:', JSON.stringify(error))
     throw new Error(`Storno fehlgeschlagen: ${(error as AR).message}`)
   }
 
@@ -248,12 +245,10 @@ export async function markiereAlsBezahlt(id: string) {
   const { data: vorab } = await (supabase.from('verkaufsposten') as any)
     .select('rechnungsnummer').eq('id', id).single()
 
-  const adminClient2 = createSupabaseAdminClient()
-  const { error } = await (adminClient2.from('verkaufsposten') as any)
-    .update({ bezahlt: true, bezahlt_am: new Date().toISOString() })
-    .eq('id', id)
+  // Via RPC (umgeht PostgREST schema cache)
+  const { error } = await (supabase.rpc as any)('mark_verkauf_bezahlt', { posten_id: id })
   if (error) {
-    console.error('markiereAlsBezahlt update error:', JSON.stringify(error))
+    console.error('markiereAlsBezahlt RPC error:', JSON.stringify(error))
     throw new Error(`Bezahlt-Markierung fehlgeschlagen: ${(error as AR).message}`)
   }
 
