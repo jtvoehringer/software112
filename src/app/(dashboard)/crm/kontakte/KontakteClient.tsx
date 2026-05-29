@@ -247,10 +247,11 @@ function PipelineForm({ kontaktId, onDone }: { kontaktId: string; onDone: () => 
 // ── Kontakt-Karte ─────────────────────────────────────────────────────────────
 
 function KontaktKarte({
-  kontakt, firmen, aktivitaeten, pipeline, writeOk, sortBy,
+  kontakt, firmen, rabattgruppen, aktivitaeten, pipeline, writeOk, sortBy,
 }: {
   kontakt: KontaktRow
   firmen: FirmaOption[]
+  rabattgruppen: RabattgruppeOption[]
   aktivitaeten: AktivitaetRow[]
   pipeline: PipelineRow[]
   writeOk: boolean
@@ -525,6 +526,7 @@ export default function KontakteClient({
               key={k.id}
               kontakt={k}
               firmen={firmen}
+              rabattgruppen={rabattgruppen}
               aktivitaeten={aktivitaetenMap[k.id] ?? []}
               pipeline={pipelineMap[k.id] ?? []}
               writeOk={writeOk}
