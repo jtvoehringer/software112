@@ -511,7 +511,7 @@ interface Props {
 }
 
 export default function CRMUebersichtClient({ eintraege, heute }: Props) {
-  const [view, setView]       = useState<ViewMode>('woche')
+  const [view, setView]       = useState<ViewMode>('zeitachse')
   const [current, setCurrent] = useState<Date>(() => new Date())
 
   function navigate(dir: number) {

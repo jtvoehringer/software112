@@ -22,7 +22,7 @@ export default async function CRMUebersichtPage() {
 
   // Alle Pipeline-Einträge mit Erwartungsdatum
   const { data: pipelineRaw } = await (supabase.from('pipeline_eintraege') as any)
-    .select('id, titel, stufe, erwartetes_datum, kontakt_id, firma_id')
+    .select('id, titel, stufe, erwartetes_datum, ganztags, uhrzeit_von, uhrzeit_bis, kontakt_id, firma_id')
     .not('erwartetes_datum', 'is', null)
     .order('erwartetes_datum', { ascending: true })
 
@@ -74,6 +74,9 @@ export default async function CRMUebersichtPage() {
       typ: 'pipeline' as const,
       art: p.stufe as string,
       artIcon: '💼',
+      ganztags: (p.ganztags as boolean) ?? true,
+      uhrzeit_von: (p.uhrzeit_von as string | null) ?? null,
+      uhrzeit_bis: (p.uhrzeit_bis as string | null) ?? null,
       ueberfaellig:
         !PIPELINE_ABGESCHLOSSEN.has(p.stufe as string) &&
         (p.erwartetes_datum as string) < heute,

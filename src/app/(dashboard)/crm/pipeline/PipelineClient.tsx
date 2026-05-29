@@ -41,11 +41,13 @@ function PipelineForm({
   onDone: () => void
 }) {
   const [pending, startTransition] = useTransition()
+  const [ganztags, setGanztags] = useState(initial?.ganztags ?? true)
   const v = (f: keyof PipelineEintragRow) => (initial?.[f] ?? '') as string
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
+    fd.set('ganztags', ganztags ? 'true' : 'false')
     startTransition(async () => {
       if (initial) await updatePipelineEintrag(initial.id, fd)
       else await createPipelineEintrag(fd)
@@ -103,6 +105,25 @@ function PipelineForm({
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Erwarteter Abschluss</label>
           <input name="erwartetes_datum" type="date" defaultValue={v('erwartetes_datum')} className={inputCls()} />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="block text-xs font-medium text-gray-600 mb-1">Uhrzeit</label>
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none shrink-0">
+              <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)} className="rounded" />
+              Ganztags
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400">Von</span>
+              <input name="uhrzeit_von" type="time" step="1800" disabled={ganztags}
+                defaultValue={v('uhrzeit_von').slice(0,5)}
+                className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-gray-50' : ''}`} />
+              <span className="text-xs text-gray-400">–</span>
+              <input name="uhrzeit_bis" type="time" step="1800" disabled={ganztags}
+                defaultValue={v('uhrzeit_bis').slice(0,5)}
+                className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-gray-50' : ''}`} />
+            </div>
+          </div>
         </div>
       </div>
 

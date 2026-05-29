@@ -186,11 +186,13 @@ function AktivitaetForm({ kontaktId, onDone }: { kontaktId: string; onDone: () =
 
 function PipelineForm({ kontaktId, onDone }: { kontaktId: string; onDone: () => void }) {
   const [pending, startTransition] = useTransition()
+  const [ganztags, setGanztags] = useState(true)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
     fd.set('kontakt_id', kontaktId)
+    fd.set('ganztags', ganztags ? 'true' : 'false')
     startTransition(async () => { await createPipelineEintrag(fd); onDone() })
   }
 
@@ -205,6 +207,20 @@ function PipelineForm({ kontaktId, onDone }: { kontaktId: string; onDone: () => 
       <div className="grid grid-cols-2 gap-2">
         <input name="wert_euro" type="number" step="0.01" placeholder="Wert € (optional)" className={inputCls()} />
         <input name="wahrscheinlichkeit" type="number" min="0" max="100" placeholder="Wahrsch. % (optional)" className={inputCls()} />
+      </div>
+      <div className="flex items-center gap-3 flex-wrap">
+        <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none shrink-0">
+          <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)} className="rounded" />
+          Ganztags
+        </label>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400">Von</span>
+          <input name="uhrzeit_von" type="time" step="1800" disabled={ganztags}
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-gray-50' : ''}`} />
+          <span className="text-xs text-gray-400">–</span>
+          <input name="uhrzeit_bis" type="time" step="1800" disabled={ganztags}
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-gray-50' : ''}`} />
+        </div>
       </div>
       <div className="flex gap-2">
         <button type="submit" disabled={pending}
@@ -485,3 +501,4 @@ export default function KontakteClient({
     </div>
   )
 }
+                                                                                                                                                                

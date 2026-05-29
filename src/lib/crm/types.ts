@@ -129,6 +129,9 @@ export type PipelineEintragRow = {
   wert_euro: number | null
   wahrscheinlichkeit: number | null
   erwartetes_datum: string | null
+  ganztags: boolean
+  uhrzeit_von: string | null   // "HH:MM:SS"
+  uhrzeit_bis: string | null
   erledigt: boolean
   erledigt_am: string | null
   notizen: string | null

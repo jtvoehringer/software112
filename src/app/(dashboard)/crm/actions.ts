@@ -206,6 +206,7 @@ export async function toggleAktivitaetErledigt(id: string, erledigt: boolean) {
 export async function createPipelineEintrag(formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
+  const ganztags = formData.get('ganztags') !== 'false'
   const payload: AR = {
     tenant_id:           tenantId,
     titel:               formData.get('titel') as string,
@@ -217,6 +218,9 @@ export async function createPipelineEintrag(formData: FormData) {
     wahrscheinlichkeit:  parseInt(formData.get('wahrscheinlichkeit') as string) || null,
     erwartetes_datum:    (formData.get('erwartetes_datum') as string) || null,
     notizen:             (formData.get('notizen') as string) || null,
+    ganztags,
+    uhrzeit_von:         ganztags ? null : ((formData.get('uhrzeit_von') as string) || null),
+    uhrzeit_bis:         ganztags ? null : ((formData.get('uhrzeit_bis') as string) || null),
   }
   const { error } = await (supabase.from('pipeline_eintraege') as any).insert(payload)
   if (error) throw new Error((error as AR).message)
@@ -252,6 +256,7 @@ export async function togglePipelineErledigt(id: string, erledigt: boolean) {
 
 export async function updatePipelineEintrag(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
+  const ganztags = formData.get('ganztags') !== 'false'
   const payload: AR = {
     titel:               formData.get('titel') as string,
     stufe:               formData.get('stufe') as string,
@@ -262,6 +267,9 @@ export async function updatePipelineEintrag(id: string, formData: FormData) {
     wahrscheinlichkeit:  parseInt(formData.get('wahrscheinlichkeit') as string) || null,
     erwartetes_datum:    (formData.get('erwartetes_datum') as string) || null,
     notizen:             (formData.get('notizen') as string) || null,
+    ganztags,
+    uhrzeit_von:         ganztags ? null : ((formData.get('uhrzeit_von') as string) || null),
+    uhrzeit_bis:         ganztags ? null : ((formData.get('uhrzeit_bis') as string) || null),
     aktualisiert_am:     new Date().toISOString(),
   }
   const { error } = await (supabase.from('pipeline_eintraege') as any).update(payload).eq('id', id)
