@@ -215,7 +215,7 @@ export async function stornoVerkauf(id: string) {
     .select('rechnungsnummer').eq('id', id).single()
 
   // Posten als storniert markieren via RPC (umgeht PostgREST schema cache)
-  const { error } = await (supabase.rpc as any)('set_verkauf_storniert', { posten_id: id })
+  const { error } = await (supabase.rpc as any)('set_verkauf_storniert', { p_posten_id: id })
   if (error) {
     console.error('stornoVerkauf RPC error:', JSON.stringify(error))
     throw new Error(`Storno fehlgeschlagen: ${(error as AR).message}`)
@@ -246,7 +246,7 @@ export async function markiereAlsBezahlt(id: string) {
     .select('rechnungsnummer').eq('id', id).single()
 
   // Via RPC (umgeht PostgREST schema cache)
-  const { error } = await (supabase.rpc as any)('mark_verkauf_bezahlt', { posten_id: id })
+  const { error } = await (supabase.rpc as any)('mark_verkauf_bezahlt', { p_posten_id: id })
   if (error) {
     console.error('markiereAlsBezahlt RPC error:', JSON.stringify(error))
     throw new Error(`Bezahlt-Markierung fehlgeschlagen: ${(error as AR).message}`)
