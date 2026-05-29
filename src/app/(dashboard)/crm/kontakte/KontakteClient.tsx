@@ -61,12 +61,12 @@ function KontaktForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Vorname</label>
-          <input name="vorname" defaultValue={v('vorname')} className={inputCls()} />
-        </div>
-        <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Nachname *</label>
           <input name="nachname" defaultValue={v('nachname')} required className={inputCls()} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Vorname</label>
+          <input name="vorname" defaultValue={v('vorname')} className={inputCls()} />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Segment *</label>

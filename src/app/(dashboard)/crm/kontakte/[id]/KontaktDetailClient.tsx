@@ -236,6 +236,7 @@ export default function KontaktDetailClient({
         </div>
 
         <div className="space-y-4">
+          <h2 className="text-base font-semibold text-gray-800">Informationen</h2>
 
           <div className="card p-4 space-y-2">
             <h2 className="text-sm font-semibold text-gray-800 mb-3">Kontaktdaten</h2>
