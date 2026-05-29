@@ -73,6 +73,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     ort: k.ort ?? null, land: k.land ?? null,
     newsletter: k.newsletter ?? false, newsletter_bestaetigt: k.newsletter_bestaetigt ?? false,
     stammkunde: k.stammkunde ?? false, notizen: k.notizen ?? null,
+    rabattgruppe_id: null, rabattgruppe_name: null, rabattgruppe_pct: null,
     aktiv: k.aktiv ?? true, erstellt_am: k.erstellt_am,
   }))
 
