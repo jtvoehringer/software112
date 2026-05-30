@@ -26,7 +26,7 @@ export type KalenderEintrag = {
   stufe?: string
 }
 
-type ViewMode = 'woche' | 'monat' | 'jahr' | 'zeitachse'
+type ViewMode = 'zeitachse' | 'monat' | 'jahr'
 
 // ── Datum-Hilfsfunktionen ─────────────────────────────────────────────────────
 
@@ -194,10 +194,10 @@ function ZeitachseView({
   const [pending, startTransition] = useTransition()
 
   // neue Aktivität
-  const [newAkt,    setNewAkt]    = useState<{ datum: string; von: string; bis: string } | null>(null)
+  const [newAkt,    setNewAkt]    = useState<{ datum: string; von: string; bis: string; ganztags: boolean } | null>(null)
   const [saveErr,   setSaveErr]   = useState<string | null>(null)
   // drag & drop
-  const [dragInfo,   setDragInfo]   = useState<{ id: string; duration: number } | null>(null)
+  const [dragInfo,   setDragInfo]   = useState<{ id: string; duration: number; ganztags?: boolean } | null>(null)
   const [dropTarget, setDropTarget] = useState<string | null>(null)
 
   useEffect(() => {
@@ -250,20 +250,28 @@ function ZeitachseView({
     }
   }
 
+  // Klick auf Ganztags-Zeile → neue Ganztags-Aktivität
+  function handleGanztagesClick(e: React.MouseEvent<HTMLDivElement>, dateStr: string) {
+    if ((e.target as HTMLElement).closest('a, button')) return
+    if (dragInfo) return
+    setSaveErr(null)
+    setNewAkt({ datum: dateStr, von: '', bis: '', ganztags: true })
+  }
+
   // Klick auf freien Slot → neue Aktivität
   function handleSlotClick(e: React.MouseEvent<HTMLDivElement>, dateStr: string) {
     if ((e.target as HTMLElement).closest('a, button')) return
     if (dragInfo) return
     const { von, bis } = snapTime(e.clientY, e.currentTarget.getBoundingClientRect())
     setSaveErr(null)
-    setNewAkt({ datum: dateStr, von, bis })
+    setNewAkt({ datum: dateStr, von, bis, ganztags: false })
   }
 
   // Aktivität speichern (Modal)
   function handleSaveAkt(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    fd.set('ganztags', 'false')
+    fd.set('ganztags', newAkt?.ganztags ? 'true' : 'false')
     startTransition(async () => {
       try {
         await createAktivitaet(fd)
@@ -272,6 +280,19 @@ function ZeitachseView({
       } catch (err) {
         setSaveErr(err instanceof Error ? err.message : 'Fehler beim Speichern')
       }
+    })
+  }
+
+  // Drop in Ganztags-Zeile → Datum ändern, ganztags behalten
+  function handleGanztagsDrop(e: React.DragEvent<HTMLDivElement>, dateStr: string) {
+    e.preventDefault()
+    if (!dragInfo?.ganztags) return
+    const id = dragInfo.id
+    setDragInfo(null)
+    setDropTarget(null)
+    startTransition(async () => {
+      await moveAktivitaet(id, dateStr, '', '')
+      router.refresh()
     })
   }
 
@@ -319,10 +340,35 @@ function ZeitachseView({
             <span className="text-[9px] text-gray-400 leading-none">ganztags</span>
           </div>
           {days.map((d, i) => {
-            const items = byDay[toDateStr(d)]?.ganztags ?? []
+            const dateStr  = toDateStr(d)
+            const items    = byDay[dateStr]?.ganztags ?? []
+            const isGDrop  = dropTarget === dateStr && dragInfo?.ganztags
             return (
-              <div key={i} className="border-l border-s112-border/60 p-1 space-y-0.5 min-h-[28px]">
-                {items.map(e => <EintragChip key={e.id} e={e} compact />)}
+              <div key={i}
+                className={`border-l border-s112-border/60 p-1 space-y-0.5 min-h-[28px] cursor-pointer transition-colors ${isGDrop ? 'bg-s112-teal/10' : 'hover:bg-s112-bg/60'}`}
+                onClick={(e) => handleGanztagesClick(e, dateStr)}
+                onDragOver={(e) => { if (dragInfo?.ganztags) { e.preventDefault(); setDropTarget(dateStr) } }}
+                onDragLeave={() => setDropTarget(prev => prev === dateStr ? null : prev)}
+                onDrop={(e) => handleGanztagsDrop(e, dateStr)}
+              >
+                {items.map(e => {
+                  const isAkt  = e.typ === 'aktivitaet'
+                  const aktId  = isAkt ? e.id.replace('a_', '') : ''
+                  return (
+                    <div key={e.id}
+                      draggable={isAkt}
+                      onDragStart={isAkt ? (ev) => {
+                        ev.dataTransfer.setData('text/plain', aktId)
+                        ev.dataTransfer.effectAllowed = 'move'
+                        setDragInfo({ id: aktId, duration: 0, ganztags: true })
+                      } : undefined}
+                      onDragEnd={() => { setDragInfo(null); setDropTarget(null) }}
+                      className={isAkt ? `cursor-grab active:cursor-grabbing ${dragInfo?.id === aktId ? 'opacity-40' : ''}` : ''}
+                    >
+                      <EintragChip e={e} compact />
+                    </div>
+                  )
+                })}
               </div>
             )
           })}
@@ -444,15 +490,15 @@ function ZeitachseView({
         onClick={() => setNewAkt(null)}>
         <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4"
           onClick={e => e.stopPropagation()}>
-          <h3 className="text-base font-bold text-gray-900 mb-1">Neue Aktivität</h3>
+          <h3 className="text-base font-bold text-gray-900 mb-1">{newAkt?.ganztags ? '📅 Ganztags-Aktivität' : 'Neue Aktivität'}</h3>
           <p className="text-xs text-s112-muted mb-4">
             {new Date(newAkt.datum + 'T12:00:00').toLocaleDateString('de-AT', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
           <form onSubmit={handleSaveAkt} className="space-y-3">
             <input type="hidden" name="datum" value={newAkt.datum} />
 
-            {/* Art + Zeit */}
-            <div className="grid grid-cols-2 gap-2">
+            {/* Art + ggf. Zeit */}
+            <div className={`gap-2 ${newAkt?.ganztags ? '' : 'grid grid-cols-2'}`}>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Art</label>
                 <select name="art" defaultValue="notiz" className={inputCls}>
@@ -461,16 +507,18 @@ function ZeitachseView({
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Zeit</label>
-                <div className="flex items-center gap-1">
-                  <input type="time" name="uhrzeit_von" defaultValue={newAkt.von}
-                    className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none w-full" />
-                  <span className="text-xs text-gray-400 flex-shrink-0">–</span>
-                  <input type="time" name="uhrzeit_bis" defaultValue={newAkt.bis}
-                    className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none w-full" />
+              {!newAkt?.ganztags && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Zeit</label>
+                  <div className="flex items-center gap-1">
+                    <input type="time" name="uhrzeit_von" defaultValue={newAkt.von}
+                      className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none w-full" />
+                    <span className="text-xs text-gray-400 flex-shrink-0">–</span>
+                    <input type="time" name="uhrzeit_bis" defaultValue={newAkt.bis}
+                      className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none w-full" />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Betreff */}
@@ -706,7 +754,7 @@ export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen
   function navigate(dir: number) {
     setCurrent(prev => {
       const d = new Date(prev)
-      if (view === 'woche' || view === 'zeitachse') d.setDate(d.getDate() + dir * 7)
+      if (view === 'zeitachse') d.setDate(d.getDate() + dir * 7)
       else if (view === 'monat') d.setMonth(d.getMonth() + dir)
       else d.setFullYear(d.getFullYear() + dir)
       return d
@@ -716,7 +764,7 @@ export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen
   function goToday() { setCurrent(new Date()) }
 
   const periodLabel = useMemo(() => {
-    if (view === 'woche' || view === 'zeitachse') {
+    if (view === 'zeitachse') {
       const mon = startOfWeek(current)
       const sun = addDays(mon, 6)
       const sameMon  = mon.getMonth() === sun.getMonth()
@@ -762,10 +810,9 @@ export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen
         {/* View-Toggle */}
         <div className="flex items-center border border-s112-border rounded-lg overflow-hidden text-sm">
           {([
-            { v: 'zeitachse', label: 'Zeitachse' },
-            { v: 'woche',     label: 'Woche'     },
-            { v: 'monat',     label: 'Monat'     },
-            { v: 'jahr',      label: 'Jahr'      },
+            { v: 'zeitachse', label: 'Woche'  },
+            { v: 'monat',     label: 'Monat'  },
+            { v: 'jahr',      label: 'Jahr'   },
           ] as { v: ViewMode; label: string }[]).map(({ v, label }) => (
             <button key={v} onClick={() => setView(v)}
               className={`px-3 py-1.5 font-medium transition-colors border-r last:border-r-0 border-s112-border
@@ -808,7 +855,6 @@ export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen
 
       {/* ── Kalender ── */}
       {view === 'zeitachse' && <ZeitachseView eintraege={eintraege} current={current} heute={heute} kontakte={kontakte} firmen={firmen} />}
-      {view === 'woche'     && <WochenView    eintraege={eintraege} current={current} heute={heute} />}
       {view === 'monat'     && <MonatView     eintraege={eintraege} current={current} heute={heute} />}
       {view === 'jahr'      && <JahrView      eintraege={eintraege} current={current} heute={heute} />}
 

@@ -162,7 +162,7 @@ export async function deleteFirma(id: string) {
 export async function moveAktivitaet(id: string, datum: string, uhrzeit_von: string, uhrzeit_bis: string) {
   const supabase = await createSupabaseServerClient()
   const { error } = await (supabase.from('aktivitaeten') as any)
-    .update({ datum, ganztags: false, uhrzeit_von, uhrzeit_bis })
+    .update({ datum, ganztags: !uhrzeit_von && !uhrzeit_bis, uhrzeit_von: uhrzeit_von || null, uhrzeit_bis: uhrzeit_bis || null })
     .eq('id', id)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/crm')
