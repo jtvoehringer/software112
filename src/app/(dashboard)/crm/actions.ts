@@ -52,7 +52,6 @@ export async function createKontakt(formData: FormData) {
 
 export async function updateKontakt(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
-  console.log('[updateKontakt] sonderrabatt_pct from form:', formData.get('sonderrabatt_pct'))
   const payload: AR = {
     vorname:    (formData.get('vorname') as string) || null,
     nachname:   formData.get('nachname') as string,
@@ -69,9 +68,7 @@ export async function updateKontakt(id: string, formData: FormData) {
     sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
     aktualisiert_am: new Date().toISOString(),
   }
-  console.log('[updateKontakt] payload.sonderrabatt_pct:', payload.sonderrabatt_pct)
-  const { data: updateData, error } = await (supabase.from('kontakte') as any).update(payload).eq('id', id).select('id, sonderrabatt_pct').single()
-  console.log('[updateKontakt] result:', updateData, 'error:', error?.message)
+  const { error } = await (supabase.from('kontakte') as any).update(payload).eq('id', id)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/crm/kontakte')
   revalidatePath('/crm/kontakte/[id]', 'page')

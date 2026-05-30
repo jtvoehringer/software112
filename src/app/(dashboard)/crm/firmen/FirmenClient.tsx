@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createFirma, updateFirma, deleteFirma } from '../actions'
 import { SEGMENTE, segmentLabel, segmentFarbe } from '@/lib/crm/types'
@@ -19,6 +20,7 @@ const LAENDER = ['AT', 'DE', 'CH', 'IT', 'FR', 'HU', 'SK', 'CZ', 'US', 'GB']
 
 function FirmaForm({ initial, rabattgruppen, defaultSegment, onDone }: { initial?: FirmaRow | null; rabattgruppen: {id:string;name:string;rabatt_pct:number}[]; defaultSegment?: string; onDone: () => void }) {
   const [pending, startTransition] = useTransition()
+  const router = useRouter()
   const [segmentVal, setSegmentVal] = useState(initial?.segment ?? defaultSegment ?? 'handel')
   const [saveError, setSaveError]   = useState<string | null>(null)
   const v = (field: keyof FirmaRow) => (initial?.[field] ?? '') as string
@@ -36,6 +38,7 @@ function FirmaForm({ initial, rabattgruppen, defaultSegment, onDone }: { initial
         if (initial) await updateFirma(initial.id, fd)
         else await createFirma(fd)
         onDone()
+        router.refresh()
       } catch (err) {
         setSaveError(err instanceof Error ? err.message : 'Fehler beim Speichern')
       }

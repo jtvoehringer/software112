@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createKontakt, updateKontakt, deleteKontakt, createAktivitaet, createPipelineEintrag } from '../actions'
 import { SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN, segmentLabel, segmentFarbe } from '@/lib/crm/types'
@@ -36,6 +37,7 @@ function KontaktForm({
   defaultSegment?: string
   onDone: () => void
 }) {
+  const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [stammkunde, setStammkunde] = useState(initial?.stammkunde ?? false)
   const [segmentVal, setSegmentVal] = useState(initial?.segment ?? defaultSegment ?? 'privat')
@@ -55,6 +57,7 @@ function KontaktForm({
         if (initial) await updateKontakt(initial.id, fd)
         else await createKontakt(fd)
         onDone()
+        router.refresh()
       } catch (err) {
         setSaveError(err instanceof Error ? err.message : 'Fehler beim Speichern')
       }
