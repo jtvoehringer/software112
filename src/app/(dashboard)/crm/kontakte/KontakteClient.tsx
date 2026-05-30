@@ -39,6 +39,7 @@ function KontaktForm({
   const [pending, startTransition] = useTransition()
   const [stammkunde, setStammkunde] = useState(initial?.stammkunde ?? false)
   const [segmentVal, setSegmentVal] = useState(initial?.segment ?? defaultSegment ?? 'privat')
+  const [saveError, setSaveError]   = useState<string | null>(null)
 
   useEffect(() => {
     if (!initial && defaultSegment) setSegmentVal(defaultSegment)
@@ -48,10 +49,15 @@ function KontaktForm({
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
     fd.set('stammkunde', stammkunde ? 'true' : 'false')
+    setSaveError(null)
     startTransition(async () => {
-      if (initial) await updateKontakt(initial.id, fd)
-      else await createKontakt(fd)
-      onDone()
+      try {
+        if (initial) await updateKontakt(initial.id, fd)
+        else await createKontakt(fd)
+        onDone()
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : 'Fehler beim Speichern')
+      }
     })
   }
 
@@ -60,6 +66,7 @@ function KontaktForm({
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-5 space-y-4">
       <h3 className="text-sm font-semibold text-gray-800">{initial ? 'Kontakt bearbeiten' : 'Neuer Kontakt'}</h3>
+      {saveError && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{saveError}</p>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>

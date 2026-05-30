@@ -20,6 +20,7 @@ const LAENDER = ['AT', 'DE', 'CH', 'IT', 'FR', 'HU', 'SK', 'CZ', 'US', 'GB']
 function FirmaForm({ initial, rabattgruppen, defaultSegment, onDone }: { initial?: FirmaRow | null; rabattgruppen: {id:string;name:string;rabatt_pct:number}[]; defaultSegment?: string; onDone: () => void }) {
   const [pending, startTransition] = useTransition()
   const [segmentVal, setSegmentVal] = useState(initial?.segment ?? defaultSegment ?? 'handel')
+  const [saveError, setSaveError]   = useState<string | null>(null)
   const v = (field: keyof FirmaRow) => (initial?.[field] ?? '') as string
 
   useEffect(() => {
@@ -29,16 +30,22 @@ function FirmaForm({ initial, rabattgruppen, defaultSegment, onDone }: { initial
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
+    setSaveError(null)
     startTransition(async () => {
-      if (initial) await updateFirma(initial.id, fd)
-      else await createFirma(fd)
-      onDone()
+      try {
+        if (initial) await updateFirma(initial.id, fd)
+        else await createFirma(fd)
+        onDone()
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : 'Fehler beim Speichern')
+      }
     })
   }
 
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-5 space-y-4">
       <h3 className="text-sm font-semibold text-gray-800">{initial ? 'Firma bearbeiten' : 'Neue Firma'}</h3>
+      {saveError && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{saveError}</p>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="sm:col-span-2">

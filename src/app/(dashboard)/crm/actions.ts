@@ -71,6 +71,7 @@ export async function updateKontakt(id: string, formData: FormData) {
   const { error } = await (supabase.from('kontakte') as any).update(payload).eq('id', id)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/crm/kontakte')
+  revalidatePath('/crm/kontakte/[id]', 'page')
 }
 
 export async function deleteKontakt(id: string) {
@@ -132,6 +133,7 @@ export async function updateFirma(id: string, formData: FormData) {
   const { error } = await (supabase.from('firmen') as any).update(payload).eq('id', id)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/crm/firmen')
+  revalidatePath('/crm/firmen/[id]', 'page')
 }
 
 export async function deleteFirma(id: string) {
