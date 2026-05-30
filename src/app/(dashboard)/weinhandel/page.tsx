@@ -4,7 +4,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import FuellungLoeschen from './FuellungLoeschen'
 
-export const metadata: Metadata = { title: 'Weinhandel – software:112' }
+export const metadata: Metadata = { title: 'Warenwirtschaft – software:112' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

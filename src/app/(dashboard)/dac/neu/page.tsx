@@ -4,7 +4,7 @@ import Link from 'next/link'
 import DacForm from '@/components/dac/DacForm'
 import { createDacAntrag } from '../actions'
 
-export const metadata: Metadata = { title: 'Neuer DAC-Antrag – software:112' }
+export const metadata: Metadata = { title: 'Neuer Prüfnummern-Antrag – software:112' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -25,7 +25,7 @@ export default async function NeuePage() {
         <span>/</span>
         <span className="text-gray-700 font-medium">Neuer Antrag</span>
       </div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Neuer DAC-Antrag</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">Neuer Prüfnummern-Antrag</h1>
       <DacForm weinausbau={weinausbau} action={createDacAntrag} />
     </div>
   )

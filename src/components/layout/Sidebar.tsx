@@ -41,7 +41,7 @@ const NAV: NavEntry[] = [
     kind: 'group', label: 'Kellerbuch', icon: '🍷',
     items: [
       { href: '/kellerbuch',                label: 'Vinifizierung', phase: 1 },
-      { href: '/dac',                       label: 'DAC & Prüfnr.', phase: 1 },
+      { href: '/dac',                       label: 'Prüfnummer', phase: 1 },
       { href: '/kellerbuch/umziehen',       label: 'Umziehen',      phase: 1 },
       { href: '/kellerbuch/kellerplan',     label: 'Kellerplan',    phase: 1 },
       { href: '/weinhandel/fuellungen/neu', label: 'Füllen',   phase: 1 },
@@ -49,7 +49,7 @@ const NAV: NavEntry[] = [
   },
 
   {
-    kind: 'group', label: 'Weinhandel', icon: '🛒',
+    kind: 'group', label: 'Warenwirtschaft', icon: '🛒',
     items: [
       { href: '/weinhandel',              label: 'Lager',       phase: 1 },
       { href: '/weinhandel/verkauf',        label: 'Verkauf',       phase: 1 },
@@ -267,11 +267,4 @@ export default function Sidebar({ userEmail, role, roleLabel, branding }: Sideba
             width={20} height={20}
             className="rounded-full opacity-60 flex-shrink-0"
           />
-          <p className="text-[9px] text-s112-muted/50 leading-tight">
-            &copy; IC&amp;P Consultants e.U.
-          </p>
-        </div>
-      </div>
-    </aside>
-  )
-}
+        

@@ -188,6 +188,10 @@ export default function NeuerVerkaufPage() {
       sonderrabatt_pct: p.sonderrabatt_aktiv ? (parseFloat(p.sonderrabatt) || 0) : 0,
     }))
 
+    if (!kontaktId && !firmaId) {
+      setError('Bitte Kontakt oder Firma auswählen.')
+      return
+    }
     if (posForServer.some(p => !p.name || p.menge <= 0)) {
       setError('Alle Positionen benötigen einen Namen und eine Menge > 0.')
       return
@@ -256,7 +260,7 @@ export default function NeuerVerkaufPage() {
               <p className="text-xs text-s112-muted mt-1">Automatisch generiert beim Speichern</p>
             </div>
             <div>
-              <label className={labelCls}>Kontakt (Person)</label>
+              <label className={labelCls}>Kontakt (Person) *</label>
               <select
                 value={kontaktId}
                 onChange={e => {
@@ -279,7 +283,7 @@ export default function NeuerVerkaufPage() {
               </select>
             </div>
             <div>
-              <label className={labelCls}>Firma</label>
+              <label className={labelCls}>Firma *</label>
               <select
                 value={firmaId}
                 onChange={e => {
@@ -493,64 +497,4 @@ export default function NeuerVerkaufPage() {
                   Sonderrabatt
                 </label>
                 {pos.sonderrabatt_aktiv && (
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="number"
-                      value={pos.sonderrabatt}
-                      onChange={e => updatePos(idx, { sonderrabatt: e.target.value })}
-                      min="0" max="100" step="0.5"
-                      placeholder="0"
-                      className="border border-s112-border rounded-lg px-2 py-1 text-xs w-16 focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
-                    />
-                    <span className="text-xs text-gray-400">%</span>
-                  </div>
-                )}
-                {(parseFloat(pos.rabatt_pct) > 0 || pos.sonderrabatt_aktiv) && (
-                  <span className="text-xs text-gray-400 ml-auto">
-                    Listenpreis: {((parseFloat(pos.preis_brutto) || 0) * (parseFloat(pos.menge) || 0))
-                      .toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
-
-          <button
-            type="button"
-            onClick={addPosition}
-            className="text-xs text-s112-teal border border-s112-teal/40 px-3 py-1.5 rounded-lg hover:bg-s112-teal/5"
-          >
-            + Position hinzufügen
-          </button>
-        </div>
-
-        {/* Gesamt + Submit */}
-        <div className="card p-5 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-s112-muted">Gesamtbetrag (brutto)</p>
-            <p className="text-2xl font-bold text-s112-teal tabular-nums">
-              {gesamt.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
-            </p>
-            <p className="text-xs text-s112-muted mt-0.5">inkl. MwSt.</p>
-          </div>
-          <div className="flex gap-3">
-            <Link
-              href="/weinhandel/verkauf"
-              className="text-sm text-s112-muted hover:text-gray-700 px-4 py-2"
-            >
-              Abbrechen
-            </Link>
-            <button
-              type="submit"
-              disabled={isPending}
-              className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50"
-            >
-              {isPending ? 'Speichern…' : '✓ Verkauf speichern'}
-            </button>
-          </div>
-        </div>
-
-      </form>
-    </div>
-  )
-}
+                  <div className="flex items-ce

@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation'
 import DacForm from '@/components/dac/DacForm'
 import { updateDacAntrag } from '../actions'
 
-export const metadata: Metadata = { title: 'DAC-Antrag bearbeiten – software:112' }
+export const metadata: Metadata = { title: 'Prüfnummern-Antrag bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

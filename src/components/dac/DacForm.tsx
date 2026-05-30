@@ -42,6 +42,7 @@ interface Props {
 
 export default function DacForm({ dac, weinausbau, action }: Props) {
   const router = useRouter()
+  const [isDac, setIsDac] = useState(dac ? !!dac.dac_region && dac.dac_region !== 'sonstiges' : false)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -80,13 +81,25 @@ export default function DacForm({ dac, weinausbau, action }: Props) {
             <label className="form-label">Bezeichnung *</label>
             <input name="bezeichnung" type="text" required defaultValue={dac?.bezeichnung ?? ''} className="form-input" placeholder="z.B. Grüner Veltliner Kremser Schmidt 2025" />
           </div>
-          <div>
-            <label className="form-label">DAC-Region *</label>
-            <select name="dac_region" required defaultValue={dac?.dac_region ?? ''} className="form-input">
-              <option value="">– bitte wählen –</option>
-              {DAC_REGIONEN.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-            </select>
+          <div className="sm:col-span-2">
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <div onClick={() => setIsDac(v => !v)}
+                className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${isDac ? 'bg-s112-teal' : 'bg-gray-300'}`}>
+                <div className={`w-4 h-4 bg-white rounded-full shadow mt-0.5 transition-transform ${isDac ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              </div>
+              <span className="text-sm font-medium text-gray-700">DAC-Antrag (mit Lagenbezeichnung)</span>
+            </label>
           </div>
+          {isDac && (
+            <div>
+              <label className="form-label">DAC-Region *</label>
+              <select name="dac_region" required={isDac} defaultValue={dac?.dac_region ?? ''} className="form-input">
+                <option value="">– bitte wählen –</option>
+                {DAC_REGIONEN.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+              </select>
+            </div>
+          )}
+          {!isDac && <input type="hidden" name="dac_region" value="sonstiges" />}
           <div>
             <label className="form-label">Weinausbau-Charge</label>
             <select name="weinausbau_id" defaultValue={dac?.weinausbau_id ?? ''} className="form-input">

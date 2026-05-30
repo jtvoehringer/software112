@@ -118,7 +118,7 @@ export default async function DacPage() {
       ) : (
         <div className="card text-center py-16">
           <p className="text-4xl mb-4">📋</p>
-          <p className="text-gray-700 font-medium">Noch keine DAC-Anträge</p>
+          <p className="text-gray-700 font-medium">Noch keine Anträge</p>
           <p className="text-s112-muted text-sm mt-1 mb-6">Legen Sie Ihren ersten Antrag an</p>
           {writeOk && (
             <Link href="/dac/neu"
