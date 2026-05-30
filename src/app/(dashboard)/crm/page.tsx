@@ -60,5 +60,14 @@ export default async function CRMUebersichtPage() {
 
   ].sort((a, b) => a.datum.localeCompare(b.datum))
 
-  return <CRMUebersichtClient eintraege={eintraege} heute={heute} />
+  const kontakteList = (kontakteRaw as AR[] ?? []).map((k: AR) => ({
+    id: k.id as string,
+    name: [k.vorname, k.nachname].filter(Boolean).join(' '),
+  }))
+  const firmenList = (firmenRaw as AR[] ?? []).map((f: AR) => ({
+    id: f.id as string,
+    name: f.name as string,
+  }))
+
+  return <CRMUebersichtClient eintraege={eintraege} heute={heute} kontakte={kontakteList} firmen={firmenList} />
 }

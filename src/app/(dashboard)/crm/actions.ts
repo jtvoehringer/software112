@@ -145,6 +145,17 @@ export async function deleteFirma(id: string) {
 
 // ── Aktivitäten ───────────────────────────────────────────────────────────────
 
+export async function moveAktivitaet(id: string, datum: string, uhrzeit_von: string, uhrzeit_bis: string) {
+  const supabase = await createSupabaseServerClient()
+  const { error } = await (supabase.from('aktivitaeten') as any)
+    .update({ datum, ganztags: false, uhrzeit_von, uhrzeit_bis })
+    .eq('id', id)
+  if (error) throw new Error((error as AR).message)
+  revalidatePath('/crm')
+  revalidatePath('/crm/kontakte/[id]', 'page')
+  revalidatePath('/crm/firmen/[id]', 'page')
+}
+
 export async function createAktivitaet(formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
