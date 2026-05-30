@@ -267,4 +267,11 @@ export default function Sidebar({ userEmail, role, roleLabel, branding }: Sideba
             width={20} height={20}
             className="rounded-full opacity-60 flex-shrink-0"
           />
-        
+          <p className="text-[9px] text-s112-muted/50 leading-tight">
+            &copy; IC&amp;P Consultants e.U.
+          </p>
+        </div>
+      </div>
+    </aside>
+  )
+}

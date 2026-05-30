@@ -7,115 +7,107 @@ import { minQualitaet } from '@/lib/wein/qualitaet'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
+interface QuelleInput { weinausbau_id: string; menge: number }
+interface ZielInput   { behaelter_id: string;  menge: number }
+
 export async function umziehen(fd: FormData) {
   const supabase = await createSupabaseServerClient()
 
-  const vonId     = fd.get('von_weinausbau_id') as string
-  const nachBehId = fd.get('nach_behaelter_id') as string
-  const menge     = parseFloat((fd.get('menge_liter') as string).replace(',', '.'))
-  const schwund   = parseFloat((fd.get('schwund_liter') as string || '0').replace(',', '.')) || 0
-  const notizen   = (fd.get('notizen') as string) || null
-  const datum     = (fd.get('datum') as string) || new Date().toISOString().split('T')[0]
+  const quellen: QuelleInput[] = JSON.parse(fd.get('quellen_json') as string || '[]')
+  const ziele:   ZielInput[]   = JSON.parse(fd.get('ziele_json')   as string || '[]')
+  const notizen  = (fd.get('notizen') as string) || null
+  const datum    = (fd.get('datum')   as string) || new Date().toISOString().split('T')[0]
 
-  // Tenant
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (quellen.length === 0 || ziele.length === 0) throw new Error('Mindestens eine Quelle und ein Ziel erforderlich')
+
+  const totalVon  = quellen.reduce((s, q) => s + q.menge, 0)
+  const totalNach = ziele.reduce((s, z) => s + z.menge, 0)
+  const schwund   = Math.max(0, +(totalVon - totalNach).toFixed(3))
+
   const { data: membership } = await (supabase.from('tenant_memberships') as any)
     .select('tenant_id').limit(1).single()
   const tenantId = (membership as R)?.tenant_id
 
-  // Quell-Charge laden
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: vonRaw } = await (supabase.from('weinausbau') as any)
-    .select('*').eq('id', vonId).single()
-  const von = vonRaw as R
-  if (!von) throw new Error('Quell-Charge nicht gefunden')
+  // ── Qualitätsminimum aller Quellen ermitteln ──────────────────────────────────
+  let minQualStufe: string | null = null
+  const quellenDaten: R[] = []
 
-  // Prüfen ob Ziel-Behälter bereits Wein enthält
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: nachRaw } = await (supabase.from('weinausbau') as any)
-    .select('*')
-    .eq('behaelter_id', nachBehId)
-    .eq('aktiv', true)
-    .neq('status', 'abgeschlossen')
-    .maybeSingle()
-  const nachCharge = nachRaw as R | null
+  for (const q of quellen) {
+    const { data: vonRaw } = await (supabase.from('weinausbau') as any)
+      .select('*').eq('id', q.weinausbau_id).single()
+    const von = vonRaw as R
+    if (!von) throw new Error(`Charge nicht gefunden`)
+    quellenDaten.push(von)
+    minQualStufe = minQualitaet(minQualStufe, von.qualitaetsstufe ?? null)
+  }
 
-  const verschnitt      = !!nachCharge
-  const qualitaetVorher = von.qualitaetsstufe ?? null
-  const qualitaetNachher = verschnitt
-    ? minQualitaet(qualitaetVorher, nachCharge!.qualitaetsstufe ?? null)
-    : qualitaetVorher
+  // ── Quellen reduzieren / abschließen ──────────────────────────────────────────
+  for (let i = 0; i < quellen.length; i++) {
+    const q   = quellen[i]
+    const von = quellenDaten[i]
+    const restmenge = Math.max(0, +(((von.menge_liter ?? 0) - q.menge).toFixed(3)))
+    const vollstaendig = restmenge <= 0.01
 
-  // Umzug protokollieren
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('keller_umzuege') as any).insert({
-    tenant_id:         tenantId,
-    datum,
-    von_weinausbau_id: vonId,
-    nach_behaelter_id: nachBehId,
-    menge_liter:       menge,
-    schwund_liter:     schwund,
-    verschnitt,
-    qualitaet_vorher:  qualitaetVorher,
-    qualitaet_nachher: qualitaetNachher,
-    notizen,
-  })
-
-  const vonRestmenge = (von.menge_liter ?? 0) - menge - schwund
-  const istVollstaendig = vonRestmenge <= 0.01
-
-  if (verschnitt && nachCharge) {
-    // VERSCHNITT: Ziel-Charge bekommt Menge + ggf. neue Qualitätsstufe
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('weinausbau') as any)
-      .update({
-        menge_liter:     (nachCharge.menge_liter ?? 0) + menge,
-        qualitaetsstufe: qualitaetNachher,
-      })
-      .eq('id', nachCharge.id)
-
-    // Quell-Charge reduzieren oder abschließen
-    if (istVollstaendig) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (vollstaendig) {
       await (supabase.from('weinausbau') as any)
-        .update({ menge_liter: 0, behaelter_id: null, aktiv: false, status: 'abgeschlossen' })
-        .eq('id', vonId)
+        .update({ menge_liter: 0, aktiv: false, status: 'abgeschlossen', behaelter_id: null })
+        .eq('id', q.weinausbau_id)
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase.from('weinausbau') as any)
-        .update({ menge_liter: vonRestmenge })
-        .eq('id', vonId)
+        .update({ menge_liter: restmenge })
+        .eq('id', q.weinausbau_id)
     }
-  } else if (istVollstaendig) {
-    // VOLLSTÄNDIGER UMZUG in leeren Behälter: Charge zieht mit
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('weinausbau') as any)
-      .update({
-        behaelter_id: nachBehId,
-        menge_liter:  (von.menge_liter ?? 0) - schwund,
-      })
-      .eq('id', vonId)
-  } else {
-    // TEILUMZUG in leeren Behälter: neue Charge für den umgezogenen Teil
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('weinausbau') as any)
-      .update({ menge_liter: vonRestmenge })
-      .eq('id', vonId)
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('weinausbau') as any).insert({
-      tenant_id:       tenantId,
-      name:            von.name + ' (Teilumzug)',
-      jahrgang:        von.jahrgang,
-      rebsorte:        von.rebsorte,
-      weingarten_id:   von.weingarten_id,
-      behaelter_id:    nachBehId,
-      menge_liter:     menge,
-      qualitaetsstufe: von.qualitaetsstufe,
-      status:          von.status,
-      notizen:         `Teilumzug aus "${von.name}"`,
-      aktiv:           true,
+    // Protokoll
+    await (supabase.from('keller_umzuege') as any).insert({
+      tenant_id:         tenantId,
+      datum,
+      von_weinausbau_id: q.weinausbau_id,
+      nach_behaelter_id: ziele[0].behaelter_id,
+      menge_liter:       q.menge,
+      schwund_liter:     i === 0 ? schwund : 0,
+      verschnitt:        false,
+      qualitaet_vorher:  von.qualitaetsstufe ?? null,
+      qualitaet_nachher: minQualStufe,
+      notizen,
     })
+  }
+
+  // ── Ziele befüllen ────────────────────────────────────────────────────────────
+  for (const z of ziele) {
+    const { data: vorhandenRaw } = await (supabase.from('weinausbau') as any)
+      .select('*')
+      .eq('behaelter_id', z.behaelter_id)
+      .eq('aktiv', true)
+      .neq('status', 'abgeschlossen')
+      .maybeSingle()
+    const vorhanden = vorhandenRaw as R | null
+
+    if (vorhanden) {
+      await (supabase.from('weinausbau') as any)
+        .update({
+          menge_liter:     +((vorhanden.menge_liter ?? 0) + z.menge).toFixed(3),
+          qualitaetsstufe: minQualitaet(vorhanden.qualitaetsstufe ?? null, minQualStufe),
+        })
+        .eq('id', vorhanden.id)
+    } else {
+      const von0 = quellenDaten[0]
+      await (supabase.from('weinausbau') as any).insert({
+        tenant_id:       tenantId,
+        name:            quellenDaten.length > 1 ? 'Zusammenführung' : (von0?.name ?? 'Umzug'),
+        jahrgang:        von0?.jahrgang ?? null,
+        rebsorte:        von0?.rebsorte ?? null,
+        weingarten_id:   von0?.weingarten_id ?? null,
+        behaelter_id:    z.behaelter_id,
+        menge_liter:     z.menge,
+        qualitaetsstufe: minQualStufe,
+        status:          von0?.status ?? 'ausbau',
+        notizen:         quellen.length > 1
+          ? `Zusammengeführt aus ${quellen.length} Chargen`
+          : `Umzug aus "${von0?.name ?? ''}"`,
+        aktiv:           true,
+      })
+    }
   }
 
   revalidatePath('/kellerbuch')
