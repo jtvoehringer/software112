@@ -64,6 +64,7 @@ export default async function KontaktePage() {
     rabattgruppe_id:       k.rabattgruppe_id ?? null,
     rabattgruppe_name:     (k.rabattgruppe as R | null)?.name ?? null,
     rabattgruppe_pct:      (k.rabattgruppe as R | null)?.rabatt_pct ?? null,
+    sonderrabatt_pct:      parseFloat(k.sonderrabatt_pct) || 0,
     aktiv:                 k.aktiv ?? true,
     erstellt_am:           k.erstellt_am,
   }))
