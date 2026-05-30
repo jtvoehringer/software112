@@ -47,6 +47,7 @@ export default async function CRMUebersichtPage() {
         ganztags: (a.ganztags as boolean) ?? true,
         uhrzeit_von: (a.uhrzeit_von as string | null) ?? null,
         uhrzeit_bis: (a.uhrzeit_bis as string | null) ?? null,
+        erledigt:     !!(a.erledigt as boolean),
         ueberfaellig: !a.erledigt && (a.datum as string) < heute,
         href: a.kontakt_id
           ? `/crm/kontakte/${a.kontakt_id}`

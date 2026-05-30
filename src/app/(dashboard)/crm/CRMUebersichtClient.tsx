@@ -19,6 +19,7 @@ export type KalenderEintrag = {
   uhrzeit_von?: string | null   // "HH:MM:SS"
   uhrzeit_bis?: string | null
   ueberfaellig: boolean
+  erledigt?: boolean
   href: string
   kontaktName?: string | null
   firmaName?: string | null
@@ -71,6 +72,7 @@ const ART_FARBEN: Record<string, string> = {
 }
 
 function chipFarbe(e: KalenderEintrag): string {
+  if (e.erledigt) return 'bg-gray-50 text-gray-400 border-gray-100 opacity-60'
   if (e.ueberfaellig) return 'bg-red-500 text-white border-red-600'
   if (e.typ === 'pipeline') return 'bg-teal-50 text-teal-700 border-teal-100'
   return ART_FARBEN[e.art ?? ''] ?? 'bg-gray-50 text-gray-600 border-gray-100'
@@ -106,7 +108,7 @@ function EintragChip({ e, compact = false }: { e: KalenderEintrag; compact?: boo
         {zeitLabel && compact && (
           <span className="font-semibold mr-0.5 tabular-nums">{von}</span>
         )}
-        <span className="font-medium">{e.titel}</span>
+        <span className={`font-medium ${e.erledigt ? 'line-through' : ''}`}>{e.titel}</span>
         {!compact && (e.kontaktName || e.firmaName) && (
           <span className="block text-[9px] opacity-60 truncate mt-px">
             {e.kontaktName ?? e.firmaName}
