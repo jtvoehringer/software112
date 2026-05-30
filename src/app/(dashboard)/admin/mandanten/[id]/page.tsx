@@ -48,6 +48,8 @@ export type TenantSettings = {
   rechnung_bic:             string | null
   rechnung_zahlungsziel:    number
   rechnung_fusstext:        string | null
+  // Migration 032
+  ust_satz_standard:        number
 }
 export type TenantMember = {
   id: string; userId: string; email: string; role: string; createdAt: string
@@ -129,6 +131,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     rechnung_bic:          s?.rechnung_bic ?? null,
     rechnung_zahlungsziel: s?.rechnung_zahlungsziel ?? 14,
     rechnung_fusstext:     s?.rechnung_fusstext ?? null,
+    ust_satz_standard:     parseFloat(s?.ust_satz_standard) || 13,
   }
 
   const members: TenantMember[] = ((memberships ?? []) as R[]).map(m => ({

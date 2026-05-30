@@ -7,6 +7,13 @@ export async function GET() {
   try {
     const supabase = await createSupabaseServerClient()
 
+    // Tenant-Einstellungen für USt-Standard
+    const { data: einstellungen } = await (supabase.from('tenant_einstellungen') as any)
+      .select('ust_satz_standard')
+      .limit(1)
+      .maybeSingle()
+    const ustStandard: number = parseFloat((einstellungen as any)?.ust_satz_standard) || 13
+
     const [
       { data: fuellungen },
       { data: weinausbau },
@@ -47,6 +54,7 @@ export async function GET() {
         ...k,
         rabatt_pct: (k.rabattgruppe as any)?.rabatt_pct ?? null,
       })),
+      ust_satz_standard: ustStandard,
       firmen: (firmen ?? []).map((f: any) => ({
         ...f,
         rabatt_pct: (f.rabattgruppe as any)?.rabatt_pct ?? null,

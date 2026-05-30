@@ -41,6 +41,7 @@ interface PositionInput {
   preis_brutto:      number | null
   rabatt_pct?:       number
   sonderrabatt_pct?: number
+  ust_satz?:         number
 }
 
 // ── Verkauf anlegen ───────────────────────────────────────────────────────────
@@ -98,6 +99,7 @@ export async function createVerkauf(formData: FormData) {
     preis_brutto:      p.preis_brutto ?? null,
     rabatt_pct:        p.rabatt_pct ?? 0,
     sonderrabatt_pct:  p.sonderrabatt_pct ?? 0,
+    ust_satz:          p.ust_satz ?? 13,
   }))
 
   const { error: posErr } = await (supabase.from('verkauf_positionen') as any).insert(posInserts)

@@ -555,6 +555,8 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
   const [kResetVal, setKResetVal]  = useState(String(settings.kunden_zaehler))
   const [kZaehler,  setKZaehler]   = useState(settings.kunden_zaehler)
 
+  const [ustStandard, setUstStandard] = useState(settings.ust_satz_standard)
+
   // Vorschau der nächsten Rechnungsnummer
   const [prefix,   setPrefix]   = useState(settings.rechnung_prefix)
   const [stellen,  setStellen]  = useState(settings.rechnung_stellen)
@@ -600,6 +602,26 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
 
       {/* Einstellungen */}
       <form onSubmit={handleSave} className="space-y-4">
+        {/* USt-Standard */}
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Standard-Umsatzsteuer</p>
+        <input type="hidden" name="ust_satz_standard" value={ustStandard} />
+        <div className="grid grid-cols-2 gap-3">
+          {([{ val: 13, label: '13 %', hint: 'Weinproduzent (stiller Wein)' }, { val: 20, label: '20 %', hint: 'Weinhändler / Spirituosen' }] as const).map(opt => (
+            <button
+              key={opt.val}
+              type="button"
+              onClick={() => setUstStandard(opt.val)}
+              className={`flex flex-col items-start px-4 py-3 rounded-xl border-2 text-left transition-colors
+                ${ustStandard === opt.val
+                  ? 'border-s112-teal bg-s112-teal/5 text-s112-teal'
+                  : 'border-s112-border text-gray-600 hover:border-s112-teal/40'}`}
+            >
+              <span className="text-lg font-bold">{opt.label}</span>
+              <span className="text-xs mt-0.5 opacity-70">{opt.hint}</span>
+            </button>
+          ))}
+        </div>
+
         {/* Rechnungsnummer */}
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Rechnungsnummer</p>
         <div className="grid grid-cols-2 gap-3">

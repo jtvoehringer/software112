@@ -157,8 +157,9 @@ export async function saveVerkaufEinstellungen(tenantId: string, formData: FormD
       rechnung_prefix:  rPrefix,
       rechnung_stellen: rStellen,
       kunden_prefix:    kPrefix,
-      kunden_stellen:   kStellen,
-      aktualisiert_am:  new Date().toISOString(),
+      kunden_stellen:    kStellen,
+      ust_satz_standard: parseFloat(formData.get('ust_satz_standard') as string) || 13,
+      aktualisiert_am:   new Date().toISOString(),
     }, { onConflict: 'tenant_id' })
 
   if (error) throw new Error((error as R).message)

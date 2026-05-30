@@ -49,6 +49,7 @@ interface Position {
   rabatt_pct:    string  // aus Kundenstamm
   sonderrabatt:  string  // manuell
   sonderrabatt_aktiv: boolean
+  ust_satz:           string
 }
 
 const FLASCHEN_LABEL: Record<number, string> = {
@@ -72,6 +73,7 @@ export default function NeuerVerkaufPage() {
   const [kontakte,    setKontakte]    = useState<Kontakt[]>([])
   const [firmen,      setFirmen]      = useState<Firma[]>([])
   const [loading,     setLoading]     = useState(true)
+  const [ustStandard, setUstStandard] = useState(13)
 
   // Formular-State
   const [datum,            setDatum]           = useState(new Date().toISOString().split('T')[0])
@@ -99,6 +101,7 @@ export default function NeuerVerkaufPage() {
       rabatt_pct:    '0',
       sonderrabatt:  '0',
       sonderrabatt_aktiv: false,
+      ust_satz:           '13',
     }
   }
 
@@ -113,6 +116,10 @@ export default function NeuerVerkaufPage() {
         setWeinausbau(json.weinausbau ?? [])
         setKontakte(json.kontakte ?? [])
         setFirmen(json.firmen ?? [])
+        const ust = json.ust_satz_standard ?? 13
+        setUstStandard(ust)
+        // Initiale leere Position mit korrektem USt-Satz befüllen
+        setPositionen([{ ...newEmptyPosition(), ust_satz: String(ust) }])
       } catch {
         // Fehler beim Laden der Stammdaten – Felder bleiben leer
       } finally {
@@ -154,7 +161,7 @@ export default function NeuerVerkaufPage() {
   }
 
   function addPosition() {
-    setPositionen(prev => [...prev, newEmptyPosition()])
+    setPositionen(prev => [...prev, { ...newEmptyPosition(), ust_satz: String(ustStandard) }])
   }
 
   function removePosition(idx: number) {
@@ -186,6 +193,7 @@ export default function NeuerVerkaufPage() {
       preis_brutto:  parseFloat(p.preis_brutto) || null,
       rabatt_pct:       parseFloat(p.rabatt_pct) || 0,
       sonderrabatt_pct: p.sonderrabatt_aktiv ? (parseFloat(p.sonderrabatt) || 0) : 0,
+      ust_satz:         parseFloat(p.ust_satz) || ustStandard,
     }))
 
     if (!kontaktId && !firmaId) {
