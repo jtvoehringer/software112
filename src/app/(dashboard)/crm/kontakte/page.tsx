@@ -23,7 +23,7 @@ export default async function KontaktePage() {
     { data: pRaw },
   ] = await Promise.all([
     (supabase.from('kontakte') as any)
-      .select('id, kundennummer, vorname, nachname, segment, firma_id, firmen:firma_id(name), email, telefon, mobil, ort, land, newsletter, newsletter_bestaetigt, stammkunde, aktiv, notizen, erstellt_am, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
+      .select('id, kundennummer, vorname, nachname, segment, firma_id, firmen:firma_id(name), email, telefon, mobil, ort, land, newsletter, newsletter_bestaetigt, stammkunde, aktiv, notizen, erstellt_am, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
       .eq('aktiv', true)
       .order('nachname'),
 

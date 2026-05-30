@@ -311,6 +311,11 @@ function KontaktKarte({
                 {kontakt.rabattgruppe_pct}% {kontakt.rabattgruppe_name}
               </span>
             )}
+            {(kontakt.sonderrabatt_pct ?? 0) > 0 && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
+                {kontakt.sonderrabatt_pct}% Sonderrab.
+              </span>
+            )}
             {kontakt.newsletter && kontakt.newsletter_bestaetigt && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">✉ Newsletter</span>
             )}
