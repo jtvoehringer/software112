@@ -6,3 +6,6 @@ ALTER TABLE kontakte
 
 ALTER TABLE firmen
   ADD COLUMN IF NOT EXISTS sonderrabatt_pct numeric(5,2) DEFAULT 0;
+
+-- PostgREST Schema-Cache neu laden
+NOTIFY pgrst, 'reload schema';
