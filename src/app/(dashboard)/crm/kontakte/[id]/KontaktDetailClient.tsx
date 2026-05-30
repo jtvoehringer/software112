@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { createAktivitaet, createPipelineEintrag, toggleAktivitaetErledigt } from '../../actions'
+import { createAktivitaet, createPipelineEintrag, toggleAktivitaetErledigt, updateAktivitaet, deleteAktivitaet } from '../../actions'
 import {
   SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN,
   segmentLabel, segmentFarbe, fmtUhrzeit,
@@ -113,12 +113,28 @@ function PipelineForm({ kontaktId, onDone }: { kontaktId: string; onDone: () => 
 
 function AktivitaetKarte({ a, writeOk }: { a: AktivitaetRow; writeOk: boolean }) {
   const [pending, startTransition] = useTransition()
+  const [editMode, setEditMode]   = useState(false)
+  const [ganztags, setGanztags]   = useState(a.ganztags ?? true)
   const artDef = AKTIVITAET_ARTEN.find(x => x.value === a.art)
   const von = fmtUhrzeit(a.uhrzeit_von)
   const bis = fmtUhrzeit(a.uhrzeit_bis)
 
   function handleErledigt() {
     startTransition(async () => { await toggleAktivitaetErledigt(a.id, !a.erledigt) })
+  }
+
+  function handleSave(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    startTransition(async () => {
+      await updateAktivitaet(a.id, fd)
+      setEditMode(false)
+    })
+  }
+
+  function handleDelete() {
+    if (!confirm('Aktivität wirklich löschen?')) return
+    startTransition(async () => { await deleteAktivitaet(a.id) })
   }
 
   // Verkauf-Aktivität: kein Erledigt-Toggle, kein Strikethrough, UUID → Link
@@ -152,6 +168,75 @@ function AktivitaetKarte({ a, writeOk }: { a: AktivitaetRow; writeOk: boolean })
     )
   }
 
+  // Edit-Modus
+  if (editMode) {
+    return (
+      <div className="card p-4 border-s112-teal/30">
+        <form onSubmit={handleSave} className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Art</label>
+              <select name="art" defaultValue={a.art} className={inputCls()}>
+                {AKTIVITAET_ARTEN.map(x => (
+                  <option key={x.value} value={x.value}>{x.icon} {x.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Datum</label>
+              <input type="date" name="datum" defaultValue={a.datum ?? ''} required className={inputCls()} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Betreff</label>
+            <input type="text" name="betreff" defaultValue={a.betreff ?? ''} className={inputCls()} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Notiz</label>
+            <textarea name="beschreibung" defaultValue={a.beschreibung ?? ''} rows={2} className={inputCls()} />
+          </div>
+          <div className="flex items-center gap-4 flex-wrap text-xs">
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={ganztags}
+                onChange={e => setGanztags(e.target.checked)}
+                className="rounded"
+              />
+              <input type="hidden" name="ganztags" value={String(ganztags)} />
+              Ganztags
+            </label>
+            {!ganztags && (
+              <div className="flex items-center gap-1.5">
+                <input type="time" name="uhrzeit_von" defaultValue={a.uhrzeit_von ?? ''} className="border border-s112-border rounded px-2 py-1 text-xs focus:outline-none" />
+                <span className="text-gray-400">–</span>
+                <input type="time" name="uhrzeit_bis" defaultValue={a.uhrzeit_bis ?? ''} className="border border-s112-border rounded px-2 py-1 text-xs focus:outline-none" />
+              </div>
+            )}
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" name="erledigt" value="true" defaultChecked={a.erledigt ?? false} className="rounded" />
+              Erledigt
+            </label>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button type="submit" disabled={pending}
+              className="bg-s112-teal text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-opacity-90 disabled:opacity-40">
+              {pending ? 'Speichern…' : 'Speichern'}
+            </button>
+            <button type="button" onClick={() => setEditMode(false)}
+              className="text-xs px-3 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
+              Abbrechen
+            </button>
+            <button type="button" onClick={handleDelete} disabled={pending}
+              className="ml-auto text-xs px-3 py-1.5 rounded-lg text-red-500 hover:bg-red-50 border border-red-200 disabled:opacity-40">
+              Löschen
+            </button>
+          </div>
+        </form>
+      </div>
+    )
+  }
+
   return (
     <div className={`card p-4 flex gap-3 ${a.erledigt ? 'opacity-60' : ''}`}>
       {writeOk && (
@@ -175,7 +260,7 @@ function AktivitaetKarte({ a, writeOk }: { a: AktivitaetRow; writeOk: boolean })
           </span>
           {!a.ganztags && von && (
             <span className="text-xs font-medium text-s112-teal tabular-nums">
-              {von}{bis ? `-${bis}` : ''}
+              {von}{bis ? `–${bis}` : ''}
             </span>
           )}
           <span className="text-xs text-s112-muted">{artDef?.label ?? a.art}</span>
@@ -187,6 +272,13 @@ function AktivitaetKarte({ a, writeOk }: { a: AktivitaetRow; writeOk: boolean })
           <p className="text-xs text-gray-500 mt-0.5">{a.beschreibung}</p>
         )}
       </div>
+      {writeOk && (
+        <button type="button" onClick={() => setEditMode(true)}
+          title="Bearbeiten"
+          className="flex-shrink-0 text-gray-300 hover:text-s112-teal transition-colors mt-0.5 text-base leading-none">
+          ✏
+        </button>
+      )}
     </div>
   )
 }

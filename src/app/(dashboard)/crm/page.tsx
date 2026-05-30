@@ -8,8 +8,6 @@ export const dynamic = 'force-dynamic'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
-const PIPELINE_ABGESCHLOSSEN = new Set(['stammkunde', 'abschluss', 'verloren'])
-
 export default async function CRMUebersichtPage() {
   const supabase = await createSupabaseServerClient()
   const heute = new Date().toISOString().split('T')[0]
@@ -19,12 +17,6 @@ export default async function CRMUebersichtPage() {
     .select('id, art, betreff, datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, kontakt_id, firma_id')
     .not('datum', 'is', null)
     .order('datum', { ascending: true })
-
-  // Alle Pipeline-Einträge mit Erwartungsdatum
-  const { data: pipelineRaw } = await (supabase.from('pipeline_eintraege') as any)
-    .select('id, titel, stufe, erwartetes_datum, ganztags, uhrzeit_von, uhrzeit_bis, kontakt_id, firma_id')
-    .not('erwartetes_datum', 'is', null)
-    .order('erwartetes_datum', { ascending: true })
 
   // Namen aus Kontakte & Firmen
   const { data: kontakteRaw } = await (supabase.from('kontakte') as any)
@@ -42,8 +34,8 @@ export default async function CRMUebersichtPage() {
   })
 
   const eintraege: KalenderEintrag[] = [
-    // Aktivitäten
-    ...(aktivRaw as AR[] ?? []).map((a: AR) => {
+    // Aktivitäten (ohne Verkaufs-Einträge)
+    ...(aktivRaw as AR[] ?? []).filter((a: AR) => a.art !== 'verkauf').map((a: AR) => {
       const artDef = AKTIVITAET_ARTEN.find(x => x.value === a.art)
       return {
         id: `a_${a.id}`,
@@ -66,25 +58,6 @@ export default async function CRMUebersichtPage() {
       }
     }),
 
-    // Pipeline-Einträge
-    ...(pipelineRaw as AR[] ?? []).map((p: AR) => ({
-      id: `p_${p.id}`,
-      datum: p.erwartetes_datum as string,
-      titel: p.titel as string,
-      typ: 'pipeline' as const,
-      art: p.stufe as string,
-      artIcon: '💼',
-      ganztags: (p.ganztags as boolean) ?? true,
-      uhrzeit_von: (p.uhrzeit_von as string | null) ?? null,
-      uhrzeit_bis: (p.uhrzeit_bis as string | null) ?? null,
-      ueberfaellig:
-        !PIPELINE_ABGESCHLOSSEN.has(p.stufe as string) &&
-        (p.erwartetes_datum as string) < heute,
-      href: '/crm/pipeline',
-      kontaktName: p.kontakt_id ? (kontakteMap[p.kontakt_id] ?? null) : null,
-      firmaName: p.firma_id ? (firmenMap[p.firma_id] ?? null) : null,
-      stufe: p.stufe as string,
-    })),
   ].sort((a, b) => a.datum.localeCompare(b.datum))
 
   return <CRMUebersichtClient eintraege={eintraege} heute={heute} />
