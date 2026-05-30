@@ -284,8 +284,8 @@ export default function NeuerVerkaufPage() {
                   setPositionen(prev => prev.map(p => ({
                     ...p,
                     rabatt_pct: String(rabatt),
-                    sonderrabatt: sonder > 0 ? String(sonder) : p.sonderrabatt,
-                    sonderrabatt_aktiv: sonder > 0 ? true : p.sonderrabatt_aktiv,
+                    sonderrabatt: String(sonder),
+                    sonderrabatt_aktiv: sonder > 0,
                   })))
                 }}
                 className={inputCls + ' w-full'}
@@ -314,8 +314,8 @@ export default function NeuerVerkaufPage() {
                   setPositionen(prev => prev.map(p => ({
                     ...p,
                     rabatt_pct: String(rabatt),
-                    sonderrabatt: sonder > 0 ? String(sonder) : p.sonderrabatt,
-                    sonderrabatt_aktiv: sonder > 0 ? true : p.sonderrabatt_aktiv,
+                    sonderrabatt: String(sonder),
+                    sonderrabatt_aktiv: sonder > 0,
                   })))
                 }}
                 className={inputCls + ' w-full'}
