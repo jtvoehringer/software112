@@ -36,13 +36,13 @@ export async function GET() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('kontakte') as any)
-        .select('id, vorname, nachname, firma_id, rabattgruppe:rabattgruppe_id(rabatt_pct)')
+        .select('id, vorname, nachname, firma_id, sonderrabatt_pct, rabattgruppe:rabattgruppe_id(rabatt_pct)')
         .eq('aktiv', true)
         .order('nachname'),
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('firmen') as any)
-        .select('id, name, rabattgruppe:rabattgruppe_id(rabatt_pct)')
+        .select('id, name, sonderrabatt_pct, rabattgruppe:rabattgruppe_id(rabatt_pct)')
         .eq('aktiv', true)
         .order('name'),
     ])
@@ -52,12 +52,14 @@ export async function GET() {
       weinausbau:  weinausbau ?? [],
       kontakte: (kontakte ?? []).map((k: any) => ({
         ...k,
-        rabatt_pct: (k.rabattgruppe as any)?.rabatt_pct ?? null,
+        rabatt_pct:       (k.rabattgruppe as any)?.rabatt_pct ?? null,
+        sonderrabatt_pct: parseFloat(k.sonderrabatt_pct) || 0,
       })),
       ust_satz_standard: ustStandard,
       firmen: (firmen ?? []).map((f: any) => ({
         ...f,
-        rabatt_pct: (f.rabattgruppe as any)?.rabatt_pct ?? null,
+        rabatt_pct:       (f.rabattgruppe as any)?.rabatt_pct ?? null,
+        sonderrabatt_pct: parseFloat(f.sonderrabatt_pct) || 0,
       })),
     })
   } catch (err) {

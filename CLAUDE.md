@@ -65,3 +65,5 @@
 | 029       | Pipeline Uhrzeit: pipeline_eintraege += ganztags/uhrzeit_von/uhrzeit_bis |
 | 030       | Betriebsdaten + Rechnung: tenant_einstellungen += betrieb_*/rechnung_*; verkauf_positionen += ust_satz |
 | 031       | Bezahlt-Status + Rabattgruppen: verkaufsposten += bezahlt/bezahlt_am; neue Tabelle rabattgruppen; kontakte/firmen += rabattgruppe_id; verkauf_positionen += rabatt_pct/sonderrabatt_pct |
+| 032       | Standard-USt pro Mandant: tenant_einstellungen += ust_satz_standard (13% Weinproduzent / 20% Weinhändler) |
+| 033       | Sonderrabatt auf Kontakt/Firma: kontakte/firmen += sonderrabatt_pct; wird im Verkaufsformular auto-vorbelegt |

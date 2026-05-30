@@ -29,12 +29,14 @@ interface Kontakt {
   nachname: string
   firma_id: string | null
   rabatt_pct: number | null
+  sonderrabatt_pct: number
 }
 
 interface Firma {
   id: string
   name: string
   rabatt_pct: number | null
+  sonderrabatt_pct: number
 }
 
 interface Position {
@@ -275,9 +277,16 @@ export default function NeuerVerkaufPage() {
                   const kId = e.target.value
                   setKontaktId(kId)
                   if (kId) setFirmaId('')
-                  const rabatt = kontakte.find(k => k.id === kId)?.rabatt_pct ?? 0
+                  const k = kontakte.find(x => x.id === kId)
+                  const rabatt = k?.rabatt_pct ?? 0
+                  const sonder = k?.sonderrabatt_pct ?? 0
                   setKundenRabatt(rabatt)
-                  setPositionen(prev => prev.map(p => ({ ...p, rabatt_pct: String(rabatt) })))
+                  setPositionen(prev => prev.map(p => ({
+                    ...p,
+                    rabatt_pct: String(rabatt),
+                    sonderrabatt: sonder > 0 ? String(sonder) : p.sonderrabatt,
+                    sonderrabatt_aktiv: sonder > 0 ? true : p.sonderrabatt_aktiv,
+                  })))
                 }}
                 className={inputCls + ' w-full'}
                 disabled={loading}
@@ -298,9 +307,16 @@ export default function NeuerVerkaufPage() {
                   const fId = e.target.value
                   setFirmaId(fId)
                   if (fId) setKontaktId('')
-                  const rabatt = firmen.find(f => f.id === fId)?.rabatt_pct ?? 0
+                  const f = firmen.find(x => x.id === fId)
+                  const rabatt = f?.rabatt_pct ?? 0
+                  const sonder = f?.sonderrabatt_pct ?? 0
                   setKundenRabatt(rabatt)
-                  setPositionen(prev => prev.map(p => ({ ...p, rabatt_pct: String(rabatt) })))
+                  setPositionen(prev => prev.map(p => ({
+                    ...p,
+                    rabatt_pct: String(rabatt),
+                    sonderrabatt: sonder > 0 ? String(sonder) : p.sonderrabatt,
+                    sonderrabatt_aktiv: sonder > 0 ? true : p.sonderrabatt_aktiv,
+                  })))
                 }}
                 className={inputCls + ' w-full'}
                 disabled={loading}

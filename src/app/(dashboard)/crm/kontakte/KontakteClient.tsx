@@ -120,6 +120,17 @@ function KontaktForm({
             ))}
           </select>
         </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Sonderrabatt %</label>
+          <input
+            name="sonderrabatt_pct"
+            type="number"
+            min="0" max="100" step="0.5"
+            defaultValue={initial?.sonderrabatt_pct ?? 0}
+            placeholder="0"
+            className={inputCls()}
+          />
+        </div>
       </div>
 
       <div>

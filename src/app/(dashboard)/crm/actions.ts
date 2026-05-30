@@ -42,6 +42,7 @@ export async function createKontakt(formData: FormData) {
     stammkunde:  formData.get('stammkunde') === 'true',
     notizen:         (formData.get('notizen')         as string) || null,
     ...(formData.get('rabattgruppe_id') ? { rabattgruppe_id: formData.get('rabattgruppe_id') as string } : {}),
+    sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
   }
   payload.kundennummer = await generateKundennummer(tenantId)
   const { error } = await (supabase.from('kontakte') as any).insert(payload)
@@ -64,6 +65,7 @@ export async function updateKontakt(id: string, formData: FormData) {
     stammkunde: formData.get('stammkunde') === 'true',
     notizen:         (formData.get('notizen')         as string) || null,
     ...(formData.get('rabattgruppe_id') !== undefined ? { rabattgruppe_id: (formData.get('rabattgruppe_id') as string) || null } : {}),
+    sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
     aktualisiert_am: new Date().toISOString(),
   }
   const { error } = await (supabase.from('kontakte') as any).update(payload).eq('id', id)
