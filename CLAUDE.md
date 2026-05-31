@@ -29,6 +29,8 @@
 - Alle Server Components mit `export const dynamic = 'force-dynamic'` wenn nötig
 - CSS-Klassen: `s112-teal`, `s112-muted`, `s112-border`, `s112-bg` (siehe tailwind.config.ts)
 - Rollenmodell: `leser` / `winzer` / `tenant_admin`
+- **Sprache:** In allen deutschen Texten (UI-Labels, Kommentare, Fehlermeldungen) immer Umlaute verwenden: ä/ö/ü/Ä/Ö/Ü – niemals ae/oe/ue als Ersatz
+- **Skript-Sprache:** Python bevorzugt für Datei- und Datenoperationen; Node.js wenn npm-Pakete nötig (z.B. docx); Bash nur für einfache Einzeiler
 
 ## Aktuelle Nutzer
 
@@ -65,6 +67,4 @@
 | 029       | Pipeline Uhrzeit: pipeline_eintraege += ganztags/uhrzeit_von/uhrzeit_bis |
 | 030       | Betriebsdaten + Rechnung: tenant_einstellungen += betrieb_*/rechnung_*; verkauf_positionen += ust_satz |
 | 031       | Bezahlt-Status + Rabattgruppen: verkaufsposten += bezahlt/bezahlt_am; neue Tabelle rabattgruppen; kontakte/firmen += rabattgruppe_id; verkauf_positionen += rabatt_pct/sonderrabatt_pct |
-| 032       | Standard-USt pro Mandant: tenant_einstellungen += ust_satz_standard (13% Weinproduzent / 20% Weinhändler) |
-| 033       | Sonderrabatt auf Kontakt/Firma: kontakte/firmen += sonderrabatt_pct; wird im Verkaufsformular auto-vorbelegt |
-| 034       | Lead-Feld: kontakte/firmen += is_lead (DEFAULT true); neue Datensätze starten als Lead; erster Verkauf → automatisch Kunde |
+| 032       | Standard-USt pro Mandant: tenant_einstellungen += ust_satz_standard (
