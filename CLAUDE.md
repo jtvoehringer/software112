@@ -67,3 +67,4 @@
 | 031       | Bezahlt-Status + Rabattgruppen: verkaufsposten += bezahlt/bezahlt_am; neue Tabelle rabattgruppen; kontakte/firmen += rabattgruppe_id; verkauf_positionen += rabatt_pct/sonderrabatt_pct |
 | 032       | Standard-USt pro Mandant: tenant_einstellungen += ust_satz_standard (13% Weinproduzent / 20% Weinhändler) |
 | 033       | Sonderrabatt auf Kontakt/Firma: kontakte/firmen += sonderrabatt_pct; wird im Verkaufsformular auto-vorbelegt |
+| 034       | Lead-Feld: kontakte/firmen += is_lead (DEFAULT true); neue Datensätze starten als Lead; erster Verkauf → automatisch Kunde |

@@ -43,6 +43,7 @@ export async function createKontakt(formData: FormData) {
     notizen:         (formData.get('notizen')         as string) || null,
     ...(formData.get('rabattgruppe_id') ? { rabattgruppe_id: formData.get('rabattgruppe_id') as string } : {}),
     sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
+    is_lead: formData.get('is_lead') === 'true',
   }
   payload.kundennummer = await generateKundennummer(tenantId)
   const { error } = await (supabase.from('kontakte') as any).insert(payload)
@@ -66,6 +67,7 @@ export async function updateKontakt(id: string, formData: FormData) {
     notizen:         (formData.get('notizen')         as string) || null,
     ...(formData.get('rabattgruppe_id') !== undefined ? { rabattgruppe_id: (formData.get('rabattgruppe_id') as string) || null } : {}),
     sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
+    is_lead: formData.get('is_lead') === 'true',
     aktualisiert_am: new Date().toISOString(),
   }
   const { error } = await (supabase.from('kontakte') as any).update(payload).eq('id', id)
@@ -103,6 +105,7 @@ export async function createFirma(formData: FormData) {
     notizen:            (formData.get('notizen')         as string) || null,
     ...(formData.get('rabattgruppe_id') ? { rabattgruppe_id: formData.get('rabattgruppe_id') as string } : {}),
     sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
+    is_lead: formData.get('is_lead') === 'true',
   }
   payload.kundennummer = await generateKundennummer(tenantId)
   const { error } = await (supabase.from('firmen') as any).insert(payload)
@@ -128,6 +131,7 @@ export async function updateFirma(id: string, formData: FormData) {
     notizen:            (formData.get('notizen')         as string) || null,
     ...(formData.get('rabattgruppe_id') !== undefined ? { rabattgruppe_id: (formData.get('rabattgruppe_id') as string) || null } : {}),
     sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
+    is_lead: formData.get('is_lead') === 'true',
     aktualisiert_am:    new Date().toISOString(),
   }
   const { error } = await (supabase.from('firmen') as any).update(payload).eq('id', id)

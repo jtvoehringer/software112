@@ -165,7 +165,23 @@ export async function createVerkauf(formData: FormData) {
     }
   }
 
+  // Lead → Kunde automatisch umstellen nach erstem Verkauf
+  if (kontaktId) {
+    await (supabase.from('kontakte') as any)
+      .update({ is_lead: false })
+      .eq('id', kontaktId)
+      .eq('is_lead', true)  // nur wenn noch Lead
+  }
+  if (firmaId) {
+    await (supabase.from('firmen') as any)
+      .update({ is_lead: false })
+      .eq('id', firmaId)
+      .eq('is_lead', true)
+  }
+
   revalidatePath('/weinhandel/verkauf')
+  revalidatePath('/crm/kontakte')
+  revalidatePath('/crm/firmen')
   redirect(`/weinhandel/verkauf/${postenId}`)
 }
 

@@ -22,6 +22,7 @@ function FirmaForm({ initial, rabattgruppen, defaultSegment, onDone }: { initial
   const [pending, startTransition] = useTransition()
   const router = useRouter()
   const [segmentVal, setSegmentVal] = useState(initial?.segment ?? defaultSegment ?? 'handel')
+  const [isLead, setIsLead]           = useState(initial?.is_lead ?? true)
   const [saveError, setSaveError]   = useState<string | null>(null)
   const v = (field: keyof FirmaRow) => (initial?.[field] ?? '') as string
 
@@ -54,6 +55,27 @@ function FirmaForm({ initial, rabattgruppen, defaultSegment, onDone }: { initial
         <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-gray-600 mb-1">Firmenname *</label>
           <input name="name" defaultValue={v('name')} required className={inputCls()} />
+        </div>
+        {/* Lead / Kunde Toggle */}
+        <div className="sm:col-span-2 flex items-center justify-between bg-white border border-s112-border rounded-xl px-4 py-2.5">
+          <div>
+            <p className={`text-sm font-semibold ${isLead ? 'text-amber-600' : 'text-s112-teal'}`}>
+              {isLead ? '🌱 Lead' : '✅ Kunde'}
+            </p>
+            <p className="text-xs text-s112-muted">
+              {isLead ? 'Noch kein Verkauf – wird automatisch Kunde beim ersten Verkauf' : 'Aktiver Kunde'}
+            </p>
+          </div>
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input type="hidden" name="is_lead" value={String(isLead)} />
+            <div onClick={() => setIsLead(v => !v)}
+              className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${isLead ? 'bg-amber-400' : 'bg-s112-teal'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${isLead ? 'translate-x-0' : 'translate-x-5'}`} />
+            </div>
+            <span className={`text-sm font-semibold min-w-[48px] ${isLead ? 'text-amber-600' : 'text-s112-teal'}`}>
+              {isLead ? 'Lead' : 'Kunde'}
+            </span>
+          </label>
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Segment *</label>
@@ -191,6 +213,9 @@ function FirmaKarte({
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${segmentFarbe(firma.segment)}`}>
               {segmentLabel(firma.segment)}
             </span>
+            {firma.is_lead && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">🌱 Lead</span>
+            )}
             {firma.rabattgruppe_name && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
                 {firma.rabattgruppe_pct}% {firma.rabattgruppe_name}

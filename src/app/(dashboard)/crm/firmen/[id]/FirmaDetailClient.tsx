@@ -331,6 +331,9 @@ export default function FirmaDetailClient({
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${segmentFarbe(firma.segment)}`}>
                 {segmentLabel(firma.segment)}
               </span>
+            {firma.is_lead && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">🌱 Lead</span>
+            )}
               {firma.land && firma.land !== 'AT' && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{firma.land}</span>
               )}

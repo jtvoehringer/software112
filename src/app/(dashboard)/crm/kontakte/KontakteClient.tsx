@@ -40,6 +40,7 @@ function KontaktForm({
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [stammkunde, setStammkunde] = useState(initial?.stammkunde ?? false)
+  const [isLead, setIsLead]           = useState(initial?.is_lead ?? true)
   const [segmentVal, setSegmentVal] = useState(initial?.segment ?? defaultSegment ?? 'privat')
   const [saveError, setSaveError]   = useState<string | null>(null)
 
@@ -72,6 +73,27 @@ function KontaktForm({
       {saveError && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{saveError}</p>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Lead / Kunde Toggle */}
+        <div className="sm:col-span-2 flex items-center justify-between bg-white border border-s112-border rounded-xl px-4 py-2.5">
+          <div>
+            <p className={`text-sm font-semibold ${isLead ? 'text-amber-600' : 'text-s112-teal'}`}>
+              {isLead ? '🌱 Lead' : '✅ Kunde'}
+            </p>
+            <p className="text-xs text-s112-muted">
+              {isLead ? 'Noch kein Verkauf – wird automatisch Kunde beim ersten Verkauf' : 'Aktiver Kunde'}
+            </p>
+          </div>
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input type="hidden" name="is_lead" value={String(isLead)} />
+            <div onClick={() => setIsLead(v => !v)}
+              className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${isLead ? 'bg-amber-400' : 'bg-s112-teal'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${isLead ? 'translate-x-0' : 'translate-x-5'}`} />
+            </div>
+            <span className={`text-sm font-semibold min-w-[48px] ${isLead ? 'text-amber-600' : 'text-s112-teal'}`}>
+              {isLead ? 'Lead' : 'Kunde'}
+            </span>
+          </label>
+        </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Vorname</label>
           <input name="vorname" defaultValue={v('vorname')} className={inputCls()} />
@@ -315,6 +337,9 @@ function KontaktKarte({
             </span>
             {kontakt.stammkunde && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-s112-yellow/20 text-amber-700 font-medium">⭐ Stammkunde</span>
+            )}
+            {kontakt.is_lead && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">🌱 Lead</span>
             )}
             {kontakt.rabattgruppe_name && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">

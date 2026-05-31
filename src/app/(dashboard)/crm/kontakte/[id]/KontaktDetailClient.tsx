@@ -319,6 +319,9 @@ export default function KontaktDetailClient({
             {kontakt.stammkunde && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-s112-yellow/20 text-amber-700 font-medium">Stammkunde</span>
             )}
+            {kontakt.is_lead && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">🌱 Lead</span>
+            )}
             {kontakt.newsletter && kontakt.newsletter_bestaetigt && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Newsletter</span>
             )}
