@@ -9,6 +9,25 @@ import type { FirmaRow } from '@/lib/crm/types'
 
 type KontaktKurz = { id: string; vorname: string | null; nachname: string; segment: string }
 
+
+const DIAL_CODES = [
+  { code: '+43', flag: '🇦🇹', iso: 'AT' },
+  { code: '+49', flag: '🇩🇪', iso: 'DE' },
+  { code: '+41', flag: '🇨🇭', iso: 'CH' },
+  { code: '+423', flag: '🇱🇮', iso: 'LI' },
+  { code: '+39', flag: '🇮🇹', iso: 'IT' },
+  { code: '+386', flag: '🇸🇮', iso: 'SI' },
+  { code: '+421', flag: '🇸🇰', iso: 'SK' },
+  { code: '+420', flag: '🇨🇿', iso: 'CZ' },
+  { code: '+36', flag: '🇭🇺', iso: 'HU' },
+  { code: '+33', flag: '🇫🇷', iso: 'FR' },
+  { code: '+31', flag: '🇳🇱', iso: 'NL' },
+  { code: '+32', flag: '🇧🇪', iso: 'BE' },
+  { code: '+44', flag: '🇬🇧', iso: 'GB' },
+  { code: '+48', flag: '🇵🇱', iso: 'PL' },
+  { code: '+1',  flag: '🇺🇸', iso: 'US' },
+]
+
 function inputCls() {
   return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
 }
@@ -23,6 +42,7 @@ function FirmaForm({ initial, rabattgruppen, defaultSegment, onDone }: { initial
   const router = useRouter()
   const [segmentVal, setSegmentVal] = useState(initial?.segment ?? defaultSegment ?? 'handel')
   const [isLead, setIsLead]           = useState(initial?.is_lead ?? true)
+  const [landVal, setLandVal]           = useState(initial?.land ?? 'AT')
   const [saveError, setSaveError]   = useState<string | null>(null)
   const v = (field: keyof FirmaRow) => (initial?.[field] ?? '') as string
 
@@ -105,13 +125,28 @@ function FirmaForm({ initial, rabattgruppen, defaultSegment, onDone }: { initial
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Land</label>
-          <select name="land" defaultValue={v('land') || 'AT'} className={inputCls()}>
+          <select name="land" value={landVal} onChange={e => setLandVal(e.target.value)} className={inputCls()}>
             {LAENDER.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Telefon</label>
-          <input name="telefon" defaultValue={v('telefon')} className={inputCls()} />
+          <div className="flex gap-1.5">
+            <select
+              name="telefon_vorwahl"
+              defaultValue={initial?.telefon_vorwahl ?? '+43'}
+              onChange={e => {
+                const d = DIAL_CODES.find(x => x.code === e.target.value)
+                if (d) setLandVal(d.iso)
+              }}
+              className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-24 flex-shrink-0"
+            >
+              {DIAL_CODES.map(d => (
+                <option key={d.code} value={d.code}>{d.flag} {d.code}</option>
+              ))}
+            </select>
+            <input name="telefon" defaultValue={v('telefon')} className={inputCls()} />
+          </div>
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">E-Mail</label>

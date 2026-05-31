@@ -22,6 +22,25 @@ type PipelineRow = {
 
 const LAENDER = ['AT', 'DE', 'CH', 'IT', 'FR', 'HU', 'SK', 'CZ', 'US', 'GB']
 
+
+const DIAL_CODES = [
+  { code: '+43', flag: '🇦🇹', iso: 'AT' },
+  { code: '+49', flag: '🇩🇪', iso: 'DE' },
+  { code: '+41', flag: '🇨🇭', iso: 'CH' },
+  { code: '+423', flag: '🇱🇮', iso: 'LI' },
+  { code: '+39', flag: '🇮🇹', iso: 'IT' },
+  { code: '+386', flag: '🇸🇮', iso: 'SI' },
+  { code: '+421', flag: '🇸🇰', iso: 'SK' },
+  { code: '+420', flag: '🇨🇿', iso: 'CZ' },
+  { code: '+36', flag: '🇭🇺', iso: 'HU' },
+  { code: '+33', flag: '🇫🇷', iso: 'FR' },
+  { code: '+31', flag: '🇳🇱', iso: 'NL' },
+  { code: '+32', flag: '🇧🇪', iso: 'BE' },
+  { code: '+44', flag: '🇬🇧', iso: 'GB' },
+  { code: '+48', flag: '🇵🇱', iso: 'PL' },
+  { code: '+1',  flag: '🇺🇸', iso: 'US' },
+]
+
 function inputCls() {
   return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
 }
@@ -41,6 +60,7 @@ function KontaktForm({
   const [pending, startTransition] = useTransition()
   const [stammkunde, setStammkunde] = useState(initial?.stammkunde ?? false)
   const [isLead, setIsLead]           = useState(initial?.is_lead ?? true)
+  const [landVal, setLandVal]           = useState(initial?.land ?? 'AT')
   const [segmentVal, setSegmentVal] = useState(initial?.segment ?? defaultSegment ?? 'privat')
   const [saveError, setSaveError]   = useState<string | null>(null)
 
@@ -121,19 +141,59 @@ function KontaktForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Telefon</label>
-          <input name="telefon" defaultValue={v('telefon')} className={inputCls()} />
+          <div className="flex gap-1.5">
+            <select
+              name="telefon_vorwahl"
+              defaultValue={initial?.telefon_vorwahl ?? '+43'}
+              onChange={e => {
+                const d = DIAL_CODES.find(x => x.code === e.target.value)
+                if (d) setLandVal(d.iso)
+              }}
+              className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-24 flex-shrink-0"
+            >
+              {DIAL_CODES.map(d => (
+                <option key={d.code} value={d.code}>{d.flag} {d.code}</option>
+              ))}
+            </select>
+            <input name="telefon" defaultValue={v('telefon')} className={inputCls()} />
+          </div>
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Mobil</label>
-          <input name="mobil" defaultValue={v('mobil')} className={inputCls()} />
+          <div className="flex gap-1.5">
+            <select
+              name="mobil_vorwahl"
+              defaultValue={initial?.mobil_vorwahl ?? '+43'}
+              onChange={e => {
+                const d = DIAL_CODES.find(x => x.code === e.target.value)
+                if (d) setLandVal(d.iso)
+              }}
+              className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-24 flex-shrink-0"
+            >
+              {DIAL_CODES.map(d => (
+                <option key={d.code} value={d.code}>{d.flag} {d.code}</option>
+              ))}
+            </select>
+            <input name="mobil" defaultValue={v('mobil')} className={inputCls()} />
+          </div>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Ort</label>
-          <input name="ort" defaultValue={v('ort')} className={inputCls()} />
+          <label className="block text-xs font-medium text-gray-600 mb-1">Straße</label>
+          <input name="strasse" defaultValue={v('strasse')} className={inputCls()} />
+        </div>
+        <div className="flex gap-2">
+          <div className="w-28 flex-shrink-0">
+            <label className="block text-xs font-medium text-gray-600 mb-1">PLZ</label>
+            <input name="plz" defaultValue={v('plz')} className={inputCls()} />
+          </div>
+          <div className="flex-1">
+            <label className="block text-xs font-medium text-gray-600 mb-1">Ort</label>
+            <input name="ort" defaultValue={v('ort')} className={inputCls()} />
+          </div>
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Land</label>
-          <select name="land" defaultValue={v('land') || 'AT'} className={inputCls()}>
+          <select name="land" value={landVal} onChange={e => setLandVal(e.target.value)} className={inputCls()}>
             {LAENDER.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
         </div>

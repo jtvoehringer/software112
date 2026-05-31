@@ -378,19 +378,25 @@ export default function KontaktDetailClient({
             {kontakt.telefon && (
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-s112-muted w-5">T</span>
-                <span className="text-gray-700">{kontakt.telefon}</span>
+                <span className="text-gray-700">{kontakt.telefon_vorwahl && kontakt.telefon_vorwahl !== '+43' ? `${kontakt.telefon_vorwahl} ` : ''}{kontakt.telefon}</span>
               </div>
             )}
             {kontakt.mobil && (
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-s112-muted w-5">M</span>
-                <span className="text-gray-700">{kontakt.mobil}</span>
+                <span className="text-gray-700">{kontakt.mobil_vorwahl && kontakt.mobil_vorwahl !== '+43' ? `${kontakt.mobil_vorwahl} ` : ''}{kontakt.mobil}</span>
+              </div>
+            )}
+            {kontakt.strasse && (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-s112-muted w-5">📍</span>
+                <span className="text-gray-700">{kontakt.strasse}</span>
               </div>
             )}
             {kontakt.ort && (
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-s112-muted w-5">O</span>
-                <span className="text-gray-700">{kontakt.ort}{kontakt.land && kontakt.land !== 'AT' ? `, ${kontakt.land}` : ''}</span>
+                <span className="text-gray-700">{kontakt.plz ? `${kontakt.plz} ` : ''}{kontakt.ort}{kontakt.land && kontakt.land !== 'AT' ? `, ${kontakt.land}` : ''}</span>
               </div>
             )}
             {kontakt.firma_name && (

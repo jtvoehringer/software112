@@ -85,6 +85,8 @@ export type KontaktRow = {
   rabattgruppe_pct?: number | null
   sonderrabatt_pct?: number | null
   is_lead?: boolean
+  telefon_vorwahl?: string | null
+  mobil_vorwahl?: string | null
   aktiv: boolean
   erstellt_am: string
 }
@@ -108,6 +110,7 @@ export type FirmaRow = {
   rabattgruppe_pct?: number | null
   sonderrabatt_pct?: number | null
   is_lead?: boolean
+  telefon_vorwahl?: string | null
   zahlungsziel_tage: number | null
   waehrung: string | null
   notizen: string | null
