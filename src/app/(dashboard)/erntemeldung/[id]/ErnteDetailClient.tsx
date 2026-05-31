@@ -2,21 +2,12 @@
 
 import React, { useState, useTransition } from 'react'
 import { upsertErnteParzelle, deleteErnteParzelle, createOrUpdateAMAMeldung } from '../actions'
+import { qualitaetLabel, QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 import type { ErnteParzelle, WeingartenOpt, AMAMeldung } from './page'
 import PressungSection from './PressungSection'
 import type { Pressung, WGOption, BehOption, WAOption } from './PressungSection'
 
-const QUALITAET_OPTS = [
-  { value: 'tafelwein', label: 'Tafelwein' },
-  { value: 'landwein', label: 'Landwein' },
-  { value: 'qualitaetswein', label: 'Qualitätswein' },
-  { value: 'kabinett', label: 'Kabinett' },
-  { value: 'spaetlese', label: 'Spätlese' },
-  { value: 'auslese', label: 'Auslese' },
-  { value: 'beerenauslese', label: 'Beerenauslese' },
-  { value: 'trockenbeerenauslese', label: 'TBA' },
-  { value: 'eiswein', label: 'Eiswein' },
-]
+// QUALITAET_OPTS: aus lib/wein/qualitaet importiert (s.u. import qualitaetLabel)
 const LESEMETHODE_OPTS = [
   { value: 'handlese', label: 'Handlese' },
   { value: 'maschinenlese', label: 'Maschinenlese' },
@@ -232,7 +223,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
                       <td className="px-3 py-2 text-s112-muted">{formatDate(p.ernte_datum)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{p.menge_kg?.toLocaleString('de-AT') ?? '–'}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{p.klosterneuburger ?? '–'}</td>
-                      <td className="px-3 py-2 text-xs text-s112-muted capitalize">{p.qualitaetsstufe ?? '–'}</td>
+                      <td className="px-3 py-2 text-xs text-s112-muted">{qualitaetLabel(p.qualitaetsstufe)}</td>
                       {(writeOk || adminOk) && (
                         <td className="px-3 py-2 text-right" data-print="hide">
                           <div className="flex items-center justify-end gap-2">

@@ -1,3 +1,4 @@
+import { qualitaetLabel } from '@/lib/wein/qualitaet'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -9,25 +10,6 @@ export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
-
-const QUALITAET_LABELS: Record<string, string> = {
-  qualitaetswein:        'Qualitätswein',
-  kabinett:              'Kabinett',
-  spaetlese:             'Spätlese',
-  auslese:               'Auslese',
-  beerenauslese:         'Beerenauslese',
-  trockenbeerenauslese:  'TBA',
-  eiswein:               'Eiswein',
-  strohwein:             'Strohwein',
-  dac:                   'DAC',
-  reserve:               'Reservé',
-  erste_lage:            'Erste Lage',
-  grosses_gewachs:       'Gr. Gewächs',
-  landwein:              'Landwein',
-  sekt:                  'Sekt b.A.',
-  perlwein:              'Perlwein',
-  sonstiges:             'Sonstiges',
-}
 
 const FLASCHEN_LABEL: Record<number, string> = {
   187: '0,187 L', 375: '0,375 L', 500: '0,500 L', 750: '0,75 L',
@@ -158,7 +140,7 @@ export default async function WeinhandelPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-s112-muted">
-                        {QUALITAET_LABELS[f.qualitaet] ?? f.qualitaet}
+                        {qualitaetLabel(f.qualitaet)}
                       </td>
                       <td className="px-4 py-3 text-s112-muted whitespace-nowrap">
                         {FLASCHEN_LABEL[f.flaschengroesse_ml] ?? `${f.flaschengroesse_ml} ml`}
