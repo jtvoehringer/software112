@@ -39,7 +39,7 @@ export default async function CRMUebersichtPage() {
       const artDef = AKTIVITAET_ARTEN.find(x => x.value === a.art)
       return {
         id: `a_${a.id}`,
-        // Unerleidigte Ganztags-Aktivitäten aus der Vergangenheit → auf heute schieben
+        // Unerledigte Ganztags-Aktivitäten aus der Vergangenheit → auf heute schieben
         datum: (!a.erledigt && ((a.ganztags as boolean) ?? true) && (a.datum as string) < heute)
           ? heute
           : (a.datum as string),

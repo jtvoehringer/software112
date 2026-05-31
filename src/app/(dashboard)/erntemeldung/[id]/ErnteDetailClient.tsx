@@ -106,7 +106,7 @@ function ParzellForm({
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">°Oechsle</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">°Öchsle</label>
           <input name="oechsle" type="number" step="0.1" min="0"
             defaultValue={parzelle?.oechsle ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
@@ -220,7 +220,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
                   <th className="text-left px-3 py-2 font-semibold">Weingarten</th>
                   <th className="text-left px-3 py-2 font-semibold">Datum</th>
                   <th className="text-right px-3 py-2 font-semibold">kg</th>
-                  <th className="text-right px-3 py-2 font-semibold">°Oe</th>
+                  <th className="text-right px-3 py-2 font-semibold">°Öe</th>
                   <th className="text-left px-3 py-2 font-semibold">Qualität</th>
                   {(writeOk || adminOk) && <th className="px-3 py-2" />}
                 </tr>
