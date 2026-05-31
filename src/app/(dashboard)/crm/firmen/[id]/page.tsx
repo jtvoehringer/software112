@@ -70,6 +70,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     id: k.id, kundennummer: k.kundennummer ?? null, vorname: k.vorname ?? null, nachname: k.nachname,
     segment: k.segment, firma_id: k.firma_id ?? null, firma_name: firma.name,
     email: k.email ?? null, telefon: k.telefon ?? null, mobil: k.mobil ?? null,
+    strasse: k.strasse ?? null, plz: k.plz ?? null,
     ort: k.ort ?? null, land: k.land ?? null,
     newsletter: k.newsletter ?? false, newsletter_bestaetigt: k.newsletter_bestaetigt ?? false,
     stammkunde: k.stammkunde ?? false, notizen: k.notizen ?? null,
