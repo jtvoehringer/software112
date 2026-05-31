@@ -74,6 +74,8 @@ export type KontaktRow = {
   email: string | null
   telefon: string | null
   mobil: string | null
+  strasse: string | null
+  plz: string | null
   ort: string | null
   land: string | null
   newsletter: boolean
