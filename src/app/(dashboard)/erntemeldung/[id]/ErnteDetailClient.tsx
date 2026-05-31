@@ -105,12 +105,8 @@ function ParzellForm({
             defaultValue={parzelle?.menge_kg ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">°Öchsle</label>
-          <input name="oechsle" type="number" step="0.1" min="0"
-            defaultValue={parzelle?.oechsle ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
-        </div>
+        {/* °Öchsle: in DB vorhanden, für AT-Markt ausgeblendet – nur °KMW anzeigen */}
+        <input type="hidden" name="oechsle" value="" />
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">°KMW</label>
           <input name="klosterneuburger" type="number" step="0.01" min="0"
@@ -220,7 +216,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
                   <th className="text-left px-3 py-2 font-semibold">Weingarten</th>
                   <th className="text-left px-3 py-2 font-semibold">Datum</th>
                   <th className="text-right px-3 py-2 font-semibold">kg</th>
-                  <th className="text-right px-3 py-2 font-semibold">°Öe</th>
+                  <th className="text-right px-3 py-2 font-semibold">°KMW</th>
                   <th className="text-left px-3 py-2 font-semibold">Qualität</th>
                   {(writeOk || adminOk) && <th className="px-3 py-2" />}
                 </tr>
@@ -235,7 +231,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
                       </td>
                       <td className="px-3 py-2 text-s112-muted">{formatDate(p.ernte_datum)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{p.menge_kg?.toLocaleString('de-AT') ?? '–'}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{p.oechsle ?? '–'}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{p.klosterneuburger ?? '–'}</td>
                       <td className="px-3 py-2 text-xs text-s112-muted capitalize">{p.qualitaetsstufe ?? '–'}</td>
                       {(writeOk || adminOk) && (
                         <td className="px-3 py-2 text-right" data-print="hide">
