@@ -71,14 +71,14 @@ const NAV: NavEntry[] = [
   {
     kind: 'group', label: 'CRM', icon: '🤝',
     items: [
-      { href: '/crm',           label: 'Übersicht' },
+      { href: '/crm',           label: 'Kalender'  },
       { href: '/crm/kontakte',  label: 'Kontakte'  },
       { href: '/crm/firmen',    label: 'Firmen'    },
       { href: '/crm/pipeline',  label: 'Pipeline'  },
     ],
   },
 
-  { kind: 'link', href: '/reports', label: 'Reports', icon: '📁' },
+  { kind: 'link', href: '/reports', label: 'Berichte', icon: '📊' },
 
   {
     kind: 'group', label: 'Administration', icon: '⚙️', adminOnly: true,

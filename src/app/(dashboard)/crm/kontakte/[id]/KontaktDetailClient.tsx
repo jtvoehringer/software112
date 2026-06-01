@@ -396,7 +396,7 @@ export default function KontaktDetailClient({
             <h2 className="text-sm font-semibold text-gray-800 mb-3">Kontaktdaten</h2>
             {kontakt.email && (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-s112-muted w-5">E</span>
+                <span className="text-lg">✉️</span>
                 <a href={`mailto:${kontakt.email}`} className="text-s112-teal hover:underline">{kontakt.email}</a>
                 {writeOk && (
                   <button onClick={() => setShowEmailModal(true)}
@@ -408,31 +408,31 @@ export default function KontaktDetailClient({
             )}
             {kontakt.telefon && (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-s112-muted w-5">T</span>
-                <span className="text-gray-700">{kontakt.telefon_vorwahl && kontakt.telefon_vorwahl !== '+43' ? `${kontakt.telefon_vorwahl} ` : ''}{kontakt.telefon}</span>
+                <span className="text-lg">📞</span>
+                <a href={`tel:${kontakt.telefon_vorwahl ?? '+43'}${kontakt.telefon?.replace(/\s/g, '')}`} className="text-gray-700 hover:text-s112-teal">{kontakt.telefon_vorwahl ?? '+43'} {kontakt.telefon}</a>
               </div>
             )}
             {kontakt.mobil && (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-s112-muted w-5">M</span>
-                <span className="text-gray-700">{kontakt.mobil_vorwahl && kontakt.mobil_vorwahl !== '+43' ? `${kontakt.mobil_vorwahl} ` : ''}{kontakt.mobil}</span>
+                <span className="text-lg">📱</span>
+                <a href={`tel:${kontakt.mobil_vorwahl ?? '+43'}${kontakt.mobil?.replace(/\s/g, '')}`} className="text-gray-700 hover:text-s112-teal">{kontakt.mobil_vorwahl ?? '+43'} {kontakt.mobil}</a>
               </div>
             )}
             {kontakt.strasse && (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-s112-muted w-5">📍</span>
+                <span className="text-lg">🏠</span>
                 <span className="text-gray-700">{kontakt.strasse}</span>
               </div>
             )}
             {kontakt.ort && (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-s112-muted w-5">O</span>
-                <span className="text-gray-700">{kontakt.plz ? `${kontakt.plz} ` : ''}{kontakt.ort}{kontakt.land && kontakt.land !== 'AT' ? `, ${kontakt.land}` : ''}</span>
+                <span className="text-lg">📍</span>
+                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([kontakt.strasse, kontakt.plz, kontakt.ort, kontakt.land ?? 'Österreich'].filter(Boolean).join(', '))}`} target="_blank" rel="noopener noreferrer" className="text-gray-700 hover:text-s112-teal">{kontakt.plz ? `${kontakt.plz} ` : ''}{kontakt.ort}{kontakt.land && kontakt.land !== 'AT' ? `, ${kontakt.land}` : ''}</a>
               </div>
             )}
             {kontakt.firma_name && (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-s112-muted w-5">F</span>
+                <span className="text-lg">🏢</span>
                 <span className="text-gray-700">{kontakt.firma_name}</span>
                 {firmaSegment && (
                   <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${segmentFarbe(firmaSegment)}`}>

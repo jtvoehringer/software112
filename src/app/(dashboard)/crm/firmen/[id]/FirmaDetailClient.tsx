@@ -367,9 +367,10 @@ export default function FirmaDetailClient({
                 </a>
               )}
               {firma.telefon && (
-                <span className="text-sm text-gray-600 flex items-center gap-1">
-                  <span>📞</span> {firma.telefon}
-                </span>
+                <a href={`tel:${firma.telefon_vorwahl ?? '+43'}${firma.telefon?.replace(/\s/g, '')}`}
+                  className="text-sm text-gray-600 hover:text-s112-teal flex items-center gap-1">
+                  <span>📞</span> {firma.telefon_vorwahl ?? '+43'} {firma.telefon}
+                </a>
               )}
               {firma.website && (
                 <a href={firma.website} target="_blank" rel="noopener noreferrer"
@@ -378,9 +379,11 @@ export default function FirmaDetailClient({
                 </a>
               )}
               {(firma.plz || firma.ort) && (
-                <span className="text-sm text-gray-600 flex items-center gap-1">
+                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([firma.strasse, firma.plz, firma.ort, 'Österreich'].filter(Boolean).join(', '))}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="text-sm text-gray-600 hover:text-s112-teal flex items-center gap-1">
                   <span>📍</span> {[firma.strasse, firma.plz && firma.ort ? `${firma.plz} ${firma.ort}` : (firma.plz ?? firma.ort)].filter(Boolean).join(', ')}
-                </span>
+                </a>
               )}
               {firma.uid_nummer && (
                 <span className="text-sm text-gray-600">UID: {firma.uid_nummer}</span>
