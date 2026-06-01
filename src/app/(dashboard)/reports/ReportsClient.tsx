@@ -122,20 +122,22 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
   }
 
   function googleMapsUrl(kontakte: R[]): string {
-    // Adressen: Straße wenn vorhanden, sonst nur PLZ + Ort
+    // Vollständige Adressen mit PLZ + Ort + Österreich für korrekte Geocodierung
     const adressen = kontakte
       .filter(k => k.ort || k.plz)
       .map(k => {
-        const teile = [k.strasse, [k.plz, k.ort].filter(Boolean).join(' '), k.land ?? 'AT'].filter(Boolean)
+        const teile = [
+          k.strasse,
+          [k.plz, k.ort].filter(Boolean).join(' '),
+          'Österreich',
+        ].filter(Boolean)
         return teile.join(', ')
       })
-      .slice(0, 9)  // Google: max 9 Wegpunkte + 1 Ziel = 10
+      .slice(0, 10)
     if (adressen.length === 0) return ''
-    if (adressen.length === 1)
-      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(adressen[0])}`
-    const destination = encodeURIComponent(adressen[adressen.length - 1])
-    const waypoints   = adressen.slice(0, -1).map(encodeURIComponent).join('|')
-    return `https://www.google.com/maps/dir/?api=1&destination=${destination}&waypoints=${waypoints}&travelmode=driving`
+    // /dir/-Format: kein API-Key nötig, zeigt Route direkt
+    const segmente = adressen.map(a => encodeURIComponent(a)).join('/')
+    return `https://www.google.com/maps/dir/${segmente}`
   }
 
   // Balken-Max für Umsatzdiagramm
