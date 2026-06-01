@@ -554,7 +554,7 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
               </div>
               <div className="flex items-end">
                 <button type="submit" disabled={bLaden}
-                  className="w-full bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+                  className="w-full text-white px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-40" style={{ backgroundColor: 'var(--s112-teal)' }}>
                   {bLaden ? '⏳ Lädt…' : '🗺 Planen'}
                 </button>
               </div>
@@ -571,7 +571,7 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
                   </p>
                   {googleMapsUrl(bResult.kontakte) && (
                     <a href={googleMapsUrl(bResult.kontakte)} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 bg-s112-teal text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-opacity-90">
+                      className="flex items-center gap-1.5 text-white px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ backgroundColor: 'var(--s112-teal)' }}>
                       📍 Route in Google Maps öffnen
                     </a>
                   )}
