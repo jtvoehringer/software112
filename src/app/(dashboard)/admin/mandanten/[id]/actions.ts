@@ -176,20 +176,25 @@ export async function saveEmailEinstellungen(tenantId: string, formData: FormDat
   const smtpPass = (formData.get('email_smtp_pass') as string).trim()
   const imapPass = (formData.get('email_imap_pass') as string).trim()
 
+  // Bestehende verschlüsselte Passwörter lesen (werden nur überschrieben wenn neu eingegeben)
+  const { data: existing } = await (admin.from('tenant_einstellungen') as any)
+    .select('email_smtp_pass_enc, email_imap_pass_enc')
+    .eq('tenant_id', tenantId).maybeSingle()
+  const existingR = (existing as Record<string,string> | null)
+
   const payload: Record<string, unknown> = {
     email_modul_aktiv:    formData.get('email_modul_aktiv') === 'true',
     email_smtp_host:      (formData.get('email_smtp_host') as string) || null,
     email_smtp_port:      parseInt(formData.get('email_smtp_port') as string) || 587,
     email_smtp_user:      (formData.get('email_smtp_user') as string) || null,
     email_smtp_from_name: (formData.get('email_smtp_from_name') as string) || null,
+    email_smtp_pass_enc:  smtpPass ? encryptPass(smtpPass) : (existingR?.email_smtp_pass_enc ?? null),
     email_imap_host:      (formData.get('email_imap_host') as string) || null,
     email_imap_port:      parseInt(formData.get('email_imap_port') as string) || 993,
     email_imap_user:      (formData.get('email_imap_user') as string) || null,
+    email_imap_pass_enc:  imapPass ? encryptPass(imapPass) : (existingR?.email_imap_pass_enc ?? null),
     aktualisiert_am:      new Date().toISOString(),
   }
-  // Passwörter nur aktualisieren wenn neu eingetragen
-  if (smtpPass) payload.email_smtp_pass_enc = encryptPass(smtpPass)
-  if (imapPass) payload.email_imap_pass_enc = encryptPass(imapPass)
 
   const { error } = await (admin.from('tenant_einstellungen') as any)
     .upsert({ tenant_id: tenantId, ...payload }, { onConflict: 'tenant_id' })
