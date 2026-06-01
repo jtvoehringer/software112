@@ -59,10 +59,10 @@ export async function POST(req: NextRequest) {
       tage_seit_kontakt: letzteMap[k.id]
         ? Math.floor((Date.now() - new Date(letzteMap[k.id]).getTime()) / 86400000)
         : null,
-    }) as R))
+    }))  as R[]
 
     // Nach PLZ gruppieren
-    const cluster: Record<string, typeof enriched> = {}
+    const cluster: Record<string, R[]> = {}
     enriched.forEach(k => {
       const key = k.plz ?? 'ohne PLZ'
       if (!cluster[key]) cluster[key] = []
