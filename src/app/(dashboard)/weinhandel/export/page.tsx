@@ -2,7 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
-export const metadata: Metadata = { title: 'Export – software:112' }
+export const metadata: Metadata = { title: 'Datenexport – software:112' }
 export const dynamic = 'force-dynamic'
 
 export default async function ExportPage() {
