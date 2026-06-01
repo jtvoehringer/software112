@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 // Routen die OHNE Login zugänglich sind
 const PUBLIC_ROUTES = ['/login', '/register', '/auth/callback', '/api/email/', '/api/ki-abfrage', '/api/besuchsplanung', '/api/export/', '/api/verkauf-stammdaten']
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
