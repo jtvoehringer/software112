@@ -434,7 +434,7 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
                         <tr className="bg-s112-bg border-b border-s112-border text-xs text-gray-600">
                           {Object.keys(kiErgebnis.ergebnisse[0])
                             .filter(k => !['id','tenant_id','erstellt_am','updated_at','aktualisiert_am','firma_id','kontakt_id','psm_id','weingarten_id','weinausbau_id'].includes(k))
-                            .slice(0, 9)
+                            .slice(0, 11)
                             .map(k => (
                               <th key={k} className="text-left px-3 py-2 font-semibold capitalize">
                                 {k.replace(/_/g,' ')}
@@ -447,7 +447,7 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
                           <tr key={i} className={`border-b border-s112-border/40 ${i%2===1?'bg-s112-bg/30':''}`}>
                             {Object.entries(row)
                               .filter(([k]) => !['id','tenant_id','erstellt_am','updated_at','aktualisiert_am','firma_id','kontakt_id','psm_id','weingarten_id','weinausbau_id'].includes(k))
-                              .slice(0, 9)
+                              .slice(0, 11)
                               .map(([k, v]) => (
                                 <td key={k} className="px-3 py-2 text-gray-700">
                                   {v == null ? '–'
