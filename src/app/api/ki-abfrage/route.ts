@@ -62,7 +62,7 @@ async function executeQuery(supabase: any, params: R): Promise<R[]> {
 
   // Tabellen-spezifische Selects mit Joins
   const selectMap: Record<string, string> = {
-    kontakte:          'kundennummer, vorname, nachname, segment, email, telefon, mobil, strasse, plz, ort, land, stammkunde, is_lead, notizen, firma:firma_id(name)',
+    kontakte:          'kundennummer, vorname, nachname, segment, email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, stammkunde, is_lead, notizen, firma:firma_id(name)',
     firmen:            'kundennummer, name, segment, email, telefon, strasse, plz, ort, land, uid_nummer, zahlungsziel_tage, is_lead, notizen',
     verkaufsposten:    'datum, rechnungsnummer, bezahlt, storniert, kontakt:kontakte(vorname, nachname), firma:firmen(name)',
     fuellungen:        'name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto',
@@ -145,7 +145,21 @@ export async function POST(req: NextRequest) {
     }
 
     // Abfrage ausführen
-    const ergebnisse = await executeQuery(supabase, queryParams)
+    const rohdaten = await executeQuery(supabase, queryParams)
+
+    // Telefonnummer + Vorwahl kombinieren (nur wenn Nummer vorhanden)
+    const ergebnisse = rohdaten.map((row: R) => {
+      const r = { ...row }
+      if ('telefon' in r) {
+        r.telefon = r.telefon ? `${r.telefon_vorwahl ?? '+43'} ${r.telefon}`.trim() : null
+        delete r.telefon_vorwahl
+      }
+      if ('mobil' in r) {
+        r.mobil = r.mobil ? `${r.mobil_vorwahl ?? '+43'} ${r.mobil}`.trim() : null
+        delete r.mobil_vorwahl
+      }
+      return r
+    })
 
     return NextResponse.json({
       ergebnisse,
