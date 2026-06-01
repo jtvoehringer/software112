@@ -27,6 +27,7 @@ const TABS = [
   { id: 'kontakt',     label: '🤝 Kontaktfrequenz', title: 'Tage seit letztem Kontakt' },
   { id: 'offen',       label: '💶 Offene Posten',   title: 'Unbezahlte Rechnungen' },
   { id: 'smart',       label: '🤖 Frag dein Weingut', title: 'KI-Abfrage – Frag dein Weingut' },
+  { id: 'besuch',      label: '🗺 Besuchsplanung',     title: 'Besuchsplanung – PLZ-Cluster' },
 ] as const
 type TabId = typeof TABS[number]['id']
 
@@ -58,6 +59,14 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
   const [tab, setTab] = useState<TabId>('umsatz')
   const [frage, setFrage] = useState('')
   const [verlauf, setVerlauf] = useState<string[]>([])
+  // Besuchsplanung
+  const [bOrt, setBOrt]         = useState('')
+  const [bSegment, setBSegment] = useState('')
+  const [bLeads, setBLeads]     = useState(true)
+  const [bKunden, setBKunden]   = useState(true)
+  const [bLaden, setBLaden]     = useState(false)
+  const [bResult, setBResult]   = useState<{kontakte: R[]; cluster: Record<string, R[]>; anzahl: number; plz_count: number}|null>(null)
+  const [bFehler, setBFehler]   = useState<string|null>(null)
 
   useEffect(() => {
     try {
@@ -94,6 +103,31 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
     } finally {
       setKiLaden(false)
     }
+  }
+
+  // Besuchsplanung laden
+  async function ladeBesuch(e: React.FormEvent) {
+    e.preventDefault()
+    setBLaden(true); setBFehler(null); setBResult(null)
+    try {
+      const res = await fetch('/api/besuchsplanung', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ort_filter: bOrt, segment: bSegment || null, include_leads: bLeads, include_kunden: bKunden }),
+      })
+      const json = await res.json()
+      if (!res.ok || json.fehler) { setBFehler(json.fehler ?? 'Fehler'); return }
+      setBResult(json)
+    } catch (err) { setBFehler(String(err)) }
+    finally { setBLaden(false) }
+  }
+
+  function googleMapsUrl(kontakte: R[]): string {
+    const adressen = kontakte
+      .filter(k => k.strasse && k.ort)
+      .map(k => encodeURIComponent(`${k.strasse}, ${k.plz ?? ''} ${k.ort}, ${k.land ?? 'AT'}`))
+      .slice(0, 10)  // Google Maps max Wegpunkte
+    if (adressen.length === 0) return ''
+    return `https://www.google.com/maps/dir/${adressen.join('/')}`
   }
 
   // Balken-Max für Umsatzdiagramm
@@ -470,6 +504,123 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
                   <p className="text-center text-s112-muted py-6">Keine Einträge gefunden.</p>
                 )}
               </div>
+            )}
+          </div>
+        )}
+
+        {/* ── BESUCHSPLANUNG ──────────────────────────────────────────────────── */}
+        {tab === 'besuch' && (
+          <div className="space-y-5">
+            {/* Filter-Formular */}
+            <form onSubmit={ladeBesuch} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Region / Ort</label>
+                <input value={bOrt} onChange={e => setBOrt(e.target.value)}
+                  placeholder="z.B. Salzburg, Wien…"
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Segment</label>
+                <select value={bSegment} onChange={e => setBSegment(e.target.value)}
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  <option value="">Alle Segmente</option>
+                  <option value="privat">Privat</option>
+                  <option value="gastro">Gastronomie</option>
+                  <option value="handel">Handel</option>
+                  <option value="export">Export</option>
+                  <option value="grosshandel">Großhandel</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Einschließen</label>
+                <div className="flex gap-3 mt-1.5">
+                  <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                    <input type="checkbox" checked={bKunden} onChange={e => setBKunden(e.target.checked)} className="accent-s112-teal" />
+                    Kunden
+                  </label>
+                  <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                    <input type="checkbox" checked={bLeads} onChange={e => setBLeads(e.target.checked)} className="accent-s112-teal" />
+                    Leads
+                  </label>
+                </div>
+              </div>
+              <div className="flex items-end">
+                <button type="submit" disabled={bLaden}
+                  className="w-full bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+                  {bLaden ? '⏳ Lädt…' : '🗺 Planen'}
+                </button>
+              </div>
+            </form>
+
+            {bFehler && <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">{bFehler}</div>}
+
+            {bResult && (
+              <div className="space-y-4">
+                {/* Zusammenfassung + Route-Button */}
+                <div className="flex items-center justify-between bg-s112-bg rounded-xl px-4 py-3">
+                  <p className="text-sm font-medium text-gray-700">
+                    {bResult.anzahl} Kontakte · {bResult.plz_count} PLZ-Gebiete
+                  </p>
+                  {googleMapsUrl(bResult.kontakte) && (
+                    <a href={googleMapsUrl(bResult.kontakte)} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 bg-s112-teal text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-opacity-90">
+                      📍 Route in Google Maps öffnen
+                    </a>
+                  )}
+                </div>
+
+                {/* PLZ-Cluster */}
+                {Object.entries(bResult.cluster)
+                  .sort(([a], [b]) => a.localeCompare(b))
+                  .map(([plz, kontakte]) => (
+                    <div key={plz} className="border border-s112-border rounded-xl overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-2.5 bg-s112-bg border-b border-s112-border">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-s112-teal text-sm">{plz}</span>
+                          <span className="text-xs text-s112-muted">{kontakte[0]?.ort ?? ''}</span>
+                          <span className="text-xs bg-white border border-s112-border px-2 py-0.5 rounded-full text-gray-600">{kontakte.length}</span>
+                        </div>
+                        {googleMapsUrl(kontakte) && (
+                          <a href={googleMapsUrl(kontakte)} target="_blank" rel="noopener noreferrer"
+                            className="text-xs text-s112-teal hover:underline">
+                            📍 Nur dieses Gebiet
+                          </a>
+                        )}
+                      </div>
+                      <div className="divide-y divide-s112-border/40">
+                        {kontakte.map(k => (
+                          <div key={k.id} className="flex items-start justify-between px-4 py-2.5 hover:bg-s112-bg/40">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-800">
+                                  {k.vorname} {k.nachname}
+                                  {k.firma_name && <span className="text-s112-muted font-normal"> · {k.firma_name}</span>}
+                                </span>
+                                {k.is_lead && <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">Lead</span>}
+                              </div>
+                              <p className="text-xs text-s112-muted mt-0.5">
+                                {k.strasse && `${k.strasse} · `}{k.telefon ?? k.mobil ?? k.email ?? '–'}
+                              </p>
+                            </div>
+                            <div className="text-right flex-shrink-0 ml-4">
+                              {k.tage_seit_kontakt !== null ? (
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${k.tage_seit_kontakt > 180 ? 'bg-red-100 text-red-700' : k.tage_seit_kontakt > 90 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                                  {k.tage_seit_kontakt} Tage
+                                </span>
+                              ) : (
+                                <span className="text-xs text-s112-muted">kein Kontakt</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+
+            {bResult?.anzahl === 0 && (
+              <p className="text-center text-s112-muted py-8">Keine Kontakte gefunden. Filterkriterien anpassen.</p>
             )}
           </div>
         )}
