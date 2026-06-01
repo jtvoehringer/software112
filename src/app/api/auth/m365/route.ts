@@ -23,7 +23,10 @@ export async function GET(req: NextRequest) {
   if (!c?.m365_tenant_id || !c?.m365_client_id)
     return NextResponse.redirect(new URL('/admin/mandanten', req.url))
 
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://software112.icp-consultants.at'}/api/auth/m365/callback`
+  // Host aus dem Request ableiten → funktioniert für localhost UND Production
+  const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? 'software112.icp-consultants.at'
+  const proto = req.headers.get('x-forwarded-proto') ?? 'https'
+  const redirectUri = `${proto}://${host}/api/auth/m365/callback`
   const state = `${tenantId}:${user.id}`
   const authUrl = m365AuthUrl(c.m365_tenant_id, c.m365_client_id, redirectUri, state)
 
