@@ -1,6 +1,7 @@
 'use server'
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { encryptPass } from '@/lib/email/crypto'
 import { getCurrentUserRole } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 
@@ -163,6 +164,36 @@ export async function saveVerkaufEinstellungen(tenantId: string, formData: FormD
     }, { onConflict: 'tenant_id' })
 
   if (error) throw new Error((error as R).message)
+  revalidatePath(`/admin/mandanten/${tenantId}`)
+}
+
+// ── E-Mail-Einstellungen speichern ────────────────────────────────────────────
+
+export async function saveEmailEinstellungen(tenantId: string, formData: FormData) {
+  await assertSystemAdmin()
+  const admin = createSupabaseAdminClient()
+
+  const smtpPass = (formData.get('email_smtp_pass') as string).trim()
+  const imapPass = (formData.get('email_imap_pass') as string).trim()
+
+  const payload: Record<string, unknown> = {
+    email_modul_aktiv:    formData.get('email_modul_aktiv') === 'true',
+    email_smtp_host:      (formData.get('email_smtp_host') as string) || null,
+    email_smtp_port:      parseInt(formData.get('email_smtp_port') as string) || 587,
+    email_smtp_user:      (formData.get('email_smtp_user') as string) || null,
+    email_smtp_from_name: (formData.get('email_smtp_from_name') as string) || null,
+    email_imap_host:      (formData.get('email_imap_host') as string) || null,
+    email_imap_port:      parseInt(formData.get('email_imap_port') as string) || 993,
+    email_imap_user:      (formData.get('email_imap_user') as string) || null,
+    aktualisiert_am:      new Date().toISOString(),
+  }
+  // Passwörter nur aktualisieren wenn neu eingetragen
+  if (smtpPass) payload.email_smtp_pass_enc = encryptPass(smtpPass)
+  if (imapPass) payload.email_imap_pass_enc = encryptPass(imapPass)
+
+  const { error } = await (admin.from('tenant_einstellungen') as any)
+    .upsert({ tenant_id: tenantId, ...payload }, { onConflict: 'tenant_id' })
+  if (error) throw new Error((error as Record<string,string>).message)
   revalidatePath(`/admin/mandanten/${tenantId}`)
 }
 

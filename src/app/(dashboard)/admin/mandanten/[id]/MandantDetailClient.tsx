@@ -10,6 +10,7 @@ import {
   removeMemberAdmin,
   renameTenantAdmin,
   saveVerkaufEinstellungen,
+  saveEmailEinstellungen,
   saveBetriebEinstellungen,
   resetRechnungsZaehler,
   resetKundenZaehler,
@@ -545,6 +546,126 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
   )
 }
 
+
+// ── Tab: E-Mail-Integration ───────────────────────────────────────────────────
+function EmailTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
+  const [pending, startTransition] = useTransition()
+  const [saved,   setSaved]        = useState(false)
+  const [polling, setPolling]      = useState(false)
+  const [pollResult, setPollResult] = useState<string | null>(null)
+  const [aktiv, setAktiv]          = useState(settings.email_modul_aktiv)
+
+  function handleSave(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    fd.set('email_modul_aktiv', aktiv ? 'true' : 'false')
+    startTransition(async () => {
+      await saveEmailEinstellungen(tenant.id, fd)
+      setSaved(true); setTimeout(() => setSaved(false), 2000)
+    })
+  }
+
+  async function handlePoll() {
+    setPolling(true); setPollResult(null)
+    try {
+      const res = await fetch('/api/email/poll', { method: 'POST' })
+      const json = await res.json()
+      setPollResult(json.fehler ? `Fehler: ${json.fehler}` : `✓ ${json.neu} neue E-Mail(s) importiert`)
+    } catch (err) { setPollResult(`Fehler: ${err}`) }
+    finally { setPolling(false) }
+  }
+
+  return (
+    <div className="space-y-6 max-w-lg">
+      <div className="flex items-center gap-3">
+        <label className="flex items-center gap-2.5 cursor-pointer select-none">
+          <div onClick={() => setAktiv(v => !v)}
+            className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${aktiv ? 'bg-s112-teal' : 'bg-gray-300'}`}>
+            <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${aktiv ? 'translate-x-5' : 'translate-x-0'}`} />
+          </div>
+        </label>
+        <span className={`text-sm font-semibold ${aktiv ? 'text-s112-teal' : 'text-gray-500'}`}>
+          E-Mail-Modul {aktiv ? 'aktiv' : 'inaktiv'}
+        </span>
+      </div>
+
+      <form onSubmit={handleSave} className="space-y-5">
+        {/* SMTP Ausgehend */}
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">SMTP – Ausgehende E-Mails</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">SMTP-Host</label>
+              <input name="email_smtp_host" defaultValue={settings.email_smtp_host ?? ''} placeholder="smtp.gmail.com" className={inputCls()} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Port</label>
+              <input name="email_smtp_port" type="number" defaultValue={settings.email_smtp_port} className={inputCls()} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Benutzername / E-Mail</label>
+              <input name="email_smtp_user" defaultValue={settings.email_smtp_user ?? ''} placeholder="name@domain.at" className={inputCls()} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Passwort / App-Passwort</label>
+              <input name="email_smtp_pass" type="password" placeholder="Neu setzen (leer = unverändert)" className={inputCls()} />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Absendername</label>
+              <input name="email_smtp_from_name" defaultValue={settings.email_smtp_from_name ?? ''} placeholder="Weingut Gebeshuber" className={inputCls()} />
+            </div>
+          </div>
+        </div>
+
+        {/* IMAP Eingehend */}
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">IMAP – Eingehende E-Mails</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">IMAP-Host</label>
+              <input name="email_imap_host" defaultValue={settings.email_imap_host ?? ''} placeholder="imap.gmail.com" className={inputCls()} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Port</label>
+              <input name="email_imap_port" type="number" defaultValue={settings.email_imap_port} className={inputCls()} />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Benutzername / E-Mail</label>
+              <input name="email_imap_user" defaultValue={settings.email_imap_user ?? ''} className={inputCls()} />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Passwort / App-Passwort</label>
+              <input name="email_imap_pass" type="password" placeholder="Neu setzen (leer = unverändert)" className={inputCls()} />
+            </div>
+          </div>
+          {settings.email_last_poll && (
+            <p className="text-xs text-s112-muted mt-2">Letzter Import: {new Date(settings.email_last_poll).toLocaleString('de-AT')}</p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button type="submit" disabled={pending}
+            className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+            {pending ? 'Speichern…' : 'Speichern'}
+          </button>
+          {saved && <span className="text-xs text-s112-teal font-medium">✓ Gespeichert</span>}
+        </div>
+      </form>
+
+      {/* Manueller IMAP-Poll */}
+      <div className="border border-s112-border rounded-xl p-4 space-y-3">
+        <p className="text-sm font-semibold text-gray-700">Posteingang jetzt abrufen</p>
+        <p className="text-xs text-s112-muted">Importiert ungelesene E-Mails der letzten 7 Tage und legt Aktivitäten für bekannte Kontakte an.</p>
+        <button type="button" onClick={handlePoll} disabled={polling}
+          className="text-sm border border-s112-border px-4 py-1.5 rounded-lg hover:bg-s112-bg disabled:opacity-40">
+          {polling ? '⏳ Abrufen…' : '📥 Jetzt abrufen'}
+        </button>
+        {pollResult && <p className="text-xs font-medium text-gray-700">{pollResult}</p>}
+      </div>
+    </div>
+  )
+}
+
 // ── Tab: Verkauf ──────────────────────────────────────────────────────────────
 
 function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
@@ -829,7 +950,7 @@ function ChecklisteTab({ tenant, settings, members }: {
 
 // ── Haupt-Komponente ──────────────────────────────────────────────────────────
 
-type Tab = 'branding' | 'benutzer' | 'brevo' | 'module' | 'betrieb' | 'verkauf' | 'checkliste'
+type Tab = 'branding' | 'benutzer' | 'brevo' | 'module' | 'betrieb' | 'verkauf' | 'email' | 'checkliste'
 
 export default function MandantDetailClient({ tenant, settings, members }: {
   tenant:   TenantDetail
@@ -856,6 +977,7 @@ export default function MandantDetailClient({ tenant, settings, members }: {
     { id: 'module',      label: 'Module' },
     { id: 'betrieb',     label: 'Betrieb' },
     { id: 'verkauf',     label: 'Verkauf' },
+    { id: 'email',       label: '✉ E-Mail'   },
     { id: 'checkliste',  label: 'Checkliste' },
   ]
 
@@ -924,6 +1046,7 @@ export default function MandantDetailClient({ tenant, settings, members }: {
       {tab === 'module'     && <ModuleTab     tenant={tenant} settings={settings} />}
       {tab === 'betrieb'    && <BetriebTab    tenant={tenant} settings={settings} />}
       {tab === 'verkauf'    && <VerkaufTab    tenant={tenant} settings={settings} />}
+      {tab === 'email'      && <EmailTab      tenant={tenant} settings={settings} />}
       {tab === 'checkliste' && <ChecklisteTab tenant={tenant} settings={settings} members={members} />}
     </div>
   )
