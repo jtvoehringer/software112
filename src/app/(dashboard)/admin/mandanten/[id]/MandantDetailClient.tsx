@@ -559,6 +559,20 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
     ? new Date(settings.m365_token_expires_at) > new Date()
     : false
 
+  const [subLoading, setSubLoading] = useState(false)
+  const [subResult, setSubResult]   = useState<string | null>(null)
+
+  async function handleSubscribe() {
+    setSubLoading(true); setSubResult(null)
+    try {
+      const res = await fetch('/api/m365/subscribe', { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok || json.fehler) { setSubResult('Fehler: ' + (json.fehler ?? 'Unbekannt')); return }
+      setSubResult(`✓ Webhook ${json.aktion} · gültig bis ${new Date(json.expires).toLocaleString('de-AT')}`)
+    } catch (err) { setSubResult('Fehler: ' + String(err)) }
+    finally { setSubLoading(false) }
+  }
+
   function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     startTransition(async () => {
@@ -631,11 +645,17 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
       {isConnected && (
         <div className="border border-s112-border rounded-xl p-4 space-y-2">
           <p className="text-sm font-semibold text-gray-700">Echtzeit-Webhook</p>
-          <p className="text-xs text-s112-muted">
+          <p className="text-xs text-s112-muted mb-3">
             {settings.m365_webhook_sub_id
-              ? `✓ Aktive Subscription: ${settings.m365_webhook_sub_id.slice(0, 16)}…`
-              : 'Noch kein Webhook registriert – wird beim ersten Poll automatisch erstellt.'}
+              ? `✓ Aktive Subscription (${settings.m365_webhook_sub_id.slice(0, 16)}…)`
+              : 'Noch kein Webhook registriert.'}
+            {settings.m365_webhook_expires && ` · Läuft ab: ${new Date(settings.m365_webhook_expires).toLocaleString('de-AT')}`}
           </p>
+          <button type="button" onClick={handleSubscribe} disabled={subLoading}
+            className="text-sm border border-s112-border px-4 py-1.5 rounded-lg hover:bg-s112-bg disabled:opacity-40">
+            {subLoading ? '⏳ Registrieren…' : settings.m365_webhook_sub_id ? '🔄 Webhook erneuern' : '📡 Webhook registrieren'}
+          </button>
+          {subResult && <p className="text-xs font-medium text-gray-700 mt-2">{subResult}</p>}
         </div>
       )}
     </div>
