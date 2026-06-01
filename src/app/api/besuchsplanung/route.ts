@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       tage_seit_kontakt: letzteMap[k.id]
         ? Math.floor((Date.now() - new Date(letzteMap[k.id]).getTime()) / 86400000)
         : null,
-    }))
+    }) as R))
 
     // Nach PLZ gruppieren
     const cluster: Record<string, typeof enriched> = {}
