@@ -137,7 +137,7 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
     if (adressen.length === 0) return ''
     // /dir/-Format: kein API-Key nötig, zeigt Route direkt
     const segmente = adressen.map(a => encodeURIComponent(a)).join('/')
-    return `https://www.google.com/maps/dir/${segmente}`
+    return `https://www.google.com/maps/dir//${segmente}`  // leerer Start = aktueller Standort
   }
 
   // Balken-Max für Umsatzdiagramm
