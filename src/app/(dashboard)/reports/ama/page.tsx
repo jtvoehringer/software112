@@ -50,7 +50,7 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
           <form method="GET" action="/reports/ama">
             <select name="jahrgang"
               defaultValue={aktJahrgang?.jahrgang ?? ''}
-              onChange="this.form.submit()"
+              onChange={e => (e.target as HTMLSelectElement).form?.submit()}
               className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
               {jahrgaenge.map(j => <option key={j.id} value={j.jahrgang}>{j.jahrgang}</option>)}
             </select>

@@ -59,7 +59,7 @@ export default async function CuBilanzPage({ searchParams }: { searchParams: Pro
           <form method="GET" action="/reports/cu-bilanz">
             <select name="jahr"
               defaultValue={aktJahr}
-              onChange="this.form.submit()"
+              onChange={e => (e.target as HTMLSelectElement).form?.submit()}
               className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
               {jahre.map(j => <option key={j} value={j}>{j}</option>)}
             </select>
