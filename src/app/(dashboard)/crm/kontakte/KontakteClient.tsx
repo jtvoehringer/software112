@@ -608,12 +608,18 @@ export default function KontakteClient({
           </svg>
           {sortBy === 'nachname' ? 'Nachname' : 'Vorname'}
         </button>
-        {writeOk && !showForm && (
-          <button onClick={() => setShowForm(true)}
-            className="ml-auto inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
-            <span>＋</span> Neuer Kontakt
-          </button>
-        )}
+        <div className="ml-auto flex items-center gap-2">
+          <a href="/api/export/kontakte" download
+            className="inline-flex items-center gap-1.5 border border-s112-border text-gray-600 px-3 py-2 rounded-xl text-sm hover:bg-s112-bg transition-colors">
+            ⬇ CSV
+          </a>
+          {writeOk && !showForm && (
+            <button onClick={() => setShowForm(true)}
+              className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+              <span>＋</span> Neuer Kontakt
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Formular */}
