@@ -12,6 +12,14 @@ type R = Record<string, any>
 // Kann per Vercel Cron oder manuellem Aufruf getriggert werden
 // Header X-Cron-Secret muss mit CRON_SECRET übereinstimmen (optional)
 export async function POST(req: NextRequest) {
+  // Vercel Cron: Header-Prüfung (CRON_SECRET muss in Vercel Env-Vars gesetzt sein)
+  const cronSecret = process.env.CRON_SECRET
+  if (cronSecret) {
+    const auth = req.headers.get('authorization')
+    if (auth !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ fehler: 'Unauthorized' }, { status: 401 })
+    }
+  }
   try {
     const supabase = await createSupabaseServerClient()
     const admin    = createSupabaseAdminClient()
