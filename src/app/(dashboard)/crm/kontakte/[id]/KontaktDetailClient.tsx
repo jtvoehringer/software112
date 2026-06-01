@@ -292,6 +292,31 @@ export default function KontaktDetailClient({
   pipeline: PipelineEintragRow[]
   writeOk: boolean
 }) {
+  const [showEmailModal, setShowEmailModal] = useState(false)
+  const [emailBetreff, setEmailBetreff]   = useState('')
+  const [emailText, setEmailText]         = useState('')
+  const [emailSending, setEmailSending]   = useState(false)
+  const [emailResult, setEmailResult]     = useState<string | null>(null)
+
+  async function sendEmail(e: React.FormEvent) {
+    e.preventDefault()
+    setEmailSending(true); setEmailResult(null)
+    try {
+      const res = await fetch('/api/email/send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          an: kontakt.email, betreff: emailBetreff, text: emailText,
+          kontakt_id: kontakt.id,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok || json.fehler) { setEmailResult('Fehler: ' + (json.fehler ?? 'Unbekannt')); return }
+      setEmailResult('✓ E-Mail gesendet'); setEmailBetreff(''); setEmailText('')
+      setTimeout(() => { setShowEmailModal(false); setEmailResult(null) }, 1500)
+    } catch (err) { setEmailResult('Fehler: ' + String(err)) }
+    finally { setEmailSending(false) }
+  }
+
   const [showAktForm, setShowAktForm] = useState(false)
   const [showPipelineForm, setShowPipelineForm] = useState(false)
 
@@ -373,6 +398,12 @@ export default function KontaktDetailClient({
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-s112-muted w-5">E</span>
                 <a href={`mailto:${kontakt.email}`} className="text-s112-teal hover:underline">{kontakt.email}</a>
+                {writeOk && (
+                  <button onClick={() => setShowEmailModal(true)}
+                    className="ml-auto text-xs border border-s112-border px-2 py-0.5 rounded-lg text-gray-600 hover:bg-s112-bg flex-shrink-0">
+                    ✉ Senden
+                  </button>
+                )}
               </div>
             )}
             {kontakt.telefon && (
@@ -504,6 +535,44 @@ export default function KontaktDetailClient({
 
         </div>
       </div>
+
+      {/* ── E-Mail senden Modal ── */}
+      {showEmailModal && kontakt.email && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => setShowEmailModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4"
+            onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-gray-900 mb-4">✉ E-Mail senden</h3>
+            <form onSubmit={sendEmail} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">An</label>
+                <input value={kontakt.email} readOnly className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm bg-s112-bg" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Betreff *</label>
+                <input value={emailBetreff} onChange={e => setEmailBetreff(e.target.value)} required autoFocus
+                  className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Nachricht</label>
+                <textarea value={emailText} onChange={e => setEmailText(e.target.value)} rows={5}
+                  className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
+              </div>
+              {emailResult && <p className={`text-xs font-medium ${emailResult.startsWith('✓') ? 'text-green-600' : 'text-red-600'}`}>{emailResult}</p>}
+              <div className="flex gap-2 pt-1">
+                <button type="submit" disabled={emailSending}
+                  className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+                  {emailSending ? 'Senden…' : '✉ Senden'}
+                </button>
+                <button type="button" onClick={() => setShowEmailModal(false)}
+                  className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
+                  Abbrechen
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
