@@ -59,7 +59,8 @@ export default async function CuBilanzPage({ searchParams }: { searchParams: Pro
           <select onChange={e => window.location.href = `/reports/cu-bilanz?jahr=${e.target.value}`}
             value={aktJahr} className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
             {jahre.map(j => <option key={j} value={j}>{j}</option>)}
-          </select></form>
+          </select>
+          </form>
           <PrintButton />
         </div>
       </div>

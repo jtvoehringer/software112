@@ -52,7 +52,8 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
             value={aktJahrgang?.jahrgang ?? ''}
             className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
             {jahrgaenge.map(j => <option key={j.id} value={j.jahrgang}>{j.jahrgang}</option>)}
-          </select></form>
+          </select>
+          </form>
           <PrintButton />
         </div>
       </div>
