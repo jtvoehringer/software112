@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
@@ -57,6 +57,14 @@ function kundenName(p: R) {
 export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlungen, cuKgHa, pipeline, kontaktFrequenz, offene }: Props) {
   const [tab, setTab] = useState<TabId>('umsatz')
   const [frage, setFrage] = useState('')
+  const [verlauf, setVerlauf] = useState<string[]>([])
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('ki_abfragen_verlauf')
+      if (saved) setVerlauf(JSON.parse(saved))
+    } catch { /* ignore */ }
+  }, [])
   const [kiLaden, setKiLaden] = useState(false)
   const [kiErgebnis, setKiErgebnis] = useState<{ergebnisse: R[]; anzahl: number; zusammenfassung: string|null; empfehlung: string|null; tabelle: string; verbraucht: number}|null>(null)
   const [kiFehler, setKiFehler] = useState<string|null>(null)
@@ -75,6 +83,12 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
       const json = await res.json()
       if (!res.ok || json.fehler) { setKiFehler(json.fehler ?? 'Fehler'); return }
       setKiErgebnis(json)
+      // Verlauf aktualisieren (max 6 Einträge, neueste zuerst, keine Duplikate)
+      setVerlauf(prev => {
+        const neu = [frage, ...prev.filter(q => q !== frage)].slice(0, 6)
+        try { localStorage.setItem('ki_abfragen_verlauf', JSON.stringify(neu)) } catch { /* ignore */ }
+        return neu
+      })
     } catch (err) {
       setKiFehler(String(err))
     } finally {
@@ -380,6 +394,24 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
                 {kiLaden ? <><span className="animate-spin">⏳</span> Denkt…</> : '🔍 Abfragen'}
               </button>
             </form>
+
+            {/* Verlauf-Chips */}
+            {verlauf.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                <span className="text-xs text-s112-muted self-center">Zuletzt:</span>
+                {verlauf.map((q, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setFrage(q)}
+                    className="text-xs px-3 py-1 rounded-full border border-s112-border text-gray-600 hover:border-s112-teal hover:text-s112-teal hover:bg-s112-teal/5 transition-colors text-left max-w-[280px] truncate"
+                    title={q}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {kiFehler && (
               <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">{kiFehler}</div>
