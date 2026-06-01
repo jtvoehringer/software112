@@ -401,8 +401,8 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
                       <thead>
                         <tr className="bg-s112-bg border-b border-s112-border text-xs text-gray-600">
                           {Object.keys(kiErgebnis.ergebnisse[0])
-                            .filter(k => !['id','tenant_id','erstellt_am','updated_at','aktualisiert_am'].includes(k))
-                            .slice(0, 8)
+                            .filter(k => !['id','tenant_id','erstellt_am','updated_at','aktualisiert_am','firma_id','kontakt_id','psm_id','weingarten_id','weinausbau_id'].includes(k))
+                            .slice(0, 9)
                             .map(k => (
                               <th key={k} className="text-left px-3 py-2 font-semibold capitalize">
                                 {k.replace(/_/g,' ')}
@@ -414,11 +414,18 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
                         {kiErgebnis.ergebnisse.map((row, i) => (
                           <tr key={i} className={`border-b border-s112-border/40 ${i%2===1?'bg-s112-bg/30':''}`}>
                             {Object.entries(row)
-                              .filter(([k]) => !['id','tenant_id','erstellt_am','updated_at','aktualisiert_am'].includes(k))
-                              .slice(0, 8)
+                              .filter(([k]) => !['id','tenant_id','erstellt_am','updated_at','aktualisiert_am','firma_id','kontakt_id','psm_id','weingarten_id','weinausbau_id'].includes(k))
+                              .slice(0, 9)
                               .map(([k, v]) => (
                                 <td key={k} className="px-3 py-2 text-gray-700">
-                                  {v == null ? '–' : typeof v === 'boolean' ? (v ? 'Ja' : 'Nein') : String(v).slice(0, 50)}
+                                  {v == null ? '–'
+                                    : typeof v === 'boolean' ? (v ? 'Ja' : 'Nein')
+                                    : typeof v === 'object' && v !== null && 'name' in (v as object)
+                                      ? String((v as Record<string,unknown>).name ?? '–')
+                                      : typeof v === 'object' && v !== null
+                                        ? [Object.values(v as object).filter(Boolean)].flat().join(' ').slice(0, 50)
+                                        : String(v).slice(0, 50)
+                                  }
                                 </td>
                               ))}
                           </tr>

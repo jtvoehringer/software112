@@ -60,7 +60,17 @@ async function getTenantId(): Promise<string | null> {
 async function executeQuery(supabase: any, params: R): Promise<R[]> {
   const { tabelle, filter = {}, sortierung = 'datum_desc', limit = 20 } = params
 
-  let query = supabase.from(tabelle).select('*')
+  // Tabellen-spezifische Selects mit Joins
+  const selectMap: Record<string, string> = {
+    kontakte:          'kundennummer, vorname, nachname, segment, email, telefon, mobil, strasse, plz, ort, land, stammkunde, is_lead, notizen, firma:firma_id(name)',
+    firmen:            'kundennummer, name, segment, email, telefon, strasse, plz, ort, land, uid_nummer, zahlungsziel_tage, is_lead, notizen',
+    verkaufsposten:    'datum, rechnungsnummer, bezahlt, storniert, kontakt:kontakte(vorname, nachname), firma:firmen(name)',
+    fuellungen:        'name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto',
+    weinausbau:        'name, jahrgang, rebsorte, menge_liter, qualitaetsstufe, status',
+    behandlungen:      'datum, art, menge_gesamt, menge_einheit, psm:psm_id(name), weingarten:weingarten_id(name)',
+    pipeline_eintraege:'titel, stufe, kategorie, erledigt, erwartetes_datum, kontakt:kontakte(vorname, nachname), firma:firmen(name)',
+  }
+  let query = supabase.from(tabelle).select(selectMap[tabelle] ?? '*')
 
   // Filter anwenden
   if (filter.segment) query = query.eq('segment', filter.segment)
