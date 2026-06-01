@@ -70,7 +70,7 @@ const NAV: NavEntry[] = [
     ],
   },
 
-  { kind: 'link', href: '/reports', label: 'Reports', icon: '📁', phase: 2 },
+  { kind: 'link', href: '/reports', label: 'Reports', icon: '📁' },
 
   {
     kind: 'group', label: 'Administration', icon: '⚙️', adminOnly: true,
