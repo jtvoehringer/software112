@@ -318,6 +318,19 @@ export default function KontaktDetailClient({
   }
 
   const [showAktForm, setShowAktForm] = useState(false)
+  const [copiedNum, setCopiedNum] = useState<string | null>(null)
+
+  function handlePhoneClick(e: React.MouseEvent<HTMLAnchorElement>, fullNumber: string) {
+    const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+    if (!isMobile) {
+      e.preventDefault()
+      const num = fullNumber.replace(/[^+\d]/g, '')
+      navigator.clipboard.writeText(num).catch(() => {})
+      setCopiedNum(num)
+      setTimeout(() => setCopiedNum(null), 2000)
+    }
+    // Mobile: normales tel:-Verhalten
+  }
   const [showPipelineForm, setShowPipelineForm] = useState(false)
 
   const name = [kontakt.vorname, kontakt.nachname].filter(Boolean).join(' ')
@@ -409,13 +422,13 @@ export default function KontaktDetailClient({
             {kontakt.telefon && (
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-lg">📞</span>
-                <a href={`tel:${kontakt.telefon_vorwahl ?? '+43'}${kontakt.telefon?.replace(/\s/g, '')}`} className="text-gray-700 hover:text-s112-teal">{kontakt.telefon_vorwahl ?? '+43'} {kontakt.telefon}</a>
+                <a href={`tel:${kontakt.telefon_vorwahl ?? '+43'}${kontakt.telefon?.replace(/\s/g, '')}`} onClick={e => handlePhoneClick(e, `${kontakt.telefon_vorwahl ?? '+43'} ${kontakt.telefon}`)} className="text-gray-700 hover:text-s112-teal cursor-pointer">{kontakt.telefon_vorwahl ?? '+43'} {kontakt.telefon}</a>
               </div>
             )}
             {kontakt.mobil && (
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-lg">📱</span>
-                <a href={`tel:${kontakt.mobil_vorwahl ?? '+43'}${kontakt.mobil?.replace(/\s/g, '')}`} className="text-gray-700 hover:text-s112-teal">{kontakt.mobil_vorwahl ?? '+43'} {kontakt.mobil}</a>
+                <a href={`tel:${kontakt.mobil_vorwahl ?? '+43'}${kontakt.mobil?.replace(/\s/g, '')}`} onClick={e => handlePhoneClick(e, `${kontakt.mobil_vorwahl ?? '+43'} ${kontakt.mobil}`)} className="text-gray-700 hover:text-s112-teal cursor-pointer">{kontakt.mobil_vorwahl ?? '+43'} {kontakt.mobil}</a>
               </div>
             )}
             {kontakt.strasse && (
@@ -571,6 +584,13 @@ export default function KontaktDetailClient({
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Kopiert-Toast */}
+      {copiedNum && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm px-4 py-2 rounded-xl shadow-lg">
+          📋 {copiedNum} kopiert
         </div>
       )}
     </div>

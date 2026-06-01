@@ -330,6 +330,18 @@ export default function FirmaDetailClient({
   }
 
   const [showAktForm, setShowAktForm] = useState(false)
+  const [copiedNum, setCopiedNum] = useState<string | null>(null)
+
+  function handlePhoneClick(e: React.MouseEvent<HTMLAnchorElement>, fullNumber: string) {
+    const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+    if (!isMobile) {
+      e.preventDefault()
+      const num = fullNumber.replace(/[^+\d]/g, '')
+      navigator.clipboard.writeText(num).catch(() => {})
+      setCopiedNum(num)
+      setTimeout(() => setCopiedNum(null), 2000)
+    }
+  }
   const [showPipelineForm, setShowPipelineForm] = useState(false)
 
   return (
@@ -368,6 +380,7 @@ export default function FirmaDetailClient({
               )}
               {firma.telefon && (
                 <a href={`tel:${firma.telefon_vorwahl ?? '+43'}${firma.telefon?.replace(/\s/g, '')}`}
+                  onClick={e => handlePhoneClick(e, `${firma.telefon_vorwahl ?? '+43'} ${firma.telefon}`)}
                   className="text-sm text-gray-600 hover:text-s112-teal flex items-center gap-1">
                   <span>📞</span> {firma.telefon_vorwahl ?? '+43'} {firma.telefon}
                 </a>
@@ -647,6 +660,12 @@ export default function FirmaDetailClient({
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {copiedNum && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm px-4 py-2 rounded-xl shadow-lg">
+          📋 {copiedNum} kopiert
         </div>
       )}
     </div>
