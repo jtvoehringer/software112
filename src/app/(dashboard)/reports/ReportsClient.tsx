@@ -591,7 +591,7 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
                         {googleMapsUrl(kontakte) && (
                           <a href={googleMapsUrl(kontakte)} target="_blank" rel="noopener noreferrer"
                             className="text-xs text-s112-teal hover:underline">
-                            📍 Nur dieses Gebiet
+                            📍 In Maps öffnen
                           </a>
                         )}
                       </div>
@@ -611,6 +611,7 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
                               </p>
                             </div>
                             <div className="text-right flex-shrink-0 ml-4">
+                              <p className="text-[9px] text-s112-muted uppercase tracking-wide mb-0.5">Letzter Kontakt</p>
                               {k.tage_seit_kontakt !== null ? (
                                 <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${k.tage_seit_kontakt > 180 ? 'bg-red-100 text-red-700' : k.tage_seit_kontakt > 90 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
                                   {k.tage_seit_kontakt} Tage
