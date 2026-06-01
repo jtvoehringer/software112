@@ -27,6 +27,7 @@ const TABS = [
   { id: 'kontakt',     label: '🤝 Kontaktfrequenz', title: 'Tage seit letztem Kontakt' },
   { id: 'offen',       label: '💶 Offene Posten',   title: 'Unbezahlte Rechnungen' },
   { id: 'smart',       label: '🤖 Frag dein Weingut', title: 'KI-Abfrage – Frag dein Weingut' },
+  { id: 'behoerden',   label: '🏛 Behörden',          title: 'Behörden-Dokumente' },
   { id: 'besuch',      label: '🗺 Besuchsplanung',     title: 'Besuchsplanung – PLZ-Cluster' },
 ] as const
 type TabId = typeof TABS[number]['id']
@@ -628,6 +629,28 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
             {bResult?.anzahl === 0 && (
               <p className="text-center text-s112-muted py-8">Keine Kontakte gefunden. Filterkriterien anpassen.</p>
             )}
+          </div>
+        )}
+
+        {/* ── BEHÖRDEN-DOKUMENTE ──────────────────────────────────────────────── */}
+        {tab === 'behoerden' && (
+          <div className="space-y-4">
+            <p className="text-sm text-s112-muted">Druckfertige Behördendokumente – automatisch mit Betriebsdaten und Mandantenlogo befüllt.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[
+                { href: '/reports/ama', icon: '🌾', title: 'AMA Erntemeldung', desc: 'Weinerntemeldung je Jahrgang · Druckfertig mit Unterschriftsfeld' },
+                { href: '/reports/behandlungsprotokoll', icon: '🌿', title: 'Behandlungsprotokoll', desc: 'Weinbauliches Spritzprotokoll nach Saison · für Bio-Kontrolle und Landwirtschaftskammer' },
+                { href: '/reports/cu-bilanz', icon: '⚗️', title: 'Cu-Bilanz Jahresbericht', desc: 'Kupfer-Nachweis gem. EU-Bio-VO 2018/848 · Ampel vs. 4 kg/ha EU-Limit' },
+              ].map(doc => (
+                <a key={doc.href} href={doc.href}
+                  className="card p-5 hover:border-s112-teal hover:shadow-md transition-all group flex flex-col gap-2">
+                  <span className="text-3xl">{doc.icon}</span>
+                  <p className="font-semibold text-gray-900 group-hover:text-s112-teal">{doc.title}</p>
+                  <p className="text-xs text-gray-500 leading-relaxed">{doc.desc}</p>
+                  <p className="text-xs text-s112-teal font-medium mt-auto">🖨 Öffnen & Drucken →</p>
+                </a>
+              ))}
+            </div>
           </div>
         )}
       </div>
