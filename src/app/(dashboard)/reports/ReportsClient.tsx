@@ -571,12 +571,7 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
                   <p className="text-sm font-medium text-gray-700">
                     {bResult.anzahl} Kontakte · {bResult.plz_count} PLZ-Gebiete
                   </p>
-                  {googleMapsUrl(bResult.kontakte) && (
-                    <a href={googleMapsUrl(bResult.kontakte)} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 text-white px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ backgroundColor: 'var(--s112-teal)' }}>
-                      📍 Route in Google Maps öffnen
-                    </a>
-                  )}
+
                 </div>
 
                 {/* PLZ-Cluster */}

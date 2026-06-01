@@ -6,6 +6,67 @@ export const dynamic = 'force-dynamic'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
+// ── Österreichische PLZ-Bundesland-Zuordnung (Österreichische Post, Mai 2026) ──
+// Quellen: post.at Postlexikon + statistik.at Gemeindeverzeichnis
+const BUNDESLAND_PLZ: Record<string, [string, string][]> = {
+  // Wien: 1010–1239
+  wien: [['1010','1239']],
+  w:    [['1010','1239']],
+
+  // Niederösterreich: 2000–3999 (Ausnahmen: einige 2xxx = Burgenland)
+  niederoesterreich: [['2000','3999']],
+  noe:               [['2000','3999']],
+  'niederösterreich':[['2000','3999']],
+
+  // Burgenland: 7000–7999 + grenznahe NÖ-Ausnahmen (2460, 2491 etc.)
+  burgenland: [['7000','7999']],
+  bgld:       [['7000','7999']],
+  b:          [['7000','7999']],
+
+  // Oberösterreich: 4000–4999
+  oberoesterreich:    [['4000','4999']],
+  ooe:                [['4000','4999']],
+  'oberösterreich':   [['4000','4999']],
+
+  // Salzburg: 5000–5771
+  salzburg: [['5000','5771']],
+  s:        [['5000','5771']],
+  sbg:      [['5000','5771']],
+
+  // Steiermark: 8000–8993
+  steiermark:  [['8000','8993']],
+  stmk:        [['8000','8993']],
+  st:          [['8000','8993']],
+
+  // Kärnten: 9000–9872 (ohne Osttirol 9900–9992)
+  kaernten:   [['9000','9872']],
+  ktn:        [['9000','9872']],
+  k:          [['9000','9872']],
+  'kärnten':  [['9000','9872']],
+
+  // Tirol: 6000–6699 + Osttirol 9900–9992
+  tirol: [['6000','6699'],['9900','9992']],
+  t:     [['6000','6699'],['9900','9992']],
+  trl:   [['6000','6699'],['9900','9992']],
+
+  // Vorarlberg: 6700–6993
+  vorarlberg: [['6700','6993']],
+  v:          [['6700','6993']],
+  vbg:        [['6700','6993']],
+}
+
+function findBundesland(filter: string): [string, string][] | null {
+  const key = filter.trim().toLowerCase()
+    .replace(/ü/g,'ue').replace(/ö/g,'oe').replace(/ä/g,'ae')
+    .replace(/\s+/g,'')
+  // direkter Treffer
+  if (BUNDESLAND_PLZ[key]) return BUNDESLAND_PLZ[key]
+  // Originalbuchstaben (mit Umlaut)
+  const orig = filter.trim().toLowerCase().replace(/\s+/g,'')
+  if (BUNDESLAND_PLZ[orig]) return BUNDESLAND_PLZ[orig]
+  return null
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { ort_filter, segment, include_leads, include_kunden } = await req.json()
@@ -16,7 +77,14 @@ export async function POST(req: NextRequest) {
       .select('id, kundennummer, vorname, nachname, segment, email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, plz, ort, strasse, land, is_lead, firma:firma_id(name)')
       .eq('aktiv', true)
 
-    if (ort_filter?.trim()) kq = kq.ilike('ort', `%${ort_filter.trim()}%`)
+    const bundeslandRanges = ort_filter?.trim() ? findBundesland(ort_filter) : null
+    if (bundeslandRanges) {
+      // PLZ-Bereichsfilter für Bundesland
+      const orParts = bundeslandRanges.map(([min, max]) => `and(plz.gte.${min},plz.lte.${max})`).join(',')
+      kq = kq.or(orParts)
+    } else if (ort_filter?.trim()) {
+      kq = kq.ilike('ort', `%${ort_filter.trim()}%`)
+    }
     if (segment) kq = kq.eq('segment', segment)
 
     // Lead/Kunde-Filter
