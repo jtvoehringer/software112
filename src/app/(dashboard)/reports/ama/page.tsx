@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
+import PrintButton from '../PrintButton'
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
 
 export const metadata: Metadata = { title: 'AMA Erntemeldung – software:112' }
@@ -51,11 +52,8 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
             value={aktJahrgang?.jahrgang ?? ''}
             className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
             {jahrgaenge.map(j => <option key={j.id} value={j.jahrgang}>{j.jahrgang}</option>)}
-          </select>
-          <button onClick={() => window.print()}
-            className="flex items-center gap-2 border border-s112-border text-gray-600 px-3 py-1.5 rounded-xl text-sm hover:bg-s112-bg">
-            🖨 Drucken / PDF
-          </button>
+          </select></form>
+          <PrintButton />
         </div>
       </div>
 

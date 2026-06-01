@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
+import PrintButton from '../PrintButton'
 
 export const metadata: Metadata = { title: 'Cu-Bilanz – software:112' }
 export const dynamic = 'force-dynamic'
@@ -58,11 +59,8 @@ export default async function CuBilanzPage({ searchParams }: { searchParams: Pro
           <select onChange={e => window.location.href = `/reports/cu-bilanz?jahr=${e.target.value}`}
             value={aktJahr} className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
             {jahre.map(j => <option key={j} value={j}>{j}</option>)}
-          </select>
-          <button onClick={() => window.print()}
-            className="flex items-center gap-2 border border-s112-border text-gray-600 px-3 py-1.5 rounded-xl text-sm hover:bg-s112-bg">
-            🖨 Drucken / PDF
-          </button>
+          </select></form>
+          <PrintButton />
         </div>
       </div>
 
