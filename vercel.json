@@ -1,8 +1,10 @@
 {
-  "crons": [
+  "headers": [
     {
-      "path": "/api/email/poll",
-      "schedule": "0 */2 * * *"
+      "source": "/api/email/poll",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
+      ]
     }
   ]
 }
