@@ -200,7 +200,7 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
                       <td className="px-3 py-2 tabular-nums text-s112-muted">{fmtDate(b.datum)}</td>
                       <td className="px-3 py-2 font-medium text-gray-800">{(b.psm as R|null)?.name??'–'}</td>
                       <td className="px-3 py-2 text-xs text-s112-muted capitalize">{b.art??'–'}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{b.menge_gesamt??'–'} {b.einheit??''}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{b.menge_gesamt??'–'} {b.menge_einheit??''}</td>
                     </tr>
                   ))}
                 </tbody>
