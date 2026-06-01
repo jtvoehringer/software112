@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
           if ((count ?? 0) > 0) continue
         }
 
-        await (admin.from('aktivitaeten') as any).insert({
+        const { error: insertErr } = await (admin.from('aktivitaeten') as any).insert({
           tenant_id:    tenantId,
           kontakt_id:   match.kontakt_id ?? null,
           firma_id:     match.firma_id   ?? null,
@@ -90,8 +90,11 @@ export async function POST(req: NextRequest) {
           datum,
           erledigt:     false,
           ganztags:     true,
-          notizen:      msgId ? `message-id: ${msgId}` : null,
         })
+        if (insertErr) {
+          console.error('aktivitaet insert error:', insertErr.message)
+          continue
+        }
         neuAktivitaeten++
       }
     } finally {
