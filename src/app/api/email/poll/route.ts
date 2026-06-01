@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     const c = (cfg as R | null)
     if (!c?.email_modul_aktiv || !c.email_imap_host || !c.email_imap_pass_enc)
-      return NextResponse.json({ fehler: 'IMAP nicht konfiguriert' }, { status: 400 })
+      return NextResponse.json({ ok: true, info: 'IMAP nicht konfiguriert – übersprungen' })
 
     // Kontakte + Firmen E-Mail-Adressen laden
     const [{ data: kontakteRaw }, { data: firmenRaw }] = await Promise.all([
