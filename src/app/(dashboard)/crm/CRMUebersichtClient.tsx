@@ -455,7 +455,7 @@ function ZeitachseView({
                           <div className="text-[10px] font-bold tabular-nums leading-tight">
                             {fmtT(e.uhrzeit_von)}{e.uhrzeit_bis ? `–${fmtT(e.uhrzeit_bis)}` : ''}
                           </div>
-                          <div className="text-[10px] font-medium truncate leading-tight">
+                          <div className={`text-[10px] font-medium truncate leading-tight ${e.erledigt ? 'line-through opacity-60' : ''}`}>
                             {e.artIcon} {e.titel}
                           </div>
                           {h > 50 && (e.kontaktName || e.firmaName) && (
