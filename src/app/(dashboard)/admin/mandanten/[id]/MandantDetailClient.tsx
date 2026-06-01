@@ -11,6 +11,7 @@ import {
   renameTenantAdmin,
   saveVerkaufEinstellungen,
   saveEmailEinstellungen,
+  saveM365Einstellungen,
   saveBetriebEinstellungen,
   resetRechnungsZaehler,
   resetKundenZaehler,
@@ -547,6 +548,100 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
 }
 
 
+
+// ── Tab: Microsoft 365 ───────────────────────────────────────────────────────
+function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
+  const [pending, startTransition] = useTransition()
+  const [saved,   setSaved]        = useState(false)
+
+  const isConnected = !!settings.m365_user_email
+  const tokenOk     = settings.m365_token_expires_at
+    ? new Date(settings.m365_token_expires_at) > new Date()
+    : false
+
+  function handleSave(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    startTransition(async () => {
+      await saveM365Einstellungen(tenant.id, new FormData(e.currentTarget))
+      setSaved(true); setTimeout(() => setSaved(false), 2000)
+    })
+  }
+
+  return (
+    <div className="space-y-6 max-w-lg">
+      {/* Status */}
+      <div className={`flex items-center gap-3 p-4 rounded-xl border ${isConnected && tokenOk ? 'border-green-300 bg-green-50' : 'border-amber-300 bg-amber-50'}`}>
+        <span className="text-2xl">{isConnected && tokenOk ? '✅' : '⚠️'}</span>
+        <div>
+          <p className="text-sm font-semibold">{isConnected && tokenOk ? `Verbunden als ${settings.m365_user_email}` : 'Noch nicht verbunden'}</p>
+          {settings.m365_token_expires_at && (
+            <p className="text-xs text-gray-500">Token gültig bis: {new Date(settings.m365_token_expires_at).toLocaleString('de-AT')}</p>
+          )}
+        </div>
+        {isConnected && (
+          <a href="/api/auth/m365" className="ml-auto text-xs border border-s112-border px-3 py-1.5 rounded-lg hover:bg-white">
+            🔄 Neu verbinden
+          </a>
+        )}
+      </div>
+
+      {/* Setup */}
+      <form onSubmit={handleSave} className="space-y-4">
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs space-y-1.5">
+          <p className="font-semibold text-blue-800">Azure AD App-Registrierung (einmalig):</p>
+          <ol className="list-decimal ml-4 space-y-1 text-blue-700">
+            <li>portal.azure.com → App-Registrierungen → Neue Registrierung</li>
+            <li>Umleitungs-URI (Web): <code className="bg-white px-1 rounded">https://software112.icp-consultants.at/api/auth/m365/callback</code></li>
+            <li>Zertifikate & Geheimnisse → Neuer geheimer Clientschlüssel</li>
+            <li>API-Berechtigungen → Microsoft Graph → Mail.Read + Mail.Send (delegiert)</li>
+          </ol>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Azure AD Verzeichnis-ID (Tenant ID)</label>
+            <input name="m365_tenant_id" defaultValue={settings.m365_tenant_id ?? ''} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" className={inputCls()} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Anwendungs-ID (Client ID)</label>
+            <input name="m365_client_id" defaultValue={settings.m365_client_id ?? ''} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" className={inputCls()} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Geheimer Clientschlüssel</label>
+            <input name="m365_client_secret" type="password" placeholder="Neu setzen (leer = unverändert)" className={inputCls()} />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button type="submit" disabled={pending}
+            className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+            {pending ? 'Speichern…' : 'Speichern'}
+          </button>
+          {saved && <span className="text-xs text-s112-teal font-medium">✓ Gespeichert</span>}
+          {settings.m365_tenant_id && settings.m365_client_id && (
+            <a href="/api/auth/m365"
+              className="ml-auto bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700">
+              📅 Mit Microsoft 365 verbinden
+            </a>
+          )}
+        </div>
+      </form>
+
+      {/* Webhook Info */}
+      {isConnected && (
+        <div className="border border-s112-border rounded-xl p-4 space-y-2">
+          <p className="text-sm font-semibold text-gray-700">Echtzeit-Webhook</p>
+          <p className="text-xs text-s112-muted">
+            {settings.m365_webhook_sub_id
+              ? `✓ Aktive Subscription: ${settings.m365_webhook_sub_id.slice(0, 16)}…`
+              : 'Noch kein Webhook registriert – wird beim ersten Poll automatisch erstellt.'}
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Tab: E-Mail-Integration ───────────────────────────────────────────────────
 function EmailTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
   const [pending, startTransition] = useTransition()
@@ -950,7 +1045,7 @@ function ChecklisteTab({ tenant, settings, members }: {
 
 // ── Haupt-Komponente ──────────────────────────────────────────────────────────
 
-type Tab = 'branding' | 'benutzer' | 'brevo' | 'module' | 'betrieb' | 'verkauf' | 'email' | 'checkliste'
+type Tab = 'branding' | 'benutzer' | 'brevo' | 'module' | 'betrieb' | 'verkauf' | 'email' | 'm365' | 'checkliste'
 
 export default function MandantDetailClient({ tenant, settings, members }: {
   tenant:   TenantDetail
@@ -978,6 +1073,7 @@ export default function MandantDetailClient({ tenant, settings, members }: {
     { id: 'betrieb',     label: 'Betrieb' },
     { id: 'verkauf',     label: 'Verkauf' },
     { id: 'email',       label: '✉ E-Mail'   },
+    { id: 'm365',        label: '📅 M365'     },
     { id: 'checkliste',  label: 'Checkliste' },
   ]
 
@@ -1047,6 +1143,7 @@ export default function MandantDetailClient({ tenant, settings, members }: {
       {tab === 'betrieb'    && <BetriebTab    tenant={tenant} settings={settings} />}
       {tab === 'verkauf'    && <VerkaufTab    tenant={tenant} settings={settings} />}
       {tab === 'email'      && <EmailTab      tenant={tenant} settings={settings} />}
+      {tab === 'm365'       && <M365Tab       tenant={tenant} settings={settings} />}
       {tab === 'checkliste' && <ChecklisteTab tenant={tenant} settings={settings} members={members} />}
     </div>
   )

@@ -60,6 +60,13 @@ export type TenantSettings = {
   email_imap_port:     number
   email_imap_user:     string | null
   email_last_poll:     string | null
+  // Migration 039 – M365
+  m365_modul_aktiv:    boolean
+  m365_tenant_id:      string | null
+  m365_client_id:      string | null
+  m365_user_email:     string | null
+  m365_token_expires_at: string | null
+  m365_webhook_sub_id: string | null
 }
 export type TenantMember = {
   id: string; userId: string; email: string; role: string; createdAt: string
@@ -151,6 +158,12 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     email_imap_port:      s?.email_imap_port ?? 993,
     email_imap_user:      s?.email_imap_user ?? null,
     email_last_poll:      s?.email_last_poll ?? null,
+    m365_modul_aktiv:     !!(s?.m365_modul_aktiv),
+    m365_tenant_id:       s?.m365_tenant_id ?? null,
+    m365_client_id:       s?.m365_client_id ?? null,
+    m365_user_email:      s?.m365_user_email ?? null,
+    m365_token_expires_at: s?.m365_token_expires_at ?? null,
+    m365_webhook_sub_id:  s?.m365_webhook_sub_id ?? null,
   }
 
   const members: TenantMember[] = ((memberships ?? []) as R[]).map(m => ({

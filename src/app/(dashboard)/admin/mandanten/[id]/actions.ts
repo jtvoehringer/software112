@@ -167,6 +167,30 @@ export async function saveVerkaufEinstellungen(tenantId: string, formData: FormD
   revalidatePath(`/admin/mandanten/${tenantId}`)
 }
 
+// ── M365-Einstellungen speichern ──────────────────────────────────────────────
+
+export async function saveM365Einstellungen(tenantId: string, formData: FormData) {
+  await assertSystemAdmin()
+  const admin = createSupabaseAdminClient()
+  const clientSecret = (formData.get('m365_client_secret') as string).trim()
+
+  const { data: existing } = await (admin.from('tenant_einstellungen') as any)
+    .select('m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle()
+
+  const payload: Record<string, unknown> = {
+    m365_tenant_id: (formData.get('m365_tenant_id') as string) || null,
+    m365_client_id: (formData.get('m365_client_id') as string) || null,
+    m365_client_secret_enc: clientSecret
+      ? encryptPass(clientSecret)
+      : ((existing as Record<string,string>|null)?.m365_client_secret_enc ?? null),
+    aktualisiert_am: new Date().toISOString(),
+  }
+  const { error } = await (admin.from('tenant_einstellungen') as any)
+    .upsert({ tenant_id: tenantId, ...payload }, { onConflict: 'tenant_id' })
+  if (error) throw new Error((error as Record<string,string>).message)
+  revalidatePath(`/admin/mandanten/${tenantId}`)
+}
+
 // ── E-Mail-Einstellungen speichern ────────────────────────────────────────────
 
 export async function saveEmailEinstellungen(tenantId: string, formData: FormData) {
