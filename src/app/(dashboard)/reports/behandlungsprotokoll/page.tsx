@@ -42,10 +42,12 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
           <form method="GET" action="/reports/behandlungsprotokoll">
             <select name="jahr"
               defaultValue={aktJahr}
-              onChange={e => (e.target as HTMLSelectElement).form?.submit()}
               className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
               {jahre.map(j => <option key={j} value={j}>{j}</option>)}
             </select>
+            <button type="submit" className="border border-s112-border rounded-lg px-3 py-1.5 text-sm hover:bg-s112-bg">
+              ↻
+            </button>
           </form>
           <PrintButton />
         </div>
