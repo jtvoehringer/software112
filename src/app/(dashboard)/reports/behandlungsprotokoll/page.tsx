@@ -39,10 +39,13 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
           <span className="font-medium text-gray-800">Behandlungsprotokoll</span>
         </nav>
         <div className="flex gap-2">
-          <select onChange={e => window.location.href = `/reports/behandlungsprotokoll?jahr=${e.target.value}`}
-            value={aktJahr} className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
-            {jahre.map(j => <option key={j} value={j}>{j}</option>)}
-          </select>
+          <form method="GET" action="/reports/behandlungsprotokoll">
+            <select name="jahr"
+              defaultValue={aktJahr}
+              onChange="this.form.submit()"
+              className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+              {jahre.map(j => <option key={j} value={j}>{j}</option>)}
+            </select>
           </form>
           <PrintButton />
         </div>
