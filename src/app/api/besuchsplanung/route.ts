@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       firma: undefined,
       letzter_kontakt: letzteMap[k.id] ?? null,
       tage_seit_kontakt: letzteMap[k.id]
-        ? Math.floor((Date.now() - new Date(letzteMap[k.id]).getTime()) / 86400000)
+        ? Math.abs(Math.floor((Date.now() - new Date(letzteMap[k.id]).getTime()) / 86400000))
         : null,
     }))  as R[]
 

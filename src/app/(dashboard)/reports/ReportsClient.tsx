@@ -122,12 +122,20 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
   }
 
   function googleMapsUrl(kontakte: R[]): string {
+    // Adressen: Straße wenn vorhanden, sonst nur PLZ + Ort
     const adressen = kontakte
-      .filter(k => k.strasse && k.ort)
-      .map(k => encodeURIComponent(`${k.strasse}, ${k.plz ?? ''} ${k.ort}, ${k.land ?? 'AT'}`))
-      .slice(0, 10)  // Google Maps max Wegpunkte
+      .filter(k => k.ort || k.plz)
+      .map(k => {
+        const teile = [k.strasse, [k.plz, k.ort].filter(Boolean).join(' '), k.land ?? 'AT'].filter(Boolean)
+        return teile.join(', ')
+      })
+      .slice(0, 9)  // Google: max 9 Wegpunkte + 1 Ziel = 10
     if (adressen.length === 0) return ''
-    return `https://www.google.com/maps/dir/${adressen.join('/')}`
+    if (adressen.length === 1)
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(adressen[0])}`
+    const destination = encodeURIComponent(adressen[adressen.length - 1])
+    const waypoints   = adressen.slice(0, -1).map(encodeURIComponent).join('|')
+    return `https://www.google.com/maps/dir/?api=1&destination=${destination}&waypoints=${waypoints}&travelmode=driving`
   }
 
   // Balken-Max für Umsatzdiagramm
