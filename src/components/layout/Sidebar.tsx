@@ -60,7 +60,7 @@ const NAV: NavEntry[] = [
   },
 
   {
-    kind: 'group', label: 'Controlling', icon: '📊',
+    kind: 'group', label: 'Controlling', icon: '🧮',
     items: [
       { href: '/controlling/export',        label: 'Datenexport' },
       { href: '/controlling/bmd',           label: 'BMD NTCS',         phase: 3 },
@@ -69,7 +69,7 @@ const NAV: NavEntry[] = [
   },
 
   {
-    kind: 'group', label: 'CRM', icon: '🤝',
+    kind: 'group', label: 'CRM', icon: '👥',
     items: [
       { href: '/crm',           label: 'Kalender'  },
       { href: '/crm/kontakte',  label: 'Kontakte'  },
@@ -78,7 +78,7 @@ const NAV: NavEntry[] = [
     ],
   },
 
-  { kind: 'link', href: '/reports', label: 'Berichte', icon: '📊' },
+  { kind: 'link', href: '/reports', label: 'Berichte', icon: '📋' },
 
   {
     kind: 'group', label: 'Administration', icon: '⚙️', adminOnly: true,
