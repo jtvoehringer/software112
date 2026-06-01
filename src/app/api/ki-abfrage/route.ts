@@ -32,6 +32,8 @@ JSON-Format:
     "segment": "gastro|handel|privat|export|grosshandel (optional)",
     "ort_contains": "Stadtname (optional)",
     "plz_prefix": "12 (optional, Anfang der PLZ)",
+    "land": "DE|AT|CH|IT (optional, ISO-Ländercode, z.B. DE für Deutschland, AT für Österreich)",
+    "name_contains": "Müller (optional, Suche in Vor- und Nachname/Firmenname)",
     "is_lead": true|false (optional),
     "stammkunde": true|false (optional),
     "bezahlt": true|false (optional, nur verkaufsposten)",
@@ -86,6 +88,8 @@ async function executeQuery(supabase: any, params: R): Promise<R[]> {
   if (filter.datum_bis) query = query.lte('datum', filter.datum_bis)
   if (filter.bestand_min !== undefined) query = query.gte('bestand_flaschen', filter.bestand_min)
   if (filter.qualitaetsstufe) query = query.eq('qualitaetsstufe', filter.qualitaetsstufe)
+  if (filter.land) query = query.eq('land', filter.land)
+  if (filter.name_contains) query = query.or(`nachname.ilike.%${filter.name_contains}%,vorname.ilike.%${filter.name_contains}%,name.ilike.%${filter.name_contains}%`)
 
   // Sortierung
   const [sortCol, sortDir] = sortierung.split('_')
