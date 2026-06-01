@@ -115,8 +115,8 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
                 <div key={m.monat} className="flex items-center gap-3">
                   <span className="text-xs text-s112-muted w-12 flex-shrink-0 text-right tabular-nums">{m.monat}</span>
                   <div className="flex-1 bg-s112-bg rounded-full h-5 overflow-hidden">
-                    <div className="h-full bg-s112-teal rounded-full transition-all"
-                      style={{ width: `${Math.max(2, (m.umsatz / maxUmsatz) * 100)}%` }} />
+                    <div className="h-full rounded-full transition-all"
+                      style={{ width: `${Math.max(2, (m.umsatz / maxUmsatz) * 100)}%`, backgroundColor: 'var(--s112-yellow)' }} />
                   </div>
                   <span className="text-xs font-semibold text-gray-700 tabular-nums w-24 text-right">{eur(m.umsatz)}</span>
                   <span className="text-xs text-s112-muted w-8 text-right">{m.anzahl}</span>
