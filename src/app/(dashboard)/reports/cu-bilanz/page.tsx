@@ -39,7 +39,7 @@ export default async function CuBilanzPage({ searchParams }: { searchParams: Pro
     const cuPct = psm.cu_gehalt_pct ?? 0
     const cuKg  = (menge * cuPct) / 100
     const ha    = (b.weingarten as R | null)?.flaeche_ha ?? gesamtHa
-    return { ...b, cuKg, cuKgHa: ha > 0 ? cuKg / ha : 0, ha }
+    return { ...b, cuKg, cuKgHa: ha > 0 ? cuKg / ha : 0, ha } as R
   })
 
   const totalCuKg   = eintraege.reduce((s, e) => s + e.cuKg, 0)
