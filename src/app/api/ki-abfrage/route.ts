@@ -99,6 +99,11 @@ export async function POST(req: NextRequest) {
     const tenantId = await getTenantId()
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb gefunden' }, { status: 401 })
 
+    // API-Key prüfen
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return NextResponse.json({ fehler: 'ANTHROPIC_API_KEY nicht gesetzt – bitte in Vercel Environment Variables eintragen.' }, { status: 500 })
+    }
+
     // Limit prüfen
     const { data: limitCheck } = await (supabase.rpc as any)('check_und_increment_ki_abfrage', {
       p_tenant_id: tenantId,
