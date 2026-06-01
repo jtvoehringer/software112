@@ -154,7 +154,7 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Auswertungen</h1>
           <p className="text-sm text-s112-muted mt-0.5">Betriebsauswertungen · automatisch aktualisiert</p>
         </div>
         <button onClick={() => window.print()}

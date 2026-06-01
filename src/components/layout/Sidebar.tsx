@@ -78,7 +78,7 @@ const NAV: NavEntry[] = [
     ],
   },
 
-  { kind: 'link', href: '/reports', label: 'Berichte', icon: '📋' },
+  { kind: 'link', href: '/reports', label: 'Auswertungen', icon: '📋' },
 
   {
     kind: 'group', label: 'Administration', icon: '⚙️', adminOnly: true,

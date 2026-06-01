@@ -42,7 +42,7 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
       {/* Breadcrumb + Aktionen */}
       <div className="flex items-center justify-between print:hidden">
         <nav className="flex items-center gap-2 text-sm text-s112-muted">
-          <Link href="/reports" className="hover:text-s112-teal">Berichte</Link>
+          <Link href="/reports" className="hover:text-s112-teal">Auswertungen</Link>
           <span>/</span>
           <span className="font-medium text-gray-800">AMA Erntemeldung</span>
         </nav>

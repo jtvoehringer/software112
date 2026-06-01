@@ -34,7 +34,7 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
     <div className="max-w-5xl space-y-4">
       <div className="flex items-center justify-between print:hidden">
         <nav className="flex items-center gap-2 text-sm text-s112-muted">
-          <Link href="/reports" className="hover:text-s112-teal">Berichte</Link>
+          <Link href="/reports" className="hover:text-s112-teal">Auswertungen</Link>
           <span>/</span>
           <span className="font-medium text-gray-800">Behandlungsprotokoll</span>
         </nav>
