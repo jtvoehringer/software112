@@ -29,5 +29,6 @@ export async function GET(req: NextRequest) {
   const redirectUri = `${proto}://${host}/api/auth/m365/user/callback`
   const state = `${tenantId}:${user.id}`
 
-  return NextResponse.redirect(m365AuthUrl(c.m365_tenant_id, c.m365_client_id, redirectUri, state))
+  // 'common' erlaubt Login aus JEDEM Microsoft-Tenant (multi-tenant App)
+  return NextResponse.redirect(m365AuthUrl('common', c.m365_client_id, redirectUri, state))
 }

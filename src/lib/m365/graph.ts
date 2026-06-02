@@ -108,8 +108,9 @@ export async function getValidUserAccessToken(
   // Token erneuern: App-Credentials aus tenant_einstellungen
   const clientSecret  = decryptPass(tenantCfg.m365_client_secret_enc)
   const refreshToken  = decryptPass(userCfg.m365_refresh_token_enc)
+  // 'common' für multi-tenant: funktioniert für alle Microsoft-Tenants
   const tokens = await refreshAccessToken(
-    tenantCfg.m365_tenant_id, tenantCfg.m365_client_id, clientSecret, refreshToken
+    'common', tenantCfg.m365_client_id, clientSecret, refreshToken
   )
 
   // Neuen Token in user_email_connections speichern

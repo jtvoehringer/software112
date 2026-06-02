@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     const proto = req.headers.get('x-forwarded-proto') ?? 'https'
     const redirectUri = `${proto}://${host}/api/auth/m365/user/callback`
 
-    const tokens = await exchangeCodeForTokens(c.m365_tenant_id, c.m365_client_id, clientSecret, code, redirectUri)
+    const tokens = await exchangeCodeForTokens('common', c.m365_client_id, clientSecret, code, redirectUri)
 
     // Mailbox-E-Mail ermitteln
     const meRes = await fetch('https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName,displayName', {
