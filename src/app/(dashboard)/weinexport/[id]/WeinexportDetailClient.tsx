@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
+import EmcsPanel from './EmcsPanel'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 const STATUS_LABEL: Record<string,string> = {
@@ -68,7 +69,7 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
         <div>
           <Link href="/weinexport" className="text-s112-muted hover:text-gray-700 text-sm">← Exportaufträge</Link>
           <h1 className="text-2xl font-bold text-gray-900 mt-1">
-            🚢 {auftrag.referenz ?? 'Exportauftrag'}
+             {auftrag.referenz ?? 'Exportauftrag'}
           </h1>
           <p className="text-sm text-s112-muted mt-0.5">{importeur}</p>
         </div>
@@ -208,46 +209,7 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
               </div>
             </div>
           </div>
-        </div>
-          {/* EMCS */}
-          <div className="bg-white rounded-2xl border border-s112-border p-5">
-            <h2 className="font-semibold text-gray-800 mb-4">🇪🇺 EMCS</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs text-s112-muted mb-1">ARC-Nummer</label>
-                <input value={emcsArc} onChange={e => setEmcsArc(e.target.value)}
-                  placeholder="AT123456789012345"
-                  className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
-              </div>
-              <div>
-                <label className="block text-xs text-s112-muted mb-1">Status</label>
-                <select value={emcsStatus} onChange={e => setEmcsStatus(e.target.value)}
-                  className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
-                  <option value="">– noch nicht eingereicht –</option>
-                  <option value="draft">Entwurf</option>
-                  <option value="submitted">Eingereicht</option>
-                  <option value="accepted">Akzeptiert</option>
-                  <option value="cancelled">Storniert</option>
-                </select>
-              </div>
-              <button onClick={async () => {
-                setEmcsSaving(true)
-                await fetch(`/api/weinexport/${auftrag.id}`, {
-                  method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ emcs_arc_nummer: emcsArc || null, emcs_status: emcsStatus || null }),
-                })
-                setEmcsSaving(false)
-              }} disabled={emcsSaving}
-                className="w-full text-xs bg-s112-teal text-white py-1.5 rounded-lg hover:bg-opacity-90 disabled:opacity-40">
-                {emcsSaving ? 'Speichern…' : '💾 EMCS speichern'}
-              </button>
-              <a href={`/api/weinexport/${auftrag.id}/emcs`}
-                className="block w-full text-center text-xs border border-s112-border text-gray-600 py-1.5 rounded-lg hover:bg-s112-bg">
-                📥 e-AD XML herunterladen
-              </a>
-              <p className="text-[10px] text-s112-muted">XML in EMCS AT oder FinanzOnline importieren</p>
-            </div>
-          </div>
+          <EmcsPanel auftragId={auftrag.id} initialArc={auftrag.emcs_arc_nummer ?? ''} initialStatus={auftrag.emcs_status ?? ''} />
         </div>
       </div>
     </div>
