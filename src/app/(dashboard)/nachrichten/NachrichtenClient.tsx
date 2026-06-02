@@ -221,7 +221,7 @@ export default function NachrichtenClient() {
             ✏ Verfassen
           </button>
         </div>
-        <nav className="flex-1 px-2 space-y-0.5">
+        <nav className="flex-1 px-2 space-y-0.5 overflow-y-auto">
           {/* Echte Ordnerstruktur aus Mailbox */}
           {folders.length > 0 ? folders.map(f => (
             <button key={f.id} onClick={() => { setFolderId(f.id); setFolder('inbox'); setSelected(null) }}

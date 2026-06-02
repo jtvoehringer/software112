@@ -61,8 +61,23 @@ export async function GET(req: NextRequest) {
           // tenantId + user bereits aus äußerem Scope verfügbar
             const bodyText = (msg.body?.content ?? '').replace(/<[^>]*>/g, '').trim()
             const bodyHtml = msg.body?.contentType === 'html' ? msg.body.content : null
-            // Fire-and-forget: Response nicht blockieren
-            void (supabase.from('aktivitaeten') as any).upsert({
+            // Bestehende Aktivität aktualisieren (email_id=null) ODER neu anlegen
+            void (async () => { try {
+              // Erst UPDATE auf bestehenden Eintrag ohne email_id
+              const { count } = await (supabase.from('aktivitaeten') as any).update({
+                email_id: msg.id, email_conversation_id: msg.conversationId ?? null,
+                email_von: msg.from?.emailAddress?.address ?? null,
+                email_von_name: msg.from?.emailAddress?.name ?? null,
+                email_an: (msg.toRecipients ?? []).map((r: R) => r.emailAddress?.address).join(', ') || null,
+                email_body: bodyText || null, email_body_html: bodyHtml,
+                beschreibung: bodyText.slice(0, 500),
+              }).eq('tenant_id', tenantId)
+                .eq('kontakt_id', kontaktInfo.typ === 'kontakt' ? kontaktInfo.id : null)
+                .eq('firma_id', kontaktInfo.typ === 'firma' ? kontaktInfo.id : null)
+                .eq('art', 'email').eq('betreff', msg.subject ?? '').is('email_id', null)
+                .select('*', { count: 'exact', head: true })
+              // Wenn kein bestehender Eintrag → neu anlegen
+              if (!count || count === 0) await (supabase.from('aktivitaeten') as any).upsert({
               tenant_id: tenantId,
               kontakt_id: kontaktInfo.typ === 'kontakt' ? kontaktInfo.id : null,
               firma_id:   kontaktInfo.typ === 'firma'   ? kontaktInfo.id : null,
@@ -78,7 +93,8 @@ export async function GET(req: NextRequest) {
               email_an: (msg.toRecipients ?? []).map((r: R) => r.emailAddress?.address).join(', ') || null,
               email_body: bodyText || null,
               email_body_html: bodyHtml,
-            }, { onConflict: 'tenant_id,email_id', ignoreDuplicates: true }).catch(() => {}) // void – kein await
+              }, { onConflict: 'tenant_id,email_id', ignoreDuplicates: true })
+            } } catch {} })() // void – kein await
         }
       }
 
