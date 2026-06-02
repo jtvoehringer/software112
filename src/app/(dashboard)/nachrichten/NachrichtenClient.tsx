@@ -43,6 +43,7 @@ export default function NachrichtenClient() {
   const [deleteConfirm, setDeleteConfirm]       = useState(false)
   const [forwardAn, setForwardAn]               = useState('')
   const [forwardMode, setForwardMode]           = useState(false)
+  const [sendVon, setSendVon]                   = useState<'own'|'shared'>('own')
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set())
   const loadGenRef = useRef(0)
   const [folders, setFolders]     = useState<{id: string; name: string; unread: number; total: number}[]>([])
@@ -129,7 +130,7 @@ export default function NachrichtenClient() {
     setSending(true); setSendResult(null)
     const res = await fetch('/api/email/unified', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ an, betreff, text }),
+      body: JSON.stringify({ an, betreff, text, useSharedMailbox: sendVon === 'shared' && !!monitoredEmail }),
     })
     const data = await res.json()
     if (!res.ok || data.fehler) { setSendResult('Fehler: ' + (data.fehler ?? 'Unbekannt')); setSending(false); return }
@@ -448,6 +449,21 @@ export default function NachrichtenClient() {
                 className="text-s112-muted hover:text-gray-700">✕</button>
             </div>
             <form onSubmit={sendEmail} className="flex-1 flex flex-col gap-3">
+              {monitoredEmail && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Von</label>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setSendVon('own')}
+                      className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${sendVon === 'own' ? 'bg-s112-teal text-white border-s112-teal' : 'border-s112-border text-gray-600 hover:bg-s112-bg'}`}>
+                      Eigene Mailbox
+                    </button>
+                    <button type="button" onClick={() => setSendVon('shared')}
+                      className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${sendVon === 'shared' ? 'bg-s112-teal text-white border-s112-teal' : 'border-s112-border text-gray-600 hover:bg-s112-bg'}`}>
+                      {monitoredEmail}
+                    </button>
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">An * <span className="font-normal text-s112-muted">(mehrere mit Komma trennen)</span></label>
                 <input value={an} onChange={e => setAn(e.target.value)} required
