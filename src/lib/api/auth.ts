@@ -2,6 +2,7 @@
  * Gemeinsame Auth-Utilities für API-Routen
  * Verhindert Code-Duplikation und stellt konsistente Sicherheitschecks sicher
  */
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { getValidUserAccessToken } from '@/lib/m365/graph'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -14,8 +15,7 @@ export const USER_EMAIL_CONN_SELECT =
 /**
  * Tenant-ID aus der Session laden (NIEMALS aus Request-Body)
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function getTenantId(supabase: any): Promise<string | null> {
+export async function getTenantId(supabase: SupabaseClient): Promise<string | null> {
   const { data: membership } = await (supabase.from('tenant_memberships') as any)
     .select('tenant_id').limit(1).single()
   return (membership as R | null)?.tenant_id ?? null
@@ -35,8 +35,8 @@ export function getMailboxBase(uc: R | null): string {
  * M365-Token für User laden
  */
 export async function getM365Token(
-  supabase: any, // eslint-disable-line @typescript-eslint/no-explicit-any
-  adminClient: any, // eslint-disable-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient,
+  adminClient: SupabaseClient,
   tenantId: string,
   userId: string
 ): Promise<{ uc: R | null; token: string | null }> {

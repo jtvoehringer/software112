@@ -13,7 +13,7 @@ export default async function NeuPage() {
   const [{ data: kontakte }, { data: firmen }, { data: fuellungen }] = await Promise.all([
     (supabase.from('kontakte') as any).select('id,vorname,nachname').eq('tenant_id', tenantId).eq('aktiv', true).order('nachname'),
     (supabase.from('firmen') as any).select('id,name').eq('tenant_id', tenantId).eq('aktiv', true).order('name'),
-    (supabase.from('fuellungen') as any).select('id,bezeichnung,flaschengroesse_ml,lagerbestand_fl').eq('tenant_id', tenantId).eq('aktiv', true).gt('lagerbestand_fl', 0).order('bezeichnung'),
+    (supabase.from('fuellungen') as any).select('id,name,bezeichnung,jahrgang,flaschengroesse_ml,bestand_flaschen').eq('tenant_id', tenantId).eq('aktiv', true).gt('bestand_flaschen', 0).order('name'),
   ])
 
   return <WeinexportFormClient

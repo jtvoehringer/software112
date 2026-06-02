@@ -180,10 +180,10 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
                 <select value={pos.fullung_id} onChange={e => {
                   const f = fuellungen.find(f => f.id === e.target.value)
                   updatePos(i, 'fullung_id', e.target.value)
-                  if (f) updatePos(i, 'beschreibung', f.bezeichnung)
+                  if (f) updatePos(i, 'beschreibung', [f.name, f.bezeichnung].filter(Boolean).join(' – '))
                 }} className="w-full border border-s112-border rounded px-2 py-1.5 text-xs focus:outline-none">
                   <option value="">– Füllung –</option>
-                  {fuellungen.map(f => <option key={f.id} value={f.id}>{f.bezeichnung} ({f.lagerbestand_fl} Fl.)</option>)}
+                  {fuellungen.map(f => <option key={f.id} value={f.id}>{f.name}{f.bezeichnung ? ' – ' + f.bezeichnung : ''}{f.jahrgang ? ' ' + f.jahrgang : ''} ({f.bestand_flaschen} Fl.)</option>)}
                 </select>
               </div>
               <div className="col-span-3">
