@@ -40,8 +40,6 @@ const LAENDER = ['AT', 'DE', 'CH', 'IT', 'FR', 'HU', 'SK', 'CZ', 'US', 'GB']
 function FirmaForm({ initial, rabattgruppen, defaultSegment, onDone }: { initial?: FirmaRow | null; rabattgruppen: {id:string;name:string;rabatt_pct:number}[]; defaultSegment?: string; onDone: () => void }) {
   const [pending, startTransition] = useTransition()
   const router = useRouter()
-  const BUCHSTABEN = ['Alle', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')]
-  const [buchstabe, setBuchstabe] = useState('Alle')
   const [segmentVal, setSegmentVal] = useState(initial?.segment ?? defaultSegment ?? 'handel')
   const [isLead, setIsLead]           = useState(initial?.is_lead ?? true)
   const [landVal, setLandVal]           = useState(initial?.land ?? 'AT')
@@ -328,6 +326,8 @@ export default function FirmenClient({
   const [showForm, setShowForm] = useState(false)
   const [suche, setSuche] = useState('')
   const [segment, setSegment] = useState('alle')
+  const BUCHSTABEN = ['Alle', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')]
+  const [buchstabe, setBuchstabe] = useState('Alle')
 
   const gefiltert = firmen.filter(f => {
     const text = [f.kundennummer, f.name, f.ort, f.email, f.telefon].filter(Boolean).join(' ').toLowerCase()
