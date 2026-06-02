@@ -88,6 +88,7 @@ const NAV: NavEntry[] = [
   },
 
   { kind: 'link', href: '/reports', label: 'Auswertungen', icon: '📋' },
+  { kind: 'link', href: '/ki',      label: 'Frag dein Weingut', icon: '🤖' },
 
   {
     kind: 'group', label: 'Hilfe', icon: '❓',
