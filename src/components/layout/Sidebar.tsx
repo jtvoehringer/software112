@@ -68,7 +68,7 @@ const NAV: NavEntry[] = [
     ],
   },
 
-  { kind: 'link', href: '/nachrichten', label: 'Nachrichten', icon: '📬', phase: 2 },
+  { kind: 'link', href: '/nachrichten', label: 'E-Mail', icon: '📬', phase: 2 },
 
   {
     kind: 'group', label: 'CRM', icon: '👥',
