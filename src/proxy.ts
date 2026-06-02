@@ -25,7 +25,7 @@ function checkRateLimit(ip: string, route: string, maxReq: number, windowMs: num
 }
 
 // ── Middleware ────────────────────────────────────────────────────────────────
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim()
     ?? request.headers.get('x-real-ip') ?? '127.0.0.1'
