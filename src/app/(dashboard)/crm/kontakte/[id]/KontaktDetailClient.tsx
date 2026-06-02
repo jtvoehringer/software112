@@ -320,6 +320,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail }: { a: AktivitaetRow; write
             ✏
           </button>
         )}
+      </div>
     </div>
   )
 }

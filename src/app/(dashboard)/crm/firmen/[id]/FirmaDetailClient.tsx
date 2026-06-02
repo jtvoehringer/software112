@@ -329,6 +329,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail }: { a: AktivitaetRow; writeOk
             ✏
           </button>
         )}
+      </div>
     </div>
   )
 }
