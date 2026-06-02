@@ -93,4 +93,34 @@ export async function getValidAccessToken(cfg: R, admin: R): Promise<string> {
   return tokens.access_token
 }
 
+
+// Per-User Token: App-Credentials aus tenantCfg, User-Token aus userCfg
+export async function getValidUserAccessToken(
+  userCfg: R, tenantCfg: R, supabase: R
+): Promise<string> {
+  if (!userCfg.m365_access_token_enc) throw new Error('Mailbox nicht verbunden')
+
+  const expiresAt = userCfg.m365_token_expires_at ? new Date(userCfg.m365_token_expires_at) : new Date(0)
+  const needsRefresh = expiresAt.getTime() - Date.now() < 5 * 60 * 1000
+
+  if (!needsRefresh) return decryptPass(userCfg.m365_access_token_enc)
+
+  // Token erneuern: App-Credentials aus tenant_einstellungen
+  const clientSecret  = decryptPass(tenantCfg.m365_client_secret_enc)
+  const refreshToken  = decryptPass(userCfg.m365_refresh_token_enc)
+  const tokens = await refreshAccessToken(
+    tenantCfg.m365_tenant_id, tenantCfg.m365_client_id, clientSecret, refreshToken
+  )
+
+  // Neuen Token in user_email_connections speichern
+  await (supabase.from('user_email_connections') as any).update({
+    m365_access_token_enc:  encryptPass(tokens.access_token),
+    ...(tokens.refresh_token ? { m365_refresh_token_enc: encryptPass(tokens.refresh_token) } : {}),
+    m365_token_expires_at:  new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+    aktualisiert_am:        new Date().toISOString(),
+  }).eq('id', userCfg.id)
+
+  return tokens.access_token
+}
+
 export { encryptPass, decryptPass }

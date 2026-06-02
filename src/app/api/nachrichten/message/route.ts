@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
-import { getValidAccessToken } from '@/lib/m365/graph'
+import { getValidUserAccessToken } from '@/lib/m365/graph'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -18,12 +18,16 @@ export async function GET(req: NextRequest) {
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 
     const { data: { user } } = await supabase.auth.getUser()
-    const { data: cfg } = await (supabase.from('user_email_connections') as any)
-      .select('*').eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle()
+    const [{ data: cfg }, { data: tenantCfg }] = await Promise.all([
+      (supabase.from('user_email_connections') as any)
+        .select('*').eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle(),
+      (admin.from('tenant_einstellungen') as any)
+        .select('m365_tenant_id, m365_client_id, m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle(),
+    ])
     const c = cfg as R | null
 
     if (c?.m365_aktiv && c?.m365_access_token_enc) {
-      const token = await getValidAccessToken(c, admin)
+      const token = await getValidUserAccessToken(c, tenantCfg as R, supabase)
       const res = await fetch(
         `https://graph.microsoft.com/v1.0/me/messages/${id}?$select=id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,body,conversationId,isRead`,
         { headers: { Authorization: `Bearer ${token}` } }

@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
-import { getValidAccessToken } from '@/lib/m365/graph'
+import { getValidUserAccessToken } from '@/lib/m365/graph'
 import { ImapFlow } from 'imapflow'
 import { decryptPass } from '@/lib/email/crypto'
 
@@ -17,15 +17,19 @@ export async function GET(req: NextRequest) {
     const tenantId = (membership as R | null)?.tenant_id
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 
-    // Per-User Verbindung laden
+    // Per-User Verbindung + Tenant App-Credentials laden
     const { data: { user } } = await supabase.auth.getUser()
-    const { data: cfg } = await (supabase.from('user_email_connections') as any)
-      .select('*').eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle()
+    const [{ data: cfg }, { data: tenantCfg }] = await Promise.all([
+      (supabase.from('user_email_connections') as any)
+        .select('*').eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle(),
+      (admin.from('tenant_einstellungen') as any)
+        .select('m365_tenant_id, m365_client_id, m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle(),
+    ])
     const c = cfg as R | null
 
     // M365
     if (c?.m365_aktiv && c?.m365_access_token_enc) {
-      const token = await getValidAccessToken(c, admin)
+      const token = await getValidUserAccessToken(c, tenantCfg as R, supabase)
       const folderPath = folder === 'sent' ? 'sentItems' : 'inbox'
       const res = await fetch(
         `https://graph.microsoft.com/v1.0/me/mailFolders/${folderPath}/messages?$select=id,subject,from,toRecipients,receivedDateTime,sentDateTime,isRead,bodyPreview&$top=30&$orderby=${folder === 'sent' ? 'sentDateTime' : 'receivedDateTime'} desc`,
