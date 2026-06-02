@@ -32,18 +32,26 @@ export async function POST(req: NextRequest) {
 
     // ── Per-User M365 hat höchste Priorität ─────────────────────────────────
     if (uc?.m365_aktiv && uc?.m365_access_token_enc) {
-      const { getValidAccessToken, graphPost } = await import('@/lib/m365/graph')
-      const token = await getValidAccessToken(uc, admin)
+      const { getValidUserAccessToken, graphPost } = await import('@/lib/m365/graph')
+      const { data: tcfg } = await (admin.from('tenant_einstellungen') as any)
+        .select('m365_tenant_id, m365_client_id, m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle()
+      const token = await getValidUserAccessToken(uc, tcfg as R, supabase)
       // Mehrere Empfänger: Komma-getrennt parsen
       const empfaenger = an.split(',').map((e: string) => e.trim()).filter(Boolean)
-      await graphPost(token, '/me/sendMail', {
-        message: {
-          subject: betreff,
-          body: { contentType: 'Text', content: text ?? '' },
-          toRecipients: empfaenger.map((addr: string) => ({ emailAddress: { address: addr } })),
-        },
-        saveToSentItems: true,
-      })
+      // Shared Mailbox als Absender wenn monitored_email gesetzt (erfordert Send-As-Rechte in Exchange)
+      const sharedMailbox = (uc as R).monitored_email as string | null
+      const sendEndpoint = sharedMailbox
+        ? `/users/${encodeURIComponent(sharedMailbox)}/sendMail`
+        : '/me/sendMail'
+      const messagePayload: R = {
+        subject: betreff,
+        body: { contentType: 'Text', content: text ?? '' },
+        toRecipients: empfaenger.map((addr: string) => ({ emailAddress: { address: addr } })),
+      }
+      if (sharedMailbox) {
+        messagePayload.from = { emailAddress: { address: sharedMailbox } }
+      }
+      await graphPost(token, sendEndpoint, { message: messagePayload, saveToSentItems: true })
       await (admin.from('aktivitaeten') as any).insert({
         tenant_id: tenantId, kontakt_id: kontakt_id ?? null, firma_id: firma_id ?? null,
         art: 'email', betreff, beschreibung: text?.slice(0, 200) ?? null,
