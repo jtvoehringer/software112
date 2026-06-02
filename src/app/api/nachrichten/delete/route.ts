@@ -27,11 +27,16 @@ export async function DELETE(req: NextRequest) {
     const mailboxBase = (uc as R).monitored_email
         ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent((uc as R).monitored_email)}`
         : 'https://graph.microsoft.com/v1.0/me'
-    await fetch(`${mailboxBase}/messages/${id}/move`, {
+    const moveRes = await fetch(`${mailboxBase}/messages/${id}/move`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ destinationId: 'deleteditems' }),
     })
+    if (!moveRes.ok) {
+      const errBody = await moveRes.json().catch(() => ({}))
+      const msg = (errBody as R)?.error?.message ?? moveRes.statusText
+      return NextResponse.json({ fehler: `Graph API Fehler ${moveRes.status}: ${msg}` }, { status: 502 })
+    }
     return NextResponse.json({ ok: true })
   } catch (err) { return NextResponse.json({ fehler: String(err) }, { status: 500 }) }
 }
