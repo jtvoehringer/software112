@@ -317,7 +317,7 @@ export default function FirmaDetailClient({
     e.preventDefault()
     setEmailSending(true); setEmailResult(null)
     try {
-      const res = await fetch('/api/email/send', {
+      const res = await fetch('/api/email/unified', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ an: firma.email, betreff: emailBetreff, text: emailText, firma_id: firma.id }),
       })

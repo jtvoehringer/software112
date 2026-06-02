@@ -302,7 +302,7 @@ export default function KontaktDetailClient({
     e.preventDefault()
     setEmailSending(true); setEmailResult(null)
     try {
-      const res = await fetch('/api/email/send', {
+      const res = await fetch('/api/email/unified', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           an: kontakt.email, betreff: emailBetreff, text: emailText,
