@@ -38,6 +38,7 @@ export default function NachrichtenClient() {
   const [verbEmail, setVerbEmail]         = useState('')
   const [monitoredEmail, setMonitoredEmail] = useState('')
   const [monitoredSaving, setMonitoredSaving] = useState(false)
+  const [showSettings, setShowSettings]       = useState(false)
   const [folders, setFolders]     = useState<{id: string; name: string; unread: number; total: number}[]>([])
   const [folderId, setFolderId]   = useState<string | null>(null)  // null = inbox
 
@@ -202,6 +203,33 @@ export default function NachrichtenClient() {
             className="w-full text-xs text-s112-muted hover:text-s112-teal py-1">
             {laden ? '⏳ Laden…' : '↻ Aktualisieren'}
           </button>
+          <button onClick={() => setShowSettings(v => !v)}
+            className="w-full text-xs text-s112-muted hover:text-s112-teal py-1">
+            ⚙ Einstellungen
+          </button>
+          {showSettings && (
+            <div className="mt-2 pt-2 border-t border-s112-border space-y-2">
+              <p className="text-[10px] text-s112-muted font-medium uppercase tracking-wide">Weitere Mailbox</p>
+              <p className="text-[10px] text-s112-muted">z.B. office@weingut.at – Vollzugriff in Exchange nötig</p>
+              <div className="space-y-1">
+                <input value={monitoredEmail} onChange={e => setMonitoredEmail(e.target.value)}
+                  placeholder="office@weingut.at"
+                  className="w-full border border-s112-border rounded px-2 py-1 text-[10px] focus:outline-none" />
+                <button onClick={async () => {
+                  setMonitoredSaving(true)
+                  await fetch('/api/nachrichten/monitored', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ monitored_email: monitoredEmail || null }),
+                  })
+                  setMonitoredSaving(false); setShowSettings(false)
+                  window.location.reload()
+                }} disabled={monitoredSaving}
+                  className="w-full text-[10px] bg-s112-teal text-white px-2 py-1 rounded hover:bg-opacity-90 disabled:opacity-40">
+                  {monitoredSaving ? '…' : monitoredEmail ? 'Speichern' : 'Eigene Mailbox'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -267,8 +295,11 @@ export default function NachrichtenClient() {
                   </button>
                   <button onClick={async () => {
                     if (!confirm('E-Mail in Gelöschte Elemente verschieben?')) return
-                    await fetch(`/api/nachrichten/delete?id=${selected.id}`, { method: 'DELETE' })
-                    setSelected(null); ladeMessages()
+                    const delId = selected.id
+                    setMessages(prev => prev.filter(m => m.id !== delId))
+                    setSelected(null)
+                    fetch(`/api/nachrichten/delete?id=${delId}`, { method: 'DELETE' })
+                      .then(() => ladeMessages()).catch(() => {})
                   }} className="text-xs border border-red-200 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50">
                     🗑 Löschen
                   </button>
