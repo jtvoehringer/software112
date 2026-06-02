@@ -9,7 +9,7 @@ type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explic
 
 export async function POST(req: NextRequest) {
   try {
-    const { an, betreff, text, kontakt_id, firma_id } = await req.json()
+    const { an, betreff, text, kontakt_id, firma_id, useSharedMailbox } = await req.json()
     if (!an || !betreff) return NextResponse.json({ fehler: 'E-Mail und Betreff erforderlich' }, { status: 400 })
 
     const supabase = await createSupabaseServerClient()
@@ -38,8 +38,8 @@ export async function POST(req: NextRequest) {
       const token = await getValidUserAccessToken(uc, tcfg as R, supabase)
       // Mehrere Empfänger: Komma-getrennt parsen
       const empfaenger = an.split(',').map((e: string) => e.trim()).filter(Boolean)
-      // Shared Mailbox als Absender wenn monitored_email gesetzt (erfordert Send-As-Rechte in Exchange)
-      const sharedMailbox = (uc as R).monitored_email as string | null
+      // Shared Mailbox als Absender wenn explizit gewählt (erfordert Send-As-Rechte in Exchange)
+      const sharedMailbox = useSharedMailbox ? ((uc as R).monitored_email as string | null) : null
       const sendEndpoint = sharedMailbox
         ? `/users/${encodeURIComponent(sharedMailbox)}/sendMail`
         : '/me/sendMail'
