@@ -13,7 +13,8 @@ export async function GET(
   const { id } = await params
   const supabase = await createSupabaseServerClient()
   const admin    = createSupabaseAdminClient()
-  const tenantId = await getTenantId(supabase)
+  const { data: _mb } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
+  const tenantId = (_mb as R | null)?.tenant_id
   if (!tenantId) return NextResponse.json({ fehler: 'Nicht autorisiert' }, { status: 401 })
 
   const [{ data: a }, { data: pos }, { data: b }] = await Promise.all([
