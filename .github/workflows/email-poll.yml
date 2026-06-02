@@ -1,32 +1,16 @@
-name: E-Mail IMAP-Poll
+name: M365 Webhook Renewal
 
 on:
   schedule:
-    # Alle 2 Stunden (GitHub Actions minimum: 5 Minuten)
+    # Alle 2 Stunden
     - cron: '0 */2 * * *'
-  workflow_dispatch:  # Auch manuell auslösbar über GitHub UI
+  workflow_dispatch:  # Auch manuell auslösbar
 
 jobs:
-  poll:
-    runs-on: ubuntu-latest
-    steps:
-      - name: IMAP-Posteingang abrufen
-        run: |
-          response=$(curl -s -L -o /dev/null -w "%{http_code}" \
-            -X POST \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json" \
-            https://software112.icp-consultants.at/api/email/poll)
-          echo "HTTP Status: $response"
-          if [ "$response" != "200" ]; then
-            echo "Fehler beim IMAP-Poll (HTTP $response)"
-            exit 1
-          fi
-
   renew-m365-webhook:
     runs-on: ubuntu-latest
     steps:
-      - name: M365 Webhook erneuern (alle 3 Tage)
+      - name: M365 Webhook-Subscription erneuern
         run: |
           response=$(curl -s -L -o /dev/null -w "%{http_code}" \
             -X POST \
@@ -34,3 +18,7 @@ jobs:
             -H "Content-Type: application/json" \
             https://software112.icp-consultants.at/api/m365/subscribe)
           echo "HTTP Status: $response"
+          if [ "$response" != "200" ]; then
+            echo "Webhook-Renewal fehlgeschlagen (HTTP $response)"
+            exit 1
+          fi
