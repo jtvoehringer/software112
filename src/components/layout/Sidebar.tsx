@@ -64,8 +64,8 @@ const NAV: NavEntry[] = [
     kind: 'group', label: 'Controlling', icon: '🧮',
     items: [
       { href: '/controlling/export',        label: 'Datenexport' },
-      { href: '/controlling/bmd',           label: 'BMD NTCS',         phase: 3 },
-      { href: '/controlling/kostenrechnung',label: 'Kostenrechnung',   phase: 3 },
+      { href: '/controlling/bmd',           label: 'BMD NTCS'         },
+      { href: '/controlling/kostenrechnung',label: 'Kostenrechnung'   },
     ],
   },
 
