@@ -32,9 +32,13 @@ export async function GET(req: NextRequest) {
     if (c?.m365_aktiv && c?.m365_access_token_enc) {
       const token = await getValidUserAccessToken(c, tenantCfg as R, supabase)
       // Echte Ordner-ID verwenden wenn vorhanden, sonst Standard-Ordner
+      // Shared Mailbox: wenn monitored_email gesetzt → /users/{email}/... statt /me/...
+      const mailboxBase = (c as R).monitored_email
+        ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent((c as R).monitored_email)}`
+        : 'https://graph.microsoft.com/v1.0/me'
       const folderPath = folderId ? folderId : (folder === 'sent' ? 'sentItems' : 'inbox')
       const res = await fetch(
-        `https://graph.microsoft.com/v1.0/me/mailFolders/${folderPath}/messages?$select=id,subject,from,toRecipients,receivedDateTime,sentDateTime,isRead,bodyPreview&$top=30&$orderby=${folder === 'sent' ? 'sentDateTime' : 'receivedDateTime'} desc`,
+        `${mailboxBase}/mailFolders/${folderPath}/messages?$select=id,subject,from,toRecipients,receivedDateTime,sentDateTime,isRead,bodyPreview&$top=30&$orderby=${folder === 'sent' ? 'sentDateTime' : 'receivedDateTime'} desc`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       const data = await res.json() as R

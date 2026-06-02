@@ -21,8 +21,11 @@ export async function GET() {
     if (!(uc as R | null)?.m365_aktiv) return NextResponse.json({ fehler: 'Mailbox nicht verbunden' }, { status: 400 })
 
     const token = await getValidUserAccessToken(uc as R, tc as R, supabase)
+    const mailboxBase = (uc as R).monitored_email
+        ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent((uc as R).monitored_email)}`
+        : 'https://graph.microsoft.com/v1.0/me'
     const res = await fetch(
-      'https://graph.microsoft.com/v1.0/me/mailFolders?$select=id,displayName,unreadItemCount,totalItemCount&$top=50',
+      `${mailboxBase}/mailFolders?$select=id,displayName,unreadItemCount,totalItemCount&$top=50',
       { headers: { Authorization: `Bearer ${token}` } }
     )
     const data = await res.json() as R

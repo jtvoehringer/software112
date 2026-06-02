@@ -24,7 +24,10 @@ export async function DELETE(req: NextRequest) {
     const token = await getValidUserAccessToken(uc as R, tc as R, supabase)
 
     // In "Gelöschte Elemente" verschieben (nicht endgültig löschen)
-    await fetch(`https://graph.microsoft.com/v1.0/me/messages/${id}/move`, {
+    const mailboxBase = (uc as R).monitored_email
+        ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent((uc as R).monitored_email)}`
+        : 'https://graph.microsoft.com/v1.0/me'
+    await fetch(`${mailboxBase}/messages/${id}/move`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ destinationId: 'deleteditems' }),

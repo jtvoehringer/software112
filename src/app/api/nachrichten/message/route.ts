@@ -28,15 +28,18 @@ export async function GET(req: NextRequest) {
 
     if (c?.m365_aktiv && c?.m365_access_token_enc) {
       const token = await getValidUserAccessToken(c, tenantCfg as R, supabase)
+      const mailboxBase = (c as R).monitored_email
+        ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent((c as R).monitored_email)}`
+        : 'https://graph.microsoft.com/v1.0/me'
       const res = await fetch(
-        `https://graph.microsoft.com/v1.0/me/messages/${id}?$select=id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,body,conversationId,isRead`,
+        `${mailboxBase}/messages/${id}?$select=id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,body,conversationId,isRead`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       if (!res.ok) return NextResponse.json({ fehler: 'E-Mail nicht gefunden' }, { status: 404 })
       const msg = await res.json() as R
 
       // Als gelesen markieren
-      await fetch(`https://graph.microsoft.com/v1.0/me/messages/${id}`, {
+      await fetch(`${mailboxBase}/messages/${id}`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ isRead: true }),

@@ -34,8 +34,10 @@ export default function NachrichtenClient() {
   const [text, setText]           = useState('')
   const [sendResult, setSendResult] = useState<string | null>(null)
   const [sending, setSending]     = useState(false)
-  const [verbunden, setVerbunden] = useState<boolean | null>(null)
-  const [verbEmail, setVerbEmail] = useState('')
+  const [verbunden, setVerbunden]       = useState<boolean | null>(null)
+  const [verbEmail, setVerbEmail]         = useState('')
+  const [monitoredEmail, setMonitoredEmail] = useState('')
+  const [monitoredSaving, setMonitoredSaving] = useState(false)
   const [folders, setFolders]     = useState<{id: string; name: string; unread: number; total: number}[]>([])
   const [folderId, setFolderId]   = useState<string | null>(null)  // null = inbox
 
@@ -133,9 +135,27 @@ export default function NachrichtenClient() {
           className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl text-sm font-semibold hover:bg-blue-700">
           <span className="text-lg">📅</span> Mit Microsoft 365 verbinden
         </a>
-        <p className="text-xs text-s112-muted">
-          IMAP/SMTP-Verbindung: Admin → Mandant → E-Mail
-        </p>
+        <div className="mt-4 pt-4 border-t border-s112-border space-y-2">
+          <p className="text-xs font-medium text-gray-700">Optional: Funktionale Mailbox überwachen</p>
+          <p className="text-xs text-s112-muted">z.B. office@weingut.at, info@weingut.at – du brauchst Vollzugriff auf diese Mailbox in Exchange.</p>
+          <div className="flex gap-2">
+            <input value={monitoredEmail} onChange={e => setMonitoredEmail(e.target.value)}
+              placeholder="office@weingut.at"
+              className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            <button onClick={async () => {
+              setMonitoredSaving(true)
+              await fetch('/api/nachrichten/monitored', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ monitored_email: monitoredEmail || null }),
+              })
+              setMonitoredSaving(false)
+              window.location.reload()
+            }} disabled={monitoredSaving}
+              className="text-xs border border-s112-border px-3 py-1.5 rounded-lg hover:bg-s112-bg disabled:opacity-40">
+              {monitoredSaving ? '…' : 'Speichern'}
+            </button>
+          </div>
+        </div>
       </div>
     )
   }
