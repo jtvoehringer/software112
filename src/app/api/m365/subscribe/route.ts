@@ -7,14 +7,37 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export async function POST(req: NextRequest) {
+  // Auth: CRON_SECRET (Cron-Job) ODER eingeloggte Session (Admin)
+  const cronSecret = process.env.CRON_SECRET
+  const authHeader = req.headers.get('authorization')
+  const hasCronAuth = cronSecret && authHeader === `Bearer ${cronSecret}`
+
   try {
     const supabase = await createSupabaseServerClient()
     const admin    = createSupabaseAdminClient()
 
+    if (!hasCronAuth) {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return NextResponse.json({ fehler: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Für Cron: alle aktiven M365-Tenants erneuern; für Session: nur eigenen Tenant
     const { data: membership } = await (supabase.from('tenant_memberships') as any)
       .select('tenant_id').limit(1).single()
     const tenantId = (membership as R | null)?.tenant_id
-    if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
+    if (!tenantId && !hasCronAuth) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
+
+    // Wenn Cron ohne Session: alle M365-Tenants erneuern
+    if (hasCronAuth && !tenantId) {
+      const { data: allCfgs } = await (admin.from('tenant_einstellungen') as any)
+        .select('*').eq('m365_modul_aktiv', true).not('m365_refresh_token_enc', 'is', null)
+      const cfgs = (allCfgs ?? []) as R[]
+      let renewed = 0
+      for (const cfg of cfgs) {
+        try { await renewWebhook(cfg, admin, req); renewed++ } catch { /* continue */ }
+      }
+      return NextResponse.json({ ok: true, renewed })
+    }
 
     const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
       .select('*').eq('tenant_id', tenantId).maybeSingle()
