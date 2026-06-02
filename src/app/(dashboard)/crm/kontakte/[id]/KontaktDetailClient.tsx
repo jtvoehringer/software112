@@ -177,6 +177,7 @@ function AktivitaetKarte({ a, writeOk }: { a: AktivitaetRow; writeOk: boolean })
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Art</label>
               <select name="art" defaultValue={a.art} className={inputCls()}>
+                {a.art === 'email' && <input type="hidden" name="art" value="email" />}
                 {AKTIVITAET_ARTEN.filter(x => !('nurAnzeige' in x) || x.value === a.art).map(x => (
                   <option key={x.value} value={x.value} disabled={'nurAnzeige' in x}>{x.icon} {x.label}{('nurAnzeige' in x) ? ' (automatisch)' : ''}</option>
                 ))}

@@ -171,6 +171,7 @@ export async function moveAktivitaet(id: string, datum: string, uhrzeit_von: str
   revalidatePath('/crm/firmen/[id]', 'page')
 }
 
+
 export async function createAktivitaet(formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
