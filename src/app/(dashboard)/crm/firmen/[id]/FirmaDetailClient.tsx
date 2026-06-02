@@ -121,7 +121,7 @@ function PipelineForm({ firmaId, onDone }: { firmaId: string; onDone: () => void
 
 // ── Aktivitäts-Karte ──────────────────────────────────────────────────────────
 
-function AktivitaetKarte({ a, writeOk, firmaEmail }: { a: AktivitaetRow; writeOk: boolean; firmaEmail?: string }) {
+function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow; writeOk: boolean; firmaEmail?: string; firmaId?: string }) {
   const [pending, startTransition] = useTransition()
   const [editMode, setEditMode]   = useState(false)
   const [replyOpen, setReplyOpen]   = useState(false)
@@ -317,7 +317,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail }: { a: AktivitaetRow; writeOk
                 setReplySending(true)
                 await fetch('/api/email/unified', {
                   method: 'POST', headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ an: firmaEmail, betreff: `Re: ${a.betreff ?? ''}`, text: replyText }),
+                  body: JSON.stringify({ an: firmaEmail, betreff: `Re: ${a.betreff ?? ''}`, text: replyText, firma_id: firmaId ?? null }),
                 })
                 setReplySending(false); setReplyOpen(false); setReplyText('')
               }} className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg hover:bg-opacity-90 disabled:opacity-40">
@@ -382,7 +382,7 @@ export default function FirmaDetailClient({
     try {
       const res = await fetch('/api/email/unified', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ an: firma.email, betreff: emailBetreff, text: emailText, firma_id: firma.id }),
+        body: JSON.stringify({ an: firma.email, firma_id: firma.id, betreff: emailBetreff, text: emailText, firma_id: firma.id }),
       })
       const json = await res.json()
       if (!res.ok || json.fehler) { setEmailResult('Fehler: ' + (json.fehler ?? 'Unbekannt')); return }
@@ -565,7 +565,7 @@ export default function FirmaDetailClient({
           ) : (
             <div className="space-y-2">
               {aktivitaeten.filter(a => a.art !== 'verkauf' && a.art !== 'notiz').map(a => (
-                <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} firmaEmail={firma.email ?? undefined} />
+                <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} firmaEmail={firma.email ?? undefined} firmaId={firma.id} />
               ))}
             </div>
           )}

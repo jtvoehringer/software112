@@ -111,7 +111,7 @@ function PipelineForm({ kontaktId, onDone }: { kontaktId: string; onDone: () => 
   )
 }
 
-function AktivitaetKarte({ a, writeOk, kontaktEmail }: { a: AktivitaetRow; writeOk: boolean; kontaktEmail?: string }) {
+function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: AktivitaetRow; writeOk: boolean; kontaktEmail?: string; kontaktId?: string }) {
   const [pending, startTransition] = useTransition()
   const [editMode, setEditMode]   = useState(false)
   const [replyOpen, setReplyOpen]   = useState(false)
@@ -308,7 +308,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail }: { a: AktivitaetRow; write
                 setReplySending(true)
                 await fetch('/api/email/unified', {
                   method: 'POST', headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ an: kontaktEmail, betreff: `Re: ${a.betreff ?? ''}`, text: replyText }),
+                  body: JSON.stringify({ an: kontaktEmail, betreff: `Re: ${a.betreff ?? ''}`, text: replyText, kontakt_id: kontaktId ?? null }),
                 })
                 setReplySending(false); setReplyOpen(false); setReplyText('')
               }} className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg hover:bg-opacity-90 disabled:opacity-40">
@@ -369,7 +369,7 @@ export default function KontaktDetailClient({
       const res = await fetch('/api/email/unified', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          an: kontakt.email, betreff: emailBetreff, text: emailText,
+          an: kontakt.email, betreff: emailBetreff, text: emailText, kontakt_id: kontakt.id,
           kontakt_id: kontakt.id,
         }),
       })
@@ -505,14 +505,14 @@ export default function KontaktDetailClient({
                           </button>
                           {expanded && (
                             <div className="divide-y divide-s112-border/40">
-                              {msgs.map(a => <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} kontaktEmail={kontakt.email ?? undefined} />)}
+                              {msgs.map(a => <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} kontaktEmail={kontakt.email ?? undefined} kontaktId={kontakt.id} />)}
                             </div>
                           )}
                         </div>
                       )
                     })}
                     {/* Einzelne Aktivitäten */}
-                    {singles.map(a => <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} kontaktEmail={kontakt.email ?? undefined} />)}
+                    {singles.map(a => <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} kontaktEmail={kontakt.email ?? undefined} kontaktId={kontakt.id} />)}
                   </>
                 )
               })()}
