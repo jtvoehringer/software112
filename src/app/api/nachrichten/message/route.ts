@@ -17,11 +17,12 @@ export async function GET(req: NextRequest) {
     const tenantId = (membership as R | null)?.tenant_id
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 
-    const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
-      .select('*').eq('tenant_id', tenantId).maybeSingle()
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: cfg } = await (supabase.from('user_email_connections') as any)
+      .select('*').eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle()
     const c = cfg as R | null
 
-    if (c?.m365_modul_aktiv && c?.m365_access_token_enc) {
+    if (c?.m365_aktiv && c?.m365_access_token_enc) {
       const token = await getValidAccessToken(c, admin)
       const res = await fetch(
         `https://graph.microsoft.com/v1.0/me/messages/${id}?$select=id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,body,conversationId,isRead`,
@@ -62,7 +63,7 @@ export async function GET(req: NextRequest) {
         kontaktInfo,
       })
     }
-    return NextResponse.json({ fehler: 'M365 nicht konfiguriert' }, { status: 400 })
+    return NextResponse.json({ fehler: 'Mailbox nicht verbunden' }, { status: 400 })
   } catch (err) {
     return NextResponse.json({ fehler: String(err) }, { status: 500 })
   }

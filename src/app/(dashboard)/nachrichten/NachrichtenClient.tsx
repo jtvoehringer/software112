@@ -34,6 +34,31 @@ export default function NachrichtenClient() {
   const [text, setText]           = useState('')
   const [sendResult, setSendResult] = useState<string | null>(null)
   const [sending, setSending]     = useState(false)
+  const [verbunden, setVerbunden] = useState<boolean | null>(null)
+  const [verbEmail, setVerbEmail] = useState('')
+
+  useEffect(() => {
+    // URL-Params prüfen
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('verbunden') === '1') {
+      window.history.replaceState({}, '', '/nachrichten')
+      ladeMessages()
+    }
+    if (params.get('fehler')) {
+      setFehler('Verbindungsfehler: ' + params.get('fehler'))
+      window.history.replaceState({}, '', '/nachrichten')
+    }
+    // Verbindungsstatus prüfen
+    fetch('/api/nachrichten/list?folder=inbox').then(r => r.json()).then(data => {
+      if (data.fehler === 'Mailbox nicht verbunden' || data.fehler?.includes('nicht konfiguriert')) {
+        setVerbunden(false)
+      } else {
+        setVerbunden(true)
+        setVerbEmail(data.email ?? '')
+      }
+    }).catch(() => setVerbunden(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const ladeMessages = useCallback(async () => {
     setLaden(true); setFehler(null); setSelected(null)
@@ -73,6 +98,31 @@ export default function NachrichtenClient() {
     setTimeout(() => { setCompose(false); setSendResult(null); setAn(''); setBetreff(''); setText('') }, 1500)
     setSending(false)
     if (folder === 'sent') ladeMessages()
+  }
+
+  if (verbunden === false) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 gap-5">
+        <p className="text-4xl">📬</p>
+        <h2 className="text-xl font-bold text-gray-800">Deine Mailbox verbinden</h2>
+        <p className="text-sm text-s112-muted text-center max-w-md">
+          Verbinde dein persönliches E-Mail-Konto um Nachrichten direkt in software:112 zu lesen und zu schreiben.
+          Jeder User verbindet seine eigene Mailbox.
+        </p>
+        {fehler && <p className="text-sm text-red-600">{fehler}</p>}
+        <a href="/api/auth/m365/user"
+          className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl text-sm font-semibold hover:bg-blue-700">
+          <span className="text-lg">📅</span> Mit Microsoft 365 verbinden
+        </a>
+        <p className="text-xs text-s112-muted">
+          IMAP/SMTP-Verbindung: Admin → Mandant → E-Mail
+        </p>
+      </div>
+    )
+  }
+
+  if (verbunden === null) {
+    return <div className="flex items-center justify-center h-48 text-s112-muted">⏳ Verbindung wird geprüft…</div>
   }
 
   return (

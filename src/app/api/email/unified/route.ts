@@ -18,15 +18,22 @@ export async function POST(req: NextRequest) {
     const tenantId = (membership as R | null)?.tenant_id
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 
-    const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
+    // Per-User Verbindung zuerst prüfen
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    const { data: userCfg } = await (supabase.from('user_email_connections') as any)
+      .select('*').eq('tenant_id', tenantId).eq('user_id', authUser?.id ?? '').maybeSingle()
+    const uc = userCfg as R | null
+
+    // Tenant-Einstellungen als Fallback (für admin-gesendete M365)
+    const { data: tenantCfg } = await (admin.from('tenant_einstellungen') as any)
       .select('m365_modul_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, m365_tenant_id, m365_client_id, m365_client_secret_enc, tenant_id, email_modul_aktiv, email_smtp_host, email_smtp_port, email_smtp_user, email_smtp_pass_enc, email_smtp_from_name')
       .eq('tenant_id', tenantId).maybeSingle()
-    const c = cfg as R | null
+    const c = tenantCfg as R | null
 
-    // ── M365 hat Vorrang ──────────────────────────────────────────────────────
-    if (c?.m365_modul_aktiv && c?.m365_access_token_enc) {
+    // ── Per-User M365 hat höchste Priorität ─────────────────────────────────
+    if (uc?.m365_aktiv && uc?.m365_access_token_enc) {
       const { getValidAccessToken, graphPost } = await import('@/lib/m365/graph')
-      const token = await getValidAccessToken(c, admin)
+      const token = await getValidAccessToken(uc, admin)
       // Mehrere Empfänger: Komma-getrennt parsen
       const empfaenger = an.split(',').map((e: string) => e.trim()).filter(Boolean)
       await graphPost(token, '/me/sendMail', {

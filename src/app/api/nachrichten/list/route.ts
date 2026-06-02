@@ -17,12 +17,14 @@ export async function GET(req: NextRequest) {
     const tenantId = (membership as R | null)?.tenant_id
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 
-    const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
-      .select('*').eq('tenant_id', tenantId).maybeSingle()
+    // Per-User Verbindung laden
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: cfg } = await (supabase.from('user_email_connections') as any)
+      .select('*').eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle()
     const c = cfg as R | null
 
     // M365
-    if (c?.m365_modul_aktiv && c?.m365_access_token_enc) {
+    if (c?.m365_aktiv && c?.m365_access_token_enc) {
       const token = await getValidAccessToken(c, admin)
       const folderPath = folder === 'sent' ? 'sentItems' : 'inbox'
       const res = await fetch(
@@ -45,11 +47,11 @@ export async function GET(req: NextRequest) {
     }
 
     // IMAP Fallback
-    if (c?.email_modul_aktiv && c?.email_imap_host && c?.email_imap_pass_enc) {
-      const pass = decryptPass(c.email_imap_pass_enc)
+    if (c?.imap_aktiv && c?.imap_host && c?.imap_pass_enc) {
+      const pass = decryptPass(c.imap_pass_enc)
       const client = new ImapFlow({
-        host: c.email_imap_host, port: Number(c.email_imap_port) || 993,
-        secure: true, auth: { user: c.email_imap_user, pass }, logger: false,
+        host: c.imap_host, port: Number(c.imap_port) || 993,
+        secure: true, auth: { user: c.imap_user, pass }, logger: false,
       })
       await client.connect()
       const folderName = folder === 'sent' ? 'Sent' : 'INBOX'
