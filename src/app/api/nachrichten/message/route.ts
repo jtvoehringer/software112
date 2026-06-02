@@ -56,45 +56,42 @@ export async function GET(req: NextRequest) {
         if (k) kontaktInfo = { typ: 'kontakt', id: (k as R).id, name: [(k as R).vorname, (k as R).nachname].filter(Boolean).join(' '), kundennummer: (k as R).kundennummer }
         else if (f) kontaktInfo = { typ: 'firma', id: (f as R).id, name: (f as R).name, kundennummer: (f as R).kundennummer }
 
-        // Eingehende Email als Aktivität speichern (Deduplication via email_id)
+        // Eingehende Email als Aktivität speichern (fire-and-forget)
         if (kontaktInfo && msg.id && tenantId) {
-          // tenantId + user bereits aus äußerem Scope verfügbar
-            const bodyText = (msg.body?.content ?? '').replace(/<[^>]*>/g, '').trim()
-            const bodyHtml = msg.body?.contentType === 'html' ? msg.body.content : null
-            // Bestehende Aktivität aktualisieren (email_id=null) ODER neu anlegen
-            void (async () => { try {
-              // Erst UPDATE auf bestehenden Eintrag ohne email_id
-              const { count } = await (supabase.from('aktivitaeten') as any).update({
+          const bodyText = (msg.body?.content ?? '').replace(/<[^>]*>/g, '').trim()
+          const bodyHtml = msg.body?.contentType === 'html' ? msg.body.content : null
+          void (async () => {
+            try {
+              const emailData = {
                 email_id: msg.id, email_conversation_id: msg.conversationId ?? null,
                 email_von: msg.from?.emailAddress?.address ?? null,
                 email_von_name: msg.from?.emailAddress?.name ?? null,
                 email_an: (msg.toRecipients ?? []).map((r: R) => r.emailAddress?.address).join(', ') || null,
                 email_body: bodyText || null, email_body_html: bodyHtml,
                 beschreibung: bodyText.slice(0, 500),
-              }).eq('tenant_id', tenantId)
+              }
+              // Bestehenden Eintrag (email_id=null) aktualisieren
+              const { count } = await (supabase.from('aktivitaeten') as any)
+                .update(emailData)
+                .eq('tenant_id', tenantId)
                 .eq('kontakt_id', kontaktInfo.typ === 'kontakt' ? kontaktInfo.id : null)
-                .eq('firma_id', kontaktInfo.typ === 'firma' ? kontaktInfo.id : null)
+                .eq('firma_id',   kontaktInfo.typ === 'firma'   ? kontaktInfo.id : null)
                 .eq('art', 'email').eq('betreff', msg.subject ?? '').is('email_id', null)
                 .select('*', { count: 'exact', head: true })
-              // Wenn kein bestehender Eintrag → neu anlegen
-              if (!count || count === 0) await (supabase.from('aktivitaeten') as any).upsert({
-              tenant_id: tenantId,
-              kontakt_id: kontaktInfo.typ === 'kontakt' ? kontaktInfo.id : null,
-              firma_id:   kontaktInfo.typ === 'firma'   ? kontaktInfo.id : null,
-              art: 'email',
-              betreff: msg.subject ?? '(kein Betreff)',
-              beschreibung: bodyText.slice(0, 500),
-              datum: (msg.receivedDateTime ?? msg.sentDateTime ?? '').split('T')[0],
-              erledigt: false, ganztags: true,
-              email_id: msg.id,
-              email_conversation_id: msg.conversationId ?? null,
-              email_von: msg.from?.emailAddress?.address ?? null,
-              email_von_name: msg.from?.emailAddress?.name ?? null,
-              email_an: (msg.toRecipients ?? []).map((r: R) => r.emailAddress?.address).join(', ') || null,
-              email_body: bodyText || null,
-              email_body_html: bodyHtml,
-              }, { onConflict: 'tenant_id,email_id', ignoreDuplicates: true })
-            } } catch {} })() // void – kein await
+              // Wenn nichts aktualisiert → neu anlegen
+              if (!count || count === 0) {
+                await (supabase.from('aktivitaeten') as any).upsert({
+                  tenant_id: tenantId,
+                  kontakt_id: kontaktInfo.typ === 'kontakt' ? kontaktInfo.id : null,
+                  firma_id:   kontaktInfo.typ === 'firma'   ? kontaktInfo.id : null,
+                  art: 'email', erledigt: false, ganztags: true,
+                  betreff: msg.subject ?? '(kein Betreff)',
+                  datum: (msg.receivedDateTime ?? msg.sentDateTime ?? '').split('T')[0],
+                  ...emailData,
+                }, { onConflict: 'tenant_id,email_id', ignoreDuplicates: true })
+              }
+            } catch { /* ignore */ }
+          })()
         }
       }
 
