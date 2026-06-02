@@ -1,6 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantId } from '@/lib/api/auth'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -28,7 +27,8 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = await createSupabaseServerClient()
-    const tenantId = await getTenantId(supabase)
+    const { data: _mb } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
+    const tenantId = (_mb as R | null)?.tenant_id
     if (!tenantId) return NextResponse.json({ fehler: 'Nicht autorisiert' }, { status: 401 })
 
     // Nur tenant_admin darf importieren
