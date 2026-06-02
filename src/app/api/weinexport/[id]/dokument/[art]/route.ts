@@ -41,7 +41,7 @@ function header(betrieb: R) {
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string; art: string } }
+  { params }: { params: Promise<{ id: string; art: string }> }
 ) {
   const supabase = await createSupabaseServerClient()
   const admin    = createSupabaseAdminClient()
@@ -52,15 +52,16 @@ export async function GET(
   const [{ data: auftrag }, { data: positionen }, { data: betriebData }] = await Promise.all([
     (supabase.from('exportauftraege') as any)
       .select('*, kontakte(vorname,nachname,email), firmen(name,email)')
-      .eq('id', params.id).single(),
+      .eq('id', auftragId).single(),
     (supabase.from('exportauftrag_positionen') as any)
-      .select('*, fuellungen(bezeichnung,flaschengroesse_ml)').eq('exportauftrag_id', params.id).order('sort_order'),
+      .select('*, fuellungen(bezeichnung,flaschengroesse_ml)').eq('exportauftrag_id', auftragId).order('sort_order'),
     (admin.from('tenant_einstellungen') as any)
       .select('betrieb_name,betrieb_strasse,betrieb_plz,betrieb_ort,betrieb_land,betrieb_uid,rechnung_bank_iban')
       .eq('tenant_id', tenantId).maybeSingle(),
   ])
 
-  if (!auftrag) return NextResponse.json({ fehler: 'Nicht gefunden' }, { status: 404 })
+  const { id: auftragId, art } = await params
+  if (!auftragId) return NextResponse.json({ fehler: 'Nicht gefunden' }, { status: 404 })
 
   const a   = auftrag as R
   const pos = (positionen ?? []) as R[]
@@ -70,7 +71,7 @@ export async function GET(
 
   let html = ''
 
-  switch (params.art) {
+  switch (art) {
     // ── V1/V2 Simplified Accompanying Document ────────────────────────────────
     case 'v1v2':
       html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>V1/V2 – ${a.referenz}</title>${css()}</head><body>
@@ -391,13 +392,13 @@ export async function GET(
       break
 
     default:
-      return NextResponse.json({ fehler: `Unbekannter Dokumenttyp: ${params.art}` }, { status: 400 })
+      return NextResponse.json({ fehler: `Unbekannter Dokumenttyp: ${art}` }, { status: 400 })
   }
 
   return new NextResponse(html, {
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
-      'Content-Disposition': `inline; filename="${params.art}-${a.referenz ?? params.id}.html"`,
+      'Content-Disposition': `inline; filename="${art}-${a.referenz ?? auftragId}.html"`,
     },
   })
 }
