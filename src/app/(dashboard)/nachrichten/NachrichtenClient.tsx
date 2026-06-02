@@ -49,9 +49,10 @@ export default function NachrichtenClient() {
       window.history.replaceState({}, '', '/nachrichten')
     }
     // Verbindungsstatus prüfen
-    fetch('/api/nachrichten/list?folder=inbox').then(r => r.json()).then(data => {
-      if (data.fehler === 'Mailbox nicht verbunden' || data.fehler?.includes('nicht konfiguriert')) {
-        setVerbunden(false)
+    fetch('/api/nachrichten/list?folder=inbox').then(async r => {
+      const data = await r.json()
+      if (!r.ok || data.fehler) {
+        setVerbunden(false)  // Jeder Fehler → Connect-Screen
       } else {
         setVerbunden(true)
         setVerbEmail(data.email ?? '')
