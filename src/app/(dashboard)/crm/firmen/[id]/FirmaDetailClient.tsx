@@ -428,6 +428,7 @@ export default function FirmaDetailClient({
         // Gleicher Tag: nach Rechnungsnummer (im betreff) absteigend
         return (b.betreff ?? '').localeCompare(a.betreff ?? '', 'de', { numeric: true })
       }).length})`  },
+            { id: 'notizen', label: `Notizen (${aktivitaeten.filter(a => a.art === 'notiz').length})` },
           ] as { id: Tab; label: string }[]).map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
@@ -671,6 +672,50 @@ export default function FirmaDetailClient({
           📋 {copiedNum} kopiert
         </div>
       )}
+
+        {/* ── Notizen Tab ── */}
+        {tab === 'notizen' && (
+          <div className="space-y-3">
+            {writeOk && (
+              <form onSubmit={async e => {
+                e.preventDefault()
+                if (!notizText.trim()) return
+                setNotizLaden(true)
+                const fd = new FormData()
+                fd.set('art', 'notiz'); fd.set('betreff', notizText)
+                fd.set('firma_id', firma.id)
+                fd.set('datum', new Date().toISOString().split('T')[0]); fd.set('ganztags', 'true'); fd.set('erledigt', 'false')
+                await createAktivitaet(fd)
+                setNotizText(''); setNotizLaden(false)
+              }} className="flex gap-2">
+                <input value={notizText} onChange={e => setNotizText(e.target.value)}
+                  placeholder="Neue Notiz…" required
+                  className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                <button type="submit" disabled={notizLaden}
+                  className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+                  + Notiz
+                </button>
+              </form>
+            )}
+            <div className="space-y-2">
+              {aktivitaeten.filter(a => a.art === 'notiz').map(n => (
+                <div key={n.id} className={`card p-4 flex gap-3 ${n.erledigt ? 'opacity-60' : ''}`}>
+                  <button type="button" onClick={() => toggleAktivitaetErledigt(n.id, !n.erledigt)}
+                    className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${n.erledigt ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 hover:border-green-400'}`}>
+                    {n.erledigt && <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                  </button>
+                  <div className="flex-1">
+                    <p className={`text-sm ${n.erledigt ? 'line-through text-gray-400' : 'text-gray-800'}`}>{n.betreff}</p>
+                    <p className="text-xs text-s112-muted mt-0.5">{new Date(n.datum).toLocaleDateString('de-AT')}</p>
+                  </div>
+                </div>
+              ))}
+              {aktivitaeten.filter(a => a.art === 'notiz').length === 0 && (
+                <p className="text-center text-s112-muted text-sm py-8">Noch keine Notizen.</p>
+              )}
+            </div>
+          </div>
+        )}
     </div>
   )
 }
