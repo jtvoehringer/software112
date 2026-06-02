@@ -272,24 +272,29 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
         </div>
         {a.art === 'email' ? (
           <button type="button" onClick={() => setEmailOpen(v => !v)}
-            className={`text-sm font-medium text-left w-full ${a.email_body ? 'text-s112-teal hover:underline' : 'text-gray-800'} mt-0.5 block ${a.erledigt ? 'line-through opacity-50' : ''}`}>
-            {a.betreff} {a.email_body ? (emailOpen ? '▴' : '▾') : ''}
+            className={`text-sm font-medium text-left w-full text-s112-teal hover:underline mt-0.5 block ${a.erledigt ? 'line-through opacity-50' : ''}`}>
+            {a.betreff ?? '(kein Betreff)'} {emailOpen ? '▴' : '▾'}
           </button>
         ) : (
           <p className={`text-sm font-medium text-gray-800 mt-0.5 ${a.erledigt ? 'line-through text-gray-400' : ''}`}>
             {a.betreff}
           </p>
         )}
-        {a.art === 'email' && emailOpen && a.email_body && (
+        {a.art === 'email' && emailOpen && (
           <div className="mt-2 border border-s112-border rounded-lg overflow-hidden">
-            <div className="bg-s112-bg px-3 py-1.5 text-[10px] text-s112-muted space-y-0.5">
+            <div className="bg-s112-bg px-3 py-1.5 text-[10px] text-s112-muted space-y-0.5 border-b border-s112-border">
               {a.email_von && <div><span className="font-medium">Von:</span> {a.email_von_name ? `${a.email_von_name} <${a.email_von}>` : a.email_von}</div>}
               {a.email_an  && <div><span className="font-medium">An:</span> {a.email_an}</div>}
+              {a.datum     && <div><span className="font-medium">Datum:</span> {new Date(a.datum).toLocaleDateString('de-AT')}</div>}
             </div>
-            {a.email_body_html
-              ? <div className="px-3 py-2 text-xs text-gray-700 prose prose-xs max-w-none"
-                  dangerouslySetInnerHTML={{ __html: a.email_body_html }} />
-              : <pre className="px-3 py-2 text-xs text-gray-700 whitespace-pre-wrap font-sans">{a.email_body}</pre>
+            {a.email_body
+              ? (a.email_body_html
+                  ? <div className="px-3 py-2 text-xs text-gray-700 max-h-64 overflow-y-auto"
+                      dangerouslySetInnerHTML={{ __html: a.email_body_html }} />
+                  : <pre className="px-3 py-2 text-xs text-gray-700 whitespace-pre-wrap font-sans max-h-64 overflow-y-auto">{a.email_body}</pre>)
+              : a.beschreibung
+                ? <p className="px-3 py-2 text-xs text-gray-700 italic">{a.beschreibung}</p>
+                : <p className="px-3 py-2 text-xs text-s112-muted italic">Inhalt in /nachrichten öffnen um vollständig zu laden</p>
             }
           </div>
         )}
@@ -398,6 +403,7 @@ export default function KontaktDetailClient({
     })
     Object.entries(threads).forEach(([cid, msgs]) => {
       if (msgs.length === 1) singles.push(msgs[0])
+      else threads[cid] = msgs.sort((a,b) => new Date(a.datum).getTime() - new Date(b.datum).getTime())
     })
     return { threads: Object.fromEntries(Object.entries(threads).filter(([,m]) => m.length > 1)), singles }
   }
