@@ -36,6 +36,8 @@ export default function NachrichtenClient() {
   const [sending, setSending]     = useState(false)
   const [verbunden, setVerbunden] = useState<boolean | null>(null)
   const [verbEmail, setVerbEmail] = useState('')
+  const [folders, setFolders]     = useState<{id: string; name: string; unread: number; total: number}[]>([])
+  const [folderId, setFolderId]   = useState<string | null>(null)  // null = inbox
 
   useEffect(() => {
     // URL-Params prüfen
@@ -56,6 +58,10 @@ export default function NachrichtenClient() {
       } else {
         setVerbunden(true)
         setVerbEmail(data.email ?? '')
+        // Ordnerstruktur aus Mailbox laden
+        fetch('/api/nachrichten/folders').then(r => r.json()).then(d => {
+          if (d.folders) setFolders(d.folders)
+        }).catch(() => {})
       }
     }).catch(() => setVerbunden(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -64,7 +70,7 @@ export default function NachrichtenClient() {
   const ladeMessages = useCallback(async () => {
     setLaden(true); setFehler(null); setSelected(null)
     try {
-      const res = await fetch(`/api/nachrichten/list?folder=${folder}`)
+      const res = await fetch(`/api/nachrichten/list?folder=${folder}${folderId ? `&folderId=${folderId}` : ''}`)
       const data = await res.json()
       if (!res.ok || data.fehler) { setFehler(data.fehler ?? 'Fehler'); return }
       setMessages(data.messages ?? [])
@@ -138,18 +144,26 @@ export default function NachrichtenClient() {
           </button>
         </div>
         <nav className="flex-1 px-2 space-y-0.5">
-          {[
-            { id: 'inbox', label: 'Posteingang', icon: '📥', count: messages.filter(m => !m.gelesen && folder === 'inbox').length },
-            { id: 'sent',  label: 'Gesendet',    icon: '📤', count: 0 },
-          ].map(f => (
-            <button key={f.id} onClick={() => setFolder(f.id as 'inbox'|'sent')}
+          {/* Echte Ordnerstruktur aus Mailbox */}
+          {folders.length > 0 ? folders.map(f => (
+            <button key={f.id} onClick={() => { setFolderId(f.id); setFolder('inbox'); setSelected(null) }}
               className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors
-                ${folder === f.id ? 'bg-s112-teal/10 text-s112-teal font-medium' : 'text-gray-600 hover:bg-white'}`}>
-              <span>{f.icon}</span>
-              <span className="flex-1 text-left">{f.label}</span>
-              {f.count > 0 && <span className="text-xs bg-s112-teal text-white px-1.5 py-0.5 rounded-full">{f.count}</span>}
+                ${folderId === f.id ? 'bg-s112-teal/10 text-s112-teal font-medium' : 'text-gray-600 hover:bg-white'}`}>
+              <span className="text-sm">{f.name === 'Inbox' || f.name === 'Posteingang' ? '📥' : f.name === 'Sent Items' || f.name === 'Gesendete Elemente' ? '📤' : f.name === 'Deleted Items' || f.name === 'Gelöschte Elemente' ? '🗑' : f.name === 'Drafts' || f.name === 'Entwürfe' ? '📝' : '📁'}</span>
+              <span className="flex-1 text-left truncate text-xs">{f.name}</span>
+              {f.unread > 0 && <span className="text-xs bg-s112-teal text-white px-1.5 py-0.5 rounded-full">{f.unread}</span>}
             </button>
-          ))}
+          )) : (
+            // Fallback wenn keine Ordner geladen
+            ['inbox', 'sent'].map(id => (
+              <button key={id} onClick={() => { setFolderId(null); setFolder(id as 'inbox'|'sent') }}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors
+                  ${folder === id && !folderId ? 'bg-s112-teal/10 text-s112-teal font-medium' : 'text-gray-600 hover:bg-white'}`}>
+                <span>{id === 'inbox' ? '📥' : '📤'}</span>
+                <span className="flex-1 text-left">{id === 'inbox' ? 'Posteingang' : 'Gesendet'}</span>
+              </button>
+            ))
+          )}
         </nav>
         <div className="p-3 border-t border-s112-border">
           <button onClick={ladeMessages} disabled={laden}
@@ -218,6 +232,13 @@ export default function NachrichtenClient() {
                   <button onClick={() => { setCompose(true); setAn(selected.von); setBetreff(`Re: ${selected.betreff}`); setText('') }}
                     className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg hover:bg-opacity-90">
                     ↩ Antworten
+                  </button>
+                  <button onClick={async () => {
+                    if (!confirm('E-Mail in Gelöschte Elemente verschieben?')) return
+                    await fetch(`/api/nachrichten/delete?id=${selected.id}`, { method: 'DELETE' })
+                    setSelected(null); ladeMessages()
+                  }} className="text-xs border border-red-200 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50">
+                    🗑 Löschen
                   </button>
                 </div>
               </div>

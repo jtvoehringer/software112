@@ -10,7 +10,8 @@ type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explic
 
 export async function GET(req: NextRequest) {
   try {
-    const folder = req.nextUrl.searchParams.get('folder') ?? 'inbox'
+    const folder   = req.nextUrl.searchParams.get('folder') ?? 'inbox'
+    const folderId = req.nextUrl.searchParams.get('folderId')  // echte Ordner-ID aus M365
     const supabase = await createSupabaseServerClient()
     const admin    = createSupabaseAdminClient()
     const { data: membership } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
@@ -30,7 +31,8 @@ export async function GET(req: NextRequest) {
     // M365
     if (c?.m365_aktiv && c?.m365_access_token_enc) {
       const token = await getValidUserAccessToken(c, tenantCfg as R, supabase)
-      const folderPath = folder === 'sent' ? 'sentItems' : 'inbox'
+      // Echte Ordner-ID verwenden wenn vorhanden, sonst Standard-Ordner
+      const folderPath = folderId ? folderId : (folder === 'sent' ? 'sentItems' : 'inbox')
       const res = await fetch(
         `https://graph.microsoft.com/v1.0/me/mailFolders/${folderPath}/messages?$select=id,subject,from,toRecipients,receivedDateTime,sentDateTime,isRead,bodyPreview&$top=30&$orderby=${folder === 'sent' ? 'sentDateTime' : 'receivedDateTime'} desc`,
         { headers: { Authorization: `Bearer ${token}` } }
