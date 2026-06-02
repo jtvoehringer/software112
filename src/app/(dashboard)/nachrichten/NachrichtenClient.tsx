@@ -260,7 +260,11 @@ export default function NachrichtenClient() {
       {/* ── Nachrichten-Liste ── */}
       <div className="w-72 flex-shrink-0 border-r border-s112-border flex flex-col bg-white">
         <div className="px-4 py-3 border-b border-s112-border">
-          <p className="text-sm font-semibold text-gray-800">{folder === 'inbox' ? 'Posteingang' : 'Gesendet'}</p>
+          <p className="text-sm font-semibold text-gray-800">
+            {folderId
+              ? (folders.find(f => f.id === folderId)?.name ?? 'Posteingang')
+              : folder === 'inbox' ? 'Posteingang' : 'Gesendet'}
+          </p>
           <p className="text-xs text-s112-muted">{messages.length} Nachrichten</p>
         </div>
         {fehler && <p className="text-xs text-red-500 px-4 py-2">{fehler}</p>}
