@@ -319,6 +319,8 @@ export default function KontaktDetailClient({
   }
 
   const [showAktForm, setShowAktForm] = useState(false)
+  const [notizText, setNotizText]   = useState('')
+  const [notizLaden, setNotizLaden] = useState(false)
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set())
 
   // Thread-ID aus beschreibung extrahieren
@@ -423,7 +425,7 @@ export default function KontaktDetailClient({
           ) : (
             <div className="space-y-2">
               {(() => {
-                const { threads, singles } = groupEmailsByThread(aktivitaeten.filter(a => a.art !== 'verkauf'))
+                const { threads, singles } = groupEmailsByThread(aktivitaeten.filter(a => a.art !== 'verkauf' && a.art !== 'notiz'))
                 return (
                   <>
                     {/* E-Mail-Threads */}
@@ -519,6 +521,52 @@ export default function KontaktDetailClient({
               <p className="text-xs text-gray-500 italic pt-1 border-t border-s112-border/60">{kontakt.notizen}</p>
             )}
           </div>
+          {/* ── Notizen ── */}
+          <div className="card p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-800">Notizen</h2>
+              <span className="text-xs text-s112-muted">{aktivitaeten.filter(a => a.art === 'notiz').length} Einträge</span>
+            </div>
+            {/* Neue Notiz */}
+            {writeOk && (
+              <form onSubmit={async e => {
+                e.preventDefault()
+                if (!notizText.trim()) return
+                setNotizLaden(true)
+                const fd = new FormData()
+                fd.set('art', 'notiz'); fd.set('betreff', notizText); fd.set('datum', new Date().toISOString().split('T')[0]); fd.set('ganztags', 'true'); fd.set('erledigt', 'false')
+                await createAktivitaet(fd)
+                setNotizText(''); setNotizLaden(false)
+              }} className="flex gap-2">
+                <input value={notizText} onChange={e => setNotizText(e.target.value)}
+                  placeholder="Neue Notiz…" required
+                  className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                <button type="submit" disabled={notizLaden}
+                  className="bg-s112-teal text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-opacity-90 disabled:opacity-40">
+                  +
+                </button>
+              </form>
+            )}
+            {/* Notizen-Liste */}
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {aktivitaeten.filter(a => a.art === 'notiz').map(n => (
+                <div key={n.id} className={`flex items-start gap-2 py-1.5 border-b border-s112-border/30 last:border-0 ${n.erledigt ? 'opacity-50' : ''}`}>
+                  <button type="button" onClick={() => toggleAktivitaetErledigt(n.id, !n.erledigt)}
+                    className={`mt-0.5 w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${n.erledigt ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}>
+                    {n.erledigt && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs ${n.erledigt ? 'line-through text-gray-400' : 'text-gray-700'}`}>{n.betreff}</p>
+                    <p className="text-[10px] text-s112-muted">{new Date(n.datum).toLocaleDateString('de-AT')}</p>
+                  </div>
+                </div>
+              ))}
+              {aktivitaeten.filter(a => a.art === 'notiz').length === 0 && (
+                <p className="text-xs text-s112-muted text-center py-2">Noch keine Notizen</p>
+              )}
+            </div>
+          </div>
+
 
           <div className="card p-4 space-y-2">
             <div className="flex items-center justify-between mb-3">

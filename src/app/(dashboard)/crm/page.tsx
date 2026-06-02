@@ -35,7 +35,7 @@ export default async function CRMUebersichtPage() {
 
   const eintraege: KalenderEintrag[] = [
     // Aktivitäten (ohne Verkaufs-Einträge)
-    ...(aktivRaw as AR[] ?? []).filter((a: AR) => a.art !== 'verkauf').map((a: AR) => {
+    ...(aktivRaw as AR[] ?? []).filter((a: AR) => a.art !== 'verkauf' && a.art !== 'notiz').map((a: AR) => {
       const artDef = AKTIVITAET_ARTEN.find(x => x.value === a.art)
       return {
         id: `a_${a.id}`,

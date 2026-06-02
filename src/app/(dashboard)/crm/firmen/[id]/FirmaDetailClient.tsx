@@ -296,7 +296,7 @@ function AktivitaetKarte({ a, writeOk }: { a: AktivitaetRow; writeOk: boolean })
 
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 
-type Tab = 'kontakte' | 'aktivitaeten' | 'pipeline' | 'verkauefe'
+type Tab = 'kontakte' | 'aktivitaeten' | 'pipeline' | 'verkauefe' | 'notizen'
 
 export default function FirmaDetailClient({
   firma, kontakte, aktivitaeten, pipeline, writeOk,
@@ -331,6 +331,8 @@ export default function FirmaDetailClient({
   }
 
   const [showAktForm, setShowAktForm] = useState(false)
+  const [notizText, setNotizText]   = useState('')
+  const [notizLaden, setNotizLaden] = useState(false)
   const [copiedNum, setCopiedNum] = useState<string | null>(null)
 
   function handlePhoneClick(e: React.MouseEvent<HTMLAnchorElement>, fullNumber: string) {
@@ -499,7 +501,7 @@ export default function FirmaDetailClient({
             </div>
           ) : (
             <div className="space-y-2">
-              {aktivitaeten.filter(a => a.art !== 'verkauf').map(a => (
+              {aktivitaeten.filter(a => a.art !== 'verkauf' && a.art !== 'notiz').map(a => (
                 <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} />
               ))}
             </div>

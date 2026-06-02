@@ -60,7 +60,19 @@ export default function NachrichtenClient() {
         setVerbEmail(data.email ?? '')
         // Ordnerstruktur aus Mailbox laden
         fetch('/api/nachrichten/folders').then(r => r.json()).then(d => {
-          if (d.folders) setFolders(d.folders)
+          if (d.folders) {
+          // Wichtige Ordner zuerst, dann alphabetisch
+          const PRIO = ['Inbox','Posteingang','Sent Items','Gesendete Elemente','Drafts','Entwürfe','Deleted Items','Gelöschte Elemente','Junk Email','Junk-E-Mail']
+          const sorted = [...d.folders].sort((a: {name:string}, b: {name:string}) => {
+            const ai = PRIO.findIndex(p => p.toLowerCase() === a.name.toLowerCase())
+            const bi = PRIO.findIndex(p => p.toLowerCase() === b.name.toLowerCase())
+            if (ai !== -1 && bi !== -1) return ai - bi
+            if (ai !== -1) return -1
+            if (bi !== -1) return 1
+            return a.name.localeCompare(b.name, 'de')
+          })
+          setFolders(sorted)
+        }
         }).catch(() => {})
       }
     }).catch(() => setVerbunden(false))
