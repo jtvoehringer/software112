@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     // Per-User Verbindung zuerst prüfen
     const { data: { user: authUser } } = await supabase.auth.getUser()
     const { data: userCfg } = await (supabase.from('user_email_connections') as any)
-      .select('*').eq('tenant_id', tenantId).eq('user_id', authUser?.id ?? '').maybeSingle()
+      .select('m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, m365_user_email, imap_aktiv, imap_host, imap_port, imap_user, imap_pass_enc, monitored_email').eq('tenant_id', tenantId).eq('user_id', authUser?.id ?? '').maybeSingle()
     const uc = userCfg as R | null
 
     // Tenant-Einstellungen als Fallback (für admin-gesendete M365)

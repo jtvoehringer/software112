@@ -12,12 +12,17 @@ export async function POST(req: NextRequest) {
     const supabase = await createSupabaseServerClient()
     const admin    = createSupabaseAdminClient()
 
+    // tenant_id IMMER aus Session – niemals aus Request-Body (Sicherheit)
+    const { data: membership } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
+    const tenantId = (membership as R | null)?.tenant_id
+    if (!tenantId) return NextResponse.json({ fehler: 'Nicht autorisiert' }, { status: 401 })
+
     // Referenznummer generieren
-    const { data: refData } = await (admin.rpc as any)('get_next_exportnummer', { p_tenant_id: body.tenant_id })
+    const { data: refData } = await (admin.rpc as any)('get_next_exportnummer', { p_tenant_id: tenantId })
     const referenz = refData ?? null
 
     const { data: auftrag, error } = await (supabase.from('exportauftraege') as any).insert({
-      tenant_id:         body.tenant_id,
+      tenant_id:         tenantId,
       kontakt_id:        body.kontakt_id,
       firma_id:          body.firma_id,
       referenz,

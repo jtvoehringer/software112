@@ -106,8 +106,10 @@ async function executeQuery(supabase: any, params: R): Promise<R[]> {
 
 export async function POST(req: NextRequest) {
   try {
-    const { frage } = await req.json()
-    if (!frage?.trim()) return NextResponse.json({ fehler: 'Keine Frage angegeben' }, { status: 400 })
+    const { frage: frageRaw } = await req.json()
+    if (!frageRaw?.trim()) return NextResponse.json({ fehler: 'Keine Frage angegeben' }, { status: 400 })
+    // Prompt Injection: Länge begrenzen + Sonderzeichen entfernen
+    const frage = String(frageRaw).slice(0, 500).replace(/[`\\]/g, '')
 
     const supabase = await createSupabaseServerClient()
     const tenantId = await getTenantId()

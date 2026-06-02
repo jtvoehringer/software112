@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     const [{ data: cfg }, { data: tenantCfg }] = await Promise.all([
       (supabase.from('user_email_connections') as any)
-        .select('*').eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle(),
+        .select('m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, m365_user_email, imap_aktiv, imap_host, imap_port, imap_user, imap_pass_enc, monitored_email').eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle(),
       (admin.from('tenant_einstellungen') as any)
         .select('m365_tenant_id, m365_client_id, m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle(),
     ])
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ isRead: true }),
-      }).catch(() => {})
+      }).catch((e: unknown) => console.error('[nachrichten] Operation fehlgeschlagen:', e))
 
       // Kontakt-Matching für Anzeige
       const fromEmail = msg.from?.emailAddress?.address?.toLowerCase() ?? ''

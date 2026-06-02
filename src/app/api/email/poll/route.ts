@@ -40,8 +40,8 @@ export async function POST(req: NextRequest) {
 
     // Kontakte + Firmen E-Mail-Adressen laden
     const [{ data: kontakteRaw }, { data: firmenRaw }] = await Promise.all([
-      (supabase.from('kontakte') as any).select('id, email').eq('aktiv', true).not('email', 'is', null),
-      (supabase.from('firmen') as any).select('id, email').eq('aktiv', true).not('email', 'is', null),
+      (supabase.from('kontakte') as any).select('id, email').eq('tenant_id', tenantId).eq('aktiv', true).not('email', 'is', null),
+      (supabase.from('firmen') as any).select('id, email').eq('tenant_id', tenantId).eq('aktiv', true).not('email', 'is', null),
     ])
     const emailMap: Record<string, { kontakt_id?: string; firma_id?: string }> = {}
     ;(kontakteRaw ?? []).forEach((k: R) => { if (k.email) emailMap[k.email.toLowerCase()] = { kontakt_id: k.id } })
