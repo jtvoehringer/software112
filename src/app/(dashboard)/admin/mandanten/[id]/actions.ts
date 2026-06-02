@@ -65,7 +65,9 @@ export async function inviteUserToTenant(tenantId: string, email: string, role: 
   let userId = users.find(u => u.email === email)?.id
 
   if (!userId) {
-    const { data, error } = await admin.auth.admin.inviteUserByEmail(email)
+    const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+      redirectTo: 'https://software112.icp-consultants.at/auth/callback?next=/dashboard',
+    })
     if (error || !data.user) return { error: error?.message ?? 'Einladung fehlgeschlagen' }
     userId = data.user.id
   }
