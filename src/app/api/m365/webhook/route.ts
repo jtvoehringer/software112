@@ -48,10 +48,9 @@ export async function POST(req: NextRequest) {
       await (admin.from('aktivitaeten') as any).insert({
         tenant_id: tenantId, kontakt_id: match.kontakt_id ?? null, firma_id: match.firma_id ?? null,
         art: 'email', betreff: msg.subject ?? '(kein Betreff)',
-        beschreibung: msg.bodyPreview ? msg.bodyPreview.slice(0, 300) : `Eingehende E-Mail von ${from}`,
+        beschreibung: [msg.bodyPreview ? msg.bodyPreview.slice(0, 250) : `Eingehende E-Mail von ${from}`, msg.conversationId ? `[thread:${msg.conversationId.slice(-8)}]` : null].filter(Boolean).join(' '),
         datum: msg.receivedDateTime?.split('T')[0] ?? new Date().toISOString().split('T')[0],
         erledigt: false, ganztags: true,
-        notizen: [msg.internetMessageId ? `message-id: ${msg.internetMessageId}` : null, msg.conversationId ? `thread: ${msg.conversationId}` : null].filter(Boolean).join(' | ') || null,
       })
     }
     return NextResponse.json({ ok: true })
