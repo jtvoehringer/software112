@@ -52,7 +52,6 @@ export const PIPELINE_KATEGORIEN = [
 export const AKTIVITAET_ARTEN = [
   { value: 'notiz',       label: 'Notiz',        icon: '📝' },
   { value: 'anruf',       label: 'Anruf',        icon: '📞' },
-  { value: 'email',       label: 'E-Mail',       icon: '✉️'  },
   { value: 'verkostung',  label: 'Verkostung',   icon: '🍷' },
   { value: 'messe',       label: 'Messe',        icon: '🏛️'  },
   { value: 'besuch',      label: 'Besuch',       icon: '🚗' },
