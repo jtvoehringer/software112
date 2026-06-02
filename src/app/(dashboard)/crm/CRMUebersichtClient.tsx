@@ -502,7 +502,7 @@ function ZeitachseView({
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Art</label>
                 <select name="art" defaultValue="notiz" className={inputCls}>
-                  {AKTIVITAET_ARTEN.map(a => (
+                  {AKTIVITAET_ARTEN.filter(a => !('nurAnzeige' in a)).map(a => (
                     <option key={a.value} value={a.value}>{a.icon} {a.label}</option>
                   ))}
                 </select>

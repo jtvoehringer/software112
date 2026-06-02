@@ -50,6 +50,7 @@ export const PIPELINE_KATEGORIEN = [
 // ── Aktivitäts-Arten ──────────────────────────────────────────────────────────
 
 export const AKTIVITAET_ARTEN = [
+  { value: 'email', label: 'E-Mail', icon: '✉️', nurAnzeige: true },
   { value: 'notiz',       label: 'Notiz',        icon: '📝' },
   { value: 'anruf',       label: 'Anruf',        icon: '📞' },
   { value: 'verkostung',  label: 'Verkostung',   icon: '🍷' },

@@ -31,7 +31,7 @@ function AktivitaetForm({ firmaId, onDone }: { firmaId: string; onDone: () => vo
     <form onSubmit={handleSubmit} className="p-3 bg-white border border-s112-border rounded-lg space-y-2">
       <div className="grid grid-cols-2 gap-2">
         <select name="art" defaultValue="notiz" required className={inputCls()}>
-          {AKTIVITAET_ARTEN.map(a => <option key={a.value} value={a.value}>{a.icon} {a.label}</option>)}
+          {AKTIVITAET_ARTEN.filter(a => !('nurAnzeige' in a)).map(a => <option key={a.value} value={a.value}>{a.icon} {a.label}</option>)}
         </select>
         <input name="datum" type="date" defaultValue={new Date().toISOString().split('T')[0]}
           required className={inputCls()} />
@@ -187,7 +187,7 @@ function AktivitaetKarte({ a, writeOk }: { a: AktivitaetRow; writeOk: boolean })
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Art</label>
               <select name="art" defaultValue={a.art} className={inputCls()}>
-                {AKTIVITAET_ARTEN.map(x => (
+                {AKTIVITAET_ARTEN.filter(x => !('nurAnzeige' in x)).map(x => (
                   <option key={x.value} value={x.value}>{x.icon} {x.label}</option>
                 ))}
               </select>
