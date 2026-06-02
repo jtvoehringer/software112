@@ -14,8 +14,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json() as R
     const admin = createSupabaseAdminClient()
 
+    console.log('[M365 Webhook] Notifications:', (body.value ?? []).length)
     for (const notification of (body.value ?? []) as R[]) {
-      const tenantId = notification.clientState  // wir speichern tenant_id als clientState
+      const tenantId = notification.clientState
+      console.log('[M365 Webhook] tenantId:', tenantId, 'changeType:', notification.changeType)  // wir speichern tenant_id als clientState
 
       const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
         .select('*').eq('tenant_id', tenantId).maybeSingle()
@@ -36,7 +38,9 @@ export async function POST(req: NextRequest) {
       const accessToken = await getValidAccessToken(cfg as R, admin)
       const msg = await graphGet(accessToken, `/me/messages/${msgId}?$select=subject,from,receivedDateTime,internetMessageId,bodyPreview,conversationId`)
       const from  = msg.from?.emailAddress?.address?.toLowerCase() ?? ''
+      console.log('[M365 Webhook] from:', from, 'emailMapKeys:', Object.keys(emailMap).slice(0,5))
       const match = emailMap[from]
+      console.log('[M365 Webhook] match:', !!match)
       if (!match) continue
 
       const { count } = await (admin.from('aktivitaeten') as any)
@@ -55,7 +59,7 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ ok: true })
   } catch (err) {
-    console.error('M365 Webhook error:', err)
+    console.error('[M365 Webhook] FEHLER:', String(err))
     return NextResponse.json({ ok: true })  // immer 200 zurück an Graph
   }
 }
