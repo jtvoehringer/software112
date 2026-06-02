@@ -71,16 +71,38 @@
 | 033       | Sonderrabatt auf Kontakt/Firma: kontakte/firmen += sonderrabatt_pct; wird im Verkaufsformular auto-vorbelegt |
 | 034       | Lead-Feld: kontakte/firmen += is_lead (DEFAULT true); neue Datensätze starten als Lead; erster Verkauf → automatisch Kunde |
 | 035       | Telefonvorwahl: kontakte += telefon_vorwahl/mobil_vorwahl; firmen += telefon_vorwahl (DEFAULT '+43') |
+| 036       | Lückenhalter (Notizen/nurAnzeige – kein Schema-Change) |
+| 037       | KI-Modul: ki_abfragen_aktiv/paket/zaehler/reset_datum in tenant_einstellungen + check_und_increment_ki_abfrage() RPC |
+| 038       | E-Mail IMAP/SMTP Basic: email_modul_aktiv + SMTP-Felder in tenant_einstellungen |
+| 039       | M365 Integration: m365_modul_aktiv + OAuth-Felder in tenant_einstellungen |
+| 040       | Per-User E-Mail: user_email_connections (tenant_id, user_id, m365-Tokens, imap-Credentials) |
+| 041       | Kostenrechnung: kostenstellen, kostenarten, kostenbuchungen |
+| 042       | Shared Mailbox: user_email_connections += monitored_email |
+| 043       | Weinexport: exportauftraege, exportauftrag_positionen, export_dokumente + modul_weinexport Toggle + get_next_exportnummer() |
+| 044       | Email-IDs in Aktivitäten: aktivitaeten += email_id (UNIQUE), email_conversation_id |
+| 045       | Email-Body persistent: aktivitaeten += email_von, email_von_name, email_an, email_body, email_body_html |
 
-## Phase 4 – Epics (geplant)
+## Phase 4 – Status (Stand Juni 2026)
 
-1. **Benutzerhandbuch + FAQs** – In-App Hilfe-Bereich `/hilfe/handbuch` + `/hilfe/faq`, eigener Menüpunkt
-2. **Onboarding Guide** – `/admin/onboarding` Checkliste für neue Mandanten
-3. **Feature-Rollout-Manager** – Erweiterung modul_*-Toggles: neue Features per Flag, Standard = deploy-to-all
-4. **Weinexport-Modul** – EUR.1, CMR, Akkreditiv, V1/V2 (Basic €29/Mo, Pro €59/Mo)
-5. **Multi-User E-Mail-Boxen** – user_email_connections Tabelle, mehrere Mailboxen pro Mandant
-6. **E-Mail-Threading UI** – verwandte E-Mails via conversationId als Thread-Ansicht
-7. **Integrierter E-Mail-Client** – `/nachrichten` Outlook-ähnliche UI (Posteingang, Senden, Ordner), funktioniert mit M365 Graph API + IMAP/SMTP; Auto-Matching gegen Kontakte; inkludiert in E-Mail-Modul-Lizenz
+| Epic | Status |
+|---|---|
+| Benutzerhandbuch + FAQs | ✅ `/hilfe/handbuch` + `/hilfe/faq` live |
+| Onboarding Guide | ✅ `/admin/onboarding` live |
+| Feature-Rollout-Manager | ✅ modul_*-Toggles in Mandantenverwaltung |
+| Weinexport-Modul | ✅ EUR.1, V1/V2, CMR, Certificate of Origin, Lieferschein, Rechnung (ohne Akkreditiv) |
+| Multi-User E-Mail-Boxen | ✅ user_email_connections + monitored_email (Shared Mailbox) |
+| E-Mail-Threading UI | ✅ Betreff-basiertes Grouping + conversation_id, inline Body-Anzeige |
+| Integrierter E-Mail-Client | ✅ `/nachrichten` mit Ordnern, Löschen, Antworten, Weiterleiten |
+| KI-Modul Smart Query | ✅ `/ki` – Frag dein Weingut (Haiku, Limit-Check, Paket-Verwaltung) |
+
+## Offen / Nächste Schritte
+
+- **Handbuch + FAQ Update** – Neue Features dokumentieren
+- **Stripe/Mandanten-Abrechnung** – Automatische Rechnungsstellung an Kunden
+- **Dauerauftrag-Modul** – IC&P Eigenrechnung automatisieren
+- **Datenmigrationsschnittstellen** – CSV-Import für Kontakte, Füllungen, Stammkunden
+- **EMCS-Integration** (Weinexport Pro)
+- **Mobile UX** – PWA oder native App
 
 ## KI-Modul „Smart Query" (Phase 3 – geplant)
 
