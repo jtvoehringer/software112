@@ -35,8 +35,8 @@ export function getMailboxBase(uc: R | null): string {
  * M365-Token für User laden
  */
 export async function getM365Token(
-  supabase: SupabaseClient,
-  adminClient: SupabaseClient,
+  supabase: any, // eslint-disable-line @typescript-eslint/no-explicit-any
+  adminClient: any, // eslint-disable-line @typescript-eslint/no-explicit-any
   tenantId: string,
   userId: string
 ): Promise<{ uc: R | null; token: string | null }> {
