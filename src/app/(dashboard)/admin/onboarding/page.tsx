@@ -56,6 +56,28 @@ const ONBOARDING_SCHRITTE: Gruppe[] = [
     ],
   },
   {
+    gruppe: 'E-Mail & Nachrichten', icon: '📬',
+    schritte: [
+      { id: 'em1', pflicht: false, titel: 'M365 Verbindung pro Benutzer', beschreibung: 'Jeder Benutzer verbindet seine eigene Mailbox: Nachrichten > "Mit Microsoft 365 verbinden" und mit dem Weingut-Konto anmelden. Die Verbindung ist persönlich und getrennt von der Admin-M365-Konfiguration.', link: '/nachrichten', linkLabel: 'Nachrichten öffnen' },
+      { id: 'em2', pflicht: false, titel: 'Shared Mailbox einrichten (optional)', beschreibung: 'Falls eine gemeinsame Mailbox genutzt wird (z.B. office@weingut.at): Nachrichten > Einstellungen > Adresse eintragen. Exchange-Administrator muss Send-As-Rechte vergeben.', link: '/nachrichten', linkLabel: 'Nachrichten öffnen' },
+      { id: 'em3', pflicht: false, titel: 'KI-Modul testen', beschreibung: 'Unter "Frag dein Weingut": eine Beispiel-Frage stellen (z.B. "Welche Kontakte haben wir?"). Das Modul ist für den Piloten mit Unlimited-Paket freigeschaltet.', link: '/ki', linkLabel: 'KI-Modul öffnen' },
+    ],
+  },
+  {
+    gruppe: 'Weinexport (optional)', icon: '🚢',
+    schritte: [
+      { id: 'we1', pflicht: false, titel: 'Weinexport-Modul aktivieren', beschreibung: 'Admin > Mandant > Module: modul_weinexport aktivieren. Danach erscheint "Weinexport" in der Sidebar.', link: '/admin/mandanten', linkLabel: 'Admin öffnen' },
+      { id: 'we2', pflicht: false, titel: 'Test-Exportauftrag anlegen', beschreibung: 'Weinexport > Neuer Auftrag: Importeur, Destination, Incoterms und Weinposition eintragen. Testweise ein Dokument (z.B. Lieferschein) als PDF öffnen.', link: '/weinexport/neu', linkLabel: 'Neuer Auftrag' },
+    ],
+  },
+  {
+    gruppe: 'Datenimport (optional)', icon: '📥',
+    schritte: [
+      { id: 'di1', pflicht: false, titel: 'Bestandskunden per CSV importieren', beschreibung: 'Administration > Datenimport > Kontakte: CSV vorbereiten (Spalte "Nachname" Pflicht), hochladen, Spalten zuordnen, importieren. Danach im CRM prüfen.', link: '/admin/import', linkLabel: 'Datenimport öffnen' },
+      { id: 'di2', pflicht: false, titel: 'Flaschenlager importieren', beschreibung: 'Administration > Datenimport > Füllungen: bestehenden Lagerbestand importieren (Spalte "Bezeichnung" Pflicht, "Lagerbestand" = aktuelle Flaschenanzahl).', link: '/admin/import', linkLabel: 'Datenimport öffnen' },
+    ],
+  },
+  {
     gruppe: 'Abnahme', icon: '✅',
     schritte: [
       { id: 's17', pflicht: true, titel: 'Testverkauf durchführen', beschreibung: 'Warenwirtschaft > Verkauf > Neuer Verkauf: Einen kompletten Verkauf anlegen, Rechnung drucken, als bezahlt markieren. Prüfen ob Bestand korrekt reduziert wird.', link: '/weinhandel/verkauf/neu', linkLabel: 'Neuer Verkauf' },
