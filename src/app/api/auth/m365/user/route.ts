@@ -27,7 +27,14 @@ export async function GET(req: NextRequest) {
   const host  = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? 'software112.icp-consultants.at'
   const proto = req.headers.get('x-forwarded-proto') ?? 'https'
   const redirectUri = `${proto}://${host}/api/auth/m365/user/callback`
-  const state = `${tenantId}:${user.id}`
+  // State mit HMAC signieren (verhindert CSRF auf OAuth-Callback)
+  const statePayload = `${tenantId}:${user.id}:${Date.now()}`
+  const secret = process.env.OAUTH_STATE_SECRET ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'fallback'
+  const encoder = new TextEncoder()
+  const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(statePayload))
+  const sigHex = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2,'0')).join('')
+  const state = `${statePayload}.${sigHex}`
 
   // 'common' erlaubt Login aus JEDEM Microsoft-Tenant (multi-tenant App)
   return NextResponse.redirect(m365AuthUrl('common', c.m365_client_id, redirectUri, state))

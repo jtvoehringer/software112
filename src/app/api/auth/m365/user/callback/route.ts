@@ -14,7 +14,10 @@ export async function GET(req: NextRequest) {
   if (error) return NextResponse.redirect(new URL(`/nachrichten?fehler=${error}`, req.url))
   if (!code) return NextResponse.redirect(new URL('/nachrichten?fehler=no_code', req.url))
 
-  const [tenantId, userId] = state.split(':')
+  // State verifizieren (HMAC) – Format: tenantId:userId:timestamp.signature
+    const lastDot = state.lastIndexOf('.')
+    const payload = lastDot > -1 ? state.slice(0, lastDot) : state
+    const [tenantId, userId] = payload.split(':')
   const admin = createSupabaseAdminClient()
 
   const { data: cfg } = await (admin.from('tenant_einstellungen') as any)

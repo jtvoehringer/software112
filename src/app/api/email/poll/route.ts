@@ -15,12 +15,10 @@ export async function POST(req: NextRequest) {
   // Authentifizierung: CRON_SECRET (Cron-Job) ODER eingeloggte Supabase-Session (Admin)
   const cronSecret = process.env.CRON_SECRET
   const authHeader = req.headers.get('authorization')
-  const hasCronAuth = cronSecret && authHeader === `Bearer ${cronSecret}`
-  // Session prüfen wenn kein gültiger Cron-Header
-  if (!hasCronAuth) {
-    const { data: { user } } = await createSupabaseServerClient().then(s => s.auth.getUser())
-    if (!user) return NextResponse.json({ fehler: 'Unauthorized' }, { status: 401 })
-  }
+  // CRON_SECRET muss gesetzt sein – ohne Secret kein Zugriff
+  if (!cronSecret) return NextResponse.json({ fehler: 'CRON_SECRET nicht konfiguriert' }, { status: 503 })
+  const hasCronAuth = authHeader === `Bearer ${cronSecret}`
+  if (!hasCronAuth) return NextResponse.json({ fehler: 'Unauthorized' }, { status: 401 })
   try {
     const supabase = await createSupabaseServerClient()
     const admin    = createSupabaseAdminClient()
