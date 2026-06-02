@@ -534,7 +534,7 @@ export default function KontaktDetailClient({
                 if (!notizText.trim()) return
                 setNotizLaden(true)
                 const fd = new FormData()
-                fd.set('art', 'notiz'); fd.set('betreff', notizText); fd.set('datum', new Date().toISOString().split('T')[0]); fd.set('ganztags', 'true'); fd.set('erledigt', 'false')
+                fd.set('kontakt_id', kontakt.id); fd.set('art', 'notiz'); fd.set('betreff', notizText); fd.set('datum', new Date().toISOString().split('T')[0]); fd.set('ganztags', 'true'); fd.set('erledigt', 'false')
                 await createAktivitaet(fd)
                 setNotizText(''); setNotizLaden(false)
               }} className="flex gap-2">
