@@ -280,9 +280,9 @@ function AktivitaetKarte({ a, writeOk, firmaEmail }: { a: AktivitaetRow; writeOk
           <span className="text-xs text-s112-muted">{artDef?.label ?? a.art}</span>
         </div>
         {a.art === 'email' ? (
-          <a href="/nachrichten" className={`text-sm font-medium text-s112-teal hover:underline mt-0.5 block ${a.erledigt ? 'line-through opacity-50' : ''}`}>
+          <p className={`text-sm font-medium text-gray-800 mt-0.5 ${a.erledigt ? 'line-through text-gray-400' : ''}`}>
             {a.betreff}
-          </a>
+          </p>
         ) : (
           <p className={`text-sm font-medium text-gray-800 mt-0.5 ${a.erledigt ? 'line-through text-gray-400' : ''}`}>
             {a.betreff}
