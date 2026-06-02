@@ -750,7 +750,7 @@ export default function FirmaDetailClient({
               </form>
             )}
             <div className="space-y-2">
-              {aktivitaeten.filter(a => a.art === 'notiz').map(n => (
+              {[...aktivitaeten.filter(a => a.art === 'notiz')].sort((a,b) => Number(a.erledigt) - Number(b.erledigt)).map(n => (
                 <div key={n.id} className={`card p-4 flex gap-3 ${n.erledigt ? 'opacity-60' : ''}`}>
                   <button type="button" onClick={() => toggleAktivitaetErledigt(n.id, !n.erledigt)}
                     className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${n.erledigt ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 hover:border-green-400'}`}>

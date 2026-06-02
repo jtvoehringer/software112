@@ -48,6 +48,7 @@ export default function NachrichtenClient() {
   const [threadMsgs, setThreadMsgs]             = useState<Msg[]>([])
   const [threadLaden, setThreadLaden]           = useState(false)
   const loadGenRef = useRef(0)
+  const pendingEmailIdRef = useRef<string | null>(null)
   const [folders, setFolders]     = useState<{id: string; name: string; unread: number; total: number}[]>([])
   const [folderId, setFolderId]   = useState<string | null>(null)  // null = inbox
 
@@ -62,16 +63,11 @@ export default function NachrichtenClient() {
       setFehler('Verbindungsfehler: ' + params.get('fehler'))
       window.history.replaceState({}, '', '/nachrichten')
     }
-    // emailId aus CRM-Link: direkt öffnen
+    // emailId aus CRM-Link: in Ref speichern, nach Verbindungscheck öffnen
     const emailId = params.get('emailId')
     if (emailId) {
       window.history.replaceState({}, '', '/nachrichten')
-      // Kurz warten bis Verbindung geprüft, dann Email laden
-      setTimeout(async () => {
-        const res = await fetch(`/api/nachrichten/message?id=${encodeURIComponent(emailId)}`)
-        const data = await res.json()
-        if (!data.fehler) setSelected(data)
-      }, 800)
+      pendingEmailIdRef.current = emailId
     }
     // Verbindungsstatus prüfen
     fetch('/api/nachrichten/list?folder=inbox').then(async r => {
@@ -81,6 +77,15 @@ export default function NachrichtenClient() {
       } else {
         setVerbunden(true)
         setVerbEmail(data.email ?? '')
+        // Pending Email aus CRM-Link öffnen
+        if (pendingEmailIdRef.current) {
+          const eid = pendingEmailIdRef.current
+          pendingEmailIdRef.current = null
+          fetch(`/api/nachrichten/message?id=${encodeURIComponent(eid)}`)
+            .then(r => r.json())
+            .then(d => { if (!d.fehler) setSelected(d) })
+            .catch(() => {})
+        }
         // Ordnerstruktur aus Mailbox laden
         fetch('/api/nachrichten/folders').then(r => r.json()).then(d => {
           if (d.folders) {

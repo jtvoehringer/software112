@@ -376,27 +376,19 @@ export default function KontaktDetailClient({
   const [notizLaden, setNotizLaden] = useState(false)
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set())
 
-  // Thread-ID aus beschreibung extrahieren
-  function getThreadId(beschreibung: string | null): string | null {
-    const match = (beschreibung ?? '').match(/\[thread:([a-zA-Z0-9]+)\]/)
-    return match ? match[1] : null
-  }
-
-  // E-Mail-Aktivitäten nach Thread gruppieren
+  // E-Mail-Aktivitäten nach email_conversation_id gruppieren
   function groupEmailsByThread(akts: AktivitaetRow[]) {
     const threads: Record<string, AktivitaetRow[]> = {}
     const singles: AktivitaetRow[] = []
     akts.forEach(a => {
       if (a.art !== 'email') { singles.push(a); return }
-      const threadId = getThreadId(a.beschreibung)
-      if (!threadId) { singles.push(a); return }
-      if (!threads[threadId]) threads[threadId] = []
-      threads[threadId].push(a)
+      const cid = a.email_conversation_id
+      if (!cid) { singles.push(a); return }
+      if (!threads[cid]) threads[cid] = []
+      threads[cid].push(a)
     })
-    // Threads mit 1 E-Mail → singles
-    Object.entries(threads).forEach(([tid, msgs]) => {
+    Object.entries(threads).forEach(([cid, msgs]) => {
       if (msgs.length === 1) singles.push(msgs[0])
-      // Threads mit >1 bleiben als Thread
     })
     return { threads: Object.fromEntries(Object.entries(threads).filter(([,m]) => m.length > 1)), singles }
   }
@@ -497,7 +489,7 @@ export default function KontaktDetailClient({
                             <span className="text-base">✉️</span>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-gray-800 truncate">{latest.betreff}</p>
-                              <p className="text-xs text-s112-muted">{msgs.length} E-Mails · {expanded ? 'einklappen' : 'ausklappen'}</p>
+                              <p className="text-xs text-s112-muted">{msgs.length} E-Mail{msgs.length !== 1 ? 's' : ''} · {new Date(latest.datum).toLocaleDateString('de-AT')} · {expanded ? 'einklappen ▴' : 'ausklappen ▾'}</p>
                             </div>
                             <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">{msgs.length}</span>
                           </button>
@@ -602,7 +594,7 @@ export default function KontaktDetailClient({
             )}
             {/* Notizen-Liste */}
             <div className="space-y-1 max-h-48 overflow-y-auto">
-              {aktivitaeten.filter(a => a.art === 'notiz').map(n => (
+              {[...aktivitaeten.filter(a => a.art === 'notiz')].sort((a,b) => Number(a.erledigt) - Number(b.erledigt)).map(n => (
                 <div key={n.id} className={`flex items-start gap-2 py-1.5 border-b border-s112-border/30 last:border-0 ${n.erledigt ? 'opacity-50' : ''}`}>
                   <button type="button" onClick={() => toggleAktivitaetErledigt(n.id, !n.erledigt)}
                     className={`mt-0.5 w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${n.erledigt ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}>
