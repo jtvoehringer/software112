@@ -97,7 +97,7 @@ export default function NachrichtenClient() {
       setMessages(data.messages ?? [])
     } catch (e) { if (gen === loadGenRef.current) setFehler(String(e)) }
     finally { if (gen === loadGenRef.current) setLaden(false) }
-  }, [folder])
+  }, [folder, folderId])
 
   useEffect(() => { ladeMessages() }, [ladeMessages])
 
@@ -112,6 +112,14 @@ export default function NachrichtenClient() {
     setSelected(data)
     // Gelesen markieren in Liste
     setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, gelesen: true } : m))
+    // Unread-Zähler im Ordner dekrementieren wenn Nachricht war ungelesen
+    if (!msg.gelesen) {
+      setFolders(prev => prev.map(f =>
+        f.id === (folderId ?? '') || (!folderId && (f.name === 'Inbox' || f.name === 'Posteingang'))
+          ? { ...f, unread: Math.max(0, f.unread - 1) }
+          : f
+      ))
+    }
   }
 
   async function sendEmail(e: React.FormEvent) {
