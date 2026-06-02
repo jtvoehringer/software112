@@ -97,12 +97,12 @@
 
 ## Offen / Nächste Schritte
 
-- **Handbuch + FAQ Update** – Neue Features dokumentieren
-- **Stripe/Mandanten-Abrechnung** – Automatische Rechnungsstellung an Kunden
-- **Dauerauftrag-Modul** – IC&P Eigenrechnung automatisieren
-- **Datenmigrationsschnittstellen** – CSV-Import für Kontakte, Füllungen, Stammkunden
-- **EMCS-Integration** (Weinexport Pro)
-- **Mobile UX** – PWA oder native App
+- **UAT** – Gebeshuber testet alle Module im Echtbetrieb (Juni 2026)
+- **Testautomatisierung + Regressionstests** – Smoke Tests + Playwright E2E nach UAT-Abschluss
+- **Stripe/Mandanten-Abrechnung** – vor Kunde #2 zwingend erforderlich
+- **Dauerauftrag-Modul** – IC&P Eigenrechnung automatisieren (0,5 Tage, shared lib aus KPS)
+- **EMCS-Integration via n8n** – Weinexport Pro (€59/Mo)
+- **Mobile UX** – PWA oder native App (bei Kundenbedarf)
 
 ## KI-Modul „Smart Query" (Phase 3 – geplant)
 
