@@ -375,6 +375,7 @@ export default function FirmaDetailClient({
   writeOk: boolean
 }) {
   const [tab, setTab] = useState<Tab>('kontakte')
+  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set())
   const [showEmailModal, setShowEmailModal] = useState(false)
   const [emailBetreff, setEmailBetreff]   = useState('')
   const [emailText, setEmailText]         = useState('')
