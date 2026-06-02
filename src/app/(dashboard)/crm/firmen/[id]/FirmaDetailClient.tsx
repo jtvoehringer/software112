@@ -577,7 +577,7 @@ export default function FirmaDetailClient({
                 const threads: Record<string, AktivitaetRow[]> = {}
                 const singles: AktivitaetRow[] = []
                 emails.forEach(a => {
-                  const cid = a.email_conversation_id
+                  const cid = a.email_conversation_id ?? (a.betreff ?? '').replace(/^(Re|AW|Fwd|WG|FW|Antwort)(:\s*)+/gi,'').trim().toLowerCase()
                   if (!cid) { singles.push(a); return }
                   if (!threads[cid]) threads[cid] = []
                   threads[cid].push(a)

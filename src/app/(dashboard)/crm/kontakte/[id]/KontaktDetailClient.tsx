@@ -390,20 +390,26 @@ export default function KontaktDetailClient({
   const [notizLaden, setNotizLaden] = useState(false)
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set())
 
-  // E-Mail-Aktivitäten nach email_conversation_id gruppieren
+  // Betreff normalisieren: Re:/AW:/Fwd: entfernen
+  function normalizeBetreff(b: string | null): string {
+    return (b ?? '').replace(/^(Re|AW|Fwd|WG|FW|Antwort)(:\s*)+/gi, '').trim().toLowerCase()
+  }
+
+  // E-Mail-Aktivitäten nach conversation_id ODER normalisiertem Betreff gruppieren
   function groupEmailsByThread(akts: AktivitaetRow[]) {
     const threads: Record<string, AktivitaetRow[]> = {}
     const singles: AktivitaetRow[] = []
     akts.forEach(a => {
       if (a.art !== 'email') { singles.push(a); return }
-      const cid = a.email_conversation_id
-      if (!cid) { singles.push(a); return }
-      if (!threads[cid]) threads[cid] = []
-      threads[cid].push(a)
+      // conversation_id bevorzugen, Fallback: normalisierter Betreff
+      const key = a.email_conversation_id ?? normalizeBetreff(a.betreff)
+      if (!key) { singles.push(a); return }
+      if (!threads[key]) threads[key] = []
+      threads[key].push(a)
     })
-    Object.entries(threads).forEach(([cid, msgs]) => {
+    Object.entries(threads).forEach(([key, msgs]) => {
       if (msgs.length === 1) singles.push(msgs[0])
-      else threads[cid] = msgs.sort((a,b) => new Date(a.datum).getTime() - new Date(b.datum).getTime())
+      else threads[key] = msgs.sort((a,b) => new Date(a.datum).getTime() - new Date(b.datum).getTime())
     })
     return { threads: Object.fromEntries(Object.entries(threads).filter(([,m]) => m.length > 1)), singles }
   }
