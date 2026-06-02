@@ -33,8 +33,31 @@ export async function POST(req: NextRequest) {
         .select('*').eq('m365_modul_aktiv', true).not('m365_refresh_token_enc', 'is', null)
       const cfgs = (allCfgs ?? []) as R[]
       let renewed = 0
+      const host  = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? 'software112.icp-consultants.at'
+      const proto = req.headers.get('x-forwarded-proto') ?? 'https'
+      const notificationUrl = `${proto}://${host}/api/m365/webhook`
+      const expiresAt = new Date(Date.now() + 4230 * 60 * 1000).toISOString()
       for (const cfg of cfgs) {
-        try { await renewWebhook(cfg, admin, req); renewed++ } catch { /* continue */ }
+        try {
+          const { getValidAccessToken } = await import('@/lib/m365/graph')
+          const token = await getValidAccessToken(cfg as R, admin)
+          if (cfg.m365_webhook_sub_id) {
+            try {
+              await fetch(`https://graph.microsoft.com/v1.0/subscriptions/${cfg.m365_webhook_sub_id}`, {
+                method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ expirationDateTime: expiresAt }),
+              })
+            } catch { /* erstelle neu */ }
+          } else {
+            const res = await fetch('https://graph.microsoft.com/v1.0/subscriptions', {
+              method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ changeType: 'created', notificationUrl, resource: "me/mailFolders('inbox')/messages", expirationDateTime: expiresAt, clientState: cfg.tenant_id }),
+            })
+            const sub = await res.json() as R
+            if (sub.id) await (admin.from('tenant_einstellungen') as any).update({ m365_webhook_sub_id: sub.id, m365_webhook_expires: expiresAt }).eq('tenant_id', cfg.tenant_id)
+          }
+          renewed++
+        } catch { /* weiter */ }
       }
       return NextResponse.json({ ok: true, renewed })
     }
