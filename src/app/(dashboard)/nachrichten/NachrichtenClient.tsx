@@ -216,6 +216,19 @@ export default function NachrichtenClient() {
           </button>
           {showSettings && (
             <div className="mt-2 pt-2 border-t border-s112-border space-y-2">
+              {verbEmail && (
+                <div className="space-y-1">
+                  <p className="text-[10px] text-s112-muted font-medium uppercase tracking-wide">Verbunden als</p>
+                  <p className="text-[10px] text-gray-700 truncate">{verbEmail}</p>
+                  <button onClick={async () => {
+                    if (!confirm('Mailbox-Verbindung trennen?')) return
+                    await fetch('/api/nachrichten/disconnect', { method: 'POST' })
+                    window.location.reload()
+                  }} className="w-full text-[10px] border border-red-200 text-red-500 px-2 py-1 rounded hover:bg-red-50">
+                    Trennen &amp; neu verbinden
+                  </button>
+                </div>
+              )}
               <p className="text-[10px] text-s112-muted font-medium uppercase tracking-wide">Weitere Mailbox</p>
               <p className="text-[10px] text-s112-muted">z.B. office@weingut.at – Vollzugriff in Exchange nötig</p>
               <div className="space-y-1">
