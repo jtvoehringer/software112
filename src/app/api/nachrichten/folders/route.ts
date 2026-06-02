@@ -25,7 +25,7 @@ export async function GET() {
         ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent((uc as R).monitored_email)}`
         : 'https://graph.microsoft.com/v1.0/me'
     const res = await fetch(
-      `${mailboxBase}/mailFolders?$select=id,displayName,unreadItemCount,totalItemCount&$top=50',
+      `${mailboxBase}/mailFolders?$select=id,displayName,unreadItemCount,totalItemCount&$top=50`,
       { headers: { Authorization: `Bearer ${token}` } }
     )
     const data = await res.json() as R
