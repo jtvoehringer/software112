@@ -27,11 +27,13 @@ export async function POST(req: NextRequest) {
     if (c?.m365_modul_aktiv && c?.m365_access_token_enc) {
       const { getValidAccessToken, graphPost } = await import('@/lib/m365/graph')
       const token = await getValidAccessToken(c, admin)
+      // Mehrere Empfänger: Komma-getrennt parsen
+      const empfaenger = an.split(',').map((e: string) => e.trim()).filter(Boolean)
       await graphPost(token, '/me/sendMail', {
         message: {
           subject: betreff,
           body: { contentType: 'Text', content: text ?? '' },
-          toRecipients: [{ emailAddress: { address: an } }],
+          toRecipients: empfaenger.map((addr: string) => ({ emailAddress: { address: addr } })),
         },
         saveToSentItems: true,
       })

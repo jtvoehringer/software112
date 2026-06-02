@@ -195,9 +195,9 @@ export default function NachrichtenClient() {
             </div>
             <form onSubmit={sendEmail} className="flex-1 flex flex-col gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">An *</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">An * <span className="font-normal text-s112-muted">(mehrere mit Komma trennen)</span></label>
                 <input value={an} onChange={e => setAn(e.target.value)} required
-                  placeholder="empfaenger@email.at"
+                  placeholder="empfaenger@email.at, zweiter@email.at"
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
