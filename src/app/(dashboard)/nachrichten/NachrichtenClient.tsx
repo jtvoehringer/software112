@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 
 type Msg = {
@@ -40,6 +40,9 @@ export default function NachrichtenClient() {
   const [monitoredSaving, setMonitoredSaving] = useState(false)
   const [showSettings, setShowSettings]       = useState(false)
   const [deleteConfirm, setDeleteConfirm]       = useState(false)
+  const [forwardAn, setForwardAn]               = useState('')
+  const [forwardMode, setForwardMode]           = useState(false)
+  const loadGenRef = useRef(0)
   const [folders, setFolders]     = useState<{id: string; name: string; unread: number; total: number}[]>([])
   const [folderId, setFolderId]   = useState<string | null>(null)  // null = inbox
 
@@ -84,14 +87,16 @@ export default function NachrichtenClient() {
   }, [])
 
   const ladeMessages = useCallback(async () => {
+    const gen = ++loadGenRef.current
     setLaden(true); setFehler(null); setSelected(null)
     try {
       const res = await fetch(`/api/nachrichten/list?folder=${folder}${folderId ? `&folderId=${folderId}` : ''}`)
       const data = await res.json()
+      if (gen !== loadGenRef.current) return  // veraltete Antwort – ignorieren
       if (!res.ok || data.fehler) { setFehler(data.fehler ?? 'Fehler'); return }
       setMessages(data.messages ?? [])
-    } catch (e) { setFehler(String(e)) }
-    finally { setLaden(false) }
+    } catch (e) { if (gen === loadGenRef.current) setFehler(String(e)) }
+    finally { if (gen === loadGenRef.current) setLaden(false) }
   }, [folder])
 
   useEffect(() => { ladeMessages() }, [ladeMessages])
@@ -274,7 +279,35 @@ export default function NachrichtenClient() {
         {detailLaden && (
           <div className="flex-1 flex items-center justify-center text-s112-muted text-sm">⏳ E-Mail wird geladen…</div>
         )}
-        {selected && !compose && (
+        {selected && forwardMode && (
+          <div className="flex-1 flex flex-col p-6 gap-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-800">↪ Weiterleiten</h3>
+              <button onClick={() => setForwardMode(false)} className="text-xs text-s112-muted hover:text-gray-700">✕ Abbrechen</button>
+            </div>
+            <p className="text-xs text-s112-muted">Betreff: Fwd: {selected.betreff}</p>
+            <input value={forwardAn} onChange={e => setForwardAn(e.target.value)}
+              placeholder="An: empfaenger@example.com"
+              className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-s112-teal" />
+            <button onClick={async () => {
+              if (!forwardAn) return
+              setSending(true)
+              const body = `---------- Weitergeleitet von ${selected.vonName} <${selected.von}> ----------\n${selected.bodyText ?? ''}`
+              const r = await fetch('/api/email/unified', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ an: forwardAn, betreff: `Fwd: ${selected.betreff}`, text: body }),
+              })
+              const d = await r.json()
+              setSending(false)
+              if (!r.ok) { setFehler('Weiterleiten fehlgeschlagen: ' + (d.fehler ?? r.status)); return }
+              setForwardMode(false)
+            }} disabled={sending || !forwardAn}
+              className="text-sm bg-s112-teal text-white px-4 py-2 rounded-lg hover:bg-opacity-90 disabled:opacity-40">
+              {sending ? '⏳ Senden…' : '↪ Weiterleiten'}
+            </button>
+          </div>
+        )}
+        {selected && !forwardMode && !compose && (
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="px-6 py-4 border-b border-s112-border">
               <h2 className="text-base font-bold text-gray-900 mb-2">{selected.betreff}</h2>
@@ -295,20 +328,29 @@ export default function NachrichtenClient() {
                     className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg hover:bg-opacity-90">
                     ↩ Antworten
                   </button>
+                  <button onClick={() => { setForwardMode(true); setForwardAn(''); setCompose(false) }}
+                    className="text-xs border border-s112-border text-gray-600 px-3 py-1.5 rounded-lg hover:bg-s112-bg">
+                    ↪ Weiterleiten
+                  </button>
                   {!deleteConfirm ? (
-                    <button onClick={() => setDeleteConfirm(true)}
-                      className="text-xs border border-red-200 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50">
-                      🗑 Löschen
+                    <button onClick={() => setDeleteConfirm(true)} title="Löschen"
+                      className="border border-red-200 text-red-400 p-1.5 rounded-lg hover:bg-red-50 hover:text-red-600">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
                     </button>
                   ) : (
                     <span className="flex items-center gap-1">
                       <span className="text-xs text-red-500">Löschen?</span>
-                      <button onClick={() => {
+                      <button onClick={async () => {
                         const delId = selected.id
                         setDeleteConfirm(false)
+                        loadGenRef.current++  // in-flight ladeMessages ignorieren
                         setMessages(prev => prev.filter(m => m.id !== delId))
                         setSelected(null)
-                        fetch(`/api/nachrichten/delete?id=${delId}`, { method: 'DELETE' }).catch(() => {})
+                        const r = await fetch(`/api/nachrichten/delete?id=${delId}`, { method: 'DELETE' })
+                        if (!r.ok) {
+                          const d = await r.json().catch(() => ({}))
+                          setFehler('Löschen fehlgeschlagen: ' + (d.fehler ?? r.status))
+                        }
                       }} className="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600">Ja</button>
                       <button onClick={() => setDeleteConfirm(false)}
                         className="text-xs border border-gray-300 text-gray-600 px-2 py-1 rounded hover:bg-gray-50">Nein</button>
