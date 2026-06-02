@@ -298,8 +298,8 @@ export default function NachrichtenClient() {
                     const delId = selected.id
                     setMessages(prev => prev.filter(m => m.id !== delId))
                     setSelected(null)
-                    fetch(`/api/nachrichten/delete?id=${delId}`, { method: 'DELETE' })
-                      .then(() => ladeMessages()).catch(() => {})
+                    fetch(`/api/nachrichten/delete?id=${delId}`, { method: 'DELETE' }).catch(() => {})
+                    // Kein Reload – Graph-API Cache-Verzögerung würde E-Mail kurz zurückbringen
                   }} className="text-xs border border-red-200 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50">
                     🗑 Löschen
                   </button>
