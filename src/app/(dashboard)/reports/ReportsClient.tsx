@@ -20,7 +20,7 @@ interface Props {
 }
 
 const TABS = [
-  { id: 'umsatz',      label: '📈 Umsatz',        title: 'Monatsumsatz Weinhandel (12 Monate)' },
+  { id: 'umsatz',      label: '📈 Umsatz',        title: 'Monatsumsatz Warenwirtschaft (12 Monate)' },
   { id: 'lager',       label: '🍾 Lager',          title: 'Lagerbestand' },
   { id: 'behandlung',  label: '🌿 Behandlungen',   title: 'Behandlungsübersicht ' + new Date().getFullYear() },
   { id: 'pipeline',    label: '💼 Pipeline',        title: 'Lead-Pipeline' },

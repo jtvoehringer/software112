@@ -319,6 +319,32 @@ export default function KontaktDetailClient({
   }
 
   const [showAktForm, setShowAktForm] = useState(false)
+  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set())
+
+  // Thread-ID aus beschreibung extrahieren
+  function getThreadId(beschreibung: string | null): string | null {
+    const match = (beschreibung ?? '').match(/\[thread:([a-zA-Z0-9]+)\]/)
+    return match ? match[1] : null
+  }
+
+  // E-Mail-Aktivitäten nach Thread gruppieren
+  function groupEmailsByThread(akts: AktivitaetRow[]) {
+    const threads: Record<string, AktivitaetRow[]> = {}
+    const singles: AktivitaetRow[] = []
+    akts.forEach(a => {
+      if (a.art !== 'email') { singles.push(a); return }
+      const threadId = getThreadId(a.beschreibung)
+      if (!threadId) { singles.push(a); return }
+      if (!threads[threadId]) threads[threadId] = []
+      threads[threadId].push(a)
+    })
+    // Threads mit 1 E-Mail → singles
+    Object.entries(threads).forEach(([tid, msgs]) => {
+      if (msgs.length === 1) singles.push(msgs[0])
+      // Threads mit >1 bleiben als Thread
+    })
+    return { threads: Object.fromEntries(Object.entries(threads).filter(([,m]) => m.length > 1)), singles }
+  }
   const [copiedNum, setCopiedNum] = useState<string | null>(null)
 
   function handlePhoneClick(e: React.MouseEvent<HTMLAnchorElement>, fullNumber: string) {
@@ -396,9 +422,43 @@ export default function KontaktDetailClient({
             </div>
           ) : (
             <div className="space-y-2">
-              {aktivitaeten.filter(a => a.art !== 'verkauf').map(a => (
-                <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} />
-              ))}
+              {(() => {
+                const { threads, singles } = groupEmailsByThread(aktivitaeten.filter(a => a.art !== 'verkauf'))
+                return (
+                  <>
+                    {/* E-Mail-Threads */}
+                    {Object.entries(threads).map(([threadId, msgs]) => {
+                      const expanded = expandedThreads.has(threadId)
+                      const latest = msgs[msgs.length - 1]
+                      return (
+                        <div key={threadId} className="border border-s112-border rounded-xl overflow-hidden">
+                          <button type="button"
+                            onClick={() => setExpandedThreads(prev => {
+                              const next = new Set(prev)
+                              expanded ? next.delete(threadId) : next.add(threadId)
+                              return next
+                            })}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 transition-colors text-left">
+                            <span className="text-base">✉️</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-800 truncate">{latest.betreff}</p>
+                              <p className="text-xs text-s112-muted">{msgs.length} E-Mails · {expanded ? 'einklappen' : 'ausklappen'}</p>
+                            </div>
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">{msgs.length}</span>
+                          </button>
+                          {expanded && (
+                            <div className="divide-y divide-s112-border/40">
+                              {msgs.map(a => <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} />)}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                    {/* Einzelne Aktivitäten */}
+                    {singles.map(a => <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} />)}
+                  </>
+                )
+              })()}
             </div>
           )}
         </div>

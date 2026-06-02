@@ -67,4 +67,39 @@
 | 029       | Pipeline Uhrzeit: pipeline_eintraege += ganztags/uhrzeit_von/uhrzeit_bis |
 | 030       | Betriebsdaten + Rechnung: tenant_einstellungen += betrieb_*/rechnung_*; verkauf_positionen += ust_satz |
 | 031       | Bezahlt-Status + Rabattgruppen: verkaufsposten += bezahlt/bezahlt_am; neue Tabelle rabattgruppen; kontakte/firmen += rabattgruppe_id; verkauf_positionen += rabatt_pct/sonderrabatt_pct |
-| 032       | Standard-USt pro Mandant: tenant_einstellungen += ust_satz_standard (
+| 032       | Standard-USt pro Mandant: tenant_einstellungen += ust_satz_standard (13% Weinproduzent / 20% Weinhändler) |
+| 033       | Sonderrabatt auf Kontakt/Firma: kontakte/firmen += sonderrabatt_pct; wird im Verkaufsformular auto-vorbelegt |
+| 034       | Lead-Feld: kontakte/firmen += is_lead (DEFAULT true); neue Datensätze starten als Lead; erster Verkauf → automatisch Kunde |
+| 035       | Telefonvorwahl: kontakte += telefon_vorwahl/mobil_vorwahl; firmen += telefon_vorwahl (DEFAULT '+43') |
+
+## Phase 4 – Epics (geplant)
+
+1. **Benutzerhandbuch + FAQs** – In-App Hilfe-Bereich `/hilfe/handbuch` + `/hilfe/faq`, eigener Menüpunkt
+2. **Onboarding Guide** – `/admin/onboarding` Checkliste für neue Mandanten
+3. **Feature-Rollout-Manager** – Erweiterung modul_*-Toggles: neue Features per Flag, Standard = deploy-to-all
+4. **Weinexport-Modul** – EUR.1, CMR, Akkreditiv, V1/V2 (Basic €29/Mo, Pro €59/Mo)
+5. **Multi-User E-Mail-Boxen** – user_email_connections Tabelle, mehrere Mailboxen pro Mandant
+6. **E-Mail-Threading UI** – verwandte E-Mails via conversationId als Thread-Ansicht
+
+## KI-Modul „Smart Query" (Phase 3 – geplant)
+
+**Produkt:** Separates Zusatzmodul – „Frag dein Weingut" (AI-gestützte Abfragen via Claude Haiku)
+
+**Lizenzmodell:**
+| Paket     | Abfragen/Monat | Preis/Monat | Marge (bei ~€0.04 API-Kosten/100 Queries) |
+|-----------|---------------|-------------|-------------------------------------------|
+| Basic     | 100           | +€ 9        | ~€ 8,96 |
+| Standard  | 200           | +€ 19       | ~€ 18,92 |
+| Unlimited | unbegrenzt    | +€ 49       | ~€ 48,80 (bei ø 500 Abfragen) |
+
+**Technische Umsetzung (geplant):**
+- `tenant_einstellungen` += `ki_abfragen_aktiv` (bool), `ki_abfragen_paket` (basic|standard|unlimited), `ki_abfragen_zaehler_monat` (int), `ki_abfragen_reset_datum` (date)
+- Supabase RPC `check_und_increment_ki_abfrage(p_tenant_id)` → atomarer Zähler + Limit-Check
+- Claude Haiku API-Call (Server Action) → strukturierte Query-Parameter (kein rohes SQL)
+- RLS greift automatisch → kein Datenleck zwischen Mandanten
+- Admin-Tab in Mandantenverwaltung: Paket zuweisen, Verbrauch einsehen
+
+**Features im Modul:**
+1. **Smart Query** – Freitexteingabe → KI → gefilterte Tabelle + Zusammenfassung
+2. **Besuchsplanung** – Region + Segment + Zeitraum → PLZ-geclusterte Besuchsliste + Karte (Leaflet.js)
+3. **Statische Reports** – Monatsumsatz, Lagerbestand, Behandlungsübersicht (ohne KI, immer inkludiert)
