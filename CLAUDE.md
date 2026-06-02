@@ -80,6 +80,7 @@
 4. **Weinexport-Modul** – EUR.1, CMR, Akkreditiv, V1/V2 (Basic €29/Mo, Pro €59/Mo)
 5. **Multi-User E-Mail-Boxen** – user_email_connections Tabelle, mehrere Mailboxen pro Mandant
 6. **E-Mail-Threading UI** – verwandte E-Mails via conversationId als Thread-Ansicht
+7. **Integrierter E-Mail-Client** – `/nachrichten` Outlook-ähnliche UI (Posteingang, Senden, Ordner), funktioniert mit M365 Graph API + IMAP/SMTP; Auto-Matching gegen Kontakte; inkludiert in E-Mail-Modul-Lizenz
 
 ## KI-Modul „Smart Query" (Phase 3 – geplant)
 
