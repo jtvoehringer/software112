@@ -81,6 +81,14 @@ const NAV: NavEntry[] = [
   { kind: 'link', href: '/reports', label: 'Auswertungen', icon: '📋' },
 
   {
+    kind: 'group', label: 'Hilfe', icon: '❓',
+    items: [
+      { href: '/hilfe/handbuch', label: 'Handbuch' },
+      { href: '/hilfe/faq',     label: 'FAQ'      },
+    ],
+  },
+
+  {
     kind: 'group', label: 'Administration', icon: '⚙️', adminOnly: true,
     items: [
       { href: '/admin/mandanten', label: 'Mandanten' },
