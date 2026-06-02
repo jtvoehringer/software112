@@ -39,6 +39,7 @@ export default function NachrichtenClient() {
   const [monitoredEmail, setMonitoredEmail] = useState('')
   const [monitoredSaving, setMonitoredSaving] = useState(false)
   const [showSettings, setShowSettings]       = useState(false)
+  const [deleteConfirm, setDeleteConfirm]       = useState(false)
   const [folders, setFolders]     = useState<{id: string; name: string; unread: number; total: number}[]>([])
   const [folderId, setFolderId]   = useState<string | null>(null)  // null = inbox
 
@@ -96,6 +97,7 @@ export default function NachrichtenClient() {
   useEffect(() => { ladeMessages() }, [ladeMessages])
 
   async function openMessage(msg: Msg) {
+    setDeleteConfirm(false)
     if (msg.quelle !== 'm365') { setSelected({ ...msg, bodyHtml: null, bodyText: msg.vorschau, conversationId: null, kontaktInfo: null }); return }
     setDetailLaden(true); setSelected(null)
     const res = await fetch(`/api/nachrichten/message?id=${msg.id}`)
@@ -293,16 +295,25 @@ export default function NachrichtenClient() {
                     className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg hover:bg-opacity-90">
                     ↩ Antworten
                   </button>
-                  <button onClick={async () => {
-                    if (!confirm('E-Mail in Gelöschte Elemente verschieben?')) return
-                    const delId = selected.id
-                    setMessages(prev => prev.filter(m => m.id !== delId))
-                    setSelected(null)
-                    fetch(`/api/nachrichten/delete?id=${delId}`, { method: 'DELETE' }).catch(() => {})
-                    // Kein Reload – Graph-API Cache-Verzögerung würde E-Mail kurz zurückbringen
-                  }} className="text-xs border border-red-200 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50">
-                    🗑 Löschen
-                  </button>
+                  {!deleteConfirm ? (
+                    <button onClick={() => setDeleteConfirm(true)}
+                      className="text-xs border border-red-200 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50">
+                      🗑 Löschen
+                    </button>
+                  ) : (
+                    <span className="flex items-center gap-1">
+                      <span className="text-xs text-red-500">Löschen?</span>
+                      <button onClick={() => {
+                        const delId = selected.id
+                        setDeleteConfirm(false)
+                        setMessages(prev => prev.filter(m => m.id !== delId))
+                        setSelected(null)
+                        fetch(`/api/nachrichten/delete?id=${delId}`, { method: 'DELETE' }).catch(() => {})
+                      }} className="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600">Ja</button>
+                      <button onClick={() => setDeleteConfirm(false)}
+                        className="text-xs border border-gray-300 text-gray-600 px-2 py-1 rounded hover:bg-gray-50">Nein</button>
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
