@@ -248,7 +248,6 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
             </div>
           </div>
         </div>
-        </div>
       </div>
     </div>
   )
