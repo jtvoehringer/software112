@@ -26,7 +26,6 @@ const TABS = [
   { id: 'pipeline',    label: '💼 Pipeline',        title: 'Lead-Pipeline' },
   { id: 'kontakt',     label: '🤝 Kontaktfrequenz', title: 'Tage seit letztem Kontakt' },
   { id: 'offen',       label: '💶 Offene Posten',   title: 'Unbezahlte Rechnungen' },
-  { id: 'smart',       label: '🤖 Frag dein Weingut', title: 'KI-Abfrage – Frag dein Weingut' },
   { id: 'behoerden',   label: '🏛 Behörden',          title: 'Behörden-Dokumente' },
   { id: 'besuch',      label: '🗺 Besuchsplanung',     title: 'Besuchsplanung – PLZ-Cluster' },
 ] as const
@@ -58,8 +57,6 @@ function kundenName(p: R) {
 
 export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlungen, cuKgHa, pipeline, kontaktFrequenz, offene }: Props) {
   const [tab, setTab] = useState<TabId>('umsatz')
-  const [frage, setFrage] = useState('')
-  const [verlauf, setVerlauf] = useState<string[]>([])
   // Besuchsplanung
   const [bOrt, setBOrt]         = useState('')
   const [bSegment, setBSegment] = useState('')
@@ -75,36 +72,7 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
       if (saved) setVerlauf(JSON.parse(saved))
     } catch { /* ignore */ }
   }, [])
-  const [kiLaden, setKiLaden] = useState(false)
-  const [kiErgebnis, setKiErgebnis] = useState<{ergebnisse: R[]; anzahl: number; zusammenfassung: string|null; empfehlung: string|null; tabelle: string; verbraucht: number}|null>(null)
-  const [kiFehler, setKiFehler] = useState<string|null>(null)
   const current = TABS.find(t => t.id === tab)!
-
-  // KI-Abfrage senden
-  async function sendeKiAbfrage(e: React.FormEvent) {
-    e.preventDefault()
-    if (!frage.trim()) return
-    setKiLaden(true); setKiFehler(null); setKiErgebnis(null)
-    try {
-      const res = await fetch('/api/ki-abfrage', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ frage }),
-      })
-      const json = await res.json()
-      if (!res.ok || json.fehler) { setKiFehler(json.fehler ?? 'Fehler'); return }
-      setKiErgebnis(json)
-      // Verlauf aktualisieren (max 6 Einträge, neueste zuerst, keine Duplikate)
-      setVerlauf(prev => {
-        const neu = [frage, ...prev.filter(q => q !== frage)].slice(0, 6)
-        try { localStorage.setItem('ki_abfragen_verlauf', JSON.stringify(neu)) } catch { /* ignore */ }
-        return neu
-      })
-    } catch (err) {
-      setKiFehler(String(err))
-    } finally {
-      setKiLaden(false)
-    }
-  }
 
   // Besuchsplanung laden
   async function ladeBesuch(e: React.FormEvent) {
@@ -414,107 +382,6 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
                   })}
                 </tbody>
               </table>
-            )}
-          </div>
-        )}
-
-        {/* ── SMART QUERY ─────────────────────────────────────────────────────── */}
-        {tab === 'smart' && (
-          <div className="space-y-5">
-            <div className="bg-s112-bg border border-s112-border rounded-xl p-4 text-sm text-gray-600">
-              <p className="font-semibold text-s112-teal mb-1">🤖 Frag dein Weingut</p>
-              <p>Stelle eine Frage in normalem Deutsch – die KI sucht die passenden Daten heraus.</p>
-              <p className="mt-1 text-xs text-s112-muted">Beispiele: „Gastronomie-Kunden in Salzburg" · „Offene Rechnungen diese Woche" · „Welcher Wein hat den höchsten Bestand?"</p>
-            </div>
-
-            <form onSubmit={sendeKiAbfrage} className="flex gap-2">
-              <input
-                value={frage}
-                onChange={e => setFrage(e.target.value)}
-                placeholder="Deine Frage an den Betrieb…"
-                className="flex-1 border border-s112-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
-              />
-              <button type="submit" disabled={kiLaden || !frage.trim()}
-                className="bg-s112-teal text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40 flex items-center gap-2">
-                {kiLaden ? <><span className="animate-spin">⏳</span> Denkt…</> : '🔍 Abfragen'}
-              </button>
-            </form>
-
-            {/* Verlauf-Chips */}
-            {verlauf.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                <span className="text-xs text-s112-muted self-center">Zuletzt:</span>
-                {verlauf.map((q, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setFrage(q)}
-                    className="text-xs px-3 py-1 rounded-full border border-s112-border text-gray-600 hover:border-s112-teal hover:text-s112-teal hover:bg-s112-teal/5 transition-colors text-left max-w-[280px] truncate"
-                    title={q}
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {kiFehler && (
-              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">{kiFehler}</div>
-            )}
-
-            {kiErgebnis && (
-              <div className="space-y-4">
-                {/* Zusammenfassung */}
-                <div className="bg-s112-teal/5 border border-s112-teal/20 rounded-xl px-4 py-3">
-                  <p className="text-sm font-semibold text-s112-teal">{kiErgebnis.zusammenfassung}</p>
-                  {kiErgebnis.empfehlung && <p className="text-xs text-gray-600 mt-1">{kiErgebnis.empfehlung}</p>}
-                  <p className="text-xs text-s112-muted mt-2">{kiErgebnis.anzahl} Ergebnis{kiErgebnis.anzahl !== 1 ? 'se' : ''} · Tabelle: {kiErgebnis.tabelle} · Abfrage {kiErgebnis.verbraucht} diesen Monat</p>
-                </div>
-
-                {/* Ergebnistabelle */}
-                {kiErgebnis.ergebnisse.length > 0 && (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-s112-bg border-b border-s112-border text-xs text-gray-600">
-                          {Object.keys(kiErgebnis.ergebnisse[0])
-                            .filter(k => !['id','tenant_id','erstellt_am','updated_at','aktualisiert_am','firma_id','kontakt_id','psm_id','weingarten_id','weinausbau_id'].includes(k))
-                            .slice(0, 11)
-                            .map(k => (
-                              <th key={k} className="text-left px-3 py-2 font-semibold capitalize">
-                                {k.replace(/_/g,' ')}
-                              </th>
-                            ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {kiErgebnis.ergebnisse.map((row, i) => (
-                          <tr key={i} className={`border-b border-s112-border/40 ${i%2===1?'bg-s112-bg/30':''}`}>
-                            {Object.entries(row)
-                              .filter(([k]) => !['id','tenant_id','erstellt_am','updated_at','aktualisiert_am','firma_id','kontakt_id','psm_id','weingarten_id','weinausbau_id'].includes(k))
-                              .slice(0, 11)
-                              .map(([k, v]) => (
-                                <td key={k} className="px-3 py-2 text-gray-700">
-                                  {v == null ? '–'
-                                    : typeof v === 'boolean' ? (v ? 'Ja' : 'Nein')
-                                    : typeof v === 'object' && v !== null && 'name' in (v as object)
-                                      ? String((v as Record<string,unknown>).name ?? '–')
-                                      : typeof v === 'object' && v !== null
-                                        ? [Object.values(v as object).filter(Boolean)].flat().join(' ').slice(0, 50)
-                                        : String(v).slice(0, 50)
-                                  }
-                                </td>
-                              ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                {kiErgebnis.ergebnisse.length === 0 && (
-                  <p className="text-center text-s112-muted py-6">Keine Einträge gefunden.</p>
-                )}
-              </div>
             )}
           </div>
         )}
