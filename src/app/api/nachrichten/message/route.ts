@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
             const bodyText = (msg.body?.content ?? '').replace(/<[^>]*>/g, '').trim()
             const bodyHtml = msg.body?.contentType === 'html' ? msg.body.content : null
             await (supabase.from('aktivitaeten') as any).upsert({
-              tenant_id: tenantId2,
+              tenant_id: tenantId,
               kontakt_id: kontaktInfo.typ === 'kontakt' ? kontaktInfo.id : null,
               firma_id:   kontaktInfo.typ === 'firma'   ? kontaktInfo.id : null,
               art: 'email',
