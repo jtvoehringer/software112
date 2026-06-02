@@ -65,11 +65,18 @@ export async function POST(req: NextRequest) {
           method: 'POST', headers: { Authorization: `Bearer ${token}` },
         })
       }
+      // Empfänger-Liste für Speicherung
+      const anStr = empfaenger.join(', ')
       await (admin.from('aktivitaeten') as any).insert({
         tenant_id: tenantId, kontakt_id: kontakt_id ?? null, firma_id: firma_id ?? null,
-        art: 'email', betreff, beschreibung: text?.slice(0, 200) ?? null,
+        art: 'email', betreff,
+        beschreibung: (text ?? '').slice(0, 500) || null,
         datum: new Date().toISOString().split('T')[0], erledigt: false, ganztags: true,
         email_id: draftId ?? null, email_conversation_id: convId ?? null,
+        email_von: sharedMailbox ?? null,  // wird beim Reply-To bekannt
+        email_an: anStr,
+        email_body: text ?? null,
+        email_body_html: null,
       })
       return NextResponse.json({ ok: true, via: 'm365' })
     }

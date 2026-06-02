@@ -136,6 +136,11 @@ export type AktivitaetRow = {
   firma_name?: string | null
   email_id?: string | null
   email_conversation_id?: string | null
+  email_von?: string | null
+  email_von_name?: string | null
+  email_an?: string | null
+  email_body?: string | null
+  email_body_html?: string | null
 }
 
 export type PipelineEintragRow = {

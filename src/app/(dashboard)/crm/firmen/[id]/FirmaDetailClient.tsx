@@ -127,6 +127,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail }: { a: AktivitaetRow; writeOk
   const [replyOpen, setReplyOpen]   = useState(false)
   const [replyText, setReplyText]   = useState('')
   const [replySending, setReplySending] = useState(false)
+  const [emailOpen, setEmailOpen]   = useState(false)
   const [ganztags, setGanztags]   = useState(a.ganztags ?? true)
   const artDef = AKTIVITAET_ARTEN.find(x => x.value === a.art)
   const von = fmtUhrzeit(a.uhrzeit_von)
@@ -280,20 +281,29 @@ function AktivitaetKarte({ a, writeOk, firmaEmail }: { a: AktivitaetRow; writeOk
           <span className="text-xs text-s112-muted">{artDef?.label ?? a.art}</span>
         </div>
         {a.art === 'email' ? (
-          a.email_id
-            ? <a href={`/nachrichten?emailId=${encodeURIComponent(a.email_id)}`}
-                className={`text-sm font-medium text-s112-teal hover:underline mt-0.5 block ${a.erledigt ? 'line-through opacity-50' : ''}`}>
-                {a.betreff}
-              </a>
-            : <p className={`text-sm font-medium text-gray-800 mt-0.5 ${a.erledigt ? 'line-through text-gray-400' : ''}`}>
-                {a.betreff}
-              </p>
+          <button type="button" onClick={() => setEmailOpen(v => !v)}
+            className={`text-sm font-medium text-left w-full ${a.email_body ? 'text-s112-teal hover:underline' : 'text-gray-800'} mt-0.5 block ${a.erledigt ? 'line-through opacity-50' : ''}`}>
+            {a.betreff} {a.email_body ? (emailOpen ? '▴' : '▾') : ''}
+          </button>
         ) : (
           <p className={`text-sm font-medium text-gray-800 mt-0.5 ${a.erledigt ? 'line-through text-gray-400' : ''}`}>
             {a.betreff}
           </p>
         )}
-        {a.beschreibung && (
+        {a.art === 'email' && emailOpen && a.email_body && (
+          <div className="mt-2 border border-s112-border rounded-lg overflow-hidden">
+            <div className="bg-s112-bg px-3 py-1.5 text-[10px] text-s112-muted space-y-0.5">
+              {a.email_von && <div><span className="font-medium">Von:</span> {a.email_von_name ? `${a.email_von_name} <${a.email_von}>` : a.email_von}</div>}
+              {a.email_an  && <div><span className="font-medium">An:</span> {a.email_an}</div>}
+            </div>
+            {a.email_body_html
+              ? <div className="px-3 py-2 text-xs text-gray-700 prose prose-xs max-w-none"
+                  dangerouslySetInnerHTML={{ __html: a.email_body_html }} />
+              : <pre className="px-3 py-2 text-xs text-gray-700 whitespace-pre-wrap font-sans">{a.email_body}</pre>
+            }
+          </div>
+        )}
+        {a.beschreibung && !emailOpen && a.art !== 'email' && (
           <p className="text-xs text-gray-500 mt-0.5">{a.beschreibung}</p>
         )}
         {a.art === 'email' && replyOpen && (

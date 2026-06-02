@@ -62,17 +62,24 @@ export async function GET(req: NextRequest) {
           const { data: membership } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
           const tenantId2 = (membership as R | null)?.tenant_id
           if (tenantId2) {
+            const bodyText = (msg.body?.content ?? '').replace(/<[^>]*>/g, '').trim()
+            const bodyHtml = msg.body?.contentType === 'html' ? msg.body.content : null
             await (supabase.from('aktivitaeten') as any).upsert({
               tenant_id: tenantId2,
               kontakt_id: kontaktInfo.typ === 'kontakt' ? kontaktInfo.id : null,
               firma_id:   kontaktInfo.typ === 'firma'   ? kontaktInfo.id : null,
               art: 'email',
               betreff: msg.subject ?? '(kein Betreff)',
-              beschreibung: (msg.body?.content ?? '').replace(/<[^>]*>/g, '').slice(0, 200),
+              beschreibung: bodyText.slice(0, 500),
               datum: (msg.receivedDateTime ?? msg.sentDateTime ?? '').split('T')[0],
               erledigt: false, ganztags: true,
               email_id: msg.id,
               email_conversation_id: msg.conversationId ?? null,
+              email_von: msg.from?.emailAddress?.address ?? null,
+              email_von_name: msg.from?.emailAddress?.name ?? null,
+              email_an: (msg.toRecipients ?? []).map((r: R) => r.emailAddress?.address).join(', ') || null,
+              email_body: bodyText || null,
+              email_body_html: bodyHtml,
             }, { onConflict: 'tenant_id,email_id', ignoreDuplicates: true }).catch(() => {})
           }
         }

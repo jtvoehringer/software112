@@ -41,7 +41,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
       .order('nachname'),
 
     (supabase.from('aktivitaeten') as any)
-      .select('id, art, betreff, beschreibung, datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, kontakt_id, firma_id')
+      .select('id, art, betreff, beschreibung, datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, kontakt_id, firma_id, email_id, email_conversation_id, email_von, email_von_name, email_an, email_body, email_body_html')
       .eq('firma_id', id)
       .order('datum', { ascending: false }),
 
