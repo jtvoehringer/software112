@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
+import EmcsPanel from './EmcsPanel'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 const STATUS_LABEL: Record<string,string> = {
@@ -208,7 +209,11 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
               </div>
             </div>
           </div>
+          <EmcsPanel auftragId={auftrag.id}
+            arcNummer={auftrag.emcs_arc_nummer ?? ''}
+            status={auftrag.emcs_status ?? ''} />
         </div>
+
       </div>
     </div>
   )
