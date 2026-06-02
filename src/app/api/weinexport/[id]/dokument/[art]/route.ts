@@ -43,6 +43,7 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string; art: string }> }
 ) {
+  const { id: auftragId, art } = await params
   const supabase = await createSupabaseServerClient()
   const admin    = createSupabaseAdminClient()
 
@@ -60,8 +61,7 @@ export async function GET(
       .eq('tenant_id', tenantId).maybeSingle(),
   ])
 
-  const { id: auftragId, art } = await params
-  if (!auftragId) return NextResponse.json({ fehler: 'Nicht gefunden' }, { status: 404 })
+  if (!auftrag) return NextResponse.json({ fehler: 'Nicht gefunden' }, { status: 404 })
 
   const a   = auftrag as R
   const pos = (positionen ?? []) as R[]
