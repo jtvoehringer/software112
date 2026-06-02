@@ -66,12 +66,6 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
   const [bResult, setBResult]   = useState<{kontakte: R[]; cluster: Record<string, R[]>; anzahl: number; plz_count: number}|null>(null)
   const [bFehler, setBFehler]   = useState<string|null>(null)
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('ki_abfragen_verlauf')
-      if (saved) setVerlauf(JSON.parse(saved))
-    } catch { /* ignore */ }
-  }, [])
   const current = TABS.find(t => t.id === tab)!
 
   // Besuchsplanung laden
