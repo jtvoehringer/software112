@@ -65,7 +65,7 @@ export async function graphPost(accessToken: string, path: string, body: unknown
     body: JSON.stringify(body),
   })
   if (!res.ok) throw new Error(`Graph POST ${path} fehlgeschlagen: ${res.status} ${await res.text()}`)
-  return res.status === 204 ? null : res.json()
+  return (res.status === 202 || res.status === 204) ? null : res.json()
 }
 
 // Gültigen Access-Token aus DB laden (ggf. refreshen)
