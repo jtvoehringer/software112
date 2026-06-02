@@ -382,7 +382,7 @@ export default function FirmaDetailClient({
     try {
       const res = await fetch('/api/email/unified', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ an: firma.email, firma_id: firma.id, betreff: emailBetreff, text: emailText, firma_id: firma.id }),
+        body: JSON.stringify({ an: firma.email, firma_id: firma.id, betreff: emailBetreff, text: emailText }),
       })
       const json = await res.json()
       if (!res.ok || json.fehler) { setEmailResult('Fehler: ' + (json.fehler ?? 'Unbekannt')); return }
