@@ -209,6 +209,7 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
               </div>
             </div>
           </div>
+          <EmcsPanel auftragId={auftrag.id} arcNummer={auftrag.emcs_arc_nummer ?? ''} status={auftrag.emcs_status ?? ''} />
         </div>
       </div>
     </div>
