@@ -45,6 +45,8 @@ export default function NachrichtenClient() {
   const [forwardMode, setForwardMode]           = useState(false)
   const [sendVon, setSendVon]                   = useState<'own'|'shared'>('own')
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set())
+  const [threadMsgs, setThreadMsgs]             = useState<Msg[]>([])
+  const [threadLaden, setThreadLaden]           = useState(false)
   const loadGenRef = useRef(0)
   const [folders, setFolders]     = useState<{id: string; name: string; unread: number; total: number}[]>([])
   const [folderId, setFolderId]   = useState<string | null>(null)  // null = inbox
@@ -106,6 +108,7 @@ export default function NachrichtenClient() {
 
   async function openMessage(msg: Msg) {
     setDeleteConfirm(false)
+    setThreadMsgs([]); setForwardMode(false)
     if (msg.quelle !== 'm365') { setSelected({ ...msg, bodyHtml: null, bodyText: msg.vorschau, conversationId: null, kontaktInfo: null }); return }
     setDetailLaden(true); setSelected(null)
     const res = await fetch(`/api/nachrichten/message?id=${msg.id}`)
@@ -115,6 +118,14 @@ export default function NachrichtenClient() {
     setSelected(data)
     // Gelesen markieren in Liste
     setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, gelesen: true } : m))
+    // Thread-Nachrichten nachladen (cross-folder)
+    if (data.conversationId) {
+      setThreadLaden(true)
+      fetch(`/api/nachrichten/conversation?id=${encodeURIComponent(data.conversationId)}`)
+        .then(r => r.json()).then(d => {
+          if (d.messages) setThreadMsgs(d.messages.filter((m: Msg) => m.id !== data.id))
+        }).catch(() => {}).finally(() => setThreadLaden(false))
+    }
     // Unread-Zähler im Ordner dekrementieren wenn Nachricht war ungelesen
     if (!msg.gelesen) {
       setFolders(prev => prev.map(f =>
@@ -427,6 +438,33 @@ export default function NachrichtenClient() {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-6">
+              {/* ── Thread-Nachrichten (andere Folder) ── */}
+              {(threadLaden || threadMsgs.length > 0) && (
+                <div className="border-t border-s112-border mt-4 pt-4">
+                  <p className="text-xs font-medium text-s112-muted mb-3 uppercase tracking-wide">
+                    Weitere Nachrichten in diesem Thread {threadLaden && '⏳'}
+                  </p>
+                  <div className="space-y-3">
+                    {threadMsgs.map(tm => (
+                      <div key={tm.id} className="border border-s112-border rounded-xl p-4 hover:bg-s112-bg/30 cursor-pointer"
+                        onClick={() => openMessage(tm)}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-semibold text-gray-800">{tm.vonName || tm.von}</span>
+                          <span className="text-[10px] text-s112-muted">{fmtDate(tm.datum)}</span>
+                        </div>
+                        <p className="text-xs text-gray-700 truncate">{tm.betreff}</p>
+                        {tm.vorschau && <p className="text-[11px] text-s112-muted mt-1 line-clamp-2">{tm.vorschau}</p>}
+                        <div className="flex gap-2 mt-2">
+                          <button onClick={e => { e.stopPropagation(); setCompose(true); setAn(tm.von); setBetreff(`Re: ${tm.betreff}`); setText('') }}
+                            className="text-[10px] text-s112-teal border border-s112-teal/30 px-2 py-0.5 rounded hover:bg-s112-teal/5">
+                            ↩ Antworten
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {selected.bodyHtml ? (
                 <iframe
                   srcDoc={`<base target="_blank"><style>body{font-family:Arial,sans-serif;font-size:13px;color:#374151;margin:0;padding:0}a{color:#2a7c6f}</style>${selected.bodyHtml}`}
