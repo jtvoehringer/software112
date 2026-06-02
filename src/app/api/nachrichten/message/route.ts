@@ -57,11 +57,8 @@ export async function GET(req: NextRequest) {
         else if (f) kontaktInfo = { typ: 'firma', id: (f as R).id, name: (f as R).name, kundennummer: (f as R).kundennummer }
 
         // Eingehende Email als Aktivität speichern (Deduplication via email_id)
-        if (kontaktInfo && msg.id) {
-          const { data: { user } } = await supabase.auth.getUser()
-          const { data: membership } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
-          const tenantId2 = (membership as R | null)?.tenant_id
-          if (tenantId2) {
+        if (kontaktInfo && msg.id && tenantId) {
+          // tenantId + user bereits aus äußerem Scope verfügbar
             const bodyText = (msg.body?.content ?? '').replace(/<[^>]*>/g, '').trim()
             const bodyHtml = msg.body?.contentType === 'html' ? msg.body.content : null
             await (supabase.from('aktivitaeten') as any).upsert({
@@ -81,7 +78,6 @@ export async function GET(req: NextRequest) {
               email_body: bodyText || null,
               email_body_html: bodyHtml,
             }, { onConflict: 'tenant_id,email_id', ignoreDuplicates: true }).catch(() => {})
-          }
         }
       }
 
