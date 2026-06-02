@@ -208,7 +208,6 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
               </div>
             </div>
           </div>
-        </div>
           {/* EMCS */}
           <div className="bg-white rounded-2xl border border-s112-border p-5">
             <h2 className="font-semibold text-gray-800 mb-4">EU EMCS</h2>
