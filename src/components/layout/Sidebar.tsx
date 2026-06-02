@@ -23,7 +23,8 @@ type NavLink = {
 type NavEntry = NavGroup | NavLink
 
 const NAV: NavEntry[] = [
-  { kind: 'link',  href: '/dashboard', label: 'Übersicht', icon: '⊞' },
+  { kind: 'link',  href: '/dashboard',   label: 'Übersicht', icon: '⊞' },
+  { kind: 'link',  href: '/nachrichten', label: 'E-Mail',    icon: '📬' },
 
   {
     kind: 'group', label: 'Weingarten', icon: '🌿',
@@ -67,8 +68,6 @@ const NAV: NavEntry[] = [
       { href: '/controlling/kostenrechnung',label: 'Kostenrechnung',   phase: 3 },
     ],
   },
-
-  { kind: 'link', href: '/nachrichten', label: 'E-Mail', icon: '📬' },
 
   {
     kind: 'group', label: 'CRM', icon: '👥',
