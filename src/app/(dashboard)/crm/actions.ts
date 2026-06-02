@@ -164,7 +164,8 @@ export async function moveAktivitaet(id: string, datum: string, uhrzeit_von: str
   const { error } = await (supabase.from('aktivitaeten') as any)
     .update({ datum, ganztags: !uhrzeit_von && !uhrzeit_bis, uhrzeit_von: uhrzeit_von || null, uhrzeit_bis: uhrzeit_bis || null })
     .eq('id', id)
-  if (error) throw new Error((error as AR).message)
+  if (error) { console.error('[updateAktivitaet] ERROR:', error.message, error.code); throw new Error((error as AR).message) }
+  console.log('[updateAktivitaet] OK')
   revalidatePath('/crm')
   revalidatePath('/crm/kontakte/[id]', 'page')
   revalidatePath('/crm/firmen/[id]', 'page')
@@ -197,6 +198,7 @@ export async function createAktivitaet(formData: FormData) {
 }
 
 export async function updateAktivitaet(id: string, formData: FormData) {
+  console.log('[updateAktivitaet] id:', id, 'art:', formData.get('art'))
   const supabase = await createSupabaseServerClient()
   const ganztags = formData.get('ganztags') !== 'false'
   const payload: AR = {
