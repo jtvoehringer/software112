@@ -27,9 +27,14 @@ export async function GET(req: NextRequest) {
       : 'https://graph.microsoft.com/v1.0/me'
 
     // Alle Nachrichten dieser Conversation laden (alle Ordner)
-    const encId = encodeURIComponent(conversationId)
+    const params = new URLSearchParams({
+      '$filter':  `conversationId eq '${conversationId}'`,
+      '$select':  'id,subject,from,toRecipients,receivedDateTime,sentDateTime,isRead,bodyPreview,conversationId',
+      '$orderby': 'receivedDateTime asc',
+      '$top':     '20',
+    })
     const res = await fetch(
-      `${mailboxBase}/messages?$filter=conversationId eq '${encId}'&$select=id,subject,from,toRecipients,receivedDateTime,sentDateTime,isRead,bodyPreview,conversationId&$orderby=receivedDateTime asc&$top=20`,
+      `${mailboxBase}/messages?${params}`,
       { headers: { Authorization: `Bearer ${token}` } }
     )
     const data = await res.json() as R

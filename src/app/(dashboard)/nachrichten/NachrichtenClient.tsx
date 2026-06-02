@@ -283,64 +283,21 @@ export default function NachrichtenClient() {
         </div>
         {fehler && <p className="text-xs text-red-500 px-4 py-2">{fehler}</p>}
         <div className="flex-1 overflow-y-auto divide-y divide-s112-border/40">
-          {(() => {
-            // Thread-Gruppierung: Nachrichten mit gleicher conversationId zusammenfassen
-            const seen = new Set<string>()
-            const threads: { lead: Msg; replies: Msg[] }[] = []
-            for (const msg of messages) {
-              const cid = msg.conversationId ?? msg.id
-              if (seen.has(cid)) continue
-              seen.add(cid)
-              const replies = msg.conversationId
-                ? messages.filter(m => m.conversationId === msg.conversationId && m.id !== msg.id)
-                : []
-              threads.push({ lead: msg, replies })
-            }
-            return threads.map(({ lead, replies }) => {
-              const cid = lead.conversationId ?? lead.id
-              const isExpanded = expandedThreads.has(cid)
-              const hasThread = replies.length > 0
-              return (
-                <div key={lead.id}>
-                  <button onClick={() => openMessage(lead)}
-                    className={`w-full text-left px-4 py-3 hover:bg-s112-bg/50 transition-colors
-                      ${selected?.id === lead.id ? 'bg-s112-teal/5 border-l-2 border-s112-teal' : ''}
-                      ${!lead.gelesen ? 'bg-blue-50/30' : ''}`}>
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <p className={`text-xs truncate ${!lead.gelesen ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
-                        {folder === 'sent' ? lead.an : (lead.vonName || lead.von)}
-                      </p>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {hasThread && (
-                          <button onClick={e => { e.stopPropagation(); setExpandedThreads(prev => { const s = new Set(prev); isExpanded ? s.delete(cid) : s.add(cid); return s }) }}
-                            className="text-[10px] bg-s112-teal/10 text-s112-teal px-1.5 py-0.5 rounded-full hover:bg-s112-teal/20">
-                            ↳ {replies.length + 1}
-                          </button>
-                        )}
-                        <p className="text-[10px] text-s112-muted">{fmtDate(lead.datum)}</p>
-                      </div>
-                    </div>
-                    <p className={`text-xs truncate ${!lead.gelesen ? 'font-semibold text-gray-800' : 'text-gray-700'}`}>{lead.betreff}</p>
-                    {lead.vorschau && <p className="text-[11px] text-s112-muted truncate mt-0.5">{lead.vorschau}</p>}
-                  </button>
-                  {hasThread && isExpanded && replies.map(reply => (
-                    <button key={reply.id} onClick={() => openMessage(reply)}
-                      className={`w-full text-left pl-8 pr-4 py-2 border-l-2 border-s112-teal/30 hover:bg-s112-bg/50
-                        ${selected?.id === reply.id ? 'bg-s112-teal/5 border-l-2 border-s112-teal' : ''}
-                        ${!reply.gelesen ? 'bg-blue-50/30' : ''}`}>
-                      <div className="flex items-center justify-between gap-2">
-                        <p className={`text-[11px] truncate ${!reply.gelesen ? 'font-semibold text-gray-900' : 'text-gray-600'}`}>
-                          {folder === 'sent' ? reply.an : (reply.vonName || reply.von)}
-                        </p>
-                        <p className="text-[10px] text-s112-muted flex-shrink-0">{fmtDate(reply.datum)}</p>
-                      </div>
-                      {reply.vorschau && <p className="text-[11px] text-s112-muted truncate">{reply.vorschau}</p>}
-                    </button>
-                  ))}
-                </div>
-              )
-            })
-          })()}
+          {messages.map(msg => (
+            <button key={msg.id} onClick={() => openMessage(msg)}
+              className={`w-full text-left px-4 py-3 hover:bg-s112-bg/50 transition-colors
+                ${selected?.id === msg.id ? 'bg-s112-teal/5 border-l-2 border-s112-teal' : ''}
+                ${!msg.gelesen ? 'bg-blue-50/30' : ''}`}>
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <p className={`text-xs truncate ${!msg.gelesen ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
+                  {folder === 'sent' ? msg.an : (msg.vonName || msg.von)}
+                </p>
+                <p className="text-[10px] text-s112-muted flex-shrink-0">{fmtDate(msg.datum)}</p>
+              </div>
+              <p className={`text-xs truncate ${!msg.gelesen ? 'font-semibold text-gray-800' : 'text-gray-700'}`}>{msg.betreff}</p>
+              {msg.vorschau && <p className="text-[11px] text-s112-muted truncate mt-0.5">{msg.vorschau}</p>}
+            </button>
+          ))}
           {!laden && messages.length === 0 && !fehler && (
             <p className="text-center text-s112-muted text-xs py-8">Keine Nachrichten</p>
           )}
@@ -389,13 +346,12 @@ export default function NachrichtenClient() {
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="px-6 py-4 border-b border-s112-border">
               <h2 className="text-base font-bold text-gray-900 mb-2">{selected.betreff}</h2>
-              <div className="flex items-start justify-between gap-4">
-                <div className="text-xs text-s112-muted space-y-0.5">
-                  <p><span className="font-medium text-gray-700">Von:</span> {selected.vonName} &lt;{selected.von}&gt;</p>
-                  {selected.an && <p><span className="font-medium text-gray-700">An:</span> {selected.an}</p>}
-                  <p><span className="font-medium text-gray-700">Datum:</span> {new Date(selected.datum).toLocaleString('de-AT')}</p>
-                </div>
-                <div className="flex gap-2 flex-shrink-0">
+              <div className="text-xs text-s112-muted space-y-0.5">
+                <p><span className="font-medium text-gray-700">Von:</span> {selected.vonName} &lt;{selected.von}&gt;</p>
+                {selected.an && <p><span className="font-medium text-gray-700">An:</span> {selected.an}</p>}
+                <p><span className="font-medium text-gray-700">Datum:</span> {new Date(selected.datum).toLocaleString('de-AT')}</p>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-3">
                   {selected.kontaktInfo && (
                     <Link href={`/crm/${selected.kontaktInfo.typ === 'firma' ? 'firmen' : 'kontakte'}/${selected.kontaktInfo.id}`}
                       className="text-xs text-s112-teal border border-s112-border px-3 py-1.5 rounded-lg hover:bg-s112-bg">
@@ -435,7 +391,6 @@ export default function NachrichtenClient() {
                     </span>
                   )}
                 </div>
-              </div>
             </div>
             <div className="flex-1 overflow-y-auto p-6">
               {/* ── Thread-Nachrichten (andere Folder) ── */}
