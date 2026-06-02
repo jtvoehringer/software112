@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
         : 'https://graph.microsoft.com/v1.0/me'
       const folderPath = folderId ? folderId : (folder === 'sent' ? 'sentItems' : 'inbox')
       const res = await fetch(
-        `${mailboxBase}/mailFolders/${folderPath}/messages?$select=id,subject,from,toRecipients,receivedDateTime,sentDateTime,isRead,bodyPreview&$top=30&$orderby=${folder === 'sent' ? 'sentDateTime' : 'receivedDateTime'} desc`,
+        `${mailboxBase}/mailFolders/${folderPath}/messages?$select=id,subject,from,toRecipients,receivedDateTime,sentDateTime,isRead,bodyPreview,conversationId&$top=30&$orderby=${folder === 'sent' ? 'sentDateTime' : 'receivedDateTime'} desc`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       const data = await res.json() as R
@@ -51,6 +51,7 @@ export async function GET(req: NextRequest) {
         datum: folder === 'sent' ? m.sentDateTime : m.receivedDateTime,
         gelesen: m.isRead ?? false,
         vorschau: m.bodyPreview?.slice(0, 120) ?? '',
+        conversationId: m.conversationId ?? null,
         quelle: 'm365',
       }))
       return NextResponse.json({ messages, quelle: 'm365' })
