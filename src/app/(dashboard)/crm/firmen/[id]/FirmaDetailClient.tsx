@@ -569,9 +569,51 @@ export default function FirmaDetailClient({
             </div>
           ) : (
             <div className="space-y-2">
-              {aktivitaeten.filter(a => a.art !== 'verkauf' && a.art !== 'notiz').map(a => (
-                <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} firmaEmail={firma.email ?? undefined} firmaId={firma.id} />
-              ))}
+              {(() => {
+                const emails = aktivitaeten.filter(a => a.art === 'email')
+                const others = aktivitaeten.filter(a => a.art !== 'verkauf' && a.art !== 'notiz' && a.art !== 'email')
+                // Thread-Gruppierung
+                const threads: Record<string, AktivitaetRow[]> = {}
+                const singles: AktivitaetRow[] = []
+                emails.forEach(a => {
+                  const cid = a.email_conversation_id
+                  if (!cid) { singles.push(a); return }
+                  if (!threads[cid]) threads[cid] = []
+                  threads[cid].push(a)
+                })
+                Object.entries(threads).forEach(([cid, msgs]) => {
+                  if (msgs.length === 1) singles.push(msgs[0])
+                  else threads[cid] = msgs.sort((a,b) => new Date(a.datum).getTime() - new Date(b.datum).getTime())
+                })
+                const threadEntries = Object.entries(threads).filter(([,m]) => m.length > 1)
+                return (<>
+                  {threadEntries.map(([cid, msgs]) => {
+                    const latest = msgs[msgs.length - 1]
+                    const expanded = expandedThreads.has(cid)
+                    return (
+                      <div key={cid} className="border border-s112-border rounded-xl overflow-hidden">
+                        <button type="button"
+                          onClick={() => setExpandedThreads(prev => { const s=new Set(prev); expanded?s.delete(cid):s.add(cid); return s })}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 transition-colors text-left">
+                          <span className="text-base">✉️</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-800 truncate">{latest.betreff}</p>
+                            <p className="text-xs text-s112-muted">{msgs.length} E-Mails · {new Date(latest.datum).toLocaleDateString('de-AT')} · {expanded ? 'einklappen ▴' : 'ausklappen ▾'}</p>
+                          </div>
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">{msgs.length}</span>
+                        </button>
+                        {expanded && (
+                          <div className="divide-y divide-s112-border/40">
+                            {msgs.map(a => <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} firmaEmail={firma.email ?? undefined} firmaId={firma.id} />)}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                  {singles.map(a => <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} firmaEmail={firma.email ?? undefined} firmaId={firma.id} />)}
+                  {others.map(a => <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} firmaEmail={firma.email ?? undefined} firmaId={firma.id} />)}
+                </>)
+              })()}
             </div>
           )}
         </div>
