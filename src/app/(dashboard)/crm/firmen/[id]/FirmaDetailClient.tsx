@@ -121,9 +121,12 @@ function PipelineForm({ firmaId, onDone }: { firmaId: string; onDone: () => void
 
 // ── Aktivitäts-Karte ──────────────────────────────────────────────────────────
 
-function AktivitaetKarte({ a, writeOk }: { a: AktivitaetRow; writeOk: boolean }) {
+function AktivitaetKarte({ a, writeOk, firmaEmail }: { a: AktivitaetRow; writeOk: boolean; firmaEmail?: string }) {
   const [pending, startTransition] = useTransition()
   const [editMode, setEditMode]   = useState(false)
+  const [replyOpen, setReplyOpen]   = useState(false)
+  const [replyText, setReplyText]   = useState('')
+  const [replySending, setReplySending] = useState(false)
   const [ganztags, setGanztags]   = useState(a.ganztags ?? true)
   const artDef = AKTIVITAET_ARTEN.find(x => x.value === a.art)
   const von = fmtUhrzeit(a.uhrzeit_von)
@@ -276,20 +279,56 @@ function AktivitaetKarte({ a, writeOk }: { a: AktivitaetRow; writeOk: boolean })
           )}
           <span className="text-xs text-s112-muted">{artDef?.label ?? a.art}</span>
         </div>
-        <p className={`text-sm font-medium text-gray-800 mt-0.5 ${a.erledigt ? 'line-through text-gray-400' : ''}`}>
-          {a.betreff}
-        </p>
+        {a.art === 'email' ? (
+          <a href="/nachrichten" className={`text-sm font-medium text-s112-teal hover:underline mt-0.5 block ${a.erledigt ? 'line-through opacity-50' : ''}`}>
+            {a.betreff}
+          </a>
+        ) : (
+          <p className={`text-sm font-medium text-gray-800 mt-0.5 ${a.erledigt ? 'line-through text-gray-400' : ''}`}>
+            {a.betreff}
+          </p>
+        )}
         {a.beschreibung && (
           <p className="text-xs text-gray-500 mt-0.5">{a.beschreibung}</p>
         )}
+        {a.art === 'email' && replyOpen && (
+          <div className="mt-2 space-y-2">
+            <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={3}
+              placeholder={`Antwort an ${firmaEmail ?? '...'}`}
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
+            <div className="flex gap-2">
+              <button type="button" disabled={replySending || !replyText.trim()} onClick={async () => {
+                if (!firmaEmail || !replyText.trim()) return
+                setReplySending(true)
+                await fetch('/api/email/unified', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ an: firmaEmail, betreff: `Re: ${a.betreff ?? ''}`, text: replyText }),
+                })
+                setReplySending(false); setReplyOpen(false); setReplyText('')
+              }} className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg hover:bg-opacity-90 disabled:opacity-40">
+                {replySending ? 'Senden…' : '↩ Senden'}
+              </button>
+              <button type="button" onClick={() => setReplyOpen(false)}
+                className="text-xs border border-s112-border text-gray-600 px-3 py-1.5 rounded-lg hover:bg-s112-bg">
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        )}
       </div>
-      {writeOk && (
-        <button type="button" onClick={() => setEditMode(true)}
-          title="Bearbeiten"
-          className="flex-shrink-0 text-gray-300 hover:text-s112-teal transition-colors mt-0.5 text-base leading-none">
-          ✏
-        </button>
-      )}
+      <div className="flex flex-col gap-1 flex-shrink-0">
+        {a.art === 'email' && firmaEmail && !replyOpen && (
+          <button type="button" onClick={() => setReplyOpen(true)} title="Antworten"
+            className="text-xs text-s112-teal border border-s112-teal/30 px-2 py-1 rounded-lg hover:bg-s112-teal/5">
+            ↩
+          </button>
+        )}
+        {writeOk && a.art !== 'email' && (
+          <button type="button" onClick={() => setEditMode(true)} title="Bearbeiten"
+            className="text-gray-300 hover:text-s112-teal transition-colors text-base leading-none">
+            ✏
+          </button>
+        )}
     </div>
   )
 }
@@ -503,7 +542,7 @@ export default function FirmaDetailClient({
           ) : (
             <div className="space-y-2">
               {aktivitaeten.filter(a => a.art !== 'verkauf' && a.art !== 'notiz').map(a => (
-                <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} />
+                <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} firmaEmail={firma.email ?? undefined} />
               ))}
             </div>
           )}
