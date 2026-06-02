@@ -580,6 +580,19 @@ export default function KontakteClient({
 
   return (
     <div className="space-y-4">
+      {/* Alphabet-Filter */}
+      <div className="flex flex-wrap gap-0.5">
+        {BUCHSTABEN.map(b => (
+          <button key={b} onClick={() => setBuchstabe(b)}
+            className={`min-w-[1.75rem] px-1 py-0.5 text-xs font-medium rounded transition-colors
+              ${buchstabe === b
+                ? 'bg-s112-teal text-white'
+                : 'bg-s112-bg text-gray-500 hover:bg-s112-teal/10 hover:text-s112-teal'}`}>
+            {b}
+          </button>
+        ))}
+      </div>
+      
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">
         <input
