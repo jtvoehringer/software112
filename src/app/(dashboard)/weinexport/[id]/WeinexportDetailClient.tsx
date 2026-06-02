@@ -211,7 +211,7 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
         </div>
           {/* EMCS */}
           <div className="bg-white rounded-2xl border border-s112-border p-5">
-            <h2 className="font-semibold text-gray-800 mb-4">🇪🇺 EMCS</h2>
+            <h2 className="font-semibold text-gray-800 mb-4">EU EMCS</h2>
             <div className="space-y-3">
               <div>
                 <label className="block text-xs text-s112-muted mb-1">ARC-Nummer</label>
@@ -239,11 +239,11 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
                 setEmcsSaving(false)
               }} disabled={emcsSaving}
                 className="w-full text-xs bg-s112-teal text-white py-1.5 rounded-lg hover:bg-opacity-90 disabled:opacity-40">
-                {emcsSaving ? 'Speichern…' : '💾 EMCS speichern'}
+                {emcsSaving ? 'Speichern...' : ' EMCS speichern'}
               </button>
               <a href={`/api/weinexport/${auftrag.id}/emcs`}
                 className="block w-full text-center text-xs border border-s112-border text-gray-600 py-1.5 rounded-lg hover:bg-s112-bg">
-                📥 e-AD XML herunterladen
+                 e-AD XML herunterladen
               </a>
               <p className="text-[10px] text-s112-muted">XML in EMCS AT oder FinanzOnline importieren</p>
             </div>
