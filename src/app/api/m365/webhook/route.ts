@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
       const msgId = notification.resourceData?.id
       if (!msgId) continue
       const accessToken = await getValidAccessToken(cfg as R, admin)
-      const msg = await graphGet(accessToken, `/me/messages/${msgId}?$select=subject,from,receivedDateTime,internetMessageId`)
+      const msg = await graphGet(accessToken, `/me/messages/${msgId}?$select=subject,from,receivedDateTime,internetMessageId,bodyPreview,conversationId`)
       const from  = msg.from?.emailAddress?.address?.toLowerCase() ?? ''
       const match = emailMap[from]
       if (!match) continue
@@ -48,9 +48,10 @@ export async function POST(req: NextRequest) {
       await (admin.from('aktivitaeten') as any).insert({
         tenant_id: tenantId, kontakt_id: match.kontakt_id ?? null, firma_id: match.firma_id ?? null,
         art: 'email', betreff: msg.subject ?? '(kein Betreff)',
-        beschreibung: `Eingehende E-Mail von ${from}`,
+        beschreibung: msg.bodyPreview ? msg.bodyPreview.slice(0, 300) : `Eingehende E-Mail von ${from}`,
         datum: msg.receivedDateTime?.split('T')[0] ?? new Date().toISOString().split('T')[0],
         erledigt: false, ganztags: true,
+        notizen: [msg.internetMessageId ? `message-id: ${msg.internetMessageId}` : null, msg.conversationId ? `thread: ${msg.conversationId}` : null].filter(Boolean).join(' | ') || null,
       })
     }
     return NextResponse.json({ ok: true })
