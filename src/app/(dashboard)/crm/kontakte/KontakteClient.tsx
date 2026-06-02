@@ -57,6 +57,8 @@ function KontaktForm({
   onDone: () => void
 }) {
   const router = useRouter()
+  const BUCHSTABEN = ['Alle', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')]
+  const [buchstabe, setBuchstabe] = useState('Alle')
   const [pending, startTransition] = useTransition()
   const [stammkunde, setStammkunde] = useState(initial?.stammkunde ?? false)
   const [isLead, setIsLead]           = useState(initial?.is_lead ?? true)
@@ -567,7 +569,8 @@ export default function KontakteClient({
       const name = [k.kundennummer, k.vorname, k.nachname, k.email, k.mobil, k.telefon, k.firma_name].filter(Boolean).join(' ').toLowerCase()
       const matchSuche = !suche || name.includes(suche.toLowerCase())
       const matchSeg = segment === 'alle' || k.segment === segment
-      return matchSuche && matchSeg
+      const matchAlpha = buchstabe === 'Alle' || (k.nachname ?? '').toUpperCase().startsWith(buchstabe)
+      return matchSuche && matchSeg && matchAlpha
     })
     .sort((a, b) => {
       const ka = sortBy === 'nachname' ? a.nachname : (a.vorname ?? a.nachname)

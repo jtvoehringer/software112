@@ -40,6 +40,8 @@ const LAENDER = ['AT', 'DE', 'CH', 'IT', 'FR', 'HU', 'SK', 'CZ', 'US', 'GB']
 function FirmaForm({ initial, rabattgruppen, defaultSegment, onDone }: { initial?: FirmaRow | null; rabattgruppen: {id:string;name:string;rabatt_pct:number}[]; defaultSegment?: string; onDone: () => void }) {
   const [pending, startTransition] = useTransition()
   const router = useRouter()
+  const BUCHSTABEN = ['Alle', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')]
+  const [buchstabe, setBuchstabe] = useState('Alle')
   const [segmentVal, setSegmentVal] = useState(initial?.segment ?? defaultSegment ?? 'handel')
   const [isLead, setIsLead]           = useState(initial?.is_lead ?? true)
   const [landVal, setLandVal]           = useState(initial?.land ?? 'AT')
@@ -329,8 +331,9 @@ export default function FirmenClient({
 
   const gefiltert = firmen.filter(f => {
     const text = [f.kundennummer, f.name, f.ort, f.email, f.telefon].filter(Boolean).join(' ').toLowerCase()
+    const matchAlpha = buchstabe === 'Alle' || (f.name ?? '').toUpperCase().startsWith(buchstabe)
     return (!suche || text.includes(suche.toLowerCase())) &&
-           (segment === 'alle' || f.segment === segment)
+           (segment === 'alle' || f.segment === segment) && matchAlpha
   })
 
   const bSegmente = SEGMENTE.filter(s => s.value !== 'privat')
@@ -338,7 +341,20 @@ export default function FirmenClient({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <input type="search" placeholder="Name, Kundennummer, E-Mail, Ort…"
+      {/* Alphabet-Filter */}
+      <div className="flex flex-wrap gap-0.5">
+        {BUCHSTABEN.map(b => (
+          <button key={b} onClick={() => setBuchstabe(b)}
+            className={`min-w-[1.75rem] px-1 py-0.5 text-xs font-medium rounded transition-colors
+              ${buchstabe === b
+                ? 'bg-s112-teal text-white'
+                : 'bg-s112-bg text-gray-500 hover:bg-s112-teal/10 hover:text-s112-teal'}`}>
+            {b}
+          </button>
+        ))}
+      </div>
+
+              <input type="search" placeholder="Name, Kundennummer, E-Mail, Ort…"
           value={suche} onChange={e => setSuche(e.target.value)}
           className="border border-s112-border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         <div className="flex gap-1">
