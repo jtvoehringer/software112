@@ -370,7 +370,6 @@ export default function KontaktDetailClient({
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           an: kontakt.email, betreff: emailBetreff, text: emailText, kontakt_id: kontakt.id,
-          kontakt_id: kontakt.id,
         }),
       })
       const json = await res.json()
