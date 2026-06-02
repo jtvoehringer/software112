@@ -270,9 +270,14 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail }: { a: AktivitaetRow; write
           <span className="text-xs text-s112-muted">{artDef?.label ?? a.art}</span>
         </div>
         {a.art === 'email' ? (
-          <p className={`text-sm font-medium text-gray-800 mt-0.5 ${a.erledigt ? 'line-through text-gray-400' : ''}`}>
-            {a.betreff}
-          </p>
+          a.email_id
+            ? <a href={`/nachrichten?emailId=${encodeURIComponent(a.email_id)}`}
+                className={`text-sm font-medium text-s112-teal hover:underline mt-0.5 block ${a.erledigt ? 'line-through opacity-50' : ''}`}>
+                {a.betreff}
+              </a>
+            : <p className={`text-sm font-medium text-gray-800 mt-0.5 ${a.erledigt ? 'line-through text-gray-400' : ''}`}>
+                {a.betreff}
+              </p>
         ) : (
           <p className={`text-sm font-medium text-gray-800 mt-0.5 ${a.erledigt ? 'line-through text-gray-400' : ''}`}>
             {a.betreff}
@@ -312,6 +317,13 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail }: { a: AktivitaetRow; write
           <button type="button" onClick={() => setReplyOpen(true)} title="Antworten"
             className="text-xs text-s112-teal border border-s112-teal/30 px-2 py-1 rounded-lg hover:bg-s112-teal/5">
             ↩
+          </button>
+        )}
+        {writeOk && a.art === 'email' && (
+          <button type="button" title="Email-Aktivität löschen"
+            onClick={() => { if (confirm('Email aus Aktivitätenliste entfernen?')) startTransition(async () => { await deleteAktivitaet(a.id) }) }}
+            className="text-gray-300 hover:text-red-400 transition-colors text-sm leading-none">
+            ✕
           </button>
         )}
         {writeOk && a.art !== 'email' && (

@@ -134,6 +134,8 @@ export type AktivitaetRow = {
   kontakt_name?: string | null
   firma_id: string | null
   firma_name?: string | null
+  email_id?: string | null
+  email_conversation_id?: string | null
 }
 
 export type PipelineEintragRow = {

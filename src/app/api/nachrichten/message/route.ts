@@ -55,6 +55,27 @@ export async function GET(req: NextRequest) {
           .select('id, name, kundennummer').eq('email', fromEmail).maybeSingle()
         if (k) kontaktInfo = { typ: 'kontakt', id: (k as R).id, name: [(k as R).vorname, (k as R).nachname].filter(Boolean).join(' '), kundennummer: (k as R).kundennummer }
         else if (f) kontaktInfo = { typ: 'firma', id: (f as R).id, name: (f as R).name, kundennummer: (f as R).kundennummer }
+
+        // Eingehende Email als Aktivität speichern (Deduplication via email_id)
+        if (kontaktInfo && msg.id) {
+          const { data: { user } } = await supabase.auth.getUser()
+          const { data: membership } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
+          const tenantId2 = (membership as R | null)?.tenant_id
+          if (tenantId2) {
+            await (supabase.from('aktivitaeten') as any).upsert({
+              tenant_id: tenantId2,
+              kontakt_id: kontaktInfo.typ === 'kontakt' ? kontaktInfo.id : null,
+              firma_id:   kontaktInfo.typ === 'firma'   ? kontaktInfo.id : null,
+              art: 'email',
+              betreff: msg.subject ?? '(kein Betreff)',
+              beschreibung: (msg.body?.content ?? '').replace(/<[^>]*>/g, '').slice(0, 200),
+              datum: (msg.receivedDateTime ?? msg.sentDateTime ?? '').split('T')[0],
+              erledigt: false, ganztags: true,
+              email_id: msg.id,
+              email_conversation_id: msg.conversationId ?? null,
+            }, { onConflict: 'tenant_id,email_id', ignoreDuplicates: true }).catch(() => {})
+          }
+        }
       }
 
       return NextResponse.json({

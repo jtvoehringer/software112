@@ -62,6 +62,17 @@ export default function NachrichtenClient() {
       setFehler('Verbindungsfehler: ' + params.get('fehler'))
       window.history.replaceState({}, '', '/nachrichten')
     }
+    // emailId aus CRM-Link: direkt öffnen
+    const emailId = params.get('emailId')
+    if (emailId) {
+      window.history.replaceState({}, '', '/nachrichten')
+      // Kurz warten bis Verbindung geprüft, dann Email laden
+      setTimeout(async () => {
+        const res = await fetch(`/api/nachrichten/message?id=${encodeURIComponent(emailId)}`)
+        const data = await res.json()
+        if (!data.fehler) setSelected(data)
+      }, 800)
+    }
     // Verbindungsstatus prüfen
     fetch('/api/nachrichten/list?folder=inbox').then(async r => {
       const data = await r.json()

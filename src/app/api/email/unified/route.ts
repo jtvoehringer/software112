@@ -40,22 +40,36 @@ export async function POST(req: NextRequest) {
       const empfaenger = an.split(',').map((e: string) => e.trim()).filter(Boolean)
       // Shared Mailbox als Absender wenn explizit gewählt (erfordert Send-As-Rechte in Exchange)
       const sharedMailbox = useSharedMailbox ? ((uc as R).monitored_email as string | null) : null
-      const sendEndpoint = sharedMailbox
-        ? `/users/${encodeURIComponent(sharedMailbox)}/sendMail`
-        : '/me/sendMail'
+      // Draft erstellen → senden → ID holen
+      const mailboxBase2 = sharedMailbox
+        ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(sharedMailbox)}`
+        : 'https://graph.microsoft.com/v1.0/me'
       const messagePayload: R = {
         subject: betreff,
         body: { contentType: 'Text', content: text ?? '' },
         toRecipients: empfaenger.map((addr: string) => ({ emailAddress: { address: addr } })),
       }
-      if (sharedMailbox) {
-        messagePayload.from = { emailAddress: { address: sharedMailbox } }
+      if (sharedMailbox) messagePayload.from = { emailAddress: { address: sharedMailbox } }
+      // Draft anlegen
+      const draftRes = await fetch(`${mailboxBase2}/messages`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(messagePayload),
+      })
+      const draft = await draftRes.json() as R
+      const draftId = draft.id as string | undefined
+      const convId  = draft.conversationId as string | undefined
+      // Draft senden
+      if (draftId) {
+        await fetch(`${mailboxBase2}/messages/${draftId}/send`, {
+          method: 'POST', headers: { Authorization: `Bearer ${token}` },
+        })
       }
-      await graphPost(token, sendEndpoint, { message: messagePayload, saveToSentItems: true })
       await (admin.from('aktivitaeten') as any).insert({
         tenant_id: tenantId, kontakt_id: kontakt_id ?? null, firma_id: firma_id ?? null,
         art: 'email', betreff, beschreibung: text?.slice(0, 200) ?? null,
-        datum: new Date().toISOString().split('T')[0], erledigt: true, ganztags: true,
+        datum: new Date().toISOString().split('T')[0], erledigt: false, ganztags: true,
+        email_id: draftId ?? null, email_conversation_id: convId ?? null,
       })
       return NextResponse.json({ ok: true, via: 'm365' })
     }
@@ -74,7 +88,7 @@ export async function POST(req: NextRequest) {
       await (admin.from('aktivitaeten') as any).insert({
         tenant_id: tenantId, kontakt_id: kontakt_id ?? null, firma_id: firma_id ?? null,
         art: 'email', betreff, beschreibung: text?.slice(0, 200) ?? null,
-        datum: new Date().toISOString().split('T')[0], erledigt: true, ganztags: true,
+        datum: new Date().toISOString().split('T')[0], erledigt: false, ganztags: true,
       })
       return NextResponse.json({ ok: true, via: 'smtp' })
     }
