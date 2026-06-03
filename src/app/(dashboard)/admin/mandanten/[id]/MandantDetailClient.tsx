@@ -148,7 +148,8 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
 
 // ── Tab: Benutzer ─────────────────────────────────────────────────────────────
 
-function BenutzerTab({ tenant, members }: { tenant: TenantDetail; members: TenantMember[] }) {
+function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail; members: TenantMember[] }) {
+  const [members, setMembers]         = useState<TenantMember[]>(initialMembers)
   const [showInvite, setShowInvite]   = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole]   = useState('winzer')
