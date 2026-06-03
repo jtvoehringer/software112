@@ -111,7 +111,7 @@ export async function removeMemberAdmin(membershipId: string, tenantId: string) 
     .delete().eq('id', membershipId)
 
   if (error) return { error: (error as R).message }
-  revalidatePath(`/admin/mandanten/${tenantId}`)
+  // KEIN revalidatePath – Client entfernt den Eintrag aus dem State
   return { success: true }
 }
 

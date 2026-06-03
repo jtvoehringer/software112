@@ -182,7 +182,10 @@ function BenutzerTab({ tenant, members }: { tenant: TenantDetail; members: Tenan
     setError(null)
     startTransition(async () => {
       const r = await removeMemberAdmin(m.id, tenant.id)
-      if (r.error) setError(r.error)
+      if (r.error) { setError(r.error); return }
+      // Mitglied aus State entfernen ohne Seite neu zu laden
+      setMembers(prev => prev.filter(x => x.id !== m.id))
+      setSuccess(`${m.email} wurde entfernt.`)
     })
   }
 
