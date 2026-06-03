@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
 
   if (action === 'eintraege') {
     const { data } = await (supabase.from('kosteneintraege') as any)
-      .select('id, datum, betrag, beschreibung, objekt_typ, periode, kostenstelle:kostenstelle_id(name), kostenart:kostenart_id(name), ried:ried_id(bezeichnung), behaelter:behaelter_id(name)')
+      .select('id, datum, betrag, beschreibung, objekt_typ, periode, kostenstelle:kostenstelle_id(name), kostenart:kostenart_id(name), ried:ried_id(name), behaelter:behaelter_id(name)')
       .eq('tenant_id', tenantId).order('datum', { ascending: false }).limit(300)
     return NextResponse.json({ eintraege: data ?? [] })
   }
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
   }
   if (action === 'rieden') {
     const { data } = await (supabase.from('lagen') as any)
-      .select('id, bezeichnung').eq('tenant_id', tenantId).eq('aktiv', true).order('bezeichnung')
+      .select('id, name').eq('tenant_id', tenantId).order('name')
     return NextResponse.json({ rieden: data ?? [] })
   }
   if (action === 'behaelter') {
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
   if (action === 'auswertung') {
     const jahr = req.nextUrl.searchParams.get('jahr') ?? new Date().getFullYear().toString()
     const { data } = await (supabase.from('kosteneintraege') as any)
-      .select('betrag, periode, objekt_typ, kostenstelle:kostenstelle_id(name), kostenart:kostenart_id(name), ried:ried_id(bezeichnung), behaelter:behaelter_id(name)')
+      .select('betrag, periode, objekt_typ, kostenstelle:kostenstelle_id(name), kostenart:kostenart_id(name), ried:ried_id(name), behaelter:behaelter_id(name)')
       .eq('tenant_id', tenantId)
       .gte('datum', `${jahr}-01-01`).lte('datum', `${jahr}-12-31`)
     return NextResponse.json({ eintraege: data ?? [], jahr })

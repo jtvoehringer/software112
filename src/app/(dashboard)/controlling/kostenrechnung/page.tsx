@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 
 type KS  = { id: string; name: string; kuerzel?: string }
 type KA  = { id: string; name: string; kategorie?: string }
-type RL  = { id: string; bezeichnung: string }
+type RL  = { id: string; name: string }
 type BH  = { id: string; name: string; typ?: string }
 type Eintrag = {
   id: string; datum: string; betrag: number; beschreibung: string | null
@@ -100,7 +100,7 @@ export default function KostenrechnungPage() {
 
   const objektLabel = (e: Eintrag) => {
     if (!e.objekt_typ) return '–'
-    if (e.objekt_typ === 'weingarten') return e.ried ? e.ried.bezeichnung : 'Alle Rieden'
+    if (e.objekt_typ === 'weingarten') return e.ried ? e.ried.name : 'Alle Rieden'
     if (e.objekt_typ === 'keller')     return e.behaelter ? e.behaelter.name : 'Alle Behälter'
     return '–'
   }
@@ -162,7 +162,7 @@ export default function KostenrechnungPage() {
               <select value={riedId} onChange={e => setRiedId(e.target.value)}
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                 <option value="">Alle Rieden</option>
-                {rieden.map(r => <option key={r.id} value={r.id}>{r.bezeichnung}</option>)}
+                {rieden.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
               </select>
             </div>
           )}
@@ -289,7 +289,7 @@ export default function KostenrechnungPage() {
               <div className="space-y-2">
                 {sumBy(awDaten, e => {
                   if (!e.objekt_typ) return 'Allgemein'
-                  if (e.objekt_typ === 'weingarten') return e.ried ? `Riede: ${e.ried.bezeichnung}` : 'Alle Rieden'
+                  if (e.objekt_typ === 'weingarten') return e.ried ? `Riede: ${e.ried.name}` : 'Alle Rieden'
                   return e.behaelter ? `Tank: ${e.behaelter.name}` : 'Alle Behälter'
                 }, e => e.betrag).map(([name, sum]) => (
                   <div key={name} className="flex justify-between text-sm">
