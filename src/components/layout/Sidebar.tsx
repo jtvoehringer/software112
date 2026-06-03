@@ -171,12 +171,12 @@ function NavGroupItem({
       <button
         onClick={() => setOpen(o => !o)}
         className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors
-          ${active ? 'text-s112-teal font-semibold' : 'text-s112-teal/70 hover:bg-s112-teal/10 hover:text-s112-teal'}`}
+          ${active ? 'text-s112-teal font-semibold' : 'text-s112-teal hover:bg-s112-teal/10'}`}
       >
         <span className="w-5 text-center text-base">{entry.icon}</span>
         <span className="flex-1 text-left">{entry.label}</span>
         <svg
-          className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? 'rotate-90' : ''}`}
+          className={`w-3.5 h-3.5 text-s112-teal transition-transform ${open ? 'rotate-90' : ''}`}
           fill="none" stroke="currentColor" viewBox="0 0 24 24"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
