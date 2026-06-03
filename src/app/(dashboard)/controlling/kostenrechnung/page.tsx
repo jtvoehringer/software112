@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 type KS = { id: string; name: string }
 type KA = { id: string; name: string; kategorie?: string }
@@ -23,7 +24,8 @@ function sumBy<T>(arr: T[], key: (t: T) => string, val: (t: T) => number) {
 }
 
 export default function KostenrechnungPage() {
-  const [tab, setTab] = useState<Tab>('buchungen')
+  const searchParams = useSearchParams()
+  const [tab, setTab] = useState<Tab>((searchParams.get('tab') as Tab) ?? 'buchungen')
   const [eintraege, setEintraege] = useState<Eintrag[]>([])
   const [ks, setKs] = useState<KS[]>([])
   const [ka, setKa] = useState<KA[]>([])
@@ -353,6 +355,10 @@ export default function KostenrechnungPage() {
               {[2026,2025,2024,2023].map(y => <option key={y}>{y}</option>)}
             </select>
             <span className="text-sm text-s112-muted">Gesamt: <strong className="text-gray-800">{eur(awDaten.reduce((s,e)=>s+e.betrag,0))}</strong></span>
+          <button onClick={() => window.print()}
+            className="ml-auto text-xs border border-s112-border px-3 py-1.5 rounded-lg hover:bg-s112-bg flex items-center gap-1.5 print:hidden">
+            🖨 Drucken / PDF
+          </button>
           </div>
           <div className="grid grid-cols-3 gap-4">
             {[
@@ -381,7 +387,7 @@ export default function KostenrechnungPage() {
                 })
                 // Buchungen ohne Split (alle WG)
                 const ohneSplit = awDaten.filter(e => e.objekt_typ === 'weingarten' && (!e.wg_splits || e.wg_splits.length === 0))
-                if (ohneSplit.length > 0) m['Alle WG'] = (m['Alle WG'] || 0) + ohneplit.reduce((s,e)=>s+e.betrag,0)
+                if (ohneSplit.length > 0) m['Alle WG'] = (m['Alle WG'] || 0) + ohneSplit.reduce((s,e)=>s+e.betrag,0)
                 return Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([n,s]) => (
                   <div key={n} className="flex justify-between text-sm mb-1.5">
                     <span className="text-gray-600 truncate mr-2">{n}</span>

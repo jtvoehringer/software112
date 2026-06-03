@@ -80,7 +80,14 @@ const NAV: NavEntry[] = [
     ],
   },
 
-  { kind: 'link', href: '/reports', label: 'Auswertungen', icon: '📋' },
+  {
+    kind: 'group', label: 'Auswertungen', icon: '📋',
+    items: [
+      { href: '/reports',                     label: 'Behörden & Reports' },
+      { href: '/controlling/kostenrechnung',  label: 'Kosten-Auswertung' },
+      { href: '/auswertungen/besuchsplanung', label: 'Besuchsplanung' },
+    ],
+  },
   { kind: 'link', href: '/ki',      label: 'Frag dein Weingut', icon: '🤖' },
 
   {
