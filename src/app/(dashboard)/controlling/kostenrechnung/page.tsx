@@ -66,13 +66,7 @@ export default function KostenrechnungPage() {
   }
 
   useEffect(() => { ladeDaten() }, [])
-  useEffect(() => { if (tab === 'auswertung') ladeAuswertung(awJahr) }, [tab])
 
-  async function ladeAuswertung(jahr: string) {
-    const d = await fetch(`/api/kostenrechnung?action=auswertung&jahr=${jahr}`).then(r => r.json())
-    setAwDaten(d.eintraege ?? [])
-    setAwSplits(d.splits ?? [])
-  }
 
   function toggleWg(id: string) {
     setSelectedWgs(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
