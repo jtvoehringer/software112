@@ -81,32 +81,6 @@ export async function GET(req: NextRequest) {
     }
     return NextResponse.json({ eintraege: ke ?? [], splits, jahr })
   }
-  // Kostenstelle anlegen/bearbeiten/löschen
-  if (b.action === 'ks_save') {
-    if (b.id) {
-      await (s.from('kostenstellen') as any).update({ name: b.name, kuerzel: b.kuerzel||null, beschreibung: b.beschreibung||null }).eq('id', b.id).eq('tenant_id', t)
-    } else {
-      await (s.from('kostenstellen') as any).insert({ tenant_id: t, name: b.name, kuerzel: b.kuerzel||null, beschreibung: b.beschreibung||null })
-    }
-    return NextResponse.json({ ok: true })
-  }
-  if (b.action === 'ks_delete') {
-    await (s.from('kostenstellen') as any).update({ aktiv: false }).eq('id', b.id).eq('tenant_id', t)
-    return NextResponse.json({ ok: true })
-  }
-  // Kostenart anlegen/bearbeiten/löschen
-  if (b.action === 'ka_save') {
-    if (b.id) {
-      await (s.from('kostenarten') as any).update({ name: b.name, kuerzel: b.kuerzel||null, kategorie: b.kategorie||null }).eq('id', b.id).eq('tenant_id', t)
-    } else {
-      await (s.from('kostenarten') as any).insert({ tenant_id: t, name: b.name, kuerzel: b.kuerzel||null, kategorie: b.kategorie||null })
-    }
-    return NextResponse.json({ ok: true })
-  }
-  if (b.action === 'ka_delete') {
-    await (s.from('kostenarten') as any).update({ aktiv: false }).eq('id', b.id).eq('tenant_id', t)
-    return NextResponse.json({ ok: true })
-  }
   return NextResponse.json({ fehler: 'Unbekannte Aktion' }, { status: 400 })
 }
 
