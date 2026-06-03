@@ -154,6 +154,7 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
               <h2 className="font-semibold text-gray-800">Dokumente</h2>
               <span className="text-xs text-s112-muted">{ausgestellt}/{gesamt}</span>
             </div>
+            <p className="text-[10px] text-s112-muted mt-1">Nur 'Ausgestellt' zählt zum Fortschritt</p>
             {/* Progress Bar */}
             <div className="w-full bg-gray-100 rounded-full h-1.5 mb-4">
               <div className="bg-s112-teal h-1.5 rounded-full transition-all"
