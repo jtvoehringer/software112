@@ -57,6 +57,7 @@ const NAV: NavEntry[] = [
       { href: '/weinhandel/offene-posten',  label: 'Offene Posten',  phase: 1 },
       { href: '/weinhandel/preisliste',    label: 'Preisliste',     phase: 1 },
       { href: '/weinhandel/rabattgruppen', label: 'Rabattgruppen',  phase: 1 },
+      { href: '/weinexport',               label: 'Exportaufträge' },
     ],
   },
 
@@ -76,14 +77,6 @@ const NAV: NavEntry[] = [
       { href: '/crm/kontakte',  label: 'Kontakte'  },
       { href: '/crm/firmen',    label: 'Firmen'    },
       { href: '/crm/pipeline',  label: 'Pipeline'  },
-    ],
-  },
-
-  {
-    kind: 'group', label: 'Weinexport', icon: '🚢',
-    items: [
-      { href: '/weinexport',          label: 'Exportaufträge' },
-      { href: '/weinexport/neu',      label: 'Neuer Auftrag', child: true },
     ],
   },
 
@@ -112,7 +105,7 @@ const NAV: NavEntry[] = [
 // ── Hilfsfunktionen ───────────────────────────────────────────────
 
 // Paths that only match exactly (no prefix-matching for sub-routes)
-const EXACT_PATHS = new Set(['/dashboard', '/crm', '/weinhandel', '/weinexport'])
+const EXACT_PATHS = new Set(['/dashboard', '/crm', '/weinhandel'])
 
 function isActive(href: string, pathname: string) {
   return pathname === href || (!EXACT_PATHS.has(href) && pathname.startsWith(href))
