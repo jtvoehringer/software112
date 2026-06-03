@@ -7,6 +7,8 @@ export default function UpdatePasswordPage() {
   const router = useRouter()
   const supabase = createSupabaseBrowserClient()
   const [password, setPassword] = useState('')
+  // Einladung oder Passwort-Reset?
+  const isInvite = typeof window !== 'undefined' && window.location.href.includes('invite')
   const [confirm, setConfirm]   = useState('')
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState<string | null>(null)
@@ -27,10 +29,11 @@ export default function UpdatePasswordPage() {
         <h1 className="text-3xl font-bold text-s112-teal inline-flex items-baseline gap-0">
           software<span className="text-s112-yellow">:</span>112
         </h1>
-        <p className="text-s112-muted text-sm mt-1">Neues Passwort setzen</p>
+        <p className="text-s112-muted text-sm mt-1">Passwort festlegen</p>
       </div>
       <div className="card">
-        <h2 className="text-lg font-semibold text-gray-800 mb-5">Passwort ändern</h2>
+        <h2 className="text-lg font-semibold text-gray-800 mb-2">Passwort festlegen</h2>
+        <p className="text-sm text-s112-muted mb-4">Lege ein sicheres Passwort fest um dich kuenftig einloggen zu koennen.</p>
         <form onSubmit={handleUpdate} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Neues Passwort</label>
