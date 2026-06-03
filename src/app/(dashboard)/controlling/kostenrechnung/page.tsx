@@ -10,7 +10,7 @@ type Eintrag = {
   objekt_typ: string | null; periode: string | null
   kostenstelle: { name: string } | null
   kostenart:    { name: string } | null
-  ried:         { bezeichnung: string } | null
+  ried:         { name: string } | null
   behaelter:    { name: string } | null
 }
 
