@@ -287,8 +287,9 @@ export default function Sidebar({ userEmail, role, roleLabel, branding }: Sideba
           Abmelden
         </button>
 
+        <p className="text-[10px] text-gray-400 mt-2">v2.1.0 · Juni 2026</p>
         {/* IC&P Branding */}
-        <div className="mt-3 pt-3 border-t border-s112-border/40 flex items-center gap-2">
+        <div className="mt-2 pt-2 border-t border-s112-border/40 flex items-center gap-2">
           <Image
             src="/icp-logo.png"
             alt="IC&P Consultants"

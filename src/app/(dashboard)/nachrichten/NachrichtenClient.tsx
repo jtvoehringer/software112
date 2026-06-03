@@ -77,9 +77,9 @@ export default function NachrichtenClient() {
     fetch('/api/nachrichten/list?folder=inbox').then(async r => {
       const data = await r.json()
       if (!r.ok || data.fehler) {
-        if (data.fehler?.includes('token') || data.fehler?.includes('Token') || data.fehler?.includes('401')) {
-          setFehler('Sitzung abgelaufen – bitte Mailbox neu verbinden.')
-        }
+        setFehler(data.fehler
+          ? 'Verbindungsfehler: ' + data.fehler
+          : 'Mailbox nicht erreichbar – bitte neu verbinden.')
         setVerbunden(false)
       } else {
         setVerbunden(true)

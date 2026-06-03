@@ -1,0 +1,8 @@
+<svg viewBox="0 0 680 200" width="680" height="200" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="680" height="200" rx="16" fill="#025450"/>
+  <text x="340" y="118" text-anchor="middle"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="66" font-weight="300"
+        fill="#F9E54F"
+        letter-spacing="2">software<tspan fill="#F8F8F3" font-weight="700">:</tspan>112</text>
+</svg>

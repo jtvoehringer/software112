@@ -99,12 +99,18 @@ export default function LoginPage() {
           >
             {loading ? 'Anmelden…' : 'Anmelden'}
           </button>
+          <div className="text-center mt-3">
+            <a href="/login/reset" className="text-xs text-s112-teal hover:underline">
+              Passwort vergessen?
+            </a>
+          </div>
         </form>
       </div>
 
       <p className="text-center text-xs text-s112-muted mt-6">
         software:112 · IC&P Consultants e.U.
       </p>
+      <p className="text-center text-[10px] text-gray-400 mt-1">v2.1.0 · Juni 2026</p>
     </div>
   )
 }
