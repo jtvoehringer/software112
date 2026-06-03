@@ -60,7 +60,11 @@ export default function NachrichtenClient() {
       ladeMessages()
     }
     if (params.get('fehler')) {
-      setFehler('Verbindungsfehler: ' + params.get('fehler'))
+      const errParam = params.get('fehler') ?? ''
+      const friendlyErr = errParam.includes('access_denied') ? 'Zugriff verweigert – Berechtigungen prüfen.'
+        : errParam.includes('AADSTS') ? 'Azure AD Fehler – bitte Administrator kontaktieren.'
+        : 'Verbindungsfehler: ' + errParam
+      setFehler(friendlyErr)
       window.history.replaceState({}, '', '/nachrichten')
     }
     // emailId aus CRM-Link: in Ref speichern, nach Verbindungscheck öffnen
@@ -73,7 +77,10 @@ export default function NachrichtenClient() {
     fetch('/api/nachrichten/list?folder=inbox').then(async r => {
       const data = await r.json()
       if (!r.ok || data.fehler) {
-        setVerbunden(false)  // Jeder Fehler → Connect-Screen
+        if (data.fehler?.includes('token') || data.fehler?.includes('Token') || data.fehler?.includes('401')) {
+          setFehler('Sitzung abgelaufen – bitte Mailbox neu verbinden.')
+        }
+        setVerbunden(false)
       } else {
         setVerbunden(true)
         setVerbEmail(data.email ?? '')
