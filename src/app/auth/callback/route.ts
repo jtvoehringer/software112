@@ -15,8 +15,17 @@ export async function GET(request: Request) {
     const supabase = await createSupabaseServerClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      // Passwort-Reset oder Einladung → Passwort setzen
-      if (type === 'recovery' || type === 'invite') {
+      // Passwort-Reset → Passwort setzen
+      if (type === 'recovery') {
+        return NextResponse.redirect(`${origin}/auth/update-password`)
+      }
+      // Einladung: entweder type=invite ODER Erstlogin (created_at ≈ last_sign_in_at)
+      const { data: { user } } = await supabase.auth.getUser()
+      const isInvite = type === 'invite'
+      const isFirstLogin = user?.created_at && user?.last_sign_in_at
+        ? Math.abs(new Date(user.created_at).getTime() - new Date(user.last_sign_in_at).getTime()) < 15000
+        : false
+      if (isInvite || isFirstLogin) {
         return NextResponse.redirect(`${origin}/auth/update-password`)
       }
       return NextResponse.redirect(`${origin}${next}`)
