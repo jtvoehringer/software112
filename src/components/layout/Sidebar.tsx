@@ -156,13 +156,18 @@ function NavGroupItem({
 }) {
   const active = groupIsActive(entry.items, pathname)
   const [open, setOpen] = useState(active)
+  const router = useRouter()
 
   const visibleItems = entry.items.filter(i => !i.adminOnly || isAdmin)
 
   return (
     <div>
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={() => {
+          const firstItem = entry.items.filter(i => !i.adminOnly || isAdmin).find(i => i.phase !== 2)
+          if (firstItem && !active) router.push(firstItem.href)
+          setOpen(o => !o)
+        }}
         className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors
           ${active ? 'text-s112-teal font-semibold' : 'text-s112-teal hover:bg-s112-teal/10'}`}
       >
