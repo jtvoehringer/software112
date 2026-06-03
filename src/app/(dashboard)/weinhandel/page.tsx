@@ -61,8 +61,8 @@ export default async function WeinhandelPage() {
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Weinhandel</h1>
-          <p className="text-sm text-s112-muted mt-0.5">Handelsbestand & Verkauf</p>
+          <h1 className="text-2xl font-bold text-gray-900">Lager</h1>
+          <p className="text-sm text-s112-muted mt-0.5">Bestand & Verkauf</p>
         </div>
       </div>
 
