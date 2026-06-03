@@ -84,7 +84,7 @@ function StammdatenTab({ items, onSave, onDelete, fields }: {
   const [neu, setNeu] = useState(false)
 
   function startEdit(item: typeof items[0]) {
-    setEditId(item.id); setNeu(false)
+    setEditId(item.id ?? null); setNeu(false)
     setForm(Object.fromEntries(fields.map(f => [f.key, item[f.key] ?? ''])))
   }
   function startNeu() { setNeu(true); setEditId(null); setForm({}) }
