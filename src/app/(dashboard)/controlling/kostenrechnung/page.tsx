@@ -1,20 +1,21 @@
 'use client'
 import { useState, useEffect } from 'react'
 
-type KS  = { id: string; name: string }
-type KA  = { id: string; name: string; kategorie?: string }
-type WG  = { id: string; name: string }
-type BH  = { id: string; name: string; typ?: string }
+type KS = { id: string; name: string }
+type KA = { id: string; name: string; kategorie?: string }
+type WG = { id: string; name: string }
+type BH = { id: string; name: string; typ?: string }
+type WgSplit = { weingarten_id: string; anteil_pct?: number; wg?: { name: string }; betrag_anteil?: number }
 type Eintrag = {
   id: string; datum: string; betrag: number; beschreibung: string | null
   objekt_typ: string | null; periode: string | null
-  kostenstelle: { name: string } | null
-  kostenart:    { name: string } | null
-  wg:           { name: string } | null
-  behaelter:    { name: string } | null
+  kostenstelle: { name: string } | null; kostenart: { name: string } | null
+  wg: { name: string } | null; behaelter: { name: string } | null
+  wg_splits?: WgSplit[]
 }
 type Tab = 'buchungen' | 'auswertung' | 'kostenstellen' | 'kostenarten'
 
+function eur(n: number) { return n.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' }) }
 function sumBy<T>(arr: T[], key: (t: T) => string, val: (t: T) => number) {
   const m: Record<string, number> = {}
   arr.forEach(t => { const k = key(t); m[k] = (m[k] || 0) + val(t) })
@@ -24,15 +25,15 @@ function sumBy<T>(arr: T[], key: (t: T) => string, val: (t: T) => number) {
 export default function KostenrechnungPage() {
   const [tab, setTab] = useState<Tab>('buchungen')
   const [eintraege, setEintraege] = useState<Eintrag[]>([])
-  const [kostenstellen, setKs] = useState<KS[]>([])
-  const [kostenarten, setKa] = useState<KA[]>([])
-  const [weingaerten, setWg] = useState<WG[]>([])
-  const [behaelter, setBh] = useState<BH[]>([])
+  const [ks, setKs] = useState<KS[]>([])
+  const [ka, setKa] = useState<KA[]>([])
+  const [wgs, setWgs] = useState<WG[]>([])
+  const [bhs, setBhs] = useState<BH[]>([])
   const [saving, setSaving] = useState(false)
   const [fehler, setFehler] = useState<string | null>(null)
   const [erfolg, setErfolg] = useState(false)
 
-  // Formular (neu + bearbeiten)
+  // Formular
   const [editId, setEditId] = useState<string | null>(null)
   const [ksId, setKsId] = useState('')
   const [kaId, setKaId] = useState('')
@@ -40,15 +41,19 @@ export default function KostenrechnungPage() {
   const [betrag, setBetrag] = useState('')
   const [beschreibung, setBeschreibung] = useState('')
   const [objektTyp, setObjektTyp] = useState('')
-  const [wgId, setWgId] = useState('')
   const [behId, setBehId] = useState('')
+  // WG Multi-Select
+  const [selectedWgs, setSelectedWgs] = useState<string[]>([]) // leer = alle
+  const [splitModus, setSplitModus] = useState<'gleich' | 'prozent'>('gleich')
+  const [anteile, setAnteile] = useState<Record<string, number>>({}) // wg_id → %
 
   // Auswertung
   const [awJahr, setAwJahr] = useState(new Date().getFullYear().toString())
   const [awDaten, setAwDaten] = useState<Eintrag[]>([])
+  const [awSplits, setAwSplits] = useState<(WgSplit & { kosteneintrag_id: string })[]>([])
 
   const ladeDaten = async () => {
-    const [e, ks, ka, wg, bh] = await Promise.all([
+    const [e, k, a, w, b] = await Promise.all([
       fetch('/api/kostenrechnung?action=eintraege').then(r => r.json()),
       fetch('/api/kostenrechnung?action=kostenstellen').then(r => r.json()),
       fetch('/api/kostenrechnung?action=kostenarten').then(r => r.json()),
@@ -56,10 +61,10 @@ export default function KostenrechnungPage() {
       fetch('/api/kostenrechnung?action=behaelter').then(r => r.json()),
     ])
     setEintraege(e.eintraege ?? [])
-    setKs(ks.kostenstellen ?? [])
-    setKa(ka.kostenarten ?? [])
-    setWg(wg.weingaerten ?? [])
-    setBh(bh.behaelter ?? [])
+    setKs(k.kostenstellen ?? [])
+    setKa(a.kostenarten ?? [])
+    setWgs(w.weingaerten ?? [])
+    setBhs(b.behaelter ?? [])
   }
 
   useEffect(() => { ladeDaten() }, [])
@@ -68,78 +73,90 @@ export default function KostenrechnungPage() {
   async function ladeAuswertung(jahr: string) {
     const d = await fetch(`/api/kostenrechnung?action=auswertung&jahr=${jahr}`).then(r => r.json())
     setAwDaten(d.eintraege ?? [])
+    setAwSplits(d.splits ?? [])
+  }
+
+  function toggleWg(id: string) {
+    setSelectedWgs(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
 
   function resetForm() {
     setEditId(null); setKsId(''); setKaId('')
     setDatum(new Date().toISOString().split('T')[0])
-    setBetrag(''); setBeschreibung(''); setObjektTyp(''); setWgId(''); setBehId('')
+    setBetrag(''); setBeschreibung(''); setObjektTyp(''); setBehId('')
+    setSelectedWgs([]); setSplitModus('gleich'); setAnteile({})
   }
 
   function startEdit(e: Eintrag) {
-    setEditId(e.id)
-    setDatum(e.datum)
-    setBetrag(String(e.betrag))
-    setBeschreibung(e.beschreibung ?? '')
-    setObjektTyp(e.objekt_typ ?? '')
-    setKsId(kostenstellen.find(k => k.name === e.kostenstelle?.name)?.id ?? '')
-    setKaId(kostenarten.find(k => k.name === e.kostenart?.name)?.id ?? '')
-    setWgId(weingaerten.find(w => w.name === e.wg?.name)?.id ?? '')
-    setBehId(behaelter.find(b => b.name === e.behaelter?.name)?.id ?? '')
+    setEditId(e.id); setDatum(e.datum); setBetrag(String(e.betrag))
+    setBeschreibung(e.beschreibung ?? ''); setObjektTyp(e.objekt_typ ?? '')
+    setKsId(ks.find(k => k.name === e.kostenstelle?.name)?.id ?? '')
+    setKaId(ka.find(k => k.name === e.kostenart?.name)?.id ?? '')
+    setBehId(bhs.find(b => b.name === e.behaelter?.name)?.id ?? '')
+    if (e.wg_splits && e.wg_splits.length > 0) {
+      setSelectedWgs(e.wg_splits.map(s => s.weingarten_id))
+      const allGleich = e.wg_splits.every(s => !s.anteil_pct || Math.abs((s.anteil_pct ?? 0) - 100 / e.wg_splits!.length) < 0.5)
+      setSplitModus(allGleich ? 'gleich' : 'prozent')
+      const a: Record<string, number> = {}
+      e.wg_splits.forEach(s => { a[s.weingarten_id] = s.anteil_pct ?? 0 })
+      setAnteile(a)
+    } else { setSelectedWgs([]); setSplitModus('gleich'); setAnteile({}) }
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   async function loeschen(id: string) {
     if (!confirm('Buchung wirklich löschen?')) return
-    await fetch('/api/kostenrechnung', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'loeschen', id }),
-    })
+    await fetch('/api/kostenrechnung', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'loeschen', id }) })
     await ladeDaten()
   }
 
   async function buchen(e: React.FormEvent) {
     e.preventDefault()
+    const b = parseFloat(betrag)
+    // WG-Split vorbereiten
+    let wgSplit: { weingarten_id: string; anteil_pct?: number }[] = []
+    if (objektTyp === 'weingarten' && selectedWgs.length > 0) {
+      if (splitModus === 'gleich') {
+        wgSplit = selectedWgs.map(id => ({ weingarten_id: id }))
+      } else {
+        const total = Object.values(anteile).reduce((s, v) => s + v, 0)
+        if (Math.abs(total - 100) > 0.5) { setFehler(`Summe der Anteile muss 100% ergeben (aktuell ${total.toFixed(1)}%)`); return }
+        wgSplit = selectedWgs.map(id => ({ weingarten_id: id, anteil_pct: anteile[id] ?? 0 }))
+      }
+    }
     setSaving(true); setFehler(null); setErfolg(false)
     const res = await fetch('/api/kostenrechnung', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        action: editId ? 'aktualisieren' : 'eintrag',
-        id: editId,
+        action: editId ? 'aktualisieren' : 'eintrag', id: editId,
         kostenstelle_id: ksId || null, kostenart_id: kaId || null,
-        datum, betrag: parseFloat(betrag), beschreibung: beschreibung || null,
-        objekt_typ: objektTyp || null,
-        weingarten_id: objektTyp === 'weingarten' && wgId ? wgId : null,
-        behaelter_id:  objektTyp === 'keller' && behId ? behId : null,
+        datum, betrag: b, beschreibung: beschreibung || null,
+        objekt_typ: objektTyp || null, behaelter_id: objektTyp === 'keller' && behId ? behId : null,
+        wg_split: wgSplit,
       }),
     })
     const data = await res.json()
     if (data.fehler) { setFehler(data.fehler); setSaving(false); return }
-    setErfolg(true); resetForm()
-    await ladeDaten()
-    setSaving(false)
-    setTimeout(() => setErfolg(false), 3000)
+    setErfolg(true); resetForm(); await ladeDaten()
+    setSaving(false); setTimeout(() => setErfolg(false), 3000)
   }
 
-  const gesamtJahr = eintraege
-    .filter(e => e.datum?.startsWith(new Date().getFullYear().toString()))
-    .reduce((s, e) => s + e.betrag, 0)
+  const gesamtJahr = eintraege.filter(e => e.datum?.startsWith(new Date().getFullYear().toString())).reduce((s, e) => s + e.betrag, 0)
 
-  const objektLabel = (e: Eintrag) => {
-    if (!e.objekt_typ) return '–'
-    if (e.objekt_typ === 'weingarten') return e.wg ? e.wg.name : 'Alle Weingärten'
-    return e.behaelter ? e.behaelter.name : 'Alle Behälter'
+  const wgLabel = (e: Eintrag) => {
+    if (!e.objekt_typ || e.objekt_typ !== 'weingarten') return null
+    if (!e.wg_splits || e.wg_splits.length === 0) return 'Alle WG'
+    if (e.wg_splits.length === 1) return e.wg_splits[0].wg?.name ?? '?'
+    return `${e.wg_splits.length} Weingärten`
   }
+
+  const anteilSumme = selectedWgs.reduce((s, id) => s + (anteile[id] ?? 0), 0)
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Kostenrechnung</h1>
-          <p className="text-sm text-s112-muted mt-0.5">
-            {new Date().getFullYear()}: <strong className="text-gray-800">{gesamtJahr.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}</strong>
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Kostenrechnung</h1>
+        <p className="text-sm text-s112-muted mt-0.5">{new Date().getFullYear()}: <strong className="text-gray-800">{eur(gesamtJahr)}</strong></p>
       </div>
 
       {/* Formular */}
@@ -164,7 +181,7 @@ export default function KostenrechnungPage() {
             <select value={ksId} onChange={e => setKsId(e.target.value)}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– Kostenstelle –</option>
-              {kostenstellen.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
+              {ks.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
             </select>
           </div>
           <div>
@@ -172,43 +189,90 @@ export default function KostenrechnungPage() {
             <select value={kaId} onChange={e => setKaId(e.target.value)}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– Kostenart –</option>
-              {kostenarten.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
+              {ka.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Zuordnung</label>
-            <select value={objektTyp} onChange={e => { setObjektTyp(e.target.value); setWgId(''); setBehId('') }}
+            <select value={objektTyp} onChange={e => { setObjektTyp(e.target.value); setSelectedWgs([]); setBehId('') }}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– keine –</option>
               <option value="weingarten">Weingarten</option>
               <option value="keller">Keller / Behälter</option>
             </select>
           </div>
-          {objektTyp === 'weingarten' && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Weingarten (leer = alle)</label>
-              <select value={wgId} onChange={e => setWgId(e.target.value)}
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
-                <option value="">Alle Weingärten</option>
-                {weingaerten.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-              </select>
-            </div>
-          )}
           {objektTyp === 'keller' && (
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Behälter (leer = alle)</label>
               <select value={behId} onChange={e => setBehId(e.target.value)}
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                 <option value="">Alle Behälter</option>
-                {behaelter.map(b => <option key={b.id} value={b.id}>{b.name}{b.typ ? ` (${b.typ})` : ''}</option>)}
+                {bhs.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
             </div>
           )}
-          {objektTyp === '' && <div />}
+          {objektTyp !== 'keller' && <div />}
+
+          {/* Weingarten Multi-Select */}
+          {objektTyp === 'weingarten' && (
+            <div className="col-span-2 border border-s112-border rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-medium text-gray-700">Weingärten auswählen <span className="text-s112-muted font-normal">(leer = alle)</span></p>
+                {selectedWgs.length > 1 && (
+                  <div className="flex gap-1">
+                    <button type="button" onClick={() => setSplitModus('gleich')}
+                      className={`text-xs px-2 py-1 rounded ${splitModus==='gleich' ? 'bg-s112-teal text-white' : 'border border-s112-border text-gray-600'}`}>
+                      Gleichmäßig
+                    </button>
+                    <button type="button" onClick={() => setSplitModus('prozent')}
+                      className={`text-xs px-2 py-1 rounded ${splitModus==='prozent' ? 'bg-s112-teal text-white' : 'border border-s112-border text-gray-600'}`}>
+                      Gewichtet %
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {wgs.map(w => {
+                  const checked = selectedWgs.includes(w.id)
+                  const b = parseFloat(betrag) || 0
+                  const anteilEur = checked && b > 0
+                    ? splitModus === 'gleich'
+                      ? b / selectedWgs.length
+                      : b * (anteile[w.id] ?? 0) / 100
+                    : 0
+                  return (
+                    <div key={w.id} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors
+                      ${checked ? 'border-s112-teal bg-s112-teal/5' : 'border-s112-border hover:border-s112-teal/40'}`}
+                      onClick={() => toggleWg(w.id)}>
+                      <input type="checkbox" checked={checked} onChange={() => toggleWg(w.id)} className="accent-s112-teal" />
+                      <span className="text-sm flex-1">{w.name}</span>
+                      {checked && splitModus === 'prozent' && (
+                        <input type="number" min="0" max="100" step="0.1"
+                          value={anteile[w.id] ?? ''}
+                          onChange={e => { e.stopPropagation(); setAnteile(prev => ({ ...prev, [w.id]: parseFloat(e.target.value) || 0 })) }}
+                          onClick={e => e.stopPropagation()}
+                          className="w-16 border border-s112-border rounded px-1.5 py-0.5 text-xs text-right focus:outline-none"
+                          placeholder="%" />
+                      )}
+                      {checked && b > 0 && (
+                        <span className="text-xs text-s112-teal font-medium flex-shrink-0">{eur(anteilEur)}</span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              {selectedWgs.length > 1 && splitModus === 'prozent' && (
+                <p className={`text-xs mt-2 ${Math.abs(anteilSumme - 100) < 0.5 ? 'text-green-600' : 'text-red-500'}`}>
+                  Summe: {anteilSumme.toFixed(1)}% {Math.abs(anteilSumme - 100) < 0.5 ? '✓' : '(muss 100% ergeben)'}
+                </p>
+              )}
+              {selectedWgs.length === 0 && <p className="text-xs text-s112-muted mt-1">Keine Auswahl = Kosten gelten für alle Weingärten</p>}
+            </div>
+          )}
+
           <div className="col-span-2">
             <label className="block text-xs font-medium text-gray-600 mb-1">Beschreibung</label>
-            <input value={beschreibung} onChange={e => setBeschreibung(e.target.value)}
-              placeholder="z.B. Traktor-Service, Spritzarbeit, Holzfass-Kauf…"
+            <input value={beschreibung} onChange={e => setBeschreibung(e.target.value)} placeholder="z.B. Traktor-Service, Spritzarbeit…"
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div className="col-span-2 flex items-center gap-3">
@@ -223,10 +287,10 @@ export default function KostenrechnungPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 flex-wrap">
-        {[['buchungen','📋 Buchungen'],['auswertung','📊 Auswertung'],['kostenstellen','🏢 Kostenstellen'],['kostenarten','🏷 Kostenarten']].map(([id, label]) => (
+      <div className="flex gap-2">
+        {[['buchungen','📋 Buchungen'],['auswertung','📊 Auswertung'],['kostenstellen','🏢 KSt'],['kostenarten','🏷 KA']].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id as Tab)}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${tab === id ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg text-gray-600 hover:bg-s112-teal/10'}`}>
+            className={`px-4 py-2 rounded-xl text-sm font-medium ${tab===id ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg text-gray-600 hover:bg-s112-teal/10'}`}>
             {label}
           </button>
         ))}
@@ -239,8 +303,7 @@ export default function KostenrechnungPage() {
               <tr>
                 <th className="px-4 py-3 text-left">Datum</th>
                 <th className="px-4 py-3 text-left">Beschreibung</th>
-                <th className="px-4 py-3 text-left">Kostenstelle</th>
-                <th className="px-4 py-3 text-left">Kostenart</th>
+                <th className="px-4 py-3 text-left">KSt / KA</th>
                 <th className="px-4 py-3 text-left">Zuordnung</th>
                 <th className="px-4 py-3 text-right">Betrag</th>
                 <th className="px-4 py-3" />
@@ -248,26 +311,35 @@ export default function KostenrechnungPage() {
             </thead>
             <tbody className="divide-y divide-s112-border/40">
               {eintraege.map(e => (
-                <tr key={e.id} className={`hover:bg-s112-bg/30 ${editId === e.id ? 'bg-s112-teal/5' : ''}`}>
+                <tr key={e.id} className={`hover:bg-s112-bg/30 ${editId===e.id?'bg-s112-teal/5':''}`}>
                   <td className="px-4 py-2.5 text-s112-muted tabular-nums">{new Date(e.datum).toLocaleDateString('de-AT')}</td>
                   <td className="px-4 py-2.5">{e.beschreibung ?? '–'}</td>
-                  <td className="px-4 py-2.5 text-gray-600">{e.kostenstelle?.name ?? '–'}</td>
-                  <td className="px-4 py-2.5 text-gray-600">{e.kostenart?.name ?? '–'}</td>
-                  <td className="px-4 py-2.5 text-gray-600">{objektLabel(e)}</td>
-                  <td className="px-4 py-2.5 text-right font-medium tabular-nums">
-                    {e.betrag.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
+                  <td className="px-4 py-2.5 text-gray-600">
+                    <div>{e.kostenstelle?.name ?? '–'}</div>
+                    <div className="text-xs text-s112-muted">{e.kostenart?.name ?? ''}</div>
                   </td>
+                  <td className="px-4 py-2.5 text-gray-600">
+                    {e.objekt_typ === 'weingarten' ? (
+                      <div>
+                        <span className="text-xs">{wgLabel(e)}</span>
+                        {e.wg_splits && e.wg_splits.length > 1 && (
+                          <div className="text-[10px] text-s112-muted">
+                            {e.wg_splits.map(s => `${s.wg?.name}: ${eur(s.betrag_anteil ?? 0)}`).join(' · ')}
+                          </div>
+                        )}
+                      </div>
+                    ) : e.objekt_typ === 'keller' ? (e.behaelter?.name ?? 'Alle Behälter') : '–'}
+                  </td>
+                  <td className="px-4 py-2.5 text-right font-medium tabular-nums">{eur(e.betrag)}</td>
                   <td className="px-4 py-2.5">
                     <div className="flex gap-2">
-                      <button onClick={() => startEdit(e)} title="Bearbeiten"
-                        className="text-s112-muted hover:text-s112-teal text-xs">✏</button>
-                      <button onClick={() => loeschen(e.id)} title="Löschen"
-                        className="text-s112-muted hover:text-red-500 text-xs">✕</button>
+                      <button onClick={() => startEdit(e)} className="text-s112-muted hover:text-s112-teal text-xs">✏</button>
+                      <button onClick={() => loeschen(e.id)} className="text-s112-muted hover:text-red-500 text-xs">✕</button>
                     </div>
                   </td>
                 </tr>
               ))}
-              {eintraege.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-s112-muted">Noch keine Buchungen</td></tr>}
+              {eintraege.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-s112-muted">Noch keine Buchungen</td></tr>}
             </tbody>
           </table>
         </div>
@@ -280,64 +352,50 @@ export default function KostenrechnungPage() {
               className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
               {[2026,2025,2024,2023].map(y => <option key={y}>{y}</option>)}
             </select>
-            <span className="text-sm text-s112-muted">
-              Gesamt: <strong className="text-gray-800">{awDaten.reduce((s,e)=>s+e.betrag,0).toLocaleString('de-AT',{style:'currency',currency:'EUR'})}</strong>
-            </span>
+            <span className="text-sm text-s112-muted">Gesamt: <strong className="text-gray-800">{eur(awDaten.reduce((s,e)=>s+e.betrag,0))}</strong></span>
           </div>
           <div className="grid grid-cols-3 gap-4">
             {[
-              ['Nach Kostenstelle', (e: Eintrag) => e.kostenstelle?.name ?? '(keine)'],
-              ['Nach Kostenart',    (e: Eintrag) => e.kostenart?.name ?? '(keine)'],
-              ['Nach Zuordnung',    (e: Eintrag) => !e.objekt_typ ? 'Allgemein' : e.objekt_typ === 'weingarten' ? (e.wg?.name ?? 'Alle Weingärten') : (e.behaelter?.name ?? 'Alle Behälter')],
-            ].map(([title, keyFn]) => (
+              ['Nach Kostenstelle', (e: Eintrag) => e.kostenstelle?.name ?? '(keine)', (e: Eintrag) => e.betrag],
+              ['Nach Kostenart',    (e: Eintrag) => e.kostenart?.name    ?? '(keine)', (e: Eintrag) => e.betrag],
+            ].map(([title, kFn, vFn]) => (
               <div key={String(title)} className="bg-white rounded-2xl border border-s112-border p-4">
                 <h3 className="text-sm font-semibold text-gray-800 mb-3">{String(title)}</h3>
-                <div className="space-y-2">
-                  {sumBy(awDaten, keyFn as (e: Eintrag) => string, e => e.betrag).map(([name, sum]) => (
-                    <div key={name} className="flex justify-between text-sm">
-                      <span className="text-gray-600 truncate mr-2">{name}</span>
-                      <span className="font-medium tabular-nums flex-shrink-0">{sum.toLocaleString('de-AT',{style:'currency',currency:'EUR'})}</span>
-                    </div>
-                  ))}
-                  {awDaten.length === 0 && <p className="text-xs text-s112-muted">Keine Daten</p>}
-                </div>
+                {sumBy(awDaten, kFn as (e:Eintrag)=>string, vFn as (e:Eintrag)=>number).map(([n,s]) => (
+                  <div key={n} className="flex justify-between text-sm mb-1.5">
+                    <span className="text-gray-600 truncate mr-2">{n}</span>
+                    <span className="font-medium tabular-nums">{eur(s)}</span>
+                  </div>
+                ))}
               </div>
             ))}
-          </div>
-          <div className="bg-white rounded-2xl border border-s112-border p-4">
-            <h3 className="text-sm font-semibold text-gray-800 mb-3">Monatsverlauf {awJahr}</h3>
-            <div className="grid grid-cols-12 gap-1">
-              {Array.from({length:12},(_,i)=>{
-                const m = String(i+1).padStart(2,'0')
-                const per = `${awJahr}-${m}`
-                const sum = awDaten.filter(e=>e.periode===per).reduce((s,e)=>s+e.betrag,0)
-                const max = Math.max(...Array.from({length:12},(_,j)=>awDaten.filter(e=>e.periode===`${awJahr}-${String(j+1).padStart(2,'0')}`).reduce((s,e)=>s+e.betrag,0)),1)
-                const pct = Math.round((sum/max)*100)
-                return (
-                  <div key={m} className="flex flex-col items-center gap-1">
-                    <div className="w-full bg-s112-bg rounded h-20 flex items-end">
-                      <div className="w-full bg-s112-teal rounded" style={{height:`${pct}%`}} />
-                    </div>
-                    <span className="text-[9px] text-s112-muted">{'JFMAMJJASOJdDn'.slice(i*1,i*1+1)||['J','F','M','A','M','J','J','A','S','O','N','D'][i]}</span>
-                    {sum > 0 && <span className="text-[9px] font-medium">{Math.round(sum/1000)}k</span>}
+            {/* Nach Weingarten (aus Splits) */}
+            <div className="bg-white rounded-2xl border border-s112-border p-4">
+              <h3 className="text-sm font-semibold text-gray-800 mb-3">Nach Weingarten</h3>
+              {(() => {
+                const m: Record<string, number> = {}
+                // Aus Splits
+                awSplits.forEach((s: any) => {
+                  const n = (s as any).wg?.name ?? '?'
+                  m[n] = (m[n] || 0) + ((s as any).betrag_anteil ?? 0)
+                })
+                // Buchungen ohne Split (alle WG)
+                const ohneSplit = awDaten.filter(e => e.objekt_typ === 'weingarten' && (!e.wg_splits || e.wg_splits.length === 0))
+                if (ohneSplit.length > 0) m['Alle WG'] = (m['Alle WG'] || 0) + ohneplit.reduce((s,e)=>s+e.betrag,0)
+                return Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([n,s]) => (
+                  <div key={n} className="flex justify-between text-sm mb-1.5">
+                    <span className="text-gray-600 truncate mr-2">{n}</span>
+                    <span className="font-medium tabular-nums">{eur(s)}</span>
                   </div>
-                )
-              })}
+                ))
+              })()}
             </div>
           </div>
         </div>
       )}
 
-      {tab === 'kostenstellen' && (
-        <div className="bg-white rounded-2xl border border-s112-border p-5 space-y-2">
-          {kostenstellen.map(k => <div key={k.id} className="text-sm text-gray-700">{k.name}</div>)}
-        </div>
-      )}
-      {tab === 'kostenarten' && (
-        <div className="bg-white rounded-2xl border border-s112-border p-5 space-y-2">
-          {kostenarten.map(k => <div key={k.id} className="flex gap-3 text-sm"><span className="text-xs bg-s112-bg px-2 py-0.5 rounded text-s112-muted">{k.kategorie}</span><span>{k.name}</span></div>)}
-        </div>
-      )}
+      {tab === 'kostenstellen' && <div className="bg-white rounded-2xl border border-s112-border p-5 space-y-2">{ks.map(k=><div key={k.id} className="text-sm">{k.name}</div>)}</div>}
+      {tab === 'kostenarten'  && <div className="bg-white rounded-2xl border border-s112-border p-5 space-y-2">{ka.map(k=><div key={k.id} className="flex gap-3 text-sm"><span className="text-xs bg-s112-bg px-2 py-0.5 rounded text-s112-muted">{k.kategorie}</span><span>{k.name}</span></div>)}</div>}
     </div>
   )
 }

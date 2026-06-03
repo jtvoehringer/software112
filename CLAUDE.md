@@ -102,6 +102,7 @@
 - **Stripe/Mandanten-Abrechnung** – vor Kunde #2 zwingend erforderlich
 - **Dauerauftrag-Modul** – IC&P Eigenrechnung automatisieren (0,5 Tage, shared lib aus KPS)
 - **EMCS-Integration via n8n** – Weinexport Pro (€59/Mo)
+- **Kostenrechnung Multi-Weingarten** – Kostenverteilung auf mehrere Weingärten (gleichmäßig oder gewichtet %) via Junction-Tabelle
 - **Mobile UX** – PWA oder native App (bei Kundenbedarf)
 
 ## KI-Modul „Smart Query" (Phase 3 – geplant)
