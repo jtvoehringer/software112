@@ -1,6 +1,5 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'next/navigation'
 
 type KS = { id: string; name: string }
 type KA = { id: string; name: string; kategorie?: string }
@@ -14,7 +13,7 @@ type Eintrag = {
   wg: { name: string } | null; behaelter: { name: string } | null
   wg_splits?: WgSplit[]
 }
-type Tab = 'buchungen' | 'auswertung' | 'kostenstellen' | 'kostenarten'
+type Tab = 'buchungen' | 'kostenstellen' | 'kostenarten'
 
 function eur(n: number) { return n.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' }) }
 function sumBy<T>(arr: T[], key: (t: T) => string, val: (t: T) => number) {
@@ -24,8 +23,7 @@ function sumBy<T>(arr: T[], key: (t: T) => string, val: (t: T) => number) {
 }
 
 export default function KostenrechnungPage() {
-  const searchParams = useSearchParams()
-  const [tab, setTab] = useState<Tab>((searchParams.get('tab') as Tab) ?? 'buchungen')
+  const [tab, setTab] = useState<Tab>('buchungen')
   const [eintraege, setEintraege] = useState<Eintrag[]>([])
   const [ks, setKs] = useState<KS[]>([])
   const [ka, setKa] = useState<KA[]>([])
@@ -50,8 +48,6 @@ export default function KostenrechnungPage() {
   const [anteile, setAnteile] = useState<Record<string, number>>({}) // wg_id → %
 
   // Auswertung
-  const [awJahr, setAwJahr] = useState(new Date().getFullYear().toString())
-  const [awDaten, setAwDaten] = useState<Eintrag[]>([])
   const [awSplits, setAwSplits] = useState<(WgSplit & { kosteneintrag_id: string })[]>([])
 
   const ladeDaten = async () => {
@@ -290,7 +286,7 @@ export default function KostenrechnungPage() {
 
       {/* Tabs */}
       <div className="flex gap-2">
-        {[['buchungen','📋 Buchungen'],['auswertung','📊 Auswertung'],['kostenstellen','🏢 KSt'],['kostenarten','🏷 KA']].map(([id, label]) => (
+        {[['buchungen','📋 Buchungen'],['kostenstellen','🏢 Kostenstellen'],['kostenarten','🏷 Kostenarten']].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id as Tab)}
             className={`px-4 py-2 rounded-xl text-sm font-medium ${tab===id ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg text-gray-600 hover:bg-s112-teal/10'}`}>
             {label}
