@@ -53,7 +53,7 @@ export default function LoginPage() {
       <div className="card">
         <h2 className="text-lg font-semibold text-gray-800 mb-6">Anmelden</h2>
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleLogin} autoComplete="on" className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
               E-Mail
@@ -64,7 +64,7 @@ export default function LoginPage() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
-              autoComplete="email"
+              autoComplete="username"
               className="input"
               placeholder="joerg@weingut.at"
             />
