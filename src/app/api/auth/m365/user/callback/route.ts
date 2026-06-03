@@ -14,10 +14,12 @@ export async function GET(req: NextRequest) {
   if (error) return NextResponse.redirect(new URL(`/nachrichten?fehler=${error}`, req.url))
   if (!code) return NextResponse.redirect(new URL('/nachrichten?fehler=no_code', req.url))
 
-  // State verifizieren (HMAC) – Format: tenantId:userId:timestamp.signature
-    const lastDot = state.lastIndexOf('.')
-    const payload = lastDot > -1 ? state.slice(0, lastDot) : state
-    const [tenantId, userId] = payload.split(':')
+  // State parsen: Format tenantId:userId
+  const [tenantId, userId] = state.split(':')
+  if (!tenantId || !userId) {
+    console.error('[m365/user/callback] Ungültiger State:', state)
+    return NextResponse.redirect(new URL('/nachrichten?fehler=invalid_state', req.url))
+  }
   const admin = createSupabaseAdminClient()
 
   const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
@@ -58,6 +60,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.redirect(new URL('/nachrichten?verbunden=1', req.url))
   } catch (err) {
+    console.error('[m365/user/callback] Fehler:', String(err))
     return NextResponse.redirect(new URL(`/nachrichten?fehler=${encodeURIComponent(String(err))}`, req.url))
   }
 }
