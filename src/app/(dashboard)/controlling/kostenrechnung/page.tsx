@@ -129,7 +129,7 @@ function StammdatenTab({ items, onSave, onDelete, fields }: {
             {item.kategorie && <span className="text-xs bg-s112-bg px-2 py-0.5 rounded text-s112-muted">{item.kategorie}</span>}
             <span className="text-sm flex-1">{item.name}</span>
             <button onClick={() => startEdit(item)} className="text-xs text-s112-muted hover:text-s112-teal">✏</button>
-            <button onClick={() => { if(confirm(`"${item.name}" deaktivieren?`)) onDelete(item.id) }} className="text-xs text-s112-muted hover:text-red-500">✕</button>
+            <button onClick={() => { if(confirm(`"${item.name}" deaktivieren?`)) onDelete(item.id ?? '') }} className="text-xs text-s112-muted hover:text-red-500">✕</button>
           </div>
         ))}
         {items.length === 0 && <p className="text-xs text-s112-muted py-4 text-center">Noch keine Einträge</p>}
