@@ -3,74 +3,74 @@ import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
-async function getTId(supabase: any): Promise<string | null> { // eslint-disable-line @typescript-eslint/no-explicit-any
-  const { data } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
+async function getTId(s: any): Promise<string | null> { // eslint-disable-line @typescript-eslint/no-explicit-any
+  const { data } = await (s.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
   return (data as R | null)?.tenant_id ?? null
 }
 
 export async function GET(req: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const tenantId = await getTId(supabase)
-  if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
-  const action = req.nextUrl.searchParams.get('action')
+  const s = await createSupabaseServerClient()
+  const t = await getTId(s)
+  if (!t) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
+  const a = req.nextUrl.searchParams.get('action')
 
-  if (action === 'eintraege') {
-    const { data } = await (supabase.from('kosteneintraege') as any)
-      .select('id, datum, betrag, beschreibung, objekt_typ, periode, kostenstelle:kostenstelle_id(name), kostenart:kostenart_id(name), ried:ried_id(name), behaelter:behaelter_id(name)')
-      .eq('tenant_id', tenantId).order('datum', { ascending: false }).limit(300)
+  if (a === 'eintraege') {
+    const { data } = await (s.from('kosteneintraege') as any)
+      .select('id, datum, betrag, beschreibung, objekt_typ, periode, kostenstelle:kostenstelle_id(name), kostenart:kostenart_id(name), wg:weingarten_id(name), behaelter:behaelter_id(name)')
+      .eq('tenant_id', t).order('datum', { ascending: false }).limit(300)
     return NextResponse.json({ eintraege: data ?? [] })
   }
-  if (action === 'kostenstellen') {
-    const { data } = await (supabase.from('kostenstellen') as any)
-      .select('id, name, kuerzel').eq('tenant_id', tenantId).eq('aktiv', true).order('name')
+  if (a === 'kostenstellen') {
+    const { data } = await (s.from('kostenstellen') as any).select('id, name, kuerzel').eq('tenant_id', t).eq('aktiv', true).order('name')
     return NextResponse.json({ kostenstellen: data ?? [] })
   }
-  if (action === 'kostenarten') {
-    const { data } = await (supabase.from('kostenarten') as any)
-      .select('id, name, kategorie').eq('tenant_id', tenantId).eq('aktiv', true).order('name')
+  if (a === 'kostenarten') {
+    const { data } = await (s.from('kostenarten') as any).select('id, name, kategorie').eq('tenant_id', t).eq('aktiv', true).order('name')
     return NextResponse.json({ kostenarten: data ?? [] })
   }
-  if (action === 'rieden') {
-    const { data } = await (supabase.from('lagen') as any)
-      .select('id, name').eq('tenant_id', tenantId).order('name')
-    return NextResponse.json({ rieden: data ?? [] })
+  if (a === 'weingaerten') {
+    const { data } = await (s.from('weingarten') as any).select('id, name').eq('tenant_id', t).order('name')
+    return NextResponse.json({ weingaerten: data ?? [] })
   }
-  if (action === 'behaelter') {
-    const { data } = await (supabase.from('behaelter') as any)
-      .select('id, name, typ').eq('tenant_id', tenantId).eq('aktiv', true).order('name')
+  if (a === 'behaelter') {
+    const { data } = await (s.from('behaelter') as any).select('id, name, typ').eq('tenant_id', t).eq('aktiv', true).order('name')
     return NextResponse.json({ behaelter: data ?? [] })
   }
-  if (action === 'auswertung') {
+  if (a === 'auswertung') {
     const jahr = req.nextUrl.searchParams.get('jahr') ?? new Date().getFullYear().toString()
-    const { data } = await (supabase.from('kosteneintraege') as any)
-      .select('betrag, periode, objekt_typ, kostenstelle:kostenstelle_id(name), kostenart:kostenart_id(name), ried:ried_id(name), behaelter:behaelter_id(name)')
-      .eq('tenant_id', tenantId)
-      .gte('datum', `${jahr}-01-01`).lte('datum', `${jahr}-12-31`)
+    const { data } = await (s.from('kosteneintraege') as any)
+      .select('betrag, periode, objekt_typ, kostenstelle:kostenstelle_id(name), kostenart:kostenart_id(name), wg:weingarten_id(name), behaelter:behaelter_id(name)')
+      .eq('tenant_id', t).gte('datum', `${jahr}-01-01`).lte('datum', `${jahr}-12-31`)
     return NextResponse.json({ eintraege: data ?? [], jahr })
   }
   return NextResponse.json({ fehler: 'Unbekannte Aktion' }, { status: 400 })
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const tenantId = await getTId(supabase)
-  if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
-  const body = await req.json() as R
+  const s = await createSupabaseServerClient()
+  const t = await getTId(s)
+  if (!t) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
+  const b = await req.json() as R
 
-  if (body.action === 'eintrag') {
-    const { error } = await (supabase.from('kosteneintraege') as any).insert({
-      tenant_id:        tenantId,
-      kostenstelle_id:  body.kostenstelle_id ?? null,
-      kostenart_id:     body.kostenart_id ?? null,
-      datum:            body.datum,
-      betrag:           body.betrag,
-      beschreibung:     body.beschreibung ?? null,
-      periode:          body.datum?.slice(0, 7) ?? null,
-      objekt_typ:       body.objekt_typ ?? null,
-      ried_id:          body.ried_id ?? null,
-      behaelter_id:     body.behaelter_id ?? null,
-    })
+  const fields = {
+    kostenstelle_id: b.kostenstelle_id ?? null, kostenart_id: b.kostenart_id ?? null,
+    datum: b.datum, betrag: b.betrag, beschreibung: b.beschreibung ?? null,
+    periode: b.datum?.slice(0, 7) ?? null, objekt_typ: b.objekt_typ ?? null,
+    weingarten_id: b.weingarten_id ?? null, behaelter_id: b.behaelter_id ?? null,
+  }
+
+  if (b.action === 'eintrag') {
+    const { error } = await (s.from('kosteneintraege') as any).insert({ tenant_id: t, ...fields })
     if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
+  if (b.action === 'aktualisieren') {
+    const { error } = await (s.from('kosteneintraege') as any).update(fields).eq('id', b.id).eq('tenant_id', t)
+    if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
+  if (b.action === 'loeschen') {
+    await (s.from('kosteneintraege') as any).delete().eq('id', b.id).eq('tenant_id', t)
     return NextResponse.json({ ok: true })
   }
   return NextResponse.json({ fehler: 'Unbekannte Aktion' }, { status: 400 })
