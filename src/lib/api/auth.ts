@@ -9,7 +9,7 @@ type R = Record<string, any>
 
 export const USER_EMAIL_CONN_SELECT =
   'm365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, ' +
-  'm365_user_email, imap_aktiv, imap_host, imap_port, imap_user, imap_pass_enc, monitored_email'
+  'imap_aktiv, imap_host, imap_port, imap_user, imap_pass_enc, monitored_email'
 
 /**
  * Tenant-ID aus der Session laden (NIEMALS aus Request-Body)
