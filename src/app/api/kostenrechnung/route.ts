@@ -3,21 +3,21 @@ import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
-async function getTenantId(supabase: any): Promise<string | null> { // eslint-disable-line @typescript-eslint/no-explicit-any
+async function getTId(supabase: any): Promise<string | null> { // eslint-disable-line @typescript-eslint/no-explicit-any
   const { data } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
   return (data as R | null)?.tenant_id ?? null
 }
 
 export async function GET(req: NextRequest) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId(supabase)
+  const tenantId = await getTId(supabase)
   if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
   const action = req.nextUrl.searchParams.get('action')
 
   if (action === 'eintraege') {
     const { data } = await (supabase.from('kosteneintraege') as any)
-      .select('id, datum, betrag, beschreibung, kostenstelle:kostenstelle_id(name), kostenart:kostenart_id(name)')
-      .eq('tenant_id', tenantId).order('datum', { ascending: false }).limit(200)
+      .select('id, datum, betrag, beschreibung, objekt_typ, periode, kostenstelle:kostenstelle_id(name), kostenart:kostenart_id(name), ried:ried_id(bezeichnung), behaelter:behaelter_id(name)')
+      .eq('tenant_id', tenantId).order('datum', { ascending: false }).limit(300)
     return NextResponse.json({ eintraege: data ?? [] })
   }
   if (action === 'kostenstellen') {
@@ -30,21 +30,45 @@ export async function GET(req: NextRequest) {
       .select('id, name, kategorie').eq('tenant_id', tenantId).eq('aktiv', true).order('name')
     return NextResponse.json({ kostenarten: data ?? [] })
   }
+  if (action === 'rieden') {
+    const { data } = await (supabase.from('lagen') as any)
+      .select('id, bezeichnung').eq('tenant_id', tenantId).eq('aktiv', true).order('bezeichnung')
+    return NextResponse.json({ rieden: data ?? [] })
+  }
+  if (action === 'behaelter') {
+    const { data } = await (supabase.from('behaelter') as any)
+      .select('id, name, typ').eq('tenant_id', tenantId).eq('aktiv', true).order('name')
+    return NextResponse.json({ behaelter: data ?? [] })
+  }
+  if (action === 'auswertung') {
+    const jahr = req.nextUrl.searchParams.get('jahr') ?? new Date().getFullYear().toString()
+    const { data } = await (supabase.from('kosteneintraege') as any)
+      .select('betrag, periode, objekt_typ, kostenstelle:kostenstelle_id(name), kostenart:kostenart_id(name), ried:ried_id(bezeichnung), behaelter:behaelter_id(name)')
+      .eq('tenant_id', tenantId)
+      .gte('datum', `${jahr}-01-01`).lte('datum', `${jahr}-12-31`)
+    return NextResponse.json({ eintraege: data ?? [], jahr })
+  }
   return NextResponse.json({ fehler: 'Unbekannte Aktion' }, { status: 400 })
 }
 
 export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId(supabase)
+  const tenantId = await getTId(supabase)
   if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
   const body = await req.json() as R
 
   if (body.action === 'eintrag') {
     const { error } = await (supabase.from('kosteneintraege') as any).insert({
-      tenant_id: tenantId, kostenstelle_id: body.kostenstelle_id ?? null,
-      kostenart_id: body.kostenart_id ?? null, datum: body.datum, betrag: body.betrag,
-      beschreibung: body.beschreibung ?? null,
-      periode: body.datum?.slice(0, 7) ?? null,
+      tenant_id:        tenantId,
+      kostenstelle_id:  body.kostenstelle_id ?? null,
+      kostenart_id:     body.kostenart_id ?? null,
+      datum:            body.datum,
+      betrag:           body.betrag,
+      beschreibung:     body.beschreibung ?? null,
+      periode:          body.datum?.slice(0, 7) ?? null,
+      objekt_typ:       body.objekt_typ ?? null,
+      ried_id:          body.ried_id ?? null,
+      behaelter_id:     body.behaelter_id ?? null,
     })
     if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })
