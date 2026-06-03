@@ -74,8 +74,8 @@ function MultiSelect({ items, selected, onToggle, splitModus, setSplitModus, ant
 }
 
 function StammdatenTab({ items, onSave, onDelete, fields }: {
-  items: { id: string; name: string; [k: string]: string|undefined }[]
-  onSave: (item: { id?: string; [k: string]: string|undefined }) => Promise<void>
+  items: Record<string, string|undefined>[]  // eslint-disable-line @typescript-eslint/no-explicit-any
+  onSave: (item: Record<string, string|undefined>) => Promise<void>
   onDelete: (id: string) => Promise<void>
   fields: { key: string; label: string; type?: string; options?: string[] }[]
 }) {
@@ -208,7 +208,7 @@ export default function KostenrechnungPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  function buildSplit(sel: string[], modus: 'gleich'|'prozent', anteile: Record<string,number>, fk: string) {
+  function buildSplit(sel: string[], modus: 'gleich'|'prozent', anteile: Record<string,number>, fk: string): Record<string,string|number>[] {
     if (!sel.length) return []
     return modus === 'gleich' ? sel.map(id => ({ [fk]: id })) : sel.map(id => ({ [fk]: id, anteil_pct: anteile[id] ?? 0 }))
   }
@@ -339,12 +339,12 @@ export default function KostenrechnungPage() {
       )}
 
       {tab === 'kostenstellen' && (
-        <StammdatenTab items={ks} onDelete={async id=>{await api({action:'ks_delete',id});ladeDaten()}}
+        <StammdatenTab items={ks as Record<string,string|undefined>[]} onDelete={async id=>{await api({action:'ks_delete',id});ladeDaten()}}
           onSave={async item=>{await api({action:'ks_save',...item});ladeDaten()}}
           fields={[{key:'name',label:'Name *'},{key:'kuerzel',label:'Kürzel'},{key:'beschreibung',label:'Beschreibung'}]} />
       )}
       {tab === 'kostenarten' && (
-        <StammdatenTab items={ka} onDelete={async id=>{await api({action:'ka_delete',id});ladeDaten()}}
+        <StammdatenTab items={ka as Record<string,string|undefined>[]} onDelete={async id=>{await api({action:'ka_delete',id});ladeDaten()}}
           onSave={async item=>{await api({action:'ka_save',...item});ladeDaten()}}
           fields={[{key:'name',label:'Name *'},{key:'kuerzel',label:'Kürzel'},{key:'kategorie',label:'Kategorie',options:KAT}]} />
       )}
