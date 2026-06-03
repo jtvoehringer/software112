@@ -144,11 +144,11 @@ function SubItem({ item, pathname }: { item: NavItem; pathname: string }) {
       href={item.href}
       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${indent ? 'ml-3' : ''}
         ${active
-          ? 'bg-s112-teal/10 text-s112-teal font-medium'
-          : 'text-gray-600 hover:bg-s112-bg hover:text-gray-900'
+          ? 'bg-s112-teal text-s112-yellow font-medium'
+          : 'text-s112-teal hover:bg-s112-teal/10'
         }`}
     >
-      <span className={`rounded-full flex-shrink-0 ${indent ? 'w-1 h-1' : 'w-1.5 h-1.5'} ${active ? 'bg-s112-teal' : 'bg-gray-300'}`} />
+      <span className={`rounded-full flex-shrink-0 ${indent ? 'w-1 h-1' : 'w-1.5 h-1.5'} ${active ? 'bg-s112-yellow' : 'bg-s112-teal/40'}`} />
       {item.label}
     </Link>
   )
@@ -171,7 +171,7 @@ function NavGroupItem({
       <button
         onClick={() => setOpen(o => !o)}
         className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors
-          ${active ? 'text-s112-teal' : 'text-gray-700 hover:bg-s112-bg hover:text-gray-900'}`}
+          ${active ? 'text-s112-teal font-semibold' : 'text-s112-teal/70 hover:bg-s112-teal/10 hover:text-s112-teal'}`}
       >
         <span className="w-5 text-center text-base">{entry.icon}</span>
         <span className="flex-1 text-left">{entry.label}</span>
@@ -267,7 +267,7 @@ export default function Sidebar({ userEmail, role, roleLabel, branding }: Sideba
               key={entry.href}
               href={entry.href}
               className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors
-                ${active ? 'bg-s112-teal text-white' : 'text-gray-700 hover:bg-s112-bg hover:text-gray-900'}`}
+                ${active ? 'bg-s112-teal text-s112-yellow' : 'text-s112-teal hover:bg-s112-teal/10'}`}
             >
               <span className="w-5 text-center">{entry.icon}</span>
               {entry.label}
