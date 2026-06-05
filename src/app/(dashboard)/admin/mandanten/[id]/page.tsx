@@ -48,6 +48,7 @@ export type TenantSettings = {
   rechnung_bic:             string | null
   rechnung_zahlungsziel:    number
   rechnung_fusstext:        string | null
+  session_timeout_minuten:  number | null
   // Migration 032
   ust_satz_standard:        number
   // Migration 038 – E-Mail
