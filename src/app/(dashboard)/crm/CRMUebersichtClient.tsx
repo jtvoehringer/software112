@@ -127,14 +127,6 @@ function WochenView({ eintraege, current, heute }: { eintraege: KalenderEintrag[
   const monday = useMemo(() => startOfWeek(current), [current.toDateString()])
   const days   = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(monday, i)), [monday.getTime()])
 
-  // User-Filter anwenden
-  const gefilterteEintraege = useMemo(() =>
-    filterUser === 'alle'
-      ? eintraege
-      : eintraege.filter(e => e.erstellt_von === filterUser),
-    [eintraege, filterUser]
-  )
-
   const byDay = useMemo(() => {
     const map: Record<string, KalenderEintrag[]> = {}
     days.forEach(d => { map[toDateStr(d)] = [] })
