@@ -45,17 +45,7 @@ export default async function DashboardPage() {
     q('weinausbau').select('*', { count: 'exact', head: true }).eq('aktiv', true),
     q('kontakte').select('*', { count: 'exact', head: true }).eq('aktiv', true),
 
-  // Meine Aktivitäten (aktueller User, offen, nächste 30 Tage)
-  const { data: { user } } = await supabase.auth.getUser()
-  const heute = new Date().toISOString().split('T')[0]
-  const in30  = new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]
-  const { data: meineAkts } = await (supabase.from('aktivitaeten') as any)
-    .select('id, art, betreff, datum, ganztags, uhrzeit_von, erledigt, kontakt_id, firma_id, kontakte(vorname,nachname), firmen(name)')
-    .eq('tenant_id', tenantId).eq('erledigt', false)
-    .gte('datum', heute).lte('datum', in30)
-    .order('datum', { ascending: true }).limit(10)
-
-  // Offene Posten (unbezahlt, nicht storniert)
+    // Offene Posten (unbezahlt, nicht storniert)
     q('verkaufsposten')
       .select('id, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
       .eq('aktiv', true).eq('bezahlt', false).eq('storniert', false),
