@@ -59,6 +59,9 @@ export default async function CRMUebersichtPage() {
             : `/crm?editAkt=${a.id}`,
         kontaktName: a.kontakt_id ? (kontakteMap[a.kontakt_id] ?? null) : null,
         firmaName: a.firma_id ? (firmenMap[a.firma_id] ?? null) : null,
+        ist_privat:   (a.ist_privat as boolean | null) ?? null,
+        erstellt_von: (a.erstellt_von as string | null) ?? null,
+        bis_datum:    (a.bis_datum as string | null) ?? null,
       }
     }),
 
