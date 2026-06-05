@@ -4,6 +4,7 @@ import Link from 'next/link'
 
 export const metadata: Metadata = { title: 'Übersicht – software:112' }
 export const dynamic = 'force-dynamic'
+type AR = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -44,7 +45,17 @@ export default async function DashboardPage() {
     q('weinausbau').select('*', { count: 'exact', head: true }).eq('aktiv', true),
     q('kontakte').select('*', { count: 'exact', head: true }).eq('aktiv', true),
 
-    // Offene Posten (unbezahlt, nicht storniert)
+    // Meine Aktivitäten (aktueller User, offen, nächste 30 Tage)
+  const { data: { user } } = await supabase.auth.getUser()
+  const heute = new Date().toISOString().split('T')[0]
+  const in30  = new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]
+  const { data: meineAkts } = await (supabase.from('aktivitaeten') as any)
+    .select('id, art, betreff, datum, ganztags, uhrzeit_von, erledigt, kontakt_id, firma_id, kontakte(vorname,nachname), firmen(name)')
+    .eq('tenant_id', tenantId).eq('erledigt', false)
+    .gte('datum', heute).lte('datum', in30)
+    .order('datum', { ascending: true }).limit(10)
+
+  // Offene Posten (unbezahlt, nicht storniert)
     q('verkaufsposten')
       .select('id, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
       .eq('aktiv', true).eq('bezahlt', false).eq('storniert', false),
@@ -209,30 +220,30 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        {/* Lager Top 5 */}
+        {/* Meine Aktivitäten */}
         <div className="card p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-gray-700 text-sm">Lager – meiste Flaschen</h2>
-            <Link href="/weinhandel" className="text-xs text-s112-teal hover:underline">alle →</Link>
+            <h2 className="font-semibold text-gray-700 text-sm">Meine Aktivitäten</h2>
+            <Link href="/crm" className="text-xs text-s112-teal hover:underline">Kalender →</Link>
           </div>
-          {tops.length === 0 ? (
-            <div className="text-center py-6">
-              <p className="text-xl mb-1">🍾</p>
-              <p className="text-xs text-s112-muted">Kein Lagerbestand</p>
+          {(meineAkts ?? []).length === 0 ? (
+            <div className="text-center py-4">
+              <p className="text-xs text-s112-muted">Keine offenen Aktivitäten in den nächsten 30 Tagen</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {tops.map((f: R) => (
-                <div key={f.id} className="flex items-center justify-between py-2 border-b border-s112-border last:border-0">
-                  <p className="text-sm text-gray-800 truncate min-w-0 mr-2">
-                    {f.name}{f.jahrgang ? <span className="text-s112-muted font-normal ml-1 text-xs">{f.jahrgang}</span> : null}
-                  </p>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-bold text-gray-800 tabular-nums">{f.bestand_flaschen}</p>
-                    <p className="text-xs text-s112-muted">Fl.</p>
+              {(meineAkts as AR[]).map(a => {
+                const who = a.kontakte ? [a.kontakte.vorname, a.kontakte.nachname].filter(Boolean).join(' ') : a.firmen?.name ?? ''
+                return (
+                  <div key={a.id} className="flex items-start gap-2 py-1.5 border-b border-s112-border/30 last:border-0">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-800 truncate">{a.betreff}</p>
+                      {who && <p className="text-[10px] text-s112-muted truncate">{who}</p>}
+                    </div>
+                    <span className="text-[10px] text-s112-muted flex-shrink-0">{new Date(a.datum).toLocaleDateString('de-AT', {day:'2-digit',month:'2-digit'})}</span>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

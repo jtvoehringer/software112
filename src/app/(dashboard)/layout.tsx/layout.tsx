@@ -66,6 +66,7 @@ export default async function DashboardLayout({
       `}</style>
       <ResponsiveLayout
         userEmail={user.email ?? ''}
+        userName={user.user_metadata?.full_name || user.user_metadata?.name || (user.email ?? '').split('@')[0]}
         role={role}
         roleLabel={roleLabel(role)}
         branding={branding}

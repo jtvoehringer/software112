@@ -207,7 +207,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
             <input type="text" name="betreff" defaultValue={a.betreff ?? ''} className={inputCls()} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Notiz</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Bericht</label>
             <textarea name="beschreibung" defaultValue={a.beschreibung ?? ''} rows={2} className={inputCls()} />
           </div>
           <div className="flex items-center gap-4 flex-wrap text-xs">
@@ -282,11 +282,11 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
         </div>
         {a.art === 'email' ? (
           <button type="button" onClick={() => setEmailOpen(v => !v)}
-            className={`text-sm font-medium text-left w-full text-s112-teal hover:underline mt-0.5 block ${a.erledigt ? 'line-through opacity-50' : ''}`}>
+            className={`text-sm font-medium text-left w-full text-s112-teal hover:underline mt-0.5 block ${a.erledigt ? 'opacity-60' : ''}`}>
             {a.betreff ?? '(kein Betreff)'} {emailOpen ? '▴' : '▾'}
           </button>
         ) : (
-          <p className={`text-sm font-medium text-gray-800 mt-0.5 ${a.erledigt ? 'line-through text-gray-400' : ''}`}>
+          <p className={`text-sm font-medium text-gray-800 mt-0.5 ${a.erledigt ? 'text-gray-400' : ''}`}>
             {a.betreff}
           </p>
         )}
@@ -374,6 +374,19 @@ export default function FirmaDetailClient({
   pipeline: PipelineEintragRow[]
   writeOk: boolean
 }) {
+
+  function sortAktivitaeten(akts: AktivitaetRow[]) {
+    const offen    = akts.filter(a => !a.erledigt).sort((a, b) => {
+      const dCmp = new Date(b.datum).getTime() - new Date(a.datum).getTime()
+      return dCmp !== 0 ? dCmp : (a.betreff ?? '').localeCompare(b.betreff ?? '', 'de')
+    })
+    const erledigt = akts.filter(a =>  a.erledigt).sort((a, b) => {
+      const dCmp = new Date(b.datum).getTime() - new Date(a.datum).getTime()
+      return dCmp !== 0 ? dCmp : (a.betreff ?? '').localeCompare(b.betreff ?? '', 'de')
+    })
+    return [...offen, ...erledigt]
+  }
+
   const [tab, setTab] = useState<Tab>('kontakte')
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set())
   const [showEmailModal, setShowEmailModal] = useState(false)
@@ -815,7 +828,7 @@ export default function FirmaDetailClient({
                     {n.erledigt && <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                   </button>
                   <div className="flex-1">
-                    <p className={`text-sm ${n.erledigt ? 'line-through text-gray-400' : 'text-gray-800'}`}>{n.betreff}</p>
+                    <p className={`text-sm ${n.erledigt ? 'text-gray-400' : 'text-gray-800'}`}>{n.betreff}</p>
                     <p className="text-xs text-s112-muted mt-0.5">{new Date(n.datum).toLocaleDateString('de-AT')}</p>
                   </div>
                 </div>

@@ -197,7 +197,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
             <input type="text" name="betreff" defaultValue={a.betreff ?? ''} className={inputCls()} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Notiz</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Bericht</label>
             <textarea name="beschreibung" defaultValue={a.beschreibung ?? ''} rows={2} className={inputCls()} />
           </div>
           <div className="flex items-center gap-4 flex-wrap text-xs">
@@ -272,11 +272,11 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
         </div>
         {a.art === 'email' ? (
           <button type="button" onClick={() => setEmailOpen(v => !v)}
-            className={`text-sm font-medium text-left w-full text-s112-teal hover:underline mt-0.5 block ${a.erledigt ? 'line-through opacity-50' : ''}`}>
+            className={`text-sm font-medium text-left w-full text-s112-teal hover:underline mt-0.5 block ${a.erledigt ? 'opacity-60' : ''}`}>
             {a.betreff ?? '(kein Betreff)'} {emailOpen ? '▴' : '▾'}
           </button>
         ) : (
-          <p className={`text-sm font-medium text-gray-800 mt-0.5 ${a.erledigt ? 'line-through text-gray-400' : ''}`}>
+          <p className={`text-sm font-medium text-gray-800 mt-0.5 ${a.erledigt ? 'text-gray-400' : ''}`}>
             {a.betreff}
           </p>
         )}
@@ -388,6 +388,8 @@ export default function KontaktDetailClient({
   const [showAktForm, setShowAktForm] = useState(false)
   const [notizText, setNotizText]   = useState('')
   const [notizLaden, setNotizLaden] = useState(false)
+  const [notizEditId, setNotizEditId] = useState<string|null>(null)
+  const [notizEditText, setNotizEditText] = useState('')
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set())
 
   // Betreff normalisieren: Re:/AW:/Fwd: entfernen
@@ -396,6 +398,19 @@ export default function KontaktDetailClient({
   }
 
   // E-Mail-Aktivitäten nach conversation_id ODER normalisiertem Betreff gruppieren
+
+  function sortAktivitaeten(akts: AktivitaetRow[]) {
+    const offen    = akts.filter(a => !a.erledigt).sort((a, b) => {
+      const dCmp = new Date(b.datum).getTime() - new Date(a.datum).getTime()
+      return dCmp !== 0 ? dCmp : (a.betreff ?? '').localeCompare(b.betreff ?? '', 'de')
+    })
+    const erledigt = akts.filter(a =>  a.erledigt).sort((a, b) => {
+      const dCmp = new Date(b.datum).getTime() - new Date(a.datum).getTime()
+      return dCmp !== 0 ? dCmp : (a.betreff ?? '').localeCompare(b.betreff ?? '', 'de')
+    })
+    return [...offen, ...erledigt]
+  }
+
   function groupEmailsByThread(akts: AktivitaetRow[]) {
     const threads: Record<string, AktivitaetRow[]> = {}
     const singles: AktivitaetRow[] = []
@@ -523,7 +538,7 @@ export default function KontaktDetailClient({
                       )
                     })}
                     {/* Einzelne Aktivitäten */}
-                    {singles.map(a => <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} kontaktEmail={kontakt.email ?? undefined} kontaktId={kontakt.id} />)}
+                    {sortAktivitaeten(singles).map(a => <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} kontaktEmail={kontakt.email ?? undefined} kontaktId={kontakt.id} />)}
                   </>
                 )
               })()}
@@ -621,10 +636,26 @@ export default function KontaktDetailClient({
                     className={`mt-0.5 w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${n.erledigt ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}>
                     {n.erledigt && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                   </button>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-xs ${n.erledigt ? 'line-through text-gray-400' : 'text-gray-700'}`}>{n.betreff}</p>
-                    <p className="text-[10px] text-s112-muted">{new Date(n.datum).toLocaleDateString('de-AT')}</p>
-                  </div>
+                  {notizEditId === n.id ? (
+                    <div className="flex-1 flex gap-1 items-center">
+                      <input value={notizEditText} onChange={e => setNotizEditText(e.target.value)}
+                        className="flex-1 border border-s112-border rounded px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40" />
+                      <button type="button" onClick={async () => {
+                        const fd = new FormData(); fd.set('betreff', notizEditText)
+                        await updateAktivitaet(n.id, fd); setNotizEditId(null)
+                      }} className="text-xs text-s112-teal font-medium">✓</button>
+                      <button type="button" onClick={() => setNotizEditId(null)} className="text-xs text-s112-muted">✕</button>
+                    </div>
+                  ) : (
+                    <div className="flex-1 min-w-0 flex items-start justify-between gap-1">
+                      <div className="min-w-0">
+                        <p className={`text-xs ${n.erledigt ? 'text-gray-400' : 'text-gray-700'}`}>{n.betreff}</p>
+                        <p className="text-[10px] text-s112-muted">{new Date(n.datum).toLocaleDateString('de-AT')}</p>
+                      </div>
+                      <button type="button" onClick={() => { setNotizEditId(n.id); setNotizEditText(n.betreff ?? '') }}
+                        className="text-gray-300 hover:text-s112-teal text-[10px] flex-shrink-0 mt-0.5">✏</button>
+                    </div>
+                  )}
                 </div>
               ))}
               {aktivitaeten.filter(a => a.art === 'notiz').length === 0 && (

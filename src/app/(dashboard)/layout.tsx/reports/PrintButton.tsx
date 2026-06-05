@@ -1,0 +1,11 @@
+'use client'
+export default function PrintButton() {
+  return (
+    <button
+      onClick={() => window.print()}
+      className="flex items-center gap-2 border border-s112-border text-gray-600 px-3 py-1.5 rounded-xl text-sm hover:bg-s112-bg print:hidden"
+    >
+      🖨 Drucken / PDF
+    </button>
+  )
+}

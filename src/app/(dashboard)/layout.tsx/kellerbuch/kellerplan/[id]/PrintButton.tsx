@@ -1,0 +1,12 @@
+'use client'
+
+export default function PrintButton() {
+  return (
+    <button
+      onClick={() => window.print()}
+      className="no-print text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-3 py-1 hover:bg-s112-teal hover:text-white transition-colors"
+    >
+      🖨️ Drucken / PDF
+    </button>
+  )
+}

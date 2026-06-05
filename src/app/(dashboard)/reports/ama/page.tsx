@@ -24,6 +24,13 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
   const s = (settingsRaw as R | null) ?? {}
   const aktJahrgang = jahrgaenge.find(j => String(j.jahrgang) === jahrgangParam) ?? jahrgaenge[0]
 
+  // Lagerbestand für Bestandsmeldung
+  const { data: bestandRaw } = await (supabase.from('fuellungen') as any)
+    .select('name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen')
+    .eq('aktiv', true).gt('bestand_flaschen', 0).order('name')
+  const bestand = (bestandRaw ?? []) as R[]
+  const gesamtFlaschen = bestand.reduce((s: number, f: R) => s + (f.bestand_flaschen ?? 0), 0)
+
   let parzellen: R[] = []
   if (aktJahrgang) {
     const { data } = await (supabase.from('ernte_parzellen') as any)
@@ -115,6 +122,40 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
             </tr>
           </tfoot>
         </table>
+
+
+        <div className="mt-10 pt-6 border-t-2 border-gray-300">
+          <h2 className="text-base font-bold text-gray-900 mb-1">Weinbestandsmeldung</h2>
+          <p className="text-xs text-gray-500 mb-3">§ 29 Weingesetz 2009 · Stichtag: <strong>31. Juli</strong> · Meldefrist: <strong>15. August</strong> · Weindatenbank: online.wein.bmluk.gv.at</p>
+          <table className="w-full border-collapse text-sm">
+            <thead><tr className="bg-gray-100">
+              <th className="px-3 py-2 border border-gray-200 text-left">Bezeichnung</th>
+              <th className="px-3 py-2 border border-gray-200 text-left">Jahrgang</th>
+              <th className="px-3 py-2 border border-gray-200 text-left">Rebsorte</th>
+              <th className="px-3 py-2 border border-gray-200 text-right">ml</th>
+              <th className="px-3 py-2 border border-gray-200 text-right">Flaschen</th>
+              <th className="px-3 py-2 border border-gray-200 text-right">hl</th>
+            </tr></thead>
+            <tbody>
+              {bestand.map((f: R, i: number) => {
+                const hl = ((f.bestand_flaschen ?? 0) * (f.flaschengroesse_ml ?? 750)) / 100000
+                return (<tr key={i} className={i%2===1?'bg-gray-50':''}>
+                  <td className="px-3 py-2 border border-gray-200">{f.name}</td>
+                  <td className="px-3 py-2 border border-gray-200">{f.jahrgang??'–'}</td>
+                  <td className="px-3 py-2 border border-gray-200">{f.rebsorte??'–'}</td>
+                  <td className="px-3 py-2 border border-gray-200 text-right">{f.flaschengroesse_ml??750}</td>
+                  <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">{(f.bestand_flaschen??0).toLocaleString('de-AT')}</td>
+                  <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">{hl.toFixed(3).replace('.',',')}</td>
+                </tr>)
+              })}
+            </tbody>
+            <tfoot><tr className="bg-gray-200 font-bold border-t-2 border-gray-400">
+              <td className="px-3 py-2 border border-gray-300" colSpan={4}>GESAMT</td>
+              <td className="px-3 py-2 border border-gray-300 text-right tabular-nums">{gesamtFlaschen.toLocaleString('de-AT')} Fl.</td>
+              <td className="px-3 py-2 border border-gray-300 text-right tabular-nums">{((gesamtFlaschen*750)/100000).toFixed(3).replace('.',',')} hl</td>
+            </tr></tfoot>
+          </table>
+        </div>
 
         {/* Unterschrift */}
         <div className="grid grid-cols-2 gap-16 mt-12 pt-4">
