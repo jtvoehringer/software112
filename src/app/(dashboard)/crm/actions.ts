@@ -193,7 +193,10 @@ export async function createAktivitaet(formData: FormData) {
     erstellt_von: user?.id ?? null,
   }
   const { error } = await (supabase.from('aktivitaeten') as any).insert(payload)
-  if (error) throw new Error((error as AR).message)
+  if (error) {
+    console.error('[createAktivitaet] DB-Fehler:', error.message, error.details, error.hint)
+    throw new Error(`Aktivität konnte nicht gespeichert werden: ${error.message}`)
+  }
   revalidatePath('/crm')
   revalidatePath('/crm/kontakte')
   revalidatePath('/crm/firmen')
