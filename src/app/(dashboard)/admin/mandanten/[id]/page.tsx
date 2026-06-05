@@ -167,6 +167,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     m365_token_expires_at: s?.m365_token_expires_at ?? null,
     m365_webhook_sub_id:  s?.m365_webhook_sub_id ?? null,
     m365_webhook_expires: s?.m365_webhook_expires ?? null,
+    session_timeout_minuten: s?.session_timeout_minuten ?? null,
   }
 
   const members: TenantMember[] = ((memberships ?? []) as R[]).map(m => ({
