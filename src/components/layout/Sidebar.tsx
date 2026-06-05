@@ -224,7 +224,7 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
   }
 
   return (
-    <aside className="w-60 flex-shrink-0 bg-white border-r border-s112-border flex flex-col">
+    <aside className="w-60 flex-shrink-0 bg-white border-r border-s112-border flex flex-col h-full">
       {/* Kunden-Logo */}
       <div className="px-5 py-4 border-b border-s112-border">
         <Link href="/dashboard" className="block">
@@ -315,5 +315,3 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
         </div>
       </div>
     </aside>
-  )
-}
