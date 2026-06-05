@@ -120,6 +120,16 @@ export default async function DashboardPage() {
     angebot: '📋', verkostung: '🍷', messe: '🎪',
   }
 
+
+  // Meine Aktivitäten (nächste 30 Tage, offen)
+  const { data: { user } } = await supabase.auth.getUser()
+  const in30 = new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]
+  const { data: meineAkts } = await (supabase.from('aktivitaeten') as any)
+    .select('id, art, betreff, datum, erledigt, kontakt_id, firma_id, kontakte(vorname,nachname), firmen(name)')
+    .eq('tenant_id', tenantId).eq('erledigt', false)
+    .gte('datum', heuteStr).lte('datum', in30)
+    .order('datum', { ascending: true }).limit(10)
+
   const monatName = heute.toLocaleDateString('de-AT', { month: 'long', year: 'numeric' })
 
   return (
