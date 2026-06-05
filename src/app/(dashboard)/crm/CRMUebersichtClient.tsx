@@ -110,7 +110,8 @@ function EintragChip({ e, compact = false, onViewAkt }: { e: KalenderEintrag; co
         {zeitLabel && compact && (
           <span className="font-semibold mr-0.5 tabular-nums">{von}</span>
         )}
-        <span className={`font-medium ${e.erledigt ? 'line-through' : ''}`}>{e.titel}</span>
+        {e.erledigt && <span className="text-green-500 mr-0.5 flex-shrink-0">✓</span>}
+        <span className="font-medium">{e.titel}</span>
         {!compact && (e.kontaktName || e.firmaName) && (
           <span className="block text-[9px] opacity-60 truncate mt-px">
             {e.kontaktName ?? e.firmaName}
@@ -474,7 +475,7 @@ function ZeitachseView({
                           <div className="text-[10px] font-bold tabular-nums leading-tight">
                             {fmtT(e.uhrzeit_von)}{e.uhrzeit_bis ? `–${fmtT(e.uhrzeit_bis)}` : ''}
                           </div>
-                          <div className={`text-[10px] font-medium truncate leading-tight ${e.erledigt ? 'line-through opacity-60' : ''}`}>
+                          <div className={`text-[10px] font-medium truncate leading-tight`}>
                             {e.artIcon} {e.titel}
                           </div>
                           {h > 50 && (e.kontaktName || e.firmaName) && (
