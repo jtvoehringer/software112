@@ -20,6 +20,7 @@ export type KalenderEintrag = {
   ganztags?: boolean
   uhrzeit_von?: string | null   // "HH:MM:SS"
   uhrzeit_bis?: string | null
+  bis_datum?: string | null    // Enddatum für mehrtägige Ganztags-Events
   ueberfaellig: boolean
   erledigt?: boolean
   href: string
@@ -71,6 +72,8 @@ const ART_FARBEN: Record<string, string> = {
   messe:      'bg-indigo-50 text-indigo-700 border-indigo-100',
   angebot:    'bg-yellow-50 text-yellow-800 border-yellow-100',
   notiz:      'bg-gray-50 text-gray-600 border-gray-100',
+  urlaub:     'bg-amber-50 text-amber-700 border-amber-200',
+  abwesenheit:'bg-slate-50 text-slate-600 border-slate-200',
 }
 
 function chipFarbe(e: KalenderEintrag): string {
@@ -221,10 +224,24 @@ function ZeitachseView({
     days.forEach(d => { map[toDateStr(d)] = { ganztags: [], timed: [] } })
     eintraege.forEach(e => {
       if (!map[e.datum]) return
+      // Mehrtägige Ganztags-Events → werden als Balken separat gerendert
+      if (e.bis_datum && (e.ganztags !== false || !e.uhrzeit_von)) return
       if (e.ganztags !== false || !e.uhrzeit_von) map[e.datum].ganztags.push(e)
       else map[e.datum].timed.push(e)
     })
     return map
+  }, [eintraege, monday.getTime()])
+
+  // Mehrtägige Ganztags-Events sichtbar in dieser Woche
+  const multiDayGanztags = useMemo(() => {
+    const weekStart = toDateStr(days[0])
+    const weekEnd   = toDateStr(days[6])
+    return eintraege.filter(e =>
+      e.bis_datum != null &&
+      (e.ganztags !== false || !e.uhrzeit_von) &&
+      e.datum    <= weekEnd &&
+      e.bis_datum >= weekStart
+    )
   }, [eintraege, monday.getTime()])
 
   const now    = new Date()
@@ -355,6 +372,62 @@ function ZeitachseView({
             )
           })}
         </div>
+        {/* ── Multi-Day-Balken (Urlaub / Abwesenheit) ── */}
+        {multiDayGanztags.length > 0 && (() => {
+          const weekStartStr = toDateStr(days[0])
+          const weekEndStr   = toDateStr(days[6])
+          const barH = 20
+          const totalH = multiDayGanztags.length * barH + 4
+          return (
+            <div className="relative border-b border-s112-border/60" style={{ height: `${totalH}px` }}>
+              {/* Label links */}
+              <div className="absolute left-0 top-0 h-full w-[52px] bg-s112-bg border-r border-s112-border z-10 flex items-end justify-end pb-1 pr-1">
+                <span className="text-[9px] text-gray-400 leading-none">urlaub</span>
+              </div>
+              {/* Spalten-Trennlinien */}
+              {days.map((_, i) => (
+                <div key={i} className="absolute top-0 h-full border-l border-s112-border/40 pointer-events-none"
+                  style={{ left: `calc(52px + ${i} * ((100% - 52px) / 7))` }} />
+              ))}
+              {/* Balken */}
+              {multiDayGanztags.map((e, barIdx) => {
+                const clampedStart = e.datum < weekStartStr ? weekStartStr : e.datum
+                const clampedEnd   = (e.bis_datum ?? e.datum) > weekEndStr ? weekEndStr : (e.bis_datum ?? e.datum)
+                const startIdx = days.findIndex(d => toDateStr(d) === clampedStart)
+                const endIdx   = days.findIndex(d => toDateStr(d) === clampedEnd)
+                if (startIdx < 0 || endIdx < 0) return null
+                const spanDays = endIdx - startIdx + 1
+                const colW = '((100% - 52px) / 7)'
+                const isUrlaub    = e.art === 'urlaub'
+                const startsEarly = e.datum < weekStartStr
+                const endsLate    = (e.bis_datum ?? e.datum) > weekEndStr
+                const br = startsEarly && endsLate ? '0' : startsEarly ? '0 4px 4px 0' : endsLate ? '4px 0 0 4px' : '4px'
+                return (
+                  <div key={e.id}
+                    onClick={() => setViewAkt(e)}
+                    title={`${isUrlaub ? 'Urlaub' : 'Abwesenheit'}${e.titel ? `: ${e.titel}` : ''}`}
+                    className="absolute flex items-center gap-1 px-2 overflow-hidden cursor-pointer hover:opacity-80 z-20 text-white text-[9px] font-semibold select-none"
+                    style={{
+                      top:             `${2 + barIdx * barH}px`,
+                      height:          `${barH - 2}px`,
+                      left:            `calc(52px + ${startIdx} * ${colW}${startsEarly ? '' : ' + 2px'})`,
+                      width:           `calc(${spanDays} * ${colW}${endsLate ? '' : ' - 4px'})`,
+                      backgroundColor: isUrlaub ? '#f59e0b' : '#94a3b8',
+                      borderRadius:    br,
+                    }}
+                  >
+                    {startsEarly && <span className="mr-0.5 opacity-70 flex-shrink-0">◀</span>}
+                    <span className="flex-shrink-0">{isUrlaub ? '🏖' : '🚫'}</span>
+                    <span className="truncate">{e.titel ?? (isUrlaub ? 'Urlaub' : 'Abwesenheit')}</span>
+                    {endsLate && <span className="ml-0.5 opacity-70 flex-shrink-0">▶</span>}
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
+
+        {/* ── Ganztags-Zeile (eintägige Events) ── */}
         <div className="grid border-b border-s112-border/60" style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}>
           <div className="bg-s112-bg border-r border-s112-border flex items-center justify-end px-1">
             <span className="text-[9px] text-gray-400 leading-none">ganztags</span>
