@@ -315,3 +315,5 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
         </div>
       </div>
     </aside>
+  )
+}

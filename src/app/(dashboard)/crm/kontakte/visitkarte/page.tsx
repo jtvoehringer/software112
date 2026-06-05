@@ -30,17 +30,37 @@ export default function VisitkartenScannerPage() {
         return
       }
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
+        video: { facingMode: { ideal: 'environment' } }
       })
       streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        videoRef.current.onloadedmetadata = () => setVideoReady(true)
-      }
       setPhase('camera')
+
+      // iOS Safari: srcObject erst NACH dem Rendern setzen (Video-Element muss im DOM sein)
+      await new Promise(r => setTimeout(r, 50))
+      const video = videoRef.current
+      if (!video) return
+
+      // Bereit-Signal aus mehreren Events (iOS feuert nicht immer loadedmetadata)
+      const markReady = () => { if (video.videoWidth > 0) setVideoReady(true) }
+      video.addEventListener('loadedmetadata', markReady, { once: true })
+      video.addEventListener('canplay',        markReady, { once: true })
+      video.addEventListener('playing',        markReady, { once: true })
+      video.srcObject = stream
+
+      // Play explizit aufrufen (iOS-Anforderung)
+      try { await video.play() } catch { /* autoPlay-Policy ignorieren */ }
+
+      // Fallback-Polling: alle 200ms ob Dimensionen da sind (max. 5s)
+      let tries = 0
+      const poll = setInterval(() => {
+        tries++
+        if (video.videoWidth > 0) { setVideoReady(true); clearInterval(poll) }
+        else if (tries >= 25)     { clearInterval(poll) }
+      }, 200)
+
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
-      setFehler(`Kamera konnte nicht geöffnet werden: ${msg}`)
+      setFehler('Kamera konnte nicht geöffnet werden: ' + msg)
     }
   }
 
