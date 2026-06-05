@@ -87,7 +87,7 @@ function fmtT(t: string | null | undefined): string | null {
   return t.slice(0, 5)  // "14:30:00" -> "14:30"
 }
 
-function EintragChip({ e, compact = false }: { e: KalenderEintrag; compact?: boolean }) {
+function EintragChip({ e, compact = false, onViewAkt }: { e: KalenderEintrag; compact?: boolean; onViewAkt?: (e: KalenderEintrag) => void }) {
   const farbe = chipFarbe(e)
   const overdueInline = e.ueberfaellig
     ? { backgroundColor: '#ef4444', color: '#ffffff', borderColor: '#dc2626' }
@@ -97,7 +97,7 @@ function EintragChip({ e, compact = false }: { e: KalenderEintrag; compact?: boo
   const zeitLabel = von ? (bis ? `${von}–${bis}` : von) : null
 
   return (
-    <Link href={e.href} title={`${e.titel}${e.kontaktName ? ` – ${e.kontaktName}` : ''}${e.firmaName ? ` (${e.firmaName})` : ''}`}>
+    <div onClick={() => onViewAkt?.(e)} title={`${e.titel}${e.kontaktName ? ` – ${e.kontaktName}` : ''}${e.firmaName ? ` (${e.firmaName})` : ''}`} className="cursor-pointer">
       <div
         className={`border rounded truncate leading-snug transition-opacity hover:opacity-75
           ${compact ? 'text-[9px] px-1 py-px' : 'text-xs px-2 py-1'}
@@ -126,6 +126,14 @@ function EintragChip({ e, compact = false }: { e: KalenderEintrag; compact?: boo
 function WochenView({ eintraege, current, heute }: { eintraege: KalenderEintrag[]; current: Date; heute: string }) {
   const monday = useMemo(() => startOfWeek(current), [current.toDateString()])
   const days   = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(monday, i)), [monday.getTime()])
+
+  // User-Filter anwenden
+  const gefilterteEintraege = useMemo(() =>
+    filterUser === 'alle'
+      ? eintraege
+      : eintraege.filter(e => e.erstellt_von === filterUser),
+    [eintraege, filterUser]
+  )
 
   const byDay = useMemo(() => {
     const map: Record<string, KalenderEintrag[]> = {}
@@ -194,7 +202,11 @@ function ZeitachseView({
   const monday    = useMemo(() => startOfWeek(current), [current.toDateString()])
   const days      = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(monday, i)), [monday.getTime()])
   const [pending, startTransition] = useTransition()
-  const [filterUser, setFilterUser] = useState<string>('alle') // 'alle' | user.id
+  const [filterUser, setFilterUser] = useState<string>('alle')
+  const uniqueUsers = useMemo(() => [...new Set(eintraege.map(e => e.erstellt_von).filter(Boolean))], [eintraege])
+
+  // Aktivität-Detail anzeigen
+  const [viewAkt, setViewAkt] = useState<KalenderEintrag | null>(null)
 
   // neue Aktivität
   const [newAkt,    setNewAkt]    = useState<{ datum: string; von: string; bis: string; ganztags: boolean } | null>(null)
@@ -317,6 +329,18 @@ function ZeitachseView({
 
   return (
     <>
+    {/* User-Filter */}
+    {uniqueUsers.length > 1 && (
+      <div className="flex items-center gap-2 mb-2 print:hidden">
+        <span className="text-xs text-s112-muted">Anzeigen:</span>
+        <button onClick={() => setFilterUser('alle')} className={`text-xs px-2 py-1 rounded-lg ${filterUser==='alle'?'bg-s112-teal text-s112-yellow':'border border-s112-border text-gray-600 hover:bg-s112-bg'}`}>Alle</button>
+        {uniqueUsers.map(uid => (
+          <button key={uid!} onClick={() => setFilterUser(uid!)} className={`text-xs px-2 py-1 rounded-lg ${filterUser===uid?'bg-s112-teal text-s112-yellow':'border border-s112-border text-gray-600 hover:bg-s112-bg'}`}>
+            {uid!.slice(0,8)}
+          </button>
+        ))}
+      </div>
+    )}
     <div className="border border-s112-border rounded-xl overflow-hidden">
 
       {/* ── Sticky header: day names + Ganztags-Zeile ── */}
@@ -368,7 +392,7 @@ function ZeitachseView({
                       onDragEnd={() => { setDragInfo(null); setDropTarget(null) }}
                       className={isAkt ? `cursor-grab active:cursor-grabbing ${dragInfo?.id === aktId ? 'opacity-40' : ''}` : ''}
                     >
-                      <EintragChip e={e} compact />
+                      <EintragChip e={e} compact onViewAkt={setViewAkt} />
                     </div>
                   )
                 })}
@@ -488,6 +512,41 @@ function ZeitachseView({
     </div>
 
     {/* ── Modal: Neue Aktivität ── */}
+
+    {/* ── Aktivität Detail-Modal ── */}
+    {viewAkt && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+        onClick={() => setViewAkt(null)}>
+        <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4"
+          onClick={e => e.stopPropagation()}>
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <span className="text-lg mr-2">{viewAkt.artIcon}</span>
+              <span className="font-bold text-gray-900">{viewAkt.titel}</span>
+            </div>
+            <button onClick={() => setViewAkt(null)} className="text-s112-muted hover:text-gray-700 text-lg">✕</button>
+          </div>
+          <div className="space-y-1.5 text-sm text-gray-600 mb-4">
+            <p><span className="font-medium text-gray-700">Datum:</span> {new Date(viewAkt.datum + 'T12:00:00').toLocaleDateString('de-AT', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+            {viewAkt.kontaktName && <p><span className="font-medium text-gray-700">Kontakt:</span> {viewAkt.kontaktName}</p>}
+            {viewAkt.firmaName   && <p><span className="font-medium text-gray-700">Firma:</span> {viewAkt.firmaName}</p>}
+            {viewAkt.ist_privat  && <p className="text-gray-400 text-xs">🔒 Privater Termin</p>}
+          </div>
+          <div className="flex gap-2">
+            {viewAkt.href && viewAkt.href !== '/crm' && (
+              <a href={viewAkt.href} className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90">
+                Zum Kontakt →
+              </a>
+            )}
+            <button onClick={() => setViewAkt(null)}
+              className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
+              Schließen
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
     {newAkt && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
         onClick={() => setNewAkt(null)}>
