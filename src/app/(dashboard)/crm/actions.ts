@@ -174,6 +174,7 @@ export async function moveAktivitaet(id: string, datum: string, uhrzeit_von: str
 export async function createAktivitaet(formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
+  const { data: { user } } = await supabase.auth.getUser()
   const ganztags = formData.get('ganztags') !== 'false'
   const payload: AR = {
     tenant_id:    tenantId,
@@ -183,10 +184,13 @@ export async function createAktivitaet(formData: FormData) {
     betreff:      (formData.get('betreff') as string) || null,
     beschreibung: (formData.get('beschreibung') as string) || null,
     datum:        formData.get('datum') as string,
+    bis_datum:    (formData.get('bis_datum') as string) || null,
     erledigt:     formData.get('erledigt') === 'true',
     ganztags,
     uhrzeit_von:  ganztags ? null : ((formData.get('uhrzeit_von') as string) || null),
     uhrzeit_bis:  ganztags ? null : ((formData.get('uhrzeit_bis') as string) || null),
+    ist_privat:   formData.get('ist_privat') === 'true',
+    erstellt_von: user?.id ?? null,
   }
   const { error } = await (supabase.from('aktivitaeten') as any).insert(payload)
   if (error) throw new Error((error as AR).message)

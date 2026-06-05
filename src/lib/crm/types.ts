@@ -59,6 +59,8 @@ export const AKTIVITAET_ARTEN = [
   { value: 'angebot',     label: 'Angebot',      icon: '📄' },
   { value: 'verkauf',     label: 'Verkauf',      icon: '🛒' },
   { value: 'sonstiges',   label: 'Sonstiges',    icon: '•'  },
+  { value: 'urlaub',      label: 'Urlaub',       icon: '🏖'  },
+  { value: 'abwesenheit', label: 'Abwesenheit',  icon: '🚫' },
 ] as const
 
 // ── Basis-Typen für Komponenten ───────────────────────────────────────────────
@@ -136,6 +138,9 @@ export type AktivitaetRow = {
   firma_name?: string | null
   email_id?: string | null
   email_conversation_id?: string | null
+  ist_privat?: boolean | null
+  erstellt_von?: string | null
+  bis_datum?: string | null
   email_von?: string | null
   email_von_name?: string | null
   email_an?: string | null

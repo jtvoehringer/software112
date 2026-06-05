@@ -9,6 +9,8 @@ import Link from 'next/link'
 // ── Typen ─────────────────────────────────────────────────────────────────────
 
 export type KalenderEintrag = {
+  ist_privat?: boolean | null
+  erstellt_von?: string | null
   id: string
   datum: string          // YYYY-MM-DD
   titel: string
@@ -192,6 +194,7 @@ function ZeitachseView({
   const monday    = useMemo(() => startOfWeek(current), [current.toDateString()])
   const days      = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(monday, i)), [monday.getTime()])
   const [pending, startTransition] = useTransition()
+  const [filterUser, setFilterUser] = useState<string>('alle') // 'alle' | user.id
 
   // neue Aktivität
   const [newAkt,    setNewAkt]    = useState<{ datum: string; von: string; bis: string; ganztags: boolean } | null>(null)
@@ -546,12 +549,28 @@ function ZeitachseView({
               </div>
             </div>
 
-            {/* Notiz */}
+            {/* Bis-Datum (für Mehrtagestermine) */}
+            {newAkt?.ganztags && (
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Bis-Datum (leer = eintägig)</label>
+                <input type="date" name="bis_datum" min={newAkt.datum}
+                  className={inputCls} />
+              </div>
+            )}
+
+            {/* Bericht */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Notiz</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Bericht</label>
               <textarea name="beschreibung" rows={2} placeholder="Optional …"
                 className={inputCls + ' resize-none'} />
             </div>
+
+            {/* Privat */}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" name="ist_privat" value="true"
+                className="accent-s112-teal" />
+              <span className="text-xs text-gray-600">🔒 Privater Termin (nur für mich sichtbar)</span>
+            </label>
 
             {saveErr && (
               <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{saveErr}</p>
@@ -573,6 +592,11 @@ function ZeitachseView({
     )}
     </>
   )
+}
+
+// ── Hilfsfunktion: Privat-Check ──────────────────────────────────────────────
+function isPrivatFremder(e: KalenderEintrag, userId?: string) {
+  return e.ist_privat && e.erstellt_von && e.erstellt_von !== userId
 }
 
 // ── Monats-Ansicht ────────────────────────────────────────────────────────────

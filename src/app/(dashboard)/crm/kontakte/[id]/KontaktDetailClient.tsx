@@ -269,6 +269,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
             </span>
           )}
           <span className="text-xs text-s112-muted">{artDef?.label ?? a.art}</span>
+          {a.ist_privat && <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">🔒 Privat</span>}
         </div>
         {a.art === 'email' ? (
           <button type="button" onClick={() => setEmailOpen(v => !v)}
