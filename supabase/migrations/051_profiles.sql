@@ -31,7 +31,7 @@ BEGIN
   VALUES (
     NEW.id,
     COALESCE(
-      NEW.raw_user_meta_data->>'full_name',
+      NEW.raw_user_meta_data->>'display_name',
       NEW.raw_user_meta_data->>'name',
       split_part(NEW.email, '@', 1)
     )
@@ -50,6 +50,6 @@ CREATE TRIGGER on_auth_user_created_profile
 
 -- Bestehende User: Profile nachträglich anlegen
 INSERT INTO profiles (user_id, full_name)
-SELECT id, COALESCE(raw_user_meta_data->>'full_name', raw_user_meta_data->>'name', split_part(email, '@', 1))
+SELECT id, COALESCE(raw_user_meta_data->>'display_name', raw_user_meta_data->>'name', split_part(email, '@', 1))
 FROM auth.users
 ON CONFLICT (user_id) DO NOTHING;

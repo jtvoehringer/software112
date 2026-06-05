@@ -18,9 +18,9 @@ export async function POST(req: NextRequest) {
   const body = await req.json() as R
   const { error } = await (s.from('profiles') as any).upsert({
     user_id: user.id,
-    full_name: body.full_name || null,
+    display_name: body.display_name || null,
     telefon:   body.telefon   || null,
-    aktualisiert_am: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id' })
   if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })

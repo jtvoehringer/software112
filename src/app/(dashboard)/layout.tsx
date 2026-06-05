@@ -37,7 +37,7 @@ export default async function DashboardLayout({
 
   // Profilname aus profiles-Tabelle
   const { data: profil } = await (supabase.from('profiles') as any)
-    .select('full_name').eq('user_id', user.id).maybeSingle()
+    .select('display_name').eq('user_id', user.id).maybeSingle()
 
   // Tenant-Branding laden
   let branding: TenantBranding = DEFAULT_BRANDING
@@ -70,7 +70,7 @@ export default async function DashboardLayout({
       `}</style>
       <ResponsiveLayout
         userEmail={user.email ?? ''}
-        userName={(profil as any)?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || (user.email ?? '').split('@')[0]}
+        userName={(profil as any)?.display_name || user.user_metadata?.display_name || user.user_metadata?.name || (user.email ?? '').split('@')[0]}
         role={role}
         roleLabel={roleLabel(role)}
         branding={branding}
