@@ -117,7 +117,7 @@ function EintragChip({ e, compact = false, onViewAkt }: { e: KalenderEintrag; co
           </span>
         )}
       </div>
-    </Link>
+    </div>
   )
 }
 
