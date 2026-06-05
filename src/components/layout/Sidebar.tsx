@@ -203,12 +203,13 @@ function NavGroupItem({
 
 interface SidebarProps {
   userEmail: string
+  userName?: string
   role: UserRole
   roleLabel: string
   branding: TenantBranding
 }
 
-export default function Sidebar({ userEmail, role, roleLabel, branding }: SidebarProps) {
+export default function Sidebar({ userEmail, userName, role, roleLabel, branding }: SidebarProps) {
   const pathname = usePathname()
   const router   = useRouter()
   const supabase = createSupabaseBrowserClient()
@@ -283,11 +284,16 @@ export default function Sidebar({ userEmail, role, roleLabel, branding }: Sideba
 
       {/* User Footer */}
       <div className="px-4 py-4 border-t border-s112-border">
-        <p className="text-xs text-s112-muted truncate">{userEmail}</p>
+        <p className="text-xs font-medium text-gray-700 truncate">{userName || userEmail}</p>
+        <p className="text-[10px] text-s112-muted truncate">{userEmail}</p>
         <p className="text-xs font-medium text-s112-teal mt-0.5">{roleLabel}</p>
+        <a href="/profil"
+          className="text-xs text-s112-muted hover:text-s112-teal transition-colors mt-1.5 block">
+          ✏ Profil bearbeiten
+        </a>
         <button
           onClick={handleLogout}
-          className="text-xs text-s112-muted hover:text-red-600 transition-colors mt-2"
+          className="text-xs text-s112-muted hover:text-red-600 transition-colors mt-1.5"
         >
           Abmelden
         </button>
