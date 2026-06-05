@@ -43,10 +43,13 @@ export default function VisitkartenScannerPage() {
     const video  = videoRef.current
     const canvas = canvasRef.current
     if (!video || !canvas) return
-    canvas.width  = video.videoWidth
-    canvas.height = video.videoHeight
-    canvas.getContext('2d')?.drawImage(video, 0, 0)
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
+    // Auf max. 1024px begrenzen (Anthropic-Limit + Vercel Body-Limit)
+    const MAX = 1024
+    const scale = Math.min(1, MAX / Math.max(video.videoWidth, video.videoHeight))
+    canvas.width  = Math.round(video.videoWidth  * scale)
+    canvas.height = Math.round(video.videoHeight * scale)
+    canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height)
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.80)
     setFoto(dataUrl)
     kameraStop()
     analysieren(dataUrl)
@@ -123,7 +126,7 @@ export default function VisitkartenScannerPage() {
     <div className="p-6 max-w-lg mx-auto space-y-4">
       <div className="flex items-center gap-3">
         <button onClick={() => { kameraStop(); router.back() }} className="text-s112-muted hover:text-gray-700 text-sm">← Zurück</button>
-        <h1 className="text-xl font-bold text-gray-900">Visitkarte scannen</h1>
+        <h1 className="text-xl font-bold text-gray-900">Visitenkarte scannen</h1>
       </div>
 
       {fehler && (
@@ -136,7 +139,7 @@ export default function VisitkartenScannerPage() {
       {phase === 'start' && (
         <div className="bg-white rounded-2xl border border-s112-border p-8 text-center space-y-4">
           <p className="text-5xl">📇</p>
-          <h2 className="font-semibold text-gray-800">Visitkarte fotografieren</h2>
+          <h2 className="font-semibold text-gray-800">Visitenkarte fotografieren</h2>
           <p className="text-sm text-s112-muted">KI liest die Karte aus und legt den Kontakt als Lead an.</p>
           <button onClick={kameraStarten}
             className="bg-s112-teal text-white px-6 py-3 rounded-xl font-semibold hover:bg-opacity-90 w-full">
@@ -169,14 +172,14 @@ export default function VisitkartenScannerPage() {
 
       {phase === 'analyse' && (
         <div className="bg-white rounded-2xl border border-s112-border p-8 text-center space-y-3">
-          {foto && <img src={foto} alt="Visitkarte" className="w-full rounded-xl max-h-48 object-contain" />}
-          <p className="text-sm text-s112-muted animate-pulse">🤖 KI analysiert die Visitkarte…</p>
+          {foto && <img src={foto} alt="Visitenkarte" className="w-full rounded-xl max-h-48 object-contain" />}
+          <p className="text-sm text-s112-muted animate-pulse">🤖 KI analysiert die Visitenkarte…</p>
         </div>
       )}
 
       {phase === 'bestaetigen' && kontakt && (
         <div className="space-y-4">
-          {foto && <img src={foto} alt="Visitkarte" className="w-full rounded-xl max-h-32 object-contain border border-s112-border" />}
+          {foto && <img src={foto} alt="Visitenkarte" className="w-full rounded-xl max-h-32 object-contain border border-s112-border" />}
           <div className="bg-white rounded-2xl border border-s112-border p-5 space-y-2">
             <h2 className="font-semibold text-gray-800 mb-3">Erkannte Daten</h2>
             {f([kontakt.vorname, kontakt.nachname].filter(Boolean).join(' '), 'Name')}

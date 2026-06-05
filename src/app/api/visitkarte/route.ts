@@ -15,19 +15,20 @@ export async function POST(req: NextRequest) {
   const { imageBase64, mediaType } = await req.json() as R
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  const msg = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 400,
-    messages: [{
-      role: 'user',
-      content: [
-        {
-          type: 'image',
-          source: { type: 'base64', media_type: mediaType ?? 'image/jpeg', data: imageBase64 },
-        },
-        {
-          type: 'text',
-          text: `Lies diese Visitkarte und extrahiere die Kontaktdaten. Antworte NUR mit validem JSON ohne Kommentare:
+  try {
+    const msg = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 600,
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: mediaType ?? 'image/jpeg', data: imageBase64 },
+          },
+          {
+            type: 'text',
+            text: `Lies diese Visitenkarte und extrahiere die Kontaktdaten. Antworte NUR mit validem JSON ohne Kommentare oder Markdown-Blöcke:
 {
   "vorname": "...",
   "nachname": "...",
@@ -42,17 +43,18 @@ export async function POST(req: NextRequest) {
   "land": "AT"
 }
 Fehlende Felder als null. Telefon/Mobil mit Vorwahl.`,
-        },
-      ],
-    }],
-  })
-
-  const rawText = (msg.content[0] as R).text as string
-  try {
-    const match = rawText.match(/\{[\s\S]*\}/)
-    const kontakt = JSON.parse(match?.[0] ?? rawText)
+          },
+        ],
+      }],
+    })
+    const rawText = (msg.content[0] as R).text as string
+    // Markdown-Codeblock entfernen falls vorhanden
+    const cleaned = rawText.replace(/```json?\s*/gi, '').replace(/```\s*/gi, '').trim()
+    const match = cleaned.match(/\{[\s\S]*\}/)
+    const kontakt = JSON.parse(match?.[0] ?? cleaned)
     return NextResponse.json({ kontakt })
-  } catch {
-    return NextResponse.json({ fehler: 'Konnte Daten nicht auslesen', roh: rawText }, { status: 500 })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return NextResponse.json({ fehler: `Analyse fehlgeschlagen: ${msg}` }, { status: 500 })
   }
 }
