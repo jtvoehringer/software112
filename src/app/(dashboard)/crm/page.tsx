@@ -56,8 +56,7 @@ export default async function CRMUebersichtPage() {
           ? `/crm/kontakte/${a.kontakt_id}`
           : a.firma_id
             ? `/crm/firmen/${a.firma_id}`
-            : `/crm?editAkt=${a.id}`
-            : '/crm/kontakte',
+            : `/crm?editAkt=${a.id}`,
         kontaktName: a.kontakt_id ? (kontakteMap[a.kontakt_id] ?? null) : null,
         firmaName: a.firma_id ? (firmenMap[a.firma_id] ?? null) : null,
       }

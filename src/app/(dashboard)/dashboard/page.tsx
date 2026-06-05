@@ -45,7 +45,7 @@ export default async function DashboardPage() {
     q('weinausbau').select('*', { count: 'exact', head: true }).eq('aktiv', true),
     q('kontakte').select('*', { count: 'exact', head: true }).eq('aktiv', true),
 
-    // Meine Aktivitäten (aktueller User, offen, nächste 30 Tage)
+  // Meine Aktivitäten (aktueller User, offen, nächste 30 Tage)
   const { data: { user } } = await supabase.auth.getUser()
   const heute = new Date().toISOString().split('T')[0]
   const in30  = new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]
