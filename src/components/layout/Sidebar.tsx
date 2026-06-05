@@ -75,6 +75,7 @@ const NAV: NavEntry[] = [
     items: [
       { href: '/crm',           label: 'Kalender'  },
       { href: '/crm/kontakte',  label: 'Kontakte'  },
+      { href: '/crm/kontakte/visitkarte', label: 'Visitkarte scannen', child: true },
       { href: '/crm/firmen',    label: 'Firmen'    },
       { href: '/crm/pipeline',  label: 'Pipeline'  },
     ],

@@ -308,6 +308,7 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
     fd.set('anzeigename',      settings.anzeigename ?? '')
     fd.set('logo_url',         settings.logo_url ?? '')
     fd.set('primary_color',    settings.primary_color)
+    fd.set('session_timeout_minuten', String(settings.session_timeout_minuten ?? ''))
     fd.set('secondary_color',  settings.secondary_color)
     fd.set('modul_newsletter', settings.modul_newsletter ? 'true' : 'false')
     fd.set('modul_crm',        settings.modul_crm        ? 'true' : 'false')

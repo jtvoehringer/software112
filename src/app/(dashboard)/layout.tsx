@@ -3,11 +3,13 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, getCurrentMembership, roleLabel } from '@/lib/auth/roles'
 import ResponsiveLayout from '@/components/layout/ResponsiveLayout'
 import ReleaseNotesModal from '@/components/ReleaseNotesModal'
+import SessionTimeout from '@/components/SessionTimeout'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
 export type TenantBranding = {
+  session_timeout?: number | null
   anzeigename: string
   logo_url: string | null
   primary_color: string
@@ -44,7 +46,7 @@ export default async function DashboardLayout({
   let branding: TenantBranding = DEFAULT_BRANDING
   if (membership?.tenantId) {
     const { data } = await (supabase.from('tenant_einstellungen') as any)
-      .select('anzeigename, logo_url, primary_color, secondary_color, modul_newsletter')
+      .select('anzeigename, logo_url, primary_color, secondary_color, modul_newsletter, session_timeout_minuten')
       .eq('tenant_id', membership.tenantId)
       .maybeSingle()
 
@@ -54,6 +56,7 @@ export default async function DashboardLayout({
         anzeigename:      d.anzeigename ?? DEFAULT_BRANDING.anzeigename,
         logo_url:         d.logo_url ?? null,
         primary_color:    d.primary_color ?? DEFAULT_BRANDING.primary_color,
+        session_timeout:  d.session_timeout_minuten ?? null,
         secondary_color:  d.secondary_color ?? DEFAULT_BRANDING.secondary_color,
         modul_newsletter: d.modul_newsletter ?? false,
       }
@@ -70,6 +73,7 @@ export default async function DashboardLayout({
         }
       `}</style>
       <ReleaseNotesModal />
+      <SessionTimeout timeoutMinuten={(branding as any).session_timeout} />
       <ResponsiveLayout
         userEmail={user.email ?? ''}
         userName={(profil as any)?.display_name || user.user_metadata?.display_name || user.user_metadata?.name || (user.email ?? '').split('@')[0]}

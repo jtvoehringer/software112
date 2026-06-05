@@ -1,0 +1,210 @@
+'use client'
+import { useState, useRef, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+
+type Kontakt = {
+  vorname: string|null; nachname: string|null; firma: string|null
+  position: string|null; email: string|null; telefon: string|null
+  mobil: string|null; strasse: string|null; plz: string|null
+  ort: string|null; land: string|null
+}
+
+export default function VisitkartenScannerPage() {
+  const router = useRouter()
+  const videoRef  = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+
+  const [phase, setPhase] = useState<'start'|'camera'|'analyse'|'bestaetigen'|'speichern'>('start')
+  const [foto, setFoto]   = useState<string | null>(null)
+  const [kontakt, setKontakt] = useState<Kontakt | null>(null)
+  const [fehler, setFehler]   = useState<string | null>(null)
+
+  const kameraStarten = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
+      })
+      streamRef.current = stream
+      if (videoRef.current) videoRef.current.srcObject = stream
+      setPhase('camera')
+    } catch {
+      setFehler('Kamera konnte nicht geöffnet werden. Bitte Berechtigungen prüfen.')
+    }
+  }
+
+  const kameraStop = useCallback(() => {
+    streamRef.current?.getTracks().forEach(t => t.stop())
+    streamRef.current = null
+  }, [])
+
+  const fotografieren = () => {
+    const video  = videoRef.current
+    const canvas = canvasRef.current
+    if (!video || !canvas) return
+    canvas.width  = video.videoWidth
+    canvas.height = video.videoHeight
+    canvas.getContext('2d')?.drawImage(video, 0, 0)
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
+    setFoto(dataUrl)
+    kameraStop()
+    analysieren(dataUrl)
+  }
+
+  const analysieren = async (dataUrl: string) => {
+    setPhase('analyse')
+    const base64 = dataUrl.split(',')[1]
+    try {
+      const res  = await fetch('/api/visitkarte', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: base64, mediaType: 'image/jpeg' }),
+      })
+      const data = await res.json()
+      if (data.fehler) { setFehler(data.fehler); setPhase('start'); return }
+      setKontakt(data.kontakt)
+      setPhase('bestaetigen')
+    } catch (e) {
+      setFehler(String(e)); setPhase('start')
+    }
+  }
+
+  const speichern = async () => {
+    if (!kontakt) return
+    setPhase('speichern')
+    const s = createSupabaseBrowserClient()
+    const { data: { user } } = await s.auth.getUser()
+    const { data: memb } = await (s.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
+    const tenantId = (memb as any)?.tenant_id
+    if (!tenantId) { setFehler('Kein Betrieb gefunden'); setPhase('bestaetigen'); return }
+
+    // Firma anlegen falls vorhanden
+    let firmaId: string | null = null
+    if (kontakt.firma) {
+      const { data: f } = await (s.from('firmen') as any).insert({
+        tenant_id: tenantId, name: kontakt.firma, aktiv: true, is_lead: true,
+        strasse: kontakt.strasse, plz: kontakt.plz, ort: kontakt.ort, land: kontakt.land ?? 'AT',
+      }).select().single()
+      firmaId = (f as any)?.id ?? null
+    }
+
+    // Kontakt als Lead anlegen
+    const { data: k } = await (s.from('kontakte') as any).insert({
+      tenant_id: tenantId,
+      vorname: kontakt.vorname || null,
+      nachname: kontakt.nachname || '(unbekannt)',
+      email: kontakt.email || null,
+      telefon: kontakt.telefon || null,
+      mobil: kontakt.mobil || null,
+      strasse: kontakt.strasse || null,
+      plz: kontakt.plz || null,
+      ort: kontakt.ort || null,
+      land: kontakt.land ?? 'AT',
+      firma_id: firmaId,
+      notizen: kontakt.position ? `Position: ${kontakt.position}` : null,
+      aktiv: true, stammkunde: false, newsletter: false,
+      newsletter_bestaetigt: false, is_lead: true,
+      segment: 'privat',
+    }).select().single()
+
+    const kontaktId = (k as any)?.id
+    if (kontaktId) router.push(`/crm/kontakte/${kontaktId}`)
+    else { setFehler('Kontakt konnte nicht gespeichert werden'); setPhase('bestaetigen') }
+  }
+
+  const f = (v: string|null|undefined, label: string) => v ? (
+    <div key={label}>
+      <span className="text-xs text-s112-muted">{label}: </span>
+      <span className="text-sm text-gray-800">{v}</span>
+    </div>
+  ) : null
+
+  return (
+    <div className="p-6 max-w-lg mx-auto space-y-4">
+      <div className="flex items-center gap-3">
+        <button onClick={() => { kameraStop(); router.back() }} className="text-s112-muted hover:text-gray-700 text-sm">← Zurück</button>
+        <h1 className="text-xl font-bold text-gray-900">Visitkarte scannen</h1>
+      </div>
+
+      {fehler && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700 flex justify-between">
+          {fehler}
+          <button onClick={() => { setFehler(null); setPhase('start') }} className="text-red-400 hover:text-red-600">✕</button>
+        </div>
+      )}
+
+      {phase === 'start' && (
+        <div className="bg-white rounded-2xl border border-s112-border p-8 text-center space-y-4">
+          <p className="text-5xl">📇</p>
+          <h2 className="font-semibold text-gray-800">Visitkarte fotografieren</h2>
+          <p className="text-sm text-s112-muted">KI liest die Karte aus und legt den Kontakt als Lead an.</p>
+          <button onClick={kameraStarten}
+            className="bg-s112-teal text-white px-6 py-3 rounded-xl font-semibold hover:bg-opacity-90 w-full">
+            Kamera öffnen
+          </button>
+          <label className="block">
+            <span className="text-xs text-s112-muted">oder Foto hochladen</span>
+            <input type="file" accept="image/*" className="hidden" onChange={e => {
+              const file = e.target.files?.[0]
+              if (!file) return
+              const reader = new FileReader()
+              reader.onload = ev => { const url = ev.target?.result as string; setFoto(url); analysieren(url) }
+              reader.readAsDataURL(file)
+            }} />
+          </label>
+        </div>
+      )}
+
+      {phase === 'camera' && (
+        <div className="space-y-3">
+          <video ref={videoRef} autoPlay playsInline muted
+            className="w-full rounded-2xl border-2 border-s112-teal" />
+          <canvas ref={canvasRef} className="hidden" />
+          <button onClick={fotografieren}
+            className="w-full bg-s112-teal text-white py-4 rounded-2xl font-bold text-lg hover:bg-opacity-90">
+            📸 Fotografieren
+          </button>
+        </div>
+      )}
+
+      {phase === 'analyse' && (
+        <div className="bg-white rounded-2xl border border-s112-border p-8 text-center space-y-3">
+          {foto && <img src={foto} alt="Visitkarte" className="w-full rounded-xl max-h-48 object-contain" />}
+          <p className="text-sm text-s112-muted animate-pulse">🤖 KI analysiert die Visitkarte…</p>
+        </div>
+      )}
+
+      {phase === 'bestaetigen' && kontakt && (
+        <div className="space-y-4">
+          {foto && <img src={foto} alt="Visitkarte" className="w-full rounded-xl max-h-32 object-contain border border-s112-border" />}
+          <div className="bg-white rounded-2xl border border-s112-border p-5 space-y-2">
+            <h2 className="font-semibold text-gray-800 mb-3">Erkannte Daten</h2>
+            {f([kontakt.vorname, kontakt.nachname].filter(Boolean).join(' '), 'Name')}
+            {f(kontakt.firma, 'Firma')}
+            {f(kontakt.position, 'Position')}
+            {f(kontakt.email, 'E-Mail')}
+            {f(kontakt.telefon, 'Telefon')}
+            {f(kontakt.mobil, 'Mobil')}
+            {f([kontakt.strasse, kontakt.plz, kontakt.ort].filter(Boolean).join(', '), 'Adresse')}
+          </div>
+          <div className="flex gap-3">
+            <button onClick={speichern}
+              className="flex-1 bg-s112-teal text-white py-3 rounded-xl font-semibold hover:bg-opacity-90">
+              Als Lead speichern
+            </button>
+            <button onClick={() => { setFoto(null); setKontakt(null); setPhase('start') }}
+              className="px-4 py-3 rounded-xl border border-s112-border text-gray-600 hover:bg-s112-bg text-sm">
+              Nochmal
+            </button>
+          </div>
+        </div>
+      )}
+
+      {phase === 'speichern' && (
+        <div className="bg-white rounded-2xl border border-s112-border p-8 text-center">
+          <p className="text-sm text-s112-muted animate-pulse">💾 Kontakt wird angelegt…</p>
+        </div>
+      )}
+    </div>
+  )
+}

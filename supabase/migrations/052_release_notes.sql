@@ -36,3 +36,8 @@ CREATE POLICY "rn_admin" ON release_notes USING (
 CREATE POLICY "rng_own" ON release_notes_gesehen
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+
+-- Session Timeout Einstellung (in Mandanten-Einstellungen)
+ALTER TABLE tenant_einstellungen
+  ADD COLUMN IF NOT EXISTS session_timeout_minuten integer DEFAULT NULL;
+-- NULL = kein Timeout, sonst Minuten (z.B. 60 = 1 Stunde)
