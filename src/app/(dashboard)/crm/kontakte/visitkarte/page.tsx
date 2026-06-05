@@ -17,20 +17,30 @@ export default function VisitkartenScannerPage() {
   const streamRef = useRef<MediaStream | null>(null)
 
   const [phase, setPhase] = useState<'start'|'camera'|'analyse'|'bestaetigen'|'speichern'>('start')
+  const [videoReady, setVideoReady] = useState(false)
   const [foto, setFoto]   = useState<string | null>(null)
   const [kontakt, setKontakt] = useState<Kontakt | null>(null)
   const [fehler, setFehler]   = useState<string | null>(null)
 
   const kameraStarten = async () => {
+    setVideoReady(false)
     try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setFehler('Kamerazugriff wird von diesem Browser nicht unterstützt. Bitte Foto hochladen.')
+        return
+      }
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
+        video: { facingMode: 'environment' }
       })
       streamRef.current = stream
-      if (videoRef.current) videoRef.current.srcObject = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.onloadedmetadata = () => setVideoReady(true)
+      }
       setPhase('camera')
-    } catch {
-      setFehler('Kamera konnte nicht geöffnet werden. Bitte Berechtigungen prüfen.')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setFehler(`Kamera konnte nicht geöffnet werden: ${msg}`)
     }
   }
 
@@ -43,13 +53,20 @@ export default function VisitkartenScannerPage() {
     const video  = videoRef.current
     const canvas = canvasRef.current
     if (!video || !canvas) return
-    // Auf max. 1024px begrenzen (Anthropic-Limit + Vercel Body-Limit)
+    if (!video.videoWidth || !video.videoHeight) {
+      setFehler('Video ist noch nicht bereit. Bitte kurz warten und nochmal versuchen.')
+      return
+    }
     const MAX = 1024
     const scale = Math.min(1, MAX / Math.max(video.videoWidth, video.videoHeight))
     canvas.width  = Math.round(video.videoWidth  * scale)
     canvas.height = Math.round(video.videoHeight * scale)
     canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height)
     const dataUrl = canvas.toDataURL('image/jpeg', 0.80)
+    if (!dataUrl || dataUrl === 'data:,') {
+      setFehler('Foto konnte nicht aufgenommen werden. Bitte nochmal versuchen.')
+      return
+    }
     setFoto(dataUrl)
     kameraStop()
     analysieren(dataUrl)
@@ -58,6 +75,11 @@ export default function VisitkartenScannerPage() {
   const analysieren = async (dataUrl: string) => {
     setPhase('analyse')
     const base64 = dataUrl.split(',')[1]
+    if (!base64) {
+      setFehler('Kein Bild vorhanden – bitte Foto hochladen oder erneut fotografieren.')
+      setPhase('start')
+      return
+    }
     try {
       const res  = await fetch('/api/visitkarte', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -163,8 +185,12 @@ export default function VisitkartenScannerPage() {
           <video ref={videoRef} autoPlay playsInline muted
             className="w-full rounded-2xl border-2 border-s112-teal" />
           <canvas ref={canvasRef} className="hidden" />
-          <button onClick={fotografieren}
-            className="w-full bg-s112-teal text-white py-4 rounded-2xl font-bold text-lg hover:bg-opacity-90">
+          {!videoReady && (
+            <p className="text-xs text-center text-s112-muted animate-pulse">Kamera wird gestartet…</p>
+          )}
+          <button onClick={fotografieren} disabled={!videoReady}
+            className={`w-full py-4 rounded-2xl font-bold text-lg transition-opacity
+              ${videoReady ? 'bg-s112-teal text-white hover:bg-opacity-90' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
             📸 Fotografieren
           </button>
         </div>
