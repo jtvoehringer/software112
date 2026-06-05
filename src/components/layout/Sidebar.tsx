@@ -102,6 +102,7 @@ const NAV: NavEntry[] = [
     kind: 'group', label: 'Administration', icon: '⚙️', adminOnly: true,
     items: [
       { href: '/admin/mandanten',   label: 'Mandanten' },
+      { href: '/admin/release-notes', label: 'Release Notes' },
       { href: '/admin/import',      label: 'Datenimport' },
       { href: '/admin/benutzer',    label: 'System-Admin', adminOnly: true },
       { href: '/admin/onboarding',  label: 'Onboarding Guide', adminOnly: true },

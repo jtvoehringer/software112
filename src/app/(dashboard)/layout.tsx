@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, getCurrentMembership, roleLabel } from '@/lib/auth/roles'
 import ResponsiveLayout from '@/components/layout/ResponsiveLayout'
+import ReleaseNotesModal from '@/components/ReleaseNotesModal'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -68,6 +69,7 @@ export default async function DashboardLayout({
           --s112-yellow: ${branding.secondary_color};
         }
       `}</style>
+      <ReleaseNotesModal />
       <ResponsiveLayout
         userEmail={user.email ?? ''}
         userName={(profil as any)?.display_name || user.user_metadata?.display_name || user.user_metadata?.name || (user.email ?? '').split('@')[0]}
