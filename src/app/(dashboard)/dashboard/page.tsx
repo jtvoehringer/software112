@@ -62,7 +62,7 @@ export default async function DashboardPage() {
 
     // Letzte 5 Verkäufe
     q('verkaufsposten')
-      .select('id, datum, rechnungsnummer, bezahlt, storniert, kontakt:kontakte(vorname, nachname), firma:firmen(name), positionen:verkauf_positionen(preis_brutto, menge)')
+      .select('id, datum, rechnungsnummer, bezahlt, storniert, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name), positionen:verkauf_positionen(preis_brutto, menge)')
       .eq('aktiv', true).order('datum', { ascending: false }).order('erstellt_am', { ascending: false }).limit(5),
 
     // Top-Füllungen nach Bestand
@@ -73,7 +73,7 @@ export default async function DashboardPage() {
 
     // Nächste unerledigte Aktivitäten
     q('aktivitaeten')
-      .select('id, art, betreff, datum, erledigt, kontakt:kontakte(vorname, nachname), firma:firmen(name)')
+      .select('id, art, betreff, datum, erledigt, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name)')
       .eq('erledigt', false).gte('datum', heuteStr)
       .order('datum', { ascending: true }).limit(4),
 

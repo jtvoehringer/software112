@@ -5,7 +5,7 @@ type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explic
 export async function GET() {
   const supabase = await createSupabaseServerClient()
   const { data } = await (supabase.from('verkaufsposten') as any)
-    .select('datum, rechnungsnummer, bezahlt, storniert, kontakt:kontakte(vorname,nachname,kundennummer), firma:firmen(name,kundennummer), verkauf_positionen(name,menge,einheit,preis_brutto,rabatt_pct,sonderrabatt_pct,ust_satz)')
+    .select('datum, rechnungsnummer, bezahlt, storniert, kontakt:kontakte!kontakt_id(vorname,nachname,kundennummer), firma:firmen(name,kundennummer), verkauf_positionen(name,menge,einheit,preis_brutto,rabatt_pct,sonderrabatt_pct,ust_satz)')
     .eq('aktiv', true).order('datum', { ascending: false })
   const rows = (data ?? []) as R[]
   const esc = (v: unknown) => { if (v==null) return ''; const s=String(v).replace(/"/g,'""'); return s.includes(';')||s.includes('"')||s.includes('\n')?`"${s}"`:s }

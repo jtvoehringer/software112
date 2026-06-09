@@ -18,7 +18,7 @@ export default async function VerkaufPage() {
   const { data: postenRaw } = await (supabase.from('verkaufsposten') as any)
     .select(`
       id, datum, rechnungsnummer, notizen, erstellt_am, storniert, bezahlt,
-      kontakt:kontakte(id, vorname, nachname),
+      kontakt:kontakte!kontakt_id(id, vorname, nachname),
       firma:firmen(id, name),
       positionen:verkauf_positionen(id, name, menge, einheit, preis_brutto, typ)
     `)

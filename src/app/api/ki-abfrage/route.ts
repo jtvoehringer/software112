@@ -66,11 +66,11 @@ async function executeQuery(supabase: any, params: R): Promise<R[]> {
   const selectMap: Record<string, string> = {
     kontakte:          'kundennummer, segment, vorname, nachname, email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, plz, ort, strasse, land, stammkunde, is_lead, notizen, firma:firma_id(name)',
     firmen:            'kundennummer, segment, name, email, telefon, plz, ort, strasse, land, uid_nummer, zahlungsziel_tage, is_lead, notizen',
-    verkaufsposten:    'datum, rechnungsnummer, bezahlt, storniert, kontakt:kontakte(vorname, nachname), firma:firmen(name)',
+    verkaufsposten:    'datum, rechnungsnummer, bezahlt, storniert, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name)',
     fuellungen:        'name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto',
     weinausbau:        'name, jahrgang, rebsorte, menge_liter, qualitaetsstufe, status',
     behandlungen:      'datum, art, menge_gesamt, menge_einheit, psm:psm_id(name), weingarten:weingarten_id(name)',
-    pipeline_eintraege:'titel, stufe, kategorie, erledigt, erwartetes_datum, kontakt:kontakte(vorname, nachname), firma:firmen(name)',
+    pipeline_eintraege:'titel, stufe, kategorie, erledigt, erwartetes_datum, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name)',
   }
   let query = supabase.from(tabelle).select(selectMap[tabelle] ?? '*')
 

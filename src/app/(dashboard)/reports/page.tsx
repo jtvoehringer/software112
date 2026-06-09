@@ -48,7 +48,7 @@ export default async function ReportsPage() {
 
   // ── Behandlungsübersicht (aktuelles Jahr) ─────────────────────────────────
   const { data: behandlungenRaw } = await (supabase.from('behandlungen') as any)
-    .select('id, datum, menge_gesamt, menge_einheit, art, psm:psm_id(name, handelsname, cu_gehalt_pct), weingarten:weingarten_id(name)')
+    .select('id, datum, mittel_id, menge_gesamt, einheit, art, psm:pflanzenschutzmittel(name, handelsname, cu_gehalt_pct), weingarten:weingartenId(name)')
     .gte('datum', `${thisYear}-01-01`).order('datum', { ascending: false })
   const behandlungen = (behandlungenRaw ?? []) as R[]
 
@@ -62,7 +62,7 @@ export default async function ReportsPage() {
 
   // ── Lead-Pipeline ─────────────────────────────────────────────────────────
   const { data: pipelineRaw } = await (supabase.from('pipeline_eintraege') as any)
-    .select('id, stufe, kategorie, erledigt, kontakt:kontakte(vorname, nachname, segment), firma:firmen(name, segment)')
+    .select('id, stufe, kategorie, erledigt, kontakt:kontakte!kontakt_id(vorname, nachname, segment), firma:firmen(name, segment)')
     .order('erstellt_am', { ascending: false })
   const pipeline = (pipelineRaw ?? []) as R[]
 
@@ -93,7 +93,7 @@ export default async function ReportsPage() {
 
   // ── Offene Posten ─────────────────────────────────────────────────────────
   const { data: offeneRaw } = await (supabase.from('verkaufsposten') as any)
-    .select('id, datum, rechnungsnummer, kontakt:kontakte(vorname, nachname), firma:firmen(name), verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
+    .select('id, datum, rechnungsnummer, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name), verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
     .eq('aktiv', true).eq('bezahlt', false).eq('storniert', false)
     .order('datum', { ascending: true })
   const offene = (offeneRaw ?? []) as R[]

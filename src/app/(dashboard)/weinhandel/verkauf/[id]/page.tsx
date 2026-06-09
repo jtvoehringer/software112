@@ -55,7 +55,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
     (supabase.from('verkaufsposten') as any)
       .select(`
         id, datum, rechnungsnummer, notizen, erstellt_am, storniert, storniert_am,
-        kontakt:kontakte(id, vorname, nachname, email, telefon),
+        kontakt:kontakte!kontakt_id(id, vorname, nachname, email, telefon),
         firma:firmen(id, name, email, telefon),
         zh_kontakt:kontakte!zh_kontakt_id(vorname, nachname),
         positionen:verkauf_positionen(

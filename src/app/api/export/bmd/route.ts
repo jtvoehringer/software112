@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   const bis = req.nextUrl.searchParams.get('bis') ?? ''
 
   const { data } = await (supabase.from('verkaufsposten') as any)
-    .select('id, datum, rechnungsnummer, storniert, kontakt:kontakte(nachname, vorname, kundennummer), firma:firmen(name, kundennummer), verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz)')
+    .select('id, datum, rechnungsnummer, storniert, kontakt:kontakte!kontakt_id(nachname, vorname, kundennummer), firma:firmen(name, kundennummer), verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz)')
     .eq('tenant_id', tenantId).eq('aktiv', true).eq('storniert', false)
     .gte('datum', von).lte('datum', bis)
     .order('datum')
