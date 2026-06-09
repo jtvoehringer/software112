@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useTransition, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createVerkauf } from '../actions'
@@ -61,6 +61,85 @@ const FLASCHEN_LABEL: Record<number, string> = {
 
 const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
 const labelCls = 'block text-xs font-medium text-gray-600 mb-1'
+
+// ── Dynamische Suche ──────────────────────────────────────────────────────────
+
+interface SucheItem { id: string; label: string; sub?: string }
+
+function KundenSuche({ items, value, onChange, placeholder, disabled }: {
+  items: SucheItem[]
+  value: string
+  onChange: (id: string) => void
+  placeholder: string
+  disabled?: boolean
+}) {
+  const [query, setQuery]   = useState('')
+  const [open, setOpen]     = useState(false)
+  const ref                 = useRef<HTMLDivElement>(null)
+
+  const selected = items.find(i => i.id === value)
+
+  const treffer = query.length < 1
+    ? items.slice(0, 50)
+    : items.filter(i =>
+        (i.label + ' ' + (i.sub ?? '')).toLowerCase().includes(query.toLowerCase())
+      ).slice(0, 50)
+
+  // Klick außerhalb schließt Dropdown
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  if (selected) {
+    return (
+      <div className="flex items-center gap-2 border border-s112-border rounded-lg px-3 py-2 bg-white text-sm">
+        <span className="flex-1 truncate font-medium text-gray-800">{selected.label}</span>
+        {selected.sub && <span className="text-xs text-s112-muted truncate">{selected.sub}</span>}
+        {!disabled && (
+          <button type="button" onClick={() => { onChange(''); setQuery('') }}
+            className="text-s112-muted hover:text-red-500 ml-1 flex-shrink-0 text-base leading-none">×</button>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <input
+        type="text"
+        value={query}
+        onChange={e => { setQuery(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder}
+        disabled={disabled}
+        className={inputCls + ' w-full pr-8'}
+        autoComplete="off"
+      />
+      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-s112-muted text-xs pointer-events-none">▾</span>
+      {open && treffer.length > 0 && (
+        <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-s112-border rounded-xl shadow-lg max-h-60 overflow-y-auto">
+          {treffer.map(item => (
+            <button key={item.id} type="button"
+              onMouseDown={() => { onChange(item.id); setQuery(''); setOpen(false) }}
+              className="w-full text-left px-3 py-2 text-sm hover:bg-s112-teal/10 flex items-center justify-between gap-2">
+              <span className="font-medium text-gray-800 truncate">{item.label}</span>
+              {item.sub && <span className="text-xs text-s112-muted flex-shrink-0">{item.sub}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+      {open && query.length > 0 && treffer.length === 0 && (
+        <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-s112-border rounded-xl shadow-lg px-3 py-2 text-sm text-s112-muted">
+          Kein Eintrag gefunden
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ── Haupt-Komponente ──────────────────────────────────────────────────────────
 
@@ -271,10 +350,13 @@ export default function NeuerVerkaufPage() {
             </div>
             <div>
               <label className={labelCls}>Kontakt (Person) *</label>
-              <select
+              <KundenSuche
+                items={kontakte.map(k => ({
+                  id: k.id,
+                  label: [k.vorname, k.nachname].filter(Boolean).join(' '),
+                }))}
                 value={kontaktId}
-                onChange={e => {
-                  const kId = e.target.value
+                onChange={kId => {
                   setKontaktId(kId)
                   if (kId) setFirmaId('')
                   const k = kontakte.find(x => x.id === kId)
@@ -288,23 +370,16 @@ export default function NeuerVerkaufPage() {
                     sonderrabatt_aktiv: sonder > 0,
                   })))
                 }}
-                className={inputCls + ' w-full'}
+                placeholder="Name suchen…"
                 disabled={loading}
-              >
-                <option value="">– kein Kontakt –</option>
-                {kontakte.map(k => (
-                  <option key={k.id} value={k.id}>
-                    {[k.vorname, k.nachname].filter(Boolean).join(' ')}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div>
               <label className={labelCls}>Firma *</label>
-              <select
+              <KundenSuche
+                items={firmen.map(f => ({ id: f.id, label: f.name }))}
                 value={firmaId}
-                onChange={e => {
-                  const fId = e.target.value
+                onChange={fId => {
                   setFirmaId(fId)
                   if (fId) setKontaktId('')
                   const f = firmen.find(x => x.id === fId)
@@ -318,14 +393,9 @@ export default function NeuerVerkaufPage() {
                     sonderrabatt_aktiv: sonder > 0,
                   })))
                 }}
-                className={inputCls + ' w-full'}
+                placeholder="Firmenname suchen…"
                 disabled={loading}
-              >
-                <option value="">– keine Firma –</option>
-                {firmen.map(f => (
-                  <option key={f.id} value={f.id}>{f.name}</option>
-                ))}
-              </select>
+              />
             </div>
             <div className="col-span-2">
               <label className={labelCls}>Notizen</label>
