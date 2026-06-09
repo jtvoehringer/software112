@@ -808,7 +808,7 @@ function ZeitachseView({
                   items={kontakte.map(k => ({ id: k.id, label: k.name }))}
                   value={newAktKontaktId}
                   onChange={setNewAktKontaktId}
-                  placeholder="– kein –"
+                  placeholder="Name suchen…"
                 />
               </div>
               <div>
@@ -817,7 +817,7 @@ function ZeitachseView({
                   items={firmen.map(f => ({ id: f.id, label: f.name }))}
                   value={newAktFirmaId}
                   onChange={setNewAktFirmaId}
-                  placeholder="– keine –"
+                  placeholder="Firmenname suchen…"
                 />
               </div>
             </div>
