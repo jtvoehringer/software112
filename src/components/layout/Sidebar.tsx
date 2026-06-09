@@ -55,6 +55,7 @@ const NAV: NavEntry[] = [
       { href: '/weinhandel',              label: 'Lager',       phase: 1 },
       { href: '/weinhandel/verkauf',        label: 'Verkauf',       phase: 1 },
       { href: '/weinhandel/offene-posten',  label: 'Offene Posten',  phase: 1 },
+      { href: '/weinhandel/zukauf',          label: 'Zukauf',         phase: 1 },
       { href: '/weinhandel/preisliste',    label: 'Preisliste',     phase: 1 },
       { href: '/weinhandel/rabattgruppen', label: 'Rabattgruppen',  phase: 1 },
       { href: '/weinexport',               label: 'Exportaufträge' },

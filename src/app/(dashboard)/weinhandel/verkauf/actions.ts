@@ -284,3 +284,30 @@ export async function markiereAlsBezahlt(id: string) {
   revalidatePath('/crm/kontakte/[id]', 'page')
   revalidatePath('/crm/firmen/[id]', 'page')
 }
+
+// ── Sonstiges-Artikel speichern ───────────────────────────────────────────────
+
+export interface SonstigesArtikelData {
+  id: string
+  name: string
+  einheit: string
+  default_preis: number | null
+}
+
+export async function createSonstigesArtikel(
+  name: string,
+  einheit: string,
+  defaultPreis: number | null,
+): Promise<SonstigesArtikelData | null> {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+
+  const { data, error } = await (supabase.from('sonstige_artikel') as any)
+    .insert({ tenant_id: tenantId, name: name.trim(), einheit, default_preis: defaultPreis ?? null })
+    .select('id, name, einheit, default_preis')
+    .single()
+
+  if (error) throw new Error((error as AR).message)
+  revalidatePath('/weinhandel/verkauf/neu')
+  return data as SonstigesArtikelData
+}
