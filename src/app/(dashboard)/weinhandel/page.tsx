@@ -23,7 +23,7 @@ const STATUS_VERKAUF: Record<string, { label: string; color: string }> = {
   abfuellung:{ label: 'Abfüllung', color: 'bg-purple-100 text-purple-700' },
 }
 
-const ART_EMOJI: Record<string, string> = { wein: '\U0001f377', trauben: '\U0001f347', most: '\U0001f30a' }
+const ART_LABEL: Record<string, string> = { wein: '🍷 Wein', trauben: '🍇 Trauben', most: '🌊 Most' }
 
 export default async function WeinhandelPage() {
   const supabase  = await createSupabaseServerClient()
@@ -273,7 +273,7 @@ export default async function WeinhandelPage() {
                   const rebInfo = [z.rebsorte, z.jahrgang].filter(Boolean).join(' ') || '–'
                   return (
                     <tr key={z.id} className={`border-b border-s112-border last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
-                      <td className="px-4 py-3 whitespace-nowrap">{ART_EMOJI[z.art] ?? ''} {z.art}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">{ART_LABEL[z.art] ?? z.art}</td>
                       <td className="px-4 py-3 text-s112-muted text-xs">{rebInfo}</td>
                       <td className="px-4 py-3 text-s112-muted text-xs">{lieferant}</td>
                       <td className="px-4 py-3 text-s112-muted text-xs max-w-xs truncate">{z.notizen ?? '–'}</td>
