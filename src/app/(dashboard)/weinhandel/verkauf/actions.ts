@@ -57,6 +57,7 @@ export async function createVerkauf(formData: FormData) {
   const rechnungsnummer = rechnungsnummerInput || await generateRechnungsnummer(tenantId)
   const kontaktId      = (formData.get('kontakt_id') as string) || null
   const firmaId        = (formData.get('firma_id') as string) || null
+  const zhKontaktId    = (formData.get('zh_kontakt_id') as string) || null
   const notizen        = (formData.get('notizen') as string) || null
 
   // Positionen als JSON aus hidden input
@@ -81,6 +82,7 @@ export async function createVerkauf(formData: FormData) {
     rechnungsnummer,
     kontakt_id:      kontaktId  || null,
     firma_id:        firmaId    || null,
+    zh_kontakt_id:   zhKontaktId || null,
     notizen,
   })
 

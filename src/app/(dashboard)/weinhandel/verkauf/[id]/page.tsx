@@ -57,6 +57,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
         id, datum, rechnungsnummer, notizen, erstellt_am, storniert, storniert_am,
         kontakt:kontakte(id, vorname, nachname, email, telefon),
         firma:firmen(id, name, email, telefon),
+        zh_kontakt:kontakte!zh_kontakt_id(vorname, nachname),
         positionen:verkauf_positionen(
           id, typ, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct,
           fuellung:fuellungen(id, name, jahrgang, flaschengroesse_ml),
@@ -238,6 +239,9 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             {/* Empfänger */}
             <div className="mb-8 p-4 border border-gray-200 rounded inline-block min-w-[220px]">
               <p className="font-semibold text-base">{kundenName(posten)}</p>
+              {posten.zh_kontakt && (
+                <p className="text-gray-700">z.H. {[(posten.zh_kontakt as R).vorname, (posten.zh_kontakt as R).nachname].filter(Boolean).join(' ')}</p>
+              )}
               {info.email   && <p className="text-gray-600">{info.email}</p>}
               {info.telefon && <p className="text-gray-600">{info.telefon}</p>}
             </div>
@@ -267,6 +271,9 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
         {!isRechnung && (
           <div className="mb-8">
             <p className="font-semibold">{kundenName(posten)}</p>
+            {posten.zh_kontakt && (
+              <p className="text-sm text-gray-700">z.H. {[(posten.zh_kontakt as R).vorname, (posten.zh_kontakt as R).nachname].filter(Boolean).join(' ')}</p>
+            )}
             {info.email   && <p className="text-sm">{info.email}</p>}
             {info.telefon && <p className="text-sm">{info.telefon}</p>}
           </div>

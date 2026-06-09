@@ -161,6 +161,7 @@ export default function NeuerVerkaufPage() {
   const [rechnungsnummer,  setRechnungsnummer] = useState('')
   const [kontaktId,        setKontaktId]       = useState('')
   const [firmaId,          setFirmaId]         = useState('')
+  const [zhKontaktId,    setZhKontaktId]    = useState('')
   const [notizen,          setNotizen]         = useState('')
   const [kundenRabatt,     setKundenRabatt]    = useState(0) // % aus Kundenstamm
 
@@ -291,6 +292,7 @@ export default function NeuerVerkaufPage() {
     formData.set('rechnungsnummer', rechnungsnummer)
     formData.set('kontakt_id',      kontaktId)
     formData.set('firma_id',        firmaId)
+    formData.set('zh_kontakt_id',   zhKontaktId)
     formData.set('notizen',         notizen)
     formData.set('positionen_json', JSON.stringify(posForServer))
 
@@ -381,6 +383,7 @@ export default function NeuerVerkaufPage() {
                 value={firmaId}
                 onChange={fId => {
                   setFirmaId(fId)
+                  setZhKontaktId('')
                   if (fId) setKontaktId('')
                   const f = firmen.find(x => x.id === fId)
                   const rabatt = f?.rabatt_pct ?? 0
@@ -397,6 +400,25 @@ export default function NeuerVerkaufPage() {
                 disabled={loading}
               />
             </div>
+            {/* z.H. Kontakt — nur bei Firma sichtbar */}
+            {firmaId && (
+              <div className="col-span-2">
+                <label className={labelCls}>z.H. (zu Händen) — optional</label>
+                <KundenSuche
+                  items={kontakte
+                    .filter(k => k.firma_id === firmaId)
+                    .map(k => ({
+                      id: k.id,
+                      label: [k.vorname, k.nachname].filter(Boolean).join(' '),
+                    }))}
+                  value={zhKontaktId}
+                  onChange={setZhKontaktId}
+                  placeholder="Ansprechpartner suchen…"
+                  disabled={loading}
+                />
+                <p className="text-xs text-s112-muted mt-1">Erscheint auf Rechnung/Lieferschein als „z.H. Vorname Nachname"</p>
+              </div>
+            )}
             <div className="col-span-2">
               <label className={labelCls}>Notizen</label>
               <input
