@@ -1,0 +1,10 @@
+{
+  "headers": [
+    {
+      "source": "/api/email/poll",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
+      ]
+    }
+  ]
+}
