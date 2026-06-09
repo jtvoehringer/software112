@@ -15,14 +15,30 @@ async function getTenantId(): Promise<string> {
   return id
 }
 
-// ── Neue Füllung anlegen ──────────────────────────────────────────────────────
+// Neue Fuellung anlegen
 
 export async function createFuellung(formData: FormData) {
   const supabase  = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
 
-  const weinausbauId = (formData.get('weinausbau_id') as string) || null
-  const anzahl       = parseInt(formData.get('anzahl_flaschen') as string)
+  const weinausbauId    = (formData.get('weinausbau_id') as string) || null
+  const anzahl          = parseInt(formData.get('anzahl_flaschen') as string)
+  const flGroesseML     = parseInt(formData.get('flaschengroesse_ml') as string) || 750
+  const mengeFormular   = parseFloat(formData.get('menge_liter_gefuellt') as string) || null
+  // Falls kein Literfeld ausgefuellt: aus Flaschenzahl berechnen
+  const mengeGefuellt   = mengeFormular ?? (anzahl * flGroesseML / 1000)
+
+  // Bestandspruefung: nicht mehr fuellen als vorhanden
+  if (weinausbauId) {
+    const { data: wa } = await (supabase.from('weinausbau') as any)
+      .select('menge_liter, status')
+      .eq('id', weinausbauId)
+      .single()
+    const verfuegbar = parseFloat((wa as AR | null)?.menge_liter ?? '0') || 0
+    if (mengeGefuellt > verfuegbar + 0.01) {
+      throw new Error(`Abfüllmenge (${mengeGefuellt} L) übersteigt verfügbaren Bestand (${verfuegbar} L)`)
+    }
+  }
 
   const payload: AR = {
     tenant_id:            tenantId,
@@ -34,10 +50,12 @@ export async function createFuellung(formData: FormData) {
     anbaugebiet:          (formData.get('anbaugebiet') as string) || null,
     bezeichnung:          (formData.get('bezeichnung') as string) || null,
     datum:                formData.get('datum') as string,
-    flaschengroesse_ml:   parseInt(formData.get('flaschengroesse_ml') as string) || 750,
+    flaschengroesse_ml:   flGroesseML,
     anzahl_flaschen:      anzahl,
-    bestand_flaschen:     anzahl,                              // Startbestand = Abfüllmenge
-    menge_liter_gefuellt: parseFloat(formData.get('menge_liter_gefuellt') as string) || null,
+    bestand_flaschen:     anzahl,
+    menge_liter_gefuellt: mengeGefuellt,
+    pruefnummer:          (formData.get('pruefnummer') as string) || null,
+    chargennummer:        (formData.get('chargennummer') as string) || null,
     vk_preis_brutto:      parseFloat(formData.get('vk_preis_brutto') as string) || null,
     einstandspreis:       parseFloat(formData.get('einstandspreis') as string) || null,
     notizen:              (formData.get('notizen') as string) || null,
@@ -46,12 +64,20 @@ export async function createFuellung(formData: FormData) {
   const { error } = await (supabase.from('fuellungen') as any).insert(payload)
   if (error) throw new Error((error as AR).message)
 
-  // Weinausbau-Status auf 'abfuellung' setzen (falls noch nicht abgeschlossen)
+  // Weinausbau: Liter abziehen + Status aktualisieren
   if (weinausbauId) {
-    await (supabase.from('weinausbau') as any)
-      .update({ status: 'abfuellung' })
+    const { data: wa } = await (supabase.from('weinausbau') as any)
+      .select('menge_liter')
       .eq('id', weinausbauId)
-      .not('status', 'eq', 'abgeschlossen')
+      .single()
+    const aktuell   = parseFloat((wa as AR | null)?.menge_liter ?? '0') || 0
+    const neuMenge  = Math.max(0, aktuell - mengeGefuellt)
+    const neuStatus = neuMenge <= 0.01 ? 'abgeschlossen' : 'abfuellung'
+    const neuAktiv  = neuMenge > 0.01
+
+    await (supabase.from('weinausbau') as any)
+      .update({ menge_liter: neuMenge, status: neuStatus, aktiv: neuAktiv })
+      .eq('id', weinausbauId)
   }
 
   revalidatePath('/weinhandel')
@@ -59,7 +85,7 @@ export async function createFuellung(formData: FormData) {
   redirect('/weinhandel')
 }
 
-// ── Füllung bearbeiten ────────────────────────────────────────────────────────
+// Fuellung bearbeiten
 
 export async function updateFuellung(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
@@ -89,7 +115,7 @@ export async function updateFuellung(id: string, formData: FormData) {
   redirect('/weinhandel')
 }
 
-// ── Bestand manuell korrigieren ───────────────────────────────────────────────
+// Bestand manuell korrigieren
 
 export async function updateFuellungBestand(id: string, bestand: number) {
   const supabase = await createSupabaseServerClient()
@@ -100,7 +126,7 @@ export async function updateFuellungBestand(id: string, bestand: number) {
   revalidatePath('/weinhandel')
 }
 
-// ── Füllung deaktivieren ──────────────────────────────────────────────────────
+// Fuellung deaktivieren
 
 export async function deactivateFuellung(id: string) {
   const supabase = await createSupabaseServerClient()

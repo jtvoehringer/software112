@@ -12,7 +12,7 @@ async function getTenantId(): Promise<string | null> {
   return (data as R | null)?.tenant_id ?? null
 }
 
-// ── BEHÄLTER ──────────────────────────────────────────────────────────────────
+// BEHAELTER
 export async function createBehaelter(formData: FormData) {
   const supabase  = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
@@ -47,7 +47,7 @@ export async function updateBehaelter(id: string, formData: FormData) {
   revalidatePath('/kellerbuch')
 }
 
-// ── WEINAUSBAU ────────────────────────────────────────────────────────────────
+// WEINAUSBAU
 export async function createWeinausbau(formData: FormData) {
   const supabase  = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
@@ -60,7 +60,8 @@ export async function createWeinausbau(formData: FormData) {
     rebsorte:        (formData.get('rebsorte') as string) || null,
     weingarten_id:   (formData.get('weingarten_id') as string) || null,
     behaelter_id:    (formData.get('behaelter_id') as string) || null,
-    menge_liter:     formData.get('menge_liter') ? Number((formData.get('menge_liter') as string).replace(',', '.')) : null,
+    menge_liter:          formData.get('menge_liter') ? Number((formData.get('menge_liter') as string).replace(',', '.')) : null,
+    anfangsbestand_liter: formData.get('menge_liter') ? Number((formData.get('menge_liter') as string).replace(',', '.')) : null,
     qualitaetsstufe: (formData.get('qualitaetsstufe') as string) || null,
     status:          (formData.get('status') as string) || 'ernte',
     notizen:         (formData.get('notizen') as string) || null,

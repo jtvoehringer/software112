@@ -5,7 +5,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createFuellung } from '../../actions'
 
-export const metadata: Metadata = { title: 'Neue Füllung – software:112' }
+export const metadata: Metadata = { title: 'Neue Fuellung – software:112' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -71,7 +71,6 @@ export default async function NeueFuellungPage({
 
   return (
     <div className="max-w-2xl">
-      {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-s112-muted mb-6">
         <Link href="/weinhandel" className="hover:text-s112-teal">Weinhandel</Link>
         <span>/</span>
@@ -85,7 +84,6 @@ export default async function NeueFuellungPage({
 
       <form action={createFuellung} className="space-y-6">
 
-        {/* ── Kellerbuch-Charge ── */}
         <div className="card p-5 space-y-4">
           <h2 className="font-semibold text-gray-800 text-sm">Kellerbuch-Charge</h2>
           <div>
@@ -99,12 +97,11 @@ export default async function NeueFuellungPage({
               ))}
             </select>
             <p className="text-xs text-s112-muted mt-1">
-              Nach der Füllung wird der Charge-Status automatisch auf „Abfüllung" gesetzt.
+              Nach der Füllung wird der Charge-Status automatisch auf „Abfüllung“ gesetzt.
             </p>
           </div>
         </div>
 
-        {/* ── Produktbezeichnung ── */}
         <div className="card p-5 space-y-4">
           <h2 className="font-semibold text-gray-800 text-sm">Produktbezeichnung</h2>
 
@@ -165,11 +162,26 @@ export default async function NeueFuellungPage({
           </div>
         </div>
 
-        {/* ── Abfüllung ── */}
         <div className="card p-5 space-y-4">
           <h2 className="font-semibold text-gray-800 text-sm">Abfüllung</h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls}>Prüfnummer (optional)</label>
+              <input
+                name="pruefnummer"
+                placeholder="z.B. AT 1234/2025"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Chargennummer (optional)</label>
+              <input
+                name="chargennummer"
+                placeholder="z.B. CH-2025-001"
+                className={inputCls}
+              />
+            </div>
             <div>
               <label className={labelCls}>Abfülldatum *</label>
               <input
@@ -212,7 +224,6 @@ export default async function NeueFuellungPage({
           </div>
         </div>
 
-        {/* ── Preis ── */}
         <div className="card p-5 space-y-4">
           <h2 className="font-semibold text-gray-800 text-sm">Preise</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -243,7 +254,6 @@ export default async function NeueFuellungPage({
           </div>
         </div>
 
-        {/* ── Notizen ── */}
         <div className="card p-5">
           <label className={labelCls}>Notizen (optional)</label>
           <textarea
@@ -254,7 +264,6 @@ export default async function NeueFuellungPage({
           />
         </div>
 
-        {/* ── Aktionen ── */}
         <div className="flex gap-3">
           <button
             type="submit"

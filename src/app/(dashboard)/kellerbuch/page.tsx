@@ -10,24 +10,22 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  ernte:        { label: 'Ernte',       color: 'bg-yellow-100 text-yellow-700' },
-  gaerung:      { label: 'Gärung',      color: 'bg-orange-100 text-orange-700' },
-  ausbau:       { label: 'Ausbau',      color: 'bg-blue-100 text-blue-700' },
+  ernte:        { label: 'Ernte',        color: 'bg-yellow-100 text-yellow-700' },
+  gaerung:      { label: 'Gärung',       color: 'bg-orange-100 text-orange-700' },
+  ausbau:       { label: 'Ausbau',       color: 'bg-blue-100 text-blue-700' },
   abfuellung:   { label: 'Abfüllung',   color: 'bg-purple-100 text-purple-700' },
-  abgeschlossen:{ label: 'Abgeschlossen', color: 'bg-green-100 text-green-700' },
+  abgeschlossen:{ label: 'Abgeschlossen',color: 'bg-green-100 text-green-700' },
 }
 
-const TYP_LABELS: Record<string, string> = {
-  stahltank: 'Stahltank', holzfass: 'Holzfass',
-  betonei: 'Betonei', amphore: 'Amphore', sonstiges: 'Sonstiges',
+const TYP_ICONS: Record<string, string> = {
+  stahltank: '🪣', holzfass: '🪵', betonei: '⚪', amphore: '🏺', sonstiges: '📦',
 }
 
 export default async function KellerbuchPage() {
   const supabase = await createSupabaseServerClient()
-  const role = await getCurrentUserRole()
-  const writeOk = canWrite(role)
+  const role     = await getCurrentUserRole()
+  const writeOk  = canWrite(role)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [{ data: behaelterRaw }, { data: weinausbauRaw }] = await Promise.all([
     (supabase.from('behaelter') as any)
       .select('id, name, typ, volumen_liter, standort, aktiv')
@@ -37,10 +35,24 @@ export default async function KellerbuchPage() {
       .order('jahrgang', { ascending: false }),
   ])
 
-  const behaelter   = (behaelterRaw ?? []) as R[]
-  const weinausbau  = (weinausbauRaw ?? []) as R[]
+  const behaelter   = (behaelterRaw   ?? []) as R[]
+  const weinausbau  = (weinausbauRaw  ?? []) as R[]
+
   const aktiveChargen = weinausbau.filter((w: R) => w.aktiv && w.status !== 'abgeschlossen')
-  const gesamtLiter   = aktiveChargen.reduce((s: number, w: R) => s + (w.menge_liter ?? 0), 0)
+  const gesamtLiter   = aktiveChargen.reduce((s: number, w: R) => s + (parseFloat(w.menge_liter) || 0), 0)
+
+  // Chargen nach Behälter gruppieren
+  const chargenByBehaelter = new Map<string, R[]>()
+  const chargenOhneBehaelter: R[] = []
+
+  for (const w of aktiveChargen) {
+    if (w.behaelter_id) {
+      if (!chargenByBehaelter.has(w.behaelter_id)) chargenByBehaelter.set(w.behaelter_id, [])
+      chargenByBehaelter.get(w.behaelter_id)!.push(w)
+    } else {
+      chargenOhneBehaelter.push(w)
+    }
+  }
 
   return (
     <div>
@@ -50,140 +62,186 @@ export default async function KellerbuchPage() {
           <h1 className="text-2xl font-bold text-gray-900">Kellerbuch</h1>
           <p className="text-sm text-s112-muted mt-0.5">Behälter & Weinausbau-Chargen</p>
         </div>
+        {writeOk && (
+          <div className="flex gap-2">
+            <Link href="/kellerbuch/behaelter/neu"
+              className="text-xs border border-s112-teal text-s112-teal px-3 py-1.5 rounded-lg hover:bg-s112-teal/5 font-medium">
+              + Behälter
+            </Link>
+            <Link href="/kellerbuch/weinausbau/neu"
+              className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg hover:bg-opacity-90 font-medium">
+              + Neue Charge
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className="card text-center">
+        <div className="card text-center p-4">
           <p className="text-3xl font-bold text-s112-teal">{behaelter.filter((b: R) => b.aktiv).length}</p>
           <p className="text-xs text-s112-muted mt-1">Aktive Behälter</p>
         </div>
-        <div className="card text-center">
+        <div className="card text-center p-4">
           <p className="text-3xl font-bold text-s112-teal">{aktiveChargen.length}</p>
           <p className="text-xs text-s112-muted mt-1">Laufende Chargen</p>
         </div>
-        <div className="card text-center">
+        <div className="card text-center p-4">
           <p className="text-3xl font-bold text-s112-teal">{gesamtLiter.toLocaleString('de-AT')}</p>
           <p className="text-xs text-s112-muted mt-1">Liter in Ausbau</p>
         </div>
       </div>
 
-      {/* Zwei Sektionen nebeneinander */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Behälter mit Chargen */}
+      <div className="space-y-4">
+        {behaelter.filter((b: R) => b.aktiv).map((b: R) => {
+          const chargen = chargenByBehaelter.get(b.id) ?? []
+          const literImBehaelter = chargen.reduce((s: number, w: R) => s + (parseFloat(w.menge_liter) || 0), 0)
+          const kapazitaet = b.volumen_liter ? parseFloat(b.volumen_liter) : null
+          const auslastung = kapazitaet && kapazitaet > 0 ? Math.min(100, (literImBehaelter / kapazitaet) * 100) : null
 
-        {/* ── BEHÄLTER ── */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-gray-800">Behälter</h2>
-            {writeOk && (
-              <Link href="/kellerbuch/behaelter/neu"
-                className="text-xs text-s112-teal font-semibold hover:underline">
-                ＋ Neuer Behälter
-              </Link>
-            )}
-          </div>
-          {behaelter.length > 0 ? (
-            <div className="card p-0 overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-s112-bg border-b border-s112-border">
-                    <th className="text-left px-4 py-2 font-semibold text-gray-700">Name</th>
-                    <th className="text-left px-4 py-2 font-semibold text-gray-700">Typ</th>
-                    <th className="text-right px-4 py-2 font-semibold text-gray-700">Liter</th>
-                    <th className="text-right px-4 py-2 font-semibold text-gray-700"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {behaelter.map((b: R, i: number) => (
-                    <tr key={b.id} className={`border-b border-s112-border last:border-0 ${!b.aktiv ? 'opacity-40' : ''} ${i%2===1?'bg-s112-bg/50':''}`}>
-                      <td className="px-4 py-2 font-medium">{b.name}</td>
-                      <td className="px-4 py-2 text-s112-muted">{b.typ ? TYP_LABELS[b.typ] : '–'}</td>
-                      <td className="px-4 py-2 text-right tabular-nums">{b.volumen_liter ? b.volumen_liter.toLocaleString('de-AT') : '–'}</td>
-                      <td className="px-4 py-2 text-right">
-                        {writeOk && (
-                          <Link href={`/kellerbuch/behaelter/${b.id}`} className="text-s112-teal hover:underline text-xs">Bearbeiten</Link>
-                        )}
+          return (
+            <div key={b.id} className="card p-0 overflow-hidden">
+              {/* Behälter-Header */}
+              <div className="flex items-center gap-3 px-4 py-3 bg-s112-bg border-b border-s112-border">
+                <span className="text-xl">{TYP_ICONS[b.typ] ?? '📦'}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-gray-800 text-sm">{b.name}</span>
+                    {b.standort && <span className="text-xs text-s112-muted">{b.standort}</span>}
+                    {kapazitaet && (
+                      <span className="text-xs text-s112-muted">
+                        {kapazitaet.toLocaleString('de-AT')} L Kapazität
+                      </span>
+                    )}
+                  </div>
+                  {auslastung !== null && (
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <div className="flex-1 bg-gray-200 rounded-full h-1.5 max-w-40">
+                        <div
+                          className={`h-1.5 rounded-full ${auslastung > 90 ? 'bg-amber-500' : 'bg-s112-teal'}`}
+                          style={{ width: `${auslastung}%` }}
+                        />
+                      </div>
+                      <span className="text-xs tabular-nums text-gray-600">
+                        {literImBehaelter.toLocaleString('de-AT')} / {kapazitaet!.toLocaleString('de-AT')} L
+                      </span>
+                    </div>
+                  )}
+                  {!kapazitaet && literImBehaelter > 0 && (
+                    <p className="text-xs text-gray-600 mt-0.5">{literImBehaelter.toLocaleString('de-AT')} L belegt</p>
+                  )}
+                </div>
+                {writeOk && (
+                  <Link href={`/kellerbuch/behaelter/${b.id}`}
+                    className="text-xs text-s112-muted hover:text-s112-teal shrink-0">
+                    Bearbeiten
+                  </Link>
+                )}
+              </div>
+
+              {/* Chargen im Behälter */}
+              {chargen.length > 0 ? (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-s112-border/50">
+                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500">Charge</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500">Jg.</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500">Status</th>
+                      <th className="text-right px-4 py-2 text-xs font-medium text-gray-500">Liter</th>
+                      <th className="px-4 py-2" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {chargen.map((w: R) => {
+                      const st = STATUS_LABELS[w.status] ?? { label: w.status, color: 'bg-gray-100 text-gray-600' }
+                      const menge = parseFloat(w.menge_liter) || 0
+                      return (
+                        <tr key={w.id} className="border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40">
+                          <td className="px-4 py-2.5 font-medium text-gray-800">
+                            {w.name}
+                            {w.rebsorte && <span className="text-xs text-s112-muted ml-1">· {w.rebsorte}</span>}
+                          </td>
+                          <td className="px-4 py-2.5 text-s112-muted text-xs">{w.jahrgang ?? '–'}</td>
+                          <td className="px-4 py-2.5">
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
+                          </td>
+                          <td className="px-4 py-2.5 text-right tabular-nums font-medium text-gray-800">
+                            {menge > 0 ? menge.toLocaleString('de-AT') + ' L' : <span className="text-red-500">0 L</span>}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            <div className="flex items-center justify-end gap-2 flex-wrap">
+                              {writeOk && menge > 0.01 && (
+                                <Link href={`/weinhandel/fuellungen/neu?charge=${w.id}`}
+                                  className="text-xs text-s112-teal border border-s112-teal/30 rounded-full px-2 py-0.5 hover:bg-s112-teal hover:text-white transition-colors whitespace-nowrap">
+                                  🍾 Abfüllen
+                                </Link>
+                              )}
+                              <Link href={`/kellerbuch/weinausbau/${w.id}`}
+                                className="text-xs text-s112-teal hover:underline whitespace-nowrap">
+                                Bewegungen →
+                              </Link>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="px-4 py-3 text-xs text-s112-muted italic">Kein Wein in diesem Behälter</p>
+              )}
+            </div>
+          )
+        })}
+
+        {/* Chargen ohne Behälter */}
+        {chargenOhneBehaelter.length > 0 && (
+          <div className="card p-0 overflow-hidden">
+            <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border-b border-amber-200">
+              <span className="text-xl">⚠️</span>
+              <span className="font-semibold text-amber-800 text-sm">Chargen ohne Behälterzuweisung</span>
+            </div>
+            <table className="w-full text-sm">
+              <tbody>
+                {chargenOhneBehaelter.map((w: R) => {
+                  const st = STATUS_LABELS[w.status] ?? { label: w.status, color: 'bg-gray-100 text-gray-600' }
+                  return (
+                    <tr key={w.id} className="border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40">
+                      <td className="px-4 py-2.5 font-medium text-gray-800">{w.name}</td>
+                      <td className="px-4 py-2.5 text-s112-muted text-xs">{w.jahrgang ?? '–'}</td>
+                      <td className="px-4 py-2.5">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-gray-800">
+                        {(parseFloat(w.menge_liter) || 0).toLocaleString('de-AT')} L
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        <Link href={`/kellerbuch/weinausbau/${w.id}`}
+                          className="text-xs text-s112-teal hover:underline">
+                          Bearbeiten →
+                        </Link>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="card text-center py-8">
-              <p className="text-2xl mb-2">🛢️</p>
-              <p className="text-sm text-s112-muted">Noch keine Behälter angelegt</p>
-              {writeOk && (
-                <Link href="/kellerbuch/behaelter/neu" className="text-xs text-s112-teal font-semibold mt-2 inline-block hover:underline">＋ Ersten Behälter anlegen</Link>
-              )}
-            </div>
-          )}
-        </section>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-        {/* ── WEINAUSBAU ── */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-gray-800">Weinausbau-Chargen</h2>
+        {behaelter.filter((b: R) => b.aktiv).length === 0 && (
+          <div className="card text-center py-10">
+            <p className="text-3xl mb-2">🪣</p>
+            <p className="text-sm text-s112-muted">Noch keine Behälter angelegt</p>
             {writeOk && (
-              <Link href="/kellerbuch/weinausbau/neu"
-                className="text-xs text-s112-teal font-semibold hover:underline">
-                ＋ Neue Charge
+              <Link href="/kellerbuch/behaelter/neu"
+                className="mt-3 inline-block text-xs text-s112-teal font-semibold hover:underline">
+                + Ersten Behälter anlegen
               </Link>
             )}
           </div>
-          {weinausbau.length > 0 ? (
-            <div className="card p-0 overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-s112-bg border-b border-s112-border">
-                    <th className="text-left px-4 py-2 font-semibold text-gray-700">Charge</th>
-                    <th className="text-left px-4 py-2 font-semibold text-gray-700">JG</th>
-                    <th className="text-left px-4 py-2 font-semibold text-gray-700">Status</th>
-                    <th className="text-right px-4 py-2 font-semibold text-gray-700">Liter</th>
-                    <th className="text-right px-4 py-2 font-semibold text-gray-700"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {weinausbau.map((w: R, i: number) => {
-                    const st = STATUS_LABELS[w.status] ?? { label: w.status, color: 'bg-gray-100 text-gray-600' }
-                    return (
-                      <tr key={w.id} className={`border-b border-s112-border last:border-0 ${!w.aktiv ? 'opacity-40' : ''} ${i%2===1?'bg-s112-bg/50':''}`}>
-                        <td className="px-4 py-2 font-medium">{w.name}</td>
-                        <td className="px-4 py-2 text-s112-muted">{w.jahrgang ?? '–'}</td>
-                        <td className="px-4 py-2">
-                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
-                        </td>
-                        <td className="px-4 py-2 text-right tabular-nums">{w.menge_liter ? w.menge_liter.toLocaleString('de-AT') : '–'}</td>
-                        <td className="px-4 py-2 text-right">
-                          <div className="flex items-center justify-end gap-3">
-                            {writeOk && w.aktiv && w.status !== 'abgeschlossen' && (
-                              <Link
-                                href={`/weinhandel/fuellungen/neu?charge=${w.id}`}
-                                className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-2 py-0.5 hover:bg-s112-teal hover:text-white transition-colors whitespace-nowrap">
-                                🍾 Abfüllen
-                              </Link>
-                            )}
-                            {writeOk && (
-                              <Link href={`/kellerbuch/weinausbau/${w.id}`} className="text-s112-teal hover:underline text-xs">Bearbeiten</Link>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="card text-center py-8">
-              <p className="text-2xl mb-2">🍷</p>
-              <p className="text-sm text-s112-muted">Noch keine Chargen angelegt</p>
-              {writeOk && (
-                <Link href="/kellerbuch/weinausbau/neu" className="text-xs text-s112-teal font-semibold mt-2 inline-block hover:underline">＋ Erste Charge anlegen</Link>
-              )}
-            </div>
-          )}
-        </section>
+        )}
       </div>
     </div>
   )
