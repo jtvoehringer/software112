@@ -53,7 +53,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
   ] = await Promise.all([
     // Pressungen für diesen Behälter – via behaelter_id (korrekte Verknüpfung!)
     (supabase.from('pressung_behaelter') as any)
-      .select('id, menge_liter, notizen, pressung:pressung_id(id, datum, notizen)')
+      .select('id, menge_liter, weinausbau_id, notizen, pressung:pressung_id(id, datum, notizen)')
       .eq('behaelter_id', id)
       .order('id', { ascending: true }),
 
@@ -67,14 +67,21 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     (supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, menge_liter, aktiv')
       .eq('behaelter_id', id)
-      .order('erstellt_am', { ascending: true }),
+      .order('id', { ascending: true }),
   ])
 
-  // Charge-IDs sammeln: direkt zugewiesene + via eingehende Umzüge
+  // Charge-IDs sammeln aus 3 Quellen:
+  // 1. Direkt zugewiesene Chargen (behaelter_id = id)
+  // 2. Via eingehende Umzüge (nach_weinausbau_id)
+  // 3. Via Pressungen verknüpfte Chargen (pressung_behaelter.weinausbau_id)
+  //    → deckt den Fall ab wenn Charge nach vollständigem Umzug behaelter_id=null hat
   const chargeIds = new Set<string>()
   for (const c of (chargenRaw ?? []) as R[]) chargeIds.add(c.id)
   for (const u of (umzuegeEinRaw ?? []) as R[]) {
     if (u.nach_weinausbau_id) chargeIds.add(u.nach_weinausbau_id)
+  }
+  for (const p of (pressungenRaw ?? []) as R[]) {
+    if (p.weinausbau_id) chargeIds.add(p.weinausbau_id)
   }
   const chargeIdList = Array.from(chargeIds)
 
@@ -190,9 +197,15 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     return { ...bew, saldo }
   })
 
-  // Aktuelle Bestandsmenge aus Chargen
+  // Aktueller Bestand: finaler Saldo aus Bewegungsrechnung (Quelle der Wahrheit)
+  // Fallback: DB-Summe der aktiven Chargen
+  const finalSaldo = bewegungenMitSaldo.length > 0
+    ? bewegungenMitSaldo[bewegungenMitSaldo.length - 1].saldo
+    : 0
   const aktiveChargen = ((chargenRaw ?? []) as R[]).filter(c => c.aktiv)
-  const aktuell = aktiveChargen.reduce((s: number, c: R) => s + (parseFloat(c.menge_liter) || 0), 0)
+  const aktuellDB = aktiveChargen.reduce((s: number, c: R) => s + (parseFloat(c.menge_liter) || 0), 0)
+  // Für Anzeige: Saldo aus Bewegungen (stimmt auch wenn charge.behaelter_id=null nach Umzug)
+  const aktuell = finalSaldo > 0 ? finalSaldo : aktuellDB
 
   const kapazitaet = bh.volumen_liter ? parseFloat(bh.volumen_liter) : null
   const auslastung = kapazitaet && kapazitaet > 0 ? Math.min(100, (aktuell / kapazitaet) * 100) : null

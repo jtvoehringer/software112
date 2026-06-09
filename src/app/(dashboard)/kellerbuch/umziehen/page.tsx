@@ -38,7 +38,7 @@ export default async function UmziehenPage() {
     (supabase.from('keller_umzuege') as any)
       .select('id, datum, menge_liter, schwund_liter, notizen, von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name)), nach_behaelter:nach_behaelter_id(name)')
       .order('datum', { ascending: false })
-      .order('erstellt_am', { ascending: false })
+      .order('id', { ascending: false })
       .limit(50),
   ])
 

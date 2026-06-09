@@ -28,7 +28,7 @@ export async function umziehen(fd: FormData) {
     .select('tenant_id').limit(1).single()
   const tenantId = (membership as R)?.tenant_id
 
-  // -- Qualitaetsminimum aller Quellen ermitteln
+  // -- Qualitätsminimum aller Quellen ermitteln + Menge validieren
   let minQualStufe: string | null = null
   const quellenDaten: R[] = []
 
@@ -36,12 +36,21 @@ export async function umziehen(fd: FormData) {
     const { data: vonRaw } = await (supabase.from('weinausbau') as any)
       .select('*').eq('id', q.weinausbau_id).single()
     const von = vonRaw as R
-    if (!von) throw new Error(`Charge nicht gefunden`)
+    if (!von) throw new Error('Charge nicht gefunden')
+
+    // Punkt 5: Behälterinhalt darf nicht überschritten werden
+    const verfuegbar = parseFloat(von.menge_liter) || 0
+    if (q.menge > verfuegbar + 0.01) {
+      throw new Error(
+        `„${von.name}": Menge (${q.menge.toLocaleString('de-AT')} L) überschreitet verfügbaren Bestand (${verfuegbar.toLocaleString('de-AT')} L)`
+      )
+    }
+
     quellenDaten.push(von)
     minQualStufe = minQualitaet(minQualStufe, von.qualitaetsstufe ?? null)
   }
 
-  // -- Ziel-Charge vorab ermitteln (fuer nach_weinausbau_id in keller_umzuege)
+  // -- Ziel-Charge vorab ermitteln (für nach_weinausbau_id in keller_umzuege)
   const primaryZielBehaelterId = ziele[0].behaelter_id
   const { data: preCheckRaw } = await (supabase.from('weinausbau') as any)
     .select('id')
@@ -51,7 +60,7 @@ export async function umziehen(fd: FormData) {
     .maybeSingle()
   let primaryNachWeinausbauId: string | null = (preCheckRaw as R | null)?.id ?? null
 
-  // -- Quellen reduzieren / abschliessen
+  // -- Quellen reduzieren / abschließen
   const insertedUmzugIds: string[] = []
 
   for (let i = 0; i < quellen.length; i++) {
@@ -70,7 +79,7 @@ export async function umziehen(fd: FormData) {
         .eq('id', q.weinausbau_id)
     }
 
-    // Protokoll (mit Ziel-Charge-ID falls bereits bekannt)
+    // Protokoll
     const { data: umzugData } = await (supabase.from('keller_umzuege') as any).insert({
       tenant_id:          tenantId,
       datum,
@@ -89,7 +98,7 @@ export async function umziehen(fd: FormData) {
     }
   }
 
-  // -- Ziele befuellen
+  // -- Ziele befüllen
   for (const z of ziele) {
     const { data: vorhandenRaw } = await (supabase.from('weinausbau') as any)
       .select('*')
@@ -110,7 +119,7 @@ export async function umziehen(fd: FormData) {
       const von0 = quellenDaten[0]
       const { data: newChargeData } = await (supabase.from('weinausbau') as any).insert({
         tenant_id:            tenantId,
-        name:                 quellenDaten.length > 1 ? 'Zusammenfuehrung' : (von0?.name ?? 'Umzug'),
+        name:                 quellenDaten.length > 1 ? 'Zusammenführung' : (von0?.name ?? 'Umzug'),
         jahrgang:             von0?.jahrgang ?? null,
         rebsorte:             von0?.rebsorte ?? null,
         weingarten_id:        von0?.weingarten_id ?? null,
@@ -120,14 +129,13 @@ export async function umziehen(fd: FormData) {
         qualitaetsstufe:      minQualStufe,
         status:               von0?.status ?? 'ausbau',
         notizen:              quellen.length > 1
-          ? `Zusammengefuehrt aus ${quellen.length} Chargen`
-          : `Umzug aus "${von0?.name ?? ''}"`,
+          ? `Zusammengeführt aus ${quellen.length} Chargen`
+          : `Umzug aus „${von0?.name ?? ''}"`,
         aktiv:                true,
       }).select('id')
 
       const newId = ((newChargeData as R[])?.[0] as R | undefined)?.id ?? null
 
-      // keller_umzuege nachtraeglich mit nach_weinausbau_id verknuepfen
       if (newId && primaryNachWeinausbauId === null && insertedUmzugIds.length > 0) {
         await (supabase.from('keller_umzuege') as any)
           .update({ nach_weinausbau_id: newId })
@@ -136,6 +144,67 @@ export async function umziehen(fd: FormData) {
     }
   }
 
+  revalidatePath('/kellerbuch')
+  revalidatePath('/kellerbuch/umziehen')
+}
+
+// ── Umzug löschen (mit Mengen-Reversal) ─────────────────────────────────────
+
+export async function deleteUmzug(umzugId: string) {
+  const supabase = await createSupabaseServerClient()
+
+  const { data: umzugRaw } = await (supabase.from('keller_umzuege') as any)
+    .select('*').eq('id', umzugId).single()
+  const umzug = umzugRaw as R | null
+  if (!umzug) throw new Error('Umzug nicht gefunden')
+
+  const umzugMenge   = parseFloat(umzug.menge_liter)  || 0
+  const schwundMenge = parseFloat(umzug.schwund_liter) || 0
+
+  // 1. Quell-Charge: Menge wiederherstellen + reaktivieren
+  if (umzug.von_weinausbau_id) {
+    const { data: vonRaw } = await (supabase.from('weinausbau') as any)
+      .select('menge_liter').eq('id', umzug.von_weinausbau_id).single()
+    if (vonRaw) {
+      const restored = +((parseFloat((vonRaw as R).menge_liter) || 0) + umzugMenge + schwundMenge).toFixed(3)
+      await (supabase.from('weinausbau') as any)
+        .update({ menge_liter: restored, aktiv: true })
+        .eq('id', umzug.von_weinausbau_id)
+    }
+  }
+
+  // 2. Ziel-Charge: Menge reduzieren
+  if (umzug.nach_weinausbau_id) {
+    const { data: nachRaw } = await (supabase.from('weinausbau') as any)
+      .select('menge_liter').eq('id', umzug.nach_weinausbau_id).single()
+    if (nachRaw) {
+      const reduced = Math.max(0, +((parseFloat((nachRaw as R).menge_liter) || 0) - umzugMenge).toFixed(3))
+      if (reduced <= 0.01) {
+        await (supabase.from('weinausbau') as any)
+          .update({ menge_liter: 0, aktiv: false, behaelter_id: null })
+          .eq('id', umzug.nach_weinausbau_id)
+      } else {
+        await (supabase.from('weinausbau') as any)
+          .update({ menge_liter: reduced })
+          .eq('id', umzug.nach_weinausbau_id)
+      }
+    }
+  }
+
+  // 3. Eintrag löschen
+  await (supabase.from('keller_umzuege') as any).delete().eq('id', umzugId)
+
+  revalidatePath('/kellerbuch')
+  revalidatePath('/kellerbuch/umziehen')
+}
+
+// ── Umzug bearbeiten (Datum + Notizen) ──────────────────────────────────────
+
+export async function updateUmzug(umzugId: string, datum: string, notizen: string | null) {
+  const supabase = await createSupabaseServerClient()
+  await (supabase.from('keller_umzuege') as any)
+    .update({ datum, notizen: notizen || null })
+    .eq('id', umzugId)
   revalidatePath('/kellerbuch')
   revalidatePath('/kellerbuch/umziehen')
 }

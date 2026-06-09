@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { umziehen } from './actions'
+import { umziehen, deleteUmzug, updateUmzug } from './actions'
 
 type BehaelterMitCharge = {
   behaelter_id:   string
@@ -19,19 +19,23 @@ function fmt(n: number | null) {
   return n.toLocaleString('de-AT', { minimumFractionDigits: 0, maximumFractionDigits: 1 }) + ' L'
 }
 
-// Quell-Zeile: Behälter wählen → Charge und Menge werden auto-gefüllt
+// ── Quell-Zeile: Behälter wählen → Charge + Menge auto-befüllt ───────────────
+
 function QuelleZeile({
   quellen, value, menge, onChange, onRemove,
 }: {
   quellen:  BehaelterMitCharge[]
-  value:    string   // behaelter_id
+  value:    string
   menge:    string
   onChange: (behId: string, menge: string) => void
   onRemove: () => void
 }) {
-  const selected = quellen.find(q => q.behaelter_id === value) ?? null
+  const selected  = quellen.find(q => q.behaelter_id === value) ?? null
+  const mengeNum  = parseFloat(menge) || 0
+  const ueberzogen = selected && mengeNum > selected.menge_liter + 0.001
+
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1">
       <div className="flex items-center gap-2 flex-wrap">
         <select
           value={value}
@@ -58,10 +62,10 @@ function QuelleZeile({
           max={selected?.menge_liter ?? undefined}
           placeholder="Liter"
           required
-          className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-28 tabular-nums"
+          className={`border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 w-28 tabular-nums ${ueberzogen ? 'border-red-400 focus:ring-red-300' : 'border-s112-border focus:ring-s112-teal/40'}`}
         />
         <span className="text-xs text-s112-muted w-8">L</span>
-        {selected && (
+        {selected && !ueberzogen && (
           <span className="text-xs text-s112-muted">max {fmt(selected.menge_liter)}</span>
         )}
         <button type="button" onClick={onRemove} className="text-xs text-red-400 hover:text-red-600 px-1">✕</button>
@@ -71,9 +75,16 @@ function QuelleZeile({
           Charge: <span className="font-medium text-gray-600">{selected.charge_name}</span>
         </p>
       )}
+      {ueberzogen && (
+        <p className="text-xs text-red-600 pl-1 font-medium">
+          ⚠ Menge überschreitet verfügbaren Bestand ({fmt(selected!.menge_liter)})
+        </p>
+      )}
     </div>
   )
 }
+
+// ── Ziel-Zeile ────────────────────────────────────────────────────────────────
 
 function ZielZeile({
   behaelter, value, menge, onChange, onRemove,
@@ -115,13 +126,13 @@ function ZielZeile({
   )
 }
 
-// ── Formular ──────────────────────────────────────────────────────────────────
+// ── Umzug-Formular ────────────────────────────────────────────────────────────
 
 function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; behaelter: Behaelter[] }) {
   const [pending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
-  const [datum, setDatum]     = useState(new Date().toISOString().split('T')[0])
-  const [notizen, setNotizen] = useState('')
+  const [error, setError]         = useState<string | null>(null)
+  const [datum, setDatum]         = useState(new Date().toISOString().split('T')[0])
+  const [notizen, setNotizen]     = useState('')
 
   type QEntry = { id: string; behId: string; menge: string }
   type ZEntry = { id: string; behId: string; menge: string }
@@ -143,7 +154,7 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
     // Behälter → weinausbau_id auflösen
     const quellenResolved = quellenState.map(q => {
       const match = quellen.find(x => x.behaelter_id === q.behId)
-      if (!match) throw new Error(`Keine Charge für Behälter gefunden`)
+      if (!match) { setError('Keine Charge für gewählten Behälter gefunden.'); throw new Error() }
       return { weinausbau_id: match.charge_id, menge: parseFloat(q.menge) }
     })
 
@@ -170,43 +181,34 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
         </div>
       </div>
 
-      {/* Von-Behälter */}
+      {/* Von Behälter */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-700">Von Behälter (Quelle)</h3>
+          <h3 className="text-sm font-semibold text-gray-700">Von Behälter</h3>
           <button type="button"
             onClick={() => setQuellen(p => [...p, { id: crypto.randomUUID(), behId: '', menge: '' }])}
-            className="text-xs text-s112-teal hover:underline">
-            + Quelle
-          </button>
+            className="text-xs text-s112-teal hover:underline">+ Quelle</button>
         </div>
         {quellenState.map(q => (
-          <QuelleZeile key={q.id}
-            quellen={quellen}
-            value={q.behId}
-            menge={q.menge}
+          <QuelleZeile key={q.id} quellen={quellen} value={q.behId} menge={q.menge}
             onChange={(bId, m) => setQuellen(p => p.map(x => x.id === q.id ? { ...x, behId: bId, menge: m } : x))}
-            onRemove={() => quellenState.length > 1 && setQuellen(p => p.filter(x => x.id !== q.id))}
-          />
+            onRemove={() => quellenState.length > 1 && setQuellen(p => p.filter(x => x.id !== q.id))} />
         ))}
         <div className="text-xs text-s112-muted text-right tabular-nums">
           Gesamt: <span className="font-semibold text-gray-700">{fmt(totalVon)}</span>
         </div>
       </div>
 
-      {/* Nach-Behälter */}
+      {/* Nach Behälter */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-700">Nach Behälter (Ziel)</h3>
+          <h3 className="text-sm font-semibold text-gray-700">Nach Behälter</h3>
           <button type="button"
             onClick={() => setZiele(p => [...p, { id: crypto.randomUUID(), behId: '', menge: '' }])}
-            className="text-xs text-s112-teal hover:underline">
-            + Ziel
-          </button>
+            className="text-xs text-s112-teal hover:underline">+ Ziel</button>
         </div>
         {ziele.map(z => (
-          <ZielZeile key={z.id} behaelter={behaelter}
-            value={z.behId} menge={z.menge}
+          <ZielZeile key={z.id} behaelter={behaelter} value={z.behId} menge={z.menge}
             onChange={(bId, m) => setZiele(p => p.map(x => x.id === z.id ? { ...x, behId: bId, menge: m } : x))}
             onRemove={() => ziele.length > 1 && setZiele(p => p.filter(x => x.id !== z.id))} />
         ))}
@@ -230,11 +232,110 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
 
       <button type="submit" disabled={pending}
         className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40 w-full">
-        {pending
-          ? 'Wird verarbeitet…'
-          : `Umziehen (${fmt(totalVon)} → ${fmt(totalNach)}${schwund > 0 ? `, ${fmt(schwund)} Schwund` : ''})`}
+        {pending ? 'Wird verarbeitet…' : `Umziehen (${fmt(totalVon)} → ${fmt(totalNach)}${schwund > 0 ? `, ${fmt(schwund)} Schwund` : ''})`}
       </button>
     </form>
+  )
+}
+
+// ── Protokoll-Zeile mit Edit / Delete ─────────────────────────────────────────
+
+function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
+  const [editing, setEditing]       = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const [datum, setDatum]           = useState(u.datum)
+  const [notizen, setNotizen]       = useState(u.notizen ?? '')
+  const [pending, startTransition]  = useTransition()
+  const [error, setError]           = useState<string | null>(null)
+
+  function handleSave() {
+    setError(null)
+    startTransition(async () => {
+      try {
+        await updateUmzug(u.id, datum, notizen || null)
+        setEditing(false)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Fehler beim Speichern')
+      }
+    })
+  }
+
+  function handleDelete() {
+    setError(null)
+    startTransition(async () => {
+      try {
+        await deleteUmzug(u.id)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Fehler beim Löschen')
+        setConfirming(false)
+      }
+    })
+  }
+
+  if (editing) {
+    return (
+      <tr className="bg-blue-50/50 border-b border-s112-border">
+        <td className="px-3 py-2">
+          <input type="date" value={datum} onChange={e => setDatum(e.target.value)}
+            className="border border-s112-border rounded px-2 py-1 text-xs w-32" />
+        </td>
+        <td className="px-3 py-2 text-xs text-gray-600">{u.von_name}</td>
+        <td className="px-3 py-2 text-xs text-gray-600">{u.nach_name}</td>
+        <td className="px-3 py-2 text-right tabular-nums text-xs text-s112-teal font-semibold">{fmt(u.menge_liter)}</td>
+        <td className="px-3 py-2">
+          <input type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
+            placeholder="Notizen…"
+            className="border border-s112-border rounded px-2 py-1 text-xs w-full min-w-[120px]" />
+          {error && <p className="text-xs text-red-600 mt-0.5">{error}</p>}
+        </td>
+        <td className="px-3 py-2 text-right whitespace-nowrap">
+          <button onClick={handleSave} disabled={pending}
+            className="text-xs bg-s112-teal text-white px-2 py-1 rounded hover:bg-opacity-90 disabled:opacity-40 mr-1">
+            {pending ? '…' : 'Speichern'}
+          </button>
+          <button onClick={() => setEditing(false)}
+            className="text-xs text-s112-muted hover:text-gray-700 px-1">Abbrechen</button>
+        </td>
+      </tr>
+    )
+  }
+
+  return (
+    <tr className="border-b border-s112-border last:border-0 hover:bg-s112-bg/50">
+      <td className="px-4 py-2.5 tabular-nums text-s112-muted text-xs">
+        {new Date(u.datum).toLocaleDateString('de-AT')}
+      </td>
+      <td className="px-4 py-2.5 font-medium text-gray-800 text-sm">{u.von_name}</td>
+      <td className="px-4 py-2.5 text-gray-600 text-sm">{u.nach_name}</td>
+      <td className="px-4 py-2.5 text-right tabular-nums text-s112-teal font-semibold text-sm">{fmt(u.menge_liter)}</td>
+      <td className="px-4 py-2.5 text-right tabular-nums text-s112-muted text-sm">
+        {u.schwund_liter > 0 ? fmt(u.schwund_liter) : '–'}
+        {u.notizen && <span className="block text-xs text-s112-muted truncate max-w-[120px]">{u.notizen}</span>}
+      </td>
+      {writeOk && (
+        <td className="px-4 py-2.5 text-right whitespace-nowrap">
+          {confirming ? (
+            <span className="inline-flex items-center gap-1">
+              <span className="text-xs text-red-600">Wirklich löschen?</span>
+              <button onClick={handleDelete} disabled={pending}
+                className="text-xs text-white bg-red-500 hover:bg-red-600 px-2 py-0.5 rounded disabled:opacity-40">
+                {pending ? '…' : 'Ja'}
+              </button>
+              <button onClick={() => setConfirming(false)}
+                className="text-xs text-s112-muted hover:text-gray-700">Nein</button>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-2">
+              <button onClick={() => setEditing(true)}
+                className="text-xs text-s112-teal hover:underline">Bearbeiten</button>
+              <button onClick={() => setConfirming(true)}
+                className="text-xs text-red-400 hover:text-red-600">Löschen</button>
+            </span>
+          )}
+          {error && <p className="text-xs text-red-600 mt-0.5">{error}</p>}
+        </td>
+      )}
+    </tr>
   )
 }
 
@@ -281,24 +382,15 @@ export default function UmziehenClient({
                 <tr className="bg-s112-bg border-b border-s112-border">
                   <th className="text-left px-4 py-2.5 font-semibold text-gray-700">Datum</th>
                   <th className="text-left px-4 py-2.5 font-semibold text-gray-700">Von</th>
-                  <th className="text-left px-4 py-2.5 font-semibold text-gray-700">Nach Behälter</th>
+                  <th className="text-left px-4 py-2.5 font-semibold text-gray-700">Nach</th>
                   <th className="text-right px-4 py-2.5 font-semibold text-gray-700">Menge</th>
-                  <th className="text-right px-4 py-2.5 font-semibold text-gray-700">Schwund</th>
+                  <th className="text-right px-4 py-2.5 font-semibold text-gray-700">Schwund / Notizen</th>
+                  {writeOk && <th className="px-4 py-2.5" />}
                 </tr>
               </thead>
               <tbody>
-                {umzuege.map((u, i) => (
-                  <tr key={i} className="border-b border-s112-border last:border-0 hover:bg-s112-bg/50">
-                    <td className="px-4 py-2.5 tabular-nums text-s112-muted text-xs">
-                      {new Date(u.datum).toLocaleDateString('de-AT')}
-                    </td>
-                    <td className="px-4 py-2.5 font-medium text-gray-800">{u.von_name}</td>
-                    <td className="px-4 py-2.5 text-gray-600">{u.nach_name}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-s112-teal font-semibold">{fmt(u.menge_liter)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-s112-muted">
-                      {u.schwund_liter > 0 ? fmt(u.schwund_liter) : '–'}
-                    </td>
-                  </tr>
+                {umzuege.map(u => (
+                  <UmzugZeile key={u.id} u={u} writeOk={writeOk} />
                 ))}
               </tbody>
             </table>
