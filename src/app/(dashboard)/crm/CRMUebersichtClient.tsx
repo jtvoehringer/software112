@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { createAktivitaet, moveAktivitaet } from './actions'
+import { createAktivitaet, moveAktivitaet, updateAktivitaet } from './actions'
 import { AKTIVITAET_ARTEN } from '@/lib/crm/types'
 import Link from 'next/link'
 
@@ -202,7 +202,8 @@ function ZeitachseView({
   const uniqueUsers = useMemo(() => [...new Set(eintraege.map(e => e.erstellt_von).filter(Boolean))], [eintraege])
 
   // Aktivität-Detail anzeigen
-  const [viewAkt, setViewAkt] = useState<KalenderEintrag | null>(null)
+  const [viewAkt,    setViewAkt]    = useState<KalenderEintrag | null>(null)
+  const [editAktMode, setEditAktMode] = useState(false)
 
   // neue Aktivität
   const [newAkt,    setNewAkt]    = useState<{ datum: string; von: string; bis: string; ganztags: boolean } | null>(null)
@@ -582,33 +583,118 @@ function ZeitachseView({
     {/* ── Aktivität Detail-Modal ── */}
     {viewAkt && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-        onClick={() => setViewAkt(null)}>
+        onClick={() => { setViewAkt(null); setEditAktMode(false) }}>
         <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4"
           onClick={e => e.stopPropagation()}>
-          <div className="flex items-start justify-between mb-3">
-            <div>
-              <span className="text-lg mr-2">{viewAkt.artIcon}</span>
-              <span className="font-bold text-gray-900">{viewAkt.titel}</span>
-            </div>
-            <button onClick={() => setViewAkt(null)} className="text-s112-muted hover:text-gray-700 text-lg">✕</button>
-          </div>
-          <div className="space-y-1.5 text-sm text-gray-600 mb-4">
-            <p><span className="font-medium text-gray-700">Datum:</span> {new Date(viewAkt.datum + 'T12:00:00').toLocaleDateString('de-AT', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-            {viewAkt.kontaktName && <p><span className="font-medium text-gray-700">Kontakt:</span> {viewAkt.kontaktName}</p>}
-            {viewAkt.firmaName   && <p><span className="font-medium text-gray-700">Firma:</span> {viewAkt.firmaName}</p>}
-            {viewAkt.ist_privat  && <p className="text-gray-400 text-xs">🔒 Privater Termin</p>}
-          </div>
-          <div className="flex gap-2">
-            {viewAkt.href && viewAkt.href !== '/crm' && (
-              <a href={viewAkt.href} className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90">
-                Zum Kontakt →
-              </a>
-            )}
-            <button onClick={() => setViewAkt(null)}
-              className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
-              Schließen
-            </button>
-          </div>
+
+          {!editAktMode ? (
+            <>
+              {/* ── Detail-Ansicht ── */}
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <span className="text-lg mr-2">{viewAkt.artIcon}</span>
+                  <span className="font-bold text-gray-900">{viewAkt.titel}</span>
+                </div>
+                <button onClick={() => { setViewAkt(null); setEditAktMode(false) }} className="text-s112-muted hover:text-gray-700 text-lg">✕</button>
+              </div>
+              <div className="space-y-1.5 text-sm text-gray-600 mb-4">
+                {viewAkt.bis_datum && viewAkt.bis_datum !== viewAkt.datum ? (
+                  <p><span className="font-medium text-gray-700">Zeitraum:</span>{' '}
+                    {new Date(viewAkt.datum + 'T12:00:00').toLocaleDateString('de-AT', { day: 'numeric', month: 'long' })}
+                    {' – '}
+                    {new Date(viewAkt.bis_datum + 'T12:00:00').toLocaleDateString('de-AT', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </p>
+                ) : (
+                  <p><span className="font-medium text-gray-700">Datum:</span> {new Date(viewAkt.datum + 'T12:00:00').toLocaleDateString('de-AT', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+                )}
+                {viewAkt.kontaktName && <p><span className="font-medium text-gray-700">Kontakt:</span> {viewAkt.kontaktName}</p>}
+                {viewAkt.firmaName   && <p><span className="font-medium text-gray-700">Firma:</span> {viewAkt.firmaName}</p>}
+                {viewAkt.ist_privat  && <p className="text-gray-400 text-xs">🔒 Privater Termin</p>}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {viewAkt.typ === 'aktivitaet' && (
+                  <button onClick={() => setEditAktMode(true)}
+                    className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90">
+                    ✏ Bearbeiten
+                  </button>
+                )}
+                {viewAkt.kontaktName && (
+                  <a href={viewAkt.href} className="border border-s112-teal text-s112-teal px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/10">
+                    Zum Kontakt →
+                  </a>
+                )}
+                {!viewAkt.kontaktName && viewAkt.firmaName && (
+                  <a href={viewAkt.href} className="border border-s112-teal text-s112-teal px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/10">
+                    Zur Firma →
+                  </a>
+                )}
+                <button onClick={() => { setViewAkt(null); setEditAktMode(false) }}
+                  className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
+                  Schließen
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* ── Bearbeiten-Formular ── */}
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-gray-900 text-base">Aktivität bearbeiten</h3>
+                <button onClick={() => setEditAktMode(false)} className="text-s112-muted hover:text-gray-700 text-lg">✕</button>
+              </div>
+              <form onSubmit={async e => {
+                e.preventDefault()
+                const fd = new FormData(e.currentTarget)
+                const ganztags = !(fd.get('uhrzeit_von') as string)
+                fd.set('ganztags', ganztags ? 'true' : 'false')
+                startTransition(async () => {
+                  try {
+                    const aktId = viewAkt.id.replace('a_', '')
+                    await updateAktivitaet(aktId, fd)
+                    setViewAkt(null)
+                    setEditAktMode(false)
+                    router.refresh()
+                  } catch (err) {
+                    setSaveErr(err instanceof Error ? err.message : 'Fehler beim Speichern')
+                  }
+                })
+              }} className="space-y-3">
+                <input type="hidden" name="erledigt" value={viewAkt.erledigt ? 'true' : 'false'} />
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Art</label>
+                  <select name="art" defaultValue={viewAkt.art ?? 'notiz'} className={inputCls}>
+                    {AKTIVITAET_ARTEN.filter(a => !('nurAnzeige' in a)).map(a => (
+                      <option key={a.value} value={a.value}>{a.icon} {a.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Betreff</label>
+                  <input name="betreff" defaultValue={viewAkt.titel} required className={inputCls} />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Von</label>
+                    <input type="date" name="datum" defaultValue={viewAkt.datum} required className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Bis (mehrtägig)</label>
+                    <input type="date" name="bis_datum" defaultValue={viewAkt.bis_datum ?? ''} className={inputCls} />
+                  </div>
+                </div>
+                {saveErr && <p className="text-xs text-red-600">{saveErr}</p>}
+                <div className="flex gap-2 pt-1">
+                  <button type="submit" disabled={pending}
+                    className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+                    {pending ? 'Speichern…' : 'Speichern'}
+                  </button>
+                  <button type="button" onClick={() => setEditAktMode(false)}
+                    className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
+                    Abbrechen
+                  </button>
+                </div>
+              </form>
+            </>
+          )}
         </div>
       </div>
     )}

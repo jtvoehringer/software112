@@ -212,6 +212,7 @@ export async function updateAktivitaet(id: string, formData: FormData) {
     betreff:      (formData.get('betreff') as string) || null,
     beschreibung: (formData.get('beschreibung') as string) || null,
     datum:        formData.get('datum') as string,
+    bis_datum:    (formData.get('bis_datum') as string) || null,
     erledigt:     formData.get('erledigt') === 'true',
     ganztags,
     uhrzeit_von:  ganztags ? null : ((formData.get('uhrzeit_von') as string) || null),
