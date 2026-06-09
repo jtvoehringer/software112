@@ -17,6 +17,7 @@ export async function GET() {
       { data: kontakte },
       { data: firmen },
       { data: sonstigeArtikel },
+      { data: zukaufPosten },
     ] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('fuellungen') as any)
@@ -38,12 +39,17 @@ export async function GET() {
       (supabase.from('sonstige_artikel') as any)
         .select('id, name, einheit, default_preis')
         .eq('aktiv', true).order('name'),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('zukauf_posten') as any)
+        .select('id, art, menge, einheit, rebsorte, jahrgang, notizen')
+        .eq('aktiv', true).gt('menge', 0).order('erstellt_am', { ascending: false }),
     ])
 
     return NextResponse.json({
-      fuellungen:       fuellungen  ?? [],
-      weinausbau:       weinausbau  ?? [],
+      fuellungen:       fuellungen    ?? [],
+      weinausbau:       weinausbau    ?? [],
       sonstige_artikel: sonstigeArtikel ?? [],
+      zukauf_posten:    zukaufPosten  ?? [],
       kontakte: (kontakte ?? []).map((k: any) => ({
         ...k,
         rabatt_pct:       (k.rabattgruppe as any)?.rabatt_pct ?? null,

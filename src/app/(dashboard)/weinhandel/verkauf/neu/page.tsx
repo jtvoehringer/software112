@@ -23,6 +23,16 @@ interface Weinausbau {
   menge_liter: number | null
 }
 
+interface ZukaufPosten {
+  id: string
+  art: 'wein' | 'trauben' | 'most'
+  menge: number
+  einheit: string
+  rebsorte: string | null
+  jahrgang: number | null
+  notizen: string | null
+}
+
 interface Kontakt {
   id: string
   vorname: string | null
@@ -44,6 +54,7 @@ interface Position {
   typ:           'flasche' | 'tank' | 'sonstiges'
   fuellung_id:   string
   weinausbau_id: string
+  zukauf_id:     string
   name:          string
   menge:         string
   einheit:       string
@@ -240,6 +251,7 @@ export default function NeuerVerkaufPage() {
   // Stammdaten vom Server
   const [fuellungen,      setFuellungen]      = useState<Fuellung[]>([])
   const [weinausbau,      setWeinausbau]      = useState<Weinausbau[]>([])
+  const [zukaufPosten,    setZukaufPosten]    = useState<ZukaufPosten[]>([])
   const [kontakte,        setKontakte]        = useState<Kontakt[]>([])
   const [firmen,          setFirmen]          = useState<Firma[]>([])
   const [sonstigeArtikel, setSonstigeArtikel] = useState<SonstigesArtikelData[]>([])
@@ -264,6 +276,7 @@ export default function NeuerVerkaufPage() {
       typ:           'flasche',
       fuellung_id:   '',
       weinausbau_id: '',
+      zukauf_id:     '',
       name:          '',
       menge:         '1',
       einheit:       'Stk',
@@ -283,6 +296,7 @@ export default function NeuerVerkaufPage() {
         const json = await res.json()
         setFuellungen(json.fuellungen ?? [])
         setWeinausbau(json.weinausbau ?? [])
+        setZukaufPosten(json.zukauf_posten ?? [])
         setKontakte(json.kontakte ?? [])
         setFirmen(json.firmen ?? [])
         setSonstigeArtikel(json.sonstige_artikel ?? [])
@@ -317,8 +331,23 @@ export default function NeuerVerkaufPage() {
       if (patch.weinausbau_id) {
         const w = weinausbau.find(x => x.id === patch.weinausbau_id)
         if (w) {
-          next[idx].name    = w.name
-          next[idx].einheit = 'L'
+          next[idx].name     = w.name
+          next[idx].einheit  = 'L'
+          next[idx].zukauf_id = ''
+        }
+      }
+
+      if (patch.zukauf_id) {
+        const z = zukaufPosten.find(x => x.id === patch.zukauf_id)
+        if (z) {
+          const label = [
+            z.rebsorte,
+            z.jahrgang,
+            z.notizen ? `(${z.notizen})` : null,
+          ].filter(Boolean).join(' ')
+          next[idx].name          = label || `Zukauf ${z.art}`
+          next[idx].einheit       = 'L'
+          next[idx].weinausbau_id = ''
         }
       }
 
@@ -350,6 +379,7 @@ export default function NeuerVerkaufPage() {
       typ:           p.typ,
       fuellung_id:   p.fuellung_id   || null,
       weinausbau_id: p.weinausbau_id || null,
+      zukauf_id:     p.zukauf_id     || null,
       name:          p.name,
       menge:         parseFloat(p.menge) || 0,
       einheit:       p.einheit,
@@ -528,6 +558,7 @@ export default function NeuerVerkaufPage() {
                         typ: t,
                         fuellung_id: '',
                         weinausbau_id: '',
+                        zukauf_id: '',
                         name: '',
                         einheit: t === 'tank' ? 'L' : 'Stk',
                       })}
@@ -563,16 +594,39 @@ export default function NeuerVerkaufPage() {
 
                 {pos.typ === 'tank' && (
                   <div className="col-span-2">
-                    <label className={labelCls}>Weinausbau-Charge</label>
-                    <select value={pos.weinausbau_id}
-                      onChange={e => updatePos(idx, { weinausbau_id: e.target.value })}
+                    <label className={labelCls}>Kellerbuch / Zukauf</label>
+                    <select
+                      value={pos.weinausbau_id || (pos.zukauf_id ? `zk:${pos.zukauf_id}` : '')}
+                      onChange={e => {
+                        const v = e.target.value
+                        if (v.startsWith('zk:')) {
+                          updatePos(idx, { zukauf_id: v.slice(3), weinausbau_id: '' })
+                        } else {
+                          updatePos(idx, { weinausbau_id: v, zukauf_id: '' })
+                        }
+                      }}
                       className={inputCls + ' w-full'} disabled={loading}>
                       <option value="">– manuell –</option>
-                      {weinausbau.map(w => (
-                        <option key={w.id} value={w.id}>
-                          {w.name}{w.menge_liter != null ? ` · ${w.menge_liter} L` : ''}
-                        </option>
-                      ))}
+                      {weinausbau.length > 0 && (
+                        <optgroup label="Kellerbuch-Chargen">
+                          {weinausbau.map(w => (
+                            <option key={w.id} value={w.id}>
+                              {w.name}{w.menge_liter != null ? ` · ${w.menge_liter} L` : ''}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {zukaufPosten.length > 0 && (
+                        <optgroup label="Zukauf">
+                          {zukaufPosten.map(z => (
+                            <option key={z.id} value={`zk:${z.id}`}>
+                              {[z.rebsorte, z.jahrgang].filter(Boolean).join(' ')}
+                              {z.notizen ? ` · ${z.notizen}` : ''}
+                              {` · ${z.menge} ${z.einheit}`}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
                     </select>
                   </div>
                 )}

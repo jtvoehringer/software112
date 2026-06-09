@@ -35,6 +35,7 @@ interface PositionInput {
   typ:               'flasche' | 'tank' | 'sonstiges'
   fuellung_id:       string | null
   weinausbau_id:     string | null
+  zukauf_id:         string | null
   name:              string
   menge:             number
   einheit:           string
@@ -93,8 +94,9 @@ export async function createVerkauf(formData: FormData) {
     tenant_id:         tenantId,
     verkaufsposten_id: postenId,
     typ:               p.typ,
-    fuellung_id:       p.fuellung_id || null,
+    fuellung_id:       p.fuellung_id   || null,
     weinausbau_id:     p.weinausbau_id || null,
+    zukauf_id:         p.zukauf_id     || null,
     name:              p.name,
     menge:             p.menge,
     einheit:           p.einheit || 'Stk',
@@ -121,7 +123,7 @@ export async function createVerkauf(formData: FormData) {
         .update({ bestand_flaschen: neu, aktualisiert_am: new Date().toISOString() })
         .eq('id', p.fuellung_id)
     } else if (p.typ === 'tank' && p.weinausbau_id) {
-      // menge_liter dekrementieren
+      // menge_liter in Kellerbuch-Charge dekrementieren
       const { data: wein } = await (supabase.from('weinausbau') as any)
         .select('menge_liter')
         .eq('id', p.weinausbau_id)
@@ -131,6 +133,17 @@ export async function createVerkauf(formData: FormData) {
       await (supabase.from('weinausbau') as any)
         .update({ menge_liter: neu })
         .eq('id', p.weinausbau_id)
+    } else if (p.typ === 'tank' && p.zukauf_id) {
+      // menge in Zukauf-Posten dekrementieren
+      const { data: zk } = await (supabase.from('zukauf_posten') as any)
+        .select('menge')
+        .eq('id', p.zukauf_id)
+        .single()
+      const aktuell = parseFloat((zk as AR | null)?.menge ?? '0') || 0
+      const neu = Math.max(0, aktuell - p.menge)
+      await (supabase.from('zukauf_posten') as any)
+        .update({ menge: neu })
+        .eq('id', p.zukauf_id)
     }
   }
 
@@ -206,7 +219,7 @@ export async function stornoVerkauf(id: string) {
 
   // Positionen laden für Rückbuchung
   const { data: posRaw } = await (supabase.from('verkauf_positionen') as any)
-    .select('typ, fuellung_id, weinausbau_id, menge')
+    .select('typ, fuellung_id, weinausbau_id, zukauf_id, menge')
     .eq('verkaufsposten_id', id)
 
   const positionen = (posRaw ?? []) as AR[]
@@ -227,6 +240,13 @@ export async function stornoVerkauf(id: string) {
       await (supabase.from('weinausbau') as any)
         .update({ menge_liter: aktuell + p.menge })
         .eq('id', p.weinausbau_id)
+    } else if (p.typ === 'tank' && p.zukauf_id) {
+      const { data: zk } = await (supabase.from('zukauf_posten') as any)
+        .select('menge').eq('id', p.zukauf_id).single()
+      const aktuell = parseFloat((zk as AR | null)?.menge ?? '0') || 0
+      await (supabase.from('zukauf_posten') as any)
+        .update({ menge: aktuell + p.menge })
+        .eq('id', p.zukauf_id)
     }
   }
 
