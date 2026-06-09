@@ -783,7 +783,3 @@ export default function NeuerVerkaufPage() {
     </div>
   )
 }
-
-    </div>
-  )
-}
