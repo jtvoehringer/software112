@@ -82,14 +82,14 @@ export default async function VerkaufPage() {
           <p className="text-2xl font-bold text-s112-teal mt-1 tabular-nums">
             {monatUmsatz.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
           </p>
-          <p className="text-xs text-s112-muted mt-0.5">{monatPosten.length} Vorgang{monatPosten.length !== 1 ? 'ä' : ''}nge</p>
+          <p className="text-xs text-s112-muted mt-0.5">{monatPosten.length} {monatPosten.length === 1 ? 'Vorgang' : 'Vorgänge'}</p>
         </div>
         <div className="card p-5">
           <p className="text-xs text-s112-muted">Gesamt (aktive)</p>
           <p className="text-2xl font-bold text-gray-800 mt-1 tabular-nums">
             {gesamtUmsatz.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
           </p>
-          <p className="text-xs text-s112-muted mt-0.5">{posten.length} Vorgang{posten.length !== 1 ? 'ä' : ''}nge</p>
+          <p className="text-xs text-s112-muted mt-0.5">{posten.length} {posten.length === 1 ? 'Vorgang' : 'Vorgänge'}</p>
         </div>
       </div>
 

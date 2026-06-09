@@ -401,24 +401,29 @@ export default function NeuerVerkaufPage() {
               />
             </div>
             {/* z.H. Kontakt — nur bei Firma sichtbar */}
-            {firmaId && (
-              <div className="col-span-2">
-                <label className={labelCls}>z.H. (zu Händen) — optional</label>
-                <KundenSuche
-                  items={kontakte
-                    .filter(k => k.firma_id === firmaId)
-                    .map(k => ({
-                      id: k.id,
-                      label: [k.vorname, k.nachname].filter(Boolean).join(' '),
-                    }))}
-                  value={zhKontaktId}
-                  onChange={setZhKontaktId}
-                  placeholder="Ansprechpartner suchen…"
-                  disabled={loading}
-                />
-                <p className="text-xs text-s112-muted mt-1">Erscheint auf Rechnung/Lieferschein als „z.H. Vorname Nachname"</p>
-              </div>
-            )}
+            {firmaId && (() => {
+              const firmKontakte = kontakte.filter(k => k.firma_id === firmaId)
+              const zhItems = firmKontakte.length > 0
+                ? firmKontakte.map(k => ({ id: k.id, label: [k.vorname, k.nachname].filter(Boolean).join(' ') }))
+                : kontakte.map(k => ({ id: k.id, label: [k.vorname, k.nachname].filter(Boolean).join(' ') }))
+              return (
+                <div className="col-span-2">
+                  <label className={labelCls}>z.H. (zu Händen) — optional</label>
+                  {firmKontakte.length === 0 && kontakte.length > 0 && (
+                    <p className="text-xs text-amber-600 mb-1">ℹ Noch kein Kontakt dieser Firma zugeordnet – alle Kontakte werden angezeigt.</p>
+                  )}
+                  <KundenSuche
+                    key={firmaId}
+                    items={zhItems}
+                    value={zhKontaktId}
+                    onChange={setZhKontaktId}
+                    placeholder="Ansprechpartner suchen…"
+                    disabled={loading}
+                  />
+                  <p className="text-xs text-s112-muted mt-1">Erscheint auf Rechnung/Lieferschein als „z.H. Vorname Nachname"</p>
+                </div>
+              )
+            })()}
             <div className="col-span-2">
               <label className={labelCls}>Notizen</label>
               <input
