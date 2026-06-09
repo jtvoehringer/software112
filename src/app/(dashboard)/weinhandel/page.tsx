@@ -1,4 +1,3 @@
-import { qualitaetLabel } from '@/lib/wein/qualitaet'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -10,6 +9,25 @@ export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
+
+const QUALITAET_LABELS: Record<string, string> = {
+  qualitaetswein:        'Qualitätswein',
+  kabinett:              'Kabinett',
+  spaetlese:             'Spätlese',
+  auslese:               'Auslese',
+  beerenauslese:         'Beerenauslese',
+  trockenbeerenauslese:  'TBA',
+  eiswein:               'Eiswein',
+  strohwein:             'Strohwein',
+  dac:                   'DAC',
+  reserve:               'Reservé',
+  erste_lage:            'Erste Lage',
+  grosses_gewachs:       'Gr. Gewächs',
+  landwein:              'Landwein',
+  sekt:                  'Sekt b.A.',
+  perlwein:              'Perlwein',
+  sonstiges:             'Sonstiges',
+}
 
 const FLASCHEN_LABEL: Record<number, string> = {
   187: '0,187 L', 375: '0,375 L', 500: '0,500 L', 750: '0,75 L',
@@ -34,7 +52,7 @@ export default async function WeinhandelPage() {
   ] = await Promise.all([
     // Abgefüllte Flaschen im Lager
     (supabase.from('fuellungen') as any)
-      .select('id, name, jahrgang, rebsorte, qualitaet, anbaugebiet, bezeichnung, datum, flaschengroesse_ml, anzahl_flaschen, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv')
+      .select('id, name, jahrgang, rebsorte, qualitaet, anbaugebiet, bezeichnung, datum, flaschengroesse_ml, anzahl_flaschen, bestand_flaschen, vk_preis_brutto, aktiv')
       .eq('aktiv', true)
       .order('datum', { ascending: false }),
 
@@ -52,7 +70,7 @@ export default async function WeinhandelPage() {
   // Kennzahlen Flaschenbestand
   const gesamtFlaschen = fuellungen.reduce((s: number, f: R) => s + (f.bestand_flaschen ?? 0), 0)
   const gesamtWert     = fuellungen.reduce((s: number, f: R) =>
-    s + ((f.bestand_flaschen ?? 0) * (f.einstandspreis ?? 0)), 0)
+    s + ((f.bestand_flaschen ?? 0) * (f.vk_preis_brutto ?? 0)), 0)
   const gesamtLiterTank = tanks.reduce((s: number, t: R) => s + (t.menge_liter ?? 0), 0)
 
   return (
@@ -61,8 +79,8 @@ export default async function WeinhandelPage() {
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Lager</h1>
-          <p className="text-sm text-s112-muted mt-0.5">Bestand & Verkauf</p>
+          <h1 className="text-2xl font-bold text-gray-900">Weinhandel</h1>
+          <p className="text-sm text-s112-muted mt-0.5">Handelsbestand & Verkauf</p>
         </div>
       </div>
 
@@ -78,7 +96,7 @@ export default async function WeinhandelPage() {
               ? gesamtWert.toLocaleString('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
               : '–'}
           </p>
-          <p className="text-xs text-s112-muted mt-1">Lagerwert Flaschen (Einstandspreis)</p>
+          <p className="text-xs text-s112-muted mt-1">Lagerwert Flaschen (Brutto-VK)</p>
         </div>
         <div className="card text-center p-4">
           <p className="text-3xl font-bold text-s112-teal">
@@ -111,7 +129,6 @@ export default async function WeinhandelPage() {
                   <th className="text-left px-4 py-3 font-semibold text-gray-700">Qualität</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-700">Größe</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-700">Bestand</th>
-                  <th className="text-right px-4 py-3 font-semibold text-gray-700">Einstand</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-700">VK brutto</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-700">Lagerwert</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-700">Abgefüllt</th>
@@ -122,9 +139,8 @@ export default async function WeinhandelPage() {
                 {fuellungen.map((f: R, i: number) => {
                   const bestand    = f.bestand_flaschen ?? 0
                   const gesamt     = f.anzahl_flaschen  ?? 0
-                  const vkPreis    = f.vk_preis_brutto  ?? null
-                  const einstand   = f.einstandspreis != null ? Number(f.einstandspreis) : null
-                  const lagerwert  = einstand != null ? bestand * einstand : null
+                  const preis      = f.vk_preis_brutto  ?? null
+                  const lagerwert  = preis != null ? bestand * preis : null
                   const pct        = gesamt > 0 ? Math.round((bestand / gesamt) * 100) : 0
                   const bestandClr = pct > 50 ? 'text-green-700' : pct > 20 ? 'text-orange-600' : 'text-red-600'
 
@@ -142,7 +158,7 @@ export default async function WeinhandelPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-s112-muted">
-                        {qualitaetLabel(f.qualitaet)}
+                        {QUALITAET_LABELS[f.qualitaet] ?? f.qualitaet}
                       </td>
                       <td className="px-4 py-3 text-s112-muted whitespace-nowrap">
                         {FLASCHEN_LABEL[f.flaschengroesse_ml] ?? `${f.flaschengroesse_ml} ml`}
@@ -154,13 +170,8 @@ export default async function WeinhandelPage() {
                         <span className="text-xs text-s112-muted ml-1">/ {gesamt.toLocaleString('de-AT')}</span>
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">
-                        {einstand != null
-                          ? einstand.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
-                          : <span className="text-s112-muted">–</span>}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums">
-                        {vkPreis != null
-                          ? vkPreis.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+                        {preis != null
+                          ? preis.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
                           : <span className="text-s112-muted">–</span>}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-s112-teal font-semibold">

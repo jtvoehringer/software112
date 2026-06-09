@@ -41,7 +41,6 @@ interface PositionInput {
   preis_brutto:      number | null
   rabatt_pct?:       number
   sonderrabatt_pct?: number
-  ust_satz?:         number
 }
 
 // ── Verkauf anlegen ───────────────────────────────────────────────────────────
@@ -57,7 +56,6 @@ export async function createVerkauf(formData: FormData) {
   const rechnungsnummer = rechnungsnummerInput || await generateRechnungsnummer(tenantId)
   const kontaktId      = (formData.get('kontakt_id') as string) || null
   const firmaId        = (formData.get('firma_id') as string) || null
-  const zhKontaktId    = (formData.get('zh_kontakt_id') as string) || null
   const notizen        = (formData.get('notizen') as string) || null
 
   // Positionen als JSON aus hidden input
@@ -82,7 +80,6 @@ export async function createVerkauf(formData: FormData) {
     rechnungsnummer,
     kontakt_id:      kontaktId  || null,
     firma_id:        firmaId    || null,
-    zh_kontakt_id:   zhKontaktId || null,
     notizen,
   })
 
@@ -101,7 +98,6 @@ export async function createVerkauf(formData: FormData) {
     preis_brutto:      p.preis_brutto ?? null,
     rabatt_pct:        p.rabatt_pct ?? 0,
     sonderrabatt_pct:  p.sonderrabatt_pct ?? 0,
-    ust_satz:          p.ust_satz ?? 13,
   }))
 
   const { error: posErr } = await (supabase.from('verkauf_positionen') as any).insert(posInserts)
@@ -167,23 +163,7 @@ export async function createVerkauf(formData: FormData) {
     }
   }
 
-  // Lead → Kunde automatisch umstellen nach erstem Verkauf
-  if (kontaktId) {
-    await (supabase.from('kontakte') as any)
-      .update({ is_lead: false })
-      .eq('id', kontaktId)
-      .eq('is_lead', true)  // nur wenn noch Lead
-  }
-  if (firmaId) {
-    await (supabase.from('firmen') as any)
-      .update({ is_lead: false })
-      .eq('id', firmaId)
-      .eq('is_lead', true)
-  }
-
   revalidatePath('/weinhandel/verkauf')
-  revalidatePath('/crm/kontakte')
-  revalidatePath('/crm/firmen')
   redirect(`/weinhandel/verkauf/${postenId}`)
 }
 
@@ -283,30 +263,4 @@ export async function markiereAlsBezahlt(id: string) {
   revalidatePath(`/weinhandel/verkauf/${id}`)
   revalidatePath('/crm/kontakte/[id]', 'page')
   revalidatePath('/crm/firmen/[id]', 'page')
-}
-
-// ── Sonstiges-Artikel speichern ───────────────────────────────────────────────
-
-export interface SonstigesArtikelData {
-  id: string
-  name: string
-  einheit: string
-  default_preis: number | null
-}
-
-export async function createSonstigesArtikel(
-  name: string,
-  einheit: string,
-  defaultPreis: number | null,
-): Promise<SonstigesArtikelData | null> {
-  const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-
-  const { data, error } = await (supabase.from('sonstige_artikel') as any)
-    .insert({ tenant_id: tenantId, name: name.trim(), einheit, default_preis: defaultPreis ?? null })
-    .select('id, name, einheit, default_preis')
-    .single()
-
-  if (error) throw new Error((error as AR).message)
-  return data as SonstigesArtikelData
 }

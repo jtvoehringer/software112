@@ -17,18 +17,24 @@ export default async function OffenePostenPage() {
   const { data: raw } = await (supabase.from('verkaufsposten') as any)
     .select(`
       id, datum, rechnungsnummer, storniert, bezahlt, bezahlt_am, erstellt_am,
-      kontakt:kontakte!kontakt_id(id, vorname, nachname),
+      kontakt:kontakte(id, vorname, nachname),
       firma:firmen(id, name),
-      positionen:verkauf_positionen(preis_brutto, menge)
+      positionen:verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)
     `)
     .eq('storniert', false)
     .eq('aktiv',     true)
     .order('datum', { ascending: false })
+    .order('rechnungsnummer', { ascending: false, nullsFirst: false })
 
   const posten = ((raw ?? []) as R[]).map((p: R) => {
     const gesamt = ((p.positionen ?? []) as R[]).reduce(
-      (s: number, pos: R) =>
-        s + (pos.preis_brutto != null ? Number(pos.preis_brutto) * Number(pos.menge) : 0),
+      (s: number, pos: R) => {
+        if (pos.preis_brutto == null) return s
+        const brutto  = Number(pos.preis_brutto) * Number(pos.menge)
+        const rabatt  = Number(pos.rabatt_pct ?? 0) / 100
+        const sonder  = Number(pos.sonderrabatt_pct ?? 0) / 100
+        return s + brutto * (1 - rabatt) * (1 - sonder)
+      },
       0,
     )
     const kontakt = p.kontakt as R | null

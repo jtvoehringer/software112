@@ -10,8 +10,6 @@ import {
   removeMemberAdmin,
   renameTenantAdmin,
   saveVerkaufEinstellungen,
-  saveEmailEinstellungen,
-  saveM365Einstellungen,
   saveBetriebEinstellungen,
   resetRechnungsZaehler,
   resetKundenZaehler,
@@ -148,8 +146,7 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
 
 // ── Tab: Benutzer ─────────────────────────────────────────────────────────────
 
-function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail; members: TenantMember[] }) {
-  const [members, setMembers]         = useState<TenantMember[]>(initialMembers)
+function BenutzerTab({ tenant, members }: { tenant: TenantDetail; members: TenantMember[] }) {
   const [showInvite, setShowInvite]   = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole]   = useState('winzer')
@@ -183,10 +180,7 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
     setError(null)
     startTransition(async () => {
       const r = await removeMemberAdmin(m.id, tenant.id)
-      if (r.error) { setError(r.error); return }
-      // Mitglied aus State entfernen ohne Seite neu zu laden
-      setMembers(prev => prev.filter(x => x.id !== m.id))
-      setSuccess(`${m.email} wurde entfernt.`)
+      if (r.error) setError(r.error)
     })
   }
 
@@ -308,7 +302,6 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
     fd.set('anzeigename',      settings.anzeigename ?? '')
     fd.set('logo_url',         settings.logo_url ?? '')
     fd.set('primary_color',    settings.primary_color)
-    fd.set('session_timeout_minuten', String(settings.session_timeout_minuten ?? ''))
     fd.set('secondary_color',  settings.secondary_color)
     fd.set('modul_newsletter', settings.modul_newsletter ? 'true' : 'false')
     fd.set('modul_crm',        settings.modul_crm        ? 'true' : 'false')
@@ -552,240 +545,6 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
   )
 }
 
-
-
-// ── Tab: Microsoft 365 ───────────────────────────────────────────────────────
-function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
-  const [pending, startTransition] = useTransition()
-  const [saved,   setSaved]        = useState(false)
-
-  const isConnected = !!settings.m365_user_email
-  const tokenOk     = settings.m365_token_expires_at
-    ? new Date(settings.m365_token_expires_at) > new Date()
-    : false
-
-  const [subLoading, setSubLoading] = useState(false)
-  const [subResult, setSubResult]   = useState<string | null>(null)
-
-  async function handleSubscribe() {
-    setSubLoading(true); setSubResult(null)
-    try {
-      const res = await fetch('/api/m365/subscribe', { method: 'POST' })
-      const json = await res.json()
-      if (!res.ok || json.fehler) { setSubResult('Fehler: ' + (json.fehler ?? 'Unbekannt')); return }
-      setSubResult(`✓ Webhook ${json.aktion} · gültig bis ${new Date(json.expires).toLocaleString('de-AT')}`)
-    } catch (err) { setSubResult('Fehler: ' + String(err)) }
-    finally { setSubLoading(false) }
-  }
-
-  function handleSave(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    startTransition(async () => {
-      await saveM365Einstellungen(tenant.id, new FormData(e.currentTarget))
-      setSaved(true); setTimeout(() => setSaved(false), 2000)
-    })
-  }
-
-  return (
-    <div className="space-y-6 max-w-lg">
-      {/* Status */}
-      <div className={`flex items-center gap-3 p-4 rounded-xl border ${isConnected && tokenOk ? 'border-green-300 bg-green-50' : 'border-amber-300 bg-amber-50'}`}>
-        <span className="text-2xl">{isConnected && tokenOk ? '✅' : '⚠️'}</span>
-        <div>
-          <p className="text-sm font-semibold">{isConnected && tokenOk ? `Verbunden als ${settings.m365_user_email}` : 'Noch nicht verbunden'}</p>
-          {settings.m365_token_expires_at && (
-            <p className="text-xs text-gray-500">Token gültig bis: {new Date(settings.m365_token_expires_at).toLocaleString('de-AT')}</p>
-          )}
-        </div>
-        {isConnected && (
-          <a href="/api/auth/m365" className="ml-auto text-xs border border-s112-border px-3 py-1.5 rounded-lg hover:bg-white">
-            🔄 Neu verbinden
-          </a>
-        )}
-      </div>
-
-      {/* Setup */}
-      <form onSubmit={handleSave} className="space-y-4">
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs space-y-1.5">
-          <p className="font-semibold text-blue-800">Azure AD App-Registrierung (einmalig):</p>
-          <ol className="list-decimal ml-4 space-y-1 text-blue-700">
-            <li>portal.azure.com → App-Registrierungen → Neue Registrierung</li>
-            <li>Umleitungs-URI (Web): <code className="bg-white px-1 rounded">https://software112.icp-consultants.at/api/auth/m365/callback</code></li>
-            <li>Zertifikate & Geheimnisse → Neuer geheimer Clientschlüssel</li>
-            <li>API-Berechtigungen → Microsoft Graph → Mail.Read + Mail.Send (delegiert)</li>
-          </ol>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Azure AD Verzeichnis-ID (Tenant ID)</label>
-            <input name="m365_tenant_id" defaultValue={settings.m365_tenant_id ?? ''} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" className={inputCls()} />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Anwendungs-ID (Client ID)</label>
-            <input name="m365_client_id" defaultValue={settings.m365_client_id ?? ''} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" className={inputCls()} />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Geheimer Clientschlüssel</label>
-            <input name="m365_client_secret" type="password" placeholder="Neu setzen (leer = unverändert)" className={inputCls()} />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button type="submit" disabled={pending}
-            className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
-            {pending ? 'Speichern…' : 'Speichern'}
-          </button>
-          {saved && <span className="text-xs text-s112-teal font-medium">✓ Gespeichert</span>}
-          {settings.m365_tenant_id && settings.m365_client_id && (
-            <a href="/api/auth/m365"
-              className="ml-auto bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700">
-              📅 Mit Microsoft 365 verbinden
-            </a>
-          )}
-        </div>
-      </form>
-
-      {/* Webhook Info */}
-      {isConnected && (
-        <div className="border border-s112-border rounded-xl p-4 space-y-2">
-          <p className="text-sm font-semibold text-gray-700">Echtzeit-Webhook</p>
-          <p className="text-xs text-s112-muted mb-3">
-            {settings.m365_webhook_sub_id
-              ? `✓ Aktive Subscription (${settings.m365_webhook_sub_id.slice(0, 16)}…)`
-              : 'Noch kein Webhook registriert.'}
-            {settings.m365_webhook_expires && ` · Läuft ab: ${new Date(settings.m365_webhook_expires).toLocaleString('de-AT')}`}
-          </p>
-          <button type="button" onClick={handleSubscribe} disabled={subLoading}
-            className="text-sm border border-s112-border px-4 py-1.5 rounded-lg hover:bg-s112-bg disabled:opacity-40">
-            {subLoading ? '⏳ Registrieren…' : settings.m365_webhook_sub_id ? '🔄 Webhook erneuern' : '📡 Webhook registrieren'}
-          </button>
-          {subResult && <p className="text-xs font-medium text-gray-700 mt-2">{subResult}</p>}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Tab: E-Mail-Integration ───────────────────────────────────────────────────
-function EmailTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
-  const [pending, startTransition] = useTransition()
-  const [saved,   setSaved]        = useState(false)
-  const [polling, setPolling]      = useState(false)
-  const [pollResult, setPollResult] = useState<string | null>(null)
-  const [aktiv, setAktiv]          = useState(settings.email_modul_aktiv)
-
-  function handleSave(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const fd = new FormData(e.currentTarget)
-    fd.set('email_modul_aktiv', aktiv ? 'true' : 'false')
-    startTransition(async () => {
-      await saveEmailEinstellungen(tenant.id, fd)
-      setSaved(true); setTimeout(() => setSaved(false), 2000)
-    })
-  }
-
-  async function handlePoll() {
-    setPolling(true); setPollResult(null)
-    try {
-      const res = await fetch('/api/email/poll', { method: 'POST' })
-      const json = await res.json()
-      setPollResult(json.fehler ? `Fehler: ${json.fehler}` : `✓ ${json.neu} neue E-Mail(s) importiert`)
-    } catch (err) { setPollResult(`Fehler: ${err}`) }
-    finally { setPolling(false) }
-  }
-
-  return (
-    <div className="space-y-6 max-w-lg">
-      <div className="flex items-center gap-3">
-        <label className="flex items-center gap-2.5 cursor-pointer select-none">
-          <div onClick={() => setAktiv(v => !v)}
-            className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${aktiv ? 'bg-s112-teal' : 'bg-gray-300'}`}>
-            <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${aktiv ? 'translate-x-5' : 'translate-x-0'}`} />
-          </div>
-        </label>
-        <span className={`text-sm font-semibold ${aktiv ? 'text-s112-teal' : 'text-gray-500'}`}>
-          E-Mail-Modul {aktiv ? 'aktiv' : 'inaktiv'}
-        </span>
-      </div>
-
-      <form onSubmit={handleSave} className="space-y-5">
-        {/* SMTP Ausgehend */}
-        <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">SMTP – Ausgehende E-Mails</p>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">SMTP-Host</label>
-              <input name="email_smtp_host" defaultValue={settings.email_smtp_host ?? ''} placeholder="smtp.gmail.com" className={inputCls()} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Port</label>
-              <input name="email_smtp_port" type="number" defaultValue={settings.email_smtp_port} className={inputCls()} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Benutzername / E-Mail</label>
-              <input name="email_smtp_user" defaultValue={settings.email_smtp_user ?? ''} placeholder="name@domain.at" className={inputCls()} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Passwort / App-Passwort</label>
-              <input name="email_smtp_pass" type="password" placeholder="Neu setzen (leer = unverändert)" className={inputCls()} />
-            </div>
-            <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-600 mb-1">Absendername</label>
-              <input name="email_smtp_from_name" defaultValue={settings.email_smtp_from_name ?? ''} placeholder="Weingut Gebeshuber" className={inputCls()} />
-            </div>
-          </div>
-        </div>
-
-        {/* IMAP Eingehend */}
-        <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">IMAP – Eingehende E-Mails</p>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">IMAP-Host</label>
-              <input name="email_imap_host" defaultValue={settings.email_imap_host ?? ''} placeholder="imap.gmail.com" className={inputCls()} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Port</label>
-              <input name="email_imap_port" type="number" defaultValue={settings.email_imap_port} className={inputCls()} />
-            </div>
-            <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-600 mb-1">Benutzername / E-Mail</label>
-              <input name="email_imap_user" defaultValue={settings.email_imap_user ?? ''} className={inputCls()} />
-            </div>
-            <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-600 mb-1">Passwort / App-Passwort</label>
-              <input name="email_imap_pass" type="password" placeholder="Neu setzen (leer = unverändert)" className={inputCls()} />
-            </div>
-          </div>
-          {settings.email_last_poll && (
-            <p className="text-xs text-s112-muted mt-2">Letzter Import: {new Date(settings.email_last_poll).toLocaleString('de-AT')}</p>
-          )}
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button type="submit" disabled={pending}
-            className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
-            {pending ? 'Speichern…' : 'Speichern'}
-          </button>
-          {saved && <span className="text-xs text-s112-teal font-medium">✓ Gespeichert</span>}
-        </div>
-      </form>
-
-      {/* Manueller IMAP-Poll */}
-      <div className="border border-s112-border rounded-xl p-4 space-y-3">
-        <p className="text-sm font-semibold text-gray-700">Posteingang jetzt abrufen</p>
-        <p className="text-xs text-s112-muted">Importiert ungelesene E-Mails der letzten 7 Tage und legt Aktivitäten für bekannte Kontakte an.</p>
-        <button type="button" onClick={handlePoll} disabled={polling}
-          className="text-sm border border-s112-border px-4 py-1.5 rounded-lg hover:bg-s112-bg disabled:opacity-40">
-          {polling ? '⏳ Abrufen…' : '📥 Jetzt abrufen'}
-        </button>
-        {pollResult && <p className="text-xs font-medium text-gray-700">{pollResult}</p>}
-      </div>
-    </div>
-  )
-}
-
 // ── Tab: Verkauf ──────────────────────────────────────────────────────────────
 
 function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
@@ -795,8 +554,6 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
   const [zaehler,   setZaehler]    = useState(settings.rechnung_zaehler)
   const [kResetVal, setKResetVal]  = useState(String(settings.kunden_zaehler))
   const [kZaehler,  setKZaehler]   = useState(settings.kunden_zaehler)
-
-  const [ustStandard, setUstStandard] = useState(settings.ust_satz_standard)
 
   // Vorschau der nächsten Rechnungsnummer
   const [prefix,   setPrefix]   = useState(settings.rechnung_prefix)
@@ -843,26 +600,6 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
 
       {/* Einstellungen */}
       <form onSubmit={handleSave} className="space-y-4">
-        {/* USt-Standard */}
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Standard-Umsatzsteuer</p>
-        <input type="hidden" name="ust_satz_standard" value={ustStandard} />
-        <div className="grid grid-cols-2 gap-3">
-          {([{ val: 13, label: '13 %', hint: 'Weinproduzent (stiller Wein)' }, { val: 20, label: '20 %', hint: 'Weinhändler / Spirituosen' }] as const).map(opt => (
-            <button
-              key={opt.val}
-              type="button"
-              onClick={() => setUstStandard(opt.val)}
-              className={`flex flex-col items-start px-4 py-3 rounded-xl border-2 text-left transition-colors
-                ${ustStandard === opt.val
-                  ? 'border-s112-teal bg-s112-teal/5 text-s112-teal'
-                  : 'border-s112-border text-gray-600 hover:border-s112-teal/40'}`}
-            >
-              <span className="text-lg font-bold">{opt.label}</span>
-              <span className="text-xs mt-0.5 opacity-70">{opt.hint}</span>
-            </button>
-          ))}
-        </div>
-
         {/* Rechnungsnummer */}
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Rechnungsnummer</p>
         <div className="grid grid-cols-2 gap-3">
@@ -1070,7 +807,7 @@ function ChecklisteTab({ tenant, settings, members }: {
 
 // ── Haupt-Komponente ──────────────────────────────────────────────────────────
 
-type Tab = 'branding' | 'benutzer' | 'brevo' | 'module' | 'betrieb' | 'verkauf' | 'email' | 'm365' | 'checkliste'
+type Tab = 'branding' | 'benutzer' | 'brevo' | 'module' | 'betrieb' | 'verkauf' | 'checkliste'
 
 export default function MandantDetailClient({ tenant, settings, members }: {
   tenant:   TenantDetail
@@ -1097,8 +834,6 @@ export default function MandantDetailClient({ tenant, settings, members }: {
     { id: 'module',      label: 'Module' },
     { id: 'betrieb',     label: 'Betrieb' },
     { id: 'verkauf',     label: 'Verkauf' },
-    { id: 'email',       label: '✉ E-Mail'   },
-    { id: 'm365',        label: '📅 M365'     },
     { id: 'checkliste',  label: 'Checkliste' },
   ]
 
@@ -1167,8 +902,6 @@ export default function MandantDetailClient({ tenant, settings, members }: {
       {tab === 'module'     && <ModuleTab     tenant={tenant} settings={settings} />}
       {tab === 'betrieb'    && <BetriebTab    tenant={tenant} settings={settings} />}
       {tab === 'verkauf'    && <VerkaufTab    tenant={tenant} settings={settings} />}
-      {tab === 'email'      && <EmailTab      tenant={tenant} settings={settings} />}
-      {tab === 'm365'       && <M365Tab       tenant={tenant} settings={settings} />}
       {tab === 'checkliste' && <ChecklisteTab tenant={tenant} settings={settings} members={members} />}
     </div>
   )

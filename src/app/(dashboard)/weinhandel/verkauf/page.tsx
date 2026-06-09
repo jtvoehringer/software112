@@ -17,8 +17,8 @@ export default async function VerkaufPage() {
   // Verkaufsposten mit Positionen + Kundendaten
   const { data: postenRaw } = await (supabase.from('verkaufsposten') as any)
     .select(`
-      id, datum, rechnungsnummer, notizen, erstellt_am, storniert, bezahlt,
-      kontakt:kontakte!kontakt_id(id, vorname, nachname),
+      id, datum, rechnungsnummer, notizen, erstellt_am,
+      kontakt:kontakte(id, vorname, nachname),
       firma:firmen(id, name),
       positionen:verkauf_positionen(id, name, menge, einheit, preis_brutto, typ)
     `)
@@ -82,14 +82,14 @@ export default async function VerkaufPage() {
           <p className="text-2xl font-bold text-s112-teal mt-1 tabular-nums">
             {monatUmsatz.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
           </p>
-          <p className="text-xs text-s112-muted mt-0.5">{monatPosten.length} {monatPosten.length === 1 ? 'Vorgang' : 'Vorgänge'}</p>
+          <p className="text-xs text-s112-muted mt-0.5">{monatPosten.length} Vorgang{monatPosten.length !== 1 ? 'ä' : ''}nge</p>
         </div>
         <div className="card p-5">
           <p className="text-xs text-s112-muted">Gesamt (aktive)</p>
           <p className="text-2xl font-bold text-gray-800 mt-1 tabular-nums">
             {gesamtUmsatz.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
           </p>
-          <p className="text-xs text-s112-muted mt-0.5">{posten.length} {posten.length === 1 ? 'Vorgang' : 'Vorgänge'}</p>
+          <p className="text-xs text-s112-muted mt-0.5">{posten.length} Vorgang{posten.length !== 1 ? 'ä' : ''}nge</p>
         </div>
       </div>
 
@@ -112,7 +112,6 @@ export default async function VerkaufPage() {
                 <th className="text-left px-4 py-3 font-semibold text-gray-700">Datum</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-700">Belegnr.</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-700">Kunde</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Status</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-700">Positionen</th>
                 <th className="text-right px-4 py-3 font-semibold text-gray-700">Summe</th>
                 <th className="px-4 py-3" />
@@ -132,14 +131,6 @@ export default async function VerkaufPage() {
                       {p.rechnungsnummer ?? <span className="text-s112-muted">–</span>}
                     </td>
                     <td className="px-4 py-3 font-medium text-gray-900">{kundenName(p)}</td>
-                    <td className="px-4 py-3">
-                      {p.storniert
-                        ? <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Storniert</span>
-                        : p.bezahlt
-                          ? <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Bezahlt</span>
-                          : <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Offen</span>
-                      }
-                    </td>
                     <td className="px-4 py-3 text-s112-muted text-xs">
                       {posCount} Position{posCount !== 1 ? 'en' : ''}
                       {hasTank && <span className="ml-2 bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-xs">Tank</span>}

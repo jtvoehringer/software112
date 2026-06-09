@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createKontakt, updateKontakt, deleteKontakt, createAktivitaet, createPipelineEintrag } from '../actions'
 import { SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN, segmentLabel, segmentFarbe } from '@/lib/crm/types'
@@ -22,25 +21,6 @@ type PipelineRow = {
 
 const LAENDER = ['AT', 'DE', 'CH', 'IT', 'FR', 'HU', 'SK', 'CZ', 'US', 'GB']
 
-
-const DIAL_CODES = [
-  { code: '+43', flag: '🇦🇹', iso: 'AT' },
-  { code: '+49', flag: '🇩🇪', iso: 'DE' },
-  { code: '+41', flag: '🇨🇭', iso: 'CH' },
-  { code: '+423', flag: '🇱🇮', iso: 'LI' },
-  { code: '+39', flag: '🇮🇹', iso: 'IT' },
-  { code: '+386', flag: '🇸🇮', iso: 'SI' },
-  { code: '+421', flag: '🇸🇰', iso: 'SK' },
-  { code: '+420', flag: '🇨🇿', iso: 'CZ' },
-  { code: '+36', flag: '🇭🇺', iso: 'HU' },
-  { code: '+33', flag: '🇫🇷', iso: 'FR' },
-  { code: '+31', flag: '🇳🇱', iso: 'NL' },
-  { code: '+32', flag: '🇧🇪', iso: 'BE' },
-  { code: '+44', flag: '🇬🇧', iso: 'GB' },
-  { code: '+48', flag: '🇵🇱', iso: 'PL' },
-  { code: '+1',  flag: '🇺🇸', iso: 'US' },
-]
-
 function inputCls() {
   return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
 }
@@ -48,24 +28,17 @@ function inputCls() {
 // ── Formular ──────────────────────────────────────────────────────────────────
 
 function KontaktForm({
-  initial, firmen, rabattgruppen, defaultSegment, existingKontakte, onDone,
+  initial, firmen, rabattgruppen, defaultSegment, onDone,
 }: {
   initial?: KontaktRow | null
   firmen: FirmaOption[]
   rabattgruppen: RabattgruppeOption[]
   defaultSegment?: string
-  existingKontakte?: KontaktRow[]
   onDone: () => void
 }) {
-  const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [stammkunde, setStammkunde] = useState(initial?.stammkunde ?? false)
-  const [isLead, setIsLead]           = useState(initial?.is_lead ?? true)
-  const [landVal, setLandVal]           = useState(initial?.land ?? 'AT')
   const [segmentVal, setSegmentVal] = useState(initial?.segment ?? defaultSegment ?? 'privat')
-  const [saveError, setSaveError]   = useState<string | null>(null)
-  const [dubletteWarnung, setDubletteWarnung] = useState<string | null>(null)
-  const [dubletteIgnorieren, setDubletteIgnorieren] = useState(false)
 
   useEffect(() => {
     if (!initial && defaultSegment) setSegmentVal(defaultSegment)
@@ -75,47 +48,10 @@ function KontaktForm({
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
     fd.set('stammkunde', stammkunde ? 'true' : 'false')
-    setSaveError(null)
-
-    // Dublettenprüfung nur bei Neuanlage (nicht beim Bearbeiten) und nicht wenn bereits ignoriert
-    if (!initial && !dubletteIgnorieren && existingKontakte && existingKontakte.length > 0) {
-      const eingabeName     = ((fd.get('nachname') as string) ?? '').trim().toLowerCase()
-      const eingabeVorname  = ((fd.get('vorname')  as string) ?? '').trim().toLowerCase()
-      const eingabeStrasse  = ((fd.get('strasse')  as string) ?? '').trim().toLowerCase()
-      const eingabePlz      = ((fd.get('plz')      as string) ?? '').trim().toLowerCase()
-      const eingabeOrt      = ((fd.get('ort')      as string) ?? '').trim().toLowerCase()
-
-      const dubletteNamen = existingKontakte.find(k =>
-        k.nachname.trim().toLowerCase() === eingabeName &&
-        (k.vorname ?? '').trim().toLowerCase() === eingabeVorname
-      )
-      const dubletteAdresse = eingabeStrasse && eingabePlz && eingabeOrt
-        ? existingKontakte.find(k =>
-            (k.strasse ?? '').trim().toLowerCase() === eingabeStrasse &&
-            (k.plz ?? '').trim().toLowerCase() === eingabePlz &&
-            (k.ort ?? '').trim().toLowerCase() === eingabeOrt
-          )
-        : null
-
-      if (dubletteNamen) {
-        setDubletteWarnung(`Ein Kontakt „${dubletteNamen.vorname ? dubletteNamen.vorname + ' ' : ''}${dubletteNamen.nachname}" ist bereits vorhanden.`)
-        return
-      }
-      if (dubletteAdresse) {
-        setDubletteWarnung(`Ein Kontakt mit dieser Adresse (${dubletteAdresse.strasse}, ${dubletteAdresse.plz} ${dubletteAdresse.ort}) ist bereits vorhanden: „${dubletteAdresse.vorname ? dubletteAdresse.vorname + ' ' : ''}${dubletteAdresse.nachname}".`)
-        return
-      }
-    }
-
     startTransition(async () => {
-      try {
-        if (initial) await updateKontakt(initial.id, fd)
-        else await createKontakt(fd)
-        onDone()
-        router.refresh()
-      } catch (err) {
-        setSaveError(err instanceof Error ? err.message : 'Fehler beim Speichern')
-      }
+      if (initial) await updateKontakt(initial.id, fd)
+      else await createKontakt(fd)
+      onDone()
     })
   }
 
@@ -124,47 +60,8 @@ function KontaktForm({
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-5 space-y-4">
       <h3 className="text-sm font-semibold text-gray-800">{initial ? 'Kontakt bearbeiten' : 'Neuer Kontakt'}</h3>
-      {saveError && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{saveError}</p>}
-      {dubletteWarnung && (
-        <div className="bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 text-sm">
-          <p className="font-medium text-amber-800 mb-1">⚠ Mögliche Dublette</p>
-          <p className="text-amber-700 mb-3">{dubletteWarnung}</p>
-          <p className="text-amber-700 mb-3">Möchten Sie den Eintrag trotzdem übernehmen oder verwerfen?</p>
-          <div className="flex gap-2">
-            <button type="button" onClick={() => { setDubletteIgnorieren(true); setDubletteWarnung(null); setTimeout(() => { (document.activeElement as HTMLElement)?.closest('form')?.requestSubmit() }, 10) }}
-              className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-amber-700">
-              Trotzdem übernehmen
-            </button>
-            <button type="button" onClick={() => { setDubletteWarnung(null); onDone() }}
-              className="border border-amber-400 text-amber-700 px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-amber-100">
-              Verwerfen
-            </button>
-          </div>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* Lead / Kunde Toggle */}
-        <div className="sm:col-span-2 flex items-center justify-between bg-white border border-s112-border rounded-xl px-4 py-2.5">
-          <div>
-            <p className={`text-sm font-semibold ${isLead ? 'text-amber-600' : 'text-s112-teal'}`}>
-              {isLead ? '🌱 Lead' : '✅ Kunde'}
-            </p>
-            <p className="text-xs text-s112-muted">
-              {isLead ? 'Noch kein Verkauf – wird automatisch Kunde beim ersten Verkauf' : 'Aktiver Kunde'}
-            </p>
-          </div>
-          <label className="flex items-center gap-2.5 cursor-pointer select-none">
-            <input type="hidden" name="is_lead" value={String(isLead)} />
-            <div onClick={() => setIsLead(v => !v)}
-              className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${isLead ? 'bg-amber-400' : 'bg-s112-teal'}`}>
-              <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${isLead ? 'translate-x-0' : 'translate-x-5'}`} />
-            </div>
-            <span className={`text-sm font-semibold min-w-[48px] ${isLead ? 'text-amber-600' : 'text-s112-teal'}`}>
-              {isLead ? 'Lead' : 'Kunde'}
-            </span>
-          </label>
-        </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Vorname</label>
           <input name="vorname" defaultValue={v('vorname')} className={inputCls()} />
@@ -192,59 +89,19 @@ function KontaktForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Telefon</label>
-          <div className="flex gap-1.5">
-            <select
-              name="telefon_vorwahl"
-              defaultValue={initial?.telefon_vorwahl ?? '+43'}
-              onChange={e => {
-                const d = DIAL_CODES.find(x => x.code === e.target.value)
-                if (d) setLandVal(d.iso)
-              }}
-              className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-24 flex-shrink-0"
-            >
-              {DIAL_CODES.map(d => (
-                <option key={d.code} value={d.code}>{d.flag} {d.code}</option>
-              ))}
-            </select>
-            <input name="telefon" defaultValue={v('telefon')} className={inputCls()} />
-          </div>
+          <input name="telefon" defaultValue={v('telefon')} className={inputCls()} />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Mobil</label>
-          <div className="flex gap-1.5">
-            <select
-              name="mobil_vorwahl"
-              defaultValue={initial?.mobil_vorwahl ?? '+43'}
-              onChange={e => {
-                const d = DIAL_CODES.find(x => x.code === e.target.value)
-                if (d) setLandVal(d.iso)
-              }}
-              className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-24 flex-shrink-0"
-            >
-              {DIAL_CODES.map(d => (
-                <option key={d.code} value={d.code}>{d.flag} {d.code}</option>
-              ))}
-            </select>
-            <input name="mobil" defaultValue={v('mobil')} className={inputCls()} />
-          </div>
+          <input name="mobil" defaultValue={v('mobil')} className={inputCls()} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Straße</label>
-          <input name="strasse" defaultValue={v('strasse')} className={inputCls()} />
-        </div>
-        <div className="flex gap-2">
-          <div className="w-28 flex-shrink-0">
-            <label className="block text-xs font-medium text-gray-600 mb-1">PLZ</label>
-            <input name="plz" defaultValue={v('plz')} className={inputCls()} />
-          </div>
-          <div className="flex-1">
-            <label className="block text-xs font-medium text-gray-600 mb-1">Ort</label>
-            <input name="ort" defaultValue={v('ort')} className={inputCls()} />
-          </div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Ort</label>
+          <input name="ort" defaultValue={v('ort')} className={inputCls()} />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Land</label>
-          <select name="land" value={landVal} onChange={e => setLandVal(e.target.value)} className={inputCls()}>
+          <select name="land" defaultValue={v('land') || 'AT'} className={inputCls()}>
             {LAENDER.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
         </div>
@@ -262,17 +119,6 @@ function KontaktForm({
               <option key={r.id} value={r.id}>{r.name} ({r.rabatt_pct}%)</option>
             ))}
           </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Sonderrabatt %</label>
-          <input
-            name="sonderrabatt_pct"
-            type="number"
-            min="0" max="100" step="0.5"
-            defaultValue={initial?.sonderrabatt_pct ?? 0}
-            placeholder="0"
-            className={inputCls()}
-          />
         </div>
       </div>
 
@@ -449,18 +295,9 @@ function KontaktKarte({
             {kontakt.stammkunde && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-s112-yellow/20 text-amber-700 font-medium">⭐ Stammkunde</span>
             )}
-            {kontakt.is_lead
-              ? <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">🌱 Lead</span>
-              : <span className="text-xs px-2 py-0.5 rounded-full bg-s112-teal/10 text-s112-teal font-medium">✅ Kunde</span>
-            }
             {kontakt.rabattgruppe_name && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
                 {kontakt.rabattgruppe_pct}% {kontakt.rabattgruppe_name}
-              </span>
-            )}
-            {(kontakt.sonderrabatt_pct ?? 0) > 0 && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
-                {kontakt.sonderrabatt_pct}% Sonderrab.
               </span>
             )}
             {kontakt.newsletter && kontakt.newsletter_bestaetigt && (
@@ -611,9 +448,6 @@ export default function KontakteClient({
   const [showForm, setShowForm] = useState(false)
   const [suche, setSuche] = useState('')
   const [segment, setSegment] = useState<string>('alle')
-  const [filterLead, setFilterLead] = useState<'alle' | 'lead' | 'kunde'>('alle')
-  const BUCHSTABEN = ['Alle', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')]
-  const [buchstabe, setBuchstabe] = useState('Alle')
   const [sortBy, setSortBy] = useState<'nachname' | 'vorname'>('nachname')
 
   const gefiltert = kontakte
@@ -621,9 +455,7 @@ export default function KontakteClient({
       const name = [k.kundennummer, k.vorname, k.nachname, k.email, k.mobil, k.telefon, k.firma_name].filter(Boolean).join(' ').toLowerCase()
       const matchSuche = !suche || name.includes(suche.toLowerCase())
       const matchSeg = segment === 'alle' || k.segment === segment
-      const matchAlpha = buchstabe === 'Alle' || (k.nachname ?? '').toUpperCase().startsWith(buchstabe)
-      const matchLead = filterLead === 'alle' || (filterLead === 'lead' ? k.is_lead : !k.is_lead)
-      return matchSuche && matchSeg && matchAlpha && matchLead
+      return matchSuche && matchSeg
     })
     .sort((a, b) => {
       const ka = sortBy === 'nachname' ? a.nachname : (a.vorname ?? a.nachname)
@@ -633,19 +465,6 @@ export default function KontakteClient({
 
   return (
     <div className="space-y-4">
-      {/* Alphabet-Filter */}
-      <div className="flex flex-wrap gap-0.5">
-        {BUCHSTABEN.map(b => (
-          <button key={b} onClick={() => setBuchstabe(b)}
-            className={`min-w-[1.75rem] px-1 py-0.5 text-xs font-medium rounded transition-colors
-              ${buchstabe === b
-                ? 'bg-s112-teal text-white'
-                : 'bg-s112-bg text-gray-500 hover:bg-s112-teal/10 hover:text-s112-teal'}`}>
-            {b}
-          </button>
-        ))}
-      </div>
-      
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">
         <input
@@ -677,27 +496,12 @@ export default function KontakteClient({
           </svg>
           {sortBy === 'nachname' ? 'Nachname' : 'Vorname'}
         </button>
-        <div className="flex gap-1">
-          {(['alle', 'lead', 'kunde'] as const).map(v => (
-            <button key={v} onClick={() => setFilterLead(v)}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterLead === v ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:text-gray-900'}`}>
-              {v === 'alle' ? 'Alle' : v === 'lead' ? '🌱 Lead' : '✅ Kunde'}
-              {' '}({v === 'alle' ? kontakte.length : kontakte.filter(k => v === 'lead' ? k.is_lead : !k.is_lead).length})
-            </button>
-          ))}
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <a href="/api/export/kontakte" download
-            className="inline-flex items-center gap-1.5 border border-s112-border text-gray-600 px-3 py-2 rounded-xl text-sm hover:bg-s112-bg transition-colors">
-            ⬇ CSV
-          </a>
-          {writeOk && !showForm && (
-            <button onClick={() => setShowForm(true)}
-              className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
-              <span>＋</span> Neuer Kontakt
-            </button>
-          )}
-        </div>
+        {writeOk && !showForm && (
+          <button onClick={() => setShowForm(true)}
+            className="ml-auto inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+            <span>＋</span> Neuer Kontakt
+          </button>
+        )}
       </div>
 
       {/* Formular */}
@@ -705,7 +509,6 @@ export default function KontakteClient({
         <KontaktForm
           firmen={firmen}
           rabattgruppen={rabattgruppen}
-          existingKontakte={kontakte}
           defaultSegment={segment !== 'alle' ? segment : undefined}
           onDone={() => setShowForm(false)}
         />

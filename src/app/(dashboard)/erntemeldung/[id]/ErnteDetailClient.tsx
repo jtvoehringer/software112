@@ -2,12 +2,21 @@
 
 import React, { useState, useTransition } from 'react'
 import { upsertErnteParzelle, deleteErnteParzelle, createOrUpdateAMAMeldung } from '../actions'
-import { qualitaetLabel, QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 import type { ErnteParzelle, WeingartenOpt, AMAMeldung } from './page'
 import PressungSection from './PressungSection'
 import type { Pressung, WGOption, BehOption, WAOption } from './PressungSection'
 
-// QUALITAET_OPTS: aus lib/wein/qualitaet importiert (s.u. import qualitaetLabel)
+const QUALITAET_OPTS = [
+  { value: 'tafelwein', label: 'Tafelwein' },
+  { value: 'landwein', label: 'Landwein' },
+  { value: 'qualitaetswein', label: 'Qualitätswein' },
+  { value: 'kabinett', label: 'Kabinett' },
+  { value: 'spaetlese', label: 'Spätlese' },
+  { value: 'auslese', label: 'Auslese' },
+  { value: 'beerenauslese', label: 'Beerenauslese' },
+  { value: 'trockenbeerenauslese', label: 'TBA' },
+  { value: 'eiswein', label: 'Eiswein' },
+]
 const LESEMETHODE_OPTS = [
   { value: 'handlese', label: 'Handlese' },
   { value: 'maschinenlese', label: 'Maschinenlese' },
@@ -96,8 +105,12 @@ function ParzellForm({
             defaultValue={parzelle?.menge_kg ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
-        {/* °Öchsle: in DB vorhanden, für AT-Markt ausgeblendet – nur °KMW anzeigen */}
-        <input type="hidden" name="oechsle" value="" />
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">°Oechsle</label>
+          <input name="oechsle" type="number" step="0.1" min="0"
+            defaultValue={parzelle?.oechsle ?? ''}
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+        </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">°KMW</label>
           <input name="klosterneuburger" type="number" step="0.01" min="0"
@@ -207,7 +220,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
                   <th className="text-left px-3 py-2 font-semibold">Weingarten</th>
                   <th className="text-left px-3 py-2 font-semibold">Datum</th>
                   <th className="text-right px-3 py-2 font-semibold">kg</th>
-                  <th className="text-right px-3 py-2 font-semibold">°KMW</th>
+                  <th className="text-right px-3 py-2 font-semibold">°Oe</th>
                   <th className="text-left px-3 py-2 font-semibold">Qualität</th>
                   {(writeOk || adminOk) && <th className="px-3 py-2" />}
                 </tr>
@@ -222,8 +235,8 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
                       </td>
                       <td className="px-3 py-2 text-s112-muted">{formatDate(p.ernte_datum)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{p.menge_kg?.toLocaleString('de-AT') ?? '–'}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{p.klosterneuburger ?? '–'}</td>
-                      <td className="px-3 py-2 text-xs text-s112-muted">{qualitaetLabel(p.qualitaetsstufe)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{p.oechsle ?? '–'}</td>
+                      <td className="px-3 py-2 text-xs text-s112-muted capitalize">{p.qualitaetsstufe ?? '–'}</td>
                       {(writeOk || adminOk) && (
                         <td className="px-3 py-2 text-right" data-print="hide">
                           <div className="flex items-center justify-end gap-2">

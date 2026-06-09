@@ -1,13 +1,11 @@
 // ── Segment-Definitionen ──────────────────────────────────────────────────────
 
 export const SEGMENTE = [
-  { value: 'privat',      label: 'Privat',       icon: '👤', farbe: 'bg-blue-100 text-blue-800'   },
+  { value: 'privat',      label: 'Privatkunde',       icon: '👤', farbe: 'bg-blue-100 text-blue-800'   },
   { value: 'gastronomie', label: 'Gastronomie',        icon: '🍽️', farbe: 'bg-orange-100 text-orange-800' },
   { value: 'handel',      label: 'Handel',             icon: '🏪', farbe: 'bg-purple-100 text-purple-800' },
   { value: 'export',      label: 'Export',             icon: '✈️', farbe: 'bg-green-100 text-green-800'  },
   { value: 'grosshandel', label: 'Großhandel',         icon: '🏭', farbe: 'bg-gray-100 text-gray-800'   },
-  { value: 'produzent',   label: 'Produzent',           icon: '🍇', farbe: 'bg-rose-100 text-rose-800'    },
-  { value: 'weinhauer',   label: 'Weinhauer',           icon: '🏡', farbe: 'bg-lime-100 text-lime-800'     },
 ] as const
 
 export type Kundensegment = (typeof SEGMENTE)[number]['value']
@@ -52,17 +50,15 @@ export const PIPELINE_KATEGORIEN = [
 // ── Aktivitäts-Arten ──────────────────────────────────────────────────────────
 
 export const AKTIVITAET_ARTEN = [
-  { value: 'notiz', label: 'Notiz', icon: '📝', nurAnzeige: true },
-  { value: 'email', label: 'E-Mail', icon: '✉️', nurAnzeige: true },
+  { value: 'notiz',       label: 'Notiz',        icon: '📝' },
   { value: 'anruf',       label: 'Anruf',        icon: '📞' },
+  { value: 'email',       label: 'E-Mail',       icon: '✉️'  },
   { value: 'verkostung',  label: 'Verkostung',   icon: '🍷' },
   { value: 'messe',       label: 'Messe',        icon: '🏛️'  },
   { value: 'besuch',      label: 'Besuch',       icon: '🚗' },
   { value: 'angebot',     label: 'Angebot',      icon: '📄' },
   { value: 'verkauf',     label: 'Verkauf',      icon: '🛒' },
   { value: 'sonstiges',   label: 'Sonstiges',    icon: '•'  },
-  { value: 'urlaub',      label: 'Urlaub',       icon: '🏖'  },
-  { value: 'abwesenheit', label: 'Abwesenheit',  icon: '🚫' },
 ] as const
 
 // ── Basis-Typen für Komponenten ───────────────────────────────────────────────
@@ -78,8 +74,6 @@ export type KontaktRow = {
   email: string | null
   telefon: string | null
   mobil: string | null
-  strasse: string | null
-  plz: string | null
   ort: string | null
   land: string | null
   newsletter: boolean
@@ -89,10 +83,6 @@ export type KontaktRow = {
   rabattgruppe_id: string | null
   rabattgruppe_name?: string | null
   rabattgruppe_pct?: number | null
-  sonderrabatt_pct?: number | null
-  is_lead?: boolean
-  telefon_vorwahl?: string | null
-  mobil_vorwahl?: string | null
   aktiv: boolean
   erstellt_am: string
 }
@@ -114,9 +104,6 @@ export type FirmaRow = {
   rabattgruppe_id: string | null
   rabattgruppe_name?: string | null
   rabattgruppe_pct?: number | null
-  sonderrabatt_pct?: number | null
-  is_lead?: boolean
-  telefon_vorwahl?: string | null
   zahlungsziel_tage: number | null
   waehrung: string | null
   notizen: string | null
@@ -138,16 +125,6 @@ export type AktivitaetRow = {
   kontakt_name?: string | null
   firma_id: string | null
   firma_name?: string | null
-  email_id?: string | null
-  email_conversation_id?: string | null
-  ist_privat?: boolean | null
-  erstellt_von?: string | null
-  bis_datum?: string | null
-  email_von?: string | null
-  email_von_name?: string | null
-  email_an?: string | null
-  email_body?: string | null
-  email_body_html?: string | null
 }
 
 export type PipelineEintragRow = {

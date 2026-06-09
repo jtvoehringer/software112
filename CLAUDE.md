@@ -11,7 +11,7 @@
 
 **software:112** – Digitales Weingut-ERP für Familie Gebeshuber (Winzer in NÖ)
 
-- **Tenant-ID Sandbox:** `fa22dc07-eca5-43df-af96-f7b9b09f0471` (Pilot/Sandbox bis UAT-Abschluss)
+- **Tenant-ID Gebeshuber:** `fa22dc07-eca5-43df-af96-f7b9b09f0471`
 - **Produktions-URL:** https://software112.icp-consultants.at
 - **GitHub:** https://github.com/jtvoehringer/software112
 - **Supabase Projekt:** zwcsgnemijkpyxrqykul.supabase.co (Region: West EU Ireland)
@@ -29,8 +29,6 @@
 - Alle Server Components mit `export const dynamic = 'force-dynamic'` wenn nötig
 - CSS-Klassen: `s112-teal`, `s112-muted`, `s112-border`, `s112-bg` (siehe tailwind.config.ts)
 - Rollenmodell: `leser` / `winzer` / `tenant_admin`
-- **Sprache:** In allen deutschen Texten (UI-Labels, Kommentare, Fehlermeldungen) immer Umlaute verwenden: ä/ö/ü/Ä/Ö/Ü – niemals ae/oe/ue als Ersatz
-- **Skript-Sprache:** Python bevorzugt für Datei- und Datenoperationen; Node.js wenn npm-Pakete nötig (z.B. docx); Bash nur für einfache Einzeiler
 
 ## Aktuelle Nutzer
 
@@ -67,63 +65,3 @@
 | 029       | Pipeline Uhrzeit: pipeline_eintraege += ganztags/uhrzeit_von/uhrzeit_bis |
 | 030       | Betriebsdaten + Rechnung: tenant_einstellungen += betrieb_*/rechnung_*; verkauf_positionen += ust_satz |
 | 031       | Bezahlt-Status + Rabattgruppen: verkaufsposten += bezahlt/bezahlt_am; neue Tabelle rabattgruppen; kontakte/firmen += rabattgruppe_id; verkauf_positionen += rabatt_pct/sonderrabatt_pct |
-| 032       | Standard-USt pro Mandant: tenant_einstellungen += ust_satz_standard (13% Weinproduzent / 20% Weinhändler) |
-| 033       | Sonderrabatt auf Kontakt/Firma: kontakte/firmen += sonderrabatt_pct; wird im Verkaufsformular auto-vorbelegt |
-| 034       | Lead-Feld: kontakte/firmen += is_lead (DEFAULT true); neue Datensätze starten als Lead; erster Verkauf → automatisch Kunde |
-| 035       | Telefonvorwahl: kontakte += telefon_vorwahl/mobil_vorwahl; firmen += telefon_vorwahl (DEFAULT '+43') |
-| 036       | Lückenhalter (Notizen/nurAnzeige – kein Schema-Change) |
-| 037       | KI-Modul: ki_abfragen_aktiv/paket/zaehler/reset_datum in tenant_einstellungen + check_und_increment_ki_abfrage() RPC |
-| 038       | E-Mail IMAP/SMTP Basic: email_modul_aktiv + SMTP-Felder in tenant_einstellungen |
-| 039       | M365 Integration: m365_modul_aktiv + OAuth-Felder in tenant_einstellungen |
-| 040       | Per-User E-Mail: user_email_connections (tenant_id, user_id, m365-Tokens, imap-Credentials) |
-| 041       | Kostenrechnung: kostenstellen, kostenarten, kostenbuchungen |
-| 042       | Shared Mailbox: user_email_connections += monitored_email |
-| 043       | Weinexport: exportauftraege, exportauftrag_positionen, export_dokumente + modul_weinexport Toggle + get_next_exportnummer() |
-| 044       | Email-IDs in Aktivitäten: aktivitaeten += email_id (UNIQUE), email_conversation_id |
-| 045       | Email-Body persistent: aktivitaeten += email_von, email_von_name, email_an, email_body, email_body_html |
-
-## Phase 4 – Status (Stand Juni 2026)
-
-| Epic | Status |
-|---|---|
-| Benutzerhandbuch + FAQs | ✅ `/hilfe/handbuch` + `/hilfe/faq` live |
-| Onboarding Guide | ✅ `/admin/onboarding` live |
-| Feature-Rollout-Manager | ✅ modul_*-Toggles in Mandantenverwaltung |
-| Weinexport-Modul | ✅ EUR.1, V1/V2, CMR, Certificate of Origin, Lieferschein, Rechnung (ohne Akkreditiv) |
-| Multi-User E-Mail-Boxen | ✅ user_email_connections + monitored_email (Shared Mailbox) |
-| E-Mail-Threading UI | ✅ Betreff-basiertes Grouping + conversation_id, inline Body-Anzeige |
-| Integrierter E-Mail-Client | ✅ `/nachrichten` mit Ordnern, Löschen, Antworten, Weiterleiten |
-| KI-Modul Smart Query | ✅ `/ki` – Frag dein Weingut (Haiku, Limit-Check, Paket-Verwaltung) |
-
-## Offen / Nächste Schritte
-
-- **UAT** – Gebeshuber testet alle Module im Echtbetrieb (Juni 2026)
-- **Testautomatisierung + Regressionstests** – Smoke Tests + Playwright E2E nach UAT-Abschluss
-- **Stripe/Mandanten-Abrechnung** – vor Kunde #2 zwingend erforderlich
-- **Dauerauftrag-Modul** – IC&P Eigenrechnung automatisieren (0,5 Tage, shared lib aus KPS)
-- **EMCS-Integration via n8n** – Weinexport Pro (€59/Mo)
-- **Kostenrechnung Multi-Weingarten** – Kostenverteilung auf mehrere Weingärten (gleichmäßig oder gewichtet %) via Junction-Tabelle
-- **Mobile UX** – PWA oder native App (bei Kundenbedarf)
-
-## KI-Modul „Smart Query" (Phase 3 – geplant)
-
-**Produkt:** Separates Zusatzmodul – „Frag dein Weingut" (AI-gestützte Abfragen via Claude Haiku)
-
-**Lizenzmodell:**
-| Paket     | Abfragen/Monat | Preis/Monat | Marge (bei ~€0.04 API-Kosten/100 Queries) |
-|-----------|---------------|-------------|-------------------------------------------|
-| Basic     | 100           | +€ 9        | ~€ 8,96 |
-| Standard  | 200           | +€ 19       | ~€ 18,92 |
-| Unlimited | unbegrenzt    | +€ 49       | ~€ 48,80 (bei ø 500 Abfragen) |
-
-**Technische Umsetzung (geplant):**
-- `tenant_einstellungen` += `ki_abfragen_aktiv` (bool), `ki_abfragen_paket` (basic|standard|unlimited), `ki_abfragen_zaehler_monat` (int), `ki_abfragen_reset_datum` (date)
-- Supabase RPC `check_und_increment_ki_abfrage(p_tenant_id)` → atomarer Zähler + Limit-Check
-- Claude Haiku API-Call (Server Action) → strukturierte Query-Parameter (kein rohes SQL)
-- RLS greift automatisch → kein Datenleck zwischen Mandanten
-- Admin-Tab in Mandantenverwaltung: Paket zuweisen, Verbrauch einsehen
-
-**Features im Modul:**
-1. **Smart Query** – Freitexteingabe → KI → gefilterte Tabelle + Zusammenfassung
-2. **Besuchsplanung** – Region + Segment + Zeitraum → PLZ-geclusterte Besuchsliste + Karte (Leaflet.js)
-3. **Statische Reports** – Monatsumsatz, Lagerbestand, Behandlungsübersicht (ohne KI, immer inkludiert)

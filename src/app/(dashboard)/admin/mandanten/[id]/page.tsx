@@ -48,27 +48,6 @@ export type TenantSettings = {
   rechnung_bic:             string | null
   rechnung_zahlungsziel:    number
   rechnung_fusstext:        string | null
-  session_timeout_minuten:  number | null
-  // Migration 032
-  ust_satz_standard:        number
-  // Migration 038 – E-Mail
-  email_modul_aktiv:   boolean
-  email_smtp_host:     string | null
-  email_smtp_port:     number
-  email_smtp_user:     string | null
-  email_smtp_from_name:string | null
-  email_imap_host:     string | null
-  email_imap_port:     number
-  email_imap_user:     string | null
-  email_last_poll:     string | null
-  // Migration 039 – M365
-  m365_modul_aktiv:    boolean
-  m365_tenant_id:      string | null
-  m365_client_id:      string | null
-  m365_user_email:     string | null
-  m365_token_expires_at: string | null
-  m365_webhook_sub_id: string | null
-  m365_webhook_expires: string | null
 }
 export type TenantMember = {
   id: string; userId: string; email: string; role: string; createdAt: string
@@ -150,24 +129,6 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     rechnung_bic:          s?.rechnung_bic ?? null,
     rechnung_zahlungsziel: s?.rechnung_zahlungsziel ?? 14,
     rechnung_fusstext:     s?.rechnung_fusstext ?? null,
-    ust_satz_standard:     parseFloat(s?.ust_satz_standard) || 13,
-    email_modul_aktiv:    !!(s?.email_modul_aktiv),
-    email_smtp_host:      s?.email_smtp_host ?? null,
-    email_smtp_port:      s?.email_smtp_port ?? 587,
-    email_smtp_user:      s?.email_smtp_user ?? null,
-    email_smtp_from_name: s?.email_smtp_from_name ?? null,
-    email_imap_host:      s?.email_imap_host ?? null,
-    email_imap_port:      s?.email_imap_port ?? 993,
-    email_imap_user:      s?.email_imap_user ?? null,
-    email_last_poll:      s?.email_last_poll ?? null,
-    m365_modul_aktiv:     !!(s?.m365_modul_aktiv),
-    m365_tenant_id:       s?.m365_tenant_id ?? null,
-    m365_client_id:       s?.m365_client_id ?? null,
-    m365_user_email:      s?.m365_user_email ?? null,
-    m365_token_expires_at: s?.m365_token_expires_at ?? null,
-    m365_webhook_sub_id:  s?.m365_webhook_sub_id ?? null,
-    m365_webhook_expires: s?.m365_webhook_expires ?? null,
-    session_timeout_minuten: s?.session_timeout_minuten ?? null,
   }
 
   const members: TenantMember[] = ((memberships ?? []) as R[]).map(m => ({

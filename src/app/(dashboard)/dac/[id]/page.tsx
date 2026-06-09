@@ -39,21 +39,11 @@ export default async function DacEditPage({ params }: { params: Promise<{ id: st
       </div>
       <div className="flex items-start justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">{dac.bezeichnung}</h1>
-        <div className="flex items-center gap-2">
-          {dac.pruefnummer && (
-            <span className="bg-green-50 text-green-700 text-sm font-mono px-3 py-1 rounded-lg border border-green-200">
-              {dac.pruefnummer}
-            </span>
-          )}
-          {dac.pruefnummer && (
-            <Link
-              href={`/dac/${id}/etikett`}
-              className="flex items-center gap-1.5 bg-s112-teal text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-opacity-90 transition-colors"
-            >
-              🏷 Etikett
-            </Link>
-          )}
-        </div>
+        {dac.pruefnummer && (
+          <span className="bg-green-50 text-green-700 text-sm font-mono px-3 py-1 rounded-lg border border-green-200">
+            {dac.pruefnummer}
+          </span>
+        )}
       </div>
       <DacForm dac={dac} weinausbau={weinausbau} action={updateDacAntrag.bind(null, id)} />
     </div>

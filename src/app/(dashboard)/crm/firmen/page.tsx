@@ -17,7 +17,7 @@ export default async function FirmenPage() {
 
   const [{ data: fRaw }, { data: kRaw }] = await Promise.all([
     (supabase.from('firmen') as any)
-      .select('id, kundennummer, name, segment, strasse, plz, ort, land, telefon, telefon_vorwahl, email, website, uid_nummer, kreditlimit, zahlungsziel_tage, waehrung, notizen, aktiv, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
+      .select('id, kundennummer, name, segment, strasse, plz, ort, land, telefon, email, website, uid_nummer, kreditlimit, zahlungsziel_tage, waehrung, notizen, aktiv, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
       .eq('aktiv', true)
       .order('name'),
 
@@ -38,9 +38,6 @@ export default async function FirmenPage() {
     rabattgruppe_id: f.rabattgruppe_id ?? null,
     rabattgruppe_name: (f.rabattgruppe as R | null)?.name ?? null,
     rabattgruppe_pct: (f.rabattgruppe as R | null)?.rabatt_pct ?? null,
-    sonderrabatt_pct: parseFloat(f.sonderrabatt_pct) || 0,
-    is_lead:          !!(f.is_lead as boolean),
-    telefon_vorwahl:  (f.telefon_vorwahl as string | null) ?? '+43',
   }))
 
   // Rabattgruppen (non-fatal – Tabelle existiert erst nach Migration 031)

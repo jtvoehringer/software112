@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
-import { notFound, redirect } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { updateFuellung } from '../../../actions'
@@ -55,10 +55,9 @@ export default async function EditFuellungPage({
   const { data: raw } = await (supabase.from('fuellungen') as any)
     .select('*')
     .eq('id', id)
-    .eq('aktiv', true)
     .single()
 
-  if (!raw) notFound()
+  if (!raw) redirect('/weinhandel')
   const f = raw as R
 
   const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'

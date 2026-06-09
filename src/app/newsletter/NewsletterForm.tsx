@@ -6,7 +6,7 @@ import { newsletterAnmelden } from './actions'
 const SEGMENTE = [
   { value: 'privat',      label: 'Privatkunde / Weinliebhaber' },
   { value: 'gastronomie', label: 'Gastronomie / Restaurant'     },
-  { value: 'handel',      label: 'Warenwirtschaft / Shop'            },
+  { value: 'handel',      label: 'Weinhandel / Shop'            },
   { value: 'export',      label: 'Import / Export'              },
   { value: 'grosshandel', label: 'Großhandel'                   },
 ]

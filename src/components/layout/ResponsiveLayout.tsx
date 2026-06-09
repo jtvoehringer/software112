@@ -9,13 +9,12 @@ import type { TenantBranding } from '@/app/(dashboard)/layout'
 interface Props {
   children: React.ReactNode
   userEmail: string
-  userName?: string
   role: UserRole
   roleLabel: string
   branding: TenantBranding
 }
 
-export default function ResponsiveLayout({ children, userEmail, userName, role, roleLabel, branding }: Props) {
+export default function ResponsiveLayout({ children, userEmail, role, roleLabel, branding }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const pathname = usePathname()
 
@@ -34,7 +33,7 @@ export default function ResponsiveLayout({ children, userEmail, userName, role, 
     return () => { document.body.style.overflow = '' }
   }, [drawerOpen])
 
-  const sidebarProps = { userEmail, userName, role, roleLabel, branding }
+  const sidebarProps = { userEmail, role, roleLabel, branding }
 
   return (
     <div className="flex h-screen bg-s112-bg overflow-hidden">

@@ -15,8 +15,6 @@ export const metadata: Metadata = {
   description: 'Vom Rebstock bis zur Rechnung. Alles in einem System.',
   icons: {
     icon: '/favicon.ico',
-    apple: '/favicon-192.png',
-    shortcut: '/favicon.ico',
   },
 }
 

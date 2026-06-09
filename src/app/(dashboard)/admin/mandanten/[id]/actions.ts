@@ -1,7 +1,6 @@
 'use server'
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
-import { encryptPass } from '@/lib/email/crypto'
 import { getCurrentUserRole } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 
@@ -65,9 +64,7 @@ export async function inviteUserToTenant(tenantId: string, email: string, role: 
   let userId = users.find(u => u.email === email)?.id
 
   if (!userId) {
-    const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-      redirectTo: 'https://software112.icp-consultants.at/auth/invite',
-    })
+    const { data, error } = await admin.auth.admin.inviteUserByEmail(email)
     if (error || !data.user) return { error: error?.message ?? 'Einladung fehlgeschlagen' }
     userId = data.user.id
   }
@@ -111,7 +108,7 @@ export async function removeMemberAdmin(membershipId: string, tenantId: string) 
     .delete().eq('id', membershipId)
 
   if (error) return { error: (error as R).message }
-  // KEIN revalidatePath – Client entfernt den Eintrag aus dem State
+  revalidatePath(`/admin/mandanten/${tenantId}`)
   return { success: true }
 }
 
@@ -160,71 +157,11 @@ export async function saveVerkaufEinstellungen(tenantId: string, formData: FormD
       rechnung_prefix:  rPrefix,
       rechnung_stellen: rStellen,
       kunden_prefix:    kPrefix,
-      kunden_stellen:    kStellen,
-      ust_satz_standard: parseFloat(formData.get('ust_satz_standard') as string) || 13,
-      aktualisiert_am:   new Date().toISOString(),
+      kunden_stellen:   kStellen,
+      aktualisiert_am:  new Date().toISOString(),
     }, { onConflict: 'tenant_id' })
 
   if (error) throw new Error((error as R).message)
-  revalidatePath(`/admin/mandanten/${tenantId}`)
-}
-
-// ── M365-Einstellungen speichern ──────────────────────────────────────────────
-
-export async function saveM365Einstellungen(tenantId: string, formData: FormData) {
-  await assertSystemAdmin()
-  const admin = createSupabaseAdminClient()
-  const clientSecret = (formData.get('m365_client_secret') as string).trim()
-
-  const { data: existing } = await (admin.from('tenant_einstellungen') as any)
-    .select('m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle()
-
-  const payload: Record<string, unknown> = {
-    m365_tenant_id: (formData.get('m365_tenant_id') as string) || null,
-    m365_client_id: (formData.get('m365_client_id') as string) || null,
-    m365_client_secret_enc: clientSecret
-      ? encryptPass(clientSecret)
-      : ((existing as Record<string,string>|null)?.m365_client_secret_enc ?? null),
-    aktualisiert_am: new Date().toISOString(),
-  }
-  const { error } = await (admin.from('tenant_einstellungen') as any)
-    .upsert({ tenant_id: tenantId, ...payload }, { onConflict: 'tenant_id' })
-  if (error) throw new Error((error as Record<string,string>).message)
-  revalidatePath(`/admin/mandanten/${tenantId}`)
-}
-
-// ── E-Mail-Einstellungen speichern ────────────────────────────────────────────
-
-export async function saveEmailEinstellungen(tenantId: string, formData: FormData) {
-  await assertSystemAdmin()
-  const admin = createSupabaseAdminClient()
-
-  const smtpPass = (formData.get('email_smtp_pass') as string).trim()
-  const imapPass = (formData.get('email_imap_pass') as string).trim()
-
-  // Bestehende verschlüsselte Passwörter lesen (werden nur überschrieben wenn neu eingegeben)
-  const { data: existing } = await (admin.from('tenant_einstellungen') as any)
-    .select('email_smtp_pass_enc, email_imap_pass_enc')
-    .eq('tenant_id', tenantId).maybeSingle()
-  const existingR = (existing as Record<string,string> | null)
-
-  const payload: Record<string, unknown> = {
-    email_modul_aktiv:    formData.get('email_modul_aktiv') === 'true',
-    email_smtp_host:      (formData.get('email_smtp_host') as string) || null,
-    email_smtp_port:      parseInt(formData.get('email_smtp_port') as string) || 587,
-    email_smtp_user:      (formData.get('email_smtp_user') as string) || null,
-    email_smtp_from_name: (formData.get('email_smtp_from_name') as string) || null,
-    email_smtp_pass_enc:  smtpPass ? encryptPass(smtpPass) : (existingR?.email_smtp_pass_enc ?? null),
-    email_imap_host:      (formData.get('email_imap_host') as string) || null,
-    email_imap_port:      parseInt(formData.get('email_imap_port') as string) || 993,
-    email_imap_user:      (formData.get('email_imap_user') as string) || null,
-    email_imap_pass_enc:  imapPass ? encryptPass(imapPass) : (existingR?.email_imap_pass_enc ?? null),
-    aktualisiert_am:      new Date().toISOString(),
-  }
-
-  const { error } = await (admin.from('tenant_einstellungen') as any)
-    .upsert({ tenant_id: tenantId, ...payload }, { onConflict: 'tenant_id' })
-  if (error) throw new Error((error as Record<string,string>).message)
   revalidatePath(`/admin/mandanten/${tenantId}`)
 }
 

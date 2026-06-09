@@ -39,7 +39,6 @@ export async function createFuellung(formData: FormData) {
     bestand_flaschen:     anzahl,                              // Startbestand = Abfüllmenge
     menge_liter_gefuellt: parseFloat(formData.get('menge_liter_gefuellt') as string) || null,
     vk_preis_brutto:      parseFloat(formData.get('vk_preis_brutto') as string) || null,
-    einstandspreis:       parseFloat(formData.get('einstandspreis') as string) || null,
     notizen:              (formData.get('notizen') as string) || null,
   }
 
@@ -78,7 +77,6 @@ export async function updateFuellung(id: string, formData: FormData) {
     bestand_flaschen:     parseInt(formData.get('bestand_flaschen') as string) || anzahl,
     menge_liter_gefuellt: parseFloat(formData.get('menge_liter_gefuellt') as string) || null,
     vk_preis_brutto:      parseFloat(formData.get('vk_preis_brutto') as string) || null,
-    einstandspreis:       parseFloat(formData.get('einstandspreis') as string) || null,
     notizen:              (formData.get('notizen') as string) || null,
     aktualisiert_am:      new Date().toISOString(),
   }
