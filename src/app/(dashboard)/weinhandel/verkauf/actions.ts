@@ -308,6 +308,5 @@ export async function createSonstigesArtikel(
     .single()
 
   if (error) throw new Error((error as AR).message)
-  revalidatePath('/weinhandel/verkauf/neu')
   return data as SonstigesArtikelData
 }
