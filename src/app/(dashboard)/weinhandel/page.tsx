@@ -34,7 +34,7 @@ export default async function WeinhandelPage() {
   ] = await Promise.all([
     // Abgefüllte Flaschen im Lager
     (supabase.from('fuellungen') as any)
-      .select('id, name, jahrgang, rebsorte, qualitaet, anbaugebiet, bezeichnung, datum, flaschengroesse_ml, anzahl_flaschen, bestand_flaschen, vk_preis_brutto, aktiv')
+      .select('id, name, jahrgang, rebsorte, qualitaet, anbaugebiet, bezeichnung, datum, flaschengroesse_ml, anzahl_flaschen, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv')
       .eq('aktiv', true)
       .order('datum', { ascending: false }),
 
@@ -52,7 +52,7 @@ export default async function WeinhandelPage() {
   // Kennzahlen Flaschenbestand
   const gesamtFlaschen = fuellungen.reduce((s: number, f: R) => s + (f.bestand_flaschen ?? 0), 0)
   const gesamtWert     = fuellungen.reduce((s: number, f: R) =>
-    s + ((f.bestand_flaschen ?? 0) * (f.vk_preis_brutto ?? 0)), 0)
+    s + ((f.bestand_flaschen ?? 0) * (f.einstandspreis ?? 0)), 0)
   const gesamtLiterTank = tanks.reduce((s: number, t: R) => s + (t.menge_liter ?? 0), 0)
 
   return (
@@ -78,7 +78,7 @@ export default async function WeinhandelPage() {
               ? gesamtWert.toLocaleString('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
               : '–'}
           </p>
-          <p className="text-xs text-s112-muted mt-1">Lagerwert Flaschen (Brutto-VK)</p>
+          <p className="text-xs text-s112-muted mt-1">Lagerwert Flaschen (Einstandspreis)</p>
         </div>
         <div className="card text-center p-4">
           <p className="text-3xl font-bold text-s112-teal">
@@ -111,6 +111,7 @@ export default async function WeinhandelPage() {
                   <th className="text-left px-4 py-3 font-semibold text-gray-700">Qualität</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-700">Größe</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-700">Bestand</th>
+                  <th className="text-right px-4 py-3 font-semibold text-gray-700">Einstand</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-700">VK brutto</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-700">Lagerwert</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-700">Abgefüllt</th>
@@ -121,8 +122,9 @@ export default async function WeinhandelPage() {
                 {fuellungen.map((f: R, i: number) => {
                   const bestand    = f.bestand_flaschen ?? 0
                   const gesamt     = f.anzahl_flaschen  ?? 0
-                  const preis      = f.vk_preis_brutto  ?? null
-                  const lagerwert  = preis != null ? bestand * preis : null
+                  const vkPreis    = f.vk_preis_brutto  ?? null
+                  const einstand   = f.einstandspreis != null ? Number(f.einstandspreis) : null
+                  const lagerwert  = einstand != null ? bestand * einstand : null
                   const pct        = gesamt > 0 ? Math.round((bestand / gesamt) * 100) : 0
                   const bestandClr = pct > 50 ? 'text-green-700' : pct > 20 ? 'text-orange-600' : 'text-red-600'
 
@@ -152,8 +154,13 @@ export default async function WeinhandelPage() {
                         <span className="text-xs text-s112-muted ml-1">/ {gesamt.toLocaleString('de-AT')}</span>
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">
-                        {preis != null
-                          ? preis.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+                        {einstand != null
+                          ? einstand.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+                          : <span className="text-s112-muted">–</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {vkPreis != null
+                          ? vkPreis.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
                           : <span className="text-s112-muted">–</span>}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-s112-teal font-semibold">
