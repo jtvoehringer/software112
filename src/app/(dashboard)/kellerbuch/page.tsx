@@ -38,7 +38,8 @@ export default async function KellerbuchPage() {
   const behaelter   = (behaelterRaw   ?? []) as R[]
   const weinausbau  = (weinausbauRaw  ?? []) as R[]
 
-  const aktiveChargen = weinausbau.filter((w: R) => w.aktiv && w.status !== 'abgeschlossen')
+  // abfuellung = Wein hat Keller verlassen → gehört zur Warenwirtschaft
+  const aktiveChargen = weinausbau.filter((w: R) => w.aktiv && w.status !== 'abgeschlossen' && w.status !== 'abfuellung')
   const gesamtLiter   = aktiveChargen.reduce((s: number, w: R) => s + (parseFloat(w.menge_liter) || 0), 0)
 
   // Chargen nach Behälter gruppieren

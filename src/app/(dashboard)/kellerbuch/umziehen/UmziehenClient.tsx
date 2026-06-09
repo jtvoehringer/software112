@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { umziehen, deleteUmzug, updateUmzug } from './actions'
 
 type BehaelterMitCharge = {
@@ -131,8 +132,10 @@ function ZielZeile({
 function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; behaelter: Behaelter[] }) {
   const [pending, startTransition] = useTransition()
   const [error, setError]         = useState<string | null>(null)
+  const [success, setSuccess]     = useState(false)
   const [datum, setDatum]         = useState(new Date().toISOString().split('T')[0])
   const [notizen, setNotizen]     = useState('')
+  const router = useRouter()
 
   type QEntry = { id: string; behId: string; menge: string }
   type ZEntry = { id: string; behId: string; menge: string }
@@ -164,8 +167,13 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
     fd.set('datum', datum)
     fd.set('notizen', notizen)
     startTransition(async () => {
-      try { await umziehen(fd) }
-      catch (err) { setError(err instanceof Error ? err.message : 'Fehler') }
+      try {
+        await umziehen(fd)
+        setSuccess(true)
+        setTimeout(() => router.push('/kellerbuch'), 1200)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Fehler')
+      }
     })
   }
 
@@ -230,10 +238,16 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
           placeholder="Optional" />
       </div>
 
-      <button type="submit" disabled={pending}
-        className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40 w-full">
-        {pending ? 'Wird verarbeitet…' : `Umziehen (${fmt(totalVon)} → ${fmt(totalNach)}${schwund > 0 ? `, ${fmt(schwund)} Schwund` : ''})`}
-      </button>
+      {success ? (
+        <div className="flex items-center justify-center gap-2 bg-green-50 border border-green-200 text-green-700 rounded-xl px-5 py-3 text-sm font-semibold">
+          ✅ Gespeichert – weiterleiten…
+        </div>
+      ) : (
+        <button type="submit" disabled={pending}
+          className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40 w-full">
+          {pending ? 'Wird verarbeitet…' : `Umziehen (${fmt(totalVon)} → ${fmt(totalNach)}${schwund > 0 ? `, ${fmt(schwund)} Schwund` : ''})`}
+        </button>
+      )}
     </form>
   )
 }
@@ -247,6 +261,7 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
   const [notizen, setNotizen]       = useState(u.notizen ?? '')
   const [pending, startTransition]  = useTransition()
   const [error, setError]           = useState<string | null>(null)
+  const router = useRouter()
 
   function handleSave() {
     setError(null)
@@ -254,6 +269,7 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
       try {
         await updateUmzug(u.id, datum, notizen || null)
         setEditing(false)
+        router.refresh()   // Server-Daten neu laden
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Fehler beim Speichern')
       }
@@ -265,6 +281,7 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
     startTransition(async () => {
       try {
         await deleteUmzug(u.id)
+        router.refresh()   // Protokoll-Liste aktualisieren
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Fehler beim Löschen')
         setConfirming(false)

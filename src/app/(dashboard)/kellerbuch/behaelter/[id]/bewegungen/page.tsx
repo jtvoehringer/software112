@@ -57,9 +57,9 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
       .eq('behaelter_id', id)
       .order('id', { ascending: true }),
 
-    // Eingehende Umzüge
+    // Eingehende Umzüge – inkl. schwund_liter für Netto-Berechnung
     (supabase.from('keller_umzuege') as any)
-      .select('id, datum, menge_liter, nach_weinausbau_id, von_weinausbau:von_weinausbau_id(name, jahrgang, behaelter:behaelter_id(name)), notizen')
+      .select('id, datum, menge_liter, schwund_liter, nach_weinausbau_id, von_weinausbau:von_weinausbau_id(name, jahrgang, behaelter:behaelter_id(name)), notizen')
       .eq('nach_behaelter_id', id)
       .order('datum', { ascending: true }),
 
@@ -125,10 +125,12 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     })
   }
 
-  // Eingehende Umzüge (Zugänge)
+  // Eingehende Umzüge (Zugänge) – Nettomenge = brutto − Schwund
   for (const u of (umzuegeEinRaw ?? []) as R[]) {
-    const liter     = parseFloat(u.menge_liter) || 0
-    if (liter <= 0) continue
+    const brutto  = parseFloat(u.menge_liter)  || 0
+    const schwund = parseFloat(u.schwund_liter) || 0
+    const liter   = Math.max(0, +(brutto - schwund).toFixed(3))   // netto
+    if (liter <= 0 && brutto <= 0) continue
     const vonCharge = u.von_weinausbau as R | null
     const vonTank   = (vonCharge?.behaelter as R | null)?.name ?? null
     const vonName   = vonCharge?.name ?? '?'
@@ -137,11 +139,14 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
       art: 'umzug_ein',
       beschreibung: `Umzug von ${vonTank ?? vonName}${vonTank ? ` (${vonName})` : ''}`,
       menge: liter,
-      extra: u.notizen ?? undefined,
+      extra: schwund > 0
+        ? `Schwund: ${schwund.toLocaleString('de-AT')} L${u.notizen ? ` · ${u.notizen}` : ''}`
+        : (u.notizen ?? undefined),
     })
   }
 
-  // Ausgehende Umzüge (Abgänge)
+  // Ausgehende Umzüge (Abgänge) – Schwund ist KEIN zusätzlicher Abgang
+  // (Quelle verliert genau menge_liter; der Schwund erklärt die Differenz zum Ziel)
   for (const u of (umzuegeAusRaw ?? []) as R[]) {
     const abgang  = parseFloat(u.menge_liter) || 0
     const schwund = parseFloat(u.schwund_liter) || 0
@@ -152,7 +157,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
       datum: u.datum,
       art: 'umzug_aus',
       beschreibung: `Umzug nach ${nachTank}${schwund > 0 ? ` · Schwund: ${schwund.toLocaleString('de-AT')} L` : ''}`,
-      menge: -(abgang + schwund),
+      menge: -abgang,   // Quelle verliert exakt abgang; Schwund nicht doppelt zählen
       extra: vonCharge?.name
         ? `aus Charge: ${vonCharge.name}${u.notizen ? ` · ${u.notizen}` : ''}`
         : (u.notizen ?? undefined),
