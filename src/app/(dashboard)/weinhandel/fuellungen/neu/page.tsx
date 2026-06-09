@@ -214,7 +214,7 @@ export default async function NeueFuellungPage({
 
         {/* ── Preis ── */}
         <div className="card p-5 space-y-4">
-          <h2 className="font-semibold text-gray-800 text-sm">Verkaufspreis</h2>
+          <h2 className="font-semibold text-gray-800 text-sm">Preise</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>VK-Preis brutto pro Flasche (€)</label>
@@ -226,7 +226,19 @@ export default async function NeueFuellungPage({
                 placeholder="z.B. 12.90"
                 className={inputCls}
               />
-              <p className="text-xs text-s112-muted mt-1">inkl. 13% MwSt. – Netto-Preis wird automatisch berechnet</p>
+              <p className="text-xs text-s112-muted mt-1">Verkaufspreis inkl. MwSt.</p>
+            </div>
+            <div>
+              <label className={labelCls}>Einstandspreis pro Flasche (€)</label>
+              <input
+                name="einstandspreis"
+                type="number"
+                step="0.01"
+                min={0}
+                placeholder="z.B. 4.20"
+                className={inputCls}
+              />
+              <p className="text-xs text-s112-muted mt-1">Kalkulationskosten / Lagerwert – netto, intern</p>
             </div>
           </div>
         </div>

@@ -55,8 +55,9 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
     (supabase.from('verkaufsposten') as any)
       .select(`
         id, datum, rechnungsnummer, notizen, erstellt_am, storniert, storniert_am,
-        kontakt:kontakte(id, vorname, nachname, email, telefon),
-        firma:firmen(id, name, email, telefon),
+        kontakt:kontakte!kontakt_id(id, vorname, nachname, email, telefon, strasse, plz, ort),
+        firma:firmen(id, name, email, telefon, strasse, plz, ort),
+        zh_kontakt:kontakte!zh_kontakt_id(vorname, nachname),
         positionen:verkauf_positionen(
           id, typ, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct,
           fuellung:fuellungen(id, name, jahrgang, flaschengroesse_ml),
@@ -93,10 +94,15 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
     return '–'
   }
 
-  function kundenInfo(p: R): { email?: string; telefon?: string } {
-    if (p.kontakt) return { email: p.kontakt.email, telefon: p.kontakt.telefon }
-    if (p.firma)   return { email: p.firma.email,   telefon: p.firma.telefon }
-    return {}
+  function kundenInfo(p: R): { email?: string; telefon?: string; strasse?: string; plzOrt?: string } {
+    const src = p.kontakt ?? p.firma
+    if (!src) return {}
+    return {
+      email:   src.email   ?? undefined,
+      telefon: src.telefon ?? undefined,
+      strasse: src.strasse ?? undefined,
+      plzOrt:  [src.plz, src.ort].filter(Boolean).join(' ') || undefined,
+    }
   }
 
   const deactivateWithId = deactivateVerkauf.bind(null, id)
@@ -238,8 +244,11 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             {/* Empfänger */}
             <div className="mb-8 p-4 border border-gray-200 rounded inline-block min-w-[220px]">
               <p className="font-semibold text-base">{kundenName(posten)}</p>
-              {info.email   && <p className="text-gray-600">{info.email}</p>}
-              {info.telefon && <p className="text-gray-600">{info.telefon}</p>}
+              {posten.zh_kontakt && (
+                <p className="text-gray-700">z.H. {[(posten.zh_kontakt as R).vorname, (posten.zh_kontakt as R).nachname].filter(Boolean).join(' ')}</p>
+              )}
+              {info.strasse && <p className="text-gray-600">{info.strasse}</p>}
+              {info.plzOrt  && <p className="text-gray-600">{info.plzOrt}</p>}
             </div>
           </div>
         ) : (
@@ -267,8 +276,11 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
         {!isRechnung && (
           <div className="mb-8">
             <p className="font-semibold">{kundenName(posten)}</p>
-            {info.email   && <p className="text-sm">{info.email}</p>}
-            {info.telefon && <p className="text-sm">{info.telefon}</p>}
+            {posten.zh_kontakt && (
+              <p className="text-sm text-gray-700">z.H. {[(posten.zh_kontakt as R).vorname, (posten.zh_kontakt as R).nachname].filter(Boolean).join(' ')}</p>
+            )}
+            {info.strasse && <p className="text-sm">{info.strasse}</p>}
+            {info.plzOrt  && <p className="text-sm">{info.plzOrt}</p>}
           </div>
         )}
       </div>

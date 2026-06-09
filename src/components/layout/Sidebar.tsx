@@ -23,7 +23,8 @@ type NavLink = {
 type NavEntry = NavGroup | NavLink
 
 const NAV: NavEntry[] = [
-  { kind: 'link',  href: '/dashboard', label: 'Übersicht', icon: '⊞' },
+  { kind: 'link',  href: '/dashboard',   label: 'Übersicht', icon: '⊞' },
+  { kind: 'link',  href: '/nachrichten', label: 'E-Mail',    icon: '📬' },
 
   {
     kind: 'group', label: 'Weingarten', icon: '🌿',
@@ -54,29 +55,60 @@ const NAV: NavEntry[] = [
       { href: '/weinhandel',              label: 'Lager',       phase: 1 },
       { href: '/weinhandel/verkauf',        label: 'Verkauf',       phase: 1 },
       { href: '/weinhandel/offene-posten',  label: 'Offene Posten',  phase: 1 },
+      { href: '/weinhandel/zukauf',          label: 'Zukauf',         phase: 1 },
+      { href: '/weinhandel/sonstige-artikel', label: 'Sonstiges-Produkte', phase: 1 },
       { href: '/weinhandel/preisliste',    label: 'Preisliste',     phase: 1 },
       { href: '/weinhandel/rabattgruppen', label: 'Rabattgruppen',  phase: 1 },
-      { href: '/weinhandel/export',       label: 'Export',      phase: 2 },
+      { href: '/weinexport',               label: 'Exportaufträge' },
     ],
   },
 
   {
-    kind: 'group', label: 'CRM', icon: '🤝',
+    kind: 'group', label: 'Controlling', icon: '🧮',
     items: [
-      { href: '/crm',           label: 'Übersicht' },
+      { href: '/controlling/export',        label: 'Datenexport' },
+      { href: '/controlling/bmd',           label: 'BMD NTCS'         },
+      { href: '/controlling/kostenrechnung',label: 'Kostenrechnung'   },
+    ],
+  },
+
+  {
+    kind: 'group', label: 'CRM', icon: '👥',
+    items: [
+      { href: '/crm',           label: 'Kalender'  },
       { href: '/crm/kontakte',  label: 'Kontakte'  },
+      { href: '/crm/kontakte/visitkarte', label: 'Visitenkarte scannen', child: true },
       { href: '/crm/firmen',    label: 'Firmen'    },
       { href: '/crm/pipeline',  label: 'Pipeline'  },
     ],
   },
 
-  { kind: 'link', href: '/reports', label: 'Reports', icon: '📁', phase: 2 },
+  {
+    kind: 'group', label: 'Auswertungen', icon: '📋',
+    items: [
+      { href: '/reports',                     label: 'Behörden & Reports' },
+      { href: '/auswertungen/kostenrechnung', label: 'Kosten-Auswertung' },
+      { href: '/auswertungen/besuchsplanung', label: 'Besuchsplanung' },
+    ],
+  },
+  { kind: 'link', href: '/ki',      label: 'Frag dein Weingut', icon: '🤖' },
+
+  {
+    kind: 'group', label: 'Hilfe', icon: '❓',
+    items: [
+      { href: '/hilfe/handbuch', label: 'Handbuch' },
+      { href: '/hilfe/faq',     label: 'FAQ'      },
+    ],
+  },
 
   {
     kind: 'group', label: 'Administration', icon: '⚙️', adminOnly: true,
     items: [
-      { href: '/admin/mandanten', label: 'Mandanten' },
-      { href: '/admin/benutzer',  label: 'System-Admin', adminOnly: true },
+      { href: '/admin/mandanten',   label: 'Mandanten' },
+      { href: '/admin/release-notes', label: 'Release Notes' },
+      { href: '/admin/import',      label: 'Datenimport' },
+      { href: '/admin/benutzer',    label: 'System-Admin', adminOnly: true },
+      { href: '/admin/onboarding',  label: 'Onboarding Guide', adminOnly: true },
     ],
   },
 ]
@@ -84,7 +116,7 @@ const NAV: NavEntry[] = [
 // ── Hilfsfunktionen ───────────────────────────────────────────────
 
 // Paths that only match exactly (no prefix-matching for sub-routes)
-const EXACT_PATHS = new Set(['/dashboard', '/crm', '/weinhandel'])
+const EXACT_PATHS = new Set(['/dashboard', '/crm', '/weinhandel', '/auswertungen'])
 
 function isActive(href: string, pathname: string) {
   return pathname === href || (!EXACT_PATHS.has(href) && pathname.startsWith(href))
@@ -116,11 +148,11 @@ function SubItem({ item, pathname }: { item: NavItem; pathname: string }) {
       href={item.href}
       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${indent ? 'ml-3' : ''}
         ${active
-          ? 'bg-s112-teal/10 text-s112-teal font-medium'
-          : 'text-gray-600 hover:bg-s112-bg hover:text-gray-900'
+          ? 'bg-s112-teal text-s112-yellow font-medium'
+          : 'text-s112-teal hover:bg-s112-teal/10'
         }`}
     >
-      <span className={`rounded-full flex-shrink-0 ${indent ? 'w-1 h-1' : 'w-1.5 h-1.5'} ${active ? 'bg-s112-teal' : 'bg-gray-300'}`} />
+      <span className={`rounded-full flex-shrink-0 ${indent ? 'w-1 h-1' : 'w-1.5 h-1.5'} ${active ? 'bg-s112-yellow' : 'bg-s112-teal/40'}`} />
       {item.label}
     </Link>
   )
@@ -135,20 +167,25 @@ function NavGroupItem({
 }) {
   const active = groupIsActive(entry.items, pathname)
   const [open, setOpen] = useState(active)
+  const router = useRouter()
 
   const visibleItems = entry.items.filter(i => !i.adminOnly || isAdmin)
 
   return (
     <div>
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={() => {
+          const firstItem = entry.items.filter(i => !i.adminOnly || isAdmin).find(i => i.phase !== 2)
+          if (firstItem && !active) router.push(firstItem.href)
+          setOpen(o => !o)
+        }}
         className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors
-          ${active ? 'text-s112-teal' : 'text-gray-700 hover:bg-s112-bg hover:text-gray-900'}`}
+          ${active ? 'text-s112-teal font-semibold' : 'text-s112-teal hover:bg-s112-teal/10'}`}
       >
         <span className="w-5 text-center text-base">{entry.icon}</span>
         <span className="flex-1 text-left">{entry.label}</span>
         <svg
-          className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? 'rotate-90' : ''}`}
+          className={`w-3.5 h-3.5 text-s112-teal transition-transform ${open ? 'rotate-90' : ''}`}
           fill="none" stroke="currentColor" viewBox="0 0 24 24"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -170,12 +207,13 @@ function NavGroupItem({
 
 interface SidebarProps {
   userEmail: string
+  userName?: string
   role: UserRole
   roleLabel: string
   branding: TenantBranding
 }
 
-export default function Sidebar({ userEmail, role, roleLabel, branding }: SidebarProps) {
+export default function Sidebar({ userEmail, userName, role, roleLabel, branding }: SidebarProps) {
   const pathname = usePathname()
   const router   = useRouter()
   const supabase = createSupabaseBrowserClient()
@@ -188,7 +226,7 @@ export default function Sidebar({ userEmail, role, roleLabel, branding }: Sideba
   }
 
   return (
-    <aside className="w-60 flex-shrink-0 bg-white border-r border-s112-border flex flex-col">
+    <aside className="w-60 flex-shrink-0 bg-white border-r border-s112-border flex flex-col h-full">
       {/* Kunden-Logo */}
       <div className="px-5 py-4 border-b border-s112-border">
         <Link href="/dashboard" className="block">
@@ -239,7 +277,7 @@ export default function Sidebar({ userEmail, role, roleLabel, branding }: Sideba
               key={entry.href}
               href={entry.href}
               className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors
-                ${active ? 'bg-s112-teal text-white' : 'text-gray-700 hover:bg-s112-bg hover:text-gray-900'}`}
+                ${active ? 'bg-s112-teal text-s112-yellow' : 'text-s112-teal hover:bg-s112-teal/10'}`}
             >
               <span className="w-5 text-center">{entry.icon}</span>
               {entry.label}
@@ -250,21 +288,34 @@ export default function Sidebar({ userEmail, role, roleLabel, branding }: Sideba
 
       {/* User Footer */}
       <div className="px-4 py-4 border-t border-s112-border">
-        <p className="text-xs text-s112-muted truncate">{userEmail}</p>
+        <p className="text-xs font-medium text-gray-700 truncate">{userName || userEmail}</p>
+        <p className="text-[10px] text-s112-muted truncate">{userEmail}</p>
         <p className="text-xs font-medium text-s112-teal mt-0.5">{roleLabel}</p>
+        <a href="/profil"
+          className="text-xs text-s112-muted hover:text-s112-teal transition-colors mt-1.5 block">
+          ✏ Profil bearbeiten
+        </a>
         <button
           onClick={handleLogout}
-          className="text-xs text-s112-muted hover:text-red-600 transition-colors mt-2"
+          className="text-xs text-s112-muted hover:text-red-600 transition-colors mt-1.5"
         >
           Abmelden
         </button>
 
+        <p className="text-[10px] text-gray-400 mt-2">v2.1.0 · Juni 2026</p>
         {/* IC&P Branding */}
-        <div className="mt-3 pt-3 border-t border-s112-border/40 flex items-center gap-2">
+        <div className="mt-2 pt-2 border-t border-s112-border/40 flex items-center gap-2">
           <Image
             src="/icp-logo.png"
             alt="IC&P Consultants"
             width={20} height={20}
             className="rounded-full opacity-60 flex-shrink-0"
           />
-        
+          <p className="text-[9px] text-s112-muted/50 leading-tight">
+            &copy; IC&amp;P Consultants e.U.
+          </p>
+        </div>
+      </div>
+    </aside>
+  )
+}

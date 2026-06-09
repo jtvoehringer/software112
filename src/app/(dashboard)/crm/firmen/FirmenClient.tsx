@@ -1,12 +1,32 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createFirma, updateFirma, deleteFirma } from '../actions'
 import { SEGMENTE, segmentLabel, segmentFarbe } from '@/lib/crm/types'
 import type { FirmaRow } from '@/lib/crm/types'
 
 type KontaktKurz = { id: string; vorname: string | null; nachname: string; segment: string }
+
+
+const DIAL_CODES = [
+  { code: '+43', flag: '🇦🇹', iso: 'AT' },
+  { code: '+49', flag: '🇩🇪', iso: 'DE' },
+  { code: '+41', flag: '🇨🇭', iso: 'CH' },
+  { code: '+423', flag: '🇱🇮', iso: 'LI' },
+  { code: '+39', flag: '🇮🇹', iso: 'IT' },
+  { code: '+386', flag: '🇸🇮', iso: 'SI' },
+  { code: '+421', flag: '🇸🇰', iso: 'SK' },
+  { code: '+420', flag: '🇨🇿', iso: 'CZ' },
+  { code: '+36', flag: '🇭🇺', iso: 'HU' },
+  { code: '+33', flag: '🇫🇷', iso: 'FR' },
+  { code: '+31', flag: '🇳🇱', iso: 'NL' },
+  { code: '+32', flag: '🇧🇪', iso: 'BE' },
+  { code: '+44', flag: '🇬🇧', iso: 'GB' },
+  { code: '+48', flag: '🇵🇱', iso: 'PL' },
+  { code: '+1',  flag: '🇺🇸', iso: 'US' },
+]
 
 function inputCls() {
   return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
@@ -17,9 +37,15 @@ const LAENDER = ['AT', 'DE', 'CH', 'IT', 'FR', 'HU', 'SK', 'CZ', 'US', 'GB']
 
 // ── Formular ──────────────────────────────────────────────────────────────────
 
-function FirmaForm({ initial, rabattgruppen, defaultSegment, onDone }: { initial?: FirmaRow | null; rabattgruppen: {id:string;name:string;rabatt_pct:number}[]; defaultSegment?: string; onDone: () => void }) {
+function FirmaForm({ initial, rabattgruppen, defaultSegment, existingFirmen, onDone }: { initial?: FirmaRow | null; rabattgruppen: {id:string;name:string;rabatt_pct:number}[]; defaultSegment?: string; existingFirmen?: FirmaRow[]; onDone: () => void }) {
   const [pending, startTransition] = useTransition()
+  const router = useRouter()
   const [segmentVal, setSegmentVal] = useState(initial?.segment ?? defaultSegment ?? 'handel')
+  const [isLead, setIsLead]           = useState(initial?.is_lead ?? true)
+  const [landVal, setLandVal]           = useState(initial?.land ?? 'AT')
+  const [saveError, setSaveError]   = useState<string | null>(null)
+  const [dubletteWarnung, setDubletteWarnung] = useState<string | null>(null)
+  const [dubletteIgnorieren, setDubletteIgnorieren] = useState(false)
   const v = (field: keyof FirmaRow) => (initial?.[field] ?? '') as string
 
   useEffect(() => {
@@ -29,21 +55,95 @@ function FirmaForm({ initial, rabattgruppen, defaultSegment, onDone }: { initial
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
+    setSaveError(null)
+
+    // Dublettenprüfung nur bei Neuanlage
+    if (!initial && !dubletteIgnorieren && existingFirmen && existingFirmen.length > 0) {
+      const eingabeName    = ((fd.get('name')    as string) ?? '').trim().toLowerCase()
+      const eingabeStrasse = ((fd.get('strasse') as string) ?? '').trim().toLowerCase()
+      const eingabePlz     = ((fd.get('plz')     as string) ?? '').trim().toLowerCase()
+      const eingabeOrt     = ((fd.get('ort')     as string) ?? '').trim().toLowerCase()
+
+      const dubletteNamen = existingFirmen.find(f =>
+        f.name.trim().toLowerCase() === eingabeName
+      )
+      const dubletteAdresse = eingabeStrasse && eingabePlz && eingabeOrt
+        ? existingFirmen.find(f =>
+            (f.strasse ?? '').trim().toLowerCase() === eingabeStrasse &&
+            (f.plz ?? '').trim().toLowerCase() === eingabePlz &&
+            (f.ort ?? '').trim().toLowerCase() === eingabeOrt
+          )
+        : null
+
+      if (dubletteNamen) {
+        setDubletteWarnung(`Eine Firma „${dubletteNamen.name}" ist bereits vorhanden.`)
+        return
+      }
+      if (dubletteAdresse) {
+        setDubletteWarnung(`Eine Firma mit dieser Adresse (${dubletteAdresse.strasse}, ${dubletteAdresse.plz} ${dubletteAdresse.ort}) ist bereits vorhanden: „${dubletteAdresse.name}".`)
+        return
+      }
+    }
+
     startTransition(async () => {
-      if (initial) await updateFirma(initial.id, fd)
-      else await createFirma(fd)
-      onDone()
+      try {
+        if (initial) await updateFirma(initial.id, fd)
+        else await createFirma(fd)
+        onDone()
+        router.refresh()
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : 'Fehler beim Speichern')
+      }
     })
   }
 
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-5 space-y-4">
       <h3 className="text-sm font-semibold text-gray-800">{initial ? 'Firma bearbeiten' : 'Neue Firma'}</h3>
+      {saveError && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{saveError}</p>}
+      {dubletteWarnung && (
+        <div className="bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 text-sm">
+          <p className="font-medium text-amber-800 mb-1">⚠ Mögliche Dublette</p>
+          <p className="text-amber-700 mb-3">{dubletteWarnung}</p>
+          <p className="text-amber-700 mb-3">Möchten Sie den Eintrag trotzdem übernehmen oder verwerfen?</p>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => { setDubletteIgnorieren(true); setDubletteWarnung(null); setTimeout(() => { (document.activeElement as HTMLElement)?.closest('form')?.requestSubmit() }, 10) }}
+              className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-amber-700">
+              Trotzdem übernehmen
+            </button>
+            <button type="button" onClick={() => { setDubletteWarnung(null); onDone() }}
+              className="border border-amber-400 text-amber-700 px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-amber-100">
+              Verwerfen
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-gray-600 mb-1">Firmenname *</label>
           <input name="name" defaultValue={v('name')} required className={inputCls()} />
+        </div>
+        {/* Lead / Kunde Toggle */}
+        <div className="sm:col-span-2 flex items-center justify-between bg-white border border-s112-border rounded-xl px-4 py-2.5">
+          <div>
+            <p className={`text-sm font-semibold ${isLead ? 'text-amber-600' : 'text-s112-teal'}`}>
+              {isLead ? '🌱 Lead' : '✅ Kunde'}
+            </p>
+            <p className="text-xs text-s112-muted">
+              {isLead ? 'Noch kein Verkauf – wird automatisch Kunde beim ersten Verkauf' : 'Aktiver Kunde'}
+            </p>
+          </div>
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input type="hidden" name="is_lead" value={String(isLead)} />
+            <div onClick={() => setIsLead(v => !v)}
+              className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${isLead ? 'bg-amber-400' : 'bg-s112-teal'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${isLead ? 'translate-x-0' : 'translate-x-5'}`} />
+            </div>
+            <span className={`text-sm font-semibold min-w-[48px] ${isLead ? 'text-amber-600' : 'text-s112-teal'}`}>
+              {isLead ? 'Lead' : 'Kunde'}
+            </span>
+          </label>
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Segment *</label>
@@ -73,13 +173,28 @@ function FirmaForm({ initial, rabattgruppen, defaultSegment, onDone }: { initial
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Land</label>
-          <select name="land" defaultValue={v('land') || 'AT'} className={inputCls()}>
+          <select name="land" value={landVal} onChange={e => setLandVal(e.target.value)} className={inputCls()}>
             {LAENDER.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Telefon</label>
-          <input name="telefon" defaultValue={v('telefon')} className={inputCls()} />
+          <div className="flex gap-1.5">
+            <select
+              name="telefon_vorwahl"
+              defaultValue={initial?.telefon_vorwahl ?? '+43'}
+              onChange={e => {
+                const d = DIAL_CODES.find(x => x.code === e.target.value)
+                if (d) setLandVal(d.iso)
+              }}
+              className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-24 flex-shrink-0"
+            >
+              {DIAL_CODES.map(d => (
+                <option key={d.code} value={d.code}>{d.flag} {d.code}</option>
+              ))}
+            </select>
+            <input name="telefon" defaultValue={v('telefon')} className={inputCls()} />
+          </div>
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">E-Mail</label>
@@ -108,6 +223,17 @@ function FirmaForm({ initial, rabattgruppen, defaultSegment, onDone }: { initial
               <option key={r.id} value={r.id}>{r.name} ({r.rabatt_pct}%)</option>
             ))}
           </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Sonderrabatt %</label>
+          <input
+            name="sonderrabatt_pct"
+            type="number"
+            min="0" max="100" step="0.5"
+            defaultValue={initial?.sonderrabatt_pct ?? 0}
+            placeholder="0"
+            className={inputCls()}
+          />
         </div>
       </div>
 
@@ -170,6 +296,20 @@ function FirmaKarte({
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${segmentFarbe(firma.segment)}`}>
               {segmentLabel(firma.segment)}
             </span>
+            {firma.is_lead
+              ? <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">🌱 Lead</span>
+              : <span className="text-xs px-2 py-0.5 rounded-full bg-s112-teal/10 text-s112-teal font-medium">✅ Kunde</span>
+            }
+            {firma.rabattgruppe_name && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
+                {firma.rabattgruppe_pct}% {firma.rabattgruppe_name}
+              </span>
+            )}
+            {(firma.sonderrabatt_pct ?? 0) > 0 && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
+                {firma.sonderrabatt_pct}% Sonderrab.
+              </span>
+            )}
             {firma.land !== 'AT' && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{firma.land}</span>
             )}
@@ -234,11 +374,16 @@ export default function FirmenClient({
   const [showForm, setShowForm] = useState(false)
   const [suche, setSuche] = useState('')
   const [segment, setSegment] = useState('alle')
+  const [filterLead, setFilterLead] = useState<'alle' | 'lead' | 'kunde'>('alle')
+  const BUCHSTABEN = ['Alle', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')]
+  const [buchstabe, setBuchstabe] = useState('Alle')
 
   const gefiltert = firmen.filter(f => {
     const text = [f.kundennummer, f.name, f.ort, f.email, f.telefon].filter(Boolean).join(' ').toLowerCase()
+    const matchAlpha = buchstabe === 'Alle' || (f.name ?? '').toUpperCase().startsWith(buchstabe)
+    const matchLead = filterLead === 'alle' || (filterLead === 'lead' ? f.is_lead : !f.is_lead)
     return (!suche || text.includes(suche.toLowerCase())) &&
-           (segment === 'alle' || f.segment === segment)
+           (segment === 'alle' || f.segment === segment) && matchAlpha && matchLead
   })
 
   const bSegmente = SEGMENTE.filter(s => s.value !== 'privat')
@@ -246,7 +391,20 @@ export default function FirmenClient({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <input type="search" placeholder="Name, Kundennummer, E-Mail, Ort…"
+      {/* Alphabet-Filter */}
+      <div className="flex flex-wrap gap-0.5">
+        {BUCHSTABEN.map(b => (
+          <button key={b} onClick={() => setBuchstabe(b)}
+            className={`min-w-[1.75rem] px-1 py-0.5 text-xs font-medium rounded transition-colors
+              ${buchstabe === b
+                ? 'bg-s112-teal text-white'
+                : 'bg-s112-bg text-gray-500 hover:bg-s112-teal/10 hover:text-s112-teal'}`}>
+            {b}
+          </button>
+        ))}
+      </div>
+
+              <input type="search" placeholder="Name, Kundennummer, E-Mail, Ort…"
           value={suche} onChange={e => setSuche(e.target.value)}
           className="border border-s112-border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         <div className="flex gap-1">
@@ -265,17 +423,33 @@ export default function FirmenClient({
             )
           })}
         </div>
-        {writeOk && !showForm && (
-          <button onClick={() => setShowForm(true)}
-            className="ml-auto inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
-            <span>＋</span> Neue Firma
-          </button>
-        )}
+        <div className="flex gap-1">
+          {(['alle', 'lead', 'kunde'] as const).map(v => (
+            <button key={v} onClick={() => setFilterLead(v)}
+              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterLead === v ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:text-gray-900'}`}>
+              {v === 'alle' ? 'Alle' : v === 'lead' ? '🌱 Lead' : '✅ Kunde'}
+              {' '}({v === 'alle' ? firmen.length : firmen.filter(f => v === 'lead' ? f.is_lead : !f.is_lead).length})
+            </button>
+          ))}
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <a href="/api/export/firmen" download
+            className="inline-flex items-center gap-1.5 border border-s112-border text-gray-600 px-3 py-2 rounded-xl text-sm hover:bg-s112-bg transition-colors">
+            ⬇ CSV
+          </a>
+          {writeOk && !showForm && (
+            <button onClick={() => setShowForm(true)}
+              className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+              <span>＋</span> Neue Firma
+            </button>
+          )}
+        </div>
       </div>
 
       {showForm && (
         <FirmaForm
           rabattgruppen={rabattgruppen}
+          existingFirmen={firmen}
           defaultSegment={segment !== 'alle' ? segment : undefined}
           onDone={() => setShowForm(false)}
         />

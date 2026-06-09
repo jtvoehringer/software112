@@ -35,13 +35,19 @@ export async function createKontakt(formData: FormData) {
     segment:     formData.get('segment') as string,
     firma_id:    (formData.get('firma_id') as string) || null,
     email:       (formData.get('email') as string) || null,
-    telefon:     (formData.get('telefon') as string) || null,
-    mobil:       (formData.get('mobil') as string) || null,
-    ort:         (formData.get('ort') as string) || null,
+    telefon:          (formData.get('telefon')          as string) || null,
+    telefon_vorwahl:  (formData.get('telefon_vorwahl') as string) || '+43',
+    mobil:            (formData.get('mobil')            as string) || null,
+    mobil_vorwahl:    (formData.get('mobil_vorwahl')    as string) || '+43',
+    strasse:     (formData.get('strasse') as string) || null,
+    plz:         (formData.get('plz')     as string) || null,
+    ort:         (formData.get('ort')     as string) || null,
     land:        (formData.get('land') as string) || 'AT',
     stammkunde:  formData.get('stammkunde') === 'true',
     notizen:         (formData.get('notizen')         as string) || null,
     ...(formData.get('rabattgruppe_id') ? { rabattgruppe_id: formData.get('rabattgruppe_id') as string } : {}),
+    sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
+    is_lead: formData.get('is_lead') === 'true',
   }
   payload.kundennummer = await generateKundennummer(tenantId)
   const { error } = await (supabase.from('kontakte') as any).insert(payload)
@@ -57,18 +63,25 @@ export async function updateKontakt(id: string, formData: FormData) {
     segment:    formData.get('segment') as string,
     firma_id:   (formData.get('firma_id') as string) || null,
     email:      (formData.get('email') as string) || null,
-    telefon:    (formData.get('telefon') as string) || null,
-    mobil:      (formData.get('mobil') as string) || null,
-    ort:        (formData.get('ort') as string) || null,
+    telefon:          (formData.get('telefon')          as string) || null,
+    telefon_vorwahl:  (formData.get('telefon_vorwahl') as string) || '+43',
+    mobil:            (formData.get('mobil')            as string) || null,
+    mobil_vorwahl:    (formData.get('mobil_vorwahl')    as string) || '+43',
+    strasse:    (formData.get('strasse') as string) || null,
+    plz:        (formData.get('plz')     as string) || null,
+    ort:        (formData.get('ort')     as string) || null,
     land:       (formData.get('land') as string) || 'AT',
     stammkunde: formData.get('stammkunde') === 'true',
     notizen:         (formData.get('notizen')         as string) || null,
     ...(formData.get('rabattgruppe_id') !== undefined ? { rabattgruppe_id: (formData.get('rabattgruppe_id') as string) || null } : {}),
+    sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
+    is_lead: formData.get('is_lead') === 'true',
     aktualisiert_am: new Date().toISOString(),
   }
   const { error } = await (supabase.from('kontakte') as any).update(payload).eq('id', id)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/crm/kontakte')
+  revalidatePath('/crm/kontakte/[id]', 'page')
 }
 
 export async function deleteKontakt(id: string) {
@@ -91,7 +104,8 @@ export async function createFirma(formData: FormData) {
     plz:                (formData.get('plz') as string) || null,
     ort:                (formData.get('ort') as string) || null,
     land:               (formData.get('land') as string) || 'AT',
-    telefon:            (formData.get('telefon') as string) || null,
+    telefon:            (formData.get('telefon')          as string) || null,
+    telefon_vorwahl:    (formData.get('telefon_vorwahl') as string) || '+43',
     email:              (formData.get('email') as string) || null,
     website:            (formData.get('website') as string) || null,
     uid_nummer:         (formData.get('uid_nummer') as string) || null,
@@ -99,6 +113,8 @@ export async function createFirma(formData: FormData) {
     waehrung:           (formData.get('waehrung') as string) || 'EUR',
     notizen:            (formData.get('notizen')         as string) || null,
     ...(formData.get('rabattgruppe_id') ? { rabattgruppe_id: formData.get('rabattgruppe_id') as string } : {}),
+    sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
+    is_lead: formData.get('is_lead') === 'true',
   }
   payload.kundennummer = await generateKundennummer(tenantId)
   const { error } = await (supabase.from('firmen') as any).insert(payload)
@@ -115,7 +131,8 @@ export async function updateFirma(id: string, formData: FormData) {
     plz:                (formData.get('plz') as string) || null,
     ort:                (formData.get('ort') as string) || null,
     land:               (formData.get('land') as string) || 'AT',
-    telefon:            (formData.get('telefon') as string) || null,
+    telefon:            (formData.get('telefon')          as string) || null,
+    telefon_vorwahl:    (formData.get('telefon_vorwahl') as string) || '+43',
     email:              (formData.get('email') as string) || null,
     website:            (formData.get('website') as string) || null,
     uid_nummer:         (formData.get('uid_nummer') as string) || null,
@@ -123,11 +140,14 @@ export async function updateFirma(id: string, formData: FormData) {
     waehrung:           (formData.get('waehrung') as string) || 'EUR',
     notizen:            (formData.get('notizen')         as string) || null,
     ...(formData.get('rabattgruppe_id') !== undefined ? { rabattgruppe_id: (formData.get('rabattgruppe_id') as string) || null } : {}),
+    sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
+    is_lead: formData.get('is_lead') === 'true',
     aktualisiert_am:    new Date().toISOString(),
   }
   const { error } = await (supabase.from('firmen') as any).update(payload).eq('id', id)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/crm/firmen')
+  revalidatePath('/crm/firmen/[id]', 'page')
 }
 
 export async function deleteFirma(id: string) {
@@ -139,9 +159,22 @@ export async function deleteFirma(id: string) {
 
 // ── Aktivitäten ───────────────────────────────────────────────────────────────
 
+export async function moveAktivitaet(id: string, datum: string, uhrzeit_von: string, uhrzeit_bis: string) {
+  const supabase = await createSupabaseServerClient()
+  const { error } = await (supabase.from('aktivitaeten') as any)
+    .update({ datum, ganztags: !uhrzeit_von && !uhrzeit_bis, uhrzeit_von: uhrzeit_von || null, uhrzeit_bis: uhrzeit_bis || null })
+    .eq('id', id)
+  if (error) throw new Error((error as AR).message)
+  revalidatePath('/crm')
+  revalidatePath('/crm/kontakte/[id]', 'page')
+  revalidatePath('/crm/firmen/[id]', 'page')
+}
+
+
 export async function createAktivitaet(formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
+  const { data: { user } } = await supabase.auth.getUser()
   const ganztags = formData.get('ganztags') !== 'false'
   const payload: AR = {
     tenant_id:    tenantId,
@@ -151,13 +184,19 @@ export async function createAktivitaet(formData: FormData) {
     betreff:      (formData.get('betreff') as string) || null,
     beschreibung: (formData.get('beschreibung') as string) || null,
     datum:        formData.get('datum') as string,
+    bis_datum:    (formData.get('bis_datum') as string) || null,
     erledigt:     formData.get('erledigt') === 'true',
     ganztags,
     uhrzeit_von:  ganztags ? null : ((formData.get('uhrzeit_von') as string) || null),
     uhrzeit_bis:  ganztags ? null : ((formData.get('uhrzeit_bis') as string) || null),
+    ist_privat:   formData.get('ist_privat') === 'true',
+    erstellt_von: user?.id ?? null,
   }
   const { error } = await (supabase.from('aktivitaeten') as any).insert(payload)
-  if (error) throw new Error((error as AR).message)
+  if (error) {
+    console.error('[createAktivitaet] DB-Fehler:', error.message, error.details, error.hint)
+    throw new Error(`Aktivität konnte nicht gespeichert werden: ${error.message}`)
+  }
   revalidatePath('/crm')
   revalidatePath('/crm/kontakte')
   revalidatePath('/crm/firmen')
@@ -173,6 +212,7 @@ export async function updateAktivitaet(id: string, formData: FormData) {
     betreff:      (formData.get('betreff') as string) || null,
     beschreibung: (formData.get('beschreibung') as string) || null,
     datum:        formData.get('datum') as string,
+    bis_datum:    (formData.get('bis_datum') as string) || null,
     erledigt:     formData.get('erledigt') === 'true',
     ganztags,
     uhrzeit_von:  ganztags ? null : ((formData.get('uhrzeit_von') as string) || null),

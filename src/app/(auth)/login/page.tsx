@@ -53,7 +53,7 @@ export default function LoginPage() {
       <div className="card">
         <h2 className="text-lg font-semibold text-gray-800 mb-6">Anmelden</h2>
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleLogin} autoComplete="on" className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
               E-Mail
@@ -64,7 +64,7 @@ export default function LoginPage() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
-              autoComplete="email"
+              autoComplete="username"
               className="input"
               placeholder="joerg@weingut.at"
             />
@@ -99,12 +99,18 @@ export default function LoginPage() {
           >
             {loading ? 'Anmelden…' : 'Anmelden'}
           </button>
+          <div className="text-center mt-3">
+            <a href="/login/reset" className="text-xs text-s112-teal hover:underline">
+              Passwort vergessen?
+            </a>
+          </div>
         </form>
       </div>
 
       <p className="text-center text-xs text-s112-muted mt-6">
         software:112 · IC&P Consultants e.U.
       </p>
+      <p className="text-center text-[10px] text-gray-400 mt-1">v2.1.0 · Juni 2026</p>
     </div>
   )
 }

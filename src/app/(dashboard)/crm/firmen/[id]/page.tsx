@@ -30,7 +30,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     { data: pRaw },
   ] = await Promise.all([
     (supabase.from('firmen') as any)
-      .select('id, kundennummer, name, segment, strasse, plz, ort, land, email, telefon, website, uid_nummer, kreditlimit, zahlungsziel_tage, waehrung, notizen, aktiv, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
+      .select('id, kundennummer, name, segment, strasse, plz, ort, land, email, telefon, telefon_vorwahl, website, uid_nummer, kreditlimit, zahlungsziel_tage, waehrung, notizen, aktiv, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
       .eq('id', id)
       .single(),
 
@@ -41,7 +41,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
       .order('nachname'),
 
     (supabase.from('aktivitaeten') as any)
-      .select('id, art, betreff, beschreibung, datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, kontakt_id, firma_id')
+      .select('*')
       .eq('firma_id', id)
       .order('datum', { ascending: false }),
 
@@ -57,7 +57,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
   const firma: FirmaRow = {
     id: f.id, kundennummer: f.kundennummer ?? null, name: f.name, segment: f.segment,
     strasse: f.strasse ?? null, plz: f.plz ?? null, ort: f.ort ?? null, land: f.land ?? null,
-    email: f.email ?? null, telefon: f.telefon ?? null, website: f.website ?? null,
+    email: f.email ?? null, telefon: f.telefon ?? null, telefon_vorwahl: (f.telefon_vorwahl as string | null) ?? '+43', website: f.website ?? null,
     uid_nummer: f.uid_nummer ?? null, kreditlimit: f.kreditlimit ?? null,
     zahlungsziel_tage: f.zahlungsziel_tage ?? null, waehrung: f.waehrung ?? null,
     notizen: f.notizen ?? null, aktiv: f.aktiv ?? true,
@@ -70,6 +70,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     id: k.id, kundennummer: k.kundennummer ?? null, vorname: k.vorname ?? null, nachname: k.nachname,
     segment: k.segment, firma_id: k.firma_id ?? null, firma_name: firma.name,
     email: k.email ?? null, telefon: k.telefon ?? null, mobil: k.mobil ?? null,
+    strasse: k.strasse ?? null, plz: k.plz ?? null,
     ort: k.ort ?? null, land: k.land ?? null,
     newsletter: k.newsletter ?? false, newsletter_bestaetigt: k.newsletter_bestaetigt ?? false,
     stammkunde: k.stammkunde ?? false, notizen: k.notizen ?? null,

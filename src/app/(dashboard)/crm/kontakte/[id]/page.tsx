@@ -30,12 +30,12 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
     { data: pRaw },
   ] = await Promise.all([
     (supabase.from('kontakte') as any)
-      .select('id, kundennummer, vorname, nachname, segment, firma_id, firmen:firma_id(name, segment), email, telefon, mobil, ort, land, newsletter, newsletter_bestaetigt, stammkunde, notizen, aktiv, erstellt_am, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
+      .select('id, kundennummer, vorname, nachname, segment, firma_id, firmen:firma_id(name, segment), email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, newsletter, newsletter_bestaetigt, stammkunde, notizen, aktiv, erstellt_am, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
       .eq('id', id)
       .single(),
 
     (supabase.from('aktivitaeten') as any)
-      .select('id, art, betreff, beschreibung, datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, kontakt_id, firma_id')
+      .select('*')
       .eq('kontakt_id', id)
       .order('datum', { ascending: false }),
 
@@ -68,6 +68,12 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
     rabattgruppe_id:       k.rabattgruppe_id ?? null,
     rabattgruppe_name:     (k.rabattgruppe as R | null)?.name ?? null,
     rabattgruppe_pct:      (k.rabattgruppe as R | null)?.rabatt_pct ?? null,
+    sonderrabatt_pct:      parseFloat(k.sonderrabatt_pct) || 0,
+    is_lead:               !!(k.is_lead as boolean),
+    telefon_vorwahl:       (k.telefon_vorwahl as string | null) ?? '+43',
+    mobil_vorwahl:         (k.mobil_vorwahl   as string | null) ?? '+43',
+    strasse:               (k.strasse          as string | null) ?? null,
+    plz:                   (k.plz              as string | null) ?? null,
     aktiv:                 k.aktiv ?? true,
     erstellt_am:           k.erstellt_am,
   }
