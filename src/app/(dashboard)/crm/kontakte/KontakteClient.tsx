@@ -48,12 +48,13 @@ function inputCls() {
 // ── Formular ──────────────────────────────────────────────────────────────────
 
 function KontaktForm({
-  initial, firmen, rabattgruppen, defaultSegment, onDone,
+  initial, firmen, rabattgruppen, defaultSegment, existingKontakte, onDone,
 }: {
   initial?: KontaktRow | null
   firmen: FirmaOption[]
   rabattgruppen: RabattgruppeOption[]
   defaultSegment?: string
+  existingKontakte?: KontaktRow[]
   onDone: () => void
 }) {
   const router = useRouter()
@@ -63,6 +64,8 @@ function KontaktForm({
   const [landVal, setLandVal]           = useState(initial?.land ?? 'AT')
   const [segmentVal, setSegmentVal] = useState(initial?.segment ?? defaultSegment ?? 'privat')
   const [saveError, setSaveError]   = useState<string | null>(null)
+  const [dubletteWarnung, setDubletteWarnung] = useState<string | null>(null)
+  const [dubletteIgnorieren, setDubletteIgnorieren] = useState(false)
 
   useEffect(() => {
     if (!initial && defaultSegment) setSegmentVal(defaultSegment)
@@ -73,6 +76,37 @@ function KontaktForm({
     const fd = new FormData(e.currentTarget)
     fd.set('stammkunde', stammkunde ? 'true' : 'false')
     setSaveError(null)
+
+    // Dublettenprüfung nur bei Neuanlage (nicht beim Bearbeiten) und nicht wenn bereits ignoriert
+    if (!initial && !dubletteIgnorieren && existingKontakte && existingKontakte.length > 0) {
+      const eingabeName     = ((fd.get('nachname') as string) ?? '').trim().toLowerCase()
+      const eingabeVorname  = ((fd.get('vorname')  as string) ?? '').trim().toLowerCase()
+      const eingabeStrasse  = ((fd.get('strasse')  as string) ?? '').trim().toLowerCase()
+      const eingabePlz      = ((fd.get('plz')      as string) ?? '').trim().toLowerCase()
+      const eingabeOrt      = ((fd.get('ort')      as string) ?? '').trim().toLowerCase()
+
+      const dubletteNamen = existingKontakte.find(k =>
+        k.nachname.trim().toLowerCase() === eingabeName &&
+        (k.vorname ?? '').trim().toLowerCase() === eingabeVorname
+      )
+      const dubletteAdresse = eingabeStrasse && eingabePlz && eingabeOrt
+        ? existingKontakte.find(k =>
+            (k.strasse ?? '').trim().toLowerCase() === eingabeStrasse &&
+            (k.plz ?? '').trim().toLowerCase() === eingabePlz &&
+            (k.ort ?? '').trim().toLowerCase() === eingabeOrt
+          )
+        : null
+
+      if (dubletteNamen) {
+        setDubletteWarnung(`Ein Kontakt „${dubletteNamen.vorname ? dubletteNamen.vorname + ' ' : ''}${dubletteNamen.nachname}" ist bereits vorhanden.`)
+        return
+      }
+      if (dubletteAdresse) {
+        setDubletteWarnung(`Ein Kontakt mit dieser Adresse (${dubletteAdresse.strasse}, ${dubletteAdresse.plz} ${dubletteAdresse.ort}) ist bereits vorhanden: „${dubletteAdresse.vorname ? dubletteAdresse.vorname + ' ' : ''}${dubletteAdresse.nachname}".`)
+        return
+      }
+    }
+
     startTransition(async () => {
       try {
         if (initial) await updateKontakt(initial.id, fd)
@@ -91,6 +125,23 @@ function KontaktForm({
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-5 space-y-4">
       <h3 className="text-sm font-semibold text-gray-800">{initial ? 'Kontakt bearbeiten' : 'Neuer Kontakt'}</h3>
       {saveError && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{saveError}</p>}
+      {dubletteWarnung && (
+        <div className="bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 text-sm">
+          <p className="font-medium text-amber-800 mb-1">⚠ Mögliche Dublette</p>
+          <p className="text-amber-700 mb-3">{dubletteWarnung}</p>
+          <p className="text-amber-700 mb-3">Möchten Sie den Eintrag trotzdem übernehmen oder verwerfen?</p>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => { setDubletteIgnorieren(true); setDubletteWarnung(null); setTimeout(() => { (document.activeElement as HTMLElement)?.closest('form')?.requestSubmit() }, 10) }}
+              className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-amber-700">
+              Trotzdem übernehmen
+            </button>
+            <button type="button" onClick={() => { setDubletteWarnung(null); onDone() }}
+              className="border border-amber-400 text-amber-700 px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-amber-100">
+              Verwerfen
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* Lead / Kunde Toggle */}
@@ -560,6 +611,7 @@ export default function KontakteClient({
   const [showForm, setShowForm] = useState(false)
   const [suche, setSuche] = useState('')
   const [segment, setSegment] = useState<string>('alle')
+  const [filterLead, setFilterLead] = useState<'alle' | 'lead' | 'kunde'>('alle')
   const BUCHSTABEN = ['Alle', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')]
   const [buchstabe, setBuchstabe] = useState('Alle')
   const [sortBy, setSortBy] = useState<'nachname' | 'vorname'>('nachname')
@@ -570,7 +622,8 @@ export default function KontakteClient({
       const matchSuche = !suche || name.includes(suche.toLowerCase())
       const matchSeg = segment === 'alle' || k.segment === segment
       const matchAlpha = buchstabe === 'Alle' || (k.nachname ?? '').toUpperCase().startsWith(buchstabe)
-      return matchSuche && matchSeg && matchAlpha
+      const matchLead = filterLead === 'alle' || (filterLead === 'lead' ? k.is_lead : !k.is_lead)
+      return matchSuche && matchSeg && matchAlpha && matchLead
     })
     .sort((a, b) => {
       const ka = sortBy === 'nachname' ? a.nachname : (a.vorname ?? a.nachname)
@@ -624,6 +677,15 @@ export default function KontakteClient({
           </svg>
           {sortBy === 'nachname' ? 'Nachname' : 'Vorname'}
         </button>
+        <div className="flex gap-1">
+          {(['alle', 'lead', 'kunde'] as const).map(v => (
+            <button key={v} onClick={() => setFilterLead(v)}
+              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterLead === v ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:text-gray-900'}`}>
+              {v === 'alle' ? 'Alle' : v === 'lead' ? '🌱 Lead' : '✅ Kunde'}
+              {' '}({v === 'alle' ? kontakte.length : kontakte.filter(k => v === 'lead' ? k.is_lead : !k.is_lead).length})
+            </button>
+          ))}
+        </div>
         <div className="ml-auto flex items-center gap-2">
           <a href="/api/export/kontakte" download
             className="inline-flex items-center gap-1.5 border border-s112-border text-gray-600 px-3 py-2 rounded-xl text-sm hover:bg-s112-bg transition-colors">
@@ -643,6 +705,7 @@ export default function KontakteClient({
         <KontaktForm
           firmen={firmen}
           rabattgruppen={rabattgruppen}
+          existingKontakte={kontakte}
           defaultSegment={segment !== 'alle' ? segment : undefined}
           onDone={() => setShowForm(false)}
         />

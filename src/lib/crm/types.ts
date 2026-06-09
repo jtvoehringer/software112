@@ -6,6 +6,8 @@ export const SEGMENTE = [
   { value: 'handel',      label: 'Handel',             icon: '🏪', farbe: 'bg-purple-100 text-purple-800' },
   { value: 'export',      label: 'Export',             icon: '✈️', farbe: 'bg-green-100 text-green-800'  },
   { value: 'grosshandel', label: 'Großhandel',         icon: '🏭', farbe: 'bg-gray-100 text-gray-800'   },
+  { value: 'produzent',   label: 'Produzent',           icon: '🍇', farbe: 'bg-rose-100 text-rose-800'    },
+  { value: 'weinhauer',   label: 'Weinhauer',           icon: '🏡', farbe: 'bg-lime-100 text-lime-800'     },
 ] as const
 
 export type Kundensegment = (typeof SEGMENTE)[number]['value']

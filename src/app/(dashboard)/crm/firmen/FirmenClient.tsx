@@ -37,13 +37,15 @@ const LAENDER = ['AT', 'DE', 'CH', 'IT', 'FR', 'HU', 'SK', 'CZ', 'US', 'GB']
 
 // ── Formular ──────────────────────────────────────────────────────────────────
 
-function FirmaForm({ initial, rabattgruppen, defaultSegment, onDone }: { initial?: FirmaRow | null; rabattgruppen: {id:string;name:string;rabatt_pct:number}[]; defaultSegment?: string; onDone: () => void }) {
+function FirmaForm({ initial, rabattgruppen, defaultSegment, existingFirmen, onDone }: { initial?: FirmaRow | null; rabattgruppen: {id:string;name:string;rabatt_pct:number}[]; defaultSegment?: string; existingFirmen?: FirmaRow[]; onDone: () => void }) {
   const [pending, startTransition] = useTransition()
   const router = useRouter()
   const [segmentVal, setSegmentVal] = useState(initial?.segment ?? defaultSegment ?? 'handel')
   const [isLead, setIsLead]           = useState(initial?.is_lead ?? true)
   const [landVal, setLandVal]           = useState(initial?.land ?? 'AT')
   const [saveError, setSaveError]   = useState<string | null>(null)
+  const [dubletteWarnung, setDubletteWarnung] = useState<string | null>(null)
+  const [dubletteIgnorieren, setDubletteIgnorieren] = useState(false)
   const v = (field: keyof FirmaRow) => (initial?.[field] ?? '') as string
 
   useEffect(() => {
@@ -54,6 +56,35 @@ function FirmaForm({ initial, rabattgruppen, defaultSegment, onDone }: { initial
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
     setSaveError(null)
+
+    // Dublettenprüfung nur bei Neuanlage
+    if (!initial && !dubletteIgnorieren && existingFirmen && existingFirmen.length > 0) {
+      const eingabeName    = ((fd.get('name')    as string) ?? '').trim().toLowerCase()
+      const eingabeStrasse = ((fd.get('strasse') as string) ?? '').trim().toLowerCase()
+      const eingabePlz     = ((fd.get('plz')     as string) ?? '').trim().toLowerCase()
+      const eingabeOrt     = ((fd.get('ort')     as string) ?? '').trim().toLowerCase()
+
+      const dubletteNamen = existingFirmen.find(f =>
+        f.name.trim().toLowerCase() === eingabeName
+      )
+      const dubletteAdresse = eingabeStrasse && eingabePlz && eingabeOrt
+        ? existingFirmen.find(f =>
+            (f.strasse ?? '').trim().toLowerCase() === eingabeStrasse &&
+            (f.plz ?? '').trim().toLowerCase() === eingabePlz &&
+            (f.ort ?? '').trim().toLowerCase() === eingabeOrt
+          )
+        : null
+
+      if (dubletteNamen) {
+        setDubletteWarnung(`Eine Firma „${dubletteNamen.name}" ist bereits vorhanden.`)
+        return
+      }
+      if (dubletteAdresse) {
+        setDubletteWarnung(`Eine Firma mit dieser Adresse (${dubletteAdresse.strasse}, ${dubletteAdresse.plz} ${dubletteAdresse.ort}) ist bereits vorhanden: „${dubletteAdresse.name}".`)
+        return
+      }
+    }
+
     startTransition(async () => {
       try {
         if (initial) await updateFirma(initial.id, fd)
@@ -70,6 +101,23 @@ function FirmaForm({ initial, rabattgruppen, defaultSegment, onDone }: { initial
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-5 space-y-4">
       <h3 className="text-sm font-semibold text-gray-800">{initial ? 'Firma bearbeiten' : 'Neue Firma'}</h3>
       {saveError && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{saveError}</p>}
+      {dubletteWarnung && (
+        <div className="bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 text-sm">
+          <p className="font-medium text-amber-800 mb-1">⚠ Mögliche Dublette</p>
+          <p className="text-amber-700 mb-3">{dubletteWarnung}</p>
+          <p className="text-amber-700 mb-3">Möchten Sie den Eintrag trotzdem übernehmen oder verwerfen?</p>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => { setDubletteIgnorieren(true); setDubletteWarnung(null); setTimeout(() => { (document.activeElement as HTMLElement)?.closest('form')?.requestSubmit() }, 10) }}
+              className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-amber-700">
+              Trotzdem übernehmen
+            </button>
+            <button type="button" onClick={() => { setDubletteWarnung(null); onDone() }}
+              className="border border-amber-400 text-amber-700 px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-amber-100">
+              Verwerfen
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="sm:col-span-2">
@@ -326,14 +374,16 @@ export default function FirmenClient({
   const [showForm, setShowForm] = useState(false)
   const [suche, setSuche] = useState('')
   const [segment, setSegment] = useState('alle')
+  const [filterLead, setFilterLead] = useState<'alle' | 'lead' | 'kunde'>('alle')
   const BUCHSTABEN = ['Alle', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')]
   const [buchstabe, setBuchstabe] = useState('Alle')
 
   const gefiltert = firmen.filter(f => {
     const text = [f.kundennummer, f.name, f.ort, f.email, f.telefon].filter(Boolean).join(' ').toLowerCase()
     const matchAlpha = buchstabe === 'Alle' || (f.name ?? '').toUpperCase().startsWith(buchstabe)
+    const matchLead = filterLead === 'alle' || (filterLead === 'lead' ? f.is_lead : !f.is_lead)
     return (!suche || text.includes(suche.toLowerCase())) &&
-           (segment === 'alle' || f.segment === segment) && matchAlpha
+           (segment === 'alle' || f.segment === segment) && matchAlpha && matchLead
   })
 
   const bSegmente = SEGMENTE.filter(s => s.value !== 'privat')
@@ -373,6 +423,15 @@ export default function FirmenClient({
             )
           })}
         </div>
+        <div className="flex gap-1">
+          {(['alle', 'lead', 'kunde'] as const).map(v => (
+            <button key={v} onClick={() => setFilterLead(v)}
+              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterLead === v ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:text-gray-900'}`}>
+              {v === 'alle' ? 'Alle' : v === 'lead' ? '🌱 Lead' : '✅ Kunde'}
+              {' '}({v === 'alle' ? firmen.length : firmen.filter(f => v === 'lead' ? f.is_lead : !f.is_lead).length})
+            </button>
+          ))}
+        </div>
         <div className="ml-auto flex items-center gap-2">
           <a href="/api/export/firmen" download
             className="inline-flex items-center gap-1.5 border border-s112-border text-gray-600 px-3 py-2 rounded-xl text-sm hover:bg-s112-bg transition-colors">
@@ -390,6 +449,7 @@ export default function FirmenClient({
       {showForm && (
         <FirmaForm
           rabattgruppen={rabattgruppen}
+          existingFirmen={firmen}
           defaultSegment={segment !== 'alle' ? segment : undefined}
           onDone={() => setShowForm(false)}
         />
