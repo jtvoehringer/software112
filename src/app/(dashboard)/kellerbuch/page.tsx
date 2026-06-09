@@ -177,7 +177,7 @@ export default async function KellerbuchPage() {
                                   🍾 Abfüllen
                                 </Link>
                               )}
-                              <Link href={`/kellerbuch/weinausbau/${w.id}`}
+                              <Link href={`/kellerbuch/behaelter/${b.id}/bewegungen`}
                                 className="text-xs text-s112-teal hover:underline whitespace-nowrap">
                                 Bewegungen →
                               </Link>
