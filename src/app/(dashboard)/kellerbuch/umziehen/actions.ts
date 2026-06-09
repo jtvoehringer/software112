@@ -70,8 +70,10 @@ export async function umziehen(fd: FormData) {
     const vollstaendig = restmenge <= 0.01
 
     if (vollstaendig) {
+      // behaelter_id NICHT nullen → historischer Link bleibt erhalten
+      // (Bewegungsbuch findet die Charge weiterhin via behaelter_id)
       await (supabase.from('weinausbau') as any)
-        .update({ menge_liter: 0, aktiv: false, status: 'abgeschlossen', behaelter_id: null })
+        .update({ menge_liter: 0, aktiv: false, status: 'abgeschlossen' })
         .eq('id', q.weinausbau_id)
     } else {
       await (supabase.from('weinausbau') as any)
@@ -83,6 +85,7 @@ export async function umziehen(fd: FormData) {
     const { data: umzugData } = await (supabase.from('keller_umzuege') as any).insert({
       tenant_id:          tenantId,
       datum,
+      von_behaelter_id:   von.behaelter_id,
       von_weinausbau_id:  q.weinausbau_id,
       nach_behaelter_id:  ziele[0].behaelter_id,
       nach_weinausbau_id: primaryNachWeinausbauId,
@@ -167,8 +170,10 @@ export async function deleteUmzug(umzugId: string) {
       .select('menge_liter').eq('id', umzug.von_weinausbau_id).single()
     if (vonRaw) {
       const restored = +((parseFloat((vonRaw as R).menge_liter) || 0) + umzugMenge + schwundMenge).toFixed(3)
+      const vonUpdate: R = { menge_liter: restored, aktiv: true }
+      if (umzug.von_behaelter_id) vonUpdate.behaelter_id = umzug.von_behaelter_id
       await (supabase.from('weinausbau') as any)
-        .update({ menge_liter: restored, aktiv: true })
+        .update(vonUpdate)
         .eq('id', umzug.von_weinausbau_id)
     }
   }
@@ -180,8 +185,9 @@ export async function deleteUmzug(umzugId: string) {
     if (nachRaw) {
       const reduced = Math.max(0, +((parseFloat((nachRaw as R).menge_liter) || 0) - umzugMenge).toFixed(3))
       if (reduced <= 0.01) {
+        // behaelter_id NICHT nullen → historischer Link bleibt erhalten
         await (supabase.from('weinausbau') as any)
-          .update({ menge_liter: 0, aktiv: false, behaelter_id: null })
+          .update({ menge_liter: 0, aktiv: false })
           .eq('id', umzug.nach_weinausbau_id)
       } else {
         await (supabase.from('weinausbau') as any)

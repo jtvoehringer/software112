@@ -45,11 +45,12 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
   if (!bhRow) notFound()
   const bh = bhRow as R
 
-  // Parallel-Queries: Pressungen + eingehende Umzüge + Chargen
+  // Parallel-Queries: Pressungen + eingehende Umzüge + Chargen + ausgehende Umzüge via von_behaelter_id
   const [
     { data: pressungenRaw },
     { data: umzuegeEinRaw },
     { data: chargenRaw },
+    { data: umzuegeVonBehaelterRaw },
   ] = await Promise.all([
     // Pressungen für diesen Behälter – via behaelter_id (korrekte Verknüpfung!)
     (supabase.from('pressung_behaelter') as any)
@@ -68,13 +69,19 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
       .select('id, name, jahrgang, menge_liter, aktiv')
       .eq('behaelter_id', id)
       .order('id', { ascending: true }),
+
+    // Ausgehende Umzüge via von_behaelter_id – deckt manuell erstellte Chargen ab,
+    // die vollständig umgezogen wurden (behaelter_id=null, kein pressung_behaelter-Eintrag)
+    (supabase.from('keller_umzuege') as any)
+      .select('von_weinausbau_id')
+      .eq('von_behaelter_id', id),
   ])
 
-  // Charge-IDs sammeln aus 3 Quellen:
+  // Charge-IDs sammeln aus 4 Quellen:
   // 1. Direkt zugewiesene Chargen (behaelter_id = id)
   // 2. Via eingehende Umzüge (nach_weinausbau_id)
   // 3. Via Pressungen verknüpfte Chargen (pressung_behaelter.weinausbau_id)
-  //    → deckt den Fall ab wenn Charge nach vollständigem Umzug behaelter_id=null hat
+  // 4. Via ausgehende Umzüge (von_behaelter_id = id → von_weinausbau_id)
   const chargeIds = new Set<string>()
   for (const c of (chargenRaw ?? []) as R[]) chargeIds.add(c.id)
   for (const u of (umzuegeEinRaw ?? []) as R[]) {
@@ -82,6 +89,9 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
   }
   for (const p of (pressungenRaw ?? []) as R[]) {
     if (p.weinausbau_id) chargeIds.add(p.weinausbau_id)
+  }
+  for (const u of (umzuegeVonBehaelterRaw ?? []) as R[]) {
+    if (u.von_weinausbau_id) chargeIds.add(u.von_weinausbau_id)
   }
   const chargeIdList = Array.from(chargeIds)
 
