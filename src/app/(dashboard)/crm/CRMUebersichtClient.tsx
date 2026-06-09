@@ -6,6 +6,58 @@ import { createAktivitaet, moveAktivitaet, updateAktivitaet } from './actions'
 import { AKTIVITAET_ARTEN } from '@/lib/crm/types'
 import Link from 'next/link'
 
+// ── Typeahead-Suche ───────────────────────────────────────────────────────────
+interface SucheItem { id: string; label: string; sub?: string }
+function KundenSuche({ items, value, onChange, placeholder }: {
+  items: SucheItem[]; value: string; onChange: (v: string) => void; placeholder?: string
+}) {
+  const [query, setQuery] = useState('')
+  const [open,  setOpen]  = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const selected = items.find(i => i.id === value)
+  const treffer = query.length < 1
+    ? items.slice(0, 50)
+    : items.filter(i => (i.label + ' ' + (i.sub ?? '')).toLowerCase().includes(query.toLowerCase())).slice(0, 50)
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [])
+  return (
+    <div ref={ref} className="relative">
+      {selected ? (
+        <div className="flex items-center gap-1 border border-s112-border rounded-lg px-2 py-1.5 bg-s112-bg">
+          <span className="text-sm flex-1 truncate">{selected.label}</span>
+          <button type="button" onClick={() => { onChange(''); setQuery('') }}
+            className="text-gray-400 hover:text-gray-600 flex-shrink-0 leading-none">×</button>
+        </div>
+      ) : (
+        <>
+          <input type="text" value={query}
+            onChange={e => { setQuery(e.target.value); setOpen(true) }}
+            onFocus={() => setOpen(true)}
+            placeholder={placeholder ?? 'Suchen…'}
+            className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none w-full" />
+          {open && treffer.length > 0 && (
+            <ul className="absolute z-50 mt-1 w-full bg-white border border-s112-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+              {treffer.map(i => (
+                <li key={i.id}
+                  onMouseDown={e => { e.preventDefault(); onChange(i.id); setQuery(''); setOpen(false) }}
+                  className="px-3 py-2 hover:bg-s112-bg cursor-pointer">
+                  <span className="text-sm font-medium">{i.label}</span>
+                  {i.sub && <span className="text-xs text-s112-muted ml-1">{i.sub}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 // ── Typen ─────────────────────────────────────────────────────────────────────
 
 export type KalenderEintrag = {
@@ -206,7 +258,9 @@ function ZeitachseView({
   const [editAktMode, setEditAktMode] = useState(false)
 
   // neue Aktivität
-  const [newAkt,    setNewAkt]    = useState<{ datum: string; von: string; bis: string; ganztags: boolean } | null>(null)
+  const [newAkt,         setNewAkt]         = useState<{ datum: string; von: string; bis: string; ganztags: boolean } | null>(null)
+  const [newAktKontaktId, setNewAktKontaktId] = useState('')
+  const [newAktFirmaId,   setNewAktFirmaId]   = useState('')
   const [saveErr,   setSaveErr]   = useState<string | null>(null)
   // drag & drop
   const [dragInfo,   setDragInfo]   = useState<{ id: string; duration: number; ganztags?: boolean } | null>(null)
@@ -298,10 +352,14 @@ function ZeitachseView({
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
     fd.set('ganztags', newAkt?.ganztags ? 'true' : 'false')
+    if (newAktKontaktId) fd.set('kontakt_id', newAktKontaktId)
+    if (newAktFirmaId)   fd.set('firma_id',   newAktFirmaId)
     startTransition(async () => {
       try {
         await createAktivitaet(fd)
         setNewAkt(null)
+        setNewAktKontaktId('')
+        setNewAktFirmaId('')
         router.refresh()
       } catch (err) {
         setSaveErr(err instanceof Error ? err.message : 'Fehler beim Speichern')
@@ -701,7 +759,7 @@ function ZeitachseView({
 
     {newAkt && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-        onClick={() => setNewAkt(null)}>
+        onClick={() => { setNewAkt(null); setNewAktKontaktId(''); setNewAktFirmaId('') }}>
         <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4"
           onClick={e => e.stopPropagation()}>
           <h3 className="text-base font-bold text-gray-900 mb-1">{newAkt?.ganztags ? '📅 Ganztags-Aktivität' : 'Neue Aktivität'}</h3>
@@ -746,17 +804,21 @@ function ZeitachseView({
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Kontakt</label>
-                <select name="kontakt_id" className={inputCls}>
-                  <option value="">– kein –</option>
-                  {kontakte.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
-                </select>
+                <KundenSuche
+                  items={kontakte.map(k => ({ id: k.id, label: k.name }))}
+                  value={newAktKontaktId}
+                  onChange={setNewAktKontaktId}
+                  placeholder="– kein –"
+                />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Firma</label>
-                <select name="firma_id" className={inputCls}>
-                  <option value="">– keine –</option>
-                  {firmen.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-                </select>
+                <KundenSuche
+                  items={firmen.map(f => ({ id: f.id, label: f.name }))}
+                  value={newAktFirmaId}
+                  onChange={setNewAktFirmaId}
+                  placeholder="– keine –"
+                />
               </div>
             </div>
 
@@ -792,7 +854,7 @@ function ZeitachseView({
                 className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
                 {pending ? 'Speichern…' : 'Speichern'}
               </button>
-              <button type="button" onClick={() => setNewAkt(null)}
+              <button type="button" onClick={() => { setNewAkt(null); setNewAktKontaktId(''); setNewAktFirmaId('') }}
                 className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
                 Abbrechen
               </button>
