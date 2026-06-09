@@ -28,7 +28,7 @@ export async function umziehen(fd: FormData) {
     .select('tenant_id').limit(1).single()
   const tenantId = (membership as R)?.tenant_id
 
-  // ── Qualitätsminimum aller Quellen ermitteln ──────────────────────────────────
+  // -- Qualitaetsminimum aller Quellen ermitteln
   let minQualStufe: string | null = null
   const quellenDaten: R[] = []
 
@@ -41,7 +41,19 @@ export async function umziehen(fd: FormData) {
     minQualStufe = minQualitaet(minQualStufe, von.qualitaetsstufe ?? null)
   }
 
-  // ── Quellen reduzieren / abschließen ──────────────────────────────────────────
+  // -- Ziel-Charge vorab ermitteln (fuer nach_weinausbau_id in keller_umzuege)
+  const primaryZielBehaelterId = ziele[0].behaelter_id
+  const { data: preCheckRaw } = await (supabase.from('weinausbau') as any)
+    .select('id')
+    .eq('behaelter_id', primaryZielBehaelterId)
+    .eq('aktiv', true)
+    .neq('status', 'abgeschlossen')
+    .maybeSingle()
+  let primaryNachWeinausbauId: string | null = (preCheckRaw as R | null)?.id ?? null
+
+  // -- Quellen reduzieren / abschliessen
+  const insertedUmzugIds: string[] = []
+
   for (let i = 0; i < quellen.length; i++) {
     const q   = quellen[i]
     const von = quellenDaten[i]
@@ -58,22 +70,26 @@ export async function umziehen(fd: FormData) {
         .eq('id', q.weinausbau_id)
     }
 
-    // Protokoll
-    await (supabase.from('keller_umzuege') as any).insert({
-      tenant_id:         tenantId,
+    // Protokoll (mit Ziel-Charge-ID falls bereits bekannt)
+    const { data: umzugData } = await (supabase.from('keller_umzuege') as any).insert({
+      tenant_id:          tenantId,
       datum,
-      von_weinausbau_id: q.weinausbau_id,
-      nach_behaelter_id: ziele[0].behaelter_id,
-      menge_liter:       q.menge,
-      schwund_liter:     i === 0 ? schwund : 0,
-      verschnitt:        false,
-      qualitaet_vorher:  von.qualitaetsstufe ?? null,
-      qualitaet_nachher: minQualStufe,
+      von_weinausbau_id:  q.weinausbau_id,
+      nach_behaelter_id:  ziele[0].behaelter_id,
+      nach_weinausbau_id: primaryNachWeinausbauId,
+      menge_liter:        q.menge,
+      schwund_liter:      i === 0 ? schwund : 0,
+      verschnitt:         false,
+      qualitaet_vorher:   von.qualitaetsstufe ?? null,
+      qualitaet_nachher:  minQualStufe,
       notizen,
-    })
+    }).select('id')
+    if (umzugData) {
+      for (const u of (umzugData as R[])) insertedUmzugIds.push(u.id)
+    }
   }
 
-  // ── Ziele befüllen ────────────────────────────────────────────────────────────
+  // -- Ziele befuellen
   for (const z of ziele) {
     const { data: vorhandenRaw } = await (supabase.from('weinausbau') as any)
       .select('*')
@@ -92,21 +108,31 @@ export async function umziehen(fd: FormData) {
         .eq('id', vorhanden.id)
     } else {
       const von0 = quellenDaten[0]
-      await (supabase.from('weinausbau') as any).insert({
-        tenant_id:       tenantId,
-        name:            quellenDaten.length > 1 ? 'Zusammenführung' : (von0?.name ?? 'Umzug'),
-        jahrgang:        von0?.jahrgang ?? null,
-        rebsorte:        von0?.rebsorte ?? null,
-        weingarten_id:   von0?.weingarten_id ?? null,
-        behaelter_id:    z.behaelter_id,
-        menge_liter:     z.menge,
-        qualitaetsstufe: minQualStufe,
-        status:          von0?.status ?? 'ausbau',
-        notizen:         quellen.length > 1
-          ? `Zusammengeführt aus ${quellen.length} Chargen`
+      const { data: newChargeData } = await (supabase.from('weinausbau') as any).insert({
+        tenant_id:            tenantId,
+        name:                 quellenDaten.length > 1 ? 'Zusammenfuehrung' : (von0?.name ?? 'Umzug'),
+        jahrgang:             von0?.jahrgang ?? null,
+        rebsorte:             von0?.rebsorte ?? null,
+        weingarten_id:        von0?.weingarten_id ?? null,
+        behaelter_id:         z.behaelter_id,
+        menge_liter:          z.menge,
+        anfangsbestand_liter: z.menge,
+        qualitaetsstufe:      minQualStufe,
+        status:               von0?.status ?? 'ausbau',
+        notizen:              quellen.length > 1
+          ? `Zusammengefuehrt aus ${quellen.length} Chargen`
           : `Umzug aus "${von0?.name ?? ''}"`,
-        aktiv:           true,
-      })
+        aktiv:                true,
+      }).select('id')
+
+      const newId = ((newChargeData as R[])?.[0] as R | undefined)?.id ?? null
+
+      // keller_umzuege nachtraeglich mit nach_weinausbau_id verknuepfen
+      if (newId && primaryNachWeinausbauId === null && insertedUmzugIds.length > 0) {
+        await (supabase.from('keller_umzuege') as any)
+          .update({ nach_weinausbau_id: newId })
+          .in('id', insertedUmzugIds)
+      }
     }
   }
 

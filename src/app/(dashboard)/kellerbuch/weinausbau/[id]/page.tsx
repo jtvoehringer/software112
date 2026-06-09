@@ -13,11 +13,11 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  ernte:        { label: 'Ernte',        color: 'bg-yellow-100 text-yellow-700' },
-  gaerung:      { label: 'Gärung',       color: 'bg-orange-100 text-orange-700' },
-  ausbau:       { label: 'Ausbau',       color: 'bg-blue-100 text-blue-700' },
-  abfuellung:   { label: 'Abfüllung',   color: 'bg-purple-100 text-purple-700' },
-  abgeschlossen:{ label: 'Abgeschlossen',color: 'bg-green-100 text-green-700' },
+  ernte:        { label: 'Ernte',         color: 'bg-yellow-100 text-yellow-700' },
+  gaerung:      { label: 'Gärung',   color: 'bg-orange-100 text-orange-700' },
+  ausbau:       { label: 'Ausbau',        color: 'bg-blue-100 text-blue-700' },
+  abfuellung:   { label: 'Abfüllung', color: 'bg-purple-100 text-purple-700' },
+  abgeschlossen:{ label: 'Abgeschlossen', color: 'bg-green-100 text-green-700' },
 }
 
 export default async function WeinausbauDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -30,19 +30,26 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
     { data: rows },
     { data: wgRaw },
     { data: bhRaw },
-    { data: umzuegeRaw },
+    { data: umzuegeAusRaw },
+    { data: umzuegeEinRaw },
     { data: fuellungenRaw },
     { data: verkaufRaw },
+    { data: pressungenRaw },
   ] = await Promise.all([
     (supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, weingarten_id, behaelter_id, menge_liter, anfangsbestand_liter, status, qualitaetsstufe, notizen, aktiv, behaelter:behaelter_id(name)')
       .eq('id', id).limit(1),
     (supabase.from('weingarten') as any).select('id, name').eq('aktiv', true).order('name'),
     (supabase.from('behaelter') as any).select('id, name').eq('aktiv', true).order('name'),
-    // Umzüge aus dieser Charge heraus
+    // Ausgehende Umzüge aus dieser Charge
     (supabase.from('keller_umzuege') as any)
       .select('id, datum, menge_liter, schwund_liter, nach_behaelter:nach_behaelter_id(name), notizen')
       .eq('von_weinausbau_id', id)
+      .order('datum', { ascending: true }),
+    // Eingehende Umzüge in diese Charge (erfordert Migration 060)
+    (supabase.from('keller_umzuege') as any)
+      .select('id, datum, menge_liter, von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name)), notizen')
+      .eq('nach_weinausbau_id', id)
       .order('datum', { ascending: true }),
     // Abfüllungen aus dieser Charge
     (supabase.from('fuellungen') as any)
@@ -54,6 +61,11 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
       .select('id, menge, einheit, verkaufsposten:verkaufsposten_id(datum, storniert)')
       .eq('weinausbau_id', id)
       .eq('typ', 'tank')
+      .order('id', { ascending: true }),
+    // Pressungen / Ernte die in diese Charge geflossen sind
+    (supabase.from('pressung_behaelter') as any)
+      .select('id, menge_liter, notizen, pressung:pressung_id(datum, notizen)')
+      .eq('weinausbau_id', id)
       .order('id', { ascending: true }),
   ])
 
@@ -77,25 +89,55 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
 
   type Bewegung = {
     datum: string
-    art: 'umziehen' | 'abfuellung' | 'verkauf'
+    art: 'ernte' | 'umziehen_ein' | 'umziehen_aus' | 'abfuellung' | 'verkauf'
     beschreibung: string
-    menge: number     // positiv = Zugang, negativ = Abgang
+    menge: number
     extra?: string
   }
 
   const bewegungen: Bewegung[] = []
 
-  for (const u of ((umzuegeRaw ?? []) as R[])) {
+  // Pressungen / Ernte (Zugänge)
+  for (const p of ((pressungenRaw ?? []) as R[])) {
+    const liter = parseFloat(p.menge_liter) || 0
+    const press = p.pressung as R | null
+    bewegungen.push({
+      datum: press?.datum ?? '',
+      art: 'ernte',
+      beschreibung: `Ernte / Pressung${press?.notizen ? ` – ${press.notizen}` : ''}`,
+      menge: liter,
+      extra: p.notizen ?? undefined,
+    })
+  }
+
+  // Eingehende Umzüge (Zugänge)
+  for (const u of ((umzuegeEinRaw ?? []) as R[])) {
+    const liter     = parseFloat(u.menge_liter) || 0
+    const vonCharge = u.von_weinausbau as R | null
+    const vonTank   = (vonCharge?.behaelter as R | null)?.name ?? null
+    const vonName   = vonCharge?.name ?? '?'
+    bewegungen.push({
+      datum: u.datum,
+      art: 'umziehen_ein',
+      beschreibung: `Umziehen ← ${vonTank ? `${vonTank} (${vonName})` : vonName}`,
+      menge: liter,
+      extra: u.notizen ?? undefined,
+    })
+  }
+
+  // Ausgehende Umzüge (Abgänge)
+  for (const u of ((umzuegeAusRaw ?? []) as R[])) {
     const abgang = parseFloat(u.menge_liter) || 0
     bewegungen.push({
       datum: u.datum,
-      art: 'umziehen',
+      art: 'umziehen_aus',
       beschreibung: `Umziehen → ${(u.nach_behaelter as R | null)?.name ?? '?'}${u.schwund_liter > 0 ? ` (Schwund: ${u.schwund_liter} L)` : ''}`,
       menge: -(abgang + (parseFloat(u.schwund_liter) || 0)),
       extra: u.notizen ?? undefined,
     })
   }
 
+  // Abfüllungen (Abgänge)
   for (const f of ((fuellungenRaw ?? []) as R[])) {
     const liter = parseFloat(f.menge_liter_gefuellt) || (parseInt(f.anzahl_flaschen) * parseInt(f.flaschengroesse_ml) / 1000)
     bewegungen.push({
@@ -107,6 +149,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
     })
   }
 
+  // Tank-Verkäufe (Abgänge)
   for (const v of ((verkaufRaw ?? []) as R[])) {
     const vp = v.verkaufsposten as R | null
     if (vp?.storniert) continue
@@ -114,7 +157,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
     bewegungen.push({
       datum: vp?.datum ?? '',
       art: 'verkauf',
-      beschreibung: `Tank-Verkauf`,
+      beschreibung: 'Tank-Verkauf',
       menge: -liter,
     })
   }
@@ -122,14 +165,28 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
   // Nach Datum sortieren
   bewegungen.sort((a, b) => a.datum.localeCompare(b.datum))
 
-  // Laufendes Saldo berechnen
-  let saldo = anfangsbestand
+  // Startpunkt des Saldos:
+  // Zugangsbuchungen vorhanden (Pressung/eingehender Umzug) => Saldo startet bei 0
+  // Keine Zugangsbuchungen => statischer Anfangsbestand als Startpunkt
+  const hatPressungen     = (pressungenRaw ?? []).length > 0
+  const hatEingehendeUmzg = (umzuegeEinRaw ?? []).length > 0
+  const hatZugaenge       = hatPressungen || hatEingehendeUmzg
+
+  let saldo = hatZugaenge ? 0 : anfangsbestand
   const bewegungenMitSaldo = bewegungen.map(bew => {
     saldo += bew.menge
     return { ...bew, saldo }
   })
 
   const st = STATUS_LABELS[weinausbau.status] ?? { label: weinausbau.status, color: 'bg-gray-100 text-gray-600' }
+
+  const artIcon: Record<string, string> = {
+    ernte:        '🍇',
+    umziehen_ein: '↩️',
+    umziehen_aus: '↪️',
+    abfuellung:   '🍾',
+    verkauf:      '💰',
+  }
 
   return (
     <div className="max-w-4xl space-y-8">
@@ -176,19 +233,21 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
               </tr>
             </thead>
             <tbody>
-              {/* Anfangsbestand */}
-              <tr className="border-b border-s112-border/40 bg-green-50/50">
-                <td className="px-4 py-2.5 text-xs text-gray-500">–</td>
-                <td className="px-4 py-2.5 font-medium text-gray-700">Anfangsbestand</td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-green-700 font-semibold">
-                  +{anfangsbestand.toLocaleString('de-AT')} L
-                </td>
-                <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-800">
-                  {anfangsbestand.toLocaleString('de-AT')} L
-                </td>
-              </tr>
+              {/* Anfangsbestand – nur wenn KEINE Zugangsbuchungen vorhanden */}
+              {!hatZugaenge && (
+                <tr className="border-b border-s112-border/40 bg-green-50/50">
+                  <td className="px-4 py-2.5 text-xs text-gray-500">–</td>
+                  <td className="px-4 py-2.5 font-medium text-gray-700">Anfangsbestand</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-green-700 font-semibold">
+                    +{anfangsbestand.toLocaleString('de-AT')} L
+                  </td>
+                  <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-800">
+                    {anfangsbestand.toLocaleString('de-AT')} L
+                  </td>
+                </tr>
+              )}
 
-              {bewegungenMitSaldo.length === 0 && (
+              {bewegungenMitSaldo.length === 0 && !hatZugaenge && (
                 <tr>
                   <td colSpan={4} className="px-4 py-4 text-center text-xs text-s112-muted italic">
                     Noch keine Bewegungen erfasst
@@ -197,23 +256,26 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
               )}
 
               {bewegungenMitSaldo.map((bew, i) => {
-                const artIcon = bew.art === 'umziehen' ? '↔️' : bew.art === 'abfuellung' ? '🍾' : '💰'
-                const istAbgang = bew.menge < 0
+                const istAbgang    = bew.menge < 0
+                const istZugang    = bew.menge > 0
+                const colorClass   = istAbgang ? 'text-red-600' : istZugang ? 'text-green-600' : 'text-gray-500'
+                const isZugangsRow = bew.art === 'ernte' || bew.art === 'umziehen_ein'
+                const rowBg        = isZugangsRow ? 'bg-green-50/50' : (i % 2 === 1 ? 'bg-s112-bg/30' : '')
                 return (
-                  <tr key={i} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
+                  <tr key={i} className={`border-b border-s112-border/30 last:border-0 ${rowBg}`}>
                     <td className="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">
                       {bew.datum ? new Date(bew.datum).toLocaleDateString('de-AT') : '–'}
                     </td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-start gap-1.5">
-                        <span>{artIcon}</span>
+                        <span>{artIcon[bew.art] ?? '•'}</span>
                         <div>
                           <p className="text-gray-700">{bew.beschreibung}</p>
                           {bew.extra && <p className="text-xs text-s112-muted">{bew.extra}</p>}
                         </div>
                       </div>
                     </td>
-                    <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${istAbgang ? 'text-red-600' : 'text-green-600'}`}>
+                    <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${colorClass}`}>
                       {istAbgang ? '' : '+'}{bew.menge.toLocaleString('de-AT')} L
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-gray-700">
