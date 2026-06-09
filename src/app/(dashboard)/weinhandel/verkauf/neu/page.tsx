@@ -728,49 +728,62 @@ export default function NeuerVerkaufPage() {
                   <div className="flex items-center gap-1.5">
                     <input type="number" value={pos.sonderrabatt}
                       onChange={e => updatePos(idx, { sonderrabatt: e.target.value })}
-                      min="0" max="100" step="0.5" placeholder="0"
-                      className="border border-s112-border rounded-lg px-2 py-1 text-xs w-16 focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
-                    <span className="text-xs text-gray-400">%</span>
+                        min="0" max="100" step="0.1" placeholder="0"
+                      className="w-20 border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40" />
+                    <span className="text-xs text-gray-500">%</span>
                   </div>
                 )}
-                {(parseFloat(pos.rabatt_pct) > 0 || pos.sonderrabatt_aktiv) && (
-                  <span className="text-xs text-gray-400 ml-auto">
-                    Listenpreis: {((parseFloat(pos.preis_brutto) || 0) * (parseFloat(pos.menge) || 0))
-                      .toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
-                  </span>
-                )}
               </div>
+
+              {/* Preis-Vorschau */}
+              {pos.preis_brutto !== '' && (
+                <div className="text-xs text-s112-muted text-right mt-1">
+                  {(() => {
+                    const brutto = parseFloat(pos.preis_brutto) || 0
+                    const rabatt = parseFloat(pos.rabatt_pct) || 0
+                    const sonder = pos.sonderrabatt_aktiv ? (parseFloat(pos.sonderrabatt) || 0) : 0
+                    const menge  = parseFloat(pos.menge)  || 0
+                    const netto  = brutto * (1 - rabatt/100) * (1 - sonder/100)
+                    const total  = netto * menge
+                    return total > 0
+                      ? `Gesamt: ${total.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}`
+                      : null
+                  })()}
+                </div>
+              )}
             </div>
           ))}
 
           <button type="button" onClick={addPosition}
-            className="text-xs text-s112-teal border border-s112-teal/40 px-3 py-1.5 rounded-lg hover:bg-s112-teal/5">
+            className="w-full border-2 border-dashed border-s112-border rounded-xl py-3 text-sm text-s112-muted hover:border-s112-teal hover:text-s112-teal transition-colors">
             + Position hinzufügen
           </button>
         </div>
 
-        {/* Gesamt + Submit */}
-        <div className="card p-5 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-s112-muted">Gesamtbetrag (brutto)</p>
-            <p className="text-2xl font-bold text-s112-teal tabular-nums">
-              {gesamt.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
-            </p>
-            <p className="text-xs text-s112-muted mt-0.5">inkl. MwSt.</p>
-          </div>
-          <div className="flex gap-3">
-            <Link href="/weinhandel/verkauf"
-              className="text-sm text-s112-muted hover:text-gray-700 px-4 py-2">
-              Abbrechen
-            </Link>
-            <button type="submit" disabled={isPending}
-              className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
-              {isPending ? 'Speichern…' : '✓ Verkauf speichern'}
-            </button>
-          </div>
+        {/* ── Notizen ── */}
+        <div className="card p-5">
+          <label className={labelCls}>Notizen</label>
+          <textarea value={notizen} onChange={e => setNotizen(e.target.value)}
+            rows={3} placeholder="Anmerkungen zur Bestellung…"
+            className={inputCls + ' w-full resize-none'} />
+        </div>
+
+        {/* ── Submit ── */}
+        <div className="flex justify-end gap-3 pb-8">
+          <Link href="/weinhandel/verkauf" className="text-sm text-s112-muted hover:text-gray-700 px-4 py-2">
+            Abbrechen
+          </Link>
+          <button type="submit" disabled={isPending}
+            className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
+            {isPending ? 'Speichern…' : 'Verkauf anlegen'}
+          </button>
         </div>
 
       </form>
+    </div>
+  )
+}
+
     </div>
   )
 }

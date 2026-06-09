@@ -23,6 +23,8 @@ const STATUS_VERKAUF: Record<string, { label: string; color: string }> = {
   abfuellung:{ label: 'Abfüllung', color: 'bg-purple-100 text-purple-700' },
 }
 
+const ART_EMOJI: Record<string, string> = { wein: '\U0001f377', trauben: '\U0001f347', most: '\U0001f30a' }
+
 export default async function WeinhandelPage() {
   const supabase  = await createSupabaseServerClient()
   const role      = await getCurrentUserRole()
@@ -31,42 +33,44 @@ export default async function WeinhandelPage() {
   const [
     { data: fuellungenRaw },
     { data: tanksRaw },
+    { data: zukaufRaw },
   ] = await Promise.all([
-    // Abgefüllte Flaschen im Lager
     (supabase.from('fuellungen') as any)
       .select('id, name, jahrgang, rebsorte, qualitaet, anbaugebiet, bezeichnung, datum, flaschengroesse_ml, anzahl_flaschen, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv')
       .eq('aktiv', true)
       .order('datum', { ascending: false }),
-
-    // Weinausbau-Chargen die für Tankverkauf in Frage kommen
     (supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, menge_liter, status, behaelter_id, behaelter:behaelter_id(name)')
       .eq('aktiv', true)
       .in('status', ['ausbau', 'abfuellung'])
       .order('jahrgang', { ascending: false }),
+    (supabase.from('zukauf_posten') as any)
+      .select('id, art, datum, menge, einheit, rebsorte, jahrgang, notizen, lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname), lieferant_firma:firmen!lieferant_firma_id(name)')
+      .eq('aktiv', true)
+      .gt('menge', 0)
+      .order('datum', { ascending: false }),
   ])
 
   const fuellungen = (fuellungenRaw ?? []) as R[]
   const tanks      = (tanksRaw      ?? []) as R[]
+  const zukauf     = (zukaufRaw     ?? []) as R[]
 
-  // Kennzahlen Flaschenbestand
-  const gesamtFlaschen = fuellungen.reduce((s: number, f: R) => s + (f.bestand_flaschen ?? 0), 0)
-  const gesamtWert     = fuellungen.reduce((s: number, f: R) =>
+  const gesamtFlaschen  = fuellungen.reduce((s: number, f: R) => s + (f.bestand_flaschen ?? 0), 0)
+  const gesamtWert      = fuellungen.reduce((s: number, f: R) =>
     s + ((f.bestand_flaschen ?? 0) * (f.einstandspreis ?? 0)), 0)
-  const gesamtLiterTank = tanks.reduce((s: number, t: R) => s + (t.menge_liter ?? 0), 0)
+  const gesamtLiterTank = tanks.reduce((s: number, t: R) => s + (Number(t.menge_liter) || 0), 0)
+                        + zukauf.filter((z: R) => z.einheit === 'L').reduce((s: number, z: R) => s + (Number(z.menge) || 0), 0)
 
   return (
     <div className="space-y-8">
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Lager</h1>
-          <p className="text-sm text-s112-muted mt-0.5">Bestand & Verkauf</p>
+          <p className="text-sm text-s112-muted mt-0.5">Bestand &amp; Verkauf</p>
         </div>
       </div>
 
-      {/* ── Kennzahlen ──────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-3 gap-4">
         <div className="card text-center p-4">
           <p className="text-3xl font-bold text-s112-teal">{gesamtFlaschen.toLocaleString('de-AT')}</p>
@@ -88,13 +92,12 @@ export default async function WeinhandelPage() {
         </div>
       </div>
 
-      {/* ── Flaschenbestand ─────────────────────────────────────────────────── */}
+      {/* Flaschenbestand */}
       <section>
-        <h2 className="font-semibold text-gray-800 mb-3">🍾 Flaschenbestand</h2>
-
+        <h2 className="font-semibold text-gray-800 mb-3">\U0001f37e Flaschenbestand</h2>
         {fuellungen.length === 0 ? (
           <div className="card text-center py-10">
-            <p className="text-3xl mb-2">🍾</p>
+            <p className="text-3xl mb-2">\U0001f37e</p>
             <p className="text-sm text-s112-muted mb-1">Noch keine Füllungen angelegt.</p>
             <p className="text-xs text-s112-muted">
               Füllungen werden im Kellerbuch unter{' '}
@@ -127,7 +130,6 @@ export default async function WeinhandelPage() {
                   const lagerwert  = einstand != null ? bestand * einstand : null
                   const pct        = gesamt > 0 ? Math.round((bestand / gesamt) * 100) : 0
                   const bestandClr = pct > 50 ? 'text-green-700' : pct > 20 ? 'text-orange-600' : 'text-red-600'
-
                   return (
                     <tr key={f.id}
                       className={`border-b border-s112-border last:border-0 hover:bg-s112-bg/50 transition-colors ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
@@ -136,21 +138,17 @@ export default async function WeinhandelPage() {
                           {f.name}{f.bezeichnung ? ` – ${f.bezeichnung}` : ''}
                         </div>
                         <div className="text-xs text-s112-muted mt-0.5 flex gap-2">
-                          {f.jahrgang   && <span>{f.jahrgang}</span>}
-                          {f.rebsorte   && <span>{f.rebsorte}</span>}
+                          {f.jahrgang    && <span>{f.jahrgang}</span>}
+                          {f.rebsorte    && <span>{f.rebsorte}</span>}
                           {f.anbaugebiet && <span>{f.anbaugebiet}</span>}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-s112-muted">
-                        {qualitaetLabel(f.qualitaet)}
-                      </td>
+                      <td className="px-4 py-3 text-s112-muted">{qualitaetLabel(f.qualitaet)}</td>
                       <td className="px-4 py-3 text-s112-muted whitespace-nowrap">
                         {FLASCHEN_LABEL[f.flaschengroesse_ml] ?? `${f.flaschengroesse_ml} ml`}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <span className={`font-semibold tabular-nums ${bestandClr}`}>
-                          {bestand.toLocaleString('de-AT')}
-                        </span>
+                        <span className={`font-semibold tabular-nums ${bestandClr}`}>{bestand.toLocaleString('de-AT')}</span>
                         <span className="text-xs text-s112-muted ml-1">/ {gesamt.toLocaleString('de-AT')}</span>
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">
@@ -174,12 +172,7 @@ export default async function WeinhandelPage() {
                       {writeOk && (
                         <td className="px-4 py-3 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-2">
-                            <Link
-                              href={`/weinhandel/fuellungen/${f.id}/edit`}
-                              className="text-xs text-s112-teal hover:underline"
-                            >
-                              Bearbeiten
-                            </Link>
+                            <Link href={`/weinhandel/fuellungen/${f.id}/edit`} className="text-xs text-s112-teal hover:underline">Bearbeiten</Link>
                             <FuellungLoeschen id={f.id} name={f.name} />
                           </div>
                         </td>
@@ -193,27 +186,23 @@ export default async function WeinhandelPage() {
         )}
       </section>
 
-      {/* ── Tankverkauf ─────────────────────────────────────────────────────── */}
+      {/* Tankverkauf */}
       <section>
         <div className="flex items-center gap-3 mb-3">
-          <h2 className="font-semibold text-gray-800">🚚 Tankverkauf (Direktverkauf ab Keller)</h2>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
-            Transportschein erforderlich
-          </span>
+          <h2 className="font-semibold text-gray-800">\U0001f69a Tankverkauf (Direktverkauf ab Keller)</h2>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Transportschein erforderlich</span>
         </div>
-        <p className="text-xs text-s112-muted mb-3">
-          Ungefüllter Wein kann direkt ab Tank verkauft werden. Für den LKW-Transport ist ein
-          Transportschein (Begleitdokument) auszustellen.
+        <p className="text-xs text-s112-muted mb-4">
+          Ungefüllter Wein kann direkt ab Tank verkauft werden. Für den LKW-Transport ist ein Transportschein (Begleitdokument) auszustellen.
         </p>
 
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Kellerbuch-Chargen</h3>
         {tanks.length === 0 ? (
-          <div className="card text-center py-8">
-            <p className="text-sm text-s112-muted">
-              Keine Chargen im Status „Ausbau" oder „Abfüllung" vorhanden.
-            </p>
+          <div className="card text-center py-6 mb-5">
+            <p className="text-sm text-s112-muted">Keine Chargen im Status „Ausbau“ oder „Abfüllung“ vorhanden.</p>
           </div>
         ) : (
-          <div className="card p-0 overflow-hidden">
+          <div className="card p-0 overflow-hidden mb-5">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-s112-bg border-b border-s112-border">
@@ -230,26 +219,74 @@ export default async function WeinhandelPage() {
                 {tanks.map((t: R, i: number) => {
                   const st = STATUS_VERKAUF[t.status] ?? { label: t.status, color: 'bg-gray-100 text-gray-600' }
                   return (
-                    <tr key={t.id}
-                      className={`border-b border-s112-border last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
+                    <tr key={t.id} className={`border-b border-s112-border last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
                       <td className="px-4 py-3 font-medium text-gray-900">{t.name}</td>
                       <td className="px-4 py-3 text-s112-muted">{t.jahrgang ?? '–'}</td>
                       <td className="px-4 py-3 text-s112-muted">{t.rebsorte ?? '–'}</td>
                       <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>
-                          {st.label}
-                        </span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>{st.label}</span>
                       </td>
-                      <td className="px-4 py-3 text-s112-muted">
-                        {(t.behaelter as R | null)?.name ?? '–'}
-                      </td>
+                      <td className="px-4 py-3 text-s112-muted">{(t.behaelter as R | null)?.name ?? '–'}</td>
                       <td className="px-4 py-3 text-right tabular-nums font-semibold text-s112-teal">
-                        {t.menge_liter ? t.menge_liter.toLocaleString('de-AT') : '–'}
+                        {t.menge_liter ? Number(t.menge_liter).toLocaleString('de-AT') : '–'}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <span className="text-xs text-s112-muted italic">
-                          Verkauf folgt
-                        </span>
+                        {writeOk && (
+                          <Link href="/weinhandel/verkauf/neu" className="text-xs text-s112-teal hover:underline font-medium">Verkauf →</Link>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 mt-5">Zukäufe</h3>
+        {zukauf.length === 0 ? (
+          <div className="card text-center py-6">
+            <p className="text-sm text-s112-muted mb-2">Kein Zukauf-Bestand vorhanden.</p>
+            {writeOk && (
+              <Link href="/weinhandel/zukauf/neu" className="text-sm text-s112-teal hover:underline font-medium">Zukauf erfassen →</Link>
+            )}
+          </div>
+        ) : (
+          <div className="card p-0 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-s112-bg border-b border-s112-border">
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Art</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Rebsorte / JG</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Lieferant</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Notizen</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Datum</th>
+                  <th className="text-right px-4 py-3 font-semibold text-gray-700">Bestand</th>
+                  <th className="text-right px-4 py-3 font-semibold text-gray-700"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {zukauf.map((z: R, i: number) => {
+                  const lieferant = z.lieferant_kontakt
+                    ? [z.lieferant_kontakt.vorname, z.lieferant_kontakt.nachname].filter(Boolean).join(' ')
+                    : (z.lieferant_firma as R | null)?.name ?? '–'
+                  const rebInfo = [z.rebsorte, z.jahrgang].filter(Boolean).join(' ') || '–'
+                  return (
+                    <tr key={z.id} className={`border-b border-s112-border last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
+                      <td className="px-4 py-3 whitespace-nowrap">{ART_EMOJI[z.art] ?? ''} {z.art}</td>
+                      <td className="px-4 py-3 text-s112-muted text-xs">{rebInfo}</td>
+                      <td className="px-4 py-3 text-s112-muted text-xs">{lieferant}</td>
+                      <td className="px-4 py-3 text-s112-muted text-xs max-w-xs truncate">{z.notizen ?? '–'}</td>
+                      <td className="px-4 py-3 text-s112-muted text-xs whitespace-nowrap">
+                        {new Date(z.datum).toLocaleDateString('de-AT')}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-s112-teal whitespace-nowrap">
+                        {Number(z.menge).toLocaleString('de-AT')} {z.einheit}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {writeOk && (
+                          <Link href="/weinhandel/verkauf/neu" className="text-xs text-s112-teal hover:underline font-medium">Verkauf →</Link>
+                        )}
                       </td>
                     </tr>
                   )

@@ -301,7 +301,7 @@ export async function markiereAlsBezahlt(id: string) {
   revalidatePath('/weinhandel/verkauf')
   revalidatePath('/weinhandel/offene-posten')
   revalidatePath(`/weinhandel/verkauf/${id}`)
-  revalidatePath('/crm/kontakte/[id]', 'page')
+   revalidatePath('/crm/kontakte/[id]', 'page')
   revalidatePath('/crm/firmen/[id]', 'page')
 }
 

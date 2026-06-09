@@ -54,6 +54,7 @@ export async function GET() {
         ...k,
         rabatt_pct:       (k.rabattgruppe as any)?.rabatt_pct ?? null,
         sonderrabatt_pct: parseFloat(k.sonderrabatt_pct) || 0,
+     
       })),
       ust_satz_standard: ustStandard,
       firmen: (firmen ?? []).map((f: any) => ({

@@ -1,0 +1,28 @@
+'use client'
+
+import { useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { deleteZukauf } from './actions'
+
+export default function ZukaufLoeschen({ id, info }: { id: string; info: string }) {
+  const [isPending, startTransition] = useTransition()
+  const router = useRouter()
+
+  function handleClick() {
+    if (!confirm(`Zukauf „${info}" wirklich löschen?`)) return
+    startTransition(async () => {
+      await deleteZukauf(id)
+      router.refresh()
+    })
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={isPending}
+      className="text-xs text-red-500 hover:text-red-700 hover:underline disabled:opacity-50"
+    >
+      {isPending ? '…' : 'Löschen'}
+    </button>
+  )
+}
