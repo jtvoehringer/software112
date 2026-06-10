@@ -508,38 +508,58 @@ export default function KontaktDetailClient({
             <div className="space-y-2">
               {(() => {
                 const { threads, singles } = groupEmailsByThread(aktivitaeten.filter(a => a.art !== 'verkauf' && a.art !== 'notiz'))
+                // Unified list: Threads + Singles gemeinsam sortiert – erledigte immer unten
+                type TItem =
+                  | { kind: 'thread'; id: string; msgs: AktivitaetRow[]; erledigt: boolean; datum: number }
+                  | { kind: 'single'; a: AktivitaetRow;                   erledigt: boolean; datum: number }
+                const allItems: TItem[] = [
+                  ...Object.entries(threads).map(([id, msgs]) => ({
+                    kind: 'thread' as const, id, msgs,
+                    erledigt: msgs.every(m => m.erledigt),
+                    datum: new Date(msgs[msgs.length - 1].datum).getTime(),
+                  })),
+                  ...singles.map(a => ({
+                    kind: 'single' as const, a,
+                    erledigt: a.erledigt ?? false,
+                    datum: new Date(a.datum).getTime(),
+                  })),
+                ].sort((x, y) => {
+                  if (x.erledigt !== y.erledigt) return x.erledigt ? 1 : -1
+                  return y.datum - x.datum
+                })
                 return (
                   <>
-                    {/* E-Mail-Threads */}
-                    {Object.entries(threads).map(([threadId, msgs]) => {
-                      const expanded = expandedThreads.has(threadId)
-                      const latest = msgs[msgs.length - 1]
-                      return (
-                        <div key={threadId} className="border border-s112-border rounded-xl overflow-hidden">
-                          <button type="button"
-                            onClick={() => setExpandedThreads(prev => {
-                              const next = new Set(prev)
-                              expanded ? next.delete(threadId) : next.add(threadId)
-                              return next
-                            })}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 transition-colors text-left">
-                            <span className="text-base">✉️</span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-800 truncate">{latest.betreff}</p>
-                              <p className="text-xs text-s112-muted">{msgs.length} E-Mail{msgs.length !== 1 ? 's' : ''} · {new Date(latest.datum).toLocaleDateString('de-AT')} · {expanded ? 'einklappen ▴' : 'ausklappen ▾'}</p>
-                            </div>
-                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">{msgs.length}</span>
-                          </button>
-                          {expanded && (
-                            <div className="divide-y divide-s112-border/40">
-                              {msgs.map(a => <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} kontaktEmail={kontakt.email ?? undefined} kontaktId={kontakt.id} />)}
-                            </div>
-                          )}
-                        </div>
-                      )
+                    {allItems.map(item => {
+                      if (item.kind === 'thread') {
+                        const { id: threadId, msgs } = item
+                        const expanded = expandedThreads.has(threadId)
+                        const latest   = msgs[msgs.length - 1]
+                        return (
+                          <div key={threadId} className="border border-s112-border rounded-xl overflow-hidden">
+                            <button type="button"
+                              onClick={() => setExpandedThreads(prev => {
+                                const next = new Set(prev)
+                                expanded ? next.delete(threadId) : next.add(threadId)
+                                return next
+                              })}
+                              className="w-full flex items-center gap-3 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 transition-colors text-left">
+                              <span className="text-base">✉️</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-800 truncate">{latest.betreff}</p>
+                                <p className="text-xs text-s112-muted">{msgs.length} E-Mail{msgs.length !== 1 ? 's' : ''} · {new Date(latest.datum).toLocaleDateString('de-AT')} · {expanded ? 'einklappen ▴' : 'ausklappen ▾'}</p>
+                              </div>
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">{msgs.length}</span>
+                            </button>
+                            {expanded && (
+                              <div className="divide-y divide-s112-border/40">
+                                {msgs.map(a => <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} kontaktEmail={kontakt.email ?? undefined} kontaktId={kontakt.id} />)}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      }
+                      return <AktivitaetKarte key={item.a.id} a={item.a} writeOk={writeOk} kontaktEmail={kontakt.email ?? undefined} kontaktId={kontakt.id} />
                     })}
-                    {/* Einzelne Aktivitäten */}
-                    {sortAktivitaeten(singles).map(a => <AktivitaetKarte key={a.id} a={a} writeOk={writeOk} kontaktEmail={kontakt.email ?? undefined} kontaktId={kontakt.id} />)}
                   </>
                 )
               })()}
@@ -591,7 +611,7 @@ export default function KontaktDetailClient({
             {kontakt.firma_name && (
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-lg">🏢</span>
-                <span className="text-gray-700">{kontakt.firma_name}</span>
+                <Link href={`/crm/firmen/${kontakt.firma_id}`} className="text-s112-teal hover:underline">{kontakt.firma_name}</Link>
                 {firmaSegment && (
                   <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${segmentFarbe(firmaSegment)}`}>
                     {segmentLabel(firmaSegment)}

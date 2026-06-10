@@ -84,6 +84,14 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
     beschreibung: a.beschreibung ?? null, datum: a.datum,
     ganztags: a.ganztags ?? true, uhrzeit_von: a.uhrzeit_von ?? null, uhrzeit_bis: a.uhrzeit_bis ?? null,
     erledigt: a.erledigt, kontakt_id: a.kontakt_id, firma_id: a.firma_id ?? null,
+    email_id: a.email_id ?? null,
+    email_conversation_id: a.email_conversation_id ?? null,
+    email_von: a.email_von ?? null,
+    email_von_name: a.email_von_name ?? null,
+    email_an: a.email_an ?? null,
+    email_body: a.email_body ?? null,
+    email_body_html: a.email_body_html ?? null,
+    ist_privat: a.ist_privat ?? null,
   }))
 
   const pipeline: PipelineEintragRow[] = ((pRaw ?? []) as R[]).map(p => ({
