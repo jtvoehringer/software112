@@ -31,7 +31,7 @@ export default async function KellerbuchPage() {
       .select('id, name, typ, volumen_liter, standort, aktiv')
       .order('name'),
     (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, rebsorte, menge_liter, status, aktiv, behaelter_id')
+      .select('id, name, jahrgang, rebsorte, menge_liter, status, aktiv, behaelter_id, ist_eroeffnungsbestand')
       .order('jahrgang', { ascending: false }),
   ])
 
@@ -39,10 +39,13 @@ export default async function KellerbuchPage() {
   const weinausbau  = (weinausbauRaw  ?? []) as R[]
 
   // abfuellung = Wein hat Keller verlassen → gehört zur Warenwirtschaft
-  const aktiveChargen = weinausbau.filter((w: R) => w.aktiv && w.status !== 'abgeschlossen' && w.status !== 'abfuellung')
-  const gesamtLiter   = aktiveChargen.reduce((s: number, w: R) => s + (parseFloat(w.menge_liter) || 0), 0)
+  // Alle aktiven Chargen (inkl. Eröffnungsbestand für Liter-Berechnung)
+  const alleAktiven    = weinausbau.filter((w: R) => w.aktiv && w.status !== 'abgeschlossen' && w.status !== 'abfuellung')
+  // Reguläre Chargen (ohne Eröffnungsbestand) für die Anzeige
+  const aktiveChargen  = alleAktiven.filter((w: R) => !w.ist_eroeffnungsbestand)
+  const gesamtLiter    = alleAktiven.reduce((s: number, w: R) => s + (parseFloat(w.menge_liter) || 0), 0)
 
-  // Chargen nach Behälter gruppieren
+  // Chargen nach Behälter gruppieren (nur reguläre Chargen)
   const chargenByBehaelter = new Map<string, R[]>()
   const chargenOhneBehaelter: R[] = []
 
@@ -55,26 +58,22 @@ export default async function KellerbuchPage() {
     }
   }
 
+  // Liter pro Behälter (inkl. Eröffnungsbestand)
+  const literByBehaelter = new Map<string, number>()
+  for (const w of alleAktiven) {
+    if (w.behaelter_id) {
+      literByBehaelter.set(w.behaelter_id, (literByBehaelter.get(w.behaelter_id) ?? 0) + (parseFloat(w.menge_liter) || 0))
+    }
+  }
+
   return (
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Kellerbuch</h1>
-          <p className="text-sm text-s112-muted mt-0.5">Behälter & Weinausbau-Chargen</p>
+          <p className="text-sm text-s112-muted mt-0.5">Gebinde</p>
         </div>
-        {writeOk && (
-          <div className="flex gap-2">
-            <Link href="/kellerbuch/behaelter/neu"
-              className="text-xs border border-s112-teal text-s112-teal px-3 py-1.5 rounded-lg hover:bg-s112-teal/5 font-medium">
-              + Behälter
-            </Link>
-            <Link href="/kellerbuch/weinausbau/neu"
-              className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg hover:bg-opacity-90 font-medium">
-              + Neue Charge
-            </Link>
-          </div>
-        )}
       </div>
 
       {/* Stats */}
@@ -97,7 +96,7 @@ export default async function KellerbuchPage() {
       <div className="space-y-4">
         {behaelter.filter((b: R) => b.aktiv).map((b: R) => {
           const chargen = chargenByBehaelter.get(b.id) ?? []
-          const literImBehaelter = chargen.reduce((s: number, w: R) => s + (parseFloat(w.menge_liter) || 0), 0)
+          const literImBehaelter = literByBehaelter.get(b.id) ?? 0
           const kapazitaet = b.volumen_liter ? parseFloat(b.volumen_liter) : null
           const auslastung = kapazitaet && kapazitaet > 0 ? Math.min(100, (literImBehaelter / kapazitaet) * 100) : null
 
@@ -133,12 +132,18 @@ export default async function KellerbuchPage() {
                     <p className="text-xs text-gray-600 mt-0.5">{literImBehaelter.toLocaleString('de-AT')} L belegt</p>
                   )}
                 </div>
-                {writeOk && (
-                  <Link href={`/kellerbuch/behaelter/${b.id}`}
-                    className="text-xs text-s112-muted hover:text-s112-teal shrink-0">
-                    Bearbeiten
+                <div className="flex items-center gap-3 shrink-0">
+                  <Link href={`/kellerbuch/behaelter/${b.id}/bewegungen`}
+                    className="text-xs text-s112-teal hover:underline whitespace-nowrap font-medium">
+                    Bewegungen →
                   </Link>
-                )}
+                  {writeOk && (
+                    <Link href={`/kellerbuch/behaelter/${b.id}`}
+                      className="text-xs text-s112-muted hover:text-s112-teal">
+                      Bearbeiten
+                    </Link>
+                  )}
+                </div>
               </div>
 
               {/* Chargen im Behälter */}
@@ -171,18 +176,12 @@ export default async function KellerbuchPage() {
                             {menge > 0 ? menge.toLocaleString('de-AT') + ' L' : <span className="text-red-500">0 L</span>}
                           </td>
                           <td className="px-4 py-2.5 text-right">
-                            <div className="flex items-center justify-end gap-2 flex-wrap">
-                              {writeOk && menge > 0.01 && (
-                                <Link href={`/weinhandel/fuellungen/neu?charge=${w.id}`}
-                                  className="text-xs text-s112-teal border border-s112-teal/30 rounded-full px-2 py-0.5 hover:bg-s112-teal hover:text-white transition-colors whitespace-nowrap">
-                                  🍾 Abfüllen
-                                </Link>
-                              )}
-                              <Link href={`/kellerbuch/behaelter/${b.id}/bewegungen`}
-                                className="text-xs text-s112-teal hover:underline whitespace-nowrap">
-                                Bewegungen →
+                            {writeOk && menge > 0.01 && (
+                              <Link href={`/weinhandel/fuellungen/neu?charge=${w.id}`}
+                                className="text-xs text-s112-teal border border-s112-teal/30 rounded-full px-2 py-0.5 hover:bg-s112-teal hover:text-white transition-colors whitespace-nowrap">
+                                🍾 Abfüllen
                               </Link>
-                            </div>
+                            )}
                           </td>
                         </tr>
                       )

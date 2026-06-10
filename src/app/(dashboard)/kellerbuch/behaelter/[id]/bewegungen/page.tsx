@@ -15,16 +15,17 @@ const TYP_ICONS: Record<string, string> = {
 }
 
 const ART_ICON: Record<string, string> = {
-  pressung:  '🍇',
-  umzug_ein: '⬆️',
-  umzug_aus: '⬇️',
-  abfuellung:'🍾',
-  verkauf:   '💰',
+  anfangsbestand: '📋',
+  pressung:       '🍇',
+  umzug_ein:      '⬆️',
+  umzug_aus:      '⬇️',
+  abfuellung:     '🍾',
+  verkauf:        '💰',
 }
 
 type Bewegung = {
   datum: string
-  art: 'pressung' | 'umzug_ein' | 'umzug_aus' | 'abfuellung' | 'verkauf'
+  art: 'anfangsbestand' | 'pressung' | 'umzug_ein' | 'umzug_aus' | 'abfuellung' | 'verkauf'
   beschreibung: string
   menge: number
   extra?: string
@@ -66,7 +67,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
 
     // Alle Chargen in diesem Behälter (aktiv + inaktiv, die noch zugewiesen sind)
     (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, menge_liter, aktiv')
+      .select('id, name, jahrgang, menge_liter, aktiv, ist_eroeffnungsbestand, anfangsbestand_liter, created_at')
       .eq('behaelter_id', id)
       .order('id', { ascending: true }),
 
@@ -118,8 +119,28 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
       ])
     : [{ data: [] }, { data: [] }, { data: [] }]
 
+  // Eröffnungsbestand-Charge ermitteln (immer anzeigen, auch wenn inaktiv)
+  const eroeffnungsCharge = ((chargenRaw ?? []) as R[]).find(c => c.ist_eroeffnungsbestand)
+
   // ── Bewegungen aufbauen ──────────────────────────────────────────────────────
   const bewegungen: Bewegung[] = []
+
+  // Eröffnungsbestand als erste Bewegung (sofern vorhanden)
+  if (eroeffnungsCharge) {
+    const liter = parseFloat(eroeffnungsCharge.anfangsbestand_liter) || parseFloat(eroeffnungsCharge.menge_liter) || 0
+    if (liter > 0) {
+      // Datum: 1.1. des Buchungsjahres aus created_at
+      const buchungsJahr = eroeffnungsCharge.created_at
+        ? new Date(eroeffnungsCharge.created_at).getFullYear()
+        : new Date().getFullYear()
+      bewegungen.push({
+        datum: `${buchungsJahr}-01-01`,
+        art: 'anfangsbestand',
+        beschreibung: `Anfangsbestand${eroeffnungsCharge.jahrgang ? ` ${eroeffnungsCharge.jahrgang}` : ''}`,
+        menge: liter,
+      })
+    }
+  }
 
   // Pressungen / Ernte (Zugänge)
   for (const p of (pressungenRaw ?? []) as R[]) {
@@ -219,7 +240,8 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
   const finalSaldo = bewegungenMitSaldo.length > 0
     ? bewegungenMitSaldo[bewegungenMitSaldo.length - 1].saldo
     : 0
-  const aktiveChargen = ((chargenRaw ?? []) as R[]).filter(c => c.aktiv)
+  // Aktuelle Chargen: aktiv, kein Eröffnungsbestand (der wird im Bewegungsbuch separat gezeigt)
+  const aktiveChargen = ((chargenRaw ?? []) as R[]).filter(c => c.aktiv && !c.ist_eroeffnungsbestand)
   const aktuellDB = aktiveChargen.reduce((s: number, c: R) => s + (parseFloat(c.menge_liter) || 0), 0)
   // Für Anzeige: Saldo aus Bewegungen (stimmt auch wenn charge.behaelter_id=null nach Umzug)
   const aktuell = finalSaldo > 0 ? finalSaldo : aktuellDB
@@ -323,7 +345,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
                   const istAbgang    = bew.menge < 0
                   const istZugang    = bew.menge > 0
                   const colorClass   = istAbgang ? 'text-red-600' : istZugang ? 'text-green-600' : 'text-gray-500'
-                  const isZugangsRow = bew.art === 'pressung' || bew.art === 'umzug_ein'
+                  const isZugangsRow = bew.art === 'anfangsbestand' || bew.art === 'pressung' || bew.art === 'umzug_ein'
                   const rowBg        = isZugangsRow ? 'bg-green-50/50' : (i % 2 === 1 ? 'bg-s112-bg/30' : '')
                   return (
                     <tr key={i} className={`border-b border-s112-border/30 last:border-0 ${rowBg}`}>
