@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { minQualitaet } from '@/lib/wein/qualitaet'
+import { deleteUmzug as _deleteUmzug } from '../gebinde-actions'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -149,8 +150,10 @@ export async function umziehen(fd: FormData) {
 }
 
 // ── Umzug löschen ────────────────────────────────────────────────────────────
-// Delegiert an gebinde-actions.deleteUmzug – behandelt beide Formate (alt + neu)
-export { deleteUmzug } from '../gebinde-actions'
+// Wrapper um gebinde-actions.deleteUmzug – behandelt beide Formate (alt + neu)
+export async function deleteUmzug(id: string) {
+  return _deleteUmzug(id)
+}
 
 // ── Umzug Datum/Notizen aktualisieren ────────────────────────────────────────
 export async function updateUmzug(umzugId: string, datum: string, notizen: string | null) {
