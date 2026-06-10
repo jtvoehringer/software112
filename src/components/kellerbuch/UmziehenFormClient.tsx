@@ -5,13 +5,11 @@ import { useState, useEffect } from 'react'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-interface Gebinde { id: string; name: string; aktiv: boolean }
-interface Charge  { id: string; name: string; jahrgang: number | null; menge_liter: string | number; behaelter_id: string | null }
-interface Ziel    { behaelter_id: string; menge_netto: number }
+interface Ziel { behaelter_id: string; menge_netto: number }
 
 interface Props {
-  gebinde: Gebinde[]
-  chargen: Charge[]
+  gebinde: R[]
+  chargen: R[]
   action: (fd: FormData) => Promise<void>
   inputCls: string
   labelCls: string
@@ -71,7 +69,7 @@ export default function UmziehenFormClient({ gebinde, chargen, action, inputCls,
           className={inputCls}
         >
           <option value="">– bitte wählen –</option>
-          {gebinde.filter(g => g.aktiv).map((g: Gebinde) => (
+          {gebinde.filter(g => g.aktiv).map((g: R) => (
             <option key={g.id} value={g.id}>{g.name}</option>
           ))}
         </select>
@@ -105,7 +103,7 @@ export default function UmziehenFormClient({ gebinde, chargen, action, inputCls,
             className={inputCls}
           >
             <option value="">– Charge wählen –</option>
-            {inhalt.map((c: Charge) => (
+            {inhalt.map((c: R) => (
               <option key={c.id} value={c.id}>
                 {c.name}{c.jahrgang ? ` (${c.jahrgang})` : ''} ·{' '}
                 {parseFloat(String(c.menge_liter)).toLocaleString('de-AT', { maximumFractionDigits: 2 })} L
@@ -165,7 +163,7 @@ export default function UmziehenFormClient({ gebinde, chargen, action, inputCls,
               className={`${inputCls} flex-1`}
             >
               <option value="">– Gebinde –</option>
-              {zielGebinde.map((g: Gebinde) => (
+              {zielGebinde.map((g: R) => (
                 <option key={g.id} value={g.id}>{g.name}</option>
               ))}
             </select>
