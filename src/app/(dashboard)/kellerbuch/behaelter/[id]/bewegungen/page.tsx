@@ -16,8 +16,8 @@ const TYP_ICONS: Record<string, string> = {
 
 const ART_ICON: Record<string, string> = {
   pressung:  '🍇',
-  umzug_ein: '⬇️',
-  umzug_aus: '⬆️',
+  umzug_ein: '⬆️',
+  umzug_aus: '⬇️',
   abfuellung:'🍾',
   verkauf:   '💰',
 }
@@ -103,7 +103,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
   ] = chargeIdList.length > 0
     ? await Promise.all([
         (supabase.from('keller_umzuege') as any)
-          .select('id, datum, menge_liter, schwund_liter, nach_behaelter:nach_behaelter_id(name), von_weinausbau:von_weinausbau_id(name), notizen')
+          .select('id, datum, menge_liter, brutto_liter, schwund_liter, zeilen_typ, nach_behaelter:nach_behaelter_id(name), von_weinausbau:von_weinausbau_id(name), notizen')
           .in('von_weinausbau_id', chargeIdList)
           .order('datum', { ascending: true }),
         (supabase.from('fuellungen') as any)
@@ -135,19 +135,18 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     })
   }
 
-  // Eingehende Umzüge (Zugänge) – Nettomenge = brutto − Schwund
+  // Eingehende Umzüge (Zugänge) – menge_liter ist bereits die Nettomenge
   for (const u of (umzuegeEinRaw ?? []) as R[]) {
-    const brutto  = parseFloat(u.menge_liter)  || 0
+    const liter   = parseFloat(u.menge_liter) || 0
     const schwund = parseFloat(u.schwund_liter) || 0
-    const liter   = Math.max(0, +(brutto - schwund).toFixed(3))   // netto
-    if (liter <= 0 && brutto <= 0) continue
+    if (liter <= 0) continue
     const vonCharge = u.von_weinausbau as R | null
     const vonTank   = (vonCharge?.behaelter as R | null)?.name ?? null
     const vonName   = vonCharge?.name ?? '?'
     bewegungen.push({
       datum: u.datum,
       art: 'umzug_ein',
-      beschreibung: `Umzug von ${vonTank ?? vonName}${vonTank ? ` (${vonName})` : ''}`,
+      beschreibung: `Zugang von ${vonTank ?? vonName}${vonTank ? ` (${vonName})` : ''}`,
       menge: liter,
       extra: schwund > 0
         ? `Schwund: ${schwund.toLocaleString('de-AT')} L${u.notizen ? ` · ${u.notizen}` : ''}`
@@ -155,11 +154,14 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     })
   }
 
-  // Ausgehende Umzüge (Abgänge) – Schwund ist KEIN zusätzlicher Abgang
-  // (Quelle verliert genau menge_liter; der Schwund erklärt die Differenz zum Ziel)
+  // Ausgehende Umzüge (Abgänge) – Quelle verliert Bruttomenge
   for (const u of (umzuegeAusRaw ?? []) as R[]) {
-    const abgang  = parseFloat(u.menge_liter) || 0
+    const netto   = parseFloat(u.menge_liter) || 0
     const schwund = parseFloat(u.schwund_liter) || 0
+    // 'quelle'-Zeilen speichern brutto in menge_liter; transfer-Zeilen haben brutto_liter
+    const abgang  = u.zeilen_typ === 'quelle'
+      ? netto
+      : (parseFloat(u.brutto_liter) || (netto + schwund) || netto)
     if (abgang <= 0) continue
     const nachTank  = (u.nach_behaelter as R | null)?.name ?? '?'
     const vonCharge = u.von_weinausbau as R | null
