@@ -270,9 +270,14 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
   const finalSaldo = bewegungenMitSaldo.length > 0
     ? bewegungenMitSaldo[bewegungenMitSaldo.length - 1].saldo
     : 0
+  // Aktueller Bestand: direkt aus menge_liter aller aktiven Chargen (inkl. Eröffnungsbestand)
+  // → konsistent mit der Behälter-Auslastungsbar in /kellerbuch
+  const aktuell = ((chargenRaw ?? []) as R[])
+    .filter(c => c.aktiv)
+    .reduce((s: number, c: R) => s + (parseFloat(c.menge_liter) || 0), 0)
+
+  // Aktive reguläre Chargen (ohne Eröffnungsbestand) für Chargen-Anzeige
   const aktiveChargen = ((chargenRaw ?? []) as R[]).filter(c => c.aktiv && !c.ist_eroeffnungsbestand)
-  const aktuellDB = aktiveChargen.reduce((s: number, c: R) => s + (parseFloat(c.menge_liter) || 0), 0)
-  const aktuell = finalSaldo > 0 ? finalSaldo : aktuellDB
 
   const kapazitaet = bh.volumen_liter ? parseFloat(bh.volumen_liter) : null
   const auslastung = kapazitaet && kapazitaet > 0 ? Math.min(100, (aktuell / kapazitaet) * 100) : null
