@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { fmtLiter } from '@/lib/format'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -15,7 +16,7 @@ const TYP_ICONS: Record<string, string> = {
 
 function fmt(n: number | null) {
   if (n == null || isNaN(n)) return '–'
-  return n.toLocaleString('de-AT', { minimumFractionDigits: 0, maximumFractionDigits: 1 }) + ' L'
+  return n.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' L'
 }
 
 export default async function BehaelterUmzuegePage({ params }: { params: Promise<{ id: string }> }) {
@@ -64,7 +65,7 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
             <h1 className="text-2xl font-bold text-gray-900">{bh.name}</h1>
             <div className="flex items-center gap-3 mt-0.5 flex-wrap text-xs text-s112-muted">
               {bh.standort && <span>{bh.standort}</span>}
-              {bh.volumen_liter && <span>{parseFloat(bh.volumen_liter).toLocaleString('de-AT')} L Kapazität</span>}
+              {bh.volumen_liter && <span>{fmtLiter(parseFloat(bh.volumen_liter))} Kapazität</span>}
             </div>
           </div>
         </div>

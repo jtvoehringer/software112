@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { fmtLiter } from '@/lib/format'
 import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -239,11 +240,11 @@ export default async function GebindePage({
                       <td className="px-4 py-2.5 font-medium text-gray-800">{g.name}</td>
                       <td className="px-4 py-2.5 text-gray-600 capitalize">{g.typ ?? '–'}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
-                        {g.volumen_liter ? `${parseFloat(g.volumen_liter).toLocaleString('de-AT')} L` : '–'}
+                        {g.volumen_liter ? fmtLiter(parseFloat(g.volumen_liter)) : '–'}
                       </td>
                       <td className="px-4 py-2.5 text-gray-600">{g.standort ?? '–'}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-s112-teal font-medium">
-                        {inhaltLiter > 0 ? `${inhaltLiter.toLocaleString('de-AT')} L` : '–'}
+                        {inhaltLiter > 0 ? fmtLiter(inhaltLiter) : '–'}
                       </td>
                       {writeOk && (
                         <td className="px-4 py-2.5 text-right">
@@ -353,7 +354,7 @@ export default async function GebindePage({
                       {e.kmw ? `${parseFloat(e.kmw).toLocaleString('de-AT')} °KMW` : '–'}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-s112-teal font-medium">
-                      {parseFloat(e.menge_liter).toLocaleString('de-AT')} L
+                      {fmtLiter(parseFloat(e.menge_liter))}
                     </td>
                     <td className="px-4 py-2.5 text-gray-600">{(e.behaelter as R | null)?.name ?? '–'}</td>
                     <td className="px-4 py-2.5 text-gray-600 text-xs">{e.qualitaetsstufe ?? '–'}</td>
@@ -412,17 +413,17 @@ export default async function GebindePage({
                           {zi > 0 && <span className="text-gray-400 mx-1">·</span>}
                           {z.gebinde}
                           <span className="text-s112-teal font-medium ml-1 text-xs">
-                            {z.menge.toLocaleString('de-AT', { maximumFractionDigits: 2 })} L
+                            {fmtLiter(z.menge)}
                           </span>
                         </span>
                       ))}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-gray-700 font-medium">
-                      {u.brutto.toLocaleString('de-AT', { maximumFractionDigits: 2 })} L
+                      {fmtLiter(u.brutto)}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-gray-500">
                       {u.schwund > 0
-                        ? `${u.schwund.toLocaleString('de-AT', { maximumFractionDigits: 2 })} L` : '–'}
+                        ? fmtLiter(u.schwund) : '–'}
                     </td>
                     <td className="px-4 py-2.5 text-gray-500 text-xs">{u.notizen ?? '–'}</td>
                     {writeOk && (

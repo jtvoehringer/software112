@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { fmtLiter } from '@/lib/format'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
@@ -89,7 +90,7 @@ export default async function KellerbuchPage() {
           <p className="text-xs text-s112-muted mt-1">Laufende Chargen</p>
         </div>
         <div className="card text-center p-4">
-          <p className="text-3xl font-bold text-s112-teal">{gesamtLiter.toLocaleString('de-AT')}</p>
+          <p className="text-3xl font-bold text-s112-teal">{fmtLiter(gesamtLiter)}</p>
           <p className="text-xs text-s112-muted mt-1">Liter in Ausbau</p>
         </div>
       </div>
@@ -113,7 +114,7 @@ export default async function KellerbuchPage() {
                     {b.standort && <span className="text-xs text-s112-muted">{b.standort}</span>}
                     {kapazitaet && (
                       <span className="text-xs text-s112-muted">
-                        {kapazitaet.toLocaleString('de-AT')} L Kapazität
+                        {fmtLiter(kapazitaet)} Kapazität
                       </span>
                     )}
                   </div>
@@ -121,17 +122,19 @@ export default async function KellerbuchPage() {
                     <div className="mt-1.5 flex items-center gap-2">
                       <div className="flex-1 bg-gray-200 rounded-full h-1.5 max-w-40">
                         <div
-                          className={`h-1.5 rounded-full ${auslastung > 90 ? 'bg-amber-500' : 'bg-s112-teal'}`}
-                          style={{ width: `${auslastung}%` }}
+                          className={`h-1.5 rounded-full ${literImBehaelter < 0 ? 'bg-red-500' : auslastung > 90 ? 'bg-amber-500' : 'bg-s112-teal'}`}
+                          style={{ width: `${Math.max(0, Math.min(100, auslastung))}%` }}
                         />
                       </div>
-                      <span className="text-xs tabular-nums text-gray-600">
-                        {literImBehaelter.toLocaleString('de-AT')} / {kapazitaet!.toLocaleString('de-AT')} L
+                      <span className={`text-xs tabular-nums ${literImBehaelter < 0 ? 'text-red-600 font-semibold' : 'text-gray-600'}`}>
+                        {fmtLiter(literImBehaelter)} / {fmtLiter(kapazitaet)}
                       </span>
                     </div>
                   )}
-                  {!kapazitaet && literImBehaelter > 0 && (
-                    <p className="text-xs text-gray-600 mt-0.5">{literImBehaelter.toLocaleString('de-AT')} L belegt</p>
+                  {!kapazitaet && literImBehaelter !== 0 && (
+                    <p className={`text-xs mt-0.5 ${literImBehaelter < 0 ? 'text-red-600 font-semibold' : 'text-gray-600'}`}>
+                      {fmtLiter(literImBehaelter)} belegt
+                    </p>
                   )}
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
@@ -147,6 +150,13 @@ export default async function KellerbuchPage() {
                   )}
                 </div>
               </div>
+
+              {/* Negativer Bestand – Warnung */}
+              {literImBehaelter < 0 && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border-b border-red-200 text-red-700 text-xs font-medium">
+                  ⚠️ Negativer Bestand: {fmtLiter(literImBehaelter)} — Buchungsfehler prüfen
+                </div>
+              )}
 
               {/* Chargen im Behälter */}
               {chargen.length > 0 ? (
@@ -177,7 +187,11 @@ export default async function KellerbuchPage() {
                             <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
                           </td>
                           <td className="px-4 py-2.5 text-right tabular-nums font-medium text-gray-800">
-                            {menge > 0 ? menge.toLocaleString('de-AT') + ' L' : <span className="text-red-500">0 L</span>}
+                            {menge > 0
+                              ? fmtLiter(menge)
+                              : menge < 0
+                                ? <span className="text-red-600 font-semibold">{fmtLiter(menge)}</span>
+                                : <span className="text-red-500">0,00 L</span>}
                           </td>
                           <td className="px-4 py-2.5 text-right">
                             {writeOk && menge > 0.01 && !istEB && (
@@ -218,7 +232,7 @@ export default async function KellerbuchPage() {
                         <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
                       </td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-gray-800">
-                        {(parseFloat(w.menge_liter) || 0).toLocaleString('de-AT')} L
+                        {fmtLiter(parseFloat(w.menge_liter) || 0)}
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         <Link href={`/kellerbuch/weinausbau/${w.id}`}

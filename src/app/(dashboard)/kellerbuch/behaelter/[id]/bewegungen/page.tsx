@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { fmtLiter } from '@/lib/format'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -298,18 +299,23 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
             <h1 className="text-2xl font-bold text-gray-900">{bh.name}</h1>
             <div className="flex items-center gap-3 mt-0.5 flex-wrap text-xs text-s112-muted">
               {bh.standort && <span>{bh.standort}</span>}
-              {kapazitaet && <span>{kapazitaet.toLocaleString('de-AT')} L Kapazität</span>}
+              {kapazitaet && <span>{fmtLiter(kapazitaet)} Kapazität</span>}
             </div>
+            {aktuell < 0 && (
+              <div className="mt-2 flex items-center gap-2 px-3 py-1.5 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs font-medium">
+                ⚠️ Negativer Bestand: {fmtLiter(aktuell)} — Buchungsfehler prüfen
+              </div>
+            )}
             {auslastung !== null && (
               <div className="mt-2 flex items-center gap-2">
                 <div className="w-36 bg-gray-200 rounded-full h-1.5">
                   <div
-                    className={`h-1.5 rounded-full ${auslastung > 90 ? 'bg-amber-500' : 'bg-s112-teal'}`}
-                    style={{ width: `${auslastung}%` }}
+                    className={`h-1.5 rounded-full ${aktuell < 0 ? 'bg-red-500' : auslastung > 90 ? 'bg-amber-500' : 'bg-s112-teal'}`}
+                    style={{ width: `${Math.max(0, Math.min(100, auslastung))}%` }}
                   />
                 </div>
-                <span className="text-xs tabular-nums text-gray-600">
-                  {aktuell.toLocaleString('de-AT')} / {kapazitaet!.toLocaleString('de-AT')} L
+                <span className={`text-xs tabular-nums ${aktuell < 0 ? 'text-red-600 font-semibold' : 'text-gray-600'}`}>
+                  {fmtLiter(aktuell)} / {fmtLiter(kapazitaet)}
                 </span>
               </div>
             )}
@@ -357,7 +363,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
                 <span className="font-medium text-gray-800">{c.name}</span>
                 {c.jahrgang && <span className="text-xs text-s112-muted">{c.jahrgang}</span>}
                 <span className="text-xs font-semibold text-s112-teal tabular-nums">
-                  {(parseFloat(c.menge_liter) || 0).toLocaleString('de-AT')} L
+                  {fmtLiter(parseFloat(c.menge_liter) || 0)}
                 </span>
               </Link>
             ))}
@@ -411,11 +417,11 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
                       <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${colorClass}`}>
                         {istNeutral
                           ? <span className="text-gray-300">–</span>
-                          : <span>{istAbgang ? '' : '+'}{bew.menge.toLocaleString('de-AT')} L</span>
+                          : <span>{istAbgang ? '' : '+'}{fmtLiter(bew.menge)}</span>
                         }
                       </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-gray-700">
-                        {istNeutral ? '' : `${bew.saldo.toLocaleString('de-AT')} L`}
+                      <td className={`px-4 py-2.5 text-right tabular-nums ${bew.saldo < 0 ? 'text-red-600 font-semibold' : 'text-gray-700'}`}>
+                        {istNeutral ? '' : fmtLiter(bew.saldo)}
                       </td>
                     </tr>
                   )
@@ -423,13 +429,13 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
               )}
 
               {/* Schluss-Zeile */}
-              <tr className="border-t-2 border-s112-teal/30 bg-s112-teal/5">
+              <tr className={`border-t-2 ${aktuell < 0 ? 'border-red-400/50 bg-red-50/50' : 'border-s112-teal/30 bg-s112-teal/5'}`}>
                 <td colSpan={2} className="px-4 py-2.5 font-semibold text-gray-700 text-sm">
                   Aktueller Bestand
                 </td>
                 <td className="px-4 py-2.5 text-right" />
-                <td className="px-4 py-2.5 text-right tabular-nums font-bold text-s112-teal text-base">
-                  {aktuell.toLocaleString('de-AT')} L
+                <td className={`px-4 py-2.5 text-right tabular-nums font-bold text-base ${aktuell < 0 ? 'text-red-600' : 'text-s112-teal'}`}>
+                  {fmtLiter(aktuell)}
                 </td>
               </tr>
             </tbody>

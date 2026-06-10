@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { fmtLiter } from '@/lib/format'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import PrintButton from './PrintButton'
@@ -162,10 +163,10 @@ export default async function KellerAuswertungenPage() {
                     </td>
                     <td className="px-4 py-2.5 text-gray-500 text-xs">{b.standort ?? '–'}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-gray-500 text-xs">
-                      {kapazitaet ? `${kapazitaet.toLocaleString('de-AT')} L` : '–'}
+                      {kapazitaet ? fmtLiter(kapazitaet) : '–'}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums font-medium text-s112-teal">
-                      {liter > 0 ? `${liter.toLocaleString('de-AT', { maximumFractionDigits: 0 })} L` : <span className="text-gray-300">–</span>}
+                      {liter > 0 ? fmtLiter(liter) : <span className="text-gray-300">–</span>}
                     </td>
                     <td className="px-4 py-2.5">
                       {pct !== null ? (
@@ -231,7 +232,7 @@ export default async function KellerAuswertungenPage() {
                       ) : <span className="text-amber-600 text-xs">⚠️ kein Behälter</span>}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums font-medium text-s112-teal">
-                      {(parseFloat(c.menge_liter) || 0).toLocaleString('de-AT')} L
+                      {fmtLiter(parseFloat(c.menge_liter) || 0)}
                     </td>
                   </tr>
                 )
@@ -333,10 +334,10 @@ export default async function KellerAuswertungenPage() {
                       {isFilt ? '🔼' : '⬆️'} {(u.nach_behaelter as R | null)?.name ?? '–'}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums font-medium text-gray-700">
-                      {brutto > 0 ? `${brutto.toLocaleString('de-AT', { maximumFractionDigits: 2 })} L` : '–'}
+                      {brutto > 0 ? fmtLiter(brutto) : '–'}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-amber-600">
-                      {schwund > 0 ? `${schwund.toLocaleString('de-AT', { maximumFractionDigits: 2 })} L` : '–'}
+                      {schwund > 0 ? fmtLiter(schwund) : '–'}
                     </td>
                   </tr>
                 )

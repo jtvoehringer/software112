@@ -17,7 +17,7 @@ type UmzugRow  = { id: string; von_name: string; nach_name: string; menge_liter:
 
 function fmt(n: number | null) {
   if (n == null) return '–'
-  return n.toLocaleString('de-AT', { minimumFractionDigits: 0, maximumFractionDigits: 1 }) + ' L'
+  return n.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' L'
 }
 
 // ── Quell-Zeile: Behälter wählen → Charge + Menge auto-befüllt ───────────────

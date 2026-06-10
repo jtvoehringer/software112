@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { fmtLiter } from '@/lib/format'
 import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -194,7 +195,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
       const zielNames = zielRecs.map((z: R) => (z.nach_behaelter as R | null)?.name ?? '?')
       const sumNetto  = zielRecs.reduce((s: number, z: R) => s + (parseFloat(z.menge_liter) || 0), 0)
       const schwund   = abgangLiter - sumNetto
-      beschreibung    = `Umziehen → ${zielNames.length > 0 ? zielNames.join(', ') : '?'}${schwund > 0.01 ? ` (Schwund: ${schwund.toLocaleString('de-AT', { maximumFractionDigits: 2 })} L)` : ''}`
+      beschreibung    = `Umziehen → ${zielNames.length > 0 ? zielNames.join(', ') : '?'}${schwund > 0.01 ? ` (Schwund: ${schwund.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L)` : ''}`
     } else {
       // Altes Format (transfer)
       const netto   = parseFloat(u.menge_liter) || 0
@@ -202,7 +203,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
       // brutto_liter bevorzugen, sonst netto + schwund
       abgangLiter   = parseFloat(u.brutto_liter) || (netto + schwund) || netto
       const destName = (u.nach_behaelter as R | null)?.name ?? '?'
-      beschreibung   = `Umziehen → ${destName}${schwund > 0.01 ? ` (Schwund: ${schwund.toLocaleString('de-AT', { maximumFractionDigits: 2 })} L)` : ''}`
+      beschreibung   = `Umziehen → ${destName}${schwund > 0.01 ? ` (Schwund: ${schwund.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L)` : ''}`
     }
 
     bewegungen.push({
@@ -278,7 +279,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
           </div>
         </div>
         <div className="text-right shrink-0">
-          <p className="text-2xl font-bold text-s112-teal tabular-nums">{aktuell.toLocaleString('de-AT')} L</p>
+          <p className="text-2xl font-bold text-s112-teal tabular-nums">{fmtLiter(aktuell)}</p>
           <p className="text-xs text-s112-muted mt-0.5">verfügbarer Bestand</p>
           {writeOk && aktuell > 0.01 && (
             <Link href={`/weinhandel/fuellungen/neu?charge=${weinausbau.id}`}
@@ -309,10 +310,10 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
                   <td className="px-4 py-2.5 text-xs text-gray-500">–</td>
                   <td className="px-4 py-2.5 font-medium text-gray-700">Anfangsbestand</td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-green-700 font-semibold">
-                    +{anfangsbestand.toLocaleString('de-AT')} L
+                    +{fmtLiter(anfangsbestand, { noUnit: false })}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-800">
-                    {anfangsbestand.toLocaleString('de-AT')} L
+                    {fmtLiter(anfangsbestand)}
                   </td>
                 </tr>
               )}
@@ -346,10 +347,10 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
                       </div>
                     </td>
                     <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${colorClass}`}>
-                      {istAbgang ? '' : '+'}{bew.menge.toLocaleString('de-AT')} L
+                      {istAbgang ? '' : '+'}{fmtLiter(bew.menge)}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-gray-700">
-                      {bew.saldo.toLocaleString('de-AT')} L
+                      {fmtLiter(bew.saldo)}
                     </td>
                   </tr>
                 )
@@ -362,7 +363,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
                 </td>
                 <td className="px-4 py-2.5 text-right" />
                 <td className="px-4 py-2.5 text-right tabular-nums font-bold text-s112-teal text-base">
-                  {aktuell.toLocaleString('de-AT')} L
+                  {fmtLiter(aktuell)}
                 </td>
               </tr>
             </tbody>
