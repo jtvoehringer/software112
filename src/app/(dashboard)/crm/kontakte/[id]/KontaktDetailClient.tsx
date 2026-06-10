@@ -535,20 +535,20 @@ export default function KontaktDetailClient({
                         const expanded = expandedThreads.has(threadId)
                         const latest   = msgs[msgs.length - 1]
                         return (
-                          <div key={threadId} className="border border-s112-border rounded-xl overflow-hidden">
+                          <div key={threadId} className={`border rounded-xl overflow-hidden ${item.erledigt ? 'border-green-200 opacity-60' : 'border-s112-border'}`}>
                             <button type="button"
                               onClick={() => setExpandedThreads(prev => {
                                 const next = new Set(prev)
                                 expanded ? next.delete(threadId) : next.add(threadId)
                                 return next
                               })}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 transition-colors text-left">
-                              <span className="text-base">✉️</span>
+                              className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors text-left ${item.erledigt ? 'bg-green-50 hover:bg-green-100' : 'bg-blue-50 hover:bg-blue-100'}`}>
+                              <span className="text-base">{item.erledigt ? '✅' : '✉️'}</span>
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-gray-800 truncate">{latest.betreff}</p>
                                 <p className="text-xs text-s112-muted">{msgs.length} E-Mail{msgs.length !== 1 ? 's' : ''} · {new Date(latest.datum).toLocaleDateString('de-AT')} · {expanded ? 'einklappen ▴' : 'ausklappen ▾'}</p>
                               </div>
-                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">{msgs.length}</span>
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${item.erledigt ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{msgs.length}</span>
                             </button>
                             {expanded && (
                               <div className="divide-y divide-s112-border/40">
