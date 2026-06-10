@@ -41,19 +41,20 @@ export default async function KellerbuchPage() {
   // abfuellung = Wein hat Keller verlassen → gehört zur Warenwirtschaft
   // Alle aktiven Chargen (inkl. Eröffnungsbestand für Liter-Berechnung)
   const alleAktiven    = weinausbau.filter((w: R) => w.aktiv && w.status !== 'abgeschlossen' && w.status !== 'abfuellung')
-  // Reguläre Chargen (ohne Eröffnungsbestand) für die Anzeige
+  // Reguläre Chargen (ohne Eröffnungsbestand) für die Stats-Card
   const aktiveChargen  = alleAktiven.filter((w: R) => !w.ist_eroeffnungsbestand)
   const gesamtLiter    = alleAktiven.reduce((s: number, w: R) => s + (parseFloat(w.menge_liter) || 0), 0)
 
-  // Chargen nach Behälter gruppieren (nur reguläre Chargen)
+  // Chargen nach Behälter gruppieren (inkl. Eröffnungsbestand für konsistente Statusbars)
   const chargenByBehaelter = new Map<string, R[]>()
   const chargenOhneBehaelter: R[] = []
 
-  for (const w of aktiveChargen) {
+  for (const w of alleAktiven) {
     if (w.behaelter_id) {
       if (!chargenByBehaelter.has(w.behaelter_id)) chargenByBehaelter.set(w.behaelter_id, [])
       chargenByBehaelter.get(w.behaelter_id)!.push(w)
-    } else {
+    } else if (!w.ist_eroeffnungsbestand) {
+      // Eröffnungsbestand ohne Behälter ist ein Datenfehler – nicht als Warnung anzeigen
       chargenOhneBehaelter.push(w)
     }
   }
@@ -162,11 +163,13 @@ export default async function KellerbuchPage() {
                     {chargen.map((w: R) => {
                       const st = STATUS_LABELS[w.status] ?? { label: w.status, color: 'bg-gray-100 text-gray-600' }
                       const menge = parseFloat(w.menge_liter) || 0
+                      const istEB = w.ist_eroeffnungsbestand === true
                       return (
-                        <tr key={w.id} className="border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40">
+                        <tr key={w.id} className={`border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40 ${istEB ? 'opacity-75' : ''}`}>
                           <td className="px-4 py-2.5 font-medium text-gray-800">
                             {w.name}
                             {w.rebsorte && <span className="text-xs text-s112-muted ml-1">· {w.rebsorte}</span>}
+                            {istEB && <span className="text-xs text-s112-muted ml-1 italic">(Eröffnungsbestand)</span>}
                           </td>
                           <td className="px-4 py-2.5 text-s112-muted text-xs">{w.jahrgang ?? '–'}</td>
                           <td className="px-4 py-2.5">
@@ -176,7 +179,7 @@ export default async function KellerbuchPage() {
                             {menge > 0 ? menge.toLocaleString('de-AT') + ' L' : <span className="text-red-500">0 L</span>}
                           </td>
                           <td className="px-4 py-2.5 text-right">
-                            {writeOk && menge > 0.01 && (
+                            {writeOk && menge > 0.01 && !istEB && (
                               <Link href={`/weinhandel/fuellungen/neu?charge=${w.id}`}
                                 className="text-xs text-s112-teal border border-s112-teal/30 rounded-full px-2 py-0.5 hover:bg-s112-teal hover:text-white transition-colors whitespace-nowrap">
                                 🍾 Abfüllen

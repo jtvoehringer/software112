@@ -23,11 +23,12 @@ const ART_ICON: Record<string, string> = {
   filtration_aus:  '🔽',
   abfuellung:      '🍾',
   verkauf:         '💰',
+  behandlung:      '🧪',
 }
 
 type Bewegung = {
   datum: string
-  art: 'anfangsbestand' | 'pressung' | 'umzug_ein' | 'umzug_aus' | 'filtration_ein' | 'filtration_aus' | 'abfuellung' | 'verkauf'
+  art: 'anfangsbestand' | 'pressung' | 'umzug_ein' | 'umzug_aus' | 'filtration_ein' | 'filtration_aus' | 'abfuellung' | 'verkauf' | 'behandlung'
   beschreibung: string
   menge: number
   extra?: string
@@ -48,22 +49,23 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
   if (!bhRow) notFound()
   const bh = bhRow as R
 
-  // Parallel-Queries: Pressungen + eingehende Umzüge + Chargen + ausgehende Umzüge via von_behaelter_id
+  // Parallel-Queries
   const [
     { data: pressungenRaw },
     { data: umzuegeEinRaw },
     { data: chargenRaw },
     { data: umzuegeVonBehaelterRaw },
+    { data: behandlungenRaw },
   ] = await Promise.all([
-    // Pressungen für diesen Behälter – via behaelter_id (korrekte Verknüpfung!)
+    // Pressungen für diesen Behälter
     (supabase.from('pressung_behaelter') as any)
       .select('id, menge_liter, weinausbau_id, notizen, pressung:pressung_id(id, datum, notizen)')
       .eq('behaelter_id', id)
       .order('id', { ascending: true }),
 
-    // Eingehende Umzüge – inkl. schwund_liter für Netto-Berechnung
+    // Eingehende Umzüge – inkl. brutto_liter/schwund_liter für korrekte Netto-Berechnung
     (supabase.from('keller_umzuege') as any)
-      .select('id, datum, menge_liter, schwund_liter, umzug_typ, nach_weinausbau_id, von_weinausbau:von_weinausbau_id(name, jahrgang, behaelter:behaelter_id(name)), notizen')
+      .select('id, datum, menge_liter, brutto_liter, schwund_liter, umzug_typ, nach_weinausbau_id, von_weinausbau:von_weinausbau_id(name, jahrgang, behaelter:behaelter_id(name)), notizen')
       .eq('nach_behaelter_id', id)
       .order('datum', { ascending: true }),
 
@@ -73,18 +75,19 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
       .eq('behaelter_id', id)
       .order('id', { ascending: true }),
 
-    // Ausgehende Umzüge via von_behaelter_id – deckt manuell erstellte Chargen ab,
-    // die vollständig umgezogen wurden (behaelter_id=null, kein pressung_behaelter-Eintrag)
+    // Ausgehende Umzüge via von_behaelter_id
     (supabase.from('keller_umzuege') as any)
       .select('von_weinausbau_id')
       .eq('von_behaelter_id', id),
+
+    // Kellerbehandlungen für diesen Behälter
+    (supabase.from('keller_behandlungen') as any)
+      .select('id, datum, menge, einheit, notizen, typ:typ_id(name)')
+      .eq('behaelter_id', id)
+      .order('datum', { ascending: true }),
   ])
 
-  // Charge-IDs sammeln aus 4 Quellen:
-  // 1. Direkt zugewiesene Chargen (behaelter_id = id)
-  // 2. Via eingehende Umzüge (nach_weinausbau_id)
-  // 3. Via Pressungen verknüpfte Chargen (pressung_behaelter.weinausbau_id)
-  // 4. Via ausgehende Umzüge (von_behaelter_id = id → von_weinausbau_id)
+  // Charge-IDs sammeln aus 4 Quellen
   const chargeIds = new Set<string>()
   for (const c of (chargenRaw ?? []) as R[]) chargeIds.add(c.id)
   for (const u of (umzuegeEinRaw ?? []) as R[]) {
@@ -121,17 +124,16 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
       ])
     : [{ data: [] }, { data: [] }, { data: [] }]
 
-  // Eröffnungsbestand-Charge ermitteln (immer anzeigen, auch wenn inaktiv)
+  // Eröffnungsbestand-Charge ermitteln
   const eroeffnungsCharge = ((chargenRaw ?? []) as R[]).find(c => c.ist_eroeffnungsbestand)
 
   // ── Bewegungen aufbauen ──────────────────────────────────────────────────────
   const bewegungen: Bewegung[] = []
 
-  // Eröffnungsbestand als erste Bewegung (sofern vorhanden)
+  // Eröffnungsbestand als erste Bewegung
   if (eroeffnungsCharge) {
     const liter = parseFloat(eroeffnungsCharge.anfangsbestand_liter) || parseFloat(eroeffnungsCharge.menge_liter) || 0
     if (liter > 0) {
-      // Datum: 1.1. des Buchungsjahres aus created_at
       const buchungsJahr = eroeffnungsCharge.created_at
         ? new Date(eroeffnungsCharge.created_at).getFullYear()
         : new Date().getFullYear()
@@ -158,10 +160,15 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     })
   }
 
-  // Eingehende Umzüge (Zugänge) – menge_liter ist bereits die Nettomenge
+  // Eingehende Umzüge (Zugänge)
+  // Altes Format (brutto_liter=null): menge_liter war Brutto → Netto = menge - schwund
+  // Neues Format (brutto_liter gesetzt): menge_liter ist bereits Netto
   for (const u of (umzuegeEinRaw ?? []) as R[]) {
-    const liter   = parseFloat(u.menge_liter) || 0
-    const schwund = parseFloat(u.schwund_liter) || 0
+    const rohmenge = parseFloat(u.menge_liter) || 0
+    const schwund  = parseFloat(u.schwund_liter) || 0
+    const liter    = u.brutto_liter != null
+      ? rohmenge
+      : Math.max(0, rohmenge - schwund)
     if (liter <= 0) continue
     const vonCharge  = u.von_weinausbau as R | null
     const vonTank    = (vonCharge?.behaelter as R | null)?.name ?? null
@@ -184,10 +191,11 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
   for (const u of (umzuegeAusRaw ?? []) as R[]) {
     const netto   = parseFloat(u.menge_liter) || 0
     const schwund = parseFloat(u.schwund_liter) || 0
-    // 'quelle'-Zeilen speichern brutto in menge_liter; transfer-Zeilen haben brutto_liter
+    // 'quelle'-Zeilen (N:M-Format): menge_liter = brutto direkt
+    // 'transfer'-Zeilen: brutto_liter (neues Format) ODER menge_liter (altes Format, war brutto)
     const abgang  = u.zeilen_typ === 'quelle'
       ? netto
-      : (parseFloat(u.brutto_liter) || (netto + schwund) || netto)
+      : (parseFloat(u.brutto_liter) || netto)
     if (abgang <= 0) continue
     const nachTank   = (u.nach_behaelter as R | null)?.name ?? '?'
     const vonCharge  = u.von_weinausbau as R | null
@@ -198,7 +206,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
       beschreibung: istFiltAus
         ? `Filtration nach ${nachTank}${schwund > 0 ? ` · Schwund: ${schwund.toLocaleString('de-AT')} L` : ''}`
         : `Umzug nach ${nachTank}${schwund > 0 ? ` · Schwund: ${schwund.toLocaleString('de-AT')} L` : ''}`,
-      menge: -abgang,   // Quelle verliert exakt abgang; Schwund nicht doppelt zählen
+      menge: -abgang,
       extra: vonCharge?.name
         ? `aus Charge: ${vonCharge.name}${u.notizen ? ` · ${u.notizen}` : ''}`
         : (u.notizen ?? undefined),
@@ -233,25 +241,37 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     })
   }
 
+  // Kellerbehandlungen (keine Mengenänderung, nur informativer Eintrag)
+  for (const b of (behandlungenRaw ?? []) as R[]) {
+    if (!b.datum) continue
+    const typName  = (b.typ as R | null)?.name ?? 'Behandlung'
+    const mengeStr = b.menge && b.einheit
+      ? `${parseFloat(b.menge).toLocaleString('de-AT')} ${b.einheit}`
+      : null
+    bewegungen.push({
+      datum: b.datum,
+      art: 'behandlung',
+      beschreibung: typName,
+      menge: 0,
+      extra: [mengeStr, b.notizen].filter(Boolean).join(' · ') || undefined,
+    })
+  }
+
   // Nach Datum sortieren (leere Datums an den Anfang)
   bewegungen.sort((a, b) => a.datum.localeCompare(b.datum))
 
-  // Laufenden Saldo berechnen (startet bei 0)
+  // Laufenden Saldo berechnen (startet bei 0; Behandlungen mit menge=0 ändern den Saldo nicht)
   let saldo = 0
   const bewegungenMitSaldo = bewegungen.map(bew => {
     saldo += bew.menge
     return { ...bew, saldo }
   })
 
-  // Aktueller Bestand: finaler Saldo aus Bewegungsrechnung (Quelle der Wahrheit)
-  // Fallback: DB-Summe der aktiven Chargen
   const finalSaldo = bewegungenMitSaldo.length > 0
     ? bewegungenMitSaldo[bewegungenMitSaldo.length - 1].saldo
     : 0
-  // Aktuelle Chargen: aktiv, kein Eröffnungsbestand (der wird im Bewegungsbuch separat gezeigt)
   const aktiveChargen = ((chargenRaw ?? []) as R[]).filter(c => c.aktiv && !c.ist_eroeffnungsbestand)
   const aktuellDB = aktiveChargen.reduce((s: number, c: R) => s + (parseFloat(c.menge_liter) || 0), 0)
-  // Für Anzeige: Saldo aus Bewegungen (stimmt auch wenn charge.behaelter_id=null nach Umzug)
   const aktuell = finalSaldo > 0 ? finalSaldo : aktuellDB
 
   const kapazitaet = bh.volumen_liter ? parseFloat(bh.volumen_liter) : null
@@ -367,9 +387,11 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
                 bewegungenMitSaldo.map((bew, i) => {
                   const istAbgang    = bew.menge < 0
                   const istZugang    = bew.menge > 0
-                  const colorClass   = istAbgang ? 'text-red-600' : istZugang ? 'text-green-600' : 'text-gray-500'
+                  const istNeutral   = bew.menge === 0
+                  const colorClass   = istAbgang ? 'text-red-600' : istZugang ? 'text-green-600' : 'text-gray-400'
                   const isZugangsRow = bew.art === 'anfangsbestand' || bew.art === 'pressung' || bew.art === 'umzug_ein' || bew.art === 'filtration_ein'
-                  const rowBg        = isZugangsRow ? 'bg-green-50/50' : (i % 2 === 1 ? 'bg-s112-bg/30' : '')
+                  const isBehandlung = bew.art === 'behandlung'
+                  const rowBg        = isZugangsRow ? 'bg-green-50/50' : isBehandlung ? 'bg-blue-50/30' : (i % 2 === 1 ? 'bg-s112-bg/30' : '')
                   return (
                     <tr key={i} className={`border-b border-s112-border/30 last:border-0 ${rowBg}`}>
                       <td className="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">
@@ -385,10 +407,13 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
                         </div>
                       </td>
                       <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${colorClass}`}>
-                        {istAbgang ? '' : '+'}{bew.menge.toLocaleString('de-AT')} L
+                        {istNeutral
+                          ? <span className="text-gray-300">–</span>
+                          : <span>{istAbgang ? '' : '+'}{bew.menge.toLocaleString('de-AT')} L</span>
+                        }
                       </td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-gray-700">
-                        {bew.saldo.toLocaleString('de-AT')} L
+                        {istNeutral ? '' : `${bew.saldo.toLocaleString('de-AT')} L`}
                       </td>
                     </tr>
                   )

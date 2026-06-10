@@ -4,9 +4,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import GebindeClient from '@/components/kellerbuch/GebindeClient'
 import LoeschenButton from '@/components/kellerbuch/LoeschenButton'
-import UmziehenFormClient from '@/components/kellerbuch/UmziehenFormClient'
 import { createBehaelter, updateBehaelter } from '../actions'
-import { createEroeffnungsbestand, deleteEroeffnungsbestand, createUmzug, deleteUmzug } from '../gebinde-actions'
+import { createEroeffnungsbestand, deleteEroeffnungsbestand, deleteUmzug } from '../gebinde-actions'
 
 export const metadata: Metadata = { title: 'Gebinde – software:112' }
 export const dynamic = 'force-dynamic'
@@ -384,21 +383,6 @@ export default async function GebindePage({
           <p className="text-sm text-s112-muted">
             Quell-Gebinde wählen, Brutto-Menge eingeben und beliebig viele Ziel-Gebinde mit Netto-Litern angeben. Schwund wird automatisch berechnet.
           </p>
-
-          {writeOk && (
-            <details className="card p-5">
-              <summary className="cursor-pointer font-semibold text-sm text-gray-800 select-none">
-                + Neuen Umzug erfassen
-              </summary>
-              <UmziehenFormClient
-                gebinde={gebinde}
-                chargen={chargen}
-                action={createUmzug}
-                inputCls={inputCls}
-                labelCls={labelCls}
-              />
-            </details>
-          )}
 
           <div className="card p-0 overflow-hidden">
             <table className="w-full text-sm">
