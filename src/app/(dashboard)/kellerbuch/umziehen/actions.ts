@@ -83,6 +83,10 @@ export async function umziehen(fd: FormData) {
     }
 
     // Protokoll
+    // menge_liter = Netto (proportionaler Anteil am Zielvolumen)
+    // brutto_liter = Brutto (was die Quelle tatsächlich verlässt)
+    const nettoAnteil = +(totalNach * (q.menge / totalVon)).toFixed(3)
+
     const { data: umzugData } = await (supabase.from('keller_umzuege') as any).insert({
       tenant_id:          tenantId,
       datum,
@@ -90,7 +94,8 @@ export async function umziehen(fd: FormData) {
       von_weinausbau_id:  q.weinausbau_id,
       nach_behaelter_id:  ziele[0].behaelter_id,
       nach_weinausbau_id: primaryNachWeinausbauId,
-      menge_liter:        q.menge,
+      menge_liter:        nettoAnteil,   // Netto = was beim Ziel ankommt
+      brutto_liter:       q.menge,       // Brutto = was die Quelle verlässt
       schwund_liter:      i === 0 ? schwund : 0,
       verschnitt:         false,
       qualitaet_vorher:   von.qualitaetsstufe ?? null,

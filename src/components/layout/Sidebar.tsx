@@ -83,9 +83,10 @@ const NAV: NavEntry[] = [
   },
 
   {
-    kind: 'group', label: 'Auswertungen', icon: '📋',
+    kind: 'group', label: 'Auswertungen', icon: '🍷',
     items: [
       { href: '/reports',                     label: 'Behörden & Reports' },
+      { href: '/reports/keller',              label: 'Keller-Auswertungen', child: true },
       { href: '/auswertungen/kostenrechnung', label: 'Kosten-Auswertung' },
       { href: '/auswertungen/besuchsplanung', label: 'Besuchsplanung' },
     ],
