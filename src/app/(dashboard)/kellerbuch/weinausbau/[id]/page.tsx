@@ -14,9 +14,9 @@ type R = Record<string, any>
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   ernte:        { label: 'Ernte',         color: 'bg-yellow-100 text-yellow-700' },
-  gaerung:      { label: 'Gärung',   color: 'bg-orange-100 text-orange-700' },
+  gaerung:      { label: 'Gärung',        color: 'bg-orange-100 text-orange-700' },
   ausbau:       { label: 'Ausbau',        color: 'bg-blue-100 text-blue-700' },
-  abfuellung:   { label: 'Abfüllung', color: 'bg-purple-100 text-purple-700' },
+  abfuellung:   { label: 'Abfüllung',     color: 'bg-purple-100 text-purple-700' },
   abgeschlossen:{ label: 'Abgeschlossen', color: 'bg-green-100 text-green-700' },
 }
 
@@ -41,33 +41,71 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
       .eq('id', id).limit(1),
     (supabase.from('weingarten') as any).select('id, name').eq('aktiv', true).order('name'),
     (supabase.from('behaelter') as any).select('id, name').eq('aktiv', true).order('name'),
-    // Ausgehende Umzüge aus dieser Charge
+    // Ausgehende Umzüge (von dieser Charge weg) – enthält 'transfer' und 'quelle'-Zeilen
     (supabase.from('keller_umzuege') as any)
-      .select('id, datum, menge_liter, schwund_liter, nach_behaelter:nach_behaelter_id(name), notizen')
+      .select('id, datum, menge_liter, brutto_liter, schwund_liter, nach_behaelter:nach_behaelter_id(name), notizen, umzug_batch_id, zeilen_typ')
       .eq('von_weinausbau_id', id)
       .order('datum', { ascending: true }),
-    // Eingehende Umzüge in diese Charge (erfordert Migration 060)
+    // Eingehende Umzüge (in diese Charge rein) – enthält 'transfer' und 'ziel'-Zeilen
     (supabase.from('keller_umzuege') as any)
-      .select('id, datum, menge_liter, von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name)), notizen')
+      .select('id, datum, menge_liter, von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name)), notizen, umzug_batch_id, zeilen_typ')
       .eq('nach_weinausbau_id', id)
       .order('datum', { ascending: true }),
-    // Abfüllungen aus dieser Charge
+    // Abfüllungen
     (supabase.from('fuellungen') as any)
       .select('id, datum, name, anzahl_flaschen, menge_liter_gefuellt, flaschengroesse_ml, pruefnummer, chargennummer')
       .eq('weinausbau_id', id)
       .order('datum', { ascending: true }),
-    // Tank-Verkäufe aus dieser Charge
+    // Tank-Verkäufe
     (supabase.from('verkauf_positionen') as any)
       .select('id, menge, einheit, verkaufsposten:verkaufsposten_id(datum, storniert)')
       .eq('weinausbau_id', id)
       .eq('typ', 'tank')
       .order('id', { ascending: true }),
-    // Pressungen / Ernte die in diese Charge geflossen sind
+    // Pressungen / Ernte
     (supabase.from('pressung_behaelter') as any)
       .select('id, menge_liter, notizen, pressung:pressung_id(datum, notizen)')
       .eq('weinausbau_id', id)
       .order('id', { ascending: true }),
   ])
+
+  const ausRecs = (umzuegeAusRaw ?? []) as R[]
+  const einRecs = (umzuegeEinRaw ?? []) as R[]
+
+  // Sekundäre Abfragen für das neue n:n-Format
+  // Für 'quelle'-Zeilen: Ziel-Gebinde-Namen laden
+  const quelleAusBatchIds = [...new Set(
+    ausRecs.filter(u => u.zeilen_typ === 'quelle').map(u => u.umzug_batch_id).filter(Boolean)
+  )] as string[]
+  // Für 'ziel'-Zeilen: Quell-Chargen-Namen laden
+  const zielEinBatchIds = [...new Set(
+    einRecs.filter(u => u.zeilen_typ === 'ziel').map(u => u.umzug_batch_id).filter(Boolean)
+  )] as string[]
+
+  const zielRecsByBatch:  Record<string, R[]> = {}
+  const quelleRecsByBatch: Record<string, R[]> = {}
+
+  if (quelleAusBatchIds.length > 0) {
+    const { data: zielRaw } = await (supabase.from('keller_umzuege') as any)
+      .select('umzug_batch_id, nach_behaelter:nach_behaelter_id(name), menge_liter')
+      .in('umzug_batch_id', quelleAusBatchIds)
+      .eq('zeilen_typ', 'ziel')
+    for (const z of ((zielRaw ?? []) as R[])) {
+      if (!zielRecsByBatch[z.umzug_batch_id]) zielRecsByBatch[z.umzug_batch_id] = []
+      zielRecsByBatch[z.umzug_batch_id].push(z)
+    }
+  }
+
+  if (zielEinBatchIds.length > 0) {
+    const { data: quelleRaw } = await (supabase.from('keller_umzuege') as any)
+      .select('umzug_batch_id, von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name)), brutto_liter')
+      .in('umzug_batch_id', zielEinBatchIds)
+      .eq('zeilen_typ', 'quelle')
+    for (const q of ((quelleRaw ?? []) as R[])) {
+      if (!quelleRecsByBatch[q.umzug_batch_id]) quelleRecsByBatch[q.umzug_batch_id] = []
+      quelleRecsByBatch[q.umzug_batch_id].push(q)
+    }
+  }
 
   type WeinausbauRow = {
     id: string; name: string; jahrgang: number | null; rebsorte: string | null
@@ -83,9 +121,9 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
   const weingaerten = (wgRaw ?? []) as NameRow[]
   const behaelter   = (bhRaw  ?? []) as NameRow[]
 
-  // Bewegungsbuch aufbauen
-  const anfangsbestand = parseFloat(String(weinausbau.anfangsbestand_liter ?? weinausbau.menge_liter ?? 0)) || 0
-  const aktuell        = parseFloat(String(weinausbau.menge_liter ?? 0)) || 0
+  const anfangsbestand    = parseFloat(String(weinausbau.anfangsbestand_liter ?? 0)) || 0
+  const aktuell           = parseFloat(String(weinausbau.menge_liter ?? 0)) || 0
+  const hatAnfangsbestand = anfangsbestand > 0
 
   type Bewegung = {
     datum: string
@@ -111,28 +149,67 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
   }
 
   // Eingehende Umzüge (Zugänge)
-  for (const u of ((umzuegeEinRaw ?? []) as R[])) {
-    const liter     = parseFloat(u.menge_liter) || 0
-    const vonCharge = u.von_weinausbau as R | null
-    const vonTank   = (vonCharge?.behaelter as R | null)?.name ?? null
-    const vonName   = vonCharge?.name ?? '?'
+  for (const u of einRecs) {
+    const liter = parseFloat(u.menge_liter) || 0
+    let beschreibung: string
+
+    if (u.zeilen_typ === 'ziel') {
+      // Neues Format: Quell-Namen aus quelleRecsByBatch holen
+      const quelleRecs = quelleRecsByBatch[u.umzug_batch_id] ?? []
+      const quelleNames = quelleRecs.map((q: R) => {
+        const wa   = q.von_weinausbau as R | null
+        const tank = (wa?.behaelter as R | null)?.name
+        return tank ? `${tank} (${wa?.name ?? '?'})` : (wa?.name ?? '?')
+      })
+      beschreibung = `Zugang aus ${quelleNames.length > 0 ? quelleNames.join(', ') : '?'}`
+    } else {
+      // Altes Format (transfer / null)
+      const vonCharge = u.von_weinausbau as R | null
+      const vonTank   = (vonCharge?.behaelter as R | null)?.name ?? null
+      const vonName   = vonCharge?.name ?? '?'
+      beschreibung    = `Zugang aus ${vonTank ? `${vonTank} (${vonName})` : vonName}`
+    }
+
     bewegungen.push({
       datum: u.datum,
       art: 'umziehen_ein',
-      beschreibung: `Umziehen ← ${vonTank ? `${vonTank} (${vonName})` : vonName}`,
+      beschreibung,
       menge: liter,
       extra: u.notizen ?? undefined,
     })
   }
 
   // Ausgehende Umzüge (Abgänge)
-  for (const u of ((umzuegeAusRaw ?? []) as R[])) {
-    const abgang = parseFloat(u.menge_liter) || 0
+  for (const u of ausRecs) {
+    // 'ziel'-Zeilen gehören nicht in diese Charge als Abgang
+    if (u.zeilen_typ === 'ziel') continue
+
+    let abgangLiter: number
+    let beschreibung: string
+
+    if (u.zeilen_typ === 'quelle') {
+      // Neues Format: brutto_liter ist der tatsächliche Abgang
+      abgangLiter = parseFloat(u.brutto_liter) || parseFloat(u.menge_liter) || 0
+      const zielRecs  = zielRecsByBatch[u.umzug_batch_id] ?? []
+      const zielNames = zielRecs.map((z: R) => (z.nach_behaelter as R | null)?.name ?? '?')
+      const sumNetto  = zielRecs.reduce((s: number, z: R) => s + (parseFloat(z.menge_liter) || 0), 0)
+      const schwund   = abgangLiter - sumNetto
+      beschreibung    = `Umziehen → ${zielNames.length > 0 ? zielNames.join(', ') : '?'}${schwund > 0.01 ? ` (Schwund: ${schwund.toLocaleString('de-AT', { maximumFractionDigits: 2 })} L)` : ''}`
+    } else {
+      // Altes Format (transfer)
+      const netto   = parseFloat(u.menge_liter) || 0
+      const schwund = parseFloat(u.schwund_liter) || 0
+      // brutto_liter bevorzugen, sonst netto + schwund
+      abgangLiter   = parseFloat(u.brutto_liter) || (netto + schwund) || netto
+      const destName = (u.nach_behaelter as R | null)?.name ?? '?'
+      beschreibung   = `Umziehen → ${destName}${schwund > 0.01 ? ` (Schwund: ${schwund.toLocaleString('de-AT', { maximumFractionDigits: 2 })} L)` : ''}`
+    }
+
     bewegungen.push({
       datum: u.datum,
       art: 'umziehen_aus',
-      beschreibung: `Umziehen → ${(u.nach_behaelter as R | null)?.name ?? '?'}${u.schwund_liter > 0 ? ` (Schwund: ${u.schwund_liter} L)` : ''}`,
-      menge: -(abgang + (parseFloat(u.schwund_liter) || 0)),
+      beschreibung,
+      menge: -abgangLiter,
       extra: u.notizen ?? undefined,
     })
   }
@@ -162,17 +239,10 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
     })
   }
 
-  // Nach Datum sortieren
   bewegungen.sort((a, b) => a.datum.localeCompare(b.datum))
 
-  // Startpunkt des Saldos:
-  // Zugangsbuchungen vorhanden (Pressung/eingehender Umzug) => Saldo startet bei 0
-  // Keine Zugangsbuchungen => statischer Anfangsbestand als Startpunkt
-  const hatPressungen     = (pressungenRaw ?? []).length > 0
-  const hatEingehendeUmzg = (umzuegeEinRaw ?? []).length > 0
-  const hatZugaenge       = hatPressungen || hatEingehendeUmzg
-
-  let saldo = hatZugaenge ? 0 : anfangsbestand
+  // Saldo: startet beim Anfangsbestand (wenn vorhanden), sonst 0
+  let saldo = hatAnfangsbestand ? anfangsbestand : 0
   const bewegungenMitSaldo = bewegungen.map(bew => {
     saldo += bew.menge
     return { ...bew, saldo }
@@ -182,8 +252,8 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
 
   const artIcon: Record<string, string> = {
     ernte:        '🍇',
-    umziehen_ein: '↩️',
-    umziehen_aus: '↪️',
+    umziehen_ein: '⬆️',
+    umziehen_aus: '⬇️',
     abfuellung:   '🍾',
     verkauf:      '💰',
   }
@@ -233,8 +303,8 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
               </tr>
             </thead>
             <tbody>
-              {/* Anfangsbestand – nur wenn KEINE Zugangsbuchungen vorhanden */}
-              {!hatZugaenge && (
+              {/* Anfangsbestand – immer zeigen wenn > 0 */}
+              {hatAnfangsbestand && (
                 <tr className="border-b border-s112-border/40 bg-green-50/50">
                   <td className="px-4 py-2.5 text-xs text-gray-500">–</td>
                   <td className="px-4 py-2.5 font-medium text-gray-700">Anfangsbestand</td>
@@ -247,7 +317,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
                 </tr>
               )}
 
-              {bewegungenMitSaldo.length === 0 && !hatZugaenge && (
+              {bewegungenMitSaldo.length === 0 && !hatAnfangsbestand && (
                 <tr>
                   <td colSpan={4} className="px-4 py-4 text-center text-xs text-s112-muted italic">
                     Noch keine Bewegungen erfasst
