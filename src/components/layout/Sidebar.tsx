@@ -43,16 +43,15 @@ const NAV: NavEntry[] = [
     items: [
       { href: '/kellerbuch',                label: 'Vinifizierung', phase: 1 },
       { href: '/dac',                       label: 'Prüfnummer',    phase: 1 },
-      { href: '/kellerbuch/umziehen',       label: 'Umziehen',      phase: 1 },
+      { href: '/kellerbuch/gebinde',        label: 'Gebinde',       phase: 1 },
       { href: '/weinhandel/fuellungen/neu', label: 'Füllen',        phase: 1 },
-      { href: '/kellerbuch/kellerplan',     label: 'Kellerplan',    phase: 1 },
     ],
   },
 
   {
     kind: 'group', label: 'Warenwirtschaft', icon: '🛒',
     items: [
-      { href: '/weinhandel',              label: 'Lager',       phase: 1 },
+      { href: '/weinhandel',              label: 'Warenlager',  phase: 1 },
       { href: '/weinhandel/verkauf',        label: 'Verkauf',       phase: 1 },
       { href: '/weinhandel/offene-posten',  label: 'Offene Posten',  phase: 1 },
       { href: '/weinhandel/zukauf',          label: 'Zukauf',         phase: 1 },
