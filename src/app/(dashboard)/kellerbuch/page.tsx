@@ -27,27 +27,43 @@ export default async function KellerbuchPage() {
   const role     = await getCurrentUserRole()
   const writeOk  = canWrite(role)
 
-  const [{ data: behaelterRaw }, { data: weinausbauRaw }] = await Promise.all([
+  const [
+    { data: behaelterRaw },
+    { data: weinausbauRaw },
+    { data: fuellstandRaw },
+  ] = await Promise.all([
     (supabase.from('behaelter') as any)
       .select('id, name, typ, volumen_liter, standort, aktiv')
       .order('name'),
     (supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, menge_liter, status, aktiv, behaelter_id, ist_eroeffnungsbestand')
       .order('jahrgang', { ascending: false }),
+    // Event-basierter Füllstand pro Behälter (identisch zur Bewegungen-Page)
+    (supabase.from('v_behaelter_fuellstand') as any)
+      .select('behaelter_id, liter_aktuell'),
   ])
 
-  const behaelter   = (behaelterRaw   ?? []) as R[]
-  const weinausbau  = (weinausbauRaw  ?? []) as R[]
+  const behaelter  = (behaelterRaw  ?? []) as R[]
+  const weinausbau = (weinausbauRaw ?? []) as R[]
 
-  // abfuellung = Wein hat Keller verlassen → gehört zur Warenwirtschaft
-  // Alle aktiven Chargen (inkl. Eröffnungsbestand für Liter-Berechnung)
-  // abfuellung mit menge>0 = noch im Behälter (nur abgeschlossen ausschließen)
-  const alleAktiven    = weinausbau.filter((w: R) => w.aktiv && w.status !== 'abgeschlossen')
-  // Reguläre Chargen (ohne Eröffnungsbestand) für die Stats-Card
-  const aktiveChargen  = alleAktiven.filter((w: R) => !w.ist_eroeffnungsbestand)
-  const gesamtLiter    = alleAktiven.reduce((s: number, w: R) => s + (parseFloat(w.menge_liter) || 0), 0)
+  // Füllstand-Map aus View (event-basiert, konsistent zur Bewegungen-Page)
+  const fuellstandMap = new Map<string, number>()
+  for (const f of (fuellstandRaw ?? []) as R[]) {
+    fuellstandMap.set(f.behaelter_id, parseFloat(f.liter_aktuell) || 0)
+  }
 
-  // Chargen nach Behälter gruppieren (inkl. Eröffnungsbestand für konsistente Statusbars)
+  // Alle Chargen mit Wein im Behälter (unabhängig von aktiv-Flag):
+  // aktiv=false + status≠abgeschlossen = Wein ist physisch noch im Behälter
+  const alleAktiven    = weinausbau.filter((w: R) => w.status !== 'abgeschlossen')
+  // Reguläre Chargen (ohne Eröffnungsbestand, aktiv=true) für die Stats-Card
+  const aktiveChargen  = alleAktiven.filter((w: R) => !w.ist_eroeffnungsbestand && w.aktiv)
+
+  // Gesamtliter aus event-basierter View (Summe aller Behälter, min. 0)
+  const gesamtLiter = Array.from(fuellstandMap.values())
+    .filter(v => v > 0)
+    .reduce((s, v) => s + v, 0)
+
+  // Chargen nach Behälter gruppieren (für Charge-Liste in der Karte)
   const chargenByBehaelter = new Map<string, R[]>()
   const chargenOhneBehaelter: R[] = []
 
@@ -56,16 +72,7 @@ export default async function KellerbuchPage() {
       if (!chargenByBehaelter.has(w.behaelter_id)) chargenByBehaelter.set(w.behaelter_id, [])
       chargenByBehaelter.get(w.behaelter_id)!.push(w)
     } else if (!w.ist_eroeffnungsbestand) {
-      // Eröffnungsbestand ohne Behälter ist ein Datenfehler – nicht als Warnung anzeigen
       chargenOhneBehaelter.push(w)
-    }
-  }
-
-  // Liter pro Behälter (inkl. Eröffnungsbestand)
-  const literByBehaelter = new Map<string, number>()
-  for (const w of alleAktiven) {
-    if (w.behaelter_id) {
-      literByBehaelter.set(w.behaelter_id, (literByBehaelter.get(w.behaelter_id) ?? 0) + (parseFloat(w.menge_liter) || 0))
     }
   }
 
@@ -98,10 +105,11 @@ export default async function KellerbuchPage() {
       {/* Behälter mit Chargen */}
       <div className="space-y-4">
         {behaelter.filter((b: R) => b.aktiv).map((b: R) => {
-          const chargen = chargenByBehaelter.get(b.id) ?? []
-          const literImBehaelter = literByBehaelter.get(b.id) ?? 0
-          const kapazitaet = b.volumen_liter ? parseFloat(b.volumen_liter) : null
-          const auslastung = kapazitaet && kapazitaet > 0 ? Math.min(100, (literImBehaelter / kapazitaet) * 100) : null
+          const chargen        = chargenByBehaelter.get(b.id) ?? []
+          // Event-basierter Füllstand aus View (konsistent mit Bewegungen-Page)
+          const literImBehaelter = fuellstandMap.get(b.id) ?? 0
+          const kapazitaet     = b.volumen_liter ? parseFloat(b.volumen_liter) : null
+          const auslastung     = kapazitaet && kapazitaet > 0 ? Math.min(100, (literImBehaelter / kapazitaet) * 100) : null
 
           return (
             <div key={b.id} className="card p-0 overflow-hidden">
