@@ -40,7 +40,8 @@ export default async function KellerbuchPage() {
 
   // abfuellung = Wein hat Keller verlassen → gehört zur Warenwirtschaft
   // Alle aktiven Chargen (inkl. Eröffnungsbestand für Liter-Berechnung)
-  const alleAktiven    = weinausbau.filter((w: R) => w.aktiv && w.status !== 'abgeschlossen' && w.status !== 'abfuellung')
+  // abfuellung mit menge>0 = noch im Behälter (nur abgeschlossen ausschließen)
+  const alleAktiven    = weinausbau.filter((w: R) => w.aktiv && w.status !== 'abgeschlossen')
   // Reguläre Chargen (ohne Eröffnungsbestand) für die Stats-Card
   const aktiveChargen  = alleAktiven.filter((w: R) => !w.ist_eroeffnungsbestand)
   const gesamtLiter    = alleAktiven.reduce((s: number, w: R) => s + (parseFloat(w.menge_liter) || 0), 0)

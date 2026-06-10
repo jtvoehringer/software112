@@ -125,6 +125,24 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
         </button>
       </div>
 
+      {/* Weitere Auswertungen */}
+      <div className="grid grid-cols-2 gap-4 print:hidden">
+        <a href="/reports/keller"
+          className="card p-5 hover:border-s112-teal hover:shadow-md transition-all group flex flex-col gap-2">
+          <span className="text-3xl">🍷</span>
+          <p className="font-semibold text-gray-900 group-hover:text-s112-teal">Keller-Auswertungen</p>
+          <p className="text-xs text-gray-500 leading-relaxed">Behälter-Auslastung, Chargen, Kellerbehandlungen, Umzüge & Filtrationen</p>
+          <p className="text-xs text-s112-teal font-medium mt-auto">Öffnen →</p>
+        </a>
+        <a href="/auswertungen/kostenrechnung"
+          className="card p-5 hover:border-s112-teal hover:shadow-md transition-all group flex flex-col gap-2">
+          <span className="text-3xl">🧮</span>
+          <p className="font-semibold text-gray-900 group-hover:text-s112-teal">Kosten-Auswertung</p>
+          <p className="text-xs text-gray-500 leading-relaxed">Kostenstellen, Kostenarten, Buchungsübersicht</p>
+          <p className="text-xs text-s112-teal font-medium mt-auto">Öffnen →</p>
+        </a>
+      </div>
+
       {/* Tabs */}
       <div className="flex gap-1 flex-wrap print:hidden">
         {TABS.map(t => (

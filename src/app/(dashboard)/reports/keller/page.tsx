@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import PrintButton from './PrintButton'
 
 export const metadata: Metadata = { title: 'Keller-Auswertungen – software:112' }
 export const dynamic = 'force-dynamic'
@@ -62,7 +63,8 @@ export default async function KellerAuswertungenPage() {
   const umzuege      = (umzuegeRaw      ?? []) as R[]
   const fuellungen   = (fuellungenRaw   ?? []) as R[]
 
-  const aktiveChargen = chargen.filter((c: R) => c.aktiv && c.status !== 'abgeschlossen' && c.status !== 'abfuellung')
+  // abfuellung mit menge>0 = noch im Behälter (nur abgeschlossen ausschließen)
+  const aktiveChargen = chargen.filter((c: R) => c.aktiv && c.status !== 'abgeschlossen')
 
   // Liter pro Behälter
   const literByBehaelter = new Map<string, number>()
@@ -101,7 +103,10 @@ export default async function KellerAuswertungenPage() {
 
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Keller-Auswertungen</h1>
-        <span className="text-sm text-s112-muted">Jahrgang {thisYear}</span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-s112-muted">Jahrgang {thisYear}</span>
+          <PrintButton />
+        </div>
       </div>
 
       {/* KPI-Cards */}

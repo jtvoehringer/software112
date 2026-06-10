@@ -82,15 +82,7 @@ const NAV: NavEntry[] = [
     ],
   },
 
-  {
-    kind: 'group', label: 'Auswertungen', icon: '🍷',
-    items: [
-      { href: '/reports',                     label: 'Behörden & Reports' },
-      { href: '/reports/keller',              label: 'Keller-Auswertungen', child: true },
-      { href: '/auswertungen/kostenrechnung', label: 'Kosten-Auswertung' },
-      { href: '/auswertungen/besuchsplanung', label: 'Besuchsplanung' },
-    ],
-  },
+  { kind: 'link', href: '/reports', label: 'Auswertungen', icon: '📊' },
   { kind: 'link', href: '/ki',      label: 'Frag dein Weingut', icon: '🤖' },
 
   {
@@ -116,7 +108,7 @@ const NAV: NavEntry[] = [
 // ── Hilfsfunktionen ───────────────────────────────────────────────
 
 // Paths that only match exactly (no prefix-matching for sub-routes)
-const EXACT_PATHS = new Set(['/dashboard', '/crm', '/weinhandel', '/auswertungen', '/kellerbuch'])
+const EXACT_PATHS = new Set(['/dashboard', '/crm', '/weinhandel', '/auswertungen', '/kellerbuch', '/reports'])
 
 function isActive(href: string, pathname: string) {
   return pathname === href || (!EXACT_PATHS.has(href) && pathname.startsWith(href))
