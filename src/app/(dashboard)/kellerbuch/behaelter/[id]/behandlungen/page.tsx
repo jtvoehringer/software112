@@ -201,6 +201,10 @@ export default function KellerbehandlungenPage() {
           className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300 -mb-px transition-colors">
           📊 Bewegungsbuch
         </Link>
+        <Link href={`/kellerbuch/behaelter/${behaelterId}/umzuege`}
+          className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300 -mb-px transition-colors">
+          ↔️ Umziehen
+        </Link>
         <span className="px-4 py-2 text-sm font-medium text-s112-teal border-b-2 border-s112-teal -mb-px">
           🧪 Kellerbehandlungen
         </span>

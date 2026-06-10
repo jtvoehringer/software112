@@ -314,6 +314,10 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
         <span className="px-4 py-2 text-sm font-medium text-s112-teal border-b-2 border-s112-teal -mb-px">
           📊 Bewegungsbuch
         </span>
+        <Link href={`/kellerbuch/behaelter/${id}/umzuege`}
+          className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300 -mb-px transition-colors">
+          ↔️ Umziehen
+        </Link>
         <Link href={`/kellerbuch/behaelter/${id}/behandlungen`}
           className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300 -mb-px transition-colors">
           🧪 Kellerbehandlungen
