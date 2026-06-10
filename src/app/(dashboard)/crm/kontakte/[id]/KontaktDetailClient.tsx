@@ -213,9 +213,9 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
             </label>
             {!ganztags && (
               <div className="flex items-center gap-1.5">
-                <input type="time" name="uhrzeit_von" defaultValue={a.uhrzeit_von ?? ''} className="border border-s112-border rounded px-2 py-1 text-xs focus:outline-none" />
+                <input type="time" name="uhrzeit_von" step="1800" defaultValue={a.uhrzeit_von ?? ''} className="border border-s112-border rounded px-2 py-1 text-xs focus:outline-none" />
                 <span className="text-gray-400">–</span>
-                <input type="time" name="uhrzeit_bis" defaultValue={a.uhrzeit_bis ?? ''} className="border border-s112-border rounded px-2 py-1 text-xs focus:outline-none" />
+                <input type="time" name="uhrzeit_bis" step="1800" defaultValue={a.uhrzeit_bis ?? ''} className="border border-s112-border rounded px-2 py-1 text-xs focus:outline-none" />
               </div>
             )}
             <label className="flex items-center gap-1.5 cursor-pointer">

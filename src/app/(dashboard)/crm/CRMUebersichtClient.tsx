@@ -783,10 +783,10 @@ function ZeitachseView({
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Zeit</label>
                   <div className="flex items-center gap-1">
-                    <input type="time" name="uhrzeit_von" defaultValue={newAkt.von}
+                    <input type="time" name="uhrzeit_von" step="1800" defaultValue={newAkt.von}
                       className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none w-full" />
                     <span className="text-xs text-gray-400 flex-shrink-0">–</span>
-                    <input type="time" name="uhrzeit_bis" defaultValue={newAkt.bis}
+                    <input type="time" name="uhrzeit_bis" step="1800" defaultValue={newAkt.bis}
                       className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none w-full" />
                   </div>
                 </div>
