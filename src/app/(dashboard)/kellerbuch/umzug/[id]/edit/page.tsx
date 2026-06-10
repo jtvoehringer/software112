@@ -3,7 +3,8 @@ import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { updateUmzug } from '../../../gebinde-actions'
+import UmziehenFormClient from '@/components/kellerbuch/UmziehenFormClient'
+import { updateUmzugBatch } from '../../../gebinde-actions'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Umzug bearbeiten – software:112' }
@@ -19,22 +20,70 @@ export default async function UmzugEditPage({ params }: { params: Promise<{ id: 
 
   const supabase = await createSupabaseServerClient()
 
-  const [{ data: rowRaw }, { data: chargenRaw }, { data: gebindeRaw }] = await Promise.all([
-    (supabase.from('keller_umzuege') as any)
-      .select('id, datum, menge_liter, schwund_liter, notizen, von_weinausbau_id, nach_behaelter_id')
-      .eq('id', id).limit(1),
-    (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, menge_liter')
-      .eq('aktiv', true).order('name'),
-    (supabase.from('behaelter') as any)
-      .select('id, name').eq('aktiv', true).order('name'),
-  ])
-
-  const umzug  = (((rowRaw ?? []) as R[])[0] ?? null) as R | null
+  // Datensatz laden (um batch_id zu ermitteln)
+  const { data: rowRaw } = await (supabase.from('keller_umzuege') as any)
+    .select('id, umzug_batch_id, datum, notizen, zeilen_typ, von_weinausbau_id, von_behaelter_id, nach_behaelter_id, menge_liter, brutto_liter, schwund_liter')
+    .eq('id', id).single()
+  const umzug = rowRaw as R | null
   if (!umzug) notFound()
 
-  const chargen = (chargenRaw ?? []) as R[]
+  const batchId = umzug.umzug_batch_id
+
+  // Alle Batch-Zeilen laden
+  let batchRecs: R[] = []
+  if (batchId) {
+    const { data: batchData } = await (supabase.from('keller_umzuege') as any)
+      .select('id, zeilen_typ, von_weinausbau_id, von_behaelter_id, nach_behaelter_id, menge_liter, brutto_liter, schwund_liter, datum, notizen')
+      .eq('umzug_batch_id', batchId)
+    batchRecs = (batchData ?? []) as R[]
+  } else {
+    batchRecs = [umzug]
+  }
+
+  // Gebinde + Chargen laden
+  const [{ data: gebindeRaw }, { data: chargenRaw }] = await Promise.all([
+    (supabase.from('behaelter') as any)
+      .select('id, name, aktiv').eq('aktiv', true).order('name'),
+    (supabase.from('weinausbau') as any)
+      .select('id, name, jahrgang, menge_liter, behaelter_id, aktiv, behaelter:behaelter_id(name)')
+      .eq('aktiv', true).order('name'),
+  ])
+
   const gebinde = (gebindeRaw ?? []) as R[]
+  const chargen = (chargenRaw ?? []) as R[]
+
+  // Defaults aus Batch-Zeilen extrahieren
+  type Quelle = { weinausbau_id: string; brutto: number }
+  type Ziel   = { behaelter_id: string; menge_netto: number }
+
+  const isNewFormat = batchRecs.some(r => r.zeilen_typ === 'quelle' || r.zeilen_typ === 'ziel')
+
+  let defaultQuellen: Quelle[]
+  let defaultZiele: Ziel[]
+  let defaultDatum: string
+  let defaultNotizen: string
+  let ersteId: string
+
+  if (isNewFormat) {
+    const quelleRecs = batchRecs.filter(r => r.zeilen_typ === 'quelle')
+    const zielRecs   = batchRecs.filter(r => r.zeilen_typ === 'ziel')
+    defaultQuellen   = quelleRecs.map(r => ({ weinausbau_id: r.von_weinausbau_id ?? '', brutto: parseFloat(r.brutto_liter) || 0 }))
+    defaultZiele     = zielRecs.map(r => ({ behaelter_id: r.nach_behaelter_id ?? '', menge_netto: parseFloat(r.menge_liter) || 0 }))
+    defaultDatum     = quelleRecs[0]?.datum ?? umzug.datum
+    defaultNotizen   = quelleRecs[0]?.notizen ?? ''
+    ersteId          = quelleRecs[0]?.id ?? umzug.id
+  } else {
+    // Altes Format: alle Zeilen teilen dieselbe Quelle, jede Zeile hat ein Ziel
+    const hauptRec = batchRecs.find(r => r.brutto_liter != null) ?? batchRecs[0]
+    const brutto = parseFloat(hauptRec?.brutto_liter ?? '0') ||
+      batchRecs.reduce((s: number, r: R) =>
+        s + (parseFloat(r.menge_liter) || 0) + (parseFloat(r.schwund_liter) || 0), 0)
+    defaultQuellen   = [{ weinausbau_id: hauptRec?.von_weinausbau_id ?? '', brutto }]
+    defaultZiele     = batchRecs.map(r => ({ behaelter_id: r.nach_behaelter_id ?? '', menge_netto: parseFloat(r.menge_liter) || 0 }))
+    defaultDatum     = umzug.datum
+    defaultNotizen   = hauptRec?.notizen ?? ''
+    ersteId          = batchRecs[0]?.id ?? umzug.id
+  }
 
   const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
   const labelCls = 'block text-xs font-medium text-gray-600 mb-1'
@@ -42,66 +91,38 @@ export default async function UmzugEditPage({ params }: { params: Promise<{ id: 
   return (
     <div className="max-w-2xl space-y-6">
       <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/kellerbuch/gebinde?tab=umziehen" className="hover:text-s112-teal">Umziehen</Link>
+        <Link href="/kellerbuch/gebinde?tab=umziehen" className="hover:text-s112-teal transition-colors">
+          Umziehen
+        </Link>
         <span>/</span>
         <span className="text-gray-700 font-medium">Bearbeiten</span>
       </div>
 
       <h1 className="text-2xl font-bold text-gray-900">Umzug bearbeiten</h1>
 
-      <form action={updateUmzug.bind(null, id)} className="card p-6 space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className={labelCls}>Datum *</label>
-            <input name="datum" type="date" required
-              defaultValue={umzug.datum} className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>Wein-Charge (von) *</label>
-            <select name="von_weinausbau_id" required defaultValue={umzug.von_weinausbau_id ?? ''} className={inputCls}>
-              <option value="">– Charge wählen –</option>
-              {chargen.map((c: R) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}{c.jahrgang ? ` (${c.jahrgang})` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className={labelCls}>Ziel-Gebinde *</label>
-            <select name="nach_behaelter_id" required defaultValue={umzug.nach_behaelter_id ?? ''} className={inputCls}>
-              <option value="">– Gebinde wählen –</option>
-              {gebinde.map((g: R) => (
-                <option key={g.id} value={g.id}>{g.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className={labelCls}>Menge (Liter) *</label>
-            <input name="menge_liter" type="number" step="0.01" min={0}
-              required defaultValue={umzug.menge_liter ?? ''} className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>Schwund (Liter)</label>
-            <input name="schwund_liter" type="number" step="0.01" min={0}
-              defaultValue={umzug.schwund_liter ?? 0} className={inputCls} />
-          </div>
-          <div className="sm:col-span-2">
-            <label className={labelCls}>Notizen</label>
-            <input name="notizen" defaultValue={umzug.notizen ?? ''} className={inputCls} />
-          </div>
-        </div>
-        <div className="flex gap-3 pt-2">
-          <button type="submit"
-            className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
-            Speichern
-          </button>
-          <Link href="/kellerbuch/gebinde?tab=umziehen"
-            className="px-6 py-2 rounded-xl text-sm text-gray-600 hover:text-gray-800 transition-colors">
-            Abbrechen
-          </Link>
-        </div>
-      </form>
+      <p className="text-sm text-s112-muted">
+        Beim Speichern wird die bestehende Buchung storniert und neu angelegt. Die Bestände werden entsprechend angepasst.
+      </p>
+
+      <div className="card p-6">
+        <UmziehenFormClient
+          gebinde={gebinde}
+          chargen={chargen}
+          action={updateUmzugBatch.bind(null, ersteId)}
+          inputCls={inputCls}
+          labelCls={labelCls}
+          defaultQuellen={defaultQuellen}
+          defaultZiele={defaultZiele}
+          defaultDatum={defaultDatum}
+          defaultNotizen={defaultNotizen}
+          submitLabel="Speichern"
+        />
+      </div>
+
+      <Link href="/kellerbuch/gebinde?tab=umziehen"
+        className="inline-block text-sm text-gray-500 hover:text-gray-700 transition-colors">
+        ← Abbrechen
+      </Link>
     </div>
   )
 }

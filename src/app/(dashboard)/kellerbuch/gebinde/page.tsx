@@ -53,7 +53,7 @@ export default async function GebindePage({
       .select('id, name, typ, volumen_liter, standort, aktiv')
       .order('name'),
     (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, menge_liter, behaelter_id, aktiv')
+      .select('id, name, jahrgang, menge_liter, behaelter_id, aktiv, behaelter:behaelter_id(name)')
       .eq('aktiv', true)
       .order('name'),
     (supabase.from('weinausbau') as any)
@@ -62,7 +62,7 @@ export default async function GebindePage({
       .eq('aktiv', true)
       .order('jahrgang', { ascending: false }),
     (supabase.from('keller_umzuege') as any)
-      .select('id, datum, menge_liter, schwund_liter, brutto_liter, umzug_batch_id, notizen, von_weinausbau:von_weinausbau_id(name, jahrgang), nach_behaelter:nach_behaelter_id(name)')
+      .select('id, datum, menge_liter, schwund_liter, brutto_liter, umzug_batch_id, zeilen_typ, notizen, von_weinausbau:von_weinausbau_id(name, jahrgang), von_behaelter:von_behaelter_id(name), nach_behaelter:nach_behaelter_id(name)')
       .order('datum', { ascending: false })
       .limit(200),
   ])
@@ -76,8 +76,7 @@ export default async function GebindePage({
   type UmzugGruppe = {
     key: string
     datum: string
-    vonName: string
-    vonJahrgang: number | null
+    quellenNames: string[]   // Quell-Gebinde-Bezeichnungen (oder Chargenname als Fallback)
     ziele: { gebinde: string; menge: number }[]
     brutto: number
     schwund: number
@@ -94,32 +93,52 @@ export default async function GebindePage({
     if (batchId) {
       seenBatches.add(batchId)
       const batch = umzuegeFlat.filter((r: R) => r.umzug_batch_id === batchId)
-      const haupt = batch.find((r: R) => r.brutto_liter != null) ?? batch[0]
-      const bruttoVal = parseFloat(haupt.brutto_liter) || batch.reduce((s: number, r: R) =>
-        s + (parseFloat(r.menge_liter) || 0) + (parseFloat(r.schwund_liter) || 0), 0)
-      umzuege.push({
-        key:         batchId,
-        datum:       haupt.datum,
-        vonName:     (haupt.von_weinausbau as R | null)?.name ?? '–',
-        vonJahrgang: (haupt.von_weinausbau as R | null)?.jahrgang ?? null,
-        ziele:       batch.map((r: R) => ({ gebinde: (r.nach_behaelter as R | null)?.name ?? '–', menge: parseFloat(r.menge_liter) || 0 })),
-        brutto:      bruttoVal,
-        schwund:     batch.reduce((s: number, r: R) => s + (parseFloat(r.schwund_liter) || 0), 0),
-        notizen:     haupt.notizen ?? null,
-        ersteId:     batch[0].id,
-      })
+      const isNewFormat = batch.some((r: R) => r.zeilen_typ === 'quelle' || r.zeilen_typ === 'ziel')
+
+      if (isNewFormat) {
+        const quelleRecs = batch.filter((r: R) => r.zeilen_typ === 'quelle')
+        const zielRecs   = batch.filter((r: R) => r.zeilen_typ === 'ziel')
+        const sumBrutto  = quelleRecs.reduce((s: number, r: R) => s + (parseFloat(r.brutto_liter) || 0), 0)
+        const sumNetto   = zielRecs.reduce((s: number, r: R) => s + (parseFloat(r.menge_liter) || 0), 0)
+        umzuege.push({
+          key:          batchId,
+          datum:        quelleRecs[0]?.datum ?? batch[0].datum,
+          quellenNames: quelleRecs.map((r: R) =>
+            (r.von_behaelter as R | null)?.name ?? (r.von_weinausbau as R | null)?.name ?? '?'
+          ),
+          ziele:        zielRecs.map((r: R) => ({ gebinde: (r.nach_behaelter as R | null)?.name ?? '–', menge: parseFloat(r.menge_liter) || 0 })),
+          brutto:       sumBrutto,
+          schwund:      Math.max(0, sumBrutto - sumNetto),
+          notizen:      quelleRecs[0]?.notizen ?? null,
+          ersteId:      quelleRecs[0]?.id ?? batch[0].id,
+        })
+      } else {
+        // Altes Format (transfer)
+        const haupt = batch.find((r: R) => r.brutto_liter != null) ?? batch[0]
+        const bruttoVal = parseFloat(haupt.brutto_liter) || batch.reduce((s: number, r: R) =>
+          s + (parseFloat(r.menge_liter) || 0) + (parseFloat(r.schwund_liter) || 0), 0)
+        umzuege.push({
+          key:          batchId,
+          datum:        haupt.datum,
+          quellenNames: [(haupt.von_behaelter as R | null)?.name ?? (haupt.von_weinausbau as R | null)?.name ?? '–'],
+          ziele:        batch.map((r: R) => ({ gebinde: (r.nach_behaelter as R | null)?.name ?? '–', menge: parseFloat(r.menge_liter) || 0 })),
+          brutto:       bruttoVal,
+          schwund:      batch.reduce((s: number, r: R) => s + (parseFloat(r.schwund_liter) || 0), 0),
+          notizen:      haupt.notizen ?? null,
+          ersteId:      batch[0].id,
+        })
+      }
     } else {
       const bruttoVal = parseFloat(u.brutto_liter) || ((parseFloat(u.menge_liter) || 0) + (parseFloat(u.schwund_liter) || 0))
       umzuege.push({
-        key:         u.id,
-        datum:       u.datum,
-        vonName:     (u.von_weinausbau as R | null)?.name ?? '–',
-        vonJahrgang: (u.von_weinausbau as R | null)?.jahrgang ?? null,
-        ziele:       [{ gebinde: (u.nach_behaelter as R | null)?.name ?? '–', menge: parseFloat(u.menge_liter) || 0 }],
-        brutto:      bruttoVal,
-        schwund:     parseFloat(u.schwund_liter) || 0,
-        notizen:     u.notizen ?? null,
-        ersteId:     u.id,
+        key:          u.id,
+        datum:        u.datum,
+        quellenNames: [(u.von_behaelter as R | null)?.name ?? (u.von_weinausbau as R | null)?.name ?? '–'],
+        ziele:        [{ gebinde: (u.nach_behaelter as R | null)?.name ?? '–', menge: parseFloat(u.menge_liter) || 0 }],
+        brutto:       bruttoVal,
+        schwund:      parseFloat(u.schwund_liter) || 0,
+        notizen:      u.notizen ?? null,
+        ersteId:      u.id,
       })
     }
   }
@@ -386,7 +405,7 @@ export default async function GebindePage({
               <thead>
                 <tr className="bg-s112-bg border-b border-s112-border">
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Datum</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Charge</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Quell-Gebinde</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Ziel-Gebinde (netto)</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Brutto</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Schwund</th>
@@ -401,7 +420,7 @@ export default async function GebindePage({
                       {new Date(u.datum).toLocaleDateString('de-AT')}
                     </td>
                     <td className="px-4 py-2.5 text-gray-800">
-                      {u.vonName}{u.vonJahrgang ? ` (${u.vonJahrgang})` : ''}
+                      {u.quellenNames.join(' · ')}
                     </td>
                     <td className="px-4 py-2.5 text-gray-600">
                       {u.ziele.map((z, zi) => (
