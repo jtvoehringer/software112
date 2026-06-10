@@ -156,6 +156,7 @@ export async function umziehen(fd: FormData) {
 
   revalidatePath('/kellerbuch')
   revalidatePath('/kellerbuch/umziehen')
+  revalidatePath('/kellerbuch/behaelter', 'layout')
 }
 
 // ── Umzug löschen (mit Mengen-Reversal) ─────────────────────────────────────
@@ -209,6 +210,7 @@ export async function deleteUmzug(umzugId: string) {
 
   revalidatePath('/kellerbuch')
   revalidatePath('/kellerbuch/umziehen')
+  revalidatePath('/kellerbuch/behaelter', 'layout')
 }
 
 // ── Umzug bearbeiten (Datum + Notizen) ──────────────────────────────────────
@@ -220,4 +222,5 @@ export async function updateUmzug(umzugId: string, datum: string, notizen: strin
     .eq('id', umzugId)
   revalidatePath('/kellerbuch')
   revalidatePath('/kellerbuch/umziehen')
+  revalidatePath('/kellerbuch/behaelter', 'layout')
 }
