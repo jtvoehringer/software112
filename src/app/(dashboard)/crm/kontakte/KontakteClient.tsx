@@ -473,8 +473,8 @@ function KontaktKarte({
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5">
             {kontakt.firma_name && <span className="text-xs text-s112-muted">🏢 {kontakt.firma_name}</span>}
             {kontakt.email && <span className="text-xs text-s112-muted">✉ {kontakt.email}</span>}
-            {kontakt.telefon && <span className="text-xs text-s112-muted">📞 {kontakt.telefon}</span>}
-            {kontakt.mobil && <span className="text-xs text-s112-muted">📱 {kontakt.mobil}</span>}
+            {kontakt.telefon && <span className="text-xs text-s112-muted">📞 {kontakt.telefon_vorwahl ?? '+43'} {kontakt.telefon}</span>}
+            {kontakt.mobil && <span className="text-xs text-s112-muted">📱 {kontakt.mobil_vorwahl ?? '+43'} {kontakt.mobil}</span>}
             {kontakt.ort && <span className="text-xs text-s112-muted">📍 {kontakt.ort}{kontakt.land !== 'AT' ? `, ${kontakt.land}` : ''}</span>}
           </div>
           {kontakt.notizen && (
