@@ -85,38 +85,101 @@ export async function deleteEroeffnungsbestand(id: string) {
 // UMZIEHEN
 
 export async function createUmzug(formData: FormData) {
-  const supabase      = await createSupabaseServerClient()
-  const tenantId      = await getTenantId()
-  const vonId         = formData.get('von_weinausbau_id') as string
-  const nachId        = formData.get('nach_behaelter_id') as string
-  const menge         = parseFloat(formData.get('menge_liter') as string)
-  const schwund       = parseFloat(formData.get('schwund_liter') as string) || 0
+  const supabase   = await createSupabaseServerClient()
+  const tenantId   = await getTenantId()
+  const vonId      = formData.get('von_weinausbau_id') as string
+  const vonGebinde = formData.get('von_behaelter_id') as string
+  const brutto     = parseFloat(formData.get('brutto_liter') as string)
+  const datum      = formData.get('datum') as string
+  const notizen    = (formData.get('notizen') as string) || null
 
-  // Bestandspruefung
-  const { data: wa } = await (supabase.from('weinausbau') as any)
-    .select('menge_liter').eq('id', vonId).single()
-  const verfuegbar = parseFloat((wa as R | null)?.menge_liter ?? '0') || 0
-  if (menge + schwund > verfuegbar + 0.01) {
-    throw new Error(`Menge (${menge + schwund} L) übersteigt Bestand (${verfuegbar} L)`)
+  type Ziel = { behaelter_id: string; menge_netto: number }
+  const zieleRaw  = JSON.parse((formData.get('ziele_json') as string) || '[]') as Ziel[]
+  const ziele     = zieleRaw.filter(z => z.behaelter_id && z.menge_netto > 0)
+
+  if (!vonId || brutto <= 0 || ziele.length === 0) {
+    throw new Error('Bitte Charge, Brutto-Menge und mindestens ein Ziel angeben.')
   }
 
-  const payload: R = {
-    tenant_id:          tenantId,
-    von_weinausbau_id:  vonId,
-    nach_behaelter_id:  nachId,
-    datum:              formData.get('datum') as string,
-    menge_liter:        menge,
-    schwund_liter:      schwund,
-    notizen:            (formData.get('notizen') as string) || null,
+  const sumNetto = ziele.reduce((s, z) => s + z.menge_netto, 0)
+  const schwund  = Math.max(0, brutto - sumNetto)
+
+  // Bestandsprüfung
+  const { data: waRaw } = await (supabase.from('weinausbau') as any)
+    .select('*').eq('id', vonId).single()
+  const vonWein  = waRaw as R
+  const verfuegbar = parseFloat(vonWein?.menge_liter ?? '0') || 0
+  if (brutto > verfuegbar + 0.01) {
+    throw new Error(`Brutto (${brutto} L) übersteigt Bestand (${verfuegbar} L)`)
   }
 
-  const { error } = await (supabase.from('keller_umzuege') as any).insert(payload)
-  if (error) throw new Error((error as R).message)
+  const batchId = crypto.randomUUID()
 
-  // Bestand reduzieren
-  const neuMenge = Math.max(0, verfuegbar - menge - schwund)
+  // Pro Ziel: Weinausbau-Lot anlegen/aufstocken + Umzug-Record
+  for (let i = 0; i < ziele.length; i++) {
+    const z = ziele[i]
+
+    // Bestehendes Lot in Ziel-Gebinde (Name + Jahrgang) suchen
+    const { data: existingArr } = await (supabase.from('weinausbau') as any)
+      .select('id, menge_liter')
+      .eq('behaelter_id', z.behaelter_id)
+      .eq('name', vonWein.name)
+      .eq('jahrgang', vonWein.jahrgang)
+      .eq('aktiv', true)
+      .limit(1)
+
+    const existing = ((existingArr ?? []) as R[])[0] ?? null
+    let nachWeinausbauId: string | null = null
+
+    if (existing) {
+      // Bestehende Charge im Ziel-Gebinde aufstocken
+      const altMenge = parseFloat(existing.menge_liter) || 0
+      await (supabase.from('weinausbau') as any)
+        .update({ menge_liter: altMenge + z.menge_netto })
+        .eq('id', existing.id)
+      nachWeinausbauId = existing.id
+    } else {
+      // Neue Charge im Ziel-Gebinde anlegen (Kopie der Quell-Charge)
+      const { data: neu } = await (supabase.from('weinausbau') as any)
+        .insert({
+          tenant_id:            tenantId,
+          name:                 vonWein.name,
+          jahrgang:             vonWein.jahrgang,
+          rebsorte:             vonWein.rebsorte,
+          qualitaetsstufe:      vonWein.qualitaetsstufe,
+          status:               vonWein.status ?? 'ausbau',
+          behaelter_id:         z.behaelter_id,
+          menge_liter:          z.menge_netto,
+          anfangsbestand_liter: null,
+          notizen:              vonWein.notizen,
+          aktiv:                true,
+        })
+        .select('id')
+        .single()
+      nachWeinausbauId = (neu as R | null)?.id ?? null
+    }
+
+    // Buchungszeile
+    const { error } = await (supabase.from('keller_umzuege') as any).insert({
+      tenant_id:          tenantId,
+      von_weinausbau_id:  vonId,
+      von_behaelter_id:   vonGebinde || null,
+      nach_behaelter_id:  z.behaelter_id,
+      nach_weinausbau_id: nachWeinausbauId,
+      datum,
+      menge_liter:        z.menge_netto,
+      schwund_liter:      i === 0 ? schwund : 0,
+      brutto_liter:       i === 0 ? brutto  : null,
+      notizen:            i === 0 ? notizen : null,
+      umzug_batch_id:     batchId,
+    })
+    if (error) throw new Error((error as R).message)
+  }
+
+  // Quell-Charge: Bestand um Brutto reduzieren
+  const neuMenge = Math.max(0, verfuegbar - brutto)
   await (supabase.from('weinausbau') as any)
-    .update({ menge_liter: neuMenge, behaelter_id: nachId })
+    .update({ menge_liter: neuMenge })
     .eq('id', vonId)
 
   revalidatePath('/kellerbuch')
@@ -128,11 +191,11 @@ export async function updateUmzug(id: string, formData: FormData) {
   const menge     = parseFloat(formData.get('menge_liter') as string)
   const schwund   = parseFloat(formData.get('schwund_liter') as string) || 0
 
-  // Alte Werte laden um Bestandsdiff zu berechnen
+  // Alte Werte laden
   const { data: alt } = await (supabase.from('keller_umzuege') as any)
-    .select('menge_liter, schwund_liter, von_weinausbau_id').eq('id', id).single()
-  const altMenge   = parseFloat((alt as R | null)?.menge_liter ?? '0') || 0
-  const altSchwund = parseFloat((alt as R | null)?.schwund_liter ?? '0') || 0
+    .select('menge_liter, schwund_liter, brutto_liter, von_weinausbau_id').eq('id', id).single()
+  const altBrutto  = parseFloat((alt as R | null)?.brutto_liter ?? '0')
+    || (parseFloat((alt as R | null)?.menge_liter ?? '0') + parseFloat((alt as R | null)?.schwund_liter ?? '0'))
   const vonId      = (alt as R | null)?.von_weinausbau_id
 
   const { error } = await (supabase.from('keller_umzuege') as any).update({
@@ -140,16 +203,17 @@ export async function updateUmzug(id: string, formData: FormData) {
     nach_behaelter_id: formData.get('nach_behaelter_id') as string,
     menge_liter:       menge,
     schwund_liter:     schwund,
+    brutto_liter:      menge + schwund,
     notizen:           (formData.get('notizen') as string) || null,
   }).eq('id', id)
   if (error) throw new Error((error as R).message)
 
-  // Bestand korrigieren: +alt -neu
-  if (vonId) {
+  // Bestandskorrektur: Quell-Charge um Differenz anpassen
+  if (vonId && altBrutto !== menge + schwund) {
     const { data: wa } = await (supabase.from('weinausbau') as any)
       .select('menge_liter').eq('id', vonId).single()
     const aktuell  = parseFloat((wa as R | null)?.menge_liter ?? '0') || 0
-    const neuMenge = Math.max(0, aktuell + altMenge + altSchwund - menge - schwund)
+    const neuMenge = Math.max(0, aktuell + altBrutto - (menge + schwund))
     await (supabase.from('weinausbau') as any)
       .update({ menge_liter: neuMenge }).eq('id', vonId)
   }
@@ -162,23 +226,53 @@ export async function updateUmzug(id: string, formData: FormData) {
 export async function deleteUmzug(id: string) {
   const supabase = await createSupabaseServerClient()
 
-  // Bestand wiederherstellen
+  // Datensatz laden
   const { data: u } = await (supabase.from('keller_umzuege') as any)
-    .select('menge_liter, schwund_liter, von_weinausbau_id').eq('id', id).single()
-  const menge  = parseFloat((u as R | null)?.menge_liter ?? '0') || 0
-  const schwund= parseFloat((u as R | null)?.schwund_liter ?? '0') || 0
-  const vonId  = (u as R | null)?.von_weinausbau_id
+    .select('menge_liter, schwund_liter, brutto_liter, von_weinausbau_id, umzug_batch_id')
+    .eq('id', id).single()
+  const rec     = u as R | null
+  const vonId   = rec?.von_weinausbau_id
+  const batchId = rec?.umzug_batch_id
 
-  if (vonId) {
-    const { data: wa } = await (supabase.from('weinausbau') as any)
-      .select('menge_liter').eq('id', vonId).single()
-    const aktuell  = parseFloat((wa as R | null)?.menge_liter ?? '0') || 0
-    await (supabase.from('weinausbau') as any)
-      .update({ menge_liter: aktuell + menge + schwund }).eq('id', vonId)
+  // Brutto berechnen: brutto_liter direkt ODER menge + schwund (Altdaten)
+  let bruttoZurueck = 0
+  if (batchId) {
+    // Ganzen Batch laden → brutto aus Hauptzeile
+    const { data: batch } = await (supabase.from('keller_umzuege') as any)
+      .select('brutto_liter, menge_liter, schwund_liter')
+      .eq('umzug_batch_id', batchId)
+    const recs = (batch ?? []) as R[]
+    bruttoZurueck = recs.reduce((s, r) => s + (parseFloat(r.brutto_liter) || 0), 0)
+    if (bruttoZurueck === 0) {
+      bruttoZurueck = recs.reduce((s, r) =>
+        s + (parseFloat(r.menge_liter) || 0) + (parseFloat(r.schwund_liter) || 0), 0)
+    }
+  } else {
+    bruttoZurueck =
+      (parseFloat(rec?.brutto_liter ?? '0') || 0) ||
+      ((parseFloat(rec?.menge_liter ?? '0') || 0) + (parseFloat(rec?.schwund_liter ?? '0') || 0))
   }
 
-  const { error } = await (supabase.from('keller_umzuege') as any).delete().eq('id', id)
-  if (error) throw new Error((error as R).message)
+  // Quell-Charge: Brutto zurückbuchen
+  if (vonId && bruttoZurueck > 0) {
+    const { data: wa } = await (supabase.from('weinausbau') as any)
+      .select('menge_liter').eq('id', vonId).single()
+    const aktuell = parseFloat((wa as R | null)?.menge_liter ?? '0') || 0
+    await (supabase.from('weinausbau') as any)
+      .update({ menge_liter: aktuell + bruttoZurueck }).eq('id', vonId)
+  }
+
+  // Alle Batch-Zeilen löschen (oder nur diesen Datensatz)
+  if (batchId) {
+    const { error } = await (supabase.from('keller_umzuege') as any)
+      .delete().eq('umzug_batch_id', batchId)
+    if (error) throw new Error((error as R).message)
+  } else {
+    const { error } = await (supabase.from('keller_umzuege') as any)
+      .delete().eq('id', id)
+    if (error) throw new Error((error as R).message)
+  }
+
   revalidatePath('/kellerbuch')
   revalidatePath('/kellerbuch/gebinde')
 }

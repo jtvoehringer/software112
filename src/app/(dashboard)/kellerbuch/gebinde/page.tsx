@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import GebindeClient from '@/components/kellerbuch/GebindeClient'
 import LoeschenButton from '@/components/kellerbuch/LoeschenButton'
+import UmziehenFormClient from '@/components/kellerbuch/UmziehenFormClient'
 import { createBehaelter, updateBehaelter } from '../actions'
 import { createEroeffnungsbestand, deleteEroeffnungsbestand, createUmzug, deleteUmzug } from '../gebinde-actions'
 
@@ -61,15 +62,67 @@ export default async function GebindePage({
       .eq('aktiv', true)
       .order('jahrgang', { ascending: false }),
     (supabase.from('keller_umzuege') as any)
-      .select('id, datum, menge_liter, schwund_liter, notizen, von_weinausbau:von_weinausbau_id(name, jahrgang), nach_behaelter:nach_behaelter_id(name)')
+      .select('id, datum, menge_liter, schwund_liter, brutto_liter, umzug_batch_id, notizen, von_weinausbau:von_weinausbau_id(name, jahrgang), nach_behaelter:nach_behaelter_id(name)')
       .order('datum', { ascending: false })
-      .limit(100),
+      .limit(200),
   ])
 
   const gebinde      = (gebindeRaw   ?? []) as R[]
   const chargen      = (chargenRaw   ?? []) as R[]
   const eroeffnungen = (eroeffnungRaw ?? []) as R[]
-  const umzuege      = (umzuegeRaw   ?? []) as R[]
+  const umzuegeFlat  = (umzuegeRaw   ?? []) as R[]
+
+  // Umzüge nach Batch gruppieren (n:n-Unterstützung)
+  type UmzugGruppe = {
+    key: string
+    datum: string
+    vonName: string
+    vonJahrgang: number | null
+    ziele: { gebinde: string; menge: number }[]
+    brutto: number
+    schwund: number
+    notizen: string | null
+    ersteId: string
+  }
+  const umzuege: UmzugGruppe[] = []
+  const seenBatches = new Set<string>()
+
+  for (const u of umzuegeFlat) {
+    const batchId = u.umzug_batch_id as string | null
+    if (batchId && seenBatches.has(batchId)) continue
+
+    if (batchId) {
+      seenBatches.add(batchId)
+      const batch = umzuegeFlat.filter((r: R) => r.umzug_batch_id === batchId)
+      const haupt = batch.find((r: R) => r.brutto_liter != null) ?? batch[0]
+      const bruttoVal = parseFloat(haupt.brutto_liter) || batch.reduce((s: number, r: R) =>
+        s + (parseFloat(r.menge_liter) || 0) + (parseFloat(r.schwund_liter) || 0), 0)
+      umzuege.push({
+        key:         batchId,
+        datum:       haupt.datum,
+        vonName:     (haupt.von_weinausbau as R | null)?.name ?? '–',
+        vonJahrgang: (haupt.von_weinausbau as R | null)?.jahrgang ?? null,
+        ziele:       batch.map((r: R) => ({ gebinde: (r.nach_behaelter as R | null)?.name ?? '–', menge: parseFloat(r.menge_liter) || 0 })),
+        brutto:      bruttoVal,
+        schwund:     batch.reduce((s: number, r: R) => s + (parseFloat(r.schwund_liter) || 0), 0),
+        notizen:     haupt.notizen ?? null,
+        ersteId:     batch[0].id,
+      })
+    } else {
+      const bruttoVal = parseFloat(u.brutto_liter) || ((parseFloat(u.menge_liter) || 0) + (parseFloat(u.schwund_liter) || 0))
+      umzuege.push({
+        key:         u.id,
+        datum:       u.datum,
+        vonName:     (u.von_weinausbau as R | null)?.name ?? '–',
+        vonJahrgang: (u.von_weinausbau as R | null)?.jahrgang ?? null,
+        ziele:       [{ gebinde: (u.nach_behaelter as R | null)?.name ?? '–', menge: parseFloat(u.menge_liter) || 0 }],
+        brutto:      bruttoVal,
+        schwund:     parseFloat(u.schwund_liter) || 0,
+        notizen:     u.notizen ?? null,
+        ersteId:     u.id,
+      })
+    }
+  }
 
   const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
   const labelCls = 'block text-xs font-medium text-gray-600 mb-1'
@@ -309,57 +362,22 @@ export default async function GebindePage({
       {/* TAB: Umziehen */}
       {tab === 'umziehen' && (
         <div className="space-y-6">
+          <p className="text-sm text-s112-muted">
+            Quell-Gebinde wählen, Brutto-Menge eingeben und beliebig viele Ziel-Gebinde mit Netto-Litern angeben. Schwund wird automatisch berechnet.
+          </p>
+
           {writeOk && (
             <details className="card p-5">
               <summary className="cursor-pointer font-semibold text-sm text-gray-800 select-none">
                 + Neuen Umzug erfassen
               </summary>
-              <form action={createUmzug} className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className={labelCls}>Datum *</label>
-                  <input name="datum" type="date" required
-                    defaultValue={new Date().toISOString().split('T')[0]} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Wein-Charge (von) *</label>
-                  <select name="von_weinausbau_id" required className={inputCls}>
-                    <option value="">– Charge wählen –</option>
-                    {chargen.map((c: R) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}{c.jahrgang ? ` (${c.jahrgang})` : ''}{c.menge_liter ? ` · ${parseFloat(c.menge_liter).toLocaleString('de-AT')} L` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={labelCls}>Ziel-Gebinde *</label>
-                  <select name="nach_behaelter_id" required className={inputCls}>
-                    <option value="">– Gebinde wählen –</option>
-                    {gebinde.filter((g: R) => g.aktiv).map((g: R) => (
-                      <option key={g.id} value={g.id}>{g.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={labelCls}>Menge (Liter) *</label>
-                  <input name="menge_liter" type="number" step="0.01" min={0}
-                    required placeholder="z.B. 500" className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Schwund (Liter)</label>
-                  <input name="schwund_liter" type="number" step="0.01" min={0}
-                    defaultValue={0} className={inputCls} />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className={labelCls}>Notizen</label>
-                  <input name="notizen" placeholder="z.B. Abstich, Filtration …" className={inputCls} />
-                </div>
-                <div className="sm:col-span-2">
-                  <button type="submit" className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
-                    Umzug speichern
-                  </button>
-                </div>
-              </form>
+              <UmziehenFormClient
+                gebinde={gebinde}
+                chargen={chargen}
+                action={createUmzug}
+                inputCls={inputCls}
+                labelCls={labelCls}
+              />
             </details>
           )}
 
@@ -369,39 +387,48 @@ export default async function GebindePage({
                 <tr className="bg-s112-bg border-b border-s112-border">
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Datum</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Charge</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Ziel-Gebinde</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Menge</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Ziel-Gebinde (netto)</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Brutto</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Schwund</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Notizen</th>
                   {writeOk && <th className="px-4 py-2.5" />}
                 </tr>
               </thead>
               <tbody>
-                {umzuege.map((u: R, i: number) => (
-                  <tr key={u.id} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
+                {umzuege.map((u, i) => (
+                  <tr key={u.key} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
                     <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">
                       {new Date(u.datum).toLocaleDateString('de-AT')}
                     </td>
                     <td className="px-4 py-2.5 text-gray-800">
-                      {(u.von_weinausbau as R | null)?.name ?? '–'}
-                      {(u.von_weinausbau as R | null)?.jahrgang ? ` (${(u.von_weinausbau as R).jahrgang})` : ''}
+                      {u.vonName}{u.vonJahrgang ? ` (${u.vonJahrgang})` : ''}
                     </td>
-                    <td className="px-4 py-2.5 text-gray-600">{(u.nach_behaelter as R | null)?.name ?? '–'}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-s112-teal font-medium">
-                      {parseFloat(u.menge_liter).toLocaleString('de-AT')} L
+                    <td className="px-4 py-2.5 text-gray-600">
+                      {u.ziele.map((z, zi) => (
+                        <span key={zi}>
+                          {zi > 0 && <span className="text-gray-400 mx-1">·</span>}
+                          {z.gebinde}
+                          <span className="text-s112-teal font-medium ml-1 text-xs">
+                            {z.menge.toLocaleString('de-AT', { maximumFractionDigits: 2 })} L
+                          </span>
+                        </span>
+                      ))}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-700 font-medium">
+                      {u.brutto.toLocaleString('de-AT', { maximumFractionDigits: 2 })} L
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-gray-500">
-                      {parseFloat(u.schwund_liter || '0') > 0
-                        ? `${parseFloat(u.schwund_liter).toLocaleString('de-AT')} L` : '–'}
+                      {u.schwund > 0
+                        ? `${u.schwund.toLocaleString('de-AT', { maximumFractionDigits: 2 })} L` : '–'}
                     </td>
                     <td className="px-4 py-2.5 text-gray-500 text-xs">{u.notizen ?? '–'}</td>
                     {writeOk && (
                       <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                        <Link href={`/kellerbuch/umzug/${u.id}/edit`}
+                        <Link href={`/kellerbuch/umzug/${u.ersteId}/edit`}
                           className="text-xs text-s112-teal hover:underline mr-3">Bearbeiten</Link>
                         <LoeschenButton
-                          action={deleteUmzug.bind(null, u.id)}
-                          bestaetigung="Umzug wirklich löschen? Der Bestand wird wiederhergestellt." />
+                          action={deleteUmzug.bind(null, u.ersteId)}
+                          bestaetigung="Umzug wirklich löschen? Der Quell-Bestand wird wiederhergestellt." />
                       </td>
                     )}
                   </tr>
