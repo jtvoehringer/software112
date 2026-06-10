@@ -16,6 +16,15 @@ type Behaelter = {
 
 type WeinInfo = { name: string; jahrgang: number | null; rebsorte: string | null }
 
+// ── Füllstand-Farbskala ───────────────────────────────────────────────────────
+
+function getFillColor(pct: number): string {
+  if (pct >= 1.0) return '#EF4444'   // rot   – voll / überfüllt
+  if (pct >= 0.9) return '#F97316'   // orange – fast voll (≥ 90 %)
+  if (pct >= 0.7) return '#F9E54F'   // gelb  – mittelvoll (≥ 70 %)
+  return '#98C780'                    // grün  – gut (< 70 %)
+}
+
 // pos_x_pct / pos_y_pct = linke obere Ecke des Kreisboundingbox (% des Canvas)
 // breite_pct = Durchmesser als % der Canvas-Breite
 type PosData = { pos_x_pct: number; pos_y_pct: number; breite_pct: number; hoehe_pct: number }
@@ -52,12 +61,14 @@ export default function KellerplanEditor({
   initialPositions,
   behaelter,
   weinMap,
+  fillMap,
   writeOk,
 }: {
   plan: Plan
   initialPositions: Record<string, PosData>
   behaelter: Behaelter[]
   weinMap: Record<string, WeinInfo>
+  fillMap: Record<string, number>
   writeOk: boolean
 }) {
   const canvasRef    = useRef<HTMLDivElement>(null)
@@ -262,6 +273,17 @@ export default function KellerplanEditor({
               const size = pos.breite_pct
               const hPct = circleHeight(size)
 
+              // Füllstand berechnen
+              const fillLiter  = fillMap[behaelterId] ?? 0
+              const fillPct    = b.volumen_liter && b.volumen_liter > 0
+                ? fillLiter / b.volumen_liter
+                : null
+              const fillColor  = fillPct !== null ? getFillColor(fillPct) : null
+              const fillHeight = fillPct !== null ? Math.min(fillPct * 100, 100) : 0
+              const fillPctDisplay = fillPct !== null
+                ? Math.round(fillPct * 100)
+                : null
+
               return (
                 <div
                   key={behaelterId}
@@ -273,12 +295,30 @@ export default function KellerplanEditor({
                     height:          `${hPct}%`,
                     borderRadius:    '50%',
                     backgroundColor: typ.bg,
-                    border:          `2px solid ${typ.border}`,
+                    border:          `2px solid ${fillColor ?? typ.border}`,
                     cursor:          writeOk ? 'grab' : 'default',
                     touchAction:     'none',
                   }}
                   onPointerDown={e => handleBlockPointerDown(e, behaelterId)}
                 >
+                  {/* ── Füllstand-Fläche (bottom-anchored, durch overflow:hidden zum Kreis geschnitten) */}
+                  {fillColor && (
+                    <div
+                      style={{
+                        position:        'absolute',
+                        bottom:          0,
+                        left:            0,
+                        right:           0,
+                        height:          `${fillHeight}%`,
+                        backgroundColor: fillColor,
+                        opacity:         0.32,
+                        zIndex:          0,
+                        transition:      'height 0.4s ease',
+                        pointerEvents:   'none',
+                      }}
+                    />
+                  )}
+
                   {/* Entfernen-Button */}
                   {writeOk && (
                     <button
@@ -313,8 +353,8 @@ export default function KellerplanEditor({
                     </>
                   )}
 
-                  {/* Inhalt: Name, Volumen, Wein */}
-                  <div className="px-1 text-center w-4/5 pointer-events-none">
+                  {/* Inhalt: Name, Füllstand, Wein – über der Fill-Fläche */}
+                  <div className="px-1 text-center w-4/5 pointer-events-none" style={{ position: 'relative', zIndex: 2 }}>
                     <p
                       className="font-bold text-gray-800 leading-tight truncate w-full text-center"
                       style={{ fontSize: 'clamp(5px, 1.4cqw, 11px)' }}
@@ -323,10 +363,18 @@ export default function KellerplanEditor({
                     </p>
                     {b.volumen_liter && (
                       <p
-                        className="text-gray-500 leading-tight"
+                        className="text-gray-600 leading-tight font-medium"
                         style={{ fontSize: 'clamp(4px, 1.1cqw, 9px)' }}
                       >
-                        {b.volumen_liter.toLocaleString('de-AT')} L
+                        {fillLiter > 0
+                          ? `${fillLiter.toLocaleString('de-AT', { maximumFractionDigits: 0 })} / ${b.volumen_liter.toLocaleString('de-AT')} L`
+                          : `${b.volumen_liter.toLocaleString('de-AT')} L`
+                        }
+                        {fillPctDisplay !== null && fillLiter > 0 && (
+                          <span style={{ marginLeft: '2px', color: fillColor ?? undefined }}>
+                            {` (${fillPctDisplay} %)`}
+                          </span>
+                        )}
                       </p>
                     )}
                     {wein && (
@@ -366,11 +414,26 @@ export default function KellerplanEditor({
                 style={{ backgroundColor: t.bg, borderColor: t.border, color: '#374151' }}
               >
                 {t.label}
+                  </span>
+            ))}
+            <span className="text-[10px] text-gray-400 mx-1">|</span>
+            {[
+              { color: '#98C780', label: '< 70 %' },
+              { color: '#F9E54F', label: '70–90 %' },
+              { color: '#F97316', label: '90–100 %' },
+              { color: '#EF4444', label: '≥ 100 %' },
+            ].map(({ color, label }) => (
+              <span
+                key={label}
+                className="inline-flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full border border-gray-200"
+                style={{ color: '#374151' }}
+              >
+                <span
+                  style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: color, opacity: 0.8 }}
+                />
+                {label}
               </span>
             ))}
-            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-teal-200 bg-teal-50 text-teal-700">
-              Teal = aktive Weincharge
-            </span>
           </div>
 
           <p className="no-print text-xs text-s112-muted mt-1">

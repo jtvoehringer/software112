@@ -44,9 +44,9 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
       .eq('aktiv', true)
       .order('name'),
 
-    // Aktuelle Weinchargen je Behälter (für Beschriftung auf dem Plan)
+    // Aktuelle Weinchargen je Behälter (für Beschriftung + Füllstand auf dem Plan)
     (supabase.from('weinausbau') as any)
-      .select('behaelter_id, name, jahrgang, rebsorte')
+      .select('behaelter_id, name, jahrgang, rebsorte, menge_liter')
       .not('behaelter_id', 'is', null)
       .not('status', 'eq', 'abgeschlossen')
       .eq('aktiv', true),
@@ -58,10 +58,14 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
   const positionen = (posRaw ?? []) as R[]
   const behaelter  = (behaelterRaw ?? []) as R[]
 
-  // weinMap: behaelter_id → erste aktive Charge
+  // weinMap: behaelter_id → erste aktive Charge (für Beschriftung)
+  // fillMap: behaelter_id → Summe aller menge_liter (für Füllstand-Visualisierung)
   const weinMap: Record<string, { name: string; jahrgang: number | null; rebsorte: string | null }> = {}
+  const fillMap: Record<string, number> = {}
   for (const w of (weinRaw ?? []) as R[]) {
-    if (w.behaelter_id && !weinMap[w.behaelter_id]) {
+    if (!w.behaelter_id) continue
+    fillMap[w.behaelter_id] = (fillMap[w.behaelter_id] ?? 0) + (parseFloat(w.menge_liter) || 0)
+    if (!weinMap[w.behaelter_id]) {
       weinMap[w.behaelter_id] = { name: w.name, jahrgang: w.jahrgang ?? null, rebsorte: w.rebsorte ?? null }
     }
   }
@@ -107,6 +111,7 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
           volumen_liter: b.volumen_liter ?? null,
         }))}
         weinMap={weinMap}
+        fillMap={fillMap}
         writeOk={writeOk}
       />
 
