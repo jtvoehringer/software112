@@ -35,9 +35,9 @@ const QUALITAETEN = [
 export default async function GebindePage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>
+  searchParams: Promise<{ tab?: string; err?: string }>
 }) {
-  const { tab = 'gebinde' } = await searchParams
+  const { tab = 'gebinde', err } = await searchParams
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
   const writeOk  = canWrite(role)
@@ -197,6 +197,12 @@ export default async function GebindePage({
           <p className="text-sm text-s112-muted">
             Bestände aus dem Altsystem werden auf den 1.1. des laufenden Jahres eingebucht.
           </p>
+
+          {err && (
+            <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <strong>Fehler beim Speichern:</strong> {err}
+            </div>
+          )}
 
           {writeOk && (
             <details className="card p-5">

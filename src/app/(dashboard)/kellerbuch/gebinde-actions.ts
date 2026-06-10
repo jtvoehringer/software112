@@ -35,14 +35,18 @@ export async function createEroeffnungsbestand(formData: FormData) {
     notizen:              (formData.get('notizen') as string) || null,
     status:               'ausbau',
     ist_eroeffnungsbestand: true,
-    // Buchung auf 1.1. des lfd. Jahres
     created_at:           new Date(`${jahr}-01-01T00:00:00`).toISOString(),
     aktiv:                true,
   }
 
   const { error } = await (supabase.from('weinausbau') as any).insert(payload)
-  if (error) throw new Error((error as R).message)
+  if (error) {
+    // Fehler sichtbar machen statt cryptic 500: Redirect mit Fehlermeldung
+    console.error('[createEroeffnungsbestand] DB Fehler:', (error as R).message, (error as R).code)
+    redirect(`/kellerbuch/gebinde?tab=eroeffnungsbestand&err=${encodeURIComponent((error as R).message)}`)
+  }
   revalidatePath('/kellerbuch/gebinde')
+  redirect('/kellerbuch/gebinde?tab=eroeffnungsbestand')
 }
 
 export async function updateEroeffnungsbestand(id: string, formData: FormData) {
@@ -60,7 +64,10 @@ export async function updateEroeffnungsbestand(id: string, formData: FormData) {
   }
 
   const { error } = await (supabase.from('weinausbau') as any).update(payload).eq('id', id)
-  if (error) throw new Error((error as R).message)
+  if (error) {
+    console.error('[updateEroeffnungsbestand] DB Fehler:', (error as R).message)
+    redirect(`/kellerbuch/gebinde?tab=eroeffnungsbestand&err=${encodeURIComponent((error as R).message)}`)
+  }
   revalidatePath('/kellerbuch/gebinde')
   redirect('/kellerbuch/gebinde?tab=eroeffnungsbestand')
 }
