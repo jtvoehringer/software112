@@ -13,10 +13,11 @@ interface ZielInput   { behaelter_id: string;  menge: number }
 export async function umziehen(fd: FormData) {
   const supabase = await createSupabaseServerClient()
 
-  const quellen: QuelleInput[] = JSON.parse(fd.get('quellen_json') as string || '[]')
-  const ziele:   ZielInput[]   = JSON.parse(fd.get('ziele_json')   as string || '[]')
-  const notizen  = (fd.get('notizen') as string) || null
-  const datum    = (fd.get('datum')   as string) || new Date().toISOString().split('T')[0]
+  const quellen:    QuelleInput[] = JSON.parse(fd.get('quellen_json') as string || '[]')
+  const ziele:      ZielInput[]   = JSON.parse(fd.get('ziele_json')   as string || '[]')
+  const notizen   = (fd.get('notizen')   as string) || null
+  const datum     = (fd.get('datum')     as string) || new Date().toISOString().split('T')[0]
+  const umzugTyp  = (fd.get('umzug_typ') as string) || 'normal'
 
   if (quellen.length === 0 || ziele.length === 0) throw new Error('Mindestens eine Quelle und ein Ziel erforderlich')
 
@@ -94,6 +95,7 @@ export async function umziehen(fd: FormData) {
       verschnitt:         false,
       qualitaet_vorher:   von.qualitaetsstufe ?? null,
       qualitaet_nachher:  minQualStufe,
+      umzug_typ:          umzugTyp,
       notizen,
     }).select('id')
     if (umzugData) {

@@ -13,7 +13,7 @@ type BehaelterMitCharge = {
   menge_liter:    number
 }
 type Behaelter = { id: string; name: string; kapazitaet_liter: number | null }
-type UmzugRow  = { id: string; von_name: string; nach_name: string; menge_liter: number; schwund_liter: number; datum: string; notizen: string | null }
+type UmzugRow  = { id: string; von_name: string; nach_name: string; menge_liter: number; schwund_liter: number; datum: string; notizen: string | null; umzug_typ?: string }
 
 function fmt(n: number | null) {
   if (n == null) return '–'
@@ -135,6 +135,7 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
   const [success, setSuccess]     = useState(false)
   const [datum, setDatum]         = useState(new Date().toISOString().split('T')[0])
   const [notizen, setNotizen]     = useState('')
+  const [umzugTyp, setUmzugTyp]   = useState<'normal' | 'filtration'>('normal')
   const router = useRouter()
 
   type QEntry = { id: string; behId: string; menge: string }
@@ -166,6 +167,7 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
     fd.set('ziele_json',   JSON.stringify(ziele.map(z => ({ behaelter_id: z.behId, menge: parseFloat(z.menge) }))))
     fd.set('datum', datum)
     fd.set('notizen', notizen)
+    fd.set('umzug_typ', umzugTyp)
     startTransition(async () => {
       try {
         await umziehen(fd)
@@ -180,6 +182,28 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
   return (
     <form onSubmit={handleSubmit} className="card p-5 space-y-5">
       {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-2 text-sm">{error}</div>}
+
+      {/* Art des Vorgangs */}
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-2">Art des Vorgangs</label>
+        <div className="flex gap-2">
+          <button type="button"
+            onClick={() => setUmzugTyp('normal')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors ${umzugTyp === 'normal' ? 'bg-s112-teal text-white border-s112-teal' : 'border-s112-border text-gray-600 hover:border-s112-teal hover:text-s112-teal'}`}>
+            ↔️ Umzug
+          </button>
+          <button type="button"
+            onClick={() => setUmzugTyp('filtration')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors ${umzugTyp === 'filtration' ? 'bg-s112-teal text-white border-s112-teal' : 'border-s112-border text-gray-600 hover:border-s112-teal hover:text-s112-teal'}`}>
+            🔽 Filtration
+          </button>
+        </div>
+        {umzugTyp === 'filtration' && (
+          <p className="text-xs text-s112-muted mt-1.5">
+            Filtration: Wein wird über einen Filter in ein anderes Gebinde umgezogen. Schwund entsteht.
+          </p>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -322,7 +346,12 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
       <td className="px-4 py-2.5 tabular-nums text-s112-muted text-xs">
         {new Date(u.datum).toLocaleDateString('de-AT')}
       </td>
-      <td className="px-4 py-2.5 font-medium text-gray-800 text-sm">{u.von_name}</td>
+      <td className="px-4 py-2.5 text-sm">
+        <span className="font-medium text-gray-800">{u.von_name}</span>
+        {u.umzug_typ === 'filtration' && (
+          <span className="ml-1.5 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">Filtration</span>
+        )}
+      </td>
       <td className="px-4 py-2.5 text-gray-600 text-sm">{u.nach_name}</td>
       <td className="px-4 py-2.5 text-right tabular-nums text-s112-teal font-semibold text-sm">{fmt(u.menge_liter)}</td>
       <td className="px-4 py-2.5 text-right tabular-nums text-s112-muted text-sm">

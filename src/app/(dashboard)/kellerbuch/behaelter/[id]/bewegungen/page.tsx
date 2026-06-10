@@ -15,17 +15,19 @@ const TYP_ICONS: Record<string, string> = {
 }
 
 const ART_ICON: Record<string, string> = {
-  anfangsbestand: '📋',
-  pressung:       '🍇',
-  umzug_ein:      '⬆️',
-  umzug_aus:      '⬇️',
-  abfuellung:     '🍾',
-  verkauf:        '💰',
+  anfangsbestand:  '📋',
+  pressung:        '🍇',
+  umzug_ein:       '⬆️',
+  umzug_aus:       '⬇️',
+  filtration_ein:  '🔼',
+  filtration_aus:  '🔽',
+  abfuellung:      '🍾',
+  verkauf:         '💰',
 }
 
 type Bewegung = {
   datum: string
-  art: 'anfangsbestand' | 'pressung' | 'umzug_ein' | 'umzug_aus' | 'abfuellung' | 'verkauf'
+  art: 'anfangsbestand' | 'pressung' | 'umzug_ein' | 'umzug_aus' | 'filtration_ein' | 'filtration_aus' | 'abfuellung' | 'verkauf'
   beschreibung: string
   menge: number
   extra?: string
@@ -61,7 +63,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
 
     // Eingehende Umzüge – inkl. schwund_liter für Netto-Berechnung
     (supabase.from('keller_umzuege') as any)
-      .select('id, datum, menge_liter, schwund_liter, nach_weinausbau_id, von_weinausbau:von_weinausbau_id(name, jahrgang, behaelter:behaelter_id(name)), notizen')
+      .select('id, datum, menge_liter, schwund_liter, umzug_typ, nach_weinausbau_id, von_weinausbau:von_weinausbau_id(name, jahrgang, behaelter:behaelter_id(name)), notizen')
       .eq('nach_behaelter_id', id)
       .order('datum', { ascending: true }),
 
@@ -104,7 +106,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
   ] = chargeIdList.length > 0
     ? await Promise.all([
         (supabase.from('keller_umzuege') as any)
-          .select('id, datum, menge_liter, brutto_liter, schwund_liter, zeilen_typ, nach_behaelter:nach_behaelter_id(name), von_weinausbau:von_weinausbau_id(name), notizen')
+          .select('id, datum, menge_liter, brutto_liter, schwund_liter, zeilen_typ, umzug_typ, nach_behaelter:nach_behaelter_id(name), von_weinausbau:von_weinausbau_id(name), notizen')
           .in('von_weinausbau_id', chargeIdList)
           .order('datum', { ascending: true }),
         (supabase.from('fuellungen') as any)
@@ -161,13 +163,16 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     const liter   = parseFloat(u.menge_liter) || 0
     const schwund = parseFloat(u.schwund_liter) || 0
     if (liter <= 0) continue
-    const vonCharge = u.von_weinausbau as R | null
-    const vonTank   = (vonCharge?.behaelter as R | null)?.name ?? null
-    const vonName   = vonCharge?.name ?? '?'
+    const vonCharge  = u.von_weinausbau as R | null
+    const vonTank    = (vonCharge?.behaelter as R | null)?.name ?? null
+    const vonName    = vonCharge?.name ?? '?'
+    const istFiltEin = u.umzug_typ === 'filtration'
     bewegungen.push({
       datum: u.datum,
-      art: 'umzug_ein',
-      beschreibung: `Zugang von ${vonTank ?? vonName}${vonTank ? ` (${vonName})` : ''}`,
+      art: istFiltEin ? 'filtration_ein' : 'umzug_ein',
+      beschreibung: istFiltEin
+        ? `Filtration von ${vonTank ?? vonName}${vonTank ? ` (${vonName})` : ''}`
+        : `Zugang von ${vonTank ?? vonName}${vonTank ? ` (${vonName})` : ''}`,
       menge: liter,
       extra: schwund > 0
         ? `Schwund: ${schwund.toLocaleString('de-AT')} L${u.notizen ? ` · ${u.notizen}` : ''}`
@@ -184,12 +189,15 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
       ? netto
       : (parseFloat(u.brutto_liter) || (netto + schwund) || netto)
     if (abgang <= 0) continue
-    const nachTank  = (u.nach_behaelter as R | null)?.name ?? '?'
-    const vonCharge = u.von_weinausbau as R | null
+    const nachTank   = (u.nach_behaelter as R | null)?.name ?? '?'
+    const vonCharge  = u.von_weinausbau as R | null
+    const istFiltAus = u.umzug_typ === 'filtration'
     bewegungen.push({
       datum: u.datum,
-      art: 'umzug_aus',
-      beschreibung: `Umzug nach ${nachTank}${schwund > 0 ? ` · Schwund: ${schwund.toLocaleString('de-AT')} L` : ''}`,
+      art: istFiltAus ? 'filtration_aus' : 'umzug_aus',
+      beschreibung: istFiltAus
+        ? `Filtration nach ${nachTank}${schwund > 0 ? ` · Schwund: ${schwund.toLocaleString('de-AT')} L` : ''}`
+        : `Umzug nach ${nachTank}${schwund > 0 ? ` · Schwund: ${schwund.toLocaleString('de-AT')} L` : ''}`,
       menge: -abgang,   // Quelle verliert exakt abgang; Schwund nicht doppelt zählen
       extra: vonCharge?.name
         ? `aus Charge: ${vonCharge.name}${u.notizen ? ` · ${u.notizen}` : ''}`
@@ -356,7 +364,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
                   const istAbgang    = bew.menge < 0
                   const istZugang    = bew.menge > 0
                   const colorClass   = istAbgang ? 'text-red-600' : istZugang ? 'text-green-600' : 'text-gray-500'
-                  const isZugangsRow = bew.art === 'anfangsbestand' || bew.art === 'pressung' || bew.art === 'umzug_ein'
+                  const isZugangsRow = bew.art === 'anfangsbestand' || bew.art === 'pressung' || bew.art === 'umzug_ein' || bew.art === 'filtration_ein'
                   const rowBg        = isZugangsRow ? 'bg-green-50/50' : (i % 2 === 1 ? 'bg-s112-bg/30' : '')
                   return (
                     <tr key={i} className={`border-b border-s112-border/30 last:border-0 ${rowBg}`}>

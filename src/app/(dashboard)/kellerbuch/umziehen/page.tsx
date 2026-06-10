@@ -36,7 +36,7 @@ export default async function UmziehenPage() {
 
     // Umzug-Protokoll
     (supabase.from('keller_umzuege') as any)
-      .select('id, datum, menge_liter, schwund_liter, notizen, von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name)), nach_behaelter:nach_behaelter_id(name)')
+      .select('id, datum, menge_liter, schwund_liter, umzug_typ, notizen, von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name)), nach_behaelter:nach_behaelter_id(name)')
       .order('datum', { ascending: false })
       .order('id', { ascending: false })
       .limit(50),
@@ -67,7 +67,7 @@ export default async function UmziehenPage() {
       kapazitaet_liter: b.volumen_liter ?? null,
     }))
 
-  const umzuege: { id: string; von_name: string; nach_name: string; menge_liter: number; schwund_liter: number; datum: string; notizen: string | null }[] =
+  const umzuege: { id: string; von_name: string; nach_name: string; menge_liter: number; schwund_liter: number; datum: string; notizen: string | null; umzug_typ?: string }[] =
     ((umzugRaw ?? []) as R[]).map(u => {
       const vonCharge = u.von_weinausbau as R | null
       const vonTank   = (vonCharge?.behaelter as R | null)?.name ?? null
@@ -80,6 +80,7 @@ export default async function UmziehenPage() {
         menge_liter:   u.menge_liter,
         schwund_liter: u.schwund_liter ?? 0,
         notizen:       u.notizen ?? null,
+        umzug_typ:     u.umzug_typ ?? 'normal',
       }
     })
 
