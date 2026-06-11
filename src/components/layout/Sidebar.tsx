@@ -354,3 +354,11 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
               />
               <p className="text-[9px] text-s112-muted/50 leading-tight">
                 &copy; IC&amp;P Consultants e.U.
+              </p>
+            </div>
+          </>
+        )}
+      </div>
+    </aside>
+  )
+}
