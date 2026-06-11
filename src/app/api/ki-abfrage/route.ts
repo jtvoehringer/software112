@@ -140,6 +140,13 @@ export async function POST(req: NextRequest) {
       messages: [{ role: 'user', content: `${SCHEMA_CONTEXT}\n\nFrage des Winzers: "${frage}"` }],
     })
 
+    // Token-Verbrauch kumulieren (fire-and-forget, blockiert nicht die Antwort)
+    ;(supabase.rpc as any)('increment_ki_tokens', {
+      p_tenant_id:     tenantId,
+      p_input_tokens:  msg.usage.input_tokens,
+      p_output_tokens: msg.usage.output_tokens,
+    }).then(() => {}).catch(() => {})
+
     const rawText = (msg.content[0] as any).text as string
     let queryParams: R
     try {
