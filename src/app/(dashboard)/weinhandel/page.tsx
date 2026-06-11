@@ -40,12 +40,12 @@ export default async function WeinhandelPage() {
       .eq('aktiv', true)
       .order('datum', { ascending: false }),
     (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, rebsorte, menge_liter, status, behaelter_id, behaelter:behaelter_id(name)')
+      .select('id, name, jahrgang, rebsorte, menge_liter, status, behaelter_id, einstandspreis_pro_liter, behaelter:behaelter_id(name)')
       .eq('aktiv', true)
       .in('status', ['ausbau', 'abfuellung'])
       .order('jahrgang', { ascending: false }),
     (supabase.from('zukauf_posten') as any)
-      .select('id, art, datum, menge, einheit, rebsorte, jahrgang, notizen, lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname), lieferant_firma:firmen!lieferant_firma_id(name)')
+      .select('id, art, datum, menge, einheit, rebsorte, jahrgang, notizen, preis_gesamt, lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname), lieferant_firma:firmen!lieferant_firma_id(name)')
       .eq('aktiv', true)
       .gt('menge', 0)
       .order('datum', { ascending: false }),
@@ -60,6 +60,13 @@ export default async function WeinhandelPage() {
     s + ((f.bestand_flaschen ?? 0) * (f.einstandspreis ?? 0)), 0)
   const gesamtLiterTank = tanks.reduce((s: number, t: R) => s + (Number(t.menge_liter) || 0), 0)
                         + zukauf.filter((z: R) => z.einheit === 'L').reduce((s: number, z: R) => s + (Number(z.menge) || 0), 0)
+  const tankLagerwert   = tanks.reduce((s: number, t: R) =>
+    s + (Number(t.menge_liter) || 0) * (Number(t.einstandspreis_pro_liter) || 0), 0)
+  const zukaufLagerwert = zukauf.reduce((s: number, z: R) => {
+    const ep = z.preis_gesamt && z.menge ? Number(z.preis_gesamt) / Number(z.menge) : 0
+    return s + (Number(z.menge) || 0) * ep
+  }, 0)
+  const gesamtWertGesamt = gesamtWert + tankLagerwert + zukaufLagerwert
 
   return (
     <div className="space-y-8">
@@ -79,11 +86,11 @@ export default async function WeinhandelPage() {
         </Link>
         <Link href="/weinhandel/verkauf" className="card text-center p-4 hover:shadow-md hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-3xl font-bold text-s112-teal">
-            {gesamtWert > 0
-              ? gesamtWert.toLocaleString('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
+            {gesamtWertGesamt > 0
+              ? gesamtWertGesamt.toLocaleString('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
               : '–'}
           </p>
-          <p className="text-xs text-s112-muted mt-1">Lagerwert Flaschen (Einstandspreis)</p>
+          <p className="text-xs text-s112-muted mt-1">Lagerwert gesamt (Einstandspreis)</p>
           <p className="text-[10px] text-s112-teal/60 mt-1">→ Verkauf</p>
         </Link>
         <Link href="/weinhandel" className="card text-center p-4 hover:shadow-md hover:border-s112-teal/30 transition-all cursor-pointer">
@@ -215,6 +222,8 @@ export default async function WeinhandelPage() {
                   <th className="text-left px-4 py-3 font-semibold text-gray-700">Status</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-700">Behälter</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-700">Liter</th>
+                  <th className="text-right px-4 py-3 font-semibold text-gray-700">Einstand/L</th>
+                  <th className="text-right px-4 py-3 font-semibold text-gray-700">Lagerwert</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-700"></th>
                 </tr>
               </thead>
@@ -232,6 +241,16 @@ export default async function WeinhandelPage() {
                       <td className="px-4 py-3 text-s112-muted">{(t.behaelter as R | null)?.name ?? '–'}</td>
                       <td className="px-4 py-3 text-right tabular-nums font-semibold text-s112-teal">
                         {t.menge_liter ? Number(t.menge_liter).toLocaleString('de-AT') : '–'}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums text-s112-muted text-sm">
+                        {t.einstandspreis_pro_liter != null
+                          ? Number(t.einstandspreis_pro_liter).toLocaleString('de-AT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 4 })
+                          : <span className="text-xs text-amber-500">nicht gesetzt</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-s112-teal">
+                        {t.einstandspreis_pro_liter != null && t.menge_liter
+                          ? (Number(t.menge_liter) * Number(t.einstandspreis_pro_liter)).toLocaleString('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
+                          : '–'}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {writeOk && (
@@ -265,6 +284,8 @@ export default async function WeinhandelPage() {
                   <th className="text-left px-4 py-3 font-semibold text-gray-700">Notizen</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-700">Datum</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-700">Bestand</th>
+                  <th className="text-right px-4 py-3 font-semibold text-gray-700">Einstand/Einh.</th>
+                  <th className="text-right px-4 py-3 font-semibold text-gray-700">Lagerwert</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-700"></th>
                 </tr>
               </thead>
@@ -285,6 +306,16 @@ export default async function WeinhandelPage() {
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums font-semibold text-s112-teal whitespace-nowrap">
                         {Number(z.menge).toLocaleString('de-AT')} {z.einheit}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums text-s112-muted text-sm whitespace-nowrap">
+                        {z.preis_gesamt && z.menge
+                          ? (Number(z.preis_gesamt) / Number(z.menge)).toLocaleString('de-AT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 4 })
+                          : '–'}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-s112-teal whitespace-nowrap">
+                        {z.preis_gesamt
+                          ? Number(z.preis_gesamt).toLocaleString('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
+                          : '–'}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {writeOk && (
