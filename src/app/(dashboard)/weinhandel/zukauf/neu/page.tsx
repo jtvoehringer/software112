@@ -105,8 +105,9 @@ export default function ZukaufNeuPage() {
   const [preisGesamt,       setPreisGesamt]      = useState('')
   const [rebsorte,          setRebsorte]         = useState('')
   const [jahrgang,          setJahrgang]         = useState('')
-  const [zielBehaelter,     setZielBehaelter]    = useState('')
-  const [notizen,           setNotizen]          = useState('')
+  const [zielBehaelter,        setZielBehaelter]       = useState('')
+  const [einstandspreisLiter,  setEinstandspreisLiter] = useState('')
+  const [notizen,              setNotizen]             = useState('')
 
   // Wenn Art wechselt → Einheit anpassen
   function handleArtChange(a: 'wein' | 'trauben' | 'most') {
@@ -163,8 +164,9 @@ export default function ZukaufNeuPage() {
     fd.set('preis_gesamt',         preisGesamt)
     fd.set('rebsorte',             rebsorte)
     fd.set('jahrgang',             jahrgang)
-    fd.set('ziel_behaelter_id',    zielBehaelter)
-    fd.set('notizen',              notizen)
+    fd.set('ziel_behaelter_id',       zielBehaelter)
+    fd.set('einstandspreis_pro_liter', einstandspreisLiter)
+    fd.set('notizen',                 notizen)
 
     startTransition(async () => {
       try {
@@ -283,6 +285,14 @@ export default function ZukaufNeuPage() {
                   : '–'}
               </div>
             </div>
+            {(art === 'wein' || art === 'most') && (
+              <div>
+                <label className={labelCls}>Einstandspreis / L (€)</label>
+                <input type="number" value={einstandspreisLiter} onChange={e => setEinstandspreisLiter(e.target.value)}
+                  step="0.0001" min="0" placeholder="0.0000"
+                  className={inputCls + ' w-full'} />
+              </div>
+            )}
             <div>
               <label className={labelCls}>Rebsorte</label>
               <input type="text" value={rebsorte} onChange={e => setRebsorte(e.target.value)}

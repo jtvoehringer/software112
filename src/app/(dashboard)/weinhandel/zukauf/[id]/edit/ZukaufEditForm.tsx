@@ -7,17 +7,18 @@ import { updateZukauf } from '../../actions'
 interface Behaelter { id: string; name: string; typ: string }
 
 interface InitialValues {
-  datum:                string
-  art:                  string
-  lieferant_kontakt_id: string
-  lieferant_firma_id:   string
-  menge:                string
-  einheit:              string
-  preis_gesamt:         string
-  rebsorte:             string
-  jahrgang:             string
-  ziel_behaelter_id:    string
-  notizen:              string
+  datum:                    string
+  art:                      string
+  lieferant_kontakt_id:     string
+  lieferant_firma_id:       string
+  menge:                    string
+  einheit:                  string
+  preis_gesamt:             string
+  einstandspreis_pro_liter: string
+  rebsorte:                 string
+  jahrgang:                 string
+  ziel_behaelter_id:        string
+  notizen:                  string
 }
 
 const TYP_ICONS: Record<string, string> = { tank: '🛢', fass: '🪵', amphore: '🏺', sonstiges: '📦' }
@@ -37,15 +38,16 @@ export default function ZukaufEditForm({
   const [error, setError]            = useState<string | null>(null)
   const [behaelter, setBehaelter]    = useState<Behaelter[]>([])
 
-  const [datum,           setDatum]          = useState(initial.datum)
-  const [art,             setArt]            = useState<'wein' | 'trauben' | 'most'>(initial.art as any)
-  const [menge,           setMenge]          = useState(initial.menge)
-  const [einheit,         setEinheit]        = useState(initial.einheit)
-  const [preisGesamt,     setPreisGesamt]    = useState(initial.preis_gesamt)
-  const [rebsorte,        setRebsorte]       = useState(initial.rebsorte)
-  const [jahrgang,        setJahrgang]       = useState(initial.jahrgang)
-  const [zielBehaelter,   setZielBehaelter]  = useState(initial.ziel_behaelter_id)
-  const [notizen,         setNotizen]        = useState(initial.notizen)
+  const [datum,                  setDatum]                 = useState(initial.datum)
+  const [art,                    setArt]                   = useState<'wein' | 'trauben' | 'most'>(initial.art as any)
+  const [menge,                  setMenge]                 = useState(initial.menge)
+  const [einheit,                setEinheit]               = useState(initial.einheit)
+  const [preisGesamt,            setPreisGesamt]           = useState(initial.preis_gesamt)
+  const [einstandspreisLiter,    setEinstandspreisLiter]   = useState(initial.einstandspreis_pro_liter)
+  const [rebsorte,               setRebsorte]              = useState(initial.rebsorte)
+  const [jahrgang,               setJahrgang]              = useState(initial.jahrgang)
+  const [zielBehaelter,          setZielBehaelter]         = useState(initial.ziel_behaelter_id)
+  const [notizen,                setNotizen]               = useState(initial.notizen)
 
   useEffect(() => {
     fetch('/api/zukauf-stammdaten').then(r => r.json()).then(j => {
@@ -75,8 +77,9 @@ export default function ZukaufEditForm({
     fd.set('preis_gesamt',         preisGesamt)
     fd.set('rebsorte',             rebsorte)
     fd.set('jahrgang',             jahrgang)
-    fd.set('ziel_behaelter_id',    zielBehaelter)
-    fd.set('notizen',              notizen)
+    fd.set('ziel_behaelter_id',        zielBehaelter)
+    fd.set('einstandspreis_pro_liter', einstandspreisLiter)
+    fd.set('notizen',                  notizen)
 
     startTransition(async () => {
       try {
@@ -171,6 +174,14 @@ export default function ZukaufEditForm({
                   : '–'}
               </div>
             </div>
+            {(art === 'wein' || art === 'most') && (
+              <div>
+                <label className={labelCls}>Einstandspreis / L (€)</label>
+                <input type="number" value={einstandspreisLiter} onChange={e => setEinstandspreisLiter(e.target.value)}
+                  step="0.0001" min="0" placeholder="0.0000"
+                  className={inputCls + ' w-full'} />
+              </div>
+            )}
             <div>
               <label className={labelCls}>Rebsorte</label>
               <input type="text" value={rebsorte} onChange={e => setRebsorte(e.target.value)}

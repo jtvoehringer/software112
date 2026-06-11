@@ -23,6 +23,7 @@ async function findOrCreateCharge(
   rebsorte: string | null,
   jahrgang: number | null,
   menge: number,
+  einstandspreisProLiter: number | null,
 ): Promise<string> {
   const name = [rebsorte, jahrgang].filter(Boolean).join(' ') || 'Zukauf'
 
@@ -39,8 +40,10 @@ async function findOrCreateCharge(
 
   if (existing) {
     const aktuell = parseFloat((existing as AR).menge_liter ?? '0') || 0
+    const updateData: AR = { menge_liter: aktuell + menge }
+    if (einstandspreisProLiter != null) updateData.einstandspreis_pro_liter = einstandspreisProLiter
     await (supabase.from('weinausbau') as any)
-      .update({ menge_liter: aktuell + menge })
+      .update(updateData)
       .eq('id', (existing as AR).id)
     return (existing as AR).id
   }
@@ -53,6 +56,7 @@ async function findOrCreateCharge(
       behaelter_id: behaelterId,
       jahrgang,
       menge_liter:  menge,
+      einstandspreis_pro_liter: einstandspreisProLiter ?? null,
       anfangsbestand_liter: null,
       status:      'ausbau',
       aktiv:       true,
@@ -67,17 +71,18 @@ export async function createZukauf(formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
 
-  const datum              = (formData.get('datum')                as string) || new Date().toISOString().split('T')[0]
-  const art                = (formData.get('art')                  as string) || 'trauben'
-  const lieferantKontaktId = (formData.get('lieferant_kontakt_id') as string) || null
-  const lieferantFirmaId   = (formData.get('lieferant_firma_id')   as string) || null
-  const menge              = parseFloat(formData.get('menge')      as string) || 0
-  const einheit            = (formData.get('einheit')              as string) || 'kg'
-  const preisGesamt        = parseFloat(formData.get('preis_gesamt') as string) || null
-  const rebsorte           = (formData.get('rebsorte')             as string)?.trim() || null
-  const jahrgang           = parseInt(formData.get('jahrgang')     as string) || null
-  const notizen            = (formData.get('notizen')              as string)?.trim() || null
-  const zielBehaelterId    = (formData.get('ziel_behaelter_id')    as string) || null
+  const datum                 = (formData.get('datum')                    as string) || new Date().toISOString().split('T')[0]
+  const art                   = (formData.get('art')                      as string) || 'trauben'
+  const lieferantKontaktId    = (formData.get('lieferant_kontakt_id')     as string) || null
+  const lieferantFirmaId      = (formData.get('lieferant_firma_id')       as string) || null
+  const menge                 = parseFloat(formData.get('menge')          as string) || 0
+  const einheit               = (formData.get('einheit')                  as string) || 'kg'
+  const preisGesamt           = parseFloat(formData.get('preis_gesamt')   as string) || null
+  const einstandspreisLiter   = parseFloat(formData.get('einstandspreis_pro_liter') as string) || null
+  const rebsorte              = (formData.get('rebsorte')                 as string)?.trim() || null
+  const jahrgang              = parseInt(formData.get('jahrgang')         as string) || null
+  const notizen               = (formData.get('notizen')                  as string)?.trim() || null
+  const zielBehaelterId       = (formData.get('ziel_behaelter_id')        as string) || null
 
   if (menge <= 0) throw new Error('Menge muss größer als 0 sein')
 
@@ -85,7 +90,7 @@ export async function createZukauf(formData: FormData) {
   let zielWeinausbauId: string | null = null
   if ((art === 'wein' || art === 'most') && zielBehaelterId) {
     zielWeinausbauId = await findOrCreateCharge(
-      supabase, tenantId, zielBehaelterId, rebsorte, jahrgang, menge,
+      supabase, tenantId, zielBehaelterId, rebsorte, jahrgang, menge, einstandspreisLiter,
     )
   }
 
@@ -99,6 +104,7 @@ export async function createZukauf(formData: FormData) {
       menge,
       einheit,
       preis_gesamt:         preisGesamt ?? null,
+      einstandspreis_pro_liter: einstandspreisLiter ?? null,
       rebsorte,
       jahrgang,
       notizen,
@@ -117,17 +123,18 @@ export async function updateZukauf(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
 
-  const datum              = (formData.get('datum')                as string) || new Date().toISOString().split('T')[0]
-  const art                = (formData.get('art')                  as string) || 'trauben'
-  const lieferantKontaktId = (formData.get('lieferant_kontakt_id') as string) || null
-  const lieferantFirmaId   = (formData.get('lieferant_firma_id')   as string) || null
-  const menge              = parseFloat(formData.get('menge')      as string) || 0
-  const einheit            = (formData.get('einheit')              as string) || 'kg'
-  const preisGesamt        = parseFloat(formData.get('preis_gesamt') as string) || null
-  const rebsorte           = (formData.get('rebsorte')             as string)?.trim() || null
-  const jahrgang           = parseInt(formData.get('jahrgang')     as string) || null
-  const notizen            = (formData.get('notizen')              as string)?.trim() || null
-  const zielBehaelterId    = (formData.get('ziel_behaelter_id')    as string) || null
+  const datum                 = (formData.get('datum')                    as string) || new Date().toISOString().split('T')[0]
+  const art                   = (formData.get('art')                      as string) || 'trauben'
+  const lieferantKontaktId    = (formData.get('lieferant_kontakt_id')     as string) || null
+  const lieferantFirmaId      = (formData.get('lieferant_firma_id')       as string) || null
+  const menge                 = parseFloat(formData.get('menge')          as string) || 0
+  const einheit               = (formData.get('einheit')                  as string) || 'kg'
+  const preisGesamt           = parseFloat(formData.get('preis_gesamt')   as string) || null
+  const einstandspreisLiter   = parseFloat(formData.get('einstandspreis_pro_liter') as string) || null
+  const rebsorte              = (formData.get('rebsorte')                 as string)?.trim() || null
+  const jahrgang              = parseInt(formData.get('jahrgang')         as string) || null
+  const notizen               = (formData.get('notizen')                  as string)?.trim() || null
+  const zielBehaelterId       = (formData.get('ziel_behaelter_id')        as string) || null
 
   if (menge <= 0) throw new Error('Menge muss größer als 0 sein')
 
@@ -143,7 +150,7 @@ export async function updateZukauf(id: string, formData: FormData) {
   // Wenn Behälter neu oder geändert: neue/bestehende Charge verwenden
   if ((art === 'wein' || art === 'most') && zielBehaelterId) {
     zielWeinausbauId = await findOrCreateCharge(
-      supabase, tenantId, zielBehaelterId, rebsorte, jahrgang, menge,
+      supabase, tenantId, zielBehaelterId, rebsorte, jahrgang, menge, einstandspreisLiter,
     )
   } else if (!(art === 'wein' || art === 'most')) {
     zielWeinausbauId = null
@@ -157,6 +164,7 @@ export async function updateZukauf(id: string, formData: FormData) {
     menge,
     einheit,
     preis_gesamt:         preisGesamt ?? null,
+    einstandspreis_pro_liter: einstandspreisLiter ?? null,
     rebsorte,
     jahrgang,
     notizen,
