@@ -17,12 +17,21 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await s.auth.getUser()
   if (!user) return NextResponse.json({ fehler: 'Nicht angemeldet' }, { status: 401 })
   const body = await req.json() as R
-  const { error } = await (s.from('profiles') as any).upsert({
-    user_id:    user.id,
-    full_name:  body.full_name || null,
-    telefon:    body.telefon   || null,
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'user_id' })
+  const now  = new Date().toISOString()
+
+  // Prüfen ob Profil bereits existiert
+  const { data: existing } = await (s.from('profiles') as any)
+    .select('id').eq('user_id', user.id).maybeSingle()
+
+  let error: any
+  if (existing) {
+    ;({ error } = await (s.from('profiles') as any)
+      .update({ full_name: body.full_name || null, telefon: body.telefon || null, updated_at: now })
+      .eq('user_id', user.id))
+  } else {
+    ;({ error } = await (s.from('profiles') as any)
+      .insert({ user_id: user.id, full_name: body.full_name || null, telefon: body.telefon || null, updated_at: now }))
+  }
   if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

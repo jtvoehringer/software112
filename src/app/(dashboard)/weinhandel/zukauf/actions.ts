@@ -56,14 +56,14 @@ async function bereinigCharge(supabase: any, weinausbauId: string): Promise<void
       .eq('weinausbau_id', weinausbauId),
   ])
   if ((umzugCount ?? 0) > 0 || (fuellungCount ?? 0) > 0) {
-    // Bereits verwendet → menge auf 0 setzen statt deaktivieren
+    // Bereits verwendet → menge auf 0 setzen, Status abschließen
     await (supabase.from('weinausbau') as any)
-      .update({ menge_liter: 0 })
+      .update({ menge_liter: 0, status: 'abgeschlossen' })
       .eq('id', weinausbauId)
   } else {
-    // Keine weiteren Transaktionen → deaktivieren
+    // Keine weiteren Transaktionen → deaktivieren + abschließen
     await (supabase.from('weinausbau') as any)
-      .update({ aktiv: false })
+      .update({ aktiv: false, status: 'abgeschlossen' })
       .eq('id', weinausbauId)
   }
 }
