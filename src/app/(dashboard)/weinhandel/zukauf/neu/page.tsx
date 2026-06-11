@@ -6,7 +6,8 @@ import { createZukauf } from '../actions'
 
 interface Kontakt  { id: string; vorname: string | null; nachname: string }
 interface Firma    { id: string; name: string }
-interface Weinausbau { id: string; name: string; menge_liter: number | null }
+interface Behaelter { id: string; name: string; typ: string }
+const TYP_ICONS: Record<string, string> = { tank: '🛢', fass: '🪵', amphore: '🏺', sonstiges: '📦' }
 
 interface SucheItem { id: string; label: string; sub?: string }
 
@@ -91,7 +92,7 @@ export default function ZukaufNeuPage() {
 
   const [kontakte,    setKontakte]    = useState<Kontakt[]>([])
   const [firmen,      setFirmen]      = useState<Firma[]>([])
-  const [weinausbau,  setWeinausbau]  = useState<Weinausbau[]>([])
+  const [behaelter,   setBehaelter]   = useState<Behaelter[]>([])
   const [loading,     setLoading]     = useState(true)
 
   // Formular
@@ -104,14 +105,14 @@ export default function ZukaufNeuPage() {
   const [preisGesamt,       setPreisGesamt]      = useState('')
   const [rebsorte,          setRebsorte]         = useState('')
   const [jahrgang,          setJahrgang]         = useState('')
-  const [zielWeinausbau,    setZielWeinausbau]   = useState('')
+  const [zielBehaelter,     setZielBehaelter]    = useState('')
   const [notizen,           setNotizen]          = useState('')
 
   // Wenn Art wechselt → Einheit anpassen
   function handleArtChange(a: 'wein' | 'trauben' | 'most') {
     setArt(a)
     setEinheit(DEFAULT_EINHEIT[a] ?? 'kg')
-    if (a === 'trauben') setZielWeinausbau('')
+    if (a === 'trauben') setZielBehaelter('')
   }
 
   useEffect(() => {
@@ -128,7 +129,7 @@ export default function ZukaufNeuPage() {
         }
         if (r2.ok) {
           const j2 = await r2.json()
-          setWeinausbau(j2.weinausbau ?? [])
+          setBehaelter(j2.behaelter ?? [])
         }
       } catch {
         // ignore
@@ -162,7 +163,7 @@ export default function ZukaufNeuPage() {
     fd.set('preis_gesamt',         preisGesamt)
     fd.set('rebsorte',             rebsorte)
     fd.set('jahrgang',             jahrgang)
-    fd.set('ziel_weinausbau_id',   zielWeinausbau)
+    fd.set('ziel_behaelter_id',    zielBehaelter)
     fd.set('notizen',              notizen)
 
     startTransition(async () => {
@@ -297,27 +298,22 @@ export default function ZukaufNeuPage() {
           </div>
         </div>
 
-        {/* Tank-Zuweisung (nur Wein / Most) */}
+        {/* Gebinde-Zuweisung (nur Wein / Most) */}
         {(art === 'wein' || art === 'most') && (
           <div className="card p-5 space-y-3">
-            <h2 className="font-semibold text-gray-700 text-sm">In Tank einfüllen</h2>
+            <h2 className="font-semibold text-gray-700 text-sm">In Gebinde füllen</h2>
             <div>
-              <label className={labelCls}>Weinausbau-Charge (optional)</label>
-              <select value={zielWeinausbau} onChange={e => setZielWeinausbau(e.target.value)}
+              <label className={labelCls}>Gebinde (optional)</label>
+              <select value={zielBehaelter} onChange={e => setZielBehaelter(e.target.value)}
                 className={inputCls + ' w-full'} disabled={loading}>
-                <option value="">– keiner –</option>
-                {weinausbau.map(w => (
-                  <option key={w.id} value={w.id}>
-                    {w.name}{w.menge_liter != null ? ` · aktuell ${w.menge_liter} L` : ''}
+                <option value="">– keines –</option>
+                {behaelter.map(b => (
+                  <option key={b.id} value={b.id}>
+                    {TYP_ICONS[b.typ] ?? '📦'} {b.name}
                   </option>
                 ))}
               </select>
             </div>
-            {zielWeinausbau && (
-              <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-                ✓ Beim Speichern wird der Liter-Bestand dieser Charge automatisch um {menge ? Number(menge).toLocaleString('de-AT') : '0'} {einheit} erhöht.
-              </p>
-            )}
           </div>
         )}
 

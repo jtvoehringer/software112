@@ -7,12 +7,18 @@ export async function GET() {
   try {
     const supabase = await createSupabaseServerClient()
 
-    const { data: weinausbau } = await (supabase.from('weinausbau') as any)
-      .select('id, name, menge_liter')
-      .eq('aktiv', true)
-      .order('name')
+    const [{ data: behaelter }, { data: weinausbau }] = await Promise.all([
+      (supabase.from('behaelter') as any)
+        .select('id, name, typ')
+        .eq('aktiv', true)
+        .order('name'),
+      (supabase.from('weinausbau') as any)
+        .select('id, name, menge_liter, behaelter_id')
+        .eq('aktiv', true)
+        .order('name'),
+    ])
 
-    return NextResponse.json({ weinausbau: weinausbau ?? [] })
+    return NextResponse.json({ behaelter: behaelter ?? [], weinausbau: weinausbau ?? [] })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }

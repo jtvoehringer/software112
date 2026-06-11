@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect } from 'react'
 import Link from 'next/link'
 import { updateZukauf } from '../../actions'
 
-interface Weinausbau { id: string; name: string; menge_liter: number | null }
+interface Behaelter { id: string; name: string; typ: string }
 
 interface InitialValues {
   datum:                string
@@ -16,10 +16,11 @@ interface InitialValues {
   preis_gesamt:         string
   rebsorte:             string
   jahrgang:             string
-  ziel_weinausbau_id:   string
+  ziel_behaelter_id:    string
   notizen:              string
 }
 
+const TYP_ICONS: Record<string, string> = { tank: '🛢', fass: '🪵', amphore: '🏺', sonstiges: '📦' }
 const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
 const labelCls = 'block text-xs font-medium text-gray-600 mb-1'
 
@@ -34,7 +35,7 @@ export default function ZukaufEditForm({
 }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError]            = useState<string | null>(null)
-  const [weinausbau, setWeinausbau]  = useState<Weinausbau[]>([])
+  const [behaelter, setBehaelter]    = useState<Behaelter[]>([])
 
   const [datum,           setDatum]          = useState(initial.datum)
   const [art,             setArt]            = useState<'wein' | 'trauben' | 'most'>(initial.art as any)
@@ -43,12 +44,12 @@ export default function ZukaufEditForm({
   const [preisGesamt,     setPreisGesamt]    = useState(initial.preis_gesamt)
   const [rebsorte,        setRebsorte]       = useState(initial.rebsorte)
   const [jahrgang,        setJahrgang]       = useState(initial.jahrgang)
-  const [zielWeinausbau,  setZielWeinausbau] = useState(initial.ziel_weinausbau_id)
+  const [zielBehaelter,   setZielBehaelter]  = useState(initial.ziel_behaelter_id)
   const [notizen,         setNotizen]        = useState(initial.notizen)
 
   useEffect(() => {
     fetch('/api/zukauf-stammdaten').then(r => r.json()).then(j => {
-      setWeinausbau(j.weinausbau ?? [])
+      setBehaelter(j.behaelter ?? [])
     }).catch(() => {})
   }, [])
 
@@ -74,7 +75,7 @@ export default function ZukaufEditForm({
     fd.set('preis_gesamt',         preisGesamt)
     fd.set('rebsorte',             rebsorte)
     fd.set('jahrgang',             jahrgang)
-    fd.set('ziel_weinausbau_id',   zielWeinausbau)
+    fd.set('ziel_behaelter_id',    zielBehaelter)
     fd.set('notizen',              notizen)
 
     startTransition(async () => {
@@ -185,25 +186,22 @@ export default function ZukaufEditForm({
           </div>
         </div>
 
-        {/* Tank-Zuweisung (nur Wein / Most) */}
+        {/* Gebinde-Zuweisung (nur Wein / Most) */}
         {(art === 'wein' || art === 'most') && (
           <div className="card p-5 space-y-3">
-            <h2 className="font-semibold text-gray-700 text-sm">Tank-Zuweisung</h2>
+            <h2 className="font-semibold text-gray-700 text-sm">In Gebinde füllen</h2>
             <div>
-              <label className={labelCls}>Weinausbau-Charge (optional)</label>
-              <select value={zielWeinausbau} onChange={e => setZielWeinausbau(e.target.value)}
+              <label className={labelCls}>Gebinde (optional)</label>
+              <select value={zielBehaelter} onChange={e => setZielBehaelter(e.target.value)}
                 className={inputCls + ' w-full'}>
-                <option value="">– keiner –</option>
-                {weinausbau.map(w => (
-                  <option key={w.id} value={w.id}>
-                    {w.name}{w.menge_liter != null ? ` · aktuell ${w.menge_liter} L` : ''}
+                <option value="">– keines –</option>
+                {behaelter.map(b => (
+                  <option key={b.id} value={b.id}>
+                    {TYP_ICONS[b.typ] ?? '📦'} {b.name}
                   </option>
                 ))}
               </select>
             </div>
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              ⚠ Änderungen an Tank-Zuweisung oder Menge passen den Kellerbuch-Bestand nicht automatisch nach.
-            </p>
           </div>
         )}
 

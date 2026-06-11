@@ -16,7 +16,8 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
       id, datum, art, menge, einheit, preis_gesamt, rebsorte, jahrgang, notizen,
       lieferant_kontakt_id, lieferant_firma_id, ziel_weinausbau_id,
       lieferant_kontakt:kontakte!lieferant_kontakt_id(id, vorname, nachname),
-      lieferant_firma:firmen!lieferant_firma_id(id, name)
+      lieferant_firma:firmen!lieferant_firma_id(id, name),
+      ziel_weinausbau:weinausbau!ziel_weinausbau_id(behaelter_id)
     `)
     .eq('id', id)
     .eq('aktiv', true)
@@ -38,7 +39,7 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
         preis_gesamt:          z.preis_gesamt != null ? String(z.preis_gesamt) : '',
         rebsorte:              z.rebsorte   ?? '',
         jahrgang:              z.jahrgang   != null ? String(z.jahrgang) : '',
-        ziel_weinausbau_id:    z.ziel_weinausbau_id ?? '',
+        ziel_behaelter_id:     (z.ziel_weinausbau as R | null)?.behaelter_id ?? '',
         notizen:               z.notizen    ?? '',
       }}
       lieferantName={
