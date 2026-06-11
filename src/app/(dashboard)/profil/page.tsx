@@ -9,6 +9,7 @@ export default function ProfilPage() {
   const [email, setEmail]       = useState('')
   const [saving, setSaving]     = useState(false)
   const [erfolg, setErfolg]     = useState(false)
+  const [fehler, setFehler]     = useState('')
   const [laden, setLaden]       = useState(true)
 
   useEffect(() => {
@@ -24,13 +25,24 @@ export default function ProfilPage() {
   async function speichern(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
-    await fetch('/api/profil', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ display_name: fullName, telefon }),
-    })
-    setErfolg(true); setSaving(false)
-    setTimeout(() => setErfolg(false), 3000)
-    router.refresh()
+    setFehler('')
+    try {
+      const res = await fetch('/api/profil', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ display_name: fullName, telefon }),
+      })
+      const json = await res.json()
+      if (!res.ok || json.fehler) {
+        setFehler(json.fehler ?? `Fehler ${res.status}`)
+      } else {
+        setErfolg(true)
+        setTimeout(() => setErfolg(false), 3000)
+        router.refresh()
+      }
+    } catch (err) {
+      setFehler('Netzwerkfehler')
+    }
+    setSaving(false)
   }
 
   if (laden) return <div className="p-8 text-s112-muted text-sm">Laden…</div>
@@ -60,6 +72,7 @@ export default function ProfilPage() {
               {saving ? 'Speichern…' : 'Profil speichern'}
             </button>
             {erfolg && <p className="text-sm text-green-600">✓ Gespeichert</p>}
+            {fehler && <p className="text-sm text-red-600">✗ {fehler}</p>}
           </div>
         </form>
       </div>
