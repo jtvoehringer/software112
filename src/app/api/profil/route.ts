@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       .eq('user_id', user.id))
   } else {
     ;({ error } = await (s.from('profiles') as any)
-      .insert({ user_id: user.id, full_name: body.full_name || null, telefon: body.telefon || null, updated_at: now }))
+      .insert({ id: crypto.randomUUID(), user_id: user.id, full_name: body.full_name || null, telefon: body.telefon || null, updated_at: now }))
   }
   if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
