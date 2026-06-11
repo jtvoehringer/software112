@@ -82,33 +82,24 @@ export default async function KellerbuchPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Kellerbuch</h1>
-          <p className="text-sm text-s112-muted mt-0.5">Übersicht Behälter &amp; Chargen</p>
+          <p className="text-sm text-s112-muted mt-0.5">Gebinde</p>
         </div>
-        {writeOk && (
-          <Link href="/weinhandel/fuellungen/neu"
-            className="btn-primary flex items-center gap-2 text-sm">
-            🍾 Neue Füllung
-          </Link>
-        )}
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-8">
-        <Link href="/kellerbuch/gebinde" className="card text-center p-4 hover:shadow-md hover:border-s112-teal/30 transition-all cursor-pointer">
+        <div className="card text-center p-4">
           <p className="text-3xl font-bold text-s112-teal">{behaelter.filter((b: R) => b.aktiv).length}</p>
           <p className="text-xs text-s112-muted mt-1">Aktive Behälter</p>
-          <p className="text-[10px] text-s112-teal/60 mt-1">→ Gebinde verwalten</p>
-        </Link>
-        <Link href="/kellerbuch/weinausbau" className="card text-center p-4 hover:shadow-md hover:border-s112-teal/30 transition-all cursor-pointer">
+        </div>
+        <div className="card text-center p-4">
           <p className="text-3xl font-bold text-s112-teal">{aktiveChargen.length}</p>
           <p className="text-xs text-s112-muted mt-1">Laufende Chargen</p>
-          <p className="text-[10px] text-s112-teal/60 mt-1">→ Weinausbau</p>
-        </Link>
-        <Link href="/kellerbuch/rueckverfolgung" className="card text-center p-4 hover:shadow-md hover:border-s112-teal/30 transition-all cursor-pointer">
+        </div>
+        <div className="card text-center p-4">
           <p className="text-3xl font-bold text-s112-teal">{fmtLiter(gesamtLiter)}</p>
           <p className="text-xs text-s112-muted mt-1">Liter in Ausbau</p>
-          <p className="text-[10px] text-s112-teal/60 mt-1">→ Rückverfolgung</p>
-        </Link>
+        </div>
       </div>
 
       {/* Behälter mit Chargen */}
@@ -211,7 +202,7 @@ export default async function KellerbuchPage() {
                                 : <span className="text-red-500">0,00 L</span>}
                           </td>
                           <td className="px-4 py-2.5 text-right">
-                            {writeOk && menge > 0.01 && (
+                            {writeOk && menge > 0.01 && !istEB && (
                               <Link href={`/weinhandel/fuellungen/neu?charge=${w.id}`}
                                 className="text-xs text-s112-teal border border-s112-teal/30 rounded-full px-2 py-0.5 hover:bg-s112-teal hover:text-white transition-colors whitespace-nowrap">
                                 🍾 Abfüllen

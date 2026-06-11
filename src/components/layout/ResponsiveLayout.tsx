@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import Sidebar from './Sidebar'
-import GlobalSearch from '@/components/GlobalSearch'
 import type { UserRole } from '@/lib/auth/roles'
 import type { TenantBranding } from '@/app/(dashboard)/layout'
 
@@ -18,22 +17,7 @@ interface Props {
 
 export default function ResponsiveLayout({ children, userEmail, userName, role, roleLabel, branding }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const pathname = usePathname()
-
-  // Collapsed-State aus localStorage wiederherstellen
-  useEffect(() => {
-    const stored = localStorage.getItem('s112_sidebar_collapsed')
-    if (stored === 'true') setSidebarCollapsed(true)
-  }, [])
-
-  const handleToggleCollapse = () => {
-    setSidebarCollapsed(prev => {
-      const next = !prev
-      localStorage.setItem('s112_sidebar_collapsed', String(next))
-      return next
-    })
-  }
 
   // Drawer beim Navigieren schließen
   useEffect(() => {
@@ -57,7 +41,7 @@ export default function ResponsiveLayout({ children, userEmail, userName, role, 
 
       {/* ── Desktop Sidebar (ab lg sichtbar) ────────────────────────── */}
       <div className="hidden lg:flex flex-shrink-0">
-        <Sidebar {...sidebarProps} collapsed={sidebarCollapsed} onToggleCollapse={handleToggleCollapse} />
+        <Sidebar {...sidebarProps} />
       </div>
 
       {/* ── Mobile Drawer Overlay ────────────────────────────────────── */}
@@ -95,21 +79,21 @@ export default function ResponsiveLayout({ children, userEmail, userName, role, 
       {/* ── Haupt-Inhalt ─────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
-        {/* Top-Bar (Desktop: Suche; Mobile: Hamburger + Brand + Suche) */}
-        <header className="flex items-center gap-3 px-3 lg:px-6 py-2 bg-white border-b border-s112-border flex-shrink-0">
-          {/* Mobile: Hamburger */}
+        {/* Mobile Top-Bar */}
+        <header className="lg:hidden flex items-center gap-3 px-3 py-2 bg-white border-b border-s112-border flex-shrink-0">
           <button
             onClick={() => setDrawerOpen(true)}
-            className="lg:hidden flex items-center justify-center w-11 h-11 rounded-xl bg-s112-bg active:bg-s112-border text-gray-700 transition-colors"
+            className="flex items-center justify-center w-11 h-11 rounded-xl bg-s112-bg active:bg-s112-border text-gray-700 transition-colors"
             aria-label="Menü öffnen"
           >
+            {/* Hamburger Icon */}
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
 
-          {/* Mobile: Brand */}
-          <div className="lg:hidden flex items-baseline gap-0">
+          {/* Brand */}
+          <div className="flex items-baseline gap-0">
             {branding.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={branding.logo_url} alt={branding.anzeigename} className="h-7 w-auto object-contain" />
@@ -121,12 +105,6 @@ export default function ResponsiveLayout({ children, userEmail, userName, role, 
               </>
             )}
           </div>
-
-          {/* Spacer */}
-          <div className="flex-1" />
-
-          {/* Globale Suche */}
-          <GlobalSearch />
         </header>
 
         {/* Content */}

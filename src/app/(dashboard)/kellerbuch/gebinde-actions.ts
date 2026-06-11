@@ -23,10 +23,6 @@ export async function createEroeffnungsbestand(formData: FormData) {
   const menge     = parseFloat(formData.get('menge_liter') as string)
   const jahr      = new Date().getFullYear()
 
-  const epRaw = (formData.get('einstandspreis_pro_liter') as string)?.replace(',', '.') ?? ''
-  // Transaktionsnummer vergeben
-  const { data: txnEb } = await (supabase.rpc as any)('get_next_transaktionsnr', { p_tenant_id: tenantId, p_typ: 'eroeffnung' })
-
   const payload: R = {
     tenant_id:            tenantId,
     name:                 formData.get('name') as string,
@@ -37,8 +33,6 @@ export async function createEroeffnungsbestand(formData: FormData) {
     qualitaetsstufe:      (formData.get('qualitaetsstufe') as string) || null,
     behaelter_id:         (formData.get('behaelter_id') as string) || null,
     notizen:              (formData.get('notizen') as string) || null,
-    einstandspreis_pro_liter: epRaw ? parseFloat(epRaw) : null,
-    transaktions_nr:      txnEb ?? null,
     status:               'ausbau',
     ist_eroeffnungsbestand: true,
     created_at:           new Date(`${jahr}-01-01T00:00:00`).toISOString(),
@@ -58,7 +52,6 @@ export async function updateEroeffnungsbestand(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const menge    = parseFloat(formData.get('menge_liter') as string)
 
-  const epRaw2 = (formData.get('einstandspreis_pro_liter') as string)?.replace(',', '.') ?? ''
   const payload: R = {
     name:            formData.get('name') as string,
     jahrgang:        parseInt(formData.get('jahrgang') as string) || null,
@@ -67,7 +60,6 @@ export async function updateEroeffnungsbestand(id: string, formData: FormData) {
     qualitaetsstufe: (formData.get('qualitaetsstufe') as string) || null,
     behaelter_id:    (formData.get('behaelter_id') as string) || null,
     notizen:         (formData.get('notizen') as string) || null,
-    einstandspreis_pro_liter: epRaw2 ? parseFloat(epRaw2) : null,
   }
 
   const { error } = await (supabase.from('weinausbau') as any).update(payload).eq('id', id)
@@ -112,9 +104,6 @@ export async function createUmzug(formData: FormData) {
 
   const batchId = crypto.randomUUID()
 
-  // Transaktionsnummer für diesen Umzugs-Batch
-  const { data: txnKu } = await (supabase.rpc as any)('get_next_transaktionsnr', { p_tenant_id: tenantId, p_typ: 'umzug' })
-
   // --- Quellen verarbeiten ---
   const quelleData: R[] = []
   for (let qi = 0; qi < quellen.length; qi++) {
@@ -147,7 +136,6 @@ export async function createUmzug(formData: FormData) {
       menge_liter:       q.brutto,
       schwund_liter:     0,
       notizen:           qi === 0 ? notizen : null,
-      transaktions_nr:   qi === 0 ? (txnKu ?? null) : null,
       umzug_batch_id:    batchId,
       zeilen_typ:        'quelle',
     })

@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
 
   if (a === 'eintraege') {
     const { data } = await (s.from('kosteneintraege') as any)
-      .select('id, datum, betrag, beschreibung, objekt_typ, periode, transaktions_nr, kostenstelle:kostenstelle_id(name), kostenart:kostenart_id(name), wg:weingarten_id(name), behaelter:behaelter_id(name)')
+      .select('id, datum, betrag, beschreibung, objekt_typ, periode, kostenstelle:kostenstelle_id(name), kostenart:kostenart_id(name), wg:weingarten_id(name), behaelter:behaelter_id(name)')
       .eq('tenant_id', t).order('datum', { ascending: false }).limit(300)
     // WG-Splits nachladen
     const ids = (data ?? []).map((e: R) => e.id)
@@ -99,8 +99,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (b.action === 'eintrag') {
-    const { data: txnKe } = await (s.rpc as any)('get_next_transaktionsnr', { p_tenant_id: t, p_typ: 'kosteneintrag' })
-    const { data, error } = await (s.from('kosteneintraege') as any).insert({ tenant_id: t, transaktions_nr: txnKe ?? null, ...fields }).select().single()
+    const { data, error } = await (s.from('kosteneintraege') as any).insert({ tenant_id: t, ...fields }).select().single()
     if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
     if (b.wg_split?.length > 0) await saveWgSplit(s, (data as R).id, b.wg_split, b.betrag)
     return NextResponse.json({ ok: true })

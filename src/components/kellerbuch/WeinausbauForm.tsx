@@ -15,7 +15,7 @@ type WeinausbauRow = {
   id: string; name: string; jahrgang: number | null; rebsorte: string | null
   weingarten_id: string | null; behaelter_id: string | null
   menge_liter: number | null; status: string; qualitaetsstufe: string | null
-  notizen: string | null; aktiv: boolean; einstandspreis_pro_liter: number | null
+  notizen: string | null; aktiv: boolean
 }
 
 interface Props {
@@ -37,7 +37,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, act
     const raw = new FormData(e.currentTarget)
     const normalized = new FormData()
     raw.forEach((value, key) => {
-      if ((key === 'menge_liter' || key === 'einstandspreis_pro_liter') && typeof value === 'string') {
+      if (key === 'menge_liter' && typeof value === 'string') {
         normalized.append(key, value.replace(',', '.'))
       } else {
         normalized.append(key, value)
@@ -121,17 +121,6 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, act
               {behaelter.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </div>
-        </div>
-      </div>
-
-      <div className="card space-y-4">
-        <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Lagerwert</h2>
-        <div>
-          <label className="form-label">Einstandspreis pro Liter (€)</label>
-          <input name="einstandspreis_pro_liter" type="text" inputMode="decimal"
-            defaultValue={weinausbau?.einstandspreis_pro_liter?.toString().replace('.', ',') ?? ''}
-            className="form-input" placeholder="z.B. 1,50" />
-          <p className="text-xs text-s112-muted mt-1">Basis für die Lagerwert-Berechnung bei Tankware</p>
         </div>
       </div>
 

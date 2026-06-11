@@ -38,7 +38,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
     { data: pressungenRaw },
   ] = await Promise.all([
     (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, rebsorte, weingarten_id, behaelter_id, menge_liter, anfangsbestand_liter, status, qualitaetsstufe, notizen, aktiv, einstandspreis_pro_liter, behaelter:behaelter_id(name)')
+      .select('id, name, jahrgang, rebsorte, weingarten_id, behaelter_id, menge_liter, anfangsbestand_liter, status, qualitaetsstufe, notizen, aktiv, behaelter:behaelter_id(name)')
       .eq('id', id).limit(1),
     (supabase.from('weingarten') as any).select('id, name').eq('aktiv', true).order('name'),
     (supabase.from('behaelter') as any).select('id, name').eq('aktiv', true).order('name'),
@@ -112,7 +112,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
     id: string; name: string; jahrgang: number | null; rebsorte: string | null
     weingarten_id: string | null; behaelter_id: string | null; menge_liter: number | null
     anfangsbestand_liter: number | null; status: string; qualitaetsstufe: string | null
-    notizen: string | null; aktiv: boolean; einstandspreis_pro_liter: number | null; behaelter: { name: string } | null
+    notizen: string | null; aktiv: boolean; behaelter: { name: string } | null
   }
   type NameRow = { id: string; name: string }
 

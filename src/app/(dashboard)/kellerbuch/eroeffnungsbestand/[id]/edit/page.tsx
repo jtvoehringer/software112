@@ -40,7 +40,7 @@ export default async function EroeffnungsbestandEditPage({ params }: { params: P
 
   const [{ data: rowRaw }, { data: gebindeRaw }] = await Promise.all([
     (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, kmw, menge_liter, qualitaetsstufe, behaelter_id, notizen, einstandspreis_pro_liter')
+      .select('id, name, jahrgang, kmw, menge_liter, qualitaetsstufe, behaelter_id, notizen')
       .eq('id', id).eq('ist_eroeffnungsbestand', true).limit(1),
     (supabase.from('behaelter') as any).select('id, name').eq('aktiv', true).order('name'),
   ])
@@ -91,13 +91,6 @@ export default async function EroeffnungsbestandEditPage({ params }: { params: P
             <label className={labelCls}>Menge (Liter) *</label>
             <input name="menge_liter" type="number" step="0.01" min={0}
               required defaultValue={eintrag.menge_liter ?? ''} className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>Einstandspreis pro Liter (€)</label>
-            <input name="einstandspreis_pro_liter" type="text" inputMode="decimal"
-              defaultValue={eintrag.einstandspreis_pro_liter != null
-                ? String(eintrag.einstandspreis_pro_liter).replace('.', ',') : ''}
-              placeholder="z.B. 1,50" className={inputCls} />
           </div>
           <div>
             <label className={labelCls}>Qualitätsstufe</label>

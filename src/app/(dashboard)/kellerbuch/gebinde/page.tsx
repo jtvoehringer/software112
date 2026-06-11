@@ -57,12 +57,12 @@ export default async function GebindePage({
       .eq('aktiv', true)
       .order('name'),
     (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, kmw, menge_liter, qualitaetsstufe, behaelter_id, behaelter:behaelter_id(name), notizen, einstandspreis_pro_liter, transaktions_nr, aktiv')
+      .select('id, name, jahrgang, kmw, menge_liter, qualitaetsstufe, behaelter_id, behaelter:behaelter_id(name), notizen, aktiv')
       .eq('ist_eroeffnungsbestand', true)
       .eq('aktiv', true)
       .order('jahrgang', { ascending: false }),
     (supabase.from('keller_umzuege') as any)
-      .select('id, datum, menge_liter, schwund_liter, brutto_liter, umzug_batch_id, zeilen_typ, notizen, transaktions_nr, von_weinausbau:von_weinausbau_id(name, jahrgang), von_behaelter:von_behaelter_id(name), nach_behaelter:nach_behaelter_id(name)')
+      .select('id, datum, menge_liter, schwund_liter, brutto_liter, umzug_batch_id, zeilen_typ, notizen, von_weinausbau:von_weinausbau_id(name, jahrgang), von_behaelter:von_behaelter_id(name), nach_behaelter:nach_behaelter_id(name)')
       .order('datum', { ascending: false })
       .limit(200),
   ])
@@ -81,7 +81,6 @@ export default async function GebindePage({
     brutto: number
     schwund: number
     notizen: string | null
-    transaktions_nr: string | null
     ersteId: string
   }
   const umzuege: UmzugGruppe[] = []
@@ -111,7 +110,6 @@ export default async function GebindePage({
           brutto:       sumBrutto,
           schwund:      Math.max(0, sumBrutto - sumNetto),
           notizen:      quelleRecs[0]?.notizen ?? null,
-          transaktions_nr: quelleRecs[0]?.transaktions_nr ?? null,
           ersteId:      quelleRecs[0]?.id ?? batch[0].id,
         })
       } else {
@@ -127,7 +125,6 @@ export default async function GebindePage({
           brutto:       bruttoVal,
           schwund:      batch.reduce((s: number, r: R) => s + (parseFloat(r.schwund_liter) || 0), 0),
           notizen:      haupt.notizen ?? null,
-          transaktions_nr: haupt.transaktions_nr ?? null,
           ersteId:      batch[0].id,
         })
       }
@@ -141,7 +138,6 @@ export default async function GebindePage({
         brutto:       bruttoVal,
         schwund:      parseFloat(u.schwund_liter) || 0,
         notizen:      u.notizen ?? null,
-        transaktions_nr: u.transaktions_nr ?? null,
         ersteId:      u.id,
       })
     }
@@ -315,11 +311,6 @@ export default async function GebindePage({
                     required placeholder="z.B. 3000" className={inputCls} />
                 </div>
                 <div>
-                  <label className={labelCls}>Einstandspreis pro Liter (€)</label>
-                  <input name="einstandspreis_pro_liter" type="text" inputMode="decimal"
-                    placeholder="z.B. 1,50" className={inputCls} />
-                </div>
-                <div>
                   <label className={labelCls}>Qualitätsstufe</label>
                   <select name="qualitaetsstufe" className={inputCls}>
                     <option value="">– keine –</option>
@@ -345,12 +336,10 @@ export default async function GebindePage({
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-s112-bg border-b border-s112-border">
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">TXN</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Wein</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">JG</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">KMW</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Menge</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Einstand/L</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Gebinde</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Qualität</th>
                   {writeOk && <th className="px-4 py-2.5" />}
@@ -359,7 +348,6 @@ export default async function GebindePage({
               <tbody>
                 {eroeffnungen.map((e: R, i: number) => (
                   <tr key={e.id} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
-                    <td className="px-4 py-2.5 text-xs font-mono text-s112-muted whitespace-nowrap">{e.transaktions_nr ?? '–'}</td>
                     <td className="px-4 py-2.5 font-medium text-gray-800">{e.name}</td>
                     <td className="px-4 py-2.5 text-gray-600">{e.jahrgang ?? '–'}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
@@ -367,11 +355,6 @@ export default async function GebindePage({
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-s112-teal font-medium">
                       {fmtLiter(parseFloat(e.menge_liter))}
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
-                      {e.einstandspreis_pro_liter != null
-                        ? `€ ${parseFloat(e.einstandspreis_pro_liter).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`
-                        : '–'}
                     </td>
                     <td className="px-4 py-2.5 text-gray-600">{(e.behaelter as R | null)?.name ?? '–'}</td>
                     <td className="px-4 py-2.5 text-gray-600 text-xs">{e.qualitaetsstufe ?? '–'}</td>
@@ -387,7 +370,7 @@ export default async function GebindePage({
                   </tr>
                 ))}
                 {eroeffnungen.length === 0 && (
-                  <tr><td colSpan={writeOk ? 9 : 8} className="px-4 py-6 text-center text-xs text-s112-muted italic">Noch keine Eröffnungsbestände erfasst</td></tr>
+                  <tr><td colSpan={writeOk ? 7 : 6} className="px-4 py-6 text-center text-xs text-s112-muted italic">Noch keine Eröffnungsbestände erfasst</td></tr>
                 )}
               </tbody>
             </table>
@@ -406,7 +389,6 @@ export default async function GebindePage({
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-s112-bg border-b border-s112-border">
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">TXN</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Datum</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Quell-Gebinde</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Ziel-Gebinde (netto)</th>
@@ -419,7 +401,6 @@ export default async function GebindePage({
               <tbody>
                 {umzuege.map((u, i) => (
                   <tr key={u.key} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
-                    <td className="px-4 py-2.5 text-xs font-mono text-s112-muted whitespace-nowrap">{u.transaktions_nr ?? '–'}</td>
                     <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">
                       {new Date(u.datum).toLocaleDateString('de-AT')}
                     </td>
@@ -457,7 +438,7 @@ export default async function GebindePage({
                   </tr>
                 ))}
                 {umzuege.length === 0 && (
-                  <tr><td colSpan={writeOk ? 8 : 7} className="px-4 py-6 text-center text-xs text-s112-muted italic">Noch keine Umzüge erfasst</td></tr>
+                  <tr><td colSpan={writeOk ? 7 : 6} className="px-4 py-6 text-center text-xs text-s112-muted italic">Noch keine Umzüge erfasst</td></tr>
                 )}
               </tbody>
             </table>

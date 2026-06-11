@@ -7,8 +7,7 @@ export async function GET() {
   const s = await createSupabaseServerClient()
   const { data: { user } } = await s.auth.getUser()
   if (!user) return NextResponse.json({ fehler: 'Nicht angemeldet' }, { status: 401 })
-  // Schema 005: PK ist id (= auth.users.id), kein user_id
-  const { data } = await (s.from('profiles') as any).select('*').eq('id', user.id).maybeSingle()
+  const { data } = await (s.from('profiles') as any).select('*').eq('user_id', user.id).maybeSingle()
   return NextResponse.json({ profil: data ?? null })
 }
 
@@ -18,11 +17,11 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ fehler: 'Nicht angemeldet' }, { status: 401 })
   const body = await req.json() as R
   const { error } = await (s.from('profiles') as any).upsert({
-    id: user.id,
+    user_id: user.id,
     display_name: body.display_name || null,
     telefon:   body.telefon   || null,
     updated_at: new Date().toISOString(),
-  }, { onConflict: 'id' })
+  }, { onConflict: 'user_id' })
   if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

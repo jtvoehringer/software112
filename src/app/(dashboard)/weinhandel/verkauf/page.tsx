@@ -17,7 +17,7 @@ export default async function VerkaufPage() {
   // Verkaufsposten mit Positionen + Kundendaten
   const { data: postenRaw } = await (supabase.from('verkaufsposten') as any)
     .select(`
-      id, datum, rechnungsnummer, transaktions_nr, notizen, erstellt_am, storniert, bezahlt,
+      id, datum, rechnungsnummer, notizen, erstellt_am, storniert, bezahlt,
       kontakt:kontakte!kontakt_id(id, vorname, nachname),
       firma:firmen(id, name),
       positionen:verkauf_positionen(id, name, menge, einheit, preis_brutto, typ)
@@ -128,9 +128,8 @@ export default async function VerkaufPage() {
                     <td className="px-4 py-3 text-s112-muted whitespace-nowrap">
                       {new Date(p.datum).toLocaleDateString('de-AT')}
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="font-mono text-xs text-gray-700">{p.rechnungsnummer ?? <span className="text-s112-muted">–</span>}</div>
-                      {p.transaktions_nr && <div className="font-mono text-xs text-s112-muted mt-0.5">{p.transaktions_nr}</div>}
+                    <td className="px-4 py-3 font-mono text-xs text-gray-700">
+                      {p.rechnungsnummer ?? <span className="text-s112-muted">–</span>}
                     </td>
                     <td className="px-4 py-3 font-medium text-gray-900">{kundenName(p)}</td>
                     <td className="px-4 py-3">

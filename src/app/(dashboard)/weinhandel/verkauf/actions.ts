@@ -74,9 +74,6 @@ export async function createVerkauf(formData: FormData) {
     throw new Error('Mindestens eine Position erforderlich')
   }
 
-  // Transaktionsnummer vergeben
-  const { data: txnVk } = await (supabase.rpc as any)('get_next_transaktionsnr', { p_tenant_id: tenantId, p_typ: 'verkauf' })
-
   // 1. Verkaufsposten anlegen (UUID selbst generieren)
   const postenId = randomUUID()
   const { error: postenErr } = await (supabase.from('verkaufsposten') as any).insert({
@@ -84,7 +81,6 @@ export async function createVerkauf(formData: FormData) {
     tenant_id:       tenantId,
     datum,
     rechnungsnummer,
-    transaktions_nr: txnVk ?? null,
     kontakt_id:      kontaktId  || null,
     firma_id:        firmaId    || null,
     zh_kontakt_id:   zhKontaktId || null,

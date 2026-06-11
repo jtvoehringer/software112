@@ -18,33 +18,31 @@ firmen: id, kundennummer, name, segment, email, telefon, strasse, plz, ort, land
 aktivitaeten: id, art(anruf|email|besuch|notiz|angebot|verkostung|messe), betreff, datum, erledigt(bool), kontakt_id, firma_id
 pipeline_eintraege: id, titel, stufe(neukontakt|interessent|angebot|verhandlung|abschluss|stammkunde|verloren|pause), kategorie, erledigt(bool), erwartetes_datum
 verkaufsposten: id, datum, rechnungsnummer, bezahlt(bool), storniert(bool), kontakt_id, firma_id
-fuellungen: id, name, jahrgang(zahl z.B. 2025), rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv(bool)
-weinausbau: id, name, jahrgang(zahl z.B. 2025), rebsorte, menge_liter, qualitaetsstufe, status(ernte|gaerung|ausbau|abfuellung|abgeschlossen), aktiv(bool)
+fuellungen: id, name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto
+weinausbau: id, name, jahrgang, rebsorte, menge_liter, qualitaetsstufe, status, aktiv(bool)
 behandlungen: id, datum, art, menge_gesamt, menge_einheit, psm_id, weingarten_id
-lagerbewegungen: (SPEZIAL) Verkäufe einer konkreten Füllung – brauchbar für "Lagerbewegungen", "was wurde verkauft", "wie viel wurde verkauft", "wer hat gekauft". Filtert über fuellungen.name_contains + optional jahrgang.
 
 Deine Aufgabe: Analysiere die Frage des Winzers und gib eine STRUKTURIERTE ANTWORT als JSON zurück.
 Antworte NUR mit validem JSON, keine Erklärungen außerhalb des JSON.
 
 JSON-Format:
 {
-  "tabelle": "kontakte|firmen|verkaufsposten|fuellungen|weinausbau|behandlungen|pipeline_eintraege|lagerbewegungen",
+  "tabelle": "kontakte|firmen|verkaufsposten|fuellungen|weinausbau|behandlungen|pipeline_eintraege",
   "filter": {
     "segment": "gastro|handel|privat|export|grosshandel (optional)",
     "ort_contains": "Stadtname (optional)",
     "plz_prefix": "12 (optional, Anfang der PLZ)",
-    "land": "DE|AT|CH|IT (optional, ISO-Ländercode)",
-    "name_contains": "Querfeldein (optional, Suche im Namen – bei Wein/Füllungen: Weinname)",
-    "jahrgang": 2025 (optional, Zahl – filtert nach Jahrgang bei fuellungen/weinausbau/lagerbewegungen),
+    "land": "DE|AT|CH|IT (optional, ISO-Ländercode, z.B. DE für Deutschland, AT für Österreich)",
+    "name_contains": "Müller (optional, Suche in Vor- und Nachname/Firmenname)",
     "is_lead": true|false (optional),
     "stammkunde": true|false (optional),
-    "bezahlt": true|false (optional, nur verkaufsposten),
-    "storniert": false (optional),
-    "erledigt": true|false (optional),
-    "aktiv": true|false (optional),
+    "bezahlt": true|false (optional, nur verkaufsposten)",
+    "storniert": true|false (optional)",
+    "erledigt": true|false (optional)",
+    "aktiv": true|false (optional)",
     "datum_von": "YYYY-MM-DD (optional)",
     "datum_bis": "YYYY-MM-DD (optional)",
-    "bestand_min": 1 (optional, nur fuellungen),
+    "bestand_min": 1 (optional, nur fuellungen)",
     "qualitaetsstufe": "spaetlese|auslese|qualitaetswein etc. (optional)"
   },
   "sortierung": "datum_desc|name_asc|bestand_desc|ort_asc",
@@ -52,12 +50,6 @@ JSON-Format:
   "zusammenfassung": "Kurze deutsche Erklärung was angezeigt wird (1 Satz)",
   "empfehlung": "Optional: Handlungsempfehlung für den Winzer (1-2 Sätze)"
 }
-
-Wichtige Hinweise:
-- "Lagerbewegungen", "was wurde verkauft", "Verkaufshistorie" → tabelle: "lagerbewegungen"
-- Bei Weinnamen wie "Querfeldein Weiß" → name_contains: "Querfeldein"
-- "2025" nach einem Weinnamen ist meist ein jahrgang-Filter, KEIN datum-Filter
-- Jahrgänge sind immer Zahlen (2025), keine Datum-Strings
 `
 
 async function getTenantId(): Promise<string | null> {
@@ -70,59 +62,12 @@ async function getTenantId(): Promise<string | null> {
 async function executeQuery(supabase: any, params: R): Promise<R[]> {
   const { tabelle, filter = {}, sortierung = 'datum_desc', limit = 20 } = params
 
-  // ── SPEZIALFALL: Lagerbewegungen ───────────────────────────────────────────
-  if (tabelle === 'lagerbewegungen') {
-    // 1) Passende Füllung(en) finden
-    let fuellungQ = (supabase.from('fuellungen') as any).select('id, name, jahrgang, rebsorte')
-    if (filter.name_contains) fuellungQ = fuellungQ.ilike('name', `%${filter.name_contains}%`)
-    if (filter.jahrgang) fuellungQ = fuellungQ.eq('jahrgang', filter.jahrgang)
-    const { data: fuellungen } = await fuellungQ.limit(10)
-    if (!fuellungen || fuellungen.length === 0) return []
-
-    const fuellungIds = (fuellungen as R[]).map(f => f.id)
-    const fuellungMap: Record<string, string> = {}
-    for (const f of fuellungen as R[]) fuellungMap[f.id] = `${f.name}${f.jahrgang ? ` ${f.jahrgang}` : ''}`
-
-    // 2) Verkaufspositionen für diese Füllungen holen
-    let posQ = (supabase.from('verkauf_positionen') as any)
-      .select('id, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct, fuellung_id, erstellt_am, verkaufsposten:verkaufsposten_id(id, datum, rechnungsnummer, storniert, bezahlt, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name))')
-      .in('fuellung_id', fuellungIds)
-    if (filter.datum_von) posQ = posQ.gte('erstellt_am', filter.datum_von)
-    if (filter.datum_bis) posQ = posQ.lte('erstellt_am', filter.datum_bis)
-    posQ = posQ.order('erstellt_am', { ascending: false }).limit(Number(limit) || 30)
-
-    const { data: positionen } = await posQ
-    if (!positionen) return []
-
-    return (positionen as R[]).map(pos => {
-      const vp = pos.verkaufsposten as R | null
-      const nettoPreis = (Number(pos.preis_brutto) || 0)
-        * (1 - (Number(pos.rabatt_pct) || 0) / 100)
-        * (1 - (Number(pos.sonderrabatt_pct) || 0) / 100)
-      const kunde = vp?.kontakt
-        ? [vp.kontakt.vorname, vp.kontakt.nachname].filter(Boolean).join(' ')
-        : vp?.firma?.name ?? '–'
-      return {
-        datum:           vp?.datum ?? null,
-        rechnungsnummer: vp?.rechnungsnummer ?? '–',
-        wein:            fuellungMap[pos.fuellung_id] ?? '–',
-        kunde,
-        menge:           Number(pos.menge) || 0,
-        einheit:         pos.einheit ?? 'Fl.',
-        preis_netto:     nettoPreis,
-        umsatz:          nettoPreis * (Number(pos.menge) || 0),
-        storniert:       vp?.storniert ?? false,
-        bezahlt:         vp?.bezahlt ?? false,
-      }
-    })
-  }
-
-  // ── Standard-Tabellen ─────────────────────────────────────────────────────
+  // Tabellen-spezifische Selects mit Joins
   const selectMap: Record<string, string> = {
     kontakte:          'kundennummer, segment, vorname, nachname, email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, plz, ort, strasse, land, stammkunde, is_lead, notizen, firma:firma_id(name)',
     firmen:            'kundennummer, segment, name, email, telefon, plz, ort, strasse, land, uid_nummer, zahlungsziel_tage, is_lead, notizen',
     verkaufsposten:    'datum, rechnungsnummer, bezahlt, storniert, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name)',
-    fuellungen:        'name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto, einstandspreis',
+    fuellungen:        'name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto',
     weinausbau:        'name, jahrgang, rebsorte, menge_liter, qualitaetsstufe, status',
     behandlungen:      'datum, art, menge_gesamt, menge_einheit, psm:psm_id(name), weingarten:weingarten_id(name)',
     pipeline_eintraege:'titel, stufe, kategorie, erledigt, erwartetes_datum, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name)',
@@ -130,7 +75,7 @@ async function executeQuery(supabase: any, params: R): Promise<R[]> {
   let query = supabase.from(tabelle).select(selectMap[tabelle] ?? '*')
 
   // Filter anwenden
-  if (filter.segment)   query = query.eq('segment', filter.segment)
+  if (filter.segment) query = query.eq('segment', filter.segment)
   if (filter.ort_contains) query = query.ilike('ort', `%${filter.ort_contains}%`)
   if (filter.plz_prefix) query = query.like('plz', `${filter.plz_prefix}%`)
   if (filter.is_lead !== undefined) query = query.eq('is_lead', filter.is_lead)
@@ -144,22 +89,12 @@ async function executeQuery(supabase: any, params: R): Promise<R[]> {
   if (filter.bestand_min !== undefined) query = query.gte('bestand_flaschen', filter.bestand_min)
   if (filter.qualitaetsstufe) query = query.eq('qualitaetsstufe', filter.qualitaetsstufe)
   if (filter.land) query = query.eq('land', filter.land)
-  if (filter.jahrgang) query = query.eq('jahrgang', filter.jahrgang)
-
-  // name_contains: table-aware (fuellungen/weinausbau haben kein nachname/vorname)
-  if (filter.name_contains) {
-    const nameOnly = ['fuellungen', 'weinausbau', 'firmen']
-    if (nameOnly.includes(tabelle)) {
-      query = query.ilike('name', `%${filter.name_contains}%`)
-    } else {
-      query = query.or(`nachname.ilike.%${filter.name_contains}%,vorname.ilike.%${filter.name_contains}%,name.ilike.%${filter.name_contains}%`)
-    }
-  }
+  if (filter.name_contains) query = query.or(`nachname.ilike.%${filter.name_contains}%,vorname.ilike.%${filter.name_contains}%,name.ilike.%${filter.name_contains}%`)
 
   // Sortierung
   const [sortCol, sortDir] = sortierung.split('_')
   const sortColumn = sortCol === 'datum' ? 'datum'
-    : sortCol === 'name' ? (tabelle === 'firmen' || tabelle === 'fuellungen' || tabelle === 'weinausbau' ? 'name' : 'nachname')
+    : sortCol === 'name' ? (tabelle === 'firmen' ? 'name' : 'nachname')
     : sortCol === 'bestand' ? 'bestand_flaschen'
     : sortCol === 'ort' ? 'ort'
     : 'id'
@@ -173,16 +108,19 @@ export async function POST(req: NextRequest) {
   try {
     const { frage: frageRaw } = await req.json()
     if (!frageRaw?.trim()) return NextResponse.json({ fehler: 'Keine Frage angegeben' }, { status: 400 })
+    // Prompt Injection: Länge begrenzen + Sonderzeichen entfernen
     const frage = String(frageRaw).slice(0, 500).replace(/[`\\]/g, '')
 
     const supabase = await createSupabaseServerClient()
     const tenantId = await getTenantId()
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb gefunden' }, { status: 401 })
 
+    // API-Key prüfen
     if (!process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ fehler: 'ANTHROPIC_API_KEY nicht gesetzt – bitte in Vercel Environment Variables eintragen.' }, { status: 500 })
     }
 
+    // Limit prüfen
     const { data: limitCheck } = await (supabase.rpc as any)('check_und_increment_ki_abfrage', {
       p_tenant_id: tenantId,
     })
@@ -194,6 +132,7 @@ export async function POST(req: NextRequest) {
       }, { status: 429 })
     }
 
+    // Claude Haiku aufrufen
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
     const msg = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
@@ -201,6 +140,7 @@ export async function POST(req: NextRequest) {
       messages: [{ role: 'user', content: `${SCHEMA_CONTEXT}\n\nFrage des Winzers: "${frage}"` }],
     })
 
+    // Token-Verbrauch kumulieren (await – Vercel beendet den Prozess sonst vor Abschluss)
     await (supabase.rpc as any)('increment_ki_tokens', {
       p_tenant_id:     tenantId,
       p_input_tokens:  msg.usage.input_tokens,
@@ -210,22 +150,24 @@ export async function POST(req: NextRequest) {
     const rawText = (msg.content[0] as any).text as string
     let queryParams: R
     try {
+      // JSON aus Antwort extrahieren (manchmal kommt es in ```json ... ```)
       const match = rawText.match(/\{[\s\S]*\}/)
       queryParams = JSON.parse(match?.[0] ?? rawText)
     } catch {
       return NextResponse.json({ fehler: 'KI-Antwort konnte nicht verarbeitet werden', roh: rawText }, { status: 500 })
     }
 
+    // Abfrage ausführen
     const rohdaten = await executeQuery(supabase, queryParams)
 
-    // Telefonnummer + Vorwahl kombinieren
+    // Telefonnummer + Vorwahl kombinieren (nur wenn Nummer vorhanden)
     const ergebnisse = rohdaten.map((row: R) => {
       const r = { ...row }
-      if ('telefon' in r && 'telefon_vorwahl' in r) {
+      if ('telefon' in r) {
         r.telefon = r.telefon ? `${r.telefon_vorwahl ?? '+43'} ${r.telefon}`.trim() : null
         delete r.telefon_vorwahl
       }
-      if ('mobil' in r && 'mobil_vorwahl' in r) {
+      if ('mobil' in r) {
         r.mobil = r.mobil ? `${r.mobil_vorwahl ?? '+43'} ${r.mobil}`.trim() : null
         delete r.mobil_vorwahl
       }

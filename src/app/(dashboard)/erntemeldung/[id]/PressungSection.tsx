@@ -202,19 +202,13 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
         <div className="space-y-1.5">
           {behRows.map((row, i) => (
             <div key={i} className="grid grid-cols-12 gap-1.5 items-center">
-              <div className="col-span-4">
+              <div className="col-span-6">
                 <select value={row.behaelter_id} onChange={e => updateBeh(i, 'behaelter_id', e.target.value)} className={inp}>
                   <option value="">– Behälter –</option>
                   {behOptions.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </div>
               <div className="col-span-4">
-                <select value={row.weinausbau_id} onChange={e => updateBeh(i, 'weinausbau_id', e.target.value)} className={inp}>
-                  <option value="">– Charge (opt.) –</option>
-                  {waOptions.map(w => <option key={w.id} value={w.id}>{w.name}{w.jahrgang ? ` ${w.jahrgang}` : ''}</option>)}
-                </select>
-              </div>
-              <div className="col-span-2">
                 <input type="text" inputMode="decimal" value={row.menge_liter}
                   onChange={e => updateBeh(i, 'menge_liter', e.target.value)}
                   placeholder="Liter" className={inp} />

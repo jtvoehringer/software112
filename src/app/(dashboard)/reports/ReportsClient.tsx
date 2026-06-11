@@ -1,14 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { exportCSV } from '@/lib/utils/csv'
 
+// ── Typen ─────────────────────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
 interface Props {
-  umsatzMonate: { monat: string; umsatz: number; anzahl: number; von: string; bis: string }[]
+  umsatzMonate: { monat: string; umsatz: number; anzahl: number }[]
   lager: R[]
   lagerWert: number
   behandlungen: R[]
@@ -20,14 +20,14 @@ interface Props {
 }
 
 const TABS = [
-  { id: 'umsatz',     label: '📈 Umsatz',         title: 'Monatsumsatz Warenwirtschaft (12 Monate)' },
-  { id: 'lager',      label: '🍾 Lager',           title: 'Lagerbestand' },
-  { id: 'behandlung', label: '🌿 Behandlungen',    title: 'Behandlungsübersicht ' + new Date().getFullYear() },
-  { id: 'pipeline',   label: '💼 Pipeline',         title: 'Lead-Pipeline' },
-  { id: 'kontakt',    label: '🤝 Kontaktfrequenz',  title: 'Tage seit letztem Kontakt' },
-  { id: 'offen',      label: '💶 Offene Posten',    title: 'Unbezahlte Rechnungen' },
-  { id: 'behoerden',  label: '🏛 Behörden',          title: 'Behörden-Dokumente' },
-  { id: 'besuch',     label: '🗺 Besuchsplanung',    title: 'Besuchsplanung – PLZ-Cluster' },
+  { id: 'umsatz',      label: '📈 Umsatz',        title: 'Monatsumsatz Warenwirtschaft (12 Monate)' },
+  { id: 'lager',       label: '🍾 Lager',          title: 'Lagerbestand' },
+  { id: 'behandlung',  label: '🌿 Behandlungen',   title: 'Behandlungsübersicht ' + new Date().getFullYear() },
+  { id: 'pipeline',    label: '💼 Pipeline',        title: 'Lead-Pipeline' },
+  { id: 'kontakt',     label: '🤝 Kontaktfrequenz', title: 'Tage seit letztem Kontakt' },
+  { id: 'offen',       label: '💶 Offene Posten',   title: 'Unbezahlte Rechnungen' },
+  { id: 'behoerden',   label: '🏛 Behörden',          title: 'Behörden-Dokumente' },
+  { id: 'besuch',      label: '🗺 Besuchsplanung',     title: 'Besuchsplanung – PLZ-Cluster' },
 ] as const
 type TabId = typeof TABS[number]['id']
 
@@ -37,12 +37,9 @@ const STUFEN_LABEL: Record<string, string> = {
   verloren: 'Verloren', pause: 'Pause',
 }
 
-const ML_LABEL: Record<number, string> = {
-  187:'0,187 L',375:'0,375 L',500:'0,500 L',750:'0,75 L',1000:'1,0 L',1500:'1,5 L',3000:'3,0 L',6000:'6,0 L'
-}
+const ML_LABEL: Record<number, string> = { 187:'0,187 L',375:'0,375 L',500:'0,500 L',750:'0,75 L',1000:'1,0 L',1500:'1,5 L',3000:'3,0 L',6000:'6,0 L' }
 
 function eur(n: number) { return n.toLocaleString('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }) }
-function eur2(n: number) { return n.toLocaleString('de-AT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fmtDate(d: string | null) { return d ? new Date(d).toLocaleDateString('de-AT') : '–' }
 
 function posSum(p: R): number {
@@ -54,34 +51,12 @@ function posSum(p: R): number {
 
 function kundenName(p: R) {
   if (p.kontakt) return [p.kontakt.vorname, p.kontakt.nachname].filter(Boolean).join(' ')
-  if (p.firma)   return p.firma.name
+  if (p.firma) return p.firma.name
   return '–'
 }
 
-function CsvBtn({ onClick, label = '↓ CSV' }: { onClick: () => void; label?: string }) {
-  return (
-    <button onClick={onClick}
-      className="flex items-center gap-1.5 text-xs border border-s112-border text-gray-500 px-2.5 py-1.5 rounded-lg hover:bg-s112-bg transition-colors print:hidden">
-      {label}
-    </button>
-  )
-}
-
-export default function ReportsClient({
-  umsatzMonate, lager, lagerWert, behandlungen, cuKgHa, pipeline, kontaktFrequenz, offene,
-}: Props) {
+export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlungen, cuKgHa, pipeline, kontaktFrequenz, offene }: Props) {
   const [tab, setTab] = useState<TabId>('umsatz')
-
-  // Drill-down: Lager
-  const [lagerExpand, setLagerExpand]   = useState<string | null>(null)
-  const [lagerBV, setLagerBV]           = useState<R | null>(null)
-  const [lagerBVLoading, setLagerBVLoading] = useState(false)
-
-  // Drill-down: Umsatz-Monat
-  const [umsatzExpand, setUmsatzExpand] = useState<string | null>(null)
-  const [monatDetail, setMonatDetail]   = useState<R[]>([])
-  const [monatLoading, setMonatLoading] = useState(false)
-
   // Besuchsplanung
   const [bOrt, setBOrt]         = useState('')
   const [bSegment, setBSegment] = useState('')
@@ -91,97 +66,9 @@ export default function ReportsClient({
   const [bResult, setBResult]   = useState<{kontakte: R[]; cluster: Record<string, R[]>; anzahl: number; plz_count: number}|null>(null)
   const [bFehler, setBFehler]   = useState<string|null>(null)
 
-  const current    = TABS.find(t => t.id === tab)!
-  const maxUmsatz  = Math.max(...umsatzMonate.map(m => m.umsatz), 1)
-  const pipelineAktiv = pipeline.filter(p => !p.erledigt && p.stufe !== 'verloren')
-  const offeneSum  = offene.reduce((s, p) => s + posSum(p), 0)
+  const current = TABS.find(t => t.id === tab)!
 
-  // ── Lager Drill-down ──────────────────────────────────────────────────────
-  async function toggleLagerDrill(id: string) {
-    if (lagerExpand === id) { setLagerExpand(null); setLagerBV(null); return }
-    setLagerExpand(id)
-    setLagerBVLoading(true)
-    setLagerBV(null)
-    try {
-      const res = await fetch(`/api/reports/fuellung-bv?id=${id}`)
-      const json = await res.json()
-      setLagerBV(json)
-    } catch { setLagerBV({ fehler: 'Ladefehler' }) }
-    setLagerBVLoading(false)
-  }
-
-  // ── Umsatz Drill-down ─────────────────────────────────────────────────────
-  async function toggleUmsatzDrill(monat: string, von: string, bis: string) {
-    if (umsatzExpand === monat) { setUmsatzExpand(null); setMonatDetail([]); return }
-    setUmsatzExpand(monat)
-    setMonatLoading(true)
-    setMonatDetail([])
-    try {
-      const res = await fetch(`/api/reports/umsatz-detail?von=${von}&bis=${bis}`)
-      const json = await res.json()
-      setMonatDetail(json.posten ?? [])
-    } catch { /* silent */ }
-    setMonatLoading(false)
-  }
-
-  // ── CSV-Exports ───────────────────────────────────────────────────────────
-  function csvLager() {
-    exportCSV(
-      lager.filter(f => f.bestand_flaschen > 0).map(f => ({
-        name:        f.name,
-        jahrgang:    f.jahrgang ?? '',
-        groesse:     ML_LABEL[f.flaschengroesse_ml] ?? `${f.flaschengroesse_ml} ml`,
-        bestand:     f.bestand_flaschen,
-        einstand:    f.einstandspreis ?? '',
-        lagerwert:   f.einstandspreis != null ? f.bestand_flaschen * f.einstandspreis : '',
-        vk_preis:    f.vk_preis_brutto ?? '',
-      })),
-      [
-        { key: 'name',      header: 'Wein' },
-        { key: 'jahrgang',  header: 'Jahrgang' },
-        { key: 'groesse',   header: 'Größe' },
-        { key: 'bestand',   header: 'Bestand (Fl.)' },
-        { key: 'einstand',  header: 'Einstandspreis (€)' },
-        { key: 'lagerwert', header: 'Lagerwert (€)' },
-        { key: 'vk_preis',  header: 'VK-Preis (€)' },
-      ],
-      `lagerbestand_${new Date().toISOString().slice(0,10)}.csv`
-    )
-  }
-
-  function csvUmsatz() {
-    exportCSV(
-      umsatzMonate.map(m => ({ monat: m.monat, umsatz: m.umsatz.toFixed(2), anzahl: m.anzahl })),
-      [
-        { key: 'monat',  header: 'Monat' },
-        { key: 'umsatz', header: 'Umsatz (€)' },
-        { key: 'anzahl', header: 'Anzahl Verkäufe' },
-      ],
-      `umsatz_monatsübersicht.csv`
-    )
-  }
-
-  function csvOffene() {
-    exportCSV(
-      offene.map(p => ({
-        datum:   fmtDate(p.datum),
-        rechnung: p.rechnungsnummer ?? '',
-        kunde:   kundenName(p),
-        betrag:  posSum(p).toFixed(2),
-        tage:    Math.floor((new Date().getTime()-new Date(p.datum).getTime())/86400000),
-      })),
-      [
-        { key: 'datum',    header: 'Datum' },
-        { key: 'rechnung', header: 'Rechnungsnummer' },
-        { key: 'kunde',    header: 'Kunde' },
-        { key: 'betrag',   header: 'Betrag (€)' },
-        { key: 'tage',     header: 'Tage offen' },
-      ],
-      `offene_posten_${new Date().toISOString().slice(0,10)}.csv`
-    )
-  }
-
-  // ── Besuchsplanung ────────────────────────────────────────────────────────
+  // Besuchsplanung laden
   async function ladeBesuch(e: React.FormEvent) {
     e.preventDefault()
     setBLaden(true); setBFehler(null); setBResult(null)
@@ -198,14 +85,31 @@ export default function ReportsClient({
   }
 
   function googleMapsUrl(kontakte: R[]): string {
-    const adressen = kontakte.filter(k => k.ort || k.plz).map(k => {
-      const teile = [k.strasse, [k.plz, k.ort].filter(Boolean).join(' '), 'Österreich'].filter(Boolean)
-      return teile.join(', ')
-    }).slice(0, 10)
+    // Vollständige Adressen mit PLZ + Ort + Österreich für korrekte Geocodierung
+    const adressen = kontakte
+      .filter(k => k.ort || k.plz)
+      .map(k => {
+        const teile = [
+          k.strasse,
+          [k.plz, k.ort].filter(Boolean).join(' '),
+          'Österreich',
+        ].filter(Boolean)
+        return teile.join(', ')
+      })
+      .slice(0, 10)
     if (adressen.length === 0) return ''
+    // /dir/-Format: kein API-Key nötig, zeigt Route direkt
     const segmente = adressen.map(a => encodeURIComponent(a)).join('/')
-    return `https://www.google.com/maps/dir//${segmente}`
+    return `https://www.google.com/maps/dir//${segmente}`  // leerer Start = aktueller Standort
   }
+
+  // Balken-Max für Umsatzdiagramm
+  const maxUmsatz = Math.max(...umsatzMonate.map(m => m.umsatz), 1)
+
+  // Pipeline gruppiert
+  const stufen = [...new Set(pipeline.map(p => p.stufe))]
+  const pipelineAktiv = pipeline.filter(p => !p.erledigt && p.stufe !== 'verloren')
+  const offeneSum = offene.reduce((s, p) => s + posSum(p), 0)
 
   return (
     <div className="space-y-6">
@@ -251,21 +155,16 @@ export default function ReportsClient({
 
       {/* Report-Inhalt */}
       <div className="card p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-bold text-gray-900">{current.title}</h2>
-          {tab === 'lager'  && <CsvBtn onClick={csvLager} />}
-          {tab === 'umsatz' && <CsvBtn onClick={csvUmsatz} />}
-          {tab === 'offen'  && <CsvBtn onClick={csvOffene} />}
-        </div>
+        <h2 className="text-base font-bold text-gray-900 mb-5">{current.title}</h2>
 
-        {/* ── UMSATZ ────────────────────────────────────────────────────── */}
+        {/* ── UMSATZ ─────────────────────────────────────────────────────── */}
         {tab === 'umsatz' && (
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-4 mb-6">
               {[
-                { label: 'Akt. Monat',     val: eur(umsatzMonate[11].umsatz), sub: `${umsatzMonate[11].anzahl} Verkäufe` },
-                { label: 'Vormonat',       val: eur(umsatzMonate[10].umsatz), sub: `${umsatzMonate[10].anzahl} Verkäufe` },
-                { label: '12-Monats-Summe',val: eur(umsatzMonate.reduce((s,m)=>s+m.umsatz,0)), sub: `${umsatzMonate.reduce((s,m)=>s+m.anzahl,0)} Verkäufe` },
+                { label: 'Akt. Monat', val: eur(umsatzMonate[11].umsatz), sub: `${umsatzMonate[11].anzahl} Verkäufe` },
+                { label: 'Vormonat', val: eur(umsatzMonate[10].umsatz), sub: `${umsatzMonate[10].anzahl} Verkäufe` },
+                { label: '12-Monats-Summe', val: eur(umsatzMonate.reduce((s,m)=>s+m.umsatz,0)), sub: `${umsatzMonate.reduce((s,m)=>s+m.anzahl,0)} Verkäufe` },
               ].map(kpi => (
                 <div key={kpi.label} className="bg-s112-bg rounded-xl p-4">
                   <p className="text-xs text-s112-muted">{kpi.label}</p>
@@ -274,71 +173,24 @@ export default function ReportsClient({
                 </div>
               ))}
             </div>
-
-            {/* Balkendiagramm – klickbar für Drill-down */}
+            {/* Balkendiagramm */}
             <div className="space-y-1.5">
               {umsatzMonate.map(m => (
-                <div key={m.monat}>
-                  <button
-                    onClick={() => toggleUmsatzDrill(m.monat, m.von, m.bis)}
-                    className="w-full flex items-center gap-3 hover:bg-s112-bg/50 rounded-lg px-1 py-0.5 transition-colors group"
-                  >
-                    <span className="text-xs text-s112-muted w-12 flex-shrink-0 text-right tabular-nums">{m.monat}</span>
-                    <div className="flex-1 bg-s112-bg rounded-full h-5 overflow-hidden">
-                      <div className="h-full rounded-full transition-all"
-                        style={{ width: `${Math.max(2, (m.umsatz / maxUmsatz) * 100)}%`, backgroundColor: 'var(--s112-yellow)' }} />
-                    </div>
-                    <span className="text-xs font-semibold text-gray-700 tabular-nums w-24 text-right">{eur(m.umsatz)}</span>
-                    <span className="text-xs text-s112-muted w-8 text-right">{m.anzahl}</span>
-                    <span className="text-xs text-s112-muted group-hover:text-s112-teal w-4">{umsatzExpand === m.monat ? '▲' : '▼'}</span>
-                  </button>
-
-                  {/* Drill-down: Verkäufe dieses Monats */}
-                  {umsatzExpand === m.monat && (
-                    <div className="ml-16 mt-1 mb-2 border border-s112-border/50 rounded-xl overflow-hidden">
-                      {monatLoading ? (
-                        <div className="px-4 py-3 text-xs text-s112-muted">Lade…</div>
-                      ) : monatDetail.length === 0 ? (
-                        <div className="px-4 py-3 text-xs text-s112-muted italic">Keine Verkäufe in diesem Monat.</div>
-                      ) : (
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="bg-s112-bg border-b border-s112-border/50 text-gray-500">
-                              <th className="text-left px-3 py-1.5 font-medium">Datum</th>
-                              <th className="text-left px-3 py-1.5 font-medium">Rechnung</th>
-                              <th className="text-left px-3 py-1.5 font-medium">Kunde</th>
-                              <th className="text-right px-3 py-1.5 font-medium">Betrag</th>
-                              <th className="text-center px-3 py-1.5 font-medium">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {monatDetail.map((p: R, i: number) => (
-                              <tr key={p.id} className={`border-b border-s112-border/30 last:border-0 ${i%2===1?'bg-s112-bg/20':''}`}>
-                                <td className="px-3 py-1.5 text-s112-muted tabular-nums">{fmtDate(p.datum)}</td>
-                                <td className="px-3 py-1.5">
-                                  <Link href={`/weinhandel/verkauf/${p.id}`} className="text-s112-teal hover:underline font-mono">{p.rechnungsnummer ?? '–'}</Link>
-                                </td>
-                                <td className="px-3 py-1.5 font-medium text-gray-800">{kundenName(p)}</td>
-                                <td className="px-3 py-1.5 text-right font-semibold text-s112-teal tabular-nums">{eur(posSum(p))}</td>
-                                <td className="px-3 py-1.5 text-center">
-                                  {p.storniert ? <span className="text-red-500">✗ Storno</span>
-                                    : p.bezahlt ? <span className="text-green-600">✓ Bezahlt</span>
-                                    : <span className="text-amber-500">⏳ Offen</span>}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      )}
-                    </div>
-                  )}
+                <div key={m.monat} className="flex items-center gap-3">
+                  <span className="text-xs text-s112-muted w-12 flex-shrink-0 text-right tabular-nums">{m.monat}</span>
+                  <div className="flex-1 bg-s112-bg rounded-full h-5 overflow-hidden">
+                    <div className="h-full rounded-full transition-all"
+                      style={{ width: `${Math.max(2, (m.umsatz / maxUmsatz) * 100)}%`, backgroundColor: 'var(--s112-yellow)' }} />
+                  </div>
+                  <span className="text-xs font-semibold text-gray-700 tabular-nums w-24 text-right">{eur(m.umsatz)}</span>
+                  <span className="text-xs text-s112-muted w-8 text-right">{m.anzahl}</span>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* ── LAGER ─────────────────────────────────────────────────────── */}
+        {/* ── LAGER ──────────────────────────────────────────────────────── */}
         {tab === 'lager' && (
           <div>
             <div className="grid grid-cols-3 gap-4 mb-5">
@@ -351,7 +203,7 @@ export default function ReportsClient({
                 <p className="text-xl font-bold text-s112-teal mt-1 tabular-nums">{lager.reduce((s,f)=>s+(f.bestand_flaschen||0),0).toLocaleString('de-AT')}</p>
               </div>
               <div className="bg-s112-bg rounded-xl p-4">
-                <p className="text-xs text-s112-muted">Lagerwert (Einstandspreis)</p>
+                <p className="text-xs text-s112-muted">Lagerwert (VK-Preis)</p>
                 <p className="text-xl font-bold text-s112-teal mt-1 tabular-nums">{eur(lagerWert)}</p>
               </div>
             </div>
@@ -361,91 +213,26 @@ export default function ReportsClient({
                 <th className="text-right px-3 py-2 font-semibold">Jahrgang</th>
                 <th className="text-right px-3 py-2 font-semibold">Größe</th>
                 <th className="text-right px-3 py-2 font-semibold">Bestand</th>
-                <th className="text-right px-3 py-2 font-semibold">Einstand</th>
-                <th className="text-right px-3 py-2 font-semibold">Lagerwert</th>
-                <th className="text-center px-3 py-2 font-semibold print:hidden">BV</th>
+                <th className="text-right px-3 py-2 font-semibold">VK/Fl.</th>
+                <th className="text-right px-3 py-2 font-semibold">Wert</th>
               </tr></thead>
               <tbody>
                 {lager.filter(f=>f.bestand_flaschen>0).map((f,i) => (
-                  <>
-                    <tr key={f.id} className={`border-b border-s112-border/40 ${i%2===1?'bg-s112-bg/30':''} ${lagerExpand===f.id?'border-b-0':''}`}>
-                      <td className="px-3 py-2 font-medium text-gray-800">{f.name}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-s112-muted">{f.jahrgang??'–'}</td>
-                      <td className="px-3 py-2 text-right text-xs text-s112-muted">{ML_LABEL[f.flaschengroesse_ml]??`${f.flaschengroesse_ml} ml`}</td>
-                      <td className="px-3 py-2 text-right font-bold tabular-nums">{f.bestand_flaschen}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-s112-muted">{f.einstandspreis!=null?eur2(f.einstandspreis):'–'}</td>
-                      <td className="px-3 py-2 text-right tabular-nums font-semibold text-s112-teal">{f.einstandspreis!=null?eur(f.bestand_flaschen*f.einstandspreis):'–'}</td>
-                      <td className="px-3 py-2 text-center print:hidden">
-                        <button
-                          onClick={() => toggleLagerDrill(f.id)}
-                          title="Bestandsveränderungen"
-                          className={`text-xs px-2 py-0.5 rounded-lg border transition-colors ${lagerExpand===f.id ? 'bg-s112-teal text-white border-s112-teal' : 'border-s112-border text-s112-muted hover:border-s112-teal hover:text-s112-teal'}`}
-                        >
-                          {lagerExpand===f.id ? '▲' : '↓ BV'}
-                        </button>
-                      </td>
-                    </tr>
-
-                    {/* Drill-down: Bestandsveränderungen */}
-                    {lagerExpand === f.id && (
-                      <tr key={`${f.id}-bv`} className={i%2===1?'bg-s112-bg/30':''}>
-                        <td colSpan={7} className="px-3 pb-3 pt-0">
-                          <div className="border border-s112-border/50 rounded-xl overflow-hidden">
-                            {lagerBVLoading ? (
-                              <div className="px-4 py-3 text-xs text-s112-muted">Lade Bestandsveränderungen…</div>
-                            ) : lagerBV?.fehler ? (
-                              <div className="px-4 py-3 text-xs text-red-500">{lagerBV.fehler}</div>
-                            ) : lagerBV?.bv?.length === 0 ? (
-                              <div className="px-4 py-3 text-xs text-s112-muted italic">Noch keine Verkäufe für diese Füllung.</div>
-                            ) : (
-                              <>
-                                <div className="flex items-center gap-4 px-4 py-2.5 bg-s112-bg border-b border-s112-border/50 text-xs text-gray-600">
-                                  <span>Verkauft: <strong className="text-gray-800">{lagerBV?.gesamtVerkauft ?? 0} Fl.</strong></span>
-                                  <span>Umsatz: <strong className="text-s112-teal">{eur(lagerBV?.gesamtUmsatz ?? 0)}</strong></span>
-                                  <Link href={`/weinhandel/fuellungen/${f.id}/edit`} className="ml-auto text-s112-teal hover:underline">Füllung bearbeiten →</Link>
-                                </div>
-                                <table className="w-full text-xs">
-                                  <thead>
-                                    <tr className="bg-s112-bg/50 border-b border-s112-border/30 text-gray-500">
-                                      <th className="text-left px-3 py-1.5 font-medium">Datum</th>
-                                      <th className="text-left px-3 py-1.5 font-medium">Rechnung</th>
-                                      <th className="text-left px-3 py-1.5 font-medium">Kunde</th>
-                                      <th className="text-right px-3 py-1.5 font-medium">Menge</th>
-                                      <th className="text-right px-3 py-1.5 font-medium">Preis</th>
-                                      <th className="text-right px-3 py-1.5 font-medium">Umsatz</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {(lagerBV?.bv ?? []).map((bv: R, bi: number) => (
-                                      <tr key={bi} className={`border-b border-s112-border/20 last:border-0 ${bv.storniert ? 'opacity-40 line-through' : ''}`}>
-                                        <td className="px-3 py-1.5 text-s112-muted">{fmtDate(bv.datum)}</td>
-                                        <td className="px-3 py-1.5">
-                                          {bv.verkauf_id
-                                            ? <Link href={`/weinhandel/verkauf/${bv.verkauf_id}`} className="text-s112-teal hover:underline font-mono">{bv.rechnungsnummer ?? '–'}</Link>
-                                            : <span className="text-s112-muted">–</span>}
-                                        </td>
-                                        <td className="px-3 py-1.5 font-medium text-gray-800">{bv.kunde}</td>
-                                        <td className="px-3 py-1.5 text-right tabular-nums">{bv.menge} {bv.einheit}</td>
-                                        <td className="px-3 py-1.5 text-right tabular-nums text-s112-muted">{eur2(bv.netto_preis)}</td>
-                                        <td className="px-3 py-1.5 text-right tabular-nums font-semibold text-s112-teal">{eur(bv.umsatz)}</td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </>
+                  <tr key={f.id} className={`border-b border-s112-border/40 ${i%2===1?'bg-s112-bg/30':''}`}>
+                    <td className="px-3 py-2 font-medium text-gray-800">{f.name}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-s112-muted">{f.jahrgang??'–'}</td>
+                    <td className="px-3 py-2 text-right text-xs text-s112-muted">{ML_LABEL[f.flaschengroesse_ml]??`${f.flaschengroesse_ml} ml`}</td>
+                    <td className="px-3 py-2 text-right font-bold tabular-nums">{f.bestand_flaschen}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-s112-muted">{f.vk_preis_brutto!=null?eur(f.vk_preis_brutto):'–'}</td>
+                    <td className="px-3 py-2 text-right tabular-nums font-semibold text-s112-teal">{f.vk_preis_brutto!=null?eur(f.bestand_flaschen*f.vk_preis_brutto):'–'}</td>
+                  </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
 
-        {/* ── BEHANDLUNGEN ─────────────────────────────────────────────── */}
+        {/* ── BEHANDLUNGEN ────────────────────────────────────────────────── */}
         {tab === 'behandlung' && (
           <div>
             <div className="grid grid-cols-2 gap-4 mb-5">
@@ -486,7 +273,7 @@ export default function ReportsClient({
           </div>
         )}
 
-        {/* ── PIPELINE ─────────────────────────────────────────────────── */}
+        {/* ── PIPELINE ────────────────────────────────────────────────────── */}
         {tab === 'pipeline' && (
           <div>
             <div className="grid grid-cols-2 gap-4 mb-5">
@@ -527,7 +314,7 @@ export default function ReportsClient({
           </div>
         )}
 
-        {/* ── KONTAKTFREQUENZ ──────────────────────────────────────────── */}
+        {/* ── KONTAKTFREQUENZ ─────────────────────────────────────────────── */}
         {tab === 'kontakt' && (
           <div>
             <p className="text-xs text-s112-muted mb-4">Kunden (keine Leads) · sortiert nach längster Inaktivität</p>
@@ -562,7 +349,7 @@ export default function ReportsClient({
           </div>
         )}
 
-        {/* ── OFFENE POSTEN ────────────────────────────────────────────── */}
+        {/* ── OFFENE POSTEN ───────────────────────────────────────────────── */}
         {tab === 'offen' && (
           <div>
             <div className="grid grid-cols-2 gap-4 mb-5">
@@ -611,13 +398,15 @@ export default function ReportsClient({
           </div>
         )}
 
-        {/* ── BESUCHSPLANUNG ───────────────────────────────────────────── */}
+        {/* ── BESUCHSPLANUNG ──────────────────────────────────────────────────── */}
         {tab === 'besuch' && (
           <div className="space-y-5">
+            {/* Filter-Formular */}
             <form onSubmit={ladeBesuch} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Region / Ort</label>
-                <input value={bOrt} onChange={e => setBOrt(e.target.value)} placeholder="z.B. Salzburg, Wien…"
+                <input value={bOrt} onChange={e => setBOrt(e.target.value)}
+                  placeholder="z.B. Salzburg, Wien…"
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
@@ -636,10 +425,12 @@ export default function ReportsClient({
                 <label className="block text-xs font-medium text-gray-600 mb-1">Einschließen</label>
                 <div className="flex gap-3 mt-1.5">
                   <label className="flex items-center gap-1.5 text-sm cursor-pointer">
-                    <input type="checkbox" checked={bKunden} onChange={e => setBKunden(e.target.checked)} className="accent-s112-teal" /> Kunden
+                    <input type="checkbox" checked={bKunden} onChange={e => setBKunden(e.target.checked)} className="accent-s112-teal" />
+                    Kunden
                   </label>
                   <label className="flex items-center gap-1.5 text-sm cursor-pointer">
-                    <input type="checkbox" checked={bLeads} onChange={e => setBLeads(e.target.checked)} className="accent-s112-teal" /> Leads
+                    <input type="checkbox" checked={bLeads} onChange={e => setBLeads(e.target.checked)} className="accent-s112-teal" />
+                    Leads
                   </label>
                 </div>
               </div>
@@ -650,64 +441,77 @@ export default function ReportsClient({
                 </button>
               </div>
             </form>
+
             {bFehler && <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">{bFehler}</div>}
+
             {bResult && (
               <div className="space-y-4">
+                {/* Zusammenfassung + Route-Button */}
                 <div className="flex items-center justify-between bg-s112-bg rounded-xl px-4 py-3">
-                  <p className="text-sm font-medium text-gray-700">{bResult.anzahl} Kontakte · {bResult.plz_count} PLZ-Gebiete</p>
+                  <p className="text-sm font-medium text-gray-700">
+                    {bResult.anzahl} Kontakte · {bResult.plz_count} PLZ-Gebiete
+                  </p>
+
                 </div>
-                {Object.entries(bResult.cluster).sort(([a],[b])=>a.localeCompare(b)).map(([plz,kontakte]) => (
-                  <div key={plz} className="border border-s112-border rounded-xl overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-2.5 bg-s112-bg border-b border-s112-border">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-s112-teal text-sm">{plz}</span>
-                        <span className="text-xs text-s112-muted">{kontakte[0]?.ort ?? ''}</span>
-                        <span className="text-xs bg-white border border-s112-border px-2 py-0.5 rounded-full text-gray-600">{kontakte.length}</span>
-                      </div>
-                      {googleMapsUrl(kontakte) && (
-                        <a href={googleMapsUrl(kontakte)} target="_blank" rel="noopener noreferrer"
-                          className="text-xs text-s112-teal hover:underline">📍 In Maps öffnen</a>
-                      )}
-                    </div>
-                    <div className="divide-y divide-s112-border/40">
-                      {kontakte.map(k => (
-                        <div key={k.id} className="flex items-start justify-between px-4 py-2.5 hover:bg-s112-bg/40">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-gray-800">
-                                {k.vorname} {k.nachname}
-                                {k.firma_name && <span className="text-s112-muted font-normal"> · {k.firma_name}</span>}
-                              </span>
-                              {k.is_lead && <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">Lead</span>}
-                            </div>
-                            <p className="text-xs text-s112-muted mt-0.5">
-                              {k.strasse && `${k.strasse} · `}{k.telefon ?? k.mobil ?? k.email ?? '–'}
-                            </p>
-                          </div>
-                          <div className="text-right flex-shrink-0 ml-4">
-                            <p className="text-[9px] text-s112-muted uppercase tracking-wide mb-0.5">Letzter Kontakt</p>
-                            {k.tage_seit_kontakt !== null ? (
-                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${k.tage_seit_kontakt > 180 ? 'bg-red-100 text-red-700' : k.tage_seit_kontakt > 90 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
-                                {k.tage_seit_kontakt} Tage
-                              </span>
-                            ) : (
-                              <span className="text-xs text-s112-muted">kein Kontakt</span>
-                            )}
-                          </div>
+
+                {/* PLZ-Cluster */}
+                {Object.entries(bResult.cluster)
+                  .sort(([a], [b]) => a.localeCompare(b))
+                  .map(([plz, kontakte]) => (
+                    <div key={plz} className="border border-s112-border rounded-xl overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-2.5 bg-s112-bg border-b border-s112-border">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-s112-teal text-sm">{plz}</span>
+                          <span className="text-xs text-s112-muted">{kontakte[0]?.ort ?? ''}</span>
+                          <span className="text-xs bg-white border border-s112-border px-2 py-0.5 rounded-full text-gray-600">{kontakte.length}</span>
                         </div>
-                      ))}
+                        {googleMapsUrl(kontakte) && (
+                          <a href={googleMapsUrl(kontakte)} target="_blank" rel="noopener noreferrer"
+                            className="text-xs text-s112-teal hover:underline">
+                            📍 In Maps öffnen
+                          </a>
+                        )}
+                      </div>
+                      <div className="divide-y divide-s112-border/40">
+                        {kontakte.map(k => (
+                          <div key={k.id} className="flex items-start justify-between px-4 py-2.5 hover:bg-s112-bg/40">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-800">
+                                  {k.vorname} {k.nachname}
+                                  {k.firma_name && <span className="text-s112-muted font-normal"> · {k.firma_name}</span>}
+                                </span>
+                                {k.is_lead && <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">Lead</span>}
+                              </div>
+                              <p className="text-xs text-s112-muted mt-0.5">
+                                {k.strasse && `${k.strasse} · `}{k.telefon ?? k.mobil ?? k.email ?? '–'}
+                              </p>
+                            </div>
+                            <div className="text-right flex-shrink-0 ml-4">
+                              <p className="text-[9px] text-s112-muted uppercase tracking-wide mb-0.5">Letzter Kontakt</p>
+                              {k.tage_seit_kontakt !== null ? (
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${k.tage_seit_kontakt > 180 ? 'bg-red-100 text-red-700' : k.tage_seit_kontakt > 90 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                                  {k.tage_seit_kontakt} Tage
+                                </span>
+                              ) : (
+                                <span className="text-xs text-s112-muted">kein Kontakt</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             )}
+
             {bResult?.anzahl === 0 && (
               <p className="text-center text-s112-muted py-8">Keine Kontakte gefunden. Filterkriterien anpassen.</p>
             )}
           </div>
         )}
 
-        {/* ── BEHÖRDEN-DOKUMENTE ───────────────────────────────────────── */}
+        {/* ── BEHÖRDEN-DOKUMENTE ──────────────────────────────────────────────── */}
         {tab === 'behoerden' && (
           <div className="space-y-4">
             <p className="text-sm text-s112-muted">Druckfertige Behördendokumente – automatisch mit Betriebsdaten und Mandantenlogo befüllt.</p>
