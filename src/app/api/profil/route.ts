@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json() as R
   const { error } = await (s.from('profiles') as any).upsert({
     id: user.id,
-    display_name: body.display_name || null,
+    full_name: body.display_name || null,
     telefon:   body.telefon   || null,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'id' })

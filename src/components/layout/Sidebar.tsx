@@ -343,7 +343,7 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
               Abmelden
             </button>
 
-            <p className="text-[10px] text-gray-400 mt-2">v2.1.0 · Juni 2026</p>
+            <p className="text-[10px] text-gray-400 mt-2">v2.2.0 · Juni 2026</p>
             {/* IC&P Branding */}
             <div className="mt-2 pt-2 border-t border-s112-border/40 flex items-center gap-2">
               <Image

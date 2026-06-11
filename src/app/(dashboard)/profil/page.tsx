@@ -14,7 +14,7 @@ export default function ProfilPage() {
 
   useEffect(() => {
     fetch('/api/profil').then(r => r.json()).then(d => {
-      setFullName(d.profil?.display_name ?? '')
+      setFullName(d.profil?.full_name ?? '')
       setTelefon(d.profil?.telefon   ?? '')
       // Email aus Supabase Auth
       fetch('/api/auth/me').then(r => r.json()).then(u => setEmail(u.email ?? '')).catch(() => {})
@@ -29,7 +29,7 @@ export default function ProfilPage() {
     try {
       const res = await fetch('/api/profil', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ display_name: fullName, telefon }),
+        body: JSON.stringify({ full_name: fullName, telefon }),
       })
       const json = await res.json()
       if (!res.ok || json.fehler) {
