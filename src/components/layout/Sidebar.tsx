@@ -42,6 +42,7 @@ const NAV: NavEntry[] = [
     kind: 'group', label: 'Kellerbuch', icon: '🍷',
     items: [
       { href: '/kellerbuch',                  label: 'Übersicht',      phase: 1 },
+      { href: '/kellerbuch/gebinde',          label: 'Gebinde',        phase: 1, child: true },
       { href: '/kellerbuch/kellerplan',       label: 'Kellerplan',     phase: 1 },
       { href: '/dac',                         label: 'Prüfnummer',     phase: 1 },
       { href: '/kellerbuch/rueckverfolgung',  label: 'Rückverfolgung', phase: 1 },
@@ -353,11 +354,3 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
               />
               <p className="text-[9px] text-s112-muted/50 leading-tight">
                 &copy; IC&amp;P Consultants e.U.
-              </p>
-            </div>
-          </>
-        )}
-      </div>
-    </aside>
-  )
-}
