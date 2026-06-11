@@ -30,12 +30,15 @@ export default async function CRMUebersichtPage() {
   )] as string[]
   const userProfiles: Record<string, string> = {}
   if (uniqueUserIds.length > 0) {
-    // profiles.id = auth.users.id (Migration 005: PK ist id, nicht user_id)
+    // Beide Schema-Varianten abdecken:
+    // 005: id = auth.users.id (PK), display_name
+    // 051: user_id = auth.users.id, full_name
     const { data: profilesRaw } = await (supabase.from('profiles') as any)
-      .select('id, display_name')
-      .in('id', uniqueUserIds)
+      .select('id, display_name, full_name, user_id')
     ;(profilesRaw as AR[] ?? []).forEach((p: AR) => {
-      if (p.display_name) userProfiles[p.id] = p.display_name
+      const key  = (p.user_id && uniqueUserIds.includes(p.user_id)) ? p.user_id : p.id
+      const name = p.display_name || p.full_name
+      if (name && key && uniqueUserIds.includes(key)) userProfiles[key] = name
     })
   }
 
@@ -87,9 +90,3 @@ export default async function CRMUebersichtPage() {
     name: [k.vorname, k.nachname].filter(Boolean).join(' ') as string,
   }))
   const firmenList = (firmenRaw as AR[] ?? []).map((f: AR) => ({
-    id: f.id as string,
-    name: f.name as string,
-  }))
-
-  return <CRMUebersichtClient eintraege={eintraege} heute={heute} kontakte={kontakteList} firmen={firmenList} userProfiles={userProfiles} />
-}
