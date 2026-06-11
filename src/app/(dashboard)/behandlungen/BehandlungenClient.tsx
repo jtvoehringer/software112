@@ -13,6 +13,11 @@ const EINHEIT_LABEL: Record<string, string> = {
   kg_ha: 'kg/ha', l_ha: 'l/ha', g_hl: 'g/hl',
   ml_hl: 'ml/hl', kg: 'kg', l: 'l',
 }
+const ART_LABEL: Record<string, string> = {
+  spritzung: '💧 Spritzung', duengung: '🌿 Düngung',
+  bodenbearbeitung: '🪱 Bodenbearbeitung', schnitt: '✂️ Schnitt',
+  laubarbeit: '🍃 Laubarbeit', lese: '🍇 Lese', sonstiges: '📋 Sonstiges',
+}
 
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -97,6 +102,11 @@ export default function BehandlungenClient({
             <div className="bg-s112-bg border-b border-s112-border px-4 py-2 flex items-center gap-3">
               <span className="font-semibold text-gray-800 text-sm">{formatDate(datum)}</span>
               <span className="text-xs text-s112-muted">{gruppe.length} {gruppe.length === 1 ? 'Weingarten' : 'Weingärten'}</span>
+              {gruppe[0].art && gruppe[0].art !== 'spritzung' && (
+                <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+                  {ART_LABEL[gruppe[0].art] ?? gruppe[0].art}
+                </span>
+              )}
               {gruppe[0].psm_name && (
                 <span className="ml-auto text-xs font-medium text-s112-teal bg-s112-teal/10 px-2 py-0.5 rounded-full">
                   {gruppe[0].psm_name}
@@ -109,10 +119,15 @@ export default function BehandlungenClient({
                 {gruppe.map(b => (
                   <tr key={b.id} className="border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/30 transition-colors">
                     <td className="px-4 py-2.5">
-                      <span className="font-medium text-gray-800">{b.weingarten_name ?? '–'}</span>
-                      {b.weingarten_ried && (
-                        <span className="ml-2 text-xs text-s112-muted">{b.weingarten_ried}</span>
-                      )}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-gray-800">{b.weingarten_name ?? '–'}</span>
+                        {b.weingarten_ried && (
+                          <span className="text-xs text-s112-muted">{b.weingarten_ried}</span>
+                        )}
+                        <span className="text-xs text-gray-500">
+                          {ART_LABEL[b.art] ?? b.art}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-3 py-2.5 text-s112-muted">
                       {b.aufwandmenge != null ? (

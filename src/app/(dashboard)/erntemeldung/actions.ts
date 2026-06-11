@@ -80,6 +80,37 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
   revalidatePath(`/erntemeldung/${jahrgangId}`)
 }
 
+// Mehrfacherfassung: eine Parzelle pro Weingarten mit gemeinsamen Feldern
+export async function createMultipleErnteParzellen(jahrgangId: string, formData: FormData) {
+  const supabase = await createSupabaseServerClient()
+  const weingartenIds = formData.getAll('weingarten_ids') as string[]
+  if (weingartenIds.length === 0) throw new Error('Mindestens einen Weingarten auswählen')
+
+  const ernteDatum     = (formData.get('ernte_datum') as string) || null
+  const lesemethode    = (formData.get('lesemethode') as string) || null
+  const kmw            = formData.get('klosterneuburger') ? Number(formData.get('klosterneuburger')) : null
+  const qualitaet      = (formData.get('qualitaetsstufe') as string) || null
+  const notizen        = (formData.get('notizen') as string) || null
+
+  const rows = weingartenIds.map(wgId => ({
+    jahrgang_id:      jahrgangId,
+    weingarten_id:    wgId,
+    ernte_datum:      ernteDatum,
+    menge_kg:         null,
+    menge_hl:         null,
+    oechsle:          null,
+    klosterneuburger: kmw,
+    qualitaetsstufe:  qualitaet,
+    lesemethode,
+    notizen,
+  }))
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('ernte_parzellen') as any).insert(rows)
+  if (error) throw new Error((error as AR).message)
+  revalidatePath(`/erntemeldung/${jahrgangId}`)
+}
+
 export async function deleteErnteParzelle(id: string, jahrgangId: string) {
   const supabase = await createSupabaseServerClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useTransition } from 'react'
-import { upsertErnteParzelle, deleteErnteParzelle, createOrUpdateAMAMeldung } from '../actions'
+import { upsertErnteParzelle, deleteErnteParzelle, createOrUpdateAMAMeldung, createMultipleErnteParzellen } from '../actions'
 import { qualitaetLabel, QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 import type { ErnteParzelle, WeingartenOpt, AMAMeldung } from './page'
 import PressungSection from './PressungSection'
@@ -27,7 +27,155 @@ function formatDate(d: string | null) {
   return new Date(d).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-// ── Ernte-Formular ─────────────────────────────────────────────────────────────
+// ── Neu-Formular: Mehrfacherfassung (Checkboxen nach Ried) ─────────────────────
+function NeueParzellenForm({
+  jahrgangId, weingaerten, onDone,
+}: {
+  jahrgangId: string; weingaerten: WeingartenOpt[]; onDone: () => void
+}) {
+  const [pending, startTransition] = useTransition()
+  const [selectedWGs, setSelectedWGs] = useState<Set<string>>(new Set())
+  const [error, setError] = useState<string | null>(null)
+
+  // Weingärten nach Ried gruppieren
+  const riedMap = new Map<string, WeingartenOpt[]>()
+  for (const w of weingaerten) {
+    const key = w.lage_name ?? '(Keine Ried)'
+    const arr = riedMap.get(key) ?? []
+    arr.push(w)
+    riedMap.set(key, arr)
+  }
+  const rieden = Array.from(riedMap.entries()).sort(([a], [b]) => a.localeCompare(b, 'de'))
+
+  function toggleWG(id: string) {
+    setSelectedWGs(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+  function toggleRied(wgs: WeingartenOpt[]) {
+    const ids = wgs.map(w => w.id)
+    const allSel = ids.every(id => selectedWGs.has(id))
+    setSelectedWGs(prev => {
+      const n = new Set(prev)
+      allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id))
+      return n
+    })
+  }
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (selectedWGs.size === 0) { setError('Bitte mindestens einen Weingarten auswählen.'); return }
+    setError(null)
+    const fd = new FormData(e.currentTarget)
+    selectedWGs.forEach(id => fd.append('weingarten_ids', id))
+    startTransition(async () => {
+      try {
+        await createMultipleErnteParzellen(jahrgangId, fd)
+        onDone()
+      } catch (err) {
+        setError((err as Error).message)
+      }
+    })
+  }
+
+  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+
+  return (
+    <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-800">Lesedaten erfassen</h3>
+        {selectedWGs.size > 0 && (
+          <span className="text-xs text-s112-teal font-medium">{selectedWGs.size} Weingarten/Weingärten gewählt</span>
+        )}
+      </div>
+
+      {/* Weingarten-Auswahl nach Ried */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-xs font-medium text-gray-600">Weingärten <span className="text-red-500">*</span></label>
+          <button type="button" onClick={() => setSelectedWGs(new Set(weingaerten.map(w => w.id)))}
+            className="text-xs text-s112-teal hover:underline">Alle auswählen</button>
+        </div>
+        {rieden.map(([riedName, wgs]) => {
+          const allSel = wgs.every(w => selectedWGs.has(w.id))
+          const someSel = wgs.some(w => selectedWGs.has(w.id))
+          return (
+            <div key={riedName} className="border border-s112-border rounded-lg overflow-hidden">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-white cursor-pointer hover:bg-s112-bg/60"
+                onClick={() => toggleRied(wgs)}>
+                <input type="checkbox" readOnly checked={allSel}
+                  ref={el => { if (el) el.indeterminate = someSel && !allSel }}
+                  className="accent-s112-teal" />
+                <span className="text-xs font-semibold text-gray-800">{riedName}</span>
+                <span className="text-xs text-s112-muted ml-1">{wgs.length} WG</span>
+              </div>
+              <div className="divide-y divide-s112-border/40 border-t border-s112-border/40">
+                {wgs.map(w => (
+                  <label key={w.id} className="flex items-center gap-2 px-4 py-1.5 text-xs cursor-pointer hover:bg-s112-bg/40">
+                    <input type="checkbox" checked={selectedWGs.has(w.id)} onChange={() => toggleWG(w.id)}
+                      className="accent-s112-teal" />
+                    <span className={selectedWGs.has(w.id) ? 'font-medium text-s112-teal' : 'text-gray-700'}>
+                      {w.name}
+                    </span>
+                    {w.rebsorte && <span className="text-s112-muted">({w.rebsorte})</span>}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Gemeinsame Felder */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Ernte-Datum</label>
+          <input name="ernte_datum" type="date"
+            defaultValue={new Date().toISOString().split('T')[0]}
+            className={inputCls} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Lesemethode</label>
+          <select name="lesemethode" className={inputCls}>
+            <option value="">–</option>
+            {LESEMETHODE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">°KMW</label>
+          <input name="klosterneuburger" type="number" step="0.01" min="0" className={inputCls} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Qualitätsstufe</label>
+          <select name="qualitaetsstufe" defaultValue="qualitaetswein" className={inputCls}>
+            {QUALITAET_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+        <div className="col-span-2">
+          <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
+          <input name="notizen" className={inputCls} placeholder="optional" />
+        </div>
+      </div>
+
+      <p className="text-xs text-s112-muted">
+        💡 kg-Mengen können nach dem Speichern pro Weingarten einzeln nachgetragen werden.
+      </p>
+
+      {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
+
+      <div className="flex gap-2 pt-1">
+        <button type="submit" disabled={pending || selectedWGs.size === 0}
+          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
+          {pending ? 'Speichert…' : `${selectedWGs.size > 0 ? `${selectedWGs.size} × ` : ''}Speichern`}
+        </button>
+        <button type="button" onClick={onDone}
+          className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800">
+          Abbrechen
+        </button>
+      </div>
+    </form>
+  )
+}
+
+// ── Edit-Formular: Einzelerfassung (bestehende Parzelle bearbeiten) ─────────────
 function ParzellForm({
   jahrgangId, weingaerten, parzelle, onDone,
 }: {
@@ -196,7 +344,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
 
         {showForm && !editId && (
           <div className="mb-4" data-print="hide">
-            <ParzellForm jahrgangId={jahrgang.id} weingaerten={weingaerten} onDone={() => setShowForm(false)} />
+            <NeueParzellenForm jahrgangId={jahrgang.id} weingaerten={weingaerten} onDone={() => setShowForm(false)} />
           </div>
         )}
 
