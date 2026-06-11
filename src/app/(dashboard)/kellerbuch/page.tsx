@@ -94,18 +94,21 @@ export default async function KellerbuchPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className="card text-center p-4">
+        <Link href="/kellerbuch/gebinde" className="card text-center p-4 hover:shadow-md hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-3xl font-bold text-s112-teal">{behaelter.filter((b: R) => b.aktiv).length}</p>
           <p className="text-xs text-s112-muted mt-1">Aktive Behälter</p>
-        </div>
-        <div className="card text-center p-4">
+          <p className="text-[10px] text-s112-teal/60 mt-1">→ Gebinde verwalten</p>
+        </Link>
+        <Link href="/kellerbuch/kellerplan" className="card text-center p-4 hover:shadow-md hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-3xl font-bold text-s112-teal">{aktiveChargen.length}</p>
           <p className="text-xs text-s112-muted mt-1">Laufende Chargen</p>
-        </div>
-        <div className="card text-center p-4">
+          <p className="text-[10px] text-s112-teal/60 mt-1">→ Kellerplan</p>
+        </Link>
+        <Link href="/kellerbuch/rueckverfolgung" className="card text-center p-4 hover:shadow-md hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-3xl font-bold text-s112-teal">{fmtLiter(gesamtLiter)}</p>
           <p className="text-xs text-s112-muted mt-1">Liter in Ausbau</p>
-        </div>
+          <p className="text-[10px] text-s112-teal/60 mt-1">→ Rückverfolgung</p>
+        </Link>
       </div>
 
       {/* Behälter mit Chargen */}

@@ -72,24 +72,27 @@ export default async function WeinhandelPage() {
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <div className="card text-center p-4">
+        <Link href="/weinhandel" className="card text-center p-4 hover:shadow-md hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-3xl font-bold text-s112-teal">{gesamtFlaschen.toLocaleString('de-AT')}</p>
           <p className="text-xs text-s112-muted mt-1">Flaschen auf Lager</p>
-        </div>
-        <div className="card text-center p-4">
+          <p className="text-[10px] text-s112-teal/60 mt-1">→ Warenlager</p>
+        </Link>
+        <Link href="/weinhandel/verkauf" className="card text-center p-4 hover:shadow-md hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-3xl font-bold text-s112-teal">
             {gesamtWert > 0
               ? gesamtWert.toLocaleString('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
               : '–'}
           </p>
           <p className="text-xs text-s112-muted mt-1">Lagerwert Flaschen (Einstandspreis)</p>
-        </div>
-        <div className="card text-center p-4">
+          <p className="text-[10px] text-s112-teal/60 mt-1">→ Verkauf</p>
+        </Link>
+        <Link href="/weinhandel" className="card text-center p-4 hover:shadow-md hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-3xl font-bold text-s112-teal">
             {gesamtLiterTank > 0 ? `${gesamtLiterTank.toLocaleString('de-AT')} L` : '–'}
           </p>
           <p className="text-xs text-s112-muted mt-1">Liter im Tank (Direktverkauf)</p>
-        </div>
+          <p className="text-[10px] text-s112-teal/60 mt-1">→ Warenlager</p>
+        </Link>
       </div>
 
       {/* Flaschenbestand */}
