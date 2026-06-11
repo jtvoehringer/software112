@@ -90,3 +90,9 @@ export default async function CRMUebersichtPage() {
     name: [k.vorname, k.nachname].filter(Boolean).join(' ') as string,
   }))
   const firmenList = (firmenRaw as AR[] ?? []).map((f: AR) => ({
+    id: f.id as string,
+    name: f.name as string,
+  }))
+
+  return <CRMUebersichtClient eintraege={eintraege} heute={heute} kontakte={kontakteList} firmen={firmenList} userProfiles={userProfiles} />
+}
