@@ -41,9 +41,9 @@ const NAV: NavEntry[] = [
   {
     kind: 'group', label: 'Kellerbuch', icon: '🍷',
     items: [
-      { href: '/kellerbuch',                      label: 'Vinifizierung',   phase: 1 },
+      { href: '/kellerbuch',                      label: 'Übersicht',       phase: 1 },
+      { href: '/kellerbuch/gebinde',              label: 'Gebinde',         phase: 1, child: true },
       { href: '/dac',                             label: 'Prüfnummer',      phase: 1 },
-      { href: '/kellerbuch/gebinde',              label: 'Gebinde',         phase: 1 },
       { href: '/weinhandel/fuellungen/neu',       label: 'Füllen',          phase: 1 },
       { href: '/kellerbuch/rueckverfolgung',      label: 'Rückverfolgung',  phase: 1 },
     ],
@@ -139,11 +139,7 @@ function SubItem({ item, pathname }: { item: NavItem; pathname: string }) {
   return (
     <Link
       href={item.href}
-      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${indent ? 'ml-3' : ''}
-        ${active
-          ? 'bg-s112-teal text-s112-yellow font-medium'
-          : 'text-s112-teal hover:bg-s112-teal/10'
-        }`}
+      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${indent ? 'ml-3' : ''} ${active ? 'bg-s112-teal text-s112-yellow font-medium' : 'text-s112-teal hover:bg-s112-teal/10'}`}
     >
       <span className={`rounded-full flex-shrink-0 ${indent ? 'w-1 h-1' : 'w-1.5 h-1.5'} ${active ? 'bg-s112-yellow' : 'bg-s112-teal/40'}`} />
       {item.label}
@@ -172,8 +168,7 @@ function NavGroupItem({
           if (firstItem && !active) router.push(firstItem.href)
           setOpen(o => !o)
         }}
-        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors
-          ${active ? 'text-s112-teal font-semibold' : 'text-s112-teal hover:bg-s112-teal/10'}`}
+        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${active ? 'text-s112-teal font-semibold' : 'text-s112-teal hover:bg-s112-teal/10'}`}
       >
         <span className="w-5 text-center text-base">{entry.icon}</span>
         <span className="flex-1 text-left">{entry.label}</span>
@@ -204,9 +199,11 @@ interface SidebarProps {
   role: UserRole
   roleLabel: string
   branding: TenantBranding
+  collapsed?: boolean
+  onToggleCollapse?: () => void
 }
 
-export default function Sidebar({ userEmail, userName, role, roleLabel, branding }: SidebarProps) {
+export default function Sidebar({ userEmail, userName, role, roleLabel, branding, collapsed = false, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname()
   const router   = useRouter()
   const supabase = createSupabaseBrowserClient()
@@ -219,34 +216,65 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
   }
 
   return (
-    <aside className="w-60 flex-shrink-0 bg-white border-r border-s112-border flex flex-col h-full">
-      {/* Kunden-Logo */}
-      <div className="px-5 py-4 border-b border-s112-border">
-        <Link href="/dashboard" className="block">
-          {branding.logo_url ? (
-            <Image
-              src={branding.logo_url}
-              alt={branding.anzeigename}
-              width={140} height={40}
-              className="object-contain object-left max-h-10 w-auto"
-              priority
-            />
-          ) : (
-            <div className="flex items-baseline gap-0">
-              <span className="text-xl font-bold text-s112-teal">software</span>
-              <span className="text-xl font-bold text-s112-yellow">:</span>
-              <span className="text-xl font-bold text-s112-teal">112</span>
-            </div>
-          )}
-          <p className="text-xs text-s112-muted mt-0.5">{branding.logo_url ? branding.anzeigename : 'Weinbau-Management'}</p>
-        </Link>
+    <aside className={`flex-shrink-0 bg-white border-r border-s112-border flex flex-col h-full transition-[width] duration-200 ease-in-out ${collapsed ? 'w-14' : 'w-60'}`}>
+      {/* Kunden-Logo + Collapse-Toggle */}
+      <div className={`border-b border-s112-border flex items-center ${collapsed ? 'px-2 py-4 justify-center' : 'px-5 py-4 justify-between'}`}>
+        {!collapsed && (
+          <Link href="/dashboard" className="block min-w-0">
+            {branding.logo_url ? (
+              <Image
+                src={branding.logo_url}
+                alt={branding.anzeigename}
+                width={140} height={40}
+                className="object-contain object-left max-h-10 w-auto"
+                priority
+              />
+            ) : (
+              <div className="flex items-baseline gap-0">
+                <span className="text-xl font-bold text-s112-teal">software</span>
+                <span className="text-xl font-bold text-s112-yellow">:</span>
+                <span className="text-xl font-bold text-s112-teal">112</span>
+              </div>
+            )}
+            <p className="text-xs text-s112-muted mt-0.5 truncate">{branding.logo_url ? branding.anzeigename : 'Weinbau-Management'}</p>
+          </Link>
+        )}
+        {collapsed && (
+          <Link href="/dashboard" title="Übersicht">
+            <span className="text-xl font-bold text-s112-teal">⊞</span>
+          </Link>
+        )}
+        {onToggleCollapse && (
+          <button
+            onClick={onToggleCollapse}
+            title={collapsed ? 'Sidebar aufklappen' : 'Sidebar einklappen'}
+            className={`flex-shrink-0 p-1 rounded-lg text-s112-muted hover:text-s112-teal hover:bg-s112-teal/10 transition-colors ${collapsed ? 'mt-2' : ''}`}
+          >
+            <svg className={`w-4 h-4 transition-transform duration-200 ${collapsed ? 'rotate-180' : ''}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7M18 19l-7-7 7-7" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <nav className={`flex-1 py-4 space-y-1 overflow-y-auto ${collapsed ? 'px-1.5' : 'px-3'}`}>
         {NAV.map((entry, i) => {
           if (entry.kind === 'group') {
             if (entry.adminOnly && !isAdmin) return null
+            if (collapsed) {
+              // Im Collapsed-Modus: nur Icon als Link zum ersten Sub-Item
+              const firstItem = entry.items.filter(it => !it.adminOnly || isAdmin).find(it => it.phase !== 2)
+              const isGroupActive = groupIsActive(entry.items, pathname)
+              if (!firstItem) return null
+              return (
+                <Link key={i} href={firstItem.href} title={entry.label}
+                  className={`flex items-center justify-center w-10 h-10 rounded-xl text-base transition-colors mx-auto ${isGroupActive ? 'bg-s112-teal text-white' : 'text-s112-teal hover:bg-s112-teal/10'}`}>
+                  {entry.icon}
+                </Link>
+              )
+            }
             return (
               <NavGroupItem key={i} entry={entry} pathname={pathname} isAdmin={isAdmin} />
             )
@@ -257,20 +285,31 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
           const active   = isActive(entry.href, pathname)
           const disabled = entry.phase === 2
 
-          if (disabled) return (
-            <div key={entry.href} className="flex items-center gap-2 px-3 py-2 rounded-xl opacity-40 cursor-not-allowed text-sm text-gray-500">
-              <span className="w-5 text-center">{entry.icon}</span>
-              {entry.label}
-              <span className="ml-auto text-xs">P2</span>
-            </div>
-          )
+          if (disabled) {
+            if (collapsed) return null
+            return (
+              <div key={entry.href} className="flex items-center gap-2 px-3 py-2 rounded-xl opacity-40 cursor-not-allowed text-sm text-gray-500">
+                <span className="w-5 text-center">{entry.icon}</span>
+                {entry.label}
+                <span className="ml-auto text-xs">P2</span>
+              </div>
+            )
+          }
+
+          if (collapsed) {
+            return (
+              <Link key={entry.href} href={entry.href} title={entry.label}
+                className={`flex items-center justify-center w-10 h-10 rounded-xl text-base transition-colors mx-auto ${active ? 'bg-s112-teal text-white' : 'text-s112-teal hover:bg-s112-teal/10'}`}>
+                <span>{entry.icon}</span>
+              </Link>
+            )
+          }
 
           return (
             <Link
               key={entry.href}
               href={entry.href}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors
-                ${active ? 'bg-s112-teal text-s112-yellow' : 'text-s112-teal hover:bg-s112-teal/10'}`}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${active ? 'bg-s112-teal text-s112-yellow' : 'text-s112-teal hover:bg-s112-teal/10'}`}
             >
               <span className="w-5 text-center">{entry.icon}</span>
               {entry.label}
@@ -280,34 +319,45 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
       </nav>
 
       {/* User Footer */}
-      <div className="px-4 py-4 border-t border-s112-border">
-        <p className="text-xs font-medium text-gray-700 truncate">{userName || userEmail}</p>
-        <p className="text-[10px] text-s112-muted truncate">{userEmail}</p>
-        <p className="text-xs font-medium text-s112-teal mt-0.5">{roleLabel}</p>
-        <a href="/profil"
-          className="text-xs text-s112-muted hover:text-s112-teal transition-colors mt-1.5 block">
-          ✏ Profil bearbeiten
-        </a>
-        <button
-          onClick={handleLogout}
-          className="text-xs text-s112-muted hover:text-red-600 transition-colors mt-1.5"
-        >
-          Abmelden
-        </button>
+      <div className={`border-t border-s112-border ${collapsed ? 'px-1.5 py-4 flex flex-col items-center gap-2' : 'px-4 py-4'}`}>
+        {collapsed ? (
+          <>
+            <button onClick={handleLogout} title="Abmelden"
+              className="w-10 h-10 flex items-center justify-center rounded-xl text-s112-muted hover:text-red-600 hover:bg-red-50 transition-colors text-base">
+              ⏻
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="text-xs font-medium text-gray-700 truncate">{userName || userEmail}</p>
+            <p className="text-[10px] text-s112-muted truncate">{userEmail}</p>
+            <p className="text-xs font-medium text-s112-teal mt-0.5">{roleLabel}</p>
+            <a href="/profil"
+              className="text-xs text-s112-muted hover:text-s112-teal transition-colors mt-1.5 block">
+              ✏ Profil bearbeiten
+            </a>
+            <button
+              onClick={handleLogout}
+              className="text-xs text-s112-muted hover:text-red-600 transition-colors mt-1.5"
+            >
+              Abmelden
+            </button>
 
-        <p className="text-[10px] text-gray-400 mt-2">v2.1.0 · Juni 2026</p>
-        {/* IC&P Branding */}
-        <div className="mt-2 pt-2 border-t border-s112-border/40 flex items-center gap-2">
-          <Image
-            src="/icp-logo.png"
-            alt="IC&P Consultants"
-            width={20} height={20}
-            className="rounded-full opacity-60 flex-shrink-0"
-          />
-          <p className="text-[9px] text-s112-muted/50 leading-tight">
-            &copy; IC&amp;P Consultants e.U.
-          </p>
-        </div>
+            <p className="text-[10px] text-gray-400 mt-2">v2.1.0 · Juni 2026</p>
+            {/* IC&P Branding */}
+            <div className="mt-2 pt-2 border-t border-s112-border/40 flex items-center gap-2">
+              <Image
+                src="/icp-logo.png"
+                alt="IC&P Consultants"
+                width={20} height={20}
+                className="rounded-full opacity-60 flex-shrink-0"
+              />
+              <p className="text-[9px] text-s112-muted/50 leading-tight">
+                &copy; IC&amp;P Consultants e.U.
+              </p>
+            </div>
+          </>
+        )}
       </div>
     </aside>
   )
