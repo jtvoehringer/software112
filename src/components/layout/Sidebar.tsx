@@ -41,10 +41,11 @@ const NAV: NavEntry[] = [
   {
     kind: 'group', label: 'Kellerbuch', icon: '🍷',
     items: [
-      { href: '/kellerbuch',                label: 'Vinifizierung', phase: 1 },
-      { href: '/dac',                       label: 'Prüfnummer',    phase: 1 },
-      { href: '/kellerbuch/gebinde',        label: 'Gebinde',       phase: 1 },
-      { href: '/weinhandel/fuellungen/neu', label: 'Füllen',        phase: 1 },
+      { href: '/kellerbuch',                      label: 'Vinifizierung',   phase: 1 },
+      { href: '/dac',                             label: 'Prüfnummer',      phase: 1 },
+      { href: '/kellerbuch/gebinde',              label: 'Gebinde',         phase: 1 },
+      { href: '/weinhandel/fuellungen/neu',       label: 'Füllen',          phase: 1 },
+      { href: '/kellerbuch/rueckverfolgung',      label: 'Rückverfolgung',  phase: 1 },
     ],
   },
 

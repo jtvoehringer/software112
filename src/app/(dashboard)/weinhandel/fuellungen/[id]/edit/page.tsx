@@ -78,6 +78,44 @@ export default async function EditFuellungPage({
       <h1 className="text-2xl font-bold text-gray-900 mb-1">Füllung bearbeiten</h1>
       <p className="text-sm text-s112-muted mb-6">{f.name}</p>
 
+      {/* ── Weinpass / QR-Code ── */}
+      {f.chargennummer && (
+        <div className="card p-5 flex gap-5 items-start mb-2">
+          {/* QR-Code via qrserver.com */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`https://software112.icp-consultants.at/w/${encodeURIComponent(f.chargennummer)}`)}`}
+            alt="QR-Code Weinpass"
+            width={120} height={120}
+            className="rounded-xl border border-s112-border shrink-0"
+          />
+          <div className="space-y-2 min-w-0">
+            <p className="text-sm font-semibold text-gray-800">🍾 Weinpass</p>
+            <p className="text-xs text-s112-muted">Chargennummer: <span className="font-mono text-gray-700">{f.chargennummer}</span></p>
+            <a
+              href={`/w/${encodeURIComponent(f.chargennummer)}`}
+              target="_blank" rel="noopener noreferrer"
+              className="text-xs text-s112-teal hover:underline break-all">
+              /w/{f.chargennummer} ↗
+            </a>
+            <div className="flex gap-2 pt-1">
+              <a
+                href={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`https://software112.icp-consultants.at/w/${encodeURIComponent(f.chargennummer)}`)}`}
+                download={`weinpass-${f.chargennummer}.png`}
+                target="_blank" rel="noopener noreferrer"
+                className="text-xs border border-s112-border px-3 py-1 rounded-lg text-gray-600 hover:bg-s112-bg">
+                ⬇ QR laden
+              </a>
+              <a
+                href={`/kellerbuch/rueckverfolgung?q=${encodeURIComponent(f.chargennummer)}`}
+                className="text-xs border border-s112-border px-3 py-1 rounded-lg text-gray-600 hover:bg-s112-bg">
+                🔍 Rückverfolgung
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
       <form action={updateWithId} className="space-y-6">
 
         {/* ── Produktbezeichnung ── */}

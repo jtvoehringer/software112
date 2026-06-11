@@ -175,12 +175,13 @@ export default async function NeueFuellungPage({
               />
             </div>
             <div>
-              <label className={labelCls}>Chargennummer (optional)</label>
+              <label className={labelCls}>Chargennummer</label>
               <input
                 name="chargennummer"
-                placeholder="z.B. CH-2025-001"
+                placeholder="Leer lassen = wird automatisch vergeben"
                 className={inputCls}
               />
+              <p className="text-xs text-s112-muted mt-1">Leer lassen → automatisch z.B. CH-2025-001</p>
             </div>
             <div>
               <label className={labelCls}>Abfülldatum *</label>

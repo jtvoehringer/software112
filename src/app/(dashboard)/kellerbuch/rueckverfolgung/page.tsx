@@ -1,0 +1,351 @@
+import { createSupabaseServerClient } from '@/lib/supabase/server'
+import type { Metadata } from 'next'
+import Link from 'next/link'
+
+export const metadata: Metadata = { title: 'Rückverfolgung – software:112' }
+export const dynamic = 'force-dynamic'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type R = Record<string, any>
+
+function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+  if (!value && value !== 0) return null
+  return (
+    <div className="flex gap-2 text-sm">
+      <span className="text-s112-muted w-40 shrink-0">{label}</span>
+      <span className="text-gray-800 font-medium">{value}</span>
+    </div>
+  )
+}
+
+function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
+  return (
+    <div className="card p-5 space-y-3">
+      <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+        <span>{icon}</span>{title}
+      </h2>
+      {children}
+    </div>
+  )
+}
+
+export default async function RueckverfolgungPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>
+}) {
+  const { q } = await searchParams
+  const supabase = await createSupabaseServerClient()
+
+  // ── Suche nach Chargennummer oder Prüfnummer ─────────────────────────────
+  let fuellung: R | null = null
+  let suchFehler: string | null = null
+
+  if (q?.trim()) {
+    const { data, error } = await (supabase.from('fuellungen') as any)
+      .select('*')
+      .or(`chargennummer.eq.${q.trim()},pruefnummer.eq.${q.trim()}`)
+      .limit(1)
+      .single()
+
+    if (error || !data) {
+      suchFehler = `Keine Füllung mit Chargennummer oder Prüfnummer „${q}" gefunden.`
+    } else {
+      fuellung = data as R
+    }
+  }
+
+  // ── Wenn Füllung gefunden: Kettendaten laden ─────────────────────────────
+  let weinausbau: R | null = null
+  let pressungen: R[] = []
+  let behandlungen: R[] = []
+  let analysen: R[] = []
+  let umzuege: R[] = []
+
+  if (fuellung?.weinausbau_id) {
+    const wId = fuellung.weinausbau_id
+
+    const [waRes, prRes, beRes, anRes, umRes] = await Promise.all([
+      // Weinausbau-Charge
+      (supabase.from('weinausbau') as any)
+        .select('id, name, jahrgang, rebsorte, status, qualitaet, behaelter_id, behaelter:behaelter_id(name, typ, volumen_liter)')
+        .eq('id', wId)
+        .single(),
+
+      // Pressungen die in diese Charge geflossen sind
+      (supabase.from('pressung_behaelter') as any)
+        .select(`
+          menge_liter, notizen,
+          pressung:pressung_id(
+            id, datum, most_liter_gesamt, jahrgang:jahrgang_id(jahrgang),
+            pressung_weingaerten(
+              trauben_kg, rebsorte, ernte_datum, kmw,
+              weingarten:weingarten_id(
+                id, name, flaeche_ha,
+                grundstueck:grundstueck_id(
+                  name, katastralgemeinde, grundstuecksnummer
+                )
+              )
+            )
+          )
+        `)
+        .eq('weinausbau_id', wId),
+
+      // Behandlungen auf Weingärten dieser Charge
+      (supabase.from('behandlungen') as any)
+        .select(`
+          datum, art, mittel, menge, einheit, flaeche_ha, notizen,
+          grundstueck:grundstueck_id(name, katastralgemeinde)
+        `)
+        .eq('weinausbau_id', wId)
+        .order('datum', { ascending: true }),
+
+      // Analysen der Charge
+      (supabase.from('analysen') as any)
+        .select('datum, parameter, wert, einheit, methode, labor, notizen')
+        .eq('weinausbau_id', wId)
+        .order('datum', { ascending: true }),
+
+      // Umzüge (Behälter-Verlauf)
+      (supabase.from('keller_umzuege') as any)
+        .select(`
+          datum, menge_liter, brutto_liter, schwund_liter, notizen, zeilen_typ,
+          von_behaelter:von_behaelter_id(name),
+          nach_behaelter:nach_behaelter_id(name)
+        `)
+        .eq('von_weinausbau_id', wId)
+        .order('datum', { ascending: true }),
+    ])
+
+    weinausbau = waRes.data as R | null
+    pressungen = (prRes.data ?? []) as R[]
+    behandlungen = (beRes.data ?? []) as R[]
+    analysen = (anRes.data ?? []) as R[]
+    umzuege = (umRes.data ?? []) as R[]
+  }
+
+  return (
+    <div className="max-w-3xl space-y-6">
+
+      {/* Header */}
+      <div>
+        <nav className="flex items-center gap-2 text-sm text-s112-muted mb-4">
+          <Link href="/kellerbuch" className="hover:text-s112-teal">Kellerbuch</Link>
+          <span>/</span>
+          <span className="text-gray-800 font-medium">Rückverfolgung</span>
+        </nav>
+        <h1 className="text-2xl font-bold text-gray-900">🔍 Rückverfolgung</h1>
+        <p className="text-sm text-s112-muted mt-1">
+          Chargennummer oder Prüfnummer eingeben → vollständige Kette von der Flasche zum Weingarten
+        </p>
+      </div>
+
+      {/* Suchfeld */}
+      <form method="get" className="flex gap-2">
+        <input
+          name="q"
+          defaultValue={q ?? ''}
+          placeholder="Chargennummer z.B. CH-2025-001 oder Prüfnummer"
+          className="flex-1 border border-s112-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+          autoFocus
+        />
+        <button type="submit"
+          className="bg-s112-teal text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+          Suchen
+        </button>
+      </form>
+
+      {suchFehler && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+          {suchFehler}
+        </div>
+      )}
+
+      {/* ── Ergebnis ─────────────────────────────────────────────────────── */}
+      {fuellung && (
+        <div className="space-y-4">
+
+          {/* Flasche / Abfüllung */}
+          <Section title="🍾 Abfüllung" icon="">
+            <InfoRow label="Chargennummer" value={fuellung.chargennummer ?? '–'} />
+            <InfoRow label="Prüfnummer" value={fuellung.pruefnummer ?? '–'} />
+            <InfoRow label="Produktname" value={fuellung.name} />
+            <InfoRow label="Jahrgang" value={fuellung.jahrgang} />
+            <InfoRow label="Rebsorte" value={fuellung.rebsorte} />
+            <InfoRow label="Qualität" value={fuellung.qualitaet} />
+            <InfoRow label="Anbaugebiet" value={fuellung.anbaugebiet} />
+            <InfoRow label="Ried / Bezeichnung" value={fuellung.bezeichnung} />
+            <InfoRow label="Abfülldatum" value={fuellung.datum ? new Date(fuellung.datum).toLocaleDateString('de-AT') : null} />
+            <InfoRow label="Flaschengröße" value={fuellung.flaschengroesse_ml ? `${fuellung.flaschengroesse_ml} ml` : null} />
+            <InfoRow label="Anzahl Flaschen" value={fuellung.anzahl_flaschen?.toLocaleString('de-AT')} />
+            <InfoRow label="Liter abgefüllt" value={fuellung.menge_liter_gefuellt ? `${parseFloat(fuellung.menge_liter_gefuellt).toLocaleString('de-AT', { minimumFractionDigits: 2 })} L` : null} />
+          </Section>
+
+          {/* Weinausbau-Charge */}
+          {weinausbau && (
+            <Section title="Kellerbuch-Charge" icon="🪣">
+              <InfoRow label="Charge" value={weinausbau.name} />
+              <InfoRow label="Jahrgang" value={weinausbau.jahrgang} />
+              <InfoRow label="Rebsorte" value={weinausbau.rebsorte} />
+              <InfoRow label="Qualität" value={weinausbau.qualitaet} />
+              <InfoRow label="Status" value={weinausbau.status} />
+              <InfoRow label="Behälter" value={(weinausbau.behaelter as R | null)?.name} />
+            </Section>
+          )}
+
+          {/* Behälter-Verlauf / Umzüge */}
+          {umzuege.length > 0 && (
+            <Section title="Behälter-Verlauf" icon="🔄">
+              <div className="space-y-2">
+                {umzuege.map((u: R, i: number) => (
+                  <div key={i} className="flex items-center gap-2 text-sm">
+                    <span className="text-xs text-s112-muted tabular-nums w-24 shrink-0">
+                      {new Date(u.datum).toLocaleDateString('de-AT')}
+                    </span>
+                    <span className="text-gray-600">{(u.von_behaelter as R | null)?.name ?? '?'}</span>
+                    <span className="text-s112-muted">→</span>
+                    <span className="text-gray-600">{(u.nach_behaelter as R | null)?.name ?? '?'}</span>
+                    <span className="text-xs text-s112-muted ml-auto">
+                      {u.menge_liter ? `${parseFloat(u.menge_liter).toLocaleString('de-AT')} L` : ''}
+                      {u.schwund_liter ? ` (Schwund: ${u.schwund_liter} L)` : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {/* Pressungen / Weingärten */}
+          {pressungen.length > 0 && (
+            <Section title="Pressung & Herkunft" icon="🌿">
+              {pressungen.map((pb: R, i: number) => {
+                const p = pb.pressung as R
+                if (!p) return null
+                const wgListe = (p.pressung_weingaerten ?? []) as R[]
+                return (
+                  <div key={i} className={i > 0 ? 'pt-3 border-t border-s112-border/60' : ''}>
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-xs text-s112-muted tabular-nums">
+                        {p.datum ? new Date(p.datum).toLocaleDateString('de-AT') : ''}
+                      </span>
+                      <span className="text-sm font-medium text-gray-700">Pressung</span>
+                      {p.most_liter_gesamt && (
+                        <span className="text-xs text-s112-muted">
+                          {parseFloat(p.most_liter_gesamt).toLocaleString('de-AT')} L Most
+                        </span>
+                      )}
+                      <span className="text-xs text-s112-muted ml-auto">
+                        Anteil: {pb.menge_liter ? `${parseFloat(pb.menge_liter).toLocaleString('de-AT')} L` : '–'}
+                      </span>
+                    </div>
+
+                    {wgListe.length > 0 && (
+                      <div className="ml-4 space-y-2">
+                        {wgListe.map((wg: R, j: number) => {
+                          const w = wg.weingarten as R | null
+                          const g = w?.grundstueck as R | null
+                          return (
+                            <div key={j} className="bg-s112-bg rounded-lg p-3 space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-800">🌱 {w?.name ?? '–'}</span>
+                                {w?.flaeche_ha && (
+                                  <span className="text-xs text-s112-muted">{parseFloat(w.flaeche_ha).toLocaleString('de-AT')} ha</span>
+                                )}
+                              </div>
+                              {g && (
+                                <div className="text-xs text-s112-muted">
+                                  {g.katastralgemeinde}{g.grundstuecksnummer ? ` · GNr. ${g.grundstuecksnummer}` : ''}
+                                </div>
+                              )}
+                              <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-600">
+                                {wg.trauben_kg && <span>🍇 {parseFloat(wg.trauben_kg).toLocaleString('de-AT')} kg</span>}
+                                {wg.rebsorte && <span>🌿 {wg.rebsorte}</span>}
+                                {wg.ernte_datum && <span>📅 Lese: {new Date(wg.ernte_datum).toLocaleDateString('de-AT')}</span>}
+                                {wg.kmw && <span>⚖️ {wg.kmw} °KMW</span>}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </Section>
+          )}
+
+          {/* Analysen */}
+          {analysen.length > 0 && (
+            <Section title="Analysen" icon="🔬">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-s112-border/50">
+                      <th className="text-left px-2 py-1.5 text-xs font-medium text-gray-500">Datum</th>
+                      <th className="text-left px-2 py-1.5 text-xs font-medium text-gray-500">Parameter</th>
+                      <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500">Wert</th>
+                      <th className="text-left px-2 py-1.5 text-xs font-medium text-gray-500">Einheit</th>
+                      <th className="text-left px-2 py-1.5 text-xs font-medium text-gray-500">Labor</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {analysen.map((a: R, i: number) => (
+                      <tr key={i} className="border-b border-s112-border/30 last:border-0">
+                        <td className="px-2 py-1.5 text-xs text-s112-muted tabular-nums">
+                          {new Date(a.datum).toLocaleDateString('de-AT')}
+                        </td>
+                        <td className="px-2 py-1.5 font-medium text-gray-800">{a.parameter}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums">{a.wert}</td>
+                        <td className="px-2 py-1.5 text-s112-muted">{a.einheit}</td>
+                        <td className="px-2 py-1.5 text-s112-muted text-xs">{a.labor ?? '–'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Section>
+          )}
+
+          {/* Behandlungen */}
+          {behandlungen.length > 0 && (
+            <Section title="Behandlungen / PSM" icon="🧪">
+              <div className="space-y-2">
+                {behandlungen.map((b: R, i: number) => (
+                  <div key={i} className="flex items-start gap-3 text-sm border-b border-s112-border/30 last:border-0 pb-2 last:pb-0">
+                    <span className="text-xs text-s112-muted tabular-nums w-20 shrink-0 pt-0.5">
+                      {new Date(b.datum).toLocaleDateString('de-AT')}
+                    </span>
+                    <div className="flex-1">
+                      <span className="font-medium text-gray-800">{b.mittel ?? b.art}</span>
+                      {b.mittel && b.art && <span className="text-xs text-s112-muted ml-1">({b.art})</span>}
+                      <div className="text-xs text-s112-muted">
+                        {(b.grundstueck as R | null)?.name}
+                        {b.menge ? ` · ${b.menge} ${b.einheit ?? ''}` : ''}
+                        {b.flaeche_ha ? ` · ${b.flaeche_ha} ha` : ''}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {!weinausbau && (
+            <div className="bg-s112-bg border border-s112-border rounded-xl p-4 text-sm text-s112-muted">
+              Diese Füllung hat keine verknüpfte Kellerbuch-Charge – Rückverfolgung nur bis zur Abfüllung möglich.
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {!q && (
+        <div className="card p-8 text-center text-s112-muted">
+          <p className="text-3xl mb-3">🔍</p>
+          <p className="text-sm">Chargennummer oder Prüfnummer eingeben um die vollständige Herkunftskette anzuzeigen.</p>
+        </div>
+      )}
+
+    </div>
+  )
+}

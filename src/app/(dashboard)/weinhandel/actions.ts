@@ -55,7 +55,12 @@ export async function createFuellung(formData: FormData) {
     bestand_flaschen:     anzahl,
     menge_liter_gefuellt: mengeGefuellt,
     pruefnummer:          (formData.get('pruefnummer') as string) || null,
-    chargennummer:        (formData.get('chargennummer') as string) || null,
+    chargennummer:        await (async () => {
+      const manuell = (formData.get('chargennummer') as string) || null
+      if (manuell) return manuell
+      const { data } = await (supabase.rpc as any)('get_next_chargennummer', { p_tenant_id: tenantId })
+      return (data as string) ?? null
+    })(),
     vk_preis_brutto:      parseFloat(formData.get('vk_preis_brutto') as string) || null,
     einstandspreis:       parseFloat(formData.get('einstandspreis') as string) || null,
     notizen:              (formData.get('notizen') as string) || null,
