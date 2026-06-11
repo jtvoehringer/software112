@@ -218,8 +218,10 @@ export async function upsertPressung(fd: FormData) {
   const weingaerten = JSON.parse(wgJson || '[]') as PressungWGInput[]
   const behaelter   = JSON.parse(behJson || '[]') as PressungBehInput[]
 
+  let pressId: string
+
   if (existingId) {
-    // Update: Zeilen löschen + neu einfügen
+    pressId = existingId
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('pressungen') as any).update({ datum, most_liter_gesamt: mostLiter, weinbezeichnung, notizen }).eq('id', existingId)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -233,26 +235,84 @@ export async function upsertPressung(fd: FormData) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase.from('pressung_behaelter') as any).insert(behaelter.map(b => ({ pressung_id: existingId, ...b, behaelter_id: b.behaelter_id || null, weinausbau_id: b.weinausbau_id || null })))
   } else {
-    // Insert
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: neu } = await (supabase.from('pressungen') as any)
       .insert({ tenant_id: tenantId, jahrgang_id: jahrgangId, datum, most_liter_gesamt: mostLiter, weinbezeichnung, notizen })
       .select('id').single()
-    const pressungId = (neu as AR).id
+    pressId = (neu as AR).id
     if (weingaerten.length > 0)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('pressung_weingaerten') as any).insert(weingaerten.map(w => ({ pressung_id: pressungId, ...w })))
+      await (supabase.from('pressung_weingaerten') as any).insert(weingaerten.map(w => ({ pressung_id: pressId, ...w })))
     if (behaelter.length > 0)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('pressung_behaelter') as any).insert(behaelter.map(b => ({ pressung_id: pressungId, ...b, behaelter_id: b.behaelter_id || null, weinausbau_id: b.weinausbau_id || null })))
+      await (supabase.from('pressung_behaelter') as any).insert(behaelter.map(b => ({ pressung_id: pressId, ...b, behaelter_id: b.behaelter_id || null, weinausbau_id: b.weinausbau_id || null })))
+  }
+
+  // ── Auto-Weinausbau: Kellerbuch-Charge für jeden Behälter-Eintrag ──────────
+  // Jahrgang-Jahr für Bezeichnung laden
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: jgData } = await (supabase.from('weinjahrgaenge') as any)
+    .select('jahrgang').eq('id', jahrgangId).single()
+  const jgJahr = (jgData as AR)?.jahrgang as number | null
+
+  // Weinname ableiten: Bezeichnung > Rebsorte (wenn nur eine) > "Pressung Datum"
+  const rebsortenList = weingaerten.map(w => w.rebsorte).filter(Boolean)
+  const dominantRebsorte = rebsortenList.length === 1 ? rebsortenList[0] ?? null : null
+  const autoName = weinbezeichnung
+    ? `${weinbezeichnung}${jgJahr ? ' ' + jgJahr : ''}`
+    : dominantRebsorte
+      ? `${dominantRebsorte}${jgJahr ? ' ' + jgJahr : ''}`
+      : `Pressung ${new Date(datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
+
+  for (const beh of behaelter) {
+    if (!beh.behaelter_id) continue
+    if (beh.weinausbau_id) {
+      // Bestehende Charge aktualisieren (Name/Menge könnte sich geändert haben)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('weinausbau') as any)
+        .update({ name: autoName, menge_liter: beh.menge_liter ?? null })
+        .eq('id', beh.weinausbau_id)
+    } else {
+      // Neue Charge für diesen Behälter anlegen
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: neuWA } = await (supabase.from('weinausbau') as any)
+        .insert({
+          tenant_id:   tenantId,
+          name:        autoName,
+          jahrgang:    jgJahr,
+          rebsorte:    dominantRebsorte,
+          menge_liter: beh.menge_liter ?? null,
+          status:      'gaerung',
+          behaelter_id: beh.behaelter_id,
+          aktiv:       true,
+        })
+        .select('id').single()
+      if (neuWA) {
+        // Rückverknüpfung: pressung_behaelter.weinausbau_id setzen
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.from('pressung_behaelter') as any)
+          .update({ weinausbau_id: (neuWA as AR).id })
+          .eq('pressung_id', pressId)
+          .eq('behaelter_id', beh.behaelter_id)
+      }
+    }
   }
 
   revalidatePath(`/erntemeldung/${jahrgangId}`)
+  revalidatePath('/kellerbuch')
 }
 
 export async function deletePressung(id: string, jahrgangId: string) {
   const supabase = await createSupabaseServerClient()
+  // Auto-erstellte Weinausbau-Chargen mitlöschen
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: behRows } = await (supabase.from('pressung_behaelter') as any)
+    .select('weinausbau_id').eq('pressung_id', id)
+  const waIds = ((behRows ?? []) as AR[]).map((b: AR) => b.weinausbau_id).filter(Boolean)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (waIds.length > 0) await (supabase.from('weinausbau') as any).delete().in('id', waIds)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase.from('pressungen') as any).delete().eq('id', id)
   revalidatePath(`/erntemeldung/${jahrgangId}`)
+  revalidatePath('/kellerbuch')
 }
