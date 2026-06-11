@@ -40,11 +40,12 @@ export default async function ReportsPage() {
 
   // ── Lagerbestand ─────────────────────────────────────────────────────────
   const { data: lagerRaw } = await (supabase.from('fuellungen') as any)
-    .select('id, name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto, aktiv')
+    .select('id, name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv')
     .eq('aktiv', true).order('bestand_flaschen', { ascending: false })
   const lager = (lagerRaw ?? []) as R[]
+  // Lagerwert nach Einstandspreis (konsistent mit /weinhandel)
   const lagerWert = lager.reduce((s: number, f: R) =>
-    s + (Number(f.bestand_flaschen) || 0) * (Number(f.vk_preis_brutto) || 0), 0)
+    s + (Number(f.bestand_flaschen) || 0) * (Number(f.einstandspreis) || 0), 0)
 
   // ── Behandlungsübersicht (aktuelles Jahr) ─────────────────────────────────
   const { data: behandlungenRaw } = await (supabase.from('behandlungen') as any)

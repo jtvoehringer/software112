@@ -203,7 +203,7 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
                 <p className="text-xl font-bold text-s112-teal mt-1 tabular-nums">{lager.reduce((s,f)=>s+(f.bestand_flaschen||0),0).toLocaleString('de-AT')}</p>
               </div>
               <div className="bg-s112-bg rounded-xl p-4">
-                <p className="text-xs text-s112-muted">Lagerwert (VK-Preis)</p>
+                <p className="text-xs text-s112-muted">Lagerwert (Einstandspreis)</p>
                 <p className="text-xl font-bold text-s112-teal mt-1 tabular-nums">{eur(lagerWert)}</p>
               </div>
             </div>
@@ -213,8 +213,8 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
                 <th className="text-right px-3 py-2 font-semibold">Jahrgang</th>
                 <th className="text-right px-3 py-2 font-semibold">Größe</th>
                 <th className="text-right px-3 py-2 font-semibold">Bestand</th>
-                <th className="text-right px-3 py-2 font-semibold">VK/Fl.</th>
-                <th className="text-right px-3 py-2 font-semibold">Wert</th>
+                <th className="text-right px-3 py-2 font-semibold">Einstand</th>
+                <th className="text-right px-3 py-2 font-semibold">Lagerwert</th>
               </tr></thead>
               <tbody>
                 {lager.filter(f=>f.bestand_flaschen>0).map((f,i) => (
@@ -223,8 +223,8 @@ export default function ReportsClient({ umsatzMonate, lager, lagerWert, behandlu
                     <td className="px-3 py-2 text-right tabular-nums text-s112-muted">{f.jahrgang??'–'}</td>
                     <td className="px-3 py-2 text-right text-xs text-s112-muted">{ML_LABEL[f.flaschengroesse_ml]??`${f.flaschengroesse_ml} ml`}</td>
                     <td className="px-3 py-2 text-right font-bold tabular-nums">{f.bestand_flaschen}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-s112-muted">{f.vk_preis_brutto!=null?eur(f.vk_preis_brutto):'–'}</td>
-                    <td className="px-3 py-2 text-right tabular-nums font-semibold text-s112-teal">{f.vk_preis_brutto!=null?eur(f.bestand_flaschen*f.vk_preis_brutto):'–'}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-s112-muted">{f.einstandspreis!=null?eur(f.einstandspreis):'–'}</td>
+                    <td className="px-3 py-2 text-right tabular-nums font-semibold text-s112-teal">{f.einstandspreis!=null?eur(f.bestand_flaschen*f.einstandspreis):'–'}</td>
                   </tr>
                 ))}
               </tbody>
