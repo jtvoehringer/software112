@@ -724,4 +724,16 @@ export default function KontakteClient({
             <KontaktKarte
               key={k.id}
               kontakt={k}
-              firmen
+              firmen={firmen}
+              rabattgruppen={rabattgruppen}
+              aktivitaeten={aktivitaetenMap[k.id] ?? []}
+              pipeline={pipelineMap[k.id] ?? []}
+              writeOk={writeOk}
+              sortBy={sortBy}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
