@@ -94,10 +94,10 @@ export default async function WeinhandelPage() {
 
       {/* Flaschenbestand */}
       <section>
-        <h2 className="font-semibold text-gray-800 mb-3">\U0001f37e Flaschenbestand</h2>
+        <h2 className="font-semibold text-gray-800 mb-3">🍾 Flaschenbestand</h2>
         {fuellungen.length === 0 ? (
           <div className="card text-center py-10">
-            <p className="text-3xl mb-2">\U0001f37e</p>
+            <p className="text-3xl mb-2">🍾</p>
             <p className="text-sm text-s112-muted mb-1">Noch keine Füllungen angelegt.</p>
             <p className="text-xs text-s112-muted">
               Füllungen werden im Kellerbuch unter{' '}
@@ -189,7 +189,7 @@ export default async function WeinhandelPage() {
       {/* Tankverkauf */}
       <section>
         <div className="flex items-center gap-3 mb-3">
-          <h2 className="font-semibold text-gray-800">\U0001f69a Tankverkauf (Direktverkauf ab Keller)</h2>
+          <h2 className="font-semibold text-gray-800">🚚 Tankverkauf (Direktverkauf ab Keller)</h2>
           <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Transportschein erforderlich</span>
         </div>
         <p className="text-xs text-s112-muted mb-4">

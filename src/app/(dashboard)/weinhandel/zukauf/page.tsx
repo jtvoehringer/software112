@@ -9,9 +9,9 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 const ART_LABEL: Record<string, string> = {
-  wein:    '\U0001f377 Wein',
-  trauben: '\U0001f347 Trauben',
-  most:    '\U0001f30a Most',
+  wein:    '🍷 Wein',
+  trauben: '🍇 Trauben',
+  most:    '🌊 Most',
 }
 
 export default async function ZukaufPage() {
@@ -45,7 +45,7 @@ export default async function ZukaufPage() {
 
       {posten.length === 0 ? (
         <div className="card p-10 text-center text-s112-muted text-sm">
-          <p className="text-2xl mb-2">\U0001f4e6</p>
+          <p className="text-2xl mb-2">📦</p>
           <p className="font-medium">Noch keine Zukäufe erfasst</p>
           <p className="mt-1">Erfasse zugekauften Wein, Trauben oder Traubenmost.</p>
           {writeOk && (

@@ -471,7 +471,9 @@ function KontaktKarte({
             )}
           </div>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5">
-            {kontakt.firma_name && <span className="text-xs text-s112-muted">🏢 {kontakt.firma_name}</span>}
+            {kontakt.firma_name && kontakt.firma_id
+              ? <Link href={`/crm/firmen/${kontakt.firma_id}`} className="text-xs text-s112-muted hover:text-s112-teal hover:underline">🏢 {kontakt.firma_name}</Link>
+              : kontakt.firma_name && <span className="text-xs text-s112-muted">🏢 {kontakt.firma_name}</span>}
             {kontakt.email && <span className="text-xs text-s112-muted">✉ {kontakt.email}</span>}
             {kontakt.telefon && <span className="text-xs text-s112-muted">📞 {kontakt.telefon_vorwahl ?? '+43'} {kontakt.telefon}</span>}
             {kontakt.mobil && <span className="text-xs text-s112-muted">📱 {kontakt.mobil_vorwahl ?? '+43'} {kontakt.mobil}</span>}
@@ -722,16 +724,4 @@ export default function KontakteClient({
             <KontaktKarte
               key={k.id}
               kontakt={k}
-              firmen={firmen}
-              rabattgruppen={rabattgruppen}
-              aktivitaeten={aktivitaetenMap[k.id] ?? []}
-              pipeline={pipelineMap[k.id] ?? []}
-              writeOk={writeOk}
-              sortBy={sortBy}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
+              firmen

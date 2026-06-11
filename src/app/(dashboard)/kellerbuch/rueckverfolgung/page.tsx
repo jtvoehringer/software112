@@ -55,6 +55,17 @@ export default async function RueckverfolgungPage({
     }
   }
 
+  // ── Autocomplete-Vorschläge: alle Chargen- und Prüfnummern ──────────────
+  const { data: autocompleteRaw } = await (supabase.from('fuellungen') as any)
+    .select('chargennummer, pruefnummer')
+    .eq('aktiv', true)
+    .order('chargennummer', { ascending: false })
+  const autocompleteOptions: string[] = []
+  for (const row of ((autocompleteRaw ?? []) as R[])) {
+    if (row.chargennummer) autocompleteOptions.push(row.chargennummer)
+    if (row.pruefnummer)   autocompleteOptions.push(row.pruefnummer)
+  }
+
   // ── Wenn Füllung gefunden: Kettendaten laden ─────────────────────────────
   let weinausbau: R | null = null
   let pressungen: R[] = []
@@ -145,10 +156,16 @@ export default async function RueckverfolgungPage({
         <input
           name="q"
           defaultValue={q ?? ''}
+          list="rueckverfolgung-vorschlaege"
           placeholder="Chargennummer z.B. CH-2025-001 oder Prüfnummer"
           className="flex-1 border border-s112-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
           autoFocus
         />
+        <datalist id="rueckverfolgung-vorschlaege">
+          {autocompleteOptions.map(opt => (
+            <option key={opt} value={opt} />
+          ))}
+        </datalist>
         <button type="submit"
           className="bg-s112-teal text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90">
           Suchen
