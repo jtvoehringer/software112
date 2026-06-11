@@ -22,7 +22,6 @@ export async function POST(req: NextRequest) {
     full_name:  body.full_name || null,
     telefon:    body.telefon   || null,
     updated_at: new Date().toISOString(),
-    aktualisiert_am: new Date().toISOString(),
   }, { onConflict: 'user_id' })
   if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })

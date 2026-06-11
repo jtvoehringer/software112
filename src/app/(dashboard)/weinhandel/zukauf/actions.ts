@@ -15,8 +15,8 @@ async function getTenantId(): Promise<string> {
   return id
 }
 
-// Hilfsfunktion: Charge in Behälter finden oder neu anlegen
-async function findOrCreateCharge(
+// Hilfsfunktion: Neue Charge pro Zukauf anlegen (kein Merging mit bestehenden Chargen)
+async function createZukaufCharge(
   supabase: any,
   tenantId: string,
   behaelterId: string,
@@ -26,29 +26,6 @@ async function findOrCreateCharge(
   einstandspreisProLiter: number | null,
 ): Promise<string> {
   const name = [rebsorte, jahrgang].filter(Boolean).join(' ') || 'Zukauf'
-
-  // Bestehende Charge mit gleicher Bezeichnung + Jahrgang im Behälter suchen
-  const { data: existing } = await (supabase.from('weinausbau') as any)
-    .select('id, menge_liter')
-    .eq('tenant_id', tenantId)
-    .eq('behaelter_id', behaelterId)
-    .eq('name', name)
-    .eq('aktiv', true)
-    .neq('status', 'abgeschlossen')
-    .limit(1)
-    .single()
-
-  if (existing) {
-    const aktuell = parseFloat((existing as AR).menge_liter ?? '0') || 0
-    const updateData: AR = { menge_liter: aktuell + menge }
-    if (einstandspreisProLiter != null) updateData.einstandspreis_pro_liter = einstandspreisProLiter
-    await (supabase.from('weinausbau') as any)
-      .update(updateData)
-      .eq('id', (existing as AR).id)
-    return (existing as AR).id
-  }
-
-  // Neue Charge anlegen
   const { data: neu, error } = await (supabase.from('weinausbau') as any)
     .insert({
       tenant_id:   tenantId,
@@ -65,6 +42,30 @@ async function findOrCreateCharge(
     .single()
   if (error) throw new Error((error as AR).message)
   return (neu as AR).id
+}
+
+// Hilfsfunktion: Zukauf-Charge bereinigen (deaktivieren wenn keine weiteren Transaktionen)
+async function bereinigCharge(supabase: any, weinausbauId: string): Promise<void> {
+  // Prüfen ob Umzüge oder Füllungen auf diese Charge referenzieren
+  const [{ count: umzugCount }, { count: fuellungCount }] = await Promise.all([
+    (supabase.from('keller_umzuege') as any)
+      .select('id', { count: 'exact', head: true })
+      .or(`von_weinausbau_id.eq.${weinausbauId},nach_weinausbau_id.eq.${weinausbauId}`),
+    (supabase.from('fuellungen') as any)
+      .select('id', { count: 'exact', head: true })
+      .eq('weinausbau_id', weinausbauId),
+  ])
+  if ((umzugCount ?? 0) > 0 || (fuellungCount ?? 0) > 0) {
+    // Bereits verwendet → menge auf 0 setzen statt deaktivieren
+    await (supabase.from('weinausbau') as any)
+      .update({ menge_liter: 0 })
+      .eq('id', weinausbauId)
+  } else {
+    // Keine weiteren Transaktionen → deaktivieren
+    await (supabase.from('weinausbau') as any)
+      .update({ aktiv: false })
+      .eq('id', weinausbauId)
+  }
 }
 
 export async function createZukauf(formData: FormData) {
@@ -86,10 +87,10 @@ export async function createZukauf(formData: FormData) {
 
   if (menge <= 0) throw new Error('Menge muss größer als 0 sein')
 
-  // Wein/Most → Charge in Behälter anlegen oder erhöhen
+  // Wein/Most → eigene Charge pro Zukauf anlegen
   let zielWeinausbauId: string | null = null
   if ((art === 'wein' || art === 'most') && zielBehaelterId) {
-    zielWeinausbauId = await findOrCreateCharge(
+    zielWeinausbauId = await createZukaufCharge(
       supabase, tenantId, zielBehaelterId, rebsorte, jahrgang, menge, einstandspreisLiter,
     )
   }
@@ -147,12 +148,17 @@ export async function updateZukauf(id: string, formData: FormData) {
 
   let zielWeinausbauId: string | null = altWeinausbauId
 
-  // Wenn Behälter neu oder geändert: neue/bestehende Charge verwenden
+  // Wenn Behälter neu oder geändert: neue Charge anlegen (alte ggf. bereinigen)
   if ((art === 'wein' || art === 'most') && zielBehaelterId) {
-    zielWeinausbauId = await findOrCreateCharge(
+    // Alte Charge bereinigen falls Behälter gewechselt
+    if (altWeinausbauId) {
+      await bereinigCharge(supabase, altWeinausbauId)
+    }
+    zielWeinausbauId = await createZukaufCharge(
       supabase, tenantId, zielBehaelterId, rebsorte, jahrgang, menge, einstandspreisLiter,
     )
   } else if (!(art === 'wein' || art === 'most')) {
+    if (altWeinausbauId) await bereinigCharge(supabase, altWeinausbauId)
     zielWeinausbauId = null
   }
 
@@ -182,12 +188,25 @@ export async function updateZukauf(id: string, formData: FormData) {
 export async function deleteZukauf(id: string) {
   const supabase = await createSupabaseServerClient()
 
+  // Zuerst verknüpfte Charge laden
+  const { data: zukauf } = await (supabase.from('zukauf_posten') as any)
+    .select('ziel_weinausbau_id')
+    .eq('id', id)
+    .single()
+  const weinausbauId: string | null = (zukauf as AR | null)?.ziel_weinausbau_id ?? null
+
+  // Zukauf deaktivieren
   const { error } = await (supabase.from('zukauf_posten') as any)
     .update({ aktiv: false })
     .eq('id', id)
-
   if (error) throw new Error((error as AR).message)
+
+  // Zugehörige Charge bereinigen
+  if (weinausbauId) {
+    await bereinigCharge(supabase, weinausbauId)
+  }
 
   revalidatePath('/weinhandel/zukauf')
   revalidatePath('/weinhandel')
+  revalidatePath('/kellerbuch')
 }

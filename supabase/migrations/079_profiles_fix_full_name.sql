@@ -16,12 +16,12 @@ BEGIN
   END IF;
 END $$;
 
--- updated_at Alias sicherstellen (Code nutzt updated_at, Tabelle hat aktualisiert_am)
+-- updated_at Alias sicherstellen (Code nutzt updated_at)
 ALTER TABLE profiles
   ADD COLUMN IF NOT EXISTS updated_at timestamptz;
 
 -- Bestehende Zeilen befüllen
-UPDATE profiles SET updated_at = aktualisiert_am WHERE updated_at IS NULL;
+UPDATE profiles SET updated_at = now() WHERE updated_at IS NULL;
 
 -- Notify PostgREST: Schema-Cache neu laden
 NOTIFY pgrst, 'reload schema';
