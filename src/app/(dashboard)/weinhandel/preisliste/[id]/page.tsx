@@ -235,7 +235,7 @@ export default async function PreislisteDetailPage({ params }: { params: Promise
                     <option key={f.id} value={f.id}>
                       {f.name}{f.jahrgang ? ` (${f.jahrgang})` : ''}
                       {f.flaschengroesse_ml ? ` · ${FLASCHEN_LABEL[f.flaschengroesse_ml] ?? f.flaschengroesse_ml + ' ml'}` : ''}
-                      {f.vk_preis_brutto ? ` · ${Number(f.vk_preis_brutto).toFixed(2)} €` : ''}
+                      {f.vk_preis_brutto ? ` · ${Number(f.vk_preis_brutto).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €` : ''}
                     </option>
                   ))}
                 </select>

@@ -65,7 +65,7 @@ export default function KellerAuswertungenClient({
         standort:   b.standort ?? '',
         kapazitaet: kapazitaet ?? '',
         inhalt:     liter,
-        auslastung: pct !== null ? pct.toFixed(1) : '',
+        auslastung: pct !== null ? pct.toFixed(1).replace('.', ',') : '',
       }
     })
     exportCSV(rows, [
@@ -167,7 +167,7 @@ export default function KellerAuswertungenClient({
           <p className="text-2xl font-bold text-s112-teal">{gesamtLiter.toLocaleString('de-AT', { maximumFractionDigits: 0 })}</p>
           <p className="text-xs text-s112-muted mt-1">Liter im Ausbau</p>
           {gesamtKapazitaet > 0 && (
-            <p className="text-xs text-gray-400 mt-0.5">{gesamtAuslastung.toFixed(0)} % Auslastung</p>
+            <p className="text-xs text-gray-400 mt-0.5">{Math.round(gesamtAuslastung)} % Auslastung</p>
           )}
         </div>
         <div className="card text-center p-4">
@@ -229,7 +229,7 @@ export default function KellerAuswertungenClient({
                               style={{ width: `${pct}%` }}
                             />
                           </div>
-                          <span className="text-xs tabular-nums text-gray-500 w-9 text-right">{pct.toFixed(0)} %</span>
+                          <span className="text-xs tabular-nums text-gray-500 w-9 text-right">{Math.round(pct)} %</span>
                         </div>
                       ) : (
                         <span className="text-xs text-gray-300">–</span>

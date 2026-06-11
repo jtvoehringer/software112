@@ -4,10 +4,27 @@ export const dynamic = 'force-dynamic'
 import Link from 'next/link'
 import WeingartenForm from '@/components/weingarten/WeingartenForm'
 import { createWeingarten } from '../actions'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 export const metadata: Metadata = { title: 'Neuer Weingarten – software:112' }
 
-export default function NeuePage() {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AR = Record<string, any>
+
+export default async function NeuePage() {
+  const supabase = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  let lagen: { id: string; name: string }[] = []
+  if (membership?.tenantId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (supabase.from('lagen') as any)
+      .select('id, name')
+      .eq('tenant_id', membership.tenantId)
+      .order('name')
+    lagen = ((data ?? []) as AR[]).map(l => ({ id: l.id as string, name: l.name as string }))
+  }
+
   return (
     <div className="max-w-2xl">
       {/* Breadcrumb */}
@@ -19,7 +36,7 @@ export default function NeuePage() {
 
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Neuer Weingarten</h1>
 
-      <WeingartenForm action={createWeingarten} />
+      <WeingartenForm action={createWeingarten} lagen={lagen} />
     </div>
   )
 }

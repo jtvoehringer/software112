@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { deleteLage, assignWeingartenToLage } from './actions'
 import type { Lage, WeingartenRow } from './page'
+import { fmtHa } from '@/lib/format'
 
 function ChevronIcon({ open }: { open: boolean }) {
   return (
@@ -59,7 +60,7 @@ function LageKarte({
             {lage.weinbaugebiet && <span className="ml-2 text-xs text-gray-400">{lage.weinbaugebiet}</span>}
           </div>
           <span className="text-xs text-s112-muted bg-white px-2 py-0.5 rounded-full border border-s112-border">
-            {weingaerten.length} WG · {haTotal.toFixed(2)} ha
+            {weingaerten.length} WG · {fmtHa(haTotal, 2)} ha
           </span>
         </div>
         <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
@@ -95,7 +96,7 @@ function LageKarte({
                     <td className="py-1.5 font-medium text-gray-800">{w.name}</td>
                     <td className="py-1.5 text-s112-muted">{w.rebsorte ?? '–'}</td>
                     <td className="py-1.5 text-right tabular-nums">
-                      {w.flaeche_ha?.toFixed(4) ?? '–'}
+                      {fmtHa(w.flaeche_ha)}
                     </td>
                     {writeOk && (
                       <td className="py-1.5 text-right">

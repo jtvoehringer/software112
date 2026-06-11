@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import type { Jahrgang } from './page'
+import { fmtZahl, fmtProzent } from '@/lib/format'
 
 const QUALITAET_LABEL: Record<string, string> = {
   sehr_gut: '⭐⭐⭐ Sehr gut', gut: '⭐⭐ Gut',
@@ -86,13 +87,13 @@ export default function JahrgaengeClient({
             <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-s112-border">
               <div>
                 <p className="text-lg font-bold text-gray-800 tabular-nums">
-                  {j.gesamtmenge_kg > 0 ? `${(j.gesamtmenge_kg / 1000).toFixed(2)} t` : '–'}
+                  {j.gesamtmenge_kg > 0 ? `${fmtZahl(j.gesamtmenge_kg / 1000, 2)} t` : '–'}
                 </p>
                 <p className="text-xs text-s112-muted">Ernte gesamt</p>
               </div>
               <div>
                 <p className="text-lg font-bold text-gray-800 tabular-nums">
-                  {j.gesamtmenge_kg > 0 ? `${(j.gesamtmenge_kg / 130).toFixed(1)} hl` : '–'}
+                  {j.gesamtmenge_kg > 0 ? `${fmtProzent(j.gesamtmenge_kg / 130)} hl` : '–'}
                 </p>
                 <p className="text-xs text-s112-muted">Most (≈)</p>
               </div>

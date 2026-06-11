@@ -45,6 +45,8 @@ export default async function BerichtePage() {
   const { data: rawB } = await (supabase.from('behandlungen') as any)
     .select(`
       id, datum, datum_bis, art, menge_gesamt, menge_einheit, notizen,
+      weingarten_id,
+      weingarten:weingarten_id(id, name, lage_id, lagen:lage_id(name)),
       psm:psm_id(
         name, cu_gehalt_pct, wirkstoffgehalt_pct, wirkstoff,
         max_aufwand_kg_ha, max_anwendungen, wartezeit_tage, oeko_zugelassen
@@ -80,30 +82,49 @@ export default async function BerichtePage() {
     bgByBeh.set(bg.behandlung_id, arr)
   }
 
-  const behandlungen: BehandlungReport[] = ((rawB ?? []) as AR[]).map(b => ({
-    id:             b.id,
-    datum:          b.datum,
-    datum_bis:      b.datum_bis ?? null,
-    art:            b.art ?? 'spritzung',
-    menge_gesamt:   b.menge_gesamt ?? null,
-    menge_einheit:  b.menge_einheit ?? null,
-    psm_id:              b.psm?.id ?? null,
-    psm_name:            b.psm?.name ?? null,
-    // cu_gehalt_pct: eigenes Feld; Fallback auf wirkstoffgehalt_pct bei Kupferpräparaten
-    cu_gehalt_pct:       (b.psm?.cu_gehalt_pct && b.psm.cu_gehalt_pct > 0)
-                           ? b.psm.cu_gehalt_pct
-                           : (b.psm?.wirkstoff?.toLowerCase().includes('kupfer') && b.psm?.wirkstoffgehalt_pct > 0)
-                             ? b.psm.wirkstoffgehalt_pct
-                             : null,
-    wirkstoffgehalt_pct: b.psm?.wirkstoffgehalt_pct ?? null,
-    wirkstoff:           b.psm?.wirkstoff ?? null,
-    max_aufwand_kg_ha:   b.psm?.max_aufwand_kg_ha ?? null,
-    max_anwendungen:     b.psm?.max_anwendungen ?? null,
-    wartezeit_tage:      b.psm?.wartezeit_tage ?? null,
-    oeko_zugelassen:     b.psm?.oeko_zugelassen ?? false,
-    notizen:             b.notizen ?? null,
-    grundstuecke:   bgByBeh.get(b.id) ?? [],
-  }))
+  const behandlungen: BehandlungReport[] = ((rawB ?? []) as AR[]).map(b => {
+    let grundstuecke = bgByBeh.get(b.id) ?? []
+
+    // Fallback: Behandlung hat weingarten_id, aber keine behandlung_grundstuecke-Einträge
+    // (z.B. weil der Weingarten zum Zeitpunkt der Erfassung keine aktiven Grundstücke hatte)
+    if (grundstuecke.length === 0 && b.weingarten_id && b.weingarten) {
+      const wg = b.weingarten as AR
+      grundstuecke = [{
+        grundstueck_id:  '',
+        flaeche_ha:      0,
+        gst_nr:          '–',
+        weingarten_id:   wg.id ?? b.weingarten_id,
+        weingarten_name: wg.name ?? '–',
+        lage_id:         wg.lage_id ?? null,
+        lage_name:       (wg.lagen as AR | null)?.name ?? null,
+      }]
+    }
+
+    return {
+      id:             b.id,
+      datum:          b.datum,
+      datum_bis:      b.datum_bis ?? null,
+      art:            b.art ?? 'spritzung',
+      menge_gesamt:   b.menge_gesamt ?? null,
+      menge_einheit:  b.menge_einheit ?? null,
+      psm_id:              b.psm?.id ?? null,
+      psm_name:            b.psm?.name ?? null,
+      // cu_gehalt_pct: eigenes Feld; Fallback auf wirkstoffgehalt_pct bei Kupferpräparaten
+      cu_gehalt_pct:       (b.psm?.cu_gehalt_pct && b.psm.cu_gehalt_pct > 0)
+                             ? b.psm.cu_gehalt_pct
+                             : (b.psm?.wirkstoff?.toLowerCase().includes('kupfer') && b.psm?.wirkstoffgehalt_pct > 0)
+                               ? b.psm.wirkstoffgehalt_pct
+                               : null,
+      wirkstoffgehalt_pct: b.psm?.wirkstoffgehalt_pct ?? null,
+      wirkstoff:           b.psm?.wirkstoff ?? null,
+      max_aufwand_kg_ha:   b.psm?.max_aufwand_kg_ha ?? null,
+      max_anwendungen:     b.psm?.max_anwendungen ?? null,
+      wartezeit_tage:      b.psm?.wartezeit_tage ?? null,
+      oeko_zugelassen:     b.psm?.oeko_zugelassen ?? false,
+      notizen:             b.notizen ?? null,
+      grundstuecke,
+    }
+  })
 
   return (
     <div>

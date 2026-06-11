@@ -65,7 +65,7 @@ function MultiSelect({ items, selected, onToggle, splitModus, setSplitModus, ant
       </div>
       {selected.length > 1 && splitModus === 'prozent' && (
         <p className={`text-xs mt-2 ${Math.abs(total-100)<0.5 ? 'text-green-600' : 'text-red-500'}`}>
-          Summe: {total.toFixed(1)}% {Math.abs(total-100)<0.5 ? '✓' : '(muss 100% ergeben)'}
+          Summe: {total.toLocaleString('de-AT', { maximumFractionDigits: 1 })}% {Math.abs(total-100)<0.5 ? '✓' : '(muss 100% ergeben)'}
         </p>
       )}
       {selected.length === 0 && <p className="text-xs text-s112-muted mt-1">Keine Auswahl = gilt für alle</p>}

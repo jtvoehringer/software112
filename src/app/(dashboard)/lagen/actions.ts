@@ -57,9 +57,19 @@ export async function deleteLage(id: string) {
 
 export async function assignWeingartenToLage(weingartenId: string, lageId: string | null) {
   const supabase = await createSupabaseServerClient()
+
+  // ried-Text synchron halten: bei Zuweisung Lage-Name setzen, bei Entfernung löschen
+  let riedName: string | null = null
+  if (lageId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: lage } = await (supabase.from('lagen') as any)
+      .select('name').eq('id', lageId).maybeSingle()
+    riedName = (lage as AR | null)?.name ?? null
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('weingarten') as any)
-    .update({ lage_id: lageId })
+    .update({ lage_id: lageId, ried: riedName })
     .eq('id', weingartenId)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/lagen')

@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite, canAdmin } from '@/lib/auth/roles'
+import { getCurrentUserRole, getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -10,6 +10,9 @@ import GrundstueckePanel, { type GST } from '../GrundstueckePanel'
 import { updateWeingarten } from '../actions'
 
 export const metadata: Metadata = { title: 'Weingarten bearbeiten – software:112' }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AR = Record<string, any>
 
 interface Props {
   params: Promise<{ id: string }>
@@ -25,6 +28,7 @@ export default async function WeingartenEditPage({ params }: Props) {
   const { id } = await params
   const supabase = await createSupabaseServerClient()
   const role = await getCurrentUserRole()
+  const membership = await getCurrentMembership()
   const writeOk = canWrite(role)
   const adminOk = canAdmin(role)
 
@@ -36,6 +40,17 @@ export default async function WeingartenEditPage({ params }: Props) {
     .limit(1)
   const weingarten = ((rows as WeingartenRow[] | null)?.[0]) ?? null
   if (!weingarten) notFound()
+
+  // Lagen für Dropdown
+  let lagen: { id: string; name: string }[] = []
+  if (membership?.tenantId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: lagenData } = await (supabase.from('lagen') as any)
+      .select('id, name')
+      .eq('tenant_id', membership.tenantId)
+      .order('name')
+    lagen = ((lagenData ?? []) as AR[]).map(l => ({ id: l.id as string, name: l.name as string }))
+  }
 
   // Grundstücke
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,7 +82,7 @@ export default async function WeingartenEditPage({ params }: Props) {
       {/* Stammdaten-Formular */}
       <div className="card mb-6">
         <h2 className="text-base font-semibold text-gray-800 mb-4">Stammdaten</h2>
-        <WeingartenForm weingarten={weingarten} action={action} />
+        <WeingartenForm weingarten={weingarten} action={action} lagen={lagen} />
       </div>
 
       {/* Grundstücke */}

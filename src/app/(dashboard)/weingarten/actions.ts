@@ -17,15 +17,28 @@ async function getTenantId(): Promise<string | null> {
   return (data as AnyRecord | null)?.tenant_id ?? null
 }
 
+async function resolveRied(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, lageId: string | null): Promise<string | null> {
+  if (!lageId) return null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (supabase.from('lagen') as any).select('name').eq('id', lageId).maybeSingle()
+  return (data as AnyRecord | null)?.name ?? null
+}
+
 export async function createWeingarten(formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   if (!tenantId) throw new Error('Kein Betrieb gefunden')
 
+  // lage_id kommt vom Dropdown (neu), ried vom Freitext-Fallback (ohne Lagen)
+  const lageId = (formData.get('lage_id') as string) || null
+  const riedText = (formData.get('ried') as string) || null
+  const riedName = lageId ? await resolveRied(supabase, lageId) : riedText
+
   const payload: AnyRecord = {
     tenant_id:       tenantId,
     name:            formData.get('name') as string,
-    ried:            (formData.get('ried') as string) || null,
+    ried:            riedName,
+    lage_id:         lageId,
     rebsorte:        (formData.get('rebsorte') as string) || null,
     flaeche_ha:      formData.get('flaeche_ha') ? Number(formData.get('flaeche_ha')) : null,
     pflanzjahr:      formData.get('pflanzjahr') ? Number(formData.get('pflanzjahr')) : null,
@@ -44,9 +57,14 @@ export async function createWeingarten(formData: FormData) {
 export async function updateWeingarten(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
 
+  const lageId = (formData.get('lage_id') as string) || null
+  const riedText = (formData.get('ried') as string) || null
+  const riedName = lageId ? await resolveRied(supabase, lageId) : riedText
+
   const payload: AnyRecord = {
     name:            formData.get('name') as string,
-    ried:            (formData.get('ried') as string) || null,
+    ried:            riedName,
+    lage_id:         lageId,
     rebsorte:        (formData.get('rebsorte') as string) || null,
     flaeche_ha:      formData.get('flaeche_ha') ? Number(formData.get('flaeche_ha')) : null,
     pflanzjahr:      formData.get('pflanzjahr') ? Number(formData.get('pflanzjahr')) : null,

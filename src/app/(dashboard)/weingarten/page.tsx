@@ -3,6 +3,7 @@ import { getCurrentUserRole, canWrite, canAdmin } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import WeingartenBaum, { type WRow, type GSTRow } from './WeingartenBaum'
+import { fmtHa } from '@/lib/format'
 
 export const metadata: Metadata = { title: 'Weingarten – software:112' }
 
@@ -71,7 +72,7 @@ export default async function WeingartenPage() {
           <p className="text-xs text-s112-muted mt-1">Grundstücke</p>
         </div>
         <div className="card text-center">
-          <p className="text-3xl font-bold text-s112-teal">{gesamtHa.toFixed(2)}</p>
+          <p className="text-3xl font-bold text-s112-teal">{fmtHa(gesamtHa, 2)}</p>
           <p className="text-xs text-s112-muted mt-1">Hektar gesamt</p>
         </div>
       </div>

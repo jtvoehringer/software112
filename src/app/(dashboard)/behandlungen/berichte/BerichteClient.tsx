@@ -16,10 +16,10 @@ function fmtDate(d: string | null) {
   return `${dd}.${m}.${y}`
 }
 function fmtNum(n: number, dec = 3) {
-  return n.toFixed(dec).replace(/\.?0+$/, '')
+  return n.toLocaleString('de-AT', { maximumFractionDigits: dec })
 }
 function fmtHa(n: number) {
-  return n.toFixed(4).replace(/\.?0+$/, '') + ' ha'
+  return n.toLocaleString('de-AT', { maximumFractionDigits: 4 }) + ' ha'
 }
 
 // ─── Pro-Weingarten Tab ───────────────────────────────────────────────────────
@@ -323,8 +323,8 @@ function TabCu({ behandlungen }: { behandlungen: BehandlungReport[] }) {
             />
           </div>
           <p className="text-xs text-blue-700 mt-1.5">
-            Gesamteintrag: <strong>{(cu5JahreG / 1000).toFixed(2)} kg Cu</strong> über {jahre.length} Jahre
-            · Ø {cu5JahreHa > 0 ? ((cu5JahreG / cu5JahreHa) / 1000).toFixed(3) : '–'} kg Cu/ha
+            Gesamteintrag: <strong>{fmtNum(cu5JahreG / 1000, 2)} kg Cu</strong> über {jahre.length} Jahre
+            · Ø {cu5JahreHa > 0 ? fmtNum((cu5JahreG / cu5JahreHa) / 1000, 3) : '–'} kg Cu/ha
           </p>
         </div>
       )}
@@ -351,7 +351,7 @@ function TabCu({ behandlungen }: { behandlungen: BehandlungReport[] }) {
               <div className="flex items-center gap-2">
                 <span className="text-xs text-s112-muted">EU-Bio: 4 kg/ha/Jahr</span>
                 <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${badgeColor}`}>
-                  {(cuProHa / 1000).toFixed(3)} kg Cu/ha
+                  {fmtNum(cuProHa / 1000, 3)} kg Cu/ha
                 </span>
               </div>
             </div>
@@ -363,7 +363,7 @@ function TabCu({ behandlungen }: { behandlungen: BehandlungReport[] }) {
                 {/* Marker bei 80% */}
                 <div className="absolute top-0 bottom-0 border-l-2 border-dashed border-amber-400 opacity-60" style={{ left: '80%' }} />
                 <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-gray-700 mix-blend-multiply">
-                  {pct.toFixed(1)} % des Grenzwerts
+                  {pct.toLocaleString('de-AT', { maximumFractionDigits: 1 })} % des Grenzwerts
                 </div>
               </div>
               <div className="flex justify-between text-xs text-s112-muted mt-1">
@@ -374,7 +374,7 @@ function TabCu({ behandlungen }: { behandlungen: BehandlungReport[] }) {
             </div>
 
             <p className="text-xs text-s112-muted">
-              Gesamteintrag: <strong>{(data.cuG / 1000).toFixed(2)} kg Cu</strong>
+              Gesamteintrag: <strong>{fmtNum(data.cuG / 1000, 2)} kg Cu</strong>
               {' '}auf <strong>{fmtHa(data.ha)}</strong> (Summe behandelter Flächen)
             </p>
 
@@ -404,7 +404,7 @@ function TabCu({ behandlungen }: { behandlungen: BehandlungReport[] }) {
                           {fmtNum(e.menge, 2)} {e.einheit}
                         </td>
                         <td className="py-2 pr-3 text-right tabular-nums font-semibold text-blue-600">
-                          {(e.cuG / 1000).toFixed(3)} kg
+                          {fmtNum(e.cuG / 1000, 3)} kg
                         </td>
                         <td className={`py-2 text-right tabular-nums text-xs ${!anwOk ? 'text-red-600 font-semibold' : 'text-s112-muted'}`}>
                           {e.max_anwendungen ? `${anwBisher} / ${e.max_anwendungen}` : `${anwBisher} / –`}
@@ -418,7 +418,7 @@ function TabCu({ behandlungen }: { behandlungen: BehandlungReport[] }) {
                   <tr className="border-t-2 border-s112-border bg-s112-bg/40">
                     <td colSpan={4} className="py-2 pr-3 text-xs font-semibold text-gray-600">Summe {y}</td>
                     <td className="py-2 pr-3 text-right tabular-nums font-bold text-blue-700">
-                      {(data.cuG / 1000).toFixed(3)} kg Cu
+                      {fmtNum(data.cuG / 1000, 3)} kg Cu
                     </td>
                     <td />
                   </tr>

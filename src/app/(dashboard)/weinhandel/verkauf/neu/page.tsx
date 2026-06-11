@@ -203,7 +203,7 @@ function SonstigesKombo({ artikel, name, onNameChange, onArtikelSelect, onSpeich
               className="w-full text-left px-3 py-2 text-sm hover:bg-s112-teal/10 flex items-center justify-between gap-2">
               <span className="font-medium text-gray-800 truncate">{a.name}</span>
               <span className="text-xs text-s112-muted flex-shrink-0">
-                {a.einheit}{a.default_preis != null ? ` · € ${Number(a.default_preis).toFixed(2)}` : ''}
+                {a.einheit}{a.default_preis != null ? ` · € ${Number(a.default_preis).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}
               </span>
             </button>
           )) : (

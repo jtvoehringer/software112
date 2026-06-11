@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { deactivateWeingarten, deleteWeingarten } from './actions'
+import { fmtHa } from '@/lib/format'
 
 const BEWIRTSCHAFTUNG_LABELS: Record<string, string> = {
   konventionell: 'Konventionell',
@@ -105,7 +106,7 @@ export default function WeingartenTable({
               <td className="px-4 py-3 text-s112-muted">{w.ried ?? '–'}</td>
               <td className="px-4 py-3">{w.rebsorte ?? '–'}</td>
               <td className="px-4 py-3 text-right tabular-nums">
-                {w.flaeche_ha != null ? w.flaeche_ha.toFixed(4) : '–'}
+                {fmtHa(w.flaeche_ha)}
               </td>
               <td className="px-4 py-3">
                 {w.bewirtschaftung ? (

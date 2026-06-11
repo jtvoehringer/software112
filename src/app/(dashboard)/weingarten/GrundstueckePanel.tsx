@@ -2,6 +2,7 @@
 
 import React, { useState, useTransition } from 'react'
 import { createGrundstueck, updateGrundstueck, deleteGrundstueck } from './actions'
+import { fmtHa } from '@/lib/format'
 
 export type GST = {
   id: string; weingarten_id: string; gst_nr: string
@@ -145,7 +146,7 @@ export default function GrundstueckePanel({
         <div className="flex items-center gap-3">
           <h2 className="text-base font-semibold text-gray-800">Grundstücke</h2>
           <span className="text-xs text-s112-muted">
-            {grundstuecke.length} GST · {aktiv} aktiv · {totalHa.toFixed(4)} ha
+            {grundstuecke.length} GST · {aktiv} aktiv · {fmtHa(totalHa)} ha
           </span>
         </div>
         {writeOk && !showForm && (
@@ -188,7 +189,7 @@ export default function GrundstueckePanel({
                     <td className="px-3 py-2 text-s112-muted">{g.rebsorte ?? '–'}</td>
                     <td className="px-3 py-2 text-xs text-s112-muted">{g.katastralgemeinde ?? '–'}</td>
                     <td className="px-3 py-2 text-right tabular-nums">
-                      {g.flaeche_ha?.toFixed(4) ?? '–'}
+                      {fmtHa(g.flaeche_ha)}
                     </td>
                     <td className="px-3 py-2 text-right text-s112-muted">{g.pflanzjahr ?? '–'}</td>
                     <td className="px-3 py-2 text-center"><StatusBadge status={g.status} /></td>

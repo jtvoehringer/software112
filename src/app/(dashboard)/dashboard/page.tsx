@@ -101,7 +101,7 @@ export default async function DashboardPage() {
   const naechsteAkt     = (naechsteAktivitaetenRaw ?? []) as R[]
 
   const umsatzDelta = vormonUmsatz > 0
-    ? ((monatUmsatz - vormonUmsatz) / vormonUmsatz * 100).toFixed(0)
+    ? String(Math.round((monatUmsatz - vormonUmsatz) / vormonUmsatz * 100))
     : null
 
   function kundenName(p: R): string {

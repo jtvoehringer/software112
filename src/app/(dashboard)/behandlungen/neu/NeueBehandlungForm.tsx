@@ -39,7 +39,7 @@ const ART_OPTIONS = [
 const MENGE_EINHEITEN = ['kg', 'l', 'g', 'ml']
 
 function fmtHa(n: number) {
-  return n.toFixed(4).replace(/\.?0+$/, '') + ' ha'
+  return n.toLocaleString('de-AT', { maximumFractionDigits: 4 }) + ' ha'
 }
 
 export default function NeueBehandlungForm({
@@ -66,12 +66,12 @@ export default function NeueBehandlungForm({
 
   // Aufwand pro ha (live berechnet)
   const aufwandProHa = mengeGesamt && totalHaAktiv > 0
-    ? (parseFloat(mengeGesamt) / totalHaAktiv).toFixed(3) + ' ' + mengeEinheit + '/ha'
+    ? (parseFloat(mengeGesamt) / totalHaAktiv).toLocaleString('de-AT', { maximumFractionDigits: 3 }) + ' ' + mengeEinheit + '/ha'
     : null
 
   // Cu-Beitrag (live berechnet, nur für kg)
   const cuBeitragG = selectedPsm?.cu_gehalt_pct && mengeGesamt && mengeEinheit === 'kg'
-    ? (parseFloat(mengeGesamt) * 1000 * ((selectedPsm.cu_gehalt_pct) / 100)).toFixed(0) + ' g Cu'
+    ? Math.round(parseFloat(mengeGesamt) * 1000 * ((selectedPsm.cu_gehalt_pct) / 100)).toLocaleString('de-AT') + ' g Cu'
     : null
 
   // Weingärten nach Ried gruppieren

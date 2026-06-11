@@ -14,6 +14,7 @@ type WeingartenRow = {
   id: string
   name: string
   ried: string | null
+  lage_id: string | null
   rebsorte: string | null
   flaeche_ha: number | null
   pflanzjahr: number | null
@@ -25,6 +26,7 @@ type WeingartenRow = {
 interface Props {
   weingarten?: WeingartenRow
   action: (formData: FormData) => Promise<void>
+  lagen?: { id: string; name: string }[]
 }
 
 // Dezimalzahl: Komma → Punkt für Datenbankkompatibilität
@@ -32,7 +34,7 @@ function normalizeDecimal(value: string): string {
   return value.replace(',', '.')
 }
 
-export default function WeingartenForm({ weingarten, action }: Props) {
+export default function WeingartenForm({ weingarten, action, lagen }: Props) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -87,13 +89,26 @@ export default function WeingartenForm({ weingarten, action }: Props) {
           </div>
           <div>
             <label className="form-label">Ried</label>
-            <input
-              name="ried"
-              type="text"
-              defaultValue={weingarten?.ried ?? ''}
-              className="form-input"
-              placeholder="z.B. Kremser Schmidt"
-            />
+            {lagen && lagen.length > 0 ? (
+              <select
+                name="lage_id"
+                defaultValue={weingarten?.lage_id ?? ''}
+                className="form-input"
+              >
+                <option value="">– keine Ried –</option>
+                {lagen.map(l => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                name="ried"
+                type="text"
+                defaultValue={weingarten?.ried ?? ''}
+                className="form-input"
+                placeholder="z.B. Kremser Schmidt"
+              />
+            )}
           </div>
         </div>
 

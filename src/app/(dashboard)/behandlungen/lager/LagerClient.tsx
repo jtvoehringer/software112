@@ -20,7 +20,7 @@ function fmtDate(d: string) {
   return `${dd}.${m}.${y}`
 }
 function fmtMenge(m: number, einheit: string | null) {
-  const abs = Math.abs(m).toFixed(3).replace(/\.?0+$/, '')
+  const abs = Math.abs(m).toLocaleString('de-AT', { maximumFractionDigits: 3 })
   return `${m < 0 ? '–' : '+'}${abs} ${einheit ?? ''}`
 }
 
@@ -181,7 +181,7 @@ function PsmKarte({
         </div>
         <div className="text-right">
           <p className={`text-2xl font-bold tabular-nums ${bestandColor}`}>
-            {bestand.toFixed(3).replace(/\.?0+$/, '')} {einheit}
+            {bestand.toLocaleString('de-AT', { maximumFractionDigits: 3 })} {einheit}
           </p>
           <p className="text-xs text-s112-muted">Aktueller Bestand</p>
         </div>
@@ -191,19 +191,19 @@ function PsmKarte({
       <div className="grid grid-cols-3 gap-3 mb-4 text-center">
         <div className="bg-green-50 rounded-lg p-2">
           <p className="text-sm font-semibold text-green-700 tabular-nums">
-            +{zugang.toFixed(3).replace(/\.?0+$/, '')} {einheit}
+            +{zugang.toLocaleString('de-AT', { maximumFractionDigits: 3 })} {einheit}
           </p>
           <p className="text-xs text-green-600">Zugänge</p>
         </div>
         <div className="bg-blue-50 rounded-lg p-2">
           <p className="text-sm font-semibold text-blue-700 tabular-nums">
-            –{psm.verbrauch_gesamt.toFixed(3).replace(/\.?0+$/, '')} {psm.einheit_behandlung ?? einheit}
+            –{psm.verbrauch_gesamt.toLocaleString('de-AT', { maximumFractionDigits: 3 })} {psm.einheit_behandlung ?? einheit}
           </p>
           <p className="text-xs text-blue-600">Verbrauch (Behandlungen)</p>
         </div>
         <div className="bg-amber-50 rounded-lg p-2">
           <p className="text-sm font-semibold text-amber-700 tabular-nums">
-            {abgang > 0 ? `–${abgang.toFixed(3).replace(/\.?0+$/, '')}` : '–'} {abgang > 0 ? einheit : ''}
+            {abgang > 0 ? `–${abgang.toLocaleString('de-AT', { maximumFractionDigits: 3 })}` : '–'} {abgang > 0 ? einheit : ''}
           </p>
           <p className="text-xs text-amber-600">Korrekturen</p>
         </div>
@@ -273,7 +273,7 @@ function PsmKarte({
                     </span>
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums font-medium text-blue-600">
-                    –{psm.verbrauch_gesamt.toFixed(3).replace(/\.?0+$/, '')} {psm.einheit_behandlung ?? ''}
+                    –{psm.verbrauch_gesamt.toLocaleString('de-AT', { maximumFractionDigits: 3 })} {psm.einheit_behandlung ?? ''}
                   </td>
                   <td className="px-3 py-2 text-xs text-s112-muted italic">automatisch aus Spritzungen</td>
                   {(writeOk || adminOk) && <td />}

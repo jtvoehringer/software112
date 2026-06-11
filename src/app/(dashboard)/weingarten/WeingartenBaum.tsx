@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { deactivateWeingarten, deleteWeingarten } from './actions'
+import { fmtHa } from '@/lib/format'
 
 const BEWIRTSCHAFTUNG_BADGE: Record<string, string> = {
   bio:           'bg-green-100 text-green-700',
@@ -47,7 +48,7 @@ function GSTZeile({ gst }: { gst: GSTRow }) {
       </td>
       <td className="px-3 py-2 text-xs text-s112-muted">{gst.rebsorte ?? '–'}</td>
       <td className="px-3 py-2 text-xs text-right tabular-nums text-s112-muted">
-        {gst.flaeche_ha != null ? gst.flaeche_ha.toFixed(4) : '–'}
+        {fmtHa(gst.flaeche_ha)}
       </td>
       <td className="px-3 py-2 text-xs text-center">
         {!gst.spritzbar && (
@@ -103,7 +104,7 @@ function WeingartenZeile({
         </td>
         <td className="px-3 py-2.5 text-sm text-s112-muted">{w.rebsorte ?? '–'}</td>
         <td className="px-3 py-2.5 text-sm text-right tabular-nums">
-          {w.flaeche_ha != null ? w.flaeche_ha.toFixed(4) : (gstHa > 0 ? gstHa.toFixed(4) : '–')}
+          {w.flaeche_ha != null ? fmtHa(w.flaeche_ha) : (gstHa > 0 ? fmtHa(gstHa) : '–')}
         </td>
         <td className="px-3 py-2.5 text-center">
           {gsts.length > 0 && (
@@ -167,7 +168,7 @@ function LageGruppe({
             <span className="text-xs text-s112-muted ml-1">
               {weingaerten.length} {weingaerten.length === 1 ? 'Weingarten' : 'Weingärten'}
               {' · '}
-              {totalHa.toFixed(4)} ha
+              {fmtHa(totalHa)} ha
             </span>
           </div>
         </td>

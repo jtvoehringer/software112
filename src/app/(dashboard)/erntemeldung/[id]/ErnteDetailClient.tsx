@@ -6,6 +6,7 @@ import { qualitaetLabel, QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 import type { ErnteParzelle, WeingartenOpt, AMAMeldung } from './page'
 import PressungSection from './PressungSection'
 import type { Pressung, WGOption, BehOption, WAOption } from './PressungSection'
+import { fmtHa, fmtZahl, fmtProzent } from '@/lib/format'
 
 // QUALITAET_OPTS: aus lib/wein/qualitaet importiert (s.u. import qualitaetLabel)
 const LESEMETHODE_OPTS = [
@@ -174,7 +175,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-semibold text-gray-800">Lesedaten</h2>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-s112-muted">{parzellen.length} Parzellen · {(gesamtKg/1000).toFixed(2)} t</span>
+            <span className="text-sm text-s112-muted">{parzellen.length} Parzellen · {fmtZahl(gesamtKg/1000, 2)} t</span>
             {writeOk && !showForm && (
               <button onClick={() => { setShowForm(true); setEditId(null) }}
                 data-print="hide"
@@ -254,7 +255,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
                   <td className="px-3 py-2 text-gray-700" colSpan={2}>Gesamt</td>
                   <td className="px-3 py-2 text-right tabular-nums text-gray-800">{gesamtKg.toLocaleString('de-AT')} kg</td>
                   <td colSpan={3} className="px-3 py-2 text-xs text-s112-muted">
-                    ≈ {(gesamtKg / 130).toFixed(1)} hl
+                    ≈ {fmtProzent(gesamtKg / 130)} hl
                   </td>
                 </tr>
               </tfoot>
@@ -287,7 +288,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
                   <p className="text-xs text-s112-muted">Gesamtmenge</p>
                 </div>
                 <div className="bg-s112-bg rounded-xl p-3">
-                  <p className="text-lg font-bold text-gray-800">{amaMeldung.gesamtmenge_hl?.toFixed(1)} hl</p>
+                  <p className="text-lg font-bold text-gray-800">{fmtProzent(amaMeldung.gesamtmenge_hl)} hl</p>
                   <p className="text-xs text-s112-muted">Most (≈)</p>
                 </div>
               </div>
@@ -305,7 +306,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
                     {amaMeldung.positionen.map((pos, i) => (
                       <tr key={i} className="border-b border-s112-border/40 last:border-0">
                         <td className="py-1.5">{pos.rebsorte_name}</td>
-                        <td className="py-1.5 text-right tabular-nums">{pos.flaeche_ha?.toFixed(4) ?? '–'}</td>
+                        <td className="py-1.5 text-right tabular-nums">{fmtHa(pos.flaeche_ha)}</td>
                         <td className="py-1.5 text-right tabular-nums">{pos.menge_kg?.toLocaleString('de-AT') ?? '–'}</td>
                       </tr>
                     ))}

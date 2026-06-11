@@ -211,7 +211,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
           ))}
           {positionen.length > 0 && (
             <div className="text-right text-sm font-semibold text-gray-800 border-t border-s112-border pt-3 mt-2">
-              Gesamt: EUR {gesamtEUR.toFixed(2)}
+              Gesamt: EUR {gesamtEUR.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           )}
         </div>

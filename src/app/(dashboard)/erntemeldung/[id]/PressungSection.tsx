@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { upsertPressung, deletePressung } from '../actions'
+import { fmtProzent } from '@/lib/format'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -149,7 +150,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
             <span className="text-gray-600">Most: <strong className="text-gray-900">{fmt(mostL)} L</strong></span>
             <span className="text-gray-400">→</span>
             <span className={`font-semibold ${ausbeute && ausbeute < 65 ? 'text-amber-600' : 'text-green-700'}`}>
-              {ausbeute?.toFixed(1)} % Ausbeute
+              {fmtProzent(ausbeute)} % Ausbeute
             </span>
             <span className="text-gray-400 ml-auto">Faustregel: 70 %</span>
           </>}
@@ -338,7 +339,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                           <span className="text-gray-400">→</span>
                           <span className="text-gray-600">{fmt(p.most_liter_gesamt)} L</span>
                           {pAusbeute && <span className={`font-semibold ${pAusbeute < 65 ? 'text-amber-600' : 'text-green-700'}`}>
-                            {pAusbeute.toFixed(1)} %
+                            {fmtProzent(pAusbeute)} %
                           </span>}
                         </>}
                         {writeOk && <button onClick={() => setEditId(p.id)} className="text-s112-teal hover:underline">Bearb.</button>}
