@@ -42,28 +42,30 @@ export default async function RueckverfolgungPage({
   let suchFehler: string | null = null
 
   if (q?.trim()) {
+    const qTrim = q.trim()
     const { data, error } = await (supabase.from('fuellungen') as any)
       .select('*')
-      .or(`chargennummer.eq.${q.trim()},pruefnummer.eq.${q.trim()}`)
+      .or(`chargennummer.eq.${qTrim},pruefnummer.eq.${qTrim},name.ilike.*${qTrim}*`)
       .limit(1)
       .single()
 
     if (error || !data) {
-      suchFehler = `Keine Füllung mit Chargennummer oder Prüfnummer „${q}" gefunden.`
+      suchFehler = `Keine Füllung mit Chargennummer, Prüfnummer oder Produktname „${q}" gefunden.`
     } else {
       fuellung = data as R
     }
   }
 
-  // ── Autocomplete-Vorschläge: alle Chargen- und Prüfnummern ──────────────
+  // ── Autocomplete-Vorschläge: Chargen-/Prüfnummern + Produktnamen ────────
   const { data: autocompleteRaw } = await (supabase.from('fuellungen') as any)
-    .select('chargennummer, pruefnummer')
+    .select('chargennummer, pruefnummer, name')
     .eq('aktiv', true)
-    .order('chargennummer', { ascending: false })
+    .order('name', { ascending: true })
   const autocompleteOptions: string[] = []
   for (const row of ((autocompleteRaw ?? []) as R[])) {
     if (row.chargennummer) autocompleteOptions.push(row.chargennummer)
     if (row.pruefnummer)   autocompleteOptions.push(row.pruefnummer)
+    if (row.name)          autocompleteOptions.push(row.name)
   }
 
   // ── Wenn Füllung gefunden: Kettendaten laden ─────────────────────────────
