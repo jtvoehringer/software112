@@ -74,4 +74,22 @@ export default async function CRMUebersichtPage() {
             : `/crm?editAkt=${a.id}`,
         kontaktName: a.kontakt_id ? (kontakteMap[a.kontakt_id] ?? null) : null,
         firmaName: a.firma_id ? (firmenMap[a.firma_id] ?? null) : null,
-        ist_privat:   (a.ist_privat as boolean | nul
+        ist_privat:   (a.ist_privat as boolean | null) ?? null,
+        erstellt_von: (a.erstellt_von as string | null) ?? null,
+        bis_datum:    (a.bis_datum as string | null) ?? null,
+      }
+    }),
+
+  ].sort((a, b) => a.datum.localeCompare(b.datum))
+
+  const kontakteList = (kontakteRaw as AR[] ?? []).map((k: AR) => ({
+    id: k.id as string,
+    name: [k.vorname, k.nachname].filter(Boolean).join(' ') as string,
+  }))
+  const firmenList = (firmenRaw as AR[] ?? []).map((f: AR) => ({
+    id: f.id as string,
+    name: f.name as string,
+  }))
+
+  return <CRMUebersichtClient eintraege={eintraege} heute={heute} kontakte={kontakteList} firmen={firmenList} userProfiles={userProfiles} />
+}
