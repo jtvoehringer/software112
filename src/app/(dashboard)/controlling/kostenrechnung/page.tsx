@@ -8,7 +8,7 @@ type BH = { id: string; name: string; typ?: string }
 type Split = { kosteneintrag_id?: string; weingarten_id?: string; behaelter_id?: string; anteil_pct?: number; betrag_anteil?: number; wg?: { name: string }; bh?: { name: string } }
 type Eintrag = {
   id: string; datum: string; betrag: number; beschreibung: string | null
-  objekt_typ: string | null; periode: string | null
+  objekt_typ: string | null; periode: string | null; transaktions_nr: string | null
   kostenstelle: { name: string } | null; kostenart: { name: string } | null
   wg_splits?: Split[]; bh_splits?: Split[]
 }
@@ -312,11 +312,12 @@ export default function KostenrechnungPage() {
         <div className="bg-white rounded-2xl border border-s112-border overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-s112-bg text-xs text-s112-muted uppercase">
-              <tr><th className="px-4 py-3 text-left">Datum</th><th className="px-4 py-3 text-left">Beschreibung</th><th className="px-4 py-3 text-left">KSt / KA</th><th className="px-4 py-3 text-left">Zuordnung</th><th className="px-4 py-3 text-right">Betrag</th><th className="px-4 py-3" /></tr>
+              <tr><th className="px-4 py-3 text-left">TXN</th><th className="px-4 py-3 text-left">Datum</th><th className="px-4 py-3 text-left">Beschreibung</th><th className="px-4 py-3 text-left">KSt / KA</th><th className="px-4 py-3 text-left">Zuordnung</th><th className="px-4 py-3 text-right">Betrag</th><th className="px-4 py-3" /></tr>
             </thead>
             <tbody className="divide-y divide-s112-border/40">
               {eintraege.map(e=>(
                 <tr key={e.id} className={`hover:bg-s112-bg/30 ${editId===e.id?'bg-s112-teal/5':''}`}>
+                  <td className="px-4 py-2.5 font-mono text-xs text-s112-muted whitespace-nowrap">{e.transaktions_nr??'–'}</td>
                   <td className="px-4 py-2.5 text-s112-muted tabular-nums">{new Date(e.datum).toLocaleDateString('de-AT')}</td>
                   <td className="px-4 py-2.5">{e.beschreibung??'–'}</td>
                   <td className="px-4 py-2.5 text-gray-600"><div>{e.kostenstelle?.name??'–'}</div><div className="text-xs text-s112-muted">{e.kostenart?.name??''}</div></td>
