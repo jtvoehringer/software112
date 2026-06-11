@@ -64,7 +64,6 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
     klosterneuburger: formData.get('klosterneuburger') ? Number(formData.get('klosterneuburger')) : null,
     qualitaetsstufe:  (formData.get('qualitaetsstufe') as string) || null,
     lesemethode:      (formData.get('lesemethode') as string) || null,
-    weinbezeichnung:  (formData.get('weinbezeichnung') as string) || null,
     notizen:          (formData.get('notizen') as string) || null,
   }
 
@@ -87,15 +86,14 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   const weingartenIds = formData.getAll('weingarten_ids') as string[]
   if (weingartenIds.length === 0) throw new Error('Mindestens einen Weingarten auswählen')
 
-  const ernteDatum       = (formData.get('ernte_datum') as string) || null
-  const lesemethode      = (formData.get('lesemethode') as string) || null
-  const kmw              = formData.get('klosterneuburger') ? Number(formData.get('klosterneuburger')) : null
-  const qualitaet        = (formData.get('qualitaetsstufe') as string) || null
-  const weinbezeichnung  = (formData.get('weinbezeichnung') as string) || null
-  const notizen          = (formData.get('notizen') as string) || null
-  const mengeKgRaw       = formData.get('menge_kg') as string | null
-  const mengeKg          = mengeKgRaw ? Number(mengeKgRaw.replace(',', '.')) : null
-  const mengeHl          = mengeKg ? mengeKg / 130 : null
+  const ernteDatum  = (formData.get('ernte_datum') as string) || null
+  const lesemethode = (formData.get('lesemethode') as string) || null
+  const kmw         = formData.get('klosterneuburger') ? Number(formData.get('klosterneuburger')) : null
+  const qualitaet   = (formData.get('qualitaetsstufe') as string) || null
+  const notizen     = (formData.get('notizen') as string) || null
+  const mengeKgRaw  = formData.get('menge_kg') as string | null
+  const mengeKg     = mengeKgRaw ? Number(mengeKgRaw.replace(',', '.')) : null
+  const mengeHl     = mengeKg ? mengeKg / 130 : null
 
   const rows = weingartenIds.map(wgId => ({
     jahrgang_id:      jahrgangId,
@@ -106,7 +104,6 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
     oechsle:          null,
     klosterneuburger: kmw,
     qualitaetsstufe:  qualitaet,
-    weinbezeichnung,
     lesemethode,
     notizen,
   }))
@@ -212,9 +209,10 @@ export async function upsertPressung(fd: FormData) {
   const tenantId    = await getTenantId()
   const jahrgangId  = fd.get('jahrgang_id') as string
   const existingId  = (fd.get('existing_id') as string) || null
-  const datum       = fd.get('datum') as string
-  const mostLiter   = fd.get('most_liter_gesamt') ? parseFloat((fd.get('most_liter_gesamt') as string).replace(',', '.')) : null
-  const notizen     = (fd.get('notizen') as string) || null
+  const datum            = fd.get('datum') as string
+  const mostLiter        = fd.get('most_liter_gesamt') ? parseFloat((fd.get('most_liter_gesamt') as string).replace(',', '.')) : null
+  const weinbezeichnung  = (fd.get('weinbezeichnung') as string) || null
+  const notizen          = (fd.get('notizen') as string) || null
   const wgJson      = fd.get('weingaerten_json') as string
   const behJson     = fd.get('behaelter_json') as string
   const weingaerten = JSON.parse(wgJson || '[]') as PressungWGInput[]
@@ -223,7 +221,7 @@ export async function upsertPressung(fd: FormData) {
   if (existingId) {
     // Update: Zeilen löschen + neu einfügen
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('pressungen') as any).update({ datum, most_liter_gesamt: mostLiter, notizen }).eq('id', existingId)
+    await (supabase.from('pressungen') as any).update({ datum, most_liter_gesamt: mostLiter, weinbezeichnung, notizen }).eq('id', existingId)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('pressung_weingaerten') as any).delete().eq('pressung_id', existingId)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -238,7 +236,7 @@ export async function upsertPressung(fd: FormData) {
     // Insert
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: neu } = await (supabase.from('pressungen') as any)
-      .insert({ tenant_id: tenantId, jahrgang_id: jahrgangId, datum, most_liter_gesamt: mostLiter, notizen })
+      .insert({ tenant_id: tenantId, jahrgang_id: jahrgangId, datum, most_liter_gesamt: mostLiter, weinbezeichnung, notizen })
       .select('id').single()
     const pressungId = (neu as AR).id
     if (weingaerten.length > 0)

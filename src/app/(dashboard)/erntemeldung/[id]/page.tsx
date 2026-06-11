@@ -18,8 +18,7 @@ export type ErnteParzelle = {
   id: string; weingarten_id: string; weingarten_name: string; weingarten_rebsorte: string | null
   ernte_datum: string | null; menge_kg: number | null; menge_hl: number | null
   oechsle: number | null; klosterneuburger: number | null
-  qualitaetsstufe: string | null; lesemethode: string | null
-  weinbezeichnung: string | null; notizen: string | null
+  qualitaetsstufe: string | null; lesemethode: string | null; notizen: string | null
 }
 export type WeingartenOpt = { id: string; name: string; rebsorte: string | null; lage_name: string | null }
 export type AMAMeldung = {
@@ -49,7 +48,7 @@ export default async function ErnteDetailPage({ params }: Props) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('ernte_parzellen') as any)
-      .select('id, weingarten_id, ernte_datum, menge_kg, menge_hl, oechsle, klosterneuburger, qualitaetsstufe, lesemethode, weinbezeichnung, notizen, weingarten:weingarten_id(name, rebsorte)')
+      .select('id, weingarten_id, ernte_datum, menge_kg, menge_hl, oechsle, klosterneuburger, qualitaetsstufe, lesemethode, notizen, weingarten:weingarten_id(name, rebsorte)')
       .eq('jahrgang_id', id).order('ernte_datum', { ascending: false }),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -64,7 +63,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     // Pressungen mit Sub-Tabellen
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('pressungen') as any)
-      .select(`id, datum, most_liter_gesamt, notizen,
+      .select(`id, datum, most_liter_gesamt, weinbezeichnung, notizen,
         weingaerten:pressung_weingaerten(id, weingarten_id, trauben_kg, rebsorte, notizen, weingarten:weingarten_id(name)),
         behaelter:pressung_behaelter(id, behaelter_id, weinausbau_id, menge_liter, notizen, behaelter:behaelter_id(name), weinausbau:weinausbau_id(name, jahrgang))`)
       .eq('jahrgang_id', id).order('datum', { ascending: false }),
@@ -84,8 +83,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     weingarten_name: p.weingarten?.name ?? '–', weingarten_rebsorte: p.weingarten?.rebsorte ?? null,
     ernte_datum: p.ernte_datum, menge_kg: p.menge_kg, menge_hl: p.menge_hl,
     oechsle: p.oechsle, klosterneuburger: p.klosterneuburger,
-    qualitaetsstufe: p.qualitaetsstufe, lesemethode: p.lesemethode,
-    weinbezeichnung: p.weinbezeichnung ?? null, notizen: p.notizen,
+    qualitaetsstufe: p.qualitaetsstufe, lesemethode: p.lesemethode, notizen: p.notizen,
   }))
 
   const weingaerten: WeingartenOpt[] = ((rawW ?? []) as AR[]).map(w => ({

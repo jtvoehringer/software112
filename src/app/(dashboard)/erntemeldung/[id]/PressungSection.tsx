@@ -16,7 +16,8 @@ export type PressungBeh = {
   menge_liter: number | null; notizen: string | null
 }
 export type Pressung = {
-  id: string; datum: string; most_liter_gesamt: number | null; notizen: string | null
+  id: string; datum: string; most_liter_gesamt: number | null
+  weinbezeichnung: string | null; notizen: string | null
   weingaerten: PressungWG[]; behaelter: PressungBeh[]
 }
 export type WGOption  = { id: string; name: string; rebsorte: string | null }
@@ -45,9 +46,10 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
   leseParzellen: LeseParzelle[]; onDone: () => void
 }) {
-  const [datum, setDatum]         = useState(pressung?.datum ?? new Date().toISOString().split('T')[0])
-  const [mostLiter, setMostLiter] = useState(pressung?.most_liter_gesamt?.toString().replace('.', ',') ?? '')
-  const [notizen, setNotizen]     = useState(pressung?.notizen ?? '')
+  const [datum, setDatum]                   = useState(pressung?.datum ?? new Date().toISOString().split('T')[0])
+  const [mostLiter, setMostLiter]           = useState(pressung?.most_liter_gesamt?.toString().replace('.', ',') ?? '')
+  const [weinbezeichnung, setWeinbez]       = useState(pressung?.weinbezeichnung ?? '')
+  const [notizen, setNotizen]               = useState(pressung?.notizen ?? '')
   // Pre-fill aus Erntedaten: nach Weingarten gruppieren + kg summieren
   const defaultWGRows: WGRow[] = pressung
     ? pressung.weingaerten.map(w => ({
@@ -102,6 +104,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     if (pressung) fd.append('existing_id', pressung.id)
     fd.append('datum', datum)
     fd.append('most_liter_gesamt', mostLiter)
+    fd.append('weinbezeichnung', weinbezeichnung)
     fd.append('notizen', notizen)
     fd.append('weingaerten_json', JSON.stringify(
       wgRows.filter(r => r.weingarten_id && r.trauben_kg).map(r => ({
@@ -128,7 +131,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-4">
       <h3 className="text-sm font-semibold text-gray-800">{pressung ? 'Pressung bearbeiten' : 'Pressung erfassen'}</h3>
 
-      {/* Datum + Most */}
+      {/* Datum + Most + Bezeichnung */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Datum *</label>
@@ -138,6 +141,13 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
           <label className="block text-xs font-medium text-gray-600 mb-1">Mostausbeute gesamt (L)</label>
           <input type="text" inputMode="decimal" value={mostLiter} onChange={e => setMostLiter(e.target.value)}
             placeholder="z.B. 1.050" className={inp} />
+        </div>
+        <div className="col-span-2">
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Bezeichnung <span className="text-s112-muted font-normal">(z.B. Gemischter Satz – optional)</span>
+          </label>
+          <input type="text" value={weinbezeichnung} onChange={e => setWeinbez(e.target.value)}
+            placeholder="Leer lassen für reinsortige Weine" className={inp} />
         </div>
       </div>
 
@@ -330,8 +340,15 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                   <div className="border border-s112-border rounded-xl p-3">
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div>
-                        <span className="font-medium text-gray-800 text-sm">{fmtDate(p.datum)}</span>
-                        {p.notizen && <span className="ml-2 text-xs text-s112-muted">{p.notizen}</span>}
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-800 text-sm">{fmtDate(p.datum)}</span>
+                          {p.weinbezeichnung && (
+                            <span className="bg-s112-teal/10 text-s112-teal text-xs font-semibold px-2 py-0.5 rounded-full">
+                              {p.weinbezeichnung}
+                            </span>
+                          )}
+                        </div>
+                        {p.notizen && <span className="text-xs text-s112-muted">{p.notizen}</span>}
                       </div>
                       <div className="flex items-center gap-3 text-xs shrink-0">
                         <span className="text-gray-600">{fmt(pKg)} kg</span>

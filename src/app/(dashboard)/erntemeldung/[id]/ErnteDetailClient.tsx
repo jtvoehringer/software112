@@ -153,10 +153,6 @@ function NeueParzellenForm({
             {QUALITAET_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Weinbezeichnung</label>
-          <input name="weinbezeichnung" className={inputCls} placeholder="z.B. Gemischter Satz" />
-        </div>
         <div className="col-span-2">
           <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
           <input name="notizen" className={inputCls} placeholder="optional" />
@@ -264,12 +260,6 @@ function ParzellForm({
             {QUALITAET_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Weinbezeichnung</label>
-          <input name="weinbezeichnung" defaultValue={parzelle?.weinbezeichnung ?? ''}
-            placeholder="z.B. Gemischter Satz"
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
-        </div>
         <div className="col-span-2">
           <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
           <input name="notizen" defaultValue={parzelle?.notizen ?? ''}
@@ -376,13 +366,8 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
                   <React.Fragment key={p.id}>
                     <tr className="border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/30">
                       <td className="px-3 py-2 font-medium text-gray-800">
-                        <div>
-                          {p.weingarten_name}
-                          {p.weingarten_rebsorte && <span className="ml-1 text-xs text-s112-muted">({p.weingarten_rebsorte})</span>}
-                        </div>
-                        {p.weinbezeichnung && (
-                          <div className="text-xs text-s112-teal font-normal">{p.weinbezeichnung}</div>
-                        )}
+                        {p.weingarten_name}
+                        {p.weingarten_rebsorte && <span className="ml-1 text-xs text-s112-muted">({p.weingarten_rebsorte})</span>}
                       </td>
                       <td className="px-3 py-2 text-s112-muted">{formatDate(p.ernte_datum)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{p.menge_kg?.toLocaleString('de-AT') ?? '–'}</td>
