@@ -99,7 +99,8 @@ export default async function ErnteDetailPage({ params }: Props) {
   }
 
   const pressungen: Pressung[] = ((rawPressungen ?? []) as AR[]).map(p => ({
-    id: p.id, datum: p.datum, most_liter_gesamt: p.most_liter_gesamt ?? null, notizen: p.notizen ?? null,
+    id: p.id, datum: p.datum, most_liter_gesamt: p.most_liter_gesamt ?? null,
+    weinbezeichnung: p.weinbezeichnung ?? null, notizen: p.notizen ?? null,
     weingaerten: ((p.weingaerten ?? []) as AR[]).map((w: AR): PressungWG => ({
       id: w.id, weingarten_id: w.weingarten_id,
       weingarten_name: w.weingarten?.name ?? '–',
