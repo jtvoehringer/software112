@@ -211,7 +211,7 @@ export default async function KellerbuchPage() {
                                 : <span className="text-red-500">0,00 L</span>}
                           </td>
                           <td className="px-4 py-2.5 text-right">
-                            {writeOk && menge > 0.01 && !istEB && (
+                            {writeOk && menge > 0.01 && (
                               <Link href={`/weinhandel/fuellungen/neu?charge=${w.id}`}
                                 className="text-xs text-s112-teal border border-s112-teal/30 rounded-full px-2 py-0.5 hover:bg-s112-teal hover:text-white transition-colors whitespace-nowrap">
                                 🍾 Abfüllen
