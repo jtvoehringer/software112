@@ -68,6 +68,8 @@ export default async function KellerbuchPage() {
   const chargenOhneBehaelter: R[] = []
 
   for (const w of alleAktiven) {
+    const menge = parseFloat(w.menge_liter ?? '0') || 0
+    if (menge <= 0) continue  // Chargen ohne Liter nicht in Karten anzeigen
     if (w.behaelter_id) {
       if (!chargenByBehaelter.has(w.behaelter_id)) chargenByBehaelter.set(w.behaelter_id, [])
       chargenByBehaelter.get(w.behaelter_id)!.push(w)
