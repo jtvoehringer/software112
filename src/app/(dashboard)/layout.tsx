@@ -40,7 +40,7 @@ export default async function DashboardLayout({
 
   // Profilname aus profiles-Tabelle
   const { data: profil } = await (supabase.from('profiles') as any)
-    .select('full_name').eq('user_id', user.id).maybeSingle()
+    .select('full_name').eq('id', user.id).maybeSingle()
 
   // Tenant-Branding laden
   let branding: TenantBranding = DEFAULT_BRANDING
