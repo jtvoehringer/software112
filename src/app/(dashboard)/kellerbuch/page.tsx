@@ -99,10 +99,10 @@ export default async function KellerbuchPage() {
           <p className="text-xs text-s112-muted mt-1">Aktive Behälter</p>
           <p className="text-[10px] text-s112-teal/60 mt-1">→ Gebinde verwalten</p>
         </Link>
-        <Link href="/kellerbuch/kellerplan" className="card text-center p-4 hover:shadow-md hover:border-s112-teal/30 transition-all cursor-pointer">
+        <Link href="/kellerbuch/weinausbau" className="card text-center p-4 hover:shadow-md hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-3xl font-bold text-s112-teal">{aktiveChargen.length}</p>
           <p className="text-xs text-s112-muted mt-1">Laufende Chargen</p>
-          <p className="text-[10px] text-s112-teal/60 mt-1">→ Kellerplan</p>
+          <p className="text-[10px] text-s112-teal/60 mt-1">→ Weinausbau</p>
         </Link>
         <Link href="/kellerbuch/rueckverfolgung" className="card text-center p-4 hover:shadow-md hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-3xl font-bold text-s112-teal">{fmtLiter(gesamtLiter)}</p>
