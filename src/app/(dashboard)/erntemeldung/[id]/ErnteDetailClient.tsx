@@ -140,6 +140,10 @@ function NeueParzellenForm({
           </select>
         </div>
         <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Menge kg <span className="text-s112-muted font-normal">(optional, für alle WG gleich)</span></label>
+          <input name="menge_kg" type="number" step="1" min="0" className={inputCls} placeholder="–" />
+        </div>
+        <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">°KMW</label>
           <input name="klosterneuburger" type="number" step="0.01" min="0" className={inputCls} />
         </div>
@@ -149,15 +153,15 @@ function NeueParzellenForm({
             {QUALITAET_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Weinbezeichnung</label>
+          <input name="weinbezeichnung" className={inputCls} placeholder="z.B. Gemischter Satz" />
+        </div>
         <div className="col-span-2">
           <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
           <input name="notizen" className={inputCls} placeholder="optional" />
         </div>
       </div>
-
-      <p className="text-xs text-s112-muted">
-        💡 kg-Mengen können nach dem Speichern pro Weingarten einzeln nachgetragen werden.
-      </p>
 
       {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
 
@@ -259,6 +263,12 @@ function ParzellForm({
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             {QUALITAET_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Weinbezeichnung</label>
+          <input name="weinbezeichnung" defaultValue={parzelle?.weinbezeichnung ?? ''}
+            placeholder="z.B. Gemischter Satz"
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div className="col-span-2">
           <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
@@ -366,8 +376,13 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
                   <React.Fragment key={p.id}>
                     <tr className="border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/30">
                       <td className="px-3 py-2 font-medium text-gray-800">
-                        {p.weingarten_name}
-                        {p.weingarten_rebsorte && <span className="ml-1 text-xs text-s112-muted">({p.weingarten_rebsorte})</span>}
+                        <div>
+                          {p.weingarten_name}
+                          {p.weingarten_rebsorte && <span className="ml-1 text-xs text-s112-muted">({p.weingarten_rebsorte})</span>}
+                        </div>
+                        {p.weinbezeichnung && (
+                          <div className="text-xs text-s112-teal font-normal">{p.weinbezeichnung}</div>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-s112-muted">{formatDate(p.ernte_datum)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{p.menge_kg?.toLocaleString('de-AT') ?? '–'}</td>

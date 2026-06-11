@@ -84,7 +84,7 @@ export default function JahrgaengeClient({
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-s112-border">
+            <div className="grid grid-cols-4 gap-4 mt-4 pt-4 border-t border-s112-border">
               <div>
                 <p className="text-lg font-bold text-gray-800 tabular-nums">
                   {j.gesamtmenge_kg > 0 ? `${fmtZahl(j.gesamtmenge_kg / 1000, 2)} t` : '–'}
@@ -98,8 +98,14 @@ export default function JahrgaengeClient({
                 <p className="text-xs text-s112-muted">Most (≈)</p>
               </div>
               <div>
+                <p className="text-lg font-bold text-gray-800 tabular-nums">
+                  {j.avg_kmw != null ? `${fmtZahl(j.avg_kmw, 1)} °KMW` : '–'}
+                </p>
+                <p className="text-xs text-s112-muted">Ø KMW</p>
+              </div>
+              <div>
                 <p className="text-lg font-bold text-gray-800 tabular-nums">{j.parzellen_count}</p>
-                <p className="text-xs text-s112-muted">Parzellen erfasst</p>
+                <p className="text-xs text-s112-muted">Parzellen</p>
               </div>
             </div>
           </div>

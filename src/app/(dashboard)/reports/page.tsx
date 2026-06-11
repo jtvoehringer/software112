@@ -49,7 +49,7 @@ export default async function ReportsPage() {
 
   // ── Behandlungsübersicht (aktuelles Jahr) ─────────────────────────────────
   const { data: behandlungenRaw } = await (supabase.from('behandlungen') as any)
-    .select('id, datum, mittel_id, menge_gesamt, einheit, art, psm:pflanzenschutzmittel(name, handelsname, cu_gehalt_pct), weingarten:weingartenId(name)')
+    .select('id, datum, menge_gesamt, menge_einheit, art, psm:psm_id(name, cu_gehalt_pct)')
     .gte('datum', `${thisYear}-01-01`).order('datum', { ascending: false })
   const behandlungen = (behandlungenRaw ?? []) as R[]
 

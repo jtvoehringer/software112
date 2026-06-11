@@ -7,7 +7,7 @@ import { useParams } from 'next/navigation'
 
 type R = Record<string, any>
 
-const EINHEITEN = ['kg', 'g', 'L', 'mL', 'mg', '-']
+const EINHEITEN = ['kg', 'g', 'L', 'mL', 'mg', '°C', '-']
 
 // g/hl Berechnung: menge in Einheit → umrechnen auf g, dann / volumen_liter * 100
 function calcGProHl(menge: number, einheit: string, volumenLiter: number): string | null {

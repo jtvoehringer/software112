@@ -10,7 +10,7 @@ export type Jahrgang = {
   id: string; jahrgang: number; ernte_beginn: string | null; ernte_ende: string | null
   qualitaet_gesamt: string | null; ama_gemeldet: boolean; ama_meldedatum: string | null
   abgeschlossen: boolean; notizen: string | null
-  parzellen_count: number; gesamtmenge_kg: number
+  parzellen_count: number; gesamtmenge_kg: number; avg_kmw: number | null
   ama_status: string | null
 }
 
@@ -30,17 +30,18 @@ export default async function ErntemeldungPage() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawP } = await (supabase.from('ernte_parzellen') as any)
-    .select('jahrgang_id, menge_kg')
+    .select('jahrgang_id, menge_kg, klosterneuburger')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawA } = await (supabase.from('ama_erntemeldungen') as any)
     .select('jahrgang_id, status')
 
-  const parzellenByJG = new Map<string, { count: number; kg: number }>()
+  const parzellenByJG = new Map<string, { count: number; kg: number; kmwSum: number; kmwCount: number }>()
   for (const p of (rawP ?? []) as AR[]) {
-    const curr = parzellenByJG.get(p.jahrgang_id) ?? { count: 0, kg: 0 }
+    const curr = parzellenByJG.get(p.jahrgang_id) ?? { count: 0, kg: 0, kmwSum: 0, kmwCount: 0 }
     curr.count++
     curr.kg += p.menge_kg ?? 0
+    if (p.klosterneuburger != null) { curr.kmwSum += p.klosterneuburger; curr.kmwCount++ }
     parzellenByJG.set(p.jahrgang_id, curr)
   }
 
@@ -59,6 +60,7 @@ export default async function ErntemeldungPage() {
     notizen:          j.notizen,
     parzellen_count:  parzellenByJG.get(j.id)?.count ?? 0,
     gesamtmenge_kg:   parzellenByJG.get(j.id)?.kg ?? 0,
+    avg_kmw:          (() => { const d = parzellenByJG.get(j.id); return d && d.kmwCount > 0 ? d.kmwSum / d.kmwCount : null })(),
     ama_status:       amaByJG.get(j.id) ?? null,
   }))
 

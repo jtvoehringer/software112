@@ -55,16 +55,17 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
   const mengeHl = mengeKg ? mengeKg / 130 : null  // 1 hl ≈ 130 kg
 
   const payload: AR = {
-    jahrgang_id:    jahrgangId,
-    weingarten_id:  weingartenId,
-    ernte_datum:    (formData.get('ernte_datum') as string) || null,
-    menge_kg:       mengeKg,
-    menge_hl:       mengeHl,
-    oechsle:        formData.get('oechsle') ? Number(formData.get('oechsle')) : null,
+    jahrgang_id:      jahrgangId,
+    weingarten_id:    weingartenId,
+    ernte_datum:      (formData.get('ernte_datum') as string) || null,
+    menge_kg:         mengeKg,
+    menge_hl:         mengeHl,
+    oechsle:          formData.get('oechsle') ? Number(formData.get('oechsle')) : null,
     klosterneuburger: formData.get('klosterneuburger') ? Number(formData.get('klosterneuburger')) : null,
-    qualitaetsstufe: (formData.get('qualitaetsstufe') as string) || null,
-    lesemethode:    (formData.get('lesemethode') as string) || null,
-    notizen:        (formData.get('notizen') as string) || null,
+    qualitaetsstufe:  (formData.get('qualitaetsstufe') as string) || null,
+    lesemethode:      (formData.get('lesemethode') as string) || null,
+    weinbezeichnung:  (formData.get('weinbezeichnung') as string) || null,
+    notizen:          (formData.get('notizen') as string) || null,
   }
 
   const existingId = formData.get('existing_id') as string | null
@@ -86,21 +87,26 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   const weingartenIds = formData.getAll('weingarten_ids') as string[]
   if (weingartenIds.length === 0) throw new Error('Mindestens einen Weingarten auswählen')
 
-  const ernteDatum     = (formData.get('ernte_datum') as string) || null
-  const lesemethode    = (formData.get('lesemethode') as string) || null
-  const kmw            = formData.get('klosterneuburger') ? Number(formData.get('klosterneuburger')) : null
-  const qualitaet      = (formData.get('qualitaetsstufe') as string) || null
-  const notizen        = (formData.get('notizen') as string) || null
+  const ernteDatum       = (formData.get('ernte_datum') as string) || null
+  const lesemethode      = (formData.get('lesemethode') as string) || null
+  const kmw              = formData.get('klosterneuburger') ? Number(formData.get('klosterneuburger')) : null
+  const qualitaet        = (formData.get('qualitaetsstufe') as string) || null
+  const weinbezeichnung  = (formData.get('weinbezeichnung') as string) || null
+  const notizen          = (formData.get('notizen') as string) || null
+  const mengeKgRaw       = formData.get('menge_kg') as string | null
+  const mengeKg          = mengeKgRaw ? Number(mengeKgRaw.replace(',', '.')) : null
+  const mengeHl          = mengeKg ? mengeKg / 130 : null
 
   const rows = weingartenIds.map(wgId => ({
     jahrgang_id:      jahrgangId,
     weingarten_id:    wgId,
     ernte_datum:      ernteDatum,
-    menge_kg:         null,
-    menge_hl:         null,
+    menge_kg:         mengeKg,
+    menge_hl:         mengeHl,
     oechsle:          null,
     klosterneuburger: kmw,
     qualitaetsstufe:  qualitaet,
+    weinbezeichnung,
     lesemethode,
     notizen,
   }))
