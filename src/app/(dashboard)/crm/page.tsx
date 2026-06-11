@@ -24,6 +24,21 @@ export default async function CRMUebersichtPage() {
   const { data: firmenRaw } = await (supabase.from('firmen') as any)
     .select('id, name')
 
+  // User-Profile für Klarname in Filter-Chips
+  const uniqueUserIds = [...new Set(
+    (aktivRaw as AR[] ?? []).map((a: AR) => a.erstellt_von).filter(Boolean)
+  )] as string[]
+  const userProfiles: Record<string, string> = {}
+  if (uniqueUserIds.length > 0) {
+    // Schema 005: id = auth.users.id (PK), display_name
+    const { data: profilesRaw } = await (supabase.from('profiles') as any)
+      .select('id, display_name')
+      .in('id', uniqueUserIds)
+    ;(profilesRaw as AR[] ?? []).forEach((p: AR) => {
+      if (p.display_name && p.id) userProfiles[p.id] = p.display_name
+    })
+  }
+
   const kontakteMap: Record<string, string> = {}
   ;(kontakteRaw as AR[] ?? []).forEach((k: AR) => {
     kontakteMap[k.id] = [k.vorname, k.nachname].filter(Boolean).join(' ')
@@ -69,12 +84,12 @@ export default async function CRMUebersichtPage() {
 
   const kontakteList = (kontakteRaw as AR[] ?? []).map((k: AR) => ({
     id: k.id as string,
-    name: [k.vorname, k.nachname].filter(Boolean).join(' '),
+    name: [k.vorname, k.nachname].filter(Boolean).join(' ') as string,
   }))
   const firmenList = (firmenRaw as AR[] ?? []).map((f: AR) => ({
     id: f.id as string,
     name: f.name as string,
   }))
 
-  return <CRMUebersichtClient eintraege={eintraege} heute={heute} kontakte={kontakteList} firmen={firmenList} />
+  return <CRMUebersichtClient eintraege={eintraege} heute={heute} kontakte={kontakteList} firmen={firmenList} userProfiles={userProfiles} />
 }

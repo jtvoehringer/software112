@@ -17,7 +17,7 @@ export default async function ReportsPage() {
   const thisMonth = heute.getMonth()
 
   // ── Monats-Umsatz (12 Monate rückwärts) ─────────────────────────────────
-  const umsatzMonate: { monat: string; umsatz: number; anzahl: number }[] = []
+  const umsatzMonate: { monat: string; umsatz: number; anzahl: number; von: string; bis: string }[] = []
   for (let i = 11; i >= 0; i--) {
     const d = new Date(thisYear, thisMonth - i, 1)
     const von = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]
@@ -34,17 +34,18 @@ export default async function ReportsPage() {
       }, 0), 0)
     umsatzMonate.push({
       monat: d.toLocaleDateString('de-AT', { month: 'short', year: '2-digit' }),
-      umsatz: summe, anzahl: posten.length,
+      umsatz: summe, anzahl: posten.length, von, bis,
     })
   }
 
   // ── Lagerbestand ─────────────────────────────────────────────────────────
   const { data: lagerRaw } = await (supabase.from('fuellungen') as any)
-    .select('id, name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto, aktiv')
+    .select('id, name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv')
     .eq('aktiv', true).order('bestand_flaschen', { ascending: false })
   const lager = (lagerRaw ?? []) as R[]
+  // Lagerwert nach Einstandspreis (konsistent mit /weinhandel)
   const lagerWert = lager.reduce((s: number, f: R) =>
-    s + (Number(f.bestand_flaschen) || 0) * (Number(f.vk_preis_brutto) || 0), 0)
+    s + (Number(f.bestand_flaschen) || 0) * (Number(f.einstandspreis) || 0), 0)
 
   // ── Behandlungsübersicht (aktuelles Jahr) ─────────────────────────────────
   const { data: behandlungenRaw } = await (supabase.from('behandlungen') as any)

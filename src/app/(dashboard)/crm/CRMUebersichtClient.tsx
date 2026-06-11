@@ -237,13 +237,14 @@ function WochenView({ eintraege, current, heute }: { eintraege: KalenderEintrag[
 const HOUR_H = 64  // px per hour
 
 function ZeitachseView({
-  eintraege, current, heute, kontakte, firmen,
+  eintraege, current, heute, kontakte, firmen, userProfiles = {},
 }: {
   eintraege: KalenderEintrag[]
   current: Date
   heute: string
   kontakte: { id: string; name: string }[]
   firmen: { id: string; name: string }[]
+  userProfiles?: Record<string, string>
 }) {
   const router    = useRouter()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -405,7 +406,7 @@ function ZeitachseView({
         <button onClick={() => setFilterUser('alle')} className={`text-xs px-2 py-1 rounded-lg ${filterUser==='alle'?'bg-s112-teal text-s112-yellow':'border border-s112-border text-gray-600 hover:bg-s112-bg'}`}>Alle</button>
         {uniqueUsers.map(uid => (
           <button key={uid!} onClick={() => setFilterUser(uid!)} className={`text-xs px-2 py-1 rounded-lg ${filterUser===uid?'bg-s112-teal text-s112-yellow':'border border-s112-border text-gray-600 hover:bg-s112-bg'}`}>
-            {uid!.slice(0,8)}
+            {userProfiles[uid!] ?? uid!.slice(0,8)}
           </button>
         ))}
       </div>
@@ -1042,9 +1043,10 @@ interface Props {
   heute: string
   kontakte: { id: string; name: string }[]
   firmen: { id: string; name: string }[]
+  userProfiles?: Record<string, string>
 }
 
-export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen }: Props) {
+export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen, userProfiles = {} }: Props) {
   const [view, setView]       = useState<ViewMode>('zeitachse')
   const [current, setCurrent] = useState<Date>(() => new Date())
 
@@ -1151,7 +1153,7 @@ export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen
       </div>
 
       {/* ── Kalender ── */}
-      {view === 'zeitachse' && <ZeitachseView eintraege={eintraege} current={current} heute={heute} kontakte={kontakte} firmen={firmen} />}
+      {view === 'zeitachse' && <ZeitachseView eintraege={eintraege} current={current} heute={heute} kontakte={kontakte} firmen={firmen} userProfiles={userProfiles} />}
       {view === 'monat'     && <MonatView     eintraege={eintraege} current={current} heute={heute} />}
       {view === 'jahr'      && <JahrView      eintraege={eintraege} current={current} heute={heute} />}
 
