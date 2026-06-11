@@ -57,7 +57,7 @@ export default async function GebindePage({
       .eq('aktiv', true)
       .order('name'),
     (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, kmw, menge_liter, qualitaetsstufe, behaelter_id, behaelter:behaelter_id(name), notizen, aktiv')
+      .select('id, name, jahrgang, kmw, menge_liter, qualitaetsstufe, behaelter_id, behaelter:behaelter_id(name), notizen, einstandspreis_pro_liter, aktiv')
       .eq('ist_eroeffnungsbestand', true)
       .eq('aktiv', true)
       .order('jahrgang', { ascending: false }),
@@ -311,6 +311,11 @@ export default async function GebindePage({
                     required placeholder="z.B. 3000" className={inputCls} />
                 </div>
                 <div>
+                  <label className={labelCls}>Einstandspreis pro Liter (€)</label>
+                  <input name="einstandspreis_pro_liter" type="text" inputMode="decimal"
+                    placeholder="z.B. 1,50" className={inputCls} />
+                </div>
+                <div>
                   <label className={labelCls}>Qualitätsstufe</label>
                   <select name="qualitaetsstufe" className={inputCls}>
                     <option value="">– keine –</option>
@@ -340,6 +345,7 @@ export default async function GebindePage({
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">JG</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">KMW</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Menge</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Einstand/L</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Gebinde</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Qualität</th>
                   {writeOk && <th className="px-4 py-2.5" />}
@@ -356,6 +362,11 @@ export default async function GebindePage({
                     <td className="px-4 py-2.5 text-right tabular-nums text-s112-teal font-medium">
                       {fmtLiter(parseFloat(e.menge_liter))}
                     </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
+                      {e.einstandspreis_pro_liter != null
+                        ? `€ ${parseFloat(e.einstandspreis_pro_liter).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`
+                        : '–'}
+                    </td>
                     <td className="px-4 py-2.5 text-gray-600">{(e.behaelter as R | null)?.name ?? '–'}</td>
                     <td className="px-4 py-2.5 text-gray-600 text-xs">{e.qualitaetsstufe ?? '–'}</td>
                     {writeOk && (
@@ -370,7 +381,7 @@ export default async function GebindePage({
                   </tr>
                 ))}
                 {eroeffnungen.length === 0 && (
-                  <tr><td colSpan={writeOk ? 7 : 6} className="px-4 py-6 text-center text-xs text-s112-muted italic">Noch keine Eröffnungsbestände erfasst</td></tr>
+                  <tr><td colSpan={writeOk ? 8 : 7} className="px-4 py-6 text-center text-xs text-s112-muted italic">Noch keine Eröffnungsbestände erfasst</td></tr>
                 )}
               </tbody>
             </table>
