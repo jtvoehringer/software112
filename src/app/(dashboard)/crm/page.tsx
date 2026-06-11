@@ -24,6 +24,21 @@ export default async function CRMUebersichtPage() {
   const { data: firmenRaw } = await (supabase.from('firmen') as any)
     .select('id, name')
 
+  // User-Profile für Klarname in Filter-Chips
+  const uniqueUserIds = [...new Set(
+    (aktivRaw as AR[] ?? []).map((a: AR) => a.erstellt_von).filter(Boolean)
+  )] as string[]
+  const userProfiles: Record<string, string> = {}
+  if (uniqueUserIds.length > 0) {
+    // profiles.id = auth.users.id (Migration 005: PK ist id, nicht user_id)
+    const { data: profilesRaw } = await (supabase.from('profiles') as any)
+      .select('id, display_name')
+      .in('id', uniqueUserIds)
+    ;(profilesRaw as AR[] ?? []).forEach((p: AR) => {
+      if (p.display_name) userProfiles[p.id] = p.display_name
+    })
+  }
+
   const kontakteMap: Record<string, string> = {}
   ;(kontakteRaw as AR[] ?? []).forEach((k: AR) => {
     kontakteMap[k.id] = [k.vorname, k.nachname].filter(Boolean).join(' ')
@@ -59,22 +74,4 @@ export default async function CRMUebersichtPage() {
             : `/crm?editAkt=${a.id}`,
         kontaktName: a.kontakt_id ? (kontakteMap[a.kontakt_id] ?? null) : null,
         firmaName: a.firma_id ? (firmenMap[a.firma_id] ?? null) : null,
-        ist_privat:   (a.ist_privat as boolean | null) ?? null,
-        erstellt_von: (a.erstellt_von as string | null) ?? null,
-        bis_datum:    (a.bis_datum as string | null) ?? null,
-      }
-    }),
-
-  ].sort((a, b) => a.datum.localeCompare(b.datum))
-
-  const kontakteList = (kontakteRaw as AR[] ?? []).map((k: AR) => ({
-    id: k.id as string,
-    name: [k.vorname, k.nachname].filter(Boolean).join(' '),
-  }))
-  const firmenList = (firmenRaw as AR[] ?? []).map((f: AR) => ({
-    id: f.id as string,
-    name: f.name as string,
-  }))
-
-  return <CRMUebersichtClient eintraege={eintraege} heute={heute} kontakte={kontakteList} firmen={firmenList} />
-}
+        ist_privat:   (a.ist_privat as boolean | nul
