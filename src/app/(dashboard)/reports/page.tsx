@@ -17,7 +17,7 @@ export default async function ReportsPage() {
   const thisMonth = heute.getMonth()
 
   // ── Monats-Umsatz (12 Monate rückwärts) ─────────────────────────────────
-  const umsatzMonate: { monat: string; umsatz: number; anzahl: number }[] = []
+  const umsatzMonate: { monat: string; umsatz: number; anzahl: number; von: string; bis: string }[] = []
   for (let i = 11; i >= 0; i--) {
     const d = new Date(thisYear, thisMonth - i, 1)
     const von = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]
@@ -34,7 +34,7 @@ export default async function ReportsPage() {
       }, 0), 0)
     umsatzMonate.push({
       monat: d.toLocaleDateString('de-AT', { month: 'short', year: '2-digit' }),
-      umsatz: summe, anzahl: posten.length,
+      umsatz: summe, anzahl: posten.length, von, bis,
     })
   }
 
