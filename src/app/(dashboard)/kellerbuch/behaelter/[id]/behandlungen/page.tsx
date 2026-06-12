@@ -34,6 +34,7 @@ export default function KellerbehandlungenPage() {
   const [isPending, startTransition]    = useTransition()
 
   // Formular-State
+  const [chargenImBehaelter, setChargenImBehaelter] = useState<R[]>([])
   const [showForm, setShowForm]           = useState(false)
   const [editId, setEditId]               = useState<string | null>(null)
   const [formDatum, setFormDatum]         = useState(new Date().toISOString().slice(0, 10))
@@ -42,6 +43,7 @@ export default function KellerbehandlungenPage() {
   const [formEinheit, setFormEinheit]     = useState('kg')
   const [formVolumen, setFormVolumen]     = useState('')
   const [formNotizen, setFormNotizen]     = useState('')
+  const [formWeinausbauId, setFormWeinausbauId] = useState<string>('')
   const [formError, setFormError]         = useState('')
 
   // Neuer Typ inline
@@ -58,7 +60,7 @@ export default function KellerbehandlungenPage() {
       { data: behandlungenData },
     ] = await Promise.all([
       (supabase.from('behaelter') as any).select('id, name, typ, volumen_liter, standort').eq('id', behaelterId).single(),
-      (supabase.from('weinausbau') as any).select('menge_liter, aktiv').eq('behaelter_id', behaelterId).eq('aktiv', true),
+      (supabase.from('weinausbau') as any).select('id, name, menge_liter, aktiv').eq('behaelter_id', behaelterId).eq('aktiv', true),
       (supabase.from('keller_behandlungstypen') as any).select('id, name, einheit_standard').order('sort_order').order('name'),
       (supabase.from('keller_behandlungen') as any)
         .select('id, datum, typ_id, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, typ:typ_id(name)')
@@ -68,6 +70,7 @@ export default function KellerbehandlungenPage() {
     setBehaelter(bh)
     const inhalt = ((bh_data ?? []) as R[]).reduce((s: number, w: R) => s + (parseFloat(w.menge_liter) || 0), 0)
     setAktuellerInhalt(inhalt)
+    setChargenImBehaelter((bh_data ?? []) as R[])
     setTypen(typenData ?? [])
     setBehandlungen(behandlungenData ?? [])
     setLoading(false)
@@ -85,6 +88,8 @@ export default function KellerbehandlungenPage() {
     setFormNotizen('')
     setFormError('')
     setShowNeuerTyp(false)
+    // Aktive Charge vorbelegen wenn genau eine im Behälter
+    setFormWeinausbauId(chargenImBehaelter.length === 1 ? chargenImBehaelter[0].id : '')
     setShowForm(true)
   }
 
@@ -96,6 +101,7 @@ export default function KellerbehandlungenPage() {
     setFormEinheit(b.einheit ?? 'kg')
     setFormVolumen(b.volumen_liter_ist != null ? String(b.volumen_liter_ist) : '')
     setFormNotizen(b.notizen ?? '')
+    setFormWeinausbauId(b.weinausbau_id ?? '')
     setFormError('')
     setShowNeuerTyp(false)
     setShowForm(true)
@@ -143,6 +149,7 @@ export default function KellerbehandlungenPage() {
       einheit:           formEinheit || null,
       volumen_liter_ist: formVolumen ? parseFloat(formVolumen.replace(',', '.')) : null,
       notizen:           formNotizen || null,
+      weinausbau_id:     formWeinausbauId || null,
     }
 
     startTransition(async () => {
@@ -283,6 +290,19 @@ export default function KellerbehandlungenPage() {
               </div>
             </div>
 
+            {chargenImBehaelter.length > 0 && (
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Kellerbuch-Charge</label>
+                <select value={formWeinausbauId} onChange={e => setFormWeinausbauId(e.target.value)}
+                  className="input w-full">
+                  <option value="">– keine Zuordnung –</option>
+                  {chargenImBehaelter.map((c: R) => (
+                    <option key={c.id} value={c.id}>{c.name ?? c.id}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-s112-muted mt-0.5">Für das Weinbuch (von der Rebe bis zur Flasche)</p>
+              </div>
+            )}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
               <textarea value={formNotizen} onChange={e => setFormNotizen(e.target.value)}

@@ -12,6 +12,17 @@ type Charge = {
   status: string
 }
 
+type DacAntrag = {
+  id: string
+  bezeichnung: string
+  dac_region: string
+  jahrgang: number | null
+  rebsorte: string | null
+  pruefnummer: string | null
+  status: string
+  weinausbau_id: string | null
+}
+
 const QUALITAETEN = [
   { value: 'qualitaetswein',        label: 'Qualitätswein' },
   { value: 'kabinett',              label: 'Kabinett' },
@@ -48,10 +59,12 @@ function fmtL(n: number) {
 
 export default function FuellungFormClient({
   chargen,
+  dacAntraege,
   action,
   defaultChargeId,
 }: {
   chargen: Charge[]
+  dacAntraege: DacAntrag[]
   action: (fd: FormData) => Promise<void>
   defaultChargeId?: string
 }) {
@@ -66,6 +79,8 @@ export default function FuellungFormClient({
   )
   const [rebsorteVal, setRebsorteVal] = useState(defaultCharge?.rebsorte ?? '')
   const [abschliessen, setAbschliessen] = useState(true)
+  const [selectedDacId, setSelectedDacId] = useState('')
+  const [pruefnummerVal, setPruefnummerVal] = useState('')
 
   const selectedCharge = chargen.find(c => c.id === selectedChargeId) ?? null
   const verfuegbar     = parseFloat(String(selectedCharge?.menge_liter ?? 0)) || 0
@@ -95,6 +110,15 @@ export default function FuellungFormClient({
       setJahrgangVal(String(c.jahrgang ?? new Date().getFullYear()))
       setRebsorteVal(c.rebsorte ?? '')
     }
+    const dac = dacAntraege.find(d => d.weinausbau_id === id && d.status === 'genehmigt')
+    if (dac) { setSelectedDacId(dac.id); setPruefnummerVal(dac.pruefnummer ?? '') }
+    else { setSelectedDacId('') }
+  }
+
+  function handleDacChange(dacId: string) {
+    setSelectedDacId(dacId)
+    const dac = dacAntraege.find(d => d.id === dacId)
+    setPruefnummerVal(dac?.pruefnummer ?? '')
   }
 
   return (
@@ -195,8 +219,30 @@ export default function FuellungFormClient({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className={labelCls}>Prüfnummer (optional)</label>
-            <input name="pruefnummer" placeholder="z.B. AT 1234/2025" className={inputCls} />
+            <label className={labelCls}>DAC-Antrag / Prüfnummer</label>
+            {selectedChargeId && dacAntraege.filter(d => d.weinausbau_id === selectedChargeId).length > 0 ? (
+              <div className="space-y-2">
+                <select value={selectedDacId} onChange={e => handleDacChange(e.target.value)} className={inputCls}>
+                  <option value="">– kein DAC-Antrag –</option>
+                  {dacAntraege.filter(d => d.weinausbau_id === selectedChargeId).map(d => (
+                    <option key={d.id} value={d.id}>
+                      {d.bezeichnung} · {d.pruefnummer ?? 'keine Prüfnr.'} ({d.status})
+                    </option>
+                  ))}
+                </select>
+                {selectedDacId && dacAntraege.find(d => d.id === selectedDacId)?.status !== 'genehmigt' && (
+                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                    ⚠ DAC-Antrag noch nicht genehmigt – Abfüllung möglich, aber Prüfnummer fehlt.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <input name="pruefnummer_freitext" value={pruefnummerVal}
+                onChange={e => setPruefnummerVal(e.target.value)}
+                placeholder="z.B. AT 1234/2025" className={inputCls} />
+            )}
+            <input type="hidden" name="dac_antrag_id" value={selectedDacId} />
+            <input type="hidden" name="pruefnummer" value={pruefnummerVal} />
           </div>
           <div>
             <label className={labelCls}>Chargennummer</label>

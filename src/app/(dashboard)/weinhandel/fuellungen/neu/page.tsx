@@ -23,13 +23,19 @@ export default async function NeueFuellungPage({
   const { charge: chargeId } = await searchParams
   const supabase = await createSupabaseServerClient()
 
-  // Alle aktiven Weinausbau-Chargen (nicht abgeschlossen)
-  const { data: chargenRaw } = await (supabase.from('weinausbau') as any)
+  // Alle aktiven Weinausbau-Chargen + DAC-Anträge parallel laden
+  const [{ data: chargenRaw }, { data: dacRaw }] = await Promise.all([
+  (supabase.from('weinausbau') as any)
     .select('id, name, jahrgang, rebsorte, menge_liter, status')
     .eq('aktiv', true)
     .neq('status', 'abgeschlossen')
-    .order('jahrgang', { ascending: false })
+    .order('jahrgang', { ascending: false }),
+  (supabase.from('dac_antrag') as any)
+    .select('id, bezeichnung, dac_region, jahrgang, rebsorte, pruefnummer, status, weinausbau_id')
+    .order('jahrgang', { ascending: false }),
+  ])
 
+  const dacAntraege = (dacRaw ?? []) as R[]
   let chargen = (chargenRaw ?? []) as R[]
 
   // Wenn über "Abfüllen"-Button mit chargeId aufgerufen: diese Charge immer mitladen,
@@ -58,6 +64,7 @@ export default async function NeueFuellungPage({
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       <FuellungFormClient
         chargen={chargen as any}
+        dacAntraege={dacAntraege as any}
         action={createFuellung}
         defaultChargeId={chargeId}
       />

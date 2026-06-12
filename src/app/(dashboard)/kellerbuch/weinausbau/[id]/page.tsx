@@ -307,6 +307,10 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
               🍾 Abfüllen
             </Link>
           )}
+          <Link href={`/kellerbuch/weinausbau/${weinausbau.id}/buch`}
+            className="mt-1 inline-block text-xs border border-s112-border text-s112-teal px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
+            📖 Weinbuch
+          </Link>
         </div>
       </div>
 

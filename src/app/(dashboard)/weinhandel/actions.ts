@@ -55,6 +55,7 @@ export async function createFuellung(formData: FormData) {
     bestand_flaschen:     anzahl,
     menge_liter_gefuellt: mengeGefuellt,
     pruefnummer:          (formData.get('pruefnummer') as string) || null,
+    dac_antrag_id:        (formData.get('dac_antrag_id') as string) || null,
     chargennummer:        await (async () => {
       const manuell = (formData.get('chargennummer') as string) || null
       if (manuell) return manuell
