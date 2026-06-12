@@ -56,7 +56,8 @@ export default async function NeueFuellungPage({
       </p>
 
       <FuellungFormClient
-        chargen={chargen}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        chargen={chargen as any}
         action={createFuellung}
         defaultChargeId={chargeId}
       />
