@@ -66,7 +66,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
 
     // Eingehende Umzüge – inkl. brutto_liter/schwund_liter für korrekte Netto-Berechnung
     (supabase.from('keller_umzuege') as any)
-      .select('id, datum, menge_liter, brutto_liter, schwund_liter, umzug_typ, nach_weinausbau_id, von_weinausbau:von_weinausbau_id(name, jahrgang, behaelter:behaelter_id(name)), notizen')
+      .select('id, datum, menge_liter, brutto_liter, schwund_liter, umzug_typ, nach_weinausbau_id, von_behaelter:von_behaelter_id(name), von_weinausbau:von_weinausbau_id(name, jahrgang, behaelter:behaelter_id(name)), notizen, umzug_batch_id, zeilen_typ')
       .eq('nach_behaelter_id', id)
       .order('datum', { ascending: true }),
 
@@ -110,7 +110,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
   ] = chargeIdList.length > 0
     ? await Promise.all([
         (supabase.from('keller_umzuege') as any)
-          .select('id, datum, menge_liter, brutto_liter, schwund_liter, zeilen_typ, umzug_typ, nach_behaelter:nach_behaelter_id(name), von_weinausbau:von_weinausbau_id(name), notizen')
+          .select('id, datum, menge_liter, brutto_liter, schwund_liter, zeilen_typ, umzug_typ, nach_behaelter:nach_behaelter_id(name), von_weinausbau:von_weinausbau_id(name), notizen, umzug_batch_id')
           .in('von_weinausbau_id', chargeIdList)
           .order('datum', { ascending: true }),
         (supabase.from('fuellungen') as any)
@@ -124,6 +124,41 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
           .order('id', { ascending: true }),
       ])
     : [{ data: [] }, { data: [] }, { data: [] }]
+
+  // ── Sekundäre Batch-Lookups für n:n-Umzug-Format ────────────────────────────
+  // 'ziel'-Zeilen haben von_weinausbau_id = null → Quelle aus 'quelle'-Row holen
+  const einZielBatchIds = [...new Set(
+    ((umzuegeEinRaw ?? []) as R[]).filter(u => u.zeilen_typ === 'ziel' && u.umzug_batch_id).map(u => u.umzug_batch_id)
+  )] as string[]
+  // 'quelle'-Zeilen haben nach_behaelter_id = null → Ziel aus 'ziel'-Row holen
+  const ausQuelleBatchIds = [...new Set(
+    ((umzuegeAusRaw ?? []) as R[]).filter(u => u.zeilen_typ === 'quelle' && u.umzug_batch_id).map(u => u.umzug_batch_id)
+  )] as string[]
+
+  const quelleByBatch: Record<string, R[]> = {}
+  const zielByBatch:   Record<string, R[]> = {}
+
+  if (einZielBatchIds.length > 0) {
+    const { data: quelleRows } = await (supabase.from('keller_umzuege') as any)
+      .select('umzug_batch_id, von_behaelter:von_behaelter_id(name), von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name))')
+      .in('umzug_batch_id', einZielBatchIds)
+      .eq('zeilen_typ', 'quelle')
+    for (const q of ((quelleRows ?? []) as R[])) {
+      if (!quelleByBatch[q.umzug_batch_id]) quelleByBatch[q.umzug_batch_id] = []
+      quelleByBatch[q.umzug_batch_id].push(q)
+    }
+  }
+
+  if (ausQuelleBatchIds.length > 0) {
+    const { data: zielRows } = await (supabase.from('keller_umzuege') as any)
+      .select('umzug_batch_id, nach_behaelter:nach_behaelter_id(name), nach_weinausbau:nach_weinausbau_id(name), menge_liter')
+      .in('umzug_batch_id', ausQuelleBatchIds)
+      .eq('zeilen_typ', 'ziel')
+    for (const z of ((zielRows ?? []) as R[])) {
+      if (!zielByBatch[z.umzug_batch_id]) zielByBatch[z.umzug_batch_id] = []
+      zielByBatch[z.umzug_batch_id].push(z)
+    }
+  }
 
   // Eröffnungsbestand-Charge ermitteln
   const eroeffnungsCharge = ((chargenRaw ?? []) as R[]).find(c => c.ist_eroeffnungsbestand)
@@ -171,16 +206,38 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
       ? rohmenge
       : Math.max(0, rohmenge - schwund)
     if (liter <= 0) continue
-    const vonCharge  = u.von_weinausbau as R | null
-    const vonTank    = (vonCharge?.behaelter as R | null)?.name ?? null
-    const vonName    = vonCharge?.name ?? '?'
+
+    let vonBeschreibung: string
+    if (u.zeilen_typ === 'ziel' && u.umzug_batch_id && quelleByBatch[u.umzug_batch_id]) {
+      // Neues N:N-Format: Quelle aus sekundärer Abfrage
+      const quelleRecs = quelleByBatch[u.umzug_batch_id]
+      const quelleNames = quelleRecs.map((q: R) => {
+        const wa         = q.von_weinausbau as R | null
+        const waName     = wa?.name ?? null
+        const tankFromWA = (wa?.behaelter as R | null)?.name ?? null
+        const tankDirekt = (q.von_behaelter as R | null)?.name ?? null
+        const tank       = tankFromWA ?? tankDirekt ?? null
+        if (tank && waName) return `${tank} (${waName})`
+        return tank ?? waName ?? '?'
+      })
+      vonBeschreibung = quelleNames.join(', ') || '?'
+    } else {
+      // Altes Format oder direkte Verlinkung
+      const vonCharge  = u.von_weinausbau as R | null
+      const tankFromWA = (vonCharge?.behaelter as R | null)?.name ?? null
+      const tankDirekt = (u.von_behaelter as R | null)?.name ?? null
+      const vonTank    = tankFromWA ?? tankDirekt ?? null
+      const vonName    = vonCharge?.name ?? '?'
+      vonBeschreibung  = vonTank ? `${vonTank} (${vonName})` : vonName
+    }
+
     const istFiltEin = u.umzug_typ === 'filtration'
     bewegungen.push({
       datum: u.datum,
       art: istFiltEin ? 'filtration_ein' : 'umzug_ein',
       beschreibung: istFiltEin
-        ? `Filtration von ${vonTank ?? vonName}${vonTank ? ` (${vonName})` : ''}`
-        : `Zugang von ${vonTank ?? vonName}${vonTank ? ` (${vonName})` : ''}`,
+        ? `Filtration von ${vonBeschreibung}`
+        : `Zugang von ${vonBeschreibung}`,
       menge: liter,
       extra: schwund > 0
         ? `Schwund: ${schwund.toLocaleString('de-AT')} L${u.notizen ? ` · ${u.notizen}` : ''}`
@@ -191,22 +248,40 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
   // Ausgehende Umzüge (Abgänge) – Quelle verliert Bruttomenge
   for (const u of (umzuegeAusRaw ?? []) as R[]) {
     const netto   = parseFloat(u.menge_liter) || 0
-    const schwund = parseFloat(u.schwund_liter) || 0
-    // 'quelle'-Zeilen (N:M-Format): menge_liter = brutto direkt
+    // 'quelle'-Zeilen (N:N-Format): menge_liter = brutto direkt
     // 'transfer'-Zeilen: brutto_liter (neues Format) ODER menge_liter (altes Format, war brutto)
     const abgang  = u.zeilen_typ === 'quelle'
       ? netto
       : (parseFloat(u.brutto_liter) || netto)
     if (abgang <= 0) continue
-    const nachTank   = (u.nach_behaelter as R | null)?.name ?? '?'
+
+    let nachBeschreibung: string
+    let schwund = parseFloat(u.schwund_liter) || 0
+
+    if (u.zeilen_typ === 'quelle' && u.umzug_batch_id && zielByBatch[u.umzug_batch_id]) {
+      // Neues N:N-Format: Ziel aus sekundärer Abfrage
+      const zielRecs = zielByBatch[u.umzug_batch_id]
+      const zielNames = zielRecs.map((z: R) => {
+        const behName = (z.nach_behaelter as R | null)?.name ?? null
+        const waName  = (z.nach_weinausbau as R | null)?.name ?? null
+        return behName ?? waName ?? '?'
+      })
+      const sumNetto = zielRecs.reduce((s: number, z: R) => s + (parseFloat(z.menge_liter) || 0), 0)
+      schwund = Math.max(0, abgang - sumNetto)
+      nachBeschreibung = zielNames.join(', ') || '?'
+    } else {
+      // Altes Format
+      nachBeschreibung = (u.nach_behaelter as R | null)?.name ?? '?'
+    }
+
     const vonCharge  = u.von_weinausbau as R | null
     const istFiltAus = u.umzug_typ === 'filtration'
     bewegungen.push({
       datum: u.datum,
       art: istFiltAus ? 'filtration_aus' : 'umzug_aus',
       beschreibung: istFiltAus
-        ? `Filtration nach ${nachTank}${schwund > 0 ? ` · Schwund: ${schwund.toLocaleString('de-AT')} L` : ''}`
-        : `Umzug nach ${nachTank}${schwund > 0 ? ` · Schwund: ${schwund.toLocaleString('de-AT')} L` : ''}`,
+        ? `Filtration nach ${nachBeschreibung}${schwund > 0.01 ? ` · Schwund: ${schwund.toLocaleString('de-AT')} L` : ''}`
+        : `Umzug nach ${nachBeschreibung}${schwund > 0.01 ? ` · Schwund: ${schwund.toLocaleString('de-AT')} L` : ''}`,
       menge: -abgang,
       extra: vonCharge?.name
         ? `aus Charge: ${vonCharge.name}${u.notizen ? ` · ${u.notizen}` : ''}`
