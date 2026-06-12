@@ -188,9 +188,10 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
                   onChange={e => updateWG(i, 'trauben_kg', e.target.value)}
                   placeholder="kg" className={inp} />
               </div>
-              <div className="col-span-3">
-                <input type="text" value={row.rebsorte} onChange={e => updateWG(i, 'rebsorte', e.target.value)}
-                  placeholder="Rebsorte" className={inp} />
+              <div className="col-span-3 flex items-center px-2">
+                <span className="text-sm text-gray-600 truncate">
+                  {row.rebsorte || <span className="text-gray-400 text-xs">–</span>}
+                </span>
               </div>
               <div className="col-span-2 flex justify-end">
                 {wgRows.length > 1 && (

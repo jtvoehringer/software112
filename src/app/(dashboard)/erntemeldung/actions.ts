@@ -248,6 +248,18 @@ export async function upsertPressung(fd: FormData) {
       await (supabase.from('pressung_behaelter') as any).insert(behaelter.map(b => ({ pressung_id: pressId, ...b, behaelter_id: b.behaelter_id || null, weinausbau_id: b.weinausbau_id || null })))
   }
 
+  // ── Lesedaten sync: kg aus Pressung in ernte_parzellen übertragen ───────────
+  // Nur Zeilen ohne gesetztes menge_kg werden befüllt (bestehende Werte bleiben)
+  for (const w of weingaerten) {
+    if (!w.trauben_kg) continue
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('ernte_parzellen') as any)
+      .update({ menge_kg: w.trauben_kg, menge_hl: w.trauben_kg / 130 })
+      .eq('jahrgang_id', jahrgangId)
+      .eq('weingarten_id', w.weingarten_id)
+      .is('menge_kg', null)
+  }
+
   // ── Auto-Weinausbau: Kellerbuch-Charge für jeden Behälter-Eintrag ──────────
   // Jahrgang-Jahr für Bezeichnung laden
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
