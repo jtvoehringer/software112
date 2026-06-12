@@ -26,19 +26,19 @@ create policy "waw_insert" on weinausbau_weingaerten
   for insert with check (tenant_id in (
     select tenant_id from tenant_memberships
     where user_id = auth.uid()
-      and rolle in ('system_admin','tenant_admin','winzer')
+      and role in ('system_admin','tenant_admin','winzer')
   ));
 create policy "waw_update" on weinausbau_weingaerten
   for update using (tenant_id in (
     select tenant_id from tenant_memberships
     where user_id = auth.uid()
-      and rolle in ('system_admin','tenant_admin','winzer')
+      and role in ('system_admin','tenant_admin','winzer')
   ));
 create policy "waw_delete" on weinausbau_weingaerten
   for delete using (tenant_id in (
     select tenant_id from tenant_memberships
     where user_id = auth.uid()
-      and rolle in ('system_admin','tenant_admin','winzer')
+      and role in ('system_admin','tenant_admin','winzer')
   ));
 
 -- ── 2. Backfill: bestehende weingarten_id → Junction-Einträge ────────────────
