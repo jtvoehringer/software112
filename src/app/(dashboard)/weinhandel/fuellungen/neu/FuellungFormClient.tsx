@@ -65,6 +65,7 @@ export default function FuellungFormClient({
     String(defaultCharge?.jahrgang ?? new Date().getFullYear())
   )
   const [rebsorteVal, setRebsorteVal] = useState(defaultCharge?.rebsorte ?? '')
+  const [abschliessen, setAbschliessen] = useState(true)
 
   const selectedCharge = chargen.find(c => c.id === selectedChargeId) ?? null
   const verfuegbar     = parseFloat(String(selectedCharge?.menge_liter ?? 0)) || 0
@@ -278,6 +279,26 @@ export default function FuellungFormClient({
               <>🍶 <strong>Restwein / Schwund:</strong> {fmtL(schwund)} verbleiben nach der Abfüllung im Tank.</>
             )}
           </div>
+        )}
+
+        {/* Charge abschließen */}
+        {schwund !== null && schwund > 0.01 && (
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              name="abschliessen"
+              value="true"
+              checked={abschliessen}
+              onChange={e => setAbschliessen(e.target.checked)}
+              className="mt-0.5 w-4 h-4 accent-s112-teal"
+            />
+            <span className="text-sm text-gray-700">
+              <strong>Charge nach dieser Füllung abschließen</strong>
+              <span className="text-s112-muted ml-1">
+                – {fmtL(schwund)} Restwein als Schwund ausbuchen, Status → Abgeschlossen
+              </span>
+            </span>
+          </label>
         )}
       </div>
 

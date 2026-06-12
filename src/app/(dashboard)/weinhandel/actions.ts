@@ -75,13 +75,17 @@ export async function createFuellung(formData: FormData) {
       .select('menge_liter')
       .eq('id', weinausbauId)
       .single()
-    const aktuell   = parseFloat((wa as AR | null)?.menge_liter ?? '0') || 0
-    const neuMenge  = Math.max(0, aktuell - mengeGefuellt)
-    const neuStatus = neuMenge <= 0.01 ? 'abgeschlossen' : 'abfuellung'
-    const neuAktiv  = neuMenge > 0.01
+    const aktuell        = parseFloat((wa as AR | null)?.menge_liter ?? '0') || 0
+    const neuMenge       = Math.max(0, aktuell - mengeGefuellt)
+    const abschliessen   = formData.get('abschliessen') === 'true'
+    // Charge abschließen wenn: Restwein ≤ 0,01 L ODER explizit angehakt
+    const wirdAbgeschlossen = neuMenge <= 0.01 || abschliessen
+    const neuStatus      = wirdAbgeschlossen ? 'abgeschlossen' : 'abfuellung'
+    const neuAktiv       = !wirdAbgeschlossen
+    const finalMenge     = wirdAbgeschlossen ? 0 : neuMenge
 
     await (supabase.from('weinausbau') as any)
-      .update({ menge_liter: neuMenge, status: neuStatus, aktiv: neuAktiv })
+      .update({ menge_liter: finalMenge, status: neuStatus, aktiv: neuAktiv })
       .eq('id', weinausbauId)
   }
 
