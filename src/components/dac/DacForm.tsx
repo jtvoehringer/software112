@@ -16,6 +16,7 @@ const DAC_REGIONEN = [
   { value: 'mittelburgenland',      label: 'Mittelburgenland DAC' },
   { value: 'eisenberg',             label: 'Eisenberg DAC' },
   { value: 'rosalia',               label: 'Rosalia DAC' },
+  { value: 'thermenregion',         label: 'Thermenregion DAC' },
   { value: 'wiener_gemischter_satz',label: 'Wiener Gemischter Satz DAC' },
   { value: 'sonstiges',             label: 'Sonstiges' },
 ]
