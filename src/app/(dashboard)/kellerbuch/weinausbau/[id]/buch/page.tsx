@@ -492,16 +492,5 @@ export default async function WeinbuchPage({
       </div>
 
     </div>
-
-      {/* DEBUG: Feldbehandlungen-Diagnose (temporär) */}
-      <div className="card p-4 bg-yellow-50 border-yellow-200 text-xs font-mono">
-        <p className="font-bold mb-1">🔍 Debug: Feldbehandlungen</p>
-        <p>WeingartenIds ({debugInfo.weingartenIds.length}): {debugInfo.weingartenIds.join(', ') || '–'}</p>
-        <p>WAW-Einträge: {debugInfo.wawCount} | Pressungen: {debugInfo.pressungenCount}</p>
-        <p>Grundstücke gefunden: {debugGstCount}</p>
-        <p>Behandlung-Junction-Einträge: {debugBgCount}</p>
-        <p>Feldbehandlungen final: {debugFbCount}</p>
-      </div>
-
   )
 }
