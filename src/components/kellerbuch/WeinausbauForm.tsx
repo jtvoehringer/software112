@@ -31,6 +31,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [selWg, setSelWg] = useState<Set<string>>(new Set(selectedWeingaertenIds))
+  const [wgOpen, setWgOpen] = useState(selectedWeingaertenIds.length > 0)
 
   function toggleWg(id: string) {
     setSelWg(prev => {
@@ -126,18 +127,38 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
             {weingaerten.length === 0 ? (
               <p className="text-xs text-s112-muted italic mt-1">Keine Weingärten angelegt</p>
             ) : (
-              <div className="mt-1 border border-s112-border rounded-xl divide-y divide-s112-border/40 max-h-40 overflow-y-auto">
-                {weingaerten.map(w => (
-                  <label key={w.id} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-s112-bg/60 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={selWg.has(w.id)}
-                      onChange={() => toggleWg(w.id)}
-                      className="w-4 h-4 accent-s112-teal shrink-0"
-                    />
-                    <span className="text-sm text-gray-700">{w.name}</span>
-                  </label>
-                ))}
+              <div className="mt-1">
+                {/* Trigger-Button */}
+                <button
+                  type="button"
+                  onClick={() => setWgOpen(o => !o)}
+                  className="form-input w-full text-left flex items-center justify-between"
+                >
+                  <span className="text-sm text-gray-700">
+                    {selWg.size === 0
+                      ? '– keine Auswahl –'
+                      : selWg.size === 1
+                        ? weingaerten.find(w => selWg.has(w.id))?.name ?? '1 ausgewählt'
+                        : `${selWg.size} ausgewählt`}
+                  </span>
+                  <span className="text-s112-muted text-xs">{wgOpen ? '▲' : '▼'}</span>
+                </button>
+                {/* Aufklappbare Checkbox-Liste */}
+                {wgOpen && (
+                  <div className="border border-s112-border border-t-0 rounded-b-xl divide-y divide-s112-border/40 max-h-48 overflow-y-auto shadow-sm">
+                    {weingaerten.map(w => (
+                      <label key={w.id} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-s112-bg/60 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={selWg.has(w.id)}
+                          onChange={() => toggleWg(w.id)}
+                          className="w-4 h-4 accent-s112-teal shrink-0"
+                        />
+                        <span className="text-sm text-gray-700">{w.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

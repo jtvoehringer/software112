@@ -70,7 +70,8 @@ export default async function WeinbuchPage({
     kbRes,      // Kellerbehandlungen
     anRes,      // Analysen
     dacRes,     // DAC-Anträge
-    fuellRes,   // Füllungen via fuellung_chargen
+    fuellRes,       // Füllungen via fuellung_chargen
+    fuellDirektRes, // Direkte Füllungen (Fallback alte Daten)
     wawRes,     // weinausbau_weingaerten (direkter Weingarten-Link)
   ] = await Promise.all([
     // Pressungen + Weingärten (weingarten hat kein grundstueck_id)
@@ -126,6 +127,11 @@ export default async function WeinbuchPage({
       `)
       .eq('weinausbau_id', id),
 
+    // Direkte Füllungen (Fallback für alte Daten ohne fuellung_chargen-Eintrag)
+    (supabase.from('fuellungen') as any)
+      .select('id, datum, chargennummer, pruefnummer, name, anzahl_flaschen, flaschengroesse_ml, menge_liter_gefuellt')
+      .eq('weinausbau_id', id),
+
     // Verknüpfte Weingärten (direkter Pfad ohne Pressung)
     (supabase.from('weinausbau_weingaerten') as any)
       .select('weingarten_id, weingarten:weingarten_id(id, name)')
@@ -138,6 +144,12 @@ export default async function WeinbuchPage({
   const analysen      = (anRes.data ?? []) as R[]
   const dacAntraege   = (dacRes.data ?? []) as R[]
   const fuellChargen  = (fuellRes.data ?? []) as R[]
+  // Direkte Füllungen als fuellung_chargen-ähnliche Wrapper (Fallback für alte Daten)
+  const fuellChargenIds = new Set(fuellChargen.map((fc: R) => (fc.fuellung as R | null)?.id).filter(Boolean))
+  const direktFuellungen = ((fuellDirektRes.data ?? []) as R[])
+    .filter((f: R) => !fuellChargenIds.has(f.id))
+    .map((f: R) => ({ anteil_liter: null, fuellung: f }))
+  const alleFuellungen = [...fuellChargen, ...direktFuellungen]
 
   // Umzüge: Ziel-Behälter via Batch-Lookup ergänzen
   const batchIds = [...new Set(
@@ -185,14 +197,24 @@ export default async function WeinbuchPage({
     }
   }
 
-  // Feldbehandlungen via weingarten_id laden
+  // Feldbehandlungen: weingartenIds → grundstuecke → behandlung_grundstuecke → behandlungen
   let feldbehandlungen: R[] = []
   if (weingartenIds.size > 0) {
-    const { data: fbRaw } = await (supabase.from('behandlungen') as any)
-      .select('id, datum, art, mittel, aufwandmenge, aufwandmenge_einheit, bbch_stadium, notizen, weingarten:weingarten_id(name)')
-      .in('weingarten_id', Array.from(weingartenIds))
-      .order('datum', { ascending: true })
-    feldbehandlungen = (fbRaw ?? []) as R[]
+    const { data: gstRaw } = await (supabase.from('grundstuecke') as any)
+      .select('id').in('weingarten_id', Array.from(weingartenIds))
+    const grundstueckIds = ((gstRaw ?? []) as R[]).map((g: R) => g.id as string)
+    if (grundstueckIds.length > 0) {
+      const { data: bgRaw } = await (supabase.from('behandlung_grundstuecke') as any)
+        .select('behandlung_id').in('grundstueck_id', grundstueckIds)
+      const behandlungIds = [...new Set(((bgRaw ?? []) as R[]).map((b: R) => b.behandlung_id as string))]
+      if (behandlungIds.length > 0) {
+        const { data: fbRaw } = await (supabase.from('behandlungen') as any)
+          .select('id, datum, art, mittel, aufwandmenge, aufwandmenge_einheit, bbch_stadium, notizen, weingarten:weingarten_id(name)')
+          .in('id', behandlungIds)
+          .order('datum', { ascending: true })
+        feldbehandlungen = (fbRaw ?? []) as R[]
+      }
+    }
   }
 
   // ── 3. Timeline zusammenbauen ─────────────────────────────────────────────
@@ -309,7 +331,7 @@ export default async function WeinbuchPage({
   }
 
   // Füllungen
-  for (const fc of fuellChargen) {
+  for (const fc of alleFuellungen) {
     const f = fc.fuellung as R | null
     if (!f || !f.datum) continue
     events.push({
