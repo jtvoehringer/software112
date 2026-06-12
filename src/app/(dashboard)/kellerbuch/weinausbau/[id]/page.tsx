@@ -36,6 +36,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
     { data: fuellungenRaw },
     { data: verkaufRaw },
     { data: pressungenRaw },
+    { data: wawRaw },
   ] = await Promise.all([
     (supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, weingarten_id, behaelter_id, menge_liter, anfangsbestand_liter, status, qualitaetsstufe, notizen, aktiv, einstandspreis_pro_liter, behaelter:behaelter_id(name)')
@@ -68,6 +69,10 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
       .select('id, menge_liter, notizen, pressung:pressung_id(datum, notizen)')
       .eq('weinausbau_id', id)
       .order('id', { ascending: true }),
+    // Verknüpfte Rieden / Weingärten
+    (supabase.from('weinausbau_weingaerten') as any)
+      .select('weingarten_id')
+      .eq('weinausbau_id', id),
   ])
 
   const ausRecs = (umzuegeAusRaw ?? []) as R[]
@@ -123,6 +128,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
 
   const weingaerten = (wgRaw ?? []) as NameRow[]
   const behaelter   = (bhRaw  ?? []) as NameRow[]
+  const selectedWeingaertenIds = ((wawRaw ?? []) as R[]).map(r => r.weingarten_id as string)
 
   const anfangsbestand    = parseFloat(String(weinausbau.anfangsbestand_liter ?? 0)) || 0
   const aktuell           = parseFloat(String(weinausbau.menge_liter ?? 0)) || 0
@@ -403,6 +409,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
             weinausbau={weinausbau}
             weingaerten={weingaerten}
             behaelter={behaelter}
+            selectedWeingaertenIds={selectedWeingaertenIds}
             action={updateWeinausbau.bind(null, id)}
           />
         </section>

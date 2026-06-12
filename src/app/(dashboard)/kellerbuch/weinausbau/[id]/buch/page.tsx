@@ -71,6 +71,7 @@ export default async function WeinbuchPage({
     anRes,      // Analysen
     dacRes,     // DAC-Anträge
     fuellRes,   // Füllungen via fuellung_chargen
+    wawRes,     // weinausbau_weingaerten (direkter Weingarten-Link)
   ] = await Promise.all([
     // Pressungen + Weingärten + Grundstücke
     (supabase.from('pressung_behaelter') as any)
@@ -127,6 +128,11 @@ export default async function WeinbuchPage({
         )
       `)
       .eq('weinausbau_id', id),
+
+    // Verknüpfte Weingärten (direkter Pfad ohne Pressung)
+    (supabase.from('weinausbau_weingaerten') as any)
+      .select('weingarten:weingarten_id(id, name, grundstueck:grundstueck_id(id, name, katastralgemeinde, grundstuecksnummer))')
+      .eq('weinausbau_id', id),
   ])
 
   const pressungen    = (prRes.data ?? []) as R[]
@@ -158,8 +164,14 @@ export default async function WeinbuchPage({
   })
 
   // Feldbehandlungen: aus Grundstücken der verknüpften Weingärten laden
-  // Schritt 1: Grundstück-IDs aus Pressungen sammeln
+  // Schritt 1a: Grundstück-IDs direkt via weinausbau_weingaerten (robuster Pfad)
   const grundstueckIds = new Set<string>()
+  const wawWeingaerten = ((wawRes.data ?? []) as R[]).map(r => r.weingarten as R | null).filter(Boolean)
+  for (const wg of wawWeingaerten) {
+    const g = wg!.grundstueck as R | null
+    if (g?.id) grundstueckIds.add(g.id)
+  }
+  // Schritt 1b: Ernte-Daten + weitere Grundstück-IDs aus Pressungen
   const ernteDaten: Array<{ datum: string; details: string[] }> = []
 
   for (const pb of pressungen) {

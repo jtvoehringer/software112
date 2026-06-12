@@ -22,13 +22,23 @@ interface Props {
   weinausbau?: WeinausbauRow
   weingaerten: Row[]
   behaelter: Row[]
+  selectedWeingaertenIds?: string[]
   action: (formData: FormData) => Promise<void>
 }
 
-export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, action }: Props) {
+export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, selectedWeingaertenIds = [], action }: Props) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [selWg, setSelWg] = useState<Set<string>>(new Set(selectedWeingaertenIds))
+
+  function toggleWg(id: string) {
+    setSelWg(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -108,11 +118,28 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, act
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="form-label">Weingarten</label>
-            <select name="weingarten_id" defaultValue={weinausbau?.weingarten_id ?? ''} className="form-input">
-              <option value="">– kein Weingarten –</option>
-              {weingaerten.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-            </select>
+            <label className="form-label">Rieden / Weingärten</label>
+            {/* Hidden fields: einen pro selektiertem Weingarten */}
+            {Array.from(selWg).map(id => (
+              <input key={id} type="hidden" name="weingarten_ids" value={id} />
+            ))}
+            {weingaerten.length === 0 ? (
+              <p className="text-xs text-s112-muted italic mt-1">Keine Weingärten angelegt</p>
+            ) : (
+              <div className="mt-1 border border-s112-border rounded-xl divide-y divide-s112-border/40 max-h-40 overflow-y-auto">
+                {weingaerten.map(w => (
+                  <label key={w.id} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-s112-bg/60 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={selWg.has(w.id)}
+                      onChange={() => toggleWg(w.id)}
+                      className="w-4 h-4 accent-s112-teal shrink-0"
+                    />
+                    <span className="text-sm text-gray-700">{w.name}</span>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <label className="form-label">Behälter</label>

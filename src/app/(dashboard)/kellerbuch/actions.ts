@@ -53,12 +53,13 @@ export async function createWeinausbau(formData: FormData) {
   const tenantId  = await getTenantId()
   if (!tenantId) throw new Error('Kein Betrieb gefunden')
 
+  const wgIds = formData.getAll('weingarten_ids').map(v => v.toString()).filter(Boolean)
   const payload: R = {
     tenant_id:       tenantId,
     name:            formData.get('name') as string,
     jahrgang:        formData.get('jahrgang') ? Number(formData.get('jahrgang')) : null,
     rebsorte:        (formData.get('rebsorte') as string) || null,
-    weingarten_id:   (formData.get('weingarten_id') as string) || null,
+    weingarten_id:   wgIds[0] ?? null,
     behaelter_id:    (formData.get('behaelter_id') as string) || null,
     menge_liter:          formData.get('menge_liter') ? Number((formData.get('menge_liter') as string).replace(',', '.')) : null,
     anfangsbestand_liter: formData.get('menge_liter') ? Number((formData.get('menge_liter') as string).replace(',', '.')) : null,
@@ -71,13 +72,25 @@ export async function createWeinausbau(formData: FormData) {
     aktiv:           true,
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('weinausbau') as any).insert(payload)
+  const { data: newWA, error } = await (supabase.from('weinausbau') as any).insert(payload).select('id').single()
   if (error) throw new Error((error as R).message)
+  // Junction-Tabelle: Rieden/Weingärten verknüpfen
+  if (wgIds.length > 0 && (newWA as R)?.id) {
+    const waId = (newWA as R).id as string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('weinausbau_weingaerten') as any).insert(
+      wgIds.map(wgId => ({ tenant_id: tenantId, weinausbau_id: waId, weingarten_id: wgId }))
+    )
+  }
   revalidatePath('/kellerbuch')
 }
 
 export async function updateWeinausbau(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  if (!tenantId) throw new Error('Kein Betrieb gefunden')
+
+  const wgIds = formData.getAll('weingarten_ids').map(v => v.toString()).filter(Boolean)
   const neueMenge = formData.get('menge_liter')
     ? Number((formData.get('menge_liter') as string).replace(',', '.'))
     : null
@@ -85,7 +98,7 @@ export async function updateWeinausbau(id: string, formData: FormData) {
     name:            formData.get('name') as string,
     jahrgang:        formData.get('jahrgang') ? Number(formData.get('jahrgang')) : null,
     rebsorte:        (formData.get('rebsorte') as string) || null,
-    weingarten_id:   (formData.get('weingarten_id') as string) || null,
+    weingarten_id:   wgIds[0] ?? null,
     behaelter_id:    (formData.get('behaelter_id') as string) || null,
     menge_liter:     neueMenge,
     qualitaetsstufe:      (formData.get('qualitaetsstufe') as string) || null,
@@ -99,6 +112,16 @@ export async function updateWeinausbau(id: string, formData: FormData) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('weinausbau') as any).update(payload).eq('id', id)
   if (error) throw new Error((error as R).message)
+
+  // Junction-Tabelle: Rieden/Weingärten neu setzen (delete + insert)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from('weinausbau_weingaerten') as any).delete().eq('weinausbau_id', id)
+  if (wgIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('weinausbau_weingaerten') as any).insert(
+      wgIds.map(wgId => ({ tenant_id: tenantId, weinausbau_id: id, weingarten_id: wgId }))
+    )
+  }
 
   // KEIN Sync auf pressung_behaelter.menge_liter – das ist der historische Pressbetrag
   // und darf nicht mit dem laufenden Bestand überschrieben werden.
