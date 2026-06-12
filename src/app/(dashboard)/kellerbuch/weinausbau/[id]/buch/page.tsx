@@ -197,31 +197,51 @@ export default async function WeinbuchPage({
     }
   }
 
-  // Feldbehandlungen: weingartenIds → grundstuecke → behandlung_grundstuecke → behandlungen
+  // Feldbehandlungen: via RPC (umgeht RLS-Subquery-Problem bei behandlung_grundstuecke)
+  // Schritt 1: Grundstück-IDs für diese Weingärten
   let feldbehandlungen: R[] = []
   if (weingartenIds.size > 0) {
     const { data: gstRaw } = await (supabase.from('grundstuecke') as any)
       .select('id').in('weingarten_id', Array.from(weingartenIds))
     const grundstueckIds = ((gstRaw ?? []) as R[]).map((g: R) => g.id as string)
+
     if (grundstueckIds.length > 0) {
-      const { data: bgRaw } = await (supabase.from('behandlung_grundstuecke') as any)
-        .select('behandlung_id').in('grundstueck_id', grundstueckIds)
-      const behandlungIds = [...new Set(((bgRaw ?? []) as R[]).map((b: R) => b.behandlung_id as string))]
-      if (behandlungIds.length > 0) {
-        const { data: fbRaw } = await (supabase.from('behandlungen') as any)
-          .select('id, datum, art, mittel, aufwandmenge, aufwandmenge_einheit, bbch_stadium, notizen, weingarten:weingarten_id(name)')
-          .in('id', behandlungIds)
-          .order('datum', { ascending: true })
-        feldbehandlungen = (fbRaw ?? []) as R[]
+      // Schritt 2: Tenant-ID des Weinausbaus ermitteln
+      const { data: tenantRow } = await (supabase.from('weinausbau') as any)
+        .select('tenant_id').eq('id', id).maybeSingle()
+      const tenantId = (tenantRow as R | null)?.tenant_id as string | null
+
+      if (tenantId) {
+        // Schritt 3: RPC – läuft als security definer, prüft Tenant selbst
+        const { data: rpcRaw } = await (supabase.rpc as any)(
+          'get_behandlungen_fuer_grundstuecke',
+          { p_grundstueck_ids: grundstueckIds, p_tenant_id: tenantId }
+        )
+        feldbehandlungen = ((rpcRaw ?? []) as R[]).map((r: R) => ({
+          id: r.behandlung_id,
+          datum: r.datum,
+          art: r.art,
+          psm_name: r.psm_name,
+          aufwandmenge: r.aufwandmenge,
+          aufwandmenge_einheit: r.aufwandmenge_einheit,
+          bbch_stadium: r.bbch_stadium,
+          schaderreger: r.schaderreger,
+          notizen: r.notizen,
+          weingarten: r.weingarten_name ? { name: r.weingarten_name } : null,
+        }))
       }
     }
+
     // Fallback: behandlungen.weingarten_id direkt (falls keine grundstuecke angelegt)
     if (feldbehandlungen.length === 0) {
       const { data: fbDirektRaw } = await (supabase.from('behandlungen') as any)
-        .select('id, datum, art, mittel, aufwandmenge, aufwandmenge_einheit, bbch_stadium, notizen, weingarten:weingarten_id(name)')
+        .select('id, datum, art, aufwandmenge, aufwandmenge_einheit, bbch_stadium, schaderreger, notizen, psm:psm_id(name), weingarten:weingarten_id(name)')
         .in('weingarten_id', Array.from(weingartenIds))
         .order('datum', { ascending: true })
-      feldbehandlungen = (fbDirektRaw ?? []) as R[]
+      feldbehandlungen = ((fbDirektRaw ?? []) as R[]).map((r: R) => ({
+        ...r,
+        psm_name: (r.psm as R | null)?.name ?? null,
+      }))
     }
   }
 
@@ -254,7 +274,7 @@ export default async function WeinbuchPage({
     events.push({
       datum: b.datum,
       typ: 'feldbehandlung',
-      titel: b.mittel ?? b.art ?? 'Behandlung',
+      titel: b.psm_name ?? b.art ?? 'Behandlung',
       details: [
         b.art && `Art: ${b.art}`,
         b.aufwandmenge && `${b.aufwandmenge} ${b.aufwandmenge_einheit ?? ''}`.trim(),
