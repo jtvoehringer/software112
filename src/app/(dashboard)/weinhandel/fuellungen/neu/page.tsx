@@ -55,8 +55,8 @@ export default async function NeueFuellungPage({
         Der Wein verlässt den Keller und wird als verkaufsfertiger Artikel im Weinhandel angelegt.
       </p>
 
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       <FuellungFormClient
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         chargen={chargen as any}
         action={createFuellung}
         defaultChargeId={chargeId}
