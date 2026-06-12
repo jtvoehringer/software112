@@ -55,12 +55,21 @@ export default async function WeinbuchPage({
   const supabase = await createSupabaseServerClient()
 
   // ── 1. Weinausbau-Charge laden ────────────────────────────────────────────
-  const { data: waRaw } = await (supabase.from('weinausbau') as any)
+  const { data: waRaw, error: waErr } = await (supabase.from('weinausbau') as any)
     .select('id, name, jahrgang, rebsorte, qualitaet, status, menge_liter, behaelter:behaelter_id(name)')
     .eq('id', id)
-    .single()
+    .maybeSingle()
 
-  if (!waRaw) notFound()
+  if (waErr || !waRaw) {
+    return (
+      <div className="max-w-xl p-8 space-y-3">
+        <h1 className="text-xl font-bold text-red-600">Weinbuch – Charge nicht geladen</h1>
+        <p className="text-sm text-gray-700">ID: <code className="font-mono bg-gray-100 px-1">{id}</code></p>
+        <p className="text-sm text-red-500">{waErr?.message ?? 'Keine Daten zurückgegeben'}</p>
+        <p className="text-xs text-gray-500">Route funktioniert – Problem liegt beim Supabase-Query.</p>
+      </div>
+    )
+  }
   const wa = waRaw as R
 
   // ── 2. Alle Daten parallel laden ─────────────────────────────────────────
