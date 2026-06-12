@@ -88,12 +88,37 @@
     display: none !important;
   }
 
-  /* Hauptbereich auf volle Breite */
-  main, body, html {
+  /* Scrollbars komplett verstecken */
+  * {
+    scrollbar-width: none !important;
+  }
+  *::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  /* Layout-Wrapper: h-screen + overflow-hidden aufheben → Mehrseitendruck */
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
     background: white !important;
+  }
+
+  /* Alle Container-Overflow-Sperren aufheben */
+  body > div,
+  body > div > div,
+  main {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Hauptbereich auf volle Breite */
+  main {
+    width: 100% !important;
+    padding: 0 !important;
   }
 
   /* Kein Schatten, keine runden Ecken auf Karten */

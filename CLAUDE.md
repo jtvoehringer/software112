@@ -11,7 +11,7 @@
 
 **software:112** – Digitales Weingut-ERP für Familie Gebeshuber (Winzer in NÖ)
 
-- **Tenant-ID Sandbox:** `fa22dc07-eca5-43df-af96-f7b9b09f0471` (Pilot/Sandbox bis UAT-Abschluss)
+- **Tenant-ID Sandbox:** `fa22dc07-eca5-43df-af96-f7b9b09f0471` · Tenant-Name in DB: **„Sandbox"** (Produktiv-Tenant „Weinbau Gebeshuber" wird erst nach UAT-Abschluss angelegt)
 - **Produktions-URL:** https://software112.icp-consultants.at
 - **GitHub:** https://github.com/jtvoehringer/software112
 - **Supabase Projekt:** zwcsgnemijkpyxrqykul.supabase.co (Region: West EU Ireland)
