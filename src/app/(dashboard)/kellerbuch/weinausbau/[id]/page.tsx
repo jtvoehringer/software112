@@ -88,7 +88,8 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
 
   if (quelleAusBatchIds.length > 0) {
     const { data: zielRaw } = await (supabase.from('keller_umzuege') as any)
-      .select('umzug_batch_id, nach_behaelter:nach_behaelter_id(name), menge_liter')
+      // nach_weinausbau als Fallback wenn nach_behaelter_id NULL ist
+      .select('umzug_batch_id, nach_behaelter:nach_behaelter_id(name), nach_weinausbau:nach_weinausbau_id(name), menge_liter')
       .in('umzug_batch_id', quelleAusBatchIds)
       .eq('zeilen_typ', 'ziel')
     for (const z of ((zielRaw ?? []) as R[])) {
@@ -99,7 +100,8 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
 
   if (zielEinBatchIds.length > 0) {
     const { data: quelleRaw } = await (supabase.from('keller_umzuege') as any)
-      .select('umzug_batch_id, von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name)), brutto_liter')
+      // von_behaelter direkt (einstufig) als Fallback wenn doppelter Join fehlschlägt
+      .select('umzug_batch_id, von_behaelter:von_behaelter_id(name), von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name)), brutto_liter')
       .in('umzug_batch_id', zielEinBatchIds)
       .eq('zeilen_typ', 'quelle')
     for (const q of ((quelleRaw ?? []) as R[])) {
@@ -158,9 +160,16 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
       // Neues Format: Quell-Namen aus quelleRecsByBatch holen
       const quelleRecs = quelleRecsByBatch[u.umzug_batch_id] ?? []
       const quelleNames = quelleRecs.map((q: R) => {
-        const wa   = q.von_weinausbau as R | null
-        const tank = (wa?.behaelter as R | null)?.name
-        return tank ? `${tank} (${wa?.name ?? '?'})` : (wa?.name ?? '?')
+        const wa         = q.von_weinausbau as R | null
+        const waName     = wa?.name ?? null
+        // Behälter: zuerst aus doppeltem Join, dann aus direktem FK-Join
+        const tankFromWA = (wa?.behaelter as R | null)?.name ?? null
+        const tankDirekt = (q.von_behaelter as R | null)?.name ?? null
+        const tank       = tankFromWA ?? tankDirekt ?? null
+        if (tank && waName) return `${tank} (${waName})`
+        if (tank) return tank
+        if (waName) return waName
+        return '?'
       })
       beschreibung = `Zugang aus ${quelleNames.length > 0 ? quelleNames.join(', ') : '?'}`
     } else {
@@ -192,7 +201,12 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
       // Neues Format: brutto_liter ist der tatsächliche Abgang
       abgangLiter = parseFloat(u.brutto_liter) || parseFloat(u.menge_liter) || 0
       const zielRecs  = zielRecsByBatch[u.umzug_batch_id] ?? []
-      const zielNames = zielRecs.map((z: R) => (z.nach_behaelter as R | null)?.name ?? '?')
+      const zielNames = zielRecs.map((z: R) => {
+        // nach_behaelter bevorzugen, nach_weinausbau als Fallback
+        const behName = (z.nach_behaelter as R | null)?.name ?? null
+        const waName  = (z.nach_weinausbau as R | null)?.name ?? null
+        return behName ?? waName ?? '?'
+      })
       const sumNetto  = zielRecs.reduce((s: number, z: R) => s + (parseFloat(z.menge_liter) || 0), 0)
       const schwund   = abgangLiter - sumNetto
       beschreibung    = `Umziehen → ${zielNames.length > 0 ? zielNames.join(', ') : '?'}${schwund > 0.01 ? ` (Schwund: ${schwund.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L)` : ''}`
