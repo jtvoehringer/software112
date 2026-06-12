@@ -192,7 +192,11 @@ export default async function KellerbuchPage() {
                   <tbody>
                     {chargen.map((w: R) => {
                       const st = STATUS_LABELS[w.status] ?? { label: w.status, color: 'bg-gray-100 text-gray-600' }
-                      const menge = parseFloat(w.menge_liter) || 0
+                      // Bei einer einzigen Charge im Behälter: View-Wert (event-basiert) verwenden,
+                      // da weinausbau.menge_liter durch direkte Bearbeitung veralten kann
+                      const menge = chargen.length === 1
+                        ? literImBehaelter
+                        : parseFloat(w.menge_liter) || 0
                       const istEB = w.ist_eroeffnungsbestand === true
                       return (
                         <tr key={w.id} className={`border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40 ${istEB ? 'opacity-75' : ''}`}>
