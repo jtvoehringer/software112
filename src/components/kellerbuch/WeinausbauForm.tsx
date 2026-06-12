@@ -31,7 +31,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [selWg, setSelWg] = useState<Set<string>>(new Set(selectedWeingaertenIds))
-  const [wgOpen, setWgOpen] = useState(selectedWeingaertenIds.length > 0)
+  const [wgOpen, setWgOpen] = useState(false)
 
   function toggleWg(id: string) {
     setSelWg(prev => {

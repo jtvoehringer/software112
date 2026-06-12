@@ -215,6 +215,14 @@ export default async function WeinbuchPage({
         feldbehandlungen = (fbRaw ?? []) as R[]
       }
     }
+    // Fallback: behandlungen.weingarten_id direkt (falls keine grundstuecke angelegt)
+    if (feldbehandlungen.length === 0) {
+      const { data: fbDirektRaw } = await (supabase.from('behandlungen') as any)
+        .select('id, datum, art, mittel, aufwandmenge, aufwandmenge_einheit, bbch_stadium, notizen, weingarten:weingarten_id(name)')
+        .in('weingarten_id', Array.from(weingartenIds))
+        .order('datum', { ascending: true })
+      feldbehandlungen = (fbDirektRaw ?? []) as R[]
+    }
   }
 
   // ── 3. Timeline zusammenbauen ─────────────────────────────────────────────
