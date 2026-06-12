@@ -73,18 +73,15 @@ export default async function WeinbuchPage({
     fuellRes,   // Füllungen via fuellung_chargen
     wawRes,     // weinausbau_weingaerten (direkter Weingarten-Link)
   ] = await Promise.all([
-    // Pressungen + Weingärten + Grundstücke
+    // Pressungen + Weingärten (weingarten hat kein grundstueck_id)
     (supabase.from('pressung_behaelter') as any)
       .select(`
         menge_liter,
         pressung:pressung_id(
           id, datum, most_liter_gesamt, weinbezeichnung,
           pressung_weingaerten(
-            trauben_kg, rebsorte, ernte_datum, kmw,
-            weingarten:weingarten_id(
-              id, name, flaeche_ha,
-              grundstueck:grundstueck_id(name, katastralgemeinde, grundstuecksnummer)
-            )
+            trauben_kg, rebsorte, ernte_datum, kmw, weingarten_id,
+            weingarten:weingarten_id(id, name, flaeche_ha)
           )
         )
       `)
@@ -131,7 +128,7 @@ export default async function WeinbuchPage({
 
     // Verknüpfte Weingärten (direkter Pfad ohne Pressung)
     (supabase.from('weinausbau_weingaerten') as any)
-      .select('weingarten:weingarten_id(id, name, grundstueck:grundstueck_id(id, name, katastralgemeinde, grundstuecksnummer))')
+      .select('weingarten_id, weingarten:weingarten_id(id, name)')
       .eq('weinausbau_id', id),
   ])
 
@@ -163,65 +160,37 @@ export default async function WeinbuchPage({
     return u
   })
 
-  // Feldbehandlungen: aus Grundstücken der verknüpften Weingärten laden
-  // Schritt 1a: Grundstück-IDs direkt via weinausbau_weingaerten (robuster Pfad)
-  const grundstueckIds = new Set<string>()
-  const wawWeingaerten = ((wawRes.data ?? []) as R[]).map(r => r.weingarten as R | null).filter(Boolean)
-  for (const wg of wawWeingaerten) {
-    const g = wg!.grundstueck as R | null
-    if (g?.id) grundstueckIds.add(g.id)
+  // Feldbehandlungen: direkt über weingarten_id (weingarten hat kein grundstueck_id)
+  // Weingarten-IDs: aus wawRes (Junction) + aus Pressungen
+  const weingartenIds = new Set<string>()
+  for (const r of ((wawRes.data ?? []) as R[])) {
+    if (r.weingarten_id) weingartenIds.add(r.weingarten_id)
   }
-  // Schritt 1b: Ernte-Daten + weitere Grundstück-IDs aus Pressungen
+  // Ernte-Daten aus Pressungen + Weingarten-IDs ergänzen
   const ernteDaten: Array<{ datum: string; details: string[] }> = []
-
   for (const pb of pressungen) {
     const p = pb.pressung as R | null
     if (!p) continue
     for (const wg of ((p.pressung_weingaerten ?? []) as R[])) {
       const w = wg.weingarten as R | null
-      const g = w?.grundstueck as R | null
-      if (g?.id ?? w?.grundstueck_id) {
-        const gid = g?.id
-        if (gid) grundstueckIds.add(gid)
-      }
-      // Ernte-Events sammeln
+      if (wg.weingarten_id) weingartenIds.add(wg.weingarten_id)
       if (wg.ernte_datum) {
         const details: string[] = []
         if (w?.name) details.push(`Weingarten: ${w.name}`)
         if (wg.trauben_kg) details.push(`${parseFloat(wg.trauben_kg).toLocaleString('de-AT')} kg`)
         if (wg.kmw) details.push(`${wg.kmw} °KMW`)
         if (wg.rebsorte) details.push(wg.rebsorte)
-        if (g?.katastralgemeinde) details.push(g.katastralgemeinde)
         ernteDaten.push({ datum: wg.ernte_datum, details })
       }
     }
   }
 
-  // Schritt 2: Feldbehandlungen für diese Grundstücke laden (vor Ernte)
+  // Feldbehandlungen via weingarten_id laden
   let feldbehandlungen: R[] = []
-  if (grundstueckIds.size > 0) {
-    const fruehestesErnteDatum = ernteDaten.length > 0
-      ? ernteDaten.map(e => e.datum).sort()[0]
-      : null
-    let query = (supabase.from('behandlungen') as any)
-      .select(`
-        id, datum, art, mittel, aufwandmenge, aufwandmenge_einheit, bbch_stadium,
-        grundstueck:weingarten_id(name),
-        behandlung_grundstuecke(grundstueck:grundstueck_id(name, katastralgemeinde))
-      `)
-      .in('weingarten_id',
-        // Feldbehandlungen via weingarten → grundstueck filtern
-        Array.from(grundstueckIds)
-      )
-      .order('datum', { ascending: true })
-    if (fruehestesErnteDatum) query = query.lte('datum', fruehestesErnteDatum)
-    // Alternativweg: über behandlung_grundstuecke
+  if (weingartenIds.size > 0) {
     const { data: fbRaw } = await (supabase.from('behandlungen') as any)
-      .select(`
-        id, datum, art, mittel, aufwandmenge, aufwandmenge_einheit, bbch_stadium, notizen,
-        behandlung_grundstuecke!inner(grundstueck_id, grundstueck:grundstueck_id(id, name, katastralgemeinde))
-      `)
-      .in('behandlung_grundstuecke.grundstueck_id', Array.from(grundstueckIds))
+      .select('id, datum, art, mittel, aufwandmenge, aufwandmenge_einheit, bbch_stadium, notizen, weingarten:weingarten_id(name)')
+      .in('weingarten_id', Array.from(weingartenIds))
       .order('datum', { ascending: true })
     feldbehandlungen = (fbRaw ?? []) as R[]
   }
@@ -231,18 +200,16 @@ export default async function WeinbuchPage({
 
   // Feldbehandlungen
   for (const b of feldbehandlungen) {
-    const gst = ((b.behandlung_grundstuecke ?? []) as R[])
-      .map((bg: R) => (bg.grundstueck as R | null)?.name)
-      .filter(Boolean).join(', ')
+    const wgName = (b.weingarten as R | null)?.name ?? null
     events.push({
       datum: b.datum,
       typ: 'feldbehandlung',
       titel: b.mittel ?? b.art ?? 'Behandlung',
       details: [
         b.art && `Art: ${b.art}`,
-        b.aufwandmenge && `${b.aufwandmenge} ${b.aufwandmenge_einheit ?? ''}`,
+        b.aufwandmenge && `${b.aufwandmenge} ${b.aufwandmenge_einheit ?? ''}`.trim(),
         b.bbch_stadium && `BBCH ${b.bbch_stadium}`,
-        gst && `Grundstück: ${gst}`,
+        wgName && `Weingarten: ${wgName}`,
         b.notizen,
       ].filter(Boolean) as string[],
     })
