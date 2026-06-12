@@ -2,7 +2,9 @@
 -- Umgeht RLS-Subquery-Problem bei direktem Tabellenzugriff.
 -- Läuft als security definer und prüft Tenant-Zugehörigkeit selbst.
 
-create or replace function get_behandlungen_fuer_grundstuecke(
+drop function if exists get_behandlungen_fuer_grundstuecke(uuid[], uuid);
+
+create function get_behandlungen_fuer_grundstuecke(
   p_grundstueck_ids uuid[],
   p_tenant_id       uuid
 )
@@ -36,9 +38,10 @@ as $$
     wg.name                       as weingarten_name,
     sum(bg.flaeche_ha)            as flaeche_ha_gesamt
   from behandlung_grundstuecke bg
-  join behandlungen b       on b.id  = bg.behandlung_id
+  join behandlungen b             on b.id   = bg.behandlung_id
+  join grundstuecke gst           on gst.id = bg.grundstueck_id
+  join weingarten wg              on wg.id  = gst.weingarten_id
   left join pflanzenschutzmittel psm on psm.id = b.psm_id
-  left join weingarten wg   on wg.id = b.weingarten_id
   where bg.grundstueck_id = any(p_grundstueck_ids)
     and b.tenant_id = p_tenant_id
     and p_tenant_id in (select get_user_tenant_ids())
@@ -58,7 +61,6 @@ where kb.weinausbau_id is null
   and kb.behaelter_id is not null
   and w.behaelter_id = kb.behaelter_id
   and w.tenant_id = kb.tenant_id
-  -- nur eindeutige Zuordnung (1 Charge pro Behälter)
   and (
     select count(*) from weinausbau ww
     where ww.behaelter_id = kb.behaelter_id
