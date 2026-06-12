@@ -66,8 +66,19 @@ export async function createFuellung(formData: FormData) {
     notizen:              (formData.get('notizen') as string) || null,
   }
 
-  const { error } = await (supabase.from('fuellungen') as any).insert(payload)
+  const { error, data: fuellungData } = await (supabase.from('fuellungen') as any)
+    .insert(payload).select('id').single()
   if (error) throw new Error((error as AR).message)
+
+  // fuellung_chargen: Charge-Verknüpfung anlegen
+  if (weinausbauId && fuellungData?.id) {
+    await (supabase.from('fuellung_chargen') as any).insert({
+      tenant_id:     tenantId,
+      fuellung_id:   fuellungData.id,
+      weinausbau_id: weinausbauId,
+      anteil_liter:  mengeGefuellt,
+    })
+  }
 
   // Weinausbau: Liter abziehen + Status aktualisieren
   if (weinausbauId) {
@@ -113,6 +124,7 @@ export async function updateFuellung(id: string, formData: FormData) {
     bestand_flaschen:     parseInt(formData.get('bestand_flaschen') as string) || anzahl,
     menge_liter_gefuellt: parseFloat(formData.get('menge_liter_gefuellt') as string) || null,
     vk_preis_brutto:      parseFloat(formData.get('vk_preis_brutto') as string) || null,
+    weinausbau_id:        (formData.get('weinausbau_id') as string) || null,
     einstandspreis:       parseFloat(formData.get('einstandspreis') as string) || null,
     notizen:              (formData.get('notizen') as string) || null,
     aktualisiert_am:      new Date().toISOString(),

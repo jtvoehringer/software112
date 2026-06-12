@@ -52,13 +52,24 @@ export default async function EditFuellungPage({
   const { id } = await params
   const supabase = await createSupabaseServerClient()
 
-  const { data: raw } = await (supabase.from('fuellungen') as any)
-    .select('*')
-    .eq('id', id)
-    .single()
+  const [{ data: raw }, { data: waRaw }] = await Promise.all([
+    (supabase.from('fuellungen') as any).select('*').eq('id', id).single(),
+    (supabase.from('weinausbau') as any)
+      .select('id, name, jahrgang, status')
+      .order('jahrgang', { ascending: false }),
+  ])
 
   if (!raw) redirect('/weinhandel')
   const f = raw as R
+  const chargen = (waRaw ?? []) as R[]
+  // Aktuell verknüpfte Charge immer einschließen (auch wenn abgeschlossen)
+  const chargeInListe = !f.weinausbau_id || chargen.find((c: R) => c.id === f.weinausbau_id)
+  let chargenListe = chargen
+  if (!chargeInListe && f.weinausbau_id) {
+    const { data: extra } = await (supabase.from('weinausbau') as any)
+      .select('id, name, jahrgang, status').eq('id', f.weinausbau_id).single()
+    if (extra) chargenListe = [extra as R, ...chargen]
+  }
 
   const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
   const labelCls = 'block text-xs font-medium text-gray-600 mb-1'
@@ -117,6 +128,27 @@ export default async function EditFuellungPage({
       )}
 
       <form action={updateWithId} className="space-y-6">
+
+        {/* Kellerbuch-Charge */}
+        <div className="card p-5 space-y-2">
+          <h2 className="font-semibold text-gray-800 text-sm">Kellerbuch-Charge</h2>
+          {!f.weinausbau_id && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              ⚠ Keine Charge verknüpft – Rückverfolgung nur bis zur Abfüllung möglich. Bitte hier nachträglich zuordnen.
+            </p>
+          )}
+          <div>
+            <label className={labelCls}>Weinausbau-Charge</label>
+            <select name="weinausbau_id" defaultValue={f.weinausbau_id ?? ''} className={inputCls}>
+              <option value="">– keine Verknüpfung –</option>
+              {chargenListe.map((c: R) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}{c.jahrgang ? ` (${c.jahrgang})` : ''}{c.status === 'abgeschlossen' ? ' · abgeschlossen' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
         {/* ── Produktbezeichnung ── */}
         <div className="card p-5 space-y-4">
