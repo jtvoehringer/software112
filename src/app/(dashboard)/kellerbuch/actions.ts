@@ -78,13 +78,16 @@ export async function createWeinausbau(formData: FormData) {
 
 export async function updateWeinausbau(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
+  const neueMenge = formData.get('menge_liter')
+    ? Number((formData.get('menge_liter') as string).replace(',', '.'))
+    : null
   const payload: R = {
     name:            formData.get('name') as string,
     jahrgang:        formData.get('jahrgang') ? Number(formData.get('jahrgang')) : null,
     rebsorte:        (formData.get('rebsorte') as string) || null,
     weingarten_id:   (formData.get('weingarten_id') as string) || null,
     behaelter_id:    (formData.get('behaelter_id') as string) || null,
-    menge_liter:     formData.get('menge_liter') ? Number((formData.get('menge_liter') as string).replace(',', '.')) : null,
+    menge_liter:     neueMenge,
     qualitaetsstufe:      (formData.get('qualitaetsstufe') as string) || null,
     status:               formData.get('status') as string,
     notizen:              (formData.get('notizen') as string) || null,
@@ -96,5 +99,16 @@ export async function updateWeinausbau(id: string, formData: FormData) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('weinausbau') as any).update(payload).eq('id', id)
   if (error) throw new Error((error as R).message)
+
+  // Pressung-Sync: wenn Menge geändert, pressung_behaelter.menge_liter mitziehen
+  // → Kellerbuch-Füllstand (v_behaelter_fuellstand) bleibt konsistent
+  if (neueMenge != null) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('pressung_behaelter') as any)
+      .update({ menge_liter: neueMenge })
+      .eq('weinausbau_id', id)
+  }
+
   revalidatePath('/kellerbuch')
+  revalidatePath(`/kellerbuch/weinausbau/${id}`)
 }

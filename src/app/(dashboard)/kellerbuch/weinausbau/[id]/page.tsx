@@ -249,6 +249,12 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
     return { ...bew, saldo }
   })
 
+  // Berechneter Saldo aus dem Bewegungsbuch = autoritativer Wert
+  // (weinausbau.menge_liter kann durch direkte Bearbeitung ohne Pressung-Sync veraltet sein)
+  const berechneterSaldo = bewegungenMitSaldo.length > 0
+    ? bewegungenMitSaldo[bewegungenMitSaldo.length - 1].saldo
+    : hatAnfangsbestand ? anfangsbestand : aktuell
+
   const st = STATUS_LABELS[weinausbau.status] ?? { label: weinausbau.status, color: 'bg-gray-100 text-gray-600' }
 
   const artIcon: Record<string, string> = {
@@ -279,9 +285,9 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
           </div>
         </div>
         <div className="text-right shrink-0">
-          <p className="text-2xl font-bold text-s112-teal tabular-nums">{fmtLiter(aktuell)}</p>
+          <p className="text-2xl font-bold text-s112-teal tabular-nums">{fmtLiter(berechneterSaldo)}</p>
           <p className="text-xs text-s112-muted mt-0.5">verfügbarer Bestand</p>
-          {writeOk && aktuell > 0.01 && (
+          {writeOk && berechneterSaldo > 0.01 && (
             <Link href={`/weinhandel/fuellungen/neu?charge=${weinausbau.id}`}
               className="mt-2 inline-block text-xs bg-s112-teal text-white px-3 py-1 rounded-lg hover:bg-opacity-90 transition-colors">
               🍾 Abfüllen
@@ -363,7 +369,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
                 </td>
                 <td className="px-4 py-2.5 text-right" />
                 <td className="px-4 py-2.5 text-right tabular-nums font-bold text-s112-teal text-base">
-                  {fmtLiter(aktuell)}
+                  {fmtLiter(berechneterSaldo)}
                 </td>
               </tr>
             </tbody>
