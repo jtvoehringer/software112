@@ -225,6 +225,26 @@ export default async function WeinbuchPage({
     }
   }
 
+
+  // ── DEBUG: Feldbehandlungen-Diagnose ─────────────────────────────────────
+  const debugInfo = {
+    weingartenIds: Array.from(weingartenIds),
+    pressungenCount: pressungen.length,
+    wawCount: (wawRes.data ?? []).length,
+  }
+  let debugGstCount = 0
+  let debugBgCount = 0
+  let debugFbCount = feldbehandlungen.length
+  if (weingartenIds.size > 0) {
+    const { data: _gst } = await (supabase.from('grundstuecke') as any).select('id').in('weingarten_id', Array.from(weingartenIds))
+    debugGstCount = (_gst ?? []).length
+    if (debugGstCount > 0) {
+      const _gstIds = (_gst ?? []).map((g: R) => g.id)
+      const { data: _bg } = await (supabase.from('behandlung_grundstuecke') as any).select('behandlung_id').in('grundstueck_id', _gstIds)
+      debugBgCount = (_bg ?? []).length
+    }
+  }
+
   // ── 3. Timeline zusammenbauen ─────────────────────────────────────────────
   const events: TimelineEvent[] = []
 
@@ -472,5 +492,16 @@ export default async function WeinbuchPage({
       </div>
 
     </div>
+
+      {/* DEBUG: Feldbehandlungen-Diagnose (temporär) */}
+      <div className="card p-4 bg-yellow-50 border-yellow-200 text-xs font-mono">
+        <p className="font-bold mb-1">🔍 Debug: Feldbehandlungen</p>
+        <p>WeingartenIds ({debugInfo.weingartenIds.length}): {debugInfo.weingartenIds.join(', ') || '–'}</p>
+        <p>WAW-Einträge: {debugInfo.wawCount} | Pressungen: {debugInfo.pressungenCount}</p>
+        <p>Grundstücke gefunden: {debugGstCount}</p>
+        <p>Behandlung-Junction-Einträge: {debugBgCount}</p>
+        <p>Feldbehandlungen final: {debugFbCount}</p>
+      </div>
+
   )
 }
