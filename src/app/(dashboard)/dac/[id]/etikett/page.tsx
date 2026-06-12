@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
+import PrintButton from './PrintButton'
 
 export const metadata: Metadata = { title: 'Weinetikett – software:112' }
 export const dynamic = 'force-dynamic'
@@ -58,12 +59,7 @@ export default async function EtikettPage({ params }: { params: Promise<{ id: st
           <span>/</span>
           <span className="text-gray-700 font-medium">Etikett</span>
         </nav>
-        <button
-          onClick={() => window.print()}
-          className="flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90"
-        >
-          🖨 Drucken / Als PDF speichern
-        </button>
+        <PrintButton />
       </div>
 
       {/* Hinweis wenn noch keine Prüfnummer */}
