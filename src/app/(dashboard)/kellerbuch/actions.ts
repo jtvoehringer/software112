@@ -100,14 +100,8 @@ export async function updateWeinausbau(id: string, formData: FormData) {
   const { error } = await (supabase.from('weinausbau') as any).update(payload).eq('id', id)
   if (error) throw new Error((error as R).message)
 
-  // Pressung-Sync: wenn Menge geändert, pressung_behaelter.menge_liter mitziehen
-  // → Kellerbuch-Füllstand (v_behaelter_fuellstand) bleibt konsistent
-  if (neueMenge != null) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('pressung_behaelter') as any)
-      .update({ menge_liter: neueMenge })
-      .eq('weinausbau_id', id)
-  }
+  // KEIN Sync auf pressung_behaelter.menge_liter – das ist der historische Pressbetrag
+  // und darf nicht mit dem laufenden Bestand überschrieben werden.
 
   revalidatePath('/kellerbuch')
   revalidatePath(`/kellerbuch/weinausbau/${id}`)

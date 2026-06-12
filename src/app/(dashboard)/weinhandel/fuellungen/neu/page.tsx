@@ -30,7 +30,17 @@ export default async function NeueFuellungPage({
     .neq('status', 'abgeschlossen')
     .order('jahrgang', { ascending: false })
 
-  const chargen = (chargenRaw ?? []) as R[]
+  let chargen = (chargenRaw ?? []) as R[]
+
+  // Wenn über "Abfüllen"-Button mit chargeId aufgerufen: diese Charge immer mitladen,
+  // auch wenn Status 'abgeschlossen' ist (Füllung kann trotzdem angelegt werden)
+  if (chargeId && !chargen.find((c: R) => c.id === chargeId)) {
+    const { data: extraRaw } = await (supabase.from('weinausbau') as any)
+      .select('id, name, jahrgang, rebsorte, menge_liter, status')
+      .eq('id', chargeId)
+      .single()
+    if (extraRaw) chargen = [extraRaw as R, ...chargen]
+  }
 
   return (
     <div className="max-w-2xl">

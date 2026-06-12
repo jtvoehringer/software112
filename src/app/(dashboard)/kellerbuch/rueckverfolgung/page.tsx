@@ -119,10 +119,10 @@ export default async function RueckverfolgungPage({
         .eq('weinausbau_id', wId)
         .order('datum', { ascending: true }),
 
-      // Umzüge (Behälter-Verlauf)
+      // Umzüge (Behälter-Verlauf) – 'quelle'-Zeilen des n:n-Formats
       (supabase.from('keller_umzuege') as any)
         .select(`
-          datum, menge_liter, brutto_liter, schwund_liter, notizen, zeilen_typ,
+          datum, menge_liter, brutto_liter, schwund_liter, notizen, zeilen_typ, umzug_batch_id,
           von_behaelter:von_behaelter_id(name),
           nach_behaelter:nach_behaelter_id(name)
         `)
@@ -134,7 +134,37 @@ export default async function RueckverfolgungPage({
     pressungen = (prRes.data ?? []) as R[]
     behandlungen = (beRes.data ?? []) as R[]
     analysen = (anRes.data ?? []) as R[]
-    umzuege = (umRes.data ?? []) as R[]
+    const umzuegeRaw = (umRes.data ?? []) as R[]
+
+    // Sekundäre Abfrage: für 'quelle'-Zeilen den Ziel-Behälter aus der 'ziel'-Zeile holen
+    const quelleBatchIds = [...new Set(
+      umzuegeRaw.filter(u => u.zeilen_typ === 'quelle' && u.umzug_batch_id).map(u => u.umzug_batch_id)
+    )] as string[]
+
+    const zielByBatch: Record<string, R> = {}
+    if (quelleBatchIds.length > 0) {
+      const { data: zielRows } = await (supabase.from('keller_umzuege') as any)
+        .select('umzug_batch_id, nach_behaelter:nach_behaelter_id(name), nach_weinausbau:nach_weinausbau_id(name), menge_liter')
+        .in('umzug_batch_id', quelleBatchIds)
+        .eq('zeilen_typ', 'ziel')
+      for (const z of ((zielRows ?? []) as R[])) {
+        // Nur erste 'ziel'-Zeile pro Batch merken (bei 1:1 Umzügen immer korrekt)
+        if (!zielByBatch[z.umzug_batch_id]) zielByBatch[z.umzug_batch_id] = z
+      }
+    }
+
+    // Umzüge anreichern: nach_behaelter aus Batch-Lookup wenn nötig
+    umzuege = umzuegeRaw.map(u => {
+      if (u.zeilen_typ === 'quelle' && u.umzug_batch_id && zielByBatch[u.umzug_batch_id]) {
+        const z = zielByBatch[u.umzug_batch_id]
+        return {
+          ...u,
+          nach_behaelter: z.nach_behaelter ?? z.nach_weinausbau ?? null,
+          menge_liter: u.brutto_liter ?? u.menge_liter,
+        }
+      }
+      return u
+    })
   }
 
   return (
