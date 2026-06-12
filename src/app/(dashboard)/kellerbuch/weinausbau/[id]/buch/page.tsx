@@ -56,7 +56,7 @@ export default async function WeinbuchPage({
 
   // ── 1. Weinausbau-Charge laden ────────────────────────────────────────────
   const { data: waRaw, error: waErr } = await (supabase.from('weinausbau') as any)
-    .select('id, name, jahrgang, rebsorte, qualitaetsstufe, status, menge_liter, behaelter:behaelter_id(name)')
+    .select('id, name, jahrgang, rebsorte, qualitaetsstufe, status, menge_liter, behaelter_id, behaelter:behaelter_id(name)')
     .eq('id', id)
     .maybeSingle()
 
@@ -98,7 +98,7 @@ export default async function WeinbuchPage({
       .eq('von_weinausbau_id', id)
       .order('datum', { ascending: true }),
 
-    // Kellerbehandlungen: direkt via weinausbau_id ODER via Behälter-History
+    // Kellerbehandlungen via weinausbau_id
     (supabase.from('keller_behandlungen') as any)
       .select('datum, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, typ:typ_id(name)')
       .eq('weinausbau_id', id)
@@ -140,7 +140,15 @@ export default async function WeinbuchPage({
 
   const pressungen    = (prRes.data ?? []) as R[]
   const umzuegeRaw    = (umRes.data ?? []) as R[]
-  const kellerBeh     = (kbRes.data ?? []) as R[]
+  let kellerBeh     = (kbRes.data ?? []) as R[]
+  // Fallback: alte Einträge ohne weinausbau_id → über behaelter_id suchen
+  if (kellerBeh.length === 0 && wa.behaelter_id) {
+    const { data: kbFallbackRaw } = await (supabase.from('keller_behandlungen') as any)
+      .select('datum, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, typ:typ_id(name)')
+      .eq('behaelter_id', wa.behaelter_id)
+      .order('datum', { ascending: true })
+    kellerBeh = (kbFallbackRaw ?? []) as R[]
+  }
   const analysen      = (anRes.data ?? []) as R[]
   const dacAntraege   = (dacRes.data ?? []) as R[]
   const fuellChargen  = (fuellRes.data ?? []) as R[]
@@ -227,6 +235,7 @@ export default async function WeinbuchPage({
           bbch_stadium: r.bbch_stadium,
           schaderreger: r.schaderreger,
           notizen: r.notizen,
+          flaeche_ha_gesamt: r.flaeche_ha_gesamt,
           weingarten: r.weingarten_name ? { name: r.weingarten_name } : null,
         }))
       }
@@ -279,6 +288,8 @@ export default async function WeinbuchPage({
         b.art && `Art: ${b.art}`,
         b.aufwandmenge && `${b.aufwandmenge} ${b.aufwandmenge_einheit ?? ''}`.trim(),
         b.bbch_stadium && `BBCH ${b.bbch_stadium}`,
+        b.schaderreger && `Schaderreger: ${b.schaderreger}`,
+        b.flaeche_ha_gesamt && `Fläche: ${parseFloat(b.flaeche_ha_gesamt).toLocaleString('de-AT')} ha`,
         wgName && `Weingarten: ${wgName}`,
         b.notizen,
       ].filter(Boolean) as string[],
