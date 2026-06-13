@@ -129,3 +129,45 @@ export async function updateWeinausbau(id: string, formData: FormData) {
   revalidatePath('/kellerbuch')
   revalidatePath(`/kellerbuch/weinausbau/${id}`)
 }
+
+// ANALYSEN
+export async function createAnalyse(formData: FormData) {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  if (!tenantId) throw new Error('Kein Betrieb gefunden')
+
+  const weinausbauId = formData.get('weinausbau_id') as string
+  if (!weinausbauId) throw new Error('Keine Charge angegeben')
+
+  function numOrNull(key: string): number | null {
+    const v = (formData.get(key) as string)?.replace(',', '.').trim()
+    if (!v) return null
+    const n = parseFloat(v)
+    return isNaN(n) ? null : n
+  }
+
+  const payload: R = {
+    tenant_id:            tenantId,
+    weinausbau_id:        weinausbauId,
+    analyse_datum:        formData.get('analyse_datum') as string,
+    labor:                (formData.get('labor') as string) || null,
+    probe_nr:             (formData.get('probe_nr') as string) || null,
+    alkohol_vol:          numOrNull('alkohol_vol'),
+    restzucker_gl:        numOrNull('restzucker_gl'),
+    gesamtsaeure_gl:      numOrNull('gesamtsaeure_gl'),
+    ph_wert:              numOrNull('ph_wert'),
+    // Spaltenname im DB hat Umlaut – via Alias in Formular (fluechtige_saeure_gl)
+    'flüchtige_saeure_gl': numOrNull('fluechtige_saeure_gl'),
+    freie_so2_mgl:        numOrNull('freie_so2_mgl'),
+    gesamt_so2_mgl:       numOrNull('gesamt_so2_mgl'),
+    bewertung:            (formData.get('bewertung') as string) || null,
+    notizen:              (formData.get('notizen') as string) || null,
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('weinanalysen') as any).insert(payload)
+  if (error) throw new Error((error as R).message)
+
+  revalidatePath(`/kellerbuch/weinausbau/${weinausbauId}/analysen`)
+  revalidatePath(`/kellerbuch/weinausbau/${weinausbauId}/buch`)
+}

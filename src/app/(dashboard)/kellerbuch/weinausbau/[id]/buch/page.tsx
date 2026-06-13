@@ -104,11 +104,11 @@ export default async function WeinbuchPage({
       .eq('weinausbau_id', id)
       .order('datum', { ascending: true }),
 
-    // Analysen
-    (supabase.from('analysen') as any)
-      .select('datum, parameter, wert, einheit, labor')
+    // Analysen (weinanalysen – Migration 010)
+    (supabase.from('weinanalysen') as any)
+      .select('analyse_datum, labor, probe_nr, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl, bewertung, notizen')
       .eq('weinausbau_id', id)
-      .order('datum', { ascending: true }),
+      .order('analyse_datum', { ascending: true }),
 
     // DAC-Antrag
     (supabase.from('dac_antrag') as any)
@@ -255,25 +255,6 @@ export default async function WeinbuchPage({
   }
 
 
-  // ── DEBUG: Feldbehandlungen-Diagnose ─────────────────────────────────────
-  const debugInfo = {
-    weingartenIds: Array.from(weingartenIds),
-    pressungenCount: pressungen.length,
-    wawCount: (wawRes.data ?? []).length,
-  }
-  let debugGstCount = 0
-  let debugBgCount = 0
-  let debugFbCount = feldbehandlungen.length
-  if (weingartenIds.size > 0) {
-    const { data: _gst } = await (supabase.from('grundstuecke') as any).select('id').in('weingarten_id', Array.from(weingartenIds))
-    debugGstCount = (_gst ?? []).length
-    if (debugGstCount > 0) {
-      const _gstIds = (_gst ?? []).map((g: R) => g.id)
-      const { data: _bg } = await (supabase.from('behandlung_grundstuecke') as any).select('behandlung_id').in('grundstueck_id', _gstIds)
-      debugBgCount = (_bg ?? []).length
-    }
-  }
-
   // ── 3. Timeline zusammenbauen ─────────────────────────────────────────────
   const events: TimelineEvent[] = []
 
@@ -357,19 +338,25 @@ export default async function WeinbuchPage({
     })
   }
 
-  // Analysen – gruppiert nach Datum als ein Event
-  const analysenByDatum = new Map<string, R[]>()
+  // Analysen – je Zeile ein Analyse-Event mit den 7 Standard-Parametern
   for (const a of analysen) {
-    const existing = analysenByDatum.get(a.datum) ?? []
-    existing.push(a)
-    analysenByDatum.set(a.datum, existing)
-  }
-  for (const [datum, gruppe] of analysenByDatum) {
+    const params: string[] = [
+      a.alkohol_vol != null       ? `Alkohol: ${parseFloat(a.alkohol_vol).toLocaleString('de-AT')} % vol` : null,
+      a.restzucker_gl != null     ? `Restzucker: ${parseFloat(a.restzucker_gl).toLocaleString('de-AT')} g/l` : null,
+      a.gesamtsaeure_gl != null   ? `Gesamtsäure: ${parseFloat(a.gesamtsaeure_gl).toLocaleString('de-AT')} g/l` : null,
+      a.ph_wert != null           ? `pH-Wert: ${parseFloat(a.ph_wert).toLocaleString('de-AT')}` : null,
+      a['flüchtige_saeure_gl'] != null ? `Flüchtige Säure: ${parseFloat(a['flüchtige_saeure_gl']).toLocaleString('de-AT')} g/l` : null,
+      a.freie_so2_mgl != null     ? `Freies SO₂: ${parseFloat(a.freie_so2_mgl).toLocaleString('de-AT')} mg/l` : null,
+      a.gesamt_so2_mgl != null    ? `Gesamt-SO₂: ${parseFloat(a.gesamt_so2_mgl).toLocaleString('de-AT')} mg/l` : null,
+      a.probe_nr                  ? `Probe-Nr.: ${a.probe_nr}` : null,
+      a.bewertung,
+      a.notizen,
+    ].filter(Boolean) as string[]
     events.push({
-      datum,
+      datum: a.analyse_datum,
       typ: 'analyse',
-      titel: gruppe.length === 1 ? gruppe[0].parameter : `${gruppe.length} Analysewerte`,
-      details: gruppe.map((a: R) => `${a.parameter}: ${a.wert} ${a.einheit ?? ''}${a.labor ? ` (${a.labor})` : ''}`),
+      titel: `Analyse${a.labor ? ` – ${a.labor}` : ''}`,
+      details: params,
     })
   }
 

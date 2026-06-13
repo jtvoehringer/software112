@@ -6,9 +6,20 @@ import { useRouter } from 'next/navigation'
 const REBSORTEN = [
   'Grüner Veltliner', 'Riesling', 'Welschriesling', 'Müller-Thurgau',
   'Chardonnay', 'Sauvignon Blanc', 'Weißburgunder', 'Grauburgunder',
+  'Muskateller', 'Neuburger', 'Roter Veltliner', 'Traminer',
   'Zweigelt', 'Blaufränkisch', 'St. Laurent', 'Pinot Noir',
-  'Blauburger', 'Merlot', 'Cabernet Sauvignon',
+  'Blauburger', 'Merlot', 'Cabernet Sauvignon', 'Syrah',
 ]
+
+const REBSORTE_WEINART: Record<string, 'rot' | 'weiss'> = {
+  'Grüner Veltliner': 'weiss', 'Riesling': 'weiss', 'Welschriesling': 'weiss',
+  'Müller-Thurgau': 'weiss', 'Chardonnay': 'weiss', 'Sauvignon Blanc': 'weiss',
+  'Weißburgunder': 'weiss', 'Grauburgunder': 'weiss', 'Muskateller': 'weiss',
+  'Neuburger': 'weiss', 'Roter Veltliner': 'weiss', 'Traminer': 'weiss',
+  'Zweigelt': 'rot', 'Blaufränkisch': 'rot', 'St. Laurent': 'rot',
+  'Pinot Noir': 'rot', 'Blauburger': 'rot', 'Merlot': 'rot',
+  'Cabernet Sauvignon': 'rot', 'Syrah': 'rot',
+}
 
 type WeingartenRow = {
   id: string
@@ -21,6 +32,7 @@ type WeingartenRow = {
   bewirtschaftung: string | null
   notizen: string | null
   aktiv: boolean
+  weinart: string | null
 }
 
 interface Props {
@@ -38,6 +50,12 @@ export default function WeingartenForm({ weingarten, action, lagen }: Props) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [weinart, setWeinart] = useState<string>(weingarten?.weinart ?? 'unbekannt')
+
+  function handleRebsorteChange(val: string) {
+    const mapped = REBSORTE_WEINART[val]
+    if (mapped) setWeinart(mapped)
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -122,6 +140,7 @@ export default function WeingartenForm({ weingarten, action, lagen }: Props) {
               defaultValue={weingarten?.rebsorte ?? ''}
               className="form-input"
               placeholder="Rebsorte wählen oder eingeben"
+              onChange={e => handleRebsorteChange(e.target.value)}
             />
             <datalist id="rebsorten-list">
               {REBSORTEN.map(r => <option key={r} value={r} />)}
@@ -167,6 +186,24 @@ export default function WeingartenForm({ weingarten, action, lagen }: Props) {
               <option value="in_umstellung">In Umstellung</option>
               <option value="demeter">Demeter</option>
             </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="form-label">Weinart</label>
+            <select
+              name="weinart"
+              value={weinart}
+              onChange={e => setWeinart(e.target.value)}
+              className="form-input"
+            >
+              <option value="weiss">⬜ Weißwein</option>
+              <option value="rot">🟥 Rotwein</option>
+              <option value="rose">🌸 Rosé</option>
+              <option value="unbekannt">– unbekannt –</option>
+            </select>
+            <p className="text-xs text-s112-muted mt-1">Wird aus Rebsorte vorgeschlagen</p>
           </div>
         </div>
       </div>

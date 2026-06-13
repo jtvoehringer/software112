@@ -43,6 +43,7 @@ export async function createWeingarten(formData: FormData) {
     flaeche_ha:      formData.get('flaeche_ha') ? Number(formData.get('flaeche_ha')) : null,
     pflanzjahr:      formData.get('pflanzjahr') ? Number(formData.get('pflanzjahr')) : null,
     bewirtschaftung: (formData.get('bewirtschaftung') as string) || null,
+    weinart:         (formData.get('weinart') as string) || 'unbekannt',
     notizen:         (formData.get('notizen') as string) || null,
     aktiv:           true,
   }
@@ -69,6 +70,7 @@ export async function updateWeingarten(id: string, formData: FormData) {
     flaeche_ha:      formData.get('flaeche_ha') ? Number(formData.get('flaeche_ha')) : null,
     pflanzjahr:      formData.get('pflanzjahr') ? Number(formData.get('pflanzjahr')) : null,
     bewirtschaftung: (formData.get('bewirtschaftung') as string) || null,
+    weinart:         (formData.get('weinart') as string) || 'unbekannt',
     notizen:         (formData.get('notizen') as string) || null,
     aktiv:           formData.get('aktiv') === 'true',
   }

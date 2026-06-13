@@ -317,6 +317,10 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
             className="mt-1 inline-block text-xs border border-s112-border text-s112-teal px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
             📖 Weinbuch
           </Link>
+          <Link href={`/kellerbuch/weinausbau/${weinausbau.id}/analysen`}
+            className="mt-1 inline-block text-xs border border-s112-border text-s112-teal px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
+            🔬 Analysen
+          </Link>
         </div>
       </div>
 
