@@ -16,45 +16,19 @@ export default async function TransportbescheinigungPage({ params }: { params: P
   const supabase = await createSupabaseServerClient()
   const admin    = createSupabaseAdminClient()
 
-  // Schritt 1: Nur den Basis-Datensatz laden (ohne Joins) zum Debuggen
-  const { data: basisRaw, error: basisErr } = await (supabase.from('verkaufsposten') as any)
-    .select('id, rechnungsnummer, datum, kontakt_id, firma_id, aktiv, storniert')
-    .eq('id', id)
-    .single()
-
-  if (basisErr || !basisRaw) {
-    return (
-      <div className="p-8 space-y-2">
-        <h1 className="font-bold text-red-600">Debug: Basis-Query fehlgeschlagen</h1>
-        <pre className="text-xs bg-gray-100 p-4 rounded">{JSON.stringify({ id, error: basisErr }, null, 2)}</pre>
-      </div>
-    )
-  }
-
-  // Schritt 2: Joins separat testen
-  const { data: postenRaw, error: postenErr } = await (supabase.from('verkaufsposten') as any)
-    .select(`
-      id, rechnungsnummer, datum,
-      kontakt:kontakte(vorname, nachname, telefon, strasse, plz, ort),
-      firma:firmen(name, telefon, strasse, plz, ort),
-      positionen:verkauf_positionen(
-        id, typ, name, menge,
-        weinausbau:weinausbau(id, name, jahrgang, qualitaetsstufe, rebsorte)
-      )
-    `)
-    .eq('id', id)
-    .single()
-
-  if (postenErr || !postenRaw) {
-    return (
-      <div className="p-8 space-y-2">
-        <h1 className="font-bold text-red-600">Debug: Join-Query fehlgeschlagen</h1>
-        <pre className="text-xs bg-gray-100 p-4 rounded">{JSON.stringify({ basisRaw, error: postenErr }, null, 2)}</pre>
-      </div>
-    )
-  }
-
-  const [{ data: cfgRaw }, { data: tbRaw }] = await Promise.all([
+  const [{ data: postenRaw, error: postenErr }, { data: cfgRaw }, { data: tbRaw }] = await Promise.all([
+    (supabase.from('verkaufsposten') as any)
+      .select(`
+        id, rechnungsnummer, datum,
+        kontakt:kontakte!verkaufsposten_kontakt_id_fkey(vorname, nachname, telefon, strasse, plz, ort),
+        firma:firmen(name, telefon, strasse, plz, ort),
+        positionen:verkauf_positionen(
+          id, typ, name, menge,
+          weinausbau:weinausbau(id, name, jahrgang, qualitaetsstufe, rebsorte)
+        )
+      `)
+      .eq('id', id)
+      .single(),
     (admin.from('tenant_einstellungen') as any)
       .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_telefon, betrieb_betriebsnummer')
       .limit(1).single(),
@@ -63,6 +37,8 @@ export default async function TransportbescheinigungPage({ params }: { params: P
       .eq('verkaufsposten_id', id)
       .maybeSingle(),
   ])
+
+  if (postenErr || !postenRaw) notFound()
 
   // Prüfnummern für Tank-Positionen nachladen
   const tankWaIds = ((postenRaw as R).positionen ?? [])
