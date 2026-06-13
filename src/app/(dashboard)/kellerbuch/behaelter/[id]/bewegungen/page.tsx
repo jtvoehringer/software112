@@ -35,6 +35,7 @@ type Bewegung = {
   beschreibung: string
   menge: number
   extra?: string
+  fuellung_id?: string
 }
 
 export default async function BehaelterBewegungsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -317,6 +318,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
       beschreibung: `Abfüllung: ${f.name}${f.pruefnummer ? ` · Prüfnr. ${f.pruefnummer}` : ''}`,
       menge: -liter,
       extra: `${parseInt(f.anzahl_flaschen).toLocaleString('de-AT')} Fl. à ${parseInt(f.flaschengroesse_ml)} ml`,
+      fuellung_id: f.id,
     })
   }
 
@@ -536,7 +538,17 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
                         <div className="flex items-start gap-1.5">
                           <span>{ART_ICON[bew.art] ?? '•'}</span>
                           <div>
-                            <p className="text-gray-700">{bew.beschreibung}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-gray-700">{bew.beschreibung}</p>
+                              {writeOk && bew.fuellung_id && (
+                                <Link
+                                  href={`/weinhandel/fuellungen/${bew.fuellung_id}/edit`}
+                                  className="text-[10px] text-s112-teal hover:underline shrink-0"
+                                >
+                                  Bearbeiten
+                                </Link>
+                              )}
+                            </div>
                             {bew.extra && <p className="text-xs text-s112-muted">{bew.extra}</p>}
                           </div>
                         </div>
