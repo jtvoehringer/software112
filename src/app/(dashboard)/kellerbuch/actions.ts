@@ -187,10 +187,16 @@ export async function createVerschneidung(formData: FormData) {
 
   if (!datum || !zielId || quellen.length === 0) throw new Error('Pflichtfelder fehlen')
 
+  // Qualitätsstufe der Ziel-Charge vor Verschneidung sichern
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: zielVorher } = await (supabase.from('weinausbau') as any)
+    .select('qualitaetsstufe').eq('id', zielId).single()
+  const zielQualitaetVorher = (zielVorher as R | null)?.qualitaetsstufe ?? null
+
   // Verschneidungs-Datensatz anlegen
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: neu, error: ve } = await (supabase.from('verschneidungen') as any)
-    .insert({ tenant_id: tenantId, datum, ziel_weinausbau_id: zielId, notizen })
+    .insert({ tenant_id: tenantId, datum, ziel_weinausbau_id: zielId, notizen, ziel_qualitaet_vorher: zielQualitaetVorher })
     .select('id').single()
   if (ve) throw new Error((ve as R).message)
   const vId = (neu as R).id as string
@@ -260,7 +266,7 @@ export async function deleteVerschneidung(verschneidungId: string) {
   // Quellen + Mengen laden bevor gelöscht wird
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: vRaw } = await (supabase.from('verschneidungen') as any)
-    .select('id, ziel_weinausbau_id, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter)')
+    .select('id, ziel_weinausbau_id, ziel_qualitaet_vorher, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter)')
     .eq('id', verschneidungId)
     .single()
   if (!vRaw) throw new Error('Verschneidung nicht gefunden')
@@ -290,6 +296,15 @@ export async function deleteVerschneidung(verschneidungId: string) {
     await (supabase.from('weinausbau') as any)
       .update({ menge_liter: srcAkt + (parseFloat(q.menge_liter) || 0) })
       .eq('id', q.quell_weinausbau_id)
+  }
+
+  // Qualitätsstufe wiederherstellen falls gespeichert
+  const zielQualitaetVorher = (vRaw as R).ziel_qualitaet_vorher as string | null
+  if (zielQualitaetVorher) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('weinausbau') as any)
+      .update({ qualitaetsstufe: zielQualitaetVorher })
+      .eq('id', zielId)
   }
 
   // Datensatz löschen (CASCADE löscht verschneidung_quellen automatisch)
