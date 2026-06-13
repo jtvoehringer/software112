@@ -40,21 +40,21 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone }: P
     zielCharge.qualitaetsstufe,
     ...selectedChargen.map(c => c.qualitaetsstufe),
   ]
-  const minQ = minQualitaet(alleQualitaeten)
-  const abstufung = minQ && istNiedrigerAls(zielCharge.qualitaetsstufe ?? null, minQ)
-    ? null   // Ziel ist bereits niedrigste
-    : (minQ && zielCharge.qualitaetsstufe && istNiedrigerAls(minQ, zielCharge.qualitaetsstufe ?? null))
-    ? null
-    : null
-  // Abstufung tritt auf wenn eine Quelle eine niedrigere Stufe als die Ziel-Charge hat
-  const abstufungsZiel = selectedChargen.length > 0
-    ? minQualitaet(alleQualitaeten)
-    : null
-  const hatAbstufung = abstufungsZiel != null
-    && zielCharge.qualitaetsstufe != null
-    && istNiedrigerAls(zielCharge.qualitaetsstufe, abstufungsZiel)
-
-  void abstufung
+  // Niedrigste Qualitätsstufe aller beteiligten Chargen
+  const abstufungsZiel = selectedChargen.length > 0 ? minQualitaet(alleQualitaeten) : null
+  // Warnung wenn IRGENDEINE Charge (Quelle oder Ziel) eine höhere Stufe hat als das Minimum
+  // → diese Charge verliert ihre Qualitätsbezeichnung durch die Verschneidung
+  const hatAbstufung = abstufungsZiel != null && (
+    istNiedrigerAls(zielCharge.qualitaetsstufe ?? null, abstufungsZiel) ||
+    selectedChargen.some(c => istNiedrigerAls(c.qualitaetsstufe ?? null, abstufungsZiel))
+  )
+  // Welche Chargen werden abgestuft?
+  const betroffeneChargen = selectedChargen.length > 0 ? [
+    ...(istNiedrigerAls(zielCharge.qualitaetsstufe ?? null, abstufungsZiel ?? '') ? [zielCharge.name] : []),
+    ...selectedChargen
+      .filter(c => istNiedrigerAls(c.qualitaetsstufe ?? null, abstufungsZiel ?? ''))
+      .map(c => c.name),
+  ] : []
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -152,10 +152,12 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone }: P
         <div className="flex items-start gap-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2.5 text-sm">
           <span className="text-amber-500 mt-0.5">⚠️</span>
           <div>
-            <p className="font-medium text-amber-800">Qualitätsabstufung</p>
+            <p className="font-medium text-amber-800">Qualitätsabstufung auf {QUALITAET_LABEL[abstufungsZiel] ?? abstufungsZiel}</p>
             <p className="text-xs text-amber-700 mt-0.5">
-              Die Ziel-Charge wird von <strong>{QUALITAET_LABEL[zielCharge.qualitaetsstufe!] ?? zielCharge.qualitaetsstufe}</strong> auf{' '}
-              <strong>{QUALITAET_LABEL[abstufungsZiel] ?? abstufungsZiel}</strong> abgestuft.
+              {betroffeneChargen.length > 0
+                ? <>Folgende Chargen verlieren ihre Qualitätsbezeichnung: <strong>{betroffeneChargen.join(', ')}</strong></>
+                : <>Der Verschnitt wird auf <strong>{QUALITAET_LABEL[abstufungsZiel] ?? abstufungsZiel}</strong> abgestuft.</>
+              }
             </p>
           </div>
         </div>
