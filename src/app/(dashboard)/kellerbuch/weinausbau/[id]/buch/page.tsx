@@ -19,6 +19,7 @@ type EventTyp =
   | 'analyse'
   | 'dac'
   | 'fuellung'
+  | 'verschneidung'
 
 interface TimelineEvent {
   datum: string        // ISO date string zum Sortieren
@@ -44,6 +45,7 @@ const EVENT_STYLE: Record<EventTyp, { icon: string; dot: string; card: string }>
   analyse:        { icon: '🔬', dot: 'bg-indigo-400',  card: 'border-indigo-100 bg-indigo-50/40' },
   dac:            { icon: '🏅', dot: 'bg-yellow-500',  card: 'border-yellow-100 bg-yellow-50/40' },
   fuellung:       { icon: '🍾', dot: 'bg-s112-teal',   card: 'border-s112-teal/20 bg-s112-teal/5'},
+  verschneidung:  { icon: '🍷', dot: 'bg-violet-500',  card: 'border-violet-100 bg-violet-50/40' },
 }
 
 export default async function WeinbuchPage({
@@ -72,7 +74,9 @@ export default async function WeinbuchPage({
     dacRes,     // DAC-Anträge
     fuellRes,       // Füllungen via fuellung_chargen
     fuellDirektRes, // Direkte Füllungen (Fallback alte Daten)
-    wawRes,     // weinausbau_weingaerten (direkter Weingarten-Link)
+    wawRes,        // weinausbau_weingaerten (direkter Weingarten-Link)
+    verschnEinRes, // Verschneidungen eingehend (Ziel)
+    verschnAusRes, // Verschneidungen ausgehend (Quelle)
   ] = await Promise.all([
     // Pressungen + Weingärten (weingarten hat kein grundstueck_id)
     (supabase.from('pressung_behaelter') as any)
@@ -136,6 +140,21 @@ export default async function WeinbuchPage({
     (supabase.from('weinausbau_weingaerten') as any)
       .select('weingarten_id, weingarten:weingarten_id(id, name)')
       .eq('weinausbau_id', id),
+
+    // Verschneidungen: diese Charge als Ziel (eingehend)
+    (supabase.from('verschneidungen') as any)
+      .select(`datum, notizen,
+        quellen:verschneidung_quellen(menge_liter, anteil_pct,
+          quelle:quell_weinausbau_id(id, name))`)
+      .eq('ziel_weinausbau_id', id)
+      .order('datum', { ascending: true }),
+
+    // Verschneidungen: diese Charge als Quelle (ausgehend)
+    (supabase.from('verschneidung_quellen') as any)
+      .select(`menge_liter, anteil_pct,
+        verschneidung:verschneidung_id(id, datum, notizen,
+          ziel:ziel_weinausbau_id(id, name))`)
+      .eq('quell_weinausbau_id', id),
   ])
 
   const pressungen    = (prRes.data ?? []) as R[]
@@ -158,6 +177,9 @@ export default async function WeinbuchPage({
     .filter((f: R) => !fuellChargenIds.has(f.id))
     .map((f: R) => ({ anteil_liter: null, fuellung: f }))
   const alleFuellungen = [...fuellChargen, ...direktFuellungen]
+
+  const verschnEin = (verschnEinRes.data ?? []) as R[]
+  const verschnAus = (verschnAusRes.data ?? []) as R[]
 
   // Umzüge: Ziel-Behälter via Batch-Lookup ergänzen
   const batchIds = [...new Set(
@@ -376,6 +398,38 @@ export default async function WeinbuchPage({
     })
   }
 
+  // Verschneidungen – eingehend (diese Charge ist das Ziel / das Ergebnis)
+  for (const v of verschnEin) {
+    const quelleTexte = ((v.quellen ?? []) as R[]).map((q: R) => {
+      const name = (q.quelle as R | null)?.name ?? '?'
+      return q.anteil_pct != null
+        ? `${name}: ${q.anteil_pct} % (${parseFloat(q.menge_liter ?? 0).toLocaleString('de-AT')} L)`
+        : `${name}: ${parseFloat(q.menge_liter ?? 0).toLocaleString('de-AT')} L`
+    })
+    events.push({
+      datum: v.datum,
+      typ: 'verschneidung',
+      titel: 'Verschneidung – eingehend',
+      details: [...quelleTexte, v.notizen].filter(Boolean) as string[],
+    })
+  }
+
+  // Verschneidungen – ausgehend (diese Charge hat zur Verschneidung beigetragen)
+  for (const vq of verschnAus) {
+    const v = vq.verschneidung as R | null
+    if (!v) continue
+    const zielName = (v.ziel as R | null)?.name ?? '?'
+    const detail = vq.anteil_pct != null
+      ? `→ ${zielName}: ${vq.anteil_pct} % (${parseFloat(vq.menge_liter ?? 0).toLocaleString('de-AT')} L)`
+      : `→ ${zielName}: ${parseFloat(vq.menge_liter ?? 0).toLocaleString('de-AT')} L`
+    events.push({
+      datum: v.datum,
+      typ: 'verschneidung',
+      titel: 'Verschneidung – abgegeben',
+      details: [detail, v.notizen].filter(Boolean) as string[],
+    })
+  }
+
   // Füllungen
   for (const fc of alleFuellungen) {
     const f = fc.fuellung as R | null
@@ -502,6 +556,7 @@ export default async function WeinbuchPage({
                 : typ === 'kellerbehandlung' ? 'Kellerbehandlung'
                 : typ === 'analyse' ? 'Analyse'
                 : typ === 'dac' ? 'DAC / Prüfnummer'
+                : typ === 'verschneidung' ? 'Verschneidung'
                 : 'Füllung'
               }</span>
             </div>

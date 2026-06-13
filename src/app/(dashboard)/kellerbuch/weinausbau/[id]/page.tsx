@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import WeinausbauForm from '@/components/kellerbuch/WeinausbauForm'
 import { updateWeinausbau } from '../../actions'
+import VerschneidungWidget from './VerschneidungWidget'
 
 export const metadata: Metadata = { title: 'Charge bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -37,6 +38,8 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
     { data: verkaufRaw },
     { data: pressungenRaw },
     { data: wawRaw },
+    { data: alleChargenRaw },
+    { data: verschnEinRaw },
   ] = await Promise.all([
     (supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, weingarten_id, behaelter_id, menge_liter, anfangsbestand_liter, status, qualitaetsstufe, notizen, aktiv, einstandspreis_pro_liter, behaelter:behaelter_id(name)')
@@ -73,6 +76,19 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
     (supabase.from('weinausbau_weingaerten') as any)
       .select('weingarten_id')
       .eq('weinausbau_id', id),
+
+    // Alle anderen aktiven Chargen (für Verschneidungs-Formular)
+    (supabase.from('weinausbau') as any)
+      .select('id, name, menge_liter')
+      .eq('aktiv', true)
+      .neq('id', id)
+      .order('name'),
+
+    // Verschneidungen: diese Charge als Ziel
+    (supabase.from('verschneidungen') as any)
+      .select('id, datum, notizen, quellen:verschneidung_quellen(menge_liter, anteil_pct, quelle:quell_weinausbau_id(id, name))')
+      .eq('ziel_weinausbau_id', id)
+      .order('datum', { ascending: false }),
   ])
 
   const ausRecs = (umzuegeAusRaw ?? []) as R[]
@@ -129,6 +145,9 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
   const weingaerten = (wgRaw ?? []) as NameRow[]
   const behaelter   = (bhRaw  ?? []) as NameRow[]
   const selectedWeingaertenIds = ((wawRaw ?? []) as R[]).map(r => r.weingarten_id as string)
+
+  const alleChargen = (alleChargenRaw ?? []) as { id: string; name: string; menge_liter: number | null }[]
+  const verschneidungenEin = (verschnEinRaw ?? []) as R[]
 
   const anfangsbestand    = parseFloat(String(weinausbau.anfangsbestand_liter ?? 0)) || 0
   const aktuell           = parseFloat(String(weinausbau.menge_liter ?? 0)) || 0
@@ -410,6 +429,15 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
           </table>
         </div>
       </section>
+
+      {/* Verschneidung */}
+      {writeOk && alleChargen.length > 0 && (
+        <VerschneidungWidget
+          zielCharge={{ id: weinausbau.id, name: weinausbau.name, menge_liter: berechneterSaldo }}
+          alleChargen={alleChargen}
+          verschneidungen={verschneidungenEin}
+        />
+      )}
 
       {/* Edit-Formular */}
       {writeOk && (

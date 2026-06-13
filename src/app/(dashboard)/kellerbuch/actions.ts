@@ -171,3 +171,65 @@ export async function createAnalyse(formData: FormData) {
   revalidatePath(`/kellerbuch/weinausbau/${weinausbauId}/analysen`)
   revalidatePath(`/kellerbuch/weinausbau/${weinausbauId}/buch`)
 }
+
+// VERSCHNEIDUNG
+export async function createVerschneidung(formData: FormData) {
+  const supabase  = await createSupabaseServerClient()
+  const tenantId  = await getTenantId()
+  if (!tenantId) throw new Error('Kein Betrieb gefunden')
+
+  const datum        = formData.get('datum') as string
+  const zielId       = formData.get('ziel_weinausbau_id') as string
+  const notizen      = (formData.get('notizen') as string) || null
+  const quellenJson  = formData.get('quellen_json') as string
+  const quellen: { weinausbau_id: string; menge_liter: number }[] = JSON.parse(quellenJson || '[]')
+
+  if (!datum || !zielId || quellen.length === 0) throw new Error('Pflichtfelder fehlen')
+
+  // Verschneidungs-Datensatz anlegen
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: neu, error: ve } = await (supabase.from('verschneidungen') as any)
+    .insert({ tenant_id: tenantId, datum, ziel_weinausbau_id: zielId, notizen })
+    .select('id').single()
+  if (ve) throw new Error((ve as R).message)
+  const vId = (neu as R).id as string
+
+  // Quellen anlegen + anteil_pct berechnen
+  const gesamtLiter = quellen.reduce((s, q) => s + q.menge_liter, 0)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from('verschneidung_quellen') as any).insert(
+    quellen.map(q => ({
+      verschneidung_id:    vId,
+      quell_weinausbau_id: q.weinausbau_id,
+      menge_liter:         q.menge_liter,
+      anteil_pct:          gesamtLiter > 0 ? Math.round((q.menge_liter / gesamtLiter) * 1000) / 10 : null,
+    }))
+  )
+
+  // Ziel-Charge: Bestand um die Summe der Quellen erhöhen
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: ziel } = await (supabase.from('weinausbau') as any)
+    .select('menge_liter').eq('id', zielId).single()
+  const aktuell = parseFloat((ziel as R)?.menge_liter ?? '0') || 0
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from('weinausbau') as any)
+    .update({ menge_liter: aktuell + gesamtLiter })
+    .eq('id', zielId)
+
+  // Quell-Chargen: Bestand reduzieren
+  for (const q of quellen) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: src } = await (supabase.from('weinausbau') as any)
+      .select('menge_liter').eq('id', q.weinausbau_id).single()
+    const srcLiter = parseFloat((src as R)?.menge_liter ?? '0') || 0
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('weinausbau') as any)
+      .update({ menge_liter: Math.max(0, srcLiter - q.menge_liter) })
+      .eq('id', q.weinausbau_id)
+  }
+
+  revalidatePath('/kellerbuch')
+  quellen.forEach(q => revalidatePath(`/kellerbuch/weinausbau/${q.weinausbau_id}/buch`))
+  revalidatePath(`/kellerbuch/weinausbau/${zielId}/buch`)
+  revalidatePath(`/kellerbuch/weinausbau/${zielId}`)
+}
