@@ -373,19 +373,26 @@ export default function KellerAuswertungenClient({
             </thead>
             <tbody>
               {umzuege.map((u, i) => {
-                const isFilt  = u.umzug_typ === 'filtration'
-                const brutto  = parseFloat(u.brutto_liter) || parseFloat(u.menge_liter) || 0
-                const schwund = parseFloat(u.schwund_liter) || 0
+                const isFilt    = u.umzug_typ === 'filtration'
+                const isSchwund = u.umzug_typ === 'schwund'
+                const brutto    = parseFloat(u.brutto_liter) || parseFloat(u.menge_liter) || 0
+                const schwund   = parseFloat(u.schwund_liter) || 0
+                const vonName   = isSchwund
+                  ? ((u.von_weinausbau as R | null)?.name ?? (u.von_behaelter as R | null)?.name ?? '–')
+                  : (u.von_behaelter as R | null)?.name ?? '–'
+                const nachName  = isSchwund
+                  ? 'Schwund / Verlust'
+                  : (u.nach_behaelter as R | null)?.name ?? '–'
                 return (
                   <tr key={u.id} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
                     <td className="px-4 py-2.5 text-gray-500 whitespace-nowrap text-xs">
                       {new Date(u.datum).toLocaleDateString('de-AT')}
                     </td>
                     <td className="px-4 py-2.5 text-gray-700">
-                      {isFilt ? '🔽' : '⬇️'} {(u.von_behaelter as R | null)?.name ?? '–'}
+                      {isSchwund ? '💧' : isFilt ? '🔽' : '⬇️'} {vonName}
                     </td>
                     <td className="px-4 py-2.5 text-gray-700">
-                      {isFilt ? '🔼' : '⬆️'} {(u.nach_behaelter as R | null)?.name ?? '–'}
+                      {isSchwund ? '💧' : isFilt ? '🔼' : '⬆️'} {nachName}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums font-medium text-gray-700">
                       {brutto > 0 ? fmtLiter(brutto) : '–'}

@@ -31,7 +31,7 @@ export default async function KellerAuswertungenPage() {
       .select('id, datum, menge, einheit, behaelter_id, behaelter:behaelter_id(name), typ:typ_id(name)')
       .gte('datum', jahresStart).order('datum', { ascending: false }),
     (supabase.from('keller_umzuege') as any)
-      .select('id, datum, menge_liter, brutto_liter, schwund_liter, umzug_typ, von_behaelter:von_behaelter_id(name), nach_behaelter:nach_behaelter_id(name)')
+      .select('id, datum, menge_liter, brutto_liter, schwund_liter, umzug_typ, notizen, von_behaelter:von_behaelter_id(name), nach_behaelter:nach_behaelter_id(name), von_weinausbau:von_weinausbau_id(name)')
       .gte('datum', jahresStart).not('zeilen_typ', 'eq', 'ziel')
       .order('datum', { ascending: false }).limit(100),
     (supabase.from('fuellungen') as any)
