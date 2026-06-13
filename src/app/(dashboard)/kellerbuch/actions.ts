@@ -318,3 +318,41 @@ export async function deleteVerschneidung(verschneidungId: string) {
   revalidatePath(`/kellerbuch/weinausbau/${zielId}`)
   revalidatePath(`/kellerbuch/weinausbau/${zielId}/buch`)
 }
+
+// MANUELLER SCHWUND
+// Bucht einen Schwund-Abgang als keller_umzug mit umzug_typ='schwund'.
+// brutto_liter = Schwundmenge, menge_liter = 0 → kein Nettozugang im Zielbehälter.
+// Erscheint im Bewegungsbuch als Abgang mit Icon 💧 und Beschreibung "Schwund / Verlust".
+
+export async function manuellSchwundBuchen(formData: FormData) {
+  const supabase     = await createSupabaseServerClient()
+  const tenantId     = await getTenantId()
+  if (!tenantId) throw new Error('Kein Betrieb gefunden')
+
+  const behaelterId  = formData.get('behaelter_id')  as string
+  const weinausbauId = formData.get('weinausbau_id') as string
+  const menge        = parseFloat((formData.get('menge') as string)?.replace(',', '.') || '0')
+  const datum        = formData.get('datum') as string
+
+  if (!behaelterId || !weinausbauId || menge <= 0 || !datum) {
+    throw new Error('Ungültige Eingabe: alle Felder sind erforderlich')
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('keller_umzuege') as any).insert({
+    tenant_id:         tenantId,
+    von_weinausbau_id: weinausbauId,
+    nach_behaelter_id: behaelterId,  // Pflichtfeld – selber Behälter, menge_liter=0 → kein Zugang
+    menge_liter:       0,
+    brutto_liter:      menge,
+    schwund_liter:     menge,
+    datum,
+    umzug_typ:         'schwund',
+    notizen:           'Manueller Schwund',
+  })
+
+  if (error) throw new Error((error as R).message)
+
+  revalidatePath(`/kellerbuch/behaelter/${behaelterId}/bewegungen`)
+  revalidatePath('/kellerbuch')
+}

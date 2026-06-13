@@ -4,6 +4,7 @@ import { fmtLiter } from '@/lib/format'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { manuellSchwundBuchen } from '../../actions'
 
 export const metadata: Metadata = { title: 'Bewegungsbuch – software:112' }
 export const dynamic = 'force-dynamic'
@@ -16,22 +17,23 @@ const TYP_ICONS: Record<string, string> = {
 }
 
 const ART_ICON: Record<string, string> = {
-  anfangsbestand:  '📋',
-  pressung:        '🍇',
-  umzug_ein:       '⬆️',
-  umzug_aus:       '⬇️',
-  filtration_ein:  '🔼',
-  filtration_aus:  '🔽',
-  abfuellung:      '🍾',
-  verkauf:         '💰',
-  behandlung:      '🧪',
+  anfangsbestand:   '📋',
+  pressung:         '🍇',
+  umzug_ein:        '⬆️',
+  umzug_aus:        '⬇️',
+  filtration_ein:   '🔼',
+  filtration_aus:   '🔽',
+  abfuellung:       '🍾',
+  verkauf:          '💰',
+  behandlung:       '🧪',
   verschneidung_ein: '🍷',
   verschneidung_aus: '🍷',
+  schwund:          '💧',
 }
 
 type Bewegung = {
   datum: string
-  art: 'anfangsbestand' | 'pressung' | 'umzug_ein' | 'umzug_aus' | 'filtration_ein' | 'filtration_aus' | 'abfuellung' | 'verkauf' | 'behandlung' | 'verschneidung_ein' | 'verschneidung_aus'
+  art: 'anfangsbestand' | 'pressung' | 'umzug_ein' | 'umzug_aus' | 'filtration_ein' | 'filtration_aus' | 'abfuellung' | 'verkauf' | 'behandlung' | 'verschneidung_ein' | 'verschneidung_aus' | 'schwund'
   beschreibung: string
   menge: number
   extra?: string
@@ -44,7 +46,6 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
   const role     = await getCurrentUserRole()
   const writeOk  = canWrite(role)
 
-  // Behälter info
   const { data: bhRow } = await (supabase.from('behaelter') as any)
     .select('id, name, typ, volumen_liter, standort')
     .eq('id', id)
@@ -53,7 +54,6 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
   if (!bhRow) notFound()
   const bh = bhRow as R
 
-  // Parallel-Queries
   const [
     { data: pressungenRaw },
     { data: umzuegeEinRaw },
@@ -61,37 +61,27 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     { data: umzuegeVonBehaelterRaw },
     { data: behandlungenRaw },
   ] = await Promise.all([
-    // Pressungen für diesen Behälter
     (supabase.from('pressung_behaelter') as any)
       .select('id, menge_liter, weinausbau_id, notizen, pressung:pressung_id(id, datum, notizen)')
       .eq('behaelter_id', id)
       .order('id', { ascending: true }),
-
-    // Eingehende Umzüge – inkl. brutto_liter/schwund_liter für korrekte Netto-Berechnung
     (supabase.from('keller_umzuege') as any)
       .select('id, datum, menge_liter, brutto_liter, schwund_liter, umzug_typ, nach_weinausbau_id, von_behaelter:von_behaelter_id(name), von_weinausbau:von_weinausbau_id(name, jahrgang, behaelter:behaelter_id(name)), notizen, umzug_batch_id, zeilen_typ')
       .eq('nach_behaelter_id', id)
       .order('datum', { ascending: true }),
-
-    // Alle Chargen in diesem Behälter (aktiv + inaktiv, die noch zugewiesen sind)
     (supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, menge_liter, aktiv, ist_eroeffnungsbestand, anfangsbestand_liter, created_at')
       .eq('behaelter_id', id)
       .order('id', { ascending: true }),
-
-    // Ausgehende Umzüge via von_behaelter_id
     (supabase.from('keller_umzuege') as any)
       .select('von_weinausbau_id')
       .eq('von_behaelter_id', id),
-
-    // Kellerbehandlungen für diesen Behälter
     (supabase.from('keller_behandlungen') as any)
       .select('id, datum, menge, einheit, notizen, typ:typ_id(name)')
       .eq('behaelter_id', id)
       .order('datum', { ascending: true }),
   ])
 
-  // Charge-IDs sammeln aus 4 Quellen
   const chargeIds = new Set<string>()
   for (const c of (chargenRaw ?? []) as R[]) chargeIds.add(c.id)
   for (const u of (umzuegeEinRaw ?? []) as R[]) {
@@ -105,7 +95,6 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
   }
   const chargeIdList = Array.from(chargeIds)
 
-  // Abgangs-Queries (nur wenn Chargen vorhanden)
   const [
     { data: umzuegeAusRaw },
     { data: fuellungenRaw },
@@ -128,14 +117,12 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
       ])
     : [{ data: [] }, { data: [] }, { data: [] }]
 
-  // Verschneidungen: diese Behälter-Chargen als Quelle (Abgang)
   const { data: verschnAusRaw } = chargeIdList.length > 0
     ? await (supabase.from('verschneidung_quellen') as any)
         .select('menge_liter, quell_weinausbau_id, verschneidung:verschneidung_id(datum, notizen, ziel:ziel_weinausbau_id(name, behaelter:behaelter_id(name)))')
         .in('quell_weinausbau_id', chargeIdList)
     : { data: [] }
 
-  // Verschneidungen: diese Behälter-Chargen als Ziel (Zugang)
   const { data: verschnEinRaw } = chargeIdList.length > 0
     ? await (supabase.from('verschneidungen') as any)
         .select('id, datum, notizen, quellen:verschneidung_quellen(menge_liter, quelle:quell_weinausbau_id(name, behaelter:behaelter_id(name)))')
@@ -143,12 +130,9 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
         .order('datum', { ascending: true })
     : { data: [] }
 
-  // ── Sekundäre Batch-Lookups für n:n-Umzug-Format ────────────────────────────
-  // 'ziel'-Zeilen haben von_weinausbau_id = null → Quelle aus 'quelle'-Row holen
   const einZielBatchIds = [...new Set(
     ((umzuegeEinRaw ?? []) as R[]).filter(u => u.zeilen_typ === 'ziel' && u.umzug_batch_id).map(u => u.umzug_batch_id)
   )] as string[]
-  // 'quelle'-Zeilen haben nach_behaelter_id = null → Ziel aus 'ziel'-Row holen
   const ausQuelleBatchIds = [...new Set(
     ((umzuegeAusRaw ?? []) as R[]).filter(u => u.zeilen_typ === 'quelle' && u.umzug_batch_id).map(u => u.umzug_batch_id)
   )] as string[]
@@ -178,13 +162,9 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     }
   }
 
-  // Eröffnungsbestand-Charge ermitteln
   const eroeffnungsCharge = ((chargenRaw ?? []) as R[]).find(c => c.ist_eroeffnungsbestand)
-
-  // ── Bewegungen aufbauen ──────────────────────────────────────────────────────
   const bewegungen: Bewegung[] = []
 
-  // Eröffnungsbestand als erste Bewegung
   if (eroeffnungsCharge) {
     const liter = parseFloat(eroeffnungsCharge.anfangsbestand_liter) || parseFloat(eroeffnungsCharge.menge_liter) || 0
     if (liter > 0) {
@@ -200,7 +180,6 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     }
   }
 
-  // Pressungen / Ernte (Zugänge)
   for (const p of (pressungenRaw ?? []) as R[]) {
     const liter = parseFloat(p.menge_liter) || 0
     if (liter <= 0) continue
@@ -214,9 +193,6 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     })
   }
 
-  // Eingehende Umzüge (Zugänge)
-  // Altes Format (brutto_liter=null): menge_liter war Brutto → Netto = menge - schwund
-  // Neues Format (brutto_liter gesetzt): menge_liter ist bereits Netto
   for (const u of (umzuegeEinRaw ?? []) as R[]) {
     const rohmenge = parseFloat(u.menge_liter) || 0
     const schwund  = parseFloat(u.schwund_liter) || 0
@@ -227,7 +203,6 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
 
     let vonBeschreibung: string
     if (u.zeilen_typ === 'ziel' && u.umzug_batch_id && quelleByBatch[u.umzug_batch_id]) {
-      // Neues N:N-Format: Quelle aus sekundärer Abfrage
       const quelleRecs = quelleByBatch[u.umzug_batch_id]
       const quelleNames = quelleRecs.map((q: R) => {
         const wa         = q.von_weinausbau as R | null
@@ -240,7 +215,6 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
       })
       vonBeschreibung = quelleNames.join(', ') || '?'
     } else {
-      // Altes Format oder direkte Verlinkung
       const vonCharge  = u.von_weinausbau as R | null
       const tankFromWA = (vonCharge?.behaelter as R | null)?.name ?? null
       const tankDirekt = (u.von_behaelter as R | null)?.name ?? null
@@ -263,12 +237,9 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     })
   }
 
-  // Ausgehende Umzüge (Abgänge) – Quelle verliert Bruttomenge
   for (const u of (umzuegeAusRaw ?? []) as R[]) {
-    const netto   = parseFloat(u.menge_liter) || 0
-    // 'quelle'-Zeilen (N:N-Format): menge_liter = brutto direkt
-    // 'transfer'-Zeilen: brutto_liter (neues Format) ODER menge_liter (altes Format, war brutto)
-    const abgang  = u.zeilen_typ === 'quelle'
+    const netto  = parseFloat(u.menge_liter) || 0
+    const abgang = u.zeilen_typ === 'quelle'
       ? netto
       : (parseFloat(u.brutto_liter) || netto)
     if (abgang <= 0) continue
@@ -277,7 +248,6 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     let schwund = parseFloat(u.schwund_liter) || 0
 
     if (u.zeilen_typ === 'quelle' && u.umzug_batch_id && zielByBatch[u.umzug_batch_id]) {
-      // Neues N:N-Format: Ziel aus sekundärer Abfrage
       const zielRecs = zielByBatch[u.umzug_batch_id]
       const zielNames = zielRecs.map((z: R) => {
         const behName = (z.nach_behaelter as R | null)?.name ?? null
@@ -288,26 +258,29 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
       schwund = Math.max(0, abgang - sumNetto)
       nachBeschreibung = zielNames.join(', ') || '?'
     } else {
-      // Altes Format
       nachBeschreibung = (u.nach_behaelter as R | null)?.name ?? '?'
     }
 
     const vonCharge  = u.von_weinausbau as R | null
     const istFiltAus = u.umzug_typ === 'filtration'
+    const istSchwund = u.umzug_typ === 'schwund'
     bewegungen.push({
       datum: u.datum,
-      art: istFiltAus ? 'filtration_aus' : 'umzug_aus',
-      beschreibung: istFiltAus
-        ? `Filtration nach ${nachBeschreibung}${schwund > 0.01 ? ` · Schwund: ${schwund.toLocaleString('de-AT')} L` : ''}`
-        : `Umzug nach ${nachBeschreibung}${schwund > 0.01 ? ` · Schwund: ${schwund.toLocaleString('de-AT')} L` : ''}`,
+      art: istSchwund ? 'schwund' : istFiltAus ? 'filtration_aus' : 'umzug_aus',
+      beschreibung: istSchwund
+        ? `Schwund / Verlust${vonCharge?.name ? ` (${vonCharge.name})` : ''}`
+        : istFiltAus
+          ? `Filtration nach ${nachBeschreibung}${schwund > 0.01 ? ` · Schwund: ${schwund.toLocaleString('de-AT')} L` : ''}`
+          : `Umzug nach ${nachBeschreibung}${schwund > 0.01 ? ` · Schwund: ${schwund.toLocaleString('de-AT')} L` : ''}`,
       menge: -abgang,
-      extra: vonCharge?.name
-        ? `aus Charge: ${vonCharge.name}${u.notizen ? ` · ${u.notizen}` : ''}`
-        : (u.notizen ?? undefined),
+      extra: istSchwund
+        ? undefined
+        : vonCharge?.name
+          ? `aus Charge: ${vonCharge.name}${u.notizen ? ` · ${u.notizen}` : ''}`
+          : (u.notizen ?? undefined),
     })
   }
 
-  // Abfüllungen (Abgänge)
   for (const f of (fuellungenRaw ?? []) as R[]) {
     const liter = parseFloat(f.menge_liter_gefuellt)
       || (parseInt(f.anzahl_flaschen) * parseInt(f.flaschengroesse_ml) / 1000)
@@ -315,14 +288,13 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     bewegungen.push({
       datum: f.datum,
       art: 'abfuellung',
-      beschreibung: `Abfüllung: ${f.name}${f.pruefnummer ? ` · Prüfnr. ${f.pruefnummer}` : ''}`,
+      beschreibung: `Abfuellung: ${f.name}${f.pruefnummer ? ` · Pruefnr. ${f.pruefnummer}` : ''}`,
       menge: -liter,
-      extra: `${parseInt(f.anzahl_flaschen).toLocaleString('de-AT')} Fl. à ${parseInt(f.flaschengroesse_ml)} ml`,
+      extra: `${parseInt(f.anzahl_flaschen).toLocaleString('de-AT')} Fl. a ${parseInt(f.flaschengroesse_ml)} ml`,
       fuellung_id: f.id,
     })
   }
 
-  // Tank-Verkäufe (Abgänge)
   for (const v of (verkaufRaw ?? []) as R[]) {
     const vp = v.verkaufsposten as R | null
     if (vp?.storniert) continue
@@ -336,7 +308,6 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     })
   }
 
-  // Kellerbehandlungen (keine Mengenänderung, nur informativer Eintrag)
   for (const b of (behandlungenRaw ?? []) as R[]) {
     if (!b.datum) continue
     const typName  = (b.typ as R | null)?.name ?? 'Behandlung'
@@ -352,7 +323,6 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     })
   }
 
-  // Verschneidungen – Abgänge (diese Charge als Quelle)
   for (const vq of (verschnAusRaw ?? []) as R[]) {
     const liter = parseFloat(vq.menge_liter) || 0
     if (liter <= 0) continue
@@ -369,7 +339,6 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     })
   }
 
-  // Verschneidungen – Zugänge (diese Charge als Ziel)
   for (const v of (verschnEinRaw ?? []) as R[]) {
     const quellen = (v.quellen as R[]) ?? []
     const gesamtLiter = quellen.reduce((s: number, q: R) => s + (parseFloat(q.menge_liter) || 0), 0)
@@ -387,10 +356,8 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     })
   }
 
-  // Nach Datum sortieren (leere Datums an den Anfang)
   bewegungen.sort((a, b) => a.datum.localeCompare(b.datum))
 
-  // Laufenden Saldo berechnen (startet bei 0; Behandlungen mit menge=0 ändern den Saldo nicht)
   let saldo = 0
   const bewegungenMitSaldo = bewegungen.map(bew => {
     saldo += bew.menge
@@ -400,18 +367,16 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
   const finalSaldo = bewegungenMitSaldo.length > 0
     ? bewegungenMitSaldo[bewegungenMitSaldo.length - 1].saldo
     : 0
-  // Aktueller Bestand = letzter Saldo im Bewegungsbuch (konsistent mit der Saldo-Spalte)
-  // Fallback auf menge_liter-Summe wenn noch keine Bewegungseinträge vorhanden
   const aktiveChargen = ((chargenRaw ?? []) as R[]).filter(c => c.aktiv && !c.ist_eroeffnungsbestand)
   const aktuellDB = aktiveChargen.reduce((s: number, c: R) => s + (parseFloat(c.menge_liter) || 0), 0)
   const aktuell = finalSaldo > 0 ? finalSaldo : aktuellDB
 
   const kapazitaet = bh.volumen_liter ? parseFloat(bh.volumen_liter) : null
   const auslastung = kapazitaet && kapazitaet > 0 ? Math.min(100, (aktuell / kapazitaet) * 100) : null
+  const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
 
   return (
     <div className="max-w-4xl space-y-8">
-      {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-s112-muted">
         <Link href="/kellerbuch" className="hover:text-s112-teal transition-colors">Kellerbuch</Link>
         <span>/</span>
@@ -420,7 +385,6 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
         <span className="text-gray-500">Bewegungsbuch</span>
       </div>
 
-      {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-start gap-3">
           <span className="text-3xl mt-0.5">{TYP_ICONS[bh.typ] ?? '📦'}</span>
@@ -428,11 +392,11 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
             <h1 className="text-2xl font-bold text-gray-900">{bh.name}</h1>
             <div className="flex items-center gap-3 mt-0.5 flex-wrap text-xs text-s112-muted">
               {bh.standort && <span>{bh.standort}</span>}
-              {kapazitaet && <span>{fmtLiter(kapazitaet)} Kapazität</span>}
+              {kapazitaet && <span>{fmtLiter(kapazitaet)} Kapazitaet</span>}
             </div>
             {aktuell < 0 && (
               <div className="mt-2 flex items-center gap-2 px-3 py-1.5 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs font-medium">
-                ⚠️ Negativer Bestand: {fmtLiter(aktuell)} — Buchungsfehler prüfen
+                Negativer Bestand: {fmtLiter(aktuell)} — Buchungsfehler pruefen
               </div>
             )}
             {auslastung !== null && (
@@ -455,7 +419,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
             <>
               <Link href="/kellerbuch/umziehen"
                 className="text-xs border border-s112-teal text-s112-teal px-3 py-1.5 rounded-lg hover:bg-s112-teal/5 font-medium">
-                ↔️ Umziehen
+                Umziehen
               </Link>
               <Link href={`/kellerbuch/behaelter/${id}`}
                 className="text-xs text-s112-muted border border-gray-200 px-3 py-1.5 rounded-lg hover:border-s112-teal hover:text-s112-teal">
@@ -466,22 +430,20 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-1 border-b border-s112-border">
         <span className="px-4 py-2 text-sm font-medium text-s112-teal border-b-2 border-s112-teal -mb-px">
-          📊 Bewegungsbuch
+          Bewegungsbuch
         </span>
         <Link href={`/kellerbuch/behaelter/${id}/umzuege`}
           className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300 -mb-px transition-colors">
-          ↔️ Umziehen
+          Umziehen
         </Link>
         <Link href={`/kellerbuch/behaelter/${id}/behandlungen`}
           className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300 -mb-px transition-colors">
-          🧪 Kellerbehandlungen
+          Kellerbehandlungen
         </Link>
       </div>
 
-      {/* Aktuelle Chargen */}
       {aktiveChargen.length > 0 && (
         <section>
           <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-2">Aktuelle Chargen</h2>
@@ -500,7 +462,63 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
         </section>
       )}
 
-      {/* Bewegungsbuch */}
+      {writeOk && finalSaldo > 0.01 && (chargenRaw ?? []).length > 0 && (
+        <section className="card p-5 border-amber-200 bg-amber-50 space-y-3">
+          <div className="flex items-start gap-2">
+            <span className="text-lg">&#128167;</span>
+            <div>
+              <p className="text-sm font-semibold text-amber-800">Schwund ausbuchen</p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Laut Bewegungsbuch sind noch{' '}
+                <strong>{fmtLiter(finalSaldo)}</strong>{' '}
+                nicht verbuchter Schwund vorhanden. Hier kann der Differenzbetrag manuell gebucht werden.
+              </p>
+            </div>
+          </div>
+          <form action={manuellSchwundBuchen} className="flex flex-wrap gap-3 items-end">
+            <input type="hidden" name="behaelter_id" value={id} />
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Charge</label>
+              <select name="weinausbau_id" required className={inputCls}>
+                {((chargenRaw ?? []) as R[]).map((c: R) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}{c.jahrgang ? ` (${c.jahrgang})` : ''}{!c.aktiv ? ' abgeschlossen' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Menge (L)</label>
+              <input
+                name="menge"
+                type="number"
+                step="0.01"
+                min="0.01"
+                defaultValue={finalSaldo.toFixed(2)}
+                required
+                className={`w-28 ${inputCls}`}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Datum</label>
+              <input
+                name="datum"
+                type="date"
+                defaultValue={new Date().toISOString().split('T')[0]}
+                required
+                className={inputCls}
+              />
+            </div>
+            <button
+              type="submit"
+              className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-amber-700 transition-colors"
+            >
+              Schwund buchen
+            </button>
+          </form>
+        </section>
+      )}
+
       <section>
         <h2 className="font-semibold text-gray-800 mb-3">Bewegungsbuch</h2>
         <div className="card p-0 overflow-hidden">
@@ -517,7 +535,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
               {bewegungenMitSaldo.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-4 py-8 text-center text-xs text-s112-muted italic">
-                    Noch keine Bewegungen für diesen Behälter erfasst
+                    Noch keine Bewegungen fuer diesen Behaelter erfasst
                   </td>
                 </tr>
               ) : (
@@ -532,7 +550,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
                   return (
                     <tr key={i} className={`border-b border-s112-border/30 last:border-0 ${rowBg}`}>
                       <td className="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">
-                        {bew.datum ? new Date(bew.datum).toLocaleDateString('de-AT') : '–'}
+                        {bew.datum ? new Date(bew.datum).toLocaleDateString('de-AT') : '-'}
                       </td>
                       <td className="px-4 py-2.5">
                         <div className="flex items-start gap-1.5">
@@ -555,7 +573,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
                       </td>
                       <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${colorClass}`}>
                         {istNeutral
-                          ? <span className="text-gray-300">–</span>
+                          ? <span className="text-gray-300">-</span>
                           : <span>{istAbgang ? '' : '+'}{fmtLiter(bew.menge)}</span>
                         }
                       </td>
@@ -566,8 +584,6 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
                   )
                 })
               )}
-
-              {/* Schluss-Zeile */}
               <tr className={`border-t-2 ${aktuell < 0 ? 'border-red-400/50 bg-red-50/50' : 'border-s112-teal/30 bg-s112-teal/5'}`}>
                 <td colSpan={2} className="px-4 py-2.5 font-semibold text-gray-700 text-sm">
                   Aktueller Bestand
