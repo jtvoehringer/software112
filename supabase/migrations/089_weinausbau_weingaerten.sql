@@ -12,11 +12,16 @@ create table if not exists weinausbau_weingaerten (
   unique (weinausbau_id, weingarten_id)
 );
 
-create index idx_waw_weinausbau  on weinausbau_weingaerten(weinausbau_id);
-create index idx_waw_weingarten  on weinausbau_weingaerten(weingarten_id);
-create index idx_waw_tenant      on weinausbau_weingaerten(tenant_id);
+create index if not exists idx_waw_weinausbau  on weinausbau_weingaerten(weinausbau_id);
+create index if not exists idx_waw_weingarten  on weinausbau_weingaerten(weingarten_id);
+create index if not exists idx_waw_tenant      on weinausbau_weingaerten(tenant_id);
 
 alter table weinausbau_weingaerten enable row level security;
+
+drop policy if exists "waw_select" on weinausbau_weingaerten;
+drop policy if exists "waw_insert" on weinausbau_weingaerten;
+drop policy if exists "waw_update" on weinausbau_weingaerten;
+drop policy if exists "waw_delete" on weinausbau_weingaerten;
 
 create policy "waw_select" on weinausbau_weingaerten
   for select using (tenant_id in (
