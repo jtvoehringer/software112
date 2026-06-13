@@ -19,14 +19,12 @@ export default async function TransportbescheinigungPage({ params }: { params: P
   const [{ data: postenRaw, error: postenErr }, { data: cfgRaw }, { data: tbRaw }] = await Promise.all([
     (supabase.from('verkaufsposten') as any)
       .select(`
-        id, rechnungsnummer, datum, kontakt_id, firma_id,
+        id, rechnungsnummer, datum,
         kontakt:kontakte(vorname, nachname, telefon, strasse, plz, ort),
         firma:firmen(name, telefon, strasse, plz, ort),
         positionen:verkauf_positionen(
           id, typ, name, menge,
-          weinausbau:weinausbau(id, name, jahrgang, qualitaetsstufe,
-            rebsorte:rebsorten(kuerzel)
-          )
+          weinausbau:weinausbau(id, name, jahrgang, qualitaetsstufe, rebsorte)
         )
       `)
       .eq('id', id)
@@ -42,19 +40,20 @@ export default async function TransportbescheinigungPage({ params }: { params: P
 
   if (postenErr || !postenRaw) notFound()
 
-  // Prüfnummern für die verlinkten Weinausbau-Chargen nachladen
-  const tankWaIds = ((postenRaw as R)?.positionen ?? [])
+  // Prüfnummern für Tank-Positionen nachladen (dac_antrag.weinausbau_id → pruefnummer)
+  const tankWaIds = ((postenRaw as R).positionen ?? [])
     .filter((p: R) => p.typ === 'tank' && p.weinausbau?.id)
     .map((p: R) => p.weinausbau.id as string)
-  const { data: dacRaw } = tankWaIds.length > 0
-    ? await (supabase.from('dac_antrag') as any)
-        .select('weinausbau_id, pruefnummer')
-        .in('weinausbau_id', tankWaIds)
-        .not('pruefnummer', 'is', null)
-    : { data: [] }
+
   const pnMap: Record<string, string> = {}
-  for (const d of (dacRaw ?? []) as R[]) {
-    if (!pnMap[d.weinausbau_id]) pnMap[d.weinausbau_id] = d.pruefnummer
+  if (tankWaIds.length > 0) {
+    const { data: dacRaw } = await (supabase.from('dac_antrag') as any)
+      .select('weinausbau_id, pruefnummer')
+      .in('weinausbau_id', tankWaIds)
+      .not('pruefnummer', 'is', null)
+    for (const d of (dacRaw ?? []) as R[]) {
+      if (!pnMap[d.weinausbau_id]) pnMap[d.weinausbau_id] = d.pruefnummer
+    }
   }
 
   const posten  = postenRaw as R
@@ -64,17 +63,16 @@ export default async function TransportbescheinigungPage({ params }: { params: P
   // Empfänger aus Kontakt oder Firma
   const src   = posten.kontakt ?? posten.firma ?? {}
   const isK   = !!posten.kontakt
-  const eName = isK ? [src.vorname, src.nachname].filter(Boolean).join(' ') : (src.name ?? '')
-  const eVorn = isK ? '' : ''
+  const eName = isK
+    ? [src.vorname, src.nachname].filter(Boolean).join(' ')
+    : (src.name ?? '')
 
-  // Vorhandene gespeicherte Daten oder Prefill
   const gespeichert = (tbRaw as R | null)?.formular_daten ?? null
-
   const heute = new Date()
 
   const initial = gespeichert ?? {
     laufende_nr: '',
-    jahr: String(heute.getFullYear()),
+    jahr:        String(heute.getFullYear()),
     datum_tag:   String(heute.getDate()).padStart(2, '0'),
     datum_monat: String(heute.getMonth() + 1).padStart(2, '0'),
     datum_jahr:  String(heute.getFullYear()),
@@ -94,34 +92,33 @@ export default async function TransportbescheinigungPage({ params }: { params: P
     v_ort_versendung: cfg.betrieb_ort ?? '',
     v_plz_versendung: cfg.betrieb_plz ?? '',
     // Empfänger (= Kunde)
-    e_betriebsnummer: '',
-    e_telefon:        src.telefon ?? '',
-    e_name:           eName,
-    e_vorname:        eVorn,
-    e_strasse:        (src.strasse ?? '').split(' ').slice(0, -1).join(' '),
-    e_hausnr:         (src.strasse ?? '').split(' ').at(-1) ?? '',
-    e_plz:            src.plz ?? '',
-    e_ort:            src.ort ?? '',
+    e_betriebsnummer:  '',
+    e_telefon:         src.telefon ?? '',
+    e_name:            eName,
+    e_vorname:         '',
+    e_strasse:         (src.strasse ?? '').split(' ').slice(0, -1).join(' '),
+    e_hausnr:          (src.strasse ?? '').split(' ').at(-1) ?? '',
+    e_plz:             src.plz ?? '',
+    e_ort:             src.ort ?? '',
     e_ort_einlagerung: src.ort ?? '',
     e_plz_einlagerung: src.plz ?? '',
-    // Weinpositionen aus den Tank-Positionen
+    // Weinpositionen aus Tank-Positionen
     positionen: tankPos.length > 0
       ? tankPos.map((p: R) => {
           const wa = p.weinausbau as R | null
-          const pn = wa?.id ? (pnMap[wa.id] ?? '') : ''
           return {
-            menge_liter:     String(p.menge ?? ''),
-            art:             'Weiß',
-            traubensorte:    wa?.rebsorte?.kuerzel ?? '',
-            qualitaetsstufe: wa?.qualitaetsstufe ?? '',
-            jahrgang:        wa?.jahrgang ? String(wa.jahrgang) : '',
-            herkunft:        cfg.betrieb_ort ?? '',
+            menge_liter:      String(p.menge ?? ''),
+            art:              'Weiß',
+            traubensorte:     wa?.rebsorte ?? '',
+            qualitaetsstufe:  wa?.qualitaetsstufe ?? '',
+            jahrgang:         wa?.jahrgang ? String(wa.jahrgang) : '',
+            herkunft:         cfg.betrieb_ort ?? '',
             fremd_sorten_pct: '',
-            fremd_jg_pct:    '',
-            pruefnummer:     pn,
-            anreicherung:    'N',
-            alkohol_pct:     '',
-            kmw:             '',
+            fremd_jg_pct:     '',
+            pruefnummer:      wa?.id ? (pnMap[wa.id] ?? '') : '',
+            anreicherung:     'N',
+            alkohol_pct:      '',
+            kmw:              '',
           }
         })
       : [{
@@ -133,7 +130,6 @@ export default async function TransportbescheinigungPage({ params }: { params: P
 
   return (
     <div className="max-w-5xl space-y-4">
-      {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-s112-muted no-print">
         <Link href="/weinhandel/verkauf" className="hover:text-s112-teal transition-colors">Verkauf</Link>
         <span>/</span>
