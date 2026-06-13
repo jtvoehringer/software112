@@ -310,6 +310,8 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
       <div className="flex items-center gap-2 text-sm text-s112-muted">
         <Link href="/kellerbuch" className="hover:text-s112-teal transition-colors">Kellerbuch</Link>
         <span>/</span>
+        <Link href="/kellerbuch/weinausbau" className="hover:text-s112-teal transition-colors">Weinausbau</Link>
+        <span>/</span>
         <span className="text-gray-700 font-medium">{weinausbau.name}</span>
       </div>
 
