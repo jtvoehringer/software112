@@ -6,6 +6,21 @@ import { graphPost, getValidAccessToken } from '@/lib/m365/graph'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
+// Vercel Cron ruft GET auf – delegiert an die POST-Logik mit CRON_SECRET
+export async function GET(req: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET
+  const authHeader = req.headers.get('authorization')
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ fehler: 'Unauthorized' }, { status: 401 })
+  }
+  // Cron-Request als POST-ähnlichen Request weiterverarbeiten
+  const modifiedReq = new Request(req.url, {
+    method: 'POST',
+    headers: req.headers,
+  })
+  return POST(new NextRequest(modifiedReq))
+}
+
 export async function POST(req: NextRequest) {
   // Auth: CRON_SECRET (Cron-Job) ODER eingeloggte Session (Admin)
   const cronSecret = process.env.CRON_SECRET
@@ -41,14 +56,21 @@ export async function POST(req: NextRequest) {
         try {
           const { getValidAccessToken } = await import('@/lib/m365/graph')
           const token = await getValidAccessToken(cfg as R, admin)
+          let patched = false
           if (cfg.m365_webhook_sub_id) {
             try {
-              await fetch(`https://graph.microsoft.com/v1.0/subscriptions/${cfg.m365_webhook_sub_id}`, {
+              const patchRes = await fetch(`https://graph.microsoft.com/v1.0/subscriptions/${cfg.m365_webhook_sub_id}`, {
                 method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ expirationDateTime: expiresAt }),
               })
-            } catch { /* erstelle neu */ }
-          } else {
+              if (patchRes.ok) {
+                await (admin.from('tenant_einstellungen') as any).update({ m365_webhook_expires: expiresAt }).eq('tenant_id', cfg.tenant_id)
+                patched = true
+              }
+            } catch { /* Subscription abgelaufen → neu erstellen */ }
+          }
+          if (!patched) {
+            // Neu erstellen (entweder kein sub_id oder PATCH fehlgeschlagen)
             const res = await fetch('https://graph.microsoft.com/v1.0/subscriptions', {
               method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({ changeType: 'created', notificationUrl, resource: "me/mailFolders('inbox')/messages", expirationDateTime: expiresAt, clientState: cfg.tenant_id }),

@@ -560,8 +560,11 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
   const [saved,   setSaved]        = useState(false)
 
   const isConnected = !!settings.m365_user_email
-  const tokenOk     = settings.m365_token_expires_at
-    ? new Date(settings.m365_token_expires_at) > new Date()
+  // Access Token läuft nach ~1h ab; getValidAccessToken refresht automatisch via Refresh Token.
+  // Daher: "verbunden" wenn m365_user_email gesetzt, auch wenn Access Token abgelaufen.
+  const tokenOk     = isConnected  // Refresh Token übernimmt automatisch
+  const tokenExpired = settings.m365_token_expires_at
+    ? new Date(settings.m365_token_expires_at) < new Date()
     : false
 
   const [subLoading, setSubLoading] = useState(false)
@@ -592,8 +595,11 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
       <div className={`flex items-center gap-3 p-4 rounded-xl border ${isConnected && tokenOk ? 'border-green-300 bg-green-50' : 'border-amber-300 bg-amber-50'}`}>
         <span className="text-2xl">{isConnected && tokenOk ? '✅' : '⚠️'}</span>
         <div>
-          <p className="text-sm font-semibold">{isConnected && tokenOk ? `Verbunden als ${settings.m365_user_email}` : 'Noch nicht verbunden'}</p>
-          {settings.m365_token_expires_at && (
+          <p className="text-sm font-semibold">{isConnected ? `Verbunden als ${settings.m365_user_email}` : 'Noch nicht verbunden'}</p>
+          {isConnected && tokenExpired && (
+            <p className="text-xs text-amber-700">Access Token abgelaufen – wird beim nächsten E-Mail-Abruf automatisch erneuert</p>
+          )}
+          {isConnected && !tokenExpired && settings.m365_token_expires_at && (
             <p className="text-xs text-gray-500">Token gültig bis: {new Date(settings.m365_token_expires_at).toLocaleString('de-AT')}</p>
           )}
         </div>
