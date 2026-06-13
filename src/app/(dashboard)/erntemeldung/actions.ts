@@ -328,3 +328,32 @@ export async function deletePressung(id: string, jahrgangId: string) {
   revalidatePath(`/erntemeldung/${jahrgangId}`)
   revalidatePath('/kellerbuch')
 }
+
+export async function deleteJahrgang(id: string) {
+  const supabase = await createSupabaseServerClient()
+  // Cascade-Reihenfolge (FK ohne ON DELETE CASCADE)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: pressIds } = await (supabase.from('pressungen') as any).select('id').eq('jahrgang_id', id)
+  for (const p of ((pressIds ?? []) as AR[])) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('pressung_weingaerten') as any).delete().eq('pressung_id', p.id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('pressung_behaelter') as any).delete().eq('pressung_id', p.id)
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from('pressungen') as any).delete().eq('jahrgang_id', id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: ama } = await (supabase.from('ama_erntemeldungen') as any).select('id').eq('jahrgang_id', id)
+  for (const a of ((ama ?? []) as AR[])) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('ama_meldepositionen') as any).delete().eq('meldung_id', a.id)
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from('ama_erntemeldungen') as any).delete().eq('jahrgang_id', id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from('ernte_parzellen') as any).delete().eq('jahrgang_id', id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('weinjahrgaenge') as any).delete().eq('id', id)
+  if (error) throw new Error((error as AR).message)
+  revalidatePath('/erntemeldung')
+}

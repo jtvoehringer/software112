@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, canAdmin } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import JahrgaengeClient from './JahrgaengeClient'
@@ -21,6 +21,7 @@ export default async function ErntemeldungPage() {
   const supabase = await createSupabaseServerClient()
   const role = await getCurrentUserRole()
   const writeOk = canWrite(role)
+  const adminOk = canAdmin(role)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawJ } = await (supabase.from('weinjahrgaenge') as any)
@@ -79,7 +80,7 @@ export default async function ErntemeldungPage() {
         )}
       </div>
 
-      <JahrgaengeClient jahrgaenge={jahrgaenge} writeOk={writeOk} />
+      <JahrgaengeClient jahrgaenge={jahrgaenge} writeOk={writeOk} adminOk={adminOk} />
     </div>
   )
 }
