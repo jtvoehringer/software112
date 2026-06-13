@@ -23,10 +23,19 @@ export default async function DacEditPage({ params }: { params: Promise<{ id: st
     (supabase.from('weinausbau') as any).select('id, name').eq('aktiv', true).order('name'),
   ])
 
+  const dac0 = (((rows ?? []) as R[])[0] ?? null)
+  const { data: anRaw } = dac0?.weinausbau_id
+    ? await (supabase.from('weinanalysen') as any)
+        .select('analyse_datum, labor, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl')
+        .eq('weinausbau_id', dac0.weinausbau_id)
+        .order('analyse_datum', { ascending: false })
+    : { data: [] }
+  const analysen = (anRaw ?? []) as R[]
+
   type DacRow = { id: string; weinausbau_id: string | null; bezeichnung: string; dac_region: string; jahrgang: number | null; rebsorte: string | null; menge_liter: number | null; alkohol_prozent: number | null; status: string; pruefnummer: string | null; eingereicht_am: string | null; bescheid_am: string | null; notizen: string | null; aktiv: boolean }
   type NameRow = { id: string; name: string }
 
-  const dac       = (((rows ?? []) as R[])[0] ?? null) as DacRow | null
+  const dac       = dac0 as DacRow | null
   if (!dac) notFound()
   const weinausbau = (waRaw ?? []) as NameRow[]
 
@@ -55,7 +64,7 @@ export default async function DacEditPage({ params }: { params: Promise<{ id: st
           )}
         </div>
       </div>
-      <DacForm dac={dac} weinausbau={weinausbau} action={updateDacAntrag.bind(null, id)} />
+      <DacForm dac={dac} weinausbau={weinausbau} analysen={analysen} action={updateDacAntrag.bind(null, id)} />
     </div>
   )
 }

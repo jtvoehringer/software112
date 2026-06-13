@@ -156,7 +156,7 @@ export async function createAnalyse(formData: FormData) {
     restzucker_gl:        numOrNull('restzucker_gl'),
     gesamtsaeure_gl:      numOrNull('gesamtsaeure_gl'),
     ph_wert:              numOrNull('ph_wert'),
-    // Spaltenname im DB hat Umlaut – via Alias in Formular (fluechtige_saeure_gl)
+    // Spaltenname im DB hat Umlaut – via Alias im Formular (fluechtige_saeure_gl)
     'flüchtige_saeure_gl': numOrNull('fluechtige_saeure_gl'),
     freie_so2_mgl:        numOrNull('freie_so2_mgl'),
     gesamt_so2_mgl:       numOrNull('gesamt_so2_mgl'),

@@ -17,7 +17,7 @@ const BEWIRTSCHAFTUNG_LABEL: Record<string, string> = {
 
 export type WRow = {
   id: string; name: string; ried: string | null; rebsorte: string | null
-  flaeche_ha: number | null; bewirtschaftung: string | null; aktiv: boolean
+  weinart: string | null; flaeche_ha: number | null; bewirtschaftung: string | null; aktiv: boolean
 }
 export type GSTRow = {
   id: string; weingarten_id: string; gst_nr: string
@@ -102,7 +102,21 @@ function WeingartenZeile({
             )}
           </div>
         </td>
-        <td className="px-3 py-2.5 text-sm text-s112-muted">{w.rebsorte ?? '–'}</td>
+        <td className="px-3 py-2.5 text-sm">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-s112-muted">{w.rebsorte ?? '–'}</span>
+            {w.weinart && w.weinart !== 'unbekannt' && (
+              <span className={`inline-block px-1.5 py-0 rounded-full text-xs font-medium ${
+                w.weinart === 'rot'   ? 'bg-red-100 text-red-700' :
+                w.weinart === 'weiss' ? 'bg-amber-100 text-amber-700' :
+                w.weinart === 'rose'  ? 'bg-pink-100 text-pink-700' :
+                'bg-gray-100 text-gray-500'
+              }`}>
+                {w.weinart === 'rot' ? 'Rot' : w.weinart === 'weiss' ? 'Weiß' : 'Rosé'}
+              </span>
+            )}
+          </div>
+        </td>
         <td className="px-3 py-2.5 text-sm text-right tabular-nums">
           {w.flaeche_ha != null ? fmtHa(w.flaeche_ha) : (gstHa > 0 ? fmtHa(gstHa) : '–')}
         </td>

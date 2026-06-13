@@ -28,6 +28,8 @@ const REBSORTEN = [
 ]
 
 type WeinausbauRow = { id: string; name: string }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnalyseRow = Record<string, any>
 type DacRow = {
   id: string; weinausbau_id: string | null; bezeichnung: string; dac_region: string
   jahrgang: number | null; rebsorte: string | null; menge_liter: number | null
@@ -38,14 +40,21 @@ type DacRow = {
 interface Props {
   dac?: DacRow
   weinausbau: WeinausbauRow[]
+  analysen?: AnalyseRow[]
+  preChargeId?: string | null
   action: (formData: FormData) => Promise<void>
 }
 
-export default function DacForm({ dac, weinausbau, action }: Props) {
+export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, action }: Props) {
   const router = useRouter()
   const [isDac, setIsDac] = useState(dac ? !!dac.dac_region && dac.dac_region !== 'sonstiges' : false)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [alkohol, setAlkohol] = useState<string>(
+    dac?.alkohol_prozent?.toString().replace('.', ',') ?? ''
+  )
+
+  const latestAnalyse = analysen[0] ?? null
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -103,7 +112,7 @@ export default function DacForm({ dac, weinausbau, action }: Props) {
           {!isDac && <input type="hidden" name="dac_region" value="sonstiges" />}
           <div>
             <label className="form-label">Weinausbau-Charge</label>
-            <select name="weinausbau_id" defaultValue={dac?.weinausbau_id ?? ''} className="form-input">
+            <select name="weinausbau_id" defaultValue={dac?.weinausbau_id ?? preChargeId ?? ''} className="form-input">
               <option value="">– keine Verknüpfung –</option>
               {weinausbau.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
@@ -125,7 +134,27 @@ export default function DacForm({ dac, weinausbau, action }: Props) {
           </div>
           <div>
             <label className="form-label">Alkohol (% vol)</label>
-            <input name="alkohol_prozent" type="text" inputMode="decimal" defaultValue={dac?.alkohol_prozent?.toString().replace('.', ',') ?? ''} className="form-input" placeholder="z.B. 12,5" />
+            <div className="flex gap-2 items-center">
+              <input
+                name="alkohol_prozent"
+                type="text"
+                inputMode="decimal"
+                value={alkohol}
+                onChange={e => setAlkohol(e.target.value)}
+                className="form-input"
+                placeholder="z.B. 12,5"
+              />
+              {latestAnalyse?.alkohol_vol != null && (
+                <button
+                  type="button"
+                  onClick={() => setAlkohol(String(latestAnalyse.alkohol_vol).replace('.', ','))}
+                  className="flex-shrink-0 text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors whitespace-nowrap"
+                  title="Wert aus letzter Analyse übernehmen"
+                >
+                  🔬 {String(latestAnalyse.alkohol_vol).replace('.', ',')} %
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -166,6 +195,39 @@ export default function DacForm({ dac, weinausbau, action }: Props) {
         <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Notizen</h2>
         <textarea name="notizen" rows={3} defaultValue={dac?.notizen ?? ''} className="form-input resize-none" placeholder="Kostnotizen, Anmerkungen zur Prüfung …" />
       </div>
+
+      {/* Laboranalysen – Referenzpanel */}
+      {analysen.length > 0 && (
+        <div className="card space-y-3 border-indigo-100 bg-indigo-50/30">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-indigo-700 uppercase tracking-wider">🔬 Laboranalysen ({analysen.length})</h2>
+          </div>
+          {analysen.map((a, i) => (
+            <div key={i} className="bg-white rounded-lg border border-indigo-100 p-3">
+              <p className="text-xs font-semibold text-gray-600 mb-2">
+                {new Date(a.analyse_datum).toLocaleDateString('de-AT')}
+                {a.labor ? ` · ${a.labor}` : ''}
+              </p>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs">
+                {a.alkohol_vol      != null && <span><span className="text-s112-muted">Alkohol </span><strong>{a.alkohol_vol} %</strong></span>}
+                {a.restzucker_gl    != null && <span><span className="text-s112-muted">Restzucker </span><strong>{a.restzucker_gl} g/l</strong></span>}
+                {a.gesamtsaeure_gl  != null && <span><span className="text-s112-muted">Ges.säure </span><strong>{a.gesamtsaeure_gl} g/l</strong></span>}
+                {a.ph_wert          != null && <span><span className="text-s112-muted">pH </span><strong>{a.ph_wert}</strong></span>}
+                {a['flüchtige_saeure_gl'] != null && <span><span className="text-s112-muted">Fl.Säure </span><strong>{a['flüchtige_saeure_gl']} g/l</strong></span>}
+                {a.freie_so2_mgl    != null && <span><span className="text-s112-muted">SO₂ frei </span><strong>{a.freie_so2_mgl} mg/l</strong></span>}
+                {a.gesamt_so2_mgl   != null && <span><span className="text-s112-muted">SO₂ ges. </span><strong>{a.gesamt_so2_mgl} mg/l</strong></span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {analysen.length === 0 && (dac?.weinausbau_id || preChargeId) && (
+        <div className="card border-amber-100 bg-amber-50/40 text-sm text-amber-800 flex items-center gap-3">
+          <span className="text-lg">⚠️</span>
+          <span>Für diese Charge gibt es noch keine Laboranalyse. <a href={`/kellerbuch/weinausbau/${dac?.weinausbau_id ?? preChargeId}/analysen/neu`} className="underline font-medium">Jetzt erfassen →</a></span>
+        </div>
+      )}
 
       {dac && (
         <div className="card">

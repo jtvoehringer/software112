@@ -10,13 +10,28 @@ export const dynamic = 'force-dynamic'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-export default async function NeuePage() {
+export default async function NeuePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ charge?: string }>
+}) {
+  const { charge: preCharge } = await searchParams
   const supabase = await createSupabaseServerClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: raw } = await (supabase.from('weinausbau') as any)
-    .select('id, name').eq('aktiv', true).order('name')
+
+  const [{ data: raw }, { data: anRaw }] = await Promise.all([
+    (supabase.from('weinausbau') as any).select('id, name').eq('aktiv', true).order('name'),
+    preCharge
+      ? (supabase.from('weinanalysen') as any)
+          .select('analyse_datum, labor, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl')
+          .eq('weinausbau_id', preCharge)
+          .order('analyse_datum', { ascending: false })
+      : Promise.resolve({ data: [] }),
+  ])
+
   type NameRow = { id: string; name: string }
   const weinausbau = (raw ?? []) as NameRow[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const analysen   = (anRaw ?? []) as R[]
 
   return (
     <div className="max-w-2xl">
@@ -26,7 +41,12 @@ export default async function NeuePage() {
         <span className="text-gray-700 font-medium">Neuer Antrag</span>
       </div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Neuer Prüfnummern-Antrag</h1>
-      <DacForm weinausbau={weinausbau} action={createDacAntrag} />
+      <DacForm
+        weinausbau={weinausbau}
+        analysen={analysen}
+        preChargeId={preCharge ?? null}
+        action={createDacAntrag}
+      />
     </div>
   )
 }
