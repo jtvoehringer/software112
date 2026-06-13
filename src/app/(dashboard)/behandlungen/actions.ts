@@ -14,6 +14,14 @@ async function getTenantId(): Promise<string> {
   return id
 }
 
+
+function parseDecimal(val: FormDataEntryValue | null): number | null {
+  if (!val) return null
+  const s = (val as string).replace(',', '.')
+  const n = Number(s)
+  return isNaN(n) ? null : n
+}
+
 export async function createBehandlung(formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
@@ -31,7 +39,7 @@ export async function createBehandlung(formData: FormData) {
   const aufwandEinheit  = (formData.get('aufwandmenge_einheit') as string) || null
   const mengeGesamt     = formData.get('menge_gesamt') ? Number(formData.get('menge_gesamt')) : null
   const mengeEinheit    = (formData.get('menge_einheit') as string) || null
-  const konzentration   = formData.get('konzentration') ? Number(formData.get('konzentration')) : null
+  const konzentration   = parseDecimal(formData.get('konzentration'))
   const wasseraufwand   = formData.get('wasseraufwand_l_ha') ? Number(formData.get('wasseraufwand_l_ha')) : null
   const bbch            = (formData.get('bbch_stadium') as string) || null
   const schaderreger    = (formData.get('schaderreger') as string) || null
@@ -112,7 +120,7 @@ export async function updateBehandlung(id: string, formData: FormData) {
   const aufwandEinheit = (formData.get('aufwandmenge_einheit') as string) || null
   const mengeGesamt    = formData.get('menge_gesamt') ? Number(formData.get('menge_gesamt')) : null
   const mengeEinheit   = (formData.get('menge_einheit') as string) || null
-  const konzentration  = formData.get('konzentration') ? Number(formData.get('konzentration')) : null
+  const konzentration  = parseDecimal(formData.get('konzentration'))
   const wasseraufwand  = formData.get('wasseraufwand_l_ha') ? Number(formData.get('wasseraufwand_l_ha')) : null
   const bbch           = (formData.get('bbch_stadium') as string) || null
   const schaderreger   = (formData.get('schaderreger') as string) || null
