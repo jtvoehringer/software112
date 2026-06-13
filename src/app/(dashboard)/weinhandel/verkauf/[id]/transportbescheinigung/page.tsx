@@ -16,23 +16,20 @@ export default async function TransportbescheinigungPage({ params }: { params: P
   const supabase = await createSupabaseServerClient()
   const admin    = createSupabaseAdminClient()
 
-  const [{ data: postenRaw }, { data: cfgRaw }, { data: tbRaw }] = await Promise.all([
+  const [{ data: postenRaw, error: postenErr }, { data: cfgRaw }, { data: tbRaw }] = await Promise.all([
     (supabase.from('verkaufsposten') as any)
       .select(`
-        id, rechnungsnummer, datum,
-        kontakt:kontakte!kontakt_id(vorname, nachname, telefon, strasse, plz, ort),
+        id, rechnungsnummer, datum, kontakt_id, firma_id,
+        kontakt:kontakte(vorname, nachname, telefon, strasse, plz, ort),
         firma:firmen(name, telefon, strasse, plz, ort),
         positionen:verkauf_positionen(
           id, typ, name, menge,
-          weinausbau:weinausbau(
-            id, name, jahrgang, qualitaetsstufe,
-            rebsorte:rebsorten(kuerzel),
-            pruefnummer_eintraege:dac_antrag(pruefnummer)
+          weinausbau:weinausbau(id, name, jahrgang, qualitaetsstufe,
+            rebsorte:rebsorten(kuerzel)
           )
         )
       `)
       .eq('id', id)
-      .eq('aktiv', true)
       .single(),
     (admin.from('tenant_einstellungen') as any)
       .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_telefon, betrieb_betriebsnummer')
@@ -43,7 +40,22 @@ export default async function TransportbescheinigungPage({ params }: { params: P
       .maybeSingle(),
   ])
 
-  if (!postenRaw) notFound()
+  if (postenErr || !postenRaw) notFound()
+
+  // Prüfnummern für die verlinkten Weinausbau-Chargen nachladen
+  const tankWaIds = ((postenRaw as R)?.positionen ?? [])
+    .filter((p: R) => p.typ === 'tank' && p.weinausbau?.id)
+    .map((p: R) => p.weinausbau.id as string)
+  const { data: dacRaw } = tankWaIds.length > 0
+    ? await (supabase.from('dac_antrag') as any)
+        .select('weinausbau_id, pruefnummer')
+        .in('weinausbau_id', tankWaIds)
+        .not('pruefnummer', 'is', null)
+    : { data: [] }
+  const pnMap: Record<string, string> = {}
+  for (const d of (dacRaw ?? []) as R[]) {
+    if (!pnMap[d.weinausbau_id]) pnMap[d.weinausbau_id] = d.pruefnummer
+  }
 
   const posten  = postenRaw as R
   const cfg     = (cfgRaw as R | null) ?? {}
@@ -96,7 +108,7 @@ export default async function TransportbescheinigungPage({ params }: { params: P
     positionen: tankPos.length > 0
       ? tankPos.map((p: R) => {
           const wa = p.weinausbau as R | null
-          const pn = (wa?.pruefnummer_eintraege as R[] | null)?.find((x: R) => x.pruefnummer)?.pruefnummer ?? ''
+          const pn = wa?.id ? (pnMap[wa.id] ?? '') : ''
           return {
             menge_liter:     String(p.menge ?? ''),
             art:             'Weiß',
