@@ -97,7 +97,9 @@ export default function FuellungFormClient({
     ? verfuegbar - berechneteLiter
     : null
 
-  const schwundWarning = schwund !== null && (schwund < -0.01 || schwund > verfuegbar * 0.2)
+  // Toleranz = eine Flaschengröße (Rundungstoleranz beim Abfüllen)
+  const bottleL = parseInt(groesse) / 1000
+  const schwundWarning = schwund !== null && (schwund < -bottleL || schwund > verfuegbar * 0.2)
 
   const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
   const labelCls = 'block text-xs font-medium text-gray-600 mb-1'
@@ -311,16 +313,16 @@ export default function FuellungFormClient({
         {/* Schwund-Box */}
         {schwund !== null && berechneteLiter !== null && (
           <div className={`rounded-lg px-4 py-3 text-sm ${
-            schwund < -0.01
+            schwund < -bottleL
               ? 'bg-red-50 border border-red-200 text-red-700'
               : schwundWarning
               ? 'bg-amber-50 border border-amber-200 text-amber-700'
               : 'bg-green-50 border border-green-200 text-green-700'
           }`}>
-            {schwund < -0.01 ? (
+            {schwund < -bottleL ? (
               <>⚠️ <strong>Überabfüllung:</strong> Abgefüllte Menge ({fmtL(berechneteLiter)}) übersteigt verfügbaren Bestand ({fmtL(verfuegbar)}) um {fmtL(Math.abs(schwund))}.</>
-            ) : schwund < 0.01 ? (
-              <>✅ Charge wird vollständig abgefüllt. Kein Schwund.</>
+            ) : schwund < bottleL ? (
+              <>✅ Charge wird vollständig abgefüllt. Kein/minimaler Schwund.</>
             ) : (
               <>🍶 <strong>Restwein / Schwund:</strong> {fmtL(schwund)} verbleiben nach der Abfüllung im Tank.</>
             )}

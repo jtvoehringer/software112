@@ -35,7 +35,8 @@ export async function createFuellung(formData: FormData) {
       .eq('id', weinausbauId)
       .single()
     const verfuegbar = parseFloat((wa as AR | null)?.menge_liter ?? '0') || 0
-    if (mengeGefuellt > verfuegbar + 0.01) {
+    // Toleranz = eine Flaschengröße (Rundung beim Abfüllen)
+    if (mengeGefuellt > verfuegbar + (flGroesseML / 1000)) {
       throw new Error(`Abfüllmenge (${mengeGefuellt} L) übersteigt verfügbaren Bestand (${verfuegbar} L)`)
     }
   }
