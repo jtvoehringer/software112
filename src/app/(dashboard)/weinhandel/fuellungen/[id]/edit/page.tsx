@@ -3,7 +3,7 @@ import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { updateFuellung } from '../../../actions'
+import { updateFuellung, schwundAusbuchen } from '../../../actions'
 
 export const metadata: Metadata = { title: 'Füllung bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -62,6 +62,17 @@ export default async function EditFuellungPage({
   if (!raw) redirect('/weinhandel')
   const f = raw as R
   const chargen = (waRaw ?? []) as R[]
+
+  // Restmenge der verknüpften Charge laden
+  let waRestmenge: number | null = null
+  if (f.weinausbau_id) {
+    const { data: waAktuell } = await (supabase.from('weinausbau') as any)
+      .select('menge_liter, status').eq('id', f.weinausbau_id).single()
+    const wa = waAktuell as R | null
+    if (wa && wa.status !== 'abgeschlossen') {
+      waRestmenge = parseFloat(wa.menge_liter ?? '0') || 0
+    }
+  }
   // Aktuell verknüpfte Charge immer einschließen (auch wenn abgeschlossen)
   const chargeInListe = !f.weinausbau_id || chargen.find((c: R) => c.id === f.weinausbau_id)
   let chargenListe = chargen
@@ -149,6 +160,31 @@ export default async function EditFuellungPage({
             </select>
           </div>
         </div>
+
+        {/* ── Schwund-Ausbuchen ── */}
+        {waRestmenge !== null && waRestmenge > 0.01 && (
+          <div className="card p-5 border-amber-200 bg-amber-50 space-y-3">
+            <div className="flex items-start gap-2">
+              <span className="text-lg">⚠️</span>
+              <div>
+                <p className="text-sm font-semibold text-amber-800">Weinausbau-Charge nicht abgeschlossen</p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  Die verknüpfte Charge hat noch{' '}
+                  <strong>{waRestmenge.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L</strong>{' '}
+                  Restbestand. Diese wurden beim Abfüllen nicht als Schwund ausgebucht.
+                </p>
+              </div>
+            </div>
+            <form action={schwundAusbuchen.bind(null, id)}>
+              <button
+                type="submit"
+                className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-amber-700 transition-colors"
+              >
+                🍶 {waRestmenge.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L als Schwund ausbuchen & Charge abschließen
+              </button>
+            </form>
+          </div>
+        )}
 
         {/* ── Produktbezeichnung ── */}
         <div className="card p-5 space-y-4">

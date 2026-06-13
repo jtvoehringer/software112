@@ -149,6 +149,26 @@ export async function updateFuellungBestand(id: string, bestand: number) {
   revalidatePath('/weinhandel')
 }
 
+// Restmenge einer Weinausbau-Charge als Schwund ausbuchen + Charge abschließen
+
+export async function schwundAusbuchen(fuellungId: string) {
+  const supabase = await createSupabaseServerClient()
+
+  const { data: f } = await (supabase.from('fuellungen') as any)
+    .select('weinausbau_id').eq('id', fuellungId).single()
+  const weinausbauId = (f as AR | null)?.weinausbau_id
+  if (!weinausbauId) throw new Error('Keine Charge verknüpft')
+
+  const { error } = await (supabase.from('weinausbau') as any)
+    .update({ menge_liter: 0, status: 'abgeschlossen', aktiv: false })
+    .eq('id', weinausbauId)
+  if (error) throw new Error((error as AR).message)
+
+  revalidatePath('/weinhandel')
+  revalidatePath('/kellerbuch')
+  redirect('/weinhandel')
+}
+
 // Fuellung deaktivieren
 
 export async function deactivateFuellung(id: string) {
