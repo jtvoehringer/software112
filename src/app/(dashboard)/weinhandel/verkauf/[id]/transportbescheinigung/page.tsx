@@ -16,19 +16,45 @@ export default async function TransportbescheinigungPage({ params }: { params: P
   const supabase = await createSupabaseServerClient()
   const admin    = createSupabaseAdminClient()
 
-  const [{ data: postenRaw, error: postenErr }, { data: cfgRaw }, { data: tbRaw }] = await Promise.all([
-    (supabase.from('verkaufsposten') as any)
-      .select(`
-        id, rechnungsnummer, datum,
-        kontakt:kontakte(vorname, nachname, telefon, strasse, plz, ort),
-        firma:firmen(name, telefon, strasse, plz, ort),
-        positionen:verkauf_positionen(
-          id, typ, name, menge,
-          weinausbau:weinausbau(id, name, jahrgang, qualitaetsstufe, rebsorte)
-        )
-      `)
-      .eq('id', id)
-      .single(),
+  // Schritt 1: Nur den Basis-Datensatz laden (ohne Joins) zum Debuggen
+  const { data: basisRaw, error: basisErr } = await (supabase.from('verkaufsposten') as any)
+    .select('id, rechnungsnummer, datum, kontakt_id, firma_id, aktiv, storniert')
+    .eq('id', id)
+    .single()
+
+  if (basisErr || !basisRaw) {
+    return (
+      <div className="p-8 space-y-2">
+        <h1 className="font-bold text-red-600">Debug: Basis-Query fehlgeschlagen</h1>
+        <pre className="text-xs bg-gray-100 p-4 rounded">{JSON.stringify({ id, error: basisErr }, null, 2)}</pre>
+      </div>
+    )
+  }
+
+  // Schritt 2: Joins separat testen
+  const { data: postenRaw, error: postenErr } = await (supabase.from('verkaufsposten') as any)
+    .select(`
+      id, rechnungsnummer, datum,
+      kontakt:kontakte(vorname, nachname, telefon, strasse, plz, ort),
+      firma:firmen(name, telefon, strasse, plz, ort),
+      positionen:verkauf_positionen(
+        id, typ, name, menge,
+        weinausbau:weinausbau(id, name, jahrgang, qualitaetsstufe, rebsorte)
+      )
+    `)
+    .eq('id', id)
+    .single()
+
+  if (postenErr || !postenRaw) {
+    return (
+      <div className="p-8 space-y-2">
+        <h1 className="font-bold text-red-600">Debug: Join-Query fehlgeschlagen</h1>
+        <pre className="text-xs bg-gray-100 p-4 rounded">{JSON.stringify({ basisRaw, error: postenErr }, null, 2)}</pre>
+      </div>
+    )
+  }
+
+  const [{ data: cfgRaw }, { data: tbRaw }] = await Promise.all([
     (admin.from('tenant_einstellungen') as any)
       .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_telefon, betrieb_betriebsnummer')
       .limit(1).single(),
@@ -38,9 +64,7 @@ export default async function TransportbescheinigungPage({ params }: { params: P
       .maybeSingle(),
   ])
 
-  if (postenErr || !postenRaw) notFound()
-
-  // Prüfnummern für Tank-Positionen nachladen (dac_antrag.weinausbau_id → pruefnummer)
+  // Prüfnummern für Tank-Positionen nachladen
   const tankWaIds = ((postenRaw as R).positionen ?? [])
     .filter((p: R) => p.typ === 'tank' && p.weinausbau?.id)
     .map((p: R) => p.weinausbau.id as string)
@@ -60,7 +84,6 @@ export default async function TransportbescheinigungPage({ params }: { params: P
   const cfg     = (cfgRaw as R | null) ?? {}
   const tankPos = ((posten.positionen ?? []) as R[]).filter((p: R) => p.typ === 'tank')
 
-  // Empfänger aus Kontakt oder Firma
   const src   = posten.kontakt ?? posten.firma ?? {}
   const isK   = !!posten.kontakt
   const eName = isK
@@ -80,7 +103,6 @@ export default async function TransportbescheinigungPage({ params }: { params: P
     zugmaschine: '',
     anhaenger1:  '',
     anhaenger2:  '',
-    // Versender (= Betrieb)
     v_betriebsnummer: cfg.betrieb_betriebsnummer ?? '',
     v_telefon:        cfg.betrieb_telefon ?? '',
     v_name:           cfg.betrieb_name ?? '',
@@ -91,7 +113,6 @@ export default async function TransportbescheinigungPage({ params }: { params: P
     v_ort:            cfg.betrieb_ort ?? '',
     v_ort_versendung: cfg.betrieb_ort ?? '',
     v_plz_versendung: cfg.betrieb_plz ?? '',
-    // Empfänger (= Kunde)
     e_betriebsnummer:  '',
     e_telefon:         src.telefon ?? '',
     e_name:            eName,
@@ -102,7 +123,6 @@ export default async function TransportbescheinigungPage({ params }: { params: P
     e_ort:             src.ort ?? '',
     e_ort_einlagerung: src.ort ?? '',
     e_plz_einlagerung: src.plz ?? '',
-    // Weinpositionen aus Tank-Positionen
     positionen: tankPos.length > 0
       ? tankPos.map((p: R) => {
           const wa = p.weinausbau as R | null
