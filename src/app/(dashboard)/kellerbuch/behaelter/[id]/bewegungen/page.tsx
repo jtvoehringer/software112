@@ -25,11 +25,13 @@ const ART_ICON: Record<string, string> = {
   abfuellung:      '🍾',
   verkauf:         '💰',
   behandlung:      '🧪',
+  verschneidung_ein: '🍷',
+  verschneidung_aus: '🍷',
 }
 
 type Bewegung = {
   datum: string
-  art: 'anfangsbestand' | 'pressung' | 'umzug_ein' | 'umzug_aus' | 'filtration_ein' | 'filtration_aus' | 'abfuellung' | 'verkauf' | 'behandlung'
+  art: 'anfangsbestand' | 'pressung' | 'umzug_ein' | 'umzug_aus' | 'filtration_ein' | 'filtration_aus' | 'abfuellung' | 'verkauf' | 'behandlung' | 'verschneidung_ein' | 'verschneidung_aus'
   beschreibung: string
   menge: number
   extra?: string
@@ -124,6 +126,21 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
           .order('id', { ascending: true }),
       ])
     : [{ data: [] }, { data: [] }, { data: [] }]
+
+  // Verschneidungen: diese Behälter-Chargen als Quelle (Abgang)
+  const { data: verschnAusRaw } = chargeIdList.length > 0
+    ? await (supabase.from('verschneidung_quellen') as any)
+        .select('menge_liter, quell_weinausbau_id, verschneidung:verschneidung_id(datum, notizen, ziel:ziel_weinausbau_id(name, behaelter:behaelter_id(name)))')
+        .in('quell_weinausbau_id', chargeIdList)
+    : { data: [] }
+
+  // Verschneidungen: diese Behälter-Chargen als Ziel (Zugang)
+  const { data: verschnEinRaw } = chargeIdList.length > 0
+    ? await (supabase.from('verschneidungen') as any)
+        .select('id, datum, notizen, quellen:verschneidung_quellen(menge_liter, quelle:quell_weinausbau_id(name, behaelter:behaelter_id(name)))')
+        .in('ziel_weinausbau_id', chargeIdList)
+        .order('datum', { ascending: true })
+    : { data: [] }
 
   // ── Sekundäre Batch-Lookups für n:n-Umzug-Format ────────────────────────────
   // 'ziel'-Zeilen haben von_weinausbau_id = null → Quelle aus 'quelle'-Row holen
@@ -330,6 +347,41 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
       beschreibung: typName,
       menge: 0,
       extra: [mengeStr, b.notizen].filter(Boolean).join(' · ') || undefined,
+    })
+  }
+
+  // Verschneidungen – Abgänge (diese Charge als Quelle)
+  for (const vq of (verschnAusRaw ?? []) as R[]) {
+    const liter = parseFloat(vq.menge_liter) || 0
+    if (liter <= 0) continue
+    const v = vq.verschneidung as R | null
+    const ziel = (v?.ziel as R | null)
+    const zielName = ziel?.name ?? '?'
+    const zielBeh  = (ziel?.behaelter as R | null)?.name ?? null
+    bewegungen.push({
+      datum: v?.datum ?? '',
+      art: 'verschneidung_aus',
+      beschreibung: `Verschneidung nach ${zielName}`,
+      menge: -liter,
+      extra: zielBeh ?? undefined,
+    })
+  }
+
+  // Verschneidungen – Zugänge (diese Charge als Ziel)
+  for (const v of (verschnEinRaw ?? []) as R[]) {
+    const quellen = (v.quellen as R[]) ?? []
+    const gesamtLiter = quellen.reduce((s: number, q: R) => s + (parseFloat(q.menge_liter) || 0), 0)
+    if (gesamtLiter <= 0) continue
+    const quellenNames = quellen.map((q: R) => {
+      const beh = (q.quelle as R | null)?.behaelter?.name ?? null
+      const name = (q.quelle as R | null)?.name ?? '?'
+      return beh ? `${beh} (${name})` : name
+    }).join(', ')
+    bewegungen.push({
+      datum: v.datum ?? '',
+      art: 'verschneidung_ein',
+      beschreibung: `Verschneidung von ${quellenNames}`,
+      menge: gesamtLiter,
     })
   }
 
