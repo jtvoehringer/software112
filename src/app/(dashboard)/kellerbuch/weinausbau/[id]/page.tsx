@@ -79,7 +79,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
 
     // Alle anderen aktiven Chargen (für Verschneidungs-Formular)
     (supabase.from('weinausbau') as any)
-      .select('id, name, menge_liter')
+      .select('id, name, menge_liter, qualitaetsstufe')
       .eq('aktiv', true)
       .neq('id', id)
       .order('name'),
@@ -146,7 +146,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
   const behaelter   = (bhRaw  ?? []) as NameRow[]
   const selectedWeingaertenIds = ((wawRaw ?? []) as R[]).map(r => r.weingarten_id as string)
 
-  const alleChargen = (alleChargenRaw ?? []) as { id: string; name: string; menge_liter: number | null }[]
+  const alleChargen = (alleChargenRaw ?? []) as { id: string; name: string; menge_liter: number | null; qualitaetsstufe: string | null }[]
   const verschneidungenEin = (verschnEinRaw ?? []) as R[]
 
   const anfangsbestand    = parseFloat(String(weinausbau.anfangsbestand_liter ?? 0)) || 0
@@ -433,7 +433,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
       {/* Verschneidung */}
       {writeOk && alleChargen.length > 0 && (
         <VerschneidungWidget
-          zielCharge={{ id: weinausbau.id, name: weinausbau.name, menge_liter: berechneterSaldo }}
+          zielCharge={{ id: weinausbau.id, name: weinausbau.name, menge_liter: berechneterSaldo, qualitaetsstufe: weinausbau.qualitaetsstufe ?? null }}
           alleChargen={alleChargen}
           verschneidungen={verschneidungenEin}
         />

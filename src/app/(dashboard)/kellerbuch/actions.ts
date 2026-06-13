@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { minQualitaet, istNiedrigerAls } from '@/lib/weinqualitaet'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -228,8 +229,77 @@ export async function createVerschneidung(formData: FormData) {
       .eq('id', q.weinausbau_id)
   }
 
+  // Qualitäts-Abstufung: niedrigste Qualitätsstufe aller beteiligten Chargen gewinnt
+  const quelleIds = quellen.map(q => q.weinausbau_id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: alleChargenQ } = await (supabase.from('weinausbau') as any)
+    .select('id, qualitaetsstufe')
+    .in('id', [zielId, ...quelleIds])
+  if (alleChargenQ && (alleChargenQ as R[]).length > 0) {
+    const stufen = (alleChargenQ as R[]).map((c: R) => c.qualitaetsstufe as string | null)
+    const zielQ = (alleChargenQ as R[]).find((c: R) => c.id === zielId)?.qualitaetsstufe ?? null
+    const minQ = minQualitaet(stufen)
+    if (minQ && zielQ && istNiedrigerAls(zielQ, minQ)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('weinausbau') as any)
+        .update({ qualitaetsstufe: minQ })
+        .eq('id', zielId)
+    }
+  }
+
   revalidatePath('/kellerbuch')
   quellen.forEach(q => revalidatePath(`/kellerbuch/weinausbau/${q.weinausbau_id}/buch`))
   revalidatePath(`/kellerbuch/weinausbau/${zielId}/buch`)
   revalidatePath(`/kellerbuch/weinausbau/${zielId}`)
+}
+
+// VERSCHNEIDUNG STORNIEREN
+export async function deleteVerschneidung(verschneidungId: string) {
+  const supabase = await createSupabaseServerClient()
+
+  // Quellen + Mengen laden bevor gelöscht wird
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: vRaw } = await (supabase.from('verschneidungen') as any)
+    .select('id, ziel_weinausbau_id, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter)')
+    .eq('id', verschneidungId)
+    .single()
+  if (!vRaw) throw new Error('Verschneidung nicht gefunden')
+  const v = vRaw as R
+
+  const zielId = v.ziel_weinausbau_id as string
+  const quellen = (v.quellen ?? []) as R[]
+  const gesamtLiter = quellen.reduce((s: number, q: R) => s + (parseFloat(q.menge_liter) || 0), 0)
+
+  // Ziel-Charge: Bestand wieder reduzieren
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: ziel } = await (supabase.from('weinausbau') as any)
+    .select('menge_liter').eq('id', zielId).single()
+  const zielAkt = parseFloat((ziel as R)?.menge_liter ?? '0') || 0
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from('weinausbau') as any)
+    .update({ menge_liter: Math.max(0, zielAkt - gesamtLiter) })
+    .eq('id', zielId)
+
+  // Quell-Chargen: Menge wieder gutschreiben
+  for (const q of quellen) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: src } = await (supabase.from('weinausbau') as any)
+      .select('menge_liter').eq('id', q.quell_weinausbau_id).single()
+    const srcAkt = parseFloat((src as R)?.menge_liter ?? '0') || 0
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('weinausbau') as any)
+      .update({ menge_liter: srcAkt + (parseFloat(q.menge_liter) || 0) })
+      .eq('id', q.quell_weinausbau_id)
+  }
+
+  // Datensatz löschen (CASCADE löscht verschneidung_quellen automatisch)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('verschneidungen') as any)
+    .delete().eq('id', verschneidungId)
+  if (error) throw new Error((error as R).message)
+
+  revalidatePath('/kellerbuch')
+  quellen.forEach((q: R) => revalidatePath(`/kellerbuch/weinausbau/${q.quell_weinausbau_id}`))
+  revalidatePath(`/kellerbuch/weinausbau/${zielId}`)
+  revalidatePath(`/kellerbuch/weinausbau/${zielId}/buch`)
 }

@@ -2,31 +2,27 @@
 
 import { useState, useTransition } from 'react'
 import { createVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
+import { QUALITAET_LABEL, QUALITAET_ORDER, istNiedrigerAls, minQualitaet } from '@/lib/weinqualitaet'
 
-type ChargeOpt = { id: string; name: string; menge_liter: number | null }
+type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null }
 
 interface Props {
-  zielCharge: ChargeOpt          // aktuelle Charge = Ziel der Verschneidung
-  alleChargen: ChargeOpt[]       // alle anderen aktiven Chargen = mögliche Quellen
+  zielCharge: ChargeOpt
+  alleChargen: ChargeOpt[]
   onDone: () => void
 }
 
 export default function VerschneidungForm({ zielCharge, alleChargen, onDone }: Props) {
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  // Quellen: Liste von { weinausbau_id, menge_liter (als String für Eingabe) }
   const [quellen, setQuellen] = useState<{ weinausbau_id: string; menge: string }[]>([
     { weinausbau_id: '', menge: '' },
   ])
 
   const verfuegbar = alleChargen.filter(c => c.id !== zielCharge.id)
 
-  function addQuelle() {
-    setQuellen(q => [...q, { weinausbau_id: '', menge: '' }])
-  }
-  function removeQuelle(i: number) {
-    setQuellen(q => q.filter((_, idx) => idx !== i))
-  }
+  function addQuelle() { setQuellen(q => [...q, { weinausbau_id: '', menge: '' }]) }
+  function removeQuelle(i: number) { setQuellen(q => q.filter((_, idx) => idx !== i)) }
   function updateQuelle(i: number, field: 'weinausbau_id' | 'menge', val: string) {
     setQuellen(q => q.map((r, idx) => idx === i ? { ...r, [field]: val } : r))
   }
@@ -35,6 +31,30 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone }: P
     const n = parseFloat(q.menge.replace(',', '.'))
     return s + (isNaN(n) ? 0 : n)
   }, 0)
+
+  // Qualitäts-Abstufungs-Check
+  const selectedChargen = quellen
+    .map(q => verfuegbar.find(c => c.id === q.weinausbau_id))
+    .filter(Boolean) as ChargeOpt[]
+  const alleQualitaeten = [
+    zielCharge.qualitaetsstufe,
+    ...selectedChargen.map(c => c.qualitaetsstufe),
+  ]
+  const minQ = minQualitaet(alleQualitaeten)
+  const abstufung = minQ && istNiedrigerAls(zielCharge.qualitaetsstufe ?? null, minQ)
+    ? null   // Ziel ist bereits niedrigste
+    : (minQ && zielCharge.qualitaetsstufe && istNiedrigerAls(minQ, zielCharge.qualitaetsstufe ?? null))
+    ? null
+    : null
+  // Abstufung tritt auf wenn eine Quelle eine niedrigere Stufe als die Ziel-Charge hat
+  const abstufungsZiel = selectedChargen.length > 0
+    ? minQualitaet(alleQualitaeten)
+    : null
+  const hatAbstufung = abstufungsZiel != null
+    && zielCharge.qualitaetsstufe != null
+    && istNiedrigerAls(zielCharge.qualitaetsstufe, abstufungsZiel)
+
+  void abstufung
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -63,6 +83,11 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone }: P
       <div className="flex items-center gap-2">
         <span className="text-lg">🍷</span>
         <h3 className="text-sm font-semibold text-gray-800">Verschneidung in <span className="text-s112-teal">{zielCharge.name}</span></h3>
+        {zielCharge.qualitaetsstufe && (
+          <span className="text-xs bg-white border border-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full">
+            {QUALITAET_LABEL[zielCharge.qualitaetsstufe] ?? zielCharge.qualitaetsstufe}
+          </span>
+        )}
       </div>
 
       <div>
@@ -79,6 +104,9 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone }: P
           const src = verfuegbar.find(c => c.id === q.weinausbau_id)
           const menge = parseFloat(q.menge.replace(',', '.'))
           const anteil = gesamtLiter > 0 && !isNaN(menge) ? Math.round(menge / gesamtLiter * 1000) / 10 : null
+          const srcQIdx = src?.qualitaetsstufe ? QUALITAET_ORDER.indexOf(src.qualitaetsstufe as typeof QUALITAET_ORDER[number]) : -1
+          const zielQIdx = zielCharge.qualitaetsstufe ? QUALITAET_ORDER.indexOf(zielCharge.qualitaetsstufe as typeof QUALITAET_ORDER[number]) : -1
+          const isNiederwertig = srcQIdx !== -1 && zielQIdx !== -1 && srcQIdx < zielQIdx
           return (
             <div key={i} className="flex items-center gap-2">
               <select
@@ -90,6 +118,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone }: P
                 {verfuegbar.map(c => (
                   <option key={c.id} value={c.id}>
                     {c.name}{c.menge_liter != null ? ` (${c.menge_liter.toLocaleString('de-AT')} L)` : ''}
+                    {c.qualitaetsstufe ? ` · ${QUALITAET_LABEL[c.qualitaetsstufe] ?? c.qualitaetsstufe}` : ''}
                   </option>
                 ))}
               </select>
@@ -98,7 +127,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone }: P
                   type="text" inputMode="decimal" placeholder="Liter"
                   value={q.menge}
                   onChange={e => updateQuelle(i, 'menge', e.target.value)}
-                  className={`${inputCls} w-28`}
+                  className={`${inputCls} w-28 ${isNiederwertig ? 'border-amber-400' : ''}`}
                 />
                 {anteil != null && (
                   <span className="text-xs text-indigo-600 font-medium w-14 text-right tabular-nums">{anteil} %</span>
@@ -117,6 +146,20 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone }: P
           + Weitere Quelle
         </button>
       </div>
+
+      {/* Qualitäts-Abstufungs-Warnung */}
+      {hatAbstufung && abstufungsZiel && (
+        <div className="flex items-start gap-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2.5 text-sm">
+          <span className="text-amber-500 mt-0.5">⚠️</span>
+          <div>
+            <p className="font-medium text-amber-800">Qualitätsabstufung</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              Die Ziel-Charge wird von <strong>{QUALITAET_LABEL[zielCharge.qualitaetsstufe!] ?? zielCharge.qualitaetsstufe}</strong> auf{' '}
+              <strong>{QUALITAET_LABEL[abstufungsZiel] ?? abstufungsZiel}</strong> abgestuft.
+            </p>
+          </div>
+        </div>
+      )}
 
       {gesamtLiter > 0 && (
         <p className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">
