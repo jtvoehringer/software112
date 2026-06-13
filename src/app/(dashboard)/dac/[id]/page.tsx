@@ -54,6 +54,12 @@ export default async function DacEditPage({ params }: { params: Promise<{ id: st
               {dac.pruefnummer}
             </span>
           )}
+          <Link
+            href={`/dac/${id}/antrag`}
+            className="flex items-center gap-1.5 border border-s112-border px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-gray-50 transition-colors"
+          >
+            📋 Prüfnummernantrag
+          </Link>
           {dac.pruefnummer && (
             <Link
               href={`/dac/${id}/etikett`}

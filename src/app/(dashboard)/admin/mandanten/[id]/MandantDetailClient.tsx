@@ -510,6 +510,11 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
               <label className="block text-xs font-medium text-gray-600 mb-1">UID-Nummer</label>
               <input name="betrieb_uid" defaultValue={settings.betrieb_uid ?? ''} className={inputCls()} placeholder="ATU12345678" />
             </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Weinbau-Betriebsnummer</label>
+              <input name="betrieb_betriebsnummer" defaultValue={(settings as Record<string, unknown>).betrieb_betriebsnummer as string ?? ''} className={inputCls()} placeholder="z.B. 4489781" />
+              <p className="text-[10px] text-gray-400 mt-0.5">Für Transportbescheinigung &amp; Prüfnummernantrag</p>
+            </div>
           </div>
         </div>
       </div>

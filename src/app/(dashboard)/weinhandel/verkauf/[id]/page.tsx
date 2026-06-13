@@ -431,7 +431,15 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             <h2 className="font-semibold text-gray-700">
               🚛 Transportschein (Tankverkauf)
             </h2>
-            <span className="text-xs text-s112-muted">Wird beim Drucken ausgegeben</span>
+            <div className="flex items-center gap-2">
+              <Link
+                href={`/weinhandel/verkauf/${posten.id}/transportbescheinigung`}
+                className="flex items-center gap-1.5 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700 transition-colors"
+              >
+                📋 Offiz. Transportbescheinigung
+              </Link>
+              <span className="text-xs text-s112-muted">Intern: wird beim Drucken ausgegeben</span>
+            </div>
           </div>
 
           {/* Print-Header */}
