@@ -124,7 +124,13 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
                 const netto    = parseFloat(u.menge_liter)  || 0
                 const brutto   = parseFloat(u.brutto_liter) || (netto + (parseFloat(u.schwund_liter) || 0))
                 const schwund  = parseFloat(u.schwund_liter) || 0
-                const istFilt  = u.umzug_typ === 'filtration'
+                const istFilt    = u.umzug_typ === 'filtration'
+                const istSchwund = u.umzug_typ === 'schwund'
+                const artBadge = istSchwund
+                  ? { cls: 'bg-amber-100 text-amber-700', label: '💧 Schwund' }
+                  : istFilt
+                    ? { cls: 'bg-blue-100 text-blue-700', label: '🔽 Filtration' }
+                    : { cls: 'bg-gray-100 text-gray-600', label: '↔️ Umzug' }
                 return (
                   <tr key={u.id}
                     className={`border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40 ${istQuelle ? 'bg-red-50/20' : 'bg-green-50/20'}`}>
@@ -132,8 +138,8 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
                       {new Date(u.datum).toLocaleDateString('de-AT')}
                     </td>
                     <td className="px-4 py-2.5">
-                      <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${istFilt ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
-                        {istFilt ? '🔽 Filtration' : '↔️ Umzug'}
+                      <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${artBadge.cls}`}>
+                        {artBadge.label}
                       </span>
                     </td>
                     <td className="px-4 py-2.5">

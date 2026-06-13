@@ -85,10 +85,11 @@ export async function createFuellung(formData: FormData) {
   // Weinausbau: Liter abziehen + Status aktualisieren
   if (weinausbauId) {
     const { data: wa } = await (supabase.from('weinausbau') as any)
-      .select('menge_liter')
+      .select('menge_liter, behaelter_id')
       .eq('id', weinausbauId)
       .single()
     const aktuell        = parseFloat((wa as AR | null)?.menge_liter ?? '0') || 0
+    const behaelterId    = (wa as AR | null)?.behaelter_id as string | null
     const neuMenge       = Math.max(0, aktuell - mengeGefuellt)
     const abschliessen   = formData.get('abschliessen') === 'true'
     // Charge abschließen wenn: Restwein ≤ 0,01 L ODER explizit angehakt
@@ -100,6 +101,21 @@ export async function createFuellung(formData: FormData) {
     await (supabase.from('weinausbau') as any)
       .update({ menge_liter: finalMenge, status: neuStatus, aktiv: neuAktiv })
       .eq('id', weinausbauId)
+
+    // Schwund automatisch ausbuchen wenn Charge abgeschlossen und Restmenge > 0
+    if (wirdAbgeschlossen && neuMenge > 0.01 && behaelterId) {
+      await (supabase.from('keller_umzuege') as any).insert({
+        tenant_id:         tenantId,
+        von_weinausbau_id: weinausbauId,
+        nach_behaelter_id: behaelterId,
+        menge_liter:       0,
+        brutto_liter:      neuMenge,
+        schwund_liter:     neuMenge,
+        datum:             payload.datum,
+        umzug_typ:         'schwund',
+        notizen:           'Schwund bei Abfüllung',
+      })
+    }
   }
 
   revalidatePath('/weinhandel')

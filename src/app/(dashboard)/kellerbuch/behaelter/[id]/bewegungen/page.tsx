@@ -4,7 +4,7 @@ import { fmtLiter } from '@/lib/format'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { manuellSchwundBuchen } from '../../actions'
+import { manuellSchwundBuchen } from '../../../actions'
 
 export const metadata: Metadata = { title: 'Bewegungsbuch – software:112' }
 export const dynamic = 'force-dynamic'
