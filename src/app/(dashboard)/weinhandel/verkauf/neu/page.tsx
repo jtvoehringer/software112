@@ -774,6 +774,7 @@ export default function NeuerVerkaufPage() {
                       {pos.rabatt_pct}% Kundenrabatt
                     </span>
                   </label>
+                )}
                 <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
                   <input type="checkbox" checked={pos.sonderrabatt_aktiv}
                     onChange={e => updatePos(idx, { sonderrabatt_aktiv: e.target.checked })}
