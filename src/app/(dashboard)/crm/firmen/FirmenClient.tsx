@@ -342,7 +342,7 @@ function FirmaKarte({
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5">
             {firma.ort && <span className="text-xs text-s112-muted">📍 {firma.plz ? `${firma.plz} ` : ''}{firma.ort}</span>}
             {firma.email && <span className="text-xs text-s112-muted">✉ {firma.email}</span>}
-            {firma.telefon && <span className="text-xs text-s112-muted">📞 {firma.telefon}</span>}
+            {firma.telefon && <span className="text-xs text-s112-muted">📞 {firma.telefon_vorwahl ? `${firma.telefon_vorwahl} ` : ''}{firma.telefon}</span>}
             {firma.uid_nummer && <span className="text-xs text-s112-muted">UID: {firma.uid_nummer}</span>}
             {firma.zahlungsziel_tage != null && firma.zahlungsziel_tage !== 30 && (
               <span className="text-xs text-s112-muted">Zahlungsziel: {firma.zahlungsziel_tage} Tage</span>
