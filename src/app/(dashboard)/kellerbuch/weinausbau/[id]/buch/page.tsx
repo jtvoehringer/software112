@@ -116,7 +116,7 @@ export default async function WeinbuchPage({
 
     // DAC-Antrag
     (supabase.from('dac_antrag') as any)
-      .select('id, bezeichnung, dac_region, status, pruefnummer, eingereicht_am, bescheid_am')
+      .select('id, bezeichnung, dac_region, status, pruefnummer, eingereicht_am, bescheid_am, created_at')
       .eq('weinausbau_id', id)
       .order('created_at', { ascending: true }),
 
@@ -384,15 +384,24 @@ export default async function WeinbuchPage({
 
   // DAC-Anträge
   for (const dac of dacAntraege) {
-    const datum = dac.bescheid_am ?? dac.eingereicht_am ?? null
+    // Fallback auf erstellt_am damit Anträge im Status "entwurf" / "in_pruefung" nicht verschwindeninden
+    const datum = dac.bescheid_am ?? dac.eingereicht_am ?? dac.created_at ?? null
     if (!datum) continue
+    const statusBadge =
+      dac.status === 'genehmigt'   ? '✅ Genehmigt' :
+      dac.status === 'eingereicht' ? '📬 Eingereicht' :
+      dac.status === 'in_pruefung' ? '🔍 In Prüfung' :
+      dac.status === 'abgelehnt'   ? '❌ Abgelehnt' :
+      dac.status === 'entwurf'     ? '📝 Entwurf' :
+      dac.status
     events.push({
       datum,
       typ: 'dac',
       titel: dac.bezeichnung,
-      badge: dac.status === 'genehmigt' ? '✅ Genehmigt' : dac.status === 'eingereicht' ? '📬 Eingereicht' : dac.status,
+      badge: statusBadge,
       details: [
         dac.pruefnummer && `Prüfnummer: ${dac.pruefnummer}`,
+        dac.eingereicht_am && `Eingereicht: ${fmtDate(dac.eingereicht_am)}`,
         dac.bescheid_am && `Bescheid: ${fmtDate(dac.bescheid_am)}`,
       ].filter(Boolean) as string[],
     })
@@ -551,19 +560,4 @@ export default async function WeinbuchPage({
               <span className="text-xs text-gray-600">{style.icon} {
                 typ === 'feldbehandlung' ? 'Feldbehandlung'
                 : typ === 'ernte' ? 'Ernte / Lese'
-                : typ === 'pressung' ? 'Pressung'
-                : typ === 'umzug' ? 'Umzug'
-                : typ === 'kellerbehandlung' ? 'Kellerbehandlung'
-                : typ === 'analyse' ? 'Analyse'
-                : typ === 'dac' ? 'DAC / Prüfnummer'
-                : typ === 'verschneidung' ? 'Verschneidung'
-                : 'Füllung'
-              }</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-    </div>
-  )
-}
+                

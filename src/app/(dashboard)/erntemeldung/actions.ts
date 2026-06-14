@@ -264,8 +264,9 @@ export async function upsertPressung(fd: FormData) {
   // Jahrgang-Jahr für Bezeichnung laden
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: jgData } = await (supabase.from('weinjahrgaenge') as any)
-    .select('jahrgang').eq('id', jahrgangId).single()
-  const jgJahr = (jgData as AR)?.jahrgang as number | null
+    .select('jahrgang, qualitaet_gesamt').eq('id', jahrgangId).single()
+  const jgJahr      = (jgData as AR)?.jahrgang as number | null
+  const jgQualitaet = (jgData as AR)?.qualitaet_gesamt as string | null
 
   // Weinname ableiten: Bezeichnung > Rebsorte (wenn nur eine) > "Pressung Datum"
   const rebsortenList = weingaerten.map(w => w.rebsorte).filter(Boolean)
@@ -289,14 +290,15 @@ export async function upsertPressung(fd: FormData) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: neuWA } = await (supabase.from('weinausbau') as any)
         .insert({
-          tenant_id:   tenantId,
-          name:        autoName,
-          jahrgang:    jgJahr,
-          rebsorte:    dominantRebsorte,
-          menge_liter: beh.menge_liter ?? null,
-          status:      'gaerung',
-          behaelter_id: beh.behaelter_id,
-          aktiv:       true,
+          tenant_id:       tenantId,
+          name:            autoName,
+          jahrgang:        jgJahr,
+          rebsorte:        dominantRebsorte,
+          menge_liter:     beh.menge_liter ?? null,
+          status:          'gaerung',
+          behaelter_id:    beh.behaelter_id,
+          qualitaetsstufe: jgQualitaet ?? null,
+          aktiv:           true,
         })
         .select('id').single()
       if (neuWA) {
@@ -353,7 +355,4 @@ export async function deleteJahrgang(id: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase.from('ernte_parzellen') as any).delete().eq('jahrgang_id', id)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('weinjahrgaenge') as any).delete().eq('id', id)
-  if (error) throw new Error((error as AR).message)
-  revalidatePath('/erntemeldung')
-}
+  c

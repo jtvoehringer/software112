@@ -274,6 +274,18 @@ function KontaktForm({
             className={inputCls()}
           />
         </div>
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <label className="block text-xs font-medium text-gray-600 mb-1">Skonto %</label>
+            <input name="skonto_pct" type="number" min="0" max="20" step="0.5"
+              defaultValue={initial?.skonto_pct ?? 0} placeholder="0" className={inputCls()} />
+          </div>
+          <div className="flex-1">
+            <label className="block text-xs font-medium text-gray-600 mb-1">Skonto-Frist (Tage)</label>
+            <input name="skonto_tage" type="number" min="0" max="60" step="1"
+              defaultValue={initial?.skonto_tage ?? 10} placeholder="10" className={inputCls()} />
+          </div>
+        </div>
       </div>
 
       <div>
@@ -713,27 +725,4 @@ export default function KontakteClient({
         />
       )}
 
-      {/* Liste */}
-      {gefiltert.length === 0 ? (
-        <div className="card text-center py-12 text-s112-muted text-sm">
-          {kontakte.length === 0 ? 'Noch keine Kontakte angelegt.' : 'Keine Treffer für diesen Filter.'}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {gefiltert.map(k => (
-            <KontaktKarte
-              key={k.id}
-              kontakt={k}
-              firmen={firmen}
-              rabattgruppen={rabattgruppen}
-              aktivitaeten={aktivitaetenMap[k.id] ?? []}
-              pipeline={pipelineMap[k.id] ?? []}
-              writeOk={writeOk}
-              sortBy={sortBy}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
+      {/* Li

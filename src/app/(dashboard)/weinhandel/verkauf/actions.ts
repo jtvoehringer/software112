@@ -60,6 +60,9 @@ export async function createVerkauf(formData: FormData) {
   const firmaId        = (formData.get('firma_id') as string) || null
   const zhKontaktId    = (formData.get('zh_kontakt_id') as string) || null
   const notizen        = (formData.get('notizen') as string) || null
+  const skontoPct      = parseFloat(formData.get('skonto_pct') as string) || 0
+  const skontoTage     = parseInt(formData.get('skonto_tage') as string) || 0
+  const skontoAktiv    = formData.get('skonto_aktiv') === 'true'
 
   // Positionen als JSON aus hidden input
   const posJson = formData.get('positionen_json') as string
@@ -89,6 +92,9 @@ export async function createVerkauf(formData: FormData) {
     firma_id:        firmaId    || null,
     zh_kontakt_id:   zhKontaktId || null,
     notizen,
+    skonto_pct:      skontoAktiv ? skontoPct : 0,
+    skonto_tage:     skontoAktiv ? skontoTage : 0,
+    skonto_aktiv:    skontoAktiv,
   })
 
   if (postenErr) throw new Error((postenErr as AR).message)
@@ -324,13 +330,4 @@ export async function createSonstigesArtikel(
   defaultPreis: number | null,
 ): Promise<SonstigesArtikelData | null> {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-
-  const { data, error } = await (supabase.from('sonstige_artikel') as any)
-    .insert({ tenant_id: tenantId, name: name.trim(), einheit, default_preis: defaultPreis ?? null })
-    .select('id, name, einheit, default_preis')
-    .single()
-
-  if (error) throw new Error((error as AR).message)
-  return data as SonstigesArtikelData
-}
+  const tenantI

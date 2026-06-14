@@ -40,6 +40,8 @@ interface Kontakt {
   firma_id: string | null
   rabatt_pct: number | null
   sonderrabatt_pct: number
+  skonto_pct: number
+  skonto_tage: number
 }
 
 interface Firma {
@@ -47,6 +49,8 @@ interface Firma {
   name: string
   rabatt_pct: number | null
   sonderrabatt_pct: number
+  skonto_pct: number
+  skonto_tage: number
 }
 
 interface Position {
@@ -60,6 +64,7 @@ interface Position {
   einheit:       string
   preis_brutto:  string
   rabatt_pct:    string
+  rabatt_aktiv:       boolean
   sonderrabatt:  string
   sonderrabatt_aktiv: boolean
   ust_satz:           string
@@ -266,6 +271,9 @@ export default function NeuerVerkaufPage() {
   const [zhKontaktId,     setZhKontaktId]     = useState('')
   const [notizen,         setNotizen]         = useState('')
   const [kundenRabatt,    setKundenRabatt]    = useState(0)
+  const [skontoAktiv,     setSkontoAktiv]     = useState(false)
+  const [skontoPct,       setSkontoPct]       = useState(0)
+  const [skontoTage,      setSkontoTage]      = useState(10)
 
   // Positionen
   const [positionen, setPositionen] = useState<Position[]>([newEmptyPosition()])
@@ -282,6 +290,7 @@ export default function NeuerVerkaufPage() {
       einheit:       'Stk',
       preis_brutto:  '',
       rabatt_pct:    '0',
+      rabatt_aktiv:       false,
       sonderrabatt:  '0',
       sonderrabatt_aktiv: false,
       ust_satz:           '13',
@@ -302,7 +311,7 @@ export default function NeuerVerkaufPage() {
         setSonstigeArtikel(json.sonstige_artikel ?? [])
         const ust = json.ust_satz_standard ?? 13
         setUstStandard(ust)
-        setPositionen([{ ...newEmptyPosition(), ust_satz: String(ust) }])
+        setPositionen([{ ...newEmptyPosition(), ust_satz: String(ust), rabatt_aktiv: false }])
       } catch {
         // Stammdaten-Fehler: Felder bleiben leer
       } finally {
@@ -356,7 +365,7 @@ export default function NeuerVerkaufPage() {
   }
 
   function addPosition() {
-    setPositionen(prev => [...prev, { ...newEmptyPosition(), ust_satz: String(ustStandard) }])
+    setPositionen(prev => [...prev, { ...newEmptyPosition(), ust_satz: String(ustStandard), rabatt_aktiv: false }])
   }
 
   function removePosition(idx: number) {
@@ -366,7 +375,7 @@ export default function NeuerVerkaufPage() {
   const gesamt = positionen.reduce((s, p) => {
     const preis  = parseFloat(p.preis_brutto) || 0
     const menge  = parseFloat(p.menge) || 0
-    const rabatt = (parseFloat(p.rabatt_pct) || 0) / 100
+    const rabatt = p.rabatt_aktiv ? (parseFloat(p.rabatt_pct) || 0) / 100 : 0
     const sonder = p.sonderrabatt_aktiv ? (parseFloat(p.sonderrabatt) || 0) / 100 : 0
     return s + preis * (1 - rabatt) * (1 - sonder) * menge
   }, 0)
@@ -384,7 +393,7 @@ export default function NeuerVerkaufPage() {
       menge:         parseFloat(p.menge) || 0,
       einheit:       p.einheit,
       preis_brutto:  parseFloat(p.preis_brutto) || null,
-      rabatt_pct:       parseFloat(p.rabatt_pct) || 0,
+      rabatt_pct:       p.rabatt_aktiv ? (parseFloat(p.rabatt_pct) || 0) : 0,
       sonderrabatt_pct: p.sonderrabatt_aktiv ? (parseFloat(p.sonderrabatt) || 0) : 0,
       ust_satz:         parseFloat(p.ust_satz) || ustStandard,
     }))
@@ -405,6 +414,9 @@ export default function NeuerVerkaufPage() {
     formData.set('firma_id',         firmaId)
     formData.set('zh_kontakt_id',    zhKontaktId)
     formData.set('notizen',          notizen)
+    formData.set('skonto_pct',       String(skontoAktiv ? skontoPct : 0))
+    formData.set('skonto_tage',      String(skontoAktiv ? skontoTage : 0))
+    formData.set('skonto_aktiv',     skontoAktiv ? 'true' : 'false')
     formData.set('positionen_json',  JSON.stringify(posForServer))
 
     startTransition(async () => {
@@ -465,9 +477,13 @@ export default function NeuerVerkaufPage() {
                   const rabatt = k?.rabatt_pct ?? 0
                   const sonder = k?.sonderrabatt_pct ?? 0
                   setKundenRabatt(rabatt)
+                  setSkontoAktiv((k?.skonto_pct ?? 0) > 0)
+                  setSkontoPct(k?.skonto_pct ?? 0)
+                  setSkontoTage(k?.skonto_tage ?? 10)
                   setPositionen(prev => prev.map(p => ({
                     ...p,
                     rabatt_pct: String(rabatt),
+                    rabatt_aktiv: rabatt > 0,
                     sonderrabatt: String(sonder),
                     sonderrabatt_aktiv: sonder > 0,
                   })))
@@ -489,9 +505,13 @@ export default function NeuerVerkaufPage() {
                   const rabatt = f?.rabatt_pct ?? 0
                   const sonder = f?.sonderrabatt_pct ?? 0
                   setKundenRabatt(rabatt)
+                  setSkontoAktiv((f?.skonto_pct ?? 0) > 0)
+                  setSkontoPct(f?.skonto_pct ?? 0)
+                  setSkontoTage(f?.skonto_tage ?? 10)
                   setPositionen(prev => prev.map(p => ({
                     ...p,
                     rabatt_pct: String(rabatt),
+                    rabatt_aktiv: rabatt > 0,
                     sonderrabatt: String(sonder),
                     sonderrabatt_aktiv: sonder > 0,
                   })))
@@ -528,6 +548,38 @@ export default function NeuerVerkaufPage() {
               <input type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
                 placeholder="Interne Notizen zum Vorgang"
                 className={inputCls + ' w-full'} />
+            </div>
+
+            {/* Skonto */}
+            <div className="col-span-2">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input type="checkbox" checked={skontoAktiv}
+                  onChange={e => setSkontoAktiv(e.target.checked)}
+                  className="rounded accent-s112-teal" />
+                <span className="text-sm font-medium text-gray-700">Skonto gewähren</span>
+              </label>
+              {skontoAktiv && (
+                <div className="flex gap-3 mt-2">
+                  <div className="flex items-center gap-1.5">
+                    <input type="number" value={skontoPct}
+                      onChange={e => setSkontoPct(parseFloat(e.target.value) || 0)}
+                      min="0" max="20" step="0.5" placeholder="2"
+                      className={inputCls + ' w-20'} />
+                    <span className="text-sm text-gray-600">%</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm text-gray-500">bei Zahlung innerhalb von</span>
+                    <input type="number" value={skontoTage}
+                      onChange={e => setSkontoTage(parseInt(e.target.value) || 0)}
+                      min="1" max="60" step="1" placeholder="10"
+                      className={inputCls + ' w-20'} />
+                    <span className="text-sm text-gray-600">Tagen</span>
+                  </div>
+                  <p className="text-xs text-s112-muted self-end">
+                    → {((gesamt * skontoPct) / 100).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })} Skonto-Betrag
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -714,72 +766,11 @@ export default function NeuerVerkaufPage() {
               {/* Rabatt-Zeile */}
               <div className="flex items-center gap-4 mt-2 flex-wrap">
                 {parseFloat(pos.rabatt_pct) > 0 && (
-                  <span className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-full px-2.5 py-0.5 font-medium">
-                    {pos.rabatt_pct}% Kundenrabatt
-                  </span>
-                )}
-                <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
-                  <input type="checkbox" checked={pos.sonderrabatt_aktiv}
-                    onChange={e => updatePos(idx, { sonderrabatt_aktiv: e.target.checked })}
-                    className="rounded accent-s112-teal" />
-                  Sonderrabatt
-                </label>
-                {pos.sonderrabatt_aktiv && (
-                  <div className="flex items-center gap-1.5">
-                    <input type="number" value={pos.sonderrabatt}
-                      onChange={e => updatePos(idx, { sonderrabatt: e.target.value })}
-                        min="0" max="100" step="0.1" placeholder="0"
-                      className="w-20 border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40" />
-                    <span className="text-xs text-gray-500">%</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Preis-Vorschau */}
-              {pos.preis_brutto !== '' && (
-                <div className="text-xs text-s112-muted text-right mt-1">
-                  {(() => {
-                    const brutto = parseFloat(pos.preis_brutto) || 0
-                    const rabatt = parseFloat(pos.rabatt_pct) || 0
-                    const sonder = pos.sonderrabatt_aktiv ? (parseFloat(pos.sonderrabatt) || 0) : 0
-                    const menge  = parseFloat(pos.menge)  || 0
-                    const netto  = brutto * (1 - rabatt/100) * (1 - sonder/100)
-                    const total  = netto * menge
-                    return total > 0
-                      ? `Gesamt: ${total.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}`
-                      : null
-                  })()}
-                </div>
-              )}
-            </div>
-          ))}
-
-          <button type="button" onClick={addPosition}
-            className="w-full border-2 border-dashed border-s112-border rounded-xl py-3 text-sm text-s112-muted hover:border-s112-teal hover:text-s112-teal transition-colors">
-            + Position hinzufügen
-          </button>
-        </div>
-
-        {/* ── Notizen ── */}
-        <div className="card p-5">
-          <label className={labelCls}>Notizen</label>
-          <textarea value={notizen} onChange={e => setNotizen(e.target.value)}
-            rows={3} placeholder="Anmerkungen zur Bestellung…"
-            className={inputCls + ' w-full resize-none'} />
-        </div>
-
-        {/* ── Submit ── */}
-        <div className="flex justify-end gap-3 pb-8">
-          <Link href="/weinhandel/verkauf" className="text-sm text-s112-muted hover:text-gray-700 px-4 py-2">
-            Abbrechen
-          </Link>
-          <button type="submit" disabled={isPending}
-            className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
-            {isPending ? 'Speichern…' : 'Verkauf anlegen'}
-          </button>
-        </div>
-
-      </form>
-    </div>
-  )
-}
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+                    <input type="checkbox" checked={pos.rabatt_aktiv}
+                      onChange={e => updatePos(idx, { rabatt_aktiv: e.target.checked })}
+                      className="rounded accent-s112-teal" />
+                    <span className={pos.rabatt_aktiv ? 'text-green-700 font-medium' : 'text-gray-400 line-through'}>
+                      {pos.rabatt_pct}% Kundenrabatt
+                    </span>
+       

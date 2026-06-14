@@ -237,6 +237,31 @@ function FirmaForm({ initial, rabattgruppen, defaultSegment, existingFirmen, onD
         </div>
       </div>
 
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <label className="block text-xs font-medium text-gray-600 mb-1">Skonto %</label>
+          <input
+            name="skonto_pct"
+            type="number"
+            min="0" max="20" step="0.5"
+            defaultValue={initial?.skonto_pct ?? 0}
+            placeholder="0"
+            className={inputCls()}
+          />
+        </div>
+        <div className="flex-1">
+          <label className="block text-xs font-medium text-gray-600 mb-1">Skonto-Frist (Tage)</label>
+          <input
+            name="skonto_tage"
+            type="number"
+            min="0" max="60" step="1"
+            defaultValue={initial?.skonto_tage ?? 10}
+            placeholder="10"
+            className={inputCls()}
+          />
+        </div>
+      </div>
+
       <div>
         <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
         <textarea name="notizen" defaultValue={v('notizen')} rows={2}
@@ -442,33 +467,3 @@ export default function FirmenClient({
               className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
               <span>＋</span> Neue Firma
             </button>
-          )}
-        </div>
-      </div>
-
-      {showForm && (
-        <FirmaForm
-          rabattgruppen={rabattgruppen}
-          existingFirmen={firmen}
-          defaultSegment={segment !== 'alle' ? segment : undefined}
-          onDone={() => setShowForm(false)}
-        />
-      )}
-
-      {gefiltert.length === 0 ? (
-        <div className="card text-center py-12 text-s112-muted text-sm">
-          {firmen.length === 0 ? 'Noch keine Firmen angelegt.' : 'Keine Treffer für diesen Filter.'}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {gefiltert.map(f => (
-            <FirmaKarte key={f.id} firma={f}
-              kontakte={kontakteMap[f.id] ?? []}
-              rabattgruppen={rabattgruppen}
-              writeOk={writeOk} />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}

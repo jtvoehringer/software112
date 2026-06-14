@@ -3,7 +3,7 @@ import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { deactivateVerkauf, stornoVerkauf } from '../actions'
+import { deactivateVerkauf, stornoVerkauf, createZahlung, deleteZahlung } from '../actions'
 import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButton'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 
@@ -51,15 +51,16 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const role     = await getCurrentUserRole()
   const writeOk  = canWrite(role)
 
-  const [{ data: postenRaw }, settings] = await Promise.all([
+  const [{ data: postenRaw }, settings, { data: zahlungenRaw }] = await Promise.all([
     (supabase.from('verkaufsposten') as any)
       .select(`
         id, datum, rechnungsnummer, notizen, erstellt_am, storniert, storniert_am,
+        bezahlt, bezahlt_am, skonto_pct, skonto_tage, skonto_aktiv,
         kontakt:kontakte!kontakt_id(id, vorname, nachname, email, telefon, strasse, plz, ort),
         firma:firmen(id, name, email, telefon, strasse, plz, ort),
         zh_kontakt:kontakte!zh_kontakt_id(vorname, nachname),
         positionen:verkauf_positionen(
-          id, typ, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct,
+          id, typ, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz,
           fuellung:fuellungen(id, name, jahrgang, flaschengroesse_ml),
           weinausbau:weinausbau(id, name)
         )
@@ -68,6 +69,10 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       .eq('aktiv', true)
       .single(),
     getTenantSettings(supabase),
+    (supabase.from('zahlungen') as any)
+      .select('id, betrag, art, datum, notizen, erstellt_am')
+      .eq('verkaufsposten_id', id)
+      .order('datum', { ascending: true }),
   ])
 
   if (!postenRaw) notFound()
@@ -147,6 +152,19 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
 
   const faelligkeitsDatum = new Date(posten.datum)
   faelligkeitsDatum.setDate(faelligkeitsDatum.getDate() + zahlZiel)
+
+  const zahlungen      = (zahlungenRaw ?? []) as R[]
+  const bezahltSumme   = zahlungen.reduce((s: number, z: R) => s + Number(z.betrag ?? 0), 0)
+  const offenerBetrag  = gesamt - bezahltSumme
+  const vollBezahlt    = offenerBetrag <= 0.01
+  const teilBezahlt    = bezahltSumme > 0.01 && !vollBezahlt
+
+  const ART_LABELS: Record<string, string> = {
+    bar: '💵 Bar', karte: '💳 Karte', bank: '🏦 Bank',
+    gutschrift: '📝 Gutschrift', sonstig: '🔄 Sonstiges',
+  }
+
+  const createZahlungBound  = createZahlung.bind(null, id)
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -420,99 +438,66 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
         </div>
       )}
 
-      {/* ── TRANSPORTSCHEIN (nur bei Tank-Positionen) ─────────────────────── */}
-      {hasTank && (
-        <div className="card p-5 border-2 border-blue-200 space-y-4">
-          {/* Print-Seitenumbruch */}
-          <div className="print-page-break print-only" />
-
-          {/* Screen-Header */}
-          <div className="flex items-center justify-between no-print">
-            <h2 className="font-semibold text-gray-700">
-              🚛 Transportschein (Tankverkauf)
-            </h2>
-            <div className="flex items-center gap-2">
-              <Link
-                href={`/weinhandel/verkauf/${posten.id}/transportbescheinigung`}
-                className="flex items-center gap-1.5 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700 transition-colors"
-              >
-                📋 Offiz. Transportbescheinigung
-              </Link>
-              <span className="text-xs text-s112-muted">Intern: wird beim Drucken ausgegeben</span>
-            </div>
+      {/* ── ZAHLUNGSEINGANG ──────────────────────────────────────────────────── */}
+      {!posten.storniert && (
+        <div className="card p-5 no-print space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-gray-700">💰 Zahlungseingang</h2>
+            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+              vollBezahlt ? 'bg-green-100 text-green-700' :
+              teilBezahlt ? 'bg-amber-100 text-amber-700' :
+              'bg-red-100 text-red-700'
+            }`}>
+              {vollBezahlt ? '✅ Bezahlt' : teilBezahlt ? `⏳ Teilweise (${bezahltSumme.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })} von ${gesamt.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })})` : '🔴 Offen'}
+            </span>
           </div>
 
-          {/* Print-Header */}
-          <div className="print-only">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <p className="font-bold text-lg">{bName}</p>
-                {bStrasse && <p className="text-sm">{bStrasse}</p>}
-                {bPlzOrt  && <p className="text-sm">{bPlzOrt}</p>}
-              </div>
-              <div className="text-right">
-                <p className="text-2xl font-bold">Transportschein</p>
-                {posten.rechnungsnummer && <p className="text-sm">Beleg Nr. {posten.rechnungsnummer}</p>}
-                <p className="text-sm">{new Date(posten.datum).toLocaleDateString('de-AT')}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Inhalt */}
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-xs text-s112-muted mb-0.5">Absender</p>
-                <p className="font-medium">{bName}</p>
-                {bStrasse && <p className="text-xs text-gray-600">{bStrasse}</p>}
-                {bPlzOrt  && <p className="text-xs text-gray-600">{bPlzOrt}</p>}
-              </div>
-              <div>
-                <p className="text-xs text-s112-muted mb-0.5">Empfänger</p>
-                <p className="font-medium">{kundenName(posten)}</p>
-                {info.email   && <p className="text-xs text-gray-600">{info.email}</p>}
-                {info.telefon && <p className="text-xs text-gray-600">{info.telefon}</p>}
-              </div>
-            </div>
-
-            {/* Transportierte Ware */}
-            <table className="w-full text-sm border border-s112-border rounded-lg overflow-hidden">
-              <thead>
-                <tr className="bg-blue-50 border-b border-s112-border">
-                  <th className="text-left px-3 py-2 font-semibold text-gray-700">Produkt</th>
-                  <th className="text-right px-3 py-2 font-semibold text-gray-700">Menge (L)</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-700">Behälter</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tankPos.map((pos: R) => (
-                  <tr key={pos.id} className="border-b border-s112-border last:border-0">
-                    <td className="px-3 py-2 font-medium">{pos.name}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{Number(pos.menge).toLocaleString('de-AT')} L</td>
-                    <td className="px-3 py-2 text-s112-muted text-xs">{pos.weinausbau?.name ?? '–'}</td>
+          {/* Bestehende Zahlungen */}
+          {zahlungen.length > 0 && (
+            <div className="rounded-lg border border-s112-border overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-s112-bg border-b border-s112-border">
+                    <th className="text-left px-3 py-2 font-medium text-gray-600">Datum</th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-600">Art</th>
+                    <th className="text-right px-3 py-2 font-medium text-gray-600">Betrag</th>
+                    <th className="px-3 py-2"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {/* Unterschriften */}
-            <div className="grid grid-cols-2 gap-8 pt-4 mt-4 border-t border-dashed border-gray-300">
-              <div>
-                <div className="h-12 border-b border-gray-400" />
-                <p className="text-xs text-gray-500 mt-1">Unterschrift Absender / Datum</p>
-              </div>
-              <div>
-                <div className="h-12 border-b border-gray-400" />
-                <p className="text-xs text-gray-500 mt-1">Unterschrift Empfänger / Datum</p>
-              </div>
-            </div>
-
-            <p className="text-xs text-gray-400 pt-1">
-              Begleitdokument gemäß Weingesetz. Der Empfänger bestätigt den einwandfreien Erhalt der oben angeführten Ware.
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+                </thead>
+                <tbody>
+                  {zahlungen.map((z: R) => (
+                    <tr key={z.id} className="border-b border-s112-border last:border-0">
+                      <td className="px-3 py-2 text-gray-700">{new Date(z.datum).toLocaleDateString('de-AT')}</td>
+                      <td className="px-3 py-2">{ART_LABELS[z.art] ?? z.art}</td>
+                      <td className="px-3 py-2 text-right font-semibold tabular-nums text-s112-teal">
+                        {Number(z.betrag).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {writeOk && (
+                          <form action={deleteZahlung.bind(null, z.id, id)}>
+                            <button type="submit" className="text-xs text-red-400 hover:text-red-600">× löschen</button>
+                          </form>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-s112-border bg-s112-bg/60">
+                    <td colSpan={2} className="px-3 py-2 text-sm font-semibold text-gray-700">Summe eingegangen</td>
+                    <td className="px-3 py-2 text-right font-bold tabular-nums text-green-700">
+                      {bezahltSumme.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
+                    </td>
+                    <td />
+                  </tr>
+                  {!vollBezahlt && (
+                    <tr className="border-t border-s112-border">
+                      <td colSpan={2} className="px-3 py-2 text-sm text-gray-600">Noch offen</td>
+                      <td className="px-3 py-2 text-right font-semibold tabular-nums text-red-600">
+                        {offenerBetrag.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
+                      </td>
+                      <td />
+                    </tr>
+                  )}
+                </tfoot>
+              </table>

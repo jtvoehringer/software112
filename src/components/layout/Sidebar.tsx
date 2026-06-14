@@ -109,7 +109,7 @@ const NAV: NavEntry[] = [
 // ── Hilfsfunktionen ───────────────────────────────────────────────
 
 // Paths that only match exactly (no prefix-matching for sub-routes)
-const EXACT_PATHS = new Set(['/dashboard', '/crm', '/weinhandel', '/auswertungen', '/kellerbuch', '/reports'])
+const EXACT_PATHS = new Set(['/dashboard', '/crm', '/weinhandel', '/auswertungen', '/kellerbuch', '/reports', '/behandlungen'])
 
 function isActive(href: string, pathname: string) {
   return pathname === href || (!EXACT_PATHS.has(href) && pathname.startsWith(href))
@@ -364,6 +364,4 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
           </>
         )}
       </div>
-    </aside>
-  )
-}
+  

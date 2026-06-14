@@ -47,6 +47,8 @@ export async function createKontakt(formData: FormData) {
     notizen:         (formData.get('notizen')         as string) || null,
     ...(formData.get('rabattgruppe_id') ? { rabattgruppe_id: formData.get('rabattgruppe_id') as string } : {}),
     sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
+    skonto_pct:       parseFloat(formData.get('skonto_pct') as string) || 0,
+    skonto_tage:      parseInt(formData.get('skonto_tage') as string) || 10,
     is_lead: formData.get('is_lead') === 'true',
   }
   payload.kundennummer = await generateKundennummer(tenantId)
@@ -75,6 +77,8 @@ export async function updateKontakt(id: string, formData: FormData) {
     notizen:         (formData.get('notizen')         as string) || null,
     ...(formData.get('rabattgruppe_id') !== undefined ? { rabattgruppe_id: (formData.get('rabattgruppe_id') as string) || null } : {}),
     sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
+    skonto_pct:       parseFloat(formData.get('skonto_pct') as string) || 0,
+    skonto_tage:      parseInt(formData.get('skonto_tage') as string) || 10,
     is_lead: formData.get('is_lead') === 'true',
     aktualisiert_am: new Date().toISOString(),
   }
@@ -114,6 +118,8 @@ export async function createFirma(formData: FormData) {
     notizen:            (formData.get('notizen')         as string) || null,
     ...(formData.get('rabattgruppe_id') ? { rabattgruppe_id: formData.get('rabattgruppe_id') as string } : {}),
     sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
+    skonto_pct:       parseFloat(formData.get('skonto_pct') as string) || 0,
+    skonto_tage:      parseInt(formData.get('skonto_tage') as string) || 10,
     is_lead: formData.get('is_lead') === 'true',
   }
   payload.kundennummer = await generateKundennummer(tenantId)
@@ -141,6 +147,8 @@ export async function updateFirma(id: string, formData: FormData) {
     notizen:            (formData.get('notizen')         as string) || null,
     ...(formData.get('rabattgruppe_id') !== undefined ? { rabattgruppe_id: (formData.get('rabattgruppe_id') as string) || null } : {}),
     sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
+    skonto_pct:       parseFloat(formData.get('skonto_pct') as string) || 0,
+    skonto_tage:      parseInt(formData.get('skonto_tage') as string) || 10,
     is_lead: formData.get('is_lead') === 'true',
     aktualisiert_am:    new Date().toISOString(),
   }
@@ -313,17 +321,4 @@ export async function updatePipelineEintrag(id: string, formData: FormData) {
     notizen:             (formData.get('notizen') as string) || null,
     ganztags,
     uhrzeit_von:         ganztags ? null : ((formData.get('uhrzeit_von') as string) || null),
-    uhrzeit_bis:         ganztags ? null : ((formData.get('uhrzeit_bis') as string) || null),
-    aktualisiert_am:     new Date().toISOString(),
-  }
-  const { error } = await (supabase.from('pipeline_eintraege') as any).update(payload).eq('id', id)
-  if (error) throw new Error((error as AR).message)
-  revalidatePath('/crm/pipeline')
-}
-
-export async function deletePipelineEintrag(id: string) {
-  const supabase = await createSupabaseServerClient()
-  const { error } = await (supabase.from('pipeline_eintraege') as any).delete().eq('id', id)
-  if (error) throw new Error((error as AR).message)
-  revalidatePath('/crm/pipeline')
-}
+    uhrzeit_bis
