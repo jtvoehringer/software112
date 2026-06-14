@@ -773,4 +773,69 @@ export default function NeuerVerkaufPage() {
                     <span className={pos.rabatt_aktiv ? 'text-green-700 font-medium' : 'text-gray-400 line-through'}>
                       {pos.rabatt_pct}% Kundenrabatt
                     </span>
-       
+                  </label>
+                <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
+                  <input type="checkbox" checked={pos.sonderrabatt_aktiv}
+                    onChange={e => updatePos(idx, { sonderrabatt_aktiv: e.target.checked })}
+                    className="rounded accent-s112-teal" />
+                  Sonderrabatt
+                </label>
+                {pos.sonderrabatt_aktiv && (
+                  <div className="flex items-center gap-1.5">
+                    <input type="number" value={pos.sonderrabatt}
+                      onChange={e => updatePos(idx, { sonderrabatt: e.target.value })}
+                        min="0" max="100" step="0.1" placeholder="0"
+                      className="w-20 border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40" />
+                    <span className="text-xs text-gray-500">%</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Preis-Vorschau */}
+              {pos.preis_brutto !== '' && (
+                <div className="text-xs text-s112-muted text-right mt-1">
+                  {(() => {
+                    const brutto = parseFloat(pos.preis_brutto) || 0
+                    const rabatt = pos.rabatt_aktiv ? (parseFloat(pos.rabatt_pct) || 0) : 0
+                    const sonder = pos.sonderrabatt_aktiv ? (parseFloat(pos.sonderrabatt) || 0) : 0
+                    const menge  = parseFloat(pos.menge)  || 0
+                    const netto  = brutto * (1 - rabatt/100) * (1 - sonder/100)
+                    const total  = netto * menge
+                    return total > 0
+                      ? `Gesamt: ${total.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}`
+                      : null
+                  })()}
+                </div>
+              )}
+            </div>
+          ))}
+
+          <button type="button" onClick={addPosition}
+            className="w-full border-2 border-dashed border-s112-border rounded-xl py-3 text-sm text-s112-muted hover:border-s112-teal hover:text-s112-teal transition-colors">
+            + Position hinzufügen
+          </button>
+        </div>
+
+        {/* ── Notizen ── */}
+        <div className="card p-5">
+          <label className={labelCls}>Notizen</label>
+          <textarea value={notizen} onChange={e => setNotizen(e.target.value)}
+            rows={3} placeholder="Anmerkungen zur Bestellung…"
+            className={inputCls + ' w-full resize-none'} />
+        </div>
+
+        {/* ── Submit ── */}
+        <div className="flex justify-end gap-3 pb-8">
+          <Link href="/weinhandel/verkauf" className="text-sm text-s112-muted hover:text-gray-700 px-4 py-2">
+            Abbrechen
+          </Link>
+          <button type="submit" disabled={isPending}
+            className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
+            {isPending ? 'Speichern…' : 'Verkauf anlegen'}
+          </button>
+        </div>
+
+      </form>
+    </div>
+  )
+}

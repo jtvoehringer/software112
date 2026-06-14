@@ -467,3 +467,33 @@ export default function FirmenClient({
               className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
               <span>＋</span> Neue Firma
             </button>
+          )}
+        </div>
+      </div>
+
+      {showForm && (
+        <FirmaForm
+          rabattgruppen={rabattgruppen}
+          existingFirmen={firmen}
+          defaultSegment={segment !== 'alle' ? segment : undefined}
+          onDone={() => setShowForm(false)}
+        />
+      )}
+
+      {gefiltert.length === 0 ? (
+        <div className="card text-center py-12 text-s112-muted text-sm">
+          {firmen.length === 0 ? 'Noch keine Firmen angelegt.' : 'Keine Treffer für diesen Filter.'}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {gefiltert.map(f => (
+            <FirmaKarte key={f.id} firma={f}
+              kontakte={kontakteMap[f.id] ?? []}
+              rabattgruppen={rabattgruppen}
+              writeOk={writeOk} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

@@ -330,4 +330,49 @@ export async function createSonstigesArtikel(
   defaultPreis: number | null,
 ): Promise<SonstigesArtikelData | null> {
   const supabase = await createSupabaseServerClient()
-  const tenantI
+  const tenantId = await getTenantId()
+
+  const { data, error } = await (supabase.from('sonstige_artikel') as any)
+    .insert({ tenant_id: tenantId, name: name.trim(), einheit, default_preis: defaultPreis ?? null })
+    .select('id, name, einheit, default_preis')
+    .single()
+
+  if (error) throw new Error((error as AR).message)
+  return data as SonstigesArtikelData
+}
+
+// ── Zahlungen ─────────────────────────────────────────────────────────────────
+export async function createZahlung(
+  verkaufspostenId: string,
+  formData: FormData
+): Promise<void> {
+  'use server'
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  const betrag  = parseFloat((formData.get('betrag') as string || '').replace(',', '.'))
+  const art     = formData.get('art') as string
+  const datum   = formData.get('datum') as string
+  const notizen = (formData.get('notizen') as string) || null
+  if (isNaN(betrag) || betrag <= 0) throw new Error('Ungültiger Betrag')
+  const { error } = await (supabase.from('zahlungen') as any).insert({
+    tenant_id: tenantId,
+    verkaufsposten_id: verkaufspostenId,
+    betrag,
+    art,
+    datum: datum || new Date().toISOString().slice(0, 10),
+    notizen,
+  })
+  if (error) throw new Error((error as AR).message)
+  revalidatePath(`/weinhandel/verkauf/${verkaufspostenId}`)
+}
+
+export async function deleteZahlung(
+  zahlungId: string,
+  verkaufspostenId: string
+): Promise<void> {
+  'use server'
+  const supabase = await createSupabaseServerClient()
+  const { error } = await (supabase.from('zahlungen') as any).delete().eq('id', zahlungId)
+  if (error) throw new Error((error as AR).message)
+  revalidatePath(`/weinhandel/verkauf/${verkaufspostenId}`)
+}

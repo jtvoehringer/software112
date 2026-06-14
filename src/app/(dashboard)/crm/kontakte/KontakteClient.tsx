@@ -725,4 +725,27 @@ export default function KontakteClient({
         />
       )}
 
-      {/* Li
+      {/* Liste */}
+      {gefiltert.length === 0 ? (
+        <div className="card text-center py-12 text-s112-muted text-sm">
+          {kontakte.length === 0 ? 'Noch keine Kontakte angelegt.' : 'Keine Treffer für diesen Filter.'}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {gefiltert.map(k => (
+            <KontaktKarte
+              key={k.id}
+              kontakt={k}
+              firmen={firmen}
+              rabattgruppen={rabattgruppen}
+              aktivitaeten={aktivitaetenMap[k.id] ?? []}
+              pipeline={pipelineMap[k.id] ?? []}
+              writeOk={writeOk}
+              sortBy={sortBy}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
