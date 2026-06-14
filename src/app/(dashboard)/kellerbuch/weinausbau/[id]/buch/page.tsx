@@ -560,4 +560,19 @@ export default async function WeinbuchPage({
               <span className="text-xs text-gray-600">{style.icon} {
                 typ === 'feldbehandlung' ? 'Feldbehandlung'
                 : typ === 'ernte' ? 'Ernte / Lese'
-                
+                : typ === 'pressung' ? 'Pressung'
+                : typ === 'umzug' ? 'Umzug'
+                : typ === 'kellerbehandlung' ? 'Kellerbehandlung'
+                : typ === 'analyse' ? 'Analyse'
+                : typ === 'dac' ? 'DAC / Prüfnummer'
+                : typ === 'verschneidung' ? 'Verschneidung'
+                : 'Füllung'
+              }</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+    </div>
+  )
+}

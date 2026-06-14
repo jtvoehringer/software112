@@ -61,4 +61,12 @@ export async function GET() {
       firmen: (firmen ?? []).map((f: any) => ({
         ...f,
         rabatt_pct:       (f.rabattgruppe as any)?.rabatt_pct ?? null,
-        sonderrab
+        sonderrabatt_pct: parseFloat(f.sonderrabatt_pct) || 0,
+        skonto_pct:       parseFloat(f.skonto_pct) || 0,
+        skonto_tage:      parseInt(f.skonto_tage) || 10,
+      })),
+    })
+  } catch (err) {
+    return NextResponse.json({ error: String(err) }, { status: 500 })
+  }
+}

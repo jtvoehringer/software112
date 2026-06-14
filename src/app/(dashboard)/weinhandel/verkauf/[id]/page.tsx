@@ -501,3 +501,58 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                   )}
                 </tfoot>
               </table>
+
+            </div>
+          )}
+
+          {/* Skonto-Hinweis */}
+          {posten.skonto_aktiv && (posten.skonto_pct ?? 0) > 0 && !vollBezahlt && (
+            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              💡 Skonto {posten.skonto_pct}% bei Zahlung bis{' '}
+              {new Date(new Date(posten.datum).setDate(
+                new Date(posten.datum).getDate() + (posten.skonto_tage ?? 0)
+              )).toLocaleDateString('de-AT')}
+              {' '}(−{((gesamt * (posten.skonto_pct ?? 0)) / 100).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })})
+            </div>
+          )}
+
+          {/* Zahlung erfassen */}
+          {writeOk && !vollBezahlt && (
+            <form action={createZahlungBound} className="border border-s112-border rounded-lg p-3 space-y-3">
+              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Zahlung erfassen</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Datum</label>
+                  <input name="datum" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="form-input text-sm w-full" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Art</label>
+                  <select name="art" className="form-input text-sm w-full">
+                    <option value="bar">💵 Bar</option>
+                    <option value="karte">💳 Karte</option>
+                    <option value="bank">🏦 Bank</option>
+                    <option value="gutschrift">📝 Gutschrift</option>
+                    <option value="sonstig">🔄 Sonstiges</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Betrag (€)</label>
+                  <input name="betrag" type="text" inputMode="decimal" required placeholder="0,00" className="form-input text-sm w-full" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Notiz</label>
+                  <input name="notizen" type="text" placeholder="Optional…" className="form-input text-sm w-full" />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <button type="submit" className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors">
+                  + Zahlung buchen
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}

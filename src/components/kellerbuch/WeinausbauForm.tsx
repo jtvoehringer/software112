@@ -205,4 +205,25 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
       </div>
 
       <div className="card space-y-4">
-        <h2 className="text-sm font-semibold text-s112-muted uppercase tr
+        <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Notizen</h2>
+        <textarea name="notizen" rows={3} defaultValue={weinausbau?.notizen ?? ''} className="form-input resize-none" placeholder="Kellermeister-Notizen, Maßnahmen …" />
+      </div>
+
+      {weinausbau && (
+        <div className="card">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" name="aktiv" value="true" defaultChecked={weinausbau.aktiv} className="w-4 h-4 accent-s112-teal" />
+            <span className="text-sm font-medium text-gray-700">Charge aktiv</span>
+          </label>
+        </div>
+      )}
+
+      <div className="flex items-center gap-3">
+        <button type="submit" disabled={saving} className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
+          {saving ? 'Wird gespeichert …' : 'Speichern'}
+        </button>
+        <button type="button" onClick={() => router.push('/kellerbuch')} className="text-sm text-s112-muted hover:text-gray-700 transition-colors">Abbrechen</button>
+      </div>
+    </form>
+  )
+}
