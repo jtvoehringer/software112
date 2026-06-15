@@ -1,10 +1,15 @@
 import Stripe from 'stripe'
 
-// Leerer Fallback-Key damit der Build-Prozess nicht crasht;
-// zur Laufzeit auf Vercel ist STRIPE_SECRET_KEY gesetzt.
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
-  apiVersion: '2025-02-24.acacia',
-})
+let _stripe: Stripe | null = null
+
+export function getStripe(): Stripe {
+  if (!_stripe) {
+    const key = process.env.STRIPE_SECRET_KEY
+    if (!key) throw new Error('STRIPE_SECRET_KEY nicht gesetzt')
+    _stripe = new Stripe(key, { apiVersion: '2025-02-24.acacia' })
+  }
+  return _stripe
+}
 
 /** Stripe-Plan-Labels für die UI */
 export const STRIPE_PLAN_LABELS: Record<string, string> = {
@@ -21,5 +26,4 @@ export const STRIPE_STATUS_META: Record<string, { label: string; color: string }
   past_due:  { label: '⚠️ Zahlung offen', color: 'bg-amber-100 text-amber-700' },
   unpaid:    { label: '🔴 Unbezahlt',     color: 'bg-red-100 text-red-700' },
   cancelled: { label: '⛔ Gekündigt',     color: 'bg-gray-100 text-gray-600' },
-  paused:    { label: '⏸ Pausiert',       color: 'bg-gray-100 text-gray-600' },
-}
+  paused:    { label: '⏸ Pausiert',       color: 'bg-gray-100 text-gra

@@ -4,7 +4,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { encryptPass } from '@/lib/email/crypto'
 import { getCurrentUserRole } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
-import { stripe } from '@/lib/stripe/client'
+import { getStripe } from '@/lib/stripe/client'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -314,7 +314,7 @@ export async function createStripeCustomer(tenantId: string, tenantName: string,
     return { error: 'Stripe Customer existiert bereits.' }
   }
 
-  const customer = await stripe.customers.create({
+  const customer = await getStripe().customers.create({
     name:     tenantName,
     email:    email || undefined,
     metadata: { tenant_id: tenantId },
@@ -339,7 +339,7 @@ export async function createStripeCheckoutSession(
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://software112.icp-consultants.at'
 
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     customer:    customerId,
     mode:        'subscription',
     line_items:  [{ price: priceId, quantity: 1 }],
@@ -361,7 +361,7 @@ export async function createStripePortalSession(tenantId: string, customerId: st
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://software112.icp-consultants.at'
 
-  const session = await stripe.billingPortal.sessions.create({
+  const session = await getStripe().billingPortal.sessions.create({
     customer:   customerId,
     return_url: `${baseUrl}/admin/mandanten/${tenantId}`,
   })
@@ -374,7 +374,7 @@ export async function createStripePortalSession(tenantId: string, customerId: st
 export async function cancelStripeSubscription(tenantId: string, subscriptionId: string) {
   await assertSystemAdmin()
 
-  await stripe.subscriptions.cancel(subscriptionId)
+  await getStripe().subscriptions.cancel(subscriptionId)
 
   const admin = createSupabaseAdminClient()
   await (admin.from('tenants') as any).update({

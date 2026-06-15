@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { stripe } from '@/lib/stripe/client'
+import { getStripe } from '@/lib/stripe/client'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import Stripe from 'stripe'
 
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
   let event: Stripe.Event
   try {
-    event = stripe.webhooks.constructEvent(body, signature, secret)
+    event = getStripe().webhooks.constructEvent(body, signature, secret)
   } catch (err) {
     console.error('[Stripe Webhook] Signatur ungültig:', err)
     return NextResponse.json({ fehler: 'Ungültige Signatur' }, { status: 400 })
