@@ -13,10 +13,10 @@ export function getStripe(): Stripe {
 
 /** Stripe-Plan-Labels für die UI */
 export const STRIPE_PLAN_LABELS: Record<string, string> = {
-  base:         'software:112 Basis',
-  ki_basic:     'software:112 + KI Basic',
-  ki_standard:  'software:112 + KI Standard',
-  ki_unlimited: 'software:112 + KI Unlimited',
+  base:         'software:112 Starter',
+  ki_basic:     'software:112 Professional',
+  ki_standard:  'software:112 Professional+',
+  ki_unlimited: 'software:112 Enterprise',
 }
 
 /** Stripe-Status-Labels und Farben */
@@ -26,8 +26,4 @@ export const STRIPE_STATUS_META: Record<string, { label: string; color: string }
   past_due:           { label: '⚠️ Zahlung offen',      color: 'bg-amber-100 text-amber-700' },
   unpaid:             { label: '🔴 Unbezahlt',          color: 'bg-red-100 text-red-700' },
   canceled:           { label: '⛔ Gekündigt',          color: 'bg-gray-100 text-gray-600' },
-  cancelled:          { label: '⛔ Gekündigt',          color: 'bg-gray-100 text-gray-600' },
-  paused:             { label: '⏸ Pausiert',            color: 'bg-gray-100 text-gray-600' },
-  incomplete:         { label: '🕐 Zahlung ausstehend', color: 'bg-yellow-100 text-yellow-700' },
-  incomplete_expired: { label: '❌ Abgelaufen',         color: 'bg-gray-100 text-gray-500' },
-}
+  

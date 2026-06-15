@@ -1186,10 +1186,10 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
   const [email,  setEmail]   = useState('')
 
   const PLANS = [
-    { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_BASE          ?? '', label: 'Basis' },
-    { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_KI_BASIC      ?? '', label: 'KI Basic (+€9/Mo)' },
-    { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_KI_STANDARD   ?? '', label: 'KI Standard (+€19/Mo)' },
-    { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_KI_UNLIMITED  ?? '', label: 'KI Unlimited (+€49/Mo)' },
+    { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_BASE          ?? '', label: 'Starter (€199/Mo)' },
+    { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_KI_BASIC      ?? '', label: 'Professional (€299/Mo)' },
+    { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_KI_STANDARD   ?? '', label: 'Professional+ (€349/Mo)' },
+    { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_KI_UNLIMITED  ?? '', label: 'Enterprise (€399/Mo)' },
   ]
 
   const statusMeta = tenant.stripe_status ? (STRIPE_STATUS_META[tenant.stripe_status] ?? null) : null
@@ -1304,7 +1304,7 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
           <div className="flex gap-2 flex-wrap">
             <button type="button" onClick={handlePortal} disabled={pending}
               className="bg-s112-teal text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50">
-              {pending ? 'Lade…' : '⚙ Stripe Kundenportal'}
+              {pending ? 'Lade…' : '⚙ software:112 Kundenportal'}
             </button>
             <button type="button" onClick={handleCancel} disabled={pending}
               className="border border-red-200 text-red-500 px-4 py-2 rounded-lg text-sm hover:bg-red-50 disabled:opacity-50">

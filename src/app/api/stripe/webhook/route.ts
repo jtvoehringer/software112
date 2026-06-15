@@ -27,9 +27,10 @@ async function updateTenantStripe(
 
 function planFromPrice(priceId: string | null | undefined): string {
   if (!priceId) return 'base'
-  if (priceId === process.env.STRIPE_PRICE_KI_BASIC)     return 'ki_basic'
-  if (priceId === process.env.STRIPE_PRICE_KI_STANDARD)  return 'ki_standard'
-  if (priceId === process.env.STRIPE_PRICE_KI_UNLIMITED) return 'ki_unlimited'
+  if (priceId === process.env.NEXT_PUBLIC_STRIPE_PRICE_BASE)         return 'base'
+  if (priceId === process.env.NEXT_PUBLIC_STRIPE_PRICE_KI_BASIC)     return 'ki_basic'
+  if (priceId === process.env.NEXT_PUBLIC_STRIPE_PRICE_KI_STANDARD)  return 'ki_standard'
+  if (priceId === process.env.NEXT_PUBLIC_STRIPE_PRICE_KI_UNLIMITED) return 'ki_unlimited'
   return 'base'
 }
 
