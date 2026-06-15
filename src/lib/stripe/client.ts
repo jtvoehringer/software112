@@ -26,4 +26,5 @@ export const STRIPE_STATUS_META: Record<string, { label: string; color: string }
   past_due:  { label: '⚠️ Zahlung offen', color: 'bg-amber-100 text-amber-700' },
   unpaid:    { label: '🔴 Unbezahlt',     color: 'bg-red-100 text-red-700' },
   cancelled: { label: '⛔ Gekündigt',     color: 'bg-gray-100 text-gray-600' },
-  paused:    { label: '⏸ Pausiert',       color: 'bg-gray-100 text-gra
+  paused:    { label: '⏸ Pausiert',       color: 'bg-gray-100 text-gray-600' },
+}
