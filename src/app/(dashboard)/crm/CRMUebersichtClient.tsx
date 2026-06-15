@@ -4,6 +4,8 @@ import { useState, useMemo, useRef, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createAktivitaet, moveAktivitaet, updateAktivitaet } from './actions'
 import { AKTIVITAET_ARTEN } from '@/lib/crm/types'
+import type { AktivitaetDokument } from '@/lib/crm/types'
+import DokumentePanel from './DokumentePanel'
 import Link from 'next/link'
 
 // ── Typeahead-Suche ───────────────────────────────────────────────────────────
@@ -257,6 +259,18 @@ function ZeitachseView({
   // Aktivität-Detail anzeigen
   const [viewAkt,    setViewAkt]    = useState<KalenderEintrag | null>(null)
   const [editAktMode, setEditAktMode] = useState(false)
+
+  // Dokumente für angezeigte Aktivität
+  const [viewAktDoks, setViewAktDoks] = useState<AktivitaetDokument[]>([])
+  useEffect(() => {
+    if (!viewAkt || viewAkt.typ !== 'aktivitaet') { setViewAktDoks([]); return }
+    const aktId = viewAkt.id.replace('a_', '')
+    fetch(`/api/crm/aktivitaet/${aktId}/dokument`)
+      .then(r => r.ok ? r.json() : [])
+      .then(setViewAktDoks)
+      .catch(() => setViewAktDoks([]))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewAkt?.id])
 
   // neue Aktivität
   const [newAkt,         setNewAkt]         = useState<{ datum: string; von: string; bis: string; ganztags: boolean } | null>(null)
@@ -670,6 +684,16 @@ function ZeitachseView({
                 {viewAkt.firmaName   && <p><span className="font-medium text-gray-700">Firma:</span> {viewAkt.firmaName}</p>}
                 {viewAkt.ist_privat  && <p className="text-gray-400 text-xs">🔒 Privater Termin</p>}
               </div>
+              {viewAkt.typ === 'aktivitaet' && (
+                <div className="mb-4 border-t border-s112-border/40 pt-3">
+                  <p className="text-xs font-medium text-gray-500 mb-1.5">📎 Anhänge</p>
+                  <DokumentePanel
+                    aktivitaetId={viewAkt.id.replace('a_', '')}
+                    initialDokumente={viewAktDoks}
+                    writeOk={true}
+                  />
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
                 {viewAkt.typ === 'aktivitaet' && (
                   <button onClick={() => setEditAktMode(true)}
