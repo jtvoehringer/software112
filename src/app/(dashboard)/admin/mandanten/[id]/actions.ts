@@ -314,11 +314,16 @@ export async function createStripeCustomer(tenantId: string, tenantName: string,
     return { error: 'Stripe Customer existiert bereits.' }
   }
 
-  const customer = await getStripe().customers.create({
-    name:     tenantName,
-    email:    email || undefined,
-    metadata: { tenant_id: tenantId },
-  })
+  let customer: { id: string }
+  try {
+    customer = await getStripe().customers.create({
+      name:     tenantName,
+      email:    email || undefined,
+      metadata: { tenant_id: tenantId },
+    })
+  } catch (err) {
+    return { error: `Stripe-Fehler: ${(err as Error).message}` }
+  }
 
   const { error } = await (admin.from('tenants') as any)
     .update({ stripe_customer_id: customer.id }).eq('id', tenantId)
@@ -339,19 +344,22 @@ export async function createStripeCheckoutSession(
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://software112.icp-consultants.at'
 
-  const session = await getStripe().checkout.sessions.create({
-    customer:    customerId,
-    mode:        'subscription',
-    line_items:  [{ price: priceId, quantity: 1 }],
-    success_url: `${baseUrl}/admin/mandanten/${tenantId}?stripe=success`,
-    cancel_url:  `${baseUrl}/admin/mandanten/${tenantId}?stripe=cancelled`,
-    metadata:    { tenant_id: tenantId },
-    subscription_data: {
-      metadata: { tenant_id: tenantId },
-    },
-  })
-
-  return { url: session.url }
+  try {
+    const session = await getStripe().checkout.sessions.create({
+      customer:    customerId,
+      mode:        'subscription',
+      line_items:  [{ price: priceId, quantity: 1 }],
+      success_url: `${baseUrl}/admin/mandanten/${tenantId}?stripe=success`,
+      cancel_url:  `${baseUrl}/admin/mandanten/${tenantId}?stripe=cancelled`,
+      metadata:    { tenant_id: tenantId },
+      subscription_data: {
+        metadata: { tenant_id: tenantId },
+      },
+    })
+    return { url: session.url }
+  } catch (err) {
+    return { error: `Stripe-Fehler: ${(err as Error).message}` }
+  }
 }
 
 // ── Stripe: Customer Portal (Mandant verwaltet Abo selbst) ────────────────────
@@ -361,12 +369,15 @@ export async function createStripePortalSession(tenantId: string, customerId: st
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://software112.icp-consultants.at'
 
-  const session = await getStripe().billingPortal.sessions.create({
-    customer:   customerId,
-    return_url: `${baseUrl}/admin/mandanten/${tenantId}`,
-  })
-
-  return { url: session.url }
+  try {
+    const session = await getStripe().billingPortal.sessions.create({
+      customer:   customerId,
+      return_url: `${baseUrl}/admin/mandanten/${tenantId}`,
+    })
+    return { url: session.url }
+  } catch (err) {
+    return { error: `Stripe-Fehler: ${(err as Error).message}` }
+  }
 }
 
 // ── Stripe: Subscription direkt kündigen ─────────────────────────────────────
@@ -374,7 +385,11 @@ export async function createStripePortalSession(tenantId: string, customerId: st
 export async function cancelStripeSubscription(tenantId: string, subscriptionId: string) {
   await assertSystemAdmin()
 
-  await getStripe().subscriptions.cancel(subscriptionId)
+  try {
+    await getStripe().subscriptions.cancel(subscriptionId)
+  } catch (err) {
+    return { error: `Stripe-Fehler: ${(err as Error).message}` }
+  }
 
   const admin = createSupabaseAdminClient()
   await (admin.from('tenants') as any).update({

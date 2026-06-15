@@ -1210,7 +1210,8 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
     setError(null)
     startTransition(async () => {
       const r = await createStripeCheckoutSession(tenant.id, tenant.stripe_customer_id!, priceId)
-      if (r?.url) window.location.href = r.url
+      if (r?.error) setError(r.error)
+      else if (r?.url) window.location.href = r.url
     })
   }
 
@@ -1218,7 +1219,8 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
     if (!tenant.stripe_customer_id) return
     startTransition(async () => {
       const r = await createStripePortalSession(tenant.id, tenant.stripe_customer_id!)
-      if (r?.url) window.location.href = r.url
+      if (r?.error) setError(r.error)
+      else if (r?.url) window.location.href = r.url
     })
   }
 
@@ -1226,8 +1228,9 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
     if (!tenant.stripe_subscription_id) return
     if (!confirm('Abo wirklich sofort kündigen?')) return
     startTransition(async () => {
-      await cancelStripeSubscription(tenant.id, tenant.stripe_subscription_id!)
-      router.refresh()
+      const r = await cancelStripeSubscription(tenant.id, tenant.stripe_subscription_id!)
+      if (r?.error) setError(r.error)
+      else router.refresh()
     })
   }
 
