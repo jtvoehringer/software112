@@ -19,7 +19,7 @@ const KAPITEL: Kapitel[] = [
   {
     id: 'kellerbuch', icon: '🍷', titel: 'Kellerbuch',
     abschnitte: [
-      { titel: 'Weinausbau-Charge anlegen', inhalt: 'Unter Kellerbuch > Vinifizierung > Neue Charge: Name, Jahrgang, Rebsorte, Qualitätsstufe und Behälter festlegen. Die Charge verfolgt Menge und Qualität durch alle Keller-Operationen.' },
+      { titel: 'Weinausbau-Charge anlegen', inhalt: 'Unter Kellerbuch > Vinifizierung > Neue Charge: Name, Jahrgang, Rebsorte, Qualitätsstufe und Behälter festlegen. Die Qualitätsstufe wird automatisch aus dem Lese-KMW vorbelegt (Landwein, Qualitätswein, Kabinett, Spätlese …). Ein Upgrade auf eine höhere Stufe ist gesperrt – nur Downgrade ist möglich. Die Charge verfolgt Menge und Qualität durch alle Keller-Operationen.' },
       { titel: 'Umziehen (n:n)', inhalt: 'Unter Kellerbuch > Umziehen kannst du mehrere Quell-Chargen in mehrere Zielbehälter umziehen. Der Schwund wird automatisch berechnet. Bei Verschnitt sinkt die Qualitätsstufe auf das niedrigste Level.' },
       { titel: 'Abfüllen', inhalt: 'Unter Kellerbuch > Füllen wählst du die Weinausbau-Charge, Flaschengröße, Anzahl Flaschen und VK-Preis. Die Füllung erscheint danach im Warenwirtschaft-Lager.' },
       { titel: 'Kellerplan', inhalt: 'Der Kellerplan zeigt eine visuelle Übersicht aller Behälter mit aktueller Belegung. Nützlich für Bio-Kontrolle und Raumplanung.' },
@@ -28,9 +28,12 @@ const KAPITEL: Kapitel[] = [
   {
     id: 'warenwirtschaft', icon: '🛒', titel: 'Warenwirtschaft',
     abschnitte: [
-      { titel: 'Verkauf anlegen', inhalt: 'Unter Warenwirtschaft > Verkauf > Neuer Verkauf: zuerst Kontakt oder Firma wählen (Pflicht!), dann Positionen hinzufügen. Rabattgruppe und Sonderrabatt werden automatisch vorbelegt.' },
+      { titel: 'Verkauf anlegen', inhalt: 'Unter Warenwirtschaft > Verkauf > Neuer Verkauf: zuerst Kontakt oder Firma wählen (Pflicht!), dann Positionen hinzufügen. Rabattgruppe und Sonderrabatt werden automatisch vorbelegt. Den USt.-Satz kannst du pro Position einzeln wählen (0 %, 10 %, 13 %, 20 %); Standard ist der im Mandanten hinterlegte Wert.' },
       { titel: 'Rechnung drucken', inhalt: 'In der Verkaufsdetailansicht auf Rechnung klicken. Das System druckt ein PDF mit Briefkopf, USt-Aufschlüsselung und Bankdaten. Rechnungsnummer wird automatisch vergeben.' },
       { titel: 'Bezahlt markieren', inhalt: 'In der Verkaufsdetailansicht oder unter Offene Posten auf "Als bezahlt markieren" klicken. Das Datum wird gespeichert und der Eintrag verschwindet aus den offenen Posten.' },
+      { titel: 'Rabatt & Sonderrabatt', inhalt: 'Beim Anlegen einer Verkaufsposition wird Rabatt aus der Rabattgruppe und Sonderrabatt aus dem Kontakt/der Firma automatisch vorbelegt. Beide Werte können direkt in der Position geändert oder auf 0 gesetzt werden, um keinen Rabatt anzuwenden.' },
+      { titel: 'Skonto', inhalt: 'Unter CRM > Kontakt/Firma kann ein Skonto-Prozentsatz hinterlegt werden. Dieser erscheint automatisch in neuen Verkäufen und wird auf der Rechnung ausgewiesen. Im Verkaufsformular ist Skonto jederzeit anpassbar.' },
+      { titel: 'Teilzahlungen', inhalt: 'Im Verkaufsdetail kannst du Teilzahlungen erfassen: Betrag und Datum eingeben. Der offene Restbetrag wird automatisch aktualisiert. Der Posten gilt erst als vollständig bezahlt wenn der Gesamtbetrag beglichen ist.' },
       { titel: 'Preislisten', inhalt: 'Unter Warenwirtschaft > Preisliste: mehrere aktive Preislisten gleichzeitig (z.B. Ab-Hof, Gastronomie, Export). Beim neuen Verkauf wählst du die passende Preisliste.' },
     ],
   },
