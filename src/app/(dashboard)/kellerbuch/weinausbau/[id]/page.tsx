@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import WeinausbauForm from '@/components/kellerbuch/WeinausbauForm'
 import { updateWeinausbau } from '../../actions'
+import { kmwZuQualitaet, minQualitaet } from '@/lib/weinqualitaet'
 import VerschneidungWidget from './VerschneidungWidget'
 
 export const metadata: Metadata = { title: 'Charge bearbeiten – software:112' }
@@ -69,7 +70,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
       .order('id', { ascending: true }),
     // Pressungen / Ernte
     (supabase.from('pressung_behaelter') as any)
-      .select('id, menge_liter, notizen, pressung:pressung_id(datum, notizen)')
+      .select('id, menge_liter, notizen, pressung:pressung_id(datum, notizen, kmw_grad)')
       .eq('weinausbau_id', id)
       .order('id', { ascending: true }),
     // Verknüpfte Rieden / Weingärten
@@ -162,6 +163,18 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
   }
 
   const bewegungen: Bewegung[] = []
+
+  // Maximale Qualitätsstufe aus verlinkten Pressungen (KMW-Ableitung)
+  const maxQualitaetsstufe: string | null = (() => {
+    const kmwWerte = ((pressungenRaw ?? []) as R[])
+      .map(p => {
+        const kmw = parseFloat((p.pressung as R | null)?.kmw_grad)
+        return isNaN(kmw) ? null : kmwZuQualitaet(kmw)
+      })
+      .filter((q): q is string => q !== null)
+    if (kmwWerte.length === 0) return null
+    return minQualitaet(kmwWerte)
+  })()
 
   // Pressungen / Ernte (Zugänge)
   for (const p of ((pressungenRaw ?? []) as R[])) {
@@ -450,6 +463,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
             weingaerten={weingaerten}
             behaelter={behaelter}
             selectedWeingaertenIds={selectedWeingaertenIds}
+            maxQualitaetsstufe={maxQualitaetsstufe}
             action={updateWeinausbau.bind(null, id)}
           />
         </section>
