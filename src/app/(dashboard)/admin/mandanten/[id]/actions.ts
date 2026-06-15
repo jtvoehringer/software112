@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { encryptPass } from '@/lib/email/crypto'
 import { getCurrentUserRole } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
+import { stripe } from '@/lib/stripe/client'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -297,4 +298,92 @@ export async function saveSumUpConfig(tenantId: string, formData: FormData) {
   if (error) return { error: (error as any).message }
   revalidatePath(`/admin/mandanten/${tenantId}`)
   return null
+}
+
+
+// ── Stripe: Mandant als Customer anlegen ──────────────────────────────────────
+
+export async function createStripeCustomer(tenantId: string, tenantName: string, email: string) {
+  await assertSystemAdmin()
+  const admin = createSupabaseAdminClient()
+
+  // Prüfen ob schon ein Customer existiert
+  const { data: existing } = await (admin.from('tenants') as any)
+    .select('stripe_customer_id').eq('id', tenantId).maybeSingle()
+  if ((existing as R | null)?.stripe_customer_id) {
+    return { error: 'Stripe Customer existiert bereits.' }
+  }
+
+  const customer = await stripe.customers.create({
+    name:     tenantName,
+    email:    email || undefined,
+    metadata: { tenant_id: tenantId },
+  })
+
+  const { error } = await (admin.from('tenants') as any)
+    .update({ stripe_customer_id: customer.id }).eq('id', tenantId)
+  if (error) return { error: (error as R).message }
+
+  revalidatePath(`/admin/mandanten/${tenantId}`)
+  return { customerId: customer.id }
+}
+
+// ── Stripe: Checkout-Session erstellen (Abo abschließen) ─────────────────────
+
+export async function createStripeCheckoutSession(
+  tenantId: string,
+  customerId: string,
+  priceId: string,
+) {
+  await assertSystemAdmin()
+
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://software112.icp-consultants.at'
+
+  const session = await stripe.checkout.sessions.create({
+    customer:    customerId,
+    mode:        'subscription',
+    line_items:  [{ price: priceId, quantity: 1 }],
+    success_url: `${baseUrl}/admin/mandanten/${tenantId}?stripe=success`,
+    cancel_url:  `${baseUrl}/admin/mandanten/${tenantId}?stripe=cancelled`,
+    metadata:    { tenant_id: tenantId },
+    subscription_data: {
+      metadata: { tenant_id: tenantId },
+    },
+  })
+
+  return { url: session.url }
+}
+
+// ── Stripe: Customer Portal (Mandant verwaltet Abo selbst) ────────────────────
+
+export async function createStripePortalSession(tenantId: string, customerId: string) {
+  await assertSystemAdmin()
+
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://software112.icp-consultants.at'
+
+  const session = await stripe.billingPortal.sessions.create({
+    customer:   customerId,
+    return_url: `${baseUrl}/admin/mandanten/${tenantId}`,
+  })
+
+  return { url: session.url }
+}
+
+// ── Stripe: Subscription direkt kündigen ─────────────────────────────────────
+
+export async function cancelStripeSubscription(tenantId: string, subscriptionId: string) {
+  await assertSystemAdmin()
+
+  await stripe.subscriptions.cancel(subscriptionId)
+
+  const admin = createSupabaseAdminClient()
+  await (admin.from('tenants') as any).update({
+    stripe_status:            'cancelled',
+    stripe_subscription_id:   null,
+    stripe_plan:              null,
+    stripe_current_period_end: null,
+  }).eq('id', tenantId)
+
+  revalidatePath(`/admin/mandanten/${tenantId}`)
+  return { success: true }
 }

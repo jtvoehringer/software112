@@ -16,7 +16,12 @@ import {
   resetRechnungsZaehler,
   resetKundenZaehler,
   saveSumUpConfig,
+  createStripeCustomer,
+  createStripeCheckoutSession,
+  createStripePortalSession,
+  cancelStripeSubscription,
 } from './actions'
+import { STRIPE_STATUS_META, STRIPE_PLAN_LABELS } from '@/lib/stripe/client'
 import type { TenantDetail, TenantSettings, TenantMember } from './page'
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────
@@ -1160,7 +1165,145 @@ function SumUpTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
 
 // ── Haupt-Komponente ──────────────────────────────────────────────────────────
 
-type Tab = 'branding' | 'benutzer' | 'brevo' | 'module' | 'betrieb' | 'verkauf' | 'email' | 'm365' | 'sumup' | 'checkliste'
+
+// ── Tab: Stripe Abrechnung ────────────────────────────────────────────────────
+
+function StripeTab({ tenant }: { tenant: TenantDetail }) {
+  const router   = useRouter()
+  const [pending, startTransition] = useTransition()
+  const [error,  setError]   = useState<string | null>(null)
+  const [email,  setEmail]   = useState('')
+
+  const PLANS = [
+    { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_BASE          ?? '', label: 'Basis' },
+    { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_KI_BASIC      ?? '', label: 'KI Basic (+€9/Mo)' },
+    { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_KI_STANDARD   ?? '', label: 'KI Standard (+€19/Mo)' },
+    { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_KI_UNLIMITED  ?? '', label: 'KI Unlimited (+€49/Mo)' },
+  ]
+
+  const statusMeta = tenant.stripe_status ? (STRIPE_STATUS_META[tenant.stripe_status] ?? null) : null
+  const planLabel  = tenant.stripe_plan   ? (STRIPE_PLAN_LABELS[tenant.stripe_plan] ?? tenant.stripe_plan) : null
+
+  function handleCreateCustomer() {
+    if (!email) { setError('E-Mail für Stripe Customer erforderlich'); return }
+    setError(null)
+    startTransition(async () => {
+      const r = await createStripeCustomer(tenant.id, tenant.name, email)
+      if (r?.error) setError(r.error)
+      else router.refresh()
+    })
+  }
+
+  function handleCheckout(priceId: string) {
+    if (!tenant.stripe_customer_id) { setError('Zuerst Stripe Customer anlegen'); return }
+    setError(null)
+    startTransition(async () => {
+      const r = await createStripeCheckoutSession(tenant.id, tenant.stripe_customer_id!, priceId)
+      if (r?.url) window.location.href = r.url
+    })
+  }
+
+  function handlePortal() {
+    if (!tenant.stripe_customer_id) return
+    startTransition(async () => {
+      const r = await createStripePortalSession(tenant.id, tenant.stripe_customer_id!)
+      if (r?.url) window.location.href = r.url
+    })
+  }
+
+  function handleCancel() {
+    if (!tenant.stripe_subscription_id) return
+    if (!confirm('Abo wirklich sofort kündigen?')) return
+    startTransition(async () => {
+      await cancelStripeSubscription(tenant.id, tenant.stripe_subscription_id!)
+      router.refresh()
+    })
+  }
+
+  return (
+    <div className="space-y-6">
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">{error}</div>}
+
+      {/* Status-Karte */}
+      <div className="card p-4 space-y-3">
+        <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Abo-Status</h2>
+        <div className="flex items-center gap-3 flex-wrap">
+          {statusMeta
+            ? <span className={`text-sm font-semibold px-3 py-1 rounded-full ${statusMeta.color}`}>{statusMeta.label}</span>
+            : <span className="text-sm text-s112-muted italic">Kein Stripe-Abo</span>
+          }
+          {planLabel && <span className="text-sm text-gray-600">{planLabel}</span>}
+          {tenant.stripe_current_period_end && (
+            <span className="text-xs text-s112-muted">
+              Periode bis {new Date(tenant.stripe_current_period_end).toLocaleDateString('de-AT')}
+            </span>
+          )}
+        </div>
+        {tenant.stripe_customer_id && (
+          <p className="text-xs text-s112-muted font-mono">Customer: {tenant.stripe_customer_id}</p>
+        )}
+        {tenant.stripe_subscription_id && (
+          <p className="text-xs text-s112-muted font-mono">Subscription: {tenant.stripe_subscription_id}</p>
+        )}
+      </div>
+
+      {/* Customer anlegen */}
+      {!tenant.stripe_customer_id && (
+        <div className="card p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Stripe Customer anlegen</h2>
+          <div className="flex gap-2">
+            <input
+              type="email" value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="E-Mail des Mandanten"
+              className="form-input flex-1 text-sm"
+            />
+            <button
+              type="button" onClick={handleCreateCustomer} disabled={pending}
+              className="bg-s112-teal text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 whitespace-nowrap">
+              {pending ? 'Erstelle…' : '+ Customer anlegen'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Abo abschließen */}
+      {tenant.stripe_customer_id && !tenant.stripe_subscription_id && (
+        <div className="card p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Abonnement abschließen</h2>
+          <div className="grid grid-cols-2 gap-2">
+            {PLANS.filter(p => p.id).map(p => (
+              <button key={p.id} type="button" disabled={pending}
+                onClick={() => handleCheckout(p.id)}
+                className="border border-s112-border rounded-lg px-4 py-3 text-sm text-left hover:border-s112-teal hover:bg-s112-bg transition-colors disabled:opacity-50">
+                <span className="font-medium text-gray-800">{p.label}</span>
+                <span className="text-xs text-s112-muted block mt-0.5">→ Stripe Checkout</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Abo verwalten / kündigen */}
+      {tenant.stripe_subscription_id && (
+        <div className="card p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Abo verwalten</h2>
+          <div className="flex gap-2 flex-wrap">
+            <button type="button" onClick={handlePortal} disabled={pending}
+              className="bg-s112-teal text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50">
+              {pending ? 'Lade…' : '⚙ Stripe Kundenportal'}
+            </button>
+            <button type="button" onClick={handleCancel} disabled={pending}
+              className="border border-red-200 text-red-500 px-4 py-2 rounded-lg text-sm hover:bg-red-50 disabled:opacity-50">
+              Abo kündigen
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+type Tab = 'branding' | 'benutzer' | 'brevo' | 'module' | 'betrieb' | 'verkauf' | 'email' | 'm365' | 'sumup' | 'stripe' | 'checkliste'
 
 export default function MandantDetailClient({ tenant, settings, members }: {
   tenant:   TenantDetail
@@ -1190,6 +1333,7 @@ export default function MandantDetailClient({ tenant, settings, members }: {
     { id: 'email',       label: '✉ E-Mail'   },
     { id: 'm365',        label: '📅 M365'     },
     { id: 'sumup',       label: '💳 SumUp'    },
+    { id: 'stripe',      label: '💶 Stripe'   },
     { id: 'checkliste',  label: 'Checkliste' },
   ]
 
@@ -1235,6 +1379,9 @@ export default function MandantDetailClient({ tenant, settings, members }: {
           {settings.modul_ea         && <span className="text-xs bg-lime-100 text-lime-700 px-2 py-0.5 rounded-full">📒 E&A</span>}
           {settings.modul_fibu       && <span className="text-xs bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full">📘 FIBU</span>}
           {settings.modul_sumup      && <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">💳 SumUp</span>}
+          {tenant.stripe_status === 'active'   && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">💶 Abo aktiv</span>}
+          {tenant.stripe_status === 'past_due' && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">⚠️ Zahlung offen</span>}
+          {tenant.stripe_status === 'cancelled' && <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">⛔ Abo gekündigt</span>}
         </div>
       </div>
 
@@ -1264,6 +1411,7 @@ export default function MandantDetailClient({ tenant, settings, members }: {
       {tab === 'email'      && <EmailTab      tenant={tenant} settings={settings} />}
       {tab === 'm365'       && <M365Tab       tenant={tenant} settings={settings} />}
       {tab === 'sumup'      && <SumUpTab      tenant={tenant} settings={settings} />}
+      {tab === 'stripe'     && <StripeTab     tenant={tenant} />}
       {tab === 'checkliste' && <ChecklisteTab tenant={tenant} settings={settings} members={members} />}
     </div>
   )
