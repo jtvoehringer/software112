@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
           stripe_subscription_id:   sub.id,
           stripe_status:            sub.status,
           stripe_plan:              planFromPrice(priceId),
-          stripe_current_period_end: new Date((sub as R).current_period_end * 1000).toISOString(),
+          stripe_current_period_end: (sub as R).current_period_end ? new Date((sub as R).current_period_end * 1000).toISOString() : null,
         },
       )
       break
