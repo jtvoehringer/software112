@@ -52,10 +52,11 @@ export async function POST(req: NextRequest) {
     // ── Subscription angelegt / aktualisiert ────────────────────────────────
     case 'customer.subscription.created':
     case 'customer.subscription.updated': {
-      const sub     = event.data.object as Stripe.Subscription
-      const priceId = (sub.items.data[0]?.price?.id) ?? null
+      const sub        = event.data.object as Stripe.Subscription
+      const priceId    = (sub.items.data[0]?.price?.id) ?? null
+      const customerId = typeof sub.customer === 'string' ? sub.customer : (sub.customer as R).id as string
       await updateTenantStripe(admin,
-        { customer_id: sub.customer as string },
+        { customer_id: customerId },
         {
           stripe_subscription_id:   sub.id,
           stripe_status:            sub.status,
@@ -68,9 +69,10 @@ export async function POST(req: NextRequest) {
 
     // ── Subscription gekündigt ──────────────────────────────────────────────
     case 'customer.subscription.deleted': {
-      const sub = event.data.object as Stripe.Subscription
+      const sub        = event.data.object as Stripe.Subscription
+      const customerId = typeof sub.customer === 'string' ? sub.customer : (sub.customer as R).id as string
       await updateTenantStripe(admin,
-        { customer_id: sub.customer as string },
+        { customer_id: customerId },
         {
           stripe_subscription_id:   null,
           stripe_status:            'cancelled',
@@ -83,10 +85,11 @@ export async function POST(req: NextRequest) {
 
     // ── Zahlung erfolgreich ─────────────────────────────────────────────────
     case 'invoice.payment_succeeded': {
-      const inv = event.data.object as Stripe.Invoice
+      const inv        = event.data.object as Stripe.Invoice
+      const customerId = typeof inv.customer === 'string' ? inv.customer : (inv.customer as R).id as string
       if ((inv as R).subscription) {
         await updateTenantStripe(admin,
-          { customer_id: inv.customer as string },
+          { customer_id: customerId },
           { stripe_status: 'active' },
         )
       }
@@ -95,10 +98,11 @@ export async function POST(req: NextRequest) {
 
     // ── Zahlung fehlgeschlagen ──────────────────────────────────────────────
     case 'invoice.payment_failed': {
-      const inv = event.data.object as Stripe.Invoice
+      const inv        = event.data.object as Stripe.Invoice
+      const customerId = typeof inv.customer === 'string' ? inv.customer : (inv.customer as R).id as string
       if ((inv as R).subscription) {
         await updateTenantStripe(admin,
-          { customer_id: inv.customer as string },
+          { customer_id: customerId },
           { stripe_status: 'past_due' },
         )
       }
