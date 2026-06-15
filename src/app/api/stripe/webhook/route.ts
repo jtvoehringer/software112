@@ -55,6 +55,9 @@ export async function POST(req: NextRequest) {
       const sub        = event.data.object as Stripe.Subscription
       const priceId    = (sub.items.data[0]?.price?.id) ?? null
       const customerId = typeof sub.customer === 'string' ? sub.customer : (sub.customer as R).id as string
+      console.log('[Stripe Webhook] sub.customer raw:', JSON.stringify(sub.customer))
+      console.log('[Stripe Webhook] customerId:', customerId)
+      console.log('[Stripe Webhook] sub.id:', sub.id, 'status:', sub.status)
       await updateTenantStripe(admin,
         { customer_id: customerId },
         {
@@ -64,6 +67,7 @@ export async function POST(req: NextRequest) {
           stripe_current_period_end: (sub as R).current_period_end ? new Date((sub as R).current_period_end * 1000).toISOString() : null,
         },
       )
+      console.log('[Stripe Webhook] DB update done')
       break
     }
 
