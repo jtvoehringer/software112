@@ -790,6 +790,18 @@ export default function NeuerVerkaufPage() {
                     <span className="text-xs text-gray-500">%</span>
                   </div>
                 )}
+                {/* USt-Satz */}
+                <div className="flex items-center gap-1.5 text-xs text-gray-500 ml-auto">
+                  <span>USt:</span>
+                  <select value={pos.ust_satz}
+                    onChange={e => updatePos(idx, { ust_satz: e.target.value })}
+                    className="border border-s112-border rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40">
+                    <option value="0">0 %</option>
+                    <option value="10">10 %</option>
+                    <option value="13">13 %</option>
+                    <option value="20">20 %</option>
+                  </select>
+                </div>
               </div>
 
               {/* Preis-Vorschau */}
