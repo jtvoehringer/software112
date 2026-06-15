@@ -15,6 +15,9 @@ export type TenantBranding = {
   primary_color: string
   secondary_color: string
   modul_newsletter: boolean
+  modul_ea: boolean
+  modul_fibu: boolean
+  modul_sumup: boolean
 }
 
 const DEFAULT_BRANDING: TenantBranding = {
@@ -23,6 +26,9 @@ const DEFAULT_BRANDING: TenantBranding = {
   primary_color:    '#2a7c6f',
   secondary_color:  '#f5c842',
   modul_newsletter: false,
+  modul_ea:         false,
+  modul_fibu:       false,
+  modul_sumup:      false,
 }
 
 export default async function DashboardLayout({
@@ -46,7 +52,7 @@ export default async function DashboardLayout({
   let branding: TenantBranding = DEFAULT_BRANDING
   if (membership?.tenantId) {
     const { data } = await (supabase.from('tenant_einstellungen') as any)
-      .select('anzeigename, logo_url, primary_color, secondary_color, modul_newsletter, session_timeout_minuten')
+      .select('anzeigename, logo_url, primary_color, secondary_color, modul_newsletter, modul_ea, modul_fibu, modul_sumup, session_timeout_minuten')
       .eq('tenant_id', membership.tenantId)
       .maybeSingle()
 
@@ -59,6 +65,9 @@ export default async function DashboardLayout({
         session_timeout:  d.session_timeout_minuten ?? null,
         secondary_color:  d.secondary_color ?? DEFAULT_BRANDING.secondary_color,
         modul_newsletter: d.modul_newsletter ?? false,
+        modul_ea:         d.modul_ea ?? false,
+        modul_fibu:       d.modul_fibu ?? false,
+        modul_sumup:      d.modul_sumup ?? false,
       }
     }
   }

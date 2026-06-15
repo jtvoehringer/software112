@@ -35,6 +35,9 @@ export async function saveTenantSettings(tenantId: string, formData: FormData) {
     modul_crm:          formData.get('modul_crm') === 'true',
     modul_kellerbuch:   formData.get('modul_kellerbuch') === 'true',
     modul_weingarten:   formData.get('modul_weingarten') === 'true',
+    modul_ea:           formData.get('modul_ea')           === 'true',
+    modul_fibu:         formData.get('modul_fibu')         === 'true',
+    modul_sumup:        formData.get('modul_sumup')        === 'true',
     brevo_api_key:      (formData.get('brevo_api_key') as string) || null,
     brevo_sender_mail:  (formData.get('brevo_sender_mail') as string) || null,
     brevo_sender_name:  (formData.get('brevo_sender_name') as string) || null,
@@ -275,4 +278,23 @@ export async function renameTenantAdmin(tenantId: string, name: string) {
   if (error) throw new Error((error as R).message)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   revalidatePath('/admin/mandanten')
+}
+
+
+// ── SumUp-Konfiguration speichern ────────────────────────────────────────────
+
+export async function saveSumUpConfig(tenantId: string, formData: FormData) {
+  await assertSystemAdmin()
+  const admin = createSupabaseAdminClient()
+
+  const { error } = await (admin.from('tenant_einstellungen') as any).upsert({
+    tenant_id:           tenantId,
+    sumup_api_key:       (formData.get('sumup_api_key') as string) || null,
+    sumup_merchant_code: (formData.get('sumup_merchant_code') as string) || null,
+    aktualisiert_am:     new Date().toISOString(),
+  }, { onConflict: 'tenant_id' })
+
+  if (error) return { error: (error as any).message }
+  revalidatePath(`/admin/mandanten/${tenantId}`)
+  return null
 }

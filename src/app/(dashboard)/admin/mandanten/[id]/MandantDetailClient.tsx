@@ -15,6 +15,7 @@ import {
   saveBetriebEinstellungen,
   resetRechnungsZaehler,
   resetKundenZaehler,
+  saveSumUpConfig,
 } from './actions'
 import type { TenantDetail, TenantSettings, TenantMember } from './page'
 
@@ -399,6 +400,9 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
     modul_kellerbuch: settings.modul_kellerbuch,
     modul_crm:        settings.modul_crm,
     modul_newsletter: settings.modul_newsletter,
+    modul_ea:         settings.modul_ea         ?? false,
+    modul_fibu:       settings.modul_fibu        ?? false,
+    modul_sumup:      settings.modul_sumup       ?? false,
   })
 
   function toggle(key: keyof typeof mods) {
@@ -415,6 +419,9 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
     fd.set('modul_kellerbuch', mods.modul_kellerbuch  ? 'true' : 'false')
     fd.set('modul_crm',        mods.modul_crm         ? 'true' : 'false')
     fd.set('modul_newsletter', mods.modul_newsletter   ? 'true' : 'false')
+    fd.set('modul_ea',         mods.modul_ea           ? 'true' : 'false')
+    fd.set('modul_fibu',       mods.modul_fibu          ? 'true' : 'false')
+    fd.set('modul_sumup',      mods.modul_sumup         ? 'true' : 'false')
     fd.set('brevo_api_key',     settings.brevo_api_key ?? '')
     fd.set('brevo_sender_mail', settings.brevo_sender_mail ?? '')
     fd.set('brevo_sender_name', settings.brevo_sender_name ?? '')
@@ -437,6 +444,12 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
         <Toggle on={mods.modul_kellerbuch} onToggle={() => toggle('modul_kellerbuch')} label="🍷 Kellerbuch-Modul" />
         <Toggle on={mods.modul_crm}        onToggle={() => toggle('modul_crm')}        label="🤝 CRM-Modul" />
         <Toggle on={mods.modul_newsletter} onToggle={() => toggle('modul_newsletter')} label="📧 Newsletter-Modul (Brevo)" />
+        <Toggle on={mods.modul_ea}         onToggle={() => toggle('modul_ea')}         label="📒 E&A-Rechnung (§ 4 Abs. 3)" />
+        <Toggle on={mods.modul_fibu}       onToggle={() => {
+          if (!mods.modul_fibu && mods.modul_ea) toggle('modul_ea')
+          toggle('modul_fibu')
+        }} label="📘 FIBU – doppelte Buchhaltung" />
+        <Toggle on={mods.modul_sumup}      onToggle={() => toggle('modul_sumup')}      label="💳 SumUp Kartenterminal" />
       </div>
 
       <div className="flex items-center gap-3">
@@ -1079,9 +1092,67 @@ function ChecklisteTab({ tenant, settings, members }: {
   )
 }
 
+// ── Tab: SumUp ───────────────────────────────────────────────────────────────
+
+function SumUpTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
+  const [apiKey, setApiKey]         = useState((settings as any).sumup_api_key ?? '')
+  const [merchantCode, setMerchantCode] = useState((settings as any).sumup_merchant_code ?? '')
+  const [saving, setSaving]         = useState(false)
+  const [msg, setMsg]               = useState<string | null>(null)
+
+  if (!(settings as any).modul_sumup) {
+    return (
+      <div className="text-sm text-s112-muted py-8 text-center">
+        SumUp-Modul ist deaktiviert. Aktiviere es zuerst im Tab „Module".
+      </div>
+    )
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true); setMsg(null)
+    const fd = new FormData()
+    fd.set('sumup_api_key',       apiKey)
+    fd.set('sumup_merchant_code', merchantCode)
+    const res = await saveSumUpConfig(tenant.id, fd)
+    setMsg(res?.error ?? 'Gespeichert ✓')
+    setSaving(false)
+  }
+
+  return (
+    <div className="max-w-lg space-y-5">
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+        <strong>Hinweis:</strong> API-Key und Merchant-Code werden in der Datenbank gespeichert.
+        Für Produktionseinsatz empfiehlt sich Supabase Vault.
+      </div>
+      <form onSubmit={handleSave} className="space-y-4">
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">SumUp API Key</label>
+          <input value={apiKey} onChange={e => setApiKey(e.target.value)}
+            placeholder="sup_sk_…"
+            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+          <p className="text-xs text-s112-muted mt-1">Persönlicher Access-Token aus dem SumUp-Dashboard → API Keys</p>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Merchant Code</label>
+          <input value={merchantCode} onChange={e => setMerchantCode(e.target.value)}
+            placeholder="M…"
+            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+          <p className="text-xs text-s112-muted mt-1">Zu finden unter SumUp-Profil → Unternehmensinformationen</p>
+        </div>
+        {msg && <p className={`text-sm ${msg.includes('✓') ? 'text-green-600' : 'text-red-600'}`}>{msg}</p>}
+        <button type="submit" disabled={saving}
+          className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+          {saving ? 'Speichern…' : 'Speichern'}
+        </button>
+      </form>
+    </div>
+  )
+}
+
 // ── Haupt-Komponente ──────────────────────────────────────────────────────────
 
-type Tab = 'branding' | 'benutzer' | 'brevo' | 'module' | 'betrieb' | 'verkauf' | 'email' | 'm365' | 'checkliste'
+type Tab = 'branding' | 'benutzer' | 'brevo' | 'module' | 'betrieb' | 'verkauf' | 'email' | 'm365' | 'sumup' | 'checkliste'
 
 export default function MandantDetailClient({ tenant, settings, members }: {
   tenant:   TenantDetail
@@ -1110,6 +1181,7 @@ export default function MandantDetailClient({ tenant, settings, members }: {
     { id: 'verkauf',     label: 'Verkauf' },
     { id: 'email',       label: '✉ E-Mail'   },
     { id: 'm365',        label: '📅 M365'     },
+    { id: 'sumup',       label: '💳 SumUp'    },
     { id: 'checkliste',  label: 'Checkliste' },
   ]
 
@@ -1152,6 +1224,9 @@ export default function MandantDetailClient({ tenant, settings, members }: {
           {settings.modul_kellerbuch && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">🍷 Kellerbuch</span>}
           {settings.modul_crm        && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">🤝 CRM</span>}
           {settings.modul_newsletter && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">📧 Newsletter</span>}
+          {settings.modul_ea         && <span className="text-xs bg-lime-100 text-lime-700 px-2 py-0.5 rounded-full">📒 E&A</span>}
+          {settings.modul_fibu       && <span className="text-xs bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full">📘 FIBU</span>}
+          {settings.modul_sumup      && <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">💳 SumUp</span>}
         </div>
       </div>
 
@@ -1180,6 +1255,7 @@ export default function MandantDetailClient({ tenant, settings, members }: {
       {tab === 'verkauf'    && <VerkaufTab    tenant={tenant} settings={settings} />}
       {tab === 'email'      && <EmailTab      tenant={tenant} settings={settings} />}
       {tab === 'm365'       && <M365Tab       tenant={tenant} settings={settings} />}
+      {tab === 'sumup'      && <SumUpTab      tenant={tenant} settings={settings} />}
       {tab === 'checkliste' && <ChecklisteTab tenant={tenant} settings={settings} members={members} />}
     </div>
   )

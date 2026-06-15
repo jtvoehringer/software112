@@ -69,6 +69,15 @@ export type TenantSettings = {
   m365_token_expires_at: string | null
   m365_webhook_sub_id: string | null
   m365_webhook_expires: string | null
+  // Migration 098 – E&A, FIBU, SumUp
+  modul_ea:            boolean
+  modul_fibu:          boolean
+  modul_sumup:         boolean
+  ea_buchung_modus:    string
+  ea_kleinunternehmer: boolean
+  ea_uva_zeitraum:     string
+  sumup_api_key:       string | null
+  sumup_merchant_code: string | null
 }
 export type TenantMember = {
   id: string; userId: string; email: string; role: string; createdAt: string
@@ -168,6 +177,14 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     m365_webhook_sub_id:  s?.m365_webhook_sub_id ?? null,
     m365_webhook_expires: s?.m365_webhook_expires ?? null,
     session_timeout_minuten: s?.session_timeout_minuten ?? null,
+    modul_ea:            !!(s?.modul_ea),
+    modul_fibu:          !!(s?.modul_fibu),
+    modul_sumup:         !!(s?.modul_sumup),
+    ea_buchung_modus:    s?.ea_buchung_modus ?? 'brutto',
+    ea_kleinunternehmer: !!(s?.ea_kleinunternehmer),
+    ea_uva_zeitraum:     s?.ea_uva_zeitraum ?? 'quartalsweise',
+    sumup_api_key:       s?.sumup_api_key ?? null,
+    sumup_merchant_code: s?.sumup_merchant_code ?? null,
   }
 
   const members: TenantMember[] = ((memberships ?? []) as R[]).map(m => ({

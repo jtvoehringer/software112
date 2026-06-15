@@ -15,10 +15,12 @@ type NavItem = {
 }
 type NavGroup = {
   kind: 'group'; label: string; icon: string; items: NavItem[]; adminOnly?: boolean
+  modulKey?: 'modul_ea' | 'modul_fibu' | 'modul_sumup'
 }
 type NavLink = {
   kind: 'link'; href: string; label: string; icon: string
   phase?: number; adminOnly?: boolean
+  modulKey?: 'modul_ea' | 'modul_fibu' | 'modul_sumup'
 }
 type NavEntry = NavGroup | NavLink
 
@@ -69,6 +71,24 @@ const NAV: NavEntry[] = [
       { href: '/controlling/export',        label: 'Datenexport' },
       { href: '/controlling/bmd',           label: 'BMD NTCS'         },
       { href: '/controlling/kostenrechnung',label: 'Kostenrechnung'   },
+    ],
+  },
+
+  {
+    kind: 'group', label: 'E&A-Rechnung', icon: '📒', modulKey: 'modul_ea',
+    items: [
+      { href: '/buchhaltung',              label: 'Buchungen'         },
+      { href: '/buchhaltung/kategorien',   label: 'Kategorien', child: true },
+      { href: '/buchhaltung/dauerauftraege', label: 'Daueraufträge', child: true },
+      { href: '/buchhaltung/uva',          label: 'UVA-Meldung'      },
+    ],
+  },
+
+  {
+    kind: 'group', label: 'FIBU', icon: '📘', modulKey: 'modul_fibu',
+    items: [
+      { href: '/fibu',              label: 'Journal'        },
+      { href: '/fibu/kontenplan',   label: 'Kontenplan', child: true },
     ],
   },
 
@@ -263,6 +283,7 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
         {NAV.map((entry, i) => {
           if (entry.kind === 'group') {
             if (entry.adminOnly && !isAdmin) return null
+            if (entry.modulKey && !branding[entry.modulKey]) return null
             if (collapsed) {
               // Im Collapsed-Modus: nur Icon als Link zum ersten Sub-Item
               const firstItem = entry.items.filter(it => !it.adminOnly || isAdmin).find(it => it.phase !== 2)
@@ -282,6 +303,7 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
 
           // Einzel-Link
           if (entry.adminOnly && !isAdmin) return null
+          if (entry.modulKey && !branding[entry.modulKey]) return null
           const active   = isActive(entry.href, pathname)
           const disabled = entry.phase === 2
 
