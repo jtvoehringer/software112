@@ -41,7 +41,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
       .order('nachname'),
 
     (supabase.from('aktivitaeten') as any)
-      .select('*')
+      .select('*, aktivitaet_dokumente(id, dateiname, dateityp, groesse_bytes, erstellt_am)')
       .eq('firma_id', id)
       .order('datum', { ascending: false }),
 
@@ -83,6 +83,10 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     beschreibung: a.beschreibung ?? null, datum: a.datum,
     ganztags: a.ganztags ?? true, uhrzeit_von: a.uhrzeit_von ?? null, uhrzeit_bis: a.uhrzeit_bis ?? null,
     erledigt: a.erledigt, kontakt_id: a.kontakt_id ?? null, firma_id: a.firma_id ?? null,
+    dokumente: (a.aktivitaet_dokumente ?? []).map((d: R) => ({
+      id: d.id, aktivitaet_id: a.id, dateiname: d.dateiname, dateityp: d.dateityp,
+      groesse_bytes: d.groesse_bytes ?? null, storage_pfad: '', erstellt_am: d.erstellt_am,
+    })),
   }))
 
   const pipeline: PipelineEintragRow[] = ((pRaw ?? []) as R[]).map(p => ({
@@ -97,13 +101,11 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     aktualisiert_am: p.aktualisiert_am,
   }))
 
-  return (
-    <FirmaDetailClient
-      firma={firma}
-      kontakte={kontakte}
-      aktivitaeten={aktivitaeten}
-      pipeline={pipeline}
-      writeOk={writeOk}
-    />
-  )
+  return <FirmaDetailClient
+    firma={firma}
+    kontakte={kontakte}
+    aktivitaeten={aktivitaeten}
+    pipeline={pipeline}
+    writeOk={writeOk}
+  />
 }

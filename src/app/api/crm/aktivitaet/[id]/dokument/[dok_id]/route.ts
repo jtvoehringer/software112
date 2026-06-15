@@ -1,0 +1,61 @@
+import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { NextRequest, NextResponse } from 'next/server'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type R = Record<string, any>
+
+// GET /api/crm/aktivitaet/[id]/dokument/[dok_id] – Signed URL (Redirect)
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string; dok_id: string }> }
+) {
+  const { dok_id } = await params
+  const supabase = await createSupabaseServerClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
+
+  const { data: dok } = await (supabase.from('aktivitaet_dokumente') as any)
+    .select('storage_pfad, dateiname').eq('id', dok_id).single()
+  if (!dok) return NextResponse.json({ error: 'Dokument nicht gefunden' }, { status: 404 })
+
+  const { data: signed, error } = await supabase.storage
+    .from('aktivitaet-dokumente')
+    .createSignedUrl((dok as R).storage_pfad, 60)  // 60s gültig
+
+  if (error || !signed?.signedUrl) return NextResponse.json({ error: 'Signed URL Fehler' }, { status: 500 })
+
+  return NextResponse.redirect(signed.signedUrl)
+}
+
+// DELETE /api/crm/aktivitaet/[id]/dokument/[dok_id]
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string; dok_id: string }> }
+) {
+  const { dok_id } = await params
+  const supabase = await createSupabaseServerClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
+
+  const { data: { session } } = await supabase.auth.getSession()
+
+  const { data: memb } = await (supabase.from('tenant_memberships') as any)
+    .select('tenant_id, rolle').eq('user_id', user.id).limit(1).single()
+  const tenantId = (memb as R | null)?.tenant_id
+  if (!tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 403 })
+
+  const { data: dok } = await (supabase.from('aktivitaet_dokumente') as any)
+    .select('id, storage_pfad, tenant_id').eq('id', dok_id).eq('tenant_id', tenantId).single()
+  if (!dok) return NextResponse.json({ error: 'Dokument nicht gefunden' }, { status: 404 })
+
+  // Storage löschen
+  await supabase.storage.from('aktivitaet-dokumente').remove([(dok as R).storage_pfad])
+
+  // DB-Eintrag löschen
+  const { error } = await (supabase.from('aktivitaet_dokumente') as any).delete().eq('id', dok_id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ ok: true })
+}

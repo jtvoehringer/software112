@@ -59,11 +59,12 @@ export function kmwZuQualitaet(kmw: number): string {
   return 'landwein'
 }
 
-/** true wenn b eine niedrigere Qualitätsstufe ist als a */
-export function istNiedrigerAls(a: string | null, b: string | null): boolean {
-  if (!a || !b || b === 'sonstiges') return false
+/** Prüft ob Stufe `a` im Qualitätsrang niedriger ist als Stufe `b`.
+ *  Gibt false zurück wenn eine der Stufen unbekannt ist. */
+export function istNiedrigerAls(a: string | null | undefined, b: string | null | undefined): boolean {
+  if (!a || !b) return false
   const idxA = QUALITAET_ORDER.indexOf(a as typeof QUALITAET_ORDER[number])
   const idxB = QUALITAET_ORDER.indexOf(b as typeof QUALITAET_ORDER[number])
   if (idxA === -1 || idxB === -1) return false
-  return idxB < idxA
+  return idxA < idxB
 }

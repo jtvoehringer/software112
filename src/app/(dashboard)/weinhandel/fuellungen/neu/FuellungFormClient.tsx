@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
+import { KN_CODES } from '@/lib/wein/zolltarif'
 
 type Charge = {
   id: string
@@ -381,6 +382,27 @@ export default function FuellungFormClient({
         </div>
       </div>
 
+      {/* Export */}
+      <div className="card p-5 space-y-3">
+        <h2 className="font-semibold text-gray-800 text-sm">Export (intern)</h2>
+        <div>
+          <label className={labelCls}>
+            KN-Code / Zolltarifnummer{' '}
+            <span className="text-s112-muted font-normal">– nur für Exportdokumente, wird nicht gedruckt</span>
+          </label>
+          <select name="zolltarifnummer" defaultValue="" className={inputCls}>
+            <option value="">– kein KN-Code –</option>
+            {Array.from(new Set(KN_CODES.map(k => k.gruppe))).map(gruppe => (
+              <optgroup key={gruppe} label={gruppe}>
+                {KN_CODES.filter(k => k.gruppe === gruppe).map(k => (
+                  <option key={k.value} value={k.value}>{k.label}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </div>
+      </div>
+
       {/* Notizen */}
       <div className="card p-5">
         <label className={labelCls}>Notizen (optional)</label>
@@ -396,11 +418,9 @@ export default function FuellungFormClient({
         <button
           type="submit"
           className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
-          🍾 Füllung anlegen
+          Füllung anlegen
         </button>
-        <Link
-          href="/weinhandel"
-          className="px-6 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors">
+        <Link href="/weinhandel" className="px-6 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors">
           Abbrechen
         </Link>
       </div>

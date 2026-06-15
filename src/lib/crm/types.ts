@@ -128,6 +128,16 @@ export type FirmaRow = {
   kontakt_anzahl?: number
 }
 
+export type AktivitaetDokument = {
+  id: string
+  aktivitaet_id: string
+  dateiname: string
+  dateityp: string
+  groesse_bytes: number | null
+  storage_pfad: string
+  erstellt_am: string
+}
+
 export type AktivitaetRow = {
   id: string
   art: string
@@ -152,6 +162,7 @@ export type AktivitaetRow = {
   email_an?: string | null
   email_body?: string | null
   email_body_html?: string | null
+  dokumente?: AktivitaetDokument[]
 }
 
 export type PipelineEintragRow = {
@@ -175,10 +186,9 @@ export type PipelineEintragRow = {
   aktualisiert_am: string
 }
 
-// ── Hilfsfunktionen ───────────────────────────────────────────────────────────
-
-/** "14:30:00" → "14:30" */
-export function fmtUhrzeit(t: string | null | undefined): string | null {
-  if (!t) return null
-  return t.slice(0, 5)
+// ── Hilfsfunktionen ───────────────────────────────────
+/** Formatiert eine PostgreSQL time-Spalte "HH:MM:SS" → "HH:MM" für die Anzeige */
+export function fmtUhrzeit(t: string | null | undefined): string {
+  if (!t) return ''
+  return t.slice(0, 5)   // "09:30:00" → "09:30"
 }

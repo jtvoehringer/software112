@@ -35,7 +35,7 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
       .single(),
 
     (supabase.from('aktivitaeten') as any)
-      .select('*')
+      .select('*, aktivitaet_dokumente(id, dateiname, dateityp, groesse_bytes, erstellt_am)')
       .eq('kontakt_id', id)
       .order('datum', { ascending: false }),
 
@@ -92,6 +92,10 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
     email_body: a.email_body ?? null,
     email_body_html: a.email_body_html ?? null,
     ist_privat: a.ist_privat ?? null,
+    dokumente: (a.aktivitaet_dokumente ?? []).map((d: R) => ({
+      id: d.id, aktivitaet_id: a.id, dateiname: d.dateiname, dateityp: d.dateityp,
+      groesse_bytes: d.groesse_bytes ?? null, storage_pfad: '', erstellt_am: d.erstellt_am,
+    })),
   }))
 
   const pipeline: PipelineEintragRow[] = ((pRaw ?? []) as R[]).map(p => ({
@@ -106,13 +110,11 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
     aktualisiert_am: p.aktualisiert_am,
   }))
 
-  return (
-    <KontaktDetailClient
-      kontakt={kontakt}
-      firmaSegment={firmaSegment}
-      aktivitaeten={aktivitaeten}
-      pipeline={pipeline}
-      writeOk={writeOk}
-    />
-  )
+  return <KontaktDetailClient
+    kontakt={kontakt}
+    firmaSegment={firmaSegment}
+    aktivitaeten={aktivitaeten}
+    pipeline={pipeline}
+    writeOk={writeOk}
+  />
 }

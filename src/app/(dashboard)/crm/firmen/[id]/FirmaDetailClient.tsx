@@ -8,6 +8,7 @@ import {
   segmentLabel, segmentFarbe, fmtUhrzeit,
 } from '@/lib/crm/types'
 import type { FirmaRow, KontaktRow, AktivitaetRow, PipelineEintragRow } from '@/lib/crm/types'
+import DokumentePanel from '../../DokumentePanel'
 
 function inputCls() {
   return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
@@ -312,6 +313,12 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
         {a.beschreibung && !emailOpen && a.art !== 'email' && (
           <p className="text-xs text-gray-500 mt-0.5">{a.beschreibung}</p>
         )}
+        {/* Dokumente */}
+        <DokumentePanel
+          aktivitaetId={a.id}
+          initialDokumente={a.dokumente ?? []}
+          writeOk={writeOk}
+        />
         {a.art === 'email' && replyOpen && (
           <div className="mt-2 space-y-2">
             <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={3}

@@ -65,6 +65,7 @@ export async function createFuellung(formData: FormData) {
     })(),
     vk_preis_brutto:      parseFloat(formData.get('vk_preis_brutto') as string) || null,
     einstandspreis:       parseFloat(formData.get('einstandspreis') as string) || null,
+    zolltarifnummer:      (formData.get('zolltarifnummer') as string) || null,
     notizen:              (formData.get('notizen') as string) || null,
   }
 
@@ -144,6 +145,7 @@ export async function updateFuellung(id: string, formData: FormData) {
     vk_preis_brutto:      parseFloat(formData.get('vk_preis_brutto') as string) || null,
     weinausbau_id:        (formData.get('weinausbau_id') as string) || null,
     einstandspreis:       parseFloat(formData.get('einstandspreis') as string) || null,
+    zolltarifnummer:      (formData.get('zolltarifnummer') as string) || null,
     notizen:              (formData.get('notizen') as string) || null,
     aktualisiert_am:      new Date().toISOString(),
   }
@@ -191,7 +193,6 @@ export async function deactivateFuellung(id: string) {
   const supabase = await createSupabaseServerClient()
   const { error } = await (supabase.from('fuellungen') as any)
     .update({ aktiv: false, aktualisiert_am: new Date().toISOString() })
-    .eq('id', id)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/weinhandel')
 }

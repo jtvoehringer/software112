@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { updateFuellung, schwundAusbuchen } from '../../../actions'
+import { KN_CODES } from '@/lib/wein/zolltarif'
 
 export const metadata: Metadata = { title: 'Füllung bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -291,6 +292,27 @@ export default async function EditFuellungPage({
               />
               <p className="text-xs text-s112-muted mt-1">Kalkulationskosten / Lagerwert – netto, intern</p>
             </div>
+          </div>
+        </div>
+
+        {/* ── Export / Zoll ── */}
+        <div className="card p-5 space-y-3">
+          <h2 className="font-semibold text-gray-800 text-sm">Export (intern)</h2>
+          <div>
+            <label className={labelCls}>
+              KN-Code / Zolltarifnummer{' '}
+              <span className="text-s112-muted font-normal">– nur für Exportdokumente, wird nicht gedruckt</span>
+            </label>
+            <select name="zolltarifnummer" defaultValue={f.zolltarifnummer ?? ''} className={inputCls}>
+              <option value="">– kein KN-Code –</option>
+              {Array.from(new Set(KN_CODES.map(k => k.gruppe))).map(gruppe => (
+                <optgroup key={gruppe} label={gruppe}>
+                  {KN_CODES.filter(k => k.gruppe === gruppe).map(k => (
+                    <option key={k.value} value={k.value}>{k.label}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
           </div>
         </div>
 
