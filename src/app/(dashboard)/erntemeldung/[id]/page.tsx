@@ -63,7 +63,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     // Pressungen mit Sub-Tabellen
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('pressungen') as any)
-      .select(`id, datum, most_liter_gesamt, weinbezeichnung, notizen,
+      .select(`id, datum, most_liter_gesamt, weinbezeichnung, notizen, kmw_grad,
         weingaerten:pressung_weingaerten(id, weingarten_id, trauben_kg, rebsorte, notizen, weingarten:weingarten_id(name)),
         behaelter:pressung_behaelter(id, behaelter_id, weinausbau_id, menge_liter, notizen, behaelter:behaelter_id(name), weinausbau:weinausbau_id(name, jahrgang))`)
       .eq('jahrgang_id', id).order('datum', { ascending: false }),
@@ -100,7 +100,7 @@ export default async function ErnteDetailPage({ params }: Props) {
 
   const pressungen: Pressung[] = ((rawPressungen ?? []) as AR[]).map(p => ({
     id: p.id, datum: p.datum, most_liter_gesamt: p.most_liter_gesamt ?? null,
-    weinbezeichnung: p.weinbezeichnung ?? null, notizen: p.notizen ?? null,
+    weinbezeichnung: p.weinbezeichnung ?? null, notizen: p.notizen ?? null, kmw_grad: p.kmw_grad ?? null,
     weingaerten: ((p.weingaerten ?? []) as AR[]).map((w: AR): PressungWG => ({
       id: w.id, weingarten_id: w.weingarten_id,
       weingarten_name: w.weingarten?.name ?? '–',

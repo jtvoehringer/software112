@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { upsertPressung, deletePressung } from '../actions'
 import { fmtProzent } from '@/lib/format'
+import { kmwZuQualitaet, QUALITAET_LABEL } from '@/lib/weinqualitaet'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -17,7 +18,7 @@ export type PressungBeh = {
 }
 export type Pressung = {
   id: string; datum: string; most_liter_gesamt: number | null
-  weinbezeichnung: string | null; notizen: string | null
+  weinbezeichnung: string | null; notizen: string | null; kmw_grad: number | null
   weingaerten: PressungWG[]; behaelter: PressungBeh[]
 }
 export type WGOption  = { id: string; name: string; rebsorte: string | null }
@@ -49,7 +50,11 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
   const [datum, setDatum]                   = useState(pressung?.datum ?? new Date().toISOString().split('T')[0])
   const [mostLiter, setMostLiter]           = useState(pressung?.most_liter_gesamt?.toString().replace('.', ',') ?? '')
   const [weinbezeichnung, setWeinbez]       = useState(pressung?.weinbezeichnung ?? '')
+  const [kmwGrad, setKmwGrad]              = useState(pressung?.kmw_grad?.toString().replace('.', ',') ?? '')
   const [notizen, setNotizen]               = useState(pressung?.notizen ?? '')
+
+  const kmwNum     = parseFloat(kmwGrad.replace(',', '.'))
+  const kmwQualitaet = !isNaN(kmwNum) && kmwNum > 0 ? kmwZuQualitaet(kmwNum) : null
   // Pre-fill aus Erntedaten: nach Weingarten gruppieren + kg summieren
   const defaultWGRows: WGRow[] = pressung
     ? pressung.weingaerten.map(w => ({
@@ -105,6 +110,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     fd.append('datum', datum)
     fd.append('most_liter_gesamt', mostLiter)
     fd.append('weinbezeichnung', weinbezeichnung)
+    fd.append('kmw_grad', kmwGrad)
     fd.append('notizen', notizen)
     fd.append('weingaerten_json', JSON.stringify(
       wgRows.filter(r => r.weingarten_id && r.trauben_kg).map(r => ({
@@ -141,6 +147,18 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
           <label className="block text-xs font-medium text-gray-600 mb-1">Mostausbeute gesamt (L)</label>
           <input type="text" inputMode="decimal" value={mostLiter} onChange={e => setMostLiter(e.target.value)}
             placeholder="z.B. 1.050" className={inp} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">KMW° (Mostgewicht)</label>
+          <div className="flex items-center gap-2">
+            <input type="text" inputMode="decimal" value={kmwGrad} onChange={e => setKmwGrad(e.target.value)}
+              placeholder="z.B. 17,5" className={inp} />
+            {kmwQualitaet && (
+              <span className="shrink-0 text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap">
+                → {QUALITAET_LABEL[kmwQualitaet]}
+              </span>
+            )}
+          </div>
         </div>
         <div className="col-span-2">
           <label className="block text-xs font-medium text-gray-600 mb-1">
@@ -360,6 +378,12 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                             {fmtProzent(pAusbeute)} %
                           </span>}
                         </>}
+                        {p.kmw_grad != null && (
+                          <span className="font-semibold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
+                            {p.kmw_grad.toString().replace('.', ',')} °KMW
+                            {' · '}{QUALITAET_LABEL[kmwZuQualitaet(p.kmw_grad)]}
+                          </span>
+                        )}
                         {writeOk && <button onClick={() => setEditId(p.id)} className="text-s112-teal hover:underline">Bearb.</button>}
                         {adminOk && <button onClick={() => handleDelete(p.id)} className="text-red-400 hover:text-red-600">Löschen</button>}
                       </div>

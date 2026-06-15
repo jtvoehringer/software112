@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -212,6 +213,8 @@ export async function upsertPressung(fd: FormData) {
   const datum            = fd.get('datum') as string
   const mostLiter        = fd.get('most_liter_gesamt') ? parseFloat((fd.get('most_liter_gesamt') as string).replace(',', '.')) : null
   const weinbezeichnung  = (fd.get('weinbezeichnung') as string) || null
+  const kmwRaw           = (fd.get('kmw_grad') as string || '').replace(',', '.')
+  const kmwGrad          = kmwRaw ? parseFloat(kmwRaw) : null
   const notizen          = (fd.get('notizen') as string) || null
   const wgJson      = fd.get('weingaerten_json') as string
   const behJson     = fd.get('behaelter_json') as string
@@ -223,7 +226,7 @@ export async function upsertPressung(fd: FormData) {
   if (existingId) {
     pressId = existingId
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('pressungen') as any).update({ datum, most_liter_gesamt: mostLiter, weinbezeichnung, notizen }).eq('id', existingId)
+    await (supabase.from('pressungen') as any).update({ datum, most_liter_gesamt: mostLiter, weinbezeichnung, kmw_grad: kmwGrad, notizen }).eq('id', existingId)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('pressung_weingaerten') as any).delete().eq('pressung_id', existingId)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -237,7 +240,7 @@ export async function upsertPressung(fd: FormData) {
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: neu } = await (supabase.from('pressungen') as any)
-      .insert({ tenant_id: tenantId, jahrgang_id: jahrgangId, datum, most_liter_gesamt: mostLiter, weinbezeichnung, notizen })
+      .insert({ tenant_id: tenantId, jahrgang_id: jahrgangId, datum, most_liter_gesamt: mostLiter, weinbezeichnung, kmw_grad: kmwGrad, notizen })
       .select('id').single()
     pressId = (neu as AR).id
     if (weingaerten.length > 0)
@@ -267,6 +270,8 @@ export async function upsertPressung(fd: FormData) {
     .select('jahrgang, qualitaet_gesamt').eq('id', jahrgangId).single()
   const jgJahr      = (jgData as AR)?.jahrgang as number | null
   const jgQualitaet = (jgData as AR)?.qualitaet_gesamt as string | null
+  // KMW-abgeleitete Qualität hat Vorrang vor Jahrgangs-Qualität
+  const autoQualitaet = kmwGrad != null && !isNaN(kmwGrad) ? kmwZuQualitaet(kmwGrad) : (jgQualitaet ?? null)
 
   // Weinname ableiten: Bezeichnung > Rebsorte (wenn nur eine) > "Pressung Datum"
   const rebsortenList = weingaerten.map(w => w.rebsorte).filter(Boolean)
@@ -297,7 +302,7 @@ export async function upsertPressung(fd: FormData) {
           menge_liter:     beh.menge_liter ?? null,
           status:          'gaerung',
           behaelter_id:    beh.behaelter_id,
-          qualitaetsstufe: jgQualitaet ?? null,
+          qualitaetsstufe: autoQualitaet,
           aktiv:           true,
         })
         .select('id').single()

@@ -46,6 +46,19 @@ export function minQualitaet(stufen: (string | null | undefined)[]): string | nu
   return minVal
 }
 
+/** Leitet die Qualitätsstufe aus dem KMW-Grad (Klosterneuburger Mostwaage) ab.
+ *  Quelle: Österreichisches Weingesetz (oesterreichwein.at)
+ *  Eiswein / Strohwein / Ausbruch werden NICHT auto-abgeleitet (Sonderbedingungen). */
+export function kmwZuQualitaet(kmw: number): string {
+  if (kmw >= 30) return 'trockenbeerenauslese'
+  if (kmw >= 25) return 'beerenauslese'
+  if (kmw >= 21) return 'auslese'
+  if (kmw >= 19) return 'spaetlese'
+  if (kmw >= 17) return 'kabinett'
+  if (kmw >= 15) return 'qualitaetswein'
+  return 'landwein'
+}
+
 /** true wenn b eine niedrigere Qualitätsstufe ist als a */
 export function istNiedrigerAls(a: string | null, b: string | null): boolean {
   if (!a || !b || b === 'sonstiges') return false
