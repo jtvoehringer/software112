@@ -449,7 +449,15 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
           if (!mods.modul_fibu && mods.modul_ea) toggle('modul_ea')
           toggle('modul_fibu')
         }} label="📘 FIBU – doppelte Buchhaltung" />
-        <Toggle on={mods.modul_sumup}      onToggle={() => toggle('modul_sumup')}      label="💳 SumUp Kartenterminal" />
+        <Toggle on={mods.modul_sumup} onToggle={() => {
+            if (!mods.modul_sumup && !mods.modul_ea && !mods.modul_fibu) toggle('modul_ea')
+            toggle('modul_sumup')
+          }} label="💳 SumUp Kartenterminal" />
+          {!mods.modul_ea && !mods.modul_fibu && (
+            <p className="text-xs text-amber-600 -mt-2 ml-12">
+              ⚠ Erfordert E&amp;A oder FIBU – Aktivierung schaltet E&amp;A automatisch mit ein
+            </p>
+          )}
       </div>
 
       <div className="flex items-center gap-3">

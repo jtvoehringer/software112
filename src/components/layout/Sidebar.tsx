@@ -12,6 +12,7 @@ import type { TenantBranding } from '@/app/(dashboard)/layout'
 
 type NavItem = {
   href: string; label: string; phase?: number; adminOnly?: boolean; child?: boolean
+  hideIfModul?: Array<'modul_ea' | 'modul_fibu' | 'modul_sumup'>
 }
 type NavGroup = {
   kind: 'group'; label: string; icon: string; items: NavItem[]; adminOnly?: boolean
@@ -56,7 +57,7 @@ const NAV: NavEntry[] = [
     items: [
       { href: '/weinhandel',              label: 'Warenlager',  phase: 1 },
       { href: '/weinhandel/verkauf',        label: 'Verkauf',       phase: 1 },
-      { href: '/weinhandel/offene-posten',  label: 'Offene Posten',  phase: 1 },
+      { href: '/weinhandel/offene-posten',  label: 'Offene Posten',  phase: 1, hideIfModul: ['modul_ea', 'modul_fibu'] },
       { href: '/weinhandel/zukauf',          label: 'Zukauf',         phase: 1 },
       { href: '/weinhandel/sonstige-artikel', label: 'Sonstiges-Produkte', phase: 1 },
       { href: '/weinhandel/preisliste',    label: 'Preisliste',     phase: 1 },
@@ -284,10 +285,14 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
           if (entry.kind === 'group') {
             if (entry.adminOnly && !isAdmin) return null
             if (entry.modulKey && !branding[entry.modulKey]) return null
+            const filteredItems = entry.items.filter(it =>
+              !it.hideIfModul?.some(m => branding[m as keyof TenantBranding])
+            )
+            const filteredEntry = { ...entry, items: filteredItems }
             if (collapsed) {
               // Im Collapsed-Modus: nur Icon als Link zum ersten Sub-Item
-              const firstItem = entry.items.filter(it => !it.adminOnly || isAdmin).find(it => it.phase !== 2)
-              const isGroupActive = groupIsActive(entry.items, pathname)
+              const firstItem = filteredItems.filter(it => !it.adminOnly || isAdmin).find(it => it.phase !== 2)
+              const isGroupActive = groupIsActive(filteredItems, pathname)
               if (!firstItem) return null
               return (
                 <Link key={i} href={firstItem.href} title={entry.label}
@@ -297,7 +302,7 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
               )
             }
             return (
-              <NavGroupItem key={i} entry={entry} pathname={pathname} isAdmin={isAdmin} />
+              <NavGroupItem key={i} entry={filteredEntry} pathname={pathname} isAdmin={isAdmin} />
             )
           }
 
