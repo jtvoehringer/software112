@@ -1050,17 +1050,19 @@ function CheckItem({ ok, label, hint }: { ok: boolean; label: string; hint?: str
 function ChecklisteTab({ tenant, settings, members }: {
   tenant: TenantDetail; settings: TenantSettings; members: TenantMember[]
 }) {
-  const hasLogo     = !!settings.logo_url
-  const hasName     = !!settings.anzeigename
-  const hasUser     = members.filter(m => m.role !== 'system_admin').length > 0
-  const hasBrevo    = !settings.modul_newsletter || (
+  const hasLogo         = !!settings.logo_url
+  const hasName         = !!settings.anzeigename
+  const hasUser         = members.filter(m => m.role !== 'system_admin').length > 0
+  const hasBrevo        = !settings.modul_newsletter || (
     !!settings.brevo_api_key && !!settings.brevo_sender_mail && !!settings.brevo_sender_name
   )
-  const hasListen   = !settings.modul_newsletter || (
+  const hasListen       = !settings.modul_newsletter || (
     !!settings.brevo_list_privat && !!settings.brevo_list_gastro
   )
+  const hasStripeCustomer  = !!tenant.stripe_customer_id
+  const hasStripeAbo       = !!tenant.stripe_subscription_id && tenant.stripe_status === 'active'
 
-  const allOk = hasLogo && hasName && hasUser && hasBrevo && hasListen
+  const allOk = hasLogo && hasName && hasUser && hasBrevo && hasListen && hasStripeCustomer && hasStripeAbo
 
   return (
     <div className="space-y-4 max-w-lg">
@@ -1091,6 +1093,12 @@ function ChecklisteTab({ tenant, settings, members }: {
               hint="→ Tab Brevo: Mindestens Privat und Gastronomie eintragen. IDs findest du unter app.brevo.com → Contacts → Lists." />
           </>
         )}
+        <CheckItem ok={hasStripeCustomer}
+          label="Stripe Customer angelegt"
+          hint="→ Tab Stripe: E-Mail eintragen und auf '+ Customer anlegen' klicken." />
+        <CheckItem ok={hasStripeAbo}
+          label="Stripe Abonnement aktiv"
+          hint="→ Tab Stripe: Plan wählen → Stripe Checkout öffnet sich → Zahlungsdaten eingeben." />
       </div>
 
       <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 space-y-2">
@@ -1098,6 +1106,9 @@ function ChecklisteTab({ tenant, settings, members }: {
         <p>1. Klicke auf <strong>Benutzer einladen</strong> und trage die E-Mail-Adresse ein.</p>
         <p>2. Supabase sendet automatisch eine Einladungs-E-Mail mit Link zum Passwort setzen.</p>
         <p>3. Nach Passwort-Setzen kann sich der Benutzer unter <a href="https://software112.icp-consultants.at/login" target="_blank" rel="noreferrer" className="underline">software112.icp-consultants.at/login</a> anmelden.</p>
+        <p className="font-semibold mt-2">Stripe Webhook (einmalig global, nicht pro Mandant)</p>
+        <p>Endpoint in Stripe Dashboard registrieren: <code className="bg-white/60 px-1 rounded font-mono">https://software112.icp-consultants.at/api/stripe/webhook</code></p>
+        <p>Events: <code className="bg-white/60 px-1 rounded font-mono">customer.subscription.*</code>, <code className="bg-white/60 px-1 rounded font-mono">invoice.payment_succeeded</code>, <code className="bg-white/60 px-1 rounded font-mono">invoice.payment_failed</code></p>
         <p className="font-semibold mt-2">Tenant-ID (für technische Konfiguration)</p>
         <code className="bg-white/60 px-2 py-0.5 rounded font-mono">{tenant.id}</code>
       </div>
