@@ -605,7 +605,7 @@ function ZeitachseView({
                       dur = Math.max(30, (h2*60+m2) - (h1*60+m1))
                     }
                     return (
-                      <Link key={e.id} href={e.href}
+                      <div key={e.id}
                         draggable={isAkt}
                         onDragStart={isAkt ? (ev) => {
                           ev.dataTransfer.setData('text/plain', aktId)
@@ -613,10 +613,10 @@ function ZeitachseView({
                           setDragInfo({ id: aktId, duration: dur })
                         } : undefined}
                         onDragEnd={() => { setDragInfo(null); setDropTarget(null) }}
-                        onClick={e => { if (dragInfo) e.preventDefault() }}
+                        onClick={ev => { if (!dragInfo) { ev.stopPropagation(); setViewAkt(e) } }}
                         className={`absolute left-1 right-1 overflow-hidden rounded border z-10 transition-opacity
                           ${farbe}
-                          ${isAkt ? 'cursor-grab active:cursor-grabbing' : ''}
+                          ${isAkt ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}
                           ${beingDragged ? 'opacity-30' : 'hover:opacity-80'}`}
                         style={{ top: `${top}px`, height: `${h}px`, minHeight: `${HOUR_H / 2}px` }}>
                         <div className="px-1.5 py-0.5">
@@ -632,7 +632,7 @@ function ZeitachseView({
                             </div>
                           )}
                         </div>
-                      </Link>
+                      </div>
                     )
                   })}
                   {/* Current time indicator */}
