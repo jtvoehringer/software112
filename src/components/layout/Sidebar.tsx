@@ -123,6 +123,7 @@ const NAV: NavEntry[] = [
       { href: '/admin/import',      label: 'Datenimport' },
       { href: '/admin/benutzer',    label: 'System-Admin', adminOnly: true },
       { href: '/admin/onboarding',  label: 'Onboarding Guide', adminOnly: true },
+      { href: '/admin/zeiterfassung', label: 'Zeiterfassung',      adminOnly: true },
     ],
   },
 ]
