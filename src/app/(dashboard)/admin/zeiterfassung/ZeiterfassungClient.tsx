@@ -168,7 +168,8 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
   const totals = useMemo(() => ({
     stunden:      eintraege.reduce((s, e) => s + e.stunden, 0),
     betrag:       eintraege.reduce((s, e) => s + e.stunden * e.stundensatz, 0),
-    tokenKosten:  eintraege.reduce((s, e) => s + (e.token_kosten_euro ?? 0), 0),
+    tokenKosten:    eintraege.reduce((s, e) => s + (e.token_kosten_euro ?? 0), 0),
+    lizenzkosten:   eintraege.reduce((s, e) => s + (e.lizenzkosten_euro ?? 0), 0),
     tokensIn:     eintraege.reduce((s, e) => s + (e.tokens_input ?? 0), 0),
     tokensOut:    eintraege.reduce((s, e) => s + (e.tokens_output ?? 0), 0),
   }), [eintraege])
@@ -198,6 +199,7 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
           { label: 'Betrag gesamt',    value: fmtEuro(totals.betrag) },
           { label: 'Token-Kosten',     value: fmtEuro(totals.tokenKosten) },
           { label: 'Tokens (In/Out)',  value: `${totals.tokensIn.toLocaleString('de-AT')} / ${totals.tokensOut.toLocaleString('de-AT')}` },
+          { label: 'Claude Lizenzkosten', value: fmtEuro(totals.lizenzkosten) },
         ].map(({ label, value }) => (
           <div key={label} className="bg-white border border-s112-border rounded-xl p-3 shadow-sm">
             <p className="text-xs text-s112-muted">{label}</p>
@@ -235,6 +237,7 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
                 <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-600 whitespace-nowrap">Tokens In</th>
                 <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-600 whitespace-nowrap">Tokens Out</th>
                 <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-600 whitespace-nowrap">Token-€</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-600 whitespace-nowrap">Lizenz-€</th>
                 <th className="px-4 py-2.5" />
               </tr>
             </thead>
@@ -280,6 +283,9 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
                     </td>
                     <td className="px-4 py-2.5 text-right font-mono text-xs text-gray-500 whitespace-nowrap">
                       {fmtEuro(e.token_kosten_euro)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono text-xs text-gray-500 whitespace-nowrap">
+                      {fmtEuro(e.lizenzkosten_euro)}
                     </td>
                     <td className="px-4 py-2.5 whitespace-nowrap">
                       <div className="flex items-center gap-1 justify-end">

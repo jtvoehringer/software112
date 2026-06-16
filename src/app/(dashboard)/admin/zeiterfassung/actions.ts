@@ -32,6 +32,7 @@ function parseForm(formData: FormData): AR {
     tokens_input:       tokensInput  ? parseInt(tokensInput)   : null,
     tokens_output:      tokensOutput ? parseInt(tokensOutput)  : null,
     token_kosten_euro:  tokenKosten  ? parseFloat(tokenKosten) : null,
+    lizenzkosten_euro:  (() => { const v = formData.get('lizenzkosten_euro') as string; return v ? parseFloat(v) : null })(),
   }
 }
 
