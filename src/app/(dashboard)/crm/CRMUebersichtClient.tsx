@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { createAktivitaet, moveAktivitaet, updateAktivitaet } from './actions'
+import { createAktivitaet, moveAktivitaet, updateAktivitaet, updatePipelineEintrag } from './actions'
 import { AKTIVITAET_ARTEN } from '@/lib/crm/types'
 import type { AktivitaetDokument } from '@/lib/crm/types'
 import DokumentePanel from './DokumentePanel'
@@ -258,7 +258,8 @@ function ZeitachseView({
 
   // Aktivität-Detail anzeigen
   const [viewAkt,    setViewAkt]    = useState<KalenderEintrag | null>(null)
-  const [editAktMode, setEditAktMode] = useState(false)
+  const [editAktMode,  setEditAktMode]  = useState(false)
+  const [editPipeMode, setEditPipeMode] = useState(false)
 
   // Dokumente für angezeigte Aktivität
   const [viewAktDoks, setViewAktDoks] = useState<AktivitaetDokument[]>([])
@@ -656,11 +657,11 @@ function ZeitachseView({
     {/* ── Aktivität Detail-Modal ── */}
     {viewAkt && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-        onClick={() => { setViewAkt(null); setEditAktMode(false) }}>
+        onClick={() => { setViewAkt(null); setEditAktMode(false); setEditPipeMode(false) }}>
         <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4"
           onClick={e => e.stopPropagation()}>
 
-          {!editAktMode ? (
+          {!editAktMode && !editPipeMode ? (
             <>
               {/* ── Detail-Ansicht ── */}
               <div className="flex items-start justify-between mb-3">
@@ -668,7 +669,7 @@ function ZeitachseView({
                   <span className="text-lg mr-2">{viewAkt.artIcon}</span>
                   <span className="font-bold text-gray-900">{viewAkt.titel}</span>
                 </div>
-                <button onClick={() => { setViewAkt(null); setEditAktMode(false) }} className="text-s112-muted hover:text-gray-700 text-lg">✕</button>
+                <button onClick={() => { setViewAkt(null); setEditAktMode(false); setEditPipeMode(false) }} className="text-s112-muted hover:text-gray-700 text-lg">✕</button>
               </div>
               <div className="space-y-1.5 text-sm text-gray-600 mb-4">
                 {viewAkt.bis_datum && viewAkt.bis_datum !== viewAkt.datum ? (
@@ -701,6 +702,12 @@ function ZeitachseView({
                     ✏ Bearbeiten
                   </button>
                 )}
+                {viewAkt.typ === 'pipeline' && (
+                  <button onClick={() => setEditPipeMode(true)}
+                    className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90">
+                    ✏ Bearbeiten
+                  </button>
+                )}
                 {viewAkt.kontaktName && (
                   <a href={viewAkt.href} className="border border-s112-teal text-s112-teal px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/10">
                     Zum Kontakt →
@@ -711,13 +718,13 @@ function ZeitachseView({
                     Zur Firma →
                   </a>
                 )}
-                <button onClick={() => { setViewAkt(null); setEditAktMode(false) }}
+                <button onClick={() => { setViewAkt(null); setEditAktMode(false); setEditPipeMode(false) }}
                   className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
                   Schließen
                 </button>
               </div>
             </>
-          ) : (
+          ) : editAktMode ? (
             <>
               {/* ── Bearbeiten-Formular ── */}
               <div className="flex items-center justify-between mb-4">
@@ -771,6 +778,73 @@ function ZeitachseView({
                     {pending ? 'Speichern…' : 'Speichern'}
                   </button>
                   <button type="button" onClick={() => setEditAktMode(false)}
+                    className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
+                    Abbrechen
+                  </button>
+                </div>
+              </form>
+            </>
+          ) : (
+            <>
+              {/* ── Pipeline-Eintrag bearbeiten ── */}
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-gray-900 text-base">Pipeline-Eintrag bearbeiten</h3>
+                <button onClick={() => setEditPipeMode(false)} className="text-s112-muted hover:text-gray-700 text-lg">✕</button>
+              </div>
+              <form onSubmit={async e => {
+                e.preventDefault()
+                const fd = new FormData(e.currentTarget)
+                const ganztags = !(fd.get('uhrzeit_von') as string)
+                fd.set('ganztags', ganztags ? 'true' : 'false')
+                startTransition(async () => {
+                  try {
+                    const pipeId = viewAkt!.id.replace('p_', '')
+                    await updatePipelineEintrag(pipeId, fd)
+                    setViewAkt(null); setEditPipeMode(false)
+                    router.refresh()
+                  } catch (err) {
+                    setSaveErr(err instanceof Error ? err.message : 'Fehler beim Speichern')
+                  }
+                })
+              }} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Titel</label>
+                  <input name="titel" defaultValue={viewAkt?.titel ?? ''} required className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Termin</label>
+                  <input type="date" name="erwartetes_datum" defaultValue={viewAkt?.datum ?? ''} className={inputCls} />
+                </div>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                    <input type="checkbox" name="ganztags_check"
+                      defaultChecked={viewAkt?.ganztags ?? true}
+                      onChange={e => {
+                        const form = (e.target as HTMLInputElement).closest('form')!
+                        const von = form.querySelector<HTMLInputElement>('[name=uhrzeit_von]')!
+                        const bis = form.querySelector<HTMLInputElement>('[name=uhrzeit_bis]')!
+                        von.disabled = e.target.checked; bis.disabled = e.target.checked
+                        if (e.target.checked) { von.value = ''; bis.value = '' }
+                      }} className="rounded" />
+                    Ganztags
+                  </label>
+                  <input name="uhrzeit_von" type="time" step="1800"
+                    defaultValue={viewAkt?.uhrzeit_von?.slice(0, 5) ?? ''}
+                    disabled={viewAkt?.ganztags ?? true}
+                    className={inputCls + ' w-28'} placeholder="Von" />
+                  <span className="text-gray-400 text-xs">–</span>
+                  <input name="uhrzeit_bis" type="time" step="1800"
+                    defaultValue={viewAkt?.uhrzeit_bis?.slice(0, 5) ?? ''}
+                    disabled={viewAkt?.ganztags ?? true}
+                    className={inputCls + ' w-28'} placeholder="Bis" />
+                </div>
+                {saveErr && <p className="text-xs text-red-600">{saveErr}</p>}
+                <div className="flex gap-2 pt-1">
+                  <button type="submit" disabled={pending}
+                    className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+                    {pending ? 'Speichern…' : 'Speichern'}
+                  </button>
+                  <button type="button" onClick={() => setEditPipeMode(false)}
                     className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
                     Abbrechen
                   </button>

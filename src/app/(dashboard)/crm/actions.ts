@@ -283,7 +283,9 @@ export async function createPipelineEintrag(formData: FormData) {
 export async function updatePipelineEintrag(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const ganztags = formData.get('ganztags') !== 'false'
+  const titel = (formData.get('titel') as string)?.trim()
   const payload: AR = {
+    ...(titel ? { titel } : {}),
     wert_euro:           parseFloat(formData.get('wert_euro') as string) || null,
     wahrscheinlichkeit:  parseInt(formData.get('wahrscheinlichkeit') as string) || null,
     erwartetes_datum:    (formData.get('erwartetes_datum') as string) || null,
