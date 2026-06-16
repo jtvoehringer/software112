@@ -224,9 +224,9 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
 
       {/* ── Tabelle ── */}
       <div className="bg-white border border-s112-border rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-auto max-h-[65vh]">
           <table className="w-full text-sm">
-            <thead>
+            <thead className="sticky top-0 z-10">
               <tr className="border-b border-s112-border bg-s112-bg">
                 <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-600 whitespace-nowrap">Datum</th>
                 <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-600">Phase</th>
@@ -324,6 +324,9 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
                   </td>
                   <td className="px-4 py-2.5 text-right font-mono text-xs font-bold text-gray-700 whitespace-nowrap">
                     {fmtEuro(filtered.reduce((s, e) => s + (e.token_kosten_euro ?? 0), 0))}
+                  </td>
+                  <td className="px-4 py-2.5 text-right font-mono text-xs font-bold text-gray-700 whitespace-nowrap">
+                    {fmtEuro(filtered.reduce((s, e) => s + (e.lizenzkosten_euro ?? 0), 0))}
                   </td>
                   <td />
                 </tr>
