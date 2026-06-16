@@ -21,17 +21,19 @@ CREATE POLICY "zeiterfassung_tenant_admin" ON zeiterfassung
   FOR ALL
   USING (
     tenant_id = (
-      SELECT tenant_id FROM profiles WHERE id = auth.uid()
+      SELECT tenant_id FROM tenant_memberships WHERE user_id = auth.uid() LIMIT 1
     )
     AND EXISTS (
-      SELECT 1 FROM profiles WHERE id = auth.uid() AND rolle = 'tenant_admin'
+      SELECT 1 FROM tenant_memberships
+      WHERE user_id = auth.uid() AND role IN ('tenant_admin', 'system_admin')
     )
   )
   WITH CHECK (
     tenant_id = (
-      SELECT tenant_id FROM profiles WHERE id = auth.uid()
+      SELECT tenant_id FROM tenant_memberships WHERE user_id = auth.uid() LIMIT 1
     )
     AND EXISTS (
-      SELECT 1 FROM profiles WHERE id = auth.uid() AND rolle = 'tenant_admin'
+      SELECT 1 FROM tenant_memberships
+      WHERE user_id = auth.uid() AND role IN ('tenant_admin', 'system_admin')
     )
   );

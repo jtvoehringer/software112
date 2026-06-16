@@ -8,12 +8,13 @@ async function getTenantAdmin() {
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Nicht angemeldet')
-  const { data: profile } = await (supabase.from('profiles') as any)
-    .select('tenant_id, rolle')
-    .eq('id', user.id)
+  const { data: membership } = await (supabase.from('tenant_memberships') as any)
+    .select('tenant_id, role')
+    .eq('user_id', user.id)
+    .in('role', ['tenant_admin', 'system_admin'])
     .single()
-  if (!profile || profile.rolle !== 'tenant_admin') throw new Error('Keine Berechtigung')
-  return { supabase, tenantId: profile.tenant_id as string }
+  if (!membership) throw new Error('Keine Berechtigung')
+  return { supabase, tenantId: membership.tenant_id as string }
 }
 
 function parseForm(formData: FormData): AR {
