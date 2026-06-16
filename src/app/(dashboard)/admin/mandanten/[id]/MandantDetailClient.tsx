@@ -1186,10 +1186,9 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
   const [email,  setEmail]   = useState('')
 
   const PLANS = [
-    { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_BASE          ?? '', label: 'Starter (€199/Mo)' },
-    { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_KI_BASIC      ?? '', label: 'Professional (€299/Mo)' },
-    { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_KI_STANDARD   ?? '', label: 'Professional+ (€349/Mo)' },
-    { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_KI_UNLIMITED  ?? '', label: 'Enterprise (€399/Mo)' },
+    { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_PROFESSIONAL      ?? '', label: 'Professional (€299/Mo)' },
+    { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_PROFESSIONAL_PLUS   ?? '', label: 'Professional+ (€349/Mo)' },
+    { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE  ?? '', label: 'Enterprise (€399/Mo)' },
   ]
 
   const statusMeta = tenant.stripe_status ? (STRIPE_STATUS_META[tenant.stripe_status] ?? null) : null
