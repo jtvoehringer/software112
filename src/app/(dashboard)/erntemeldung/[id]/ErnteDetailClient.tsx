@@ -3,6 +3,7 @@
 import React, { useState, useTransition } from 'react'
 import { upsertErnteParzelle, deleteErnteParzelle, createOrUpdateAMAMeldung, createMultipleErnteParzellen } from '../actions'
 import { qualitaetLabel, QUALITAET_OPTS } from '@/lib/wein/qualitaet'
+import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import type { ErnteParzelle, WeingartenOpt, AMAMeldung } from './page'
 import PressungSection from './PressungSection'
 import type { Pressung, WGOption, BehOption, WAOption } from './PressungSection'
@@ -36,6 +37,8 @@ function NeueParzellenForm({
   const [pending, startTransition] = useTransition()
   const [selectedWGs, setSelectedWGs] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
+  const [kmwNeu, setKmwNeu] = useState<number | null>(null)
+  const derivedQualitaetNeu = kmwNeu != null ? kmwZuQualitaet(kmwNeu) : 'qualitaetswein'
 
   // Weingärten nach Ried gruppieren
   const riedMap = new Map<string, WeingartenOpt[]>()
@@ -145,13 +148,16 @@ function NeueParzellenForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">°KMW</label>
-          <input name="klosterneuburger" type="number" step="0.01" min="0" className={inputCls} />
+          <input name="klosterneuburger" type="number" step="0.01" min="0" className={inputCls}
+            onChange={e => setKmwNeu(e.target.value ? parseFloat(e.target.value) : null)} />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Qualitätsstufe</label>
-          <select name="qualitaetsstufe" defaultValue="qualitaetswein" className={inputCls}>
-            {QUALITAET_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
+          <input type="hidden" name="qualitaetsstufe" value={derivedQualitaetNeu} />
+          <div className={inputCls + ' bg-s112-bg text-gray-700 cursor-not-allowed'}>
+            {qualitaetLabel(derivedQualitaetNeu)}
+            {kmwNeu == null && <span className="text-s112-muted ml-1">(wird aus °KMW abgeleitet)</span>}
+          </div>
         </div>
         <div className="col-span-2">
           <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
@@ -183,6 +189,10 @@ function ParzellForm({
   parzelle?: ErnteParzelle; onDone: () => void
 }) {
   const [pending, startTransition] = useTransition()
+  const [kmwEdit, setKmwEdit] = useState<number | null>(
+    parzelle?.klosterneuburger != null ? Number(parzelle.klosterneuburger) : null
+  )
+  const derivedQualitaetEdit = kmwEdit != null ? kmwZuQualitaet(kmwEdit) : 'qualitaetswein'
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -251,14 +261,16 @@ function ParzellForm({
           <label className="block text-xs font-medium text-gray-600 mb-1">°KMW</label>
           <input name="klosterneuburger" type="number" step="0.01" min="0"
             defaultValue={parzelle?.klosterneuburger ?? ''}
+            onChange={e => setKmwEdit(e.target.value ? parseFloat(e.target.value) : null)}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Qualitätsstufe</label>
-          <select name="qualitaetsstufe" defaultValue={parzelle?.qualitaetsstufe ?? 'qualitaetswein'}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
-            {QUALITAET_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
+          <input type="hidden" name="qualitaetsstufe" value={derivedQualitaetEdit} />
+          <div className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm bg-s112-bg text-gray-700 cursor-not-allowed">
+            {qualitaetLabel(derivedQualitaetEdit)}
+            {kmwEdit == null && <span className="text-s112-muted ml-1">(wird aus °KMW abgeleitet)</span>}
+          </div>
         </div>
         <div className="col-span-2">
           <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
