@@ -98,14 +98,16 @@ export async function updateMemberRole(membershipId: string, newRole: string) {
     return { error: 'Keine Berechtigung' }
   }
 
-  const supabase = await createSupabaseServerClient()
+  // Admin-Client verwenden, damit RLS das Update nicht blockiert
+  const admin = createSupabaseAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('tenant_memberships') as any)
-    .update({ role: newRole })
+  const { error, count } = await (admin.from('tenant_memberships') as any)
+    .update({ role: newRole }, { count: 'exact' })
     .eq('id', membershipId)
     .eq('tenant_id', membership.tenantId)
 
   if (error) return { error: error.message }
+  if (count === 0) return { error: 'Eintrag nicht gefunden oder keine Änderung möglich.' }
   revalidatePath('/benutzer')
   return { success: true }
 }
