@@ -37,7 +37,7 @@ const LAENDER = ['AT', 'DE', 'CH', 'IT', 'FR', 'HU', 'SK', 'CZ', 'US', 'GB']
 
 // ── Formular ──────────────────────────────────────────────────────────────────
 
-export function FirmaForm({ initial, rabattgruppen, defaultSegment, existingFirmen, onDone }: { initial?: FirmaRow | null; rabattgruppen: {id:string;name:string;rabatt_pct:number}[]; defaultSegment?: string; existingFirmen?: FirmaRow[]; onDone: () => void }) {
+export function FirmaForm({ initial, rabattgruppen = [], defaultSegment, existingFirmen, onDone }: { initial?: FirmaRow | null; rabattgruppen?: {id:string;name:string;rabatt_pct:number}[]; defaultSegment?: string; existingFirmen?: FirmaRow[]; onDone: () => void }) {
   const [pending, startTransition] = useTransition()
   const router = useRouter()
   const [segmentVal, setSegmentVal] = useState(initial?.segment ?? defaultSegment ?? 'handel')
@@ -289,7 +289,7 @@ function FirmaKarte({
 }: {
   firma: FirmaRow
   kontakte: KontaktKurz[]
-  rabattgruppen: {id:string;name:string;rabatt_pct:number}[]
+  rabattgruppen?: {id:string;name:string;rabatt_pct:number}[]
   writeOk: boolean
 }) {
   const [editing, setEditing] = useState(false)
@@ -393,7 +393,7 @@ export default function FirmenClient({
 }: {
   firmen: FirmaRow[]
   kontakteMap: Record<string, KontaktKurz[]>
-  rabattgruppen: {id:string;name:string;rabatt_pct:number}[]
+  rabattgruppen?: {id:string;name:string;rabatt_pct:number}[]
   writeOk: boolean
 }) {
   const [showForm, setShowForm] = useState(false)
