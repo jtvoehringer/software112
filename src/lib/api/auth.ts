@@ -3,6 +3,7 @@
  * Verhindert Code-Duplikation und stellt konsistente Sicherheitschecks sicher
  */
 import { getValidUserAccessToken } from '@/lib/m365/graph'
+import { getActiveTenantCookie } from '@/lib/auth/activeTenant'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -12,13 +13,23 @@ export const USER_EMAIL_CONN_SELECT =
   'imap_aktiv, imap_host, imap_port, imap_user, imap_pass_enc, monitored_email'
 
 /**
- * Tenant-ID aus der Session laden (NIEMALS aus Request-Body)
+ * Tenant-ID aus Cookie laden; Fallback auf erste Membership.
+ * NIEMALS aus Request-Body lesen.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getTenantId(supabase: any): Promise<string | null> {
-  const { data: membership } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id').limit(1).single()
-  return (membership as R | null)?.tenant_id ?? null
+  const activeTenantId = await getActiveTenantCookie()
+
+  if (activeTenantId) {
+    const { data } = await (supabase.from('tenant_memberships') as any)
+      .select('tenant_id').eq('tenant_id', activeTenantId).limit(1).maybeSingle()
+    if (data) return (data as R).tenant_id
+  }
+
+  // Fallback: erste Membership
+  const { data } = await (supabase.from('tenant_memberships') as any)
+    .select('tenant_id').limit(1).maybeSingle()
+  return (data as R | null)?.tenant_id ?? null
 }
 
 /**

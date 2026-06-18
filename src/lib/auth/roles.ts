@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getActiveTenantCookie } from '@/lib/auth/activeTenant'
 
 export type UserRole = 'system_admin' | 'tenant_admin' | 'winzer' | 'leser' | null
 
@@ -6,32 +7,35 @@ export type UserRole = 'system_admin' | 'tenant_admin' | 'winzer' | 'leser' | nu
 type R = Record<string, any>
 
 /**
- * Gibt die Rolle des eingeloggten Users im ersten verfügbaren Tenant zurück.
- * Cached per Request durch Next.js deduplizierung.
+ * Gibt die Rolle des eingeloggten Users im aktiven Tenant zurück.
  */
 export async function getCurrentUserRole(): Promise<UserRole> {
-  const supabase = await createSupabaseServerClient()
-  const { data } = await supabase
-    .from('tenant_memberships')
-    .select('role')
-    .limit(1)
-    .single()
-  return ((data as R | null)?.role as UserRole) ?? null
+  const m = await getCurrentMembership()
+  return m?.role ?? null
 }
 
-/** Gibt Tenant-ID + Rolle zurück */
+/** Gibt Tenant-ID + Rolle zurück – liest aktiven Tenant aus Cookie */
 export async function getCurrentMembership(): Promise<{ tenantId: string; role: UserRole } | null> {
   const supabase = await createSupabaseServerClient()
-  const { data } = await supabase
-    .from('tenant_memberships')
+  const activeTenantId = await getActiveTenantCookie()
+
+  if (activeTenantId) {
+    // Validiere Cookie gegen tatsächliche Memberships (RLS schützt automatisch)
+    const { data } = await (supabase.from('tenant_memberships') as any)
+      .select('tenant_id, role')
+      .eq('tenant_id', activeTenantId)
+      .limit(1)
+      .maybeSingle()
+    if (data) return { tenantId: (data as R).tenant_id, role: (data as R).role as UserRole }
+  }
+
+  // Fallback: erste Membership (kein Cookie gesetzt oder Cookie veraltet)
+  const { data } = await (supabase.from('tenant_memberships') as any)
     .select('tenant_id, role')
     .limit(1)
-    .single()
+    .maybeSingle()
   if (!data) return null
-  return {
-    tenantId: (data as R).tenant_id,
-    role: (data as R).role as UserRole,
-  }
+  return { tenantId: (data as R).tenant_id, role: (data as R).role as UserRole }
 }
 
 // ── Berechtigungsprüfungen ─────────────────────────────────────────────────

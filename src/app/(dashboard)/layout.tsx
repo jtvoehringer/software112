@@ -44,6 +44,10 @@ export default async function DashboardLayout({
   const role       = await getCurrentUserRole()
   const membership = await getCurrentMembership()
 
+  // Anzahl Betriebe des Users (für Betrieb-Wechsel-Button in Sidebar)
+  const { count: betriebCount } = await (supabase.from('tenant_memberships') as any)
+    .select('tenant_id', { count: 'exact', head: true })
+
   // Profilname aus profiles-Tabelle
   const { data: profil } = await (supabase.from('profiles') as any)
     .select('full_name').eq('id', user.id).maybeSingle()
@@ -89,6 +93,7 @@ export default async function DashboardLayout({
         role={role}
         roleLabel={roleLabel(role)}
         branding={branding}
+        betriebCount={betriebCount ?? 1}
       >
         {children}
       </ResponsiveLayout>

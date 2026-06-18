@@ -32,7 +32,7 @@ export default function LoginPage() {
       )
       setLoading(false)
     } else {
-      router.push('/dashboard')
+      router.push('/betrieb-waehlen')
       router.refresh()
     }
   }

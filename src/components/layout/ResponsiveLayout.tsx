@@ -11,12 +11,13 @@ interface Props {
   children: React.ReactNode
   userEmail: string
   userName?: string
+  betriebCount?: number
   role: UserRole
   roleLabel: string
   branding: TenantBranding
 }
 
-export default function ResponsiveLayout({ children, userEmail, userName, role, roleLabel, branding }: Props) {
+export default function ResponsiveLayout({ children, userEmail, userName, role, roleLabel, branding, betriebCount = 1 }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const pathname = usePathname()
@@ -50,7 +51,7 @@ export default function ResponsiveLayout({ children, userEmail, userName, role, 
     return () => { document.body.style.overflow = '' }
   }, [drawerOpen])
 
-  const sidebarProps = { userEmail, userName, role, roleLabel, branding }
+  const sidebarProps = { userEmail, userName, role, roleLabel, branding, betriebCount }
 
   return (
     <div className="flex h-screen bg-s112-bg overflow-hidden">

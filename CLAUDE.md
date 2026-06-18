@@ -130,4 +130,6 @@
 - Admin-Tab in Mandantenverwaltung: Paket zuweisen, Verbrauch einsehen
 
 **Features im Modul:**
-1. **Smart Query** – Freitexteingabe →
+1. **Smart Query** – Freitexteingabe → KI → gefilterte Tabelle + Zusammenfassung
+2. **Besuchsplanung** – Region + Segment + Zeitraum → PLZ-geclusterte Besuchsliste + Karte (Leaflet.js)
+3. **Statische Reports** – Monatsumsatz, Lagerbestand, Behandlungsübersicht (ohne KI, immer inkludiert)

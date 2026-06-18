@@ -223,11 +223,12 @@ interface SidebarProps {
   role: UserRole
   roleLabel: string
   branding: TenantBranding
+  betriebCount?: number
   collapsed?: boolean
   onToggleCollapse?: () => void
 }
 
-export default function Sidebar({ userEmail, userName, role, roleLabel, branding, collapsed = false, onToggleCollapse }: SidebarProps) {
+export default function Sidebar({ userEmail, userName, role, roleLabel, branding, betriebCount = 1, collapsed = false, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname()
   const router   = useRouter()
   const supabase = createSupabaseBrowserClient()
@@ -366,6 +367,12 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
               className="text-xs text-s112-muted hover:text-s112-teal transition-colors mt-1.5 block">
               ✏ Profil bearbeiten
             </a>
+            {betriebCount > 1 && (
+              <a href="/betrieb-waehlen"
+                className="text-xs text-s112-teal hover:underline transition-colors mt-1.5 block">
+                ⇄ Betrieb wechseln
+              </a>
+            )}
             <button
               onClick={handleLogout}
               className="text-xs text-s112-muted hover:text-red-600 transition-colors mt-1.5"
