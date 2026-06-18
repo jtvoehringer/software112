@@ -131,6 +131,18 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
         </div>
       </div>
 
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          Session Timeout (Minuten)
+        </label>
+        <input name="session_timeout_minuten" type="number" min="5" max="480"
+          defaultValue={settings.session_timeout_minuten ?? ''}
+          placeholder="Leer = kein Timeout" className={inputCls()} style={{ maxWidth: '180px' }} />
+        <p className="text-xs text-s112-muted mt-1">
+          Nach dieser Inaktivitätsdauer erscheint ein Hinweis. Leer lassen = kein automatischer Logout.
+        </p>
+      </div>
+
       {/* Brevo-Werte mitnehmen */}
       <input type="hidden" name="brevo_api_key"     defaultValue={settings.brevo_api_key ?? ''} />
       <input type="hidden" name="brevo_sender_mail" defaultValue={settings.brevo_sender_mail ?? ''} />

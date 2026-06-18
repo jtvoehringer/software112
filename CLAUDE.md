@@ -2,6 +2,10 @@
 
 ## Über den Auftraggeber
 
+- ** Hohenstein Consulting OG
+
+## Über den Auftragnehmer
+
 - **Name:** Jörgen Vöhringer (IC&P Consultants e.U.)
 - **Anrede:** Du (wir sind per Du)
 - **E-Mail:** jv@icp-consultants.at
@@ -9,7 +13,7 @@
 
 ## Projekt
 
-**software:112** – Digitales Weingut-ERP für Familie Gebeshuber (Winzer in NÖ)
+**software:112** – Digitales Weingut-Für Winzer in Österreich
 
 - **Tenant-ID Sandbox:** `fa22dc07-eca5-43df-af96-f7b9b09f0471` · Tenant-Name in DB: **„Sandbox"** (Produktiv-Tenant „Weinbau Gebeshuber" wird erst nach UAT-Abschluss angelegt)
 - **Produktions-URL:** https://software112.icp-consultants.at
@@ -100,7 +104,8 @@
 - **UAT** – Gebeshuber testet alle Module im Echtbetrieb (Juni 2026)
 - **Testautomatisierung + Regressionstests** – Smoke Tests + Playwright E2E nach UAT-Abschluss
 - **Stripe/Mandanten-Abrechnung** – vor Kunde #2 zwingend erforderlich
-- **Dauerauftrag-Modul** – IC&P Eigenrechnung automatisieren (0,5 Tage, shared lib aus KPS)
+- **Multi-Betrieb-Login** – nach Login Betrieb auswählen (wenn User in mehreren Tenants); aktiver Tenant in Cookie; Switch im Header; ~2 Tage
+- **Traubenverkauf-Modul** – Toggle in Ernte „für Verkauf freigeben"; Verkauf als neuer Verkaufsposten-Typ; Datenblatt gem. § 3 Weingesetz-Formularverordnung BGBl. II Nr. 13/2012 (Excel-Export); ~2 Tage
 - **EMCS-Integration via n8n** – Weinexport Pro (€59/Mo)
 - **Kostenrechnung Multi-Weingarten** – Kostenverteilung auf mehrere Weingärten (gleichmäßig oder gewichtet %) via Junction-Tabelle
 - **SheetJS XLSX-Export** – KI-Abfragen + Auswertungen als formatiertes Excel (nicht nur CSV); Spaltenbreiten, Summenzeilen, Tabellenformat
@@ -125,6 +130,4 @@
 - Admin-Tab in Mandantenverwaltung: Paket zuweisen, Verbrauch einsehen
 
 **Features im Modul:**
-1. **Smart Query** – Freitexteingabe → KI → gefilterte Tabelle + Zusammenfassung
-2. **Besuchsplanung** – Region + Segment + Zeitraum → PLZ-geclusterte Besuchsliste + Karte (Leaflet.js)
-3. **Statische Reports** – Monatsumsatz, Lagerbestand, Behandlungsübersicht (ohne KI, immer inkludiert)
+1. **Smart Query** – Freitexteingabe →
