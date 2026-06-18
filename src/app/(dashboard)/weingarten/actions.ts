@@ -70,9 +70,11 @@ export async function updateWeingarten(id: string, formData: FormData) {
     flaeche_ha:      formData.get('flaeche_ha') ? Number(formData.get('flaeche_ha')) : null,
     pflanzjahr:      formData.get('pflanzjahr') ? Number(formData.get('pflanzjahr')) : null,
     bewirtschaftung: (formData.get('bewirtschaftung') as string) || null,
-    weinart:         (formData.get('weinart') as string) || 'unbekannt',
-    notizen:         (formData.get('notizen') as string) || null,
-    aktiv:           formData.get('aktiv') === 'true',
+    weinart:              (formData.get('weinart') as string) || 'unbekannt',
+    notizen:              (formData.get('notizen') as string) || null,
+    aktiv:                formData.get('aktiv') === 'true',
+    trauben_verkauf:      formData.get('trauben_verkauf') === 'true',
+    trauben_herkunft_code: (formData.get('trauben_herkunft_code') as string) || null,
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

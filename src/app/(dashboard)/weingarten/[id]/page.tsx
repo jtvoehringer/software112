@@ -28,7 +28,7 @@ type WeingartenRow = {
   id: string; name: string; ried: string | null; lage_id: string | null
   rebsorte: string | null; flaeche_ha: number | null; pflanzjahr: number | null
   bewirtschaftung: string | null; notizen: string | null; aktiv: boolean
-  weinart: string | null
+  weinart: string | null; trauben_verkauf: boolean; trauben_herkunft_code: string | null
 }
 
 export default async function WeingartenEditPage({ params }: Props) {
@@ -42,7 +42,7 @@ export default async function WeingartenEditPage({ params }: Props) {
   // Weingarten
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rows } = await (supabase.from('weingarten') as any)
-    .select('id, name, ried, lage_id, rebsorte, flaeche_ha, pflanzjahr, bewirtschaftung, weinart, notizen, aktiv')
+    .select('id, name, ried, lage_id, rebsorte, flaeche_ha, pflanzjahr, bewirtschaftung, weinart, notizen, aktiv, trauben_verkauf, trauben_herkunft_code')
     .eq('id', id)
     .limit(1)
   const weingarten = ((rows as WeingartenRow[] | null)?.[0]) ?? null

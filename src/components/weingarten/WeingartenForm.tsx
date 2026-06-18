@@ -33,6 +33,8 @@ type WeingartenRow = {
   notizen: string | null
   aktiv: boolean
   weinart: string | null
+  trauben_verkauf: boolean
+  trauben_herkunft_code: string | null
 }
 
 interface Props {
@@ -219,6 +221,34 @@ export default function WeingartenForm({ weingarten, action, lagen }: Props) {
           placeholder="Besonderheiten, Bodenart, Ausrichtung …"
         />
       </div>
+
+      {/* Traubenverkauf-Freigabe – nur beim Bearbeiten */}
+      {weingarten && (
+        <div className="card space-y-4">
+          <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Traubenverkauf</h2>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              name="trauben_verkauf"
+              value="true"
+              defaultChecked={weingarten.trauben_verkauf ?? false}
+              className="w-4 h-4 accent-s112-teal"
+            />
+            <span className="text-sm font-medium text-gray-700">Trauben aus diesem Weingarten können verkauft werden</span>
+          </label>
+          <div>
+            <label className="form-label">Herkunft-Code (BKI)</label>
+            <input
+              name="trauben_herkunft_code"
+              type="text"
+              defaultValue={weingarten.trauben_herkunft_code ?? ''}
+              className="form-input"
+              placeholder="z.B. WLWV"
+            />
+            <p className="text-xs text-s112-muted mt-1">Offizielles Kürzel gem. BKI-Kürzelliste (wird in Traubenverkauf-Datenblatt verwendet)</p>
+          </div>
+        </div>
+      )}
 
       {/* Aktiv-Toggle nur beim Bearbeiten */}
       {weingarten && (
