@@ -57,7 +57,7 @@ const NAV: NavEntry[] = [
     items: [
       { href: '/weinhandel',              label: 'Warenlager',  phase: 1 },
       { href: '/weinhandel/verkauf',        label: 'Verkauf',       phase: 1 },
-      { href: '/weinhandel/offene-posten',  label: 'Offene Posten',  phase: 1, hideIfModul: ['modul_ea', 'modul_fibu'] },
+      { href: '/weinhandel/offene-posten',  label: 'Offene Posten',  phase: 1 },
       { href: '/weinhandel/zukauf',          label: 'Zukauf',         phase: 1 },
       { href: '/weinhandel/sonstige-artikel', label: 'Sonstiges-Produkte', phase: 1 },
       { href: '/weinhandel/preisliste',    label: 'Preisliste',     phase: 1 },
@@ -82,6 +82,7 @@ const NAV: NavEntry[] = [
       { href: '/buchhaltung/kategorien',   label: 'Kategorien', child: true },
       { href: '/buchhaltung/dauerauftraege', label: 'Daueraufträge', child: true },
       { href: '/buchhaltung/uva',          label: 'UVA-Meldung'      },
+      { href: '/weinhandel/offene-posten', label: 'Offene Posten'    },
     ],
   },
 
@@ -90,6 +91,7 @@ const NAV: NavEntry[] = [
     items: [
       { href: '/fibu',              label: 'Journal'        },
       { href: '/fibu/kontenplan',   label: 'Kontenplan', child: true },
+      { href: '/weinhandel/offene-posten', label: 'Offene Posten'    },
     ],
   },
 

@@ -1,14 +1,16 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createAktivitaet, createPipelineEintrag, toggleAktivitaetErledigt, updateAktivitaet, deleteAktivitaet } from '../../actions'
+import { createAktivitaet, createPipelineEintrag, toggleAktivitaetErledigt, updateAktivitaet, deleteAktivitaet, deleteFirma } from '../../actions'
 import {
   AKTIVITAET_ARTEN, PIPELINE_STUFEN,
   segmentLabel, segmentFarbe, fmtUhrzeit,
 } from '@/lib/crm/types'
 import type { FirmaRow, KontaktRow, AktivitaetRow, PipelineEintragRow } from '@/lib/crm/types'
 import DokumentePanel from '../../DokumentePanel'
+import { FirmaForm } from '../FirmenClient'
 
 function inputCls() {
   return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
@@ -382,6 +384,18 @@ export default function FirmaDetailClient({
   pipeline: PipelineEintragRow[]
   writeOk: boolean
 }) {
+  const router = useRouter()
+  const [editing, setEditing] = useState(false)
+  const [deletePending, startDeleteTransition] = useTransition()
+
+  function handleDelete() {
+    if (!confirm(`Firma „${firma.name}" wirklich löschen?`)) return
+    startDeleteTransition(async () => {
+      await deleteFirma(firma.id)
+      router.push('/crm/firmen')
+      router.refresh()
+    })
+  }
 
   function sortAktivitaeten(akts: AktivitaetRow[]) {
     const offen    = akts.filter(a => !a.erledigt).sort((a, b) => {
@@ -446,6 +460,12 @@ export default function FirmaDetailClient({
       </nav>
 
       {/* Kopfbereich */}
+      {editing ? (
+        <FirmaForm
+          initial={firma}
+          onDone={() => { setEditing(false); router.refresh() }}
+        />
+      ) : (
       <div className="card p-5">
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-lg bg-s112-teal/10 flex items-center justify-center text-s112-teal font-bold text-lg flex-shrink-0">
@@ -501,8 +521,24 @@ export default function FirmaDetailClient({
               <p className="mt-2 text-sm text-gray-500 italic">{firma.notizen}</p>
             )}
           </div>
+          {writeOk && (
+            <div className="flex gap-2 flex-shrink-0 self-start">
+              <button
+                onClick={() => setEditing(true)}
+                className="inline-flex items-center gap-1.5 border border-s112-border text-gray-600 px-3 py-1.5 rounded-lg text-sm hover:bg-s112-bg transition-colors">
+                ✏ Bearbeiten
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deletePending}
+                className="inline-flex items-center gap-1.5 border border-red-200 text-red-600 px-3 py-1.5 rounded-lg text-sm hover:bg-red-50 transition-colors disabled:opacity-40">
+                🗑 Löschen
+              </button>
+            </div>
+          )}
         </div>
       </div>
+      )}
 
       {/* Tabs */}
       <div className="border-b border-s112-border">

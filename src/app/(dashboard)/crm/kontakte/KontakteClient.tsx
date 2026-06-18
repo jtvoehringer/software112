@@ -47,12 +47,12 @@ function inputCls() {
 
 // ── Formular ──────────────────────────────────────────────────────────────────
 
-function KontaktForm({
-  initial, firmen, rabattgruppen, defaultSegment, existingKontakte, onDone,
+export function KontaktForm({
+  initial, firmen = [], rabattgruppen = [], defaultSegment, existingKontakte, onDone,
 }: {
   initial?: KontaktRow | null
-  firmen: FirmaOption[]
-  rabattgruppen: RabattgruppeOption[]
+  firmen?: FirmaOption[]
+  rabattgruppen?: RabattgruppeOption[]
   defaultSegment?: string
   existingKontakte?: KontaktRow[]
   onDone: () => void
@@ -745,7 +745,4 @@ export default function KontakteClient({
             />
           ))}
         </div>
-      )}
-    </div>
-  )
-}
+      )

@@ -6,7 +6,7 @@ import { exportCSV } from '@/lib/utils/csv'
 type R = Record<string, any>
 
 const TYP_ICONS: Record<string, string> = {
-  stahltank: '🪣', holzfass: '🪵', betonei: '⚪', amphore: '🏺', sonstiges: '📦',
+  lagertank: '🪣', immervolltank: '🪣', stahltank: '🪣', holzfass: '🪵', betonei: '⚪', amphore: '🏺', sonstiges: '📦',
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {

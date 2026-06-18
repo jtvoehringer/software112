@@ -1,14 +1,16 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createAktivitaet, createPipelineEintrag, toggleAktivitaetErledigt, updateAktivitaet, deleteAktivitaet } from '../../actions'
+import { createAktivitaet, createPipelineEintrag, toggleAktivitaetErledigt, updateAktivitaet, deleteAktivitaet, deleteKontakt } from '../../actions'
 import {
   SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN,
   segmentLabel, segmentFarbe, fmtUhrzeit,
 } from '@/lib/crm/types'
 import type { KontaktRow, AktivitaetRow, PipelineEintragRow } from '@/lib/crm/types'
 import DokumentePanel from '../../DokumentePanel'
+import { KontaktForm } from '../KontakteClient'
 
 function inputCls() {
   return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
@@ -369,6 +371,20 @@ export default function KontaktDetailClient({
   pipeline: PipelineEintragRow[]
   writeOk: boolean
 }) {
+  const router = useRouter()
+  const [editing, setEditing] = useState(false)
+  const [deletePending, startDeleteTransition] = useTransition()
+
+  function handleDelete() {
+    const name = [kontakt.vorname, kontakt.nachname].filter(Boolean).join(' ')
+    if (!confirm(`Kontakt „${name}" wirklich löschen?`)) return
+    startDeleteTransition(async () => {
+      await deleteKontakt(kontakt.id)
+      router.push('/crm/kontakte')
+      router.refresh()
+    })
+  }
+
   const [showEmailModal, setShowEmailModal] = useState(false)
   const [emailBetreff, setEmailBetreff]   = useState('')
   const [emailText, setEmailText]         = useState('')
@@ -461,32 +477,54 @@ export default function KontaktDetailClient({
         <span className="text-gray-800 font-medium">{name}</span>
       </nav>
 
-      <div className="flex items-center gap-4">
-        <div className="flex flex-col items-center justify-center bg-s112-bg border border-s112-border rounded-xl px-3 py-2 flex-shrink-0 min-w-[72px]">
-          <span className="text-[10px] text-s112-muted font-medium uppercase tracking-wide">Kd.-Nr.</span>
-          <span className="text-sm font-bold text-s112-teal tabular-nums">{kontakt.kundennummer ?? '–'}</span>
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{name}</h1>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${segmentFarbe(kontakt.segment)}`}>
-              {segmentLabel(kontakt.segment)}
-            </span>
-            {kontakt.stammkunde && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-s112-yellow/20 text-amber-700 font-medium">Stammkunde</span>
-            )}
-            {kontakt.is_lead && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">🌱 Lead</span>
-            )}
-            {kontakt.newsletter && kontakt.newsletter_bestaetigt && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Newsletter</span>
-            )}
-            {kontakt.newsletter && !kontakt.newsletter_bestaetigt && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium">ausstehend</span>
-            )}
+      {editing ? (
+        <KontaktForm
+          initial={kontakt}
+          onDone={() => { setEditing(false); router.refresh() }}
+        />
+      ) : (
+        <div className="flex items-start gap-4">
+          <div className="flex flex-col items-center justify-center bg-s112-bg border border-s112-border rounded-xl px-3 py-2 flex-shrink-0 min-w-[72px]">
+            <span className="text-[10px] text-s112-muted font-medium uppercase tracking-wide">Kd.-Nr.</span>
+            <span className="text-sm font-bold text-s112-teal tabular-nums">{kontakt.kundennummer ?? '–'}</span>
           </div>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl font-bold text-gray-900">{name}</h1>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${segmentFarbe(kontakt.segment)}`}>
+                {segmentLabel(kontakt.segment)}
+              </span>
+              {kontakt.stammkunde && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-s112-yellow/20 text-amber-700 font-medium">Stammkunde</span>
+              )}
+              {kontakt.is_lead && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">🌱 Lead</span>
+              )}
+              {kontakt.newsletter && kontakt.newsletter_bestaetigt && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Newsletter</span>
+              )}
+              {kontakt.newsletter && !kontakt.newsletter_bestaetigt && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium">ausstehend</span>
+              )}
+            </div>
+          </div>
+          {writeOk && (
+            <div className="flex gap-2 flex-shrink-0">
+              <button
+                onClick={() => setEditing(true)}
+                className="inline-flex items-center gap-1.5 border border-s112-border text-gray-600 px-3 py-1.5 rounded-lg text-sm hover:bg-s112-bg transition-colors">
+                ✏ Bearbeiten
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deletePending}
+                className="inline-flex items-center gap-1.5 border border-red-200 text-red-600 px-3 py-1.5 rounded-lg text-sm hover:bg-red-50 transition-colors disabled:opacity-40">
+                🗑 Löschen
+              </button>
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 

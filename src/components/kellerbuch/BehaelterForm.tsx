@@ -48,7 +48,8 @@ export default function BehaelterForm({ behaelter, action }: Props) {
             <label className="form-label">Typ</label>
             <select name="typ" defaultValue={behaelter?.typ ?? ''} className="form-input">
               <option value="">– bitte wählen –</option>
-              <option value="stahltank">Stahltank</option>
+              <option value="lagertank">Lagertank</option>
+              <option value="immervolltank">Immervoll-Tank</option>
               <option value="holzfass">Holzfass</option>
               <option value="betonei">Betonei</option>
               <option value="amphore">Amphore</option>

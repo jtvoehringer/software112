@@ -32,8 +32,10 @@ type PosData = { pos_x_pct: number; pos_y_pct: number; breite_pct: number; hoehe
 // ── Farben pro Behälter-Typ ───────────────────────────────────────────────────
 
 const TYP: Record<string, { bg: string; border: string; label: string }> = {
-  stahltank: { bg: '#f1f5f9', border: '#94a3b8', label: 'Stahltank' },
-  holzfass:  { bg: '#fffbeb', border: '#d97706', label: 'Holzfass'  },
+  lagertank:    { bg: '#f1f5f9', border: '#94a3b8', label: 'Lagertank'      },
+  immervolltank:{ bg: '#e0f2fe', border: '#0284c7', label: 'Immervoll-Tank' },
+  stahltank:    { bg: '#f1f5f9', border: '#94a3b8', label: 'Stahltank'      }, // legacy
+  holzfass:     { bg: '#fffbeb', border: '#d97706', label: 'Holzfass'       },
   betonei:   { bg: '#fafaf9', border: '#78716c', label: 'Betonei'   },
   amphore:   { bg: '#fff7ed', border: '#ea580c', label: 'Amphore'   },
   sonstiges: { bg: '#f9fafb', border: '#9ca3af', label: 'Sonstiges' },

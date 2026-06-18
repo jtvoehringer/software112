@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 const TYP_ICONS: Record<string, string> = {
-  stahltank: '🪣', holzfass: '🪵', betonei: '⚪', amphore: '🏺', sonstiges: '📦',
+  lagertank: '🪣', immervolltank: '🪣', stahltank: '🪣', holzfass: '🪵', betonei: '⚪', amphore: '🏺', sonstiges: '📦',
 }
 
 const ART_ICON: Record<string, string> = {

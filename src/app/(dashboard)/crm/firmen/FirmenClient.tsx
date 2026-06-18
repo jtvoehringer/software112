@@ -37,7 +37,7 @@ const LAENDER = ['AT', 'DE', 'CH', 'IT', 'FR', 'HU', 'SK', 'CZ', 'US', 'GB']
 
 // ── Formular ──────────────────────────────────────────────────────────────────
 
-function FirmaForm({ initial, rabattgruppen, defaultSegment, existingFirmen, onDone }: { initial?: FirmaRow | null; rabattgruppen: {id:string;name:string;rabatt_pct:number}[]; defaultSegment?: string; existingFirmen?: FirmaRow[]; onDone: () => void }) {
+export function FirmaForm({ initial, rabattgruppen = [], defaultSegment, existingFirmen, onDone }: { initial?: FirmaRow | null; rabattgruppen?: {id:string;name:string;rabatt_pct:number}[]; defaultSegment?: string; existingFirmen?: FirmaRow[]; onDone: () => void }) {
   const [pending, startTransition] = useTransition()
   const router = useRouter()
   const [segmentVal, setSegmentVal] = useState(initial?.segment ?? defaultSegment ?? 'handel')
@@ -494,6 +494,4 @@ export default function FirmenClient({
           ))}
         </div>
       )}
-    </div>
-  )
-}
+    

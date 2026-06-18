@@ -193,13 +193,14 @@ export default async function GebindePage({
               <form action={createBehaelter} className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Bezeichnung *</label>
-                  <input name="name" required placeholder="z.B. Stahltank 1" className={inputCls} />
+                  <input name="name" required placeholder="z.B. Tanknummer" className={inputCls} />
                 </div>
                 <div>
                   <label className={labelCls}>Typ</label>
                   <select name="typ" className={inputCls}>
                     <option value="">– kein –</option>
-                    <option value="stahltank">Stahltank</option>
+                    <option value="lagertank">Lagertank</option>
+                    <option value="immervolltank">Immervoll-Tank</option>
                     <option value="holzfass">Holzfass</option>
                     <option value="betonei">Betonei</option>
                     <option value="amphore">Amphore</option>

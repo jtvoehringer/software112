@@ -45,7 +45,8 @@ export default function GebindeClient({ gebinde, action, inputCls, labelCls }: P
                 <label className={labelCls}>Typ</label>
                 <select name="typ" defaultValue={gebinde.typ ?? ''} className={inputCls}>
                   <option value="">– kein –</option>
-                  <option value="stahltank">Stahltank</option>
+                  <option value="lagertank">Lagertank</option>
+                  <option value="immervolltank">Immervoll-Tank</option>
                   <option value="holzfass">Holzfass</option>
                   <option value="betonei">Betonei</option>
                   <option value="amphore">Amphore</option>
