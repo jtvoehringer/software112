@@ -48,11 +48,11 @@ function inputCls() {
 // ── Formular ──────────────────────────────────────────────────────────────────
 
 export function KontaktForm({
-  initial, firmen, rabattgruppen, defaultSegment, existingKontakte, onDone,
+  initial, firmen = [], rabattgruppen = [], defaultSegment, existingKontakte, onDone,
 }: {
   initial?: KontaktRow | null
-  firmen: FirmaOption[]
-  rabattgruppen: RabattgruppeOption[]
+  firmen?: FirmaOption[]
+  rabattgruppen?: RabattgruppeOption[]
   defaultSegment?: string
   existingKontakte?: KontaktRow[]
   onDone: () => void
@@ -416,8 +416,8 @@ function KontaktKarte({
   kontakt, firmen, rabattgruppen, aktivitaeten, pipeline, writeOk, sortBy,
 }: {
   kontakt: KontaktRow
-  firmen: FirmaOption[]
-  rabattgruppen: RabattgruppeOption[]
+  firmen?: FirmaOption[]
+  rabattgruppen?: RabattgruppeOption[]
   aktivitaeten: AktivitaetRow[]
   pipeline: PipelineRow[]
   writeOk: boolean
@@ -616,8 +616,8 @@ export default function KontakteClient({
   kontakte, firmen, rabattgruppen, aktivitaetenMap, pipelineMap, writeOk,
 }: {
   kontakte: KontaktRow[]
-  firmen: FirmaOption[]
-  rabattgruppen: RabattgruppeOption[]
+  firmen?: FirmaOption[]
+  rabattgruppen?: RabattgruppeOption[]
   aktivitaetenMap: Record<string, AktivitaetRow[]>
   pipelineMap: Record<string, PipelineRow[]>
   writeOk: boolean
