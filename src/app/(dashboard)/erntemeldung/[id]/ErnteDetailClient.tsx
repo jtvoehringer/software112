@@ -514,6 +514,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
           weingarten_name: p.weingarten_name,
           menge_kg: p.menge_kg,
           rebsorte: p.weingarten_rebsorte,
+          klosterneuburger: p.klosterneuburger,
         }))}
         writeOk={writeOk}
         adminOk={adminOk}

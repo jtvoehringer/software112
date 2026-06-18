@@ -1,3 +1,9 @@
+
+type ErtragHistorie = {
+  jahrgang: number
+  menge_kg: number
+  datum: string | null
+}
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -61,6 +67,21 @@ export default async function WeingartenEditPage({ params }: Props) {
     .order('gst_nr')
   const grundstuecke = (rawG ?? []) as GST[]
 
+  // Historische Ertragsdaten aus ernte_parzellen
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawErtrag } = await (supabase.from('ernte_parzellen') as any)
+    .select('menge_kg, ernte_datum, weinjahrgaenge!jahrgang_id(jahrgang)')
+    .eq('weingarten_id', id)
+    .not('menge_kg', 'is', null)
+    .order('ernte_datum', { ascending: false })
+  const ertragHistorie: ErtragHistorie[] = ((rawErtrag ?? []) as AR[])
+    .filter((r: AR) => r.weinjahrgaenge?.jahrgang)
+    .map((r: AR) => ({
+      jahrgang: r.weinjahrgaenge.jahrgang as number,
+      menge_kg: r.menge_kg as number,
+      datum: r.ernte_datum as string | null,
+    }))
+
   const action = updateWeingarten.bind(null, id)
 
   return (
@@ -95,6 +116,41 @@ export default async function WeingartenEditPage({ params }: Props) {
           adminOk={adminOk}
         />
       </div>
+
+      {/* Historische Ertragsdaten */}
+      {ertragHistorie.length > 0 && (
+        <div className="card mt-6">
+          <h2 className="text-base font-semibold text-gray-800 mb-4">Ertragshistorie</h2>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-s112-border bg-s112-bg">
+                <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600">Jahrgang</th>
+                <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600">Ernte-Datum</th>
+                <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600">Menge (kg)</th>
+                <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600">kg/ha</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ertragHistorie.map((e, i) => (
+                <tr key={i} className="border-b border-s112-border/40 hover:bg-s112-bg/50">
+                  <td className="px-3 py-2 font-semibold text-gray-800">{e.jahrgang}</td>
+                  <td className="px-3 py-2 text-gray-600">
+                    {e.datum ? new Date(e.datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '–'}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-gray-800">
+                    {e.menge_kg.toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-gray-600">
+                    {weingarten.flaeche_ha
+                      ? (e.menge_kg / weingarten.flaeche_ha).toLocaleString('de-AT', { maximumFractionDigits: 0 })
+                      : '–'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }

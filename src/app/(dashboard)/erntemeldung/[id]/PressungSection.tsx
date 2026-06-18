@@ -24,7 +24,7 @@ export type Pressung = {
 export type WGOption  = { id: string; name: string; rebsorte: string | null }
 export type BehOption = { id: string; name: string }
 export type WAOption  = { id: string; name: string; jahrgang: number | null }
-export type LeseParzelle = { weingarten_id: string; weingarten_name: string; menge_kg: number | null; rebsorte: string | null }
+export type LeseParzelle = { weingarten_id: string; weingarten_name: string; menge_kg: number | null; rebsorte: string | null; klosterneuburger?: number | null }
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────
 
@@ -50,7 +50,15 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
   const [datum, setDatum]                   = useState(pressung?.datum ?? new Date().toISOString().split('T')[0])
   const [mostLiter, setMostLiter]           = useState(pressung?.most_liter_gesamt?.toString().replace('.', ',') ?? '')
   const [weinbezeichnung, setWeinbez]       = useState(pressung?.weinbezeichnung ?? '')
-  const [kmwGrad, setKmwGrad]              = useState(pressung?.kmw_grad?.toString().replace('.', ',') ?? '')
+  // KMW aus Erntedaten ableiten (gewichteter Durchschnitt nach kg)
+  const kmwFromErnte = (() => {
+    const rows = leseParzellen.filter(p => p.klosterneuburger != null && (p.menge_kg ?? 0) > 0)
+    if (rows.length === 0) return pressung?.kmw_grad ?? null
+    const sumKg  = rows.reduce((s, p) => s + (p.menge_kg ?? 0), 0)
+    const sumKmw = rows.reduce((s, p) => s + (p.klosterneuburger! * (p.menge_kg ?? 0)), 0)
+    return sumKg > 0 ? Math.round((sumKmw / sumKg) * 10) / 10 : (pressung?.kmw_grad ?? null)
+  })()
+  const kmwGrad = kmwFromErnte?.toString().replace('.', ',') ?? ''
   const [notizen, setNotizen]               = useState(pressung?.notizen ?? '')
 
   const kmwNum     = parseFloat(kmwGrad.replace(',', '.'))
@@ -110,7 +118,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     fd.append('datum', datum)
     fd.append('most_liter_gesamt', mostLiter)
     fd.append('weinbezeichnung', weinbezeichnung)
-    fd.append('kmw_grad', kmwGrad)
+    // kmw_grad wird als hidden input übergeben
     fd.append('notizen', notizen)
     fd.append('weingaerten_json', JSON.stringify(
       wgRows.filter(r => r.weingarten_id && r.trauben_kg).map(r => ({
@@ -149,10 +157,12 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
             placeholder="z.B. 1.050" className={inp} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">KMW° (Mostgewicht)</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">KMW° (aus Ernte)</label>
+          <input type="hidden" name="kmw_grad" value={kmwGrad} />
           <div className="flex items-center gap-2">
-            <input type="text" inputMode="decimal" value={kmwGrad} onChange={e => setKmwGrad(e.target.value)}
-              placeholder="z.B. 17,5" className={inp} />
+            <div className={inp + ' bg-s112-bg text-gray-700 cursor-not-allowed'}>
+              {kmwGrad ? `${kmwGrad} °KMW` : <span className="text-s112-muted text-xs">– (kein KMW in Ernte erfasst)</span>}
+            </div>
             {kmwQualitaet && (
               <span className="shrink-0 text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap">
                 → {QUALITAET_LABEL[kmwQualitaet]}
