@@ -116,6 +116,22 @@ export default async function ErnteDetailPage({ params }: Props) {
   }))
 
   const wgOptions: WGOption[]  = weingaerten.map(w => ({ id: w.id, name: w.name, rebsorte: w.rebsorte }))
+
+  // Verfügbare kg pro WG: geerntet − verpresst (für alle Pressungen dieses Jahrgangs)
+  const harvestedKgByWG: Record<string, number> = {}
+  for (const p of parzellen) {
+    if (p.menge_kg) harvestedKgByWG[p.weingarten_id] = (harvestedKgByWG[p.weingarten_id] ?? 0) + p.menge_kg
+  }
+  const pressedKgByWG: Record<string, number> = {}
+  for (const p of pressungen) {
+    for (const w of p.weingaerten) {
+      pressedKgByWG[w.weingarten_id] = (pressedKgByWG[w.weingarten_id] ?? 0) + w.trauben_kg
+    }
+  }
+  const verfuegbareKg: Record<string, number> = {}
+  for (const wgId of Object.keys(harvestedKgByWG)) {
+    verfuegbareKg[wgId] = (harvestedKgByWG[wgId] ?? 0) - (pressedKgByWG[wgId] ?? 0)
+  }
   const behOptions: BehOption[] = ((rawBeh ?? []) as AR[]).map(b => ({ id: b.id, name: b.name }))
   const waOptions: WAOption[]  = ((rawWA ?? []) as AR[]).map(w => ({ id: w.id, name: w.name, jahrgang: w.jahrgang ?? null }))
 
@@ -143,6 +159,7 @@ export default async function ErnteDetailPage({ params }: Props) {
         wgOptions={wgOptions}
         behOptions={behOptions}
         waOptions={waOptions}
+        verfuegbareKg={verfuegbareKg}
         writeOk={writeOk}
         adminOk={adminOk}
       />

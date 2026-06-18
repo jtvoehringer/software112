@@ -42,10 +42,10 @@ type BehRow = { behaelter_id: string; weinausbau_id: string; menge_liter: string
 const emptyWG  = (): WGRow  => ({ weingarten_id: '', trauben_kg: '', rebsorte: '', notizen: '' })
 const emptyBeh = (): BehRow => ({ behaelter_id: '', weinausbau_id: '', menge_liter: '', notizen: '' })
 
-function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, leseParzellen, onDone }: {
+function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, leseParzellen, verfuegbareKg, onDone }: {
   jahrgangId: string; pressung?: Pressung
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
-  leseParzellen: LeseParzelle[]; onDone: () => void
+  leseParzellen: LeseParzelle[]; verfuegbareKg: Record<string, number>; onDone: () => void
 }) {
   const [datum, setDatum]                   = useState(pressung?.datum ?? new Date().toISOString().split('T')[0])
   const [mostLiter, setMostLiter]           = useState(pressung?.most_liter_gesamt?.toString().replace('.', ',') ?? '')
@@ -206,10 +206,32 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
           {wgRows.map((row, i) => (
             <div key={i} className="grid grid-cols-12 gap-1.5 items-center">
               <div className="col-span-5">
-                <select value={row.weingarten_id} onChange={e => updateWG(i, 'weingarten_id', e.target.value)} className={inp}>
-                  <option value="">– Weingarten –</option>
-                  {wgOptions.map(w => <option key={w.id} value={w.id}>{w.name}{w.rebsorte ? ` (${w.rebsorte})` : ''}</option>)}
-                </select>
+                {(() => {
+                  // Effektiv verfügbar: global verfügbar + bereits in dieser Pressung verpresst (beim Edit)
+                  const effVerfuegbar = (wgId: string) => {
+                    const base = verfuegbareKg[wgId] ?? 0
+                    const alreadyInPressung = pressung?.weingaerten.find(w => w.weingarten_id === wgId)?.trauben_kg ?? 0
+                    return base + alreadyInPressung
+                  }
+                  // Nur WGs anzeigen, die geerntet wurden (in verfuegbareKg) und noch verfügbar sind
+                  // oder die in dieser Zeile bereits ausgewählt sind
+                  const filteredWGs = wgOptions.filter(w =>
+                    verfuegbareKg[w.id] !== undefined && (effVerfuegbar(w.id) > 0 || row.weingarten_id === w.id)
+                  )
+                  return (
+                    <select value={row.weingarten_id} onChange={e => updateWG(i, 'weingarten_id', e.target.value)} className={inp}>
+                      <option value="">– Weingarten –</option>
+                      {filteredWGs.map(w => {
+                        const verf = effVerfuegbar(w.id)
+                        return (
+                          <option key={w.id} value={w.id}>
+                            {w.name}{w.rebsorte ? ` (${w.rebsorte})` : ''} – {verf.toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg verf.
+                          </option>
+                        )
+                      })}
+                    </select>
+                  )
+                })()}
               </div>
               <div className="col-span-2">
                 <input type="text" inputMode="decimal" value={row.trauben_kg}
@@ -286,10 +308,10 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
 
 // ── Hauptexport ───────────────────────────────────────────────────────────────
 
-export default function PressungSection({ jahrgangId, pressungen, wgOptions, behOptions, waOptions, leseParzellen, writeOk, adminOk }: {
+export default function PressungSection({ jahrgangId, pressungen, wgOptions, behOptions, waOptions, leseParzellen, verfuegbareKg, writeOk, adminOk }: {
   jahrgangId: string; pressungen: Pressung[]
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
-  leseParzellen: LeseParzelle[]; writeOk: boolean; adminOk: boolean
+  leseParzellen: LeseParzelle[]; verfuegbareKg: Record<string, number>; writeOk: boolean; adminOk: boolean
 }) {
   const [showForm, setShowForm]   = useState(false)
   const [editId, setEditId]       = useState<string | null>(null)
@@ -347,7 +369,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
       {/* Neues Formular */}
       {showForm && !editId && (
         <PressungForm jahrgangId={jahrgangId} wgOptions={wgOptions} behOptions={behOptions}
-          waOptions={waOptions} leseParzellen={leseParzellen} onDone={() => setShowForm(false)} />
+          waOptions={waOptions} leseParzellen={leseParzellen} verfuegbareKg={verfuegbareKg} onDone={() => setShowForm(false)} />
       )}
 
       {/* Pressung-Liste */}
@@ -364,7 +386,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
               <div key={p.id}>
                 {editId === p.id ? (
                   <PressungForm pressung={p} jahrgangId={jahrgangId} wgOptions={wgOptions}
-                    behOptions={behOptions} waOptions={waOptions} leseParzellen={[]} onDone={() => setEditId(null)} />
+                    behOptions={behOptions} waOptions={waOptions} leseParzellen={[]} verfuegbareKg={verfuegbareKg} onDone={() => setEditId(null)} />
                 ) : (
                   <div className="border border-s112-border rounded-xl p-3">
                     <div className="flex items-start justify-between gap-2 mb-2">

@@ -295,12 +295,12 @@ function ParzellForm({
 
 // ── Hauptkomponente ─────────────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, amaMeldung, pressungen, wgOptions, behOptions, waOptions, writeOk, adminOk }: {
+export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, amaMeldung, pressungen, wgOptions, behOptions, waOptions, verfuegbareKg, writeOk, adminOk }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   jahrgang: Record<string, any>; parzellen: ErnteParzelle[]
   weingaerten: WeingartenOpt[]; amaMeldung: AMAMeldung | null
   pressungen: Pressung[]; wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
-  writeOk: boolean; adminOk: boolean
+  verfuegbareKg: Record<string, number>; writeOk: boolean; adminOk: boolean
 }) {
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
@@ -509,6 +509,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
         wgOptions={wgOptions}
         behOptions={behOptions}
         waOptions={waOptions}
+        verfuegbareKg={verfuegbareKg}
         leseParzellen={parzellen.map(p => ({
           weingarten_id: p.weingarten_id,
           weingarten_name: p.weingarten_name,
