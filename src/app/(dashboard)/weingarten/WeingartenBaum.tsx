@@ -221,7 +221,7 @@ export default function WeingartenBaum({
   // Weingärten nach Riede gruppieren
   const lagenMap = new Map<string, WRow[]>()
   for (const w of weingaerten) {
-    const ried = w.ried ?? '(Keine Riede)'
+    const ried = w.ried ?? 'Rieden'
     const arr = lagenMap.get(ried) ?? []
     arr.push(w)
     lagenMap.set(ried, arr)
