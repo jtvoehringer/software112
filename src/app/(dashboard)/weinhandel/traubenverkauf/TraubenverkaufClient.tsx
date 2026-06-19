@@ -261,6 +261,19 @@ export default function TraubenverkaufClient({ verkaufe, wgOptions, jahrgaenge, 
               </div>
             </div>
 
+            {/* Gesundheitsstatus */}
+            <div>
+              <label className="form-label">Traubengesundheit</label>
+              <select
+                name="gesundheit"
+                defaultValue={editRow?.gesundheit ?? 'G'}
+                className="form-input"
+              >
+                <option value="G">G – Gut (Standard)</option>
+                <option value="K">K – Krank / beschädigt</option>
+              </select>
+            </div>
+
             {/* Käufer */}
             <div className="border-t border-s112-border pt-4">
               <label className="form-label mb-2">Käufer</label>
@@ -367,6 +380,7 @@ export default function TraubenverkaufClient({ verkaufe, wgOptions, jahrgaenge, 
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-s112-border bg-s112-bg text-left">
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500">Lief.-Nr.</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500">Datum</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500">Weingarten</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500">Käufer</th>
@@ -385,6 +399,9 @@ export default function TraubenverkaufClient({ verkaufe, wgOptions, jahrgaenge, 
                   : null
                 return (
                   <tr key={v.id} className="hover:bg-s112-bg/50 transition-colors">
+                    <td className="px-4 py-3 whitespace-nowrap font-mono text-xs text-s112-muted">
+                      {v.liefernummer ?? '–'}
+                    </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {new Date(v.datum).toLocaleDateString('de-AT')}
                     </td>

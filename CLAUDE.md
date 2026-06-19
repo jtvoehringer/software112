@@ -85,6 +85,9 @@
 | 043       | Weinexport: exportauftraege, exportauftrag_positionen, export_dokumente + modul_weinexport Toggle + get_next_exportnummer() |
 | 044       | Email-IDs in Aktivitäten: aktivitaeten += email_id (UNIQUE), email_conversation_id |
 | 045       | Email-Body persistent: aktivitaeten += email_von, email_von_name, email_an, email_body, email_body_html |
+| 109       | Traubenverkauf: weingarten += trauben_verkauf/trauben_herkunft_code; neue Tabelle traubenverkauf (Verkauf an Abnehmer, BKI-Datenblatt CSV-Export) |
+| 110       | BKI-Betriebsnummern Abnehmer: firmen.betrieb_nr + kontakte.betrieb_nr (Empfänger-Block BKI-Transportliste) |
+| 111       | Traubenverkauf Erweiterungen: traubenverkauf += gesundheit (G/K) + liefernummer (auto); weingarten += nachhaltig_austria; tenant_einstellungen += liefernummer_prefix/zaehler/stellen + get_next_liefernummer() RPC |
 
 ## Phase 4 – Status (Stand Juni 2026)
 

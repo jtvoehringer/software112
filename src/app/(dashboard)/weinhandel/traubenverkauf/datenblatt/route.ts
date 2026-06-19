@@ -27,7 +27,7 @@ export async function GET(req: Request) {
   // Tenant-Betriebsdaten
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
-    .select('betrieb_name, betrieb_strasse, betrieb_hausnr, betrieb_plz, betrieb_ort, betrieb_vorname, betrieb_nachname')
+    .select('betrieb_betriebsnummer, betrieb_name, betrieb_strasse, betrieb_hausnr, betrieb_plz, betrieb_ort, betrieb_vorname, betrieb_nachname')
     .eq('tenant_id', membership.tenantId)
     .maybeSingle()
   const te = (einst ?? {}) as R
@@ -38,8 +38,8 @@ export async function GET(req: Request) {
     .select(`
       id, datum, menge_kg, preis_per_kg, kmw_grad, qualitaetsstufe, herkunft_code,
       weingarten:weingarten_id(id, name, rebsorte, trauben_herkunft_code),
-      kontakt:kontakt_id(id, vorname, nachname, strasse, hausnr, plz, ort),
-      firma:firma_id(id, firmenname, strasse, plz, ort),
+      kontakt:kontakt_id(id, betrieb_nr, vorname, nachname, strasse, hausnr, plz, ort),
+      firma:firma_id(id, betrieb_nr, firmenname, strasse, hausnr, plz, ort),
       jahrgang:jahrgang_id(id, jahrgang)
     `)
     .eq('tenant_id', membership.tenantId)
@@ -58,12 +58,13 @@ export async function GET(req: Request) {
   const { data: rowsRaw } = await query
   const rows = (rowsRaw ?? []) as R[]
 
-  const versenderName    = te.betrieb_name     ?? ''
-  const versenderVorname = te.betrieb_vorname  ?? ''
-  const versenderStrasse = te.betrieb_strasse  ?? ''
-  const versenderHausnr  = te.betrieb_hausnr   ?? ''
-  const versenderPlz     = te.betrieb_plz      ?? ''
-  const versenderOrt     = te.betrieb_ort      ?? ''
+  const versenderBetriebNr = te.betrieb_betriebsnummer ?? ''
+  const versenderName      = te.betrieb_name    ?? ''
+  const versenderVorname   = te.betrieb_vorname ?? ''
+  const versenderStrasse   = te.betrieb_strasse ?? ''
+  const versenderHausnr    = te.betrieb_hausnr  ?? ''
+  const versenderPlz       = te.betrieb_plz     ?? ''
+  const versenderOrt       = te.betrieb_ort     ?? ''
 
   // BKI-Spalten-Header (gem. Datenblatt-Struktur)
   const headers = [
@@ -87,21 +88,24 @@ export async function GET(req: Request) {
   ]
 
   rows.forEach(v => {
-    let empfName = '', empfVorname = '', empfStrasse = '', empfHausnr = '', empfPlz = '', empfOrt = ''
+    let empfBetriebNr = '', empfName = '', empfVorname = '', empfStrasse = '', empfHausnr = '', empfPlz = '', empfOrt = ''
     if (v.kontakt) {
       const k = v.kontakt as R
-      empfName    = k.nachname ?? ''
-      empfVorname = k.vorname  ?? ''
-      empfStrasse = k.strasse  ?? ''
-      empfHausnr  = k.hausnr   ?? ''
-      empfPlz     = k.plz      ?? ''
-      empfOrt     = k.ort      ?? ''
+      empfBetriebNr = k.betrieb_nr ?? ''
+      empfName      = k.nachname   ?? ''
+      empfVorname   = k.vorname    ?? ''
+      empfStrasse   = k.strasse    ?? ''
+      empfHausnr    = k.hausnr     ?? ''
+      empfPlz       = k.plz        ?? ''
+      empfOrt       = k.ort        ?? ''
     } else if (v.firma) {
       const f = v.firma as R
-      empfName    = f.firmenname ?? ''
-      empfStrasse = f.strasse    ?? ''
-      empfPlz     = f.plz        ?? ''
-      empfOrt     = f.ort        ?? ''
+      empfBetriebNr = f.betrieb_nr  ?? ''
+      empfName      = f.firmenname  ?? ''
+      empfStrasse   = f.strasse     ?? ''
+      empfHausnr    = f.hausnr      ?? ''
+      empfPlz       = f.plz         ?? ''
+      empfOrt       = f.ort         ?? ''
     }
 
     const rebsorte   = (v.weingarten as R | null)?.rebsorte ?? null
@@ -113,13 +117,13 @@ export async function GET(req: Request) {
     const datumStr   = v.datum ? new Date(v.datum).toLocaleDateString('de-AT') : ''
 
     const cols = [
-      '',           // Betriebsnr Empfänger (leer – kein internes Feld)
+      empfBetriebNr,
       empfName, empfVorname, empfStrasse, empfHausnr, empfPlz, empfOrt,
-      '',           // Betriebsnr Versender
+      versenderBetriebNr,
       versenderName, versenderVorname, versenderStrasse, versenderHausnr, versenderPlz, versenderOrt,
       datumStr,
       String(v.menge_kg ?? ''),
-      'T',          // Art = Trauben
+      'TB',         // Art = Transportbeleg (BKI-Konvention)
       rot ? '' : 'J',  // Weiß
       rot ? 'J' : '',  // Rot
       rebKuerzel,
@@ -128,7 +132,9 @@ export async function GET(req: Request) {
       qualBki,
       String(jahrgang),
       herkunft,
-      v.kmw_grad  != null ? String(v.kmw_grad).replace('.', ',')  : '']
+      v.kmw_grad  != null ? String(v.kmw_grad).replace('.', ',')  : '',
+      '',           // °Oe – Pflicht-Spalte im BKI-Format (leer wenn KMW angegeben)
+    ]
     lines.push(cols.map(esc).join(';'))
   })
 

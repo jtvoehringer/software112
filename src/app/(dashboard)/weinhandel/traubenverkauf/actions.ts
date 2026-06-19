@@ -31,6 +31,7 @@ export async function upsertTraubenverkauf(formData: FormData) {
     kmw_grad:        getNum('kmw_grad'),
     qualitaetsstufe: (formData.get('qualitaetsstufe') as string) || null,
     herkunft_code:   (formData.get('herkunft_code') as string) || null,
+    gesundheit:      (formData.get('gesundheit') as string) || 'G',
     notizen:         (formData.get('notizen') as string) || null,
     updated_at:      new Date().toISOString(),
   }
@@ -43,6 +44,10 @@ export async function upsertTraubenverkauf(formData: FormData) {
       .eq('tenant_id', membership.tenantId)
     if (error) throw new Error((error as AR).message)
   } else {
+    // Liefernummer bei Neuanlage auto-generieren
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: lnData } = await (supabase.rpc as any)('get_next_liefernummer', { p_tenant_id: membership.tenantId })
+    if (lnData) payload.liefernummer = lnData
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('traubenverkauf') as any).insert(payload)
     if (error) throw new Error((error as AR).message)

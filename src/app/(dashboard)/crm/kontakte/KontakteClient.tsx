@@ -248,6 +248,11 @@ export function KontaktForm({
             {LAENDER.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
         </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">BKI-Betriebsnummer</label>
+          <input name="betrieb_nr" defaultValue={v('betrieb_nr' as keyof typeof initial)} placeholder="z.B. 4285221" className={inputCls()} />
+          <p className="text-[10px] text-gray-400 mt-0.5">Betriebsnummer des Abnehmers für BKI-Transportliste</p>
+        </div>
         <div className="flex items-center gap-2 pt-5">
           <input type="checkbox" id="stammkunde" checked={stammkunde}
             onChange={e => setStammkunde(e.target.checked)}

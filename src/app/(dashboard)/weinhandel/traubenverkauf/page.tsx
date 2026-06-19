@@ -24,7 +24,7 @@ export default async function TraubenverkaufPage() {
   const { data: verkaufeRaw } = await (supabase.from('traubenverkauf') as any)
     .select(`
       id, datum, menge_kg, preis_per_kg, kmw_grad,
-      qualitaetsstufe, herkunft_code, notizen, jahrgang_id,
+      qualitaetsstufe, herkunft_code, gesundheit, liefernummer, notizen, jahrgang_id,
       weingarten:weingarten_id(id, name, rebsorte, trauben_herkunft_code),
       kontakt:kontakt_id(id, vorname, nachname),
       firma:firma_id(id, firmenname),

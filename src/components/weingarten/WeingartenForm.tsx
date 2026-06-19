@@ -236,6 +236,16 @@ export default function WeingartenForm({ weingarten, action, lagen }: Props) {
             />
             <span className="text-sm font-medium text-gray-700">Trauben aus diesem Weingarten können verkauft werden</span>
           </label>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              name="nachhaltig_austria"
+              value="true"
+              defaultChecked={(weingarten as Record<string, unknown>).nachhaltig_austria as boolean ?? false}
+              className="w-4 h-4 accent-s112-teal"
+            />
+            <span className="text-sm font-medium text-gray-700">nachhaltig Austria zertifiziert</span>
+          </label>
           <div>
             <label className="form-label">Herkunft-Code (BKI)</label>
             <input

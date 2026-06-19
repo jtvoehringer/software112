@@ -158,6 +158,11 @@ export function FirmaForm({ initial, rabattgruppen = [], defaultSegment, existin
           <input name="uid_nummer" defaultValue={v('uid_nummer')} placeholder="ATU…" className={inputCls()} />
         </div>
         <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">BKI-Betriebsnummer</label>
+          <input name="betrieb_nr" defaultValue={v('betrieb_nr' as keyof FirmaRow)} placeholder="z.B. 905721" className={inputCls()} />
+          <p className="text-[10px] text-gray-400 mt-0.5">Betriebsnummer des Abnehmers für BKI-Transportliste</p>
+        </div>
+        <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Straße</label>
           <input name="strasse" defaultValue={v('strasse')} className={inputCls()} />
         </div>

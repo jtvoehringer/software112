@@ -73,8 +73,9 @@ export async function updateWeingarten(id: string, formData: FormData) {
     weinart:              (formData.get('weinart') as string) || 'unbekannt',
     notizen:              (formData.get('notizen') as string) || null,
     aktiv:                formData.get('aktiv') === 'true',
-    trauben_verkauf:      formData.get('trauben_verkauf') === 'true',
+    trauben_verkauf:       formData.get('trauben_verkauf') === 'true',
     trauben_herkunft_code: (formData.get('trauben_herkunft_code') as string) || null,
+    nachhaltig_austria:    formData.get('nachhaltig_austria') === 'true',
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
