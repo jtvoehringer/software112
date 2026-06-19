@@ -45,14 +45,14 @@ export default async function WeingartenPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Rieden</h1>
-          <p className="text-sm text-s112-muted mt-0.5">Rieden & Weingarten-Stammdaten</p>
+          <p className="text-sm text-s112-muted mt-0.5">Rieden & Grundstücke</p>
         </div>
         {writeOk && (
           <Link
             href="/weingarten/neu"
             className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
           >
-            <span>＋</span> Neuer Weingarten
+            <span>＋</span> Neue Riede
           </Link>
         )}
       </div>
