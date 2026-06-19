@@ -5,7 +5,7 @@ import Link from 'next/link'
 import WeingartenBaum, { type WRow, type GSTRow } from './WeingartenBaum'
 import { fmtHa } from '@/lib/format'
 
-export const metadata: Metadata = { title: 'Weingarten – software:112' }
+export const metadata: Metadata = { title: 'Rieden – software:112' }
 
 export default async function WeingartenPage() {
   const supabase = await createSupabaseServerClient()
@@ -44,7 +44,7 @@ export default async function WeingartenPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Weingarten</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Rieden</h1>
           <p className="text-sm text-s112-muted mt-0.5">Rieden & Weingarten-Stammdaten</p>
         </div>
         {writeOk && (

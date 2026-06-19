@@ -220,7 +220,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
                   )
                   return (
                     <select value={row.weingarten_id} onChange={e => updateWG(i, 'weingarten_id', e.target.value)} className={inp}>
-                      <option value="">– Weingarten –</option>
+                      <option value="">– Riede –</option>
                       {filteredWGs.map(w => {
                         const verf = effVerfuegbar(w.id)
                         return (
@@ -455,3 +455,4 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
     </div>
   )
 }
+      

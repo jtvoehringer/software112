@@ -180,7 +180,7 @@ function LageGruppe({
             <span className="text-s112-teal"><ChevronIcon open={open} /></span>
             <span className="font-semibold text-gray-900 text-sm">{ried}</span>
             <span className="text-xs text-s112-muted ml-1">
-              {weingaerten.length} {weingaerten.length === 1 ? 'Weingarten' : 'Weingärten'}
+              {weingaerten.length} {weingaerten.length === 1 ? 'Riede' : 'Rieden'}
               {' · '}
               {fmtHa(totalHa)} ha
             </span>
@@ -218,10 +218,10 @@ export default function WeingartenBaum({
     gstMap.set(g.weingarten_id, arr)
   }
 
-  // Weingärten nach Ried gruppieren
+  // Weingärten nach Riede gruppieren
   const lagenMap = new Map<string, WRow[]>()
   for (const w of weingaerten) {
-    const ried = w.ried ?? '(Keine Ried)'
+    const ried = w.ried ?? '(Keine Riede)'
     const arr = lagenMap.get(ried) ?? []
     arr.push(w)
     lagenMap.set(ried, arr)
@@ -233,7 +233,7 @@ export default function WeingartenBaum({
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-s112-bg border-b-2 border-s112-border">
-            <th className="text-left px-4 py-3 font-semibold text-gray-700">Ried / Weingarten / GST</th>
+            <th className="text-left px-4 py-3 font-semibold text-gray-700">Riede / Grundstück</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">Rebsorte</th>
             <th className="text-right px-3 py-3 font-semibold text-gray-700">Fläche (ha)</th>
             <th className="text-center px-3 py-3 font-semibold text-gray-700">Details</th>
@@ -256,3 +256,4 @@ export default function WeingartenBaum({
     </div>
   )
 }
+                

@@ -145,7 +145,7 @@ export default function TraubenverkaufClient({ verkaufe, wgOptions, jahrgaenge, 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Weingarten */}
               <div>
-                <label className="form-label">Weingarten *</label>
+                <label className="form-label">Riede *</label>
                 <select
                   name="weingarten_id"
                   required
@@ -153,7 +153,7 @@ export default function TraubenverkaufClient({ verkaufe, wgOptions, jahrgaenge, 
                   onChange={handleWgChange}
                   className="form-input"
                 >
-                  <option value="">– Weingarten wählen –</option>
+                  <option value="">– Riede wählen –</option>
                   {wgOptions.map(w => (
                     <option key={w.id} value={w.id}>
                       {w.name}{w.rebsorte ? ` (${w.rebsorte})` : ''}
@@ -382,7 +382,7 @@ export default function TraubenverkaufClient({ verkaufe, wgOptions, jahrgaenge, 
               <tr className="border-b border-s112-border bg-s112-bg text-left">
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500">Lief.-Nr.</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500">Datum</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500">Weingarten</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500">Riede</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500">Käufer</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 text-right">kg</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 text-right">€/kg</th>
@@ -478,3 +478,4 @@ export default function TraubenverkaufClient({ verkaufe, wgOptions, jahrgaenge, 
     </div>
   )
 }
+                  

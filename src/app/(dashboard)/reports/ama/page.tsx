@@ -89,7 +89,7 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
         <table className="w-full text-sm border-collapse mb-6">
           <thead>
             <tr className="bg-gray-100 border border-gray-300">
-              <th className="text-left px-3 py-2 border border-gray-300 font-semibold">Weingarten / Rebsorte</th>
+              <th className="text-left px-3 py-2 border border-gray-300 font-semibold">Riede / Rebsorte</th>
               <th className="text-right px-3 py-2 border border-gray-300 font-semibold">Erntedatum</th>
               <th className="text-right px-3 py-2 border border-gray-300 font-semibold">Menge (kg)</th>
               <th className="text-right px-3 py-2 border border-gray-300 font-semibold">Menge (hl)</th>
@@ -170,3 +170,4 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
     </div>
   )
 }
+      

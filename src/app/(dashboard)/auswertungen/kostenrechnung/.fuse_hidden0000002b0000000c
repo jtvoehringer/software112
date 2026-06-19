@@ -1,0 +1,134 @@
+'use client'
+import { useState, useEffect } from 'react'
+
+type Eintrag = {
+  betrag: number; periode: string | null; objekt_typ: string | null
+  kostenstelle: { name: string } | null; kostenart: { name: string } | null
+  wg: { name: string } | null; behaelter: { name: string } | null
+}
+type Split = { kosteneintrag_id: string; betrag_anteil: number; wg: { name: string } | null }
+
+function eur(n: number) { return n.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' }) }
+function sumBy<T>(arr: T[], key: (t: T) => string, val: (t: T) => number) {
+  const m: Record<string, number> = {}
+  arr.forEach(t => { const k = key(t); m[k] = (m[k] || 0) + val(t) })
+  return Object.entries(m).sort((a, b) => b[1] - a[1])
+}
+
+export default function KostenAuswertungPage() {
+  const [jahr, setJahr] = useState(new Date().getFullYear().toString())
+  const [daten, setDaten] = useState<Eintrag[]>([])
+  const [splits, setSplits] = useState<Split[]>([])
+
+  async function laden(j: string) {
+    const d = await fetch(`/api/kostenrechnung?action=auswertung&jahr=${j}`).then(r => r.json())
+    setDaten(d.eintraege ?? [])
+    setSplits(d.splits ?? [])
+  }
+
+  useEffect(() => { laden(jahr) }, [])
+
+  const gesamt = daten.reduce((s, e) => s + e.betrag, 0)
+  const monate = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']
+
+  return (
+    <div className="p-6 max-w-5xl mx-auto space-y-5 print:p-0">
+      <div className="flex items-center justify-between print:hidden">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Kosten-Auswertung</h1>
+          <p className="text-sm text-s112-muted mt-0.5">Jahresübersicht nach Kostenstelle, Kostenart und Weingarten</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <select value={jahr} onChange={e => { setJahr(e.target.value); laden(e.target.value) }}
+            className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+            {[2026,2025,2024,2023].map(y => <option key={y}>{y}</option>)}
+          </select>
+          <button onClick={() => window.print()}
+            className="text-sm border border-s112-border px-4 py-1.5 rounded-lg hover:bg-s112-bg flex items-center gap-2">
+            🖨 Drucken / PDF
+          </button>
+        </div>
+      </div>
+
+      {/* Druckkopf */}
+      <div className="hidden print:block mb-6">
+        <h1 className="text-2xl font-bold">Kosten-Auswertung {jahr}</h1>
+        <p className="text-sm text-gray-500">Gesamt: {eur(gesamt)}</p>
+      </div>
+
+      {/* KPI */}
+      <div className="grid grid-cols-3 gap-4">
+        {[
+          ['Gesamtkosten', eur(gesamt), 'text-gray-900'],
+          ['Kostenstellen', String(new Set(daten.map(e=>e.kostenstelle?.name).filter(Boolean)).size), 'text-s112-teal'],
+          ['Buchungen', String(daten.length), 'text-s112-teal'],
+        ].map(([label, val, cls]) => (
+          <div key={label} className="bg-white rounded-2xl border border-s112-border p-4 text-center">
+            <p className="text-xs text-s112-muted mb-1">{label}</p>
+            <p className={`text-2xl font-bold ${cls}`}>{val}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Drei Kacheln */}
+      <div className="grid grid-cols-3 gap-4">
+        {([
+          ['Nach Kostenstelle', (e: Eintrag) => e.kostenstelle?.name ?? '(keine)', (e: Eintrag) => e.betrag] as const,
+          ['Nach Kostenart',    (e: Eintrag) => e.kostenart?.name    ?? '(keine)', (e: Eintrag) => e.betrag] as const,
+        ]).map(([title, kFn, vFn]) => (
+          <div key={title} className="bg-white rounded-2xl border border-s112-border p-4">
+            <h3 className="text-sm font-semibold text-gray-800 mb-3 pb-2 border-b border-s112-border">{title}</h3>
+            {sumBy(daten, kFn, vFn).map(([n, s]) => (
+              <div key={n} className="flex justify-between text-sm mb-2">
+                <span className="text-gray-600 truncate mr-2">{n}</span>
+                <span className="font-medium tabular-nums flex-shrink-0">{eur(s)}</span>
+              </div>
+            ))}
+            {daten.length === 0 && <p className="text-xs text-s112-muted">Keine Daten</p>}
+          </div>
+        ))}
+
+        {/* Nach Weingarten */}
+        <div className="bg-white rounded-2xl border border-s112-border p-4">
+          <h3 className="text-sm font-semibold text-gray-800 mb-3 pb-2 border-b border-s112-border">Nach Ried</h3>
+          {(() => {
+            const m: Record<string, number> = {}
+            splits.forEach(s => { const n = s.wg?.name ?? '?'; m[n] = (m[n]||0) + (s.betrag_anteil ?? 0) })
+            const ohneSplit = daten.filter(e => e.objekt_typ === 'weingarten')
+            if (ohneSplit.length > 0) m['Alle WG'] = (m['Alle WG']||0) + ohneSplit.reduce((s,e)=>s+e.betrag,0)
+            return Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([n,s]) => (
+              <div key={n} className="flex justify-between text-sm mb-2">
+                <span className="text-gray-600 truncate mr-2">{n}</span>
+                <span className="font-medium tabular-nums flex-shrink-0">{eur(s)}</span>
+              </div>
+            ))
+          })()}
+          {splits.length === 0 && daten.filter(e=>e.objekt_typ==='weingarten').length === 0 && <p className="text-xs text-s112-muted">Keine Daten</p>}
+        </div>
+      </div>
+
+      {/* Monatsverlauf */}
+      <div className="bg-white rounded-2xl border border-s112-border p-5">
+        <h3 className="text-sm font-semibold text-gray-800 mb-4">Monatsverlauf {jahr}</h3>
+        <div className="grid grid-cols-12 gap-2">
+          {Array.from({length:12},(_,i)=>{
+            const m = String(i+1).padStart(2,'0')
+            const per = `${jahr}-${m}`
+            const sum = daten.filter(e=>e.periode===per).reduce((s,e)=>s+e.betrag,0)
+            const max = Math.max(...Array.from({length:12},(_,j)=>daten.filter(e=>e.periode===`${jahr}-${String(j+1).padStart(2,'0')}`).reduce((s,e)=>s+e.betrag,0)),1)
+            const pct = Math.round((sum/max)*100)
+            return (
+              <div key={m} className="flex flex-col items-center gap-1">
+                <div className="w-full bg-s112-bg rounded h-24 flex items-end">
+                  <div className="w-full bg-s112-teal rounded transition-all" style={{height:`${pct}%`}} title={eur(sum)} />
+                </div>
+                <span className="text-[10px] text-s112-muted">{monate[i]}</span>
+                {sum > 0 && <span className="text-[10px] font-medium text-gray-700">{sum >= 1000 ? `${(sum/1000).toFixed(1)}k` : Math.round(sum)}</span>}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -8,12 +8,12 @@ type Kapitel = { id: string; icon: string; titel: string; abschnitte: Abschnitt[
 
 const KAPITEL: Kapitel[] = [
   {
-    id: 'weingarten', icon: '🌿', titel: 'Weingarten',
+    id: 'weingarten', icon: '🌿', titel: 'Rieden',
     abschnitte: [
-      { titel: 'Weingärten anlegen', inhalt: 'Navigiere zu Weingarten > Weingärten > Neuer Weingarten. Pflichtfelder: Name, Rebsorte, Fläche (ha), Gemeinde/Lage. Der Weingarten erscheint in allen Behandlungs- und Erntemasken.' },
-      { titel: 'Behandlung erfassen', inhalt: 'Unter Weingarten > Behandlungen > Neue Behandlung: Datum, Weingarten, PSM-Mittel und Aufwandmenge eintragen. Das System berechnet automatisch den frühesten Erntetermin nach Wartezeit.' },
+      { titel: 'Rieden anlegen', inhalt: 'Navigiere zu Rieden > Neue Riede. Pflichtfelder: Name, Rebsorte, Fläche (ha), Gemeinde/Lage. Die Riede erscheint in allen Behandlungs- und Erntemasken.' },
+      { titel: 'Behandlung erfassen', inhalt: 'Unter Rieden > Behandlungen > Neue Behandlung: Datum, Riede, PSM-Mittel und Aufwandmenge eintragen. Das System berechnet automatisch den frühesten Erntetermin nach Wartezeit.' },
       { titel: 'PSM-Lager', inhalt: 'Unter Behandlungen > PSM-Lager pflegst du Anfangsbestand und Einkäufe. Das Lager wird bei jeder Behandlung automatisch reduziert. Inventurkorrekturen sind jederzeit möglich.' },
-      { titel: 'Lese erfassen', inhalt: 'Unter Weingarten > Lese wählst du den Jahrgang und trägst Datum, Weingarten, Menge (kg + hl) und Grad KMW ein. Diese Daten bilden die Basis für die AMA-Erntemeldung.' },
+      { titel: 'Lese erfassen', inhalt: 'Unter Rieden > Lese wählst du den Jahrgang und trägst Datum, Riede, Menge (kg + hl) und Grad KMW ein. Diese Daten bilden die Basis für die AMA-Erntemeldung.' },
     ],
   },
   {
@@ -144,3 +144,4 @@ export default function HandbuchPage() {
     </div>
   )
 }
+                                                            
