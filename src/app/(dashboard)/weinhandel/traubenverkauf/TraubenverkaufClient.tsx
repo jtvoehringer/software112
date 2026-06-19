@@ -478,4 +478,3 @@ export default function TraubenverkaufClient({ verkaufe, wgOptions, jahrgaenge, 
     </div>
   )
 }
-                  

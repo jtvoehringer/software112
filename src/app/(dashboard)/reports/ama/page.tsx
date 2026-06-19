@@ -170,4 +170,3 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
     </div>
   )
 }
-      

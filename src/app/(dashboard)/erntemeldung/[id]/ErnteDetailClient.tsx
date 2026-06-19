@@ -522,4 +522,4 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
       />
     </div>
   )
-}                        
+}

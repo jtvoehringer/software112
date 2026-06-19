@@ -531,4 +531,3 @@ export default function BerichteClient({ behandlungen }: { behandlungen: Behandl
     </div>
   )
 }
-      

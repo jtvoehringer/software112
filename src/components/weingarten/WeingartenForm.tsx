@@ -296,4 +296,3 @@ export default function WeingartenForm({ weingarten, action, lagen }: Props) {
     </form>
   )
 }
-            
