@@ -221,14 +221,13 @@ export default function GrundstueckePanel({
       )}
 
       {grundstuecke.length > 0 ? (
-        <div className="border border-s112-border rounded-xl overflow-hidden">
+        <div className="border border-s112-border rounded-xl overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-s112-bg border-b border-s112-border text-xs text-gray-600">
                 <th className="text-left px-3 py-2 font-semibold">GST-Nr</th>
                 <th className="text-left px-3 py-2 font-semibold">Rebsorte</th>
                 <th className="text-left px-3 py-2 font-semibold">Bewirtschaftung</th>
-                <th className="text-left px-3 py-2 font-semibold">KG</th>
                 <th className="text-right px-3 py-2 font-semibold leading-tight">GST-Fläche<br/>lt. AMA</th>
                 <th className="text-right px-3 py-2 font-semibold leading-tight">GST-Fläche<br/>lt. Kataster</th>
                 <th className="text-right px-3 py-2 font-semibold">Pflanzjahr</th>
@@ -259,7 +258,6 @@ export default function GrundstueckePanel({
                         </span>
                       ) : <span className="text-s112-muted text-xs">–</span>}
                     </td>
-                    <td className="px-3 py-2 text-xs text-s112-muted">{g.katastralgemeinde ?? '–'}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-xs">{fmtHa(g.flaeche_ha)}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-xs text-s112-muted">
                       {g.flaeche_ha_kataster != null ? fmtHa(g.flaeche_ha_kataster) : '–'}
