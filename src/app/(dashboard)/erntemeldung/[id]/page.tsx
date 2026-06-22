@@ -14,8 +14,10 @@ interface Props { params: Promise<{ id: string }> }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
+export type GSTOpt = { id: string; gst_nr: string; rebsorte: string | null; flaeche_ha: number | null }
 export type ErnteParzelle = {
   id: string; weingarten_id: string; weingarten_name: string; weingarten_rebsorte: string | null
+  grundstueck_id: string | null; grundstueck_nr: string | null
   ernte_datum: string | null; menge_kg: number | null; menge_hl: number | null
   oechsle: number | null; klosterneuburger: number | null
   qualitaetsstufe: string | null; lesemethode: string | null; notizen: string | null
@@ -42,13 +44,14 @@ export default async function ErnteDetailPage({ params }: Props) {
     { data: rawPressungen },
     { data: rawBeh },
     { data: rawWA },
+    { data: rawGST },
   ] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('weinjahrgaenge') as any).select('*').eq('id', id).single(),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('ernte_parzellen') as any)
-      .select('id, weingarten_id, ernte_datum, menge_kg, menge_hl, oechsle, klosterneuburger, qualitaetsstufe, lesemethode, notizen, weingarten:weingarten_id(name, rebsorte)')
+      .select('id, weingarten_id, grundstueck_id, ernte_datum, menge_kg, menge_hl, oechsle, klosterneuburger, qualitaetsstufe, lesemethode, notizen, weingarten:weingarten_id(name, rebsorte), grundstueck:grundstueck_id(gst_nr)')
       .eq('jahrgang_id', id).order('ernte_datum', { ascending: false }),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -74,6 +77,10 @@ export default async function ErnteDetailPage({ params }: Props) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('weinausbau') as any)
       .select('id, name, jahrgang').eq('aktiv', true).neq('status', 'abgeschlossen').order('name'),
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('grundstuecke') as any)
+      .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha').eq('status', 'aktiv').order('gst_nr'),
   ])
 
   if (!jg) notFound()
@@ -81,6 +88,7 @@ export default async function ErnteDetailPage({ params }: Props) {
   const parzellen: ErnteParzelle[] = ((rawP ?? []) as AR[]).map(p => ({
     id: p.id, weingarten_id: p.weingarten_id,
     weingarten_name: p.weingarten?.name ?? '–', weingarten_rebsorte: p.weingarten?.rebsorte ?? null,
+    grundstueck_id: p.grundstueck_id ?? null, grundstueck_nr: p.grundstueck?.gst_nr ?? null,
     ernte_datum: p.ernte_datum, menge_kg: p.menge_kg, menge_hl: p.menge_hl,
     oechsle: p.oechsle, klosterneuburger: p.klosterneuburger,
     qualitaetsstufe: p.qualitaetsstufe, lesemethode: p.lesemethode, notizen: p.notizen,
@@ -89,6 +97,12 @@ export default async function ErnteDetailPage({ params }: Props) {
   const weingaerten: WeingartenOpt[] = ((rawW ?? []) as AR[]).map(w => ({
     id: w.id, name: w.name, rebsorte: w.rebsorte ?? null, lage_name: w.lagen?.name ?? null,
   }))
+
+  const gstByWeingarten: Record<string, GSTOpt[]> = {}
+  for (const g of ((rawGST ?? []) as AR[])) {
+    if (!gstByWeingarten[g.weingarten_id]) gstByWeingarten[g.weingarten_id] = []
+    gstByWeingarten[g.weingarten_id].push({ id: g.id, gst_nr: g.gst_nr, rebsorte: g.rebsorte ?? null, flaeche_ha: g.flaeche_ha ?? null })
+  }
 
   let amaMeldung: AMAMeldung | null = null
   if (rawA) {
@@ -154,6 +168,7 @@ export default async function ErnteDetailPage({ params }: Props) {
         jahrgang={jg as AR}
         parzellen={parzellen}
         weingaerten={weingaerten}
+        gstByWeingarten={gstByWeingarten}
         amaMeldung={amaMeldung}
         pressungen={pressungen}
         wgOptions={wgOptions}

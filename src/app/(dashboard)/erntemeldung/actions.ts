@@ -66,6 +66,7 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
     qualitaetsstufe:  (formData.get('qualitaetsstufe') as string) || null,
     lesemethode:      (formData.get('lesemethode') as string) || null,
     notizen:          (formData.get('notizen') as string) || null,
+    grundstueck_id:   (formData.get('grundstueck_id') as string) || null,
   }
 
   const existingId = formData.get('existing_id') as string | null

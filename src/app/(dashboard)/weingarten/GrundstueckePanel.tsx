@@ -143,19 +143,11 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
           />
         </div>
         <div>
-          <label className={labelCls}>
-            Katastralgemeinde
-            {kgBezeichnung && kgBezeichnung !== (gst?.kg_bezeichnung ?? '') && (
-              <span className="ml-1 text-s112-teal text-xs font-normal">↻ auto</span>
-            )}
-          </label>
-          <input
-            name="kg_bezeichnung"
-            value={kgBezeichnung}
-            onChange={e => setKgBezeichnung(e.target.value)}
-            placeholder="z.B. Dürnstein"
-            className={inputCls}
-          />
+          <label className={labelCls}>Katastralgemeinde</label>
+          <input name="kg_bezeichnung" type="hidden" value={kgBezeichnung} />
+          <div className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm bg-gray-50 text-gray-700 min-h-[34px]">
+            {kgBezeichnung || <span className="text-s112-muted italic">wird aus KGNr. ermittelt</span>}
+          </div>
         </div>
 
         {/* Rebsorte & Weinart */}

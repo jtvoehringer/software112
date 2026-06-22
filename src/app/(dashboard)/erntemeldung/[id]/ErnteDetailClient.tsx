@@ -4,7 +4,7 @@ import React, { useState, useTransition } from 'react'
 import { upsertErnteParzelle, deleteErnteParzelle, createOrUpdateAMAMeldung, createMultipleErnteParzellen } from '../actions'
 import { qualitaetLabel, QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
-import type { ErnteParzelle, WeingartenOpt, AMAMeldung } from './page'
+import type { ErnteParzelle, WeingartenOpt, GSTOpt, AMAMeldung } from './page'
 import PressungSection from './PressungSection'
 import type { Pressung, WGOption, BehOption, WAOption } from './PressungSection'
 import { fmtHa, fmtZahl, fmtProzent } from '@/lib/format'
@@ -183,16 +183,20 @@ function NeueParzellenForm({
 
 // ── Edit-Formular: Einzelerfassung (bestehende Parzelle bearbeiten) ─────────────
 function ParzellForm({
-  jahrgangId, weingaerten, parzelle, onDone,
+  jahrgangId, weingaerten, gstByWeingarten, parzelle, onDone,
 }: {
   jahrgangId: string; weingaerten: WeingartenOpt[]
+  gstByWeingarten: Record<string, GSTOpt[]>
   parzelle?: ErnteParzelle; onDone: () => void
 }) {
   const [pending, startTransition] = useTransition()
   const [kmwEdit, setKmwEdit] = useState<number | null>(
     parzelle?.klosterneuburger != null ? Number(parzelle.klosterneuburger) : null
   )
+  const [selWgId, setSelWgId] = useState<string>(parzelle?.weingarten_id ?? '')
+  const [selGstId, setSelGstId] = useState<string>(parzelle?.grundstueck_id ?? '')
   const derivedQualitaetEdit = kmwEdit != null ? kmwZuQualitaet(kmwEdit) : 'qualitaetswein'
+  const verfuegbareGSTs = selWgId ? (gstByWeingarten[selWgId] ?? []) : []
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -224,7 +228,8 @@ function ParzellForm({
           <label className="block text-xs font-medium text-gray-600 mb-1">
             Weingarten <span className="text-red-500">*</span>
           </label>
-          <select name="weingarten_id" required defaultValue={parzelle?.weingarten_id ?? ''}
+          <select name="weingarten_id" required value={selWgId}
+            onChange={e => { setSelWgId(e.target.value); setSelGstId('') }}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             <option value="">– Auswählen –</option>
             {Array.from(lagenMap.entries()).map(([lage, wgs]) => (
@@ -236,6 +241,21 @@ function ParzellForm({
             ))}
           </select>
         </div>
+        {verfuegbareGSTs.length > 0 && (
+          <div className="col-span-2">
+            <label className="block text-xs font-medium text-gray-600 mb-1">Grundstück (GST)</label>
+            <input type="hidden" name="grundstueck_id" value={selGstId} />
+            <select value={selGstId} onChange={e => setSelGstId(e.target.value)}
+              className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+              <option value="">– kein GST –</option>
+              {verfuegbareGSTs.map(g => (
+                <option key={g.id} value={g.id}>
+                  {g.gst_nr}{g.rebsorte ? ' · ' + g.rebsorte : ''}{g.flaeche_ha ? ' · ' + g.flaeche_ha.toFixed(4) + ' ha' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Ernte-Datum</label>
           <input name="ernte_datum" type="date" defaultValue={parzelle?.ernte_datum ?? ''}
@@ -295,10 +315,10 @@ function ParzellForm({
 
 // ── Hauptkomponente ─────────────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, amaMeldung, pressungen, wgOptions, behOptions, waOptions, verfuegbareKg, writeOk, adminOk }: {
+export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gstByWeingarten, amaMeldung, pressungen, wgOptions, behOptions, waOptions, verfuegbareKg, writeOk, adminOk }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   jahrgang: Record<string, any>; parzellen: ErnteParzelle[]
-  weingaerten: WeingartenOpt[]; amaMeldung: AMAMeldung | null
+  weingaerten: WeingartenOpt[]; gstByWeingarten: Record<string, GSTOpt[]>; amaMeldung: AMAMeldung | null
   pressungen: Pressung[]; wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
   verfuegbareKg: Record<string, number>; writeOk: boolean; adminOk: boolean
 }) {
@@ -366,6 +386,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
               <thead>
                 <tr className="bg-s112-bg border-b border-s112-border text-xs text-gray-600">
                   <th className="text-left px-3 py-2 font-semibold">Ried</th>
+                  <th className="text-left px-3 py-2 font-semibold">GST</th>
                   <th className="text-left px-3 py-2 font-semibold">Datum</th>
                   <th className="text-right px-3 py-2 font-semibold">kg</th>
                   <th className="text-right px-3 py-2 font-semibold">°KMW</th>
@@ -381,6 +402,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
                         {p.weingarten_name}
                         {p.weingarten_rebsorte && <span className="ml-1 text-xs text-s112-muted">({p.weingarten_rebsorte})</span>}
                       </td>
+                      <td className="px-3 py-2 text-xs text-s112-muted font-mono">{p.grundstueck_nr ?? '–'}</td>
                       <td className="px-3 py-2 text-s112-muted">{formatDate(p.ernte_datum)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{p.menge_kg?.toLocaleString('de-AT') ?? '–'}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{p.klosterneuburger ?? '–'}</td>
@@ -402,8 +424,8 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
                     </tr>
                     {editId === p.id && (
                       <tr>
-                        <td colSpan={6} className="px-3 py-2">
-                          <ParzellForm jahrgangId={jahrgang.id} weingaerten={weingaerten} parzelle={p} onDone={() => setEditId(null)} />
+                        <td colSpan={7} className="px-3 py-2">
+                          <ParzellForm jahrgangId={jahrgang.id} weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} parzelle={p} onDone={() => setEditId(null)} />
                         </td>
                       </tr>
                     )}
