@@ -388,14 +388,15 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 
 export default function UmziehenClient({
-  behaelterMitChargen, behaelter, umzuege, writeOk,
+  behaelterMitChargen, behaelter, umzuege, writeOk, initialShowForm = false,
 }: {
   behaelterMitChargen: BehaelterMitCharge[]
   behaelter:           Behaelter[]
   umzuege:             UmzugRow[]
   writeOk:             boolean
+  initialShowForm?:    boolean
 }) {
-  const [showForm, setShowForm] = useState(false)
+  const [showForm, setShowForm] = useState(initialShowForm)
 
   return (
     <div className="space-y-6">

@@ -69,7 +69,7 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
             </div>
           </div>
         </div>
-        <Link href="/kellerbuch/umziehen"
+        <Link href="/kellerbuch/umziehen?neu=1"
           className="text-xs border border-s112-teal text-s112-teal px-3 py-1.5 rounded-lg hover:bg-s112-teal/5 font-medium">
           ↔️ Neuer Umzug
         </Link>
@@ -95,7 +95,7 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
         <div className="card text-center py-10">
           <p className="text-2xl mb-2">↔️</p>
           <p className="text-sm text-s112-muted">Noch keine Umzüge für diesen Behälter</p>
-          <Link href="/kellerbuch/umziehen"
+          <Link href="/kellerbuch/umziehen?neu=1"
             className="mt-3 inline-block text-xs text-s112-teal font-semibold hover:underline">
             → Zum Umziehen-Formular
           </Link>

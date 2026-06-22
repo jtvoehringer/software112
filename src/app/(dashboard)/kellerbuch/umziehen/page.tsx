@@ -9,7 +9,9 @@ export const dynamic = 'force-dynamic'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-export default async function UmziehenPage() {
+export default async function UmziehenPage({ searchParams }: { searchParams: Promise<{ neu?: string }> }) {
+  const sp = await searchParams
+  const initialShowForm = sp?.neu === '1'
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
   const writeOk  = canWrite(role)
@@ -91,6 +93,7 @@ export default async function UmziehenPage() {
         behaelter={behaelter}
         umzuege={umzuege}
         writeOk={writeOk}
+        initialShowForm={initialShowForm}
       />
     </div>
   )
