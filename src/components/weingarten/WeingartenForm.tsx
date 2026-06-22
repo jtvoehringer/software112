@@ -24,35 +24,26 @@ const REBSORTE_WEINART: Record<string, 'rot' | 'weiss'> = {
 type WeingartenRow = {
   id: string
   name: string
-  ried: string | null
-  lage_id: string | null
   rebsorte: string | null
-  flaeche_ha: number | null
   pflanzjahr: number | null
   bewirtschaftung: string | null
+  bewirtschaftung_seit: string | null
   notizen: string | null
   aktiv: boolean
   weinart: string | null
-  trauben_verkauf: boolean
-  trauben_herkunft_code: string | null
 }
 
 interface Props {
   weingarten?: WeingartenRow
   action: (formData: FormData) => Promise<void>
-  lagen?: { id: string; name: string }[]
 }
 
-// Dezimalzahl: Komma → Punkt für Datenbankkompatibilität
-function normalizeDecimal(value: string): string {
-  return value.replace(',', '.')
-}
-
-export default function WeingartenForm({ weingarten, action, lagen }: Props) {
+export default function WeingartenForm({ weingarten, action }: Props) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [weinart, setWeinart] = useState<string>(weingarten?.weinart ?? 'unbekannt')
+  const [bewirtschaftung, setBewirtschaftung] = useState<string>(weingarten?.bewirtschaftung ?? '')
 
   function handleRebsorteChange(val: string) {
     const mapped = REBSORTE_WEINART[val]
@@ -63,19 +54,9 @@ export default function WeingartenForm({ weingarten, action, lagen }: Props) {
     e.preventDefault()
     setError(null)
     setSaving(true)
-
-    const raw = new FormData(e.currentTarget)
-    const normalized = new FormData()
-    raw.forEach((value, key) => {
-      if (key === 'flaeche_ha' && typeof value === 'string') {
-        normalized.append(key, normalizeDecimal(value))
-      } else {
-        normalized.append(key, value)
-      }
-    })
-
+    const fd = new FormData(e.currentTarget)
     try {
-      await action(normalized)
+      await action(fd)
       router.push('/weingarten')
       router.refresh()
     } catch (err) {
@@ -91,48 +72,23 @@ export default function WeingartenForm({ weingarten, action, lagen }: Props) {
           <strong>Fehler:</strong> {error}
         </div>
       )}
+
       {/* Basisdaten */}
       <div className="card space-y-4">
         <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Basisdaten</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="form-label">Name *</label>
+            <label className="form-label">Riedname *</label>
             <input
               name="name"
               type="text"
               required
               defaultValue={weingarten?.name ?? ''}
               className="form-input"
-              placeholder="z.B. Ried Kremser Schmidt"
+              placeholder="z.B. Kremser Schmidt"
             />
           </div>
-          <div>
-            <label className="form-label">Ried</label>
-            {lagen && lagen.length > 0 ? (
-              <select
-                name="lage_id"
-                defaultValue={weingarten?.lage_id ?? ''}
-                className="form-input"
-              >
-                <option value="">– keine Ried –</option>
-                {lagen.map(l => (
-                  <option key={l.id} value={l.id}>{l.name}</option>
-                ))}
-              </select>
-            ) : (
-              <input
-                name="ried"
-                type="text"
-                defaultValue={weingarten?.ried ?? ''}
-                className="form-input"
-                placeholder="z.B. Kremser Schmidt"
-              />
-            )}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="form-label">Rebsorte</label>
             <input
@@ -147,18 +103,6 @@ export default function WeingartenForm({ weingarten, action, lagen }: Props) {
             <datalist id="rebsorten-list">
               {REBSORTEN.map(r => <option key={r} value={r} />)}
             </datalist>
-          </div>
-          <div>
-            <label className="form-label">Fläche (ha)</label>
-            <input
-              name="flaeche_ha"
-              type="text"
-              inputMode="decimal"
-              defaultValue={weingarten?.flaeche_ha?.toString().replace('.', ',') ?? ''}
-              className="form-input"
-              placeholder="z.B. 0,3456"
-            />
-            <p className="text-xs text-s112-muted mt-1">Dezimaltrenner: Komma (z.B. 0,3456)</p>
           </div>
         </div>
 
@@ -176,23 +120,6 @@ export default function WeingartenForm({ weingarten, action, lagen }: Props) {
             />
           </div>
           <div>
-            <label className="form-label">Bewirtschaftung</label>
-            <select
-              name="bewirtschaftung"
-              defaultValue={weingarten?.bewirtschaftung ?? ''}
-              className="form-input"
-            >
-              <option value="">– bitte wählen –</option>
-              <option value="konventionell">Konventionell</option>
-              <option value="bio">Bio</option>
-              <option value="in_umstellung">In Umstellung</option>
-              <option value="demeter">Demeter</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
             <label className="form-label">Weinart</label>
             <select
               name="weinart"
@@ -202,11 +129,41 @@ export default function WeingartenForm({ weingarten, action, lagen }: Props) {
             >
               <option value="weiss">⬜ Weißwein</option>
               <option value="rot">🟥 Rotwein</option>
-              <option value="rose">🌸 Rosé</option>
               <option value="unbekannt">– unbekannt –</option>
             </select>
             <p className="text-xs text-s112-muted mt-1">Wird aus Rebsorte vorgeschlagen</p>
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="form-label">Bewirtschaftung</label>
+            <select
+              name="bewirtschaftung"
+              value={bewirtschaftung}
+              onChange={e => setBewirtschaftung(e.target.value)}
+              className="form-input"
+            >
+              <option value="">– bitte wählen –</option>
+              <option value="biodynamisch">Biodynamisch</option>
+              <option value="biologisch">Biologisch/Organisch</option>
+              <option value="in_umstellung">In Umstellung</option>
+              <option value="nachhaltig">Nachhaltig</option>
+              <option value="kip">KIP</option>
+              <option value="konventionell">Konventionell</option>
+            </select>
+          </div>
+          {bewirtschaftung === 'in_umstellung' && (
+            <div>
+              <label className="form-label">In Umstellung seit</label>
+              <input
+                name="bewirtschaftung_seit"
+                type="date"
+                defaultValue={weingarten?.bewirtschaftung_seit ?? ''}
+                className="form-input"
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -221,44 +178,6 @@ export default function WeingartenForm({ weingarten, action, lagen }: Props) {
           placeholder="Besonderheiten, Bodenart, Ausrichtung …"
         />
       </div>
-
-      {/* Traubenverkauf-Freigabe – nur beim Bearbeiten */}
-      {weingarten && (
-        <div className="card space-y-4">
-          <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Traubenverkauf</h2>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              name="trauben_verkauf"
-              value="true"
-              defaultChecked={weingarten.trauben_verkauf ?? false}
-              className="w-4 h-4 accent-s112-teal"
-            />
-            <span className="text-sm font-medium text-gray-700">Trauben aus dieser Ried können verkauft werden</span>
-          </label>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              name="nachhaltig_austria"
-              value="true"
-              defaultChecked={(weingarten as Record<string, unknown>).nachhaltig_austria as boolean ?? false}
-              className="w-4 h-4 accent-s112-teal"
-            />
-            <span className="text-sm font-medium text-gray-700">nachhaltig Austria zertifiziert</span>
-          </label>
-          <div>
-            <label className="form-label">Herkunft-Code (BKI)</label>
-            <input
-              name="trauben_herkunft_code"
-              type="text"
-              defaultValue={weingarten.trauben_herkunft_code ?? ''}
-              className="form-input"
-              placeholder="z.B. WLWV"
-            />
-            <p className="text-xs text-s112-muted mt-1">Offizielles Kürzel gem. BKI-Kürzelliste (wird in Traubenverkauf-Datenblatt verwendet)</p>
-          </div>
-        </div>
-      )}
 
       {/* Aktiv-Toggle nur beim Bearbeiten */}
       {weingarten && (

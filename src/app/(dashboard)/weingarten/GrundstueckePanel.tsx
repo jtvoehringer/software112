@@ -8,7 +8,9 @@ export type GST = {
   id: string; weingarten_id: string; gst_nr: string
   katastralgemeinde: string | null; einlagezahl: string | null
   rebsorte: string | null; pflanzjahr: number | null
-  flaeche_ha: number | null; status: string; notizen: string | null
+  flaeche_ha: number | null; flaeche_ha_kataster: number | null
+  trauben_herkunft_code: string | null
+  status: string; notizen: string | null
 }
 
 const STATUS_OPTIONS = [
@@ -25,6 +27,9 @@ function StatusBadge({ status }: { status: string }) {
     </span>
   )
 }
+
+const inputCls = "w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+const labelCls = "block text-xs font-medium text-gray-600 mb-1"
 
 // ── Formular (Neu / Bearbeiten) ───────────────────────────────────────────────
 function GSTForm({
@@ -55,54 +60,56 @@ function GSTForm({
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            GST-Nummer <span className="text-red-500">*</span>
-          </label>
+          <label className={labelCls}>GST-Nummer <span className="text-red-500">*</span></label>
           <input name="gst_nr" required defaultValue={gst?.gst_nr ?? ''}
-            placeholder="z.B. 1411/1"
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            placeholder="z.B. 1411/1" className={inputCls} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
-          <select name="status" defaultValue={gst?.status ?? 'aktiv'}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+          <label className={labelCls}>Status</label>
+          <select name="status" defaultValue={gst?.status ?? 'aktiv'} className={inputCls}>
             {STATUS_OPTIONS.map(o => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Katastralgemeinde</label>
-          <input name="katastralgemeinde" defaultValue={gst?.katastralgemeinde ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+          <label className={labelCls}>Katastralgemeinde</label>
+          <input name="katastralgemeinde" defaultValue={gst?.katastralgemeinde ?? ''} className={inputCls} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Einlagezahl</label>
-          <input name="einlagezahl" defaultValue={gst?.einlagezahl ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+          <label className={labelCls}>Einlagezahl</label>
+          <input name="einlagezahl" defaultValue={gst?.einlagezahl ?? ''} className={inputCls} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Rebsorte</label>
+          <label className={labelCls}>Rebsorte</label>
           <input name="rebsorte" defaultValue={gst?.rebsorte ?? ''}
-            placeholder="z.B. Grüner Veltliner"
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            placeholder="z.B. Grüner Veltliner" className={inputCls} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Pflanzjahr</label>
+          <label className={labelCls}>Pflanzjahr</label>
           <input name="pflanzjahr" type="number" min="1900" max="2100"
-            defaultValue={gst?.pflanzjahr ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            defaultValue={gst?.pflanzjahr ?? ''} className={inputCls} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Fläche (ha)</label>
+          <label className={labelCls}>GST-Fläche lt. AMA (ha)</label>
           <input name="flaeche_ha" type="number" step="0.0001" min="0"
-            defaultValue={gst?.flaeche_ha ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            defaultValue={gst?.flaeche_ha ?? ''} className={inputCls} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
-          <input name="notizen" defaultValue={gst?.notizen ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+          <label className={labelCls}>GST-Fläche lt. Kataster (ha)</label>
+          <input name="flaeche_ha_kataster" type="number" step="0.0001" min="0"
+            defaultValue={gst?.flaeche_ha_kataster ?? ''} className={inputCls} />
+          <p className="text-xs text-s112-muted mt-1">NÖ Atlas / Landeskataster</p>
+        </div>
+        <div className="col-span-2">
+          <label className={labelCls}>Herkunft-Code (BKI)</label>
+          <input name="trauben_herkunft_code" defaultValue={gst?.trauben_herkunft_code ?? ''}
+            placeholder="z.B. WLWV" className={inputCls} />
+          <p className="text-xs text-s112-muted mt-1">Offizielles Kürzel gem. BKI-Kürzelliste</p>
+        </div>
+        <div className="col-span-2">
+          <label className={labelCls}>Notizen</label>
+          <input name="notizen" defaultValue={gst?.notizen ?? ''} className={inputCls} />
         </div>
       </div>
 
@@ -131,8 +138,9 @@ export default function GrundstueckePanel({
   const [editId, setEditId] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
-  const totalHa = grundstuecke.reduce((s, g) => s + (g.flaeche_ha ?? 0), 0)
-  const aktiv   = grundstuecke.filter(g => g.status === 'aktiv').length
+  const totalAma      = grundstuecke.reduce((s, g) => s + (g.flaeche_ha ?? 0), 0)
+  const totalKataster = grundstuecke.reduce((s, g) => s + (g.flaeche_ha_kataster ?? 0), 0)
+  const aktiv         = grundstuecke.filter(g => g.status === 'aktiv').length
 
   function handleDelete(id: string, gstNr: string) {
     if (!confirm(`GST ${gstNr} wirklich löschen?`)) return
@@ -146,7 +154,8 @@ export default function GrundstueckePanel({
         <div className="flex items-center gap-3">
           <h2 className="text-base font-semibold text-gray-800">Grundstücke</h2>
           <span className="text-xs text-s112-muted">
-            {grundstuecke.length} GST · {aktiv} aktiv · {fmtHa(totalHa)} ha
+            {grundstuecke.length} GST · {aktiv} aktiv · AMA: {fmtHa(totalAma)} ha
+            {totalKataster > 0 && ` · Kataster: ${fmtHa(totalKataster)} ha`}
           </span>
         </div>
         {writeOk && !showForm && (
@@ -175,7 +184,8 @@ export default function GrundstueckePanel({
                 <th className="text-left px-3 py-2 font-semibold">GST-Nr</th>
                 <th className="text-left px-3 py-2 font-semibold">Rebsorte</th>
                 <th className="text-left px-3 py-2 font-semibold">KG</th>
-                <th className="text-right px-3 py-2 font-semibold">Fläche (ha)</th>
+                <th className="text-right px-3 py-2 font-semibold leading-tight">GST-Fläche<br/>lt. AMA</th>
+                <th className="text-right px-3 py-2 font-semibold leading-tight">GST-Fläche<br/>lt. Kataster</th>
                 <th className="text-right px-3 py-2 font-semibold">Pflanzjahr</th>
                 <th className="text-center px-3 py-2 font-semibold">Status</th>
                 {(writeOk || adminOk) && <th className="px-3 py-2" />}
@@ -188,8 +198,9 @@ export default function GrundstueckePanel({
                     <td className="px-3 py-2 font-mono text-xs font-medium">{g.gst_nr}</td>
                     <td className="px-3 py-2 text-s112-muted">{g.rebsorte ?? '–'}</td>
                     <td className="px-3 py-2 text-xs text-s112-muted">{g.katastralgemeinde ?? '–'}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {fmtHa(g.flaeche_ha)}
+                    <td className="px-3 py-2 text-right tabular-nums">{fmtHa(g.flaeche_ha)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-s112-muted">
+                      {g.flaeche_ha_kataster != null ? fmtHa(g.flaeche_ha_kataster) : '–'}
                     </td>
                     <td className="px-3 py-2 text-right text-s112-muted">{g.pflanzjahr ?? '–'}</td>
                     <td className="px-3 py-2 text-center"><StatusBadge status={g.status} /></td>
@@ -218,7 +229,7 @@ export default function GrundstueckePanel({
                   </tr>
                   {editId === g.id && (
                     <tr>
-                      <td colSpan={7} className="px-3 py-2">
+                      <td colSpan={8} className="px-3 py-2">
                         <GSTForm
                           weingartenId={weingartenId}
                           gst={g}

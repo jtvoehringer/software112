@@ -6,13 +6,25 @@ import { deactivateWeingarten, deleteWeingarten } from './actions'
 import { fmtHa } from '@/lib/format'
 
 const BEWIRTSCHAFTUNG_BADGE: Record<string, string> = {
-  bio:           'bg-green-100 text-green-700',
-  demeter:       'bg-green-100 text-green-700',
+  biodynamisch:  'bg-green-100 text-green-800',
+  biologisch:    'bg-green-100 text-green-700',
   in_umstellung: 'bg-yellow-100 text-yellow-700',
+  nachhaltig:    'bg-teal-100 text-teal-700',
+  kip:           'bg-blue-100 text-blue-700',
   konventionell: 'bg-gray-100 text-gray-600',
+  // Legacy-Werte
+  bio:           'bg-green-100 text-green-700',
+  demeter:       'bg-green-100 text-green-800',
 }
 const BEWIRTSCHAFTUNG_LABEL: Record<string, string> = {
-  bio: 'Bio', demeter: 'Demeter', in_umstellung: 'In Umstellung', konventionell: 'Konventionell',
+  biodynamisch:  'Biodynamisch',
+  biologisch:    'Bio/Organisch',
+  in_umstellung: 'In Umstellung',
+  nachhaltig:    'Nachhaltig',
+  kip:           'KIP',
+  konventionell: 'Konventionell',
+  bio:           'Bio',
+  demeter:       'Biodynamisch',
 }
 
 export type WRow = {

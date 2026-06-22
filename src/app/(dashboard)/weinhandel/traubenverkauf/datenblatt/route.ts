@@ -37,7 +37,7 @@ export async function GET(req: Request) {
   let query = (supabase.from('traubenverkauf') as any)
     .select(`
       id, datum, menge_kg, preis_per_kg, kmw_grad, qualitaetsstufe, herkunft_code,
-      weingarten:weingarten_id(id, name, rebsorte, trauben_herkunft_code),
+      weingarten:weingarten_id(id, name, rebsorte, grundstuecke(trauben_herkunft_code)),
       kontakt:kontakt_id(id, betrieb_nr, vorname, nachname, strasse, hausnr, plz, ort),
       firma:firma_id(id, betrieb_nr, firmenname, strasse, hausnr, plz, ort),
       jahrgang:jahrgang_id(id, jahrgang)
@@ -111,7 +111,9 @@ export async function GET(req: Request) {
     const rebsorte   = (v.weingarten as R | null)?.rebsorte ?? null
     const rebKuerzel = getRebsorteKuerzel(rebsorte)
     const qualBki    = getQualitaetBki(v.qualitaetsstufe)
-    const herkunft   = v.herkunft_code ?? (v.weingarten as R | null)?.trauben_herkunft_code ?? ''
+    const wg         = v.weingarten as R | null
+    const gstCode    = ((wg?.grundstuecke ?? []) as R[]).find((g: R) => g.trauben_herkunft_code)?.trauben_herkunft_code ?? ''
+    const herkunft   = v.herkunft_code ?? gstCode
     const jahrgang   = (v.jahrgang as R | null)?.jahrgang ?? ''
     const rot        = isRotwein(rebsorte)
     const datumStr   = v.datum ? new Date(v.datum).toLocaleDateString('de-AT') : ''

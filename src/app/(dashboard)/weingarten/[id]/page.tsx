@@ -25,10 +25,10 @@ interface Props {
 }
 
 type WeingartenRow = {
-  id: string; name: string; ried: string | null; lage_id: string | null
-  rebsorte: string | null; flaeche_ha: number | null; pflanzjahr: number | null
-  bewirtschaftung: string | null; notizen: string | null; aktiv: boolean
-  weinart: string | null; trauben_verkauf: boolean; trauben_herkunft_code: string | null
+  id: string; name: string
+  rebsorte: string | null; pflanzjahr: number | null
+  bewirtschaftung: string | null; bewirtschaftung_seit: string | null
+  notizen: string | null; aktiv: boolean; weinart: string | null
 }
 
 export default async function WeingartenEditPage({ params }: Props) {
@@ -42,32 +42,21 @@ export default async function WeingartenEditPage({ params }: Props) {
   // Weingarten
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rows } = await (supabase.from('weingarten') as any)
-    .select('id, name, ried, lage_id, rebsorte, flaeche_ha, pflanzjahr, bewirtschaftung, weinart, notizen, aktiv, trauben_verkauf, trauben_herkunft_code')
+    .select('id, name, rebsorte, pflanzjahr, bewirtschaftung, bewirtschaftung_seit, weinart, notizen, aktiv')
     .eq('id', id)
     .limit(1)
   const weingarten = ((rows as WeingartenRow[] | null)?.[0]) ?? null
   if (!weingarten) notFound()
 
-  // Lagen für Dropdown
-  let lagen: { id: string; name: string }[] = []
-  if (membership?.tenantId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: lagenData } = await (supabase.from('lagen') as any)
-      .select('id, name')
-      .eq('tenant_id', membership.tenantId)
-      .order('name')
-    lagen = ((lagenData ?? []) as AR[]).map(l => ({ id: l.id as string, name: l.name as string }))
-  }
-
   // Grundstücke
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawG } = await (supabase.from('grundstuecke') as any)
-    .select('id, weingarten_id, gst_nr, katastralgemeinde, einlagezahl, rebsorte, pflanzjahr, flaeche_ha, status, notizen')
+    .select('id, weingarten_id, gst_nr, katastralgemeinde, einlagezahl, rebsorte, pflanzjahr, flaeche_ha, flaeche_ha_kataster, trauben_herkunft_code, status, notizen')
     .eq('weingarten_id', id)
     .order('gst_nr')
   const grundstuecke = (rawG ?? []) as GST[]
 
-  // Historische Ertragsdaten aus ernte_parzellen
+  // Historische Ertragsdaten
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawErtrag } = await (supabase.from('ernte_parzellen') as any)
     .select('menge_kg, ernte_datum, weinjahrgaenge!jahrgang_id(jahrgang)')
@@ -82,12 +71,15 @@ export default async function WeingartenEditPage({ params }: Props) {
       datum: r.ernte_datum as string | null,
     }))
 
+  // AMA-Fläche aus Grundstücken für kg/ha
+  const gstHaAma = grundstuecke.reduce((s, g) => s + (g.flaeche_ha ?? 0), 0)
+
   const action = updateWeingarten.bind(null, id)
 
   return (
     <div className="max-w-2xl">
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-6">
-        <Link href="/weingarten" className="hover:text-s112-teal transition-colors">Weingarten</Link>
+        <Link href="/weingarten" className="hover:text-s112-teal transition-colors">Rieden</Link>
         <span>/</span>
         <span className="text-gray-700 font-medium">{weingarten.name}</span>
       </div>
@@ -104,7 +96,7 @@ export default async function WeingartenEditPage({ params }: Props) {
       {/* Stammdaten-Formular */}
       <div className="card mb-6">
         <h2 className="text-base font-semibold text-gray-800 mb-4">Stammdaten</h2>
-        <WeingartenForm weingarten={weingarten} action={action} lagen={lagen} />
+        <WeingartenForm weingarten={weingarten} action={action} />
       </div>
 
       {/* Grundstücke */}
@@ -127,7 +119,7 @@ export default async function WeingartenEditPage({ params }: Props) {
                 <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600">Jahrgang</th>
                 <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600">Ernte-Datum</th>
                 <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600">Menge (kg)</th>
-                <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600">kg/ha</th>
+                <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600">kg/ha (AMA)</th>
               </tr>
             </thead>
             <tbody>
@@ -141,8 +133,8 @@ export default async function WeingartenEditPage({ params }: Props) {
                     {e.menge_kg.toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg
                   </td>
                   <td className="px-3 py-2 text-right font-mono text-gray-600">
-                    {weingarten.flaeche_ha
-                      ? (e.menge_kg / weingarten.flaeche_ha).toLocaleString('de-AT', { maximumFractionDigits: 0 })
+                    {gstHaAma > 0
+                      ? (e.menge_kg / gstHaAma).toLocaleString('de-AT', { maximumFractionDigits: 0 })
                       : '–'}
                   </td>
                 </tr>

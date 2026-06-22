@@ -2,7 +2,6 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>
@@ -17,71 +16,48 @@ async function getTenantId(): Promise<string | null> {
   return (data as AnyRecord | null)?.tenant_id ?? null
 }
 
-async function resolveRied(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, lageId: string | null): Promise<string | null> {
-  if (!lageId) return null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (supabase.from('lagen') as any).select('name').eq('id', lageId).maybeSingle()
-  return (data as AnyRecord | null)?.name ?? null
-}
-
 export async function createWeingarten(formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   if (!tenantId) throw new Error('Kein Betrieb gefunden')
 
-  // lage_id kommt vom Dropdown (neu), ried vom Freitext-Fallback (ohne Lagen)
-  const lageId = (formData.get('lage_id') as string) || null
-  const riedText = (formData.get('ried') as string) || null
-  const riedName = lageId ? await resolveRied(supabase, lageId) : riedText
-
+  const bew = (formData.get('bewirtschaftung') as string) || null
   const payload: AnyRecord = {
-    tenant_id:       tenantId,
-    name:            formData.get('name') as string,
-    ried:            riedName,
-    lage_id:         lageId,
-    rebsorte:        (formData.get('rebsorte') as string) || null,
-    flaeche_ha:      formData.get('flaeche_ha') ? Number(formData.get('flaeche_ha')) : null,
-    pflanzjahr:      formData.get('pflanzjahr') ? Number(formData.get('pflanzjahr')) : null,
-    bewirtschaftung: (formData.get('bewirtschaftung') as string) || null,
-    weinart:         (formData.get('weinart') as string) || 'unbekannt',
-    notizen:         (formData.get('notizen') as string) || null,
-    aktiv:           true,
+    tenant_id:            tenantId,
+    name:                 formData.get('name') as string,
+    rebsorte:             (formData.get('rebsorte') as string) || null,
+    pflanzjahr:           formData.get('pflanzjahr') ? Number(formData.get('pflanzjahr')) : null,
+    bewirtschaftung:      bew,
+    bewirtschaftung_seit: bew === 'in_umstellung' ? ((formData.get('bewirtschaftung_seit') as string) || null) : null,
+    weinart:              (formData.get('weinart') as string) || 'unbekannt',
+    notizen:              (formData.get('notizen') as string) || null,
+    aktiv:                true,
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('weingarten') as any).insert(payload)
   if (error) throw new Error((error as AnyRecord).message)
-
   revalidatePath('/weingarten')
 }
 
 export async function updateWeingarten(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
 
-  const lageId = (formData.get('lage_id') as string) || null
-  const riedText = (formData.get('ried') as string) || null
-  const riedName = lageId ? await resolveRied(supabase, lageId) : riedText
-
+  const bew = (formData.get('bewirtschaftung') as string) || null
   const payload: AnyRecord = {
-    name:            formData.get('name') as string,
-    ried:            riedName,
-    lage_id:         lageId,
-    rebsorte:        (formData.get('rebsorte') as string) || null,
-    flaeche_ha:      formData.get('flaeche_ha') ? Number(formData.get('flaeche_ha')) : null,
-    pflanzjahr:      formData.get('pflanzjahr') ? Number(formData.get('pflanzjahr')) : null,
-    bewirtschaftung: (formData.get('bewirtschaftung') as string) || null,
+    name:                 formData.get('name') as string,
+    rebsorte:             (formData.get('rebsorte') as string) || null,
+    pflanzjahr:           formData.get('pflanzjahr') ? Number(formData.get('pflanzjahr')) : null,
+    bewirtschaftung:      bew,
+    bewirtschaftung_seit: bew === 'in_umstellung' ? ((formData.get('bewirtschaftung_seit') as string) || null) : null,
     weinart:              (formData.get('weinart') as string) || 'unbekannt',
     notizen:              (formData.get('notizen') as string) || null,
     aktiv:                formData.get('aktiv') === 'true',
-    trauben_verkauf:       formData.get('trauben_verkauf') === 'true',
-    trauben_herkunft_code: (formData.get('trauben_herkunft_code') as string) || null,
-    nachhaltig_austria:    formData.get('nachhaltig_austria') === 'true',
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('weingarten') as any).update(payload).eq('id', id)
   if (error) throw new Error((error as AnyRecord).message)
-
   revalidatePath('/weingarten')
 }
 
@@ -110,17 +86,19 @@ export async function createGrundstueck(weingartenId: string, formData: FormData
 
   const status = formData.get('status') as string || 'aktiv'
   const payload: AnyRecord = {
-    tenant_id:       tenantId,
-    weingarten_id:   weingartenId,
-    gst_nr:          formData.get('gst_nr') as string,
-    katastralgemeinde: (formData.get('katastralgemeinde') as string) || null,
-    einlagezahl:     (formData.get('einlagezahl') as string) || null,
-    rebsorte:        (formData.get('rebsorte') as string) || null,
-    pflanzjahr:      formData.get('pflanzjahr') ? Number(formData.get('pflanzjahr')) : null,
-    flaeche_ha:      formData.get('flaeche_ha') ? Number(formData.get('flaeche_ha')) : null,
+    tenant_id:             tenantId,
+    weingarten_id:         weingartenId,
+    gst_nr:                formData.get('gst_nr') as string,
+    katastralgemeinde:     (formData.get('katastralgemeinde') as string) || null,
+    einlagezahl:           (formData.get('einlagezahl') as string) || null,
+    rebsorte:              (formData.get('rebsorte') as string) || null,
+    pflanzjahr:            formData.get('pflanzjahr') ? Number(formData.get('pflanzjahr')) : null,
+    flaeche_ha:            formData.get('flaeche_ha') ? Number(formData.get('flaeche_ha')) : null,
+    flaeche_ha_kataster:   formData.get('flaeche_ha_kataster') ? Number(formData.get('flaeche_ha_kataster')) : null,
+    trauben_herkunft_code: (formData.get('trauben_herkunft_code') as string) || null,
     status,
-    spritzbar:       status === 'aktiv',
-    notizen:         (formData.get('notizen') as string) || null,
+    spritzbar:             status === 'aktiv',
+    notizen:               (formData.get('notizen') as string) || null,
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('grundstuecke') as any).insert(payload)
@@ -132,15 +110,17 @@ export async function updateGrundstueck(id: string, weingartenId: string, formDa
   const supabase = await createSupabaseServerClient()
   const status = formData.get('status') as string || 'aktiv'
   const payload: AnyRecord = {
-    gst_nr:          formData.get('gst_nr') as string,
-    katastralgemeinde: (formData.get('katastralgemeinde') as string) || null,
-    einlagezahl:     (formData.get('einlagezahl') as string) || null,
-    rebsorte:        (formData.get('rebsorte') as string) || null,
-    pflanzjahr:      formData.get('pflanzjahr') ? Number(formData.get('pflanzjahr')) : null,
-    flaeche_ha:      formData.get('flaeche_ha') ? Number(formData.get('flaeche_ha')) : null,
+    gst_nr:                formData.get('gst_nr') as string,
+    katastralgemeinde:     (formData.get('katastralgemeinde') as string) || null,
+    einlagezahl:           (formData.get('einlagezahl') as string) || null,
+    rebsorte:              (formData.get('rebsorte') as string) || null,
+    pflanzjahr:            formData.get('pflanzjahr') ? Number(formData.get('pflanzjahr')) : null,
+    flaeche_ha:            formData.get('flaeche_ha') ? Number(formData.get('flaeche_ha')) : null,
+    flaeche_ha_kataster:   formData.get('flaeche_ha_kataster') ? Number(formData.get('flaeche_ha_kataster')) : null,
+    trauben_herkunft_code: (formData.get('trauben_herkunft_code') as string) || null,
     status,
-    spritzbar:       status === 'aktiv',
-    notizen:         (formData.get('notizen') as string) || null,
+    spritzbar:             status === 'aktiv',
+    notizen:               (formData.get('notizen') as string) || null,
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('grundstuecke') as any).update(payload).eq('id', id)
