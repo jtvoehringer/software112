@@ -51,7 +51,7 @@ export default async function WeingartenEditPage({ params }: Props) {
   // Grundstücke
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawG } = await (supabase.from('grundstuecke') as any)
-    .select('id, weingarten_id, gst_nr, katastralgemeinde, einlagezahl, rebsorte, pflanzjahr, flaeche_ha, flaeche_ha_kataster, trauben_herkunft_code, status, notizen')
+    .select('id, weingarten_id, gst_nr, katastralgemeinde, einlagezahl, rebsorte, pflanzjahr, weinart, bewirtschaftung, bewirtschaftung_seit, flaeche_ha, flaeche_ha_kataster, trauben_herkunft_code, status, notizen')
     .eq('weingarten_id', id)
     .order('gst_nr')
   const grundstuecke = (rawG ?? []) as GST[]
@@ -71,8 +71,9 @@ export default async function WeingartenEditPage({ params }: Props) {
       datum: r.ernte_datum as string | null,
     }))
 
-  // AMA-Fläche aus Grundstücken für kg/ha
-  const gstHaAma = grundstuecke.reduce((s, g) => s + (g.flaeche_ha ?? 0), 0)
+  // Flächensummen aus Grundstücken
+  const gstHaAma      = grundstuecke.reduce((s, g) => s + (g.flaeche_ha ?? 0), 0)
+  const gstHaKataster = grundstuecke.reduce((s, g) => s + (g.flaeche_ha_kataster ?? 0), 0)
 
   const action = updateWeingarten.bind(null, id)
 
@@ -97,6 +98,26 @@ export default async function WeingartenEditPage({ params }: Props) {
       <div className="card mb-6">
         <h2 className="text-base font-semibold text-gray-800 mb-4">Stammdaten</h2>
         <WeingartenForm weingarten={weingarten} action={action} />
+
+        {/* GST-Flächensummen (read-only, aus Grundstücken) */}
+        {grundstuecke.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-s112-border grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs text-s112-muted mb-0.5">GST-Fläche lt. AMA</p>
+              <p className="text-sm font-semibold tabular-nums">
+                {gstHaAma > 0 ? gstHaAma.toFixed(4).replace('.', ',') + ' ha' : '–'}
+              </p>
+              <p className="text-xs text-s112-muted">Summe aller Grundstücke</p>
+            </div>
+            <div>
+              <p className="text-xs text-s112-muted mb-0.5">GST-Fläche lt. Kataster</p>
+              <p className="text-sm font-semibold tabular-nums">
+                {gstHaKataster > 0 ? gstHaKataster.toFixed(4).replace('.', ',') + ' ha' : '–'}
+              </p>
+              <p className="text-xs text-s112-muted">Summe aller Grundstücke</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Grundstücke */}
@@ -119,30 +140,4 @@ export default async function WeingartenEditPage({ params }: Props) {
                 <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600">Jahrgang</th>
                 <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600">Ernte-Datum</th>
                 <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600">Menge (kg)</th>
-                <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600">kg/ha (AMA)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ertragHistorie.map((e, i) => (
-                <tr key={i} className="border-b border-s112-border/40 hover:bg-s112-bg/50">
-                  <td className="px-3 py-2 font-semibold text-gray-800">{e.jahrgang}</td>
-                  <td className="px-3 py-2 text-gray-600">
-                    {e.datum ? new Date(e.datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '–'}
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono text-gray-800">
-                    {e.menge_kg.toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono text-gray-600">
-                    {gstHaAma > 0
-                      ? (e.menge_kg / gstHaAma).toLocaleString('de-AT', { maximumFractionDigits: 0 })
-                      : '–'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
-}
+                <th className="text-right px-3 py-2 text-xs font-semibold text-gray-

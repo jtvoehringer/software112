@@ -21,15 +21,10 @@ export async function createWeingarten(formData: FormData) {
   const tenantId = await getTenantId()
   if (!tenantId) throw new Error('Kein Betrieb gefunden')
 
-  const bew = (formData.get('bewirtschaftung') as string) || null
   const payload: AnyRecord = {
     tenant_id:            tenantId,
     name:                 formData.get('name') as string,
-    rebsorte:             (formData.get('rebsorte') as string) || null,
-    pflanzjahr:           formData.get('pflanzjahr') ? Number(formData.get('pflanzjahr')) : null,
-    bewirtschaftung:      bew,
-    bewirtschaftung_seit: bew === 'in_umstellung' ? ((formData.get('bewirtschaftung_seit') as string) || null) : null,
-    weinart:              (formData.get('weinart') as string) || 'unbekannt',
+
     notizen:              (formData.get('notizen') as string) || null,
     aktiv:                true,
   }
@@ -43,14 +38,9 @@ export async function createWeingarten(formData: FormData) {
 export async function updateWeingarten(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
 
-  const bew = (formData.get('bewirtschaftung') as string) || null
   const payload: AnyRecord = {
     name:                 formData.get('name') as string,
-    rebsorte:             (formData.get('rebsorte') as string) || null,
-    pflanzjahr:           formData.get('pflanzjahr') ? Number(formData.get('pflanzjahr')) : null,
-    bewirtschaftung:      bew,
-    bewirtschaftung_seit: bew === 'in_umstellung' ? ((formData.get('bewirtschaftung_seit') as string) || null) : null,
-    weinart:              (formData.get('weinart') as string) || 'unbekannt',
+
     notizen:              (formData.get('notizen') as string) || null,
     aktiv:                formData.get('aktiv') === 'true',
   }
@@ -93,6 +83,9 @@ export async function createGrundstueck(weingartenId: string, formData: FormData
     einlagezahl:           (formData.get('einlagezahl') as string) || null,
     rebsorte:              (formData.get('rebsorte') as string) || null,
     pflanzjahr:            formData.get('pflanzjahr') ? Number(formData.get('pflanzjahr')) : null,
+    weinart:               (formData.get('weinart') as string) || null,
+    bewirtschaftung:       (formData.get('bewirtschaftung') as string) || null,
+    bewirtschaftung_seit:  (formData.get('bewirtschaftung_seit') as string) || null,
     flaeche_ha:            formData.get('flaeche_ha') ? Number(formData.get('flaeche_ha')) : null,
     flaeche_ha_kataster:   formData.get('flaeche_ha_kataster') ? Number(formData.get('flaeche_ha_kataster')) : null,
     trauben_herkunft_code: (formData.get('trauben_herkunft_code') as string) || null,
@@ -115,6 +108,9 @@ export async function updateGrundstueck(id: string, weingartenId: string, formDa
     einlagezahl:           (formData.get('einlagezahl') as string) || null,
     rebsorte:              (formData.get('rebsorte') as string) || null,
     pflanzjahr:            formData.get('pflanzjahr') ? Number(formData.get('pflanzjahr')) : null,
+    weinart:               (formData.get('weinart') as string) || null,
+    bewirtschaftung:       (formData.get('bewirtschaftung') as string) || null,
+    bewirtschaftung_seit:  (formData.get('bewirtschaftung_seit') as string) || null,
     flaeche_ha:            formData.get('flaeche_ha') ? Number(formData.get('flaeche_ha')) : null,
     flaeche_ha_kataster:   formData.get('flaeche_ha_kataster') ? Number(formData.get('flaeche_ha_kataster')) : null,
     trauben_herkunft_code: (formData.get('trauben_herkunft_code') as string) || null,
@@ -126,14 +122,3 @@ export async function updateGrundstueck(id: string, weingartenId: string, formDa
   const { error } = await (supabase.from('grundstuecke') as any).update(payload).eq('id', id)
   if (error) throw new Error((error as AnyRecord).message)
   revalidatePath('/weingarten')
-  revalidatePath(`/weingarten/${weingartenId}`)
-}
-
-export async function deleteGrundstueck(id: string, weingartenId: string) {
-  const supabase = await createSupabaseServerClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('grundstuecke') as any).delete().eq('id', id)
-  if (error) throw new Error((error as AnyRecord).message)
-  revalidatePath('/weingarten')
-  revalidatePath(`/weingarten/${weingartenId}`)
-}
