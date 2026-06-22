@@ -125,8 +125,6 @@ export default async function WeingartenEditPage({ params }: Props) {
         <GrundstueckePanel
           weingartenId={id}
           grundstuecke={grundstuecke}
-          writeOk={writeOk}
-          adminOk={adminOk}
         />
       </div>
 

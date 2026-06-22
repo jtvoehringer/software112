@@ -179,10 +179,9 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
 
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 export default function GrundstueckePanel({
-  weingartenId, grundstuecke, writeOk, adminOk,
+  weingartenId, grundstuecke,
 }: {
   weingartenId: string; grundstuecke: GST[]
-  writeOk: boolean; adminOk: boolean
 }) {
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId]     = useState<string | null>(null)
@@ -207,7 +206,7 @@ export default function GrundstueckePanel({
             {totalKataster > 0 && ` · Kataster: ${fmtHa(totalKataster)} ha`}
           </span>
         </div>
-        {writeOk && !showForm && (
+        {!showForm && (
           <button onClick={() => { setShowForm(true); setEditId(null) }}
             className="inline-flex items-center gap-1 text-xs bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-teal font-medium px-3 py-1.5 rounded-lg transition-colors">
             ＋ Grundstück
@@ -234,7 +233,7 @@ export default function GrundstueckePanel({
                 <th className="text-right px-3 py-2 font-semibold leading-tight">GST-Fläche<br/>lt. Kataster</th>
                 <th className="text-right px-3 py-2 font-semibold">Pflanzjahr</th>
                 <th className="text-center px-3 py-2 font-semibold">Status</th>
-                {(writeOk || adminOk) && <th className="px-3 py-2" />}
+                <th className="px-3 py-2" />
               </tr>
             </thead>
             <tbody>
@@ -267,20 +266,14 @@ export default function GrundstueckePanel({
                     </td>
                     <td className="px-3 py-2 text-right text-s112-muted text-xs">{g.pflanzjahr ?? '–'}</td>
                     <td className="px-3 py-2 text-center"><StatusBadge status={g.status} /></td>
-                    {(writeOk || adminOk) && (
-                      <td className="px-3 py-2 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {writeOk && (
-                            <button onClick={() => { setEditId(g.id); setShowForm(false) }}
-                              className="text-xs text-s112-teal hover:underline">Bearb.</button>
-                          )}
-                          {adminOk && (
-                            <button onClick={() => handleDelete(g.id, g.gst_nr)}
-                              className="text-xs text-red-400 hover:text-red-600">Löschen</button>
-                          )}
-                        </div>
-                      </td>
-                    )}
+                    <td className="px-3 py-2 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => { setEditId(g.id); setShowForm(false) }}
+                          className="text-xs text-s112-teal hover:underline">Bearb.</button>
+                        <button onClick={() => handleDelete(g.id, g.gst_nr)}
+                          className="text-xs text-red-400 hover:text-red-600">Löschen</button>
+                      </div>
+                    </td>
                   </tr>
                   {editId === g.id && (
                     <tr>
