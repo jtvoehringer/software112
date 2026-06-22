@@ -152,8 +152,9 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
   function handleKgnrChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value
     setKgnr(val)
-    // Auto-Lookup bei genau 5 Stellen
-    if (val.length === 5) {
+    // Auto-Lookup bei 4 oder 5 Stellen (KGNr. sind offiziell 5-stellig mit führender 0,
+    // werden aber oft 4-stellig eingegeben, z.B. 4023 = Pfaffstätten → padStart → 04023)
+    if (val.length === 4 || val.length === 5) {
       const lookup = getKgBezeichnung(val)
       if (lookup) setKgBezeichnung(lookup)
     }
