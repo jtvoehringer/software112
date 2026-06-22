@@ -141,3 +141,32 @@ export async function deleteGrundstueck(id: string, weingartenId: string) {
   revalidatePath('/weingarten')
   revalidatePath(`/weingarten/${weingartenId}`)
 }
+
+// ── BEV Kataster-API ────────────────────────────────────────────────────────────────────────────
+
+export type BevResult = {
+  ok: true; ha: number
+  nutzungen: Array<{ nutzung: string; ha: number }>
+} | { ok: false; message: string }
+
+export async function fetchBevFlaeche(kgnr: string, gstNr: string): Promise<BevResult> {
+  if (!kgnr || !gstNr) return { ok: false, message: 'KGNr und GST-Nr erforderlich' }
+  try {
+    const url = 'https://kataster.bev.gv.at/api/gst/' + encodeURIComponent(kgnr) + '/' + gstNr
+    const res = await fetch(url, { cache: 'no-store' })
+    if (!res.ok) return { ok: false, message: 'BEV-API Fehler: ' + res.status }
+    const data = await res.json() as Record<string, unknown>
+    if ('message' in data) return { ok: false, message: String(data.message) }
+    type Nutzung = { nutzung: string; fl: number }
+    const props = (data.properties as { nutzungen?: Nutzung[] } | undefined)
+    const nutzungen: Nutzung[] = props?.nutzungen ?? []
+    const totalM2 = nutzungen.reduce((s, n) => s + (n.fl ?? 0), 0)
+    return {
+      ok: true,
+      ha: Math.round(totalM2) / 10000,
+      nutzungen: nutzungen.map(n => ({ nutzung: n.nutzung, ha: Math.round(n.fl) / 10000 })),
+    }
+  } catch {
+    return { ok: false, message: 'BEV-API nicht erreichbar' }
+  }
+}

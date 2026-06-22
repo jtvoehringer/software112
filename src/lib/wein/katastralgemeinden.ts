@@ -1524,6 +1524,7 @@ export const KATASTRALGEMEINDEN: Record<string, string> = {
   '16123': 'Sparbach',
   '16124': 'Stangau',
   '16125': 'Sulz im Wienerwald',
+  '16110': 'Gumpoldskirchen',
   '16127': 'Weißenbach bei Mödling',
   '18002': 'Augenthal',
   '18003': 'Großkadolz',

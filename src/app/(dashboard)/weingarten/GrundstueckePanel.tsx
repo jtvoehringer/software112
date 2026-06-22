@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useTransition } from 'react'
-import { createGrundstueck, updateGrundstueck, deleteGrundstueck } from './actions'
+import { createGrundstueck, updateGrundstueck, deleteGrundstueck, fetchBevFlaeche } from './actions'
 import { fmtHa } from '@/lib/format'
 import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
 
@@ -72,6 +72,9 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
   const [weinart, setWeinart] = useState(gst?.weinart ?? 'unbekannt')
   const [kgnr, setKgnr] = useState(gst?.katastralgemeinde ?? '')
   const [kgBezeichnung, setKgBezeichnung] = useState(gst?.kg_bezeichnung ?? '')
+  const [katasterHa, setKatasterHa] = useState<string>(gst?.flaeche_ha_kataster != null ? String(gst.flaeche_ha_kataster) : '')
+  const [bevLoading, setBevLoading] = useState(false)
+  const [bevMsg, setBevMsg] = useState<string | null>(null)
 
   function handleKgnrChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value
@@ -80,6 +83,23 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
     if (val.length === 5) {
       const lookup = getKgBezeichnung(val)
       if (lookup) setKgBezeichnung(lookup)
+    }
+  }
+
+  async function handleBevImport() {
+    if (!kgnr) { setBevMsg('Bitte zuerst KGNr eingeben'); return }
+    const gstNr = (document.querySelector('input[name="gst_nr"]') as HTMLInputElement)?.value
+    if (!gstNr) { setBevMsg('Bitte zuerst GST-Nr eingeben'); return }
+    setBevLoading(true)
+    setBevMsg(null)
+    const result = await fetchBevFlaeche(kgnr, gstNr)
+    setBevLoading(false)
+    if (result.ok) {
+      setKatasterHa(String(result.ha))
+      const detail = result.nutzungen.map(n => n.nutzung + ': ' + n.ha.toFixed(4) + ' ha').join(', ')
+      setBevMsg('✓ ' + result.ha.toFixed(4) + ' ha (' + detail + ')')
+    } else {
+      setBevMsg('⚠ ' + result.message)
     }
   }
 
@@ -177,9 +197,32 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
           <input name="flaeche_ha" type="number" step="0.0001" min="0" defaultValue={gst?.flaeche_ha ?? ''} className={inputCls} />
         </div>
         <div>
-          <label className={labelCls}>GST-Fläche lt. Kataster (ha)</label>
-          <input name="flaeche_ha_kataster" type="number" step="0.0001" min="0" defaultValue={gst?.flaeche_ha_kataster ?? ''} className={inputCls} />
-          <p className="text-xs text-s112-muted mt-1">NÖ Atlas / Landeskataster</p>
+          <label className={labelCls}>
+            GST-Fläche lt. Kataster (ha)
+          </label>
+          <div className="flex gap-1.5">
+            <input
+              name="flaeche_ha_kataster"
+              type="number" step="0.0001" min="0"
+              value={katasterHa}
+              onChange={e => setKatasterHa(e.target.value)}
+              className={inputCls}
+            />
+            <button
+              type="button"
+              onClick={handleBevImport}
+              disabled={bevLoading}
+              title="Fläche aus BEV-Kataster holen"
+              className="shrink-0 px-2.5 py-1.5 rounded-lg border border-s112-border text-xs font-medium text-s112-teal hover:bg-s112-teal/10 disabled:opacity-40 transition-colors whitespace-nowrap"
+            >
+              {bevLoading ? '…' : '📥 BEV'}
+            </button>
+          </div>
+          {bevMsg && (
+            <p className={'text-xs mt-1 ' + (bevMsg.startsWith('✓') ? 'text-green-600' : 'text-orange-600')}>
+              {bevMsg}
+            </p>
+          )}
         </div>
 
         {/* BKI */}
