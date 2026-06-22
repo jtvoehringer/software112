@@ -3,6 +3,8 @@ type ErtragHistorie = {
   jahrgang: number
   menge_kg: number
   datum: string | null
+  grundstueck_id: string | null
+  gst_nr: string | null
 }
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
@@ -59,7 +61,7 @@ export default async function WeingartenEditPage({ params }: Props) {
   // Historische Ertragsdaten
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawErtrag } = await (supabase.from('ernte_parzellen') as any)
-    .select('menge_kg, ernte_datum, weinjahrgaenge!jahrgang_id(jahrgang)')
+    .select('menge_kg, ernte_datum, grundstueck_id, weinjahrgaenge!jahrgang_id(jahrgang), grundstueck:grundstueck_id(gst_nr)')
     .eq('weingarten_id', id)
     .not('menge_kg', 'is', null)
     .order('ernte_datum', { ascending: false })
@@ -69,11 +71,21 @@ export default async function WeingartenEditPage({ params }: Props) {
       jahrgang: r.weinjahrgaenge.jahrgang as number,
       menge_kg: r.menge_kg as number,
       datum: r.ernte_datum as string | null,
+      grundstueck_id: r.grundstueck_id ?? null,
+      gst_nr: (r.grundstueck as AR | null)?.gst_nr ?? null,
     }))
 
   // Flächensummen aus Grundstücken
   const gstHaAma      = grundstuecke.reduce((s, g) => s + (g.flaeche_ha ?? 0), 0)
   const gstHaKataster = grundstuecke.reduce((s, g) => s + (g.flaeche_ha_kataster ?? 0), 0)
+
+  // Ertragshistorie gruppiert nach GST (für GrundstueckePanel)
+  const ertragByGst: Record<string, ErtragHistorie[]> = {}
+  for (const e of ertragHistorie) {
+    const key = e.grundstueck_id ?? '__ohne__'
+    if (!ertragByGst[key]) ertragByGst[key] = []
+    ertragByGst[key].push(e)
+  }
 
   const action = updateWeingarten.bind(null, id)
 
@@ -128,6 +140,7 @@ export default async function WeingartenEditPage({ params }: Props) {
         <GrundstueckePanel
           weingartenId={id}
           grundstuecke={grundstuecke}
+          ertragByGst={ertragByGst}
         />
       </div>
 
@@ -140,6 +153,7 @@ export default async function WeingartenEditPage({ params }: Props) {
             <thead>
               <tr className="border-b border-s112-border bg-s112-bg">
                 <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600">Jahrgang</th>
+                <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600">GST</th>
                 <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600">Ernte-Datum</th>
                 <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600">Menge (kg)</th>
                 <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600">kg/ha (AMA)</th>
@@ -149,6 +163,7 @@ export default async function WeingartenEditPage({ params }: Props) {
               {ertragHistorie.map((e, i) => (
                 <tr key={i} className="border-b border-s112-border/40 hover:bg-s112-bg/50">
                   <td className="px-3 py-2 font-semibold text-gray-800">{e.jahrgang}</td>
+                  <td className="px-3 py-2 font-mono text-xs text-s112-muted">{e.gst_nr ?? '–'}</td>
                   <td className="px-3 py-2 text-gray-600">
                     {e.datum ? new Date(e.datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '–'}
                   </td>

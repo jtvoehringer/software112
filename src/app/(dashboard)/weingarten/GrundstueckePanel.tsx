@@ -17,6 +17,11 @@ export type GST = {
   status: string; notizen: string | null
 }
 
+export type ErtragHistorie = {
+  jahrgang: number; menge_kg: number; datum: string | null
+  grundstueck_id: string | null; gst_nr: string | null
+}
+
 const STATUS_OPTIONS = [
   { value: 'aktiv',   label: 'Ausgepflanzt', badge: 'bg-green-100 text-green-700' },
   { value: 'brache',  label: 'Brache',  badge: 'bg-yellow-100 text-yellow-700' },
@@ -64,6 +69,74 @@ function StatusBadge({ status }: { status: string }) {
 
 const inputCls = "w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
 const labelCls = "block text-xs font-medium text-gray-600 mb-1"
+
+// ── Ertragshistorie für ein einzelnes GST ─────────────────────────────────────
+function GstErtragPanel({ gst, eintraege }: { gst: GST; eintraege: ErtragHistorie[] }) {
+  const haAma      = gst.flaeche_ha ?? 0
+  const haKataster = gst.flaeche_ha_kataster ?? 0
+
+  const totalKg = eintraege.reduce((s, e) => s + e.menge_kg, 0)
+
+  return (
+    <div className="bg-s112-bg/60 border-t border-s112-border/50 px-3 py-2">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-gray-500">
+            <th className="text-left py-1 pr-3 font-medium">Jahrgang</th>
+            <th className="text-left py-1 pr-3 font-medium">Ernte-Datum</th>
+            <th className="text-right py-1 pr-3 font-medium">Menge (kg)</th>
+            {haAma > 0 && <th className="text-right py-1 pr-3 font-medium">kg/ha (AMA)</th>}
+            {haKataster > 0 && <th className="text-right py-1 font-medium">kg/ha (Kataster)</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {eintraege.map((e, i) => (
+            <tr key={i} className="border-t border-s112-border/30">
+              <td className="py-1 pr-3 font-semibold text-gray-700">{e.jahrgang}</td>
+              <td className="py-1 pr-3 text-s112-muted">
+                {e.datum
+                  ? new Date(e.datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                  : '–'}
+              </td>
+              <td className="py-1 pr-3 text-right font-mono text-gray-800">
+                {e.menge_kg.toLocaleString('de-AT', { maximumFractionDigits: 0 })}
+              </td>
+              {haAma > 0 && (
+                <td className="py-1 pr-3 text-right font-mono text-s112-muted">
+                  {(e.menge_kg / haAma).toLocaleString('de-AT', { maximumFractionDigits: 0 })}
+                </td>
+              )}
+              {haKataster > 0 && (
+                <td className="py-1 text-right font-mono text-s112-muted">
+                  {(e.menge_kg / haKataster).toLocaleString('de-AT', { maximumFractionDigits: 0 })}
+                </td>
+              )}
+            </tr>
+          ))}
+          {eintraege.length > 1 && (
+            <tr className="border-t-2 border-s112-border/60 font-semibold">
+              <td className="py-1 pr-3 text-gray-600">Gesamt</td>
+              <td className="py-1 pr-3" />
+              <td className="py-1 pr-3 text-right font-mono text-gray-700">
+                {totalKg.toLocaleString('de-AT', { maximumFractionDigits: 0 })}
+              </td>
+              {haAma > 0 && (
+                <td className="py-1 pr-3 text-right font-mono text-gray-600">
+                  Ø {(totalKg / eintraege.length / haAma).toLocaleString('de-AT', { maximumFractionDigits: 0 })}
+                </td>
+              )}
+              {haKataster > 0 && (
+                <td className="py-1 text-right font-mono text-gray-600">
+                  Ø {(totalKg / eintraege.length / haKataster).toLocaleString('de-AT', { maximumFractionDigits: 0 })}
+                </td>
+              )}
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+}
 
 // ── Formular (Neu / Bearbeiten) ───────────────────────────────────────────────
 function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GST; onDone: () => void }) {
@@ -276,17 +349,29 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
 
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 export default function GrundstueckePanel({
-  weingartenId, grundstuecke,
+  weingartenId, grundstuecke, ertragByGst = {},
 }: {
-  weingartenId: string; grundstuecke: GST[]
+  weingartenId: string
+  grundstuecke: GST[]
+  ertragByGst?: Record<string, ErtragHistorie[]>
 }) {
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId]     = useState<string | null>(null)
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [pending, startTransition] = useTransition()
 
   const totalAma      = grundstuecke.reduce((s, g) => s + (g.flaeche_ha ?? 0), 0)
   const totalKataster = grundstuecke.reduce((s, g) => s + (g.flaeche_ha_kataster ?? 0), 0)
   const aktiv         = grundstuecke.filter(g => g.status === 'aktiv').length
+
+  function toggleExpand(id: string) {
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   function handleDelete(id: string, gstNr: string) {
     if (!confirm(`GST ${gstNr} wirklich löschen?`)) return
@@ -322,6 +407,7 @@ export default function GrundstueckePanel({
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-s112-bg border-b border-s112-border text-xs text-gray-600">
+                <th className="w-6 px-2 py-2" />
                 <th className="text-left px-3 py-2 font-semibold">GST-Nr</th>
                 <th className="text-left px-3 py-2 font-semibold">Rebsorte</th>
                 <th className="text-left px-3 py-2 font-semibold">Bewirtschaftung</th>
@@ -333,52 +419,87 @@ export default function GrundstueckePanel({
               </tr>
             </thead>
             <tbody>
-              {grundstuecke.map(g => (
-                <React.Fragment key={g.id}>
-                  <tr className={`border-b border-s112-border/50 last:border-0 ${g.status !== 'aktiv' ? 'opacity-60' : ''}`}>
-                    <td className="px-3 py-2 font-mono text-xs font-medium">{g.gst_nr}</td>
-                    <td className="px-3 py-2 text-s112-muted text-xs">
-                      {g.rebsorte ?? '–'}
-                      {g.weinart && g.weinart !== 'unbekannt' && (
-                        <span className={`ml-1 inline-block px-1 py-0 rounded-full text-xs font-medium ${
-                          g.weinart === 'rot' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
-                        }`}>{g.weinart === 'rot' ? 'Rot' : 'Weiß'}</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      {g.bewirtschaftung ? (
-                        <span className={`inline-block px-1.5 py-0 rounded-full text-xs font-medium ${BEWIRTSCHAFTUNG_BADGE[g.bewirtschaftung] ?? 'bg-gray-100 text-gray-600'}`}>
-                          {BEWIRTSCHAFTUNG_LABEL[g.bewirtschaftung] ?? g.bewirtschaftung}
-                          {g.bewirtschaftung === 'in_umstellung' && g.bewirtschaftung_seit && (
-                            <span className="ml-1 text-gray-500">seit {new Date(g.bewirtschaftung_seit).toLocaleDateString('de-AT', { month: '2-digit', year: 'numeric' })}</span>
-                          )}
-                        </span>
-                      ) : <span className="text-s112-muted text-xs">–</span>}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-xs">{fmtHa(g.flaeche_ha)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-xs text-s112-muted">
-                      {g.flaeche_ha_kataster != null ? fmtHa(g.flaeche_ha_kataster) : '–'}
-                    </td>
-                    <td className="px-3 py-2 text-right text-s112-muted text-xs">{g.pflanzjahr ?? '–'}</td>
-                    <td className="px-3 py-2 text-center"><StatusBadge status={g.status} /></td>
-                    <td className="px-3 py-2 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => { setEditId(g.id); setShowForm(false) }}
-                          className="text-xs text-s112-teal hover:underline">Bearb.</button>
-                        <button onClick={() => handleDelete(g.id, g.gst_nr)}
-                          className="text-xs text-red-400 hover:text-red-600">Löschen</button>
-                      </div>
-                    </td>
-                  </tr>
-                  {editId === g.id && (
-                    <tr>
-                      <td colSpan={9} className="px-3 py-2">
-                        <GSTForm weingartenId={weingartenId} gst={g} onDone={() => setEditId(null)} />
+              {grundstuecke.map(g => {
+                const eintraege = ertragByGst[g.id] ?? []
+                const isExpanded = expandedIds.has(g.id)
+                const hasHistory = eintraege.length > 0
+                return (
+                  <React.Fragment key={g.id}>
+                    <tr className={`border-b border-s112-border/50 ${!isExpanded ? 'last:border-0' : ''} ${g.status !== 'aktiv' ? 'opacity-60' : ''}`}>
+                      {/* Expand-Toggle */}
+                      <td className="px-2 py-2 text-center">
+                        {hasHistory ? (
+                          <button
+                            onClick={() => toggleExpand(g.id)}
+                            className="text-s112-muted hover:text-s112-teal transition-colors text-xs leading-none"
+                            title={isExpanded ? 'Ertragshistorie ausblenden' : 'Ertragshistorie einblenden'}
+                          >
+                            {isExpanded ? '▼' : '▶'}
+                          </button>
+                        ) : (
+                          <span className="text-gray-200 text-xs">▶</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 font-mono text-xs font-medium">
+                        {g.gst_nr}
+                        {hasHistory && (
+                          <span className="ml-1.5 text-xs text-s112-muted font-normal">
+                            ({eintraege.length}×)
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-s112-muted text-xs">
+                        {g.rebsorte ?? '–'}
+                        {g.weinart && g.weinart !== 'unbekannt' && (
+                          <span className={`ml-1 inline-block px-1 py-0 rounded-full text-xs font-medium ${
+                            g.weinart === 'rot' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                          }`}>{g.weinart === 'rot' ? 'Rot' : 'Weiß'}</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        {g.bewirtschaftung ? (
+                          <span className={`inline-block px-1.5 py-0 rounded-full text-xs font-medium ${BEWIRTSCHAFTUNG_BADGE[g.bewirtschaftung] ?? 'bg-gray-100 text-gray-600'}`}>
+                            {BEWIRTSCHAFTUNG_LABEL[g.bewirtschaftung] ?? g.bewirtschaftung}
+                            {g.bewirtschaftung === 'in_umstellung' && g.bewirtschaftung_seit && (
+                              <span className="ml-1 text-gray-500">seit {new Date(g.bewirtschaftung_seit).toLocaleDateString('de-AT', { month: '2-digit', year: 'numeric' })}</span>
+                            )}
+                          </span>
+                        ) : <span className="text-s112-muted text-xs">–</span>}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-xs">{fmtHa(g.flaeche_ha)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-xs text-s112-muted">
+                        {g.flaeche_ha_kataster != null ? fmtHa(g.flaeche_ha_kataster) : '–'}
+                      </td>
+                      <td className="px-3 py-2 text-right text-s112-muted text-xs">{g.pflanzjahr ?? '–'}</td>
+                      <td className="px-3 py-2 text-center"><StatusBadge status={g.status} /></td>
+                      <td className="px-3 py-2 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button onClick={() => { setEditId(g.id); setShowForm(false) }}
+                            className="text-xs text-s112-teal hover:underline">Bearb.</button>
+                          <button onClick={() => handleDelete(g.id, g.gst_nr)}
+                            className="text-xs text-red-400 hover:text-red-600">Löschen</button>
+                        </div>
                       </td>
                     </tr>
-                  )}
-                </React.Fragment>
-              ))}
+                    {/* Ertragshistorie aufgeklappt */}
+                    {isExpanded && hasHistory && (
+                      <tr className="border-b border-s112-border/50">
+                        <td colSpan={9} className="p-0">
+                          <GstErtragPanel gst={g} eintraege={eintraege} />
+                        </td>
+                      </tr>
+                    )}
+                    {/* Bearbeiten-Formular */}
+                    {editId === g.id && (
+                      <tr>
+                        <td colSpan={9} className="px-3 py-2">
+                          <GSTForm weingartenId={weingartenId} gst={g} onDone={() => setEditId(null)} />
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                )
+              })}
             </tbody>
           </table>
         </div>
