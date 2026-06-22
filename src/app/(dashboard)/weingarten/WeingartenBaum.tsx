@@ -89,7 +89,8 @@ function WeingartenZeile({
     startTransition(() => deactivateWeingarten(w.id))
   }
 
-  const gstHa = gsts.reduce((s, g) => s + (g.flaeche_ha ?? 0), 0)
+  const gstHa        = gsts.reduce((s, g) => s + (g.flaeche_ha ?? 0), 0)
+  const gstKatasterHa = gsts.reduce((s, g) => s + (g.flaeche_ha_kataster ?? 0), 0)
 
   return (
     <>
@@ -127,7 +128,7 @@ function WeingartenZeile({
             )}
           </div>
         </td>
-        <td className="px-3 py-2.5 text-sm text-right tabular-nums text-gray-400">–</td>
+        <td className="px-3 py-2.5 text-sm text-right tabular-nums text-gray-400">{gstKatasterHa > 0 ? fmtHa(gstKatasterHa) : '–'}</td>
         <td className="px-3 py-2.5 text-sm text-right tabular-nums">
           {w.flaeche_ha != null ? fmtHa(w.flaeche_ha) : (gstHa > 0 ? fmtHa(gstHa) : '–')}
         </td>
@@ -179,6 +180,10 @@ function LageGruppe({
       : (w.flaeche_ha ?? 0)
     return s + ha
   }, 0)
+  const totalKatasterHa = weingaerten.reduce((s, w) => {
+    const gsts = gstMap.get(w.id) ?? []
+    return s + gsts.reduce((a, g) => a + (g.flaeche_ha_kataster ?? 0), 0)
+  }, 0)
 
   return (
     <>
@@ -186,7 +191,7 @@ function LageGruppe({
         className="bg-s112-bg border-b border-s112-border cursor-pointer select-none hover:bg-s112-bg/80 transition-colors"
         onClick={() => setOpen(o => !o)}
       >
-        <td className="px-4 py-2.5" colSpan={5}>
+        <td className="px-4 py-2.5" colSpan={3}>
           <div className="flex items-center gap-2">
             <span className="text-s112-teal"><ChevronIcon open={open} /></span>
             <span className="font-semibold text-gray-900 text-sm">{ried}</span>
@@ -197,6 +202,9 @@ function LageGruppe({
             </span>
           </div>
         </td>
+        <td className="px-4 py-2.5 text-sm text-right tabular-nums text-gray-400">{totalKatasterHa > 0 ? fmtHa(totalKatasterHa) : '–'}</td>
+        <td className="px-4 py-2.5 text-sm text-right tabular-nums text-gray-500">{fmtHa(totalHa)}</td>
+        <td className="px-4 py-2.5" />
         <td className="px-4 py-2.5" />
       </tr>
 

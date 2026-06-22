@@ -11,6 +11,8 @@ export type GST = {
   weinart: string | null; bewirtschaftung: string | null; bewirtschaftung_seit: string | null
   flaeche_ha: number | null; flaeche_ha_kataster: number | null
   trauben_herkunft_code: string | null
+  ama_feldnummer: string | null; kg_bezeichnung: string | null
+  boden: string | null; rechtsverhaeltnis: string | null; unterlagsrebe: string | null
   status: string; notizen: string | null
 }
 
@@ -97,12 +99,12 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
           </select>
         </div>
         <div>
-          <label className={labelCls}>Katastralgemeinde</label>
+          <label className={labelCls}>KGNr.</label>
           <input name="katastralgemeinde" defaultValue={gst?.katastralgemeinde ?? ''} className={inputCls} />
         </div>
         <div>
-          <label className={labelCls}>Einlagezahl</label>
-          <input name="einlagezahl" defaultValue={gst?.einlagezahl ?? ''} className={inputCls} />
+          <label className={labelCls}>Katastralgemeinde</label>
+          <input name="kg_bezeichnung" defaultValue={gst?.kg_bezeichnung ?? ''} placeholder="z.B. Gumpoldskirchen" className={inputCls} />
         </div>
 
         {/* Rebsorte & Weinart */}
@@ -154,6 +156,35 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
           <label className={labelCls}>Herkunft-Code (BKI)</label>
           <input name="trauben_herkunft_code" defaultValue={gst?.trauben_herkunft_code ?? ''} placeholder="z.B. WLWV" className={inputCls} />
           <p className="text-xs text-s112-muted mt-1">Offizielles Kürzel gem. BKI-Kürzelliste</p>
+        </div>
+
+        {/* AMA-Feldstücknummer */}
+        <div>
+          <label className={labelCls}>AMA-Feldstücknr.</label>
+          <input name="ama_feldnummer" maxLength={3} pattern="[0-9]{1,3}" defaultValue={gst?.ama_feldnummer ?? ''} placeholder="z.B. 12" className={inputCls} />
+          <p className="text-xs text-s112-muted mt-1">Max. 3-stellig numerisch</p>
+        </div>
+
+        {/* Rechtsverhältnis */}
+        <div>
+          <label className={labelCls}>Rechtsverhältnis</label>
+          <select name="rechtsverhaeltnis" defaultValue={gst?.rechtsverhaeltnis ?? ''} className={inputCls}>
+            <option value="">– bitte wählen –</option>
+            <option value="eigentum">Eigentum</option>
+            <option value="pacht">Pacht</option>
+          </select>
+        </div>
+
+        {/* Unterlagsrebe */}
+        <div>
+          <label className={labelCls}>Unterlagsrebe</label>
+          <input name="unterlagsrebe" defaultValue={gst?.unterlagsrebe ?? ''} placeholder="z.B. SO4, Kober 5BB" className={inputCls} />
+        </div>
+
+        {/* Boden */}
+        <div>
+          <label className={labelCls}>Boden</label>
+          <input name="boden" defaultValue={gst?.boden ?? ''} placeholder="z.B. Löss, Schotter, Gneis" className={inputCls} />
         </div>
 
         {/* Notizen */}

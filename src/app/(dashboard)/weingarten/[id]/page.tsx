@@ -51,7 +51,7 @@ export default async function WeingartenEditPage({ params }: Props) {
   // Grundstücke
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawG } = await (supabase.from('grundstuecke') as any)
-    .select('id, weingarten_id, gst_nr, katastralgemeinde, einlagezahl, rebsorte, pflanzjahr, weinart, bewirtschaftung, bewirtschaftung_seit, flaeche_ha, flaeche_ha_kataster, trauben_herkunft_code, status, notizen')
+    .select('id, weingarten_id, gst_nr, katastralgemeinde, einlagezahl, kg_bezeichnung, ama_feldnummer, boden, rechtsverhaeltnis, unterlagsrebe, rebsorte, pflanzjahr, weinart, bewirtschaftung, bewirtschaftung_seit, flaeche_ha, flaeche_ha_kataster, trauben_herkunft_code, status, notizen')
     .eq('weingarten_id', id)
     .order('gst_nr')
   const grundstuecke = (rawG ?? []) as GST[]
