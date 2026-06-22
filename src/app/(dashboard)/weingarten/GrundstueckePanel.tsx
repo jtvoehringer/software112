@@ -3,6 +3,7 @@
 import React, { useState, useTransition } from 'react'
 import { createGrundstueck, updateGrundstueck, deleteGrundstueck } from './actions'
 import { fmtHa } from '@/lib/format'
+import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
 
 export type GST = {
   id: string; weingarten_id: string; gst_nr: string
@@ -69,6 +70,18 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
   const [pending, startTransition] = useTransition()
   const [bewirtschaftung, setBewirtschaftung] = useState(gst?.bewirtschaftung ?? '')
   const [weinart, setWeinart] = useState(gst?.weinart ?? 'unbekannt')
+  const [kgnr, setKgnr] = useState(gst?.katastralgemeinde ?? '')
+  const [kgBezeichnung, setKgBezeichnung] = useState(gst?.kg_bezeichnung ?? '')
+
+  function handleKgnrChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value
+    setKgnr(val)
+    // Auto-Lookup wenn 5 Stellen eingegeben
+    if (val.length >= 4) {
+      const lookup = getKgBezeichnung(val)
+      if (lookup) setKgBezeichnung(lookup)
+    }
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -100,11 +113,29 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
         </div>
         <div>
           <label className={labelCls}>KGNr.</label>
-          <input name="katastralgemeinde" defaultValue={gst?.katastralgemeinde ?? ''} className={inputCls} />
+          <input
+            name="katastralgemeinde"
+            value={kgnr}
+            onChange={handleKgnrChange}
+            placeholder="z.B. 12105"
+            maxLength={5}
+            className={inputCls}
+          />
         </div>
         <div>
-          <label className={labelCls}>Katastralgemeinde</label>
-          <input name="kg_bezeichnung" defaultValue={gst?.kg_bezeichnung ?? ''} placeholder="z.B. Gumpoldskirchen" className={inputCls} />
+          <label className={labelCls}>
+            Katastralgemeinde
+            {kgBezeichnung && kgBezeichnung !== (gst?.kg_bezeichnung ?? '') && (
+              <span className="ml-1 text-s112-teal text-xs font-normal">↻ auto</span>
+            )}
+          </label>
+          <input
+            name="kg_bezeichnung"
+            value={kgBezeichnung}
+            onChange={e => setKgBezeichnung(e.target.value)}
+            placeholder="z.B. Dürnstein"
+            className={inputCls}
+          />
         </div>
 
         {/* Rebsorte & Weinart */}
