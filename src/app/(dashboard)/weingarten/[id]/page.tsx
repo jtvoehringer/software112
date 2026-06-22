@@ -78,7 +78,8 @@ export default async function WeingartenEditPage({ params }: Props) {
   const action = updateWeingarten.bind(null, id)
 
   return (
-    <div className="max-w-2xl">
+    <div>
+      <div className="max-w-2xl">
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-6">
         <Link href="/weingarten" className="hover:text-s112-teal transition-colors">Rieden</Link>
         <span>/</span>
@@ -120,8 +121,10 @@ export default async function WeingartenEditPage({ params }: Props) {
         )}
       </div>
 
-      {/* Grundstücke */}
-      <div className="card">
+      </div>{/* end max-w-2xl */}
+
+      {/* Grundstücke – volle Breite */}
+      <div className="card mt-6">
         <GrundstueckePanel
           weingartenId={id}
           grundstuecke={grundstuecke}
@@ -129,6 +132,7 @@ export default async function WeingartenEditPage({ params }: Props) {
       </div>
 
       {/* Historische Ertragsdaten */}
+      <div className="max-w-2xl">
       {ertragHistorie.length > 0 && (
         <div className="card mt-6">
           <h2 className="text-base font-semibold text-gray-800 mb-4">Ertragshistorie</h2>
@@ -162,6 +166,7 @@ export default async function WeingartenEditPage({ params }: Props) {
           </table>
         </div>
       )}
+      </div>{/* end max-w-2xl (Ertragshistorie) */}
     </div>
   )
 }
