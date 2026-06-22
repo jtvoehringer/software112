@@ -156,7 +156,9 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
     // werden aber oft 4-stellig eingegeben, z.B. 4023 = Pfaffstätten → padStart → 04023)
     if (val.length === 4 || val.length === 5) {
       const lookup = getKgBezeichnung(val)
-      if (lookup) setKgBezeichnung(lookup)
+      setKgBezeichnung(lookup ?? '') // leert Feld wenn kein Treffer → kein "Altbestand"
+    } else {
+      setKgBezeichnung('') // leert Feld bei unvollständiger Eingabe
     }
   }
 
