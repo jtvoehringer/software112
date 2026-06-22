@@ -33,7 +33,7 @@ export type WRow = {
 }
 export type GSTRow = {
   id: string; weingarten_id: string; gst_nr: string
-  rebsorte: string | null; flaeche_ha: number | null
+  rebsorte: string | null; flaeche_ha: number | null; flaeche_ha_kataster: number | null
   spritzbar: boolean; katastralgemeinde: string | null
 }
 
@@ -57,7 +57,7 @@ function GSTZeile({ gst }: { gst: GSTRow }) {
         )}
       </td>
       <td className="px-3 py-2 text-xs text-s112-muted">{gst.rebsorte ?? '–'}</td>
-      <td className="px-3 py-2 text-xs text-right tabular-nums text-s112-muted">–</td>
+      <td className="px-3 py-2 text-xs text-right tabular-nums text-s112-muted">{gst.flaeche_ha_kataster ? fmtHa(gst.flaeche_ha_kataster) : '–'}</td>
       <td className="px-3 py-2 text-xs text-right tabular-nums text-s112-muted">
         {fmtHa(gst.flaeche_ha)}
       </td>

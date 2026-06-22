@@ -24,7 +24,7 @@ export default async function WeingartenPage() {
   // Grundstücke
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawG } = await (supabase.from('grundstuecke') as any)
-    .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha, spritzbar, katastralgemeinde')
+    .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha, flaeche_ha_kataster, spritzbar, katastralgemeinde')
     .order('gst_nr')
   const grundstuecke = (rawG ?? []) as GSTRow[]
 
@@ -37,6 +37,12 @@ export default async function WeingartenPage() {
   const gesamtHaAma = aktive.reduce((s, w) => {
     return s + (gstHaMap.get(w.id) ?? w.flaeche_ha ?? 0)
   }, 0)
+
+  const gstKatasterMap = new Map<string, number>()
+  for (const g of grundstuecke) {
+    if (g.flaeche_ha_kataster) gstKatasterMap.set(g.weingarten_id, (gstKatasterMap.get(g.weingarten_id) ?? 0) + g.flaeche_ha_kataster)
+  }
+  const gesamtHaKataster = aktive.reduce((s, w) => s + (gstKatasterMap.get(w.id) ?? 0), 0)
 
   return (
     <div>
@@ -71,7 +77,7 @@ export default async function WeingartenPage() {
           <p className="text-xs text-s112-muted mt-1 leading-tight">GST-Fläche<br />lt. AMA</p>
         </div>
         <div className="card text-center">
-          <p className="text-3xl font-bold text-s112-teal">–</p>
+          <p className="text-3xl font-bold text-s112-teal">{gesamtHaKataster > 0 ? fmtHa(gesamtHaKataster, 2) : '–'}</p>
           <p className="text-xs text-s112-muted mt-1 leading-tight">GST-Fläche<br />lt. Kataster</p>
         </div>
       </div>

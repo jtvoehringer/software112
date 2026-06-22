@@ -15,9 +15,9 @@ export type GST = {
 }
 
 const STATUS_OPTIONS = [
-  { value: 'aktiv',   label: 'Aktiv',   badge: 'bg-green-100 text-green-700' },
+  { value: 'aktiv',   label: 'Ausgepflanzt', badge: 'bg-green-100 text-green-700' },
   { value: 'brache',  label: 'Brache',  badge: 'bg-yellow-100 text-yellow-700' },
-  { value: 'gerodet', label: 'Gerodet', badge: 'bg-red-100 text-red-600' },
+  { value: 'gruenbrache', label: 'Grünbrache', badge: 'bg-orange-100 text-orange-600' },
 ]
 
 const BEWIRTSCHAFTUNG_OPTIONS = [
