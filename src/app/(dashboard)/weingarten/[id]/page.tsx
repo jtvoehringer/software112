@@ -140,4 +140,30 @@ export default async function WeingartenEditPage({ params }: Props) {
                 <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600">Jahrgang</th>
                 <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600">Ernte-Datum</th>
                 <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600">Menge (kg)</th>
-                <th className="text-right px-3 py-2 text-xs font-semibold text-gray-
+                <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600">kg/ha (AMA)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ertragHistorie.map((e, i) => (
+                <tr key={i} className="border-b border-s112-border/40 hover:bg-s112-bg/50">
+                  <td className="px-3 py-2 font-semibold text-gray-800">{e.jahrgang}</td>
+                  <td className="px-3 py-2 text-gray-600">
+                    {e.datum ? new Date(e.datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '–'}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-gray-800">
+                    {e.menge_kg.toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-gray-600">
+                    {gstHaAma > 0
+                      ? (e.menge_kg / gstHaAma).toLocaleString('de-AT', { maximumFractionDigits: 0 })
+                      : '–'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}

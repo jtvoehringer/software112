@@ -24,7 +24,6 @@ export async function createWeingarten(formData: FormData) {
   const payload: AnyRecord = {
     tenant_id:            tenantId,
     name:                 formData.get('name') as string,
-
     notizen:              (formData.get('notizen') as string) || null,
     aktiv:                true,
   }
@@ -40,7 +39,6 @@ export async function updateWeingarten(id: string, formData: FormData) {
 
   const payload: AnyRecord = {
     name:                 formData.get('name') as string,
-
     notizen:              (formData.get('notizen') as string) || null,
     aktiv:                formData.get('aktiv') === 'true',
   }
@@ -67,7 +65,7 @@ export async function deleteWeingarten(id: string) {
   revalidatePath('/weingarten')
 }
 
-// ── Grundstücke ───────────────────────────────────────────────────────────────
+// ── Grundstücke ─────────────────────────────────────────────────────────────────────────────────
 
 export async function createGrundstueck(weingartenId: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
@@ -122,3 +120,14 @@ export async function updateGrundstueck(id: string, weingartenId: string, formDa
   const { error } = await (supabase.from('grundstuecke') as any).update(payload).eq('id', id)
   if (error) throw new Error((error as AnyRecord).message)
   revalidatePath('/weingarten')
+  revalidatePath(`/weingarten/${weingartenId}`)
+}
+
+export async function deleteGrundstueck(id: string, weingartenId: string) {
+  const supabase = await createSupabaseServerClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('grundstuecke') as any).delete().eq('id', id)
+  if (error) throw new Error((error as AnyRecord).message)
+  revalidatePath('/weingarten')
+  revalidatePath(`/weingarten/${weingartenId}`)
+}
