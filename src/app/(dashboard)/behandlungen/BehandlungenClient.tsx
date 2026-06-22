@@ -89,7 +89,7 @@ export default function BehandlungenClient({
         <input
           value={filter}
           onChange={e => setFilter(e.target.value)}
-          placeholder="Filtern nach Riede, Mittel…"
+          placeholder="Filtern nach Ried, Mittel…"
           className="w-full max-w-sm border border-s112-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
         />
       </div>
@@ -101,7 +101,7 @@ export default function BehandlungenClient({
             {/* Datums-Header */}
             <div className="bg-s112-bg border-b border-s112-border px-4 py-2 flex items-center gap-3">
               <span className="font-semibold text-gray-800 text-sm">{formatDate(datum)}</span>
-              <span className="text-xs text-s112-muted">{gruppe.length} {gruppe.length === 1 ? 'Riede' : 'Rieden'}</span>
+              <span className="text-xs text-s112-muted">{gruppe.length} {gruppe.length === 1 ? 'Ried' : 'Rieden'}</span>
               {gruppe[0].art && gruppe[0].art !== 'spritzung' && (
                 <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
                   {ART_LABEL[gruppe[0].art] ?? gruppe[0].art}

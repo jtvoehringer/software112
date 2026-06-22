@@ -28,7 +28,7 @@ function formatDate(d: string | null) {
   return new Date(d).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-// ── Neu-Formular: Mehrfacherfassung (Checkboxen nach Riede) ─────────────────────
+// ── Neu-Formular: Mehrfacherfassung (Checkboxen nach Ried) ─────────────────────
 function NeueParzellenForm({
   jahrgangId, weingaerten, onDone,
 }: {
@@ -40,10 +40,10 @@ function NeueParzellenForm({
   const [kmwNeu, setKmwNeu] = useState<number | null>(null)
   const derivedQualitaetNeu = kmwNeu != null ? kmwZuQualitaet(kmwNeu) : 'qualitaetswein'
 
-  // Weingärten nach Riede gruppieren
+  // Weingärten nach Ried gruppieren
   const riedMap = new Map<string, WeingartenOpt[]>()
   for (const w of weingaerten) {
-    const key = w.lage_name ?? '(Keine Riede)'
+    const key = w.lage_name ?? '(Keine Ried)'
     const arr = riedMap.get(key) ?? []
     arr.push(w)
     riedMap.set(key, arr)
@@ -53,7 +53,7 @@ function NeueParzellenForm({
   function toggleWG(id: string) {
     setSelectedWGs(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   }
-  function toggleRiede(wgs: WeingartenOpt[]) {
+  function toggleRied(wgs: WeingartenOpt[]) {
     const ids = wgs.map(w => w.id)
     const allSel = ids.every(id => selectedWGs.has(id))
     setSelectedWGs(prev => {
@@ -65,7 +65,7 @@ function NeueParzellenForm({
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (selectedWGs.size === 0) { setError('Bitte mindestens eine Riede auswählen.'); return }
+    if (selectedWGs.size === 0) { setError('Bitte mindestens eine Ried auswählen.'); return }
     setError(null)
     const fd = new FormData(e.currentTarget)
     selectedWGs.forEach(id => fd.append('weingarten_ids', id))
@@ -86,11 +86,11 @@ function NeueParzellenForm({
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-800">Lesedaten erfassen</h3>
         {selectedWGs.size > 0 && (
-          <span className="text-xs text-s112-teal font-medium">{selectedWGs.size} Riede/Rieden gewählt</span>
+          <span className="text-xs text-s112-teal font-medium">{selectedWGs.size} Ried/Rieden gewählt</span>
         )}
       </div>
 
-      {/* Weingarten-Auswahl nach Riede */}
+      {/* Weingarten-Auswahl nach Ried */}
       <div className="space-y-2">
         <div className="flex items-center justify-between mb-1">
           <label className="block text-xs font-medium text-gray-600">Weingärten <span className="text-red-500">*</span></label>
@@ -103,7 +103,7 @@ function NeueParzellenForm({
           return (
             <div key={riedName} className="border border-s112-border rounded-lg overflow-hidden">
               <div className="flex items-center gap-2 px-3 py-1.5 bg-white cursor-pointer hover:bg-s112-bg/60"
-                onClick={() => toggleRiede(wgs)}>
+                onClick={() => toggleRied(wgs)}>
                 <input type="checkbox" readOnly checked={allSel}
                   ref={el => { if (el) el.indeterminate = someSel && !allSel }}
                   className="accent-s112-teal" />
@@ -365,7 +365,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, am
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-s112-bg border-b border-s112-border text-xs text-gray-600">
-                  <th className="text-left px-3 py-2 font-semibold">Riede</th>
+                  <th className="text-left px-3 py-2 font-semibold">Ried</th>
                   <th className="text-left px-3 py-2 font-semibold">Datum</th>
                   <th className="text-right px-3 py-2 font-semibold">kg</th>
                   <th className="text-right px-3 py-2 font-semibold">°KMW</th>

@@ -25,8 +25,6 @@ export type GSTRow = {
   spritzbar: boolean; katastralgemeinde: string | null
 }
 
-// ── helpers ──────────────────────────────────────────────────────────────────
-
 function ChevronIcon({ open }: { open: boolean }) {
   return (
     <svg className={`w-4 h-4 transition-transform ${open ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -47,6 +45,7 @@ function GSTZeile({ gst }: { gst: GSTRow }) {
         )}
       </td>
       <td className="px-3 py-2 text-xs text-s112-muted">{gst.rebsorte ?? '–'}</td>
+      <td className="px-3 py-2 text-xs text-right tabular-nums text-s112-muted">–</td>
       <td className="px-3 py-2 text-xs text-right tabular-nums text-s112-muted">
         {fmtHa(gst.flaeche_ha)}
       </td>
@@ -88,7 +87,6 @@ function WeingartenZeile({
           ${pending ? 'opacity-40 pointer-events-none' : ''}`}
         onClick={() => gsts.length > 0 && setOpen(o => !o)}
       >
-        {/* expand chevron + name */}
         <td className="pl-8 pr-3 py-2.5">
           <div className="flex items-center gap-2">
             <span className={`text-gray-400 ${gsts.length === 0 ? 'invisible' : ''}`}>
@@ -117,6 +115,7 @@ function WeingartenZeile({
             )}
           </div>
         </td>
+        <td className="px-3 py-2.5 text-sm text-right tabular-nums text-gray-400">–</td>
         <td className="px-3 py-2.5 text-sm text-right tabular-nums">
           {w.flaeche_ha != null ? fmtHa(w.flaeche_ha) : (gstHa > 0 ? fmtHa(gstHa) : '–')}
         </td>
@@ -175,12 +174,12 @@ function LageGruppe({
         className="bg-s112-bg border-b border-s112-border cursor-pointer select-none hover:bg-s112-bg/80 transition-colors"
         onClick={() => setOpen(o => !o)}
       >
-        <td className="px-4 py-2.5" colSpan={4}>
+        <td className="px-4 py-2.5" colSpan={5}>
           <div className="flex items-center gap-2">
             <span className="text-s112-teal"><ChevronIcon open={open} /></span>
             <span className="font-semibold text-gray-900 text-sm">{ried}</span>
             <span className="text-xs text-s112-muted ml-1">
-              {weingaerten.length} {weingaerten.length === 1 ? 'Riede' : 'Rieden'}
+              {weingaerten.length} {weingaerten.length === 1 ? 'Ried' : 'Rieden'}
               {' · '}
               {fmtHa(totalHa)} ha
             </span>
@@ -210,7 +209,6 @@ export default function WeingartenBaum({
   weingaerten: WRow[]; grundstuecke: GSTRow[]
   writeOk: boolean; adminOk: boolean
 }) {
-  // Grundstücke nach weingarten_id gruppieren
   const gstMap = new Map<string, GSTRow[]>()
   for (const g of grundstuecke) {
     const arr = gstMap.get(g.weingarten_id) ?? []
@@ -218,7 +216,6 @@ export default function WeingartenBaum({
     gstMap.set(g.weingarten_id, arr)
   }
 
-  // Weingärten nach Riede gruppieren
   const lagenMap = new Map<string, WRow[]>()
   for (const w of weingaerten) {
     const ried = w.ried ?? 'Rieden'
@@ -233,9 +230,10 @@ export default function WeingartenBaum({
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-s112-bg border-b-2 border-s112-border">
-            <th className="text-left px-4 py-3 font-semibold text-gray-700">Riede / Grundstück</th>
+            <th className="text-left px-4 py-3 font-semibold text-gray-700">Ried / Grundstück</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">Rebsorte</th>
-            <th className="text-right px-3 py-3 font-semibold text-gray-700">Fläche (ha)</th>
+            <th className="text-right px-3 py-3 font-semibold text-gray-700 leading-tight">GST-Fläche<br />lt. Kataster</th>
+            <th className="text-right px-3 py-3 font-semibold text-gray-700 leading-tight">GST-Fläche<br />lt. AMA</th>
             <th className="text-center px-3 py-3 font-semibold text-gray-700">Details</th>
             <th className="text-right px-3 py-3 font-semibold text-gray-700">Aktionen</th>
           </tr>

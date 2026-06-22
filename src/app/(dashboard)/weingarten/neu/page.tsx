@@ -7,7 +7,7 @@ import { createWeingarten } from '../actions'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 
-export const metadata: Metadata = { title: 'Neue Riede – software:112' }
+export const metadata: Metadata = { title: 'Neue Ried – software:112' }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -34,7 +34,7 @@ export default async function NeuePage() {
         <span className="text-gray-700 font-medium">Neu anlegen</span>
       </div>
 
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Neue Riede</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">Neue Ried</h1>
 
       <WeingartenForm action={createWeingarten} lagen={lagen} />
     </div>

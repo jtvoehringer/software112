@@ -277,7 +277,7 @@ export default function KostenrechnungPage() {
               <option value="">– Kostenart –</option>{ka.map(k=><option key={k.id} value={k.id}>{k.name}</option>)}</select></div>
           <div><label className="block text-xs font-medium text-gray-600 mb-1">Zuordnung</label>
             <select value={objektTyp} onChange={e=>{setObjektTyp(e.target.value);setSelWgs([]);setSelBhs([])}} className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
-              <option value="">– keine –</option><option value="weingarten">Riede</option><option value="keller">Keller / Behälter</option></select></div>
+              <option value="">– keine –</option><option value="weingarten">Ried</option><option value="keller">Keller / Behälter</option></select></div>
           <div />
           {objektTyp === 'weingarten' && (
             <MultiSelect items={wgs} selected={selWgs} onToggle={id=>toggle(id,selWgs,setSelWgs)}

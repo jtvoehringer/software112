@@ -15,7 +15,7 @@ import WeingartenForm from '@/components/weingarten/WeingartenForm'
 import GrundstueckePanel, { type GST } from '../GrundstueckePanel'
 import { updateWeingarten } from '../actions'
 
-export const metadata: Metadata = { title: 'Riede bearbeiten – software:112' }
+export const metadata: Metadata = { title: 'Ried bearbeiten – software:112' }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>

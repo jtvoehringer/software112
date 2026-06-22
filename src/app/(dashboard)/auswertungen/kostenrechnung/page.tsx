@@ -90,7 +90,7 @@ export default function KostenAuswertungPage() {
 
         {/* Nach Weingarten */}
         <div className="bg-white rounded-2xl border border-s112-border p-4">
-          <h3 className="text-sm font-semibold text-gray-800 mb-3 pb-2 border-b border-s112-border">Nach Riede</h3>
+          <h3 className="text-sm font-semibold text-gray-800 mb-3 pb-2 border-b border-s112-border">Nach Ried</h3>
           {(() => {
             const m: Record<string, number> = {}
             splits.forEach(s => { const n = s.wg?.name ?? '?'; m[n] = (m[n]||0) + (s.betrag_anteil ?? 0) })

@@ -74,10 +74,10 @@ export default function NeueBehandlungForm({
     ? Math.round(parseFloat(mengeGesamt) * 1000 * ((selectedPsm.cu_gehalt_pct) / 100)).toLocaleString('de-AT') + ' g Cu'
     : null
 
-  // Weingärten nach Riede gruppieren
+  // Weingärten nach Ried gruppieren
   const lagenMap = new Map<string, WeingartenOption[]>()
   for (const w of weingaerten) {
-    const key = w.lage_name ?? '(Keine Riede)'
+    const key = w.lage_name ?? '(Keine Ried)'
     const arr = lagenMap.get(key) ?? []
     arr.push(w)
     lagenMap.set(key, arr)
@@ -110,7 +110,7 @@ export default function NeueBehandlungForm({
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
-    if (selectedWGs.size === 0) { setError('Bitte mindestens eine Riede auswählen.'); return }
+    if (selectedWGs.size === 0) { setError('Bitte mindestens eine Ried auswählen.'); return }
     const fd = new FormData(e.currentTarget)
     selectedWGs.forEach(id => fd.append('weingarten_ids', id))
     startTransition(async () => {
@@ -361,7 +361,7 @@ export default function NeueBehandlungForm({
         {/* Zusammenfassung */}
         {selectedWGs.size > 0 && (
           <div className="mt-3 bg-s112-teal/5 border border-s112-teal/20 rounded-xl px-4 py-2.5 text-sm text-gray-700">
-            <span className="font-semibold text-s112-teal">{selectedWGs.size}</span> Riede/Rieden ·{' '}
+            <span className="font-semibold text-s112-teal">{selectedWGs.size}</span> Ried/Rieden ·{' '}
             <span className="font-semibold">{fmtHa(totalHaAktiv)}</span> aktive Fläche
             {aufwandProHa && <> · <span className="text-gray-500">≈ {aufwandProHa}</span></>}
             {cuBeitragG && <> · <span className="text-blue-600 font-medium">Cu: {cuBeitragG}</span></>}
@@ -378,7 +378,7 @@ export default function NeueBehandlungForm({
       <div className="flex gap-3">
         <button type="submit" disabled={pending || selectedWGs.size === 0}
           className="bg-s112-teal text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
-          {pending ? 'Speichert…' : `Behandlung erfassen (${selectedWGs.size} Riede/Rieden)`}
+          {pending ? 'Speichert…' : `Behandlung erfassen (${selectedWGs.size} Ried/Rieden)`}
         </button>
         <a href="/behandlungen" className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-800">
           Abbrechen

@@ -104,18 +104,18 @@ export default function WeingartenForm({ weingarten, action, lagen }: Props) {
               required
               defaultValue={weingarten?.name ?? ''}
               className="form-input"
-              placeholder="z.B. Riede Kremser Schmidt"
+              placeholder="z.B. Ried Kremser Schmidt"
             />
           </div>
           <div>
-            <label className="form-label">Riede</label>
+            <label className="form-label">Ried</label>
             {lagen && lagen.length > 0 ? (
               <select
                 name="lage_id"
                 defaultValue={weingarten?.lage_id ?? ''}
                 className="form-input"
               >
-                <option value="">– keine Riede –</option>
+                <option value="">– keine Ried –</option>
                 {lagen.map(l => (
                   <option key={l.id} value={l.id}>{l.name}</option>
                 ))}
@@ -234,7 +234,7 @@ export default function WeingartenForm({ weingarten, action, lagen }: Props) {
               defaultChecked={weingarten.trauben_verkauf ?? false}
               className="w-4 h-4 accent-s112-teal"
             />
-            <span className="text-sm font-medium text-gray-700">Trauben aus dieser Riede können verkauft werden</span>
+            <span className="text-sm font-medium text-gray-700">Trauben aus dieser Ried können verkauft werden</span>
           </label>
           <label className="flex items-center gap-3 cursor-pointer">
             <input
@@ -271,7 +271,7 @@ export default function WeingartenForm({ weingarten, action, lagen }: Props) {
               defaultChecked={weingarten.aktiv}
               className="w-4 h-4 accent-s112-teal"
             />
-            <span className="text-sm font-medium text-gray-700">Riede aktiv</span>
+            <span className="text-sm font-medium text-gray-700">Ried aktiv</span>
           </label>
         </div>
       )}
