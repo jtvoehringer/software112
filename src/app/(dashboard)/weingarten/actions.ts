@@ -164,8 +164,8 @@ export async function fetchBevFlaeche(kgnr: string, gstNr: string): Promise<BevR
     const props = (data.properties as { nutzungen?: Nutzung[] } | undefined)
     const alleNutzungen: Nutzung[] = props?.nutzungen ?? []
     // Nur Weingärten (Nutzungsschlüssel ns=53)
-    const weingaertenNutzungen = alleNutzungen.filter(n => String(n.ns) === '53')
-    const nutzungen = weingaertenNutzungen.length > 0 ? weingaertenNutzungen : alleNutzungen
+    const nutzungen = alleNutzungen.filter(n => String(n.ns) === '53')
+    if (nutzungen.length === 0) return { ok: false, message: 'Keine Weingarten-Nutzung (ns=53) in diesem GST' }
     const totalM2 = nutzungen.reduce((s, n) => s + (n.fl ?? 0), 0)
     return {
       ok: true,
