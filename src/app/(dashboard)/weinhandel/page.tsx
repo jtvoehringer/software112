@@ -34,6 +34,8 @@ export default async function WeinhandelPage() {
     { data: fuellungenRaw },
     { data: tanksRaw },
     { data: zukaufRaw },
+    { data: direktTankRaw },
+    { data: tvRaw },
   ] = await Promise.all([
     (supabase.from('fuellungen') as any)
       .select('id, name, jahrgang, rebsorte, qualitaet, anbaugebiet, bezeichnung, datum, flaschengroesse_ml, anzahl_flaschen, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv')
@@ -49,11 +51,23 @@ export default async function WeinhandelPage() {
       .eq('aktiv', true)
       .gt('menge', 0)
       .order('datum', { ascending: false }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('pressung_behaelter') as any)
+      .select('id, menge_liter, behaelter:behaelter_id(name), pressung:pressung_id(datum, weinbezeichnung, kmw_grad, jahrgang:jahrgang_id(jahrgang))')
+      .is('weinausbau_id', null)
+      .gt('menge_liter', 0),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('traubenverkauf') as any)
+      .select('id, datum, menge_kg, preis_per_kg, liefernummer, weingarten:weingarten_id(name), grundstueck:grundstueck_id(gst_nr), firma:firma_id(name), kontakt:kontakt_id(vorname, nachname)')
+      .order('datum', { ascending: false })
+      .limit(5),
   ])
 
-  const fuellungen = (fuellungenRaw ?? []) as R[]
-  const tanks      = (tanksRaw      ?? []) as R[]
-  const zukauf     = (zukaufRaw     ?? []) as R[]
+  const fuellungen  = (fuellungenRaw ?? []) as R[]
+  const tanks       = (tanksRaw      ?? []) as R[]
+  const zukauf      = (zukaufRaw     ?? []) as R[]
+  const direktTank  = (direktTankRaw ?? []) as R[]
+  const tvListe     = (tvRaw         ?? []) as R[]
 
   const gesamtFlaschen  = fuellungen.reduce((s: number, f: R) => s + (f.bestand_flaschen ?? 0), 0)
   const gesamtWert      = fuellungen.reduce((s: number, f: R) =>
@@ -265,6 +279,38 @@ export default async function WeinhandelPage() {
           </div>
         )}
 
+        {direktTank.length > 0 && (
+          <>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 mt-5">Direktabfüllungen (ohne Weinausbau-Charge)</h3>
+            <div className="card p-0 overflow-hidden mb-5">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-s112-bg border-b border-s112-border">
+                    <th className="text-left px-4 py-3 font-semibold text-gray-700">Behälter</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-700">Pressung</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-700">JG</th>
+                    <th className="text-right px-4 py-3 font-semibold text-gray-700">Liter</th>
+                    <th className="text-right px-4 py-3 font-semibold text-gray-700"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {direktTank.map((d: R) => (
+                    <tr key={d.id} className="border-b border-s112-border last:border-0 hover:bg-s112-bg/30">
+                      <td className="px-4 py-3 font-medium text-gray-900">{(d.behaelter as R | null)?.name ?? '–'}</td>
+                      <td className="px-4 py-3 text-s112-muted text-xs">{(d.pressung as R | null)?.weinbezeichnung ?? new Date((d.pressung as R)?.datum ?? '').toLocaleDateString('de-AT')}</td>
+                      <td className="px-4 py-3 text-s112-muted text-xs">{((d.pressung as R | null)?.jahrgang as R | null)?.jahrgang ?? '–'}</td>
+                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-s112-teal">{Number(d.menge_liter).toLocaleString('de-AT')} L</td>
+                      <td className="px-4 py-3 text-right">
+                        {writeOk && <Link href="/weinhandel/verkauf/neu" className="text-xs text-s112-teal hover:underline font-medium">Verkauf →</Link>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 mt-5">Zukäufe</h3>
         {zukauf.length === 0 ? (
           <div className="card text-center py-6">
@@ -322,6 +368,65 @@ export default async function WeinhandelPage() {
                           <Link href="/weinhandel/verkauf/neu" className="text-xs text-s112-teal hover:underline font-medium">Verkauf →</Link>
                         )}
                       </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+
+      {/* Traubenverkauf */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="font-semibold text-gray-800">🍇 Traubenverkauf</h2>
+            <p className="text-xs text-s112-muted">Verkauf von Weintrauben gem. § 3 Weingesetz-Formularverordnung</p>
+          </div>
+          <Link href="/weinhandel/traubenverkauf"
+            className="text-xs bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-teal font-medium px-3 py-1.5 rounded-lg transition-colors">
+            Alle Traubenverkäufe →
+          </Link>
+        </div>
+        {tvListe.length === 0 ? (
+          <div className="card text-center py-6">
+            <p className="text-sm text-s112-muted">Noch keine Traubenverkäufe erfasst.</p>
+            {writeOk && (
+              <Link href="/weinhandel/traubenverkauf"
+                className="inline-block mt-3 text-xs bg-s112-teal text-white px-4 py-1.5 rounded-lg font-medium hover:bg-opacity-90 transition-colors">
+                ＋ Traubenverkauf erfassen
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="card p-0 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-s112-bg border-b border-s112-border">
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Liefernum.</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Datum</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Ried / GST</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Käufer</th>
+                  <th className="text-right px-4 py-3 font-semibold text-gray-700">Menge kg</th>
+                  <th className="text-right px-4 py-3 font-semibold text-gray-700">€/kg</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tvListe.map((v: R) => {
+                  const kaeufer = (v.firma as R | null)?.name ?? ([(v.kontakt as R | null)?.vorname, (v.kontakt as R | null)?.nachname].filter(Boolean).join(' ') || '–')
+                  const gst = (v.grundstueck as R | null)?.gst_nr
+                  return (
+                    <tr key={v.id} className="border-b border-s112-border last:border-0 hover:bg-s112-bg/30">
+                      <td className="px-4 py-3">
+                        {v.liefernummer && <span className="font-mono text-xs bg-s112-teal/10 text-s112-teal px-2 py-0.5 rounded-full">{v.liefernummer}</span>}
+                      </td>
+                      <td className="px-4 py-3 text-s112-muted text-xs">{new Date(v.datum).toLocaleDateString('de-AT')}</td>
+                      <td className="px-4 py-3 text-gray-800">{(v.weingarten as R | null)?.name ?? '–'}{gst ? <span className="ml-1 text-xs text-s112-muted font-mono">GST {gst}</span> : ''}</td>
+                      <td className="px-4 py-3 text-s112-muted text-xs">{kaeufer}</td>
+                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-s112-teal">{Number(v.menge_kg).toLocaleString('de-AT')}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-s112-muted text-xs">{v.preis_per_kg != null ? Number(v.preis_per_kg).toLocaleString('de-AT', { minimumFractionDigits: 2 }) : '–'}</td>
                     </tr>
                   )
                 })}

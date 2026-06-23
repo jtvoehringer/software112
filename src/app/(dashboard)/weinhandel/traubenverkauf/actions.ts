@@ -23,6 +23,7 @@ export async function upsertTraubenverkauf(formData: FormData) {
     tenant_id:       membership.tenantId,
     weingarten_id:   formData.get('weingarten_id') as string,
     jahrgang_id:     (formData.get('jahrgang_id') as string) || null,
+    grundstueck_id:  (formData.get('grundstueck_id') as string) || null,
     kontakt_id:      (formData.get('kontakt_id') as string) || null,
     firma_id:        (formData.get('firma_id') as string) || null,
     datum:           formData.get('datum') as string,

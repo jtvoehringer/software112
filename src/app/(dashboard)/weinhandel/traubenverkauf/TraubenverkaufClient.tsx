@@ -1,91 +1,139 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import React, { useState, useTransition } from 'react'
 import { upsertTraubenverkauf, deleteTraubenverkauf } from './actions'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
 interface Props {
-  verkaufe:   R[]
-  wgOptions:  R[]
-  jahrgaenge: R[]
-  kontakte:   R[]
-  firmen:     R[]
-  writeOk:    boolean
+  verkaufe:     R[]
+  ernteOptions: R[]   // ernte_parzellen mit weingarten, grundstueck, jahrgang joins
+  kontakte:     R[]
+  firmen:       R[]
+  writeOk:      boolean
 }
 
-const QUALITAETSSTUFEN = [
-  { value: 'landwein',       label: 'Landwein' },
-  { value: 'qualitaetswein', label: 'Qualitätswein' },
-  { value: 'kabinett',       label: 'Kabinett' },
-  { value: 'spaetlese',      label: 'Spätlese' },
-  { value: 'auslese',        label: 'Auslese' },
-  { value: 'beerenauslese',  label: 'Beerenauslese' },
-  { value: 'tba',            label: 'Trockenbeerenauslese' },
-  { value: 'eiswein',        label: 'Eiswein' },
-  { value: 'dac',            label: 'DAC' },
+const QUALITAETEN = [
+  { value: 'landwein',             label: 'Landwein' },
+  { value: 'qualitaetswein',       label: 'Qualitätswein' },
+  { value: 'kabinett',             label: 'Kabinett' },
+  { value: 'spaetlese',            label: 'Spätlese' },
+  { value: 'auslese',              label: 'Auslese' },
+  { value: 'beerenauslese',        label: 'Beerenauslese' },
+  { value: 'trockenbeerenauslese', label: 'Trockenbeerenauslese' },
+  { value: 'eiswein',              label: 'Eiswein' },
+  { value: 'dac',                  label: 'DAC' },
 ]
 
-function kaeuferName(v: R): string {
-  if (v.kontakt) return [v.kontakt.vorname, v.kontakt.nachname].filter(Boolean).join(' ')
-  if (v.firma) return v.firma.firmenname ?? '–'
-  return '–'
+function fmtDate(d: string) {
+  return new Date(d).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
-
-function fmt(n: number | null | undefined, digits = 2): string {
+function fmt(n: number | null | undefined, digits = 2) {
   if (n == null) return '–'
   return n.toLocaleString('de-AT', { minimumFractionDigits: digits, maximumFractionDigits: digits })
 }
 
-function fmtEur(n: number | null | undefined): string {
-  if (n == null) return '–'
-  return n.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
-}
-
-export default function TraubenverkaufClient({ verkaufe, wgOptions, jahrgaenge, kontakte, firmen, writeOk }: Props) {
-  const [showForm, setShowForm]     = useState(false)
-  const [editRow, setEditRow]       = useState<R | null>(null)
-  const [error, setError]           = useState<string | null>(null)
+export default function TraubenverkaufClient({ verkaufe, ernteOptions, kontakte, firmen, writeOk }: Props) {
+  const [showForm, setShowForm]      = useState(false)
+  const [editRow, setEditRow]        = useState<R | null>(null)
+  const [error, setError]            = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-  const [kaeuferTyp, setKaeuferTyp] = useState<'kontakt' | 'firma'>('kontakt')
-  const [herkunft, setHerkunft]     = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
+  // Formular-State
+  const [wgId, setWgId]             = useState('')
+  const [gstId, setGstId]           = useState('')
+  const [jahrgangId, setJahrgangId] = useState('')
+  const [jahrgangNr, setJahrgangNr] = useState<number | null>(null)
+  const [kmw, setKmw]               = useState('')
+  const [qualitaet, setQualitaet]   = useState('')
+  const [herkunft, setHerkunft]     = useState('')
+  const [kaeuferTyp, setKaeuferTyp] = useState<'firma' | 'kontakt'>('firma')
+
+  // Distinct Weingärten aus ernteOptions
+  const wgMap = new Map<string, R>()
+  for (const e of ernteOptions) {
+    const wg = e.weingarten as R | null
+    if (wg && !wgMap.has(wg.id)) wgMap.set(wg.id, wg)
+  }
+  const wgList = Array.from(wgMap.values()).sort((a, b) => a.name.localeCompare(b.name, 'de'))
+
+  // GSTs für gewählte Ried
+  const gstList: R[] = []
+  const seenGst = new Set<string>()
+  for (const e of ernteOptions) {
+    const wg  = e.weingarten as R | null
+    const gst = e.grundstueck as R | null
+    if (wg?.id === wgId && gst && !seenGst.has(gst.id)) {
+      seenGst.add(gst.id)
+      gstList.push(gst)
+    }
+  }
+  gstList.sort((a, b) => (a.gst_nr ?? '').localeCompare(b.gst_nr ?? '', 'de', { numeric: true }))
+
+  function fillFromErnte(newWgId: string, newGstId: string) {
+    const match = ernteOptions.find(e => {
+      const wg  = e.weingarten as R | null
+      const gst = e.grundstueck as R | null
+      if (wg?.id !== newWgId) return false
+      if (newGstId && gst?.id !== newGstId) return false
+      if (!newGstId && gst != null) return false
+      return true
+    }) ?? ernteOptions.find(e => (e.weingarten as R | null)?.id === newWgId)
+    if (match) {
+      if (match.klosterneuburger != null) setKmw(String(match.klosterneuburger).replace('.', ','))
+      if (match.qualitaetsstufe) setQualitaet(match.qualitaetsstufe)
+      const jg = match.jahrgang as R | null
+      if (jg) { setJahrgangId(jg.id); setJahrgangNr(jg.jahrgang) }
+      const wg  = match.weingarten as R | null
+      const gst = match.grundstueck as R | null
+      setHerkunft((gst as R | null)?.trauben_herkunft_code ?? wg?.trauben_herkunft_code ?? '')
+    }
+  }
+
+  function handleWgChange(newWgId: string) {
+    setWgId(newWgId); setGstId('')
+    if (newWgId) fillFromErnte(newWgId, '')
+    else { setKmw(''); setQualitaet(''); setJahrgangId(''); setJahrgangNr(null); setHerkunft('') }
+  }
+
+  function handleGstChange(newGstId: string) {
+    setGstId(newGstId)
+    if (wgId) fillFromErnte(wgId, newGstId)
+  }
+
   function openNew() {
-    setEditRow(null)
-    setKaeuferTyp('kontakt')
-    setHerkunft('')
-    setError(null)
-    setShowForm(true)
+    setEditRow(null); setWgId(''); setGstId(''); setJahrgangId(''); setJahrgangNr(null)
+    setKmw(''); setQualitaet(''); setHerkunft(''); setKaeuferTyp('firma')
+    setError(null); setShowForm(true)
   }
 
   function openEdit(v: R) {
     setEditRow(v)
-    setKaeuferTyp(v.kontakt_id ? 'kontakt' : 'firma')
-    setHerkunft(v.herkunft_code ?? '')
-    setError(null)
-    setShowForm(true)
-  }
-
-  function handleWgChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const wg = wgOptions.find(w => w.id === e.target.value)
-    setHerkunft(wg?.trauben_herkunft_code ?? '')
+    const wg  = v.weingarten as R | null
+    const gst = v.grundstueck as R | null
+    const jg  = v.jahrgang as R | null
+    setWgId(wg?.id ?? ''); setGstId(gst?.id ?? '')
+    setJahrgangId(jg?.id ?? ''); setJahrgangNr(jg?.jahrgang ?? null)
+    setKmw(v.kmw_grad != null ? String(v.kmw_grad).replace('.', ',') : '')
+    setQualitaet(v.qualitaetsstufe ?? ''); setHerkunft(v.herkunft_code ?? '')
+    setKaeuferTyp(v.firma_id ? 'firma' : 'kontakt')
+    setError(null); setShowForm(true)
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
+    e.preventDefault(); setError(null)
     const fd = new FormData(e.currentTarget)
-    // Sicherstellen dass der nicht gewählte Käufertyp leer ist
+    fd.set('herkunft_code', herkunft)
+    fd.set('jahrgang_id', jahrgangId)
+    fd.set('grundstueck_id', gstId)
     if (kaeuferTyp === 'kontakt') fd.set('firma_id', '')
     else fd.set('kontakt_id', '')
-
     startTransition(async () => {
       try {
         await upsertTraubenverkauf(fd)
-        setShowForm(false)
-        setEditRow(null)
+        setShowForm(false); setEditRow(null)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unbekannter Fehler')
       }
@@ -94,236 +142,210 @@ export default function TraubenverkaufClient({ verkaufe, wgOptions, jahrgaenge, 
 
   function handleDelete(id: string) {
     startTransition(async () => {
-      try {
-        await deleteTraubenverkauf(id)
-        setDeleteConfirm(null)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Fehler beim Löschen')
-      }
+      try { await deleteTraubenverkauf(id); setDeleteConfirm(null) }
+      catch (err) { setError(err instanceof Error ? err.message : 'Fehler beim Löschen') }
     })
   }
 
-  // Gesamtsummen
+  function handleCSV() {
+    const BOM = '﻿'
+    const headers = ['Liefernummer','Datum','Ried','GST','Jahrgang','Menge kg','Preis EUR/kg','KMW Grad','Qualitaet','Gesundheit','Herkunftscode','Kaeufer','Notizen']
+    const rows: string[][] = [headers]
+    for (const v of verkaufe) {
+      const wg  = v.weingarten as R | null
+      const gst = v.grundstueck as R | null
+      const jg  = v.jahrgang as R | null
+      const kaeufer = (v.firma as R | null)?.name ??
+        ([(v.kontakt as R | null)?.vorname, (v.kontakt as R | null)?.nachname].filter(Boolean).join(' ') || '')
+      rows.push([
+        v.liefernummer ?? '', fmtDate(v.datum),
+        wg?.name ?? '', gst?.gst_nr ?? '', jg?.jahrgang ?? '',
+        String(v.menge_kg).replace('.', ','),
+        v.preis_per_kg != null ? String(v.preis_per_kg).replace('.', ',') : '',
+        v.kmw_grad != null ? String(v.kmw_grad).replace('.', ',') : '',
+        v.qualitaetsstufe ?? '', v.gesundheit ?? '', v.herkunft_code ?? '', kaeufer, v.notizen ?? '',
+      ])
+    }
+    const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(';')).join('\r\n')
+    const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = 'traubenverkauf.csv'; a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const sumKg  = verkaufe.reduce((s, v) => s + Number(v.menge_kg ?? 0), 0)
-  const sumEur = verkaufe.reduce((s, v) => {
-    if (v.preis_per_kg == null) return s
-    return s + Number(v.menge_kg) * Number(v.preis_per_kg)
-  }, 0)
-  const hatPreis = verkaufe.some(v => v.preis_per_kg != null)
+  const sumEur = verkaufe.reduce((s, v) => v.preis_per_kg != null ? s + Number(v.menge_kg) * Number(v.preis_per_kg) : s, 0)
+  const inp = 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
+  const btnToggle = (active: boolean) => `px-3 py-1 text-xs rounded-lg font-medium transition-colors ${active ? 'bg-s112-teal text-white' : 'bg-s112-bg border border-s112-border text-gray-600 hover:border-s112-teal'}`
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${isPending ? 'opacity-60 pointer-events-none' : ''}`}>
 
       {/* Aktions-Leiste */}
-      {writeOk && (
-        <div className="flex justify-end">
-          <button
-            onClick={openNew}
-            className="bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
-          >
-            + Neuer Traubenverkauf
-          </button>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {verkaufe.length > 0 && (
+            <>
+              <span className="text-sm text-s112-muted">{sumKg.toLocaleString('de-AT')} kg gesamt</span>
+              {sumEur > 0 && (
+                <span className="text-sm font-semibold text-gray-800">
+                  {'·'} {'€'} {sumEur.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              )}
+            </>
+          )}
         </div>
-      )}
+        <div className="flex items-center gap-3">
+          {verkaufe.length > 0 && (
+            <button onClick={handleCSV} className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium px-3 py-1.5 rounded-lg transition-colors">
+              CSV exportieren
+            </button>
+          )}
+          {writeOk && !showForm && (
+            <button onClick={openNew} className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors">
+              + Traubenverkauf
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Formular */}
       {showForm && writeOk && (
-        <div className="card p-5 border-2 border-s112-teal/30 space-y-4">
-          <h2 className="text-base font-semibold text-gray-800">
+        <div className="card border-2 border-s112-teal/30">
+          <h2 className="text-sm font-semibold text-gray-800 mb-4">
             {editRow ? 'Traubenverkauf bearbeiten' : 'Neuer Traubenverkauf'}
           </h2>
-
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">
-              <strong>Fehler:</strong> {error}
+            <div className="mb-3 bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-xs">
+              {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {editRow && <input type="hidden" name="existing_id" value={editRow.id} />}
+            <input type="hidden" name="weingarten_id" value={wgId} />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Weingarten */}
+            <div className="grid grid-cols-2 gap-3">
+
+              {/* Ried */}
               <div>
-                <label className="form-label">Ried *</label>
-                <select
-                  name="weingarten_id"
-                  required
-                  defaultValue={editRow?.weingarten?.id ?? ''}
-                  onChange={handleWgChange}
-                  className="form-input"
-                >
+                <label className="block text-xs font-medium text-gray-600 mb-1">Ried *</label>
+                <select value={wgId} onChange={e => handleWgChange(e.target.value)} required className={inp}>
                   <option value="">– Ried wählen –</option>
-                  {wgOptions.map(w => (
-                    <option key={w.id} value={w.id}>
-                      {w.name}{w.rebsorte ? ` (${w.rebsorte})` : ''}
-                    </option>
-                  ))}
+                  {wgList.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
-                {wgOptions.length === 0 && (
-                  <p className="text-xs text-amber-600 mt-1">Kein Weingarten für Traubenverkauf freigegeben.</p>
+                {ernteOptions.length === 0 && (
+                  <p className="text-xs text-amber-600 mt-1">Noch keine Ernte vorhanden.</p>
                 )}
               </div>
 
-              {/* Datum */}
+              {/* GST */}
               <div>
-                <label className="form-label">Lieferdatum *</label>
-                <input
-                  name="datum"
-                  type="date"
-                  required
-                  defaultValue={editRow?.datum ?? new Date().toISOString().split('T')[0]}
-                  className="form-input"
-                />
-              </div>
-
-              {/* Jahrgang */}
-              <div>
-                <label className="form-label">Jahrgang</label>
-                <select
-                  name="jahrgang_id"
-                  defaultValue={editRow?.jahrgang_id ?? ''}
-                  className="form-input"
-                >
-                  <option value="">– kein Jahrgang –</option>
-                  {jahrgaenge.map(j => (
-                    <option key={j.id} value={j.id}>{j.jahrgang}</option>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Grundstück (GST)</label>
+                <select value={gstId} onChange={e => handleGstChange(e.target.value)} disabled={!wgId || gstList.length === 0} className={inp}>
+                  <option value="">– gesamt (alle GST) –</option>
+                  {gstList.map(g => (
+                    <option key={g.id} value={g.id}>
+                      {'GST ' + g.gst_nr + (g.rebsorte ? ' – ' + g.rebsorte : '')}
+                    </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Jahrgang (abgeleitet) */}
+              {jahrgangNr && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Jahrgang (abgeleitet)</label>
+                  <div className={inp + ' bg-s112-bg text-gray-500 cursor-not-allowed'}>{jahrgangNr}</div>
+                </div>
+              )}
+
+              {/* Lieferdatum */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Lieferdatum *</label>
+                <input name="datum" type="date" required
+                  defaultValue={editRow?.datum ?? new Date().toISOString().split('T')[0]}
+                  className={inp} />
               </div>
 
               {/* Menge */}
               <div>
-                <label className="form-label">Menge (kg) *</label>
-                <input
-                  name="menge_kg"
-                  type="text"
-                  inputMode="decimal"
-                  required
-                  defaultValue={editRow?.menge_kg?.toString().replace('.', ',') ?? ''}
-                  className="form-input"
-                  placeholder="z.B. 1250,00"
-                />
+                <label className="block text-xs font-medium text-gray-600 mb-1">Menge (kg) *</label>
+                <input name="menge_kg" type="text" inputMode="decimal" required
+                  defaultValue={editRow?.menge_kg ?? ''} placeholder="z.B. 1.250" className={inp} />
               </div>
 
               {/* Preis */}
               <div>
-                <label className="form-label">Preis €/kg</label>
-                <input
-                  name="preis_per_kg"
-                  type="text"
-                  inputMode="decimal"
-                  defaultValue={editRow?.preis_per_kg?.toString().replace('.', ',') ?? ''}
-                  className="form-input"
-                  placeholder="z.B. 0,55"
-                />
+                <label className="block text-xs font-medium text-gray-600 mb-1">Preis (EUR/kg)</label>
+                <input name="preis_per_kg" type="text" inputMode="decimal"
+                  defaultValue={editRow?.preis_per_kg ?? ''} placeholder="z.B. 0,65" className={inp} />
               </div>
 
               {/* KMW */}
               <div>
-                <label className="form-label">KMW°</label>
-                <input
-                  name="kmw_grad"
-                  type="text"
-                  inputMode="decimal"
-                  defaultValue={editRow?.kmw_grad?.toString().replace('.', ',') ?? ''}
-                  className="form-input"
-                  placeholder="z.B. 18,5"
-                />
+                <label className="block text-xs font-medium text-gray-600 mb-1">KMW Grad</label>
+                <input name="klosterneuburger" type="text" inputMode="decimal"
+                  value={kmw} onChange={e => setKmw(e.target.value)}
+                  placeholder="z.B. 17,5" className={inp} />
               </div>
-              {/* Qualitätsstufe */}
+
+              {/* Qualität */}
               <div>
-                <label className="form-label">Qualitätsstufe</label>
-                <select
-                  name="qualitaetsstufe"
-                  defaultValue={editRow?.qualitaetsstufe ?? ''}
-                  className="form-input"
-                >
+                <label className="block text-xs font-medium text-gray-600 mb-1">Qualitätsstufe</label>
+                <select name="qualitaetsstufe" value={qualitaet} onChange={e => setQualitaet(e.target.value)} className={inp}>
                   <option value="">– keine –</option>
-                  {QUALITAETSSTUFEN.map(q => (
-                    <option key={q.value} value={q.value}>{q.label}</option>
-                  ))}
+                  {QUALITAETEN.map(q => <option key={q.value} value={q.value}>{q.label}</option>)}
+                </select>
+              </div>
+
+              {/* Gesundheit */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Traubengesundheit</label>
+                <select name="gesundheit" defaultValue={editRow?.gesundheit ?? 'G'} className={inp}>
+                  <option value="G">G – Gut (Standard)</option>
+                  <option value="K">K – Krank / beschädigt</option>
                 </select>
               </div>
 
               {/* Herkunft-Code */}
-              <div>
-                <label className="form-label">Herkunft-Code (BKI)</label>
-                <input
-                  name="herkunft_code"
-                  type="text"
-                  value={herkunft}
-                  onChange={e => setHerkunft(e.target.value)}
-                  className="form-input"
-                  placeholder="z.B. WLWV"
-                />
-                <p className="text-xs text-s112-muted mt-1">Wird aus Weingarten vorgeschlagen</p>
-              </div>
-            </div>
+              {herkunft && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Herkunft-Code (BKI)</label>
+                  <div className={inp + ' bg-s112-bg text-gray-500 cursor-not-allowed'}>{herkunft}</div>
+                </div>
+              )}
 
-            {/* Gesundheitsstatus */}
-            <div>
-              <label className="form-label">Traubengesundheit</label>
-              <select
-                name="gesundheit"
-                defaultValue={editRow?.gesundheit ?? 'G'}
-                className="form-input"
-              >
-                <option value="G">G – Gut (Standard)</option>
-                <option value="K">K – Krank / beschädigt</option>
-              </select>
             </div>
 
             {/* Käufer */}
-            <div className="border-t border-s112-border pt-4">
-              <label className="form-label mb-2">Käufer</label>
-              <div className="flex gap-3 mb-3">
-                <button
-                  type="button"
-                  onClick={() => setKaeuferTyp('kontakt')}
-                  className={`text-sm px-3 py-1 rounded-lg border transition-colors ${
-                    kaeuferTyp === 'kontakt'
-                      ? 'bg-s112-teal text-white border-s112-teal'
-                      : 'border-s112-border text-gray-600 hover:border-s112-teal'
-                  }`}
-                >
-                  Privatperson
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setKaeuferTyp('firma')}
-                  className={`text-sm px-3 py-1 rounded-lg border transition-colors ${
-                    kaeuferTyp === 'firma'
-                      ? 'bg-s112-teal text-white border-s112-teal'
-                      : 'border-s112-border text-gray-600 hover:border-s112-teal'
-                  }`}
-                >
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-2">Käufer</label>
+              <div className="flex gap-2 mb-2">
+                <button type="button" onClick={() => setKaeuferTyp('firma')} className={btnToggle(kaeuferTyp === 'firma')}>
                   Firma
                 </button>
+                <button type="button" onClick={() => setKaeuferTyp('kontakt')} className={btnToggle(kaeuferTyp === 'kontakt')}>
+                  Privatperson
+                </button>
               </div>
-
-              {kaeuferTyp === 'kontakt' ? (
-                <select
-                  name="kontakt_id"
-                  defaultValue={editRow?.kontakt?.id ?? ''}
-                  className="form-input"
-                >
-                  <option value="">– kein Kontakt –</option>
-                  {kontakte.map(k => (
-                    <option key={k.id} value={k.id}>
-                      {[k.nachname, k.vorname].filter(Boolean).join(', ')}
+              {kaeuferTyp === 'firma' ? (
+                <select name="firma_id" defaultValue={editRow?.firma_id ?? ''} className={inp}>
+                  <option value="">– Firma wählen –</option>
+                  {firmen.map(f => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}{f.betrieb_nr ? ' (Betr.Nr. ' + f.betrieb_nr + ')' : ''}
                     </option>
                   ))}
                 </select>
               ) : (
-                <select
-                  name="firma_id"
-                  defaultValue={editRow?.firma?.id ?? ''}
-                  className="form-input"
-                >
-                  <option value="">– keine Firma –</option>
-                  {firmen.map(f => (
-                    <option key={f.id} value={f.id}>{f.firmenname}</option>
+                <select name="kontakt_id" defaultValue={editRow?.kontakt_id ?? ''} className={inp}>
+                  <option value="">– Kontakt wählen –</option>
+                  {kontakte.map(k => (
+                    <option key={k.id} value={k.id}>
+                      {k.vorname} {k.nachname}{k.betrieb_nr ? ' (Betr.Nr. ' + k.betrieb_nr + ')' : ''}
+                    </option>
                   ))}
                 </select>
               )}
@@ -331,29 +353,17 @@ export default function TraubenverkaufClient({ verkaufe, wgOptions, jahrgaenge, 
 
             {/* Notizen */}
             <div>
-              <label className="form-label">Notizen</label>
-              <textarea
-                name="notizen"
-                rows={3}
-                defaultValue={editRow?.notizen ?? ''}
-                className="form-input resize-none"
-                placeholder="Besonderheiten, Vereinbarungen …"
-              />
+              <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
+              <input name="notizen" type="text" defaultValue={editRow?.notizen ?? ''} placeholder="optional" className={inp} />
             </div>
 
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="submit"
-                disabled={isPending}
-                className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50"
-              >
-                {isPending ? 'Wird gespeichert …' : 'Speichern'}
+            <div className="flex gap-2 pt-1">
+              <button type="submit" disabled={isPending || !wgId}
+                className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
+                {isPending ? 'Speichert…' : 'Speichern'}
               </button>
-              <button
-                type="button"
-                onClick={() => { setShowForm(false); setEditRow(null) }}
-                className="text-sm text-s112-muted hover:text-gray-700 transition-colors"
-              >
+              <button type="button" onClick={() => { setShowForm(false); setEditRow(null) }}
+                className="px-4 py-1.5 text-sm text-gray-600 hover:text-gray-800">
                 Abbrechen
               </button>
             </div>
@@ -361,118 +371,89 @@ export default function TraubenverkaufClient({ verkaufe, wgOptions, jahrgaenge, 
         </div>
       )}
 
-      {/* Tabelle */}
-      {verkaufe.length === 0 ? (
-        <div className="card p-10 text-center text-s112-muted text-sm">
-          <p className="text-2xl mb-2">🍇</p>
-          <p className="font-medium">Noch keine Traubenverkäufe erfasst</p>
-          {writeOk && (
-            <button
-              onClick={openNew}
-              className="mt-4 text-s112-teal hover:underline text-sm font-medium"
-            >
-              Ersten Traubenverkauf anlegen →
-            </button>
-          )}
+      {/* Liste */}
+      {verkaufe.length === 0 && !showForm ? (
+        <div className="card text-center py-10 text-s112-muted text-sm">
+          Noch keine Traubenverkäufe erfasst.
         </div>
       ) : (
-        <div className="card overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-s112-border bg-s112-bg text-left">
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500">Lief.-Nr.</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500">Datum</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500">Ried</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500">Käufer</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 text-right">kg</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 text-right">€/kg</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 text-right">Gesamt</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 text-right">KMW°</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500">Jg.</th>
-                {writeOk && <th className="px-4 py-3" />}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-s112-border">
-              {verkaufe.map(v => {
-                const gesamt = v.preis_per_kg != null
-                  ? Number(v.menge_kg) * Number(v.preis_per_kg)
-                  : null
-                return (
-                  <tr key={v.id} className="hover:bg-s112-bg/50 transition-colors">
-                    <td className="px-4 py-3 whitespace-nowrap font-mono text-xs text-s112-muted">
-                      {v.liefernummer ?? '–'}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {new Date(v.datum).toLocaleDateString('de-AT')}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="font-medium">{v.weingarten?.name ?? '–'}</span>
-                      {v.weingarten?.rebsorte && (
-                        <span className="text-xs text-s112-muted ml-1">({v.weingarten.rebsorte})</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">{kaeuferName(v)}</td>
-                    <td className="px-4 py-3 text-right font-mono">{fmt(Number(v.menge_kg), 0)}</td>
-                    <td className="px-4 py-3 text-right font-mono">{fmt(v.preis_per_kg, 4)}</td>
-                    <td className="px-4 py-3 text-right font-mono">{gesamt != null ? fmtEur(gesamt) : '–'}</td>
-                    <td className="px-4 py-3 text-right font-mono">{fmt(v.kmw_grad, 1)}</td>
-                    <td className="px-4 py-3">{v.jahrgang?.jahrgang ?? '–'}</td>
-                    {writeOk && (
-                      <td className="px-4 py-3 text-right">
-                        {deleteConfirm === v.id ? (
-                          <span className="flex items-center justify-end gap-2 text-xs">
-                            <span className="text-red-600">Wirklich löschen?</span>
-                            <button
-                              onClick={() => handleDelete(v.id)}
-                              disabled={isPending}
-                              className="text-red-600 font-semibold hover:text-red-800"
-                            >
-                              Ja
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirm(null)}
-                              className="text-s112-muted hover:text-gray-700"
-                            >
-                              Nein
-                            </button>
-                          </span>
-                        ) : (
-                          <span className="flex items-center justify-end gap-3">
-                            <button
-                              onClick={() => openEdit(v)}
-                              className="text-xs text-s112-teal hover:underline"
-                            >
-                              Bearbeiten
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirm(v.id)}
-                              className="text-xs text-red-500 hover:text-red-700"
-                            >
-                              Löschen
-                            </button>
+        <div className="space-y-2">
+          {verkaufe.map(v => {
+            const wg     = v.weingarten as R | null
+            const gst    = v.grundstueck as R | null
+            const jg     = v.jahrgang as R | null
+            const firma  = v.firma as R | null
+            const kontkt = v.kontakt as R | null
+            const kaeufer = firma?.name ?? ([kontkt?.vorname, kontkt?.nachname].filter(Boolean).join(' ') || '–')
+            return (
+              <div key={v.id} className="card">
+                {deleteConfirm === v.id ? (
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-red-700 font-medium">Traubenverkauf wirklich löschen?</p>
+                    <div className="flex gap-2">
+                      <button onClick={() => handleDelete(v.id)} className="text-xs bg-red-600 text-white px-3 py-1 rounded-lg hover:bg-red-700">
+                        Ja, löschen
+                      </button>
+                      <button onClick={() => setDeleteConfirm(null)} className="text-xs text-gray-600 px-3 py-1 rounded-lg hover:bg-gray-100">
+                        Abbrechen
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {v.liefernummer && (
+                          <span className="font-mono text-xs bg-s112-teal/10 text-s112-teal px-2 py-0.5 rounded-full font-semibold">
+                            {v.liefernummer}
                           </span>
                         )}
-                      </td>
+                        <span className="font-medium text-gray-800 text-sm">{fmtDate(v.datum)}</span>
+                        <span className="text-sm text-gray-700">{'·'} {wg?.name ?? '–'}</span>
+                        {gst && (
+                          <span className="text-xs font-mono text-s112-muted bg-s112-bg px-1.5 py-0.5 rounded">
+                            GST {gst.gst_nr}
+                          </span>
+                        )}
+                        {jg && <span className="text-xs text-s112-muted">JG {jg.jahrgang}</span>}
+                        {v.gesundheit === 'K' && (
+                          <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">
+                            K {'–'} Krank
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-s112-muted flex-wrap">
+                        <span className="font-semibold text-gray-700">{fmt(v.menge_kg, 0)} kg</span>
+                        {v.preis_per_kg != null && (
+                          <span>
+                            {'·'} EUR {fmt(v.preis_per_kg)}/kg{' '}
+                            <span className="font-medium text-gray-700">
+                              = EUR {fmt(Number(v.menge_kg) * Number(v.preis_per_kg), 2)}
+                            </span>
+                          </span>
+                        )}
+                        {v.kmw_grad != null && <span>{'·'} {fmt(v.kmw_grad)} KMW Grad</span>}
+                        {v.qualitaetsstufe && <span>{'·'} {v.qualitaetsstufe}</span>}
+                        {v.herkunft_code && <span className="font-mono">{'·'} {v.herkunft_code}</span>}
+                        <span>{'·'} {kaeufer}</span>
+                        {v.notizen && <span className="italic">{'·'} {v.notizen}</span>}
+                      </div>
+                    </div>
+                    {writeOk && (
+                      <div className="flex items-center gap-2 shrink-0 text-xs">
+                        <button onClick={() => openEdit(v)} className="text-s112-teal hover:underline">
+                          Bearb.
+                        </button>
+                        <button onClick={() => setDeleteConfirm(v.id)} className="text-red-400 hover:text-red-600">
+                          Löschen
+                        </button>
+                      </div>
                     )}
-                  </tr>
-                )
-              })}
-            </tbody>
-            {/* Summenzeile */}
-            <tfoot>
-              <tr className="border-t-2 border-s112-border bg-s112-bg font-semibold">
-                <td colSpan={3} className="px-4 py-3 text-xs text-gray-500">Gesamt</td>
-                <td className="px-4 py-3 text-right font-mono text-sm">
-                  {sumKg.toLocaleString('de-AT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} kg
-                </td>
-                <td className="px-4 py-3" />
-                <td className="px-4 py-3 text-right font-mono text-sm">
-                  {hatPreis ? fmtEur(sumEur) : '–'}
-                </td>
-                <td colSpan={writeOk ? 3 : 2} />
-              </tr>
-            </tfoot>
-          </table>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

@@ -20,14 +20,15 @@ export default async function TraubenverkaufPage() {
     return <div className="card p-10 text-center text-s112-muted text-sm">Nicht angemeldet.</div>
   }
 
-  // Verkäufe
+  // Bestehende Verkäufe
   const { data: verkaufeRaw } = await (supabase.from('traubenverkauf') as any)
     .select(`
       id, datum, menge_kg, preis_per_kg, kmw_grad,
-      qualitaetsstufe, herkunft_code, gesundheit, liefernummer, notizen, jahrgang_id,
-      weingarten:weingarten_id(id, name, rebsorte, trauben_herkunft_code),
+      qualitaetsstufe, herkunft_code, gesundheit, liefernummer, notizen, jahrgang_id, grundstueck_id,
+      weingarten:weingarten_id(id, name, trauben_herkunft_code),
+      grundstueck:grundstueck_id(id, gst_nr, rebsorte, trauben_herkunft_code),
       kontakt:kontakt_id(id, vorname, nachname),
-      firma:firma_id(id, firmenname),
+      firma:firma_id(id, name),
       jahrgang:jahrgang_id(id, jahrgang)
     `)
     .eq('tenant_id', membership.tenantId)
@@ -35,78 +36,48 @@ export default async function TraubenverkaufPage() {
 
   const verkaufe = (verkaufeRaw ?? []) as R[]
 
-  // Weingärten mit Traubenverkauf-Freigabe
-  const { data: wgRaw } = await (supabase.from('weingarten') as any)
-    .select('id, name, rebsorte, trauben_herkunft_code')
-    .eq('tenant_id', membership.tenantId)
-    .eq('trauben_verkauf', true)
-    .eq('aktiv', true)
-    .order('name')
+  // Ernte-Parzellen als Basis für WG/GST-Optionen (alle geernteten)
+  const { data: ernteRaw } = await (supabase.from('ernte_parzellen') as any)
+    .select(`
+      id, klosterneuburger, qualitaetsstufe, menge_kg, jahrgang_id,
+      weingarten:weingarten_id(id, name, trauben_herkunft_code),
+      grundstueck:grundstueck_id(id, gst_nr, rebsorte, trauben_herkunft_code),
+      jahrgang:jahrgang_id(id, jahrgang)
+    `)
+    .not('menge_kg', 'is', null)
+    .order('jahrgang_id', { ascending: false })
 
-  const wgOptions = (wgRaw ?? []) as R[]
+  const ernteOptions = (ernteRaw ?? []) as R[]
 
-  // Jahrgänge
-  const { data: jahrgaengeRaw } = await (supabase.from('weinjahrgaenge') as any)
-    .select('id, jahrgang')
-    .eq('tenant_id', membership.tenantId)
-    .order('jahrgang', { ascending: false })
-
-  const jahrgaenge = (jahrgaengeRaw ?? []) as R[]
-
-  // Kontakte
+  // Kontakte + Firmen für Abnehmer-Dropdown
   const { data: kontakteRaw } = await (supabase.from('kontakte') as any)
-    .select('id, vorname, nachname')
+    .select('id, vorname, nachname, betrieb_nr')
     .eq('tenant_id', membership.tenantId)
     .order('nachname')
 
-  const kontakte = (kontakteRaw ?? []) as R[]
-
-  // Firmen
   const { data: firmenRaw } = await (supabase.from('firmen') as any)
-    .select('id, firmenname')
+    .select('id, name, betrieb_nr')
     .eq('tenant_id', membership.tenantId)
-    .order('firmenname')
+    .order('name')
 
-  const firmen = (firmenRaw ?? []) as R[]
-
-  const keinWgFreigegeben = wgOptions.length === 0
+  const kontakte = (kontakteRaw ?? []) as R[]
+  const firmen   = (firmenRaw   ?? []) as R[]
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Traubenverkauf</h1>
-          <p className="text-sm text-s112-muted mt-0.5">Verkauf von Weintrauben gem. § 3 Weingesetz-Formularverordnung</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {verkaufe.length > 0 && (
-            <a
-              href="/weinhandel/traubenverkauf/datenblatt"
-              className="border border-s112-border text-gray-700 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-bg transition-colors"
-            >
-              BKI-Datenblatt (Excel)
-            </a>
-          )}
-        </div>
+      <div className="flex items-center gap-3 text-sm text-s112-muted">
+        <Link href="/weinhandel" className="hover:text-s112-teal transition-colors">Warenlager</Link>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">Traubenverkauf</span>
       </div>
-
-      {keinWgFreigegeben && (
-        <div className="card p-5 bg-amber-50 border-amber-200 text-sm text-amber-800">
-          <p className="font-semibold mb-1">Noch keine Weingärten für Traubenverkauf freigegeben</p>
-          <p>
-            Gehe zu{' '}
-            <Link href="/weingarten" className="underline hover:text-amber-900">
-              Weingärten
-            </Link>
-            {' '}und aktiviere bei den gewünschten Weingärten die Option „Traubenverkauf".
-          </p>
-        </div>
-      )}
+      <div>
+        <h1 className="text-xl font-bold text-gray-900">Traubenverkauf</h1>
+        <p className="text-sm text-s112-muted mt-0.5">Verkauf von Weintrauben gem. § 3 Weingesetz-Formularverordnung</p>
+      </div>
 
       <TraubenverkaufClient
         verkaufe={verkaufe}
-        wgOptions={wgOptions}
-        jahrgaenge={jahrgaenge}
+        ernteOptions={ernteOptions}
         kontakte={kontakte}
         firmen={firmen}
         writeOk={writeOk}
