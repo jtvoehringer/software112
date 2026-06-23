@@ -115,7 +115,6 @@ function WeingartenZeile({
         </td>
         <td className="px-3 py-2.5 text-sm">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-s112-muted">{w.rebsorte ?? '–'}</span>
             {w.weinart && w.weinart !== 'unbekannt' && (
               <span className={`inline-block px-1.5 py-0 rounded-full text-xs font-medium ${
                 w.weinart === 'rot'   ? 'bg-red-100 text-red-700' :
