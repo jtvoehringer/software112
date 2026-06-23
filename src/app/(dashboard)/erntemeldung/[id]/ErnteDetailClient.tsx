@@ -82,7 +82,10 @@ function NeueParzellenForm({
     const fd = new FormData(e.currentTarget)
     selectedWGs.forEach(id => fd.append('weingarten_ids', id))
     fd.append('grundstueck_json', JSON.stringify(
-      Array.from(selectedGSTs.entries()).map(([gst_id, weingarten_id]) => ({ gst_id, weingarten_id }))
+      Array.from(selectedGSTs.entries()).map(([gst_id, weingarten_id]) => {
+        const gst = (gstByWeingarten[weingarten_id] ?? []).find(g => g.id === gst_id)
+        return { gst_id, weingarten_id, flaeche_ha: gst?.flaeche_ha ?? null }
+      })
     ))
     startTransition(async () => {
       try { await createMultipleErnteParzellen(jahrgangId, fd); onDone() }

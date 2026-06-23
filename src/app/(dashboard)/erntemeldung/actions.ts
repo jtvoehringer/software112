@@ -86,7 +86,14 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
 export async function createMultipleErnteParzellen(jahrgangId: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const weingartenIds = formData.getAll('weingarten_ids') as string[]
-  if (weingartenIds.length === 0) throw new Error('Mindestens einen Weingarten auswählen')
+
+  type GSTEntry = { gst_id: string; weingarten_id: string; flaeche_ha: number | null }
+  const gstJsonRaw = formData.get('grundstueck_json') as string | null
+  const gstEntries: GSTEntry[] = gstJsonRaw ? JSON.parse(gstJsonRaw) : []
+
+  if (weingartenIds.length === 0 && gstEntries.length === 0) {
+    throw new Error('Mindestens eine Ried oder ein Grundstück auswählen')
+  }
 
   const ernteDatum  = (formData.get('ernte_datum') as string) || null
   const lesemethode = (formData.get('lesemethode') as string) || null
@@ -95,20 +102,57 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   const notizen     = (formData.get('notizen') as string) || null
   const mengeKgRaw  = formData.get('menge_kg') as string | null
   const mengeKg     = mengeKgRaw ? Number(mengeKgRaw.replace(',', '.')) : null
-  const mengeHl     = mengeKg ? mengeKg / 130 : null
 
-  const rows = weingartenIds.map(wgId => ({
-    jahrgang_id:      jahrgangId,
-    weingarten_id:    wgId,
-    ernte_datum:      ernteDatum,
-    menge_kg:         mengeKg,
-    menge_hl:         mengeHl,
-    oechsle:          null,
-    klosterneuburger: kmw,
-    qualitaetsstufe:  qualitaet,
-    lesemethode,
-    notizen,
-  }))
+  // Proportionale Aufteilung nach Fläche (ha); Fallback: gleichmäßig
+  function splitKg(total: number | null, areas: (number | null)[]): (number | null)[] {
+    if (!total || areas.length === 0) return areas.map(() => null)
+    const validAreas = areas.filter((a): a is number => a != null && a > 0)
+    if (validAreas.length === 0) {
+      const each = Math.round(total / areas.length)
+      return areas.map(() => each)
+    }
+    const totalArea = validAreas.reduce((s, a) => s + a, 0)
+    const result = areas.map(a => (a ?? 0) > 0 ? Math.floor(total * ((a as number) / totalArea)) : 0)
+    // Restkilos auf das erste GST draufrechnen
+    const diff = total - result.reduce((s, v) => s + (v ?? 0), 0)
+    if (diff > 0 && result.length > 0) result[0] = (result[0] ?? 0) + diff
+    return result
+  }
+
+  const base = { jahrgang_id: jahrgangId, ernte_datum: ernteDatum, oechsle: null, klosterneuburger: kmw, qualitaetsstufe: qualitaet, lesemethode, notizen }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows: AR[] = []
+
+  // Ganze Rieden → GSTs aus DB laden, Menge proportional aufteilen
+  for (const wgId of weingartenIds) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: gsts } = await (supabase.from('grundstuecke') as any)
+      .select('id, flaeche_ha').eq('weingarten_id', wgId).eq('status', 'aktiv').order('gst_nr')
+    const gstList = (gsts ?? []) as AR[]
+    if (gstList.length === 0) {
+      // Keine GSTs → eine Zeile für die ganze Ried
+      rows.push({ ...base, weingarten_id: wgId, grundstueck_id: null, menge_kg: mengeKg, menge_hl: mengeKg ? mengeKg / 130 : null })
+    } else {
+      const mengen = splitKg(mengeKg, gstList.map((g: AR) => g.flaeche_ha ?? null))
+      gstList.forEach((g: AR, i: number) => {
+        const kg = mengen[i]
+        rows.push({ ...base, weingarten_id: wgId, grundstueck_id: g.id, menge_kg: kg, menge_hl: kg ? kg / 130 : null })
+      })
+    }
+  }
+
+  // Einzelne GSTs → nach Weingarten gruppieren, Menge proportional aufteilen
+  const gstsByWG = new Map<string, GSTEntry[]>()
+  for (const g of gstEntries) {
+    const arr = gstsByWG.get(g.weingarten_id) ?? []; arr.push(g); gstsByWG.set(g.weingarten_id, arr)
+  }
+  for (const [wgId, wgGsts] of gstsByWG) {
+    const mengen = splitKg(mengeKg, wgGsts.map(g => g.flaeche_ha))
+    wgGsts.forEach((g, i) => {
+      const kg = mengen[i]
+      rows.push({ ...base, weingarten_id: wgId, grundstueck_id: g.gst_id, menge_kg: kg, menge_hl: kg ? kg / 130 : null })
+    })
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('ernte_parzellen') as any).insert(rows)
