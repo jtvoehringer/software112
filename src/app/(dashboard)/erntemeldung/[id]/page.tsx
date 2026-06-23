@@ -71,7 +71,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('pressungen') as any)
       .select(`id, datum, most_liter_gesamt, weinbezeichnung, notizen, kmw_grad,
-        weingaerten:pressung_weingaerten(id, weingarten_id, trauben_kg, rebsorte, notizen, weingarten:weingarten_id(name)),
+        weingaerten:pressung_weingaerten(id, weingarten_id, grundstueck_id, trauben_kg, rebsorte, notizen, weingarten:weingarten_id(name)),
         behaelter:pressung_behaelter(id, behaelter_id, weinausbau_id, menge_liter, notizen, behaelter:behaelter_id(name), weinausbau:weinausbau_id(name, jahrgang))`)
       .eq('jahrgang_id', id).order('datum', { ascending: false }),
 
@@ -89,7 +89,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     // Traubenverkäufe dieses Jahrgangs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('traubenverkauf') as any)
-      .select('id, weingarten_id, kontakt_id, firma_id, datum, menge_kg, preis_per_kg, kmw_grad, qualitaetsstufe, gesundheit, herkunft_code, notizen, liefernummer, weingarten:weingarten_id(name), kontakt:kontakt_id(vorname, nachname), firma:firma_id(name)')
+      .select('id, weingarten_id, grundstueck_id, kontakt_id, firma_id, datum, menge_kg, preis_per_kg, kmw_grad, qualitaetsstufe, gesundheit, herkunft_code, notizen, liefernummer, weingarten:weingarten_id(name), kontakt:kontakt_id(vorname, nachname), firma:firma_id(name)')
       .eq('jahrgang_id', id).order('datum', { ascending: false }),
 
     // Kontakte + Firmen für Abnehmer-Dropdown
@@ -133,6 +133,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     weinbezeichnung: p.weinbezeichnung ?? null, notizen: p.notizen ?? null, kmw_grad: p.kmw_grad ?? null,
     weingaerten: ((p.weingaerten ?? []) as AR[]).map((w: AR): PressungWG => ({
       id: w.id, weingarten_id: w.weingarten_id,
+      grundstueck_id: w.grundstueck_id ?? null,
       weingarten_name: w.weingarten?.name ?? '–',
       trauben_kg: w.trauben_kg, rebsorte: w.rebsorte ?? null, notizen: w.notizen ?? null,
     })),
@@ -166,6 +167,28 @@ export default async function ErnteDetailPage({ params }: Props) {
   const verfuegbareKg: Record<string, number> = {}
   for (const wgId of Object.keys(harvestedKgByWG)) {
     verfuegbareKg[wgId] = Math.max(0, (harvestedKgByWG[wgId] ?? 0) - (pressedKgByWG[wgId] ?? 0) - (soldKgByWG[wgId] ?? 0))
+  }
+  // Verfügbare kg pro GST: direkte Berechnung (kein proportionales Verteilen)
+  const harvestedKgByGST: Record<string, number> = {}
+  for (const p of parzellen) {
+    if (p.grundstueck_id && p.menge_kg)
+      harvestedKgByGST[p.grundstueck_id] = (harvestedKgByGST[p.grundstueck_id] ?? 0) + p.menge_kg
+  }
+  const pressedKgByGST: Record<string, number> = {}
+  for (const p of pressungen) {
+    for (const w of p.weingaerten) {
+      if (w.grundstueck_id)
+        pressedKgByGST[w.grundstueck_id] = (pressedKgByGST[w.grundstueck_id] ?? 0) + w.trauben_kg
+    }
+  }
+  const soldKgByGST: Record<string, number> = {}
+  for (const v of ((rawTV ?? []) as AR[])) {
+    if (v.grundstueck_id)
+      soldKgByGST[v.grundstueck_id] = (soldKgByGST[v.grundstueck_id] ?? 0) + (parseFloat(v.menge_kg) || 0)
+  }
+  const verfuegbareKgByGST: Record<string, number> = {}
+  for (const gstId of Object.keys(harvestedKgByGST)) {
+    verfuegbareKgByGST[gstId] = Math.max(0, (harvestedKgByGST[gstId] ?? 0) - (pressedKgByGST[gstId] ?? 0) - (soldKgByGST[gstId] ?? 0))
   }
   const behOptions: BehOption[] = ((rawBeh ?? []) as AR[]).map(b => ({ id: b.id, name: b.name }))
   const waOptions: WAOption[]  = ((rawWA ?? []) as AR[]).map(w => ({ id: w.id, name: w.name, jahrgang: w.jahrgang ?? null }))
@@ -235,6 +258,7 @@ export default async function ErnteDetailPage({ params }: Props) {
         behOptions={behOptions}
         waOptions={waOptions}
         verfuegbareKg={verfuegbareKg}
+        verfuegbareKgByGST={verfuegbareKgByGST}
         writeOk={writeOk}
         adminOk={adminOk}
       />

@@ -255,7 +255,7 @@ export async function createOrUpdateAMAMeldung(jahrgangId: string) {
 
 // ── Pressungen ────────────────────────────────────────────────────────────────
 
-type PressungWGInput    = { weingarten_id: string; trauben_kg: number; rebsorte?: string; notizen?: string }
+type PressungWGInput    = { weingarten_id: string; grundstueck_id?: string | null; trauben_kg: number; rebsorte?: string; notizen?: string }
 type PressungBehInput   = { behaelter_id?: string; weinausbau_id?: string; menge_liter?: number; notizen?: string }
 
 export async function upsertPressung(fd: FormData) {
