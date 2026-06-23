@@ -365,3 +365,70 @@ export async function deleteJahrgang(id: string) {
   if (error) throw new Error((error as AR).message)
   revalidatePath('/erntemeldung')
 }
+
+// ── Traubenverkauf ────────────────────────────────────────────────────────────
+
+export async function createTraubenverkauf(fd: FormData) {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+
+  // Liefernummer auto-generieren
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: lnData } = await (supabase.rpc as any)('get_next_liefernummer', { p_tenant_id: tenantId })
+  const liefernummer = lnData as string | null
+
+  const jahrgangId = fd.get('jahrgang_id') as string | null
+  const payload: AR = {
+    tenant_id:       tenantId,
+    jahrgang_id:     jahrgangId || null,
+    weingarten_id:   fd.get('weingarten_id') as string,
+    kontakt_id:      (fd.get('kontakt_id') as string) || null,
+    firma_id:        (fd.get('firma_id') as string) || null,
+    datum:           fd.get('datum') as string,
+    menge_kg:        parseFloat((fd.get('menge_kg') as string).replace(',', '.')),
+    preis_per_kg:    fd.get('preis_per_kg') ? parseFloat((fd.get('preis_per_kg') as string).replace(',', '.')) : null,
+    kmw_grad:        fd.get('kmw_grad') ? parseFloat((fd.get('kmw_grad') as string).replace(',', '.')) : null,
+    qualitaetsstufe: (fd.get('qualitaetsstufe') as string) || null,
+    gesundheit:      (fd.get('gesundheit') as string) || 'G',
+    herkunft_code:   (fd.get('herkunft_code') as string) || null,
+    notizen:         (fd.get('notizen') as string) || null,
+    liefernummer,
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('traubenverkauf') as any).insert(payload)
+  if (error) throw new Error((error as AR).message)
+  if (jahrgangId) revalidatePath(`/erntemeldung/${jahrgangId}`)
+  revalidatePath('/erntemeldung')
+}
+
+export async function updateTraubenverkauf(id: string, fd: FormData) {
+  const supabase = await createSupabaseServerClient()
+  const jahrgangId = fd.get('jahrgang_id') as string | null
+  const payload: AR = {
+    weingarten_id:   fd.get('weingarten_id') as string,
+    kontakt_id:      (fd.get('kontakt_id') as string) || null,
+    firma_id:        (fd.get('firma_id') as string) || null,
+    datum:           fd.get('datum') as string,
+    menge_kg:        parseFloat((fd.get('menge_kg') as string).replace(',', '.')),
+    preis_per_kg:    fd.get('preis_per_kg') ? parseFloat((fd.get('preis_per_kg') as string).replace(',', '.')) : null,
+    kmw_grad:        fd.get('kmw_grad') ? parseFloat((fd.get('kmw_grad') as string).replace(',', '.')) : null,
+    qualitaetsstufe: (fd.get('qualitaetsstufe') as string) || null,
+    gesundheit:      (fd.get('gesundheit') as string) || 'G',
+    herkunft_code:   (fd.get('herkunft_code') as string) || null,
+    notizen:         (fd.get('notizen') as string) || null,
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('traubenverkauf') as any).update(payload).eq('id', id)
+  if (error) throw new Error((error as AR).message)
+  if (jahrgangId) revalidatePath(`/erntemeldung/${jahrgangId}`)
+  revalidatePath('/erntemeldung')
+}
+
+export async function deleteTraubenverkauf(id: string, jahrgangId: string) {
+  const supabase = await createSupabaseServerClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('traubenverkauf') as any).delete().eq('id', id)
+  if (error) throw new Error((error as AR).message)
+  revalidatePath(`/erntemeldung/${jahrgangId}`)
+  revalidatePath('/erntemeldung')
+}

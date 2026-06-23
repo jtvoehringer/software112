@@ -233,6 +233,7 @@ export default async function GebindePage({
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Volumen</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Standort</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Inhalt</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Füllstand</th>
                   {writeOk && <th className="px-4 py-2.5" />}
                 </tr>
               </thead>
@@ -240,16 +241,39 @@ export default async function GebindePage({
                 {gebinde.map((g: R, i: number) => {
                   const inhalt = chargen.filter((c: R) => c.behaelter_id === g.id)
                   const inhaltLiter = inhalt.reduce((s: number, c: R) => s + (parseFloat(c.menge_liter) || 0), 0)
+                  const volumen = g.volumen_liter ? parseFloat(g.volumen_liter) : null
+                  const fuellPct = volumen && volumen > 0 ? (inhaltLiter / volumen) * 100 : null
+                  const barColor = fuellPct == null ? ''
+                    : fuellPct > 100 ? 'bg-red-500'
+                    : fuellPct > 85  ? 'bg-yellow-400'
+                    : 'bg-green-500'
                   return (
                     <tr key={g.id} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''} ${!g.aktiv ? 'opacity-40' : ''}`}>
                       <td className="px-4 py-2.5 font-medium text-gray-800">{g.name}</td>
                       <td className="px-4 py-2.5 text-gray-600 capitalize">{g.typ ?? '–'}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
-                        {g.volumen_liter ? fmtLiter(parseFloat(g.volumen_liter)) : '–'}
+                        {volumen ? fmtLiter(volumen) : '–'}
                       </td>
                       <td className="px-4 py-2.5 text-gray-600">{g.standort ?? '–'}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-s112-teal font-medium">
                         {inhaltLiter > 0 ? fmtLiter(inhaltLiter) : '–'}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        {fuellPct != null ? (
+                          <div className="flex items-center gap-2 min-w-[100px]">
+                            <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+                              <div
+                                className={`h-2 rounded-full transition-all ${barColor}`}
+                                style={{ width: `${Math.min(fuellPct, 100).toFixed(0)}%` }}
+                              />
+                            </div>
+                            <span className={`text-xs font-medium tabular-nums shrink-0 ${fuellPct > 100 ? 'text-red-600' : fuellPct > 85 ? 'text-yellow-600' : 'text-green-700'}`}>
+                              {fuellPct.toFixed(0)} %
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">–</span>
+                        )}
                       </td>
                       {writeOk && (
                         <td className="px-4 py-2.5 text-right">
@@ -260,7 +284,7 @@ export default async function GebindePage({
                   )
                 })}
                 {gebinde.length === 0 && (
-                  <tr><td colSpan={writeOk ? 6 : 5} className="px-4 py-6 text-center text-xs text-s112-muted italic">Noch keine Gebinde angelegt</td></tr>
+                  <tr><td colSpan={writeOk ? 7 : 6} className="px-4 py-6 text-center text-xs text-s112-muted italic">Noch keine Gebinde angelegt</td></tr>
                 )}
               </tbody>
             </table>

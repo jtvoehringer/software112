@@ -5,6 +5,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import ErnteDetailClient from './ErnteDetailClient'
 import type { Pressung, PressungWG, PressungBeh, WGOption, BehOption, WAOption } from './PressungSection'
+import TraubenverkaufSection, { type Traubenverkauf, type TVWGOption, type TVKontaktOption, type TVFirmaOption } from './TraubenverkaufSection'
 
 export const metadata: Metadata = { title: 'Lese – software:112' }
 export const dynamic = 'force-dynamic'
@@ -45,6 +46,9 @@ export default async function ErnteDetailPage({ params }: Props) {
     { data: rawBeh },
     { data: rawWA },
     { data: rawGST },
+    { data: rawTV },
+    { data: rawTVKontakte },
+    { data: rawTVFirmen },
   ] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('weinjahrgaenge') as any).select('*').eq('id', id).single(),
@@ -56,7 +60,7 @@ export default async function ErnteDetailPage({ params }: Props) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('weingarten') as any)
-      .select('id, name, rebsorte, lagen:lage_id(name)').eq('aktiv', true).order('name'),
+      .select('id, name, rebsorte, trauben_verkauf, trauben_herkunft_code, lagen:lage_id(name)').eq('aktiv', true).order('name'),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('ama_erntemeldungen') as any)
@@ -81,6 +85,18 @@ export default async function ErnteDetailPage({ params }: Props) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('grundstuecke') as any)
       .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha').eq('status', 'aktiv').order('gst_nr'),
+
+    // Traubenverkäufe dieses Jahrgangs
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('traubenverkauf') as any)
+      .select('id, weingarten_id, kontakt_id, firma_id, datum, menge_kg, preis_per_kg, kmw_grad, qualitaetsstufe, gesundheit, herkunft_code, notizen, liefernummer, weingarten:weingarten_id(name), kontakt:kontakt_id(vorname, nachname), firma:firma_id(name)')
+      .eq('jahrgang_id', id).order('datum', { ascending: false }),
+
+    // Kontakte + Firmen für Abnehmer-Dropdown
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('kontakte') as any).select('id, vorname, nachname, betrieb_nr').order('nachname'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('firmen') as any).select('id, name, betrieb_nr').order('name'),
   ])
 
   if (!jg) notFound()
@@ -149,6 +165,37 @@ export default async function ErnteDetailPage({ params }: Props) {
   const behOptions: BehOption[] = ((rawBeh ?? []) as AR[]).map(b => ({ id: b.id, name: b.name }))
   const waOptions: WAOption[]  = ((rawWA ?? []) as AR[]).map(w => ({ id: w.id, name: w.name, jahrgang: w.jahrgang ?? null }))
 
+  // Traubenverkauf
+  const verkauefe: Traubenverkauf[] = ((rawTV ?? []) as AR[]).map((v: AR) => ({
+    id: v.id,
+    weingarten_id: v.weingarten_id,
+    weingarten_name: (v.weingarten as AR | null)?.name ?? '–',
+    kontakt_id: v.kontakt_id ?? null,
+    kontakt_name: v.kontakt ? `${(v.kontakt as AR).vorname ?? ''} ${(v.kontakt as AR).nachname ?? ''}`.trim() : null,
+    firma_id: v.firma_id ?? null,
+    firma_name: (v.firma as AR | null)?.name ?? null,
+    datum: v.datum,
+    menge_kg: parseFloat(v.menge_kg) || 0,
+    preis_per_kg: v.preis_per_kg != null ? parseFloat(v.preis_per_kg) : null,
+    kmw_grad: v.kmw_grad != null ? parseFloat(v.kmw_grad) : null,
+    qualitaetsstufe: v.qualitaetsstufe ?? null,
+    gesundheit: v.gesundheit ?? 'G',
+    herkunft_code: v.herkunft_code ?? null,
+    notizen: v.notizen ?? null,
+    liefernummer: v.liefernummer ?? null,
+  }))
+  // WG-Optionen für Traubenverkauf: nur trauben_verkauf=true
+  // (rawW enthält alle aktiven WGs; herkunft_code kommt von GST oder WG-Feld)
+  const tvWGOptions: TVWGOption[] = ((rawW ?? []) as AR[])
+    .filter((w: AR) => w.trauben_verkauf)
+    .map((w: AR) => ({ id: w.id, name: w.name, herkunft_code: w.trauben_herkunft_code ?? null }))
+  const tvKontaktOptions: TVKontaktOption[] = ((rawTVKontakte ?? []) as AR[]).map((k: AR) => ({
+    id: k.id, name: `${k.vorname ?? ''} ${k.nachname ?? ''}`.trim(), betrieb_nr: k.betrieb_nr ?? null,
+  }))
+  const tvFirmaOptions: TVFirmaOption[] = ((rawTVFirmen ?? []) as AR[]).map((f: AR) => ({
+    id: f.id, name: f.name, betrieb_nr: f.betrieb_nr ?? null,
+  }))
+
   return (
     <div className="max-w-3xl">
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-6">
@@ -178,6 +225,20 @@ export default async function ErnteDetailPage({ params }: Props) {
         writeOk={writeOk}
         adminOk={adminOk}
       />
+
+      {(tvWGOptions.length > 0 || verkauefe.length > 0) && (
+        <div className="mt-6">
+          <TraubenverkaufSection
+            jahrgangId={id}
+            verkauefe={verkauefe}
+            wgOptions={tvWGOptions}
+            kontaktOptions={tvKontaktOptions}
+            firmaOptions={tvFirmaOptions}
+            writeOk={writeOk}
+            adminOk={adminOk}
+          />
+        </div>
+      )}
     </div>
   )
 }

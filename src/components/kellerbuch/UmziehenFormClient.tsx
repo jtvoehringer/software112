@@ -39,6 +39,18 @@ export default function UmziehenFormClient({
 
   const findCharge = (id: string) => chargen.find(c => c.id === id) ?? null
 
+  // Aktuellen Inhalt pro Gebinde berechnen (für freie Kapazität)
+  const inhaltByGebinde: Record<string, number> = {}
+  for (const c of chargen) {
+    if (c.behaelter_id) {
+      inhaltByGebinde[c.behaelter_id] = (inhaltByGebinde[c.behaelter_id] ?? 0) + (parseFloat(String(c.menge_liter)) || 0)
+    }
+  }
+  const freiLiter = (g: R): number | null => {
+    if (!g.volumen_liter) return null
+    return Math.max(0, parseFloat(String(g.volumen_liter)) - (inhaltByGebinde[g.id] ?? 0))
+  }
+
   const addQuelle = () => setQuellen(q => [...q, { weinausbau_id: '', brutto: 0 }])
   const removeQuelle = (i: number) => setQuellen(q => q.filter((_, idx) => idx !== i))
   const updateQuelle = (i: number, field: keyof Quelle, val: string | number) =>
@@ -150,9 +162,15 @@ export default function UmziehenFormClient({
                 className={`${inputCls} flex-1`}
               >
                 <option value="">– Gebinde –</option>
-                {gebinde.filter((g: R) => g.aktiv).map((g: R) => (
-                  <option key={g.id} value={g.id}>{g.name}</option>
-                ))}
+                {gebinde.filter((g: R) => g.aktiv).map((g: R) => {
+                  const frei = freiLiter(g)
+                  const freiText = frei != null
+                    ? ` (frei: ${frei.toLocaleString('de-AT', { maximumFractionDigits: 0 })} L)`
+                    : ''
+                  return (
+                    <option key={g.id} value={g.id}>{g.name}{freiText}</option>
+                  )
+                })}
               </select>
               <input
                 type="number" step="0.01" min={0} placeholder="Netto L"
