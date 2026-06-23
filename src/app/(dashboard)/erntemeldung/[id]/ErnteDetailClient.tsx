@@ -142,13 +142,11 @@ function NeueParzellenForm({
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
                             <span className={`text-xs ${isActive ? 'font-medium text-s112-teal' : 'text-gray-700'}`}>{w.name}</span>
-                            {w.rebsorte && <span className="text-xs text-s112-muted">({w.rebsorte})</span>}
                             <span className="text-xs text-s112-muted ml-auto">{gsts.length} GST</span>
                           </button>
                         ) : (
                           <label className="flex items-center gap-1.5 flex-1 cursor-pointer">
                             <span className={`text-xs ${isActive ? 'font-medium text-s112-teal' : 'text-gray-700'}`}>{w.name}</span>
-                            {w.rebsorte && <span className="text-xs text-s112-muted">({w.rebsorte})</span>}
                           </label>
                         )}
                       </div>
