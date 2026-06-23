@@ -102,15 +102,15 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
   ] = chargeIdList.length > 0
     ? await Promise.all([
         (supabase.from('keller_umzuege') as any)
-          .select('id, datum, menge_liter, brutto_liter, schwund_liter, zeilen_typ, umzug_typ, nach_behaelter:nach_behaelter_id(name), von_weinausbau:von_weinausbau_id(name), notizen, umzug_batch_id')
+          .select('id, datum, menge_liter, brutto_liter, schwund_liter, zeilen_typ, umzug_typ, nach_behaelter:nach_behaelter_id(name), von_weinausbau_id, von_weinausbau:von_weinausbau_id(name), notizen, umzug_batch_id')
           .in('von_weinausbau_id', chargeIdList)
           .order('datum', { ascending: true }),
         (supabase.from('fuellungen') as any)
-          .select('id, datum, name, anzahl_flaschen, menge_liter_gefuellt, flaschengroesse_ml, pruefnummer')
+          .select('id, datum, name, anzahl_flaschen, menge_liter_gefuellt, flaschengroesse_ml, pruefnummer, weinausbau_id')
           .in('weinausbau_id', chargeIdList)
           .order('datum', { ascending: true }),
         (supabase.from('verkauf_positionen') as any)
-          .select('id, menge, einheit, verkaufsposten:verkaufsposten_id(datum, storniert)')
+          .select('id, menge, einheit, weinausbau_id, verkaufsposten:verkaufsposten_id(datum, storniert)')
           .in('weinausbau_id', chargeIdList)
           .eq('typ', 'tank')
           .order('id', { ascending: true }),
@@ -125,7 +125,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
 
   const { data: verschnEinRaw } = chargeIdList.length > 0
     ? await (supabase.from('verschneidungen') as any)
-        .select('id, datum, notizen, quellen:verschneidung_quellen(menge_liter, quelle:quell_weinausbau_id(name, behaelter:behaelter_id(name)))')
+        .select('id, datum, notizen, ziel_weinausbau_id, quellen:verschneidung_quellen(menge_liter, quelle:quell_weinausbau_id(name, behaelter:behaelter_id(name)))')
         .in('ziel_weinausbau_id', chargeIdList)
         .order('datum', { ascending: true })
     : { data: [] }
@@ -367,6 +367,49 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
   const finalSaldo = bewegungenMitSaldo.length > 0
     ? bewegungenMitSaldo[bewegungenMitSaldo.length - 1].saldo
     : 0
+  // Per-Charge event-basierter Saldo (korrigiert veraltetes menge_liter)
+  const literByCharge: Record<string, number> = {}
+  for (const p of (pressungenRaw ?? []) as R[]) {
+    if (!p.weinausbau_id) continue
+    literByCharge[p.weinausbau_id] = (literByCharge[p.weinausbau_id] ?? 0) + (parseFloat(p.menge_liter) || 0)
+  }
+  for (const v of (verschnEinRaw ?? []) as R[]) {
+    const tid = v.ziel_weinausbau_id
+    if (!tid) continue
+    const sum = ((v.quellen ?? []) as R[]).reduce((s: number, q: R) => s + (parseFloat(q.menge_liter) || 0), 0)
+    literByCharge[tid] = (literByCharge[tid] ?? 0) + sum
+  }
+  for (const vq of (verschnAusRaw ?? []) as R[]) {
+    const sid = vq.quell_weinausbau_id
+    if (!sid) continue
+    literByCharge[sid] = (literByCharge[sid] ?? 0) - (parseFloat(vq.menge_liter) || 0)
+  }
+  for (const u of (umzuegeEinRaw ?? []) as R[]) {
+    const wid = u.nach_weinausbau_id
+    if (!wid) continue
+    const rohmenge = parseFloat(u.menge_liter) || 0
+    const schwund  = parseFloat(u.schwund_liter) || 0
+    const netto    = u.brutto_liter != null ? rohmenge : Math.max(0, rohmenge - schwund)
+    literByCharge[wid] = (literByCharge[wid] ?? 0) + netto
+  }
+  for (const u of (umzuegeAusRaw ?? []) as R[]) {
+    const wid = u.von_weinausbau_id
+    if (!wid) continue
+    const abgang = u.zeilen_typ === 'quelle' ? (parseFloat(u.menge_liter) || 0) : (parseFloat(u.brutto_liter) || parseFloat(u.menge_liter) || 0)
+    literByCharge[wid] = (literByCharge[wid] ?? 0) - abgang
+  }
+  for (const f of (fuellungenRaw ?? []) as R[]) {
+    const wid = f.weinausbau_id
+    if (!wid) continue
+    const liter = parseFloat(f.menge_liter_gefuellt) || (parseInt(f.anzahl_flaschen) * parseInt(f.flaschengroesse_ml) / 1000) || 0
+    literByCharge[wid] = (literByCharge[wid] ?? 0) - liter
+  }
+  for (const v of (verkaufRaw ?? []) as R[]) {
+    const wid = v.weinausbau_id
+    if (!wid || (v.verkaufsposten as R | null)?.storniert) continue
+    literByCharge[wid] = (literByCharge[wid] ?? 0) - (parseFloat(v.menge) || 0)
+  }
+
   const aktiveChargen = ((chargenRaw ?? []) as R[]).filter(c => c.aktiv && !c.ist_eroeffnungsbestand)
   const aktuellDB = aktiveChargen.reduce((s: number, c: R) => s + (parseFloat(c.menge_liter) || 0), 0)
   const aktuell = finalSaldo > 0 ? finalSaldo : aktuellDB
@@ -454,7 +497,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
                 <span className="font-medium text-gray-800">{c.name}</span>
                 {c.jahrgang && <span className="text-xs text-s112-muted">{c.jahrgang}</span>}
                 <span className="text-xs font-semibold text-s112-teal tabular-nums">
-                  {fmtLiter(parseFloat(c.menge_liter) || 0)}
+                  {fmtLiter(Math.max(0, literByCharge[c.id] ?? parseFloat(c.menge_liter) ?? 0))}
                 </span>
               </Link>
             ))}

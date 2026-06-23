@@ -219,9 +219,10 @@ export async function createVerschneidung(formData: FormData) {
     .select('menge_liter').eq('id', zielId).single()
   const aktuell = parseFloat((ziel as R)?.menge_liter ?? '0') || 0
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('weinausbau') as any)
+  const { error: zielUpdateErr } = await (supabase.from('weinausbau') as any)
     .update({ menge_liter: aktuell + gesamtLiter })
     .eq('id', zielId)
+  if (zielUpdateErr) throw new Error(`Ziel-Charge konnte nicht aktualisiert werden: ${zielUpdateErr.message}`)
 
   // Quell-Chargen: Bestand reduzieren
   for (const q of quellen) {
