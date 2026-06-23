@@ -20,6 +20,7 @@ export type Traubenverkauf = {
 export type TVWGOption = { id: string; name: string; herkunft_code: string | null }
 export type TVKontaktOption = { id: string; name: string; betrieb_nr: string | null }
 export type TVFirmaOption  = { id: string; name: string; betrieb_nr: string | null }
+export type TVLeseParzelle = { weingarten_id: string; klosterneuburger: number | null; qualitaetsstufe: string | null }
 
 const QUALITAETEN = [
   { value: 'qualitaetswein', label: 'Qualitätswein' },
@@ -39,15 +40,19 @@ const fmtDate = (d: string) =>
 
 // ── Formular ──────────────────────────────────────────────────────────────────
 
-function TVForm({ jahrgangId, tv, wgOptions, kontaktOptions, firmaOptions, onDone }: {
+function TVForm({ jahrgangId, tv, wgOptions, leseParzellen, kontaktOptions, firmaOptions, onDone }: {
   jahrgangId: string
   tv?: Traubenverkauf
   wgOptions: TVWGOption[]
+  leseParzellen: TVLeseParzelle[]
   kontaktOptions: TVKontaktOption[]
   firmaOptions: TVFirmaOption[]
   onDone: () => void
 }) {
   const [wgId, setWgId]         = useState(tv?.weingarten_id ?? '')
+  // Käufer-Typ: Firma ist Standard
+  const initType = tv ? (tv.firma_id ? 'firma' : 'kontakt') : 'firma'
+  const [buyerType, setBuyerType] = useState<'firma' | 'kontakt'>(initType)
   const [kontaktId, setKontakt] = useState(tv?.kontakt_id ?? '')
   const [firmaId, setFirma]     = useState(tv?.firma_id ?? '')
   const [datum, setDatum]       = useState(tv?.datum ?? new Date().toISOString().split('T')[0])
@@ -61,6 +66,18 @@ function TVForm({ jahrgangId, tv, wgOptions, kontaktOptions, firmaOptions, onDon
 
   const selectedWG = wgOptions.find(w => w.id === wgId)
   const herkunftCode = selectedWG?.herkunft_code ?? ''
+
+  function handleWgChange(newWgId: string) {
+    setWgId(newWgId)
+    if (!tv && newWgId) {
+      // KMW + Qualität aus letzter Lese-Parzelle dieser Ried vorausfüllen
+      const match = leseParzellen.find(p => p.weingarten_id === newWgId)
+      if (match) {
+        if (match.klosterneuburger != null) setKmw(match.klosterneuburger.toString().replace('.', ','))
+        if (match.qualitaetsstufe) setQualitaet(match.qualitaetsstufe)
+      }
+    }
+  }
 
   const gesamtWert = mengeKg && preis
     ? parseFloat(mengeKg.replace(',', '.')) * parseFloat(preis.replace(',', '.'))
@@ -95,11 +112,11 @@ function TVForm({ jahrgangId, tv, wgOptions, kontaktOptions, firmaOptions, onDon
       <h3 className="text-sm font-semibold text-gray-800">{tv ? 'Traubenverkauf bearbeiten' : 'Traubenverkauf erfassen'}</h3>
 
       <div className="grid grid-cols-2 gap-3">
-        {/* Weingarten */}
+        {/* Ried */}
         <div className="col-span-2">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Weingarten / Ried *</label>
-          <select value={wgId} onChange={e => setWgId(e.target.value)} required className={inp}>
-            <option value="">– Weingarten –</option>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Ried *</label>
+          <select value={wgId} onChange={e => handleWgChange(e.target.value)} required className={inp}>
+            <option value="">– Ried wählen –</option>
             {wgOptions.map(w => (
               <option key={w.id} value={w.id}>
                 {w.name}{w.herkunft_code ? ` (${w.herkunft_code})` : ''}
@@ -163,25 +180,35 @@ function TVForm({ jahrgangId, tv, wgOptions, kontaktOptions, firmaOptions, onDon
       </div>
 
       {/* Abnehmer */}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Abnehmer – Kontakt</label>
-          <select value={kontaktId} onChange={e => { setKontakt(e.target.value); if (e.target.value) setFirma('') }} className={inp}>
-            <option value="">– kein –</option>
-            {kontaktOptions.map(k => (
-              <option key={k.id} value={k.id}>{k.name}{k.betrieb_nr ? ` (Betr.Nr. ${k.betrieb_nr})` : ''}</option>
-            ))}
-          </select>
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-2">Käufer</label>
+        <div className="flex gap-2 mb-2">
+          <button type="button"
+            onClick={() => { setBuyerType('firma'); setKontakt('') }}
+            className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${buyerType === 'firma' ? 'bg-s112-teal text-white' : 'bg-s112-bg border border-s112-border text-gray-600 hover:border-s112-teal'}`}>
+            Firma
+          </button>
+          <button type="button"
+            onClick={() => { setBuyerType('kontakt'); setFirma('') }}
+            className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${buyerType === 'kontakt' ? 'bg-s112-teal text-white' : 'bg-s112-bg border border-s112-border text-gray-600 hover:border-s112-teal'}`}>
+            Privatperson
+          </button>
         </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Abnehmer – Firma</label>
-          <select value={firmaId} onChange={e => { setFirma(e.target.value); if (e.target.value) setKontakt('') }} className={inp}>
-            <option value="">– kein –</option>
+        {buyerType === 'firma' ? (
+          <select value={firmaId} onChange={e => setFirma(e.target.value)} className={inp}>
+            <option value="">– Firma wählen –</option>
             {firmaOptions.map(f => (
               <option key={f.id} value={f.id}>{f.name}{f.betrieb_nr ? ` (Betr.Nr. ${f.betrieb_nr})` : ''}</option>
             ))}
           </select>
-        </div>
+        ) : (
+          <select value={kontaktId} onChange={e => setKontakt(e.target.value)} className={inp}>
+            <option value="">– Kontakt wählen –</option>
+            {kontaktOptions.map(k => (
+              <option key={k.id} value={k.id}>{k.name}{k.betrieb_nr ? ` (Betr.Nr. ${k.betrieb_nr})` : ''}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Live-Kalkulation */}
@@ -218,11 +245,12 @@ function TVForm({ jahrgangId, tv, wgOptions, kontaktOptions, firmaOptions, onDon
 // ── Hauptexport ───────────────────────────────────────────────────────────────
 
 export default function TraubenverkaufSection({
-  jahrgangId, verkauefe, wgOptions, kontaktOptions, firmaOptions, writeOk, adminOk,
+  jahrgangId, verkauefe, wgOptions, leseParzellen, kontaktOptions, firmaOptions, writeOk, adminOk,
 }: {
   jahrgangId: string
   verkauefe: Traubenverkauf[]
   wgOptions: TVWGOption[]
+  leseParzellen: TVLeseParzelle[]
   kontaktOptions: TVKontaktOption[]
   firmaOptions: TVFirmaOption[]
   writeOk: boolean; adminOk: boolean
@@ -269,7 +297,10 @@ export default function TraubenverkaufSection({
   return (
     <div className={`card space-y-4 ${pending ? 'opacity-60 pointer-events-none' : ''}`}>
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-gray-800">Traubenverkauf</h2>
+        <div>
+          <h2 className="text-base font-semibold text-gray-800">Traubenverkauf</h2>
+          <p className="text-xs text-s112-muted">Verkauf von Weintrauben gem. § 3 Weingesetz-Formularverordnung</p>
+        </div>
         <div className="flex items-center gap-3">
           {verkauefe.length > 0 && (
             <span className="text-xs text-s112-muted">
@@ -295,7 +326,7 @@ export default function TraubenverkaufSection({
       </div>
 
       {showForm && !editId && (
-        <TVForm jahrgangId={jahrgangId} wgOptions={wgOptions}
+        <TVForm jahrgangId={jahrgangId} wgOptions={wgOptions} leseParzellen={leseParzellen}
           kontaktOptions={kontaktOptions} firmaOptions={firmaOptions}
           onDone={() => setShowForm(false)} />
       )}
@@ -309,7 +340,7 @@ export default function TraubenverkaufSection({
           {verkauefe.map(v => (
             <div key={v.id}>
               {editId === v.id ? (
-                <TVForm tv={v} jahrgangId={jahrgangId} wgOptions={wgOptions}
+                <TVForm tv={v} jahrgangId={jahrgangId} wgOptions={wgOptions} leseParzellen={leseParzellen}
                   kontaktOptions={kontaktOptions} firmaOptions={firmaOptions}
                   onDone={() => setEditId(null)} />
               ) : (

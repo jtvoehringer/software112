@@ -5,7 +5,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import ErnteDetailClient from './ErnteDetailClient'
 import type { Pressung, PressungWG, PressungBeh, WGOption, BehOption, WAOption } from './PressungSection'
-import TraubenverkaufSection, { type Traubenverkauf, type TVWGOption, type TVKontaktOption, type TVFirmaOption } from './TraubenverkaufSection'
+import TraubenverkaufSection, { type Traubenverkauf, type TVWGOption, type TVKontaktOption, type TVFirmaOption, type TVLeseParzelle } from './TraubenverkaufSection'
 
 export const metadata: Metadata = { title: 'Lese – software:112' }
 export const dynamic = 'force-dynamic'
@@ -190,6 +190,13 @@ export default async function ErnteDetailPage({ params }: Props) {
   const tvWGOptions: TVWGOption[] = ((rawW ?? []) as AR[])
     .filter((w: AR) => harvestedWGIds.has(w.id))
     .map((w: AR) => ({ id: w.id, name: w.name, herkunft_code: w.trauben_herkunft_code ?? null }))
+  // Lesedaten für Traubenverkauf-Formular (KMW + Qualität nach Ried)
+  const tvLeseParzellen: TVLeseParzelle[] = parzellen.map(p => ({
+    weingarten_id: p.weingarten_id,
+    klosterneuburger: p.klosterneuburger,
+    qualitaetsstufe: p.qualitaetsstufe,
+  }))
+
   const tvKontaktOptions: TVKontaktOption[] = ((rawTVKontakte ?? []) as AR[]).map((k: AR) => ({
     id: k.id, name: `${k.vorname ?? ''} ${k.nachname ?? ''}`.trim(), betrieb_nr: k.betrieb_nr ?? null,
   }))
@@ -233,6 +240,7 @@ export default async function ErnteDetailPage({ params }: Props) {
             jahrgangId={id}
             verkauefe={verkauefe}
             wgOptions={tvWGOptions}
+            leseParzellen={tvLeseParzellen}
             kontaktOptions={tvKontaktOptions}
             firmaOptions={tvFirmaOptions}
             writeOk={writeOk}
