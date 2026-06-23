@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useTransition } from 'react'
-import { createGrundstueck, updateGrundstueck, deleteGrundstueck, fetchBevFlaeche } from './actions'
+import { createGrundstueck, updateGrundstueck, deleteGrundstueck, fetchBevFlaeche, type BevNutzung } from './actions'
 import { fmtHa } from '@/lib/format'
 import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
 
@@ -148,6 +148,7 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
   const [katasterHa, setKatasterHa] = useState<string>(gst?.flaeche_ha_kataster != null ? String(gst.flaeche_ha_kataster) : '')
   const [bevLoading, setBevLoading] = useState(false)
   const [bevMsg, setBevMsg] = useState<string | null>(null)
+  const [bevAlleNutzungen, setBevAlleNutzungen] = useState<BevNutzung[] | null>(null)
 
   function handleKgnrChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value
@@ -168,6 +169,7 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
     if (!gstNr) { setBevMsg('Bitte zuerst GST-Nr eingeben'); return }
     setBevLoading(true)
     setBevMsg(null)
+    setBevAlleNutzungen(null)
     const result = await fetchBevFlaeche(kgnr, gstNr)
     setBevLoading(false)
     if (result.ok) {
@@ -176,6 +178,9 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
       setBevMsg('✓ ' + result.ha.toFixed(4) + ' ha (' + detail + ')')
     } else {
       setBevMsg('⚠ ' + result.message)
+      if ('alleNutzungen' in result && result.alleNutzungen) {
+        setBevAlleNutzungen(result.alleNutzungen)
+      }
     }
   }
 
@@ -290,6 +295,34 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
             <p className={'text-xs mt-1 ' + (bevMsg.startsWith('✓') ? 'text-green-600' : 'text-orange-600')}>
               {bevMsg}
             </p>
+          )}
+          {bevAlleNutzungen && bevAlleNutzungen.length > 0 && (
+            <div className="mt-2 border border-orange-200 rounded-lg overflow-hidden text-xs">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-orange-50 text-orange-700">
+                    <th className="text-left px-2 py-1 font-medium">NS</th>
+                    <th className="text-left px-2 py-1 font-medium">Nutzung</th>
+                    <th className="text-right px-2 py-1 font-medium">ha</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bevAlleNutzungen.map((n, i) => (
+                    <tr key={i} className="border-t border-orange-100">
+                      <td className="px-2 py-1 font-mono text-orange-600">{n.ns}</td>
+                      <td className="px-2 py-1 text-gray-700">{n.nutzung}</td>
+                      <td className="px-2 py-1 text-right font-mono text-gray-700">{n.ha.toFixed(4)}</td>
+                    </tr>
+                  ))}
+                  <tr className="border-t border-orange-200 bg-orange-50 font-semibold">
+                    <td className="px-2 py-1 text-orange-700" colSpan={2}>Gesamt</td>
+                    <td className="px-2 py-1 text-right font-mono text-orange-700">
+                      {bevAlleNutzungen.reduce((s, n) => s + n.ha, 0).toFixed(4)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 

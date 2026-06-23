@@ -144,10 +144,14 @@ export async function deleteGrundstueck(id: string, weingartenId: string) {
 
 // ── BEV Kataster-API ────────────────────────────────────────────────────────────────────────────
 
+export type BevNutzung = { ns: string; nutzung: string; ha: number }
 export type BevResult = {
   ok: true; ha: number
-  nutzungen: Array<{ nutzung: string; ha: number }>
-} | { ok: false; message: string }
+  nutzungen: BevNutzung[]
+} | {
+  ok: false; message: string
+  alleNutzungen?: BevNutzung[]  // gefüllt wenn GST gefunden aber kein ns=53
+}
 
 export async function fetchBevFlaeche(kgnr: string, gstNr: string): Promise<BevResult> {
   if (!kgnr || !gstNr) return { ok: false, message: 'KGNr und GST-Nr erforderlich' }
@@ -160,17 +164,24 @@ export async function fetchBevFlaeche(kgnr: string, gstNr: string): Promise<BevR
     if (!res.ok) return { ok: false, message: 'BEV-API Fehler: ' + res.status }
     const data = await res.json() as Record<string, unknown>
     if ('message' in data) return { ok: false, message: String(data.message) }
-    type Nutzung = { ns: string; nutzung: string; fl: number }
-    const props = (data.properties as { nutzungen?: Nutzung[] } | undefined)
-    const alleNutzungen: Nutzung[] = props?.nutzungen ?? []
+    type RawNutzung = { ns: string; nutzung: string; fl: number }
+    const props = (data.properties as { nutzungen?: RawNutzung[] } | undefined)
+    const alleRaw: RawNutzung[] = props?.nutzungen ?? []
+    const toNutzung = (n: RawNutzung): BevNutzung => ({ ns: String(n.ns), nutzung: n.nutzung, ha: Math.round(n.fl) / 10000 })
     // Nur Weingärten (Nutzungsschlüssel ns=53)
-    const nutzungen = alleNutzungen.filter(n => String(n.ns) === '53')
-    if (nutzungen.length === 0) return { ok: false, message: 'Keine Weingarten-Nutzung (ns=53) in diesem GST' }
-    const totalM2 = nutzungen.reduce((s, n) => s + (n.fl ?? 0), 0)
+    const weingarten = alleRaw.filter(n => String(n.ns) === '53')
+    if (weingarten.length === 0) {
+      return {
+        ok: false,
+        message: 'Keine Weingarten-Nutzung (ns=53) – Nutzungsaufschlüsselung:',
+        alleNutzungen: alleRaw.map(toNutzung),
+      }
+    }
+    const totalM2 = weingarten.reduce((s, n) => s + (n.fl ?? 0), 0)
     return {
       ok: true,
       ha: Math.round(totalM2) / 10000,
-      nutzungen: nutzungen.map(n => ({ nutzung: n.nutzung, ha: Math.round(n.fl) / 10000 })),
+      nutzungen: weingarten.map(toNutzung),
     }
   } catch {
     return { ok: false, message: 'BEV-API nicht erreichbar' }
