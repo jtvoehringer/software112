@@ -404,12 +404,13 @@ function ParzellForm({
 
 // ── Hauptkomponente ─────────────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gstByWeingarten, amaMeldung, pressungen, wgOptions, behOptions, waOptions, verfuegbareKg, verfuegbareKgByGST, writeOk, adminOk }: {
+export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gstByWeingarten, amaMeldung, pressungen, wgOptions, behOptions, waOptions, verfuegbareKg, verfuegbareKgByGST, behaelterMitCharge, writeOk, adminOk }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   jahrgang: Record<string, any>; parzellen: ErnteParzelle[]
   weingaerten: WeingartenOpt[]; gstByWeingarten: Record<string, GSTOpt[]>; amaMeldung: AMAMeldung | null
   pressungen: Pressung[]; wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
-  verfuegbareKg: Record<string, number>; verfuegbareKgByGST: Record<string, number>; writeOk: boolean; adminOk: boolean
+  verfuegbareKg: Record<string, number>; verfuegbareKgByGST: Record<string, number>
+  behaelterMitCharge: Record<string, { weinausbau_id: string; name: string }[]>; writeOk: boolean; adminOk: boolean
 }) {
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
@@ -621,8 +622,8 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
         wgOptions={wgOptions}
         behOptions={behOptions}
         waOptions={waOptions}
-        verfuegbareKg={verfuegbareKg}
         verfuegbareKgByGST={verfuegbareKgByGST}
+        behaelterMitCharge={behaelterMitCharge}
         leseParzellen={parzellen.map(p => ({
           weingarten_id: p.weingarten_id,
           weingarten_name: p.weingarten_name,

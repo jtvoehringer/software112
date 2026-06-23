@@ -47,10 +47,11 @@ type BehRow = { behaelter_id: string; weinausbau_id: string; menge_liter: string
 const emptyWG  = (): WGRow  => ({ weingarten_id: '', grundstueck_id: '', trauben_kg: '', rebsorte: '', notizen: '' })
 const emptyBeh = (): BehRow => ({ behaelter_id: '', weinausbau_id: '', menge_liter: '', notizen: '' })
 
-function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, leseParzellen, verfuegbareKgByGST, onDone }: {
+function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, leseParzellen, verfuegbareKgByGST, behaelterMitCharge, onDone }: {
   jahrgangId: string; pressung?: Pressung
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
-  leseParzellen: LeseParzelle[]; verfuegbareKgByGST: Record<string, number>; onDone: () => void
+  leseParzellen: LeseParzelle[]; verfuegbareKgByGST: Record<string, number>
+  behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string }[]>; onDone: () => void
 }) {
   const [datum, setDatum]                   = useState(pressung?.datum ?? new Date().toISOString().split('T')[0])
   const [mostLiter, setMostLiter]           = useState(pressung?.most_liter_gesamt?.toString().replace('.', ',') ?? '')
@@ -286,6 +287,11 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
                   <option value="">– Behälter –</option>
                   {behOptions.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
+                {!pressung && row.behaelter_id && behaelterMitCharge?.[row.behaelter_id] && (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1">
+                    ⚠ Enthält bereits: {behaelterMitCharge[row.behaelter_id].map(c => c.name).join(', ')} – Weine werden verschnitten!
+                  </p>
+                )}
               </div>
               <div className="col-span-4">
                 <input type="text" inputMode="decimal" value={row.menge_liter}
@@ -325,10 +331,11 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
 
 // ── Hauptexport ───────────────────────────────────────────────────────────────
 
-export default function PressungSection({ jahrgangId, pressungen, wgOptions, behOptions, waOptions, leseParzellen, verfuegbareKgByGST, writeOk, adminOk }: {
+export default function PressungSection({ jahrgangId, pressungen, wgOptions, behOptions, waOptions, leseParzellen, verfuegbareKgByGST, behaelterMitCharge, writeOk, adminOk }: {
   jahrgangId: string; pressungen: Pressung[]
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
-  leseParzellen: LeseParzelle[]; verfuegbareKgByGST: Record<string, number>; writeOk: boolean; adminOk: boolean
+  leseParzellen: LeseParzelle[]; verfuegbareKgByGST: Record<string, number>
+  behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string }[]>; writeOk: boolean; adminOk: boolean
 }) {
   const [showForm, setShowForm]   = useState(false)
   const [editId, setEditId]       = useState<string | null>(null)
@@ -386,7 +393,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
       {/* Neues Formular */}
       {showForm && !editId && (
         <PressungForm jahrgangId={jahrgangId} wgOptions={wgOptions} behOptions={behOptions}
-          waOptions={waOptions} leseParzellen={leseParzellen} verfuegbareKgByGST={verfuegbareKgByGST} onDone={() => setShowForm(false)} />
+          waOptions={waOptions} leseParzellen={leseParzellen} verfuegbareKgByGST={verfuegbareKgByGST} behaelterMitCharge={behaelterMitCharge} onDone={() => setShowForm(false)} />
       )}
 
       {/* Pressung-Liste */}
@@ -403,7 +410,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
               <div key={p.id}>
                 {editId === p.id ? (
                   <PressungForm pressung={p} jahrgangId={jahrgangId} wgOptions={wgOptions}
-                    behOptions={behOptions} waOptions={waOptions} leseParzellen={[]} verfuegbareKgByGST={verfuegbareKgByGST} onDone={() => setEditId(null)} />
+                    behOptions={behOptions} waOptions={waOptions} leseParzellen={[]} verfuegbareKgByGST={verfuegbareKgByGST} behaelterMitCharge={undefined} onDone={() => setEditId(null)} />
                 ) : (
                   <div className="border border-s112-border rounded-xl p-3">
                     <div className="flex items-start justify-between gap-2 mb-2">
@@ -455,10 +462,20 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                     {p.behaelter.length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
                         {p.behaelter.map(b => (
-                          <span key={b.id} className="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 text-blue-800 text-xs px-2 py-0.5 rounded-full">
-                            🛢 {b.behaelter_name ?? b.weinausbau_name ?? '–'}
-                            {b.menge_liter && <span className="font-medium">· {fmt(b.menge_liter)} L</span>}
-                          </span>
+                          b.weinausbau_id ? (
+                            <a key={b.id} href={`/kellerbuch/weinausbau/${b.weinausbau_id}/buch`}
+                              className="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 text-blue-800 text-xs px-2 py-0.5 rounded-full hover:bg-blue-100 transition-colors">
+                              🛢 {b.weinausbau_name ?? b.behaelter_name ?? '–'}
+                              {b.menge_liter && <span className="font-medium">· {fmt(b.menge_liter)} L</span>}
+                              <span className="text-blue-400">→ KB</span>
+                            </a>
+                          ) : (
+                            <span key={b.id} className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-800 text-xs px-2 py-0.5 rounded-full">
+                              ⚠ {b.behaelter_name ?? '–'}
+                              {b.menge_liter && <span className="font-medium">· {fmt(b.menge_liter)} L</span>}
+                              <span className="text-amber-500 ml-0.5">keine Charge</span>
+                            </span>
+                          )
                         ))}
                       </div>
                     )}

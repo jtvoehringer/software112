@@ -190,6 +190,16 @@ export default async function ErnteDetailPage({ params }: Props) {
   for (const gstId of Object.keys(harvestedKgByGST)) {
     verfuegbareKgByGST[gstId] = Math.max(0, (harvestedKgByGST[gstId] ?? 0) - (pressedKgByGST[gstId] ?? 0) - (soldKgByGST[gstId] ?? 0))
   }
+  // Welche Behälter haben bereits eine Kellerbuch-Charge (für Verschnitt-Warnung)
+  const behaelterMitCharge: Record<string, { weinausbau_id: string; name: string }[]> = {}
+  for (const p of pressungen) {
+    for (const b of p.behaelter) {
+      if (b.behaelter_id && b.weinausbau_id && b.weinausbau_name) {
+        if (!behaelterMitCharge[b.behaelter_id]) behaelterMitCharge[b.behaelter_id] = []
+        behaelterMitCharge[b.behaelter_id].push({ weinausbau_id: b.weinausbau_id, name: b.weinausbau_name })
+      }
+    }
+  }
   const behOptions: BehOption[] = ((rawBeh ?? []) as AR[]).map(b => ({ id: b.id, name: b.name }))
   const waOptions: WAOption[]  = ((rawWA ?? []) as AR[]).map(w => ({ id: w.id, name: w.name, jahrgang: w.jahrgang ?? null }))
 
@@ -259,6 +269,7 @@ export default async function ErnteDetailPage({ params }: Props) {
         waOptions={waOptions}
         verfuegbareKg={verfuegbareKg}
         verfuegbareKgByGST={verfuegbareKgByGST}
+        behaelterMitCharge={behaelterMitCharge}
         writeOk={writeOk}
         adminOk={adminOk}
       />

@@ -58,7 +58,7 @@ export default async function WeinhandelPage() {
       .gt('menge_liter', 0),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('traubenverkauf') as any)
-      .select('id, datum, menge_kg, preis_per_kg, liefernummer, weingarten:weingarten_id(name), grundstueck:grundstueck_id(gst_nr), firma:firma_id(name), kontakt:kontakt_id(vorname, nachname)')
+      .select('id, datum, menge_kg, preis_per_kg, liefernummer, weingarten:weingarten_id(name), firma:firma_id(name), kontakt:kontakt_id(vorname, nachname)')
       .order('datum', { ascending: false })
       .limit(5),
   ])
@@ -416,14 +416,13 @@ export default async function WeinhandelPage() {
               <tbody>
                 {tvListe.map((v: R) => {
                   const kaeufer = (v.firma as R | null)?.name ?? ([(v.kontakt as R | null)?.vorname, (v.kontakt as R | null)?.nachname].filter(Boolean).join(' ') || '–')
-                  const gst = (v.grundstueck as R | null)?.gst_nr
                   return (
                     <tr key={v.id} className="border-b border-s112-border last:border-0 hover:bg-s112-bg/30">
                       <td className="px-4 py-3">
                         {v.liefernummer && <span className="font-mono text-xs bg-s112-teal/10 text-s112-teal px-2 py-0.5 rounded-full">{v.liefernummer}</span>}
                       </td>
                       <td className="px-4 py-3 text-s112-muted text-xs">{new Date(v.datum).toLocaleDateString('de-AT')}</td>
-                      <td className="px-4 py-3 text-gray-800">{(v.weingarten as R | null)?.name ?? '–'}{gst ? <span className="ml-1 text-xs text-s112-muted font-mono">GST {gst}</span> : ''}</td>
+                      <td className="px-4 py-3 text-gray-800">{(v.weingarten as R | null)?.name ?? '–'}</td>
                       <td className="px-4 py-3 text-s112-muted text-xs">{kaeufer}</td>
                       <td className="px-4 py-3 text-right tabular-nums font-semibold text-s112-teal">{Number(v.menge_kg).toLocaleString('de-AT')}</td>
                       <td className="px-4 py-3 text-right tabular-nums text-s112-muted text-xs">{v.preis_per_kg != null ? Number(v.preis_per_kg).toLocaleString('de-AT', { minimumFractionDigits: 2 }) : '–'}</td>
