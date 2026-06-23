@@ -158,9 +158,14 @@ export default async function ErnteDetailPage({ params }: Props) {
       pressedKgByWG[w.weingarten_id] = (pressedKgByWG[w.weingarten_id] ?? 0) + w.trauben_kg
     }
   }
+  // Verkaufte kg pro WG aus Traubenverkauf (dieses Jahrgangs) abziehen
+  const soldKgByWG: Record<string, number> = {}
+  for (const v of ((rawTV ?? []) as AR[])) {
+    soldKgByWG[v.weingarten_id] = (soldKgByWG[v.weingarten_id] ?? 0) + (parseFloat(v.menge_kg) || 0)
+  }
   const verfuegbareKg: Record<string, number> = {}
   for (const wgId of Object.keys(harvestedKgByWG)) {
-    verfuegbareKg[wgId] = (harvestedKgByWG[wgId] ?? 0) - (pressedKgByWG[wgId] ?? 0)
+    verfuegbareKg[wgId] = Math.max(0, (harvestedKgByWG[wgId] ?? 0) - (pressedKgByWG[wgId] ?? 0) - (soldKgByWG[wgId] ?? 0))
   }
   const behOptions: BehOption[] = ((rawBeh ?? []) as AR[]).map(b => ({ id: b.id, name: b.name }))
   const waOptions: WAOption[]  = ((rawWA ?? []) as AR[]).map(w => ({ id: w.id, name: w.name, jahrgang: w.jahrgang ?? null }))

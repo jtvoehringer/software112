@@ -68,23 +68,36 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
   const kmwNum     = parseFloat(kmwGrad.replace(',', '.'))
   const kmwQualitaet = !isNaN(kmwNum) && kmwNum > 0 ? kmwZuQualitaet(kmwNum) : null
   // Pre-fill aus Erntedaten: eine Zeile pro Parzelle (GST oder Ried)
+  // Ernte-Gesamtmenge pro WG (für proportionale Verteilung der verfügbaren Menge)
+  const ernteKgByWG_p: Record<string, number> = {}
+  for (const p of leseParzellen) {
+    ernteKgByWG_p[p.weingarten_id] = (ernteKgByWG_p[p.weingarten_id] ?? 0) + (p.menge_kg ?? 0)
+  }
+  function gstVerfuegbar(p: LeseParzelle): number {
+    const wgTotal = ernteKgByWG_p[p.weingarten_id] ?? 0
+    const wgAvail = verfuegbareKg[p.weingarten_id] ?? 0
+    const anteil  = wgTotal > 0 ? (p.menge_kg ?? 0) / wgTotal : 0
+    return Math.round(Math.max(0, wgAvail * anteil) * 10) / 10
+  }
+
   const defaultWGRows: WGRow[] = pressung
     ? pressung.weingaerten.map(w => ({
         weingarten_id: w.weingarten_id, grundstueck_id: '',
         trauben_kg: w.trauben_kg.toString().replace('.', ','),
         rebsorte: w.rebsorte ?? '', notizen: w.notizen ?? '',
       }))
-    : leseParzellen.filter(p => (p.menge_kg ?? 0) > 0).length > 0
-      ? leseParzellen
-          .filter(p => (p.menge_kg ?? 0) > 0)
+    : (() => {
+        const rows = leseParzellen
+          .filter(p => (p.menge_kg ?? 0) > 0 && gstVerfuegbar(p) > 0)
           .map(p => ({
             weingarten_id: p.weingarten_id,
             grundstueck_id: p.grundstueck_id ?? '',
-            trauben_kg: p.menge_kg!.toString().replace('.', ','),
+            trauben_kg: gstVerfuegbar(p).toString().replace('.', ','),
             rebsorte: p.grundstueck_rebsorte ?? p.rebsorte ?? '',
             notizen: '',
           }))
-      : [emptyWG()]
+        return rows.length > 0 ? rows : [emptyWG()]
+      })()
   const [wgRows, setWgRows] = useState<WGRow[]>(defaultWGRows)
   const [behRows, setBehRows] = useState<BehRow[]>(
     pressung?.behaelter.map(b => ({
@@ -108,6 +121,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
       : p.weingarten_name,
     rebsorte: p.grundstueck_rebsorte ?? p.rebsorte ?? '',
     menge_kg: p.menge_kg ?? 0,
+    verfuegbar_kg: gstVerfuegbar(p),
   }))
 
   function updateWG(i: number, field: keyof WGRow | 'compositeId', val: string) {
@@ -235,7 +249,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
                     <option value="">– GST/Ried –</option>
                     {gstOptionen.map(opt => (
                       <option key={opt.compositeId} value={opt.compositeId}>
-                        {opt.label}{opt.menge_kg > 0 ? ` – ${opt.menge_kg.toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg` : ''}
+                        {opt.label} – {opt.verfuegbar_kg.toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg verf.
                       </option>
                     ))}
                   </select>
