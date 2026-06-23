@@ -229,9 +229,12 @@ export async function createVerschneidung(formData: FormData) {
     const { data: src } = await (supabase.from('weinausbau') as any)
       .select('menge_liter').eq('id', q.weinausbau_id).single()
     const srcLiter = parseFloat((src as R)?.menge_liter ?? '0') || 0
+    const neueLiter = Math.max(0, srcLiter - q.menge_liter)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('weinausbau') as any)
-      .update({ menge_liter: Math.max(0, srcLiter - q.menge_liter) })
+      .update(neueLiter <= 0
+        ? { menge_liter: 0, aktiv: false, status: 'abgeschlossen' }
+        : { menge_liter: neueLiter })
       .eq('id', q.weinausbau_id)
   }
 
