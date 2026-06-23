@@ -40,6 +40,7 @@ function NeueParzellenForm({
   const [selectedGSTs, setSelectedGSTs] = useState<Map<string, string>>(new Map())
   const [expandedWGs, setExpandedWGs] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
+  const [gstData, setGstData] = useState<Map<string, { menge_kg: string; kmw: string; notizen: string }>>(new Map())
   const [kmwNeu, setKmwNeu] = useState<number | null>(null)
   const derivedQualitaetNeu = kmwNeu != null ? kmwZuQualitaet(kmwNeu) : 'qualitaetswein'
 
@@ -61,8 +62,10 @@ function NeueParzellenForm({
     setSelectedWGs(prev => { const n = new Set(prev); n.has(wgId) ? n.delete(wgId) : n.add(wgId); return n })
   }
   function toggleGST(gstId: string, wgId: string) {
+    const wasSelected = selectedGSTs.has(gstId)
     setSelectedWGs(prev => { const n = new Set(prev); n.delete(wgId); return n })
-    setSelectedGSTs(prev => { const n = new Map(prev); n.has(gstId) ? n.delete(gstId) : n.set(gstId, wgId); return n })
+    setSelectedGSTs(prev => { const n = new Map(prev); wasSelected ? n.delete(gstId) : n.set(gstId, wgId); return n })
+    setGstData(prev => { const n = new Map(prev); wasSelected ? n.delete(gstId) : n.set(gstId, { menge_kg: '', kmw: '', notizen: '' }); return n })
   }
   function toggleLage(wgs: WeingartenOpt[]) {
     const ids = wgs.map(w => w.id)
@@ -84,7 +87,13 @@ function NeueParzellenForm({
     fd.append('grundstueck_json', JSON.stringify(
       Array.from(selectedGSTs.entries()).map(([gst_id, weingarten_id]) => {
         const gst = (gstByWeingarten[weingarten_id] ?? []).find(g => g.id === gst_id)
-        return { gst_id, weingarten_id, flaeche_ha: gst?.flaeche_ha ?? null }
+        const data = gstData.get(gst_id)
+        return {
+          gst_id, weingarten_id, flaeche_ha: gst?.flaeche_ha ?? null,
+          menge_kg: data?.menge_kg ? parseFloat(data.menge_kg) : null,
+          kmw: data?.kmw ? parseFloat(data.kmw) : null,
+          notizen: data?.notizen || null,
+        }
       })
     ))
     startTransition(async () => {
@@ -155,19 +164,51 @@ function NeueParzellenForm({
                       </div>
                       {isExpanded && gsts.length > 0 && (
                         <div className="bg-white border-t border-s112-border/20">
-                          {gsts.map(g => (
-                            <label key={g.id} className="flex items-center gap-2 pl-10 pr-4 py-1 text-xs cursor-pointer hover:bg-s112-bg/30">
-                              <input type="checkbox"
-                                checked={selectedGSTs.has(g.id)}
-                                onChange={() => toggleGST(g.id, w.id)}
-                                className="accent-s112-teal" />
-                              <span className={`font-mono ${selectedGSTs.has(g.id) ? 'text-s112-teal font-medium' : 'text-gray-600'}`}>
-                                GST {g.gst_nr}
-                              </span>
-                              {g.rebsorte && <span className="text-s112-muted">· {g.rebsorte}</span>}
-                              {g.flaeche_ha && <span className="text-s112-muted ml-auto">{g.flaeche_ha.toFixed(4)} ha</span>}
-                            </label>
-                          ))}
+                          {gsts.map(g => {
+                            const isGstSel = selectedGSTs.has(g.id)
+                            return (
+                              <React.Fragment key={g.id}>
+                                <label className={`flex items-center gap-2 pl-10 pr-4 py-1 text-xs cursor-pointer hover:bg-s112-bg/30 ${isGstSel ? 'bg-s112-teal/5' : ''}`}>
+                                  <input type="checkbox"
+                                    checked={isGstSel}
+                                    onChange={() => toggleGST(g.id, w.id)}
+                                    className="accent-s112-teal" />
+                                  <span className={`font-mono ${isGstSel ? 'text-s112-teal font-medium' : 'text-gray-600'}`}>
+                                    GST {g.gst_nr}
+                                  </span>
+                                  {g.rebsorte && <span className="text-s112-muted">· {g.rebsorte}</span>}
+                                  {g.flaeche_ha && <span className="text-s112-muted ml-auto">{g.flaeche_ha.toFixed(4)} ha</span>}
+                                </label>
+                                {isGstSel && (
+                                  <div className="pl-10 pr-4 pb-2 pt-1 bg-s112-teal/5 border-b border-s112-border/20">
+                                    <div className="grid grid-cols-3 gap-2">
+                                      <div>
+                                        <label className="block text-xs text-gray-500 mb-0.5">Menge kg</label>
+                                        <input type="number" step="1" min="0" placeholder="–"
+                                          value={gstData.get(g.id)?.menge_kg ?? ''}
+                                          onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', notizen: '' }; n.set(g.id, { ...d, menge_kg: e.target.value }); return n })}
+                                          className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white" />
+                                      </div>
+                                      <div>
+                                        <label className="block text-xs text-gray-500 mb-0.5">°KMW</label>
+                                        <input type="number" step="0.01" min="0" placeholder="–"
+                                          value={gstData.get(g.id)?.kmw ?? ''}
+                                          onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', notizen: '' }; n.set(g.id, { ...d, kmw: e.target.value }); return n })}
+                                          className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white" />
+                                      </div>
+                                      <div>
+                                        <label className="block text-xs text-gray-500 mb-0.5">Notizen</label>
+                                        <input type="text" placeholder="–"
+                                          value={gstData.get(g.id)?.notizen ?? ''}
+                                          onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', notizen: '' }; n.set(g.id, { ...d, notizen: e.target.value }); return n })}
+                                          className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white" />
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </React.Fragment>
+                            )
+                          })}
                         </div>
                       )}
                     </div>
@@ -192,7 +233,12 @@ function NeueParzellenForm({
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Menge kg <span className="text-s112-muted font-normal">(optional, für alle Rieden gleich)</span></label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Menge kg
+            {selectedGSTs.size > 0
+              ? <span className="text-s112-muted font-normal"> (Fallback für GST ohne eigenen Wert)</span>
+              : <span className="text-s112-muted font-normal"> (anteilsmäßig auf GST aufgeteilt)</span>}
+          </label>
           <input name="menge_kg" type="number" step="1" min="0" className={inputCls} placeholder="–" />
         </div>
         <div>
@@ -430,6 +476,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
                 <tr className="bg-s112-bg border-b border-s112-border text-xs text-gray-600">
                   <th className="text-left px-3 py-2 font-semibold">Ried</th>
                   <th className="text-left px-3 py-2 font-semibold">GST</th>
+                  <th className="text-left px-3 py-2 font-semibold">Sorte</th>
                   <th className="text-left px-3 py-2 font-semibold">Datum</th>
                   <th className="text-right px-3 py-2 font-semibold">kg</th>
                   <th className="text-right px-3 py-2 font-semibold">°KMW</th>
@@ -443,9 +490,9 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
                     <tr className="border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/30">
                       <td className="px-3 py-2 font-medium text-gray-800">
                         {p.weingarten_name}
-                        {p.weingarten_rebsorte && <span className="ml-1 text-xs text-s112-muted">({p.weingarten_rebsorte})</span>}
                       </td>
                       <td className="px-3 py-2 text-xs text-s112-muted font-mono">{p.grundstueck_nr ?? '–'}</td>
+                      <td className="px-3 py-2 text-xs text-s112-muted">{p.grundstueck_rebsorte ?? p.weingarten_rebsorte ?? '–'}</td>
                       <td className="px-3 py-2 text-s112-muted">{formatDate(p.ernte_datum)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{p.menge_kg?.toLocaleString('de-AT') ?? '–'}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{p.klosterneuburger ?? '–'}</td>
@@ -467,7 +514,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
                     </tr>
                     {editId === p.id && (
                       <tr>
-                        <td colSpan={7} className="px-3 py-2">
+                        <td colSpan={8} className="px-3 py-2">
                           <ParzellForm jahrgangId={jahrgang.id} weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} parzelle={p} onDone={() => setEditId(null)} />
                         </td>
                       </tr>
@@ -477,7 +524,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
               </tbody>
               <tfoot>
                 <tr className="bg-s112-bg border-t-2 border-s112-border font-semibold text-sm">
-                  <td className="px-3 py-2 text-gray-700" colSpan={2}>Gesamt</td>
+                  <td className="px-3 py-2 text-gray-700" colSpan={3}>Gesamt</td>
                   <td className="px-3 py-2 text-right tabular-nums text-gray-800">{gesamtKg.toLocaleString('de-AT')} kg</td>
                   <td colSpan={3} className="px-3 py-2 text-xs text-s112-muted">
                     ≈ {fmtProzent(gesamtKg / 130)} hl

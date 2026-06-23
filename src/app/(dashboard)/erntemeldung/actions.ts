@@ -87,7 +87,7 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   const supabase = await createSupabaseServerClient()
   const weingartenIds = formData.getAll('weingarten_ids') as string[]
 
-  type GSTEntry = { gst_id: string; weingarten_id: string; flaeche_ha: number | null }
+  type GSTEntry = { gst_id: string; weingarten_id: string; flaeche_ha: number | null; menge_kg?: number | null; kmw?: number | null; notizen?: string | null }
   const gstJsonRaw = formData.get('grundstueck_json') as string | null
   const gstEntries: GSTEntry[] = gstJsonRaw ? JSON.parse(gstJsonRaw) : []
 
@@ -149,8 +149,16 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   for (const [wgId, wgGsts] of gstsByWG) {
     const mengen = splitKg(mengeKg, wgGsts.map(g => g.flaeche_ha))
     wgGsts.forEach((g, i) => {
-      const kg = mengen[i]
-      rows.push({ ...base, weingarten_id: wgId, grundstueck_id: g.gst_id, menge_kg: kg, menge_hl: kg ? kg / 130 : null })
+      const kg = g.menge_kg != null ? g.menge_kg : mengen[i]
+      const perKmw = g.kmw != null ? g.kmw : kmw
+      const perQualitaet = perKmw != null ? kmwZuQualitaet(perKmw) : qualitaet
+      const perNotizen = g.notizen ?? notizen
+      rows.push({
+        ...base,
+        weingarten_id: wgId, grundstueck_id: g.gst_id,
+        menge_kg: kg, menge_hl: kg ? kg / 130 : null,
+        klosterneuburger: perKmw, qualitaetsstufe: perQualitaet, notizen: perNotizen,
+      })
     })
   }
 
