@@ -80,7 +80,7 @@ export default async function ErnteDetailPage({ params }: Props) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang').eq('aktiv', true).neq('status', 'abgeschlossen').order('name'),
+      .select('id, name, jahrgang, behaelter_id').eq('aktiv', true).neq('status', 'abgeschlossen').order('name'),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('grundstuecke') as any)
@@ -191,13 +191,12 @@ export default async function ErnteDetailPage({ params }: Props) {
     verfuegbareKgByGST[gstId] = Math.max(0, (harvestedKgByGST[gstId] ?? 0) - (pressedKgByGST[gstId] ?? 0) - (soldKgByGST[gstId] ?? 0))
   }
   // Welche Behälter haben bereits eine Kellerbuch-Charge (für Verschnitt-Warnung)
+  // Direkt aus weinausbau abfragen — unabhängig von pressung_behaelter Rückverknüpfung
   const behaelterMitCharge: Record<string, { weinausbau_id: string; name: string }[]> = {}
-  for (const p of pressungen) {
-    for (const b of p.behaelter) {
-      if (b.behaelter_id && b.weinausbau_id && b.weinausbau_name) {
-        if (!behaelterMitCharge[b.behaelter_id]) behaelterMitCharge[b.behaelter_id] = []
-        behaelterMitCharge[b.behaelter_id].push({ weinausbau_id: b.weinausbau_id, name: b.weinausbau_name })
-      }
+  for (const wa of ((rawWA ?? []) as AR[])) {
+    if (wa.behaelter_id && wa.id && wa.name) {
+      if (!behaelterMitCharge[wa.behaelter_id]) behaelterMitCharge[wa.behaelter_id] = []
+      behaelterMitCharge[wa.behaelter_id].push({ weinausbau_id: wa.id, name: wa.name })
     }
   }
   const behOptions: BehOption[] = ((rawBeh ?? []) as AR[]).map(b => ({ id: b.id, name: b.name }))

@@ -410,7 +410,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
               <div key={p.id}>
                 {editId === p.id ? (
                   <PressungForm pressung={p} jahrgangId={jahrgangId} wgOptions={wgOptions}
-                    behOptions={behOptions} waOptions={waOptions} leseParzellen={[]} verfuegbareKgByGST={verfuegbareKgByGST} behaelterMitCharge={undefined} onDone={() => setEditId(null)} />
+                    behOptions={behOptions} waOptions={waOptions} leseParzellen={leseParzellen} verfuegbareKgByGST={verfuegbareKgByGST} behaelterMitCharge={undefined} onDone={() => setEditId(null)} />
                 ) : (
                   <div className="border border-s112-border rounded-xl p-3">
                     <div className="flex items-start justify-between gap-2 mb-2">

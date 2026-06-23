@@ -324,7 +324,7 @@ export async function upsertPressung(fd: FormData) {
   const jgJahr      = (jgData as AR)?.jahrgang as number | null
   const jgQualitaet = (jgData as AR)?.qualitaet_gesamt as string | null
   // KMW-abgeleitete Qualität hat Vorrang vor Jahrgangs-Qualität
-  const autoQualitaet = kmwGrad != null && !isNaN(kmwGrad) ? kmwZuQualitaet(kmwGrad) : (jgQualitaet ?? null)
+  const autoQualitaet = kmwGrad != null && !isNaN(kmwGrad) ? kmwZuQualitaet(kmwGrad) : null
 
   // Weinname ableiten: Bezeichnung > Rebsorte (wenn nur eine) > "Pressung Datum"
   const rebsortenList = weingaerten.map(w => w.rebsorte).filter(Boolean)
@@ -346,7 +346,8 @@ export async function upsertPressung(fd: FormData) {
     } else {
       // Neue Charge für diesen Behälter anlegen
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: neuWA } = await (supabase.from('weinausbau') as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: neuWA, error: waErr } = await (supabase.from('weinausbau') as any)
         .insert({
           tenant_id:       tenantId,
           name:            autoName,
@@ -359,6 +360,7 @@ export async function upsertPressung(fd: FormData) {
           aktiv:           true,
         })
         .select('id').single()
+      if (waErr) throw new Error(`Kellerbuch-Charge konnte nicht angelegt werden: ${waErr.message}`)
       if (neuWA) {
         // Rückverknüpfung: pressung_behaelter.weinausbau_id setzen
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
