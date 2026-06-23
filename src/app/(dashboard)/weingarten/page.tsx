@@ -73,11 +73,11 @@ export default async function WeingartenPage() {
           <p className="text-xs text-s112-muted mt-1">Grundstücke</p>
         </div>
         <div className="card text-center">
-          <p className="text-3xl font-bold text-s112-teal">{fmtHa(gesamtHaAma, 2)}</p>
+          <p className="text-3xl font-bold text-s112-teal">{fmtHa(gesamtHaAma)}</p>
           <p className="text-xs text-s112-muted mt-1 leading-tight">GST-Fläche<br />lt. AMA</p>
         </div>
         <div className="card text-center">
-          <p className="text-3xl font-bold text-s112-teal">{gesamtHaKataster > 0 ? fmtHa(gesamtHaKataster, 2) : '–'}</p>
+          <p className="text-3xl font-bold text-s112-teal">{gesamtHaKataster > 0 ? fmtHa(gesamtHaKataster) : '–'}</p>
           <p className="text-xs text-s112-muted mt-1 leading-tight">GST-Fläche<br />lt. Kataster</p>
         </div>
       </div>
