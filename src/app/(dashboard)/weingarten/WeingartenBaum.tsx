@@ -190,7 +190,7 @@ function LageGruppe({
         className="bg-s112-bg border-b border-s112-border cursor-pointer select-none hover:bg-s112-bg/80 transition-colors"
         onClick={() => setOpen(o => !o)}
       >
-        <td className="px-4 py-2.5" colSpan={3}>
+        <td className="px-4 py-2.5" colSpan={2}>
           <div className="flex items-center gap-2">
             <span className="text-s112-teal"><ChevronIcon open={open} /></span>
             <span className="font-semibold text-gray-900 text-sm">{ried}</span>
