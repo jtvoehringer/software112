@@ -625,6 +625,9 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
         leseParzellen={parzellen.map(p => ({
           weingarten_id: p.weingarten_id,
           weingarten_name: p.weingarten_name,
+          grundstueck_id: p.grundstueck_id,
+          grundstueck_nr: p.grundstueck_nr,
+          grundstueck_rebsorte: p.grundstueck_rebsorte,
           menge_kg: p.menge_kg,
           rebsorte: p.weingarten_rebsorte,
           klosterneuburger: p.klosterneuburger,

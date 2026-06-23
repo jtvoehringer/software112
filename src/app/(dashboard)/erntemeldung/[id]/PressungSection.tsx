@@ -24,7 +24,11 @@ export type Pressung = {
 export type WGOption  = { id: string; name: string; rebsorte: string | null }
 export type BehOption = { id: string; name: string }
 export type WAOption  = { id: string; name: string; jahrgang: number | null }
-export type LeseParzelle = { weingarten_id: string; weingarten_name: string; menge_kg: number | null; rebsorte: string | null; klosterneuburger?: number | null }
+export type LeseParzelle = {
+  weingarten_id: string; weingarten_name: string
+  grundstueck_id: string | null; grundstueck_nr: string | null; grundstueck_rebsorte: string | null
+  menge_kg: number | null; rebsorte: string | null; klosterneuburger?: number | null
+}
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────
 
@@ -36,10 +40,10 @@ const fmtDate = (d: string) =>
 
 // ── Pressung-Formular ─────────────────────────────────────────────────────────
 
-type WGRow  = { weingarten_id: string; trauben_kg: string; rebsorte: string; notizen: string }
+type WGRow  = { weingarten_id: string; grundstueck_id: string; trauben_kg: string; rebsorte: string; notizen: string }
 type BehRow = { behaelter_id: string; weinausbau_id: string; menge_liter: string; notizen: string }
 
-const emptyWG  = (): WGRow  => ({ weingarten_id: '', trauben_kg: '', rebsorte: '', notizen: '' })
+const emptyWG  = (): WGRow  => ({ weingarten_id: '', grundstueck_id: '', trauben_kg: '', rebsorte: '', notizen: '' })
 const emptyBeh = (): BehRow => ({ behaelter_id: '', weinausbau_id: '', menge_liter: '', notizen: '' })
 
 function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, leseParzellen, verfuegbareKg, onDone }: {
@@ -63,27 +67,23 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
 
   const kmwNum     = parseFloat(kmwGrad.replace(',', '.'))
   const kmwQualitaet = !isNaN(kmwNum) && kmwNum > 0 ? kmwZuQualitaet(kmwNum) : null
-  // Pre-fill aus Erntedaten: nach Weingarten gruppieren + kg summieren
+  // Pre-fill aus Erntedaten: eine Zeile pro Parzelle (GST oder Ried)
   const defaultWGRows: WGRow[] = pressung
     ? pressung.weingaerten.map(w => ({
-        weingarten_id: w.weingarten_id, trauben_kg: w.trauben_kg.toString().replace('.', ','),
+        weingarten_id: w.weingarten_id, grundstueck_id: '',
+        trauben_kg: w.trauben_kg.toString().replace('.', ','),
         rebsorte: w.rebsorte ?? '', notizen: w.notizen ?? '',
       }))
-    : leseParzellen.length > 0
-      ? (() => {
-          const grouped = new Map<string, { kg: number; rebsorte: string }>()
-          for (const p of leseParzellen) {
-            const curr = grouped.get(p.weingarten_id) ?? { kg: 0, rebsorte: p.rebsorte ?? '' }
-            curr.kg += p.menge_kg ?? 0
-            grouped.set(p.weingarten_id, curr)
-          }
-          return Array.from(grouped.entries()).map(([wg_id, v]) => ({
-            weingarten_id: wg_id,
-            trauben_kg: v.kg > 0 ? v.kg.toString().replace('.', ',') : '',
-            rebsorte: v.rebsorte,
+    : leseParzellen.filter(p => (p.menge_kg ?? 0) > 0).length > 0
+      ? leseParzellen
+          .filter(p => (p.menge_kg ?? 0) > 0)
+          .map(p => ({
+            weingarten_id: p.weingarten_id,
+            grundstueck_id: p.grundstueck_id ?? '',
+            trauben_kg: p.menge_kg!.toString().replace('.', ','),
+            rebsorte: p.grundstueck_rebsorte ?? p.rebsorte ?? '',
             notizen: '',
           }))
-        })()
       : [emptyWG()]
   const [wgRows, setWgRows] = useState<WGRow[]>(defaultWGRows)
   const [behRows, setBehRows] = useState<BehRow[]>(
@@ -98,12 +98,31 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
   const mostL    = parseFloat(mostLiter.replace(',', '.')) || 0
   const ausbeute = gesamtKg > 0 && mostL > 0 ? (mostL / gesamtKg) * 100 : null
 
-  function updateWG(i: number, field: keyof WGRow, val: string) {
-    setWgRows(rows => rows.map((r, j) => j === i ? { ...r, [field]: val } : r))
-    // Auto-fill Rebsorte wenn Weingarten gewählt
-    if (field === 'weingarten_id') {
-      const wg = wgOptions.find(w => w.id === val)
-      if (wg?.rebsorte) setWgRows(rows => rows.map((r, j) => j === i ? { ...r, weingarten_id: val, rebsorte: wg.rebsorte ?? '' } : r))
+  // GST-/Ried-Optionen aus Erntedaten: eine Option pro Parzelle
+  const gstOptionen = leseParzellen.map(p => ({
+    compositeId: `${p.weingarten_id}|${p.grundstueck_id ?? ''}`,
+    weingarten_id: p.weingarten_id,
+    grundstueck_id: p.grundstueck_id ?? '',
+    label: p.grundstueck_nr
+      ? `GST ${p.grundstueck_nr} · ${p.weingarten_name}`
+      : p.weingarten_name,
+    rebsorte: p.grundstueck_rebsorte ?? p.rebsorte ?? '',
+    menge_kg: p.menge_kg ?? 0,
+  }))
+
+  function updateWG(i: number, field: keyof WGRow | 'compositeId', val: string) {
+    if (field === 'compositeId') {
+      const opt = gstOptionen.find(o => o.compositeId === val)
+      if (opt) {
+        setWgRows(rows => rows.map((r, j) => j === i ? {
+          ...r,
+          weingarten_id: opt.weingarten_id,
+          grundstueck_id: opt.grundstueck_id,
+          rebsorte: opt.rebsorte,
+        } : r))
+      }
+    } else {
+      setWgRows(rows => rows.map((r, j) => j === i ? { ...r, [field]: val } : r))
     }
   }
   function updateBeh(i: number, field: keyof BehRow, val: string) {
@@ -195,62 +214,51 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
         </div>
       )}
 
-      {/* Gelesene Weingärten */}
+      {/* Gelesene GST */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <label className="text-xs font-semibold text-gray-700">Gelesene Weingärten</label>
+          <label className="text-xs font-semibold text-gray-700">Gelesene GST</label>
           <button type="button" onClick={() => setWgRows(r => [...r, emptyWG()])}
-            className="text-xs text-s112-teal hover:underline">＋ Weingarten</button>
+            className="text-xs text-s112-teal hover:underline">＋ GST</button>
         </div>
         <div className="space-y-1.5">
-          {wgRows.map((row, i) => (
-            <div key={i} className="grid grid-cols-12 gap-1.5 items-center">
-              <div className="col-span-5">
-                {(() => {
-                  // Effektiv verfügbar: global verfügbar + bereits in dieser Pressung verpresst (beim Edit)
-                  const effVerfuegbar = (wgId: string) => {
-                    const base = verfuegbareKg[wgId] ?? 0
-                    const alreadyInPressung = pressung?.weingaerten.find(w => w.weingarten_id === wgId)?.trauben_kg ?? 0
-                    return base + alreadyInPressung
-                  }
-                  // Nur WGs anzeigen, die geerntet wurden (in verfuegbareKg) und noch verfügbar sind
-                  // oder die in dieser Zeile bereits ausgewählt sind
-                  const filteredWGs = wgOptions.filter(w =>
-                    verfuegbareKg[w.id] !== undefined && (effVerfuegbar(w.id) > 0 || row.weingarten_id === w.id)
-                  )
-                  return (
-                    <select value={row.weingarten_id} onChange={e => updateWG(i, 'weingarten_id', e.target.value)} className={inp}>
-                      <option value="">– Ried –</option>
-                      {filteredWGs.map(w => {
-                        const verf = effVerfuegbar(w.id)
-                        return (
-                          <option key={w.id} value={w.id}>
-                            {w.name}{w.rebsorte ? ` (${w.rebsorte})` : ''} – {verf.toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg verf.
-                          </option>
-                        )
-                      })}
-                    </select>
-                  )
-                })()}
+          {wgRows.map((row, i) => {
+            const compositeId = `${row.weingarten_id}|${row.grundstueck_id}`
+            return (
+              <div key={i} className="grid grid-cols-12 gap-1.5 items-center">
+                <div className="col-span-5">
+                  <select
+                    value={row.weingarten_id ? compositeId : ''}
+                    onChange={e => updateWG(i, 'compositeId', e.target.value)}
+                    className={inp}
+                  >
+                    <option value="">– GST/Ried –</option>
+                    {gstOptionen.map(opt => (
+                      <option key={opt.compositeId} value={opt.compositeId}>
+                        {opt.label}{opt.menge_kg > 0 ? ` – ${opt.menge_kg.toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  <input type="text" inputMode="decimal" value={row.trauben_kg}
+                    onChange={e => updateWG(i, 'trauben_kg', e.target.value)}
+                    placeholder="kg" className={inp} />
+                </div>
+                <div className="col-span-3 flex items-center px-2">
+                  <span className="text-sm text-gray-600 truncate">
+                    {row.rebsorte || <span className="text-gray-400 text-xs">–</span>}
+                  </span>
+                </div>
+                <div className="col-span-2 flex justify-end">
+                  {wgRows.length > 1 && (
+                    <button type="button" onClick={() => setWgRows(r => r.filter((_, j) => j !== i))}
+                      className="text-xs text-red-400 hover:text-red-600 px-1">✕</button>
+                  )}
+                </div>
               </div>
-              <div className="col-span-2">
-                <input type="text" inputMode="decimal" value={row.trauben_kg}
-                  onChange={e => updateWG(i, 'trauben_kg', e.target.value)}
-                  placeholder="kg" className={inp} />
-              </div>
-              <div className="col-span-3 flex items-center px-2">
-                <span className="text-sm text-gray-600 truncate">
-                  {row.rebsorte || <span className="text-gray-400 text-xs">–</span>}
-                </span>
-              </div>
-              <div className="col-span-2 flex justify-end">
-                {wgRows.length > 1 && (
-                  <button type="button" onClick={() => setWgRows(r => r.filter((_, j) => j !== i))}
-                    className="text-xs text-red-400 hover:text-red-600 px-1">✕</button>
-                )}
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
