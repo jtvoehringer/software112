@@ -61,11 +61,6 @@ function GSTZeile({ gst }: { gst: GSTRow }) {
       <td className="px-3 py-2 text-xs text-right tabular-nums text-s112-muted">
         {fmtHa(gst.flaeche_ha)}
       </td>
-      <td className="px-3 py-2 text-xs text-center">
-        {!gst.spritzbar && (
-          <span className="text-xs text-gray-400 italic">Brache</span>
-        )}
-      </td>
       <td />
     </tr>
   )
@@ -131,13 +126,10 @@ function WeingartenZeile({
         <td className="px-3 py-2.5 text-sm text-right tabular-nums">
           {w.flaeche_ha != null ? fmtHa(w.flaeche_ha) : (gstHa > 0 ? fmtHa(gstHa) : '–')}
         </td>
-        <td className="px-3 py-2.5 text-center">
-          {gsts.length > 0 && (
-            <span className="text-xs text-gray-400">{gsts.length} GST</span>
-          )}
-        </td>
-        <td className="px-3 py-2.5 text-right" onClick={e => e.stopPropagation()}>
-          <div className="flex items-center justify-end gap-3">
+        <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-gray-400">{gsts.length > 0 ? gsts.length + ' GST' : ''}</span>
+            <div className="flex items-center gap-3">
             {writeOk && (
               <Link href={`/weingarten/${w.id}`} className="text-s112-teal hover:underline text-xs font-medium">
                 Bearbeiten
@@ -153,6 +145,7 @@ function WeingartenZeile({
                 Löschen
               </button>
             )}
+            </div>
           </div>
         </td>
       </tr>
@@ -204,7 +197,6 @@ function LageGruppe({
         <td className="px-4 py-2.5 text-sm text-right tabular-nums text-gray-400">{totalKatasterHa > 0 ? fmtHa(totalKatasterHa) : '–'}</td>
         <td className="px-4 py-2.5 text-sm text-right tabular-nums text-gray-500">{fmtHa(totalHa)}</td>
         <td className="px-4 py-2.5" />
-        <td className="px-4 py-2.5" />
       </tr>
 
       {open && weingaerten.map(w => (
@@ -253,8 +245,7 @@ export default function WeingartenBaum({
             <th className="text-left px-3 py-3 font-semibold text-gray-700">Rebsorte</th>
             <th className="text-right px-3 py-3 font-semibold text-gray-700 leading-tight">GST-Fläche<br />lt. Kataster</th>
             <th className="text-right px-3 py-3 font-semibold text-gray-700 leading-tight">GST-Fläche<br />lt. AMA</th>
-            <th className="text-center px-3 py-3 font-semibold text-gray-700">Details</th>
-            <th className="text-right px-3 py-3 font-semibold text-gray-700">Aktionen</th>
+            <th className="text-left px-3 py-3 font-semibold text-gray-700">GST</th>
           </tr>
         </thead>
         <tbody>
@@ -273,3 +264,4 @@ export default function WeingartenBaum({
     </div>
   )
 }
+
