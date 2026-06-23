@@ -410,7 +410,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     literByCharge[wid] = (literByCharge[wid] ?? 0) - (parseFloat(v.menge) || 0)
   }
 
-  const aktiveChargen = ((chargenRaw ?? []) as R[]).filter(c => c.aktiv && !c.ist_eroeffnungsbestand)
+  const aktiveChargen = ((chargenRaw ?? []) as R[]).filter(c => c.aktiv && !c.ist_eroeffnungsbestand && (literByCharge[c.id] ?? parseFloat(c.menge_liter) ?? 0) > 0.001)
   const aktuellDB = aktiveChargen.reduce((s: number, c: R) => s + (parseFloat(c.menge_liter) || 0), 0)
   const aktuell = finalSaldo > 0 ? finalSaldo : aktuellDB
 
