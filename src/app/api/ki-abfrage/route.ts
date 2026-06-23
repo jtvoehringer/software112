@@ -13,6 +13,8 @@ Du hilfst dem Winzer, seine eigenen Betriebsdaten in natürlicher Sprache abzufr
 
 Verfügbare Tabellen (alle automatisch nach Mandant gefiltert via RLS):
 
+weingarten: id, name, ried(Riednamen), rebsorte, weinart(rot|weiss|rose), flaeche_ha, bewirtschaftung(biodynamisch|biologisch|in_umstellung|nachhaltig|kip|konventionell), aktiv(bool) – das sind die Rieden/Weingärten des Betriebs
+grundstuecke: id, gst_nr, katastralgemeinde, rebsorte, flaeche_ha(AMA-Fläche), flaeche_ha_kataster(Katasterfläche), status(aktiv|brache|gruenbrache|gerodet), spritzbar(bool), weingarten_id – einzelne Grundstücke (GST) innerhalb einer Ried
 kontakte: id, kundennummer, vorname, nachname, segment (privat|gastro|handel|export|grosshandel), email, telefon, mobil, strasse, plz, ort, land, stammkunde(bool), is_lead(bool), sonderrabatt_pct, notizen
 firmen: id, kundennummer, name, segment, email, telefon, strasse, plz, ort, land, uid_nummer, zahlungsziel_tage, is_lead(bool), sonderrabatt_pct, notizen
 aktivitaeten: id, art(anruf|email|besuch|notiz|angebot|verkostung|messe), betreff, datum, erledigt(bool), kontakt_id, firma_id
@@ -28,13 +30,13 @@ Antworte NUR mit validem JSON, keine Erklärungen außerhalb des JSON.
 
 JSON-Format:
 {
-  "tabelle": "kontakte|firmen|verkaufsposten|fuellungen|weinausbau|behandlungen|pipeline_eintraege|lagerbewegungen",
+  "tabelle": "weingarten|grundstuecke|kontakte|firmen|verkaufsposten|fuellungen|weinausbau|behandlungen|pipeline_eintraege|lagerbewegungen",
   "filter": {
     "segment": "gastro|handel|privat|export|grosshandel (optional)",
     "ort_contains": "Stadtname (optional)",
     "plz_prefix": "12 (optional, Anfang der PLZ)",
     "land": "DE|AT|CH|IT (optional, ISO-Ländercode)",
-    "name_contains": "Querfeldein (optional, Suche im Namen – bei Wein/Füllungen: Weinname)",
+    "name_contains": "Querfeldein (optional, Suche im Namen – bei Wein/Füllungen: Weinname; bei weingarten: Ried- oder Weingartenname)",
     "jahrgang": 2025 (optional, Zahl – filtert nach Jahrgang bei fuellungen/weinausbau/lagerbewegungen),
     "is_lead": true|false (optional),
     "stammkunde": true|false (optional),
@@ -45,19 +47,26 @@ JSON-Format:
     "datum_von": "YYYY-MM-DD (optional)",
     "datum_bis": "YYYY-MM-DD (optional)",
     "bestand_min": 1 (optional, nur fuellungen),
-    "qualitaetsstufe": "spaetlese|auslese|qualitaetswein etc. (optional)"
+    "qualitaetsstufe": "spaetlese|auslese|qualitaetswein etc. (optional)",
+    "weinart": "rot|weiss|rose (optional, nur weingarten)",
+    "bewirtschaftung": "biodynamisch|biologisch|in_umstellung|nachhaltig|kip|konventionell (optional, nur weingarten)",
+    "status": "aktiv|brache|gruenbrache|gerodet (optional, nur grundstuecke)"
   },
   "sortierung": "datum_desc|name_asc|bestand_desc|ort_asc",
-  "limit": 20,
+  "limit": 50,
   "zusammenfassung": "Kurze deutsche Erklärung was angezeigt wird (1 Satz)",
   "empfehlung": "Optional: Handlungsempfehlung für den Winzer (1-2 Sätze)"
 }
 
 Wichtige Hinweise:
+- "Rieden", "Weingärten", "meine Rieden", "alle Rieden" → tabelle: "weingarten"
+- "Grundstücke", "GST", "Parzellen" → tabelle: "grundstuecke"
 - "Lagerbewegungen", "was wurde verkauft", "Verkaufshistorie" → tabelle: "lagerbewegungen"
+- "Weinausbau", "Chargen", "Ausbau" → tabelle: "weinausbau"
 - Bei Weinnamen wie "Querfeldein Weiß" → name_contains: "Querfeldein"
 - "2025" nach einem Weinnamen ist meist ein jahrgang-Filter, KEIN datum-Filter
 - Jahrgänge sind immer Zahlen (2025), keine Datum-Strings
+- Wenn "alle" gefragt werden: kein aktiv-Filter setzen (es sei denn Nutzer fragt explizit nach aktiven)
 `
 
 async function getTenantId(): Promise<string | null> {
@@ -119,6 +128,8 @@ async function executeQuery(supabase: any, params: R): Promise<R[]> {
 
   // ── Standard-Tabellen ─────────────────────────────────────────────────────
   const selectMap: Record<string, string> = {
+    weingarten:        'name, ried, rebsorte, weinart, flaeche_ha, bewirtschaftung, aktiv',
+    grundstuecke:      'gst_nr, katastralgemeinde, rebsorte, flaeche_ha, flaeche_ha_kataster, status, spritzbar, weingarten:weingarten_id(name)',
     kontakte:          'kundennummer, segment, vorname, nachname, email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, plz, ort, strasse, land, stammkunde, is_lead, notizen, firma:firma_id(name)',
     firmen:            'kundennummer, segment, name, email, telefon, plz, ort, strasse, land, uid_nummer, zahlungsziel_tage, is_lead, notizen',
     verkaufsposten:    'datum, rechnungsnummer, bezahlt, storniert, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name)',
@@ -145,11 +156,18 @@ async function executeQuery(supabase: any, params: R): Promise<R[]> {
   if (filter.qualitaetsstufe) query = query.eq('qualitaetsstufe', filter.qualitaetsstufe)
   if (filter.land) query = query.eq('land', filter.land)
   if (filter.jahrgang) query = query.eq('jahrgang', filter.jahrgang)
+  if (filter.weinart) query = query.eq('weinart', filter.weinart)
+  if (filter.bewirtschaftung) query = query.eq('bewirtschaftung', filter.bewirtschaftung)
+  if (filter.status) query = query.eq('status', filter.status)
 
-  // name_contains: table-aware (fuellungen/weinausbau haben kein nachname/vorname)
+  // name_contains: table-aware
   if (filter.name_contains) {
-    const nameOnly = ['fuellungen', 'weinausbau', 'firmen']
-    if (nameOnly.includes(tabelle)) {
+    const nameOnly = ['fuellungen', 'weinausbau', 'firmen', 'weingarten']
+    if (tabelle === 'weingarten') {
+      query = query.or(`name.ilike.%${filter.name_contains}%,ried.ilike.%${filter.name_contains}%`)
+    } else if (tabelle === 'grundstuecke') {
+      query = query.ilike('gst_nr', `%${filter.name_contains}%`)
+    } else if (nameOnly.includes(tabelle)) {
       query = query.ilike('name', `%${filter.name_contains}%`)
     } else {
       query = query.or(`nachname.ilike.%${filter.name_contains}%,vorname.ilike.%${filter.name_contains}%,name.ilike.%${filter.name_contains}%`)
@@ -159,7 +177,7 @@ async function executeQuery(supabase: any, params: R): Promise<R[]> {
   // Sortierung
   const [sortCol, sortDir] = sortierung.split('_')
   const sortColumn = sortCol === 'datum' ? 'datum'
-    : sortCol === 'name' ? (tabelle === 'firmen' || tabelle === 'fuellungen' || tabelle === 'weinausbau' ? 'name' : 'nachname')
+    : sortCol === 'name' ? (['firmen', 'fuellungen', 'weinausbau', 'weingarten'].includes(tabelle) ? 'name' : 'nachname')
     : sortCol === 'bestand' ? 'bestand_flaschen'
     : sortCol === 'ort' ? 'ort'
     : 'id'
