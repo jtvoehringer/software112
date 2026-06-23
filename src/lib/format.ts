@@ -21,7 +21,7 @@ export function fmtMenge(n: number | null | undefined): string {
  */
 export function fmtHa(n: number | null | undefined, digits = 4): string {
   if (n == null) return '–'
-  return n.toLocaleString('de-AT', { maximumFractionDigits: digits })
+  return n.toLocaleString('de-AT', { minimumFractionDigits: digits, maximumFractionDigits: digits })
 }
 
 /**
