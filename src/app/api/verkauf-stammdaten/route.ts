@@ -18,6 +18,7 @@ export async function GET() {
       { data: firmen },
       { data: sonstigeArtikel },
       { data: zukaufPosten },
+      { data: pressungDirektRaw },
     ] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('fuellungen') as any)
@@ -43,6 +44,12 @@ export async function GET() {
       (supabase.from('zukauf_posten') as any)
         .select('id, art, menge, einheit, rebsorte, jahrgang, notizen')
         .eq('aktiv', true).gt('menge', 0).order('erstellt_am', { ascending: false }),
+      // Pressung-Direktbefüllungen (noch keiner Kellerbuch-Charge zugeordnet)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('pressung_behaelter') as any)
+        .select('id, menge_liter, behaelter:behaelter_id(name), pressung:pressung_id(datum, weinbezeichnung)')
+        .is('weinausbau_id', null).gt('menge_liter', 0)
+        .order('menge_liter', { ascending: false }),
     ])
 
     return NextResponse.json({
@@ -50,6 +57,13 @@ export async function GET() {
       weinausbau:       weinausbau    ?? [],
       sonstige_artikel: sonstigeArtikel ?? [],
       zukauf_posten:    zukaufPosten  ?? [],
+      pressung_direkt:  ((pressungDirektRaw ?? []) as any[]).map((pb: any) => ({
+        id:                   pb.id,
+        menge_liter:          pb.menge_liter,
+        behaelter_name:       (pb.behaelter as any)?.name ?? null,
+        pressung_datum:       (pb.pressung as any)?.datum ?? null,
+        pressung_bezeichnung: (pb.pressung as any)?.weinbezeichnung ?? null,
+      })),
       kontakte: (kontakte ?? []).map((k: any) => ({
         ...k,
         rabatt_pct:       (k.rabattgruppe as any)?.rabatt_pct ?? null,

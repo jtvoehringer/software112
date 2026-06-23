@@ -59,6 +59,38 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, kontakte,
   }
   const wgList = Array.from(wgMap.values()).sort((a, b) => a.name.localeCompare(b.name, 'de'))
 
+  // Geerntete kg pro WG aus ernteOptions
+  const ernteKgByWG: Record<string, number> = {}
+  for (const e of ernteOptions) {
+    const wg = e.weingarten as R | null
+    if (wg) ernteKgByWG[wg.id] = (ernteKgByWG[wg.id] ?? 0) + Number(e.menge_kg ?? 0)
+  }
+  // Verkaufte kg pro WG aus bestehenden Verkäufen
+  const verkauftKgByWG: Record<string, number> = {}
+  for (const v of verkaufe) {
+    if (!editRow || v.id !== editRow.id) {
+      const wgId_ = v.weingarten_id as string | undefined
+      if (wgId_) verkauftKgByWG[wgId_] = (verkauftKgByWG[wgId_] ?? 0) + Number(v.menge_kg ?? 0)
+    }
+  }
+  const verfuegbareKgByWG = (wId: string) => Math.max(0, (ernteKgByWG[wId] ?? 0) - (verkauftKgByWG[wId] ?? 0))
+
+  // Geerntete kg pro GST aus ernteOptions
+  const ernteKgByGST: Record<string, number> = {}
+  for (const e of ernteOptions) {
+    const gst = e.grundstueck as R | null
+    if (gst) ernteKgByGST[gst.id] = (ernteKgByGST[gst.id] ?? 0) + Number(e.menge_kg ?? 0)
+  }
+  // Verkaufte kg pro GST aus bestehenden Verkäufen
+  const verkauftKgByGST: Record<string, number> = {}
+  for (const v of verkaufe) {
+    if (!editRow || v.id !== editRow.id) {
+      const gId = v.grundstueck_id as string | undefined
+      if (gId) verkauftKgByGST[gId] = (verkauftKgByGST[gId] ?? 0) + Number(v.menge_kg ?? 0)
+    }
+  }
+  const verfuegbareKgByGST = (gId: string) => Math.max(0, (ernteKgByGST[gId] ?? 0) - (verkauftKgByGST[gId] ?? 0))
+
   // GSTs für gewählte Ried
   const gstList: R[] = []
   const seenGst = new Set<string>()
@@ -238,6 +270,11 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, kontakte,
                 {ernteOptions.length === 0 && (
                   <p className="text-xs text-amber-600 mt-1">Noch keine Ernte vorhanden.</p>
                 )}
+                {wgId && (
+                  <p className="text-xs text-s112-muted mt-1">
+                    Verfügbar: <span className="font-medium text-gray-700">{verfuegbareKgByWG(wgId).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg</span>
+                  </p>
+                )}
               </div>
 
               {/* GST */}
@@ -251,6 +288,11 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, kontakte,
                     </option>
                   ))}
                 </select>
+                {gstId && (
+                  <p className="text-xs text-s112-muted mt-1">
+                    Verfügbar: <span className="font-medium text-gray-700">{verfuegbareKgByGST(gstId).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg</span>
+                  </p>
+                )}
               </div>
 
               {/* Jahrgang (abgeleitet) */}
@@ -416,46 +458,4 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, kontakte,
                           </span>
                         )}
                         {jg && <span className="text-xs text-s112-muted">JG {jg.jahrgang}</span>}
-                        {v.gesundheit === 'K' && (
-                          <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">
-                            K {'–'} Krank
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-s112-muted flex-wrap">
-                        <span className="font-semibold text-gray-700">{fmt(v.menge_kg, 0)} kg</span>
-                        {v.preis_per_kg != null && (
-                          <span>
-                            {'·'} EUR {fmt(v.preis_per_kg)}/kg{' '}
-                            <span className="font-medium text-gray-700">
-                              = EUR {fmt(Number(v.menge_kg) * Number(v.preis_per_kg), 2)}
-                            </span>
-                          </span>
-                        )}
-                        {v.kmw_grad != null && <span>{'·'} {fmt(v.kmw_grad)} KMW Grad</span>}
-                        {v.qualitaetsstufe && <span>{'·'} {v.qualitaetsstufe}</span>}
-                        {v.herkunft_code && <span className="font-mono">{'·'} {v.herkunft_code}</span>}
-                        <span>{'·'} {kaeufer}</span>
-                        {v.notizen && <span className="italic">{'·'} {v.notizen}</span>}
-                      </div>
-                    </div>
-                    {writeOk && (
-                      <div className="flex items-center gap-2 shrink-0 text-xs">
-                        <button onClick={() => openEdit(v)} className="text-s112-teal hover:underline">
-                          Bearb.
-                        </button>
-                        <button onClick={() => setDeleteConfirm(v.id)} className="text-red-400 hover:text-red-600">
-                          Löschen
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
+                        {v.gesundheit ===
