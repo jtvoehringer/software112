@@ -184,10 +184,11 @@ export default async function ErnteDetailPage({ params }: Props) {
     notizen: v.notizen ?? null,
     liefernummer: v.liefernummer ?? null,
   }))
-  // WG-Optionen für Traubenverkauf: nur trauben_verkauf=true
-  // (rawW enthält alle aktiven WGs; herkunft_code kommt von GST oder WG-Feld)
+  // WG-Optionen für Traubenverkauf: alle WGs die in diesem Jahrgang geerntet wurden
+  // (jede Lese qualifiziert automatisch für Traubenverkauf)
+  const harvestedWGIds = new Set(Object.keys(harvestedKgByWG))
   const tvWGOptions: TVWGOption[] = ((rawW ?? []) as AR[])
-    .filter((w: AR) => w.trauben_verkauf)
+    .filter((w: AR) => harvestedWGIds.has(w.id))
     .map((w: AR) => ({ id: w.id, name: w.name, herkunft_code: w.trauben_herkunft_code ?? null }))
   const tvKontaktOptions: TVKontaktOption[] = ((rawTVKontakte ?? []) as AR[]).map((k: AR) => ({
     id: k.id, name: `${k.vorname ?? ''} ${k.nachname ?? ''}`.trim(), betrieb_nr: k.betrieb_nr ?? null,

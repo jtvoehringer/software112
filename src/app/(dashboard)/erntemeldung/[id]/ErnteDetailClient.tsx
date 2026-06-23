@@ -28,54 +28,65 @@ function formatDate(d: string | null) {
   return new Date(d).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-// ── Neu-Formular: Mehrfacherfassung (Checkboxen nach Ried) ─────────────────────
+// ── Neu-Formular: Mehrfacherfassung (Checkboxen nach Ried + GST) ──────────────
 function NeueParzellenForm({
-  jahrgangId, weingaerten, onDone,
+  jahrgangId, weingaerten, gstByWeingarten, onDone,
 }: {
-  jahrgangId: string; weingaerten: WeingartenOpt[]; onDone: () => void
+  jahrgangId: string; weingaerten: WeingartenOpt[]
+  gstByWeingarten: Record<string, GSTOpt[]>; onDone: () => void
 }) {
   const [pending, startTransition] = useTransition()
   const [selectedWGs, setSelectedWGs] = useState<Set<string>>(new Set())
+  const [selectedGSTs, setSelectedGSTs] = useState<Map<string, string>>(new Map())
+  const [expandedWGs, setExpandedWGs] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [kmwNeu, setKmwNeu] = useState<number | null>(null)
   const derivedQualitaetNeu = kmwNeu != null ? kmwZuQualitaet(kmwNeu) : 'qualitaetswein'
 
-  // Weingärten nach Ried gruppieren
   const riedMap = new Map<string, WeingartenOpt[]>()
   for (const w of weingaerten) {
-    const key = w.lage_name ?? '(Keine Ried)'
+    const key = w.lage_name ?? 'Alle'
     const arr = riedMap.get(key) ?? []
     arr.push(w)
     riedMap.set(key, arr)
   }
   const rieden = Array.from(riedMap.entries()).sort(([a], [b]) => a.localeCompare(b, 'de'))
+  const totalSelCount = selectedWGs.size + selectedGSTs.size
 
-  function toggleWG(id: string) {
-    setSelectedWGs(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  function toggleExpand(wgId: string) {
+    setExpandedWGs(prev => { const n = new Set(prev); n.has(wgId) ? n.delete(wgId) : n.add(wgId); return n })
   }
-  function toggleRied(wgs: WeingartenOpt[]) {
+  function toggleWG(wgId: string) {
+    setSelectedGSTs(prev => { const n = new Map(prev); for (const [gId, wId] of n) { if (wId === wgId) n.delete(gId) } return n })
+    setSelectedWGs(prev => { const n = new Set(prev); n.has(wgId) ? n.delete(wgId) : n.add(wgId); return n })
+  }
+  function toggleGST(gstId: string, wgId: string) {
+    setSelectedWGs(prev => { const n = new Set(prev); n.delete(wgId); return n })
+    setSelectedGSTs(prev => { const n = new Map(prev); n.has(gstId) ? n.delete(gstId) : n.set(gstId, wgId); return n })
+  }
+  function toggleLage(wgs: WeingartenOpt[]) {
     const ids = wgs.map(w => w.id)
     const allSel = ids.every(id => selectedWGs.has(id))
-    setSelectedWGs(prev => {
-      const n = new Set(prev)
-      allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id))
-      return n
-    })
+    setSelectedGSTs(prev => { const n = new Map(prev); for (const [gId, wId] of n) { if (ids.includes(wId)) n.delete(gId) } return n })
+    setSelectedWGs(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n })
+  }
+  function selectAll() {
+    setSelectedGSTs(new Map())
+    setSelectedWGs(new Set(weingaerten.map(w => w.id)))
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (selectedWGs.size === 0) { setError('Bitte mindestens eine Ried auswählen.'); return }
+    if (totalSelCount === 0) { setError('Bitte mindestens eine Ried oder ein Grundstück auswählen.'); return }
     setError(null)
     const fd = new FormData(e.currentTarget)
     selectedWGs.forEach(id => fd.append('weingarten_ids', id))
+    fd.append('grundstueck_json', JSON.stringify(
+      Array.from(selectedGSTs.entries()).map(([gst_id, weingarten_id]) => ({ gst_id, weingarten_id }))
+    ))
     startTransition(async () => {
-      try {
-        await createMultipleErnteParzellen(jahrgangId, fd)
-        onDone()
-      } catch (err) {
-        setError((err as Error).message)
-      }
+      try { await createMultipleErnteParzellen(jahrgangId, fd); onDone() }
+      catch (err) { setError((err as Error).message) }
     })
   }
 
@@ -85,55 +96,92 @@ function NeueParzellenForm({
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-800">Lesedaten erfassen</h3>
-        {selectedWGs.size > 0 && (
-          <span className="text-xs text-s112-teal font-medium">{selectedWGs.size} Ried/Rieden gewählt</span>
-        )}
+        {totalSelCount > 0 && <span className="text-xs text-s112-teal font-medium">{totalSelCount} gewählt</span>}
       </div>
 
-      {/* Weingarten-Auswahl nach Ried */}
       <div className="space-y-2">
         <div className="flex items-center justify-between mb-1">
-          <label className="block text-xs font-medium text-gray-600">Weingärten <span className="text-red-500">*</span></label>
-          <button type="button" onClick={() => setSelectedWGs(new Set(weingaerten.map(w => w.id)))}
-            className="text-xs text-s112-teal hover:underline">Alle auswählen</button>
+          <label className="block text-xs font-medium text-gray-600">Rieden <span className="text-red-500">*</span></label>
+          <button type="button" onClick={selectAll} className="text-xs text-s112-teal hover:underline">Alle auswählen</button>
         </div>
-        {rieden.map(([riedName, wgs]) => {
-          const allSel = wgs.every(w => selectedWGs.has(w.id))
-          const someSel = wgs.some(w => selectedWGs.has(w.id))
+        {rieden.map(([lageName, wgs]) => {
+          const allLageSel = wgs.every(w => selectedWGs.has(w.id))
+          const someLageSel = wgs.some(w => selectedWGs.has(w.id) || [...selectedGSTs.values()].includes(w.id))
           return (
-            <div key={riedName} className="border border-s112-border rounded-lg overflow-hidden">
+            <div key={lageName} className="border border-s112-border rounded-lg overflow-hidden">
               <div className="flex items-center gap-2 px-3 py-1.5 bg-white cursor-pointer hover:bg-s112-bg/60"
-                onClick={() => toggleRied(wgs)}>
-                <input type="checkbox" readOnly checked={allSel}
-                  ref={el => { if (el) el.indeterminate = someSel && !allSel }}
+                onClick={() => toggleLage(wgs)}>
+                <input type="checkbox" readOnly checked={allLageSel}
+                  ref={el => { if (el) el.indeterminate = someLageSel && !allLageSel }}
                   className="accent-s112-teal" />
-                <span className="text-xs font-semibold text-gray-800">{riedName}</span>
-                <span className="text-xs text-s112-muted ml-1">{wgs.length} WG</span>
+                <span className="text-xs font-semibold text-gray-800">{lageName}</span>
+                <span className="text-xs text-s112-muted ml-1">{wgs.length} Rieden</span>
               </div>
               <div className="divide-y divide-s112-border/40 border-t border-s112-border/40">
-                {wgs.map(w => (
-                  <label key={w.id} className="flex items-center gap-2 px-4 py-1.5 text-xs cursor-pointer hover:bg-s112-bg/40">
-                    <input type="checkbox" checked={selectedWGs.has(w.id)} onChange={() => toggleWG(w.id)}
-                      className="accent-s112-teal" />
-                    <span className={selectedWGs.has(w.id) ? 'font-medium text-s112-teal' : 'text-gray-700'}>
-                      {w.name}
-                    </span>
-                    {w.rebsorte && <span className="text-s112-muted">({w.rebsorte})</span>}
-                  </label>
-                ))}
+                {wgs.map(w => {
+                  const gsts = gstByWeingarten[w.id] ?? []
+                  const isExpanded = expandedWGs.has(w.id)
+                  const wgSel = selectedWGs.has(w.id)
+                  const gstSelCount = gsts.filter(g => selectedGSTs.has(g.id)).length
+                  const someGstSel = gstSelCount > 0
+                  const allGstSel = gsts.length > 0 && gstSelCount === gsts.length
+                  const isActive = wgSel || someGstSel
+                  return (
+                    <div key={w.id}>
+                      <div className="flex items-center gap-2 px-4 py-1.5 hover:bg-s112-bg/40">
+                        <input type="checkbox"
+                          checked={wgSel || allGstSel}
+                          ref={el => { if (el) el.indeterminate = someGstSel && !allGstSel && !wgSel }}
+                          onChange={() => toggleWG(w.id)}
+                          className="accent-s112-teal cursor-pointer" />
+                        {gsts.length > 0 ? (
+                          <button type="button" onClick={() => toggleExpand(w.id)}
+                            className="flex items-center gap-1.5 flex-1 text-left">
+                            <svg className={`w-3 h-3 text-s112-muted transition-transform shrink-0 ${isExpanded ? 'rotate-90' : ''}`}
+                              fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                            <span className={`text-xs ${isActive ? 'font-medium text-s112-teal' : 'text-gray-700'}`}>{w.name}</span>
+                            {w.rebsorte && <span className="text-xs text-s112-muted">({w.rebsorte})</span>}
+                            <span className="text-xs text-s112-muted ml-auto">{gsts.length} GST</span>
+                          </button>
+                        ) : (
+                          <label className="flex items-center gap-1.5 flex-1 cursor-pointer">
+                            <span className={`text-xs ${isActive ? 'font-medium text-s112-teal' : 'text-gray-700'}`}>{w.name}</span>
+                            {w.rebsorte && <span className="text-xs text-s112-muted">({w.rebsorte})</span>}
+                          </label>
+                        )}
+                      </div>
+                      {isExpanded && gsts.length > 0 && (
+                        <div className="bg-white border-t border-s112-border/20">
+                          {gsts.map(g => (
+                            <label key={g.id} className="flex items-center gap-2 pl-10 pr-4 py-1 text-xs cursor-pointer hover:bg-s112-bg/30">
+                              <input type="checkbox"
+                                checked={selectedGSTs.has(g.id)}
+                                onChange={() => toggleGST(g.id, w.id)}
+                                className="accent-s112-teal" />
+                              <span className={`font-mono ${selectedGSTs.has(g.id) ? 'text-s112-teal font-medium' : 'text-gray-600'}`}>
+                                GST {g.gst_nr}
+                              </span>
+                              {g.rebsorte && <span className="text-s112-muted">· {g.rebsorte}</span>}
+                              {g.flaeche_ha && <span className="text-s112-muted ml-auto">{g.flaeche_ha.toFixed(4)} ha</span>}
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )
         })}
       </div>
 
-      {/* Gemeinsame Felder */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Ernte-Datum</label>
-          <input name="ernte_datum" type="date"
-            defaultValue={new Date().toISOString().split('T')[0]}
-            className={inputCls} />
+          <input name="ernte_datum" type="date" defaultValue={new Date().toISOString().split('T')[0]} className={inputCls} />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Lesemethode</label>
@@ -143,7 +191,7 @@ function NeueParzellenForm({
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Menge kg <span className="text-s112-muted font-normal">(optional, für alle WG gleich)</span></label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Menge kg <span className="text-s112-muted font-normal">(optional, für alle Rieden gleich)</span></label>
           <input name="menge_kg" type="number" step="1" min="0" className={inputCls} placeholder="–" />
         </div>
         <div>
@@ -168,9 +216,9 @@ function NeueParzellenForm({
       {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
 
       <div className="flex gap-2 pt-1">
-        <button type="submit" disabled={pending || selectedWGs.size === 0}
+        <button type="submit" disabled={pending || totalSelCount === 0}
           className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
-          {pending ? 'Speichert…' : `${selectedWGs.size > 0 ? `${selectedWGs.size} × ` : ''}Speichern`}
+          {pending ? 'Speichert…' : `${totalSelCount > 0 ? `${totalSelCount} × ` : ''}Speichern`}
         </button>
         <button type="button" onClick={onDone}
           className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800">
@@ -180,7 +228,6 @@ function NeueParzellenForm({
     </form>
   )
 }
-
 // ── Edit-Formular: Einzelerfassung (bestehende Parzelle bearbeiten) ─────────────
 function ParzellForm({
   jahrgangId, weingaerten, gstByWeingarten, parzelle, onDone,
@@ -207,7 +254,6 @@ function ParzellForm({
     })
   }
 
-  // Weingärten nach Lage gruppieren
   const lagenMap = new Map<string, WeingartenOpt[]>()
   for (const w of weingaerten) {
     const key = w.lage_name ?? '(Keine Lage)'
@@ -222,12 +268,9 @@ function ParzellForm({
         {parzelle ? 'Lesedaten bearbeiten' : 'Lesedaten erfassen'}
       </h3>
       {parzelle && <input type="hidden" name="existing_id" value={parzelle.id} />}
-
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            Weingarten <span className="text-red-500">*</span>
-          </label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Weingarten <span className="text-red-500">*</span></label>
           <select name="weingarten_id" required value={selWgId}
             onChange={e => { setSelWgId(e.target.value); setSelGstId('') }}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
@@ -275,7 +318,6 @@ function ParzellForm({
             defaultValue={parzelle?.menge_kg ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
-        {/* °Öchsle: in DB vorhanden, für AT-Markt ausgeblendet – nur °KMW anzeigen */}
         <input type="hidden" name="oechsle" value="" />
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">°KMW</label>
@@ -298,7 +340,6 @@ function ParzellForm({
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
       </div>
-
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending}
           className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
@@ -312,6 +353,7 @@ function ParzellForm({
     </form>
   )
 }
+
 
 // ── Hauptkomponente ─────────────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -376,7 +418,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
 
         {showForm && !editId && (
           <div className="mb-4" data-print="hide">
-            <NeueParzellenForm jahrgangId={jahrgang.id} weingaerten={weingaerten} onDone={() => setShowForm(false)} />
+            <NeueParzellenForm jahrgangId={jahrgang.id} weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} onDone={() => setShowForm(false)} />
           </div>
         )}
 
