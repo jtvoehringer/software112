@@ -62,13 +62,13 @@ interface Firma {
 }
 
 interface Position {
-  id:                   string
-  typ:                  'flasche' | 'tank' | 'sonstiges'
-  fuellung_id:          string
-  weinausbau_id:        string
-  zukauf_id:            string
+  id:            string
+  typ:           'flasche' | 'tank' | 'sonstiges'
+  fuellung_id:   string
+  weinausbau_id:         string
+  zukauf_id:             string
   pressung_behaelter_id: string
-  name:                 string
+  name:                  string
   menge:         string
   einheit:       string
   preis_brutto:  string
@@ -290,9 +290,9 @@ export default function NeuerVerkaufPage() {
 
   function newEmptyPosition(): Position {
     return {
-      id:                    crypto.randomUUID(),
-      typ:                   'flasche',
-      fuellung_id:           '',
+      id:            crypto.randomUUID(),
+      typ:           'flasche',
+      fuellung_id:   '',
       weinausbau_id:         '',
       zukauf_id:             '',
       pressung_behaelter_id: '',
@@ -366,8 +366,8 @@ export default function NeuerVerkaufPage() {
             z.jahrgang,
             z.notizen ? `(${z.notizen})` : null,
           ].filter(Boolean).join(' ')
-          next[idx].name                   = label || `Zukauf ${z.art}`
-          next[idx].einheit                = 'L'
+          next[idx].name          = label || `Zukauf ${z.art}`
+          next[idx].einheit       = 'L'
           next[idx].weinausbau_id          = ''
           next[idx].pressung_behaelter_id  = ''
         }
@@ -409,12 +409,12 @@ export default function NeuerVerkaufPage() {
     setError(null)
 
     const posForServer = positionen.map(p => ({
-      typ:                   p.typ,
-      fuellung_id:           p.fuellung_id            || null,
-      weinausbau_id:         p.weinausbau_id          || null,
+      typ:           p.typ,
+      fuellung_id:   p.fuellung_id   || null,
+      weinausbau_id: p.weinausbau_id || null,
       zukauf_id:             p.zukauf_id              || null,
       pressung_behaelter_id: p.pressung_behaelter_id || null,
-      name:                  p.name,
+      name:          p.name,
       menge:         parseFloat(p.menge) || 0,
       einheit:       p.einheit,
       preis_brutto:  parseFloat(p.preis_brutto) || null,
@@ -845,4 +845,55 @@ export default function NeuerVerkaufPage() {
                     <option value="10">10 %</option>
                     <option value="13">13 %</option>
                     <option value="20">20 %</option>
-                  </
+                  </select>
+                </div>
+              </div>
+
+              {/* Preis-Vorschau */}
+              {pos.preis_brutto !== '' && (
+                <div className="text-xs text-s112-muted text-right mt-1">
+                  {(() => {
+                    const brutto = parseFloat(pos.preis_brutto) || 0
+                    const rabatt = pos.rabatt_aktiv ? (parseFloat(pos.rabatt_pct) || 0) : 0
+                    const sonder = pos.sonderrabatt_aktiv ? (parseFloat(pos.sonderrabatt) || 0) : 0
+                    const menge  = parseFloat(pos.menge)  || 0
+                    const netto  = brutto * (1 - rabatt/100) * (1 - sonder/100)
+                    const total  = netto * menge
+                    return total > 0
+                      ? `Gesamt: ${total.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}`
+                      : null
+                  })()}
+                </div>
+              )}
+            </div>
+          ))}
+
+          <button type="button" onClick={addPosition}
+            className="w-full border-2 border-dashed border-s112-border rounded-xl py-3 text-sm text-s112-muted hover:border-s112-teal hover:text-s112-teal transition-colors">
+            + Position hinzufügen
+          </button>
+        </div>
+
+        {/* ── Notizen ── */}
+        <div className="card p-5">
+          <label className={labelCls}>Notizen</label>
+          <textarea value={notizen} onChange={e => setNotizen(e.target.value)}
+            rows={3} placeholder="Anmerkungen zur Bestellung…"
+            className={inputCls + ' w-full resize-none'} />
+        </div>
+
+        {/* ── Submit ── */}
+        <div className="flex justify-end gap-3 pb-8">
+          <Link href="/weinhandel/verkauf" className="text-sm text-s112-muted hover:text-gray-700 px-4 py-2">
+            Abbrechen
+          </Link>
+          <button type="submit" disabled={isPending}
+            className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
+            {isPending ? 'Speichern…' : 'Verkauf anlegen'}
+          </button>
+        </div>
+
+      </form>
+    </div>
+  )
+}

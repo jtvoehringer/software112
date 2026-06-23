@@ -458,4 +458,46 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, kontakte,
                           </span>
                         )}
                         {jg && <span className="text-xs text-s112-muted">JG {jg.jahrgang}</span>}
-                        {v.gesundheit ===
+                        {v.gesundheit === 'K' && (
+                          <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">
+                            K {'–'} Krank
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-s112-muted flex-wrap">
+                        <span className="font-semibold text-gray-700">{fmt(v.menge_kg, 0)} kg</span>
+                        {v.preis_per_kg != null && (
+                          <span>
+                            {'·'} EUR {fmt(v.preis_per_kg)}/kg{' '}
+                            <span className="font-medium text-gray-700">
+                              = EUR {fmt(Number(v.menge_kg) * Number(v.preis_per_kg), 2)}
+                            </span>
+                          </span>
+                        )}
+                        {v.kmw_grad != null && <span>{'·'} {fmt(v.kmw_grad)} KMW Grad</span>}
+                        {v.qualitaetsstufe && <span>{'·'} {v.qualitaetsstufe}</span>}
+                        {v.herkunft_code && <span className="font-mono">{'·'} {v.herkunft_code}</span>}
+                        <span>{'·'} {kaeufer}</span>
+                        {v.notizen && <span className="italic">{'·'} {v.notizen}</span>}
+                      </div>
+                    </div>
+                    {writeOk && (
+                      <div className="flex items-center gap-2 shrink-0 text-xs">
+                        <button onClick={() => openEdit(v)} className="text-s112-teal hover:underline">
+                          Bearb.
+                        </button>
+                        <button onClick={() => setDeleteConfirm(v.id)} className="text-red-400 hover:text-red-600">
+                          Löschen
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}

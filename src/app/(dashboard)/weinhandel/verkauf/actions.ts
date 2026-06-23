@@ -32,18 +32,18 @@ async function generateRechnungsnummer(tenantId: string): Promise<string | null>
 
 // Positions-Typ aus der Form
 interface PositionInput {
-  typ:                   'flasche' | 'tank' | 'sonstiges'
-  fuellung_id:           string | null
-  weinausbau_id:         string | null
+  typ:               'flasche' | 'tank' | 'sonstiges'
+  fuellung_id:       string | null
+  weinausbau_id:     string | null
   zukauf_id:             string | null
   pressung_behaelter_id: string | null
   name:                  string
-  menge:                 number
-  einheit:               string
-  preis_brutto:          number | null
-  rabatt_pct?:           number
-  sonderrabatt_pct?:     number
-  ust_satz?:             number
+  menge:             number
+  einheit:           string
+  preis_brutto:      number | null
+  rabatt_pct?:       number
+  sonderrabatt_pct?: number
+  ust_satz?:         number
 }
 
 // ── Verkauf anlegen ───────────────────────────────────────────────────────────
@@ -102,20 +102,20 @@ export async function createVerkauf(formData: FormData) {
 
   // 2. Positionen anlegen
   const posInserts = positionen.map(p => ({
-    tenant_id:             tenantId,
-    verkaufsposten_id:     postenId,
-    typ:                   p.typ,
-    fuellung_id:           p.fuellung_id            || null,
-    weinausbau_id:         p.weinausbau_id          || null,
+    tenant_id:         tenantId,
+    verkaufsposten_id: postenId,
+    typ:               p.typ,
+    fuellung_id:       p.fuellung_id   || null,
+    weinausbau_id:     p.weinausbau_id || null,
     zukauf_id:             p.zukauf_id              || null,
     pressung_behaelter_id: p.pressung_behaelter_id || null,
     name:                  p.name,
-    menge:                 p.menge,
-    einheit:               p.einheit || 'Stk',
-    preis_brutto:          p.preis_brutto ?? null,
-    rabatt_pct:            p.rabatt_pct ?? 0,
-    sonderrabatt_pct:      p.sonderrabatt_pct ?? 0,
-    ust_satz:              p.ust_satz ?? 13,
+    menge:             p.menge,
+    einheit:           p.einheit || 'Stk',
+    preis_brutto:      p.preis_brutto ?? null,
+    rabatt_pct:        p.rabatt_pct ?? 0,
+    sonderrabatt_pct:  p.sonderrabatt_pct ?? 0,
+    ust_satz:          p.ust_satz ?? 13,
   }))
 
   const { error: posErr } = await (supabase.from('verkauf_positionen') as any).insert(posInserts)
@@ -157,16 +157,12 @@ export async function createVerkauf(formData: FormData) {
         .update({ menge: neu })
         .eq('id', p.zukauf_id)
     } else if (p.typ === 'tank' && p.pressung_behaelter_id) {
-      // menge_liter in Pressung-Behälter dekrementieren
       const { data: pb } = await (supabase.from('pressung_behaelter') as any)
-        .select('menge_liter')
-        .eq('id', p.pressung_behaelter_id)
-        .single()
+        .select('menge_liter').eq('id', p.pressung_behaelter_id).single()
       const aktuell = parseFloat((pb as AR | null)?.menge_liter ?? '0') || 0
       const neu = Math.max(0, aktuell - p.menge)
       await (supabase.from('pressung_behaelter') as any)
-        .update({ menge_liter: neu })
-        .eq('id', p.pressung_behaelter_id)
+        .update({ menge_liter: neu }).eq('id', p.pressung_behaelter_id)
     }
   }
 
@@ -275,8 +271,7 @@ export async function stornoVerkauf(id: string) {
         .select('menge_liter').eq('id', p.pressung_behaelter_id).single()
       const aktuell = parseFloat((pb as AR | null)?.menge_liter ?? '0') || 0
       await (supabase.from('pressung_behaelter') as any)
-        .update({ menge_liter: aktuell + p.menge })
-        .eq('id', p.pressung_behaelter_id)
+        .update({ menge_liter: aktuell + p.menge }).eq('id', p.pressung_behaelter_id)
     }
   }
 
@@ -362,4 +357,37 @@ export async function createSonstigesArtikel(
 }
 
 // ── Zahlungen ─────────────────────────────────────────────────────────────────
-export async function 
+export async function createZahlung(
+  verkaufspostenId: string,
+  formData: FormData
+): Promise<void> {
+  'use server'
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  const betrag  = parseFloat((formData.get('betrag') as string || '').replace(',', '.'))
+  const art     = formData.get('art') as string
+  const datum   = formData.get('datum') as string
+  const notizen = (formData.get('notizen') as string) || null
+  if (isNaN(betrag) || betrag <= 0) throw new Error('Ungültiger Betrag')
+  const { error } = await (supabase.from('zahlungen') as any).insert({
+    tenant_id: tenantId,
+    verkaufsposten_id: verkaufspostenId,
+    betrag,
+    art,
+    datum: datum || new Date().toISOString().slice(0, 10),
+    notizen,
+  })
+  if (error) throw new Error((error as AR).message)
+  revalidatePath(`/weinhandel/verkauf/${verkaufspostenId}`)
+}
+
+export async function deleteZahlung(
+  zahlungId: string,
+  verkaufspostenId: string
+): Promise<void> {
+  'use server'
+  const supabase = await createSupabaseServerClient()
+  const { error } = await (supabase.from('zahlungen') as any).delete().eq('id', zahlungId)
+  if (error) throw new Error((error as AR).message)
+  revalidatePath(`/weinhandel/verkauf/${verkaufspostenId}`)
+}
