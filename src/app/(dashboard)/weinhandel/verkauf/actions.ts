@@ -283,7 +283,7 @@ export async function stornoVerkauf(id: string) {
 
   // Positionen laden für Rückbuchung
   const { data: posRaw } = await (supabase.from('verkauf_positionen') as any)
-    .select('typ, fuellung_id, weinausbau_id, zukauf_id, pressung_behaelter_id, menge')
+    .select('typ, fuellung_id, weinausbau_id, zukauf_id, pressung_behaelter_id, menge, traubenverkauf_id')
     .eq('verkaufsposten_id', id)
 
   const positionen = (posRaw ?? []) as AR[]
@@ -317,6 +317,16 @@ export async function stornoVerkauf(id: string) {
       const aktuell = parseFloat((pb as AR | null)?.menge_liter ?? '0') || 0
       await (supabase.from('pressung_behaelter') as any)
         .update({ menge_liter: aktuell + p.menge }).eq('id', p.pressung_behaelter_id)
+    }
+  }
+
+  // Traubenverkauf-Einträge löschen → gibt verfügbare kg wieder frei
+  for (const p of positionen) {
+    if (p.typ === 'trauben' && p.traubenverkauf_id) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('traubenverkauf') as any)
+        .delete()
+        .eq('id', p.traubenverkauf_id)
     }
   }
 
