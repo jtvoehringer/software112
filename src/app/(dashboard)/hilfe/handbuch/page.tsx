@@ -34,6 +34,7 @@ const KAPITEL: Kapitel[] = [
       { titel: 'Rabatt & Sonderrabatt', inhalt: 'Beim Anlegen einer Verkaufsposition wird Rabatt aus der Rabattgruppe und Sonderrabatt aus dem Kontakt/der Firma automatisch vorbelegt. Beide Werte können direkt in der Position geändert oder auf 0 gesetzt werden, um keinen Rabatt anzuwenden.' },
       { titel: 'Skonto', inhalt: 'Unter CRM > Kontakt/Firma kann ein Skonto-Prozentsatz hinterlegt werden. Dieser erscheint automatisch in neuen Verkäufen und wird auf der Rechnung ausgewiesen. Im Verkaufsformular ist Skonto jederzeit anpassbar.' },
       { titel: 'Teilzahlungen', inhalt: 'Im Verkaufsdetail kannst du Teilzahlungen erfassen: Betrag und Datum eingeben. Der offene Restbetrag wird automatisch aktualisiert. Der Posten gilt erst als vollständig bezahlt wenn der Gesamtbetrag beglichen ist.' },
+      { titel: 'Traubenverkauf', inhalt: 'Unter Warenwirtschaft > Verkauf > Neuer Verkauf den Positionstyp 🍇 Weintrauben (kg) wählen. Im Formular Ried auswählen – es werden nur Riede mit noch verfügbaren (nicht gepressten oder bereits verkauften) Trauben angezeigt. Das System befüllt KMW, Qualitätsstufe und Jahrgang automatisch aus der letzten Lese. Optional ein Grundstück (Parzelle) für parzellengenaue Abrechnung wählen. Menge (kg), Preis pro kg und Gesundheitszustand (G = gesund / K = krank) eintragen. Beim Speichern wird automatisch eine Liefernummer und Rechnungsnummer vergeben. Beim Stornieren werden die kg wieder als verfügbar zurückgebucht. BKI-Datenblätter unter Rieden > Traubenverkauf.' },
       { titel: 'Preislisten', inhalt: 'Unter Warenwirtschaft > Preisliste: mehrere aktive Preislisten gleichzeitig (z.B. Ab-Hof, Gastronomie, Export). Beim neuen Verkauf wählst du die passende Preisliste.' },
     ],
   },
@@ -104,7 +105,7 @@ export default function HandbuchPage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Benutzerhandbuch</h1>
-        <p className="text-sm text-s112-muted mt-1">software:112 – Weinbau-Management · Version 2.1 · Stand Juni 2026</p>
+        <p className="text-sm text-s112-muted mt-1">software:112 – Weinbau-Management · Version 2.2 · Stand Juni 2026</p>
       </div>
 
       <div className="flex gap-6">

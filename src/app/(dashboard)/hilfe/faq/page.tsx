@@ -26,6 +26,8 @@ const FAQS: FAQ[] = [
   { kategorie: 'Warenwirtschaft', frage: 'Wie erfasse ich eine Teilzahlung?', antwort: 'Im Verkaufsdetail gibt es den Bereich Zahlungen. Klick auf "Teilzahlung buchen": Betrag und Datum eingeben und speichern. Der offene Restbetrag wird sofort aktualisiert. Du kannst beliebig viele Teilzahlungen erfassen; der Posten gilt als vollständig bezahlt sobald der Gesamtbetrag erreicht ist.' },
   { kategorie: 'Warenwirtschaft', frage: 'Wie wähle ich den USt.-Satz pro Verkaufsposition?', antwort: 'Bei jeder Verkaufsposition ist der USt.-Satz einzeln wählbar (0 %, 10 %, 13 %, 20 %). Der Standard-USt.-Satz kommt aus den Mandanten-Einstellungen (Admin > Mandant > Verkauf) und wird automatisch vorbelegt – du kannst ihn aber pro Position überschreiben. Das ist nützlich wenn du z.B. Weinflaschen (13 %) und Serviceleistungen (20 %) in einer Rechnung kombinierst.' },
 
+  { kategorie: 'Warenwirtschaft', frage: 'Wie erfasse ich einen Traubenverkauf?', antwort: 'Unter Warenwirtschaft > Verkauf > Neuer Verkauf den Positionstyp 🍇 Weintrauben (kg) wählen. Ried auswählen – nur Riede mit verfügbaren Trauben (Ernte minus Pressungen minus bereits verkaufte Menge) werden angezeigt. KMW, Qualitätsstufe und Jahrgang werden automatisch aus der letzten Lese vorbelegt. Menge, Preis/kg und Gesundheit (G/K) eingeben. Beim Speichern werden Liefernummer und Rechnungsnummer automatisch vergeben.' },
+  { kategorie: 'Warenwirtschaft', frage: 'Was passiert beim Stornieren eines Traubenverkaufs?', antwort: 'Beim Stornieren wird der verknüpfte BKI-Traubenverkauf-Eintrag gelöscht und die Traubenmenge wieder als verfügbar zurückgebucht. Die kg erscheinen danach wieder in der Ried-Auswahl wenn ein neuer Verkauf angelegt wird.' },
   // E-Mail
   { kategorie: 'E-Mail', frage: 'Wie verbinde ich meine Mailbox?', antwort: 'Unter Nachrichten: "Mit Microsoft 365 verbinden" klicken und mit dem Weingut-Outlook-Konto anmelden. Jeder Benutzer verbindet sein eigenes Konto – die Verbindung ist persönlich, nicht geteilt.' },
   { kategorie: 'E-Mail', frage: 'Was ist eine Shared Mailbox und wie richte ich sie ein?', antwort: 'Eine Shared Mailbox ist eine gemeinsam genutzte E-Mail-Adresse (z.B. office@weingut.at). Unter Nachrichten > Einstellungen: Adresse eintragen und speichern. Voraussetzung: dein Exchange-Administrator muss dir "Send As"-Rechte auf die Shared Mailbox geben.' },
@@ -73,7 +75,7 @@ export default function FAQPage() {
     <div className="space-y-5 max-w-3xl">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Häufige Fragen (FAQ)</h1>
-        <p className="text-sm text-s112-muted mt-1">Antworten auf die häufigsten Fragen zu software:112 · Stand Juni 2026</p>
+        <p className="text-sm text-s112-muted mt-1">Antworten auf die häufigsten Fragen zu software:112 · Version 2.2 · Stand Juni 2026</p>
       </div>
 
       <div className="flex flex-wrap gap-3">
