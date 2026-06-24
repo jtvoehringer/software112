@@ -322,6 +322,13 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
     ? bewegungenMitSaldo[bewegungenMitSaldo.length - 1].saldo
     : hatAnfangsbestand ? anfangsbestand : aktuell
 
+  // Auto-Sync: DB-menge_liter korrigieren wenn Abweichung > 1 L
+  if (Math.abs(berechneterSaldo - aktuell) > 1) {
+    await (supabase.from('weinausbau') as any)
+      .update({ menge_liter: berechneterSaldo })
+      .eq('id', id)
+  }
+
   const st = STATUS_LABELS[weinausbau.status] ?? { label: weinausbau.status, color: 'bg-gray-100 text-gray-600' }
 
   const artIcon: Record<string, string> = {
