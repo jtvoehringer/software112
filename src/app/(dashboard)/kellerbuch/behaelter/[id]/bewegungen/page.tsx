@@ -412,7 +412,9 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
 
   const aktiveChargen = ((chargenRaw ?? []) as R[]).filter(c => c.aktiv && !c.ist_eroeffnungsbestand && (literByCharge[c.id] ?? parseFloat(c.menge_liter) ?? 0) > 0.001)
   const aktuellDB = aktiveChargen.reduce((s: number, c: R) => s + (parseFloat(c.menge_liter) || 0), 0)
-  const aktuell = finalSaldo > 0 ? finalSaldo : aktuellDB
+  // Summe aus event-basiertem literByCharge hat Vorrang vor veraltetem menge_liter
+  const literSumme = aktiveChargen.reduce((s: number, c: R) => s + Math.max(0, literByCharge[c.id] ?? 0), 0)
+  const aktuell = literSumme > 0 ? literSumme : (finalSaldo > 0 ? finalSaldo : aktuellDB)
 
   const kapazitaet = bh.volumen_liter ? parseFloat(bh.volumen_liter) : null
   const auslastung = kapazitaet && kapazitaet > 0 ? Math.min(100, (aktuell / kapazitaet) * 100) : null

@@ -27,7 +27,7 @@ export async function GET() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('weinausbau') as any)
         .select('id, name, menge_liter')
-        .eq('aktiv', true).gt('menge_liter', 0).order('name'),
+        .eq('aktiv', true).neq('status', 'abgeschlossen').gt('menge_liter', 0).order('name'),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('kontakte') as any)
         .select('id, vorname, nachname, firma_id, sonderrabatt_pct, skonto_pct, skonto_tage, rabattgruppe:rabattgruppe_id(rabatt_pct)')

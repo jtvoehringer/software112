@@ -83,6 +83,38 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
         </div>
       )}
 
+      {verschneidungen.length > 0 && (() => {
+        // Kumulierte Zusammensetzung aus allen Verschneidungen berechnen
+        const quellenMap: Record<string, { name: string; menge: number }> = {}
+        let gesamtMenge = 0
+        for (const v of verschneidungen) {
+          for (const q of ((v.quellen ?? []) as R[])) {
+            const name = (q.quelle as R | null)?.name ?? '?'
+            const id   = (q.quelle as R | null)?.id ?? name
+            const ml   = parseFloat(q.menge_liter) || 0
+            if (!quellenMap[id]) quellenMap[id] = { name, menge: 0 }
+            quellenMap[id].menge += ml
+            gesamtMenge += ml
+          }
+        }
+        const quellenliste = Object.values(quellenMap).sort((a, b) => b.menge - a.menge)
+        if (quellenliste.length === 0) return null
+        return (
+          <div className="mb-3 flex flex-wrap gap-2 items-center">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Besteht aus:</span>
+            {quellenliste.map((q, i) => {
+              const pct = gesamtMenge > 0 ? Math.round((q.menge / gesamtMenge) * 10) / 10 : 0
+              return (
+                <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-50 border border-violet-200 text-xs text-violet-800 font-medium">
+                  {q.name}
+                  <span className="text-violet-500 font-normal">{pct.toLocaleString('de-AT')} %</span>
+                </span>
+              )
+            })}
+          </div>
+        )
+      })()}
+
       {verschneidungen.length > 0 ? (
         <div className="card p-0 overflow-hidden">
           <table className="w-full text-sm">
