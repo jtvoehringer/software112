@@ -49,6 +49,7 @@ interface Weingarten {
   verfuegbar_kg: number
   kmw_grad: number | null
   qualitaetsstufe: string | null
+  jahrgang_id: string | null
 }
 
 interface Jahrgang {
@@ -64,6 +65,7 @@ interface Grundstueck {
   verfuegbar_kg: number
   kmw_grad: number | null
   qualitaetsstufe: string | null
+  jahrgang_id: string | null
 }
 
 interface Kontakt {
@@ -801,6 +803,7 @@ export default function NeuerVerkaufPage() {
                             name: wg ? `Weintrauben – ${wg.lage_name ?? wg.name}` : '',
                             trauben_kmw_grad:        wg?.kmw_grad != null ? String(wg.kmw_grad) : '',
                             trauben_qualitaetsstufe: wg?.qualitaetsstufe ?? '',
+                            trauben_jahrgang_id:     wg?.jahrgang_id ?? '',
                           })
                         }}
                         className={inputCls + ' w-full'} disabled={loading}>
@@ -822,6 +825,7 @@ export default function NeuerVerkaufPage() {
                             trauben_grundstueck_id: e.target.value,
                             ...(gst?.kmw_grad != null        ? { trauben_kmw_grad: String(gst.kmw_grad) } : {}),
                             ...(gst?.qualitaetsstufe != null ? { trauben_qualitaetsstufe: gst.qualitaetsstufe } : {}),
+                            ...(gst?.jahrgang_id != null     ? { trauben_jahrgang_id: gst.jahrgang_id }         : {}),
                           })
                         }}
                         className={inputCls + ' w-full'} disabled={loading || !pos.trauben_weingarten_id}>
@@ -859,16 +863,16 @@ export default function NeuerVerkaufPage() {
                         onChange={e => updatePos(idx, { trauben_qualitaetsstufe: e.target.value })}
                         className={inputCls + ' w-full'}>
                         <option value="">–</option>
-                        <option>Tafelwein</option>
-                        <option>Landwein</option>
-                        <option>Qualitätswein</option>
-                        <option>Kabinett</option>
-                        <option>Spätlese</option>
-                        <option>Auslese</option>
-                        <option>Beerenauslese</option>
-                        <option>Trockenbeerenauslese</option>
-                        <option>Eiswein</option>
-                        <option>Strohwein</option>
+                        <option value="tafelwein">Tafelwein</option>
+                        <option value="landwein">Landwein</option>
+                        <option value="qualitaetswein">Qualitätswein</option>
+                        <option value="kabinett">Kabinett</option>
+                        <option value="spaetlese">Spätlese</option>
+                        <option value="auslese">Auslese</option>
+                        <option value="beerenauslese">Beerenauslese</option>
+                        <option value="trockenbeerenauslese">Trockenbeerenauslese</option>
+                        <option value="eiswein">Eiswein</option>
+                        <option value="strohwein">Strohwein</option>
                       </select>
                     </div>
                     <div>

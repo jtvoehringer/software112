@@ -74,7 +74,7 @@ export async function GET() {
       // Verfügbare kg: Lesemeldungen − Pressungen − bereits verkaufte Trauben
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('ernte_parzellen') as any)
-        .select('weingarten_id, grundstueck_id, menge_kg, klosterneuburger, qualitaetsstufe, ernte_datum')
+        .select('weingarten_id, grundstueck_id, menge_kg, klosterneuburger, qualitaetsstufe, ernte_datum, jahrgang_id')
         .order('ernte_datum', { ascending: false }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('pressung_weingaerten') as any)
@@ -140,6 +140,18 @@ export async function GET() {
       }
     }
 
+    // Letztes Jahrgang pro Weingarten und GST
+    const jahrgangIdByWG: Record<string, string | null> = {}
+    const jahrgangIdByGST: Record<string, string | null> = {}
+    for (const l of parzellen) {
+      if (!(l.weingarten_id in jahrgangIdByWG)) {
+        jahrgangIdByWG[l.weingarten_id] = l.jahrgang_id ?? null
+      }
+      if (l.grundstueck_id && !(l.grundstueck_id in jahrgangIdByGST)) {
+        jahrgangIdByGST[l.grundstueck_id] = l.jahrgang_id ?? null
+      }
+    }
+
     // Weingärten: nur jene mit geerntetem Bestand anzeigen
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const weingaertenMitKg = ((weingaertenRaw ?? []) as any[])
@@ -151,6 +163,7 @@ export async function GET() {
         verfuegbar_kg:         Math.max(0, (harvestedByWG[wg.id] ?? 0) - (pressedByWG[wg.id] ?? 0) - (soldByWG[wg.id] ?? 0)),
         kmw_grad:              kmwByWG[wg.id] ?? null,
         qualitaetsstufe:       qualByWG[wg.id] ?? null,
+        jahrgang_id:           jahrgangIdByWG[wg.id] ?? null,
       }))
       .filter((wg: any) => wg.verfuegbar_kg > 0)
 
@@ -167,6 +180,7 @@ export async function GET() {
         verfuegbar_kg:   Math.max(0, (harvestedByGST[g.id] ?? 0) - (pressedByGST[g.id] ?? 0) - (soldByGST[g.id] ?? 0)),
         kmw_grad:        kmwByGST[g.id] ?? null,
         qualitaetsstufe: qualByGST[g.id] ?? null,
+        jahrgang_id:     jahrgangIdByGST[g.id] ?? null,
       }))
 
     return NextResponse.json({
