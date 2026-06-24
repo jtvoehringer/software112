@@ -448,7 +448,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
       {/* Verschneidung */}
       {writeOk && alleChargen.length > 0 && (
         <VerschneidungWidget
-          zielCharge={{ id: weinausbau.id, name: weinausbau.name, menge_liter: berechneterSaldo, qualitaetsstufe: weinausbau.qualitaetsstufe ?? null }}
+          zielCharge={{ id: weinausbau.id, name: weinausbau.name, menge_liter: berechneterSaldo, qualitaetsstufe: weinausbau.qualitaetsstufe ?? null, rebsorte: weinausbau.rebsorte ?? null }}
           alleChargen={alleChargen}
           verschneidungen={verschneidungenEin}
         />

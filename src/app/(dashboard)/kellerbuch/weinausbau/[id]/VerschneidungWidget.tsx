@@ -5,7 +5,7 @@ import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
 import { deleteVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
 import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 
-type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null }
+type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; rebsorte?: string | null }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
@@ -97,13 +97,20 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
             gesamtMenge += ml
           }
         }
+        // Ursprungs-Anteil: Menge die schon vor den Verschneidungen in der Charge war
+        const gesamtVerschnittMenge = gesamtMenge
+        const originalMenge = (zielCharge.menge_liter ?? 0) - gesamtVerschnittMenge
+        if (originalMenge > 0.5 && zielCharge.rebsorte && zielCharge.rebsorte !== 'Sortenverschnitt') {
+          quellenMap['__original__'] = { name: zielCharge.rebsorte, menge: originalMenge }
+          gesamtMenge += originalMenge
+        }
         const quellenliste = Object.values(quellenMap).sort((a, b) => b.menge - a.menge)
         if (quellenliste.length === 0) return null
         return (
           <div className="mb-3 flex flex-wrap gap-2 items-center">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Besteht aus:</span>
             {quellenliste.map((q, i) => {
-              const pct = gesamtMenge > 0 ? Math.round((q.menge / gesamtMenge) * 10) / 10 : 0
+              const pct = gesamtMenge > 0 ? Math.round((q.menge / gesamtMenge) * 1000) / 10 : 0
               return (
                 <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-50 border border-violet-200 text-xs text-violet-800 font-medium">
                   {q.name}
