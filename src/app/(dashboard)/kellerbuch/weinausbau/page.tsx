@@ -88,6 +88,12 @@ export default async function WeinausbauListePage() {
           <Link href="/kellerbuch" className="text-sm text-s112-muted hover:text-s112-teal">
             ← Kellerbuch
           </Link>
+          {writeOk && (
+            <Link href="/kellerbuch/weinausbau/neu"
+              className="btn-primary flex items-center gap-2 text-sm">
+              + Neue Charge
+            </Link>
+          )}
         </div>
       </div>
 

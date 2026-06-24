@@ -324,12 +324,24 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
     .select('jahrgang, qualitaet_gesamt').eq('id', jahrgangId).single()
   const jgJahr      = (jgData as AR)?.jahrgang as number | null
   const jgQualitaet = (jgData as AR)?.qualitaet_gesamt as string | null
-  // KMW-abgeleitete Qualität hat Vorrang vor Jahrgangs-Qualität
-  const autoQualitaet = kmwGrad != null && !isNaN(kmwGrad) ? kmwZuQualitaet(kmwGrad) : null
+  // KMW-abgeleitete Qualität hat Vorrang vor Jahrgangs-Qualität; Jahrgangs-Qualität als Fallback
+  const autoQualitaet = kmwGrad != null && !isNaN(kmwGrad) ? kmwZuQualitaet(kmwGrad) : (jgQualitaet ?? null)
 
-  // Weinname ableiten: Bezeichnung > Rebsorte (wenn nur eine) > "Pressung Datum"
-  const rebsortenList = weingaerten.map(w => w.rebsorte).filter(Boolean)
-  const dominantRebsorte = rebsortenList.length === 1 ? rebsortenList[0] ?? null : null
+  // Rebsorte ableiten: eindeutige Sorte aus Weingärten → sonst aus Weingarten-Tabelle → sonst 'Sortenverschnitt'
+  const rebsortenAusForm = weingaerten.map(w => w.rebsorte).filter((r): r is string => !!r)
+  let dominantRebsorte: string | null = null
+  if (rebsortenAusForm.length > 0) {
+    const unique = [...new Set(rebsortenAusForm)]
+    dominantRebsorte = unique.length === 1 ? unique[0] : 'Sortenverschnitt'
+  } else if (weingaerten.length > 0) {
+    // Rebsorten direkt aus der Weingarten-Tabelle nachladen
+    const wgIds = weingaerten.map(w => w.weingarten_id).filter(Boolean) as string[]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: wgRows } = await (supabase.from('weingarten') as any).select('rebsorte').in('id', wgIds)
+    const wgRebsorten = ((wgRows ?? []) as AR[]).map((w: AR) => w.rebsorte).filter(Boolean) as string[]
+    const unique = [...new Set(wgRebsorten)]
+    dominantRebsorte = unique.length === 1 ? unique[0] : unique.length > 1 ? 'Sortenverschnitt' : null
+  }
   const autoName = weinbezeichnung
     ? `${weinbezeichnung}${jgJahr ? ' ' + jgJahr : ''}`
     : dominantRebsorte
