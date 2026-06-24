@@ -258,7 +258,7 @@ export async function createOrUpdateAMAMeldung(jahrgangId: string) {
 type PressungWGInput    = { weingarten_id: string; grundstueck_id?: string | null; trauben_kg: number; rebsorte?: string; notizen?: string }
 type PressungBehInput   = { behaelter_id?: string; weinausbau_id?: string; menge_liter?: number; notizen?: string }
 
-export async function upsertPressung(fd: FormData) {
+export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_id: string; weinausbau_id: string; name: string }[] }> {
   const supabase    = await createSupabaseServerClient()
   const tenantId    = await getTenantId()
   const jahrgangId  = fd.get('jahrgang_id') as string
@@ -317,6 +317,7 @@ export async function upsertPressung(fd: FormData) {
   }
 
   // ── Auto-Weinausbau: Kellerbuch-Charge für jeden Behälter-Eintrag ──────────
+  const neuChargen: { behaelter_id: string; weinausbau_id: string; name: string }[] = []
   // Jahrgang-Jahr für Bezeichnung laden
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: jgData } = await (supabase.from('weinjahrgaenge') as any)
@@ -362,18 +363,21 @@ export async function upsertPressung(fd: FormData) {
         .select('id').single()
       if (waErr) throw new Error(`Kellerbuch-Charge konnte nicht angelegt werden: ${waErr.message}`)
       if (neuWA) {
+        const newId = (neuWA as AR).id as string
         // Rückverknüpfung: pressung_behaelter.weinausbau_id setzen
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (supabase.from('pressung_behaelter') as any)
-          .update({ weinausbau_id: (neuWA as AR).id })
+          .update({ weinausbau_id: newId })
           .eq('pressung_id', pressId)
           .eq('behaelter_id', beh.behaelter_id)
+        neuChargen.push({ behaelter_id: beh.behaelter_id, weinausbau_id: newId, name: autoName })
       }
     }
   }
 
   revalidatePath(`/erntemeldung/${jahrgangId}`)
   revalidatePath('/kellerbuch')
+  return { neu: neuChargen }
 }
 
 export async function deletePressung(id: string, jahrgangId: string) {

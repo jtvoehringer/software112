@@ -486,6 +486,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
             behaelter={behaelter}
             selectedWeingaertenIds={selectedWeingaertenIds}
             maxQualitaetsstufe={maxQualitaetsstufe}
+            vonPressung={((pressungenRaw ?? []) as R[]).length > 0}
             action={updateWeinausbau.bind(null, id)}
           />
         </section>

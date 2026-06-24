@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { upsertPressung, deletePressung } from '../actions'
 import { fmtProzent } from '@/lib/format'
 import { kmwZuQualitaet, QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -102,6 +103,13 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
   )
   const [pending, startTransition] = useTransition()
 
+  type VerschneidungData = {
+    newCharge:       { id: string; name: string }
+    existingChargen: { weinausbau_id: string; name: string }[]
+  }
+  const [verschneidung, setVerschneidung]         = useState<VerschneidungData | null>(null)
+  const [verschneidungOpen, setVerschneidungOpen] = useState(false)
+
   const gesamtKg = wgRows.reduce((s, r) => s + (parseFloat(r.trauben_kg.replace(',', '.')) || 0), 0)
   const mostL    = parseFloat(mostLiter.replace(',', '.')) || 0
   const ausbeute = gesamtKg > 0 && mostL > 0 ? (mostL / gesamtKg) * 100 : null
@@ -165,10 +173,71 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
         notizen: r.notizen || undefined,
       }))
     ))
-    startTransition(async () => { await upsertPressung(fd); onDone() })
+    startTransition(async () => {
+      const result = await upsertPressung(fd)
+      // Prüfen ob neue Charge in Behälter mit bestehenden Chargen gedrückt wurde
+      if (!pressung && behaelterMitCharge && result.neu.length > 0) {
+        const konflikt = result.neu.find(n => (behaelterMitCharge[n.behaelter_id]?.length ?? 0) > 0)
+        if (konflikt) {
+          setVerschneidung({
+            newCharge: { id: konflikt.weinausbau_id, name: konflikt.name },
+            existingChargen: behaelterMitCharge[konflikt.behaelter_id],
+          })
+          return
+        }
+      }
+      onDone()
+    })
   }
 
   const inp = "w-full border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+
+  // ── Nach dem Speichern: Verschneidungs-Prompt ─────────────────────────────
+  if (verschneidung) {
+    const alleChargen = [
+      { id: verschneidung.newCharge.id, name: verschneidung.newCharge.name, menge_liter: null },
+      ...verschneidung.existingChargen.map(c => ({ id: c.weinausbau_id, name: c.name, menge_liter: null })),
+    ]
+    if (verschneidungOpen) {
+      return (
+        <div className="bg-s112-bg border border-amber-200 rounded-xl p-4">
+          <p className="text-sm font-semibold text-gray-800 mb-3">🍷 Chargen verschneiden</p>
+          <VerschneidungForm
+            zielCharge={alleChargen[0]}
+            alleChargen={alleChargen}
+            onDone={() => { setVerschneidung(null); setVerschneidungOpen(false); onDone() }}
+          />
+        </div>
+      )
+    }
+    return (
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+        <p className="text-sm font-semibold text-amber-800">✅ Pressung gespeichert</p>
+        <p className="text-sm text-amber-700">
+          Die neue Charge <strong>{verschneidung.newCharge.name}</strong> wurde in einen
+          Behälter mit bestehenden Chargen gefüllt:
+          {' '}<strong>{verschneidung.existingChargen.map(c => c.name).join(', ')}</strong>.
+          Sollen die Weine jetzt verschnitten werden?
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setVerschneidungOpen(true)}
+            className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90"
+          >
+            Jetzt verschneiden
+          </button>
+          <button
+            type="button"
+            onClick={() => { setVerschneidung(null); onDone() }}
+            className="px-4 py-1.5 text-sm text-gray-600 hover:text-gray-800"
+          >
+            Später / Kein Verschnitt
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-4">
@@ -337,11 +406,11 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
   leseParzellen: LeseParzelle[]; verfuegbareKgByGST: Record<string, number>
   behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string }[]>; writeOk: boolean; adminOk: boolean
 }) {
-  const [showForm, setShowForm]   = useState(false)
-  const [editId, setEditId]       = useState<string | null>(null)
+  const [showForm, setShowForm]    = useState(false)
+  const [editId, setEditId]        = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
-  const gesamtKg   = pressungen.flatMap(p => p.weingaerten).reduce((s, w) => s + w.trauben_kg, 0)
+  const gesamtKg    = pressungen.flatMap(p => p.weingaerten).reduce((s, w) => s + w.trauben_kg, 0)
   const gesamtLiter = pressungen.reduce((s, p) => s + (p.most_liter_gesamt ?? 0), 0)
   const ausbeute    = gesamtKg > 0 && gesamtLiter > 0 ? (gesamtLiter / gesamtKg) * 100 : null
   const gesamtVerfuegbarKg = Object.values(verfuegbareKgByGST).reduce((s, v) => s + v, 0)
@@ -398,7 +467,8 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
       {/* Neues Formular */}
       {showForm && !editId && (
         <PressungForm jahrgangId={jahrgangId} wgOptions={wgOptions} behOptions={behOptions}
-          waOptions={waOptions} leseParzellen={leseParzellen} verfuegbareKgByGST={verfuegbareKgByGST} behaelterMitCharge={behaelterMitCharge} onDone={() => setShowForm(false)} />
+          waOptions={waOptions} leseParzellen={leseParzellen} verfuegbareKgByGST={verfuegbareKgByGST}
+          behaelterMitCharge={behaelterMitCharge} onDone={() => setShowForm(false)} />
       )}
 
       {/* Pressung-Liste */}
@@ -415,7 +485,9 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
               <div key={p.id}>
                 {editId === p.id ? (
                   <PressungForm pressung={p} jahrgangId={jahrgangId} wgOptions={wgOptions}
-                    behOptions={behOptions} waOptions={waOptions} leseParzellen={leseParzellen} verfuegbareKgByGST={verfuegbareKgByGST} behaelterMitCharge={undefined} onDone={() => setEditId(null)} />
+                    behOptions={behOptions} waOptions={waOptions} leseParzellen={leseParzellen}
+                    verfuegbareKgByGST={verfuegbareKgByGST} behaelterMitCharge={undefined}
+                    onDone={() => setEditId(null)} />
                 ) : (
                   <div className="border border-s112-border rounded-xl p-3">
                     <div className="flex items-start justify-between gap-2 mb-2">

@@ -26,9 +26,11 @@ interface Props {
   action: (formData: FormData) => Promise<void>
   /** Maximale Qualitätsstufe (von der Lese). Upgrade über diesen Wert hinaus ist gesperrt. */
   maxQualitaetsstufe?: string | null
+  /** Felder die aus der Pressung abgeleitet werden → gesperrt */
+  vonPressung?: boolean
 }
 
-export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, selectedWeingaertenIds = [], action, maxQualitaetsstufe }: Props) {
+export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, selectedWeingaertenIds = [], action, maxQualitaetsstufe, vonPressung = false }: Props) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -66,9 +68,17 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
     }
   }
 
+  const rdOnly = "form-input bg-gray-50 text-gray-500 cursor-not-allowed select-none"
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm"><strong>Fehler:</strong> {error}</div>}
+
+      {vonPressung && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-xl px-4 py-2.5 text-xs">
+          ℹ️ Grau hinterlegte Felder werden aus der Pressung abgeleitet und können hier nicht geändert werden.
+        </div>
+      )}
 
       <div className="card space-y-4">
         <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Charge</h2>
@@ -79,20 +89,48 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
           </div>
           <div>
             <label className="form-label">Jahrgang</label>
-            <input name="jahrgang" type="number" min="1900" max="2100" defaultValue={weinausbau?.jahrgang ?? new Date().getFullYear()} className="form-input" />
+            {vonPressung ? (
+              <>
+                <input type="hidden" name="jahrgang" value={weinausbau?.jahrgang ?? ''} />
+                <div className={rdOnly}>{weinausbau?.jahrgang ?? '–'}</div>
+              </>
+            ) : (
+              <input name="jahrgang" type="number" min="1900" max="2100" defaultValue={weinausbau?.jahrgang ?? new Date().getFullYear()} className="form-input" />
+            )}
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="form-label">Rebsorte</label>
-            <input name="rebsorte" type="text" list="rebsorten-kb" defaultValue={weinausbau?.rebsorte ?? ''} className="form-input" placeholder="Rebsorte" />
-            <datalist id="rebsorten-kb">{REBSORTEN.map(r => <option key={r} value={r} />)}</datalist>
+            {vonPressung ? (
+              <>
+                <input type="hidden" name="rebsorte" value={weinausbau?.rebsorte ?? ''} />
+                <div className={rdOnly}>{weinausbau?.rebsorte ?? '–'}</div>
+              </>
+            ) : (
+              <>
+                <input name="rebsorte" type="text" list="rebsorten-kb" defaultValue={weinausbau?.rebsorte ?? ''} className="form-input" placeholder="Rebsorte" />
+                <datalist id="rebsorten-kb">{REBSORTEN.map(r => <option key={r} value={r} />)}</datalist>
+              </>
+            )}
           </div>
           <div>
             <label className="form-label">Menge (Liter)</label>
-            <input name="menge_liter" type="text" inputMode="decimal"
-              defaultValue={weinausbau?.menge_liter?.toString().replace('.', ',') ?? ''}
-              className="form-input" placeholder="z.B. 1.500" />
+            {vonPressung ? (
+              <>
+                <input type="hidden" name="menge_liter" value={weinausbau?.menge_liter?.toString().replace('.', ',') ?? ''} />
+                <div className={rdOnly}>
+                  {weinausbau?.menge_liter != null
+                    ? weinausbau.menge_liter.toLocaleString('de-AT', { maximumFractionDigits: 1 })
+                    : '–'}
+                </div>
+                <p className="text-xs text-s112-muted mt-1">Wird automatisch aus dem Bewegungsbuch berechnet</p>
+              </>
+            ) : (
+              <input name="menge_liter" type="text" inputMode="decimal"
+                defaultValue={weinausbau?.menge_liter?.toString().replace('.', ',') ?? ''}
+                className="form-input" placeholder="z.B. 1.500" />
+            )}
           </div>
         </div>
 
@@ -101,7 +139,6 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
           <div>
             <label className="form-label">Qualitätsstufe</label>
             {(() => {
-              // Downgrade-Einschränkung: maximaler Rang aus aktueller Qualität der Charge ODER maxQualitaetsstufe (von Lese)
               const basisQ = weinausbau?.qualitaetsstufe ?? maxQualitaetsstufe ?? null
               const maxRang = basisQ
                 ? (QUALITAET_OPTS.find(o => o.value === basisQ)?.rang ?? 99)
@@ -141,54 +178,77 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="form-label">Rieden / Weingärten</label>
-            {/* Hidden fields: einen pro selektiertem Weingarten */}
-            {Array.from(selWg).map(id => (
-              <input key={id} type="hidden" name="weingarten_ids" value={id} />
-            ))}
-            {weingaerten.length === 0 ? (
-              <p className="text-xs text-s112-muted italic mt-1">Keine Weingärten angelegt</p>
+            {vonPressung ? (
+              <>
+                {Array.from(selWg).map(id => (
+                  <input key={id} type="hidden" name="weingarten_ids" value={id} />
+                ))}
+                <div className={rdOnly}>
+                  {selWg.size === 0
+                    ? '–'
+                    : selWg.size === 1
+                      ? weingaerten.find(w => selWg.has(w.id))?.name ?? '1 ausgewählt'
+                      : `${selWg.size} ausgewählt`}
+                </div>
+              </>
             ) : (
-              <div className="mt-1">
-                {/* Trigger-Button */}
-                <button
-                  type="button"
-                  onClick={() => setWgOpen(o => !o)}
-                  className="form-input w-full text-left flex items-center justify-between"
-                >
-                  <span className="text-sm text-gray-700">
-                    {selWg.size === 0
-                      ? '– keine Auswahl –'
-                      : selWg.size === 1
-                        ? weingaerten.find(w => selWg.has(w.id))?.name ?? '1 ausgewählt'
-                        : `${selWg.size} ausgewählt`}
-                  </span>
-                  <span className="text-s112-muted text-xs">{wgOpen ? '▲' : '▼'}</span>
-                </button>
-                {/* Aufklappbare Checkbox-Liste */}
-                {wgOpen && (
-                  <div className="border border-s112-border border-t-0 rounded-b-xl divide-y divide-s112-border/40 max-h-48 overflow-y-auto shadow-sm">
-                    {weingaerten.map(w => (
-                      <label key={w.id} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-s112-bg/60 transition-colors">
-                        <input
-                          type="checkbox"
-                          checked={selWg.has(w.id)}
-                          onChange={() => toggleWg(w.id)}
-                          className="w-4 h-4 accent-s112-teal shrink-0"
-                        />
-                        <span className="text-sm text-gray-700">{w.name}</span>
-                      </label>
-                    ))}
+              <>
+                {Array.from(selWg).map(id => (
+                  <input key={id} type="hidden" name="weingarten_ids" value={id} />
+                ))}
+                {weingaerten.length === 0 ? (
+                  <p className="text-xs text-s112-muted italic mt-1">Keine Weingärten angelegt</p>
+                ) : (
+                  <div className="mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setWgOpen(o => !o)}
+                      className="form-input w-full text-left flex items-center justify-between"
+                    >
+                      <span className="text-sm text-gray-700">
+                        {selWg.size === 0
+                          ? '– keine Auswahl –'
+                          : selWg.size === 1
+                            ? weingaerten.find(w => selWg.has(w.id))?.name ?? '1 ausgewählt'
+                            : `${selWg.size} ausgewählt`}
+                      </span>
+                      <span className="text-s112-muted text-xs">{wgOpen ? '▲' : '▼'}</span>
+                    </button>
+                    {wgOpen && (
+                      <div className="border border-s112-border border-t-0 rounded-b-xl divide-y divide-s112-border/40 max-h-48 overflow-y-auto shadow-sm">
+                        {weingaerten.map(w => (
+                          <label key={w.id} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-s112-bg/60 transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={selWg.has(w.id)}
+                              onChange={() => toggleWg(w.id)}
+                              className="w-4 h-4 accent-s112-teal shrink-0"
+                            />
+                            <span className="text-sm text-gray-700">{w.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
+              </>
             )}
           </div>
           <div>
             <label className="form-label">Behälter</label>
-            <select name="behaelter_id" defaultValue={weinausbau?.behaelter_id ?? ''} className="form-input">
-              <option value="">– kein Behälter –</option>
-              {behaelter.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
+            {vonPressung ? (
+              <>
+                <input type="hidden" name="behaelter_id" value={weinausbau?.behaelter_id ?? ''} />
+                <div className={rdOnly}>
+                  {behaelter.find(b => b.id === weinausbau?.behaelter_id)?.name ?? '–'}
+                </div>
+              </>
+            ) : (
+              <select name="behaelter_id" defaultValue={weinausbau?.behaelter_id ?? ''} className="form-input">
+                <option value="">– kein Behälter –</option>
+                {behaelter.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            )}
           </div>
         </div>
       </div>
