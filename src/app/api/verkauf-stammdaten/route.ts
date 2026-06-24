@@ -60,11 +60,10 @@ export async function GET() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('weingarten') as any)
         .select('id, name, trauben_herkunft_code, lage:lage_id(name)')
-        .eq('trauben_verkauf', true)
         .order('name'),
       // Jahrgänge
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase.from('jahrgaenge') as any)
+      (supabase.from('weinjahrgaenge') as any)
         .select('id, jahrgang')
         .order('jahrgang', { ascending: false }),
       // Grundstücke für Traubenverkauf
@@ -74,7 +73,7 @@ export async function GET() {
         .order('gst_nr'),
       // Verfügbare kg: Lesemeldungen − Pressungen − bereits verkaufte Trauben
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase.from('lesemeldungen') as any)
+      (supabase.from('ernte_parzellen') as any)
         .select('weingarten_id, grundstueck_id, menge_kg'),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('pressung_weingaerten') as any)
