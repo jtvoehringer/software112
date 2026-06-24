@@ -22,6 +22,9 @@ export async function GET() {
       { data: weingaertenRaw },
       { data: jahrgaenge },
       { data: grundstuecke },
+      { data: lesemeldungenRaw },
+      { data: pressungWGRaw },
+      { data: tvSoldRaw },
     ] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('fuellungen') as any)
@@ -53,10 +56,10 @@ export async function GET() {
         .select('id, menge_liter, behaelter:behaelter_id(name), pressung:pressung_id(datum, weinbezeichnung)')
         .is('weinausbau_id', null).gt('menge_liter', 0)
         .order('menge_liter', { ascending: false }),
-      // Weingärten für Traubenverkauf
+      // Weingärten für Traubenverkauf (mit Ried-Name)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('weingarten') as any)
-        .select('id, name, trauben_herkunft_code')
+        .select('id, name, trauben_herkunft_code, lage:lage_id(name)')
         .eq('trauben_verkauf', true)
         .order('name'),
       // Jahrgänge
@@ -69,7 +72,45 @@ export async function GET() {
       (supabase.from('grundstuecke') as any)
         .select('id, gst_nr, weingarten_id, rebsorte')
         .order('gst_nr'),
+      // Verfügbare kg: Lesemeldungen − Pressungen − bereits verkaufte Trauben
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('lesemeldungen') as any)
+        .select('weingarten_id, grundstueck_id, menge_kg'),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('pressung_weingaerten') as any)
+        .select('weingarten_id, grundstueck_id, trauben_kg'),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('traubenverkauf') as any)
+        .select('weingarten_id, grundstueck_id, menge_kg'),
     ])
+
+    // ── Verfügbare kg pro Weingarten + Grundstück berechnen ─────────────────
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const harvestedByWG: Record<string, number> = {}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const l of (lesemeldungenRaw ?? []) as any[]) {
+      if (l.menge_kg) harvestedByWG[l.weingarten_id] = (harvestedByWG[l.weingarten_id] ?? 0) + Number(l.menge_kg)
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pressedByWG: Record<string, number> = {}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const p of (pressungWGRaw ?? []) as any[]) {
+      if (p.trauben_kg) pressedByWG[p.weingarten_id] = (pressedByWG[p.weingarten_id] ?? 0) + Number(p.trauben_kg)
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const soldByWG: Record<string, number> = {}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const v of (tvSoldRaw ?? []) as any[]) {
+      soldByWG[v.weingarten_id] = (soldByWG[v.weingarten_id] ?? 0) + (parseFloat(v.menge_kg) || 0)
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const weingaertenMitKg = ((weingaertenRaw ?? []) as any[]).map((wg: any) => ({
+      id:                    wg.id,
+      name:                  wg.name,
+      lage_name:             (wg.lage as any)?.name ?? null,
+      trauben_herkunft_code: wg.trauben_herkunft_code ?? null,
+      verfuegbar_kg:         Math.max(0, (harvestedByWG[wg.id] ?? 0) - (pressedByWG[wg.id] ?? 0) - (soldByWG[wg.id] ?? 0)),
+    }))
 
     return NextResponse.json({
       fuellungen:       fuellungen    ?? [],
@@ -98,7 +139,7 @@ export async function GET() {
         skonto_pct:       parseFloat(f.skonto_pct) || 0,
         skonto_tage:      parseInt(f.skonto_tage) || 10,
       })),
-      weingaerten: (weingaertenRaw ?? []) as any[],
+      weingaerten: weingaertenMitKg,
       jahrgaenge:  (jahrgaenge ?? []) as any[],
       grundstuecke: (grundstuecke ?? []) as any[],
     })

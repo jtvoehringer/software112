@@ -44,7 +44,9 @@ interface PressungDirekt {
 interface Weingarten {
   id: string
   name: string
+  lage_name: string | null
   trauben_herkunft_code: string | null
+  verfuegbar_kg: number
 }
 
 interface Jahrgang {
@@ -661,12 +663,12 @@ export default function NeuerVerkaufPage() {
 
         {/* Positionen */}
         <div className="card p-5 space-y-4">
-          <h2 className="font-semibold text-gray-700 text-sm">Positionen</h2>
+          <h2 className="font-semibold text-gray-700 text-sm">Produkte</h2>
 
           {positionen.map((pos, idx) => (
             <div key={pos.id} className="border border-s112-border rounded-lg p-4 space-y-3 relative">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-gray-500">Position {idx + 1}</span>
+                <span className="text-xs font-semibold text-gray-500">Produkt {idx + 1}</span>
                 {positionen.length > 1 && (
                   <button type="button" onClick={() => removePosition(idx)}
                     className="text-xs text-red-400 hover:text-red-600">
@@ -693,7 +695,7 @@ export default function NeuerVerkaufPage() {
                       className="accent-s112-teal"
                     />
                     <span className="text-xs text-gray-600">
-                      {t === 'flasche' ? 'Flasche' : t === 'tank' ? 'Tank / Liter' : t === 'trauben' ? '🍇 Weintrauben (kg)' : 'Sonstiges'}
+                      {t === 'flasche' ? '🍾 Flasche' : t === 'tank' ? '🛢️ Tank / Liter' : t === 'trauben' ? '🍇 Weintrauben (kg)' : '📦 Sonstiges'}
                     </span>
                   </label>
                 ))}
@@ -783,7 +785,7 @@ export default function NeuerVerkaufPage() {
                 {pos.typ === 'trauben' && (
                   <div className="col-span-4 grid grid-cols-2 sm:grid-cols-3 gap-3 mb-1 p-3 bg-green-50 rounded-lg border border-green-100">
                     <div>
-                      <label className={labelCls}>Weingarten *</label>
+                      <label className={labelCls}>Ried *</label>
                       <select value={pos.trauben_weingarten_id}
                         onChange={e => {
                           const wg = weingaerten.find(w => w.id === e.target.value)
@@ -791,13 +793,16 @@ export default function NeuerVerkaufPage() {
                             trauben_weingarten_id: e.target.value,
                             trauben_grundstueck_id: '',
                             trauben_herkunft_code: wg?.trauben_herkunft_code ?? '',
-                            name: wg ? `Weintrauben – ${wg.name}` : '',
+                            name: wg ? `Weintrauben – ${wg.lage_name ?? wg.name}` : '',
                           })
                         }}
                         className={inputCls + ' w-full'} disabled={loading}>
                         <option value="">– bitte wählen –</option>
                         {weingaerten.map(wg => (
-                          <option key={wg.id} value={wg.id}>{wg.name}</option>
+                          <option key={wg.id} value={wg.id}>
+                            {wg.lage_name ?? wg.name}
+                            {wg.verfuegbar_kg > 0 ? ` – ${wg.verfuegbar_kg.toLocaleString('de-AT')} kg verf.` : ' – 0 kg verf.'}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -1015,7 +1020,7 @@ export default function NeuerVerkaufPage() {
 
           <button type="button" onClick={addPosition}
             className="w-full border-2 border-dashed border-s112-border rounded-xl py-3 text-sm text-s112-muted hover:border-s112-teal hover:text-s112-teal transition-colors">
-            + Position hinzufügen
+            + Produkt hinzufügen
           </button>
         </div>
 
