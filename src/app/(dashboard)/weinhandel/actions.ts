@@ -191,9 +191,28 @@ export async function schwundAusbuchen(fuellungId: string) {
 
 export async function deactivateFuellung(id: string) {
   const supabase = await createSupabaseServerClient()
+
+  // Menge + Charge lesen bevor wir deaktivieren
+  const { data: f } = await (supabase.from('fuellungen') as any)
+    .select('menge_liter_gefuellt, weinausbau_id').eq('id', id).single()
+  const menge       = parseFloat((f as AR | null)?.menge_liter_gefuellt ?? '0') || 0
+  const weinausbauId = (f as AR | null)?.weinausbau_id as string | null
+
   const { error } = await (supabase.from('fuellungen') as any)
     .update({ aktiv: false, aktualisiert_am: new Date().toISOString() })
     .eq('id', id)
   if (error) throw new Error((error as AR).message)
+
+  // Weinausbau-Bestand wiederherstellen
+  if (weinausbauId && menge > 0) {
+    const { data: wa } = await (supabase.from('weinausbau') as any)
+      .select('menge_liter').eq('id', weinausbauId).single()
+    const aktuell = parseFloat((wa as AR | null)?.menge_liter ?? '0') || 0
+    await (supabase.from('weinausbau') as any)
+      .update({ menge_liter: aktuell + menge })
+      .eq('id', weinausbauId)
+  }
+
   revalidatePath('/weinhandel')
+  revalidatePath('/kellerbuch')
 }

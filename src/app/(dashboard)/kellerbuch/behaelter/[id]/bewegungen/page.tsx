@@ -108,6 +108,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
         (supabase.from('fuellungen') as any)
           .select('id, datum, name, anzahl_flaschen, menge_liter_gefuellt, flaschengroesse_ml, pruefnummer, weinausbau_id')
           .in('weinausbau_id', chargeIdList)
+          .eq('aktiv', true)
           .order('datum', { ascending: true }),
         (supabase.from('verkauf_positionen') as any)
           .select('id, menge, einheit, weinausbau_id, verkaufsposten:verkaufsposten_id(datum, storniert)')
