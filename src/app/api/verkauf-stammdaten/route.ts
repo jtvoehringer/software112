@@ -19,6 +19,9 @@ export async function GET() {
       { data: sonstigeArtikel },
       { data: zukaufPosten },
       { data: pressungDirektRaw },
+      { data: weingaertenRaw },
+      { data: jahrgaenge },
+      { data: grundstuecke },
     ] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('fuellungen') as any)
@@ -50,6 +53,22 @@ export async function GET() {
         .select('id, menge_liter, behaelter:behaelter_id(name), pressung:pressung_id(datum, weinbezeichnung)')
         .is('weinausbau_id', null).gt('menge_liter', 0)
         .order('menge_liter', { ascending: false }),
+      // Weingärten für Traubenverkauf
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('weingarten') as any)
+        .select('id, name, trauben_herkunft_code')
+        .eq('trauben_verkauf', true)
+        .order('name'),
+      // Jahrgänge
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('jahrgaenge') as any)
+        .select('id, jahrgang')
+        .order('jahrgang', { ascending: false }),
+      // Grundstücke für Traubenverkauf
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('grundstuecke') as any)
+        .select('id, gst_nr, weingarten_id, rebsorte')
+        .order('gst_nr'),
     ])
 
     return NextResponse.json({
@@ -79,6 +98,9 @@ export async function GET() {
         skonto_pct:       parseFloat(f.skonto_pct) || 0,
         skonto_tage:      parseInt(f.skonto_tage) || 10,
       })),
+      weingaerten: (weingaertenRaw ?? []) as any[],
+      jahrgaenge:  (jahrgaenge ?? []) as any[],
+      grundstuecke: (grundstuecke ?? []) as any[],
     })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })

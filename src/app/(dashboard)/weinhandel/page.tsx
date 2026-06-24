@@ -378,59 +378,38 @@ export default async function WeinhandelPage() {
       </section>
 
 
-      {/* Traubenverkauf */}
+      {/* Traubenverkauf → jetzt über Standard-Verkaufsformular */}
       <section>
         <div className="flex items-center justify-between mb-3">
           <div>
             <h2 className="font-semibold text-gray-800">🍇 Traubenverkauf</h2>
-            <p className="text-xs text-s112-muted">Verkauf von Weintrauben gem. § 3 Weingesetz-Formularverordnung</p>
+            <p className="text-xs text-s112-muted">Verkauf von Weintrauben (§ 3 Weingesetz-Formularverordnung) – BKI-Liefernummer wird automatisch vergeben</p>
           </div>
           <Link href="/weinhandel/traubenverkauf"
-            className="text-xs bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-teal font-medium px-3 py-1.5 rounded-lg transition-colors">
-            Alle Traubenverkäufe →
+            className="text-xs text-s112-muted hover:text-s112-teal px-3 py-1.5 rounded-lg transition-colors">
+            BKI-Übersicht →
           </Link>
         </div>
-        {tvListe.length === 0 ? (
-          <div className="card text-center py-6">
-            <p className="text-sm text-s112-muted">Noch keine Traubenverkäufe erfasst.</p>
-            {writeOk && (
-              <Link href="/weinhandel/traubenverkauf"
-                className="inline-block mt-3 text-xs bg-s112-teal text-white px-4 py-1.5 rounded-lg font-medium hover:bg-opacity-90 transition-colors">
-                ＋ Traubenverkauf erfassen
-              </Link>
-            )}
+        <div className="card p-5 flex items-center gap-4">
+          <div className="text-3xl">🍇</div>
+          <div className="flex-1">
+            <p className="text-sm text-gray-700 font-medium">Traubenverkäufe laufen über das Standard-Verkaufsformular</p>
+            <p className="text-xs text-s112-muted mt-0.5">
+              Positionstyp &ldquo;Weintrauben (kg)&rdquo; auswählen → BKI-Felder (Weingarten, KMW, Gesundheit, Liefernummer) werden automatisch befüllt.
+            </p>
           </div>
-        ) : (
-          <div className="card p-0 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-s112-bg border-b border-s112-border">
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Liefernum.</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Datum</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Ried / GST</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700">Käufer</th>
-                  <th className="text-right px-4 py-3 font-semibold text-gray-700">Menge kg</th>
-                  <th className="text-right px-4 py-3 font-semibold text-gray-700">€/kg</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tvListe.map((v: R) => {
-                  const kaeufer = (v.firma as R | null)?.name ?? ([(v.kontakt as R | null)?.vorname, (v.kontakt as R | null)?.nachname].filter(Boolean).join(' ') || '–')
-                  return (
-                    <tr key={v.id} className="border-b border-s112-border last:border-0 hover:bg-s112-bg/30">
-                      <td className="px-4 py-3">
-                        {v.liefernummer && <span className="font-mono text-xs bg-s112-teal/10 text-s112-teal px-2 py-0.5 rounded-full">{v.liefernummer}</span>}
-                      </td>
-                      <td className="px-4 py-3 text-s112-muted text-xs">{new Date(v.datum).toLocaleDateString('de-AT')}</td>
-                      <td className="px-4 py-3 text-gray-800">{(v.weingarten as R | null)?.name ?? '–'}</td>
-                      <td className="px-4 py-3 text-s112-muted text-xs">{kaeufer}</td>
-                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-s112-teal">{Number(v.menge_kg).toLocaleString('de-AT')}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-s112-muted text-xs">{v.preis_per_kg != null ? Number(v.preis_per_kg).toLocaleString('de-AT', { minimumFractionDigits: 2 }) : '–'}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          {writeOk && (
+            <Link href="/weinhandel/verkauf/neu"
+              className="text-sm bg-s112-teal text-white px-4 py-2 rounded-xl font-medium hover:bg-opacity-90 transition-colors whitespace-nowrap flex-shrink-0">
+              ＋ Verkauf anlegen
+            </Link>
+          )}
+        </div>
+        {tvListe.length > 0 && (
+          <div className="mt-3 text-xs text-s112-muted text-right">
+            <Link href="/weinhandel/traubenverkauf" className="hover:text-s112-teal">
+              {tvListe.length} BKI-Lieferschein{tvListe.length !== 1 ? 'e' : ''} gesamt →
+            </Link>
           </div>
         )}
       </section>

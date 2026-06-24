@@ -32,7 +32,7 @@ async function generateRechnungsnummer(tenantId: string): Promise<string | null>
 
 // Positions-Typ aus der Form
 interface PositionInput {
-  typ:               'flasche' | 'tank' | 'sonstiges'
+  typ:               'flasche' | 'tank' | 'sonstiges' | 'trauben'
   fuellung_id:       string | null
   weinausbau_id:     string | null
   zukauf_id:             string | null
@@ -44,6 +44,14 @@ interface PositionInput {
   rabatt_pct?:       number
   sonderrabatt_pct?: number
   ust_satz?:         number
+  // Traubenverkauf-spezifische BKI-Felder
+  trauben_weingarten_id?:   string | null
+  trauben_jahrgang_id?:     string | null
+  trauben_grundstueck_id?:  string | null
+  trauben_kmw_grad?:        number | null
+  trauben_qualitaetsstufe?: string | null
+  trauben_herkunft_code?:   string | null
+  trauben_gesundheit?:      'G' | 'K'
 }
 
 // ── Verkauf anlegen ───────────────────────────────────────────────────────────
@@ -100,24 +108,61 @@ export async function createVerkauf(formData: FormData) {
 
   if (postenErr) throw new Error((postenErr as AR).message)
 
-  // 2. Positionen anlegen
-  const posInserts = positionen.map(p => ({
-    tenant_id:         tenantId,
-    verkaufsposten_id: postenId,
-    typ:               p.typ,
-    fuellung_id:       p.fuellung_id   || null,
-    weinausbau_id:     p.weinausbau_id || null,
-    zukauf_id:             p.zukauf_id              || null,
-    pressung_behaelter_id: p.pressung_behaelter_id || null,
-    name:                  p.name,
-    menge:             p.menge,
-    einheit:           p.einheit || 'Stk',
-    preis_brutto:      p.preis_brutto ?? null,
-    rabatt_pct:        p.rabatt_pct ?? 0,
-    sonderrabatt_pct:  p.sonderrabatt_pct ?? 0,
-    ust_satz:          p.ust_satz ?? 13,
-  }))
+  // 2. Positionen anlegen (bei Trauben: vorher BKI-Record anlegen)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const posInserts: any[] = []
+  for (const p of positionen) {
+    let traubenverkaufId: string | null = null
 
+    if (p.typ === 'trauben') {
+      // Liefernummer auto-generieren
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: lnData } = await (supabase.rpc as any)('get_next_liefernummer', { p_tenant_id: tenantId })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: tv, error: tvErr } = await (supabase.from('traubenverkauf') as any)
+        .insert({
+          tenant_id:       tenantId,
+          weingarten_id:   p.trauben_weingarten_id   ?? null,
+          jahrgang_id:     p.trauben_jahrgang_id      ?? null,
+          grundstueck_id:  p.trauben_grundstueck_id   ?? null,
+          kontakt_id:      kontaktId,
+          firma_id:        firmaId,
+          datum,
+          menge_kg:        p.menge,
+          preis_per_kg:    p.preis_brutto,
+          kmw_grad:        p.trauben_kmw_grad         ?? null,
+          qualitaetsstufe: p.trauben_qualitaetsstufe  ?? null,
+          herkunft_code:   p.trauben_herkunft_code    ?? null,
+          gesundheit:      p.trauben_gesundheit       ?? 'G',
+          liefernummer:    (lnData as string | null)  ?? null,
+          verkaufsposten_id: postenId,
+        })
+        .select('id')
+        .single()
+      if (tvErr) throw new Error((tvErr as AR).message)
+      traubenverkaufId = (tv as AR).id as string
+    }
+
+    posInserts.push({
+      tenant_id:             tenantId,
+      verkaufsposten_id:     postenId,
+      typ:                   p.typ,
+      fuellung_id:           p.fuellung_id            || null,
+      weinausbau_id:         p.weinausbau_id          || null,
+      zukauf_id:             p.zukauf_id              || null,
+      pressung_behaelter_id: p.pressung_behaelter_id  || null,
+      traubenverkauf_id:     traubenverkaufId,
+      name:                  p.name,
+      menge:                 p.menge,
+      einheit:               p.einheit || 'Stk',
+      preis_brutto:          p.preis_brutto ?? null,
+      rabatt_pct:            p.rabatt_pct ?? 0,
+      sonderrabatt_pct:      p.sonderrabatt_pct ?? 0,
+      ust_satz:              p.ust_satz ?? 13,
+    })
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error: posErr } = await (supabase.from('verkauf_positionen') as any).insert(posInserts)
   if (posErr) throw new Error((posErr as AR).message)
 

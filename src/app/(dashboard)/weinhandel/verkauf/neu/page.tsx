@@ -41,6 +41,24 @@ interface PressungDirekt {
   pressung_bezeichnung: string | null
 }
 
+interface Weingarten {
+  id: string
+  name: string
+  trauben_herkunft_code: string | null
+}
+
+interface Jahrgang {
+  id: string
+  jahrgang: number
+}
+
+interface Grundstueck {
+  id: string
+  gst_nr: string
+  weingarten_id: string
+  rebsorte: string | null
+}
+
 interface Kontakt {
   id: string
   vorname: string | null
@@ -63,7 +81,7 @@ interface Firma {
 
 interface Position {
   id:            string
-  typ:           'flasche' | 'tank' | 'sonstiges'
+  typ:           'flasche' | 'tank' | 'sonstiges' | 'trauben'
   fuellung_id:   string
   weinausbau_id:         string
   zukauf_id:             string
@@ -77,6 +95,14 @@ interface Position {
   sonderrabatt:  string
   sonderrabatt_aktiv: boolean
   ust_satz:           string
+  // Traubenverkauf BKI-Felder
+  trauben_weingarten_id:   string
+  trauben_jahrgang_id:     string
+  trauben_grundstueck_id:  string
+  trauben_kmw_grad:        string
+  trauben_qualitaetsstufe: string
+  trauben_herkunft_code:   string
+  trauben_gesundheit:      'G' | 'K'
 }
 
 const FLASCHEN_LABEL: Record<number, string> = {
@@ -270,6 +296,9 @@ export default function NeuerVerkaufPage() {
   const [kontakte,        setKontakte]        = useState<Kontakt[]>([])
   const [firmen,          setFirmen]          = useState<Firma[]>([])
   const [sonstigeArtikel, setSonstigeArtikel] = useState<SonstigesArtikelData[]>([])
+  const [weingaerten,     setWeingaerten]     = useState<Weingarten[]>([])
+  const [jahrgaenge,      setJahrgaenge]      = useState<Jahrgang[]>([])
+  const [grundstuecke,    setGrundstuecke]    = useState<Grundstueck[]>([])
   const [loading,         setLoading]         = useState(true)
   const [ustStandard,     setUstStandard]     = useState(13)
 
@@ -305,6 +334,13 @@ export default function NeuerVerkaufPage() {
       sonderrabatt:  '0',
       sonderrabatt_aktiv: false,
       ust_satz:           '13',
+      trauben_weingarten_id:   '',
+      trauben_jahrgang_id:     '',
+      trauben_grundstueck_id:  '',
+      trauben_kmw_grad:        '',
+      trauben_qualitaetsstufe: '',
+      trauben_herkunft_code:   '',
+      trauben_gesundheit:      'G',
     }
   }
 
@@ -321,6 +357,9 @@ export default function NeuerVerkaufPage() {
         setKontakte(json.kontakte ?? [])
         setFirmen(json.firmen ?? [])
         setSonstigeArtikel(json.sonstige_artikel ?? [])
+        setWeingaerten(json.weingaerten ?? [])
+        setJahrgaenge(json.jahrgaenge ?? [])
+        setGrundstuecke(json.grundstuecke ?? [])
         const ust = json.ust_satz_standard ?? 13
         setUstStandard(ust)
         setPositionen([{ ...newEmptyPosition(), ust_satz: String(ust), rabatt_aktiv: false }])
@@ -421,6 +460,13 @@ export default function NeuerVerkaufPage() {
       rabatt_pct:       p.rabatt_aktiv ? (parseFloat(p.rabatt_pct) || 0) : 0,
       sonderrabatt_pct: p.sonderrabatt_aktiv ? (parseFloat(p.sonderrabatt) || 0) : 0,
       ust_satz:         parseFloat(p.ust_satz) || ustStandard,
+      trauben_weingarten_id:   p.trauben_weingarten_id   || null,
+      trauben_jahrgang_id:     p.trauben_jahrgang_id     || null,
+      trauben_grundstueck_id:  p.trauben_grundstueck_id  || null,
+      trauben_kmw_grad:        parseFloat(p.trauben_kmw_grad) || null,
+      trauben_qualitaetsstufe: p.trauben_qualitaetsstufe || null,
+      trauben_herkunft_code:   p.trauben_herkunft_code   || null,
+      trauben_gesundheit:      p.trauben_gesundheit       || 'G',
     }))
 
     if (!kontaktId && !firmaId) {
@@ -429,6 +475,10 @@ export default function NeuerVerkaufPage() {
     }
     if (posForServer.some(p => !p.name || p.menge <= 0)) {
       setError('Alle Positionen benötigen einen Namen und eine Menge > 0.')
+      return
+    }
+    if (posForServer.some(p => p.typ === 'trauben' && !p.trauben_weingarten_id)) {
+      setError('Bitte Weingarten für alle Trauben-Positionen auswählen.')
       return
     }
 
@@ -626,8 +676,8 @@ export default function NeuerVerkaufPage() {
               </div>
 
               {/* Typ */}
-              <div className="flex gap-3">
-                {(['flasche', 'tank', 'sonstiges'] as const).map(t => (
+              <div className="flex gap-3 flex-wrap">
+                {(['flasche', 'tank', 'sonstiges', 'trauben'] as const).map(t => (
                   <label key={t} className="flex items-center gap-1.5 cursor-pointer">
                     <input type="radio" name={`typ-${pos.id}`} value={t}
                       checked={pos.typ === t}
@@ -637,12 +687,13 @@ export default function NeuerVerkaufPage() {
                         weinausbau_id: '',
                         zukauf_id: '',
                         name: '',
-                        einheit: t === 'tank' ? 'L' : 'Stk',
+                        einheit: t === 'tank' ? 'L' : t === 'trauben' ? 'kg' : 'Stk',
+                        ust_satz: t === 'trauben' ? '13' : pos.ust_satz,
                       })}
                       className="accent-s112-teal"
                     />
-                    <span className="text-xs capitalize text-gray-600">
-                      {t === 'flasche' ? 'Flasche' : t === 'tank' ? 'Tank / Liter' : 'Sonstiges'}
+                    <span className="text-xs text-gray-600">
+                      {t === 'flasche' ? 'Flasche' : t === 'tank' ? 'Tank / Liter' : t === 'trauben' ? '🍇 Weintrauben (kg)' : 'Sonstiges'}
                     </span>
                   </label>
                 ))}
@@ -728,6 +779,91 @@ export default function NeuerVerkaufPage() {
                   </div>
                 )}
 
+                {/* Trauben-Felder */}
+                {pos.typ === 'trauben' && (
+                  <div className="col-span-4 grid grid-cols-2 sm:grid-cols-3 gap-3 mb-1 p-3 bg-green-50 rounded-lg border border-green-100">
+                    <div>
+                      <label className={labelCls}>Weingarten *</label>
+                      <select value={pos.trauben_weingarten_id}
+                        onChange={e => {
+                          const wg = weingaerten.find(w => w.id === e.target.value)
+                          updatePos(idx, {
+                            trauben_weingarten_id: e.target.value,
+                            trauben_grundstueck_id: '',
+                            trauben_herkunft_code: wg?.trauben_herkunft_code ?? '',
+                            name: wg ? `Weintrauben – ${wg.name}` : '',
+                          })
+                        }}
+                        className={inputCls + ' w-full'} disabled={loading}>
+                        <option value="">– bitte wählen –</option>
+                        {weingaerten.map(wg => (
+                          <option key={wg.id} value={wg.id}>{wg.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelCls}>Grundstück</label>
+                      <select value={pos.trauben_grundstueck_id}
+                        onChange={e => updatePos(idx, { trauben_grundstueck_id: e.target.value })}
+                        className={inputCls + ' w-full'} disabled={loading || !pos.trauben_weingarten_id}>
+                        <option value="">– alle –</option>
+                        {grundstuecke
+                          .filter(g => g.weingarten_id === pos.trauben_weingarten_id)
+                          .map(g => (
+                            <option key={g.id} value={g.id}>
+                              GST {g.gst_nr}{g.rebsorte ? ` – ${g.rebsorte}` : ''}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelCls}>Jahrgang</label>
+                      <select value={pos.trauben_jahrgang_id}
+                        onChange={e => updatePos(idx, { trauben_jahrgang_id: e.target.value })}
+                        className={inputCls + ' w-full'} disabled={loading}>
+                        <option value="">–</option>
+                        {jahrgaenge.map(j => (
+                          <option key={j.id} value={j.id}>{j.jahrgang}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelCls}>KMW (°Kl.)</label>
+                      <input type="number" value={pos.trauben_kmw_grad}
+                        onChange={e => updatePos(idx, { trauben_kmw_grad: e.target.value })}
+                        step="0.1" min={0} placeholder="z.B. 17.5"
+                        className={inputCls + ' w-full'} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Qualitätsstufe</label>
+                      <select value={pos.trauben_qualitaetsstufe}
+                        onChange={e => updatePos(idx, { trauben_qualitaetsstufe: e.target.value })}
+                        className={inputCls + ' w-full'}>
+                        <option value="">–</option>
+                        <option>Tafelwein</option>
+                        <option>Landwein</option>
+                        <option>Qualitätswein</option>
+                        <option>Kabinett</option>
+                        <option>Spätlese</option>
+                        <option>Auslese</option>
+                        <option>Beerenauslese</option>
+                        <option>Trockenbeerenauslese</option>
+                        <option>Eiswein</option>
+                        <option>Strohwein</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelCls}>Gesundheit</label>
+                      <select value={pos.trauben_gesundheit}
+                        onChange={e => updatePos(idx, { trauben_gesundheit: e.target.value as 'G' | 'K' })}
+                        className={inputCls + ' w-full'}>
+                        <option value="G">G – Gesund</option>
+                        <option value="K">K – Krank</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
                 {/* Bezeichnung */}
                 <div className="col-span-2">
                   <label className={labelCls}>Bezeichnung *</label>
@@ -748,6 +884,11 @@ export default function NeuerVerkaufPage() {
                       }}
                       disabled={loading}
                     />
+                  ) : pos.typ === 'trauben' ? (
+                    <input type="text" value={pos.name}
+                      onChange={e => updatePos(idx, { name: e.target.value })}
+                      placeholder="Auto-befüllt aus Weingarten"
+                      className={inputCls + ' w-full bg-gray-50'} />
                   ) : (
                     <input type="text" value={pos.name}
                       onChange={e => updatePos(idx, { name: e.target.value })}
@@ -762,23 +903,27 @@ export default function NeuerVerkaufPage() {
                   <input type="number" value={pos.menge}
                     onChange={e => updatePos(idx, { menge: e.target.value })}
                     required
-                    min={pos.typ === 'tank' ? 0.01 : 1}
-                    step={pos.typ === 'tank' ? '0.01' : '1'}
+                    min={pos.typ === 'tank' || pos.typ === 'trauben' ? 0.01 : 1}
+                    step={pos.typ === 'tank' || pos.typ === 'trauben' ? '0.01' : '1'}
                     className={inputCls + ' w-full'} />
                 </div>
 
                 {/* Einheit */}
                 <div>
                   <label className={labelCls}>Einheit</label>
-                  <select value={pos.einheit}
-                    onChange={e => updatePos(idx, { einheit: e.target.value })}
-                    className={inputCls + ' w-full'}>
-                    <option>Stk</option>
-                    <option>L</option>
-                    <option>Karton</option>
-                    <option>Flasche</option>
-                    <option>Pauschal</option>
-                  </select>
+                  {pos.typ === 'trauben' ? (
+                    <div className={inputCls + ' w-full bg-gray-50 text-gray-500'}>kg</div>
+                  ) : (
+                    <select value={pos.einheit}
+                      onChange={e => updatePos(idx, { einheit: e.target.value })}
+                      className={inputCls + ' w-full'}>
+                      <option>Stk</option>
+                      <option>L</option>
+                      <option>Karton</option>
+                      <option>Flasche</option>
+                      <option>Pauschal</option>
+                    </select>
+                  )}
                 </div>
 
                 {/* Preis */}
