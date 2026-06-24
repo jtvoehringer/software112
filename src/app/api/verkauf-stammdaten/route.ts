@@ -85,31 +85,67 @@ export async function GET() {
 
     // ── Verfügbare kg pro Weingarten + Grundstück berechnen ─────────────────
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const harvestedByWG: Record<string, number> = {}
+    const parzellen = (lesemeldungenRaw ?? []) as any[]
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const l of (lesemeldungenRaw ?? []) as any[]) {
+    const pressungWG = (pressungWGRaw ?? []) as any[]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tvSold = (tvSoldRaw ?? []) as any[]
+
+    // Pro Weingarten
+    const harvestedByWG: Record<string, number> = {}
+    for (const l of parzellen) {
       if (l.menge_kg) harvestedByWG[l.weingarten_id] = (harvestedByWG[l.weingarten_id] ?? 0) + Number(l.menge_kg)
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pressedByWG: Record<string, number> = {}
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const p of (pressungWGRaw ?? []) as any[]) {
+    for (const p of pressungWG) {
       if (p.trauben_kg) pressedByWG[p.weingarten_id] = (pressedByWG[p.weingarten_id] ?? 0) + Number(p.trauben_kg)
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const soldByWG: Record<string, number> = {}
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const v of (tvSoldRaw ?? []) as any[]) {
+    for (const v of tvSold) {
       soldByWG[v.weingarten_id] = (soldByWG[v.weingarten_id] ?? 0) + (parseFloat(v.menge_kg) || 0)
     }
+
+    // Pro Grundstück (GST)
+    const harvestedByGST: Record<string, number> = {}
+    for (const l of parzellen) {
+      if (l.grundstueck_id && l.menge_kg)
+        harvestedByGST[l.grundstueck_id] = (harvestedByGST[l.grundstueck_id] ?? 0) + Number(l.menge_kg)
+    }
+    const pressedByGST: Record<string, number> = {}
+    for (const p of pressungWG) {
+      if (p.grundstueck_id && p.trauben_kg)
+        pressedByGST[p.grundstueck_id] = (pressedByGST[p.grundstueck_id] ?? 0) + Number(p.trauben_kg)
+    }
+    const soldByGST: Record<string, number> = {}
+    for (const v of tvSold) {
+      if (v.grundstueck_id)
+        soldByGST[v.grundstueck_id] = (soldByGST[v.grundstueck_id] ?? 0) + (parseFloat(v.menge_kg) || 0)
+    }
+
+    // Weingärten: nur jene mit geerntetem Bestand anzeigen
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const weingaertenMitKg = ((weingaertenRaw ?? []) as any[]).map((wg: any) => ({
-      id:                    wg.id,
-      name:                  wg.name,
-      lage_name:             (wg.lage as any)?.name ?? null,
-      trauben_herkunft_code: wg.trauben_herkunft_code ?? null,
-      verfuegbar_kg:         Math.max(0, (harvestedByWG[wg.id] ?? 0) - (pressedByWG[wg.id] ?? 0) - (soldByWG[wg.id] ?? 0)),
-    }))
+    const weingaertenMitKg = ((weingaertenRaw ?? []) as any[])
+      .map((wg: any) => ({
+        id:                    wg.id,
+        name:                  wg.name,
+        lage_name:             (wg.lage as any)?.name ?? null,
+        trauben_herkunft_code: wg.trauben_herkunft_code ?? null,
+        verfuegbar_kg:         Math.max(0, (harvestedByWG[wg.id] ?? 0) - (pressedByWG[wg.id] ?? 0) - (soldByWG[wg.id] ?? 0)),
+      }))
+      .filter((wg: any) => wg.verfuegbar_kg > 0)
+
+    // Grundstücke: nur jene anzeigen die geerntet wurden (gst_id in ernte_parzellen)
+    const gstMitErnte = new Set(parzellen.filter(l => l.grundstueck_id).map((l: any) => l.grundstueck_id as string))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const grundstueckeMitKg = ((grundstuecke ?? []) as any[])
+      .filter((g: any) => gstMitErnte.has(g.id))
+      .map((g: any) => ({
+        id:            g.id,
+        gst_nr:        g.gst_nr,
+        weingarten_id: g.weingarten_id,
+        rebsorte:      g.rebsorte ?? null,
+        verfuegbar_kg: Math.max(0, (harvestedByGST[g.id] ?? 0) - (pressedByGST[g.id] ?? 0) - (soldByGST[g.id] ?? 0)),
+      }))
 
     return NextResponse.json({
       fuellungen:       fuellungen    ?? [],
@@ -140,7 +176,7 @@ export async function GET() {
       })),
       weingaerten: weingaertenMitKg,
       jahrgaenge:  (jahrgaenge ?? []) as any[],
-      grundstuecke: (grundstuecke ?? []) as any[],
+      grundstuecke: grundstueckeMitKg,
     })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })

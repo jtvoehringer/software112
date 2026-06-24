@@ -59,6 +59,7 @@ interface Grundstueck {
   gst_nr: string
   weingarten_id: string
   rebsorte: string | null
+  verfuegbar_kg: number
 }
 
 interface Kontakt {
@@ -811,12 +812,12 @@ export default function NeuerVerkaufPage() {
                       <select value={pos.trauben_grundstueck_id}
                         onChange={e => updatePos(idx, { trauben_grundstueck_id: e.target.value })}
                         className={inputCls + ' w-full'} disabled={loading || !pos.trauben_weingarten_id}>
-                        <option value="">– alle –</option>
+                        <option value="">– gesamte Ried –</option>
                         {grundstuecke
-                          .filter(g => g.weingarten_id === pos.trauben_weingarten_id)
+                          .filter(g => g.weingarten_id === pos.trauben_weingarten_id && g.verfuegbar_kg > 0)
                           .map(g => (
                             <option key={g.id} value={g.id}>
-                              GST {g.gst_nr}{g.rebsorte ? ` – ${g.rebsorte}` : ''}
+                              GST {g.gst_nr}{g.rebsorte ? ` – ${g.rebsorte}` : ''} · {g.verfuegbar_kg.toLocaleString('de-AT')} kg verf.
                             </option>
                           ))}
                       </select>
