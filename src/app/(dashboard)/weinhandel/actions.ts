@@ -193,6 +193,7 @@ export async function deactivateFuellung(id: string) {
   const supabase = await createSupabaseServerClient()
   const { error } = await (supabase.from('fuellungen') as any)
     .update({ aktiv: false, aktualisiert_am: new Date().toISOString() })
+    .eq('id', id)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/weinhandel')
 }
