@@ -344,6 +344,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
   const gesamtKg   = pressungen.flatMap(p => p.weingaerten).reduce((s, w) => s + w.trauben_kg, 0)
   const gesamtLiter = pressungen.reduce((s, p) => s + (p.most_liter_gesamt ?? 0), 0)
   const ausbeute    = gesamtKg > 0 && gesamtLiter > 0 ? (gesamtLiter / gesamtKg) * 100 : null
+  const gesamtVerfuegbarKg = Object.values(verfuegbareKgByGST).reduce((s, v) => s + v, 0)
 
   function handleDelete(id: string) {
     if (!confirm('Pressung löschen?')) return
@@ -362,10 +363,14 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
             </span>
           )}
           {writeOk && !showForm && (
-            <button onClick={() => { setShowForm(true); setEditId(null) }}
-              className="text-xs bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-teal font-medium px-3 py-1.5 rounded-lg transition-colors">
-              ＋ Pressung erfassen
-            </button>
+            gesamtVerfuegbarKg > 0
+              ? <button onClick={() => { setShowForm(true); setEditId(null) }}
+                  className="text-xs bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-teal font-medium px-3 py-1.5 rounded-lg transition-colors">
+                  ＋ Pressung erfassen
+                </button>
+              : <span className="text-xs text-amber-600 font-medium bg-amber-50 px-3 py-1.5 rounded-lg">
+                  ⚠️ Keine Trauben für Pressung verfügbar
+                </span>
           )}
         </div>
       </div>
