@@ -138,30 +138,38 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="form-label">Qualitätsstufe</label>
-            {(() => {
-              const basisQ = weinausbau?.qualitaetsstufe ?? maxQualitaetsstufe ?? null
-              const maxRang = basisQ
-                ? (QUALITAET_OPTS.find(o => o.value === basisQ)?.rang ?? 99)
-                : 99
-              const erlaubteOptionen = basisQ
-                ? QUALITAET_OPTS.filter(o => o.rang <= maxRang)
-                : QUALITAET_OPTS
-              return (
-                <>
-                  <select name="qualitaetsstufe" defaultValue={weinausbau?.qualitaetsstufe ?? maxQualitaetsstufe ?? ''} className="form-input">
-                    <option value="">– noch nicht festgelegt –</option>
-                    {erlaubteOptionen.map(o => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
-                  {basisQ && (
-                    <p className="text-xs text-amber-600 mt-1">
-                      ⬇️ Downgrade möglich · kein Upgrade über {QUALITAET_OPTS.find(o => o.value === basisQ)?.label ?? basisQ} hinaus
-                    </p>
-                  )}
-                </>
-              )
-            })()}
+            {vonPressung ? (
+              <>
+                <input type="hidden" name="qualitaetsstufe" value={weinausbau?.qualitaetsstufe ?? ''} />
+                <div className={rdOnly}>
+                  {weinausbau?.qualitaetsstufe
+                    ? (QUALITAET_OPTS.find(o => o.value === weinausbau.qualitaetsstufe)?.label ?? weinausbau.qualitaetsstufe)
+                    : '– noch nicht festgelegt –'}
+                </div>
+                <p className="text-xs text-s112-muted mt-1">Wird aus dem KMW-Wert der Pressung abgeleitet</p>
+              </>
+            ) : (
+              (() => {
+                const basisQ = weinausbau?.qualitaetsstufe ?? maxQualitaetsstufe ?? null
+                const maxRang = basisQ ? (QUALITAET_OPTS.find(o => o.value === basisQ)?.rang ?? 99) : 99
+                const erlaubteOptionen = basisQ ? QUALITAET_OPTS.filter(o => o.rang <= maxRang) : QUALITAET_OPTS
+                return (
+                  <>
+                    <select name="qualitaetsstufe" defaultValue={weinausbau?.qualitaetsstufe ?? maxQualitaetsstufe ?? ''} className="form-input">
+                      <option value="">– noch nicht festgelegt –</option>
+                      {erlaubteOptionen.map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                    {basisQ && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        ⬇️ Downgrade möglich · kein Upgrade über {QUALITAET_OPTS.find(o => o.value === basisQ)?.label ?? basisQ} hinaus
+                      </p>
+                    )}
+                  </>
+                )
+              })()
+            )}
           </div>
           <div>
             <label className="form-label">Status</label>

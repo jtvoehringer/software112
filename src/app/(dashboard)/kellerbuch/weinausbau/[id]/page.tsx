@@ -8,6 +8,8 @@ import WeinausbauForm from '@/components/kellerbuch/WeinausbauForm'
 import { updateWeinausbau } from '../../actions'
 import { kmwZuQualitaet, minQualitaet } from '@/lib/weinqualitaet'
 import VerschneidungWidget from './VerschneidungWidget'
+import UmziehenWidget from '@/components/kellerbuch/UmziehenWidget'
+import { umziehen } from '../../umziehen/actions'
 
 export const metadata: Metadata = { title: 'Charge bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -46,7 +48,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
       .select('id, name, jahrgang, rebsorte, weingarten_id, behaelter_id, menge_liter, anfangsbestand_liter, status, qualitaetsstufe, notizen, aktiv, einstandspreis_pro_liter, behaelter:behaelter_id(name)')
       .eq('id', id).limit(1),
     (supabase.from('weingarten') as any).select('id, name').eq('aktiv', true).order('name'),
-    (supabase.from('behaelter') as any).select('id, name').eq('aktiv', true).order('name'),
+    (supabase.from('behaelter') as any).select('id, name, volumen_liter').eq('aktiv', true).order('name'),
     // Ausgehende Umzüge (von dieser Charge weg) – enthält 'transfer' und 'quelle'-Zeilen
     (supabase.from('keller_umzuege') as any)
       .select('id, datum, menge_liter, brutto_liter, schwund_liter, nach_behaelter:nach_behaelter_id(name), notizen, umzug_batch_id, zeilen_typ')
@@ -78,9 +80,9 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
       .select('weingarten_id')
       .eq('weinausbau_id', id),
 
-    // Alle anderen aktiven Chargen (für Verschneidungs-Formular)
+    // Alle anderen aktiven Chargen (für Verschneidungs- und Umziehen-Formular)
     (supabase.from('weinausbau') as any)
-      .select('id, name, menge_liter, qualitaetsstufe')
+      .select('id, name, menge_liter, qualitaetsstufe, behaelter_id')
       .eq('aktiv', true)
       .neq('id', id)
       .order('name'),
@@ -147,7 +149,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
   const behaelter   = (bhRaw  ?? []) as NameRow[]
   const selectedWeingaertenIds = ((wawRaw ?? []) as R[]).map(r => r.weingarten_id as string)
 
-  const alleChargen = (alleChargenRaw ?? []) as { id: string; name: string; menge_liter: number | null; qualitaetsstufe: string | null }[]
+  const alleChargen = (alleChargenRaw ?? []) as { id: string; name: string; menge_liter: number | null; qualitaetsstufe: string | null; behaelter_id: string | null }[]
   const verschneidungenEin = (verschnEinRaw ?? []) as R[]
 
   const anfangsbestand    = parseFloat(String(weinausbau.anfangsbestand_liter ?? 0)) || 0
@@ -466,6 +468,18 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
           </table>
         </div>
       </section>
+
+      {/* Umziehen */}
+      {writeOk && berechneterSaldo > 0.01 && (
+        <UmziehenWidget
+          chargeId={weinausbau.id}
+          chargeName={weinausbau.name}
+          verfuegbarLiter={berechneterSaldo}
+          gebinde={behaelter}
+          alleChargen={alleChargen}
+          action={umziehen}
+        />
+      )}
 
       {/* Verschneidung */}
       {writeOk && alleChargen.length > 0 && (
