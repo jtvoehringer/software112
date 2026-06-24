@@ -47,6 +47,8 @@ interface Weingarten {
   lage_name: string | null
   trauben_herkunft_code: string | null
   verfuegbar_kg: number
+  kmw_grad: number | null
+  qualitaetsstufe: string | null
 }
 
 interface Jahrgang {
@@ -60,6 +62,8 @@ interface Grundstueck {
   weingarten_id: string
   rebsorte: string | null
   verfuegbar_kg: number
+  kmw_grad: number | null
+  qualitaetsstufe: string | null
 }
 
 interface Kontakt {
@@ -795,6 +799,8 @@ export default function NeuerVerkaufPage() {
                             trauben_grundstueck_id: '',
                             trauben_herkunft_code: wg?.trauben_herkunft_code ?? '',
                             name: wg ? `Weintrauben – ${wg.lage_name ?? wg.name}` : '',
+                            trauben_kmw_grad:        wg?.kmw_grad != null ? String(wg.kmw_grad) : '',
+                            trauben_qualitaetsstufe: wg?.qualitaetsstufe ?? '',
                           })
                         }}
                         className={inputCls + ' w-full'} disabled={loading}>
@@ -810,7 +816,14 @@ export default function NeuerVerkaufPage() {
                     <div>
                       <label className={labelCls}>Grundstück</label>
                       <select value={pos.trauben_grundstueck_id}
-                        onChange={e => updatePos(idx, { trauben_grundstueck_id: e.target.value })}
+                        onChange={e => {
+                          const gst = grundstuecke.find(g => g.id === e.target.value)
+                          updatePos(idx, {
+                            trauben_grundstueck_id: e.target.value,
+                            ...(gst?.kmw_grad != null        ? { trauben_kmw_grad: String(gst.kmw_grad) } : {}),
+                            ...(gst?.qualitaetsstufe != null ? { trauben_qualitaetsstufe: gst.qualitaetsstufe } : {}),
+                          })
+                        }}
                         className={inputCls + ' w-full'} disabled={loading || !pos.trauben_weingarten_id}>
                         <option value="">– gesamte Ried –</option>
                         {grundstuecke
