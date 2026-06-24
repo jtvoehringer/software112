@@ -189,6 +189,21 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
     })
   }
 
+  // Eingehende Verschneidungen (Zugänge)
+  for (const v of verschneidungenEin) {
+    const quellen = (v.quellen ?? []) as R[]
+    const gesamtLiter = quellen.reduce((s: number, q: R) => s + (parseFloat(q.menge_liter) || 0), 0)
+    if (gesamtLiter <= 0) continue
+    const quellenText = quellen.map((q: R) => (q.quelle as R | null)?.name ?? '?').join(', ')
+    bewegungen.push({
+      datum: v.datum,
+      art: 'umziehen_ein',
+      beschreibung: `Verschneidung von ${quellenText}`,
+      menge: gesamtLiter,
+      extra: v.notizen ?? undefined,
+    })
+  }
+
   // Eingehende Umzüge (Zugänge)
   for (const u of einRecs) {
     const liter = parseFloat(u.menge_liter) || 0

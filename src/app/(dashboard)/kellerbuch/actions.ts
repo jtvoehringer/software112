@@ -213,14 +213,27 @@ export async function createVerschneidung(formData: FormData) {
     }))
   )
 
-  // Ziel-Charge: Bestand um die Summe der Quellen erhöhen
+  // Qualitaetsstufen + Rebsorten der Quell-Chargen laden
+  const { data: quellenData } = await (supabase.from('weinausbau') as any)
+    .select('id, qualitaetsstufe, rebsorte')
+    .in('id', quellen.map(q => q.weinausbau_id))
+  const quellenRows = (quellenData ?? []) as R[]
+  // Niedrigste Qualitaetsstufe aus Quellen + Ziel bestimmen
+  const alleQualitaeten = [zielQualitaetVorher, ...quellenRows.map((q: R) => q.qualitaetsstufe as string | null)]
+  const neueQualitaet = minQualitaet(alleQualitaeten)
+
+  // Ziel-Charge: Bestand erhöhen + rebsorte auf Sortenverschnitt + Qualität anpassen
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: ziel } = await (supabase.from('weinausbau') as any)
     .select('menge_liter').eq('id', zielId).single()
   const aktuell = parseFloat((ziel as R)?.menge_liter ?? '0') || 0
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error: zielUpdateErr } = await (supabase.from('weinausbau') as any)
-    .update({ menge_liter: aktuell + gesamtLiter })
+    .update({
+      menge_liter: aktuell + gesamtLiter,
+      rebsorte: 'Sortenverschnitt',
+      qualitaetsstufe: neueQualitaet,
+    })
     .eq('id', zielId)
   if (zielUpdateErr) throw new Error(`Ziel-Charge konnte nicht aktualisiert werden: ${zielUpdateErr.message}`)
 
