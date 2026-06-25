@@ -636,4 +636,3 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
     </div>
   )
 }
-                                                                         
