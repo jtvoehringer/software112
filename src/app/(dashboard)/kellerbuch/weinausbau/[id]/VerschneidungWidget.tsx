@@ -6,7 +6,7 @@ import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
 import { deleteVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
 import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 
-type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; rebsorte?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
+type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
@@ -111,8 +111,12 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
         }
         const gesamtVerschnittMenge = gesamtMenge
         const originalMenge = (zielCharge.menge_liter ?? 0) - gesamtVerschnittMenge
-        if (originalMenge > 0.5 && zielCharge.rebsorte && zielCharge.rebsorte !== 'Sortenverschnitt') {
-          quellenMap['__original__'] = { name: zielCharge.rebsorte, menge: originalMenge }
+        if (originalMenge > 0.5) {
+          // Rebsorte wenn noch nicht auf Sortenverschnitt aktualisiert, sonst Charge-Name als Fallback
+          const originalLabel = (zielCharge.rebsorte && zielCharge.rebsorte !== 'Sortenverschnitt')
+            ? zielCharge.rebsorte
+            : zielCharge.name
+          quellenMap['__original__'] = { name: originalLabel, menge: originalMenge }
           gesamtMenge += originalMenge
         }
         const quellenliste = Object.values(quellenMap).sort((a, b) => b.menge - a.menge)
