@@ -43,6 +43,8 @@ function NeueParzellenForm({
   const [gstData, setGstData] = useState<Map<string, { menge_kg: string; kmw: string; notizen: string }>>(new Map())
   const [kmwNeu, setKmwNeu] = useState<number | null>(null)
   const derivedQualitaetNeu = kmwNeu != null ? kmwZuQualitaet(kmwNeu) : 'qualitaetswein'
+  const [qualitaetNeu, setQualitaetNeu] = useState<string | null>(null)
+  const effectiveQualitaetNeu = qualitaetNeu ?? derivedQualitaetNeu
 
   const riedMap = new Map<string, WeingartenOpt[]>()
   for (const w of weingaerten) {
@@ -244,15 +246,20 @@ function NeueParzellenForm({
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">°KMW</label>
           <input name="klosterneuburger" type="text" inputMode="decimal" className={inputCls}
-            onChange={e => setKmwNeu(e.target.value ? parseFloat(e.target.value) : null)} />
+            onChange={e => { setKmwNeu(e.target.value ? parseFloat(e.target.value) : null); setQualitaetNeu(null) }} />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Qualitätsstufe</label>
-          <input type="hidden" name="qualitaetsstufe" value={derivedQualitaetNeu} />
-          <div className={inputCls + ' bg-s112-bg text-gray-700 cursor-not-allowed'}>
-            {qualitaetLabel(derivedQualitaetNeu)}
-            {kmwNeu == null && <span className="text-s112-muted ml-1">(wird aus °KMW abgeleitet)</span>}
-          </div>
+          <select name="qualitaetsstufe" value={effectiveQualitaetNeu}
+            onChange={e => setQualitaetNeu(e.target.value)}
+            className={inputCls}>
+            {QUALITAET_OPTS.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          {qualitaetNeu == null && (
+            <p className="text-xs text-s112-muted mt-0.5">↑ Wird aus °KMW abgeleitet – bei Bedarf anpassen</p>
+          )}
         </div>
         <div className="col-span-2">
           <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
@@ -290,6 +297,8 @@ function ParzellForm({
   const [selWgId, setSelWgId] = useState<string>(parzelle?.weingarten_id ?? '')
   const [selGstId, setSelGstId] = useState<string>(parzelle?.grundstueck_id ?? '')
   const derivedQualitaetEdit = kmwEdit != null ? kmwZuQualitaet(kmwEdit) : 'qualitaetswein'
+  const [qualitaetEdit, setQualitaetEdit] = useState<string | null>(parzelle?.qualitaetsstufe ?? null)
+  const effectiveQualitaetEdit = qualitaetEdit ?? derivedQualitaetEdit
   const verfuegbareGSTs = selWgId ? (gstByWeingarten[selWgId] ?? []) : []
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -370,16 +379,21 @@ function ParzellForm({
           <label className="block text-xs font-medium text-gray-600 mb-1">°KMW</label>
           <input name="klosterneuburger" type="text" inputMode="decimal"
             defaultValue={parzelle?.klosterneuburger ?? ''}
-            onChange={e => setKmwEdit(e.target.value ? parseFloat(e.target.value) : null)}
+            onChange={e => { setKmwEdit(e.target.value ? parseFloat(e.target.value) : null); setQualitaetEdit(null) }}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Qualitätsstufe</label>
-          <input type="hidden" name="qualitaetsstufe" value={derivedQualitaetEdit} />
-          <div className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm bg-s112-bg text-gray-700 cursor-not-allowed">
-            {qualitaetLabel(derivedQualitaetEdit)}
-            {kmwEdit == null && <span className="text-s112-muted ml-1">(wird aus °KMW abgeleitet)</span>}
-          </div>
+          <select name="qualitaetsstufe" value={effectiveQualitaetEdit}
+            onChange={e => setQualitaetEdit(e.target.value)}
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            {QUALITAET_OPTS.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          {qualitaetEdit == null && (
+            <p className="text-xs text-s112-muted mt-0.5">↑ Wird aus °KMW abgeleitet – bei Bedarf anpassen</p>
+          )}
         </div>
         <div className="col-span-2">
           <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
