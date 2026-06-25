@@ -335,17 +335,24 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
   let dominantRebsorte: string | null = null
   let autoWeinart: string = 'unbekannt'
   if (weingaerten.length > 0) {
-    const wgIds = weingaerten.map(w => w.weingarten_id).filter(Boolean) as string[]
+    const wgIds  = weingaerten.map(w => w.weingarten_id).filter(Boolean) as string[]
+    const gstIds = weingaerten.map(w => w.grundstueck_id).filter(Boolean) as string[]
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: wgRows } = await (supabase.from('weingarten') as any).select('rebsorte, weinart').in('id', wgIds)
-    const wgArr = ((wgRows ?? []) as AR[])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: gstRows } = gstIds.length > 0
+      ? await (supabase.from('grundstuecke') as any).select('weinart').in('id', gstIds)
+      : { data: [] }
+    const wgArr  = ((wgRows  ?? []) as AR[])
+    const gstArr = ((gstRows ?? []) as AR[])
     // Rebsorte
     const wgRebsorten = wgArr.map((w: AR) => w.rebsorte).filter(Boolean) as string[]
     const allRebsorten = rebsortenAusForm.length > 0 ? rebsortenAusForm : wgRebsorten
     const uniqueRebsorten = [...new Set(allRebsorten)]
     dominantRebsorte = uniqueRebsorten.length === 1 ? uniqueRebsorten[0] : uniqueRebsorten.length > 1 ? 'Sortenverschnitt' : null
-    // Weinart: eindeutig → übernehmen; gemischt (rot+weiss) → 'unbekannt'
-    const uniqueWeinart = [...new Set(wgArr.map((w: AR) => w.weinart).filter((a: string) => a && a !== 'unbekannt'))]
+    // Weinart: GST hat Vorrang vor Weingarten; eindeutig → übernehmen; gemischt → 'unbekannt'
+    const weinartQuellen = gstArr.length > 0 ? gstArr : wgArr
+    const uniqueWeinart = [...new Set(weinartQuellen.map((w: AR) => w.weinart).filter((a: string) => a && a !== 'unbekannt'))]
     if (uniqueWeinart.length === 1) autoWeinart = uniqueWeinart[0] as string
   } else if (rebsortenAusForm.length > 0) {
     const unique = [...new Set(rebsortenAusForm)]
