@@ -24,13 +24,14 @@ fuellungen: id, name, jahrgang(zahl z.B. 2025), rebsorte, flaschengroesse_ml, be
 weinausbau: id, name, jahrgang(zahl z.B. 2025), rebsorte, menge_liter, qualitaetsstufe, status(ernte|gaerung|ausbau|abfuellung|abgeschlossen), aktiv(bool)
 behandlungen: id, datum, art, menge_gesamt, menge_einheit, psm_id, weingarten_id
 lagerbewegungen: (SPEZIAL) Verkäufe einer konkreten Füllung – brauchbar für "Lagerbewegungen", "was wurde verkauft", "wie viel wurde verkauft", "wer hat gekauft". Filtert über fuellungen.name_contains + optional jahrgang.
+ertragshistorie: (SPEZIAL) Erntemengen je Grundstück (GST) über mehrere Jahrgänge – brauchbar für "Ertragshistorie", "Ernte je GST", "wie viel kg je Parzelle", "Ertrag pro ha", "Ernte 2023". Liefert: gst_nr, katastralgemeinde, ried, rebsorte, flaeche_ha, jahrgang, menge_kg, ertrag_kg_ha. Filtert optional nach jahrgang (Zahl) oder gst_nr_contains.
 
 Deine Aufgabe: Analysiere die Frage des Winzers und gib eine STRUKTURIERTE ANTWORT als JSON zurück.
 Antworte NUR mit validem JSON, keine Erklärungen außerhalb des JSON.
 
 JSON-Format:
 {
-  "tabelle": "weingarten|grundstuecke|kontakte|firmen|verkaufsposten|fuellungen|weinausbau|behandlungen|pipeline_eintraege|lagerbewegungen",
+  "tabelle": "weingarten|grundstuecke|kontakte|firmen|verkaufsposten|fuellungen|weinausbau|behandlungen|pipeline_eintraege|lagerbewegungen|ertragshistorie",
   "filter": {
     "segment": "gastro|handel|privat|export|grosshandel (optional)",
     "ort_contains": "Stadtname (optional)",
@@ -50,7 +51,8 @@ JSON-Format:
     "qualitaetsstufe": "spaetlese|auslese|qualitaetswein etc. (optional)",
     "weinart": "rot|weiss|rose (optional, nur weingarten)",
     "bewirtschaftung": "biodynamisch|biologisch|in_umstellung|nachhaltig|kip|konventionell (optional, nur weingarten)",
-    "status": "aktiv|brache|gruenbrache|gerodet (optional, nur grundstuecke)"
+    "status": "aktiv|brache|gruenbrache|gerodet (optional, nur grundstuecke)",
+    "gst_nr_contains": "optional, Suche nach GST-Nummer (optional, nur ertragshistorie)"
   },
   "sortierung": "datum_desc|name_asc|bestand_desc|ort_asc",
   "limit": 50,
@@ -60,7 +62,8 @@ JSON-Format:
 
 Wichtige Hinweise:
 - "Rieden", "Weingärten", "meine Rieden", "alle Rieden" → tabelle: "weingarten"
-- "Grundstücke", "GST", "Parzellen" → tabelle: "grundstuecke"
+- "Grundstücke", "GST", "Parzellen" (nur Stammdaten) → tabelle: "grundstuecke"
+- "Ertragshistorie", "Ernte je GST", "kg je Parzelle", "Ertrag pro ha", "Ernte 2023", "Ernte aller GST" → tabelle: "ertragshistorie"
 - "Lagerbewegungen", "was wurde verkauft", "Verkaufshistorie" → tabelle: "lagerbewegungen"
 - "Weinausbau", "Chargen", "Ausbau" → tabelle: "weinausbau"
 - Bei Weinnamen wie "Querfeldein Weiß" → name_contains: "Querfeldein"
@@ -124,6 +127,56 @@ async function executeQuery(supabase: any, params: R): Promise<R[]> {
         bezahlt:         vp?.bezahlt ?? false,
       }
     })
+  }
+
+  // ── SPEZIALFALL: Ertragshistorie (ernte_parzellen × grundstuecke × jahrgaenge) ─
+  if (tabelle === 'ertragshistorie') {
+    // Alle Ernte-Parzellen mit Grundstück- und Jahrgangs-Infos laden
+    let q = (supabase.from('ernte_parzellen') as any)
+      .select(`
+        menge_kg, menge_hl, oechsle, klosterneuburger,
+        grundstueck:grundstueck_id(gst_nr, katastralgemeinde, flaeche_ha, rebsorte),
+        weingarten:weingarten_id(name, ried, rebsorte),
+        jahrgang:jahrgang_id(jahr)
+      `)
+    if (filter.jahrgang) {
+      // jahrgang_id via join – wir filtern nachher
+    }
+    if (filter.gst_nr_contains) {
+      // wird nachher gefiltert
+    }
+    q = q.not('menge_kg', 'is', null).order('jahrgang_id', { ascending: false }).limit(Number(limit) || 100)
+
+    const { data: rows } = await q
+    if (!rows) return []
+
+    let ergebnisse = (rows as R[]).map(row => {
+      const gst   = row.grundstueck as R | null
+      const wg    = row.weingarten  as R | null
+      const jg    = row.jahrgang    as R | null
+      const flaeche = parseFloat(gst?.flaeche_ha ?? wg?.flaeche_ha ?? '0') || null
+      const mengeKg = parseFloat(row.menge_kg) || 0
+      return {
+        jahrgang:       jg?.jahr ?? null,
+        gst_nr:         gst?.gst_nr ?? '–',
+        katastralgemeinde: gst?.katastralgemeinde ?? '–',
+        ried:           wg?.ried ?? wg?.name ?? '–',
+        rebsorte:       gst?.rebsorte ?? wg?.rebsorte ?? '–',
+        flaeche_ha:     flaeche,
+        menge_kg:       mengeKg,
+        ertrag_kg_ha:   flaeche && flaeche > 0 ? Math.round(mengeKg / flaeche) : null,
+        oechsle:        row.oechsle ?? null,
+        kmw:            row.klosterneuburger ?? null,
+      }
+    })
+
+    // Nachgelagerte Filter
+    if (filter.jahrgang) ergebnisse = ergebnisse.filter(r => r.jahrgang === Number(filter.jahrgang))
+    if (filter.gst_nr_contains) ergebnisse = ergebnisse.filter(r => r.gst_nr?.includes(filter.gst_nr_contains))
+
+    // Sortierung: neuester Jahrgang zuerst, dann GST-Nr
+    ergebnisse.sort((a, b) => (b.jahrgang ?? 0) - (a.jahrgang ?? 0) || (a.gst_nr ?? '').localeCompare(b.gst_nr ?? ''))
+    return ergebnisse.slice(0, Number(limit) || 100)
   }
 
   // ── Standard-Tabellen ─────────────────────────────────────────────────────
