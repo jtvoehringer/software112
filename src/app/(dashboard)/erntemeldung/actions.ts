@@ -346,9 +346,9 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
     dominantRebsorte = unique.length === 1 ? unique[0] : unique.length > 1 ? 'Sortenverschnitt' : null
   }
   const autoName = weinbezeichnung
-    ? `${weinbezeichnung}${jgJahr ? ' ' + jgJahr : ''}`
+    ? weinbezeichnung
     : dominantRebsorte
-      ? `${dominantRebsorte}${jgJahr ? ' ' + jgJahr : ''}`
+      ? dominantRebsorte
       : `Pressung ${new Date(datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
 
   for (const beh of behaelter) {
