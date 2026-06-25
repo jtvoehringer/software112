@@ -24,7 +24,7 @@ export type Pressung = {
   weingaerten: PressungWG[]; behaelter: PressungBeh[]
 }
 export type WGOption  = { id: string; name: string; rebsorte: string | null }
-export type BehOption = { id: string; name: string }
+export type BehOption = { id: string; name: string; volumen_liter?: number | null }
 export type WAOption  = { id: string; name: string; jahrgang: number | null }
 export type LeseParzelle = {
   weingarten_id: string; weingarten_name: string
@@ -33,6 +33,19 @@ export type LeseParzelle = {
 }
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────
+
+const ROT_REBSORTEN = new Set([
+  'Zweigelt','Blaufränkisch','St. Laurent','Blauer Portugieser','Blauburger',
+  'Cabernet Sauvignon','Merlot','Syrah','Shiraz','Pinot Noir','Blauburgunder',
+  'Regent','Dornfelder','Lemberger','Primitivo','Sangiovese','Tempranillo',
+])
+function weinfarbe(rebsorte: string | null): 'rot' | 'weiß' | null {
+  if (!rebsorte) return null
+  if (ROT_REBSORTEN.has(rebsorte)) return 'rot'
+  const l = rebsorte.toLowerCase()
+  if (l.startsWith('blau') || l.includes('noir') || l.includes('schwarz')) return 'rot'
+  return 'weiß'
+}
 
 const fmt = (n: number | null) =>
   n == null ? '–' : n.toLocaleString('de-AT', { maximumFractionDigits: 1 })
@@ -52,24 +65,14 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
   jahrgangId: string; pressung?: Pressung
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
   leseParzellen: LeseParzelle[]; verfuegbareKgByGST: Record<string, number>
-  behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string }[]>; onDone: () => void
+  behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null }[]>; onDone: () => void
 }) {
   const [datum, setDatum]                   = useState(pressung?.datum ?? new Date().toISOString().split('T')[0])
   const [mostLiter, setMostLiter]           = useState(pressung?.most_liter_gesamt?.toString().replace('.', ',') ?? '')
   const [weinbezeichnung, setWeinbez]       = useState(pressung?.weinbezeichnung ?? '')
-  // KMW aus Erntedaten ableiten (gewichteter Durchschnitt nach kg)
-  const kmwFromErnte = (() => {
-    const rows = leseParzellen.filter(p => p.klosterneuburger != null && (p.menge_kg ?? 0) > 0)
-    if (rows.length === 0) return pressung?.kmw_grad ?? null
-    const sumKg  = rows.reduce((s, p) => s + (p.menge_kg ?? 0), 0)
-    const sumKmw = rows.reduce((s, p) => s + (p.klosterneuburger! * (p.menge_kg ?? 0)), 0)
-    return sumKg > 0 ? Math.round((sumKmw / sumKg) * 10) / 10 : (pressung?.kmw_grad ?? null)
-  })()
-  const kmwGrad = kmwFromErnte?.toString().replace('.', ',') ?? ''
   const [notizen, setNotizen]               = useState(pressung?.notizen ?? '')
+  const [qualitaetsstufe, setQualitaetsstufe] = useState<string>('')
 
-  const kmwNum     = parseFloat(kmwGrad.replace(',', '.'))
-  const kmwQualitaet = !isNaN(kmwNum) && kmwNum > 0 ? kmwZuQualitaet(kmwNum) : null
   // Pre-fill aus Erntedaten: eine Zeile pro Parzelle (GST oder Ried)
   // Verfügbare kg direkt per GST-ID (kein proportionales Verteilen mehr)
   function gstVerfuegbar(gstId: string | null): number {
@@ -101,6 +104,28 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
       menge_liter: b.menge_liter?.toString().replace('.', ',') ?? '', notizen: b.notizen ?? '',
     })) ?? [emptyBeh()]
   )
+
+  // KMW gewichteter Durchschnitt aus den AUSGEWÄHLTEN WG-Zeilen (reaktiv zu wgRows)
+  const kmwFromWgRows = (() => {
+    let sumKg = 0, sumKmw = 0
+    for (const row of wgRows) {
+      const kg = parseFloat(row.trauben_kg.replace(',', '.')) || 0
+      if (kg <= 0) continue
+      const parzelle = leseParzellen.find(p =>
+        p.weingarten_id === row.weingarten_id &&
+        (p.grundstueck_id ?? '') === row.grundstueck_id
+      )
+      if (parzelle?.klosterneuburger != null) {
+        sumKg  += kg
+        sumKmw += parzelle.klosterneuburger * kg
+      }
+    }
+    if (sumKg === 0) return pressung?.kmw_grad ?? null
+    return Math.round((sumKmw / sumKg) * 10) / 10
+  })()
+  const kmwGrad      = kmwFromWgRows?.toString().replace('.', ',') ?? ''
+  const kmwNum       = parseFloat(kmwGrad.replace(',', '.'))
+  const kmwQualitaet = !isNaN(kmwNum) && kmwNum > 0 ? kmwZuQualitaet(kmwNum) : null
   const [pending, startTransition] = useTransition()
 
   type VerschneidungData = {
@@ -154,7 +179,8 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     fd.append('datum', datum)
     fd.append('most_liter_gesamt', mostLiter)
     fd.append('weinbezeichnung', weinbezeichnung)
-    // kmw_grad wird als hidden input übergeben
+    fd.append('kmw_grad', kmwGrad)
+    fd.append('qualitaetsstufe', qualitaetsstufe)
     fd.append('notizen', notizen)
     fd.append('weingaerten_json', JSON.stringify(
       wgRows.filter(r => r.weingarten_id && r.trauben_kg).map(r => ({
@@ -176,8 +202,13 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     startTransition(async () => {
       const result = await upsertPressung(fd)
       // Prüfen ob neue Charge in Behälter mit bestehenden Chargen gedrückt wurde
+      // Nur bei Rebsortenmix (Quelle hat andere Rebsorte als bestehende Chargen)
       if (!pressung && behaelterMitCharge && result.neu.length > 0) {
-        const konflikt = result.neu.find(n => (behaelterMitCharge[n.behaelter_id]?.length ?? 0) > 0)
+        // Verschnitt-Prompt immer wenn Behälter bereits Chargen hat (gleiche oder andere Rebsorte)
+        const konflikt = result.neu.find(n => {
+          const existing = behaelterMitCharge[n.behaelter_id] ?? []
+          return existing.length > 0
+        })
         if (konflikt) {
           setVerschneidung({
             newCharge: { id: konflikt.weinausbau_id, name: konflikt.name },
@@ -254,18 +285,28 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
           <input type="text" inputMode="decimal" value={mostLiter} onChange={e => setMostLiter(e.target.value)}
             placeholder="z.B. 1.050" className={inp} />
         </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">KMW° (aus Ernte)</label>
-          <input type="hidden" name="kmw_grad" value={kmwGrad} />
+        <div className="col-span-2">
+          <label className="block text-xs font-medium text-gray-600 mb-1">KMW° & Qualitätsstufe</label>
           <div className="flex items-center gap-2">
-            <div className={inp + ' bg-s112-bg text-gray-700 cursor-not-allowed'}>
-              {kmwGrad ? `${kmwGrad} °KMW` : <span className="text-s112-muted text-xs">– (kein KMW in Ernte erfasst)</span>}
+            <div className="border border-s112-border rounded-lg px-2 py-1.5 text-sm bg-s112-bg text-gray-700 cursor-not-allowed whitespace-nowrap shrink-0">
+              {kmwGrad ? `${kmwGrad} °KMW` : <span className="text-s112-muted text-xs">– kein KMW</span>}
             </div>
             {kmwQualitaet && (
-              <span className="shrink-0 text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap">
+              <button
+                type="button"
+                onClick={() => setQualitaetsstufe(QUALITAET_LABEL[kmwQualitaet] ?? '')}
+                className="shrink-0 text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap hover:bg-amber-200 transition-colors cursor-pointer"
+              >
                 → {QUALITAET_LABEL[kmwQualitaet]}
-              </span>
+              </button>
             )}
+            <input
+              type="text"
+              value={qualitaetsstufe}
+              onChange={e => setQualitaetsstufe(e.target.value)}
+              placeholder="Qualitätsstufe …"
+              className={inp}
+            />
           </div>
         </div>
         <div className="col-span-2">
@@ -274,6 +315,18 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
           </label>
           <input type="text" value={weinbezeichnung} onChange={e => setWeinbez(e.target.value)}
             placeholder="Leer lassen für reinsortige Weine" className={inp} />
+          {(() => {
+            const rebsorten = wgRows.map(r => r.rebsorte).filter(Boolean)
+            const unique = [...new Set(rebsorten)]
+            const autoRebsorte = unique.length === 1 ? unique[0] : unique.length > 1 ? 'Sortenverschnitt' : null
+            const preview = weinbezeichnung.trim() || autoRebsorte
+              || `Pressung ${datum ? new Date(datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '…'}`
+            return (
+              <p className="text-xs text-s112-muted mt-1">
+                → Charge: <strong className="text-gray-700">&ldquo;{preview}&rdquo;</strong>
+              </p>
+            )
+          })()}
         </div>
       </div>
 
@@ -354,13 +407,82 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
               <div className="col-span-6">
                 <select value={row.behaelter_id} onChange={e => updateBeh(i, 'behaelter_id', e.target.value)} className={inp}>
                   <option value="">– Behälter –</option>
-                  {behOptions.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  {behOptions.map(b => {
+                    const vol = b.volumen_liter ?? null
+                    const existing = behaelterMitCharge?.[b.id] ?? []
+                    const inhalt = existing.reduce((s, c) => s + (parseFloat(String(c.menge_liter ?? 0)) || 0), 0)
+                    const frei = vol != null ? vol - inhalt : null
+                    const kapSuffix = vol != null
+                      ? ` · ${vol.toLocaleString('de-AT')} L · frei: ${frei!.toLocaleString('de-AT', { maximumFractionDigits: 0 })} L`
+                      : ''
+                    const inhaltSuffix = existing.length > 0
+                      ? ` [${existing.map(c => c.rebsorte ? `${c.name} (${c.rebsorte})` : c.name).join(', ')}]`
+                      : ' [leer]'
+                    return <option key={b.id} value={b.id}>{b.name}{kapSuffix}{inhaltSuffix}</option>
+                  })}
                 </select>
-                {!pressung && row.behaelter_id && behaelterMitCharge?.[row.behaelter_id] && (
-                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1">
-                    ⚠ Enthält bereits: {behaelterMitCharge[row.behaelter_id].map(c => c.name).join(', ')} – Weine werden verschnitten!
-                  </p>
-                )}
+                {row.behaelter_id && (() => {
+                  const beh = behOptions.find(b => b.id === row.behaelter_id)
+                  const vol = beh?.volumen_liter ?? null
+                  const existing = behaelterMitCharge?.[row.behaelter_id] ?? []
+                  const inhaltJetzt = existing.reduce((s, c) => s + (parseFloat(String(c.menge_liter ?? 0)) || 0), 0)
+                  const eingabe = parseFloat(row.menge_liter.replace(',', '.')) || 0
+                  const restNach = vol != null ? vol - inhaltJetzt - eingabe : null
+                  const ueber = restNach != null && restNach < -0.01
+
+                  // Rebsorten- und Farbprüfung
+                  const rebsortenInForm = [...new Set(wgRows.map(r => r.rebsorte).filter(Boolean))]
+                  const pressungFarbe = weinfarbe(rebsortenInForm[0] ?? null)
+                  const existingFarben = existing.map(e => weinfarbe(e.rebsorte ?? null)).filter(Boolean)
+                  const isFarbmix = pressungFarbe != null && existingFarben.some(f => f !== pressungFarbe)
+                  const isMix = existing.length > 0 && rebsortenInForm.length > 0
+                    && existing.some(e => e.rebsorte && !rebsortenInForm.includes(e.rebsorte))
+
+                  return (
+                    <div className="mt-1.5 bg-s112-bg border border-s112-border rounded-lg px-3 py-2 text-xs space-y-2">
+                      {/* Kapazitäts-Zahlen */}
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <div>
+                          <p className="text-s112-muted mb-0.5">Kapazität</p>
+                          <p className="font-medium tabular-nums">{vol != null ? vol.toLocaleString('de-AT') + ' L' : '–'}</p>
+                        </div>
+                        <div>
+                          <p className="text-s112-muted mb-0.5">Inhalt jetzt</p>
+                          <p className="font-medium tabular-nums">{inhaltJetzt.toLocaleString('de-AT', { maximumFractionDigits: 1 })} L</p>
+                        </div>
+                        <div>
+                          <p className="text-s112-muted mb-0.5">{eingabe > 0 ? 'Rest nach Pressung' : 'Restkapazität'}</p>
+                          <p className={`font-medium tabular-nums ${ueber ? 'text-red-600' : 'text-s112-teal'}`}>
+                            {vol != null ? (eingabe > 0 ? restNach! : vol - inhaltJetzt).toLocaleString('de-AT', { maximumFractionDigits: 1 }) + ' L' : '–'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Bestehende Chargen */}
+                      {existing.length > 0 && (
+                        <div className={`rounded px-2 py-1.5 border ${isFarbmix ? 'bg-red-50 border-red-300' : isMix ? 'bg-amber-50 border-amber-200' : 'bg-white border-s112-border'}`}>
+                          <p className={`font-medium mb-1 ${isFarbmix ? 'text-red-700' : isMix ? 'text-amber-700' : 'text-gray-600'}`}>
+                            {isFarbmix ? '🚫 Rotwein/Weißwein-Mischung nicht erlaubt!' : isMix ? '⚠ Rebsortenverschnitt' : 'ℹ Enthält bereits'}
+                          </p>
+                          <ul className="space-y-0.5">
+                            {existing.map((c, ci) => (
+                              <li key={ci} className="flex justify-between">
+                                <span className={isFarbmix ? 'text-red-700' : isMix ? 'text-amber-700' : 'text-gray-700'}>
+                                  {c.name}{c.rebsorte ? ` · ${c.rebsorte}` : ''}
+                                </span>
+                                <span className="tabular-nums text-gray-500 ml-2">
+                                  {c.menge_liter != null ? c.menge_liter.toLocaleString('de-AT', { maximumFractionDigits: 1 }) + ' L' : '–'}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {ueber && <p className="text-red-600 font-medium">⚠ Behälter hat nicht genug Kapazität</p>}
+                    </div>
+                  )
+                })()}
               </div>
               <div className="col-span-4">
                 <input type="text" inputMode="decimal" value={row.menge_liter}
@@ -404,7 +526,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
   jahrgangId: string; pressungen: Pressung[]
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
   leseParzellen: LeseParzelle[]; verfuegbareKgByGST: Record<string, number>
-  behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string }[]>; writeOk: boolean; adminOk: boolean
+  behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null }[]>; writeOk: boolean; adminOk: boolean
 }) {
   const [showForm, setShowForm]    = useState(false)
   const [editId, setEditId]        = useState<string | null>(null)
@@ -542,7 +664,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                           b.weinausbau_id ? (
                             <a key={b.id} href={`/kellerbuch/weinausbau/${b.weinausbau_id}/buch`}
                               className="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 text-blue-800 text-xs px-2 py-0.5 rounded-full hover:bg-blue-100 transition-colors">
-                              🛢 {b.weinausbau_name ?? b.behaelter_name ?? '–'}
+                              🛢 {b.behaelter_name ? `${b.behaelter_name} · ` : ''}{b.weinausbau_name ?? '–'}
                               {b.menge_liter && <span className="font-medium">· {fmt(b.menge_liter)} L</span>}
                               <span className="text-blue-400">→ KB</span>
                             </a>

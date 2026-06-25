@@ -117,6 +117,21 @@ export async function createZukauf(formData: FormData) {
   revalidatePath('/weinhandel/zukauf')
   revalidatePath('/weinhandel')
   revalidatePath('/kellerbuch')
+
+  // Rebsortenmix prüfen: neue Charge in Behälter mit anderen Rebsorten?
+  if (zielWeinausbauId && zielBehaelterId && rebsorte) {
+    const { data: andereChargen } = await (supabase.from('weinausbau') as any)
+      .select('id')
+      .eq('behaelter_id', zielBehaelterId)
+      .eq('aktiv', true)
+      .neq('id', zielWeinausbauId)
+      .neq('rebsorte', rebsorte)
+      .limit(1)
+    if ((andereChargen as any[])?.length > 0) {
+      redirect(`/kellerbuch/weinausbau/${zielWeinausbauId}?form=verschneiden`)
+    }
+  }
+
   redirect('/weinhandel/zukauf')
 }
 

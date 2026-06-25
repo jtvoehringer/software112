@@ -302,6 +302,25 @@ export async function saveSumUpConfig(tenantId: string, formData: FormData) {
 }
 
 
+
+// ── bawb.at Zugangsdaten speichern ───────────────────────────────────────────
+
+export async function saveBawbZugangsdaten(tenantId: string, formData: FormData) {
+  await assertSystemAdmin()
+  const admin = createSupabaseAdminClient()
+
+  const { error } = await (admin.from('tenant_einstellungen') as any).upsert({
+    tenant_id:    tenantId,
+    bawb_kennung:  (formData.get('bawb_kennung')  as string) || null,
+    bawb_passwort: (formData.get('bawb_passwort') as string) || null,
+    aktualisiert_am: new Date().toISOString(),
+  }, { onConflict: 'tenant_id' })
+
+  if (error) return { error: (error as any).message }
+  revalidatePath(`/admin/mandanten/${tenantId}`)
+  return null
+}
+
 // ── Stripe: Mandant als Customer anlegen ──────────────────────────────────────
 
 export async function createStripeCustomer(tenantId: string, tenantName: string, email: string) {

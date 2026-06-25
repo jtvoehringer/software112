@@ -83,6 +83,9 @@ export type TenantSettings = {
   ea_uva_zeitraum:     string
   sumup_api_key:       string | null
   sumup_merchant_code: string | null
+  // Migration 123 – bawb.at
+  bawb_kennung:        string | null
+  bawb_passwort:       string | null
 }
 export type TenantMember = {
   id: string; userId: string; email: string; role: string; createdAt: string
@@ -195,6 +198,8 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     ea_uva_zeitraum:     s?.ea_uva_zeitraum ?? 'quartalsweise',
     sumup_api_key:       s?.sumup_api_key ?? null,
     sumup_merchant_code: s?.sumup_merchant_code ?? null,
+    bawb_kennung:        s?.bawb_kennung ?? null,
+    bawb_passwort:       s?.bawb_passwort ?? null,
   }
 
   const members: TenantMember[] = ((memberships ?? []) as R[]).map(m => ({
