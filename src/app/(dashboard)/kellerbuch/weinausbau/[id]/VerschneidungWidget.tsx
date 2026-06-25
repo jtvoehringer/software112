@@ -97,15 +97,15 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
       )}
 
       {verschneidungen.length > 0 && (() => {
+        // Aggregation nach Charge-Name (nicht ID), damit gleiche Rebsorten zusammengefasst werden
         const quellenMap: Record<string, { name: string; menge: number }> = {}
         let gesamtMenge = 0
         for (const v of verschneidungen) {
           for (const q of ((v.quellen ?? []) as R[])) {
             const name = (q.quelle as R | null)?.name ?? '?'
-            const id   = (q.quelle as R | null)?.id ?? name
             const ml   = parseFloat(q.menge_liter) || 0
-            if (!quellenMap[id]) quellenMap[id] = { name, menge: 0 }
-            quellenMap[id].menge += ml
+            if (!quellenMap[name]) quellenMap[name] = { name, menge: 0 }
+            quellenMap[name].menge += ml
             gesamtMenge += ml
           }
         }

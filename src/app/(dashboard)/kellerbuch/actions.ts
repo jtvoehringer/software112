@@ -253,7 +253,8 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   const dominante = Object.entries(anteile).sort((a, b) => b[1] - a[1])[0]
   const dominanterAnteil = dominante && total > 0 ? dominante[1] / total : 0
   // ≥ 85 %: Rebsorte bleibt; < 85 %: Sortenverschnitt
-  const neueRebsorte = dominanterAnteil >= 0.85 ? zielRebsorteJetzt : 'Sortenverschnitt'
+  // Dominante Rebsorte verwenden (nicht zielRebsorteJetzt, da Quelle dominieren kann)
+  const neueRebsorte = dominanterAnteil >= 0.85 ? (dominante[0] ?? zielRebsorteJetzt) : 'Sortenverschnitt'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error: zielUpdateErr } = await (supabase.from('weinausbau') as any)
     .update({

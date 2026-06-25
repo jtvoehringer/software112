@@ -136,7 +136,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
   }
 
   type WeinausbauRow = {
-    id: string; name: string; jahrgang: number | null; rebsorte: string | null
+    id: string; name: string; jahrgang: number | null; rebsorte: string | null; weinart: string | null
     weingarten_id: string | null; behaelter_id: string | null; menge_liter: number | null
     anfangsbestand_liter: number | null; status: string; qualitaetsstufe: string | null
     notizen: string | null; aktiv: boolean; einstandspreis_pro_liter: number | null; behaelter: { name: string } | null
