@@ -296,7 +296,6 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
             return (
               <p className="text-xs text-s112-muted mt-1">
                 → Charge: <strong className="text-gray-700">&ldquo;{preview}&rdquo;</strong>
-                <span className="ml-1 text-gray-400">(+ Jahrgang)</span>
               </p>
             )
           })()}
@@ -637,3 +636,4 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
     </div>
   )
 }
+                                                                         
