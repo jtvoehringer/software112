@@ -4,7 +4,14 @@ import { useState, useTransition } from 'react'
 import { createVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
 import { QUALITAET_LABEL, QUALITAET_ORDER, istNiedrigerAls, minQualitaet } from '@/lib/weinqualitaet'
 
-type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; rebsorte?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
+type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
+
+// Weinart-Kompatibilität: Rot+Weiß ist nicht zulässig
+function weinartKompatibel(a: string | null | undefined, b: string | null | undefined): boolean {
+  const gegensaetze: [string, string][] = [['rot', 'weiss']]
+  if (!a || !b || a === 'unbekannt' || b === 'unbekannt') return true
+  return !gegensaetze.some(([x, y]) => (a === x && b === y) || (a === y && b === x))
+}
 
 interface Props {
   zielCharge: ChargeOpt
@@ -76,6 +83,12 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
     istNiedrigerAls(zielCharge.qualitaetsstufe ?? null, abstufungsZiel) ||
     selectedChargen.some(c => istNiedrigerAls(c.qualitaetsstufe ?? null, abstufungsZiel))
   )
+  // Weinart-Konflikte: Rot+Weiß ist nicht zulässig
+  const weinartKonflikte = selectedChargen.filter(
+    c => !weinartKompatibel(zielCharge.weinart, c.weinart)
+  )
+  const hatWeinartFehler = weinartKonflikte.length > 0
+
   // Welche Chargen werden abgestuft?
   const betroffeneChargen = selectedChargen.length > 0 ? [
     ...(istNiedrigerAls(zielCharge.qualitaetsstufe ?? null, abstufungsZiel ?? '') ? [zielCharge.name] : []),
@@ -329,10 +342,24 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
         <input name="notizen" className={`${inputCls} w-full`} placeholder="optional" />
       </div>
 
+      {/* Weinart-Fehler: Rot+Weiß nicht zulässig */}
+      {hatWeinartFehler && (
+        <div className="flex items-start gap-2 bg-red-50 border border-red-300 rounded-lg px-3 py-2.5 text-sm">
+          <span className="text-red-500 mt-0.5">🚫</span>
+          <div>
+            <p className="font-semibold text-red-800">Verschneidung nicht zulässig – Weinart-Konflikt</p>
+            <p className="text-xs text-red-700 mt-0.5">
+              Rotwein und Weißwein dürfen gemäß Weingesetz nicht miteinander verschnitten werden.
+              Betroffene Chargen: <strong>{weinartKonflikte.map(c => c.name).join(', ')}</strong>
+            </p>
+          </div>
+        </div>
+      )}
+
       {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
 
       <div className="flex gap-2 pt-1">
-        <button type="submit" disabled={pending}
+        <button type="submit" disabled={pending || hatWeinartFehler}
           className="bg-indigo-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors">
           {pending ? 'Speichert…' : 'Verschneidung speichern'}
         </button>

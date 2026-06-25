@@ -214,11 +214,22 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
     }))
   )
 
-  // Qualitaetsstufen + Rebsorten der Quell-Chargen laden
+  // Qualitaetsstufen + Rebsorten + Weinart der Quell-Chargen laden
   const { data: quellenData } = await (supabase.from('weinausbau') as any)
-    .select('id, qualitaetsstufe, rebsorte')
+    .select('id, qualitaetsstufe, rebsorte, weinart')
     .in('id', quellen.map(q => q.weinausbau_id))
   const quellenRows = (quellenData ?? []) as R[]
+
+  // Guard: Rotwein + Weißwein darf nicht verschnitten werden
+  const { data: zielWeinartRow } = await (supabase.from('weinausbau') as any)
+    .select('weinart').eq('id', zielId).single()
+  const zielWeinart = (zielWeinartRow as R | null)?.weinart as string | null ?? null
+  const quelleKonflikt = quellenRows.find((q: R) => {
+    const qwa = q.weinart as string | null
+    if (!qwa || !zielWeinart || qwa === 'unbekannt' || zielWeinart === 'unbekannt') return false
+    return (zielWeinart === 'rot' && qwa === 'weiss') || (zielWeinart === 'weiss' && qwa === 'rot')
+  })
+  if (quelleKonflikt) throw new Error('Rotwein und Weißwein dürfen gemäß Weingesetz nicht miteinander verschnitten werden.')
   // Niedrigste Qualitaetsstufe aus Quellen + Ziel bestimmen
   const alleQualitaeten = [zielQualitaetVorher, ...quellenRows.map((q: R) => q.qualitaetsstufe as string | null)]
   const neueQualitaet = minQualitaet(alleQualitaeten)
@@ -268,26 +279,11 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
       .eq('id', q.weinausbau_id)
   }
 
-  // Qualitäts-Abstufung: niedrigste Qualitätsstufe aller beteiligten Chargen gewinnt
-  let qualitaetAbgestuft: { von: string; nach: string } | null = null
-  const quelleIds2 = quellen.map(q => q.weinausbau_id)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: alleChargenQ } = await (supabase.from('weinausbau') as any)
-    .select('id, qualitaetsstufe')
-    .in('id', [zielId, ...quelleIds2])
-  if (alleChargenQ && (alleChargenQ as R[]).length > 0) {
-    const stufen = (alleChargenQ as R[]).map((c: R) => c.qualitaetsstufe as string | null)
-    const zielQ  = (alleChargenQ as R[]).find((c: R) => c.id === zielId)?.qualitaetsstufe ?? null
-    const minQ   = minQualitaet(stufen)
-    // Abstufung: wenn minQ niedriger als aktuelle Ziel-Qualität
-    if (minQ && zielQ && istNiedrigerAls(minQ, zielQ)) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('weinausbau') as any)
-        .update({ qualitaetsstufe: minQ })
-        .eq('id', zielId)
-      qualitaetAbgestuft = { von: zielQ, nach: minQ }
-    }
-  }
+  // Qualitäts-Abstufung: zielQualitaetVorher und neueQualitaet wurden oben bereits berechnet
+  const qualitaetAbgestuft: { von: string; nach: string } | null =
+    (neueQualitaet && zielQualitaetVorher && istNiedrigerAls(neueQualitaet, zielQualitaetVorher))
+      ? { von: zielQualitaetVorher as string, nach: neueQualitaet }
+      : null
 
   revalidatePath('/kellerbuch')
   quellen.forEach(q => revalidatePath(`/kellerbuch/weinausbau/${q.weinausbau_id}/buch`))

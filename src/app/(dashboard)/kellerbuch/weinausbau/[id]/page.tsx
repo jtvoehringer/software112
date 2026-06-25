@@ -83,7 +83,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
     // Alle anderen aktiven Chargen (für Verschneidungs- und Umziehen-Formular)
     (supabase.from('weinausbau') as any)
-      .select('id, name, menge_liter, qualitaetsstufe, behaelter_id, rebsorte')
+      .select('id, name, menge_liter, qualitaetsstufe, behaelter_id, rebsorte, weinart')
       .eq('aktiv', true)
       .neq('id', id)
       .order('name'),
@@ -150,7 +150,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
   const behaelter   = (bhRaw  ?? []) as NameRow[]
   const selectedWeingaertenIds = ((wawRaw ?? []) as R[]).map(r => r.weingarten_id as string)
 
-  const alleChargen = (alleChargenRaw ?? []) as { id: string; name: string; menge_liter: number | null; qualitaetsstufe: string | null; behaelter_id: string | null; rebsorte?: string | null }[]
+  const alleChargen = (alleChargenRaw ?? []) as { id: string; name: string; menge_liter: number | null; qualitaetsstufe: string | null; behaelter_id: string | null; rebsorte?: string | null; weinart?: string | null }[]
   const verschneidungenEin = (verschnEinRaw ?? []) as R[]
 
   const anfangsbestand    = parseFloat(String(weinausbau.anfangsbestand_liter ?? 0)) || 0
@@ -499,7 +499,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       {/* Verschneidung (wird über Header-Button mit ?form=verschneiden geöffnet) */}
       {writeOk && alleChargen.length > 0 && (
         <VerschneidungWidget
-          zielCharge={{ id: weinausbau.id, name: weinausbau.name, menge_liter: berechneterSaldo, qualitaetsstufe: weinausbau.qualitaetsstufe ?? null, rebsorte: weinausbau.rebsorte ?? null, behaelter_id: weinausbau.behaelter_id ?? null, behaelter_volumen_liter: ((bhRaw ?? []) as any[]).find((b: any) => b.id === weinausbau.behaelter_id)?.volumen_liter ?? null }}
+          zielCharge={{ id: weinausbau.id, name: weinausbau.name, menge_liter: berechneterSaldo, qualitaetsstufe: weinausbau.qualitaetsstufe ?? null, rebsorte: weinausbau.rebsorte ?? null, weinart: weinausbau.weinart ?? null, behaelter_id: weinausbau.behaelter_id ?? null, behaelter_volumen_liter: ((bhRaw ?? []) as any[]).find((b: any) => b.id === weinausbau.behaelter_id)?.volumen_liter ?? null }}
           alleChargen={alleChargen}
           verschneidungen={verschneidungenEin}
           initialOpen={openForm === 'verschneiden'}
