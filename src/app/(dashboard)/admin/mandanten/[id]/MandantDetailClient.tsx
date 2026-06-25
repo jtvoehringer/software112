@@ -1479,6 +1479,7 @@ export default function MandantDetailClient({ tenant, settings, members }: {
     { id: 'verkauf',     label: 'Verkauf' },
     { id: 'email',       label: '✉ E-Mail'   },
     { id: 'm365',        label: '📅 M365'     },
+    { id: 'bawb',        label: 'bawb.at'     },
     { id: 'sumup',       label: '💳 SumUp'    },
     { id: 'stripe',      label: '💶 Stripe'   },
     { id: 'checkliste',  label: 'Checkliste' },
