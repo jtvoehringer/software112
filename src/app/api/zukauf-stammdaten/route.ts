@@ -13,7 +13,7 @@ export async function GET() {
         .eq('aktiv', true)
         .order('name'),
       (supabase.from('weinausbau') as any)
-        .select('id, name, menge_liter, behaelter_id')
+        .select('id, name, menge_liter, behaelter_id, rebsorte')
         .eq('aktiv', true)
         .order('name'),
     ])
