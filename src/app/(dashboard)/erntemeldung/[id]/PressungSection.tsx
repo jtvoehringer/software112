@@ -52,7 +52,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
   jahrgangId: string; pressung?: Pressung
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
   leseParzellen: LeseParzelle[]; verfuegbareKgByGST: Record<string, number>
-  behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string }[]>; onDone: () => void
+  behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null }[]>; onDone: () => void
 }) {
   const [datum, setDatum]                   = useState(pressung?.datum ?? new Date().toISOString().split('T')[0])
   const [mostLiter, setMostLiter]           = useState(pressung?.most_liter_gesamt?.toString().replace('.', ',') ?? '')
@@ -176,8 +176,21 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     startTransition(async () => {
       const result = await upsertPressung(fd)
       // Prüfen ob neue Charge in Behälter mit bestehenden Chargen gedrückt wurde
+      // Nur bei Rebsortenmix (Quelle hat andere Rebsorte als bestehende Chargen)
       if (!pressung && behaelterMitCharge && result.neu.length > 0) {
-        const konflikt = result.neu.find(n => (behaelterMitCharge[n.behaelter_id]?.length ?? 0) > 0)
+        // Dominante Rebsorte der neuen Pressung ermitteln (häufigste über alle WG-Zeilen)
+        const rebsortenCount: Record<string, number> = {}
+        for (const r of wgRows) {
+          if (r.rebsorte) rebsortenCount[r.rebsorte] = (rebsortenCount[r.rebsorte] ?? 0) + 1
+        }
+        const quelleRebsorte = Object.entries(rebsortenCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+        const konflikt = result.neu.find(n => {
+          const existing = behaelterMitCharge[n.behaelter_id] ?? []
+          if (existing.length === 0) return false
+          // Trigger nur wenn Rebsorte unterschiedlich ist
+          if (!quelleRebsorte) return existing.length > 0
+          return existing.some(e => !e.rebsorte || e.rebsorte !== quelleRebsorte)
+        })
         if (konflikt) {
           setVerschneidung({
             newCharge: { id: konflikt.weinausbau_id, name: konflikt.name },
@@ -356,11 +369,17 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
                   <option value="">– Behälter –</option>
                   {behOptions.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
-                {!pressung && row.behaelter_id && behaelterMitCharge?.[row.behaelter_id] && (
-                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1">
-                    ⚠ Enthält bereits: {behaelterMitCharge[row.behaelter_id].map(c => c.name).join(', ')} – Weine werden verschnitten!
-                  </p>
-                )}
+                {!pressung && row.behaelter_id && behaelterMitCharge?.[row.behaelter_id] && (() => {
+                  const existing = behaelterMitCharge![row.behaelter_id]
+                  const pressungRebsorte = wgRows.find(r => r.rebsorte)?.rebsorte ?? null
+                  const isMix = pressungRebsorte && existing.some(e => e.rebsorte && e.rebsorte !== pressungRebsorte)
+                  return (
+                    <p className={`text-xs rounded px-2 py-1 mt-1 border ${isMix ? 'text-red-700 bg-red-50 border-red-200' : 'text-amber-700 bg-amber-50 border-amber-200'}`}>
+                      {isMix ? '⚠ Rebsortenverschnitt: ' : 'ℹ Enthält bereits: '}
+                      {existing.map(c => c.rebsorte ? `${c.name} (${c.rebsorte})` : c.name).join(', ')}
+                    </p>
+                  )
+                })()}
               </div>
               <div className="col-span-4">
                 <input type="text" inputMode="decimal" value={row.menge_liter}
@@ -404,7 +423,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
   jahrgangId: string; pressungen: Pressung[]
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
   leseParzellen: LeseParzelle[]; verfuegbareKgByGST: Record<string, number>
-  behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string }[]>; writeOk: boolean; adminOk: boolean
+  behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null }[]>; writeOk: boolean; adminOk: boolean
 }) {
   const [showForm, setShowForm]    = useState(false)
   const [editId, setEditId]        = useState<string | null>(null)

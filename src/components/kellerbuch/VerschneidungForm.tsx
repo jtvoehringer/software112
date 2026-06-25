@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { createVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
 import { QUALITAET_LABEL, QUALITAET_ORDER, istNiedrigerAls, minQualitaet } from '@/lib/weinqualitaet'
 
-type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
+type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; rebsorte?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
 
 interface Props {
   zielCharge: ChargeOpt
@@ -118,6 +118,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone }: P
                 {verfuegbar.map(c => (
                   <option key={c.id} value={c.id}>
                     {c.name}{c.menge_liter != null ? ` (${c.menge_liter.toLocaleString('de-AT')} L)` : ''}
+                    {c.rebsorte ? ` · ${c.rebsorte}` : ''}
                     {c.qualitaetsstufe ? ` · ${QUALITAET_LABEL[c.qualitaetsstufe] ?? c.qualitaetsstufe}` : ''}
                   </option>
                 ))}
@@ -162,6 +163,30 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone }: P
           </div>
         </div>
       )}
+
+      {/* Rebsortenmix-Warnung */}
+      {(() => {
+        const zielRebsorte = zielCharge.rebsorte
+        const quellenMitAndererRebsorte = selectedChargen.filter(
+          c => c.rebsorte && zielRebsorte && c.rebsorte !== zielRebsorte
+        )
+        if (quellenMitAndererRebsorte.length === 0) return null
+        return (
+          <div className="flex items-start gap-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2.5 text-sm">
+            <span className="text-amber-500 mt-0.5">⚠️</span>
+            <div>
+              <p className="font-medium text-amber-800">Rebsortenverschnitt</p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Ziel-Charge: <strong>{zielRebsorte}</strong> –
+                Quelle{quellenMitAndererRebsorte.length > 1 ? 'n' : ''}{' '}
+                <strong>{quellenMitAndererRebsorte.map(c => `${c.name} (${c.rebsorte})`).join(', ')}</strong>{' '}
+                {quellenMitAndererRebsorte.length > 1 ? 'haben' : 'hat'} eine andere Rebsorte.
+                Die Mischung gilt als Sortenverschnitt.
+              </p>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Gebinde-Kapazität Ziel */}
       {(() => {
