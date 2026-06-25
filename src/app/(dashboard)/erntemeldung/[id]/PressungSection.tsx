@@ -288,9 +288,14 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
               {kmwGrad ? `${kmwGrad} °KMW` : <span className="text-s112-muted text-xs">– (kein KMW in Ernte erfasst)</span>}
             </div>
             {kmwQualitaet && (
-              <span className="shrink-0 text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap">
+              <button
+                type="button"
+                onClick={() => setWeinbez(QUALITAET_LABEL[kmwQualitaet] ?? '')}
+                title="In Bezeichnung übernehmen"
+                className="shrink-0 text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap hover:bg-amber-200 transition-colors cursor-pointer"
+              >
                 → {QUALITAET_LABEL[kmwQualitaet]}
-              </span>
+              </button>
             )}
           </div>
         </div>
