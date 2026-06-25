@@ -46,8 +46,9 @@ export async function saveTenantSettings(tenantId: string, formData: FormData) {
     brevo_list_gastro:  num('brevo_list_gastro'),
     brevo_list_handel:  num('brevo_list_handel'),
     brevo_list_export:  num('brevo_list_export'),
-    brevo_list_grossh:  num('brevo_list_grossh'),
-    aktualisiert_am:    new Date().toISOString(),
+    brevo_list_grossh:          num('brevo_list_grossh'),
+    session_timeout_minuten:    num('session_timeout_minuten'),
+    aktualisiert_am:            new Date().toISOString(),
   }
 
   const { error } = await (admin.from('tenant_einstellungen') as any)
@@ -398,7 +399,6 @@ export async function cancelStripeSubscription(tenantId: string, subscriptionId:
     stripe_plan:              null,
     stripe_current_period_end: null,
   }).eq('id', tenantId)
-
   revalidatePath(`/admin/mandanten/${tenantId}`)
   return { success: true }
 }
