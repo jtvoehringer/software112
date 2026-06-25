@@ -80,7 +80,7 @@ export default async function ErnteDetailPage({ params }: Props) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, behaelter_id, rebsorte').eq('aktiv', true).neq('status', 'abgeschlossen').order('name'),
+      .select('id, name, jahrgang, behaelter_id, rebsorte, menge_liter').eq('aktiv', true).neq('status', 'abgeschlossen').order('name'),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('grundstuecke') as any)
@@ -287,6 +287,4 @@ export default async function ErnteDetailPage({ params }: Props) {
           />
         </div>
       )}
-    </div>
-  )
-}
+    
