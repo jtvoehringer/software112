@@ -222,31 +222,16 @@ export async function createVerschneidung(formData: FormData) {
   const alleQualitaeten = [zielQualitaetVorher, ...quellenRows.map((q: R) => q.qualitaetsstufe as string | null)]
   const neueQualitaet = minQualitaet(alleQualitaeten)
 
-  // Ziel-Charge: Bestand erhöhen + Rebsorte nach 85%-Regel + Qualität anpassen
+  // Ziel-Charge: Bestand erhöhen + rebsorte auf Sortenverschnitt + Qualität anpassen
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: ziel } = await (supabase.from('weinausbau') as any)
-    .select('menge_liter, rebsorte').eq('id', zielId).single()
+    .select('menge_liter').eq('id', zielId).single()
   const aktuell = parseFloat((ziel as R)?.menge_liter ?? '0') || 0
-  const zielRebsorteJetzt = (ziel as R)?.rebsorte as string | null ?? null
-  // Rebsorten-Anteile über alle beteiligten Mengen berechnen
-  const total = aktuell + gesamtLiter
-  const anteile: Record<string, number> = {}
-  if (zielRebsorteJetzt && aktuell > 0) {
-    anteile[zielRebsorteJetzt] = (anteile[zielRebsorteJetzt] ?? 0) + aktuell
-  }
-  for (const q of quellen) {
-    const qRebsorte = (quellenRows.find((r: R) => r.id === q.weinausbau_id) as R | undefined)?.rebsorte as string | null ?? null
-    if (qRebsorte) anteile[qRebsorte] = (anteile[qRebsorte] ?? 0) + q.menge_liter
-  }
-  const dominante = Object.entries(anteile).sort((a, b) => b[1] - a[1])[0]
-  const dominanterAnteil = dominante && total > 0 ? dominante[1] / total : 0
-  // ≥ 85 %: Rebsorte bleibt; < 85 %: Sortenverschnitt
-  const neueRebsorte = dominanterAnteil >= 0.85 ? zielRebsorteJetzt : 'Sortenverschnitt'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error: zielUpdateErr } = await (supabase.from('weinausbau') as any)
     .update({
       menge_liter: aktuell + gesamtLiter,
-      rebsorte: neueRebsorte,
+      rebsorte: 'Sortenverschnitt',
       qualitaetsstufe: neueQualitaet,
     })
     .eq('id', zielId)

@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { createVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
 import { QUALITAET_LABEL, QUALITAET_ORDER, istNiedrigerAls, minQualitaet } from '@/lib/weinqualitaet'
 
-type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; rebsorte?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
+type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
 
 interface Props {
   zielCharge: ChargeOpt
@@ -31,29 +31,6 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone }: P
     const n = parseFloat(q.menge.replace(',', '.'))
     return s + (isNaN(n) ? 0 : n)
   }, 0)
-
-  // ── Rebsorten-Preview (85%-Regel) ────────────────────────────────────────
-  const rebsortenPreview = (() => {
-    const zielMenge = parseFloat(String(zielCharge.menge_liter ?? 0)) || 0
-    const total = zielMenge + gesamtLiter
-    if (total === 0 || gesamtLiter === 0) return null
-    const anteile: Record<string, number> = {}
-    if (zielCharge.rebsorte && zielMenge > 0) {
-      anteile[zielCharge.rebsorte] = (anteile[zielCharge.rebsorte] ?? 0) + zielMenge
-    }
-    for (const q of quellen) {
-      const src = verfuegbar.find(c => c.id === q.weinausbau_id)
-      const menge = parseFloat(q.menge.replace(',', '.'))
-      if (src?.rebsorte && !isNaN(menge) && menge > 0) {
-        anteile[src.rebsorte] = (anteile[src.rebsorte] ?? 0) + menge
-      }
-    }
-    const dominante = Object.entries(anteile).sort((a, b) => b[1] - a[1])[0]
-    const anteilPct = dominante && total > 0 ? Math.round(dominante[1] / total * 1000) / 10 : 0
-    if (anteilPct >= 100) return { typ: 'unveraendert' as const, anteilPct, rebsorte: dominante![0] }
-    if (anteilPct >= 85)  return { typ: 'bezeichnungsunschaedlich' as const, anteilPct, rebsorte: dominante![0] }
-    return { typ: 'sortenverschnitt' as const, anteilPct: null, rebsorte: null }
-  })()
 
   // Qualitäts-Abstufungs-Check
   const selectedChargen = quellen
@@ -141,7 +118,6 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone }: P
                 {verfuegbar.map(c => (
                   <option key={c.id} value={c.id}>
                     {c.name}{c.menge_liter != null ? ` (${c.menge_liter.toLocaleString('de-AT')} L)` : ''}
-                    {c.rebsorte ? ` · ${c.rebsorte}` : ''}
                     {c.qualitaetsstufe ? ` · ${QUALITAET_LABEL[c.qualitaetsstufe] ?? c.qualitaetsstufe}` : ''}
                   </option>
                 ))}
@@ -187,30 +163,6 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone }: P
         </div>
       )}
 
-      {/* Rebsortenmix-Warnung */}
-      {(() => {
-        const zielRebsorte = zielCharge.rebsorte
-        const quellenMitAndererRebsorte = selectedChargen.filter(
-          c => c.rebsorte && zielRebsorte && c.rebsorte !== zielRebsorte
-        )
-        if (quellenMitAndererRebsorte.length === 0) return null
-        return (
-          <div className="flex items-start gap-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2.5 text-sm">
-            <span className="text-amber-500 mt-0.5">⚠️</span>
-            <div>
-              <p className="font-medium text-amber-800">Rebsortenverschnitt</p>
-              <p className="text-xs text-amber-700 mt-0.5">
-                Ziel-Charge: <strong>{zielRebsorte}</strong> –
-                Quelle{quellenMitAndererRebsorte.length > 1 ? 'n' : ''}{' '}
-                <strong>{quellenMitAndererRebsorte.map(c => `${c.name} (${c.rebsorte})`).join(', ')}</strong>{' '}
-                {quellenMitAndererRebsorte.length > 1 ? 'haben' : 'hat'} eine andere Rebsorte.
-                Die Mischung gilt als Sortenverschnitt.
-              </p>
-            </div>
-          </div>
-        )
-      })()}
-
       {/* Gebinde-Kapazität Ziel */}
       {(() => {
         if (zielCharge.behaelter_volumen_liter == null) return null
@@ -251,40 +203,6 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone }: P
           Gesamt zufließend: <strong>{gesamtLiter.toLocaleString('de-AT', { maximumFractionDigits: 1 })} L</strong>
           {' → '}Zielbestand: <strong>{(parseFloat(String(zielCharge.menge_liter ?? 0)) + gesamtLiter).toLocaleString('de-AT', { maximumFractionDigits: 1 })} L</strong>
         </p>
-      )}
-
-      {/* Rebsorten-Ergebnis-Preview */}
-      {rebsortenPreview && (
-        <div className={`flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm border ${
-          rebsortenPreview.typ === 'unveraendert'
-            ? 'bg-green-50 border-green-200 text-green-800'
-            : rebsortenPreview.typ === 'bezeichnungsunschaedlich'
-            ? 'bg-blue-50 border-blue-200 text-blue-800'
-            : 'bg-amber-50 border-amber-300 text-amber-800'
-        }`}>
-          <span className="mt-0.5">
-            {rebsortenPreview.typ === 'unveraendert' ? '✅' : rebsortenPreview.typ === 'bezeichnungsunschaedlich' ? 'ℹ️' : '⚠️'}
-          </span>
-          <div>
-            {rebsortenPreview.typ === 'unveraendert' && (
-              <p className="font-medium">Rebsorte bleibt unverändert ({rebsortenPreview.rebsorte})</p>
-            )}
-            {rebsortenPreview.typ === 'bezeichnungsunschaedlich' && (
-              <>
-                <p className="font-medium">Bezeichnungsunschädlicher Verschnitt – Rebsorte bleibt unverändert</p>
-                <p className="text-xs mt-0.5">
-                  <strong>{rebsortenPreview.rebsorte}</strong> macht {rebsortenPreview.anteilPct} % aus (≥ 85 %)
-                </p>
-              </>
-            )}
-            {rebsortenPreview.typ === 'sortenverschnitt' && (
-              <>
-                <p className="font-medium">Sortenverschnitt – Rebsorte wird auf „Sortenverschnitt" gesetzt</p>
-                <p className="text-xs mt-0.5">Keine Rebsorte erreicht 85 % Anteil</p>
-              </>
-            )}
-          </div>
-        </div>
       )}
 
       <div>

@@ -424,7 +424,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
   weingaerten: WeingartenOpt[]; gstByWeingarten: Record<string, GSTOpt[]>; amaMeldung: AMAMeldung | null
   pressungen: Pressung[]; wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
   verfuegbareKg: Record<string, number>; verfuegbareKgByGST: Record<string, number>
-  behaelterMitCharge: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null }[]>; writeOk: boolean; adminOk: boolean
+  behaelterMitCharge: Record<string, { weinausbau_id: string; name: string }[]>; writeOk: boolean; adminOk: boolean
 }) {
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)

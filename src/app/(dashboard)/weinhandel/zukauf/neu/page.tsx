@@ -93,7 +93,6 @@ export default function ZukaufNeuPage() {
   const [kontakte,    setKontakte]    = useState<Kontakt[]>([])
   const [firmen,      setFirmen]      = useState<Firma[]>([])
   const [behaelter,   setBehaelter]   = useState<Behaelter[]>([])
-  const [weinausbauListe, setWeinausbauListe] = useState<{ id: string; name: string; behaelter_id: string | null; rebsorte: string | null }[]>([])
   const [loading,     setLoading]     = useState(true)
 
   // Formular
@@ -109,14 +108,6 @@ export default function ZukaufNeuPage() {
   const [zielBehaelter,        setZielBehaelter]       = useState('')
   const [einstandspreisLiter,  setEinstandspreisLiter] = useState('')
   const [notizen,              setNotizen]             = useState('')
-
-  // Rebsortenmix: bestehende Chargen im Ziel-Behälter mit anderer Rebsorte?
-  const andereChargenImZiel = zielBehaelter && rebsorte
-    ? weinausbauListe.filter(
-        w => w.behaelter_id === zielBehaelter && w.rebsorte && w.rebsorte !== rebsorte
-      )
-    : []
-  const hatRebsortenmixZukauf = andereChargenImZiel.length > 0
 
   // Wenn Art wechselt → Einheit anpassen
   function handleArtChange(a: 'wein' | 'trauben' | 'most') {
@@ -140,7 +131,6 @@ export default function ZukaufNeuPage() {
         if (r2.ok) {
           const j2 = await r2.json()
           setBehaelter(j2.behaelter ?? [])
-          setWeinausbauListe(j2.weinausbau ?? [])
         }
       } catch {
         // ignore
@@ -334,14 +324,6 @@ export default function ZukaufNeuPage() {
                 ))}
               </select>
             </div>
-            {hatRebsortenmixZukauf && (
-              <div className="bg-amber-50 border border-amber-300 rounded-lg px-3 py-2.5 text-sm text-amber-800">
-                <span className="font-semibold">⚠ Rebsortenverschnitt:</span>{' '}
-                Das gewählte Gebinde enthält bereits Chargen mit anderer Rebsorte:{' '}
-                <strong>{andereChargenImZiel.map(c => `${c.name} (${c.rebsorte})`).join(', ')}</strong>.
-                Nach dem Speichern wird das Verschneiden-Formular geöffnet.
-              </div>
-            )}
           </div>
         )}
 

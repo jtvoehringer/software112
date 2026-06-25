@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
 type Gebinde = { id: string; name: string; volumen_liter?: number | null }
-type Charge  = { id: string; name: string; menge_liter: number | null; behaelter_id?: string | null; rebsorte?: string | null }
+type Charge  = { id: string; name: string; menge_liter: number | null; behaelter_id?: string | null }
 
 interface Props {
   chargeId:        string
@@ -14,10 +14,9 @@ interface Props {
   alleChargen:     Charge[]
   action:          (fd: FormData) => Promise<void>
   initialOpen?:    boolean
-  quelleRebsorte?: string | null
 }
 
-export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, gebinde, alleChargen, action, initialOpen = false, quelleRebsorte = null }: Props) {
+export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, gebinde, alleChargen, action, initialOpen = false }: Props) {
   const router  = useRouter()
   const [open,  setOpen]  = useState(initialOpen)
   useEffect(() => { setOpen(initialOpen) }, [initialOpen])
@@ -36,16 +35,6 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
   }
   const frei = (g: Gebinde) =>
     g.volumen_liter != null ? Math.max(0, g.volumen_liter - (inhalt[g.id] ?? 0)) : null
-
-  // Rebsortenmix: gibt es im Ziel-Gebinde Chargen mit anderer Rebsorte?
-  const andereRebsorten = zielId && quelleRebsorte
-    ? [...new Set(
-        alleChargen
-          .filter(c => c.behaelter_id === zielId && c.rebsorte && c.rebsorte !== quelleRebsorte)
-          .map(c => c.rebsorte as string)
-      )]
-    : []
-  const hatRebsortenmix = andereRebsorten.length > 0
 
   const bruttoVal = parseFloat(brutto.replace(',', '.')) || 0
   const nettoVal  = parseFloat(netto.replace(',', '.'))  || 0
@@ -76,11 +65,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
       try {
         await action(fd)
         setBrutto(''); setNetto(''); setZielId(''); setNotizen('')
-        if (hatRebsortenmix) {
-          router.push(`/kellerbuch/weinausbau/${chargeId}?form=verschneiden`)
-        } else {
-          router.push(`/kellerbuch/weinausbau/${chargeId}`)
-        }
+        router.push(`/kellerbuch/weinausbau/${chargeId}`)
         router.refresh()
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Fehler beim Umziehen')
@@ -198,13 +183,6 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
                 <p className="text-xs text-red-600 mt-1">Netto überschreitet Restkapazität des Gebindes</p>
               ) : null
             })()}
-            {hatRebsortenmix && (
-              <div className="mt-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 text-xs text-amber-800">
-                <span className="font-semibold">⚠ Rebsortenverschnitt:</span>{' '}
-                Das Ziel-Gebinde enthält bereits Chargen mit Rebsorte <strong>{andereRebsorten.join(', ')}</strong>.
-                Nach dem Umzug wird automatisch das Verschneiden-Formular geöffnet.
-              </div>
-            )}
           </div>
 
           <div className="flex items-center gap-3">
