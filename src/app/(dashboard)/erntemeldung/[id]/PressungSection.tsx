@@ -204,18 +204,10 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
       // Prüfen ob neue Charge in Behälter mit bestehenden Chargen gedrückt wurde
       // Nur bei Rebsortenmix (Quelle hat andere Rebsorte als bestehende Chargen)
       if (!pressung && behaelterMitCharge && result.neu.length > 0) {
-        // Dominante Rebsorte der neuen Pressung ermitteln (häufigste über alle WG-Zeilen)
-        const rebsortenCount: Record<string, number> = {}
-        for (const r of wgRows) {
-          if (r.rebsorte) rebsortenCount[r.rebsorte] = (rebsortenCount[r.rebsorte] ?? 0) + 1
-        }
-        const quelleRebsorte = Object.entries(rebsortenCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+        // Verschnitt-Prompt immer wenn Behälter bereits Chargen hat (gleiche oder andere Rebsorte)
         const konflikt = result.neu.find(n => {
           const existing = behaelterMitCharge[n.behaelter_id] ?? []
-          if (existing.length === 0) return false
-          // Trigger nur wenn Rebsorte unterschiedlich ist
-          if (!quelleRebsorte) return existing.length > 0
-          return existing.some(e => !e.rebsorte || e.rebsorte !== quelleRebsorte)
+          return existing.length > 0
         })
         if (konflikt) {
           setVerschneidung({
