@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
 import { deleteVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
@@ -61,6 +61,7 @@ function StornoButton({ id, zielId }: { id: string; zielId: string }) {
 export default function VerschneidungWidget({ zielCharge, alleChargen, verschneidungen, initialOpen = false }: Props) {
   const router = useRouter()
   const [showForm, setShowForm] = useState(initialOpen)
+  useEffect(() => { setShowForm(initialOpen) }, [initialOpen])
 
   function handleClose() {
     setShowForm(false)

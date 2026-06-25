@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
 type Gebinde = { id: string; name: string; volumen_liter?: number | null }
@@ -19,6 +19,7 @@ interface Props {
 export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, gebinde, alleChargen, action, initialOpen = false }: Props) {
   const router  = useRouter()
   const [open,  setOpen]  = useState(initialOpen)
+  useEffect(() => { setOpen(initialOpen) }, [initialOpen])
   const [brutto, setBrutto] = useState('')
   const [netto,  setNetto]  = useState('')
   const [zielId, setZielId] = useState('')
