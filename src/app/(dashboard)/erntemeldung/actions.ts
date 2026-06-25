@@ -269,6 +269,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
   const kmwRaw           = (fd.get('kmw_grad') as string || '').replace(',', '.')
   const kmwGrad          = kmwRaw ? parseFloat(kmwRaw) : null
   const notizen          = (fd.get('notizen') as string) || null
+  const qualitaetsstufeInput = (fd.get('qualitaetsstufe') as string) || null
   const wgJson      = fd.get('weingaerten_json') as string
   const behJson     = fd.get('behaelter_json') as string
   const weingaerten = JSON.parse(wgJson || '[]') as PressungWGInput[]
@@ -324,8 +325,8 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
     .select('jahrgang, qualitaet_gesamt').eq('id', jahrgangId).single()
   const jgJahr      = (jgData as AR)?.jahrgang as number | null
   const jgQualitaet = (jgData as AR)?.qualitaet_gesamt as string | null
-  // KMW-abgeleitete Qualität hat Vorrang vor Jahrgangs-Qualität; Jahrgangs-Qualität als Fallback
-  const autoQualitaet = kmwGrad != null && !isNaN(kmwGrad) ? kmwZuQualitaet(kmwGrad) : (jgQualitaet ?? null)
+  // Qualität: User-Input > KMW-Ableitung > Jahrgangs-Qualität
+  const autoQualitaet = qualitaetsstufeInput ?? (kmwGrad != null && !isNaN(kmwGrad) ? kmwZuQualitaet(kmwGrad) : (jgQualitaet ?? null))
 
   // Rebsorte ableiten: eindeutige Sorte aus Weingärten → sonst aus Weingarten-Tabelle → sonst 'Sortenverschnitt'
   const rebsortenAusForm = weingaerten.map(w => w.rebsorte).filter((r): r is string => !!r)

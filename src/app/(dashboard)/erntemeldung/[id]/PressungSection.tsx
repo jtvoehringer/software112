@@ -70,19 +70,9 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
   const [datum, setDatum]                   = useState(pressung?.datum ?? new Date().toISOString().split('T')[0])
   const [mostLiter, setMostLiter]           = useState(pressung?.most_liter_gesamt?.toString().replace('.', ',') ?? '')
   const [weinbezeichnung, setWeinbez]       = useState(pressung?.weinbezeichnung ?? '')
-  // KMW aus Erntedaten ableiten (gewichteter Durchschnitt nach kg)
-  const kmwFromErnte = (() => {
-    const rows = leseParzellen.filter(p => p.klosterneuburger != null && (p.menge_kg ?? 0) > 0)
-    if (rows.length === 0) return pressung?.kmw_grad ?? null
-    const sumKg  = rows.reduce((s, p) => s + (p.menge_kg ?? 0), 0)
-    const sumKmw = rows.reduce((s, p) => s + (p.klosterneuburger! * (p.menge_kg ?? 0)), 0)
-    return sumKg > 0 ? Math.round((sumKmw / sumKg) * 10) / 10 : (pressung?.kmw_grad ?? null)
-  })()
-  const kmwGrad = kmwFromErnte?.toString().replace('.', ',') ?? ''
   const [notizen, setNotizen]               = useState(pressung?.notizen ?? '')
+  const [qualitaetsstufe, setQualitaetsstufe] = useState<string>('')
 
-  const kmwNum     = parseFloat(kmwGrad.replace(',', '.'))
-  const kmwQualitaet = !isNaN(kmwNum) && kmwNum > 0 ? kmwZuQualitaet(kmwNum) : null
   // Pre-fill aus Erntedaten: eine Zeile pro Parzelle (GST oder Ried)
   // Verfügbare kg direkt per GST-ID (kein proportionales Verteilen mehr)
   function gstVerfuegbar(gstId: string | null): number {
@@ -114,6 +104,28 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
       menge_liter: b.menge_liter?.toString().replace('.', ',') ?? '', notizen: b.notizen ?? '',
     })) ?? [emptyBeh()]
   )
+
+  // KMW gewichteter Durchschnitt aus den AUSGEWÄHLTEN WG-Zeilen (reaktiv zu wgRows)
+  const kmwFromWgRows = (() => {
+    let sumKg = 0, sumKmw = 0
+    for (const row of wgRows) {
+      const kg = parseFloat(row.trauben_kg.replace(',', '.')) || 0
+      if (kg <= 0) continue
+      const parzelle = leseParzellen.find(p =>
+        p.weingarten_id === row.weingarten_id &&
+        (p.grundstueck_id ?? '') === row.grundstueck_id
+      )
+      if (parzelle?.klosterneuburger != null) {
+        sumKg  += kg
+        sumKmw += parzelle.klosterneuburger * kg
+      }
+    }
+    if (sumKg === 0) return pressung?.kmw_grad ?? null
+    return Math.round((sumKmw / sumKg) * 10) / 10
+  })()
+  const kmwGrad      = kmwFromWgRows?.toString().replace('.', ',') ?? ''
+  const kmwNum       = parseFloat(kmwGrad.replace(',', '.'))
+  const kmwQualitaet = !isNaN(kmwNum) && kmwNum > 0 ? kmwZuQualitaet(kmwNum) : null
   const [pending, startTransition] = useTransition()
 
   type VerschneidungData = {
@@ -167,7 +179,8 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     fd.append('datum', datum)
     fd.append('most_liter_gesamt', mostLiter)
     fd.append('weinbezeichnung', weinbezeichnung)
-    // kmw_grad wird als hidden input übergeben
+    fd.append('kmw_grad', kmwGrad)
+    fd.append('qualitaetsstufe', qualitaetsstufe)
     fd.append('notizen', notizen)
     fd.append('weingaerten_json', JSON.stringify(
       wgRows.filter(r => r.weingarten_id && r.trauben_kg).map(r => ({
@@ -280,23 +293,28 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
           <input type="text" inputMode="decimal" value={mostLiter} onChange={e => setMostLiter(e.target.value)}
             placeholder="z.B. 1.050" className={inp} />
         </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">KMW° (aus Ernte)</label>
-          <input type="hidden" name="kmw_grad" value={kmwGrad} />
+        <div className="col-span-2">
+          <label className="block text-xs font-medium text-gray-600 mb-1">KMW° & Qualitätsstufe</label>
           <div className="flex items-center gap-2">
-            <div className={inp + ' bg-s112-bg text-gray-700 cursor-not-allowed'}>
-              {kmwGrad ? `${kmwGrad} °KMW` : <span className="text-s112-muted text-xs">– (kein KMW in Ernte erfasst)</span>}
+            <div className="border border-s112-border rounded-lg px-2 py-1.5 text-sm bg-s112-bg text-gray-700 cursor-not-allowed whitespace-nowrap shrink-0">
+              {kmwGrad ? `${kmwGrad} °KMW` : <span className="text-s112-muted text-xs">– kein KMW</span>}
             </div>
             {kmwQualitaet && (
               <button
                 type="button"
-                onClick={() => setWeinbez(QUALITAET_LABEL[kmwQualitaet] ?? '')}
-                title="In Bezeichnung übernehmen"
+                onClick={() => setQualitaetsstufe(QUALITAET_LABEL[kmwQualitaet] ?? '')}
                 className="shrink-0 text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap hover:bg-amber-200 transition-colors cursor-pointer"
               >
                 → {QUALITAET_LABEL[kmwQualitaet]}
               </button>
             )}
+            <input
+              type="text"
+              value={qualitaetsstufe}
+              onChange={e => setQualitaetsstufe(e.target.value)}
+              placeholder="Qualitätsstufe …"
+              className={inp}
+            />
           </div>
         </div>
         <div className="col-span-2">
