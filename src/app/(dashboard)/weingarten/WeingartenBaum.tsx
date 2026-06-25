@@ -135,11 +135,6 @@ function WeingartenZeile({
                 Bearbeiten
               </Link>
             )}
-            {adminOk && w.aktiv && (
-              <button onClick={handleDeactivate} className="text-yellow-500 hover:text-yellow-700 text-xs">
-                Deaktivieren
-              </button>
-            )}
             {adminOk && (
               <button onClick={handleDelete} className="text-red-400 hover:text-red-600 text-xs">
                 Löschen
