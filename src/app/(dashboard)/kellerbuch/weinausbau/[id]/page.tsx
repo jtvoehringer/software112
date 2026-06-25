@@ -46,7 +46,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
     { data: verschnEinRaw },
   ] = await Promise.all([
     (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, rebsorte, weingarten_id, behaelter_id, menge_liter, anfangsbestand_liter, status, qualitaetsstufe, notizen, aktiv, einstandspreis_pro_liter, behaelter:behaelter_id(name)')
+      .select('id, name, jahrgang, rebsorte, weingarten_id, behaelter_id, menge_liter, anfangsbestand_liter, status, qualitaetsstufe, weinart, notizen, aktiv, einstandspreis_pro_liter, behaelter:behaelter_id(name)')
       .eq('id', id).limit(1),
     (supabase.from('weingarten') as any).select('id, name').eq('aktiv', true).order('name'),
     (supabase.from('behaelter') as any).select('id, name, volumen_liter').eq('aktiv', true).order('name'),

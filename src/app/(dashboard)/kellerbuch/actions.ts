@@ -103,6 +103,7 @@ export async function updateWeinausbau(id: string, formData: FormData) {
     behaelter_id:    (formData.get('behaelter_id') as string) || null,
     menge_liter:     neueMenge,
     qualitaetsstufe:      (formData.get('qualitaetsstufe') as string) || null,
+    weinart:              (formData.get('weinart') as string) || 'unbekannt',
     status:               formData.get('status') as string,
     notizen:              (formData.get('notizen') as string) || null,
     einstandspreis_pro_liter: formData.get('einstandspreis_pro_liter')

@@ -157,11 +157,15 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
             <select value={zielId} onChange={e => setZielId(e.target.value)} className="form-input">
               <option value="">– Gebinde wählen –</option>
               {gebinde.map(g => {
-                const f = frei(g)
+                const inh = inhalt[g.id] ?? 0
+                const f   = frei(g)
+                const kap = g.volumen_liter
+                const fmt = (n: number) => n.toLocaleString('de-AT', { maximumFractionDigits: 0 })
+                const info = kap != null
+                  ? ` · ${fmt(kap)} L Kap · ${fmt(inh)} L Inh · ${fmt(f ?? 0)} L frei`
+                  : inh > 0 ? ` · ${fmt(inh)} L Inh` : ''
                 return (
-                  <option key={g.id} value={g.id}>
-                    {g.name}{f != null ? ` (frei: ${f.toLocaleString('de-AT', { maximumFractionDigits: 0 })} L)` : ''}
-                  </option>
+                  <option key={g.id} value={g.id}>{g.name}{info}</option>
                 )
               })}
             </select>
@@ -212,7 +216,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
               className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
               {pending ? 'Wird gebucht …' : 'Umzug buchen'}
             </button>
-            <button type="button" onClick={handleClose}
+             <button type="button" onClick={handleClose}
               className="text-sm text-s112-muted hover:text-gray-700 transition-colors">
               Abbrechen
             </button>

@@ -22,6 +22,13 @@ const TYP_ICONS: Record<string, string> = {
   lagertank: '🪣', immervolltank: '🪣', stahltank: '🪣', holzfass: '🪵', betonei: '⚪', amphore: '🏺', sonstiges: '📦',
 }
 
+const WEINART_BADGE: Record<string, { label: string; color: string }> = {
+  weiss:    { label: 'Weiß',    color: 'bg-yellow-100 text-yellow-800' },
+  rot:      { label: 'Rot',     color: 'bg-red-100 text-red-800' },
+  rose:     { label: 'Rosé',    color: 'bg-pink-100 text-pink-800' },
+  unbekannt:{ label: '?',       color: 'bg-gray-100 text-gray-500' },
+}
+
 export default async function KellerbuchPage() {
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
@@ -36,7 +43,7 @@ export default async function KellerbuchPage() {
       .select('id, name, typ, volumen_liter, standort, aktiv')
       .order('name'),
     (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, rebsorte, menge_liter, status, aktiv, behaelter_id, ist_eroeffnungsbestand')
+      .select('id, name, jahrgang, rebsorte, weinart, menge_liter, status, aktiv, behaelter_id, ist_eroeffnungsbestand')
       .order('jahrgang', { ascending: false }),
     // Event-basierter Füllstand pro Behälter (identisch zur Bewegungen-Page)
     (supabase.from('v_behaelter_fuellstand') as any)
@@ -192,6 +199,7 @@ export default async function KellerbuchPage() {
                         ? literImBehaelter
                         : parseFloat(w.menge_liter) || 0
                       const istEB = w.ist_eroeffnungsbestand === true
+                      const wa = WEINART_BADGE[w.weinart ?? 'unbekannt'] ?? WEINART_BADGE.unbekannt
                       return (
                         <tr key={w.id} className={`relative border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40 cursor-pointer ${istEB ? 'opacity-75' : ''}`}>
                           <td className="px-4 py-2.5 font-medium text-gray-800">
@@ -201,6 +209,9 @@ export default async function KellerbuchPage() {
                             </Link>
                             {w.rebsorte && <span className="text-xs text-s112-muted ml-1">· {w.rebsorte}</span>}
                             {istEB && <span className="text-xs text-s112-muted ml-1 italic">(Eröffnungsbestand)</span>}
+                            {(w.weinart && w.weinart !== 'unbekannt') && (
+                              <span className={`inline-block ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${wa.color}`}>{wa.label}</span>
+                            )}
                           </td>
                           <td className="px-4 py-2.5 text-s112-muted text-xs">{w.jahrgang ?? '–'}</td>
                           <td className="px-4 py-2.5">

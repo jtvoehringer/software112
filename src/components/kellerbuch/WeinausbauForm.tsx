@@ -15,8 +15,16 @@ type WeinausbauRow = {
   id: string; name: string; jahrgang: number | null; rebsorte: string | null
   weingarten_id: string | null; behaelter_id: string | null
   menge_liter: number | null; status: string; qualitaetsstufe: string | null
+  weinart?: string | null
   notizen: string | null; aktiv: boolean; einstandspreis_pro_liter: number | null
 }
+
+const WEINART_OPTS = [
+  { value: 'weiss',    label: '🟡 Weißwein' },
+  { value: 'rot',      label: '🔴 Rotwein' },
+  { value: 'rose',     label: '🩷 Rosé' },
+  { value: 'unbekannt', label: '⬜ Unbekannt' },
+]
 
 interface Props {
   weinausbau?: WeinausbauRow
@@ -183,6 +191,27 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
           </div>
         </div>
 
+        {/* Weinart */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="form-label">Weinart</label>
+            {vonPressung ? (
+              <>
+                <input type="hidden" name="weinart" value={weinausbau?.weinart ?? 'unbekannt'} />
+                <div className={rdOnly}>
+                  {WEINART_OPTS.find(o => o.value === (weinausbau?.weinart ?? 'unbekannt'))?.label ?? '⬜ Unbekannt'}
+                </div>
+                <p className="text-xs text-s112-muted mt-1">Wird aus den Weingärten abgeleitet</p>
+              </>
+            ) : (
+              <select name="weinart" defaultValue={weinausbau?.weinart ?? 'unbekannt'} className="form-input">
+                {WEINART_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            )}
+          </div>
+          <div />
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="form-label">Rieden / Weingärten</label>
@@ -274,7 +303,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
 
       <div className="card space-y-4">
         <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Notizen</h2>
-        <textarea name="notizen" rows={3} defaultValue={weinausbau?.notizen ?? ''} className="form-input resize-none" placeholder="Kellermeister-Notizen, Maßnahmen …" />
+        <textarea name="notizen" rows={3} defaultValue={weinausbau?.notizen ?? ''} className="form-input resize-none" placeholder="Kellermeister-Notizen, Massnahmen …" />
       </div>
 
       {weinausbau && (

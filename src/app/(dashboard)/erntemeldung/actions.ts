@@ -330,20 +330,26 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
   const autoQualitaet = qualitaetsstufeInput
     ?? (kmwGrad != null && !isNaN(kmwGrad) ? kmwZuQualitaet(kmwGrad) : 'qualitaetswein')
 
-  // Rebsorte ableiten: eindeutige Sorte aus Weingärten → sonst aus Weingarten-Tabelle → sonst 'Sortenverschnitt'
+  // Rebsorte + Weinart ableiten aus Weingarten-Tabelle
   const rebsortenAusForm = weingaerten.map(w => w.rebsorte).filter((r): r is string => !!r)
   let dominantRebsorte: string | null = null
-  if (rebsortenAusForm.length > 0) {
-    const unique = [...new Set(rebsortenAusForm)]
-    dominantRebsorte = unique.length === 1 ? unique[0] : 'Sortenverschnitt'
-  } else if (weingaerten.length > 0) {
-    // Rebsorten direkt aus der Weingarten-Tabelle nachladen
+  let autoWeinart: string = 'unbekannt'
+  if (weingaerten.length > 0) {
     const wgIds = weingaerten.map(w => w.weingarten_id).filter(Boolean) as string[]
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: wgRows } = await (supabase.from('weingarten') as any).select('rebsorte').in('id', wgIds)
-    const wgRebsorten = ((wgRows ?? []) as AR[]).map((w: AR) => w.rebsorte).filter(Boolean) as string[]
-    const unique = [...new Set(wgRebsorten)]
-    dominantRebsorte = unique.length === 1 ? unique[0] : unique.length > 1 ? 'Sortenverschnitt' : null
+    const { data: wgRows } = await (supabase.from('weingarten') as any).select('rebsorte, weinart').in('id', wgIds)
+    const wgArr = ((wgRows ?? []) as AR[])
+    // Rebsorte
+    const wgRebsorten = wgArr.map((w: AR) => w.rebsorte).filter(Boolean) as string[]
+    const allRebsorten = rebsortenAusForm.length > 0 ? rebsortenAusForm : wgRebsorten
+    const uniqueRebsorten = [...new Set(allRebsorten)]
+    dominantRebsorte = uniqueRebsorten.length === 1 ? uniqueRebsorten[0] : uniqueRebsorten.length > 1 ? 'Sortenverschnitt' : null
+    // Weinart: eindeutig → übernehmen; gemischt (rot+weiss) → 'unbekannt'
+    const uniqueWeinart = [...new Set(wgArr.map((w: AR) => w.weinart).filter((a: string) => a && a !== 'unbekannt'))]
+    if (uniqueWeinart.length === 1) autoWeinart = uniqueWeinart[0] as string
+  } else if (rebsortenAusForm.length > 0) {
+    const unique = [...new Set(rebsortenAusForm)]
+    dominantRebsorte = unique.length === 1 ? unique[0] : 'Sortenverschnitt'
   }
   const autoName = weinbezeichnung
     ? weinbezeichnung
@@ -373,6 +379,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
           status:          'gaerung',
           behaelter_id:    beh.behaelter_id,
           qualitaetsstufe: autoQualitaet,
+          weinart:         autoWeinart,
           aktiv:           true,
         })
         .select('id').single()
