@@ -129,53 +129,47 @@ async function executeQuery(supabase: any, params: R): Promise<R[]> {
     })
   }
 
-  // ── SPEZIALFALL: Ertragshistorie (ernte_parzellen × grundstuecke × jahrgaenge) ─
+  // ── SPEZIALFALL: Ertragshistorie (ernte_parzellen × weinjahrgaenge × grundstuecke) ─
   if (tabelle === 'ertragshistorie') {
-    // Alle Ernte-Parzellen mit Grundstück- und Jahrgangs-Infos laden
-    let q = (supabase.from('ernte_parzellen') as any)
+    const { data: rows } = await (supabase.from('ernte_parzellen') as any)
       .select(`
-        menge_kg, menge_hl, oechsle, klosterneuburger,
+        menge_kg, ernte_datum, oechsle, klosterneuburger,
         grundstueck:grundstueck_id(gst_nr, katastralgemeinde, flaeche_ha, rebsorte),
-        weingarten:weingarten_id(name, ried, rebsorte),
-        jahrgang:jahrgang_id(jahr)
+        weingarten:weingarten_id(name, ried, rebsorte, flaeche_ha),
+        weinjahrgaenge!jahrgang_id(jahrgang)
       `)
-    if (filter.jahrgang) {
-      // jahrgang_id via join – wir filtern nachher
-    }
-    if (filter.gst_nr_contains) {
-      // wird nachher gefiltert
-    }
-    q = q.not('menge_kg', 'is', null).order('jahrgang_id', { ascending: false }).limit(Number(limit) || 100)
+      .not('menge_kg', 'is', null)
+      .order('ernte_datum', { ascending: false })
+      .limit(Number(limit) || 200)
 
-    const { data: rows } = await q
     if (!rows) return []
 
     let ergebnisse = (rows as R[]).map(row => {
-      const gst   = row.grundstueck as R | null
-      const wg    = row.weingarten  as R | null
-      const jg    = row.jahrgang    as R | null
+      const gst     = row.grundstueck      as R | null
+      const wg      = row.weingarten       as R | null
+      const jg      = row.weinjahrgaenge   as R | null
       const flaeche = parseFloat(gst?.flaeche_ha ?? wg?.flaeche_ha ?? '0') || null
       const mengeKg = parseFloat(row.menge_kg) || 0
       return {
-        jahrgang:       jg?.jahr ?? null,
-        gst_nr:         gst?.gst_nr ?? '–',
+        jahrgang:          jg?.jahrgang ?? null,
+        gst_nr:            gst?.gst_nr ?? '–',
         katastralgemeinde: gst?.katastralgemeinde ?? '–',
-        ried:           wg?.ried ?? wg?.name ?? '–',
-        rebsorte:       gst?.rebsorte ?? wg?.rebsorte ?? '–',
-        flaeche_ha:     flaeche,
-        menge_kg:       mengeKg,
-        ertrag_kg_ha:   flaeche && flaeche > 0 ? Math.round(mengeKg / flaeche) : null,
-        oechsle:        row.oechsle ?? null,
-        kmw:            row.klosterneuburger ?? null,
+        ried:              wg?.ried ?? wg?.name ?? '–',
+        rebsorte:          gst?.rebsorte ?? wg?.rebsorte ?? '–',
+        flaeche_ha:        flaeche,
+        menge_kg:          mengeKg,
+        ertrag_kg_ha:      flaeche && flaeche > 0 ? Math.round(mengeKg / flaeche) : null,
+        oechsle:           row.oechsle ?? null,
+        kmw:               row.klosterneuburger ?? null,
+        ernte_datum:       row.ernte_datum ?? null,
       }
     })
 
     // Nachgelagerte Filter
-    if (filter.jahrgang) ergebnisse = ergebnisse.filter(r => r.jahrgang === Number(filter.jahrgang))
-    if (filter.gst_nr_contains) ergebnisse = ergebnisse.filter(r => r.gst_nr?.includes(filter.gst_nr_contains))
+    if (filter.jahrgang)        ergebnisse = ergebnisse.filter(r => r.jahrgang === Number(filter.jahrgang))
+    if (filter.gst_nr_contains) ergebnisse = ergebnisse.filter(r => r.gst_nr?.includes(String(filter.gst_nr_contains)))
 
-    // Sortierung: neuester Jahrgang zuerst, dann GST-Nr
-    ergebnisse.sort((a, b) => (b.jahrgang ?? 0) - (a.jahrgang ?? 0) || (a.gst_nr ?? '').localeCompare(b.gst_nr ?? ''))
+    ergebnisse.sort((a, b) => (b.jahrgang ?? 0) - (a.jahrgang ?? 0) || a.gst_nr.localeCompare(b.gst_nr))
     return ergebnisse.slice(0, Number(limit) || 100)
   }
 
