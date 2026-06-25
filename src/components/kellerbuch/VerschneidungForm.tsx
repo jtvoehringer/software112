@@ -32,6 +32,29 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone }: P
     return s + (isNaN(n) ? 0 : n)
   }, 0)
 
+  // ── Rebsorten-Preview (85%-Regel) ────────────────────────────────────────
+  const rebsortenPreview = (() => {
+    const zielMenge = parseFloat(String(zielCharge.menge_liter ?? 0)) || 0
+    const total = zielMenge + gesamtLiter
+    if (total === 0 || gesamtLiter === 0) return null
+    const anteile: Record<string, number> = {}
+    if (zielCharge.rebsorte && zielMenge > 0) {
+      anteile[zielCharge.rebsorte] = (anteile[zielCharge.rebsorte] ?? 0) + zielMenge
+    }
+    for (const q of quellen) {
+      const src = verfuegbar.find(c => c.id === q.weinausbau_id)
+      const menge = parseFloat(q.menge.replace(',', '.'))
+      if (src?.rebsorte && !isNaN(menge) && menge > 0) {
+        anteile[src.rebsorte] = (anteile[src.rebsorte] ?? 0) + menge
+      }
+    }
+    const dominante = Object.entries(anteile).sort((a, b) => b[1] - a[1])[0]
+    const anteilPct = dominante && total > 0 ? Math.round(dominante[1] / total * 1000) / 10 : 0
+    if (anteilPct >= 100) return { typ: 'unveraendert' as const, anteilPct, rebsorte: dominante![0] }
+    if (anteilPct >= 85)  return { typ: 'bezeichnungsunschaedlich' as const, anteilPct, rebsorte: dominante![0] }
+    return { typ: 'sortenverschnitt' as const, anteilPct: null, rebsorte: null }
+  })()
+
   // Qualitäts-Abstufungs-Check
   const selectedChargen = quellen
     .map(q => verfuegbar.find(c => c.id === q.weinausbau_id))
@@ -228,6 +251,40 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone }: P
           Gesamt zufließend: <strong>{gesamtLiter.toLocaleString('de-AT', { maximumFractionDigits: 1 })} L</strong>
           {' → '}Zielbestand: <strong>{(parseFloat(String(zielCharge.menge_liter ?? 0)) + gesamtLiter).toLocaleString('de-AT', { maximumFractionDigits: 1 })} L</strong>
         </p>
+      )}
+
+      {/* Rebsorten-Ergebnis-Preview */}
+      {rebsortenPreview && (
+        <div className={`flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm border ${
+          rebsortenPreview.typ === 'unveraendert'
+            ? 'bg-green-50 border-green-200 text-green-800'
+            : rebsortenPreview.typ === 'bezeichnungsunschaedlich'
+            ? 'bg-blue-50 border-blue-200 text-blue-800'
+            : 'bg-amber-50 border-amber-300 text-amber-800'
+        }`}>
+          <span className="mt-0.5">
+            {rebsortenPreview.typ === 'unveraendert' ? '✅' : rebsortenPreview.typ === 'bezeichnungsunschaedlich' ? 'ℹ️' : '⚠️'}
+          </span>
+          <div>
+            {rebsortenPreview.typ === 'unveraendert' && (
+              <p className="font-medium">Rebsorte bleibt unverändert ({rebsortenPreview.rebsorte})</p>
+            )}
+            {rebsortenPreview.typ === 'bezeichnungsunschaedlich' && (
+              <>
+                <p className="font-medium">Bezeichnungsunschädlicher Verschnitt – Rebsorte bleibt unverändert</p>
+                <p className="text-xs mt-0.5">
+                  <strong>{rebsortenPreview.rebsorte}</strong> macht {rebsortenPreview.anteilPct} % aus (≥ 85 %)
+                </p>
+              </>
+            )}
+            {rebsortenPreview.typ === 'sortenverschnitt' && (
+              <>
+                <p className="font-medium">Sortenverschnitt – Rebsorte wird auf „Sortenverschnitt" gesetzt</p>
+                <p className="text-xs mt-0.5">Keine Rebsorte erreicht 85 % Anteil</p>
+              </>
+            )}
+          </div>
+        </div>
       )}
 
       <div>
