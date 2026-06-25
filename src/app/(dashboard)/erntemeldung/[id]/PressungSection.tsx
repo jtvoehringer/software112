@@ -649,7 +649,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                           b.weinausbau_id ? (
                             <a key={b.id} href={`/kellerbuch/weinausbau/${b.weinausbau_id}/buch`}
                               className="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 text-blue-800 text-xs px-2 py-0.5 rounded-full hover:bg-blue-100 transition-colors">
-                              🛢 {b.weinausbau_name ?? b.behaelter_name ?? '–'}
+                              🛢 {b.behaelter_name ? `${b.behaelter_name} · ` : ''}{b.weinausbau_name ?? '–'}
                               {b.menge_liter && <span className="font-medium">· {fmt(b.menge_liter)} L</span>}
                               <span className="text-blue-400">→ KB</span>
                             </a>
