@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { createVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
 import { QUALITAET_LABEL, QUALITAET_ORDER, istNiedrigerAls, minQualitaet } from '@/lib/weinqualitaet'
 
-type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null }
+type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
 
 interface Props {
   zielCharge: ChargeOpt
@@ -162,6 +162,41 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone }: P
           </div>
         </div>
       )}
+
+      {/* Gebinde-Kapazität Ziel */}
+      {(() => {
+        if (zielCharge.behaelter_volumen_liter == null) return null
+        const vol = zielCharge.behaelter_volumen_liter
+        // Alle Chargen im selben Gebinde + zielCharge selbst
+        const inhaltGesamt = (alleChargen
+          .filter(c => c.behaelter_id != null && c.behaelter_id === zielCharge.behaelter_id)
+          .reduce((s, c) => s + (parseFloat(String(c.menge_liter)) || 0), 0))
+          + (parseFloat(String(zielCharge.menge_liter ?? 0)) || 0)
+        const restJetzt = vol - inhaltGesamt
+        const restNach  = vol - inhaltGesamt - gesamtLiter
+        const ueber     = gesamtLiter > 0 && restNach < -0.01
+        return (
+          <div className="grid grid-cols-3 gap-2 bg-s112-bg border border-s112-border rounded-lg px-4 py-2.5 text-xs">
+            <div>
+              <p className="text-s112-muted mb-0.5">Kapazität Gebinde</p>
+              <p className="font-medium tabular-nums">{vol.toLocaleString('de-AT')} L</p>
+            </div>
+            <div>
+              <p className="text-s112-muted mb-0.5">Inhalt jetzt</p>
+              <p className="font-medium tabular-nums">{inhaltGesamt.toLocaleString('de-AT', { maximumFractionDigits: 1 })} L</p>
+            </div>
+            <div>
+              <p className="text-s112-muted mb-0.5">{gesamtLiter > 0 ? 'Rest nach Verschnitt' : 'Restkapazität'}</p>
+              <p className={`font-medium tabular-nums ${ueber ? 'text-red-600' : 'text-s112-teal'}`}>
+                {(gesamtLiter > 0 ? restNach : restJetzt).toLocaleString('de-AT', { maximumFractionDigits: 1 })} L
+              </p>
+            </div>
+            {ueber && (
+              <p className="col-span-3 text-red-600 font-medium">⚠️ Ziel-Gebinde hat nicht genug Kapazität für diesen Verschnitt</p>
+            )}
+          </div>
+        )
+      })()}
 
       {gesamtLiter > 0 && (
         <p className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">

@@ -40,9 +40,12 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
   const nettoVal  = parseFloat(netto.replace(',', '.'))  || 0
   const schwund   = bruttoVal - nettoVal
 
+  const selectedGebinde = gebinde.find(g => g.id === zielId)
+  const restKapGebinde   = selectedGebinde ? frei(selectedGebinde) : null
   const canSubmit = bruttoVal > 0 && nettoVal > 0
     && nettoVal <= bruttoVal + 0.01
     && bruttoVal <= verfuegbarLiter + 0.01
+    && (restKapGebinde == null || nettoVal <= restKapGebinde + 0.01)
     && !!zielId
 
   function handleClose() {
@@ -147,6 +150,39 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
                 )
               })}
             </select>
+            {zielId && (() => {
+              const g = gebinde.find(g => g.id === zielId)
+              if (!g) return null
+              const inhaltJetzt = inhalt[g.id] ?? 0
+              const restJetzt   = frei(g)
+              const restNach    = restJetzt != null ? restJetzt - nettoVal : null
+              const ueber       = restJetzt != null && nettoVal > restJetzt + 0.01
+              return (
+                <div className="mt-2 grid grid-cols-3 gap-2 bg-s112-bg border border-s112-border rounded-lg px-4 py-2.5 text-xs">
+                  <div>
+                    <p className="text-s112-muted mb-0.5">Kapazität</p>
+                    <p className="font-medium tabular-nums">{g.volumen_liter != null ? g.volumen_liter.toLocaleString('de-AT') + ' L' : '–'}</p>
+                  </div>
+                  <div>
+                    <p className="text-s112-muted mb-0.5">Inhalt jetzt</p>
+                    <p className="font-medium tabular-nums">{inhaltJetzt.toLocaleString('de-AT', { maximumFractionDigits: 1 })} L</p>
+                  </div>
+                  <div>
+                    <p className="text-s112-muted mb-0.5">{nettoVal > 0 ? 'Rest nach Umzug' : 'Restkapazität'}</p>
+                    <p className={`font-medium tabular-nums ${ueber ? 'text-red-600' : 'text-s112-teal'}`}>
+                      {restJetzt != null ? (nettoVal > 0 ? restNach : restJetzt)!.toLocaleString('de-AT', { maximumFractionDigits: 1 }) + ' L' : '–'}
+                    </p>
+                  </div>
+                </div>
+              )
+            })()}
+            {(() => {
+              const g = gebinde.find(g => g.id === zielId)
+              const f = g ? frei(g) : null
+              return f != null && nettoVal > f + 0.01 ? (
+                <p className="text-xs text-red-600 mt-1">Netto überschreitet Restkapazität des Gebindes</p>
+              ) : null
+            })()}
           </div>
 
           <div className="flex items-center gap-3">
