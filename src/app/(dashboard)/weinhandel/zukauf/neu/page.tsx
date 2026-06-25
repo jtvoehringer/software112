@@ -99,6 +99,7 @@ export default function ZukaufNeuPage() {
   // Formular
   const [datum,             setDatum]            = useState(new Date().toISOString().split('T')[0])
   const [art,               setArt]              = useState<'wein' | 'trauben' | 'most'>('trauben')
+  const [weinart,           setWeinart]          = useState<'weiss' | 'rot' | 'rose' | 'unbekannt'>('unbekannt')
   const [lieferantKontakt,  setLieferantKontakt] = useState('')
   const [lieferantFirma,    setLieferantFirma]   = useState('')
   const [menge,             setMenge]            = useState('')
@@ -157,6 +158,13 @@ export default function ZukaufNeuPage() {
       ? (parseFloat(preisGesamt) / parseFloat(menge)).toFixed(4)
       : null
 
+  // Einstandspreis auto-sync: wenn Einheit = L, direkt aus Gesamtpreis / Menge ableiten
+  useEffect(() => {
+    if (einheit === 'L' && preisProEinheit) {
+      setEinstandspreisLiter(preisProEinheit)
+    }
+  }, [preisProEinheit, einheit])
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
@@ -174,6 +182,7 @@ export default function ZukaufNeuPage() {
     fd.set('preis_gesamt',         preisGesamt)
     fd.set('rebsorte',             rebsorte)
     fd.set('jahrgang',             jahrgang)
+    fd.set('weinart',                  weinart)
     fd.set('ziel_behaelter_id',       zielBehaelter)
     fd.set('einstandspreis_pro_liter', einstandspreisLiter)
     fd.set('notizen',                 notizen)
@@ -226,6 +235,19 @@ export default function ZukaufNeuPage() {
                   </label>
                 ))}
               </div>
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Weinart *</label>
+            <div className="flex gap-4 mt-1.5">
+              {([['weiss','🟡 Weißwein'],['rot','🔴 Rotwein'],['rose','🩷 Rosé'],['unbekannt','⬜ Unbekannt']] as const).map(([val, lbl]) => (
+                <label key={val} className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="weinart" value={val} checked={weinart === val}
+                    onChange={() => setWeinart(val)}
+                    className="accent-s112-teal" />
+                  <span className="text-sm text-gray-700">{lbl}</span>
+                </label>
+              ))}
             </div>
           </div>
         </div>
@@ -298,9 +320,20 @@ export default function ZukaufNeuPage() {
             {(art === 'wein' || art === 'most') && (
               <div>
                 <label className={labelCls}>Einstandspreis / L (€)</label>
-                <input type="number" value={einstandspreisLiter} onChange={e => setEinstandspreisLiter(e.target.value)}
-                  step="0.0001" min="0" placeholder="0.0000"
-                  className={inputCls + ' w-full'} />
+                {einheit === 'L' ? (
+                  <>
+                    <div className={inputCls + ' w-full bg-s112-bg text-s112-muted cursor-not-allowed text-right tabular-nums'}>
+                      {einstandspreisLiter
+                        ? `€ ${Number(einstandspreisLiter).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`
+                        : '–'}
+                    </div>
+                    <p className="text-xs text-s112-muted mt-1">Automatisch aus Gesamtpreis ÷ Menge</p>
+                  </>
+                ) : (
+                  <input type="number" value={einstandspreisLiter} onChange={e => setEinstandspreisLiter(e.target.value)}
+                    step="0.0001" min="0" placeholder="0.0000"
+                    className={inputCls + ' w-full'} />
+                )}
               </div>
             )}
             <div>

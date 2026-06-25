@@ -13,11 +13,11 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
 
   const { data } = await (supabase.from('zukauf_posten') as any)
     .select(`
-      id, datum, art, menge, einheit, preis_gesamt, einstandspreis_pro_liter, rebsorte, jahrgang, notizen,
+      id, datum, art, menge, einheit, preis_gesamt, einstandspreis_pro_liter, rebsorte, jahrgang, notizen, weinart,
       lieferant_kontakt_id, lieferant_firma_id, ziel_weinausbau_id,
       lieferant_kontakt:kontakte!lieferant_kontakt_id(id, vorname, nachname),
       lieferant_firma:firmen!lieferant_firma_id(id, name),
-      ziel_weinausbau:weinausbau!ziel_weinausbau_id(behaelter_id)
+      ziel_weinausbau:weinausbau!ziel_weinausbau_id(behaelter_id, weinart)
     `)
     .eq('id', id)
     .eq('aktiv', true)
@@ -41,6 +41,7 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
         rebsorte:              z.rebsorte   ?? '',
         jahrgang:              z.jahrgang   != null ? String(z.jahrgang) : '',
         ziel_behaelter_id:     (z.ziel_weinausbau as R | null)?.behaelter_id ?? '',
+        weinart:               z.weinart ?? (z.ziel_weinausbau as R | null)?.weinart ?? 'unbekannt',
         notizen:               z.notizen    ?? '',
       }}
       lieferantName={

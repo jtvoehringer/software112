@@ -24,6 +24,7 @@ async function createZukaufCharge(
   jahrgang: number | null,
   menge: number,
   einstandspreisProLiter: number | null,
+  weinart: string | null,
 ): Promise<string> {
   const name = [rebsorte, jahrgang].filter(Boolean).join(' ') || 'Zukauf'
   const { data: neu, error } = await (supabase.from('weinausbau') as any)
@@ -37,6 +38,7 @@ async function createZukaufCharge(
       anfangsbestand_liter: null,
       status:      'ausbau',
       aktiv:       true,
+      weinart:     weinart ?? 'unbekannt',
     })
     .select('id')
     .single()
@@ -84,6 +86,7 @@ export async function createZukauf(formData: FormData) {
   const jahrgang              = parseInt(formData.get('jahrgang')         as string) || null
   const notizen               = (formData.get('notizen')                  as string)?.trim() || null
   const zielBehaelterId       = (formData.get('ziel_behaelter_id')        as string) || null
+  const weinart               = (formData.get('weinart')                  as string) || 'unbekannt'
 
   if (menge <= 0) throw new Error('Menge muss größer als 0 sein')
 
@@ -91,7 +94,7 @@ export async function createZukauf(formData: FormData) {
   let zielWeinausbauId: string | null = null
   if ((art === 'wein' || art === 'most') && zielBehaelterId) {
     zielWeinausbauId = await createZukaufCharge(
-      supabase, tenantId, zielBehaelterId, rebsorte, jahrgang, menge, einstandspreisLiter,
+      supabase, tenantId, zielBehaelterId, rebsorte, jahrgang, menge, einstandspreisLiter, weinart,
     )
   }
 
@@ -109,6 +112,7 @@ export async function createZukauf(formData: FormData) {
       rebsorte,
       jahrgang,
       notizen,
+      weinart,
       ziel_weinausbau_id:   zielWeinausbauId,
     })
 
@@ -151,6 +155,7 @@ export async function updateZukauf(id: string, formData: FormData) {
   const jahrgang              = parseInt(formData.get('jahrgang')         as string) || null
   const notizen               = (formData.get('notizen')                  as string)?.trim() || null
   const zielBehaelterId       = (formData.get('ziel_behaelter_id')        as string) || null
+  const weinart               = (formData.get('weinart')                  as string) || 'unbekannt'
 
   if (menge <= 0) throw new Error('Menge muss größer als 0 sein')
 
@@ -170,7 +175,7 @@ export async function updateZukauf(id: string, formData: FormData) {
       await bereinigCharge(supabase, altWeinausbauId)
     }
     zielWeinausbauId = await createZukaufCharge(
-      supabase, tenantId, zielBehaelterId, rebsorte, jahrgang, menge, einstandspreisLiter,
+      supabase, tenantId, zielBehaelterId, rebsorte, jahrgang, menge, einstandspreisLiter, weinart,
     )
   } else if (!(art === 'wein' || art === 'most')) {
     if (altWeinausbauId) await bereinigCharge(supabase, altWeinausbauId)
@@ -189,6 +194,7 @@ export async function updateZukauf(id: string, formData: FormData) {
     rebsorte,
     jahrgang,
     notizen,
+    weinart,
     ziel_weinausbau_id:   zielWeinausbauId,
   }).eq('id', id)
 

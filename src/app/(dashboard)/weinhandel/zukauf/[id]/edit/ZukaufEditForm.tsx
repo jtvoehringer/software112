@@ -19,6 +19,7 @@ interface InitialValues {
   jahrgang:                 string
   ziel_behaelter_id:        string
   notizen:                  string
+  weinart:                  string
 }
 
 const TYP_ICONS: Record<string, string> = { tank: '🛢', fass: '🪵', amphore: '🏺', sonstiges: '📦' }
@@ -48,6 +49,7 @@ export default function ZukaufEditForm({
   const [jahrgang,               setJahrgang]              = useState(initial.jahrgang)
   const [zielBehaelter,          setZielBehaelter]         = useState(initial.ziel_behaelter_id)
   const [notizen,                setNotizen]               = useState(initial.notizen)
+  const [weinart,                setWeinart]               = useState<'weiss' | 'rot' | 'rose' | 'unbekannt'>((initial.weinart as any) || 'unbekannt')
 
   useEffect(() => {
     fetch('/api/zukauf-stammdaten').then(r => r.json()).then(j => {
@@ -59,6 +61,13 @@ export default function ZukaufEditForm({
     menge && preisGesamt && parseFloat(menge) > 0
       ? (parseFloat(preisGesamt) / parseFloat(menge)).toFixed(4)
       : null
+
+  // Einstandspreis auto-sync: wenn Einheit = L
+  useEffect(() => {
+    if (einheit === 'L' && preisProEinheit) {
+      setEinstandspreisLiter(preisProEinheit)
+    }
+  }, [preisProEinheit, einheit])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -80,6 +89,7 @@ export default function ZukaufEditForm({
     fd.set('ziel_behaelter_id',        zielBehaelter)
     fd.set('einstandspreis_pro_liter', einstandspreisLiter)
     fd.set('notizen',                  notizen)
+    fd.set('weinart',                  weinart)
 
     startTransition(async () => {
       try {
@@ -138,6 +148,19 @@ export default function ZukaufEditForm({
               </div>
             </div>
           </div>
+          <div>
+            <label className={labelCls}>Weinart *</label>
+            <div className="flex gap-4 mt-1.5">
+              {([['weiss','🟡 Weißwein'],['rot','🔴 Rotwein'],['rose','🩷 Rosé'],['unbekannt','⬜ Unbekannt']] as const).map(([val, lbl]) => (
+                <label key={val} className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="weinart" value={val} checked={weinart === val}
+                    onChange={() => setWeinart(val)}
+                    className="accent-s112-teal" />
+                  <span className="text-sm text-gray-700">{lbl}</span>
+                </label>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Menge, Preis, Rebsorte */}
@@ -177,9 +200,20 @@ export default function ZukaufEditForm({
             {(art === 'wein' || art === 'most') && (
               <div>
                 <label className={labelCls}>Einstandspreis / L (€)</label>
-                <input type="number" value={einstandspreisLiter} onChange={e => setEinstandspreisLiter(e.target.value)}
-                  step="0.0001" min="0" placeholder="0.0000"
-                  className={inputCls + ' w-full'} />
+                {einheit === 'L' ? (
+                  <>
+                    <div className={inputCls + ' w-full bg-s112-bg text-s112-muted cursor-not-allowed text-right tabular-nums'}>
+                      {einstandspreisLiter
+                        ? `€ ${Number(einstandspreisLiter).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`
+                        : '–'}
+                    </div>
+                    <p className="text-xs text-s112-muted mt-1">Automatisch aus Gesamtpreis ÷ Menge</p>
+                  </>
+                ) : (
+                  <input type="number" value={einstandspreisLiter} onChange={e => setEinstandspreisLiter(e.target.value)}
+                    step="0.0001" min="0" placeholder="0.0000"
+                    className={inputCls + ' w-full'} />
+                )}
               </div>
             )}
             <div>
