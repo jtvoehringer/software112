@@ -175,7 +175,7 @@ export async function createAnalyse(formData: FormData) {
 }
 
 // VERSCHNEIDUNG
-export async function createVerschneidung(formData: FormData) {
+export async function createVerschneidung(formData: FormData): Promise<{ qualitaetAbgestuft: { von: string; nach: string } | null }> {
   const supabase  = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
   if (!tenantId) throw new Error('Kein Betrieb gefunden')
@@ -269,20 +269,23 @@ export async function createVerschneidung(formData: FormData) {
   }
 
   // Qualitäts-Abstufung: niedrigste Qualitätsstufe aller beteiligten Chargen gewinnt
-  const quelleIds = quellen.map(q => q.weinausbau_id)
+  let qualitaetAbgestuft: { von: string; nach: string } | null = null
+  const quelleIds2 = quellen.map(q => q.weinausbau_id)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: alleChargenQ } = await (supabase.from('weinausbau') as any)
     .select('id, qualitaetsstufe')
-    .in('id', [zielId, ...quelleIds])
+    .in('id', [zielId, ...quelleIds2])
   if (alleChargenQ && (alleChargenQ as R[]).length > 0) {
     const stufen = (alleChargenQ as R[]).map((c: R) => c.qualitaetsstufe as string | null)
-    const zielQ = (alleChargenQ as R[]).find((c: R) => c.id === zielId)?.qualitaetsstufe ?? null
-    const minQ = minQualitaet(stufen)
-    if (minQ && zielQ && istNiedrigerAls(zielQ, minQ)) {
+    const zielQ  = (alleChargenQ as R[]).find((c: R) => c.id === zielId)?.qualitaetsstufe ?? null
+    const minQ   = minQualitaet(stufen)
+    // Abstufung: wenn minQ niedriger als aktuelle Ziel-Qualität
+    if (minQ && zielQ && istNiedrigerAls(minQ, zielQ)) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase.from('weinausbau') as any)
         .update({ qualitaetsstufe: minQ })
         .eq('id', zielId)
+      qualitaetAbgestuft = { von: zielQ, nach: minQ }
     }
   }
 
@@ -290,6 +293,8 @@ export async function createVerschneidung(formData: FormData) {
   quellen.forEach(q => revalidatePath(`/kellerbuch/weinausbau/${q.weinausbau_id}/buch`))
   revalidatePath(`/kellerbuch/weinausbau/${zielId}/buch`)
   revalidatePath(`/kellerbuch/weinausbau/${zielId}`)
+
+  return { qualitaetAbgestuft }
 }
 
 // VERSCHNEIDUNG STORNIEREN
