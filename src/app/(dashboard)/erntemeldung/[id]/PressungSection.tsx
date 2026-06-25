@@ -129,8 +129,8 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
   const [pending, startTransition] = useTransition()
 
   type VerschneidungData = {
-    newCharge:       { id: string; name: string }
-    existingChargen: { weinausbau_id: string; name: string }[]
+    newCharge:       { id: string; name: string; menge_liter?: number | null }
+    existingChargen: { weinausbau_id: string; name: string; menge_liter?: number | null }[]
   }
   const [verschneidung, setVerschneidung]         = useState<VerschneidungData | null>(null)
   const [verschneidungOpen, setVerschneidungOpen] = useState(false)
@@ -211,7 +211,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
           })
           if (konflikt) {
             setVerschneidung({
-              newCharge: { id: konflikt.weinausbau_id, name: konflikt.name },
+              newCharge: { id: konflikt.weinausbau_id, name: konflikt.name, menge_liter: konflikt.menge_liter ?? null },
               existingChargen: behaelterMitCharge[konflikt.behaelter_id],
             })
             return
@@ -229,17 +229,25 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
 
   // ── Nach dem Speichern: Verschneidungs-Prompt ─────────────────────────────
   if (verschneidung) {
+    // Korrekte Richtung: bestehende Charge = Ziel (Basis), neue Pressung-Charge = Quelle
+    const zielCharge = {
+      id:          verschneidung.existingChargen[0].weinausbau_id,
+      name:        verschneidung.existingChargen[0].name,
+      menge_liter: verschneidung.existingChargen[0].menge_liter ?? null,
+    }
     const alleChargen = [
-      { id: verschneidung.newCharge.id, name: verschneidung.newCharge.name, menge_liter: null },
-      ...verschneidung.existingChargen.map(c => ({ id: c.weinausbau_id, name: c.name, menge_liter: null })),
+      zielCharge,
+      { id: verschneidung.newCharge.id, name: verschneidung.newCharge.name, menge_liter: verschneidung.newCharge.menge_liter ?? null },
     ]
     if (verschneidungOpen) {
       return (
         <div className="bg-s112-bg border border-amber-200 rounded-xl p-4">
           <p className="text-sm font-semibold text-gray-800 mb-3">🍷 Chargen verschneiden</p>
           <VerschneidungForm
-            zielCharge={alleChargen[0]}
+            zielCharge={zielCharge}
             alleChargen={alleChargen}
+            initialQuelleId={verschneidung.newCharge.id}
+            initialQuelleMenge={verschneidung.newCharge.menge_liter != null ? String(verschneidung.newCharge.menge_liter) : ''}
             onDone={() => { setVerschneidung(null); setVerschneidungOpen(false); onDone() }}
           />
         </div>

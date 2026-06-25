@@ -11,7 +11,7 @@ type R = Record<string, any>
 interface QuelleInput { weinausbau_id: string; menge: number }
 interface ZielInput   { behaelter_id: string;  menge: number }
 
-export async function umziehen(fd: FormData) {
+export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { existingChargeId: string; newChargeId: string; menge: number } } | void> {
   const supabase = await createSupabaseServerClient()
 
   const quellen:    QuelleInput[] = JSON.parse(fd.get('quellen_json') as string || '[]')
@@ -31,6 +31,7 @@ export async function umziehen(fd: FormData) {
   const tenantId = (membership as R)?.tenant_id
 
   const batchId = crypto.randomUUID()
+  let verschneidungNeeded: { existingChargeId: string; newChargeId: string; menge: number } | undefined
 
   // ── Phase 1: Quellen validieren, reduzieren, Quelle-Records anlegen ──────────
   let minQualStufe: string | null = null
@@ -98,7 +99,15 @@ export async function umziehen(fd: FormData) {
 
     let nachWeinausbauId: string | null = null
 
-    if (vorhanden) {
+    // Rebsortenmix-Check: erste Quell-Rebsorte vs. bestehende Charge im Zielbehälter
+    const quelleRebsorte = quellenDaten.length === 1 ? (quellenDaten[0].rebsorte ?? null) : null
+    const istRebsortenmix = vorhanden != null
+      && quelleRebsorte != null
+      && vorhanden.rebsorte != null
+      && quelleRebsorte !== vorhanden.rebsorte
+
+    if (vorhanden && !istRebsortenmix) {
+      // Gleiche Rebsorte: direkt zusammenführen (bisheriges Verhalten)
       await (supabase.from('weinausbau') as any)
         .update({
           menge_liter:     +((vorhanden.menge_liter ?? 0) + z.menge).toFixed(3),
@@ -106,6 +115,27 @@ export async function umziehen(fd: FormData) {
         })
         .eq('id', vorhanden.id)
       nachWeinausbauId = vorhanden.id
+    } else if (vorhanden && istRebsortenmix) {
+      // Rebsortenmix: separate neue Charge anlegen, Verschneidung wird danach getriggert
+      const von0 = quellenDaten[0]
+      const { data: newChargeData } = await (supabase.from('weinausbau') as any).insert({
+        tenant_id:            tenantId,
+        name:                 von0?.name ?? 'Umzug',
+        jahrgang:             von0?.jahrgang ?? null,
+        rebsorte:             von0?.rebsorte ?? null,
+        weingarten_id:        von0?.weingarten_id ?? null,
+        behaelter_id:         z.behaelter_id,
+        menge_liter:          z.menge,
+        anfangsbestand_liter: z.menge,
+        qualitaetsstufe:      minQualStufe,
+        status:               von0?.status ?? 'ausbau',
+        notizen:              `Umzug aus „${von0?.name ?? ''}"`,
+        aktiv:                true,
+      }).select('id')
+      nachWeinausbauId = ((newChargeData as R[])?.[0] as R | undefined)?.id ?? null
+      if (nachWeinausbauId) {
+        verschneidungNeeded = { existingChargeId: vorhanden.id, newChargeId: nachWeinausbauId, menge: z.menge }
+      }
     } else {
       const von0 = quellenDaten[0]
       const { data: newChargeData } = await (supabase.from('weinausbau') as any).insert({
@@ -147,6 +177,7 @@ export async function umziehen(fd: FormData) {
   revalidatePath('/kellerbuch')
   revalidatePath('/kellerbuch/umziehen')
   revalidatePath('/kellerbuch/behaelter', 'layout')
+  if (verschneidungNeeded) return { verschneidungNeeded }
 }
 
 // ── Umzug löschen ────────────────────────────────────────────────────────────

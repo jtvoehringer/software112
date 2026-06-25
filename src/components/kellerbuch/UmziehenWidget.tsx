@@ -12,7 +12,7 @@ interface Props {
   verfuegbarLiter: number
   gebinde:         Gebinde[]
   alleChargen:     Charge[]
-  action:          (fd: FormData) => Promise<void>
+  action:          (fd: FormData) => Promise<{ verschneidungNeeded?: { existingChargeId: string; newChargeId: string; menge: number } } | void>
   initialOpen?:    boolean
   quelleRebsorte?: string | null
 }
@@ -74,10 +74,11 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
     fd.set('notizen', notizen)
     start(async () => {
       try {
-        await action(fd)
+        const result = await action(fd)
         setBrutto(''); setNetto(''); setZielId(''); setNotizen('')
-        if (hatRebsortenmix) {
-          router.push(`/kellerbuch/weinausbau/${chargeId}?form=verschneiden`)
+        if (result?.verschneidungNeeded) {
+          const { existingChargeId, newChargeId, menge } = result.verschneidungNeeded
+          router.push(`/kellerbuch/weinausbau/${existingChargeId}?form=verschneiden&quelle=${newChargeId}&menge=${menge}`)
         } else {
           router.push(`/kellerbuch/weinausbau/${chargeId}`)
         }

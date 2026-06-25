@@ -25,9 +25,9 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   abgeschlossen:{ label: 'Abgeschlossen', color: 'bg-green-100 text-green-700' },
 }
 
-export default async function WeinausbauDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ form?: string }> }) {
+export default async function WeinausbauDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ form?: string; quelle?: string; menge?: string }> }) {
   const { id } = await params
-  const { form: openForm } = await searchParams
+  const { form: openForm, quelle: initialQuelleId, menge: initialQuelleMenge } = await searchParams
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
   const writeOk  = canWrite(role)
@@ -503,6 +503,8 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
           alleChargen={alleChargen}
           verschneidungen={verschneidungenEin}
           initialOpen={openForm === 'verschneiden'}
+          initialQuelleId={initialQuelleId}
+          initialQuelleMenge={initialQuelleMenge}
         />
       )}
 

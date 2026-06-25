@@ -258,7 +258,7 @@ export async function createOrUpdateAMAMeldung(jahrgangId: string) {
 type PressungWGInput    = { weingarten_id: string; grundstueck_id?: string | null; trauben_kg: number; rebsorte?: string; notizen?: string }
 type PressungBehInput   = { behaelter_id?: string; weinausbau_id?: string; menge_liter?: number; notizen?: string }
 
-export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_id: string; weinausbau_id: string; name: string }[] }> {
+export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_id: string; weinausbau_id: string; name: string; menge_liter: number | null }[] }> {
   const supabase    = await createSupabaseServerClient()
   const tenantId    = await getTenantId()
   const jahrgangId  = fd.get('jahrgang_id') as string
@@ -318,7 +318,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
   }
 
   // ── Auto-Weinausbau: Kellerbuch-Charge für jeden Behälter-Eintrag ──────────
-  const neuChargen: { behaelter_id: string; weinausbau_id: string; name: string }[] = []
+  const neuChargen: { behaelter_id: string; weinausbau_id: string; name: string; menge_liter: number | null }[] = []
   // Jahrgang-Jahr für Bezeichnung laden
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: jgData } = await (supabase.from('weinjahrgaenge') as any)
@@ -392,7 +392,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
           .update({ weinausbau_id: newId })
           .eq('pressung_id', pressId)
           .eq('behaelter_id', beh.behaelter_id)
-        neuChargen.push({ behaelter_id: beh.behaelter_id, weinausbau_id: newId, name: autoName })
+        neuChargen.push({ behaelter_id: beh.behaelter_id, weinausbau_id: newId, name: autoName, menge_liter: beh.menge_liter ?? null })
       }
     }
   }

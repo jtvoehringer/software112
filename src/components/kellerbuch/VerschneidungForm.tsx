@@ -10,14 +10,18 @@ interface Props {
   zielCharge: ChargeOpt
   alleChargen: ChargeOpt[]
   onDone: () => void
+  initialQuelleId?:    string
+  initialQuelleMenge?: string
 }
 
-export default function VerschneidungForm({ zielCharge, alleChargen, onDone }: Props) {
+export default function VerschneidungForm({ zielCharge, alleChargen, onDone, initialQuelleId, initialQuelleMenge }: Props) {
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [quellen, setQuellen] = useState<{ weinausbau_id: string; menge: string }[]>([
-    { weinausbau_id: '', menge: '' },
-  ])
+  const [quellen, setQuellen] = useState<{ weinausbau_id: string; menge: string }[]>(
+    initialQuelleId
+      ? [{ weinausbau_id: initialQuelleId, menge: initialQuelleMenge ?? '' }]
+      : [{ weinausbau_id: '', menge: '' }]
+  )
 
   const verfuegbar = alleChargen.filter(c => c.id !== zielCharge.id)
 

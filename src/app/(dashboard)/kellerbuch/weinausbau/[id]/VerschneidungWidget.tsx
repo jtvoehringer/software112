@@ -11,10 +11,12 @@ type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualita
 type R = Record<string, any>
 
 interface Props {
-  zielCharge:      ChargeOpt
-  alleChargen:     ChargeOpt[]
-  verschneidungen: R[]
-  initialOpen?:    boolean
+  zielCharge:          ChargeOpt
+  alleChargen:         ChargeOpt[]
+  verschneidungen:     R[]
+  initialOpen?:        boolean
+  initialQuelleId?:    string
+  initialQuelleMenge?: string
 }
 
 function fmtDate(d: string | null) {
@@ -58,7 +60,7 @@ function StornoButton({ id, zielId }: { id: string; zielId: string }) {
   )
 }
 
-export default function VerschneidungWidget({ zielCharge, alleChargen, verschneidungen, initialOpen = false }: Props) {
+export default function VerschneidungWidget({ zielCharge, alleChargen, verschneidungen, initialOpen = false, initialQuelleId, initialQuelleMenge }: Props) {
   const router = useRouter()
   const [showForm, setShowForm] = useState(initialOpen)
   useEffect(() => { setShowForm(initialOpen) }, [initialOpen])
@@ -79,6 +81,8 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
           <VerschneidungForm
             zielCharge={zielCharge}
             alleChargen={alleChargen}
+            initialQuelleId={initialQuelleId}
+            initialQuelleMenge={initialQuelleMenge}
             onDone={() => {
               setShowForm(false)
               router.push(`/kellerbuch/weinausbau/${zielCharge.id}`)

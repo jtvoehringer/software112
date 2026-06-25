@@ -132,7 +132,8 @@ export async function createZukauf(formData: FormData) {
       .neq('rebsorte', rebsorte)
       .limit(1)
     if ((andereChargen as any[])?.length > 0) {
-      redirect(`/kellerbuch/weinausbau/${zielWeinausbauId}?form=verschneiden`)
+      const existierendeId = (andereChargen as any[])[0].id
+      redirect(`/kellerbuch/weinausbau/${existierendeId}?form=verschneiden&quelle=${zielWeinausbauId}&menge=${menge}`)
     }
   }
 
