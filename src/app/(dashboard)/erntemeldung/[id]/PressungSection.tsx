@@ -367,7 +367,16 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
               <div className="col-span-6">
                 <select value={row.behaelter_id} onChange={e => updateBeh(i, 'behaelter_id', e.target.value)} className={inp}>
                   <option value="">– Behälter –</option>
-                  {behOptions.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  {behOptions.map(b => {
+                    const vol = b.volumen_liter ?? null
+                    const existing = behaelterMitCharge?.[b.id] ?? []
+                    const inhalt = existing.reduce((s, c) => s + (parseFloat(String(c.menge_liter ?? 0)) || 0), 0)
+                    const frei = vol != null ? vol - inhalt : null
+                    const suffix = vol != null
+                      ? ` · ${vol.toLocaleString('de-AT')} L · frei: ${frei!.toLocaleString('de-AT', { maximumFractionDigits: 0 })} L`
+                      : ''
+                    return <option key={b.id} value={b.id}>{b.name}{suffix}</option>
+                  })}
                 </select>
                 {row.behaelter_id && (() => {
                   const beh = behOptions.find(b => b.id === row.behaelter_id)
@@ -596,7 +605,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                               <span className="text-blue-400">→ KB</span>
                             </a>
                           ) : (
-                            <span key={b.id} className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-800 text-xs px-2 py-0.5 rounded-full">
+                            <span key={b.id} className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-800 txs px-2 py-0.5 rounded-full">
                               ⚠ {b.behaelter_name ?? '–'}
                               {b.menge_liter && <span className="font-medium">· {fmt(b.menge_liter)} L</span>}
                               <span className="text-amber-500 ml-0.5">keine Charge</span>
