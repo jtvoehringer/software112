@@ -287,6 +287,19 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
           </label>
           <input type="text" value={weinbezeichnung} onChange={e => setWeinbez(e.target.value)}
             placeholder="Leer lassen für reinsortige Weine" className={inp} />
+          {(() => {
+            const rebsorten = wgRows.map(r => r.rebsorte).filter(Boolean)
+            const unique = [...new Set(rebsorten)]
+            const autoRebsorte = unique.length === 1 ? unique[0] : unique.length > 1 ? 'Sortenverschnitt' : null
+            const preview = weinbezeichnung.trim() || autoRebsorte
+              || `Pressung ${datum ? new Date(datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '…'}`
+            return (
+              <p className="text-xs text-s112-muted mt-1">
+                → Charge: <strong className="text-gray-700">&ldquo;{preview}&rdquo;</strong>
+                <span className="ml-1 text-gray-400">(+ Jahrgang)</span>
+              </p>
+            )
+          })()}
         </div>
       </div>
 
@@ -603,9 +616,9 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                               🛢 {b.weinausbau_name ?? b.behaelter_name ?? '–'}
                               {b.menge_liter && <span className="font-medium">· {fmt(b.menge_liter)} L</span>}
                               <span className="text-blue-400">→ KB</span>
-                            </a>
+                                    </a>
                           ) : (
-                            <span key={b.id} className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-800 txs px-2 py-0.5 rounded-full">
+                            <span key={b.id} className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-800 text-xs px-2 py-0.5 rounded-full">
                               ⚠ {b.behaelter_name ?? '–'}
                               {b.menge_liter && <span className="font-medium">· {fmt(b.menge_liter)} L</span>}
                               <span className="text-amber-500 ml-0.5">keine Charge</span>
