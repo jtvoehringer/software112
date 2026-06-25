@@ -16,7 +16,7 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
   const supabase = await createSupabaseServerClient()
 
   const [{ data: jahrgaengeRaw }, { data: settingsRaw }] = await Promise.all([
-    (supabase.from('weinjahrgaenge') as any).select('id, jahrgang, ernte_datum, qualitaet_gesamt').order('jahrgang', { ascending: false }),
+    (supabase.from('weinjahrgaenge') as any).select('id, jahrgang').order('jahrgang', { ascending: false }),
     (supabase.from('tenant_einstellungen') as any).select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, logo_url').limit(1).maybeSingle(),
   ])
 
@@ -24,25 +24,70 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
   const s = (settingsRaw as R | null) ?? {}
   const aktJahrgang = jahrgaenge.find(j => String(j.jahrgang) === jahrgangParam) ?? jahrgaenge[0]
 
-  // Lagerbestand für Bestandsmeldung
+  // ── Erntemeldungs-Positionen: primär aus ama_meldepositionen ────────────────
+  let positionen: R[] = []
+  let gesamtKg = 0
+  let gesamtHl = 0
+
+  if (aktJahrgang) {
+    // Zuerst: AMA-Meldung für diesen Jahrgang suchen
+    const { data: amaMeldung } = await (supabase.from('ama_erntemeldungen') as any)
+      .select('id, gesamtmenge_kg, gesamtmenge_hl, status')
+      .eq('jahrgang_id', aktJahrgang.id)
+      .maybeSingle()
+
+    if (amaMeldung) {
+      // Positionen aus ama_meldepositionen (aggregiert je Rebsorte)
+      const { data: pos } = await (supabase.from('ama_meldepositionen') as any)
+        .select('rebsorte_name, flaeche_ha, menge_kg, menge_hl, qualitaetsstufe, oechsle')
+        .eq('meldung_id', (amaMeldung as R).id)
+        .order('rebsorte_name')
+      positionen = (pos ?? []) as R[]
+      gesamtKg = (amaMeldung as R).gesamtmenge_kg ?? positionen.reduce((s: number, p: R) => s + (p.menge_kg ?? 0), 0)
+      gesamtHl = (amaMeldung as R).gesamtmenge_hl ?? positionen.reduce((s: number, p: R) => s + (p.menge_hl ?? 0), 0)
+    } else {
+      // Fallback: ernte_parzellen direkt (gruppiert nach Rebsorte)
+      const { data: parz } = await (supabase.from('ernte_parzellen') as any)
+        .select('menge_kg, menge_hl, klosterneuburger, qualitaetsstufe, weingarten:weingarten_id(name, rebsorte, flaeche_ha)')
+        .eq('jahrgang_id', aktJahrgang.id)
+        .order('id')
+      const rawParz = (parz ?? []) as R[]
+      // Aggregieren nach Rebsorte
+      const byRebsorte = new Map<string, R>()
+      for (const p of rawParz) {
+        const wg = (p.weingarten as R) ?? {}
+        const key = wg.rebsorte ?? '–'
+        const curr = byRebsorte.get(key) ?? { rebsorte_name: key, flaeche_ha: 0, menge_kg: 0, menge_hl: 0, qualitaetsstufe: p.qualitaetsstufe }
+        curr.flaeche_ha += wg.flaeche_ha ?? 0
+        curr.menge_kg   += p.menge_kg ?? 0
+        curr.menge_hl   += p.menge_hl ?? 0
+        byRebsorte.set(key, curr)
+      }
+      positionen = Array.from(byRebsorte.values())
+      gesamtKg   = positionen.reduce((s, p) => s + (p.menge_kg ?? 0), 0)
+      gesamtHl   = positionen.reduce((s, p) => s + (p.menge_hl ?? 0), 0)
+    }
+  }
+
+  // ── Lagerbestand: Flaschen ──────────────────────────────────────────────────
   const { data: bestandRaw } = await (supabase.from('fuellungen') as any)
     .select('name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen')
     .eq('aktiv', true).gt('bestand_flaschen', 0).order('name')
   const bestand = (bestandRaw ?? []) as R[]
   const gesamtFlaschen = bestand.reduce((s: number, f: R) => s + (f.bestand_flaschen ?? 0), 0)
+  const gesamtFlaschenHl = bestand.reduce((s: number, f: R) => s + ((f.bestand_flaschen ?? 0) * (f.flaschengroesse_ml ?? 750)) / 100000, 0)
 
-  let parzellen: R[] = []
-  if (aktJahrgang) {
-    const { data } = await (supabase.from('ernte_parzellen') as any)
-      .select('id, ernte_datum, menge_kg, menge_hl, klosterneuburger, qualitaetsstufe, lesemethode, weingarten:weingarten_id(name, rebsorte, flaeche_ha)')
-      .eq('jahrgang_id', aktJahrgang.id)
-      .order('ernte_datum')
-    parzellen = (data ?? []) as R[]
-  }
+  // ── Lagerbestand: Wein in Gebinden (Tanks/Fässer) ──────────────────────────
+  const { data: tanksRaw } = await (supabase.from('weinausbau') as any)
+    .select('name, jahrgang, rebsorte, menge_liter, status, behaelter:behaelter_id(name)')
+    .eq('aktiv', true)
+    .neq('status', 'abgeschlossen')
+    .gt('menge_liter', 0)
+    .order('jahrgang', { ascending: false })
+  const tanks = (tanksRaw ?? []) as R[]
+  const gesamtTankHl = tanks.reduce((s: number, t: R) => s + (parseFloat(t.menge_liter) || 0), 0) / 100
 
-  const gesamtKg = parzellen.reduce((s, p) => s + (p.menge_kg ?? 0), 0)
-  const gesamtHl = parzellen.reduce((s, p) => s + (p.menge_hl ?? 0), 0)
-  const heute = new Date().toLocaleDateString('de-AT', { day:'2-digit', month:'2-digit', year:'numeric' })
+  const heute = new Date().toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
 
   return (
     <div className="max-w-4xl space-y-4">
@@ -60,7 +105,7 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
               className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
               {jahrgaenge.map(j => <option key={j.id} value={j.jahrgang}>{j.jahrgang}</option>)}
             </select>
-            <button type="submit" className="border border-s112-border rounded-lg px-3 py-1.5 text-sm hover:bg-s112-bg">
+            <button type="submit" className="border border-s112-border rounded-lg px-3 py-1.5 text-sm hover:bg-s112-bg ml-1">
               ↻
             </button>
           </form>
@@ -74,40 +119,51 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
         <div className="flex items-start justify-between border-b-2 border-gray-800 pb-4 mb-6">
           <div>
             {s.logo_url && <Image src={s.logo_url} alt="" width={150} height={40} className="object-contain object-left max-h-10 mb-2" />}
-            <p className="font-bold text-gray-900">{s.betrieb_name ?? ''}</p>
+            <p className="font-bold text-gray-900">{s.betrieb_name ?? 'software:112'}</p>
             <p className="text-sm text-gray-600">{[s.betrieb_strasse, [s.betrieb_plz, s.betrieb_ort].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</p>
             {s.betrieb_uid && <p className="text-xs text-gray-400">UID: {s.betrieb_uid}</p>}
           </div>
           <div className="text-right">
             <p className="text-lg font-bold text-gray-900">AMA Weinerntemeldung</p>
-            <p className="text-2xl font-extrabold text-s112-teal">Jahrgang {aktJahrgang?.jahrgang}</p>
+            <p className="text-2xl font-extrabold text-s112-teal">Jahrgang {aktJahrgang?.jahrgang ?? '–'}</p>
             <p className="text-xs text-gray-400 mt-1">Erstellt: {heute}</p>
           </div>
         </div>
 
-        {/* Tabelle */}
+        {/* Erntemeldung-Tabelle (je Rebsorte) */}
         <table className="w-full text-sm border-collapse mb-6">
           <thead>
             <tr className="bg-gray-100 border border-gray-300">
-              <th className="text-left px-3 py-2 border border-gray-300 font-semibold">Ried / Rebsorte</th>
-              <th className="text-right px-3 py-2 border border-gray-300 font-semibold">Erntedatum</th>
+              <th className="text-left px-3 py-2 border border-gray-300 font-semibold">Rebsorte</th>
+              <th className="text-right px-3 py-2 border border-gray-300 font-semibold">Fläche (ha)</th>
               <th className="text-right px-3 py-2 border border-gray-300 font-semibold">Menge (kg)</th>
               <th className="text-right px-3 py-2 border border-gray-300 font-semibold">Menge (hl)</th>
-              <th className="text-right px-3 py-2 border border-gray-300 font-semibold">°KMW</th>
               <th className="text-left px-3 py-2 border border-gray-300 font-semibold">Qualitätsstufe</th>
             </tr>
           </thead>
           <tbody>
-            {parzellen.map((p, i) => (
-              <tr key={p.id} className={i % 2 === 1 ? 'bg-gray-50' : ''}>
-                <td className="px-3 py-2 border border-gray-200">
-                  <span className="font-medium">{(p.weingarten as R)?.name ?? '–'}</span>
-                  {(p.weingarten as R)?.rebsorte && <span className="text-gray-500 ml-1">({(p.weingarten as R).rebsorte})</span>}
+            {positionen.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-3 py-4 text-center text-gray-400 text-sm italic border border-gray-200">
+                  Keine Erntemeldung vorhanden – bitte auf der Lese-Seite &quot;AMA-Meldung erstellen&quot; klicken
                 </td>
-                <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">{p.ernte_datum ? new Date(p.ernte_datum).toLocaleDateString('de-AT') : '–'}</td>
-                <td className="px-3 py-2 border border-gray-200 text-right tabular-nums font-medium">{p.menge_kg?.toLocaleString('de-AT') ?? '–'}</td>
-                <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">{p.menge_hl?.toFixed(2).replace('.',',') ?? '–'}</td>
-                <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">{p.klosterneuburger ?? '–'}</td>
+              </tr>
+            ) : positionen.map((p, i) => (
+              <tr key={i} className={i % 2 === 1 ? 'bg-gray-50' : ''}>
+                <td className="px-3 py-2 border border-gray-200 font-medium">{p.rebsorte_name ?? '–'}</td>
+                <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">
+                  {p.flaeche_ha != null ? Number(p.flaeche_ha).toLocaleString('de-AT', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : '–'}
+                </td>
+                <td className="px-3 py-2 border border-gray-200 text-right tabular-nums font-medium">
+                  {p.menge_kg != null ? Number(p.menge_kg).toLocaleString('de-AT') : '–'}
+                </td>
+                <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">
+                  {p.menge_hl != null
+                    ? Number(p.menge_hl).toFixed(2).replace('.', ',')
+                    : p.menge_kg != null
+                      ? (p.menge_kg / 130).toFixed(2).replace('.', ',')
+                      : '–'}
+                </td>
                 <td className="px-3 py-2 border border-gray-200">{qualitaetLabel(p.qualitaetsstufe)}</td>
               </tr>
             ))}
@@ -115,46 +171,91 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
           <tfoot>
             <tr className="bg-gray-200 font-bold border-t-2 border-gray-400">
               <td className="px-3 py-2 border border-gray-300">GESAMT</td>
-              <td className="px-3 py-2 border border-gray-300 text-right">{parzellen.length} Parzellen</td>
+              <td className="px-3 py-2 border border-gray-300" />
               <td className="px-3 py-2 border border-gray-300 text-right tabular-nums">{gesamtKg.toLocaleString('de-AT')} kg</td>
-              <td className="px-3 py-2 border border-gray-300 text-right tabular-nums">{gesamtHl.toFixed(2).replace('.',',')} hl</td>
-              <td className="px-3 py-2 border border-gray-300" colSpan={2} />
+              <td className="px-3 py-2 border border-gray-300 text-right tabular-nums">{gesamtHl > 0 ? gesamtHl.toFixed(2).replace('.', ',') : (gesamtKg / 130).toFixed(2).replace('.', ',')} hl</td>
+              <td className="px-3 py-2 border border-gray-300" />
             </tr>
           </tfoot>
         </table>
 
-
+        {/* Weinbestandsmeldung */}
         <div className="mt-10 pt-6 border-t-2 border-gray-300">
           <h2 className="text-base font-bold text-gray-900 mb-1">Weinbestandsmeldung</h2>
           <p className="text-xs text-gray-500 mb-3">§ 29 Weingesetz 2009 · Stichtag: <strong>31. Juli</strong> · Meldefrist: <strong>15. August</strong> · Weindatenbank: online.wein.bmluk.gv.at</p>
-          <table className="w-full border-collapse text-sm">
+
+          {/* Abschnitt A: Flaschen */}
+          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">A – Flaschenwein</p>
+          <table className="w-full border-collapse text-sm mb-4">
             <thead><tr className="bg-gray-100">
               <th className="px-3 py-2 border border-gray-200 text-left">Bezeichnung</th>
-              <th className="px-3 py-2 border border-gray-200 text-left">Jahrgang</th>
+              <th className="px-3 py-2 border border-gray-200 text-left">Jg.</th>
               <th className="px-3 py-2 border border-gray-200 text-left">Rebsorte</th>
               <th className="px-3 py-2 border border-gray-200 text-right">ml</th>
               <th className="px-3 py-2 border border-gray-200 text-right">Flaschen</th>
               <th className="px-3 py-2 border border-gray-200 text-right">hl</th>
             </tr></thead>
             <tbody>
-              {bestand.map((f: R, i: number) => {
+              {bestand.length === 0 ? (
+                <tr><td colSpan={6} className="px-3 py-3 text-center text-gray-400 italic border border-gray-200 text-xs">Kein Flaschenbestand</td></tr>
+              ) : bestand.map((f: R, i: number) => {
                 const hl = ((f.bestand_flaschen ?? 0) * (f.flaschengroesse_ml ?? 750)) / 100000
-                return (<tr key={i} className={i%2===1?'bg-gray-50':''}>
+                return (<tr key={i} className={i % 2 === 1 ? 'bg-gray-50' : ''}>
                   <td className="px-3 py-2 border border-gray-200">{f.name}</td>
-                  <td className="px-3 py-2 border border-gray-200">{f.jahrgang??'–'}</td>
-                  <td className="px-3 py-2 border border-gray-200">{f.rebsorte??'–'}</td>
-                  <td className="px-3 py-2 border border-gray-200 text-right">{f.flaschengroesse_ml??750}</td>
-                  <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">{(f.bestand_flaschen??0).toLocaleString('de-AT')}</td>
-                  <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">{hl.toFixed(3).replace('.',',')}</td>
+                  <td className="px-3 py-2 border border-gray-200">{f.jahrgang ?? '–'}</td>
+                  <td className="px-3 py-2 border border-gray-200">{f.rebsorte ?? '–'}</td>
+                  <td className="px-3 py-2 border border-gray-200 text-right">{f.flaschengroesse_ml ?? 750}</td>
+                  <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">{(f.bestand_flaschen ?? 0).toLocaleString('de-AT')}</td>
+                  <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">{hl.toFixed(3).replace('.', ',')}</td>
                 </tr>)
               })}
             </tbody>
             <tfoot><tr className="bg-gray-200 font-bold border-t-2 border-gray-400">
-              <td className="px-3 py-2 border border-gray-300" colSpan={4}>GESAMT</td>
+              <td className="px-3 py-2 border border-gray-300" colSpan={4}>GESAMT Flaschen</td>
               <td className="px-3 py-2 border border-gray-300 text-right tabular-nums">{gesamtFlaschen.toLocaleString('de-AT')} Fl.</td>
-              <td className="px-3 py-2 border border-gray-300 text-right tabular-nums">{((gesamtFlaschen*750)/100000).toFixed(3).replace('.',',')} hl</td>
+              <td className="px-3 py-2 border border-gray-300 text-right tabular-nums">{gesamtFlaschenHl.toFixed(3).replace('.', ',')} hl</td>
             </tr></tfoot>
           </table>
+
+          {/* Abschnitt B: Wein in Gebinden */}
+          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1 mt-4">B – Wein in Gebinden (Tank / Fass)</p>
+          <table className="w-full border-collapse text-sm">
+            <thead><tr className="bg-gray-100">
+              <th className="px-3 py-2 border border-gray-200 text-left">Charge / Bezeichnung</th>
+              <th className="px-3 py-2 border border-gray-200 text-left">Jg.</th>
+              <th className="px-3 py-2 border border-gray-200 text-left">Rebsorte</th>
+              <th className="px-3 py-2 border border-gray-200 text-left">Behälter</th>
+              <th className="px-3 py-2 border border-gray-200 text-right">Liter</th>
+              <th className="px-3 py-2 border border-gray-200 text-right">hl</th>
+            </tr></thead>
+            <tbody>
+              {tanks.length === 0 ? (
+                <tr><td colSpan={6} className="px-3 py-3 text-center text-gray-400 italic border border-gray-200 text-xs">Kein Wein in Gebinden</td></tr>
+              ) : tanks.map((t: R, i: number) => {
+                const liter = parseFloat(t.menge_liter) || 0
+                const hl    = liter / 100
+                return (<tr key={i} className={i % 2 === 1 ? 'bg-gray-50' : ''}>
+                  <td className="px-3 py-2 border border-gray-200">{t.name}</td>
+                  <td className="px-3 py-2 border border-gray-200">{t.jahrgang ?? '–'}</td>
+                  <td className="px-3 py-2 border border-gray-200">{t.rebsorte ?? '–'}</td>
+                  <td className="px-3 py-2 border border-gray-200 text-xs text-gray-500">{(t.behaelter as R)?.name ?? '–'}</td>
+                  <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">{liter.toLocaleString('de-AT', { maximumFractionDigits: 1 })}</td>
+                  <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">{hl.toFixed(3).replace('.', ',')}</td>
+                </tr>)
+              })}
+            </tbody>
+            <tfoot><tr className="bg-gray-200 font-bold border-t-2 border-gray-400">
+              <td className="px-3 py-2 border border-gray-300" colSpan={5}>GESAMT Gebinde</td>
+              <td className="px-3 py-2 border border-gray-300 text-right tabular-nums">{gesamtTankHl.toFixed(3).replace('.', ',')} hl</td>
+            </tr></tfoot>
+          </table>
+
+          {/* Gesamtsumme */}
+          <div className="mt-3 flex justify-end">
+            <div className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-bold">
+              Gesamtbestand: {(gesamtFlaschenHl + gesamtTankHl).toFixed(3).replace('.', ',')} hl
+            </div>
+          </div>
         </div>
 
         {/* Unterschrift */}
