@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { upsertPressung, deletePressung } from '../actions'
 import { fmtProzent } from '@/lib/format'
-import { kmwZuQualitaet, QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { kmwZuQualitaet, QUALITAET_LABEL, QUALITAET_ORDER } from '@/lib/weinqualitaet'
 import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -200,24 +200,28 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
       }))
     ))
     startTransition(async () => {
-      const result = await upsertPressung(fd)
-      // Prüfen ob neue Charge in Behälter mit bestehenden Chargen gedrückt wurde
-      // Nur bei Rebsortenmix (Quelle hat andere Rebsorte als bestehende Chargen)
-      if (!pressung && behaelterMitCharge && result.neu.length > 0) {
-        // Verschnitt-Prompt immer wenn Behälter bereits Chargen hat (gleiche oder andere Rebsorte)
-        const konflikt = result.neu.find(n => {
-          const existing = behaelterMitCharge[n.behaelter_id] ?? []
-          return existing.length > 0
-        })
-        if (konflikt) {
-          setVerschneidung({
-            newCharge: { id: konflikt.weinausbau_id, name: konflikt.name },
-            existingChargen: behaelterMitCharge[konflikt.behaelter_id],
+      try {
+        const result = await upsertPressung(fd)
+        // Prüfen ob neue Charge in Behälter mit bestehenden Chargen gedrückt wurde
+        if (!pressung && behaelterMitCharge && result.neu.length > 0) {
+          // Verschnitt-Prompt immer wenn Behälter bereits Chargen hat
+          const konflikt = result.neu.find(n => {
+            const existing = behaelterMitCharge[n.behaelter_id] ?? []
+            return existing.length > 0
           })
-          return
+          if (konflikt) {
+            setVerschneidung({
+              newCharge: { id: konflikt.weinausbau_id, name: konflikt.name },
+              existingChargen: behaelterMitCharge[konflikt.behaelter_id],
+            })
+            return
+          }
         }
+        onDone()
+      } catch (err) {
+        console.error('Pressung Fehler:', err)
+        alert('Fehler beim Speichern: ' + (err instanceof Error ? err.message : 'Unbekannter Fehler'))
       }
-      onDone()
     })
   }
 
@@ -294,19 +298,22 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
             {kmwQualitaet && (
               <button
                 type="button"
-                onClick={() => setQualitaetsstufe(QUALITAET_LABEL[kmwQualitaet] ?? '')}
+                onClick={() => setQualitaetsstufe(kmwQualitaet)}
                 className="shrink-0 text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap hover:bg-amber-200 transition-colors cursor-pointer"
               >
                 → {QUALITAET_LABEL[kmwQualitaet]}
               </button>
             )}
-            <input
-              type="text"
+            <select
               value={qualitaetsstufe}
               onChange={e => setQualitaetsstufe(e.target.value)}
-              placeholder="Qualitätsstufe …"
               className={inp}
-            />
+            >
+              <option value="">– Qualitätsstufe –</option>
+              {(['wein','landwein','qualitaetswein','kabinett','spaetlese','auslese','beerenauslese','ausbruch','trockenbeerenauslese','eiswein','strohwein'] as const).map(q => (
+                <option key={q} value={q}>{QUALITAET_LABEL[q]}</option>
+              ))}
+            </select>
           </div>
         </div>
         <div className="col-span-2">
