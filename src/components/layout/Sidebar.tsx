@@ -44,8 +44,6 @@ const NAV: NavEntry[] = [
     kind: 'group', label: 'Kellerbuch', icon: '🍷',
     items: [
       { href: '/kellerbuch',                  label: 'Übersicht',      phase: 1 },
-      { href: '/kellerbuch/gebinde',          label: 'Gebinde',        phase: 1, child: true },
-      { href: '/kellerbuch/weinausbau',        label: 'Chargen',        phase: 1, child: true },
       { href: '/kellerbuch/kellerplan',       label: 'Kellerplan',     phase: 1 },
       { href: '/dac',                         label: 'Prüfnummer',     phase: 1 },
       { href: '/kellerbuch/rueckverfolgung',  label: 'Rückverfolgung', phase: 1 },
@@ -404,3 +402,4 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
     </aside>
   )
 }
+                                                                                                                                                                                                 
