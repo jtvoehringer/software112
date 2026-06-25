@@ -397,10 +397,13 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
                     const existing = behaelterMitCharge?.[b.id] ?? []
                     const inhalt = existing.reduce((s, c) => s + (parseFloat(String(c.menge_liter ?? 0)) || 0), 0)
                     const frei = vol != null ? vol - inhalt : null
-                    const suffix = vol != null
+                    const kapSuffix = vol != null
                       ? ` · ${vol.toLocaleString('de-AT')} L · frei: ${frei!.toLocaleString('de-AT', { maximumFractionDigits: 0 })} L`
                       : ''
-                    return <option key={b.id} value={b.id}>{b.name}{suffix}</option>
+                    const inhaltSuffix = existing.length > 0
+                      ? ` [${existing.map(c => c.rebsorte ? `${c.name} (${c.rebsorte})` : c.name).join(', ')}]`
+                      : ' [leer]'
+                    return <option key={b.id} value={b.id}>{b.name}{kapSuffix}{inhaltSuffix}</option>
                   })}
                 </select>
                 {row.behaelter_id && (() => {
