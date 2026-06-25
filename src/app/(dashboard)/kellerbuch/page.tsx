@@ -193,9 +193,12 @@ export default async function KellerbuchPage() {
                         : parseFloat(w.menge_liter) || 0
                       const istEB = w.ist_eroeffnungsbestand === true
                       return (
-                        <tr key={w.id} className={`border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40 ${istEB ? 'opacity-75' : ''}`}>
+                        <tr key={w.id} className={`relative border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40 cursor-pointer ${istEB ? 'opacity-75' : ''}`}>
                           <td className="px-4 py-2.5 font-medium text-gray-800">
-                            {w.name}
+                            <Link href={`/kellerbuch/weinausbau/${w.id}`}
+                              className="after:absolute after:inset-0">
+                              {w.name}
+                            </Link>
                             {w.rebsorte && <span className="text-xs text-s112-muted ml-1">· {w.rebsorte}</span>}
                             {istEB && <span className="text-xs text-s112-muted ml-1 italic">(Eröffnungsbestand)</span>}
                           </td>
@@ -210,7 +213,7 @@ export default async function KellerbuchPage() {
                                 ? <span className="text-red-600 font-semibold">{fmtLiter(menge)}</span>
                                 : <span className="text-red-500">0,00 L</span>}
                           </td>
-                          <td className="px-4 py-2.5 text-right">
+                          <td className="relative z-10 px-4 py-2.5 text-right">
                             {writeOk && menge > 0.01 && (
                               <Link href={`/weinhandel/fuellungen/neu?charge=${w.id}`}
                                 className="text-xs text-s112-teal border border-s112-teal/30 rounded-full px-2 py-0.5 hover:bg-s112-teal hover:text-white transition-colors whitespace-nowrap">
@@ -242,8 +245,13 @@ export default async function KellerbuchPage() {
                 {chargenOhneBehaelter.map((w: R) => {
                   const st = STATUS_LABELS[w.status] ?? { label: w.status, color: 'bg-gray-100 text-gray-600' }
                   return (
-                    <tr key={w.id} className="border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40">
-                      <td className="px-4 py-2.5 font-medium text-gray-800">{w.name}</td>
+                    <tr key={w.id} className="relative border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40 cursor-pointer">
+                      <td className="px-4 py-2.5 font-medium text-gray-800">
+                        <Link href={`/kellerbuch/weinausbau/${w.id}`}
+                          className="after:absolute after:inset-0">
+                          {w.name}
+                        </Link>
+                      </td>
                       <td className="px-4 py-2.5 text-s112-muted text-xs">{w.jahrgang ?? '–'}</td>
                       <td className="px-4 py-2.5">
                         <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
@@ -251,12 +259,7 @@ export default async function KellerbuchPage() {
                       <td className="px-4 py-2.5 text-right tabular-nums text-gray-800">
                         {fmtLiter(parseFloat(w.menge_liter) || 0)}
                       </td>
-                      <td className="px-4 py-2.5 text-right">
-                        <Link href={`/kellerbuch/weinausbau/${w.id}`}
-                          className="text-xs text-s112-teal hover:underline">
-                          Bearbeiten →
-                        </Link>
-                      </td>
+                      <td className="relative z-10 px-4 py-2.5 text-right" />
                     </tr>
                   )
                 })}
@@ -276,9 +279,8 @@ export default async function KellerbuchPage() {
               </Link>
             )}
           </div>
-        )}
+        )
       </div>
     </div>
   )
 }
-                                                                                                                                                                                                         
