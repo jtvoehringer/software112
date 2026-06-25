@@ -16,6 +16,7 @@ import {
   resetRechnungsZaehler,
   resetKundenZaehler,
   saveSumUpConfig,
+  saveBawbZugangsdaten,
   createStripeCustomer,
   createStripeCheckoutSession,
   createStripePortalSession,
@@ -1128,6 +1129,127 @@ function ChecklisteTab({ tenant, settings, members }: {
   )
 }
 
+
+// ── Tab: bawb.at (LFRZ Weinkontrolle) ────────────────────────────────────────
+const BAWB_URL = 'https://services2.lfrz.at/at.lfrz.wein/frame.html'
+
+function BawbTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
+  const [kennung,  setKennung]  = useState(settings.bawb_kennung  ?? '')
+  const [passwort, setPasswort] = useState(settings.bawb_passwort ?? '')
+  const [showPw,   setShowPw]   = useState(false)
+  const [status,   setStatus]   = useState<'idle' | 'saving' | 'ok' | 'err'>('idle')
+  const [errMsg,   setErrMsg]   = useState<string | null>(null)
+  const [, startTransition] = useTransition()
+
+  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+
+  function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    setStatus('saving'); setErrMsg(null)
+    const fd = new FormData()
+    fd.set('bawb_kennung',  kennung.trim())
+    fd.set('bawb_passwort', passwort)
+    startTransition(async () => {
+      const res = await saveBawbZugangsdaten(tenant.id, fd)
+      if (res?.error) { setStatus('err'); setErrMsg(res.error) }
+      else setStatus('ok')
+    })
+  }
+
+  return (
+    <div className="space-y-5">
+
+      {/* Info + Link */}
+      <div className="card p-5 space-y-3">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="font-semibold text-gray-800 mb-1">LFRZ Weinkontrolle Online (bawb.at)</h3>
+            <p className="text-sm text-s112-muted">
+              Österreichisches Weingesetz-Onlineportal für Erntemeldung, Betriebsmitteilung und Verarbeitungsprotokoll.
+            </p>
+          </div>
+          <a
+            href={BAWB_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="shrink-0 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors whitespace-nowrap"
+          >
+            🔗 bawb.at öffnen
+          </a>
+        </div>
+        <p className="text-xs text-s112-muted bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Die Zugangsdaten werden in der Datenbank gespeichert (wie API-Keys). Für erhöhte Sicherheit empfiehlt sich Supabase Vault – aktuell nicht aktiviert.
+        </p>
+      </div>
+
+      {/* Zugangsdaten */}
+      <form onSubmit={handleSave} className="card p-5 space-y-4">
+        <h3 className="font-semibold text-gray-800 text-sm">Zugangsdaten</h3>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Kennung (Betriebsnummer)</label>
+            <input
+              type="text"
+              value={kennung}
+              onChange={e => { setKennung(e.target.value); setStatus('idle') }}
+              placeholder="z.B. 4489781"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Passwort</label>
+            <div className="relative">
+              <input
+                type={showPw ? 'text' : 'password'}
+                value={passwort}
+                onChange={e => { setPasswort(e.target.value); setStatus('idle') }}
+                placeholder="Passwort"
+                className={inputCls + ' pr-16'}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw(v => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-s112-muted hover:text-gray-700 px-1"
+              >
+                {showPw ? 'verbergen' : 'anzeigen'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {errMsg && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{errMsg}</p>}
+
+        <div className="flex items-center gap-3">
+          <button type="submit" disabled={status === 'saving'}
+            className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
+            {status === 'saving' ? 'Speichert…' : 'Zugangsdaten speichern'}
+          </button>
+          {status === 'ok' && <span className="text-xs text-green-700 font-medium">✓ Gespeichert</span>}
+        </div>
+      </form>
+
+      {/* Gespeicherte Zugangsdaten – Kopier-Hilfe */}
+      {(settings.bawb_kennung || settings.bawb_passwort) && (
+        <div className="card p-4 space-y-2 bg-s112-bg">
+          <p className="text-xs font-semibold text-gray-700">Gespeicherte Zugangsdaten (zum Kopieren)</p>
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div>
+              <span className="text-s112-muted">Kennung:</span>{' '}
+              <span className="font-mono font-medium text-gray-800">{settings.bawb_kennung ?? '–'}</span>
+            </div>
+            <div>
+              <span className="text-s112-muted">Passwort:</span>{' '}
+              <span className="font-mono font-medium text-gray-800">{settings.bawb_passwort ?? '–'}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  )
+}
+
 // ── Tab: SumUp ───────────────────────────────────────────────────────────────
 
 function SumUpTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
@@ -1328,7 +1450,7 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
   )
 }
 
-type Tab = 'branding' | 'benutzer' | 'brevo' | 'module' | 'betrieb' | 'verkauf' | 'email' | 'm365' | 'sumup' | 'stripe' | 'checkliste'
+type Tab = 'branding' | 'benutzer' | 'brevo' | 'module' | 'betrieb' | 'verkauf' | 'email' | 'm365' | 'bawb' | 'sumup' | 'stripe' | 'checkliste'
 
 export default function MandantDetailClient({ tenant, settings, members }: {
   tenant:   TenantDetail
@@ -1435,6 +1557,7 @@ export default function MandantDetailClient({ tenant, settings, members }: {
       {tab === 'verkauf'    && <VerkaufTab    tenant={tenant} settings={settings} />}
       {tab === 'email'      && <EmailTab      tenant={tenant} settings={settings} />}
       {tab === 'm365'       && <M365Tab       tenant={tenant} settings={settings} />}
+      {tab === 'bawb'       && <BawbTab       tenant={tenant} settings={settings} />}
       {tab === 'sumup'      && <SumUpTab      tenant={tenant} settings={settings} />}
       {tab === 'stripe'     && <StripeTab     tenant={tenant} />}
       {tab === 'checkliste' && <ChecklisteTab tenant={tenant} settings={settings} members={members} />}
