@@ -25,8 +25,9 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   abgeschlossen:{ label: 'Abgeschlossen', color: 'bg-green-100 text-green-700' },
 }
 
-export default async function WeinausbauDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function WeinausbauDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ form?: string }> }) {
   const { id } = await params
+  const { form: openForm } = await searchParams
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
   const writeOk  = canWrite(role)
@@ -371,6 +372,18 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
               🍾 Abfüllen
             </Link>
           )}
+          {writeOk && berechneterSaldo > 0.01 && (
+            <Link href={`/kellerbuch/weinausbau/${weinausbau.id}?form=umziehen`}
+              className="mt-1 inline-block text-xs bg-s112-teal text-white px-3 py-1 rounded-lg hover:bg-opacity-90 transition-colors">
+              📦 Umziehen
+            </Link>
+          )}
+          {writeOk && (
+            <Link href={`/kellerbuch/weinausbau/${weinausbau.id}?form=verschneiden`}
+              className="mt-1 inline-block text-xs bg-violet-600 text-white px-3 py-1 rounded-lg hover:bg-opacity-90 transition-colors">
+              🍷 Verschneiden
+            </Link>
+          )}
           <Link href={`/kellerbuch/weinausbau/${weinausbau.id}/buch`}
             className="mt-1 inline-block text-xs border border-s112-border text-s112-teal px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
             📖 Weinbuch
@@ -469,7 +482,7 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
         </div>
       </section>
 
-      {/* Umziehen */}
+      {/* Umziehen (wird über Header-Button mit ?form=umziehen geöffnet) */}
       {writeOk && berechneterSaldo > 0.01 && (
         <UmziehenWidget
           chargeId={weinausbau.id}
@@ -478,15 +491,17 @@ export default async function WeinausbauDetailPage({ params }: { params: Promise
           gebinde={behaelter}
           alleChargen={alleChargen}
           action={umziehen}
+          initialOpen={openForm === 'umziehen'}
         />
       )}
 
-      {/* Verschneidung */}
+      {/* Verschneidung (wird über Header-Button mit ?form=verschneiden geöffnet) */}
       {writeOk && alleChargen.length > 0 && (
         <VerschneidungWidget
           zielCharge={{ id: weinausbau.id, name: weinausbau.name, menge_liter: berechneterSaldo, qualitaetsstufe: weinausbau.qualitaetsstufe ?? null, rebsorte: weinausbau.rebsorte ?? null }}
           alleChargen={alleChargen}
           verschneidungen={verschneidungenEin}
+          initialOpen={openForm === 'verschneiden'}
         />
       )}
 

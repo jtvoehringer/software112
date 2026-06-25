@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
 import { deleteVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
 import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
@@ -13,6 +14,7 @@ interface Props {
   zielCharge:      ChargeOpt
   alleChargen:     ChargeOpt[]
   verschneidungen: R[]
+  initialOpen?:    boolean
 }
 
 function fmtDate(d: string | null) {
@@ -56,21 +58,19 @@ function StornoButton({ id, zielId }: { id: string; zielId: string }) {
   )
 }
 
-export default function VerschneidungWidget({ zielCharge, alleChargen, verschneidungen }: Props) {
-  const [showForm, setShowForm] = useState(false)
+export default function VerschneidungWidget({ zielCharge, alleChargen, verschneidungen, initialOpen = false }: Props) {
+  const router = useRouter()
+  const [showForm, setShowForm] = useState(initialOpen)
+
+  function handleClose() {
+    setShowForm(false)
+    router.push(`/kellerbuch/weinausbau/${zielCharge.id}`)
+  }
 
   return (
     <section>
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-semibold text-gray-800">🍷 Verschneidungen</h2>
-        {!showForm && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="text-xs bg-violet-50 border border-violet-200 text-violet-700 hover:bg-violet-100 px-3 py-1.5 rounded-lg transition-colors font-medium"
-          >
-            ＋ Verschneidung erfassen
-          </button>
-        )}
       </div>
 
       {showForm && (
@@ -78,13 +78,20 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
           <VerschneidungForm
             zielCharge={zielCharge}
             alleChargen={alleChargen}
-            onDone={() => setShowForm(false)}
+            onDone={() => {
+              setShowForm(false)
+              router.push(`/kellerbuch/weinausbau/${zielCharge.id}`)
+              router.refresh()
+            }}
           />
+          <button type="button" onClick={handleClose}
+            className="mt-2 text-sm text-s112-muted hover:text-gray-700 transition-colors">
+            Abbrechen
+          </button>
         </div>
       )}
 
       {verschneidungen.length > 0 && (() => {
-        // Kumulierte Zusammensetzung aus allen Verschneidungen berechnen
         const quellenMap: Record<string, { name: string; menge: number }> = {}
         let gesamtMenge = 0
         for (const v of verschneidungen) {
@@ -97,7 +104,6 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
             gesamtMenge += ml
           }
         }
-        // Ursprungs-Anteil: Menge die schon vor den Verschneidungen in der Charge war
         const gesamtVerschnittMenge = gesamtMenge
         const originalMenge = (zielCharge.menge_liter ?? 0) - gesamtVerschnittMenge
         if (originalMenge > 0.5 && zielCharge.rebsorte && zielCharge.rebsorte !== 'Sortenverschnitt') {
@@ -174,7 +180,7 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
       ) : (
         !showForm && (
           <div className="card border-dashed text-center py-6 text-sm text-s112-muted">
-            Noch keine Verschneidungen für diese Charge erfasst.
+            Noch keine Verschneidungen für diese Partie erfasst.
           </div>
         )
       )}
