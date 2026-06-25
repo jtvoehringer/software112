@@ -86,12 +86,6 @@ export default async function KellerbuchPage() {
           <h1 className="text-2xl font-bold text-gray-900">Kellerbuch</h1>
           <p className="text-sm text-s112-muted mt-0.5">Übersicht Behälter &amp; Chargen</p>
         </div>
-        {writeOk && (
-          <Link href="/weinhandel/fuellungen/neu"
-            className="btn-primary flex items-center gap-2 text-sm">
-            🍾 Neue Füllung
-          </Link>
-        )}
       </div>
 
       {/* Stats */}
@@ -287,3 +281,4 @@ export default async function KellerbuchPage() {
     </div>
   )
 }
+                                                                                                                                                                                                         
