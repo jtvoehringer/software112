@@ -184,14 +184,14 @@ function NeueParzellenForm({
                                     <div className="grid grid-cols-3 gap-2">
                                       <div>
                                         <label className="block text-xs text-gray-500 mb-0.5">Menge kg</label>
-                                        <input type="number" step="1" min="0" placeholder="–"
+                                        <input type="text" inputMode="decimal" placeholder="–"
                                           value={gstData.get(g.id)?.menge_kg ?? ''}
                                           onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', notizen: '' }; n.set(g.id, { ...d, menge_kg: e.target.value }); return n })}
                                           className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white" />
                                       </div>
                                       <div>
                                         <label className="block text-xs text-gray-500 mb-0.5">°KMW</label>
-                                        <input type="number" step="0.01" min="0" placeholder="–"
+                                        <input type="text" inputMode="decimal" placeholder="–"
                                           value={gstData.get(g.id)?.kmw ?? ''}
                                           onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', notizen: '' }; n.set(g.id, { ...d, kmw: e.target.value }); return n })}
                                           className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white" />
@@ -239,11 +239,11 @@ function NeueParzellenForm({
               ? <span className="text-s112-muted font-normal"> (Fallback für GST ohne eigenen Wert)</span>
               : <span className="text-s112-muted font-normal"> (anteilsmäßig auf GST aufgeteilt)</span>}
           </label>
-          <input name="menge_kg" type="number" step="1" min="0" className={inputCls} placeholder="–" />
+          <input name="menge_kg" type="text" inputMode="decimal" className={inputCls} placeholder="–" />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">°KMW</label>
-          <input name="klosterneuburger" type="number" step="0.01" min="0" className={inputCls}
+          <input name="klosterneuburger" type="text" inputMode="decimal" className={inputCls}
             onChange={e => setKmwNeu(e.target.value ? parseFloat(e.target.value) : null)} />
         </div>
         <div>
@@ -361,14 +361,14 @@ function ParzellForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Menge (kg)</label>
-          <input name="menge_kg" type="number" step="0.01" min="0"
+          <input name="menge_kg" type="text" inputMode="decimal"
             defaultValue={parzelle?.menge_kg ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <input type="hidden" name="oechsle" value="" />
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">°KMW</label>
-          <input name="klosterneuburger" type="number" step="0.01" min="0"
+          <input name="klosterneuburger" type="text" inputMode="decimal"
             defaultValue={parzelle?.klosterneuburger ?? ''}
             onChange={e => setKmwEdit(e.target.value ? parseFloat(e.target.value) : null)}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
