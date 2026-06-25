@@ -287,4 +287,6 @@ export default async function ErnteDetailPage({ params }: Props) {
           />
         </div>
       )}
-    
+        </div>
+  )
+}
