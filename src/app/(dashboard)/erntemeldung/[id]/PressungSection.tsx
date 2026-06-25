@@ -34,6 +34,19 @@ export type LeseParzelle = {
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────
 
+const ROT_REBSORTEN = new Set([
+  'Zweigelt','Blaufränkisch','St. Laurent','Blauer Portugieser','Blauburger',
+  'Cabernet Sauvignon','Merlot','Syrah','Shiraz','Pinot Noir','Blauburgunder',
+  'Regent','Dornfelder','Lemberger','Primitivo','Sangiovese','Tempranillo',
+])
+function weinfarbe(rebsorte: string | null): 'rot' | 'weiß' | null {
+  if (!rebsorte) return null
+  if (ROT_REBSORTEN.has(rebsorte)) return 'rot'
+  const l = rebsorte.toLowerCase()
+  if (l.startsWith('blau') || l.includes('noir') || l.includes('schwarz')) return 'rot'
+  return 'weiß'
+}
+
 const fmt = (n: number | null) =>
   n == null ? '–' : n.toLocaleString('de-AT', { maximumFractionDigits: 1 })
 
@@ -398,37 +411,58 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
                   const eingabe = parseFloat(row.menge_liter.replace(',', '.')) || 0
                   const restNach = vol != null ? vol - inhaltJetzt - eingabe : null
                   const ueber = restNach != null && restNach < -0.01
-                  const pressungRebsorte = wgRows.find(r => r.rebsorte)?.rebsorte ?? null
-                  const isMix = !pressung && pressungRebsorte && existing.length > 0
-                    && existing.some(e => e.rebsorte && e.rebsorte !== pressungRebsorte)
+
+                  // Rebsorten- und Farbprüfung
+                  const rebsortenInForm = [...new Set(wgRows.map(r => r.rebsorte).filter(Boolean))]
+                  const pressungFarbe = weinfarbe(rebsortenInForm[0] ?? null)
+                  const existingFarben = existing.map(e => weinfarbe(e.rebsorte ?? null)).filter(Boolean)
+                  const isFarbmix = pressungFarbe != null && existingFarben.some(f => f !== pressungFarbe)
+                  const isMix = existing.length > 0 && rebsortenInForm.length > 0
+                    && existing.some(e => e.rebsorte && !rebsortenInForm.includes(e.rebsorte))
+
                   return (
-                    <>
-                      {vol != null && (
-                        <div className="mt-1.5 grid grid-cols-3 gap-1.5 bg-s112-bg border border-s112-border rounded-lg px-3 py-2 text-xs">
-                          <div>
-                            <p className="text-s112-muted mb-0.5">Kapazität</p>
-                            <p className="font-medium tabular-nums">{vol.toLocaleString('de-AT')} L</p>
-                          </div>
-                          <div>
-                            <p className="text-s112-muted mb-0.5">Inhalt jetzt</p>
-                            <p className="font-medium tabular-nums">{inhaltJetzt.toLocaleString('de-AT', { maximumFractionDigits: 1 })} L</p>
-                          </div>
-                          <div>
-                            <p className="text-s112-muted mb-0.5">{eingabe > 0 ? 'Rest nach Pressung' : 'Restkapazität'}</p>
-                            <p className={`font-medium tabular-nums ${ueber ? 'text-red-600' : 'text-s112-teal'}`}>
-                              {vol != null ? (eingabe > 0 ? restNach! : vol - inhaltJetzt).toLocaleString('de-AT', { maximumFractionDigits: 1 }) + ' L' : '–'}
-                            </p>
-                          </div>
-                          {ueber && <p className="col-span-3 text-xs text-red-600 font-medium">⚠ Behälter hat nicht genug Kapazität</p>}
+                    <div className="mt-1.5 bg-s112-bg border border-s112-border rounded-lg px-3 py-2 text-xs space-y-2">
+                      {/* Kapazitäts-Zahlen */}
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <div>
+                          <p className="text-s112-muted mb-0.5">Kapazität</p>
+                          <p className="font-medium tabular-nums">{vol != null ? vol.toLocaleString('de-AT') + ' L' : '–'}</p>
+                        </div>
+                        <div>
+                          <p className="text-s112-muted mb-0.5">Inhalt jetzt</p>
+                          <p className="font-medium tabular-nums">{inhaltJetzt.toLocaleString('de-AT', { maximumFractionDigits: 1 })} L</p>
+                        </div>
+                        <div>
+                          <p className="text-s112-muted mb-0.5">{eingabe > 0 ? 'Rest nach Pressung' : 'Restkapazität'}</p>
+                          <p className={`font-medium tabular-nums ${ueber ? 'text-red-600' : 'text-s112-teal'}`}>
+                            {vol != null ? (eingabe > 0 ? restNach! : vol - inhaltJetzt).toLocaleString('de-AT', { maximumFractionDigits: 1 }) + ' L' : '–'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Bestehende Chargen */}
+                      {existing.length > 0 && (
+                        <div className={`rounded px-2 py-1.5 border ${isFarbmix ? 'bg-red-50 border-red-300' : isMix ? 'bg-amber-50 border-amber-200' : 'bg-white border-s112-border'}`}>
+                          <p className={`font-medium mb-1 ${isFarbmix ? 'text-red-700' : isMix ? 'text-amber-700' : 'text-gray-600'}`}>
+                            {isFarbmix ? '🚫 Rotwein/Weißwein-Mischung nicht erlaubt!' : isMix ? '⚠ Rebsortenverschnitt' : 'ℹ Enthält bereits'}
+                          </p>
+                          <ul className="space-y-0.5">
+                            {existing.map((c, ci) => (
+                              <li key={ci} className="flex justify-between">
+                                <span className={isFarbmix ? 'text-red-700' : isMix ? 'text-amber-700' : 'text-gray-700'}>
+                                  {c.name}{c.rebsorte ? ` · ${c.rebsorte}` : ''}
+                                </span>
+                                <span className="tabular-nums text-gray-500 ml-2">
+                                  {c.menge_liter != null ? c.menge_liter.toLocaleString('de-AT', { maximumFractionDigits: 1 }) + ' L' : '–'}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
                         </div>
                       )}
-                      {!pressung && existing.length > 0 && (
-                        <p className={`text-xs rounded px-2 py-1 mt-1 border ${isMix ? 'text-red-700 bg-red-50 border-red-200' : 'text-amber-700 bg-amber-50 border-amber-200'}`}>
-                          {isMix ? '⚠ Rebsortenverschnitt: ' : 'ℹ Enthält bereits: '}
-                          {existing.map(c => c.rebsorte ? `${c.name} (${c.rebsorte})` : c.name).join(', ')}
-                        </p>
-                      )}
-                    </>
+
+                      {ueber && <p className="text-red-600 font-medium">⚠ Behälter hat nicht genug Kapazität</p>}
+                    </div>
                   )
                 })()}
               </div>
@@ -615,7 +649,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                               🛢 {b.weinausbau_name ?? b.behaelter_name ?? '–'}
                               {b.menge_liter && <span className="font-medium">· {fmt(b.menge_liter)} L</span>}
                               <span className="text-blue-400">→ KB</span>
-                                    </a>
+                            </a>
                           ) : (
                             <span key={b.id} className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-800 text-xs px-2 py-0.5 rounded-full">
                               ⚠ {b.behaelter_name ?? '–'}
