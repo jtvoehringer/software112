@@ -17,6 +17,7 @@ interface Props {
 export default function VerschneidungForm({ zielCharge, alleChargen, onDone, initialQuelleId, initialQuelleMenge }: Props) {
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [qualitaetAbgestufInfo, setQualitaetAbgestufInfo] = useState<{ von: string; nach: string } | null>(null)
   const [quellen, setQuellen] = useState<{ weinausbau_id: string; menge: string }[]>(
     initialQuelleId
       ? [{ weinausbau_id: initialQuelleId, menge: initialQuelleMenge ?? '' }]
@@ -95,8 +96,12 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
     fd.set('ziel_weinausbau_id', zielCharge.id)
     startTransition(async () => {
       try {
-        await createVerschneidung(fd)
-        onDone()
+        const result = await createVerschneidung(fd)
+        if (result?.qualitaetAbgestuft) {
+          setQualitaetAbgestufInfo(result.qualitaetAbgestuft)
+        } else {
+          onDone()
+        }
       } catch (err) {
         setError((err as Error).message)
       }
@@ -104,6 +109,34 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
   }
 
   const inputCls = 'border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+
+  // Qualitätsabstufung nach erfolgreichem Speichern
+  if (qualitaetAbgestufInfo) {
+    return (
+      <div className="bg-amber-50 border border-amber-300 rounded-xl p-5 space-y-3">
+        <div className="flex items-start gap-3">
+          <span className="text-2xl">⚠️</span>
+          <div>
+            <p className="font-semibold text-amber-900 text-sm">Verschneidung gespeichert – Qualität abgestuft</p>
+            <p className="text-sm text-amber-800 mt-1">
+              Die Ziel-Charge wurde von{' '}
+              <strong>{QUALITAET_LABEL[qualitaetAbgestufInfo.von] ?? qualitaetAbgestufInfo.von}</strong>
+              {' '}auf{' '}
+              <strong>{QUALITAET_LABEL[qualitaetAbgestufInfo.nach] ?? qualitaetAbgestufInfo.nach}</strong>
+              {' '}abgestuft.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onDone}
+          className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-amber-700 transition-colors"
+        >
+          Schließen
+        </button>
+      </div>
+    )
+  }
 
   return (
     <form onSubmit={handleSubmit} className="bg-indigo-50/40 border border-indigo-100 rounded-xl p-4 space-y-4">
