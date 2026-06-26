@@ -9,7 +9,7 @@ export async function GET() {
 
     const [{ data: behaelter }, { data: weinausbau }] = await Promise.all([
       (supabase.from('behaelter') as any)
-        .select('id, name, typ')
+        .select('id, name, typ, volumen_liter')
         .eq('aktiv', true)
         .order('name'),
       (supabase.from('weinausbau') as any)

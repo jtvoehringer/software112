@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { updateZukauf } from '../../actions'
 import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 
-interface Behaelter { id: string; name: string; typ: string }
+interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
 
 interface InitialValues {
   datum:                    string
@@ -62,6 +62,7 @@ export default function ZukaufEditForm({
   const [isPending, startTransition] = useTransition()
   const [error, setError]            = useState<string | null>(null)
   const [behaelter, setBehaelter]    = useState<Behaelter[]>([])
+  const [weinausbauListe, setWeinausbauListe] = useState<{ id: string; name: string; behaelter_id: string | null; rebsorte: string | null; menge_liter: number | null }[]>([])
 
   const [datum,               setDatum]             = useState(initial.datum)
   const [uhrzeit,             setUhrzeit]           = useState(initial.lieferung_uhrzeit)
@@ -88,6 +89,7 @@ export default function ZukaufEditForm({
   useEffect(() => {
     fetch('/api/zukauf-stammdaten').then(r => r.json()).then(j => {
       setBehaelter(j.behaelter ?? [])
+      setWeinausbauListe(j.weinausbau ?? [])
     }).catch(() => {})
   }, [])
 
@@ -349,13 +351,64 @@ export default function ZukaufEditForm({
               <select value={zielBehaelter} onChange={e => setZielBehaelter(e.target.value)}
                 className={inputCls + ' w-full'}>
                 <option value="">– keines –</option>
-                {behaelter.map(b => (
-                  <option key={b.id} value={b.id}>
-                    {TYP_ICONS[b.typ] ?? '📦'} {b.name}
-                  </option>
-                ))}
+                {behaelter.map(b => {
+                  const vol = b.volumen_liter
+                  const chargen = weinausbauListe.filter(w => w.behaelter_id === b.id)
+                  const inhalt = chargen.reduce((s, w) => s + (w.menge_liter ?? 0), 0)
+                  const rest = vol != null ? vol - inhalt : null
+                  const rebsorten = [...new Set(chargen.map(w => w.rebsorte).filter(Boolean))].join(', ')
+                  const kapSuffix = vol != null ? ` · ${vol.toLocaleString('de-AT')} L` : ''
+                  const inhaltSuffix = inhalt > 0 ? ` · Inhalt: ${inhalt.toLocaleString('de-AT')} L${rebsorten ? ` (${rebsorten})` : ''}` : ' · leer'
+                  const restSuffix = rest != null ? ` · Rest: ${rest.toLocaleString('de-AT')} L` : ''
+                  return (
+                    <option key={b.id} value={b.id}>
+                      {TYP_ICONS[b.typ] ?? '📦'} {b.name}{kapSuffix}{inhaltSuffix}{restSuffix}
+                    </option>
+                  )
+                })}
               </select>
             </div>
+
+            {/* Detail-Panel für gewähltes Gebinde */}
+            {zielBehaelter && (() => {
+              const b = behaelter.find(x => x.id === zielBehaelter)
+              const vol = b?.volumen_liter ?? null
+              const chargen = weinausbauListe.filter(w => w.behaelter_id === zielBehaelter)
+              const inhalt = chargen.reduce((s, w) => s + (w.menge_liter ?? 0), 0)
+              const mengeNum = parseFloat(menge) || 0
+              const restNach = vol != null ? vol - inhalt - mengeNum : null
+              const ueber = restNach != null && restNach < -0.01
+              return (
+                <div className="bg-s112-bg border border-s112-border rounded-xl px-4 py-3 space-y-2 text-xs">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <p className="text-s112-muted mb-0.5">Kapazität</p>
+                      <p className="font-semibold text-gray-800">{vol != null ? vol.toLocaleString('de-AT') + ' L' : '–'}</p>
+                    </div>
+                    <div>
+                      <p className="text-s112-muted mb-0.5">Inhalt jetzt</p>
+                      <p className="font-semibold text-gray-800">
+                        {inhalt.toLocaleString('de-AT', { maximumFractionDigits: 1 })} L
+                        {chargen.length > 0 && (
+                          <span className="ml-1 font-normal text-s112-muted">
+                            ({[...new Set(chargen.map(c => c.rebsorte).filter(Boolean))].join(', ') || '–'})
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-s112-muted mb-0.5">{mengeNum > 0 ? 'Rest nach Zukauf' : 'Restkapazität'}</p>
+                      <p className={`font-semibold ${ueber ? 'text-red-600' : 'text-s112-teal'}`}>
+                        {vol != null
+                          ? (mengeNum > 0 ? restNach! : vol - inhalt).toLocaleString('de-AT', { maximumFractionDigits: 1 }) + ' L'
+                          : '–'}
+                      </p>
+                    </div>
+                  </div>
+                  {ueber && <p className="text-red-600 font-semibold">⚠ Behälter hat nicht genug Kapazität</p>}
+                </div>
+              )
+            })()}
           </div>
         )}
 
