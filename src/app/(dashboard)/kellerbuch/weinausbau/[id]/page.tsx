@@ -512,7 +512,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       )}
 
       {/* Verschneidung (wird über Header-Button mit ?form=verschneiden geöffnet) */}
-      {writeOk && alleChargen.length > 0 && (
+      {writeOk && (
         <VerschneidungWidget
           zielCharge={{ id: weinausbau.id, name: weinausbau.name, menge_liter: berechneterSaldo, qualitaetsstufe: weinausbau.qualitaetsstufe ?? null, rebsorte: weinausbau.rebsorte ?? null, weinart: weinausbau.weinart ?? null, behaelter_id: weinausbau.behaelter_id ?? null, behaelter_volumen_liter: ((bhRaw ?? []) as any[]).find((b: any) => b.id === weinausbau.behaelter_id)?.volumen_liter ?? null }}
           alleChargen={alleChargen}
