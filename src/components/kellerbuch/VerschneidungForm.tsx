@@ -56,8 +56,10 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
     // Kein Abbruch – Berechnung läuft mit bestem verfügbarem Wert weiter.
 
     const anteile: Record<string, number> = {}
-    if (zielCharge.rebsorte && zielMenge > 0) {
-      anteile[zielCharge.rebsorte] = (anteile[zielCharge.rebsorte] ?? 0) + zielMenge
+    // Ziel-Rebsorte: wie bei Quellen Fallback auf Namen wenn rebsorte fehlt
+    const zielRebsorte = zielCharge.rebsorte ?? zielCharge.name
+    if (zielRebsorte && zielMenge > 0) {
+      anteile[zielRebsorte] = (anteile[zielRebsorte] ?? 0) + zielMenge
     }
     for (const q of quellen) {
       const src = verfuegbar.find(c => c.id === q.weinausbau_id)
