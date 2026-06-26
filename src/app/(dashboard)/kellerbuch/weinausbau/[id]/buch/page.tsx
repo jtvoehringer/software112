@@ -145,7 +145,7 @@ export default async function WeinbuchPage({
     (supabase.from('verschneidungen') as any)
       .select(`datum, notizen,
         quellen:verschneidung_quellen(menge_liter, anteil_pct,
-          quelle:quell_weinausbau_id(id, name))`)
+          quelle:quell_weinausbau_id(id, name, rebsorte))`)
       .eq('ziel_weinausbau_id', id)
       .order('datum', { ascending: true }),
 

@@ -90,7 +90,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
     // Verschneidungen: diese Charge als Ziel
     (supabase.from('verschneidungen') as any)
-      .select('id, datum, notizen, quellen:verschneidung_quellen(menge_liter, anteil_pct, quelle:quell_weinausbau_id(id, name))')
+      .select('id, datum, notizen, quellen:verschneidung_quellen(menge_liter, anteil_pct, quelle:quell_weinausbau_id(id, name, rebsorte))')
       .eq('ziel_weinausbau_id', id)
       .order('datum', { ascending: false }),
   ])

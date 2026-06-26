@@ -97,26 +97,33 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
       )}
 
       {verschneidungen.length > 0 && (() => {
-        // Aggregation nach Charge-Name (nicht ID), damit gleiche Rebsorten zusammengefasst werden
+        // Aggregation nach Rebsorte/Name – gleiche Rebsorten (auch über mehrere Verschneidungen) zusammenfassen
         const quellenMap: Record<string, { name: string; menge: number }> = {}
         let gesamtMenge = 0
         for (const v of verschneidungen) {
           for (const q of ((v.quellen ?? []) as R[])) {
-            const name = (q.quelle as R | null)?.name ?? '?'
-            const ml   = parseFloat(q.menge_liter) || 0
-            if (!quellenMap[name]) quellenMap[name] = { name, menge: 0 }
-            quellenMap[name].menge += ml
+            const src    = q.quelle as R | null
+            // Rebsorte bevorzugen; Fallback auf Name der Charge
+            const label  = src?.rebsorte ?? src?.name ?? '?'
+            const ml     = parseFloat(q.menge_liter) || 0
+            if (!quellenMap[label]) quellenMap[label] = { name: label, menge: 0 }
+            quellenMap[label].menge += ml
             gesamtMenge += ml
           }
         }
         const gesamtVerschnittMenge = gesamtMenge
         const originalMenge = (zielCharge.menge_liter ?? 0) - gesamtVerschnittMenge
         if (originalMenge > 0.5) {
-          // Rebsorte wenn noch nicht auf Sortenverschnitt aktualisiert, sonst Charge-Name als Fallback
+          // Original-Anteil unter der Rebsorte des Ziel-Weins eintragen und ggf. mit
+          // gleichnamiger Verschnitt-Quelle zusammenführen (z.B. 2× Rotgipfler → eine Bubble)
           const originalLabel = (zielCharge.rebsorte && zielCharge.rebsorte !== 'Sortenverschnitt')
             ? zielCharge.rebsorte
             : zielCharge.name
-          quellenMap['__original__'] = { name: originalLabel, menge: originalMenge }
+          if (quellenMap[originalLabel]) {
+            quellenMap[originalLabel].menge += originalMenge
+          } else {
+            quellenMap[originalLabel] = { name: originalLabel, menge: originalMenge }
+          }
           gesamtMenge += originalMenge
         }
         const quellenliste = Object.values(quellenMap).sort((a, b) => b.menge - a.menge)
