@@ -25,68 +25,78 @@ async function generateKundennummer(tenantId: string): Promise<string | null> {
 
 // ── Kontakte ──────────────────────────────────────────────────────────────────
 
-export async function createKontakt(formData: FormData) {
-  const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-  const payload: AR = {
-    tenant_id:   tenantId,
-    vorname:     (formData.get('vorname') as string) || null,
-    nachname:    formData.get('nachname') as string,
-    segment:     formData.get('segment') as string,
-    firma_id:    (formData.get('firma_id') as string) || null,
-    email:       (formData.get('email') as string) || null,
-    telefon:          (formData.get('telefon')          as string) || null,
-    telefon_vorwahl:  (formData.get('telefon_vorwahl') as string) || '+43',
-    mobil:            (formData.get('mobil')            as string) || null,
-    mobil_vorwahl:    (formData.get('mobil_vorwahl')    as string) || '+43',
-    strasse:     (formData.get('strasse') as string) || null,
-    plz:         (formData.get('plz')     as string) || null,
-    ort:         (formData.get('ort')     as string) || null,
-    land:        (formData.get('land') as string) || 'AT',
-    betrieb_nr:  (formData.get('betrieb_nr') as string) || null,
-    stammkunde:  formData.get('stammkunde') === 'true',
-    notizen:         (formData.get('notizen')         as string) || null,
-    ...(formData.get('rabattgruppe_id') ? { rabattgruppe_id: formData.get('rabattgruppe_id') as string } : {}),
-    sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
-    skonto_pct:       parseFloat(formData.get('skonto_pct') as string) || 0,
-    skonto_tage:      parseInt(formData.get('skonto_tage') as string) || 10,
-    is_lead: formData.get('is_lead') === 'true',
+export async function createKontakt(formData: FormData): Promise<{ error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const tenantId = await getTenantId()
+    const payload: AR = {
+      tenant_id:   tenantId,
+      vorname:     (formData.get('vorname') as string) || null,
+      nachname:    formData.get('nachname') as string,
+      segment:     formData.get('segment') as string,
+      firma_id:    (formData.get('firma_id') as string) || null,
+      email:       (formData.get('email') as string) || null,
+      telefon:          (formData.get('telefon')          as string) || null,
+      telefon_vorwahl:  (formData.get('telefon_vorwahl') as string) || '+43',
+      mobil:            (formData.get('mobil')            as string) || null,
+      mobil_vorwahl:    (formData.get('mobil_vorwahl')    as string) || '+43',
+      strasse:     (formData.get('strasse') as string) || null,
+      plz:         (formData.get('plz')     as string) || null,
+      ort:         (formData.get('ort')     as string) || null,
+      land:        (formData.get('land') as string) || 'AT',
+      betrieb_nr:  (formData.get('betrieb_nr') as string) || null,
+      stammkunde:  formData.get('stammkunde') === 'true',
+      notizen:         (formData.get('notizen')         as string) || null,
+      ...(formData.get('rabattgruppe_id') ? { rabattgruppe_id: formData.get('rabattgruppe_id') as string } : {}),
+      sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
+      skonto_pct:       parseFloat(formData.get('skonto_pct') as string) || 0,
+      skonto_tage:      parseInt(formData.get('skonto_tage') as string) || 10,
+      is_lead: formData.get('is_lead') === 'true',
+    }
+    payload.kundennummer = await generateKundennummer(tenantId)
+    const { error } = await (supabase.from('kontakte') as any).insert(payload)
+    if (error) return { error: (error as AR).message }
+    revalidatePath('/crm/kontakte')
+    return {}
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
   }
-  payload.kundennummer = await generateKundennummer(tenantId)
-  const { error } = await (supabase.from('kontakte') as any).insert(payload)
-  if (error) throw new Error((error as AR).message)
-  revalidatePath('/crm/kontakte')
 }
 
-export async function updateKontakt(id: string, formData: FormData) {
-  const supabase = await createSupabaseServerClient()
-  const payload: AR = {
-    vorname:    (formData.get('vorname') as string) || null,
-    nachname:   formData.get('nachname') as string,
-    segment:    formData.get('segment') as string,
-    firma_id:   (formData.get('firma_id') as string) || null,
-    email:      (formData.get('email') as string) || null,
-    telefon:          (formData.get('telefon')          as string) || null,
-    telefon_vorwahl:  (formData.get('telefon_vorwahl') as string) || '+43',
-    mobil:            (formData.get('mobil')            as string) || null,
-    mobil_vorwahl:    (formData.get('mobil_vorwahl')    as string) || '+43',
-    strasse:    (formData.get('strasse') as string) || null,
-    plz:        (formData.get('plz')     as string) || null,
-    ort:        (formData.get('ort')     as string) || null,
-    land:       (formData.get('land') as string) || 'AT',
-    stammkunde: formData.get('stammkunde') === 'true',
-    notizen:         (formData.get('notizen')         as string) || null,
-    ...(formData.get('rabattgruppe_id') !== undefined ? { rabattgruppe_id: (formData.get('rabattgruppe_id') as string) || null } : {}),
-    sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
-    skonto_pct:       parseFloat(formData.get('skonto_pct') as string) || 0,
-    skonto_tage:      parseInt(formData.get('skonto_tage') as string) || 10,
-    is_lead: formData.get('is_lead') === 'true',
-    aktualisiert_am: new Date().toISOString(),
+export async function updateKontakt(id: string, formData: FormData): Promise<{ error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const payload: AR = {
+      vorname:    (formData.get('vorname') as string) || null,
+      nachname:   formData.get('nachname') as string,
+      segment:    formData.get('segment') as string,
+      firma_id:   (formData.get('firma_id') as string) || null,
+      email:      (formData.get('email') as string) || null,
+      telefon:          (formData.get('telefon')          as string) || null,
+      telefon_vorwahl:  (formData.get('telefon_vorwahl') as string) || '+43',
+      mobil:            (formData.get('mobil')            as string) || null,
+      mobil_vorwahl:    (formData.get('mobil_vorwahl')    as string) || '+43',
+      strasse:    (formData.get('strasse') as string) || null,
+      plz:        (formData.get('plz')     as string) || null,
+      ort:        (formData.get('ort')     as string) || null,
+      land:       (formData.get('land') as string) || 'AT',
+      stammkunde: formData.get('stammkunde') === 'true',
+      notizen:         (formData.get('notizen')         as string) || null,
+      ...(formData.get('rabattgruppe_id') !== undefined ? { rabattgruppe_id: (formData.get('rabattgruppe_id') as string) || null } : {}),
+      sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
+      skonto_pct:       parseFloat(formData.get('skonto_pct') as string) || 0,
+      skonto_tage:      parseInt(formData.get('skonto_tage') as string) || 10,
+      is_lead: formData.get('is_lead') === 'true',
+      aktualisiert_am: new Date().toISOString(),
+    }
+    const { error } = await (supabase.from('kontakte') as any).update(payload).eq('id', id)
+    if (error) return { error: (error as AR).message }
+    revalidatePath('/crm/kontakte')
+    revalidatePath('/crm/kontakte/[id]', 'page')
+    return {}
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
   }
-  const { error } = await (supabase.from('kontakte') as any).update(payload).eq('id', id)
-  if (error) throw new Error((error as AR).message)
-  revalidatePath('/crm/kontakte')
-  revalidatePath('/crm/kontakte/[id]', 'page')
 }
 
 export async function deleteKontakt(id: string) {
@@ -98,67 +108,77 @@ export async function deleteKontakt(id: string) {
 
 // ── Firmen ────────────────────────────────────────────────────────────────────
 
-export async function createFirma(formData: FormData) {
-  const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-  const payload: AR = {
-    tenant_id:          tenantId,
-    name:               formData.get('name') as string,
-    segment:            formData.get('segment') as string,
-    strasse:            (formData.get('strasse') as string) || null,
-    plz:                (formData.get('plz') as string) || null,
-    ort:                (formData.get('ort') as string) || null,
-    land:               (formData.get('land') as string) || 'AT',
-    telefon:            (formData.get('telefon')          as string) || null,
-    telefon_vorwahl:    (formData.get('telefon_vorwahl') as string) || '+43',
-    email:              (formData.get('email') as string) || null,
-    website:            (formData.get('website') as string) || null,
-    uid_nummer:         (formData.get('uid_nummer') as string) || null,
-    betrieb_nr:         (formData.get('betrieb_nr') as string) || null,
-    zahlungsziel_tage:  parseInt(formData.get('zahlungsziel_tage') as string) || 30,
-    waehrung:           (formData.get('waehrung') as string) || 'EUR',
-    notizen:            (formData.get('notizen')         as string) || null,
-    ...(formData.get('rabattgruppe_id') ? { rabattgruppe_id: formData.get('rabattgruppe_id') as string } : {}),
-    sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
-    skonto_pct:       parseFloat(formData.get('skonto_pct') as string) || 0,
-    skonto_tage:      parseInt(formData.get('skonto_tage') as string) || 10,
-    is_lead: formData.get('is_lead') === 'true',
+export async function createFirma(formData: FormData): Promise<{ error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const tenantId = await getTenantId()
+    const payload: AR = {
+      tenant_id:          tenantId,
+      name:               formData.get('name') as string,
+      segment:            formData.get('segment') as string,
+      strasse:            (formData.get('strasse') as string) || null,
+      plz:                (formData.get('plz') as string) || null,
+      ort:                (formData.get('ort') as string) || null,
+      land:               (formData.get('land') as string) || 'AT',
+      telefon:            (formData.get('telefon')          as string) || null,
+      telefon_vorwahl:    (formData.get('telefon_vorwahl') as string) || '+43',
+      email:              (formData.get('email') as string) || null,
+      website:            (formData.get('website') as string) || null,
+      uid_nummer:         (formData.get('uid_nummer') as string) || null,
+      betrieb_nr:         (formData.get('betrieb_nr') as string) || null,
+      zahlungsziel_tage:  parseInt(formData.get('zahlungsziel_tage') as string) || 30,
+      waehrung:           (formData.get('waehrung') as string) || 'EUR',
+      notizen:            (formData.get('notizen')         as string) || null,
+      ...(formData.get('rabattgruppe_id') ? { rabattgruppe_id: formData.get('rabattgruppe_id') as string } : {}),
+      sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
+      skonto_pct:       parseFloat(formData.get('skonto_pct') as string) || 0,
+      skonto_tage:      parseInt(formData.get('skonto_tage') as string) || 10,
+      is_lead: formData.get('is_lead') === 'true',
+    }
+    payload.kundennummer = await generateKundennummer(tenantId)
+    const { error } = await (supabase.from('firmen') as any).insert(payload)
+    if (error) return { error: (error as AR).message }
+    revalidatePath('/crm/firmen')
+    return {}
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
   }
-  payload.kundennummer = await generateKundennummer(tenantId)
-  const { error } = await (supabase.from('firmen') as any).insert(payload)
-  if (error) throw new Error((error as AR).message)
-  revalidatePath('/crm/firmen')
 }
 
-export async function updateFirma(id: string, formData: FormData) {
-  const supabase = await createSupabaseServerClient()
-  const payload: AR = {
-    name:               formData.get('name') as string,
-    segment:            formData.get('segment') as string,
-    strasse:            (formData.get('strasse') as string) || null,
-    plz:                (formData.get('plz') as string) || null,
-    ort:                (formData.get('ort') as string) || null,
-    land:               (formData.get('land') as string) || 'AT',
-    telefon:            (formData.get('telefon')          as string) || null,
-    telefon_vorwahl:    (formData.get('telefon_vorwahl') as string) || '+43',
-    email:              (formData.get('email') as string) || null,
-    website:            (formData.get('website') as string) || null,
-    uid_nummer:         (formData.get('uid_nummer') as string) || null,
-    betrieb_nr:         (formData.get('betrieb_nr') as string) || null,
-    zahlungsziel_tage:  parseInt(formData.get('zahlungsziel_tage') as string) || 30,
-    waehrung:           (formData.get('waehrung') as string) || 'EUR',
-    notizen:            (formData.get('notizen')         as string) || null,
-    ...(formData.get('rabattgruppe_id') !== undefined ? { rabattgruppe_id: (formData.get('rabattgruppe_id') as string) || null } : {}),
-    sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
-    skonto_pct:       parseFloat(formData.get('skonto_pct') as string) || 0,
-    skonto_tage:      parseInt(formData.get('skonto_tage') as string) || 10,
-    is_lead: formData.get('is_lead') === 'true',
-    aktualisiert_am:    new Date().toISOString(),
+export async function updateFirma(id: string, formData: FormData): Promise<{ error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const payload: AR = {
+      name:               formData.get('name') as string,
+      segment:            formData.get('segment') as string,
+      strasse:            (formData.get('strasse') as string) || null,
+      plz:                (formData.get('plz') as string) || null,
+      ort:                (formData.get('ort') as string) || null,
+      land:               (formData.get('land') as string) || 'AT',
+      telefon:            (formData.get('telefon')          as string) || null,
+      telefon_vorwahl:    (formData.get('telefon_vorwahl') as string) || '+43',
+      email:              (formData.get('email') as string) || null,
+      website:            (formData.get('website') as string) || null,
+      uid_nummer:         (formData.get('uid_nummer') as string) || null,
+      betrieb_nr:         (formData.get('betrieb_nr') as string) || null,
+      zahlungsziel_tage:  parseInt(formData.get('zahlungsziel_tage') as string) || 30,
+      waehrung:           (formData.get('waehrung') as string) || 'EUR',
+      notizen:            (formData.get('notizen')         as string) || null,
+      ...(formData.get('rabattgruppe_id') !== undefined ? { rabattgruppe_id: (formData.get('rabattgruppe_id') as string) || null } : {}),
+      sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
+      skonto_pct:       parseFloat(formData.get('skonto_pct') as string) || 0,
+      skonto_tage:      parseInt(formData.get('skonto_tage') as string) || 10,
+      is_lead: formData.get('is_lead') === 'true',
+      aktualisiert_am:    new Date().toISOString(),
+    }
+    const { error } = await (supabase.from('firmen') as any).update(payload).eq('id', id)
+    if (error) return { error: (error as AR).message }
+    revalidatePath('/crm/firmen')
+    revalidatePath('/crm/firmen/[id]', 'page')
+    return {}
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
   }
-  const { error } = await (supabase.from('firmen') as any).update(payload).eq('id', id)
-  if (error) throw new Error((error as AR).message)
-  revalidatePath('/crm/firmen')
-  revalidatePath('/crm/firmen/[id]', 'page')
 }
 
 export async function deleteFirma(id: string) {

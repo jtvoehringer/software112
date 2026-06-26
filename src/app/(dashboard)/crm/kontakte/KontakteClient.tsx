@@ -108,14 +108,15 @@ export function KontaktForm({
     }
 
     startTransition(async () => {
-      try {
-        if (initial) await updateKontakt(initial.id, fd)
-        else await createKontakt(fd)
-        onDone()
-        router.refresh()
-      } catch (err) {
-        setSaveError(err instanceof Error ? err.message : 'Fehler beim Speichern')
+      const result = initial
+        ? await updateKontakt(initial.id, fd)
+        : await createKontakt(fd)
+      if (result?.error) {
+        setSaveError(result.error)
+        return
       }
+      onDone()
+      router.refresh()
     })
   }
 

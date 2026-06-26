@@ -86,14 +86,15 @@ export function FirmaForm({ initial, rabattgruppen = [], defaultSegment, existin
     }
 
     startTransition(async () => {
-      try {
-        if (initial) await updateFirma(initial.id, fd)
-        else await createFirma(fd)
-        onDone()
-        router.refresh()
-      } catch (err) {
-        setSaveError(err instanceof Error ? err.message : 'Fehler beim Speichern')
+      const result = initial
+        ? await updateFirma(initial.id, fd)
+        : await createFirma(fd)
+      if (result?.error) {
+        setSaveError(result.error)
+        return
       }
+      onDone()
+      router.refresh()
     })
   }
 
