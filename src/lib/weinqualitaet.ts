@@ -34,13 +34,14 @@ export const QUALITAET_LABEL: Record<string, string> = {
 }
 
 /** Gibt den niedrigsten Qualitätslevel unter den übergebenen zurück.
- *  Ignoriert null und 'sonstiges'. Gibt null zurück wenn keine bekannte Stufe dabei ist. */
+ *  Berücksichtigt NUR die Prädikatswein-Stufen (keine DAC, Reserve etc.).
+ *  Gibt null zurück wenn keine bekannte Prädikatswein-Stufe dabei ist. */
 export function minQualitaet(stufen: (string | null | undefined)[]): string | null {
   let minIdx = Infinity
   let minVal: string | null = null
   for (const s of stufen) {
     if (!s || s === 'sonstiges') continue
-    const idx = QUALITAET_ORDER.indexOf(s as typeof QUALITAET_ORDER[number])
+    const idx = PRAEDIKATSWEIN_ORDER.indexOf(s as typeof PRAEDIKATSWEIN_ORDER[number])
     if (idx !== -1 && idx < minIdx) { minIdx = idx; minVal = s }
   }
   return minVal
@@ -59,25 +60,36 @@ export function kmwZuQualitaet(kmw: number): string {
   return 'landwein'
 }
 
+// Nur diese Stufen werden für die Abstufungs-Prüfung beim Verschneiden herangezogen.
+// DAC, Reserve, Erste Lage, Sekt etc. sind eigenständige Kategorien und nicht mit
+// der Prädikatswein-Skala vergleichbar.
+export const PRAEDIKATSWEIN_ORDER = [
+  'wein', 'landwein', 'qualitaetswein',
+  'kabinett', 'spaetlese', 'auslese',
+  'beerenauslese', 'ausbruch', 'trockenbeerenauslese',
+  'eiswein', 'strohwein',
+] as const
+
 /** Gibt den höchsten Qualitätslevel unter den übergebenen zurück.
- *  Ignoriert null und 'sonstiges'. Gibt null zurück wenn keine bekannte Stufe dabei ist. */
+ *  Berücksichtigt NUR die Prädikatswein-Stufen (keine DAC, Reserve etc.).
+ *  Gibt null zurück wenn keine bekannte Stufe dabei ist. */
 export function maxQualitaet(stufen: (string | null | undefined)[]): string | null {
   let maxIdx = -1
   let maxVal: string | null = null
   for (const s of stufen) {
     if (!s || s === 'sonstiges') continue
-    const idx = QUALITAET_ORDER.indexOf(s as typeof QUALITAET_ORDER[number])
+    const idx = PRAEDIKATSWEIN_ORDER.indexOf(s as typeof PRAEDIKATSWEIN_ORDER[number])
     if (idx !== -1 && idx > maxIdx) { maxIdx = idx; maxVal = s }
   }
   return maxVal
 }
 
-/** Prüft ob Stufe `a` im Qualitätsrang niedriger ist als Stufe `b`.
- *  Gibt false zurück wenn eine der Stufen unbekannt ist. */
+/** Prüft ob Stufe `a` im Prädikatswein-Rang niedriger ist als Stufe `b`.
+ *  Gibt false zurück wenn eine der Stufen nicht auf der Prädikatswein-Skala liegt. */
 export function istNiedrigerAls(a: string | null | undefined, b: string | null | undefined): boolean {
   if (!a || !b) return false
-  const idxA = QUALITAET_ORDER.indexOf(a as typeof QUALITAET_ORDER[number])
-  const idxB = QUALITAET_ORDER.indexOf(b as typeof QUALITAET_ORDER[number])
+  const idxA = PRAEDIKATSWEIN_ORDER.indexOf(a as typeof PRAEDIKATSWEIN_ORDER[number])
+  const idxB = PRAEDIKATSWEIN_ORDER.indexOf(b as typeof PRAEDIKATSWEIN_ORDER[number])
   if (idxA === -1 || idxB === -1) return false
   return idxA < idxB
 }
