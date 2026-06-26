@@ -50,31 +50,10 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
     const total = zielMenge + gesamtLiter
     if (total === 0 || gesamtLiter === 0) return null
 
-    // Wenn eine Quell-Charge keine Rebsorte hat, können wir keine korrekte
-    // Anteilsberechnung machen – statt falschem "Sortenverschnitt" eigenen Hinweis zeigen.
-    // Ausnahme: wenn die Quell-Charge dieselbe Rebsorte wie die Ziel-Charge haben KÖNNTE
-    // (d.h. zielCharge.rebsorte ist gesetzt und die Quell-Charge hat keinen widersprechenden Eintrag),
-    // dann einfach die Ziel-Rebsorte für die Berechnung annehmen.
-    const quellenOhneRebsorte = quellen.filter(q => {
-      const src   = verfuegbar.find(c => c.id === q.weinausbau_id)
-      const menge = parseFloat(q.menge.replace(',', '.'))
-      return src && !isNaN(menge) && menge > 0 && !src.rebsorte
-    })
-    if (quellenOhneRebsorte.length > 0) {
-      // Kann die Ziel-Rebsorte angenommen werden? Nur wenn alle rebsorte-losen Quellen
-      // KEINE explizit andere Rebsorte haben (= null, nicht 'andereRebsorte')
-      // In diesem Fall rechnen wir mit zielCharge.rebsorte als Annahme weiter.
-      // Wenn es keine Ziel-Rebsorte gibt → echten Hinweis zeigen.
-      if (!zielCharge.rebsorte) {
-        const literOhneRebsorte = quellenOhneRebsorte.reduce((s, q) => {
-          const menge = parseFloat(q.menge.replace(',', '.'))
-          return s + (isNaN(menge) ? 0 : menge)
-        }, 0)
-        return { typ: 'rebsorte_fehlt' as const, literOhneRebsorte }
-      }
-      // Ziel hat Rebsorte → fehlende Quell-Rebsorten mit Ziel-Rebsorte auffüllen (Annahme)
-      // → Berechnung läuft weiter durch (kein frühzeitiger return)
-    }
+    // Wenn Rebsorten fehlen: Charge-Name als Fallback verwenden.
+    // Viele Chargen wurden vor dem Pressung-Fix ohne rebsorte angelegt; der Name
+    // (z.B. „Gelber Muskateller") entspricht aber der Rebsorte.
+    // Kein Abbruch – Berechnung läuft mit bestem verfügbarem Wert weiter.
 
     const anteile: Record<string, number> = {}
     if (zielCharge.rebsorte && zielMenge > 0) {
@@ -84,8 +63,9 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
       const src = verfuegbar.find(c => c.id === q.weinausbau_id)
       const menge = parseFloat(q.menge.replace(',', '.'))
       if (!src || isNaN(menge) || menge <= 0) continue
-      // Rebsorte der Quelle – fehlt sie, Ziel-Rebsorte als Annahme verwenden
-      const rebsorte = src.rebsorte ?? zielCharge.rebsorte
+      // Rebsorte der Quelle – fehlt sie, Charge-Name als Näherungswert verwenden
+      // (Chargen aus Pressung tragen oft den Rebsortennamen als Bezeichnung)
+      const rebsorte = src.rebsorte ?? src.name
       if (rebsorte) {
         anteile[rebsorte] = (anteile[rebsorte] ?? 0) + menge
       }
@@ -349,16 +329,12 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
             ? 'bg-green-50 border-green-200 text-green-800'
             : rebsortenPreview.typ === 'bezeichnungsunschaedlich'
             ? 'bg-blue-50 border-blue-200 text-blue-800'
-            : rebsortenPreview.typ === 'rebsorte_fehlt'
-            ? 'bg-gray-50 border-gray-300 text-gray-700'
             : 'bg-amber-50 border-amber-300 text-amber-800'
         }`}>
           <span className="mt-0.5">
             {rebsortenPreview.typ === 'unveraendert'
               ? '✅'
               : rebsortenPreview.typ === 'bezeichnungsunschaedlich'
-              ? 'ℹ️'
-              : rebsortenPreview.typ === 'rebsorte_fehlt'
               ? 'ℹ️'
               : '⚠️'}
           </span>
@@ -371,15 +347,6 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
                 <p className="font-medium">Bezeichnungsunschädlicher Verschnitt – Rebsorte bleibt unverändert</p>
                 <p className="text-xs mt-0.5">
                   <strong>{rebsortenPreview.rebsorte}</strong> macht {rebsortenPreview.anteilPct} % aus (≥ 85 %)
-                </p>
-              </>
-            )}
-            {rebsortenPreview.typ === 'rebsorte_fehlt' && (
-              <>
-                <p className="font-medium">Rebsorte einer Quell-Charge fehlt</p>
-                <p className="text-xs mt-0.5">
-                  {rebsortenPreview.literOhneRebsorte.toLocaleString('de-AT')} L ohne Rebsortenangabe –
-                  Anteilsberechnung nicht möglich. Bitte Rebsorte bei der Quell-Charge ergänzen.
                 </p>
               </>
             )}
