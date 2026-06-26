@@ -25,9 +25,9 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   abgeschlossen:{ label: 'Abgeschlossen', color: 'bg-green-100 text-green-700' },
 }
 
-export default async function WeinausbauDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ form?: string; quelle?: string; menge?: string }> }) {
+export default async function WeinausbauDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ form?: string; quelle?: string; menge?: string; abstufung?: string }> }) {
   const { id } = await params
-  const { form: openForm, quelle: initialQuelleId, menge: initialQuelleMenge } = await searchParams
+  const { form: openForm, quelle: initialQuelleId, menge: initialQuelleMenge, abstufung: abstufungParam } = await searchParams
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
   const writeOk  = canWrite(role)
@@ -400,6 +400,21 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
           )}
         </div>
       </div>
+
+      {/* Abstufungs-Hinweis nach Umziehen */}
+      {abstufungParam && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 text-sm text-amber-900">
+          <span className="text-lg mt-0.5">⬇️</span>
+          <div>
+            <p className="font-semibold">Qualitätsabstufung durch Zusammenführung</p>
+            <p className="text-xs mt-0.5">
+              Beim Umziehen wurde die Qualitätsstufe automatisch abgestuft:
+              {' '}<strong>{decodeURIComponent(abstufungParam).replace('→', ' → ')}</strong>.
+              Der Hinweis wurde in den Notizen der Charge gespeichert.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Bewegungsbuch */}
       <section>

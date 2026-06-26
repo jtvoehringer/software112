@@ -12,7 +12,7 @@ interface Props {
   verfuegbarLiter: number
   gebinde:         Gebinde[]
   alleChargen:     Charge[]
-  action:          (fd: FormData) => Promise<{ verschneidungNeeded?: { existingChargeId: string; newChargeId: string; menge: number } } | void>
+  action:          (fd: FormData) => Promise<{ verschneidungNeeded?: { existingChargeId: string; newChargeId: string; menge: number }; abstufung?: { von: string; nach: string; vonLabel: string; nachLabel: string } } | void>
   initialOpen?:    boolean
   quelleRebsorte?: string | null
 }
@@ -89,6 +89,9 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
         if (result?.verschneidungNeeded) {
           const { existingChargeId, newChargeId, menge } = result.verschneidungNeeded
           router.push(`/kellerbuch/weinausbau/${existingChargeId}?form=verschneiden&quelle=${newChargeId}&menge=${menge}`)
+        } else if (result?.abstufung) {
+          const { vonLabel, nachLabel } = result.abstufung
+          router.push(`/kellerbuch/weinausbau/${chargeId}?abstufung=${encodeURIComponent(`${vonLabel}→${nachLabel}`)}`)
         } else {
           router.push(`/kellerbuch/weinausbau/${chargeId}`)
         }

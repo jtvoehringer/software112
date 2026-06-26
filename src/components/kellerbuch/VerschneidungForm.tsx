@@ -49,6 +49,19 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
     const zielMenge = parseFloat(String(zielCharge.menge_liter ?? 0)) || 0
     const total = zielMenge + gesamtLiter
     if (total === 0 || gesamtLiter === 0) return null
+
+    // Wenn eine Quell-Charge keine Rebsorte hat, können wir keine korrekte
+    // Anteilsberechnung machen – statt falschem "Sortenverschnitt" eigenen Hinweis zeigen
+    const literOhneRebsorte = quellen.reduce((s, q) => {
+      const src   = verfuegbar.find(c => c.id === q.weinausbau_id)
+      const menge = parseFloat(q.menge.replace(',', '.'))
+      if (!src || isNaN(menge) || menge <= 0 || src.rebsorte) return s
+      return s + menge
+    }, 0)
+    if (literOhneRebsorte > 0) {
+      return { typ: 'rebsorte_fehlt' as const, literOhneRebsorte }
+    }
+
     const anteile: Record<string, number> = {}
     if (zielCharge.rebsorte && zielMenge > 0) {
       anteile[zielCharge.rebsorte] = (anteile[zielCharge.rebsorte] ?? 0) + zielMenge
@@ -319,10 +332,18 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
             ? 'bg-green-50 border-green-200 text-green-800'
             : rebsortenPreview.typ === 'bezeichnungsunschaedlich'
             ? 'bg-blue-50 border-blue-200 text-blue-800'
+            : rebsortenPreview.typ === 'rebsorte_fehlt'
+            ? 'bg-gray-50 border-gray-300 text-gray-700'
             : 'bg-amber-50 border-amber-300 text-amber-800'
         }`}>
           <span className="mt-0.5">
-            {rebsortenPreview.typ === 'unveraendert' ? '✅' : rebsortenPreview.typ === 'bezeichnungsunschaedlich' ? 'ℹ️' : '⚠️'}
+            {rebsortenPreview.typ === 'unveraendert'
+              ? '✅'
+              : rebsortenPreview.typ === 'bezeichnungsunschaedlich'
+              ? 'ℹ️'
+              : rebsortenPreview.typ === 'rebsorte_fehlt'
+              ? 'ℹ️'
+              : '⚠️'}
           </span>
           <div>
             {rebsortenPreview.typ === 'unveraendert' && (
@@ -333,6 +354,15 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
                 <p className="font-medium">Bezeichnungsunschädlicher Verschnitt – Rebsorte bleibt unverändert</p>
                 <p className="text-xs mt-0.5">
                   <strong>{rebsortenPreview.rebsorte}</strong> macht {rebsortenPreview.anteilPct} % aus (≥ 85 %)
+                </p>
+              </>
+            )}
+            {rebsortenPreview.typ === 'rebsorte_fehlt' && (
+              <>
+                <p className="font-medium">Rebsorte einer Quell-Charge fehlt</p>
+                <p className="text-xs mt-0.5">
+                  {rebsortenPreview.literOhneRebsorte.toLocaleString('de-AT')} L ohne Rebsortenangabe –
+                  Anteilsberechnung nicht möglich. Bitte Rebsorte bei der Quell-Charge ergänzen.
                 </p>
               </>
             )}

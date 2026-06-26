@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { minQualitaet } from '@/lib/wein/qualitaet'
+import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { deleteUmzug as _deleteUmzug } from '../gebinde-actions'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -11,7 +12,7 @@ type R = Record<string, any>
 interface QuelleInput { weinausbau_id: string; menge: number }
 interface ZielInput   { behaelter_id: string;  menge: number }
 
-export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { existingChargeId: string; newChargeId: string; menge: number } } | void> {
+export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { existingChargeId: string; newChargeId: string; menge: number }; abstufung?: { von: string; nach: string; vonLabel: string; nachLabel: string } } | void> {
   const supabase = await createSupabaseServerClient()
 
   const quellen:    QuelleInput[] = JSON.parse(fd.get('quellen_json') as string || '[]')
@@ -32,6 +33,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
 
   const batchId = crypto.randomUUID()
   let verschneidungNeeded: { existingChargeId: string; newChargeId: string; menge: number } | undefined
+  let abstufung: { von: string; nach: string; vonLabel: string; nachLabel: string } | undefined
 
   // ── Phase 1: Quellen validieren, reduzieren, Quelle-Records anlegen ──────────
   let minQualStufe: string | null = null
@@ -107,11 +109,29 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
       && quelleRebsorte !== vorhanden.rebsorte
 
     if (vorhanden && !istRebsortenmix) {
-      // Gleiche Rebsorte: direkt zusammenführen (bisheriges Verhalten)
+      // Gleiche Rebsorte: direkt zusammenführen
+      const altQualitaet = vorhanden.qualitaetsstufe as string | null
+      const neueQualitaet = minQualitaet(altQualitaet, minQualStufe)
+
+      // Qualitätsabstufung erkennen und als Notiz persistieren
+      let abstufungsText: string | null = null
+      if (neueQualitaet && altQualitaet && neueQualitaet !== altQualitaet) {
+        const vonLabel  = QUALITAET_LABEL[altQualitaet]    ?? altQualitaet
+        const nachLabel = QUALITAET_LABEL[neueQualitaet]   ?? neueQualitaet
+        abstufungsText = `Abstufung von ${vonLabel} auf ${nachLabel} (Zusammenführung per Umziehen)`
+        abstufung = { von: altQualitaet, nach: neueQualitaet, vonLabel, nachLabel }
+        // Notiz an weinausbau hängen (sichtbar in Charge bearbeiten)
+        const bestehend = (vorhanden.notizen as string | null) ?? ''
+        const neueNotizen = bestehend ? `${bestehend}\n${abstufungsText}` : abstufungsText
+        await (supabase.from('weinausbau') as any)
+          .update({ notizen: neueNotizen })
+          .eq('id', vorhanden.id)
+      }
+
       await (supabase.from('weinausbau') as any)
         .update({
           menge_liter:     +((vorhanden.menge_liter ?? 0) + z.menge).toFixed(3),
-          qualitaetsstufe: minQualitaet(vorhanden.qualitaetsstufe ?? null, minQualStufe),
+          qualitaetsstufe: neueQualitaet,
         })
         .eq('id', vorhanden.id)
       nachWeinausbauId = vorhanden.id
@@ -158,6 +178,9 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
     }
 
     // Ziel-Record (zeilen_typ = 'ziel') – ein Eintrag pro Ziel-Gebinde
+    const zielNotizen = abstufung
+      ? `Abstufung von ${abstufung.vonLabel} auf ${abstufung.nachLabel}`
+      : null
     const { error: zErr } = await (supabase.from('keller_umzuege') as any).insert({
       tenant_id:          tenantId,
       datum,
@@ -167,7 +190,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
       schwund_liter:      0,
       brutto_liter:       null,
       umzug_typ:          umzugTyp,
-      notizen:            null,
+      notizen:            zielNotizen,
       umzug_batch_id:     batchId,
       zeilen_typ:         'ziel',
     })
@@ -178,6 +201,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
   revalidatePath('/kellerbuch/umziehen')
   revalidatePath('/kellerbuch/behaelter', 'layout')
   if (verschneidungNeeded) return { verschneidungNeeded }
+  if (abstufung) return { abstufung }
 }
 
 // ── Umzug löschen ────────────────────────────────────────────────────────────
