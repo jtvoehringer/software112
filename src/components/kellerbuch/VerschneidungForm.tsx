@@ -51,15 +51,29 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
     if (total === 0 || gesamtLiter === 0) return null
 
     // Wenn eine Quell-Charge keine Rebsorte hat, können wir keine korrekte
-    // Anteilsberechnung machen – statt falschem "Sortenverschnitt" eigenen Hinweis zeigen
-    const literOhneRebsorte = quellen.reduce((s, q) => {
+    // Anteilsberechnung machen – statt falschem "Sortenverschnitt" eigenen Hinweis zeigen.
+    // Ausnahme: wenn die Quell-Charge dieselbe Rebsorte wie die Ziel-Charge haben KÖNNTE
+    // (d.h. zielCharge.rebsorte ist gesetzt und die Quell-Charge hat keinen widersprechenden Eintrag),
+    // dann einfach die Ziel-Rebsorte für die Berechnung annehmen.
+    const quellenOhneRebsorte = quellen.filter(q => {
       const src   = verfuegbar.find(c => c.id === q.weinausbau_id)
       const menge = parseFloat(q.menge.replace(',', '.'))
-      if (!src || isNaN(menge) || menge <= 0 || src.rebsorte) return s
-      return s + menge
-    }, 0)
-    if (literOhneRebsorte > 0) {
-      return { typ: 'rebsorte_fehlt' as const, literOhneRebsorte }
+      return src && !isNaN(menge) && menge > 0 && !src.rebsorte
+    })
+    if (quellenOhneRebsorte.length > 0) {
+      // Kann die Ziel-Rebsorte angenommen werden? Nur wenn alle rebsorte-losen Quellen
+      // KEINE explizit andere Rebsorte haben (= null, nicht 'andereRebsorte')
+      // In diesem Fall rechnen wir mit zielCharge.rebsorte als Annahme weiter.
+      // Wenn es keine Ziel-Rebsorte gibt → echten Hinweis zeigen.
+      if (!zielCharge.rebsorte) {
+        const literOhneRebsorte = quellenOhneRebsorte.reduce((s, q) => {
+          const menge = parseFloat(q.menge.replace(',', '.'))
+          return s + (isNaN(menge) ? 0 : menge)
+        }, 0)
+        return { typ: 'rebsorte_fehlt' as const, literOhneRebsorte }
+      }
+      // Ziel hat Rebsorte → fehlende Quell-Rebsorten mit Ziel-Rebsorte auffüllen (Annahme)
+      // → Berechnung läuft weiter durch (kein frühzeitiger return)
     }
 
     const anteile: Record<string, number> = {}
@@ -69,8 +83,11 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
     for (const q of quellen) {
       const src = verfuegbar.find(c => c.id === q.weinausbau_id)
       const menge = parseFloat(q.menge.replace(',', '.'))
-      if (src?.rebsorte && !isNaN(menge) && menge > 0) {
-        anteile[src.rebsorte] = (anteile[src.rebsorte] ?? 0) + menge
+      if (!src || isNaN(menge) || menge <= 0) continue
+      // Rebsorte der Quelle – fehlt sie, Ziel-Rebsorte als Annahme verwenden
+      const rebsorte = src.rebsorte ?? zielCharge.rebsorte
+      if (rebsorte) {
+        anteile[rebsorte] = (anteile[rebsorte] ?? 0) + menge
       }
     }
     const dominante = Object.entries(anteile).sort((a, b) => b[1] - a[1])[0]

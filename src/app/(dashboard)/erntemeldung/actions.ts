@@ -367,10 +367,16 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
   for (const beh of behaelter) {
     if (!beh.behaelter_id) continue
     if (beh.weinausbau_id) {
-      // Bestehende Charge aktualisieren (Name/Menge könnte sich geändert haben)
+      // Bestehende Charge aktualisieren – auch rebsorte + qualitaetsstufe mitschreiben
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase.from('weinausbau') as any)
-        .update({ name: autoName, menge_liter: beh.menge_liter ?? null })
+        .update({
+          name:            autoName,
+          menge_liter:     beh.menge_liter ?? null,
+          rebsorte:        dominantRebsorte,
+          qualitaetsstufe: autoQualitaet,
+          weinart:         autoWeinart !== 'unbekannt' ? autoWeinart : undefined,
+        })
         .eq('id', beh.weinausbau_id)
     } else {
       // Neue Charge für diesen Behälter anlegen
