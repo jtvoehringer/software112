@@ -148,10 +148,10 @@ export function KontaktForm({
         <div className="sm:col-span-2 flex items-center justify-between bg-white border border-s112-border rounded-xl px-4 py-2.5">
           <div>
             <p className={`text-sm font-semibold ${isLead ? 'text-amber-600' : 'text-s112-teal'}`}>
-              {isLead ? '🌱 Lead' : '✅ Kunde'}
+              {isLead ? '🌱 Lead' : '✅ Aktiv'}
             </p>
             <p className="text-xs text-s112-muted">
-              {isLead ? 'Noch kein Verkauf – wird automatisch Kunde beim ersten Verkauf' : 'Aktiver Kunde'}
+              {isLead ? 'Noch kein Verkauf – wird automatisch Kunde beim ersten Verkauf' : ''}
             </p>
           </div>
           <label className="flex items-center gap-2.5 cursor-pointer select-none">
@@ -161,7 +161,7 @@ export function KontaktForm({
               <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${isLead ? 'translate-x-0' : 'translate-x-5'}`} />
             </div>
             <span className={`text-sm font-semibold min-w-[48px] ${isLead ? 'text-amber-600' : 'text-s112-teal'}`}>
-              {isLead ? 'Lead' : 'Kunde'}
+              {isLead ? 'Lead' : 'Aktiv'}
             </span>
           </label>
         </div>

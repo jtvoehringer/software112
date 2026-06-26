@@ -376,12 +376,13 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
 type Tab = 'kontakte' | 'aktivitaeten' | 'pipeline' | 'verkauefe' | 'notizen'
 
 export default function FirmaDetailClient({
-  firma, kontakte, aktivitaeten, pipeline, writeOk,
+  firma, kontakte, aktivitaeten, pipeline, rabattgruppen = [], writeOk,
 }: {
   firma: FirmaRow
   kontakte: KontaktRow[]
   aktivitaeten: AktivitaetRow[]
   pipeline: PipelineEintragRow[]
+  rabattgruppen?: { id: string; name: string; rabatt_pct: number }[]
   writeOk: boolean
 }) {
   const router = useRouter()
@@ -463,6 +464,7 @@ export default function FirmaDetailClient({
       {editing ? (
         <FirmaForm
           initial={firma}
+          rabattgruppen={rabattgruppen}
           onDone={() => { setEditing(false); router.refresh() }}
         />
       ) : (

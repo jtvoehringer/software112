@@ -28,6 +28,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     { data: kRaw },
     { data: aRaw },
     { data: pRaw },
+    { data: rgRaw },
   ] = await Promise.all([
     (supabase.from('firmen') as any)
       .select('id, kundennummer, name, segment, strasse, plz, ort, land, email, telefon, telefon_vorwahl, website, uid_nummer, betrieb_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
@@ -49,6 +50,10 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
       .select('id, stufe, titel, kategorie, wert_euro, wahrscheinlichkeit, erwartetes_datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, erledigt_am, notizen, kontakt_id, firma_id, aktualisiert_am')
       .eq('firma_id', id)
       .order('aktualisiert_am', { ascending: false }),
+
+    (supabase.from('rabattgruppen') as any)
+      .select('id, name, rabatt_pct')
+      .order('rabatt_pct'),
   ])
 
   if (!fRaw) notFound()
@@ -102,11 +107,14 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     aktualisiert_am: p.aktualisiert_am,
   }))
 
+  const rabattgruppen = ((rgRaw ?? []) as R[]).map(r => ({ id: r.id, name: r.name, rabatt_pct: r.rabatt_pct }))
+
   return <FirmaDetailClient
     firma={firma}
     kontakte={kontakte}
     aktivitaeten={aktivitaeten}
     pipeline={pipeline}
+    rabattgruppen={rabattgruppen}
     writeOk={writeOk}
   />
 }
