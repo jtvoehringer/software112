@@ -485,8 +485,8 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
         )}
 
         {parzellen.length > 0 ? (
-          <div className="border border-s112-border rounded-xl overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="border border-s112-border rounded-xl overflow-x-auto">
+            <table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr className="bg-s112-bg border-b border-s112-border text-xs text-gray-600">
                   <th className="text-left px-3 py-2 font-semibold">Ried</th>
@@ -638,16 +638,28 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
         waOptions={waOptions}
         verfuegbareKgByGST={verfuegbareKgByGST}
         behaelterMitCharge={behaelterMitCharge}
-        leseParzellen={parzellen.map(p => ({
-          weingarten_id: p.weingarten_id,
-          weingarten_name: p.weingarten_name,
-          grundstueck_id: p.grundstueck_id,
-          grundstueck_nr: p.grundstueck_nr,
-          grundstueck_rebsorte: p.grundstueck_rebsorte,
-          menge_kg: p.menge_kg,
-          rebsorte: p.weingarten_rebsorte,
-          klosterneuburger: p.klosterneuburger,
-        }))}
+        leseParzellen={(() => {
+          // Deduplizieren: eine Zeile pro (weingarten_id, grundstueck_id) für Pressung-Formular
+          // Ein GST kann mehrere ernte_parzellen-Einträge haben (z.B. Kabinett + Spätlese)
+          const seen = new Set<string>()
+          return parzellen
+            .filter(p => {
+              const key = `${p.weingarten_id}|${p.grundstueck_id ?? ''}`
+              if (seen.has(key)) return false
+              seen.add(key)
+              return true
+            })
+            .map(p => ({
+              weingarten_id: p.weingarten_id,
+              weingarten_name: p.weingarten_name,
+              grundstueck_id: p.grundstueck_id,
+              grundstueck_nr: p.grundstueck_nr,
+              grundstueck_rebsorte: p.grundstueck_rebsorte,
+              menge_kg: p.menge_kg,
+              rebsorte: p.weingarten_rebsorte,
+              klosterneuburger: p.klosterneuburger,
+            }))
+        })()}
         writeOk={writeOk}
         adminOk={adminOk}
       />
