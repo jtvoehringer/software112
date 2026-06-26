@@ -112,6 +112,7 @@ export type FirmaRow = {
   telefon: string | null
   website: string | null
   uid_nummer: string | null
+  betrieb_nr?: string | null
   kreditlimit: number | null
   rabattgruppe_id: string | null
   rabattgruppe_name?: string | null

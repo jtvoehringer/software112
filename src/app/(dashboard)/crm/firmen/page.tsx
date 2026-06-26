@@ -17,7 +17,7 @@ export default async function FirmenPage() {
 
   const [{ data: fRaw }, { data: kRaw }] = await Promise.all([
     (supabase.from('firmen') as any)
-      .select('id, kundennummer, name, segment, strasse, plz, ort, land, telefon, telefon_vorwahl, email, website, uid_nummer, kreditlimit, zahlungsziel_tage, waehrung, notizen, aktiv, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
+      .select('id, kundennummer, name, segment, strasse, plz, ort, land, telefon, telefon_vorwahl, email, website, uid_nummer, betrieb_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
       .eq('aktiv', true)
       .order('name'),
 

@@ -34,6 +34,16 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
   for (const c of alleChargen) {
     if (c.behaelter_id) inhalt[c.behaelter_id] = (inhalt[c.behaelter_id] ?? 0) + (parseFloat(String(c.menge_liter)) || 0)
   }
+
+  // Weininhalt pro Gebinde (für Dropdown-Beschriftung)
+  const weinByGebinde: Record<string, string[]> = {}
+  for (const c of alleChargen) {
+    if (c.behaelter_id) {
+      const label = c.rebsorte || c.name
+      if (!weinByGebinde[c.behaelter_id]) weinByGebinde[c.behaelter_id] = []
+      if (!weinByGebinde[c.behaelter_id].includes(label)) weinByGebinde[c.behaelter_id].push(label)
+    }
+  }
   const frei = (g: Gebinde) =>
     g.volumen_liter != null ? Math.max(0, g.volumen_liter - (inhalt[g.id] ?? 0)) : null
 
@@ -162,9 +172,10 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
                 const f   = frei(g)
                 const kap = g.volumen_liter
                 const fmt = (n: number) => n.toLocaleString('de-AT', { maximumFractionDigits: 0 })
+                const wein = weinByGebinde[g.id]?.join(', ')
                 const info = kap != null
-                  ? ` · ${fmt(kap)} L Kap · ${fmt(inh)} L Inh · ${fmt(f ?? 0)} L frei`
-                  : inh > 0 ? ` · ${fmt(inh)} L Inh` : ''
+                  ? ` · ${fmt(kap)} L Kap · ${fmt(inh)} L Inh · ${fmt(f ?? 0)} L frei${wein ? ` · ${wein}` : ''}`
+                  : inh > 0 ? ` · ${fmt(inh)} L Inh${wein ? ` · ${wein}` : ''}` : ''
                 return (
                   <option key={g.id} value={g.id}>{g.name}{info}</option>
                 )
@@ -178,21 +189,29 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
               const restNach    = restJetzt != null ? restJetzt - nettoVal : null
               const ueber       = restJetzt != null && nettoVal > restJetzt + 0.01
               return (
-                <div className="mt-2 grid grid-cols-3 gap-2 bg-s112-bg border border-s112-border rounded-lg px-4 py-2.5 text-xs">
-                  <div>
-                    <p className="text-s112-muted mb-0.5">Kapazität</p>
-                    <p className="font-medium tabular-nums">{g.volumen_liter != null ? g.volumen_liter.toLocaleString('de-AT') + ' L' : '–'}</p>
+                <div className="mt-2 bg-s112-bg border border-s112-border rounded-lg px-4 py-2.5 text-xs space-y-2">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <p className="text-s112-muted mb-0.5">Kapazität</p>
+                      <p className="font-medium tabular-nums">{g.volumen_liter != null ? g.volumen_liter.toLocaleString('de-AT') + ' L' : '–'}</p>
+                    </div>
+                    <div>
+                      <p className="text-s112-muted mb-0.5">Inhalt jetzt</p>
+                      <p className="font-medium tabular-nums">{inhaltJetzt.toLocaleString('de-AT', { maximumFractionDigits: 1 })} L</p>
+                    </div>
+                    <div>
+                      <p className="text-s112-muted mb-0.5">{nettoVal > 0 ? 'Rest nach Umzug' : 'Restkapazität'}</p>
+                      <p className={`font-medium tabular-nums ${ueber ? 'text-red-600' : 'text-s112-teal'}`}>
+                        {restJetzt != null ? (nettoVal > 0 ? restNach : restJetzt)!.toLocaleString('de-AT', { maximumFractionDigits: 1 }) + ' L' : '–'}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-s112-muted mb-0.5">Inhalt jetzt</p>
-                    <p className="font-medium tabular-nums">{inhaltJetzt.toLocaleString('de-AT', { maximumFractionDigits: 1 })} L</p>
-                  </div>
-                  <div>
-                    <p className="text-s112-muted mb-0.5">{nettoVal > 0 ? 'Rest nach Umzug' : 'Restkapazität'}</p>
-                    <p className={`font-medium tabular-nums ${ueber ? 'text-red-600' : 'text-s112-teal'}`}>
-                      {restJetzt != null ? (nettoVal > 0 ? restNach : restJetzt)!.toLocaleString('de-AT', { maximumFractionDigits: 1 }) + ' L' : '–'}
-                    </p>
-                  </div>
+                  {(weinByGebinde[g.id] ?? []).length > 0 && (
+                    <div className="border-t border-s112-border/50 pt-2">
+                      <p className="text-s112-muted mb-0.5">Inhalt (Wein)</p>
+                      <p className="font-medium">{weinByGebinde[g.id].join(', ')}</p>
+                    </div>
+                  )}
                 </div>
               )
             })()}
@@ -214,16 +233,4 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
 
           <div className="flex items-center gap-3">
             <button type="submit" disabled={!canSubmit || pending}
-              className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-              {pending ? 'Wird gebucht …' : 'Umzug buchen'}
-            </button>
-             <button type="button" onClick={handleClose}
-              className="text-sm text-s112-muted hover:text-gray-700 transition-colors">
-              Abbrechen
-            </button>
-          </div>
-        </form>
-      </div>
-    </section>
-  )
-}
+        

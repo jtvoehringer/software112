@@ -30,7 +30,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     { data: pRaw },
   ] = await Promise.all([
     (supabase.from('firmen') as any)
-      .select('id, kundennummer, name, segment, strasse, plz, ort, land, email, telefon, telefon_vorwahl, website, uid_nummer, kreditlimit, zahlungsziel_tage, waehrung, notizen, aktiv, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
+      .select('id, kundennummer, name, segment, strasse, plz, ort, land, email, telefon, telefon_vorwahl, website, uid_nummer, betrieb_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
       .eq('id', id)
       .single(),
 
@@ -58,8 +58,9 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     id: f.id, kundennummer: f.kundennummer ?? null, name: f.name, segment: f.segment,
     strasse: f.strasse ?? null, plz: f.plz ?? null, ort: f.ort ?? null, land: f.land ?? null,
     email: f.email ?? null, telefon: f.telefon ?? null, telefon_vorwahl: (f.telefon_vorwahl as string | null) ?? '+43', website: f.website ?? null,
-    uid_nummer: f.uid_nummer ?? null, kreditlimit: f.kreditlimit ?? null,
-    zahlungsziel_tage: f.zahlungsziel_tage ?? null, waehrung: f.waehrung ?? null,
+    uid_nummer: f.uid_nummer ?? null, betrieb_nr: f.betrieb_nr ?? null, kreditlimit: f.kreditlimit ?? null,
+    zahlungsziel_tage: f.zahlungsziel_tage ?? null, skonto_pct: f.skonto_pct ?? 0, skonto_tage: f.skonto_tage ?? 10,
+    waehrung: f.waehrung ?? null,
     notizen: f.notizen ?? null, aktiv: f.aktiv ?? true,
     rabattgruppe_id: f.rabattgruppe_id ?? null,
     rabattgruppe_name: (f.rabattgruppe as R | null)?.name ?? null,
