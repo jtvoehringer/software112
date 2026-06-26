@@ -271,8 +271,17 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
           .reduce((s, c) => s + (parseFloat(String(c.menge_liter)) || 0), 0))
           + (parseFloat(String(zielCharge.menge_liter ?? 0)) || 0)
         const restJetzt = vol - inhaltGesamt
-        const restNach  = vol - inhaltGesamt - gesamtLiter
-        const ueber     = gesamtLiter > 0 && restNach < -0.01
+        // Nur Quell-Chargen aus ANDEREN Gebinden bringen neues Volumen rein.
+        // Quell-Chargen aus DEMSELBEN Gebinde werden nur zusammengeführt – kein neues Volumen.
+        const neuZufluss = quellen.reduce((s, q) => {
+          const src = verfuegbar.find(c => c.id === q.weinausbau_id)
+          const m   = parseFloat(q.menge.replace(',', '.'))
+          if (!src || isNaN(m) || m <= 0) return s
+          if (src.behaelter_id != null && src.behaelter_id === zielCharge.behaelter_id) return s
+          return s + m
+        }, 0)
+        const restNach  = vol - inhaltGesamt - neuZufluss
+        const ueber     = neuZufluss > 0 && restNach < -0.01
         return (
           <div className="grid grid-cols-3 gap-2 bg-s112-bg border border-s112-border rounded-lg px-4 py-2.5 text-xs">
             <div>
