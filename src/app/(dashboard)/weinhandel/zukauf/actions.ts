@@ -26,11 +26,12 @@ async function createZukaufCharge(
   weinart: string | null,
   qualitaetsstufe: string | null,
 ): Promise<string> {
-  const name = [rebsorte, jahrgang].filter(Boolean).join(' ') || 'Zukauf'
+  const name = rebsorte || 'Zukauf'
   const { data: neu, error } = await (supabase.from('weinausbau') as any)
     .insert({
       tenant_id:   tenantId,
       name,
+      rebsorte:    rebsorte ?? null,
       behaelter_id: behaelterId,
       jahrgang,
       menge_liter:  menge,

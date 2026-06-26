@@ -2,7 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { minQualitaet, istNiedrigerAls } from '@/lib/weinqualitaet'
+import { minQualitaet, istNiedrigerAls, QUALITAET_LABEL } from '@/lib/weinqualitaet'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -285,6 +285,18 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
     (neueQualitaet && zielQualitaetVorher && istNiedrigerAls(neueQualitaet, zielQualitaetVorher))
       ? { von: zielQualitaetVorher as string, nach: neueQualitaet }
       : null
+
+  // Abstufungs-Info automatisch in Notizen speichern
+  if (qualitaetAbgestuft) {
+    const vonLabel  = QUALITAET_LABEL[qualitaetAbgestuft.von]  ?? qualitaetAbgestuft.von
+    const nachLabel = QUALITAET_LABEL[qualitaetAbgestuft.nach] ?? qualitaetAbgestuft.nach
+    const abstufText = `Abstufung von ${vonLabel} auf ${nachLabel}`
+    const neueNotizen = notizen ? `${notizen}\n${abstufText}` : abstufText
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('verschneidungen') as any)
+      .update({ notizen: neueNotizen })
+      .eq('id', vId)
+  }
 
   revalidatePath('/kellerbuch')
   quellen.forEach(q => revalidatePath(`/kellerbuch/weinausbau/${q.weinausbau_id}/buch`))
