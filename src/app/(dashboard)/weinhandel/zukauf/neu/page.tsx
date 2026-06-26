@@ -101,7 +101,7 @@ export default function ZukaufNeuPage() {
   const [kontakte,        setKontakte]        = useState<Kontakt[]>([])
   const [firmen,          setFirmen]          = useState<Firma[]>([])
   const [behaelter,       setBehaelter]       = useState<Behaelter[]>([])
-  const [weinausbauListe, setWeinausbauListe] = useState<{ id: string; name: string; behaelter_id: string | null; rebsorte: string | null }[]>([])
+  const [weinausbauListe, setWeinausbauListe] = useState<{ id: string; name: string; behaelter_id: string | null; rebsorte: string | null; menge_liter: number | null }[]>([])
   const [loading,         setLoading]         = useState(true)
 
   // ── Grunddaten ────────────────────────────────────────────────────────────
