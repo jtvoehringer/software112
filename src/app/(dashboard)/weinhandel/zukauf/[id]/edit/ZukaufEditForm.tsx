@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from 'react'
 import Link from 'next/link'
 import { updateZukauf } from '../../actions'
+import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 
 interface Behaelter { id: string; name: string; typ: string }
 
@@ -20,11 +21,34 @@ interface InitialValues {
   ziel_behaelter_id:        string
   notizen:                  string
   weinart:                  string
+  // Transportschein-Felder
+  lieferung_uhrzeit:        string
+  transport_zugmaschine:    string
+  transport_anhaenger1:     string
+  transport_anhaenger2:     string
+  herkunft:                 string
+  anreicherung:             boolean
+  kmw:                      string
+  alkohol_pct:              string
+  qualitaetsstufe:          string
+  staatliche_pruefnummer:   string
 }
 
 const TYP_ICONS: Record<string, string> = { tank: '🛢', fass: '🪵', amphore: '🏺', sonstiges: '📦' }
 const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
 const labelCls = 'block text-xs font-medium text-gray-600 mb-1'
+
+const ZUKAUF_QUALITAETEN = [
+  'landwein', 'qualitaetswein', 'kabinett', 'spaetlese', 'auslese',
+  'beerenauslese', 'ausbruch', 'trockenbeerenauslese', 'eiswein', 'strohwein',
+  'dac', 'reserve',
+] as const
+
+const ART_OPTIONS: { value: 'wein' | 'most' | 'trauben'; label: string; icon: string }[] = [
+  { value: 'wein',    label: 'Wein',        icon: '🍷' },
+  { value: 'most',    label: 'Traubenmost', icon: '🌊' },
+  { value: 'trauben', label: 'Trauben',     icon: '🍇' },
+]
 
 export default function ZukaufEditForm({
   id,
@@ -39,17 +63,27 @@ export default function ZukaufEditForm({
   const [error, setError]            = useState<string | null>(null)
   const [behaelter, setBehaelter]    = useState<Behaelter[]>([])
 
-  const [datum,                  setDatum]                 = useState(initial.datum)
-  const [art,                    setArt]                   = useState<'wein' | 'trauben' | 'most'>(initial.art as any)
-  const [menge,                  setMenge]                 = useState(initial.menge)
-  const [einheit,                setEinheit]               = useState(initial.einheit)
-  const [preisGesamt,            setPreisGesamt]           = useState(initial.preis_gesamt)
-  const [einstandspreisLiter,    setEinstandspreisLiter]   = useState(initial.einstandspreis_pro_liter)
-  const [rebsorte,               setRebsorte]              = useState(initial.rebsorte)
-  const [jahrgang,               setJahrgang]              = useState(initial.jahrgang)
-  const [zielBehaelter,          setZielBehaelter]         = useState(initial.ziel_behaelter_id)
-  const [notizen,                setNotizen]               = useState(initial.notizen)
-  const [weinart,                setWeinart]               = useState<'weiss' | 'rot' | 'rose' | 'unbekannt'>((initial.weinart as any) || 'unbekannt')
+  const [datum,               setDatum]             = useState(initial.datum)
+  const [uhrzeit,             setUhrzeit]           = useState(initial.lieferung_uhrzeit)
+  const [art,                 setArt]               = useState<'wein' | 'trauben' | 'most'>(initial.art as any)
+  const [weinart,             setWeinart]           = useState<'weiss' | 'rot' | 'rose' | 'unbekannt'>((initial.weinart as any) || 'unbekannt')
+  const [rebsorte,            setRebsorte]          = useState(initial.rebsorte)
+  const [qualitaet,           setQualitaet]         = useState(initial.qualitaetsstufe)
+  const [jahrgang,            setJahrgang]          = useState(initial.jahrgang)
+  const [herkunft,            setHerkunft]          = useState(initial.herkunft)
+  const [anreicherung,        setAnreicherung]      = useState(initial.anreicherung)
+  const [kmw,                 setKmw]               = useState(initial.kmw)
+  const [alkohol,             setAlkohol]           = useState(initial.alkohol_pct)
+  const [pruefnummer,         setPruefnummer]       = useState(initial.staatliche_pruefnummer)
+  const [zugmaschine,         setZugmaschine]       = useState(initial.transport_zugmaschine)
+  const [anhaenger1,          setAnhaenger1]        = useState(initial.transport_anhaenger1)
+  const [anhaenger2,          setAnhaenger2]        = useState(initial.transport_anhaenger2)
+  const [menge,               setMenge]             = useState(initial.menge)
+  const [einheit,             setEinheit]           = useState(initial.einheit)
+  const [preisGesamt,         setPreisGesamt]       = useState(initial.preis_gesamt)
+  const [einstandspreisLiter, setEinstandspreisLiter] = useState(initial.einstandspreis_pro_liter)
+  const [zielBehaelter,       setZielBehaelter]     = useState(initial.ziel_behaelter_id)
+  const [notizen,             setNotizen]           = useState(initial.notizen)
 
   useEffect(() => {
     fetch('/api/zukauf-stammdaten').then(r => r.json()).then(j => {
@@ -57,46 +91,46 @@ export default function ZukaufEditForm({
     }).catch(() => {})
   }, [])
 
-  const preisProEinheit =
-    menge && preisGesamt && parseFloat(menge) > 0
-      ? (parseFloat(preisGesamt) / parseFloat(menge)).toFixed(4)
-      : null
+  const preisProEinheit = menge && preisGesamt && parseFloat(menge) > 0
+    ? (parseFloat(preisGesamt) / parseFloat(menge)).toFixed(4)
+    : null
 
-  // Einstandspreis auto-sync: wenn Einheit = L
   useEffect(() => {
-    if (einheit === 'L' && preisProEinheit) {
-      setEinstandspreisLiter(preisProEinheit)
-    }
+    if (einheit === 'L' && preisProEinheit) setEinstandspreisLiter(preisProEinheit)
   }, [preisProEinheit, einheit])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    if (!menge || parseFloat(menge) <= 0) {
-      setError('Menge muss größer als 0 sein.')
-      return
-    }
+    if (!menge || parseFloat(menge) <= 0) { setError('Menge muss größer als 0 sein.'); return }
     const fd = new FormData()
-    fd.set('datum',                datum)
-    fd.set('art',                  art)
-    fd.set('lieferant_kontakt_id', initial.lieferant_kontakt_id)
-    fd.set('lieferant_firma_id',   initial.lieferant_firma_id)
-    fd.set('menge',                menge)
-    fd.set('einheit',              einheit)
-    fd.set('preis_gesamt',         preisGesamt)
-    fd.set('rebsorte',             rebsorte)
-    fd.set('jahrgang',             jahrgang)
-    fd.set('ziel_behaelter_id',        zielBehaelter)
-    fd.set('einstandspreis_pro_liter', einstandspreisLiter)
-    fd.set('notizen',                  notizen)
+    fd.set('datum',                    datum)
+    fd.set('lieferung_uhrzeit',        uhrzeit)
+    fd.set('art',                      art)
+    fd.set('lieferant_kontakt_id',     initial.lieferant_kontakt_id)
+    fd.set('lieferant_firma_id',       initial.lieferant_firma_id)
+    fd.set('transport_zugmaschine',    zugmaschine)
+    fd.set('transport_anhaenger1',     anhaenger1)
+    fd.set('transport_anhaenger2',     anhaenger2)
     fd.set('weinart',                  weinart)
+    fd.set('rebsorte',                 rebsorte)
+    fd.set('qualitaetsstufe',          qualitaet)
+    fd.set('jahrgang',                 jahrgang)
+    fd.set('herkunft',                 herkunft)
+    fd.set('anreicherung',             anreicherung ? 'true' : 'false')
+    fd.set('kmw',                      kmw)
+    fd.set('alkohol_pct',              alkohol)
+    fd.set('staatliche_pruefnummer',   pruefnummer)
+    fd.set('menge',                    menge)
+    fd.set('einheit',                  einheit)
+    fd.set('preis_gesamt',             preisGesamt)
+    fd.set('einstandspreis_pro_liter', einstandspreisLiter)
+    fd.set('ziel_behaelter_id',        zielBehaelter)
+    fd.set('notizen',                  notizen)
 
     startTransition(async () => {
-      try {
-        await updateZukauf(id, fd)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Fehler beim Speichern')
-      }
+      try { await updateZukauf(id, fd) }
+      catch (err) { setError(err instanceof Error ? err.message : 'Fehler beim Speichern') }
     })
   }
 
@@ -108,7 +142,12 @@ export default function ZukaufEditForm({
         <span className="text-gray-800 font-medium">Bearbeiten</span>
       </nav>
 
-      <h1 className="text-xl font-bold text-gray-900">Zukauf bearbeiten</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold text-gray-900">Zukauf bearbeiten</h1>
+        <span className="text-xs text-s112-muted bg-s112-bg border border-s112-border rounded-full px-3 py-1">
+          Transportbescheinigung gem. Weingesetz
+        </span>
+      </div>
 
       {lieferantName && (
         <p className="text-sm text-s112-muted">
@@ -123,9 +162,9 @@ export default function ZukaufEditForm({
 
       <form onSubmit={handleSubmit} className="space-y-5">
 
-        {/* Art + Datum */}
+        {/* ── 1. Lieferung ──────────────────────────────────────────────── */}
         <div className="card p-5 space-y-4">
-          <h2 className="font-semibold text-gray-700 text-sm">Grunddaten</h2>
+          <h2 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Lieferung</h2>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Datum *</label>
@@ -133,45 +172,129 @@ export default function ZukaufEditForm({
                 required className={inputCls + ' w-full'} />
             </div>
             <div>
-              <label className={labelCls}>Art *</label>
-              <div className="flex gap-3 mt-1.5">
-                {(['wein', 'trauben', 'most'] as const).map(a => (
-                  <label key={a} className="flex items-center gap-1.5 cursor-pointer">
-                    <input type="radio" name="art" value={a} checked={art === a}
-                      onChange={() => setArt(a)}
-                      className="accent-s112-teal" />
-                    <span className="text-sm text-gray-700">
-                      {a === 'wein' ? '🍷 Wein' : a === 'trauben' ? '🍇 Trauben' : '🌊 Most'}
-                    </span>
-                  </label>
-                ))}
-              </div>
+              <label className={labelCls}>Uhrzeit</label>
+              <input type="time" value={uhrzeit} onChange={e => setUhrzeit(e.target.value)}
+                className={inputCls + ' w-full'} />
             </div>
           </div>
           <div>
-            <label className={labelCls}>Weinart *</label>
+            <label className={labelCls}>Art *</label>
             <div className="flex gap-4 mt-1.5">
-              {([['weiss','🟡 Weißwein'],['rot','🔴 Rotwein'],['rose','🩷 Rosé'],['unbekannt','⬜ Unbekannt']] as const).map(([val, lbl]) => (
-                <label key={val} className="flex items-center gap-1.5 cursor-pointer">
-                  <input type="radio" name="weinart" value={val} checked={weinart === val}
-                    onChange={() => setWeinart(val)}
-                    className="accent-s112-teal" />
-                  <span className="text-sm text-gray-700">{lbl}</span>
+              {ART_OPTIONS.map(({ value, label, icon }) => (
+                <label key={value} className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="art" value={value} checked={art === value}
+                    onChange={() => setArt(value)} className="accent-s112-teal" />
+                  <span className="text-sm text-gray-700">{icon} {label}</span>
                 </label>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Menge, Preis, Rebsorte */}
+        {/* ── 2. Transportmittel ────────────────────────────────────────── */}
         <div className="card p-5 space-y-4">
-          <h2 className="font-semibold text-gray-700 text-sm">Menge & Preis</h2>
+          <h2 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Transportmittel</h2>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className={labelCls}>Zugmaschine (Kennzeichen)</label>
+              <input type="text" value={zugmaschine} onChange={e => setZugmaschine(e.target.value)}
+                placeholder="z.B. W-123AB" className={inputCls + ' w-full'} />
+            </div>
+            <div>
+              <label className={labelCls}>1. Anhänger</label>
+              <input type="text" value={anhaenger1} onChange={e => setAnhaenger1(e.target.value)}
+                placeholder="Kennzeichen" className={inputCls + ' w-full'} />
+            </div>
+            <div>
+              <label className={labelCls}>2. Anhänger</label>
+              <input type="text" value={anhaenger2} onChange={e => setAnhaenger2(e.target.value)}
+                placeholder="Kennzeichen" className={inputCls + ' w-full'} />
+            </div>
+          </div>
+        </div>
+
+        {/* ── 3. Ware ───────────────────────────────────────────────────── */}
+        <div className="card p-5 space-y-4">
+          <h2 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Ware</h2>
+          <div>
+            <label className={labelCls}>Weinart *</label>
+            <div className="flex gap-4 mt-1.5">
+              {([['weiss','🟡 Weißwein'],['rot','🔴 Rotwein'],['rose','🩷 Rosé'],['unbekannt','⬜ Unbekannt']] as const).map(([val, lbl]) => (
+                <label key={val} className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="weinart" value={val} checked={weinart === val}
+                    onChange={() => setWeinart(val)} className="accent-s112-teal" />
+                  <span className="text-sm text-gray-700">{lbl}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls}>Rebsorte(n)</label>
+              <input type="text" value={rebsorte} onChange={e => setRebsorte(e.target.value)}
+                placeholder="z.B. Grüner Veltliner" className={inputCls + ' w-full'} />
+            </div>
+            <div>
+              <label className={labelCls}>Jahrgang</label>
+              <input type="number" value={jahrgang} onChange={e => setJahrgang(e.target.value)}
+                min="1900" max="2100" placeholder="z.B. 2024" className={inputCls + ' w-full'} />
+            </div>
+            {(art === 'wein' || art === 'most') && (
+              <div>
+                <label className={labelCls}>Qualitätsstufe</label>
+                <select value={qualitaet} onChange={e => setQualitaet(e.target.value)}
+                  className={inputCls + ' w-full'}>
+                  <option value="">– nicht angegeben –</option>
+                  {ZUKAUF_QUALITAETEN.map(q => (
+                    <option key={q} value={q}>{QUALITAET_LABEL[q] ?? q}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div>
+              <label className={labelCls}>Herkunft</label>
+              <input type="text" value={herkunft} onChange={e => setHerkunft(e.target.value)}
+                placeholder="z.B. Kamptal, Wachau" className={inputCls + ' w-full'} />
+            </div>
+            {(art === 'trauben' || art === 'most') && (
+              <div>
+                <label className={labelCls}>°KMW</label>
+                <input type="number" value={kmw} onChange={e => setKmw(e.target.value)}
+                  step="0.1" min="0" max="50" placeholder="z.B. 19.5" className={inputCls + ' w-full'} />
+              </div>
+            )}
+            {art === 'wein' && (
+              <div>
+                <label className={labelCls}>Alkoholgehalt (%vol)</label>
+                <input type="number" value={alkohol} onChange={e => setAlkohol(e.target.value)}
+                  step="0.1" min="0" max="25" placeholder="z.B. 12.5" className={inputCls + ' w-full'} />
+              </div>
+            )}
+            {art === 'wein' && (
+              <div>
+                <label className={labelCls}>Staatl. Prüfnummer</label>
+                <input type="text" value={pruefnummer} onChange={e => setPruefnummer(e.target.value)}
+                  placeholder="z.B. 1234/26" className={inputCls + ' w-full'} />
+              </div>
+            )}
+          </div>
+          {(art === 'trauben' || art === 'most') && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={anreicherung} onChange={e => setAnreicherung(e.target.checked)}
+                className="accent-s112-teal w-4 h-4" />
+              <span className="text-sm text-gray-700">Anreicherung (Zuckerung) erfolgt / geplant</span>
+            </label>
+          )}
+        </div>
+
+        {/* ── 4. Menge & Preis ──────────────────────────────────────────── */}
+        <div className="card p-5 space-y-4">
+          <h2 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Menge & Preis</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
               <label className={labelCls}>Menge *</label>
               <input type="number" value={menge} onChange={e => setMenge(e.target.value)}
-                required min="0.001" step="0.001" placeholder="0"
-                className={inputCls + ' w-full'} />
+                required min="0.001" step="0.001" placeholder="0" className={inputCls + ' w-full'} />
             </div>
             <div>
               <label className={labelCls}>Einheit</label>
@@ -186,8 +309,7 @@ export default function ZukaufEditForm({
             <div>
               <label className={labelCls}>Gesamtpreis (€)</label>
               <input type="number" value={preisGesamt} onChange={e => setPreisGesamt(e.target.value)}
-                step="0.01" min="0" placeholder="0.00"
-                className={inputCls + ' w-full'} />
+                step="0.01" min="0" placeholder="0.00" className={inputCls + ' w-full'} />
             </div>
             <div>
               <label className={labelCls}>Preis / {einheit}</label>
@@ -211,30 +333,17 @@ export default function ZukaufEditForm({
                   </>
                 ) : (
                   <input type="number" value={einstandspreisLiter} onChange={e => setEinstandspreisLiter(e.target.value)}
-                    step="0.0001" min="0" placeholder="0.0000"
-                    className={inputCls + ' w-full'} />
+                    step="0.0001" min="0" placeholder="0.0000" className={inputCls + ' w-full'} />
                 )}
               </div>
             )}
-            <div>
-              <label className={labelCls}>Rebsorte</label>
-              <input type="text" value={rebsorte} onChange={e => setRebsorte(e.target.value)}
-                placeholder="z.B. Grüner Veltliner"
-                className={inputCls + ' w-full'} />
-            </div>
-            <div>
-              <label className={labelCls}>Jahrgang</label>
-              <input type="number" value={jahrgang} onChange={e => setJahrgang(e.target.value)}
-                min="1900" max="2100" placeholder="z.B. 2024"
-                className={inputCls + ' w-full'} />
-            </div>
           </div>
         </div>
 
-        {/* Gebinde-Zuweisung (nur Wein / Most) */}
+        {/* ── 5. Gebinde (nur Wein / Most) ──────────────────────────────── */}
         {(art === 'wein' || art === 'most') && (
           <div className="card p-5 space-y-3">
-            <h2 className="font-semibold text-gray-700 text-sm">In Gebinde füllen</h2>
+            <h2 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">In Gebinde füllen</h2>
             <div>
               <label className={labelCls}>Gebinde (optional)</label>
               <select value={zielBehaelter} onChange={e => setZielBehaelter(e.target.value)}
@@ -250,7 +359,7 @@ export default function ZukaufEditForm({
           </div>
         )}
 
-        {/* Notizen */}
+        {/* ── 6. Notizen ────────────────────────────────────────────────── */}
         <div className="card p-5">
           <label className={labelCls}>Notizen</label>
           <textarea value={notizen} onChange={e => setNotizen(e.target.value)}
@@ -258,7 +367,7 @@ export default function ZukaufEditForm({
             className={inputCls + ' w-full resize-none'} />
         </div>
 
-        {/* Submit */}
+        {/* ── Submit ────────────────────────────────────────────────────── */}
         <div className="flex justify-end gap-3">
           <Link href="/weinhandel/zukauf"
             className="text-sm text-s112-muted hover:text-gray-700 px-4 py-2">
