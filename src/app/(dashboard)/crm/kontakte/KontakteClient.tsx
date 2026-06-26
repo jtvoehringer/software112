@@ -469,7 +469,7 @@ function KontaktKarte({
             )}
             {kontakt.is_lead
               ? <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">🌱 Lead</span>
-              : <span className="text-xs px-2 py-0.5 rounded-full bg-s112-teal/10 text-s112-teal font-medium">✅ Kunde</span>
+              : <span className="text-xs px-2 py-0.5 rounded-full bg-s112-teal/10 text-s112-teal font-medium">✅ Aktiv</span>
             }
             {kontakt.rabattgruppe_name && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
@@ -701,7 +701,7 @@ export default function KontakteClient({
           {(['alle', 'lead', 'kunde'] as const).map(v => (
             <button key={v} onClick={() => setFilterLead(v)}
               className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterLead === v ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:text-gray-900'}`}>
-              {v === 'alle' ? 'Alle' : v === 'lead' ? '🌱 Lead' : '✅ Kunde'}
+              {v === 'alle' ? 'Alle' : v === 'lead' ? '🌱 Lead' : '✅ Aktiv'}
               {' '}({v === 'alle' ? kontakte.length : kontakte.filter(k => v === 'lead' ? k.is_lead : !k.is_lead).length})
             </button>
           ))}
