@@ -24,6 +24,7 @@ async function createZukaufCharge(
   menge: number,
   einstandspreisProLiter: number | null,
   weinart: string | null,
+  qualitaetsstufe: string | null,
 ): Promise<string> {
   const name = [rebsorte, jahrgang].filter(Boolean).join(' ') || 'Zukauf'
   const { data: neu, error } = await (supabase.from('weinausbau') as any)
@@ -38,6 +39,7 @@ async function createZukaufCharge(
       status:      'ausbau',
       aktiv:       true,
       weinart:     weinart ?? 'unbekannt',
+      qualitaetsstufe: qualitaetsstufe ?? null,
     })
     .select('id')
     .single()
@@ -103,7 +105,7 @@ export async function createZukauf(formData: FormData) {
   let zielWeinausbauId: string | null = null
   if ((f.art === 'wein' || f.art === 'most') && f.zielBehaelterId) {
     zielWeinausbauId = await createZukaufCharge(
-      supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart,
+      supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaetsstufe,
     )
   }
 
@@ -142,16 +144,35 @@ export async function createZukauf(formData: FormData) {
   revalidatePath('/kellerbuch')
 
   if (zielWeinausbauId && f.zielBehaelterId && f.rebsorte) {
-    const { data: andereChargen } = await (supabase.from('weinausbau') as any)
+    // Prüfung 1: Andere Rebsorte im Gebinde → Verschneidung (Sortenverschnitt)
+    const { data: andereRebsorte } = await (supabase.from('weinausbau') as any)
       .select('id')
       .eq('behaelter_id', f.zielBehaelterId)
       .eq('aktiv', true)
       .neq('id', zielWeinausbauId)
       .neq('rebsorte', f.rebsorte)
       .limit(1)
-    if ((andereChargen as any[])?.length > 0) {
-      const existierendeId = (andereChargen as any[])[0].id
+    if ((andereRebsorte as any[])?.length > 0) {
+      const existierendeId = (andereRebsorte as any[])[0].id
       redirect(`/kellerbuch/weinausbau/${existierendeId}?form=verschneiden&quelle=${zielWeinausbauId}&menge=${f.menge}`)
+    }
+
+    // Prüfung 2: Gleiche Rebsorte, andere Qualitätsstufe → Verschneidung (ggf. Abstufung)
+    if (f.qualitaetsstufe) {
+      const { data: gleicheRebsorte } = await (supabase.from('weinausbau') as any)
+        .select('id, qualitaetsstufe')
+        .eq('behaelter_id', f.zielBehaelterId)
+        .eq('aktiv', true)
+        .neq('id', zielWeinausbauId)
+        .eq('rebsorte', f.rebsorte)
+        .not('qualitaetsstufe', 'is', null)
+        .limit(10)
+      const treffer = ((gleicheRebsorte as any[]) ?? []).find(
+        (c: any) => c.qualitaetsstufe !== f.qualitaetsstufe
+      )
+      if (treffer) {
+        redirect(`/kellerbuch/weinausbau/${treffer.id}?form=verschneiden&quelle=${zielWeinausbauId}&menge=${f.menge}`)
+      }
     }
   }
 
@@ -176,7 +197,7 @@ export async function updateZukauf(id: string, formData: FormData) {
   if ((f.art === 'wein' || f.art === 'most') && f.zielBehaelterId) {
     if (altWeinausbauId) await bereinigCharge(supabase, altWeinausbauId)
     zielWeinausbauId = await createZukaufCharge(
-      supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart,
+      supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaetsstufe,
     )
   } else if (!(f.art === 'wein' || f.art === 'most')) {
     if (altWeinausbauId) await bereinigCharge(supabase, altWeinausbauId)
