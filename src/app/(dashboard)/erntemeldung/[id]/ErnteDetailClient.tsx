@@ -639,26 +639,33 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
         verfuegbareKgByGST={verfuegbareKgByGST}
         behaelterMitCharge={behaelterMitCharge}
         leseParzellen={(() => {
-          // Deduplizieren: eine Zeile pro (weingarten_id, grundstueck_id) für Pressung-Formular
-          // Ein GST kann mehrere ernte_parzellen-Einträge haben (z.B. Kabinett + Spätlese)
-          const seen = new Set<string>()
-          return parzellen
-            .filter(p => {
-              const key = `${p.weingarten_id}|${p.grundstueck_id ?? ''}`
-              if (seen.has(key)) return false
-              seen.add(key)
-              return true
-            })
-            .map(p => ({
-              weingarten_id: p.weingarten_id,
-              weingarten_name: p.weingarten_name,
-              grundstueck_id: p.grundstueck_id,
-              grundstueck_nr: p.grundstueck_nr,
-              grundstueck_rebsorte: p.grundstueck_rebsorte,
-              menge_kg: p.menge_kg,
-              rebsorte: p.weingarten_rebsorte,
-              klosterneuburger: p.klosterneuburger,
-            }))
+          // Deduplizieren: eine Zeile pro (weingarten_id, grundstueck_id) für Pressung-Formular.
+          // Ein GST kann mehrere ernte_parzellen-Einträge haben (z.B. Kabinett + Spätlese).
+          // Wenn mehrere Einträge vorhanden: denjenigen wählen, dessen menge_kg am nächsten
+          // zur verfügbaren Restmenge liegt – das ist der noch nicht verpresste Anteil.
+          const bestByKey = new Map<string, typeof parzellen[0]>()
+          for (const p of parzellen) {
+            const key = `${p.weingarten_id}|${p.grundstueck_id ?? ''}`
+            const verfuegbar = p.grundstueck_id ? (verfuegbareKgByGST[p.grundstueck_id] ?? 0) : 0
+            const existing = bestByKey.get(key)
+            if (!existing) {
+              bestByKey.set(key, p)
+            } else {
+              const existingDiff = Math.abs((existing.menge_kg ?? 0) - verfuegbar)
+              const newDiff      = Math.abs((p.menge_kg ?? 0) - verfuegbar)
+              if (newDiff < existingDiff) bestByKey.set(key, p)
+            }
+          }
+          return Array.from(bestByKey.values()).map(p => ({
+            weingarten_id: p.weingarten_id,
+            weingarten_name: p.weingarten_name,
+            grundstueck_id: p.grundstueck_id,
+            grundstueck_nr: p.grundstueck_nr,
+            grundstueck_rebsorte: p.grundstueck_rebsorte,
+            menge_kg: p.menge_kg,
+            rebsorte: p.weingarten_rebsorte,
+            klosterneuburger: p.klosterneuburger,
+          }))
         })()}
         writeOk={writeOk}
         adminOk={adminOk}
