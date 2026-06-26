@@ -2,7 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { minQualitaet, istNiedrigerAls, QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { minQualitaet, maxQualitaet, istNiedrigerAls, QUALITAET_LABEL } from '@/lib/weinqualitaet'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -280,10 +280,13 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
       .eq('id', q.weinausbau_id)
   }
 
-  // Qualitäts-Abstufung: zielQualitaetVorher und neueQualitaet wurden oben bereits berechnet
+  // Qualitäts-Abstufung: Vergleich gegen HÖCHSTE Qualität aller Beteiligten (Ziel + Quellen).
+  // Beispiel: Ziel Kabinett + Quelle Auslese → Ergebnis Kabinett → Abstufung von Auslese auf Kabinett.
+  const alleQualitaetenBeteiligt = [zielQualitaetVorher, ...quellenRows.map((q: R) => q.qualitaetsstufe as string | null)]
+  const hoechsteQualitaet = maxQualitaet(alleQualitaetenBeteiligt)
   const qualitaetAbgestuft: { von: string; nach: string } | null =
-    (neueQualitaet && zielQualitaetVorher && istNiedrigerAls(neueQualitaet, zielQualitaetVorher))
-      ? { von: zielQualitaetVorher as string, nach: neueQualitaet }
+    (neueQualitaet && hoechsteQualitaet && istNiedrigerAls(neueQualitaet, hoechsteQualitaet))
+      ? { von: hoechsteQualitaet, nach: neueQualitaet }
       : null
 
   // Abstufungs-Info automatisch in Notizen speichern

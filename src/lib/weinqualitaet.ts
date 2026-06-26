@@ -59,6 +59,19 @@ export function kmwZuQualitaet(kmw: number): string {
   return 'landwein'
 }
 
+/** Gibt den höchsten Qualitätslevel unter den übergebenen zurück.
+ *  Ignoriert null und 'sonstiges'. Gibt null zurück wenn keine bekannte Stufe dabei ist. */
+export function maxQualitaet(stufen: (string | null | undefined)[]): string | null {
+  let maxIdx = -1
+  let maxVal: string | null = null
+  for (const s of stufen) {
+    if (!s || s === 'sonstiges') continue
+    const idx = QUALITAET_ORDER.indexOf(s as typeof QUALITAET_ORDER[number])
+    if (idx !== -1 && idx > maxIdx) { maxIdx = idx; maxVal = s }
+  }
+  return maxVal
+}
+
 /** Prüft ob Stufe `a` im Qualitätsrang niedriger ist als Stufe `b`.
  *  Gibt false zurück wenn eine der Stufen unbekannt ist. */
 export function istNiedrigerAls(a: string | null | undefined, b: string | null | undefined): boolean {
