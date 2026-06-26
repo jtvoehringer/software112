@@ -290,7 +290,6 @@ export default function ZukaufNeuPage() {
               />
             </div>
           </div>
-          <p className="text-xs text-s112-muted">Lieferant ist optional – kann auch leer bleiben.</p>
         </div>
 
         {/* ── 3. Transportmittel ────────────────────────────────────────── */}
