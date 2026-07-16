@@ -199,16 +199,18 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             <ConfirmDeleteForm
               action={stornoWithId}
               message="Verkauf stornieren? Der Lagerbestand wird zurückgebucht."
-              label="Stornieren"
-              className="text-xs text-orange-500 hover:text-orange-700 hover:underline"
+              label="↩️"
+              title="Stornieren"
+              className="text-orange-500 hover:text-orange-700"
             />
           )}
           {writeOk && (
             <ConfirmDeleteForm
               action={deactivateWithId}
               message="Verkauf wirklich löschen (ohne Bestandskorrektur)?"
-              label="Löschen"
-              className="text-xs text-red-400 hover:text-red-600 hover:underline"
+              label="🗑️"
+              title="Löschen"
+              className="text-red-400 hover:text-red-600"
             />
           )}
           <div className="flex items-center border border-s112-border rounded-lg overflow-hidden text-xs">

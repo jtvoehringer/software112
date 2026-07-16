@@ -654,7 +654,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                             {' · '}{QUALITAET_LABEL[kmwZuQualitaet(p.kmw_grad)]}
                           </span>
                         )}
-                        <span className="flex items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                        <span className="flex items-center gap-2">
                           {writeOk && <button onClick={() => setEditId(p.id)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-teal hover:text-s112-teal/70">✏️</button>}
                           {adminOk && <button onClick={() => handleDelete(p.id)} title="Löschen" aria-label="Löschen" className="text-red-400 hover:text-red-600">🗑️</button>}
                         </span>

@@ -376,7 +376,7 @@ export default function TraubenverkaufSection({
                         {v.notizen && <span className="italic">· {v.notizen}</span>}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0 text-xs opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-2 shrink-0 text-xs">
                       {writeOk && (
                         <button onClick={() => setEditId(v.id)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-teal hover:text-s112-teal/70">✏️</button>
                       )}

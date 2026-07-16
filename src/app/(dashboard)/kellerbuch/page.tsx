@@ -164,8 +164,9 @@ export default async function KellerbuchPage() {
                   </Link>
                   {writeOk && (
                     <Link href={`/kellerbuch/behaelter/${b.id}`}
-                      className="text-xs text-s112-muted hover:text-s112-teal">
-                      Bearbeiten
+                      title="Bearbeiten" aria-label="Bearbeiten"
+                      className="text-s112-muted hover:text-s112-teal">
+                      ✏️
                     </Link>
                   )}
                 </div>

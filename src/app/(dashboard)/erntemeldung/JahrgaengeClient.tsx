@@ -145,14 +145,16 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
               </Link>
               {writeOk && (
                 <button onClick={() => setEditing(true)}
-                  className="text-xs text-s112-teal hover:underline font-medium">
-                  Bearbeiten
+                  title="Bearbeiten" aria-label="Bearbeiten"
+                  className="text-s112-teal hover:text-s112-teal/70">
+                  ✏️
                 </button>
               )}
               {adminOk && (
                 <button onClick={handleDelete}
-                  className="text-xs text-red-400 hover:text-red-600">
-                  Löschen
+                  title="Löschen" aria-label="Löschen"
+                  className="text-red-400 hover:text-red-600">
+                  🗑️
                 </button>
               )}
             </div>

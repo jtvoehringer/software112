@@ -26,8 +26,9 @@ export default function KellerplanEditModal({ plan, action, inputCls, labelCls }
   return (
     <>
       <button onClick={() => setOpen(true)}
-        className="text-xs text-s112-teal hover:underline">
-        Bearbeiten
+        title="Bearbeiten" aria-label="Bearbeiten"
+        className="text-s112-teal hover:text-s112-teal/70">
+        ✏️
       </button>
 
       {open && (

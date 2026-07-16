@@ -131,13 +131,17 @@ function WeingartenZeile({
             <span className="text-xs text-gray-400">{gsts.length > 0 ? gsts.length + ' GST' : ''}</span>
             <div className="flex items-center gap-3">
             {writeOk && (
-              <Link href={`/weingarten/${w.id}`} className="text-s112-teal hover:underline text-xs font-medium">
-                Bearbeiten
+              <Link href={`/weingarten/${w.id}`}
+                title="Bearbeiten" aria-label="Bearbeiten"
+                className="text-s112-teal hover:text-s112-teal/70">
+                ✏️
               </Link>
             )}
             {adminOk && (
-              <button onClick={handleDelete} className="text-red-400 hover:text-red-600 text-xs">
-                Löschen
+              <button onClick={handleDelete}
+                title="Löschen" aria-label="Löschen"
+                className="text-red-400 hover:text-red-600">
+                🗑️
               </button>
             )}
             </div>

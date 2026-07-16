@@ -482,7 +482,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, kontakte,
                       </div>
                     </div>
                     {writeOk && (
-                      <div className="flex items-center gap-2 shrink-0 text-xs opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-2 shrink-0 text-xs">
                         <button onClick={() => openEdit(v)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-teal hover:text-s112-teal/70">
                           ✏️
                         </button>

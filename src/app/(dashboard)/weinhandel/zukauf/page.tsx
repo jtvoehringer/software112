@@ -100,8 +100,9 @@ export default async function ZukaufPage() {
                         <div className="flex items-center justify-end gap-2">
                           <Link
                             href={`/weinhandel/zukauf/${p.id}/edit`}
-                            className="text-xs text-s112-teal hover:underline">
-                            Bearbeiten
+                            title="Bearbeiten" aria-label="Bearbeiten"
+                            className="text-s112-teal hover:text-s112-teal/70">
+                            ✏️
                           </Link>
                           <ZukaufLoeschen id={p.id} info={rebInfo} />
                         </div>

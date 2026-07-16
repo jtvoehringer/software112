@@ -65,13 +65,17 @@ function LageKarte({
         </div>
         <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
           {writeOk && (
-            <Link href={`/lagen/${lage.id}`} className="text-s112-teal hover:underline text-xs font-medium">
-              Bearbeiten
+            <Link href={`/lagen/${lage.id}`}
+              title="Bearbeiten" aria-label="Bearbeiten"
+              className="text-s112-teal hover:text-s112-teal/70">
+              ✏️
             </Link>
           )}
           {adminOk && (
-            <button onClick={handleDelete} className="text-red-400 hover:text-red-600 text-xs">
-              Löschen
+            <button onClick={handleDelete}
+              title="Löschen" aria-label="Löschen"
+              className="text-red-400 hover:text-red-600">
+              🗑️
             </button>
           )}
         </div>

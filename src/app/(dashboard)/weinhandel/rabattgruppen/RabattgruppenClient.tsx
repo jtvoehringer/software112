@@ -121,12 +121,14 @@ export default function RabattgruppenClient({
               {writeOk && (
                 <div className="flex gap-1 flex-shrink-0">
                   <button onClick={() => setEditing(g)}
-                    className="text-xs text-s112-muted hover:text-s112-teal px-2 py-1 rounded transition-colors">
-                    Bearbeiten
+                    title="Bearbeiten" aria-label="Bearbeiten"
+                    className="text-s112-muted hover:text-s112-teal px-2 py-1 rounded transition-colors">
+                    ✏️
                   </button>
                   <button onClick={() => handleDelete(g.id, g.name)} disabled={pending}
-                    className="text-xs text-s112-muted hover:text-red-500 px-2 py-1 rounded transition-colors">
-                    Löschen
+                    title="Löschen" aria-label="Löschen"
+                    className="text-s112-muted hover:text-red-500 px-2 py-1 rounded transition-colors">
+                    🗑️
                   </button>
                 </div>
               )}

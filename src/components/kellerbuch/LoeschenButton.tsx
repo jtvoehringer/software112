@@ -30,8 +30,9 @@ export default function LoeschenButton({ action, bestaetigung = 'Eintrag wirklic
   return (
     <span className="inline-flex flex-col items-end gap-0.5">
       <button type="button" onClick={handleClick} disabled={pending}
-        className="text-xs text-red-500 hover:underline disabled:opacity-50">
-        {pending ? 'Löschen…' : 'Löschen'}
+        title="Löschen" aria-label="Löschen"
+        className="text-red-400 hover:text-red-600 disabled:opacity-50">
+        {pending ? '…' : '🗑️'}
       </button>
       {error && <span className="text-[10px] text-red-600 max-w-[180px] text-right">{error}</span>}
     </span>

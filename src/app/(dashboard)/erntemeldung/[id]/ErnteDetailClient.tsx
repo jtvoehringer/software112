@@ -516,7 +516,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
                       <td className="px-3 py-2 text-xs text-s112-muted whitespace-nowrap">{qualitaetLabel(p.qualitaetsstufe)}</td>
                       {(writeOk || adminOk) && (
                         <td className="px-3 py-2 text-right sticky right-0 bg-white border-l border-s112-border/40" data-print="hide">
-                          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                          <div className="flex items-center justify-end gap-2">
                             {writeOk && (
                               <button onClick={() => { setEditId(p.id); setShowForm(false) }}
                                 title="Bearbeiten" aria-label="Bearbeiten"

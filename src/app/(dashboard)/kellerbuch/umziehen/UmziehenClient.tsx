@@ -373,9 +373,11 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
           ) : (
             <span className="inline-flex items-center gap-2">
               <button onClick={() => setEditing(true)}
-                className="text-xs text-s112-teal hover:underline">Bearbeiten</button>
+                title="Bearbeiten" aria-label="Bearbeiten"
+                className="text-s112-teal hover:text-s112-teal/70">✏️</button>
               <button onClick={() => setConfirming(true)}
-                className="text-xs text-red-400 hover:text-red-600">Löschen</button>
+                title="Löschen" aria-label="Löschen"
+                className="text-red-400 hover:text-red-600">🗑️</button>
             </span>
           )}
           {error && <p className="text-xs text-red-600 mt-0.5">{error}</p>}

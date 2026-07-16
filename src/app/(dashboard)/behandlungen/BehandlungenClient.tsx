@@ -145,18 +145,20 @@ export default function BehandlungenClient({
                     </td>
                     {adminOk && (
                       <td className="px-3 py-2.5 text-right">
-                        <div className="flex items-center justify-end gap-3">
+                        <div className="flex items-center justify-end gap-2">
                           <Link
                             href={`/behandlungen/${b.id}/edit`}
-                            className="text-xs text-s112-teal hover:underline"
+                            title="Bearbeiten" aria-label="Bearbeiten"
+                            className="text-s112-teal hover:text-s112-teal/70"
                           >
-                            Bearbeiten
+                            ✏️
                           </Link>
                           <button
                             onClick={() => handleDelete(b.id)}
-                            className="text-xs text-red-400 hover:text-red-600"
+                            title="Löschen" aria-label="Löschen"
+                            className="text-red-400 hover:text-red-600"
                           >
-                            Löschen
+                            🗑️
                           </button>
                         </div>
                       </td>

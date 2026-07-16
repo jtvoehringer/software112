@@ -509,7 +509,7 @@ export default function GrundstueckePanel({
                       <td className="px-3 py-2 text-right text-s112-muted text-xs">{g.pflanzjahr ?? '–'}</td>
                       <td className="px-3 py-2 text-center"><StatusBadge status={g.status} /></td>
                       <td className="px-3 py-2 text-right sticky right-0 bg-white border-l border-s112-border/40">
-                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-end gap-2">
                           <button onClick={() => { setEditId(g.id); setShowForm(false) }}
                             title="Bearbeiten" aria-label="Bearbeiten"
                             className="text-s112-teal hover:text-s112-teal/70">✏️</button>

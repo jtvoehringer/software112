@@ -378,9 +378,11 @@ export default function KellerbehandlungenPage() {
                     <td className="px-4 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-3">
                         <button onClick={() => openEdit(b)}
-                          className="text-xs text-s112-teal hover:underline">Bearbeiten</button>
+                          title="Bearbeiten" aria-label="Bearbeiten"
+                          className="text-s112-teal hover:text-s112-teal/70">✏️</button>
                         <button onClick={() => handleDelete(b.id)}
-                          className="text-xs text-red-400 hover:text-red-600 hover:underline">Löschen</button>
+                          title="Löschen" aria-label="Löschen"
+                          className="text-red-400 hover:text-red-600">🗑️</button>
                       </div>
                     </td>
                   </tr>

@@ -225,7 +225,7 @@ export default function PSMClient({
                     </td>
                     {(writeOk || adminOk) && (
                       <td className="py-2.5 px-3 text-right sticky right-0 bg-white border-l border-s112-border/40">
-                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-end gap-2">
                           {writeOk && (
                             <button onClick={() => setEditId(editId === p.id ? null : p.id)}
                               title="Bearbeiten" aria-label="Bearbeiten"

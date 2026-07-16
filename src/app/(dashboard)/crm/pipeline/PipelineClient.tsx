@@ -244,14 +244,16 @@ function EintragZeile({
       )}
 
       {writeOk && (
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex gap-1">
           <button onClick={() => setEditing(true)}
-            className="text-xs text-s112-muted hover:text-s112-teal px-2 py-1 rounded">
-            Bearbeiten
+            title="Bearbeiten" aria-label="Bearbeiten"
+            className="text-s112-muted hover:text-s112-teal px-2 py-1 rounded">
+            ✏️
           </button>
           <button onClick={handleDelete} disabled={pending}
-            className="text-xs text-s112-muted hover:text-red-500 px-2 py-1 rounded">
-            Löschen
+            title="Löschen" aria-label="Löschen"
+            className="text-s112-muted hover:text-red-500 px-2 py-1 rounded">
+            🗑️
           </button>
         </div>
       )}

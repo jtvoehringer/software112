@@ -129,17 +129,19 @@ export default function WeingartenTable({
                   {writeOk && (
                     <Link
                       href={`/weingarten/${w.id}`}
-                      className="text-s112-teal hover:underline text-xs font-medium"
+                      title="Bearbeiten" aria-label="Bearbeiten"
+                      className="text-s112-teal hover:text-s112-teal/70"
                     >
-                      Bearbeiten
+                      ✏️
                     </Link>
                   )}
                   {adminOk && (
                     <button
                       onClick={() => handleDelete(w.id, w.name)}
-                      className="text-red-400 hover:text-red-600 text-xs"
+                      title="Löschen" aria-label="Löschen"
+                      className="text-red-400 hover:text-red-600"
                     >
-                      Löschen
+                      🗑️
                     </button>
                   )}
                 </div>

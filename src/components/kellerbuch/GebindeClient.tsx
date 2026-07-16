@@ -26,8 +26,9 @@ export default function GebindeClient({ gebinde, action, inputCls, labelCls }: P
   return (
     <>
       <button onClick={() => setOpen(o => !o)}
-        className="text-xs text-s112-teal hover:underline mr-3">
-        Bearbeiten
+        title="Bearbeiten" aria-label="Bearbeiten"
+        className="text-s112-teal hover:text-s112-teal/70 mr-2">
+        ✏️
       </button>
 
       {open && (

@@ -236,8 +236,9 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
               Abbrechen
             </button>
             <button type="button" onClick={handleDelete} disabled={pending}
+              title="Löschen" aria-label="Löschen"
               className="ml-auto text-xs px-3 py-1.5 rounded-lg text-red-500 hover:bg-red-50 border border-red-200 disabled:opacity-40">
-              Löschen
+              🗑️
             </button>
           </div>
         </form>
@@ -512,14 +513,16 @@ export default function KontaktDetailClient({
             <div className="flex gap-2 flex-shrink-0">
               <button
                 onClick={() => setEditing(true)}
-                className="inline-flex items-center gap-1.5 border border-s112-border text-gray-600 px-3 py-1.5 rounded-lg text-sm hover:bg-s112-bg transition-colors">
-                ✏ Bearbeiten
+                title="Bearbeiten" aria-label="Bearbeiten"
+                className="inline-flex items-center justify-center border border-s112-border text-gray-600 w-8 h-8 rounded-lg hover:bg-s112-bg transition-colors">
+                ✏️
               </button>
               <button
                 onClick={handleDelete}
                 disabled={deletePending}
-                className="inline-flex items-center gap-1.5 border border-red-200 text-red-600 px-3 py-1.5 rounded-lg text-sm hover:bg-red-50 transition-colors disabled:opacity-40">
-                🗑 Löschen
+                title="Löschen" aria-label="Löschen"
+                className="inline-flex items-center justify-center border border-red-200 text-red-600 w-8 h-8 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40">
+                🗑️
               </button>
             </div>
           )}

@@ -110,8 +110,9 @@ export default async function PreislisteDetailPage({ params }: { params: Promise
               <ConfirmDeleteForm
                 action={deactivateWithId}
                 message="Preisliste wirklich löschen?"
-                label="Löschen"
-                className="text-xs text-red-500 hover:text-red-700 hover:underline"
+                label="🗑️"
+                title="Löschen"
+                className="text-red-500 hover:text-red-700"
               />
             </div>
           )}
@@ -202,7 +203,9 @@ export default async function PreislisteDetailPage({ params }: { params: Promise
                       <ConfirmDeleteForm
                         action={deletePosAction}
                         message="Position löschen?"
-                        className="text-xs text-red-400 hover:text-red-600"
+                        label="🗑️"
+                        title="Löschen"
+                        className="text-red-400 hover:text-red-600"
                       />
                     </td>
                   )}
