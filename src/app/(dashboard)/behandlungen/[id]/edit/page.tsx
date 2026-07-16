@@ -6,7 +6,7 @@ import Link from 'next/link'
 import BehandlungEditForm from './BehandlungEditForm'
 import type { BehandlungEdit, PSMOption } from './BehandlungEditForm'
 
-export const metadata: Metadata = { title: 'Behandlung bearbeiten – software:112' }
+export const metadata: Metadata = { title: 'Maßnahme bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -75,12 +75,12 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
   return (
     <div>
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-6">
-        <Link href="/behandlungen" className="hover:text-s112-teal transition-colors">Behandlungen</Link>
+        <Link href="/behandlungen" className="hover:text-s112-teal transition-colors">Maßnahmen</Link>
         <span>/</span>
         <span className="text-gray-700 font-medium">Bearbeiten</span>
       </div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Behandlung bearbeiten</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Maßnahme bearbeiten</h1>
         <p className="text-sm text-s112-muted mt-0.5">Daten korrigieren oder ergänzen</p>
       </div>
       <BehandlungEditForm behandlung={behandlung} psm={psm} />

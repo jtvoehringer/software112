@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import BerichteClient from './BerichteClient'
 
-export const metadata: Metadata = { title: 'Behandlungs-Berichte – software:112' }
+export const metadata: Metadata = { title: 'Maßnahmen-Berichte – software:112' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -129,7 +129,7 @@ export default async function BerichtePage() {
   return (
     <div>
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-6">
-        <Link href="/behandlungen" className="hover:text-s112-teal transition-colors">Behandlungen</Link>
+        <Link href="/behandlungen" className="hover:text-s112-teal transition-colors">Maßnahmen</Link>
         <span>/</span>
         <span className="text-gray-700 font-medium">Berichte</span>
       </div>

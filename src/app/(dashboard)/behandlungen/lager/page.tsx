@@ -3,6 +3,7 @@ import { getCurrentUserRole, canWrite, canAdmin } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import LagerClient from './LagerClient'
+import PSMClient from './PSMClient'
 
 export const metadata: Metadata = { title: 'PSM-Lager – software:112' }
 export const dynamic = 'force-dynamic'
@@ -29,18 +30,54 @@ export type PSMLager = {
 
 export type PSMOption = { id: string; name: string; einheit_default: string | null; kategorie: string | null }
 
-export default async function LagerPage() {
+export type PSMEintrag = {
+  id: string; name: string; handelsname: string | null
+  kategorie: string | null; wirkstoff: string | null
+  wirkstoffgehalt_pct: number | null; cu_gehalt_pct: number | null
+  max_aufwand_kg_ha: number | null; max_anwendungen: number | null
+  wartezeit_tage: number | null; oeko_zugelassen: boolean
+  notizen: string | null
+}
+
+export default async function LagerPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>
+}) {
+  const { tab = 'bestand' } = await searchParams
   const supabase = await createSupabaseServerClient()
   const role = await getCurrentUserRole()
   const writeOk = canWrite(role)
   const adminOk = canAdmin(role)
 
-  // Alle PSM (aktiv)
+  // Alle PSM (aktiv) – Basisdaten für Bestand
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawPSM } = await (supabase.from('pflanzenschutzmittel') as any)
     .select('id, name, kategorie')
     .eq('aktiv', true)
     .order('name')
+
+  // Vollständige PSM-Stammdaten (für den Stammdaten-Tab)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawPSMStamm } = await (supabase.from('pflanzenschutzmittel') as any)
+    .select('id, name, handelsname, kategorie, wirkstoff, wirkstoffgehalt_pct, cu_gehalt_pct, max_aufwand_kg_ha, max_anwendungen, wartezeit_tage, oeko_zugelassen, notizen')
+    .eq('aktiv', true)
+    .order('name')
+
+  const psmStammdaten: PSMEintrag[] = ((rawPSMStamm ?? []) as AR[]).map(p => ({
+    id:                  p.id,
+    name:                p.name,
+    handelsname:         p.handelsname ?? null,
+    kategorie:           p.kategorie ?? null,
+    wirkstoff:           p.wirkstoff ?? null,
+    wirkstoffgehalt_pct: p.wirkstoffgehalt_pct ?? null,
+    cu_gehalt_pct:       p.cu_gehalt_pct ?? null,
+    max_aufwand_kg_ha:   p.max_aufwand_kg_ha ?? null,
+    max_anwendungen:     p.max_anwendungen ?? null,
+    wartezeit_tage:      p.wartezeit_tage ?? null,
+    oeko_zugelassen:     p.oeko_zugelassen ?? false,
+    notizen:             p.notizen ?? null,
+  }))
 
   // Lagerbewegungen
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -98,10 +135,15 @@ export default async function LagerPage() {
     })
     .sort((a, b) => a.psm_name.localeCompare(b.psm_name, 'de'))
 
+  const TABS = [
+    { key: 'bestand',    label: 'Bestand & Bewegungen' },
+    { key: 'stammdaten', label: 'Stammdaten' },
+  ]
+
   return (
     <div>
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-6">
-        <Link href="/behandlungen" className="hover:text-s112-teal transition-colors">Behandlungen</Link>
+        <Link href="/behandlungen" className="hover:text-s112-teal transition-colors">Maßnahmen</Link>
         <span>/</span>
         <span className="text-gray-700 font-medium">PSM-Lager</span>
       </div>
@@ -109,16 +151,39 @@ export default async function LagerPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">PSM-Lagerverwaltung</h1>
-          <p className="text-sm text-s112-muted mt-0.5">Anfangsbestand · Einkauf · Verbrauch · Inventurkorrektur</p>
+          <p className="text-sm text-s112-muted mt-0.5">
+            {tab === 'stammdaten'
+              ? 'Pflanzenschutzmittel anlegen und pflegen · Cu-Gehalt · Grenzwerte · Bio-Zulassung'
+              : 'Anfangsbestand · Einkauf · Verbrauch · Inventurkorrektur'}
+          </p>
         </div>
       </div>
 
-      <LagerClient
-        psms={aktivePsm}
-        allePsm={psmOptions}
-        writeOk={writeOk}
-        adminOk={adminOk}
-      />
+      <div className="flex gap-1 border-b border-s112-border mb-6">
+        {TABS.map(t => (
+          <Link
+            key={t.key}
+            href={`/behandlungen/lager?tab=${t.key}`}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors
+              ${tab === t.key
+                ? 'bg-white border border-b-white border-s112-border text-s112-teal -mb-px'
+                : 'text-s112-muted hover:text-s112-teal'}`}
+          >
+            {t.label}
+          </Link>
+        ))}
+      </div>
+
+      {tab === 'stammdaten' ? (
+        <PSMClient psm={psmStammdaten} writeOk={writeOk} adminOk={adminOk} />
+      ) : (
+        <LagerClient
+          psms={aktivePsm}
+          allePsm={psmOptions}
+          writeOk={writeOk}
+          adminOk={adminOk}
+        />
+      )}
     </div>
   )
 }

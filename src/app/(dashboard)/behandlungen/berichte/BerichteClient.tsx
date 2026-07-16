@@ -298,8 +298,8 @@ function TabCu({ behandlungen }: { behandlungen: BehandlungReport[] }) {
           <p className="text-3xl mb-2">🔵</p>
           <p className="font-medium text-gray-600">Keine Cu-Daten vorhanden</p>
           <p className="text-sm mt-1 max-w-sm mx-auto">
-            Erfassen Sie Behandlungen mit kupferhaltigen Mitteln. Der Cu-Gehalt muss im
-            PSM-Stammdatum (Feld &quot;cu_gehalt_pct&quot;) hinterlegt sein und die Menge in kg oder l angegeben werden.
+            Erfassen Sie Maßnahmen mit kupferhaltigen Mitteln. Der Cu-Gehalt muss in den
+            PSM-Stammdaten (PSM-Lager, Feld &quot;cu_gehalt_pct&quot;) hinterlegt sein und die Menge in kg oder l angegeben werden.
           </p>
         </div>
       </div>

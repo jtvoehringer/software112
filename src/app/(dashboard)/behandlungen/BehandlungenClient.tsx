@@ -64,7 +64,7 @@ export default function BehandlungenClient({
   const grouped = groupByDate(gefiltert)
 
   function handleDelete(id: string) {
-    if (!confirm('Behandlung löschen?')) return
+    if (!confirm('Maßnahme löschen?')) return
     startTransition(() => deleteBehandlung(id))
   }
 
@@ -72,11 +72,11 @@ export default function BehandlungenClient({
     return (
       <div className="card text-center py-16">
         <p className="text-4xl mb-4">🌱</p>
-        <p className="text-gray-700 font-medium">Noch keine Behandlungen erfasst</p>
+        <p className="text-gray-700 font-medium">Noch keine Maßnahmen erfasst</p>
         <p className="text-s112-muted text-sm mt-1 mb-6">Erste Spritzung aufzeichnen</p>
         <Link href="/behandlungen/neu"
           className="inline-flex items-center gap-2 bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
-          ＋ Neue Behandlung
+          ＋ Neue Maßnahme
         </Link>
       </div>
     )

@@ -199,7 +199,7 @@ function PsmKarte({
           <p className="text-sm font-semibold text-blue-700 tabular-nums">
             –{psm.verbrauch_gesamt.toLocaleString('de-AT', { maximumFractionDigits: 3 })} {psm.einheit_behandlung ?? einheit}
           </p>
-          <p className="text-xs text-blue-600">Verbrauch (Behandlungen)</p>
+          <p className="text-xs text-blue-600">Verbrauch (Maßnahmen)</p>
         </div>
         <div className="bg-amber-50 rounded-lg p-2">
           <p className="text-sm font-semibold text-amber-700 tabular-nums">
@@ -268,7 +268,7 @@ function PsmKarte({
               {/* Verbrauch-Zeile (read-only, aus Behandlungen) */}
               {psm.verbrauch_gesamt > 0 && (
                 <tr className="border-b border-s112-border/40 last:border-0 bg-blue-50/30">
-                  <td className="px-3 py-2 tabular-nums text-s112-muted text-xs">aus Behandlungen</td>
+                  <td className="px-3 py-2 tabular-nums text-s112-muted text-xs">aus Maßnahmen</td>
                   <td className="px-3 py-2">
                     <span className="text-xs px-2 py-0.5 rounded-full border bg-blue-50 text-blue-700 border-blue-200 font-medium">
                       Verbrauch (berechnet)
@@ -327,7 +327,7 @@ export default function LagerClient({
           <p className="font-medium text-gray-600">Noch keine Lagerbewegungen</p>
           <p className="text-sm mt-1 max-w-sm mx-auto">
             Erfasse den Anfangsbestand oder einen Einkauf für ein Pflanzenschutzmittel.
-            Der Verbrauch wird automatisch aus den Behandlungen berechnet.
+            Der Verbrauch wird automatisch aus den Maßnahmen berechnet.
           </p>
         </div>
       ) : (

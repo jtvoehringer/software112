@@ -10,9 +10,9 @@ const KAPITEL: Kapitel[] = [
   {
     id: 'weingarten', icon: '🌿', titel: 'Rieden',
     abschnitte: [
-      { titel: 'Rieden anlegen', inhalt: 'Navigiere zu Rieden > Neue Ried. Pflichtfelder: Name, Rebsorte, Fläche (ha), Gemeinde/Lage. Die Ried erscheint in allen Behandlungs- und Erntemasken.' },
-      { titel: 'Behandlung erfassen', inhalt: 'Unter Rieden > Behandlungen > Neue Behandlung: Datum, Ried, PSM-Mittel und Aufwandmenge eintragen. Das System berechnet automatisch den frühesten Erntetermin nach Wartezeit.' },
-      { titel: 'PSM-Lager', inhalt: 'Unter Behandlungen > PSM-Lager pflegst du Anfangsbestand und Einkäufe. Das Lager wird bei jeder Behandlung automatisch reduziert. Inventurkorrekturen sind jederzeit möglich.' },
+      { titel: 'Rieden anlegen', inhalt: 'Navigiere zu Rieden > Neue Ried. Pflichtfelder: Name, Rebsorte, Fläche (ha), Gemeinde/Lage. Die Ried erscheint in allen Maßnahmen- und Erntemasken.' },
+      { titel: 'Maßnahme erfassen', inhalt: 'Unter Rieden > Maßnahmen > Neue Maßnahme: Datum, Ried, PSM-Mittel und Aufwandmenge eintragen. Das System berechnet automatisch den frühesten Erntetermin nach Wartezeit.' },
+      { titel: 'PSM-Lager', inhalt: 'Unter Rieden > PSM-Lager pflegst du Anfangsbestand und Einkäufe (Tab „Bestand & Bewegungen") sowie die Pflanzenschutzmittel-Stammdaten (Tab „Stammdaten"). Das Lager wird bei jeder Maßnahme automatisch reduziert. Inventurkorrekturen sind jederzeit möglich.' },
       { titel: 'Lese erfassen', inhalt: 'Unter Rieden > Lese wählst du den Jahrgang und trägst Datum, Ried, Menge (kg + hl) und Grad KMW ein. Diese Daten bilden die Basis für die AMA-Erntemeldung.' },
     ],
   },

@@ -33,9 +33,8 @@ const NAV: NavEntry[] = [
     kind: 'group', label: 'Rieden', icon: '🌿',
     items: [
       { href: '/weingarten',         label: 'Rieden',         phase: 1 },
-      { href: '/pflanzenschutz',     label: 'PSM-Stammdaten', phase: 1 },
-      { href: '/behandlungen',       label: 'Behandlungen',   phase: 1 },
-      { href: '/behandlungen/lager', label: 'PSM-Lager',      phase: 1, child: true },
+      { href: '/behandlungen',       label: 'Maßnahmen',      phase: 1 },
+      { href: '/behandlungen/lager', label: 'PSM-Lager',      phase: 1 },
       { href: '/erntemeldung',       label: 'Lese',           phase: 1 },
     ],
   },

@@ -378,7 +378,7 @@ export default function NeueBehandlungForm({
       <div className="flex gap-3">
         <button type="submit" disabled={pending || selectedWGs.size === 0}
           className="bg-s112-teal text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
-          {pending ? 'Speichert…' : `Behandlung erfassen (${selectedWGs.size} Ried/Rieden)`}
+          {pending ? 'Speichert…' : `Maßnahme erfassen (${selectedWGs.size} Ried/Rieden)`}
         </button>
         <a href="/behandlungen" className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-800">
           Abbrechen

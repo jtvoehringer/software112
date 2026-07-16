@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import NeueBehandlungForm from './NeueBehandlungForm'
 
-export const metadata: Metadata = { title: 'Neue Behandlung – software:112' }
+export const metadata: Metadata = { title: 'Neue Maßnahme – software:112' }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -80,11 +80,11 @@ export default async function NeueBehandlungPage() {
   return (
     <div className="max-w-2xl">
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-6">
-        <a href="/behandlungen" className="hover:text-s112-teal transition-colors">Behandlungen</a>
+        <a href="/behandlungen" className="hover:text-s112-teal transition-colors">Maßnahmen</a>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Neue Behandlung</span>
+        <span className="text-gray-700 font-medium">Neue Maßnahme</span>
       </div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Neue Behandlung erfassen</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">Neue Maßnahme erfassen</h1>
       <NeueBehandlungForm psm={psm} weingaerten={weingaerten} />
     </div>
   )

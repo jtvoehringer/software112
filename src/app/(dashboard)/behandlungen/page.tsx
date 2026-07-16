@@ -4,7 +4,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import BehandlungenClient from './BehandlungenClient'
 
-export const metadata: Metadata = { title: 'Behandlungen – software:112' }
+export const metadata: Metadata = { title: 'Maßnahmen – software:112' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -107,7 +107,7 @@ export default async function BehandlungenPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Behandlungen</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Maßnahmen</h1>
           <p className="text-sm text-s112-muted mt-0.5">Pflanzenschutz-Protokoll</p>
         </div>
         <div className="flex items-center gap-2">
@@ -122,7 +122,7 @@ export default async function BehandlungenPage() {
               href="/behandlungen/neu"
               className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
             >
-              <span>＋</span> Neue Behandlung
+              <span>＋</span> Neue Maßnahme
             </Link>
           )}
         </div>
@@ -132,7 +132,7 @@ export default async function BehandlungenPage() {
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="card text-center">
           <p className="text-3xl font-bold text-s112-teal">{behandlungen.length}</p>
-          <p className="text-xs text-s112-muted mt-1">Behandlungen gesamt</p>
+          <p className="text-xs text-s112-muted mt-1">Maßnahmen gesamt</p>
         </div>
         <div className="card text-center">
           <p className="text-3xl font-bold text-s112-teal">{letzten30}</p>

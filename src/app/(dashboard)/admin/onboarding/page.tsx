@@ -34,7 +34,7 @@ const ONBOARDING_SCHRITTE: Gruppe[] = [
   {
     gruppe: 'Grunddaten erfassen', icon: '📋',
     schritte: [
-      { id: 's8', pflicht: true, titel: 'PSM-Stammdaten eintragen', beschreibung: 'Weingarten > PSM-Stammdaten: Die häufigsten Pflanzenschutzmittel anlegen (Name, Handelsnamen, Wirkstoff, Wartezeit, Cu-Gehalt, Öko-Zulassung).', link: '/pflanzenschutz', linkLabel: 'PSM öffnen' },
+      { id: 's8', pflicht: true, titel: 'PSM-Stammdaten eintragen', beschreibung: 'Rieden > PSM-Lager > Tab „Stammdaten": Die häufigsten Pflanzenschutzmittel anlegen (Name, Handelsnamen, Wirkstoff, Wartezeit, Cu-Gehalt, Öko-Zulassung).', link: '/behandlungen/lager?tab=stammdaten', linkLabel: 'PSM-Lager öffnen' },
       { id: 's9', pflicht: true, titel: 'Rieden anlegen', beschreibung: 'Rieden > Neue Ried: alle Parzellen anlegen.', link: '/weingarten', linkLabel: 'Rieden öffnen' },
       { id: 's10', pflicht: true, titel: 'Behälter anlegen', beschreibung: 'Kellerbuch > Vinifizierung > Neuer Behälter: alle Tanks und Fässer anlegen (Typ, Volumen). Basis für Kellerplan und Umzug-Modul.', link: '/kellerbuch', linkLabel: 'Kellerbuch öffnen' },
       { id: 's11', pflicht: false, titel: 'Jahrgang anlegen', beschreibung: 'Kellerbuch > Vinifizierung: ersten Weinausbau-Jahrgang anlegen. Oder warte bis nach der nächsten Lese und starte mit der Erntemeldung.', link: '/kellerbuch', linkLabel: 'Kellerbuch öffnen' },
@@ -81,7 +81,7 @@ const ONBOARDING_SCHRITTE: Gruppe[] = [
     gruppe: 'Abnahme', icon: '✅',
     schritte: [
       { id: 's17', pflicht: true, titel: 'Testverkauf durchführen', beschreibung: 'Warenwirtschaft > Verkauf > Neuer Verkauf: Einen kompletten Verkauf anlegen, Rechnung drucken, als bezahlt markieren. Prüfen ob Bestand korrekt reduziert wird.', link: '/weinhandel/verkauf/neu', linkLabel: 'Neuer Verkauf' },
-      { id: 's18', pflicht: true, titel: 'Behandlung + Bericht testen', beschreibung: 'Behandlung erfassen, dann Auswertungen > Behörden > Behandlungsprotokoll öffnen und prüfen ob der Eintrag erscheint.', link: '/auswertungen', linkLabel: 'Auswertungen öffnen' },
+      { id: 's18', pflicht: true, titel: 'Maßnahme + Bericht testen', beschreibung: 'Maßnahme erfassen, dann Auswertungen > Behörden > Behandlungsprotokoll öffnen und prüfen ob der Eintrag erscheint.', link: '/auswertungen', linkLabel: 'Auswertungen öffnen' },
       { id: 's19', pflicht: false, titel: 'Handbuch + FAQ prüfen', beschreibung: 'Unter Hilfe > Handbuch und Hilfe > FAQ prüfen ob die wichtigsten Informationen für den neuen Mandanten vorhanden sind.', link: '/hilfe/handbuch', linkLabel: 'Handbuch öffnen' },
     ],
   },

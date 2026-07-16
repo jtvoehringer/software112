@@ -149,7 +149,7 @@ export default function PSMClient({
   const [pending, startTransition] = useTransition()
 
   function handleDeactivate(id: string) {
-    if (!confirm('Mittel deaktivieren? Es bleibt in bestehenden Behandlungen erhalten.')) return
+    if (!confirm('Mittel deaktivieren? Es bleibt in bestehenden Maßnahmen erhalten.')) return
     startTransition(() => deactivatePSM(id))
   }
 
