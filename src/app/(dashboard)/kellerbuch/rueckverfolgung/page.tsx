@@ -34,7 +34,7 @@ async function ladeChargeKette(supabase: Awaited<ReturnType<typeof createSupabas
   const [waRes, prRes, beRes, anRes, umRes] = await Promise.all([
     // Weinausbau-Charge
     (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, rebsorte, status, qualitaet, behaelter_id, behaelter:behaelter_id(name, typ, volumen_liter)')
+      .select('id, name, jahrgang, rebsorte, status, qualitaetsstufe, behaelter_id, behaelter:behaelter_id(name, typ, volumen_liter)')
       .eq('id', wId)
       .single(),
 
@@ -64,11 +64,11 @@ async function ladeChargeKette(supabase: Awaited<ReturnType<typeof createSupabas
       .eq('weinausbau_id', wId)
       .order('datum', { ascending: true }),
 
-    // Analysen der Charge
-    (supabase.from('analysen') as any)
-      .select('datum, parameter, wert, einheit, methode, labor, notizen')
+    // Analysen der Charge (Tabelle heißt weinanalysen, ein Datensatz pro Analyse-Termin)
+    (supabase.from('weinanalysen') as any)
+      .select('analyse_datum, labor, probe_nr, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl, bewertung, notizen')
       .eq('weinausbau_id', wId)
-      .order('datum', { ascending: true }),
+      .order('analyse_datum', { ascending: true }),
 
     // Umzüge (Behälter-Verlauf) – 'quelle'-Zeilen des n:n-Formats
     (supabase.from('keller_umzuege') as any)
@@ -148,13 +148,19 @@ function ChargeKette({
         <InfoRow label="Charge" value={weinausbau.name} />
         <InfoRow label="Jahrgang" value={weinausbau.jahrgang} />
         <InfoRow label="Rebsorte" value={weinausbau.rebsorte} />
-        <InfoRow label="Qualität" value={weinausbau.qualitaet} />
+        <InfoRow label="Qualität" value={weinausbau.qualitaetsstufe} />
         <InfoRow label="Status" value={weinausbau.status} />
         <InfoRow label="Behälter" value={(weinausbau.behaelter as R | null)?.name} />
         {anteilLiter != null && (
           <InfoRow label="Anteil dieser Charge"
             value={`${anteilLiter.toLocaleString('de-AT', { minimumFractionDigits: 2 })} L`} />
         )}
+        <Link
+          href={`/kellerbuch/weinausbau/${weinausbau.id}/buch`}
+          className="inline-flex items-center gap-1 text-xs text-s112-teal hover:underline pt-1"
+        >
+          📖 Weinbuch dieser Charge öffnen
+        </Link>
       </Section>
 
       {/* Behälter-Verlauf */}
@@ -245,21 +251,29 @@ function ChargeKette({
               <thead>
                 <tr className="border-b border-s112-border/50">
                   <th className="text-left px-2 py-1.5 text-xs font-medium text-gray-500">Datum</th>
-                  <th className="text-left px-2 py-1.5 text-xs font-medium text-gray-500">Parameter</th>
-                  <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500">Wert</th>
-                  <th className="text-left px-2 py-1.5 text-xs font-medium text-gray-500">Einheit</th>
+                  <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500">Alkohol</th>
+                  <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500">Restzucker</th>
+                  <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500">Gesamtsäure</th>
+                  <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500">pH</th>
+                  <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500">Flücht. Säure</th>
+                  <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500">SO₂ frei</th>
+                  <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500">SO₂ gesamt</th>
                   <th className="text-left px-2 py-1.5 text-xs font-medium text-gray-500">Labor</th>
                 </tr>
               </thead>
               <tbody>
                 {analysen.map((a: R, i: number) => (
                   <tr key={i} className="border-b border-s112-border/30 last:border-0">
-                    <td className="px-2 py-1.5 text-xs text-s112-muted tabular-nums">
-                      {new Date(a.datum).toLocaleDateString('de-AT')}
+                    <td className="px-2 py-1.5 text-xs text-s112-muted tabular-nums whitespace-nowrap">
+                      {new Date(a.analyse_datum).toLocaleDateString('de-AT')}
                     </td>
-                    <td className="px-2 py-1.5 font-medium text-gray-800">{a.parameter}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums">{a.wert}</td>
-                    <td className="px-2 py-1.5 text-s112-muted">{a.einheit}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">{a.alkohol_vol != null ? `${a.alkohol_vol} % vol` : '–'}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">{a.restzucker_gl != null ? `${a.restzucker_gl} g/l` : '–'}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">{a.gesamtsaeure_gl != null ? `${a.gesamtsaeure_gl} g/l` : '–'}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">{a.ph_wert ?? '–'}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">{a['flüchtige_saeure_gl'] != null ? `${a['flüchtige_saeure_gl']} g/l` : '–'}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">{a.freie_so2_mgl != null ? `${a.freie_so2_mgl} mg/l` : '–'}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">{a.gesamt_so2_mgl != null ? `${a.gesamt_so2_mgl} mg/l` : '–'}</td>
                     <td className="px-2 py-1.5 text-s112-muted text-xs">{a.labor ?? '–'}</td>
                   </tr>
                 ))}
@@ -299,9 +313,9 @@ function ChargeKette({
 export default async function RueckverfolgungPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>
+  searchParams: Promise<{ q?: string; fuellung_id?: string }>
 }) {
-  const { q } = await searchParams
+  const { q, fuellung_id } = await searchParams
   const supabase = await createSupabaseServerClient()
 
   // ── Autocomplete-Vorschläge ──────────────────────────────────────────────
@@ -316,11 +330,23 @@ export default async function RueckverfolgungPage({
     if (row.name)          autocompleteOptions.push(row.name)
   }
 
-  // ── Suche nach Chargennummer oder Prüfnummer ─────────────────────────────
+  // ── Direkteinstieg per Fuellung-ID (z.B. Klick aus Warenwirtschaft/Lager) ──
+  // ── oder Suche nach Chargennummer/Prüfnummer/Produktname ─────────────────
   let fuellung: R | null = null
   let suchFehler: string | null = null
 
-  if (q?.trim()) {
+  if (fuellung_id?.trim()) {
+    const { data, error } = await (supabase.from('fuellungen') as any)
+      .select('*')
+      .eq('id', fuellung_id.trim())
+      .single()
+
+    if (error || !data) {
+      suchFehler = 'Füllung nicht gefunden.'
+    } else {
+      fuellung = data as R
+    }
+  } else if (q?.trim()) {
     const qTrim = q.trim()
     const { data, error } = await (supabase.from('fuellungen') as any)
       .select('*')
@@ -401,7 +427,7 @@ export default async function RueckverfolgungPage({
       <form method="get" className="flex gap-2">
         <input
           name="q"
-          defaultValue={q ?? ''}
+          defaultValue={q ?? fuellung?.chargennummer ?? ''}
           list="rueckverfolgung-vorschlaege"
           placeholder="Chargennummer z.B. CH-2025-001 oder Prüfnummer"
           className="flex-1 border border-s112-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
@@ -473,7 +499,7 @@ export default async function RueckverfolgungPage({
         </div>
       )}
 
-      {!q && (
+      {!q && !fuellung_id && (
         <div className="card p-8 text-center text-s112-muted">
           <p className="text-3xl mb-3">🔍</p>
           <p className="text-sm">Chargennummer oder Prüfnummer eingeben um die vollständige Herkunftskette anzuzeigen.</p>

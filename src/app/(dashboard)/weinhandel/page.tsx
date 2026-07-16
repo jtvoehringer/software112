@@ -158,9 +158,14 @@ export default async function WeinhandelPage() {
                     <tr key={f.id}
                       className={`border-b border-s112-border last:border-0 hover:bg-s112-bg/50 transition-colors ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
                       <td className="px-4 py-3">
-                        <div className="font-medium text-gray-900">
+                        <Link
+                          href={`/kellerbuch/rueckverfolgung?fuellung_id=${f.id}`}
+                          title="Rückverfolgung anzeigen (Weinbuch, Analysen, Prüfnummer, Herkunft)"
+                          className="font-medium text-gray-900 hover:text-s112-teal hover:underline transition-colors inline-flex items-center gap-1.5"
+                        >
                           {f.name}{f.bezeichnung ? ` – ${f.bezeichnung}` : ''}
-                        </div>
+                          <span className="text-xs">🔍</span>
+                        </Link>
                         <div className="text-xs text-s112-muted mt-0.5 flex gap-2">
                           {f.jahrgang    && <span>{f.jahrgang}</span>}
                           {f.rebsorte    && <span>{f.rebsorte}</span>}
