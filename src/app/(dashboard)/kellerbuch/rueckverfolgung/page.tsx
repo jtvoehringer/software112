@@ -8,6 +8,15 @@ export const dynamic = 'force-dynamic'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
+const ART_LABELS: Record<string, string> = {
+  spritzung:        '💧 Spritzung',
+  duengung:         '🌿 Düngung',
+  bodenbearbeitung: '🪱 Bodenbearbeitung',
+  schnitt:          '✂️ Schnitt',
+  laubarbeit:       '🍃 Laubarbeit',
+  sonstiges:        '📋 Sonstiges',
+}
+
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   if (!value && value !== 0) return null
   return (
@@ -31,7 +40,7 @@ function Section({ title, icon, children }: { title: string; icon: string; child
 
 // ── Hilfsfunktion: vollständige Kette für eine Weinausbau-Charge laden ───────
 async function ladeChargeKette(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, wId: string) {
-  const [waRes, prRes, beRes, anRes, umRes] = await Promise.all([
+  const [waRes, prRes, anRes, umRes] = await Promise.all([
     // Weinausbau-Charge
     (supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, status, qualitaetsstufe, behaelter_id, behaelter:behaelter_id(name, typ, volumen_liter)')
@@ -46,23 +55,12 @@ async function ladeChargeKette(supabase: Awaited<ReturnType<typeof createSupabas
           id, datum, most_liter_gesamt, jahrgang:jahrgang_id(jahrgang),
           pressung_weingaerten(
             trauben_kg, rebsorte, ernte_datum, kmw,
-            weingarten:weingarten_id(
-              id, name, flaeche_ha,
-              grundstueck:grundstueck_id(name, katastralgemeinde, grundstuecksnummer)
-            )
+            weingarten:weingarten_id(id, name, flaeche_ha),
+            grundstueck:grundstueck_id(gst_nr, katastralgemeinde)
           )
         )
       `)
       .eq('weinausbau_id', wId),
-
-    // Behandlungen auf Weingärten dieser Charge
-    (supabase.from('behandlungen') as any)
-      .select(`
-        datum, art, mittel, menge, einheit, flaeche_ha, notizen,
-        grundstueck:grundstueck_id(name, katastralgemeinde)
-      `)
-      .eq('weinausbau_id', wId)
-      .order('datum', { ascending: true }),
 
     // Analysen der Charge (Tabelle heißt weinanalysen, ein Datensatz pro Analyse-Termin)
     (supabase.from('weinanalysen') as any)
@@ -83,9 +81,61 @@ async function ladeChargeKette(supabase: Awaited<ReturnType<typeof createSupabas
 
   const weinausbau = waRes.data as R | null
   const pressungen = (prRes.data ?? []) as R[]
-  const behandlungen = (beRes.data ?? []) as R[]
   const analysen = (anRes.data ?? []) as R[]
   const umzuegeRaw = (umRes.data ?? []) as R[]
+
+  // ── Behandlungen für die Weingärten dieser Charge ────────────────────────
+  // Behandlungen hängen NICHT direkt an der Weinausbau-Charge, sondern über
+  // die Junction-Tabelle behandlung_grundstuecke an einzelnen Grundstücken.
+  // Weg: Weingarten-IDs aus den Pressungen sammeln → zugehörige Grundstücke
+  // laden → darüber behandlung_grundstuecke + behandlungen joinen.
+  const weingartenIds = new Set<string>()
+  for (const pb of pressungen) {
+    const wgListe = ((pb.pressung as R | null)?.pressung_weingaerten ?? []) as R[]
+    for (const wg of wgListe) {
+      const w = wg.weingarten as R | null
+      if (w?.id) weingartenIds.add(w.id)
+    }
+  }
+
+  let behandlungen: R[] = []
+  if (weingartenIds.size > 0) {
+    const { data: grundstueckeRows } = await (supabase.from('grundstuecke') as any)
+      .select('id')
+      .in('weingarten_id', Array.from(weingartenIds))
+    const grundstueckIds = ((grundstueckeRows ?? []) as R[]).map(g => g.id)
+
+    if (grundstueckIds.length > 0) {
+      const { data: bgRows } = await (supabase.from('behandlung_grundstuecke') as any)
+        .select(`
+          flaeche_ha,
+          grundstueck:grundstueck_id(gst_nr, weingarten:weingarten_id(name)),
+          behandlung:behandlung_id(
+            id, datum, art, aufwandmenge, aufwandmenge_einheit, schaderreger, witterung, notizen,
+            psm:psm_id(name, handelsname)
+          )
+        `)
+        .in('grundstueck_id', grundstueckIds)
+
+      // Nach Behandlung dedupliziert gruppieren (eine Behandlung betrifft oft mehrere Grundstücke)
+      const byBehandlung = new Map<string, R>()
+      for (const row of ((bgRows ?? []) as R[])) {
+        const b = row.behandlung as R | null
+        if (!b) continue
+        const g = row.grundstueck as R | null
+        const label = `${(g?.weingarten as R | null)?.name ?? '?'} · GST ${g?.gst_nr ?? '?'}`
+        const existing = byBehandlung.get(b.id)
+        if (existing) {
+          existing.grundstuecke.push(label)
+          existing.flaeche_ha_summe += Number(row.flaeche_ha ?? 0)
+        } else {
+          byBehandlung.set(b.id, { ...b, grundstuecke: [label], flaeche_ha_summe: Number(row.flaeche_ha ?? 0) })
+        }
+      }
+      behandlungen = Array.from(byBehandlung.values())
+        .sort((a, b) => new Date(a.datum).getTime() - new Date(b.datum).getTime())
+    }
+  }
 
   // Sekundäre Abfrage: für 'quelle'-Zeilen den Ziel-Behälter holen
   const quelleBatchIds = [...new Set(
@@ -212,7 +262,7 @@ function ChargeKette({
                   <div className="ml-4 space-y-2">
                     {wgListe.map((wg: R, j: number) => {
                       const w = wg.weingarten as R | null
-                      const g = w?.grundstueck as R | null
+                      const g = wg.grundstueck as R | null
                       return (
                         <div key={j} className="bg-s112-bg rounded-lg p-3 space-y-1">
                           <div className="flex items-center gap-2">
@@ -223,7 +273,7 @@ function ChargeKette({
                           </div>
                           {g && (
                             <div className="text-xs text-s112-muted">
-                              {g.katastralgemeinde}{g.grundstuecksnummer ? ` · GNr. ${g.grundstuecksnummer}` : ''}
+                              {g.katastralgemeinde}{g.gst_nr ? ` · GST ${g.gst_nr}` : ''}
                             </div>
                           )}
                           <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-600">
@@ -287,22 +337,26 @@ function ChargeKette({
       {behandlungen.length > 0 && (
         <Section title="Behandlungen / PSM" icon="🧪">
           <div className="space-y-2">
-            {behandlungen.map((b: R, i: number) => (
-              <div key={i} className="flex items-start gap-3 text-sm border-b border-s112-border/30 last:border-0 pb-2 last:pb-0">
-                <span className="text-xs text-s112-muted tabular-nums w-20 shrink-0 pt-0.5">
-                  {new Date(b.datum).toLocaleDateString('de-AT')}
-                </span>
-                <div className="flex-1">
-                  <span className="font-medium text-gray-800">{b.mittel ?? b.art}</span>
-                  {b.mittel && b.art && <span className="text-xs text-s112-muted ml-1">({b.art})</span>}
-                  <div className="text-xs text-s112-muted">
-                    {(b.grundstueck as R | null)?.name}
-                    {b.menge ? ` · ${b.menge} ${b.einheit ?? ''}` : ''}
-                    {b.flaeche_ha ? ` · ${b.flaeche_ha} ha` : ''}
+            {behandlungen.map((b: R, i: number) => {
+              const psm = b.psm as R | null
+              return (
+                <div key={i} className="flex items-start gap-3 text-sm border-b border-s112-border/30 last:border-0 pb-2 last:pb-0">
+                  <span className="text-xs text-s112-muted tabular-nums w-20 shrink-0 pt-0.5">
+                    {new Date(b.datum).toLocaleDateString('de-AT')}
+                  </span>
+                  <div className="flex-1">
+                    <span className="font-medium text-gray-800">{psm?.name ?? ART_LABELS[b.art] ?? b.art}</span>
+                    <span className="text-xs text-s112-muted ml-1">({ART_LABELS[b.art] ?? b.art})</span>
+                    <div className="text-xs text-s112-muted">
+                      {(b.grundstuecke as string[]).join(', ')}
+                      {b.aufwandmenge ? ` · ${b.aufwandmenge} ${b.aufwandmenge_einheit ?? ''}` : ''}
+                      {b.flaeche_ha_summe ? ` · ${Number(b.flaeche_ha_summe).toLocaleString('de-AT')} ha` : ''}
+                    </div>
+                    {b.schaderreger && <div className="text-xs text-s112-muted">Grund: {b.schaderreger}</div>}
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </Section>
       )}
