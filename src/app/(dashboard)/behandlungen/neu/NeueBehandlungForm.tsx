@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { Fragment, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBehandlung } from '../actions'
-import type { PSM, WeingartenOption } from './page'
+import type { PSM, WeingartenOption, GSTOption } from './page'
 
 const BBCH_OPTIONS = [
   { value: '09', label: '09 – Knospenaufbruch' },
@@ -33,7 +33,6 @@ const ART_OPTIONS = [
   { value: 'bodenbearbeitung', label: '🪱 Bodenbearbeitung' },
   { value: 'schnitt',          label: '✂️ Schnitt' },
   { value: 'laubarbeit',       label: '🍃 Laubarbeit' },
-  { value: 'lese',             label: '🍇 Lese' },
   { value: 'sonstiges',        label: '📋 Sonstiges' },
 ]
 const MENGE_EINHEITEN = ['kg', 'l', 'g', 'ml']
@@ -43,14 +42,16 @@ function fmtHa(n: number) {
 }
 
 export default function NeueBehandlungForm({
-  psm, weingaerten,
+  psm, weingaerten, gstByWeingarten,
 }: {
-  psm: PSM[]; weingaerten: WeingartenOption[]
+  psm: PSM[]; weingaerten: WeingartenOption[]; gstByWeingarten: Record<string, GSTOption[]>
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [selectedPsmId, setSelectedPsmId] = useState('')
   const [selectedWGs, setSelectedWGs] = useState<Set<string>>(new Set())
+  const [selectedGSTs, setSelectedGSTs] = useState<Map<string, string>>(new Map())
+  const [expandedWGs, setExpandedWGs] = useState<Set<string>>(new Set())
   const [art, setArt] = useState('spritzung')
   const [mengeGesamt, setMengeGesamt] = useState<string>('')
   const [mengeEinheit, setMengeEinheit] = useState('kg')
@@ -59,10 +60,18 @@ export default function NeueBehandlungForm({
   // Gewähltes PSM
   const selectedPsm = psm.find(p => p.id === selectedPsmId)
 
-  // Gesamte aktive Fläche der ausgewählten Weingärten
-  const totalHaAktiv = weingaerten
-    .filter(w => selectedWGs.has(w.id))
-    .reduce((s, w) => s + w.gst_ha_aktiv, 0)
+  // Flache Lookup-Map für alle GST (id → GST-Objekt), für Flächenberechnung bei Einzelauswahl
+  const gstLookup = new Map<string, GSTOption>()
+  for (const gsts of Object.values(gstByWeingarten)) {
+    for (const g of gsts) gstLookup.set(g.id, g)
+  }
+
+  const totalSelCount = selectedWGs.size + selectedGSTs.size
+
+  // Gesamte aktive Fläche: ganze Rieden (gst_ha_aktiv) + einzeln gewählte GST
+  const totalHaAktiv =
+    weingaerten.filter(w => selectedWGs.has(w.id)).reduce((s, w) => s + w.gst_ha_aktiv, 0) +
+    Array.from(selectedGSTs.keys()).reduce((s, gstId) => s + (gstLookup.get(gstId)?.flaeche_ha ?? 0), 0)
 
   // Aufwand pro ha (live berechnet)
   const aufwandProHa = mengeGesamt && totalHaAktiv > 0
@@ -84,8 +93,18 @@ export default function NeueBehandlungForm({
   }
   const lagen = Array.from(lagenMap.entries()).sort(([a], [b]) => a.localeCompare(b, 'de'))
 
+  function toggleExpand(wgId: string) {
+    setExpandedWGs(prev => { const n = new Set(prev); n.has(wgId) ? n.delete(wgId) : n.add(wgId); return n })
+  }
+
   function toggleWG(id: string, spritzbar: boolean) {
     if (!spritzbar) return
+    // Ried komplett auswählen ersetzt eine etwaige Einzel-GST-Auswahl dieser Ried
+    setSelectedGSTs(prev => {
+      const n = new Map(prev)
+      for (const [gId, wId] of n) { if (wId === id) n.delete(gId) }
+      return n
+    })
     setSelectedWGs(prev => {
       const next = new Set(prev)
       next.has(id) ? next.delete(id) : next.add(id)
@@ -93,9 +112,25 @@ export default function NeueBehandlungForm({
     })
   }
 
+  function toggleGST(gstId: string, wgId: string) {
+    const wasSelected = selectedGSTs.has(gstId)
+    // Einzel-GST-Auswahl ersetzt eine etwaige Komplett-Auswahl der Ried
+    setSelectedWGs(prev => { const n = new Set(prev); n.delete(wgId); return n })
+    setSelectedGSTs(prev => {
+      const n = new Map(prev)
+      wasSelected ? n.delete(gstId) : n.set(gstId, wgId)
+      return n
+    })
+  }
+
   function toggleLage(wgs: WeingartenOption[]) {
     const spritzbare = wgs.filter(w => w.spritzbar).map(w => w.id)
-    const allSelected = spritzbare.every(id => selectedWGs.has(id))
+    const allSelected = spritzbare.length > 0 && spritzbare.every(id => selectedWGs.has(id))
+    setSelectedGSTs(prev => {
+      const n = new Map(prev)
+      for (const [gId, wId] of n) { if (spritzbare.includes(wId)) n.delete(gId) }
+      return n
+    })
     setSelectedWGs(prev => {
       const next = new Set(prev)
       if (allSelected) {
@@ -107,12 +142,18 @@ export default function NeueBehandlungForm({
     })
   }
 
+  function selectAll() {
+    setSelectedGSTs(new Map())
+    setSelectedWGs(new Set(weingaerten.filter(w => w.spritzbar).map(w => w.id)))
+  }
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
-    if (selectedWGs.size === 0) { setError('Bitte mindestens eine Ried auswählen.'); return }
+    if (totalSelCount === 0) { setError('Bitte mindestens eine Ried oder ein Grundstück auswählen.'); return }
     const fd = new FormData(e.currentTarget)
     selectedWGs.forEach(id => fd.append('weingarten_ids', id))
+    selectedGSTs.forEach((_wgId, gstId) => fd.append('grundstueck_ids', gstId))
     startTransition(async () => {
       try {
         await createBehandlung(fd)
@@ -279,19 +320,19 @@ export default function NeueBehandlungForm({
         </div>
       </div>
 
-      {/* Weingarten-Auswahl */}
+      {/* Ried(en)-Auswahl */}
       <div className="card">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-semibold text-gray-800">
-            Weingärten auswählen
-            {selectedWGs.size > 0 && (
+            Ried(en) auswählen
+            {totalSelCount > 0 && (
               <span className="ml-2 text-sm text-s112-teal font-normal">
-                {selectedWGs.size} ausgewählt · {fmtHa(totalHaAktiv)}
+                {totalSelCount} ausgewählt · {fmtHa(totalHaAktiv)}
               </span>
             )}
           </h2>
           <button type="button"
-            onClick={() => setSelectedWGs(new Set(weingaerten.filter(w => w.spritzbar).map(w => w.id)))}
+            onClick={selectAll}
             className="text-xs text-s112-teal hover:underline">
             Alle auswählen
           </button>
@@ -301,8 +342,12 @@ export default function NeueBehandlungForm({
           {lagen.map(([lageName, wgs]) => {
             const spritzbare = wgs.filter(w => w.spritzbar)
             const allSelected = spritzbare.length > 0 && spritzbare.every(w => selectedWGs.has(w.id))
-            const someSelected = spritzbare.some(w => selectedWGs.has(w.id))
-            const lageHa = spritzbare.filter(w => selectedWGs.has(w.id)).reduce((s, w) => s + w.gst_ha_aktiv, 0)
+            const someSelected = spritzbare.some(w => selectedWGs.has(w.id) || [...selectedGSTs.values()].includes(w.id))
+            const lageHa = spritzbare.reduce((s, w) => {
+              if (selectedWGs.has(w.id)) return s + w.gst_ha_aktiv
+              const gsts = gstByWeingarten[w.id] ?? []
+              return s + gsts.filter(g => selectedGSTs.has(g.id)).reduce((s2, g) => s2 + (g.flaeche_ha ?? 0), 0)
+            }, 0)
 
             return (
               <div key={lageName} className="border border-s112-border rounded-xl overflow-hidden">
@@ -324,34 +369,79 @@ export default function NeueBehandlungForm({
                     <span className="ml-auto text-xs text-s112-teal">{fmtHa(lageHa)}</span>
                   )}
                 </div>
-                {/* Weingärten */}
+                {/* Rieden mit GST-Feinauswahl */}
                 <div className="divide-y divide-s112-border/40">
-                  {wgs.map(w => (
-                    <label
-                      key={w.id}
-                      className={`flex items-center gap-3 px-4 py-2 text-sm transition-colors
-                        ${w.spritzbar ? 'cursor-pointer hover:bg-s112-bg/40' : 'opacity-40 cursor-not-allowed bg-gray-50'}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedWGs.has(w.id)}
-                        onChange={() => toggleWG(w.id, w.spritzbar)}
-                        disabled={!w.spritzbar}
-                        className="accent-s112-teal"
-                      />
-                      <span className={`font-medium ${selectedWGs.has(w.id) ? 'text-s112-teal' : 'text-gray-800'}`}>
-                        {w.name}
-                      </span>
-                      {w.gst_ha_aktiv > 0 && (
-                        <span className="text-xs text-s112-muted">{fmtHa(w.gst_ha_aktiv)}</span>
-                      )}
-                      {!w.spritzbar && (
-                        <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full ml-auto">
-                          Brache / Gerodet
-                        </span>
-                      )}
-                    </label>
-                  ))}
+                  {wgs.map(w => {
+                    const gsts = gstByWeingarten[w.id] ?? []
+                    const isExpanded = expandedWGs.has(w.id)
+                    const wgSel = selectedWGs.has(w.id)
+                    const gstSelCount = gsts.filter(g => selectedGSTs.has(g.id)).length
+                    const someGstSel = gstSelCount > 0
+                    const allGstSel = gsts.length > 0 && gstSelCount === gsts.length
+                    const isActive = wgSel || someGstSel
+
+                    return (
+                      <div key={w.id} className={!w.spritzbar ? 'bg-gray-50' : ''}>
+                        <div className={`flex items-center gap-3 px-4 py-2 text-sm transition-colors
+                          ${w.spritzbar ? 'hover:bg-s112-bg/40' : 'opacity-40'}`}>
+                          <input
+                            type="checkbox"
+                            checked={wgSel || allGstSel}
+                            ref={el => { if (el) el.indeterminate = someGstSel && !allGstSel && !wgSel }}
+                            onChange={() => toggleWG(w.id, w.spritzbar)}
+                            disabled={!w.spritzbar}
+                            className="accent-s112-teal cursor-pointer"
+                          />
+                          {gsts.length > 0 ? (
+                            <button type="button" onClick={() => toggleExpand(w.id)}
+                              className="flex items-center gap-1.5 flex-1 text-left"
+                              disabled={!w.spritzbar}>
+                              <svg className={`w-3 h-3 text-s112-muted transition-transform shrink-0 ${isExpanded ? 'rotate-90' : ''}`}
+                                fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                              <span className={`font-medium ${isActive ? 'text-s112-teal' : 'text-gray-800'}`}>{w.name}</span>
+                              <span className="text-xs text-s112-muted">{gsts.length} GST</span>
+                              {w.gst_ha_aktiv > 0 && (
+                                <span className="text-xs text-s112-muted ml-auto">{fmtHa(w.gst_ha_aktiv)}</span>
+                              )}
+                            </button>
+                          ) : (
+                            <span className={`font-medium flex-1 ${isActive ? 'text-s112-teal' : 'text-gray-800'}`}>
+                              {w.name}
+                            </span>
+                          )}
+                          {!w.spritzbar && (
+                            <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">
+                              Brache / Gerodet
+                            </span>
+                          )}
+                        </div>
+                        {isExpanded && gsts.length > 0 && w.spritzbar && (
+                          <div className="bg-white border-t border-s112-border/20">
+                            {gsts.map(g => {
+                              const isGstSel = selectedGSTs.has(g.id)
+                              return (
+                                <Fragment key={g.id}>
+                                  <label className={`flex items-center gap-2 pl-10 pr-4 py-1.5 text-xs cursor-pointer hover:bg-s112-bg/30 ${isGstSel ? 'bg-s112-teal/5' : ''}`}>
+                                    <input type="checkbox"
+                                      checked={isGstSel}
+                                      onChange={() => toggleGST(g.id, w.id)}
+                                      className="accent-s112-teal" />
+                                    <span className={`font-mono ${isGstSel ? 'text-s112-teal font-medium' : 'text-gray-600'}`}>
+                                      GST {g.gst_nr}
+                                    </span>
+                                    {g.rebsorte && <span className="text-s112-muted">· {g.rebsorte}</span>}
+                                    {g.flaeche_ha != null && <span className="text-s112-muted ml-auto">{fmtHa(g.flaeche_ha)}</span>}
+                                  </label>
+                                </Fragment>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )
@@ -359,9 +449,10 @@ export default function NeueBehandlungForm({
         </div>
 
         {/* Zusammenfassung */}
-        {selectedWGs.size > 0 && (
+        {totalSelCount > 0 && (
           <div className="mt-3 bg-s112-teal/5 border border-s112-teal/20 rounded-xl px-4 py-2.5 text-sm text-gray-700">
-            <span className="font-semibold text-s112-teal">{selectedWGs.size}</span> Ried/Rieden ·{' '}
+            <span className="font-semibold text-s112-teal">{selectedWGs.size}</span> Ried/Rieden
+            {selectedGSTs.size > 0 && <> · <span className="font-semibold text-s112-teal">{selectedGSTs.size}</span> GST</>} ·{' '}
             <span className="font-semibold">{fmtHa(totalHaAktiv)}</span> aktive Fläche
             {aufwandProHa && <> · <span className="text-gray-500">≈ {aufwandProHa}</span></>}
             {cuBeitragG && <> · <span className="text-blue-600 font-medium">Cu: {cuBeitragG}</span></>}
@@ -376,9 +467,9 @@ export default function NeueBehandlungForm({
       )}
 
       <div className="flex gap-3">
-        <button type="submit" disabled={pending || selectedWGs.size === 0}
+        <button type="submit" disabled={pending || totalSelCount === 0}
           className="bg-s112-teal text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
-          {pending ? 'Speichert…' : `Maßnahme erfassen (${selectedWGs.size} Ried/Rieden)`}
+          {pending ? 'Speichert…' : `Maßnahme erfassen (${totalSelCount} ausgewählt)`}
         </button>
         <a href="/behandlungen" className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-800">
           Abbrechen

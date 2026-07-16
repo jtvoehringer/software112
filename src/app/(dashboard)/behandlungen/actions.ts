@@ -26,9 +26,12 @@ export async function createBehandlung(formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
 
-  // Weingarten-IDs aus Checkboxen
+  // Weingarten-IDs (ganze Rieden) und Grundstück-IDs (einzelne GST) aus Checkboxen
   const weingartenIds = formData.getAll('weingarten_ids') as string[]
-  if (weingartenIds.length === 0) throw new Error('Mindestens einen Weingarten auswählen')
+  const grundstueckIds = formData.getAll('grundstueck_ids') as string[]
+  if (weingartenIds.length === 0 && grundstueckIds.length === 0) {
+    throw new Error('Mindestens eine Ried oder ein Grundstück auswählen')
+  }
 
   const datum           = formData.get('datum') as string
   const datumBis        = (formData.get('datum_bis') as string) || null
@@ -83,19 +86,39 @@ export async function createBehandlung(formData: FormData) {
   if (behErr) throw new Error((behErr as AR).message)
   const behandlungId = (beh as AR).id
 
-  // 2. Aktive Grundstücke der ausgewählten Weingärten holen (mit flaeche_ha)
+  // 2. Betroffene Grundstücke ermitteln:
+  //    a) alle aktiven Grundstücke der ganz ausgewählten Weingärten (Ried-Auswahl)
+  //    b) die einzeln ausgewählten Grundstücke (GST-Feinauswahl)
   //    Brache + Gerodet werden automatisch übersprungen
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: grundstuecke, error: gErr } = await (supabase.from('grundstuecke') as any)
-    .select('id, flaeche_ha')
-    .in('weingarten_id', weingartenIds)
-    .eq('status', 'aktiv')
+  const grundstueckeById = new Map<string, { id: string; flaeche_ha: number | null }>()
 
-  if (gErr) throw new Error((gErr as AR).message)
+  if (weingartenIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: gVonRieden, error: gErr } = await (supabase.from('grundstuecke') as any)
+      .select('id, flaeche_ha')
+      .in('weingarten_id', weingartenIds)
+      .eq('status', 'aktiv')
+    if (gErr) throw new Error((gErr as AR).message)
+    for (const g of ((gVonRieden ?? []) as AR[])) {
+      grundstueckeById.set(g.id, { id: g.id, flaeche_ha: g.flaeche_ha ?? null })
+    }
+  }
 
-  // 3. Junction-Records anlegen (aktive Grundstücke + flaeche_ha Snapshot)
-  if (grundstuecke && grundstuecke.length > 0) {
-    const junctionRows = (grundstuecke as AR[]).map(g => ({
+  if (grundstueckIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: gEinzeln, error: gErr2 } = await (supabase.from('grundstuecke') as any)
+      .select('id, flaeche_ha')
+      .in('id', grundstueckIds)
+      .eq('status', 'aktiv')
+    if (gErr2) throw new Error((gErr2 as AR).message)
+    for (const g of ((gEinzeln ?? []) as AR[])) {
+      grundstueckeById.set(g.id, { id: g.id, flaeche_ha: g.flaeche_ha ?? null })
+    }
+  }
+
+  // 3. Junction-Records anlegen (betroffene Grundstücke + flaeche_ha Snapshot, dedupliziert)
+  if (grundstueckeById.size > 0) {
+    const junctionRows = Array.from(grundstueckeById.values()).map(g => ({
       behandlung_id:  behandlungId,
       grundstueck_id: g.id,
       flaeche_ha:     g.flaeche_ha ?? null,

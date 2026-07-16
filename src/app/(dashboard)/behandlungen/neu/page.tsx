@@ -19,6 +19,10 @@ export type WeingartenOption = {
   spritzbar: boolean       // false wenn alle Grundstücke nicht spritzbar
   gst_ha_aktiv: number     // Summe flaeche_ha aktiver Grundstücke (für anteilige Berechnung)
 }
+export type GSTOption = {
+  id: string; weingarten_id: string; gst_nr: string
+  rebsorte: string | null; flaeche_ha: number | null
+}
 
 export default async function NeueBehandlungPage() {
   const role = await getCurrentUserRole()
@@ -49,10 +53,10 @@ export default async function NeueBehandlungPage() {
     .eq('aktiv', true)
     .order('name')
 
-  // Grundstücke laden: status + flaeche_ha
+  // Grundstücke laden: status + flaeche_ha + gst_nr (für Ried→GST-Auswahl)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawG } = await (supabase.from('grundstuecke') as any)
-    .select('weingarten_id, status, flaeche_ha')
+    .select('id, weingarten_id, gst_nr, rebsorte, status, flaeche_ha')
 
   // Flächensumme und Spritzbarkeit je Weingarten berechnen
   const gstByWG = new Map<string, { status: string; ha: number }[]>()
@@ -77,6 +81,17 @@ export default async function NeueBehandlungPage() {
     }
   })
 
+  // Einzelne (aktive) Grundstücke je Weingarten – für die GST-Feinauswahl im Formular
+  const gstByWeingarten: Record<string, GSTOption[]> = {}
+  for (const g of ((rawG ?? []) as AR[])) {
+    if (g.status !== 'aktiv') continue
+    if (!gstByWeingarten[g.weingarten_id]) gstByWeingarten[g.weingarten_id] = []
+    gstByWeingarten[g.weingarten_id].push({
+      id: g.id, weingarten_id: g.weingarten_id, gst_nr: g.gst_nr,
+      rebsorte: g.rebsorte ?? null, flaeche_ha: g.flaeche_ha ?? null,
+    })
+  }
+
   return (
     <div className="max-w-2xl">
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-6">
@@ -85,7 +100,7 @@ export default async function NeueBehandlungPage() {
         <span className="text-gray-700 font-medium">Neue Maßnahme</span>
       </div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Neue Maßnahme erfassen</h1>
-      <NeueBehandlungForm psm={psm} weingaerten={weingaerten} />
+      <NeueBehandlungForm psm={psm} weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} />
     </div>
   )
 }
