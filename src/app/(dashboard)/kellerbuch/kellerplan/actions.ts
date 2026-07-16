@@ -60,6 +60,13 @@ export async function upsertKellerplanPosition(
   const supabase  = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
 
+  // Ein Gebinde steht nur einem Standort (Kellerplan) zur Verfügung – falls es
+  // bereits auf einem anderen Plan platziert ist, wird es hierher verschoben
+  // (onConflict auf behaelter_id allein statt der Kombination mit kellerplan_id).
+  const { data: existing } = await (supabase.from('kellerplan_positionen') as any)
+    .select('kellerplan_id').eq('behaelter_id', behaelterId).maybeSingle()
+  const alterPlanId = (existing as AR | null)?.kellerplan_id ?? null
+
   const { error } = await (supabase.from('kellerplan_positionen') as any)
     .upsert({
       tenant_id:     tenantId,
@@ -67,10 +74,13 @@ export async function upsertKellerplanPosition(
       behaelter_id:  behaelterId,
       ...pos,
       aktualisiert_am: new Date().toISOString(),
-    }, { onConflict: 'kellerplan_id,behaelter_id' })
+    }, { onConflict: 'behaelter_id' })
 
   if (error) throw new Error((error as AR).message)
   revalidatePath(`/kellerbuch/kellerplan/${kellerplanId}`)
+  if (alterPlanId && alterPlanId !== kellerplanId) {
+    revalidatePath(`/kellerbuch/kellerplan/${alterPlanId}`)
+  }
 }
 
 // ── Behälter vom Plan entfernen ───────────────────────────────────────────────

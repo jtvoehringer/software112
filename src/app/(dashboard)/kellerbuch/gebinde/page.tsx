@@ -1,11 +1,11 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { fmtLiter } from '@/lib/format'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, canAdmin } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import GebindeClient from '@/components/kellerbuch/GebindeClient'
 import LoeschenButton from '@/components/kellerbuch/LoeschenButton'
-import { createBehaelter, updateBehaelter } from '../actions'
+import { createBehaelter, updateBehaelter, deleteBehaelter } from '../actions'
 import { createEroeffnungsbestand, deleteEroeffnungsbestand, deleteUmzug } from '../gebinde-actions'
 
 export const metadata: Metadata = { title: 'Gebinde – software:112' }
@@ -42,6 +42,7 @@ export default async function GebindePage({
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
   const writeOk  = canWrite(role)
+  const adminOk  = canAdmin(role)
 
   const [
     { data: gebindeRaw },
@@ -278,6 +279,12 @@ export default async function GebindePage({
                       {writeOk && (
                         <td className="px-4 py-2.5 text-right">
                           <GebindeClient gebinde={g} action={updateBehaelter.bind(null, g.id)} inputCls={inputCls} labelCls={labelCls} />
+                          {adminOk && (
+                            <LoeschenButton
+                              action={deleteBehaelter.bind(null, g.id)}
+                              bestaetigung={`Gebinde "${g.name}" wirklich löschen?`}
+                            />
+                          )}
                         </td>
                       )}
                     </tr>

@@ -48,6 +48,32 @@ export async function updateBehaelter(id: string, formData: FormData) {
   revalidatePath('/kellerbuch')
 }
 
+export async function deleteBehaelter(id: string): Promise<{ error?: string }> {
+  const supabase = await createSupabaseServerClient()
+
+  // Enthält der Behälter noch eine aktive Charge? Dann erst umziehen/abschließen.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: aktiveChargen } = await (supabase.from('weinausbau') as any)
+    .select('id').eq('behaelter_id', id).eq('aktiv', true).limit(1)
+  if (aktiveChargen && aktiveChargen.length > 0) {
+    return { error: 'Behälter enthält noch eine aktive Charge und kann nicht gelöscht werden.' }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('behaelter') as any).delete().eq('id', id)
+  if (error) {
+    // 23503 = foreign_key_violation – Behälter wird in Kellerbuch-Historie referenziert
+    // (z.B. Umzug als Ziel, Pressung). Historie bleibt erhalten, Löschen wird verhindert.
+    if ((error as R).code === '23503') {
+      return { error: 'Behälter wird in bestehenden Kellerbuch-Einträgen verwendet (z.B. Umzug, Pressung) und kann nicht gelöscht werden. Stattdessen über „Bearbeiten" auf „Inaktiv" setzen.' }
+    }
+    return { error: (error as R).message }
+  }
+  revalidatePath('/kellerbuch')
+  revalidatePath('/kellerbuch/gebinde')
+  return {}
+}
+
 // WEINAUSBAU
 export async function createWeinausbau(formData: FormData) {
   const supabase  = await createSupabaseServerClient()

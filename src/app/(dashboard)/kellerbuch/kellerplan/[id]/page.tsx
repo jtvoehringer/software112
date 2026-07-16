@@ -27,6 +27,7 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
   const [
     { data: planRaw },
     { data: posRaw },
+    { data: allePositionenRaw },
     { data: behaelterRaw },
     { data: weinRaw },
   ] = await Promise.all([
@@ -38,6 +39,12 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
     (supabase.from('kellerplan_positionen') as any)
       .select('behaelter_id, pos_x_pct, pos_y_pct, breite_pct, hoehe_pct')
       .eq('kellerplan_id', id),
+
+    // Platzierungen auf ALLEN Kellerplänen – ein Gebinde steht nur einem
+    // Standort zur Verfügung, daher dürfen anderswo platzierte Behälter hier
+    // nicht als "nicht platziert" angeboten werden (sonst Mehrfachzuordnung).
+    (supabase.from('kellerplan_positionen') as any)
+      .select('behaelter_id, kellerplan_id'),
 
     (supabase.from('behaelter') as any)
       .select('id, name, typ, volumen_liter')
@@ -56,7 +63,14 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
 
   const plan       = planRaw as R
   const positionen = (posRaw ?? []) as R[]
-  const behaelter  = (behaelterRaw ?? []) as R[]
+
+  // Auf einem ANDEREN Kellerplan platzierte Behälter aus der Auswahl ausblenden
+  const anderswoPlatziert = new Set(
+    ((allePositionenRaw ?? []) as R[])
+      .filter(p => p.kellerplan_id !== id)
+      .map(p => p.behaelter_id)
+  )
+  const behaelter = ((behaelterRaw ?? []) as R[]).filter(b => !anderswoPlatziert.has(b.id))
 
   // weinMap: behaelter_id → erste aktive Charge (für Beschriftung)
   // fillMap: behaelter_id → Summe aller menge_liter (für Füllstand-Visualisierung)
