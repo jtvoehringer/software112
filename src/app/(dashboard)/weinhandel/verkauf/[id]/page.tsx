@@ -46,7 +46,7 @@ async function getTenantSettings(supabase: Awaited<ReturnType<typeof createSupab
 export default async function VerkaufDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ mode?: string }> }) {
   const { id }   = await params
   const { mode } = await searchParams
-  const isRechnung = mode === 'rechnung'
+  const isRechnung = mode !== 'lieferschein'
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
   const writeOk  = canWrite(role)
@@ -153,6 +153,13 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const faelligkeitsDatum = new Date(posten.datum)
   faelligkeitsDatum.setDate(faelligkeitsDatum.getDate() + zahlZiel)
 
+  // Skonto (Frühzahler-Rabatt) — für Anzeige auf der Rechnung
+  const skontoAktiv  = !!posten.skonto_aktiv && (posten.skonto_pct ?? 0) > 0
+  const skontoDatum  = skontoAktiv
+    ? new Date(new Date(posten.datum).setDate(new Date(posten.datum).getDate() + (posten.skonto_tage ?? 0)))
+    : null
+  const skontoBetrag = skontoAktiv ? (gesamt * (posten.skonto_pct ?? 0)) / 100 : 0
+
   const zahlungen      = (zahlungenRaw ?? []) as R[]
   const bezahltSumme   = zahlungen.reduce((s: number, z: R) => s + Number(z.betrag ?? 0), 0)
   const offenerBetrag  = gesamt - bezahltSumme
@@ -214,11 +221,11 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             />
           )}
           <div className="flex items-center border border-s112-border rounded-lg overflow-hidden text-xs">
-            <a href={`/weinhandel/verkauf/${id}`}
+            <a href={`/weinhandel/verkauf/${id}?mode=lieferschein`}
               className={`px-2.5 py-1.5 font-medium transition-colors ${!isRechnung ? 'bg-s112-teal text-white' : 'bg-white text-gray-600 hover:bg-s112-bg'}`}>
               Lieferschein
             </a>
-            <a href={`/weinhandel/verkauf/${id}?mode=rechnung`}
+            <a href={`/weinhandel/verkauf/${id}`}
               className={`px-2.5 py-1.5 font-medium transition-colors ${isRechnung ? 'bg-s112-teal text-white' : 'bg-white text-gray-600 hover:bg-s112-bg'}`}>
               Rechnung
             </a>
@@ -423,6 +430,17 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       {/* ── RECHNUNG-FOOTER: Bankdaten + Fußtext (nur Druck, Rechnungsmodus) ── */}
       {isRechnung && (
         <div className="print-only mt-8 pt-6 border-t border-gray-200 text-sm space-y-3">
+          {skontoAktiv && skontoDatum && (
+            <div className="bg-amber-50 border border-amber-200 rounded px-3 py-2">
+              <p className="font-semibold text-amber-800">
+                💡 {posten.skonto_pct}% Skonto bei Zahlung bis {skontoDatum.toLocaleDateString('de-AT')}
+              </p>
+              <p className="text-amber-700 text-xs mt-0.5">
+                Bei fristgerechter Zahlung: {(gesamt - skontoBetrag).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
+                {' '}(−{skontoBetrag.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })} Skonto)
+              </p>
+            </div>
+          )}
           {(iban || bic) && (
             <div>
               <p className="font-semibold text-gray-700 mb-1">Bankverbindung</p>
