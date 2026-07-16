@@ -11,12 +11,19 @@ type AR = Record<string, any>
 export default async function CRMUebersichtPage() {
   const supabase = await createSupabaseServerClient()
   const heute = new Date().toISOString().split('T')[0]
+  const { data: { user } } = await supabase.auth.getUser()
+  const currentUserId = user?.id ?? null
 
   // Alle Aktivitäten mit Datum
-  const { data: aktivRaw } = await (supabase.from('aktivitaeten') as any)
+  const { data: aktivRawAll } = await (supabase.from('aktivitaeten') as any)
     .select('id, art, betreff, datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, kontakt_id, firma_id, ist_privat, erstellt_von, bis_datum')
     .not('datum', 'is', null)
     .order('datum', { ascending: true })
+
+  // "Nur für mich sichtbar"-Termine anderer Nutzer serverseitig herausfiltern
+  const aktivRaw = ((aktivRawAll ?? []) as AR[]).filter(
+    (a: AR) => !a.ist_privat || a.erstellt_von === currentUserId
+  )
 
   // Namen aus Kontakte & Firmen
   const { data: kontakteRaw } = await (supabase.from('kontakte') as any)
@@ -54,8 +61,11 @@ export default async function CRMUebersichtPage() {
       const artDef = AKTIVITAET_ARTEN.find(x => x.value === a.art)
       return {
         id: `a_${a.id}`,
-        // Unerledigte Ganztags-Aktivitäten aus der Vergangenheit → auf heute schieben
-        datum: (!a.erledigt && ((a.ganztags as boolean) ?? true) && (a.datum as string) < heute)
+        // Unerledigte Ganztags-Aktivitäten aus der Vergangenheit → auf heute schieben.
+        // Mehrtägige Einträge (bis_datum gesetzt, z.B. Urlaub/Abwesenheit) NICHT verschieben –
+        // sonst wandert deren Startdatum täglich auf "heute" und der Balken verschwindet aus
+        // zurückliegenden Kalenderwochen, obwohl der Zeitraum noch/schon lief.
+        datum: (!a.erledigt && ((a.ganztags as boolean) ?? true) && !a.bis_datum && (a.datum as string) < heute)
           ? heute
           : (a.datum as string),
         titel: (a.betreff as string | null) || artDef?.label || (a.art as string),

@@ -53,13 +53,18 @@ export default async function ReportsPage() {
     .gte('datum', `${thisYear}-01-01`).order('datum', { ascending: false })
   const behandlungen = (behandlungenRaw ?? []) as R[]
 
-  // Cu-Bilanz
-  const cuKgHa = behandlungen.reduce((s: number, b: R) => {
+  // Cu-Bilanz: kg Kupfer gesamt DURCH die bewirtschaftete Fläche teilen, sonst wird eine
+  // absolute Gesamtmenge gegen den EU-Grenzwert (4 kg/ha/Jahr) verglichen (wie in
+  // reports/cu-bilanz/page.tsx bereits korrekt gemacht).
+  const totalCuKg = behandlungen.reduce((s: number, b: R) => {
     const cu = Number((b.psm as R | null)?.cu_gehalt_pct) || 0
     if (cu === 0) return s
     const menge = Number(b.menge_gesamt) || 0
     return s + (menge * cu / 100)
   }, 0)
+  const { data: flaecheRaw } = await (supabase.from('weingarten') as any).select('flaeche_ha').eq('aktiv', true)
+  const gesamtHaFuerCu = ((flaecheRaw ?? []) as R[]).reduce((s: number, w: R) => s + (Number(w.flaeche_ha) || 0), 0)
+  const cuKgHa = gesamtHaFuerCu > 0 ? totalCuKg / gesamtHaFuerCu : 0
 
   // ── Lead-Pipeline ─────────────────────────────────────────────────────────
   const { data: pipelineRaw } = await (supabase.from('pipeline_eintraege') as any)

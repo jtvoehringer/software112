@@ -14,8 +14,8 @@ export async function POST(req: NextRequest) {
     // Nur tenant_admin und winzer dürfen Exportaufträge anlegen
     const { data: { user: authUser } } = await supabase.auth.getUser()
     const { data: memb } = await (supabase.from('tenant_memberships') as any)
-      .select('rolle').eq('user_id', authUser?.id ?? '').limit(1).single()
-    if ((memb as any)?.rolle === 'leser')
+      .select('role').eq('user_id', authUser?.id ?? '').limit(1).single()
+    if ((memb as any)?.role === 'leser')
       return NextResponse.json({ fehler: 'Keine Berechtigung' }, { status: 403 })
 
     // tenant_id IMMER aus Session – niemals aus Request-Body (Sicherheit)

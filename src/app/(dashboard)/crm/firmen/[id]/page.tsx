@@ -22,11 +22,13 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
   const supabase = await createSupabaseServerClient()
   const role    = await getCurrentUserRole()
   const writeOk = canWrite(role)
+  const { data: { user } } = await supabase.auth.getUser()
+  const currentUserId = user?.id ?? null
 
   const [
     { data: fRaw },
     { data: kRaw },
-    { data: aRaw },
+    { data: aRawAll },
     { data: pRaw },
     { data: rgRaw },
   ] = await Promise.all([
@@ -45,6 +47,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
       .select('*, aktivitaet_dokumente(id, dateiname, dateityp, groesse_bytes, erstellt_am)')
       .eq('firma_id', id)
       .order('datum', { ascending: false }),
+    // (Filterung "nur für mich sichtbar" -> siehe aRaw unten)
 
     (supabase.from('pipeline_eintraege') as any)
       .select('id, stufe, titel, kategorie, wert_euro, wahrscheinlichkeit, erwartetes_datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, erledigt_am, notizen, kontakt_id, firma_id, aktualisiert_am')
@@ -57,6 +60,9 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
   ])
 
   if (!fRaw) notFound()
+
+  // "Nur für mich sichtbar"-Termine anderer Nutzer serverseitig herausfiltern
+  const aRaw = ((aRawAll ?? []) as R[]).filter((a: R) => !a.ist_privat || a.erstellt_von === currentUserId)
 
   const f = fRaw as R
   const firma: FirmaRow = {

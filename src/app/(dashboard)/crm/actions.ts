@@ -66,6 +66,7 @@ export async function createKontakt(formData: FormData): Promise<{ error?: strin
 export async function updateKontakt(id: string, formData: FormData): Promise<{ error?: string }> {
   try {
     const supabase = await createSupabaseServerClient()
+    const tenantId = await getTenantId()
     const payload: AR = {
       vorname:    (formData.get('vorname') as string) || null,
       nachname:   formData.get('nachname') as string,
@@ -89,7 +90,7 @@ export async function updateKontakt(id: string, formData: FormData): Promise<{ e
       is_lead: formData.get('is_lead') === 'true',
       aktualisiert_am: new Date().toISOString(),
     }
-    const { error } = await (supabase.from('kontakte') as any).update(payload).eq('id', id)
+    const { error } = await (supabase.from('kontakte') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
     if (error) return { error: (error as AR).message }
     revalidatePath('/crm/kontakte')
     revalidatePath('/crm/kontakte/[id]', 'page')
@@ -101,7 +102,8 @@ export async function updateKontakt(id: string, formData: FormData): Promise<{ e
 
 export async function deleteKontakt(id: string) {
   const supabase = await createSupabaseServerClient()
-  const { error } = await (supabase.from('kontakte') as any).delete().eq('id', id)
+  const tenantId = await getTenantId()
+  const { error } = await (supabase.from('kontakte') as any).delete().eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/crm/kontakte')
 }
@@ -148,6 +150,7 @@ export async function createFirma(formData: FormData): Promise<{ error?: string 
 export async function updateFirma(id: string, formData: FormData): Promise<{ error?: string }> {
   try {
     const supabase = await createSupabaseServerClient()
+    const tenantId = await getTenantId()
     const payload: AR = {
       name:               formData.get('name') as string,
       segment:            formData.get('segment') as string,
@@ -171,7 +174,7 @@ export async function updateFirma(id: string, formData: FormData): Promise<{ err
       is_lead: formData.get('is_lead') === 'true',
       aktualisiert_am:    new Date().toISOString(),
     }
-    const { error } = await (supabase.from('firmen') as any).update(payload).eq('id', id)
+    const { error } = await (supabase.from('firmen') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
     if (error) return { error: (error as AR).message }
     revalidatePath('/crm/firmen')
     revalidatePath('/crm/firmen/[id]', 'page')
@@ -183,7 +186,8 @@ export async function updateFirma(id: string, formData: FormData): Promise<{ err
 
 export async function deleteFirma(id: string) {
   const supabase = await createSupabaseServerClient()
-  const { error } = await (supabase.from('firmen') as any).delete().eq('id', id)
+  const tenantId = await getTenantId()
+  const { error } = await (supabase.from('firmen') as any).delete().eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/crm/firmen')
 }
@@ -192,9 +196,10 @@ export async function deleteFirma(id: string) {
 
 export async function moveAktivitaet(id: string, datum: string, uhrzeit_von: string, uhrzeit_bis: string) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
   const { error } = await (supabase.from('aktivitaeten') as any)
     .update({ datum, ganztags: !uhrzeit_von && !uhrzeit_bis, uhrzeit_von: uhrzeit_von || null, uhrzeit_bis: uhrzeit_bis || null })
-    .eq('id', id)
+    .eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/crm')
   revalidatePath('/crm/kontakte/[id]', 'page')
@@ -237,6 +242,7 @@ export async function createAktivitaet(formData: FormData) {
 
 export async function updateAktivitaet(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
   const ganztags = formData.get('ganztags') !== 'false'
   const payload: AR = {
     art:          formData.get('art') as string,
@@ -249,7 +255,7 @@ export async function updateAktivitaet(id: string, formData: FormData) {
     uhrzeit_von:  ganztags ? null : ((formData.get('uhrzeit_von') as string) || null),
     uhrzeit_bis:  ganztags ? null : ((formData.get('uhrzeit_bis') as string) || null),
   }
-  const { error } = await (supabase.from('aktivitaeten') as any).update(payload).eq('id', id)
+  const { error } = await (supabase.from('aktivitaeten') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/crm')
   revalidatePath('/crm/kontakte/[id]', 'page')
@@ -258,7 +264,8 @@ export async function updateAktivitaet(id: string, formData: FormData) {
 
 export async function deleteAktivitaet(id: string) {
   const supabase = await createSupabaseServerClient()
-  const { error } = await (supabase.from('aktivitaeten') as any).delete().eq('id', id)
+  const tenantId = await getTenantId()
+  const { error } = await (supabase.from('aktivitaeten') as any).delete().eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/crm')
   revalidatePath('/crm/kontakte/[id]', 'page')
@@ -267,9 +274,10 @@ export async function deleteAktivitaet(id: string) {
 
 export async function toggleAktivitaetErledigt(id: string, erledigt: boolean) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
   const { error } = await (supabase.from('aktivitaeten') as any)
     .update({ erledigt })
-    .eq('id', id)
+    .eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/crm')
   revalidatePath('/crm/kontakte/[id]', 'page')
@@ -305,6 +313,7 @@ export async function createPipelineEintrag(formData: FormData) {
 
 export async function updatePipelineEintrag(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
   const ganztags = formData.get('ganztags') !== 'false'
   const titel = (formData.get('titel') as string)?.trim()
   const payload: AR = {
@@ -318,7 +327,7 @@ export async function updatePipelineEintrag(id: string, formData: FormData) {
     uhrzeit_bis:         ganztags ? null : ((formData.get('uhrzeit_bis') as string) || null),
     aktualisiert_am:     new Date().toISOString(),
   }
-  const { error } = await (supabase.from('pipeline_eintraege') as any).update(payload).eq('id', id)
+  const { error } = await (supabase.from('pipeline_eintraege') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/crm/pipeline')
 }
@@ -326,29 +335,32 @@ export async function updatePipelineEintrag(id: string, formData: FormData) {
 
 export async function updatePipelineStufe(id: string, stufe: string) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
   const { error } = await (supabase.from('pipeline_eintraege') as any)
     .update({ stufe, aktualisiert_am: new Date().toISOString() })
-    .eq('id', id)
+    .eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/crm/pipeline')
 }
 
 export async function togglePipelineErledigt(id: string, erledigt: boolean) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
   const { error } = await (supabase.from('pipeline_eintraege') as any)
     .update({
       erledigt,
       erledigt_am:     erledigt ? new Date().toISOString() : null,
       aktualisiert_am: new Date().toISOString(),
     })
-    .eq('id', id)
+    .eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/crm/pipeline')
 }
 
 export async function deletePipelineEintrag(id: string) {
   const supabase = await createSupabaseServerClient()
-  const { error } = await (supabase.from('pipeline_eintraege') as any).delete().eq('id', id)
+  const tenantId = await getTenantId()
+  const { error } = await (supabase.from('pipeline_eintraege') as any).delete().eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/crm/pipeline')
 }

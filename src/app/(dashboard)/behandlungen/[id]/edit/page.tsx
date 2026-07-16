@@ -33,7 +33,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
       .single(),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('psm') as any)
+    (supabase.from('pflanzenschutzmittel') as any)
       .select('id, name, handelsname, oeko_zugelassen, cu_gehalt_pct, wartezeit_tage')
       .eq('aktiv', true)
       .order('name'),

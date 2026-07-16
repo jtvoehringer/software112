@@ -10,8 +10,8 @@ export default async function NeuPage() {
   // Rollen-Check: leser darf keinen Exportauftrag anlegen
   const { data: { user } } = await supabase.auth.getUser()
   const { data: memb } = await (supabase.from('tenant_memberships') as any)
-    .select('rolle').eq('user_id', user?.id ?? '').limit(1).single()
-  const rolle = (memb as any)?.rolle ?? 'leser'
+    .select('role').eq('user_id', user?.id ?? '').limit(1).single()
+  const rolle = (memb as any)?.role ?? 'leser'
   if (rolle === 'leser') {
     const { redirect } = await import('next/navigation')
     redirect('/weinexport')

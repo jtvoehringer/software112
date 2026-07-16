@@ -16,6 +16,16 @@ function esc(v: unknown): string {
     : s
 }
 
+// Weder tenant_einstellungen noch kontakte/firmen haben eine eigene Hausnummer-Spalte –
+// die Adresse steckt kombiniert in `strasse` ("Musterstraße 12"). Für das BKI-Format
+// (separate Straße/Hausnr-Spalten) hier heuristisch auftrennen.
+function splitStrasseHausnr(full: string | null | undefined): { strasse: string; hausnr: string } {
+  if (!full) return { strasse: '', hausnr: '' }
+  const m = full.trim().match(/^(.*?),?\s+(\d+[a-zA-Z\-/]*)$/)
+  if (m) return { strasse: m[1].trim(), hausnr: m[2].trim() }
+  return { strasse: full.trim(), hausnr: '' }
+}
+
 export async function GET(req: Request) {
   const supabase   = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
@@ -27,7 +37,7 @@ export async function GET(req: Request) {
   // Tenant-Betriebsdaten
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
-    .select('betrieb_betriebsnummer, betrieb_name, betrieb_strasse, betrieb_hausnr, betrieb_plz, betrieb_ort, betrieb_vorname, betrieb_nachname')
+    .select('betrieb_betriebsnummer, betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort')
     .eq('tenant_id', membership.tenantId)
     .maybeSingle()
   const te = (einst ?? {}) as R
@@ -38,8 +48,8 @@ export async function GET(req: Request) {
     .select(`
       id, datum, menge_kg, preis_per_kg, kmw_grad, qualitaetsstufe, herkunft_code,
       weingarten:weingarten_id(id, name, rebsorte, grundstuecke(trauben_herkunft_code)),
-      kontakt:kontakt_id(id, betrieb_nr, vorname, nachname, strasse, hausnr, plz, ort),
-      firma:firma_id(id, betrieb_nr, firmenname, strasse, hausnr, plz, ort),
+      kontakt:kontakt_id(id, betrieb_nr, vorname, nachname, strasse, plz, ort),
+      firma:firma_id(id, betrieb_nr, name, strasse, plz, ort),
       jahrgang:jahrgang_id(id, jahrgang)
     `)
     .eq('tenant_id', membership.tenantId)
@@ -58,13 +68,14 @@ export async function GET(req: Request) {
   const { data: rowsRaw } = await query
   const rows = (rowsRaw ?? []) as R[]
 
+  const versenderAdr = splitStrasseHausnr(te.betrieb_strasse)
   const versenderBetriebNr = te.betrieb_betriebsnummer ?? ''
-  const versenderName      = te.betrieb_name    ?? ''
-  const versenderVorname   = te.betrieb_vorname ?? ''
-  const versenderStrasse   = te.betrieb_strasse ?? ''
-  const versenderHausnr    = te.betrieb_hausnr  ?? ''
-  const versenderPlz       = te.betrieb_plz     ?? ''
-  const versenderOrt       = te.betrieb_ort     ?? ''
+  const versenderName      = te.betrieb_name       ?? ''
+  const versenderVorname   = ''  // Betrieb = Firma, kein Vorname-Feld im Schema
+  const versenderStrasse   = versenderAdr.strasse
+  const versenderHausnr    = versenderAdr.hausnr
+  const versenderPlz       = te.betrieb_plz ?? ''
+  const versenderOrt       = te.betrieb_ort ?? ''
 
   // BKI-Spalten-Header (gem. Datenblatt-Struktur)
   const headers = [
@@ -91,21 +102,23 @@ export async function GET(req: Request) {
     let empfBetriebNr = '', empfName = '', empfVorname = '', empfStrasse = '', empfHausnr = '', empfPlz = '', empfOrt = ''
     if (v.kontakt) {
       const k = v.kontakt as R
+      const adr = splitStrasseHausnr(k.strasse)
       empfBetriebNr = k.betrieb_nr ?? ''
       empfName      = k.nachname   ?? ''
       empfVorname   = k.vorname    ?? ''
-      empfStrasse   = k.strasse    ?? ''
-      empfHausnr    = k.hausnr     ?? ''
+      empfStrasse   = adr.strasse
+      empfHausnr    = adr.hausnr
       empfPlz       = k.plz        ?? ''
       empfOrt       = k.ort        ?? ''
     } else if (v.firma) {
       const f = v.firma as R
-      empfBetriebNr = f.betrieb_nr  ?? ''
-      empfName      = f.firmenname  ?? ''
-      empfStrasse   = f.strasse     ?? ''
-      empfHausnr    = f.hausnr      ?? ''
-      empfPlz       = f.plz         ?? ''
-      empfOrt       = f.ort         ?? ''
+      const adr = splitStrasseHausnr(f.strasse)
+      empfBetriebNr = f.betrieb_nr ?? ''
+      empfName      = f.name      ?? ''
+      empfStrasse   = adr.strasse
+      empfHausnr    = adr.hausnr
+      empfPlz       = f.plz        ?? ''
+      empfOrt       = f.ort        ?? ''
     }
 
     const rebsorte   = (v.weingarten as R | null)?.rebsorte ?? null

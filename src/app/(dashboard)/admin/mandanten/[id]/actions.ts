@@ -26,6 +26,19 @@ export async function saveTenantSettings(tenantId: string, formData: FormData) {
     return isNaN(n) ? null : n
   }
 
+  // Dieses Action wird von mehreren Tabs (Branding, Brevo/Newsletter, Module) mit jeweils
+  // unterschiedlichen Feldern aufgerufen. Felder, die das aufrufende Formular gar nicht
+  // enthält, dürfen NICHT auf false/null zurückgesetzt werden – sonst schaltet z.B. das
+  // Speichern des Branding-Tabs versehentlich modul_ea/modul_fibu/modul_sumup ab.
+  const { data: existing } = await (admin.from('tenant_einstellungen') as any)
+    .select('modul_ea, modul_fibu, modul_sumup, session_timeout_minuten')
+    .eq('tenant_id', tenantId).maybeSingle()
+  const existingR = (existing as R | null)
+  const boolOrExisting = (key: string, fallback: boolean | null) =>
+    formData.has(key) ? formData.get(key) === 'true' : (fallback ?? false)
+  const numOrExisting = (key: string, fallback: number | null) =>
+    formData.has(key) ? num(key) : (fallback ?? null)
+
   const payload = {
     tenant_id:          tenantId,
     anzeigename:        (formData.get('anzeigename') as string) || null,
@@ -36,9 +49,9 @@ export async function saveTenantSettings(tenantId: string, formData: FormData) {
     modul_crm:          formData.get('modul_crm') === 'true',
     modul_kellerbuch:   formData.get('modul_kellerbuch') === 'true',
     modul_weingarten:   formData.get('modul_weingarten') === 'true',
-    modul_ea:           formData.get('modul_ea')           === 'true',
-    modul_fibu:         formData.get('modul_fibu')         === 'true',
-    modul_sumup:        formData.get('modul_sumup')        === 'true',
+    modul_ea:           boolOrExisting('modul_ea', existingR?.modul_ea),
+    modul_fibu:         boolOrExisting('modul_fibu', existingR?.modul_fibu),
+    modul_sumup:        boolOrExisting('modul_sumup', existingR?.modul_sumup),
     brevo_api_key:      (formData.get('brevo_api_key') as string) || null,
     brevo_sender_mail:  (formData.get('brevo_sender_mail') as string) || null,
     brevo_sender_name:  (formData.get('brevo_sender_name') as string) || null,
@@ -47,7 +60,7 @@ export async function saveTenantSettings(tenantId: string, formData: FormData) {
     brevo_list_handel:  num('brevo_list_handel'),
     brevo_list_export:  num('brevo_list_export'),
     brevo_list_grossh:          num('brevo_list_grossh'),
-    session_timeout_minuten:    num('session_timeout_minuten'),
+    session_timeout_minuten:    numOrExisting('session_timeout_minuten', existingR?.session_timeout_minuten),
     aktualisiert_am:            new Date().toISOString(),
   }
 

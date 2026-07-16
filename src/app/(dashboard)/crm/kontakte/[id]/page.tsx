@@ -23,10 +23,12 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
   const supabase = await createSupabaseServerClient()
   const role    = await getCurrentUserRole()
   const writeOk = canWrite(role)
+  const { data: { user } } = await supabase.auth.getUser()
+  const currentUserId = user?.id ?? null
 
   const [
     { data: kRaw },
-    { data: aRaw },
+    { data: aRawAll },
     { data: pRaw },
   ] = await Promise.all([
     (supabase.from('kontakte') as any)
@@ -46,6 +48,9 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
   ])
 
   if (!kRaw) notFound()
+
+  // "Nur für mich sichtbar"-Termine anderer Nutzer serverseitig herausfiltern
+  const aRaw = ((aRawAll ?? []) as R[]).filter((a: R) => !a.ist_privat || a.erstellt_von === currentUserId)
 
   const k = kRaw as R
   const kontakt: KontaktRow = {

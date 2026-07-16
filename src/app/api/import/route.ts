@@ -34,8 +34,8 @@ export async function POST(req: NextRequest) {
     // Nur tenant_admin darf importieren
     const { data: { user } } = await supabase.auth.getUser()
     const { data: membership } = await (supabase.from('tenant_memberships') as any)
-      .select('rolle').eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle()
-    if (!['tenant_admin', 'winzer'].includes((membership as R | null)?.rolle ?? ''))
+      .select('role').eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle()
+    if (!['tenant_admin', 'winzer'].includes((membership as R | null)?.role ?? ''))
       return NextResponse.json({ fehler: 'Keine Berechtigung' }, { status: 403 })
 
     let ok = 0
@@ -96,9 +96,9 @@ export async function POST(req: NextRequest) {
             jahrgang:           mapVal(row, mapping.jahrgang, v => parseInt(v) || null) ?? null,
             rebsorte:           mapVal(row, mapping.rebsorte) ?? null,
             flaschengroesse_ml: mapVal(row, mapping.flaschengroesse_ml, v => parseInt(v) || 750) ?? 750,
-            lagerbestand_fl:    mapVal(row, mapping.lagerbestand_fl, v => parseInt(v) || 0) ?? 0,
+            bestand_flaschen:   mapVal(row, mapping.lagerbestand_fl, v => parseInt(v) || 0) ?? 0,
             vk_preis_brutto:    mapVal(row, mapping.vk_preis_brutto, v => parseFloat(v.replace(',','.')) || null) ?? null,
-            einkaufspreis:      mapVal(row, mapping.einkaufspreis, v => parseFloat(v.replace(',','.')) || null) ?? null,
+            einstandspreis:     mapVal(row, mapping.einkaufspreis, v => parseFloat(v.replace(',','.')) || null) ?? null,
             notizen:            mapVal(row, mapping.notizen) ?? null,
             aktiv: true,
           })

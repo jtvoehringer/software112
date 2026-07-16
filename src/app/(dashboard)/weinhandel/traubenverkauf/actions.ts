@@ -9,7 +9,7 @@ type AR = Record<string, any>
 
 // ── Hilfs-Funktion: Verkaufsposten + Position für Traubenverkauf anlegen ─────
 
-async function createVerkaufspostenFuerTrauben(
+export async function createVerkaufspostenFuerTrauben(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   tenantId: string,
   opts: {

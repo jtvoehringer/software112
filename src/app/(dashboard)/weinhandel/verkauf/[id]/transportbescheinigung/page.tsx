@@ -1,5 +1,4 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import type { Metadata } from 'next'
@@ -14,7 +13,6 @@ type R = Record<string, any>
 export default async function TransportbescheinigungPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createSupabaseServerClient()
-  const admin    = createSupabaseAdminClient()
 
   const [{ data: postenRaw, error: postenErr }, { data: cfgRaw }, { data: tbRaw }] = await Promise.all([
     (supabase.from('verkaufsposten') as any)
@@ -29,9 +27,11 @@ export default async function TransportbescheinigungPage({ params }: { params: P
       `)
       .eq('id', id)
       .single(),
-    (admin.from('tenant_einstellungen') as any)
+    // RLS-gescopter Client statt Admin-Client: verhindert, dass Firmendaten eines
+    // anderen Mandanten auf dieses gesetzlich vorgeschriebene Dokument gelangen.
+    (supabase.from('tenant_einstellungen') as any)
       .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_telefon, betrieb_betriebsnummer')
-      .limit(1).single(),
+      .limit(1).maybeSingle(),
     (supabase.from('transportbescheinigungen') as any)
       .select('formular_daten')
       .eq('verkaufsposten_id', id)

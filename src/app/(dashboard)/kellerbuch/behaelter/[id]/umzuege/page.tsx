@@ -31,20 +31,85 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
   if (!bhRow) notFound()
   const bh = bhRow as R
 
-  // Alle Umzüge bei denen dieser Behälter Quelle ODER Ziel war
-  const { data: umzugRaw } = await (supabase.from('keller_umzuege') as any)
-    .select(`
-      id, datum, menge_liter, brutto_liter, schwund_liter, umzug_typ, zeilen_typ, notizen,
+  // Alle Umzüge bei denen dieser Behälter Quelle ODER Ziel war (alle Zeilentypen laden –
+  // bei n:n-Umzügen steckt "Quelle" und "Ziel" auf zwei getrennten Zeilen, verknüpft über umzug_batch_id)
+  const UMZUG_SELECT = `
+      id, datum, menge_liter, brutto_liter, schwund_liter, umzug_typ, zeilen_typ, notizen, umzug_batch_id,
       von_behaelter:von_behaelter_id(id, name),
       nach_behaelter:nach_behaelter_id(id, name),
       von_weinausbau:von_weinausbau_id(name),
       nach_weinausbau:nach_weinausbau_id(name)
-    `)
+    `
+  const { data: initialRaw } = await (supabase.from('keller_umzuege') as any)
+    .select(UMZUG_SELECT)
     .or(`von_behaelter_id.eq.${id},nach_behaelter_id.eq.${id}`)
-    .not('zeilen_typ', 'eq', 'ziel')   // Ziel-Zeilen (n:n) ausblenden – info steckt in der Quelle
     .order('datum', { ascending: false })
 
-  const umzuege = (umzugRaw ?? []) as R[]
+  const initial = (initialRaw ?? []) as R[]
+
+  // Für n:n-Umzüge fehlt in `initial` ggf. die Gegenzeile (Quelle oder Ziel), wenn dieser Behälter
+  // dort nicht direkt referenziert ist – deshalb den kompletten Batch nachladen.
+  const batchIds = [...new Set(initial.filter(r => r.umzug_batch_id).map(r => r.umzug_batch_id as string))]
+  const { data: batchRowsRaw } = batchIds.length > 0
+    ? await (supabase.from('keller_umzuege') as any)
+        .select(UMZUG_SELECT)
+        .in('umzug_batch_id', batchIds)
+    : { data: [] }
+  const batchRows = (batchRowsRaw ?? []) as R[]
+
+  type UmzugZeile = {
+    id: string; datum: string; umzug_typ: string
+    vonBeh: string; nachBeh: string; vonCharge: string | null; nachCharge: string | null
+    istQuelle: boolean; brutto: number; netto: number; schwund: number
+  }
+  const umzuege: UmzugZeile[] = []
+  const seenBatches = new Set<string>()
+
+  for (const u of initial) {
+    const batchId = u.umzug_batch_id as string | null
+
+    if (!batchId) {
+      // Altes Format: eine Zeile trägt Quelle+Ziel direkt
+      umzuege.push({
+        id: u.id, datum: u.datum, umzug_typ: u.umzug_typ,
+        vonBeh: (u.von_behaelter as R | null)?.name ?? '–',
+        nachBeh: (u.nach_behaelter as R | null)?.name ?? '–',
+        vonCharge: (u.von_weinausbau as R | null)?.name ?? null,
+        nachCharge: (u.nach_weinausbau as R | null)?.name ?? null,
+        istQuelle: (u.von_behaelter as R | null)?.id === id,
+        brutto: parseFloat(u.brutto_liter) || ((parseFloat(u.menge_liter) || 0) + (parseFloat(u.schwund_liter) || 0)),
+        netto: parseFloat(u.menge_liter) || 0,
+        schwund: parseFloat(u.schwund_liter) || 0,
+      })
+      continue
+    }
+
+    if (seenBatches.has(batchId)) continue
+    seenBatches.add(batchId)
+
+    const batch = batchRows.filter(r => r.umzug_batch_id === batchId)
+    const quelleRecs = batch.filter(r => r.zeilen_typ === 'quelle')
+    const zielRecs   = batch.filter(r => r.zeilen_typ === 'ziel')
+    const istQuelle  = quelleRecs.some(r => (r.von_behaelter as R | null)?.id === id)
+
+    const vonNamen  = quelleRecs.map(r => (r.von_behaelter as R | null)?.name ?? (r.von_weinausbau as R | null)?.name ?? '–').join(', ')
+    const nachNamen = zielRecs.map(r => (r.nach_behaelter as R | null)?.name ?? '–').join(', ')
+    const bruttoSum = quelleRecs.reduce((s, r) => s + (parseFloat(r.brutto_liter) || 0), 0)
+    const nettoSum  = zielRecs.reduce((s, r) => s + (parseFloat(r.menge_liter) || 0), 0)
+    const haupt = quelleRecs[0] ?? zielRecs[0] ?? batch[0]
+
+    umzuege.push({
+      id: haupt.id, datum: haupt.datum, umzug_typ: haupt.umzug_typ,
+      vonBeh: vonNamen || '–',
+      nachBeh: nachNamen || '–',
+      vonCharge: (quelleRecs[0]?.von_weinausbau as R | null)?.name ?? null,
+      nachCharge: (zielRecs[0]?.nach_weinausbau as R | null)?.name ?? null,
+      istQuelle,
+      brutto: bruttoSum || nettoSum,
+      netto: nettoSum,
+      schwund: Math.max(0, bruttoSum - nettoSum),
+    })
+  }
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -115,15 +180,15 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
               </tr>
             </thead>
             <tbody>
-              {umzuege.map((u: R) => {
-                const vonBeh   = (u.von_behaelter  as R | null)?.name ?? '–'
-                const nachBeh  = (u.nach_behaelter as R | null)?.name ?? '–'
-                const vonCharge  = (u.von_weinausbau  as R | null)?.name ?? null
-                const nachCharge = (u.nach_weinausbau as R | null)?.name ?? null
-                const istQuelle  = (u.von_behaelter  as R | null)?.id === id
-                const netto    = parseFloat(u.menge_liter)  || 0
-                const brutto   = parseFloat(u.brutto_liter) || (netto + (parseFloat(u.schwund_liter) || 0))
-                const schwund  = parseFloat(u.schwund_liter) || 0
+              {umzuege.map((u) => {
+                const vonBeh   = u.vonBeh
+                const nachBeh  = u.nachBeh
+                const vonCharge  = u.vonCharge
+                const nachCharge = u.nachCharge
+                const istQuelle  = u.istQuelle
+                const netto    = u.netto
+                const brutto   = u.brutto
+                const schwund  = u.schwund
                 const istFilt    = u.umzug_typ === 'filtration'
                 const istSchwund = u.umzug_typ === 'schwund'
                 const artBadge = istSchwund

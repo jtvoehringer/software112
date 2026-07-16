@@ -1,5 +1,6 @@
 'use server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 
 type AR = Record<string, any>
@@ -8,13 +9,13 @@ async function getTenantAdmin() {
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Nicht angemeldet')
-  const { data: membership } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id, role')
-    .eq('user_id', user.id)
-    .in('role', ['tenant_admin', 'system_admin'])
-    .single()
-  if (!membership) throw new Error('Keine Berechtigung')
-  return { supabase, tenantId: membership.tenant_id as string }
+  // Aktiv gewählten Betrieb respektieren (wie im Rest der App) statt einer unsortierten
+  // Rollenabfrage, die bei mehreren Admin-Mitgliedschaften zudem mit .single() fehlschlagen würde.
+  const membership = await getCurrentMembership()
+  if (!membership || !['tenant_admin', 'system_admin'].includes(membership.role ?? '')) {
+    throw new Error('Keine Berechtigung')
+  }
+  return { supabase, tenantId: membership.tenantId }
 }
 
 function parseForm(formData: FormData): AR {

@@ -42,7 +42,7 @@ export async function DELETE(
   const { data: { session } } = await supabase.auth.getSession()
 
   const { data: memb } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id, rolle').eq('user_id', user.id).limit(1).single()
+    .select('tenant_id').eq('user_id', user.id).limit(1).single()
   const tenantId = (memb as R | null)?.tenant_id
   if (!tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 403 })
 

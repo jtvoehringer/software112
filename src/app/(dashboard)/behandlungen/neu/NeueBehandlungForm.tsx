@@ -33,6 +33,7 @@ const ART_OPTIONS = [
   { value: 'bodenbearbeitung', label: '🪱 Bodenbearbeitung' },
   { value: 'schnitt',          label: '✂️ Schnitt' },
   { value: 'laubarbeit',       label: '🍃 Laubarbeit' },
+  { value: 'lese',             label: '🍇 Lese' },
   { value: 'sonstiges',        label: '📋 Sonstiges' },
 ]
 const MENGE_EINHEITEN = ['kg', 'l', 'g', 'ml']

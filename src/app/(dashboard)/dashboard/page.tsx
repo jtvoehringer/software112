@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
@@ -12,12 +13,16 @@ type R = Record<string, any>
 export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient()
 
-  const { data: memberships } = await supabase
-    .from('tenant_memberships')
-    .select('role, tenants(name)')
-  type MembershipRow = { role: string; tenants: { name: string } | null }
-  const membership = (memberships as MembershipRow[] | null)?.[0]
-  const tenantName = membership?.tenants?.name ?? null
+  // Aktiv gewählten Betrieb respektieren (Cookie-basiert, s. lib/auth/roles.ts) statt einer
+  // beliebigen/ersten tenant_memberships-Zeile – sonst können bei Mehrfach-Mitgliedschaft
+  // KPIs/Daten eines anderen Betriebs als des gerade ausgewählten angezeigt werden.
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  let tenantName: string | null = null
+  if (tenantId) {
+    const { data: tenantRow } = await (supabase.from('tenants') as any).select('name').eq('id', tenantId).maybeSingle()
+    tenantName = (tenantRow as { name?: string } | null)?.name ?? null
+  }
 
   const heute = new Date()
   const monatVon  = new Date(heute.getFullYear(), heute.getMonth(), 1).toISOString().split('T')[0]
@@ -28,6 +33,10 @@ export default async function DashboardPage() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const q = (t: string) => (supabase.from(t) as any)
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb – ohne diesen Filter könnten bei
+  // Mehrfach-Mitgliedschaft KPIs vom falschen Betrieb angezeigt werden.
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [
     { count: fuellungenCount },
@@ -41,44 +50,44 @@ export default async function DashboardPage() {
     { data: naechsteAktivitaetenRaw },
     { count: leadCount },
   ] = await Promise.all([
-    q('fuellungen').select('*', { count: 'exact', head: true }).eq('aktiv', true).gt('bestand_flaschen', 0),
-    q('weinausbau').select('*', { count: 'exact', head: true }).eq('aktiv', true),
-    q('kontakte').select('*', { count: 'exact', head: true }).eq('aktiv', true),
+    tf(q('fuellungen').select('*', { count: 'exact', head: true }).eq('aktiv', true).gt('bestand_flaschen', 0)),
+    tf(q('weinausbau').select('*', { count: 'exact', head: true }).eq('aktiv', true)),
+    tf(q('kontakte').select('*', { count: 'exact', head: true }).eq('aktiv', true)),
 
     // Offene Posten (unbezahlt, nicht storniert)
-    q('verkaufsposten')
+    tf(q('verkaufsposten')
       .select('id, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
-      .eq('aktiv', true).eq('bezahlt', false).eq('storniert', false),
+      .eq('aktiv', true).eq('bezahlt', false).eq('storniert', false)),
 
     // Verkäufe aktueller Monat
-    q('verkaufsposten')
+    tf(q('verkaufsposten')
       .select('id, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
-      .eq('aktiv', true).gte('datum', monatVon).lte('datum', monatBis),
+      .eq('aktiv', true).gte('datum', monatVon).lte('datum', monatBis)),
 
     // Verkäufe Vormonat
-    q('verkaufsposten')
+    tf(q('verkaufsposten')
       .select('id, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
-      .eq('aktiv', true).gte('datum', vorMonVon).lte('datum', vorMonBis),
+      .eq('aktiv', true).gte('datum', vorMonVon).lte('datum', vorMonBis)),
 
     // Letzte 5 Verkäufe
-    q('verkaufsposten')
+    tf(q('verkaufsposten')
       .select('id, datum, rechnungsnummer, bezahlt, storniert, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name), positionen:verkauf_positionen(preis_brutto, menge)')
-      .eq('aktiv', true).order('datum', { ascending: false }).order('erstellt_am', { ascending: false }).limit(5),
+      .eq('aktiv', true).order('datum', { ascending: false }).order('erstellt_am', { ascending: false }).limit(5)),
 
     // Top-Füllungen nach Bestand
-    q('fuellungen')
+    tf(q('fuellungen')
       .select('id, name, jahrgang, bestand_flaschen, vk_preis_brutto')
       .eq('aktiv', true).gt('bestand_flaschen', 0)
-      .order('bestand_flaschen', { ascending: false }).limit(5),
+      .order('bestand_flaschen', { ascending: false }).limit(5)),
 
     // Nächste unerledigte Aktivitäten
-    q('aktivitaeten')
+    tf(q('aktivitaeten')
       .select('id, art, betreff, datum, erledigt, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name)')
       .eq('erledigt', false).gte('datum', heuteStr)
-      .order('datum', { ascending: true }).limit(4),
+      .order('datum', { ascending: true }).limit(4)),
 
     // Leads zählen
-    q('kontakte').select('*', { count: 'exact', head: true }).eq('aktiv', true).eq('is_lead', true),
+    tf(q('kontakte').select('*', { count: 'exact', head: true }).eq('aktiv', true).eq('is_lead', true)),
   ])
 
   function posSum(posten: R[]): number {
@@ -124,11 +133,11 @@ export default async function DashboardPage() {
   // Meine Aktivitäten (nächste 30 Tage, offen)
   const { data: { user } } = await supabase.auth.getUser()
   const in30 = new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]
-  const { data: meineAkts } = await (supabase.from('aktivitaeten') as any)
+  const { data: meineAkts } = await tf((supabase.from('aktivitaeten') as any)
     .select('id, art, betreff, datum, erledigt, kontakt_id, firma_id, kontakte(vorname,nachname), firmen(name)')
     .eq('erledigt', false)
     .gte('datum', heuteStr).lte('datum', in30)
-    .order('datum', { ascending: true }).limit(10)
+    .order('datum', { ascending: true }).limit(10))
 
   const monatName = heute.toLocaleDateString('de-AT', { month: 'long', year: 'numeric' })
 

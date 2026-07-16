@@ -72,8 +72,13 @@ export default async function WeinhandelPage() {
   const gesamtFlaschen  = fuellungen.reduce((s: number, f: R) => s + (f.bestand_flaschen ?? 0), 0)
   const gesamtWert      = fuellungen.reduce((s: number, f: R) =>
     s + ((f.bestand_flaschen ?? 0) * (f.einstandspreis ?? 0)), 0)
+  // Direktabfüllungen (Tanks ohne Weinausbau-Charge) zählen ebenfalls als verkaufsfähiger
+  // Tankbestand und werden weiter unten auf der Seite als solcher angezeigt – müssen also
+  // auch in die "Liter im Tank"-Summe einfließen. (Kein Kostenbasis-Feld auf pressung_behaelter
+  // vorhanden, daher fließen sie NICHT in den Lagerwert ein – das würde einen Preis erfinden.)
   const gesamtLiterTank = tanks.reduce((s: number, t: R) => s + (Number(t.menge_liter) || 0), 0)
                         + zukauf.filter((z: R) => z.einheit === 'L').reduce((s: number, z: R) => s + (Number(z.menge) || 0), 0)
+                        + direktTank.reduce((s: number, d: R) => s + (Number(d.menge_liter) || 0), 0)
   const tankLagerwert   = tanks.reduce((s: number, t: R) =>
     s + (Number(t.menge_liter) || 0) * (Number(t.einstandspreis_pro_liter) || 0), 0)
   const zukaufLagerwert = zukauf.reduce((s: number, z: R) => {

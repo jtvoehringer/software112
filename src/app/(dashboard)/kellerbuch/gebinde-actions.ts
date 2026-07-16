@@ -159,15 +159,27 @@ export async function createUmzug(formData: FormData) {
   const hauptQuelle = quelleData[0]
 
   for (const z of ziele) {
-    // Bestehendes Lot im Ziel-Gebinde suchen (Name + Jahrgang)
-    const { data: existingArr } = await (supabase.from('weinausbau') as any)
-      .select('id, menge_liter')
+    // Bestehendes Lot im Ziel-Gebinde suchen (Name + Jahrgang).
+    // WICHTIG: .eq('jahrgang', null) matched bei PostgREST NIE echte NULL-Werte – für
+    // Chargen ohne Jahrgang (z.B. NV-Cuvées) muss .is() verwendet werden, sonst wird
+    // nie das bestehende Lot gefunden und stattdessen jedes Mal ein neues angelegt.
+    let existingQuery = (supabase.from('weinausbau') as any)
+      .select('id, menge_liter, rebsorte')
       .eq('behaelter_id', z.behaelter_id)
       .eq('name', hauptQuelle?.name ?? '')
-      .eq('jahrgang', hauptQuelle?.jahrgang ?? null)
       .eq('aktiv', true)
-      .limit(1)
-    const existing = ((existingArr ?? []) as R[])[0] ?? null
+    existingQuery = (hauptQuelle?.jahrgang == null)
+      ? existingQuery.is('jahrgang', null)
+      : existingQuery.eq('jahrgang', hauptQuelle.jahrgang)
+    const { data: existingArr } = await existingQuery.limit(1)
+    let existing: R | null = ((existingArr ?? []) as R[])[0] ?? null
+
+    // Rebsortenmix-Schutz: nicht blind in ein Lot mit anderer Rebsorte mischen (wie umziehen()
+    // es für den normalen "neuer Umzug"-Weg bereits verhindert) – sonst würde beim Bearbeiten
+    // eines Umzugs eine Verschneidung ohne Verschneidungs-Workflow/Kennzeichnung entstehen.
+    if (existing && hauptQuelle?.rebsorte && existing.rebsorte && existing.rebsorte !== hauptQuelle.rebsorte) {
+      existing = null
+    }
     let nachWeinausbauId: string | null = null
 
     if (existing) {

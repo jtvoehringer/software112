@@ -1,6 +1,6 @@
 'use server'
 
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { sendEmail, upsertContact } from '@/lib/brevo/api'
 import { getListIds } from '@/lib/brevo/listen'
 import crypto from 'crypto'
@@ -28,17 +28,20 @@ export async function newsletterAnmelden(formData: FormData): Promise<AnmeldeRes
     return { ok: false, error: 'Bitte eine gültige E-Mail-Adresse eingeben.' }
   }
 
-  const supabase = await createSupabaseServerClient()
+  // Öffentliche, nicht eingeloggte Seite -> Service-Role-Client nötig, sonst blockiert RLS
+  // (kontakte_insert/kontakte_update verlangen eine authentifizierte Tenant-Rolle) jeden Schreibzugriff.
+  const supabase = createSupabaseAdminClient()
 
   // Tenant-ID für Gebeshuber (öffentliche Seite → fixer Tenant)
   const tenantId = process.env.NEWSLETTER_TENANT_ID ?? 'fa22dc07-eca5-43df-af96-f7b9b09f0471'
 
   // Prüfen ob schon bestätigt
-  const { data: existing } = await (supabase.from('kontakte') as any)
+  const { data: existing, error: selectErr } = await (supabase.from('kontakte') as any)
     .select('id, newsletter_bestaetigt')
     .eq('tenant_id', tenantId)
     .eq('email', email)
-    .single()
+    .maybeSingle()
+  if (selectErr) return { ok: false, error: 'Anmeldung derzeit nicht möglich. Bitte später erneut versuchen.' }
 
   if ((existing as AR | null)?.newsletter_bestaetigt) {
     return { ok: false, error: 'Diese E-Mail-Adresse ist bereits angemeldet.' }
@@ -50,11 +53,12 @@ export async function newsletterAnmelden(formData: FormData): Promise<AnmeldeRes
 
   // Kontakt anlegen oder aktualisieren
   if (existing) {
-    await (supabase.from('kontakte') as any)
+    const { error } = await (supabase.from('kontakte') as any)
       .update({ newsletter: true, newsletter_token: token, newsletter_opt_in_am: now, aktualisiert_am: now })
       .eq('id', (existing as AR).id)
+    if (error) return { ok: false, error: 'Anmeldung derzeit nicht möglich. Bitte später erneut versuchen.' }
   } else {
-    await (supabase.from('kontakte') as any).insert({
+    const { error } = await (supabase.from('kontakte') as any).insert({
       tenant_id:             tenantId,
       vorname,
       nachname:              nachname ?? email,
@@ -65,6 +69,7 @@ export async function newsletterAnmelden(formData: FormData): Promise<AnmeldeRes
       newsletter_opt_in_am:  now,
       newsletter_bestaetigt: false,
     })
+    if (error) return { ok: false, error: 'Anmeldung derzeit nicht möglich. Bitte später erneut versuchen.' }
   }
 
   // Consent-Log (DSGVO)
@@ -120,13 +125,13 @@ export type BestaetigungResult =
 export async function newsletterBestaetigen(token: string): Promise<BestaetigungResult> {
   if (!token) return { ok: false, error: 'Ungültiger Link.' }
 
-  const supabase = await createSupabaseServerClient()
+  const supabase = createSupabaseAdminClient()
   const tenantId = process.env.NEWSLETTER_TENANT_ID ?? 'fa22dc07-eca5-43df-af96-f7b9b09f0471'
 
   const { data } = await (supabase.from('kontakte') as any)
     .select('id, email, vorname, nachname, segment, newsletter_opt_in_am, newsletter_bestaetigt')
     .eq('newsletter_token', token)
-    .single()
+    .maybeSingle()
 
   const kontakt = data as AR | null
   if (!kontakt) return { ok: false, error: 'Dieser Bestätigungslink ist ungültig oder bereits verwendet.' }
@@ -144,9 +149,10 @@ export async function newsletterBestaetigen(token: string): Promise<Bestaetigung
   const now = new Date().toISOString()
 
   // Kontakt als bestätigt markieren
-  await (supabase.from('kontakte') as any)
+  const { error: updErr } = await (supabase.from('kontakte') as any)
     .update({ newsletter_bestaetigt: true, newsletter_token: null, aktualisiert_am: now })
     .eq('id', kontakt.id)
+  if (updErr) return { ok: false, error: 'Bestätigung derzeit nicht möglich. Bitte später erneut versuchen.' }
 
   // Consent-Log
   await (supabase.from('datenschutz_consents') as any).insert({
@@ -173,14 +179,15 @@ export async function newsletterBestaetigen(token: string): Promise<Bestaetigung
 // ── Opt-out ───────────────────────────────────────────────────────────────────
 
 export async function newsletterAbmelden(email: string): Promise<{ ok: boolean }> {
-  const supabase = await createSupabaseServerClient()
+  const supabase = createSupabaseAdminClient()
   const tenantId = process.env.NEWSLETTER_TENANT_ID ?? 'fa22dc07-eca5-43df-af96-f7b9b09f0471'
   const now = new Date().toISOString()
 
-  await (supabase.from('kontakte') as any)
+  const { error } = await (supabase.from('kontakte') as any)
     .update({ newsletter: false, newsletter_bestaetigt: false, aktualisiert_am: now })
     .eq('tenant_id', tenantId)
     .eq('email', email.toLowerCase())
+  if (error) return { ok: false }
 
   await (supabase.from('datenschutz_consents') as any).insert({
     tenant_id:   tenantId,

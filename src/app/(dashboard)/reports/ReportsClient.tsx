@@ -454,9 +454,9 @@ export default function ReportsClient({
                 <p className="text-xl font-bold text-s112-teal mt-1">{behandlungen.length}</p>
               </div>
               <div className={`rounded-xl p-4 ${cuKgHa>4?'bg-red-50':'bg-green-50'}`}>
-                <p className="text-xs text-s112-muted">Kupfer eingesetzt (kg Wirkstoff)</p>
+                <p className="text-xs text-s112-muted">Kupfer eingesetzt (kg Wirkstoff/ha)</p>
                 <p className={`text-xl font-bold mt-1 tabular-nums ${cuKgHa>4?'text-red-600':'text-green-700'}`}>
-                  {cuKgHa.toFixed(2).replace('.',',')} kg
+                  {cuKgHa.toFixed(2).replace('.',',')} kg/ha
                 </p>
                 <p className="text-xs text-s112-muted mt-0.5">{cuKgHa>4?'⚠ Über EU-Limit (4 kg/ha/Jahr)':'✓ Im EU-Bio-Limit'}</p>
               </div>

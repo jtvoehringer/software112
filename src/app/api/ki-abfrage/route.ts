@@ -182,7 +182,11 @@ async function executeQuery(supabase: any, params: R): Promise<R[]> {
     verkaufsposten:    'datum, rechnungsnummer, bezahlt, storniert, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name)',
     fuellungen:        'name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto, einstandspreis',
     weinausbau:        'name, jahrgang, rebsorte, menge_liter, qualitaetsstufe, status',
-    behandlungen:      'datum, art, menge_gesamt, menge_einheit, psm:psm_id(name), weingarten:weingarten_id(name)',
+    // weingarten_id ist ein Legacy-Feld und wird beim Anlegen einer Behandlung NICHT mehr
+    // befüllt (die echte Zuordnung läuft über die behandlung_grundstuecke-Junction-Tabelle,
+    // siehe behandlungen/actions.ts::createBehandlung) – deshalb hier über die Junction
+    // joinen statt über das leere Legacy-Feld.
+    behandlungen:      'datum, art, menge_gesamt, menge_einheit, psm:psm_id(name), behandlung_grundstuecke(grundstueck:grundstueck_id(gst_nr, weingarten:weingarten_id(name)))',
     pipeline_eintraege:'titel, stufe, kategorie, erledigt, erwartetes_datum, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name)',
   }
   let query = supabase.from(tabelle).select(selectMap[tabelle] ?? '*')

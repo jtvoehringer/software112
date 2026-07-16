@@ -78,6 +78,13 @@ export default async function WeingartenEditPage({ params }: Props) {
   // Flächensummen aus Grundstücken
   const gstHaAma      = grundstuecke.reduce((s, g) => s + (g.flaeche_ha ?? 0), 0)
   const gstHaKataster = grundstuecke.reduce((s, g) => s + (g.flaeche_ha_kataster ?? 0), 0)
+  const flaecheByGstId: Record<string, number> = {}
+  for (const g of grundstuecke) flaecheByGstId[g.id] = g.flaeche_ha ?? 0
+  // Fläche für eine Ertragszeile: die des tatsächlich geernteten Grundstücks (wenn bekannt),
+  // sonst Fallback auf die volle Ried-Fläche (Ernte ohne GST-Aufteilung) – NICHT immer die
+  // Summe aller Grundstücke, sonst wird der Ertrag bei mehreren GSTs pro Ried verwässert.
+  const flaecheFuerZeile = (e: ErtragHistorie): number =>
+    e.grundstueck_id ? (flaecheByGstId[e.grundstueck_id] ?? gstHaAma) : gstHaAma
 
   // Ertragshistorie gruppiert nach GST (für GrundstueckePanel)
   const ertragByGst: Record<string, ErtragHistorie[]> = {}
@@ -160,23 +167,26 @@ export default async function WeingartenEditPage({ params }: Props) {
               </tr>
             </thead>
             <tbody>
-              {ertragHistorie.map((e, i) => (
-                <tr key={i} className="border-b border-s112-border/40 hover:bg-s112-bg/50">
-                  <td className="px-3 py-2 font-semibold text-gray-800">{e.jahrgang}</td>
-                  <td className="px-3 py-2 font-mono text-xs text-s112-muted">{e.gst_nr ?? '–'}</td>
-                  <td className="px-3 py-2 text-gray-600">
-                    {e.datum ? new Date(e.datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '–'}
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono text-gray-800">
-                    {e.menge_kg.toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono text-gray-600">
-                    {gstHaAma > 0
-                      ? (e.menge_kg / gstHaAma).toLocaleString('de-AT', { maximumFractionDigits: 0 })
-                      : '–'}
-                  </td>
-                </tr>
-              ))}
+              {ertragHistorie.map((e, i) => {
+                const zeilenFlaeche = flaecheFuerZeile(e)
+                return (
+                  <tr key={i} className="border-b border-s112-border/40 hover:bg-s112-bg/50">
+                    <td className="px-3 py-2 font-semibold text-gray-800">{e.jahrgang}</td>
+                    <td className="px-3 py-2 font-mono text-xs text-s112-muted">{e.gst_nr ?? '–'}</td>
+                    <td className="px-3 py-2 text-gray-600">
+                      {e.datum ? new Date(e.datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '–'}
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono text-gray-800">
+                      {e.menge_kg.toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono text-gray-600">
+                      {zeilenFlaeche > 0
+                        ? (e.menge_kg / zeilenFlaeche).toLocaleString('de-AT', { maximumFractionDigits: 0 })
+                        : '–'}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>

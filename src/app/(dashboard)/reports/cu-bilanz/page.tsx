@@ -25,7 +25,7 @@ export default async function CuBilanzPage({ searchParams }: { searchParams: Pro
       .gte('datum', `${aktJahr}-01-01`).lte('datum', `${aktJahr}-12-31`)
       .order('datum'),
     (supabase.from('tenant_einstellungen') as any).select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, logo_url').limit(1).maybeSingle(),
-    (supabase.from('weingaerten') as any).select('flaeche_ha').eq('aktiv', true),
+    (supabase.from('weingarten') as any).select('flaeche_ha').eq('aktiv', true),
   ])
 
   const s = (settingsRaw as R | null) ?? {}

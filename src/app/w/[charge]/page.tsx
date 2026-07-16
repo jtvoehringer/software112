@@ -1,7 +1,7 @@
 // Öffentliche Weinpass-Seite: /w/[chargennummer]
 // Keine Authentifizierung erforderlich – nur öffentlich freigegebene Daten
 
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
@@ -18,7 +18,10 @@ export async function generateMetadata({ params }: { params: Promise<{ charge: s
 export default async function WeinpassPage({ params }: { params: Promise<{ charge: string }> }) {
   const { charge } = await params
   const chargennummer = decodeURIComponent(charge)
-  const supabase = await createSupabaseServerClient()
+  // Öffentliche Seite ohne Login (QR-Code auf der Flasche) -> Service-Role-Client nötig,
+  // da die einzige RLS-SELECT-Policy auf fuellungen eine eingeloggte Tenant-Mitgliedschaft
+  // verlangt und für anonyme Besucher sonst immer 0 Zeilen liefert.
+  const supabase = createSupabaseAdminClient()
 
   // Füllung laden (öffentliche Felder)
   const { data: fuellungRaw } = await (supabase.from('fuellungen') as any)

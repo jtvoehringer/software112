@@ -20,7 +20,7 @@ export default async function VerkaufPage() {
       id, datum, rechnungsnummer, transaktions_nr, notizen, erstellt_am, storniert, bezahlt,
       kontakt:kontakte!kontakt_id(id, vorname, nachname),
       firma:firmen(id, name),
-      positionen:verkauf_positionen(id, name, menge, einheit, preis_brutto, typ)
+      positionen:verkauf_positionen(id, name, menge, einheit, preis_brutto, typ, rabatt_pct, sonderrabatt_pct)
     `)
     .eq('aktiv', true)
     .order('datum', { ascending: false })
@@ -38,7 +38,11 @@ export default async function VerkaufPage() {
 
   function postenSumme(p: R): number {
     return ((p.positionen ?? []) as R[]).reduce((s: number, pos: R) => {
-      return s + (pos.preis_brutto != null ? Number(pos.preis_brutto) * Number(pos.menge) : 0)
+      if (pos.preis_brutto == null) return s
+      const brutto = Number(pos.preis_brutto) * Number(pos.menge)
+      const rabatt = Number(pos.rabatt_pct ?? 0) / 100
+      const sonder = Number(pos.sonderrabatt_pct ?? 0) / 100
+      return s + brutto * (1 - rabatt) * (1 - sonder)
     }, 0)
   }
 
