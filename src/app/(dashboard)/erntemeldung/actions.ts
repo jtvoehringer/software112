@@ -17,19 +17,27 @@ async function getTenantId(): Promise<string> {
 
 // ── Jahrgänge ─────────────────────────────────────────────────────────────────
 
-export async function createJahrgang(formData: FormData) {
+export async function createJahrgang(formData: FormData): Promise<{ error?: string }> {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
+  const jahrgang = Number(formData.get('jahrgang'))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('weinjahrgaenge') as any).insert({
     tenant_id:   tenantId,
-    jahrgang:    Number(formData.get('jahrgang')),
+    jahrgang,
     ernte_beginn: (formData.get('ernte_beginn') as string) || null,
     ernte_ende:   (formData.get('ernte_ende') as string) || null,
     notizen:      (formData.get('notizen') as string) || null,
   })
-  if (error) throw new Error((error as AR).message)
+  if (error) {
+    // 23505 = unique_violation (unique(tenant_id, jahrgang)) – verständliche Meldung statt Server-Crash
+    if ((error as AR).code === '23505') {
+      return { error: `Jahrgang ${jahrgang} existiert bereits für diesen Betrieb.` }
+    }
+    return { error: (error as AR).message }
+  }
   revalidatePath('/erntemeldung')
+  return {}
 }
 
 export async function updateJahrgang(id: string, formData: FormData) {
