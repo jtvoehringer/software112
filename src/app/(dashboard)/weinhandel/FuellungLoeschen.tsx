@@ -20,9 +20,10 @@ export default function FuellungLoeschen({ id, name }: { id: string; name: strin
     <button
       onClick={handleClick}
       disabled={isPending}
-      className="text-xs text-red-500 hover:text-red-700 hover:underline disabled:opacity-50"
+      title="Löschen" aria-label="Löschen"
+      className="text-red-500 hover:text-red-700 disabled:opacity-50"
     >
-      {isPending ? '…' : 'Löschen'}
+      {isPending ? '…' : '🗑️'}
     </button>
   )
 }

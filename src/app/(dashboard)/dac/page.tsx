@@ -106,7 +106,9 @@ export default async function DacPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       {writeOk && (
-                        <Link href={`/dac/${a.id}`} className="text-s112-teal hover:underline text-xs">Bearbeiten</Link>
+                        <Link href={`/dac/${a.id}`}
+                          title="Bearbeiten" aria-label="Bearbeiten"
+                          className="text-s112-teal hover:text-s112-teal/70">✏️</Link>
                       )}
                     </td>
                   </tr>

@@ -416,7 +416,8 @@ export default async function GebindePage({
                           </Link>
                         )}
                         <Link href={`/kellerbuch/eroeffnungsbestand/${e.id}/edit`}
-                          className="text-xs text-s112-teal hover:underline mr-3">Bearbeiten</Link>
+                          title="Bearbeiten" aria-label="Bearbeiten"
+                          className="text-s112-teal hover:text-s112-teal/70 mr-3">✏️</Link>
                         <LoeschenButton
                           action={deleteEroeffnungsbestand.bind(null, e.id)}
                           bestaetigung="Eröffnungsbestand wirklich löschen?" />
@@ -486,7 +487,8 @@ export default async function GebindePage({
                     {writeOk && (
                       <td className="px-4 py-2.5 text-right whitespace-nowrap">
                         <Link href={`/kellerbuch/umzug/${u.ersteId}/edit`}
-                          className="text-xs text-s112-teal hover:underline mr-3">Bearbeiten</Link>
+                          title="Bearbeiten" aria-label="Bearbeiten"
+                          className="text-s112-teal hover:text-s112-teal/70 mr-3">✏️</Link>
                         <LoeschenButton
                           action={deleteUmzug.bind(null, u.ersteId)}
                           bestaetigung="Umzug wirklich löschen? Der Quell-Bestand wird wiederhergestellt." />

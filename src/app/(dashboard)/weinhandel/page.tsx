@@ -196,7 +196,9 @@ export default async function WeinhandelPage() {
                       {writeOk && (
                         <td className="px-4 py-3 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-2">
-                            <Link href={`/weinhandel/fuellungen/${f.id}/edit`} className="text-xs text-s112-teal hover:underline">Bearbeiten</Link>
+                            <Link href={`/weinhandel/fuellungen/${f.id}/edit`}
+                              title="Bearbeiten" aria-label="Bearbeiten"
+                              className="text-s112-teal hover:text-s112-teal/70">✏️</Link>
                             <FuellungLoeschen id={f.id} name={f.name} />
                           </div>
                         </td>
