@@ -33,7 +33,6 @@ const ART_OPTIONS = [
   { value: 'bodenbearbeitung', label: '🪱 Bodenbearbeitung' },
   { value: 'schnitt',          label: '✂️ Schnitt' },
   { value: 'laubarbeit',       label: '🍃 Laubarbeit' },
-  { value: 'lese',             label: '🍇 Lese' },
   { value: 'sonstiges',        label: '📋 Sonstiges' },
 ]
 const MENGE_EINHEITEN = ['kg', 'l', 'g', 'ml']
@@ -383,99 +382,4 @@ export default function NeueBehandlungForm({
 
                     return (
                       <div key={w.id} className={!w.spritzbar ? 'bg-gray-50' : ''}>
-                        <div className={`flex items-center gap-3 px-4 py-2 text-sm transition-colors
-                          ${w.spritzbar ? 'hover:bg-s112-bg/40' : 'opacity-40'}`}>
-                          <input
-                            type="checkbox"
-                            checked={wgSel || allGstSel}
-                            ref={el => { if (el) el.indeterminate = someGstSel && !allGstSel && !wgSel }}
-                            onChange={() => toggleWG(w.id, w.spritzbar)}
-                            disabled={!w.spritzbar}
-                            className="accent-s112-teal cursor-pointer"
-                          />
-                          {gsts.length > 0 ? (
-                            <button type="button" onClick={() => toggleExpand(w.id)}
-                              className="flex items-center gap-1.5 flex-1 text-left"
-                              disabled={!w.spritzbar}>
-                              <svg className={`w-3 h-3 text-s112-muted transition-transform shrink-0 ${isExpanded ? 'rotate-90' : ''}`}
-                                fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                              </svg>
-                              <span className={`font-medium ${isActive ? 'text-s112-teal' : 'text-gray-800'}`}>{w.name}</span>
-                              <span className="text-xs text-s112-muted">{gsts.length} GST</span>
-                              {w.gst_ha_aktiv > 0 && (
-                                <span className="text-xs text-s112-muted ml-auto">{fmtHa(w.gst_ha_aktiv)}</span>
-                              )}
-                            </button>
-                          ) : (
-                            <span className={`font-medium flex-1 ${isActive ? 'text-s112-teal' : 'text-gray-800'}`}>
-                              {w.name}
-                            </span>
-                          )}
-                          {!w.spritzbar && (
-                            <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">
-                              Brache / Gerodet
-                            </span>
-                          )}
-                        </div>
-                        {isExpanded && gsts.length > 0 && w.spritzbar && (
-                          <div className="bg-white border-t border-s112-border/20">
-                            {gsts.map(g => {
-                              const isGstSel = selectedGSTs.has(g.id)
-                              return (
-                                <Fragment key={g.id}>
-                                  <label className={`flex items-center gap-2 pl-10 pr-4 py-1.5 text-xs cursor-pointer hover:bg-s112-bg/30 ${isGstSel ? 'bg-s112-teal/5' : ''}`}>
-                                    <input type="checkbox"
-                                      checked={isGstSel}
-                                      onChange={() => toggleGST(g.id, w.id)}
-                                      className="accent-s112-teal" />
-                                    <span className={`font-mono ${isGstSel ? 'text-s112-teal font-medium' : 'text-gray-600'}`}>
-                                      GST {g.gst_nr}
-                                    </span>
-                                    {g.rebsorte && <span className="text-s112-muted">· {g.rebsorte}</span>}
-                                    {g.flaeche_ha != null && <span className="text-s112-muted ml-auto">{fmtHa(g.flaeche_ha)}</span>}
-                                  </label>
-                                </Fragment>
-                              )
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Zusammenfassung */}
-        {totalSelCount > 0 && (
-          <div className="mt-3 bg-s112-teal/5 border border-s112-teal/20 rounded-xl px-4 py-2.5 text-sm text-gray-700">
-            <span className="font-semibold text-s112-teal">{selectedWGs.size}</span> Ried/Rieden
-            {selectedGSTs.size > 0 && <> · <span className="font-semibold text-s112-teal">{selectedGSTs.size}</span> GST</>} ·{' '}
-            <span className="font-semibold">{fmtHa(totalHaAktiv)}</span> aktive Fläche
-            {aufwandProHa && <> · <span className="text-gray-500">≈ {aufwandProHa}</span></>}
-            {cuBeitragG && <> · <span className="text-blue-600 font-medium">Cu: {cuBeitragG}</span></>}
-          </div>
-        )}
-      </div>
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
-          {error}
-        </div>
-      )}
-
-      <div className="flex gap-3">
-        <button type="submit" disabled={pending || totalSelCount === 0}
-          className="bg-s112-teal text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
-          {pending ? 'Speichert…' : `Maßnahme erfassen (${totalSelCount} ausgewählt)`}
-        </button>
-        <a href="/behandlungen" className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-800">
-          Abbrechen
-        </a>
-      </div>
-    </form>
-  )
-}
+                        <div className={`flex items-cen
