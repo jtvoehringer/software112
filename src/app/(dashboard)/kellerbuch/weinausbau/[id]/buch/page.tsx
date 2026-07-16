@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { qualitaetLabel } from '@/lib/wein/qualitaet'
 
 export const metadata: Metadata = { title: 'Weinbuch – software:112' }
 export const dynamic = 'force-dynamic'
@@ -15,6 +16,7 @@ type EventTyp =
   | 'ernte'
   | 'pressung'
   | 'umzug'
+  | 'schwund'
   | 'kellerbehandlung'
   | 'analyse'
   | 'dac'
@@ -41,6 +43,7 @@ const EVENT_STYLE: Record<EventTyp, { icon: string; dot: string; card: string }>
   ernte:          { icon: '🍇', dot: 'bg-purple-500',  card: 'border-purple-100 bg-purple-50/40' },
   pressung:       { icon: '⚙️', dot: 'bg-orange-400',  card: 'border-orange-100 bg-orange-50/40' },
   umzug:          { icon: '🔄', dot: 'bg-blue-400',    card: 'border-blue-100   bg-blue-50/40'   },
+  schwund:        { icon: '💨', dot: 'bg-red-400',     card: 'border-red-100    bg-red-50/40'    },
   kellerbehandlung:{ icon: '🧪', dot: 'bg-teal-500',   card: 'border-teal-100   bg-teal-50/40'   },
   analyse:        { icon: '🔬', dot: 'bg-indigo-400',  card: 'border-indigo-100 bg-indigo-50/40' },
   dac:            { icon: '🏅', dot: 'bg-yellow-500',  card: 'border-yellow-100 bg-yellow-50/40' },
@@ -95,7 +98,7 @@ export default async function WeinbuchPage({
     // Umzüge aus dieser Charge
     (supabase.from('keller_umzuege') as any)
       .select(`
-        datum, menge_liter, brutto_liter, schwund_liter, zeilen_typ, umzug_batch_id,
+        datum, menge_liter, brutto_liter, schwund_liter, zeilen_typ, umzug_batch_id, umzug_typ, notizen,
         von_behaelter:von_behaelter_id(name),
         nach_behaelter:nach_behaelter_id(name)
       `)
@@ -208,15 +211,71 @@ export default async function WeinbuchPage({
   for (const r of ((wawRes.data ?? []) as R[])) {
     if (r.weingarten_id) weingartenIds.add(r.weingarten_id)
   }
-  // Ernte-Daten aus Pressungen + Weingarten-IDs ergänzen
-  const ernteDaten: Array<{ datum: string; details: string[] }> = []
   for (const pb of pressungen) {
     const p = pb.pressung as R | null
     if (!p) continue
     for (const wg of ((p.pressung_weingaerten ?? []) as R[])) {
-      const w = wg.weingarten as R | null
       if (wg.weingarten_id) weingartenIds.add(wg.weingarten_id)
-      if (wg.ernte_datum) {
+    }
+  }
+
+  // Ernte-Daten: echte Lesemeldungen aus `ernte_parzellen` (Ried/GST/°KMW/Qualitätsstufe),
+  // verknüpft über Jahrgang + Weingärten dieser Charge — es gibt keine direkte FK von
+  // ernte_parzellen auf weinausbau, daher (wie bei Feldbehandlungen) Verknüpfung über
+  // die Weingärten, aus denen diese Charge gepresst wurde.
+  const ernteDaten: Array<{ datum: string; details: string[] }> = []
+  if (weingartenIds.size > 0) {
+    const { data: jgRow } = await (supabase.from('weinjahrgaenge') as any)
+      .select('id')
+      .eq('jahrgang', wa.jahrgang)
+      .maybeSingle()
+    const jahrgangId = (jgRow as R | null)?.id
+
+    if (jahrgangId) {
+      const { data: epRaw } = await (supabase.from('ernte_parzellen') as any)
+        .select(`
+          ernte_datum, menge_kg, oechsle, klosterneuburger, qualitaetsstufe, lesemethode, notizen,
+          weingarten:weingarten_id(name),
+          grundstueck:grundstueck_id(gst_nr, katastralgemeinde)
+        `)
+        .eq('jahrgang_id', jahrgangId)
+        .in('weingarten_id', Array.from(weingartenIds))
+        .order('ernte_datum', { ascending: true })
+
+      for (const ep of ((epRaw ?? []) as R[])) {
+        if (!ep.ernte_datum) continue
+        const w = ep.weingarten as R | null
+        const g = ep.grundstueck as R | null
+        const details: string[] = []
+        if (w?.name) details.push(`Ried: ${w.name}`)
+        if (g?.gst_nr) details.push(`GST ${g.gst_nr}`)
+        if (ep.menge_kg) details.push(`${parseFloat(ep.menge_kg).toLocaleString('de-AT')} kg`)
+        if (ep.klosterneuburger) details.push(`${ep.klosterneuburger} °KMW`)
+        if (ep.oechsle) details.push(`${ep.oechsle} °Oe`)
+        if (ep.qualitaetsstufe) details.push(qualitaetLabel(ep.qualitaetsstufe))
+        if (ep.lesemethode) {
+          details.push(
+            ep.lesemethode === 'handlese' ? 'Handlese'
+            : ep.lesemethode === 'maschinenlese' ? 'Maschinenlese'
+            : ep.lesemethode === 'selektionslese' ? 'Selektionslese'
+            : ep.lesemethode
+          )
+        }
+        if (ep.notizen) details.push(ep.notizen)
+        ernteDaten.push({ datum: ep.ernte_datum, details })
+      }
+    }
+  }
+
+  // Fallback für sehr alte Daten ohne ernte_parzellen-Eintrag: Ernte-Infos aus dem
+  // Pressungs-Snapshot (pressung_weingaerten) ableiten, falls oben nichts gefunden wurde
+  if (ernteDaten.length === 0) {
+    for (const pb of pressungen) {
+      const p = pb.pressung as R | null
+      if (!p) continue
+      for (const wg of ((p.pressung_weingaerten ?? []) as R[])) {
+        if (!wg.ernte_datum) continue
+        const w = wg.weingarten as R | null
         const details: string[] = []
         if (w?.name) details.push(`Weingarten: ${w.name}`)
         if (wg.trauben_kg) details.push(`${parseFloat(wg.trauben_kg).toLocaleString('de-AT')} kg`)
@@ -331,6 +390,23 @@ export default async function WeinbuchPage({
 
   // Umzüge
   for (const u of umzuege) {
+    if (u.umzug_typ === 'schwund') {
+      // Schwund-Buchung (z.B. Restmenge bei Abfüllung) ist kein echter Transfer zwischen
+      // zwei Behältern (von_behaelter_id bleibt leer) — daher eigene Darstellung statt
+      // eines verwirrenden "? → Behälter"-Eintrags.
+      const behaelterName = (u.nach_behaelter as R | null)?.name ?? null
+      const menge = u.schwund_liter ?? u.brutto_liter ?? u.menge_liter
+      events.push({
+        datum: u.datum,
+        typ: 'schwund',
+        titel: behaelterName ? `Schwund – ${behaelterName}` : 'Schwund',
+        details: [
+          menge && `${parseFloat(menge).toLocaleString('de-AT')} L Schwund`,
+          u.notizen,
+        ].filter(Boolean) as string[],
+      })
+      continue
+    }
     const von = (u.von_behaelter as R | null)?.name ?? '?'
     const nach = (u.nach_behaelter as R | null)?.name ?? '?'
     const liter = u.brutto_liter ?? u.menge_liter
@@ -443,6 +519,19 @@ export default async function WeinbuchPage({
   for (const fc of alleFuellungen) {
     const f = fc.fuellung as R | null
     if (!f || !f.datum) continue
+
+    // Schwund, der beim Abschluss dieser Charge automatisch ausgebucht wurde (selbes Datum),
+    // zur Füllung dazurechnen → zeigt die tatsächlich aus dem Behälter verarbeitete Menge
+    // (z.B. 4.399,5 L abgefüllt + 0,5 L Schwund = 4.400 L verarbeitet)
+    const schwundZurFuellung = umzuege.find(
+      (u) => u.umzug_typ === 'schwund' && u.datum === f.datum
+    )
+    const schwundMenge = schwundZurFuellung
+      ? parseFloat(schwundZurFuellung.schwund_liter ?? schwundZurFuellung.brutto_liter ?? '0')
+      : null
+    const gefuellt = f.menge_liter_gefuellt ? parseFloat(f.menge_liter_gefuellt) : null
+    const verarbeitet = gefuellt != null && schwundMenge ? gefuellt + schwundMenge : null
+
     events.push({
       datum: f.datum,
       typ: 'fuellung',
@@ -453,8 +542,9 @@ export default async function WeinbuchPage({
         f.anzahl_flaschen && f.flaschengroesse_ml
           ? `${parseInt(f.anzahl_flaschen).toLocaleString('de-AT')} × ${f.flaschengroesse_ml} ml`
           : null,
-        f.menge_liter_gefuellt
-          ? `${parseFloat(f.menge_liter_gefuellt).toLocaleString('de-AT')} L`
+        gefuellt != null ? `${gefuellt.toLocaleString('de-AT')} L abgefüllt` : null,
+        verarbeitet != null
+          ? `Verarbeitete Menge aus Behälter: ${verarbeitet.toLocaleString('de-AT')} L (davon ${schwundMenge!.toLocaleString('de-AT')} L Schwund)`
           : null,
         fc.anteil_liter
           ? `Anteil diese Charge: ${parseFloat(fc.anteil_liter).toLocaleString('de-AT')} L`
@@ -566,6 +656,7 @@ export default async function WeinbuchPage({
                 : typ === 'analyse' ? 'Analyse'
                 : typ === 'dac' ? 'DAC / Prüfnummer'
                 : typ === 'verschneidung' ? 'Verschneidung'
+                : typ === 'schwund' ? 'Schwund'
                 : 'Füllung'
               }</span>
             </div>
