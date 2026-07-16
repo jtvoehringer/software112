@@ -184,13 +184,15 @@ export default function PSMClient({
                 <th className="text-right text-xs text-s112-muted font-semibold py-2 pr-3">Max. kg/ha</th>
                 <th className="text-right text-xs text-s112-muted font-semibold py-2 pr-3">Wartezeit</th>
                 <th className="text-center text-xs text-s112-muted font-semibold py-2 pr-3">Bio</th>
-                {(writeOk || adminOk) && <th className="py-2" />}
+                {(writeOk || adminOk) && (
+                  <th className="py-2 px-3 sticky right-0 bg-white border-l border-s112-border" />
+                )}
               </tr>
             </thead>
             <tbody>
               {psm.map(p => (
                 <>
-                  <tr key={p.id} className="border-b border-s112-border/40 hover:bg-s112-bg/30">
+                  <tr key={p.id} className="group border-b border-s112-border/40 hover:bg-s112-bg/30">
                     <td className="py-2.5 pr-3 font-medium text-gray-900">
                       {p.name}
                       {p.handelsname && p.handelsname !== p.name && (
@@ -222,15 +224,17 @@ export default function PSMClient({
                         : <span className="text-gray-300">–</span>}
                     </td>
                     {(writeOk || adminOk) && (
-                      <td className="py-2.5 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="py-2.5 px-3 text-right sticky right-0 bg-white border-l border-s112-border/40">
+                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                           {writeOk && (
                             <button onClick={() => setEditId(editId === p.id ? null : p.id)}
-                              className="text-xs text-s112-teal hover:underline">Bearb.</button>
+                              title="Bearbeiten" aria-label="Bearbeiten"
+                              className="text-s112-teal hover:text-s112-teal/70">✏️</button>
                           )}
                           {adminOk && (
                             <button onClick={() => handleDeactivate(p.id)}
-                              className="text-xs text-red-400 hover:text-red-600">Deakt.</button>
+                              title="Deaktivieren" aria-label="Deaktivieren"
+                              className="text-red-400 hover:text-red-600">🚫</button>
                           )}
                         </div>
                       </td>

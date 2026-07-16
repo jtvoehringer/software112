@@ -495,33 +495,37 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
                   <th className="text-left px-3 py-2 font-semibold">Datum</th>
                   <th className="text-right px-3 py-2 font-semibold">kg</th>
                   <th className="text-right px-3 py-2 font-semibold">°KMW</th>
-                  <th className="text-left px-3 py-2 font-semibold">Qualität</th>
-                  {(writeOk || adminOk) && <th className="px-3 py-2" />}
+                  <th className="text-left px-3 py-2 font-semibold whitespace-nowrap">Qualität</th>
+                  {(writeOk || adminOk) && (
+                    <th className="px-3 py-2 sticky right-0 bg-s112-bg border-l border-s112-border" />
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {parzellen.map(p => (
                   <React.Fragment key={p.id}>
-                    <tr className="border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/30">
+                    <tr className="group border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/30">
                       <td className="px-3 py-2 font-medium text-gray-800">
                         {p.weingarten_name}
                       </td>
                       <td className="px-3 py-2 text-xs text-s112-muted font-mono">{p.grundstueck_nr ?? '–'}</td>
                       <td className="px-3 py-2 text-xs text-s112-muted">{p.grundstueck_rebsorte ?? p.weingarten_rebsorte ?? '–'}</td>
-                      <td className="px-3 py-2 text-s112-muted">{formatDate(p.ernte_datum)}</td>
+                      <td className="px-3 py-2 text-s112-muted whitespace-nowrap">{formatDate(p.ernte_datum)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{p.menge_kg?.toLocaleString('de-AT') ?? '–'}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{p.klosterneuburger ?? '–'}</td>
-                      <td className="px-3 py-2 text-xs text-s112-muted">{qualitaetLabel(p.qualitaetsstufe)}</td>
+                      <td className="px-3 py-2 text-xs text-s112-muted whitespace-nowrap">{qualitaetLabel(p.qualitaetsstufe)}</td>
                       {(writeOk || adminOk) && (
-                        <td className="px-3 py-2 text-right" data-print="hide">
-                          <div className="flex items-center justify-end gap-2">
+                        <td className="px-3 py-2 text-right sticky right-0 bg-white border-l border-s112-border/40" data-print="hide">
+                          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                             {writeOk && (
                               <button onClick={() => { setEditId(p.id); setShowForm(false) }}
-                                className="text-xs text-s112-teal hover:underline">Bearb.</button>
+                                title="Bearbeiten" aria-label="Bearbeiten"
+                                className="text-s112-teal hover:text-s112-teal/70">✏️</button>
                             )}
                             {adminOk && (
                               <button onClick={() => handleDelete(p.id)}
-                                className="text-xs text-red-400 hover:text-red-600">Löschen</button>
+                                title="Löschen" aria-label="Löschen"
+                                className="text-red-400 hover:text-red-600">🗑️</button>
                             )}
                           </div>
                         </td>

@@ -236,7 +236,7 @@ function PsmKarte({
             </thead>
             <tbody>
               {psm.bewegungen.map(b => (
-                <tr key={b.id} className="border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/30">
+                <tr key={b.id} className="group border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/30">
                   <td className="px-3 py-2 tabular-nums text-s112-muted">{fmtDate(b.datum)}</td>
                   <td className="px-3 py-2">
                     <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${TYP_COLOR[b.typ] ?? ''}`}>
@@ -248,15 +248,17 @@ function PsmKarte({
                   </td>
                   <td className="px-3 py-2 text-xs text-s112-muted">{b.notizen ?? '–'}</td>
                   {(writeOk || adminOk) && (
-                    <td className="px-3 py-2 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-3 py-2 text-right sticky right-0 bg-white">
+                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                         {writeOk && (
                           <button onClick={() => setEditBew({ ...b, psm_id: psm.psm_id })}
-                            className="text-xs text-s112-teal hover:underline">Bearb.</button>
+                            title="Bearbeiten" aria-label="Bearbeiten"
+                            className="text-s112-teal hover:text-s112-teal/70">✏️</button>
                         )}
                         {adminOk && (
                           <button onClick={() => handleDelete(b.id)}
-                            className="text-xs text-red-400 hover:text-red-600">Löschen</button>
+                            title="Löschen" aria-label="Löschen"
+                            className="text-red-400 hover:text-red-600">🗑️</button>
                         )}
                       </div>
                     </td>

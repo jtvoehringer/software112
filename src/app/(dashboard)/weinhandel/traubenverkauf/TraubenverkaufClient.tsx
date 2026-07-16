@@ -428,7 +428,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, kontakte,
             const kontkt = v.kontakt as R | null
             const kaeufer = firma?.name ?? ([kontkt?.vorname, kontkt?.nachname].filter(Boolean).join(' ') || '–')
             return (
-              <div key={v.id} className="card">
+              <div key={v.id} className="group card">
                 {deleteConfirm === v.id ? (
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-red-700 font-medium">Traubenverkauf wirklich löschen?</p>
@@ -482,12 +482,12 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, kontakte,
                       </div>
                     </div>
                     {writeOk && (
-                      <div className="flex items-center gap-2 shrink-0 text-xs">
-                        <button onClick={() => openEdit(v)} className="text-s112-teal hover:underline">
-                          Bearb.
+                      <div className="flex items-center gap-2 shrink-0 text-xs opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                        <button onClick={() => openEdit(v)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-teal hover:text-s112-teal/70">
+                          ✏️
                         </button>
-                        <button onClick={() => setDeleteConfirm(v.id)} className="text-red-400 hover:text-red-600">
-                          Löschen
+                        <button onClick={() => setDeleteConfirm(v.id)} title="Löschen" aria-label="Löschen" className="text-red-400 hover:text-red-600">
+                          🗑️
                         </button>
                       </div>
                     )}

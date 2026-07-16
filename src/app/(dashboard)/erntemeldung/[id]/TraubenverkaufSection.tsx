@@ -344,7 +344,7 @@ export default function TraubenverkaufSection({
                   kontaktOptions={kontaktOptions} firmaOptions={firmaOptions}
                   onDone={() => setEditId(null)} />
               ) : (
-                <div className="border border-s112-border rounded-xl p-3">
+                <div className="group border border-s112-border rounded-xl p-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -376,12 +376,12 @@ export default function TraubenverkaufSection({
                         {v.notizen && <span className="italic">· {v.notizen}</span>}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0 text-xs">
+                    <div className="flex items-center gap-2 shrink-0 text-xs opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                       {writeOk && (
-                        <button onClick={() => setEditId(v.id)} className="text-s112-teal hover:underline">Bearb.</button>
+                        <button onClick={() => setEditId(v.id)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-teal hover:text-s112-teal/70">✏️</button>
                       )}
                       {adminOk && (
-                        <button onClick={() => handleDelete(v.id)} className="text-red-400 hover:text-red-600">Löschen</button>
+                        <button onClick={() => handleDelete(v.id)} title="Löschen" aria-label="Löschen" className="text-red-400 hover:text-red-600">🗑️</button>
                       )}
                     </div>
                   </div>

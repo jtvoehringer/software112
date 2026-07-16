@@ -451,7 +451,7 @@ export default function GrundstueckePanel({
                 <th className="text-right px-3 py-2 font-semibold leading-tight">GST-Fläche<br/>lt. Kataster</th>
                 <th className="text-right px-3 py-2 font-semibold">Pflanzjahr</th>
                 <th className="text-center px-3 py-2 font-semibold">Status</th>
-                <th className="px-3 py-2" />
+                <th className="px-3 py-2 sticky right-0 bg-s112-bg border-l border-s112-border" />
               </tr>
             </thead>
             <tbody>
@@ -461,7 +461,7 @@ export default function GrundstueckePanel({
                 const hasHistory = eintraege.length > 0
                 return (
                   <React.Fragment key={g.id}>
-                    <tr className={`border-b border-s112-border/50 ${!isExpanded ? 'last:border-0' : ''} ${g.status !== 'aktiv' ? 'opacity-60' : ''}`}>
+                    <tr className={`group border-b border-s112-border/50 ${!isExpanded ? 'last:border-0' : ''} ${g.status !== 'aktiv' ? 'opacity-60' : ''}`}>
                       {/* Expand-Toggle */}
                       <td className="px-2 py-2 text-center">
                         {hasHistory ? (
@@ -508,12 +508,14 @@ export default function GrundstueckePanel({
                       </td>
                       <td className="px-3 py-2 text-right text-s112-muted text-xs">{g.pflanzjahr ?? '–'}</td>
                       <td className="px-3 py-2 text-center"><StatusBadge status={g.status} /></td>
-                      <td className="px-3 py-2 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="px-3 py-2 text-right sticky right-0 bg-white border-l border-s112-border/40">
+                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                           <button onClick={() => { setEditId(g.id); setShowForm(false) }}
-                            className="text-xs text-s112-teal hover:underline">Bearb.</button>
+                            title="Bearbeiten" aria-label="Bearbeiten"
+                            className="text-s112-teal hover:text-s112-teal/70">✏️</button>
                           <button onClick={() => handleDelete(g.id, g.gst_nr)}
-                            className="text-xs text-red-400 hover:text-red-600">Löschen</button>
+                            title="Löschen" aria-label="Löschen"
+                            className="text-red-400 hover:text-red-600">🗑️</button>
                         </div>
                       </td>
                     </tr>
