@@ -20,11 +20,14 @@ export type TenantBranding = {
   modul_sumup: boolean
 }
 
+// Entspricht exakt den CSS-Fallback-Werten in globals.css/tailwind.config.ts
+// (--s112-teal / --s112-yellow) — das ist die getestete, gut aufeinander
+// abgestimmte Standard-Farbkombination des Designs.
 const DEFAULT_BRANDING: TenantBranding = {
   anzeigename:      'software:112',
   logo_url:         null,
-  primary_color:    '#2a7c6f',
-  secondary_color:  '#f5c842',
+  primary_color:    '#025450',
+  secondary_color:  '#F9E54F',
   modul_newsletter: false,
   modul_ea:         false,
   modul_fibu:       false,

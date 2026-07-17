@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { setActiveTenantCookie } from '@/lib/auth/activeTenant'
 import { selectBetriebAction } from './actions'
+import BetriebCard from './BetriebCard'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,12 +37,12 @@ export default async function BetriebWaehlenPage() {
   // Anzeigenamen aus tenant_einstellungen laden
   const tenantIds = (memberships as R[]).map(m => m.tenant_id)
   const { data: einstellungen } = await (supabase.from('tenant_einstellungen') as any)
-    .select('tenant_id, anzeigename, logo_url')
+    .select('tenant_id, anzeigename, logo_url, primary_color')
     .in('tenant_id', tenantIds)
 
-  const anzeigeMap: Record<string, { anzeigename: string | null; logo_url: string | null }> = {}
+  const anzeigeMap: Record<string, { anzeigename: string | null; logo_url: string | null; primary_color: string | null }> = {}
   for (const e of (einstellungen ?? []) as R[]) {
-    anzeigeMap[e.tenant_id] = { anzeigename: e.anzeigename, logo_url: e.logo_url }
+    anzeigeMap[e.tenant_id] = { anzeigename: e.anzeigename, logo_url: e.logo_url, primary_color: e.primary_color ?? null }
   }
 
   return (
@@ -64,23 +65,12 @@ export default async function BetriebWaehlenPage() {
             return (
               <form key={m.tenant_id} action={selectBetriebAction}>
                 <input type="hidden" name="tenant_id" value={m.tenant_id} />
-                <button
-                  type="submit"
-                  className="w-full text-left bg-white border border-s112-border rounded-xl px-5 py-4 hover:border-s112-teal hover:shadow-sm transition-all group"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold text-gray-900 group-hover:text-s112-teal transition-colors">
-                        {displayName}
-                      </p>
-                      <p className="text-xs text-s112-muted mt-0.5">
-                        {ROLE_LABEL[m.role] ?? m.role}
-                        {tenant?.plan && <span className="ml-2 opacity-60">· {tenant.plan}</span>}
-                      </p>
-                    </div>
-                    <span className="text-s112-teal opacity-0 group-hover:opacity-100 transition-opacity text-lg">→</span>
-                  </div>
-                </button>
+                <BetriebCard
+                  displayName={displayName}
+                  roleLabel={ROLE_LABEL[m.role] ?? m.role}
+                  plan={tenant?.plan}
+                  accentColor={eins?.primary_color}
+                />
               </form>
             )
           })}

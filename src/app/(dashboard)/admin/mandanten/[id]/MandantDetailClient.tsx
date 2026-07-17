@@ -113,7 +113,9 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Primärfarbe</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Primärfarbe <span className="font-normal text-s112-muted">(empfohlen: #025450)</span>
+          </label>
           <div className="flex gap-2 items-center">
             <input type="color" value={primary} onChange={e => setPrimary(e.target.value)}
               className="w-8 h-8 rounded border border-s112-border cursor-pointer p-0.5 flex-shrink-0" />
@@ -122,7 +124,9 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
           </div>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Sekundärfarbe</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Sekundärfarbe <span className="font-normal text-s112-muted">(empfohlen: #F9E54F)</span>
+          </label>
           <div className="flex gap-2 items-center">
             <input type="color" value={secondary} onChange={e => setSecondary(e.target.value)}
               className="w-8 h-8 rounded border border-s112-border cursor-pointer p-0.5 flex-shrink-0" />
@@ -131,6 +135,17 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
           </div>
         </div>
       </div>
+      <button
+        type="button"
+        onClick={() => { setPrimary('#025450'); setSecondary('#F9E54F') }}
+        className="text-xs text-s112-teal hover:underline font-medium"
+      >
+        Empfohlene Kombination übernehmen (#025450 / #F9E54F)
+      </button>
+      <p className="text-xs text-s112-muted -mt-3">
+        Diese Kombination ist die Standardeinstellung, gegen die das gesamte Layout (Buttons, Badges, Fokus-Rahmen)
+        getestet ist. Andere Kombinationen sind möglich, aber auf ausreichenden Kontrast zu Weiß und zueinander achten.
+      </p>
 
       <div>
         <label className="block text-xs font-medium text-gray-600 mb-1">
