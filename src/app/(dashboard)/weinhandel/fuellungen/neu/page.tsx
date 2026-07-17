@@ -26,7 +26,7 @@ export default async function NeueFuellungPage({
   // Alle aktiven Weinausbau-Chargen + DAC-Anträge parallel laden
   const [{ data: chargenRaw }, { data: dacRaw }] = await Promise.all([
   (supabase.from('weinausbau') as any)
-    .select('id, name, jahrgang, rebsorte, menge_liter, status')
+    .select('id, name, jahrgang, rebsorte, menge_liter, status, qualitaetsstufe, herkunft_code')
     .eq('aktiv', true)
     .neq('status', 'abgeschlossen')
     .order('jahrgang', { ascending: false }),
@@ -42,7 +42,7 @@ export default async function NeueFuellungPage({
   // auch wenn Status 'abgeschlossen' ist (Füllung kann trotzdem angelegt werden)
   if (chargeId && !chargen.find((c: R) => c.id === chargeId)) {
     const { data: extraRaw } = await (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, rebsorte, menge_liter, status')
+      .select('id, name, jahrgang, rebsorte, menge_liter, status, qualitaetsstufe, herkunft_code')
       .eq('id', chargeId)
       .single()
     if (extraRaw) chargen = [extraRaw as R, ...chargen]

@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
+import { findePassendeHerkunftsstufe, HERKUNFT_LABEL, minHerkunft } from '@/lib/herkunft'
 import { createVerkaufspostenFuerTrauben } from '@/app/(dashboard)/weinhandel/traubenverkauf/actions'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,6 +64,26 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
   const weingartenId = formData.get('weingarten_id') as string
   const mengeKg = formData.get('menge_kg') ? Number(formData.get('menge_kg')) : null
   const mengeHl = mengeKg ? mengeKg / 130 : null  // 1 hl ≈ 130 kg
+  const grundstueckId = (formData.get('grundstueck_id') as string) || null
+
+  // Herkunft-Code (BKI) vom Grundstück übernehmen + Sortenspiegel-Abstufung, falls die
+  // gelesene Rebsorte auf der GST-Stufe nicht zulässig ist (nur Abstufung, nie Aufstufung).
+  let herkunftCode: string | null = null
+  let notizenZusatz = ''
+  if (grundstueckId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: gst } = await (supabase.from('grundstuecke') as any)
+      .select('trauben_herkunft_code, rebsorte').eq('id', grundstueckId).maybeSingle()
+    const gstHerkunft = (gst as AR | null)?.trauben_herkunft_code as string | null ?? null
+    const gstRebsorte = (gst as AR | null)?.rebsorte as string | null ?? null
+    const passend = findePassendeHerkunftsstufe(gstHerkunft, gstRebsorte)
+    herkunftCode = passend.code
+    if (passend.abgestuft && gstHerkunft) {
+      notizenZusatz = `Herkunft-Code automatisch abgestuft von ${HERKUNFT_LABEL[gstHerkunft] ?? gstHerkunft} auf ${HERKUNFT_LABEL[passend.code ?? ''] ?? passend.code} (Sortenspiegel: ${gstRebsorte ?? 'unbekannte Rebsorte'})`
+    }
+  }
+  const notizenInput = (formData.get('notizen') as string) || null
+  const notizen = notizenZusatz ? [notizenInput, notizenZusatz].filter(Boolean).join('\n') : notizenInput
 
   const payload: AR = {
     jahrgang_id:      jahrgangId,
@@ -73,9 +94,10 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
     oechsle:          formData.get('oechsle') ? Number(formData.get('oechsle')) : null,
     klosterneuburger: formData.get('klosterneuburger') ? Number(formData.get('klosterneuburger')) : null,
     qualitaetsstufe:  (formData.get('qualitaetsstufe') as string) || null,
+    herkunft_code:    herkunftCode,
     lesemethode:      (formData.get('lesemethode') as string) || null,
-    notizen:          (formData.get('notizen') as string) || null,
-    grundstueck_id:   (formData.get('grundstueck_id') as string) || null,
+    notizen:          notizen,
+    grundstueck_id:   grundstueckId,
   }
 
   const existingId = formData.get('existing_id') as string | null
@@ -136,16 +158,23 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   for (const wgId of weingartenIds) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: gsts } = await (supabase.from('grundstuecke') as any)
-      .select('id, flaeche_ha').eq('weingarten_id', wgId).eq('status', 'aktiv').order('gst_nr')
+      .select('id, flaeche_ha, trauben_herkunft_code, rebsorte').eq('weingarten_id', wgId).eq('status', 'aktiv').order('gst_nr')
     const gstList = (gsts ?? []) as AR[]
     if (gstList.length === 0) {
-      // Keine GSTs → eine Zeile für die ganze Ried
+      // Keine GSTs → eine Zeile für die ganze Ried (kein GST-Herkunft-Code verfügbar)
       rows.push({ ...base, weingarten_id: wgId, grundstueck_id: null, menge_kg: mengeKg, menge_hl: mengeKg ? mengeKg / 130 : null })
     } else {
       const mengen = splitKg(mengeKg, gstList.map((g: AR) => g.flaeche_ha ?? null))
       gstList.forEach((g: AR, i: number) => {
         const kg = mengen[i]
-        rows.push({ ...base, weingarten_id: wgId, grundstueck_id: g.id, menge_kg: kg, menge_hl: kg ? kg / 130 : null })
+        const passend = findePassendeHerkunftsstufe(g.trauben_herkunft_code ?? null, g.rebsorte ?? null)
+        rows.push({
+          ...base, weingarten_id: wgId, grundstueck_id: g.id, menge_kg: kg, menge_hl: kg ? kg / 130 : null,
+          herkunft_code: passend.code,
+          notizen: passend.abgestuft
+            ? [base.notizen, `Herkunft-Code automatisch abgestuft auf ${HERKUNFT_LABEL[passend.code ?? ''] ?? passend.code} (Sortenspiegel: ${g.rebsorte ?? 'unbekannte Rebsorte'})`].filter(Boolean).join('\n')
+            : base.notizen,
+        })
       })
     }
   }
@@ -155,6 +184,14 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   for (const g of gstEntries) {
     const arr = gstsByWG.get(g.weingarten_id) ?? []; arr.push(g); gstsByWG.set(g.weingarten_id, arr)
   }
+  // Herkunft-Code + Rebsorte der referenzierten GSTs nachladen (nicht Teil des Frontend-Payloads)
+  const alleGstIds = gstEntries.map(g => g.gst_id).filter(Boolean)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: gstStammdaten } = alleGstIds.length > 0
+    ? await (supabase.from('grundstuecke') as any).select('id, trauben_herkunft_code, rebsorte').in('id', alleGstIds)
+    : { data: [] }
+  const gstStammdatenMap = new Map<string, AR>(((gstStammdaten ?? []) as AR[]).map((g: AR) => [g.id, g]))
+
   for (const [wgId, wgGsts] of gstsByWG) {
     const mengen = splitKg(mengeKg, wgGsts.map(g => g.flaeche_ha))
     wgGsts.forEach((g, i) => {
@@ -162,11 +199,17 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
       const perKmw = g.kmw != null ? g.kmw : kmw
       const perQualitaet = perKmw != null ? kmwZuQualitaet(perKmw) : qualitaet
       const perNotizen = g.notizen ?? notizen
+      const gstStamm = gstStammdatenMap.get(g.gst_id)
+      const passend = findePassendeHerkunftsstufe(gstStamm?.trauben_herkunft_code ?? null, gstStamm?.rebsorte ?? null)
+      const finaleNotizen = passend.abgestuft
+        ? [perNotizen, `Herkunft-Code automatisch abgestuft auf ${HERKUNFT_LABEL[passend.code ?? ''] ?? passend.code} (Sortenspiegel: ${gstStamm?.rebsorte ?? 'unbekannte Rebsorte'})`].filter(Boolean).join('\n')
+        : perNotizen
       rows.push({
         ...base,
         weingarten_id: wgId, grundstueck_id: g.gst_id,
         menge_kg: kg, menge_hl: kg ? kg / 130 : null,
-        klosterneuburger: perKmw, qualitaetsstufe: perQualitaet, notizen: perNotizen,
+        klosterneuburger: perKmw, qualitaetsstufe: perQualitaet, notizen: finaleNotizen,
+        herkunft_code: passend.code,
       })
     })
   }
@@ -279,7 +322,7 @@ export async function createOrUpdateAMAMeldung(jahrgangId: string) {
 type PressungWGInput    = { weingarten_id: string; grundstueck_id?: string | null; trauben_kg: number; rebsorte?: string; notizen?: string }
 type PressungBehInput   = { behaelter_id?: string; weinausbau_id?: string; menge_liter?: number; notizen?: string }
 
-export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_id: string; weinausbau_id: string; name: string; menge_liter: number | null }[] }> {
+export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_id: string; weinausbau_id: string; name: string; menge_liter: number | null; qualitaetsstufe: string | null; herkunft_code: string | null }[] }> {
   const supabase    = await createSupabaseServerClient()
   const tenantId    = await getTenantId()
   const jahrgangId  = fd.get('jahrgang_id') as string
@@ -344,7 +387,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
   }
 
   // ── Auto-Weinausbau: Kellerbuch-Charge für jeden Behälter-Eintrag ──────────
-  const neuChargen: { behaelter_id: string; weinausbau_id: string; name: string; menge_liter: number | null }[] = []
+  const neuChargen: { behaelter_id: string; weinausbau_id: string; name: string; menge_liter: number | null; qualitaetsstufe: string | null; herkunft_code: string | null }[] = []
   // Jahrgang-Jahr für Bezeichnung laden
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: jgData } = await (supabase.from('weinjahrgaenge') as any)
@@ -355,6 +398,24 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
   // ACHTUNG: jgQualitaet enthält Vintage-Bewertungen ('sehr_gut' etc.) – NICHT als qualitaetsstufe verwenden!
   const autoQualitaet = qualitaetsstufeInput
     ?? (kmwGrad != null && !isNaN(kmwGrad) ? kmwZuQualitaet(kmwGrad) : 'qualitaetswein')
+
+  // Herkunft-Code (BKI): niedrigster (breitester) Wert der verknüpften Ernte-Parzellen übernehmen
+  // (analog Qualität – Verschneiden/Pressen kann Herkunft nur ab-, nie aufstufen).
+  let autoHerkunft: string | null = null
+  if (weingaerten.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: epRows } = await (supabase.from('ernte_parzellen') as any)
+      .select('herkunft_code, weingarten_id, grundstueck_id').eq('jahrgang_id', jahrgangId)
+    const epList = ((epRows ?? []) as AR[])
+    const passendeCodes = weingaerten.map(w => {
+      const match = epList.find((e: AR) =>
+        e.weingarten_id === w.weingarten_id &&
+        (w.grundstueck_id ? e.grundstueck_id === w.grundstueck_id : true)
+      )
+      return match?.herkunft_code as string | null ?? null
+    })
+    autoHerkunft = minHerkunft(passendeCodes)
+  }
 
   // Rebsorte + Weinart ableiten aus Weingarten-Tabelle
   const rebsortenAusForm = weingaerten.map(w => w.rebsorte).filter((r): r is string => !!r)
@@ -401,6 +462,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
           menge_liter:     beh.menge_liter ?? null,
           rebsorte:        dominantRebsorte,
           qualitaetsstufe: autoQualitaet,
+          herkunft_code:   autoHerkunft,
           weinart:         autoWeinart !== 'unbekannt' ? autoWeinart : undefined,
         })
         .eq('id', beh.weinausbau_id)
@@ -418,6 +480,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
           status:          'gaerung',
           behaelter_id:    beh.behaelter_id,
           qualitaetsstufe: autoQualitaet,
+          herkunft_code:   autoHerkunft,
           weinart:         autoWeinart,
           aktiv:           true,
         })
@@ -431,7 +494,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
           .update({ weinausbau_id: newId })
           .eq('pressung_id', pressId)
           .eq('behaelter_id', beh.behaelter_id)
-        neuChargen.push({ behaelter_id: beh.behaelter_id, weinausbau_id: newId, name: autoName, menge_liter: beh.menge_liter ?? null })
+        neuChargen.push({ behaelter_id: beh.behaelter_id, weinausbau_id: newId, name: autoName, menge_liter: beh.menge_liter ?? null, qualitaetsstufe: autoQualitaet, herkunft_code: autoHerkunft })
       }
     }
   }

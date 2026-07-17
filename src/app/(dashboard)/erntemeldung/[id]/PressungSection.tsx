@@ -65,7 +65,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
   jahrgangId: string; pressung?: Pressung
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
   leseParzellen: LeseParzelle[]; verfuegbareKgByGST: Record<string, number>
-  behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null }[]>; onDone: () => void
+  behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null }[]>; onDone: () => void
 }) {
   const [datum, setDatum]                   = useState(pressung?.datum ?? new Date().toISOString().split('T')[0])
   const [mostLiter, setMostLiter]           = useState(pressung?.most_liter_gesamt?.toString().replace('.', ',') ?? '')
@@ -129,8 +129,8 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
   const [pending, startTransition] = useTransition()
 
   type VerschneidungData = {
-    newCharge:       { id: string; name: string; menge_liter?: number | null }
-    existingChargen: { weinausbau_id: string; name: string; menge_liter?: number | null }[]
+    newCharge:       { id: string; name: string; menge_liter?: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null }
+    existingChargen: { weinausbau_id: string; name: string; menge_liter?: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null }[]
   }
   const [verschneidung, setVerschneidung]         = useState<VerschneidungData | null>(null)
   const [verschneidungOpen, setVerschneidungOpen] = useState(false)
@@ -211,7 +211,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
           })
           if (konflikt) {
             setVerschneidung({
-              newCharge: { id: konflikt.weinausbau_id, name: konflikt.name, menge_liter: konflikt.menge_liter ?? null },
+              newCharge: { id: konflikt.weinausbau_id, name: konflikt.name, menge_liter: konflikt.menge_liter ?? null, qualitaetsstufe: konflikt.qualitaetsstufe ?? null, herkunft_code: konflikt.herkunft_code ?? null },
               existingChargen: behaelterMitCharge[konflikt.behaelter_id],
             })
             return
@@ -234,10 +234,15 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
       id:          verschneidung.existingChargen[0].weinausbau_id,
       name:        verschneidung.existingChargen[0].name,
       menge_liter: verschneidung.existingChargen[0].menge_liter ?? null,
+      qualitaetsstufe: verschneidung.existingChargen[0].qualitaetsstufe ?? null,
+      herkunft_code:   verschneidung.existingChargen[0].herkunft_code ?? null,
     }
     const alleChargen = [
       zielCharge,
-      { id: verschneidung.newCharge.id, name: verschneidung.newCharge.name, menge_liter: verschneidung.newCharge.menge_liter ?? null },
+      {
+        id: verschneidung.newCharge.id, name: verschneidung.newCharge.name, menge_liter: verschneidung.newCharge.menge_liter ?? null,
+        qualitaetsstufe: verschneidung.newCharge.qualitaetsstufe ?? null, herkunft_code: verschneidung.newCharge.herkunft_code ?? null,
+      },
     ]
     if (verschneidungOpen) {
       return (
@@ -541,7 +546,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
   jahrgangId: string; pressungen: Pressung[]
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
   leseParzellen: LeseParzelle[]; verfuegbareKgByGST: Record<string, number>
-  behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null }[]>; writeOk: boolean; adminOk: boolean
+  behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null }[]>; writeOk: boolean; adminOk: boolean
 }) {
   const [showForm, setShowForm]    = useState(false)
   const [editId, setEditId]        = useState<string | null>(null)

@@ -4,6 +4,7 @@ import React, { useState, useTransition } from 'react'
 import { createGrundstueck, updateGrundstueck, deleteGrundstueck, fetchBevFlaeche, type BevNutzung } from './actions'
 import { fmtHa } from '@/lib/format'
 import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
+import { HERKUNFT_ORDER, HERKUNFT_LABEL } from '@/lib/herkunft'
 
 export type GST = {
   id: string; weingarten_id: string; gst_nr: string
@@ -329,8 +330,13 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
         {/* BKI */}
         <div className="col-span-2">
           <label className={labelCls}>Herkunft-Code (BKI)</label>
-          <input name="trauben_herkunft_code" defaultValue={gst?.trauben_herkunft_code ?? ''} placeholder="z.B. WLWV" className={inputCls} />
-          <p className="text-xs text-s112-muted mt-1">Offizielles Kürzel gem. BKI-Kürzelliste</p>
+          <select name="trauben_herkunft_code" defaultValue={gst?.trauben_herkunft_code ?? ''} className={inputCls}>
+            <option value="">– bitte wählen –</option>
+            {HERKUNFT_ORDER.map(code => (
+              <option key={code} value={code}>{HERKUNFT_LABEL[code]}</option>
+            ))}
+          </select>
+          <p className="text-xs text-s112-muted mt-1">Herkunftsstufe gem. Weingesetz/DAC-Verordnung – wird an Lese, Kellerbuch und Füllung weitergegeben (nur Abstufungen möglich)</p>
         </div>
 
         {/* AMA-Feldstücknummer */}

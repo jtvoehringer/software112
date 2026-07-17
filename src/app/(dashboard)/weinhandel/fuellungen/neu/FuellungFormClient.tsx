@@ -3,6 +3,8 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { KN_CODES } from '@/lib/wein/zolltarif'
+import { HERKUNFT_ORDER, HERKUNFT_LABEL } from '@/lib/herkunft'
+import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 
 type Charge = {
   id: string
@@ -11,6 +13,8 @@ type Charge = {
   rebsorte: string | null
   menge_liter: number | null
   status: string
+  qualitaetsstufe?: string | null
+  herkunft_code?: string | null
 }
 
 type DacAntrag = {
@@ -79,6 +83,8 @@ export default function FuellungFormClient({
     String(defaultCharge?.jahrgang ?? new Date().getFullYear())
   )
   const [rebsorteVal, setRebsorteVal] = useState(defaultCharge?.rebsorte ?? '')
+  const [qualitaetVal, setQualitaetVal] = useState(defaultCharge?.qualitaetsstufe ?? 'qualitaetswein')
+  const [herkunftCodeVal, setHerkunftCodeVal] = useState(defaultCharge?.herkunft_code ?? '')
   const [abschliessen, setAbschliessen] = useState(true)
   const [selectedDacId, setSelectedDacId] = useState('')
   const [pruefnummerVal, setPruefnummerVal] = useState('')
@@ -112,6 +118,8 @@ export default function FuellungFormClient({
       setNameVal(c.name)
       setJahrgangVal(String(c.jahrgang ?? new Date().getFullYear()))
       setRebsorteVal(c.rebsorte ?? '')
+      setQualitaetVal(c.qualitaetsstufe ?? 'qualitaetswein')
+      setHerkunftCodeVal(c.herkunft_code ?? '')
     }
     const dac = dacAntraege.find(d => d.weinausbau_id === id && d.status === 'genehmigt')
     if (dac) { setSelectedDacId(dac.id); setPruefnummerVal(dac.pruefnummer ?? '') }
@@ -191,11 +199,30 @@ export default function FuellungFormClient({
           </div>
           <div>
             <label className={labelCls}>Qualitätsbezeichnung *</label>
-            <select name="qualitaet" defaultValue="qualitaetswein" required className={inputCls}>
+            <select name="qualitaet" value={qualitaetVal} onChange={e => setQualitaetVal(e.target.value)} required className={inputCls}>
               {QUALITAETEN.map(q => (
                 <option key={q.value} value={q.value}>{q.label}</option>
               ))}
             </select>
+            {selectedCharge?.qualitaetsstufe && (
+              <p className="text-xs text-s112-muted mt-1">
+                Charge aktuell: <strong>{QUALITAET_LABEL[selectedCharge.qualitaetsstufe] ?? selectedCharge.qualitaetsstufe}</strong> – nur Abstufung möglich, keine Aufstufung
+              </p>
+            )}
+          </div>
+          <div>
+            <label className={labelCls}>Herkunft-Code (BKI)</label>
+            <select name="herkunft_code" value={herkunftCodeVal} onChange={e => setHerkunftCodeVal(e.target.value)} className={inputCls}>
+              <option value="">– keine Angabe –</option>
+              {HERKUNFT_ORDER.map(code => (
+                <option key={code} value={code}>{HERKUNFT_LABEL[code]}</option>
+              ))}
+            </select>
+            {selectedCharge?.herkunft_code && (
+              <p className="text-xs text-s112-muted mt-1">
+                Charge aktuell: <strong>{HERKUNFT_LABEL[selectedCharge.herkunft_code] ?? selectedCharge.herkunft_code}</strong> – nur Abstufung möglich, keine Aufstufung
+              </p>
+            )}
           </div>
           <div>
             <label className={labelCls}>Anbaugebiet</label>

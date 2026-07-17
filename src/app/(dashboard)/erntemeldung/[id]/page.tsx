@@ -80,7 +80,7 @@ export default async function ErnteDetailPage({ params }: Props) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, behaelter_id, rebsorte, menge_liter').eq('aktiv', true).neq('status', 'abgeschlossen').order('name'),
+      .select('id, name, jahrgang, behaelter_id, rebsorte, menge_liter, qualitaetsstufe, herkunft_code').eq('aktiv', true).neq('status', 'abgeschlossen').order('name'),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('grundstuecke') as any)
@@ -192,11 +192,14 @@ export default async function ErnteDetailPage({ params }: Props) {
   }
   // Welche Behälter haben bereits eine Kellerbuch-Charge (für Verschnitt-Warnung)
   // Direkt aus weinausbau abfragen — unabhängig von pressung_behaelter Rückverknüpfung
-  const behaelterMitCharge: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null }[]> = {}
+  const behaelterMitCharge: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null }[]> = {}
   for (const wa of ((rawWA ?? []) as AR[])) {
     if (wa.behaelter_id && wa.id && wa.name) {
       if (!behaelterMitCharge[wa.behaelter_id]) behaelterMitCharge[wa.behaelter_id] = []
-      behaelterMitCharge[wa.behaelter_id].push({ weinausbau_id: wa.id, name: wa.name, rebsorte: wa.rebsorte ?? null, menge_liter: wa.menge_liter ?? null })
+      behaelterMitCharge[wa.behaelter_id].push({
+        weinausbau_id: wa.id, name: wa.name, rebsorte: wa.rebsorte ?? null, menge_liter: wa.menge_liter ?? null,
+        qualitaetsstufe: wa.qualitaetsstufe ?? null, herkunft_code: wa.herkunft_code ?? null,
+      })
     }
   }
   const behOptions: BehOption[] = ((rawBeh ?? []) as AR[]).map(b => ({ id: b.id, name: b.name, volumen_liter: b.volumen_liter ?? null }))

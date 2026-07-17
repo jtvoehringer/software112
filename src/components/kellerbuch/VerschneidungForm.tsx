@@ -3,8 +3,9 @@
 import { useState, useTransition } from 'react'
 import { createVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
 import { QUALITAET_LABEL, QUALITAET_ORDER, istNiedrigerAls, minQualitaet } from '@/lib/weinqualitaet'
+import { HERKUNFT_LABEL, istNiedrigerAls as herkunftIstNiedrigerAls, minHerkunft } from '@/lib/herkunft'
 
-type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
+type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
 
 // Weinart-Kompatibilität: Rot+Weiß ist nicht zulässig
 function weinartKompatibel(a: string | null | undefined, b: string | null | undefined): boolean {
@@ -25,6 +26,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [qualitaetAbgestufInfo, setQualitaetAbgestufInfo] = useState<{ von: string; nach: string } | null>(null)
+  const [herkunftAbgestufInfo, setHerkunftAbgestufInfo] = useState<{ von: string; nach: string } | null>(null)
   const [quellen, setQuellen] = useState<{ weinausbau_id: string; menge: string }[]>(
     initialQuelleId
       ? [{ weinausbau_id: initialQuelleId, menge: initialQuelleMenge ?? '' }]
@@ -95,6 +97,23 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
     istNiedrigerAls(zielCharge.qualitaetsstufe ?? null, abstufungsZiel) ||
     selectedChargen.some(c => istNiedrigerAls(c.qualitaetsstufe ?? null, abstufungsZiel))
   )
+  // Herkunft-Code-Abstufungs-Check (analog Qualität) – nur Abstufungen möglich, nie Aufstufungen
+  const alleHerkuenfte = [
+    zielCharge.herkunft_code,
+    ...selectedChargen.map(c => c.herkunft_code),
+  ]
+  const herkunftAbstufungsZiel = selectedChargen.length > 0 ? minHerkunft(alleHerkuenfte) : null
+  const hatHerkunftAbstufung = herkunftAbstufungsZiel != null && (
+    herkunftIstNiedrigerAls(zielCharge.herkunft_code ?? null, herkunftAbstufungsZiel) ||
+    selectedChargen.some(c => herkunftIstNiedrigerAls(c.herkunft_code ?? null, herkunftAbstufungsZiel))
+  )
+  const herkunftBetroffeneChargen = selectedChargen.length > 0 ? [
+    ...(herkunftIstNiedrigerAls(zielCharge.herkunft_code ?? null, herkunftAbstufungsZiel ?? '') ? [zielCharge.name] : []),
+    ...selectedChargen
+      .filter(c => herkunftIstNiedrigerAls(c.herkunft_code ?? null, herkunftAbstufungsZiel ?? ''))
+      .map(c => c.name),
+  ] : []
+
   // Weinart-Konflikte: Rot+Weiß ist nicht zulässig
   const weinartKonflikte = selectedChargen.filter(
     c => !weinartKompatibel(zielCharge.weinart, c.weinart)
@@ -122,8 +141,9 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
     startTransition(async () => {
       try {
         const result = await createVerschneidung(fd)
-        if (result?.qualitaetAbgestuft) {
-          setQualitaetAbgestufInfo(result.qualitaetAbgestuft)
+        if (result?.qualitaetAbgestuft || result?.herkunftAbgestuft) {
+          setQualitaetAbgestufInfo(result.qualitaetAbgestuft ?? null)
+          setHerkunftAbgestufInfo(result.herkunftAbgestuft ?? null)
         } else {
           onDone()
         }
@@ -135,21 +155,32 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
 
   const inputCls = 'border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
 
-  // Qualitätsabstufung nach erfolgreichem Speichern
-  if (qualitaetAbgestufInfo) {
+  // Qualitäts-/Herkunft-Abstufung nach erfolgreichem Speichern
+  if (qualitaetAbgestufInfo || herkunftAbgestufInfo) {
     return (
       <div className="bg-amber-50 border border-amber-300 rounded-xl p-5 space-y-3">
         <div className="flex items-start gap-3">
           <span className="text-2xl">⚠️</span>
-          <div>
-            <p className="font-semibold text-amber-900 text-sm">Verschneidung gespeichert – Qualität abgestuft</p>
-            <p className="text-sm text-amber-800 mt-1">
-              Die Ziel-Charge wurde von{' '}
-              <strong>{QUALITAET_LABEL[qualitaetAbgestufInfo.von] ?? qualitaetAbgestufInfo.von}</strong>
-              {' '}auf{' '}
-              <strong>{QUALITAET_LABEL[qualitaetAbgestufInfo.nach] ?? qualitaetAbgestufInfo.nach}</strong>
-              {' '}abgestuft.
-            </p>
+          <div className="space-y-1">
+            <p className="font-semibold text-amber-900 text-sm">Verschneidung gespeichert – Abstufung erfolgt</p>
+            {qualitaetAbgestufInfo && (
+              <p className="text-sm text-amber-800">
+                Qualität: von{' '}
+                <strong>{QUALITAET_LABEL[qualitaetAbgestufInfo.von] ?? qualitaetAbgestufInfo.von}</strong>
+                {' '}auf{' '}
+                <strong>{QUALITAET_LABEL[qualitaetAbgestufInfo.nach] ?? qualitaetAbgestufInfo.nach}</strong>
+                {' '}abgestuft.
+              </p>
+            )}
+            {herkunftAbgestufInfo && (
+              <p className="text-sm text-amber-800">
+                Herkunft-Code (BKI): von{' '}
+                <strong>{HERKUNFT_LABEL[herkunftAbgestufInfo.von] ?? herkunftAbgestufInfo.von}</strong>
+                {' '}auf{' '}
+                <strong>{HERKUNFT_LABEL[herkunftAbgestufInfo.nach] ?? herkunftAbgestufInfo.nach}</strong>
+                {' '}abgestuft.
+              </p>
+            )}
           </div>
         </div>
         <button
@@ -243,6 +274,22 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
               {betroffeneChargen.length > 0
                 ? <>Folgende Chargen verlieren ihre Qualitätsbezeichnung: <strong>{betroffeneChargen.join(', ')}</strong></>
                 : <>Der Verschnitt wird auf <strong>{QUALITAET_LABEL[abstufungsZiel] ?? abstufungsZiel}</strong> abgestuft.</>
+              }
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Herkunft-Code-Abstufungs-Warnung */}
+      {hatHerkunftAbstufung && herkunftAbstufungsZiel && (
+        <div className="flex items-start gap-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2.5 text-sm">
+          <span className="text-amber-500 mt-0.5">⚠️</span>
+          <div>
+            <p className="font-medium text-amber-800">Herkunft-Code-Abstufung auf {HERKUNFT_LABEL[herkunftAbstufungsZiel] ?? herkunftAbstufungsZiel}</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              {herkunftBetroffeneChargen.length > 0
+                ? <>Folgende Chargen verlieren ihren Herkunft-Code: <strong>{herkunftBetroffeneChargen.join(', ')}</strong></>
+                : <>Der Verschnitt wird auf <strong>{HERKUNFT_LABEL[herkunftAbstufungsZiel] ?? herkunftAbstufungsZiel}</strong> abgestuft.</>
               }
             </p>
           </div>

@@ -3,6 +3,8 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { istNiedrigerAls, QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -28,10 +30,16 @@ export async function createFuellung(formData: FormData) {
   // Falls kein Literfeld ausgefuellt: aus Flaschenzahl berechnen
   const mengeGefuellt   = mengeFormular ?? (anzahl * flGroesseML / 1000)
 
+  const qualitaetInput     = (formData.get('qualitaet') as string) || null
+  const herkunftCodeInput  = (formData.get('herkunft_code') as string) || null
+  let notizenZusatz = ''
+
   // Bestandspruefung: nicht mehr fuellen als vorhanden
+  // + Downgrade-only-Pruefung: 'Qualitätswein' und 'Herkunft-Code (BKI)' dürfen beim Füllen nur
+  // abgestuft, NIEMALS aufgestuft werden gegenüber der verknüpften Kellerbuch-Charge (hart blockiert).
   if (weinausbauId) {
     const { data: wa } = await (supabase.from('weinausbau') as any)
-      .select('menge_liter, status')
+      .select('menge_liter, status, qualitaetsstufe, herkunft_code')
       .eq('id', weinausbauId)
       .single()
     const verfuegbar = parseFloat((wa as AR | null)?.menge_liter ?? '0') || 0
@@ -39,7 +47,30 @@ export async function createFuellung(formData: FormData) {
     if (mengeGefuellt > verfuegbar + (flGroesseML / 1000)) {
       throw new Error(`Abfüllmenge (${mengeGefuellt} L) übersteigt verfügbaren Bestand (${verfuegbar} L)`)
     }
+
+    const chargeQualitaet = (wa as AR | null)?.qualitaetsstufe as string | null ?? null
+    const chargeHerkunft  = (wa as AR | null)?.herkunft_code as string | null ?? null
+
+    if (qualitaetInput && chargeQualitaet && istNiedrigerAls(chargeQualitaet, qualitaetInput)) {
+      throw new Error(
+        `Qualitätswein kann nicht von ${QUALITAET_LABEL[chargeQualitaet] ?? chargeQualitaet} auf ${QUALITAET_LABEL[qualitaetInput] ?? qualitaetInput} AUFgestuft werden. Nur Abstufungen sind zulässig.`
+      )
+    }
+    if (herkunftCodeInput && chargeHerkunft && herkunftIstNiedrigerAls(chargeHerkunft, herkunftCodeInput)) {
+      throw new Error(
+        `Herkunft-Code (BKI) kann nicht von ${HERKUNFT_LABEL[chargeHerkunft] ?? chargeHerkunft} auf ${HERKUNFT_LABEL[herkunftCodeInput] ?? herkunftCodeInput} AUFgestuft werden. Nur Abstufungen sind zulässig.`
+      )
+    }
+    if (qualitaetInput && chargeQualitaet && qualitaetInput !== chargeQualitaet && istNiedrigerAls(qualitaetInput, chargeQualitaet)) {
+      notizenZusatz += `Qualität manuell abgestuft von ${QUALITAET_LABEL[chargeQualitaet] ?? chargeQualitaet} auf ${QUALITAET_LABEL[qualitaetInput] ?? qualitaetInput}. `
+    }
+    if (herkunftCodeInput && chargeHerkunft && herkunftCodeInput !== chargeHerkunft && herkunftIstNiedrigerAls(herkunftCodeInput, chargeHerkunft)) {
+      notizenZusatz += `Herkunft-Code (BKI) manuell abgestuft von ${HERKUNFT_LABEL[chargeHerkunft] ?? chargeHerkunft} auf ${HERKUNFT_LABEL[herkunftCodeInput] ?? herkunftCodeInput}. `
+    }
   }
+
+  const notizenInput = (formData.get('notizen') as string) || null
+  const notizen = notizenZusatz ? [notizenInput, notizenZusatz.trim()].filter(Boolean).join('\n') : notizenInput
 
   const payload: AR = {
     tenant_id:            tenantId,
@@ -48,6 +79,7 @@ export async function createFuellung(formData: FormData) {
     jahrgang:             parseInt(formData.get('jahrgang') as string) || null,
     rebsorte:             (formData.get('rebsorte') as string) || null,
     qualitaet:            formData.get('qualitaet') as string,
+    herkunft_code:        herkunftCodeInput,
     anbaugebiet:          (formData.get('anbaugebiet') as string) || null,
     bezeichnung:          (formData.get('bezeichnung') as string) || null,
     datum:                formData.get('datum') as string,
@@ -66,7 +98,7 @@ export async function createFuellung(formData: FormData) {
     vk_preis_brutto:      parseFloat(formData.get('vk_preis_brutto') as string) || null,
     einstandspreis:       parseFloat(formData.get('einstandspreis') as string) || null,
     zolltarifnummer:      (formData.get('zolltarifnummer') as string) || null,
-    notizen:              (formData.get('notizen') as string) || null,
+    notizen:              notizen,
   }
 
   const { error, data: fuellungData } = await (supabase.from('fuellungen') as any)
@@ -130,11 +162,48 @@ export async function updateFuellung(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
 
   const anzahl = parseInt(formData.get('anzahl_flaschen') as string)
+  const weinausbauId     = (formData.get('weinausbau_id') as string) || null
+  const qualitaetInput    = (formData.get('qualitaet') as string) || null
+  const herkunftCodeInput = (formData.get('herkunft_code') as string) || null
+  let notizenZusatz = ''
+
+  // Downgrade-only-Pruefung wie bei createFuellung: 'Qualitätswein' und 'Herkunft-Code (BKI)'
+  // dürfen beim Bearbeiten einer Füllung nur abgestuft, nie aufgestuft werden (hart blockiert).
+  if (weinausbauId) {
+    const { data: wa } = await (supabase.from('weinausbau') as any)
+      .select('qualitaetsstufe, herkunft_code')
+      .eq('id', weinausbauId)
+      .single()
+    const chargeQualitaet = (wa as AR | null)?.qualitaetsstufe as string | null ?? null
+    const chargeHerkunft  = (wa as AR | null)?.herkunft_code as string | null ?? null
+
+    if (qualitaetInput && chargeQualitaet && istNiedrigerAls(chargeQualitaet, qualitaetInput)) {
+      throw new Error(
+        `Qualitätswein kann nicht von ${QUALITAET_LABEL[chargeQualitaet] ?? chargeQualitaet} auf ${QUALITAET_LABEL[qualitaetInput] ?? qualitaetInput} AUFgestuft werden. Nur Abstufungen sind zulässig.`
+      )
+    }
+    if (herkunftCodeInput && chargeHerkunft && herkunftIstNiedrigerAls(chargeHerkunft, herkunftCodeInput)) {
+      throw new Error(
+        `Herkunft-Code (BKI) kann nicht von ${HERKUNFT_LABEL[chargeHerkunft] ?? chargeHerkunft} auf ${HERKUNFT_LABEL[herkunftCodeInput] ?? herkunftCodeInput} AUFgestuft werden. Nur Abstufungen sind zulässig.`
+      )
+    }
+    if (qualitaetInput && chargeQualitaet && qualitaetInput !== chargeQualitaet && istNiedrigerAls(qualitaetInput, chargeQualitaet)) {
+      notizenZusatz += `Qualität manuell abgestuft von ${QUALITAET_LABEL[chargeQualitaet] ?? chargeQualitaet} auf ${QUALITAET_LABEL[qualitaetInput] ?? qualitaetInput}. `
+    }
+    if (herkunftCodeInput && chargeHerkunft && herkunftCodeInput !== chargeHerkunft && herkunftIstNiedrigerAls(herkunftCodeInput, chargeHerkunft)) {
+      notizenZusatz += `Herkunft-Code (BKI) manuell abgestuft von ${HERKUNFT_LABEL[chargeHerkunft] ?? chargeHerkunft} auf ${HERKUNFT_LABEL[herkunftCodeInput] ?? herkunftCodeInput}. `
+    }
+  }
+
+  const notizenInput = (formData.get('notizen') as string) || null
+  const notizen = notizenZusatz ? [notizenInput, notizenZusatz.trim()].filter(Boolean).join('\n') : notizenInput
+
   const payload: AR = {
     name:                 formData.get('name') as string,
     jahrgang:             parseInt(formData.get('jahrgang') as string) || null,
     rebsorte:             (formData.get('rebsorte') as string) || null,
     qualitaet:            formData.get('qualitaet') as string,
+    herkunft_code:        herkunftCodeInput,
     anbaugebiet:          (formData.get('anbaugebiet') as string) || null,
     bezeichnung:          (formData.get('bezeichnung') as string) || null,
     datum:                formData.get('datum') as string,
@@ -143,10 +212,10 @@ export async function updateFuellung(id: string, formData: FormData) {
     bestand_flaschen:     parseInt(formData.get('bestand_flaschen') as string) || anzahl,
     menge_liter_gefuellt: parseFloat(formData.get('menge_liter_gefuellt') as string) || null,
     vk_preis_brutto:      parseFloat(formData.get('vk_preis_brutto') as string) || null,
-    weinausbau_id:        (formData.get('weinausbau_id') as string) || null,
+    weinausbau_id:        weinausbauId,
     einstandspreis:       parseFloat(formData.get('einstandspreis') as string) || null,
     zolltarifnummer:      (formData.get('zolltarifnummer') as string) || null,
-    notizen:              (formData.get('notizen') as string) || null,
+    notizen:              notizen,
     aktualisiert_am:      new Date().toISOString(),
   }
 

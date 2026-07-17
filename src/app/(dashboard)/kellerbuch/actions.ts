@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { minQualitaet, maxQualitaet, istNiedrigerAls, QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { minHerkunft, maxHerkunft, istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -201,7 +202,7 @@ export async function createAnalyse(formData: FormData) {
 }
 
 // VERSCHNEIDUNG
-export async function createVerschneidung(formData: FormData): Promise<{ qualitaetAbgestuft: { von: string; nach: string } | null }> {
+export async function createVerschneidung(formData: FormData): Promise<{ qualitaetAbgestuft: { von: string; nach: string } | null; herkunftAbgestuft: { von: string; nach: string } | null }> {
   const supabase  = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
   if (!tenantId) throw new Error('Kein Betrieb gefunden')
@@ -214,16 +215,17 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
 
   if (!datum || !zielId || quellen.length === 0) throw new Error('Pflichtfelder fehlen')
 
-  // Qualitätsstufe der Ziel-Charge vor Verschneidung sichern
+  // Qualitätsstufe + Herkunft-Code der Ziel-Charge vor Verschneidung sichern
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: zielVorher } = await (supabase.from('weinausbau') as any)
-    .select('qualitaetsstufe').eq('id', zielId).single()
+    .select('qualitaetsstufe, herkunft_code').eq('id', zielId).single()
   const zielQualitaetVorher = (zielVorher as R | null)?.qualitaetsstufe ?? null
+  const zielHerkunftVorher  = (zielVorher as R | null)?.herkunft_code ?? null
 
   // Verschneidungs-Datensatz anlegen
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: neu, error: ve } = await (supabase.from('verschneidungen') as any)
-    .insert({ tenant_id: tenantId, datum, ziel_weinausbau_id: zielId, notizen, ziel_qualitaet_vorher: zielQualitaetVorher })
+    .insert({ tenant_id: tenantId, datum, ziel_weinausbau_id: zielId, notizen, ziel_qualitaet_vorher: zielQualitaetVorher, ziel_herkunft_code_vorher: zielHerkunftVorher })
     .select('id').single()
   if (ve) throw new Error((ve as R).message)
   const vId = (neu as R).id as string
@@ -242,7 +244,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
 
   // Qualitaetsstufen + Rebsorten + Weinart der Quell-Chargen laden
   const { data: quellenData } = await (supabase.from('weinausbau') as any)
-    .select('id, qualitaetsstufe, rebsorte, weinart')
+    .select('id, qualitaetsstufe, rebsorte, weinart, herkunft_code')
     .in('id', quellen.map(q => q.weinausbau_id))
   const quellenRows = (quellenData ?? []) as R[]
 
@@ -259,6 +261,10 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   // Niedrigste Qualitaetsstufe aus Quellen + Ziel bestimmen
   const alleQualitaeten = [zielQualitaetVorher, ...quellenRows.map((q: R) => q.qualitaetsstufe as string | null)]
   const neueQualitaet = minQualitaet(alleQualitaeten)
+  // Niedrigsten (breitesten) Herkunft-Code aus Quellen + Ziel bestimmen – kann durch Verschneiden
+  // rechnerisch nie aufgestuft werden (dieselbe Logik wie bei der Qualität).
+  const alleHerkuenfte = [zielHerkunftVorher, ...quellenRows.map((q: R) => q.herkunft_code as string | null)]
+  const neueHerkunft = minHerkunft(alleHerkuenfte)
 
   // Ziel-Charge: Bestand erhöhen + Rebsorte nach 85%-Regel + Qualität anpassen
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -287,6 +293,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
       menge_liter: aktuell + gesamtLiter,
       rebsorte: neueRebsorte,
       qualitaetsstufe: neueQualitaet,
+      herkunft_code: neueHerkunft,
     })
     .eq('id', zielId)
   if (zielUpdateErr) throw new Error(`Ziel-Charge konnte nicht aktualisiert werden: ${zielUpdateErr.message}`)
@@ -315,12 +322,28 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
       ? { von: hoechsteQualitaet, nach: neueQualitaet }
       : null
 
+  // Herkunft-Abstufung: Vergleich gegen die ENGSTE Herkunftsstufe aller Beteiligten (Ziel + Quellen).
+  const alleHerkuenfteBeteiligt = [zielHerkunftVorher, ...quellenRows.map((q: R) => q.herkunft_code as string | null)]
+  const engsteHerkunft = maxHerkunft(alleHerkuenfteBeteiligt)
+  const herkunftAbgestuft: { von: string; nach: string } | null =
+    (neueHerkunft && engsteHerkunft && herkunftIstNiedrigerAls(neueHerkunft, engsteHerkunft))
+      ? { von: engsteHerkunft, nach: neueHerkunft }
+      : null
+
   // Abstufungs-Info automatisch in Notizen speichern
+  const abstufTexte: string[] = []
   if (qualitaetAbgestuft) {
     const vonLabel  = QUALITAET_LABEL[qualitaetAbgestuft.von]  ?? qualitaetAbgestuft.von
     const nachLabel = QUALITAET_LABEL[qualitaetAbgestuft.nach] ?? qualitaetAbgestuft.nach
-    const abstufText = `Abstufung von ${vonLabel} auf ${nachLabel}`
-    const neueNotizen = notizen ? `${notizen}\n${abstufText}` : abstufText
+    abstufTexte.push(`Abstufung Qualität von ${vonLabel} auf ${nachLabel}`)
+  }
+  if (herkunftAbgestuft) {
+    const vonLabel  = HERKUNFT_LABEL[herkunftAbgestuft.von]  ?? herkunftAbgestuft.von
+    const nachLabel = HERKUNFT_LABEL[herkunftAbgestuft.nach] ?? herkunftAbgestuft.nach
+    abstufTexte.push(`Abstufung Herkunft-Code (BKI) von ${vonLabel} auf ${nachLabel}`)
+  }
+  if (abstufTexte.length > 0) {
+    const neueNotizen = notizen ? `${notizen}\n${abstufTexte.join('\n')}` : abstufTexte.join('\n')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('verschneidungen') as any)
       .update({ notizen: neueNotizen })
@@ -332,7 +355,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   revalidatePath(`/kellerbuch/weinausbau/${zielId}/buch`)
   revalidatePath(`/kellerbuch/weinausbau/${zielId}`)
 
-  return { qualitaetAbgestuft }
+  return { qualitaetAbgestuft, herkunftAbgestuft }
 }
 
 // VERSCHNEIDUNG STORNIEREN
@@ -342,7 +365,7 @@ export async function deleteVerschneidung(verschneidungId: string) {
   // Quellen + Mengen laden bevor gelöscht wird
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: vRaw } = await (supabase.from('verschneidungen') as any)
-    .select('id, ziel_weinausbau_id, ziel_qualitaet_vorher, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter)')
+    .select('id, ziel_weinausbau_id, ziel_qualitaet_vorher, ziel_herkunft_code_vorher, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter)')
     .eq('id', verschneidungId)
     .single()
   if (!vRaw) throw new Error('Verschneidung nicht gefunden')
@@ -374,12 +397,16 @@ export async function deleteVerschneidung(verschneidungId: string) {
       .eq('id', q.quell_weinausbau_id)
   }
 
-  // Qualitätsstufe wiederherstellen falls gespeichert
+  // Qualitätsstufe + Herkunft-Code wiederherstellen falls gespeichert
   const zielQualitaetVorher = (vRaw as R).ziel_qualitaet_vorher as string | null
-  if (zielQualitaetVorher) {
+  const zielHerkunftVorher  = (vRaw as R).ziel_herkunft_code_vorher as string | null
+  if (zielQualitaetVorher || zielHerkunftVorher) {
+    const restorePayload: R = {}
+    if (zielQualitaetVorher) restorePayload.qualitaetsstufe = zielQualitaetVorher
+    if (zielHerkunftVorher)  restorePayload.herkunft_code   = zielHerkunftVorher
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('weinausbau') as any)
-      .update({ qualitaetsstufe: zielQualitaetVorher })
+      .update(restorePayload)
       .eq('id', zielId)
   }
 

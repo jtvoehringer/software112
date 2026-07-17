@@ -5,6 +5,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { updateFuellung, schwundAusbuchen } from '../../../actions'
 import { KN_CODES } from '@/lib/wein/zolltarif'
+import { HERKUNFT_ORDER, HERKUNFT_LABEL } from '@/lib/herkunft'
+import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 
 export const metadata: Metadata = { title: 'Füllung bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -66,13 +68,17 @@ export default async function EditFuellungPage({
 
   // Restmenge der verknüpften Charge laden
   let waRestmenge: number | null = null
+  let waCeilingQualitaet: string | null = null
+  let waCeilingHerkunft: string | null = null
   if (f.weinausbau_id) {
     const { data: waAktuell } = await (supabase.from('weinausbau') as any)
-      .select('menge_liter, status').eq('id', f.weinausbau_id).single()
+      .select('menge_liter, status, qualitaetsstufe, herkunft_code').eq('id', f.weinausbau_id).single()
     const wa = waAktuell as R | null
     if (wa && wa.status !== 'abgeschlossen') {
       waRestmenge = parseFloat(wa.menge_liter ?? '0') || 0
     }
+    waCeilingQualitaet = wa?.qualitaetsstufe ?? null
+    waCeilingHerkunft  = wa?.herkunft_code ?? null
   }
   // Aktuell verknüpfte Charge immer einschließen (auch wenn abgeschlossen)
   const chargeInListe = !f.weinausbau_id || chargen.find((c: R) => c.id === f.weinausbau_id)
@@ -211,6 +217,25 @@ export default async function EditFuellungPage({
                   <option key={q.value} value={q.value}>{q.label}</option>
                 ))}
               </select>
+              {waCeilingQualitaet && (
+                <p className="text-xs text-s112-muted mt-1">
+                  Charge aktuell: <strong>{QUALITAET_LABEL[waCeilingQualitaet] ?? waCeilingQualitaet}</strong> – nur Abstufung möglich, keine Aufstufung
+                </p>
+              )}
+            </div>
+            <div>
+              <label className={labelCls}>Herkunft-Code (BKI)</label>
+              <select name="herkunft_code" defaultValue={f.herkunft_code ?? ''} className={inputCls}>
+                <option value="">– keine Angabe –</option>
+                {HERKUNFT_ORDER.map(code => (
+                  <option key={code} value={code}>{HERKUNFT_LABEL[code]}</option>
+                ))}
+              </select>
+              {waCeilingHerkunft && (
+                <p className="text-xs text-s112-muted mt-1">
+                  Charge aktuell: <strong>{HERKUNFT_LABEL[waCeilingHerkunft] ?? waCeilingHerkunft}</strong> – nur Abstufung möglich, keine Aufstufung
+                </p>
+              )}
             </div>
             <div>
               <label className={labelCls}>Anbaugebiet</label>
