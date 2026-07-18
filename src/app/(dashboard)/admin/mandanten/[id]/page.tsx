@@ -16,6 +16,7 @@ export type TenantDetail = {
   stripe_status:            string | null
   stripe_plan:              string | null
   stripe_current_period_end: string | null
+  bio_status:               string
 }
 export type TenantSettings = {
   anzeigename:      string | null
@@ -112,7 +113,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     { data: { users } },
   ] = await Promise.all([
     (admin.from('tenants') as any)
-      .select('id, name, slug, plan, created_at, stripe_customer_id, stripe_subscription_id, stripe_status, stripe_plan, stripe_current_period_end').eq('id', id).single(),
+      .select('id, name, slug, plan, created_at, stripe_customer_id, stripe_subscription_id, stripe_status, stripe_plan, stripe_current_period_end, bio_status').eq('id', id).single(),
     (admin.from('tenant_einstellungen') as any)
       .select('*').eq('tenant_id', id).maybeSingle(),
     (admin.from('tenant_memberships') as any)
@@ -135,6 +136,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     stripe_status:             t.stripe_status             ?? null,
     stripe_plan:               t.stripe_plan               ?? null,
     stripe_current_period_end: t.stripe_current_period_end ?? null,
+    bio_status:                t.bio_status                ?? 'konventionell',
   }
 
   const settings: TenantSettings = {

@@ -46,6 +46,14 @@ const ROLE_LABELS: Record<string, string> = {
   leser:        'Nur-Lesen',
 }
 
+const BIO_STATUS_OPTS = [
+  { value: 'konventionell', label: 'Konventionell' },
+  { value: 'kip',           label: 'KIP (kontrolliert integrierte Produktion)' },
+  { value: 'nachhaltig',    label: 'Nachhaltig' },
+  { value: 'bio_eu',        label: 'Bio-EU' },
+  { value: 'biodynamisch',  label: 'Biodynamisch' },
+]
+
 function inputCls() {
   return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
 }
@@ -113,9 +121,7 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            Primärfarbe <span className="font-normal text-s112-muted">(empfohlen: #025450)</span>
-          </label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Primärfarbe</label>
           <div className="flex gap-2 items-center">
             <input type="color" value={primary} onChange={e => setPrimary(e.target.value)}
               className="w-8 h-8 rounded border border-s112-border cursor-pointer p-0.5 flex-shrink-0" />
@@ -124,9 +130,7 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
           </div>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            Sekundärfarbe <span className="font-normal text-s112-muted">(empfohlen: #F9E54F)</span>
-          </label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Sekundärfarbe</label>
           <div className="flex gap-2 items-center">
             <input type="color" value={secondary} onChange={e => setSecondary(e.target.value)}
               className="w-8 h-8 rounded border border-s112-border cursor-pointer p-0.5 flex-shrink-0" />
@@ -135,17 +139,6 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
           </div>
         </div>
       </div>
-      <button
-        type="button"
-        onClick={() => { setPrimary('#025450'); setSecondary('#F9E54F') }}
-        className="text-xs text-s112-teal hover:underline font-medium"
-      >
-        Empfohlene Kombination übernehmen (#025450 / #F9E54F)
-      </button>
-      <p className="text-xs text-s112-muted -mt-3">
-        Diese Kombination ist die Standardeinstellung, gegen die das gesamte Layout (Buttons, Badges, Fokus-Rahmen)
-        getestet ist. Andere Kombinationen sind möglich, aber auf ausreichenden Kontrast zu Weiß und zueinander achten.
-      </p>
 
       <div>
         <label className="block text-xs font-medium text-gray-600 mb-1">
@@ -570,6 +563,20 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
               <p className="text-[10px] text-gray-400 mt-0.5">Für Transportbescheinigung &amp; Prüfnummernantrag</p>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div>
+        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Bewirtschaftung</p>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Bio-Status</label>
+          <select name="bio_status" defaultValue={tenant.bio_status} className={inputCls()} style={{ maxWidth: '320px' }}>
+            {BIO_STATUS_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <p className="text-[10px] text-gray-400 mt-0.5">
+            Steuert die Warn-/Sperrlogik bei der Mittelwahl im Maßnahmenformular: bei Bio-EU/biodynamisch
+            wird ein nicht öko-zugelassenes Mittel gesperrt, bei KIP/nachhaltig nur als Warnung angezeigt.
+          </p>
         </div>
       </div>
 
