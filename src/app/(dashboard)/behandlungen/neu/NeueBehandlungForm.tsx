@@ -1,9 +1,9 @@
 'use client'
 
-import { Fragment, useEffect, useState, useTransition } from 'react'
+import { Fragment, useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBehandlung } from '../actions'
-import type { PSM, DuengemittelOption, WeingartenOption, GSTOption } from './page'
+import type { PSM, DuengemittelOption, WeingartenOption, GSTOption, KostenartOption, SatzOption } from './page'
 
 const BBCH_OPTIONS = [
   { value: '09', label: '09 – Knospenaufbruch' },
@@ -67,15 +67,20 @@ function fmtHa(n: number) {
   return n.toLocaleString('de-AT', { maximumFractionDigits: 4 }) + ' ha'
 }
 
+function fmtEuro(n: number) {
+  return n.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 const BIO_SPERRE = new Set(['bio_eu', 'biodynamisch'])
 const BIO_WARNUNG = new Set(['kip', 'nachhaltig'])
 
 export default function NeueBehandlungForm({
-  psm, duengemittel, weingaerten, gstByWeingarten, bioStatus,
+  psm, duengemittel, weingaerten, gstByWeingarten, bioStatus, kostenarten, saetzeMassnahmen,
 }: {
   psm: PSM[]; duengemittel: DuengemittelOption[]
   weingaerten: WeingartenOption[]; gstByWeingarten: Record<string, GSTOption[]>
   bioStatus: string
+  kostenarten: KostenartOption[]; saetzeMassnahmen: SatzOption[]
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -89,12 +94,21 @@ export default function NeueBehandlungForm({
   const [mengeEinheit, setMengeEinheit] = useState('kg')
   const [error, setError] = useState<string | null>(null)
 
+  // Kosten-Vorschlagsfunktion
+  const [kostenAktiv, setKostenAktiv] = useState(false)
+  const [kostenKostenartId, setKostenKostenartId] = useState('')
+  const [selectedSatzId, setSelectedSatzId] = useState('')
+  const [kostenBetrag, setKostenBetrag] = useState('')
+  const [kostenBeschreibung, setKostenBeschreibung] = useState('')
+  const betragManuellGeaendert = useRef(false)
+
   const felder = FELD_MATRIX[art]
 
   // Beim Wechsel der Art eine Mittel-Auswahl zurücksetzen, die zur neuen Art nicht mehr passt
   useEffect(() => {
     if (art !== 'spritzung' && art !== 'sonstiges') setSelectedPsmId('')
     if (art !== 'duengung') setSelectedDuengemittelId('')
+    setSelectedSatzId('')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [art])
 
@@ -134,6 +148,39 @@ export default function NeueBehandlungForm({
   const cuBeitragG = selectedPsm?.cu_gehalt_pct && mengeGesamt && mengeEinheit === 'kg'
     ? Math.round(parseFloat(mengeGesamt) * 1000 * ((selectedPsm.cu_gehalt_pct) / 100)).toLocaleString('de-AT') + ' g Cu'
     : null
+
+  // ─── Kosten-Vorschlag: passende Hektarsätze für die aktuelle Art + Vorschlagssumme ──
+  const passendeSaetze = saetzeMassnahmen.filter(s => s.art === art)
+  const gewaehlterSatz = passendeSaetze.find(s => s.id === selectedSatzId) ?? passendeSaetze[0]
+
+  const materialpreisProEinheit =
+    art === 'spritzung' || art === 'sonstiges' ? selectedPsm?.preis_pro_einheit :
+    art === 'duengung'  ? selectedDuengemittel?.preis_pro_einheit :
+    undefined
+  const materialkosten = materialpreisProEinheit && mengeGesamt
+    ? materialpreisProEinheit * parseFloat(mengeGesamt)
+    : 0
+  const personalkosten = gewaehlterSatz && totalHaAktiv > 0
+    ? gewaehlterSatz.satz_pro_ha * totalHaAktiv
+    : 0
+  const kostenVorschlag = materialkosten + personalkosten
+
+  // Vorschlagsbetrag automatisch ins Feld übernehmen, solange der Nutzer es nicht selbst geändert hat
+  useEffect(() => {
+    if (!kostenAktiv) return
+    if (betragManuellGeaendert.current) return
+    setKostenBetrag(kostenVorschlag > 0 ? kostenVorschlag.toFixed(2) : '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kostenAktiv, kostenVorschlag])
+
+  // Beschreibung automatisch vorschlagen, solange leer/unverändert
+  useEffect(() => {
+    if (!kostenAktiv) return
+    if (kostenBeschreibung) return
+    const artLabel = ART_OPTIONS.find(o => o.value === art)?.label.replace(/^\S+\s/, '') ?? art
+    setKostenBeschreibung(`${artLabel}${gewaehlterSatz ? ` – ${gewaehlterSatz.bezeichnung}` : ''}`)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kostenAktiv, art])
 
   // Weingärten nach Ried gruppieren
   const lagenMap = new Map<string, WeingartenOption[]>()
@@ -671,6 +718,81 @@ export default function NeueBehandlungForm({
             <span className="font-semibold">{fmtHa(totalHaAktiv)}</span> aktive Fläche
             {aufwandProHa && <> · <span className="text-gray-500">≈ {aufwandProHa}</span></>}
             {cuBeitragG && <> · <span className="text-blue-600 font-medium">Cu: {cuBeitragG}</span></>}
+          </div>
+        )}
+      </div>
+
+      {/* Kosten-Vorschlagsfunktion (optional) */}
+      <div className="card space-y-3">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" name="kosten_aktiv" checked={kostenAktiv}
+            onChange={e => { setKostenAktiv(e.target.checked); betragManuellGeaendert.current = false }}
+            className="accent-s112-teal" />
+          <h2 className="text-base font-semibold text-gray-800">Kosten erfassen</h2>
+        </label>
+        <p className="text-xs text-s112-muted -mt-2">
+          Optional: Material- und Personalkosten dieser Maßnahme automatisch vorschlagen (aus Mittelpreis
+          und Hektarsätzen) und als Kosteneintrag in der Kostenrechnung anlegen.
+        </p>
+
+        {kostenAktiv && (
+          <div className="space-y-3 pt-1">
+            {(materialkosten > 0 || personalkosten > 0) && (
+              <div className="bg-s112-bg rounded-lg px-3 py-2 text-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
+                {materialkosten > 0 && <span>Material: <strong>{fmtEuro(materialkosten)} €</strong></span>}
+                {personalkosten > 0 && (
+                  <span>
+                    Personal/Maschinen: <strong>{fmtEuro(personalkosten)} €</strong>
+                    {gewaehlterSatz && <> ({fmtEuro(gewaehlterSatz.satz_pro_ha)} €/ha × {fmtHa(totalHaAktiv)})</>}
+                  </span>
+                )}
+                <span>Vorschlag gesamt: <strong className="text-s112-teal">{fmtEuro(kostenVorschlag)} €</strong></span>
+              </div>
+            )}
+
+            {passendeSaetze.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Hektarsatz</label>
+                <select value={selectedSatzId || passendeSaetze[0].id}
+                  onChange={e => { setSelectedSatzId(e.target.value); betragManuellGeaendert.current = false }}
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  {passendeSaetze.map(s => (
+                    <option key={s.id} value={s.id}>{s.bezeichnung} – {fmtEuro(s.satz_pro_ha)} €/ha</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {passendeSaetze.length === 0 && (
+              <p className="text-xs text-s112-muted">
+                Für diese Maßnahmenart ist noch kein Hektarsatz hinterlegt (PSM-Lager → Stundensätze).
+              </p>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Kostenart</label>
+                <select name="kosten_kostenart_id" value={kostenKostenartId}
+                  onChange={e => setKostenKostenartId(e.target.value)}
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  <option value="">– Auswählen –</option>
+                  {kostenarten.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Betrag (€)</label>
+                <input name="kosten_betrag" type="number" step="0.01" min="0"
+                  value={kostenBetrag}
+                  onChange={e => { setKostenBetrag(e.target.value); betragManuellGeaendert.current = true }}
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Beschreibung</label>
+              <input name="kosten_beschreibung" type="text" value={kostenBeschreibung}
+                onChange={e => setKostenBeschreibung(e.target.value)}
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            </div>
           </div>
         )}
       </div>

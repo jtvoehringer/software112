@@ -13,10 +13,12 @@ export type PSM = {
   id: string; name: string; handelsname: string | null
   kategorie: string | null; wartezeit_tage: number | null
   oeko_zugelassen: boolean; cu_gehalt_pct: number | null
+  preis_pro_einheit: number | null
 }
 export type DuengemittelOption = {
   id: string; name: string; handelsname: string | null
   typ: string | null; wartezeit_tage: number | null; oeko_zugelassen: boolean
+  preis_pro_einheit: number | null
 }
 export type WeingartenOption = {
   id: string; name: string; ried: string | null; lage_id: string | null; lage_name: string | null
@@ -27,6 +29,8 @@ export type GSTOption = {
   id: string; weingarten_id: string; gst_nr: string
   rebsorte: string | null; flaeche_ha: number | null
 }
+export type KostenartOption = { id: string; name: string; kategorie: string | null }
+export type SatzOption = { id: string; art: string; bezeichnung: string; satz_pro_ha: number }
 
 export default async function NeueBehandlungPage() {
   const role = await getCurrentUserRole()
@@ -47,10 +51,10 @@ export default async function NeueBehandlungPage() {
     bioStatus = (tenantRow as AR | null)?.bio_status ?? 'konventionell'
   }
 
-  // PSM laden (global + eigene) — inkl. cu_gehalt_pct
+  // PSM laden (global + eigene) — inkl. cu_gehalt_pct + preis_pro_einheit
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawPSM } = await (supabase.from('pflanzenschutzmittel') as any)
-    .select('id, name, handelsname, kategorie, wartezeit_tage, oeko_zugelassen, cu_gehalt_pct')
+    .select('id, name, handelsname, kategorie, wartezeit_tage, oeko_zugelassen, cu_gehalt_pct, preis_pro_einheit')
     .eq('aktiv', true)
     .order('name')
   const psm: PSM[] = ((rawPSM ?? []) as AR[]).map(p => ({
@@ -61,12 +65,13 @@ export default async function NeueBehandlungPage() {
     wartezeit_tage: p.wartezeit_tage ?? null,
     oeko_zugelassen: p.oeko_zugelassen ?? false,
     cu_gehalt_pct:  p.cu_gehalt_pct ?? null,
+    preis_pro_einheit: p.preis_pro_einheit ?? null,
   }))
 
-  // Düngemittel laden (global + eigene)
+  // Düngemittel laden (global + eigene) — inkl. preis_pro_einheit
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawDuenger } = await (supabase.from('duengemittel') as any)
-    .select('id, name, handelsname, typ, wartezeit_tage, oeko_zugelassen')
+    .select('id, name, handelsname, typ, wartezeit_tage, oeko_zugelassen, preis_pro_einheit')
     .eq('aktiv', true)
     .order('name')
   const duengemittel: DuengemittelOption[] = ((rawDuenger ?? []) as AR[]).map(d => ({
@@ -76,6 +81,28 @@ export default async function NeueBehandlungPage() {
     typ:             d.typ ?? null,
     wartezeit_tage:  d.wartezeit_tage ?? null,
     oeko_zugelassen: d.oeko_zugelassen ?? false,
+    preis_pro_einheit: d.preis_pro_einheit ?? null,
+  }))
+
+  // Kostenarten (für die Kosten-Vorschlagsfunktion)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawKostenarten } = await (supabase.from('kostenarten') as any)
+    .select('id, name, kategorie')
+    .eq('aktiv', true)
+    .order('name')
+  const kostenarten: KostenartOption[] = ((rawKostenarten ?? []) as AR[]).map(k => ({
+    id: k.id, name: k.name, kategorie: k.kategorie ?? null,
+  }))
+
+  // Hektarsätze je Maßnahmenart (für die Kosten-Vorschlagsfunktion, migration 133)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawSaetze } = await (supabase.from('saetze_massnahmen') as any)
+    .select('id, art, bezeichnung, satz_pro_ha')
+    .eq('aktiv', true)
+    .order('art')
+    .order('bezeichnung')
+  const saetzeMassnahmen: SatzOption[] = ((rawSaetze ?? []) as AR[]).map(s => ({
+    id: s.id, art: s.art, bezeichnung: s.bezeichnung, satz_pro_ha: s.satz_pro_ha,
   }))
 
   // Aktive Weingärten mit Lage
@@ -138,6 +165,8 @@ export default async function NeueBehandlungPage() {
         weingaerten={weingaerten}
         gstByWeingarten={gstByWeingarten}
         bioStatus={bioStatus}
+        kostenarten={kostenarten}
+        saetzeMassnahmen={saetzeMassnahmen}
       />
     </div>
   )

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import LagerClient from './LagerClient'
 import PSMClient from './PSMClient'
 import DuengemittelClient from './DuengemittelClient'
+import SaetzeClient from './SaetzeClient'
 
 export const metadata: Metadata = { title: 'PSM-Lager – software:112' }
 export const dynamic = 'force-dynamic'
@@ -47,6 +48,12 @@ export type DuengemittelEintrag = {
   wartezeit_tage: number | null; oeko_zugelassen: boolean
   einarbeitung_erforderlich: boolean
   preis_pro_einheit: number | null; einheit: string | null
+  notizen: string | null
+}
+
+export type SatzEintrag = {
+  id: string; art: string; bezeichnung: string
+  satz_pro_ha: number; gueltig_ab: string | null
   notizen: string | null
 }
 
@@ -113,6 +120,23 @@ export default async function LagerPage({
     notizen:                   d.notizen ?? null,
   }))
 
+  // Sätze/Stundensätze je Maßnahmenart (für den Stundensätze-Tab)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawSaetze } = await (supabase.from('saetze_massnahmen') as any)
+    .select('id, art, bezeichnung, satz_pro_ha, gueltig_ab, notizen')
+    .eq('aktiv', true)
+    .order('art')
+    .order('bezeichnung')
+
+  const saetzeMassnahmen: SatzEintrag[] = ((rawSaetze ?? []) as AR[]).map(s => ({
+    id:           s.id,
+    art:          s.art,
+    bezeichnung:  s.bezeichnung,
+    satz_pro_ha:  s.satz_pro_ha,
+    gueltig_ab:   s.gueltig_ab ?? null,
+    notizen:      s.notizen ?? null,
+  }))
+
   // Lagerbewegungen
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawBew } = await (supabase.from('psm_lager_bewegungen') as any)
@@ -173,6 +197,7 @@ export default async function LagerPage({
     { key: 'bestand',      label: 'Bestand & Bewegungen' },
     { key: 'stammdaten',   label: 'PSM-Stammdaten' },
     { key: 'duengemittel', label: 'Düngemittel' },
+    { key: 'saetze',       label: 'Stundensätze' },
   ]
 
   return (
@@ -191,6 +216,8 @@ export default async function LagerPage({
               ? 'Pflanzenschutzmittel anlegen und pflegen · Cu-Gehalt · Grenzwerte · Bio-Zulassung'
               : tab === 'duengemittel'
               ? 'Düngemittel anlegen und pflegen · N-P-K-Gehalt · Preis · Bio-Zulassung'
+              : tab === 'saetze'
+              ? 'Hektarsätze je Maßnahmenart für die Kosten-Vorschlagsfunktion'
               : 'Anfangsbestand · Einkauf · Verbrauch · Inventurkorrektur'}
           </p>
         </div>
@@ -215,6 +242,8 @@ export default async function LagerPage({
         <PSMClient psm={psmStammdaten} writeOk={writeOk} adminOk={adminOk} />
       ) : tab === 'duengemittel' ? (
         <DuengemittelClient duengemittel={duengemittelStammdaten} writeOk={writeOk} adminOk={adminOk} />
+      ) : tab === 'saetze' ? (
+        <SaetzeClient saetze={saetzeMassnahmen} writeOk={writeOk} adminOk={adminOk} />
       ) : (
         <LagerClient
           psms={aktivePsm}

@@ -157,3 +157,50 @@ export async function deactivateDuengemittel(id: string) {
     .update({ aktiv: false }).eq('id', id)
   revalidatePath('/behandlungen/lager')
 }
+
+// ── Sätze/Stundensätze je Maßnahmenart (Phase 2/3 Massnahmenformular, migration 133) ────────
+
+export async function upsertSatzMassnahme(fd: FormData) {
+  const supabase = await createSupabaseServerClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: { user } } = await (supabase.auth as any).getUser()
+  if (!user) throw new Error('Nicht angemeldet')
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: membership } = await (supabase.from('tenant_memberships') as any)
+    .select('tenant_id').eq('user_id', user.id).single()
+  if (!membership) throw new Error('Kein Mandant')
+
+  const existingId = fd.get('existing_id') as string | null
+
+  const payload = {
+    tenant_id:    membership.tenant_id,
+    art:          fd.get('art') as string,
+    bezeichnung:  fd.get('bezeichnung') as string,
+    satz_pro_ha:  parseFloat(fd.get('satz_pro_ha') as string) || 0,
+    gueltig_ab:   (fd.get('gueltig_ab') as string) || null,
+    notizen:      (fd.get('notizen') as string) || null,
+    aktiv:        true,
+  }
+
+  if (existingId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('saetze_massnahmen') as any)
+      .update(payload).eq('id', existingId)
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('saetze_massnahmen') as any).insert(payload)
+  }
+
+  revalidatePath('/behandlungen/lager')
+  revalidatePath('/behandlungen/neu')
+}
+
+export async function deactivateSatzMassnahme(id: string) {
+  const supabase = await createSupabaseServerClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from('saetze_massnahmen') as any)
+    .update({ aktiv: false }).eq('id', id)
+  revalidatePath('/behandlungen/lager')
+}
