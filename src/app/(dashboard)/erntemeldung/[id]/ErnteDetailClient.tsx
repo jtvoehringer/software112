@@ -4,7 +4,7 @@ import React, { useState, useTransition } from 'react'
 import { upsertErnteParzelle, deleteErnteParzelle, createOrUpdateAMAMeldung, createMultipleErnteParzellen } from '../actions'
 import { qualitaetLabel, QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
-import type { ErnteParzelle, WeingartenOpt, GSTOpt, AMAMeldung } from './page'
+import type { ErnteParzelle, WeingartenOpt, GSTOpt, AMAMeldung, HektarhoechstertragStatus } from './page'
 import PressungSection from './PressungSection'
 import type { Pressung, WGOption, BehOption, WAOption } from './PressungSection'
 import { fmtHa, fmtZahl, fmtProzent } from '@/lib/format'
@@ -418,10 +418,11 @@ function ParzellForm({
 
 // ── Hauptkomponente ─────────────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gstByWeingarten, amaMeldung, pressungen, wgOptions, behOptions, waOptions, verfuegbareKg, verfuegbareKgByGST, behaelterMitCharge, writeOk, adminOk }: {
+export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag, pressungen, wgOptions, behOptions, waOptions, verfuegbareKg, verfuegbareKgByGST, behaelterMitCharge, writeOk, adminOk }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   jahrgang: Record<string, any>; parzellen: ErnteParzelle[]
   weingaerten: WeingartenOpt[]; gstByWeingarten: Record<string, GSTOpt[]>; amaMeldung: AMAMeldung | null
+  hektarhoechstertrag: HektarhoechstertragStatus
   pressungen: Pressung[]; wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
   verfuegbareKg: Record<string, number>; verfuegbareKgByGST: Record<string, number>
   behaelterMitCharge: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null }[]>; writeOk: boolean; adminOk: boolean
@@ -558,6 +559,32 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
           </div>
         )}
       </div>
+
+      {/* Hektarhöchstertrag-Prüfung (Qualitätswein, betriebsweit) – reine Info-/Warnfunktion */}
+      {hektarhoechstertrag.gesamtKgQualitaetswein > 0 && (
+        <div className={`rounded-xl px-4 py-3 text-sm border ${
+          hektarhoechstertrag.ueberschritten
+            ? 'bg-red-50 border-red-200 text-red-700'
+            : 'bg-s112-bg border-s112-border text-gray-600'
+        }`} data-print="hide">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span>
+              {hektarhoechstertrag.ueberschritten ? '⚠️ ' : ''}
+              Qualitätswein betriebsweit: <strong>{hektarhoechstertrag.gesamtKgQualitaetswein.toLocaleString('de-AT')} kg</strong>
+              {' '}von max. <strong>{hektarhoechstertrag.maxKg.toLocaleString('de-AT')} kg</strong>
+              {' '}(10.000 kg/ha × {fmtHa(hektarhoechstertrag.gesamtFlaecheHaBetrieb)} Gesamtfläche lt. AMA)
+            </span>
+            {hektarhoechstertrag.ueberschritten && (
+              <span className="font-semibold">
+                Überschreitung: {hektarhoechstertrag.ueberschreitungKg.toLocaleString('de-AT')} kg
+              </span>
+            )}
+          </div>
+          <p className="text-xs mt-1 opacity-75">
+            Hinweis, keine rechtliche Prüfung – betrifft nur als „Qualitätswein" erfasste Lesedaten.
+          </p>
+        </div>
+      )}
 
       {/* AMA Meldung */}
       {writeOk && (

@@ -29,6 +29,15 @@ export type AMAMeldung = {
   n8n_status: string | null; n8n_fehler: string | null; eingereicht_am: string | null
   positionen: { rebsorte_name: string; flaeche_ha: number | null; menge_kg: number | null }[]
 }
+export type HektarhoechstertragStatus = {
+  gesamtFlaecheHaBetrieb: number
+  gesamtKgQualitaetswein: number
+  maxKg: number
+  ueberschreitungKg: number
+  ueberschritten: boolean
+}
+
+const HEKTARHOECHSTERTRAG_KG_HA = 10000
 
 export default async function ErnteDetailPage({ params }: Props) {
   const { id } = await params
@@ -118,6 +127,24 @@ export default async function ErnteDetailPage({ params }: Props) {
   for (const g of ((rawGST ?? []) as AR[])) {
     if (!gstByWeingarten[g.weingarten_id]) gstByWeingarten[g.weingarten_id] = []
     gstByWeingarten[g.weingarten_id].push({ id: g.id, gst_nr: g.gst_nr, rebsorte: g.rebsorte ?? null, flaeche_ha: g.flaeche_ha ?? null })
+  }
+
+  // ── Hektarhöchstertrag-Prüfung (Qualitätswein, betriebsweit) ────────────────
+  // Hinweis vom BKI (18.07.2026): die hl-Höchstmenge für Qualitätswein wird gegen
+  // die GST-Fläche lt. AMA berechnet (= flaeche_ha, laut Betrieb keine Abweichung),
+  // Erntebetrag darf 10.000 kg/ha nicht überschreiten, betriebsweit gerechnet.
+  // Reine Info-/Warnfunktion – ersetzt keine rechtliche Prüfung.
+  const gesamtFlaecheHaBetrieb = ((rawGST ?? []) as AR[]).reduce((s, g) => s + (g.flaeche_ha ?? 0), 0)
+  const gesamtKgQualitaetswein = parzellen
+    .filter(p => p.qualitaetsstufe === 'qualitaetswein')
+    .reduce((s, p) => s + (p.menge_kg ?? 0), 0)
+  const maxKg = HEKTARHOECHSTERTRAG_KG_HA * gesamtFlaecheHaBetrieb
+  const hektarhoechstertrag: HektarhoechstertragStatus = {
+    gesamtFlaecheHaBetrieb,
+    gesamtKgQualitaetswein,
+    maxKg,
+    ueberschreitungKg: Math.max(0, gesamtKgQualitaetswein - maxKg),
+    ueberschritten: gesamtFlaecheHaBetrieb > 0 && gesamtKgQualitaetswein > maxKg,
   }
 
   let amaMeldung: AMAMeldung | null = null
@@ -265,6 +292,7 @@ export default async function ErnteDetailPage({ params }: Props) {
         weingaerten={weingaerten}
         gstByWeingarten={gstByWeingarten}
         amaMeldung={amaMeldung}
+        hektarhoechstertrag={hektarhoechstertrag}
         pressungen={pressungen}
         wgOptions={wgOptions}
         behOptions={behOptions}
