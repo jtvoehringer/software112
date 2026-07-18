@@ -36,6 +36,16 @@ const ART_OPTIONS = [
   { value: 'sonstiges',        label: '📋 Sonstiges' },
 ]
 const MENGE_EINHEITEN = ['kg', 'l', 'g', 'ml']
+const LAUBARBEIT_OPTIONEN = [
+  { value: 'entblaettern', label: 'Entblättern' },
+  { value: 'ausgeizen',    label: 'Ausgeizen' },
+  { value: 'gipfeln',      label: 'Gipfeln' },
+  { value: 'heften',       label: 'Heften' },
+  { value: 'sonstige',     label: 'Sonstige' },
+]
+
+const BIO_SPERRE = new Set(['bio_eu', 'biodynamisch'])
+const BIO_WARNUNG = new Set(['kip', 'nachhaltig'])
 
 export type BehandlungEdit = {
   id: string
@@ -43,6 +53,7 @@ export type BehandlungEdit = {
   datum_bis: string | null
   art: string
   psm_id: string | null
+  duengemittel_id: string | null
   aufwandmenge: number | null
   aufwandmenge_einheit: string | null
   menge_gesamt: number | null
@@ -54,6 +65,12 @@ export type BehandlungEdit = {
   witterung: string | null
   temperatur_c: number | null
   notizen: string | null
+  bearbeitungstiefe_cm: number | null
+  bearbeitungsgeraet: string | null
+  schnittart: string | null
+  laubarbeit_art: string | null
+  einarbeitung: boolean | null
+  einarbeitung_zeitpunkt: string | null
   wartezeit_tage: number | null
   weingarten_name: string | null
 }
@@ -67,32 +84,58 @@ export type PSMOption = {
   wartezeit_tage: number | null
 }
 
+export type DuengemittelOption = {
+  id: string
+  name: string
+  handelsname: string | null
+  typ: string | null
+  wartezeit_tage: number | null
+  oeko_zugelassen: boolean
+}
+
 const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
 const labelCls = 'block text-sm font-medium text-gray-700 mb-1'
 
 export default function BehandlungEditForm({
-  behandlung, psm,
+  behandlung, psm, duengemittel, bioStatus,
 }: {
   behandlung: BehandlungEdit
   psm: PSMOption[]
+  duengemittel: DuengemittelOption[]
+  bioStatus: string
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [art, setArt] = useState(behandlung.art)
   const [selectedPsmId, setSelectedPsmId] = useState(behandlung.psm_id ?? '')
+  const [selectedDuengemittelId, setSelectedDuengemittelId] = useState(behandlung.duengemittel_id ?? '')
   const [error, setError] = useState<string | null>(null)
 
   const selectedPsm = psm.find(p => p.id === selectedPsmId)
+  const selectedDuengemittel = duengemittel.find(d => d.id === selectedDuengemittelId)
+
+  const gewaehltesMittelOeko =
+    art === 'spritzung' || art === 'sonstiges' ? selectedPsm?.oeko_zugelassen :
+    art === 'duengung'  ? selectedDuengemittel?.oeko_zugelassen :
+    undefined
+  const mittelNichtOeko = gewaehltesMittelOeko === false
+  const bioSperre  = BIO_SPERRE.has(bioStatus) && mittelNichtOeko
+  const bioWarnung = !bioSperre && BIO_WARNUNG.has(bioStatus) && mittelNichtOeko
 
   const updateWithId = updateBehandlung.bind(null, behandlung.id)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
+    if (bioSperre) {
+      setError('Dieses Mittel ist nicht öko-zugelassen und passt nicht zum Bio-Status des Betriebs. Bitte ein zugelassenes Mittel wählen.')
+      return
+    }
     const fd = new FormData(e.currentTarget)
-    // wartezeit_tage aus dem gewählten PSM
-    if (selectedPsm?.wartezeit_tage != null) {
-      fd.set('wartezeit_tage', String(selectedPsm.wartezeit_tage))
+    // wartezeit_tage aus dem gewählten PSM/Düngemittel
+    const wartezeit = selectedPsm?.wartezeit_tage ?? selectedDuengemittel?.wartezeit_tage
+    if (wartezeit != null) {
+      fd.set('wartezeit_tage', String(wartezeit))
     }
     startTransition(async () => {
       try {
@@ -151,24 +194,59 @@ export default function BehandlungEditForm({
         </div>
 
         {/* PSM */}
-        <div>
-          <label className={labelCls}>Spritzmittel / Mittel (PSM)</label>
-          <select name="psm_id" value={selectedPsmId}
-            onChange={e => setSelectedPsmId(e.target.value)}
-            className={inputCls}>
-            <option value="">– keines –</option>
-            {psm.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.name}{p.handelsname ? ` (${p.handelsname})` : ''}
-                {p.oeko_zugelassen ? ' 🌿' : ''}
-                {p.cu_gehalt_pct ? ` · Cu ${p.cu_gehalt_pct}%` : ''}
-              </option>
-            ))}
-          </select>
-          {selectedPsm?.wartezeit_tage != null && (
-            <p className="text-xs text-amber-600 mt-1">⏳ Wartezeit: {selectedPsm.wartezeit_tage} Tage vor Ernte</p>
-          )}
-        </div>
+        {(art === 'spritzung' || art === 'sonstiges') && (
+          <div>
+            <label className={labelCls}>Spritzmittel / Mittel (PSM)</label>
+            <select name="psm_id" value={selectedPsmId}
+              onChange={e => setSelectedPsmId(e.target.value)}
+              className={inputCls}>
+              <option value="">– keines –</option>
+              {psm.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.name}{p.handelsname ? ` (${p.handelsname})` : ''}
+                  {p.oeko_zugelassen ? ' 🌿' : ''}
+                  {p.cu_gehalt_pct ? ` · Cu ${p.cu_gehalt_pct}%` : ''}
+                </option>
+              ))}
+            </select>
+            {selectedPsm?.wartezeit_tage != null && (
+              <p className="text-xs text-amber-600 mt-1">⏳ Wartezeit: {selectedPsm.wartezeit_tage} Tage vor Ernte</p>
+            )}
+          </div>
+        )}
+
+        {/* Düngemittel */}
+        {art === 'duengung' && (
+          <div>
+            <label className={labelCls}>Düngemittel</label>
+            <select name="duengemittel_id" value={selectedDuengemittelId}
+              onChange={e => setSelectedDuengemittelId(e.target.value)}
+              className={inputCls}>
+              <option value="">– keines –</option>
+              {duengemittel.map(d => (
+                <option key={d.id} value={d.id}>
+                  {d.name}{d.handelsname ? ` (${d.handelsname})` : ''}
+                  {d.typ ? ` · ${d.typ}` : ''}
+                  {d.oeko_zugelassen ? ' 🌿' : ''}
+                </option>
+              ))}
+            </select>
+            {selectedDuengemittel?.wartezeit_tage != null && (
+              <p className="text-xs text-amber-600 mt-1">⏳ Wartezeit: {selectedDuengemittel.wartezeit_tage} Tage vor Ernte</p>
+            )}
+          </div>
+        )}
+
+        {bioSperre && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
+            ⛔ Das gewählte Mittel ist nicht öko-zugelassen – passt nicht zum Bio-Status des Betriebs. Speichern ist gesperrt.
+          </div>
+        )}
+        {bioWarnung && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-3 text-sm">
+            ⚠️ Das gewählte Mittel ist nicht öko-zugelassen – bitte prüfen, ob das beabsichtigt ist.
+          </div>
+        )}
 
         {/* Mengen */}
         <div className="grid grid-cols-2 gap-3">
@@ -231,6 +309,57 @@ export default function BehandlungEditForm({
           </div>
         )}
 
+        {/* Düngung: Einarbeitung */}
+        {art === 'duengung' && (
+          <div className="grid grid-cols-2 gap-3 items-end">
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" name="einarbeitung" defaultChecked={!!behandlung.einarbeitung} className="accent-s112-teal" />
+              Eingearbeitet
+            </label>
+            <div>
+              <label className={labelCls}>Zeitpunkt Einarbeitung</label>
+              <input name="einarbeitung_zeitpunkt" type="date"
+                defaultValue={behandlung.einarbeitung_zeitpunkt ?? ''} className={inputCls} />
+            </div>
+          </div>
+        )}
+
+        {/* Bodenbearbeitung */}
+        {art === 'bodenbearbeitung' && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Bearbeitungstiefe (cm)</label>
+              <input name="bearbeitungstiefe_cm" type="number" step="1" min="0"
+                defaultValue={behandlung.bearbeitungstiefe_cm ?? ''} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Gerät</label>
+              <input name="bearbeitungsgeraet" type="text"
+                defaultValue={behandlung.bearbeitungsgeraet ?? ''} className={inputCls} placeholder="z.B. Grubber" />
+            </div>
+          </div>
+        )}
+
+        {/* Schnitt */}
+        {art === 'schnitt' && (
+          <div>
+            <label className={labelCls}>Schnittart</label>
+            <input name="schnittart" type="text"
+              defaultValue={behandlung.schnittart ?? ''} className={inputCls} placeholder="z.B. Guyot, Kordon" />
+          </div>
+        )}
+
+        {/* Laubarbeit */}
+        {art === 'laubarbeit' && (
+          <div>
+            <label className={labelCls}>Art der Laubarbeit</label>
+            <select name="laubarbeit_art" defaultValue={behandlung.laubarbeit_art ?? ''} className={inputCls}>
+              <option value="">– Auswählen –</option>
+              {LAUBARBEIT_OPTIONEN.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelCls}>Witterung</label>
@@ -258,7 +387,7 @@ export default function BehandlungEditForm({
       )}
 
       <div className="flex gap-3">
-        <button type="submit" disabled={pending}
+        <button type="submit" disabled={pending || bioSperre}
           className="bg-s112-teal text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
           {pending ? 'Speichert…' : 'Änderungen speichern'}
         </button>

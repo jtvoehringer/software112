@@ -37,6 +37,7 @@ export async function createBehandlung(formData: FormData) {
   const datumBis        = (formData.get('datum_bis') as string) || null
   const art             = (formData.get('art') as string) || 'spritzung'
   const psmId           = (formData.get('psm_id') as string) || null
+  const duengemittelId  = (formData.get('duengemittel_id') as string) || null
   const wartezeit       = formData.get('wartezeit_tage') ? Number(formData.get('wartezeit_tage')) : null
   const aufwandmenge    = formData.get('aufwandmenge') ? Number(formData.get('aufwandmenge')) : null
   const aufwandEinheit  = (formData.get('aufwandmenge_einheit') as string) || null
@@ -49,6 +50,12 @@ export async function createBehandlung(formData: FormData) {
   const witterung       = (formData.get('witterung') as string) || null
   const temperatur      = formData.get('temperatur_c') ? Number(formData.get('temperatur_c')) : null
   const notizen         = (formData.get('notizen') as string) || null
+  const bearbeitungstiefe = formData.get('bearbeitungstiefe_cm') ? Number(formData.get('bearbeitungstiefe_cm')) : null
+  const bearbeitungsgeraet = (formData.get('bearbeitungsgeraet') as string) || null
+  const schnittart      = (formData.get('schnittart') as string) || null
+  const laubarbeitArt   = (formData.get('laubarbeit_art') as string) || null
+  const einarbeitung    = formData.has('einarbeitung') ? formData.get('einarbeitung') === 'on' : null
+  const einarbeitungZeitpunkt = (formData.get('einarbeitung_zeitpunkt') as string) || null
 
   // Frühester Erntetermin berechnen
   let ernteFruehesteins: string | null = null
@@ -65,6 +72,7 @@ export async function createBehandlung(formData: FormData) {
       tenant_id:            tenantId,
       art,
       psm_id:               psmId,
+      duengemittel_id:      duengemittelId,
       datum,
       datum_bis:            datumBis,
       aufwandmenge,
@@ -79,6 +87,12 @@ export async function createBehandlung(formData: FormData) {
       temperatur_c:         temperatur,
       ernte_fruehesteins:   ernteFruehesteins,
       notizen,
+      bearbeitungstiefe_cm: bearbeitungstiefe,
+      bearbeitungsgeraet:   bearbeitungsgeraet,
+      schnittart,
+      laubarbeit_art:       laubarbeitArt,
+      einarbeitung,
+      einarbeitung_zeitpunkt: einarbeitungZeitpunkt,
     })
     .select('id')
     .single()
@@ -138,6 +152,7 @@ export async function updateBehandlung(id: string, formData: FormData) {
   const datumBis       = (formData.get('datum_bis') as string) || null
   const art            = (formData.get('art') as string) || 'spritzung'
   const psmId          = (formData.get('psm_id') as string) || null
+  const duengemittelId = (formData.get('duengemittel_id') as string) || null
   const wartezeit      = formData.get('wartezeit_tage') ? Number(formData.get('wartezeit_tage')) : null
   const aufwandmenge   = formData.get('aufwandmenge') ? Number(formData.get('aufwandmenge')) : null
   const aufwandEinheit = (formData.get('aufwandmenge_einheit') as string) || null
@@ -150,6 +165,12 @@ export async function updateBehandlung(id: string, formData: FormData) {
   const witterung      = (formData.get('witterung') as string) || null
   const temperatur     = formData.get('temperatur_c') ? Number(formData.get('temperatur_c')) : null
   const notizen        = (formData.get('notizen') as string) || null
+  const bearbeitungstiefe = formData.get('bearbeitungstiefe_cm') ? Number(formData.get('bearbeitungstiefe_cm')) : null
+  const bearbeitungsgeraet = (formData.get('bearbeitungsgeraet') as string) || null
+  const schnittart      = (formData.get('schnittart') as string) || null
+  const laubarbeitArt   = (formData.get('laubarbeit_art') as string) || null
+  const einarbeitung    = formData.has('einarbeitung') ? formData.get('einarbeitung') === 'on' : null
+  const einarbeitungZeitpunkt = (formData.get('einarbeitung_zeitpunkt') as string) || null
 
   let ernteFruehesteins: string | null = null
   if (datum && wartezeit != null) {
@@ -161,12 +182,15 @@ export async function updateBehandlung(id: string, formData: FormData) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('behandlungen') as any)
     .update({
-      art, psm_id: psmId, datum, datum_bis: datumBis,
+      art, psm_id: psmId, duengemittel_id: duengemittelId, datum, datum_bis: datumBis,
       aufwandmenge, aufwandmenge_einheit: aufwandEinheit,
       menge_gesamt: mengeGesamt, menge_einheit: mengeEinheit,
       konzentration, wasseraufwand_l_ha: wasseraufwand,
       bbch_stadium: bbch, schaderreger, witterung, temperatur_c: temperatur,
       ernte_fruehesteins: ernteFruehesteins, notizen,
+      bearbeitungstiefe_cm: bearbeitungstiefe, bearbeitungsgeraet,
+      schnittart, laubarbeit_art: laubarbeitArt,
+      einarbeitung, einarbeitung_zeitpunkt: einarbeitungZeitpunkt,
     })
     .eq('id', id)
   if (error) throw new Error((error as AR).message)

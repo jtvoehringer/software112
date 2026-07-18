@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import LagerClient from './LagerClient'
 import PSMClient from './PSMClient'
+import DuengemittelClient from './DuengemittelClient'
 
 export const metadata: Metadata = { title: 'PSM-Lager – software:112' }
 export const dynamic = 'force-dynamic'
@@ -36,6 +37,16 @@ export type PSMEintrag = {
   wirkstoffgehalt_pct: number | null; cu_gehalt_pct: number | null
   max_aufwand_kg_ha: number | null; max_anwendungen: number | null
   wartezeit_tage: number | null; oeko_zugelassen: boolean
+  notizen: string | null
+}
+
+export type DuengemittelEintrag = {
+  id: string; name: string; handelsname: string | null
+  typ: string | null
+  naehrstoff_n_pct: number | null; naehrstoff_p_pct: number | null; naehrstoff_k_pct: number | null
+  wartezeit_tage: number | null; oeko_zugelassen: boolean
+  einarbeitung_erforderlich: boolean
+  preis_pro_einheit: number | null; einheit: string | null
   notizen: string | null
 }
 
@@ -77,6 +88,29 @@ export default async function LagerPage({
     wartezeit_tage:      p.wartezeit_tage ?? null,
     oeko_zugelassen:     p.oeko_zugelassen ?? false,
     notizen:             p.notizen ?? null,
+  }))
+
+  // Düngemittel-Stammdaten (für den Düngemittel-Tab)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawDuengerStamm } = await (supabase.from('duengemittel') as any)
+    .select('id, name, handelsname, typ, naehrstoff_n_pct, naehrstoff_p_pct, naehrstoff_k_pct, wartezeit_tage, oeko_zugelassen, einarbeitung_erforderlich, preis_pro_einheit, einheit, notizen')
+    .eq('aktiv', true)
+    .order('name')
+
+  const duengemittelStammdaten: DuengemittelEintrag[] = ((rawDuengerStamm ?? []) as AR[]).map(d => ({
+    id:                        d.id,
+    name:                      d.name,
+    handelsname:               d.handelsname ?? null,
+    typ:                       d.typ ?? null,
+    naehrstoff_n_pct:          d.naehrstoff_n_pct ?? null,
+    naehrstoff_p_pct:          d.naehrstoff_p_pct ?? null,
+    naehrstoff_k_pct:          d.naehrstoff_k_pct ?? null,
+    wartezeit_tage:            d.wartezeit_tage ?? null,
+    oeko_zugelassen:           d.oeko_zugelassen ?? false,
+    einarbeitung_erforderlich: d.einarbeitung_erforderlich ?? false,
+    preis_pro_einheit:         d.preis_pro_einheit ?? null,
+    einheit:                   d.einheit ?? null,
+    notizen:                   d.notizen ?? null,
   }))
 
   // Lagerbewegungen
@@ -136,8 +170,9 @@ export default async function LagerPage({
     .sort((a, b) => a.psm_name.localeCompare(b.psm_name, 'de'))
 
   const TABS = [
-    { key: 'bestand',    label: 'Bestand & Bewegungen' },
-    { key: 'stammdaten', label: 'Stammdaten' },
+    { key: 'bestand',      label: 'Bestand & Bewegungen' },
+    { key: 'stammdaten',   label: 'PSM-Stammdaten' },
+    { key: 'duengemittel', label: 'Düngemittel' },
   ]
 
   return (
@@ -154,6 +189,8 @@ export default async function LagerPage({
           <p className="text-sm text-s112-muted mt-0.5">
             {tab === 'stammdaten'
               ? 'Pflanzenschutzmittel anlegen und pflegen · Cu-Gehalt · Grenzwerte · Bio-Zulassung'
+              : tab === 'duengemittel'
+              ? 'Düngemittel anlegen und pflegen · N-P-K-Gehalt · Preis · Bio-Zulassung'
               : 'Anfangsbestand · Einkauf · Verbrauch · Inventurkorrektur'}
           </p>
         </div>
@@ -176,6 +213,8 @@ export default async function LagerPage({
 
       {tab === 'stammdaten' ? (
         <PSMClient psm={psmStammdaten} writeOk={writeOk} adminOk={adminOk} />
+      ) : tab === 'duengemittel' ? (
+        <DuengemittelClient duengemittel={duengemittelStammdaten} writeOk={writeOk} adminOk={adminOk} />
       ) : (
         <LagerClient
           psms={aktivePsm}

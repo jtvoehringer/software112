@@ -4,7 +4,7 @@ import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import BehandlungEditForm from './BehandlungEditForm'
-import type { BehandlungEdit, PSMOption } from './BehandlungEditForm'
+import type { BehandlungEdit, PSMOption, DuengemittelOption } from './BehandlungEditForm'
 
 export const metadata: Metadata = { title: 'Maßnahme bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -19,13 +19,28 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
 
   if (!canWrite(role)) redirect('/behandlungen')
 
-  const [{ data: rawB }, { data: rawPsm }] = await Promise.all([
+  // Tenant + Bio-Status (steuert Warn-/Sperrlogik bei der Mittelwahl, siehe Neu-Formular)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: membership } = await (supabase.from('tenant_memberships') as any)
+    .select('tenant_id').limit(1).single()
+  const tenantId = (membership as AR | null)?.tenant_id as string | undefined
+  let bioStatus: string = 'konventionell'
+  if (tenantId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: tenantRow } = await (supabase.from('tenants') as any)
+      .select('bio_status').eq('id', tenantId).maybeSingle()
+    bioStatus = (tenantRow as AR | null)?.bio_status ?? 'konventionell'
+  }
+
+  const [{ data: rawB }, { data: rawPsm }, { data: rawDuenger }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('behandlungen') as any)
       .select(`
-        id, datum, datum_bis, art, psm_id, aufwandmenge, aufwandmenge_einheit,
+        id, datum, datum_bis, art, psm_id, duengemittel_id, aufwandmenge, aufwandmenge_einheit,
         menge_gesamt, menge_einheit, konzentration, wasseraufwand_l_ha,
         bbch_stadium, schaderreger, witterung, temperatur_c, notizen,
+        bearbeitungstiefe_cm, bearbeitungsgeraet, schnittart, laubarbeit_art,
+        einarbeitung, einarbeitung_zeitpunkt,
         weingarten:weingarten_id(name),
         psm:psm_id(wartezeit_tage)
       `)
@@ -35,6 +50,12 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('pflanzenschutzmittel') as any)
       .select('id, name, handelsname, oeko_zugelassen, cu_gehalt_pct, wartezeit_tage')
+      .eq('aktiv', true)
+      .order('name'),
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('duengemittel') as any)
+      .select('id, name, handelsname, typ, wartezeit_tage, oeko_zugelassen')
       .eq('aktiv', true)
       .order('name'),
   ])
@@ -48,6 +69,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     datum_bis:            b.datum_bis ?? null,
     art:                  b.art ?? 'spritzung',
     psm_id:               b.psm_id ?? null,
+    duengemittel_id:      b.duengemittel_id ?? null,
     aufwandmenge:         b.aufwandmenge ?? null,
     aufwandmenge_einheit: b.aufwandmenge_einheit ?? null,
     menge_gesamt:         b.menge_gesamt ?? null,
@@ -59,6 +81,12 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     witterung:            b.witterung ?? null,
     temperatur_c:         b.temperatur_c ?? null,
     notizen:              b.notizen ?? null,
+    bearbeitungstiefe_cm: b.bearbeitungstiefe_cm ?? null,
+    bearbeitungsgeraet:   b.bearbeitungsgeraet ?? null,
+    schnittart:           b.schnittart ?? null,
+    laubarbeit_art:       b.laubarbeit_art ?? null,
+    einarbeitung:         b.einarbeitung ?? null,
+    einarbeitung_zeitpunkt: b.einarbeitung_zeitpunkt ?? null,
     wartezeit_tage:       b.psm?.wartezeit_tage ?? null,
     weingarten_name:      b.weingarten?.name ?? null,
   }
@@ -72,6 +100,15 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     wartezeit_tage:  p.wartezeit_tage ?? null,
   }))
 
+  const duengemittel: DuengemittelOption[] = ((rawDuenger ?? []) as AR[]).map(d => ({
+    id:              d.id,
+    name:            d.name,
+    handelsname:     d.handelsname ?? null,
+    typ:             d.typ ?? null,
+    wartezeit_tage:  d.wartezeit_tage ?? null,
+    oeko_zugelassen: d.oeko_zugelassen ?? false,
+  }))
+
   return (
     <div>
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-6">
@@ -83,7 +120,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
         <h1 className="text-2xl font-bold text-gray-900">Maßnahme bearbeiten</h1>
         <p className="text-sm text-s112-muted mt-0.5">Daten korrigieren oder ergänzen</p>
       </div>
-      <BehandlungEditForm behandlung={behandlung} psm={psm} />
+      <BehandlungEditForm behandlung={behandlung} psm={psm} duengemittel={duengemittel} bioStatus={bioStatus} />
     </div>
   )
 }

@@ -1,9 +1,9 @@
 'use client'
 
-import { Fragment, useState, useTransition } from 'react'
+import { Fragment, useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBehandlung } from '../actions'
-import type { PSM, WeingartenOption, GSTOption } from './page'
+import type { PSM, DuengemittelOption, WeingartenOption, GSTOption } from './page'
 
 const BBCH_OPTIONS = [
   { value: '09', label: '09 – Knospenaufbruch' },
@@ -36,29 +36,81 @@ const ART_OPTIONS = [
   { value: 'sonstiges',        label: '📋 Sonstiges' },
 ]
 const MENGE_EINHEITEN = ['kg', 'l', 'g', 'ml']
+const LAUBARBEIT_OPTIONEN = [
+  { value: 'entblaettern', label: 'Entblättern' },
+  { value: 'ausgeizen',    label: 'Ausgeizen' },
+  { value: 'gipfeln',      label: 'Gipfeln' },
+  { value: 'heften',       label: 'Heften' },
+  { value: 'sonstige',     label: 'Sonstige' },
+]
+
+// ─── Feld-Matrix je Maßnahmenart ──────────────────────────────────────────
+// Steuert, welche Felder pro Art sichtbar/pflicht sind (siehe "Analyse Maßnahmen.docx", Tabelle 2).
+// 'pflicht' | 'bedingt' | 'optional' | 'hidden'
+type Sicht = 'pflicht' | 'bedingt' | 'optional' | 'hidden'
+type Art = 'spritzung' | 'duengung' | 'bodenbearbeitung' | 'schnitt' | 'laubarbeit' | 'sonstiges'
+
+const FELD_MATRIX: Record<Art, {
+  psm: Sicht; duengemittel: Sicht; mengeGesamt: Sicht; aufwandmenge: Sicht; konzentration: Sicht
+  bbch: Sicht; wasseraufwand: Sicht; schaderreger: Sicht; witterung: Sicht; temperatur: Sicht
+  einarbeitung: Sicht; bearbeitung: Sicht; schnittart: Sicht; laubarbeitArt: Sicht
+}> = {
+  spritzung:        { psm: 'pflicht', duengemittel: 'hidden',  mengeGesamt: 'pflicht',  aufwandmenge: 'pflicht',  konzentration: 'optional', bbch: 'pflicht',  wasseraufwand: 'optional', schaderreger: 'pflicht',  witterung: 'optional', temperatur: 'optional', einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
+  duengung:         { psm: 'hidden', duengemittel: 'optional', mengeGesamt: 'pflicht',  aufwandmenge: 'optional', konzentration: 'hidden',   bbch: 'hidden',   wasseraufwand: 'hidden',   schaderreger: 'hidden',   witterung: 'optional', temperatur: 'hidden',   einarbeitung: 'bedingt', bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
+  bodenbearbeitung: { psm: 'hidden', duengemittel: 'hidden',   mengeGesamt: 'hidden',   aufwandmenge: 'hidden',   konzentration: 'hidden',   bbch: 'hidden',   wasseraufwand: 'hidden',   schaderreger: 'hidden',   witterung: 'optional', temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'pflicht', schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
+  schnitt:          { psm: 'hidden', duengemittel: 'hidden',   mengeGesamt: 'hidden',   aufwandmenge: 'hidden',   konzentration: 'hidden',   bbch: 'optional', wasseraufwand: 'hidden',   schaderreger: 'hidden',   witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'pflicht', laubarbeitArt: 'hidden'  },
+  laubarbeit:       { psm: 'hidden', duengemittel: 'hidden',   mengeGesamt: 'hidden',   aufwandmenge: 'hidden',   konzentration: 'hidden',   bbch: 'optional', wasseraufwand: 'hidden',   schaderreger: 'hidden',   witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'pflicht' },
+  sonstiges:        { psm: 'optional', duengemittel: 'hidden', mengeGesamt: 'optional', aufwandmenge: 'hidden',   konzentration: 'hidden',   bbch: 'hidden',   wasseraufwand: 'hidden',   schaderreger: 'optional', witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
+}
 
 function fmtHa(n: number) {
   return n.toLocaleString('de-AT', { maximumFractionDigits: 4 }) + ' ha'
 }
 
+const BIO_SPERRE = new Set(['bio_eu', 'biodynamisch'])
+const BIO_WARNUNG = new Set(['kip', 'nachhaltig'])
+
 export default function NeueBehandlungForm({
-  psm, weingaerten, gstByWeingarten,
+  psm, duengemittel, weingaerten, gstByWeingarten, bioStatus,
 }: {
-  psm: PSM[]; weingaerten: WeingartenOption[]; gstByWeingarten: Record<string, GSTOption[]>
+  psm: PSM[]; duengemittel: DuengemittelOption[]
+  weingaerten: WeingartenOption[]; gstByWeingarten: Record<string, GSTOption[]>
+  bioStatus: string
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [selectedPsmId, setSelectedPsmId] = useState('')
+  const [selectedDuengemittelId, setSelectedDuengemittelId] = useState('')
   const [selectedWGs, setSelectedWGs] = useState<Set<string>>(new Set())
   const [selectedGSTs, setSelectedGSTs] = useState<Map<string, string>>(new Map())
   const [expandedWGs, setExpandedWGs] = useState<Set<string>>(new Set())
-  const [art, setArt] = useState('spritzung')
+  const [art, setArt] = useState<Art>('spritzung')
   const [mengeGesamt, setMengeGesamt] = useState<string>('')
   const [mengeEinheit, setMengeEinheit] = useState('kg')
   const [error, setError] = useState<string | null>(null)
 
-  // Gewähltes PSM
+  const felder = FELD_MATRIX[art]
+
+  // Beim Wechsel der Art eine Mittel-Auswahl zurücksetzen, die zur neuen Art nicht mehr passt
+  useEffect(() => {
+    if (art !== 'spritzung' && art !== 'sonstiges') setSelectedPsmId('')
+    if (art !== 'duengung') setSelectedDuengemittelId('')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [art])
+
+  // Gewähltes PSM / Düngemittel
   const selectedPsm = psm.find(p => p.id === selectedPsmId)
+  const selectedDuengemittel = duengemittel.find(d => d.id === selectedDuengemittelId)
+
+  // Bio-Status: harte Sperre bei Bio-EU/biodynamisch + nicht-öko-zugelassenem Mittel,
+  // sonst nur Warnung bei KIP/nachhaltig (siehe "Analyse Maßnahmen.docx", 4.3)
+  const gewaehltesMittelOeko =
+    art === 'spritzung' || art === 'sonstiges' ? selectedPsm?.oeko_zugelassen :
+    art === 'duengung'  ? selectedDuengemittel?.oeko_zugelassen :
+    undefined
+  const mittelNichtOeko = gewaehltesMittelOeko === false
+  const bioSperre  = BIO_SPERRE.has(bioStatus) && mittelNichtOeko
+  const bioWarnung = !bioSperre && BIO_WARNUNG.has(bioStatus) && mittelNichtOeko
 
   // Flache Lookup-Map für alle GST (id → GST-Objekt), für Flächenberechnung bei Einzelauswahl
   const gstLookup = new Map<string, GSTOption>()
@@ -151,6 +203,10 @@ export default function NeueBehandlungForm({
     e.preventDefault()
     setError(null)
     if (totalSelCount === 0) { setError('Bitte mindestens eine Ried oder ein Grundstück auswählen.'); return }
+    if (bioSperre) {
+      setError('Dieses Mittel ist nicht öko-zugelassen und passt nicht zum Bio-Status des Betriebs. Bitte ein zugelassenes Mittel wählen.')
+      return
+    }
     const fd = new FormData(e.currentTarget)
     selectedWGs.forEach(id => fd.append('weingarten_ids', id))
     selectedGSTs.forEach((_wgId, gstId) => fd.append('grundstueck_ids', gstId))
@@ -182,7 +238,7 @@ export default function NeueBehandlungForm({
                   ? 'bg-s112-teal text-white border-s112-teal'
                   : 'bg-white text-gray-700 border-s112-border hover:border-s112-teal/50'}`}>
                 <input type="radio" name="art" value={o.value} checked={art === o.value}
-                  onChange={() => setArt(o.value)} className="sr-only" />
+                  onChange={() => setArt(o.value as Art)} className="sr-only" />
                 {o.label}
               </label>
             ))}
@@ -206,112 +262,271 @@ export default function NeueBehandlungForm({
         </div>
 
         {/* PSM */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Spritzmittel / Mittel (PSM)</label>
-          <select name="psm_id" value={selectedPsmId}
-            onChange={e => setSelectedPsmId(e.target.value)}
-            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
-            <option value="">– Auswählen –</option>
-            {psm.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.name}{p.handelsname ? ` (${p.handelsname})` : ''}
-                {p.oeko_zugelassen ? ' 🌿' : ''}
-                {p.cu_gehalt_pct ? ` · Cu ${p.cu_gehalt_pct}%` : ''}
-              </option>
-            ))}
-          </select>
-          {selectedPsm?.wartezeit_tage != null && (
-            <p className="text-xs text-amber-600 mt-1">
-              ⏳ Wartezeit: {selectedPsm.wartezeit_tage} Tage vor Ernte
-            </p>
-          )}
-          {selectedPsm?.cu_gehalt_pct ? (
-            <p className="text-xs text-blue-600 mt-1">
-              🔵 Kupferhaltiges Mittel – Cu-Anteil: {selectedPsm.cu_gehalt_pct} %
-            </p>
-          ) : null}
-          <input type="hidden" name="wartezeit_tage" value={selectedPsm?.wartezeit_tage ?? ''} />
-        </div>
+        {felder.psm !== 'hidden' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Spritzmittel / Mittel (PSM)
+              {felder.psm === 'pflicht' && <span className="text-red-500"> *</span>}
+            </label>
+            <select name="psm_id" value={selectedPsmId} required={felder.psm === 'pflicht'}
+              onChange={e => setSelectedPsmId(e.target.value)}
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+              <option value="">– Auswählen –</option>
+              {psm.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.name}{p.handelsname ? ` (${p.handelsname})` : ''}
+                  {p.oeko_zugelassen ? ' 🌿' : ''}
+                  {p.cu_gehalt_pct ? ` · Cu ${p.cu_gehalt_pct}%` : ''}
+                </option>
+              ))}
+            </select>
+            {selectedPsm?.wartezeit_tage != null && (
+              <p className="text-xs text-amber-600 mt-1">
+                ⏳ Wartezeit: {selectedPsm.wartezeit_tage} Tage vor Ernte
+              </p>
+            )}
+            {selectedPsm?.cu_gehalt_pct ? (
+              <p className="text-xs text-blue-600 mt-1">
+                🔵 Kupferhaltiges Mittel – Cu-Anteil: {selectedPsm.cu_gehalt_pct} %
+              </p>
+            ) : null}
+            <input type="hidden" name="wartezeit_tage" value={selectedPsm?.wartezeit_tage ?? ''} />
+          </div>
+        )}
+
+        {/* Düngemittel */}
+        {felder.duengemittel !== 'hidden' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Düngemittel
+              {felder.duengemittel === 'pflicht' && <span className="text-red-500"> *</span>}
+            </label>
+            <select name="duengemittel_id" value={selectedDuengemittelId} required={felder.duengemittel === 'pflicht'}
+              onChange={e => setSelectedDuengemittelId(e.target.value)}
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+              <option value="">– Auswählen –</option>
+              {duengemittel.map(d => (
+                <option key={d.id} value={d.id}>
+                  {d.name}{d.handelsname ? ` (${d.handelsname})` : ''}
+                  {d.typ ? ` · ${d.typ}` : ''}
+                  {d.oeko_zugelassen ? ' 🌿' : ''}
+                </option>
+              ))}
+            </select>
+            {duengemittel.length === 0 && (
+              <p className="text-xs text-s112-muted mt-1">
+                Noch keine Düngemittel in den Stammdaten hinterlegt.
+              </p>
+            )}
+            {selectedDuengemittel?.wartezeit_tage != null && (
+              <p className="text-xs text-amber-600 mt-1">
+                ⏳ Wartezeit: {selectedDuengemittel.wartezeit_tage} Tage vor Ernte
+              </p>
+            )}
+            <input type="hidden" name="wartezeit_tage" value={selectedDuengemittel?.wartezeit_tage ?? ''} />
+          </div>
+        )}
+
+        {bioSperre && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
+            ⛔ Das gewählte Mittel ist nicht öko-zugelassen – passt nicht zum Bio-Status des Betriebs
+            ({bioStatus === 'bio_eu' ? 'Bio-EU' : 'Biodynamisch'}). Absenden ist gesperrt, bitte ein zugelassenes Mittel wählen.
+          </div>
+        )}
+        {bioWarnung && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-3 text-sm">
+            ⚠️ Das gewählte Mittel ist nicht öko-zugelassen – der Betrieb ist als {bioStatus === 'kip' ? 'KIP' : 'nachhaltig'} eingestuft. Bitte prüfen, ob das beabsichtigt ist.
+          </div>
+        )}
 
         {/* Gesamtmenge */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Gesamtmenge eingesetzt</label>
-          <div className="flex gap-2">
-            <input name="menge_gesamt" type="number" step="0.001" min="0"
-              placeholder="z.B. 2.4"
-              value={mengeGesamt}
-              onChange={e => setMengeGesamt(e.target.value)}
-              className="flex-1 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
-            <select name="menge_einheit" value={mengeEinheit}
-              onChange={e => setMengeEinheit(e.target.value)}
-              className="w-24 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
-              {MENGE_EINHEITEN.map(e => <option key={e} value={e}>{e}</option>)}
-            </select>
-          </div>
-          {/* Live-Zusammenfassung */}
-          {(aufwandProHa || cuBeitragG) && (
-            <div className="mt-2 bg-s112-bg rounded-lg px-3 py-2 text-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
-              {totalHaAktiv > 0 && <span>Behandelte Fläche: <strong>{fmtHa(totalHaAktiv)}</strong></span>}
-              {aufwandProHa && <span>≈ <strong>{aufwandProHa}</strong></span>}
-              {cuBeitragG && <span className="text-blue-600">Cu-Eintrag: <strong>{cuBeitragG}</strong></span>}
-            </div>
-          )}
-        </div>
-
-        <div className="grid grid-cols-3 gap-3">
+        {felder.mengeGesamt !== 'hidden' && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Aufwandmenge (Etikett)</label>
-            <input name="aufwandmenge" type="number" step="0.001" min="0" placeholder="z.B. 3.0"
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Einheit</label>
-            <select name="aufwandmenge_einheit"
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
-              {EINHEITEN_AUFWAND.map(e => <option key={e} value={e}>{EINHEITEN_LABEL[e]}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Konzentration (%)</label>
-            <input name="konzentration" type="number" step="0.01" min="0" max="100"
-              placeholder="z.B. 0.5"
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
-          </div>
-        </div>
-
-        {art === 'spritzung' && (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">BBCH-Stadium</label>
-              <select name="bbch_stadium"
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
-                <option value="">– Auswählen –</option>
-                {BBCH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Gesamtmenge eingesetzt
+              {felder.mengeGesamt === 'pflicht' && <span className="text-red-500"> *</span>}
+            </label>
+            <div className="flex gap-2">
+              <input name="menge_gesamt" type="number" step="0.001" min="0"
+                required={felder.mengeGesamt === 'pflicht'}
+                placeholder="z.B. 2.4"
+                value={mengeGesamt}
+                onChange={e => setMengeGesamt(e.target.value)}
+                className="flex-1 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              <select name="menge_einheit" value={mengeEinheit}
+                onChange={e => setMengeEinheit(e.target.value)}
+                className="w-24 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                {MENGE_EINHEITEN.map(e => <option key={e} value={e}>{e}</option>)}
               </select>
             </div>
+            {/* Live-Zusammenfassung */}
+            {(aufwandProHa || cuBeitragG) && (
+              <div className="mt-2 bg-s112-bg rounded-lg px-3 py-2 text-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
+                {totalHaAktiv > 0 && <span>Behandelte Fläche: <strong>{fmtHa(totalHaAktiv)}</strong></span>}
+                {aufwandProHa && <span>≈ <strong>{aufwandProHa}</strong></span>}
+                {cuBeitragG && <span className="text-blue-600">Cu-Eintrag: <strong>{cuBeitragG}</strong></span>}
+              </div>
+            )}
+          </div>
+        )}
+
+        {(felder.aufwandmenge !== 'hidden' || felder.konzentration !== 'hidden') && (
+          <div className="grid grid-cols-3 gap-3">
+            {felder.aufwandmenge !== 'hidden' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Aufwandmenge (Etikett)
+                    {felder.aufwandmenge === 'pflicht' && <span className="text-red-500"> *</span>}
+                  </label>
+                  <input name="aufwandmenge" type="number" step="0.001" min="0" placeholder="z.B. 3.0"
+                    required={felder.aufwandmenge === 'pflicht'}
+                    className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Einheit</label>
+                  <select name="aufwandmenge_einheit"
+                    className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                    {EINHEITEN_AUFWAND.map(e => <option key={e} value={e}>{EINHEITEN_LABEL[e]}</option>)}
+                  </select>
+                </div>
+              </>
+            )}
+            {felder.konzentration !== 'hidden' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Konzentration (%)</label>
+                <input name="konzentration" type="number" step="0.01" min="0" max="100"
+                  placeholder="z.B. 0.5"
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              </div>
+            )}
+          </div>
+        )}
+
+        {(felder.bbch !== 'hidden' || felder.wasseraufwand !== 'hidden' || felder.schaderreger !== 'hidden') && (
+          <div className="grid grid-cols-2 gap-3">
+            {felder.bbch !== 'hidden' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  BBCH-Stadium
+                  {felder.bbch === 'pflicht' && <span className="text-red-500"> *</span>}
+                </label>
+                <select name="bbch_stadium" required={felder.bbch === 'pflicht'}
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  <option value="">– Auswählen –</option>
+                  {BBCH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+            )}
+            {felder.wasseraufwand !== 'hidden' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Wasser (l/ha)</label>
+                <input name="wasseraufwand_l_ha" type="number" step="1" min="0" placeholder="z.B. 500"
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              </div>
+            )}
+            {felder.schaderreger !== 'hidden' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {art === 'sonstiges' ? 'Grund / Anlass' : 'Schaderreger'}
+                  {felder.schaderreger === 'pflicht' && <span className="text-red-500"> *</span>}
+                </label>
+                <input name="schaderreger" type="text" required={felder.schaderreger === 'pflicht'}
+                  placeholder={art === 'sonstiges' ? 'z.B. Zaunreparatur' : 'z.B. Peronospora'}
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Düngung: Einarbeitung (nur bei organischem Dünger relevant) */}
+        {felder.einarbeitung !== 'hidden' && selectedDuengemittel?.typ === 'organisch' && (
+          <div className="grid grid-cols-2 gap-3 items-end">
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" name="einarbeitung" className="accent-s112-teal" />
+              Eingearbeitet
+            </label>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Wasser (l/ha)</label>
-              <input name="wasseraufwand_l_ha" type="number" step="1" min="0" placeholder="z.B. 500"
+              <label className="block text-sm font-medium text-gray-700 mb-1">Zeitpunkt Einarbeitung</label>
+              <input name="einarbeitung_zeitpunkt" type="date"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Witterung</label>
-            <select name="witterung"
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
-              <option value="">–</option>
-              {WITTERUNG.map(w => <option key={w} value={w}>{w.charAt(0).toUpperCase() + w.slice(1)}</option>)}
-            </select>
+        {/* Bodenbearbeitung */}
+        {felder.bearbeitung !== 'hidden' && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Bearbeitungstiefe (cm)
+                {felder.bearbeitung === 'pflicht' && <span className="text-red-500"> *</span>}
+              </label>
+              <input name="bearbeitungstiefe_cm" type="number" step="1" min="0" placeholder="z.B. 10"
+                required={felder.bearbeitung === 'pflicht'}
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Gerät
+                {felder.bearbeitung === 'pflicht' && <span className="text-red-500"> *</span>}
+              </label>
+              <input name="bearbeitungsgeraet" type="text" placeholder="z.B. Grubber"
+                required={felder.bearbeitung === 'pflicht'}
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            </div>
           </div>
+        )}
+
+        {/* Schnitt */}
+        {felder.schnittart !== 'hidden' && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Temperatur (°C)</label>
-            <input name="temperatur_c" type="number" step="0.1" placeholder="z.B. 18.5"
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Schnittart
+              {felder.schnittart === 'pflicht' && <span className="text-red-500"> *</span>}
+            </label>
+            <input name="schnittart" type="text" placeholder="z.B. Guyot, Kordon"
+              required={felder.schnittart === 'pflicht'}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
-        </div>
+        )}
+
+        {/* Laubarbeit */}
+        {felder.laubarbeitArt !== 'hidden' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Art der Laubarbeit
+              {felder.laubarbeitArt === 'pflicht' && <span className="text-red-500"> *</span>}
+            </label>
+            <select name="laubarbeit_art" required={felder.laubarbeitArt === 'pflicht'}
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+              <option value="">– Auswählen –</option>
+              {LAUBARBEIT_OPTIONEN.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+        )}
+
+        {(felder.witterung !== 'hidden' || felder.temperatur !== 'hidden') && (
+          <div className="grid grid-cols-2 gap-3">
+            {felder.witterung !== 'hidden' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Witterung</label>
+                <select name="witterung"
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  <option value="">–</option>
+                  {WITTERUNG.map(w => <option key={w} value={w}>{w.charAt(0).toUpperCase() + w.slice(1)}</option>)}
+                </select>
+              </div>
+            )}
+            {felder.temperatur !== 'hidden' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Temperatur (°C)</label>
+                <input name="temperatur_c" type="number" step="0.1" placeholder="z.B. 18.5"
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              </div>
+            )}
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Notizen</label>
@@ -467,7 +682,7 @@ export default function NeueBehandlungForm({
       )}
 
       <div className="flex gap-3">
-        <button type="submit" disabled={pending || totalSelCount === 0}
+        <button type="submit" disabled={pending || totalSelCount === 0 || bioSperre}
           className="bg-s112-teal text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
           {pending ? 'Speichert…' : `Maßnahme erfassen (${totalSelCount} ausgewählt)`}
         </button>

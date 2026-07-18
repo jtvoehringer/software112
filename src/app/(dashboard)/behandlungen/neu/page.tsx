@@ -14,6 +14,10 @@ export type PSM = {
   kategorie: string | null; wartezeit_tage: number | null
   oeko_zugelassen: boolean; cu_gehalt_pct: number | null
 }
+export type DuengemittelOption = {
+  id: string; name: string; handelsname: string | null
+  typ: string | null; wartezeit_tage: number | null; oeko_zugelassen: boolean
+}
 export type WeingartenOption = {
   id: string; name: string; ried: string | null; lage_id: string | null; lage_name: string | null
   spritzbar: boolean       // false wenn alle Grundstücke nicht spritzbar
@@ -30,6 +34,19 @@ export default async function NeueBehandlungPage() {
 
   const supabase = await createSupabaseServerClient()
 
+  // Tenant + Bio-Status (steuert Warn-/Sperrlogik bei der Mittelwahl)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: membership } = await (supabase.from('tenant_memberships') as any)
+    .select('tenant_id').limit(1).single()
+  const tenantId = (membership as AR | null)?.tenant_id as string | undefined
+  let bioStatus: string = 'konventionell'
+  if (tenantId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: tenantRow } = await (supabase.from('tenants') as any)
+      .select('bio_status').eq('id', tenantId).maybeSingle()
+    bioStatus = (tenantRow as AR | null)?.bio_status ?? 'konventionell'
+  }
+
   // PSM laden (global + eigene) — inkl. cu_gehalt_pct
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawPSM } = await (supabase.from('pflanzenschutzmittel') as any)
@@ -44,6 +61,21 @@ export default async function NeueBehandlungPage() {
     wartezeit_tage: p.wartezeit_tage ?? null,
     oeko_zugelassen: p.oeko_zugelassen ?? false,
     cu_gehalt_pct:  p.cu_gehalt_pct ?? null,
+  }))
+
+  // Düngemittel laden (global + eigene)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawDuenger } = await (supabase.from('duengemittel') as any)
+    .select('id, name, handelsname, typ, wartezeit_tage, oeko_zugelassen')
+    .eq('aktiv', true)
+    .order('name')
+  const duengemittel: DuengemittelOption[] = ((rawDuenger ?? []) as AR[]).map(d => ({
+    id:              d.id,
+    name:            d.name,
+    handelsname:     d.handelsname ?? null,
+    typ:             d.typ ?? null,
+    wartezeit_tage:  d.wartezeit_tage ?? null,
+    oeko_zugelassen: d.oeko_zugelassen ?? false,
   }))
 
   // Aktive Weingärten mit Lage
@@ -100,7 +132,13 @@ export default async function NeueBehandlungPage() {
         <span className="text-gray-700 font-medium">Neue Maßnahme</span>
       </div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Neue Maßnahme erfassen</h1>
-      <NeueBehandlungForm psm={psm} weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} />
+      <NeueBehandlungForm
+        psm={psm}
+        duengemittel={duengemittel}
+        weingaerten={weingaerten}
+        gstByWeingarten={gstByWeingarten}
+        bioStatus={bioStatus}
+      />
     </div>
   )
 }
