@@ -58,9 +58,9 @@ const FELD_MATRIX: Record<Art, {
   spritzung:        { psm: 'pflicht', duengemittel: 'hidden',  mengeGesamt: 'pflicht',  aufwandmenge: 'pflicht',  konzentration: 'optional', bbch: 'pflicht',  wasseraufwand: 'optional', schaderreger: 'pflicht',  witterung: 'optional', temperatur: 'optional', einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
   duengung:         { psm: 'hidden', duengemittel: 'optional', mengeGesamt: 'pflicht',  aufwandmenge: 'optional', konzentration: 'hidden',   bbch: 'hidden',   wasseraufwand: 'hidden',   schaderreger: 'hidden',   witterung: 'optional', temperatur: 'hidden',   einarbeitung: 'bedingt', bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
   bodenbearbeitung: { psm: 'hidden', duengemittel: 'hidden',   mengeGesamt: 'hidden',   aufwandmenge: 'hidden',   konzentration: 'hidden',   bbch: 'hidden',   wasseraufwand: 'hidden',   schaderreger: 'hidden',   witterung: 'optional', temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'pflicht', schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
-  schnitt:          { psm: 'hidden', duengemittel: 'hidden',   mengeGesamt: 'hidden',   aufwandmenge: 'hidden',   konzentration: 'hidden',   bbch: 'optional', wasseraufwand: 'hidden',   schaderreger: 'hidden',   witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'pflicht', laubarbeitArt: 'hidden'  },
+  schnitt:          { psm: 'hidden', duengemittel: 'hidden',   mengeGesamt: 'hidden',   aufwandmenge: 'hidden',   konzentration: 'hidden',   bbch: 'hidden',   wasseraufwand: 'hidden',   schaderreger: 'hidden',   witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'pflicht', laubarbeitArt: 'hidden'  },
   laubarbeit:       { psm: 'hidden', duengemittel: 'hidden',   mengeGesamt: 'hidden',   aufwandmenge: 'hidden',   konzentration: 'hidden',   bbch: 'optional', wasseraufwand: 'hidden',   schaderreger: 'hidden',   witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'pflicht' },
-  sonstiges:        { psm: 'optional', duengemittel: 'hidden', mengeGesamt: 'optional', aufwandmenge: 'hidden',   konzentration: 'hidden',   bbch: 'hidden',   wasseraufwand: 'hidden',   schaderreger: 'optional', witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
+  sonstiges:        { psm: 'hidden', duengemittel: 'hidden', mengeGesamt: 'hidden', aufwandmenge: 'hidden',   konzentration: 'hidden',   bbch: 'hidden',   wasseraufwand: 'hidden',   schaderreger: 'optional', witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
 }
 
 function fmtHa(n: number) {
@@ -89,6 +89,7 @@ export default function NeueBehandlungForm({
   const [selectedWGs, setSelectedWGs] = useState<Set<string>>(new Set())
   const [selectedGSTs, setSelectedGSTs] = useState<Map<string, string>>(new Map())
   const [expandedWGs, setExpandedWGs] = useState<Set<string>>(new Set())
+  const [riedenExpanded, setRiedenExpanded] = useState(false)
   const [art, setArt] = useState<Art>('spritzung')
   const [mengeGesamt, setMengeGesamt] = useState<string>('')
   const [mengeEinheit, setMengeEinheit] = useState('kg')
@@ -479,7 +480,7 @@ export default function NeueBehandlungForm({
                   {felder.schaderreger === 'pflicht' && <span className="text-red-500"> *</span>}
                 </label>
                 <input name="schaderreger" type="text" required={felder.schaderreger === 'pflicht'}
-                  placeholder={art === 'sonstiges' ? 'z.B. Zaunreparatur' : 'z.B. Peronospora'}
+                  placeholder={art === 'sonstiges' ? 'z.B. Rodung' : 'z.B. Peronospora'}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
             )}
@@ -585,21 +586,32 @@ export default function NeueBehandlungForm({
       {/* Ried(en)-Auswahl */}
       <div className="card">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-gray-800">
-            Ried(en) auswählen
-            {totalSelCount > 0 && (
-              <span className="ml-2 text-sm text-s112-teal font-normal">
-                {totalSelCount} ausgewählt · {fmtHa(totalHaAktiv)}
-              </span>
-            )}
-          </h2>
           <button type="button"
-            onClick={selectAll}
-            className="text-xs text-s112-teal hover:underline">
-            Alle auswählen
+            onClick={() => setRiedenExpanded(v => !v)}
+            className="flex items-center gap-2 text-left">
+            <svg className={`w-3.5 h-3.5 text-s112-muted transition-transform shrink-0 ${riedenExpanded ? 'rotate-90' : ''}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            <h2 className="text-base font-semibold text-gray-800">
+              Ried(en) auswählen
+              {totalSelCount > 0 && (
+                <span className="ml-2 text-sm text-s112-teal font-normal">
+                  {totalSelCount} ausgewählt · {fmtHa(totalHaAktiv)}
+                </span>
+              )}
+            </h2>
           </button>
+          {riedenExpanded && (
+            <button type="button"
+              onClick={selectAll}
+              className="text-xs text-s112-teal hover:underline">
+              Alle auswählen
+            </button>
+          )}
         </div>
 
+        {riedenExpanded && (
         <div className="space-y-3">
           {lagen.map(([lageName, wgs]) => {
             const spritzbare = wgs.filter(w => w.spritzbar)
@@ -709,6 +721,7 @@ export default function NeueBehandlungForm({
             )
           })}
         </div>
+        )}
 
         {/* Zusammenfassung */}
         {totalSelCount > 0 && (

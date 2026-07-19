@@ -229,7 +229,7 @@ export default async function WeinhandelPage() {
           <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Transportschein erforderlich</span>
         </div>
         <p className="text-xs text-s112-muted mb-4">
-          Ungefüllter Wein kann direkt ab Tank verkauft werden. Für den LKW-Transport ist ein Transportschein (Begleitdokument) auszustellen.
+          Ungefüllter Wein kann direkt ab Tank verkauft werden.
         </p>
 
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Kellerbuch-Chargen</h3>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useTransition, useCallback } from 'react'
+import Link from 'next/link'
 import { upsertKellerplanPosition, deleteKellerplanPosition } from '../actions'
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
@@ -14,7 +15,7 @@ type Behaelter = {
   volumen_liter: number | null
 }
 
-type WeinInfo = { name: string; jahrgang: number | null; rebsorte: string | null }
+type WeinInfo = { weinausbauId: string; name: string; jahrgang: number | null; rebsorte: string | null }
 
 // ── Füllstand-Farbskala ───────────────────────────────────────────────────────
 
@@ -56,6 +57,10 @@ const MIN_SIZE     =  4
 const MAX_SIZE     = 35
 const RESIZE_STEP  =  3
 
+// Schwellwert (in % der Canvas-Breite/Höhe), unterhalb dessen ein Pointer-Down/Up
+// als Klick (statt Verschieben) gewertet wird → öffnet den Gebinde-Dialog.
+const CLICK_THRESHOLD_PCT = 0.6
+
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 
 export default function KellerplanEditor({
@@ -84,6 +89,7 @@ export default function KellerplanEditor({
   const [positions, setPositions] = useState<Record<string, PosData>>(initialPositions)
   const [saving,    setSaving]    = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [dialogBehaelterId, setDialogBehaelterId] = useState<string | null>(null)
 
   const behaelterMap = Object.fromEntries(behaelter.map(b => [b.id, b]))
   const placedIds    = new Set(Object.keys(positions))
@@ -147,8 +153,13 @@ export default function KellerplanEditor({
   // ── Verschieben auf Canvas (Pointer Events) ───────────────────────────────────
 
   function handleBlockPointerDown(e: React.PointerEvent, id: string) {
-    if (!writeOk || !positions[id] || !canvasRef.current) return
+    if (!positions[id] || !canvasRef.current) return
     e.stopPropagation()
+    if (!writeOk) {
+      // Read-only: kein Verschieben möglich, aber Klick soll den Gebinde-Dialog öffnen
+      setDialogBehaelterId(id)
+      return
+    }
     e.preventDefault()
     canvasRef.current.setPointerCapture(e.pointerId)
     dragStateRef.current = {
@@ -185,6 +196,18 @@ export default function KellerplanEditor({
     if (!ds) return
     canvasRef.current?.releasePointerCapture(e.pointerId)
     dragStateRef.current = null
+
+    const rect = canvasRef.current?.getBoundingClientRect()
+    const dxPct = rect ? Math.abs(((e.clientX - ds.startX) / rect.width)  * 100) : 0
+    const dyPct = rect ? Math.abs(((e.clientY - ds.startY) / rect.height) * 100) : 0
+    const wasClick = dxPct < CLICK_THRESHOLD_PCT && dyPct < CLICK_THRESHOLD_PCT
+
+    if (wasClick) {
+      // Kaum/keine Bewegung → als Klick werten und Gebinde-Dialog öffnen (kein Speichern nötig)
+      setDialogBehaelterId(ds.id)
+      return
+    }
+
     const pos = positions[ds.id]
     if (pos) savePos(ds.id, pos)
   }
@@ -220,6 +243,10 @@ export default function KellerplanEditor({
       }
     })
   }
+
+  // ── Gebinde-Dialog: Behälter + ggf. aktuelle Charge für die Sprung-Links ────
+  const dialogBehaelter = dialogBehaelterId ? behaelterMap[dialogBehaelterId] : null
+  const dialogWein       = dialogBehaelterId ? weinMap[dialogBehaelterId] ?? null : null
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -298,10 +325,11 @@ export default function KellerplanEditor({
                     borderRadius:    '50%',
                     backgroundColor: typ.bg,
                     border:          `2px solid ${fillColor ?? typ.border}`,
-                    cursor:          writeOk ? 'grab' : 'default',
+                    cursor:          writeOk ? 'grab' : 'pointer',
                     touchAction:     'none',
                   }}
                   onPointerDown={e => handleBlockPointerDown(e, behaelterId)}
+                  title="Klicken für Umziehen / Kellerbehandlungen / Abfüllen"
                 >
                   {/* ── Füllstand-Fläche (bottom-anchored, durch overflow:hidden zum Kreis geschnitten) */}
                   {fillColor && (
@@ -440,7 +468,7 @@ export default function KellerplanEditor({
 
           <p className="no-print text-xs text-s112-muted mt-1">
             Gitternetz = 1 m · Raum: {plan.breite_m} × {plan.laenge_m} m ·
-            Hover: −/+ Größe anpassen · × Entfernen
+            Klick: Gebinde-Aktionen · Hover: −/+ Größe anpassen · × Entfernen
           </p>
         </div>
 
@@ -479,6 +507,7 @@ export default function KellerplanEditor({
 
             <div className="mt-4 space-y-1 text-[10px] text-s112-muted">
               <p>↖ Ziehen zum Platzieren</p>
+              <p>Klick → Umziehen / Behandlungen / Abfüllen</p>
               <p>↔ Auf Plan verschieben</p>
               <p>− + Größe (hover)</p>
               <p>✕ Entfernen (hover)</p>
@@ -486,6 +515,60 @@ export default function KellerplanEditor({
           </div>
         )}
       </div>
+
+      {/* Gebinde-Dialog: Sprung zu Umziehen / Kellerbehandlungen / Abfüllen */}
+      {dialogBehaelter && (
+        <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/30"
+          onClick={() => setDialogBehaelterId(null)}>
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm"
+            onClick={e => e.stopPropagation()}>
+            <h3 className="font-semibold text-gray-800">{dialogBehaelter.name}</h3>
+            <p className="text-xs text-s112-muted mt-0.5 mb-4">
+              {dialogWein
+                ? `${dialogWein.name}${dialogWein.jahrgang ? ` ${dialogWein.jahrgang}` : ''}${dialogWein.rebsorte ? ` · ${dialogWein.rebsorte}` : ''}`
+                : 'Kein Wein im Behälter'}
+            </p>
+
+            <div className="space-y-2">
+              <Link
+                href={`/kellerbuch/behaelter/${dialogBehaelter.id}/umzuege`}
+                onClick={() => setDialogBehaelterId(null)}
+                className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-s112-border hover:border-s112-teal/50 hover:bg-s112-bg/40 transition-colors text-sm font-medium text-gray-700"
+              >
+                🔄 Umziehen
+              </Link>
+              <Link
+                href={`/kellerbuch/behaelter/${dialogBehaelter.id}/behandlungen`}
+                onClick={() => setDialogBehaelterId(null)}
+                className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-s112-border hover:border-s112-teal/50 hover:bg-s112-bg/40 transition-colors text-sm font-medium text-gray-700"
+              >
+                🧪 Kellerbehandlungen
+              </Link>
+              {dialogWein ? (
+                <Link
+                  href={`/weinhandel/fuellungen/neu?charge=${dialogWein.weinausbauId}`}
+                  onClick={() => setDialogBehaelterId(null)}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-s112-border hover:border-s112-teal/50 hover:bg-s112-bg/40 transition-colors text-sm font-medium text-gray-700"
+                >
+                  🍾 Abfüllen
+                </Link>
+              ) : (
+                <div
+                  title="Kein Wein im Behälter – nichts zum Abfüllen"
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-s112-border opacity-40 cursor-not-allowed text-sm font-medium text-gray-500"
+                >
+                  🍾 Abfüllen
+                </div>
+              )}
+            </div>
+
+            <button type="button" onClick={() => setDialogBehaelterId(null)}
+              className="mt-4 px-4 py-1.5 rounded-lg text-sm text-gray-600 hover:text-gray-800">
+              Schließen
+            </button>
+          </div>
+        </div>
+      )}
     </>
   )
 }
