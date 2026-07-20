@@ -1289,6 +1289,28 @@ export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen
     [alleEintraege, heute],
   )
 
+  // Diagnose (TEMP): wie viele der geladenen Outlook-Termine fallen ueberhaupt
+  // in den GERADE ANGEZEIGTEN Zeitraum (nicht den viel groesseren Fetch-Fenster)?
+  // Trennt "Termine liegen einfach ausserhalb des betrachteten Zeitraums" (kein
+  // Bug) von "Termine sind im sichtbaren Zeitraum, werden aber trotzdem nicht
+  // gerendert" (echter Rendering-Bug).
+  const sichtbareOutlookInfo = useMemo(() => {
+    let vonStr: string, bisStr: string
+    if (view === 'zeitachse') {
+      const mon = startOfWeek(current)
+      vonStr = toDateStr(mon)
+      bisStr = toDateStr(addDays(mon, 6))
+    } else if (view === 'monat') {
+      vonStr = toDateStr(new Date(current.getFullYear(), current.getMonth(), 1))
+      bisStr = toDateStr(new Date(current.getFullYear(), current.getMonth() + 1, 0))
+    } else {
+      vonStr = `${current.getFullYear()}-01-01`
+      bisStr = `${current.getFullYear()}-12-31`
+    }
+    const treffer = outlookEintraege.filter(e => e.datum >= vonStr && e.datum <= bisStr)
+    return { von: vonStr, bis: bisStr, anzahl: treffer.length }
+  }, [view, current, outlookEintraege])
+
   return (
     <div className="space-y-4">
       {/* ── Seitentitel ── */}
@@ -1378,10 +1400,22 @@ export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen
           </button>
         </div>
 
-        <button onClick={goToday}
-          className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-3 py-1 hover:bg-s112-teal hover:text-white transition-colors">
-          Heute
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Diagnose (TEMP): zeigt, ob geladene Outlook-Termine ueberhaupt in den
+              gerade angezeigten Zeitraum fallen (unabhaengig vom Fetch-Fenster) */}
+          <span
+            title={`Angezeigter Zeitraum: ${sichtbareOutlookInfo.von} – ${sichtbareOutlookInfo.bis}`}
+            className={`text-[11px] font-medium rounded-full px-2 py-1 cursor-help ${
+              sichtbareOutlookInfo.anzahl > 0 ? 'bg-sky-50 text-sky-700 border border-sky-200' : 'bg-gray-50 text-gray-400 border border-gray-200'
+            }`}
+          >
+            {sichtbareOutlookInfo.anzahl} Outlook im angezeigten Zeitraum
+          </span>
+          <button onClick={goToday}
+            className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-3 py-1 hover:bg-s112-teal hover:text-white transition-colors">
+            Heute
+          </button>
+        </div>
       </div>
 
       {/* ── Kalender ── */}
