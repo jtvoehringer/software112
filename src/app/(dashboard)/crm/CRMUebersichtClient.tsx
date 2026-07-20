@@ -1,41 +1,12 @@
 'use client'
 
-import { useState, useMemo, useRef, useEffect, useTransition, Component } from 'react'
-import type { ReactNode, ErrorInfo } from 'react'
+import { useState, useMemo, useRef, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createAktivitaet, moveAktivitaet, updateAktivitaet, updatePipelineEintrag } from './actions'
 import { AKTIVITAET_ARTEN } from '@/lib/crm/types'
 import type { AktivitaetDokument } from '@/lib/crm/types'
 import DokumentePanel from './DokumentePanel'
 import Link from 'next/link'
-
-// ── Diagnose (TEMP): Error-Boundary rund um die Kalenderansicht ──────────────
-// Falls beim Rendern von Woche/Monat/Jahr eine Ausnahme auftritt (z.B. durch
-// unerwartete Datenform bei manchen Outlook-Terminen), faengt das hier den
-// Fehler sichtbar ab, statt dass die Ansicht lautlos leer bleibt.
-class KalenderErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
-  constructor(props: { children: ReactNode }) {
-    super(props)
-    this.state = { error: null }
-  }
-  static getDerivedStateFromError(error: Error) {
-    return { error }
-  }
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[KalenderErrorBoundary] Render-Fehler im Kalender:', error, info.componentStack)
-  }
-  render() {
-    if (this.state.error) {
-      return (
-        <div className="border border-red-300 bg-red-50 rounded-xl p-4 text-sm text-red-700">
-          <p className="font-semibold mb-1">⚠ Fehler beim Rendern des Kalenders (Diagnose)</p>
-          <p className="font-mono text-xs whitespace-pre-wrap break-all">{this.state.error.message}</p>
-        </div>
-      )
-    }
-    return this.props.children
-  }
-}
 
 // ── Typeahead-Suche ───────────────────────────────────────────────────────────
 interface SucheItem { id: string; label: string; sub?: string }
@@ -1189,63 +1160,24 @@ export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen
   // einen großzügigen Zeitraum um die aktuell angezeigte Periode und mischt
   // sie (mit eigener Farbe/Kennzeichnung, siehe chipFarbe) unter die CRM-Termine.
   const [outlookEintraege, setOutlookEintraege] = useState<KalenderEintrag[]>([])
-  // Diagnose (TEMP): zeigt an, ob der Fetch überhaupt ankommt und wie viele
-  // Einträge tatsächlich im React-Zustand landen. Kann nach Klärung des
-  // "keine Outlook-Termine bei manchen Usern"-Problems wieder entfernt werden.
-  const [outlookDebug, setOutlookDebug] = useState<{
-    status: 'loading' | 'ok' | 'error'; count: number; msg?: string; httpStatus?: number
-    von?: string; bis?: string; earliest?: string; latest?: string
-  }>({ status: 'loading', count: 0 })
-  // Diagnose (TEMP): bleibt bis zum Neuladen der Seite stehen, auch wenn danach
-  // ein Fetch wieder erfolgreich ist – sonst ist die Fehlermeldung oft zu kurz
-  // sichtbar, um sie zu lesen (Badge wechselt ggf. innerhalb von Millisekunden
-  // wieder auf "ok").
-  const [outlookLastError, setOutlookLastError] = useState<string | null>(null)
   useEffect(() => {
     const von = new Date(current.getFullYear(), current.getMonth() - 2, 1)
     const bis = new Date(current.getFullYear(), current.getMonth() + 3, 0)
     const vonStr = toDateStr(von)
     const bisStr = toDateStr(bis)
     let cancelled = false
-    setOutlookDebug(d => ({ ...d, status: 'loading' }))
     fetch(`/api/crm/outlook-kalender?von=${vonStr}&bis=${bisStr}`)
-      .then(async r => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return { json: await r.json(), httpStatus: r.status }
-      })
-      .then(({ json, httpStatus }) => {
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+      .then(json => {
         if (cancelled) return
         // Die Route liefert bei einem echten Serverfehler (z.B. Token-Refresh-Problem
         // bei Microsoft) bewusst trotzdem HTTP 200 mit leerer Liste (damit das CRM nie
         // blockiert), setzt dabei aber ein "fehler"-Feld. In dem Fall NICHT die zuletzt
         // erfolgreich geladenen Termine mit der leeren Liste überschreiben.
-        if (json.fehler) {
-          const msg = json.fehler as string
-          setOutlookLastError(`${msg}  (Zeitraum ${vonStr} – ${bisStr})`)
-          setOutlookDebug(d => ({ ...d, status: 'error', msg, httpStatus, von: vonStr, bis: bisStr }))
-          return
-        }
-        const list = (json.eintraege ?? []) as KalenderEintrag[]
-        const dates = list.map(e => e.datum).filter(Boolean).sort()
-        setOutlookEintraege(list)
-        setOutlookDebug({
-          status: 'ok', count: list.length, httpStatus,
-          von: vonStr, bis: bisStr,
-          earliest: dates[0], latest: dates[dates.length - 1],
-        })
+        if (json.fehler) return
+        setOutlookEintraege((json.eintraege ?? []) as KalenderEintrag[])
       })
-      .catch(err => {
-        if (cancelled) return
-        // WICHTIG: bei einem Fehler NICHT outlookEintraege auf [] zuruecksetzen –
-        // sonst verschwinden bereits erfolgreich geladene Termine wieder aus der
-        // Ansicht, sobald z.B. beim Weiterklicken/Navigieren ein Folge-Request
-        // fehlschlaegt (z.B. Token-Refresh-Race bei Microsoft Graph). Die zuletzt
-        // erfolgreich geladenen Termine bleiben sichtbar, nur der Debug-Status
-        // zeigt den Fehler an.
-        const msg = err instanceof Error ? err.message : String(err)
-        setOutlookLastError(`${msg}  (Zeitraum ${vonStr} – ${bisStr})`)
-        setOutlookDebug(d => ({ ...d, status: 'error', msg, von: vonStr, bis: bisStr }))
-      })
+      .catch(() => { /* Netzwerkfehler: zuletzt erfolgreich geladene Termine unveraendert lassen */ })
     return () => { cancelled = true }
   }, [current.getFullYear(), current.getMonth()])
 
@@ -1289,28 +1221,6 @@ export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen
     [alleEintraege, heute],
   )
 
-  // Diagnose (TEMP): wie viele der geladenen Outlook-Termine fallen ueberhaupt
-  // in den GERADE ANGEZEIGTEN Zeitraum (nicht den viel groesseren Fetch-Fenster)?
-  // Trennt "Termine liegen einfach ausserhalb des betrachteten Zeitraums" (kein
-  // Bug) von "Termine sind im sichtbaren Zeitraum, werden aber trotzdem nicht
-  // gerendert" (echter Rendering-Bug).
-  const sichtbareOutlookInfo = useMemo(() => {
-    let vonStr: string, bisStr: string
-    if (view === 'zeitachse') {
-      const mon = startOfWeek(current)
-      vonStr = toDateStr(mon)
-      bisStr = toDateStr(addDays(mon, 6))
-    } else if (view === 'monat') {
-      vonStr = toDateStr(new Date(current.getFullYear(), current.getMonth(), 1))
-      bisStr = toDateStr(new Date(current.getFullYear(), current.getMonth() + 1, 0))
-    } else {
-      vonStr = `${current.getFullYear()}-01-01`
-      bisStr = `${current.getFullYear()}-12-31`
-    }
-    const treffer = outlookEintraege.filter(e => e.datum >= vonStr && e.datum <= bisStr)
-    return { von: vonStr, bis: bisStr, anzahl: treffer.length }
-  }, [view, current, outlookEintraege])
-
   return (
     <div className="space-y-4">
       {/* ── Seitentitel ── */}
@@ -1329,35 +1239,7 @@ export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen
                 {ueberfaelligCount} überfällig
               </span>
             )}
-            {/* Diagnose (TEMP) – siehe outlookDebug/outlookLastError oben */}
-            <span
-              title={
-                outlookDebug.status === 'ok'
-                  ? `Abgefragter Zeitraum: ${outlookDebug.von} – ${outlookDebug.bis}${outlookDebug.earliest ? ` | Termine von ${outlookDebug.earliest} bis ${outlookDebug.latest}` : ' | keine Termine in diesem Zeitraum'}`
-                  : (outlookDebug.msg ?? (outlookDebug.httpStatus ? `HTTP ${outlookDebug.httpStatus}` : undefined))
-              }
-              className={`text-xs font-medium rounded-full px-2 py-0.5 cursor-help ${
-                outlookDebug.status === 'error'
-                  ? 'bg-red-100 text-red-700'
-                  : outlookDebug.status === 'loading'
-                    ? 'bg-gray-100 text-gray-500'
-                    : 'bg-sky-100 text-sky-700'
-              }`}
-            >
-              {outlookDebug.status === 'loading'
-                ? 'Outlook: lädt…'
-                : outlookDebug.status === 'error'
-                  ? `Outlook-Fehler (zeige zuletzt geladene ${outlookDebug.count}): ${outlookDebug.msg}`
-                  : `${outlookDebug.count} Outlook-Termine geladen (Hover für Zeitraum)`}
-            </span>
           </div>
-          {/* Diagnose (TEMP): bleibt dauerhaft stehen, auch nachdem ein späterer Fetch
-              wieder erfolgreich war – die Badge-Meldung oben ist oft zu kurz sichtbar. */}
-          {outlookLastError && (
-            <p className="text-[11px] text-red-600 bg-red-50 border border-red-200 rounded-lg px-2 py-1 mt-1.5 inline-block">
-              Letzter Outlook-Fehler in dieser Sitzung: {outlookLastError}
-            </p>
-          )}
         </div>
 
         {/* View-Toggle */}
@@ -1400,31 +1282,16 @@ export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Diagnose (TEMP): zeigt, ob geladene Outlook-Termine ueberhaupt in den
-              gerade angezeigten Zeitraum fallen (unabhaengig vom Fetch-Fenster) */}
-          <span
-            title={`Angezeigter Zeitraum: ${sichtbareOutlookInfo.von} – ${sichtbareOutlookInfo.bis}`}
-            className={`text-[11px] font-medium rounded-full px-2 py-1 cursor-help ${
-              sichtbareOutlookInfo.anzahl > 0 ? 'bg-sky-50 text-sky-700 border border-sky-200' : 'bg-gray-50 text-gray-400 border border-gray-200'
-            }`}
-          >
-            {sichtbareOutlookInfo.anzahl} Outlook im angezeigten Zeitraum
-          </span>
-          <button onClick={goToday}
-            className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-3 py-1 hover:bg-s112-teal hover:text-white transition-colors">
-            Heute
-          </button>
-        </div>
+        <button onClick={goToday}
+          className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-3 py-1 hover:bg-s112-teal hover:text-white transition-colors">
+          Heute
+        </button>
       </div>
 
       {/* ── Kalender ── */}
-      {/* key=view: Error-Boundary bei Ansichtswechsel zuruecksetzen, statt dauerhaft im Fehlerzustand zu bleiben */}
-      <KalenderErrorBoundary key={view}>
-        {view === 'zeitachse' && <ZeitachseView eintraege={alleEintraege} current={current} heute={heute} kontakte={kontakte} firmen={firmen} userProfiles={userProfiles} />}
-        {view === 'monat'     && <MonatView     eintraege={alleEintraege} current={current} heute={heute} />}
-        {view === 'jahr'      && <JahrView      eintraege={alleEintraege} current={current} heute={heute} />}
-      </KalenderErrorBoundary>
+      {view === 'zeitachse' && <ZeitachseView eintraege={alleEintraege} current={current} heute={heute} kontakte={kontakte} firmen={firmen} userProfiles={userProfiles} />}
+      {view === 'monat'     && <MonatView     eintraege={alleEintraege} current={current} heute={heute} />}
+      {view === 'jahr'      && <JahrView      eintraege={alleEintraege} current={current} heute={heute} />}
 
       {/* ── Legende ── */}
       <div className="flex items-center gap-x-4 gap-y-1.5 pt-1 flex-wrap">
