@@ -1178,14 +1178,27 @@ export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen
       })
       .then(({ json, httpStatus }) => {
         if (cancelled) return
+        // Die Route liefert bei einem echten Serverfehler (z.B. Token-Refresh-Problem
+        // bei Microsoft) bewusst trotzdem HTTP 200 mit leerer Liste (damit das CRM nie
+        // blockiert), setzt dabei aber ein "fehler"-Feld. In dem Fall NICHT die zuletzt
+        // erfolgreich geladenen Termine mit der leeren Liste überschreiben.
+        if (json.fehler) {
+          setOutlookDebug(d => ({ status: 'error', count: d.count, msg: json.fehler as string, httpStatus }))
+          return
+        }
         const list = (json.eintraege ?? []) as KalenderEintrag[]
         setOutlookEintraege(list)
         setOutlookDebug({ status: 'ok', count: list.length, httpStatus })
       })
       .catch(err => {
         if (cancelled) return
-        setOutlookEintraege([])
-        setOutlookDebug({ status: 'error', count: 0, msg: err instanceof Error ? err.message : String(err) })
+        // WICHTIG: bei einem Fehler NICHT outlookEintraege auf [] zuruecksetzen –
+        // sonst verschwinden bereits erfolgreich geladene Termine wieder aus der
+        // Ansicht, sobald z.B. beim Weiterklicken/Navigieren ein Folge-Request
+        // fehlschlaegt (z.B. Token-Refresh-Race bei Microsoft Graph). Die zuletzt
+        // erfolgreich geladenen Termine bleiben sichtbar, nur der Debug-Status
+        // zeigt den Fehler an.
+        setOutlookDebug(d => ({ status: 'error', count: d.count, msg: err instanceof Error ? err.message : String(err) }))
       })
     return () => { cancelled = true }
   }, [current.getFullYear(), current.getMonth()])
@@ -1262,7 +1275,7 @@ export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen
               {outlookDebug.status === 'loading'
                 ? 'Outlook: lädt…'
                 : outlookDebug.status === 'error'
-                  ? `Outlook-Fehler: ${outlookDebug.msg}`
+                  ? `Outlook-Fehler (zeige zuletzt geladene ${outlookDebug.count}): ${outlookDebug.msg}`
                   : `${outlookDebug.count} Outlook-Termine geladen`}
             </span>
           </div>

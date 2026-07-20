@@ -40,7 +40,18 @@ export async function GET(req: NextRequest) {
     // Kein aktiv verbundenes M365-Konto → einfach keine Outlook-Termine anzeigen (kein Fehler)
     if (!c?.m365_aktiv || !c?.m365_access_token_enc) return NextResponse.json({ eintraege: [] })
 
-    const token = await getValidUserAccessToken(c, tenantCfg as R, supabase)
+    // Ab hier IST eine Verbindung vorhanden – ein Fehler ist also ein echtes Problem
+    // (z.B. Token-Refresh-Race bei Microsoft), kein erwarteter "nicht verbunden"-Fall.
+    // Wird geloggt (Vercel Function Logs) UND mit "fehler"-Feld an den Client zurückgegeben,
+    // damit der Client die zuletzt erfolgreich geladenen Termine NICHT überschreibt/löscht.
+    let token: string
+    try {
+      token = await getValidUserAccessToken(c, tenantCfg as R, supabase)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`[outlook-kalender] Token-Fehler für user=${user.id} tenant=${tenantId}:`, msg)
+      return NextResponse.json({ eintraege: [], fehler: `Token: ${msg}` })
+    }
 
     const startDateTime = `${von}T00:00:00`
     const endDateTime   = `${bis}T23:59:59`
@@ -55,7 +66,11 @@ export async function GET(req: NextRequest) {
         Prefer: 'outlook.timezone="W. Europe Standard Time"',
       },
     })
-    if (!res.ok) return NextResponse.json({ eintraege: [] })
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      console.error(`[outlook-kalender] Graph-Fehler für user=${user.id} tenant=${tenantId}: HTTP ${res.status} ${body.slice(0, 500)}`)
+      return NextResponse.json({ eintraege: [], fehler: `Graph HTTP ${res.status}` })
+    }
 
     const data   = await res.json() as R
     const events = (data.value ?? []) as R[]
@@ -97,8 +112,11 @@ export async function GET(req: NextRequest) {
       .filter(e => !!e.datum)
 
     return NextResponse.json({ eintraege })
-  } catch {
+  } catch (err) {
     // Best-effort: Outlook-Spiegelung darf den CRM-Kalender nie zum Absturz bringen.
-    return NextResponse.json({ eintraege: [] })
+    // Trotzdem loggen (statt lautlos zu verschlucken) – sonst ist ein Fehler wie ein
+    // fehlgeschlagener Token-Refresh im Nachhinein nie nachvollziehbar.
+    console.error('[outlook-kalender] Unerwarteter Fehler:', err instanceof Error ? err.message : err)
+    return NextResponse.json({ eintraege: [], fehler: 'unerwarteter Fehler (siehe Server-Logs)' })
   }
 }
