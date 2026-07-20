@@ -55,25 +55,46 @@ export async function GET(req: NextRequest) {
 
     const startDateTime = `${von}T00:00:00`
     const endDateTime   = `${bis}T23:59:59`
-    const url = `https://graph.microsoft.com/v1.0/me/calendarView`
+    let url: string | undefined = `https://graph.microsoft.com/v1.0/me/calendarView`
       + `?startDateTime=${encodeURIComponent(startDateTime)}&endDateTime=${encodeURIComponent(endDateTime)}`
       + `&$select=id,subject,start,end,isAllDay,webLink,isCancelled`
       + `&$top=250&$orderby=start/dateTime`
 
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Prefer: 'outlook.timezone="W. Europe Standard Time"',
-      },
-    })
-    if (!res.ok) {
-      const body = await res.text().catch(() => '')
-      console.error(`[outlook-kalender] Graph-Fehler für user=${user.id} tenant=${tenantId}: HTTP ${res.status} ${body.slice(0, 500)}`)
-      return NextResponse.json({ eintraege: [], fehler: `Graph HTTP ${res.status}` })
+    // WICHTIG: Graph liefert bei calendarView maximal $top Eintraege PRO SEITE
+    // (chronologisch sortiert ab startDateTime) und verweist bei mehr Daten via
+    // "@odata.nextLink" auf die naechste Seite. Ohne Pagination werden bei Usern
+    // mit vielen (z.B. taeglich wiederkehrenden) Terminen NUR die ersten ~250
+    // Termine ab Fensterbeginn geladen - alles Spaetere im Zeitraum faellt
+    // komplett unter den Tisch. Das fuehrte dazu, dass z.B. der aktuell
+    // betrachtete Monat je nach Fensterlage mal Termine zeigte, mal nicht
+    // ("Termine erscheinen kurz und verschwinden wieder" beim Navigieren).
+    // Sicherheitsgrenze: max. 10 Seiten (=2500 Termine), damit ein einzelner
+    // User mit extrem vielen Terminen die Funktion nicht dauerhaft blockiert.
+    const events: R[] = []
+    let seiten = 0
+    const MAX_SEITEN = 10
+    while (url && seiten < MAX_SEITEN) {
+      const res: Response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Prefer: 'outlook.timezone="W. Europe Standard Time"',
+        },
+      })
+      if (!res.ok) {
+        const body = await res.text().catch(() => '')
+        console.error(`[outlook-kalender] Graph-Fehler für user=${user.id} tenant=${tenantId}: HTTP ${res.status} ${body.slice(0, 500)}`)
+        return NextResponse.json({ eintraege: [], fehler: `Graph HTTP ${res.status}` })
+      }
+      const data = await res.json() as R
+      events.push(...((data.value ?? []) as R[]))
+      url = data['@odata.nextLink'] as string | undefined
+      seiten++
     }
-
-    const data   = await res.json() as R
-    const events = (data.value ?? []) as R[]
+    if (url) {
+      // Sicherheitsgrenze erreicht, es gaebe noch mehr Seiten - loggen, damit das
+      // auffaellt, statt still unvollstaendige Daten zu liefern.
+      console.warn(`[outlook-kalender] Seitenlimit (${MAX_SEITEN}) erreicht für user=${user.id} tenant=${tenantId} – Ergebnis evtl. unvollständig (${events.length} Termine geladen)`)
+    }
 
     const eintraege = events
       .filter(e => !e.isCancelled)
