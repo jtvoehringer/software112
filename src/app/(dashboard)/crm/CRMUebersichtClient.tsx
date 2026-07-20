@@ -1160,16 +1160,33 @@ export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen
   // einen großzügigen Zeitraum um die aktuell angezeigte Periode und mischt
   // sie (mit eigener Farbe/Kennzeichnung, siehe chipFarbe) unter die CRM-Termine.
   const [outlookEintraege, setOutlookEintraege] = useState<KalenderEintrag[]>([])
+  // Diagnose (TEMP): zeigt an, ob der Fetch überhaupt ankommt und wie viele
+  // Einträge tatsächlich im React-Zustand landen. Kann nach Klärung des
+  // "keine Outlook-Termine bei manchen Usern"-Problems wieder entfernt werden.
+  const [outlookDebug, setOutlookDebug] = useState<{ status: 'loading' | 'ok' | 'error'; count: number; msg?: string; httpStatus?: number }>({ status: 'loading', count: 0 })
   useEffect(() => {
     const von = new Date(current.getFullYear(), current.getMonth() - 2, 1)
     const bis = new Date(current.getFullYear(), current.getMonth() + 3, 0)
     const vonStr = toDateStr(von)
     const bisStr = toDateStr(bis)
     let cancelled = false
+    setOutlookDebug(d => ({ ...d, status: 'loading' }))
     fetch(`/api/crm/outlook-kalender?von=${vonStr}&bis=${bisStr}`)
-      .then(r => r.ok ? r.json() : { eintraege: [] })
-      .then(data => { if (!cancelled) setOutlookEintraege((data.eintraege ?? []) as KalenderEintrag[]) })
-      .catch(() => { if (!cancelled) setOutlookEintraege([]) })
+      .then(async r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return { json: await r.json(), httpStatus: r.status }
+      })
+      .then(({ json, httpStatus }) => {
+        if (cancelled) return
+        const list = (json.eintraege ?? []) as KalenderEintrag[]
+        setOutlookEintraege(list)
+        setOutlookDebug({ status: 'ok', count: list.length, httpStatus })
+      })
+      .catch(err => {
+        if (cancelled) return
+        setOutlookEintraege([])
+        setOutlookDebug({ status: 'error', count: 0, msg: err instanceof Error ? err.message : String(err) })
+      })
     return () => { cancelled = true }
   }, [current.getFullYear(), current.getMonth()])
 
@@ -1231,6 +1248,23 @@ export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen
                 {ueberfaelligCount} überfällig
               </span>
             )}
+            {/* Diagnose (TEMP) – siehe outlookDebug oben */}
+            <span
+              title={outlookDebug.msg ?? (outlookDebug.httpStatus ? `HTTP ${outlookDebug.httpStatus}` : undefined)}
+              className={`text-xs font-medium rounded-full px-2 py-0.5 ${
+                outlookDebug.status === 'error'
+                  ? 'bg-red-100 text-red-700'
+                  : outlookDebug.status === 'loading'
+                    ? 'bg-gray-100 text-gray-500'
+                    : 'bg-sky-100 text-sky-700'
+              }`}
+            >
+              {outlookDebug.status === 'loading'
+                ? 'Outlook: lädt…'
+                : outlookDebug.status === 'error'
+                  ? `Outlook-Fehler: ${outlookDebug.msg}`
+                  : `${outlookDebug.count} Outlook-Termine geladen`}
+            </span>
           </div>
         </div>
 
