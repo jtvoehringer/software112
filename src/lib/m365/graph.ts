@@ -10,7 +10,7 @@ export function m365AuthUrl(tenantId: string, clientId: string, redirectUri: str
     client_id:     clientId,
     response_type: 'code',
     redirect_uri:  redirectUri,
-    scope:         'offline_access Mail.ReadWrite Mail.Send',
+    scope:         'offline_access Mail.ReadWrite Mail.Send Calendars.Read',
     state,
     response_mode: 'query',
   })
@@ -27,7 +27,7 @@ export async function exchangeCodeForTokens(
     body: new URLSearchParams({
       client_id: clientId, client_secret: clientSecret,
       code, redirect_uri: redirectUri, grant_type: 'authorization_code',
-      scope: 'offline_access Mail.ReadWrite Mail.Send',
+      scope: 'offline_access Mail.ReadWrite Mail.Send Calendars.Read',
     }),
   })
   if (!res.ok) throw new Error(`Token-Austausch fehlgeschlagen: ${await res.text()}`)
@@ -43,7 +43,7 @@ export async function refreshAccessToken(
     body: new URLSearchParams({
       client_id: clientId, client_secret: clientSecret,
       refresh_token: refreshToken, grant_type: 'refresh_token',
-      scope: 'offline_access Mail.ReadWrite Mail.Send',
+      scope: 'offline_access Mail.ReadWrite Mail.Send Calendars.Read',
     }),
   })
   if (!res.ok) throw new Error(`Token-Refresh fehlgeschlagen: ${await res.text()}`)

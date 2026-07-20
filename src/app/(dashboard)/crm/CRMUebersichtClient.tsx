@@ -68,7 +68,7 @@ export type KalenderEintrag = {
   id: string
   datum: string          // YYYY-MM-DD
   titel: string
-  typ: 'aktivitaet' | 'pipeline'
+  typ: 'aktivitaet' | 'pipeline' | 'outlook'
   art?: string
   artIcon?: string
   ganztags?: boolean
@@ -133,6 +133,7 @@ const ART_FARBEN: Record<string, string> = {
 function chipFarbe(e: KalenderEintrag): string {
   if (e.erledigt) return 'bg-gray-50 text-gray-400 border-gray-100 opacity-60'
   if (e.ueberfaellig) return 'bg-red-500 text-white border-red-600'
+  if (e.typ === 'outlook') return 'bg-sky-50 text-sky-700 border-sky-200'
   if (e.typ === 'pipeline') return 'bg-teal-50 text-teal-700 border-teal-100'
   return ART_FARBEN[e.art ?? ''] ?? 'bg-gray-50 text-gray-600 border-gray-100'
 }
@@ -718,6 +719,12 @@ function ZeitachseView({
                     Zur Firma →
                   </a>
                 )}
+                {viewAkt.typ === 'outlook' && viewAkt.href && viewAkt.href !== '#' && (
+                  <a href={viewAkt.href} target="_blank" rel="noopener noreferrer"
+                    className="border border-sky-300 text-sky-700 px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-sky-50">
+                    In Outlook öffnen →
+                  </a>
+                )}
                 <button onClick={() => { setViewAkt(null); setEditAktMode(false); setEditPipeMode(false) }}
                   className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
                   Schließen
@@ -1148,6 +1155,29 @@ export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen
   const [view, setView]       = useState<ViewMode>('zeitachse')
   const [current, setCurrent] = useState<Date>(() => new Date())
 
+  // ── Outlook-Kalender des angemeldeten Users spiegeln ──────────────────────
+  // Läd die Termine aus dem verbundenen Outlook-Konto (falls vorhanden) für
+  // einen großzügigen Zeitraum um die aktuell angezeigte Periode und mischt
+  // sie (mit eigener Farbe/Kennzeichnung, siehe chipFarbe) unter die CRM-Termine.
+  const [outlookEintraege, setOutlookEintraege] = useState<KalenderEintrag[]>([])
+  useEffect(() => {
+    const von = new Date(current.getFullYear(), current.getMonth() - 2, 1)
+    const bis = new Date(current.getFullYear(), current.getMonth() + 3, 0)
+    const vonStr = toDateStr(von)
+    const bisStr = toDateStr(bis)
+    let cancelled = false
+    fetch(`/api/crm/outlook-kalender?von=${vonStr}&bis=${bisStr}`)
+      .then(r => r.ok ? r.json() : { eintraege: [] })
+      .then(data => { if (!cancelled) setOutlookEintraege((data.eintraege ?? []) as KalenderEintrag[]) })
+      .catch(() => { if (!cancelled) setOutlookEintraege([]) })
+    return () => { cancelled = true }
+  }, [current.getFullYear(), current.getMonth()])
+
+  const alleEintraege = useMemo(
+    () => [...eintraege, ...outlookEintraege].sort((a, b) => a.datum.localeCompare(b.datum)),
+    [eintraege, outlookEintraege]
+  )
+
   function navigate(dir: number) {
     setCurrent(prev => {
       const d = new Date(prev)
@@ -1175,12 +1205,12 @@ export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen
   }, [view, current.toDateString()])
 
   const ueberfaelligCount = useMemo(
-    () => eintraege.filter(e => e.ueberfaellig).length,
-    [eintraege],
+    () => alleEintraege.filter(e => e.ueberfaellig).length,
+    [alleEintraege],
   )
   const heuteCount = useMemo(
-    () => eintraege.filter(e => e.datum === heute).length,
-    [eintraege, heute],
+    () => alleEintraege.filter(e => e.datum === heute).length,
+    [alleEintraege, heute],
   )
 
   return (
@@ -1251,9 +1281,9 @@ export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen
       </div>
 
       {/* ── Kalender ── */}
-      {view === 'zeitachse' && <ZeitachseView eintraege={eintraege} current={current} heute={heute} kontakte={kontakte} firmen={firmen} userProfiles={userProfiles} />}
-      {view === 'monat'     && <MonatView     eintraege={eintraege} current={current} heute={heute} />}
-      {view === 'jahr'      && <JahrView      eintraege={eintraege} current={current} heute={heute} />}
+      {view === 'zeitachse' && <ZeitachseView eintraege={alleEintraege} current={current} heute={heute} kontakte={kontakte} firmen={firmen} userProfiles={userProfiles} />}
+      {view === 'monat'     && <MonatView     eintraege={alleEintraege} current={current} heute={heute} />}
+      {view === 'jahr'      && <JahrView      eintraege={alleEintraege} current={current} heute={heute} />}
 
       {/* ── Legende ── */}
       <div className="flex items-center gap-x-4 gap-y-1.5 pt-1 flex-wrap">
@@ -1268,6 +1298,7 @@ export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen
           { farbe: 'bg-indigo-50 border-indigo-100',            label: 'Messe'      },
           { farbe: 'bg-yellow-50 border-yellow-100',            label: 'Angebot'    },
           { farbe: 'bg-gray-50 border-gray-100',                label: 'Notiz'      },
+          { farbe: 'bg-sky-50 border-sky-200',                  label: 'Outlook'    },
         ].map(({ farbe, label }) => (
           <div key={label} className="flex items-center gap-1">
             <div className={`w-3 h-3 rounded border ${farbe}`} />
@@ -1276,7 +1307,7 @@ export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen
         ))}
       </div>
 
-      {eintraege.length === 0 && (
+      {alleEintraege.length === 0 && (
         <div className="text-center py-12 text-s112-muted text-sm">
           Noch keine Einträge mit Datum vorhanden.
         </div>
