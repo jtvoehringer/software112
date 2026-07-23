@@ -37,12 +37,18 @@ export default async function CRMUebersichtPage() {
   )] as string[]
   const userProfiles: Record<string, string> = {}
   if (uniqueUserIds.length > 0) {
-    // Schema 005: id = auth.users.id (PK), display_name
+    // Schema 005: id = auth.users.id (PK). full_name ist das Feld, das der User
+    // selbst unter /profil pflegt (siehe src/app/api/profil/route.ts) - display_name
+    // wird nur einmalig beim Signup gesetzt (Migration 005) und danach nie wieder
+    // aktualisiert. Vorher wurde hier faelschlich display_name gelesen, wodurch der
+    // Name im Kalender-Filter vom im Profil hinterlegten Namen abweichen konnte
+    // (z.B. "Jörgen Vöhringer" statt des spaeter auf "Jörgen" geaenderten Namens).
     const { data: profilesRaw } = await (supabase.from('profiles') as any)
-      .select('id, display_name')
+      .select('id, full_name, display_name')
       .in('id', uniqueUserIds)
     ;(profilesRaw as AR[] ?? []).forEach((p: AR) => {
-      if (p.display_name && p.id) userProfiles[p.id] = p.display_name
+      const name = p.full_name || p.display_name
+      if (name && p.id) userProfiles[p.id] = name
     })
   }
 

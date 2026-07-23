@@ -120,6 +120,7 @@ const MONATE_KURZ = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'S
 
 const ART_FARBEN: Record<string, string> = {
   anruf:      'bg-green-50 text-green-700 border-green-100',
+  besprechung:'bg-cyan-50 text-cyan-700 border-cyan-100',
   email:      'bg-orange-50 text-orange-700 border-orange-100',
   verkostung: 'bg-purple-50 text-purple-700 border-purple-100',
   besuch:     'bg-blue-50 text-blue-700 border-blue-100',
@@ -256,6 +257,13 @@ function ZeitachseView({
   const [pending, startTransition] = useTransition()
   const [filterUser, setFilterUser] = useState<string>('alle')
   const uniqueUsers = useMemo(() => [...new Set(eintraege.map(e => e.erstellt_von).filter(Boolean))], [eintraege])
+  // Nach erstellendem User filtern, falls nicht "Alle" ausgewaehlt. uniqueUsers
+  // bewusst weiterhin aus dem UNGEFILTERTEN eintraege ableiten (sonst wuerden
+  // die Filter-Buttons nach dem Filtern selbst wieder verschwinden).
+  const gefilterteEintraege = useMemo(
+    () => filterUser === 'alle' ? eintraege : eintraege.filter(e => e.erstellt_von === filterUser),
+    [eintraege, filterUser]
+  )
 
   // Aktivität-Detail anzeigen
   const [viewAkt,    setViewAkt]    = useState<KalenderEintrag | null>(null)
@@ -294,7 +302,7 @@ function ZeitachseView({
   const byDay = useMemo(() => {
     const map: Record<string, { ganztags: KalenderEintrag[]; timed: KalenderEintrag[] }> = {}
     days.forEach(d => { map[toDateStr(d)] = { ganztags: [], timed: [] } })
-    eintraege.forEach(e => {
+    gefilterteEintraege.forEach(e => {
       if (!map[e.datum]) return
       // Mehrtägige Ganztags-Events → werden als Balken separat gerendert
       if (e.bis_datum && (e.ganztags !== false || !e.uhrzeit_von)) return
@@ -302,19 +310,19 @@ function ZeitachseView({
       else map[e.datum].timed.push(e)
     })
     return map
-  }, [eintraege, monday.getTime()])
+  }, [gefilterteEintraege, monday.getTime()])
 
   // Mehrtägige Ganztags-Events sichtbar in dieser Woche
   const multiDayGanztags = useMemo(() => {
     const weekStart = toDateStr(days[0])
     const weekEnd   = toDateStr(days[6])
-    return eintraege.filter(e =>
+    return gefilterteEintraege.filter(e =>
       e.bis_datum != null &&
       (e.ganztags !== false || !e.uhrzeit_von) &&
       e.datum    <= weekEnd &&
       e.bis_datum >= weekStart
     )
-  }, [eintraege, monday.getTime()])
+  }, [gefilterteEintraege, monday.getTime()])
 
   const now    = new Date()
   const nowTop = (now.getHours() * 60 + now.getMinutes()) / 60 * HOUR_H
@@ -1300,6 +1308,7 @@ export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen
           { farbe: 'bg-red-50 border-red-200 text-red-700',     label: 'Überfällig' },
           { farbe: 'bg-teal-50 border-teal-100 text-teal-700',  label: 'Pipeline'   },
           { farbe: 'bg-green-50 border-green-100',              label: 'Anruf'      },
+          { farbe: 'bg-cyan-50 border-cyan-100',                label: 'Besprechung'},
           { farbe: 'bg-orange-50 border-orange-100',            label: 'E-Mail'     },
           { farbe: 'bg-purple-50 border-purple-100',            label: 'Verkostung' },
           { farbe: 'bg-blue-50 border-blue-100',                label: 'Besuch'     },
