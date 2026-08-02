@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { updateMemberRole, removeMember, assignUserToTenant } from './actions'
 import type { MemberWithEmail, UnassignedUser } from './actions'
+import { Users } from 'lucide-react'
 
 const ROLLEN = [
   { value: 'tenant_admin', label: 'Betriebsleiter' },
@@ -94,7 +95,7 @@ export default function BenutzerClient({ members, unassigned }: Props) {
 
         {members.length === 0 ? (
           <div className="text-center py-10">
-            <p className="text-4xl mb-3">👥</p>
+            <Users size={32} strokeWidth={1.5} className="mx-auto mb-3 text-s112-tertiary" />
             <p className="text-sm text-s112-muted">Noch keine Mitglieder zugewiesen</p>
           </div>
         ) : (
@@ -184,7 +185,7 @@ export default function BenutzerClient({ members, unassigned }: Props) {
               onClick={() => setShowAssign(!showAssign)}
               className="text-xs text-s112-teal font-semibold hover:underline"
             >
-              {showAssign ? 'Schließen' : '＋ Zuweisen'}
+              {showAssign ? 'Schließen' : '+ Zuweisen'}
             </button>
           </div>
 

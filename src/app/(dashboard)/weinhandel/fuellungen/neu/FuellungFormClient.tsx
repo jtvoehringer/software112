@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { KN_CODES } from '@/lib/wein/zolltarif'
 import { HERKUNFT_ORDER, HERKUNFT_LABEL } from '@/lib/herkunft'
 import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { AlertTriangle, CheckCircle2, Droplet } from 'lucide-react'
 
 type Charge = {
   id: string
@@ -261,8 +262,8 @@ export default function FuellungFormClient({
                   ))}
                 </select>
                 {selectedDacId && dacAntraege.find(d => d.id === selectedDacId)?.status !== 'genehmigt' && (
-                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                    ⚠ DAC-Antrag noch nicht genehmigt – Abfüllung möglich, aber Prüfnummer fehlt.
+                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1 inline-flex items-center gap-1">
+                    <AlertTriangle size={12} strokeWidth={2} />DAC-Antrag noch nicht genehmigt – Abfüllung möglich, aber Prüfnummer fehlt.
                   </p>
                 )}
               </div>
@@ -348,11 +349,11 @@ export default function FuellungFormClient({
               : 'bg-green-50 border border-green-200 text-green-700'
           }`}>
             {schwund < -bottleL ? (
-              <>⚠️ <strong>Überabfüllung:</strong> Abgefüllte Menge ({fmtL(berechneteLiter)}) übersteigt verfügbaren Bestand ({fmtL(verfuegbar)}) um {fmtL(Math.abs(schwund))}.</>
+              <span className="inline-flex items-start gap-1.5"><AlertTriangle size={15} strokeWidth={1.75} className="mt-0.5 shrink-0" /><span><strong>Überabfüllung:</strong> Abgefüllte Menge ({fmtL(berechneteLiter)}) übersteigt verfügbaren Bestand ({fmtL(verfuegbar)}) um {fmtL(Math.abs(schwund))}.</span></span>
             ) : schwund < bottleL ? (
-              <>✅ Charge wird vollständig abgefüllt. Kein/minimaler Schwund.</>
+              <span className="inline-flex items-center gap-1.5"><CheckCircle2 size={15} strokeWidth={1.75} />Charge wird vollständig abgefüllt. Kein/minimaler Schwund.</span>
             ) : (
-              <>🍶 <strong>Restwein / Schwund:</strong> {fmtL(schwund)} verbleiben nach der Abfüllung im Tank.</>
+              <span className="inline-flex items-start gap-1.5"><Droplet size={15} strokeWidth={1.75} className="mt-0.5 shrink-0" /><span><strong>Restwein / Schwund:</strong> {fmtL(schwund)} verbleiben nach der Abfüllung im Tank.</span></span>
             )}
           </div>
         )}

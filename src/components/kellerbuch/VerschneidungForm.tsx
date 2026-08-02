@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { createVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
 import { QUALITAET_LABEL, QUALITAET_ORDER, istNiedrigerAls, minQualitaet } from '@/lib/weinqualitaet'
 import { HERKUNFT_LABEL, istNiedrigerAls as herkunftIstNiedrigerAls, minHerkunft } from '@/lib/herkunft'
+import { GitMerge, AlertTriangle, Ban, CheckCircle2, Info, X } from 'lucide-react'
 
 type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
 
@@ -160,7 +161,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
     return (
       <div className="bg-amber-50 border border-amber-300 rounded-xl p-5 space-y-3">
         <div className="flex items-start gap-3">
-          <span className="text-2xl">⚠️</span>
+          <AlertTriangle size={22} strokeWidth={1.75} className="text-amber-500 shrink-0" />
           <div className="space-y-1">
             <p className="font-semibold text-amber-900 text-sm">Verschneidung gespeichert – Abstufung erfolgt</p>
             {qualitaetAbgestufInfo && (
@@ -197,7 +198,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
   return (
     <form onSubmit={handleSubmit} className="bg-indigo-50/40 border border-indigo-100 rounded-xl p-4 space-y-4">
       <div className="flex items-center gap-2">
-        <span className="text-lg">🍷</span>
+        <GitMerge size={17} strokeWidth={1.75} className="text-violet-600" />
         <h3 className="text-sm font-semibold text-gray-800">Verschneidung in <span className="text-s112-teal">{zielCharge.name}</span></h3>
         {zielCharge.qualitaetsstufe && (
           <span className="text-xs bg-white border border-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full">
@@ -253,7 +254,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
               </div>
               {quellen.length > 1 && (
                 <button type="button" onClick={() => removeQuelle(i)}
-                  className="text-red-400 hover:text-red-600 text-lg leading-none px-1">×</button>
+                  className="text-red-400 hover:text-red-600 px-1"><X size={15} strokeWidth={2} /></button>
               )}
             </div>
           )
@@ -267,7 +268,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
       {/* Qualitäts-Abstufungs-Warnung */}
       {hatAbstufung && abstufungsZiel && (
         <div className="flex items-start gap-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2.5 text-sm">
-          <span className="text-amber-500 mt-0.5">⚠️</span>
+          <AlertTriangle size={15} strokeWidth={1.75} className="text-amber-500 mt-0.5 shrink-0" />
           <div>
             <p className="font-medium text-amber-800">Qualitätsabstufung auf {QUALITAET_LABEL[abstufungsZiel] ?? abstufungsZiel}</p>
             <p className="text-xs text-amber-700 mt-0.5">
@@ -283,7 +284,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
       {/* Herkunft-Code-Abstufungs-Warnung */}
       {hatHerkunftAbstufung && herkunftAbstufungsZiel && (
         <div className="flex items-start gap-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2.5 text-sm">
-          <span className="text-amber-500 mt-0.5">⚠️</span>
+          <AlertTriangle size={15} strokeWidth={1.75} className="text-amber-500 mt-0.5 shrink-0" />
           <div>
             <p className="font-medium text-amber-800">Herkunft-Code-Abstufung auf {HERKUNFT_LABEL[herkunftAbstufungsZiel] ?? herkunftAbstufungsZiel}</p>
             <p className="text-xs text-amber-700 mt-0.5">
@@ -305,7 +306,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
         if (quellenMitAndererRebsorte.length === 0) return null
         return (
           <div className="flex items-start gap-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2.5 text-sm">
-            <span className="text-amber-500 mt-0.5">⚠️</span>
+            <AlertTriangle size={15} strokeWidth={1.75} className="text-amber-500 mt-0.5 shrink-0" />
             <div>
               <p className="font-medium text-amber-800">Rebsortenverschnitt</p>
               <p className="text-xs text-amber-700 mt-0.5">
@@ -358,7 +359,9 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
               </p>
             </div>
             {ueber && (
-              <p className="col-span-3 text-red-600 font-medium">⚠️ Ziel-Gebinde hat nicht genug Kapazität für diesen Verschnitt</p>
+              <p className="col-span-3 text-red-600 font-medium inline-flex items-center gap-1">
+                <AlertTriangle size={13} strokeWidth={2} />Ziel-Gebinde hat nicht genug Kapazität für diesen Verschnitt
+              </p>
             )}
           </div>
         )
@@ -380,12 +383,12 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
             ? 'bg-blue-50 border-blue-200 text-blue-800'
             : 'bg-amber-50 border-amber-300 text-amber-800'
         }`}>
-          <span className="mt-0.5">
+          <span className="mt-0.5 shrink-0">
             {rebsortenPreview.typ === 'unveraendert'
-              ? '✅'
+              ? <CheckCircle2 size={16} strokeWidth={1.75} className="text-green-600" />
               : rebsortenPreview.typ === 'bezeichnungsunschaedlich'
-              ? 'ℹ️'
-              : '⚠️'}
+              ? <Info size={16} strokeWidth={1.75} className="text-blue-600" />
+              : <AlertTriangle size={16} strokeWidth={1.75} className="text-amber-500" />}
           </span>
           <div>
             {rebsortenPreview.typ === 'unveraendert' && (
@@ -417,7 +420,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
       {/* Weinart-Fehler: Rot+Weiß nicht zulässig */}
       {hatWeinartFehler && (
         <div className="flex items-start gap-2 bg-red-50 border border-red-300 rounded-lg px-3 py-2.5 text-sm">
-          <span className="text-red-500 mt-0.5">🚫</span>
+          <Ban size={16} strokeWidth={1.75} className="text-red-500 mt-0.5 shrink-0" />
           <div>
             <p className="font-semibold text-red-800">Verschneidung nicht zulässig – Weinart-Konflikt</p>
             <p className="text-xs text-red-700 mt-0.5">

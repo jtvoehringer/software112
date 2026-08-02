@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { Check, X } from 'lucide-react'
 
 export default function ProfilPage() {
   const router = useRouter()
@@ -71,8 +72,8 @@ export default function ProfilPage() {
               className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
               {saving ? 'Speichern…' : 'Profil speichern'}
             </button>
-            {erfolg && <p className="text-sm text-green-600">✓ Gespeichert</p>}
-            {fehler && <p className="text-sm text-red-600">✗ {fehler}</p>}
+            {erfolg && <p className="text-sm text-green-600 inline-flex items-center gap-1"><Check size={14} strokeWidth={2.25} />Gespeichert</p>}
+            {fehler && <p className="text-sm text-red-600 inline-flex items-center gap-1"><X size={14} strokeWidth={2.25} />{fehler}</p>}
           </div>
         </form>
       </div>
