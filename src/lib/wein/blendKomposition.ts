@@ -25,7 +25,7 @@ export type KompositionUrsprung = {
   anteil_pct: number                // 0–100, gerundet auf 1 Dezimalstelle
 }
 
-type RohEintrag = { key: string; liter: number; info: Omit<KompositionUrsprung, 'anteil_pct'> }
+type RohEintrag = { key: string; liter: number; info: Omit<KompositionUrsprung, 'anteil_pct' | 'key'> }
 
 const EPSILON = 1e-9
 
@@ -211,7 +211,7 @@ async function resolveRoh(
 function normalisiere(eintraege: RohEintrag[]): KompositionUrsprung[] {
   const total = eintraege.reduce((s, e) => s + e.liter, 0)
   if (total <= EPSILON) return []
-  const byKey = new Map<string, { liter: number; info: Omit<KompositionUrsprung, 'anteil_pct'> }>()
+  const byKey = new Map<string, { liter: number; info: Omit<KompositionUrsprung, 'anteil_pct' | 'key'> }>()
   for (const e of eintraege) {
     const existing = byKey.get(e.key)
     if (existing) existing.liter += e.liter
