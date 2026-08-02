@@ -22,12 +22,13 @@ export type TenantBranding = {
 
 // Entspricht exakt den CSS-Fallback-Werten in globals.css/tailwind.config.ts
 // (--s112-teal / --s112-yellow) — das ist die getestete, gut aufeinander
-// abgestimmte Standard-Farbkombination des Designs.
+// abgestimmte Standard-Farbkombination des Designs (Stand 2026-08, vom
+// hohenstein-Logo abgeleitet, siehe project_design_relaunch.md).
 const DEFAULT_BRANDING: TenantBranding = {
   anzeigename:      'software:112',
   logo_url:         null,
-  primary_color:    '#025450',
-  secondary_color:  '#F9E54F',
+  primary_color:    '#4F86D6',
+  secondary_color:  '#FFFFFF',
   modul_newsletter: false,
   modul_ea:         false,
   modul_fibu:       false,

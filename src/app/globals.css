@@ -3,28 +3,29 @@
 @tailwind utilities;
 
 :root {
-  /* software:112 Brand Tokens */
-  --s112-teal:   #025450;
+  /* software:112 Brand Tokens — Design-System 2026-08 (siehe project_design_relaunch.md) */
+  --s112-teal:   #4F86D6; /* Aktion, per Tenant überschreibbar (primary_color) */
   --s112-navy:   #0E3C62;
   --s112-green:  #98C780;
   --s112-blue:   #98C6DD;
-  --s112-yellow: #F9E54F;
-  --s112-bg:     #F8F8F3;
-  --s112-muted:  #5C6E6B;
-  --s112-border: #E2E8E7;
+  --s112-yellow: #FFFFFF; /* Text auf Aktion-Fläche, per Tenant überschreibbar (secondary_color) */
+  --s112-bg:     #F7F8FA;
+  --s112-muted:  #6E717A;
+  --s112-border: #EDEEF1;
 }
 
 @layer base {
   body {
     background-color: var(--s112-bg);
-    color: #1A1A1A;
-    font-family: var(--font-inter), system-ui, sans-serif;
+    color: #22252B;
+    font-family: var(--font-plex-sans), system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-weight: 700;
-    color: #1A1A1A;
+    font-family: var(--font-poppins), system-ui, sans-serif;
+    font-weight: 600;
+    color: #22252B;
   }
 }
 
