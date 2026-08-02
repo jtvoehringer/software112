@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { Search, Loader2 } from 'lucide-react'
 import type { SearchResult } from '@/app/api/global-search/route'
 
 const KATEGORIE_LABEL: Record<string, string> = {
@@ -101,18 +102,14 @@ export default function GlobalSearch() {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg
-          bg-s112-bg border border-s112-border text-s112-muted text-sm
-          hover:border-s112-teal/50 hover:text-s112-teal transition-colors
-          lg:min-w-[180px]"
+        className="flex items-center gap-2 px-3 py-2 rounded-lg lg:w-[220px]
+          bg-white border border-s112-line-str text-s112-tertiary text-sm
+          hover:border-s112-blue-300 transition-colors"
         title="Suche öffnen (⌘K)"
       >
-        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
+        <Search size={16} strokeWidth={1.75} className="flex-shrink-0" />
         <span className="hidden lg:block flex-1 text-left">Suche…</span>
-        <kbd className="hidden lg:block text-[10px] font-mono bg-white border border-s112-border px-1 rounded">⌘K</kbd>
+        <kbd className="hidden lg:block text-[10px] font-mono bg-s112-bg border border-s112-line px-1 rounded text-s112-tertiary">⌘K</kbd>
       </button>
     )
   }
@@ -131,25 +128,16 @@ export default function GlobalSearch() {
 
           {/* Input */}
           <div className="flex items-center gap-3 px-4 py-3 border-b border-s112-border">
-            <svg className="w-5 h-5 text-s112-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+            <Search size={18} strokeWidth={1.75} className="text-s112-tertiary flex-shrink-0" />
             <input
               ref={inputRef}
               value={query}
               onChange={handleInput}
               onKeyDown={handleKeyDown}
               placeholder="Kontakt, Rechnung, Wein suchen…"
-              className="flex-1 outline-none text-sm text-gray-800 placeholder:text-s112-muted bg-transparent"
+              className="flex-1 outline-none text-sm text-gray-800 placeholder:text-s112-tertiary bg-transparent"
             />
-            {loading && (
-              <svg className="w-4 h-4 text-s112-muted animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-            )}
+            {loading && <Loader2 size={16} strokeWidth={1.75} className="text-s112-tertiary animate-spin flex-shrink-0" />}
             <kbd className="text-[10px] font-mono text-s112-muted bg-s112-bg border border-s112-border px-1.5 py-0.5 rounded">
               Esc
             </kbd>
