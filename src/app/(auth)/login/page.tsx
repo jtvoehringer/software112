@@ -41,12 +41,9 @@ export default function LoginPage() {
     <div className="w-full max-w-sm">
       {/* Logo */}
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-s112-teal inline-flex items-baseline gap-0">
-          software
-          <span className="text-s112-yellow">:</span>
-          112
-        </h1>
-        <p className="text-s112-muted text-sm mt-1">Digitale Klarheit für den Weinbau</p>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/software112-logo.svg" alt="software:112" className="h-12 w-auto mx-auto" />
+        <p className="text-s112-muted text-sm mt-2">Digitale Klarheit für den Weinbau</p>
       </div>
 
       {/* Card */}
