@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createVerkauf, createSonstigesArtikel, SonstigesArtikelData } from '../actions'
+import { Check } from 'lucide-react'
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
 
@@ -265,7 +266,7 @@ function SonstigesKombo({ artikel, name, onNameChange, onArtikelSelect, onSpeich
       {zeigeBtn && (
         <div className="flex items-center gap-1.5 mt-1">
           {savedOk ? (
-            <span className="text-xs text-green-600 font-medium">✓ Als Produkt gespeichert</span>
+            <span className="text-xs text-green-600 font-medium inline-flex items-center gap-1"><Check size={12} />Als Produkt gespeichert</span>
           ) : (
             <>
               <span className="text-xs text-s112-muted">Neues Produkt —</span>
@@ -280,7 +281,7 @@ function SonstigesKombo({ artikel, name, onNameChange, onArtikelSelect, onSpeich
                 disabled={saving}
                 className="text-xs text-s112-teal hover:underline disabled:opacity-50"
               >
-                {saving ? 'Wird gespeichert…' : '💾 Als Produkt speichern'}
+                {saving ? 'Wird gespeichert…' : 'Als Produkt speichern'}
               </button>
             </>
           )}
@@ -702,7 +703,7 @@ export default function NeuerVerkaufPage() {
                       className="accent-s112-teal"
                     />
                     <span className="text-xs text-gray-600">
-                      {t === 'flasche' ? '🍾 Flasche' : t === 'tank' ? '🛢️ Tank / Liter' : t === 'trauben' ? '🍇 Weintrauben (kg)' : '📦 Sonstiges'}
+                      {t === 'flasche' ? 'Flasche' : t === 'tank' ? 'Tank / Liter' : t === 'trauben' ? 'Weintrauben (kg)' : 'Sonstiges'}
                     </span>
                   </label>
                 ))}

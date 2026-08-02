@@ -4,6 +4,7 @@ import { Fragment, useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBehandlung } from '../actions'
 import type { PSM, DuengemittelOption, WeingartenOption, GSTOption, KostenartOption, SatzOption } from './page'
+import { SprayCan, Sprout, Layers, Scissors, Leaf, MoreHorizontal, Hourglass, Info, Ban, AlertTriangle } from 'lucide-react'
 
 const BBCH_OPTIONS = [
   { value: '09', label: '09 – Knospenaufbruch' },
@@ -28,12 +29,12 @@ const EINHEITEN_LABEL: Record<string, string> = {
   kg_ha: 'kg/ha', l_ha: 'l/ha', g_hl: 'g/hl', ml_hl: 'ml/hl', kg: 'kg', l: 'l',
 }
 const ART_OPTIONS = [
-  { value: 'spritzung',        label: '💧 Spritzung' },
-  { value: 'duengung',         label: '🌿 Düngung' },
-  { value: 'bodenbearbeitung', label: '🪱 Bodenbearbeitung' },
-  { value: 'schnitt',          label: '✂️ Schnitt' },
-  { value: 'laubarbeit',       label: '🍃 Laubarbeit' },
-  { value: 'sonstiges',        label: '📋 Sonstiges' },
+  { value: 'spritzung',        label: 'Spritzung',        icon: SprayCan },
+  { value: 'duengung',         label: 'Düngung',          icon: Sprout },
+  { value: 'bodenbearbeitung', label: 'Bodenbearbeitung', icon: Layers },
+  { value: 'schnitt',          label: 'Schnitt',          icon: Scissors },
+  { value: 'laubarbeit',       label: 'Laubarbeit',       icon: Leaf },
+  { value: 'sonstiges',        label: 'Sonstiges',        icon: MoreHorizontal },
 ]
 const MENGE_EINHEITEN = ['kg', 'l', 'g', 'ml']
 const LAUBARBEIT_OPTIONEN = [
@@ -178,7 +179,7 @@ export default function NeueBehandlungForm({
   useEffect(() => {
     if (!kostenAktiv) return
     if (kostenBeschreibung) return
-    const artLabel = ART_OPTIONS.find(o => o.value === art)?.label.replace(/^\S+\s/, '') ?? art
+    const artLabel = ART_OPTIONS.find(o => o.value === art)?.label ?? art
     setKostenBeschreibung(`${artLabel}${gewaehlterSatz ? ` – ${gewaehlterSatz.bezeichnung}` : ''}`)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kostenAktiv, art])
@@ -287,7 +288,7 @@ export default function NeueBehandlungForm({
                   : 'bg-white text-gray-700 border-s112-border hover:border-s112-teal/50'}`}>
                 <input type="radio" name="art" value={o.value} checked={art === o.value}
                   onChange={() => setArt(o.value as Art)} className="sr-only" />
-                {o.label}
+                <o.icon size={14} />{o.label}
               </label>
             ))}
           </div>
@@ -323,19 +324,19 @@ export default function NeueBehandlungForm({
               {psm.map(p => (
                 <option key={p.id} value={p.id}>
                   {p.name}{p.handelsname ? ` (${p.handelsname})` : ''}
-                  {p.oeko_zugelassen ? ' 🌿' : ''}
+                  {p.oeko_zugelassen ? ' · Bio' : ''}
                   {p.cu_gehalt_pct ? ` · Cu ${p.cu_gehalt_pct}%` : ''}
                 </option>
               ))}
             </select>
             {selectedPsm?.wartezeit_tage != null && (
-              <p className="text-xs text-amber-600 mt-1">
-                ⏳ Wartezeit: {selectedPsm.wartezeit_tage} Tage vor Ernte
+              <p className="text-xs text-amber-600 mt-1 inline-flex items-center gap-1">
+                <Hourglass size={12} />Wartezeit: {selectedPsm.wartezeit_tage} Tage vor Ernte
               </p>
             )}
             {selectedPsm?.cu_gehalt_pct ? (
-              <p className="text-xs text-blue-600 mt-1">
-                🔵 Kupferhaltiges Mittel – Cu-Anteil: {selectedPsm.cu_gehalt_pct} %
+              <p className="text-xs text-blue-600 mt-1 inline-flex items-center gap-1">
+                <Info size={12} />Kupferhaltiges Mittel – Cu-Anteil: {selectedPsm.cu_gehalt_pct} %
               </p>
             ) : null}
             <input type="hidden" name="wartezeit_tage" value={selectedPsm?.wartezeit_tage ?? ''} />
@@ -357,7 +358,7 @@ export default function NeueBehandlungForm({
                 <option key={d.id} value={d.id}>
                   {d.name}{d.handelsname ? ` (${d.handelsname})` : ''}
                   {d.typ ? ` · ${d.typ}` : ''}
-                  {d.oeko_zugelassen ? ' 🌿' : ''}
+                  {d.oeko_zugelassen ? ' · Bio' : ''}
                 </option>
               ))}
             </select>
@@ -367,8 +368,8 @@ export default function NeueBehandlungForm({
               </p>
             )}
             {selectedDuengemittel?.wartezeit_tage != null && (
-              <p className="text-xs text-amber-600 mt-1">
-                ⏳ Wartezeit: {selectedDuengemittel.wartezeit_tage} Tage vor Ernte
+              <p className="text-xs text-amber-600 mt-1 inline-flex items-center gap-1">
+                <Hourglass size={12} />Wartezeit: {selectedDuengemittel.wartezeit_tage} Tage vor Ernte
               </p>
             )}
             <input type="hidden" name="wartezeit_tage" value={selectedDuengemittel?.wartezeit_tage ?? ''} />
@@ -376,14 +377,16 @@ export default function NeueBehandlungForm({
         )}
 
         {bioSperre && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
-            ⛔ Das gewählte Mittel ist nicht öko-zugelassen – passt nicht zum Bio-Status des Betriebs
-            ({bioStatus === 'bio_eu' ? 'Bio-EU' : 'Biodynamisch'}). Absenden ist gesperrt, bitte ein zugelassenes Mittel wählen.
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm flex items-start gap-2">
+            <Ban size={16} className="mt-0.5 flex-shrink-0" />
+            <span>Das gewählte Mittel ist nicht öko-zugelassen – passt nicht zum Bio-Status des Betriebs
+            ({bioStatus === 'bio_eu' ? 'Bio-EU' : 'Biodynamisch'}). Absenden ist gesperrt, bitte ein zugelassenes Mittel wählen.</span>
           </div>
         )}
         {bioWarnung && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-3 text-sm">
-            ⚠️ Das gewählte Mittel ist nicht öko-zugelassen – der Betrieb ist als {bioStatus === 'kip' ? 'KIP' : 'nachhaltig'} eingestuft. Bitte prüfen, ob das beabsichtigt ist.
+          <div className="bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-3 text-sm flex items-start gap-2">
+            <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
+            <span>Das gewählte Mittel ist nicht öko-zugelassen – der Betrieb ist als {bioStatus === 'kip' ? 'KIP' : 'nachhaltig'} eingestuft. Bitte prüfen, ob das beabsichtigt ist.</span>
           </div>
         )}
 

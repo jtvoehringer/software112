@@ -8,6 +8,7 @@ import type { ErnteParzelle, WeingartenOpt, GSTOpt, AMAMeldung, Hektarhoechstert
 import PressungSection from './PressungSection'
 import type { Pressung, WGOption, BehOption, WAOption } from './PressungSection'
 import { fmtHa, fmtZahl, fmtProzent } from '@/lib/format'
+import { Pencil, Trash2, AlertTriangle } from 'lucide-react'
 
 // QUALITAET_OPTS: aus lib/wein/qualitaet importiert (s.u. import qualitaetLabel)
 const LESEMETHODE_OPTS = [
@@ -465,7 +466,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
               <button onClick={() => { setShowForm(true); setEditId(null) }}
                 data-print="hide"
                 className="text-xs bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-teal font-medium px-3 py-1.5 rounded-lg transition-colors">
-                ＋ Ernte
+                + Ernte
               </button>
             )}
             <button
@@ -474,7 +475,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
               className="inline-flex items-center gap-1.5 border border-s112-border text-gray-600 px-3 py-1.5 rounded-lg text-xs hover:bg-s112-bg transition-colors"
               title="Als PDF speichern oder drucken"
             >
-              🖨 Drucken / PDF
+              Drucken / PDF
             </button>
           </div>
         </div>
@@ -521,12 +522,12 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
                             {writeOk && (
                               <button onClick={() => { setEditId(p.id); setShowForm(false) }}
                                 title="Bearbeiten" aria-label="Bearbeiten"
-                                className="text-s112-teal hover:text-s112-teal/70">✏️</button>
+                                className="text-s112-teal hover:text-s112-teal/70"><Pencil size={14} /></button>
                             )}
                             {adminOk && (
                               <button onClick={() => handleDelete(p.id)}
                                 title="Löschen" aria-label="Löschen"
-                                className="text-red-400 hover:text-red-600">🗑️</button>
+                                className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
                             )}
                           </div>
                         </td>
@@ -568,11 +569,12 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
             : 'bg-s112-bg border-s112-border text-gray-600'
         }`} data-print="hide">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <span>
-              {hektarhoechstertrag.ueberschritten ? '⚠️ ' : ''}
-              Qualitätswein betriebsweit: <strong>{hektarhoechstertrag.gesamtKgQualitaetswein.toLocaleString('de-AT')} kg</strong>
+            <span className="inline-flex items-start gap-1.5">
+              {hektarhoechstertrag.ueberschritten && <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />}
+              <span>Qualitätswein betriebsweit: <strong>{hektarhoechstertrag.gesamtKgQualitaetswein.toLocaleString('de-AT')} kg</strong>
               {' '}von max. <strong>{hektarhoechstertrag.maxKg.toLocaleString('de-AT')} kg</strong>
               {' '}(10.000 kg/ha × {fmtHa(hektarhoechstertrag.gesamtFlaecheHaBetrieb)} Gesamtfläche lt. AMA)
+              </span>
             </span>
             {hektarhoechstertrag.ueberschritten && (
               <span className="font-semibold">

@@ -123,7 +123,7 @@ function ZielZeile({
         className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-28 tabular-nums"
       />
       <span className="text-xs text-s112-muted w-8">L</span>
-      <button type="button" onClick={onRemove} className="text-xs text-red-400 hover:text-red-600 px-1">✕</button>
+      <button type="button" onClick={onRemove} className="text-xs text-red-400 hover:text-red-600 px-1"><X size={13} /></button>
     </div>
   )
 }
