@@ -11,6 +11,28 @@ import {
 import type { KontaktRow, AktivitaetRow, PipelineEintragRow } from '@/lib/crm/types'
 import DokumentePanel from '../../DokumentePanel'
 import { KontaktForm } from '../KontakteClient'
+import {
+  Receipt, Trash2, Pencil, Mail, Phone, Smartphone, Home, MapPin,
+  Reply, Check, X, ClipboardCheck, CheckCircle2, Handshake, Wine, Building2, Car, FileText,
+  ShoppingCart, MoreHorizontal, Palmtree, UserX, StickyNote,
+} from 'lucide-react'
+
+// Aktivitäts-Art -> Lucide-Icon (Timeline-Avatar). Gleiches Vokabular wie
+// FirmaDetailClient.tsx / CRM-Kalender.
+const AKT_ICON: Record<string, typeof Phone> = {
+  notiz: StickyNote,
+  email: Mail,
+  anruf: Phone,
+  besprechung: Handshake,
+  verkostung: Wine,
+  messe: Building2,
+  besuch: Car,
+  angebot: FileText,
+  verkauf: ShoppingCart,
+  sonstiges: MoreHorizontal,
+  urlaub: Palmtree,
+  abwesenheit: UserX,
+}
 
 function inputCls() {
   return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
@@ -32,7 +54,7 @@ function AktivitaetForm({ kontaktId, onDone }: { kontaktId: string; onDone: () =
     <form onSubmit={handleSubmit} className="p-3 bg-white border border-s112-border rounded-lg space-y-2">
       <div className="grid grid-cols-2 gap-2">
         <select name="art" defaultValue="notiz" required className={inputCls()}>
-          {AKTIVITAET_ARTEN.filter(a => !('nurAnzeige' in a)).map(a => <option key={a.value} value={a.value}>{a.icon} {a.label}</option>)}
+          {AKTIVITAET_ARTEN.filter(a => !('nurAnzeige' in a)).map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
         </select>
         <input name="datum" type="date" defaultValue={new Date().toISOString().split('T')[0]}
           required className={inputCls()} />
@@ -123,6 +145,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
   const [emailOpen, setEmailOpen]   = useState(false)
   const [ganztags, setGanztags]   = useState(a.ganztags ?? true)
   const artDef = AKTIVITAET_ARTEN.find(x => x.value === a.art)
+  const ArtIcon = AKT_ICON[a.art] ?? StickyNote
   const von = fmtUhrzeit(a.uhrzeit_von)
   const bis = fmtUhrzeit(a.uhrzeit_bis)
 
@@ -150,8 +173,8 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
     const isStorniert = a.betreff?.includes('STORNIERT')
     return (
       <div className="card p-4 flex gap-3">
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-base">
-          🧾
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-s112-teal">
+          <Receipt size={16} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -186,7 +209,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
               <select name="art" defaultValue={a.art} className={inputCls()}>
                 {a.art === 'email' && <input type="hidden" name="art" value="email" />}
                 {AKTIVITAET_ARTEN.filter(x => !('nurAnzeige' in x) || x.value === a.art).map(x => (
-                  <option key={x.value} value={x.value} disabled={'nurAnzeige' in x}>{x.icon} {x.label}{('nurAnzeige' in x) ? ' (automatisch)' : ''}</option>
+                  <option key={x.value} value={x.value} disabled={'nurAnzeige' in x}>{x.label}{('nurAnzeige' in x) ? ' (automatisch)' : ''}</option>
                 ))}
               </select>
             </div>
@@ -238,7 +261,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
             <button type="button" onClick={handleDelete} disabled={pending}
               title="Löschen" aria-label="Löschen"
               className="ml-auto text-xs px-3 py-1.5 rounded-lg text-red-500 hover:bg-red-50 border border-red-200 disabled:opacity-40">
-              🗑️
+              <Trash2 size={14} />
             </button>
           </div>
         </form>
@@ -259,8 +282,8 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
           </svg>
         </button>
       )}
-      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-base">
-        {artDef?.icon ?? '•'}
+      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-gray-600">
+        <ArtIcon size={16} strokeWidth={1.75} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
@@ -273,7 +296,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
             </span>
           )}
           <span className="text-xs text-s112-muted">{artDef?.label ?? a.art}</span>
-          {a.ist_privat && <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">🔒 Privat</span>}
+          {a.ist_privat && <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">Privat</span>}
         </div>
         {a.art === 'email' ? (
           <button type="button" onClick={() => setEmailOpen(v => !v)}
@@ -328,7 +351,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
                 })
                 setReplySending(false); setReplyOpen(false); setReplyText('')
               }} className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg hover:bg-opacity-90 disabled:opacity-40">
-                {replySending ? 'Senden…' : '↩ Senden'}
+                {replySending ? 'Senden…' : 'Senden'}
               </button>
               <button type="button" onClick={() => setReplyOpen(false)}
                 className="text-xs border border-s112-border text-gray-600 px-3 py-1.5 rounded-lg hover:bg-s112-bg">
@@ -342,20 +365,20 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
         {a.art === 'email' && kontaktEmail && !replyOpen && (
           <button type="button" onClick={() => setReplyOpen(true)} title="Antworten"
             className="text-xs text-s112-teal border border-s112-teal/30 px-2 py-1 rounded-lg hover:bg-s112-teal/5">
-            ↩
+            <Reply size={13} />
           </button>
         )}
         {writeOk && a.art === 'email' && (
           <button type="button" title="Email-Aktivität löschen"
             onClick={() => { if (confirm('Email aus Aktivitätenliste entfernen?')) startTransition(async () => { await deleteAktivitaet(a.id) }) }}
-            className="text-gray-300 hover:text-red-400 transition-colors text-sm leading-none">
-            ✕
+            className="text-gray-300 hover:text-red-400 transition-colors">
+            <Trash2 size={14} />
           </button>
         )}
         {writeOk && a.art !== 'email' && (
           <button type="button" onClick={() => setEditMode(true)} title="Bearbeiten"
-            className="text-gray-300 hover:text-s112-teal transition-colors text-base leading-none">
-            ✏
+            className="text-gray-300 hover:text-s112-teal transition-colors">
+            <Pencil size={14} />
           </button>
         )}
       </div>
@@ -404,7 +427,7 @@ export default function KontaktDetailClient({
       })
       const json = await res.json()
       if (!res.ok || json.fehler) { setEmailResult('Fehler: ' + (json.fehler ?? 'Unbekannt')); return }
-      setEmailResult('✓ E-Mail gesendet'); setEmailBetreff(''); setEmailText('')
+      setEmailResult('E-Mail gesendet'); setEmailBetreff(''); setEmailText('')
       setTimeout(() => { setShowEmailModal(false); setEmailResult(null) }, 1500)
     } catch (err) { setEmailResult('Fehler: ' + String(err)) }
     finally { setEmailSending(false) }
@@ -499,7 +522,7 @@ export default function KontaktDetailClient({
                 <span className="text-xs px-2 py-0.5 rounded-full bg-s112-yellow/20 text-amber-700 font-medium">Stammkunde</span>
               )}
               {kontakt.is_lead && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">🌱 Lead</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Lead</span>
               )}
               {kontakt.newsletter && kontakt.newsletter_bestaetigt && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Newsletter</span>
@@ -515,14 +538,14 @@ export default function KontaktDetailClient({
                 onClick={() => setEditing(true)}
                 title="Bearbeiten" aria-label="Bearbeiten"
                 className="inline-flex items-center justify-center border border-s112-border text-gray-600 w-8 h-8 rounded-lg hover:bg-s112-bg transition-colors">
-                ✏️
+                <Pencil size={15} />
               </button>
               <button
                 onClick={handleDelete}
                 disabled={deletePending}
                 title="Löschen" aria-label="Löschen"
                 className="inline-flex items-center justify-center border border-red-200 text-red-600 w-8 h-8 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40">
-                🗑️
+                <Trash2 size={15} />
               </button>
             </div>
           )}
@@ -591,7 +614,9 @@ export default function KontaktDetailClient({
                                 return next
                               })}
                               className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors text-left ${item.erledigt ? 'bg-green-50 hover:bg-green-100' : 'bg-blue-50 hover:bg-blue-100'}`}>
-                              <span className="text-base">{item.erledigt ? '✅' : '✉️'}</span>
+                              {item.erledigt
+                                ? <CheckCircle2 size={16} className="text-green-600 flex-shrink-0" />
+                                : <Mail size={16} className="text-blue-600 flex-shrink-0" />}
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-gray-800 truncate">{latest.betreff}</p>
                                 <p className="text-xs text-s112-muted">{msgs.length} E-Mail{msgs.length !== 1 ? 's' : ''} · {new Date(latest.datum).toLocaleDateString('de-AT')} · {expanded ? 'einklappen ▴' : 'ausklappen ▾'}</p>
@@ -622,43 +647,43 @@ export default function KontaktDetailClient({
             <h2 className="text-sm font-semibold text-gray-800 mb-3">Kontaktdaten</h2>
             {kontakt.email && (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-lg">✉️</span>
+                <Mail size={16} className="text-gray-500" />
                 <a href={`mailto:${kontakt.email}`} className="text-s112-teal hover:underline">{kontakt.email}</a>
                 {writeOk && (
                   <button onClick={() => setShowEmailModal(true)}
                     className="ml-auto text-xs border border-s112-border px-2 py-0.5 rounded-lg text-gray-600 hover:bg-s112-bg flex-shrink-0">
-                    ✉ Senden
+                    Senden
                   </button>
                 )}
               </div>
             )}
             {kontakt.telefon && (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-lg">📞</span>
+                <Phone size={16} className="text-gray-500" />
                 <a href={`tel:${kontakt.telefon_vorwahl ?? '+43'}${kontakt.telefon?.replace(/\s/g, '')}`} onClick={e => handlePhoneClick(e, `${kontakt.telefon_vorwahl ?? '+43'} ${kontakt.telefon}`)} className="text-gray-700 hover:text-s112-teal cursor-pointer">{kontakt.telefon_vorwahl ?? '+43'} {kontakt.telefon}</a>
               </div>
             )}
             {kontakt.mobil && (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-lg">📱</span>
+                <Smartphone size={16} className="text-gray-500" />
                 <a href={`tel:${kontakt.mobil_vorwahl ?? '+43'}${kontakt.mobil?.replace(/\s/g, '')}`} onClick={e => handlePhoneClick(e, `${kontakt.mobil_vorwahl ?? '+43'} ${kontakt.mobil}`)} className="text-gray-700 hover:text-s112-teal cursor-pointer">{kontakt.mobil_vorwahl ?? '+43'} {kontakt.mobil}</a>
               </div>
             )}
             {kontakt.strasse && (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-lg">🏠</span>
+                <Home size={16} className="text-gray-500" />
                 <span className="text-gray-700">{kontakt.strasse}</span>
               </div>
             )}
             {kontakt.ort && (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-lg">📍</span>
+                <MapPin size={16} className="text-gray-500" />
                 <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([kontakt.strasse, kontakt.plz, kontakt.ort, kontakt.land ?? 'Österreich'].filter(Boolean).join(', '))}`} target="_blank" rel="noopener noreferrer" className="text-gray-700 hover:text-s112-teal">{kontakt.plz ? `${kontakt.plz} ` : ''}{kontakt.ort}{kontakt.land && kontakt.land !== 'AT' ? `, ${kontakt.land}` : ''}</a>
               </div>
             )}
             {kontakt.firma_name && (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-lg">🏢</span>
+                <Building2 size={16} className="text-gray-500" />
                 <Link href={`/crm/firmen/${kontakt.firma_id}`} className="text-s112-teal hover:underline">{kontakt.firma_name}</Link>
                 {firmaSegment && (
                   <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${segmentFarbe(firmaSegment)}`}>
@@ -712,8 +737,8 @@ export default function KontaktDetailClient({
                       <button type="button" onClick={async () => {
                         const fd = new FormData(); fd.set('betreff', notizEditText)
                         await updateAktivitaet(n.id, fd); setNotizEditId(null)
-                      }} className="text-xs text-s112-teal font-medium">✓</button>
-                      <button type="button" onClick={() => setNotizEditId(null)} className="text-xs text-s112-muted">✕</button>
+                      }} className="text-xs text-s112-teal font-medium"><Check size={13} /></button>
+                      <button type="button" onClick={() => setNotizEditId(null)} className="text-xs text-s112-muted"><X size={13} /></button>
                     </div>
                   ) : (
                     <div className="flex-1 min-w-0 flex items-start justify-between gap-1">
@@ -722,7 +747,7 @@ export default function KontaktDetailClient({
                         <p className="text-[10px] text-s112-muted">{new Date(n.datum).toLocaleDateString('de-AT')}</p>
                       </div>
                       <button type="button" onClick={() => { setNotizEditId(n.id); setNotizEditText(n.betreff ?? '') }}
-                        className="text-gray-300 hover:text-s112-teal text-[10px] flex-shrink-0 mt-0.5">✏</button>
+                        className="text-gray-300 hover:text-s112-teal flex-shrink-0 mt-0.5"><Pencil size={11} /></button>
                     </div>
                   )}
                 </div>
@@ -830,7 +855,7 @@ export default function KontaktDetailClient({
           onClick={() => setShowEmailModal(false)}>
           <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4"
             onClick={e => e.stopPropagation()}>
-            <h3 className="text-base font-bold text-gray-900 mb-4">✉ E-Mail senden</h3>
+            <h3 className="text-base font-bold text-gray-900 mb-4 inline-flex items-center gap-1.5"><Mail size={16} />E-Mail senden</h3>
             <form onSubmit={sendEmail} className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">An</label>
@@ -846,11 +871,16 @@ export default function KontaktDetailClient({
                 <textarea value={emailText} onChange={e => setEmailText(e.target.value)} rows={5}
                   className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
               </div>
-              {emailResult && <p className={`text-xs font-medium ${emailResult.startsWith('✓') ? 'text-green-600' : 'text-red-600'}`}>{emailResult}</p>}
+              {emailResult && (
+                <p className={`text-xs font-medium inline-flex items-center gap-1 ${emailResult === 'E-Mail gesendet' ? 'text-green-600' : 'text-red-600'}`}>
+                  {emailResult === 'E-Mail gesendet' ? <Check size={12} /> : <X size={12} />}
+                  {emailResult}
+                </p>
+              )}
               <div className="flex gap-2 pt-1">
                 <button type="submit" disabled={emailSending}
                   className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
-                  {emailSending ? 'Senden…' : '✉ Senden'}
+                  {emailSending ? 'Senden…' : 'Senden'}
                 </button>
                 <button type="button" onClick={() => setShowEmailModal(false)}
                   className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
@@ -864,8 +894,8 @@ export default function KontaktDetailClient({
 
       {/* Kopiert-Toast */}
       {copiedNum && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm px-4 py-2 rounded-xl shadow-lg">
-          📋 {copiedNum} kopiert
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm px-4 py-2 rounded-xl shadow-lg inline-flex items-center gap-1.5">
+          <ClipboardCheck size={14} /> {copiedNum} kopiert
         </div>
       )}
     </div>

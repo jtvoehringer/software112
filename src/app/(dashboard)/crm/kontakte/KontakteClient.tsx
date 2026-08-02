@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createKontakt, updateKontakt, deleteKontakt, createAktivitaet, createPipelineEintrag } from '../actions'
 import { SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN, segmentLabel, segmentFarbe } from '@/lib/crm/types'
 import type { KontaktRow } from '@/lib/crm/types'
+import { AlertTriangle, Trash2, Pencil } from 'lucide-react'
 
 type FirmaOption = { id: string; name: string; segment: string }
 type RabattgruppeOption = { id: string; name: string; rabatt_pct: number }
@@ -128,7 +129,7 @@ export function KontaktForm({
       {saveError && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{saveError}</p>}
       {dubletteWarnung && (
         <div className="bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 text-sm">
-          <p className="font-medium text-amber-800 mb-1">⚠ Mögliche Dublette</p>
+          <p className="font-medium text-amber-800 mb-1 inline-flex items-center gap-1.5"><AlertTriangle size={14} />Mögliche Dublette</p>
           <p className="text-amber-700 mb-3">{dubletteWarnung}</p>
           <p className="text-amber-700 mb-3">Möchten Sie den Eintrag trotzdem übernehmen oder verwerfen?</p>
           <div className="flex gap-2">
@@ -149,7 +150,7 @@ export function KontaktForm({
         <div className="sm:col-span-2 flex items-center justify-between bg-white border border-s112-border rounded-xl px-4 py-2.5">
           <div>
             <p className={`text-sm font-semibold ${isLead ? 'text-amber-600' : 'text-s112-teal'}`}>
-              {isLead ? '🌱 Lead' : '✅ Aktiv'}
+              {isLead ? 'Lead' : 'Aktiv'}
             </p>
             <p className="text-xs text-s112-muted">
               {isLead ? 'Noch kein Verkauf – wird automatisch Kunde beim ersten Verkauf' : ''}
@@ -177,7 +178,7 @@ export function KontaktForm({
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Segment *</label>
           <select name="segment" value={segmentVal} onChange={e => setSegmentVal(e.target.value)} required className={inputCls()}>
-            {SEGMENTE.map(s => <option key={s.value} value={s.value}>{s.icon} {s.label}</option>)}
+            {SEGMENTE.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         </div>
         <div>
@@ -332,7 +333,7 @@ function AktivitaetForm({ kontaktId, onDone }: { kontaktId: string; onDone: () =
     <form onSubmit={handleSubmit} className="mt-3 p-3 bg-white border border-s112-border rounded-lg space-y-2">
       <div className="grid grid-cols-2 gap-2">
         <select name="art" defaultValue="notiz" required className={inputCls()}>
-          {AKTIVITAET_ARTEN.map(a => <option key={a.value} value={a.value}>{a.icon} {a.label}</option>)}
+          {AKTIVITAET_ARTEN.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
         </select>
         <input name="datum" type="date" defaultValue={new Date().toISOString().split('T')[0]}
           required className={inputCls()} />
@@ -465,11 +466,11 @@ function KontaktKarte({
               {segmentLabel(kontakt.segment)}
             </span>
             {kontakt.stammkunde && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-s112-yellow/20 text-amber-700 font-medium">⭐ Stammkunde</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-s112-yellow/20 text-amber-700 font-medium">Stammkunde</span>
             )}
             {kontakt.is_lead
-              ? <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">🌱 Lead</span>
-              : <span className="text-xs px-2 py-0.5 rounded-full bg-s112-teal/10 text-s112-teal font-medium">✅ Aktiv</span>
+              ? <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Lead</span>
+              : <span className="text-xs px-2 py-0.5 rounded-full bg-s112-teal/10 text-s112-teal font-medium">Aktiv</span>
             }
             {kontakt.rabattgruppe_name && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
@@ -482,20 +483,20 @@ function KontaktKarte({
               </span>
             )}
             {kontakt.newsletter && kontakt.newsletter_bestaetigt && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">✉ Newsletter</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Newsletter</span>
             )}
             {kontakt.newsletter && !kontakt.newsletter_bestaetigt && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium">✉ ausstehend</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium">ausstehend</span>
             )}
           </div>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5">
             {kontakt.firma_name && kontakt.firma_id
-              ? <Link href={`/crm/firmen/${kontakt.firma_id}`} className="text-xs text-s112-muted hover:text-s112-teal hover:underline">🏢 {kontakt.firma_name}</Link>
-              : kontakt.firma_name && <span className="text-xs text-s112-muted">🏢 {kontakt.firma_name}</span>}
-            {kontakt.email && <span className="text-xs text-s112-muted">✉ {kontakt.email}</span>}
-            {kontakt.telefon && <span className="text-xs text-s112-muted">📞 {kontakt.telefon_vorwahl ?? '+43'} {kontakt.telefon}</span>}
-            {kontakt.mobil && <span className="text-xs text-s112-muted">📱 {kontakt.mobil_vorwahl ?? '+43'} {kontakt.mobil}</span>}
-            {kontakt.ort && <span className="text-xs text-s112-muted">📍 {kontakt.ort}{kontakt.land !== 'AT' ? `, ${kontakt.land}` : ''}</span>}
+              ? <Link href={`/crm/firmen/${kontakt.firma_id}`} className="text-xs text-s112-muted hover:text-s112-teal hover:underline">{kontakt.firma_name}</Link>
+              : kontakt.firma_name && <span className="text-xs text-s112-muted">{kontakt.firma_name}</span>}
+            {kontakt.email && <span className="text-xs text-s112-muted">{kontakt.email}</span>}
+            {kontakt.telefon && <span className="text-xs text-s112-muted">{kontakt.telefon_vorwahl ?? '+43'} {kontakt.telefon}</span>}
+            {kontakt.mobil && <span className="text-xs text-s112-muted">{kontakt.mobil_vorwahl ?? '+43'} {kontakt.mobil}</span>}
+            {kontakt.ort && <span className="text-xs text-s112-muted">{kontakt.ort}{kontakt.land !== 'AT' ? `, ${kontakt.land}` : ''}</span>}
           </div>
           {kontakt.notizen && (
             <p className="mt-1 text-xs text-gray-500 italic">{kontakt.notizen}</p>
@@ -506,12 +507,12 @@ function KontaktKarte({
             <button onClick={() => setEditing(true)}
               title="Bearbeiten" aria-label="Bearbeiten"
               className="text-s112-muted hover:text-s112-teal px-2 py-1 rounded transition-colors">
-              ✏️
+              <Pencil size={14} />
             </button>
             <button onClick={handleDelete} disabled={pending}
               title="Löschen" aria-label="Löschen"
               className="text-s112-muted hover:text-red-500 px-2 py-1 rounded transition-colors">
-              🗑️
+              <Trash2 size={14} />
             </button>
           </div>
         )}
@@ -529,10 +530,8 @@ function KontaktKarte({
             {aktivitaeten.length === 0 ? (
               <p className="text-xs text-s112-muted italic">Noch keine Einträge.</p>
             ) : aktivitaeten.map(a => {
-              const artDef = AKTIVITAET_ARTEN.find(x => x.value === a.art)
               return (
                 <div key={a.id} className="flex gap-2 text-xs py-1 border-b border-s112-border/40 last:border-0">
-                  <span className="flex-shrink-0 w-4">{artDef?.icon ?? '•'}</span>
                   <span className="text-s112-muted w-20 flex-shrink-0 tabular-nums">
                     {new Date(a.datum).toLocaleDateString('de-AT')}
                   </span>
@@ -544,7 +543,7 @@ function KontaktKarte({
             {writeOk && !showAktForm && (
               <button onClick={() => setShowAktForm(true)}
                 className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors mt-1">
-                ＋ Aktivität eintragen
+                + Aktivität eintragen
               </button>
             )}
             {showAktForm && (
@@ -555,7 +554,7 @@ function KontaktKarte({
         {!showAkt && writeOk && (
           <button onClick={() => { setShowAkt(true); setShowAktForm(true) }}
             className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors mt-1 ml-4">
-            ＋ Aktivität
+            + Aktivität
           </button>
         )}
       </div>
@@ -569,7 +568,7 @@ function KontaktKarte({
         {!showPipeline && writeOk && (
           <button onClick={() => { setShowPipeline(true); setShowPipelineForm(true) }}
             className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors mt-1 ml-4">
-            ＋ Pipeline
+            + Pipeline
           </button>
         )}
 
@@ -603,7 +602,7 @@ function KontaktKarte({
             {writeOk && !showPipelineForm && (
               <button onClick={() => setShowPipelineForm(true)}
                 className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors mt-1">
-                ＋ Pipeline eintragen
+                + Pipeline eintragen
               </button>
             )}
             {showPipelineForm && (
@@ -685,7 +684,7 @@ export default function KontakteClient({
             return (
               <button key={s.value} onClick={() => setSegment(s.value)}
                 className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${segment === s.value ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:text-gray-900'}`}>
-                {s.icon} {s.label} ({count})
+                {s.label} ({count})
               </button>
             )
           })}
@@ -703,7 +702,7 @@ export default function KontakteClient({
           {(['alle', 'lead', 'kunde'] as const).map(v => (
             <button key={v} onClick={() => setFilterLead(v)}
               className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterLead === v ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:text-gray-900'}`}>
-              {v === 'alle' ? 'Alle' : v === 'lead' ? '🌱 Lead' : '✅ Aktiv'}
+              {v === 'alle' ? 'Alle' : v === 'lead' ? 'Lead' : 'Aktiv'}
               {' '}({v === 'alle' ? kontakte.length : kontakte.filter(k => v === 'lead' ? k.is_lead : !k.is_lead).length})
             </button>
           ))}
@@ -711,12 +710,12 @@ export default function KontakteClient({
         <div className="ml-auto flex items-center gap-2">
           <a href="/api/export/kontakte" download
             className="inline-flex items-center gap-1.5 border border-s112-border text-gray-600 px-3 py-2 rounded-xl text-sm hover:bg-s112-bg transition-colors">
-            ⬇ CSV
+            CSV
           </a>
           {writeOk && !showForm && (
             <button onClick={() => setShowForm(true)}
               className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
-              <span>＋</span> Neuer Kontakt
+              + Neuer Kontakt
             </button>
           )}
         </div>

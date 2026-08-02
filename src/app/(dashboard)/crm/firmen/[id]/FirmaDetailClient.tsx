@@ -11,6 +11,30 @@ import {
 import type { FirmaRow, KontaktRow, AktivitaetRow, PipelineEintragRow } from '@/lib/crm/types'
 import DokumentePanel from '../../DokumentePanel'
 import { FirmaForm } from '../FirmenClient'
+import {
+  Receipt, Trash2, Pencil, Mail, Phone, Globe, MapPin, Reply, Check, X,
+  ClipboardCheck, Handshake, Wine, Building2, Car, FileText, ShoppingCart,
+  MoreHorizontal, Palmtree, UserX, StickyNote,
+} from 'lucide-react'
+
+// Aktivitäts-Art -> Lucide-Icon (Timeline-Avatar). Gleiches Vokabular wie im
+// CRM-Kalender (CRMUebersichtClient.tsx); dort werden Icons in Status-Chips
+// bewusst entfernt statt ersetzt, hier ist der Kontext ein Timeline-Avatar
+// (wie EVENT_STYLE in kellerbuch/weinausbau/[id]/buch/page.tsx), daher erlaubt.
+const AKT_ICON: Record<string, typeof Phone> = {
+  notiz: StickyNote,
+  email: Mail,
+  anruf: Phone,
+  besprechung: Handshake,
+  verkostung: Wine,
+  messe: Building2,
+  besuch: Car,
+  angebot: FileText,
+  verkauf: ShoppingCart,
+  sonstiges: MoreHorizontal,
+  urlaub: Palmtree,
+  abwesenheit: UserX,
+}
 
 function inputCls() {
   return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
@@ -34,7 +58,7 @@ function AktivitaetForm({ firmaId, onDone }: { firmaId: string; onDone: () => vo
     <form onSubmit={handleSubmit} className="p-3 bg-white border border-s112-border rounded-lg space-y-2">
       <div className="grid grid-cols-2 gap-2">
         <select name="art" defaultValue="notiz" required className={inputCls()}>
-          {AKTIVITAET_ARTEN.filter(a => !('nurAnzeige' in a)).map(a => <option key={a.value} value={a.value}>{a.icon} {a.label}</option>)}
+          {AKTIVITAET_ARTEN.filter(a => !('nurAnzeige' in a)).map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
         </select>
         <input name="datum" type="date" defaultValue={new Date().toISOString().split('T')[0]}
           required className={inputCls()} />
@@ -133,6 +157,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
   const [emailOpen, setEmailOpen]   = useState(false)
   const [ganztags, setGanztags]   = useState(a.ganztags ?? true)
   const artDef = AKTIVITAET_ARTEN.find(x => x.value === a.art)
+  const ArtIcon = AKT_ICON[a.art] ?? StickyNote
   const von = fmtUhrzeit(a.uhrzeit_von)
   const bis = fmtUhrzeit(a.uhrzeit_bis)
 
@@ -160,8 +185,8 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
     const isStorniert = a.betreff?.includes('STORNIERT')
     return (
       <div className="card p-4 flex gap-3">
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-base">
-          🧾
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-s112-teal">
+          <Receipt size={16} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -196,7 +221,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
               <select name="art" defaultValue={a.art} className={inputCls()}>
                 {a.art === 'email' && <input type="hidden" name="art" value="email" />}
                 {AKTIVITAET_ARTEN.filter(x => !('nurAnzeige' in x) || x.value === a.art).map(x => (
-                  <option key={x.value} value={x.value} disabled={'nurAnzeige' in x}>{x.icon} {x.label}{('nurAnzeige' in x) ? ' (automatisch)' : ''}</option>
+                  <option key={x.value} value={x.value} disabled={'nurAnzeige' in x}>{x.label}{('nurAnzeige' in x) ? ' (automatisch)' : ''}</option>
                 ))}
               </select>
             </div>
@@ -248,7 +273,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
             <button type="button" onClick={handleDelete} disabled={pending}
               title="Löschen" aria-label="Löschen"
               className="ml-auto text-xs px-3 py-1.5 rounded-lg text-red-500 hover:bg-red-50 border border-red-200 disabled:opacity-40">
-              🗑️
+              <Trash2 size={14} />
             </button>
           </div>
         </form>
@@ -269,8 +294,8 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
           </svg>
         </button>
       )}
-      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-base">
-        {artDef?.icon ?? '•'}
+      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-gray-600">
+        <ArtIcon size={16} strokeWidth={1.75} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
@@ -283,7 +308,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
             </span>
           )}
           <span className="text-xs text-s112-muted">{artDef?.label ?? a.art}</span>
-          {a.ist_privat && <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">🔒 Privat</span>}
+          {a.ist_privat && <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">Privat</span>}
         </div>
         {a.art === 'email' ? (
           <button type="button" onClick={() => setEmailOpen(v => !v)}
@@ -337,7 +362,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
                 })
                 setReplySending(false); setReplyOpen(false); setReplyText('')
               }} className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg hover:bg-opacity-90 disabled:opacity-40">
-                {replySending ? 'Senden…' : '↩ Senden'}
+                {replySending ? 'Senden…' : 'Senden'}
               </button>
               <button type="button" onClick={() => setReplyOpen(false)}
                 className="text-xs border border-s112-border text-gray-600 px-3 py-1.5 rounded-lg hover:bg-s112-bg">
@@ -351,20 +376,20 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
         {a.art === 'email' && firmaEmail && !replyOpen && (
           <button type="button" onClick={() => setReplyOpen(true)} title="Antworten"
             className="text-xs text-s112-teal border border-s112-teal/30 px-2 py-1 rounded-lg hover:bg-s112-teal/5">
-            ↩
+            <Reply size={13} />
           </button>
         )}
         {writeOk && a.art === 'email' && (
           <button type="button" title="Email-Aktivität löschen"
             onClick={() => { if (confirm('Email aus Aktivitätenliste entfernen?')) startTransition(async () => { await deleteAktivitaet(a.id) }) }}
-            className="text-gray-300 hover:text-red-400 transition-colors text-sm leading-none">
-            ✕
+            className="text-gray-300 hover:text-red-400 transition-colors">
+            <Trash2 size={14} />
           </button>
         )}
         {writeOk && a.art !== 'email' && (
           <button type="button" onClick={() => setEditMode(true)} title="Bearbeiten"
-            className="text-gray-300 hover:text-s112-teal transition-colors text-base leading-none">
-            ✏
+            className="text-gray-300 hover:text-s112-teal transition-colors">
+            <Pencil size={14} />
           </button>
         )}
       </div>
@@ -429,7 +454,7 @@ export default function FirmaDetailClient({
       })
       const json = await res.json()
       if (!res.ok || json.fehler) { setEmailResult('Fehler: ' + (json.fehler ?? 'Unbekannt')); return }
-      setEmailResult('✓ E-Mail gesendet'); setEmailBetreff(''); setEmailText('')
+      setEmailResult('E-Mail gesendet'); setEmailBetreff(''); setEmailText('')
       setTimeout(() => { setShowEmailModal(false); setEmailResult(null) }, 1500)
     } catch (err) { setEmailResult('Fehler: ' + String(err)) }
     finally { setEmailSending(false) }
@@ -481,7 +506,7 @@ export default function FirmaDetailClient({
                 {segmentLabel(firma.segment)}
               </span>
             {firma.is_lead && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">🌱 Lead</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Lead</span>
             )}
               {firma.land && firma.land !== 'AT' && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{firma.land}</span>
@@ -490,27 +515,27 @@ export default function FirmaDetailClient({
             <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1">
               {firma.email && (
                 <a href={`mailto:${firma.email}`} className="text-sm text-s112-teal hover:underline flex items-center gap-1">
-                  <span>✉</span> {firma.email}
+                  <Mail size={14} /> {firma.email}
                 </a>
               )}
               {firma.telefon && (
                 <a href={`tel:${firma.telefon_vorwahl ?? '+43'}${firma.telefon?.replace(/\s/g, '')}`}
                   onClick={e => handlePhoneClick(e, `${firma.telefon_vorwahl ?? '+43'} ${firma.telefon}`)}
                   className="text-sm text-gray-600 hover:text-s112-teal flex items-center gap-1">
-                  <span>📞</span> {firma.telefon_vorwahl ?? '+43'} {firma.telefon}
+                  <Phone size={14} /> {firma.telefon_vorwahl ?? '+43'} {firma.telefon}
                 </a>
               )}
               {firma.website && (
                 <a href={firma.website} target="_blank" rel="noopener noreferrer"
                   className="text-sm text-s112-teal hover:underline flex items-center gap-1">
-                  <span>🌐</span> {firma.website.replace(/^https?:\/\//, '')}
+                  <Globe size={14} /> {firma.website.replace(/^https?:\/\//, '')}
                 </a>
               )}
               {(firma.plz || firma.ort) && (
                 <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([firma.strasse, firma.plz, firma.ort, 'Österreich'].filter(Boolean).join(', '))}`}
                   target="_blank" rel="noopener noreferrer"
                   className="text-sm text-gray-600 hover:text-s112-teal flex items-center gap-1">
-                  <span>📍</span> {[firma.strasse, firma.plz && firma.ort ? `${firma.plz} ${firma.ort}` : (firma.plz ?? firma.ort)].filter(Boolean).join(', ')}
+                  <MapPin size={14} /> {[firma.strasse, firma.plz && firma.ort ? `${firma.plz} ${firma.ort}` : (firma.plz ?? firma.ort)].filter(Boolean).join(', ')}
                 </a>
               )}
               {firma.uid_nummer && (
@@ -530,14 +555,14 @@ export default function FirmaDetailClient({
                 onClick={() => setEditing(true)}
                 title="Bearbeiten" aria-label="Bearbeiten"
                 className="inline-flex items-center justify-center border border-s112-border text-gray-600 w-8 h-8 rounded-lg hover:bg-s112-bg transition-colors">
-                ✏️
+                <Pencil size={15} />
               </button>
               <button
                 onClick={handleDelete}
                 disabled={deletePending}
                 title="Löschen" aria-label="Löschen"
                 className="inline-flex items-center justify-center border border-red-200 text-red-600 w-8 h-8 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40">
-                🗑️
+                <Trash2 size={15} />
               </button>
             </div>
           )}
@@ -658,7 +683,7 @@ export default function FirmaDetailClient({
                         <button type="button"
                           onClick={() => setExpandedThreads(prev => { const s=new Set(prev); expanded?s.delete(cid):s.add(cid); return s })}
                           className="w-full flex items-center gap-3 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 transition-colors text-left">
-                          <span className="text-base">✉️</span>
+                          <Mail size={16} className="text-blue-600 flex-shrink-0" />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-800 truncate">{latest.betreff}</p>
                             <p className="text-xs text-s112-muted">{msgs.length} E-Mails · {new Date(latest.datum).toLocaleDateString('de-AT')} · {expanded ? 'einklappen ▴' : 'ausklappen ▾'}</p>
@@ -807,7 +832,7 @@ export default function FirmaDetailClient({
           onClick={() => setShowEmailModal(false)}>
           <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4"
             onClick={e => e.stopPropagation()}>
-            <h3 className="text-base font-bold text-gray-900 mb-4">✉ E-Mail senden</h3>
+            <h3 className="text-base font-bold text-gray-900 mb-4 inline-flex items-center gap-1.5"><Mail size={16} />E-Mail senden</h3>
             <form onSubmit={sendEmail} className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">An</label>
@@ -823,11 +848,16 @@ export default function FirmaDetailClient({
                 <textarea value={emailText} onChange={e => setEmailText(e.target.value)} rows={5}
                   className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
               </div>
-              {emailResult && <p className={`text-xs font-medium ${emailResult.startsWith('✓') ? 'text-green-600' : 'text-red-600'}`}>{emailResult}</p>}
+              {emailResult && (
+                <p className={`text-xs font-medium inline-flex items-center gap-1 ${emailResult === 'E-Mail gesendet' ? 'text-green-600' : 'text-red-600'}`}>
+                  {emailResult === 'E-Mail gesendet' ? <Check size={12} /> : <X size={12} />}
+                  {emailResult}
+                </p>
+              )}
               <div className="flex gap-2 pt-1">
                 <button type="submit" disabled={emailSending}
                   className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
-                  {emailSending ? 'Senden…' : '✉ Senden'}
+                  {emailSending ? 'Senden…' : 'Senden'}
                 </button>
                 <button type="button" onClick={() => setShowEmailModal(false)}
                   className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
@@ -840,8 +870,8 @@ export default function FirmaDetailClient({
       )}
 
       {copiedNum && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm px-4 py-2 rounded-xl shadow-lg">
-          📋 {copiedNum} kopiert
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm px-4 py-2 rounded-xl shadow-lg inline-flex items-center gap-1.5">
+          <ClipboardCheck size={14} /> {copiedNum} kopiert
         </div>
       )}
 
