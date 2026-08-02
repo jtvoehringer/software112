@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
 import { deleteVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
 import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { GitMerge } from 'lucide-react'
 
 type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -73,7 +74,9 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
   return (
     <section>
       <div className="flex items-center justify-between mb-3">
-        <h2 className="font-semibold text-gray-800">🍷 Verschneidungen</h2>
+        <h2 className="font-semibold text-gray-800 flex items-center gap-1.5">
+          <GitMerge size={16} strokeWidth={1.75} className="text-violet-600" />Verschneidungen
+        </h2>
       </div>
 
       {showForm && (

@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
+import { BookOpen, Leaf, Grape, Filter, ArrowLeftRight, Wind, FlaskConical, Microscope, Award, Wine, GitMerge, type LucideIcon } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Weinbuch – software:112' }
 export const dynamic = 'force-dynamic'
@@ -38,17 +39,17 @@ function fmtDate(d: string | null | undefined) {
 }
 
 // ── Icon + Farbe je Event-Typ ────────────────────────────────────────────────
-const EVENT_STYLE: Record<EventTyp, { icon: string; dot: string; card: string }> = {
-  feldbehandlung: { icon: '🌿', dot: 'bg-green-500',   card: 'border-green-100  bg-green-50/40'  },
-  ernte:          { icon: '🍇', dot: 'bg-purple-500',  card: 'border-purple-100 bg-purple-50/40' },
-  pressung:       { icon: '⚙️', dot: 'bg-orange-400',  card: 'border-orange-100 bg-orange-50/40' },
-  umzug:          { icon: '🔄', dot: 'bg-blue-400',    card: 'border-blue-100   bg-blue-50/40'   },
-  schwund:        { icon: '💨', dot: 'bg-red-400',     card: 'border-red-100    bg-red-50/40'    },
-  kellerbehandlung:{ icon: '🧪', dot: 'bg-teal-500',   card: 'border-teal-100   bg-teal-50/40'   },
-  analyse:        { icon: '🔬', dot: 'bg-indigo-400',  card: 'border-indigo-100 bg-indigo-50/40' },
-  dac:            { icon: '🏅', dot: 'bg-yellow-500',  card: 'border-yellow-100 bg-yellow-50/40' },
-  fuellung:       { icon: '🍾', dot: 'bg-s112-teal',   card: 'border-s112-teal/20 bg-s112-teal/5'},
-  verschneidung:  { icon: '🍷', dot: 'bg-violet-500',  card: 'border-violet-100 bg-violet-50/40' },
+const EVENT_STYLE: Record<EventTyp, { icon: LucideIcon; dot: string; card: string }> = {
+  feldbehandlung: { icon: Leaf,           dot: 'bg-green-500',   card: 'border-green-100  bg-green-50/40'  },
+  ernte:          { icon: Grape,          dot: 'bg-purple-500',  card: 'border-purple-100 bg-purple-50/40' },
+  pressung:       { icon: Filter,         dot: 'bg-orange-400',  card: 'border-orange-100 bg-orange-50/40' },
+  umzug:          { icon: ArrowLeftRight, dot: 'bg-blue-400',    card: 'border-blue-100   bg-blue-50/40'   },
+  schwund:        { icon: Wind,           dot: 'bg-red-400',     card: 'border-red-100    bg-red-50/40'    },
+  kellerbehandlung:{ icon: FlaskConical,  dot: 'bg-teal-500',    card: 'border-teal-100   bg-teal-50/40'   },
+  analyse:        { icon: Microscope,     dot: 'bg-indigo-400',  card: 'border-indigo-100 bg-indigo-50/40' },
+  dac:            { icon: Award,          dot: 'bg-yellow-500',  card: 'border-yellow-100 bg-yellow-50/40' },
+  fuellung:       { icon: Wine,           dot: 'bg-s112-teal',   card: 'border-s112-teal/20 bg-s112-teal/5'},
+  verschneidung:  { icon: GitMerge,       dot: 'bg-violet-500',  card: 'border-violet-100 bg-violet-50/40' },
 }
 
 export default async function WeinbuchPage({
@@ -464,11 +465,11 @@ export default async function WeinbuchPage({
     const datum = dac.bescheid_am ?? dac.eingereicht_am ?? dac.created_at ?? null
     if (!datum) continue
     const statusBadge =
-      dac.status === 'genehmigt'   ? '✅ Genehmigt' :
-      dac.status === 'eingereicht' ? '📬 Eingereicht' :
-      dac.status === 'in_pruefung' ? '🔍 In Prüfung' :
-      dac.status === 'abgelehnt'   ? '❌ Abgelehnt' :
-      dac.status === 'entwurf'     ? '📝 Entwurf' :
+      dac.status === 'genehmigt'   ? 'Genehmigt' :
+      dac.status === 'eingereicht' ? 'Eingereicht' :
+      dac.status === 'in_pruefung' ? 'In Prüfung' :
+      dac.status === 'abgelehnt'   ? 'Abgelehnt' :
+      dac.status === 'entwurf'     ? 'Entwurf' :
       dac.status
     events.push({
       datum,
@@ -570,7 +571,9 @@ export default async function WeinbuchPage({
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">📖 Weinbuch</h1>
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <BookOpen size={22} strokeWidth={1.75} className="text-s112-teal" />Weinbuch
+        </h1>
         <p className="text-s112-muted text-sm mt-1">
           {wa.name}
           {wa.jahrgang ? ` · Jahrgang ${wa.jahrgang}` : ''}
@@ -584,7 +587,7 @@ export default async function WeinbuchPage({
       {/* Timeline */}
       {events.length === 0 ? (
         <div className="card p-8 text-center text-s112-muted">
-          <p className="text-3xl mb-3">📖</p>
+          <BookOpen size={32} strokeWidth={1.5} className="mx-auto mb-3 text-s112-tertiary" />
           <p className="text-sm">Noch keine Ereignisse für diese Charge erfasst.</p>
         </div>
       ) : (
@@ -598,8 +601,8 @@ export default async function WeinbuchPage({
               return (
                 <div key={i} className="relative flex gap-4">
                   {/* Dot */}
-                  <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-lg ${style.dot} shadow-sm`}>
-                    <span>{style.icon}</span>
+                  <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${style.dot} shadow-sm`}>
+                    <style.icon size={18} strokeWidth={1.75} className="text-white" />
                   </div>
 
                   {/* Card */}
@@ -647,7 +650,9 @@ export default async function WeinbuchPage({
           {(Object.entries(EVENT_STYLE) as [EventTyp, typeof EVENT_STYLE[EventTyp]][]).map(([typ, style]) => (
             <div key={typ} className="flex items-center gap-1.5">
               <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${style.dot}`} />
-              <span className="text-xs text-gray-600">{style.icon} {
+              <span className="text-xs text-gray-600 inline-flex items-center gap-1">
+                <style.icon size={13} strokeWidth={1.75} className="text-gray-500" />
+                {
                 typ === 'feldbehandlung' ? 'Feldbehandlung'
                 : typ === 'ernte' ? 'Ernte / Lese'
                 : typ === 'pressung' ? 'Pressung'
@@ -658,7 +663,8 @@ export default async function WeinbuchPage({
                 : typ === 'verschneidung' ? 'Verschneidung'
                 : typ === 'schwund' ? 'Schwund'
                 : 'Füllung'
-              }</span>
+              }
+              </span>
             </div>
           ))}
         </div>

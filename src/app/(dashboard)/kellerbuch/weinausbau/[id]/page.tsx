@@ -10,6 +10,7 @@ import { kmwZuQualitaet, minQualitaet } from '@/lib/weinqualitaet'
 import VerschneidungWidget from './VerschneidungWidget'
 import UmziehenWidget from '@/components/kellerbuch/UmziehenWidget'
 import { umziehen } from '../../umziehen/actions'
+import { Wine, ArrowLeftRight, GitMerge, BookOpen, Microscope, Award, TrendingDown } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Charge bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -334,14 +335,6 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
   const st = STATUS_LABELS[weinausbau.status] ?? { label: weinausbau.status, color: 'bg-gray-100 text-gray-600' }
 
-  const artIcon: Record<string, string> = {
-    ernte:        '🍇',
-    umziehen_ein: '⬆️',
-    umziehen_aus: '⬇️',
-    abfuellung:   '🍾',
-    verkauf:      '💰',
-  }
-
   return (
     <div className="max-w-4xl space-y-8">
       {/* Breadcrumb */}
@@ -368,34 +361,34 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
           <p className="text-xs text-s112-muted mt-0.5">verfügbarer Bestand</p>
           {writeOk && berechneterSaldo > 0.01 && (
             <Link href={`/weinhandel/fuellungen/neu?charge=${weinausbau.id}`}
-              className="mt-2 inline-block text-xs bg-s112-teal text-white px-3 py-1 rounded-lg hover:bg-opacity-90 transition-colors">
-              🍾 Abfüllen
+              className="mt-2 inline-flex items-center gap-1 text-xs bg-s112-teal text-white px-3 py-1 rounded-lg hover:bg-opacity-90 transition-colors">
+              <Wine size={13} strokeWidth={1.75} />Abfüllen
             </Link>
           )}
           {writeOk && berechneterSaldo > 0.01 && (
             <Link href={`/kellerbuch/weinausbau/${weinausbau.id}?form=umziehen`}
-              className="mt-1 inline-block text-xs bg-s112-teal text-white px-3 py-1 rounded-lg hover:bg-opacity-90 transition-colors">
-              📦 Umziehen
+              className="mt-1 inline-flex items-center gap-1 text-xs bg-s112-teal text-white px-3 py-1 rounded-lg hover:bg-opacity-90 transition-colors">
+              <ArrowLeftRight size={13} strokeWidth={1.75} />Umziehen
             </Link>
           )}
           {writeOk && (
             <Link href={`/kellerbuch/weinausbau/${weinausbau.id}?form=verschneiden`}
-              className="mt-1 inline-block text-xs bg-violet-600 text-white px-3 py-1 rounded-lg hover:bg-opacity-90 transition-colors">
-              🍷 Verschneiden
+              className="mt-1 inline-flex items-center gap-1 text-xs bg-violet-600 text-white px-3 py-1 rounded-lg hover:bg-opacity-90 transition-colors">
+              <GitMerge size={13} strokeWidth={1.75} />Verschneiden
             </Link>
           )}
           <Link href={`/kellerbuch/weinausbau/${weinausbau.id}/buch`}
-            className="mt-1 inline-block text-xs border border-s112-border text-s112-teal px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
-            📖 Weinbuch
+            className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-teal px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
+            <BookOpen size={13} strokeWidth={1.75} />Weinbuch
           </Link>
           <Link href={`/kellerbuch/weinausbau/${weinausbau.id}/analysen`}
-            className="mt-1 inline-block text-xs border border-s112-border text-s112-teal px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
-            🔬 Analysen
+            className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-teal px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
+            <Microscope size={13} strokeWidth={1.75} />Analysen
           </Link>
           {writeOk && (
             <Link href={`/dac/neu?charge=${weinausbau.id}`}
-              className="mt-1 inline-block text-xs border border-s112-border text-s112-teal px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
-              🏅 Prüfnummer
+              className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-teal px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
+              <Award size={13} strokeWidth={1.75} />Prüfnummer
             </Link>
           )}
         </div>
@@ -404,7 +397,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       {/* Abstufungs-Hinweis nach Umziehen */}
       {abstufungParam && (
         <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 text-sm text-amber-900">
-          <span className="text-lg mt-0.5">⬇️</span>
+          <TrendingDown size={18} strokeWidth={1.75} className="mt-0.5 text-amber-600 shrink-0" />
           <div>
             <p className="font-semibold">Qualitätsabstufung durch Zusammenführung</p>
             <p className="text-xs mt-0.5">
@@ -464,13 +457,8 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
                       {bew.datum ? new Date(bew.datum).toLocaleDateString('de-AT') : '–'}
                     </td>
                     <td className="px-4 py-2.5">
-                      <div className="flex items-start gap-1.5">
-                        <span>{artIcon[bew.art] ?? '•'}</span>
-                        <div>
-                          <p className="text-gray-700">{bew.beschreibung}</p>
-                          {bew.extra && <p className="text-xs text-s112-muted">{bew.extra}</p>}
-                        </div>
-                      </div>
+                      <p className="text-gray-700">{bew.beschreibung}</p>
+                      {bew.extra && <p className="text-xs text-s112-muted">{bew.extra}</p>}
                     </td>
                     <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${colorClass}`}>
                       {istAbgang ? '' : '+'}{fmtLiter(bew.menge)}

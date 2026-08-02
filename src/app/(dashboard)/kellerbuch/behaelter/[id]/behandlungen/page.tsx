@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import { FlaskConical, BarChart3, ArrowLeftRight, Pencil, Trash2 } from 'lucide-react'
 
 type R = Record<string, any>
 
@@ -195,7 +196,9 @@ export default function KellerbehandlungenPage() {
 
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <h1 className="text-xl font-bold text-gray-900">🧪 Kellerbehandlungen – {behaelter.name}</h1>
+        <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+          <FlaskConical size={20} strokeWidth={1.75} className="text-s112-teal" />Kellerbehandlungen – {behaelter.name}
+        </h1>
         <button onClick={openNeu}
           className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg hover:bg-opacity-90 font-medium">
           + Neue Behandlung
@@ -205,15 +208,15 @@ export default function KellerbehandlungenPage() {
       {/* Tabs */}
       <div className="flex gap-1 border-b border-s112-border">
         <Link href={`/kellerbuch/behaelter/${behaelterId}/bewegungen`}
-          className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300 -mb-px transition-colors">
-          📊 Bewegungsbuch
+          className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300 -mb-px transition-colors inline-flex items-center gap-1.5">
+          <BarChart3 size={14} strokeWidth={1.75} />Bewegungsbuch
         </Link>
         <Link href={`/kellerbuch/behaelter/${behaelterId}/umzuege`}
-          className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300 -mb-px transition-colors">
-          ↔️ Umziehen
+          className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300 -mb-px transition-colors inline-flex items-center gap-1.5">
+          <ArrowLeftRight size={14} strokeWidth={1.75} />Umziehen
         </Link>
-        <span className="px-4 py-2 text-sm font-medium text-s112-teal border-b-2 border-s112-teal -mb-px">
-          🧪 Kellerbehandlungen
+        <span className="px-4 py-2 text-sm font-medium text-s112-teal border-b-2 border-s112-teal -mb-px inline-flex items-center gap-1.5">
+          <FlaskConical size={14} strokeWidth={1.75} />Kellerbehandlungen
         </span>
       </div>
 
@@ -328,7 +331,7 @@ export default function KellerbehandlungenPage() {
       {/* Liste */}
       {behandlungen.length === 0 ? (
         <div className="card text-center py-10">
-          <p className="text-2xl mb-2">🧪</p>
+          <FlaskConical size={28} strokeWidth={1.5} className="mx-auto mb-2 text-s112-tertiary" />
           <p className="text-sm text-s112-muted">Noch keine Kellerbehandlungen erfasst</p>
           <button onClick={openNeu}
             className="mt-3 text-xs text-s112-teal font-semibold hover:underline">
@@ -379,10 +382,10 @@ export default function KellerbehandlungenPage() {
                       <div className="flex items-center justify-end gap-3">
                         <button onClick={() => openEdit(b)}
                           title="Bearbeiten" aria-label="Bearbeiten"
-                          className="text-s112-teal hover:text-s112-teal/70">✏️</button>
+                          className="text-s112-teal hover:text-s112-teal/70"><Pencil size={15} strokeWidth={1.75} /></button>
                         <button onClick={() => handleDelete(b.id)}
                           title="Löschen" aria-label="Löschen"
-                          className="text-red-400 hover:text-red-600">🗑️</button>
+                          className="text-red-400 hover:text-red-600"><Trash2 size={15} strokeWidth={1.75} /></button>
                       </div>
                     </td>
                   </tr>

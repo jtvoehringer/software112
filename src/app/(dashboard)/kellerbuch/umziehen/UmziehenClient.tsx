@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { umziehen, deleteUmzug, updateUmzug } from './actions'
+import { ArrowLeftRight, Filter, X, AlertTriangle, CheckCircle2, Pencil, Trash2 } from 'lucide-react'
 
 type BehaelterMitCharge = {
   behaelter_id:   string
@@ -69,7 +70,7 @@ function QuelleZeile({
         {selected && !ueberzogen && (
           <span className="text-xs text-s112-muted">max {fmt(selected.menge_liter)}</span>
         )}
-        <button type="button" onClick={onRemove} className="text-xs text-red-400 hover:text-red-600 px-1">✕</button>
+        <button type="button" onClick={onRemove} className="text-xs text-red-400 hover:text-red-600 px-1"><X size={13} strokeWidth={2} /></button>
       </div>
       {selected && (
         <p className="text-xs text-s112-muted pl-1">
@@ -77,8 +78,8 @@ function QuelleZeile({
         </p>
       )}
       {ueberzogen && (
-        <p className="text-xs text-red-600 pl-1 font-medium">
-          ⚠ Menge überschreitet verfügbaren Bestand ({fmt(selected!.menge_liter)})
+        <p className="text-xs text-red-600 pl-1 font-medium inline-flex items-center gap-1">
+          <AlertTriangle size={12} strokeWidth={2} />Menge überschreitet verfügbaren Bestand ({fmt(selected!.menge_liter)})
         </p>
       )}
     </div>
@@ -190,12 +191,12 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
           <button type="button"
             onClick={() => setUmzugTyp('normal')}
             className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors ${umzugTyp === 'normal' ? 'bg-s112-teal text-white border-s112-teal' : 'border-s112-border text-gray-600 hover:border-s112-teal hover:text-s112-teal'}`}>
-            ↔️ Umzug
+            <ArrowLeftRight size={15} strokeWidth={1.75} />Umzug
           </button>
           <button type="button"
             onClick={() => setUmzugTyp('filtration')}
             className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors ${umzugTyp === 'filtration' ? 'bg-s112-teal text-white border-s112-teal' : 'border-s112-border text-gray-600 hover:border-s112-teal hover:text-s112-teal'}`}>
-            🔽 Filtration
+            <Filter size={15} strokeWidth={1.75} />Filtration
           </button>
         </div>
         {umzugTyp === 'filtration' && (
@@ -264,7 +265,7 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
 
       {success ? (
         <div className="flex items-center justify-center gap-2 bg-green-50 border border-green-200 text-green-700 rounded-xl px-5 py-3 text-sm font-semibold">
-          ✅ Gespeichert – weiterleiten…
+          <CheckCircle2 size={16} strokeWidth={1.75} />Gespeichert – weiterleiten…
         </div>
       ) : (
         <button type="submit" disabled={pending}
@@ -374,10 +375,10 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
             <span className="inline-flex items-center gap-2">
               <button onClick={() => setEditing(true)}
                 title="Bearbeiten" aria-label="Bearbeiten"
-                className="text-s112-teal hover:text-s112-teal/70">✏️</button>
+                className="text-s112-teal hover:text-s112-teal/70"><Pencil size={15} strokeWidth={1.75} /></button>
               <button onClick={() => setConfirming(true)}
                 title="Löschen" aria-label="Löschen"
-                className="text-red-400 hover:text-red-600">🗑️</button>
+                className="text-red-400 hover:text-red-600"><Trash2 size={15} strokeWidth={1.75} /></button>
             </span>
           )}
           {error && <p className="text-xs text-red-600 mt-0.5">{error}</p>}
@@ -410,7 +411,7 @@ export default function UmziehenClient({
         {writeOk && (
           <button onClick={() => setShowForm(o => !o)}
             className="bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
-            {showForm ? 'Abbrechen' : '＋ Neuer Umzug'}
+            {showForm ? 'Abbrechen' : '+ Neuer Umzug'}
           </button>
         )}
       </div>
