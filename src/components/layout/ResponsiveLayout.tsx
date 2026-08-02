@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import { Menu, X, Bell } from 'lucide-react'
 import Sidebar from './Sidebar'
+import AssistantPanel from './AssistantPanel'
 import GlobalSearch from '@/components/GlobalSearch'
 import type { UserRole } from '@/lib/auth/roles'
 import type { TenantBranding } from '@/app/(dashboard)/layout'
@@ -107,7 +108,7 @@ export default function ResponsiveLayout({ children, userEmail, userName, role, 
       </div>
 
       {/* ── Haupt-Inhalt ─────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
 
         {/* Top-Bar (Desktop: Suche + Glocke; Mobile: Hamburger + Brand + Suche) */}
         <header className="flex items-center gap-3 px-3 lg:px-6 h-[62px] bg-s112-surface border-b border-s112-line flex-shrink-0">
@@ -167,6 +168,9 @@ export default function ResponsiveLayout({ children, userEmail, userName, role, 
           </div>
         </main>
       </div>
+
+      {/* ── Assistent-Panel (rechts) ─────────────────────────────────── */}
+      <AssistantPanel />
 
     </div>
   )
