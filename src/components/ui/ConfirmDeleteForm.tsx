@@ -3,7 +3,7 @@
 interface Props {
   action:    () => Promise<void> | void
   message:   string
-  label?:    string
+  label?:    React.ReactNode
   title?:    string
   className?: string
   style?:    React.CSSProperties
