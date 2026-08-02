@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, Bell } from 'lucide-react'
 import Sidebar from './Sidebar'
 import GlobalSearch from '@/components/GlobalSearch'
 import type { UserRole } from '@/lib/auth/roles'
@@ -21,7 +21,19 @@ interface Props {
 export default function ResponsiveLayout({ children, userEmail, userName, role, roleLabel, branding, betriebCount = 1 }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const notifRef = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
+
+  // Benachrichtigungs-Dropdown bei Außenklick schließen
+  useEffect(() => {
+    if (!notifOpen) return
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false)
+    }
+    window.addEventListener('mousedown', handler)
+    return () => window.removeEventListener('mousedown', handler)
+  }, [notifOpen])
 
   // Collapsed-State aus localStorage wiederherstellen
   useEffect(() => {
@@ -97,27 +109,28 @@ export default function ResponsiveLayout({ children, userEmail, userName, role, 
       {/* ── Haupt-Inhalt ─────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
-        {/* Top-Bar (Desktop: Suche; Mobile: Hamburger + Brand + Suche) */}
-        <header className="flex items-center gap-3 px-3 lg:px-6 py-2 bg-white border-b border-s112-border flex-shrink-0">
+        {/* Top-Bar (Desktop: Suche + Glocke; Mobile: Hamburger + Brand + Suche) */}
+        <header className="flex items-center gap-3 px-3 lg:px-6 h-[62px] bg-s112-surface border-b border-s112-line flex-shrink-0">
           {/* Mobile: Hamburger */}
           <button
             onClick={() => setDrawerOpen(true)}
-            className="lg:hidden flex items-center justify-center w-11 h-11 rounded-xl bg-s112-bg active:bg-s112-border text-gray-700 transition-colors"
+            className="lg:hidden flex items-center justify-center w-11 h-11 rounded-xl bg-s112-bg active:bg-s112-line text-gray-700 transition-colors"
             aria-label="Menü öffnen"
           >
             <Menu size={22} strokeWidth={1.75} />
           </button>
 
           {/* Mobile: Brand */}
-          <div className="lg:hidden flex items-baseline gap-0">
+          <div className="lg:hidden flex items-center gap-2">
             {branding.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={branding.logo_url} alt={branding.anzeigename} className="h-7 w-auto object-contain" />
             ) : (
               <>
-                <span className="text-lg font-bold text-s112-teal">software</span>
-                <span className="text-lg font-bold text-s112-yellow">:</span>
-                <span className="text-lg font-bold text-s112-teal">112</span>
+                <span className="w-6 h-6 rounded-md bg-s112-teal flex items-center justify-center flex-shrink-0">
+                  <span className="font-display font-bold text-[9px] text-s112-yellow">112</span>
+                </span>
+                <span className="font-display font-semibold text-[15px] text-s112-text">software:112</span>
               </>
             )}
           </div>
@@ -127,6 +140,24 @@ export default function ResponsiveLayout({ children, userEmail, userName, role, 
 
           {/* Globale Suche */}
           <GlobalSearch />
+
+          {/* Benachrichtigungen */}
+          <div className="relative flex-shrink-0" ref={notifRef}>
+            <button
+              onClick={() => setNotifOpen(o => !o)}
+              className="w-9 h-9 flex items-center justify-center rounded-lg text-s112-text-2 hover:bg-s112-bg hover:text-s112-blue-700 transition-colors"
+              aria-label="Benachrichtigungen"
+              title="Benachrichtigungen"
+            >
+              <Bell size={18} strokeWidth={1.5} />
+            </button>
+            {notifOpen && (
+              <div className="absolute right-0 top-11 z-50 w-64 bg-white rounded-xl border border-s112-line shadow-lg p-3">
+                <p className="text-xs font-semibold text-s112-text mb-1">Benachrichtigungen</p>
+                <p className="text-xs text-s112-tertiary">Keine neuen Benachrichtigungen.</p>
+              </div>
+            )}
+          </div>
         </header>
 
         {/* Content */}

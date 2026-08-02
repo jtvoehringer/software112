@@ -440,17 +440,15 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
                 <span className="ml-1 opacity-60">· {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA.slice(0, 7)}</span>
               )}
             </p>
-            {/* IC&P Branding */}
-            <div className="mt-2 pt-2 border-t border-s112-line flex items-center gap-2">
+            {/* ICP-Branding */}
+            <div className="mt-2 pt-2 border-t border-s112-line flex items-center gap-1.5">
+              <span className="text-[9px] text-s112-tertiary flex-shrink-0">&copy;</span>
               <Image
                 src="/icp-logo.png"
-                alt="IC&P Consultants"
-                width={20} height={20}
-                className="rounded-full opacity-60 flex-shrink-0"
+                alt="ICP Solutions"
+                width={82} height={28}
+                className="object-contain object-left opacity-70 hover:opacity-100 transition-opacity"
               />
-              <p className="text-[9px] text-s112-tertiary leading-tight">
-                &copy; IC&amp;P Consultants e.U.
-              </p>
             </div>
           </>
         )}
