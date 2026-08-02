@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Pencil } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -28,7 +29,7 @@ export default function KellerplanEditModal({ plan, action, inputCls, labelCls }
       <button onClick={() => setOpen(true)}
         title="Bearbeiten" aria-label="Bearbeiten"
         className="text-s112-teal hover:text-s112-teal/70">
-        ✏️
+        <Pencil className="w-4 h-4" />
       </button>
 
       {open && (

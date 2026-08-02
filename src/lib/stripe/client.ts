@@ -21,13 +21,13 @@ export const STRIPE_PLAN_LABELS: Record<string, string> = {
 
 /** Stripe-Status-Labels und Farben */
 export const STRIPE_STATUS_META: Record<string, { label: string; color: string }> = {
-  trialing:           { label: '🔵 Testphase',          color: 'bg-blue-100 text-blue-700' },
-  active:             { label: '✅ Aktiv',               color: 'bg-green-100 text-green-700' },
-  past_due:           { label: '⚠️ Zahlung offen',      color: 'bg-amber-100 text-amber-700' },
-  unpaid:             { label: '🔴 Unbezahlt',          color: 'bg-red-100 text-red-700' },
-  canceled:           { label: '⛔ Gekündigt',          color: 'bg-gray-100 text-gray-600' },
-  cancelled:          { label: '⛔ Gekündigt',          color: 'bg-gray-100 text-gray-600' },
-  paused:             { label: '⏸ Pausiert',            color: 'bg-gray-100 text-gray-600' },
-  incomplete:         { label: '🕐 Zahlung ausstehend', color: 'bg-yellow-100 text-yellow-700' },
-  incomplete_expired: { label: '❌ Abgelaufen',         color: 'bg-gray-100 text-gray-500' },
+  trialing:           { label: 'Testphase',          color: 'bg-blue-100 text-blue-700' },
+  active:             { label: 'Aktiv',               color: 'bg-green-100 text-green-700' },
+  past_due:           { label: 'Zahlung offen',      color: 'bg-amber-100 text-amber-700' },
+  unpaid:             { label: 'Unbezahlt',          color: 'bg-red-100 text-red-700' },
+  canceled:           { label: 'Gekündigt',          color: 'bg-gray-100 text-gray-600' },
+  cancelled:          { label: 'Gekündigt',          color: 'bg-gray-100 text-gray-600' },
+  paused:             { label: 'Pausiert',            color: 'bg-gray-100 text-gray-600' },
+  incomplete:         { label: 'Zahlung ausstehend', color: 'bg-yellow-100 text-yellow-700' },
+  incomplete_expired: { label: 'Abgelaufen',         color: 'bg-gray-100 text-gray-500' },
 }

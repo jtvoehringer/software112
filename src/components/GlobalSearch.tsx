@@ -2,15 +2,24 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Loader2 } from 'lucide-react'
+import { Search, Loader2, Users, Building2, Package, FileText, Wine } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import type { SearchResult } from '@/app/api/global-search/route'
 
 const KATEGORIE_LABEL: Record<string, string> = {
-  kontakt:   '👤 Kontakt',
-  firma:     '🏢 Firma',
-  fuellung:  '🍾 Füllung',
-  verkauf:   '🧾 Rechnung',
-  kellerbuch:'🍷 Kellerbuch',
+  kontakt:   'Kontakt',
+  firma:     'Firma',
+  fuellung:  'Füllung',
+  verkauf:   'Rechnung',
+  kellerbuch:'Kellerbuch',
+}
+
+const KATEGORIE_ICON: Record<string, LucideIcon> = {
+  kontakt:   Users,
+  firma:     Building2,
+  fuellung:  Package,
+  verkauf:   FileText,
+  kellerbuch:Wine,
 }
 
 const KATEGORIE_FARBE: Record<string, string> = {
@@ -146,7 +155,9 @@ export default function GlobalSearch() {
           {/* Ergebnisse */}
           {results.length > 0 && (
             <ul className="max-h-80 overflow-y-auto py-2">
-              {results.map((r, i) => (
+              {results.map((r, i) => {
+                const KategorieIcon = KATEGORIE_ICON[r.kategorie]
+                return (
                 <li key={r.id + r.kategorie}>
                   <button
                     className={`w-full flex items-start gap-3 px-4 py-2.5 text-left transition-colors
@@ -154,8 +165,9 @@ export default function GlobalSearch() {
                     onMouseEnter={() => setCursor(i)}
                     onClick={() => navigate(r)}
                   >
-                    <span className={`mt-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap
+                    <span className={`mt-0.5 inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap
                       ${KATEGORIE_FARBE[r.kategorie] ?? 'bg-gray-100 text-gray-600'}`}>
+                      {KategorieIcon && <KategorieIcon size={11} strokeWidth={2} className="flex-shrink-0" />}
                       {KATEGORIE_LABEL[r.kategorie] ?? r.kategorie}
                     </span>
                     <div className="min-w-0">
@@ -173,7 +185,8 @@ export default function GlobalSearch() {
                     )}
                   </button>
                 </li>
-              ))}
+                )
+              })}
             </ul>
           )}
 

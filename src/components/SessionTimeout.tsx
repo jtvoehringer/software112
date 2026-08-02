@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { Bell } from 'lucide-react'
 
 interface Props { timeoutMinuten?: number | null }
 
@@ -45,7 +46,7 @@ export default function SessionTimeout({ timeoutMinuten }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4 text-center space-y-4">
-        <p className="text-3xl">⏱</p>
+        <Bell className="w-9 h-9 mx-auto text-amber-500" strokeWidth={1.75} />
         <h2 className="text-lg font-bold text-gray-900">Sitzung läuft ab</h2>
         <p className="text-sm text-s112-muted">
           Du wirst in 2 Minuten automatisch abgemeldet.

@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { AlertTriangle } from 'lucide-react'
 
 type Gebinde = { id: string; name: string; volumen_liter?: number | null }
 type Charge  = { id: string; name: string; menge_liter: number | null; behaelter_id?: string | null; rebsorte?: string | null }
@@ -226,10 +227,13 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
               ) : null
             })()}
             {hatRebsortenmix && (
-              <div className="mt-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 text-xs text-amber-800">
-                <span className="font-semibold">⚠ Rebsortenverschnitt:</span>{' '}
-                Das Ziel-Gebinde enthält bereits Chargen mit Rebsorte <strong>{andereRebsorten.join(', ')}</strong>.
-                Nach dem Umzug wird automatisch das Verschneiden-Formular geöffnet.
+              <div className="mt-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 text-xs text-amber-800 flex items-start gap-1.5">
+                <AlertTriangle size={14} strokeWidth={2} className="mt-0.5 shrink-0" />
+                <span>
+                  <span className="font-semibold">Rebsortenverschnitt:</span>{' '}
+                  Das Ziel-Gebinde enthält bereits Chargen mit Rebsorte <strong>{andereRebsorten.join(', ')}</strong>.
+                  Nach dem Umzug wird automatisch das Verschneiden-Formular geöffnet.
+                </span>
               </div>
             )}
           </div>

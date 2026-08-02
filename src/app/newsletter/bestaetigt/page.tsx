@@ -1,6 +1,7 @@
 import { newsletterBestaetigen } from '../actions'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Wine, CheckCircle2, AlertTriangle } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Newsletter bestätigt – Weingut Gebeshuber' }
 
@@ -16,14 +17,18 @@ export default async function BestaetigtPage({
     <div className="min-h-screen bg-gradient-to-b from-s112-bg to-white flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="text-5xl mb-3">🍷</div>
+          <div className="mb-3 flex justify-center">
+            <Wine className="w-12 h-12 text-s112-teal" aria-hidden="true" />
+          </div>
           <h1 className="text-2xl font-bold text-gray-900">Weingut Gebeshuber</h1>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-s112-border p-8 text-center">
           {result.ok ? (
             <>
-              <div className="text-5xl mb-4">🎉</div>
+              <div className="mb-4 flex justify-center">
+                <CheckCircle2 className="w-12 h-12 text-green-600" aria-hidden="true" />
+              </div>
               <h2 className="text-xl font-bold text-gray-900 mb-2">
                 Willkommen, {result.name}!
               </h2>
@@ -38,7 +43,9 @@ export default async function BestaetigtPage({
             </>
           ) : (
             <>
-              <div className="text-5xl mb-4">⚠️</div>
+              <div className="mb-4 flex justify-center">
+                <AlertTriangle className="w-12 h-12 text-amber-500" aria-hidden="true" />
+              </div>
               <h2 className="text-xl font-bold text-gray-900 mb-2">Link ungültig</h2>
               <p className="text-sm text-s112-muted mb-6">{result.error}</p>
               <Link href="/newsletter"

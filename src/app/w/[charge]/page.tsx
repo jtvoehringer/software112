@@ -4,6 +4,7 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
+import { Sprout } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -130,11 +131,14 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Herkunft</p>
             {weingaerten.map((wg: R, i: number) => (
               <div key={i} className="bg-[#F8F8F3] rounded-xl p-3 space-y-1">
-                <p className="text-sm font-semibold text-[#4F86D6]">🌿 {(wg.weingarten as R).name}</p>
+                <p className="text-sm font-semibold text-[#4F86D6] flex items-center gap-1">
+                  <Sprout className="w-3.5 h-3.5" aria-hidden="true" />
+                  {(wg.weingarten as R).name}
+                </p>
                 <div className="flex flex-wrap gap-x-3 text-xs text-gray-500">
-                  {wg.trauben_kg && <span>🍇 {parseFloat(wg.trauben_kg).toLocaleString('de-AT')} kg</span>}
-                  {wg.ernte_datum && <span>📅 {new Date(wg.ernte_datum).toLocaleDateString('de-AT')}</span>}
-                  {wg.kmw && <span>⚖️ {wg.kmw} °KMW</span>}
+                  {wg.trauben_kg && <span>{parseFloat(wg.trauben_kg).toLocaleString('de-AT')} kg</span>}
+                  {wg.ernte_datum && <span>{new Date(wg.ernte_datum).toLocaleDateString('de-AT')}</span>}
+                  {wg.kmw && <span>{wg.kmw} °KMW</span>}
                 </div>
               </div>
             ))}

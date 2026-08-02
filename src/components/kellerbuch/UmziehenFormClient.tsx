@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { X, AlertTriangle } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -135,7 +136,7 @@ export default function UmziehenFormClient({
                 {quellen.length > 1 && (
                   <button type="button" onClick={() => removeQuelle(i)}
                     className="text-red-400 hover:text-red-600 text-sm mt-2.5 shrink-0" title="Zeile entfernen">
-                    ✕
+                    <X size={13} strokeWidth={2} />
                   </button>
                 )}
               </div>
@@ -181,7 +182,7 @@ export default function UmziehenFormClient({
               {ziele.length > 1 && (
                 <button type="button" onClick={() => removeZiel(i)}
                   className="text-red-400 hover:text-red-600 text-sm shrink-0" title="Zeile entfernen">
-                  ✕
+                  <X size={13} strokeWidth={2} />
                 </button>
               )}
             </div>
@@ -207,9 +208,9 @@ export default function UmziehenFormClient({
           </div>
           <div className="flex justify-between border-t border-s112-border/50 pt-1.5 mt-1.5">
             <span className={ueberschuss ? 'text-red-600 font-semibold' : 'text-s112-muted'}>Schwund:</span>
-            <span className={`font-semibold tabular-nums ${ueberschuss ? 'text-red-600' : 'text-gray-800'}`}>
+            <span className={`font-semibold tabular-nums inline-flex items-center gap-1 ${ueberschuss ? 'text-red-600' : 'text-gray-800'}`}>
               {ueberschuss
-                ? '⚠ Netto > Brutto'
+                ? <><AlertTriangle size={12} strokeWidth={2} />Netto &gt; Brutto</>
                 : `${schwund.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`}
             </span>
           </div>

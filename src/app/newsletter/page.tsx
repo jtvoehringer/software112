@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import NewsletterForm from './NewsletterForm'
+import { Wine } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'Newsletter – Weingut Gebeshuber',
@@ -12,7 +13,9 @@ export default function NewsletterPage() {
       <div className="w-full max-w-md">
         {/* Logo/Header */}
         <div className="text-center mb-8">
-          <div className="text-5xl mb-3">🍷</div>
+          <div className="mb-3 flex justify-center">
+            <Wine className="w-12 h-12 text-s112-teal" aria-hidden="true" />
+          </div>
           <h1 className="text-2xl font-bold text-gray-900">Weingut Gebeshuber</h1>
           <p className="text-s112-muted text-sm mt-1">Newsletter-Anmeldung</p>
         </div>

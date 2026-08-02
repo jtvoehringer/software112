@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Info, AlertTriangle } from 'lucide-react'
 import { QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 
 const REBSORTEN = [
@@ -20,10 +21,10 @@ type WeinausbauRow = {
 }
 
 const WEINART_OPTS = [
-  { value: 'weiss',    label: '🟡 Weißwein' },
-  { value: 'rot',      label: '🔴 Rotwein' },
-  { value: 'rose',     label: '🩷 Rosé' },
-  { value: 'unbekannt', label: '⬜ Unbekannt' },
+  { value: 'weiss',    label: 'Weißwein' },
+  { value: 'rot',      label: 'Rotwein' },
+  { value: 'rose',     label: 'Rosé' },
+  { value: 'unbekannt', label: 'Unbekannt' },
 ]
 
 interface Props {
@@ -83,8 +84,9 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
       {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm"><strong>Fehler:</strong> {error}</div>}
 
       {vonPressung && (
-        <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-xl px-4 py-2.5 text-xs">
-          ℹ️ Grau hinterlegte Felder werden aus der Pressung abgeleitet und können hier nicht geändert werden.
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-xl px-4 py-2.5 text-xs flex items-start gap-1.5">
+          <Info size={14} strokeWidth={1.75} className="mt-0.5 shrink-0" />
+          <span>Grau hinterlegte Felder werden aus der Pressung abgeleitet und können hier nicht geändert werden.</span>
         </div>
       )}
 
@@ -170,8 +172,9 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
                       ))}
                     </select>
                     {basisQ && (
-                      <p className="text-xs text-amber-600 mt-1">
-                        ⬇️ Downgrade möglich · kein Upgrade über {QUALITAET_OPTS.find(o => o.value === basisQ)?.label ?? basisQ} hinaus
+                      <p className="text-xs text-amber-600 mt-1 inline-flex items-center gap-1">
+                        <AlertTriangle size={12} strokeWidth={2} />
+                        Downgrade möglich · kein Upgrade über {QUALITAET_OPTS.find(o => o.value === basisQ)?.label ?? basisQ} hinaus
                       </p>
                     )}
                   </>
@@ -182,11 +185,11 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
           <div>
             <label className="form-label">Status</label>
             <select name="status" defaultValue={weinausbau?.status ?? 'ernte'} className="form-input">
-              <option value="ernte">🍇 Ernte</option>
-              <option value="gaerung">🫧 Gärung</option>
-              <option value="ausbau">🛢️ Ausbau</option>
-              <option value="abfuellung">🍾 Abfüllung</option>
-              <option value="abgeschlossen">✅ Abgeschlossen</option>
+              <option value="ernte">Ernte</option>
+              <option value="gaerung">Gärung</option>
+              <option value="ausbau">Ausbau</option>
+              <option value="abfuellung">Abfüllung</option>
+              <option value="abgeschlossen">Abgeschlossen</option>
             </select>
           </div>
         </div>
@@ -199,7 +202,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
               <>
                 <input type="hidden" name="weinart" value={weinausbau?.weinart ?? 'unbekannt'} />
                 <div className={rdOnly}>
-                  {WEINART_OPTS.find(o => o.value === (weinausbau?.weinart ?? 'unbekannt'))?.label ?? '⬜ Unbekannt'}
+                  {WEINART_OPTS.find(o => o.value === (weinausbau?.weinart ?? 'unbekannt'))?.label ?? 'Unbekannt'}
                 </div>
                 <p className="text-xs text-s112-muted mt-1">Wird aus den Weingärten abgeleitet</p>
               </>

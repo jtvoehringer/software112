@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { CheckCircle2, TrendingUp } from 'lucide-react'
 
 type ReleaseNote = {
   id: string; version: string; titel: string
@@ -50,7 +51,7 @@ export default function ReleaseNotesModal() {
           {note.features && note.features.length > 0 && (
             <div>
               <h3 className="text-sm font-bold text-gray-800 mb-2 flex items-center gap-2">
-                <span className="w-5 h-5 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-xs">✓</span>
+                <span className="w-5 h-5 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-xs"><CheckCircle2 size={12} /></span>
                 Neue Funktionen
               </h3>
               <ul className="space-y-1.5">
@@ -68,7 +69,7 @@ export default function ReleaseNotesModal() {
           {note.fixes && note.fixes.length > 0 && (
             <div>
               <h3 className="text-sm font-bold text-gray-800 mb-2 flex items-center gap-2">
-                <span className="w-5 h-5 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs">↑</span>
+                <span className="w-5 h-5 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs"><TrendingUp size={12} /></span>
                 Verbesserungen
               </h3>
               <ul className="space-y-1.5">

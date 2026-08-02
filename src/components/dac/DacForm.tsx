@@ -151,7 +151,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
                   className="flex-shrink-0 text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors whitespace-nowrap"
                   title="Wert aus letzter Analyse übernehmen"
                 >
-                  🔬 {String(latestAnalyse.alkohol_vol).replace('.', ',')} %
+                  {String(latestAnalyse.alkohol_vol).replace('.', ',')} %
                 </button>
               )}
             </div>
@@ -169,18 +169,18 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 bg-s112-teal text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-opacity-90 transition-colors"
           >
-            🔗 bawb.at öffnen
+            bawb.at öffnen
           </a>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="form-label">Status</label>
             <select name="status" defaultValue={dac?.status ?? 'entwurf'} className="form-input">
-              <option value="entwurf">📝 Entwurf</option>
-              <option value="eingereicht">📬 Eingereicht</option>
-              <option value="in_pruefung">🔍 In Prüfung</option>
-              <option value="genehmigt">✅ Genehmigt</option>
-              <option value="abgelehnt">❌ Abgelehnt</option>
+              <option value="entwurf">Entwurf</option>
+              <option value="eingereicht">Eingereicht</option>
+              <option value="in_pruefung">In Prüfung</option>
+              <option value="genehmigt">Genehmigt</option>
+              <option value="abgelehnt">Abgelehnt</option>
             </select>
           </div>
           <div>
@@ -210,7 +210,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
       {analysen.length > 0 && (
         <div className="card space-y-3 border-indigo-100 bg-indigo-50/30">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-indigo-700 uppercase tracking-wider">🔬 Laboranalysen ({analysen.length})</h2>
+            <h2 className="text-sm font-semibold text-indigo-700 uppercase tracking-wider">Laboranalysen ({analysen.length})</h2>
           </div>
           {analysen.map((a, i) => (
             <div key={i} className="bg-white rounded-lg border border-indigo-100 p-3">
@@ -234,7 +234,6 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
 
       {analysen.length === 0 && (dac?.weinausbau_id || preChargeId) && (
         <div className="card border-amber-100 bg-amber-50/40 text-sm text-amber-800 flex items-center gap-3">
-          <span className="text-lg">⚠️</span>
           <span>Für diese Charge gibt es noch keine Laboranalyse. <a href={`/kellerbuch/weinausbau/${dac?.weinausbau_id ?? preChargeId}/analysen/neu`} className="underline font-medium">Jetzt erfassen →</a></span>
         </div>
       )}

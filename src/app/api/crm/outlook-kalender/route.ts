@@ -120,7 +120,6 @@ export async function GET(req: NextRequest) {
           titel:        e.subject || '(kein Betreff)',
           typ:          'outlook' as const,
           art:          'outlook',
-          artIcon:      '📅',
           ganztags:     allDay,
           uhrzeit_von:  startTime,
           uhrzeit_bis:  endTime,

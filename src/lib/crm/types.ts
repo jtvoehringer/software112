@@ -1,13 +1,13 @@
 // ── Segment-Definitionen ──────────────────────────────────────────────────────
 
 export const SEGMENTE = [
-  { value: 'privat',      label: 'Privat',       icon: '👤', farbe: 'bg-blue-100 text-blue-800'   },
-  { value: 'gastronomie', label: 'Gastronomie',        icon: '🍽️', farbe: 'bg-orange-100 text-orange-800' },
-  { value: 'handel',      label: 'Handel',             icon: '🏪', farbe: 'bg-purple-100 text-purple-800' },
-  { value: 'export',      label: 'Export',             icon: '✈️', farbe: 'bg-green-100 text-green-800'  },
-  { value: 'grosshandel', label: 'Großhandel',         icon: '🏭', farbe: 'bg-gray-100 text-gray-800'   },
-  { value: 'produzent',   label: 'Produzent',           icon: '🍇', farbe: 'bg-rose-100 text-rose-800'    },
-  { value: 'weinhauer',   label: 'Weinhauer',           icon: '🏡', farbe: 'bg-lime-100 text-lime-800'     },
+  { value: 'privat',      label: 'Privat',       farbe: 'bg-blue-100 text-blue-800'   },
+  { value: 'gastronomie', label: 'Gastronomie',        farbe: 'bg-orange-100 text-orange-800' },
+  { value: 'handel',      label: 'Handel',             farbe: 'bg-purple-100 text-purple-800' },
+  { value: 'export',      label: 'Export',             farbe: 'bg-green-100 text-green-800'  },
+  { value: 'grosshandel', label: 'Großhandel',         farbe: 'bg-gray-100 text-gray-800'   },
+  { value: 'produzent',   label: 'Produzent',           farbe: 'bg-rose-100 text-rose-800'    },
+  { value: 'weinhauer',   label: 'Weinhauer',           farbe: 'bg-lime-100 text-lime-800'     },
 ] as const
 
 export type Kundensegment = (typeof SEGMENTE)[number]['value']
@@ -52,18 +52,18 @@ export const PIPELINE_KATEGORIEN = [
 // ── Aktivitäts-Arten ──────────────────────────────────────────────────────────
 
 export const AKTIVITAET_ARTEN = [
-  { value: 'notiz', label: 'Notiz', icon: '📝', nurAnzeige: true },
-  { value: 'email', label: 'E-Mail', icon: '✉️', nurAnzeige: true },
-  { value: 'anruf',       label: 'Anruf',        icon: '📞' },
-  { value: 'besprechung', label: 'Besprechung',  icon: '🤝' },
-  { value: 'verkostung',  label: 'Verkostung',   icon: '🍷' },
-  { value: 'messe',       label: 'Messe',        icon: '🏛️'  },
-  { value: 'besuch',      label: 'Besuch',       icon: '🚗' },
-  { value: 'angebot',     label: 'Angebot',      icon: '📄' },
-  { value: 'verkauf',     label: 'Verkauf',      icon: '🛒' },
-  { value: 'sonstiges',   label: 'Sonstiges',    icon: '•'  },
-  { value: 'urlaub',      label: 'Urlaub',       icon: '🏖'  },
-  { value: 'abwesenheit', label: 'Abwesenheit',  icon: '🚫' },
+  { value: 'notiz', label: 'Notiz', nurAnzeige: true },
+  { value: 'email', label: 'E-Mail', nurAnzeige: true },
+  { value: 'anruf',       label: 'Anruf' },
+  { value: 'besprechung', label: 'Besprechung' },
+  { value: 'verkostung',  label: 'Verkostung' },
+  { value: 'messe',       label: 'Messe' },
+  { value: 'besuch',      label: 'Besuch' },
+  { value: 'angebot',     label: 'Angebot' },
+  { value: 'verkauf',     label: 'Verkauf' },
+  { value: 'sonstiges',   label: 'Sonstiges' },
+  { value: 'urlaub',      label: 'Urlaub' },
+  { value: 'abwesenheit', label: 'Abwesenheit' },
 ] as const
 
 // ── Basis-Typen für Komponenten ───────────────────────────────────────────────

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Trash2 } from 'lucide-react'
 
 interface Props {
   action: () => Promise<void | { error?: string }>
@@ -32,7 +33,7 @@ export default function LoeschenButton({ action, bestaetigung = 'Eintrag wirklic
       <button type="button" onClick={handleClick} disabled={pending}
         title="Löschen" aria-label="Löschen"
         className="text-red-400 hover:text-red-600 disabled:opacity-50">
-        {pending ? '…' : '🗑️'}
+        {pending ? '…' : <Trash2 className="w-4 h-4" />}
       </button>
       {error && <span className="text-[10px] text-red-600 max-w-[180px] text-right">{error}</span>}
     </span>

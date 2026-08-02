@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { newsletterAnmelden } from './actions'
+import { Mail } from 'lucide-react'
 
 const SEGMENTE = [
   { value: 'privat',      label: 'Privatkunde / Weinliebhaber' },
@@ -36,7 +37,9 @@ export default function NewsletterForm() {
   if (result?.ok) {
     return (
       <div className="text-center py-4">
-        <div className="text-4xl mb-3">✉️</div>
+        <div className="mb-3 flex justify-center">
+          <Mail className="w-9 h-9 text-s112-teal" aria-hidden="true" />
+        </div>
         <h3 className="font-semibold text-gray-900 mb-1">Bestätigung unterwegs!</h3>
         <p className="text-sm text-s112-muted">
           Wir haben Ihnen eine Bestätigungs-E-Mail geschickt. Bitte klicken Sie auf den Link darin, um Ihre Anmeldung abzuschließen.

@@ -2,6 +2,7 @@
 import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { UserPlus } from 'lucide-react'
 
 function InviteContent() {
   const searchParams = useSearchParams()
@@ -52,7 +53,9 @@ function InviteContent() {
 
   return (
     <div className="bg-white rounded-2xl border border-s112-border p-8 text-center space-y-4">
-      <p className="text-2xl">👋</p>
+      <div className="flex justify-center">
+        <UserPlus className="w-6 h-6 text-s112-teal" aria-hidden="true" />
+      </div>
       <h2 className="text-lg font-semibold text-gray-800">Willkommen!</h2>
       <p className="text-sm text-s112-muted">
         Du wurdest zu software:112 eingeladen. Klicke unten um dein Passwort festzulegen.

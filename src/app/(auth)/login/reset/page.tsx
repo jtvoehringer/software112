@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { Mail } from 'lucide-react'
 
 export default function ResetPage() {
   const supabase = createSupabaseBrowserClient()
@@ -31,7 +32,9 @@ export default function ResetPage() {
       <div className="card">
         {done ? (
           <div className="text-center space-y-3">
-            <p className="text-2xl">📧</p>
+            <div className="flex justify-center">
+              <Mail className="w-6 h-6 text-s112-teal" aria-hidden="true" />
+            </div>
             <p className="font-semibold text-gray-800">E-Mail gesendet!</p>
             <p className="text-sm text-s112-muted">
               Wir haben eine E-Mail an <strong>{email}</strong> geschickt. Klicke auf den Link um ein neues Passwort zu setzen.
