@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { AlertTriangle } from 'lucide-react'
 
 export default function BMDPage() {
   const [vonDatum, setVonDatum] = useState(new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0])
@@ -44,7 +45,7 @@ export default function BMDPage() {
         </div>
         <button onClick={exportBMD} disabled={laden}
           className="w-full bg-s112-teal text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
-          {laden ? '⏳ Exportiert…' : '⬇ BMD NTCS CSV herunterladen'}
+          {laden ? 'Exportiert…' : 'BMD NTCS CSV herunterladen'}
         </button>
         {info && <p className="text-sm text-green-600">{info}</p>}
       </div>
@@ -58,7 +59,7 @@ export default function BMDPage() {
           <li>Bruttobetrag, USt-Kennzeichen (U13 / U20)</li>
           <li>Stornierte Rechnungen werden übersprungen</li>
         </ul>
-        <p className="text-amber-600 font-medium mt-2">⚠ Kontennummern bitte vor dem Import mit deinem Steuerberater abstimmen.</p>
+        <p className="text-amber-600 font-medium mt-2 inline-flex items-start gap-1.5"><AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />Kontennummern bitte vor dem Import mit deinem Steuerberater abstimmen.</p>
       </div>
     </div>
   )

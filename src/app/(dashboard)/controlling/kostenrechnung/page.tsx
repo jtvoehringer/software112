@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { Check, Pencil, Trash2 } from 'lucide-react'
 
 type KS = { id: string; name: string; kuerzel?: string; beschreibung?: string }
 type KA = { id: string; name: string; kuerzel?: string; kategorie?: string }
@@ -64,8 +65,8 @@ function MultiSelect({ items, selected, onToggle, splitModus, setSplitModus, ant
         })}
       </div>
       {selected.length > 1 && splitModus === 'prozent' && (
-        <p className={`text-xs mt-2 ${Math.abs(total-100)<0.5 ? 'text-green-600' : 'text-red-500'}`}>
-          Summe: {total.toLocaleString('de-AT', { maximumFractionDigits: 1 })}% {Math.abs(total-100)<0.5 ? '✓' : '(muss 100% ergeben)'}
+        <p className={`text-xs mt-2 inline-flex items-center gap-1 ${Math.abs(total-100)<0.5 ? 'text-green-600' : 'text-red-500'}`}>
+          Summe: {total.toLocaleString('de-AT', { maximumFractionDigits: 1 })}% {Math.abs(total-100)<0.5 ? <Check size={12} /> : '(muss 100% ergeben)'}
         </p>
       )}
       {selected.length === 0 && <p className="text-xs text-s112-muted mt-1">Keine Auswahl = gilt für alle</p>}
@@ -128,8 +129,8 @@ function StammdatenTab({ items, onSave, onDelete, fields }: {
             {item.kuerzel && <span className="font-mono text-xs text-s112-muted w-12">{item.kuerzel}</span>}
             {item.kategorie && <span className="text-xs bg-s112-bg px-2 py-0.5 rounded text-s112-muted">{item.kategorie}</span>}
             <span className="text-sm flex-1">{item.name}</span>
-            <button onClick={() => startEdit(item)} className="text-xs text-s112-muted hover:text-s112-teal">✏</button>
-            <button onClick={() => { if(confirm(`"${item.name}" deaktivieren?`)) onDelete(item.id ?? '') }} className="text-xs text-s112-muted hover:text-red-500">✕</button>
+            <button onClick={() => startEdit(item)} className="text-xs text-s112-muted hover:text-s112-teal"><Pencil size={13} /></button>
+            <button onClick={() => { if(confirm(`"${item.name}" deaktivieren?`)) onDelete(item.id ?? '') }} className="text-xs text-s112-muted hover:text-red-500"><Trash2 size={13} /></button>
           </div>
         ))}
         {items.length === 0 && <p className="text-xs text-s112-muted py-4 text-center">Noch keine Einträge</p>}
@@ -261,8 +262,10 @@ export default function KostenrechnungPage() {
       {/* Formular */}
       <div className={`bg-white rounded-2xl border p-5 ${editId ? 'border-s112-teal ring-2 ring-s112-teal/20' : 'border-s112-border'}`}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-gray-800">{editId ? '✏ Buchung bearbeiten' : 'Neue Buchung'}</h2>
-          {editId && <button onClick={resetForm} className="text-xs text-s112-muted hover:text-gray-700">✕ Abbrechen</button>}
+          <h2 className="font-semibold text-gray-800">
+            {editId ? <span className="inline-flex items-center gap-1.5"><Pencil size={15} />Buchung bearbeiten</span> : 'Neue Buchung'}
+          </h2>
+          {editId && <button onClick={resetForm} className="text-xs text-s112-muted hover:text-gray-700">Abbrechen</button>}
         </div>
         <form onSubmit={buchen} className="grid grid-cols-2 gap-3">
           <div><label className="block text-xs font-medium text-gray-600 mb-1">Datum</label>
@@ -295,14 +298,14 @@ export default function KostenrechnungPage() {
             <button type="submit" disabled={saving} className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
               {saving ? 'Speichern…' : editId ? 'Aktualisieren' : 'Buchen'}</button>
             {fehler && <p className="text-sm text-red-600">{fehler}</p>}
-            {erfolg && <p className="text-sm text-green-600">✓ Gespeichert</p>}
+            {erfolg && <p className="text-sm text-green-600 inline-flex items-center gap-1"><Check size={13} />Gespeichert</p>}
           </div>
         </form>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-2">
-        {[['buchungen','📋 Buchungen'],['kostenstellen','🏢 Kostenstellen'],['kostenarten','🏷 Kostenarten']].map(([id,label])=>(
+        {[['buchungen','Buchungen'],['kostenstellen','Kostenstellen'],['kostenarten','Kostenarten']].map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id as Tab)}
             className={`px-4 py-2 rounded-xl text-sm font-medium ${tab===id?'bg-s112-teal text-s112-yellow':'bg-s112-bg text-gray-600 hover:bg-s112-teal/10'}`}>{label}</button>
         ))}
@@ -328,8 +331,8 @@ export default function KostenrechnungPage() {
                   </td>
                   <td className="px-4 py-2.5 text-right font-medium tabular-nums">{eur(e.betrag)}</td>
                   <td className="px-4 py-2.5"><div className="flex gap-2">
-                    <button onClick={()=>startEdit(e)} className="text-s112-muted hover:text-s112-teal text-xs">✏</button>
-                    <button onClick={()=>{if(confirm('Löschen?'))api({action:'loeschen',id:e.id}).then(ladeDaten)}} className="text-s112-muted hover:text-red-500 text-xs">✕</button>
+                    <button onClick={()=>startEdit(e)} className="text-s112-muted hover:text-s112-teal text-xs"><Pencil size={13} /></button>
+                    <button onClick={()=>{if(confirm('Löschen?'))api({action:'loeschen',id:e.id}).then(ladeDaten)}} className="text-s112-muted hover:text-red-500 text-xs"><Trash2 size={13} /></button>
                   </div></td>
                 </tr>
               ))}
