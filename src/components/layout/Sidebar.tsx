@@ -7,30 +7,42 @@ import { usePathname, useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import type { UserRole } from '@/lib/auth/roles'
 import type { TenantBranding } from '@/app/(dashboard)/layout'
+import {
+  LayoutDashboard, Mail, Grape, BookOpen, Warehouse, Calculator, ReceiptText,
+  Landmark, Users, BarChart3, Sparkles, HelpCircle, Settings, ChevronRight,
+  ArrowLeftRight, LogOut, PanelLeftClose, PanelLeft,
+  type LucideIcon,
+} from 'lucide-react'
 
 // ── Navigationsstruktur ────────────────────────────────────────────
+// Icon-Zuordnung folgt der Design-System-Regel (siehe project_design_relaunch.md,
+// Phase B): Icons nur auf Gruppen-/Top-Level-Ebene, 18px, stroke-width 1.5, keine
+// Icons in Untermenüpunkten oder Textbuttons.
 
 type NavItem = {
   href: string; label: string; phase?: number; adminOnly?: boolean; child?: boolean
   hideIfModul?: Array<'modul_ea' | 'modul_fibu' | 'modul_sumup'>
 }
 type NavGroup = {
-  kind: 'group'; label: string; icon: string; items: NavItem[]; adminOnly?: boolean
+  kind: 'group'; label: string; icon: LucideIcon; items: NavItem[]; adminOnly?: boolean
   modulKey?: 'modul_ea' | 'modul_fibu' | 'modul_sumup'
 }
 type NavLink = {
-  kind: 'link'; href: string; label: string; icon: string
+  kind: 'link'; href: string; label: string; icon: LucideIcon
   phase?: number; adminOnly?: boolean
   modulKey?: 'modul_ea' | 'modul_fibu' | 'modul_sumup'
 }
-type NavEntry = NavGroup | NavLink
+type NavOverline = { kind: 'overline'; label: string }
+type NavEntry = NavGroup | NavLink | NavOverline
 
 const NAV: NavEntry[] = [
-  { kind: 'link',  href: '/dashboard',   label: 'Übersicht', icon: '⊞' },
-  { kind: 'link',  href: '/nachrichten', label: 'E-Mail',    icon: '📬' },
+  { kind: 'link',  href: '/dashboard',   label: 'Übersicht', icon: LayoutDashboard },
+  { kind: 'link',  href: '/nachrichten', label: 'E-Mail',    icon: Mail },
+
+  { kind: 'overline', label: 'Betrieb' },
 
   {
-    kind: 'group', label: 'Rieden', icon: '🌿',
+    kind: 'group', label: 'Rieden', icon: Grape,
     items: [
       { href: '/weingarten',         label: 'Rieden',         phase: 1 },
       { href: '/behandlungen',       label: 'Maßnahmen',      phase: 1 },
@@ -40,7 +52,7 @@ const NAV: NavEntry[] = [
   },
 
   {
-    kind: 'group', label: 'Kellerbuch', icon: '🍷',
+    kind: 'group', label: 'Kellerbuch', icon: BookOpen,
     items: [
       { href: '/kellerbuch',                  label: 'Übersicht',      phase: 1 },
       { href: '/kellerbuch/kellerplan',       label: 'Kellerplan',     phase: 1 },
@@ -49,8 +61,10 @@ const NAV: NavEntry[] = [
     ],
   },
 
+  { kind: 'overline', label: 'Handel' },
+
   {
-    kind: 'group', label: 'Warenwirtschaft', icon: '🛒',
+    kind: 'group', label: 'Warenwirtschaft', icon: Warehouse,
     items: [
       { href: '/weinhandel',              label: 'Warenlager',  phase: 1 },
       { href: '/weinhandel/verkauf',        label: 'Verkauf',       phase: 1 },
@@ -64,7 +78,7 @@ const NAV: NavEntry[] = [
   },
 
   {
-    kind: 'group', label: 'Controlling', icon: '🧮',
+    kind: 'group', label: 'Controlling', icon: Calculator,
     items: [
       { href: '/controlling/export',        label: 'Datenexport' },
       { href: '/controlling/bmd',           label: 'BMD NTCS'         },
@@ -73,7 +87,7 @@ const NAV: NavEntry[] = [
   },
 
   {
-    kind: 'group', label: 'E&A-Rechnung', icon: '📒', modulKey: 'modul_ea',
+    kind: 'group', label: 'E&A-Rechnung', icon: ReceiptText, modulKey: 'modul_ea',
     items: [
       { href: '/buchhaltung',              label: 'Buchungen'         },
       { href: '/buchhaltung/kategorien',   label: 'Kategorien', child: true },
@@ -84,7 +98,7 @@ const NAV: NavEntry[] = [
   },
 
   {
-    kind: 'group', label: 'FIBU', icon: '📘', modulKey: 'modul_fibu',
+    kind: 'group', label: 'FIBU', icon: Landmark, modulKey: 'modul_fibu',
     items: [
       { href: '/fibu',              label: 'Journal'        },
       { href: '/fibu/kontenplan',   label: 'Kontenplan', child: true },
@@ -92,8 +106,10 @@ const NAV: NavEntry[] = [
     ],
   },
 
+  { kind: 'overline', label: 'Kontakte' },
+
   {
-    kind: 'group', label: 'CRM', icon: '👥',
+    kind: 'group', label: 'CRM', icon: Users,
     items: [
       { href: '/crm',           label: 'Kalender'  },
       { href: '/crm/kontakte',  label: 'Kontakte'  },
@@ -103,11 +119,13 @@ const NAV: NavEntry[] = [
     ],
   },
 
-  { kind: 'link', href: '/reports', label: 'Auswertungen', icon: '📊' },
-  { kind: 'link', href: '/ki',      label: 'Frag dein Weingut', icon: '🤖' },
+  { kind: 'link', href: '/reports', label: 'Auswertungen', icon: BarChart3 },
+  { kind: 'link', href: '/ki',      label: 'Frag dein Weingut', icon: Sparkles },
+
+  { kind: 'overline', label: 'System' },
 
   {
-    kind: 'group', label: 'Hilfe', icon: '❓',
+    kind: 'group', label: 'Hilfe', icon: HelpCircle,
     items: [
       { href: '/hilfe/handbuch', label: 'Handbuch' },
       { href: '/hilfe/faq',     label: 'FAQ'      },
@@ -115,7 +133,7 @@ const NAV: NavEntry[] = [
   },
 
   {
-    kind: 'group', label: 'Administration', icon: '⚙️', adminOnly: true,
+    kind: 'group', label: 'Administration', icon: Settings, adminOnly: true,
     items: [
       { href: '/admin/mandanten',   label: 'Mandanten' },
       { href: '/admin/release-notes', label: 'Release Notes' },
@@ -140,6 +158,23 @@ function groupIsActive(items: NavItem[], pathname: string) {
   return items.some(i => isActive(i.href, pathname))
 }
 
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
+// ── Overline (Gruppen-Kategorie) ───────────────────────────────────────────
+
+function Overline({ label }: { label: string }) {
+  return (
+    <p className="px-2.5 py-1.5 mt-2 first:mt-0 text-[10px] font-semibold uppercase tracking-[.14em] text-s112-tertiary">
+      {label}
+    </p>
+  )
+}
+
 // ── Sub-Item ──────────────────────────────────────────────────────────────
 
 function SubItem({ item, pathname }: { item: NavItem; pathname: string }) {
@@ -149,7 +184,7 @@ function SubItem({ item, pathname }: { item: NavItem; pathname: string }) {
 
   if (phase2) {
     return (
-      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg opacity-40 cursor-not-allowed text-sm ${indent ? 'ml-3' : ''}`}>
+      <div className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg opacity-40 cursor-not-allowed text-sm ${indent ? 'ml-3' : ''}`}>
         <span className={`rounded-full bg-gray-300 ml-1 ${indent ? 'w-1 h-1' : 'w-1.5 h-1.5'}`} />
         <span className="text-gray-500">{item.label}</span>
         <span className="ml-auto text-xs text-gray-400">P2</span>
@@ -160,9 +195,13 @@ function SubItem({ item, pathname }: { item: NavItem; pathname: string }) {
   return (
     <Link
       href={item.href}
-      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${indent ? 'ml-3' : ''} ${active ? 'bg-s112-teal text-s112-yellow font-medium' : 'text-s112-teal hover:bg-s112-teal/10'}`}
+      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[13.5px] transition-colors duration-[120ms] ease-out ${indent ? 'ml-3' : ''} ${
+        active
+          ? 'bg-s112-blue-50 text-s112-blue-700 font-semibold'
+          : 'text-s112-text-1 hover:bg-s112-bg hover:text-s112-text'
+      }`}
     >
-      <span className={`rounded-full flex-shrink-0 ${indent ? 'w-1 h-1' : 'w-1.5 h-1.5'} ${active ? 'bg-s112-yellow' : 'bg-s112-teal/40'}`} />
+      <span className={`rounded-full flex-shrink-0 ${indent ? 'w-1 h-1' : 'w-1.5 h-1.5'} ${active ? 'bg-s112-blue-700' : 'bg-s112-tertiary/60'}`} />
       {item.label}
     </Link>
   )
@@ -178,6 +217,7 @@ function NavGroupItem({
   const active = groupIsActive(entry.items, pathname)
   const [open, setOpen] = useState(active)
   const router = useRouter()
+  const Icon = entry.icon
 
   const visibleItems = entry.items.filter(i => !i.adminOnly || isAdmin)
 
@@ -189,20 +229,22 @@ function NavGroupItem({
           if (firstItem && !active) router.push(firstItem.href)
           setOpen(o => !o)
         }}
-        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${active ? 'text-s112-teal font-semibold' : 'text-s112-teal hover:bg-s112-teal/10'}`}
+        className={`w-full flex items-center gap-[11px] px-2.5 py-[9px] rounded-lg text-[13.5px] font-medium transition-colors duration-[120ms] ease-out ${
+          active
+            ? 'bg-s112-blue-50 text-s112-blue-700 font-semibold'
+            : 'text-s112-text-1 hover:bg-s112-bg hover:text-s112-text'
+        }`}
       >
-        <span className="w-5 text-center text-base">{entry.icon}</span>
+        <Icon size={18} strokeWidth={1.5} className="flex-shrink-0" />
         <span className="flex-1 text-left">{entry.label}</span>
-        <svg
-          className={`w-3.5 h-3.5 text-s112-teal transition-transform ${open ? 'rotate-90' : ''}`}
-          fill="none" stroke="currentColor" viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
+        <ChevronRight
+          size={14} strokeWidth={1.75}
+          className={`flex-shrink-0 transition-transform duration-[120ms] ${open ? 'rotate-90' : ''}`}
+        />
       </button>
 
       {open && (
-        <div className="ml-4 mt-0.5 space-y-0.5 border-l-2 border-s112-border pl-2">
+        <div className="ml-4 mt-0.5 space-y-0.5 border-l-2 border-s112-line pl-2">
           {visibleItems.map(item => (
             <SubItem key={item.href} item={item} pathname={pathname} />
           ))}
@@ -230,6 +272,7 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
   const router   = useRouter()
   const supabase = createSupabaseBrowserClient()
   const isAdmin  = role === 'system_admin' || role === 'tenant_admin'
+  const displayName = userName || userEmail
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -238,11 +281,11 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
   }
 
   return (
-    <aside className={`flex-shrink-0 bg-white border-r border-s112-border flex flex-col h-full transition-[width] duration-200 ease-in-out ${collapsed ? 'w-14' : 'w-60'}`}>
-      {/* Kunden-Logo + Collapse-Toggle */}
-      <div className={`border-b border-s112-border flex items-center ${collapsed ? 'px-2 py-4 justify-center' : 'px-5 py-4 justify-between'}`}>
+    <aside className={`flex-shrink-0 bg-s112-surface border-r border-s112-line flex flex-col h-full transition-[width] duration-200 ease-in-out ${collapsed ? 'w-16' : 'w-56'}`}>
+      {/* Logo-Lockup + Collapse-Toggle */}
+      <div className={`border-b border-s112-line flex items-center ${collapsed ? 'px-2 py-4 justify-center' : 'px-3.5 py-4 justify-between'}`}>
         {!collapsed && (
-          <Link href="/dashboard" className="block min-w-0">
+          <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0">
             {branding.logo_url ? (
               <Image
                 src={branding.logo_url}
@@ -252,37 +295,39 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
                 priority
               />
             ) : (
-              <div className="flex items-baseline gap-0">
-                <span className="text-xl font-bold text-s112-teal">software</span>
-                <span className="text-xl font-bold text-s112-yellow">:</span>
-                <span className="text-xl font-bold text-s112-teal">112</span>
-              </div>
+              <>
+                <span className="flex-shrink-0 w-[30px] h-[30px] rounded-lg bg-s112-teal flex items-center justify-center">
+                  <span className="font-display font-bold text-[11px] text-s112-yellow tracking-[-.02em]">112</span>
+                </span>
+                <span className="font-display font-semibold text-[15px] text-s112-text truncate">software:112</span>
+              </>
             )}
-            <p className="text-xs text-s112-muted mt-0.5 truncate">{branding.logo_url ? branding.anzeigename : 'Weinbau-Management'}</p>
           </Link>
         )}
         {collapsed && (
-          <Link href="/dashboard" title="Übersicht">
-            <span className="text-xl font-bold text-s112-teal">⊞</span>
+          <Link href="/dashboard" title="Übersicht" className="w-[30px] h-[30px] rounded-lg bg-s112-teal flex items-center justify-center">
+            <span className="font-display font-bold text-[11px] text-s112-yellow tracking-[-.02em]">112</span>
           </Link>
         )}
         {onToggleCollapse && (
           <button
             onClick={onToggleCollapse}
             title={collapsed ? 'Sidebar aufklappen' : 'Sidebar einklappen'}
-            className={`flex-shrink-0 p-1 rounded-lg text-s112-muted hover:text-s112-teal hover:bg-s112-teal/10 transition-colors ${collapsed ? 'mt-2' : ''}`}
+            className={`flex-shrink-0 p-1 rounded-lg text-s112-text-2 hover:text-s112-blue-700 hover:bg-s112-blue-50 transition-colors ${collapsed ? 'mt-2' : ''}`}
           >
-            <svg className={`w-4 h-4 transition-transform duration-200 ${collapsed ? 'rotate-180' : ''}`}
-              fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7M18 19l-7-7 7-7" />
-            </svg>
+            {collapsed ? <PanelLeft size={16} strokeWidth={1.5} /> : <PanelLeftClose size={16} strokeWidth={1.5} />}
           </button>
         )}
       </div>
 
       {/* Navigation */}
-      <nav className={`flex-1 py-4 space-y-1 overflow-y-auto ${collapsed ? 'px-1.5' : 'px-3'}`}>
+      <nav className={`flex-1 py-3 space-y-0.5 overflow-y-auto ${collapsed ? 'px-1.5' : 'px-2.5'}`}>
         {NAV.map((entry, i) => {
+          if (entry.kind === 'overline') {
+            if (collapsed) return null
+            return <Overline key={`ol-${i}`} label={entry.label} />
+          }
+
           if (entry.kind === 'group') {
             if (entry.adminOnly && !isAdmin) return null
             if (entry.modulKey && !branding[entry.modulKey]) return null
@@ -290,6 +335,7 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
               !it.hideIfModul?.some(m => branding[m as keyof TenantBranding])
             )
             const filteredEntry = { ...entry, items: filteredItems }
+            const Icon = entry.icon
             if (collapsed) {
               // Im Collapsed-Modus: nur Icon als Link zum ersten Sub-Item
               const firstItem = filteredItems.filter(it => !it.adminOnly || isAdmin).find(it => it.phase !== 2)
@@ -297,8 +343,8 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
               if (!firstItem) return null
               return (
                 <Link key={i} href={firstItem.href} title={entry.label}
-                  className={`flex items-center justify-center w-10 h-10 rounded-xl text-base transition-colors mx-auto ${isGroupActive ? 'bg-s112-teal text-white' : 'text-s112-teal hover:bg-s112-teal/10'}`}>
-                  {entry.icon}
+                  className={`flex items-center justify-center w-10 h-10 rounded-lg transition-colors mx-auto ${isGroupActive ? 'bg-s112-blue-50 text-s112-blue-700' : 'text-s112-text-1 hover:bg-s112-bg hover:text-s112-text'}`}>
+                  <Icon size={18} strokeWidth={1.5} />
                 </Link>
               )
             }
@@ -312,12 +358,13 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
           if (entry.modulKey && !branding[entry.modulKey]) return null
           const active   = isActive(entry.href, pathname)
           const disabled = entry.phase === 2
+          const Icon = entry.icon
 
           if (disabled) {
             if (collapsed) return null
             return (
-              <div key={entry.href} className="flex items-center gap-2 px-3 py-2 rounded-xl opacity-40 cursor-not-allowed text-sm text-gray-500">
-                <span className="w-5 text-center">{entry.icon}</span>
+              <div key={entry.href} className="flex items-center gap-[11px] px-2.5 py-[9px] rounded-lg opacity-40 cursor-not-allowed text-[13.5px] text-gray-500">
+                <Icon size={18} strokeWidth={1.5} />
                 {entry.label}
                 <span className="ml-auto text-xs">P2</span>
               </div>
@@ -327,8 +374,8 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
           if (collapsed) {
             return (
               <Link key={entry.href} href={entry.href} title={entry.label}
-                className={`flex items-center justify-center w-10 h-10 rounded-xl text-base transition-colors mx-auto ${active ? 'bg-s112-teal text-white' : 'text-s112-teal hover:bg-s112-teal/10'}`}>
-                <span>{entry.icon}</span>
+                className={`flex items-center justify-center w-10 h-10 rounded-lg transition-colors mx-auto ${active ? 'bg-s112-blue-50 text-s112-blue-700' : 'text-s112-text-1 hover:bg-s112-bg hover:text-s112-text'}`}>
+                <Icon size={18} strokeWidth={1.5} />
               </Link>
             )
           }
@@ -337,9 +384,13 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
             <Link
               key={entry.href}
               href={entry.href}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${active ? 'bg-s112-teal text-s112-yellow' : 'text-s112-teal hover:bg-s112-teal/10'}`}
+              className={`flex items-center gap-[11px] px-2.5 py-[9px] rounded-lg text-[13.5px] font-medium transition-colors duration-[120ms] ease-out ${
+                active
+                  ? 'bg-s112-blue-50 text-s112-blue-700 font-semibold'
+                  : 'text-s112-text-1 hover:bg-s112-bg hover:text-s112-text'
+              }`}
             >
-              <span className="w-5 text-center">{entry.icon}</span>
+              <Icon size={18} strokeWidth={1.5} />
               {entry.label}
             </Link>
           )
@@ -347,51 +398,57 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
       </nav>
 
       {/* User Footer */}
-      <div className={`border-t border-s112-border ${collapsed ? 'px-1.5 py-4 flex flex-col items-center gap-2' : 'px-4 py-4'}`}>
+      <div className={`border-t border-s112-line ${collapsed ? 'px-1.5 py-4 flex flex-col items-center gap-2' : 'px-2.5 py-3'}`}>
         {collapsed ? (
-          <>
-            <button onClick={handleLogout} title="Abmelden"
-              className="w-10 h-10 flex items-center justify-center rounded-xl text-s112-muted hover:text-red-600 hover:bg-red-50 transition-colors text-base">
-              ⏻
-            </button>
-          </>
+          <button onClick={handleLogout} title="Abmelden"
+            className="w-10 h-10 flex items-center justify-center rounded-lg text-s112-text-2 hover:text-red-600 hover:bg-red-50 transition-colors">
+            <LogOut size={18} strokeWidth={1.5} />
+          </button>
         ) : (
           <>
-            <p className="text-xs font-medium text-gray-700 truncate">{userName || userEmail}</p>
-            <p className="text-[10px] text-s112-muted truncate">{userEmail}</p>
-            <p className="text-xs font-medium text-s112-teal mt-0.5">{roleLabel}</p>
+            <div className="rounded-[10px] bg-s112-bg p-2.5 flex items-center gap-2.5">
+              <span className="flex-shrink-0 w-7 h-7 rounded-full bg-s112-grey text-white flex items-center justify-center text-[11px] font-semibold">
+                {initials(displayName)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[12.5px] font-semibold text-s112-text truncate">{displayName}</p>
+                <p className="text-[11px] text-s112-tertiary truncate">{roleLabel}</p>
+              </div>
+            </div>
+
             <a href="/profil"
-              className="text-xs text-s112-muted hover:text-s112-teal transition-colors mt-1.5 block">
-              ✏ Profil bearbeiten
+              className="text-xs text-s112-text-1 hover:text-s112-blue-700 transition-colors mt-2 block">
+              Profil bearbeiten
             </a>
             {betriebCount > 1 && (
               <a href="/betrieb-waehlen"
-                className="text-xs text-s112-teal hover:underline transition-colors mt-1.5 block">
-                ⇄ Betrieb wechseln
+                className="text-xs text-s112-text-1 hover:text-s112-blue-700 transition-colors mt-1.5 flex items-center gap-1">
+                <ArrowLeftRight size={12} strokeWidth={1.75} />
+                Betrieb wechseln
               </a>
             )}
             <button
               onClick={handleLogout}
-              className="text-xs text-s112-muted hover:text-red-600 transition-colors mt-1.5"
+              className="text-xs text-s112-text-1 hover:text-red-600 transition-colors mt-1.5"
             >
               Abmelden
             </button>
 
-            <p className="text-[10px] text-gray-400 mt-2">
+            <p className="text-[10px] text-s112-tertiary mt-2">
               v2.2.1 · Juni 2026
               {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA && (
                 <span className="ml-1 opacity-60">· {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA.slice(0, 7)}</span>
               )}
             </p>
             {/* IC&P Branding */}
-            <div className="mt-2 pt-2 border-t border-s112-border/40 flex items-center gap-2">
+            <div className="mt-2 pt-2 border-t border-s112-line flex items-center gap-2">
               <Image
                 src="/icp-logo.png"
                 alt="IC&P Consultants"
                 width={20} height={20}
                 className="rounded-full opacity-60 flex-shrink-0"
               />
-              <p className="text-[9px] text-s112-muted/50 leading-tight">
+              <p className="text-[9px] text-s112-tertiary leading-tight">
                 &copy; IC&amp;P Consultants e.U.
               </p>
             </div>

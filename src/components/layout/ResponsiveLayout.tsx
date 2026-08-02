@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
+import { Menu, X } from 'lucide-react'
 import Sidebar from './Sidebar'
 import GlobalSearch from '@/components/GlobalSearch'
 import type { UserRole } from '@/lib/auth/roles'
@@ -86,7 +87,7 @@ export default function ResponsiveLayout({ children, userEmail, userName, role, 
               className="w-9 h-9 flex items-center justify-center bg-white rounded-full shadow text-gray-500 hover:text-gray-800"
               aria-label="Menü schließen"
             >
-              ✕
+              <X size={18} strokeWidth={1.75} />
             </button>
           </div>
         )}
@@ -104,9 +105,7 @@ export default function ResponsiveLayout({ children, userEmail, userName, role, 
             className="lg:hidden flex items-center justify-center w-11 h-11 rounded-xl bg-s112-bg active:bg-s112-border text-gray-700 transition-colors"
             aria-label="Menü öffnen"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+            <Menu size={22} strokeWidth={1.75} />
           </button>
 
           {/* Mobile: Brand */}

@@ -15,6 +15,7 @@
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.46.2",
     "imapflow": "*",
+    "lucide-react": "^1.28.0",
     "next": "^16.2.6",
     "nodemailer": "*",
     "react": "^19.0.0",
