@@ -570,18 +570,26 @@ export default async function WeinbuchPage({
       </nav>
 
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <BookOpen size={22} strokeWidth={1.75} className="text-s112-teal" />Weinbuch
-        </h1>
-        <p className="text-s112-muted text-sm mt-1">
-          {wa.name}
-          {wa.jahrgang ? ` · Jahrgang ${wa.jahrgang}` : ''}
-          {wa.rebsorte ? ` · ${wa.rebsorte}` : ''}
-        </p>
-        <p className="text-xs text-s112-muted mt-0.5">
-          Von der Rebe bis zur Flasche – vollständige Prozesshistorie dieser Charge
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <BookOpen size={22} strokeWidth={1.75} className="text-s112-teal" />Weinbuch
+          </h1>
+          <p className="text-s112-muted text-sm mt-1">
+            {wa.name}
+            {wa.jahrgang ? ` · Jahrgang ${wa.jahrgang}` : ''}
+            {wa.rebsorte ? ` · ${wa.rebsorte}` : ''}
+          </p>
+          <p className="text-xs text-s112-muted mt-0.5">
+            Von der Rebe bis zur Flasche – vollständige Prozesshistorie dieser Charge
+          </p>
+        </div>
+        <Link
+          href={`/kellerbuch/weinausbau/${id}/blend-protokoll`}
+          className="flex items-center gap-1.5 text-sm font-medium text-s112-teal hover:underline shrink-0"
+        >
+          <GitMerge size={15} strokeWidth={1.75} />Blend-Protokoll
+        </Link>
       </div>
 
       {/* Timeline */}

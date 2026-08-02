@@ -1,7 +1,8 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Boxes, ArrowLeftRight, Filter, Microscope, Leaf, Wine, Search } from 'lucide-react'
+import { Boxes, ArrowLeftRight, Filter, Microscope, Leaf, Wine, Search, GitMerge } from 'lucide-react'
+import { resolveBlendKompositionFuellung, type KompositionUrsprung } from '@/lib/wein/blendKomposition'
 
 export const metadata: Metadata = { title: 'Rückverfolgung – software:112' }
 export const dynamic = 'force-dynamic'
@@ -37,6 +38,16 @@ function Section({ title, icon, children }: { title: string; icon: React.ReactNo
       {children}
     </div>
   )
+}
+
+function herkunftLabel(u: KompositionUrsprung): string {
+  if (u.typ === 'pressung') {
+    const teile = [u.weingarten_name, u.gst_nr ? `GST ${u.gst_nr}` : null].filter(Boolean)
+    return teile.length > 0 ? teile.join(' · ') : 'Pressung (Weingarten unbekannt)'
+  }
+  if (u.typ === 'zukauf') return u.zukauf_von ? `Zukauf – ${u.zukauf_von}` : 'Zukauf'
+  if (u.typ === 'eroeffnungsbestand') return 'Eröffnungsbestand (historisch)'
+  return 'Herkunft unbekannt'
 }
 
 // ── Hilfsfunktion: vollständige Kette für eine Weinausbau-Charge laden ───────
@@ -462,6 +473,12 @@ export default async function RueckverfolgungPage({
     )
   }
 
+  // ── Blend-Protokoll: vollständige Herkunfts-Zusammensetzung (rekursiv über alle
+  // Verschneidungs-Generationen) ────────────────────────────────────────────────
+  const blendKomposition: KompositionUrsprung[] = fuellung
+    ? await resolveBlendKompositionFuellung(supabase, fuellung.id)
+    : []
+
   return (
     <div className="max-w-3xl space-y-6">
 
@@ -531,6 +548,33 @@ export default async function RueckverfolgungPage({
               </div>
             )}
           </Section>
+
+          {/* Blend-Protokoll: vollständige Herkunfts-Zusammensetzung */}
+          {blendKomposition.length > 0 && (
+            <Section title="Blend-Protokoll" icon={<GitMerge className="w-4 h-4" />}>
+              <div className="space-y-1.5">
+                {blendKomposition.map(u => (
+                  <div key={u.key} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="text-gray-700">
+                      {herkunftLabel(u)}
+                      {(u.rebsorte || u.jahrgang) && (
+                        <span className="text-s112-muted"> · {[u.rebsorte, u.jahrgang].filter(Boolean).join(' · ')}</span>
+                      )}
+                    </span>
+                    <span className="text-gray-800 font-semibold shrink-0">
+                      {u.anteil_pct.toLocaleString('de-AT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <Link
+                href={`/kellerbuch/fuellung/${fuellung.id}/blend-protokoll`}
+                className="inline-block mt-1 text-sm font-medium text-s112-teal hover:underline"
+              >
+                Vollständiges Blend-Protokoll ansehen / drucken →
+              </Link>
+            </Section>
+          )}
 
           {/* Charge-Ketten */}
           {chargeEntries.length > 0 ? (
