@@ -445,7 +445,7 @@ export default function NachrichtenClient() {
               )}
               {selected.bodyHtml ? (
                 <iframe
-                  srcDoc={`<base target="_blank"><style>body{font-family:Arial,sans-serif;font-size:13px;color:#374151;margin:0;padding:0}a{color:#2a7c6f}</style>${selected.bodyHtml}`}
+                  srcDoc={`<base target="_blank"><style>body{font-family:Arial,sans-serif;font-size:13px;color:#374151;margin:0;padding:0}a{color:#4F86D6}</style>${selected.bodyHtml}`}
                   className="w-full min-h-96 border-0" sandbox="allow-popups allow-same-origin"
                   style={{ height: '100%', minHeight: '400px' }}
                 />

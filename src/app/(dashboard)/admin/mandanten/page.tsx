@@ -65,8 +65,8 @@ export default async function MandantenPage() {
       benutzer_anzahl: countMap[t.id] ?? 0,
       anzeigename:     b?.anzeigename ?? null,
       logo_url:        b?.logo_url ?? null,
-      primary_color:   b?.primary_color ?? '#2a7c6f',
-      secondary_color: b?.secondary_color ?? '#f5c842',
+      primary_color:   b?.primary_color ?? '#4F86D6',
+      secondary_color: b?.secondary_color ?? '#FFFFFF',
       modul_newsletter: b?.modul_newsletter ?? false,
     }
   })

@@ -48,8 +48,8 @@ export async function saveBranding(tenantId: string, formData: FormData) {
     tenant_id:        tenantId,
     anzeigename:      (formData.get('anzeigename') as string) || null,
     logo_url:         (formData.get('logo_url') as string) || null,
-    primary_color:    (formData.get('primary_color') as string) || '#2a7c6f',
-    secondary_color:  (formData.get('secondary_color') as string) || '#f5c842',
+    primary_color:    (formData.get('primary_color') as string) || '#4F86D6',
+    secondary_color:  (formData.get('secondary_color') as string) || '#FFFFFF',
     modul_newsletter: formData.get('modul_newsletter') === 'true',
     aktualisiert_am:  new Date().toISOString(),
   }

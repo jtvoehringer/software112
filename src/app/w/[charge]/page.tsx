@@ -71,7 +71,7 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl overflow-hidden">
 
         {/* Header */}
-        <div className="bg-[#025450] px-6 py-5 text-white text-center">
+        <div className="bg-[#4F86D6] px-6 py-5 text-white text-center">
           <p className="text-[10px] uppercase tracking-widest text-[#98C780] font-semibold mb-1">Weinpass</p>
           <h1 className="text-xl font-bold">{f.name}</h1>
           {f.bezeichnung && <p className="text-sm text-[#98C6DD] mt-0.5">{f.bezeichnung}</p>}
@@ -130,7 +130,7 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Herkunft</p>
             {weingaerten.map((wg: R, i: number) => (
               <div key={i} className="bg-[#F8F8F3] rounded-xl p-3 space-y-1">
-                <p className="text-sm font-semibold text-[#025450]">🌿 {(wg.weingarten as R).name}</p>
+                <p className="text-sm font-semibold text-[#4F86D6]">🌿 {(wg.weingarten as R).name}</p>
                 <div className="flex flex-wrap gap-x-3 text-xs text-gray-500">
                   {wg.trauben_kg && <span>🍇 {parseFloat(wg.trauben_kg).toLocaleString('de-AT')} kg</span>}
                   {wg.ernte_datum && <span>📅 {new Date(wg.ernte_datum).toLocaleDateString('de-AT')}</span>}

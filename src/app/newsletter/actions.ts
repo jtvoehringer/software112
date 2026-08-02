@@ -90,13 +90,13 @@ export async function newsletterAnmelden(formData: FormData): Promise<AnmeldeRes
     subject: 'Bitte bestätigen Sie Ihre Newsletter-Anmeldung',
     htmlContent: `
       <div style="font-family:Arial,sans-serif;max-width:540px;margin:0 auto;color:#333">
-        <h2 style="color:#2a7c6f">Weingut Gebeshuber – Newsletter</h2>
+        <h2 style="color:#4F86D6">Weingut Gebeshuber – Newsletter</h2>
         <p>Hallo ${vorname ? vorname : 'Weinfreund/in'},</p>
         <p>vielen Dank für Ihre Anmeldung zu unserem Newsletter!</p>
         <p>Bitte bestätigen Sie Ihre E-Mail-Adresse durch einen Klick auf den folgenden Button:</p>
         <p style="margin:24px 0">
           <a href="${confirmUrl}"
-             style="background:#2a7c6f;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">
+             style="background:#4F86D6;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">
             Anmeldung bestätigen
           </a>
         </p>

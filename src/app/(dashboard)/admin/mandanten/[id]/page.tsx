@@ -142,8 +142,8 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
   const settings: TenantSettings = {
     anzeigename:      s?.anzeigename ?? null,
     logo_url:         s?.logo_url ?? null,
-    primary_color:    s?.primary_color ?? '#2a7c6f',
-    secondary_color:  s?.secondary_color ?? '#f5c842',
+    primary_color:    s?.primary_color ?? '#4F86D6',
+    secondary_color:  s?.secondary_color ?? '#FFFFFF',
     modul_newsletter: s?.modul_newsletter ?? false,
     modul_crm:        s?.modul_crm ?? true,
     modul_kellerbuch: s?.modul_kellerbuch ?? true,
