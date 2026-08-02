@@ -77,7 +77,6 @@ export default async function CRMUebersichtPage() {
         titel: (a.betreff as string | null) || artDef?.label || (a.art as string),
         typ: 'aktivitaet' as const,
         art: a.art as string,
-        artIcon: artDef?.icon ?? '📝',
         ganztags: (a.ganztags as boolean) ?? true,
         uhrzeit_von: (a.uhrzeit_von as string | null) ?? null,
         uhrzeit_bis: (a.uhrzeit_bis as string | null) ?? null,

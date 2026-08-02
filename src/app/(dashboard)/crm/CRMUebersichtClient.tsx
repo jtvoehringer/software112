@@ -7,6 +7,7 @@ import { AKTIVITAET_ARTEN } from '@/lib/crm/types'
 import type { AktivitaetDokument } from '@/lib/crm/types'
 import DokumentePanel from './DokumentePanel'
 import Link from 'next/link'
+import { X, Lock, Paperclip, Pencil, Calendar } from 'lucide-react'
 
 // ── Typeahead-Suche ───────────────────────────────────────────────────────────
 interface SucheItem { id: string; label: string; sub?: string }
@@ -33,7 +34,7 @@ function KundenSuche({ items, value, onChange, placeholder }: {
         <div className="flex items-center gap-1 border border-s112-border rounded-lg px-2 py-1.5 bg-s112-bg">
           <span className="text-sm flex-1 truncate">{selected.label}</span>
           <button type="button" onClick={() => { onChange(''); setQuery('') }}
-            className="text-gray-400 hover:text-gray-600 flex-shrink-0 leading-none">×</button>
+            className="text-gray-400 hover:text-gray-600 flex-shrink-0 leading-none"><X size={13} /></button>
         </div>
       ) : (
         <>
@@ -162,14 +163,12 @@ function EintragChip({ e, compact = false, onViewAkt }: { e: KalenderEintrag; co
           ${compact ? 'text-[9px] px-1 py-px' : 'text-xs px-2 py-1'}
           ${farbe}`}
         style={overdueInline}>
-        <span className="mr-0.5">{e.artIcon}</span>
         {zeitLabel && !compact && (
           <span className="font-semibold mr-1 tabular-nums">{zeitLabel}</span>
         )}
         {zeitLabel && compact && (
           <span className="font-semibold mr-0.5 tabular-nums">{von}</span>
         )}
-        {e.erledigt && <span className="text-green-500 mr-0.5 flex-shrink-0">✓</span>}
         <span className="font-medium">{e.titel}</span>
         {!compact && (e.kontaktName || e.firmaName) && (
           <span className="block text-[9px] opacity-60 truncate mt-px">
@@ -501,7 +500,6 @@ function ZeitachseView({
                     }}
                   >
                     {startsEarly && <span className="mr-0.5 opacity-70 flex-shrink-0">◀</span>}
-                    <span className="flex-shrink-0">{isUrlaub ? '🏖' : '🚫'}</span>
                     <span className="truncate">{e.titel ?? (isUrlaub ? 'Urlaub' : 'Abwesenheit')}</span>
                     {endsLate && <span className="ml-0.5 opacity-70 flex-shrink-0">▶</span>}
                   </div>
@@ -633,7 +631,7 @@ function ZeitachseView({
                             {fmtT(e.uhrzeit_von)}{e.uhrzeit_bis ? `–${fmtT(e.uhrzeit_bis)}` : ''}
                           </div>
                           <div className={`text-[10px] font-medium truncate leading-tight`}>
-                            {e.artIcon} {e.titel}
+                            {e.titel}
                           </div>
                           {h > 50 && (e.kontaktName || e.firmaName) && (
                             <div className="text-[9px] opacity-60 truncate">
@@ -675,10 +673,9 @@ function ZeitachseView({
               {/* ── Detail-Ansicht ── */}
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <span className="text-lg mr-2">{viewAkt.artIcon}</span>
                   <span className="font-bold text-gray-900">{viewAkt.titel}</span>
                 </div>
-                <button onClick={() => { setViewAkt(null); setEditAktMode(false); setEditPipeMode(false) }} className="text-s112-muted hover:text-gray-700 text-lg">✕</button>
+                <button onClick={() => { setViewAkt(null); setEditAktMode(false); setEditPipeMode(false) }} className="text-s112-muted hover:text-gray-700"><X size={18} /></button>
               </div>
               <div className="space-y-1.5 text-sm text-gray-600 mb-4">
                 {viewAkt.bis_datum && viewAkt.bis_datum !== viewAkt.datum ? (
@@ -692,11 +689,11 @@ function ZeitachseView({
                 )}
                 {viewAkt.kontaktName && <p><span className="font-medium text-gray-700">Kontakt:</span> {viewAkt.kontaktName}</p>}
                 {viewAkt.firmaName   && <p><span className="font-medium text-gray-700">Firma:</span> {viewAkt.firmaName}</p>}
-                {viewAkt.ist_privat  && <p className="text-gray-400 text-xs">🔒 Privater Termin</p>}
+                {viewAkt.ist_privat  && <p className="text-gray-400 text-xs inline-flex items-center gap-1"><Lock size={11} />Privater Termin</p>}
               </div>
               {viewAkt.typ === 'aktivitaet' && (
                 <div className="mb-4 border-t border-s112-border/40 pt-3">
-                  <p className="text-xs font-medium text-gray-500 mb-1.5">📎 Anhänge</p>
+                  <p className="text-xs font-medium text-gray-500 mb-1.5 inline-flex items-center gap-1"><Paperclip size={12} />Anhänge</p>
                   <DokumentePanel
                     aktivitaetId={viewAkt.id.replace('a_', '')}
                     initialDokumente={viewAktDoks}
@@ -707,14 +704,14 @@ function ZeitachseView({
               <div className="flex flex-wrap gap-2">
                 {viewAkt.typ === 'aktivitaet' && (
                   <button onClick={() => setEditAktMode(true)}
-                    className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90">
-                    ✏ Bearbeiten
+                    className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 inline-flex items-center gap-1.5">
+                    <Pencil size={14} />Bearbeiten
                   </button>
                 )}
                 {viewAkt.typ === 'pipeline' && (
                   <button onClick={() => setEditPipeMode(true)}
-                    className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90">
-                    ✏ Bearbeiten
+                    className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 inline-flex items-center gap-1.5">
+                    <Pencil size={14} />Bearbeiten
                   </button>
                 )}
                 {viewAkt.kontaktName && (
@@ -744,7 +741,7 @@ function ZeitachseView({
               {/* ── Bearbeiten-Formular ── */}
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-gray-900 text-base">Aktivität bearbeiten</h3>
-                <button onClick={() => setEditAktMode(false)} className="text-s112-muted hover:text-gray-700 text-lg">✕</button>
+                <button onClick={() => setEditAktMode(false)} className="text-s112-muted hover:text-gray-700"><X size={18} /></button>
               </div>
               <form onSubmit={async e => {
                 e.preventDefault()
@@ -768,7 +765,7 @@ function ZeitachseView({
                   <label className="block text-xs font-medium text-gray-600 mb-1">Art</label>
                   <select name="art" defaultValue={viewAkt.art ?? 'notiz'} className={inputCls}>
                     {AKTIVITAET_ARTEN.filter(a => !('nurAnzeige' in a)).map(a => (
-                      <option key={a.value} value={a.value}>{a.icon} {a.label}</option>
+                      <option key={a.value} value={a.value}>{a.label}</option>
                     ))}
                   </select>
                 </div>
@@ -804,7 +801,7 @@ function ZeitachseView({
               {/* ── Pipeline-Eintrag bearbeiten ── */}
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-gray-900 text-base">Pipeline-Eintrag bearbeiten</h3>
-                <button onClick={() => setEditPipeMode(false)} className="text-s112-muted hover:text-gray-700 text-lg">✕</button>
+                <button onClick={() => setEditPipeMode(false)} className="text-s112-muted hover:text-gray-700"><X size={18} /></button>
               </div>
               <form onSubmit={async e => {
                 e.preventDefault()
@@ -876,7 +873,9 @@ function ZeitachseView({
         onClick={() => { setNewAkt(null); setNewAktKontaktId(''); setNewAktFirmaId('') }}>
         <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4"
           onClick={e => e.stopPropagation()}>
-          <h3 className="text-base font-bold text-gray-900 mb-1">{newAkt?.ganztags ? '📅 Ganztags-Aktivität' : 'Neue Aktivität'}</h3>
+          <h3 className="text-base font-bold text-gray-900 mb-1">
+            {newAkt?.ganztags ? <span className="inline-flex items-center gap-1.5"><Calendar size={16} />Ganztags-Aktivität</span> : 'Neue Aktivität'}
+          </h3>
           <p className="text-xs text-s112-muted mb-4">
             {new Date(newAkt.datum + 'T12:00:00').toLocaleDateString('de-AT', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
@@ -889,7 +888,7 @@ function ZeitachseView({
                 <label className="block text-xs font-medium text-gray-600 mb-1">Art</label>
                 <select name="art" defaultValue="notiz" className={inputCls}>
                   {AKTIVITAET_ARTEN.filter(a => !('nurAnzeige' in a)).map(a => (
-                    <option key={a.value} value={a.value}>{a.icon} {a.label}</option>
+                    <option key={a.value} value={a.value}>{a.label}</option>
                   ))}
                 </select>
               </div>
@@ -956,7 +955,7 @@ function ZeitachseView({
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" name="ist_privat" value="true"
                 className="accent-s112-teal" />
-              <span className="text-xs text-gray-600">🔒 Privater Termin (nur für mich sichtbar)</span>
+              <span className="text-xs text-gray-600 inline-flex items-center gap-1"><Lock size={11} />Privater Termin (nur für mich sichtbar)</span>
             </label>
 
             {saveErr && (
