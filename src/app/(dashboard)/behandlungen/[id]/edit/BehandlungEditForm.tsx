@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateBehandlung } from '../../actions'
+import { SprayCan, Sprout, Layers, Scissors, Leaf, Grape, MoreHorizontal, Hourglass, Ban, AlertTriangle } from 'lucide-react'
 
 const BBCH_OPTIONS = [
   { value: '09', label: '09 – Knospenaufbruch' },
@@ -27,13 +28,13 @@ const EINHEITEN_LABEL: Record<string, string> = {
   kg_ha: 'kg/ha', l_ha: 'l/ha', g_hl: 'g/hl', ml_hl: 'ml/hl', kg: 'kg', l: 'l',
 }
 const ART_OPTIONS = [
-  { value: 'spritzung',        label: '💧 Spritzung' },
-  { value: 'duengung',         label: '🌿 Düngung' },
-  { value: 'bodenbearbeitung', label: '🪱 Bodenbearbeitung' },
-  { value: 'schnitt',          label: '✂️ Schnitt' },
-  { value: 'laubarbeit',       label: '🍃 Laubarbeit' },
-  { value: 'lese',             label: '🍇 Lese' },
-  { value: 'sonstiges',        label: '📋 Sonstiges' },
+  { value: 'spritzung',        label: 'Spritzung',        icon: SprayCan },
+  { value: 'duengung',         label: 'Düngung',          icon: Sprout },
+  { value: 'bodenbearbeitung', label: 'Bodenbearbeitung', icon: Layers },
+  { value: 'schnitt',          label: 'Schnitt',          icon: Scissors },
+  { value: 'laubarbeit',       label: 'Laubarbeit',       icon: Leaf },
+  { value: 'lese',             label: 'Lese',             icon: Grape },
+  { value: 'sonstiges',        label: 'Sonstiges',        icon: MoreHorizontal },
 ]
 const MENGE_EINHEITEN = ['kg', 'l', 'g', 'ml']
 const LAUBARBEIT_OPTIONEN = [
@@ -153,12 +154,9 @@ export default function BehandlungEditForm({
 
       {/* Weingarten-Info (readonly) */}
       {behandlung.weingarten_name && (
-        <div className="card bg-s112-bg/50 p-4 flex items-center gap-3">
-          <span className="text-2xl">🌿</span>
-          <div>
-            <p className="text-xs text-s112-muted">Weingarten (nicht änderbar)</p>
-            <p className="font-semibold text-gray-800">{behandlung.weingarten_name}</p>
-          </div>
+        <div className="card bg-s112-bg/50 p-4">
+          <p className="text-xs text-s112-muted">Weingarten (nicht änderbar)</p>
+          <p className="font-semibold text-gray-800">{behandlung.weingarten_name}</p>
         </div>
       )}
 
@@ -176,7 +174,7 @@ export default function BehandlungEditForm({
                   : 'bg-white text-gray-700 border-s112-border hover:border-s112-teal/50'}`}>
                 <input type="radio" name="art" value={o.value} checked={art === o.value}
                   onChange={() => setArt(o.value)} className="sr-only" />
-                {o.label}
+                <o.icon size={14} />{o.label}
               </label>
             ))}
           </div>
@@ -204,13 +202,15 @@ export default function BehandlungEditForm({
               {psm.map(p => (
                 <option key={p.id} value={p.id}>
                   {p.name}{p.handelsname ? ` (${p.handelsname})` : ''}
-                  {p.oeko_zugelassen ? ' 🌿' : ''}
+                  {p.oeko_zugelassen ? ' · Bio' : ''}
                   {p.cu_gehalt_pct ? ` · Cu ${p.cu_gehalt_pct}%` : ''}
                 </option>
               ))}
             </select>
             {selectedPsm?.wartezeit_tage != null && (
-              <p className="text-xs text-amber-600 mt-1">⏳ Wartezeit: {selectedPsm.wartezeit_tage} Tage vor Ernte</p>
+              <p className="text-xs text-amber-600 mt-1 inline-flex items-center gap-1">
+                <Hourglass size={12} />Wartezeit: {selectedPsm.wartezeit_tage} Tage vor Ernte
+              </p>
             )}
           </div>
         )}
@@ -227,24 +227,28 @@ export default function BehandlungEditForm({
                 <option key={d.id} value={d.id}>
                   {d.name}{d.handelsname ? ` (${d.handelsname})` : ''}
                   {d.typ ? ` · ${d.typ}` : ''}
-                  {d.oeko_zugelassen ? ' 🌿' : ''}
+                  {d.oeko_zugelassen ? ' · Bio' : ''}
                 </option>
               ))}
             </select>
             {selectedDuengemittel?.wartezeit_tage != null && (
-              <p className="text-xs text-amber-600 mt-1">⏳ Wartezeit: {selectedDuengemittel.wartezeit_tage} Tage vor Ernte</p>
+              <p className="text-xs text-amber-600 mt-1 inline-flex items-center gap-1">
+                <Hourglass size={12} />Wartezeit: {selectedDuengemittel.wartezeit_tage} Tage vor Ernte
+              </p>
             )}
           </div>
         )}
 
         {bioSperre && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
-            ⛔ Das gewählte Mittel ist nicht öko-zugelassen – passt nicht zum Bio-Status des Betriebs. Speichern ist gesperrt.
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm flex items-start gap-2">
+            <Ban size={16} className="mt-0.5 flex-shrink-0" />
+            <span>Das gewählte Mittel ist nicht öko-zugelassen – passt nicht zum Bio-Status des Betriebs. Speichern ist gesperrt.</span>
           </div>
         )}
         {bioWarnung && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-3 text-sm">
-            ⚠️ Das gewählte Mittel ist nicht öko-zugelassen – bitte prüfen, ob das beabsichtigt ist.
+          <div className="bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-3 text-sm flex items-start gap-2">
+            <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
+            <span>Das gewählte Mittel ist nicht öko-zugelassen – bitte prüfen, ob das beabsichtigt ist.</span>
           </div>
         )}
 

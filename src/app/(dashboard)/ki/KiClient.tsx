@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
+import { Bot } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -47,10 +48,10 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
 
   if (!aktiv) return (
     <div className="p-8 max-w-2xl mx-auto text-center py-20">
-      <p className="text-5xl mb-4">🤖</p>
+      <Bot className="w-12 h-12 text-s112-muted mx-auto mb-4" />
       <h1 className="text-2xl font-bold text-gray-800 mb-2">KI-Modul nicht aktiv</h1>
       <p className="text-s112-muted mb-4">Das Modul „Frag dein Weingut" ist für diesen Betrieb noch nicht freigeschaltet.</p>
-      <Link href="/admin/mandanten" className="text-s112-teal hover:underline text-sm">→ Zum Admin-Bereich</Link>
+      <Link href="/admin/mandanten" className="text-s112-teal hover:underline text-sm">Zum Admin-Bereich</Link>
     </div>
   )
 
@@ -61,7 +62,7 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">🤖 Frag dein Weingut</h1>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><Bot className="w-6 h-6" /> Frag dein Weingut</h1>
           <p className="text-sm text-s112-muted mt-1">Stelle Fragen über deine Betriebsdaten in natürlicher Sprache</p>
         </div>
         <div className="text-right text-xs text-s112-muted">
@@ -88,9 +89,9 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
           <button type="submit" disabled={laden || !frage.trim()}
             className="bg-s112-teal text-white px-6 py-3 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40 flex items-center gap-2">
             {laden ? (
-              <><span className="animate-spin">⏳</span> Analysiere…</>
+              <>Analysiere…</>
             ) : (
-              <>🤖 Fragen</>
+              <>Fragen</>
             )}
           </button>
         </div>
@@ -125,7 +126,7 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
           {/* Zusammenfassung */}
           <div className="bg-s112-teal/5 border border-s112-teal/20 rounded-xl p-4">
             <div className="flex items-start gap-3">
-              <span className="text-xl">🤖</span>
+              <Bot className="w-5 h-5 text-s112-teal flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-gray-800">{ergebnis.zusammenfassung}</p>
                 {ergebnis.empfehlung && (
@@ -157,7 +158,7 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
                       {cols.map((col: string) => {
                         const val = row[col]
                         const display = val === null || val === undefined ? '–'
-                          : typeof val === 'boolean' ? (val ? '✓' : '✗')
+                          : typeof val === 'boolean' ? (val ? 'Ja' : 'Nein')
                           : typeof val === 'object' ? (val.vorname ? `${val.vorname} ${val.nachname}` : val.name ?? JSON.stringify(val))
                           : String(val)
                         return (
@@ -192,13 +193,13 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
             a.download = `ki-abfrage-${new Date().toISOString().slice(0,10)}.csv`; a.click()
           }} className="text-xs border border-s112-border text-gray-600 px-3 py-1.5 rounded-lg hover:bg-s112-bg">
-            ⬇ CSV / Excel
+            CSV / Excel
           </button>
 
           {/* Neue Frage */}
           <button onClick={() => { setErgebnis(null); setFrage('') }}
             className="text-sm text-s112-teal hover:underline">
-            ← Neue Frage stellen
+            Neue Frage stellen
           </button>
         </div>
       )}

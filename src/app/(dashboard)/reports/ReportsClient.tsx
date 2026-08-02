@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { exportCSV } from '@/lib/utils/csv'
+import { BarChart3, Calculator, FileText, Droplet } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -20,14 +21,14 @@ interface Props {
 }
 
 const TABS = [
-  { id: 'umsatz',     label: '📈 Umsatz',         title: 'Monatsumsatz Warenwirtschaft (12 Monate)' },
-  { id: 'lager',      label: '🍾 Lager',           title: 'Lagerbestand' },
-  { id: 'behandlung', label: '🌿 Behandlungen',    title: 'Behandlungsübersicht ' + new Date().getFullYear() },
-  { id: 'pipeline',   label: '💼 Pipeline',         title: 'Lead-Pipeline' },
-  { id: 'kontakt',    label: '🤝 Kontaktfrequenz',  title: 'Tage seit letztem Kontakt' },
-  { id: 'offen',      label: '💶 Offene Posten',    title: 'Unbezahlte Rechnungen' },
-  { id: 'behoerden',  label: '🏛 Behörden',          title: 'Behörden-Dokumente' },
-  { id: 'besuch',     label: '🗺 Besuchsplanung',    title: 'Besuchsplanung – PLZ-Cluster' },
+  { id: 'umsatz',     label: 'Umsatz',         title: 'Monatsumsatz Warenwirtschaft (12 Monate)' },
+  { id: 'lager',      label: 'Lager',           title: 'Lagerbestand' },
+  { id: 'behandlung', label: 'Behandlungen',    title: 'Behandlungsübersicht ' + new Date().getFullYear() },
+  { id: 'pipeline',   label: 'Pipeline',         title: 'Lead-Pipeline' },
+  { id: 'kontakt',    label: 'Kontaktfrequenz',  title: 'Tage seit letztem Kontakt' },
+  { id: 'offen',      label: 'Offene Posten',    title: 'Unbezahlte Rechnungen' },
+  { id: 'behoerden',  label: 'Behörden',          title: 'Behörden-Dokumente' },
+  { id: 'besuch',     label: 'Besuchsplanung',    title: 'Besuchsplanung – PLZ-Cluster' },
 ] as const
 type TabId = typeof TABS[number]['id']
 
@@ -217,7 +218,7 @@ export default function ReportsClient({
         </div>
         <button onClick={() => window.print()}
           className="flex items-center gap-2 border border-s112-border text-gray-600 px-3 py-2 rounded-xl text-sm hover:bg-s112-bg transition-colors print:hidden">
-          🖨 Drucken
+          Drucken
         </button>
       </div>
 
@@ -225,14 +226,14 @@ export default function ReportsClient({
       <div className="grid grid-cols-2 gap-4 print:hidden">
         <a href="/reports/keller"
           className="card p-5 hover:border-s112-teal hover:shadow-md transition-all group flex flex-col gap-2">
-          <span className="text-3xl">🍷</span>
+          <BarChart3 className="w-8 h-8 text-s112-teal" strokeWidth={1.75} />
           <p className="font-semibold text-gray-900 group-hover:text-s112-teal">Keller-Auswertungen</p>
           <p className="text-xs text-gray-500 leading-relaxed">Behälter-Auslastung, Chargen, Kellerbehandlungen, Umzüge & Filtrationen</p>
           <p className="text-xs text-s112-teal font-medium mt-auto">Öffnen →</p>
         </a>
         <a href="/auswertungen/kostenrechnung"
           className="card p-5 hover:border-s112-teal hover:shadow-md transition-all group flex flex-col gap-2">
-          <span className="text-3xl">🧮</span>
+          <Calculator className="w-8 h-8 text-s112-teal" strokeWidth={1.75} />
           <p className="font-semibold text-gray-900 group-hover:text-s112-teal">Kosten-Auswertung</p>
           <p className="text-xs text-gray-500 leading-relaxed">Kostenstellen, Kostenarten, Buchungsübersicht</p>
           <p className="text-xs text-s112-teal font-medium mt-auto">Öffnen →</p>
@@ -321,9 +322,9 @@ export default function ReportsClient({
                                 <td className="px-3 py-1.5 font-medium text-gray-800">{kundenName(p)}</td>
                                 <td className="px-3 py-1.5 text-right font-semibold text-s112-teal tabular-nums">{eur(posSum(p))}</td>
                                 <td className="px-3 py-1.5 text-center">
-                                  {p.storniert ? <span className="text-red-500">✗ Storno</span>
-                                    : p.bezahlt ? <span className="text-green-600">✓ Bezahlt</span>
-                                    : <span className="text-amber-500">⏳ Offen</span>}
+                                  {p.storniert ? <span className="text-red-500">Storno</span>
+                                    : p.bezahlt ? <span className="text-green-600">Bezahlt</span>
+                                    : <span className="text-amber-500">Offen</span>}
                                 </td>
                               </tr>
                             ))}
@@ -458,7 +459,7 @@ export default function ReportsClient({
                 <p className={`text-xl font-bold mt-1 tabular-nums ${cuKgHa>4?'text-red-600':'text-green-700'}`}>
                   {cuKgHa.toFixed(2).replace('.',',')} kg/ha
                 </p>
-                <p className="text-xs text-s112-muted mt-0.5">{cuKgHa>4?'⚠ Über EU-Limit (4 kg/ha/Jahr)':'✓ Im EU-Bio-Limit'}</p>
+                <p className="text-xs text-s112-muted mt-0.5">{cuKgHa>4?'Über EU-Limit (4 kg/ha/Jahr)':'Im EU-Bio-Limit'}</p>
               </div>
             </div>
             {behandlungen.length === 0 ? (
@@ -513,7 +514,6 @@ export default function ReportsClient({
                         const name = p.kontakt ? [p.kontakt.vorname,p.kontakt.nachname].filter(Boolean).join(' ') : p.firma?.name ?? '–'
                         return (
                           <div key={p.id} className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg ${p.erledigt?'opacity-50':''} bg-s112-bg/50`}>
-                            {p.erledigt && <span className="text-green-500 text-xs">✓</span>}
                             <span className="font-medium text-gray-800">{name}</span>
                             {p.kategorie && <span className="text-xs text-s112-muted">· {p.kategorie}</span>}
                           </div>
@@ -576,7 +576,7 @@ export default function ReportsClient({
               </div>
             </div>
             {offene.length === 0 ? (
-              <p className="text-center text-green-600 font-medium py-8">✓ Alle Rechnungen bezahlt!</p>
+              <p className="text-center text-green-600 font-medium py-8">Alle Rechnungen bezahlt!</p>
             ) : (
               <table className="w-full text-sm">
                 <thead><tr className="bg-s112-bg border-b border-s112-border text-xs text-gray-600">
@@ -646,7 +646,7 @@ export default function ReportsClient({
               <div className="flex items-end">
                 <button type="submit" disabled={bLaden}
                   className="w-full text-white px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-40" style={{ backgroundColor: 'var(--s112-teal)' }}>
-                  {bLaden ? '⏳ Lädt…' : '🗺 Planen'}
+                  {bLaden ? 'Lädt…' : 'Planen'}
                 </button>
               </div>
             </form>
@@ -666,7 +666,7 @@ export default function ReportsClient({
                       </div>
                       {googleMapsUrl(kontakte) && (
                         <a href={googleMapsUrl(kontakte)} target="_blank" rel="noopener noreferrer"
-                          className="text-xs text-s112-teal hover:underline">📍 In Maps öffnen</a>
+                          className="text-xs text-s112-teal hover:underline">In Maps öffnen</a>
                       )}
                     </div>
                     <div className="divide-y divide-s112-border/40">
@@ -713,16 +713,16 @@ export default function ReportsClient({
             <p className="text-sm text-s112-muted">Druckfertige Behördendokumente – automatisch mit Betriebsdaten und Mandantenlogo befüllt.</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {[
-                { href: '/reports/ama', icon: '🌾', title: 'AMA Erntemeldung', desc: 'Weinerntemeldung je Jahrgang · Druckfertig mit Unterschriftsfeld' },
-                { href: '/reports/behandlungsprotokoll', icon: '🌿', title: 'Behandlungsprotokoll', desc: 'Weinbauliches Spritzprotokoll nach Saison · für Bio-Kontrolle und Landwirtschaftskammer' },
-                { href: '/reports/cu-bilanz', icon: '⚗️', title: 'Cu-Bilanz Jahresbericht', desc: 'Kupfer-Nachweis gem. EU-Bio-VO 2018/848 · Ampel vs. 4 kg/ha EU-Limit' },
+                { href: '/reports/ama', icon: FileText, title: 'AMA Erntemeldung', desc: 'Weinerntemeldung je Jahrgang · Druckfertig mit Unterschriftsfeld' },
+                { href: '/reports/behandlungsprotokoll', icon: FileText, title: 'Behandlungsprotokoll', desc: 'Weinbauliches Spritzprotokoll nach Saison · für Bio-Kontrolle und Landwirtschaftskammer' },
+                { href: '/reports/cu-bilanz', icon: Droplet, title: 'Cu-Bilanz Jahresbericht', desc: 'Kupfer-Nachweis gem. EU-Bio-VO 2018/848 · Ampel vs. 4 kg/ha EU-Limit' },
               ].map(doc => (
                 <a key={doc.href} href={doc.href}
                   className="card p-5 hover:border-s112-teal hover:shadow-md transition-all group flex flex-col gap-2">
-                  <span className="text-3xl">{doc.icon}</span>
+                  <doc.icon className="w-8 h-8 text-s112-teal" strokeWidth={1.75} />
                   <p className="font-semibold text-gray-900 group-hover:text-s112-teal">{doc.title}</p>
                   <p className="text-xs text-gray-500 leading-relaxed">{doc.desc}</p>
-                  <p className="text-xs text-s112-teal font-medium mt-auto">🖨 Öffnen & Drucken →</p>
+                  <p className="text-xs text-s112-teal font-medium mt-auto">Öffnen & Drucken →</p>
                 </a>
               ))}
             </div>

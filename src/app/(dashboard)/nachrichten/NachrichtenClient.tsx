@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
+import { Mail, Inbox, Send, Trash2, FileText, Folder, X } from 'lucide-react'
 
 type Msg = {
   id: string; betreff: string; von: string; vonName: string
@@ -168,7 +169,7 @@ export default function NachrichtenClient() {
     })
     const data = await res.json()
     if (!res.ok || data.fehler) { setSendResult('Fehler: ' + (data.fehler ?? 'Unbekannt')); setSending(false); return }
-    setSendResult('✓ Gesendet')
+    setSendResult('Gesendet')
     setTimeout(() => { setCompose(false); setSendResult(null); setAn(''); setBetreff(''); setText('') }, 1500)
     setSending(false)
     if (folder === 'sent') ladeMessages()
@@ -177,7 +178,7 @@ export default function NachrichtenClient() {
   if (verbunden === false) {
     return (
       <div className="flex flex-col items-center justify-center h-96 gap-5">
-        <p className="text-4xl">📬</p>
+        <Mail className="w-10 h-10 text-s112-muted" />
         <h2 className="text-xl font-bold text-gray-800">Deine Mailbox verbinden</h2>
         <p className="text-sm text-s112-muted text-center max-w-md">
           Verbinde dein persönliches E-Mail-Konto um Nachrichten direkt in software:112 zu lesen und zu schreiben.
@@ -186,7 +187,7 @@ export default function NachrichtenClient() {
         {fehler && <p className="text-sm text-red-600">{fehler}</p>}
         <a href="/api/auth/m365/user"
           className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl text-sm font-semibold hover:bg-blue-700">
-          <span className="text-lg">📅</span> Mit Microsoft 365 verbinden
+          Mit Microsoft 365 verbinden
         </a>
         <div className="mt-4 pt-4 border-t border-s112-border space-y-2">
           <p className="text-xs font-medium text-gray-700">Optional: Funktionale Mailbox überwachen</p>
@@ -214,7 +215,7 @@ export default function NachrichtenClient() {
   }
 
   if (verbunden === null) {
-    return <div className="flex items-center justify-center h-48 text-s112-muted">⏳ Verbindung wird geprüft…</div>
+    return <div className="flex items-center justify-center h-48 text-s112-muted">Verbindung wird geprüft…</div>
   }
 
   return (
@@ -225,7 +226,7 @@ export default function NachrichtenClient() {
         <div className="p-3">
           <button onClick={() => setCompose(true)}
             className="w-full bg-s112-teal text-white px-3 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 flex items-center justify-center gap-2">
-            ✏ Verfassen
+            Verfassen
           </button>
         </div>
         <nav className="flex-1 px-2 space-y-0.5 overflow-y-auto">
@@ -234,7 +235,7 @@ export default function NachrichtenClient() {
             <button key={f.id} onClick={() => { setFolderId(f.id); setFolder('inbox'); setSelected(null) }}
               className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors
                 ${folderId === f.id ? 'bg-s112-teal/10 text-s112-teal font-medium' : 'text-gray-600 hover:bg-white'}`}>
-              <span className="text-sm">{f.name === 'Inbox' || f.name === 'Posteingang' ? '📥' : f.name === 'Sent Items' || f.name === 'Gesendete Elemente' ? '📤' : f.name === 'Deleted Items' || f.name === 'Gelöschte Elemente' ? '🗑' : f.name === 'Drafts' || f.name === 'Entwürfe' ? '📝' : '📁'}</span>
+              <span className="flex-shrink-0">{f.name === 'Inbox' || f.name === 'Posteingang' ? <Inbox className="w-3.5 h-3.5" /> : f.name === 'Sent Items' || f.name === 'Gesendete Elemente' ? <Send className="w-3.5 h-3.5" /> : f.name === 'Deleted Items' || f.name === 'Gelöschte Elemente' ? <Trash2 className="w-3.5 h-3.5" /> : f.name === 'Drafts' || f.name === 'Entwürfe' ? <FileText className="w-3.5 h-3.5" /> : <Folder className="w-3.5 h-3.5" />}</span>
               <span className="flex-1 text-left truncate text-xs">{f.name}</span>
               {f.unread > 0 && <span className="text-xs bg-s112-teal text-white px-1.5 py-0.5 rounded-full">{f.unread}</span>}
             </button>
@@ -244,7 +245,7 @@ export default function NachrichtenClient() {
               <button key={id} onClick={() => { setFolderId(null); setFolder(id as 'inbox'|'sent') }}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors
                   ${folder === id && !folderId ? 'bg-s112-teal/10 text-s112-teal font-medium' : 'text-gray-600 hover:bg-white'}`}>
-                <span>{id === 'inbox' ? '📥' : '📤'}</span>
+                <span>{id === 'inbox' ? <Inbox className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}</span>
                 <span className="flex-1 text-left">{id === 'inbox' ? 'Posteingang' : 'Gesendet'}</span>
               </button>
             ))
@@ -253,11 +254,11 @@ export default function NachrichtenClient() {
         <div className="p-3 border-t border-s112-border">
           <button onClick={ladeMessages} disabled={laden}
             className="w-full text-xs text-s112-muted hover:text-s112-teal py-1">
-            {laden ? '⏳ Laden…' : '↻ Aktualisieren'}
+            {laden ? 'Laden…' : 'Aktualisieren'}
           </button>
           <button onClick={() => setShowSettings(v => !v)}
             className="w-full text-xs text-s112-muted hover:text-s112-teal py-1">
-            ⚙ Einstellungen
+            Einstellungen
           </button>
           {showSettings && (
             <div className="mt-2 pt-2 border-t border-s112-border space-y-2">
@@ -331,17 +332,17 @@ export default function NachrichtenClient() {
       <div className="flex-1 flex flex-col bg-white overflow-hidden">
         {!selected && !detailLaden && !compose && (
           <div className="flex-1 flex items-center justify-center text-s112-muted text-sm">
-            E-Mail aus der Liste wählen oder ✏ Verfassen klicken
+            E-Mail aus der Liste wählen oder Verfassen klicken
           </div>
         )}
         {detailLaden && (
-          <div className="flex-1 flex items-center justify-center text-s112-muted text-sm">⏳ E-Mail wird geladen…</div>
+          <div className="flex-1 flex items-center justify-center text-s112-muted text-sm">E-Mail wird geladen…</div>
         )}
         {selected && forwardMode && (
           <div className="flex-1 flex flex-col p-6 gap-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-800">↪ Weiterleiten</h3>
-              <button onClick={() => setForwardMode(false)} className="text-xs text-s112-muted hover:text-gray-700">✕ Abbrechen</button>
+              <h3 className="text-sm font-semibold text-gray-800">Weiterleiten</h3>
+              <button onClick={() => setForwardMode(false)} className="text-xs text-s112-muted hover:text-gray-700">Abbrechen</button>
             </div>
             <p className="text-xs text-s112-muted">Betreff: Fwd: {selected.betreff}</p>
             <input value={forwardAn} onChange={e => setForwardAn(e.target.value)}
@@ -361,7 +362,7 @@ export default function NachrichtenClient() {
               setForwardMode(false)
             }} disabled={sending || !forwardAn}
               className="text-sm bg-s112-teal text-white px-4 py-2 rounded-lg hover:bg-opacity-90 disabled:opacity-40">
-              {sending ? '⏳ Senden…' : '↪ Weiterleiten'}
+              {sending ? 'Senden…' : 'Weiterleiten'}
             </button>
           </div>
         )}
@@ -378,16 +379,16 @@ export default function NachrichtenClient() {
                   {selected.kontaktInfo && (
                     <Link href={`/crm/${selected.kontaktInfo.typ === 'firma' ? 'firmen' : 'kontakte'}/${selected.kontaktInfo.id}`}
                       className="text-xs text-s112-teal border border-s112-border px-3 py-1.5 rounded-lg hover:bg-s112-bg">
-                      👤 {selected.kontaktInfo.name}
+                      {selected.kontaktInfo.name}
                     </Link>
                   )}
                   <button onClick={() => { setCompose(true); setAn(selected.von); setBetreff(`Re: ${selected.betreff}`); setText('') }}
                     className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg hover:bg-opacity-90">
-                    ↩ Antworten
+                    Antworten
                   </button>
                   <button onClick={() => { setForwardMode(true); setForwardAn(''); setCompose(false) }}
                     className="text-xs border border-s112-border text-gray-600 px-3 py-1.5 rounded-lg hover:bg-s112-bg">
-                    ↪ Weiterleiten
+                    Weiterleiten
                   </button>
                   {!deleteConfirm ? (
                     <button onClick={() => setDeleteConfirm(true)} title="Löschen"
@@ -420,7 +421,7 @@ export default function NachrichtenClient() {
               {(threadLaden || threadMsgs.length > 0) && (
                 <div className="border-t border-s112-border mt-4 pt-4">
                   <p className="text-xs font-medium text-s112-muted mb-3 uppercase tracking-wide">
-                    Weitere Nachrichten in diesem Thread {threadLaden && '⏳'}
+                    Weitere Nachrichten in diesem Thread{threadLaden ? ' – lädt…' : ''}
                   </p>
                   <div className="space-y-3">
                     {threadMsgs.map(tm => (
@@ -435,7 +436,7 @@ export default function NachrichtenClient() {
                         <div className="flex gap-2 mt-2">
                           <button onClick={e => { e.stopPropagation(); setCompose(true); setAn(tm.von); setBetreff(`Re: ${tm.betreff}`); setText('') }}
                             className="text-[10px] text-s112-teal border border-s112-teal/30 px-2 py-0.5 rounded hover:bg-s112-teal/5">
-                            ↩ Antworten
+                            Antworten
                           </button>
                         </div>
                       </div>
@@ -460,9 +461,9 @@ export default function NachrichtenClient() {
         {compose && (
           <div className="flex-1 flex flex-col p-6">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="font-bold text-gray-900">✏ Neue E-Mail verfassen</h2>
+              <h2 className="font-bold text-gray-900 flex items-center gap-2"><Mail className="w-4 h-4" /> Neue E-Mail verfassen</h2>
               <button onClick={() => { setCompose(false); setSendResult(null) }}
-                className="text-s112-muted hover:text-gray-700">✕</button>
+                className="text-s112-muted hover:text-gray-700"><X className="w-4 h-4" /></button>
             </div>
             <form onSubmit={sendEmail} className="flex-1 flex flex-col gap-3">
               {monitoredEmail && (
@@ -496,11 +497,11 @@ export default function NachrichtenClient() {
                 <textarea value={text} onChange={e => setText(e.target.value)} rows={12}
                   className="flex-1 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
               </div>
-              {sendResult && <p className={`text-sm font-medium ${sendResult.startsWith('✓') ? 'text-green-600' : 'text-red-600'}`}>{sendResult}</p>}
+              {sendResult && <p className={`text-sm font-medium ${sendResult.startsWith('Fehler') ? 'text-red-600' : 'text-green-600'}`}>{sendResult}</p>}
               <div className="flex gap-2">
                 <button type="submit" disabled={sending}
                   className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
-                  {sending ? 'Senden…' : '✉ Senden'}
+                  {sending ? 'Senden…' : 'Senden'}
                 </button>
                 <button type="button" onClick={() => setCompose(false)}
                   className="text-sm px-4 py-2 rounded-xl border border-s112-border text-gray-600 hover:bg-s112-bg">

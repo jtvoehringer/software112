@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
+import { Pencil, Trash2 } from 'lucide-react'
 import { deactivateWeingarten, deleteWeingarten } from './actions'
 import { fmtHa } from '@/lib/format'
 
@@ -134,14 +135,14 @@ function WeingartenZeile({
               <Link href={`/weingarten/${w.id}`}
                 title="Bearbeiten" aria-label="Bearbeiten"
                 className="text-s112-teal hover:text-s112-teal/70">
-                ✏️
+                <Pencil size={14} />
               </Link>
             )}
             {adminOk && (
               <button onClick={handleDelete}
                 title="Löschen" aria-label="Löschen"
                 className="text-red-400 hover:text-red-600">
-                🗑️
+                <Trash2 size={14} />
               </button>
             )}
             </div>

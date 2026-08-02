@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { deactivateVerkauf, stornoVerkauf, createZahlung, deleteZahlung } from '../actions'
 import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButton'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
+import { Trash2, Undo2, Mail, Phone, Info, CreditCard } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -167,8 +168,8 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const teilBezahlt    = bezahltSumme > 0.01 && !vollBezahlt
 
   const ART_LABELS: Record<string, string> = {
-    bar: '💵 Bar', karte: '💳 Karte', bank: '🏦 Bank',
-    gutschrift: '📝 Gutschrift', sonstig: '🔄 Sonstiges',
+    bar: 'Bar', karte: 'Karte', bank: 'Bank',
+    gutschrift: 'Gutschrift', sonstig: 'Sonstiges',
   }
 
   const createZahlungBound  = createZahlung.bind(null, id)
@@ -206,7 +207,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             <ConfirmDeleteForm
               action={stornoWithId}
               message="Verkauf stornieren? Der Lagerbestand wird zurückgebucht."
-              label="↩️"
+              label={<Undo2 size={16} />}
               title="Stornieren"
               className="text-orange-500 hover:text-orange-700"
             />
@@ -215,7 +216,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             <ConfirmDeleteForm
               action={deactivateWithId}
               message="Verkauf wirklich löschen (ohne Bestandskorrektur)?"
-              label="🗑️"
+              label={<Trash2 size={16} />}
               title="Löschen"
               className="text-red-400 hover:text-red-600"
             />
@@ -335,8 +336,8 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
           <div className="mt-3 pt-3 border-t border-s112-border text-sm">
             <span className="text-s112-muted">Kunde:</span>{' '}
             <span className="font-medium text-gray-800">{kundenName(posten)}</span>
-            {info.email   && <span className="text-s112-muted ml-3">✉ {info.email}</span>}
-            {info.telefon && <span className="text-s112-muted ml-3">📞 {info.telefon}</span>}
+            {info.email   && <span className="text-s112-muted ml-3 inline-flex items-center gap-1"><Mail size={13} /> {info.email}</span>}
+            {info.telefon && <span className="text-s112-muted ml-3 inline-flex items-center gap-1"><Phone size={13} /> {info.telefon}</span>}
           </div>
         )}
         {posten.notizen && (
@@ -432,8 +433,8 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
         <div className="print-only mt-8 pt-6 border-t border-gray-200 text-sm space-y-3">
           {skontoAktiv && skontoDatum && (
             <div className="bg-amber-50 border border-amber-200 rounded px-3 py-2">
-              <p className="font-semibold text-amber-800">
-                💡 {posten.skonto_pct}% Skonto bei Zahlung bis {skontoDatum.toLocaleDateString('de-AT')}
+              <p className="font-semibold text-amber-800 flex items-center gap-1.5">
+                <Info size={14} /> {posten.skonto_pct}% Skonto bei Zahlung bis {skontoDatum.toLocaleDateString('de-AT')}
               </p>
               <p className="text-amber-700 text-xs mt-0.5">
                 Bei fristgerechter Zahlung: {(gesamt - skontoBetrag).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
@@ -462,13 +463,13 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       {!posten.storniert && (
         <div className="card p-5 no-print space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-gray-700">💰 Zahlungseingang</h2>
+            <h2 className="font-semibold text-gray-700 flex items-center gap-1.5"><CreditCard size={16} /> Zahlungseingang</h2>
             <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
               vollBezahlt ? 'bg-green-100 text-green-700' :
               teilBezahlt ? 'bg-amber-100 text-amber-700' :
               'bg-red-100 text-red-700'
             }`}>
-              {vollBezahlt ? '✅ Bezahlt' : teilBezahlt ? `⏳ Teilweise (${bezahltSumme.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })} von ${gesamt.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })})` : '🔴 Offen'}
+              {vollBezahlt ? 'Bezahlt' : teilBezahlt ? `Teilweise (${bezahltSumme.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })} von ${gesamt.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })})` : 'Offen'}
             </span>
           </div>
 
@@ -495,7 +496,9 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                       <td className="px-3 py-2 text-right">
                         {writeOk && (
                           <form action={deleteZahlung.bind(null, z.id, id)}>
-                            <button type="submit" className="text-xs text-red-400 hover:text-red-600">× löschen</button>
+                            <button type="submit" title="Löschen" aria-label="Löschen" className="text-red-400 hover:text-red-600 inline-flex">
+                              <Trash2 size={14} />
+                            </button>
                           </form>
                         )}
                       </td>
@@ -527,12 +530,14 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
 
           {/* Skonto-Hinweis */}
           {posten.skonto_aktiv && (posten.skonto_pct ?? 0) > 0 && !vollBezahlt && (
-            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              💡 Skonto {posten.skonto_pct}% bei Zahlung bis{' '}
+            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-1.5">
+              <Info size={13} className="mt-0.5 flex-shrink-0" />
+              <span>Skonto {posten.skonto_pct}% bei Zahlung bis{' '}
               {new Date(new Date(posten.datum).setDate(
                 new Date(posten.datum).getDate() + (posten.skonto_tage ?? 0)
               )).toLocaleDateString('de-AT')}
               {' '}(−{((gesamt * (posten.skonto_pct ?? 0)) / 100).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })})
+              </span>
             </div>
           )}
 
@@ -548,11 +553,11 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Art</label>
                   <select name="art" className="form-input text-sm w-full">
-                    <option value="bar">💵 Bar</option>
-                    <option value="karte">💳 Karte</option>
-                    <option value="bank">🏦 Bank</option>
-                    <option value="gutschrift">📝 Gutschrift</option>
-                    <option value="sonstig">🔄 Sonstiges</option>
+                    <option value="bar">Bar</option>
+                    <option value="karte">Karte</option>
+                    <option value="bank">Bank</option>
+                    <option value="gutschrift">Gutschrift</option>
+                    <option value="sonstig">Sonstiges</option>
                   </select>
                 </div>
                 <div>

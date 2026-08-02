@@ -2,6 +2,7 @@
 
 import { useState, useRef, useTransition, useCallback } from 'react'
 import Link from 'next/link'
+import { ArrowLeftRight, FlaskConical, Wine } from 'lucide-react'
 import { upsertKellerplanPosition, deleteKellerplanPosition } from '../actions'
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
@@ -271,7 +272,7 @@ export default function KellerplanEditor({
         <p className="no-print text-xs text-s112-muted mb-1">Wird gespeichert…</p>
       )}
       {saveError && (
-        <p className="no-print text-xs text-red-500 mb-1">⚠ {saveError}</p>
+        <p className="no-print text-xs text-red-500 mb-1">{saveError}</p>
       )}
 
       <div className="flex gap-6 items-start">
@@ -479,7 +480,7 @@ export default function KellerplanEditor({
               Nicht platziert
             </p>
             {unplaced.length === 0 ? (
-              <p className="text-xs text-s112-muted italic">Alle Behälter platziert ✓</p>
+              <p className="text-xs text-s112-muted italic">Alle Behälter platziert</p>
             ) : (
               <div className="space-y-1.5">
                 {unplaced.map(b => {
@@ -510,7 +511,7 @@ export default function KellerplanEditor({
               <p>Klick → Umziehen / Behandlungen / Abfüllen</p>
               <p>↔ Auf Plan verschieben</p>
               <p>− + Größe (hover)</p>
-              <p>✕ Entfernen (hover)</p>
+              <p>× Entfernen (hover)</p>
             </div>
           </div>
         )}
@@ -535,14 +536,14 @@ export default function KellerplanEditor({
                 onClick={() => setDialogBehaelterId(null)}
                 className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-s112-border hover:border-s112-teal/50 hover:bg-s112-bg/40 transition-colors text-sm font-medium text-gray-700"
               >
-                🔄 Umziehen
+                <ArrowLeftRight className="w-4 h-4" /> Umziehen
               </Link>
               <Link
                 href={`/kellerbuch/behaelter/${dialogBehaelter.id}/behandlungen`}
                 onClick={() => setDialogBehaelterId(null)}
                 className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-s112-border hover:border-s112-teal/50 hover:bg-s112-bg/40 transition-colors text-sm font-medium text-gray-700"
               >
-                🧪 Kellerbehandlungen
+                <FlaskConical className="w-4 h-4" /> Kellerbehandlungen
               </Link>
               {dialogWein ? (
                 <Link
@@ -550,14 +551,14 @@ export default function KellerplanEditor({
                   onClick={() => setDialogBehaelterId(null)}
                   className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-s112-border hover:border-s112-teal/50 hover:bg-s112-bg/40 transition-colors text-sm font-medium text-gray-700"
                 >
-                  🍾 Abfüllen
+                  <Wine className="w-4 h-4" /> Abfüllen
                 </Link>
               ) : (
                 <div
                   title="Kein Wein im Behälter – nichts zum Abfüllen"
                   className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-s112-border opacity-40 cursor-not-allowed text-sm font-medium text-gray-500"
                 >
-                  🍾 Abfüllen
+                  <Wine className="w-4 h-4" /> Abfüllen
                 </div>
               )}
             </div>

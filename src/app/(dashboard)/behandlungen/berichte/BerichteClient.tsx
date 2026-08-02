@@ -220,8 +220,8 @@ function TabMittel({ behandlungen, jahr }: { behandlungen: BehandlungReport[]; j
                   </td>
                   <td className="py-2.5 text-right">
                     {ok
-                      ? <span className="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full">✓ OK</span>
-                      : <span className="text-xs bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded-full">⚠ Grenzwert</span>
+                      ? <span className="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full">OK</span>
+                      : <span className="text-xs bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded-full">Grenzwert</span>
                     }
                   </td>
                 </tr>
@@ -295,7 +295,6 @@ function TabCu({ behandlungen }: { behandlungen: BehandlungReport[] }) {
     return (
       <div className="card">
         <div className="text-center py-12 text-s112-muted">
-          <p className="text-3xl mb-2">🔵</p>
           <p className="font-medium text-gray-600">Keine Cu-Daten vorhanden</p>
           <p className="text-sm mt-1 max-w-sm mx-auto">
             Erfassen Sie Maßnahmen mit kupferhaltigen Mitteln. Der Cu-Gehalt muss in den
@@ -408,7 +407,6 @@ function TabCu({ behandlungen }: { behandlungen: BehandlungReport[] }) {
                         </td>
                         <td className={`py-2 text-right tabular-nums text-xs ${!anwOk ? 'text-red-600 font-semibold' : 'text-s112-muted'}`}>
                           {e.max_anwendungen ? `${anwBisher} / ${e.max_anwendungen}` : `${anwBisher} / –`}
-                          {!anwOk && ' ⚠'}
                         </td>
                       </tr>
                     )
@@ -456,7 +454,7 @@ export default function BerichteClient({ behandlungen }: { behandlungen: Behandl
     { id: 'weingarten', label: 'Pro Ried' },
     { id: 'lage',       label: 'Pro Ried' },
     { id: 'mittel',     label: 'Mittelverbrauch' },
-    { id: 'cu',         label: '🔵 Cu-Bilanz' },
+    { id: 'cu',         label: 'Cu-Bilanz' },
   ]
 
   const TAB_TITLES: Record<Tab, string> = {
@@ -505,7 +503,7 @@ export default function BerichteClient({ behandlungen }: { behandlungen: Behandl
               className="inline-flex items-center gap-1.5 border border-s112-border text-gray-600 px-3 py-1 rounded-lg text-sm hover:bg-s112-bg transition-colors"
               title="Als PDF speichern oder drucken"
             >
-              🖨 Drucken / PDF
+              Drucken / PDF
             </button>
           </div>
         </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useTransition } from 'react'
+import { Trash2 } from 'lucide-react'
 import { saveTB } from './actions'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -125,14 +126,14 @@ export default function TBFormular({ verkaufspostenId, initial }: Props) {
             disabled={pending}
             className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50"
           >
-            {pending ? '⏳ Speichern…' : '💾 Speichern'}
+            {pending ? 'Speichern…' : 'Speichern'}
           </button>
-          {gespeichert && <span className="text-xs text-green-600">✓ Gespeichert</span>}
+          {gespeichert && <span className="text-xs text-green-600">Gespeichert</span>}
           <button
             onClick={() => window.print()}
             className="border border-s112-border px-4 py-1.5 rounded-lg text-sm hover:bg-gray-50"
           >
-            🖨 Drucken
+            Drucken
           </button>
         </div>
         <button onClick={addPos} className="text-xs text-s112-teal hover:underline no-print">
@@ -364,7 +365,9 @@ export default function TBFormular({ verkaufspostenId, initial }: Props) {
                   </td>
                   <td className="border border-gray-300 p-0.5 no-print">
                     {daten.positionen.length > 1 && (
-                      <button onClick={() => removePos(i)} className="text-red-400 hover:text-red-600 text-xs px-1">✕</button>
+                      <button onClick={() => removePos(i)} title="Löschen" aria-label="Löschen" className="text-red-400 hover:text-red-600 text-xs px-1">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     )}
                   </td>
                 </tr>

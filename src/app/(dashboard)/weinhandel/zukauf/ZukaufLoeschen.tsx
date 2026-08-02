@@ -2,6 +2,7 @@
 
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { Trash2 } from 'lucide-react'
 import { deleteZukauf } from './actions'
 
 export default function ZukaufLoeschen({ id, info }: { id: string; info: string }) {
@@ -23,7 +24,7 @@ export default function ZukaufLoeschen({ id, info }: { id: string; info: string 
       title="Löschen" aria-label="Löschen"
       className="text-red-500 hover:text-red-700 disabled:opacity-50"
     >
-      {isPending ? '…' : '🗑️'}
+      {isPending ? '…' : <Trash2 className="w-4 h-4" />}
     </button>
   )
 }

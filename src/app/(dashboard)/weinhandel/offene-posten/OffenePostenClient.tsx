@@ -57,7 +57,7 @@ function PostenZeile({ p, writeOk }: { p: Posten; writeOk: boolean }) {
       <td className="px-4 py-3 text-center">
         {p.bezahlt ? (
           <div>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">✓ Bezahlt</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Bezahlt</span>
             {p.bezahlt_am && (
               <p className="text-[10px] text-s112-muted mt-0.5">
                 {new Date(p.bezahlt_am).toLocaleDateString('de-AT')}
@@ -127,7 +127,7 @@ export default function OffenePostenClient({
       {alle.length === 0 ? (
         <div className="card p-12 text-center text-s112-muted text-sm">
           {offene.length === 0
-            ? '✓ Keine offenen Rechnungen – alles bezahlt!'
+            ? 'Keine offenen Rechnungen – alles bezahlt!'
             : 'Keine Einträge vorhanden.'}
         </div>
       ) : (

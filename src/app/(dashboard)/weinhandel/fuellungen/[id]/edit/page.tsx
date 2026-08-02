@@ -3,6 +3,7 @@ import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Wine } from 'lucide-react'
 import { updateFuellung, schwundAusbuchen } from '../../../actions'
 import { KN_CODES } from '@/lib/wein/zolltarif'
 import { HERKUNFT_ORDER, HERKUNFT_LABEL } from '@/lib/herkunft'
@@ -119,7 +120,7 @@ export default async function EditFuellungPage({
             className="rounded-xl border border-s112-border shrink-0"
           />
           <div className="space-y-2 min-w-0">
-            <p className="text-sm font-semibold text-gray-800">🍾 Weinpass</p>
+            <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5"><Wine className="w-4 h-4 text-s112-teal" /> Weinpass</p>
             <p className="text-xs text-s112-muted">Chargennummer: <span className="font-mono text-gray-700">{f.chargennummer}</span></p>
             <a
               href={`/w/${encodeURIComponent(f.chargennummer)}`}
@@ -133,12 +134,12 @@ export default async function EditFuellungPage({
                 download={`weinpass-${f.chargennummer}.png`}
                 target="_blank" rel="noopener noreferrer"
                 className="text-xs border border-s112-border px-3 py-1 rounded-lg text-gray-600 hover:bg-s112-bg">
-                ⬇ QR laden
+                QR laden
               </a>
               <a
                 href={`/kellerbuch/rueckverfolgung?q=${encodeURIComponent(f.chargennummer)}`}
                 className="text-xs border border-s112-border px-3 py-1 rounded-lg text-gray-600 hover:bg-s112-bg">
-                🔍 Rückverfolgung
+                Rückverfolgung
               </a>
             </div>
           </div>
@@ -152,7 +153,7 @@ export default async function EditFuellungPage({
           <h2 className="font-semibold text-gray-800 text-sm">Kellerbuch-Charge</h2>
           {!f.weinausbau_id && (
             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              ⚠ Keine Charge verknüpft – Rückverfolgung nur bis zur Abfüllung möglich. Bitte hier nachträglich zuordnen.
+              Keine Charge verknüpft – Rückverfolgung nur bis zur Abfüllung möglich. Bitte hier nachträglich zuordnen.
             </p>
           )}
           <div>
@@ -172,7 +173,6 @@ export default async function EditFuellungPage({
         {waRestmenge !== null && waRestmenge > 0.01 && (
           <div className="card p-5 border-amber-200 bg-amber-50 space-y-3">
             <div className="flex items-start gap-2">
-              <span className="text-lg">⚠️</span>
               <div>
                 <p className="text-sm font-semibold text-amber-800">Weinausbau-Charge nicht abgeschlossen</p>
                 <p className="text-xs text-amber-700 mt-0.5">
@@ -187,7 +187,7 @@ export default async function EditFuellungPage({
                 type="submit"
                 className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-amber-700 transition-colors"
               >
-                🍶 {waRestmenge.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L als Schwund ausbuchen & Charge abschließen
+                {waRestmenge.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L als Schwund ausbuchen & Charge abschließen
               </button>
             </form>
           </div>

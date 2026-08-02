@@ -76,7 +76,7 @@ export default async function FibuPage({
           {(perioden as R[]).map((p: R) => (
             <span key={p.id}
               className={`text-xs px-2.5 py-1 rounded-full border ${p.gesperrt ? 'bg-gray-100 text-gray-500 border-gray-200' : 'bg-s112-teal/10 text-s112-teal border-s112-teal/30'}`}>
-              {MONATE[p.monat - 1]} {p.gesperrt ? '🔒' : ''}
+              {MONATE[p.monat - 1]}
             </span>
           ))}
         </div>
@@ -115,7 +115,6 @@ export default async function FibuPage({
                   <div className="flex items-center gap-3">
                     <span className="font-mono text-xs text-s112-teal font-medium">{satz.belegnummer}</span>
                     <span className="text-sm font-medium text-gray-800">{satz.beschreibung}</span>
-                    {satz.gesperrt && <span className="text-xs text-gray-400">🔒</span>}
                   </div>
                   <div className="flex items-center gap-4">
                     <span className="text-xs text-gray-500">

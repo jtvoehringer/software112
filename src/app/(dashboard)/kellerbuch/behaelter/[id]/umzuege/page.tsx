@@ -3,16 +3,13 @@ import { fmtLiter } from '@/lib/format'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { Boxes } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Umzüge – software:112' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
-
-const TYP_ICONS: Record<string, string> = {
-  lagertank: '🪣', immervolltank: '🪣', stahltank: '🪣', holzfass: '🪵', betonei: '⚪', amphore: '🏺', sonstiges: '📦',
-}
 
 function fmt(n: number | null) {
   if (n == null || isNaN(n)) return '–'
@@ -125,7 +122,7 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-start gap-3">
-          <span className="text-3xl mt-0.5">{TYP_ICONS[bh.typ] ?? '📦'}</span>
+          <Boxes className="w-7 h-7 text-s112-teal mt-0.5" />
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{bh.name}</h1>
             <div className="flex items-center gap-3 mt-0.5 flex-wrap text-xs text-s112-muted">
@@ -136,7 +133,7 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
         </div>
         <Link href="/kellerbuch/umziehen?neu=1"
           className="text-xs border border-s112-teal text-s112-teal px-3 py-1.5 rounded-lg hover:bg-s112-teal/5 font-medium">
-          ↔️ Neuer Umzug
+          Neuer Umzug
         </Link>
       </div>
 
@@ -144,21 +141,20 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
       <div className="flex gap-1 border-b border-s112-border">
         <Link href={`/kellerbuch/behaelter/${id}/bewegungen`}
           className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300 -mb-px transition-colors">
-          📊 Bewegungsbuch
+          Bewegungsbuch
         </Link>
         <span className="px-4 py-2 text-sm font-medium text-s112-teal border-b-2 border-s112-teal -mb-px">
-          ↔️ Umziehen
+          Umziehen
         </span>
         <Link href={`/kellerbuch/behaelter/${id}/behandlungen`}
           className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300 -mb-px transition-colors">
-          🧪 Kellerbehandlungen
+          Kellerbehandlungen
         </Link>
       </div>
 
       {/* Tabelle */}
       {umzuege.length === 0 ? (
         <div className="card text-center py-10">
-          <p className="text-2xl mb-2">↔️</p>
           <p className="text-sm text-s112-muted">Noch keine Umzüge für diesen Behälter</p>
           <Link href="/kellerbuch/umziehen?neu=1"
             className="mt-3 inline-block text-xs text-s112-teal font-semibold hover:underline">
@@ -192,10 +188,10 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
                 const istFilt    = u.umzug_typ === 'filtration'
                 const istSchwund = u.umzug_typ === 'schwund'
                 const artBadge = istSchwund
-                  ? { cls: 'bg-amber-100 text-amber-700', label: '💧 Schwund' }
+                  ? { cls: 'bg-amber-100 text-amber-700', label: 'Schwund' }
                   : istFilt
-                    ? { cls: 'bg-blue-100 text-blue-700', label: '🔽 Filtration' }
-                    : { cls: 'bg-gray-100 text-gray-600', label: '↔️ Umzug' }
+                    ? { cls: 'bg-blue-100 text-blue-700', label: 'Filtration' }
+                    : { cls: 'bg-gray-100 text-gray-600', label: 'Umzug' }
                 return (
                   <tr key={u.id}
                     className={`border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40 ${istQuelle ? 'bg-red-50/20' : 'bg-green-50/20'}`}>

@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Pencil } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'DAC & Prüfnummern – software:112' }
 export const dynamic = 'force-dynamic'
@@ -50,7 +51,7 @@ export default async function DacPage() {
         {writeOk && (
           <Link href="/dac/neu"
             className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
-            ＋ Neuer Antrag
+            Neuer Antrag
           </Link>
         )}
       </div>
@@ -108,7 +109,7 @@ export default async function DacPage() {
                       {writeOk && (
                         <Link href={`/dac/${a.id}`}
                           title="Bearbeiten" aria-label="Bearbeiten"
-                          className="text-s112-teal hover:text-s112-teal/70">✏️</Link>
+                          className="text-s112-teal hover:text-s112-teal/70"><Pencil size={16} /></Link>
                       )}
                     </td>
                   </tr>
@@ -119,13 +120,12 @@ export default async function DacPage() {
         </div>
       ) : (
         <div className="card text-center py-16">
-          <p className="text-4xl mb-4">📋</p>
           <p className="text-gray-700 font-medium">Noch keine Anträge</p>
           <p className="text-s112-muted text-sm mt-1 mb-6">Legen Sie Ihren ersten Antrag an</p>
           {writeOk && (
             <Link href="/dac/neu"
               className="inline-flex items-center gap-2 bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
-              ＋ Erster Antrag
+              Erster Antrag
             </Link>
           )}
         </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useTransition } from 'react'
+import { Pencil, Trash2 } from 'lucide-react'
 import { upsertTraubenverkauf, deleteTraubenverkauf } from './actions'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -484,10 +485,10 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, kontakte,
                     {writeOk && (
                       <div className="flex items-center gap-2 shrink-0 text-xs">
                         <button onClick={() => openEdit(v)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-teal hover:text-s112-teal/70">
-                          ✏️
+                          <Pencil className="w-4 h-4" />
                         </button>
                         <button onClick={() => setDeleteConfirm(v.id)} title="Löschen" aria-label="Löschen" className="text-red-400 hover:text-red-600">
-                          🗑️
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     )}

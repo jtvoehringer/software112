@@ -2,21 +2,22 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
+import { Pencil, Trash2 } from 'lucide-react'
 import { deleteBehandlung } from './actions'
 import type { Behandlung } from './page'
 
 const WITTERUNG_LABEL: Record<string, string> = {
-  sonnig: '☀️ Sonnig', bewoelkt: '⛅ Bewölkt',
-  regnerisch: '🌧 Regnerisch', wind: '💨 Wind',
+  sonnig: 'Sonnig', bewoelkt: 'Bewölkt',
+  regnerisch: 'Regnerisch', wind: 'Wind',
 }
 const EINHEIT_LABEL: Record<string, string> = {
   kg_ha: 'kg/ha', l_ha: 'l/ha', g_hl: 'g/hl',
   ml_hl: 'ml/hl', kg: 'kg', l: 'l',
 }
 const ART_LABEL: Record<string, string> = {
-  spritzung: '💧 Spritzung', duengung: '🌿 Düngung',
-  bodenbearbeitung: '🪱 Bodenbearbeitung', schnitt: '✂️ Schnitt',
-  laubarbeit: '🍃 Laubarbeit', lese: '🍇 Lese', sonstiges: '📋 Sonstiges',
+  spritzung: 'Spritzung', duengung: 'Düngung',
+  bodenbearbeitung: 'Bodenbearbeitung', schnitt: 'Schnitt',
+  laubarbeit: 'Laubarbeit', lese: 'Lese', sonstiges: 'Sonstiges',
 }
 
 function formatDate(d: string) {
@@ -29,7 +30,7 @@ function WartezeitBadge({ datum }: { datum: string | null }) {
   const ok = datum <= heute
   return (
     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${ok ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-      {ok ? '✓' : '⏳'} {formatDate(datum)}
+      {formatDate(datum)}
     </span>
   )
 }
@@ -71,12 +72,11 @@ export default function BehandlungenClient({
   if (behandlungen.length === 0) {
     return (
       <div className="card text-center py-16">
-        <p className="text-4xl mb-4">🌱</p>
         <p className="text-gray-700 font-medium">Noch keine Maßnahmen erfasst</p>
         <p className="text-s112-muted text-sm mt-1 mb-6">Erste Spritzung aufzeichnen</p>
         <Link href="/behandlungen/neu"
           className="inline-flex items-center gap-2 bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
-          ＋ Neue Maßnahme
+          Neue Maßnahme
         </Link>
       </div>
     )
@@ -151,14 +151,14 @@ export default function BehandlungenClient({
                             title="Bearbeiten" aria-label="Bearbeiten"
                             className="text-s112-teal hover:text-s112-teal/70"
                           >
-                            ✏️
+                            <Pencil size={16} />
                           </Link>
                           <button
                             onClick={() => handleDelete(b.id)}
                             title="Löschen" aria-label="Löschen"
                             className="text-red-400 hover:text-red-600"
                           >
-                            🗑️
+                            <Trash2 size={16} />
                           </button>
                         </div>
                       </td>

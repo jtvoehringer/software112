@@ -54,7 +54,7 @@ export default function ReleaseNotesAdminPage() {
           <div className="flex items-center gap-3">
             <button type="submit" disabled={saving} className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
               {saving ? 'Speichern…' : 'Veröffentlichen'}</button>
-            {erfolg && <p className="text-sm text-green-600">✓ Veröffentlicht</p>}
+            {erfolg && <p className="text-sm text-green-600">Veröffentlicht</p>}
           </div>
         </form>
       </div>

@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Truck } from 'lucide-react'
 export const metadata: Metadata = { title: 'Weinexport – software:112' }
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -32,7 +33,10 @@ export default async function WeinexportPage() {
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">🚢 Weinexport</h1>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Truck className="w-6 h-6 text-s112-teal" />
+            Weinexport
+          </h1>
           <p className="text-sm text-s112-muted mt-1">{rows.length} Exportauftrag{rows.length !== 1 ? 'aufträge' : ''}</p>
         </div>
         <Link href="/weinexport/neu"
@@ -43,7 +47,6 @@ export default async function WeinexportPage() {
 
       {rows.length === 0 ? (
         <div className="text-center py-16 text-s112-muted">
-          <p className="text-4xl mb-3">🚢</p>
           <p className="font-medium">Noch keine Exportaufträge</p>
           <Link href="/weinexport/neu" className="text-s112-teal text-sm hover:underline mt-2 inline-block">
             Ersten Exportauftrag anlegen →

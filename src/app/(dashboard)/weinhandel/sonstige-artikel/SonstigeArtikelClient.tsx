@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { Pencil } from 'lucide-react'
 import { upsertSonstigesArtikel, toggleAktivSonstigesArtikel } from './actions'
 import { useRouter } from 'next/navigation'
 
@@ -80,7 +81,7 @@ function ArtikelRow({ artikel, onRefresh }: { artikel: Artikel; onRefresh: () =>
             </button>
             <button onClick={handleSave} disabled={isPending}
               className="text-xs bg-s112-teal text-white px-3 py-1 rounded-lg hover:bg-opacity-90 disabled:opacity-50">
-              {isPending ? '…' : '✓ Speichern'}
+              {isPending ? '…' : 'Speichern'}
             </button>
           </div>
         </td>
@@ -102,12 +103,12 @@ function ArtikelRow({ artikel, onRefresh }: { artikel: Artikel; onRefresh: () =>
           <button onClick={() => setEditing(true)}
             title="Bearbeiten"
             className="text-xs text-s112-muted hover:text-s112-teal px-2 py-1 rounded hover:bg-s112-teal/10">
-            ✏️
+            <Pencil className="w-3.5 h-3.5" />
           </button>
           <button onClick={handleToggle} disabled={isPending}
             title={artikel.aktiv ? 'Deaktivieren' : 'Aktivieren'}
             className="text-xs text-s112-muted hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-100">
-            {artikel.aktiv ? '🔕' : '✅'}
+            {artikel.aktiv ? 'Deaktivieren' : 'Aktivieren'}
           </button>
         </div>
       </td>
@@ -205,7 +206,6 @@ export default function SonstigeArtikelClient({ initialArtikel }: { initialArtik
       <div className="card overflow-hidden">
         {sorted.length === 0 && !showNeu ? (
           <div className="px-6 py-10 text-center text-sm text-s112-muted">
-            <p className="text-2xl mb-2">🏷️</p>
             <p className="font-medium">Noch keine Sonstiges-Produkte angelegt</p>
             <p className="mt-1">Klicke auf „+ Neues Produkt" um zu starten.</p>
           </div>
@@ -236,7 +236,7 @@ export default function SonstigeArtikelClient({ initialArtikel }: { initialArtik
 
       {inaktive.length > 0 && (
         <p className="text-xs text-s112-muted text-right">
-          🔕 {inaktive.length} deaktiviert{inaktive.length === 1 ? 'es' : 'e'} Produkt{inaktive.length > 1 ? 'e' : ''} (ausgegraut)
+          {inaktive.length} deaktiviert{inaktive.length === 1 ? 'es' : 'e'} Produkt{inaktive.length > 1 ? 'e' : ''} (ausgegraut)
         </p>
       )}
     </div>

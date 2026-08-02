@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
+import { CheckCircle2, AlertTriangle, Pencil } from 'lucide-react'
 import {
   saveTenantSettings,
   inviteUserToTenant,
@@ -167,7 +168,7 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
           className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
-        {saved && <span className="text-xs text-s112-teal font-medium">✓ Gespeichert</span>}
+        {saved && <span className="text-xs text-s112-teal font-medium">Gespeichert</span>}
       </div>
     </form>
   )
@@ -283,7 +284,7 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
       {!showInvite ? (
         <button onClick={() => setShowInvite(true)}
           className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
-          <span>＋</span> Benutzer einladen
+          + Benutzer einladen
         </button>
       ) : (
         <form onSubmit={handleInvite} className="bg-s112-bg border border-s112-border rounded-xl p-5 space-y-3">
@@ -409,7 +410,7 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
           className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
-        {saved && <span className="text-xs text-s112-teal font-medium">✓ Gespeichert</span>}
+        {saved && <span className="text-xs text-s112-teal font-medium">Gespeichert</span>}
       </div>
     </form>
   )
@@ -466,22 +467,22 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
   return (
     <div className="space-y-5 max-w-sm">
       <div className="card space-y-4">
-        <Toggle on={mods.modul_weingarten} onToggle={() => toggle('modul_weingarten')} label="🌿 Weingarten-Modul" />
-        <Toggle on={mods.modul_kellerbuch} onToggle={() => toggle('modul_kellerbuch')} label="🍷 Kellerbuch-Modul" />
-        <Toggle on={mods.modul_crm}        onToggle={() => toggle('modul_crm')}        label="🤝 CRM-Modul" />
-        <Toggle on={mods.modul_newsletter} onToggle={() => toggle('modul_newsletter')} label="📧 Newsletter-Modul (Brevo)" />
-        <Toggle on={mods.modul_ea}         onToggle={() => toggle('modul_ea')}         label="📒 E&A-Rechnung (§ 4 Abs. 3)" />
+        <Toggle on={mods.modul_weingarten} onToggle={() => toggle('modul_weingarten')} label="Weingarten-Modul" />
+        <Toggle on={mods.modul_kellerbuch} onToggle={() => toggle('modul_kellerbuch')} label="Kellerbuch-Modul" />
+        <Toggle on={mods.modul_crm}        onToggle={() => toggle('modul_crm')}        label="CRM-Modul" />
+        <Toggle on={mods.modul_newsletter} onToggle={() => toggle('modul_newsletter')} label="Newsletter-Modul (Brevo)" />
+        <Toggle on={mods.modul_ea}         onToggle={() => toggle('modul_ea')}         label="E&A-Rechnung (§ 4 Abs. 3)" />
         <Toggle on={mods.modul_fibu}       onToggle={() => {
           if (!mods.modul_fibu && mods.modul_ea) toggle('modul_ea')
           toggle('modul_fibu')
-        }} label="📘 FIBU – doppelte Buchhaltung" />
+        }} label="FIBU – doppelte Buchhaltung" />
         <Toggle on={mods.modul_sumup} onToggle={() => {
             if (!mods.modul_sumup && !mods.modul_ea && !mods.modul_fibu) toggle('modul_ea')
             toggle('modul_sumup')
-          }} label="💳 SumUp Kartenterminal" />
+          }} label="SumUp Kartenterminal" />
           {!mods.modul_ea && !mods.modul_fibu && (
             <p className="text-xs text-amber-600 -mt-2 ml-12">
-              ⚠ Erfordert E&amp;A oder FIBU – Aktivierung schaltet E&amp;A automatisch mit ein
+              Erfordert E&amp;A oder FIBU – Aktivierung schaltet E&amp;A automatisch mit ein
             </p>
           )}
       </div>
@@ -491,7 +492,7 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
           className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
-        {saved && <span className="text-xs text-s112-teal font-medium">✓ Gespeichert</span>}
+        {saved && <span className="text-xs text-s112-teal font-medium">Gespeichert</span>}
       </div>
     </div>
   )
@@ -612,7 +613,7 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
           className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
-        {saved && <span className="text-xs text-s112-teal font-medium">✓ Gespeichert</span>}
+        {saved && <span className="text-xs text-s112-teal font-medium">Gespeichert</span>}
       </div>
     </form>
   )
@@ -642,7 +643,7 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
       const res = await fetch('/api/m365/subscribe', { method: 'POST' })
       const json = await res.json()
       if (!res.ok || json.fehler) { setSubResult('Fehler: ' + (json.fehler ?? 'Unbekannt')); return }
-      setSubResult(`✓ Webhook ${json.aktion} · gültig bis ${new Date(json.expires).toLocaleString('de-AT')}`)
+      setSubResult(`Webhook ${json.aktion} · gültig bis ${new Date(json.expires).toLocaleString('de-AT')}`)
     } catch (err) { setSubResult('Fehler: ' + String(err)) }
     finally { setSubLoading(false) }
   }
@@ -659,7 +660,9 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
     <div className="space-y-6 max-w-lg">
       {/* Status */}
       <div className={`flex items-center gap-3 p-4 rounded-xl border ${isConnected && tokenOk ? 'border-green-300 bg-green-50' : 'border-amber-300 bg-amber-50'}`}>
-        <span className="text-2xl">{isConnected && tokenOk ? '✅' : '⚠️'}</span>
+        {isConnected && tokenOk
+          ? <CheckCircle2 className="w-6 h-6 text-green-600 flex-shrink-0" />
+          : <AlertTriangle className="w-6 h-6 text-amber-600 flex-shrink-0" />}
         <div>
           <p className="text-sm font-semibold">{isConnected ? `Verbunden als ${settings.m365_user_email}` : 'Noch nicht verbunden'}</p>
           {isConnected && tokenExpired && (
@@ -671,7 +674,7 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
         </div>
         {isConnected && (
           <a href="/api/auth/m365" className="ml-auto text-xs border border-s112-border px-3 py-1.5 rounded-lg hover:bg-white">
-            🔄 Neu verbinden
+            Neu verbinden
           </a>
         )}
       </div>
@@ -708,11 +711,11 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
             className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
             {pending ? 'Speichern…' : 'Speichern'}
           </button>
-          {saved && <span className="text-xs text-s112-teal font-medium">✓ Gespeichert</span>}
+          {saved && <span className="text-xs text-s112-teal font-medium">Gespeichert</span>}
           {settings.m365_tenant_id && settings.m365_client_id && (
             <a href="/api/auth/m365"
               className="ml-auto bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700">
-              📅 Mit Microsoft 365 verbinden
+              Mit Microsoft 365 verbinden
             </a>
           )}
         </div>
@@ -724,13 +727,13 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
           <p className="text-sm font-semibold text-gray-700">Echtzeit-Webhook</p>
           <p className="text-xs text-s112-muted mb-3">
             {settings.m365_webhook_sub_id
-              ? `✓ Aktive Subscription (${settings.m365_webhook_sub_id.slice(0, 16)}…)`
+              ? `Aktive Subscription (${settings.m365_webhook_sub_id.slice(0, 16)}…)`
               : 'Noch kein Webhook registriert.'}
             {settings.m365_webhook_expires && ` · Läuft ab: ${new Date(settings.m365_webhook_expires).toLocaleString('de-AT')}`}
           </p>
           <button type="button" onClick={handleSubscribe} disabled={subLoading}
             className="text-sm border border-s112-border px-4 py-1.5 rounded-lg hover:bg-s112-bg disabled:opacity-40">
-            {subLoading ? '⏳ Registrieren…' : settings.m365_webhook_sub_id ? '🔄 Webhook erneuern' : '📡 Webhook registrieren'}
+            {subLoading ? 'Registrieren…' : settings.m365_webhook_sub_id ? 'Webhook erneuern' : 'Webhook registrieren'}
           </button>
           {subResult && <p className="text-xs font-medium text-gray-700 mt-2">{subResult}</p>}
         </div>
@@ -762,7 +765,7 @@ function EmailTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
     try {
       const res = await fetch('/api/email/poll', { method: 'POST' })
       const json = await res.json()
-      setPollResult(json.fehler ? `Fehler: ${json.fehler}` : `✓ ${json.neu} neue E-Mail(s) importiert`)
+      setPollResult(json.fehler ? `Fehler: ${json.fehler}` : `${json.neu} neue E-Mail(s) importiert`)
     } catch (err) { setPollResult(`Fehler: ${err}`) }
     finally { setPolling(false) }
   }
@@ -840,7 +843,7 @@ function EmailTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
             className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
             {pending ? 'Speichern…' : 'Speichern'}
           </button>
-          {saved && <span className="text-xs text-s112-teal font-medium">✓ Gespeichert</span>}
+          {saved && <span className="text-xs text-s112-teal font-medium">Gespeichert</span>}
         </div>
       </form>
 
@@ -850,7 +853,7 @@ function EmailTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
         <p className="text-xs text-s112-muted">Importiert ungelesene E-Mails der letzten 7 Tage und legt Aktivitäten für bekannte Kontakte an.</p>
         <button type="button" onClick={handlePoll} disabled={polling}
           className="text-sm border border-s112-border px-4 py-1.5 rounded-lg hover:bg-s112-bg disabled:opacity-40">
-          {polling ? '⏳ Abrufen…' : '📥 Jetzt abrufen'}
+          {polling ? 'Abrufen…' : 'Jetzt abrufen'}
         </button>
         {pollResult && <p className="text-xs font-medium text-gray-700">{pollResult}</p>}
       </div>
@@ -1002,7 +1005,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
             className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
             {pending ? 'Speichern…' : 'Speichern'}
           </button>
-          {saved && <span className="text-xs text-s112-teal font-medium">✓ Gespeichert</span>}
+          {saved && <span className="text-xs text-s112-teal font-medium">Gespeichert</span>}
         </div>
       </form>
 
@@ -1033,7 +1036,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
           </button>
         </div>
         <p className="text-xs text-s112-muted">
-          ⚠ Nur bei Ersteinrichtung oder Jahreswechsel. Bereits vergebene Nummern bleiben unverändert.
+          Nur bei Ersteinrichtung oder Jahreswechsel. Bereits vergebene Nummern bleiben unverändert.
         </p>
       </div>
 
@@ -1073,7 +1076,9 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
 function CheckItem({ ok, label, hint }: { ok: boolean; label: string; hint?: string }) {
   return (
     <div className={`flex gap-3 p-3 rounded-xl border ${ok ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'}`}>
-      <span className="text-lg leading-none mt-0.5">{ok ? '✅' : '⚠️'}</span>
+      {ok
+        ? <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+        : <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />}
       <div>
         <p className={`text-sm font-medium ${ok ? 'text-green-800' : 'text-amber-800'}`}>{label}</p>
         {!ok && hint && <p className="text-xs text-amber-700 mt-0.5">{hint}</p>}
@@ -1102,8 +1107,9 @@ function ChecklisteTab({ tenant, settings, members }: {
   return (
     <div className="space-y-4 max-w-lg">
       {allOk && (
-        <div className="p-4 bg-green-50 border border-green-200 rounded-xl text-sm text-green-800 font-medium">
-          🎉 Dieser Mandant ist vollständig konfiguriert und einsatzbereit!
+        <div className="p-4 bg-green-50 border border-green-200 rounded-xl text-sm text-green-800 font-medium flex items-center gap-2">
+          <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+          Dieser Mandant ist vollständig konfiguriert und einsatzbereit!
         </div>
       )}
 
@@ -1196,7 +1202,7 @@ function BawbTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
             rel="noreferrer"
             className="shrink-0 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors whitespace-nowrap"
           >
-            🔗 bawb.at öffnen
+            bawb.at öffnen
           </a>
         </div>
         <p className="text-xs text-s112-muted bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
@@ -1247,7 +1253,7 @@ function BawbTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
             className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
             {status === 'saving' ? 'Speichert…' : 'Zugangsdaten speichern'}
           </button>
-          {status === 'ok' && <span className="text-xs text-green-700 font-medium">✓ Gespeichert</span>}
+          {status === 'ok' && <span className="text-xs text-green-700 font-medium">Gespeichert</span>}
         </div>
       </form>
 
@@ -1279,6 +1285,7 @@ function SumUpTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
   const [merchantCode, setMerchantCode] = useState((settings as any).sumup_merchant_code ?? '')
   const [saving, setSaving]         = useState(false)
   const [msg, setMsg]               = useState<string | null>(null)
+  const [msgIsError, setMsgIsError] = useState(false)
 
   if (!(settings as any).modul_sumup) {
     return (
@@ -1295,7 +1302,8 @@ function SumUpTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
     fd.set('sumup_api_key',       apiKey)
     fd.set('sumup_merchant_code', merchantCode)
     const res = await saveSumUpConfig(tenant.id, fd)
-    setMsg(res?.error ?? 'Gespeichert ✓')
+    setMsgIsError(!!res?.error)
+    setMsg(res?.error ?? 'Gespeichert')
     setSaving(false)
   }
 
@@ -1320,7 +1328,7 @@ function SumUpTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           <p className="text-xs text-s112-muted mt-1">Zu finden unter SumUp-Profil → Unternehmensinformationen</p>
         </div>
-        {msg && <p className={`text-sm ${msg.includes('✓') ? 'text-green-600' : 'text-red-600'}`}>{msg}</p>}
+        {msg && <p className={`text-sm ${msgIsError ? 'text-red-600' : 'text-green-600'}`}>{msg}</p>}
         <button type="submit" disabled={saving}
           className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
           {saving ? 'Speichern…' : 'Speichern'}
@@ -1459,7 +1467,7 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
           <div className="flex gap-2 flex-wrap">
             <button type="button" onClick={handlePortal} disabled={pending}
               className="bg-s112-teal text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50">
-              {pending ? 'Lade…' : '⚙ software:112 Kundenportal'}
+              {pending ? 'Lade…' : 'software:112 Kundenportal'}
             </button>
             <button type="button" onClick={handleCancel} disabled={pending}
               className="border border-red-200 text-red-500 px-4 py-2 rounded-lg text-sm hover:bg-red-50 disabled:opacity-50">
@@ -1499,11 +1507,11 @@ export default function MandantDetailClient({ tenant, settings, members }: {
     { id: 'module',      label: 'Module' },
     { id: 'betrieb',     label: 'Betrieb' },
     { id: 'verkauf',     label: 'Verkauf' },
-    { id: 'email',       label: '✉ E-Mail'   },
-    { id: 'm365',        label: '📅 M365'     },
+    { id: 'email',       label: 'E-Mail'      },
+    { id: 'm365',        label: 'M365'        },
     { id: 'bawb',        label: 'bawb.at'     },
-    { id: 'sumup',       label: '💳 SumUp'    },
-    { id: 'stripe',      label: '💶 Stripe'   },
+    { id: 'sumup',       label: 'SumUp'       },
+    { id: 'stripe',      label: 'Stripe'      },
     { id: 'checkliste',  label: 'Checkliste' },
   ]
 
@@ -1531,7 +1539,9 @@ export default function MandantDetailClient({ tenant, settings, members }: {
             <div className="flex items-center gap-2 mt-1">
               <h1 className="text-2xl font-bold text-gray-900">{tenant.name}</h1>
               <button onClick={() => setEditName(true)}
-                className="text-s112-muted hover:text-s112-teal text-sm mt-0.5">✏</button>
+                className="text-s112-muted hover:text-s112-teal mt-0.5">
+                <Pencil className="w-4 h-4" />
+              </button>
             </div>
           )}
           <p className="text-xs text-s112-muted mt-0.5">
@@ -1542,16 +1552,16 @@ export default function MandantDetailClient({ tenant, settings, members }: {
 
         {/* Status-Badges */}
         <div className="flex gap-2 flex-wrap justify-end">
-          {settings.modul_weingarten && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">🌿 Weingarten</span>}
-          {settings.modul_kellerbuch && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">🍷 Kellerbuch</span>}
-          {settings.modul_crm        && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">🤝 CRM</span>}
-          {settings.modul_newsletter && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">📧 Newsletter</span>}
-          {settings.modul_ea         && <span className="text-xs bg-lime-100 text-lime-700 px-2 py-0.5 rounded-full">📒 E&A</span>}
-          {settings.modul_fibu       && <span className="text-xs bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full">📘 FIBU</span>}
-          {settings.modul_sumup      && <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">💳 SumUp</span>}
-          {tenant.stripe_status === 'active'   && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">💶 Abo aktiv</span>}
-          {tenant.stripe_status === 'past_due' && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">⚠️ Zahlung offen</span>}
-          {tenant.stripe_status === 'cancelled' && <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">⛔ Abo gekündigt</span>}
+          {settings.modul_weingarten && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Weingarten</span>}
+          {settings.modul_kellerbuch && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">Kellerbuch</span>}
+          {settings.modul_crm        && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">CRM</span>}
+          {settings.modul_newsletter && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">Newsletter</span>}
+          {settings.modul_ea         && <span className="text-xs bg-lime-100 text-lime-700 px-2 py-0.5 rounded-full">E&A</span>}
+          {settings.modul_fibu       && <span className="text-xs bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full">FIBU</span>}
+          {settings.modul_sumup      && <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">SumUp</span>}
+          {tenant.stripe_status === 'active'   && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Abo aktiv</span>}
+          {tenant.stripe_status === 'past_due' && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Zahlung offen</span>}
+          {tenant.stripe_status === 'cancelled' && <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Abo gekündigt</span>}
         </div>
       </div>
 

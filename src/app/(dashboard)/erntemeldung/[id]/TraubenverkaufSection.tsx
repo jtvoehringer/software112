@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { Pencil, Trash2 } from 'lucide-react'
 import { createTraubenverkauf, updateTraubenverkauf, deleteTraubenverkauf } from '../actions'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -313,13 +314,13 @@ export default function TraubenverkaufSection({
           {verkauefe.length > 0 && (
             <button onClick={handleCSV}
               className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium px-3 py-1.5 rounded-lg transition-colors">
-              ↓ CSV
+              CSV
             </button>
           )}
           {writeOk && !showForm && (
             <button onClick={() => { setShowForm(true); setEditId(null) }}
               className="text-xs bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-teal font-medium px-3 py-1.5 rounded-lg transition-colors">
-              ＋ Traubenverkauf
+              Traubenverkauf
             </button>
           )}
         </div>
@@ -378,10 +379,10 @@ export default function TraubenverkaufSection({
                     </div>
                     <div className="flex items-center gap-2 shrink-0 text-xs">
                       {writeOk && (
-                        <button onClick={() => setEditId(v.id)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-teal hover:text-s112-teal/70">✏️</button>
+                        <button onClick={() => setEditId(v.id)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-teal hover:text-s112-teal/70"><Pencil size={14} /></button>
                       )}
                       {adminOk && (
-                        <button onClick={() => handleDelete(v.id)} title="Löschen" aria-label="Löschen" className="text-red-400 hover:text-red-600">🗑️</button>
+                        <button onClick={() => handleDelete(v.id)} title="Löschen" aria-label="Löschen" className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
                       )}
                     </div>
                   </div>

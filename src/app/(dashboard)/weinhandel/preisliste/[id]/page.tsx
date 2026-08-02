@@ -9,6 +9,7 @@ import {
 } from '../actions'
 import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButton'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
+import { Trash2 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -110,7 +111,7 @@ export default async function PreislisteDetailPage({ params }: { params: Promise
               <ConfirmDeleteForm
                 action={deactivateWithId}
                 message="Preisliste wirklich löschen?"
-                label="🗑️"
+                label={<Trash2 size={16} />}
                 title="Löschen"
                 className="text-red-500 hover:text-red-700"
               />
@@ -203,7 +204,7 @@ export default async function PreislisteDetailPage({ params }: { params: Promise
                       <ConfirmDeleteForm
                         action={deletePosAction}
                         message="Position löschen?"
-                        label="🗑️"
+                        label={<Trash2 size={16} />}
                         title="Löschen"
                         className="text-red-400 hover:text-red-600"
                       />

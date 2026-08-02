@@ -6,7 +6,7 @@ export default function PrintButton() {
       onClick={() => window.print()}
       className="flex items-center gap-2 border border-s112-border text-gray-600 px-3 py-2 rounded-xl text-sm hover:bg-s112-bg transition-colors print:hidden"
     >
-      🖨 Drucken
+      Drucken
     </button>
   )
 }

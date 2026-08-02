@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Boxes, ArrowLeftRight, Filter, Microscope, Leaf, Wine, Search } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Rückverfolgung – software:112' }
 export const dynamic = 'force-dynamic'
@@ -9,12 +10,12 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 const ART_LABELS: Record<string, string> = {
-  spritzung:        '💧 Spritzung',
-  duengung:         '🌿 Düngung',
-  bodenbearbeitung: '🪱 Bodenbearbeitung',
-  schnitt:          '✂️ Schnitt',
-  laubarbeit:       '🍃 Laubarbeit',
-  sonstiges:        '📋 Sonstiges',
+  spritzung:        'Spritzung',
+  duengung:         'Düngung',
+  bodenbearbeitung: 'Bodenbearbeitung',
+  schnitt:          'Schnitt',
+  laubarbeit:       'Laubarbeit',
+  sonstiges:        'Sonstiges',
 }
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
@@ -27,7 +28,7 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   )
 }
 
-function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
+function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="card p-5 space-y-3">
       <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
@@ -194,7 +195,7 @@ function ChargeKette({
   return (
     <div className="space-y-4">
       {/* Kellerbuch-Charge */}
-      <Section title={showNr ? `Kellerbuch-Charge ${chargeNr} / ${total}` : 'Kellerbuch-Charge'} icon="🪣">
+      <Section title={showNr ? `Kellerbuch-Charge ${chargeNr} / ${total}` : 'Kellerbuch-Charge'} icon={<Boxes className="w-4 h-4" />}>
         <InfoRow label="Charge" value={weinausbau.name} />
         <InfoRow label="Jahrgang" value={weinausbau.jahrgang} />
         <InfoRow label="Rebsorte" value={weinausbau.rebsorte} />
@@ -209,13 +210,13 @@ function ChargeKette({
           href={`/kellerbuch/weinausbau/${weinausbau.id}/buch`}
           className="inline-flex items-center gap-1 text-xs text-s112-teal hover:underline pt-1"
         >
-          📖 Weinbuch dieser Charge öffnen
+          Weinbuch dieser Charge öffnen
         </Link>
       </Section>
 
       {/* Behälter-Verlauf */}
       {umzuege.length > 0 && (
-        <Section title="Behälter-Verlauf" icon="🔄">
+        <Section title="Behälter-Verlauf" icon={<ArrowLeftRight className="w-4 h-4" />}>
           <div className="space-y-2">
             {umzuege.map((u: R, i: number) => (
               <div key={i} className="flex items-center gap-2 text-sm">
@@ -237,7 +238,7 @@ function ChargeKette({
 
       {/* Pressungen / Weingärten */}
       {pressungen.length > 0 && (
-        <Section title="Pressung & Herkunft" icon="🌿">
+        <Section title="Pressung & Herkunft" icon={<Filter className="w-4 h-4" />}>
           {pressungen.map((pb: R, i: number) => {
             const p = pb.pressung as R
             if (!p) return null
@@ -266,7 +267,7 @@ function ChargeKette({
                       return (
                         <div key={j} className="bg-s112-bg rounded-lg p-3 space-y-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-800">🌱 {w?.name ?? '–'}</span>
+                            <span className="text-sm font-medium text-gray-800">{w?.name ?? '–'}</span>
                             {w?.flaeche_ha && (
                               <span className="text-xs text-s112-muted">{parseFloat(w.flaeche_ha).toLocaleString('de-AT')} ha</span>
                             )}
@@ -277,10 +278,10 @@ function ChargeKette({
                             </div>
                           )}
                           <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-600">
-                            {wg.trauben_kg && <span>🍇 {parseFloat(wg.trauben_kg).toLocaleString('de-AT')} kg</span>}
-                            {wg.rebsorte && <span>🌿 {wg.rebsorte}</span>}
-                            {wg.ernte_datum && <span>📅 Lese: {new Date(wg.ernte_datum).toLocaleDateString('de-AT')}</span>}
-                            {wg.kmw && <span>⚖️ {wg.kmw} °KMW</span>}
+                            {wg.trauben_kg && <span>{parseFloat(wg.trauben_kg).toLocaleString('de-AT')} kg</span>}
+                            {wg.rebsorte && <span>{wg.rebsorte}</span>}
+                            {wg.ernte_datum && <span>Lese: {new Date(wg.ernte_datum).toLocaleDateString('de-AT')}</span>}
+                            {wg.kmw && <span>{wg.kmw} °KMW</span>}
                           </div>
                         </div>
                       )
@@ -295,7 +296,7 @@ function ChargeKette({
 
       {/* Analysen */}
       {analysen.length > 0 && (
-        <Section title="Analysen" icon="🔬">
+        <Section title="Analysen" icon={<Microscope className="w-4 h-4" />}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -335,7 +336,7 @@ function ChargeKette({
 
       {/* Behandlungen */}
       {behandlungen.length > 0 && (
-        <Section title="Behandlungen / PSM" icon="🧪">
+        <Section title="Behandlungen / PSM" icon={<Leaf className="w-4 h-4" />}>
           <div className="space-y-2">
             {behandlungen.map((b: R, i: number) => {
               const psm = b.psm as R | null
@@ -471,7 +472,9 @@ export default async function RueckverfolgungPage({
           <span>/</span>
           <span className="text-gray-800 font-medium">Rückverfolgung</span>
         </nav>
-        <h1 className="text-2xl font-bold text-gray-900">🔍 Rückverfolgung</h1>
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <Search className="w-5 h-5" />Rückverfolgung
+        </h1>
         <p className="text-sm text-s112-muted mt-1">
           Chargennummer oder Prüfnummer eingeben → vollständige Kette von der Flasche zum Weingarten
         </p>
@@ -509,7 +512,7 @@ export default async function RueckverfolgungPage({
         <div className="space-y-4">
 
           {/* Flasche / Abfüllung */}
-          <Section title="🍾 Abfüllung" icon="">
+          <Section title="Abfüllung" icon={<Wine className="w-4 h-4" />}>
             <InfoRow label="Chargennummer" value={fuellung.chargennummer ?? '–'} />
             <InfoRow label="Prüfnummer" value={fuellung.pruefnummer ?? '–'} />
             <InfoRow label="Produktname" value={fuellung.name} />
@@ -524,7 +527,7 @@ export default async function RueckverfolgungPage({
             <InfoRow label="Liter abgefüllt" value={fuellung.menge_liter_gefuellt ? `${parseFloat(fuellung.menge_liter_gefuellt).toLocaleString('de-AT', { minimumFractionDigits: 2 })} L` : null} />
             {chargeEntries.length > 1 && (
               <div className="mt-1 text-xs text-s112-muted bg-s112-bg rounded-lg px-3 py-1.5">
-                ⚗️ Verschnitt aus {chargeEntries.length} Kellerbuch-Chargen
+                Verschnitt aus {chargeEntries.length} Kellerbuch-Chargen
               </div>
             )}
           </Section>
@@ -555,7 +558,7 @@ export default async function RueckverfolgungPage({
 
       {!q && !fuellung_id && (
         <div className="card p-8 text-center text-s112-muted">
-          <p className="text-3xl mb-3">🔍</p>
+          <Search className="w-8 h-8 mx-auto mb-3" />
           <p className="text-sm">Chargennummer oder Prüfnummer eingeben um die vollständige Herkunftskette anzuzeigen.</p>
         </div>
       )}

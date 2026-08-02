@@ -128,12 +128,12 @@ export default function PNAFormular({ dacAntragId, initial }: Props) {
       <div className="flex items-center gap-3 no-print">
         <button onClick={handleSave} disabled={pending}
           className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50">
-          {pending ? '⏳ Speichern…' : '💾 Speichern'}
+          {pending ? 'Speichern…' : 'Speichern'}
         </button>
-        {gespeichert && <span className="text-xs text-green-600">✓ Gespeichert</span>}
+        {gespeichert && <span className="text-xs text-green-600">Gespeichert</span>}
         <button onClick={() => window.print()}
           className="border border-s112-border px-4 py-1.5 rounded-lg text-sm hover:bg-gray-50">
-          🖨 Drucken
+          Drucken
         </button>
       </div>
 

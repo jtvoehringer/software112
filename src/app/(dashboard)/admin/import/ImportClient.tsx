@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef } from 'react'
+import { Upload } from 'lucide-react'
 
 type ImportTyp = 'kontakte' | 'firmen' | 'fuellungen'
 
@@ -43,9 +44,9 @@ const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean 
 }
 
 const TYP_LABEL: Record<ImportTyp, string> = {
-  kontakte: '👤 Kontakte',
-  firmen:   '🏢 Firmen',
-  fuellungen: '🍾 Füllungen (Weinlager)',
+  kontakte: 'Kontakte',
+  firmen:   'Firmen',
+  fuellungen: 'Füllungen (Weinlager)',
 }
 
 function parseCsv(text: string): { headers: string[]; rows: Record<string, string>[] } {
@@ -111,7 +112,9 @@ export default function ImportClient() {
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">📥 Datenimport</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+        <Upload className="w-6 h-6" /> Datenimport
+      </h1>
       <p className="text-sm text-s112-muted mb-6">CSV-Datei importieren – Semikolon oder Komma als Trennzeichen</p>
 
       {/* Typ-Wahl */}
@@ -133,11 +136,11 @@ export default function ImportClient() {
           <input ref={fileRef} type="file" accept=".csv,.txt" onChange={handleFile} className="hidden" />
           <button onClick={() => fileRef.current?.click()}
             className="bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-opacity-90">
-            📁 CSV-Datei öffnen
+            CSV-Datei öffnen
           </button>
           {parsed && (
             <p className="text-sm text-green-600 font-medium">
-              ✓ {parsed.rows.length} Zeilen geladen · {parsed.headers.length} Spalten
+              {parsed.rows.length} Zeilen geladen · {parsed.headers.length} Spalten
             </p>
           )}
         </div>
@@ -188,17 +191,17 @@ export default function ImportClient() {
         <div className="bg-white rounded-2xl border border-s112-border p-6">
           <h2 className="font-semibold text-gray-800 mb-4">3. Import starten</h2>
           {!pflichtMapped && (
-            <p className="text-sm text-amber-600 mb-3">⚠ Bitte alle Pflichtfelder (*) zuordnen</p>
+            <p className="text-sm text-amber-600 mb-3">Bitte alle Pflichtfelder (*) zuordnen</p>
           )}
           <button onClick={startImport} disabled={importing || !pflichtMapped}
             className="bg-s112-teal text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
-            {importing ? '⏳ Importiere…' : `📥 ${parsed.rows.length} Zeilen importieren`}
+            {importing ? 'Importiere…' : `${parsed.rows.length} Zeilen importieren`}
           </button>
 
           {result && (
             <div className={`mt-4 p-4 rounded-xl border ${result.fehler === 0 ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
               <p className="font-semibold text-sm">
-                ✓ {result.ok} erfolgreich · {result.fehler} Fehler
+                {result.ok} erfolgreich · {result.fehler} Fehler
               </p>
               {result.details.length > 0 && (
                 <ul className="mt-2 text-xs text-gray-600 space-y-0.5">

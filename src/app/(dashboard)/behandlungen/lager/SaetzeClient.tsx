@@ -1,16 +1,17 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { Pencil, Trash2 } from 'lucide-react'
 import { upsertSatzMassnahme, deactivateSatzMassnahme } from './actions'
 import type { SatzEintrag } from './page'
 
 const ART_OPTS = [
-  { value: 'spritzung',        label: '💧 Spritzung' },
-  { value: 'duengung',         label: '🌿 Düngung' },
-  { value: 'bodenbearbeitung', label: '🪱 Bodenbearbeitung' },
-  { value: 'schnitt',          label: '✂️ Schnitt' },
-  { value: 'laubarbeit',       label: '🍃 Laubarbeit' },
-  { value: 'sonstiges',        label: '📋 Sonstiges' },
+  { value: 'spritzung',        label: 'Spritzung' },
+  { value: 'duengung',         label: 'Düngung' },
+  { value: 'bodenbearbeitung', label: 'Bodenbearbeitung' },
+  { value: 'schnitt',          label: 'Schnitt' },
+  { value: 'laubarbeit',       label: 'Laubarbeit' },
+  { value: 'sonstiges',        label: 'Sonstiges' },
 ]
 
 const ART_COLOR: Record<string, string> = {
@@ -128,7 +129,7 @@ export default function SaetzeClient({
         <div className="mb-6">
           <button onClick={() => setShowForm(true)}
             className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
-            <span>＋</span> Neuen Satz anlegen
+            Neuen Satz anlegen
           </button>
         </div>
       )}
@@ -169,12 +170,12 @@ export default function SaetzeClient({
                           {writeOk && (
                             <button onClick={() => setEditId(editId === s.id ? null : s.id)}
                               title="Bearbeiten" aria-label="Bearbeiten"
-                              className="text-s112-teal hover:text-s112-teal/70">✏️</button>
+                              className="text-s112-teal hover:text-s112-teal/70"><Pencil size={16} /></button>
                           )}
                           {adminOk && (
                             <button onClick={() => handleDeactivate(s.id)}
                               title="Deaktivieren" aria-label="Deaktivieren"
-                              className="text-red-400 hover:text-red-600">🚫</button>
+                              className="text-red-400 hover:text-red-600"><Trash2 size={16} /></button>
                           )}
                         </div>
                       </td>

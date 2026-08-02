@@ -5,31 +5,13 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { manuellSchwundBuchen } from '../../../actions'
+import { Boxes, Droplet } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Bewegungsbuch – software:112' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
-
-const TYP_ICONS: Record<string, string> = {
-  lagertank: '🪣', immervolltank: '🪣', stahltank: '🪣', holzfass: '🪵', betonei: '⚪', amphore: '🏺', sonstiges: '📦',
-}
-
-const ART_ICON: Record<string, string> = {
-  anfangsbestand:   '📋',
-  pressung:         '🍇',
-  umzug_ein:        '⬆️',
-  umzug_aus:        '⬇️',
-  filtration_ein:   '🔼',
-  filtration_aus:   '🔽',
-  abfuellung:       '🍾',
-  verkauf:          '💰',
-  behandlung:       '🧪',
-  verschneidung_ein: '🍷',
-  verschneidung_aus: '🍷',
-  schwund:          '💧',
-}
 
 type Bewegung = {
   datum: string
@@ -431,7 +413,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-start gap-3">
-          <span className="text-3xl mt-0.5">{TYP_ICONS[bh.typ] ?? '📦'}</span>
+          <Boxes className="w-7 h-7 mt-0.5 text-s112-muted" />
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{bh.name}</h1>
             <div className="flex items-center gap-3 mt-0.5 flex-wrap text-xs text-s112-muted">
@@ -509,7 +491,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
       {writeOk && finalSaldo > 0.01 && (chargenRaw ?? []).length > 0 && (
         <section className="card p-5 border-amber-200 bg-amber-50 space-y-3">
           <div className="flex items-start gap-2">
-            <span className="text-lg">&#128167;</span>
+            <Droplet className="w-5 h-5 text-amber-700 shrink-0" />
             <div>
               <p className="text-sm font-semibold text-amber-800">Schwund ausbuchen</p>
               <p className="text-xs text-amber-700 mt-0.5">
@@ -598,7 +580,6 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
                       </td>
                       <td className="px-4 py-2.5">
                         <div className="flex items-start gap-1.5">
-                          <span>{ART_ICON[bew.art] ?? '•'}</span>
                           <div>
                             <div className="flex items-center gap-2">
                               <p className="text-gray-700">{bew.beschreibung}</p>

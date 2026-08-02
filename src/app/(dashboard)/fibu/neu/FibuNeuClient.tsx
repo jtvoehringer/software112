@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createFibuBuchungssatz } from '../actions'
+import { Trash2 } from 'lucide-react'
 
 type Konto = { id: string; konto_nr: number; konto_name: string; typ: string }
 type Zeile = { konto_id: string; seite: 'soll' | 'haben'; betrag: string }
@@ -140,7 +141,9 @@ export default function FibuNeuClient({ konten }: Props) {
               <div className="col-span-1 flex justify-center">
                 <button type="button" onClick={() => removeZeile(i)}
                   disabled={zeilen.length <= 2}
-                  className="text-red-400 hover:text-red-600 disabled:opacity-20 text-xs">✕</button>
+                  className="text-red-400 hover:text-red-600 disabled:opacity-20 text-xs">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           ))}
@@ -158,11 +161,11 @@ export default function FibuNeuClient({ konten }: Props) {
           </div>
           {!ausgeglichen && sollSumme > 0 && habenSumme > 0 && (
             <p className="text-xs text-red-500 mt-2 text-center">
-              ⚠ Differenz: € {fmt(Math.abs(sollSumme - habenSumme))} – Buchungssatz muss ausgeglichen sein
+              Differenz: € {fmt(Math.abs(sollSumme - habenSumme))} – Buchungssatz muss ausgeglichen sein
             </p>
           )}
           {ausgeglichen && sollSumme > 0 && (
-            <p className="text-xs text-green-600 mt-2 text-center">✓ Ausgeglichen</p>
+            <p className="text-xs text-green-600 mt-2 text-center">Ausgeglichen</p>
           )}
         </div>
 
@@ -171,7 +174,7 @@ export default function FibuNeuClient({ konten }: Props) {
         <div className="flex gap-3">
           <button type="submit" disabled={saving || !ausgeglichen}
             className="bg-s112-teal text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
-            {saving ? 'Buchen…' : '📒 Buchungssatz speichern'}
+            {saving ? 'Buchen…' : 'Buchungssatz speichern'}
           </button>
           <Link href="/fibu"
             className="px-6 py-2.5 rounded-xl text-sm border border-s112-border text-gray-600 hover:bg-s112-bg">

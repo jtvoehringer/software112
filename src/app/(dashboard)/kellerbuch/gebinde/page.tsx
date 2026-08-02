@@ -3,6 +3,7 @@ import { fmtLiter } from '@/lib/format'
 import { getCurrentUserRole, canWrite, canAdmin } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Pencil } from 'lucide-react'
 import GebindeClient from '@/components/kellerbuch/GebindeClient'
 import LoeschenButton from '@/components/kellerbuch/LoeschenButton'
 import { createBehaelter, updateBehaelter, deleteBehaelter } from '../actions'
@@ -412,12 +413,12 @@ export default async function GebindePage({
                         {parseFloat(e.menge_liter) > 0.01 && (
                           <Link href={`/weinhandel/fuellungen/neu?charge=${e.id}`}
                             className="text-xs text-s112-teal border border-s112-teal/30 rounded-full px-2 py-0.5 hover:bg-s112-teal hover:text-white transition-colors whitespace-nowrap mr-2">
-                            🍾 Abfüllen
+                            Abfüllen
                           </Link>
                         )}
                         <Link href={`/kellerbuch/eroeffnungsbestand/${e.id}/edit`}
                           title="Bearbeiten" aria-label="Bearbeiten"
-                          className="text-s112-teal hover:text-s112-teal/70 mr-3">✏️</Link>
+                          className="text-s112-teal hover:text-s112-teal/70 mr-3 inline-flex"><Pencil className="w-4 h-4" /></Link>
                         <LoeschenButton
                           action={deleteEroeffnungsbestand.bind(null, e.id)}
                           bestaetigung="Eröffnungsbestand wirklich löschen?" />
@@ -488,7 +489,7 @@ export default async function GebindePage({
                       <td className="px-4 py-2.5 text-right whitespace-nowrap">
                         <Link href={`/kellerbuch/umzug/${u.ersteId}/edit`}
                           title="Bearbeiten" aria-label="Bearbeiten"
-                          className="text-s112-teal hover:text-s112-teal/70 mr-3">✏️</Link>
+                          className="text-s112-teal hover:text-s112-teal/70 mr-3 inline-flex"><Pencil className="w-4 h-4" /></Link>
                         <LoeschenButton
                           action={deleteUmzug.bind(null, u.ersteId)}
                           bestaetigung="Umzug wirklich löschen? Der Quell-Bestand wird wiederhergestellt." />

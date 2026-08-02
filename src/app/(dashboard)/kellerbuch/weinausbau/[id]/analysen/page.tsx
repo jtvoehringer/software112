@@ -89,7 +89,6 @@ export default async function AnalysenPage({ params }: { params: Promise<{ id: s
       {/* Liste */}
       {analysen.length === 0 ? (
         <div className="card text-center py-12 text-s112-muted">
-          <div className="text-3xl mb-2">🔬</div>
           <p className="font-medium text-gray-600">Noch keine Analysen erfasst</p>
           {writeOk && (
             <Link
@@ -114,7 +113,7 @@ export default async function AnalysenPage({ params }: { params: Promise<{ id: s
                   </p>
                 </div>
                 <span className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-lg font-medium">
-                  🔬 Analyse
+                  Analyse
                 </span>
               </div>
 

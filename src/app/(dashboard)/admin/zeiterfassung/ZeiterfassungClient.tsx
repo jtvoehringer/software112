@@ -1,6 +1,7 @@
 'use client'
 import { useState, useTransition, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { X, Pencil, Trash2 } from 'lucide-react'
 import type { Zeiteintrag } from './page'
 import { createZeiteintrag, updateZeiteintrag, deleteZeiteintrag } from './actions'
 
@@ -144,7 +145,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-gray-900 text-base">{title}</h3>
-          <button onClick={onClose} className="text-s112-muted hover:text-gray-700 text-lg">✕</button>
+          <button onClick={onClose} className="text-s112-muted hover:text-gray-700"><X className="w-5 h-5" /></button>
         </div>
         {children}
       </div>
@@ -291,11 +292,11 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
                       <div className="flex items-center gap-1 justify-end">
                         <button onClick={() => setEditEntry(e)}
                           className="text-s112-muted hover:text-s112-teal p-1 rounded transition-colors" title="Bearbeiten">
-                          ✏
+                          <Pencil className="w-4 h-4" />
                         </button>
                         <button onClick={() => setDeleteId(e.id)}
                           className="text-s112-muted hover:text-red-500 p-1 rounded transition-colors" title="Löschen">
-                          🗑
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </td>

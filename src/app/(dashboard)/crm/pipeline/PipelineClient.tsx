@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition, useMemo } from 'react'
+import { Pencil, Trash2 } from 'lucide-react'
 import {
   createPipelineEintrag, updatePipelineEintrag,
   updatePipelineStufe, togglePipelineErledigt, deletePipelineEintrag,
@@ -220,12 +221,12 @@ function EintragZeile({
           )}
         </div>
         <div className="flex gap-3 mt-0.5 flex-wrap">
-          {eintrag.kontakt_name && <span className="text-xs text-s112-muted">👤 {eintrag.kontakt_name}</span>}
-          {eintrag.firma_name && <span className="text-xs text-s112-muted">🏢 {eintrag.firma_name}</span>}
-          {abschluss && <span className="text-xs text-s112-muted">📅 {abschluss}</span>}
+          {eintrag.kontakt_name && <span className="text-xs text-s112-muted">{eintrag.kontakt_name}</span>}
+          {eintrag.firma_name && <span className="text-xs text-s112-muted">{eintrag.firma_name}</span>}
+          {abschluss && <span className="text-xs text-s112-muted">{abschluss}</span>}
           {eintrag.erledigt && eintrag.erledigt_am && (
             <span className="text-xs text-green-600">
-              ✓ {new Date(eintrag.erledigt_am).toLocaleDateString('de-AT')}
+              {new Date(eintrag.erledigt_am).toLocaleDateString('de-AT')}
             </span>
           )}
         </div>
@@ -248,12 +249,12 @@ function EintragZeile({
           <button onClick={() => setEditing(true)}
             title="Bearbeiten" aria-label="Bearbeiten"
             className="text-s112-muted hover:text-s112-teal px-2 py-1 rounded">
-            ✏️
+            <Pencil className="w-4 h-4" />
           </button>
           <button onClick={handleDelete} disabled={pending}
             title="Löschen" aria-label="Löschen"
             className="text-s112-muted hover:text-red-500 px-2 py-1 rounded">
-            🗑️
+            <Trash2 className="w-4 h-4" />
           </button>
         </div>
       )}

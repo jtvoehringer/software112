@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import Link from 'next/link'
+import { Pencil } from 'lucide-react'
 import ZukaufLoeschen from './ZukaufLoeschen'
 
 export const dynamic = 'force-dynamic'
@@ -9,9 +10,9 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 const ART_LABEL: Record<string, string> = {
-  wein:    '🍷 Wein',
-  trauben: '🍇 Trauben',
-  most:    '🌊 Most',
+  wein:    'Wein',
+  trauben: 'Trauben',
+  most:    'Most',
 }
 
 export default async function ZukaufPage() {
@@ -45,7 +46,6 @@ export default async function ZukaufPage() {
 
       {posten.length === 0 ? (
         <div className="card p-10 text-center text-s112-muted text-sm">
-          <p className="text-2xl mb-2">📦</p>
           <p className="font-medium">Noch keine Zukäufe erfasst</p>
           <p className="mt-1">Erfasse zugekauften Wein, Trauben oder Traubenmost.</p>
           {writeOk && (
@@ -102,7 +102,7 @@ export default async function ZukaufPage() {
                             href={`/weinhandel/zukauf/${p.id}/edit`}
                             title="Bearbeiten" aria-label="Bearbeiten"
                             className="text-s112-teal hover:text-s112-teal/70">
-                            ✏️
+                            <Pencil className="w-4 h-4" />
                           </Link>
                           <ZukaufLoeschen id={p.id} info={rebInfo} />
                         </div>

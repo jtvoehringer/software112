@@ -45,7 +45,7 @@ export default function KostenAuswertungPage() {
           </select>
           <button onClick={() => window.print()}
             className="text-sm border border-s112-border px-4 py-1.5 rounded-lg hover:bg-s112-bg flex items-center gap-2">
-            🖨 Drucken / PDF
+            Drucken / PDF
           </button>
         </div>
       </div>

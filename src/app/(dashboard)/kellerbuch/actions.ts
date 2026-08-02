@@ -425,7 +425,7 @@ export async function deleteVerschneidung(verschneidungId: string) {
 // MANUELLER SCHWUND
 // Bucht einen Schwund-Abgang als keller_umzug mit umzug_typ='schwund'.
 // brutto_liter = Schwundmenge, menge_liter = 0 → kein Nettozugang im Zielbehälter.
-// Erscheint im Bewegungsbuch als Abgang mit Icon 💧 und Beschreibung "Schwund / Verlust".
+// Erscheint im Bewegungsbuch als Abgang mit Beschreibung "Schwund / Verlust".
 
 export async function manuellSchwundBuchen(formData: FormData) {
   const supabase     = await createSupabaseServerClient()

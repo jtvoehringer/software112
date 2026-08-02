@@ -50,7 +50,6 @@ export default async function PreislistePage() {
       {/* Liste */}
       {listen.length === 0 ? (
         <div className="card text-center py-12">
-          <p className="text-3xl mb-3">🏷️</p>
           <p className="text-sm text-s112-muted">Noch keine Preislisten angelegt.</p>
         </div>
       ) : (
@@ -118,7 +117,7 @@ export default async function PreislistePage() {
               type="submit"
               className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
             >
-              🏷️ Preisliste anlegen
+              Preisliste anlegen
             </button>
           </form>
         </section>

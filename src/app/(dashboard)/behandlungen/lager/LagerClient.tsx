@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { Pencil, Trash2 } from 'lucide-react'
 import { upsertLagerBewegung, deleteLagerBewegung } from './actions'
 import type { PSMLager, PSMOption } from './page'
 
@@ -97,7 +98,7 @@ function BuchungsForm({
                   <input type="radio" value={r} checked={richtung === r}
                     onChange={() => setRichtung(r)}
                     className="accent-s112-teal" />
-                  <span className="text-sm">{r === 'eingang' ? '↑ Aufbuchen' : '↓ Abbuchen'}</span>
+                  <span className="text-sm">{r === 'eingang' ? 'Aufbuchen' : 'Abbuchen'}</span>
                 </label>
               ))}
             </div>
@@ -253,12 +254,12 @@ function PsmKarte({
                         {writeOk && (
                           <button onClick={() => setEditBew({ ...b, psm_id: psm.psm_id })}
                             title="Bearbeiten" aria-label="Bearbeiten"
-                            className="text-s112-teal hover:text-s112-teal/70">✏️</button>
+                            className="text-s112-teal hover:text-s112-teal/70"><Pencil className="w-4 h-4" /></button>
                         )}
                         {adminOk && (
                           <button onClick={() => handleDelete(b.id)}
                             title="Löschen" aria-label="Löschen"
-                            className="text-red-400 hover:text-red-600">🗑️</button>
+                            className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
                         )}
                       </div>
                     </td>
@@ -290,7 +291,7 @@ function PsmKarte({
       {writeOk && !showForm && !editBew && (
         <button onClick={() => setShowForm(true)}
           className="text-xs bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-teal font-medium px-3 py-1.5 rounded-lg transition-colors">
-          ＋ Buchung erfassen
+          Buchung erfassen
         </button>
       )}
     </div>
@@ -315,7 +316,7 @@ export default function LagerClient({
           writeOk && (
             <button onClick={() => setShowNeuForm(true)}
               className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
-              <span>＋</span> Neues Mittel einbuchen
+              Neues Mittel einbuchen
             </button>
           )
         )}
@@ -323,7 +324,6 @@ export default function LagerClient({
 
       {psms.length === 0 ? (
         <div className="card text-center py-16 text-s112-muted">
-          <p className="text-3xl mb-3">📦</p>
           <p className="font-medium text-gray-600">Noch keine Lagerbewegungen</p>
           <p className="text-sm mt-1 max-w-sm mx-auto">
             Erfasse den Anfangsbestand oder einen Einkauf für ein Pflanzenschutzmittel.

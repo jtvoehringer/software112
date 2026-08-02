@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { Trash2 } from 'lucide-react'
 import type { AktivitaetDokument } from '@/lib/crm/types'
 
 function fmtBytes(b: number | null): string {
@@ -8,14 +9,6 @@ function fmtBytes(b: number | null): string {
   if (b < 1024) return `${b} B`
   if (b < 1024 * 1024) return `${(b / 1024).toFixed(0)} KB`
   return `${(b / 1024 / 1024).toFixed(1)} MB`
-}
-
-function dateiIcon(typ: string): string {
-  if (typ.includes('pdf'))   return '📄'
-  if (typ.includes('image')) return '🖼️'
-  if (typ.includes('word') || typ.includes('docx')) return '📝'
-  if (typ.includes('sheet') || typ.includes('xlsx')) return '📊'
-  return '📎'
 }
 
 export default function DokumentePanel({
@@ -61,7 +54,6 @@ export default function DokumentePanel({
         <div className="flex flex-wrap gap-1.5 mb-1.5">
           {docs.map(d => (
             <div key={d.id} className="flex items-center gap-1 bg-s112-bg border border-s112-border rounded-lg px-2 py-1 text-xs group">
-              <span>{dateiIcon(d.dateityp)}</span>
               <a
                 href={`/api/crm/aktivitaet/${aktivitaetId}/dokument/${d.id}`}
                 target="_blank"
@@ -81,7 +73,7 @@ export default function DokumentePanel({
                   className="ml-0.5 text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity leading-none"
                   title="Löschen"
                 >
-                  ✕
+                  <Trash2 className="w-3 h-3" />
                 </button>
               )}
             </div>
@@ -109,7 +101,7 @@ export default function DokumentePanel({
             disabled={uploading}
             className="text-xs text-s112-muted hover:text-s112-teal border border-dashed border-gray-200 hover:border-s112-teal/40 rounded px-2 py-0.5 transition-colors disabled:opacity-40"
           >
-            {uploading ? 'Hochladen…' : '📎 Anhang'}
+            {uploading ? 'Hochladen…' : 'Anhang'}
           </button>
           {error && <span className="text-xs text-red-500">{error}</span>}
         </div>

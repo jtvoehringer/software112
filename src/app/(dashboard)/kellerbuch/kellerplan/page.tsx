@@ -54,9 +54,6 @@ export default async function KellerplanListPage() {
           {plaene.map((p: R) => (
             <div key={p.id} className="card p-5 flex flex-col gap-3">
               <Link href={`/kellerbuch/kellerplan/${p.id}`} className="flex items-start gap-3 group flex-1">
-                <div className="w-10 h-10 rounded-lg bg-s112-teal/10 flex items-center justify-center text-xl flex-shrink-0">
-                  🗺️
-                </div>
                 <div className="flex-1 min-w-0">
                   <h2 className="font-semibold text-gray-900 group-hover:text-s112-teal transition-colors">
                     {p.name}
@@ -87,7 +84,7 @@ export default async function KellerplanListPage() {
       {writeOk && (
         <div className="card p-5 max-w-lg">
           <h2 className="font-semibold text-gray-800 mb-4">
-            {plaene.length === 0 ? '🗺️ Ersten Kellerplan anlegen' : '+ Weiterer Kellerplan'}
+            {plaene.length === 0 ? 'Ersten Kellerplan anlegen' : '+ Weiterer Kellerplan'}
           </h2>
           <form action={createKellerplan} className="space-y-4">
             <div>
@@ -121,7 +118,6 @@ export default async function KellerplanListPage() {
 
       {plaene.length === 0 && !writeOk && (
         <div className="card text-center py-12">
-          <p className="text-4xl mb-3">🗺️</p>
           <p className="text-sm text-s112-muted">Noch keine Kellerplaene angelegt.</p>
         </div>
       )}

@@ -124,7 +124,7 @@ export default async function BuchhaltungNeuPage() {
         <div className="flex gap-3 pt-2">
           <button type="submit"
             className="bg-s112-teal text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90">
-            💾 Buchung speichern
+            Buchung speichern
           </button>
           <Link href="/buchhaltung"
             className="px-6 py-2.5 rounded-xl text-sm border border-s112-border text-gray-600 hover:bg-s112-bg">

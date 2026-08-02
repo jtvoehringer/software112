@@ -2,7 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { ReceiptText, Warehouse, Package, Users, Plus } from 'lucide-react'
+import { ReceiptText, Warehouse, Package, Users, Plus, ShoppingCart, Wine, Calendar, ArrowRightLeft, Wallet } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Übersicht – software:112' }
 export const dynamic = 'force-dynamic'
@@ -184,11 +184,6 @@ export default async function DashboardPage() {
     ueberfaellig:'bg-s112-err-bg text-s112-err-fg',
     offen:       'bg-s112-warn-bg text-s112-warn-fg',
     storniert:   'bg-gray-100 text-gray-500',
-  }
-
-  const ART_ICON: Record<string, string> = {
-    anruf: '📞', email: '✉', besuch: '🚗', notiz: '📝',
-    angebot: '📋', verkostung: '🍷', messe: '🎪',
   }
 
   // Nächste unerledigte Aktivitäten (für "Nächste Termine")
@@ -389,7 +384,6 @@ export default async function DashboardPage() {
           </div>
           {naechsteAkt.length === 0 ? (
             <div className="text-center py-6">
-              <p className="text-xl mb-1">📅</p>
               <p className="text-xs text-s112-muted">Keine offenen Termine</p>
               <Link href="/crm" className="text-xs text-s112-blue-700 hover:underline mt-1 inline-block">Aktivität anlegen →</Link>
             </div>
@@ -397,7 +391,6 @@ export default async function DashboardPage() {
             <div className="space-y-2">
               {naechsteAkt.map((a: R) => (
                 <div key={a.id} className="flex items-start gap-2 py-2 border-b border-s112-border last:border-0">
-                  <span className="text-base flex-shrink-0 mt-0.5">{ART_ICON[a.art] ?? '📝'}</span>
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-800 truncate">{a.betreff || a.art}</p>
                     <p className="text-xs text-s112-muted">
@@ -417,15 +410,15 @@ export default async function DashboardPage() {
         <h2 className="text-xs font-semibold text-s112-muted uppercase tracking-wider mb-3">Schnellzugriff</h2>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {[
-            { href: '/weinhandel/verkauf/neu',    icon: '🛒', label: 'Neuer Verkauf'    },
-            { href: '/weinhandel/fuellungen/neu',  icon: '🍾', label: 'Füllen'           },
-            { href: '/crm',                        icon: '📅', label: 'Aktivität'        },
-            { href: '/kellerbuch/umziehen',        icon: '🔄', label: 'Umziehen'         },
-            { href: '/weinhandel/offene-posten',   icon: '💶', label: 'Offene Posten'    },
+            { href: '/weinhandel/verkauf/neu',    icon: ShoppingCart,   label: 'Neuer Verkauf'    },
+            { href: '/weinhandel/fuellungen/neu',  icon: Wine,           label: 'Füllen'           },
+            { href: '/crm',                        icon: Calendar,       label: 'Aktivität'        },
+            { href: '/kellerbuch/umziehen',        icon: ArrowRightLeft, label: 'Umziehen'         },
+            { href: '/weinhandel/offene-posten',   icon: Wallet,         label: 'Offene Posten'    },
           ].map(item => (
             <Link key={item.href} href={item.href}
               className="card p-4 flex items-center gap-3 hover:border-s112-teal hover:shadow-sm transition-all">
-              <span className="text-xl">{item.icon}</span>
+              <item.icon size={20} strokeWidth={1.75} className="text-s112-teal" />
               <span className="text-sm font-medium text-gray-700">{item.label}</span>
             </Link>
           ))}

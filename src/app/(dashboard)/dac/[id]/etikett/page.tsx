@@ -65,7 +65,7 @@ export default async function EtikettPage({ params }: { params: Promise<{ id: st
       {/* Hinweis wenn noch keine Prüfnummer */}
       {!dac.pruefnummer && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800 print:hidden">
-          ⚠ Noch keine Prüfnummer vergeben – Etikett enthält Platzhalterdaten. Bitte erst nach Genehmigung drucken.
+          Noch keine Prüfnummer vergeben – Etikett enthält Platzhalterdaten. Bitte erst nach Genehmigung drucken.
         </div>
       )}
 

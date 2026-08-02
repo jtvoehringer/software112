@@ -3,6 +3,7 @@ import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import { fmtLiter } from '@/lib/format'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Pencil, Boxes } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Kellerbuch – software:112' }
 export const dynamic = 'force-dynamic'
@@ -16,10 +17,6 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   ausbau:       { label: 'Ausbau',       color: 'bg-blue-100 text-blue-700' },
   abfuellung:   { label: 'Abfüllung',   color: 'bg-purple-100 text-purple-700' },
   abgeschlossen:{ label: 'Abgeschlossen',color: 'bg-green-100 text-green-700' },
-}
-
-const TYP_ICONS: Record<string, string> = {
-  lagertank: '🪣', immervolltank: '🪣', stahltank: '🪣', holzfass: '🪵', betonei: '⚪', amphore: '🏺', sonstiges: '📦',
 }
 
 const WEINART_BADGE: Record<string, { label: string; color: string }> = {
@@ -127,7 +124,6 @@ export default async function KellerbuchPage() {
             <div key={b.id} className="card p-0 overflow-hidden">
               {/* Behälter-Header */}
               <div className="flex items-center gap-3 px-4 py-3 bg-s112-bg border-b border-s112-border">
-                <span className="text-xl">{TYP_ICONS[b.typ] ?? '📦'}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-gray-800 text-sm">{b.name}</span>
@@ -166,7 +162,7 @@ export default async function KellerbuchPage() {
                     <Link href={`/kellerbuch/behaelter/${b.id}`}
                       title="Bearbeiten" aria-label="Bearbeiten"
                       className="text-s112-muted hover:text-s112-teal">
-                      ✏️
+                      <Pencil className="w-4 h-4" />
                     </Link>
                   )}
                 </div>
@@ -175,7 +171,7 @@ export default async function KellerbuchPage() {
               {/* Negativer Bestand – Warnung */}
               {literImBehaelter < 0 && (
                 <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border-b border-red-200 text-red-700 text-xs font-medium">
-                  ⚠️ Negativer Bestand: {fmtLiter(literImBehaelter)} — Buchungsfehler prüfen
+                  Negativer Bestand: {fmtLiter(literImBehaelter)} — Buchungsfehler prüfen
                 </div>
               )}
 
@@ -229,7 +225,7 @@ export default async function KellerbuchPage() {
                             {writeOk && menge > 0.01 && (
                               <Link href={`/weinhandel/fuellungen/neu?charge=${w.id}`}
                                 className="text-xs text-s112-teal border border-s112-teal/30 rounded-full px-2 py-0.5 hover:bg-s112-teal hover:text-white transition-colors whitespace-nowrap">
-                                🍾 Abfüllen
+                                Abfüllen
                               </Link>
                             )}
                           </td>
@@ -249,7 +245,6 @@ export default async function KellerbuchPage() {
         {chargenOhneBehaelter.length > 0 && (
           <div className="card p-0 overflow-hidden">
             <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border-b border-amber-200">
-              <span className="text-xl">⚠️</span>
               <span className="font-semibold text-amber-800 text-sm">Chargen ohne Behälterzuweisung</span>
             </div>
             <table className="w-full text-sm">
@@ -282,7 +277,7 @@ export default async function KellerbuchPage() {
 
         {behaelter.filter((b: R) => b.aktiv).length === 0 && (
           <div className="card text-center py-10">
-            <p className="text-3xl mb-2">🪣</p>
+            <Boxes className="w-8 h-8 mx-auto mb-2 text-s112-muted" />
             <p className="text-sm text-s112-muted">Noch keine Behälter angelegt</p>
             {writeOk && (
               <Link href="/kellerbuch/behaelter/neu"

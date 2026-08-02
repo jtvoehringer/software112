@@ -2,13 +2,14 @@
 
 import React, { useState, useTransition } from 'react'
 import Link from 'next/link'
+import { Pencil, Trash2 } from 'lucide-react'
 import type { Jahrgang } from './page'
 import { fmtZahl, fmtProzent } from '@/lib/format'
 import { updateJahrgang, deleteJahrgang } from './actions'
 
 const QUALITAET_LABEL: Record<string, string> = {
-  sehr_gut: '⭐⭐⭐ Sehr gut', gut: '⭐⭐ Gut',
-  durchschnittlich: '⭐ Durchschnittlich', schlecht: 'Schlecht',
+  sehr_gut: 'Sehr gut', gut: 'Gut',
+  durchschnittlich: 'Durchschnittlich', schlecht: 'Schlecht',
 }
 const AMA_STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   entwurf:     { label: 'Entwurf',     cls: 'bg-gray-100 text-gray-600' },
@@ -31,13 +32,12 @@ export default function JahrgaengeClient({
   if (jahrgaenge.length === 0) {
     return (
       <div className="card text-center py-16">
-        <p className="text-4xl mb-4">🍇</p>
         <p className="text-gray-700 font-medium">Noch keine Jahrgänge erfasst</p>
         <p className="text-s112-muted text-sm mt-1 mb-6">Ersten Jahrgang anlegen und Erntedaten erfassen</p>
         {writeOk && (
           <Link href="/erntemeldung/neu"
             className="inline-flex items-center gap-2 bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
-            ＋ Neuer Jahrgang
+            Neuer Jahrgang
           </Link>
         )}
       </div>
@@ -147,14 +147,14 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
                 <button onClick={() => setEditing(true)}
                   title="Bearbeiten" aria-label="Bearbeiten"
                   className="text-s112-teal hover:text-s112-teal/70">
-                  ✏️
+                  <Pencil size={14} />
                 </button>
               )}
               {adminOk && (
                 <button onClick={handleDelete}
                   title="Löschen" aria-label="Löschen"
                   className="text-red-400 hover:text-red-600">
-                  🗑️
+                  <Trash2 size={14} />
                 </button>
               )}
             </div>

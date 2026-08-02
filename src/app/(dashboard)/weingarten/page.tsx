@@ -57,7 +57,7 @@ export default async function WeingartenPage() {
             href="/weingarten/neu"
             className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
           >
-            <span>＋</span> Neue Ried
+            Neue Ried
           </Link>
         )}
       </div>
@@ -92,7 +92,6 @@ export default async function WeingartenPage() {
         />
       ) : (
         <div className="card text-center py-16">
-          <p className="text-4xl mb-4">🌿</p>
           <p className="text-gray-700 font-medium">Noch keine Rieden angelegt</p>
           <p className="text-s112-muted text-sm mt-1 mb-6">Legen Sie Ihre erste Ried an</p>
           {writeOk && (
@@ -100,7 +99,7 @@ export default async function WeingartenPage() {
               href="/weingarten/neu"
               className="inline-flex items-center gap-2 bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
             >
-              ＋ Erste Ried anlegen
+              Erste Ried anlegen
             </Link>
           )}
         </div>

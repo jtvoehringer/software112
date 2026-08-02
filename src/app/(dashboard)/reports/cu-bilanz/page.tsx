@@ -99,7 +99,7 @@ export default async function CuBilanzPage({ searchParams }: { searchParams: Pro
             <p className={`text-xl font-bold ${ueberlimit ? 'text-red-600' : 'text-green-700'}`}>
               {totalCuKgHa.toFixed(3).replace('.',',')} kg/ha
             </p>
-            <p className="text-xs mt-0.5">{ueberlimit ? '⚠ ÜBER EU-Limit' : `✓ Limit: ${EU_LIMIT_KG_HA_JAHR} kg/ha/Jahr`}</p>
+            <p className="text-xs mt-0.5">{ueberlimit ? 'ÜBER EU-Limit' : `Limit: ${EU_LIMIT_KG_HA_JAHR} kg/ha/Jahr`}</p>
           </div>
         </div>
 

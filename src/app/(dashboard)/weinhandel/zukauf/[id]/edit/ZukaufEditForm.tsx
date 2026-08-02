@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect } from 'react'
 import Link from 'next/link'
 import { updateZukauf } from '../../actions'
 import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { AlertTriangle } from 'lucide-react'
 
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
 
@@ -34,7 +35,6 @@ interface InitialValues {
   staatliche_pruefnummer:   string
 }
 
-const TYP_ICONS: Record<string, string> = { tank: '🛢', fass: '🪵', amphore: '🏺', sonstiges: '📦' }
 const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
 const labelCls = 'block text-xs font-medium text-gray-600 mb-1'
 
@@ -44,10 +44,10 @@ const ZUKAUF_QUALITAETEN = [
   'dac', 'reserve',
 ] as const
 
-const ART_OPTIONS: { value: 'wein' | 'most' | 'trauben'; label: string; icon: string }[] = [
-  { value: 'wein',    label: 'Wein',        icon: '🍷' },
-  { value: 'most',    label: 'Traubenmost', icon: '🌊' },
-  { value: 'trauben', label: 'Trauben',     icon: '🍇' },
+const ART_OPTIONS: { value: 'wein' | 'most' | 'trauben'; label: string }[] = [
+  { value: 'wein',    label: 'Wein' },
+  { value: 'most',    label: 'Traubenmost' },
+  { value: 'trauben', label: 'Trauben' },
 ]
 
 export default function ZukaufEditForm({
@@ -182,11 +182,11 @@ export default function ZukaufEditForm({
           <div>
             <label className={labelCls}>Art *</label>
             <div className="flex gap-4 mt-1.5">
-              {ART_OPTIONS.map(({ value, label, icon }) => (
+              {ART_OPTIONS.map(({ value, label }) => (
                 <label key={value} className="flex items-center gap-1.5 cursor-pointer">
                   <input type="radio" name="art" value={value} checked={art === value}
                     onChange={() => setArt(value)} className="accent-s112-teal" />
-                  <span className="text-sm text-gray-700">{icon} {label}</span>
+                  <span className="text-sm text-gray-700">{label}</span>
                 </label>
               ))}
             </div>
@@ -221,10 +221,11 @@ export default function ZukaufEditForm({
           <div>
             <label className={labelCls}>Weinart *</label>
             <div className="flex gap-4 mt-1.5">
-              {([['weiss','🟡 Weißwein'],['rot','🔴 Rotwein'],['rose','🩷 Rosé'],['unbekannt','⬜ Unbekannt']] as const).map(([val, lbl]) => (
+              {([['weiss','Weißwein','bg-yellow-300'],['rot','Rotwein','bg-red-600'],['rose','Rosé','bg-pink-300'],['unbekannt','Unbekannt','bg-gray-200']] as const).map(([val, lbl, dot]) => (
                 <label key={val} className="flex items-center gap-1.5 cursor-pointer">
                   <input type="radio" name="weinart" value={val} checked={weinart === val}
                     onChange={() => setWeinart(val)} className="accent-s112-teal" />
+                  <span className={`inline-block w-2.5 h-2.5 rounded-full border border-black/10 ${dot}`} />
                   <span className="text-sm text-gray-700">{lbl}</span>
                 </label>
               ))}
@@ -362,7 +363,7 @@ export default function ZukaufEditForm({
                   const restSuffix = rest != null ? ` · Rest: ${rest.toLocaleString('de-AT')} L` : ''
                   return (
                     <option key={b.id} value={b.id}>
-                      {TYP_ICONS[b.typ] ?? '📦'} {b.name}{kapSuffix}{inhaltSuffix}{restSuffix}
+                      {b.name}{kapSuffix}{inhaltSuffix}{restSuffix}
                     </option>
                   )
                 })}
@@ -405,7 +406,11 @@ export default function ZukaufEditForm({
                       </p>
                     </div>
                   </div>
-                  {ueber && <p className="text-red-600 font-semibold">⚠ Behälter hat nicht genug Kapazität</p>}
+                  {ueber && (
+                    <p className="text-red-600 font-semibold flex items-center gap-1.5">
+                      <AlertTriangle size={14} /> Behälter hat nicht genug Kapazität
+                    </p>
+                  )}
                 </div>
               )
             })()}
@@ -428,7 +433,7 @@ export default function ZukaufEditForm({
           </Link>
           <button type="submit" disabled={isPending}
             className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
-            {isPending ? 'Speichern…' : '✓ Änderungen speichern'}
+            {isPending ? 'Speichern…' : 'Änderungen speichern'}
           </button>
         </div>
       </form>

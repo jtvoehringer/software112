@@ -5,10 +5,6 @@ import { exportCSV } from '@/lib/utils/csv'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-const TYP_ICONS: Record<string, string> = {
-  lagertank: '🪣', immervolltank: '🪣', stahltank: '🪣', holzfass: '🪵', betonei: '⚪', amphore: '🏺', sonstiges: '📦',
-}
-
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   ernte:         { label: 'Ernte',         color: 'bg-yellow-100 text-yellow-700' },
   gaerung:       { label: 'Gärung',        color: 'bg-orange-100 text-orange-700' },
@@ -156,7 +152,7 @@ export default function KellerAuswertungenClient({
             onClick={() => window.print()}
             className="flex items-center gap-2 border border-s112-border text-gray-600 px-3 py-2 rounded-xl text-sm hover:bg-s112-bg transition-colors"
           >
-            🖨 Drucken
+            Drucken
           </button>
         </div>
       </div>
@@ -210,7 +206,7 @@ export default function KellerAuswertungenClient({
                   <tr key={b.id} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
                     <td className="px-4 py-2.5 font-medium text-gray-800">
                       <Link href={`/kellerbuch/behaelter/${b.id}/bewegungen`} className="flex items-center gap-2 hover:text-s112-teal">
-                        <span>{TYP_ICONS[b.typ] ?? '📦'}</span>{b.name}
+                        {b.name}
                       </Link>
                     </td>
                     <td className="px-4 py-2.5 text-gray-500 text-xs">{b.standort ?? '–'}</td>
@@ -282,9 +278,9 @@ export default function KellerAuswertungenClient({
                     <td className="px-4 py-2.5 text-gray-600 text-sm">
                       {bh ? (
                         <Link href={`/kellerbuch/behaelter/${bh.id}/bewegungen`} className="hover:text-s112-teal">
-                          {TYP_ICONS[bh.typ] ?? '📦'} {bh.name}
+                          {bh.name}
                         </Link>
-                      ) : <span className="text-amber-600 text-xs">⚠️ kein Behälter</span>}
+                      ) : <span className="text-amber-600 text-xs">kein Behälter</span>}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums font-medium text-s112-teal">
                       {fmtLiter(parseFloat(c.menge_liter) || 0)}
@@ -314,7 +310,7 @@ export default function KellerAuswertungenClient({
           <div className="flex flex-wrap gap-2 mb-4">
             {behandlungTypMap.sort((a, b) => b[1] - a[1]).map(([typ, anzahl]) => (
               <span key={typ} className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-100">
-                🧪 {typ}<span className="font-semibold ml-0.5">{anzahl}×</span>
+                {typ}<span className="font-semibold ml-0.5">{anzahl}×</span>
               </span>
             ))}
           </div>
@@ -336,7 +332,7 @@ export default function KellerAuswertungenClient({
                   <td className="px-4 py-2.5 text-gray-500 whitespace-nowrap text-xs">
                     {new Date(b.datum).toLocaleDateString('de-AT')}
                   </td>
-                  <td className="px-4 py-2.5 text-gray-800">🧪 {(b.typ as R | null)?.name ?? '–'}</td>
+                  <td className="px-4 py-2.5 text-gray-800">{(b.typ as R | null)?.name ?? '–'}</td>
                   <td className="px-4 py-2.5 text-gray-600">{(b.behaelter as R | null)?.name ?? '–'}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-gray-700">
                     {b.menge && b.einheit ? `${parseFloat(b.menge).toLocaleString('de-AT')} ${b.einheit}` : '–'}
@@ -373,7 +369,6 @@ export default function KellerAuswertungenClient({
             </thead>
             <tbody>
               {umzuege.map((u, i) => {
-                const isFilt    = u.umzug_typ === 'filtration'
                 const isSchwund = u.umzug_typ === 'schwund'
                 const brutto    = parseFloat(u.brutto_liter) || parseFloat(u.menge_liter) || 0
                 const schwund   = parseFloat(u.schwund_liter) || 0
@@ -389,10 +384,10 @@ export default function KellerAuswertungenClient({
                       {new Date(u.datum).toLocaleDateString('de-AT')}
                     </td>
                     <td className="px-4 py-2.5 text-gray-700">
-                      {isSchwund ? '💧' : isFilt ? '🔽' : '⬇️'} {vonName}
+                      {vonName}
                     </td>
                     <td className="px-4 py-2.5 text-gray-700">
-                      {isSchwund ? '💧' : isFilt ? '🔼' : '⬆️'} {nachName}
+                      {nachName}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums font-medium text-gray-700">
                       {brutto > 0 ? fmtLiter(brutto) : '–'}

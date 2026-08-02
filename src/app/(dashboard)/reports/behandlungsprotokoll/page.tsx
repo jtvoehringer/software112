@@ -89,7 +89,7 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
                   <td className="px-2 py-1.5 border border-gray-200 text-center">{b.bbch_stadium ?? '–'}</td>
                   <td className="px-2 py-1.5 border border-gray-200 tabular-nums whitespace-nowrap">{b.menge_gesamt ?? b.aufwandmenge ?? '–'} {b.menge_einheit ?? b.aufwandmenge_einheit ?? ''}</td>
                   <td className="px-2 py-1.5 border border-gray-200 text-center">{psm?.wartezeit_tage ? `${psm.wartezeit_tage} T` : '–'}</td>
-                  <td className="px-2 py-1.5 border border-gray-200 text-center">{psm?.oeko_zugelassen ? '✓' : ''}</td>
+                  <td className="px-2 py-1.5 border border-gray-200 text-center">{psm?.oeko_zugelassen ? 'Ja' : ''}</td>
                   <td className="px-2 py-1.5 border border-gray-200 text-gray-500">{b.notizen ?? ''}</td>
                 </tr>
               )

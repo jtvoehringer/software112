@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { deleteEaTransaktion } from './actions'
+import { Trash2 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -114,11 +115,11 @@ export default async function BuchhaltungPage({
 
       {/* Quick-Links */}
       <div className="flex gap-2 mb-4 text-sm">
-        <Link href="/buchhaltung/uva" className="text-s112-teal hover:underline">📋 UVA-Meldung</Link>
+        <Link href="/buchhaltung/uva" className="text-s112-teal hover:underline">UVA-Meldung</Link>
         <span className="text-gray-300">·</span>
-        <Link href="/buchhaltung/kategorien" className="text-s112-teal hover:underline">🏷 Kategorien</Link>
+        <Link href="/buchhaltung/kategorien" className="text-s112-teal hover:underline">Kategorien</Link>
         <span className="text-gray-300">·</span>
-        <Link href="/buchhaltung/dauerauftraege" className="text-s112-teal hover:underline">🔄 Daueraufträge</Link>
+        <Link href="/buchhaltung/dauerauftraege" className="text-s112-teal hover:underline">Daueraufträge</Link>
       </div>
 
       {/* Tabelle */}
@@ -152,7 +153,6 @@ export default async function BuchhaltungPage({
                 <td className="px-4 py-3">
                   <span className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${b.typ === 'einnahme' ? 'bg-green-500' : 'bg-red-400'}`} />
                   {b.beschreibung}
-                  {b.is_locked && <span className="ml-2 text-xs text-gray-400">🔒</span>}
                 </td>
                 <td className="px-4 py-3 text-gray-500 text-xs">{b.ea_kategorien?.name ?? '–'}</td>
                 <td className="px-4 py-3 text-gray-500">{b.ust_satz}%</td>
@@ -169,7 +169,7 @@ export default async function BuchhaltungPage({
                       <button type="submit"
                         className="text-xs text-red-400 hover:text-red-600"
                         title="Buchung löschen">
-                        ✕
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </form>
                   )}

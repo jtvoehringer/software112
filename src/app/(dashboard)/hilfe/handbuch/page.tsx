@@ -2,13 +2,14 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { Sprout, Wine, ShoppingCart, Truck, Users, Mail, Bot, Upload, Settings, BarChart3, type LucideIcon } from 'lucide-react'
 
 type Abschnitt = { titel: string; inhalt: string }
-type Kapitel = { id: string; icon: string; titel: string; abschnitte: Abschnitt[] }
+type Kapitel = { id: string; icon: LucideIcon; titel: string; abschnitte: Abschnitt[] }
 
 const KAPITEL: Kapitel[] = [
   {
-    id: 'weingarten', icon: '🌿', titel: 'Rieden',
+    id: 'weingarten', icon: Sprout, titel: 'Rieden',
     abschnitte: [
       { titel: 'Rieden anlegen', inhalt: 'Navigiere zu Rieden > Neue Ried. Pflichtfelder: Name, Rebsorte, Fläche (ha), Gemeinde/Lage. Die Ried erscheint in allen Maßnahmen- und Erntemasken.' },
       { titel: 'Maßnahme erfassen', inhalt: 'Unter Rieden > Maßnahmen > Neue Maßnahme: Datum, Ried, PSM-Mittel und Aufwandmenge eintragen. Das System berechnet automatisch den frühesten Erntetermin nach Wartezeit.' },
@@ -20,22 +21,22 @@ const KAPITEL: Kapitel[] = [
     ],
   },
   {
-    id: 'kellerbuch', icon: '🍷', titel: 'Kellerbuch',
+    id: 'kellerbuch', icon: Wine, titel: 'Kellerbuch',
     abschnitte: [
       { titel: 'Chargen entstehen automatisch', inhalt: 'Eine Weinausbau-Charge legst du nicht mehr manuell an – der frühere Menüpunkt "Neue Charge" leitet automatisch zur Lese weiter. Chargen entstehen ausschließlich durch eine Pressung (Rieden > Lese > Pressung erfassen) oder durch eine Verschneidung bestehender Chargen. Rebsorte, Jahrgang und Menge werden dabei übernommen und sind in der Charge-Detailseite gesperrt, sofern die Charge aus einer Pressung stammt.' },
       { titel: 'Pressung erfassen', inhalt: 'Unter Rieden > Lese > Pressungen erfasst du Datum, Mostausbeute, gelesene GST/Rieden und Zielbehälter. Der °KMW-Wert wird live als gewichteter Durchschnitt berechnet; ein Klick auf den vorgeschlagenen Qualitätsstufen-Button übernimmt die Stufe, manuelle Überschreibung bleibt möglich. Eine Live-Vorschau zeigt schon während der Eingabe den Namen der entstehenden Charge.' },
       { titel: 'Behälter-Auswahl bei Pressung, Umziehen und Verschneiden', inhalt: 'Die Behälter-Dropdowns zeigen zu jedem Gebinde Kapazität, aktuellen Inhalt und freien Rest sowie in eckigen Klammern die bereits enthaltenen Chargen/Rebsorten. Bei Auswahl eines belegten Behälters erscheint automatisch ein Kapazitäts-Check (Rest nach der Buchung) sowie ggf. eine Rebsortenmix-Warnung oder eine rote Sperre bei Weinart-Konflikt (Rot- und Weißwein dürfen nicht gemeinsam in einem Gebinde verschnitten werden).' },
-      { titel: 'Umziehen und Verschneiden (aus der Charge-Detailseite)', inhalt: 'Umziehen und Verschneiden startest du direkt oben in der Charge-Detailseite (Kellerbuch > Weinausbau > Charge öffnen) über die Buttons "📦 Umziehen" und "🍷 Verschneiden" – eigene Auslöse-Buttons in Listen gibt es nicht mehr. Presst du in einen bereits belegten Behälter oder ziehst du in ein Gebinde mit anderer Rebsorte um, bietet software:112 danach automatisch an, die beiden Chargen zu verschneiden.' },
+      { titel: 'Umziehen und Verschneiden (aus der Charge-Detailseite)', inhalt: 'Umziehen und Verschneiden startest du direkt oben in der Charge-Detailseite (Kellerbuch > Weinausbau > Charge öffnen) über die Buttons "Umziehen" und "Verschneiden" – eigene Auslöse-Buttons in Listen gibt es nicht mehr. Presst du in einen bereits belegten Behälter oder ziehst du in ein Gebinde mit anderer Rebsorte um, bietet software:112 danach automatisch an, die beiden Chargen zu verschneiden.' },
       { titel: 'Qualitätsstufen- und Weinart-Regeln beim Verschnitt', inhalt: 'Mischst du Chargen verschiedener Qualitätsstufen, wird die Ziel-Charge automatisch auf die niedrigste beteiligte Stufe gesetzt (Bestätigungsabfrage vor dem Speichern); ein Upgrade über die höchste Quell-Stufe hinaus ist nie möglich. Enthalten Quelle und Ziel unterschiedliche Rebsorten, prüft eine Live-Vorschau die 85 %-Regel: Macht eine Sorte mindestens 85 % der Gesamtmenge aus, bleibt sie sortenrein bezeichenbar, sonst gilt die Charge als "Sortenverschnitt". Rotwein und Weißwein lassen sich grundsätzlich nicht miteinander verschneiden (Weinart-Konflikt, Speichern-Button gesperrt).' },
       { titel: 'Kapazität und Standort von Gebinden', inhalt: 'Bei Umziehen, Verschneiden und Pressung wird die Kapazität des Zielgebindes live geprüft; bei Überschreitung wird die Buchung blockiert. Ein Gebinde kann außerdem nur einem Kellerplan (Standort) zugeordnet sein – ist es dort bereits platziert, verschwindet es aus der Auswahl anderer Kellerpläne. Löschen ist nur ohne aktive Charge und ohne bestehende Referenzen möglich, sonst über "Bearbeiten" auf "Inaktiv" setzen.' },
-      { titel: 'Abfüllen', inhalt: 'Eine Charge füllst du über den "🍾 Abfüllen"-Link in der Kellerbuch-Übersicht bzw. den "Abfüllen"-Button in der Charge-Detailseite ab: Flaschengröße, Anzahl Flaschen und VK-Preis wählen. Die Füllung erscheint danach im Warenwirtschaft-Lager. Der frühere eigenständige "Neue Füllung"-Button in der Übersicht wurde entfernt.' },
+      { titel: 'Abfüllen', inhalt: 'Eine Charge füllst du über den "Abfüllen"-Link in der Kellerbuch-Übersicht bzw. den "Abfüllen"-Button in der Charge-Detailseite ab: Flaschengröße, Anzahl Flaschen und VK-Preis wählen. Die Füllung erscheint danach im Warenwirtschaft-Lager. Der frühere eigenständige "Neue Füllung"-Button in der Übersicht wurde entfernt.' },
       { titel: 'Kellerbuch-Übersicht und Navigation', inhalt: 'Gebinde und die Chargenliste (Weinausbau) wurden aus der linken Seitenleiste entfernt, sind aber über die Kacheln "Aktive Behälter" bzw. "Laufende Chargen" auf der Kellerbuch-Übersichtsseite weiterhin erreichbar (bzw. direkt über /kellerbuch/gebinde und /kellerbuch/weinausbau). Chargen-Zeilen sind komplett anklickbar und führen zur Charge-Detailseite; ein Weinart-Badge (Weiß/Rot/Rosé) sowie ein Kapazitätsbalken je Behälter geben einen schnellen Überblick.' },
       { titel: 'Kellerplan', inhalt: 'Der Kellerplan zeigt eine visuelle Übersicht aller Behälter mit aktueller Belegung. Ein Klick (kein Ziehen) auf ein Gebinde öffnet ein Dialogfenster mit direkten Sprüngen zu "Umziehen", "Kellerbehandlungen" und – falls Wein enthalten ist – "Abfüllen". Nützlich auch für Bio-Kontrolle und Raumplanung.' },
       { titel: 'bawb.at im Prüfnummern-Antrag', inhalt: 'Im Prüfnummern-Antrag (Kellerbuch > Prüfnummern) öffnet der Button "bawb.at öffnen" das LFRZ-Portal "Weinkontrolle Online" als Schnellzugriff in einem neuen Tab. Es findet keine automatische Datenübertragung statt – Status und Prüfnummer aus dem Portal trägst du weiterhin manuell in den Antrag ein.' },
     ],
   },
   {
-    id: 'warenwirtschaft', icon: '🛒', titel: 'Warenwirtschaft',
+    id: 'warenwirtschaft', icon: ShoppingCart, titel: 'Warenwirtschaft',
     abschnitte: [
       { titel: 'Verkauf anlegen', inhalt: 'Unter Warenwirtschaft > Verkauf > Neuer Verkauf: zuerst Kontakt oder Firma wählen (Pflicht!), dann Positionen hinzufügen. Rabattgruppe und Sonderrabatt werden automatisch vorbelegt. Den USt.-Satz kannst du pro Position einzeln wählen (0 %, 10 %, 13 %, 20 %); Standard ist der im Mandanten hinterlegte Wert.' },
       { titel: 'Rechnung drucken', inhalt: 'In der Verkaufsdetailansicht auf Rechnung klicken. Das System druckt ein PDF mit Briefkopf, USt-Aufschlüsselung und Bankdaten. Rechnungsnummer wird automatisch vergeben.' },
@@ -43,14 +44,14 @@ const KAPITEL: Kapitel[] = [
       { titel: 'Rabatt & Sonderrabatt', inhalt: 'Beim Anlegen einer Verkaufsposition wird Rabatt aus der Rabattgruppe und Sonderrabatt aus dem Kontakt/der Firma automatisch vorbelegt. Beide Werte können direkt in der Position geändert oder auf 0 gesetzt werden, um keinen Rabatt anzuwenden.' },
       { titel: 'Skonto', inhalt: 'Unter CRM > Kontakt/Firma kann ein Skonto-Prozentsatz hinterlegt werden. Dieser erscheint automatisch in neuen Verkäufen und wird auf der Rechnung ausgewiesen. Im Verkaufsformular ist Skonto jederzeit anpassbar.' },
       { titel: 'Teilzahlungen', inhalt: 'Im Verkaufsdetail kannst du Teilzahlungen erfassen: Betrag und Datum eingeben. Der offene Restbetrag wird automatisch aktualisiert. Der Posten gilt erst als vollständig bezahlt wenn der Gesamtbetrag beglichen ist.' },
-      { titel: 'Traubenverkauf', inhalt: 'Unter Warenwirtschaft > Verkauf > Neuer Verkauf den Positionstyp 🍇 Weintrauben (kg) wählen. Im Formular Ried auswählen – es werden nur Riede mit noch verfügbaren (nicht gepressten oder bereits verkauften) Trauben angezeigt. Das System befüllt KMW, Qualitätsstufe und Jahrgang automatisch aus der letzten Lese. Optional ein Grundstück (Parzelle) für parzellengenaue Abrechnung wählen. Menge (kg), Preis pro kg und Gesundheitszustand (G = gesund / K = krank) eintragen. Beim Speichern wird automatisch eine Liefernummer und Rechnungsnummer vergeben. Beim Stornieren werden die kg wieder als verfügbar zurückgebucht. BKI-Datenblätter unter Rieden > Traubenverkauf.' },
+      { titel: 'Traubenverkauf', inhalt: 'Unter Warenwirtschaft > Verkauf > Neuer Verkauf den Positionstyp Weintrauben (kg) wählen. Im Formular Ried auswählen – es werden nur Riede mit noch verfügbaren (nicht gepressten oder bereits verkauften) Trauben angezeigt. Das System befüllt KMW, Qualitätsstufe und Jahrgang automatisch aus der letzten Lese. Optional ein Grundstück (Parzelle) für parzellengenaue Abrechnung wählen. Menge (kg), Preis pro kg und Gesundheitszustand (G = gesund / K = krank) eintragen. Beim Speichern wird automatisch eine Liefernummer und Rechnungsnummer vergeben. Beim Stornieren werden die kg wieder als verfügbar zurückgebucht. BKI-Datenblätter unter Rieden > Traubenverkauf.' },
       { titel: 'Zukauf erfassen', inhalt: 'Unter Warenwirtschaft > Zukauf > Neuer Zukauf erfasst du eine Transportbescheinigung gem. Weingesetz: Datum/Uhrzeit, Art (Wein, Traubenmost oder Trauben), Lieferant, Transportmittel sowie Warenangaben wie Weinart, Rebsorte, Jahrgang, Herkunft, Qualitätsstufe, °KMW und Prüfnummer. Der Preis pro Einheit wird automatisch aus Gesamtpreis ÷ Menge berechnet; bei Einheit „L" übernimmt software:112 daraus zusätzlich automatisch den Einstandspreis/Liter. Optional füllst du den Zukauf direkt in ein bestehendes Gebinde – das Dropdown zeigt je Behälter Kapazität, Inhalt (inkl. enthaltener Rebsorten) und Restkapazität, inklusive Warnung bei drohender Überfüllung.' },
       { titel: 'Automatische Verschneidung nach dem Zukauf', inhalt: 'Enthält das gewählte Zielgebinde beim Zukauf bereits eine andere Rebsorte, erscheint vor dem Speichern eine Warnung "Rebsortenverschnitt". Nach dem Speichern legt software:112 die Zukaufsmenge als eigene Charge im Gebinde an und leitet automatisch zum Verschneiden-Formular der bestehenden Charge weiter (Quelle und Menge vorbelegt) – dieselbe automatische Weiterleitung erfolgt auch bei gleicher Rebsorte, aber unterschiedlicher Qualitätsstufe.' },
       { titel: 'Preislisten', inhalt: 'Unter Warenwirtschaft > Preisliste: mehrere aktive Preislisten gleichzeitig (z.B. Ab-Hof, Gastronomie, Export). Beim neuen Verkauf wählst du die passende Preisliste.' },
     ],
   },
   {
-    id: 'weinexport', icon: '🚢', titel: 'Weinexport',
+    id: 'weinexport', icon: Truck, titel: 'Weinexport',
     abschnitte: [
       { titel: 'Exportauftrag anlegen', inhalt: 'Unter Weinexport > Neuer Auftrag: Importeur (Kontakt oder Firma), Incoterms, Transportart, Destination und EORI-Nummer des Importeurs eintragen. Weinpositionen aus dem Füllungslager wählen – TARIC-Code wird automatisch gesetzt (2204.21 für Weinflaschen).' },
       { titel: 'Exportdokumente generieren', inhalt: 'Im Exportauftrag rechts unter "Dokumente": Status je Dokument pflegen (Ausstehend → Beantragt → Ausgestellt). Klick auf "PDF" öffnet das druckfertige Dokument: V1/V2 Begleitdokument, EUR.1 Ursprungszeugnis, CMR Frachtbrief, Certificate of Origin, Lieferschein (DE/EN), Exportrechnung (DE/EN).' },
@@ -59,7 +60,7 @@ const KAPITEL: Kapitel[] = [
     ],
   },
   {
-    id: 'crm', icon: '👥', titel: 'CRM',
+    id: 'crm', icon: Users, titel: 'CRM',
     abschnitte: [
       { titel: 'Kontakt anlegen', inhalt: 'Unter CRM > Kontakte > Neuer Kontakt. Neue Kontakte starten als Lead (gelb). Nach dem ersten Verkauf werden sie automatisch zu Kunden (grün). Telefonvorwahl wählen: Land wird automatisch ausgefüllt.' },
       { titel: 'Notizen', inhalt: 'In der Kontakt- oder Firmendetailansicht gibt es eine eigene Notizen-Karte. Neue Notiz eingeben und + klicken. Offene Notizen erscheinen oben, erledigte darunter. Erledigte Notizen mit dem Häkchen abhaken.' },
@@ -71,7 +72,7 @@ const KAPITEL: Kapitel[] = [
     ],
   },
   {
-    id: 'nachrichten', icon: '📬', titel: 'E-Mail (Nachrichten)',
+    id: 'nachrichten', icon: Mail, titel: 'E-Mail (Nachrichten)',
     abschnitte: [
       { titel: 'Mailbox verbinden', inhalt: 'Unter Nachrichten auf "Mit Microsoft 365 verbinden" klicken. Microsoft-Login erscheint: mit dem Weingut-Outlook-Konto anmelden und Berechtigungen erteilen (E-Mail und persönlicher Kalender, siehe CRM > Outlook-Kalender spiegeln). Die Verbindung ist pro Benutzer – jeder muss sein eigenes Konto verbinden.' },
       { titel: 'E-Mails lesen und navigieren', inhalt: 'Die linke Sidebar zeigt alle Ordner (Posteingang, Gesendet, Entwürfe, Gelöschte Elemente, ...). Ordner anklicken wechselt die Ansicht. E-Mail in der Liste anklicken zeigt den vollständigen Inhalt rechts.' },
@@ -83,7 +84,7 @@ const KAPITEL: Kapitel[] = [
     ],
   },
   {
-    id: 'ki', icon: '🤖', titel: 'Frag dein Weingut (KI)',
+    id: 'ki', icon: Bot, titel: 'Frag dein Weingut (KI)',
     abschnitte: [
       { titel: 'Abfrage stellen', inhalt: 'Unter "Frag dein Weingut" in der Seitenleiste: Frage in natürlicher Sprache eingeben, z.B. "Welche Gastronomie-Kunden haben wir in Wien?" oder "Zeig mir Rotwein-Füllungen mit mehr als 200 Flaschen". Die KI (Claude Haiku) interpretiert die Frage und zeigt eine gefilterte Tabelle mit Zusammenfassung.' },
       { titel: 'Beispiel-Fragen', inhalt: 'Klick auf einen der Beispiel-Chips startet sofort die Abfrage. Weitere Beispiele: "Wer hat noch keinen Stammkunden-Status?", "Offene Pipeline-Einträge im Stadium Angebot", "Weinausbau mit mehr als 1000 Liter aktuell im Keller".' },
@@ -92,7 +93,7 @@ const KAPITEL: Kapitel[] = [
     ],
   },
   {
-    id: 'datenimport', icon: '📥', titel: 'Datenimport',
+    id: 'datenimport', icon: Upload, titel: 'Datenimport',
     abschnitte: [
       { titel: 'CSV-Datei vorbereiten', inhalt: 'Exportiere deine bestehenden Daten aus Excel oder einem anderen System als CSV (Trennzeichen: Semikolon oder Komma, Kodierung: UTF-8). Spaltenbezeichnungen können frei gewählt werden – du ordnest sie im nächsten Schritt zu.' },
       { titel: 'Import durchführen', inhalt: 'Unter Administration > Datenimport: Import-Typ wählen (Kontakte, Firmen oder Füllungen/Weinlager). CSV-Datei öffnen – eine Vorschau der ersten 3 Zeilen erscheint. Dann jede Spalte dem richtigen Feld zuordnen (Auto-Erkennung wenn Spaltenname passt). "Importieren" startet den Prozess.' },
@@ -101,14 +102,14 @@ const KAPITEL: Kapitel[] = [
     ],
   },
   {
-    id: 'administration', icon: '⚙️', titel: 'Administration',
+    id: 'administration', icon: Settings, titel: 'Administration',
     abschnitte: [
       { titel: 'Bio-Status setzen', inhalt: 'Unter Administration > Mandanten > [Betrieb] > Bewirtschaftung > Bio-Status wählst du zwischen Konventionell, KIP, Nachhaltig, Bio-EU und Biodynamisch. Der Status steuert die Warn-/Sperrlogik bei der Mittelwahl im Maßnahmenformular: bei Bio-EU/Biodynamisch wird ein nicht öko-zugelassenes Mittel gesperrt, bei KIP/Nachhaltig erscheint nur eine Warnung.' },
       { titel: 'bawb.at-Zugangsdaten hinterlegen', inhalt: 'Unter Administration > Mandanten > [Betrieb] > Tab "bawb.at" trägst du Kennung (Betriebsnummer) und Passwort für das LFRZ-Portal "Weinkontrolle Online" (bawb.at) ein. Ein Button öffnet das Portal direkt in einem neuen Tab – auch im Prüfnummern-Antrag verfügbar (siehe Kellerbuch).' },
     ],
   },
   {
-    id: 'auswertungen', icon: '📋', titel: 'Auswertungen',
+    id: 'auswertungen', icon: BarChart3, titel: 'Auswertungen',
     abschnitte: [
       { titel: 'Behörden-Dokumente', inhalt: 'Unter Auswertungen > Behörden: AMA Erntemeldung (je Jahrgang), Weinbauliches Behandlungsprotokoll (je Saison), Cu-Bilanz Jahresbericht nach EU-Bio-VO 2018/848. Alle druckfertig mit Briefkopf.' },
       { titel: 'Datenexport', inhalt: 'Unter Controlling > Datenexport: Kontakte, Firmen, Lagerbestand und Verkaufshistorie als Excel-kompatible CSV herunterladen. BOM-kodiert für österreichische Excel-Einstellungen.' },
@@ -136,21 +137,21 @@ export default function HandbuchPage() {
               <button key={k.id} onClick={() => setAktiv(k.id)}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-left transition-colors
                   ${aktiv === k.id ? 'bg-s112-teal text-white' : 'text-gray-600 hover:bg-s112-bg hover:text-gray-900'}`}>
-                <span>{k.icon}</span>
+                <k.icon size={16} />
                 {k.titel}
               </button>
             ))}
           </nav>
           <div className="mt-4 pt-4 border-t border-s112-border">
             <Link href="/hilfe/faq" className="flex items-center gap-2 px-3 py-2 text-sm text-s112-teal hover:underline">
-              ❓ FAQ ansehen
+              FAQ ansehen
             </Link>
           </div>
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 mb-5">
-            <span className="text-3xl">{kapitel.icon}</span>
+            <kapitel.icon className="text-s112-teal" size={30} />
             <h2 className="text-xl font-bold text-gray-900">{kapitel.titel}</h2>
           </div>
           <div className="space-y-3">

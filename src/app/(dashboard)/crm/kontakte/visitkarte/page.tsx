@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { Camera, X } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 type Kontakt = {
@@ -174,13 +175,13 @@ export default function VisitkartenScannerPage() {
       {fehler && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700 flex justify-between">
           {fehler}
-          <button onClick={() => { setFehler(null); setPhase('start') }} className="text-red-400 hover:text-red-600">✕</button>
+          <button onClick={() => { setFehler(null); setPhase('start') }} className="text-red-400 hover:text-red-600"><X className="w-4 h-4" /></button>
         </div>
       )}
 
       {phase === 'start' && (
         <div className="bg-white rounded-2xl border border-s112-border p-8 text-center space-y-4">
-          <p className="text-5xl">📇</p>
+          <Camera className="w-12 h-12 text-s112-teal mx-auto" />
           <h2 className="font-semibold text-gray-800">Visitenkarte fotografieren</h2>
           <p className="text-sm text-s112-muted">KI liest die Karte aus und legt den Kontakt als Lead an.</p>
           <button onClick={kameraStarten}
@@ -209,9 +210,9 @@ export default function VisitkartenScannerPage() {
             <p className="text-xs text-center text-s112-muted animate-pulse">Kamera wird gestartet…</p>
           )}
           <button onClick={fotografieren} disabled={!videoReady}
-            className={`w-full py-4 rounded-2xl font-bold text-lg transition-opacity
+            className={`w-full py-4 rounded-2xl font-bold text-lg transition-opacity inline-flex items-center justify-center gap-2
               ${videoReady ? 'bg-s112-teal text-white hover:bg-opacity-90' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
-            📸 Fotografieren
+            <Camera className="w-5 h-5" /> Fotografieren
           </button>
         </div>
       )}
@@ -219,7 +220,7 @@ export default function VisitkartenScannerPage() {
       {phase === 'analyse' && (
         <div className="bg-white rounded-2xl border border-s112-border p-8 text-center space-y-3">
           {foto && <img src={foto} alt="Visitenkarte" className="w-full rounded-xl max-h-48 object-contain" />}
-          <p className="text-sm text-s112-muted animate-pulse">🤖 KI analysiert die Visitenkarte…</p>
+          <p className="text-sm text-s112-muted animate-pulse">KI analysiert die Visitenkarte…</p>
         </div>
       )}
 
@@ -251,7 +252,7 @@ export default function VisitkartenScannerPage() {
 
       {phase === 'speichern' && (
         <div className="bg-white rounded-2xl border border-s112-border p-8 text-center">
-          <p className="text-sm text-s112-muted animate-pulse">💾 Kontakt wird angelegt…</p>
+          <p className="text-sm text-s112-muted animate-pulse">Kontakt wird angelegt…</p>
         </div>
       )}
     </div>

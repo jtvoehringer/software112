@@ -91,7 +91,7 @@ export default async function UvaPage({
           </div>
           <button type="submit"
             className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
-            📊 Berechnen & Speichern
+            Berechnen & Speichern
           </button>
         </form>
         <p className="text-xs text-s112-muted mt-2">
@@ -111,7 +111,7 @@ export default async function UvaPage({
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-gray-800">{zeitraumLabel(uva.zeitraum)}</h3>
                 {uva.gesperrt
-                  ? <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">🔒 Übermittelt</span>
+                  ? <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">Übermittelt</span>
                   : <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Entwurf</span>}
               </div>
 

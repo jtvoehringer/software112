@@ -4,6 +4,7 @@ import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import FuellungLoeschen from './FuellungLoeschen'
+import { Package, Truck, Grape, Search, Pencil } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Warenwirtschaft – software:112' }
 export const dynamic = 'force-dynamic'
@@ -23,7 +24,7 @@ const STATUS_VERKAUF: Record<string, { label: string; color: string }> = {
   abfuellung:{ label: 'Abfüllung', color: 'bg-purple-100 text-purple-700' },
 }
 
-const ART_LABEL: Record<string, string> = { wein: '🍷 Wein', trauben: '🍇 Trauben', most: '🌊 Most' }
+const ART_LABEL: Record<string, string> = { wein: 'Wein', trauben: 'Trauben', most: 'Most' }
 
 export default async function WeinhandelPage() {
   const supabase  = await createSupabaseServerClient()
@@ -123,10 +124,10 @@ export default async function WeinhandelPage() {
 
       {/* Flaschenbestand */}
       <section>
-        <h2 className="font-semibold text-gray-800 mb-3">🍾 Flaschenbestand</h2>
+        <h2 className="font-semibold text-gray-800 mb-3 flex items-center gap-2"><Package size={18} /> Flaschenbestand</h2>
         {fuellungen.length === 0 ? (
           <div className="card text-center py-10">
-            <p className="text-3xl mb-2">🍾</p>
+            <Package size={32} className="mx-auto mb-2 text-s112-muted" />
             <p className="text-sm text-s112-muted mb-1">Noch keine Füllungen angelegt.</p>
             <p className="text-xs text-s112-muted">
               Füllungen werden im Kellerbuch unter{' '}
@@ -169,7 +170,7 @@ export default async function WeinhandelPage() {
                           className="font-medium text-gray-900 hover:text-s112-teal hover:underline transition-colors inline-flex items-center gap-1.5"
                         >
                           {f.name}{f.bezeichnung ? ` – ${f.bezeichnung}` : ''}
-                          <span className="text-xs">🔍</span>
+                          <Search size={12} />
                         </Link>
                         <div className="text-xs text-s112-muted mt-0.5 flex gap-2">
                           {f.jahrgang    && <span>{f.jahrgang}</span>}
@@ -208,7 +209,9 @@ export default async function WeinhandelPage() {
                           <div className="flex items-center justify-end gap-2">
                             <Link href={`/weinhandel/fuellungen/${f.id}/edit`}
                               title="Bearbeiten" aria-label="Bearbeiten"
-                              className="text-s112-teal hover:text-s112-teal/70">✏️</Link>
+                              className="text-s112-teal hover:text-s112-teal/70">
+                              <Pencil size={15} />
+                            </Link>
                             <FuellungLoeschen id={f.id} name={f.name} />
                           </div>
                         </td>
@@ -225,7 +228,7 @@ export default async function WeinhandelPage() {
       {/* Tankverkauf */}
       <section>
         <div className="flex items-center gap-3 mb-3">
-          <h2 className="font-semibold text-gray-800">🚚 Tankverkauf (Direktverkauf ab Keller)</h2>
+          <h2 className="font-semibold text-gray-800 flex items-center gap-2"><Truck size={18} /> Tankverkauf (Direktverkauf ab Keller)</h2>
           <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Transportschein erforderlich</span>
         </div>
         <p className="text-xs text-s112-muted mb-4">
@@ -394,7 +397,7 @@ export default async function WeinhandelPage() {
       <section>
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="font-semibold text-gray-800">🍇 Traubenverkauf</h2>
+            <h2 className="font-semibold text-gray-800 flex items-center gap-2"><Grape size={18} /> Traubenverkauf</h2>
             <p className="text-xs text-s112-muted">Verkauf von Weintrauben (§ 3 Weingesetz-Formularverordnung) – BKI-Liefernummer wird automatisch vergeben</p>
           </div>
           <Link href="/weinhandel/traubenverkauf"
@@ -403,7 +406,7 @@ export default async function WeinhandelPage() {
           </Link>
         </div>
         <div className="card p-5 flex items-center gap-4">
-          <div className="text-3xl">🍇</div>
+          <Grape size={30} className="text-s112-teal flex-shrink-0" />
           <div className="flex-1">
             <p className="text-sm text-gray-700 font-medium">Traubenverkäufe laufen über das Standard-Verkaufsformular</p>
             <p className="text-xs text-s112-muted mt-0.5">

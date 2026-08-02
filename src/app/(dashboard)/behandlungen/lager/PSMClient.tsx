@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { Pencil, Trash2 } from 'lucide-react'
 import { upsertPSM, deactivatePSM } from './actions'
 import type { PSMEintrag } from './page'
 
@@ -166,7 +167,7 @@ export default function PSMClient({
         <div className="mb-6">
           <button onClick={() => setShowForm(true)}
             className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
-            <span>＋</span> Neues Mittel anlegen
+            Neues Mittel anlegen
           </button>
         </div>
       )}
@@ -220,7 +221,7 @@ export default function PSMClient({
                     </td>
                     <td className="py-2.5 pr-3 text-center">
                       {p.oeko_zugelassen
-                        ? <span className="text-green-600 text-base">✓</span>
+                        ? <span className="text-green-600">Ja</span>
                         : <span className="text-gray-300">–</span>}
                     </td>
                     {(writeOk || adminOk) && (
@@ -229,12 +230,12 @@ export default function PSMClient({
                           {writeOk && (
                             <button onClick={() => setEditId(editId === p.id ? null : p.id)}
                               title="Bearbeiten" aria-label="Bearbeiten"
-                              className="text-s112-teal hover:text-s112-teal/70">✏️</button>
+                              className="text-s112-teal hover:text-s112-teal/70"><Pencil className="w-4 h-4" /></button>
                           )}
                           {adminOk && (
                             <button onClick={() => handleDeactivate(p.id)}
                               title="Deaktivieren" aria-label="Deaktivieren"
-                              className="text-red-400 hover:text-red-600">🚫</button>
+                              className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
                           )}
                         </div>
                       </td>

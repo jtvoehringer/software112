@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createFirma, updateFirma, deleteFirma } from '../actions'
 import { SEGMENTE, segmentLabel, segmentFarbe } from '@/lib/crm/types'
 import type { FirmaRow } from '@/lib/crm/types'
+import { AlertTriangle, Pencil, Trash2 } from 'lucide-react'
 
 type KontaktKurz = { id: string; vorname: string | null; nachname: string; segment: string }
 
@@ -104,7 +105,7 @@ export function FirmaForm({ initial, rabattgruppen = [], defaultSegment, existin
       {saveError && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{saveError}</p>}
       {dubletteWarnung && (
         <div className="bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 text-sm">
-          <p className="font-medium text-amber-800 mb-1">⚠ Mögliche Dublette</p>
+          <p className="font-medium text-amber-800 mb-1 flex items-center gap-1.5"><AlertTriangle className="w-4 h-4" /> Mögliche Dublette</p>
           <p className="text-amber-700 mb-3">{dubletteWarnung}</p>
           <p className="text-amber-700 mb-3">Möchten Sie den Eintrag trotzdem übernehmen oder verwerfen?</p>
           <div className="flex gap-2">
@@ -129,7 +130,7 @@ export function FirmaForm({ initial, rabattgruppen = [], defaultSegment, existin
         <div className="sm:col-span-2 flex items-center justify-between bg-white border border-s112-border rounded-xl px-4 py-2.5">
           <div>
             <p className={`text-sm font-semibold ${isLead ? 'text-amber-600' : 'text-s112-teal'}`}>
-              {isLead ? '🌱 Lead' : '✅ Aktiv'}
+              {isLead ? 'Lead' : 'Aktiv'}
             </p>
             <p className="text-xs text-s112-muted">
               {isLead ? 'Noch kein Verkauf – wird automatisch Kunde beim ersten Verkauf' : ''}
@@ -150,7 +151,7 @@ export function FirmaForm({ initial, rabattgruppen = [], defaultSegment, existin
           <label className="block text-xs font-medium text-gray-600 mb-1">Segment *</label>
           <select name="segment" value={segmentVal} onChange={e => setSegmentVal(e.target.value)} required className={inputCls()}>
             {SEGMENTE.filter(s => s.value !== 'privat').map(s =>
-              <option key={s.value} value={s.value}>{s.icon} {s.label}</option>
+              <option key={s.value} value={s.value}>{s.label}</option>
             )}
           </select>
         </div>
@@ -328,8 +329,8 @@ function FirmaKarte({
               {segmentLabel(firma.segment)}
             </span>
             {firma.is_lead
-              ? <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">🌱 Lead</span>
-              : <span className="text-xs px-2 py-0.5 rounded-full bg-s112-teal/10 text-s112-teal font-medium">✅ Aktiv</span>
+              ? <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Lead</span>
+              : <span className="text-xs px-2 py-0.5 rounded-full bg-s112-teal/10 text-s112-teal font-medium">Aktiv</span>
             }
             {firma.rabattgruppe_name && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
@@ -346,9 +347,9 @@ function FirmaKarte({
             )}
           </div>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5">
-            {firma.ort && <span className="text-xs text-s112-muted">📍 {firma.plz ? `${firma.plz} ` : ''}{firma.ort}</span>}
-            {firma.email && <span className="text-xs text-s112-muted">✉ {firma.email}</span>}
-            {firma.telefon && <span className="text-xs text-s112-muted">📞 {firma.telefon_vorwahl ? `${firma.telefon_vorwahl} ` : ''}{firma.telefon}</span>}
+            {firma.ort && <span className="text-xs text-s112-muted">{firma.plz ? `${firma.plz} ` : ''}{firma.ort}</span>}
+            {firma.email && <span className="text-xs text-s112-muted">{firma.email}</span>}
+            {firma.telefon && <span className="text-xs text-s112-muted">{firma.telefon_vorwahl ? `${firma.telefon_vorwahl} ` : ''}{firma.telefon}</span>}
             {firma.uid_nummer && <span className="text-xs text-s112-muted">UID: {firma.uid_nummer}</span>}
             {firma.zahlungsziel_tage != null && firma.zahlungsziel_tage !== 30 && (
               <span className="text-xs text-s112-muted">Zahlungsziel: {firma.zahlungsziel_tage} Tage</span>
@@ -361,12 +362,12 @@ function FirmaKarte({
             <button onClick={() => setEditing(true)}
               title="Bearbeiten" aria-label="Bearbeiten"
               className="text-s112-muted hover:text-s112-teal px-2 py-1 rounded transition-colors">
-              ✏️
+              <Pencil className="w-4 h-4" />
             </button>
             <button onClick={handleDelete} disabled={pending}
               title="Löschen" aria-label="Löschen"
               className="text-s112-muted hover:text-red-500 px-2 py-1 rounded transition-colors">
-              🗑️
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         )}
@@ -451,7 +452,7 @@ export default function FirmenClient({
             return (
               <button key={s.value} onClick={() => setSegment(s.value)}
                 className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${segment === s.value ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:text-gray-900'}`}>
-                {s.icon} {s.label} ({count})
+                {s.label} ({count})
               </button>
             )
           })}
@@ -460,7 +461,7 @@ export default function FirmenClient({
           {(['alle', 'lead', 'kunde'] as const).map(v => (
             <button key={v} onClick={() => setFilterLead(v)}
               className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterLead === v ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:text-gray-900'}`}>
-              {v === 'alle' ? 'Alle' : v === 'lead' ? '🌱 Lead' : '✅ Aktiv'}
+              {v === 'alle' ? 'Alle' : v === 'lead' ? 'Lead' : 'Aktiv'}
               {' '}({v === 'alle' ? firmen.length : firmen.filter(f => v === 'lead' ? f.is_lead : !f.is_lead).length})
             </button>
           ))}
@@ -468,12 +469,12 @@ export default function FirmenClient({
         <div className="ml-auto flex items-center gap-2">
           <a href="/api/export/firmen" download
             className="inline-flex items-center gap-1.5 border border-s112-border text-gray-600 px-3 py-2 rounded-xl text-sm hover:bg-s112-bg transition-colors">
-            ⬇ CSV
+            CSV
           </a>
           {writeOk && !showForm && (
             <button onClick={() => setShowForm(true)}
               className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
-              <span>＋</span> Neue Firma
+              Neue Firma
             </button>
           )}
         </div>

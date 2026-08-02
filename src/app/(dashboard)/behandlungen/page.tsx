@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, canWrite, canAdmin } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { BarChart3 } from 'lucide-react'
 import BehandlungenClient from './BehandlungenClient'
 
 export const metadata: Metadata = { title: 'Maßnahmen – software:112' }
@@ -115,14 +116,14 @@ export default async function BehandlungenPage() {
             href="/behandlungen/berichte"
             className="inline-flex items-center gap-2 border border-s112-border text-gray-700 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-bg transition-colors"
           >
-            📊 Berichte
+            <BarChart3 className="w-4 h-4" /> Berichte
           </Link>
           {writeOk && (
             <Link
               href="/behandlungen/neu"
               className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
             >
-              <span>＋</span> Neue Maßnahme
+              Neue Maßnahme
             </Link>
           )}
         </div>

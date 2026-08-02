@@ -4,11 +4,11 @@ import { useState, useTransition, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { createZukauf } from '../actions'
 import { QUALITAET_LABEL, QUALITAET_ORDER } from '@/lib/weinqualitaet'
+import { AlertTriangle } from 'lucide-react'
 
 interface Kontakt  { id: string; vorname: string | null; nachname: string }
 interface Firma    { id: string; name: string }
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
-const TYP_ICONS: Record<string, string> = { tank: '🛢', fass: '🪵', amphore: '🏺', sonstiges: '📦' }
 
 interface SucheItem { id: string; label: string; sub?: string }
 
@@ -209,10 +209,10 @@ export default function ZukaufNeuPage() {
     })
   }
 
-  const ART_OPTIONS: { value: 'wein' | 'most' | 'trauben'; label: string; icon: string }[] = [
-    { value: 'wein',    label: 'Wein',         icon: '🍷' },
-    { value: 'most',    label: 'Traubenmost',  icon: '🌊' },
-    { value: 'trauben', label: 'Trauben',      icon: '🍇' },
+  const ART_OPTIONS: { value: 'wein' | 'most' | 'trauben'; label: string }[] = [
+    { value: 'wein',    label: 'Wein' },
+    { value: 'most',    label: 'Traubenmost' },
+    { value: 'trauben', label: 'Trauben' },
   ]
 
   return (
@@ -254,11 +254,11 @@ export default function ZukaufNeuPage() {
           <div>
             <label className={labelCls}>Art *</label>
             <div className="flex gap-4 mt-1.5">
-              {ART_OPTIONS.map(({ value, label, icon }) => (
+              {ART_OPTIONS.map(({ value, label }) => (
                 <label key={value} className="flex items-center gap-1.5 cursor-pointer">
                   <input type="radio" name="art" value={value} checked={art === value}
                     onChange={() => handleArtChange(value)} className="accent-s112-teal" />
-                  <span className="text-sm text-gray-700">{icon} {label}</span>
+                  <span className="text-sm text-gray-700">{label}</span>
                 </label>
               ))}
             </div>
@@ -325,10 +325,11 @@ export default function ZukaufNeuPage() {
           <div>
             <label className={labelCls}>Weinart *</label>
             <div className="flex gap-4 mt-1.5">
-              {([['weiss','🟡 Weißwein'],['rot','🔴 Rotwein'],['rose','🩷 Rosé'],['unbekannt','⬜ Unbekannt']] as const).map(([val, lbl]) => (
+              {([['weiss','Weißwein','bg-yellow-300'],['rot','Rotwein','bg-red-600'],['rose','Rosé','bg-pink-300'],['unbekannt','Unbekannt','bg-gray-200']] as const).map(([val, lbl, dot]) => (
                 <label key={val} className="flex items-center gap-1.5 cursor-pointer">
                   <input type="radio" name="weinart" value={val} checked={weinart === val}
                     onChange={() => setWeinart(val)} className="accent-s112-teal" />
+                  <span className={`inline-block w-2.5 h-2.5 rounded-full border border-black/10 ${dot}`} />
                   <span className="text-sm text-gray-700">{lbl}</span>
                 </label>
               ))}
@@ -487,7 +488,7 @@ export default function ZukaufNeuPage() {
                   const restSuffix = rest != null ? ` · Rest: ${rest.toLocaleString('de-AT')} L` : ''
                   return (
                     <option key={b.id} value={b.id}>
-                      {TYP_ICONS[b.typ] ?? '📦'} {b.name}{kapSuffix}{inhaltSuffix}{restSuffix}
+                      {b.name}{kapSuffix}{inhaltSuffix}{restSuffix}
                     </option>
                   )
                 })}
@@ -531,14 +532,18 @@ export default function ZukaufNeuPage() {
                       </p>
                     </div>
                   </div>
-                  {ueber && <p className="text-red-600 font-semibold">⚠ Behälter hat nicht genug Kapazität</p>}
+                  {ueber && (
+                    <p className="text-red-600 font-semibold flex items-center gap-1.5">
+                      <AlertTriangle size={14} /> Behälter hat nicht genug Kapazität
+                    </p>
+                  )}
                 </div>
               )
             })()}
 
             {hatRebsortenmixZukauf && (
               <div className="bg-amber-50 border border-amber-300 rounded-lg px-3 py-2.5 text-sm text-amber-800">
-                <span className="font-semibold">⚠ Rebsortenverschnitt:</span>{' '}
+                <span className="font-semibold inline-flex items-center gap-1.5"><AlertTriangle size={14} /> Rebsortenverschnitt:</span>{' '}
                 Das gewählte Gebinde enthält bereits Chargen mit anderer Rebsorte:{' '}
                 <strong>{andereChargenImZiel.map(c => `${c.name} (${c.rebsorte})`).join(', ')}</strong>.
                 Nach dem Speichern wird das Verschneiden-Formular geöffnet.
@@ -563,7 +568,7 @@ export default function ZukaufNeuPage() {
           </Link>
           <button type="submit" disabled={isPending}
             className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
-            {isPending ? 'Speichern…' : '✓ Zukauf speichern'}
+            {isPending ? 'Speichern…' : 'Zukauf speichern'}
           </button>
         </div>
       </form>

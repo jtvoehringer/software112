@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Users, Building2, Wine, ShoppingCart, type LucideIcon } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Datenexport – software:112' }
 export const dynamic = 'force-dynamic'
@@ -17,14 +18,22 @@ export default async function ExportPage() {
     (supabase.from('verkaufsposten') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true),
   ])
 
-  const exports = [
+  const exports: {
+    title: string
+    beschreibung: string
+    anzahl: number
+    einheit: string
+    href: string
+    icon: LucideIcon
+    format: string
+  }[] = [
     {
       title: 'Kontakte',
       beschreibung: 'Alle aktiven Kontakte mit Adresse, Telefon, Segment, Lead-Status, Sonderrabatt',
       anzahl: kontakteCount ?? 0,
       einheit: 'Kontakte',
       href: '/api/export/kontakte',
-      icon: '👤',
+      icon: Users,
       format: 'CSV',
     },
     {
@@ -33,7 +42,7 @@ export default async function ExportPage() {
       anzahl: firmenCount ?? 0,
       einheit: 'Firmen',
       href: '/api/export/firmen',
-      icon: '🏢',
+      icon: Building2,
       format: 'CSV',
     },
     {
@@ -42,7 +51,7 @@ export default async function ExportPage() {
       anzahl: fuellungenCount ?? 0,
       einheit: 'Artikel',
       href: '/api/export/lager',
-      icon: '🍾',
+      icon: Wine,
       format: 'CSV',
     },
     {
@@ -51,7 +60,7 @@ export default async function ExportPage() {
       anzahl: verkaufCount ?? 0,
       einheit: 'Vorgänge',
       href: '/api/export/verkauf',
-      icon: '🛒',
+      icon: ShoppingCart,
       format: 'CSV',
     },
   ]
@@ -69,7 +78,7 @@ export default async function ExportPage() {
             className="card p-5 hover:border-s112-teal hover:shadow-md transition-all group flex flex-col gap-3">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <span className="text-2xl">{exp.icon}</span>
+                <exp.icon className="w-6 h-6 text-s112-teal" />
                 <div>
                   <p className="font-semibold text-gray-900 group-hover:text-s112-teal">{exp.title}</p>
                   <p className="text-xs text-s112-muted">{exp.anzahl} {exp.einheit}</p>
@@ -79,7 +88,7 @@ export default async function ExportPage() {
             </div>
             <p className="text-xs text-gray-500 leading-relaxed">{exp.beschreibung}</p>
             <div className="flex items-center gap-1.5 text-xs text-s112-teal font-medium mt-auto">
-              ⬇ Herunterladen
+              Herunterladen
             </div>
           </a>
         ))}

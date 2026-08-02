@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
+import { Pencil, Trash2, X } from 'lucide-react'
 import { deleteLage, assignWeingartenToLage } from './actions'
 import type { Lage, WeingartenRow } from './page'
 import { fmtHa } from '@/lib/format'
@@ -68,14 +69,14 @@ function LageKarte({
             <Link href={`/lagen/${lage.id}`}
               title="Bearbeiten" aria-label="Bearbeiten"
               className="text-s112-teal hover:text-s112-teal/70">
-              ✏️
+              <Pencil size={16} strokeWidth={2} />
             </Link>
           )}
           {adminOk && (
             <button onClick={handleDelete}
               title="Löschen" aria-label="Löschen"
               className="text-red-400 hover:text-red-600">
-              🗑️
+              <Trash2 size={16} strokeWidth={2} />
             </button>
           )}
         </div>
@@ -109,7 +110,7 @@ function LageKarte({
                           className="text-xs text-gray-400 hover:text-red-500 transition-colors"
                           title="Zuordnung entfernen"
                         >
-                          ✕
+                          <X size={14} />
                         </button>
                       </td>
                     )}
@@ -169,12 +170,11 @@ export default function LagenClient({
   if (lagen.length === 0) {
     return (
       <div className="card text-center py-16">
-        <p className="text-4xl mb-4">🍇</p>
         <p className="text-gray-700 font-medium">Noch keine Lagen angelegt</p>
         <p className="text-s112-muted text-sm mt-1 mb-6">Legen Sie Ihre erste Ried an</p>
         {writeOk && (
           <Link href="/lagen/neu" className="inline-flex items-center gap-2 bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
-            ＋ Erste Lage
+            Erste Lage
           </Link>
         )}
       </div>
@@ -197,7 +197,7 @@ export default function LagenClient({
       {unzugeordnet.length > 0 && (
         <div className="card border-dashed border-amber-300 bg-amber-50/50 p-4">
           <p className="text-sm font-medium text-amber-700 mb-2">
-            ⚠ {unzugeordnet.length} Weingarten/Weingärten ohne Ried
+            {unzugeordnet.length} Weingarten/Weingärten ohne Ried
           </p>
           <div className="flex flex-wrap gap-1">
             {unzugeordnet.map(w => (

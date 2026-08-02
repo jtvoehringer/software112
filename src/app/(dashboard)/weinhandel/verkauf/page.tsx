@@ -100,7 +100,6 @@ export default async function VerkaufPage() {
       {/* Tabelle */}
       {posten.length === 0 ? (
         <div className="card text-center py-12">
-          <p className="text-3xl mb-3">🛒</p>
           <p className="text-sm text-s112-muted">Noch keine Verkäufe erfasst.</p>
           {writeOk && (
             <Link href="/weinhandel/verkauf/neu" className="mt-3 inline-block text-sm text-s112-teal hover:underline">

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useTransition } from 'react'
+import { Pencil, Trash2 } from 'lucide-react'
 import { createGrundstueck, updateGrundstueck, deleteGrundstueck, fetchBevFlaeche, type BevNutzung } from './actions'
 import { fmtHa } from '@/lib/format'
 import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
@@ -149,6 +150,7 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
   const [katasterHa, setKatasterHa] = useState<string>(gst?.flaeche_ha_kataster != null ? String(gst.flaeche_ha_kataster) : '')
   const [bevLoading, setBevLoading] = useState(false)
   const [bevMsg, setBevMsg] = useState<string | null>(null)
+  const [bevOk, setBevOk] = useState(false)
   const [bevAlleNutzungen, setBevAlleNutzungen] = useState<BevNutzung[] | null>(null)
 
   function handleKgnrChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -165,9 +167,9 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
   }
 
   async function handleBevImport() {
-    if (!kgnr) { setBevMsg('Bitte zuerst KGNr eingeben'); return }
+    if (!kgnr) { setBevMsg('Bitte zuerst KGNr eingeben'); setBevOk(false); return }
     const gstNr = (document.querySelector('input[name="gst_nr"]') as HTMLInputElement)?.value
-    if (!gstNr) { setBevMsg('Bitte zuerst GST-Nr eingeben'); return }
+    if (!gstNr) { setBevMsg('Bitte zuerst GST-Nr eingeben'); setBevOk(false); return }
     setBevLoading(true)
     setBevMsg(null)
     setBevAlleNutzungen(null)
@@ -176,9 +178,11 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
     if (result.ok) {
       setKatasterHa(String(result.ha))
       const detail = result.nutzungen.map(n => n.nutzung + ': ' + n.ha.toFixed(4) + ' ha').join(', ')
-      setBevMsg('✓ ' + result.ha.toFixed(4) + ' ha (' + detail + ')')
+      setBevMsg(result.ha.toFixed(4) + ' ha (' + detail + ')')
+      setBevOk(true)
     } else {
-      setBevMsg('⚠ ' + result.message)
+      setBevMsg(result.message)
+      setBevOk(false)
       if ('alleNutzungen' in result && result.alleNutzungen) {
         setBevAlleNutzungen(result.alleNutzungen)
       }
@@ -240,8 +244,8 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
         <div>
           <label className={labelCls}>Weinart</label>
           <select name="weinart" value={weinart} onChange={e => setWeinart(e.target.value)} className={inputCls}>
-            <option value="weiss">⬜ Weißwein</option>
-            <option value="rot">🟥 Rotwein</option>
+            <option value="weiss">Weißwein</option>
+            <option value="rot">Rotwein</option>
             <option value="unbekannt">– unbekannt –</option>
           </select>
         </div>
@@ -289,11 +293,11 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
               title="Fläche aus BEV-Kataster holen"
               className="shrink-0 px-2.5 py-1.5 rounded-lg border border-s112-border text-xs font-medium text-s112-teal hover:bg-s112-teal/10 disabled:opacity-40 transition-colors whitespace-nowrap"
             >
-              {bevLoading ? '…' : '📥 BEV'}
+              {bevLoading ? '…' : 'BEV'}
             </button>
           </div>
           {bevMsg && (
-            <p className={'text-xs mt-1 ' + (bevMsg.startsWith('✓') ? 'text-green-600' : 'text-orange-600')}>
+            <p className={'text-xs mt-1 ' + (bevOk ? 'text-green-600' : 'text-orange-600')}>
               {bevMsg}
             </p>
           )}
@@ -433,7 +437,7 @@ export default function GrundstueckePanel({
         {!showForm && (
           <button onClick={() => { setShowForm(true); setEditId(null) }}
             className="inline-flex items-center gap-1 text-xs bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-teal font-medium px-3 py-1.5 rounded-lg transition-colors">
-            ＋ Grundstück
+            Grundstück
           </button>
         )}
       </div>
@@ -518,10 +522,10 @@ export default function GrundstueckePanel({
                         <div className="flex items-center justify-end gap-2">
                           <button onClick={() => { setEditId(g.id); setShowForm(false) }}
                             title="Bearbeiten" aria-label="Bearbeiten"
-                            className="text-s112-teal hover:text-s112-teal/70">✏️</button>
+                            className="text-s112-teal hover:text-s112-teal/70"><Pencil size={14} /></button>
                           <button onClick={() => handleDelete(g.id, g.gst_nr)}
                             title="Löschen" aria-label="Löschen"
-                            className="text-red-400 hover:text-red-600">🗑️</button>
+                            className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
                         </div>
                       </td>
                     </tr>

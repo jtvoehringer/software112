@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { Pencil, Trash2 } from 'lucide-react'
 import { upsertDuengemittel, deactivateDuengemittel } from './actions'
 import type { DuengemittelEintrag } from './page'
 
@@ -174,7 +175,7 @@ export default function DuengemittelClient({
         <div className="mb-6">
           <button onClick={() => setShowForm(true)}
             className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
-            <span>＋</span> Neues Düngemittel anlegen
+            Neues Düngemittel anlegen
           </button>
         </div>
       )}
@@ -226,7 +227,7 @@ export default function DuengemittelClient({
                     </td>
                     <td className="py-2.5 pr-3 text-center">
                       {d.oeko_zugelassen
-                        ? <span className="text-green-600 text-base">✓</span>
+                        ? <span className="text-green-600">Ja</span>
                         : <span className="text-gray-300">–</span>}
                     </td>
                     {(writeOk || adminOk) && (
@@ -235,12 +236,12 @@ export default function DuengemittelClient({
                           {writeOk && (
                             <button onClick={() => setEditId(editId === d.id ? null : d.id)}
                               title="Bearbeiten" aria-label="Bearbeiten"
-                              className="text-s112-teal hover:text-s112-teal/70">✏️</button>
+                              className="text-s112-teal hover:text-s112-teal/70"><Pencil className="w-4 h-4" /></button>
                           )}
                           {adminOk && (
                             <button onClick={() => handleDeactivate(d.id)}
                               title="Deaktivieren" aria-label="Deaktivieren"
-                              className="text-red-400 hover:text-red-600">🚫</button>
+                              className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
                           )}
                         </div>
                       </td>

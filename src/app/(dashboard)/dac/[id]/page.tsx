@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { FileText, Tag } from 'lucide-react'
 import DacForm from '@/components/dac/DacForm'
 import { updateDacAntrag } from '../actions'
 
@@ -58,14 +59,14 @@ export default async function DacEditPage({ params }: { params: Promise<{ id: st
             href={`/dac/${id}/antrag`}
             className="flex items-center gap-1.5 border border-s112-border px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-gray-50 transition-colors"
           >
-            📋 Prüfnummernantrag
+            <FileText size={14} /> Prüfnummernantrag
           </Link>
           {dac.pruefnummer && (
             <Link
               href={`/dac/${id}/etikett`}
               className="flex items-center gap-1.5 bg-s112-teal text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-opacity-90 transition-colors"
             >
-              🏷 Etikett
+              <Tag size={14} /> Etikett
             </Link>
           )}
         </div>

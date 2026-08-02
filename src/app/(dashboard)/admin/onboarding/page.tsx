@@ -11,11 +11,11 @@ type Schritt = {
   pflicht: boolean
 }
 
-type Gruppe = { gruppe: string; icon: string; schritte: Schritt[] }
+type Gruppe = { gruppe: string; schritte: Schritt[] }
 
 const ONBOARDING_SCHRITTE: Gruppe[] = [
   {
-    gruppe: 'Mandant anlegen', icon: '🏢',
+    gruppe: 'Mandant anlegen',
     schritte: [
       { id: 's1', pflicht: true, titel: 'Tenant in Supabase anlegen', beschreibung: 'Im Supabase SQL-Editor: INSERT INTO tenants (name, slug) VALUES (\'Weingut Name\', \'weingut-slug\'). Tenant-ID aus der Rückgabe notieren.', },
       { id: 's2', pflicht: true, titel: 'Ersten Benutzer einladen', beschreibung: 'Admin > Benutzer > "System-Admin einladen". Nach Registrierung in Admin > Mandant > Benutzer als tenant_admin setzen.', link: '/admin/mandanten', linkLabel: 'Admin öffnen' },
@@ -23,7 +23,7 @@ const ONBOARDING_SCHRITTE: Gruppe[] = [
     ],
   },
   {
-    gruppe: 'Betrieb konfigurieren', icon: '⚙️',
+    gruppe: 'Betrieb konfigurieren',
     schritte: [
       { id: 's4', pflicht: true, titel: 'Betriebsdaten eintragen', beschreibung: 'Admin > Mandant > Betrieb: Name, Adresse, UID-Nummer eintragen. Erscheint auf allen gedruckten Dokumenten (Rechnung, Etikett, Behandlungsprotokoll).', link: '/admin/mandanten', linkLabel: 'Admin öffnen' },
       { id: 's5', pflicht: true, titel: 'Branding einrichten', beschreibung: 'Admin > Mandant > Branding: Logo hochladen (URL), Primärfarbe (teal) und Sekundärfarbe (gelb) anpassen. Logo erscheint in der Sidebar und auf Druckdokumenten.' },
@@ -32,7 +32,7 @@ const ONBOARDING_SCHRITTE: Gruppe[] = [
     ],
   },
   {
-    gruppe: 'Grunddaten erfassen', icon: '📋',
+    gruppe: 'Grunddaten erfassen',
     schritte: [
       { id: 's8', pflicht: true, titel: 'PSM-Stammdaten eintragen', beschreibung: 'Rieden > PSM-Lager > Tab „Stammdaten": Die häufigsten Pflanzenschutzmittel anlegen (Name, Handelsnamen, Wirkstoff, Wartezeit, Cu-Gehalt, Öko-Zulassung).', link: '/behandlungen/lager?tab=stammdaten', linkLabel: 'PSM-Lager öffnen' },
       { id: 's9', pflicht: true, titel: 'Rieden anlegen', beschreibung: 'Rieden > Neue Ried: alle Parzellen anlegen.', link: '/weingarten', linkLabel: 'Rieden öffnen' },
@@ -41,7 +41,7 @@ const ONBOARDING_SCHRITTE: Gruppe[] = [
     ],
   },
   {
-    gruppe: 'CRM & Kontakte', icon: '👥',
+    gruppe: 'CRM & Kontakte',
     schritte: [
       { id: 's12', pflicht: false, titel: 'Bestandskunden importieren', beschreibung: 'CRM > Kontakte: Kontakte manuell anlegen oder per CSV-Import (Datenexport > Kontakte als Vorlage). Wichtig: E-Mail-Adressen für E-Mail-Matching eintragen.', link: '/crm/kontakte', linkLabel: 'Kontakte öffnen' },
       { id: 's13', pflicht: false, titel: 'Rabattgruppen anlegen', beschreibung: 'Warenwirtschaft > Rabattgruppen: z.B. "Gastronomie 10%", "Stammkunde 5%". Können dann direkt Kontakten/Firmen zugewiesen werden.', link: '/weinhandel/rabattgruppen', linkLabel: 'Rabattgruppen öffnen' },
@@ -49,14 +49,14 @@ const ONBOARDING_SCHRITTE: Gruppe[] = [
     ],
   },
   {
-    gruppe: 'E-Mail einrichten', icon: '✉️',
+    gruppe: 'E-Mail einrichten',
     schritte: [
       { id: 's15', pflicht: false, titel: 'M365 oder SMTP konfigurieren', beschreibung: 'Admin > Mandant > E-Mail (SMTP) oder M365 (Outlook). M365 empfohlen: OAuth2, kein Passwort-Sharing, Echtzeit-Webhook. SMTP als Fallback für andere Anbieter.', link: '/admin/mandanten', linkLabel: 'Admin öffnen' },
-      { id: 's16', pflicht: false, titel: 'Test-E-Mail senden', beschreibung: 'CRM > Kontakt öffnen > ✉ Senden: Test-E-Mail an einen Kontakt schicken. Prüfen ob die E-Mail als Aktivität angelegt wird und die Antwort zurückkommt.' },
+      { id: 's16', pflicht: false, titel: 'Test-E-Mail senden', beschreibung: 'CRM > Kontakt öffnen > Senden: Test-E-Mail an einen Kontakt schicken. Prüfen ob die E-Mail als Aktivität angelegt wird und die Antwort zurückkommt.' },
     ],
   },
   {
-    gruppe: 'E-Mail & Nachrichten', icon: '📬',
+    gruppe: 'E-Mail & Nachrichten',
     schritte: [
       { id: 'em1', pflicht: false, titel: 'M365 Verbindung pro Benutzer', beschreibung: 'Jeder Benutzer verbindet seine eigene Mailbox: Nachrichten > "Mit Microsoft 365 verbinden" und mit dem Weingut-Konto anmelden. Die Verbindung ist persönlich und getrennt von der Admin-M365-Konfiguration.', link: '/nachrichten', linkLabel: 'Nachrichten öffnen' },
       { id: 'em2', pflicht: false, titel: 'Shared Mailbox einrichten (optional)', beschreibung: 'Falls eine gemeinsame Mailbox genutzt wird (z.B. office@weingut.at): Nachrichten > Einstellungen > Adresse eintragen. Exchange-Administrator muss Send-As-Rechte vergeben.', link: '/nachrichten', linkLabel: 'Nachrichten öffnen' },
@@ -64,21 +64,21 @@ const ONBOARDING_SCHRITTE: Gruppe[] = [
     ],
   },
   {
-    gruppe: 'Weinexport (optional)', icon: '🚢',
+    gruppe: 'Weinexport (optional)',
     schritte: [
       { id: 'we1', pflicht: false, titel: 'Weinexport-Modul aktivieren', beschreibung: 'Admin > Mandant > Module: modul_weinexport aktivieren. Danach erscheint "Weinexport" in der Sidebar.', link: '/admin/mandanten', linkLabel: 'Admin öffnen' },
       { id: 'we2', pflicht: false, titel: 'Test-Exportauftrag anlegen', beschreibung: 'Weinexport > Neuer Auftrag: Importeur, Destination, Incoterms und Weinposition eintragen. Testweise ein Dokument (z.B. Lieferschein) als PDF öffnen.', link: '/weinexport/neu', linkLabel: 'Neuer Auftrag' },
     ],
   },
   {
-    gruppe: 'Datenimport (optional)', icon: '📥',
+    gruppe: 'Datenimport (optional)',
     schritte: [
       { id: 'di1', pflicht: false, titel: 'Bestandskunden per CSV importieren', beschreibung: 'Administration > Datenimport > Kontakte: CSV vorbereiten (Spalte "Nachname" Pflicht), hochladen, Spalten zuordnen, importieren. Danach im CRM prüfen.', link: '/admin/import', linkLabel: 'Datenimport öffnen' },
       { id: 'di2', pflicht: false, titel: 'Flaschenlager importieren', beschreibung: 'Administration > Datenimport > Füllungen: bestehenden Lagerbestand importieren (Spalte "Bezeichnung" Pflicht, "Lagerbestand" = aktuelle Flaschenanzahl).', link: '/admin/import', linkLabel: 'Datenimport öffnen' },
     ],
   },
   {
-    gruppe: 'Abnahme', icon: '✅',
+    gruppe: 'Abnahme',
     schritte: [
       { id: 's17', pflicht: true, titel: 'Testverkauf durchführen', beschreibung: 'Warenwirtschaft > Verkauf > Neuer Verkauf: Einen kompletten Verkauf anlegen, Rechnung drucken, als bezahlt markieren. Prüfen ob Bestand korrekt reduziert wird.', link: '/weinhandel/verkauf/neu', linkLabel: 'Neuer Verkauf' },
       { id: 's18', pflicht: true, titel: 'Maßnahme + Bericht testen', beschreibung: 'Maßnahme erfassen, dann Auswertungen > Behörden > Behandlungsprotokoll öffnen und prüfen ob der Eintrag erscheint.', link: '/auswertungen', linkLabel: 'Auswertungen öffnen' },
@@ -151,8 +151,8 @@ export default function OnboardingPage() {
       {/* Schritte */}
       {ONBOARDING_SCHRITTE.map(gruppe => (
         <div key={gruppe.gruppe}>
-          <h2 className="flex items-center gap-2 text-base font-semibold text-gray-800 mb-3">
-            <span>{gruppe.icon}</span> {gruppe.gruppe}
+          <h2 className="text-base font-semibold text-gray-800 mb-3">
+            {gruppe.gruppe}
           </h2>
           <div className="space-y-2">
             {gruppe.schritte.map(s => {
@@ -188,7 +188,6 @@ export default function OnboardingPage() {
 
       {pct === 100 && (
         <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
-          <p className="text-2xl mb-2">🎉</p>
           <p className="font-bold text-green-800">{mandant ? `${mandant} ist` : 'Der Mandant ist'} vollständig eingerichtet!</p>
           <p className="text-sm text-green-600 mt-1">Alle Pflichtschritte erledigt. software:112 ist bereit für den Produktivbetrieb.</p>
         </div>

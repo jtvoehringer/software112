@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { Trash2 } from 'lucide-react'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 const INCOTERMS = ['EXW','FCA','FAS','FOB','CFR','CIF','CPT','CIP','DAP','DPU','DDP']
@@ -208,7 +209,9 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
                   placeholder="€/Einheit" className="w-full border border-s112-border rounded px-2 py-1.5 text-xs focus:outline-none" />
               </div>
               <div className="col-span-1 flex justify-center pt-1">
-                <button type="button" onClick={() => removePos(i)} className="text-red-400 hover:text-red-600 text-xs">✕</button>
+                <button type="button" onClick={() => removePos(i)} className="text-red-400 hover:text-red-600 text-xs">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           ))}
@@ -230,7 +233,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
         <div className="flex gap-3">
           <button type="submit" disabled={saving}
             className="bg-s112-teal text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
-            {saving ? 'Speichern…' : '🚢 Exportauftrag anlegen'}
+            {saving ? 'Speichern…' : 'Exportauftrag anlegen'}
           </button>
           <Link href="/weinexport" className="px-6 py-2.5 rounded-xl text-sm border border-s112-border text-gray-600 hover:bg-s112-bg">
             Abbrechen
