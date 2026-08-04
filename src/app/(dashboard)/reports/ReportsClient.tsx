@@ -83,6 +83,19 @@ export default function ReportsClient({
   const [monatDetail, setMonatDetail]   = useState<R[]>([])
   const [monatLoading, setMonatLoading] = useState(false)
 
+  // Umsatz: Zeitraum-Auswahl (Standard = die serverseitig geladenen letzten 12 Monate)
+  // und Monatsvergleich (zwei frei wählbare, nicht zwingend zusammenhängende Monate).
+  type UmsatzModus = 'standard' | 'benutzerdefiniert' | 'vergleich'
+  const [umsatzModus, setUmsatzModus]     = useState<UmsatzModus>('standard')
+  const [umsatzData, setUmsatzData]       = useState(umsatzMonate)
+  const [umsatzLoading, setUmsatzLoading] = useState(false)
+  const [umsatzFehler, setUmsatzFehler]   = useState<string | null>(null)
+  const [vonMonat, setVonMonat]           = useState('')
+  const [bisMonat, setBisMonat]           = useState('')
+  const [vergleichA, setVergleichA]       = useState('')
+  const [vergleichB, setVergleichB]       = useState('')
+  const [vergleichData, setVergleichData] = useState<{ monat: string; umsatz: number; anzahl: number }[]>([])
+
   // Besuchsplanung
   const [bOrt, setBOrt]         = useState('')
   const [bSegment, setBSegment] = useState('')
@@ -93,9 +106,45 @@ export default function ReportsClient({
   const [bFehler, setBFehler]   = useState<string|null>(null)
 
   const current    = TABS.find(t => t.id === tab)!
-  const maxUmsatz  = Math.max(...umsatzMonate.map(m => m.umsatz), 1)
+  const maxUmsatz  = Math.max(...umsatzData.map(m => m.umsatz), 1)
   const pipelineAktiv = pipeline.filter(p => !p.erledigt && p.stufe !== 'verloren')
   const offeneSum  = offene.reduce((s, p) => s + posSum(p), 0)
+
+  // ── Umsatz: Zeitraum & Vergleich ────────────────────────────────────────────
+  function umsatzLetzte12() {
+    setUmsatzData(umsatzMonate)
+    setUmsatzModus('standard')
+    setUmsatzExpand(null)
+    setUmsatzFehler(null)
+  }
+
+  async function umsatzZeitraumAnwenden() {
+    if (!vonMonat || !bisMonat) return
+    setUmsatzLoading(true); setUmsatzFehler(null)
+    try {
+      const res = await fetch(`/api/reports/umsatz?von=${vonMonat}&bis=${bisMonat}`)
+      const json = await res.json()
+      if (!res.ok) { setUmsatzFehler(json.fehler ?? 'Fehler beim Laden.'); return }
+      setUmsatzData(json.monate ?? [])
+      setUmsatzModus('benutzerdefiniert')
+      setUmsatzExpand(null)
+    } catch { setUmsatzFehler('Fehler beim Laden.') }
+    finally { setUmsatzLoading(false) }
+  }
+
+  async function umsatzVergleichen() {
+    if (!vergleichA || !vergleichB) return
+    setUmsatzLoading(true); setUmsatzFehler(null)
+    try {
+      const res = await fetch(`/api/reports/umsatz?monate=${vergleichA},${vergleichB}`)
+      const json = await res.json()
+      if (!res.ok) { setUmsatzFehler(json.fehler ?? 'Fehler beim Laden.'); return }
+      setVergleichData(json.monate ?? [])
+      setUmsatzModus('vergleich')
+      setUmsatzExpand(null)
+    } catch { setUmsatzFehler('Fehler beim Laden.') }
+    finally { setUmsatzLoading(false) }
+  }
 
   // ── Lager Drill-down ──────────────────────────────────────────────────────
   async function toggleLagerDrill(id: string) {
@@ -151,8 +200,9 @@ export default function ReportsClient({
   }
 
   function csvUmsatz() {
+    const quelle = umsatzModus === 'vergleich' ? vergleichData : umsatzData
     exportCSV(
-      umsatzMonate.map(m => ({ monat: m.monat, umsatz: m.umsatz.toFixed(2), anzahl: m.anzahl })),
+      quelle.map(m => ({ monat: m.monat, umsatz: m.umsatz.toFixed(2), anzahl: m.anzahl })),
       [
         { key: 'monat',  header: 'Monat' },
         { key: 'umsatz', header: 'Umsatz (€)' },
@@ -253,7 +303,11 @@ export default function ReportsClient({
       {/* Report-Inhalt */}
       <div className="card p-6">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-bold text-gray-900">{current.title}</h2>
+          <h2 className="text-base font-bold text-gray-900">
+            {tab === 'umsatz'
+              ? (umsatzModus === 'vergleich' ? 'Umsatzvergleich' : umsatzModus === 'benutzerdefiniert' ? 'Monatsumsatz Warenwirtschaft (Zeitraum)' : current.title)
+              : current.title}
+          </h2>
           {tab === 'lager'  && <CsvBtn onClick={csvLager} />}
           {tab === 'umsatz' && <CsvBtn onClick={csvUmsatz} />}
           {tab === 'offen'  && <CsvBtn onClick={csvOffene} />}
@@ -262,80 +316,173 @@ export default function ReportsClient({
         {/* ── UMSATZ ────────────────────────────────────────────────────── */}
         {tab === 'umsatz' && (
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              {[
-                { label: 'Akt. Monat',     val: eur(umsatzMonate[11].umsatz), sub: `${umsatzMonate[11].anzahl} Verkäufe` },
-                { label: 'Vormonat',       val: eur(umsatzMonate[10].umsatz), sub: `${umsatzMonate[10].anzahl} Verkäufe` },
-                { label: '12-Monats-Summe',val: eur(umsatzMonate.reduce((s,m)=>s+m.umsatz,0)), sub: `${umsatzMonate.reduce((s,m)=>s+m.anzahl,0)} Verkäufe` },
-              ].map(kpi => (
-                <div key={kpi.label} className="bg-s112-bg rounded-xl p-4">
-                  <p className="text-xs text-s112-muted">{kpi.label}</p>
-                  <p className="text-xl font-bold text-s112-teal tabular-nums mt-1">{kpi.val}</p>
-                  <p className="text-xs text-s112-muted mt-0.5">{kpi.sub}</p>
+            {/* Zeitraum- & Vergleichs-Steuerung */}
+            <div className="flex flex-wrap items-end gap-x-4 gap-y-2 pb-4 mb-2 border-b border-s112-border/60 print:hidden">
+              <button
+                onClick={umsatzLetzte12}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${umsatzModus === 'standard' ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:bg-s112-teal/10'}`}
+              >
+                Letzte 12 Monate
+              </button>
+
+              <div className="flex items-end gap-1.5">
+                <div>
+                  <label className="block text-[11px] text-s112-muted mb-0.5">Von</label>
+                  <input type="month" value={vonMonat} onChange={e => setVonMonat(e.target.value)}
+                    className="border border-s112-border rounded-lg px-2 py-1.5 text-xs" />
                 </div>
-              ))}
+                <div>
+                  <label className="block text-[11px] text-s112-muted mb-0.5">Bis</label>
+                  <input type="month" value={bisMonat} onChange={e => setBisMonat(e.target.value)}
+                    className="border border-s112-border rounded-lg px-2 py-1.5 text-xs" />
+                </div>
+                <button
+                  onClick={umsatzZeitraumAnwenden}
+                  disabled={!vonMonat || !bisMonat || umsatzLoading}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-s112-bg text-gray-600 hover:bg-s112-teal/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  {umsatzLoading && umsatzModus !== 'vergleich' ? 'Lädt…' : 'Zeitraum anwenden'}
+                </button>
+              </div>
+
+              <span className="text-s112-border">|</span>
+
+              <div className="flex items-end gap-1.5">
+                <div>
+                  <label className="block text-[11px] text-s112-muted mb-0.5">Monat A</label>
+                  <input type="month" value={vergleichA} onChange={e => setVergleichA(e.target.value)}
+                    className="border border-s112-border rounded-lg px-2 py-1.5 text-xs" />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-s112-muted mb-0.5">Monat B</label>
+                  <input type="month" value={vergleichB} onChange={e => setVergleichB(e.target.value)}
+                    className="border border-s112-border rounded-lg px-2 py-1.5 text-xs" />
+                </div>
+                <button
+                  onClick={umsatzVergleichen}
+                  disabled={!vergleichA || !vergleichB || umsatzLoading}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${umsatzModus === 'vergleich' ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:bg-s112-teal/10'}`}
+                >
+                  {umsatzLoading && umsatzModus === 'vergleich' ? 'Lädt…' : 'Vergleichen'}
+                </button>
+              </div>
+
+              {umsatzFehler && <span className="text-xs text-red-500">{umsatzFehler}</span>}
             </div>
 
-            {/* Balkendiagramm – klickbar für Drill-down */}
-            <div className="space-y-1.5">
-              {umsatzMonate.map(m => (
-                <div key={m.monat}>
-                  <button
-                    onClick={() => toggleUmsatzDrill(m.monat, m.von, m.bis)}
-                    className="w-full flex items-center gap-3 hover:bg-s112-bg/50 rounded-lg px-1 py-0.5 transition-colors group"
-                  >
-                    <span className="text-xs text-s112-muted w-12 flex-shrink-0 text-right tabular-nums">{m.monat}</span>
-                    <div className="flex-1 bg-s112-bg rounded-full h-5 overflow-hidden">
-                      <div className="h-full rounded-full transition-all"
-                        style={{ width: `${Math.max(2, (m.umsatz / maxUmsatz) * 100)}%`, backgroundColor: 'var(--s112-yellow)' }} />
+            {umsatzModus === 'vergleich' ? (
+              /* ── Monatsvergleich ── */
+              vergleichData.length < 2 ? (
+                <p className="text-sm text-s112-muted italic py-4">Bitte Monat A und Monat B auswählen und auf „Vergleichen" klicken.</p>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    {vergleichData.map((m, i) => (
+                      <div key={i} className="bg-s112-bg rounded-xl p-4">
+                        <p className="text-xs text-s112-muted">{m.monat}</p>
+                        <p className="text-xl font-bold text-s112-teal tabular-nums mt-1">{eur(m.umsatz)}</p>
+                        <p className="text-xs text-s112-muted mt-0.5">{m.anzahl} Verkäufe</p>
+                      </div>
+                    ))}
+                  </div>
+                  {(() => {
+                    const [a, b] = vergleichData
+                    const diff = b.umsatz - a.umsatz
+                    const pct = a.umsatz !== 0 ? (diff / a.umsatz) * 100 : (b.umsatz !== 0 ? 100 : 0)
+                    const positiv = diff >= 0
+                    return (
+                      <div className="bg-s112-bg rounded-xl p-4 flex items-center justify-between flex-wrap gap-2">
+                        <div>
+                          <p className="text-xs text-s112-muted">Veränderung {a.monat} → {b.monat}</p>
+                          <p className={`text-lg font-bold tabular-nums mt-1 ${positiv ? 'text-green-600' : 'text-red-500'}`}>
+                            {positiv ? '+' : ''}{eur(diff)} ({positiv ? '+' : ''}{pct.toFixed(1)}%)
+                          </p>
+                        </div>
+                        <p className="text-xs text-s112-muted">{a.anzahl} → {b.anzahl} Verkäufe</p>
+                      </div>
+                    )
+                  })()}
+                </div>
+              )
+            ) : (
+              /* ── Zeitraum-Ansicht (Standard: letzte 12 Monate, oder benutzerdefiniert) ── */
+              <>
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  {[
+                    { label: umsatzModus === 'standard' ? 'Akt. Monat' : 'Letzter Monat', val: eur(umsatzData[umsatzData.length - 1]?.umsatz ?? 0), sub: `${umsatzData[umsatzData.length - 1]?.anzahl ?? 0} Verkäufe` },
+                    { label: 'Vormonat',       val: eur(umsatzData[umsatzData.length - 2]?.umsatz ?? 0), sub: `${umsatzData[umsatzData.length - 2]?.anzahl ?? 0} Verkäufe` },
+                    { label: umsatzModus === 'standard' ? '12-Monats-Summe' : `Summe (${umsatzData.length} Monate)`, val: eur(umsatzData.reduce((s,m)=>s+m.umsatz,0)), sub: `${umsatzData.reduce((s,m)=>s+m.anzahl,0)} Verkäufe` },
+                  ].map(kpi => (
+                    <div key={kpi.label} className="bg-s112-bg rounded-xl p-4">
+                      <p className="text-xs text-s112-muted">{kpi.label}</p>
+                      <p className="text-xl font-bold text-s112-teal tabular-nums mt-1">{kpi.val}</p>
+                      <p className="text-xs text-s112-muted mt-0.5">{kpi.sub}</p>
                     </div>
-                    <span className="text-xs font-semibold text-gray-700 tabular-nums w-24 text-right">{eur(m.umsatz)}</span>
-                    <span className="text-xs text-s112-muted w-8 text-right">{m.anzahl}</span>
-                    <span className="text-xs text-s112-muted group-hover:text-s112-teal w-4">{umsatzExpand === m.monat ? '▲' : '▼'}</span>
-                  </button>
+                  ))}
+                </div>
 
-                  {/* Drill-down: Verkäufe dieses Monats */}
-                  {umsatzExpand === m.monat && (
-                    <div className="ml-16 mt-1 mb-2 border border-s112-border/50 rounded-xl overflow-hidden">
-                      {monatLoading ? (
-                        <div className="px-4 py-3 text-xs text-s112-muted">Lade…</div>
-                      ) : monatDetail.length === 0 ? (
-                        <div className="px-4 py-3 text-xs text-s112-muted italic">Keine Verkäufe in diesem Monat.</div>
-                      ) : (
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="bg-s112-bg border-b border-s112-border/50 text-gray-500">
-                              <th className="text-left px-3 py-1.5 font-medium">Datum</th>
-                              <th className="text-left px-3 py-1.5 font-medium">Rechnung</th>
-                              <th className="text-left px-3 py-1.5 font-medium">Kunde</th>
-                              <th className="text-right px-3 py-1.5 font-medium">Betrag</th>
-                              <th className="text-center px-3 py-1.5 font-medium">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {monatDetail.map((p: R, i: number) => (
-                              <tr key={p.id} className={`border-b border-s112-border/30 last:border-0 ${i%2===1?'bg-s112-bg/20':''}`}>
-                                <td className="px-3 py-1.5 text-s112-muted tabular-nums">{fmtDate(p.datum)}</td>
-                                <td className="px-3 py-1.5">
-                                  <Link href={`/weinhandel/verkauf/${p.id}`} className="text-s112-teal hover:underline font-mono">{p.rechnungsnummer ?? '–'}</Link>
-                                </td>
-                                <td className="px-3 py-1.5 font-medium text-gray-800">{kundenName(p)}</td>
-                                <td className="px-3 py-1.5 text-right font-semibold text-s112-teal tabular-nums">{eur(posSum(p))}</td>
-                                <td className="px-3 py-1.5 text-center">
-                                  {p.storniert ? <span className="text-red-500">Storno</span>
-                                    : p.bezahlt ? <span className="text-green-600">Bezahlt</span>
-                                    : <span className="text-amber-500">Offen</span>}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                {/* Balkendiagramm – klickbar für Drill-down */}
+                <div className="space-y-1.5">
+                  {umsatzData.map(m => (
+                    <div key={`${m.monat}-${m.von}`}>
+                      <button
+                        onClick={() => toggleUmsatzDrill(m.monat, m.von, m.bis)}
+                        className="w-full flex items-center gap-3 hover:bg-s112-bg/50 rounded-lg px-1 py-0.5 transition-colors group"
+                      >
+                        <span className="text-xs text-s112-muted w-12 flex-shrink-0 text-right tabular-nums">{m.monat}</span>
+                        <div className="flex-1 bg-s112-bg rounded-full h-5 overflow-hidden">
+                          <div className="h-full rounded-full transition-all"
+                            style={{ width: `${Math.max(2, (m.umsatz / maxUmsatz) * 100)}%`, backgroundColor: 'var(--s112-yellow)' }} />
+                        </div>
+                        <span className="text-xs font-semibold text-gray-700 tabular-nums w-24 text-right">{eur(m.umsatz)}</span>
+                        <span className="text-xs text-s112-muted w-8 text-right">{m.anzahl}</span>
+                        <span className="text-xs text-s112-muted group-hover:text-s112-teal w-4">{umsatzExpand === m.monat ? '▲' : '▼'}</span>
+                      </button>
+
+                      {/* Drill-down: Verkäufe dieses Monats */}
+                      {umsatzExpand === m.monat && (
+                        <div className="ml-16 mt-1 mb-2 border border-s112-border/50 rounded-xl overflow-hidden">
+                          {monatLoading ? (
+                            <div className="px-4 py-3 text-xs text-s112-muted">Lade…</div>
+                          ) : monatDetail.length === 0 ? (
+                            <div className="px-4 py-3 text-xs text-s112-muted italic">Keine Verkäufe in diesem Monat.</div>
+                          ) : (
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="bg-s112-bg border-b border-s112-border/50 text-gray-500">
+                                  <th className="text-left px-3 py-1.5 font-medium">Datum</th>
+                                  <th className="text-left px-3 py-1.5 font-medium">Rechnung</th>
+                                  <th className="text-left px-3 py-1.5 font-medium">Kunde</th>
+                                  <th className="text-right px-3 py-1.5 font-medium">Betrag</th>
+                                  <th className="text-center px-3 py-1.5 font-medium">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {monatDetail.map((p: R, i: number) => (
+                                  <tr key={p.id} className={`border-b border-s112-border/30 last:border-0 ${i%2===1?'bg-s112-bg/20':''}`}>
+                                    <td className="px-3 py-1.5 text-s112-muted tabular-nums">{fmtDate(p.datum)}</td>
+                                    <td className="px-3 py-1.5">
+                                      <Link href={`/weinhandel/verkauf/${p.id}`} className="text-s112-teal hover:underline font-mono">{p.rechnungsnummer ?? '–'}</Link>
+                                    </td>
+                                    <td className="px-3 py-1.5 font-medium text-gray-800">{kundenName(p)}</td>
+                                    <td className="px-3 py-1.5 text-right font-semibold text-s112-teal tabular-nums">{eur(posSum(p))}</td>
+                                    <td className="px-3 py-1.5 text-center">
+                                      {p.storniert ? <span className="text-red-500">Storno</span>
+                                        : p.bezahlt ? <span className="text-green-600">Bezahlt</span>
+                                        : <span className="text-amber-500">Offen</span>}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </div>
         )}
 
