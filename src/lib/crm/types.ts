@@ -188,6 +188,38 @@ export type PipelineEintragRow = {
   aktualisiert_am: string
 }
 
+// ── Verkäufe (Firma/Kontakt-Detailseite) ──────────────────────────────────────
+// Echte Verkaufsdaten (nicht der CRM-Aktivitäten-Spiegel, der bei Fehlern
+// leer/veraltet bleiben kann) – direkt aus verkaufsposten/verkauf_positionen.
+
+export type VerkaufPositionRow = {
+  menge: number
+  einheit: string
+  preis_brutto: number | null
+  rabatt_pct: number | null
+  sonderrabatt_pct: number | null
+}
+
+export type VerkaufRow = {
+  id: string
+  datum: string
+  rechnungsnummer: string | null
+  transaktions_nr: string | null
+  storniert: boolean
+  bezahlt: boolean
+  positionen: VerkaufPositionRow[]
+}
+
+export function verkaufSumme(v: VerkaufRow): number {
+  return v.positionen.reduce((s, pos) => {
+    if (pos.preis_brutto == null) return s
+    const brutto = Number(pos.preis_brutto) * Number(pos.menge)
+    const rabatt = Number(pos.rabatt_pct ?? 0) / 100
+    const sonder = Number(pos.sonderrabatt_pct ?? 0) / 100
+    return s + brutto * (1 - rabatt) * (1 - sonder)
+  }, 0)
+}
+
 // ── Hilfsfunktionen ───────────────────────────────────
 /** Formatiert eine PostgreSQL time-Spalte "HH:MM:SS" → "HH:MM" für die Anzeige */
 export function fmtUhrzeit(t: string | null | undefined): string {

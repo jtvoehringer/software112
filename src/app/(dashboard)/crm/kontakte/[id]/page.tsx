@@ -3,7 +3,7 @@ import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import KontaktDetailClient from './KontaktDetailClient'
-import type { KontaktRow, AktivitaetRow, PipelineEintragRow } from '@/lib/crm/types'
+import type { KontaktRow, AktivitaetRow, PipelineEintragRow, VerkaufRow } from '@/lib/crm/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,6 +30,7 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
     { data: kRaw },
     { data: aRawAll },
     { data: pRaw },
+    { data: vRaw },
   ] = await Promise.all([
     (supabase.from('kontakte') as any)
       .select('id, kundennummer, vorname, nachname, segment, firma_id, firmen:firma_id(name, segment), email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, newsletter, newsletter_bestaetigt, stammkunde, notizen, aktiv, erstellt_am, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
@@ -45,6 +46,16 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
       .select('id, stufe, titel, kategorie, wert_euro, wahrscheinlichkeit, erwartetes_datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, erledigt_am, notizen, kontakt_id, firma_id, aktualisiert_am')
       .eq('kontakt_id', id)
       .order('aktualisiert_am', { ascending: false }),
+
+    // Echte Verkaufsdaten (statt des fehleranfälligen aktivitaeten-Spiegels, siehe unten)
+    (supabase.from('verkaufsposten') as any)
+      .select(`
+        id, datum, rechnungsnummer, transaktions_nr, storniert, bezahlt,
+        positionen:verkauf_positionen(menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct)
+      `)
+      .eq('kontakt_id', id)
+      .eq('aktiv', true)
+      .order('datum', { ascending: false }),
   ])
 
   if (!kRaw) notFound()
@@ -115,11 +126,26 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
     aktualisiert_am: p.aktualisiert_am,
   }))
 
+  const verkaeufe: VerkaufRow[] = ((vRaw ?? []) as R[]).map(v => ({
+    id: v.id, datum: v.datum,
+    rechnungsnummer: v.rechnungsnummer ?? null,
+    transaktions_nr: v.transaktions_nr ?? null,
+    storniert: v.storniert ?? false,
+    bezahlt: v.bezahlt ?? false,
+    positionen: ((v.positionen ?? []) as R[]).map(p => ({
+      menge: p.menge, einheit: p.einheit,
+      preis_brutto: p.preis_brutto ?? null,
+      rabatt_pct: p.rabatt_pct ?? null,
+      sonderrabatt_pct: p.sonderrabatt_pct ?? null,
+    })),
+  }))
+
   return <KontaktDetailClient
     kontakt={kontakt}
     firmaSegment={firmaSegment}
     aktivitaeten={aktivitaeten}
     pipeline={pipeline}
+    verkaeufe={verkaeufe}
     writeOk={writeOk}
   />
 }

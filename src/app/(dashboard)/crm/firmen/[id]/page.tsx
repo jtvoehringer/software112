@@ -3,7 +3,7 @@ import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import FirmaDetailClient from './FirmaDetailClient'
-import type { FirmaRow, KontaktRow, AktivitaetRow, PipelineEintragRow } from '@/lib/crm/types'
+import type { FirmaRow, KontaktRow, AktivitaetRow, PipelineEintragRow, VerkaufRow } from '@/lib/crm/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,6 +31,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     { data: aRawAll },
     { data: pRaw },
     { data: rgRaw },
+    { data: vRaw },
   ] = await Promise.all([
     (supabase.from('firmen') as any)
       .select('id, kundennummer, name, segment, strasse, plz, ort, land, email, telefon, telefon_vorwahl, website, uid_nummer, betrieb_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
@@ -57,6 +58,16 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     (supabase.from('rabattgruppen') as any)
       .select('id, name, rabatt_pct')
       .order('rabatt_pct'),
+
+    // Echte Verkaufsdaten (statt des fehleranfälligen aktivitaeten-Spiegels, siehe unten)
+    (supabase.from('verkaufsposten') as any)
+      .select(`
+        id, datum, rechnungsnummer, transaktions_nr, storniert, bezahlt,
+        positionen:verkauf_positionen(menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct)
+      `)
+      .eq('firma_id', id)
+      .eq('aktiv', true)
+      .order('datum', { ascending: false }),
   ])
 
   if (!fRaw) notFound()
@@ -115,12 +126,27 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
 
   const rabattgruppen = ((rgRaw ?? []) as R[]).map(r => ({ id: r.id, name: r.name, rabatt_pct: r.rabatt_pct }))
 
+  const verkaeufe: VerkaufRow[] = ((vRaw ?? []) as R[]).map(v => ({
+    id: v.id, datum: v.datum,
+    rechnungsnummer: v.rechnungsnummer ?? null,
+    transaktions_nr: v.transaktions_nr ?? null,
+    storniert: v.storniert ?? false,
+    bezahlt: v.bezahlt ?? false,
+    positionen: ((v.positionen ?? []) as R[]).map(p => ({
+      menge: p.menge, einheit: p.einheit,
+      preis_brutto: p.preis_brutto ?? null,
+      rabatt_pct: p.rabatt_pct ?? null,
+      sonderrabatt_pct: p.sonderrabatt_pct ?? null,
+    })),
+  }))
+
   return <FirmaDetailClient
     firma={firma}
     kontakte={kontakte}
     aktivitaeten={aktivitaeten}
     pipeline={pipeline}
     rabattgruppen={rabattgruppen}
+    verkaeufe={verkaeufe}
     writeOk={writeOk}
   />
 }

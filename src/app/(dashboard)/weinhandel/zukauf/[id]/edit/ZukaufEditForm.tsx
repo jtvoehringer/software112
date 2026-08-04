@@ -20,6 +20,11 @@ interface InitialValues {
   rebsorte:                 string
   jahrgang:                 string
   ziel_behaelter_id:        string
+  // ID der bereits bestehenden weinausbau-Charge dieses Zukauf-Postens (falls
+  // vorhanden). Wird bei der Kapazitätsprüfung von "Inhalt jetzt" ausgenommen,
+  // da sie beim Speichern ohnehin ersetzt wird (siehe updateZukauf) und sonst
+  // die neue Menge fälschlich doppelt gezählt würde.
+  ziel_weinausbau_id:       string
   notizen:                  string
   weinart:                  string
   // Transportschein-Felder
@@ -85,6 +90,12 @@ export default function ZukaufEditForm({
   const [einstandspreisLiter, setEinstandspreisLiter] = useState(initial.einstandspreis_pro_liter)
   const [zielBehaelter,       setZielBehaelter]     = useState(initial.ziel_behaelter_id)
   const [notizen,             setNotizen]           = useState(initial.notizen)
+
+  // Die eigene, bereits bestehende weinausbau-Charge dieses Zukauf-Postens
+  // (falls vorhanden) wird beim Speichern ersetzt (siehe updateZukauf) und
+  // darf daher bei der Kapazitätsprüfung nicht als "bereits vorhandener
+  // Inhalt" mitgezählt werden - sonst wird die neue Menge doppelt gezählt.
+  const eigenWeinausbauId = initial.ziel_weinausbau_id || null
 
   useEffect(() => {
     fetch('/api/zukauf-stammdaten').then(r => r.json()).then(j => {
@@ -354,7 +365,7 @@ export default function ZukaufEditForm({
                 <option value="">– keines –</option>
                 {behaelter.map(b => {
                   const vol = b.volumen_liter
-                  const chargen = weinausbauListe.filter(w => w.behaelter_id === b.id)
+                  const chargen = weinausbauListe.filter(w => w.behaelter_id === b.id && w.id !== eigenWeinausbauId)
                   const inhalt = chargen.reduce((s, w) => s + (w.menge_liter ?? 0), 0)
                   const rest = vol != null ? vol - inhalt : null
                   const rebsorten = [...new Set(chargen.map(w => w.rebsorte).filter(Boolean))].join(', ')
@@ -374,7 +385,7 @@ export default function ZukaufEditForm({
             {zielBehaelter && (() => {
               const b = behaelter.find(x => x.id === zielBehaelter)
               const vol = b?.volumen_liter ?? null
-              const chargen = weinausbauListe.filter(w => w.behaelter_id === zielBehaelter)
+              const chargen = weinausbauListe.filter(w => w.behaelter_id === zielBehaelter && w.id !== eigenWeinausbauId)
               const inhalt = chargen.reduce((s, w) => s + (w.menge_liter ?? 0), 0)
               const mengeNum = parseFloat(menge) || 0
               const restNach = vol != null ? vol - inhalt - mengeNum : null

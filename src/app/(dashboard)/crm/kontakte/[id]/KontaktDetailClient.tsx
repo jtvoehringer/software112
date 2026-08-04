@@ -8,7 +8,8 @@ import {
   SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN,
   segmentLabel, segmentFarbe, fmtUhrzeit,
 } from '@/lib/crm/types'
-import type { KontaktRow, AktivitaetRow, PipelineEintragRow } from '@/lib/crm/types'
+import type { KontaktRow, AktivitaetRow, PipelineEintragRow, VerkaufRow } from '@/lib/crm/types'
+import { verkaufSumme } from '@/lib/crm/types'
 import DokumentePanel from '../../DokumentePanel'
 import { KontaktForm } from '../KontakteClient'
 import {
@@ -387,14 +388,20 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
 }
 
 export default function KontaktDetailClient({
-  kontakt, firmaSegment, aktivitaeten, pipeline, writeOk,
+  kontakt, firmaSegment, aktivitaeten, pipeline, verkaeufe = [], writeOk,
 }: {
   kontakt: KontaktRow
   firmaSegment: string | null
   aktivitaeten: AktivitaetRow[]
   pipeline: PipelineEintragRow[]
+  verkaeufe?: VerkaufRow[]
   writeOk: boolean
 }) {
+  const verkaeufeSorted = [...verkaeufe].sort((a, b) => {
+    const dateDiff = new Date(b.datum).getTime() - new Date(a.datum).getTime()
+    if (dateDiff !== 0) return dateDiff
+    return (b.rechnungsnummer ?? '').localeCompare(a.rechnungsnummer ?? '', 'de', { numeric: true })
+  })
   const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [deletePending, startDeleteTransition] = useTransition()
@@ -806,45 +813,37 @@ export default function KontaktDetailClient({
             )}
           </div>
 
-              {/* Verkäufe aus Aktivitäten-Log */}
-              {(() => {
-                const verkaufAkts = aktivitaeten.filter(a => a.art === 'verkauf').sort((a, b) => {
-        const dateDiff = new Date(b.datum).getTime() - new Date(a.datum).getTime()
-        if (dateDiff !== 0) return dateDiff
-        // Gleicher Tag: nach Rechnungsnummer (im betreff) absteigend
-        return (b.betreff ?? '').localeCompare(a.betreff ?? '', 'de', { numeric: true })
-      })
-                if (verkaufAkts.length === 0) return null
-                return (
-                  <div className="card p-4 space-y-2">
-                    <h2 className="text-sm font-semibold text-gray-800 mb-3">Verkäufe ({verkaufAkts.length})</h2>
-                    <div className="space-y-1">
-                      {verkaufAkts.map(a => {
-                        const postenId = a.beschreibung?.replace('Verkaufsposten: ', '') ?? null
-                        const isStorniert = a.betreff?.includes('STORNIERT')
-                        const isBezahlt  = a.betreff?.includes('Bezahlt')
-                        return (
-                          <div key={a.id} className="flex items-center justify-between text-xs py-1.5 border-b border-s112-border/40 last:border-0">
-                            <div className="flex-1 min-w-0">
-                              <span className="tabular-nums text-s112-muted mr-2">{new Date(a.datum).toLocaleDateString('de-AT')}</span>
-                              <span className="font-medium text-gray-800">{a.betreff}</span>
-                            </div>
-                            <div className="flex items-center gap-2 ml-2 flex-shrink-0">
-                              {isStorniert && <span className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Storniert</span>}
-                              {isBezahlt  && <span className="px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Bezahlt</span>}
-                              {!isStorniert && !isBezahlt && <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Offen</span>}
-                              {postenId && (
-                                <a href={`/weinhandel/verkauf/${postenId}`}
-                                  className="text-s112-teal hover:underline">→</a>
-                              )}
-                            </div>
+              {/* Verkäufe */}
+              {verkaeufeSorted.length > 0 && (
+                <div className="card p-4 space-y-2">
+                  <h2 className="text-sm font-semibold text-gray-800 mb-3">Verkäufe ({verkaeufeSorted.length})</h2>
+                  <div className="space-y-1">
+                    {verkaeufeSorted.map(v => {
+                      const summe = verkaufSumme(v)
+                      return (
+                        <div key={v.id} className="flex items-center justify-between text-xs py-1.5 border-b border-s112-border/40 last:border-0">
+                          <div className="flex-1 min-w-0">
+                            <span className="tabular-nums text-s112-muted mr-2">{new Date(v.datum).toLocaleDateString('de-AT')}</span>
+                            <span className="font-mono text-gray-800">{v.rechnungsnummer ?? '–'}</span>
+                            {summe > 0 && (
+                              <span className="ml-2 font-semibold text-s112-teal tabular-nums">
+                                {summe.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
+                              </span>
+                            )}
                           </div>
-                        )
-                      })}
-                    </div>
+                          <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                            {v.storniert && <span className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Storniert</span>}
+                            {v.bezahlt  && <span className="px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Bezahlt</span>}
+                            {!v.storniert && !v.bezahlt && <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Offen</span>}
+                            <a href={`/weinhandel/verkauf/${v.id}`}
+                              className="text-s112-teal hover:underline">→</a>
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
-                )
-              })()}
+                </div>
+              )}
 
         </div>
       </div>

@@ -25,7 +25,7 @@ export default async function ZukaufPage() {
       id, datum, art, menge, einheit, preis_gesamt, rebsorte, jahrgang, notizen,
       lieferant_kontakt:kontakte!lieferant_kontakt_id(id, vorname, nachname),
       lieferant_firma:firmen!lieferant_firma_id(id, name),
-      ziel_weinausbau:weinausbau!ziel_weinausbau_id(id, name)
+      ziel_weinausbau:weinausbau!ziel_weinausbau_id(id, name, behaelter:behaelter!behaelter_id(id, name))
     `)
     .eq('aktiv', true)
     .order('datum', { ascending: false })
@@ -66,7 +66,7 @@ export default async function ZukaufPage() {
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500">Rebsorte / Jg.</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 text-right">Menge</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 text-right">Gesamtpreis</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500">Tank</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500">Gebinde</th>
                 {writeOk && <th className="px-4 py-3" />}
               </tr>
             </thead>
@@ -93,7 +93,7 @@ export default async function ZukaufPage() {
                         : '–'}
                     </td>
                     <td className="px-4 py-3 text-xs text-s112-muted">
-                      {p.ziel_weinausbau?.name ?? '–'}
+                      {p.ziel_weinausbau?.behaelter?.name ?? '–'}
                     </td>
                     {writeOk && (
                       <td className="px-4 py-3 text-right whitespace-nowrap">

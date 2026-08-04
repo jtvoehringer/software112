@@ -44,6 +44,7 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
         rebsorte:                 z.rebsorte   ?? '',
         jahrgang:                 z.jahrgang   != null ? String(z.jahrgang) : '',
         ziel_behaelter_id:        (z.ziel_weinausbau as R | null)?.behaelter_id ?? '',
+        ziel_weinausbau_id:       z.ziel_weinausbau_id ?? '',
         weinart:                  z.weinart ?? (z.ziel_weinausbau as R | null)?.weinart ?? 'unbekannt',
         notizen:                  z.notizen ?? '',
         lieferung_uhrzeit:        z.lieferung_uhrzeit ?? '',

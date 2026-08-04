@@ -8,7 +8,8 @@ import {
   AKTIVITAET_ARTEN, PIPELINE_STUFEN,
   segmentLabel, segmentFarbe, fmtUhrzeit,
 } from '@/lib/crm/types'
-import type { FirmaRow, KontaktRow, AktivitaetRow, PipelineEintragRow } from '@/lib/crm/types'
+import type { FirmaRow, KontaktRow, AktivitaetRow, PipelineEintragRow, VerkaufRow } from '@/lib/crm/types'
+import { verkaufSumme } from '@/lib/crm/types'
 import DokumentePanel from '../../DokumentePanel'
 import { FirmaForm } from '../FirmenClient'
 import {
@@ -402,13 +403,14 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
 type Tab = 'kontakte' | 'aktivitaeten' | 'pipeline' | 'verkauefe' | 'notizen'
 
 export default function FirmaDetailClient({
-  firma, kontakte, aktivitaeten, pipeline, rabattgruppen = [], writeOk,
+  firma, kontakte, aktivitaeten, pipeline, rabattgruppen = [], verkaeufe = [], writeOk,
 }: {
   firma: FirmaRow
   kontakte: KontaktRow[]
   aktivitaeten: AktivitaetRow[]
   pipeline: PipelineEintragRow[]
   rabattgruppen?: { id: string; name: string; rabatt_pct: number }[]
+  verkaeufe?: VerkaufRow[]
   writeOk: boolean
 }) {
   const router = useRouter()
@@ -435,6 +437,12 @@ export default function FirmaDetailClient({
     })
     return [...offen, ...erledigt]
   }
+
+  const verkaeufeSorted = [...verkaeufe].sort((a, b) => {
+    const dateDiff = new Date(b.datum).getTime() - new Date(a.datum).getTime()
+    if (dateDiff !== 0) return dateDiff
+    return (b.rechnungsnummer ?? '').localeCompare(a.rechnungsnummer ?? '', 'de', { numeric: true })
+  })
 
   const [tab, setTab] = useState<Tab>('kontakte')
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set())
@@ -577,12 +585,7 @@ export default function FirmaDetailClient({
             { id: 'kontakte',     label: `Kontakte (${kontakte.length})`        },
             { id: 'aktivitaeten', label: `Aktivitäten (${aktivitaeten.filter(a => a.art !== 'verkauf').length})` },
             { id: 'pipeline',     label: `Pipeline (${pipeline.length})`        },
-            { id: 'verkauefe',    label: `Verkäufe (${aktivitaeten.filter(a => a.art === 'verkauf').sort((a, b) => {
-        const dateDiff = new Date(b.datum).getTime() - new Date(a.datum).getTime()
-        if (dateDiff !== 0) return dateDiff
-        // Gleicher Tag: nach Rechnungsnummer (im betreff) absteigend
-        return (b.betreff ?? '').localeCompare(a.betreff ?? '', 'de', { numeric: true })
-      }).length})`  },
+            { id: 'verkauefe',    label: `Verkäufe (${verkaeufeSorted.length})` },
             { id: 'notizen', label: `Notizen (${aktivitaeten.filter(a => a.art === 'notiz').length})` },
           ] as { id: Tab; label: string }[]).map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
@@ -767,12 +770,7 @@ export default function FirmaDetailClient({
       {/* Tab: Verkäufe */}
       {tab === 'verkauefe' && (
         <div className="space-y-2">
-          {aktivitaeten.filter(a => a.art === 'verkauf').sort((a, b) => {
-        const dateDiff = new Date(b.datum).getTime() - new Date(a.datum).getTime()
-        if (dateDiff !== 0) return dateDiff
-        // Gleicher Tag: nach Rechnungsnummer (im betreff) absteigend
-        return (b.betreff ?? '').localeCompare(a.betreff ?? '', 'de', { numeric: true })
-      }).length === 0 ? (
+          {verkaeufeSorted.length === 0 ? (
             <div className="card p-6 text-center text-s112-muted text-sm">Noch keine Verkäufe erfasst.</div>
           ) : (
             <div className="card p-0 overflow-hidden">
@@ -780,41 +778,41 @@ export default function FirmaDetailClient({
                 <thead>
                   <tr className="bg-s112-bg border-b border-s112-border">
                     <th className="text-left px-4 py-2.5 font-semibold text-gray-700">Datum</th>
-                    <th className="text-left px-4 py-2.5 font-semibold text-gray-700">Beleg / Betrag</th>
+                    <th className="text-left px-4 py-2.5 font-semibold text-gray-700">Belegnr.</th>
+                    <th className="text-right px-4 py-2.5 font-semibold text-gray-700">Betrag</th>
                     <th className="text-center px-4 py-2.5 font-semibold text-gray-700">Status</th>
                     <th className="px-4 py-2.5" />
                   </tr>
                 </thead>
                 <tbody>
-                  {aktivitaeten.filter(a => a.art === 'verkauf').sort((a, b) => {
-        const dateDiff = new Date(b.datum).getTime() - new Date(a.datum).getTime()
-        if (dateDiff !== 0) return dateDiff
-        // Gleicher Tag: nach Rechnungsnummer (im betreff) absteigend
-        return (b.betreff ?? '').localeCompare(a.betreff ?? '', 'de', { numeric: true })
-      }).map(a => {
-                    const postenId = a.beschreibung?.replace('Verkaufsposten: ', '') ?? null
-                    const isStorniert = a.betreff?.includes('STORNIERT')
-                    const isBezahlt  = a.betreff?.includes('Bezahlt')
+                  {verkaeufeSorted.map(v => {
+                    const summe = verkaufSumme(v)
                     return (
-                      <tr key={a.id} className="border-b border-s112-border last:border-0 hover:bg-s112-bg/50">
+                      <tr key={v.id} className="border-b border-s112-border last:border-0 hover:bg-s112-bg/50">
                         <td className="px-4 py-2.5 text-xs tabular-nums text-s112-muted">
-                          {new Date(a.datum).toLocaleDateString('de-AT')}
+                          {new Date(v.datum).toLocaleDateString('de-AT')}
                         </td>
-                        <td className="px-4 py-2.5 text-xs font-medium text-gray-800">{a.betreff}</td>
+                        <td className="px-4 py-2.5 text-xs font-medium text-gray-800">
+                          <div className="font-mono">{v.rechnungsnummer ?? '–'}</div>
+                          {v.transaktions_nr && <div className="font-mono text-s112-muted mt-0.5">{v.transaktions_nr}</div>}
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-semibold text-s112-teal tabular-nums">
+                          {summe > 0
+                            ? summe.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+                            : <span className="text-s112-muted font-normal">–</span>}
+                        </td>
                         <td className="px-4 py-2.5 text-center">
-                          {isStorniert ? (
+                          {v.storniert ? (
                             <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Storniert</span>
-                          ) : isBezahlt ? (
+                          ) : v.bezahlt ? (
                             <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Bezahlt</span>
                           ) : (
                             <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Offen</span>
                           )}
                         </td>
                         <td className="px-4 py-2.5 text-right">
-                          {postenId && (
-                            <a href={`/weinhandel/verkauf/${postenId}`}
-                              className="text-xs text-s112-teal hover:underline">Beleg →</a>
-                          )}
+                          <a href={`/weinhandel/verkauf/${v.id}`}
+                            className="text-xs text-s112-teal hover:underline">Beleg →</a>
                         </td>
                       </tr>
                     )
