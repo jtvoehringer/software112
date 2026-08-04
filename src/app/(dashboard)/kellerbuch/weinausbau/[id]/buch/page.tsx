@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
 import { BookOpen, Leaf, Grape, Filter, ArrowLeftRight, Wind, FlaskConical, Microscope, Award, Wine, GitMerge, type LucideIcon } from 'lucide-react'
+import PrintButton from './PrintButton'
 
 export const metadata: Metadata = { title: 'Weinbuch – software:112' }
 export const dynamic = 'force-dynamic'
@@ -560,8 +561,8 @@ export default async function WeinbuchPage({
   return (
     <div className="max-w-3xl space-y-6">
 
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-sm text-s112-muted flex-wrap">
+      {/* Breadcrumb (ausgeblendet beim Drucken) */}
+      <nav className="flex items-center gap-2 text-sm text-s112-muted flex-wrap print:hidden">
         <Link href="/kellerbuch" className="hover:text-s112-teal">Kellerbuch</Link>
         <span>/</span>
         <Link href={`/kellerbuch/weinausbau/${id}`} className="hover:text-s112-teal">{wa.name}</Link>
@@ -584,12 +585,15 @@ export default async function WeinbuchPage({
             Von der Rebe bis zur Flasche – vollständige Prozesshistorie dieser Charge
           </p>
         </div>
-        <Link
-          href={`/kellerbuch/weinausbau/${id}/blend-protokoll`}
-          className="flex items-center gap-1.5 text-sm font-medium text-s112-teal hover:underline shrink-0"
-        >
-          <GitMerge size={15} strokeWidth={1.75} />Blend-Protokoll
-        </Link>
+        <div className="flex items-center gap-3 shrink-0 print:hidden">
+          <Link
+            href={`/kellerbuch/weinausbau/${id}/blend-protokoll`}
+            className="flex items-center gap-1.5 text-sm font-medium text-s112-teal hover:underline"
+          >
+            <GitMerge size={15} strokeWidth={1.75} />Blend-Protokoll
+          </Link>
+          <PrintButton />
+        </div>
       </div>
 
       {/* Timeline */}
