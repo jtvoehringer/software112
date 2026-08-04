@@ -8,7 +8,7 @@ type R = Record<string, any>
 
 export type SearchResult = {
   id: string
-  kategorie: 'kontakt' | 'firma' | 'fuellung' | 'verkauf' | 'kellerbuch'
+  kategorie: 'kontakt' | 'firma' | 'fuellung' | 'verkauf' | 'kellerbuch' | 'weingarten' | 'grundstueck' | 'jahrgang'
   titel: string
   untertitel?: string
   href: string
@@ -88,7 +88,57 @@ export async function GET(req: NextRequest) {
       kategorie:  'verkauf',
       titel:      v.rechnungsnummer ?? `Beleg ${v.id.slice(0, 8)}`,
       untertitel: [v.datum ? new Date(v.datum).toLocaleDateString('de-AT') : null, status].filter(Boolean).join(' · '),
-      href:       `/verkauf/${v.id}`,
+      href:       `/weinhandel/verkauf/${v.id}`,
+    })
+  })
+
+  // ── Weingärten ──────────────────────────────────────────────────────────
+  const { data: weingaerten } = await (supabase.from('weingarten') as any)
+    .select('id, name, ried, rebsorte')
+    .or(`name.ilike.%${q}%,ried.ilike.%${q}%,rebsorte.ilike.%${q}%`)
+    .eq('aktiv', true)
+    .limit(5)
+
+  ;(weingaerten as R[] ?? []).forEach((w: R) => {
+    results.push({
+      id:         w.id,
+      kategorie:  'weingarten',
+      titel:      w.name,
+      untertitel: [w.ried, w.rebsorte].filter(Boolean).join(' · '),
+      href:       `/weingarten/${w.id}`,
+    })
+  })
+
+  // ── Grundstücke (GST) ──────────────────────────────────────────────────────
+  const { data: grundstuecke } = await (supabase.from('grundstuecke') as any)
+    .select('id, weingarten_id, gst_nr, rebsorte, katastralgemeinde, weingarten:weingarten_id(name)')
+    .or(`gst_nr.ilike.%${q}%,rebsorte.ilike.%${q}%,katastralgemeinde.ilike.%${q}%`)
+    .eq('status', 'aktiv')
+    .limit(5)
+
+  ;(grundstuecke as R[] ?? []).forEach((g: R) => {
+    results.push({
+      id:         g.id,
+      kategorie:  'grundstueck',
+      titel:      `GST ${g.gst_nr}`,
+      untertitel: [g.rebsorte, (g.weingarten as R | null)?.name, g.katastralgemeinde].filter(Boolean).join(' · '),
+      href:       `/weingarten/${g.weingarten_id}`,
+    })
+  })
+
+  // ── Jahrgänge (Erntemeldung) ─────────────────────────────────────────────
+  const { data: jahrgaenge } = await (supabase.from('weinjahrgaenge') as any)
+    .select('id, jahrgang, qualitaet_gesamt, abgeschlossen')
+    .or(`jahrgang::text.ilike.%${q}%`)
+    .limit(5)
+
+  ;(jahrgaenge as R[] ?? []).forEach((j: R) => {
+    results.push({
+      id:         j.id,
+      kategorie:  'jahrgang',
+      titel:      `Jahrgang ${j.jahrgang}`,
+      untertitel: [j.qualitaet_gesamt, j.abgeschlossen ? 'Abgeschlossen' : null].filter(Boolean).join(' · '),
+      href:       `/erntemeldung/${j.id}`,
     })
   })
 

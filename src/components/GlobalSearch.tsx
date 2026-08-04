@@ -2,32 +2,41 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Loader2, Users, Building2, Package, FileText, Wine } from 'lucide-react'
+import { Search, Loader2, Users, Building2, Package, FileText, Wine, Grape, MapPin, Calendar } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { SearchResult } from '@/app/api/global-search/route'
 
 const KATEGORIE_LABEL: Record<string, string> = {
-  kontakt:   'Kontakt',
-  firma:     'Firma',
-  fuellung:  'Füllung',
-  verkauf:   'Rechnung',
-  kellerbuch:'Kellerbuch',
+  kontakt:    'Kontakt',
+  firma:      'Firma',
+  fuellung:   'Füllung',
+  verkauf:    'Rechnung',
+  kellerbuch: 'Kellerbuch',
+  weingarten: 'Weingarten',
+  grundstueck:'Grundstück',
+  jahrgang:   'Jahrgang',
 }
 
 const KATEGORIE_ICON: Record<string, LucideIcon> = {
-  kontakt:   Users,
-  firma:     Building2,
-  fuellung:  Package,
-  verkauf:   FileText,
-  kellerbuch:Wine,
+  kontakt:    Users,
+  firma:      Building2,
+  fuellung:   Package,
+  verkauf:    FileText,
+  kellerbuch: Wine,
+  weingarten: Grape,
+  grundstueck:MapPin,
+  jahrgang:   Calendar,
 }
 
 const KATEGORIE_FARBE: Record<string, string> = {
-  kontakt:   'bg-blue-50 text-blue-700',
-  firma:     'bg-violet-50 text-violet-700',
-  fuellung:  'bg-emerald-50 text-emerald-700',
-  verkauf:   'bg-amber-50 text-amber-700',
-  kellerbuch:'bg-red-50 text-red-700',
+  kontakt:    'bg-blue-50 text-blue-700',
+  firma:      'bg-violet-50 text-violet-700',
+  fuellung:   'bg-emerald-50 text-emerald-700',
+  verkauf:    'bg-amber-50 text-amber-700',
+  kellerbuch: 'bg-red-50 text-red-700',
+  weingarten: 'bg-lime-50 text-lime-700',
+  grundstueck:'bg-teal-50 text-teal-700',
+  jahrgang:   'bg-indigo-50 text-indigo-700',
 }
 
 export default function GlobalSearch() {
@@ -147,9 +156,15 @@ export default function GlobalSearch() {
               className="flex-1 outline-none text-sm text-gray-800 placeholder:text-s112-tertiary bg-transparent"
             />
             {loading && <Loader2 size={16} strokeWidth={1.75} className="text-s112-tertiary animate-spin flex-shrink-0" />}
-            <kbd className="text-[10px] font-mono text-s112-muted bg-s112-bg border border-s112-border px-1.5 py-0.5 rounded">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              title="Suche schließen (Esc)"
+              aria-label="Suche schließen"
+              className="text-[10px] font-mono text-s112-muted bg-s112-bg border border-s112-border px-1.5 py-0.5 rounded hover:bg-s112-line hover:text-gray-700 transition-colors"
+            >
               Esc
-            </kbd>
+            </button>
           </div>
 
           {/* Ergebnisse */}
