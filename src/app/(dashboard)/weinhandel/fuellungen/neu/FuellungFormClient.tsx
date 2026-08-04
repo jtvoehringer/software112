@@ -3,8 +3,8 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { KN_CODES } from '@/lib/wein/zolltarif'
-import { HERKUNFT_ORDER, HERKUNFT_LABEL } from '@/lib/herkunft'
-import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { HERKUNFT_ORDER, HERKUNFT_LABEL, istNiedrigerAls as istHerkunftNiedriger } from '@/lib/herkunft'
+import { QUALITAET_LABEL, istNiedrigerAls as istQualitaetNiedriger } from '@/lib/weinqualitaet'
 import { AlertTriangle, CheckCircle2, Droplet } from 'lucide-react'
 
 type Charge = {
@@ -92,6 +92,26 @@ export default function FuellungFormClient({
 
   const selectedCharge = chargen.find(c => c.id === selectedChargeId) ?? null
   const verfuegbar     = parseFloat(String(selectedCharge?.menge_liter ?? 0)) || 0
+
+  // Nur Abstufung erlaubt, keine Aufstufung: Dropdowns zeigen nur noch die
+  // aktuelle Stufe der Charge und alle rechtlich niedrigeren Stufen (+ "Sonstiges"
+  // als generischer Fallback ohne Schutzangabe). Ist keine Charge verknüpft,
+  // stehen alle Stufen zur Auswahl (kein Bezugswert zum Einschränken vorhanden).
+  const qualitaetOptions = useMemo(() => {
+    const aktuell = selectedCharge?.qualitaetsstufe
+    if (!aktuell) return QUALITAETEN
+    return QUALITAETEN.filter(q =>
+      q.value === aktuell || q.value === 'sonstiges' || istQualitaetNiedriger(q.value, aktuell)
+    )
+  }, [selectedCharge])
+
+  const herkunftOptions = useMemo(() => {
+    const aktuell = selectedCharge?.herkunft_code
+    if (!aktuell) return HERKUNFT_ORDER
+    return HERKUNFT_ORDER.filter(code =>
+      code === aktuell || istHerkunftNiedriger(code, aktuell)
+    )
+  }, [selectedCharge])
 
   // Auto-Berechnung: Flaschen × Flaschengröße
   const berechneteLiter = useMemo(() => {
@@ -201,7 +221,7 @@ export default function FuellungFormClient({
           <div>
             <label className={labelCls}>Qualitätsbezeichnung *</label>
             <select name="qualitaet" value={qualitaetVal} onChange={e => setQualitaetVal(e.target.value)} required className={inputCls}>
-              {QUALITAETEN.map(q => (
+              {qualitaetOptions.map(q => (
                 <option key={q.value} value={q.value}>{q.label}</option>
               ))}
             </select>
@@ -215,7 +235,7 @@ export default function FuellungFormClient({
             <label className={labelCls}>Herkunft-Code (BKI)</label>
             <select name="herkunft_code" value={herkunftCodeVal} onChange={e => setHerkunftCodeVal(e.target.value)} className={inputCls}>
               <option value="">– keine Angabe –</option>
-              {HERKUNFT_ORDER.map(code => (
+              {herkunftOptions.map(code => (
                 <option key={code} value={code}>{HERKUNFT_LABEL[code]}</option>
               ))}
             </select>

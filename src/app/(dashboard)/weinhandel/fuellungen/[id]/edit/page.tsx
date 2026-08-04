@@ -6,8 +6,8 @@ import Link from 'next/link'
 import { Wine } from 'lucide-react'
 import { updateFuellung, schwundAusbuchen } from '../../../actions'
 import { KN_CODES } from '@/lib/wein/zolltarif'
-import { HERKUNFT_ORDER, HERKUNFT_LABEL } from '@/lib/herkunft'
-import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { HERKUNFT_ORDER, HERKUNFT_LABEL, istNiedrigerAls as istHerkunftNiedriger } from '@/lib/herkunft'
+import { QUALITAET_LABEL, istNiedrigerAls as istQualitaetNiedriger } from '@/lib/weinqualitaet'
 
 export const metadata: Metadata = { title: 'Füllung bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -95,6 +95,32 @@ export default async function EditFuellungPage({
 
   // Bind updateFuellung with id
   const updateWithId = updateFuellung.bind(null, id)
+
+  // Nur Abstufung erlaubt, keine Aufstufung: Dropdowns auf die aktuelle Stufe
+  // der verknüpften Charge + niedrigere Stufen beschränken. Der bereits auf
+  // dieser Füllung gespeicherte Wert bleibt immer wählbar, auch falls er durch
+  // eine spätere Änderung an der Charge nicht mehr in der erlaubten Liste wäre
+  // (verhindert Datenverlust beim Speichern).
+  const qualitaetOptionsEdit = (() => {
+    const basis = waCeilingQualitaet
+      ? QUALITAETEN.filter(q => q.value === waCeilingQualitaet || q.value === 'sonstiges' || istQualitaetNiedriger(q.value, waCeilingQualitaet))
+      : QUALITAETEN
+    if (f.qualitaet && !basis.some(q => q.value === f.qualitaet)) {
+      const bestehend = QUALITAETEN.find(q => q.value === f.qualitaet)
+      if (bestehend) return [bestehend, ...basis]
+    }
+    return basis
+  })()
+
+  const herkunftOptionsEdit = (() => {
+    const basis = waCeilingHerkunft
+      ? HERKUNFT_ORDER.filter(code => code === waCeilingHerkunft || istHerkunftNiedriger(code, waCeilingHerkunft))
+      : HERKUNFT_ORDER
+    if (f.herkunft_code && !(basis as readonly string[]).includes(f.herkunft_code) && (HERKUNFT_ORDER as readonly string[]).includes(f.herkunft_code)) {
+      return [f.herkunft_code as typeof HERKUNFT_ORDER[number], ...basis]
+    }
+    return basis
+  })()
 
   return (
     <div className="max-w-2xl">
@@ -213,7 +239,7 @@ export default async function EditFuellungPage({
             <div>
               <label className={labelCls}>Qualitätsbezeichnung *</label>
               <select name="qualitaet" defaultValue={f.qualitaet} required className={inputCls}>
-                {QUALITAETEN.map(q => (
+                {qualitaetOptionsEdit.map(q => (
                   <option key={q.value} value={q.value}>{q.label}</option>
                 ))}
               </select>
@@ -227,7 +253,7 @@ export default async function EditFuellungPage({
               <label className={labelCls}>Herkunft-Code (BKI)</label>
               <select name="herkunft_code" defaultValue={f.herkunft_code ?? ''} className={inputCls}>
                 <option value="">– keine Angabe –</option>
-                {HERKUNFT_ORDER.map(code => (
+                {herkunftOptionsEdit.map(code => (
                   <option key={code} value={code}>{HERKUNFT_LABEL[code]}</option>
                 ))}
               </select>
