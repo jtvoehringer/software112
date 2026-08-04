@@ -13,6 +13,7 @@ interface InitialValues {
   art:                      string
   lieferant_kontakt_id:     string
   lieferant_firma_id:       string
+  eingangsrechnungsnummer: string
   menge:                    string
   einheit:                  string
   preis_gesamt:             string
@@ -69,6 +70,7 @@ export default function ZukaufEditForm({
   const [behaelter, setBehaelter]    = useState<Behaelter[]>([])
   const [weinausbauListe, setWeinausbauListe] = useState<{ id: string; name: string; behaelter_id: string | null; rebsorte: string | null; menge_liter: number | null }[]>([])
 
+  const [eingangsrechnungsnummer, setEingangsrechnungsnummer] = useState(initial.eingangsrechnungsnummer)
   const [datum,               setDatum]             = useState(initial.datum)
   const [uhrzeit,             setUhrzeit]           = useState(initial.lieferung_uhrzeit)
   const [art,                 setArt]               = useState<'wein' | 'trauben' | 'most'>(initial.art as any)
@@ -122,6 +124,7 @@ export default function ZukaufEditForm({
     fd.set('art',                      art)
     fd.set('lieferant_kontakt_id',     initial.lieferant_kontakt_id)
     fd.set('lieferant_firma_id',       initial.lieferant_firma_id)
+    fd.set('eingangsrechnungsnummer',  eingangsrechnungsnummer)
     fd.set('transport_zugmaschine',    zugmaschine)
     fd.set('transport_anhaenger1',     anhaenger1)
     fd.set('transport_anhaenger2',     anhaenger2)
@@ -168,6 +171,13 @@ export default function ZukaufEditForm({
           <span className="ml-2 text-xs">(Lieferant-Zuordnung nur beim Neuanlegen änderbar)</span>
         </p>
       )}
+
+      <div className="card p-5">
+        <label className={labelCls}>Eingangs-Rechnungsnummer</label>
+        <input type="text" value={eingangsrechnungsnummer} onChange={e => setEingangsrechnungsnummer(e.target.value)}
+          placeholder="Belegnr. lt. Rechnung des Lieferanten"
+          className={inputCls + ' w-full max-w-sm'} />
+      </div>
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
@@ -249,9 +259,16 @@ export default function ZukaufEditForm({
                 placeholder="z.B. Grüner Veltliner" className={inputCls + ' w-full'} />
             </div>
             <div>
-              <label className={labelCls}>Jahrgang</label>
+              <label className={labelCls}>Jahrgang{art === 'trauben' ? ' *' : ''}</label>
               <input type="number" value={jahrgang} onChange={e => setJahrgang(e.target.value)}
-                min="1900" max="2100" placeholder="z.B. 2024" className={inputCls + ' w-full'} />
+                min="1900" max="2100" placeholder="z.B. 2024"
+                required={art === 'trauben'}
+                className={inputCls + ' w-full'} />
+              {art === 'trauben' && (
+                <p className="text-xs text-s112-muted mt-1">
+                  Wichtig für Pressungs-Vorschlag &amp; Traubenverkauf – ohne Jahrgang wird der Zukauf dort nicht angezeigt.
+                </p>
+              )}
             </div>
             {(art === 'wein' || art === 'most') && (
               <div>

@@ -11,8 +11,11 @@ type R = Record<string, any>
 export type Traubenverkauf = {
   id: string
   // Quelle: eigener Weingarten ODER zugekaufter Posten (Migration 141) - genau
-  // eines der beiden ist gesetzt.
-  weingarten_id: string | null; zukauf_posten_id?: string | null; weingarten_name: string
+  // eines der beiden ist gesetzt. grundstueck_id ist bei einer Weingarten-
+  // Quelle gesetzt, wenn die Lese GST-genau erfasst wurde (Bugfix: nötig,
+  // damit ein Verkauf die verfügbare Menge im Pressungs-Vorschlag korrekt
+  // reduziert, der ebenfalls auf GST-Ebene rechnet).
+  weingarten_id: string | null; grundstueck_id?: string | null; zukauf_posten_id?: string | null; weingarten_name: string
   kontakt_id: string | null; kontakt_name: string | null
   firma_id: string | null; firma_name: string | null
   datum: string; menge_kg: number
@@ -24,7 +27,19 @@ export type Traubenverkauf = {
 export type TVWGOption = { id: string; name: string; herkunft_code: string | null }
 export type TVKontaktOption = { id: string; name: string; betrieb_nr: string | null }
 export type TVFirmaOption  = { id: string; name: string; betrieb_nr: string | null }
-export type TVLeseParzelle = { weingarten_id: string; klosterneuburger: number | null; qualitaetsstufe: string | null }
+// Quelle "eigene Ernte" – pro GST (falls die Lese GST-genau erfasst wurde) oder
+// pro Weingarten (Fallback, wenn für diesen Weingarten gar keine GST-Zuordnung
+// existiert). compositeId kodiert, welcher Fall vorliegt: "gst:<id>" / "wg:<id>".
+export type TVQuelleOption = {
+  compositeId: string
+  weingarten_id: string
+  grundstueck_id: string | null
+  label: string
+  herkunft_code: string | null
+  klosterneuburger: number | null
+  qualitaetsstufe: string | null
+  verfuegbar_kg: number
+}
 
 const QUALITAETEN = [
   { value: 'qualitaetswein', label: 'Qualitätswein' },
@@ -44,20 +59,21 @@ const fmtDate = (d: string) =>
 
 // ── Formular ──────────────────────────────────────────────────────────────────
 
-function TVForm({ jahrgangId, tv, wgOptions, leseParzellen, zukaufOptions, kontaktOptions, firmaOptions, onDone }: {
+function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, firmaOptions, onDone }: {
   jahrgangId: string
   tv?: Traubenverkauf
-  wgOptions: TVWGOption[]
-  leseParzellen: TVLeseParzelle[]
+  quelleOptions: TVQuelleOption[]
   zukaufOptions: ZukaufTraubenOpt[]
   kontaktOptions: TVKontaktOption[]
   firmaOptions: TVFirmaOption[]
   onDone: () => void
 }) {
-  // Quelle: eigene Ernte (Ried) oder zugekaufte Trauben (siehe Migration 141)
+  // Quelle: eigene Ernte (Ried/GST) oder zugekaufte Trauben (siehe Migration 141)
   const [quelle, setQuelle]     = useState<'ernte' | 'zukauf'>(tv?.zukauf_posten_id ? 'zukauf' : 'ernte')
   const [zukaufId, setZukaufId] = useState(tv?.zukauf_posten_id ?? '')
-  const [wgId, setWgId]         = useState(tv?.weingarten_id ?? '')
+  const [quelleId, setQuelleId] = useState(
+    tv ? (tv.grundstueck_id ? `gst:${tv.grundstueck_id}` : (tv.weingarten_id ? `wg:${tv.weingarten_id}` : '')) : ''
+  )
   // Käufer-Typ: Firma ist Standard
   const initType = tv ? (tv.firma_id ? 'firma' : 'kontakt') : 'firma'
   const [buyerType, setBuyerType] = useState<'firma' | 'kontakt'>(initType)
@@ -82,17 +98,28 @@ function TVForm({ jahrgangId, tv, wgOptions, leseParzellen, zukaufOptions, konta
     return Math.max(0, Number(opt.verfuegbar_kg ?? 0) + eigenerAnteil)
   }
 
-  function handleWgChange(newWgId: string) {
-    setWgId(newWgId)
-    const wg = wgOptions.find(w => w.id === newWgId)
-    setHerkunft(wg?.herkunft_code ?? '')
-    if (!tv && newWgId) {
-      // KMW + Qualität aus letzter Lese-Parzelle dieser Ried vorausfüllen
-      const match = leseParzellen.find(p => p.weingarten_id === newWgId)
-      if (match) {
-        if (match.klosterneuburger != null) setKmw(match.klosterneuburger.toString().replace('.', ','))
-        if (match.qualitaetsstufe) setQualitaet(match.qualitaetsstufe)
-      }
+  // Verfügbare kg je Ried/GST-Quelle, während einer Bearbeitung um die eigene
+  // Zeile bereinigt – Bugfix: vorher wurde bei "eigene Ernte" gar keine
+  // verfügbare Menge berechnet/angezeigt und beim Speichern keine GST erfasst,
+  // wodurch verkaufte Mengen im Pressungs-Vorschlag nie abgezogen wurden.
+  const verfuegbarQuelle = (compositeId: string) => {
+    const opt = quelleOptions.find(o => o.compositeId === compositeId)
+    if (!opt) return 0
+    const eigenerAnteil = tv && (
+      (opt.grundstueck_id && tv.grundstueck_id === opt.grundstueck_id) ||
+      (!opt.grundstueck_id && !tv.grundstueck_id && tv.weingarten_id === opt.weingarten_id)
+    ) ? Number(tv.menge_kg ?? 0) : 0
+    return Math.max(0, opt.verfuegbar_kg + eigenerAnteil)
+  }
+
+  function handleQuelleChange(newId: string) {
+    setQuelleId(newId)
+    const opt = quelleOptions.find(o => o.compositeId === newId)
+    setHerkunft(opt?.herkunft_code ?? '')
+    if (!tv && opt) {
+      // KMW + Qualität aus der Lesedaten dieser Ried/GST vorausfüllen
+      if (opt.klosterneuburger != null) setKmw(opt.klosterneuburger.toString().replace('.', ','))
+      if (opt.qualitaetsstufe) setQualitaet(opt.qualitaetsstufe)
     }
   }
 
@@ -113,7 +140,9 @@ function TVForm({ jahrgangId, tv, wgOptions, leseParzellen, zukaufOptions, konta
     if (quelle === 'zukauf') {
       fd.append('zukauf_posten_id', zukaufId)
     } else {
-      fd.append('weingarten_id', wgId)
+      const opt = quelleOptions.find(o => o.compositeId === quelleId)
+      fd.append('weingarten_id', opt?.weingarten_id ?? '')
+      if (opt?.grundstueck_id) fd.append('grundstueck_id', opt.grundstueck_id)
     }
     if (kontaktId) fd.append('kontakt_id', kontaktId)
     if (firmaId) fd.append('firma_id', firmaId)
@@ -177,15 +206,24 @@ function TVForm({ jahrgangId, tv, wgOptions, leseParzellen, zukaufOptions, konta
           </div>
         ) : (
           <div className="col-span-2">
-            <label className="block text-xs font-medium text-gray-600 mb-1">Ried *</label>
-            <select value={wgId} onChange={e => handleWgChange(e.target.value)} required className={inp}>
-              <option value="">– Ried wählen –</option>
-              {wgOptions.map(w => (
-                <option key={w.id} value={w.id}>
-                  {w.name}{w.herkunft_code ? ` (${w.herkunft_code})` : ''}
+            <label className="block text-xs font-medium text-gray-600 mb-1">Ried / GST *</label>
+            <select value={quelleId} onChange={e => handleQuelleChange(e.target.value)} required className={inp}>
+              <option value="">– Ried/GST wählen –</option>
+              {quelleOptions.map(o => (
+                <option key={o.compositeId} value={o.compositeId}>
+                  {o.label}{o.herkunft_code ? ` (${o.herkunft_code})` : ''}
+                  {' – '}{verfuegbarQuelle(o.compositeId).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg verf.
                 </option>
               ))}
             </select>
+            {quelleOptions.length === 0 && (
+              <p className="text-xs text-amber-600 mt-1">Keine Lesedaten für diesen Jahrgang vorhanden.</p>
+            )}
+            {quelleId && (
+              <p className="text-xs text-s112-muted mt-1">
+                Verfügbar: <span className="font-medium text-gray-700">{verfuegbarQuelle(quelleId).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg</span>
+              </p>
+            )}
           </div>
         )}
 
@@ -309,12 +347,11 @@ function TVForm({ jahrgangId, tv, wgOptions, leseParzellen, zukaufOptions, konta
 // ── Hauptexport ───────────────────────────────────────────────────────────────
 
 export default function TraubenverkaufSection({
-  jahrgangId, verkauefe, wgOptions, leseParzellen, zukaufOptions, kontaktOptions, firmaOptions, writeOk, adminOk,
+  jahrgangId, verkauefe, quelleOptions, zukaufOptions, kontaktOptions, firmaOptions, writeOk, adminOk,
 }: {
   jahrgangId: string
   verkauefe: Traubenverkauf[]
-  wgOptions: TVWGOption[]
-  leseParzellen: TVLeseParzelle[]
+  quelleOptions: TVQuelleOption[]
   zukaufOptions: ZukaufTraubenOpt[]
   kontaktOptions: TVKontaktOption[]
   firmaOptions: TVFirmaOption[]
@@ -391,7 +428,7 @@ export default function TraubenverkaufSection({
       </div>
 
       {showForm && !editId && (
-        <TVForm jahrgangId={jahrgangId} wgOptions={wgOptions} leseParzellen={leseParzellen} zukaufOptions={zukaufOptions}
+        <TVForm jahrgangId={jahrgangId} quelleOptions={quelleOptions} zukaufOptions={zukaufOptions}
           kontaktOptions={kontaktOptions} firmaOptions={firmaOptions}
           onDone={() => setShowForm(false)} />
       )}
@@ -405,7 +442,7 @@ export default function TraubenverkaufSection({
           {verkauefe.map(v => (
             <div key={v.id}>
               {editId === v.id ? (
-                <TVForm tv={v} jahrgangId={jahrgangId} wgOptions={wgOptions} leseParzellen={leseParzellen} zukaufOptions={zukaufOptions}
+                <TVForm tv={v} jahrgangId={jahrgangId} quelleOptions={quelleOptions} zukaufOptions={zukaufOptions}
                   kontaktOptions={kontaktOptions} firmaOptions={firmaOptions}
                   onDone={() => setEditId(null)} />
               ) : (

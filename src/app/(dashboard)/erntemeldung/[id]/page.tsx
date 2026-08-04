@@ -5,7 +5,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import ErnteDetailClient from './ErnteDetailClient'
 import type { Pressung, PressungWG, PressungBeh, WGOption, BehOption, WAOption, ZukaufTraubenOpt } from './PressungSection'
-import TraubenverkaufSection, { type Traubenverkauf, type TVWGOption, type TVKontaktOption, type TVFirmaOption, type TVLeseParzelle } from './TraubenverkaufSection'
+import TraubenverkaufSection, { type Traubenverkauf, type TVWGOption, type TVKontaktOption, type TVFirmaOption, type TVQuelleOption } from './TraubenverkaufSection'
 
 export const metadata: Metadata = { title: 'Lese – software:112' }
 export const dynamic = 'force-dynamic'
@@ -281,6 +281,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     return {
     id: v.id,
     weingarten_id: v.weingarten_id ?? null,
+    grundstueck_id: v.grundstueck_id ?? null,
     zukauf_posten_id: v.zukauf_posten_id ?? null,
     weingarten_name: (v.weingarten as AR | null)?.name
       ?? (zukaufQuelle
@@ -307,12 +308,57 @@ export default async function ErnteDetailPage({ params }: Props) {
   const tvWGOptions: TVWGOption[] = ((rawW ?? []) as AR[])
     .filter((w: AR) => harvestedWGIds.has(w.id))
     .map((w: AR) => ({ id: w.id, name: w.name, herkunft_code: w.trauben_herkunft_code ?? null }))
-  // Lesedaten für Traubenverkauf-Formular (KMW + Qualität nach Ried)
-  const tvLeseParzellen: TVLeseParzelle[] = parzellen.map(p => ({
-    weingarten_id: p.weingarten_id,
-    klosterneuburger: p.klosterneuburger,
-    qualitaetsstufe: p.qualitaetsstufe,
-  }))
+
+  // ── Quellen-Optionen "eigene Ernte" für Traubenverkauf ───────────────────────
+  // Bugfix: der Verkauf muss dieselbe Granularität (Ried/GST) wie der
+  // Pressungs-Vorschlag verwenden, sonst wird eine verkaufte Menge nirgends
+  // korrekt abgezogen. Für WGs mit GST-zugeordneten Lesedaten wird pro GST
+  // eine Option angeboten (verfuegbareKgByGST, exakt wie im Pressungs-
+  // Vorschlag); für WGs ganz ohne GST-Zuordnung fällt die Option auf WG-Ebene
+  // zurück (verfuegbareKg). Beim Speichern wird passend weingarten_id UND
+  // (falls vorhanden) grundstueck_id mitgeschickt.
+  const tvHerkunftByWG = new Map(tvWGOptions.map(w => [w.id, w.herkunft_code]))
+  const gstRowsMap = new Map<string, {
+    weingarten_id: string; weingarten_name: string; grundstueck_nr: string | null
+    klosterneuburger: number | null; qualitaetsstufe: string | null
+  }>()
+  for (const p of parzellen) {
+    if (p.grundstueck_id && !gstRowsMap.has(p.grundstueck_id)) {
+      gstRowsMap.set(p.grundstueck_id, {
+        weingarten_id: p.weingarten_id, weingarten_name: p.weingarten_name,
+        grundstueck_nr: p.grundstueck_nr,
+        klosterneuburger: p.klosterneuburger, qualitaetsstufe: p.qualitaetsstufe,
+      })
+    }
+  }
+  const wgIdsMitGST = new Set([...gstRowsMap.values()].map(g => g.weingarten_id))
+  const tvQuelleOptions: TVQuelleOption[] = [
+    ...[...gstRowsMap.entries()].map(([gstId, g]) => ({
+      compositeId: `gst:${gstId}`,
+      weingarten_id: g.weingarten_id,
+      grundstueck_id: gstId,
+      label: g.grundstueck_nr ? `GST ${g.grundstueck_nr} · ${g.weingarten_name}` : g.weingarten_name,
+      herkunft_code: tvHerkunftByWG.get(g.weingarten_id) ?? null,
+      klosterneuburger: g.klosterneuburger,
+      qualitaetsstufe: g.qualitaetsstufe,
+      verfuegbar_kg: verfuegbareKgByGST[gstId] ?? 0,
+    })),
+    ...tvWGOptions
+      .filter(w => !wgIdsMitGST.has(w.id))
+      .map(w => {
+        const p = parzellen.find(pp => pp.weingarten_id === w.id)
+        return {
+          compositeId: `wg:${w.id}`,
+          weingarten_id: w.id,
+          grundstueck_id: null,
+          label: w.name,
+          herkunft_code: w.herkunft_code,
+          klosterneuburger: p?.klosterneuburger ?? null,
+          qualitaetsstufe: p?.qualitaetsstufe ?? null,
+          verfuegbar_kg: verfuegbareKg[w.id] ?? 0,
+        }
+      }),
+  ]
 
   const tvKontaktOptions: TVKontaktOption[] = ((rawTVKontakte ?? []) as AR[]).map((k: AR) => ({
     id: k.id, name: `${k.vorname ?? ''} ${k.nachname ?? ''}`.trim(), betrieb_nr: k.betrieb_nr ?? null,
@@ -355,13 +401,12 @@ export default async function ErnteDetailPage({ params }: Props) {
         adminOk={adminOk}
       />
 
-      {(tvWGOptions.length > 0 || verkauefe.length > 0 || zukaufTrauben.length > 0) && (
+      {(tvQuelleOptions.length > 0 || verkauefe.length > 0 || zukaufTrauben.length > 0) && (
         <div className="mt-6">
           <TraubenverkaufSection
             jahrgangId={id}
             verkauefe={verkauefe}
-            wgOptions={tvWGOptions}
-            leseParzellen={tvLeseParzellen}
+            quelleOptions={tvQuelleOptions}
             zukaufOptions={zukaufTrauben}
             kontaktOptions={tvKontaktOptions}
             firmaOptions={tvFirmaOptions}

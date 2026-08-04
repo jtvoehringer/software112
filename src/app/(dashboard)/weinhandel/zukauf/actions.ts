@@ -69,19 +69,28 @@ async function bereinigCharge(supabase: any, weinausbauId: string): Promise<void
 }
 
 function parseZukaufFormData(formData: FormData) {
+  const datum = (formData.get('datum') as string) || new Date().toISOString().split('T')[0]
+  // Jahrgang ist optional im Formular, wird aber u.a. für den Pressungs-Vorschlag
+  // und den Traubenverkauf-Dropdown bei Trauben-Zukäufen benötigt (exakter Match
+  // gegen weinjahrgaenge.jahrgang) – bleibt das Feld leer, auf das Kalenderjahr
+  // des Liefer-/Kaufdatums zurückfallen, statt NULL zu speichern und den Posten
+  // dadurch unsichtbar für diese Zuordnung zu machen.
+  const jahrgangEingabe = parseInt(formData.get('jahrgang') as string)
+  const jahrgang = !isNaN(jahrgangEingabe) ? jahrgangEingabe : (parseInt(datum.slice(0, 4)) || null)
   return {
-    datum:               (formData.get('datum')                    as string) || new Date().toISOString().split('T')[0],
+    datum,
     lieferungUhrzeit:    (formData.get('lieferung_uhrzeit')        as string)?.trim() || null,
     art:                 (formData.get('art')                      as string) || 'wein',
     lieferantKontaktId:  (formData.get('lieferant_kontakt_id')     as string) || null,
     lieferantFirmaId:    (formData.get('lieferant_firma_id')       as string) || null,
+    eingangsrechnungsnummer: (formData.get('eingangsrechnungsnummer') as string)?.trim() || null,
     zugmaschine:         (formData.get('transport_zugmaschine')    as string)?.trim() || null,
     anhaenger1:          (formData.get('transport_anhaenger1')     as string)?.trim() || null,
     anhaenger2:          (formData.get('transport_anhaenger2')     as string)?.trim() || null,
     weinart:             (formData.get('weinart')                  as string) || 'unbekannt',
     rebsorte:            (formData.get('rebsorte')                 as string)?.trim() || null,
     qualitaetsstufe:     (formData.get('qualitaetsstufe')          as string)?.trim() || null,
-    jahrgang:            parseInt(formData.get('jahrgang')         as string) || null,
+    jahrgang,
     herkunft:            (formData.get('herkunft')                 as string)?.trim() || null,
     anreicherung:        formData.get('anreicherung') === 'true',
     kmw:                 parseFloat(formData.get('kmw')            as string) || null,
@@ -118,6 +127,7 @@ export async function createZukauf(formData: FormData) {
       art:                      f.art,
       lieferant_kontakt_id:     f.lieferantKontaktId || null,
       lieferant_firma_id:       f.lieferantFirmaId   || null,
+      eingangsrechnungsnummer: f.eingangsrechnungsnummer,
       transport_zugmaschine:    f.zugmaschine,
       transport_anhaenger1:     f.anhaenger1,
       transport_anhaenger2:     f.anhaenger2,
@@ -211,6 +221,7 @@ export async function updateZukauf(id: string, formData: FormData) {
     art:                      f.art,
     lieferant_kontakt_id:     f.lieferantKontaktId || null,
     lieferant_firma_id:       f.lieferantFirmaId   || null,
+    eingangsrechnungsnummer: f.eingangsrechnungsnummer,
     transport_zugmaschine:    f.zugmaschine,
     transport_anhaenger1:     f.anhaenger1,
     transport_anhaenger2:     f.anhaenger2,

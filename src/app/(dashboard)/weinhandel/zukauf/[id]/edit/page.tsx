@@ -14,7 +14,7 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
   const { data } = await (supabase.from('zukauf_posten') as any)
     .select(`
       id, datum, art, menge, einheit, preis_gesamt, einstandspreis_pro_liter,
-      rebsorte, jahrgang, notizen, weinart,
+      rebsorte, jahrgang, notizen, weinart, eingangsrechnungsnummer,
       lieferung_uhrzeit, transport_zugmaschine, transport_anhaenger1, transport_anhaenger2,
       herkunft, anreicherung, kmw, alkohol_pct, qualitaetsstufe, staatliche_pruefnummer,
       lieferant_kontakt_id, lieferant_firma_id, ziel_weinausbau_id,
@@ -37,6 +37,7 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
         art:                      z.art,
         lieferant_kontakt_id:     z.lieferant_kontakt_id ?? '',
         lieferant_firma_id:       z.lieferant_firma_id   ?? '',
+        eingangsrechnungsnummer: z.eingangsrechnungsnummer ?? '',
         menge:                    String(z.menge ?? ''),
         einheit:                  z.einheit ?? 'L',
         preis_gesamt:             z.preis_gesamt != null ? String(z.preis_gesamt) : '',

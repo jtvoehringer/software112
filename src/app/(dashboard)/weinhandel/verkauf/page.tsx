@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import ClickableTableRow from '@/components/ui/ClickableTableRow'
 
 export const metadata: Metadata = { title: 'Verkauf – software:112' }
 export const dynamic = 'force-dynamic'
@@ -127,7 +128,7 @@ export default async function VerkaufPage() {
                 const posCount = ((p.positionen ?? []) as R[]).length
                 const hasTank = ((p.positionen ?? []) as R[]).some((pos: R) => pos.typ === 'tank')
                 return (
-                  <tr key={p.id} className={`border-b border-s112-border last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
+                  <ClickableTableRow key={p.id} href={`/weinhandel/verkauf/${p.id}`} className={`border-b border-s112-border last:border-0 hover:bg-s112-bg/50 transition-colors ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
                     <td className="px-4 py-3 text-s112-muted whitespace-nowrap">
                       {new Date(p.datum).toLocaleDateString('de-AT')}
                     </td>
@@ -157,11 +158,12 @@ export default async function VerkaufPage() {
                       <Link
                         href={`/weinhandel/verkauf/${p.id}`}
                         className="text-xs text-s112-teal hover:underline"
+                        onClick={e => e.stopPropagation()}
                       >
                         Details →
                       </Link>
                     </td>
-                  </tr>
+                  </ClickableTableRow>
                 )
               })}
             </tbody>

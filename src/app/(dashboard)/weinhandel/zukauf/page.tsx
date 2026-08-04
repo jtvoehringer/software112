@@ -1,8 +1,9 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import Link from 'next/link'
-import { Pencil } from 'lucide-react'
+import { Pencil, AlertTriangle } from 'lucide-react'
 import ZukaufLoeschen from './ZukaufLoeschen'
+import ClickableTableRow from '@/components/ui/ClickableTableRow'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,14 +16,29 @@ const ART_LABEL: Record<string, string> = {
   most:    'Most',
 }
 
-export default async function ZukaufPage() {
+// Traubenzukauf für Weinproduzenten (nicht für Weinhändler, die i.d.R. gar
+// keine eigenen Rieden bewirtschaften) gesetzlich auf eine durchschnittliche
+// Menge je Hektar bewirtschafteter Rebfläche pro Kalenderjahr begrenzt
+// (Eigenbau-Grenze). Reine Info-/Warnfunktion, ersetzt keine rechtliche Prüfung.
+const TRAUBENZUKAUFSGRENZE_KG_HA = 1500
+
+export default async function ZukaufPage({
+  searchParams,
+}: {
+  searchParams: { zjahr?: string }
+}) {
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
   const writeOk  = canWrite(role)
+  const membership = await getCurrentMembership()
+
+  const sp    = await searchParams
+  const zjahr = parseInt(sp.zjahr ?? '') || new Date().getFullYear()
 
   const { data } = await (supabase.from('zukauf_posten') as any)
     .select(`
       id, datum, art, menge, einheit, preis_gesamt, rebsorte, jahrgang, notizen,
+      eingangsrechnungsnummer,
       lieferant_kontakt:kontakte!lieferant_kontakt_id(id, vorname, nachname),
       lieferant_firma:firmen!lieferant_firma_id(id, name),
       ziel_weinausbau:weinausbau!ziel_weinausbau_id(id, name, behaelter:behaelter!behaelter_id(id, name))
@@ -31,6 +47,41 @@ export default async function ZukaufPage() {
     .order('datum', { ascending: false })
 
   const posten = (data ?? []) as R[]
+
+  // ── Traubenzukaufsgrenze (nur Weinproduzenten) ───────────────────────────
+  // "Weinproduzent" wird – wie an anderer Stelle im Admin-Bereich (Standard-
+  // Umsatzsteuer) – über ust_satz_standard=13 identifiziert; es gibt (noch)
+  // kein eigenes Betriebstyp-Flag.
+  let traubenzukaufsgrenze: {
+    jahr: number; summeKg: number; gesamtFlaecheHaBetrieb: number; maxKg: number
+    ueberschreitungKg: number; ueberschritten: boolean
+  } | null = null
+
+  if (membership?.tenantId) {
+    const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
+      .select('ust_satz_standard').eq('tenant_id', membership.tenantId).maybeSingle()
+    const istWeinproduzent = Number((einst as R | null)?.ust_satz_standard) === 13
+
+    if (istWeinproduzent) {
+      const [{ data: rawGSTFl }, { data: rawTraubenZukauf }] = await Promise.all([
+        (supabase.from('grundstuecke') as any).select('flaeche_ha').eq('status', 'aktiv'),
+        (supabase.from('zukauf_posten') as any)
+          .select('menge')
+          .eq('art', 'trauben')
+          .eq('aktiv', true)
+          .gte('datum', `${zjahr}-01-01`)
+          .lte('datum', `${zjahr}-12-31`),
+      ])
+      const gesamtFlaecheHaBetrieb = ((rawGSTFl ?? []) as R[]).reduce((s, g) => s + (Number(g.flaeche_ha) || 0), 0)
+      const summeKg = ((rawTraubenZukauf ?? []) as R[]).reduce((s, z) => s + (Number(z.menge) || 0), 0)
+      const maxKg = TRAUBENZUKAUFSGRENZE_KG_HA * gesamtFlaecheHaBetrieb
+      traubenzukaufsgrenze = {
+        jahr: zjahr, summeKg, gesamtFlaecheHaBetrieb, maxKg,
+        ueberschreitungKg: Math.max(0, summeKg - maxKg),
+        ueberschritten: gesamtFlaecheHaBetrieb > 0 && summeKg > maxKg,
+      }
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -43,6 +94,39 @@ export default async function ZukaufPage() {
           </Link>
         )}
       </div>
+
+      {traubenzukaufsgrenze && (
+        <div className={`rounded-xl px-4 py-3 text-sm border ${
+          traubenzukaufsgrenze.ueberschritten
+            ? 'bg-red-50 border-red-200 text-red-700'
+            : 'bg-s112-bg border-s112-border text-gray-600'
+        }`}>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span className="inline-flex items-start gap-1.5">
+              {traubenzukaufsgrenze.ueberschritten && <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />}
+              <span>
+                Traubenzukauf {traubenzukaufsgrenze.jahr}: <strong>{traubenzukaufsgrenze.summeKg.toLocaleString('de-AT')} kg</strong>
+                {' '}von max. <strong>{traubenzukaufsgrenze.maxKg.toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg</strong>
+                {' '}({TRAUBENZUKAUFSGRENZE_KG_HA.toLocaleString('de-AT')} kg/ha × {traubenzukaufsgrenze.gesamtFlaecheHaBetrieb.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ha Rebfläche)
+              </span>
+            </span>
+            <div className="flex items-center gap-3">
+              {traubenzukaufsgrenze.ueberschritten && (
+                <span className="font-semibold">Überschreitung: {traubenzukaufsgrenze.ueberschreitungKg.toLocaleString('de-AT')} kg</span>
+              )}
+              <div className="flex items-center gap-1 text-xs">
+                <Link href={`/weinhandel/zukauf?zjahr=${traubenzukaufsgrenze.jahr - 1}`} className="px-1.5 py-0.5 rounded hover:bg-black/5">← {traubenzukaufsgrenze.jahr - 1}</Link>
+                <Link href={`/weinhandel/zukauf?zjahr=${traubenzukaufsgrenze.jahr + 1}`} className="px-1.5 py-0.5 rounded hover:bg-black/5">{traubenzukaufsgrenze.jahr + 1} →</Link>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs mt-1 opacity-75">
+            Traubenzukauf für Weinproduzenten gesetzlich auf durchschnittlich 1.500 kg je Hektar bewirtschafteter
+            Rebfläche pro Betrieb und Kalenderjahr begrenzt (Eigenbau-Grenze). Hinweis, keine rechtliche Prüfung –
+            berücksichtigt nur als „Trauben" erfasste Zukäufe des gewählten Kalenderjahres.
+          </p>
+        </div>
+      )}
 
       {posten.length === 0 ? (
         <div className="card p-10 text-center text-s112-muted text-sm">
@@ -61,6 +145,7 @@ export default async function ZukaufPage() {
             <thead>
               <tr className="border-b border-s112-border bg-s112-bg text-left">
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500">Datum</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500">Belegnr.</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500">Art</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500">Lieferant</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500">Rebsorte / Jg.</th>
@@ -77,9 +162,12 @@ export default async function ZukaufPage() {
                   : p.lieferant_firma?.name ?? '–'
                 const rebInfo = [p.rebsorte, p.jahrgang].filter(Boolean).join(' ') || '–'
                 return (
-                  <tr key={p.id} className="hover:bg-s112-bg/50 transition-colors">
+                  <ClickableTableRow key={p.id} href={`/weinhandel/zukauf/${p.id}/edit`} className="hover:bg-s112-bg/50 transition-colors">
                     <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
                       {new Date(p.datum).toLocaleDateString('de-AT')}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="font-mono text-xs text-gray-700">{p.eingangsrechnungsnummer || <span className="text-s112-muted">–</span>}</span>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">{ART_LABEL[p.art] ?? p.art}</td>
                     <td className="px-4 py-3 text-gray-700">{lieferant}</td>
@@ -97,7 +185,7 @@ export default async function ZukaufPage() {
                     </td>
                     {writeOk && (
                       <td className="px-4 py-3 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-2" onClick={e => e.stopPropagation()}>
                           <Link
                             href={`/weinhandel/zukauf/${p.id}/edit`}
                             title="Bearbeiten" aria-label="Bearbeiten"
@@ -108,7 +196,7 @@ export default async function ZukaufPage() {
                         </div>
                       </td>
                     )}
-                  </tr>
+                  </ClickableTableRow>
                 )
               })}
             </tbody>

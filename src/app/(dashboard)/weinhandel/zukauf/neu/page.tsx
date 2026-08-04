@@ -112,6 +112,7 @@ export default function ZukaufNeuPage() {
   // ── Lieferant / Versender ─────────────────────────────────────────────────
   const [lieferantKontakt, setLieferantKontakt] = useState('')
   const [lieferantFirma,   setLieferantFirma]   = useState('')
+  const [eingangsrechnungsnummer, setEingangsrechnungsnummer] = useState('')
 
   // ── Transportmittel ───────────────────────────────────────────────────────
   const [zugmaschine,  setZugmaschine]  = useState('')
@@ -185,6 +186,7 @@ export default function ZukaufNeuPage() {
     fd.set('art',                     art)
     fd.set('lieferant_kontakt_id',    lieferantKontakt)
     fd.set('lieferant_firma_id',      lieferantFirma)
+    fd.set('eingangsrechnungsnummer', eingangsrechnungsnummer)
     fd.set('transport_zugmaschine',   zugmaschine)
     fd.set('transport_anhaenger1',    anhaenger1)
     fd.set('transport_anhaenger2',    anhaenger2)
@@ -289,6 +291,12 @@ export default function ZukaufNeuPage() {
                 disabled={loading}
               />
             </div>
+            <div>
+              <label className={labelCls}>Eingangs-Rechnungsnummer</label>
+              <input type="text" value={eingangsrechnungsnummer} onChange={e => setEingangsrechnungsnummer(e.target.value)}
+                placeholder="Belegnr. lt. Rechnung des Lieferanten"
+                className={inputCls + ' w-full'} />
+            </div>
           </div>
         </div>
 
@@ -344,10 +352,16 @@ export default function ZukaufNeuPage() {
                 className={inputCls + ' w-full'} />
             </div>
             <div>
-              <label className={labelCls}>Jahrgang</label>
+              <label className={labelCls}>Jahrgang{art === 'trauben' ? ' *' : ''}</label>
               <input type="number" value={jahrgang} onChange={e => setJahrgang(e.target.value)}
                 min="1900" max="2100" placeholder="z.B. 2024"
+                required={art === 'trauben'}
                 className={inputCls + ' w-full'} />
+              {art === 'trauben' && (
+                <p className="text-xs text-s112-muted mt-1">
+                  Wichtig für Pressungs-Vorschlag &amp; Traubenverkauf – ohne Jahrgang wird der Zukauf dort nicht angezeigt.
+                </p>
+              )}
             </div>
 
             {/* Qualitätsstufe – nur bei Wein/Most */}
