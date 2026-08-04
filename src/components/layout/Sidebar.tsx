@@ -216,8 +216,12 @@ function NavGroupItem({
     <div>
       <button
         onClick={() => {
+          // Klick auf den Modul-Header springt immer auf die Hauptseite des
+          // Moduls (erstes Sub-Item) – analog zu allen Modulen, unabhängig
+          // davon, ob man sich bereits auf einer Unterseite dieses Moduls
+          // befindet (vorher: Sprung nur, wenn das Modul noch nicht aktiv war).
           const firstItem = entry.items.filter(i => !i.adminOnly || isAdmin).find(i => i.phase !== 2)
-          if (firstItem && !active) router.push(firstItem.href)
+          if (firstItem) router.push(firstItem.href)
           setOpen(o => !o)
         }}
         className={`w-full flex items-center gap-[11px] px-2.5 py-[9px] rounded-lg text-[13.5px] font-medium transition-colors duration-[120ms] ease-out ${
