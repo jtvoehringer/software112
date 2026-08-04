@@ -134,3 +134,126 @@ export async function berechneUndSpeichereUva(jahr: number, zeitraum: string) {
   revalidatePath('/buchhaltung/uva')
   return { ok: true, data: row }
 }
+
+// ── Zahlungseingang → E&A-Einnahme synchronisieren (Punkt 7) ──────────────────
+//
+// Wird nach jeder Änderung an den Zahlungen eines Verkaufspostens aufgerufen
+// (Zahlung erfasst/gelöscht, "Als bezahlt markiert", Storno/Löschung). Baut die
+// verknüpften ea_transaktionen-Zeilen für diesen Verkaufsposten komplett neu
+// auf (idempotent) – dadurch entstehen bei mehreren Teilzahlungen keine
+// Duplikate. Bereits über eine übermittelte UVA gesperrte Zeilen werden nie
+// angefasst.
+export async function syncEaEinnahmeFuerVerkauf(
+  verkaufspostenId: string
+): Promise<{ ok: boolean; error?: string; skipped?: boolean }> {
+  const { supabase, tenantId } = await getCtx()
+
+  // Nur relevant, wenn das E&A-Modul für diesen Mandanten aktiv ist
+  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
+    .select('modul_ea').eq('tenant_id', tenantId).maybeSingle()
+  if (!(einst as R | null)?.modul_ea) return { ok: true, skipped: true }
+
+  const { data: postenRaw } = await (supabase.from('verkaufsposten') as any)
+    .select(`
+      id, datum, rechnungsnummer, storniert,
+      positionen:verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz)
+    `)
+    .eq('id', verkaufspostenId)
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+
+  if (!postenRaw) return { ok: false, error: 'Verkaufsposten nicht gefunden' }
+  const posten = postenRaw as R
+  const positionen = (posten.positionen ?? []) as R[]
+
+  // Bestehende, verknüpfte Buchungen prüfen
+  const { data: bestehendeRaw } = await (supabase.from('ea_transaktionen') as any)
+    .select('id, is_locked')
+    .eq('verkaufsposten_id', verkaufspostenId)
+    .eq('tenant_id', tenantId)
+  const bestehende = (bestehendeRaw ?? []) as R[]
+
+  if (bestehende.some((b: R) => b.is_locked)) {
+    // Zeitraum bereits per UVA übermittelt – nicht mehr verändern
+    return { ok: true, skipped: true }
+  }
+
+  if (bestehende.length > 0) {
+    await (supabase.from('ea_transaktionen') as any)
+      .delete()
+      .in('id', bestehende.map((b: R) => b.id))
+  }
+
+  if (posten.storniert) {
+    revalidatePath('/buchhaltung')
+    revalidatePath('/buchhaltung/uva')
+    return { ok: true }
+  }
+
+  // Zahlungen summieren
+  const { data: zahlungenRaw } = await (supabase.from('zahlungen') as any)
+    .select('betrag, datum')
+    .eq('verkaufsposten_id', verkaufspostenId)
+    .order('datum', { ascending: false })
+  const zahlungen = (zahlungenRaw ?? []) as R[]
+  const bezahltSumme = zahlungen.reduce((s: number, z: R) => s + Number(z.betrag ?? 0), 0)
+
+  if (bezahltSumme <= 0.005) {
+    revalidatePath('/buchhaltung')
+    revalidatePath('/buchhaltung/uva')
+    return { ok: true }
+  }
+
+  // Rechnungssumme je USt-Satz (brutto/netto) – analog zur Rechnungsdruck-Logik
+  const gruppen: Record<string, { brutto: number; netto: number }> = {}
+  for (const pos of positionen) {
+    if (pos.preis_brutto == null) continue
+    const satz = Number(pos.ust_satz ?? 13)
+    const brutto = Number(pos.preis_brutto) * Number(pos.menge)
+    const rabatt = Number(pos.rabatt_pct ?? 0) / 100
+    const sonder = Number(pos.sonderrabatt_pct ?? 0) / 100
+    const effektiv = brutto * (1 - rabatt) * (1 - sonder)
+    const netto = effektiv / (1 + satz / 100)
+    const key = String(satz)
+    if (!gruppen[key]) gruppen[key] = { brutto: 0, netto: 0 }
+    gruppen[key].brutto += effektiv
+    gruppen[key].netto += netto
+  }
+  const gesamtBrutto = Object.values(gruppen).reduce((s, g) => s + g.brutto, 0)
+  if (gesamtBrutto <= 0) {
+    revalidatePath('/buchhaltung')
+    revalidatePath('/buchhaltung/uva')
+    return { ok: true }
+  }
+
+  // Anteilig zugeordneter Zahlungseingang je USt-Satz (bei Teilzahlung proportional)
+  const quote = Math.min(bezahltSumme, gesamtBrutto) / gesamtBrutto
+  const re = posten.rechnungsnummer ? `RE ${posten.rechnungsnummer}` : `Beleg ${verkaufspostenId.slice(0, 8)}`
+  const buchungsDatum = zahlungen[0]?.datum ?? posten.datum
+
+  const inserts: R[] = []
+  for (const [satz, g] of Object.entries(gruppen)) {
+    const nettoAnteil = Math.round(g.netto * quote * 100) / 100
+    if (nettoAnteil <= 0) continue
+    inserts.push({
+      tenant_id:         tenantId,
+      typ:               'einnahme',
+      datum:             buchungsDatum,
+      beschreibung:      `Zahlungseingang ${re}`,
+      betrag_netto:      nettoAnteil,
+      ust_satz:          Number(satz),
+      import_quelle:     'verkauf',
+      verkaufsposten_id: verkaufspostenId,
+      notizen:           'Automatisch erzeugt aus Zahlungseingang (Verkauf)',
+    })
+  }
+
+  if (inserts.length > 0) {
+    const { error } = await (supabase.from('ea_transaktionen') as any).insert(inserts)
+    if (error) return { ok: false, error: (error as R).message }
+  }
+
+  revalidatePath('/buchhaltung')
+  revalidatePath('/buchhaltung/uva')
+  return { ok: true }
+}

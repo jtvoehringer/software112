@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { randomUUID } from 'crypto'
+import { syncEaEinnahmeFuerVerkauf } from '@/app/(dashboard)/buchhaltung/actions'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -272,7 +273,15 @@ export async function deactivateVerkauf(id: string) {
     .update({ aktiv: false, aktualisiert_am: new Date().toISOString() })
     .eq('id', id)
   if (error) throw new Error((error as AR).message)
+
+  // Verknüpfte, nicht gesperrte E&A-Einnahmebuchungen entfernen
+  await (supabase.from('ea_transaktionen') as any)
+    .delete()
+    .eq('verkaufsposten_id', id)
+    .eq('is_locked', false)
+
   revalidatePath('/weinhandel/verkauf')
+  revalidatePath('/buchhaltung')
   redirect('/weinhandel/verkauf')
 }
 
@@ -340,6 +349,13 @@ export async function stornoVerkauf(id: string) {
     .eq('id', id)
   if (error) throw new Error((error as AR).message)
 
+  // Verknüpfte, nicht gesperrte E&A-Einnahmebuchungen entfernen – ein Storno
+  // macht den zugehörigen Zahlungseingang ungültig.
+  await (supabase.from('ea_transaktionen') as any)
+    .delete()
+    .eq('verkaufsposten_id', id)
+    .eq('is_locked', false)
+
   // CRM-Aktivität auf STORNIERT setzen
   try {
     const re = (vorabStorno as AR | null)?.rechnungsnummer
@@ -350,38 +366,71 @@ export async function stornoVerkauf(id: string) {
 
   revalidatePath('/weinhandel/verkauf')
   revalidatePath(`/weinhandel/verkauf/${id}`)
+  revalidatePath('/buchhaltung')
   revalidatePath('/crm')
   revalidatePath('/crm/kontakte/[id]', 'page')
   revalidatePath('/crm/firmen/[id]', 'page')
 }
 
 // ── Verkauf als bezahlt markieren ─────────────────────────────────────────────
+//
+// Erfasst den noch offenen Restbetrag als Zahlung in der zahlungen-Tabelle
+// (statt bezahlt direkt zu setzen) – dadurch bleibt die Zahlungsübersicht auf
+// der Verkaufs-Detailseite konsistent, der bestehende DB-Trigger
+// sync_verkaufsposten_bezahlt() setzt bezahlt/bezahlt_am automatisch, und die
+// E&A-Synchronisierung (Punkt 7) greift wie bei jeder anderen Zahlung.
 
 export async function markiereAlsBezahlt(id: string) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
 
-  // Rechnungsnummer vorab lesen
-  const { data: vorab } = await (supabase.from('verkaufsposten') as any)
-    .select('rechnungsnummer').eq('id', id).single()
-
-  // Direkt updaten (updated_at Spalte existiert jetzt, Trigger funktioniert)
-  const { error } = await (supabase.from('verkaufsposten') as any)
-    .update({ bezahlt: true, bezahlt_am: new Date().toISOString() })
+  const { data: postenRaw } = await (supabase.from('verkaufsposten') as any)
+    .select('rechnungsnummer, positionen:verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
     .eq('id', id)
-  if (error) throw new Error((error as AR).message)
+    .single()
+  const posten = postenRaw as AR | null
+  const positionen = (posten?.positionen ?? []) as AR[]
+  const gesamt = positionen.reduce((s: number, p: AR) => {
+    if (p.preis_brutto == null) return s
+    const brutto = Number(p.preis_brutto) * Number(p.menge)
+    const rabatt = Number(p.rabatt_pct ?? 0) / 100
+    const sonder = Number(p.sonderrabatt_pct ?? 0) / 100
+    return s + brutto * (1 - rabatt) * (1 - sonder)
+  }, 0)
+
+  const { data: zahlungenRaw } = await (supabase.from('zahlungen') as any)
+    .select('betrag')
+    .eq('verkaufsposten_id', id)
+  const bereitsBezahlt = ((zahlungenRaw ?? []) as AR[]).reduce((s, z) => s + Number(z.betrag ?? 0), 0)
+  const offen = gesamt - bereitsBezahlt
+
+  if (offen > 0.01) {
+    const { error } = await (supabase.from('zahlungen') as any).insert({
+      tenant_id: tenantId,
+      verkaufsposten_id: id,
+      betrag: Math.round(offen * 100) / 100,
+      art: 'sonstig',
+      datum: new Date().toISOString().slice(0, 10),
+      notizen: 'Als bezahlt markiert',
+    })
+    if (error) throw new Error((error as AR).message)
+  }
 
   // CRM-Aktivität aktualisieren
   try {
-    const re = (vorab as AR | null)?.rechnungsnummer
+    const re = posten?.rechnungsnummer
     await (supabase.from('aktivitaeten') as any)
       .update({ betreff: `Verkauf ${re ?? ''} · Bezahlt` })
       .eq('beschreibung', `Verkaufsposten: ${id}`)
   } catch { /* nicht kritisch */ }
 
+  await syncEaEinnahmeFuerVerkauf(id)
+
   revalidatePath('/weinhandel/verkauf')
   revalidatePath('/weinhandel/offene-posten')
   revalidatePath(`/weinhandel/verkauf/${id}`)
-   revalidatePath('/crm/kontakte/[id]', 'page')
+  revalidatePath('/buchhaltung')
+  revalidatePath('/crm/kontakte/[id]', 'page')
   revalidatePath('/crm/firmen/[id]', 'page')
 }
 
@@ -433,7 +482,12 @@ export async function createZahlung(
     notizen,
   })
   if (error) throw new Error((error as AR).message)
+
+  await syncEaEinnahmeFuerVerkauf(verkaufspostenId)
+
   revalidatePath(`/weinhandel/verkauf/${verkaufspostenId}`)
+  revalidatePath('/weinhandel/offene-posten')
+  revalidatePath('/buchhaltung')
 }
 
 export async function deleteZahlung(
@@ -444,5 +498,10 @@ export async function deleteZahlung(
   const supabase = await createSupabaseServerClient()
   const { error } = await (supabase.from('zahlungen') as any).delete().eq('id', zahlungId)
   if (error) throw new Error((error as AR).message)
+
+  await syncEaEinnahmeFuerVerkauf(verkaufspostenId)
+
   revalidatePath(`/weinhandel/verkauf/${verkaufspostenId}`)
+  revalidatePath('/weinhandel/offene-posten')
+  revalidatePath('/buchhaltung')
 }

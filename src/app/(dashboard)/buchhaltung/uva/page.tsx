@@ -106,77 +106,99 @@ export default async function UvaPage({
         </div>
       ) : (
         <div className="space-y-4">
-          {(uvaListe as R[]).map((uva: R) => (
-            <div key={uva.id} className="bg-white rounded-2xl border border-s112-border p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-800">{zeitraumLabel(uva.zeitraum)}</h3>
-                {uva.gesperrt
-                  ? <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">Übermittelt</span>
-                  : <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Entwurf</span>}
-              </div>
-
-              <div className="grid grid-cols-2 gap-6 text-sm">
-                {/* USt */}
-                <div>
-                  <p className="text-xs font-medium text-gray-500 mb-2">UMSATZSTEUER (Einnahmen)</p>
-                  <table className="w-full">
-                    <tbody className="space-y-1">
-                      {[
-                        { label: 'Steuerfrei (0%)',  bmgl: uva.bmgl_ust_0,  ust: 0 },
-                        { label: 'USt 10%', bmgl: uva.bmgl_ust_10, ust: uva.ust_10 },
-                        { label: 'USt 13%', bmgl: uva.bmgl_ust_13, ust: uva.ust_13 },
-                        { label: 'USt 20%', bmgl: uva.bmgl_ust_20, ust: uva.ust_20 },
-                      ].map(row => (
-                        <tr key={row.label}>
-                          <td className="py-1 text-gray-600">{row.label}</td>
-                          <td className="py-1 text-right text-gray-500">€ {fmt(row.bmgl)}</td>
-                          <td className="py-1 text-right font-medium">€ {fmt(row.ust)}</td>
-                        </tr>
-                      ))}
-                      <tr className="border-t border-s112-border font-semibold">
-                        <td className="pt-2">USt gesamt</td>
-                        <td />
-                        <td className="pt-2 text-right text-orange-600">€ {fmt(uva.ust_gesamt)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+          <p className="text-xs text-s112-muted italic">
+            Nachbildung des amtlichen Formulars U30 (Kennzahlen lt. BMF) zur Kontrolle vor der Eingabe in FinanzOnline –
+            keine elektronische Übermittlung.
+          </p>
+          {(uvaListe as R[]).map((uva: R) => {
+            const kz000 = (uva.bmgl_ust_0 ?? 0) + (uva.bmgl_ust_10 ?? 0) + (uva.bmgl_ust_13 ?? 0) + (uva.bmgl_ust_20 ?? 0)
+            const zahllast = uva.zahllast ?? 0
+            return (
+              <div key={uva.id} className="bg-white rounded-2xl border border-s112-border overflow-hidden">
+                <div className="bg-s112-bg px-5 py-3 border-b border-s112-border flex items-center justify-between">
+                  <h3 className="font-semibold text-gray-800">{zeitraumLabel(uva.zeitraum)}</h3>
+                  {uva.gesperrt
+                    ? <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">Übermittelt</span>
+                    : <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Entwurf</span>}
                 </div>
 
-                {/* VSt */}
-                <div>
-                  <p className="text-xs font-medium text-gray-500 mb-2">VORSTEUER (Ausgaben)</p>
-                  <table className="w-full">
-                    <tbody>
-                      {[
-                        { label: 'VSt 10%', vst: uva.vst_10 },
-                        { label: 'VSt 13%', vst: uva.vst_13 },
-                        { label: 'VSt 20%', vst: uva.vst_20 },
-                      ].map(row => (
-                        <tr key={row.label}>
-                          <td className="py-1 text-gray-600">{row.label}</td>
-                          <td className="py-1 text-right font-medium">€ {fmt(row.vst)}</td>
-                        </tr>
-                      ))}
-                      <tr className="border-t border-s112-border font-semibold">
-                        <td className="pt-2">VSt gesamt</td>
-                        <td className="pt-2 text-right text-blue-600">€ {fmt(uva.vst_gesamt)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <div className="p-5 space-y-5 text-sm">
+                  {/* 1. Umsätze */}
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">1. Umsätze</p>
+                    <div className="flex items-center justify-between py-1">
+                      <span className="text-gray-700">
+                        Gesamtbetrag der Bemessungsgrundlagen für Lieferungen und sonstige Leistungen{' '}
+                        <span className="text-gray-400">(Kz 000)</span>
+                      </span>
+                      <span className="font-semibold tabular-nums">€ {fmt(kz000)}</span>
+                    </div>
+
+                    <p className="text-xs font-medium text-gray-500 mt-3 mb-1">Davon steuerpflichtig:</p>
+                    <table className="w-full">
+                      <tbody>
+                        {[
+                          { label: '20% Normalsteuersatz', kz: 'Kz 022', bmgl: uva.bmgl_ust_20, ust: uva.ust_20 },
+                          { label: '10% ermäßigter Steuersatz', kz: 'Kz 029', bmgl: uva.bmgl_ust_10, ust: uva.ust_10 },
+                          { label: '13% ermäßigter Steuersatz', kz: 'Kz 006', bmgl: uva.bmgl_ust_13, ust: uva.ust_13 },
+                        ].map(row => (
+                          <tr key={row.kz}>
+                            <td className="py-1 text-gray-600">{row.label} <span className="text-gray-400 text-xs">({row.kz})</span></td>
+                            <td className="py-1 text-right text-gray-500 tabular-nums">€ {fmt(row.bmgl)}</td>
+                            <td className="py-1 text-right font-medium tabular-nums text-orange-600">USt € {fmt(row.ust)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    <div className="flex items-center justify-between py-1 mt-2 pt-2 border-t border-s112-border/60">
+                      <span className="text-gray-600">
+                        Steuerfreie Umsätze mit Vorsteuerabzug (z. B. Ausfuhrlieferungen){' '}
+                        <span className="text-gray-400 text-xs">(Kz 011)</span>
+                      </span>
+                      <span className="tabular-nums">€ {fmt(uva.bmgl_ust_0)}</span>
+                    </div>
+                  </div>
+
+                  {/* 2. Vorsteuer */}
+                  <div className="pt-4 border-t border-s112-border">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">2. Vorsteuer</p>
+                    <table className="w-full text-xs text-gray-500 mb-1">
+                      <tbody>
+                        {[
+                          { label: 'VSt 20%', vst: uva.vst_20 },
+                          { label: 'VSt 10%', vst: uva.vst_10 },
+                          { label: 'VSt 13%', vst: uva.vst_13 },
+                        ].map(row => (
+                          <tr key={row.label}>
+                            <td className="py-0.5">{row.label}</td>
+                            <td className="py-0.5 text-right tabular-nums">€ {fmt(row.vst)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="flex items-center justify-between py-1">
+                      <span className="text-gray-700">
+                        Gesamtbetrag der abziehbaren Vorsteuer <span className="text-gray-400">(Kz 060)</span>
+                      </span>
+                      <span className="font-semibold tabular-nums text-blue-600">€ {fmt(uva.vst_gesamt)}</span>
+                    </div>
+                  </div>
+
+                  {/* Ergebnis */}
+                  <div className="pt-4 border-t-2 border-s112-border flex items-center justify-between">
+                    <span className="font-semibold text-gray-700">
+                      {zahllast >= 0 ? '7.1 Vorauszahlung (Zahllast)' : '7.2 Überschuss (Gutschrift)'}{' '}
+                      <span className="text-gray-400 font-normal text-xs">(Kz 095)</span>
+                    </span>
+                    <span className={`text-xl font-bold tabular-nums ${zahllast >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      € {fmt(Math.abs(zahllast))}
+                    </span>
+                  </div>
                 </div>
               </div>
-
-              {/* Zahllast */}
-              <div className={`mt-4 pt-4 border-t border-s112-border flex items-center justify-between`}>
-                <span className="font-semibold text-gray-700">
-                  {(uva.zahllast ?? 0) >= 0 ? 'Zahllast' : 'Gutschrift'}
-                </span>
-                <span className={`text-xl font-bold ${(uva.zahllast ?? 0) >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  € {fmt(Math.abs(uva.zahllast ?? 0))}
-                </span>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

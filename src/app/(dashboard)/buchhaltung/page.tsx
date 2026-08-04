@@ -3,7 +3,8 @@ import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { deleteEaTransaktion } from './actions'
-import { Trash2 } from 'lucide-react'
+import CsvExportButton from './CsvExportButton'
+import { Trash2, Link2 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,7 +37,7 @@ export default async function BuchhaltungPage({
 
   // Buchungen laden
   let query = (supabase.from('ea_transaktionen') as any)
-    .select('*, ea_kategorien(name)')
+    .select('*, ea_kategorien(name), verkaufsposten(rechnungsnummer)')
     .eq('tenant_id', tenantId)
     .gte('datum', `${jahr}-01-01`)
     .lte('datum', `${jahr}-12-31`)
@@ -114,12 +115,17 @@ export default async function BuchhaltungPage({
       </form>
 
       {/* Quick-Links */}
-      <div className="flex gap-2 mb-4 text-sm">
-        <Link href="/buchhaltung/uva" className="text-s112-teal hover:underline">UVA-Meldung</Link>
-        <span className="text-gray-300">·</span>
-        <Link href="/buchhaltung/kategorien" className="text-s112-teal hover:underline">Kategorien</Link>
-        <span className="text-gray-300">·</span>
-        <Link href="/buchhaltung/dauerauftraege" className="text-s112-teal hover:underline">Daueraufträge</Link>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex gap-2 text-sm">
+          <Link href="/buchhaltung/uva" className="text-s112-teal hover:underline">UVA-Meldung</Link>
+          <span className="text-gray-300">·</span>
+          <Link href="/buchhaltung/kategorien" className="text-s112-teal hover:underline">Kategorien</Link>
+          <span className="text-gray-300">·</span>
+          <Link href="/buchhaltung/dauerauftraege" className="text-s112-teal hover:underline">Daueraufträge</Link>
+        </div>
+        {buchungen && buchungen.length > 0 && (
+          <CsvExportButton buchungen={buchungen as R[]} jahr={jahr} />
+        )}
       </div>
 
       {/* Tabelle */}
@@ -161,7 +167,15 @@ export default async function BuchhaltungPage({
                   € {fmt(b.betrag_brutto)}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {!b.is_locked && (
+                  {b.verkaufsposten_id ? (
+                    <Link
+                      href={`/weinhandel/verkauf/${b.verkaufsposten_id}`}
+                      className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-s112-teal"
+                      title={`Automatisch aus Zahlungseingang${b.verkaufsposten?.rechnungsnummer ? ` (${b.verkaufsposten.rechnungsnummer})` : ''} – zur Löschung Zahlung stornieren`}
+                    >
+                      <Link2 className="w-3.5 h-3.5" /> Verkauf
+                    </Link>
+                  ) : !b.is_locked && (
                     <form action={async () => {
                       'use server'
                       await deleteEaTransaktion(b.id)
