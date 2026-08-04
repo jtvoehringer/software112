@@ -480,7 +480,7 @@ export default function NeuerVerkaufPage() {
     }))
 
     if (!kontaktId && !firmaId) {
-      setError('Bitte Kontakt oder Firma auswählen.')
+      setError('Bitte einen Kunden auswählen.')
       return
     }
     if (posForServer.some(p => !p.name || p.menge <= 0)) {
@@ -547,52 +547,59 @@ export default function NeuerVerkaufPage() {
                 className={inputCls + ' w-full bg-s112-bg text-s112-muted cursor-not-allowed'} />
               <p className="text-xs text-s112-muted mt-1">Automatisch generiert beim Speichern</p>
             </div>
-            <div>
-              <label className={labelCls}>Kontakt (Person) *</label>
+            <div className="col-span-2">
+              <label className={labelCls}>Kunde *</label>
               <KundenSuche
-                items={kontakte.map(k => ({
-                  id: k.id,
-                  label: [k.vorname, k.nachname].filter(Boolean).join(' '),
-                }))}
-                value={kontaktId}
-                onChange={kId => {
-                  setKontaktId(kId)
-                  if (kId) setFirmaId('')
-                  const k = kontakte.find(x => x.id === kId)
-                  const rabatt = k?.rabatt_pct ?? 0
-                  const sonder = k?.sonderrabatt_pct ?? 0
-                  setKundenRabatt(rabatt)
-                  setSkontoAktiv((k?.skonto_pct ?? 0) > 0)
-                  setSkontoPct(k?.skonto_pct ?? 0)
-                  setSkontoTage(k?.skonto_tage ?? 10)
-                  setPositionen(prev => prev.map(p => ({
-                    ...p,
-                    rabatt_pct: String(rabatt),
-                    rabatt_aktiv: rabatt > 0,
-                    sonderrabatt: String(sonder),
-                    sonderrabatt_aktiv: sonder > 0,
-                  })))
-                }}
-                placeholder="Name suchen…"
-                disabled={loading}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Firma *</label>
-              <KundenSuche
-                items={firmen.map(f => ({ id: f.id, label: f.name }))}
-                value={firmaId}
-                onChange={fId => {
-                  setFirmaId(fId)
+                items={[
+                  ...kontakte.map(k => ({
+                    id: `kontakt:${k.id}`,
+                    label: [k.vorname, k.nachname].filter(Boolean).join(' '),
+                    sub: 'Person',
+                  })),
+                  ...firmen.map(f => ({
+                    id: `firma:${f.id}`,
+                    label: f.name,
+                    sub: 'Firma',
+                  })),
+                ]}
+                value={kontaktId ? `kontakt:${kontaktId}` : firmaId ? `firma:${firmaId}` : ''}
+                onChange={val => {
                   setZhKontaktId('')
-                  if (fId) setKontaktId('')
-                  const f = firmen.find(x => x.id === fId)
-                  const rabatt = f?.rabatt_pct ?? 0
-                  const sonder = f?.sonderrabatt_pct ?? 0
+                  if (!val) {
+                    setKontaktId('')
+                    setFirmaId('')
+                    setKundenRabatt(0)
+                    setSkontoAktiv(false)
+                    setSkontoPct(0)
+                    setSkontoTage(10)
+                    return
+                  }
+                  const trennerIdx = val.indexOf(':')
+                  const typ = val.slice(0, trennerIdx)
+                  const id  = val.slice(trennerIdx + 1)
+
+                  let rabatt = 0, sonder = 0, skPct = 0, skTage = 10
+                  if (typ === 'kontakt') {
+                    setKontaktId(id)
+                    setFirmaId('')
+                    const k = kontakte.find(x => x.id === id)
+                    rabatt = k?.rabatt_pct ?? 0
+                    sonder = k?.sonderrabatt_pct ?? 0
+                    skPct  = k?.skonto_pct ?? 0
+                    skTage = k?.skonto_tage ?? 10
+                  } else {
+                    setFirmaId(id)
+                    setKontaktId('')
+                    const f = firmen.find(x => x.id === id)
+                    rabatt = f?.rabatt_pct ?? 0
+                    sonder = f?.sonderrabatt_pct ?? 0
+                    skPct  = f?.skonto_pct ?? 0
+                    skTage = f?.skonto_tage ?? 10
+                  }
                   setKundenRabatt(rabatt)
-                  setSkontoAktiv((f?.skonto_pct ?? 0) > 0)
-                  setSkontoPct(f?.skonto_pct ?? 0)
-                  setSkontoTage(f?.skonto_tage ?? 10)
+                  setSkontoAktiv(skPct > 0)
+                  setSkontoPct(skPct)
+                  setSkontoTage(skTage)
                   setPositionen(prev => prev.map(p => ({
                     ...p,
                     rabatt_pct: String(rabatt),
@@ -601,9 +608,10 @@ export default function NeuerVerkaufPage() {
                     sonderrabatt_aktiv: sonder > 0,
                   })))
                 }}
-                placeholder="Firmenname suchen…"
+                placeholder="Name oder Firma suchen…"
                 disabled={loading}
               />
+              <p className="text-xs text-s112-muted mt-1">Bei Firmen kann zusätzlich ein Ansprechpartner (z.H.) angegeben werden.</p>
             </div>
             {firmaId && (() => {
               const firmKontakte = kontakte.filter(k => k.firma_id === firmaId)
