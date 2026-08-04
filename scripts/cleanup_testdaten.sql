@@ -7,7 +7,7 @@
 --   Dieses Skript löscht ALLE Bewegungs-/Transaktionsdaten (jeder Tenant),
 --   die während der Entwicklung/Tests angelegt wurden, und lässt sämtliche
 --   Stammdaten (Tenants, Weingärten, Grundstücke, Rebsorten, Behälter,
---   Preislisten, CRM-Kontakte/Firmen, Kostenarten/-stellen, FIBU-Kontenplan,
+--   Preislisten, CRM-Kontakte/Firmen, Kostenarten/-stellen,
 --   Einstellungen usw.) unangetastet.
 --
 -- WICHTIG:
@@ -113,9 +113,9 @@ DELETE FROM dac_antrag;             -- referenziert nichts weiteres aus der Wipe
 DELETE FROM weinjahrgaenge;         -- Wurzel der Ernte-Kette — jetzt sicher (ama_erntemeldungen, pressungen, ernte_parzellen, traubenverkauf bereits gelöscht)
 
 -- ─────────────────────────────────────────────────────────────────────────
--- SECTION 4: Buchhaltung (Kostenrechnung / E&A-Modul / FIBU)
--- kostenarten, kostenstellen, ea_kategorien, fibu_kontenplan, fibu_perioden
--- bleiben unangetastet (Stammdaten).
+-- SECTION 4: Buchhaltung (Kostenrechnung / E&A-Modul)
+-- kostenarten, kostenstellen, ea_kategorien bleiben unangetastet (Stammdaten).
+-- FIBU-Modul wurde vollstaendig entfernt (Migration 143).
 -- ─────────────────────────────────────────────────────────────────────────
 DELETE FROM kosteneintrag_weingaerten;  -- Kind von kosteneintraege (cascade)
 DELETE FROM kosteneintrag_behaelter;    -- Kind von kosteneintraege (cascade)
@@ -123,8 +123,6 @@ DELETE FROM kosteneintraege;            -- referenziert kostenstellen/kostenarte
 DELETE FROM ea_transaktionen;           -- referenziert ea_kategorien via SET NULL (bleibt unberührt), ea_dauerauftraege via SET NULL
 DELETE FROM ea_dauerauftraege;          -- referenziert ea_kategorien via SET NULL (bleibt unberührt)
 DELETE FROM ea_uva;
-DELETE FROM fibu_buchungszeilen;        -- Kind von fibu_buchungssaetze (cascade); referenziert fibu_kontenplan (RESTRICT, bleibt unberührt)
-DELETE FROM fibu_buchungssaetze;        -- referenziert fibu_perioden (RESTRICT, bleibt unberührt), verkaufsposten via SET NULL (bereits gelöscht)
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- SECTION 5: Sonstiges (Feldbehandlungen / Pflanzenschutz)
@@ -209,8 +207,6 @@ select * from (values
   ('ea_transaktionen',            (select count(*) from ea_transaktionen)),
   ('ea_dauerauftraege',           (select count(*) from ea_dauerauftraege)),
   ('ea_uva',                      (select count(*) from ea_uva)),
-  ('fibu_buchungszeilen',         (select count(*) from fibu_buchungszeilen)),
-  ('fibu_buchungssaetze',         (select count(*) from fibu_buchungssaetze)),
   ('behandlung_grundstuecke',     (select count(*) from behandlung_grundstuecke)),
   ('psm_lager_bewegungen',        (select count(*) from psm_lager_bewegungen)),
   ('behandlungen',                (select count(*) from behandlungen)),

@@ -75,9 +75,8 @@ export type TenantSettings = {
   m365_token_expires_at: string | null
   m365_webhook_sub_id: string | null
   m365_webhook_expires: string | null
-  // Migration 098 – E&A, FIBU, SumUp
+  // Migration 098 – E&A, SumUp (FIBU entfernt)
   modul_ea:            boolean
-  modul_fibu:          boolean
   modul_sumup:         boolean
   ea_buchung_modus:    string
   ea_kleinunternehmer: boolean
@@ -193,7 +192,6 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     m365_webhook_expires: s?.m365_webhook_expires ?? null,
     session_timeout_minuten: s?.session_timeout_minuten ?? null,
     modul_ea:            !!(s?.modul_ea),
-    modul_fibu:          !!(s?.modul_fibu),
     modul_sumup:         !!(s?.modul_sumup),
     ea_buchung_modus:    s?.ea_buchung_modus ?? 'brutto',
     ea_kleinunternehmer: !!(s?.ea_kleinunternehmer),

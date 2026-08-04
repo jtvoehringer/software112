@@ -428,7 +428,6 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
     modul_crm:        settings.modul_crm,
     modul_newsletter: settings.modul_newsletter,
     modul_ea:         settings.modul_ea         ?? false,
-    modul_fibu:       settings.modul_fibu        ?? false,
     modul_sumup:      settings.modul_sumup       ?? false,
   })
 
@@ -447,7 +446,6 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
     fd.set('modul_crm',        mods.modul_crm         ? 'true' : 'false')
     fd.set('modul_newsletter', mods.modul_newsletter   ? 'true' : 'false')
     fd.set('modul_ea',         mods.modul_ea           ? 'true' : 'false')
-    fd.set('modul_fibu',       mods.modul_fibu          ? 'true' : 'false')
     fd.set('modul_sumup',      mods.modul_sumup         ? 'true' : 'false')
     fd.set('brevo_api_key',     settings.brevo_api_key ?? '')
     fd.set('brevo_sender_mail', settings.brevo_sender_mail ?? '')
@@ -472,17 +470,13 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
         <Toggle on={mods.modul_crm}        onToggle={() => toggle('modul_crm')}        label="CRM-Modul" />
         <Toggle on={mods.modul_newsletter} onToggle={() => toggle('modul_newsletter')} label="Newsletter-Modul (Brevo)" />
         <Toggle on={mods.modul_ea}         onToggle={() => toggle('modul_ea')}         label="E&A-Rechnung (§ 4 Abs. 3)" />
-        <Toggle on={mods.modul_fibu}       onToggle={() => {
-          if (!mods.modul_fibu && mods.modul_ea) toggle('modul_ea')
-          toggle('modul_fibu')
-        }} label="FIBU – doppelte Buchhaltung" />
         <Toggle on={mods.modul_sumup} onToggle={() => {
-            if (!mods.modul_sumup && !mods.modul_ea && !mods.modul_fibu) toggle('modul_ea')
+            if (!mods.modul_sumup && !mods.modul_ea) toggle('modul_ea')
             toggle('modul_sumup')
           }} label="SumUp Kartenterminal" />
-          {!mods.modul_ea && !mods.modul_fibu && (
+          {!mods.modul_ea && (
             <p className="text-xs text-amber-600 -mt-2 ml-12">
-              Erfordert E&amp;A oder FIBU – Aktivierung schaltet E&amp;A automatisch mit ein
+              Erfordert E&amp;A – Aktivierung schaltet E&amp;A automatisch mit ein
             </p>
           )}
       </div>
@@ -1557,7 +1551,6 @@ export default function MandantDetailClient({ tenant, settings, members }: {
           {settings.modul_crm        && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">CRM</span>}
           {settings.modul_newsletter && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">Newsletter</span>}
           {settings.modul_ea         && <span className="text-xs bg-lime-100 text-lime-700 px-2 py-0.5 rounded-full">E&A</span>}
-          {settings.modul_fibu       && <span className="text-xs bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full">FIBU</span>}
           {settings.modul_sumup      && <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">SumUp</span>}
           {tenant.stripe_status === 'active'   && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Abo aktiv</span>}
           {tenant.stripe_status === 'past_due' && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Zahlung offen</span>}

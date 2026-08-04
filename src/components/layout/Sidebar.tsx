@@ -9,7 +9,7 @@ import type { UserRole } from '@/lib/auth/roles'
 import type { TenantBranding } from '@/app/(dashboard)/layout'
 import {
   LayoutDashboard, Mail, Grape, BookOpen, Warehouse, Calculator, ReceiptText,
-  Landmark, Users, BarChart3, Sparkles, HelpCircle, Settings, ChevronRight,
+  Users, BarChart3, Sparkles, HelpCircle, Settings, ChevronRight,
   ArrowLeftRight, LogOut, PanelLeftClose, PanelLeft,
   type LucideIcon,
 } from 'lucide-react'
@@ -21,16 +21,16 @@ import {
 
 type NavItem = {
   href: string; label: string; phase?: number; adminOnly?: boolean; child?: boolean
-  hideIfModul?: Array<'modul_ea' | 'modul_fibu' | 'modul_sumup'>
+  hideIfModul?: Array<'modul_ea' | 'modul_sumup'>
 }
 type NavGroup = {
   kind: 'group'; label: string; icon: LucideIcon; items: NavItem[]; adminOnly?: boolean
-  modulKey?: 'modul_ea' | 'modul_fibu' | 'modul_sumup'
+  modulKey?: 'modul_ea' | 'modul_sumup'
 }
 type NavLink = {
   kind: 'link'; href: string; label: string; icon: LucideIcon
   phase?: number; adminOnly?: boolean
-  modulKey?: 'modul_ea' | 'modul_fibu' | 'modul_sumup'
+  modulKey?: 'modul_ea' | 'modul_sumup'
 }
 type NavOverline = { kind: 'overline'; label: string }
 type NavEntry = NavGroup | NavLink | NavOverline
@@ -93,15 +93,6 @@ const NAV: NavEntry[] = [
       { href: '/buchhaltung/kategorien',   label: 'Kategorien', child: true },
       { href: '/buchhaltung/dauerauftraege', label: 'Daueraufträge', child: true },
       { href: '/buchhaltung/uva',          label: 'UVA-Meldung'      },
-      { href: '/weinhandel/offene-posten', label: 'Offene Posten'    },
-    ],
-  },
-
-  {
-    kind: 'group', label: 'FIBU', icon: Landmark, modulKey: 'modul_fibu',
-    items: [
-      { href: '/fibu',              label: 'Journal'        },
-      { href: '/fibu/kontenplan',   label: 'Kontenplan', child: true },
       { href: '/weinhandel/offene-posten', label: 'Offene Posten'    },
     ],
   },
