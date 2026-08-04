@@ -24,7 +24,7 @@ export default async function TraubenverkaufPage() {
   const { data: verkaufeRaw } = await (supabase.from('traubenverkauf') as any)
     .select(`
       id, datum, menge_kg, preis_per_kg, kmw_grad,
-      qualitaetsstufe, herkunft_code, gesundheit, liefernummer, notizen, jahrgang_id, grundstueck_id,
+      qualitaetsstufe, herkunft_code, gesundheit, liefernummer, notizen, jahrgang_id, grundstueck_id, zukauf_posten_id,
       weingarten:weingarten_id(id, name, trauben_herkunft_code),
       grundstueck:grundstueck_id(id, gst_nr, rebsorte, trauben_herkunft_code),
       kontakt:kontakt_id(id, vorname, nachname),
@@ -63,6 +63,54 @@ export default async function TraubenverkaufPage() {
   const kontakte = (kontakteRaw ?? []) as R[]
   const firmen   = (firmenRaw   ?? []) as R[]
 
+  // Zugekaufte Trauben (art='trauben') - stehen zusätzlich zur eigenen Ernte
+  // als verkaufbare Menge zur Verfügung (siehe Migration 141).
+  const { data: zukaufRaw } = await (supabase.from('zukauf_posten') as any)
+    .select(`
+      id, datum, menge, rebsorte, herkunft,
+      lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname),
+      lieferant_firma:firmen!lieferant_firma_id(name)
+    `)
+    .eq('tenant_id', membership.tenantId)
+    .eq('art', 'trauben')
+    .eq('aktiv', true)
+    .order('datum', { ascending: false })
+
+  const zukaufListe = (zukaufRaw ?? []) as R[]
+  const zukaufIds = zukaufListe.map(z => z.id)
+
+  // Bereits verpresste bzw. verkaufte Menge je Zukauf-Posten (tenant-weit, über
+  // alle Jahrgänge - dieses Modul ist nicht jahrgangsgebunden).
+  const pressedKgByZukauf: Record<string, number> = {}
+  if (zukaufIds.length > 0) {
+    const { data: pressedRaw } = await (supabase.from('pressung_weingaerten') as any)
+      .select('zukauf_posten_id, trauben_kg')
+      .in('zukauf_posten_id', zukaufIds)
+    for (const p of (pressedRaw ?? []) as R[]) {
+      pressedKgByZukauf[p.zukauf_posten_id] = (pressedKgByZukauf[p.zukauf_posten_id] ?? 0) + (parseFloat(p.trauben_kg) || 0)
+    }
+  }
+  const soldKgByZukauf: Record<string, number> = {}
+  for (const v of verkaufe) {
+    if (v.zukauf_posten_id) soldKgByZukauf[v.zukauf_posten_id] = (soldKgByZukauf[v.zukauf_posten_id] ?? 0) + (parseFloat(v.menge_kg) || 0)
+  }
+
+  const zukaufOptions = zukaufListe.map(z => {
+    const mengeKg = parseFloat(z.menge) || 0
+    const lieferant = z.lieferant_kontakt
+      ? [z.lieferant_kontakt.vorname, z.lieferant_kontakt.nachname].filter(Boolean).join(' ')
+      : (z.lieferant_firma?.name ?? '–')
+    return {
+      id: z.id,
+      datum: z.datum,
+      lieferant,
+      rebsorte: z.rebsorte ?? null,
+      herkunft: z.herkunft ?? null,
+      menge_kg: mengeKg,
+      verfuegbar_kg: Math.max(0, mengeKg - (pressedKgByZukauf[z.id] ?? 0) - (soldKgByZukauf[z.id] ?? 0)),
+    }
+  })
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 text-sm text-s112-muted">
@@ -78,6 +126,7 @@ export default async function TraubenverkaufPage() {
       <TraubenverkaufClient
         verkaufe={verkaufe}
         ernteOptions={ernteOptions}
+        zukaufOptions={zukaufOptions}
         kontakte={kontakte}
         firmen={firmen}
         writeOk={writeOk}

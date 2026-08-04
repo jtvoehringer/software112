@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import { findePassendeHerkunftsstufe, HERKUNFT_LABEL, minHerkunft } from '@/lib/herkunft'
-import { createVerkaufspostenFuerTrauben } from '@/app/(dashboard)/weinhandel/traubenverkauf/actions'
+import { createVerkaufspostenFuerTrauben, ermittleQuellenName } from '@/app/(dashboard)/weinhandel/traubenverkauf/actions'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -16,6 +16,7 @@ async function getTenantId(): Promise<string> {
   if (!id) throw new Error('Kein Betrieb gefunden')
   return id
 }
+
 
 // ── Jahrgänge ─────────────────────────────────────────────────────────────────
 
@@ -319,7 +320,7 @@ export async function createOrUpdateAMAMeldung(jahrgangId: string) {
 
 // ── Pressungen ────────────────────────────────────────────────────────────────
 
-type PressungWGInput    = { weingarten_id: string; grundstueck_id?: string | null; trauben_kg: number; rebsorte?: string; notizen?: string }
+type PressungWGInput    = { weingarten_id?: string; grundstueck_id?: string | null; zukauf_posten_id?: string; trauben_kg: number; rebsorte?: string; notizen?: string }
 type PressungBehInput   = { behaelter_id?: string; weinausbau_id?: string; menge_liter?: number; notizen?: string }
 
 export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_id: string; weinausbau_id: string; name: string; menge_liter: number | null; qualitaetsstufe: string | null; herkunft_code: string | null }[] }> {
@@ -372,7 +373,8 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
   // ── Lesedaten sync: kg aus Pressung in ernte_parzellen übertragen ───────────
   // Nur Zeilen ohne gesetztes menge_kg werden befüllt (bestehende Werte bleiben)
   for (const w of weingaerten) {
-    if (!w.trauben_kg) continue
+    // Zukauf-Trauben (kein weingarten_id) haben keine eigene Lese-Zeile zum Sync
+    if (!w.trauben_kg || !w.weingarten_id) continue
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let q = (supabase.from('ernte_parzellen') as any)
       .update({ menge_kg: w.trauben_kg, menge_hl: w.trauben_kg / 130 })
@@ -560,7 +562,8 @@ export async function createTraubenverkauf(fd: FormData) {
   const liefernummer = lnData as string | null
 
   const jahrgangId   = fd.get('jahrgang_id') as string | null
-  const weingartenId = fd.get('weingarten_id') as string
+  const weingartenId = (fd.get('weingarten_id') as string) || null
+  const zukaufPostenId = (fd.get('zukauf_posten_id') as string) || null
   const grundstueckId = (fd.get('grundstueck_id') as string) || null
   const mengeKg      = parseFloat((fd.get('menge_kg') as string).replace(',', '.'))
   const preisPerKg   = fd.get('preis_per_kg') ? parseFloat((fd.get('preis_per_kg') as string).replace(',', '.')) : null
@@ -568,14 +571,13 @@ export async function createTraubenverkauf(fd: FormData) {
   const firmaId      = (fd.get('firma_id') as string) || null
   const datum        = fd.get('datum') as string
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: wgData } = await (supabase.from('weingarten') as any).select('name').eq('id', weingartenId).single()
-  const weingartenName = (wgData as AR | null)?.name as string ?? 'Weingarten'
+  const weingartenName = await ermittleQuellenName(supabase, weingartenId, zukaufPostenId)
 
   const payload: AR = {
     tenant_id:       tenantId,
     jahrgang_id:     jahrgangId || null,
     weingarten_id:   weingartenId,
+    zukauf_posten_id: zukaufPostenId,
     grundstueck_id:  grundstueckId,
     kontakt_id:      kontaktId,
     firma_id:        firmaId,
@@ -610,7 +612,8 @@ export async function updateTraubenverkauf(id: string, fd: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   const jahrgangId    = fd.get('jahrgang_id') as string | null
-  const weingartenId  = fd.get('weingarten_id') as string
+  const weingartenId  = (fd.get('weingarten_id') as string) || null
+  const zukaufPostenId = (fd.get('zukauf_posten_id') as string) || null
   const grundstueckId = (fd.get('grundstueck_id') as string) || null
   const mengeKg       = parseFloat((fd.get('menge_kg') as string).replace(',', '.'))
   const preisPerKg    = fd.get('preis_per_kg') ? parseFloat((fd.get('preis_per_kg') as string).replace(',', '.')) : null
@@ -620,6 +623,7 @@ export async function updateTraubenverkauf(id: string, fd: FormData) {
 
   const payload: AR = {
     weingarten_id:   weingartenId,
+    zukauf_posten_id: zukaufPostenId,
     grundstueck_id:  grundstueckId,
     kontakt_id:      kontaktId,
     firma_id:        firmaId,
@@ -640,9 +644,7 @@ export async function updateTraubenverkauf(id: string, fd: FormData) {
   const { error } = await (supabase.from('traubenverkauf') as any).update(payload).eq('id', id)
   if (error) throw new Error((error as AR).message)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: wgData } = await (supabase.from('weingarten') as any).select('name').eq('id', weingartenId).single()
-  const weingartenName = (wgData as AR | null)?.name as string ?? 'Weingarten'
+  const weingartenName = await ermittleQuellenName(supabase, weingartenId, zukaufPostenId)
   const verkaufsOpts = { datum, kontaktId, firmaId, weingartenName, mengeKg, preisPerKg }
 
   if (!altPostenId) {

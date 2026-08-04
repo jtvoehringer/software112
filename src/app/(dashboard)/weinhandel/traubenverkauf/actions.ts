@@ -7,6 +7,34 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
+// ── Hilfs-Funktion: Bezeichnung der Trauben-Quelle ermitteln ─────────────────
+// Eigener Weingarten ODER zugekaufter Posten (siehe Migration 141) - genau
+// einer der beiden Parameter ist gesetzt.
+
+export async function ermittleQuellenName(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  weingartenId: string | null,
+  zukaufPostenId: string | null,
+): Promise<string> {
+  if (weingartenId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (supabase.from('weingarten') as any).select('name').eq('id', weingartenId).single()
+    return (data as AR | null)?.name as string ?? 'Weingarten'
+  }
+  if (zukaufPostenId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (supabase.from('zukauf_posten') as any)
+      .select('rebsorte, lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname), lieferant_firma:firmen!lieferant_firma_id(name)')
+      .eq('id', zukaufPostenId).single()
+    const z = data as AR | null
+    const lieferant = z?.lieferant_kontakt
+      ? [z.lieferant_kontakt.vorname, z.lieferant_kontakt.nachname].filter(Boolean).join(' ')
+      : (z?.lieferant_firma?.name ?? null)
+    return `Zukauf${z?.rebsorte ? ' – ' + z.rebsorte : ''}${lieferant ? ' (' + lieferant + ')' : ''}` || 'Zukauf'
+  }
+  return 'Trauben'
+}
+
 // ── Hilfs-Funktion: Verkaufsposten + Position für Traubenverkauf anlegen ─────
 
 export async function createVerkaufspostenFuerTrauben(
@@ -111,26 +139,24 @@ export async function upsertTraubenverkauf(formData: FormData) {
     return Number(val.replace(',', '.'))
   }
 
-  const weingartenId = formData.get('weingarten_id') as string
+  const weingartenId  = (formData.get('weingarten_id') as string) || null
+  const zukaufPostenId = (formData.get('zukauf_posten_id') as string) || null
   const kontaktId    = (formData.get('kontakt_id') as string) || null
   const firmaId      = (formData.get('firma_id') as string) || null
   const datum        = formData.get('datum') as string
   const mengeKg      = Number((formData.get('menge_kg') as string).replace(',', '.'))
   const preisPerKg   = getNum('preis_per_kg')
 
-  // Weingarten-Name für Positionsbezeichnung laden
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: wgData } = await (supabase.from('weingarten') as any)
-    .select('name')
-    .eq('id', weingartenId)
-    .single()
-  const weingartenName = (wgData as AR | null)?.name as string ?? 'Weingarten'
+  // Bezeichnung der Quelle (eigener Weingarten ODER zugekaufter Posten) für die
+  // Positionsbezeichnung im Verkaufsposten laden.
+  const weingartenName = await ermittleQuellenName(supabase, weingartenId, zukaufPostenId)
 
   const verkaufsOpts = { datum, kontaktId, firmaId, weingartenName, mengeKg, preisPerKg }
 
   const payload: AR = {
     tenant_id:       tenantId,
     weingarten_id:   weingartenId,
+    zukauf_posten_id: zukaufPostenId,
     jahrgang_id:     (formData.get('jahrgang_id') as string) || null,
     grundstueck_id:  (formData.get('grundstueck_id') as string) || null,
     kontakt_id:      kontaktId,

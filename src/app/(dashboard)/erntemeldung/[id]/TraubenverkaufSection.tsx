@@ -3,13 +3,16 @@
 import { useState, useTransition } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { createTraubenverkauf, updateTraubenverkauf, deleteTraubenverkauf } from '../actions'
+import type { ZukaufTraubenOpt } from './PressungSection'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
 export type Traubenverkauf = {
   id: string
-  weingarten_id: string; weingarten_name: string
+  // Quelle: eigener Weingarten ODER zugekaufter Posten (Migration 141) - genau
+  // eines der beiden ist gesetzt.
+  weingarten_id: string | null; zukauf_posten_id?: string | null; weingarten_name: string
   kontakt_id: string | null; kontakt_name: string | null
   firma_id: string | null; firma_name: string | null
   datum: string; menge_kg: number
@@ -41,15 +44,19 @@ const fmtDate = (d: string) =>
 
 // ── Formular ──────────────────────────────────────────────────────────────────
 
-function TVForm({ jahrgangId, tv, wgOptions, leseParzellen, kontaktOptions, firmaOptions, onDone }: {
+function TVForm({ jahrgangId, tv, wgOptions, leseParzellen, zukaufOptions, kontaktOptions, firmaOptions, onDone }: {
   jahrgangId: string
   tv?: Traubenverkauf
   wgOptions: TVWGOption[]
   leseParzellen: TVLeseParzelle[]
+  zukaufOptions: ZukaufTraubenOpt[]
   kontaktOptions: TVKontaktOption[]
   firmaOptions: TVFirmaOption[]
   onDone: () => void
 }) {
+  // Quelle: eigene Ernte (Ried) oder zugekaufte Trauben (siehe Migration 141)
+  const [quelle, setQuelle]     = useState<'ernte' | 'zukauf'>(tv?.zukauf_posten_id ? 'zukauf' : 'ernte')
+  const [zukaufId, setZukaufId] = useState(tv?.zukauf_posten_id ?? '')
   const [wgId, setWgId]         = useState(tv?.weingarten_id ?? '')
   // Käufer-Typ: Firma ist Standard
   const initType = tv ? (tv.firma_id ? 'firma' : 'kontakt') : 'firma'
@@ -62,14 +69,23 @@ function TVForm({ jahrgangId, tv, wgOptions, leseParzellen, kontaktOptions, firm
   const [kmw, setKmw]           = useState(tv?.kmw_grad?.toString().replace('.', ',') ?? '')
   const [qualitaet, setQualitaet] = useState(tv?.qualitaetsstufe ?? '')
   const [gesundheit, setGesundheit] = useState(tv?.gesundheit ?? 'G')
+  const [herkunft, setHerkunft] = useState(tv?.herkunft_code ?? '')
   const [notizen, setNotizen]   = useState(tv?.notizen ?? '')
   const [pending, startTransition] = useTransition()
 
-  const selectedWG = wgOptions.find(w => w.id === wgId)
-  const herkunftCode = selectedWG?.herkunft_code ?? ''
+  // Verfügbare kg je Zukauf-Posten, während einer Bearbeitung um die eigene
+  // Zeile bereinigt (analog TraubenverkaufClient.tsx).
+  const verfuegbarZukauf = (zId: string) => {
+    const opt = zukaufOptions.find(z => z.id === zId)
+    if (!opt) return 0
+    const eigenerAnteil = tv && tv.zukauf_posten_id === zId ? Number(tv.menge_kg ?? 0) : 0
+    return Math.max(0, Number(opt.verfuegbar_kg ?? 0) + eigenerAnteil)
+  }
 
   function handleWgChange(newWgId: string) {
     setWgId(newWgId)
+    const wg = wgOptions.find(w => w.id === newWgId)
+    setHerkunft(wg?.herkunft_code ?? '')
     if (!tv && newWgId) {
       // KMW + Qualität aus letzter Lese-Parzelle dieser Ried vorausfüllen
       const match = leseParzellen.find(p => p.weingarten_id === newWgId)
@@ -80,6 +96,12 @@ function TVForm({ jahrgangId, tv, wgOptions, leseParzellen, kontaktOptions, firm
     }
   }
 
+  function handleZukaufChange(newZukaufId: string) {
+    setZukaufId(newZukaufId)
+    const opt = zukaufOptions.find(z => z.id === newZukaufId)
+    if (opt) setHerkunft(opt.herkunft ?? '')
+  }
+
   const gesamtWert = mengeKg && preis
     ? parseFloat(mengeKg.replace(',', '.')) * parseFloat(preis.replace(',', '.'))
     : null
@@ -88,7 +110,11 @@ function TVForm({ jahrgangId, tv, wgOptions, leseParzellen, kontaktOptions, firm
     e.preventDefault()
     const fd = new FormData()
     fd.append('jahrgang_id', jahrgangId)
-    fd.append('weingarten_id', wgId)
+    if (quelle === 'zukauf') {
+      fd.append('zukauf_posten_id', zukaufId)
+    } else {
+      fd.append('weingarten_id', wgId)
+    }
     if (kontaktId) fd.append('kontakt_id', kontaktId)
     if (firmaId) fd.append('firma_id', firmaId)
     fd.append('datum', datum)
@@ -97,7 +123,7 @@ function TVForm({ jahrgangId, tv, wgOptions, leseParzellen, kontaktOptions, firm
     if (kmw) fd.append('kmw_grad', kmw)
     if (qualitaet) fd.append('qualitaetsstufe', qualitaet)
     fd.append('gesundheit', gesundheit)
-    if (herkunftCode) fd.append('herkunft_code', herkunftCode)
+    if (herkunft) fd.append('herkunft_code', herkunft)
     if (notizen) fd.append('notizen', notizen)
     startTransition(async () => {
       if (tv) await updateTraubenverkauf(tv.id, fd)
@@ -112,19 +138,56 @@ function TVForm({ jahrgangId, tv, wgOptions, leseParzellen, kontaktOptions, firm
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-4">
       <h3 className="text-sm font-semibold text-gray-800">{tv ? 'Traubenverkauf bearbeiten' : 'Traubenverkauf erfassen'}</h3>
 
-      <div className="grid grid-cols-2 gap-3">
-        {/* Ried */}
-        <div className="col-span-2">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Ried *</label>
-          <select value={wgId} onChange={e => handleWgChange(e.target.value)} required className={inp}>
-            <option value="">– Ried wählen –</option>
-            {wgOptions.map(w => (
-              <option key={w.id} value={w.id}>
-                {w.name}{w.herkunft_code ? ` (${w.herkunft_code})` : ''}
-              </option>
-            ))}
-          </select>
+      {/* Quelle */}
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-2">Quelle</label>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => setQuelle('ernte')}
+            className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${quelle === 'ernte' ? 'bg-s112-teal text-white' : 'bg-s112-bg border border-s112-border text-gray-600 hover:border-s112-teal'}`}>
+            Eigene Ernte
+          </button>
+          <button type="button" onClick={() => setQuelle('zukauf')}
+            className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${quelle === 'zukauf' ? 'bg-s112-teal text-white' : 'bg-s112-bg border border-s112-border text-gray-600 hover:border-s112-teal'}`}>
+            Zukauf
+          </button>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        {quelle === 'zukauf' ? (
+          <div className="col-span-2">
+            <label className="block text-xs font-medium text-gray-600 mb-1">Zukauf-Posten *</label>
+            <select value={zukaufId} onChange={e => handleZukaufChange(e.target.value)} required className={inp}>
+              <option value="">– Zukauf wählen –</option>
+              {zukaufOptions.map(z => (
+                <option key={z.id} value={z.id}>
+                  {fmtDate(z.datum)}{z.rebsorte ? ' · ' + z.rebsorte : ''}{' · '}{z.lieferant}
+                  {' – '}{verfuegbarZukauf(z.id).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg verf.
+                </option>
+              ))}
+            </select>
+            {zukaufOptions.length === 0 && (
+              <p className="text-xs text-amber-600 mt-1">Keine zugekauften Trauben vorhanden.</p>
+            )}
+            {zukaufId && (
+              <p className="text-xs text-s112-muted mt-1">
+                Verfügbar: <span className="font-medium text-gray-700">{verfuegbarZukauf(zukaufId).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg</span>
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="col-span-2">
+            <label className="block text-xs font-medium text-gray-600 mb-1">Ried *</label>
+            <select value={wgId} onChange={e => handleWgChange(e.target.value)} required className={inp}>
+              <option value="">– Ried wählen –</option>
+              {wgOptions.map(w => (
+                <option key={w.id} value={w.id}>
+                  {w.name}{w.herkunft_code ? ` (${w.herkunft_code})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Datum */}
         <div>
@@ -171,11 +234,11 @@ function TVForm({ jahrgangId, tv, wgOptions, leseParzellen, kontaktOptions, firm
           </select>
         </div>
 
-        {/* Herkunftscode (read-only aus WG) */}
-        {herkunftCode && (
+        {/* Herkunftscode (read-only aus WG, bzw. Freitext bei Zukauf) */}
+        {herkunft && (
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Herkunftscode (BKI)</label>
-            <div className={inp + ' bg-white text-gray-500 cursor-not-allowed'}>{herkunftCode}</div>
+            <div className={inp + ' bg-white text-gray-500 cursor-not-allowed'}>{herkunft}</div>
           </div>
         )}
       </div>
@@ -246,12 +309,13 @@ function TVForm({ jahrgangId, tv, wgOptions, leseParzellen, kontaktOptions, firm
 // ── Hauptexport ───────────────────────────────────────────────────────────────
 
 export default function TraubenverkaufSection({
-  jahrgangId, verkauefe, wgOptions, leseParzellen, kontaktOptions, firmaOptions, writeOk, adminOk,
+  jahrgangId, verkauefe, wgOptions, leseParzellen, zukaufOptions, kontaktOptions, firmaOptions, writeOk, adminOk,
 }: {
   jahrgangId: string
   verkauefe: Traubenverkauf[]
   wgOptions: TVWGOption[]
   leseParzellen: TVLeseParzelle[]
+  zukaufOptions: ZukaufTraubenOpt[]
   kontaktOptions: TVKontaktOption[]
   firmaOptions: TVFirmaOption[]
   writeOk: boolean; adminOk: boolean
@@ -327,7 +391,7 @@ export default function TraubenverkaufSection({
       </div>
 
       {showForm && !editId && (
-        <TVForm jahrgangId={jahrgangId} wgOptions={wgOptions} leseParzellen={leseParzellen}
+        <TVForm jahrgangId={jahrgangId} wgOptions={wgOptions} leseParzellen={leseParzellen} zukaufOptions={zukaufOptions}
           kontaktOptions={kontaktOptions} firmaOptions={firmaOptions}
           onDone={() => setShowForm(false)} />
       )}
@@ -341,7 +405,7 @@ export default function TraubenverkaufSection({
           {verkauefe.map(v => (
             <div key={v.id}>
               {editId === v.id ? (
-                <TVForm tv={v} jahrgangId={jahrgangId} wgOptions={wgOptions} leseParzellen={leseParzellen}
+                <TVForm tv={v} jahrgangId={jahrgangId} wgOptions={wgOptions} leseParzellen={leseParzellen} zukaufOptions={zukaufOptions}
                   kontaktOptions={kontaktOptions} firmaOptions={firmaOptions}
                   onDone={() => setEditId(null)} />
               ) : (

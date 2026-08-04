@@ -10,6 +10,7 @@ type R = Record<string, any>
 interface Props {
   verkaufe:     R[]
   ernteOptions: R[]   // ernte_parzellen mit weingarten, grundstueck, jahrgang joins
+  zukaufOptions: R[]  // zugekaufte Trauben (zukauf_posten, art='trauben') mit verfuegbar_kg
   kontakte:     R[]
   firmen:       R[]
   writeOk:      boolean
@@ -35,7 +36,7 @@ function fmt(n: number | null | undefined, digits = 2) {
   return n.toLocaleString('de-AT', { minimumFractionDigits: digits, maximumFractionDigits: digits })
 }
 
-export default function TraubenverkaufClient({ verkaufe, ernteOptions, kontakte, firmen, writeOk }: Props) {
+export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOptions, kontakte, firmen, writeOk }: Props) {
   const [showForm, setShowForm]      = useState(false)
   const [editRow, setEditRow]        = useState<R | null>(null)
   const [error, setError]            = useState<string | null>(null)
@@ -43,6 +44,9 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, kontakte,
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   // Formular-State
+  // Quelle: eigene Ernte (Ried/GST) oder zugekaufte Trauben (siehe Migration 141)
+  const [quelle, setQuelle]         = useState<'ernte' | 'zukauf'>('ernte')
+  const [zukaufId, setZukaufId]     = useState('')
   const [wgId, setWgId]             = useState('')
   const [gstId, setGstId]           = useState('')
   const [jahrgangId, setJahrgangId] = useState('')
@@ -51,6 +55,15 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, kontakte,
   const [qualitaet, setQualitaet]   = useState('')
   const [herkunft, setHerkunft]     = useState('')
   const [kaeuferTyp, setKaeuferTyp] = useState<'firma' | 'kontakt'>('firma')
+
+  // Verfügbare kg je Zukauf-Posten, während einer Bearbeitung um die eigene
+  // Zeile bereinigt (analog verfuegbareKgByWG/GST unten).
+  const verfuegbarZukauf = (zId: string) => {
+    const opt = zukaufOptions.find(z => z.id === zId)
+    if (!opt) return 0
+    const eigenerAnteil = editRow && editRow.zukauf_posten_id === zId ? Number(editRow.menge_kg ?? 0) : 0
+    return Math.max(0, Number(opt.verfuegbar_kg ?? 0) + eigenerAnteil)
+  }
 
   // Distinct Weingärten aus ernteOptions
   const wgMap = new Map<string, R>()
@@ -137,7 +150,8 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, kontakte,
   }
 
   function openNew() {
-    setEditRow(null); setWgId(''); setGstId(''); setJahrgangId(''); setJahrgangNr(null)
+    setEditRow(null); setQuelle('ernte'); setZukaufId('')
+    setWgId(''); setGstId(''); setJahrgangId(''); setJahrgangNr(null)
     setKmw(''); setQualitaet(''); setHerkunft(''); setKaeuferTyp('firma')
     setError(null); setShowForm(true)
   }
@@ -147,6 +161,8 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, kontakte,
     const wg  = v.weingarten as R | null
     const gst = v.grundstueck as R | null
     const jg  = v.jahrgang as R | null
+    setQuelle(v.zukauf_posten_id ? 'zukauf' : 'ernte')
+    setZukaufId(v.zukauf_posten_id ?? '')
     setWgId(wg?.id ?? ''); setGstId(gst?.id ?? '')
     setJahrgangId(jg?.id ?? ''); setJahrgangNr(jg?.jahrgang ?? null)
     setKmw(v.kmw_grad != null ? String(v.kmw_grad).replace('.', ',') : '')
@@ -155,12 +171,28 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, kontakte,
     setError(null); setShowForm(true)
   }
 
+  function handleZukaufChange(newZukaufId: string) {
+    setZukaufId(newZukaufId)
+    const opt = zukaufOptions.find(z => z.id === newZukaufId)
+    if (opt) {
+      setHerkunft(opt.herkunft ?? '')
+    }
+  }
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault(); setError(null)
     const fd = new FormData(e.currentTarget)
     fd.set('herkunft_code', herkunft)
     fd.set('jahrgang_id', jahrgangId)
-    fd.set('grundstueck_id', gstId)
+    if (quelle === 'zukauf') {
+      fd.set('weingarten_id', '')
+      fd.set('grundstueck_id', '')
+      fd.set('zukauf_posten_id', zukaufId)
+    } else {
+      fd.set('weingarten_id', wgId)
+      fd.set('grundstueck_id', gstId)
+      fd.set('zukauf_posten_id', '')
+    }
     if (kaeuferTyp === 'kontakt') fd.set('firma_id', '')
     else fd.set('kontakt_id', '')
     startTransition(async () => {
@@ -258,7 +290,43 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, kontakte,
           <form onSubmit={handleSubmit} className="space-y-4">
             {editRow && <input type="hidden" name="existing_id" value={editRow.id} />}
             <input type="hidden" name="weingarten_id" value={wgId} />
+            <input type="hidden" name="zukauf_posten_id" value={zukaufId} />
 
+            {/* Quelle */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-2">Quelle</label>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setQuelle('ernte')} className={btnToggle(quelle === 'ernte')}>
+                  Eigene Ernte
+                </button>
+                <button type="button" onClick={() => setQuelle('zukauf')} className={btnToggle(quelle === 'zukauf')}>
+                  Zukauf
+                </button>
+              </div>
+            </div>
+
+            {quelle === 'zukauf' ? (
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Zukauf-Posten *</label>
+                <select value={zukaufId} onChange={e => handleZukaufChange(e.target.value)} required className={inp}>
+                  <option value="">– Zukauf wählen –</option>
+                  {zukaufOptions.map(z => (
+                    <option key={z.id} value={z.id}>
+                      {fmtDate(z.datum)}{z.rebsorte ? ' · ' + z.rebsorte : ''}{' · '}{z.lieferant}
+                      {' – '}{verfuegbarZukauf(z.id).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg verf.
+                    </option>
+                  ))}
+                </select>
+                {zukaufOptions.length === 0 && (
+                  <p className="text-xs text-amber-600 mt-1">Keine zugekauften Trauben vorhanden.</p>
+                )}
+                {zukaufId && (
+                  <p className="text-xs text-s112-muted mt-1">
+                    Verfügbar: <span className="font-medium text-gray-700">{verfuegbarZukauf(zukaufId).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg</span>
+                  </p>
+                )}
+              </div>
+            ) : (
             <div className="grid grid-cols-2 gap-3">
 
               {/* Ried */}
@@ -295,7 +363,10 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, kontakte,
                   </p>
                 )}
               </div>
+            </div>
+            )}
 
+            <div className="grid grid-cols-2 gap-3">
               {/* Jahrgang (abgeleitet) */}
               {jahrgangNr && (
                 <div>
@@ -401,7 +472,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, kontakte,
             </div>
 
             <div className="flex gap-2 pt-1">
-              <button type="submit" disabled={isPending || !wgId}
+              <button type="submit" disabled={isPending || (quelle === 'ernte' ? !wgId : !zukaufId)}
                 className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
                 {isPending ? 'Speichert…' : 'Speichern'}
               </button>
@@ -428,6 +499,14 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, kontakte,
             const firma  = v.firma as R | null
             const kontkt = v.kontakt as R | null
             const kaeufer = firma?.name ?? ([kontkt?.vorname, kontkt?.nachname].filter(Boolean).join(' ') || '–')
+            // Quelle-Label: eigener Weingarten ODER zugekaufter Posten (Migration 141)
+            const zukaufPosten = v.zukauf_posten_id
+              ? zukaufOptions.find(z => z.id === v.zukauf_posten_id)
+              : null
+            const quelleLabel = wg?.name
+              ?? (zukaufPosten
+                    ? `Zukauf – ${zukaufPosten.rebsorte ?? '–'}${zukaufPosten.lieferant ? ' (' + zukaufPosten.lieferant + ')' : ''}`
+                    : (v.zukauf_posten_id ? 'Zukauf' : '–'))
             return (
               <div key={v.id} className="group card">
                 {deleteConfirm === v.id ? (
@@ -452,7 +531,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, kontakte,
                           </span>
                         )}
                         <span className="font-medium text-gray-800 text-sm">{fmtDate(v.datum)}</span>
-                        <span className="text-sm text-gray-700">{'·'} {wg?.name ?? '–'}</span>
+                        <span className="text-sm text-gray-700">{'·'} {quelleLabel}</span>
                         {gst && (
                           <span className="text-xs font-mono text-s112-muted bg-s112-bg px-1.5 py-0.5 rounded">
                             GST {gst.gst_nr}

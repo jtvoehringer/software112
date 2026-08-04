@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import ErnteDetailClient from './ErnteDetailClient'
-import type { Pressung, PressungWG, PressungBeh, WGOption, BehOption, WAOption } from './PressungSection'
+import type { Pressung, PressungWG, PressungBeh, WGOption, BehOption, WAOption, ZukaufTraubenOpt } from './PressungSection'
 import TraubenverkaufSection, { type Traubenverkauf, type TVWGOption, type TVKontaktOption, type TVFirmaOption, type TVLeseParzelle } from './TraubenverkaufSection'
 
 export const metadata: Metadata = { title: 'Lese – software:112' }
@@ -80,7 +80,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('pressungen') as any)
       .select(`id, datum, most_liter_gesamt, weinbezeichnung, notizen, kmw_grad,
-        weingaerten:pressung_weingaerten(id, weingarten_id, grundstueck_id, trauben_kg, rebsorte, notizen, weingarten:weingarten_id(name)),
+        weingaerten:pressung_weingaerten(id, weingarten_id, grundstueck_id, zukauf_posten_id, trauben_kg, rebsorte, notizen, weingarten:weingarten_id(name)),
         behaelter:pressung_behaelter(id, behaelter_id, weinausbau_id, menge_liter, notizen, behaelter:behaelter_id(name), weinausbau:weinausbau_id(name, jahrgang))`)
       .eq('jahrgang_id', id).order('datum', { ascending: false }),
 
@@ -98,7 +98,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     // Traubenverkäufe dieses Jahrgangs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('traubenverkauf') as any)
-      .select('id, weingarten_id, grundstueck_id, kontakt_id, firma_id, datum, menge_kg, preis_per_kg, kmw_grad, qualitaetsstufe, gesundheit, herkunft_code, notizen, liefernummer, weingarten:weingarten_id(name), kontakt:kontakt_id(vorname, nachname), firma:firma_id(name)')
+      .select('id, weingarten_id, grundstueck_id, zukauf_posten_id, kontakt_id, firma_id, datum, menge_kg, preis_per_kg, kmw_grad, qualitaetsstufe, gesundheit, herkunft_code, notizen, liefernummer, weingarten:weingarten_id(name), kontakt:kontakt_id(vorname, nachname), firma:firma_id(name)')
       .eq('jahrgang_id', id).order('datum', { ascending: false }),
 
     // Kontakte + Firmen für Abnehmer-Dropdown
@@ -109,6 +109,20 @@ export default async function ErnteDetailPage({ params }: Props) {
   ])
 
   if (!jg) notFound()
+
+  // Zugekaufte Trauben dieses Jahrgangs (art='trauben') - stehen als zusätzliche
+  // Quelle für Pressungs-Vorschlag und Traubenverkauf zur Verfügung.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawZukaufTrauben } = await (supabase.from('zukauf_posten') as any)
+    .select(`
+      id, datum, menge, rebsorte, herkunft, qualitaetsstufe,
+      lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname),
+      lieferant_firma:firmen!lieferant_firma_id(name)
+    `)
+    .eq('art', 'trauben')
+    .eq('aktiv', true)
+    .eq('jahrgang', (jg as AR).jahrgang)
+    .order('datum', { ascending: false })
 
   const parzellen: ErnteParzelle[] = ((rawP ?? []) as AR[]).map(p => ({
     id: p.id, weingarten_id: p.weingarten_id,
@@ -161,7 +175,8 @@ export default async function ErnteDetailPage({ params }: Props) {
     weingaerten: ((p.weingaerten ?? []) as AR[]).map((w: AR): PressungWG => ({
       id: w.id, weingarten_id: w.weingarten_id,
       grundstueck_id: w.grundstueck_id ?? null,
-      weingarten_name: w.weingarten?.name ?? '–',
+      zukauf_posten_id: w.zukauf_posten_id ?? null,
+      weingarten_name: w.weingarten?.name ?? (w.zukauf_posten_id ? 'Zukauf' : '–'),
       trauben_kg: w.trauben_kg, rebsorte: w.rebsorte ?? null, notizen: w.notizen ?? null,
     })),
     behaelter: ((p.behaelter ?? []) as AR[]).map((b: AR): PressungBeh => ({
@@ -183,13 +198,13 @@ export default async function ErnteDetailPage({ params }: Props) {
   const pressedKgByWG: Record<string, number> = {}
   for (const p of pressungen) {
     for (const w of p.weingaerten) {
-      pressedKgByWG[w.weingarten_id] = (pressedKgByWG[w.weingarten_id] ?? 0) + w.trauben_kg
+      if (w.weingarten_id) pressedKgByWG[w.weingarten_id] = (pressedKgByWG[w.weingarten_id] ?? 0) + w.trauben_kg
     }
   }
   // Verkaufte kg pro WG aus Traubenverkauf (dieses Jahrgangs) abziehen
   const soldKgByWG: Record<string, number> = {}
   for (const v of ((rawTV ?? []) as AR[])) {
-    soldKgByWG[v.weingarten_id] = (soldKgByWG[v.weingarten_id] ?? 0) + (parseFloat(v.menge_kg) || 0)
+    if (v.weingarten_id) soldKgByWG[v.weingarten_id] = (soldKgByWG[v.weingarten_id] ?? 0) + (parseFloat(v.menge_kg) || 0)
   }
   const verfuegbareKg: Record<string, number> = {}
   for (const wgId of Object.keys(harvestedKgByWG)) {
@@ -217,6 +232,33 @@ export default async function ErnteDetailPage({ params }: Props) {
   for (const gstId of Object.keys(harvestedKgByGST)) {
     verfuegbareKgByGST[gstId] = Math.max(0, (harvestedKgByGST[gstId] ?? 0) - (pressedKgByGST[gstId] ?? 0) - (soldKgByGST[gstId] ?? 0))
   }
+
+  // Verfügbare kg pro Trauben-Zukauf: zugekaufte Menge − bereits verpresst − bereits verkauft
+  const pressedKgByZukauf: Record<string, number> = {}
+  for (const p of pressungen) {
+    for (const w of p.weingaerten) {
+      if (w.zukauf_posten_id) pressedKgByZukauf[w.zukauf_posten_id] = (pressedKgByZukauf[w.zukauf_posten_id] ?? 0) + w.trauben_kg
+    }
+  }
+  const soldKgByZukauf: Record<string, number> = {}
+  for (const v of ((rawTV ?? []) as AR[])) {
+    if (v.zukauf_posten_id) soldKgByZukauf[v.zukauf_posten_id] = (soldKgByZukauf[v.zukauf_posten_id] ?? 0) + (parseFloat(v.menge_kg) || 0)
+  }
+  const zukaufTrauben: ZukaufTraubenOpt[] = ((rawZukaufTrauben ?? []) as AR[]).map(z => {
+    const mengeKg = parseFloat(z.menge) || 0
+    const lieferant = z.lieferant_kontakt
+      ? [z.lieferant_kontakt.vorname, z.lieferant_kontakt.nachname].filter(Boolean).join(' ')
+      : (z.lieferant_firma?.name ?? '–')
+    return {
+      id: z.id,
+      datum: z.datum,
+      lieferant,
+      rebsorte: z.rebsorte ?? null,
+      herkunft: z.herkunft ?? null,
+      menge_kg: mengeKg,
+      verfuegbar_kg: Math.max(0, mengeKg - (pressedKgByZukauf[z.id] ?? 0) - (soldKgByZukauf[z.id] ?? 0)),
+    }
+  })
   // Welche Behälter haben bereits eine Kellerbuch-Charge (für Verschnitt-Warnung)
   // Direkt aus weinausbau abfragen — unabhängig von pressung_behaelter Rückverknüpfung
   const behaelterMitCharge: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null }[]> = {}
@@ -233,10 +275,17 @@ export default async function ErnteDetailPage({ params }: Props) {
   const waOptions: WAOption[]  = ((rawWA ?? []) as AR[]).map(w => ({ id: w.id, name: w.name, jahrgang: w.jahrgang ?? null }))
 
   // Traubenverkauf
-  const verkauefe: Traubenverkauf[] = ((rawTV ?? []) as AR[]).map((v: AR) => ({
+  const zukaufById = new Map(zukaufTrauben.map(z => [z.id, z]))
+  const verkauefe: Traubenverkauf[] = ((rawTV ?? []) as AR[]).map((v: AR) => {
+    const zukaufQuelle = v.zukauf_posten_id ? zukaufById.get(v.zukauf_posten_id) : undefined
+    return {
     id: v.id,
-    weingarten_id: v.weingarten_id,
-    weingarten_name: (v.weingarten as AR | null)?.name ?? '–',
+    weingarten_id: v.weingarten_id ?? null,
+    zukauf_posten_id: v.zukauf_posten_id ?? null,
+    weingarten_name: (v.weingarten as AR | null)?.name
+      ?? (zukaufQuelle
+            ? `Zukauf – ${zukaufQuelle.rebsorte ?? '–'}${zukaufQuelle.lieferant ? ' (' + zukaufQuelle.lieferant + ')' : ''}`
+            : (v.zukauf_posten_id ? 'Zukauf' : '–')),
     kontakt_id: v.kontakt_id ?? null,
     kontakt_name: v.kontakt ? `${(v.kontakt as AR).vorname ?? ''} ${(v.kontakt as AR).nachname ?? ''}`.trim() : null,
     firma_id: v.firma_id ?? null,
@@ -250,7 +299,8 @@ export default async function ErnteDetailPage({ params }: Props) {
     herkunft_code: v.herkunft_code ?? null,
     notizen: v.notizen ?? null,
     liefernummer: v.liefernummer ?? null,
-  }))
+    }
+  })
   // WG-Optionen für Traubenverkauf: alle WGs die in diesem Jahrgang geerntet wurden
   // (jede Lese qualifiziert automatisch für Traubenverkauf)
   const harvestedWGIds = new Set(Object.keys(harvestedKgByWG))
@@ -299,18 +349,20 @@ export default async function ErnteDetailPage({ params }: Props) {
         waOptions={waOptions}
         verfuegbareKg={verfuegbareKg}
         verfuegbareKgByGST={verfuegbareKgByGST}
+        zukaufTrauben={zukaufTrauben}
         behaelterMitCharge={behaelterMitCharge}
         writeOk={writeOk}
         adminOk={adminOk}
       />
 
-      {(tvWGOptions.length > 0 || verkauefe.length > 0) && (
+      {(tvWGOptions.length > 0 || verkauefe.length > 0 || zukaufTrauben.length > 0) && (
         <div className="mt-6">
           <TraubenverkaufSection
             jahrgangId={id}
             verkauefe={verkauefe}
             wgOptions={tvWGOptions}
             leseParzellen={tvLeseParzellen}
+            zukaufOptions={zukaufTrauben}
             kontaktOptions={tvKontaktOptions}
             firmaOptions={tvFirmaOptions}
             writeOk={writeOk}

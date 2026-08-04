@@ -10,9 +10,20 @@ import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type PressungWG = {
-  id: string; weingarten_id: string; weingarten_name: string
+  id: string; weingarten_id: string | null; weingarten_name: string
   grundstueck_id?: string | null
+  // Alternative Quelle: zugekaufte Trauben (statt eigener Ernte). Genau eines
+  // von weingarten_id/zukauf_posten_id ist gesetzt (siehe Migration 141).
+  zukauf_posten_id?: string | null
   trauben_kg: number; rebsorte: string | null; notizen: string | null
+}
+// Zugekaufte Trauben (zukauf_posten, art='trauben'), die als zusätzliche Quelle
+// für Pressung und Traubenverkauf zur Verfügung stehen (verfuegbar_kg = Menge
+// abzüglich bereits verpresster/verkaufter Anteile dieses Zukaufs).
+export type ZukaufTraubenOpt = {
+  id: string; datum: string; lieferant: string
+  rebsorte: string | null; herkunft: string | null
+  menge_kg: number; verfuegbar_kg: number
 }
 export type PressungBeh = {
   id: string; behaelter_id: string | null; behaelter_name: string | null
@@ -56,16 +67,17 @@ const fmtDate = (d: string) =>
 
 // ── Pressung-Formular ─────────────────────────────────────────────────────────
 
-type WGRow  = { weingarten_id: string; grundstueck_id: string; trauben_kg: string; rebsorte: string; notizen: string }
+type WGRow  = { weingarten_id: string; grundstueck_id: string; zukauf_posten_id: string; trauben_kg: string; rebsorte: string; notizen: string }
 type BehRow = { behaelter_id: string; weinausbau_id: string; menge_liter: string; notizen: string }
 
-const emptyWG  = (): WGRow  => ({ weingarten_id: '', grundstueck_id: '', trauben_kg: '', rebsorte: '', notizen: '' })
+const emptyWG  = (): WGRow  => ({ weingarten_id: '', grundstueck_id: '', zukauf_posten_id: '', trauben_kg: '', rebsorte: '', notizen: '' })
 const emptyBeh = (): BehRow => ({ behaelter_id: '', weinausbau_id: '', menge_liter: '', notizen: '' })
 
-function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, leseParzellen, verfuegbareKgByGST, behaelterMitCharge, onDone }: {
+function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, leseParzellen, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, onDone }: {
   jahrgangId: string; pressung?: Pressung
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
   leseParzellen: LeseParzelle[]; verfuegbareKgByGST: Record<string, number>
+  zukaufTrauben: ZukaufTraubenOpt[]
   behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null }[]>; onDone: () => void
 }) {
   const [datum, setDatum]                   = useState(pressung?.datum ?? new Date().toISOString().split('T')[0])
@@ -82,21 +94,33 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
 
   const defaultWGRows: WGRow[] = pressung
     ? pressung.weingaerten.map(w => ({
-        weingarten_id: w.weingarten_id, grundstueck_id: w.grundstueck_id ?? '',
+        weingarten_id: w.weingarten_id ?? '', grundstueck_id: w.grundstueck_id ?? '',
+        zukauf_posten_id: w.zukauf_posten_id ?? '',
         trauben_kg: w.trauben_kg.toString().replace('.', ','),
         rebsorte: w.rebsorte ?? '', notizen: w.notizen ?? '',
       }))
     : (() => {
-        const rows = leseParzellen
+        const rows: WGRow[] = leseParzellen
           .filter(p => (p.menge_kg ?? 0) > 0 && gstVerfuegbar(p.grundstueck_id) > 0)
           .map(p => ({
             weingarten_id: p.weingarten_id,
             grundstueck_id: p.grundstueck_id ?? '',
+            zukauf_posten_id: '',
             trauben_kg: gstVerfuegbar(p.grundstueck_id).toString().replace('.', ','),
             rebsorte: p.grundstueck_rebsorte ?? p.rebsorte ?? '',
             notizen: '',
           }))
-        return rows.length > 0 ? rows : [emptyWG()]
+        // Zugekaufte Trauben ebenfalls als Vorschlag aufnehmen (Punkt 3a)
+        const zukaufRows: WGRow[] = zukaufTrauben
+          .filter(z => z.verfuegbar_kg > 0)
+          .map(z => ({
+            weingarten_id: '', grundstueck_id: '', zukauf_posten_id: z.id,
+            trauben_kg: z.verfuegbar_kg.toString().replace('.', ','),
+            rebsorte: z.rebsorte ?? '',
+            notizen: `Zukauf${z.lieferant ? ' – ' + z.lieferant : ''}`,
+          }))
+        const alle = [...rows, ...zukaufRows]
+        return alle.length > 0 ? alle : [emptyWG()]
       })()
   const [wgRows, setWgRows] = useState<WGRow[]>(defaultWGRows)
   const [behRows, setBehRows] = useState<BehRow[]>(
@@ -152,15 +176,37 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     menge_kg: p.menge_kg ?? 0,
     verfuegbar_kg: gstVerfuegbar(p.grundstueck_id),
   }))
+  // Zukauf-Optionen: eigenes Präfix "zukauf:<id>" um Kollisionen mit compositeId zu vermeiden
+  const zukaufOptionen = zukaufTrauben.map(z => ({
+    compositeId: `zukauf:${z.id}`,
+    zukauf_posten_id: z.id,
+    label: `Zukauf${z.lieferant ? ' · ' + z.lieferant : ''}${z.herkunft ? ' (' + z.herkunft + ')' : ''}`,
+    rebsorte: z.rebsorte ?? '',
+    verfuegbar_kg: z.verfuegbar_kg,
+  }))
 
   function updateWG(i: number, field: keyof WGRow | 'compositeId', val: string) {
     if (field === 'compositeId') {
+      if (val.startsWith('zukauf:')) {
+        const opt = zukaufOptionen.find(o => o.compositeId === val)
+        if (opt) {
+          setWgRows(rows => rows.map((r, j) => j === i ? {
+            ...r,
+            weingarten_id: '',
+            grundstueck_id: '',
+            zukauf_posten_id: opt.zukauf_posten_id,
+            rebsorte: opt.rebsorte,
+          } : r))
+        }
+        return
+      }
       const opt = gstOptionen.find(o => o.compositeId === val)
       if (opt) {
         setWgRows(rows => rows.map((r, j) => j === i ? {
           ...r,
           weingarten_id: opt.weingarten_id,
           grundstueck_id: opt.grundstueck_id,
+          zukauf_posten_id: '',
           rebsorte: opt.rebsorte,
         } : r))
       }
@@ -184,9 +230,10 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     fd.append('qualitaetsstufe', qualitaetsstufe)
     fd.append('notizen', notizen)
     fd.append('weingaerten_json', JSON.stringify(
-      wgRows.filter(r => r.weingarten_id && r.trauben_kg).map(r => ({
-        weingarten_id: r.weingarten_id,
+      wgRows.filter(r => (r.weingarten_id || r.zukauf_posten_id) && r.trauben_kg).map(r => ({
+        weingarten_id: r.weingarten_id || undefined,
         grundstueck_id: r.grundstueck_id || undefined,
+        zukauf_posten_id: r.zukauf_posten_id || undefined,
         trauben_kg: parseFloat(r.trauben_kg.replace(',', '.')),
         rebsorte: r.rebsorte || undefined,
         notizen: r.notizen || undefined,
@@ -377,11 +424,12 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
         <div className="space-y-1.5">
           {wgRows.map((row, i) => {
             const compositeId = `${row.weingarten_id}|${row.grundstueck_id}`
+            const selectValue = row.weingarten_id ? compositeId : row.zukauf_posten_id ? `zukauf:${row.zukauf_posten_id}` : ''
             return (
               <div key={i} className="grid grid-cols-12 gap-1.5 items-center">
                 <div className="col-span-5">
                   <select
-                    value={row.weingarten_id ? compositeId : ''}
+                    value={selectValue}
                     onChange={e => updateWG(i, 'compositeId', e.target.value)}
                     className={inp}
                   >
@@ -391,6 +439,15 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
                         {opt.label} – {opt.verfuegbar_kg.toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg verf.
                       </option>
                     ))}
+                    {zukaufOptionen.length > 0 && (
+                      <optgroup label="Zugekaufte Trauben">
+                        {zukaufOptionen.map(opt => (
+                          <option key={opt.compositeId} value={opt.compositeId}>
+                            {opt.label} – {opt.verfuegbar_kg.toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg verf.
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
                 <div className="col-span-2">
@@ -543,10 +600,11 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
 
 // ── Hauptexport ───────────────────────────────────────────────────────────────
 
-export default function PressungSection({ jahrgangId, pressungen, wgOptions, behOptions, waOptions, leseParzellen, verfuegbareKgByGST, behaelterMitCharge, writeOk, adminOk }: {
+export default function PressungSection({ jahrgangId, pressungen, wgOptions, behOptions, waOptions, leseParzellen, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk, adminOk }: {
   jahrgangId: string; pressungen: Pressung[]
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
   leseParzellen: LeseParzelle[]; verfuegbareKgByGST: Record<string, number>
+  zukaufTrauben: ZukaufTraubenOpt[]
   behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null }[]>; writeOk: boolean; adminOk: boolean
 }) {
   const [showForm, setShowForm]    = useState(false)
@@ -558,6 +616,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
   const gesamtLiter = pressungen.reduce((s, p) => s + (p.most_liter_gesamt ?? 0), 0)
   const ausbeute    = gesamtKg > 0 && gesamtLiter > 0 ? (gesamtLiter / gesamtKg) * 100 : null
   const gesamtVerfuegbarKg = Object.values(verfuegbareKgByGST).reduce((s, v) => s + v, 0)
+    + zukaufTrauben.reduce((s, z) => s + z.verfuegbar_kg, 0)
 
   function handleDelete(id: string) {
     if (!confirm('Pressung löschen?')) return
@@ -618,6 +677,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
       {showForm && !editId && (
         <PressungForm jahrgangId={jahrgangId} wgOptions={wgOptions} behOptions={behOptions}
           waOptions={waOptions} leseParzellen={leseParzellen} verfuegbareKgByGST={verfuegbareKgByGST}
+          zukaufTrauben={zukaufTrauben}
           behaelterMitCharge={behaelterMitCharge} onDone={() => setShowForm(false)} />
       )}
 
@@ -636,7 +696,8 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                 {editId === p.id ? (
                   <PressungForm pressung={p} jahrgangId={jahrgangId} wgOptions={wgOptions}
                     behOptions={behOptions} waOptions={waOptions} leseParzellen={leseParzellen}
-                    verfuegbareKgByGST={verfuegbareKgByGST} behaelterMitCharge={undefined}
+                    verfuegbareKgByGST={verfuegbareKgByGST} zukaufTrauben={zukaufTrauben}
+                    behaelterMitCharge={undefined}
                     onDone={() => setEditId(null)} />
                 ) : (
                   <div className="group border border-s112-border rounded-xl p-3">

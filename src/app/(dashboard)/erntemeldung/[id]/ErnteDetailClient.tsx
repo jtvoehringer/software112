@@ -6,7 +6,7 @@ import { qualitaetLabel, QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import type { ErnteParzelle, WeingartenOpt, GSTOpt, AMAMeldung, HektarhoechstertragStatus } from './page'
 import PressungSection from './PressungSection'
-import type { Pressung, WGOption, BehOption, WAOption } from './PressungSection'
+import type { Pressung, WGOption, BehOption, WAOption, ZukaufTraubenOpt } from './PressungSection'
 import { fmtHa, fmtZahl, fmtProzent } from '@/lib/format'
 import { Pencil, Trash2, AlertTriangle, Plus } from 'lucide-react'
 
@@ -419,13 +419,14 @@ function ParzellForm({
 
 // ── Hauptkomponente ─────────────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag, pressungen, wgOptions, behOptions, waOptions, verfuegbareKg, verfuegbareKgByGST, behaelterMitCharge, writeOk, adminOk }: {
+export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag, pressungen, wgOptions, behOptions, waOptions, verfuegbareKg, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk, adminOk }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   jahrgang: Record<string, any>; parzellen: ErnteParzelle[]
   weingaerten: WeingartenOpt[]; gstByWeingarten: Record<string, GSTOpt[]>; amaMeldung: AMAMeldung | null
   hektarhoechstertrag: HektarhoechstertragStatus
   pressungen: Pressung[]; wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
   verfuegbareKg: Record<string, number>; verfuegbareKgByGST: Record<string, number>
+  zukaufTrauben: ZukaufTraubenOpt[]
   behaelterMitCharge: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null }[]>; writeOk: boolean; adminOk: boolean
 }) {
   const [showForm, setShowForm] = useState(false)
@@ -596,6 +597,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
         behOptions={behOptions}
         waOptions={waOptions}
         verfuegbareKgByGST={verfuegbareKgByGST}
+        zukaufTrauben={zukaufTrauben}
         behaelterMitCharge={behaelterMitCharge}
         leseParzellen={(() => {
           // Deduplizieren: eine Zeile pro (weingarten_id, grundstueck_id) für Pressung-Formular.
