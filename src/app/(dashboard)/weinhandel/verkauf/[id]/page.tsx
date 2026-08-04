@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { deactivateVerkauf, stornoVerkauf, createZahlung, deleteZahlung } from '../actions'
 import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButton'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
-import { Trash2, Undo2, Mail, Phone, Info, CreditCard } from 'lucide-react'
+import { Trash2, Undo2, Mail, Phone, Info, CreditCard, FileText } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -82,6 +82,9 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const positionen = (posten.positionen ?? []) as R[]
   const hasTank   = positionen.some((p: R) => p.typ === 'tank')
   const tankPos   = positionen.filter((p: R) => p.typ === 'tank')
+  // Most-, Wein- und Traubenverkauf benötigen alle eine Transportbescheinigung
+  // gem. Weingesetz - nicht nur der Tankverkauf.
+  const brauchtTransportschein = positionen.some((p: R) => ['tank', 'flasche', 'trauben'].includes(p.typ))
 
   const gesamt = positionen.reduce((s: number, p: R) => {
     if (p.preis_brutto == null) return s
@@ -201,6 +204,15 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             <span className="text-xs font-semibold bg-red-100 text-red-700 px-2.5 py-1 rounded-full">
               STORNIERT
             </span>
+          )}
+          {brauchtTransportschein && (
+            <Link
+              href={`/weinhandel/verkauf/${id}/transportbescheinigung`}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 px-2.5 py-1.5 rounded-lg transition-colors"
+              title="Transportbescheinigung gemäß Weingesetz"
+            >
+              <FileText size={14} /> Transportschein
+            </Link>
           )}
           <PrintButton />
           {writeOk && !posten.storniert && (

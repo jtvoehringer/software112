@@ -22,7 +22,9 @@ export default async function TransportbescheinigungPage({ params }: { params: P
         firma:firmen(name, telefon, strasse, plz, ort),
         positionen:verkauf_positionen(
           id, typ, name, menge,
-          weinausbau:weinausbau(id, name, jahrgang, qualitaetsstufe, rebsorte)
+          weinausbau:weinausbau(id, name, jahrgang, qualitaetsstufe, rebsorte),
+          fuellung:fuellungen(id, name, jahrgang, qualitaet, rebsorte, anbaugebiet, flaschengroesse_ml),
+          traubenverkauf:traubenverkauf(id, kmw_grad, qualitaetsstufe, herkunft_code, grundstueck:grundstuecke(rebsorte))
         )
       `)
       .eq('id', id)
@@ -58,7 +60,9 @@ export default async function TransportbescheinigungPage({ params }: { params: P
 
   const posten  = postenRaw as R
   const cfg     = (cfgRaw as R | null) ?? {}
-  const tankPos = ((posten.positionen ?? []) as R[]).filter((p: R) => p.typ === 'tank')
+  // Mostverkauf (Tank), Weinverkauf (Flasche) und Traubenverkauf benötigen alle
+  // eine Transportbescheinigung gem. Weingesetz - "sonstiges"-Positionen nicht.
+  const relevantePos = ((posten.positionen ?? []) as R[]).filter((p: R) => ['tank', 'flasche', 'trauben'].includes(p.typ))
 
   const src   = posten.kontakt ?? posten.firma ?? {}
   const isK   = !!posten.kontakt
@@ -99,22 +103,62 @@ export default async function TransportbescheinigungPage({ params }: { params: P
     e_ort:             src.ort ?? '',
     e_ort_einlagerung: src.ort ?? '',
     e_plz_einlagerung: src.plz ?? '',
-    positionen: tankPos.length > 0
-      ? tankPos.map((p: R) => {
-          const wa = p.weinausbau as R | null
+    positionen: relevantePos.length > 0
+      ? relevantePos.map((p: R) => {
+          if (p.typ === 'tank') {
+            const wa = p.weinausbau as R | null
+            return {
+              menge_liter:      String(p.menge ?? ''),
+              art:              'Weiß',
+              traubensorte:     wa?.rebsorte ?? '',
+              qualitaetsstufe:  wa?.qualitaetsstufe ?? '',
+              jahrgang:         wa?.jahrgang ? String(wa.jahrgang) : '',
+              herkunft:         cfg.betrieb_ort ?? '',
+              fremd_sorten_pct: '',
+              fremd_jg_pct:     '',
+              pruefnummer:      wa?.id ? (pnMap[wa.id] ?? '') : '',
+              anreicherung:     'N',
+              alkohol_pct:      '',
+              kmw:              '',
+            }
+          }
+          if (p.typ === 'flasche') {
+            const f = p.fuellung as R | null
+            // Menge bei Flaschenverkauf ist die Stückzahl - für den Transportschein
+            // (Menge in Liter) auf Basis der Flaschengröße umrechnen.
+            const literMenge = f?.flaschengroesse_ml
+              ? (Number(p.menge) * Number(f.flaschengroesse_ml)) / 1000
+              : null
+            return {
+              menge_liter:      literMenge != null ? String(literMenge) : String(p.menge ?? ''),
+              art:              'Weiß',
+              traubensorte:     f?.rebsorte ?? '',
+              qualitaetsstufe:  f?.qualitaet ?? '',
+              jahrgang:         f?.jahrgang ? String(f.jahrgang) : '',
+              herkunft:         f?.anbaugebiet ?? cfg.betrieb_ort ?? '',
+              fremd_sorten_pct: '',
+              fremd_jg_pct:     '',
+              pruefnummer:      '',
+              anreicherung:     'N',
+              alkohol_pct:      '',
+              kmw:              '',
+            }
+          }
+          // Traubenverkauf (Menge in kg statt Liter)
+          const tv = p.traubenverkauf as R | null
           return {
             menge_liter:      String(p.menge ?? ''),
             art:              'Weiß',
-            traubensorte:     wa?.rebsorte ?? '',
-            qualitaetsstufe:  wa?.qualitaetsstufe ?? '',
-            jahrgang:         wa?.jahrgang ? String(wa.jahrgang) : '',
-            herkunft:         cfg.betrieb_ort ?? '',
+            traubensorte:     (tv?.grundstueck as R | null)?.rebsorte ?? '',
+            qualitaetsstufe:  tv?.qualitaetsstufe ?? '',
+            jahrgang:         '',
+            herkunft:         tv?.herkunft_code ?? cfg.betrieb_ort ?? '',
             fremd_sorten_pct: '',
             fremd_jg_pct:     '',
-            pruefnummer:      wa?.id ? (pnMap[wa.id] ?? '') : '',
+            pruefnummer:      '',
             anreicherung:     'N',
             alkohol_pct:      '',
-            kmw:              '',
+            kmw:              tv?.kmw_grad != null ? String(tv.kmw_grad) : '',
           }
         })
       : [{
