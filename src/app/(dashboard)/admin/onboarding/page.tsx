@@ -34,7 +34,7 @@ const ONBOARDING_SCHRITTE: Gruppe[] = [
   {
     gruppe: 'Grunddaten erfassen',
     schritte: [
-      { id: 's8', pflicht: true, titel: 'PSM-Stammdaten eintragen', beschreibung: 'Rieden > PSM-Lager > Tab „Stammdaten": Die häufigsten Pflanzenschutzmittel anlegen (Name, Handelsnamen, Wirkstoff, Wartezeit, Cu-Gehalt, Öko-Zulassung).', link: '/behandlungen/lager?tab=stammdaten', linkLabel: 'PSM-Lager öffnen' },
+      { id: 's8', pflicht: true, titel: 'PSM-Stammdaten eintragen', beschreibung: 'Rieden > Betriebsmittel > Tab „Stammdaten": Die häufigsten Pflanzenschutzmittel anlegen (Name, Handelsnamen, Wirkstoff, Wartezeit, Cu-Gehalt, Öko-Zulassung).', link: '/behandlungen/lager?tab=stammdaten', linkLabel: 'Betriebsmittel öffnen' },
       { id: 's9', pflicht: true, titel: 'Rieden anlegen', beschreibung: 'Rieden > Neue Ried: alle Parzellen anlegen.', link: '/weingarten', linkLabel: 'Rieden öffnen' },
       { id: 's10', pflicht: true, titel: 'Behälter anlegen', beschreibung: 'Kellerbuch > Vinifizierung > Neuer Behälter: alle Tanks und Fässer anlegen (Typ, Volumen). Basis für Kellerplan und Umzug-Modul.', link: '/kellerbuch', linkLabel: 'Kellerbuch öffnen' },
       { id: 's11', pflicht: false, titel: 'Jahrgang anlegen', beschreibung: 'Kellerbuch > Vinifizierung: ersten Weinausbau-Jahrgang anlegen. Oder warte bis nach der nächsten Lese und starte mit der Erntemeldung.', link: '/kellerbuch', linkLabel: 'Kellerbuch öffnen' },

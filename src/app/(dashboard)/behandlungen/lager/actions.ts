@@ -50,7 +50,7 @@ export async function deleteLagerBewegung(id: string) {
   revalidatePath('/behandlungen/lager')
 }
 
-// ── PSM-Stammdaten (vormals /pflanzenschutz, jetzt Teil des PSM-Lagers) ────────
+// ── PSM-Stammdaten (vormals /pflanzenschutz, jetzt Teil der Betriebsmittel-Lagerverwaltung) ────────
 
 export async function upsertPSM(fd: FormData) {
   const supabase = await createSupabaseServerClient()

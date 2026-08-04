@@ -7,7 +7,7 @@ import PSMClient from './PSMClient'
 import DuengemittelClient from './DuengemittelClient'
 import SaetzeClient from './SaetzeClient'
 
-export const metadata: Metadata = { title: 'PSM-Lager – software:112' }
+export const metadata: Metadata = { title: 'Betriebsmittel – software:112' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -205,12 +205,12 @@ export default async function LagerPage({
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-6">
         <Link href="/behandlungen" className="hover:text-s112-teal transition-colors">Maßnahmen</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">PSM-Lager</span>
+        <span className="text-gray-700 font-medium">Betriebsmittel</span>
       </div>
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">PSM-Lagerverwaltung</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Betriebsmittel-Lagerverwaltung</h1>
           <p className="text-sm text-s112-muted mt-0.5">
             {tab === 'stammdaten'
               ? 'Pflanzenschutzmittel anlegen und pflegen · Cu-Gehalt · Grenzwerte · Bio-Zulassung'

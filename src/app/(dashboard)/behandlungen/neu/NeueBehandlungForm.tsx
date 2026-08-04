@@ -780,7 +780,7 @@ export default function NeueBehandlungForm({
             )}
             {passendeSaetze.length === 0 && (
               <p className="text-xs text-s112-muted">
-                Für diese Maßnahmenart ist noch kein Hektarsatz hinterlegt (PSM-Lager → Stundensätze).
+                Für diese Maßnahmenart ist noch kein Hektarsatz hinterlegt (Betriebsmittel → Stundensätze).
               </p>
             )}
 

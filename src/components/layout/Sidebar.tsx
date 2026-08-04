@@ -46,7 +46,7 @@ const NAV: NavEntry[] = [
     items: [
       { href: '/weingarten',         label: 'Rieden',         phase: 1 },
       { href: '/behandlungen',       label: 'Maßnahmen',      phase: 1 },
-      { href: '/behandlungen/lager', label: 'PSM-Lager',      phase: 1 },
+      { href: '/behandlungen/lager', label: 'Betriebsmittel', phase: 1 },
       { href: '/erntemeldung',       label: 'Lese',           phase: 1 },
     ],
   },
@@ -273,6 +273,7 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
   const supabase = createSupabaseBrowserClient()
   const isAdmin  = role === 'system_admin' || role === 'tenant_admin'
   const displayName = userName || userEmail
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -406,50 +407,64 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
           </button>
         ) : (
           <>
-            <div className="rounded-[10px] bg-s112-bg p-2.5 flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setUserMenuOpen(o => !o)}
+              aria-expanded={userMenuOpen}
+              title={userMenuOpen ? 'Weniger anzeigen' : 'Mehr anzeigen'}
+              className="w-full rounded-[10px] bg-s112-bg p-2.5 flex items-center gap-2.5 hover:bg-s112-line/60 transition-colors"
+            >
               <span className="flex-shrink-0 w-7 h-7 rounded-full bg-s112-grey text-white flex items-center justify-center text-[11px] font-semibold">
                 {initials(displayName)}
               </span>
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 text-left">
                 <p className="text-[12.5px] font-semibold text-s112-text truncate">{displayName}</p>
-                <p className="text-[11px] text-s112-tertiary truncate">{roleLabel}</p>
+                {userMenuOpen && (
+                  <p className="text-[11px] text-s112-tertiary truncate">{roleLabel}</p>
+                )}
               </div>
-            </div>
-
-            <a href="/profil"
-              className="text-xs text-s112-text-1 hover:text-s112-blue-700 transition-colors mt-2 block">
-              Profil bearbeiten
-            </a>
-            {betriebCount > 1 && (
-              <a href="/betrieb-waehlen"
-                className="text-xs text-s112-text-1 hover:text-s112-blue-700 transition-colors mt-1.5 flex items-center gap-1">
-                <ArrowLeftRight size={12} strokeWidth={1.75} />
-                Betrieb wechseln
-              </a>
-            )}
-            <button
-              onClick={handleLogout}
-              className="text-xs text-s112-text-1 hover:text-red-600 transition-colors mt-1.5"
-            >
-              Abmelden
+              <ChevronRight size={13} strokeWidth={1.75}
+                className={`flex-shrink-0 text-s112-tertiary transition-transform ${userMenuOpen ? 'rotate-90' : ''}`} />
             </button>
 
-            <p className="text-[10px] text-s112-tertiary mt-2">
-              v2.2.1 · Juni 2026
-              {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA && (
-                <span className="ml-1 opacity-60">· {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA.slice(0, 7)}</span>
-              )}
-            </p>
-            {/* ICP-Branding */}
-            <div className="mt-2 pt-2 border-t border-s112-line flex items-center gap-1.5">
-              <span className="text-[9px] text-s112-tertiary flex-shrink-0">&copy;</span>
-              <Image
-                src="/icp-logo.png"
-                alt="ICP Solutions"
-                width={82} height={28}
-                className="object-contain object-left opacity-70 hover:opacity-100 transition-opacity"
-              />
-            </div>
+            {userMenuOpen && (
+              <>
+                <a href="/profil"
+                  className="text-xs text-s112-text-1 hover:text-s112-blue-700 transition-colors mt-2 block">
+                  Profil bearbeiten
+                </a>
+                {betriebCount > 1 && (
+                  <a href="/betrieb-waehlen"
+                    className="text-xs text-s112-text-1 hover:text-s112-blue-700 transition-colors mt-1.5 flex items-center gap-1">
+                    <ArrowLeftRight size={12} strokeWidth={1.75} />
+                    Betrieb wechseln
+                  </a>
+                )}
+                <button
+                  onClick={handleLogout}
+                  className="text-xs text-s112-text-1 hover:text-red-600 transition-colors mt-1.5"
+                >
+                  Abmelden
+                </button>
+
+                <p className="text-[10px] text-s112-tertiary mt-2">
+                  v2.2.1 · Juni 2026
+                  {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA && (
+                    <span className="ml-1 opacity-60">· {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA.slice(0, 7)}</span>
+                  )}
+                </p>
+                {/* ICP-Branding */}
+                <div className="mt-2 pt-2 border-t border-s112-line flex items-center gap-1.5">
+                  <span className="text-[9px] text-s112-tertiary flex-shrink-0">&copy;</span>
+                  <Image
+                    src="/icp-logo.png"
+                    alt="ICP Solutions"
+                    width={41} height={14}
+                    className="object-contain object-left opacity-70 hover:opacity-100 transition-opacity"
+                  />
+                </div>
+              </>
+            )}
           </>
         )}
       </div>
