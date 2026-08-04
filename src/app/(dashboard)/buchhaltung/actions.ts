@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -101,6 +101,15 @@ export async function createEaDauerauftrag(formData: FormData) {
 
 export async function berechneUndSpeichereUva(jahr: number, zeitraum: string) {
   const { supabase, tenantId } = await getCtx()
+
+  // Bereits übermittelte (gesperrte) Meldungen nie überschreiben
+  const { data: bestehend } = await (supabase.from('ea_uva') as any)
+    .select('gesperrt')
+    .eq('tenant_id', tenantId).eq('jahr', jahr).eq('zeitraum', zeitraum)
+    .maybeSingle()
+  if ((bestehend as R | null)?.gesperrt) {
+    return { error: 'Diese Meldung ist bereits als übermittelt markiert (gesperrt) und kann nicht neu berechnet werden.' }
+  }
 
   // RPC aufrufen
   const { data, error } = await (supabase.rpc as any)('berechne_ea_uva', {
@@ -255,5 +264,40 @@ export async function syncEaEinnahmeFuerVerkauf(
 
   revalidatePath('/buchhaltung')
   revalidatePath('/buchhaltung/uva')
+  return { ok: true }
+}
+
+// ── UVA als übermittelt markieren ─────────────────────────────────────────────
+//
+// Reine Anwendungs-Markierung mit Zeitstempel (KEINE elektronische Übermittlung
+// an FinanzOnline – die tatsächliche Meldung erfolgt weiterhin manuell durch
+// den Steuerpflichtigen/Steuerberater mit ID Austria/FinanzOnline-Zugang).
+// Setzt ea_uva.gesperrt + gesperrt_am und sperrt alle E&A-Buchungen im
+// Zeitraum (is_locked=true), damit weder ein manuelles Löschen/Bearbeiten
+// noch der automatische Zahlungseingang-Sync (Punkt 7) sie nachträglich
+// verändert. Irreversibel über die UI – nur Admin-Rollen dürfen das auslösen.
+export async function markiereUvaAlsUebermittelt(uvaId: string): Promise<{ ok: boolean; error?: string }> {
+  const { supabase, tenantId } = await getCtx()
+  const membership = await getCurrentMembership()
+  if (!canAdmin(membership?.role ?? null)) {
+    return { ok: false, error: 'Keine Berechtigung – nur Admins dürfen eine UVA als übermittelt markieren.' }
+  }
+
+  const { data: uvaRaw } = await (supabase.from('ea_uva') as any)
+    .select('jahr, zeitraum, gesperrt')
+    .eq('id', uvaId).eq('tenant_id', tenantId).maybeSingle()
+  const uva = uvaRaw as R | null
+  if (!uva) return { ok: false, error: 'UVA-Meldung nicht gefunden' }
+  if (uva.gesperrt) return { ok: true }
+
+  const { error } = await (supabase.rpc as any)('sperre_ea_uva', {
+    p_tenant_id: tenantId,
+    p_jahr:      uva.jahr,
+    p_zeitraum:  uva.zeitraum,
+  })
+  if (error) return { ok: false, error: (error as R).message }
+
+  revalidatePath('/buchhaltung/uva')
+  revalidatePath('/buchhaltung')
   return { ok: true }
 }

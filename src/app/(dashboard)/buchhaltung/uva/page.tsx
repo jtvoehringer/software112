@@ -1,8 +1,10 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership } from '@/lib/auth/roles'
-import { berechneUndSpeichereUva } from '../actions'
+import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
+import { berechneUndSpeichereUva, markiereUvaAlsUebermittelt } from '../actions'
+import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
+import { Lock } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +26,7 @@ export default async function UvaPage({
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) redirect('/login')
   const tenantId = membership.tenantId
+  const adminOk  = canAdmin(membership.role)
 
   const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
     .select('modul_ea, ea_uva_zeitraum').eq('tenant_id', tenantId).maybeSingle()
@@ -41,9 +44,11 @@ export default async function UvaPage({
     .order('zeitraum')
 
   const jahre = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
-  const zeitraeume = uvaZeitraum === 'monatlich'
+  const alleZeitraeume = uvaZeitraum === 'monatlich'
     ? Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'))
     : QUARTALE
+  const gesperrteZeitraeume = new Set(((uvaListe ?? []) as R[]).filter(u => u.gesperrt).map(u => u.zeitraum))
+  const zeitraeume = alleZeitraeume.filter(z => !gesperrteZeitraeume.has(z))
 
   const zeitraumLabel = (z: string) => {
     if (z.startsWith('Q')) return `${z} ${jahr}`
@@ -51,11 +56,19 @@ export default async function UvaPage({
     return `${mon[parseInt(z) - 1]} ${jahr}`
   }
 
+  const fmtDateTime = (ts: string | null) =>
+    ts ? new Date(ts).toLocaleString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : null
+
   async function handleBerechnen(formData: FormData) {
     'use server'
     const j = parseInt(formData.get('jahr') as string)
     const z = formData.get('zeitraum') as string
     await berechneUndSpeichereUva(j, z)
+  }
+
+  async function handleUebermitteln(uvaId: string) {
+    'use server'
+    await markiereUvaAlsUebermittelt(uvaId)
   }
 
   return (
@@ -80,23 +93,30 @@ export default async function UvaPage({
       {/* Berechnen */}
       <div className="bg-white rounded-2xl border border-s112-border p-5 mb-6">
         <h2 className="font-semibold text-gray-800 mb-3">Zeitraum berechnen</h2>
-        <form action={handleBerechnen} className="flex gap-3 items-end">
-          <input type="hidden" name="jahr" value={jahr} />
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Zeitraum *</label>
-            <select name="zeitraum" required
-              className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
-              {zeitraeume.map(z => <option key={z} value={z}>{zeitraumLabel(z)}</option>)}
-            </select>
-          </div>
-          <button type="submit"
-            className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
-            Berechnen & Speichern
-          </button>
-        </form>
-        <p className="text-xs text-s112-muted mt-2">
-          Berechnet USt und VSt aus den Buchungen und speichert die Meldung. Bereits übermittelte (gesperrte) Meldungen werden nicht überschrieben.
-        </p>
+        {zeitraeume.length > 0 ? (
+          <>
+            <form action={handleBerechnen} className="flex gap-3 items-end">
+              <input type="hidden" name="jahr" value={jahr} />
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Zeitraum *</label>
+                <select name="zeitraum" required
+                  className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
+                  {zeitraeume.map(z => <option key={z} value={z}>{zeitraumLabel(z)}</option>)}
+                </select>
+              </div>
+              <button type="submit"
+                className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+                Berechnen & Speichern
+              </button>
+            </form>
+            <p className="text-xs text-s112-muted mt-2">
+              Berechnet USt und VSt aus den Buchungen und speichert die Meldung (kann beliebig oft wiederholt werden,
+              solange die Meldung noch nicht als übermittelt markiert ist).
+            </p>
+          </>
+        ) : (
+          <p className="text-sm text-s112-muted">Alle Zeiträume für {jahr} sind bereits als übermittelt markiert.</p>
+        )}
       </div>
 
       {/* UVA-Liste */}
@@ -115,11 +135,29 @@ export default async function UvaPage({
             const zahllast = uva.zahllast ?? 0
             return (
               <div key={uva.id} className="bg-white rounded-2xl border border-s112-border overflow-hidden">
-                <div className="bg-s112-bg px-5 py-3 border-b border-s112-border flex items-center justify-between">
+                <div className="bg-s112-bg px-5 py-3 border-b border-s112-border flex items-center justify-between gap-3 flex-wrap">
                   <h3 className="font-semibold text-gray-800">{zeitraumLabel(uva.zeitraum)}</h3>
-                  {uva.gesperrt
-                    ? <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">Übermittelt</span>
-                    : <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Entwurf</span>}
+                  <div className="flex items-center gap-2">
+                    {uva.gesperrt ? (
+                      <span className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                        <Lock className="w-3 h-3" />
+                        Übermittelt{fmtDateTime(uva.gesperrt_am) ? ` am ${fmtDateTime(uva.gesperrt_am)}` : ''}
+                      </span>
+                    ) : (
+                      <>
+                        <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Entwurf</span>
+                        {adminOk && (
+                          <ConfirmDeleteForm
+                            action={handleUebermitteln.bind(null, uva.id)}
+                            message={`Diese UVA-Meldung (${zeitraumLabel(uva.zeitraum)}) als übermittelt markieren? Dies ist nicht rückgängig zu machen und sperrt alle Buchungen dieses Zeitraums gegen weitere Änderungen.`}
+                            label="Als übermittelt markieren"
+                            title="Als übermittelt markieren"
+                            className="text-xs bg-s112-teal text-white px-2.5 py-1 rounded-full font-medium hover:bg-opacity-90"
+                          />
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 <div className="p-5 space-y-5 text-sm">
