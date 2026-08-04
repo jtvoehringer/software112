@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { deactivateVerkauf, stornoVerkauf, createZahlung, deleteZahlung } from '../actions'
 import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButton'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
+import RechnungVersandPanel from './RechnungVersandPanel'
 import { Trash2, Undo2, Mail, Phone, Info, CreditCard, FileText } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -57,6 +58,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       .select(`
         id, datum, rechnungsnummer, notizen, erstellt_am, storniert, storniert_am,
         bezahlt, bezahlt_am, skonto_pct, skonto_tage, skonto_aktiv,
+        rechnung_versendet_am, rechnung_versendet_an,
         kontakt:kontakte!kontakt_id(id, vorname, nachname, email, telefon, strasse, plz, ort),
         firma:firmen(id, name, email, telefon, strasse, plz, ort),
         zh_kontakt:kontakte!zh_kontakt_id(vorname, nachname),
@@ -245,6 +247,26 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
           </div>
         </div>
       </div>
+
+      {/* Rechnungsversand per E-Mail */}
+      {!posten.storniert && (
+        <div className="flex flex-col items-start gap-3 no-print">
+          {writeOk ? (
+            <RechnungVersandPanel
+              verkaufId={id}
+              defaultEmail={info.email ?? ''}
+              sentAt={posten.rechnung_versendet_am ?? null}
+              sentTo={posten.rechnung_versendet_an ?? null}
+            />
+          ) : posten.rechnung_versendet_am ? (
+            <span className="inline-flex items-center gap-1 text-xs font-medium bg-s112-bg text-s112-teal px-2.5 py-1 rounded-full">
+              <Mail size={12} />
+              Versendet am {new Date(posten.rechnung_versendet_am).toLocaleDateString('de-AT')}
+              {posten.rechnung_versendet_an ? ` an ${posten.rechnung_versendet_an}` : ''}
+            </span>
+          ) : null}
+        </div>
+      )}
 
       {/* ── RECHNUNG / LIEFERSCHEIN ─────────────────────────────────────────── */}
 
