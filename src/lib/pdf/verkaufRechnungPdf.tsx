@@ -100,15 +100,23 @@ export type VerkaufRechnungPdfProps = {
 export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
   const { betrieb, rechnung, kunde, positionen, gesamt, gesamtNetto, ustGruppen, skonto, bank, fusstext } = props
   const color = '#35609E'
+  // react-pdf's <Image> unterstützt zuverlässig nur Raster-Formate (PNG/JPG).
+  // SVG-Logos (z. B. das App-Platzhalter-Logo mit eingebettetem <text>) lassen
+  // sich damit nicht sicher einbetten – react-pdf versucht dabei intern eine
+  // Font-Auflösung für im SVG enthaltenen Text und scheitert an nicht
+  // registrierten Web-Fonts ("Font family not registered: Arial, Helvetica,
+  // sans-serif"). Für SVG-URLs daher auf den Textnamen zurückfallen, wie auch
+  // ganz ohne Logo.
+  const logoIstRasterbild = !!betrieb.logoUrl && !/\.svg(\?|$)/i.test(betrieb.logoUrl)
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <View>
-            {betrieb.logoUrl ? (
+            {logoIstRasterbild ? (
               // eslint-disable-next-line jsx-a11y/alt-text
-              <Image src={betrieb.logoUrl} style={{ width: 120, height: 50, objectFit: 'contain', marginBottom: 6 }} />
+              <Image src={betrieb.logoUrl!} style={{ width: 120, height: 50, objectFit: 'contain', marginBottom: 6 }} />
             ) : (
               <Text style={styles.senderName}>{betrieb.name}</Text>
             )}
