@@ -8,7 +8,7 @@ import type { ErnteParzelle, WeingartenOpt, GSTOpt, AMAMeldung, Hektarhoechstert
 import PressungSection from './PressungSection'
 import type { Pressung, WGOption, BehOption, WAOption } from './PressungSection'
 import { fmtHa, fmtZahl, fmtProzent } from '@/lib/format'
-import { Pencil, Trash2, AlertTriangle } from 'lucide-react'
+import { Pencil, Trash2, AlertTriangle, Plus } from 'lucide-react'
 
 // QUALITAET_OPTS: aus lib/wein/qualitaet importiert (s.u. import qualitaetLabel)
 const LESEMETHODE_OPTS = [
@@ -465,8 +465,8 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
             {writeOk && !showForm && (
               <button onClick={() => { setShowForm(true); setEditId(null) }}
                 data-print="hide"
-                className="text-xs bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-teal font-medium px-3 py-1.5 rounded-lg transition-colors">
-                + Ernte
+                className="inline-flex items-center gap-1.5 bg-s112-teal text-white font-semibold px-3 py-1.5 rounded-lg text-xs hover:bg-opacity-90 transition-colors shadow-sm">
+                <Plus size={14} strokeWidth={2.5} /> Ernte
               </button>
             )}
             <button
@@ -588,6 +588,48 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
         </div>
       )}
 
+      {/* Pressungen / Lese */}
+      <PressungSection
+        jahrgangId={jahrgang.id}
+        pressungen={pressungen}
+        wgOptions={wgOptions}
+        behOptions={behOptions}
+        waOptions={waOptions}
+        verfuegbareKgByGST={verfuegbareKgByGST}
+        behaelterMitCharge={behaelterMitCharge}
+        leseParzellen={(() => {
+          // Deduplizieren: eine Zeile pro (weingarten_id, grundstueck_id) für Pressung-Formular.
+          // Ein GST kann mehrere ernte_parzellen-Einträge haben (z.B. Kabinett + Spätlese).
+          // Wenn mehrere Einträge vorhanden: denjenigen wählen, dessen menge_kg am nächsten
+          // zur verfügbaren Restmenge liegt – das ist der noch nicht verpresste Anteil.
+          const bestByKey = new Map<string, typeof parzellen[0]>()
+          for (const p of parzellen) {
+            const key = `${p.weingarten_id}|${p.grundstueck_id ?? ''}`
+            const verfuegbar = p.grundstueck_id ? (verfuegbareKgByGST[p.grundstueck_id] ?? 0) : 0
+            const existing = bestByKey.get(key)
+            if (!existing) {
+              bestByKey.set(key, p)
+            } else {
+              const existingDiff = Math.abs((existing.menge_kg ?? 0) - verfuegbar)
+              const newDiff      = Math.abs((p.menge_kg ?? 0) - verfuegbar)
+              if (newDiff < existingDiff) bestByKey.set(key, p)
+            }
+          }
+          return Array.from(bestByKey.values()).map(p => ({
+            weingarten_id: p.weingarten_id,
+            weingarten_name: p.weingarten_name,
+            grundstueck_id: p.grundstueck_id,
+            grundstueck_nr: p.grundstueck_nr,
+            grundstueck_rebsorte: p.grundstueck_rebsorte,
+            menge_kg: p.menge_kg,
+            rebsorte: p.weingarten_rebsorte,
+            klosterneuburger: p.klosterneuburger,
+          }))
+        })()}
+        writeOk={writeOk}
+        adminOk={adminOk}
+      />
+
       {/* AMA Meldung */}
       {writeOk && (
         <div className="card">
@@ -661,48 +703,6 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
           )}
         </div>
       )}
-
-      {/* Pressungen / Lese */}
-      <PressungSection
-        jahrgangId={jahrgang.id}
-        pressungen={pressungen}
-        wgOptions={wgOptions}
-        behOptions={behOptions}
-        waOptions={waOptions}
-        verfuegbareKgByGST={verfuegbareKgByGST}
-        behaelterMitCharge={behaelterMitCharge}
-        leseParzellen={(() => {
-          // Deduplizieren: eine Zeile pro (weingarten_id, grundstueck_id) für Pressung-Formular.
-          // Ein GST kann mehrere ernte_parzellen-Einträge haben (z.B. Kabinett + Spätlese).
-          // Wenn mehrere Einträge vorhanden: denjenigen wählen, dessen menge_kg am nächsten
-          // zur verfügbaren Restmenge liegt – das ist der noch nicht verpresste Anteil.
-          const bestByKey = new Map<string, typeof parzellen[0]>()
-          for (const p of parzellen) {
-            const key = `${p.weingarten_id}|${p.grundstueck_id ?? ''}`
-            const verfuegbar = p.grundstueck_id ? (verfuegbareKgByGST[p.grundstueck_id] ?? 0) : 0
-            const existing = bestByKey.get(key)
-            if (!existing) {
-              bestByKey.set(key, p)
-            } else {
-              const existingDiff = Math.abs((existing.menge_kg ?? 0) - verfuegbar)
-              const newDiff      = Math.abs((p.menge_kg ?? 0) - verfuegbar)
-              if (newDiff < existingDiff) bestByKey.set(key, p)
-            }
-          }
-          return Array.from(bestByKey.values()).map(p => ({
-            weingarten_id: p.weingarten_id,
-            weingarten_name: p.weingarten_name,
-            grundstueck_id: p.grundstueck_id,
-            grundstueck_nr: p.grundstueck_nr,
-            grundstueck_rebsorte: p.grundstueck_rebsorte,
-            menge_kg: p.menge_kg,
-            rebsorte: p.weingarten_rebsorte,
-            klosterneuburger: p.klosterneuburger,
-          }))
-        })()}
-        writeOk={writeOk}
-        adminOk={adminOk}
-      />
     </div>
   )
 }

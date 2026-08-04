@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Pencil, Trash2, X } from 'lucide-react'
+import { Pencil, Trash2, X, ChevronDown, Plus } from 'lucide-react'
 import { upsertPressung, deletePressung } from '../actions'
 import { fmtProzent } from '@/lib/format'
 import { kmwZuQualitaet, QUALITAET_LABEL, QUALITAET_ORDER } from '@/lib/weinqualitaet'
@@ -552,6 +552,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
   const [showForm, setShowForm]    = useState(false)
   const [editId, setEditId]        = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+  const [collapsed, setCollapsed]  = useState(false)
 
   const gesamtKg    = pressungen.flatMap(p => p.weingaerten).reduce((s, w) => s + w.trauben_kg, 0)
   const gesamtLiter = pressungen.reduce((s, p) => s + (p.most_liter_gesamt ?? 0), 0)
@@ -566,7 +567,11 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
   return (
     <div className={`card space-y-4 ${pending ? 'opacity-60 pointer-events-none' : ''}`}>
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-gray-800">Pressungen</h2>
+        <button type="button" onClick={() => setCollapsed(c => !c)}
+          className="flex items-center gap-1.5 text-left" title={collapsed ? 'Pressungen einblenden' : 'Pressungen ausblenden'}>
+          <ChevronDown size={16} className={`text-s112-muted transition-transform ${collapsed ? '-rotate-90' : ''}`} />
+          <h2 className="text-base font-semibold text-gray-800">Pressungen</h2>
+        </button>
         <div className="flex items-center gap-3">
           {pressungen.length > 0 && (
             <span className="text-xs text-s112-muted">
@@ -576,9 +581,9 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
           )}
           {writeOk && !showForm && (
             gesamtVerfuegbarKg > 0
-              ? <button onClick={() => { setShowForm(true); setEditId(null) }}
-                  className="text-xs bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-teal font-medium px-3 py-1.5 rounded-lg transition-colors">
-                  Pressung erfassen
+              ? <button onClick={() => { setShowForm(true); setEditId(null); setCollapsed(false) }}
+                  className="inline-flex items-center gap-1.5 bg-s112-teal text-white font-semibold px-3 py-1.5 rounded-lg text-xs hover:bg-opacity-90 transition-colors shadow-sm">
+                  <Plus size={14} strokeWidth={2.5} /> Pressung erfassen
                 </button>
               : <span className="text-xs text-amber-600 font-medium bg-amber-50 px-3 py-1.5 rounded-lg">
                   Keine Trauben für Pressung verfügbar
@@ -587,6 +592,8 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
         </div>
       </div>
 
+      {collapsed ? null : (
+      <>
       {/* Saisonstatistik */}
       {pressungen.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
@@ -707,6 +714,8 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
             )
           })}
         </div>
+      )}
+      </>
       )}
     </div>
   )
