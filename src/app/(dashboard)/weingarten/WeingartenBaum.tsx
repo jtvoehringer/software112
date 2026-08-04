@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Pencil, Trash2 } from 'lucide-react'
 import { deactivateWeingarten, deleteWeingarten } from './actions'
 import { fmtHa } from '@/lib/format'
@@ -49,8 +50,13 @@ function ChevronIcon({ open }: { open: boolean }) {
 // ── Grundstück-Zeile ──────────────────────────────────────────────────────────
 
 function GSTZeile({ gst }: { gst: GSTRow }) {
+  const router = useRouter()
   return (
-    <tr className="border-b border-s112-border/50 last:border-0 bg-white hover:bg-s112-bg/30 transition-colors">
+    <tr
+      className="border-b border-s112-border/50 last:border-0 bg-white hover:bg-s112-bg/30 cursor-pointer transition-colors"
+      onClick={() => router.push(`/weingarten/${gst.weingarten_id}`)}
+      title="Zum Weingarten (Grundstück bearbeiten)"
+    >
       <td className="pl-16 pr-3 py-2 text-xs text-gray-500">
         <span className="font-mono">GST {gst.gst_nr}</span>
         {gst.katastralgemeinde && (
@@ -101,7 +107,13 @@ function WeingartenZeile({
             <span className={`text-gray-400 ${gsts.length === 0 ? 'invisible' : ''}`}>
               <ChevronIcon open={open} />
             </span>
-            <span className="font-medium text-gray-800 text-sm">{w.name}</span>
+            <Link
+              href={`/weingarten/${w.id}`}
+              onClick={e => e.stopPropagation()}
+              className="font-medium text-gray-800 text-sm hover:text-s112-teal hover:underline"
+            >
+              {w.name}
+            </Link>
             {w.bewirtschaftung && (
               <span className={`inline-block px-1.5 py-0 rounded-full text-xs font-medium ${BEWIRTSCHAFTUNG_BADGE[w.bewirtschaftung] ?? 'bg-gray-100 text-gray-600'}`}>
                 {BEWIRTSCHAFTUNG_LABEL[w.bewirtschaftung] ?? w.bewirtschaftung}

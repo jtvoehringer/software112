@@ -471,9 +471,13 @@ export default function GrundstueckePanel({
                 const hasHistory = eintraege.length > 0
                 return (
                   <React.Fragment key={g.id}>
-                    <tr className={`group border-b border-s112-border/50 ${!isExpanded ? 'last:border-0' : ''} ${g.status !== 'aktiv' ? 'opacity-60' : ''}`}>
+                    <tr
+                      className={`group border-b border-s112-border/50 cursor-pointer hover:bg-s112-bg/40 transition-colors ${!isExpanded ? 'last:border-0' : ''} ${g.status !== 'aktiv' ? 'opacity-60' : ''}`}
+                      onClick={() => { setEditId(g.id); setShowForm(false) }}
+                      title="Grundstück bearbeiten"
+                    >
                       {/* Expand-Toggle */}
-                      <td className="px-2 py-2 text-center">
+                      <td className="px-2 py-2 text-center" onClick={e => e.stopPropagation()}>
                         {hasHistory ? (
                           <button
                             onClick={() => toggleExpand(g.id)}
@@ -518,7 +522,7 @@ export default function GrundstueckePanel({
                       </td>
                       <td className="px-3 py-2 text-right text-s112-muted text-xs">{g.pflanzjahr ?? '–'}</td>
                       <td className="px-3 py-2 text-center"><StatusBadge status={g.status} /></td>
-                      <td className="px-3 py-2 text-right sticky right-0 bg-white border-l border-s112-border/40">
+                      <td className="px-3 py-2 text-right sticky right-0 bg-white border-l border-s112-border/40" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
                           <button onClick={() => { setEditId(g.id); setShowForm(false) }}
                             title="Bearbeiten" aria-label="Bearbeiten"
