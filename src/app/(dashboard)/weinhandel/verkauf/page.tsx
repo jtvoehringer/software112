@@ -3,6 +3,7 @@ import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import ClickableTableRow from '@/components/ui/ClickableTableRow'
+import StopPropagation from '@/components/ui/StopPropagation'
 
 export const metadata: Metadata = { title: 'Verkauf – software:112' }
 export const dynamic = 'force-dynamic'
@@ -155,13 +156,14 @@ export default async function VerkaufPage() {
                         : <span className="text-s112-muted font-normal">–</span>}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Link
-                        href={`/weinhandel/verkauf/${p.id}`}
-                        className="text-xs text-s112-teal hover:underline"
-                        onClick={e => e.stopPropagation()}
-                      >
-                        Details →
-                      </Link>
+                      <StopPropagation>
+                        <Link
+                          href={`/weinhandel/verkauf/${p.id}`}
+                          className="text-xs text-s112-teal hover:underline"
+                        >
+                          Details →
+                        </Link>
+                      </StopPropagation>
                     </td>
                   </ClickableTableRow>
                 )

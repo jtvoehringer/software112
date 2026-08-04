@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Pencil, AlertTriangle } from 'lucide-react'
 import ZukaufLoeschen from './ZukaufLoeschen'
 import ClickableTableRow from '@/components/ui/ClickableTableRow'
+import StopPropagation from '@/components/ui/StopPropagation'
 
 export const dynamic = 'force-dynamic'
 
@@ -185,7 +186,7 @@ export default async function ZukaufPage({
                     </td>
                     {writeOk && (
                       <td className="px-4 py-3 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-2" onClick={e => e.stopPropagation()}>
+                        <StopPropagation className="flex items-center justify-end gap-2">
                           <Link
                             href={`/weinhandel/zukauf/${p.id}/edit`}
                             title="Bearbeiten" aria-label="Bearbeiten"
@@ -193,7 +194,7 @@ export default async function ZukaufPage({
                             <Pencil className="w-4 h-4" />
                           </Link>
                           <ZukaufLoeschen id={p.id} info={rebInfo} />
-                        </div>
+                        </StopPropagation>
                       </td>
                     )}
                   </ClickableTableRow>
