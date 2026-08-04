@@ -6,6 +6,8 @@ import { KN_CODES } from '@/lib/wein/zolltarif'
 import { HERKUNFT_ORDER, HERKUNFT_LABEL, istNiedrigerAls as istHerkunftNiedriger } from '@/lib/herkunft'
 import { QUALITAET_LABEL, istNiedrigerAls as istQualitaetNiedriger } from '@/lib/weinqualitaet'
 import { AlertTriangle, CheckCircle2, Droplet } from 'lucide-react'
+import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
+import type { CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
 
 type Charge = {
   id: string
@@ -66,11 +68,13 @@ function fmtL(n: number) {
 export default function FuellungFormClient({
   chargen,
   dacAntraege,
+  customWeinbaugebiete,
   action,
   defaultChargeId,
 }: {
   chargen: Charge[]
   dacAntraege: DacAntrag[]
+  customWeinbaugebiete: CustomWeinbaugebiet[]
   action: (fd: FormData) => Promise<void>
   defaultChargeId?: string
 }) {
@@ -107,10 +111,13 @@ export default function FuellungFormClient({
 
   const herkunftOptions = useMemo(() => {
     const aktuell = selectedCharge?.herkunft_code
-    if (!aktuell) return HERKUNFT_ORDER
-    return HERKUNFT_ORDER.filter(code =>
-      code === aktuell || istHerkunftNiedriger(code, aktuell)
-    )
+    // Ein eigenes (nicht in HERKUNFT_ORDER geführtes) Weinbaugebiet liegt außerhalb
+    // der Rangfolge und schränkt die fixen Stufen daher nicht ein (siehe Migration 140).
+    const aktuellIstRanking = !!aktuell && (HERKUNFT_ORDER as readonly string[]).includes(aktuell)
+    const codes = !aktuellIstRanking
+      ? HERKUNFT_ORDER
+      : HERKUNFT_ORDER.filter(code => code === aktuell || istHerkunftNiedriger(code, aktuell as string))
+    return codes.map(code => ({ value: code, label: HERKUNFT_LABEL[code] }))
   }, [selectedCharge])
 
   // Auto-Berechnung: Flaschen × Flaschengröße
@@ -233,12 +240,14 @@ export default function FuellungFormClient({
           </div>
           <div>
             <label className={labelCls}>Herkunft-Code (BKI)</label>
-            <select name="herkunft_code" value={herkunftCodeVal} onChange={e => setHerkunftCodeVal(e.target.value)} className={inputCls}>
-              <option value="">– keine Angabe –</option>
-              {herkunftOptions.map(code => (
-                <option key={code} value={code}>{HERKUNFT_LABEL[code]}</option>
-              ))}
-            </select>
+            <HerkunftCodeSelect
+              name="herkunft_code"
+              value={herkunftCodeVal}
+              onChange={setHerkunftCodeVal}
+              builtinOptions={herkunftOptions}
+              customOptions={customWeinbaugebiete}
+              className={inputCls}
+            />
             {selectedCharge?.herkunft_code && (
               <p className="text-xs text-s112-muted mt-1">
                 Charge aktuell: <strong>{HERKUNFT_LABEL[selectedCharge.herkunft_code] ?? selectedCharge.herkunft_code}</strong> – nur Abstufung möglich, keine Aufstufung

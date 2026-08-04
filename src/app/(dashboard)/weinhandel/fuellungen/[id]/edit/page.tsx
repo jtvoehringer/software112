@@ -8,6 +8,8 @@ import { updateFuellung, schwundAusbuchen } from '../../../actions'
 import { KN_CODES } from '@/lib/wein/zolltarif'
 import { HERKUNFT_ORDER, HERKUNFT_LABEL, istNiedrigerAls as istHerkunftNiedriger } from '@/lib/herkunft'
 import { QUALITAET_LABEL, istNiedrigerAls as istQualitaetNiedriger } from '@/lib/weinqualitaet'
+import { ladeCustomWeinbaugebiete } from '../../../../weinbaugebiete/actions'
+import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 
 export const metadata: Metadata = { title: 'Füllung bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -67,6 +69,9 @@ export default async function EditFuellungPage({
   const f = raw as R
   const chargen = (waRaw ?? []) as R[]
 
+  // Eigene, vom Mandanten selbst angelegte Weinbaugebiete (Herkunft-Code-Selbstverwaltung)
+  const customWeinbaugebiete = await ladeCustomWeinbaugebiete()
+
   // Restmenge der verknüpften Charge laden
   let waRestmenge: number | null = null
   let waCeilingQualitaet: string | null = null
@@ -112,14 +117,26 @@ export default async function EditFuellungPage({
     return basis
   })()
 
+  // Ein eigenes (nicht in HERKUNFT_ORDER geführtes) Weinbaugebiet liegt außerhalb der
+  // Rangfolge und schränkt die fixen Stufen daher nicht ein (siehe Migration 140).
   const herkunftOptionsEdit = (() => {
-    const basis = waCeilingHerkunft
-      ? HERKUNFT_ORDER.filter(code => code === waCeilingHerkunft || istHerkunftNiedriger(code, waCeilingHerkunft))
+    const aktuellIstRanking = !!waCeilingHerkunft && (HERKUNFT_ORDER as readonly string[]).includes(waCeilingHerkunft)
+    const codes = aktuellIstRanking
+      ? HERKUNFT_ORDER.filter(code => code === waCeilingHerkunft || istHerkunftNiedriger(code, waCeilingHerkunft as string))
       : HERKUNFT_ORDER
-    if (f.herkunft_code && !(basis as readonly string[]).includes(f.herkunft_code) && (HERKUNFT_ORDER as readonly string[]).includes(f.herkunft_code)) {
-      return [f.herkunft_code as typeof HERKUNFT_ORDER[number], ...basis]
+    return codes.map(code => ({ value: code, label: HERKUNFT_LABEL[code] }))
+  })()
+
+  // Bereits gespeicherter eigener Wert bleibt wählbar, auch falls das Weinbaugebiet
+  // zwischenzeitlich deaktiviert wurde (kein Datenverlust beim Speichern).
+  const herkunftCustomOptionsEdit = (() => {
+    if (f.herkunft_code
+      && !(HERKUNFT_ORDER as readonly string[]).includes(f.herkunft_code)
+      && !customWeinbaugebiete.some(w => w.name === f.herkunft_code)
+    ) {
+      return [{ id: `__bestehend__${f.herkunft_code}`, name: f.herkunft_code as string }, ...customWeinbaugebiete]
     }
-    return basis
+    return customWeinbaugebiete
   })()
 
   return (
@@ -251,12 +268,13 @@ export default async function EditFuellungPage({
             </div>
             <div>
               <label className={labelCls}>Herkunft-Code (BKI)</label>
-              <select name="herkunft_code" defaultValue={f.herkunft_code ?? ''} className={inputCls}>
-                <option value="">– keine Angabe –</option>
-                {herkunftOptionsEdit.map(code => (
-                  <option key={code} value={code}>{HERKUNFT_LABEL[code]}</option>
-                ))}
-              </select>
+              <HerkunftCodeSelect
+                name="herkunft_code"
+                defaultValue={f.herkunft_code ?? ''}
+                builtinOptions={herkunftOptionsEdit}
+                customOptions={herkunftCustomOptionsEdit}
+                className={inputCls}
+              />
               {waCeilingHerkunft && (
                 <p className="text-xs text-s112-muted mt-1">
                   Charge aktuell: <strong>{HERKUNFT_LABEL[waCeilingHerkunft] ?? waCeilingHerkunft}</strong> – nur Abstufung möglich, keine Aufstufung

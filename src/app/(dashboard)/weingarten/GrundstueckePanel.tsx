@@ -6,6 +6,10 @@ import { createGrundstueck, updateGrundstueck, deleteGrundstueck, fetchBevFlaech
 import { fmtHa } from '@/lib/format'
 import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
 import { HERKUNFT_ORDER, HERKUNFT_LABEL } from '@/lib/herkunft'
+import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
+import type { CustomWeinbaugebiet } from '../weinbaugebiete/actions'
+
+const HERKUNFT_OPTIONS = HERKUNFT_ORDER.map(code => ({ value: code, label: HERKUNFT_LABEL[code] }))
 
 export type GST = {
   id: string; weingarten_id: string; gst_nr: string
@@ -191,7 +195,13 @@ function GstMassnahmenPanel({ massnahmen }: { massnahmen: MassnahmeHistorie[] })
 }
 
 // ── Formular (Neu / Bearbeiten) ───────────────────────────────────────────────
-function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GST; onDone: () => void }) {
+function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet, onDone }: {
+  weingartenId: string
+  gst?: GST
+  customWeinbaugebiete: CustomWeinbaugebiet[]
+  onNeuesWeinbaugebiet: (w: CustomWeinbaugebiet) => void
+  onDone: () => void
+}) {
   const [pending, startTransition] = useTransition()
   const [bewirtschaftung, setBewirtschaftung] = useState(gst?.bewirtschaftung ?? '')
   const [weinart, setWeinart] = useState(gst?.weinart ?? 'unbekannt')
@@ -384,13 +394,16 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
         {/* BKI */}
         <div className="col-span-2">
           <label className={labelCls}>Herkunft-Code (BKI)</label>
-          <select name="trauben_herkunft_code" defaultValue={gst?.trauben_herkunft_code ?? ''} className={inputCls}>
-            <option value="">– bitte wählen –</option>
-            {HERKUNFT_ORDER.map(code => (
-              <option key={code} value={code}>{HERKUNFT_LABEL[code]}</option>
-            ))}
-          </select>
-          <p className="text-xs text-s112-muted mt-1">Herkunftsstufe gem. Weingesetz/DAC-Verordnung – wird an Lese, Kellerbuch und Füllung weitergegeben (nur Abstufungen möglich)</p>
+          <HerkunftCodeSelect
+            name="trauben_herkunft_code"
+            defaultValue={gst?.trauben_herkunft_code ?? ''}
+            builtinOptions={HERKUNFT_OPTIONS}
+            customOptions={customWeinbaugebiete}
+            onNeuAngelegt={onNeuesWeinbaugebiet}
+            emptyLabel="– bitte wählen –"
+            className={inputCls}
+          />
+          <p className="text-xs text-s112-muted mt-1">Herkunftsstufe gem. Weingesetz/DAC-Verordnung – wird an Lese, Kellerbuch und Füllung weitergegeben (nur Abstufungen möglich). Fehlt ein Gebiet, kann es direkt im Dropdown über „+ Neues Weinbaugebiet hinzufügen…" ergänzt werden.</p>
         </div>
 
         {/* AMA-Feldstücknummer */}
@@ -445,17 +458,28 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
 
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 export default function GrundstueckePanel({
-  weingartenId, grundstuecke, ertragByGst = {}, massnahmenByGst = {},
+  weingartenId, grundstuecke, ertragByGst = {}, massnahmenByGst = {}, customWeinbaugebiete = [],
 }: {
   weingartenId: string
   grundstuecke: GST[]
   ertragByGst?: Record<string, ErtragHistorie[]>
   massnahmenByGst?: Record<string, MassnahmeHistorie[]>
+  customWeinbaugebiete?: CustomWeinbaugebiet[]
 }) {
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId]     = useState<string | null>(null)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [pending, startTransition] = useTransition()
+
+  // Eigene Weinbaugebiete werden hier (statt in jeder GSTForm-Instanz einzeln) gehalten,
+  // damit ein neu angelegtes Gebiet auch beim nächsten geöffneten GST-Formular in
+  // derselben Seitenansicht sofort zur Auswahl steht.
+  const [eigeneWeinbaugebiete, setEigeneWeinbaugebiete] = useState(customWeinbaugebiete)
+  function handleNeuesWeinbaugebiet(w: CustomWeinbaugebiet) {
+    setEigeneWeinbaugebiete(prev =>
+      prev.some(x => x.id === w.id) ? prev : [...prev, w].sort((a, b) => a.name.localeCompare(b.name, 'de-AT'))
+    )
+  }
 
   const totalAma      = grundstuecke.reduce((s, g) => s + (g.flaeche_ha ?? 0), 0)
   const totalKataster = grundstuecke.reduce((s, g) => s + (g.flaeche_ha_kataster ?? 0), 0)
@@ -495,7 +519,7 @@ export default function GrundstueckePanel({
 
       {showForm && !editId && (
         <div className="mb-3">
-          <GSTForm weingartenId={weingartenId} onDone={() => setShowForm(false)} />
+          <GSTForm weingartenId={weingartenId} customWeinbaugebiete={eigeneWeinbaugebiete} onNeuesWeinbaugebiet={handleNeuesWeinbaugebiet} onDone={() => setShowForm(false)} />
         </div>
       )}
 
@@ -598,7 +622,7 @@ export default function GrundstueckePanel({
                     {editId === g.id && (
                       <tr>
                         <td colSpan={9} className="px-3 py-2">
-                          <GSTForm weingartenId={weingartenId} gst={g} onDone={() => setEditId(null)} />
+                          <GSTForm weingartenId={weingartenId} gst={g} customWeinbaugebiete={eigeneWeinbaugebiete} onNeuesWeinbaugebiet={handleNeuesWeinbaugebiet} onDone={() => setEditId(null)} />
                         </td>
                       </tr>
                     )}

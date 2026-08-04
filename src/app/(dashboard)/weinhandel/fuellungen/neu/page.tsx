@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createFuellung } from '../../actions'
+import { ladeCustomWeinbaugebiete } from '../../../weinbaugebiete/actions'
 import FuellungFormClient from './FuellungFormClient'
 
 export const metadata: Metadata = { title: 'Neue Füllung – software:112' }
@@ -38,6 +39,9 @@ export default async function NeueFuellungPage({
   const dacAntraege = (dacRaw ?? []) as R[]
   let chargen = (chargenRaw ?? []) as R[]
 
+  // Eigene, vom Mandanten selbst angelegte Weinbaugebiete (Herkunft-Code-Selbstverwaltung)
+  const customWeinbaugebiete = await ladeCustomWeinbaugebiete()
+
   // Wenn über "Abfüllen"-Button mit chargeId aufgerufen: diese Charge immer mitladen,
   // auch wenn Status 'abgeschlossen' ist (Füllung kann trotzdem angelegt werden)
   if (chargeId && !chargen.find((c: R) => c.id === chargeId)) {
@@ -65,6 +69,7 @@ export default async function NeueFuellungPage({
       <FuellungFormClient
         chargen={chargen as any}
         dacAntraege={dacAntraege as any}
+        customWeinbaugebiete={customWeinbaugebiete}
         action={createFuellung}
         defaultChargeId={chargeId}
       />

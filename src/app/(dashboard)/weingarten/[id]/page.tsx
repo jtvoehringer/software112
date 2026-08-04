@@ -16,6 +16,7 @@ import { notFound } from 'next/navigation'
 import WeingartenForm from '@/components/weingarten/WeingartenForm'
 import GrundstueckePanel, { type GST, type MassnahmeHistorie } from '../GrundstueckePanel'
 import { updateWeingarten } from '../actions'
+import { ladeCustomWeinbaugebiete } from '../../weinbaugebiete/actions'
 
 export const metadata: Metadata = { title: 'Ried bearbeiten – software:112' }
 
@@ -57,6 +58,9 @@ export default async function WeingartenEditPage({ params }: Props) {
     .eq('weingarten_id', id)
     .order('gst_nr')
   const grundstuecke = (rawG ?? []) as GST[]
+
+  // Eigene, vom Mandanten selbst angelegte Weinbaugebiete (Herkunft-Code-Selbstverwaltung)
+  const customWeinbaugebiete = await ladeCustomWeinbaugebiete()
 
   // Historische Ertragsdaten
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -182,6 +186,7 @@ export default async function WeingartenEditPage({ params }: Props) {
           grundstuecke={grundstuecke}
           ertragByGst={ertragByGst}
           massnahmenByGst={massnahmenByGst}
+          customWeinbaugebiete={customWeinbaugebiete}
         />
       </div>
 
