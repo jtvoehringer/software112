@@ -33,6 +33,8 @@ async function ggfKostenEintragAnlegen(
   datum: string,
   // Fläche je betroffenem Weingarten (aggregiert aus Ried- und GST-Einzelauswahl)
   haByWeingarten: Map<string, number>,
+  // Verknüpfung zur auslösenden Maßnahme (für spätere Bearbeitung/Anzeige, Migration 139)
+  behandlungId: string,
 ) {
   if (formData.get('kosten_aktiv') !== 'on') return
   const kostenartId = (formData.get('kosten_kostenart_id') as string) || null
@@ -48,6 +50,7 @@ async function ggfKostenEintragAnlegen(
     const { data: eintrag, error: keErr } = await (supabase.from('kosteneintraege') as any)
       .insert({
         tenant_id:       tenantId,
+        behandlung_id:   behandlungId,
         transaktions_nr: transaktionsNr ?? null,
         kostenstelle_id: null,
         kostenart_id:    kostenartId,
@@ -80,6 +83,119 @@ async function ggfKostenEintragAnlegen(
     revalidatePath('/controlling/kostenrechnung')
   } catch {
     // Kosten-Vorschlag ist optional/best effort – die Maßnahme selbst bleibt gültig.
+  }
+}
+
+// Kosten beim Bearbeiten einer Maßnahme anlegen/aktualisieren/entfernen (Punkte 6, 9).
+// Ermittelt die Fläche je Weingarten aus der bestehenden Grundstück-Verknüpfung
+// (behandlung_grundstuecke) – die Weingarten-/GST-Auswahl selbst ist beim Bearbeiten
+// nicht änderbar.
+async function ggfKostenEintragAktualisieren(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  tenantId: string,
+  formData: FormData,
+  datum: string,
+  behandlungId: string,
+) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: bestehend } = await (supabase.from('kosteneintraege') as any)
+    .select('id')
+    .eq('behandlung_id', behandlungId)
+    .maybeSingle()
+  const bestehendId = (bestehend as AR | null)?.id as string | undefined
+
+  const kostenAktiv = formData.get('kosten_aktiv') === 'on'
+
+  if (!kostenAktiv) {
+    if (bestehendId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('kosteneintraege') as any).delete().eq('id', bestehendId)
+      revalidatePath('/controlling/kostenrechnung')
+    }
+    return
+  }
+
+  const kostenartId = (formData.get('kosten_kostenart_id') as string) || null
+  const betrag = parseDecimal(formData.get('kosten_betrag'))
+  const beschreibung = (formData.get('kosten_beschreibung') as string) || null
+  // Kein gültiger Betrag angegeben: bestehenden Eintrag unverändert lassen (kein Blocker).
+  if (!betrag || betrag <= 0) return
+
+  try {
+    // Fläche je Weingarten aus der bestehenden Grundstück-Verknüpfung dieser Maßnahme ermitteln
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: rawBG } = await (supabase.from('behandlung_grundstuecke') as any)
+      .select('flaeche_ha, grundstueck:grundstueck_id(weingarten_id)')
+      .eq('behandlung_id', behandlungId)
+    const haByWeingarten = new Map<string, number>()
+    for (const bg of ((rawBG ?? []) as AR[])) {
+      const wgId = bg.grundstueck?.weingarten_id
+      if (!wgId) continue
+      haByWeingarten.set(wgId, (haByWeingarten.get(wgId) ?? 0) + (bg.flaeche_ha ?? 0))
+    }
+
+    let eintragId = bestehendId
+    if (eintragId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: updErr } = await (supabase.from('kosteneintraege') as any)
+        .update({
+          kostenart_id: kostenartId,
+          datum,
+          betrag,
+          beschreibung: beschreibung ?? 'Maßnahme (automatisch vorgeschlagen)',
+          periode:      datum?.slice(0, 7) ?? null,
+        })
+        .eq('id', eintragId)
+      if (updErr) throw updErr
+      // Weingarten-Splits neu berechnen (bestehende ersetzen)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('kosteneintrag_weingaerten') as any).delete().eq('kosteneintrag_id', eintragId)
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: transaktionsNr } = await (supabase.rpc as any)('get_next_transaktionsnr', {
+        p_tenant_id: tenantId, p_typ: 'kosteneintrag',
+      })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: neu, error: insErr } = await (supabase.from('kosteneintraege') as any)
+        .insert({
+          tenant_id:       tenantId,
+          behandlung_id:   behandlungId,
+          transaktions_nr: transaktionsNr ?? null,
+          kostenstelle_id: null,
+          kostenart_id:    kostenartId,
+          datum,
+          betrag,
+          beschreibung:    beschreibung ?? 'Maßnahme (automatisch vorgeschlagen)',
+          periode:         datum?.slice(0, 7) ?? null,
+          objekt_typ:      'weingarten',
+          weingarten_id:   null,
+          behaelter_id:    null,
+        })
+        .select('id')
+        .single()
+      if (insErr) throw insErr
+      eintragId = (neu as AR).id
+    }
+
+    const gesamtHa = Array.from(haByWeingarten.values()).reduce((s, h) => s + h, 0)
+    if (gesamtHa > 0 && eintragId) {
+      const splitRows = Array.from(haByWeingarten.entries()).map(([weingartenId, ha]) => {
+        const pct = Math.round((ha / gesamtHa) * 10000) / 100
+        return {
+          kosteneintrag_id: eintragId,
+          weingarten_id:    weingartenId,
+          anteil_pct:       pct,
+          betrag_anteil:    Math.round(betrag * pct / 100 * 100) / 100,
+        }
+      })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('kosteneintrag_weingaerten') as any).insert(splitRows)
+    }
+
+    revalidatePath('/controlling/kostenrechnung')
+  } catch {
+    // Kosten-Update ist optional/best effort – die Maßnahme selbst bleibt gültig.
   }
 }
 
@@ -210,13 +326,14 @@ export async function createBehandlung(formData: FormData) {
     const curr = haByWeingarten.get(g.weingarten_id) ?? 0
     haByWeingarten.set(g.weingarten_id, curr + (g.flaeche_ha ?? 0))
   }
-  await ggfKostenEintragAnlegen(supabase, tenantId, formData, datum, haByWeingarten)
+  await ggfKostenEintragAnlegen(supabase, tenantId, formData, datum, haByWeingarten, behandlungId)
 
   revalidatePath('/behandlungen')
 }
 
 export async function updateBehandlung(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
 
   const datum          = formData.get('datum') as string
   const datumBis       = (formData.get('datum_bis') as string) || null
@@ -264,6 +381,9 @@ export async function updateBehandlung(id: string, formData: FormData) {
     })
     .eq('id', id)
   if (error) throw new Error((error as AR).message)
+
+  await ggfKostenEintragAktualisieren(supabase, tenantId, formData, datum, id)
+
   revalidatePath('/behandlungen')
   revalidatePath('/behandlungen/berichte')
 }

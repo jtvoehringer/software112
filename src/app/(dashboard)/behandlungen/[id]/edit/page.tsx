@@ -4,7 +4,8 @@ import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import BehandlungEditForm from './BehandlungEditForm'
-import type { BehandlungEdit, PSMOption, DuengemittelOption } from './BehandlungEditForm'
+import type { BehandlungEdit, PSMOption, DuengemittelOption, BestehenderKostenEintrag } from './BehandlungEditForm'
+import type { KostenartOption } from '../../neu/page'
 
 export const metadata: Metadata = { title: 'Maßnahme bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -32,7 +33,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     bioStatus = (tenantRow as AR | null)?.bio_status ?? 'konventionell'
   }
 
-  const [{ data: rawB }, { data: rawPsm }, { data: rawDuenger }] = await Promise.all([
+  const [{ data: rawB }, { data: rawPsm }, { data: rawDuenger }, { data: rawKostenarten }, { data: rawKE }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('behandlungen') as any)
       .select(`
@@ -58,6 +59,20 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
       .select('id, name, handelsname, typ, wartezeit_tage, oeko_zugelassen')
       .eq('aktiv', true)
       .order('name'),
+
+    // Kostenarten (für die Kosten-Sektion im Bearbeiten-Formular, Punkte 6, 9)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('kostenarten') as any)
+      .select('id, name, kategorie')
+      .eq('aktiv', true)
+      .order('name'),
+
+    // Bestehender Kosteneintrag dieser Maßnahme, falls vorhanden (Migration 139)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('kosteneintraege') as any)
+      .select('id, kostenart_id, betrag, beschreibung')
+      .eq('behandlung_id', id)
+      .maybeSingle(),
   ])
 
   if (!rawB) notFound()
@@ -109,6 +124,15 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     oeko_zugelassen: d.oeko_zugelassen ?? false,
   }))
 
+  const kostenarten: KostenartOption[] = ((rawKostenarten ?? []) as AR[]).map(k => ({
+    id: k.id, name: k.name, kategorie: k.kategorie ?? null,
+  }))
+
+  const ke = rawKE as AR | null
+  const bestehenderKostenEintrag: BestehenderKostenEintrag | null = ke
+    ? { kostenart_id: ke.kostenart_id ?? null, betrag: ke.betrag, beschreibung: ke.beschreibung ?? null }
+    : null
+
   return (
     <div>
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-6">
@@ -120,7 +144,10 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
         <h1 className="text-2xl font-bold text-gray-900">Maßnahme bearbeiten</h1>
         <p className="text-sm text-s112-muted mt-0.5">Daten korrigieren oder ergänzen</p>
       </div>
-      <BehandlungEditForm behandlung={behandlung} psm={psm} duengemittel={duengemittel} bioStatus={bioStatus} />
+      <BehandlungEditForm
+        behandlung={behandlung} psm={psm} duengemittel={duengemittel} bioStatus={bioStatus}
+        kostenarten={kostenarten} bestehenderKostenEintrag={bestehenderKostenEintrag}
+      />
     </div>
   )
 }

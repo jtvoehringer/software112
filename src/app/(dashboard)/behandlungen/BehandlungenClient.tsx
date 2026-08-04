@@ -24,6 +24,10 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+function formatEuro(betrag: number) {
+  return betrag.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 function WartezeitBadge({ datum }: { datum: string | null }) {
   if (!datum) return null
   const heute = new Date().toISOString().split('T')[0]
@@ -142,6 +146,9 @@ export default function BehandlungenClient({
                     </td>
                     <td className="px-3 py-2.5">
                       <WartezeitBadge datum={b.ernte_fruehesteins} />
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-xs">
+                      {b.kosten_betrag != null ? <span className="text-gray-700 font-medium">{formatEuro(b.kosten_betrag)} €</span> : <span className="text-s112-muted">–</span>}
                     </td>
                     {adminOk && (
                       <td className="px-3 py-2.5 text-right">

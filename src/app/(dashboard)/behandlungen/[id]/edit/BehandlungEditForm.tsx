@@ -3,7 +3,8 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateBehandlung } from '../../actions'
-import { SprayCan, Sprout, Layers, Scissors, Leaf, Grape, MoreHorizontal, Hourglass, Ban, AlertTriangle } from 'lucide-react'
+import type { KostenartOption } from '../../neu/page'
+import { SprayCan, Sprout, Layers, Scissors, Leaf, MoreHorizontal, Hourglass, Ban, AlertTriangle } from 'lucide-react'
 
 const BBCH_OPTIONS = [
   { value: '09', label: '09 – Knospenaufbruch' },
@@ -33,7 +34,6 @@ const ART_OPTIONS = [
   { value: 'bodenbearbeitung', label: 'Bodenbearbeitung', icon: Layers },
   { value: 'schnitt',          label: 'Schnitt',          icon: Scissors },
   { value: 'laubarbeit',       label: 'Laubarbeit',       icon: Leaf },
-  { value: 'lese',             label: 'Lese',             icon: Grape },
   { value: 'sonstiges',        label: 'Sonstiges',        icon: MoreHorizontal },
 ]
 const MENGE_EINHEITEN = ['kg', 'l', 'g', 'ml']
@@ -94,16 +94,24 @@ export type DuengemittelOption = {
   oeko_zugelassen: boolean
 }
 
+export type BestehenderKostenEintrag = {
+  kostenart_id: string | null
+  betrag: number
+  beschreibung: string | null
+}
+
 const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
 const labelCls = 'block text-sm font-medium text-gray-700 mb-1'
 
 export default function BehandlungEditForm({
-  behandlung, psm, duengemittel, bioStatus,
+  behandlung, psm, duengemittel, bioStatus, kostenarten, bestehenderKostenEintrag,
 }: {
   behandlung: BehandlungEdit
   psm: PSMOption[]
   duengemittel: DuengemittelOption[]
   bioStatus: string
+  kostenarten: KostenartOption[]
+  bestehenderKostenEintrag: BestehenderKostenEintrag | null
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -111,6 +119,12 @@ export default function BehandlungEditForm({
   const [selectedPsmId, setSelectedPsmId] = useState(behandlung.psm_id ?? '')
   const [selectedDuengemittelId, setSelectedDuengemittelId] = useState(behandlung.duengemittel_id ?? '')
   const [error, setError] = useState<string | null>(null)
+
+  // Kosten (Punkte 6, 9: beim Bearbeiten sichtbar + editierbar, analog Neu-Formular)
+  const [kostenAktiv, setKostenAktiv] = useState(!!bestehenderKostenEintrag)
+  const [kostenKostenartId, setKostenKostenartId] = useState(bestehenderKostenEintrag?.kostenart_id ?? '')
+  const [kostenBetrag, setKostenBetrag] = useState(bestehenderKostenEintrag ? String(bestehenderKostenEintrag.betrag) : '')
+  const [kostenBeschreibung, setKostenBeschreibung] = useState(bestehenderKostenEintrag?.beschreibung ?? '')
 
   const selectedPsm = psm.find(p => p.id === selectedPsmId)
   const selectedDuengemittel = duengemittel.find(d => d.id === selectedDuengemittelId)
@@ -384,6 +398,50 @@ export default function BehandlungEditForm({
           <textarea name="notizen" rows={2} defaultValue={behandlung.notizen ?? ''}
             className={inputCls.replace('w-full', 'w-full')} />
         </div>
+      </div>
+
+      {/* Kosten (Punkte 6, 9) */}
+      <div className="card space-y-3">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" name="kosten_aktiv" checked={kostenAktiv}
+            onChange={e => setKostenAktiv(e.target.checked)}
+            className="accent-s112-teal" />
+          <h2 className="text-base font-semibold text-gray-800">Kosten erfassen</h2>
+        </label>
+        <p className="text-xs text-s112-muted -mt-2">
+          {bestehenderKostenEintrag
+            ? 'Zu dieser Maßnahme wurde beim Anlegen ein Kosteneintrag angelegt. Änderungen hier werden in der Kostenrechnung übernommen.'
+            : 'Optional: Kosten dieser Maßnahme als Kosteneintrag in der Kostenrechnung anlegen.'}
+        </p>
+
+        {kostenAktiv && (
+          <div className="space-y-3 pt-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Kostenart</label>
+                <select name="kosten_kostenart_id" value={kostenKostenartId}
+                  onChange={e => setKostenKostenartId(e.target.value)}
+                  className={inputCls}>
+                  <option value="">– Auswählen –</option>
+                  {kostenarten.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Betrag (€)</label>
+                <input name="kosten_betrag" type="number" step="0.01" min="0"
+                  value={kostenBetrag}
+                  onChange={e => setKostenBetrag(e.target.value)}
+                  className={inputCls} />
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Beschreibung</label>
+              <input name="kosten_beschreibung" type="text" value={kostenBeschreibung}
+                onChange={e => setKostenBeschreibung(e.target.value)}
+                className={inputCls} />
+            </div>
+          </div>
+        )}
       </div>
 
       {error && (

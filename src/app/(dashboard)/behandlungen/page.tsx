@@ -26,6 +26,7 @@ export type Behandlung = {
   witterung: string | null
   ernte_fruehesteins: string | null
   notizen: string | null
+  kosten_betrag: number | null
 }
 
 export default async function BehandlungenPage() {
@@ -35,7 +36,7 @@ export default async function BehandlungenPage() {
   const adminOk = canAdmin(role)
 
   // Behandlungen + PSM (weingarten_id ist oft null – Namen kommen aus Junction)
-  const [{ data: rawB }, { data: rawBG }] = await Promise.all([
+  const [{ data: rawB }, { data: rawBG }, { data: rawKosten }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('behandlungen') as any)
       .select(`
@@ -51,7 +52,19 @@ export default async function BehandlungenPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('behandlung_grundstuecke') as any)
       .select('behandlung_id, grundstueck:grundstueck_id(weingarten:weingarten_id(id, name, ried))'),
+
+    // Kosten je Maßnahme (Punkt 7, Migration 139)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('kosteneintraege') as any)
+      .select('behandlung_id, betrag')
+      .not('behandlung_id', 'is', null),
   ])
+
+  const kostenByBeh = new Map<string, number>()
+  for (const k of ((rawKosten ?? []) as AR[])) {
+    if (!k.behandlung_id) continue
+    kostenByBeh.set(k.behandlung_id, (kostenByBeh.get(k.behandlung_id) ?? 0) + (k.betrag ?? 0))
+  }
 
   // behandlung_id → { name, ried } (erster Weingarten; bei Mehrfach-WG: alle zusammenfassen)
   const wgByBeh = new Map<string, { name: string; ried: string | null; wgId: string }>()
@@ -96,6 +109,7 @@ export default async function BehandlungenPage() {
       witterung:            b.witterung,
       ernte_fruehesteins:   b.ernte_fruehesteins,
       notizen:              b.notizen,
+      kosten_betrag:        kostenByBeh.get(b.id) ?? null,
     }
   })
 

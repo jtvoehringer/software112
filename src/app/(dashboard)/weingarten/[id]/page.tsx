@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import WeingartenForm from '@/components/weingarten/WeingartenForm'
-import GrundstueckePanel, { type GST } from '../GrundstueckePanel'
+import GrundstueckePanel, { type GST, type MassnahmeHistorie } from '../GrundstueckePanel'
 import { updateWeingarten } from '../actions'
 
 export const metadata: Metadata = { title: 'Ried bearbeiten – software:112' }
@@ -94,6 +94,39 @@ export default async function WeingartenEditPage({ params }: Props) {
     ertragByGst[key].push(e)
   }
 
+  // Maßnahmen-Verlauf je GST (Punkt 10, analog Ertragshistorie) – Verknüpfung existiert
+  // bereits über die Junction-Tabelle behandlung_grundstuecke, wurde bisher aber nirgends
+  // auf GST-Ebene angezeigt.
+  const gstIds = grundstuecke.map(g => g.id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawMassnahmen } = gstIds.length > 0
+    ? await (supabase.from('behandlung_grundstuecke') as any)
+        .select(`
+          grundstueck_id,
+          behandlung:behandlung_id ( id, datum, art, aufwandmenge, aufwandmenge_einheit, psm:psm_id(name) )
+        `)
+        .in('grundstueck_id', gstIds)
+    : { data: [] }
+
+  const massnahmenByGst: Record<string, MassnahmeHistorie[]> = {}
+  for (const row of ((rawMassnahmen ?? []) as AR[])) {
+    const b = row.behandlung as AR | null
+    if (!b) continue
+    const key = row.grundstueck_id as string
+    if (!massnahmenByGst[key]) massnahmenByGst[key] = []
+    massnahmenByGst[key].push({
+      id: b.id,
+      datum: b.datum,
+      art: b.art ?? 'spritzung',
+      psm_name: b.psm?.name ?? null,
+      aufwandmenge: b.aufwandmenge ?? null,
+      aufwandmenge_einheit: b.aufwandmenge_einheit ?? null,
+    })
+  }
+  for (const key of Object.keys(massnahmenByGst)) {
+    massnahmenByGst[key].sort((a, b) => b.datum.localeCompare(a.datum))
+  }
+
   const action = updateWeingarten.bind(null, id)
 
   return (
@@ -148,6 +181,7 @@ export default async function WeingartenEditPage({ params }: Props) {
           weingartenId={id}
           grundstuecke={grundstuecke}
           ertragByGst={ertragByGst}
+          massnahmenByGst={massnahmenByGst}
         />
       </div>
 

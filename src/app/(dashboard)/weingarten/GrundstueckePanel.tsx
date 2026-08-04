@@ -24,6 +24,21 @@ export type ErtragHistorie = {
   grundstueck_id: string | null; gst_nr: string | null
 }
 
+export type MassnahmeHistorie = {
+  id: string; datum: string; art: string
+  psm_name: string | null
+  aufwandmenge: number | null; aufwandmenge_einheit: string | null
+}
+
+const MASSNAHME_ART_LABEL: Record<string, string> = {
+  spritzung: 'Spritzung', duengung: 'Düngung',
+  bodenbearbeitung: 'Bodenbearbeitung', schnitt: 'Schnitt',
+  laubarbeit: 'Laubarbeit', sonstiges: 'Sonstiges',
+}
+const MASSNAHME_EINHEIT_LABEL: Record<string, string> = {
+  kg_ha: 'kg/ha', l_ha: 'l/ha', g_hl: 'g/hl', ml_hl: 'ml/hl', kg: 'kg', l: 'l',
+}
+
 const STATUS_OPTIONS = [
   { value: 'aktiv',   label: 'Ausgepflanzt', badge: 'bg-green-100 text-green-700' },
   { value: 'brache',  label: 'Brache',  badge: 'bg-yellow-100 text-yellow-700' },
@@ -134,6 +149,41 @@ function GstErtragPanel({ gst, eintraege }: { gst: GST; eintraege: ErtragHistori
               )}
             </tr>
           )}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// ── Maßnahmen-Verlauf für ein einzelnes GST (Punkt 10, analog Ertragshistorie) ────
+function GstMassnahmenPanel({ massnahmen }: { massnahmen: MassnahmeHistorie[] }) {
+  return (
+    <div className="bg-s112-bg/60 border-t border-s112-border/50 px-3 py-2">
+      <p className="text-xs font-medium text-gray-600 mb-1">Maßnahmen-Verlauf</p>
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-gray-500">
+            <th className="text-left py-1 pr-3 font-medium">Datum</th>
+            <th className="text-left py-1 pr-3 font-medium">Art</th>
+            <th className="text-left py-1 pr-3 font-medium">Mittel</th>
+            <th className="text-right py-1 font-medium">Aufwandmenge</th>
+          </tr>
+        </thead>
+        <tbody>
+          {massnahmen.map(m => (
+            <tr key={m.id} className="border-t border-s112-border/30">
+              <td className="py-1 pr-3 text-s112-muted">
+                {new Date(m.datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+              </td>
+              <td className="py-1 pr-3 text-gray-700">{MASSNAHME_ART_LABEL[m.art] ?? m.art}</td>
+              <td className="py-1 pr-3 text-gray-700">{m.psm_name ?? '–'}</td>
+              <td className="py-1 text-right font-mono text-gray-600">
+                {m.aufwandmenge != null
+                  ? `${m.aufwandmenge} ${m.aufwandmenge_einheit ? MASSNAHME_EINHEIT_LABEL[m.aufwandmenge_einheit] ?? m.aufwandmenge_einheit : ''}`
+                  : '–'}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
@@ -395,11 +445,12 @@ function GSTForm({ weingartenId, gst, onDone }: { weingartenId: string; gst?: GS
 
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 export default function GrundstueckePanel({
-  weingartenId, grundstuecke, ertragByGst = {},
+  weingartenId, grundstuecke, ertragByGst = {}, massnahmenByGst = {},
 }: {
   weingartenId: string
   grundstuecke: GST[]
   ertragByGst?: Record<string, ErtragHistorie[]>
+  massnahmenByGst?: Record<string, MassnahmeHistorie[]>
 }) {
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId]     = useState<string | null>(null)
@@ -467,8 +518,9 @@ export default function GrundstueckePanel({
             <tbody>
               {grundstuecke.map(g => {
                 const eintraege = ertragByGst[g.id] ?? []
+                const massnahmen = massnahmenByGst[g.id] ?? []
                 const isExpanded = expandedIds.has(g.id)
-                const hasHistory = eintraege.length > 0
+                const hasHistory = eintraege.length > 0 || massnahmen.length > 0
                 return (
                   <React.Fragment key={g.id}>
                     <tr
@@ -482,7 +534,7 @@ export default function GrundstueckePanel({
                           <button
                             onClick={() => toggleExpand(g.id)}
                             className="text-s112-muted hover:text-s112-teal transition-colors text-xs leading-none"
-                            title={isExpanded ? 'Ertragshistorie ausblenden' : 'Ertragshistorie einblenden'}
+                            title={isExpanded ? 'Ertrags-/Maßnahmen-Verlauf ausblenden' : 'Ertrags-/Maßnahmen-Verlauf einblenden'}
                           >
                             {isExpanded ? '▼' : '▶'}
                           </button>
@@ -492,7 +544,7 @@ export default function GrundstueckePanel({
                       </td>
                       <td className="px-3 py-2 font-mono text-xs font-medium">
                         {g.gst_nr}
-                        {hasHistory && (
+                        {eintraege.length > 0 && (
                           <span className="ml-1.5 text-xs text-s112-muted font-normal">
                             ({eintraege.length}×)
                           </span>
@@ -533,11 +585,12 @@ export default function GrundstueckePanel({
                         </div>
                       </td>
                     </tr>
-                    {/* Ertragshistorie aufgeklappt */}
+                    {/* Ertragshistorie + Maßnahmen-Verlauf aufgeklappt (Punkt 10) */}
                     {isExpanded && hasHistory && (
                       <tr className="border-b border-s112-border/50">
-                        <td colSpan={9} className="p-0">
-                          <GstErtragPanel gst={g} eintraege={eintraege} />
+                        <td colSpan={9} className="p-0 divide-y divide-s112-border/50">
+                          {eintraege.length > 0 && <GstErtragPanel gst={g} eintraege={eintraege} />}
+                          {massnahmen.length > 0 && <GstMassnahmenPanel massnahmen={massnahmen} />}
                         </td>
                       </tr>
                     )}
