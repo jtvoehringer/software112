@@ -50,6 +50,55 @@ export async function deleteLagerBewegung(id: string) {
   revalidatePath('/behandlungen/lager')
 }
 
+// ── Düngemittel-Lagerbewegungen (Migration 142, analog PSM-Lager oben) ────────
+
+export async function upsertDuengerBewegung(fd: FormData) {
+  const supabase = await createSupabaseServerClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: { user } } = await (supabase.auth as any).getUser()
+  if (!user) throw new Error('Nicht angemeldet')
+
+  // Tenant ermitteln
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: membership } = await (supabase.from('tenant_memberships') as any)
+    .select('tenant_id').eq('user_id', user.id).single()
+  if (!membership) throw new Error('Kein Mandant')
+
+  const existingId = fd.get('existing_id') as string | null
+  const mengeRaw = parseFloat((fd.get('menge') as string) ?? '0')
+  const richtung = fd.get('richtung') as string // 'eingang' | 'ausgang'
+  const menge = richtung === 'ausgang' ? -Math.abs(mengeRaw) : Math.abs(mengeRaw)
+
+  const payload = {
+    tenant_id:       membership.tenant_id,
+    duengemittel_id: fd.get('duengemittel_id') as string,
+    datum:           fd.get('datum') as string,
+    typ:             fd.get('typ') as string,
+    menge,
+    einheit:         fd.get('einheit') as string || null,
+    notizen:         (fd.get('notizen') as string) || null,
+  }
+
+  if (existingId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('duengemittel_lager_bewegungen') as any)
+      .update(payload).eq('id', existingId)
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('duengemittel_lager_bewegungen') as any).insert(payload)
+  }
+
+  revalidatePath('/behandlungen/lager')
+}
+
+export async function deleteDuengerBewegung(id: string) {
+  const supabase = await createSupabaseServerClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from('duengemittel_lager_bewegungen') as any).delete().eq('id', id)
+  revalidatePath('/behandlungen/lager')
+}
+
 // ── PSM-Stammdaten (vormals /pflanzenschutz, jetzt Teil der Betriebsmittel-Lagerverwaltung) ────────
 
 export async function upsertPSM(fd: FormData) {

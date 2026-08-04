@@ -3,6 +3,7 @@ import { getCurrentUserRole, canWrite, canAdmin } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import LagerClient from './LagerClient'
+import DuengerLagerClient from './DuengerLagerClient'
 import PSMClient from './PSMClient'
 import DuengemittelClient from './DuengemittelClient'
 import SaetzeClient from './SaetzeClient'
@@ -31,6 +32,28 @@ export type PSMLager = {
 }
 
 export type PSMOption = { id: string; name: string; einheit_default: string | null; kategorie: string | null }
+
+// Analog PSMLager/PSMOption – volle Lagerbewegungs-Erfassung für Düngemittel
+// (Migration 142), damit Anfangsbestand/Einkauf/Korrektur genauso wie bei PSM
+// erfasst und der Bestand berechnet werden kann.
+export type DuengerLager = {
+  duengemittel_id: string
+  duengemittel_name: string
+  einheit: string | null
+  typ: string | null
+  bewegungen: {
+    id: string
+    datum: string
+    typ: 'anfangsbestand' | 'einkauf' | 'korrektur'
+    menge: number
+    einheit: string | null
+    notizen: string | null
+  }[]
+  verbrauch_gesamt: number   // aus behandlungen berechnet
+  einheit_behandlung: string | null
+}
+
+export type DuengerOption = { id: string; name: string; einheit_default: string | null; typ: string | null }
 
 export type PSMEintrag = {
   id: string; name: string; handelsname: string | null
@@ -193,6 +216,59 @@ export default async function LagerPage({
     })
     .sort((a, b) => a.psm_name.localeCompare(b.psm_name, 'de'))
 
+  // ── Düngemittel-Lagerbewegungen (Migration 142, analog PSM oben) ────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawDuengerBew } = await (supabase.from('duengemittel_lager_bewegungen') as any)
+    .select('id, duengemittel_id, datum, typ, menge, einheit, notizen')
+    .order('datum', { ascending: false })
+
+  // Verbrauch aus Behandlungen (menge_gesamt pro Düngemittel, nur art='duengung')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawDuengerBehandlungen } = await (supabase.from('behandlungen') as any)
+    .select('duengemittel_id, menge_gesamt, menge_einheit')
+    .not('duengemittel_id', 'is', null)
+    .not('menge_gesamt', 'is', null)
+
+  const verbrauchByDuenger = new Map<string, { menge: number; einheit: string | null }>()
+  for (const b of ((rawDuengerBehandlungen ?? []) as AR[])) {
+    const curr = verbrauchByDuenger.get(b.duengemittel_id) ?? { menge: 0, einheit: b.menge_einheit ?? null }
+    curr.menge += b.menge_gesamt ?? 0
+    verbrauchByDuenger.set(b.duengemittel_id, curr)
+  }
+
+  const bewegungenByDuenger = new Map<string, DuengerLager['bewegungen']>()
+  for (const b of ((rawDuengerBew ?? []) as AR[])) {
+    const arr = bewegungenByDuenger.get(b.duengemittel_id) ?? []
+    arr.push({
+      id: b.id, datum: b.datum, typ: b.typ,
+      menge: b.menge, einheit: b.einheit, notizen: b.notizen,
+    })
+    bewegungenByDuenger.set(b.duengemittel_id, arr)
+  }
+
+  // Alle aktiven Düngemittel für das Buchungsformular-Dropdown
+  const duenger = ((rawDuengerStamm ?? []) as AR[])
+  const duengerOptions: DuengerOption[] = duenger.map(d => ({
+    id: d.id, name: d.name, einheit_default: d.einheit ?? null, typ: d.typ ?? null,
+  }))
+
+  // Nur Düngemittel mit Bewegungen ODER Verbrauch anzeigen (analog PSM)
+  const aktiveDuenger: DuengerLager[] = duenger
+    .filter(d => bewegungenByDuenger.has(d.id) || verbrauchByDuenger.has(d.id))
+    .map(d => {
+      const vb = verbrauchByDuenger.get(d.id)
+      return {
+        duengemittel_id:     d.id,
+        duengemittel_name:   d.name,
+        einheit:             bewegungenByDuenger.get(d.id)?.[0]?.einheit ?? d.einheit ?? null,
+        typ:                 d.typ ?? null,
+        bewegungen:          bewegungenByDuenger.get(d.id) ?? [],
+        verbrauch_gesamt:    vb?.menge ?? 0,
+        einheit_behandlung:  vb?.einheit ?? null,
+      } as DuengerLager
+    })
+    .sort((a, b) => a.duengemittel_name.localeCompare(b.duengemittel_name, 'de'))
+
   const TABS = [
     { key: 'bestand',      label: 'Bestand & Bewegungen' },
     { key: 'stammdaten',   label: 'PSM-Stammdaten' },
@@ -245,12 +321,26 @@ export default async function LagerPage({
       ) : tab === 'saetze' ? (
         <SaetzeClient saetze={saetzeMassnahmen} writeOk={writeOk} adminOk={adminOk} />
       ) : (
-        <LagerClient
-          psms={aktivePsm}
-          allePsm={psmOptions}
-          writeOk={writeOk}
-          adminOk={adminOk}
-        />
+        <div className="space-y-8">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Pflanzenschutzmittel</h2>
+            <LagerClient
+              psms={aktivePsm}
+              allePsm={psmOptions}
+              writeOk={writeOk}
+              adminOk={adminOk}
+            />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Düngemittel</h2>
+            <DuengerLagerClient
+              duenger={aktiveDuenger}
+              alleDuenger={duengerOptions}
+              writeOk={writeOk}
+              adminOk={adminOk}
+            />
+          </div>
+        </div>
       )}
     </div>
   )
