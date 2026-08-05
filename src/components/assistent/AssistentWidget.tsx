@@ -18,6 +18,7 @@ type Nachricht = { rolle: 'user' | 'assistant'; inhalt: string }
 // Q&A ist). Diese Liste bei jeder neuen Phase (Verkauf, Ernte, ...) ergänzen.
 const THEMEN: { label: string; nachricht: string }[] = [
   { label: 'Maßnahme dokumentieren', nachricht: 'Ich möchte eine Maßnahme dokumentieren.' },
+  { label: 'Verkauf anlegen', nachricht: 'Ich möchte einen Verkauf anlegen.' },
 ]
 
 export default function AssistentWidget() {

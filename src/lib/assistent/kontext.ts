@@ -21,6 +21,9 @@ export type AssistentKontext = {
   kontakte: { id: string; name: string; ort: string | null }[]
   firmen: { id: string; name: string; ort: string | null }[]
   mitarbeiter: { user_id: string; name: string; rolle: string }[]
+  fuellungen: { id: string; name: string; jahrgang: number | null; rebsorte: string | null; flaschengroesse_ml: number | null; bestand_flaschen: number; vk_preis_brutto: number | null }[]
+  weinausbau: { id: string; name: string; jahrgang: number | null; rebsorte: string | null; menge_liter: number }[]
+  ustSatzStandard: number
 }
 
 /**
@@ -42,6 +45,9 @@ export async function ladeAssistentKontext(
     { data: kontakteRaw },
     { data: firmenRaw },
     { data: mitgliederRaw },
+    { data: fuellungenRaw },
+    { data: weinausbauRaw },
+    { data: einstellungenRaw },
   ] = await Promise.all([
     (supabase.from('weingarten') as any)
       .select('id, name, ried, rebsorte')
@@ -70,6 +76,19 @@ export async function ladeAssistentKontext(
     (supabase.from('tenant_memberships') as any)
       .select('user_id, role, profiles:user_id(full_name)')
       .eq('tenant_id', tenantId),
+    // fuellungen/weinausbau sind (wie im Verkaufsformular) rein RLS-mandantengescoped,
+    // keine explizite tenant_id-Spalte-Filterung – siehe weinhandel/page.tsx als Vorbild.
+    (supabase.from('fuellungen') as any)
+      .select('id, name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto')
+      .eq('aktiv', true).gt('bestand_flaschen', 0)
+      .order('name').limit(300),
+    (supabase.from('weinausbau') as any)
+      .select('id, name, jahrgang, rebsorte, menge_liter')
+      .eq('aktiv', true).in('status', ['ausbau', 'abfuellung']).gt('menge_liter', 0)
+      .order('jahrgang', { ascending: false }).limit(300),
+    (supabase.from('tenant_einstellungen') as any)
+      .select('ust_satz_standard')
+      .eq('tenant_id', tenantId).maybeSingle(),
   ])
 
   return {
@@ -95,7 +114,22 @@ export async function ladeAssistentKontext(
     mitarbeiter: ((mitgliederRaw ?? []) as R[]).map(m => ({
       user_id: m.user_id, name: (m.profiles as R | null)?.full_name ?? '–', rolle: m.role,
     })),
+    fuellungen: ((fuellungenRaw ?? []) as R[]).map(f => ({
+      id: f.id, name: f.name, jahrgang: f.jahrgang ?? null, rebsorte: f.rebsorte ?? null,
+      flaschengroesse_ml: f.flaschengroesse_ml ?? null, bestand_flaschen: f.bestand_flaschen ?? 0,
+      vk_preis_brutto: f.vk_preis_brutto ?? null,
+    })),
+    weinausbau: ((weinausbauRaw ?? []) as R[]).map(w => ({
+      id: w.id, name: w.name, jahrgang: w.jahrgang ?? null, rebsorte: w.rebsorte ?? null,
+      menge_liter: Number(w.menge_liter ?? 0),
+    })),
+    ustSatzStandard: Number((einstellungenRaw as R | null)?.ust_satz_standard) || 13,
   }
+}
+
+export const FLASCHEN_LABEL: Record<number, string> = {
+  187: '0,187 L', 375: '0,375 L', 500: '0,500 L', 750: '0,75 L',
+  1000: '1,0 L', 1500: '1,5 L', 3000: '3,0 L', 6000: '6,0 L',
 }
 
 /**
@@ -128,5 +162,13 @@ ${k.firmen.map(f => zeile(f.id, f.name, f.ort)).join('\n') || '(keine)'}
 
 TEAM-MITGLIEDER:
 ${k.mitarbeiter.map(m => `- ${m.name} (${m.rolle})`).join('\n') || '(keine)'}
+
+FÜLLUNGEN / FLASCHEN-BESTAND (${k.fuellungen.length}, nur mit Bestand > 0):
+${k.fuellungen.map(f => zeile(f.id, f.name, [f.jahrgang, f.rebsorte, f.flaschengroesse_ml ? FLASCHEN_LABEL[f.flaschengroesse_ml] : null, `${f.bestand_flaschen} Stk verfügbar`, f.vk_preis_brutto != null ? `VK ${f.vk_preis_brutto} €` : null].filter(Boolean).join(', ') || null)).join('\n') || '(keine)'}
+
+WEINAUSBAU-CHARGEN / FASS-TANK-BESTAND (${k.weinausbau.length}, nur mit Menge > 0):
+${k.weinausbau.map(w => zeile(w.id, w.name, [w.jahrgang, w.rebsorte, `${w.menge_liter} L verfügbar`].filter(Boolean).join(', ') || null)).join('\n') || '(keine)'}
+
+STANDARD-UST-SATZ DES BETRIEBS: ${k.ustSatzStandard}%
 `.trim()
 }

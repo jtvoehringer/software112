@@ -13,6 +13,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { ladeAssistentKontext, formatiereKontextFuerPrompt } from '@/lib/assistent/kontext'
 import { MASSNAHME_TOOL, MASSNAHME_FELD_MATRIX_TEXT, fuehreMassnahmeDokumentierenAus } from '@/lib/assistent/tools/massnahme'
+import { VERKAUF_TOOL, VERKAUF_FELD_MATRIX_TEXT, fuehreVerkaufAnlegenAus } from '@/lib/assistent/tools/verkauf'
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 
@@ -54,18 +55,26 @@ WICHTIG – aktuelles Datum: Heute ist ${heuteLesbar} (${heuteIso}). Wenn der Us
 nicht von einem Datum aus deinen Trainingsdaten. Gib Datumsfelder im Tool-Aufruf immer im Format
 YYYY-MM-DD an.
 
-AKTUELL KANNST DU: Maßnahmen dokumentieren (Spritzung, Düngung, Bodenbearbeitung, Schnitt,
-Laubarbeit, Sonstiges) über das Tool "massnahme_dokumentieren". Alle anderen Prozesse (Verkauf
-anlegen, Ernte erfassen, Kellerbuch) sind noch in Entwicklung – erkläre das freundlich, wenn danach
-gefragt wird, erfinde aber niemals, dass du etwas gespeichert hast.
+AKTUELL KANNST DU:
+1. Maßnahmen dokumentieren (Spritzung, Düngung, Bodenbearbeitung, Schnitt, Laubarbeit, Sonstiges)
+   über das Tool "massnahme_dokumentieren".
+2. Verkäufe anlegen (aktuell nur Flaschen aus dem Füllungen-Bestand und Fass/Tank-Mengen aus einer
+   Weinausbau-Charge) über das Tool "verkauf_anlegen". Trauben-Verkauf und freie Sonstiges-Artikel
+   noch nicht – dafür freundlich auf das bestehende Formular unter Verkauf > Neu verweisen.
+Alle anderen Prozesse (Ernte erfassen, Kellerbuch) sind noch in Entwicklung – erkläre das
+freundlich, wenn danach gefragt wird, erfinde aber niemals, dass du etwas gespeichert hast.
 
 ${MASSNAHME_FELD_MATRIX_TEXT}
 
-GANZ WICHTIG – Bestätigungspflicht: Bevor du massnahme_dokumentieren mit bestaetigt_vom_user=true
-aufrufst, MUSST du dem User in einer normalen Textnachricht eine klare Zusammenfassung der geplanten
-Eintragung zeigen (Art, Datum, Grundstück/Ried, Mittel, Menge, ...) und explizit fragen, ob das so
-passt. Rufe das Tool NIEMALS ohne diese vorherige Bestätigung auf – auch nicht, wenn der Fall
-eindeutig wirkt. Wenn der User Änderungswünsche äußert, passe die Zusammenfassung an und frage erneut.
+${VERKAUF_FELD_MATRIX_TEXT}
+
+GANZ WICHTIG – Bestätigungspflicht: Bevor du ein Tool (massnahme_dokumentieren, verkauf_anlegen, ...)
+mit bestaetigt_vom_user=true aufrufst, MUSST du dem User in einer normalen Textnachricht eine klare
+Zusammenfassung der geplanten Eintragung zeigen (z.B. bei Maßnahmen: Art, Datum, Grundstück/Ried,
+Mittel, Menge; bei Verkauf: Kunde, Datum, alle Positionen mit Menge und Preis) und explizit fragen,
+ob das so passt. Rufe ein Tool NIEMALS ohne diese vorherige Bestätigung auf – auch nicht, wenn der
+Fall eindeutig wirkt. Wenn der User Änderungswünsche äußert, passe die Zusammenfassung an und frage
+erneut.
 
 Bei Grundstücks-/Ried-Namen: nutze IMMER die exakte ID aus dem Stammdaten-Kontext unten (nie den
 Namen roh als ID verwenden). Bei Mehrdeutigkeit (mehrere Treffer) oder wenn du nichts Passendes
@@ -166,7 +175,12 @@ export async function POST(req: NextRequest) {
         model: MODEL,
         max_tokens: 1000,
         system: systemPrompt(kontextText),
-        tools: [MASSNAHME_TOOL],
+        tools: [MASSNAHME_TOOL, VERKAUF_TOOL],
+        // Seit es zwei Tools gibt: paralleles Tool-Use explizit deaktivieren, da die
+        // Schleife unten pro Runde bewusst nur den ERSTEN Tool-Aufruf ausführt (ein
+        // zweiter, unausgeführter tool_use-Block ohne passendes tool_result würde die
+        // Anthropic-API beim nächsten Aufruf mit einem 400er ablehnen).
+        tool_choice: { type: 'auto', disable_parallel_tool_use: true },
         messages: workingMessages,
       })
 
@@ -180,7 +194,8 @@ export async function POST(req: NextRequest) {
         break
       }
 
-      // Nur den ersten Tool-Aufruf dieser Runde ausführen (Phase 1 hat genau ein Tool)
+      // Nur den ersten Tool-Aufruf dieser Runde ausführen (pro Runde genau ein Tool-Aufruf –
+      // bei mehreren verfügbaren Tools kann Claude in Folgerunden weitere aufrufen)
       const toolUse = toolUseBlocks[0]
 
       // Audit: Assistant-Nachricht mit Tool-Aufruf protokollieren (nicht Teil des Replay-Verlaufs)
@@ -189,7 +204,15 @@ export async function POST(req: NextRequest) {
         inhalt: textBlocks || null, tool_name: toolUse.name, tool_input: toolUse.input,
       })
 
-      const ergebnis = await fuehreMassnahmeDokumentierenAus(toolUse.input as R, supabase)
+      // Dispatch je nach Tool-Name auf den passenden Handler.
+      let ergebnis: R
+      if (toolUse.name === 'massnahme_dokumentieren') {
+        ergebnis = await fuehreMassnahmeDokumentierenAus(toolUse.input as R, supabase)
+      } else if (toolUse.name === 'verkauf_anlegen') {
+        ergebnis = await fuehreVerkaufAnlegenAus(toolUse.input as R, supabase, kontext.ustSatzStandard)
+      } else {
+        ergebnis = { erfolg: false, fehler: `Unbekanntes Tool: ${toolUse.name}` }
+      }
 
       // Audit: Tool-Ergebnis protokollieren
       await (supabase.from('assistent_nachrichten') as any).insert({
@@ -198,12 +221,20 @@ export async function POST(req: NextRequest) {
       })
 
       // Erfolgreich angelegte Datensätze im Aktions-Protokoll festhalten
-      if (ergebnis?.erfolg && ergebnis?.behandlung_id) {
+      if (ergebnis?.erfolg && toolUse.name === 'massnahme_dokumentieren' && ergebnis?.behandlung_id) {
         await (supabase.from('assistent_aktionen') as any).insert({
           unterhaltung_id: unterhaltungId,
           prozess: 'massnahme_dokumentieren',
           ziel_tabelle: 'behandlungen',
           ziel_id: ergebnis.behandlung_id,
+          erstellt_von: user.id,
+        })
+      } else if (ergebnis?.erfolg && toolUse.name === 'verkauf_anlegen' && ergebnis?.verkaufsposten_id) {
+        await (supabase.from('assistent_aktionen') as any).insert({
+          unterhaltung_id: unterhaltungId,
+          prozess: 'verkauf_anlegen',
+          ziel_tabelle: 'verkaufsposten',
+          ziel_id: ergebnis.verkaufsposten_id,
           erstellt_von: user.id,
         })
       }
