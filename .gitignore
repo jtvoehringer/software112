@@ -36,3 +36,11 @@ yarn-error.log*
 
 # Local Netlify folder
 .netlify
+
+# Einmalige Claude-Commit-Skripte (nach Ausfuehrung erledigt, kein App-Code)
+commit-*.ps1
+_to_delete_claude_cleanup/
+
+# Lokale Arbeitsdateien (kein App-Code)
+Prozess-Assistent_Konzept_MVP_1.docx
+Software112 Design-Überarbeitung.zip
