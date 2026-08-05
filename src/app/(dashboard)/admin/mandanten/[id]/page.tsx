@@ -78,6 +78,8 @@ export type TenantSettings = {
   // Migration 098 – E&A, SumUp (FIBU entfernt)
   modul_ea:            boolean
   modul_sumup:         boolean
+  // Migration 148 – Prozess-Assistent (Bot)
+  assistent_aktiv:     boolean
   ea_buchung_modus:    string
   ea_kleinunternehmer: boolean
   ea_uva_zeitraum:     string
@@ -200,6 +202,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     sumup_merchant_code: s?.sumup_merchant_code ?? null,
     bawb_kennung:        s?.bawb_kennung ?? null,
     bawb_passwort:       s?.bawb_passwort ?? null,
+    assistent_aktiv:     !!(s?.assistent_aktiv),
   }
 
   const members: TenantMember[] = ((memberships ?? []) as R[]).map(m => ({

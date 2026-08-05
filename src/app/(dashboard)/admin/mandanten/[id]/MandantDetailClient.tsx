@@ -88,6 +88,9 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
     fd.set('modul_crm',        settings.modul_crm        ? 'true' : 'false')
     fd.set('modul_kellerbuch', settings.modul_kellerbuch  ? 'true' : 'false')
     fd.set('modul_weingarten', settings.modul_weingarten  ? 'true' : 'false')
+    fd.set('modul_ea',         settings.modul_ea          ? 'true' : 'false')
+    fd.set('modul_sumup',      settings.modul_sumup       ? 'true' : 'false')
+    fd.set('assistent_aktiv',  settings.assistent_aktiv   ? 'true' : 'false')
     startTransition(async () => {
       await saveTenantSettings(tenant.id, fd)
       setSaved(true)
@@ -342,6 +345,9 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
     fd.set('modul_crm',        settings.modul_crm        ? 'true' : 'false')
     fd.set('modul_kellerbuch', settings.modul_kellerbuch  ? 'true' : 'false')
     fd.set('modul_weingarten', settings.modul_weingarten  ? 'true' : 'false')
+    fd.set('modul_ea',         settings.modul_ea          ? 'true' : 'false')
+    fd.set('modul_sumup',      settings.modul_sumup       ? 'true' : 'false')
+    fd.set('assistent_aktiv',  settings.assistent_aktiv   ? 'true' : 'false')
     startTransition(async () => {
       await saveTenantSettings(tenant.id, fd)
       setSaved(true)
@@ -429,6 +435,7 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
     modul_newsletter: settings.modul_newsletter,
     modul_ea:         settings.modul_ea         ?? false,
     modul_sumup:      settings.modul_sumup       ?? false,
+    assistent_aktiv:  settings.assistent_aktiv   ?? false,
   })
 
   function toggle(key: keyof typeof mods) {
@@ -447,6 +454,7 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
     fd.set('modul_newsletter', mods.modul_newsletter   ? 'true' : 'false')
     fd.set('modul_ea',         mods.modul_ea           ? 'true' : 'false')
     fd.set('modul_sumup',      mods.modul_sumup         ? 'true' : 'false')
+    fd.set('assistent_aktiv',  mods.assistent_aktiv     ? 'true' : 'false')
     fd.set('brevo_api_key',     settings.brevo_api_key ?? '')
     fd.set('brevo_sender_mail', settings.brevo_sender_mail ?? '')
     fd.set('brevo_sender_name', settings.brevo_sender_name ?? '')
@@ -479,6 +487,7 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
               Erfordert E&amp;A – Aktivierung schaltet E&amp;A automatisch mit ein
             </p>
           )}
+        <Toggle on={mods.assistent_aktiv} onToggle={() => toggle('assistent_aktiv')} label="Prozess-Assistent (Bot) – Beta" />
       </div>
 
       <div className="flex items-center gap-3">
