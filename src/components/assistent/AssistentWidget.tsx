@@ -12,6 +12,14 @@ import { BotIcon } from './BotIcon'
 
 type Nachricht = { rolle: 'user' | 'assistant'; inhalt: string }
 
+// Prozesse, die bot:112 aktuell wirklich per Tool-Use ausführen kann – bewusst
+// als kurze "Themen"-Vorschläge im Startbildschirm, damit klar wird, dass der
+// Bot einen konkret durch einen ausgewählten Prozess führt (nicht nur freies
+// Q&A ist). Diese Liste bei jeder neuen Phase (Verkauf, Ernte, ...) ergänzen.
+const THEMEN: { label: string; nachricht: string }[] = [
+  { label: 'Maßnahme dokumentieren', nachricht: 'Ich möchte eine Maßnahme dokumentieren.' },
+]
+
 export default function AssistentWidget() {
   const [offen, setOffen]             = useState(false)
   const [nachrichten, setNachrichten] = useState<Nachricht[]>([])
@@ -31,9 +39,9 @@ export default function AssistentWidget() {
     if (offen) inputRef.current?.focus()
   }, [offen])
 
-  async function senden(e?: React.FormEvent) {
+  async function senden(e?: React.FormEvent, textOverride?: string) {
     e?.preventDefault()
-    const text = eingabe.trim()
+    const text = (textOverride ?? eingabe).trim()
     if (!text || laden) return
     setEingabe('')
     setFehler(null)
@@ -84,9 +92,24 @@ export default function AssistentWidget() {
           {/* Nachrichtenverlauf */}
           <div ref={listRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-2 bg-s112-bg/40">
             {nachrichten.length === 0 && (
-              <p className="text-xs text-s112-muted text-center mt-6 px-4">
-                Hallo! Stell mir eine Frage oder beschreib, was du eintragen möchtest.
-              </p>
+              <div className="mt-4 px-2">
+                <p className="text-xs text-s112-muted text-center px-2 mb-3">
+                  Hallo! Ich nehme dich an die Hand und führe dich Schritt für Schritt durch die
+                  Eintragung – wähl ein Thema oder beschreib direkt, was du erledigen möchtest:
+                </p>
+                <div className="flex flex-col gap-1.5">
+                  {THEMEN.map(t => (
+                    <button
+                      key={t.label}
+                      onClick={() => senden(undefined, t.nachricht)}
+                      disabled={laden}
+                      className="text-left text-sm bg-white border border-s112-border rounded-lg px-3 py-2 hover:border-s112-teal hover:text-s112-teal transition-colors disabled:opacity-40"
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
             {nachrichten.map((n, i) => (
               <div key={i} className={`flex ${n.rolle === 'user' ? 'justify-end' : 'justify-start'}`}>
