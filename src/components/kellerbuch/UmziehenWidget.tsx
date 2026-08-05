@@ -88,19 +88,26 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
         const result = await action(fd)
         setBrutto(''); setNetto(''); setZielId(''); setNotizen('')
         if (result?.verschneidungNeeded) {
-          // Navigiert auf eine ANDERE Charge (die Ziel-Charge des Verschnitts) - der Push
-          // holt dafür bereits frische Serverdaten. Ein direkt danach aufgerufenes
-          // router.refresh() lief hier der noch laufenden Navigation in die Quere (Next.js
-          // Router-Race: refresh() re-fetcht teils noch die AKTUELLE Route, bevor der Push
-          // committed ist) - dadurch landete man wieder auf der Ausgangsseite und das
-          // Verschneiden-Formular öffnete sich nie (Bugreport 5.8.2026, Immervoll 001:
-          // Zierfandler + Rotgipfler blieben als zwei getrennte Chargen im selben Tank
-          // stehen, obwohl der Rebsortenmix korrekt erkannt wurde).
+          // Navigiert auf eine ANDERE Charge (die Ziel-Charge des Verschnitts).
+          // Bugreport 5.8.2026 (zweimal, auch nach einem ersten Fix-Versuch mit
+          // router.push()+bedingtem router.refresh()): der Rebsortenmix wurde serverseitig
+          // korrekt erkannt (neue Charge wurde angelegt), aber das Verschneiden-Formular
+          // öffnete sich nach dem Speichern trotzdem nicht - man landete wieder auf der
+          // Ausgangsseite. Ursache: Next.js führt nach JEDEM Server-Action-Aufruf (auch ohne
+          // eigenes router.refresh()) automatisch ein implizites Neuladen der AUFRUFENDEN
+          // Route aus, um deren Server-Daten zu aktualisieren - dieses interne Neuladen kann
+          // einen direkt danach gestarteten client-seitigen router.push() auf eine ANDERE
+          // Route überholen/verwerfen (Next.js Router-Race, unabhängig von eigenem
+          // refresh()-Code). Ein bloßer router.push() ist hier also nicht robust genug.
+          // Fix: echte (harte) Navigation per window.location statt client-seitigem Router -
+          // das umgeht jede Race-Condition mit dem Router-Cache/impliziten Refresh vollständig.
           const { existingChargeId, newChargeId, menge } = result.verschneidungNeeded
-          router.push(`/kellerbuch/weinausbau/${existingChargeId}?form=verschneiden&quelle=${newChargeId}&menge=${menge}`)
+          window.location.href = `/kellerbuch/weinausbau/${existingChargeId}?form=verschneiden&quelle=${newChargeId}&menge=${menge}`
         } else if (result?.abstufung) {
+          // Gleiche Race-Gefahr wie oben (andere Route zwar gleiche Charge, aber neuer
+          // Query-Parameter) - aus Konsistenzgründen ebenfalls harte Navigation.
           const { vonLabel, nachLabel } = result.abstufung
-          router.push(`/kellerbuch/weinausbau/${chargeId}?abstufung=${encodeURIComponent(`${vonLabel}→${nachLabel}`)}`)
+          window.location.href = `/kellerbuch/weinausbau/${chargeId}?abstufung=${encodeURIComponent(`${vonLabel}→${nachLabel}`)}`
         } else {
           // Bleibt auf derselben Charge - ein bloßer Push auf dieselbe URL lädt in Next.js
           // keine frischen Serverdaten nach, hier ist das explizite refresh() nötig.
