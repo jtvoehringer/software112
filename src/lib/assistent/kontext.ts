@@ -26,6 +26,7 @@ export type AssistentKontext = {
   jahrgaenge: { id: string; jahrgang: number }[]
   behaelter: { id: string; name: string; typ: string | null; volumen_liter: number | null }[]
   behandlungstypen: { id: string; name: string; einheit_standard: string | null }[]
+  korrekturen: { id: string; begriff: string; interpretation: string; kategorie: string | null }[]
   ustSatzStandard: number
 }
 
@@ -54,6 +55,7 @@ export async function ladeAssistentKontext(
     { data: jahrgaengeRaw },
     { data: behaelterRaw },
     { data: behandlungstypenRaw },
+    { data: korrekturenRaw },
   ] = await Promise.all([
     (supabase.from('weingarten') as any)
       .select('id, name, ried, rebsorte')
@@ -108,6 +110,14 @@ export async function ladeAssistentKontext(
     (supabase.from('keller_behandlungstypen') as any)
       .select('id, name, einheit_standard')
       .order('sort_order').order('name').limit(200),
+    // Korrekturgedächtnis (Phase 5) – pro Mandant gelernte Begriffs-Zuordnungen, siehe
+    // Migration 148 (assistent_korrekturen). Limit als Sicherheitsgrenze gegen unbegrenzt
+    // wachsende Prompts, analog zu den übrigen Kontext-Listen; erstellt_am desc, damit bei
+    // Erreichen des Limits die zuletzt gelernten (vermutlich relevantesten) Einträge bleiben.
+    (supabase.from('assistent_korrekturen') as any)
+      .select('id, begriff, interpretation, kategorie')
+      .eq('tenant_id', tenantId)
+      .order('erstellt_am', { ascending: false }).limit(200),
   ])
 
   return {
@@ -149,6 +159,9 @@ export async function ladeAssistentKontext(
     })),
     behandlungstypen: ((behandlungstypenRaw ?? []) as R[]).map(t => ({
       id: t.id, name: t.name, einheit_standard: t.einheit_standard ?? null,
+    })),
+    korrekturen: ((korrekturenRaw ?? []) as R[]).map(k => ({
+      id: k.id, begriff: k.begriff, interpretation: k.interpretation, kategorie: k.kategorie ?? null,
     })),
   }
 }
@@ -205,5 +218,9 @@ ${k.behaelter.map(b => zeile(b.id, b.name, [b.typ, b.volumen_liter != null ? `${
 
 KELLERBEHANDLUNGS-TYPEN (${k.behandlungstypen.length}):
 ${k.behandlungstypen.map(t => zeile(t.id, t.name, t.einheit_standard)).join('\n') || '(keine)'}
+
+GELERNTE ZUORDNUNGEN – Korrekturgedächtnis (${k.korrekturen.length}, bei einem passenden Treffer
+IMMER zuerst hier nachsehen, bevor du selbst in den obigen Stammdaten suchst):
+${k.korrekturen.map(x => `- "${x.begriff}" → ${x.interpretation}${x.kategorie ? ` [${x.kategorie}]` : ''}`).join('\n') || '(noch keine gelernt)'}
 `.trim()
 }

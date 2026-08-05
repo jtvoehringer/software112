@@ -19,6 +19,7 @@ import { ABFUELLEN_TOOL, ABFUELLEN_FELD_MATRIX_TEXT, fuehreAbfuellenAus } from '
 import { VERSCHNEIDEN_TOOL, VERSCHNEIDEN_FELD_MATRIX_TEXT, fuehreVerschneidenAus } from '@/lib/assistent/tools/verschneiden'
 import { UMZIEHEN_TOOL, UMZIEHEN_FELD_MATRIX_TEXT, fuehreUmziehenAus } from '@/lib/assistent/tools/umziehen'
 import { KELLERBEHANDLUNG_TOOL, KELLERBEHANDLUNG_FELD_MATRIX_TEXT, fuehreKellerbehandlungErfassenAus } from '@/lib/assistent/tools/kellerbehandlung'
+import { KORREKTUR_TOOL, KORREKTUR_FELD_MATRIX_TEXT, fuehreKorrekturMerkenAus } from '@/lib/assistent/tools/korrektur'
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 
@@ -91,9 +92,11 @@ ${UMZIEHEN_FELD_MATRIX_TEXT}
 
 ${KELLERBEHANDLUNG_FELD_MATRIX_TEXT}
 
+${KORREKTUR_FELD_MATRIX_TEXT}
+
 GANZ WICHTIG – Bestätigungspflicht: Bevor du ein Tool (massnahme_dokumentieren, verkauf_anlegen,
-ernte_erfassen, abfuellen, verschneiden, umziehen, kellerbehandlung_erfassen, ...) mit
-bestaetigt_vom_user=true aufrufst, MUSST du dem User in einer normalen Textnachricht eine klare
+ernte_erfassen, abfuellen, verschneiden, umziehen, kellerbehandlung_erfassen, korrektur_merken, ...)
+mit bestaetigt_vom_user=true aufrufst, MUSST du dem User in einer normalen Textnachricht eine klare
 Zusammenfassung der geplanten Eintragung zeigen (z.B. bei Maßnahmen: Art, Datum, Grundstück/Ried,
 Mittel, Menge; bei Verkauf: Kunde, Datum, alle Positionen mit Menge und Preis; bei Ernte: Jahrgang,
 Datum, alle Rieden/Grundstücke mit Mengen; bei Abfüllen/Verschneiden/Umziehen/Kellerbehandlung:
@@ -106,6 +109,15 @@ eine Qualitäts- oder Herkunfts-Abstufung auslösen, oder (bei Umziehen) signali
 unterschiedlicher Rebsorten im Ziel-Gebinde jetzt eine Verschneidung nötig ist. Prüfe nach jedem
 Aufruf von "umziehen" oder "verschneiden" das Tool-Ergebnis auf abstufung/verschneidung_noetig und
 teile das dem User explizit in der finalen Antwort mit – nicht nur "erledigt, danke" melden.
+
+GANZ WICHTIG – Korrekturgedächtnis: Prüfe bei JEDER Zuordnung eines vom User genannten Begriffs zu
+einer ID zuerst den Abschnitt "GELERNTE ZUORDNUNGEN" im Stammdaten-Kontext unten – bei einem
+passenden (auch sinngemäßen) Treffer verwende diese Zuordnung direkt, ohne nachzufragen. Wenn du
+im laufenden Gespräch bemerkst, dass du einen Begriff falsch zugeordnet hattest und der User dich
+korrigiert hat (z.B. "nein, ich meinte..."), frage NACHDEM du die korrekte Zuordnung gefunden hast
+explizit: "Soll ich mir das für nächstes Mal merken?". Nur bei ausdrücklicher Zustimmung rufst du
+"korrektur_merken" auf (bestaetigt_vom_user=true). Dränge den User nicht dazu und frage nicht bei
+jeder normalen, eindeutigen Zuordnung – nur wenn wirklich eine Korrektur stattgefunden hat.
 
 Bei Grundstücks-/Ried-Namen: nutze IMMER die exakte ID aus dem Stammdaten-Kontext unten (nie den
 Namen roh als ID verwenden). Bei Mehrdeutigkeit (mehrere Treffer) oder wenn du nichts Passendes
@@ -206,7 +218,7 @@ export async function POST(req: NextRequest) {
         model: MODEL,
         max_tokens: 1000,
         system: systemPrompt(kontextText),
-        tools: [MASSNAHME_TOOL, VERKAUF_TOOL, ERNTE_TOOL, ABFUELLEN_TOOL, VERSCHNEIDEN_TOOL, UMZIEHEN_TOOL, KELLERBEHANDLUNG_TOOL],
+        tools: [MASSNAHME_TOOL, VERKAUF_TOOL, ERNTE_TOOL, ABFUELLEN_TOOL, VERSCHNEIDEN_TOOL, UMZIEHEN_TOOL, KELLERBEHANDLUNG_TOOL, KORREKTUR_TOOL],
         // Seit es mehrere Tools gibt: paralleles Tool-Use explizit deaktivieren, da die
         // Schleife unten pro Runde bewusst nur den ERSTEN Tool-Aufruf ausführt (ein
         // weiterer, unausgeführter tool_use-Block ohne passendes tool_result würde die
@@ -251,6 +263,8 @@ export async function POST(req: NextRequest) {
         ergebnis = await fuehreUmziehenAus(toolUse.input as R, supabase)
       } else if (toolUse.name === 'kellerbehandlung_erfassen') {
         ergebnis = await fuehreKellerbehandlungErfassenAus(toolUse.input as R, supabase)
+      } else if (toolUse.name === 'korrektur_merken') {
+        ergebnis = await fuehreKorrekturMerkenAus(toolUse.input as R, supabase, user.id)
       } else {
         ergebnis = { erfolg: false, fehler: `Unbekanntes Tool: ${toolUse.name}` }
       }
@@ -318,6 +332,14 @@ export async function POST(req: NextRequest) {
           prozess: 'kellerbehandlung_erfassen',
           ziel_tabelle: 'keller_behandlungen',
           ziel_id: ergebnis.behandlung_id,
+          erstellt_von: user.id,
+        })
+      } else if (ergebnis?.erfolg && toolUse.name === 'korrektur_merken' && ergebnis?.korrektur_id) {
+        await (supabase.from('assistent_aktionen') as any).insert({
+          unterhaltung_id: unterhaltungId,
+          prozess: 'korrektur_merken',
+          ziel_tabelle: 'assistent_korrekturen',
+          ziel_id: ergebnis.korrektur_id,
           erstellt_von: user.id,
         })
       }
