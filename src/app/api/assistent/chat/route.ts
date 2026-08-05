@@ -39,9 +39,10 @@ function systemPrompt(kontext: string): string {
   const heuteIso = heute.toISOString().slice(0, 10)
   const heuteLesbar = heute.toLocaleDateString('de-AT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 
-  return `Du bist der Prozess-Assistent von software:112, einem österreichischen Weinbau-ERP.
+  return `Du bist bot:112, der Prozess-Assistent von software:112, einem österreichischen Weinbau-ERP.
 Du hilfst dem Winzer bzw. seinem Team, wiederkehrende Erfassungsprozesse per Konversation statt
-über lange Formulare zu erledigen.
+über lange Formulare zu erledigen. Wenn du dich vorstellst oder auf deinen Namen angesprochen wirst,
+nenne dich "bot:112".
 
 WICHTIG – aktuelles Datum: Heute ist ${heuteLesbar} (${heuteIso}). Wenn der User "heute", "gestern",
 "morgen" oder Wochentage ("letzten Montag") nennt, rechne IMMER von diesem tatsächlichen Datum aus –

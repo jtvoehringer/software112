@@ -487,7 +487,7 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
               Erfordert E&amp;A – Aktivierung schaltet E&amp;A automatisch mit ein
             </p>
           )}
-        <Toggle on={mods.assistent_aktiv} onToggle={() => toggle('assistent_aktiv')} label="Prozess-Assistent (Bot) – Beta" />
+        <Toggle on={mods.assistent_aktiv} onToggle={() => toggle('assistent_aktiv')} label="bot:112 – Beta" />
       </div>
 
       <div className="flex items-center gap-3">

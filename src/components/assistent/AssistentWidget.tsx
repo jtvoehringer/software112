@@ -73,7 +73,7 @@ export default function AssistentWidget() {
           <div className="flex items-center justify-between px-4 py-3 bg-s112-teal text-white flex-shrink-0">
             <div className="flex items-center gap-2">
               <Bot size={18} />
-              <span className="font-semibold text-sm">Prozess-Assistent</span>
+              <span className="font-semibold text-sm">bot:112</span>
             </div>
             <button onClick={() => setOffen(false)} aria-label="Schließen" className="hover:opacity-75">
               <X size={18} />
