@@ -23,6 +23,7 @@ export type AssistentKontext = {
   mitarbeiter: { user_id: string; name: string; rolle: string }[]
   fuellungen: { id: string; name: string; jahrgang: number | null; rebsorte: string | null; flaschengroesse_ml: number | null; bestand_flaschen: number; vk_preis_brutto: number | null }[]
   weinausbau: { id: string; name: string; jahrgang: number | null; rebsorte: string | null; menge_liter: number }[]
+  jahrgaenge: { id: string; jahrgang: number }[]
   ustSatzStandard: number
 }
 
@@ -48,6 +49,7 @@ export async function ladeAssistentKontext(
     { data: fuellungenRaw },
     { data: weinausbauRaw },
     { data: einstellungenRaw },
+    { data: jahrgaengeRaw },
   ] = await Promise.all([
     (supabase.from('weingarten') as any)
       .select('id, name, ried, rebsorte')
@@ -89,6 +91,10 @@ export async function ladeAssistentKontext(
     (supabase.from('tenant_einstellungen') as any)
       .select('ust_satz_standard')
       .eq('tenant_id', tenantId).maybeSingle(),
+    (supabase.from('weinjahrgaenge') as any)
+      .select('id, jahrgang')
+      .eq('tenant_id', tenantId)
+      .order('jahrgang', { ascending: false }).limit(50),
   ])
 
   return {
@@ -124,6 +130,7 @@ export async function ladeAssistentKontext(
       menge_liter: Number(w.menge_liter ?? 0),
     })),
     ustSatzStandard: Number((einstellungenRaw as R | null)?.ust_satz_standard) || 13,
+    jahrgaenge: ((jahrgaengeRaw ?? []) as R[]).map(j => ({ id: j.id, jahrgang: Number(j.jahrgang) })),
   }
 }
 
@@ -170,5 +177,8 @@ WEINAUSBAU-CHARGEN / FASS-TANK-BESTAND (${k.weinausbau.length}, nur mit Menge > 
 ${k.weinausbau.map(w => zeile(w.id, w.name, [w.jahrgang, w.rebsorte, `${w.menge_liter} L verfügbar`].filter(Boolean).join(', ') || null)).join('\n') || '(keine)'}
 
 STANDARD-UST-SATZ DES BETRIEBS: ${k.ustSatzStandard}%
+
+WEINJAHRGÄNGE (${k.jahrgaenge.length}, bereits angelegt):
+${k.jahrgaenge.map(j => `- ${j.jahrgang}`).join('\n') || '(keine)'}
 `.trim()
 }

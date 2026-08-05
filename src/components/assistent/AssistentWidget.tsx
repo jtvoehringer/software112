@@ -19,6 +19,7 @@ type Nachricht = { rolle: 'user' | 'assistant'; inhalt: string }
 const THEMEN: { label: string; nachricht: string }[] = [
   { label: 'Maßnahme dokumentieren', nachricht: 'Ich möchte eine Maßnahme dokumentieren.' },
   { label: 'Verkauf anlegen', nachricht: 'Ich möchte einen Verkauf anlegen.' },
+  { label: 'Ernte erfassen', nachricht: 'Ich möchte eine Ernte erfassen.' },
 ]
 
 export default function AssistentWidget() {

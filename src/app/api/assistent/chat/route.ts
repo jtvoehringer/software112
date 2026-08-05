@@ -14,6 +14,7 @@ import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { ladeAssistentKontext, formatiereKontextFuerPrompt } from '@/lib/assistent/kontext'
 import { MASSNAHME_TOOL, MASSNAHME_FELD_MATRIX_TEXT, fuehreMassnahmeDokumentierenAus } from '@/lib/assistent/tools/massnahme'
 import { VERKAUF_TOOL, VERKAUF_FELD_MATRIX_TEXT, fuehreVerkaufAnlegenAus } from '@/lib/assistent/tools/verkauf'
+import { ERNTE_TOOL, ERNTE_FELD_MATRIX_TEXT, fuehreErnteErfassenAus } from '@/lib/assistent/tools/ernte'
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 
@@ -61,19 +62,25 @@ AKTUELL KANNST DU:
 2. Verkäufe anlegen (aktuell nur Flaschen aus dem Füllungen-Bestand und Fass/Tank-Mengen aus einer
    Weinausbau-Charge) über das Tool "verkauf_anlegen". Trauben-Verkauf und freie Sonstiges-Artikel
    noch nicht – dafür freundlich auf das bestehende Formular unter Verkauf > Neu verweisen.
-Alle anderen Prozesse (Ernte erfassen, Kellerbuch) sind noch in Entwicklung – erkläre das
-freundlich, wenn danach gefragt wird, erfinde aber niemals, dass du etwas gespeichert hast.
+3. Ernte erfassen (Lesedaten für ganze Rieden und/oder einzelne Grundstücke, inkl. automatischem
+   Anlegen des Weinjahrgangs bei Bedarf) über das Tool "ernte_erfassen".
+Alle anderen Prozesse (Kellerbuch: Umziehen, Kellerbehandlungen, Abfüllen, Verschneiden) sind noch
+in Entwicklung – erkläre das freundlich, wenn danach gefragt wird, erfinde aber niemals, dass du
+etwas gespeichert hast.
 
 ${MASSNAHME_FELD_MATRIX_TEXT}
 
 ${VERKAUF_FELD_MATRIX_TEXT}
 
-GANZ WICHTIG – Bestätigungspflicht: Bevor du ein Tool (massnahme_dokumentieren, verkauf_anlegen, ...)
-mit bestaetigt_vom_user=true aufrufst, MUSST du dem User in einer normalen Textnachricht eine klare
-Zusammenfassung der geplanten Eintragung zeigen (z.B. bei Maßnahmen: Art, Datum, Grundstück/Ried,
-Mittel, Menge; bei Verkauf: Kunde, Datum, alle Positionen mit Menge und Preis) und explizit fragen,
-ob das so passt. Rufe ein Tool NIEMALS ohne diese vorherige Bestätigung auf – auch nicht, wenn der
-Fall eindeutig wirkt. Wenn der User Änderungswünsche äußert, passe die Zusammenfassung an und frage
+${ERNTE_FELD_MATRIX_TEXT}
+
+GANZ WICHTIG – Bestätigungspflicht: Bevor du ein Tool (massnahme_dokumentieren, verkauf_anlegen,
+ernte_erfassen, ...) mit bestaetigt_vom_user=true aufrufst, MUSST du dem User in einer normalen
+Textnachricht eine klare Zusammenfassung der geplanten Eintragung zeigen (z.B. bei Maßnahmen: Art,
+Datum, Grundstück/Ried, Mittel, Menge; bei Verkauf: Kunde, Datum, alle Positionen mit Menge und
+Preis; bei Ernte: Jahrgang, Datum, alle Rieden/Grundstücke mit Mengen) und explizit fragen, ob das
+so passt. Rufe ein Tool NIEMALS ohne diese vorherige Bestätigung auf – auch nicht, wenn der Fall
+eindeutig wirkt. Wenn der User Änderungswünsche äußert, passe die Zusammenfassung an und frage
 erneut.
 
 Bei Grundstücks-/Ried-Namen: nutze IMMER die exakte ID aus dem Stammdaten-Kontext unten (nie den
@@ -175,10 +182,10 @@ export async function POST(req: NextRequest) {
         model: MODEL,
         max_tokens: 1000,
         system: systemPrompt(kontextText),
-        tools: [MASSNAHME_TOOL, VERKAUF_TOOL],
-        // Seit es zwei Tools gibt: paralleles Tool-Use explizit deaktivieren, da die
+        tools: [MASSNAHME_TOOL, VERKAUF_TOOL, ERNTE_TOOL],
+        // Seit es mehrere Tools gibt: paralleles Tool-Use explizit deaktivieren, da die
         // Schleife unten pro Runde bewusst nur den ERSTEN Tool-Aufruf ausführt (ein
-        // zweiter, unausgeführter tool_use-Block ohne passendes tool_result würde die
+        // weiterer, unausgeführter tool_use-Block ohne passendes tool_result würde die
         // Anthropic-API beim nächsten Aufruf mit einem 400er ablehnen).
         tool_choice: { type: 'auto', disable_parallel_tool_use: true },
         messages: workingMessages,
@@ -210,6 +217,8 @@ export async function POST(req: NextRequest) {
         ergebnis = await fuehreMassnahmeDokumentierenAus(toolUse.input as R, supabase)
       } else if (toolUse.name === 'verkauf_anlegen') {
         ergebnis = await fuehreVerkaufAnlegenAus(toolUse.input as R, supabase, kontext.ustSatzStandard)
+      } else if (toolUse.name === 'ernte_erfassen') {
+        ergebnis = await fuehreErnteErfassenAus(toolUse.input as R, supabase)
       } else {
         ergebnis = { erfolg: false, fehler: `Unbekanntes Tool: ${toolUse.name}` }
       }
@@ -235,6 +244,14 @@ export async function POST(req: NextRequest) {
           prozess: 'verkauf_anlegen',
           ziel_tabelle: 'verkaufsposten',
           ziel_id: ergebnis.verkaufsposten_id,
+          erstellt_von: user.id,
+        })
+      } else if (ergebnis?.erfolg && toolUse.name === 'ernte_erfassen' && ergebnis?.jahrgang_id) {
+        await (supabase.from('assistent_aktionen') as any).insert({
+          unterhaltung_id: unterhaltungId,
+          prozess: 'ernte_erfassen',
+          ziel_tabelle: 'ernte_parzellen',
+          ziel_id: ergebnis.jahrgang_id,
           erstellt_von: user.id,
         })
       }
