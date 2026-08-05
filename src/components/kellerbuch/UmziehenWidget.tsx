@@ -88,15 +88,25 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
         const result = await action(fd)
         setBrutto(''); setNetto(''); setZielId(''); setNotizen('')
         if (result?.verschneidungNeeded) {
+          // Navigiert auf eine ANDERE Charge (die Ziel-Charge des Verschnitts) - der Push
+          // holt dafür bereits frische Serverdaten. Ein direkt danach aufgerufenes
+          // router.refresh() lief hier der noch laufenden Navigation in die Quere (Next.js
+          // Router-Race: refresh() re-fetcht teils noch die AKTUELLE Route, bevor der Push
+          // committed ist) - dadurch landete man wieder auf der Ausgangsseite und das
+          // Verschneiden-Formular öffnete sich nie (Bugreport 5.8.2026, Immervoll 001:
+          // Zierfandler + Rotgipfler blieben als zwei getrennte Chargen im selben Tank
+          // stehen, obwohl der Rebsortenmix korrekt erkannt wurde).
           const { existingChargeId, newChargeId, menge } = result.verschneidungNeeded
           router.push(`/kellerbuch/weinausbau/${existingChargeId}?form=verschneiden&quelle=${newChargeId}&menge=${menge}`)
         } else if (result?.abstufung) {
           const { vonLabel, nachLabel } = result.abstufung
           router.push(`/kellerbuch/weinausbau/${chargeId}?abstufung=${encodeURIComponent(`${vonLabel}→${nachLabel}`)}`)
         } else {
+          // Bleibt auf derselben Charge - ein bloßer Push auf dieselbe URL lädt in Next.js
+          // keine frischen Serverdaten nach, hier ist das explizite refresh() nötig.
           router.push(`/kellerbuch/weinausbau/${chargeId}`)
+          router.refresh()
         }
-        router.refresh()
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Fehler beim Umziehen')
       }
