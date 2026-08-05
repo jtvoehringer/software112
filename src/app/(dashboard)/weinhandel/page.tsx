@@ -51,6 +51,12 @@ export default async function WeinhandelPage() {
       .select('id, art, datum, menge, einheit, rebsorte, jahrgang, notizen, preis_gesamt, lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname), lieferant_firma:firmen!lieferant_firma_id(name)')
       .eq('aktiv', true)
       .gt('menge', 0)
+      // Zukäufe, die bereits einem Gebinde zugeordnet wurden, laufen ab dann über die
+      // Kellerbuch-Charge (weinausbau.menge_liter, siehe "Kellerbuch-Chargen" oben) – deren
+      // ursprüngliche zukauf_posten.menge wird nie dekrementiert und würde hier sonst für
+      // immer als zusätzlicher, nie schrumpfender Doppel-Bestand mitgezählt (unabhängig vom
+      // separaten Bugfix zur Zukauf-Bearbeitung, siehe commit-kellerbuch-zukauf-bugfixes.ps1).
+      .is('ziel_weinausbau_id', null)
       .order('datum', { ascending: false }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('pressung_behaelter') as any)
