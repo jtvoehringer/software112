@@ -191,17 +191,36 @@ export async function POST(req: NextRequest) {
     // Anthropic-API nicht über mehrere Requests hinweg replizieren zu müssen.
     // Die finale Klartext-Antwort nach einem Tool-Aufruf landet ohnehin als
     // normale Assistant-Nachricht im Verlauf, der Kontext bleibt erhalten.
+    //
+    // WICHTIG (Bugfix): absteigend nach erstellt_am sortieren und danach wieder
+    // in chronologische Reihenfolge bringen – bei aufsteigender Sortierung mit
+    // demselben LIMIT hätte man stattdessen die ÄLTESTEN Nachrichten der
+    // Unterhaltung bekommen und die zuletzt ausgetauschten (also gerade den
+    // Kontext, um den es typischerweise geht) verloren, sobald eine einzelne
+    // Unterhaltung mehr als MAX_VERLAUF_NACHRICHTEN Textnachrichten ansammelt
+    // (z.B. bei einer lange offen gehaltenen Chat-Sitzung über mehrere
+    // Prozesse hinweg) – das führte dazu, dass der Bot mitten im Gespräch auf
+    // einmal wieder eine längst beantwortete, viel ältere Frage stellte.
     const { data: verlaufRaw } = await (supabase.from('assistent_nachrichten') as any)
       .select('rolle, inhalt')
       .eq('unterhaltung_id', unterhaltungId)
       .in('rolle', ['user', 'assistant'])
       .is('tool_name', null)
-      .order('erstellt_am', { ascending: true })
+      .order('erstellt_am', { ascending: false })
       .limit(MAX_VERLAUF_NACHRICHTEN)
 
     const verlaufMessages = ((verlaufRaw ?? []) as R[])
       .filter(m => m.inhalt)
+      .reverse()
       .map(m => ({ role: m.rolle as 'user' | 'assistant', content: m.inhalt as string }))
+
+    // Die Anthropic-API verlangt, dass eine Konversation mit "user" beginnt – nach der
+    // Kürzung auf die letzten MAX_VERLAUF_NACHRICHTEN kann die Liste (in seltenen Fällen,
+    // je nach genauer Abschneide-Position) zufällig mit einer Assistant-Nachricht beginnen,
+    // deren zugehörige User-Nachricht gerade noch abgeschnitten wurde – diese dann verwerfen.
+    while (verlaufMessages.length > 0 && verlaufMessages[0].role !== 'user') {
+      verlaufMessages.shift()
+    }
 
     // ── Stammdaten-Kontext laden ─────────────────────────────────────────────
     const kontext = await ladeAssistentKontext(supabase, membership.tenantId)
