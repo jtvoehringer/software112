@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useTransition, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
 import { deleteVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
@@ -64,7 +64,19 @@ function StornoButton({ id, zielId }: { id: string; zielId: string }) {
 export default function VerschneidungWidget({ zielCharge, alleChargen, verschneidungen, initialOpen = false, initialQuelleId, initialQuelleMenge }: Props) {
   const router = useRouter()
   const [showForm, setShowForm] = useState(initialOpen)
-  useEffect(() => { setShowForm(initialOpen) }, [initialOpen])
+  const sectionRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    setShowForm(initialOpen)
+    // Nach automatischem Öffnen (z.B. Redirect aus dem Umziehen nach erkanntem
+    // Rebsortenmix) liegt diese Sektion oft weit unten auf der Seite (nach
+    // Bewegungsbuch + Umziehen-Formular) - ohne aktives Hinscrollen sieht es dann so
+    // aus, als hätte sich "kein Dialog geöffnet", obwohl das Formular tatsächlich
+    // bereits offen ist, nur außerhalb des sichtbaren Bereichs (Bugreport 5.8.2026).
+    if (initialOpen) {
+      const t = setTimeout(() => sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80)
+      return () => clearTimeout(t)
+    }
+  }, [initialOpen])
 
   function handleClose() {
     setShowForm(false)
@@ -72,7 +84,7 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
   }
 
   return (
-    <section>
+    <section ref={sectionRef}>
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-semibold text-gray-800 flex items-center gap-1.5">
           <GitMerge size={16} strokeWidth={1.75} className="text-violet-600" />Verschneidungen
