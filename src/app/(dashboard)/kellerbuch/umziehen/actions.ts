@@ -91,17 +91,25 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
 
   // ── Phase 2: Ziele befüllen, Ziel-Records anlegen ────────────────────────────
   for (const z of ziele) {
+    // WICHTIG: bewusst OHNE .maybeSingle() – sobald im Ziel-Gebinde bereits MEHR ALS EINE
+    // aktive Charge liegt (z.B. weil eine frühere Verschneidung nach einem Rebsortenmix noch
+    // nicht nachgezogen wurde), wirft .maybeSingle() bei >1 Treffern einen Fehler, der hier
+    // nur über `data` (nicht `error`) ausgelesen wurde – dadurch wurde `vorhanden` STILL
+    // schweigend null, der Rebsortenmix-Zweig nie erreicht und einfach eine weitere lose
+    // Charge angelegt, ohne je eine Verschneidung anzustoßen (Bugreport 5.8.2026: Immervoll
+    // 001 sammelte so nacheinander drei getrennte Chargen an, ohne dass der
+    // Verschneiden-Dialog auch nur EIN Mal ausgelöst wurde, obwohl die vorherigen Client-Fixes
+    // für den Redirect selbst bereits korrekt waren).
     const { data: vorhandenRaw } = await (supabase.from('weinausbau') as any)
       .select('*')
       .eq('behaelter_id', z.behaelter_id)
       .eq('aktiv', true)
       .neq('status', 'abgeschlossen')
-      .maybeSingle()
-    const vorhanden = vorhandenRaw as R | null
+    const vorhandenListe = (vorhandenRaw ?? []) as R[]
 
     let nachWeinausbauId: string | null = null
 
-    // Rebsortenmix-Check: erste Quell-Rebsorte vs. bestehende Charge im Zielbehälter.
+    // Rebsortenmix-Check: erste Quell-Rebsorte vs. bestehende Charge(n) im Zielbehälter.
     // Wichtig: eine bestehende Charge OHNE eindeutige Rebsorte (rebsorte = null, typischerweise
     // weil sie selbst schon ein Verschnitt ist, z.B. "Sortenverschnitt") zählt HIER ebenfalls als
     // Mix, nicht als "unbedenklich gleich" – vorher wurde in diesem Fall stillschweigend
@@ -110,6 +118,22 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
     // wurde stillschweigend mit einem bestehenden Sortenverschnitt vermischt, ohne dass der
     // Verschneiden-Dialog bzw. eine Verschneidungs-Buchung ausgelöst wurde).
     const quelleRebsorte = quellenDaten.length === 1 ? (quellenDaten[0].rebsorte ?? null) : null
+
+    // Liegt bereits eine Charge MIT EXAKT DERSELBEN Rebsorte im Ziel-Gebinde (auch wenn dort
+    // noch weitere, andere Chargen herumstehen)? Dann direkt in DIESE zusammenführen.
+    const gleicheRebsorte = quelleRebsorte != null
+      ? vorhandenListe.find(v => v.rebsorte === quelleRebsorte) ?? null
+      : null
+
+    // Anker-Charge für den Vergleich: bevorzugt die mit gleicher Rebsorte; sonst (falls
+    // mehrere lose Chargen im Ziel liegen) die mengenmäßig größte als sinnvollster Ausgangspunkt
+    // für eine Verschneidung – der User kann im Verschneiden-Formular ohnehin beliebig weitere
+    // Chargen aus demselben Tank ergänzen.
+    const vorhanden = gleicheRebsorte
+      ?? (vorhandenListe.length > 0
+            ? [...vorhandenListe].sort((a, b) => (parseFloat(b.menge_liter) || 0) - (parseFloat(a.menge_liter) || 0))[0]
+            : null)
+
     const istRebsortenmix = vorhanden != null
       && quelleRebsorte != null
       && (vorhanden.rebsorte == null || quelleRebsorte !== vorhanden.rebsorte)
