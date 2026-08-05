@@ -24,6 +24,10 @@ export type ZukaufTraubenOpt = {
   id: string; datum: string; lieferant: string
   rebsorte: string | null; herkunft: string | null
   menge_kg: number; verfuegbar_kg: number
+  // °KMW, wie beim Zukauf erfasst (zukauf_posten.kmw) – soll in die Pressung übernommen
+  // werden können, da zugekaufte Trauben keine eigene Lese-Parzelle mit klosterneuburger
+  // haben und daher sonst nicht in den gewichteten KMW-Durchschnitt einfließen.
+  kmw_grad: number | null
 }
 export type PressungBeh = {
   id: string; behaelter_id: string | null; behaelter_name: string | null
@@ -130,12 +134,24 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     })) ?? [emptyBeh()]
   )
 
-  // KMW gewichteter Durchschnitt aus den AUSGEWÄHLTEN WG-Zeilen (reaktiv zu wgRows)
+  // KMW gewichteter Durchschnitt aus den AUSGEWÄHLTEN WG-Zeilen (reaktiv zu wgRows).
+  // Berücksichtigt sowohl eigene Lese-Parzellen (klosterneuburger aus leseParzellen) als
+  // auch zugekaufte Trauben (kmw_grad aus zukaufTrauben, beim Zukauf erfasst) – vorher
+  // wurden Zukauf-Zeilen (kein weingarten_id) hier komplett übergangen und der KMW-Wert
+  // blieb bei reinen Zukauf-Pressungen immer leer, obwohl er beim Zukauf erfasst worden war.
   const kmwFromWgRows = (() => {
     let sumKg = 0, sumKmw = 0
     for (const row of wgRows) {
       const kg = parseFloat(row.trauben_kg.replace(',', '.')) || 0
       if (kg <= 0) continue
+      if (row.zukauf_posten_id) {
+        const zukauf = zukaufTrauben.find(z => z.id === row.zukauf_posten_id)
+        if (zukauf?.kmw_grad != null) {
+          sumKg  += kg
+          sumKmw += zukauf.kmw_grad * kg
+        }
+        continue
+      }
       const parzelle = leseParzellen.find(p =>
         p.weingarten_id === row.weingarten_id &&
         (p.grundstueck_id ?? '') === row.grundstueck_id

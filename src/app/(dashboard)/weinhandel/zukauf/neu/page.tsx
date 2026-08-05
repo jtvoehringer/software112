@@ -6,7 +6,7 @@ import { createZukauf } from '../actions'
 import { QUALITAET_LABEL, QUALITAET_ORDER } from '@/lib/weinqualitaet'
 import { AlertTriangle } from 'lucide-react'
 
-interface Kontakt  { id: string; vorname: string | null; nachname: string }
+interface Kontakt  { id: string; vorname: string | null; nachname: string; firma_id: string | null }
 interface Firma    { id: string; name: string }
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
 
@@ -54,6 +54,7 @@ function KundenSuche({ items, value, onChange, placeholder, disabled }: {
     return (
       <div className="flex items-center gap-2 border border-s112-border rounded-lg px-3 py-2 bg-white text-sm">
         <span className="flex-1 truncate font-medium text-gray-800">{selected.label}</span>
+        {selected.sub && <span className="text-xs text-s112-muted truncate">{selected.sub}</span>}
         {!disabled && (
           <button type="button" onClick={() => { onChange(''); setQuery('') }}
             className="text-s112-muted hover:text-red-500 ml-1 flex-shrink-0 text-base leading-none">×</button>
@@ -112,6 +113,7 @@ export default function ZukaufNeuPage() {
   // ── Lieferant / Versender ─────────────────────────────────────────────────
   const [lieferantKontakt, setLieferantKontakt] = useState('')
   const [lieferantFirma,   setLieferantFirma]   = useState('')
+  const [lieferantZh,      setLieferantZh]      = useState('')
   const [eingangsrechnungsnummer, setEingangsrechnungsnummer] = useState('')
 
   // ── Transportmittel ───────────────────────────────────────────────────────
@@ -186,6 +188,7 @@ export default function ZukaufNeuPage() {
     fd.set('art',                     art)
     fd.set('lieferant_kontakt_id',    lieferantKontakt)
     fd.set('lieferant_firma_id',      lieferantFirma)
+    fd.set('zh_kontakt_id',           lieferantZh)
     fd.set('eingangsrechnungsnummer', eingangsrechnungsnummer)
     fd.set('transport_zugmaschine',   zugmaschine)
     fd.set('transport_anhaenger1',    anhaenger1)
@@ -267,31 +270,63 @@ export default function ZukaufNeuPage() {
           </div>
         </div>
 
-        {/* ── 2. Versender / Lieferant ──────────────────────────────────── */}
+        {/* ── 2. Versender ──────────────────────────────────────────────── */}
         <div className="card p-5 space-y-4">
-          <h2 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Versender / Lieferant</h2>
+          <h2 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Versender</h2>
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={labelCls}>Kontakt (Person)</label>
+            <div className="col-span-2">
+              <label className={labelCls}>Lieferant</label>
               <KundenSuche
-                items={kontakte.map(k => ({ id: k.id, label: [k.vorname, k.nachname].filter(Boolean).join(' ') }))}
-                value={lieferantKontakt}
-                onChange={id => { setLieferantKontakt(id); if (id) setLieferantFirma('') }}
-                placeholder="Name suchen…"
+                items={[
+                  ...kontakte.map(k => ({
+                    id: `kontakt:${k.id}`,
+                    label: [k.vorname, k.nachname].filter(Boolean).join(' '),
+                    sub: 'Person',
+                  })),
+                  ...firmen.map(f => ({
+                    id: `firma:${f.id}`,
+                    label: f.name,
+                    sub: 'Firma',
+                  })),
+                ]}
+                value={lieferantKontakt ? `kontakt:${lieferantKontakt}` : lieferantFirma ? `firma:${lieferantFirma}` : ''}
+                onChange={val => {
+                  setLieferantZh('')
+                  if (!val) { setLieferantKontakt(''); setLieferantFirma(''); return }
+                  const trennerIdx = val.indexOf(':')
+                  const typ = val.slice(0, trennerIdx)
+                  const id  = val.slice(trennerIdx + 1)
+                  if (typ === 'kontakt') { setLieferantKontakt(id); setLieferantFirma('') }
+                  else                   { setLieferantFirma(id);   setLieferantKontakt('') }
+                }}
+                placeholder="Name oder Firma suchen…"
                 disabled={loading}
               />
+              <p className="text-xs text-s112-muted mt-1">Bei Firmen kann zusätzlich ein Ansprechpartner (z.H.) angegeben werden.</p>
             </div>
-            <div>
-              <label className={labelCls}>Firma</label>
-              <KundenSuche
-                items={firmen.map(f => ({ id: f.id, label: f.name }))}
-                value={lieferantFirma}
-                onChange={id => { setLieferantFirma(id); if (id) setLieferantKontakt('') }}
-                placeholder="Firmenname suchen…"
-                disabled={loading}
-              />
-            </div>
-            <div>
+            {lieferantFirma && (() => {
+              const firmKontakte = kontakte.filter(k => k.firma_id === lieferantFirma)
+              const zhItems = firmKontakte.length > 0
+                ? firmKontakte.map(k => ({ id: k.id, label: [k.vorname, k.nachname].filter(Boolean).join(' ') }))
+                : kontakte.map(k => ({ id: k.id, label: [k.vorname, k.nachname].filter(Boolean).join(' ') }))
+              return (
+                <div className="col-span-2">
+                  <label className={labelCls}>z.H. (zu Händen) — optional</label>
+                  {firmKontakte.length === 0 && kontakte.length > 0 && (
+                    <p className="text-xs text-amber-600 mb-1">ℹ Noch kein Kontakt dieser Firma zugeordnet – alle Kontakte werden angezeigt.</p>
+                  )}
+                  <KundenSuche
+                    key={lieferantFirma}
+                    items={zhItems}
+                    value={lieferantZh}
+                    onChange={setLieferantZh}
+                    placeholder="Ansprechpartner suchen…"
+                    disabled={loading}
+                  />
+                </div>
+              )
+            })()}
+            <div className="col-span-2">
               <label className={labelCls}>Eingangs-Rechnungsnummer</label>
               <input type="text" value={eingangsrechnungsnummer} onChange={e => setEingangsrechnungsnummer(e.target.value)}
                 placeholder="Belegnr. lt. Rechnung des Lieferanten"

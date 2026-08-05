@@ -118,6 +118,9 @@ function parseZukaufFormData(formData: FormData) {
     art:                 (formData.get('art')                      as string) || 'wein',
     lieferantKontaktId:  (formData.get('lieferant_kontakt_id')     as string) || null,
     lieferantFirmaId:    (formData.get('lieferant_firma_id')       as string) || null,
+    // Nur beim Neuanlegen relevant – siehe createZukauf; updateZukauf lässt das Feld
+    // bewusst unangetastet (Lieferant-Zuordnung ist nach dem Anlegen nicht mehr änderbar).
+    zhKontaktId:         (formData.get('zh_kontakt_id')            as string) || null,
     eingangsrechnungsnummer: (formData.get('eingangsrechnungsnummer') as string)?.trim() || null,
     zugmaschine:         (formData.get('transport_zugmaschine')    as string)?.trim() || null,
     anhaenger1:          (formData.get('transport_anhaenger1')     as string)?.trim() || null,
@@ -162,6 +165,7 @@ export async function createZukauf(formData: FormData) {
       art:                      f.art,
       lieferant_kontakt_id:     f.lieferantKontaktId || null,
       lieferant_firma_id:       f.lieferantFirmaId   || null,
+      zh_kontakt_id:            f.lieferantFirmaId ? (f.zhKontaktId || null) : null,
       eingangsrechnungsnummer: f.eingangsrechnungsnummer,
       transport_zugmaschine:    f.zugmaschine,
       transport_anhaenger1:     f.anhaenger1,

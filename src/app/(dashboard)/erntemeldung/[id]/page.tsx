@@ -115,7 +115,7 @@ export default async function ErnteDetailPage({ params }: Props) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawZukaufTrauben } = await (supabase.from('zukauf_posten') as any)
     .select(`
-      id, datum, menge, rebsorte, herkunft, qualitaetsstufe,
+      id, datum, menge, rebsorte, herkunft, qualitaetsstufe, kmw,
       lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname),
       lieferant_firma:firmen!lieferant_firma_id(name)
     `)
@@ -257,6 +257,7 @@ export default async function ErnteDetailPage({ params }: Props) {
       herkunft: z.herkunft ?? null,
       menge_kg: mengeKg,
       verfuegbar_kg: Math.max(0, mengeKg - (pressedKgByZukauf[z.id] ?? 0) - (soldKgByZukauf[z.id] ?? 0)),
+      kmw_grad: z.kmw != null ? parseFloat(z.kmw) : null,
     }
   })
   // Welche Behälter haben bereits eine Kellerbuch-Charge (für Verschnitt-Warnung)
