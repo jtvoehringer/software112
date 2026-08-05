@@ -45,6 +45,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
     { data: wawRaw },
     { data: alleChargenRaw },
     { data: verschnEinRaw },
+    { data: zukaufRaw },
   ] = await Promise.all([
     (supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, weingarten_id, behaelter_id, menge_liter, anfangsbestand_liter, status, qualitaetsstufe, herkunft_code, weinart, notizen, aktiv, einstandspreis_pro_liter, behaelter:behaelter_id(name)')
@@ -94,6 +95,19 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       .select('id, datum, notizen, quellen:verschneidung_quellen(menge_liter, anteil_pct, quelle:quell_weinausbau_id(id, name, rebsorte))')
       .eq('ziel_weinausbau_id', id)
       .order('datum', { ascending: false }),
+
+    // Zukauf-Eingang (Wein/Most direkt in diese Charge gekauft) – fehlte bisher komplett in
+    // diesem Bewegungsbuch (siehe zukauf_ein-CTE in v_behaelter_fuellstand, Migration 127, die
+    // ihn längst korrekt mitrechnet). Ohne diesen Zugang lief der hier lokal nachgerechnete
+    // Saldo für jede Zukauf-basierte Charge sobald abgefüllt/verkauft wurde ins Negative – und
+    // der (fehlerhafte) Saldo wurde per Auto-Sync unten sogar in weinausbau.menge_liter
+    // zurückgeschrieben.
+    (supabase.from('zukauf_posten') as any)
+      .select('id, datum, menge, rebsorte, jahrgang')
+      .eq('ziel_weinausbau_id', id)
+      .eq('aktiv', true)
+      .in('art', ['wein', 'most'])
+      .order('datum', { ascending: true }),
   ])
 
   const ausRecs = (umzuegeAusRaw ?? []) as R[]
@@ -160,7 +174,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
   type Bewegung = {
     datum: string
-    art: 'ernte' | 'umziehen_ein' | 'umziehen_aus' | 'abfuellung' | 'verkauf'
+    art: 'zukauf' | 'ernte' | 'umziehen_ein' | 'umziehen_aus' | 'abfuellung' | 'verkauf'
     beschreibung: string
     menge: number
     extra?: string
@@ -179,6 +193,19 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
     if (kmwWerte.length === 0) return null
     return minQualitaet(kmwWerte)
   })()
+
+  // Zukauf (Zugänge)
+  for (const z of ((zukaufRaw ?? []) as R[])) {
+    const liter = parseFloat(z.menge) || 0
+    if (liter <= 0) continue
+    const bezeichnung = [z.rebsorte, z.jahrgang].filter(Boolean).join(' ')
+    bewegungen.push({
+      datum: z.datum ?? '',
+      art: 'zukauf',
+      beschreibung: `Zukauf${bezeichnung ? `: ${bezeichnung}` : ''}`,
+      menge: liter,
+    })
+  }
 
   // Pressungen / Ernte (Zugänge)
   for (const p of ((pressungenRaw ?? []) as R[])) {
@@ -449,7 +476,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
                 const istAbgang    = bew.menge < 0
                 const istZugang    = bew.menge > 0
                 const colorClass   = istAbgang ? 'text-red-600' : istZugang ? 'text-green-600' : 'text-gray-500'
-                const isZugangsRow = bew.art === 'ernte' || bew.art === 'umziehen_ein'
+                const isZugangsRow = bew.art === 'zukauf' || bew.art === 'ernte' || bew.art === 'umziehen_ein'
                 const rowBg        = isZugangsRow ? 'bg-green-50/50' : (i % 2 === 1 ? 'bg-s112-bg/30' : '')
                 return (
                   <tr key={i} className={`border-b border-s112-border/30 last:border-0 ${rowBg}`}>
