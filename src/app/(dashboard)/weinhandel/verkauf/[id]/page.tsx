@@ -605,7 +605,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
               </div>
               <div className="flex justify-end">
                 <button type="submit" className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors">
-                  + Zahlung buchen
+                  Zahlung buchen
                 </button>
               </div>
             </form>

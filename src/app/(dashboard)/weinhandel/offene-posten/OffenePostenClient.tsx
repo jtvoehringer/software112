@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
-import { markiereAlsBezahlt } from '../verkauf/actions'
+import { createZahlung } from '../verkauf/actions'
 
 type Posten = {
   id: string
@@ -11,6 +11,7 @@ type Posten = {
   bezahlt: boolean
   bezahlt_am: string | null
   gesamt: number
+  bereitsBezahlt: number
   kundenName: string
   kontaktId: string | null
   firmaId: string | null
@@ -20,63 +21,130 @@ function fmt(n: number) {
   return n.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
 }
 
-function PostenZeile({ p, writeOk }: { p: Posten; writeOk: boolean }) {
-  const [pending, startTransition] = useTransition()
+function fmtBetragInput(n: number) {
+  return n.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
-  function handleBezahlt() {
-    startTransition(async () => { await markiereAlsBezahlt(p.id) })
-  }
+function PostenZeile({ p, writeOk }: { p: Posten; writeOk: boolean }) {
+  const [expanded, setExpanded] = useState(false)
+  const offenerBetrag = Math.max(0, p.gesamt - p.bereitsBezahlt)
+  const createZahlungBound = createZahlung.bind(null, p.id)
 
   return (
-    <tr className={`border-b border-s112-border last:border-0 hover:bg-s112-bg/50 transition-colors ${p.bezahlt ? 'opacity-60' : ''}`}>
-      <td className="px-4 py-3 text-sm tabular-nums text-s112-muted">
-        {new Date(p.datum).toLocaleDateString('de-AT')}
-      </td>
-      <td className="px-4 py-3">
-        <Link href={`/weinhandel/verkauf/${p.id}`}
-          className="text-sm font-mono font-semibold text-s112-teal hover:underline">
-          {p.rechnungsnummer ?? '–'}
-        </Link>
-      </td>
-      <td className="px-4 py-3 text-sm text-gray-800">
-        {p.kontaktId ? (
-          <Link href={`/crm/kontakte/${p.kontaktId}`} className="hover:text-s112-teal hover:underline">
-            {p.kundenName}
+    <>
+      <tr className={`border-b border-s112-border last:border-0 hover:bg-s112-bg/50 transition-colors ${p.bezahlt ? 'opacity-60' : ''} ${expanded ? 'bg-s112-bg/40' : ''}`}>
+        <td className="px-4 py-3 text-sm tabular-nums text-s112-muted">
+          {new Date(p.datum).toLocaleDateString('de-AT')}
+        </td>
+        <td className="px-4 py-3">
+          <Link href={`/weinhandel/verkauf/${p.id}`}
+            className="text-sm font-mono font-semibold text-s112-teal hover:underline">
+            {p.rechnungsnummer ?? '–'}
           </Link>
-        ) : p.firmaId ? (
-          <Link href={`/crm/firmen/${p.firmaId}`} className="hover:text-s112-teal hover:underline">
-            {p.kundenName}
-          </Link>
-        ) : (
-          <span>{p.kundenName}</span>
-        )}
-      </td>
-      <td className="px-4 py-3 text-right font-semibold text-s112-teal tabular-nums">
-        {fmt(p.gesamt)}
-      </td>
-      <td className="px-4 py-3 text-center">
-        {p.bezahlt ? (
-          <div>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Bezahlt</span>
-            {p.bezahlt_am && (
-              <p className="text-[10px] text-s112-muted mt-0.5">
-                {new Date(p.bezahlt_am).toLocaleDateString('de-AT')}
-              </p>
-            )}
-          </div>
-        ) : writeOk ? (
-          <button
-            onClick={handleBezahlt}
-            disabled={pending}
-            className="text-xs font-medium text-green-700 border border-green-300 rounded-full px-3 py-0.5 hover:bg-green-500 hover:text-white hover:border-green-500 transition-colors disabled:opacity-40"
-          >
-            {pending ? '…' : 'Als bezahlt markieren'}
-          </button>
-        ) : (
-          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Offen</span>
-        )}
-      </td>
-    </tr>
+        </td>
+        <td className="px-4 py-3 text-sm text-gray-800">
+          {p.kontaktId ? (
+            <Link href={`/crm/kontakte/${p.kontaktId}`} className="hover:text-s112-teal hover:underline">
+              {p.kundenName}
+            </Link>
+          ) : p.firmaId ? (
+            <Link href={`/crm/firmen/${p.firmaId}`} className="hover:text-s112-teal hover:underline">
+              {p.kundenName}
+            </Link>
+          ) : (
+            <span>{p.kundenName}</span>
+          )}
+        </td>
+        <td className="px-4 py-3 text-right font-semibold text-s112-teal tabular-nums">
+          {fmt(p.gesamt)}
+          {!p.bezahlt && p.bereitsBezahlt > 0 && (
+            <p className="text-[10px] font-normal text-s112-muted mt-0.5">
+              {fmt(p.bereitsBezahlt)} bereits erhalten
+            </p>
+          )}
+        </td>
+        <td className="px-4 py-3 text-center">
+          {p.bezahlt ? (
+            <div>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Bezahlt</span>
+              {p.bezahlt_am && (
+                <p className="text-[10px] text-s112-muted mt-0.5">
+                  {new Date(p.bezahlt_am).toLocaleDateString('de-AT')}
+                </p>
+              )}
+            </div>
+          ) : writeOk ? (
+            <button
+              onClick={() => setExpanded(v => !v)}
+              className="text-xs font-medium text-green-700 border border-green-300 rounded-full px-3 py-0.5 hover:bg-green-500 hover:text-white hover:border-green-500 transition-colors"
+            >
+              {expanded ? 'Abbrechen' : 'Zahlung buchen'}
+            </button>
+          ) : (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Offen</span>
+          )}
+        </td>
+      </tr>
+      {expanded && writeOk && !p.bezahlt && (
+        <tr className="border-b border-s112-border last:border-0 bg-s112-bg/40">
+          <td colSpan={5} className="px-4 py-3">
+            <form
+              action={async (formData: FormData) => {
+                await createZahlungBound(formData)
+                setExpanded(false)
+              }}
+              className="border border-s112-border rounded-lg p-3 space-y-3 bg-white"
+            >
+              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Zahlung erfassen</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Datum</label>
+                  <input name="datum" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="form-input text-sm w-full" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Art</label>
+                  <select name="art" className="form-input text-sm w-full">
+                    <option value="bar">Bar</option>
+                    <option value="karte">Karte</option>
+                    <option value="bank">Bank</option>
+                    <option value="gutschrift">Gutschrift</option>
+                    <option value="sonstig">Sonstiges</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Betrag (€)</label>
+                  <input
+                    name="betrag"
+                    type="text"
+                    inputMode="decimal"
+                    required
+                    defaultValue={fmtBetragInput(offenerBetrag)}
+                    placeholder="0,00"
+                    className="form-input text-sm w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Notiz</label>
+                  <input name="notizen" type="text" placeholder="Optional…" className="form-input text-sm w-full" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setExpanded(false)}
+                  className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-s112-bg transition-colors"
+                >
+                  Abbrechen
+                </button>
+                <button type="submit" className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors">
+                  Zahlung buchen
+                </button>
+              </div>
+            </form>
+          </td>
+        </tr>
+      )}
+    </>
   )
 }
 

@@ -25,6 +25,18 @@ export default async function OffenePostenPage() {
     .eq('aktiv',     true)
     .order('datum', { ascending: false })
 
+  const offeneIds = ((raw ?? []) as R[]).filter(p => !p.bezahlt).map(p => p.id as string)
+  const bereitsBezahltMap = new Map<string, number>()
+  if (offeneIds.length > 0) {
+    const { data: zahlungenRaw } = await (supabase.from('zahlungen') as any)
+      .select('verkaufsposten_id, betrag')
+      .in('verkaufsposten_id', offeneIds)
+    for (const z of (zahlungenRaw ?? []) as R[]) {
+      const key = z.verkaufsposten_id as string
+      bereitsBezahltMap.set(key, (bereitsBezahltMap.get(key) ?? 0) + Number(z.betrag ?? 0))
+    }
+  }
+
   const posten = ((raw ?? []) as R[]).map((p: R) => {
     const gesamt = ((p.positionen ?? []) as R[]).reduce((s: number, pos: R) => {
       if (pos.preis_brutto == null) return s
@@ -47,6 +59,7 @@ export default async function OffenePostenPage() {
       bezahlt:         (p.bezahlt ?? false) as boolean,
       bezahlt_am:      (p.bezahlt_am ?? null) as string | null,
       gesamt,
+      bereitsBezahlt:  bereitsBezahltMap.get(p.id as string) ?? 0,
       kundenName,
       kontaktId:       (p.kontakt as R | null)?.id ?? null,
       firmaId:         (p.firma   as R | null)?.id ?? null,
