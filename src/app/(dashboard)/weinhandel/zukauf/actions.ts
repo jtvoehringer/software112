@@ -68,6 +68,41 @@ async function bereinigCharge(supabase: any, weinausbauId: string): Promise<void
   }
 }
 
+// Prüft, ob gegen eine Weinausbau-Charge bereits irgendeine Bewegung gebucht wurde (abgefüllt,
+// umgezogen, verkauft ab Tank oder verschnitten). Wichtig für updateZukauf (siehe dort) – im
+// Unterschied zu bereinigCharge() zählen hier zusätzlich Tank-Verkäufe und Verschneidungen mit,
+// weil eine bereits "bewegte" Charge beim Bearbeiten des zugehörigen Zukaufs NICHT mehr blind
+// deaktiviert/neu angelegt werden darf (das würde den physisch noch vorhandenen Restbestand aus
+// allen Übersichten verschwinden lassen, siehe Bugreport 5.8.2026 – Kellerbuch zeigte "Kein Wein
+// in diesem Behälter", obwohl laut Bewegungsbuch/View noch mehrere tausend Liter vorhanden waren).
+async function chargeHatBewegungen(supabase: any, weinausbauId: string): Promise<boolean> {
+  const [
+    { count: umzugCount },
+    { count: fuellungCount },
+    { count: verkaufCount },
+    { count: verschnQuelleCount },
+    { count: verschnZielCount },
+  ] = await Promise.all([
+    (supabase.from('keller_umzuege') as any)
+      .select('id', { count: 'exact', head: true })
+      .or(`von_weinausbau_id.eq.${weinausbauId},nach_weinausbau_id.eq.${weinausbauId}`),
+    (supabase.from('fuellungen') as any)
+      .select('id', { count: 'exact', head: true })
+      .eq('weinausbau_id', weinausbauId),
+    (supabase.from('verkauf_positionen') as any)
+      .select('id', { count: 'exact', head: true })
+      .eq('weinausbau_id', weinausbauId),
+    (supabase.from('verschneidung_quellen') as any)
+      .select('id', { count: 'exact', head: true })
+      .eq('quell_weinausbau_id', weinausbauId),
+    (supabase.from('verschneidungen') as any)
+      .select('id', { count: 'exact', head: true })
+      .eq('ziel_weinausbau_id', weinausbauId),
+  ])
+  return (umzugCount ?? 0) > 0 || (fuellungCount ?? 0) > 0 || (verkaufCount ?? 0) > 0
+    || (verschnQuelleCount ?? 0) > 0 || (verschnZielCount ?? 0) > 0
+}
+
 function parseZukaufFormData(formData: FormData) {
   const datum = (formData.get('datum') as string) || new Date().toISOString().split('T')[0]
   // Jahrgang ist optional im Formular, wird aber u.a. für den Pressungs-Vorschlag
@@ -198,18 +233,58 @@ export async function updateZukauf(id: string, formData: FormData) {
   if (f.menge <= 0) throw new Error('Menge muss größer als 0 sein')
 
   const { data: alt } = await (supabase.from('zukauf_posten') as any)
-    .select('ziel_weinausbau_id')
+    .select('ziel_weinausbau_id, menge')
     .eq('id', id)
     .single()
   const altWeinausbauId: string | null = (alt as AR | null)?.ziel_weinausbau_id ?? null
+  const alteZukaufMenge: number = parseFloat((alt as AR | null)?.menge ?? '0') || 0
 
   let zielWeinausbauId: string | null = altWeinausbauId
 
   if ((f.art === 'wein' || f.art === 'most') && f.zielBehaelterId) {
-    if (altWeinausbauId) await bereinigCharge(supabase, altWeinausbauId)
-    zielWeinausbauId = await createZukaufCharge(
-      supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaetsstufe,
-    )
+    const hatBewegungen = altWeinausbauId ? await chargeHatBewegungen(supabase, altWeinausbauId) : false
+
+    if (altWeinausbauId && hatBewegungen) {
+      // Die bisherige Charge wurde bereits abgefüllt/umgezogen/verkauft/verschnitten – NICHT
+      // deaktivieren+neu anlegen (das würde den physisch noch vorhandenen Restbestand aus dem
+      // Kellerbuch verschwinden lassen), sondern in-place aktualisieren. Nur die DIFFERENZ
+      // zwischen alter und neuer deklarierter Zukaufsmenge wird auf den aktuellen Bestand
+      // verrechnet (z.B. Tippfehler-Korrektur der Menge), damit bereits verbrauchte Mengen
+      // erhalten bleiben.
+      const { data: alteCharge } = await (supabase.from('weinausbau') as any)
+        .select('behaelter_id, menge_liter')
+        .eq('id', altWeinausbauId)
+        .single()
+      const alterBehaelterId = (alteCharge as AR | null)?.behaelter_id ?? null
+      if (alterBehaelterId && alterBehaelterId !== f.zielBehaelterId) {
+        throw new Error(
+          'Diese Charge wurde bereits abgefüllt, umgezogen, verkauft oder verschnitten – der Ziel-Behälter kann nachträglich nicht mehr geändert werden. Bitte den Behälter unverändert lassen und stattdessen "Umziehen" im Kellerbuch verwenden.'
+        )
+      }
+      const bisherigerBestand = parseFloat((alteCharge as AR | null)?.menge_liter ?? '0') || 0
+      const mengenDelta = f.menge - alteZukaufMenge
+      const neuerBestand = Math.max(0, bisherigerBestand + mengenDelta)
+
+      const { error: updChargeErr } = await (supabase.from('weinausbau') as any)
+        .update({
+          menge_liter:              neuerBestand,
+          rebsorte:                 f.rebsorte ?? null,
+          jahrgang:                 f.jahrgang,
+          einstandspreis_pro_liter: f.einstandspreisLiter ?? null,
+          weinart:                  f.weinart ?? 'unbekannt',
+          qualitaetsstufe:          f.qualitaetsstufe ?? null,
+        })
+        .eq('id', altWeinausbauId)
+      if (updChargeErr) throw new Error((updChargeErr as AR).message)
+      zielWeinausbauId = altWeinausbauId
+    } else {
+      // Noch keine Bewegungen gegen die bisherige Charge gebucht – bisheriges Verhalten
+      // (deaktivieren + frisch anlegen) ist hier unbedenklich, da noch nichts verbraucht wurde.
+      if (altWeinausbauId) await bereinigCharge(supabase, altWeinausbauId)
+      zielWeinausbauId = await createZukaufCharge(
+        supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaetsstufe,
+      )
+    }
   } else if (!(f.art === 'wein' || f.art === 'most')) {
     if (altWeinausbauId) await bereinigCharge(supabase, altWeinausbauId)
     zielWeinausbauId = null

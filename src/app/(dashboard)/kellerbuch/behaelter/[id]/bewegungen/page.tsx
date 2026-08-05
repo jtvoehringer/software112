@@ -15,7 +15,7 @@ type R = Record<string, any>
 
 type Bewegung = {
   datum: string
-  art: 'anfangsbestand' | 'pressung' | 'umzug_ein' | 'umzug_aus' | 'filtration_ein' | 'filtration_aus' | 'abfuellung' | 'verkauf' | 'behandlung' | 'verschneidung_ein' | 'verschneidung_aus' | 'schwund'
+  art: 'anfangsbestand' | 'zukauf' | 'pressung' | 'umzug_ein' | 'umzug_aus' | 'filtration_ein' | 'filtration_aus' | 'abfuellung' | 'verkauf' | 'behandlung' | 'verschneidung_ein' | 'verschneidung_aus' | 'schwund'
   beschreibung: string
   menge: number
   extra?: string
@@ -81,6 +81,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     { data: umzuegeAusRaw },
     { data: fuellungenRaw },
     { data: verkaufRaw },
+    { data: zukaufRaw },
   ] = chargeIdList.length > 0
     ? await Promise.all([
         (supabase.from('keller_umzuege') as any)
@@ -97,8 +98,19 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
           .in('weinausbau_id', chargeIdList)
           .eq('typ', 'tank')
           .order('id', { ascending: true }),
+        // Zukauf-Eingang (Wein/Most direkt in dieses Gebinde gekauft) – fehlte bisher komplett in
+        // diesem Bewegungsbuch, obwohl v_behaelter_fuellstand (Migration 127, siehe zukauf_ein-CTE)
+        // ihn längst korrekt mitrechnet. Ohne diesen Zugang lief der hier lokal nachgerechnete Saldo
+        // für jede Zukauf-basierte Charge sobald abgefüllt/verkauft wurde ins Negative und die Charge
+        // verschwand fälschlich aus "Aktuelle Chargen" / "Aktueller Bestand".
+        (supabase.from('zukauf_posten') as any)
+          .select('id, datum, menge, ziel_weinausbau_id, rebsorte, jahrgang')
+          .in('ziel_weinausbau_id', chargeIdList)
+          .eq('aktiv', true)
+          .in('art', ['wein', 'most'])
+          .order('datum', { ascending: true }),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }]
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }]
 
   const { data: verschnAusRaw } = chargeIdList.length > 0
     ? await (supabase.from('verschneidung_quellen') as any)
@@ -161,6 +173,17 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
         menge: liter,
       })
     }
+  }
+
+  for (const z of (zukaufRaw ?? []) as R[]) {
+    const liter = parseFloat(z.menge) || 0
+    if (liter <= 0) continue
+    bewegungen.push({
+      datum: z.datum ?? '',
+      art: 'zukauf',
+      beschreibung: `Zukauf${[z.rebsorte, z.jahrgang].filter(Boolean).join(' ') ? `: ${[z.rebsorte, z.jahrgang].filter(Boolean).join(' ')}` : ''}`,
+      menge: liter,
+    })
   }
 
   for (const p of (pressungenRaw ?? []) as R[]) {
@@ -352,6 +375,11 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     : 0
   // Per-Charge event-basierter Saldo (korrigiert veraltetes menge_liter)
   const literByCharge: Record<string, number> = {}
+  for (const z of (zukaufRaw ?? []) as R[]) {
+    const zid = z.ziel_weinausbau_id
+    if (!zid) continue
+    literByCharge[zid] = (literByCharge[zid] ?? 0) + (parseFloat(z.menge) || 0)
+  }
   for (const p of (pressungenRaw ?? []) as R[]) {
     if (!p.weinausbau_id) continue
     literByCharge[p.weinausbau_id] = (literByCharge[p.weinausbau_id] ?? 0) + (parseFloat(p.menge_liter) || 0)
@@ -570,7 +598,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
                   const istZugang    = bew.menge > 0
                   const istNeutral   = bew.menge === 0
                   const colorClass   = istAbgang ? 'text-red-600' : istZugang ? 'text-green-600' : 'text-gray-400'
-                  const isZugangsRow = bew.art === 'anfangsbestand' || bew.art === 'pressung' || bew.art === 'umzug_ein' || bew.art === 'filtration_ein'
+                  const isZugangsRow = bew.art === 'anfangsbestand' || bew.art === 'zukauf' || bew.art === 'pressung' || bew.art === 'umzug_ein' || bew.art === 'filtration_ein'
                   const isBehandlung = bew.art === 'behandlung'
                   const rowBg        = isZugangsRow ? 'bg-green-50/50' : isBehandlung ? 'bg-blue-50/30' : (i % 2 === 1 ? 'bg-s112-bg/30' : '')
                   return (
