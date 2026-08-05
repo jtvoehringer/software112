@@ -23,7 +23,7 @@ Claude liefert die fertigen `git add … && git commit … && git push`-Befehle.
 
 **software:112** ist ein digitales Weingut-ERP, entwickelt für Familie Gebeshuber (Winzer in NÖ). Ziel ist die vollständige Digitalisierung der betrieblichen Abläufe: von der Lese über Keller und Weinhandel bis hin zu Behörden-Meldungen und Export.
 
-Betreiber und Hersteller: IC&P Consultants e.U. (Jörgen Vöhringer)
+Betreiber und Hersteller: Hohenstein Consulting Solutions (Jörgen Vöhringer)
 
 ---
 
