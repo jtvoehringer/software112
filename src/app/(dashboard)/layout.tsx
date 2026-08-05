@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, getCurrentMembership, roleLabel } from '@/lib/auth/roles'
+import { getCurrentUserRole, getCurrentMembership, roleLabel, canWrite } from '@/lib/auth/roles'
 import ResponsiveLayout from '@/components/layout/ResponsiveLayout'
 import ReleaseNotesModal from '@/components/ReleaseNotesModal'
 import SessionTimeout from '@/components/SessionTimeout'
+import AssistentWidget from '@/components/assistent/AssistentWidget'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -56,9 +57,10 @@ export default async function DashboardLayout({
 
   // Tenant-Branding laden
   let branding: TenantBranding = DEFAULT_BRANDING
+  let assistentAktiv = false
   if (membership?.tenantId) {
     const { data } = await (supabase.from('tenant_einstellungen') as any)
-      .select('anzeigename, logo_url, primary_color, secondary_color, modul_newsletter, modul_ea, modul_sumup, session_timeout_minuten')
+      .select('anzeigename, logo_url, primary_color, secondary_color, modul_newsletter, modul_ea, modul_sumup, session_timeout_minuten, assistent_aktiv')
       .eq('tenant_id', membership.tenantId)
       .maybeSingle()
 
@@ -74,6 +76,7 @@ export default async function DashboardLayout({
         modul_ea:         d.modul_ea ?? false,
         modul_sumup:      d.modul_sumup ?? false,
       }
+      assistentAktiv = !!d.assistent_aktiv
     }
   }
 
@@ -98,6 +101,7 @@ export default async function DashboardLayout({
       >
         {children}
       </ResponsiveLayout>
+      {assistentAktiv && canWrite(role) && <AssistentWidget />}
     </>
   )
 }
