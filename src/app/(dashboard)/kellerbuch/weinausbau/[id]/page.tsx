@@ -48,7 +48,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
     { data: zukaufRaw },
   ] = await Promise.all([
     (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, rebsorte, weingarten_id, behaelter_id, menge_liter, anfangsbestand_liter, status, qualitaetsstufe, herkunft_code, weinart, notizen, aktiv, einstandspreis_pro_liter, behaelter:behaelter_id(name)')
+      .select('id, name, jahrgang, rebsorte, weingarten_id, behaelter_id, menge_liter, anfangsbestand_liter, ist_eroeffnungsbestand, status, qualitaetsstufe, herkunft_code, weinart, notizen, aktiv, einstandspreis_pro_liter, behaelter:behaelter_id(name)')
       .eq('id', id).limit(1),
     (supabase.from('weingarten') as any).select('id, name').eq('aktiv', true).order('name'),
     (supabase.from('behaelter') as any).select('id, name, volumen_liter').eq('aktiv', true).order('name'),
@@ -153,7 +153,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
   type WeinausbauRow = {
     id: string; name: string; jahrgang: number | null; rebsorte: string | null; weinart: string | null
     weingarten_id: string | null; behaelter_id: string | null; menge_liter: number | null
-    anfangsbestand_liter: number | null; status: string; qualitaetsstufe: string | null; herkunft_code: string | null
+    anfangsbestand_liter: number | null; ist_eroeffnungsbestand: boolean | null; status: string; qualitaetsstufe: string | null; herkunft_code: string | null
     notizen: string | null; aktiv: boolean; einstandspreis_pro_liter: number | null; behaelter: { name: string } | null
   }
   type NameRow = { id: string; name: string }
@@ -170,7 +170,13 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
   const anfangsbestand    = parseFloat(String(weinausbau.anfangsbestand_liter ?? 0)) || 0
   const aktuell           = parseFloat(String(weinausbau.menge_liter ?? 0)) || 0
-  const hatAnfangsbestand = anfangsbestand > 0
+  // Nur bei echten Eröffnungsbestand-Chargen (ist_eroeffnungsbestand=true) als eigene
+  // "Anfangsbestand"-Zeile zeigen. Chargen, die per Umzug/Zukauf neu entstanden sind, können
+  // ebenfalls einen (historisch teils fälschlich gesetzten) anfangsbestand_liter-Wert tragen -
+  // deren Zugang ist aber bereits als eigene Bewegung (Zukauf/Zugang aus X) im Bewegungsbuch
+  // erfasst; eine zusätzliche Anfangsbestand-Zeile würde denselben Zugang doppelt zählen
+  // (Bugreport 5.8.2026, Charge "Partywein Kängaru").
+  const hatAnfangsbestand = anfangsbestand > 0 && weinausbau.ist_eroeffnungsbestand === true
 
   type Bewegung = {
     datum: string

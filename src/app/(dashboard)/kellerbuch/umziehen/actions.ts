@@ -101,12 +101,18 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
 
     let nachWeinausbauId: string | null = null
 
-    // Rebsortenmix-Check: erste Quell-Rebsorte vs. bestehende Charge im Zielbehälter
+    // Rebsortenmix-Check: erste Quell-Rebsorte vs. bestehende Charge im Zielbehälter.
+    // Wichtig: eine bestehende Charge OHNE eindeutige Rebsorte (rebsorte = null, typischerweise
+    // weil sie selbst schon ein Verschnitt ist, z.B. "Sortenverschnitt") zählt HIER ebenfalls als
+    // Mix, nicht als "unbedenklich gleich" – vorher wurde in diesem Fall stillschweigend
+    // zusammengeführt, weil `vorhanden.rebsorte != null` fehlschlug, obwohl real zwei
+    // unterschiedliche Herkünfte im selben Tank landeten (Bugreport 5.8.2026: Weisser Riesling
+    // wurde stillschweigend mit einem bestehenden Sortenverschnitt vermischt, ohne dass der
+    // Verschneiden-Dialog bzw. eine Verschneidungs-Buchung ausgelöst wurde).
     const quelleRebsorte = quellenDaten.length === 1 ? (quellenDaten[0].rebsorte ?? null) : null
     const istRebsortenmix = vorhanden != null
       && quelleRebsorte != null
-      && vorhanden.rebsorte != null
-      && quelleRebsorte !== vorhanden.rebsorte
+      && (vorhanden.rebsorte == null || quelleRebsorte !== vorhanden.rebsorte)
 
     if (vorhanden && !istRebsortenmix) {
       // Gleiche Rebsorte: direkt zusammenführen
@@ -146,7 +152,12 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
         weingarten_id:        von0?.weingarten_id ?? null,
         behaelter_id:         z.behaelter_id,
         menge_liter:          z.menge,
-        anfangsbestand_liter: z.menge,
+        // anfangsbestand_liter bleibt null: der Zugang wird bereits über den unten
+        // eingefügten keller_umzuege-"ziel"-Datensatz als Bewegung ("Zugang aus X")
+        // erfasst - ein zusätzlicher Anfangsbestand würde denselben Zugang doppelt
+        // zählen (siehe Bugreport 5.8.2026, Charge "Partywein Kängaru": Anfangsbestand
+        // +3350L UND Zugang aus A01 +3350L nebeneinander, Saldo dadurch um 3350L zu hoch).
+        anfangsbestand_liter: null,
         qualitaetsstufe:      minQualStufe,
         status:               von0?.status ?? 'ausbau',
         notizen:              `Umzug aus „${von0?.name ?? ''}"`,
@@ -166,7 +177,10 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
         weingarten_id:        von0?.weingarten_id ?? null,
         behaelter_id:         z.behaelter_id,
         menge_liter:          z.menge,
-        anfangsbestand_liter: z.menge,
+        // anfangsbestand_liter bleibt null - siehe Kommentar im Rebsortenmix-Zweig oben,
+        // derselbe Doppelzählungs-Bug betrifft auch diesen Zweig (neue Charge, kein
+        // bestehendes Ziel).
+        anfangsbestand_liter: null,
         qualitaetsstufe:      minQualStufe,
         status:               von0?.status ?? 'ausbau',
         notizen:              quellen.length > 1
