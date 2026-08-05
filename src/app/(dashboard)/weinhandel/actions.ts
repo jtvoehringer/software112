@@ -153,7 +153,7 @@ export async function createFuellung(formData: FormData) {
 
   revalidatePath('/weinhandel')
   revalidatePath('/kellerbuch')
-  redirect('/weinhandel')
+  return { id: (fuellungData as AR).id as string }
 }
 
 // Fuellung bearbeiten

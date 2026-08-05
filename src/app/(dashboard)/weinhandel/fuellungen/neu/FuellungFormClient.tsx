@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { KN_CODES } from '@/lib/wein/zolltarif'
 import { HERKUNFT_ORDER, HERKUNFT_LABEL, istNiedrigerAls as istHerkunftNiedriger } from '@/lib/herkunft'
@@ -75,9 +76,12 @@ export default function FuellungFormClient({
   chargen: Charge[]
   dacAntraege: DacAntrag[]
   customWeinbaugebiete: CustomWeinbaugebiet[]
-  action: (fd: FormData) => Promise<void>
+  action: (fd: FormData) => Promise<{ id: string }>
   defaultChargeId?: string
 }) {
+  const router = useRouter()
+  const [, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
   const defaultCharge = chargen.find(c => c.id === defaultChargeId) ?? null
 
   const [selectedChargeId, setSelectedChargeId] = useState(defaultChargeId ?? '')
@@ -160,8 +164,22 @@ export default function FuellungFormClient({
     setPruefnummerVal(dac?.pruefnummer ?? '')
   }
 
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setError(null)
+    const fd = new FormData(e.currentTarget)
+    startTransition(async () => {
+      try {
+        await action(fd)
+        router.push('/weinhandel')
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Fehler beim Speichern')
+      }
+    })
+  }
+
   return (
-    <form action={action} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6">
 
       {/* Charge */}
       <div className="card p-5 space-y-4">
@@ -470,6 +488,10 @@ export default function FuellungFormClient({
           className={inputCls + ' resize-none'}
         />
       </div>
+
+      {error && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{error}</p>
+      )}
 
       <div className="flex gap-3">
         <button

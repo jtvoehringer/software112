@@ -24,6 +24,8 @@ export type AssistentKontext = {
   fuellungen: { id: string; name: string; jahrgang: number | null; rebsorte: string | null; flaschengroesse_ml: number | null; bestand_flaschen: number; vk_preis_brutto: number | null }[]
   weinausbau: { id: string; name: string; jahrgang: number | null; rebsorte: string | null; menge_liter: number }[]
   jahrgaenge: { id: string; jahrgang: number }[]
+  behaelter: { id: string; name: string; typ: string | null; volumen_liter: number | null }[]
+  behandlungstypen: { id: string; name: string; einheit_standard: string | null }[]
   ustSatzStandard: number
 }
 
@@ -50,6 +52,8 @@ export async function ladeAssistentKontext(
     { data: weinausbauRaw },
     { data: einstellungenRaw },
     { data: jahrgaengeRaw },
+    { data: behaelterRaw },
+    { data: behandlungstypenRaw },
   ] = await Promise.all([
     (supabase.from('weingarten') as any)
       .select('id, name, ried, rebsorte')
@@ -95,6 +99,15 @@ export async function ladeAssistentKontext(
       .select('id, jahrgang')
       .eq('tenant_id', tenantId)
       .order('jahrgang', { ascending: false }).limit(50),
+    (supabase.from('behaelter') as any)
+      .select('id, name, typ, volumen_liter')
+      .eq('tenant_id', tenantId).eq('aktiv', true)
+      .order('name').limit(300),
+    // keller_behandlungstypen ist wie fuellungen/weinausbau rein RLS-mandantengescoped
+    // (siehe bestehende Kellerbehandlungen-Seite, dort ebenfalls ohne tenant_id-Filter).
+    (supabase.from('keller_behandlungstypen') as any)
+      .select('id, name, einheit_standard')
+      .order('sort_order').order('name').limit(200),
   ])
 
   return {
@@ -131,6 +144,12 @@ export async function ladeAssistentKontext(
     })),
     ustSatzStandard: Number((einstellungenRaw as R | null)?.ust_satz_standard) || 13,
     jahrgaenge: ((jahrgaengeRaw ?? []) as R[]).map(j => ({ id: j.id, jahrgang: Number(j.jahrgang) })),
+    behaelter: ((behaelterRaw ?? []) as R[]).map(b => ({
+      id: b.id, name: b.name, typ: b.typ ?? null, volumen_liter: b.volumen_liter ?? null,
+    })),
+    behandlungstypen: ((behandlungstypenRaw ?? []) as R[]).map(t => ({
+      id: t.id, name: t.name, einheit_standard: t.einheit_standard ?? null,
+    })),
   }
 }
 
@@ -180,5 +199,11 @@ STANDARD-UST-SATZ DES BETRIEBS: ${k.ustSatzStandard}%
 
 WEINJAHRGÄNGE (${k.jahrgaenge.length}, bereits angelegt):
 ${k.jahrgaenge.map(j => `- ${j.jahrgang}`).join('\n') || '(keine)'}
+
+BEHÄLTER / GEBINDE (${k.behaelter.length}):
+${k.behaelter.map(b => zeile(b.id, b.name, [b.typ, b.volumen_liter != null ? `${b.volumen_liter} L` : null].filter(Boolean).join(', ') || null)).join('\n') || '(keine)'}
+
+KELLERBEHANDLUNGS-TYPEN (${k.behandlungstypen.length}):
+${k.behandlungstypen.map(t => zeile(t.id, t.name, t.einheit_standard)).join('\n') || '(keine)'}
 `.trim()
 }

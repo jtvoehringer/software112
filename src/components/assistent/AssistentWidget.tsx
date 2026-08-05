@@ -20,6 +20,10 @@ const THEMEN: { label: string; nachricht: string }[] = [
   { label: 'Maßnahme dokumentieren', nachricht: 'Ich möchte eine Maßnahme dokumentieren.' },
   { label: 'Verkauf anlegen', nachricht: 'Ich möchte einen Verkauf anlegen.' },
   { label: 'Ernte erfassen', nachricht: 'Ich möchte eine Ernte erfassen.' },
+  { label: 'Abfüllen', nachricht: 'Ich möchte eine Charge abfüllen.' },
+  { label: 'Verschneiden', nachricht: 'Ich möchte Chargen verschneiden.' },
+  { label: 'Umziehen', nachricht: 'Ich möchte eine Charge umziehen.' },
+  { label: 'Kellerbehandlung erfassen', nachricht: 'Ich möchte eine Kellerbehandlung erfassen.' },
 ]
 
 export default function AssistentWidget() {

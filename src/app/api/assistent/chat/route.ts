@@ -15,6 +15,10 @@ import { ladeAssistentKontext, formatiereKontextFuerPrompt } from '@/lib/assiste
 import { MASSNAHME_TOOL, MASSNAHME_FELD_MATRIX_TEXT, fuehreMassnahmeDokumentierenAus } from '@/lib/assistent/tools/massnahme'
 import { VERKAUF_TOOL, VERKAUF_FELD_MATRIX_TEXT, fuehreVerkaufAnlegenAus } from '@/lib/assistent/tools/verkauf'
 import { ERNTE_TOOL, ERNTE_FELD_MATRIX_TEXT, fuehreErnteErfassenAus } from '@/lib/assistent/tools/ernte'
+import { ABFUELLEN_TOOL, ABFUELLEN_FELD_MATRIX_TEXT, fuehreAbfuellenAus } from '@/lib/assistent/tools/abfuellen'
+import { VERSCHNEIDEN_TOOL, VERSCHNEIDEN_FELD_MATRIX_TEXT, fuehreVerschneidenAus } from '@/lib/assistent/tools/verschneiden'
+import { UMZIEHEN_TOOL, UMZIEHEN_FELD_MATRIX_TEXT, fuehreUmziehenAus } from '@/lib/assistent/tools/umziehen'
+import { KELLERBEHANDLUNG_TOOL, KELLERBEHANDLUNG_FELD_MATRIX_TEXT, fuehreKellerbehandlungErfassenAus } from '@/lib/assistent/tools/kellerbehandlung'
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 
@@ -64,9 +68,14 @@ AKTUELL KANNST DU:
    noch nicht – dafür freundlich auf das bestehende Formular unter Verkauf > Neu verweisen.
 3. Ernte erfassen (Lesedaten für ganze Rieden und/oder einzelne Grundstücke, inkl. automatischem
    Anlegen des Weinjahrgangs bei Bedarf) über das Tool "ernte_erfassen".
-Alle anderen Prozesse (Kellerbuch: Umziehen, Kellerbehandlungen, Abfüllen, Verschneiden) sind noch
-in Entwicklung – erkläre das freundlich, wenn danach gefragt wird, erfinde aber niemals, dass du
-etwas gespeichert hast.
+4. Abfüllen (eine bestehende Kellerbuch-Charge in Flaschen abfüllen) über das Tool "abfuellen".
+5. Verschneiden (Chargen zusammenführen) über das Tool "verschneiden".
+6. Umziehen (eine Charge in ein anderes Gebinde umziehen) über das Tool "umziehen".
+7. Kellerbehandlungen erfassen (z.B. Schwefelung, Filtration, Schönung) über das Tool
+   "kellerbehandlung_erfassen".
+Trauben-Verkauf/freie Sonstiges-Artikel bei Verkauf, mehrere Quellen/Ziele bei Umziehen und
+freie Füllungen ohne Chargen-Verknüpfung sind noch nicht unterstützt – dafür freundlich auf das
+jeweilige bestehende Formular verweisen. Erfinde niemals, dass du etwas gespeichert hast.
 
 ${MASSNAHME_FELD_MATRIX_TEXT}
 
@@ -74,14 +83,29 @@ ${VERKAUF_FELD_MATRIX_TEXT}
 
 ${ERNTE_FELD_MATRIX_TEXT}
 
+${ABFUELLEN_FELD_MATRIX_TEXT}
+
+${VERSCHNEIDEN_FELD_MATRIX_TEXT}
+
+${UMZIEHEN_FELD_MATRIX_TEXT}
+
+${KELLERBEHANDLUNG_FELD_MATRIX_TEXT}
+
 GANZ WICHTIG – Bestätigungspflicht: Bevor du ein Tool (massnahme_dokumentieren, verkauf_anlegen,
-ernte_erfassen, ...) mit bestaetigt_vom_user=true aufrufst, MUSST du dem User in einer normalen
-Textnachricht eine klare Zusammenfassung der geplanten Eintragung zeigen (z.B. bei Maßnahmen: Art,
-Datum, Grundstück/Ried, Mittel, Menge; bei Verkauf: Kunde, Datum, alle Positionen mit Menge und
-Preis; bei Ernte: Jahrgang, Datum, alle Rieden/Grundstücke mit Mengen) und explizit fragen, ob das
-so passt. Rufe ein Tool NIEMALS ohne diese vorherige Bestätigung auf – auch nicht, wenn der Fall
-eindeutig wirkt. Wenn der User Änderungswünsche äußert, passe die Zusammenfassung an und frage
-erneut.
+ernte_erfassen, abfuellen, verschneiden, umziehen, kellerbehandlung_erfassen, ...) mit
+bestaetigt_vom_user=true aufrufst, MUSST du dem User in einer normalen Textnachricht eine klare
+Zusammenfassung der geplanten Eintragung zeigen (z.B. bei Maßnahmen: Art, Datum, Grundstück/Ried,
+Mittel, Menge; bei Verkauf: Kunde, Datum, alle Positionen mit Menge und Preis; bei Ernte: Jahrgang,
+Datum, alle Rieden/Grundstücke mit Mengen; bei Abfüllen/Verschneiden/Umziehen/Kellerbehandlung:
+betroffene Charge(n)/Behälter, Menge, Datum) und explizit fragen, ob das so passt. Rufe ein Tool
+NIEMALS ohne diese vorherige Bestätigung auf – auch nicht, wenn der Fall eindeutig wirkt. Wenn der
+User Änderungswünsche äußert, passe die Zusammenfassung an und frage erneut.
+
+GANZ WICHTIG – Folgeeffekte bei Umziehen/Verschneiden: Diese beiden Prozesse können automatisch
+eine Qualitäts- oder Herkunfts-Abstufung auslösen, oder (bei Umziehen) signalisieren, dass wegen
+unterschiedlicher Rebsorten im Ziel-Gebinde jetzt eine Verschneidung nötig ist. Prüfe nach jedem
+Aufruf von "umziehen" oder "verschneiden" das Tool-Ergebnis auf abstufung/verschneidung_noetig und
+teile das dem User explizit in der finalen Antwort mit – nicht nur "erledigt, danke" melden.
 
 Bei Grundstücks-/Ried-Namen: nutze IMMER die exakte ID aus dem Stammdaten-Kontext unten (nie den
 Namen roh als ID verwenden). Bei Mehrdeutigkeit (mehrere Treffer) oder wenn du nichts Passendes
@@ -182,7 +206,7 @@ export async function POST(req: NextRequest) {
         model: MODEL,
         max_tokens: 1000,
         system: systemPrompt(kontextText),
-        tools: [MASSNAHME_TOOL, VERKAUF_TOOL, ERNTE_TOOL],
+        tools: [MASSNAHME_TOOL, VERKAUF_TOOL, ERNTE_TOOL, ABFUELLEN_TOOL, VERSCHNEIDEN_TOOL, UMZIEHEN_TOOL, KELLERBEHANDLUNG_TOOL],
         // Seit es mehrere Tools gibt: paralleles Tool-Use explizit deaktivieren, da die
         // Schleife unten pro Runde bewusst nur den ERSTEN Tool-Aufruf ausführt (ein
         // weiterer, unausgeführter tool_use-Block ohne passendes tool_result würde die
@@ -219,6 +243,14 @@ export async function POST(req: NextRequest) {
         ergebnis = await fuehreVerkaufAnlegenAus(toolUse.input as R, supabase, kontext.ustSatzStandard)
       } else if (toolUse.name === 'ernte_erfassen') {
         ergebnis = await fuehreErnteErfassenAus(toolUse.input as R, supabase)
+      } else if (toolUse.name === 'abfuellen') {
+        ergebnis = await fuehreAbfuellenAus(toolUse.input as R, supabase)
+      } else if (toolUse.name === 'verschneiden') {
+        ergebnis = await fuehreVerschneidenAus(toolUse.input as R, supabase)
+      } else if (toolUse.name === 'umziehen') {
+        ergebnis = await fuehreUmziehenAus(toolUse.input as R, supabase)
+      } else if (toolUse.name === 'kellerbehandlung_erfassen') {
+        ergebnis = await fuehreKellerbehandlungErfassenAus(toolUse.input as R, supabase)
       } else {
         ergebnis = { erfolg: false, fehler: `Unbekanntes Tool: ${toolUse.name}` }
       }
@@ -252,6 +284,40 @@ export async function POST(req: NextRequest) {
           prozess: 'ernte_erfassen',
           ziel_tabelle: 'ernte_parzellen',
           ziel_id: ergebnis.jahrgang_id,
+          erstellt_von: user.id,
+        })
+      } else if (ergebnis?.erfolg && toolUse.name === 'abfuellen' && ergebnis?.fuellung_id) {
+        await (supabase.from('assistent_aktionen') as any).insert({
+          unterhaltung_id: unterhaltungId,
+          prozess: 'abfuellen',
+          ziel_tabelle: 'fuellungen',
+          ziel_id: ergebnis.fuellung_id,
+          erstellt_von: user.id,
+        })
+      } else if (ergebnis?.erfolg && toolUse.name === 'verschneiden' && ergebnis?.ziel_weinausbau_id) {
+        await (supabase.from('assistent_aktionen') as any).insert({
+          unterhaltung_id: unterhaltungId,
+          prozess: 'verschneiden',
+          ziel_tabelle: 'weinausbau',
+          ziel_id: ergebnis.ziel_weinausbau_id,
+          erstellt_von: user.id,
+        })
+      } else if (ergebnis?.erfolg && toolUse.name === 'umziehen' && (toolUse.input as R)?.weinausbau_id) {
+        // umziehen() liefert keine eigene neue ID zurück (nur optionale Folgeeffekt-Hinweise) –
+        // als ziel_id daher die Quell-Charge aus dem Tool-Aufruf selbst verwenden.
+        await (supabase.from('assistent_aktionen') as any).insert({
+          unterhaltung_id: unterhaltungId,
+          prozess: 'umziehen',
+          ziel_tabelle: 'keller_umzuege',
+          ziel_id: String((toolUse.input as R).weinausbau_id),
+          erstellt_von: user.id,
+        })
+      } else if (ergebnis?.erfolg && toolUse.name === 'kellerbehandlung_erfassen' && ergebnis?.behandlung_id) {
+        await (supabase.from('assistent_aktionen') as any).insert({
+          unterhaltung_id: unterhaltungId,
+          prozess: 'kellerbehandlung_erfassen',
+          ziel_tabelle: 'keller_behandlungen',
+          ziel_id: ergebnis.behandlung_id,
           erstellt_von: user.id,
         })
       }

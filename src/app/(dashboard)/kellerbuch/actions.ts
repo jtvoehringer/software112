@@ -459,3 +459,72 @@ export async function manuellSchwundBuchen(formData: FormData) {
   revalidatePath(`/kellerbuch/behaelter/${behaelterId}/bewegungen`)
   revalidatePath('/kellerbuch')
 }
+
+// KELLERBEHANDLUNG
+//
+// Server-Action-Kapselung für keller_behandlungen – dieser Prozess lief bisher
+// ausschließlich über direkte Client-seitige Schreibzugriffe (createSupabaseBrowserClient
+// in der Kellerbehandlungen-Seite). Damit der Prozess-Assistent (Bot) denselben
+// Tool-Handler-Ansatz wie bei den übrigen Prozessen nutzen kann, kapselt diese neue Action
+// exakt dieselbe Insert-Logik in einer Server Action (siehe Konzeptdokument Abschnitt 3b).
+// Die bestehende Seite bleibt bewusst unverändert (funktioniert weiterhin über den
+// Browser-Client) – diese Action ist zusätzlich, kein Ersatz.
+export async function createKellerbehandlung(formData: FormData): Promise<{ id: string }> {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  if (!tenantId) throw new Error('Kein Betrieb gefunden')
+
+  const behaelterId = formData.get('behaelter_id') as string
+  if (!behaelterId) throw new Error('Kein Behälter angegeben')
+  const datum = formData.get('datum') as string
+  if (!datum) throw new Error('Kein Datum angegeben')
+  const typId = formData.get('typ_id') as string
+  if (!typId) throw new Error('Kein Behandlungstyp angegeben')
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: typRaw } = await (supabase.from('keller_behandlungstypen') as any)
+    .select('id, name, einheit_standard').eq('id', typId).maybeSingle()
+  if (!typRaw) throw new Error('Behandlungstyp nicht gefunden')
+  const typ = typRaw as R
+
+  const menge   = formData.get('menge') ? parseFloat((formData.get('menge') as string).replace(',', '.')) : null
+  const einheit = (formData.get('einheit') as string) || (typ.einheit_standard as string | null) || null
+
+  // Volumen Ist: falls nicht angegeben, aktuellen Gesamtinhalt des Behälters (Summe aktiver
+  // Chargen) als sinnvollen Default nachladen – wie in der bestehenden Seite vorbelegt.
+  let volumenLiterIst = formData.get('volumen_liter_ist')
+    ? parseFloat((formData.get('volumen_liter_ist') as string).replace(',', '.'))
+    : null
+  if (volumenLiterIst == null) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: chargenImBehaelter } = await (supabase.from('weinausbau') as any)
+      .select('menge_liter').eq('behaelter_id', behaelterId).eq('aktiv', true)
+    const summe = ((chargenImBehaelter ?? []) as R[]).reduce((s, w) => s + (parseFloat(w.menge_liter) || 0), 0)
+    volumenLiterIst = summe > 0 ? summe : null
+  }
+
+  const notizen      = (formData.get('notizen') as string) || null
+  const weinausbauId = (formData.get('weinausbau_id') as string) || null
+
+  const payload: R = {
+    tenant_id:          tenantId,
+    behaelter_id:       behaelterId,
+    datum,
+    typ_id:             typId,
+    typ_name_snapshot:  typ.name as string,
+    menge,
+    einheit,
+    volumen_liter_ist:  volumenLiterIst,
+    notizen,
+    weinausbau_id:      weinausbauId,
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.from('keller_behandlungen') as any)
+    .insert(payload).select('id').single()
+  if (error) throw new Error((error as R).message)
+
+  revalidatePath(`/kellerbuch/behaelter/${behaelterId}/behandlungen`)
+  revalidatePath('/kellerbuch')
+  return { id: (data as R).id as string }
+}
