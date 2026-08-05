@@ -177,7 +177,14 @@ export default async function KellerbuchPage() {
 
               {/* Chargen im Behälter */}
               {chargen.length > 0 ? (
-                <table className="w-full text-sm">
+                <table className="w-full text-sm table-fixed">
+                  <colgroup>
+                    <col className="w-[46%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[19%]" />
+                    <col className="w-[19%]" />
+                    <col className="w-[6%]" />
+                  </colgroup>
                   <thead>
                     <tr className="border-b border-s112-border/50">
                       <th className="text-left px-4 py-2 text-xs font-medium text-gray-500">Charge</th>
@@ -247,7 +254,14 @@ export default async function KellerbuchPage() {
             <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border-b border-amber-200">
               <span className="font-semibold text-amber-800 text-sm">Chargen ohne Behälterzuweisung</span>
             </div>
-            <table className="w-full text-sm">
+            <table className="w-full text-sm table-fixed">
+              <colgroup>
+                <col className="w-[46%]" />
+                <col className="w-[10%]" />
+                <col className="w-[19%]" />
+                <col className="w-[19%]" />
+                <col className="w-[6%]" />
+              </colgroup>
               <tbody>
                 {chargenOhneBehaelter.map((w: R) => {
                   const st = STATUS_LABELS[w.status] ?? { label: w.status, color: 'bg-gray-100 text-gray-600' }
