@@ -7,7 +7,8 @@
 // muss sich dafür nichts ändern.
 
 import { useEffect, useRef, useState } from 'react'
-import { Bot, X, Send, Loader2 } from 'lucide-react'
+import { X, Send, Loader2 } from 'lucide-react'
+import { BotIcon } from './BotIcon'
 
 type Nachricht = { rolle: 'user' | 'assistant'; inhalt: string }
 
@@ -72,7 +73,7 @@ export default function AssistentWidget() {
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-s112-teal text-white flex-shrink-0">
             <div className="flex items-center gap-2">
-              <Bot size={18} />
+              <BotIcon size={18} />
               <span className="font-semibold text-sm">bot:112</span>
             </div>
             <button onClick={() => setOffen(false)} aria-label="Schließen" className="hover:opacity-75">
@@ -139,7 +140,7 @@ export default function AssistentWidget() {
         aria-label={offen ? 'Assistent schließen' : 'Assistent öffnen'}
         className="w-14 h-14 rounded-full bg-s112-teal text-white shadow-lg flex items-center justify-center hover:bg-opacity-90 transition-colors ml-auto"
       >
-        {offen ? <X size={22} /> : <Bot size={22} />}
+        {offen ? <X size={22} /> : <BotIcon size={22} />}
       </button>
     </div>
   )
