@@ -1,16 +1,18 @@
 // Chat-API-Route des Prozess-Assistenten (Bot).
 //
-// Phase 0 (Fundament): nimmt Nachrichten entgegen, verwaltet die Unterhaltung
-// in assistent_unterhaltungen/assistent_nachrichten, lädt den Stammdaten-
-// Kontext und lässt Claude konversationell antworten. Ab Phase 1 kommen
-// Tool-Definitionen + Tool-Handler dazu, die bestehende Server Actions
-// aufrufen (z.B. createBehandlung) – siehe Konzeptdokument Abschnitt 8/9.
-// In Phase 0 kann der Assistent noch NICHTS in der Datenbank anlegen, er
-// sagt das dem User im System-Prompt auch explizit.
+// Phase 1 Pilot: "Maßnahme dokumentieren" ist der erste echte Prozess mit
+// Tool-Nutzung. Ablauf pro Anfrage: Verlauf laden -> Claude mit Tool-
+// Definition aufrufen -> falls Claude das Tool aufruft, den Handler
+// ausführen (der intern die bestehende Server Action createBehandlung
+// aufruft, RLS greift wie im Formular) -> Ergebnis zurück an Claude ->
+// finale Textantwort. Vor jedem tatsächlichen Speichern verlangt der
+// Handler eine explizite User-Bestätigung (siehe massnahme.ts) – kein
+// automatisches Anlegen ohne Rückfrage, siehe Konzeptdokument Abschnitt 6.
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { ladeAssistentKontext, formatiereKontextFuerPrompt } from '@/lib/assistent/kontext'
+import { MASSNAHME_TOOL, MASSNAHME_FELD_MATRIX_TEXT, fuehreMassnahmeDokumentierenAus } from '@/lib/assistent/tools/massnahme'
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 
@@ -27,17 +29,29 @@ const MODEL = process.env.ASSISTENT_MODEL || 'claude-sonnet-4-5-20250929'
 
 const MAX_NACHRICHT_LAENGE = 2000
 const MAX_VERLAUF_NACHRICHTEN = 40 // Sicherheitsgrenze gegen unbegrenzt wachsende Prompts
+const MAX_TOOL_RUNDEN = 4          // Sicherheitsgrenze gegen Endlosschleifen bei Tool-Use
 
 function systemPrompt(kontext: string): string {
   return `Du bist der Prozess-Assistent von software:112, einem österreichischen Weinbau-ERP.
-Du hilfst dem Winzer bzw. seinem Team, wiederkehrende Erfassungsprozesse (z.B. Maßnahme dokumentieren,
-Verkauf anlegen, Ernte erfassen) per Konversation statt über lange Formulare zu erledigen.
+Du hilfst dem Winzer bzw. seinem Team, wiederkehrende Erfassungsprozesse per Konversation statt
+über lange Formulare zu erledigen.
 
-WICHTIG – aktueller Ausbaustand: Du kannst in dieser Version noch KEINE Daten in der Datenbank anlegen
-oder ändern. Wenn der User dich bittet, etwas einzutragen (z.B. eine Spritzung, einen Verkauf, eine
-Ernte), erkläre freundlich, dass diese Funktion gerade in Entwicklung ist und bald verfügbar sein wird –
-frage aber trotzdem gerne interessiert nach, was er eintragen möchte, damit du (sobald die Funktion da
-ist) direkt helfen kannst. Erfinde niemals, dass du etwas gespeichert hast.
+AKTUELL KANNST DU: Maßnahmen dokumentieren (Spritzung, Düngung, Bodenbearbeitung, Schnitt,
+Laubarbeit, Sonstiges) über das Tool "massnahme_dokumentieren". Alle anderen Prozesse (Verkauf
+anlegen, Ernte erfassen, Kellerbuch) sind noch in Entwicklung – erkläre das freundlich, wenn danach
+gefragt wird, erfinde aber niemals, dass du etwas gespeichert hast.
+
+${MASSNAHME_FELD_MATRIX_TEXT}
+
+GANZ WICHTIG – Bestätigungspflicht: Bevor du massnahme_dokumentieren mit bestaetigt_vom_user=true
+aufrufst, MUSST du dem User in einer normalen Textnachricht eine klare Zusammenfassung der geplanten
+Eintragung zeigen (Art, Datum, Grundstück/Ried, Mittel, Menge, ...) und explizit fragen, ob das so
+passt. Rufe das Tool NIEMALS ohne diese vorherige Bestätigung auf – auch nicht, wenn der Fall
+eindeutig wirkt. Wenn der User Änderungswünsche äußert, passe die Zusammenfassung an und frage erneut.
+
+Bei Grundstücks-/Ried-Namen: nutze IMMER die exakte ID aus dem Stammdaten-Kontext unten (nie den
+Namen roh als ID verwenden). Bei Mehrdeutigkeit (mehrere Treffer) oder wenn du nichts Passendes
+findest, frage beim User nach statt zu raten.
 
 Antworte auf Deutsch, kurz und freundlich, wie ein hilfsbereiter Kollege im Betrieb.
 
@@ -99,15 +113,23 @@ export async function POST(req: NextRequest) {
       unterhaltung_id: unterhaltungId, rolle: 'user', inhalt: nachricht,
     })
 
-    // ── Bisherigen Verlauf laden (für Claude-Messages) ──────────────────────
+    // ── Bisherigen (reinen Text-)Verlauf laden ──────────────────────────────
+    // Bewusst nur die reinen User/Assistant-Textnachrichten (tool_name IS
+    // NULL) für den an Claude gesendeten Verlauf – Tool-Use/Tool-Result-
+    // Blöcke werden separat als Audit-Trail gespeichert (siehe unten) und
+    // NICHT roh wiederholt, um die strikten Pairing-Anforderungen der
+    // Anthropic-API nicht über mehrere Requests hinweg replizieren zu müssen.
+    // Die finale Klartext-Antwort nach einem Tool-Aufruf landet ohnehin als
+    // normale Assistant-Nachricht im Verlauf, der Kontext bleibt erhalten.
     const { data: verlaufRaw } = await (supabase.from('assistent_nachrichten') as any)
       .select('rolle, inhalt')
       .eq('unterhaltung_id', unterhaltungId)
       .in('rolle', ['user', 'assistant'])
+      .is('tool_name', null)
       .order('erstellt_am', { ascending: true })
       .limit(MAX_VERLAUF_NACHRICHTEN)
 
-    const messages = ((verlaufRaw ?? []) as R[])
+    const verlaufMessages = ((verlaufRaw ?? []) as R[])
       .filter(m => m.inhalt)
       .map(m => ({ role: m.rolle as 'user' | 'assistant', content: m.inhalt as string }))
 
@@ -115,27 +137,78 @@ export async function POST(req: NextRequest) {
     const kontext = await ladeAssistentKontext(supabase, membership.tenantId)
     const kontextText = formatiereKontextFuerPrompt(kontext)
 
-    // ── Claude aufrufen ───────────────────────────────────────────────────────
+    // ── Claude aufrufen – Tool-Use-Loop ─────────────────────────────────────
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-    const msg = await client.messages.create({
-      model: MODEL,
-      max_tokens: 800,
-      system: systemPrompt(kontextText),
-      messages,
-    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const workingMessages: any[] = [...verlaufMessages, { role: 'user', content: nachricht }]
 
-    const antwortText = msg.content
-      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-      .map(b => b.text)
-      .join('\n')
-      .trim() || 'Entschuldigung, ich konnte darauf keine Antwort formulieren.'
+    let finalText = ''
+    for (let runde = 0; runde < MAX_TOOL_RUNDEN; runde++) {
+      const msg = await client.messages.create({
+        model: MODEL,
+        max_tokens: 1000,
+        system: systemPrompt(kontextText),
+        tools: [MASSNAHME_TOOL],
+        messages: workingMessages,
+      })
 
-    // ── Antwort speichern ─────────────────────────────────────────────────────
+      const toolUseBlocks = msg.content.filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use')
+      const textBlocks = msg.content
+        .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+        .map(b => b.text).join('\n').trim()
+
+      if (toolUseBlocks.length === 0) {
+        finalText = textBlocks || 'Entschuldigung, ich konnte darauf keine Antwort formulieren.'
+        break
+      }
+
+      // Nur den ersten Tool-Aufruf dieser Runde ausführen (Phase 1 hat genau ein Tool)
+      const toolUse = toolUseBlocks[0]
+
+      // Audit: Assistant-Nachricht mit Tool-Aufruf protokollieren (nicht Teil des Replay-Verlaufs)
+      await (supabase.from('assistent_nachrichten') as any).insert({
+        unterhaltung_id: unterhaltungId, rolle: 'assistant',
+        inhalt: textBlocks || null, tool_name: toolUse.name, tool_input: toolUse.input,
+      })
+
+      const ergebnis = await fuehreMassnahmeDokumentierenAus(toolUse.input as R, supabase)
+
+      // Audit: Tool-Ergebnis protokollieren
+      await (supabase.from('assistent_nachrichten') as any).insert({
+        unterhaltung_id: unterhaltungId, rolle: 'tool',
+        tool_name: toolUse.name, tool_result: ergebnis,
+      })
+
+      // Erfolgreich angelegte Datensätze im Aktions-Protokoll festhalten
+      if (ergebnis?.erfolg && ergebnis?.behandlung_id) {
+        await (supabase.from('assistent_aktionen') as any).insert({
+          unterhaltung_id: unterhaltungId,
+          prozess: 'massnahme_dokumentieren',
+          ziel_tabelle: 'behandlungen',
+          ziel_id: ergebnis.behandlung_id,
+          erstellt_von: user.id,
+        })
+      }
+
+      workingMessages.push({ role: 'assistant', content: msg.content })
+      workingMessages.push({
+        role: 'user',
+        content: [{ type: 'tool_result', tool_use_id: toolUse.id, content: JSON.stringify(ergebnis) }],
+      })
+      // Schleife läuft weiter -> Claude formuliert die finale Antwort (oder ruft in
+      // seltenen Fällen noch einmal ein Tool auf, z.B. nach Korrektur durch den User).
+    }
+
+    if (!finalText) {
+      finalText = 'Die Anfrage war komplexer als erwartet – bitte formuliere sie nochmal etwas genauer.'
+    }
+
+    // ── Finale Antwort speichern (Teil des Replay-Verlaufs) ──────────────────
     await (supabase.from('assistent_nachrichten') as any).insert({
-      unterhaltung_id: unterhaltungId, rolle: 'assistant', inhalt: antwortText,
+      unterhaltung_id: unterhaltungId, rolle: 'assistant', inhalt: finalText,
     })
 
-    return NextResponse.json({ unterhaltungId, antwort: antwortText })
+    return NextResponse.json({ unterhaltungId, antwort: finalText })
   } catch (err) {
     console.error('assistent/chat error:', err)
     return NextResponse.json({ fehler: String(err) }, { status: 500 })

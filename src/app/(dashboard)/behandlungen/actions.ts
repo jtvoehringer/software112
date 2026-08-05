@@ -234,6 +234,26 @@ export async function createBehandlung(formData: FormData) {
   const einarbeitung    = formData.has('einarbeitung') ? formData.get('einarbeitung') === 'on' : null
   const einarbeitungZeitpunkt = (formData.get('einarbeitung_zeitpunkt') as string) || null
 
+  // Bio-Sperre serverseitig durchsetzen (bisher nur clientseitig in
+  // NeueBehandlungForm.tsx geprüft – das reicht nicht mehr, seit auch der
+  // Prozess-Assistent (Bot) diese Action direkt aufruft, ohne über das
+  // Formular zu gehen). Bei Bio-EU/biodynamisch harte Sperre für nicht
+  // öko-zugelassene Mittel, analog zur Client-Logik ("Analyse Maßnahmen.docx", 4.3).
+  if (psmId || duengemittelId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [{ data: tenantRow }, { data: mittelRow }] = await Promise.all([
+      (supabase.from('tenants') as any).select('bio_status').eq('id', tenantId).maybeSingle(),
+      psmId
+        ? (supabase.from('pflanzenschutzmittel') as any).select('oeko_zugelassen').eq('id', psmId).maybeSingle()
+        : (supabase.from('duengemittel') as any).select('oeko_zugelassen').eq('id', duengemittelId).maybeSingle(),
+    ])
+    const bioStatus = (tenantRow as AR | null)?.bio_status ?? 'konventionell'
+    const mittelOeko = (mittelRow as AR | null)?.oeko_zugelassen ?? false
+    if (['bio_eu', 'biodynamisch'].includes(bioStatus) && !mittelOeko) {
+      throw new Error('Dieses Mittel ist nicht öko-zugelassen und passt nicht zum Bio-Status des Betriebs.')
+    }
+  }
+
   // Frühester Erntetermin berechnen
   let ernteFruehesteins: string | null = null
   if (datum && wartezeit != null) {
@@ -329,6 +349,7 @@ export async function createBehandlung(formData: FormData) {
   await ggfKostenEintragAnlegen(supabase, tenantId, formData, datum, haByWeingarten, behandlungId)
 
   revalidatePath('/behandlungen')
+  return { id: behandlungId }
 }
 
 export async function updateBehandlung(id: string, formData: FormData) {
