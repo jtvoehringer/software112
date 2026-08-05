@@ -11,6 +11,7 @@ type BehaelterMitCharge = {
   charge_id:      string
   charge_name:    string
   jahrgang:       number | null
+  rebsorte:       string | null
   menge_liter:    number
 }
 type Behaelter = { id: string; name: string; kapazitaet_liter: number | null }
@@ -89,14 +90,28 @@ function QuelleZeile({
 // ── Ziel-Zeile ────────────────────────────────────────────────────────────────
 
 function ZielZeile({
-  behaelter, value, menge, onChange, onRemove,
+  behaelter, quellen, value, menge, onChange, onRemove,
 }: {
   behaelter: Behaelter[]
+  // Alle aktiven Chargen (nicht nur die als Quelle wählbaren) - um im Ziel-Dropdown
+  // anzuzeigen, was bereits in einem Behälter drinnen ist (analog zum Umziehen-Widget auf
+  // der einzelnen Charge-Seite, das genau diese Info schon lange zeigt).
+  quellen:   BehaelterMitCharge[]
   value:     string
   menge:     string
   onChange:  (id: string, menge: string) => void
   onRemove:  () => void
 }) {
+  // Inhalt + enthaltene Weine je Behälter (aus allen aktiven Chargen)
+  const inhalt: Record<string, number> = {}
+  const weinByGebinde: Record<string, string[]> = {}
+  for (const c of quellen) {
+    inhalt[c.behaelter_id] = (inhalt[c.behaelter_id] ?? 0) + (c.menge_liter || 0)
+    const label = c.rebsorte || c.charge_name
+    if (!weinByGebinde[c.behaelter_id]) weinByGebinde[c.behaelter_id] = []
+    if (!weinByGebinde[c.behaelter_id].includes(label)) weinByGebinde[c.behaelter_id].push(label)
+  }
+
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <select
@@ -106,11 +121,19 @@ function ZielZeile({
         className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 flex-1 min-w-[200px]"
       >
         <option value="">– Behälter wählen –</option>
-        {behaelter.map(b => (
-          <option key={b.id} value={b.id}>
-            {b.name}{b.kapazitaet_liter ? ` (${fmt(b.kapazitaet_liter)})` : ''}
-          </option>
-        ))}
+        {behaelter.map(b => {
+          const inh  = inhalt[b.id] ?? 0
+          const frei = b.kapazitaet_liter != null ? Math.max(0, b.kapazitaet_liter - inh) : null
+          const wein = weinByGebinde[b.id]?.join(', ')
+          const info = b.kapazitaet_liter != null
+            ? ` · ${fmt(b.kapazitaet_liter)} Kap · ${fmt(inh)} Inh · ${fmt(frei ?? 0)} frei${wein ? ` · ${wein}` : ''}`
+            : inh > 0 ? ` · ${fmt(inh)} Inh${wein ? ` · ${wein}` : ''}` : ''
+          return (
+            <option key={b.id} value={b.id}>
+              {b.name}{info}
+            </option>
+          )
+        })}
       </select>
       <input
         type="number"
@@ -149,6 +172,24 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
   const totalNach = ziele.reduce((s, z)         => s + (parseFloat(z.menge) || 0), 0)
   const schwund   = Math.max(0, +(totalVon - totalNach).toFixed(3))
 
+  // Rebsortenmix-Vorschau (wie im Umziehen-Widget auf der einzelnen Charge-Seite): nur für
+  // den häufigsten Fall genau EINE Quelle → genau EIN Ziel sicher berechenbar - bei mehreren
+  // Quellen/Zielen übernimmt weiterhin die Server-Logik (actions.ts) die eigentliche
+  // Erkennung, hier zeigen wir dann bewusst keine Vorab-Warnung an, um niemanden mit einer
+  // falschen "passt schon"-Aussage in die Irre zu führen.
+  const quelleRebsorte = quellenState.length === 1
+    ? (quellen.find(q => q.behaelter_id === quellenState[0].behId)?.rebsorte ?? null)
+    : null
+  const zielBehId = ziele.length === 1 ? ziele[0].behId : null
+  const andereRebsorten = zielBehId && quelleRebsorte
+    ? [...new Set(
+        quellen
+          .filter(c => c.behaelter_id === zielBehId && c.rebsorte && c.rebsorte !== quelleRebsorte)
+          .map(c => c.rebsorte as string)
+      )]
+    : []
+  const hatRebsortenmix = andereRebsorten.length > 0
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
@@ -171,7 +212,20 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
     fd.set('umzug_typ', umzugTyp)
     startTransition(async () => {
       try {
-        await umziehen(fd)
+        const result = await umziehen(fd)
+        // Bugreport 5.8.2026: diese allgemeine Umziehen-Seite hat das Ergebnis von
+        // umziehen() bisher komplett verworfen - selbst wenn der Server einen
+        // Rebsortenmix erkannt und eine Verschneidung ausgelöst hat, landete man
+        // stillschweigend wieder auf der Kellerbuch-Übersicht, ohne Hinweis. Analog zum
+        // bereits gefixten Umziehen-Widget auf der einzelnen Charge-Seite: bei
+        // verschneidungNeeded eine harte Navigation (window.location statt router.push)
+        // direkt ins Verschneiden-Formular der Ziel-Charge, das umgeht jede
+        // Router-Race-Problematik zuverlässig.
+        if (result?.verschneidungNeeded) {
+          const { existingChargeId, newChargeId, menge } = result.verschneidungNeeded
+          window.location.href = `/kellerbuch/weinausbau/${existingChargeId}?form=verschneiden&quelle=${newChargeId}&menge=${menge}`
+          return
+        }
         setSuccess(true)
         setTimeout(() => router.push('/kellerbuch'), 1200)
       } catch (err) {
@@ -241,13 +295,23 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
             className="text-xs text-s112-teal hover:underline">+ Ziel</button>
         </div>
         {ziele.map(z => (
-          <ZielZeile key={z.id} behaelter={behaelter} value={z.behId} menge={z.menge}
+          <ZielZeile key={z.id} behaelter={behaelter} quellen={quellen} value={z.behId} menge={z.menge}
             onChange={(bId, m) => setZiele(p => p.map(x => x.id === z.id ? { ...x, behId: bId, menge: m } : x))}
             onRemove={() => ziele.length > 1 && setZiele(p => p.filter(x => x.id !== z.id))} />
         ))}
         <div className="text-xs text-s112-muted text-right tabular-nums">
           Gesamt: <span className="font-semibold text-gray-700">{fmt(totalNach)}</span>
         </div>
+        {hatRebsortenmix && (
+          <div className="bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 text-xs text-amber-800 flex items-start gap-1.5">
+            <AlertTriangle size={14} strokeWidth={2} className="mt-0.5 shrink-0" />
+            <span>
+              <span className="font-semibold">Rebsortenverschnitt:</span>{' '}
+              Das Ziel-Gebinde enthält bereits Chargen mit Rebsorte <strong>{andereRebsorten.join(', ')}</strong>.
+              Nach dem Umzug wird automatisch das Verschneiden-Formular geöffnet.
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Schwund */}
