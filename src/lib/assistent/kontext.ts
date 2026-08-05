@@ -90,9 +90,18 @@ export async function ladeAssistentKontext(
       .select('id, name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto')
       .eq('aktiv', true).gt('bestand_flaschen', 0)
       .order('name').limit(300),
+    // WICHTIG (Bugfix 5.8.2026): vorher .in('status', ['ausbau', 'abfuellung']) - das hat
+    // Chargen im Status "Gärung" (und "Ernte") komplett unsichtbar für den Bot gemacht, obwohl
+    // das im Betrieb der weitaus häufigste Status aktiver Chargen ist. Bot:112 konnte solche
+    // Chargen dadurch für KEINEN Prozess (Umziehen, Verschneiden, Abfüllen, Verkauf, ...)
+    // finden - und hat auf eine vom User genannte, tatsächlich existierende, aber im Kontext
+    // fehlende Charge (z.B. "a90"/Rotgipfler, Status Gärung) mit einer erfundenen
+    // Erfolgsmeldung reagiert statt nachzufragen bzw. einen Fehler zu melden. Jetzt wie überall
+    // sonst im Code (z.B. umziehen/actions.ts, weinausbau/[id]/page.tsx) nur "abgeschlossen"
+    // ausschließen - alle anderen aktiven Status sind für den Bot sichtbar.
     (supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, menge_liter')
-      .eq('aktiv', true).in('status', ['ausbau', 'abfuellung']).gt('menge_liter', 0)
+      .eq('aktiv', true).neq('status', 'abgeschlossen').gt('menge_liter', 0)
       .order('jahrgang', { ascending: false }).limit(300),
     (supabase.from('tenant_einstellungen') as any)
       .select('ust_satz_standard')
