@@ -1,11 +1,10 @@
 'use client'
 
 // Prozess-Assistent (Bot) – Chat-Widget im Dashboard-Layout.
-// Phase 0 (Fundament): ein-/ausklappbares Chat-Panel, das mit der API-Route
-// /api/assistent/chat spricht. Der Assistent kann in dieser Ausbaustufe noch
-// keine Daten anlegen (siehe System-Prompt in der API-Route) – ab Phase 1
-// (Maßnahme dokumentieren) kommt echte Tool-Nutzung dazu, ohne dass sich an
-// diesem Widget etwas ändern muss.
+// Ein-/ausklappbares Chat-Panel, das mit der API-Route /api/assistent/chat
+// spricht. Welche Prozesse der Assistent tatsächlich per Tool-Use ausführen
+// kann, steuert allein die API-Route/das System-Prompt – an diesem Widget
+// muss sich dafür nichts ändern.
 
 import { useEffect, useRef, useState } from 'react'
 import { Bot, X, Send, Loader2 } from 'lucide-react'
@@ -19,11 +18,17 @@ export default function AssistentWidget() {
   const [laden, setLaden]             = useState(false)
   const [fehler, setFehler]           = useState<string | null>(null)
   const [unterhaltungId, setUnterhaltungId] = useState<string | undefined>(undefined)
-  const listRef = useRef<HTMLDivElement>(null)
+  const listRef  = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
   }, [nachrichten, laden])
+
+  // Beim Öffnen des Panels direkt ins Eingabefeld fokussieren
+  useEffect(() => {
+    if (offen) inputRef.current?.focus()
+  }, [offen])
 
   async function senden(e?: React.FormEvent) {
     e?.preventDefault()
@@ -50,6 +55,13 @@ export default function AssistentWidget() {
       setFehler(String(err))
     } finally {
       setLaden(false)
+      // Eingabefeld bleibt absichtlich WÄHREND des Ladens aktiv nutzbar (siehe
+      // input unten, kein disabled={laden}) – ein disabled-Input verliert beim
+      // Deaktivieren automatisch den Fokus, das war der Grund, warum man nach
+      // jeder gesendeten Nachricht wieder manuell reinklicken musste. Zusätzlich
+      // hier nochmal sicherheitshalber fokussieren, falls der Fokus zwischenzeitlich
+      // (z.B. durch einen Klick auf den Senden-Button) verloren ging.
+      inputRef.current?.focus()
     }
   }
 
@@ -103,10 +115,10 @@ export default function AssistentWidget() {
           {/* Eingabe */}
           <form onSubmit={senden} className="flex items-center gap-2 p-2.5 border-t border-s112-border flex-shrink-0 bg-white">
             <input
+              ref={inputRef}
               value={eingabe}
               onChange={e => setEingabe(e.target.value)}
               placeholder="Nachricht…"
-              disabled={laden}
               className="flex-1 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
             />
             <button

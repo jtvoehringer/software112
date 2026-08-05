@@ -32,9 +32,21 @@ const MAX_VERLAUF_NACHRICHTEN = 40 // Sicherheitsgrenze gegen unbegrenzt wachsen
 const MAX_TOOL_RUNDEN = 4          // Sicherheitsgrenze gegen Endlosschleifen bei Tool-Use
 
 function systemPrompt(kontext: string): string {
+  // Claude kennt das tatsächliche "heute" nicht von selbst (Trainingsdaten-Stichtag)
+  // – deshalb muss das aktuelle Serverdatum explizit mitgegeben werden, sonst rät
+  // das Modell bei "heute"/"morgen"/"gestern" ein falsches (z.T. deutlich älteres) Datum.
+  const heute = new Date()
+  const heuteIso = heute.toISOString().slice(0, 10)
+  const heuteLesbar = heute.toLocaleDateString('de-AT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+
   return `Du bist der Prozess-Assistent von software:112, einem österreichischen Weinbau-ERP.
 Du hilfst dem Winzer bzw. seinem Team, wiederkehrende Erfassungsprozesse per Konversation statt
 über lange Formulare zu erledigen.
+
+WICHTIG – aktuelles Datum: Heute ist ${heuteLesbar} (${heuteIso}). Wenn der User "heute", "gestern",
+"morgen" oder Wochentage ("letzten Montag") nennt, rechne IMMER von diesem tatsächlichen Datum aus –
+nicht von einem Datum aus deinen Trainingsdaten. Gib Datumsfelder im Tool-Aufruf immer im Format
+YYYY-MM-DD an.
 
 AKTUELL KANNST DU: Maßnahmen dokumentieren (Spritzung, Düngung, Bodenbearbeitung, Schnitt,
 Laubarbeit, Sonstiges) über das Tool "massnahme_dokumentieren". Alle anderen Prozesse (Verkauf
