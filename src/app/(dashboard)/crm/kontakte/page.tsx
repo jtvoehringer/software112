@@ -23,7 +23,7 @@ export default async function KontaktePage() {
     { data: pRaw },
   ] = await Promise.all([
     (supabase.from('kontakte') as any)
-      .select('id, kundennummer, vorname, nachname, segment, firma_id, firmen:firma_id(name), email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, newsletter, newsletter_bestaetigt, stammkunde, aktiv, notizen, erstellt_am, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
+      .select('id, kundennummer, vorname, nachname, segment, firma_id, firmen:firma_id(name), email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, newsletter, newsletter_bestaetigt, stammkunde, aktiv, notizen, erstellt_am, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct), zahlungsziel_tage')
       .eq('aktiv', true)
       .order('nachname'),
 
@@ -65,6 +65,7 @@ export default async function KontaktePage() {
     rabattgruppe_name:     (k.rabattgruppe as R | null)?.name ?? null,
     rabattgruppe_pct:      (k.rabattgruppe as R | null)?.rabatt_pct ?? null,
     sonderrabatt_pct:      parseFloat(k.sonderrabatt_pct) || 0,
+    zahlungsziel_tage:     k.zahlungsziel_tage ?? 14,
     is_lead:               !!(k.is_lead as boolean),
     telefon_vorwahl:       (k.telefon_vorwahl as string | null) ?? '+43',
     mobil_vorwahl:         (k.mobil_vorwahl   as string | null) ?? '+43',

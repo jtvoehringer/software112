@@ -33,7 +33,7 @@ export default async function FirmenPage() {
     strasse: f.strasse ?? null, plz: f.plz ?? null, ort: f.ort ?? null, land: f.land ?? null,
     telefon: f.telefon ?? null, email: f.email ?? null, website: f.website ?? null,
     uid_nummer: f.uid_nummer ?? null, kreditlimit: f.kreditlimit ?? null,
-    zahlungsziel_tage: f.zahlungsziel_tage ?? null, waehrung: f.waehrung ?? null,
+    zahlungsziel_tage: f.zahlungsziel_tage ?? 30, waehrung: f.waehrung ?? null,
     notizen: f.notizen ?? null, aktiv: f.aktiv ?? true,
     rabattgruppe_id: f.rabattgruppe_id ?? null,
     rabattgruppe_name: (f.rabattgruppe as R | null)?.name ?? null,
