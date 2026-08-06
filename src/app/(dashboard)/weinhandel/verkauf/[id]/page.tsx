@@ -59,8 +59,8 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
         id, datum, rechnungsnummer, notizen, erstellt_am, storniert, storniert_am,
         bezahlt, bezahlt_am, skonto_pct, skonto_tage, skonto_aktiv,
         rechnung_versendet_am, rechnung_versendet_an,
-        kontakt:kontakte!kontakt_id(id, vorname, nachname, email, telefon, strasse, plz, ort),
-        firma:firmen(id, name, email, telefon, strasse, plz, ort),
+        kontakt:kontakte!kontakt_id(id, vorname, nachname, email, telefon, strasse, plz, ort, zahlungsziel_tage),
+        firma:firmen(id, name, email, telefon, strasse, plz, ort, zahlungsziel_tage),
         zh_kontakt:kontakte!zh_kontakt_id(vorname, nachname),
         positionen:verkauf_positionen(
           id, typ, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz,
@@ -137,7 +137,12 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const logoUrl  = s.logo_url        ?? null
   const iban     = s.rechnung_iban   ?? null
   const bic      = s.rechnung_bic    ?? null
-  const zahlZiel = s.rechnung_zahlungsziel ?? 14
+  // Zahlungsziel kommt seit 6.8.2026 vom Kunden (Kontakt/Firma), nicht mehr vom
+  // Betrieb (s.rechnung_zahlungsziel ist nur noch träge Altdaten). 0 ist ein
+  // gültiger, bewusster Wert ("bei Erhalt") - deshalb bewusst `??` statt `||`.
+  const kontaktZahlungsziel = (posten.kontakt as R | null)?.zahlungsziel_tage
+  const firmaZahlungsziel   = (posten.firma   as R | null)?.zahlungsziel_tage
+  const zahlZiel = kontaktZahlungsziel ?? firmaZahlungsziel ?? 14
   const fusstext = s.rechnung_fusstext    ?? null
 
   // USt-Aufschlüsselung (gruppiert nach Steuersatz)
@@ -299,7 +304,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                   Datum: {new Date(posten.datum).toLocaleDateString('de-AT')}
                 </p>
                 <p className="text-gray-600">
-                  Zahlbar bis: {faelligkeitsDatum.toLocaleDateString('de-AT')}
+                  {zahlZiel === 0 ? 'Zahlbar bei Erhalt' : `Zahlbar bis: ${faelligkeitsDatum.toLocaleDateString('de-AT')}`}
                 </p>
               </div>
             </div>
@@ -481,7 +486,11 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
               <p className="font-semibold text-gray-700 mb-1">Bankverbindung</p>
               {iban && <p className="text-gray-600">IBAN: {iban}</p>}
               {bic  && <p className="text-gray-600">BIC: {bic}</p>}
-              <p className="text-gray-600 mt-0.5">Zahlungsziel: {zahlZiel} Tage ({faelligkeitsDatum.toLocaleDateString('de-AT')})</p>
+              <p className="text-gray-600 mt-0.5">
+                {zahlZiel === 0
+                  ? 'Zahlungsziel: bei Erhalt'
+                  : `Zahlungsziel: ${zahlZiel} Tage (${faelligkeitsDatum.toLocaleDateString('de-AT')})`}
+              </p>
             </div>
           )}
           {fusstext && (

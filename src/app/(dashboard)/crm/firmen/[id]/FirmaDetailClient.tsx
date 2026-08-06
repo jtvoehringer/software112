@@ -549,9 +549,9 @@ export default function FirmaDetailClient({
               {firma.uid_nummer && (
                 <span className="text-sm text-gray-600">UID: {firma.uid_nummer}</span>
               )}
-              {firma.zahlungsziel_tage != null && (
-                <span className="text-sm text-gray-600">Zahlungsziel: {firma.zahlungsziel_tage} Tage</span>
-              )}
+              <span className="text-sm text-gray-600">
+                Zahlungsziel: {firma.zahlungsziel_tage === 0 ? 'bei Erhalt' : `${firma.zahlungsziel_tage} Tage`}
+              </span>
             </div>
             {firma.notizen && (
               <p className="mt-2 text-sm text-gray-500 italic">{firma.notizen}</p>

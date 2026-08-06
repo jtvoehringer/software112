@@ -131,7 +131,9 @@ export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
             <Text style={[styles.title, { color }]}>RECHNUNG</Text>
             {rechnung.nummer && <Text style={styles.nr}>Nr. {rechnung.nummer}</Text>}
             <Text style={styles.metaText}>Datum: {fmtDate(rechnung.datumIso)}</Text>
-            <Text style={styles.metaText}>Zahlbar bis: {fmtDate(rechnung.faelligkeitIso)}</Text>
+            <Text style={styles.metaText}>
+              {bank.zahlungszielTage === 0 ? 'Zahlbar bei Erhalt' : `Zahlbar bis: ${fmtDate(rechnung.faelligkeitIso)}`}
+            </Text>
           </View>
         </View>
 
@@ -193,7 +195,9 @@ export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
         <View style={styles.payment}>
           <Text style={styles.paymentH}>Zahlungskonditionen</Text>
           <Text style={styles.paymentP}>
-            Innerhalb von {bank.zahlungszielTage} Tagen netto ({fmtDate(bank.faelligkeitIso)})
+            {bank.zahlungszielTage === 0
+              ? 'Zahlbar bei Erhalt (ohne Abzug)'
+              : `Innerhalb von ${bank.zahlungszielTage} Tagen netto (${fmtDate(bank.faelligkeitIso)})`}
           </Text>
           {(bank.iban || bank.bic) && (
             <Text style={styles.paymentP}>

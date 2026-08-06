@@ -96,6 +96,10 @@ export type KontaktRow = {
   is_lead?: boolean
   telefon_vorwahl?: string | null
   mobil_vorwahl?: string | null
+  // Zahlungsziel in Tagen - Pflichtfeld, 0 bedeutet "bei Erhalt" (siehe
+  // verkaufRechnungPdf.tsx). Ersetzt das frühere, betriebsweite
+  // tenant_einstellungen.rechnung_zahlungsziel (6.8.2026).
+  zahlungsziel_tage: number
   aktiv: boolean
   erstellt_am: string
 }
@@ -123,7 +127,10 @@ export type FirmaRow = {
   skonto_tage?: number | null
   is_lead?: boolean
   telefon_vorwahl?: string | null
-  zahlungsziel_tage: number | null
+  // Zahlungsziel in Tagen - Pflichtfeld seit 6.8.2026 (war zuvor optional,
+  // Betrieb hatte ein zentrales Zahlungsziel; jetzt pro Kunde). 0 = "bei
+  // Erhalt" (siehe verkaufRechnungPdf.tsx).
+  zahlungsziel_tage: number
   waehrung: string | null
   notizen: string | null
   aktiv: boolean

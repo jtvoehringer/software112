@@ -48,8 +48,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       .select(`
         id, datum, rechnungsnummer, storniert, skonto_pct, skonto_tage, skonto_aktiv,
         kontakt_id, firma_id,
-        kontakt:kontakte!kontakt_id(vorname, nachname, email, strasse, plz, ort),
-        firma:firmen(name, email, strasse, plz, ort),
+        kontakt:kontakte!kontakt_id(vorname, nachname, email, strasse, plz, ort, zahlungsziel_tage),
+        firma:firmen(name, email, strasse, plz, ort, zahlungsziel_tage),
         zh_kontakt:kontakte!zh_kontakt_id(vorname, nachname),
         positionen:verkauf_positionen(
           typ, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz,
@@ -106,7 +106,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }, {})
   const gesamtNetto = Object.values(ustGruppen).reduce((s: number, n) => s + (n as number), 0)
 
-  const zahlZiel = einst.rechnung_zahlungsziel ?? 14
+  // Zahlungsziel kommt seit 6.8.2026 vom Kunden (Kontakt/Firma), nicht mehr vom
+  // Betrieb (tenant_einstellungen.rechnung_zahlungsziel ist nur noch träge
+  // Altdaten). 0 ist ein gültiger, bewusster Wert ("bei Erhalt") - deshalb hier
+  // bewusst `??` statt `||`, damit eine hinterlegte 0 nicht überschrieben wird.
+  const zahlZiel = posten.kontakt?.zahlungsziel_tage ?? posten.firma?.zahlungsziel_tage ?? 14
   const faelligkeitsDatum = new Date(posten.datum)
   faelligkeitsDatum.setDate(faelligkeitsDatum.getDate() + zahlZiel)
 

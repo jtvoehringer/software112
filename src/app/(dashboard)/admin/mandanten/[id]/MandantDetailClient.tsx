@@ -591,16 +591,12 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
             <label className="block text-xs font-medium text-gray-600 mb-1">IBAN</label>
             <input name="rechnung_iban" defaultValue={settings.rechnung_iban ?? ''} className={inputCls()} placeholder="AT12 3456 7890 1234 5678" />
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">BIC</label>
-              <input name="rechnung_bic" defaultValue={settings.rechnung_bic ?? ''} className={inputCls()} placeholder="RLNWATWWXXX" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Zahlungsziel (Tage)</label>
-              <input name="rechnung_zahlungsziel" type="number" min="0" max="365" defaultValue={settings.rechnung_zahlungsziel ?? 14} className={inputCls()} />
-            </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">BIC</label>
+            <input name="rechnung_bic" defaultValue={settings.rechnung_bic ?? ''} className={inputCls()} placeholder="RLNWATWWXXX" style={{ maxWidth: '320px' }} />
           </div>
+          {/* Zahlungsziel wurde vom Betrieb zum Kunden verschoben (6.8.2026) -
+              siehe zahlungsziel_tage auf Kontakt/Firma. */}
         </div>
       </div>
 

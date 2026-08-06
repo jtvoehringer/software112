@@ -140,7 +140,12 @@ export async function saveBetriebEinstellungen(tenantId: string, formData: FormD
       betrieb_betriebsnummer:    (formData.get('betrieb_betriebsnummer') as string) || null,
       rechnung_iban:             (formData.get('rechnung_iban')   as string) || null,
       rechnung_bic:              (formData.get('rechnung_bic')    as string) || null,
-      rechnung_zahlungsziel:     parseInt(formData.get('rechnung_zahlungsziel') as string) || 14,
+      // rechnung_zahlungsziel wird hier bewusst NICHT mehr geschrieben - das
+      // Zahlungsziel ist seit 6.8.2026 ein Pflichtfeld pro Kunde (Kontakt/
+      // Firma, siehe crm/actions.ts), nicht mehr betriebsweit. Die Spalte
+      // bleibt in der DB erhalten (siehe Migration 150), wird aber ab jetzt
+      // nirgends mehr gelesen oder geschrieben - da .upsert() nur die
+      // angegebenen Spalten setzt, bleibt ihr bisheriger Wert unangetastet.
       rechnung_fusstext:         (formData.get('rechnung_fusstext') as string) || null,
       aktualisiert_am:           new Date().toISOString(),
     }, { onConflict: 'tenant_id' })

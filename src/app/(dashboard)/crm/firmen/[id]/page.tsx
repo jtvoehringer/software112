@@ -39,7 +39,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
       .single(),
 
     (supabase.from('kontakte') as any)
-      .select('id, vorname, nachname, segment, firma_id, email, telefon, mobil, ort, land, newsletter, newsletter_bestaetigt, stammkunde, notizen, aktiv, erstellt_am, mobil')
+      .select('id, vorname, nachname, segment, firma_id, email, telefon, mobil, ort, land, newsletter, newsletter_bestaetigt, stammkunde, notizen, aktiv, erstellt_am, mobil, zahlungsziel_tage')
       .eq('firma_id', id)
       .eq('aktiv', true)
       .order('nachname'),
@@ -81,7 +81,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     strasse: f.strasse ?? null, plz: f.plz ?? null, ort: f.ort ?? null, land: f.land ?? null,
     email: f.email ?? null, telefon: f.telefon ?? null, telefon_vorwahl: (f.telefon_vorwahl as string | null) ?? '+43', website: f.website ?? null,
     uid_nummer: f.uid_nummer ?? null, betrieb_nr: f.betrieb_nr ?? null, kreditlimit: f.kreditlimit ?? null,
-    zahlungsziel_tage: f.zahlungsziel_tage ?? null, skonto_pct: f.skonto_pct ?? 0, skonto_tage: f.skonto_tage ?? 10,
+    zahlungsziel_tage: f.zahlungsziel_tage ?? 30, skonto_pct: f.skonto_pct ?? 0, skonto_tage: f.skonto_tage ?? 10,
     waehrung: f.waehrung ?? null,
     notizen: f.notizen ?? null, aktiv: f.aktiv ?? true,
     rabattgruppe_id: f.rabattgruppe_id ?? null,
@@ -98,6 +98,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     newsletter: k.newsletter ?? false, newsletter_bestaetigt: k.newsletter_bestaetigt ?? false,
     stammkunde: k.stammkunde ?? false, notizen: k.notizen ?? null,
     rabattgruppe_id: null, rabattgruppe_name: null, rabattgruppe_pct: null,
+    zahlungsziel_tage: k.zahlungsziel_tage ?? 14,
     aktiv: k.aktiv ?? true, erstellt_am: k.erstellt_am,
   }))
 

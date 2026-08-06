@@ -293,6 +293,12 @@ export function KontaktForm({
               defaultValue={initial?.skonto_tage ?? 10} placeholder="10" className={inputCls()} />
           </div>
         </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Zahlungsziel (Tage) *</label>
+          <input name="zahlungsziel_tage" type="number" min="0" max="365" step="1" required
+            defaultValue={initial?.zahlungsziel_tage ?? 14} placeholder="14" className={inputCls()} />
+          <p className="text-[10px] text-gray-400 mt-0.5">0 = Rechnung wird mit "bei Erhalt" statt Fälligkeitsdatum gedruckt</p>
+        </div>
       </div>
 
       <div>
@@ -497,6 +503,11 @@ function KontaktKarte({
             {kontakt.telefon && <span className="text-xs text-s112-muted">{kontakt.telefon_vorwahl ?? '+43'} {kontakt.telefon}</span>}
             {kontakt.mobil && <span className="text-xs text-s112-muted">{kontakt.mobil_vorwahl ?? '+43'} {kontakt.mobil}</span>}
             {kontakt.ort && <span className="text-xs text-s112-muted">{kontakt.ort}{kontakt.land !== 'AT' ? `, ${kontakt.land}` : ''}</span>}
+            {kontakt.zahlungsziel_tage !== 14 && (
+              <span className="text-xs text-s112-muted">
+                Zahlungsziel: {kontakt.zahlungsziel_tage === 0 ? 'bei Erhalt' : `${kontakt.zahlungsziel_tage} Tage`}
+              </span>
+            )}
           </div>
           {kontakt.notizen && (
             <p className="mt-1 text-xs text-gray-500 italic">{kontakt.notizen}</p>

@@ -212,9 +212,13 @@ export function FirmaForm({ initial, rabattgruppen = [], defaultSegment, existin
           <input name="website" defaultValue={v('website')} placeholder="https://…" className={inputCls()} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Zahlungsziel (Tage)</label>
-          <input name="zahlungsziel_tage" type="number" defaultValue={v('zahlungsziel_tage') || '30'}
+          <label className="block text-xs font-medium text-gray-600 mb-1">Zahlungsziel (Tage) *</label>
+          {/* Bewusst NICHT ueber den v()-Helfer (initial?.[field] ?? '') || '30' -
+              das wuerde eine eingetragene 0 stillschweigend durch 30 ersetzen,
+              0 ist hier aber ein gueltiger, bewusster Wert ("bei Erhalt"). */}
+          <input name="zahlungsziel_tage" type="number" required defaultValue={initial?.zahlungsziel_tage ?? 30}
             min="0" max="365" className={inputCls()} />
+          <p className="text-[10px] text-gray-400 mt-0.5">0 = Rechnung wird mit "bei Erhalt" statt Fälligkeitsdatum gedruckt</p>
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Währung</label>
@@ -351,8 +355,10 @@ function FirmaKarte({
             {firma.email && <span className="text-xs text-s112-muted">{firma.email}</span>}
             {firma.telefon && <span className="text-xs text-s112-muted">{firma.telefon_vorwahl ? `${firma.telefon_vorwahl} ` : ''}{firma.telefon}</span>}
             {firma.uid_nummer && <span className="text-xs text-s112-muted">UID: {firma.uid_nummer}</span>}
-            {firma.zahlungsziel_tage != null && firma.zahlungsziel_tage !== 30 && (
-              <span className="text-xs text-s112-muted">Zahlungsziel: {firma.zahlungsziel_tage} Tage</span>
+            {firma.zahlungsziel_tage !== 30 && (
+              <span className="text-xs text-s112-muted">
+                Zahlungsziel: {firma.zahlungsziel_tage === 0 ? 'bei Erhalt' : `${firma.zahlungsziel_tage} Tage`}
+              </span>
             )}
           </div>
           {firma.notizen && <p className="mt-1 text-xs text-gray-500 italic">{firma.notizen}</p>}

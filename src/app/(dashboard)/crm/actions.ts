@@ -23,6 +23,19 @@ async function generateKundennummer(tenantId: string): Promise<string | null> {
   return data as string | null
 }
 
+// Zahlungsziel ist seit 6.8.2026 ein Pflichtfeld pro Kontakt/Firma (ersetzt das
+// frühere, betriebsweite tenant_einstellungen.rechnung_zahlungsziel). 0 ist ein
+// gültiger, bewusster Wert ("bei Erhalt" auf der Rechnung, siehe
+// verkaufRechnungPdf.tsx) - deshalb hier bewusst NICHT mit `|| 14`/`|| 30`
+// arbeiten, das würde eine eingetragene 0 stillschweigend überschreiben.
+function parseZahlungszielTage(formData: FormData): number {
+  const n = parseInt(formData.get('zahlungsziel_tage') as string, 10)
+  if (isNaN(n) || n < 0) {
+    throw new Error('Zahlungsziel (Tage) ist ein Pflichtfeld und muss 0 oder größer sein.')
+  }
+  return n
+}
+
 // ── Kontakte ──────────────────────────────────────────────────────────────────
 
 export async function createKontakt(formData: FormData): Promise<{ error?: string }> {
@@ -51,6 +64,7 @@ export async function createKontakt(formData: FormData): Promise<{ error?: strin
       sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
       skonto_pct:       parseFloat(formData.get('skonto_pct') as string) || 0,
       skonto_tage:      parseInt(formData.get('skonto_tage') as string) || 10,
+      zahlungsziel_tage: parseZahlungszielTage(formData),
       is_lead: formData.get('is_lead') === 'true',
     }
     payload.kundennummer = await generateKundennummer(tenantId)
@@ -87,6 +101,7 @@ export async function updateKontakt(id: string, formData: FormData): Promise<{ e
       sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
       skonto_pct:       parseFloat(formData.get('skonto_pct') as string) || 0,
       skonto_tage:      parseInt(formData.get('skonto_tage') as string) || 10,
+      zahlungsziel_tage: parseZahlungszielTage(formData),
       is_lead: formData.get('is_lead') === 'true',
       aktualisiert_am: new Date().toISOString(),
     }
@@ -128,7 +143,7 @@ export async function createFirma(formData: FormData): Promise<{ error?: string 
       website:            (formData.get('website') as string) || null,
       uid_nummer:         (formData.get('uid_nummer') as string) || null,
       betrieb_nr:         (formData.get('betrieb_nr') as string) || null,
-      zahlungsziel_tage:  parseInt(formData.get('zahlungsziel_tage') as string) || 30,
+      zahlungsziel_tage:  parseZahlungszielTage(formData),
       waehrung:           (formData.get('waehrung') as string) || 'EUR',
       notizen:            (formData.get('notizen')         as string) || null,
       ...(formData.get('rabattgruppe_id') ? { rabattgruppe_id: formData.get('rabattgruppe_id') as string } : {}),
@@ -164,7 +179,7 @@ export async function updateFirma(id: string, formData: FormData): Promise<{ err
       website:            (formData.get('website') as string) || null,
       uid_nummer:         (formData.get('uid_nummer') as string) || null,
       betrieb_nr:         (formData.get('betrieb_nr') as string) || null,
-      zahlungsziel_tage:  parseInt(formData.get('zahlungsziel_tage') as string) || 30,
+      zahlungsziel_tage:  parseZahlungszielTage(formData),
       waehrung:           (formData.get('waehrung') as string) || 'EUR',
       notizen:            (formData.get('notizen')         as string) || null,
       ...(formData.get('rabattgruppe_id') !== undefined ? { rabattgruppe_id: (formData.get('rabattgruppe_id') as string) || null } : {}),
