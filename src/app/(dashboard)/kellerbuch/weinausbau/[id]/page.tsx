@@ -355,9 +355,21 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
   // Berechneter Saldo aus dem Bewegungsbuch = autoritativer Wert
   // (weinausbau.menge_liter kann durch direkte Bearbeitung ohne Pressung-Sync veraltet sein)
-  const berechneterSaldo = bewegungenMitSaldo.length > 0
+  const berechneterSaldoRoh = bewegungenMitSaldo.length > 0
     ? bewegungenMitSaldo[bewegungenMitSaldo.length - 1].saldo
     : hatAnfangsbestand ? anfangsbestand : aktuell
+
+  // Ein negativer Saldo bedeutet, dass laut Bewegungsbuch mehr aus der Charge
+  // entnommen wurde, als je vorhanden war (z.B. ein Tank-Verkauf, der trotz
+  // bereits leerem Bestand durchging, weil es dafuer bislang keine Pruefung
+  // gab - siehe Bugreport 6.8.2026: Charge stand bereits bei 0,00 L, ein
+  // weiterer 100L-Verkauf wurde trotzdem gebucht, der Saldo fiel auf -100 L
+  // und wurde vom Auto-Sync unten anschliessend UNGEPRUEFT in
+  // weinausbau.menge_liter zurueckgeschrieben). Bestand darf nie negativ
+  // angezeigt oder gespeichert werden - stattdessen bei 0 kappen und die
+  // Unstimmigkeit sichtbar machen (siehe Warnhinweis weiter unten).
+  const bestandsUnstimmigkeit = berechneterSaldoRoh < -0.01
+  const berechneterSaldo = Math.max(0, berechneterSaldoRoh)
 
   // Auto-Sync: DB-menge_liter korrigieren wenn Abweichung > 1 L
   if (Math.abs(berechneterSaldo - aktuell) > 1) {
@@ -378,6 +390,17 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
         <span>/</span>
         <span className="text-gray-700 font-medium">{weinausbau.name}</span>
       </div>
+
+      {bestandsUnstimmigkeit && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+          <p className="font-semibold">Unstimmigkeit im Bewegungsbuch</p>
+          <p className="mt-0.5">
+            Laut Bewegungsbuch wurde mehr aus dieser Charge entnommen, als je vorhanden war
+            (berechneter Saldo: {fmtLiter(berechneterSaldoRoh)}). Der angezeigte Bestand wurde
+            hier bei 0 L gekappt - bitte die Bewegungen unten (insbesondere Tank-Verkäufe) prüfen.
+          </p>
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">

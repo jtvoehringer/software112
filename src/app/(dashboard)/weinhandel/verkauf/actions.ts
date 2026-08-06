@@ -87,6 +87,54 @@ export async function createVerkauf(formData: FormData) {
     throw new Error('Mindestens eine Position erforderlich')
   }
 
+  // ── Bestandspruefung VOR dem Anlegen ─────────────────────────────────────────
+  // Bugreport 6.8.2026: eine Kellerbuch-Charge mit bereits 0 L Bestand liess sich
+  // trotzdem "verkaufen" - der Bestand fiel dabei unbemerkt ins Negative, weil
+  // Schritt 3 (Bestand reduzieren) das Ergebnis nur nachtraeglich bei 0 kappt
+  // (Math.max(0, ...)), statt die Buchung vorher abzulehnen. Bricht die gesamte
+  // Buchung jetzt VOR dem Anlegen von Verkaufsposten/Positionen ab, wenn eine
+  // Position mehr verkauft als tatsaechlich verfuegbar ist (gleiche
+  // Toleranz/Logik wie beim Umziehen, siehe kellerbuch/umziehen/actions.ts).
+  for (const p of positionen) {
+    if (p.typ === 'flasche' && p.fuellung_id) {
+      const { data: f } = await (supabase.from('fuellungen') as any)
+        .select('name, bestand_flaschen').eq('id', p.fuellung_id).single()
+      const verfuegbar = (f as AR | null)?.bestand_flaschen ?? 0
+      if (Math.round(p.menge) > verfuegbar) {
+        throw new Error(
+          `„${(f as AR | null)?.name ?? 'Abfüllung'}": nur noch ${verfuegbar} Flaschen verfügbar, ${Math.round(p.menge)} angefragt.`
+        )
+      }
+    } else if (p.typ === 'tank' && p.weinausbau_id) {
+      const { data: w } = await (supabase.from('weinausbau') as any)
+        .select('name, menge_liter').eq('id', p.weinausbau_id).single()
+      const verfuegbar = parseFloat((w as AR | null)?.menge_liter ?? '0') || 0
+      if (p.menge > verfuegbar + 0.01) {
+        throw new Error(
+          `„${(w as AR | null)?.name ?? 'Charge'}": Menge (${p.menge.toLocaleString('de-AT')} L) überschreitet verfügbaren Bestand (${verfuegbar.toLocaleString('de-AT')} L).`
+        )
+      }
+    } else if (p.typ === 'tank' && p.zukauf_id) {
+      const { data: zk } = await (supabase.from('zukauf_posten') as any)
+        .select('rebsorte, menge').eq('id', p.zukauf_id).single()
+      const verfuegbar = parseFloat((zk as AR | null)?.menge ?? '0') || 0
+      if (p.menge > verfuegbar + 0.01) {
+        throw new Error(
+          `„${(zk as AR | null)?.rebsorte ?? 'Zukauf'}": Menge (${p.menge.toLocaleString('de-AT')} L) überschreitet verfügbaren Zukauf-Bestand (${verfuegbar.toLocaleString('de-AT')} L).`
+        )
+      }
+    } else if (p.typ === 'tank' && p.pressung_behaelter_id) {
+      const { data: pb } = await (supabase.from('pressung_behaelter') as any)
+        .select('menge_liter').eq('id', p.pressung_behaelter_id).single()
+      const verfuegbar = parseFloat((pb as AR | null)?.menge_liter ?? '0') || 0
+      if (p.menge > verfuegbar + 0.01) {
+        throw new Error(
+          `Pressung: Menge (${p.menge.toLocaleString('de-AT')} L) überschreitet verfügbaren Bestand (${verfuegbar.toLocaleString('de-AT')} L).`
+        )
+      }
+    }
+  }
+
   // Transaktionsnummer vergeben
   const { data: txnVk } = await (supabase.rpc as any)('get_next_transaktionsnr', { p_tenant_id: tenantId, p_typ: 'verkauf' })
 
@@ -262,7 +310,7 @@ export async function createVerkauf(formData: FormData) {
   revalidatePath('/weinhandel/verkauf')
   revalidatePath('/crm/kontakte')
   revalidatePath('/crm/firmen')
-  redirect(`/weinhandel/verkauf/${postenId}`)
+  return { id: postenId }
 }
 
 // ── Verkauf deaktivieren ──────────────────────────────────────────────────────
