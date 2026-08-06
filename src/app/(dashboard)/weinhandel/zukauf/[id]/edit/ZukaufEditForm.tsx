@@ -59,10 +59,20 @@ const ART_OPTIONS: { value: 'wein' | 'most' | 'trauben'; label: string }[] = [
 export default function ZukaufEditForm({
   id,
   initial,
+  hatBewegungen,
+  eigeneAktuelleMenge,
   lieferantName,
 }: {
   id: string
   initial: InitialValues
+  // Wurde gegen die verknüpfte Kellerbuch-Charge (initial.ziel_weinausbau_id)
+  // bereits etwas gebucht (Verkauf/Umzug/Abfüllung/Verschnitt)? Bestimmt, wie
+  // die Gebinde-Vorschau unten die eigene Charge simuliert - siehe
+  // eigenWeinausbauId-Kommentar weiter unten.
+  hatBewegungen: boolean
+  // Aktueller (live) Bestand der verknüpften Kellerbuch-Charge in Liter, wie er
+  // JETZT in der DB steht - unabhängig vom unveränderlichen initial.menge.
+  eigeneAktuelleMenge: number
   lieferantName: string
 }) {
   const [isPending, startTransition] = useTransition()
@@ -94,10 +104,30 @@ export default function ZukaufEditForm({
   const [notizen,             setNotizen]           = useState(initial.notizen)
 
   // Die eigene, bereits bestehende weinausbau-Charge dieses Zukauf-Postens
-  // (falls vorhanden) wird beim Speichern ersetzt (siehe updateZukauf) und
-  // darf daher bei der Kapazitätsprüfung nicht als "bereits vorhandener
-  // Inhalt" mitgezählt werden - sonst wird die neue Menge doppelt gezählt.
+  // (falls vorhanden) wird aus der allgemeinen "andere Chargen in diesem
+  // Gebinde"-Liste ausgenommen und stattdessen separat simuliert (siehe
+  // eigeneSimulierteMenge unten) - sonst würde sie doppelt gezählt.
   const eigenWeinausbauId = initial.ziel_weinausbau_id || null
+  // Ursprüngliche Zukaufsmenge (unveränderliche zukauf_posten.menge beim Laden
+  // der Seite) - Basiswert für die Differenzrechnung, falls die Charge bereits
+  // bewegt wurde (siehe unten).
+  const alteZukaufMenge = parseFloat(initial.menge) || 0
+
+  // Simuliert den Bestand der EIGENEN Kellerbuch-Charge NACH dem Speichern
+  // dieses Formulars, abhängig davon, wie updateZukauf sie behandeln wird:
+  //  - Noch nie einem Gebinde zugeordnet (kein eigenWeinausbauId): die Charge
+  //    entsteht beim Speichern frisch mit der vollen eingetragenen Menge.
+  //  - Zugeordnet, aber noch UNBERÜHRT (keine Bewegungen): updateZukauf ersetzt
+  //    sie beim Speichern vollständig durch die volle eingetragene Menge.
+  //  - Zugeordnet UND bereits bewegt (Verkauf/Umzug/Abfüllung/Verschnitt):
+  //    updateZukauf verrechnet beim Speichern nur die DIFFERENZ zur
+  //    ursprünglichen Zukaufsmenge auf den aktuellen, bereits reduzierten
+  //    Bestand (der verbrauchte Anteil bleibt erhalten) - die Vorschau muss
+  //    daher vom AKTUELLEN Bestand ausgehen statt ihn zu ignorieren.
+  function eigeneSimulierteMenge(neueMenge: number): number {
+    if (!eigenWeinausbauId || !hatBewegungen) return neueMenge
+    return Math.max(0, eigeneAktuelleMenge + (neueMenge - alteZukaufMenge))
+  }
 
   useEffect(() => {
     fetch('/api/zukauf-stammdaten').then(r => r.json()).then(j => {
@@ -383,9 +413,21 @@ export default function ZukaufEditForm({
                 {behaelter.map(b => {
                   const vol = b.volumen_liter
                   const chargen = weinausbauListe.filter(w => w.behaelter_id === b.id && w.id !== eigenWeinausbauId)
-                  const inhalt = chargen.reduce((s, w) => s + (w.menge_liter ?? 0), 0)
+                  const fremdInhalt = chargen.reduce((s, w) => s + (w.menge_liter ?? 0), 0)
+                  // Steht die eigene Charge bereits bewegt in GENAU diesem Behälter,
+                  // zählt ihr simulierter (Live-)Bestand hier mit - sonst (noch nie
+                  // zugeordnet, oder zugeordnet aber unbewegt) taucht sie in der
+                  // Auswahlliste gar nicht separat auf, da sie beim Speichern ohnehin
+                  // erst im gewählten Ziel-Behälter entsteht/ersetzt wird.
+                  const eigeneCharge = eigenWeinausbauId ? weinausbauListe.find(w => w.id === eigenWeinausbauId) : undefined
+                  const eigeneHier = (hatBewegungen && eigeneCharge?.behaelter_id === b.id)
+                    ? eigeneSimulierteMenge(parseFloat(menge) || 0)
+                    : 0
+                  const inhalt = fremdInhalt + eigeneHier
                   const rest = vol != null ? vol - inhalt : null
-                  const rebsorten = [...new Set(chargen.map(w => w.rebsorte).filter(Boolean))].join(', ')
+                  const rebsortenListe = chargen.map(w => w.rebsorte)
+                  if (eigeneHier > 0 && rebsorte) rebsortenListe.push(rebsorte)
+                  const rebsorten = [...new Set(rebsortenListe.filter(Boolean))].join(', ')
                   const kapSuffix = vol != null ? ` · ${vol.toLocaleString('de-AT')} L` : ''
                   const inhaltSuffix = inhalt > 0 ? ` · Inhalt: ${inhalt.toLocaleString('de-AT')} L${rebsorten ? ` (${rebsorten})` : ''}` : ' · leer'
                   const restSuffix = rest != null ? ` · Rest: ${rest.toLocaleString('de-AT')} L` : ''
@@ -403,10 +445,23 @@ export default function ZukaufEditForm({
               const b = behaelter.find(x => x.id === zielBehaelter)
               const vol = b?.volumen_liter ?? null
               const chargen = weinausbauListe.filter(w => w.behaelter_id === zielBehaelter && w.id !== eigenWeinausbauId)
-              const inhalt = chargen.reduce((s, w) => s + (w.menge_liter ?? 0), 0)
+              const fremdInhalt = chargen.reduce((s, w) => s + (w.menge_liter ?? 0), 0)
               const mengeNum = parseFloat(menge) || 0
-              const restNach = vol != null ? vol - inhalt - mengeNum : null
+              const eigeneCharge = eigenWeinausbauId ? weinausbauListe.find(w => w.id === eigenWeinausbauId) : undefined
+              // Bereits bewegte Charge: ihr Behälter steht fest (ein Wechsel wird
+              // von updateZukauf beim Speichern verweigert) - der simulierte
+              // Bestand zählt daher nur mit, wenn der gewählte Behälter auch
+              // tatsächlich der ist, in dem sie aktuell liegt. Noch unbewegt (oder
+              // noch nie zugeordnet): die volle eingetragene Menge entsteht/landet
+              // beim Speichern im gerade GEWÄHLTEN Behälter.
+              const eigeneHier = hatBewegungen
+                ? (eigeneCharge?.behaelter_id === zielBehaelter ? eigeneSimulierteMenge(mengeNum) : 0)
+                : eigeneSimulierteMenge(mengeNum)
+              const inhalt = fremdInhalt + eigeneHier
+              const restNach = vol != null ? vol - inhalt : null
               const ueber = restNach != null && restNach < -0.01
+              const rebsortenListe = chargen.map(c => c.rebsorte)
+              if (eigeneHier > 0 && rebsorte) rebsortenListe.push(rebsorte)
               return (
                 <div className="bg-s112-bg border border-s112-border rounded-xl px-4 py-3 space-y-2 text-xs">
                   <div className="grid grid-cols-3 gap-3">
@@ -418,18 +473,18 @@ export default function ZukaufEditForm({
                       <p className="text-s112-muted mb-0.5">Inhalt jetzt</p>
                       <p className="font-semibold text-gray-800">
                         {inhalt.toLocaleString('de-AT', { maximumFractionDigits: 1 })} L
-                        {chargen.length > 0 && (
+                        {(chargen.length > 0 || eigeneHier > 0) && (
                           <span className="ml-1 font-normal text-s112-muted">
-                            ({[...new Set(chargen.map(c => c.rebsorte).filter(Boolean))].join(', ') || '–'})
+                            ({[...new Set(rebsortenListe.filter(Boolean))].join(', ') || '–'})
                           </span>
                         )}
                       </p>
                     </div>
                     <div>
-                      <p className="text-s112-muted mb-0.5">{mengeNum > 0 ? 'Rest nach Zukauf' : 'Restkapazität'}</p>
+                      <p className="text-s112-muted mb-0.5">{mengeNum > 0 || hatBewegungen ? 'Rest nach Zukauf' : 'Restkapazität'}</p>
                       <p className={`font-semibold ${ueber ? 'text-red-600' : 'text-s112-teal'}`}>
                         {vol != null
-                          ? (mengeNum > 0 ? restNach! : vol - inhalt).toLocaleString('de-AT', { maximumFractionDigits: 1 }) + ' L'
+                          ? restNach!.toLocaleString('de-AT', { maximumFractionDigits: 1 }) + ' L'
                           : '–'}
                       </p>
                     </div>

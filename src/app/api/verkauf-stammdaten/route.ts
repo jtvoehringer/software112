@@ -47,9 +47,21 @@ export async function GET() {
         .select('id, name, einheit, default_preis')
         .eq('aktiv', true).order('name'),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // Nur Zukäufe, die noch KEINEM Gebinde zugeordnet sind (ziel_weinausbau_id
+      // IS NULL), dürfen hier als eigenständige "Zukauf"-Verkaufsoption erscheinen.
+      // Ist ein Zukauf bereits abgefüllt, läuft sein Bestand ab dann ausschließlich
+      // über die zugehörige Kellerbuch-Charge (weinausbau.menge_liter) - ohne
+      // diesen Filter würde derselbe physische Bestand doppelt zum Verkauf
+      // angeboten (einmal als Zukauf, einmal als Kellerbuch-Charge). Ein Verkauf
+      // über den Zukauf-Pfad hätte dann zukauf_posten.menge dekrementiert, ohne
+      // die tatsächlich befüllte weinausbau-Charge zu berühren - das brachte u.a.
+      // den ursprünglichen Einstandspreis/L (Gesamtpreis ÷ Menge) durcheinander,
+      // weil zukauf_posten.menge nach dem Abfüllen als unveränderlich gilt (siehe
+      // gleiche Filterung + Begründung in weinhandel/page.tsx, KPI "Zukäufe").
       (supabase.from('zukauf_posten') as any)
         .select('id, art, menge, einheit, rebsorte, jahrgang, notizen')
-        .eq('aktiv', true).gt('menge', 0).order('erstellt_am', { ascending: false }),
+        .eq('aktiv', true).gt('menge', 0).is('ziel_weinausbau_id', null)
+        .order('erstellt_am', { ascending: false }),
       // Pressung-Direktbefüllungen (noch keiner Kellerbuch-Charge zugeordnet)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('pressung_behaelter') as any)

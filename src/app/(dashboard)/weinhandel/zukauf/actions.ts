@@ -103,6 +103,14 @@ async function chargeHatBewegungen(supabase: any, weinausbauId: string): Promise
     || (verschnQuelleCount ?? 0) > 0 || (verschnZielCount ?? 0) > 0
 }
 
+// Öffentlicher Wrapper für die Zukauf-Bearbeiten-Seite (page.tsx): baut sich
+// seinen eigenen Supabase-Client, damit die Signatur (nur ein serialisierbarer
+// String-Parameter) sauber als Server-Action-Export bleibt.
+export async function pruefeChargeHatBewegungen(weinausbauId: string): Promise<boolean> {
+  const supabase = await createSupabaseServerClient()
+  return chargeHatBewegungen(supabase, weinausbauId)
+}
+
 function parseZukaufFormData(formData: FormData) {
   const datum = (formData.get('datum') as string) || new Date().toISOString().split('T')[0]
   // Jahrgang ist optional im Formular, wird aber u.a. für den Pressungs-Vorschlag
