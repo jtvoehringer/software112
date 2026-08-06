@@ -81,7 +81,6 @@ const NAV: NavEntry[] = [
     kind: 'group', label: 'Controlling', icon: Calculator,
     items: [
       { href: '/controlling/export',        label: 'Datenexport' },
-      { href: '/controlling/bmd',           label: 'BMD NTCS'         },
       { href: '/controlling/kostenrechnung',label: 'Kostenrechnung'   },
     ],
   },
@@ -94,6 +93,7 @@ const NAV: NavEntry[] = [
       { href: '/buchhaltung/dauerauftraege', label: 'Daueraufträge', child: true },
       { href: '/buchhaltung/uva',          label: 'UVA-Meldung'      },
       { href: '/weinhandel/offene-posten', label: 'Offene Posten'    },
+      { href: '/controlling/bmd',          label: 'BMD NTCS'         },
     ],
   },
 

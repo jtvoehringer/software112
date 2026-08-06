@@ -2,7 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { ReceiptText, Warehouse, Package, Users, Plus, ShoppingCart, Wine, Calendar, ArrowRightLeft, Wallet } from 'lucide-react'
+import { ReceiptText, Package, Users, Plus, ShoppingCart, Calendar, Wallet } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Übersicht – software:112' }
 export const dynamic = 'force-dynamic'
@@ -66,7 +66,6 @@ export default async function DashboardPage() {
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [
-    { count: fuellungenCount },
     { data: offenePostenRaw },
     { data: monatsVerkaufRaw },
     { data: vormonatsVerkaufRaw },
@@ -77,8 +76,6 @@ export default async function DashboardPage() {
     { count: auftraegeVorwocheCount },
     { data: absatzSeriesRaw },
   ] = await Promise.all([
-    tf(q('fuellungen').select('*', { count: 'exact', head: true }).eq('aktiv', true).gt('bestand_flaschen', 0)),
-
     // Offene Posten (unbezahlt, nicht storniert) — inkl. Datum für Überfällig-/Ø-Tage-Berechnung
     tf(q('verkaufsposten')
       .select('id, datum, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
@@ -228,7 +225,9 @@ export default async function DashboardPage() {
       </div>
 
       {/* ── KPI-Kacheln ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      {/* Lagerbestand-Kachel auf Wunsch entfernt (5.8.2026) - daher 3 statt 4 Kacheln,
+          Grid entsprechend auf lg:grid-cols-3 angepasst. */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3.5">
         {/* Offene Rechnungen */}
         <Link href="/weinhandel/offene-posten" className="bg-white border border-s112-line rounded-xl p-4 flex flex-col gap-2 hover:shadow-sm transition-shadow">
           <div className="flex items-center gap-1.5">
@@ -243,16 +242,6 @@ export default async function DashboardPage() {
               ? 'Keine offenen Posten'
               : `${offenePostenUeberfaellig} überfällig · Ø ${offenePostenAvgTage} Tage`}
           </p>
-        </Link>
-
-        {/* Lagerbestand */}
-        <Link href="/weinhandel" className="bg-white border border-s112-line rounded-xl p-4 flex flex-col gap-2 hover:shadow-sm transition-shadow">
-          <div className="flex items-center gap-1.5">
-            <Warehouse size={18} strokeWidth={1.5} className="text-s112-tertiary" />
-            <p className="text-[11.5px] font-semibold text-s112-text-2">Lagerbestand</p>
-          </div>
-          <p className="font-mono text-2xl text-s112-text tabular-nums">{fuellungenCount ?? 0}</p>
-          <p className="text-[11.5px] text-s112-tertiary">Artikel mit Bestand</p>
         </Link>
 
         {/* Aufträge diese Woche */}
@@ -380,7 +369,10 @@ export default async function DashboardPage() {
         <div className="card p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-gray-700 text-sm">Nächste Termine</h2>
-            <Link href="/crm" className="text-xs text-s112-blue-700 hover:underline">Kalender →</Link>
+            <div className="flex items-center gap-3">
+              <Link href="/crm" className="text-xs text-s112-blue-700 hover:underline">alle →</Link>
+              <Link href="/crm" className="text-xs text-s112-blue-700 hover:underline">Kalender →</Link>
+            </div>
           </div>
           {naechsteAkt.length === 0 ? (
             <div className="text-center py-6">
@@ -406,14 +398,14 @@ export default async function DashboardPage() {
       </div>
 
       {/* ── Schnellzugriff ───────────────────────────────────────────── */}
+      {/* "Füllen" und "Umziehen" auf Wunsch entfernt (5.8.2026) - Grid entsprechend auf
+          sm:grid-cols-3 angepasst. */}
       <div>
         <h2 className="text-xs font-semibold text-s112-muted uppercase tracking-wider mb-3">Schnellzugriff</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {[
             { href: '/weinhandel/verkauf/neu',    icon: ShoppingCart,   label: 'Neuer Verkauf'    },
-            { href: '/weinhandel/fuellungen/neu',  icon: Wine,           label: 'Füllen'           },
             { href: '/crm',                        icon: Calendar,       label: 'Aktivität'        },
-            { href: '/kellerbuch/umziehen',        icon: ArrowRightLeft, label: 'Umziehen'         },
             { href: '/weinhandel/offene-posten',   icon: Wallet,         label: 'Offene Posten'    },
           ].map(item => (
             <Link key={item.href} href={item.href}
