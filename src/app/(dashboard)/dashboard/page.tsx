@@ -36,6 +36,9 @@ export default async function DashboardPage() {
   // KPIs/Daten eines anderen Betriebs als des gerade ausgewählten angezeigt werden.
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
+  // Für den "Meine Aktivitäten"-Filter unten (5.8.2026: die Sektion zeigte bisher ALLE
+  // Aktivitäten des Betriebs, nicht nur die eigenen - kein User-Bezug im Code vorhanden).
+  const { data: { user: currentUser } } = await supabase.auth.getUser()
   let tenantName: string | null = null
   if (tenantId) {
     const { data: tenantRow } = await (supabase.from('tenants') as any).select('name').eq('id', tenantId).maybeSingle()
@@ -91,10 +94,14 @@ export default async function DashboardPage() {
       .select('id, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
       .eq('aktiv', true).gte('datum', vorMonVon).lte('datum', vorMonBis)),
 
-    // Letzte 5 Belege
+    // Überfällige Rechnungen (bis 5.8.2026: letzte 5 Belege unabhängig vom Status - auf
+    // Wunsch auf ausschließlich überfällige umgestellt). Weiter gefasste Vorab-Filterung
+    // (unbezahlt + nicht storniert, größeres Limit) - die eigentliche >30-Tage-Filterung
+    // und Sortierung nach längster Überfälligkeit passiert unten in JS wie bei den übrigen
+    // Überfällig-Berechnungen dieser Seite (ZAHLUNGSZIEL_TAGE).
     tf(q('verkaufsposten')
       .select('id, datum, rechnungsnummer, bezahlt, storniert, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name), positionen:verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
-      .eq('aktiv', true).order('datum', { ascending: false }).order('erstellt_am', { ascending: false }).limit(5)),
+      .eq('aktiv', true).eq('bezahlt', false).eq('storniert', false).order('datum', { ascending: true }).limit(200)),
 
     tf(q('kontakte').select('*', { count: 'exact', head: true }).eq('aktiv', true)),
     tf(q('kontakte').select('*', { count: 'exact', head: true }).eq('aktiv', true).eq('is_lead', true)),
@@ -103,9 +110,11 @@ export default async function DashboardPage() {
     tf(q('verkaufsposten').select('*', { count: 'exact', head: true }).eq('aktiv', true).eq('storniert', false).gte('datum', wochenStartStr)),
     tf(q('verkaufsposten').select('*', { count: 'exact', head: true }).eq('aktiv', true).eq('storniert', false).gte('datum', vorwochenStartStr).lte('datum', vorwochenEndeStr)),
 
-    // Absatzreihe (Flaschen/Menge) der letzten 12 Monate für das Balkendiagramm
+    // Umsatzreihe der letzten 12 Monate für das Balkendiagramm (bis 5.8.2026: Flaschen-
+    // Absatz/Menge statt Umsatz - auf Wunsch umgestellt, daher jetzt Preis/Rabatt-Felder
+    // statt nur Menge, um wie bei posSum() den tatsächlichen Netto-Umsatz zu berechnen)
     tf(q('verkaufsposten')
-      .select('datum, verkauf_positionen(menge)')
+      .select('datum, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
       .eq('aktiv', true).eq('storniert', false).gte('datum', absatzVon)),
   ])
 
@@ -139,7 +148,8 @@ export default async function DashboardPage() {
   const auftraegeVorwoche = auftraegeVorwocheCount ?? 0
   const auftraegeDelta    = auftraegeWoche - auftraegeVorwoche
 
-  // Absatzreihe: 12 Monate, älteste zuerst
+  // Umsatzreihe: 12 Monate, älteste zuerst (auf Wunsch von Flaschen-Absatz auf Umsatz
+  // umgestellt, 5.8.2026 - posSum() pro Zeile statt reiner Mengen-Summe)
   const absatzMap = new Map<string, number>()
   for (let i = 0; i < 12; i++) {
     const d = new Date(heute.getFullYear(), heute.getMonth() - 11 + i, 1)
@@ -149,8 +159,8 @@ export default async function DashboardPage() {
     const d = new Date(row.datum)
     const key = `${d.getFullYear()}-${d.getMonth()}`
     if (!absatzMap.has(key)) continue
-    const menge = (row.verkauf_positionen ?? []).reduce((s: number, p: R) => s + (Number(p.menge) || 0), 0)
-    absatzMap.set(key, (absatzMap.get(key) ?? 0) + menge)
+    const umsatz = posSum([row])
+    absatzMap.set(key, (absatzMap.get(key) ?? 0) + umsatz)
   }
   const absatzSeries = Array.from(absatzMap.entries()).map(([key, value]) => {
     const [y, m] = key.split('-').map(Number)
@@ -164,24 +174,19 @@ export default async function DashboardPage() {
     return '–'
   }
 
-  // Letzte Belege inkl. Betrag/Status pro Zeile
-  const belege: R[] = ((letzteVerkaeufRaw ?? []) as R[]).map(v => {
-    const betrag = posSum([v])
-    const tage = Math.floor((heuteMs - new Date(v.datum).getTime()) / 86400000)
-    let status: 'bezahlt' | 'ueberfaellig' | 'offen' | 'storniert' = 'offen'
-    if (v.storniert) status = 'storniert'
-    else if (v.bezahlt) status = 'bezahlt'
-    else if (tage > ZAHLUNGSZIEL_TAGE) status = 'ueberfaellig'
-    return { ...v, betrag, status, kunde: kundenName(v) } as R
-  })
-
-  const STATUS_LABEL: Record<string, string> = { bezahlt: 'Bezahlt', ueberfaellig: 'Überfällig', offen: 'Offen', storniert: 'Storniert' }
-  const STATUS_CLASS: Record<string, string> = {
-    bezahlt:     'bg-s112-ok-bg text-s112-ok-fg',
-    ueberfaellig:'bg-s112-err-bg text-s112-err-fg',
-    offen:       'bg-s112-warn-bg text-s112-warn-fg',
-    storniert:   'bg-gray-100 text-gray-500',
-  }
+  // Überfällige Rechnungen inkl. Betrag/Tage pro Zeile (bis 5.8.2026: letzte 5 Belege
+  // unabhängig vom Status - auf Wunsch auf ausschließlich überfällige umgestellt, längste
+  // Überfälligkeit zuerst). Die Vorab-Query liefert bereits nur unbezahlte/nicht stornierte
+  // Belege, hier zusätzlich auf > ZAHLUNGSZIEL_TAGE gefiltert.
+  const belege: R[] = ((letzteVerkaeufRaw ?? []) as R[])
+    .map(v => {
+      const betrag = posSum([v])
+      const tage = Math.floor((heuteMs - new Date(v.datum).getTime()) / 86400000)
+      return { ...v, betrag, tage, kunde: kundenName(v) } as R
+    })
+    .filter(v => v.tage > ZAHLUNGSZIEL_TAGE)
+    .sort((a, b) => b.tage - a.tage)
+    .slice(0, 5)
 
   // Nächste unerledigte Aktivitäten (für "Nächste Termine")
   const { data: naechsteAktivitaetenRaw } = await tf(q('aktivitaeten')
@@ -195,13 +200,17 @@ export default async function DashboardPage() {
     return ''
   }
 
-  // Meine Aktivitäten (nächste 30 Tage, offen)
+  // Meine Aktivitäten (nächste 30 Tage, offen, NUR eigene - auf Wunsch echter User-Filter
+  // auf erstellt_von ergänzt, 5.8.2026: vorher wurden hier alle Aktivitäten des ganzen
+  // Betriebs gezeigt, nicht nur die des angemeldeten Users)
   const in30 = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-  const { data: meineAkts } = await tf((supabase.from('aktivitaeten') as any)
-    .select('id, art, betreff, datum, erledigt, kontakt_id, firma_id, kontakte(vorname,nachname), firmen(name)')
-    .eq('erledigt', false)
-    .gte('datum', heuteStr).lte('datum', in30)
-    .order('datum', { ascending: true }).limit(10))
+  const { data: meineAkts } = currentUser
+    ? await tf((supabase.from('aktivitaeten') as any)
+        .select('id, art, betreff, datum, erledigt, kontakt_id, firma_id, kontakte(vorname,nachname), firmen(name)')
+        .eq('erledigt', false).eq('erstellt_von', currentUser.id)
+        .gte('datum', heuteStr).lte('datum', in30)
+        .order('datum', { ascending: true }).limit(10))
+    : { data: [] }
 
   const wirtschaftsjahr = heute.getMonth() >= 8
     ? `${heute.getFullYear()}/${String(heute.getFullYear() + 1).slice(2)}`
@@ -256,24 +265,25 @@ export default async function DashboardPage() {
           </p>
         </Link>
 
-        {/* Kontakte & Leads */}
+        {/* Leads (auf Wunsch von "Kontakte" umgestellt, 5.8.2026: Hauptzahl jetzt Leads,
+            Gesamt-Kontakte in der Unterzeile) */}
         <Link href="/crm/kontakte" className="bg-white border border-s112-line rounded-xl p-4 flex flex-col gap-2 hover:shadow-sm transition-shadow">
           <div className="flex items-center gap-1.5">
             <Users size={18} strokeWidth={1.5} className="text-s112-tertiary" />
-            <p className="text-[11.5px] font-semibold text-s112-text-2">Kontakte</p>
+            <p className="text-[11.5px] font-semibold text-s112-text-2">Leads</p>
           </div>
-          <p className="font-mono text-2xl text-s112-text tabular-nums">{kontakteCount ?? 0}</p>
-          <p className="text-[11.5px] text-s112-tertiary">{leadCount ?? 0} Leads</p>
+          <p className="font-mono text-2xl text-s112-text tabular-nums">{leadCount ?? 0}</p>
+          <p className="text-[11.5px] text-s112-tertiary">{kontakteCount ?? 0} Kontakte gesamt</p>
         </Link>
       </div>
 
       {/* ── Balkendiagramm + Tabelle ────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
 
-        {/* Absatz in Flaschen */}
+        {/* Umsatz (bis 5.8.2026: Absatz in Flaschen - auf Wunsch auf Umsatz in € umgestellt) */}
         <div className="lg:col-span-2 bg-white border border-s112-line rounded-xl p-[18px]">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display font-semibold text-[14px] text-s112-text">Absatz in Flaschen</h2>
+            <h2 className="font-display font-semibold text-[14px] text-s112-text">Umsatz</h2>
             <span className="text-[11.5px] text-s112-tertiary">letzte 12 Monate</span>
           </div>
           <div className="h-[120px] flex items-end gap-2.5">
@@ -281,7 +291,7 @@ export default async function DashboardPage() {
               const color = i === 11 ? 'bg-s112-teal' : i >= 9 ? 'bg-s112-blue-300' : 'bg-s112-blue-100'
               const heightPct = Math.max(3, Math.round((s.value / absatzMax) * 100))
               return (
-                <div key={i} className={`flex-1 h-full flex flex-col justify-end ${i < 6 ? 'hidden sm:flex' : ''}`} title={`${s.label}: ${s.value.toLocaleString('de-AT')} Flaschen`}>
+                <div key={i} className={`flex-1 h-full flex flex-col justify-end ${i < 6 ? 'hidden sm:flex' : ''}`} title={`${s.label}: ${s.value.toLocaleString('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}`}>
                   <div className={`w-full rounded-t-[5px] ${color}`} style={{ height: `${heightPct}%` }} />
                 </div>
               )
@@ -294,20 +304,20 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Letzte Belege */}
+        {/* Überfällige Rechnungen (bis 5.8.2026: Letzte Belege - auf Wunsch umgestellt) */}
         <div className="lg:col-span-3 bg-white border border-s112-line rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-[18px] pt-4 pb-2">
-            <h2 className="font-display font-semibold text-[14px] text-s112-text">Letzte Belege</h2>
-            <Link href="/weinhandel/verkauf" className="text-[11.5px] text-s112-blue-700 hover:underline">alle →</Link>
+            <h2 className="font-display font-semibold text-[14px] text-s112-text">Überfällige Rechnungen</h2>
+            <Link href="/weinhandel/offene-posten" className="text-[11.5px] text-s112-blue-700 hover:underline">alle →</Link>
           </div>
           {belege.length === 0 ? (
-            <p className="text-sm text-s112-text-2 px-[18px] pb-5">Noch keine Belege vorhanden.</p>
+            <p className="text-sm text-s112-text-2 px-[18px] pb-5">Keine überfälligen Rechnungen.</p>
           ) : (
             <div>
               <div className="grid grid-cols-[1.6fr_1fr_.9fr_.9fr_40px] px-[18px] py-[11px] bg-[#FBFBFC] border-b border-s112-line text-[11px] font-semibold uppercase tracking-[.08em] text-s112-tertiary">
                 <span>Kunde</span>
                 <span>Beleg-Nr.</span>
-                <span>Status</span>
+                <span>Überfällig</span>
                 <span className="text-right">Betrag</span>
                 <span />
               </div>
@@ -318,8 +328,8 @@ export default async function DashboardPage() {
                     <span className="text-s112-text truncate">{v.kunde}</span>
                     <span className="font-mono text-s112-text-2">{v.rechnungsnummer ?? '–'}</span>
                     <span>
-                      <span className={`inline-block px-2.5 py-1 rounded-full text-[11.5px] font-semibold ${STATUS_CLASS[v.status]}`}>
-                        {STATUS_LABEL[v.status]}
+                      <span className="inline-block px-2.5 py-1 rounded-full text-[11.5px] font-semibold bg-s112-err-bg text-s112-err-fg">
+                        {v.tage} Tage
                       </span>
                     </span>
                     <span className="font-mono text-right text-s112-text tabular-nums">
