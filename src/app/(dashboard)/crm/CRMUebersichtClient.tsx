@@ -339,6 +339,62 @@ function ZeitachseView({
     return Math.max(HOUR_H / 2, (mins / 60) * HOUR_H)
   }
 
+  function toMin(t: string): number {
+    const [h, m] = t.split(':').map(Number)
+    return h * 60 + m
+  }
+
+  // Ordnet zeitlich ueberlappenden Terminen eines Tages Spalten zu (Outlook-/
+  // Google-Kalender-Stil): statt sich gegenseitig zu verdecken, werden sich
+  // ueberschneidende Termine nebeneinander dargestellt. Greedy Spalten-
+  // Packing: Termine nach Startzeit sortiert, jeder Termin bekommt die erste
+  // Spalte, deren letzter Termin schon zu Ende ist, sonst eine neue Spalte.
+  // Zusammenhaengende Ueberlappungen (Cluster) teilen sich die Spaltenzahl,
+  // getrennte Cluster (z.B. ein Termin um 9 Uhr, der naechste erst um 14 Uhr)
+  // starten wieder bei voller Breite.
+  function layoutOverlaps(items: KalenderEintrag[]): Map<string, { col: number; cols: number }> {
+    const result = new Map<string, { col: number; cols: number }>()
+    if (items.length === 0) return result
+
+    type Ev = { id: string; start: number; end: number }
+    const evs: Ev[] = items
+      .map(e => {
+        const start = e.uhrzeit_von ? toMin(e.uhrzeit_von) : 0
+        const end   = e.uhrzeit_bis ? toMin(e.uhrzeit_bis) : start + 30
+        return { id: e.id, start, end: Math.max(end, start + 30) }
+      })
+      .sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start))
+
+    function flushCluster(cluster: Ev[]) {
+      const colEnds: number[] = []
+      const colOf = new Map<string, number>()
+      for (const e of cluster) {
+        let placed = colEnds.findIndex(end => end <= e.start)
+        if (placed === -1) { placed = colEnds.length; colEnds.push(e.end) }
+        else { colEnds[placed] = e.end }
+        colOf.set(e.id, placed)
+      }
+      const cols = colEnds.length
+      cluster.forEach(e => result.set(e.id, { col: colOf.get(e.id)!, cols }))
+    }
+
+    let cluster: Ev[] = []
+    let clusterEnd = -Infinity
+    for (const e of evs) {
+      if (cluster.length === 0 || e.start < clusterEnd) {
+        cluster.push(e)
+        clusterEnd = Math.max(clusterEnd, e.end)
+      } else {
+        flushCluster(cluster)
+        cluster = [e]
+        clusterEnd = e.end
+      }
+    }
+    if (cluster.length > 0) flushCluster(cluster)
+
+    return result
+  }
+
   function snapTime(clientY: number, rect: DOMRect): { von: string; bis: string; duration?: number } {
     const y = Math.max(0, clientY - rect.top)
     const totalMins = Math.min(23.5 * 60, (y / HOUR_H) * 60)
@@ -588,6 +644,7 @@ function ZeitachseView({
               const dateStr = toDateStr(d)
               const isToday = dateStr === heute
               const items   = byDay[dateStr]?.timed ?? []
+              const layout  = layoutOverlaps(items)
               const isDrop  = dropTarget === dateStr && !!dragInfo
               return (
                 <div key={i}
@@ -611,6 +668,12 @@ function ZeitachseView({
                       const [h2,m2] = e.uhrzeit_bis.split(':').map(Number)
                       dur = Math.max(30, (h2*60+m2) - (h1*60+m1))
                     }
+                    // Ueberlappende Termine nebeneinander statt uebereinander:
+                    // Spalte/Spaltenzahl aus layoutOverlaps() -> Breite in %
+                    // je Spalte, mit 2px Abstand zwischen den Spalten.
+                    const { col, cols } = layout.get(e.id) ?? { col: 0, cols: 1 }
+                    const widthPct = 100 / cols
+                    const leftPct  = col * widthPct
                     return (
                       <div key={e.id}
                         draggable={isAkt}
@@ -621,11 +684,15 @@ function ZeitachseView({
                         } : undefined}
                         onDragEnd={() => { setDragInfo(null); setDropTarget(null) }}
                         onClick={ev => { if (!dragInfo) { ev.stopPropagation(); setViewAkt(e) } }}
-                        className={`absolute left-1 right-1 overflow-hidden rounded border z-10 transition-opacity
+                        className={`absolute overflow-hidden rounded border transition-opacity
                           ${farbe}
                           ${isAkt ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}
                           ${beingDragged ? 'opacity-30' : 'hover:opacity-80'}`}
-                        style={{ top: `${top}px`, height: `${h}px`, minHeight: `${HOUR_H / 2}px` }}>
+                        style={{
+                          top: `${top}px`, height: `${h}px`, minHeight: `${HOUR_H / 2}px`,
+                          left: `calc(${leftPct}% + 2px)`, width: `calc(${widthPct}% - 4px)`,
+                          zIndex: 10 + col,
+                        }}>
                         <div className="px-1.5 py-0.5">
                           <div className="text-[10px] font-bold tabular-nums leading-tight">
                             {fmtT(e.uhrzeit_von)}{e.uhrzeit_bis ? `–${fmtT(e.uhrzeit_bis)}` : ''}
