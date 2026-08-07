@@ -13,7 +13,8 @@ const BEISPIELE = [
   'Welche Behandlungen haben wir heuer mit Kupfer gemacht?',
   'Zeig mir offene Pipeline-Einträge im Stadium Angebot',
   'Welche Kunden kommen aus Deutschland?',
-  'Weinausbau mit mehr als 1000 Liter aktuell im Keller',
+  'Wie viel Zierfandler mit Jahrgang 2026 liegt aktuell im Keller?',
+  'Wie viele Flaschen habe ich dieses Jahr insgesamt verkauft?',
 ]
 
 const LIMIT_MAP: Record<string, number> = { basic: 100, standard: 200, unlimited: 99999 }
@@ -138,6 +139,18 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
               </div>
             </div>
           </div>
+
+          {/* SQL-Transparenz */}
+          {ergebnis.sql && (
+            <details className="text-xs">
+              <summary className="cursor-pointer text-s112-muted hover:text-s112-teal select-none">
+                Verwendete Abfrage anzeigen
+              </summary>
+              <pre className="mt-2 bg-gray-50 border border-s112-border rounded-lg p-3 overflow-x-auto whitespace-pre-wrap text-gray-700">
+                {ergebnis.sql}
+              </pre>
+            </details>
+          )}
 
           {/* Tabelle */}
           {ergebnis.ergebnisse?.length > 0 ? (

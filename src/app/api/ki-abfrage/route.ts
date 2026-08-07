@@ -7,235 +7,134 @@ export const dynamic = 'force-dynamic'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-const SCHEMA_CONTEXT = `
-Du bist ein Assistent für ein österreichisches Weinbau-ERP namens software:112.
-Du hilfst dem Winzer, seine eigenen Betriebsdaten in natürlicher Sprache abzufragen.
+// "Frag dein Weingut" – Claude schreibt eine echte (rein lesende) SQL-Abfrage statt aus
+// einer festen Tabellen-/Filter-Vorlage zu wählen. Damit werden Verknüpfungen (JOINs) und
+// Summenbildung (SUM/COUNT/GROUP BY) möglich, siehe Klärung 7.8.2026 ("KI auf alle Tabellen
+// und Inhalte loslassen"). Ausführung + Sicherheitsdesign: siehe Migration 155
+// (ki_readonly_query – läuft als security invoker, RLS greift automatisch; zusätzliche
+// Sperrliste für interne Tabellen/Schemas; nur ein lesendes Statement; Zeilen-/Zeitlimit).
 
-Verfügbare Tabellen (alle automatisch nach Mandant gefiltert via RLS):
+// ── Erlaubnisliste: nur diese Tabellen werden der KI im Prompt bekannt gemacht ────────────
+// (zweite Sicherheitsebene in ki_readonly_query() sperrt zusätzlich explizit interne/
+// technische Tabellen, falls die KI diese Liste ignorieren sollte)
+const ERLAUBTE_TABELLEN = [
+  // Rieden / Weingärten
+  'weingarten', 'grundstuecke', 'rebsorten', 'weingarten_rebsorten', 'lagen', 'weinbaugebiete_custom',
+  // Behandlungen / Pflanzenschutz / Düngung
+  'behandlungen', 'behandlung_grundstuecke', 'saetze_massnahmen', 'pflanzenschutzmittel',
+  'duengemittel', 'duengemittel_lager_bewegungen', 'psm_lager_bewegungen',
+  // Ernte / Jahrgänge
+  'ernte_parzellen', 'weinjahrgaenge', 'ama_erntemeldungen', 'ama_meldepositionen',
+  // Kellerbuch / Weinausbau
+  'weinausbau', 'weinausbau_weingaerten', 'pressungen', 'pressung_behaelter', 'pressung_weingaerten',
+  'keller_umzuege', 'keller_behandlungen', 'keller_behandlungstypen', 'weinanalysen',
+  'verschneidungen', 'verschneidung_quellen', 'behaelter', 'kellerplaene', 'kellerplan_positionen',
+  'dac_antrag', 'pruefnummernantraege', 'transportbescheinigungen',
+  // Füllungen / Lager
+  'fuellungen', 'fuellung_chargen',
+  // CRM
+  'kontakte', 'firmen', 'kontakt_firmen', 'kontakt_praeferenzen', 'aktivitaeten',
+  'aktivitaet_dokumente', 'pipeline_eintraege', 'pipeline_verlauf', 'rabattgruppen',
+  // Verkauf
+  'verkaufsposten', 'verkauf_positionen', 'sonstige_artikel', 'preislisten', 'preislisten_positionen',
+  'bestellungen', 'bestellung_positionen',
+  // Einkauf
+  'zukauf_posten', 'traubenverkauf',
+  // Export
+  'exportauftraege', 'exportauftrag_positionen', 'export_dokumente',
+  // Controlling
+  'kostenstellen', 'kostenarten', 'kosteneintraege', 'kosteneintrag_behaelter', 'kosteneintrag_weingaerten',
+  // Buchhaltung
+  'ea_transaktionen', 'ea_kategorien', 'ea_dauerauftraege', 'ea_uva',
+  'fibu_buchungssaetze', 'fibu_buchungszeilen', 'fibu_kontenplan', 'fibu_perioden',
+  'zahlungen',
+  // Sonstiges
+  'zeiterfassung', 'release_notes',
+]
 
-weingarten: id, name, ried(Riednamen), rebsorte, weinart(rot|weiss|rose), flaeche_ha, bewirtschaftung(biodynamisch|biologisch|in_umstellung|nachhaltig|kip|konventionell), aktiv(bool) – das sind die Rieden/Weingärten des Betriebs
-grundstuecke: id, gst_nr, katastralgemeinde, rebsorte, flaeche_ha(AMA-Fläche), flaeche_ha_kataster(Katasterfläche), status(aktiv|brache|gruenbrache|gerodet), spritzbar(bool), weingarten_id – einzelne Grundstücke (GST) innerhalb einer Ried
-kontakte: id, kundennummer, vorname, nachname, segment (privat|gastro|handel|export|grosshandel), email, telefon, mobil, strasse, plz, ort, land, stammkunde(bool), is_lead(bool), sonderrabatt_pct, notizen
-firmen: id, kundennummer, name, segment, email, telefon, strasse, plz, ort, land, uid_nummer, zahlungsziel_tage, is_lead(bool), sonderrabatt_pct, notizen
-aktivitaeten: id, art(anruf|email|besuch|notiz|angebot|verkostung|messe), betreff, datum, erledigt(bool), kontakt_id, firma_id
-pipeline_eintraege: id, titel, stufe(neukontakt|interessent|angebot|verhandlung|abschluss|stammkunde|verloren|pause), kategorie, erledigt(bool), erwartetes_datum
-verkaufsposten: id, datum, rechnungsnummer, bezahlt(bool), storniert(bool), kontakt_id, firma_id
-fuellungen: id, name, jahrgang(zahl z.B. 2025), rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv(bool)
-weinausbau: id, name, jahrgang(zahl z.B. 2025), rebsorte, menge_liter, qualitaetsstufe, status(ernte|gaerung|ausbau|abfuellung|abgeschlossen), aktiv(bool)
-behandlungen: id, datum, art, menge_gesamt, menge_einheit, psm_id, weingarten_id
-lagerbewegungen: (SPEZIAL) Verkäufe einer konkreten Füllung – brauchbar für "Lagerbewegungen", "was wurde verkauft", "wie viel wurde verkauft", "wer hat gekauft". Filtert über fuellungen.name_contains + optional jahrgang.
-ertragshistorie: (SPEZIAL) Erntemengen je Grundstück (GST) über mehrere Jahrgänge – brauchbar für "Ertragshistorie", "Ernte je GST", "wie viel kg je Parzelle", "Ertrag pro ha", "Ernte 2023". Liefert: gst_nr, katastralgemeinde, ried, rebsorte, flaeche_ha, jahrgang, menge_kg, ertrag_kg_ha. Filtert optional nach jahrgang (Zahl) oder gst_nr_contains.
+const TABELLEN_KONTEXT = `
+- weingarten / grundstuecke: Rieden (weingarten) und einzelne Grundstücke (GST, grundstuecke.weingarten_id → weingarten.id) mit Rebsorte, Fläche, Bewirtschaftungsart.
+- behandlungen ↔ behandlung_grundstuecke (Junction, m:n) ↔ grundstuecke: Pflanzenschutz-/Düngemaßnahmen. pflanzenschutzmittel.cu_gehalt_pct für Kupfer-Bilanzen.
+- ernte_parzellen: Lesedaten je Grundstück und Jahrgang (jahrgang_id → weinjahrgaenge.id), menge_kg, oechsle, klosterneuburger (°KMW).
+- weinausbau: Kellerbuch-Chargen (der "Keller-Bestand"). name = Produkt-/Chargenname (kann bei Verschnitten von der Rebsorte abweichen!), rebsorte = tatsächliche Sorte, jahrgang, menge_liter = aktueller Bestand in Liter, status (ernte|gaerung|ausbau|abfuellung|abgeschlossen – abgeschlossen bedeutet IMMER menge_liter=0), behaelter_id → behaelter.name.
+- keller_umzuege: Umzüge/Schwundbuchungen zwischen Behältern, von_weinausbau_id/nach_weinausbau_id.
+- weinanalysen: Laboranalysen je Charge (weinausbau_id), alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert usw.
+- verschneidungen ↔ verschneidung_quellen: Blends – ziel_weinausbau_id ist die entstandene Charge, verschneidung_quellen.quell_weinausbau_id die Ausgangschargen.
+- fuellungen: abgefüllte, verkaufsfertige Weine (Flaschen-Lager). bestand_flaschen = aktueller Lagerbestand, jahrgang, rebsorte, bezeichnung, flaschengroesse_ml, vk_preis_brutto, einstandspreis. fuellung_chargen verknüpft eine Füllung mit ihrer/ihren Ursprungs-Charge(n) aus weinausbau.
+- kontakte / firmen: Kunden (auch is_lead=true für Leads), segment (privat|gastro|handel|export|grosshandel), stammkunde, plz/ort/land.
+- verkaufsposten (Rechnungskopf) ↔ verkauf_positionen (Zeilen): datum, kontakt_id/firma_id, bezahlt, storniert. verkauf_positionen.typ (flasche|tank|sonstiges|trauben), fuellung_id/weinausbau_id/zukauf_id verknüpfen zur verkauften Sache, menge, preis_brutto, rabatt_pct, sonderrabatt_pct (Netto-Betrag = preis_brutto*menge*(1-rabatt_pct/100)*(1-sonderrabatt_pct/100)).
+- zukauf_posten: zugekaufte Trauben/Most/Wein von Lieferanten. traubenverkauf: verkaufte (nicht zugekaufte) Trauben.
+- kosteneintraege ↔ kostenstellen/kostenarten, kosteneintrag_weingaerten/kosteneintrag_behaelter: Kostenrechnung, Kosten auf Weingärten/Behälter aufgeteilt.
+- ea_transaktionen ↔ ea_kategorien: einfache Einnahmen-Ausgaben-Rechnung. fibu_buchungssaetze ↔ fibu_buchungszeilen ↔ fibu_kontenplan: doppelte Buchhaltung (FIBU-Export).
+- zahlungen: eingegangene Zahlungen (z.B. via SumUp), meist mit Bezug zu verkaufsposten.
+`.trim()
 
-Deine Aufgabe: Analysiere die Frage des Winzers und gib eine STRUKTURIERTE ANTWORT als JSON zurück.
-Antworte NUR mit validem JSON, keine Erklärungen außerhalb des JSON.
+let schemaCache: { text: string; stamp: number } | null = null
+const SCHEMA_CACHE_MS = 10 * 60 * 1000 // 10 Minuten
 
-JSON-Format:
-{
-  "tabelle": "weingarten|grundstuecke|kontakte|firmen|verkaufsposten|fuellungen|weinausbau|behandlungen|pipeline_eintraege|lagerbewegungen|ertragshistorie",
-  "filter": {
-    "segment": "gastro|handel|privat|export|grosshandel (optional)",
-    "ort_contains": "Stadtname (optional)",
-    "plz_prefix": "12 (optional, Anfang der PLZ)",
-    "land": "DE|AT|CH|IT (optional, ISO-Ländercode)",
-    "name_contains": "Querfeldein (optional, Suche im Namen – bei Wein/Füllungen: Weinname; bei weingarten: Ried- oder Weingartenname)",
-    "jahrgang": 2025 (optional, Zahl – filtert nach Jahrgang bei fuellungen/weinausbau/lagerbewegungen),
-    "is_lead": true|false (optional),
-    "stammkunde": true|false (optional),
-    "bezahlt": true|false (optional, nur verkaufsposten),
-    "storniert": false (optional),
-    "erledigt": true|false (optional),
-    "aktiv": true|false (optional),
-    "datum_von": "YYYY-MM-DD (optional)",
-    "datum_bis": "YYYY-MM-DD (optional)",
-    "bestand_min": 1 (optional, nur fuellungen),
-    "qualitaetsstufe": "spaetlese|auslese|qualitaetswein etc. (optional)",
-    "weinart": "rot|weiss|rose (optional, nur weingarten)",
-    "bewirtschaftung": "biodynamisch|biologisch|in_umstellung|nachhaltig|kip|konventionell (optional, nur weingarten)",
-    "status": "aktiv|brache|gruenbrache|gerodet (optional, nur grundstuecke)",
-    "gst_nr_contains": "optional, Suche nach GST-Nummer (optional, nur ertragshistorie)"
-  },
-  "sortierung": "datum_desc|name_asc|bestand_desc|ort_asc",
-  "limit": 50,
-  "zusammenfassung": "Kurze deutsche Erklärung was angezeigt wird (1 Satz)",
-  "empfehlung": "Optional: Handlungsempfehlung für den Winzer (1-2 Sätze)"
+async function ladeSchemaText(supabase: R): Promise<string> {
+  if (schemaCache && Date.now() - schemaCache.stamp < SCHEMA_CACHE_MS) return schemaCache.text
+  const { data, error } = await (supabase.rpc as any)('ki_schema_info', { p_tabellen: ERLAUBTE_TABELLEN })
+  if (error || !data) return '(Spalten-Details aktuell nicht verfügbar – bitte anhand der Tabellennamen sinnvolle Standard-Spalten annehmen.)'
+  const byTable: Record<string, string[]> = {}
+  for (const row of data as R[]) {
+    if (!byTable[row.tabelle]) byTable[row.tabelle] = []
+    byTable[row.tabelle].push(`${row.spalte} (${row.typ})`)
+  }
+  const text = Object.entries(byTable).map(([t, cols]) => `${t}: ${cols.join(', ')}`).join('\n')
+  schemaCache = { text, stamp: Date.now() }
+  return text
 }
 
-Wichtige Hinweise:
-- "Rieden", "Weingärten", "meine Rieden", "alle Rieden" → tabelle: "weingarten"
-- "Grundstücke", "GST", "Parzellen" (nur Stammdaten) → tabelle: "grundstuecke"
-- "Ertragshistorie", "Ernte je GST", "kg je Parzelle", "Ertrag pro ha", "Ernte 2023", "Ernte aller GST" → tabelle: "ertragshistorie"
-- "Lagerbewegungen", "was wurde verkauft", "Verkaufshistorie" → tabelle: "lagerbewegungen"
-- "Weinausbau", "Chargen", "Ausbau" → tabelle: "weinausbau"
-- Bei Weinnamen wie "Querfeldein Weiß" → name_contains: "Querfeldein"
-- "2025" nach einem Weinnamen ist meist ein jahrgang-Filter, KEIN datum-Filter
-- Jahrgänge sind immer Zahlen (2025), keine Datum-Strings
-- Wenn "alle" gefragt werden: kein aktiv-Filter setzen (es sei denn Nutzer fragt explizit nach aktiven)
-`
+function systemPrompt(schemaText: string): string {
+  const heute = new Date()
+  const heuteIso = heute.toISOString().slice(0, 10)
+  return `Du bist ein SQL-Assistent für ein österreichisches Weinbau-ERP namens software:112 (PostgreSQL/Supabase).
+Du hilfst dem Winzer, seine eigenen Betriebsdaten in natürlicher Sprache abzufragen, indem du EINE einzelne,
+rein lesende SQL-Abfrage (SELECT, optional mit WITH/CTE) formulierst.
 
-async function getTenantId(): Promise<string | null> {
-  const supabase = await createSupabaseServerClient()
-  const { data } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id').limit(1).single()
+Heutiges Datum: ${heuteIso}. "Dieses Jahr"/"heuer" bezieht sich auf ${heute.getFullYear()}, "letztes Jahr" auf ${heute.getFullYear() - 1}.
+
+ERLAUBTE TABELLEN UND SPALTEN (nur diese darfst du verwenden, alle automatisch nach Mandant gefiltert –
+darum musst und darfst du dich NICHT selbst kümmern):
+${schemaText}
+
+FACHLICHER KONTEXT (Bedeutung/Verknüpfungen, die aus den Spaltennamen allein nicht ersichtlich sind):
+${TABELLEN_KONTEXT}
+
+REGELN für die SQL-Abfrage:
+- NUR SELECT (ggf. mit WITH/CTE) – niemals INSERT/UPDATE/DELETE/DROP/ALTER/CREATE o.ä.
+- NUR die oben gelisteten Tabellen und Spalten verwenden, keine anderen Tabellen erfinden oder raten.
+- Wenn die Frage nach einer GESAMTMENGE/SUMME/ANZAHL fragt ("wie viel", "wie viele", "gesamt", "insgesamt"),
+  schreibe eine Aggregat-Abfrage (SUM/COUNT/AVG) – gib NICHT nur die Einzelzeilen zurück, die der User dann
+  selbst zusammenzählen müsste.
+- Wenn die Frage nach einer LISTE fragt ("zeig mir", "welche", "liste"), gib die Einzelzeilen zurück
+  (sinnvoll sortiert, LIMIT nicht nötig – das System begrenzt ohnehin auf maximal 500 Zeilen).
+- Verwende sprechende Spalten-Aliase auf Deutsch (z.B. "AS gesamt_liter", "AS anzahl_flaschen") – diese
+  werden dem User als Tabellenüberschriften angezeigt.
+- Bei Textsuche IMMER ILIKE mit %...% verwenden (Groß-/Kleinschreibung ignorieren), nie exaktes "=" bei
+  Namen/Bezeichnungen.
+- "abgeschlossene" Weinausbau-Chargen haben immer menge_liter=0 – wenn nach aktuellem Kellerbestand
+  gefragt wird, ist meist status <> 'abgeschlossen' UND menge_liter > 0 gemeint (aber nicht blind
+  hinzufügen, wenn die Frage explizit auch abgeschlossene/historische Chargen einschließen will).
+- Keine Kommentare (--) und kein Semikolon außer optional ganz am Ende.
+
+Antworte NUR mit validem JSON, keine Erklärungen außerhalb des JSON:
+{
+  "sql": "SELECT ...",
+  "zusammenfassung": "Kurze deutsche Erklärung was die Abfrage zeigt (1 Satz)",
+  "empfehlung": "Optional: Handlungsempfehlung für den Winzer (1-2 Sätze), sonst weglassen"
+}`
+}
+
+async function getTenantId(supabase: R): Promise<string | null> {
+  const { data } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
   return (data as R | null)?.tenant_id ?? null
 }
 
-async function executeQuery(supabase: any, params: R): Promise<R[]> {
-  const { tabelle, filter = {}, sortierung = 'datum_desc', limit = 20 } = params
-
-  // ── SPEZIALFALL: Lagerbewegungen ───────────────────────────────────────────
-  if (tabelle === 'lagerbewegungen') {
-    // 1) Passende Füllung(en) finden
-    let fuellungQ = (supabase.from('fuellungen') as any).select('id, name, jahrgang, rebsorte')
-    if (filter.name_contains) fuellungQ = fuellungQ.ilike('name', `%${filter.name_contains}%`)
-    if (filter.jahrgang) fuellungQ = fuellungQ.eq('jahrgang', filter.jahrgang)
-    const { data: fuellungen } = await fuellungQ.limit(10)
-    if (!fuellungen || fuellungen.length === 0) return []
-
-    const fuellungIds = (fuellungen as R[]).map(f => f.id)
-    const fuellungMap: Record<string, string> = {}
-    for (const f of fuellungen as R[]) fuellungMap[f.id] = `${f.name}${f.jahrgang ? ` ${f.jahrgang}` : ''}`
-
-    // 2) Verkaufspositionen für diese Füllungen holen
-    let posQ = (supabase.from('verkauf_positionen') as any)
-      .select('id, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct, fuellung_id, erstellt_am, verkaufsposten:verkaufsposten_id(id, datum, rechnungsnummer, storniert, bezahlt, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name))')
-      .in('fuellung_id', fuellungIds)
-    if (filter.datum_von) posQ = posQ.gte('erstellt_am', filter.datum_von)
-    if (filter.datum_bis) posQ = posQ.lte('erstellt_am', filter.datum_bis)
-    posQ = posQ.order('erstellt_am', { ascending: false }).limit(Number(limit) || 30)
-
-    const { data: positionen } = await posQ
-    if (!positionen) return []
-
-    return (positionen as R[]).map(pos => {
-      const vp = pos.verkaufsposten as R | null
-      const nettoPreis = (Number(pos.preis_brutto) || 0)
-        * (1 - (Number(pos.rabatt_pct) || 0) / 100)
-        * (1 - (Number(pos.sonderrabatt_pct) || 0) / 100)
-      const kunde = vp?.kontakt
-        ? [vp.kontakt.vorname, vp.kontakt.nachname].filter(Boolean).join(' ')
-        : vp?.firma?.name ?? '–'
-      return {
-        datum:           vp?.datum ?? null,
-        rechnungsnummer: vp?.rechnungsnummer ?? '–',
-        wein:            fuellungMap[pos.fuellung_id] ?? '–',
-        kunde,
-        menge:           Number(pos.menge) || 0,
-        einheit:         pos.einheit ?? 'Fl.',
-        preis_netto:     nettoPreis,
-        umsatz:          nettoPreis * (Number(pos.menge) || 0),
-        storniert:       vp?.storniert ?? false,
-        bezahlt:         vp?.bezahlt ?? false,
-      }
-    })
-  }
-
-  // ── SPEZIALFALL: Ertragshistorie (ernte_parzellen × weinjahrgaenge × grundstuecke) ─
-  if (tabelle === 'ertragshistorie') {
-    const { data: rows } = await (supabase.from('ernte_parzellen') as any)
-      .select(`
-        menge_kg, ernte_datum, oechsle, klosterneuburger,
-        grundstueck:grundstueck_id(gst_nr, katastralgemeinde, flaeche_ha, rebsorte),
-        weingarten:weingarten_id(name, ried, rebsorte, flaeche_ha),
-        weinjahrgaenge!jahrgang_id(jahrgang)
-      `)
-      .not('menge_kg', 'is', null)
-      .order('ernte_datum', { ascending: false })
-      .limit(Number(limit) || 200)
-
-    if (!rows) return []
-
-    let ergebnisse = (rows as R[]).map(row => {
-      const gst     = row.grundstueck      as R | null
-      const wg      = row.weingarten       as R | null
-      const jg      = row.weinjahrgaenge   as R | null
-      const flaeche = parseFloat(gst?.flaeche_ha ?? wg?.flaeche_ha ?? '0') || null
-      const mengeKg = parseFloat(row.menge_kg) || 0
-      return {
-        jahrgang:          jg?.jahrgang ?? null,
-        gst_nr:            gst?.gst_nr ?? '–',
-        katastralgemeinde: gst?.katastralgemeinde ?? '–',
-        ried:              wg?.ried ?? wg?.name ?? '–',
-        rebsorte:          gst?.rebsorte ?? wg?.rebsorte ?? '–',
-        flaeche_ha:        flaeche,
-        menge_kg:          mengeKg,
-        ertrag_kg_ha:      flaeche && flaeche > 0 ? Math.round(mengeKg / flaeche) : null,
-        oechsle:           row.oechsle ?? null,
-        kmw:               row.klosterneuburger ?? null,
-        ernte_datum:       row.ernte_datum ?? null,
-      }
-    })
-
-    // Nachgelagerte Filter
-    if (filter.jahrgang)        ergebnisse = ergebnisse.filter(r => r.jahrgang === Number(filter.jahrgang))
-    if (filter.gst_nr_contains) ergebnisse = ergebnisse.filter(r => r.gst_nr?.includes(String(filter.gst_nr_contains)))
-
-    ergebnisse.sort((a, b) => (b.jahrgang ?? 0) - (a.jahrgang ?? 0) || a.gst_nr.localeCompare(b.gst_nr))
-    return ergebnisse.slice(0, Number(limit) || 100)
-  }
-
-  // ── Standard-Tabellen ─────────────────────────────────────────────────────
-  const selectMap: Record<string, string> = {
-    weingarten:        'name, ried, rebsorte, weinart, flaeche_ha, bewirtschaftung, aktiv',
-    grundstuecke:      'gst_nr, katastralgemeinde, rebsorte, flaeche_ha, flaeche_ha_kataster, status, spritzbar, weingarten:weingarten_id(name)',
-    kontakte:          'kundennummer, segment, vorname, nachname, email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, plz, ort, strasse, land, stammkunde, is_lead, notizen, firma:firma_id(name)',
-    firmen:            'kundennummer, segment, name, email, telefon, plz, ort, strasse, land, uid_nummer, zahlungsziel_tage, is_lead, notizen',
-    verkaufsposten:    'datum, rechnungsnummer, bezahlt, storniert, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name)',
-    fuellungen:        'name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto, einstandspreis',
-    weinausbau:        'name, jahrgang, rebsorte, menge_liter, qualitaetsstufe, status',
-    // weingarten_id ist ein Legacy-Feld und wird beim Anlegen einer Behandlung NICHT mehr
-    // befüllt (die echte Zuordnung läuft über die behandlung_grundstuecke-Junction-Tabelle,
-    // siehe behandlungen/actions.ts::createBehandlung) – deshalb hier über die Junction
-    // joinen statt über das leere Legacy-Feld.
-    behandlungen:      'datum, art, menge_gesamt, menge_einheit, psm:psm_id(name), behandlung_grundstuecke(grundstueck:grundstueck_id(gst_nr, weingarten:weingarten_id(name)))',
-    pipeline_eintraege:'titel, stufe, kategorie, erledigt, erwartetes_datum, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name)',
-  }
-  let query = supabase.from(tabelle).select(selectMap[tabelle] ?? '*')
-
-  // Filter anwenden
-  if (filter.segment)   query = query.eq('segment', filter.segment)
-  if (filter.ort_contains) query = query.ilike('ort', `%${filter.ort_contains}%`)
-  if (filter.plz_prefix) query = query.like('plz', `${filter.plz_prefix}%`)
-  if (filter.is_lead !== undefined) query = query.eq('is_lead', filter.is_lead)
-  if (filter.stammkunde !== undefined) query = query.eq('stammkunde', filter.stammkunde)
-  if (filter.bezahlt !== undefined) query = query.eq('bezahlt', filter.bezahlt)
-  if (filter.storniert !== undefined) query = query.eq('storniert', filter.storniert)
-  if (filter.erledigt !== undefined) query = query.eq('erledigt', filter.erledigt)
-  if (filter.aktiv !== undefined) query = query.eq('aktiv', filter.aktiv)
-  if (filter.datum_von) query = query.gte('datum', filter.datum_von)
-  if (filter.datum_bis) query = query.lte('datum', filter.datum_bis)
-  if (filter.bestand_min !== undefined) query = query.gte('bestand_flaschen', filter.bestand_min)
-  if (filter.qualitaetsstufe) query = query.eq('qualitaetsstufe', filter.qualitaetsstufe)
-  if (filter.land) query = query.eq('land', filter.land)
-  if (filter.jahrgang) query = query.eq('jahrgang', filter.jahrgang)
-  if (filter.weinart) query = query.eq('weinart', filter.weinart)
-  if (filter.bewirtschaftung) query = query.eq('bewirtschaftung', filter.bewirtschaftung)
-  if (filter.status) query = query.eq('status', filter.status)
-
-  // name_contains: table-aware
-  if (filter.name_contains) {
-    const nameOnly = ['fuellungen', 'weinausbau', 'firmen', 'weingarten']
-    if (tabelle === 'weingarten') {
-      query = query.or(`name.ilike.%${filter.name_contains}%,ried.ilike.%${filter.name_contains}%`)
-    } else if (tabelle === 'grundstuecke') {
-      query = query.ilike('gst_nr', `%${filter.name_contains}%`)
-    } else if (nameOnly.includes(tabelle)) {
-      query = query.ilike('name', `%${filter.name_contains}%`)
-    } else {
-      query = query.or(`nachname.ilike.%${filter.name_contains}%,vorname.ilike.%${filter.name_contains}%,name.ilike.%${filter.name_contains}%`)
-    }
-  }
-
-  // Sortierung
-  const [sortCol, sortDir] = sortierung.split('_')
-  const sortColumn = sortCol === 'datum' ? 'datum'
-    : sortCol === 'name' ? (['firmen', 'fuellungen', 'weinausbau', 'weingarten'].includes(tabelle) ? 'name' : 'nachname')
-    : sortCol === 'bestand' ? 'bestand_flaschen'
-    : sortCol === 'ort' ? 'ort'
-    : 'id'
-  query = query.order(sortColumn, { ascending: sortDir !== 'desc' }).limit(Number(limit) || 20)
-
-  const { data } = await query
-  return (data ?? []) as R[]
+function extraheJson(rawText: string): R {
+  const match = rawText.match(/\{[\s\S]*\}/)
+  return JSON.parse(match?.[0] ?? rawText)
 }
 
 export async function POST(req: NextRequest) {
@@ -245,7 +144,7 @@ export async function POST(req: NextRequest) {
     const frage = String(frageRaw).slice(0, 500).replace(/[`\\]/g, '')
 
     const supabase = await createSupabaseServerClient()
-    const tenantId = await getTenantId()
+    const tenantId = await getTenantId(supabase)
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb gefunden' }, { status: 401 })
 
     if (!process.env.ANTHROPIC_API_KEY) {
@@ -263,50 +162,77 @@ export async function POST(req: NextRequest) {
       }, { status: 429 })
     }
 
+    const schemaText = await ladeSchemaText(supabase)
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-    const msg = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 500,
-      messages: [{ role: 'user', content: `${SCHEMA_CONTEXT}\n\nFrage des Winzers: "${frage}"` }],
-    })
+    const model = process.env.KI_ABFRAGE_MODEL || 'claude-sonnet-4-5-20250929'
+
+    let inputTokens = 0, outputTokens = 0
+    let queryParams: R | null = null
+    let rohdaten: R[] | null = null
+    let letzterFehler: string | null = null
+
+    // Bis zu 2 Versuche: 1. Versuch generiert die SQL, bei einem Ausführungsfehler
+    // (z.B. Tippfehler in einem Spaltennamen) bekommt Claude den Postgres-Fehlertext
+    // zurück und darf die Abfrage EINMAL korrigieren, bevor wir aufgeben.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const messages: any[] = [{ role: 'user', content: `Frage des Winzers: "${frage}"` }]
+    for (let versuch = 0; versuch < 2; versuch++) {
+      const msg = await client.messages.create({
+        model,
+        max_tokens: 600,
+        system: systemPrompt(schemaText),
+        messages,
+      })
+      inputTokens += msg.usage.input_tokens
+      outputTokens += msg.usage.output_tokens
+
+      const rawText = (msg.content[0] as R).text as string
+      try {
+        queryParams = extraheJson(rawText)
+      } catch {
+        letzterFehler = 'KI-Antwort konnte nicht als JSON verarbeitet werden'
+        break
+      }
+      if (!queryParams?.sql) {
+        letzterFehler = 'KI hat keine SQL-Abfrage geliefert'
+        break
+      }
+
+      const { data: rows, error: sqlError } = await (supabase.rpc as any)('ki_readonly_query', { p_sql: queryParams.sql })
+      if (!sqlError) {
+        rohdaten = (rows ?? []) as R[]
+        letzterFehler = null
+        break
+      }
+      letzterFehler = sqlError.message ?? String(sqlError)
+      if (versuch === 0) {
+        messages.push({ role: 'assistant', content: rawText })
+        messages.push({
+          role: 'user',
+          content: `Diese SQL-Abfrage hat folgenden Fehler ausgelöst: "${letzterFehler}". Bitte korrigiere die Abfrage und antworte erneut nur mit dem JSON-Objekt.`,
+        })
+      }
+    }
 
     await (supabase.rpc as any)('increment_ki_tokens', {
       p_tenant_id:     tenantId,
-      p_input_tokens:  msg.usage.input_tokens,
-      p_output_tokens: msg.usage.output_tokens,
+      p_input_tokens:  inputTokens,
+      p_output_tokens: outputTokens,
     })
 
-    const rawText = (msg.content[0] as any).text as string
-    let queryParams: R
-    try {
-      const match = rawText.match(/\{[\s\S]*\}/)
-      queryParams = JSON.parse(match?.[0] ?? rawText)
-    } catch {
-      return NextResponse.json({ fehler: 'KI-Antwort konnte nicht verarbeitet werden', roh: rawText }, { status: 500 })
+    if (letzterFehler || !queryParams || rohdaten === null) {
+      return NextResponse.json({
+        fehler: letzterFehler ?? 'Abfrage konnte nicht ausgeführt werden',
+        sql: queryParams?.sql ?? null,
+      }, { status: 500 })
     }
 
-    const rohdaten = await executeQuery(supabase, queryParams)
-
-    // Telefonnummer + Vorwahl kombinieren
-    const ergebnisse = rohdaten.map((row: R) => {
-      const r = { ...row }
-      if ('telefon' in r && 'telefon_vorwahl' in r) {
-        r.telefon = r.telefon ? `${r.telefon_vorwahl ?? '+43'} ${r.telefon}`.trim() : null
-        delete r.telefon_vorwahl
-      }
-      if ('mobil' in r && 'mobil_vorwahl' in r) {
-        r.mobil = r.mobil ? `${r.mobil_vorwahl ?? '+43'} ${r.mobil}`.trim() : null
-        delete r.mobil_vorwahl
-      }
-      return r
-    })
-
     return NextResponse.json({
-      ergebnisse,
-      anzahl: ergebnisse.length,
+      ergebnisse: rohdaten,
+      anzahl: rohdaten.length,
       zusammenfassung: queryParams.zusammenfassung ?? null,
       empfehlung: queryParams.empfehlung ?? null,
-      tabelle: queryParams.tabelle,
+      sql: queryParams.sql,
       verbraucht: check?.verbraucht ?? 1,
     })
   } catch (err) {
