@@ -48,24 +48,23 @@ async function createZukaufCharge(
   return (neu as AR).id
 }
 
+// Bugfix 7.8.2026: bereinigCharge() prüfte bisher NUR Umzüge/Füllungen und übersah dabei
+// Tank-Verkäufe und Verschneidungen (siehe chargeHatBewegungen() oben, die genau deshalb
+// bereits erweitert wurde – aber bereinigCharge() wurde dabei nicht mitgezogen). Wurde ein
+// Zukauf gelöscht/bearbeitet, dessen Charge zwischenzeitlich per Tankverkauf oder Verschnitt
+// TEILWEISE reduziert wurde (aber nie umgezogen/abgefüllt), landete die Charge fälschlich auf
+// "Abgeschlossen", OHNE dass die reale Restmenge auf 0 gesetzt wurde – das Kellerbuch zeigte
+// dann eine "abgeschlossene" Charge mit noch vorhandenem Bestand (siehe Klärung 7.8.2026).
+// Jetzt: dieselbe vollständige Bewegungsprüfung wie chargeHatBewegungen(). Wurde die Charge
+// bereits IRGENDWIE bewegt, bleibt sie unangetastet (der reale Bestand darf hier nicht blind
+// genullt werden) – nur eine Charge OHNE jede Bewegung ist eine echte Karteileiche und darf
+// sicher geschlossen + auf 0 gesetzt werden.
 async function bereinigCharge(supabase: any, weinausbauId: string): Promise<void> {
-  const [{ count: umzugCount }, { count: fuellungCount }] = await Promise.all([
-    (supabase.from('keller_umzuege') as any)
-      .select('id', { count: 'exact', head: true })
-      .or(`von_weinausbau_id.eq.${weinausbauId},nach_weinausbau_id.eq.${weinausbauId}`),
-    (supabase.from('fuellungen') as any)
-      .select('id', { count: 'exact', head: true })
-      .eq('weinausbau_id', weinausbauId),
-  ])
-  if ((umzugCount ?? 0) > 0 || (fuellungCount ?? 0) > 0) {
-    await (supabase.from('weinausbau') as any)
-      .update({ menge_liter: 0, status: 'abgeschlossen' })
-      .eq('id', weinausbauId)
-  } else {
-    await (supabase.from('weinausbau') as any)
-      .update({ aktiv: false, status: 'abgeschlossen' })
-      .eq('id', weinausbauId)
-  }
+  const hatBewegungen = await chargeHatBewegungen(supabase, weinausbauId)
+  if (hatBewegungen) return
+  await (supabase.from('weinausbau') as any)
+    .update({ menge_liter: 0, status: 'abgeschlossen', aktiv: false })
+    .eq('id', weinausbauId)
 }
 
 // Prüft, ob gegen eine Weinausbau-Charge bereits irgendeine Bewegung gebucht wurde (abgefüllt,

@@ -105,15 +105,19 @@ export default async function WeinausbauListePage() {
         <ChargenTabelle liste={aktive} showNew />
       </div>
 
-      {/* Abgeschlossene Chargen */}
+      {/* Abgeschlossene Chargen – standardmäßig eingeklappt (Rückverfolgung/Prüfungen
+          bleiben so erreichbar, ohne im Alltag Platz auf der Seite wegzunehmen) */}
       {abgesch.length > 0 && (
-        <div className="card p-0 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 bg-s112-bg border-b border-s112-border">
-            <h2 className="font-semibold text-gray-800 text-sm">Abgeschlossene Chargen</h2>
+        <details className="card p-0 overflow-hidden group">
+          <summary className="flex items-center justify-between px-4 py-3 bg-s112-bg border-b border-s112-border cursor-pointer select-none list-none">
+            <span className="flex items-center gap-2">
+              <span className="text-s112-muted text-xs transition-transform group-open:rotate-90">▶</span>
+              <h2 className="font-semibold text-gray-800 text-sm">Abgeschlossene Chargen</h2>
+            </span>
             <span className="text-xs text-s112-muted">{abgesch.length} Einträge</span>
-          </div>
+          </summary>
           <ChargenTabelle liste={abgesch} />
-        </div>
+        </details>
       )}
     </div>
   )

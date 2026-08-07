@@ -137,6 +137,23 @@ export default async function ReportsPage() {
     new Set([...vsKontakte.map(k => k.land), ...vsFirmen.map(f => f.land)].filter((s): s is string => !!s))
   ).sort((a, b) => a.localeCompare(b, 'de-AT'))
 
+  // ── Weinbuch-Sammlung: Filteroptionen ────────────────────────────────────
+  // Bewusst über ALLE Weinausbau-Chargen (aktiv + abgeschlossen), da die
+  // Sammlung gerade für Prüfungen (BKI) auch historische/abgeschlossene
+  // Chargen auffindbar machen soll.
+  const { data: wbChargenRaw } = await (supabase.from('weinausbau') as any)
+    .select('jahrgang, rebsorte, name')
+  const wbChargen = (wbChargenRaw ?? []) as R[]
+  const wbJahrgaenge = Array.from(
+    new Set(wbChargen.map(c => c.jahrgang).filter((j): j is number => j != null))
+  ).sort((a, b) => b - a)
+  const wbSorten = Array.from(
+    new Set(wbChargen.map(c => c.rebsorte).filter((s): s is string => !!s))
+  ).sort((a, b) => a.localeCompare(b, 'de-AT'))
+  const wbBezeichnungen = Array.from(
+    new Set(wbChargen.map(c => c.name).filter((s): s is string => !!s))
+  ).sort((a, b) => a.localeCompare(b, 'de-AT'))
+
   return (
     <ReportsClient
       umsatzMonate={umsatzMonate}
@@ -154,6 +171,9 @@ export default async function ReportsPage() {
       vsKunden={vsKunden}
       vsOrte={vsOrte}
       vsLaender={vsLaender}
+      wbJahrgaenge={wbJahrgaenge}
+      wbSorten={wbSorten}
+      wbBezeichnungen={wbBezeichnungen}
     />
   )
 }

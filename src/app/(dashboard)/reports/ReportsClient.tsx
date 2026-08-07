@@ -24,6 +24,9 @@ interface Props {
   vsKunden: { id: string; name: string }[]
   vsOrte: string[]
   vsLaender: string[]
+  wbJahrgaenge: number[]
+  wbSorten: string[]
+  wbBezeichnungen: string[]
 }
 
 const TABS = [
@@ -36,6 +39,7 @@ const TABS = [
   { id: 'behoerden',  label: 'Behörden',          title: 'Behörden-Dokumente' },
   { id: 'besuch',     label: 'Besuchsplanung',    title: 'Besuchsplanung – PLZ-Cluster' },
   { id: 'verkaufsstatistik', label: 'Verkaufsstatistik', title: 'Verkaufsstatistik' },
+  { id: 'weinbuecher', label: 'Weinbücher', title: 'Weinbuch-Sammlung' },
 ] as const
 type TabId = typeof TABS[number]['id']
 
@@ -78,6 +82,7 @@ function CsvBtn({ onClick, label = '↓ CSV' }: { onClick: () => void; label?: s
 export default function ReportsClient({
   umsatzMonate, lager, lagerWert, behandlungen, cuKgHa, pipeline, kontaktFrequenz, offene,
   vsJahrgaenge, vsSorten, vsBezeichnungen, vsKunden, vsOrte, vsLaender,
+  wbJahrgaenge, wbSorten, wbBezeichnungen,
 }: Props) {
   const [tab, setTab] = useState<TabId>('umsatz')
 
@@ -116,6 +121,14 @@ export default function ReportsClient({
   const [vsLaden, setVsLaden]               = useState(false)
   const [vsFehler, setVsFehler]             = useState<string | null>(null)
   const [vsResult, setVsResult]             = useState<{ zeilen: R[]; summeMenge: number; summeBetrag: number; anzahl: number } | null>(null)
+
+  // Weinbuch-Sammlung
+  const [wbJahrgang, setWbJahrgang]         = useState('')
+  const [wbSorte, setWbSorte]               = useState('')
+  const [wbBezeichnung, setWbBezeichnung]   = useState('')
+  const [wbLaden, setWbLaden]               = useState(false)
+  const [wbFehler, setWbFehler]             = useState<string | null>(null)
+  const [wbResult, setWbResult]             = useState<{ chargen: R[]; anzahl: number } | null>(null)
 
   // Besuchsplanung
   const [bOrt, setBOrt]         = useState('')
@@ -314,6 +327,32 @@ export default function ReportsClient({
       ],
       `verkaufsstatistik_${new Date().toISOString().slice(0,10)}.csv`
     )
+  }
+
+  // ── Weinbuch-Sammlung ─────────────────────────────────────────────────────
+  function wbParams() {
+    const params = new URLSearchParams()
+    if (wbJahrgang)    params.set('jahrgang', wbJahrgang)
+    if (wbSorte)       params.set('sorte', wbSorte)
+    if (wbBezeichnung) params.set('bezeichnung', wbBezeichnung)
+    return params
+  }
+
+  async function ladeWeinbuecher(e?: React.FormEvent) {
+    e?.preventDefault()
+    setWbLaden(true); setWbFehler(null)
+    try {
+      const res = await fetch(`/api/reports/weinbuecher?${wbParams().toString()}`)
+      const json = await res.json()
+      if (!res.ok || json.fehler) { setWbFehler(json.fehler ?? 'Fehler beim Laden.'); return }
+      setWbResult(json)
+    } catch (err) { setWbFehler(String(err)) }
+    finally { setWbLaden(false) }
+  }
+
+  function wbZuruecksetzen() {
+    setWbJahrgang(''); setWbSorte(''); setWbBezeichnung('')
+    setWbResult(null); setWbFehler(null)
   }
 
   // ── Besuchsplanung ────────────────────────────────────────────────────────
@@ -1091,6 +1130,105 @@ export default function ReportsClient({
             )}
 
             {!vsResult && !vsFehler && (
+              <p className="text-center text-s112-muted py-8">Filter wählen und auf „Auswerten" klicken.</p>
+            )}
+          </div>
+        )}
+
+        {/* ── WEINBUCH-SAMMLUNG ────────────────────────────────────────── */}
+        {tab === 'weinbuecher' && (
+          <div className="space-y-5">
+            <p className="text-xs text-s112-muted">
+              Für Betriebsprüfungen (z.B. BKI): alle Weinbücher (vollständige Prozesshistorie je Charge)
+              gesammelt nach Jahrgang, Sorte oder Bezeichnung filtern und als ein zusammenhängendes PDF ausgeben.
+            </p>
+            <form onSubmit={ladeWeinbuecher} className="grid grid-cols-1 sm:grid-cols-3 gap-3 print:hidden">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Jahrgang</label>
+                <select value={wbJahrgang} onChange={e => setWbJahrgang(e.target.value)}
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  <option value="">Alle</option>
+                  {wbJahrgaenge.map(j => <option key={j} value={j}>{j}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Sorte</label>
+                <select value={wbSorte} onChange={e => setWbSorte(e.target.value)}
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  <option value="">Alle</option>
+                  {wbSorten.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Bezeichnung</label>
+                <select value={wbBezeichnung} onChange={e => setWbBezeichnung(e.target.value)}
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  <option value="">Alle</option>
+                  {wbBezeichnungen.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
+              <div className="flex items-end gap-2 sm:col-span-3">
+                <button type="submit" disabled={wbLaden}
+                  className="text-white px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-40" style={{ backgroundColor: 'var(--s112-teal)' }}>
+                  {wbLaden ? 'Lädt…' : 'Auswerten'}
+                </button>
+                <button type="button" onClick={wbZuruecksetzen}
+                  className="px-3 py-2 rounded-xl text-sm font-medium text-gray-600 border border-s112-border hover:bg-s112-bg transition-colors">
+                  Zurücksetzen
+                </button>
+                {wbResult && wbResult.chargen.length > 0 && (
+                  <a
+                    href={`/reports/weinbuecher-sammlung?${wbParams().toString()}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="ml-auto flex items-center gap-1.5 text-sm font-medium text-s112-teal border border-s112-teal/40 px-4 py-2 rounded-xl hover:bg-s112-teal/10 transition-colors"
+                  >
+                    Alle {wbResult.chargen.length} Weinbücher als PDF sammeln →
+                  </a>
+                )}
+              </div>
+            </form>
+
+            {wbFehler && <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">{wbFehler}</div>}
+
+            {wbResult && (
+              wbResult.chargen.length === 0 ? (
+                <p className="text-center text-s112-muted py-8">Keine Chargen für diese Auswahl gefunden.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead><tr className="bg-s112-bg border-b border-s112-border text-xs text-gray-600">
+                      <th className="text-left px-3 py-2 font-semibold">Charge</th>
+                      <th className="text-right px-3 py-2 font-semibold">Jg.</th>
+                      <th className="text-left px-3 py-2 font-semibold">Sorte</th>
+                      <th className="text-left px-3 py-2 font-semibold">Behälter</th>
+                      <th className="text-left px-3 py-2 font-semibold">Status</th>
+                      <th className="text-right px-3 py-2 font-semibold">Bestand</th>
+                      <th className="px-3 py-2" />
+                    </tr></thead>
+                    <tbody>
+                      {wbResult.chargen.map((c, i) => (
+                        <tr key={c.id} className={`border-b border-s112-border/40 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
+                          <td className="px-3 py-2 font-medium text-gray-800">{c.name}</td>
+                          <td className="px-3 py-2 text-right tabular-nums text-gray-600">{c.jahrgang ?? '–'}</td>
+                          <td className="px-3 py-2 text-gray-600">{c.rebsorte ?? '–'}</td>
+                          <td className="px-3 py-2 text-gray-600">{c.behaelter ?? '–'}</td>
+                          <td className="px-3 py-2 text-gray-600">{c.status}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{Number(c.menge_liter ?? 0).toLocaleString('de-AT')} L</td>
+                          <td className="px-3 py-2 text-right">
+                            <Link href={`/kellerbuch/weinausbau/${c.id}/buch`}
+                              className="text-xs text-s112-teal hover:underline whitespace-nowrap">
+                              Weinbuch →
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            )}
+
+            {!wbResult && !wbFehler && (
               <p className="text-center text-s112-muted py-8">Filter wählen und auf „Auswerten" klicken.</p>
             )}
           </div>
