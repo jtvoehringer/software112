@@ -75,6 +75,12 @@ const TABELLEN_KONTEXT = `
   einstandspreis. fuellung_chargen verknüpft eine Füllung mit ihrer/ihren Ursprungs-Charge(n) aus weinausbau.
 - kontakte / firmen: Kunden (auch is_lead=true für Leads), segment (privat|gastro|handel|export|grosshandel), stammkunde, plz/ort/land.
 - verkaufsposten (Rechnungskopf) ↔ verkauf_positionen (Zeilen): datum, kontakt_id/firma_id, bezahlt, storniert. verkauf_positionen.typ (flasche|tank|sonstiges|trauben), fuellung_id/weinausbau_id/zukauf_id verknüpfen zur verkauften Sache, menge, preis_brutto, rabatt_pct, sonderrabatt_pct (Netto-Betrag = preis_brutto*menge*(1-rabatt_pct/100)*(1-sonderrabatt_pct/100)).
+  WICHTIG bei typ='flasche': menge ist die ANZAHL FLASCHEN (Stück, einheit='Stk'), NICHT Liter! Um die
+  verkaufte Menge in LITER zu berechnen, IMMER über fuellung_id mit fuellungen verknüpfen und
+  "menge * f.flaschengroesse_ml / 1000.0" rechnen (flaschengroesse_ml ist die Flaschengröße in ml je
+  Flasche, z.B. 750 – NICHT einfach menge summieren und als Liter ausgeben, das ergibt eine falsche Zahl,
+  da 11 verkaufte Flaschen à 0,75L z.B. 8,25L sind, nicht 11L). Bei typ='tank' ist menge bereits in Liter
+  (Direktverkauf aus einer Weinausbau-Charge, einheit='L').
 - zukauf_posten: zugekaufte Trauben/Most/Wein von Lieferanten. traubenverkauf: verkaufte (nicht zugekaufte) Trauben.
 - kosteneintraege ↔ kostenstellen/kostenarten, kosteneintrag_weingaerten/kosteneintrag_behaelter: Kostenrechnung, Kosten auf Weingärten/Behälter aufgeteilt.
 - ea_transaktionen ↔ ea_kategorien: einfache Einnahmen-Ausgaben-Rechnung. fibu_buchungssaetze ↔ fibu_buchungszeilen ↔ fibu_kontenplan: doppelte Buchhaltung (FIBU-Export).
@@ -124,9 +130,13 @@ REGELN für die SQL-Abfrage:
   (sinnvoll sortiert, LIMIT nicht nötig – das System begrenzt ohnehin auf maximal 500 Zeilen).
 - Wenn die Frage BEIDES verlangt (z.B. "wie viel ... UND liste mir die Rechnungen/Positionen dazu"), gib die
   Einzelzeilen zurück (wie bei einer Liste) und ergänze zusätzlich eine Gesamtsumme als eigene Spalte mit einer
-  Fenster-Funktion (z.B. "SUM(vp.menge) OVER () AS gesamt_menge") – NICHT versuchen, eine reine Aggregat-Zeile
-  und eine Liste in zwei getrennten Antworten oder JSON-Objekten unterzubringen, es gibt immer nur EIN
-  JSON-Objekt mit genau einer SQL-Abfrage.
+  Fenster-Funktion (z.B. "SUM(...) OVER () AS gesamt_liter", in der korrekten Einheit – siehe nächster Punkt)
+  – NICHT versuchen, eine reine Aggregat-Zeile und eine Liste in zwei getrennten Antworten oder JSON-Objekten
+  unterzubringen, es gibt immer nur EIN JSON-Objekt mit genau einer SQL-Abfrage.
+- Wenn nach einer Menge in LITER gefragt wird, aber die zugrundeliegende Spalte in einer anderen Einheit
+  vorliegt (z.B. verkauf_positionen.menge bei typ='flasche' = Anzahl Flaschen, nicht Liter), IMMER korrekt in
+  Liter umrechnen (siehe fachlicher Kontext oben, z.B. über fuellungen.flaschengroesse_ml) – niemals eine
+  Stückzahl ungeprüft 1:1 als Literangabe ausgeben.
 - Verwende sprechende Spalten-Aliase auf Deutsch (z.B. "AS gesamt_liter", "AS anzahl_flaschen") – diese
   werden dem User als Tabellenüberschriften angezeigt.
 - Bei Textsuche IMMER ILIKE mit %...% verwenden (Groß-/Kleinschreibung ignorieren), nie exaktes "=" bei
