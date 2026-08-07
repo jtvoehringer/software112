@@ -45,6 +45,22 @@ const LAUBARBEIT_OPTIONEN = [
   { value: 'sonstige',     label: 'Sonstige' },
 ]
 
+// ─── Feld-Matrix je Maßnahmenart ──────────────────────────────────────────
+// Steuert, welche Mengen-Felder pro Art sichtbar/pflicht sind - identisch zur
+// Matrix im Anlegen-Formular (NeueBehandlungForm.tsx), damit Anlegen und
+// Bearbeiten konsistent sind (siehe "Analyse Maßnahmen.docx", Tabelle 2).
+type Sicht = 'pflicht' | 'bedingt' | 'optional' | 'hidden'
+type Art = 'spritzung' | 'duengung' | 'bodenbearbeitung' | 'schnitt' | 'laubarbeit' | 'sonstiges'
+
+const FELD_MATRIX: Record<Art, { mengeGesamt: Sicht; aufwandmenge: Sicht; konzentration: Sicht; wasseraufwand: Sicht }> = {
+  spritzung:        { mengeGesamt: 'pflicht', aufwandmenge: 'pflicht',  konzentration: 'optional', wasseraufwand: 'optional' },
+  duengung:         { mengeGesamt: 'pflicht', aufwandmenge: 'optional', konzentration: 'hidden',   wasseraufwand: 'hidden'   },
+  bodenbearbeitung: { mengeGesamt: 'hidden',  aufwandmenge: 'hidden',   konzentration: 'hidden',   wasseraufwand: 'hidden'   },
+  schnitt:          { mengeGesamt: 'hidden',  aufwandmenge: 'hidden',   konzentration: 'hidden',   wasseraufwand: 'hidden'   },
+  laubarbeit:       { mengeGesamt: 'hidden',  aufwandmenge: 'hidden',   konzentration: 'hidden',   wasseraufwand: 'hidden'   },
+  sonstiges:        { mengeGesamt: 'hidden',  aufwandmenge: 'hidden',   konzentration: 'hidden',   wasseraufwand: 'hidden'   },
+}
+
 const BIO_SPERRE = new Set(['bio_eu', 'biodynamisch'])
 const BIO_WARNUNG = new Set(['kip', 'nachhaltig'])
 
@@ -115,10 +131,12 @@ export default function BehandlungEditForm({
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
-  const [art, setArt] = useState(behandlung.art)
+  const [art, setArt] = useState<Art>((behandlung.art as Art) ?? 'spritzung')
   const [selectedPsmId, setSelectedPsmId] = useState(behandlung.psm_id ?? '')
   const [selectedDuengemittelId, setSelectedDuengemittelId] = useState(behandlung.duengemittel_id ?? '')
   const [error, setError] = useState<string | null>(null)
+
+  const felder = FELD_MATRIX[art] ?? FELD_MATRIX.spritzung
 
   // Kosten (Punkte 6, 9: beim Bearbeiten sichtbar + editierbar, analog Neu-Formular)
   const [kostenAktiv, setKostenAktiv] = useState(!!bestehenderKostenEintrag)
@@ -187,7 +205,7 @@ export default function BehandlungEditForm({
                   ? 'bg-s112-teal text-white border-s112-teal'
                   : 'bg-white text-gray-700 border-s112-border hover:border-s112-teal/50'}`}>
                 <input type="radio" name="art" value={o.value} checked={art === o.value}
-                  onChange={() => setArt(o.value)} className="sr-only" />
+                  onChange={() => setArt(o.value as Art)} className="sr-only" />
                 <o.icon size={14} />{o.label}
               </label>
             ))}
@@ -267,47 +285,69 @@ export default function BehandlungEditForm({
         )}
 
         {/* Mengen */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={labelCls}>Gesamtmenge eingesetzt</label>
-            <div className="flex gap-2">
-              <input name="menge_gesamt" type="number" step="0.001" min="0"
-                defaultValue={behandlung.menge_gesamt ?? ''}
-                className="flex-1 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
-              <select name="menge_einheit" defaultValue={behandlung.menge_einheit ?? 'kg'}
-                className="w-20 border border-s112-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
-                {MENGE_EINHEITEN.map(e => <option key={e} value={e}>{e}</option>)}
-              </select>
-            </div>
+        {(felder.mengeGesamt !== 'hidden' || felder.konzentration !== 'hidden') && (
+          <div className="grid grid-cols-2 gap-3">
+            {felder.mengeGesamt !== 'hidden' && (
+              <div>
+                <label className={labelCls}>
+                  Gesamtmenge eingesetzt
+                  {felder.mengeGesamt === 'pflicht' && <span className="text-red-500"> *</span>}
+                </label>
+                <div className="flex gap-2">
+                  <input name="menge_gesamt" type="number" step="0.001" min="0"
+                    required={felder.mengeGesamt === 'pflicht'}
+                    defaultValue={behandlung.menge_gesamt ?? ''}
+                    className="flex-1 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                  <select name="menge_einheit" defaultValue={behandlung.menge_einheit ?? 'kg'}
+                    className="w-20 border border-s112-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                    {MENGE_EINHEITEN.map(e => <option key={e} value={e}>{e}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+            {felder.konzentration !== 'hidden' && (
+              <div>
+                <label className={labelCls}>Konzentration (%)</label>
+                <input name="konzentration" type="number" step="0.01" min="0" max="100"
+                  defaultValue={behandlung.konzentration ?? ''}
+                  className={inputCls} />
+              </div>
+            )}
           </div>
-          <div>
-            <label className={labelCls}>Konzentration (%)</label>
-            <input name="konzentration" type="number" step="0.01" min="0" max="100"
-              defaultValue={behandlung.konzentration ?? ''}
-              className={inputCls} />
-          </div>
-        </div>
+        )}
 
-        <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label className={labelCls}>Aufwandmenge (Etikett)</label>
-            <input name="aufwandmenge" type="number" step="0.001" min="0"
-              defaultValue={behandlung.aufwandmenge ?? ''} className={inputCls} />
+        {(felder.aufwandmenge !== 'hidden' || felder.wasseraufwand !== 'hidden') && (
+          <div className="grid grid-cols-3 gap-3">
+            {felder.aufwandmenge !== 'hidden' && (
+              <>
+                <div>
+                  <label className={labelCls}>
+                    Aufwandmenge (Etikett)
+                    {felder.aufwandmenge === 'pflicht' && <span className="text-red-500"> *</span>}
+                  </label>
+                  <input name="aufwandmenge" type="number" step="0.001" min="0"
+                    required={felder.aufwandmenge === 'pflicht'}
+                    defaultValue={behandlung.aufwandmenge ?? ''} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Einheit</label>
+                  <select name="aufwandmenge_einheit"
+                    defaultValue={behandlung.aufwandmenge_einheit ?? 'l_ha'}
+                    className={inputCls}>
+                    {EINHEITEN_AUFWAND.map(e => <option key={e} value={e}>{EINHEITEN_LABEL[e]}</option>)}
+                  </select>
+                </div>
+              </>
+            )}
+            {felder.wasseraufwand !== 'hidden' && (
+              <div>
+                <label className={labelCls}>Wasser (l/ha)</label>
+                <input name="wasseraufwand_l_ha" type="number" step="1" min="0"
+                  defaultValue={behandlung.wasseraufwand_l_ha ?? ''} className={inputCls} />
+              </div>
+            )}
           </div>
-          <div>
-            <label className={labelCls}>Einheit</label>
-            <select name="aufwandmenge_einheit"
-              defaultValue={behandlung.aufwandmenge_einheit ?? 'l_ha'}
-              className={inputCls}>
-              {EINHEITEN_AUFWAND.map(e => <option key={e} value={e}>{EINHEITEN_LABEL[e]}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={labelCls}>Wasser (l/ha)</label>
-            <input name="wasseraufwand_l_ha" type="number" step="1" min="0"
-              defaultValue={behandlung.wasseraufwand_l_ha ?? ''} className={inputCls} />
-          </div>
-        </div>
+        )}
 
         {art === 'spritzung' && (
           <div className="grid grid-cols-2 gap-3">

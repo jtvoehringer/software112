@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import type { BehandlungReport } from './page'
 
-type Tab = 'weingarten' | 'lage' | 'mittel' | 'cu'
+type Tab = 'ried' | 'mittel' | 'cu'
 
 const ART_LABEL: Record<string, string> = {
   spritzung: 'Spritzung', duengung: 'Düngung', bodenbearbeitung: 'Bodenbearbeitung',
@@ -22,78 +22,15 @@ function fmtHa(n: number) {
   return n.toLocaleString('de-AT', { maximumFractionDigits: 4 }) + ' ha'
 }
 
-// ─── Pro-Weingarten Tab ───────────────────────────────────────────────────────
-function TabWeingarten({ behandlungen, jahr }: { behandlungen: BehandlungReport[]; jahr: string }) {
-  const filtered = jahr === 'all' ? behandlungen : behandlungen.filter(b => b.datum.startsWith(jahr))
-
-  // Alle Weingärten sammeln
-  const wgMap = new Map<string, { name: string; lage: string | null; behandlungen: BehandlungReport[] }>()
-  for (const b of filtered) {
-    const wgIds = new Set(b.grundstuecke.map(g => g.weingarten_id))
-    for (const wgId of wgIds) {
-      const g0 = b.grundstuecke.find(g => g.weingarten_id === wgId)!
-      if (!wgMap.has(wgId)) wgMap.set(wgId, { name: g0.weingarten_name, lage: g0.lage_name, behandlungen: [] })
-      wgMap.get(wgId)!.behandlungen.push(b)
-    }
-  }
-  const wgs = Array.from(wgMap.entries()).sort(([, a], [, b]) => a.name.localeCompare(b.name, 'de'))
-
-  if (wgs.length === 0) return <EmptyState />
-
-  return (
-    <div className="space-y-4">
-      {wgs.map(([wgId, wg]) => (
-        <div key={wgId} className="card">
-          <div className="flex items-baseline gap-3 mb-3">
-            <h3 className="font-semibold text-gray-900">{wg.name}</h3>
-            {wg.lage && <span className="text-xs text-s112-muted">{wg.lage}</span>}
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="border-b border-s112-border">
-                  <th className="text-left text-xs text-s112-muted font-semibold py-1.5 pr-3">Datum</th>
-                  <th className="text-left text-xs text-s112-muted font-semibold py-1.5 pr-3">Art</th>
-                  <th className="text-left text-xs text-s112-muted font-semibold py-1.5 pr-3">Mittel</th>
-                  <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Menge gesamt</th>
-                  <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Ant. Fläche</th>
-                  <th className="text-right text-xs text-s112-muted font-semibold py-1.5">Ant. Menge</th>
-                </tr>
-              </thead>
-              <tbody>
-                {wg.behandlungen.map(b => {
-                  const totalHa = b.grundstuecke.reduce((s, g) => s + g.flaeche_ha, 0)
-                  const wgHa = b.grundstuecke.filter(g => g.weingarten_id === wgId).reduce((s, g) => s + g.flaeche_ha, 0)
-                  const anteil = totalHa > 0 ? wgHa / totalHa : 0
-                  const anteilMenge = b.menge_gesamt != null ? b.menge_gesamt * anteil : null
-
-                  return (
-                    <tr key={b.id} className="border-b border-s112-border/40 hover:bg-s112-bg/30">
-                      <td className="py-2 pr-3 tabular-nums">{fmtDate(b.datum)}{b.datum_bis && b.datum_bis !== b.datum ? ` – ${fmtDate(b.datum_bis)}` : ''}</td>
-                      <td className="py-2 pr-3">{ART_LABEL[b.art] ?? b.art}</td>
-                      <td className="py-2 pr-3 text-gray-600">{b.psm_name ?? '–'}</td>
-                      <td className="py-2 pr-3 text-right tabular-nums">
-                        {b.menge_gesamt != null ? `${fmtNum(b.menge_gesamt, 2)} ${b.menge_einheit ?? ''}` : '–'}
-                      </td>
-                      <td className="py-2 pr-3 text-right tabular-nums">{fmtHa(wgHa)}</td>
-                      <td className="py-2 text-right tabular-nums font-medium text-s112-teal">
-                        {anteilMenge != null ? `${fmtNum(anteilMenge, 3)} ${b.menge_einheit ?? ''}` : '–'}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ))}
-    </div>
+// ─── Ried Tab ─────────────────────────────────────────────────────────────────
+// Ersetzt die frühere getrennte "Pro Weingarten"/"Pro Ried"-Ansicht (beide Tabs
+// waren identisch beschriftet "Pro Ried" und verwirrend). Ein Tab, gruppiert
+// nach Ried (Lage), mit Auswahl "Alle Rieden" / einzelnes Ried sowie Art.
+function TabRied({ behandlungen, jahr, ried, art }: { behandlungen: BehandlungReport[]; jahr: string; ried: string; art: string }) {
+  const filtered = behandlungen.filter(b =>
+    (jahr === 'all' || b.datum.startsWith(jahr)) &&
+    (art === 'all' || b.art === art)
   )
-}
-
-// ─── Pro-Lage Tab ─────────────────────────────────────────────────────────────
-function TabLage({ behandlungen, jahr }: { behandlungen: BehandlungReport[]; jahr: string }) {
-  const filtered = jahr === 'all' ? behandlungen : behandlungen.filter(b => b.datum.startsWith(jahr))
 
   const lageMap = new Map<string, { name: string; behandlungen: BehandlungReport[] }>()
   for (const b of filtered) {
@@ -105,7 +42,8 @@ function TabLage({ behandlungen, jahr }: { behandlungen: BehandlungReport[]; jah
       lageMap.get(lId)!.behandlungen.push(b)
     }
   }
-  const lagen = Array.from(lageMap.entries()).sort(([, a], [, b]) => a.name.localeCompare(b.name, 'de'))
+  let lagen = Array.from(lageMap.entries()).sort(([, a], [, b]) => a.name.localeCompare(b.name, 'de'))
+  if (ried !== 'all') lagen = lagen.filter(([lId]) => lId === ried)
 
   if (lagen.length === 0) return <EmptyState />
 
@@ -444,24 +382,35 @@ function getJahre(behandlungen: BehandlungReport[]) {
   return Array.from(set).sort().reverse()
 }
 
+function getRieden(behandlungen: BehandlungReport[]) {
+  const map = new Map<string, string>()
+  for (const b of behandlungen) {
+    for (const g of b.grundstuecke) {
+      map.set(g.lage_id ?? '_none', g.lage_name ?? 'Ohne Ried')
+    }
+  }
+  return Array.from(map.entries()).sort(([, a], [, b]) => a.localeCompare(b, 'de'))
+}
+
 // ─── Main Client Component ────────────────────────────────────────────────────
 export default function BerichteClient({ behandlungen }: { behandlungen: BehandlungReport[] }) {
-  const [tab, setTab] = useState<Tab>('weingarten')
+  const [tab, setTab] = useState<Tab>('ried')
   const [jahr, setJahr] = useState('all')
+  const [ried, setRied] = useState('all')
+  const [art, setArt] = useState('all')
   const jahre = getJahre(behandlungen)
+  const rieden = getRieden(behandlungen)
 
   const TABS: { id: Tab; label: string }[] = [
-    { id: 'weingarten', label: 'Pro Ried' },
-    { id: 'lage',       label: 'Pro Ried' },
-    { id: 'mittel',     label: 'Mittelverbrauch' },
-    { id: 'cu',         label: 'Cu-Bilanz' },
+    { id: 'ried',   label: 'Ried' },
+    { id: 'mittel', label: 'Mittelverbrauch' },
+    { id: 'cu',     label: 'Cu-Bilanz' },
   ]
 
   const TAB_TITLES: Record<Tab, string> = {
-    weingarten: 'Mittelverteilung pro Weingarten',
-    lage:       'Mittelverteilung pro Ried',
-    mittel:     'Mittelverbrauch & Grenzwerte',
-    cu:         'Cu-Bilanz',
+    ried:   'Mittelverteilung pro Ried',
+    mittel: 'Mittelverbrauch & Grenzwerte',
+    cu:     'Cu-Bilanz',
   }
 
   const heute = new Date().toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -485,6 +434,26 @@ export default function BerichteClient({ behandlungen }: { behandlungen: Behandl
             </button>
           ))}
           <div className="flex-1" />
+          {tab === 'ried' && (
+            <div className="pb-1 self-center flex gap-2">
+              <select
+                value={ried}
+                onChange={e => setRied(e.target.value)}
+                className="border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+              >
+                <option value="all">Alle Rieden</option>
+                {rieden.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+              </select>
+              <select
+                value={art}
+                onChange={e => setArt(e.target.value)}
+                className="border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+              >
+                <option value="all">Alle Arten</option>
+                {Object.entries(ART_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </div>
+          )}
           {tab !== 'cu' && (
             <div className="pb-1 self-center">
               <select
@@ -522,10 +491,9 @@ export default function BerichteClient({ behandlungen }: { behandlungen: Behandl
       </div>
 
       {/* Tab Content */}
-      {tab === 'weingarten' && <TabWeingarten behandlungen={behandlungen} jahr={jahr} />}
-      {tab === 'lage'       && <TabLage       behandlungen={behandlungen} jahr={jahr} />}
-      {tab === 'mittel'     && <TabMittel     behandlungen={behandlungen} jahr={jahr} />}
-      {tab === 'cu'         && <TabCu         behandlungen={behandlungen} />}
+      {tab === 'ried'   && <TabRied   behandlungen={behandlungen} jahr={jahr} ried={ried} art={art} />}
+      {tab === 'mittel' && <TabMittel behandlungen={behandlungen} jahr={jahr} />}
+      {tab === 'cu'     && <TabCu     behandlungen={behandlungen} />}
     </div>
   )
 }

@@ -118,7 +118,18 @@ export default function BehandlungenClient({
               )}
             </div>
 
-            <table className="w-full text-sm">
+            <table className="w-full text-sm table-fixed">
+              <thead>
+                <tr className="border-b border-s112-border text-xs font-medium text-s112-muted uppercase tracking-wide">
+                  <th className="px-4 py-2 text-left w-[32%]">Weingarten / Ried / Art</th>
+                  <th className="px-3 py-2 text-left w-[15%]">Menge</th>
+                  <th className="px-3 py-2 text-left w-[10%]">BBCH</th>
+                  <th className="px-3 py-2 text-left w-[10%]">Witterung</th>
+                  <th className="px-3 py-2 text-left w-[13%]">Erntefrei ab</th>
+                  <th className="px-3 py-2 text-right w-[10%]">Kosten</th>
+                  {adminOk && <th className="px-3 py-2 text-right w-[10%]">Aktionen</th>}
+                </tr>
+              </thead>
               <tbody>
                 {gruppe.map(b => (
                   <tr key={b.id} className="border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/30 transition-colors">
