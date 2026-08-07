@@ -255,7 +255,16 @@ function ZeitachseView({
   const days      = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(monday, i)), [monday.getTime()])
   const [pending, startTransition] = useTransition()
   const [filterUser, setFilterUser] = useState<string>('alle')
-  const uniqueUsers = useMemo(() => [...new Set(eintraege.map(e => e.erstellt_von).filter(Boolean))], [eintraege])
+  // Nur User mit aufloesbarem Namen (userProfiles) bekommen einen eigenen
+  // Filter-Button. Termine koennen von Benutzern stammen, die inzwischen
+  // aus dem Mandanten entfernt wurden bzw. deren profiles-Zeile nicht mehr
+  // existiert - fuer die gaebe es sonst nur ein unklares ID-Kuerzel als
+  // Button (siehe Kalender-Feedback 7.8.2026). Ihre Termine bleiben unter
+  // "Alle" weiterhin sichtbar, nur der verwirrende Einzel-Filter faellt weg.
+  const uniqueUsers = useMemo(
+    () => [...new Set(eintraege.map(e => e.erstellt_von).filter(Boolean))].filter(uid => !!userProfiles[uid!]),
+    [eintraege, userProfiles]
+  )
   // Nach erstellendem User filtern, falls nicht "Alle" ausgewaehlt. uniqueUsers
   // bewusst weiterhin aus dem UNGEFILTERTEN eintraege ableiten (sonst wuerden
   // die Filter-Buttons nach dem Filtern selbst wieder verschwinden).
