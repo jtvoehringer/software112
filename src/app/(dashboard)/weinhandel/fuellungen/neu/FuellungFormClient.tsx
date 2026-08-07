@@ -94,7 +94,10 @@ export default function FuellungFormClient({
   const [rebsorteVal, setRebsorteVal] = useState(defaultCharge?.rebsorte ?? '')
   const [qualitaetVal, setQualitaetVal] = useState(defaultCharge?.qualitaetsstufe ?? 'qualitaetswein')
   const [herkunftCodeVal, setHerkunftCodeVal] = useState(defaultCharge?.herkunft_code ?? '')
-  const [abschliessen, setAbschliessen] = useState(true)
+  // Bewusst NICHT vorbelegt (false) - ein versehentlich stehen gelassenes Häkchen hat
+  // sonst schon unbemerkt hohe Restmengen als Schwund ausgebucht. Der User muss die
+  // Schwundbuchung aktiv bestätigen (siehe Warnhinweis unten).
+  const [abschliessen, setAbschliessen] = useState(false)
   const [selectedDacId, setSelectedDacId] = useState('')
   const [pruefnummerVal, setPruefnummerVal] = useState('')
 
@@ -405,24 +408,59 @@ export default function FuellungFormClient({
           </div>
         )}
 
-        {/* Charge abschließen */}
+        {/* Charge abschließen - bewusst als aktive Ja/Nein-Entscheidung statt eines
+            vorbelegten Häkchens, damit nicht versehentlich hohe Restmengen als Schwund
+            ausgebucht werden. Das Häkchen bleibt zusätzlich als schnelle Vorauswahl für
+            geübtere User erhalten - beide Bedienelemente steuern denselben Zustand. */}
         {schwund !== null && schwund > 0.01 && (
-          <label className="flex items-start gap-3 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              name="abschliessen"
-              value="true"
-              checked={abschliessen}
-              onChange={e => setAbschliessen(e.target.checked)}
-              className="mt-0.5 w-4 h-4 accent-s112-teal"
-            />
-            <span className="text-sm text-gray-700">
-              <strong>Charge nach dieser Füllung abschließen</strong>
-              <span className="text-s112-muted ml-1">
-                – {fmtL(schwund)} Restwein als Schwund ausbuchen, Status → Abgeschlossen
+          <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 space-y-3">
+            <p className="text-sm text-amber-800 inline-flex items-start gap-1.5">
+              <AlertTriangle size={15} strokeWidth={1.75} className="mt-0.5 shrink-0" />
+              <span>
+                <strong>Achtung, noch Rest vorhanden</strong> – {fmtL(schwund)} verbleiben nach der Abfüllung im Tank.
+                Soll dafür eine Schwundbuchung vorgenommen werden (Charge wird abgeschlossen)?
               </span>
-            </span>
-          </label>
+            </p>
+
+            <div className="flex items-center gap-2 pl-6">
+              <button
+                type="button"
+                onClick={() => setAbschliessen(true)}
+                className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                  abschliessen
+                    ? 'bg-amber-600 text-white border-amber-600'
+                    : 'bg-white text-amber-700 border-amber-300 hover:bg-amber-100'
+                }`}
+              >
+                Ja, Schwund buchen &amp; abschließen
+              </button>
+              <button
+                type="button"
+                onClick={() => setAbschliessen(false)}
+                className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                  !abschliessen
+                    ? 'bg-gray-700 text-white border-gray-700'
+                    : 'bg-white text-gray-600 border-s112-border hover:bg-gray-50'
+                }`}
+              >
+                Nein, Charge bleibt offen
+              </button>
+            </div>
+
+            <label className="flex items-start gap-2 pl-6 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                name="abschliessen"
+                value="true"
+                checked={abschliessen}
+                onChange={e => setAbschliessen(e.target.checked)}
+                className="mt-0.5 w-3.5 h-3.5 accent-s112-teal"
+              />
+              <span className="text-xs text-amber-700/80">
+                Charge nach dieser Füllung abschließen – {fmtL(schwund)} Restwein als Schwund ausbuchen, Status → Abgeschlossen
+              </span>
+            </label>
+          </div>
         )}
       </div>
 
