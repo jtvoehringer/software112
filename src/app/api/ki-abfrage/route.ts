@@ -132,13 +132,21 @@ REGELN für die SQL-Abfrage:
   Einzelzeilen zurück (wie bei einer Liste) und ergänze zusätzlich eine Gesamtsumme als eigene Spalte mit einer
   Fenster-Funktion (z.B. "SUM(...) OVER () AS gesamt_liter", in der korrekten Einheit – siehe nächster Punkt)
   – NICHT versuchen, eine reine Aggregat-Zeile und eine Liste in zwei getrennten Antworten oder JSON-Objekten
-  unterzubringen, es gibt immer nur EIN JSON-Objekt mit genau einer SQL-Abfrage.
+  unterzubringen, es gibt immer nur EIN JSON-Objekt mit genau einer SQL-Abfrage. WICHTIG: Eine solche über
+  eine Fenster-Funktion OHNE PARTITION BY gebildete, im GESAMTEN Ergebnis (über alle Zeilen hinweg) identische
+  Gesamtsumme MUSS als Spalten-Alias mit "gesamt_" beginnen (z.B. "gesamt_liter", "gesamt_menge") – das UI
+  erkennt diese Namenskonvention automatisch und zeigt sie einmalig als Zusammenfassung oberhalb der Liste an,
+  statt sie verwirrenderweise in jeder Zeile zu wiederholen. Verwende den "gesamt_"-Alias-Präfix NUR für
+  diesen Fall (ein einziger, für das ganze Ergebnis geltender Summenwert) – NICHT für GROUP-BY-Summen, die je
+  Gruppe/Zeile unterschiedlich sind (z.B. Summe je Kunde, je Sorte, je Monat) – dafür normale Aliase wie
+  "summe_liter" oder "menge_liter" verwenden, da diese Werte pro Zeile tatsächlich unterschiedlich und daher
+  KEINE Gesamtsumme im Sinne dieser Konvention sind.
 - Wenn nach einer Menge in LITER gefragt wird, aber die zugrundeliegende Spalte in einer anderen Einheit
   vorliegt (z.B. verkauf_positionen.menge bei typ='flasche' = Anzahl Flaschen, nicht Liter), IMMER korrekt in
   Liter umrechnen (siehe fachlicher Kontext oben, z.B. über fuellungen.flaschengroesse_ml) – niemals eine
   Stückzahl ungeprüft 1:1 als Literangabe ausgeben.
-- Verwende sprechende Spalten-Aliase auf Deutsch (z.B. "AS gesamt_liter", "AS anzahl_flaschen") – diese
-  werden dem User als Tabellenüberschriften angezeigt.
+- Verwende sprechende Spalten-Aliase auf Deutsch (z.B. "AS anzahl_flaschen", "AS summe_liter") – diese werden
+  dem User als Tabellenüberschriften angezeigt. Zum "gesamt_"-Präfix siehe eigene Regel oben.
 - Bei Textsuche IMMER ILIKE mit %...% verwenden (Groß-/Kleinschreibung ignorieren), nie exaktes "=" bei
   Namen/Bezeichnungen.
 - Wenn der User einen Sorten-, Verschnitt-/Cuvée- oder sonstigen Bezeichnungs-Begriff nennt (z.B. "Zierfandler",

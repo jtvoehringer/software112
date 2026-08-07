@@ -19,6 +19,17 @@ const BEISPIELE = [
 
 const LIMIT_MAP: Record<string, number> = { basic: 100, standard: 200, unlimited: 99999 }
 
+// Formatiert einen Zellenwert für Tabelle und Gesamt-Zusammenfassung einheitlich.
+function formatWert(val: unknown): string {
+  if (val === null || val === undefined) return '–'
+  if (typeof val === 'boolean') return val ? 'Ja' : 'Nein'
+  if (typeof val === 'object') {
+    const o = val as R
+    return o.vorname ? `${o.vorname} ${o.nachname}` : o.name ?? JSON.stringify(o)
+  }
+  return String(val)
+}
+
 interface Props { aktiv: boolean; paket: string; verbraucht: number }
 
 export default function KiClient({ aktiv, paket, verbraucht }: Props) {
@@ -56,7 +67,15 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
     </div>
   )
 
-  const cols = (ergebnis?.ergebnisse?.length ?? 0) > 0 ? Object.keys(ergebnis!.ergebnisse[0]) : []
+  // Spalten, die mit "gesamt_" beginnen, sind laut Prompt-Konvention Summenwerte über eine
+  // Fenster-Funktion (SUM(...) OVER ()) und daher in JEDER Zeile identisch – als normale
+  // Tabellenspalte wirken sie irreführend (sehen aus wie ein Pro-Zeile-Wert). Sie werden daher
+  // aus der Zeilen-Tabelle herausgefiltert und stattdessen einmalig als Gesamt-Zusammenfassung
+  // angezeigt.
+  const alleCols   = (ergebnis?.ergebnisse?.length ?? 0) > 0 ? Object.keys(ergebnis!.ergebnisse[0]) : []
+  const gesamtCols = alleCols.filter((c: string) => /^gesamt_/i.test(c))
+  const cols       = alleCols.filter((c: string) => !gesamtCols.includes(c))
+  const hatZeilen  = (ergebnis?.ergebnisse?.length ?? 0) > 0
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -152,8 +171,20 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
             </details>
           )}
 
+          {/* Gesamtwerte (aus gesamt_*-Spalten, siehe Kommentar bei "gesamtCols" oben) */}
+          {hatZeilen && gesamtCols.length > 0 && (
+            <div className="bg-s112-bg border border-s112-border rounded-xl px-4 py-3 flex flex-wrap gap-x-8 gap-y-1">
+              {gesamtCols.map((col: string) => (
+                <div key={col} className="text-sm">
+                  <span className="text-s112-muted">{col.replace(/^gesamt_/i, 'Gesamt ').replace(/_/g, ' ')}:</span>{' '}
+                  <span className="font-semibold text-gray-800">{formatWert(ergebnis.ergebnisse[0][col])}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Tabelle */}
-          {ergebnis.ergebnisse?.length > 0 ? (
+          {hatZeilen && cols.length > 0 ? (
             <div className="bg-white rounded-2xl border border-s112-border overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-s112-bg text-xs text-s112-muted uppercase tracking-wide">
@@ -168,28 +199,21 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
                 <tbody className="divide-y divide-s112-border/40">
                   {ergebnis.ergebnisse.map((row: R, i: number) => (
                     <tr key={i} className="hover:bg-s112-bg/30">
-                      {cols.map((col: string) => {
-                        const val = row[col]
-                        const display = val === null || val === undefined ? '–'
-                          : typeof val === 'boolean' ? (val ? 'Ja' : 'Nein')
-                          : typeof val === 'object' ? (val.vorname ? `${val.vorname} ${val.nachname}` : val.name ?? JSON.stringify(val))
-                          : String(val)
-                        return (
-                          <td key={col} className="px-4 py-2.5 text-gray-700 whitespace-nowrap">
-                            {display}
-                          </td>
-                        )
-                      })}
+                      {cols.map((col: string) => (
+                        <td key={col} className="px-4 py-2.5 text-gray-700 whitespace-nowrap">
+                          {formatWert(row[col])}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          ) : (
+          ) : !hatZeilen ? (
             <div className="text-center py-8 text-s112-muted text-sm">
               Keine Ergebnisse für diese Abfrage gefunden.
             </div>
-          )}
+          ) : null}
 
           <button onClick={() => {
             if (!ergebnis?.ergebnisse?.length) return
