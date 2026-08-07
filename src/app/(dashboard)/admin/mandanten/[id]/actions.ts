@@ -61,9 +61,16 @@ export async function saveTenantSettings(tenantId: string, formData: FormData) {
 
 // ── Benutzer: Einladung ───────────────────────────────────────────────────────
 
-export async function inviteUserToTenant(tenantId: string, email: string, role: string) {
+export async function inviteUserToTenant(tenantId: string, email: string, role: string, fullName: string) {
   await assertSystemAdmin()
   const admin = createSupabaseAdminClient()
+
+  // Name ist seit 7.8.2026 ein Pflichtfeld: der Klarname wird nicht mehr vom
+  // Benutzer selbst unter /profil gepflegt, sondern zentral hier beim
+  // Einladen/Verwalten - damit kann er nie mehr leer bleiben (siehe auch
+  // updateMemberNameAdmin unten).
+  const name = fullName.trim()
+  if (!name) return { error: 'Name ist ein Pflichtfeld.' }
 
   // Prüfen ob User schon existiert
   const { data: { users } } = await admin.auth.admin.listUsers({ perPage: 1000 })
@@ -88,6 +95,29 @@ export async function inviteUserToTenant(tenantId: string, email: string, role: 
 
   if (memberError) return { error: (memberError as R).message }
 
+  // Name im Profil hinterlegen (upsert, falls das Signup-Trigger-Profil noch
+  // nicht existiert oder ein bestehender User ohne Namen eingeladen wird).
+  const { error: profileError } = await (admin.from('profiles') as any)
+    .upsert({ id: userId, full_name: name, updated_at: new Date().toISOString() }, { onConflict: 'id' })
+  if (profileError) return { error: (profileError as R).message }
+
+  revalidatePath(`/admin/mandanten/${tenantId}`)
+  return { success: true }
+}
+
+// ── Benutzer: Name ändern ─────────────────────────────────────────────────────
+
+export async function updateMemberNameAdmin(userId: string, fullName: string, tenantId: string) {
+  await assertSystemAdmin()
+  const admin = createSupabaseAdminClient()
+
+  const name = fullName.trim()
+  if (!name) return { error: 'Name ist ein Pflichtfeld.' }
+
+  const { error } = await (admin.from('profiles') as any)
+    .upsert({ id: userId, full_name: name, updated_at: new Date().toISOString() }, { onConflict: 'id' })
+
+  if (error) return { error: (error as R).message }
   revalidatePath(`/admin/mandanten/${tenantId}`)
   return { success: true }
 }

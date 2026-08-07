@@ -19,6 +19,11 @@ export async function POST(req: NextRequest) {
   const body = await req.json() as R
   const now  = new Date().toISOString()
 
+  // full_name wird seit 7.8.2026 NICHT mehr hier vom Benutzer selbst
+  // gepflegt, sondern zentral vom Administrator unter Admin > Mandant >
+  // Benutzer (updateMemberNameAdmin) - bewusst nicht aus body uebernommen,
+  // selbst falls ein Client es trotzdem mitschickt.
+
   // Prüfen ob Profil bereits existiert
   const { data: existing } = await (s.from('profiles') as any)
     .select('id').eq('id', user.id).maybeSingle()
@@ -26,11 +31,11 @@ export async function POST(req: NextRequest) {
   let error: any
   if (existing) {
     ;({ error } = await (s.from('profiles') as any)
-      .update({ full_name: body.full_name || null, telefon: body.telefon || null, updated_at: now })
+      .update({ telefon: body.telefon || null, updated_at: now })
       .eq('id', user.id))
   } else {
     ;({ error } = await (s.from('profiles') as any)
-      .insert({ id: user.id, full_name: body.full_name || null, telefon: body.telefon || null, updated_at: now }))
+      .insert({ id: user.id, telefon: body.telefon || null, updated_at: now }))
   }
   if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })

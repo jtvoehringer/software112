@@ -8,6 +8,7 @@ import {
   saveTenantSettings,
   inviteUserToTenant,
   updateMemberRoleAdmin,
+  updateMemberNameAdmin,
   removeMemberAdmin,
   renameTenantAdmin,
   saveVerkaufEinstellungen,
@@ -183,9 +184,15 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
   const [members, setMembers]         = useState<TenantMember[]>(initialMembers)
   const [showInvite, setShowInvite]   = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteName, setInviteName]   = useState('')
   const [inviteRole, setInviteRole]   = useState('winzer')
   const [editingId, setEditingId]     = useState<string | null>(null)
   const [editRole, setEditRole]       = useState('')
+  // Name wird seit 7.8.2026 hier zentral administriert (Pflichtfeld) statt
+  // vom Benutzer selbst unter /profil - eigener Bearbeitungs-Status, damit
+  // Name- und Rolle-Bearbeitung unabhaengig voneinander laufen koennen.
+  const [editingNameId, setEditingNameId] = useState<string | null>(null)
+  const [editName, setEditName]           = useState('')
   const [error, setError]             = useState<string | null>(null)
   const [success, setSuccess]         = useState<string | null>(null)
   const [pending, startTransition]    = useTransition()
@@ -194,9 +201,9 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
     e.preventDefault()
     setError(null); setSuccess(null)
     startTransition(async () => {
-      const r = await inviteUserToTenant(tenant.id, inviteEmail, inviteRole)
+      const r = await inviteUserToTenant(tenant.id, inviteEmail, inviteRole, inviteName)
       if (r.error) { setError(r.error) }
-      else { setSuccess(`Einladung an ${inviteEmail} versandt.`); setInviteEmail(''); setShowInvite(false) }
+      else { setSuccess(`Einladung an ${inviteEmail} versandt.`); setInviteEmail(''); setInviteName(''); setShowInvite(false) }
     })
   }
 
@@ -206,6 +213,16 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
       const r = await updateMemberRoleAdmin(membershipId, editRole, tenant.id)
       if (r.error) setError(r.error)
       else setEditingId(null)
+    })
+  }
+
+  function handleNameUpdate(m: TenantMember) {
+    setError(null)
+    startTransition(async () => {
+      const r = await updateMemberNameAdmin(m.userId, editName, tenant.id)
+      if (r.error) { setError(r.error); return }
+      setMembers(prev => prev.map(x => x.id === m.id ? { ...x, fullName: editName.trim() } : x))
+      setEditingNameId(null)
     })
   }
 
@@ -230,6 +247,7 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-s112-border bg-s112-bg">
+              <th className="text-left px-4 py-2 text-xs font-semibold text-s112-muted">Name</th>
               <th className="text-left px-4 py-2 text-xs font-semibold text-s112-muted">E-Mail</th>
               <th className="text-left px-4 py-2 text-xs font-semibold text-s112-muted">Rolle</th>
               <th className="text-left px-4 py-2 text-xs font-semibold text-s112-muted">Seit</th>
@@ -238,13 +256,32 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
           </thead>
           <tbody>
             {members.length === 0 && (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-s112-muted">
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-s112-muted">
                 Noch keine Benutzer zugewiesen.
               </td></tr>
             )}
             {members.map(m => (
               <tr key={m.id} className="border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/50">
-                <td className="px-4 py-3 font-medium text-gray-900">{m.email}</td>
+                <td className="px-4 py-3">
+                  {editingNameId === m.id ? (
+                    <div className="flex items-center gap-2">
+                      <input value={editName} onChange={e => setEditName(e.target.value)}
+                        required disabled={pending} autoFocus
+                        className="border border-s112-border rounded-lg px-2 py-1 text-xs w-36 focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                      <button onClick={() => handleNameUpdate(m)} disabled={pending || !editName.trim()}
+                        className="text-xs text-s112-teal hover:underline font-semibold disabled:opacity-50">Speichern</button>
+                      <button onClick={() => setEditingNameId(null)}
+                        className="text-xs text-s112-muted hover:text-gray-700">Abbrechen</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => { setEditingNameId(m.id); setEditName(m.fullName ?? '') }}
+                      className="font-medium text-gray-900 hover:text-s112-teal inline-flex items-center gap-1.5 group">
+                      {m.fullName ?? <span className="text-red-500 font-normal italic">kein Name hinterlegt</span>}
+                      <Pencil size={11} className="opacity-0 group-hover:opacity-60" />
+                    </button>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-gray-700">{m.email}</td>
                 <td className="px-4 py-3">
                   {editingId === m.id ? (
                     <select value={editRole} onChange={e => setEditRole(e.target.value)}
@@ -296,11 +333,16 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
             Neuer Benutzer: erhält Einladungs-E-Mail von Supabase zum Passwort setzen.<br />
             Bestehender Supabase-User: wird direkt zugewiesen.
           </p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Name *</label>
+              <input value={inviteName} onChange={e => setInviteName(e.target.value)}
+                required className={inputCls()} placeholder="Vorname Nachname" autoFocus />
+            </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">E-Mail *</label>
               <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
-                required className={inputCls()} placeholder="benutzer@weingut.at" autoFocus />
+                required className={inputCls()} placeholder="benutzer@weingut.at" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Rolle *</label>
@@ -315,7 +357,7 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
               className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
               {pending ? 'Einladen…' : 'Einladen'}
             </button>
-            <button type="button" onClick={() => { setShowInvite(false); setInviteEmail('') }}
+            <button type="button" onClick={() => { setShowInvite(false); setInviteEmail(''); setInviteName('') }}
               className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800">
               Abbrechen
             </button>

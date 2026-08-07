@@ -28,9 +28,12 @@ export default function ProfilPage() {
     setSaving(true)
     setFehler('')
     try {
+      // full_name bewusst NICHT mitschicken: der Name wird seit 7.8.2026
+      // zentral von der Administration (Mandant > Benutzer) gepflegt, nicht
+      // mehr selbst hier - siehe /api/profil (POST ignoriert full_name ohnehin).
       const res = await fetch('/api/profil', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ full_name: fullName, telefon }),
+        body: JSON.stringify({ telefon }),
       })
       const json = await res.json()
       if (!res.ok || json.fehler) {
@@ -58,9 +61,10 @@ export default function ProfilPage() {
             <input value={email} disabled className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm bg-s112-bg text-s112-muted" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Vollständiger Name</label>
-            <input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Vorname Nachname"
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            <label className="block text-xs font-medium text-gray-600 mb-1">Vollständiger Name (nicht änderbar)</label>
+            <input value={fullName || '–'} disabled
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm bg-s112-bg text-s112-muted" />
+            <p className="text-[10px] text-gray-400 mt-0.5">Wird vom Administrator verwaltet (Admin &gt; Mandant &gt; Benutzer).</p>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Telefon</label>
