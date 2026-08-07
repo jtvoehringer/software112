@@ -56,11 +56,23 @@ const TABELLEN_KONTEXT = `
 - weingarten / grundstuecke: Rieden (weingarten) und einzelne Grundstücke (GST, grundstuecke.weingarten_id → weingarten.id) mit Rebsorte, Fläche, Bewirtschaftungsart.
 - behandlungen ↔ behandlung_grundstuecke (Junction, m:n) ↔ grundstuecke: Pflanzenschutz-/Düngemaßnahmen. pflanzenschutzmittel.cu_gehalt_pct für Kupfer-Bilanzen.
 - ernte_parzellen: Lesedaten je Grundstück und Jahrgang (jahrgang_id → weinjahrgaenge.id), menge_kg, oechsle, klosterneuburger (°KMW).
-- weinausbau: Kellerbuch-Chargen (der "Keller-Bestand"). name = Produkt-/Chargenname (kann bei Verschnitten von der Rebsorte abweichen!), rebsorte = tatsächliche Sorte, jahrgang, menge_liter = aktueller Bestand in Liter, status (ernte|gaerung|ausbau|abfuellung|abgeschlossen – abgeschlossen bedeutet IMMER menge_liter=0), behaelter_id → behaelter.name.
+- weinausbau: Kellerbuch-Chargen (der "Keller-Bestand"). DREI VERSCHIEDENE, oft unterschiedliche Textfelder –
+  name = frei vergebener Produkt-/Chargenname (z.B. "Partywein Kängaru", oft eine Fantasiebezeichnung, KEINE
+  verlässliche Sortenangabe); rebsorte = die tatsächliche Rebsorte ODER bei Verschnitten der Verschnitt-Typ
+  selbst (z.B. "Zierfandler", aber auch "Sortenverschnitt", "Cuvée" stehen HIER, nicht in name!);
+  qualitaetsstufe = Prädikat (z.B. "Spätlese"). jahrgang, menge_liter = aktueller Bestand in Liter, status
+  (ernte|gaerung|ausbau|abfuellung|abgeschlossen – abgeschlossen bedeutet IMMER menge_liter=0), behaelter_id
+  → behaelter.name.
 - keller_umzuege: Umzüge/Schwundbuchungen zwischen Behältern, von_weinausbau_id/nach_weinausbau_id.
 - weinanalysen: Laboranalysen je Charge (weinausbau_id), alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert usw.
 - verschneidungen ↔ verschneidung_quellen: Blends – ziel_weinausbau_id ist die entstandene Charge, verschneidung_quellen.quell_weinausbau_id die Ausgangschargen.
-- fuellungen: abgefüllte, verkaufsfertige Weine (Flaschen-Lager). bestand_flaschen = aktueller Lagerbestand, jahrgang, rebsorte, bezeichnung, flaschengroesse_ml, vk_preis_brutto, einstandspreis. fuellung_chargen verknüpft eine Füllung mit ihrer/ihren Ursprungs-Charge(n) aus weinausbau.
+- fuellungen: abgefüllte, verkaufsfertige Weine (Flaschen-Lager). Wie bei weinausbau DREI VERSCHIEDENE
+  Textfelder, NICHT verwechseln – name = Produkt-/Handelsname (z.B. "Partywein Kängaru"); rebsorte = die
+  Rebsorte ODER bei Verschnitten der Verschnitt-Typ (z.B. "Zierfandler", "Sortenverschnitt", "Cuvée Rot" –
+  wenn der User eine Sorte, einen Verschnitt- oder Cuvée-Namen nennt, ist das FAST IMMER dieses Feld, NICHT
+  bezeichnung!); bezeichnung = zusätzliches Prädikat/Zusatzbezeichnung (z.B. "Reserve"), ist bei sehr vielen
+  Weinen leer/NULL. bestand_flaschen = aktueller Lagerbestand, flaschengroesse_ml, vk_preis_brutto,
+  einstandspreis. fuellung_chargen verknüpft eine Füllung mit ihrer/ihren Ursprungs-Charge(n) aus weinausbau.
 - kontakte / firmen: Kunden (auch is_lead=true für Leads), segment (privat|gastro|handel|export|grosshandel), stammkunde, plz/ort/land.
 - verkaufsposten (Rechnungskopf) ↔ verkauf_positionen (Zeilen): datum, kontakt_id/firma_id, bezahlt, storniert. verkauf_positionen.typ (flasche|tank|sonstiges|trauben), fuellung_id/weinausbau_id/zukauf_id verknüpfen zur verkauften Sache, menge, preis_brutto, rabatt_pct, sonderrabatt_pct (Netto-Betrag = preis_brutto*menge*(1-rabatt_pct/100)*(1-sonderrabatt_pct/100)).
 - zukauf_posten: zugekaufte Trauben/Most/Wein von Lieferanten. traubenverkauf: verkaufte (nicht zugekaufte) Trauben.
@@ -114,6 +126,12 @@ REGELN für die SQL-Abfrage:
   werden dem User als Tabellenüberschriften angezeigt.
 - Bei Textsuche IMMER ILIKE mit %...% verwenden (Groß-/Kleinschreibung ignorieren), nie exaktes "=" bei
   Namen/Bezeichnungen.
+- Wenn der User einen Sorten-, Verschnitt-/Cuvée- oder sonstigen Bezeichnungs-Begriff nennt (z.B. "Zierfandler",
+  "Sortenverschnitt", "Reserve") und aus dem fachlichen Kontext oben NICHT eindeutig hervorgeht, in welcher
+  einzelnen Spalte dieser Begriff steht, suche IMMER mit ILIKE über ALLE plausiblen Textspalten gleichzeitig,
+  verbunden mit OR (z.B. "WHERE name ILIKE '%Reserve%' OR rebsorte ILIKE '%Reserve%' OR bezeichnung ILIKE
+  '%Reserve%'") statt dich auf eine einzelne Spalte festzulegen – eine zu enge Spaltenwahl liefert sonst
+  fälschlich "keine Ergebnisse", obwohl passende Daten in einer anderen Spalte stehen.
 - "abgeschlossene" Weinausbau-Chargen haben immer menge_liter=0 – wenn nach aktuellem Kellerbestand
   gefragt wird, ist meist status <> 'abgeschlossen' UND menge_liter > 0 gemeint (aber nicht blind
   hinzufügen, wenn die Frage explizit auch abgeschlossene/historische Chargen einschließen will).
