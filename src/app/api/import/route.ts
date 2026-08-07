@@ -21,7 +21,7 @@ function mapVal(row: R, csvKey: string | undefined, transform?: (v: string) => u
 export async function POST(req: NextRequest) {
   try {
     const { typ, rows, mapping } = await req.json() as {
-      typ: 'kontakte' | 'firmen' | 'fuellungen'
+      typ: 'kontakte' | 'firmen' | 'fuellungen' | 'rieden' | 'gebinde'
       rows: R[]
       mapping: Record<string, string>
     }
@@ -100,6 +100,30 @@ export async function POST(req: NextRequest) {
             vk_preis_brutto:    mapVal(row, mapping.vk_preis_brutto, v => parseFloat(v.replace(',','.')) || null) ?? null,
             einstandspreis:     mapVal(row, mapping.einkaufspreis, v => parseFloat(v.replace(',','.')) || null) ?? null,
             notizen:            mapVal(row, mapping.notizen) ?? null,
+            aktiv: true,
+          })
+          if (error) { details.push(`Zeile ${i+2}: ${error.message}`); continue }
+
+        } else if (typ === 'rieden') {
+          const name = mapVal(row, mapping.name)
+          if (!name) { details.push(`Zeile ${i+2}: Bezeichnung fehlt – übersprungen`); continue }
+          const { error } = await (supabase.from('weingarten') as any).insert({
+            tenant_id: tenantId,
+            name,
+            notizen:   mapVal(row, mapping.notizen) ?? null,
+            aktiv: true,
+          })
+          if (error) { details.push(`Zeile ${i+2}: ${error.message}`); continue }
+
+        } else if (typ === 'gebinde') {
+          const name = mapVal(row, mapping.name)
+          if (!name) { details.push(`Zeile ${i+2}: Bezeichnung fehlt – übersprungen`); continue }
+          const { error } = await (supabase.from('behaelter') as any).insert({
+            tenant_id:     tenantId,
+            name,
+            typ:           mapVal(row, mapping.typ) ?? null,
+            volumen_liter: mapVal(row, mapping.volumen_liter, v => parseFloat(v.replace(',', '.')) || null) ?? null,
+            standort:      mapVal(row, mapping.standort) ?? null,
             aktiv: true,
           })
           if (error) { details.push(`Zeile ${i+2}: ${error.message}`); continue }

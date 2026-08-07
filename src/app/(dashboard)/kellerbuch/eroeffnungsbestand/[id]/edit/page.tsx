@@ -40,7 +40,7 @@ export default async function EroeffnungsbestandEditPage({ params }: { params: P
 
   const [{ data: rowRaw }, { data: gebindeRaw }] = await Promise.all([
     (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, kmw, menge_liter, qualitaetsstufe, behaelter_id, notizen, einstandspreis_pro_liter')
+      .select('id, name, jahrgang, kmw, menge_liter, qualitaetsstufe, behaelter_id, notizen, einstandspreis_pro_liter, referenz_altsystem')
       .eq('id', id).eq('ist_eroeffnungsbestand', true).limit(1),
     (supabase.from('behaelter') as any).select('id, name').eq('aktiv', true).order('name'),
   ])
@@ -107,6 +107,10 @@ export default async function EroeffnungsbestandEditPage({ params }: { params: P
                 <option key={q.value} value={q.value}>{q.label}</option>
               ))}
             </select>
+          </div>
+          <div>
+            <label className={labelCls}>Referenz Altsystem</label>
+            <input name="referenz_altsystem" defaultValue={eintrag.referenz_altsystem ?? ''} className={inputCls} />
           </div>
           <div className="sm:col-span-2">
             <label className={labelCls}>Notizen</label>

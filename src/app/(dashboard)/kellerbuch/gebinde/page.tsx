@@ -59,7 +59,7 @@ export default async function GebindePage({
       .eq('aktiv', true)
       .order('name'),
     (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, kmw, menge_liter, qualitaetsstufe, behaelter_id, behaelter:behaelter_id(name), notizen, einstandspreis_pro_liter, transaktions_nr, aktiv')
+      .select('id, name, jahrgang, kmw, menge_liter, qualitaetsstufe, behaelter_id, behaelter:behaelter_id(name), notizen, einstandspreis_pro_liter, referenz_altsystem, transaktions_nr, aktiv')
       .eq('ist_eroeffnungsbestand', true)
       .eq('aktiv', true)
       .order('jahrgang', { ascending: false }),
@@ -361,6 +361,10 @@ export default async function GebindePage({
                     ))}
                   </select>
                 </div>
+                <div>
+                  <label className={labelCls}>Referenz Altsystem</label>
+                  <input name="referenz_altsystem" placeholder="z.B. Chargen-Nr. Altsystem" className={inputCls} />
+                </div>
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Notizen</label>
                   <input name="notizen" placeholder="z.B. Herkunft Altsystem …" className={inputCls} />
@@ -386,6 +390,7 @@ export default async function GebindePage({
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Einstand/L</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Gebinde</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Qualität</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Referenz Altsystem</th>
                   {writeOk && <th className="px-4 py-2.5" />}
                 </tr>
               </thead>
@@ -408,6 +413,7 @@ export default async function GebindePage({
                     </td>
                     <td className="px-4 py-2.5 text-gray-600">{(e.behaelter as R | null)?.name ?? '–'}</td>
                     <td className="px-4 py-2.5 text-gray-600 text-xs">{e.qualitaetsstufe ?? '–'}</td>
+                    <td className="px-4 py-2.5 text-gray-600 text-xs">{e.referenz_altsystem ?? '–'}</td>
                     {writeOk && (
                       <td className="px-4 py-2.5 text-right whitespace-nowrap">
                         {parseFloat(e.menge_liter) > 0.01 && (
@@ -427,7 +433,7 @@ export default async function GebindePage({
                   </tr>
                 ))}
                 {eroeffnungen.length === 0 && (
-                  <tr><td colSpan={writeOk ? 9 : 8} className="px-4 py-6 text-center text-xs text-s112-muted italic">Noch keine Eröffnungsbestände erfasst</td></tr>
+                  <tr><td colSpan={writeOk ? 10 : 9} className="px-4 py-6 text-center text-xs text-s112-muted italic">Noch keine Eröffnungsbestände erfasst</td></tr>
                 )}
               </tbody>
             </table>

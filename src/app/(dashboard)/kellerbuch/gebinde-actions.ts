@@ -17,7 +17,11 @@ async function getTenantId(): Promise<string> {
 
 // EROEFFNUNGSBESTAND
 
-export async function createEroeffnungsbestand(formData: FormData) {
+// Gemeinsame Einfuegelogik fuer Eroeffnungsbestand-Chargen - wird sowohl von der
+// "normalen" Erfassung (Kellerbuch > Gebinde > Eroeffnungsbestand) als auch von der
+// Anfangsbestandsbuchung im Datenimport (Gebinde) verwendet ("Chargenformular recyceln").
+// Gibt bei Erfolg null zurueck, sonst die Fehlermeldung.
+async function insertEroeffnungsbestand(formData: FormData): Promise<string | null> {
   const supabase  = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
   const menge     = parseFloat(formData.get('menge_liter') as string)
@@ -38,6 +42,7 @@ export async function createEroeffnungsbestand(formData: FormData) {
     behaelter_id:         (formData.get('behaelter_id') as string) || null,
     notizen:              (formData.get('notizen') as string) || null,
     einstandspreis_pro_liter: epRaw ? parseFloat(epRaw) : null,
+    referenz_altsystem:   (formData.get('referenz_altsystem') as string) || null,
     transaktions_nr:      txnEb ?? null,
     status:               'ausbau',
     ist_eroeffnungsbestand: true,
@@ -47,11 +52,30 @@ export async function createEroeffnungsbestand(formData: FormData) {
 
   const { error } = await (supabase.from('weinausbau') as any).insert(payload)
   if (error) {
-    console.error('[createEroeffnungsbestand] DB Fehler:', (error as R).message, (error as R).code)
-    redirect(`/kellerbuch/gebinde?tab=eroeffnungsbestand&err=${encodeURIComponent((error as R).message)}`)
+    console.error('[insertEroeffnungsbestand] DB Fehler:', (error as R).message, (error as R).code)
+    return (error as R).message
   }
   revalidatePath('/kellerbuch/gebinde')
+  return null
+}
+
+export async function createEroeffnungsbestand(formData: FormData) {
+  const fehler = await insertEroeffnungsbestand(formData)
+  if (fehler) {
+    redirect(`/kellerbuch/gebinde?tab=eroeffnungsbestand&err=${encodeURIComponent(fehler)}`)
+  }
   redirect('/kellerbuch/gebinde?tab=eroeffnungsbestand')
+}
+
+// Wie createEroeffnungsbestand, aber fuer die Anfangsbestandsbuchung innerhalb des
+// Datenimport-Menuepunkts (Gebinde) - fuehrt nach dem Speichern zurueck zum Datenimport
+// statt zum Kellerbuch. Diese Buchungsmoeglichkeit wird bewusst NUR dort angeboten.
+export async function createEroeffnungsbestandVonImport(formData: FormData) {
+  const fehler = await insertEroeffnungsbestand(formData)
+  if (fehler) {
+    redirect(`/admin/import?typ=gebinde&err=${encodeURIComponent(fehler)}`)
+  }
+  redirect('/admin/import?typ=gebinde&eb=1')
 }
 
 export async function updateEroeffnungsbestand(id: string, formData: FormData) {
@@ -68,6 +92,7 @@ export async function updateEroeffnungsbestand(id: string, formData: FormData) {
     behaelter_id:    (formData.get('behaelter_id') as string) || null,
     notizen:         (formData.get('notizen') as string) || null,
     einstandspreis_pro_liter: epRaw2 ? parseFloat(epRaw2) : null,
+    referenz_altsystem: (formData.get('referenz_altsystem') as string) || null,
   }
 
   const { error } = await (supabase.from('weinausbau') as any).update(payload).eq('id', id)

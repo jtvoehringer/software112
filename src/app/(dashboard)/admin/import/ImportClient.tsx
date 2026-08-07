@@ -1,8 +1,31 @@
 'use client'
 import { useState, useRef } from 'react'
 import { Upload } from 'lucide-react'
+import { createEroeffnungsbestandVonImport } from '@/app/(dashboard)/kellerbuch/gebinde-actions'
 
-type ImportTyp = 'kontakte' | 'firmen' | 'fuellungen'
+type ImportTyp = 'kontakte' | 'firmen' | 'fuellungen' | 'rieden' | 'gebinde'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type R = Record<string, any>
+
+const QUALITAETEN = [
+  { value: 'qualitaetswein',       label: 'Qualitätswein' },
+  { value: 'kabinett',             label: 'Kabinett' },
+  { value: 'spaetlese',            label: 'Spätlese' },
+  { value: 'auslese',              label: 'Auslese' },
+  { value: 'beerenauslese',        label: 'Beerenauslese' },
+  { value: 'trockenbeerenauslese', label: 'Trockenbeerenauslese (TBA)' },
+  { value: 'eiswein',              label: 'Eiswein' },
+  { value: 'strohwein',            label: 'Strohwein / Schilfwein' },
+  { value: 'dac',                  label: 'DAC' },
+  { value: 'reserve',              label: 'Reservé / Reserve' },
+  { value: 'erste_lage',           label: 'Erste Lage (ÖTW)' },
+  { value: 'grosses_gewachs',      label: 'Großes Gewächs' },
+  { value: 'landwein',             label: 'Landwein' },
+  { value: 'sekt',                 label: 'Sekt b.A.' },
+  { value: 'perlwein',             label: 'Perlwein' },
+  { value: 'sonstiges',            label: 'Sonstiges' },
+]
 
 const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean }[]> = {
   kontakte: [
@@ -41,13 +64,28 @@ const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean 
     { key: 'einkaufspreis',       label: 'Einkaufspreis (€)' },
     { key: 'notizen',             label: 'Notizen' },
   ],
+  rieden: [
+    { key: 'name',      label: 'Bezeichnung (Ried)', pflicht: true },
+    { key: 'notizen',   label: 'Notizen' },
+  ],
+  gebinde: [
+    { key: 'name',           label: 'Bezeichnung', pflicht: true },
+    { key: 'typ',            label: 'Typ (lagertank/immervolltank/holzfass/betonei/amphore/sonstiges)' },
+    { key: 'volumen_liter',  label: 'Fassungsvermögen (Liter)' },
+    { key: 'standort',       label: 'Standort' },
+  ],
 }
 
 const TYP_LABEL: Record<ImportTyp, string> = {
   kontakte: 'Kontakte',
   firmen:   'Firmen',
   fuellungen: 'Füllungen (Weinlager)',
+  rieden:   'Rieden',
+  gebinde:  'Gebinde',
 }
+
+const ebInputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+const ebLabelCls = 'block text-xs font-medium text-gray-600 mb-1'
 
 function parseCsv(text: string): { headers: string[]; rows: Record<string, string>[] } {
   const lines = text.trim().split('\n').filter(Boolean)
@@ -61,8 +99,21 @@ function parseCsv(text: string): { headers: string[]; rows: Record<string, strin
   return { headers, rows }
 }
 
-export default function ImportClient() {
-  const [typ, setTyp]               = useState<ImportTyp>('kontakte')
+const ALLE_TYPEN = Object.keys(TYP_LABEL) as ImportTyp[]
+
+export default function ImportClient({
+  gebinde = [],
+  initialTyp,
+  ebOk = false,
+  ebErr,
+}: {
+  gebinde?: R[]
+  initialTyp?: string
+  ebOk?: boolean
+  ebErr?: string
+}) {
+  const startTyp = (ALLE_TYPEN as string[]).includes(initialTyp ?? '') ? (initialTyp as ImportTyp) : 'kontakte'
+  const [typ, setTyp]               = useState<ImportTyp>(startTyp)
   const [csvText, setCsvText]       = useState('')
   const [parsed, setParsed]         = useState<{ headers: string[]; rows: Record<string, string>[] } | null>(null)
   const [mapping, setMapping]       = useState<Record<string, string>>({})
@@ -128,6 +179,93 @@ export default function ImportClient() {
           </button>
         ))}
       </div>
+
+      {/* Anfangsbestandsbuchung: Charge aus Altsystem übernehmen - nur bei Gebinde, und
+          bewusst nur hier im Datenimport angeboten (nicht als eigener Menüpunkt). Nutzt
+          dieselbe Server-Action wie die Eröffnungsbestand-Erfassung im Kellerbuch
+          ("Chargenformular recyceln"), leitet nach dem Speichern aber hierher zurück. */}
+      {typ === 'gebinde' && (
+        <div className="bg-white rounded-2xl border border-s112-border p-6 mb-5">
+          <h2 className="font-semibold text-gray-800 mb-1">Anfangsbestandsbuchung: Charge aus Altsystem übernehmen</h2>
+          <p className="text-sm text-s112-muted mb-4">
+            Einzelne Charge mit Restbestand aus dem Altsystem direkt in ein Gebinde einbuchen (Bestand wird auf den 1.1. des laufenden Jahres gebucht).
+          </p>
+
+          {ebOk && (
+            <div className="mb-4 rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-700">
+              Anfangsbestand wurde gespeichert.
+            </div>
+          )}
+          {ebErr && (
+            <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <strong>Fehler beim Speichern:</strong> {ebErr}
+            </div>
+          )}
+
+          <details className="group">
+            <summary className="cursor-pointer font-semibold text-sm text-gray-800 select-none">
+              + Anfangsbestand erfassen
+            </summary>
+            <form action={createEroeffnungsbestandVonImport} className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                <label className={ebLabelCls}>Weinbezeichnung *</label>
+                <input name="name" required placeholder="z.B. Grüner Veltliner Ried Hohenberg" className={ebInputCls} />
+              </div>
+              <div>
+                <label className={ebLabelCls}>Gebinde</label>
+                <select name="behaelter_id" className={ebInputCls}>
+                  <option value="">– kein –</option>
+                  {gebinde.map((g: R) => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={ebLabelCls}>Jahrgang</label>
+                <input name="jahrgang" type="number" min={1900} max={2100}
+                  defaultValue={new Date().getFullYear() - 1} className={ebInputCls} />
+              </div>
+              <div>
+                <label className={ebLabelCls}>KMW (°KMW)</label>
+                <input name="kmw" type="number" step="0.1" min={0} max={50}
+                  placeholder="z.B. 17.5" className={ebInputCls} />
+              </div>
+              <div>
+                <label className={ebLabelCls}>Menge (Liter) *</label>
+                <input name="menge_liter" type="number" step="0.01" min={0}
+                  required placeholder="z.B. 3000" className={ebInputCls} />
+              </div>
+              <div>
+                <label className={ebLabelCls}>Einstandspreis pro Liter (€)</label>
+                <input name="einstandspreis_pro_liter" type="text" inputMode="decimal"
+                  placeholder="z.B. 1,50" className={ebInputCls} />
+              </div>
+              <div>
+                <label className={ebLabelCls}>Qualitätsstufe</label>
+                <select name="qualitaetsstufe" className={ebInputCls}>
+                  <option value="">– keine –</option>
+                  {QUALITAETEN.map(q => (
+                    <option key={q.value} value={q.value}>{q.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={ebLabelCls}>Referenz Altsystem</label>
+                <input name="referenz_altsystem" placeholder="z.B. Chargen-Nr. Altsystem" className={ebInputCls} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className={ebLabelCls}>Notizen</label>
+                <input name="notizen" placeholder="z.B. Herkunft Altsystem …" className={ebInputCls} />
+              </div>
+              <div className="sm:col-span-2">
+                <button type="submit" className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+                  Anfangsbestand speichern
+                </button>
+              </div>
+            </form>
+          </details>
+        </div>
+      )}
 
       {/* CSV-Upload */}
       <div className="bg-white rounded-2xl border border-s112-border p-6 mb-5">
