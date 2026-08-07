@@ -78,6 +78,8 @@ export type TenantSettings = {
   // Migration 098 – E&A, SumUp (FIBU entfernt)
   modul_ea:            boolean
   modul_sumup:         boolean
+  // Migration 152 – Exportaufträge (Weinexport)
+  modul_export:        boolean
   // Migration 148 – Prozess-Assistent (Bot)
   assistent_aktiv:     boolean
   ea_buchung_modus:    string
@@ -206,6 +208,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     session_timeout_minuten: s?.session_timeout_minuten ?? null,
     modul_ea:            !!(s?.modul_ea),
     modul_sumup:         !!(s?.modul_sumup),
+    modul_export:        !!(s?.modul_export),
     ea_buchung_modus:    s?.ea_buchung_modus ?? 'brutto',
     ea_kleinunternehmer: !!(s?.ea_kleinunternehmer),
     ea_uva_zeitraum:     s?.ea_uva_zeitraum ?? 'quartalsweise',

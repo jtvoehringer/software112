@@ -38,6 +38,7 @@ export async function saveTenantSettings(tenantId: string, formData: FormData) {
     modul_weingarten:   formData.get('modul_weingarten') === 'true',
     modul_ea:           formData.get('modul_ea')           === 'true',
     modul_sumup:        formData.get('modul_sumup')        === 'true',
+    modul_export:       formData.get('modul_export')       === 'true',
     assistent_aktiv:    formData.get('assistent_aktiv')    === 'true',
     brevo_api_key:      (formData.get('brevo_api_key') as string) || null,
     brevo_sender_mail:  (formData.get('brevo_sender_mail') as string) || null,

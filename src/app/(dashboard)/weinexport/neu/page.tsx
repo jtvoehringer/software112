@@ -19,6 +19,15 @@ export default async function NeuPage() {
   const { data: membership } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
   const tenantId = (membership as R | null)?.tenant_id
 
+  // Exportaufträge ist ein optionales Modul (Migration 152) - pro Mandant unter
+  // Admin > Mandant > Module ein-/ausschaltbar.
+  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
+    .select('modul_export').eq('tenant_id', tenantId).maybeSingle()
+  if (!einst?.modul_export) {
+    const { redirect } = await import('next/navigation')
+    redirect('/dashboard')
+  }
+
   const [{ data: kontakte }, { data: firmen }, { data: fuellungen }] = await Promise.all([
     (supabase.from('kontakte') as any).select('id,vorname,nachname').eq('tenant_id', tenantId).eq('aktiv', true).order('nachname'),
     (supabase.from('firmen') as any).select('id,name').eq('tenant_id', tenantId).eq('aktiv', true).order('name'),

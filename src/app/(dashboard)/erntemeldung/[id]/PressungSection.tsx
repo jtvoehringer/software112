@@ -88,7 +88,6 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
   const [mostLiter, setMostLiter]           = useState(pressung?.most_liter_gesamt?.toString().replace('.', ',') ?? '')
   const [weinbezeichnung, setWeinbez]       = useState(pressung?.weinbezeichnung ?? '')
   const [notizen, setNotizen]               = useState(pressung?.notizen ?? '')
-  const [qualitaetsstufe, setQualitaetsstufe] = useState<string>('')
 
   // Pre-fill aus Erntedaten: eine Zeile pro Parzelle (GST oder Ried)
   // Verfügbare kg direkt per GST-ID (kein proportionales Verteilen mehr)
@@ -103,29 +102,12 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
         trauben_kg: w.trauben_kg.toString().replace('.', ','),
         rebsorte: w.rebsorte ?? '', notizen: w.notizen ?? '',
       }))
-    : (() => {
-        const rows: WGRow[] = leseParzellen
-          .filter(p => (p.menge_kg ?? 0) > 0 && gstVerfuegbar(p.grundstueck_id) > 0)
-          .map(p => ({
-            weingarten_id: p.weingarten_id,
-            grundstueck_id: p.grundstueck_id ?? '',
-            zukauf_posten_id: '',
-            trauben_kg: gstVerfuegbar(p.grundstueck_id).toString().replace('.', ','),
-            rebsorte: p.grundstueck_rebsorte ?? p.rebsorte ?? '',
-            notizen: '',
-          }))
-        // Zugekaufte Trauben ebenfalls als Vorschlag aufnehmen (Punkt 3a)
-        const zukaufRows: WGRow[] = zukaufTrauben
-          .filter(z => z.verfuegbar_kg > 0)
-          .map(z => ({
-            weingarten_id: '', grundstueck_id: '', zukauf_posten_id: z.id,
-            trauben_kg: z.verfuegbar_kg.toString().replace('.', ','),
-            rebsorte: z.rebsorte ?? '',
-            notizen: `Zukauf${z.lieferant ? ' – ' + z.lieferant : ''}`,
-          }))
-        const alle = [...rows, ...zukaufRows]
-        return alle.length > 0 ? alle : [emptyWG()]
-      })()
+    // Kein Vorbelegen mehr mit allen verfügbaren GST/Zukauf-Posten (vorher: "abmelden"
+    // nicht gewünschter Trauben per X). Stattdessen startet die Pressung leer - die
+    // pressbaren Trauben werden aktiv über das Dropdown "angemeldet" (ausgewählt);
+    // die Menge (kg) wird dabei automatisch mit der vollen verfügbaren Menge vorbefüllt
+    // (siehe updateWG), kann aber vor dem Speichern reduziert werden.
+    : [emptyWG()]
   const [wgRows, setWgRows] = useState<WGRow[]>(defaultWGRows)
   const [behRows, setBehRows] = useState<BehRow[]>(
     pressung?.behaelter.map(b => ({
@@ -212,6 +194,10 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
             grundstueck_id: '',
             zukauf_posten_id: opt.zukauf_posten_id,
             rebsorte: opt.rebsorte,
+            // Beim "Anmelden" die volle verfügbare Menge vorbefüllen (vor dem
+            // Speichern reduzierbar) - vorher wurde diese Menge nur beim
+            // automatischen Vorbelegen aller Posten gesetzt.
+            trauben_kg: opt.verfuegbar_kg.toString().replace('.', ','),
           } : r))
         }
         return
@@ -224,6 +210,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
           grundstueck_id: opt.grundstueck_id,
           zukauf_posten_id: '',
           rebsorte: opt.rebsorte,
+          trauben_kg: opt.verfuegbar_kg.toString().replace('.', ','),
         } : r))
       }
     } else {
@@ -243,7 +230,9 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     fd.append('most_liter_gesamt', mostLiter)
     fd.append('weinbezeichnung', weinbezeichnung)
     fd.append('kmw_grad', kmwGrad)
-    fd.append('qualitaetsstufe', qualitaetsstufe)
+    // Qualitätsstufe wird bewusst NICHT vom Formular mitgeschickt: der Server
+    // leitet sie automatisch aus den °KMW ab (siehe upsertPressung/autoQualitaet).
+    // Ein bewusstes manuelles Abstufen bleibt bei der Abfüllung möglich.
     fd.append('notizen', notizen)
     fd.append('weingaerten_json', JSON.stringify(
       wgRows.filter(r => (r.weingarten_id || r.zukauf_posten_id) && r.trauben_kg).map(r => ({
@@ -362,8 +351,8 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
           <input type="date" value={datum} onChange={e => setDatum(e.target.value)} required className={inp} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Mostausbeute gesamt (L)</label>
-          <input type="text" inputMode="decimal" value={mostLiter} onChange={e => setMostLiter(e.target.value)}
+          <label className="block text-xs font-medium text-gray-600 mb-1">Mostausbeute gesamt (L) *</label>
+          <input type="text" inputMode="decimal" required value={mostLiter} onChange={e => setMostLiter(e.target.value)}
             placeholder="z.B. 1.050" className={inp} />
         </div>
         <div className="col-span-2">
@@ -372,25 +361,12 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
             <div className="border border-s112-border rounded-lg px-2 py-1.5 text-sm bg-s112-bg text-gray-700 cursor-not-allowed whitespace-nowrap shrink-0">
               {kmwGrad ? `${kmwGrad} °KMW` : <span className="text-s112-muted text-xs">– kein KMW</span>}
             </div>
-            {kmwQualitaet && (
-              <button
-                type="button"
-                onClick={() => setQualitaetsstufe(kmwQualitaet)}
-                className="shrink-0 text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap hover:bg-amber-200 transition-colors cursor-pointer"
-              >
-                → {QUALITAET_LABEL[kmwQualitaet]}
-              </button>
-            )}
-            <select
-              value={qualitaetsstufe}
-              onChange={e => setQualitaetsstufe(e.target.value)}
-              className={inp}
-            >
-              <option value="">– Qualitätsstufe –</option>
-              {(['wein','landwein','qualitaetswein','kabinett','spaetlese','auslese','beerenauslese','ausbruch','trockenbeerenauslese','eiswein','strohwein'] as const).map(q => (
-                <option key={q} value={q}>{QUALITAET_LABEL[q]}</option>
-              ))}
-            </select>
+            <div className="flex-1 flex items-center gap-2 border border-s112-border rounded-lg px-2 py-1.5 bg-s112-bg">
+              <span className="shrink-0 text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap">
+                {QUALITAET_LABEL[kmwQualitaet ?? 'qualitaetswein']}
+              </span>
+              <span className="text-xs text-s112-muted">automatisch aus °KMW · manuelles Abstufen bei der Abfüllung möglich</span>
+            </div>
           </div>
         </div>
         <div className="col-span-2">
@@ -491,7 +467,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
       {/* Befüllte Behälter/Chargen */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <label className="text-xs font-semibold text-gray-700">Most in Behälter/Charge</label>
+          <label className="text-xs font-semibold text-gray-700">Most in Behälter/Charge *</label>
           <button type="button" onClick={() => setBehRows(r => [...r, emptyBeh()])}
             className="text-xs text-s112-teal hover:underline">Behälter</button>
         </div>
@@ -499,7 +475,8 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
           {behRows.map((row, i) => (
             <div key={i} className="grid grid-cols-12 gap-1.5 items-center">
               <div className="col-span-6">
-                <select value={row.behaelter_id} onChange={e => updateBeh(i, 'behaelter_id', e.target.value)} className={inp}>
+                <select value={row.behaelter_id} onChange={e => updateBeh(i, 'behaelter_id', e.target.value)}
+                  required={i === 0} className={inp}>
                   <option value="">– Behälter –</option>
                   {behOptions.map(b => {
                     const vol = b.volumen_liter ?? null
@@ -579,7 +556,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
                 })()}
               </div>
               <div className="col-span-4">
-                <input type="text" inputMode="decimal" value={row.menge_liter}
+                <input type="text" inputMode="decimal" required={i === 0} value={row.menge_liter}
                   onChange={e => updateBeh(i, 'menge_liter', e.target.value)}
                   placeholder="Liter" className={inp} />
               </div>

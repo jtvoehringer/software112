@@ -18,6 +18,7 @@ export type TenantBranding = {
   modul_newsletter: boolean
   modul_ea: boolean
   modul_sumup: boolean
+  modul_export: boolean
 }
 
 // Entspricht exakt den CSS-Fallback-Werten in globals.css/tailwind.config.ts
@@ -32,6 +33,7 @@ const DEFAULT_BRANDING: TenantBranding = {
   modul_newsletter: false,
   modul_ea:         false,
   modul_sumup:      false,
+  modul_export:     false,
 }
 
 export default async function DashboardLayout({
@@ -60,7 +62,7 @@ export default async function DashboardLayout({
   let assistentAktiv = false
   if (membership?.tenantId) {
     const { data } = await (supabase.from('tenant_einstellungen') as any)
-      .select('anzeigename, logo_url, primary_color, secondary_color, modul_newsletter, modul_ea, modul_sumup, session_timeout_minuten, assistent_aktiv')
+      .select('anzeigename, logo_url, primary_color, secondary_color, modul_newsletter, modul_ea, modul_sumup, modul_export, session_timeout_minuten, assistent_aktiv')
       .eq('tenant_id', membership.tenantId)
       .maybeSingle()
 
@@ -75,6 +77,7 @@ export default async function DashboardLayout({
         modul_newsletter: d.modul_newsletter ?? false,
         modul_ea:         d.modul_ea ?? false,
         modul_sumup:      d.modul_sumup ?? false,
+        modul_export:     d.modul_export ?? false,
       }
       assistentAktiv = !!d.assistent_aktiv
     }

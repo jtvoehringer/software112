@@ -63,7 +63,9 @@ export async function updateJahrgang(id: string, formData: FormData) {
 export async function upsertErnteParzelle(jahrgangId: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const weingartenId = formData.get('weingarten_id') as string
-  const mengeKg = formData.get('menge_kg') ? Number(formData.get('menge_kg')) : null
+  // .replace(',', '.') ist nötig, da die Felder °KMW-typisch mit Komma-Dezimaltrennzeichen
+  // erfasst werden (de-AT) - ohne die Ersetzung liefert Number() bei "9,5" NaN.
+  const mengeKg = formData.get('menge_kg') ? Number((formData.get('menge_kg') as string).replace(',', '.')) : null
   const mengeHl = mengeKg ? mengeKg / 130 : null  // 1 hl ≈ 130 kg
   const grundstueckId = (formData.get('grundstueck_id') as string) || null
 
@@ -92,8 +94,8 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
     ernte_datum:      (formData.get('ernte_datum') as string) || null,
     menge_kg:         mengeKg,
     menge_hl:         mengeHl,
-    oechsle:          formData.get('oechsle') ? Number(formData.get('oechsle')) : null,
-    klosterneuburger: formData.get('klosterneuburger') ? Number(formData.get('klosterneuburger')) : null,
+    oechsle:          formData.get('oechsle') ? Number((formData.get('oechsle') as string).replace(',', '.')) : null,
+    klosterneuburger: formData.get('klosterneuburger') ? Number((formData.get('klosterneuburger') as string).replace(',', '.')) : null,
     qualitaetsstufe:  (formData.get('qualitaetsstufe') as string) || null,
     herkunft_code:    herkunftCode,
     lesemethode:      (formData.get('lesemethode') as string) || null,
@@ -119,7 +121,7 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   const supabase = await createSupabaseServerClient()
   const weingartenIds = formData.getAll('weingarten_ids') as string[]
 
-  type GSTEntry = { gst_id: string; weingarten_id: string; flaeche_ha: number | null; menge_kg?: number | null; kmw?: number | null; notizen?: string | null }
+  type GSTEntry = { gst_id: string; weingarten_id: string; flaeche_ha: number | null; menge_kg?: number | null; kmw?: number | null; lesemethode?: string | null; notizen?: string | null }
   const gstJsonRaw = formData.get('grundstueck_json') as string | null
   const gstEntries: GSTEntry[] = gstJsonRaw ? JSON.parse(gstJsonRaw) : []
 
@@ -129,8 +131,11 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
 
   const ernteDatum  = (formData.get('ernte_datum') as string) || null
   const lesemethode = (formData.get('lesemethode') as string) || null
-  const kmw         = formData.get('klosterneuburger') ? Number(formData.get('klosterneuburger')) : null
-  const qualitaet   = (formData.get('qualitaetsstufe') as string) || null
+  // .replace(',', '.') nötig für de-AT-Komma-Eingabe (z.B. "9,5") - siehe upsertErnteParzelle.
+  const kmw         = formData.get('klosterneuburger') ? Number((formData.get('klosterneuburger') as string).replace(',', '.')) : null
+  // Qualitätsstufe wird ausschließlich aus den °KMW abgeleitet (kein manuelles Formularfeld
+  // mehr) - Fallback 'qualitaetswein', wenn kein KMW erfasst wurde.
+  const qualitaet   = kmw != null ? kmwZuQualitaet(kmw) : 'qualitaetswein'
   const notizen     = (formData.get('notizen') as string) || null
   const mengeKgRaw  = formData.get('menge_kg') as string | null
   const mengeKg     = mengeKgRaw ? Number(mengeKgRaw.replace(',', '.')) : null
@@ -199,6 +204,7 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
       const kg = g.menge_kg != null ? g.menge_kg : mengen[i]
       const perKmw = g.kmw != null ? g.kmw : kmw
       const perQualitaet = perKmw != null ? kmwZuQualitaet(perKmw) : qualitaet
+      const perLesemethode = g.lesemethode ?? lesemethode
       const perNotizen = g.notizen ?? notizen
       const gstStamm = gstStammdatenMap.get(g.gst_id)
       const passend = findePassendeHerkunftsstufe(gstStamm?.trauben_herkunft_code ?? null, gstStamm?.rebsorte ?? null)
@@ -209,7 +215,7 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
         ...base,
         weingarten_id: wgId, grundstueck_id: g.gst_id,
         menge_kg: kg, menge_hl: kg ? kg / 130 : null,
-        klosterneuburger: perKmw, qualitaetsstufe: perQualitaet, notizen: finaleNotizen,
+        klosterneuburger: perKmw, qualitaetsstufe: perQualitaet, lesemethode: perLesemethode, notizen: finaleNotizen,
         herkunft_code: passend.code,
       })
     })
@@ -479,7 +485,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
           jahrgang:        jgJahr,
           rebsorte:        dominantRebsorte,
           menge_liter:     beh.menge_liter ?? null,
-          status:          'gaerung',
+          status:          'ausbau',
           behaelter_id:    beh.behaelter_id,
           qualitaetsstufe: autoQualitaet,
           herkunft_code:   autoHerkunft,

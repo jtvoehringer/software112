@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -8,6 +9,14 @@ type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explic
 
 export default async function WeinexportDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createSupabaseServerClient()
+
+  // Exportaufträge ist ein optionales Modul (Migration 152) - pro Mandant unter
+  // Admin > Mandant > Module ein-/ausschaltbar.
+  const { data: membership } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
+  const tenantId = (membership as R | null)?.tenant_id
+  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
+    .select('modul_export').eq('tenant_id', tenantId).maybeSingle()
+  if (!einst?.modul_export) redirect('/dashboard')
 
   const { id } = await params
   const [{ data: auftrag }, { data: positionen }, { data: dokumente }] = await Promise.all([

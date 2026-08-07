@@ -41,11 +41,9 @@ function NeueParzellenForm({
   const [selectedGSTs, setSelectedGSTs] = useState<Map<string, string>>(new Map())
   const [expandedWGs, setExpandedWGs] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
-  const [gstData, setGstData] = useState<Map<string, { menge_kg: string; kmw: string; notizen: string }>>(new Map())
+  const [gstData, setGstData] = useState<Map<string, { menge_kg: string; kmw: string; lesemethode: string; notizen: string }>>(new Map())
   const [kmwNeu, setKmwNeu] = useState<number | null>(null)
   const derivedQualitaetNeu = kmwNeu != null ? kmwZuQualitaet(kmwNeu) : 'qualitaetswein'
-  const [qualitaetNeu, setQualitaetNeu] = useState<string | null>(null)
-  const effectiveQualitaetNeu = qualitaetNeu ?? derivedQualitaetNeu
 
   const riedMap = new Map<string, WeingartenOpt[]>()
   for (const w of weingaerten) {
@@ -68,7 +66,7 @@ function NeueParzellenForm({
     const wasSelected = selectedGSTs.has(gstId)
     setSelectedWGs(prev => { const n = new Set(prev); n.delete(wgId); return n })
     setSelectedGSTs(prev => { const n = new Map(prev); wasSelected ? n.delete(gstId) : n.set(gstId, wgId); return n })
-    setGstData(prev => { const n = new Map(prev); wasSelected ? n.delete(gstId) : n.set(gstId, { menge_kg: '', kmw: '', notizen: '' }); return n })
+    setGstData(prev => { const n = new Map(prev); wasSelected ? n.delete(gstId) : n.set(gstId, { menge_kg: '', kmw: '', lesemethode: '', notizen: '' }); return n })
   }
   function toggleLage(wgs: WeingartenOpt[]) {
     const ids = wgs.map(w => w.id)
@@ -93,8 +91,9 @@ function NeueParzellenForm({
         const data = gstData.get(gst_id)
         return {
           gst_id, weingarten_id, flaeche_ha: gst?.flaeche_ha ?? null,
-          menge_kg: data?.menge_kg ? parseFloat(data.menge_kg) : null,
-          kmw: data?.kmw ? parseFloat(data.kmw) : null,
+          menge_kg: data?.menge_kg ? parseFloat(data.menge_kg.replace(',', '.')) : null,
+          kmw: data?.kmw ? parseFloat(data.kmw.replace(',', '.')) : null,
+          lesemethode: data?.lesemethode || null,
           notizen: data?.notizen || null,
         }
       })
@@ -184,26 +183,36 @@ function NeueParzellenForm({
                                 </label>
                                 {isGstSel && (
                                   <div className="pl-10 pr-4 pb-2 pt-1 bg-s112-teal/5 border-b border-s112-border/20">
-                                    <div className="grid grid-cols-3 gap-2">
+                                    <div className="grid grid-cols-4 gap-2">
                                       <div>
                                         <label className="block text-xs text-gray-500 mb-0.5">Menge kg</label>
                                         <input type="text" inputMode="decimal" placeholder="–"
                                           value={gstData.get(g.id)?.menge_kg ?? ''}
-                                          onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', notizen: '' }; n.set(g.id, { ...d, menge_kg: e.target.value }); return n })}
+                                          onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', lesemethode: '', notizen: '' }; n.set(g.id, { ...d, menge_kg: e.target.value }); return n })}
                                           className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white" />
                                       </div>
                                       <div>
                                         <label className="block text-xs text-gray-500 mb-0.5">°KMW</label>
                                         <input type="text" inputMode="decimal" placeholder="–"
                                           value={gstData.get(g.id)?.kmw ?? ''}
-                                          onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', notizen: '' }; n.set(g.id, { ...d, kmw: e.target.value }); return n })}
+                                          onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', lesemethode: '', notizen: '' }; n.set(g.id, { ...d, kmw: e.target.value }); return n })}
                                           className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white" />
+                                      </div>
+                                      <div>
+                                        <label className="block text-xs text-gray-500 mb-0.5">Lesemethode</label>
+                                        <select
+                                          value={gstData.get(g.id)?.lesemethode ?? ''}
+                                          onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', lesemethode: '', notizen: '' }; n.set(g.id, { ...d, lesemethode: e.target.value }); return n })}
+                                          className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white">
+                                          <option value="">–</option>
+                                          {LESEMETHODE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                        </select>
                                       </div>
                                       <div>
                                         <label className="block text-xs text-gray-500 mb-0.5">Notizen</label>
                                         <input type="text" placeholder="–"
                                           value={gstData.get(g.id)?.notizen ?? ''}
-                                          onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', notizen: '' }; n.set(g.id, { ...d, notizen: e.target.value }); return n })}
+                                          onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', lesemethode: '', notizen: '' }; n.set(g.id, { ...d, notizen: e.target.value }); return n })}
                                           className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white" />
                                       </div>
                                     </div>
@@ -228,40 +237,48 @@ function NeueParzellenForm({
           <label className="block text-xs font-medium text-gray-600 mb-1">Ernte-Datum</label>
           <input name="ernte_datum" type="date" defaultValue={new Date().toISOString().split('T')[0]} className={inputCls} />
         </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Lesemethode</label>
-          <select name="lesemethode" className={inputCls}>
-            <option value="">–</option>
-            {LESEMETHODE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            Menge kg
-            {selectedGSTs.size > 0
-              ? <span className="text-s112-muted font-normal"> (Fallback für GST ohne eigenen Wert)</span>
-              : <span className="text-s112-muted font-normal"> (anteilsmäßig auf GST aufgeteilt)</span>}
-          </label>
-          <input name="menge_kg" type="text" inputMode="decimal" className={inputCls} placeholder="–" />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">°KMW</label>
-          <input name="klosterneuburger" type="text" inputMode="decimal" className={inputCls}
-            onChange={e => { setKmwNeu(e.target.value ? parseFloat(e.target.value) : null); setQualitaetNeu(null) }} />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Qualitätsstufe</label>
-          <select name="qualitaetsstufe" value={effectiveQualitaetNeu}
-            onChange={e => setQualitaetNeu(e.target.value)}
-            className={inputCls}>
-            {QUALITAET_OPTS.map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-          {qualitaetNeu == null && (
-            <p className="text-xs text-s112-muted mt-0.5">↑ Wird aus °KMW abgeleitet – bei Bedarf anpassen</p>
-          )}
-        </div>
+
+        {/* Die "zweite Möglichkeit" (Menge/°KMW/Lesemethode formularweit erfassen) entfällt,
+            sobald einzelne Grundstücke ausgewählt sind - dort werden diese Werte direkt pro
+            GST erfasst (siehe oben). Sie wird nur gezeigt, wenn ausschließlich ganze Rieden
+            gewählt wurden. Die Qualitätsstufe wird dabei automatisch aus den °KMW abgeleitet
+            (kein manuelles Übernehmen mehr nötig). */}
+        {selectedGSTs.size === 0 ? (
+          <>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Lesemethode</label>
+              <select name="lesemethode" className={inputCls}>
+                <option value="">–</option>
+                {LESEMETHODE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Menge kg <span className="text-s112-muted font-normal">(anteilsmäßig auf GST aufgeteilt)</span>
+              </label>
+              <input name="menge_kg" type="text" inputMode="decimal" className={inputCls} placeholder="–" />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-gray-600 mb-1">°KMW & Qualitätsstufe</label>
+              <div className="flex items-center gap-2">
+                <input name="klosterneuburger" type="text" inputMode="decimal" placeholder="–"
+                  onChange={e => setKmwNeu(e.target.value ? parseFloat(e.target.value.replace(',', '.')) : null)}
+                  className={`flex-1 ${inputCls}`} />
+                <span className="shrink-0 text-xs font-semibold px-2 py-1.5 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap">
+                  {qualitaetLabel(derivedQualitaetNeu)}
+                </span>
+              </div>
+              <p className="text-xs text-s112-muted mt-0.5">Qualitätsstufe wird automatisch aus den °KMW abgeleitet.</p>
+            </div>
+          </>
+        ) : (
+          <div className="col-span-2 -mt-1">
+            <p className="text-xs text-s112-muted">
+              Menge, °KMW und Lesemethode werden für ausgewählte Grundstücke direkt dort erfasst (siehe oben).
+            </p>
+          </div>
+        )}
+
         <div className="col-span-2">
           <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
           <input name="notizen" className={inputCls} placeholder="optional" />
@@ -380,7 +397,7 @@ function ParzellForm({
           <label className="block text-xs font-medium text-gray-600 mb-1">°KMW</label>
           <input name="klosterneuburger" type="text" inputMode="decimal"
             defaultValue={parzelle?.klosterneuburger ?? ''}
-            onChange={e => { setKmwEdit(e.target.value ? parseFloat(e.target.value) : null); setQualitaetEdit(null) }}
+            onChange={e => { setKmwEdit(e.target.value ? parseFloat(e.target.value.replace(',', '.')) : null); setQualitaetEdit(null) }}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>

@@ -19,18 +19,23 @@ import {
 // Phase B): Icons nur auf Gruppen-/Top-Level-Ebene, 18px, stroke-width 1.5, keine
 // Icons in Untermenüpunkten oder Textbuttons.
 
+type ModulKey = 'modul_ea' | 'modul_sumup' | 'modul_export'
 type NavItem = {
   href: string; label: string; phase?: number; adminOnly?: boolean; child?: boolean
-  hideIfModul?: Array<'modul_ea' | 'modul_sumup'>
+  hideIfModul?: Array<ModulKey>
+  // Gegenstück zu hideIfModul: Item nur zeigen, wenn dieses Modul aktiv ist
+  // (z.B. Exportaufträge - anders als E&A/SumUp kein eigener Gruppen-Header,
+  // daher hier auf Item-Ebene statt via NavGroup.modulKey).
+  requireModul?: ModulKey
 }
 type NavGroup = {
   kind: 'group'; label: string; icon: LucideIcon; items: NavItem[]; adminOnly?: boolean
-  modulKey?: 'modul_ea' | 'modul_sumup'
+  modulKey?: ModulKey
 }
 type NavLink = {
   kind: 'link'; href: string; label: string; icon: LucideIcon
   phase?: number; adminOnly?: boolean
-  modulKey?: 'modul_ea' | 'modul_sumup'
+  modulKey?: ModulKey
 }
 type NavOverline = { kind: 'overline'; label: string }
 type NavEntry = NavGroup | NavLink | NavOverline
@@ -72,7 +77,7 @@ const NAV: NavEntry[] = [
       { href: '/weinhandel/zukauf',          label: 'Zukauf',         phase: 1 },
       { href: '/weinhandel/sonstige-artikel', label: 'Sonstiges-Produkte', phase: 1 },
       { href: '/weinhandel/rabattgruppen', label: 'Rabattgruppen',  phase: 1 },
-      { href: '/weinexport',               label: 'Exportaufträge' },
+      { href: '/weinexport',               label: 'Exportaufträge', requireModul: 'modul_export' },
     ],
   },
 
@@ -327,7 +332,8 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
             if (entry.adminOnly && !isAdmin) return null
             if (entry.modulKey && !branding[entry.modulKey]) return null
             const filteredItems = entry.items.filter(it =>
-              !it.hideIfModul?.some(m => branding[m as keyof TenantBranding])
+              !it.hideIfModul?.some(m => branding[m as keyof TenantBranding]) &&
+              (!it.requireModul || branding[it.requireModul as keyof TenantBranding])
             )
             const filteredEntry = { ...entry, items: filteredItems }
             const Icon = entry.icon

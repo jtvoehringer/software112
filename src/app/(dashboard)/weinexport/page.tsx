@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -21,6 +22,12 @@ export default async function WeinexportPage() {
   const supabase = await createSupabaseServerClient()
   const { data: membership } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
   const tenantId = (membership as R | null)?.tenant_id
+
+  // Exportaufträge ist ein optionales Modul (Migration 152) - pro Mandant unter
+  // Admin > Mandant > Module ein-/ausschaltbar, da nicht jeder Betrieb exportiert.
+  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
+    .select('modul_export').eq('tenant_id', tenantId).maybeSingle()
+  if (!einst?.modul_export) redirect('/dashboard')
 
   const { data: auftraege } = await (supabase.from('exportauftraege') as any)
     .select(`*, kontakte(vorname, nachname), firmen(name)`)

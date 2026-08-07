@@ -15,6 +15,30 @@ function sumBy<T>(arr: T[], key: (t: T) => string, val: (t: T) => number) {
   return Object.entries(m).sort((a, b) => b[1] - a[1])
 }
 
+function csvZelle(v: string) {
+  return `"${v.replace(/"/g, '""')}"`
+}
+
+function exportCSV(jahr: string, daten: Eintrag[]) {
+  const header = ['Periode', 'Kostenstelle', 'Kostenart', 'Ried', 'Behälter', 'Betrag']
+  const zeilen = daten.map(e => [
+    e.periode ?? '',
+    e.kostenstelle?.name ?? '',
+    e.kostenart?.name ?? '',
+    e.wg?.name ?? '',
+    e.behaelter?.name ?? '',
+    e.betrag.toFixed(2).replace('.', ','),
+  ].map(csvZelle).join(';'))
+  const csv = '\uFEFF' + [header.map(csvZelle).join(';'), ...zeilen].join('\r\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `Kostenauswertung_${jahr}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function KostenAuswertungPage() {
   const [jahr, setJahr] = useState(new Date().getFullYear().toString())
   const [daten, setDaten] = useState<Eintrag[]>([])
@@ -43,6 +67,10 @@ export default function KostenAuswertungPage() {
             className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
             {[2026,2025,2024,2023].map(y => <option key={y}>{y}</option>)}
           </select>
+          <button onClick={() => exportCSV(jahr, daten)}
+            className="text-sm border border-s112-border px-4 py-1.5 rounded-lg hover:bg-s112-bg flex items-center gap-2">
+            CSV exportieren
+          </button>
           <button onClick={() => window.print()}
             className="text-sm border border-s112-border px-4 py-1.5 rounded-lg hover:bg-s112-bg flex items-center gap-2">
             Drucken / PDF
