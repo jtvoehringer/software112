@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 
 type Eintrag = {
   betrag: number; periode: string | null; objekt_typ: string | null
@@ -57,6 +58,13 @@ export default function KostenAuswertungPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5 print:p-0">
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 text-sm text-s112-muted print:hidden">
+        <Link href="/reports" className="hover:text-s112-teal transition-colors">Auswertungen</Link>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">Kosten-Auswertung</span>
+      </div>
+
       <div className="flex items-center justify-between print:hidden">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Kosten-Auswertung</h1>

@@ -18,6 +18,12 @@ interface Props {
   kontaktFrequenz: { id: string; name: string; kundennummer: string | null; letzterKontakt: string | null; tage: number }[]
   offene: R[]
   heute: string
+  vsJahrgaenge: number[]
+  vsSorten: string[]
+  vsBezeichnungen: string[]
+  vsKunden: { id: string; name: string }[]
+  vsOrte: string[]
+  vsLaender: string[]
 }
 
 const TABS = [
@@ -29,6 +35,7 @@ const TABS = [
   { id: 'offen',      label: 'Offene Posten',    title: 'Unbezahlte Rechnungen' },
   { id: 'behoerden',  label: 'Behörden',          title: 'Behörden-Dokumente' },
   { id: 'besuch',     label: 'Besuchsplanung',    title: 'Besuchsplanung – PLZ-Cluster' },
+  { id: 'verkaufsstatistik', label: 'Verkaufsstatistik', title: 'Verkaufsstatistik' },
 ] as const
 type TabId = typeof TABS[number]['id']
 
@@ -70,6 +77,7 @@ function CsvBtn({ onClick, label = '↓ CSV' }: { onClick: () => void; label?: s
 
 export default function ReportsClient({
   umsatzMonate, lager, lagerWert, behandlungen, cuKgHa, pipeline, kontaktFrequenz, offene,
+  vsJahrgaenge, vsSorten, vsBezeichnungen, vsKunden, vsOrte, vsLaender,
 }: Props) {
   const [tab, setTab] = useState<TabId>('umsatz')
 
@@ -95,6 +103,19 @@ export default function ReportsClient({
   const [vergleichA, setVergleichA]       = useState('')
   const [vergleichB, setVergleichB]       = useState('')
   const [vergleichData, setVergleichData] = useState<{ monat: string; umsatz: number; anzahl: number }[]>([])
+
+  // Verkaufsstatistik
+  const [vsJahrgang, setVsJahrgang]         = useState('')
+  const [vsSorte, setVsSorte]               = useState('')
+  const [vsBezeichnung, setVsBezeichnung]   = useState('')
+  const [vsKunde, setVsKunde]               = useState('')
+  const [vsPlzVon, setVsPlzVon]             = useState('')
+  const [vsPlzBis, setVsPlzBis]             = useState('')
+  const [vsOrt, setVsOrt]                   = useState('')
+  const [vsLand, setVsLand]                 = useState('')
+  const [vsLaden, setVsLaden]               = useState(false)
+  const [vsFehler, setVsFehler]             = useState<string | null>(null)
+  const [vsResult, setVsResult]             = useState<{ zeilen: R[]; summeMenge: number; summeBetrag: number; anzahl: number } | null>(null)
 
   // Besuchsplanung
   const [bOrt, setBOrt]         = useState('')
@@ -232,6 +253,69 @@ export default function ReportsClient({
     )
   }
 
+  // ── Verkaufsstatistik ─────────────────────────────────────────────────────
+  async function ladeVerkaufsstatistik(e?: React.FormEvent) {
+    e?.preventDefault()
+    setVsLaden(true); setVsFehler(null)
+    try {
+      const params = new URLSearchParams()
+      if (vsJahrgang)    params.set('jahrgang', vsJahrgang)
+      if (vsSorte)       params.set('sorte', vsSorte)
+      if (vsBezeichnung) params.set('bezeichnung', vsBezeichnung)
+      if (vsKunde)       params.set('kunde', vsKunde)
+      if (vsPlzVon)      params.set('plzVon', vsPlzVon)
+      if (vsPlzBis)      params.set('plzBis', vsPlzBis)
+      if (vsOrt)         params.set('ort', vsOrt)
+      if (vsLand)        params.set('land', vsLand)
+      const res = await fetch(`/api/reports/verkaufsstatistik?${params.toString()}`)
+      const json = await res.json()
+      if (!res.ok || json.fehler) { setVsFehler(json.fehler ?? 'Fehler beim Laden.'); return }
+      setVsResult(json)
+    } catch (err) { setVsFehler(String(err)) }
+    finally { setVsLaden(false) }
+  }
+
+  function vsZuruecksetzen() {
+    setVsJahrgang(''); setVsSorte(''); setVsBezeichnung(''); setVsKunde('')
+    setVsPlzVon(''); setVsPlzBis(''); setVsOrt(''); setVsLand('')
+    setVsResult(null); setVsFehler(null)
+  }
+
+  function csvVerkaufsstatistik() {
+    if (!vsResult) return
+    exportCSV(
+      vsResult.zeilen.map(z => ({
+        datum:       fmtDate(z.datum),
+        rechnung:    z.rechnungsnummer ?? '',
+        kunde:       z.kunde,
+        ort:         z.ort ?? '',
+        plz:         z.plz ?? '',
+        land:        z.land ?? '',
+        produkt:     z.produkt,
+        jahrgang:    z.jahrgang ?? '',
+        sorte:       z.sorte ?? '',
+        bezeichnung: z.bezeichnung ?? '',
+        stk:         z.menge,
+        betrag:      z.betrag.toFixed(2),
+      })),
+      [
+        { key: 'datum',       header: 'Datum' },
+        { key: 'rechnung',    header: 'Rechnungsnummer' },
+        { key: 'kunde',       header: 'Kunde' },
+        { key: 'ort',         header: 'Ort' },
+        { key: 'plz',         header: 'PLZ' },
+        { key: 'land',        header: 'Land' },
+        { key: 'produkt',     header: 'Produkt' },
+        { key: 'jahrgang',    header: 'Jahrgang' },
+        { key: 'sorte',       header: 'Sorte' },
+        { key: 'bezeichnung', header: 'Bezeichnung' },
+        { key: 'stk',         header: 'Stk' },
+        { key: 'betrag',      header: 'Betrag (€)' },
+      ],
+      `verkaufsstatistik_${new Date().toISOString().slice(0,10)}.csv`
+    )
+  }
+
   // ── Besuchsplanung ────────────────────────────────────────────────────────
   async function ladeBesuch(e: React.FormEvent) {
     e.preventDefault()
@@ -311,6 +395,7 @@ export default function ReportsClient({
           {tab === 'lager'  && <CsvBtn onClick={csvLager} />}
           {tab === 'umsatz' && <CsvBtn onClick={csvUmsatz} />}
           {tab === 'offen'  && <CsvBtn onClick={csvOffene} />}
+          {tab === 'verkaufsstatistik' && vsResult && vsResult.zeilen.length > 0 && <CsvBtn onClick={csvVerkaufsstatistik} />}
         </div>
 
         {/* ── UMSATZ ────────────────────────────────────────────────────── */}
@@ -873,6 +958,141 @@ export default function ReportsClient({
                 </a>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* ── VERKAUFSSTATISTIK ────────────────────────────────────────── */}
+        {tab === 'verkaufsstatistik' && (
+          <div className="space-y-5">
+            <form onSubmit={ladeVerkaufsstatistik} className="grid grid-cols-1 sm:grid-cols-4 gap-3 print:hidden">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Jahrgang</label>
+                <select value={vsJahrgang} onChange={e => setVsJahrgang(e.target.value)}
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  <option value="">Alle</option>
+                  {vsJahrgaenge.map(j => <option key={j} value={j}>{j}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Sorte</label>
+                <select value={vsSorte} onChange={e => setVsSorte(e.target.value)}
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  <option value="">Alle</option>
+                  {vsSorten.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Bezeichnung</label>
+                <select value={vsBezeichnung} onChange={e => setVsBezeichnung(e.target.value)}
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  <option value="">Alle</option>
+                  {vsBezeichnungen.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Kunde (Kontakt/Firma)</label>
+                <select value={vsKunde} onChange={e => setVsKunde(e.target.value)}
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  <option value="">Alle</option>
+                  {vsKunden.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">PLZ von</label>
+                <input value={vsPlzVon} onChange={e => setVsPlzVon(e.target.value)} placeholder="z.B. 1000"
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">PLZ bis</label>
+                <input value={vsPlzBis} onChange={e => setVsPlzBis(e.target.value)} placeholder="z.B. 3500"
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Ort</label>
+                <select value={vsOrt} onChange={e => setVsOrt(e.target.value)}
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  <option value="">Alle</option>
+                  {vsOrte.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Land</label>
+                <select value={vsLand} onChange={e => setVsLand(e.target.value)}
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  <option value="">Alle</option>
+                  {vsLaender.map(l => <option key={l} value={l}>{l}</option>)}
+                </select>
+              </div>
+              <div className="flex items-end gap-2">
+                <button type="submit" disabled={vsLaden}
+                  className="flex-1 text-white px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-40" style={{ backgroundColor: 'var(--s112-teal)' }}>
+                  {vsLaden ? 'Lädt…' : 'Auswerten'}
+                </button>
+                <button type="button" onClick={vsZuruecksetzen}
+                  className="px-3 py-2 rounded-xl text-sm font-medium text-gray-600 border border-s112-border hover:bg-s112-bg transition-colors">
+                  Zurücksetzen
+                </button>
+              </div>
+            </form>
+
+            {vsFehler && <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">{vsFehler}</div>}
+
+            {vsResult && (
+              vsResult.zeilen.length === 0 ? (
+                <p className="text-center text-s112-muted py-8">Keine Verkäufe für diese Auswahl gefunden.</p>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-s112-bg rounded-xl p-4">
+                      <p className="text-xs text-s112-muted">Verkäufe (Positionen)</p>
+                      <p className="text-xl font-bold text-s112-teal tabular-nums mt-1">{vsResult.anzahl}</p>
+                    </div>
+                    <div className="bg-s112-bg rounded-xl p-4">
+                      <p className="text-xs text-s112-muted">Stk gesamt</p>
+                      <p className="text-xl font-bold text-s112-teal tabular-nums mt-1">{vsResult.summeMenge.toLocaleString('de-AT')}</p>
+                    </div>
+                    <div className="bg-s112-bg rounded-xl p-4">
+                      <p className="text-xs text-s112-muted">Umsatz gesamt</p>
+                      <p className="text-xl font-bold text-s112-teal tabular-nums mt-1">{eur2(vsResult.summeBetrag)}</p>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead><tr className="bg-s112-bg border-b border-s112-border text-xs text-gray-600">
+                        <th className="text-left px-3 py-2 font-semibold">Datum</th>
+                        <th className="text-left px-3 py-2 font-semibold">Produkt</th>
+                        <th className="text-right px-3 py-2 font-semibold">Jahrgang</th>
+                        <th className="text-left px-3 py-2 font-semibold">Sorte</th>
+                        <th className="text-left px-3 py-2 font-semibold">Bezeichnung</th>
+                        <th className="text-left px-3 py-2 font-semibold">Kunde</th>
+                        <th className="text-left px-3 py-2 font-semibold">Ort</th>
+                        <th className="text-right px-3 py-2 font-semibold">Stk</th>
+                        <th className="text-right px-3 py-2 font-semibold">Betrag</th>
+                      </tr></thead>
+                      <tbody>
+                        {vsResult.zeilen.map((z, i) => (
+                          <tr key={i} className={`border-b border-s112-border/40 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
+                            <td className="px-3 py-2 tabular-nums text-s112-muted whitespace-nowrap">{fmtDate(z.datum)}</td>
+                            <td className="px-3 py-2 font-medium text-gray-800">{z.produkt}</td>
+                            <td className="px-3 py-2 text-right tabular-nums text-gray-600">{z.jahrgang ?? '–'}</td>
+                            <td className="px-3 py-2 text-gray-600">{z.sorte ?? '–'}</td>
+                            <td className="px-3 py-2 text-gray-600">{z.bezeichnung ?? '–'}</td>
+                            <td className="px-3 py-2 text-gray-600">{z.kunde}</td>
+                            <td className="px-3 py-2 text-gray-600">{[z.plz, z.ort].filter(Boolean).join(' ') || '–'}</td>
+                            <td className="px-3 py-2 text-right tabular-nums">{z.menge.toLocaleString('de-AT')}</td>
+                            <td className="px-3 py-2 text-right font-semibold text-s112-teal tabular-nums">{eur2(z.betrag)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            )}
+
+            {!vsResult && !vsFehler && (
+              <p className="text-center text-s112-muted py-8">Filter wählen und auf „Auswerten" klicken.</p>
+            )}
           </div>
         )}
       </div>

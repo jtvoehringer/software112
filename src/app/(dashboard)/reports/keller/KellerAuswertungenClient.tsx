@@ -139,7 +139,7 @@ export default function KellerAuswertungenClient({
     <div className="max-w-5xl space-y-8">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/reports" className="hover:text-s112-teal transition-colors">Reports</Link>
+        <Link href="/reports" className="hover:text-s112-teal transition-colors">Auswertungen</Link>
         <span>/</span>
         <span className="text-gray-700 font-medium">Keller-Auswertungen</span>
       </div>

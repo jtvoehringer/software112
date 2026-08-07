@@ -104,6 +104,39 @@ export default async function ReportsPage() {
     .order('datum', { ascending: true })
   const offene = (offeneRaw ?? []) as R[]
 
+  // ── Verkaufsstatistik: Filteroptionen ───────────────────────────────────
+  // Bewusst NICHT auf aktiv=true eingeschränkt, damit auch historische
+  // (inzwischen inaktive/ausverkaufte) Füllungen filterbar bleiben.
+  const { data: vsFuellungenRaw } = await (supabase.from('fuellungen') as any)
+    .select('jahrgang, rebsorte, bezeichnung')
+  const vsFuellungen = (vsFuellungenRaw ?? []) as R[]
+  const vsJahrgaenge = Array.from(
+    new Set(vsFuellungen.map(f => f.jahrgang).filter((j): j is number => j != null))
+  ).sort((a, b) => b - a)
+  const vsSorten = Array.from(
+    new Set(vsFuellungen.map(f => f.rebsorte).filter((s): s is string => !!s))
+  ).sort((a, b) => a.localeCompare(b, 'de-AT'))
+  const vsBezeichnungen = Array.from(
+    new Set(vsFuellungen.map(f => f.bezeichnung).filter((s): s is string => !!s))
+  ).sort((a, b) => a.localeCompare(b, 'de-AT'))
+
+  const [{ data: vsKontakteRaw }, { data: vsFirmenRaw }] = await Promise.all([
+    (supabase.from('kontakte') as any).select('id, vorname, nachname, ort, land').order('nachname'),
+    (supabase.from('firmen') as any).select('id, name, ort, land').order('name'),
+  ])
+  const vsKontakte = (vsKontakteRaw ?? []) as R[]
+  const vsFirmen   = (vsFirmenRaw ?? []) as R[]
+  const vsKunden = [
+    ...vsKontakte.map(k => ({ id: `kontakt:${k.id}`, name: [k.vorname, k.nachname].filter(Boolean).join(' ') })),
+    ...vsFirmen.map(f => ({ id: `firma:${f.id}`, name: f.name as string })),
+  ].sort((a, b) => a.name.localeCompare(b.name, 'de-AT'))
+  const vsOrte = Array.from(
+    new Set([...vsKontakte.map(k => k.ort), ...vsFirmen.map(f => f.ort)].filter((s): s is string => !!s))
+  ).sort((a, b) => a.localeCompare(b, 'de-AT'))
+  const vsLaender = Array.from(
+    new Set([...vsKontakte.map(k => k.land), ...vsFirmen.map(f => f.land)].filter((s): s is string => !!s))
+  ).sort((a, b) => a.localeCompare(b, 'de-AT'))
+
   return (
     <ReportsClient
       umsatzMonate={umsatzMonate}
@@ -115,6 +148,12 @@ export default async function ReportsPage() {
       kontaktFrequenz={kontaktFrequenz}
       offene={offene}
       heute={heute.toISOString().split('T')[0]}
+      vsJahrgaenge={vsJahrgaenge}
+      vsSorten={vsSorten}
+      vsBezeichnungen={vsBezeichnungen}
+      vsKunden={vsKunden}
+      vsOrte={vsOrte}
+      vsLaender={vsLaender}
     />
   )
 }
