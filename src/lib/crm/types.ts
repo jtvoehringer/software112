@@ -55,6 +55,7 @@ export const AKTIVITAET_ARTEN = [
   { value: 'notiz', label: 'Notiz', nurAnzeige: true },
   { value: 'email', label: 'E-Mail', nurAnzeige: true },
   { value: 'anruf',       label: 'Anruf' },
+  { value: 'aufgabe',     label: 'Aufgabe' },
   { value: 'besprechung', label: 'Besprechung' },
   { value: 'verkostung',  label: 'Verkostung' },
   { value: 'messe',       label: 'Messe' },

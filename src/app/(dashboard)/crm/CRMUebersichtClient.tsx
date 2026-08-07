@@ -2,12 +2,10 @@
 
 import { useState, useMemo, useRef, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { createAktivitaet, moveAktivitaet, updateAktivitaet, updatePipelineEintrag } from './actions'
+import { createAktivitaet, moveAktivitaet, updateAktivitaet, updatePipelineEintrag, toggleAktivitaetErledigt } from './actions'
 import { AKTIVITAET_ARTEN } from '@/lib/crm/types'
-import type { AktivitaetDokument } from '@/lib/crm/types'
-import DokumentePanel from './DokumentePanel'
 import Link from 'next/link'
-import { X, Lock, Paperclip, Pencil, Calendar } from 'lucide-react'
+import { X, Lock, Pencil, Calendar, Check } from 'lucide-react'
 
 // ── Typeahead-Suche ───────────────────────────────────────────────────────────
 interface SucheItem { id: string; label: string; sub?: string }
@@ -122,6 +120,7 @@ const MONATE_KURZ = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'S
 const ART_FARBEN: Record<string, string> = {
   anruf:      'bg-green-50 text-green-700 border-green-100',
   besprechung:'bg-cyan-50 text-cyan-700 border-cyan-100',
+  aufgabe:    'bg-pink-50 text-pink-700 border-pink-200',
   email:      'bg-orange-50 text-orange-700 border-orange-100',
   verkostung: 'bg-purple-50 text-purple-700 border-purple-100',
   besuch:     'bg-blue-50 text-blue-700 border-blue-100',
@@ -277,18 +276,6 @@ function ZeitachseView({
   const [viewAkt,    setViewAkt]    = useState<KalenderEintrag | null>(null)
   const [editAktMode,  setEditAktMode]  = useState(false)
   const [editPipeMode, setEditPipeMode] = useState(false)
-
-  // Dokumente für angezeigte Aktivität
-  const [viewAktDoks, setViewAktDoks] = useState<AktivitaetDokument[]>([])
-  useEffect(() => {
-    if (!viewAkt || viewAkt.typ !== 'aktivitaet') { setViewAktDoks([]); return }
-    const aktId = viewAkt.id.replace('a_', '')
-    fetch(`/api/crm/aktivitaet/${aktId}/dokument`)
-      .then(r => r.ok ? r.json() : [])
-      .then(setViewAktDoks)
-      .catch(() => setViewAktDoks([]))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewAkt?.id])
 
   // neue Aktivität
   const [newAkt,         setNewAkt]         = useState<{ datum: string; von: string; bis: string; ganztags: boolean } | null>(null)
@@ -767,14 +754,30 @@ function ZeitachseView({
                 {viewAkt.firmaName   && <p><span className="font-medium text-gray-700">Firma:</span> {viewAkt.firmaName}</p>}
                 {viewAkt.ist_privat  && <p className="text-gray-400 text-xs inline-flex items-center gap-1"><Lock size={11} />Privater Termin</p>}
               </div>
-              {viewAkt.typ === 'aktivitaet' && (
+              {viewAkt.typ === 'aktivitaet' && viewAkt.art === 'aufgabe' && (
                 <div className="mb-4 border-t border-s112-border/40 pt-3">
-                  <p className="text-xs font-medium text-gray-500 mb-1.5 inline-flex items-center gap-1"><Paperclip size={12} />Anhänge</p>
-                  <DokumentePanel
-                    aktivitaetId={viewAkt.id.replace('a_', '')}
-                    initialDokumente={viewAktDoks}
-                    writeOk={true}
-                  />
+                  <button onClick={() => {
+                    const aktId = viewAkt.id.replace('a_', '')
+                    startTransition(async () => {
+                      await toggleAktivitaetErledigt(aktId, !viewAkt.erledigt)
+                      // Erledigte Aufgaben verschwinden aus dem Kalender (siehe crm/page.tsx) -
+                      // Modal schliessen und Daten neu laden, damit der Eintrag sofort weg ist.
+                      setViewAkt(null)
+                      router.refresh()
+                    })
+                  }} disabled={pending}
+                    className={`inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50 ${
+                      viewAkt.erledigt
+                        ? 'bg-green-50 border-green-200 text-green-700'
+                        : 'border-s112-border text-gray-600 hover:border-green-400 hover:text-green-700'
+                    }`}>
+                    <span className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                      viewAkt.erledigt ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300'
+                    }`}>
+                      {viewAkt.erledigt && <Check size={11} strokeWidth={3} />}
+                    </span>
+                    {viewAkt.erledigt ? 'Erledigt' : 'Als erledigt markieren'}
+                  </button>
                 </div>
               )}
               <div className="flex flex-wrap gap-2">

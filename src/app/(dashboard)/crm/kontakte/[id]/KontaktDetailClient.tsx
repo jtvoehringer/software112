@@ -10,7 +10,6 @@ import {
 } from '@/lib/crm/types'
 import type { KontaktRow, AktivitaetRow, PipelineEintragRow, VerkaufRow } from '@/lib/crm/types'
 import { verkaufSumme } from '@/lib/crm/types'
-import DokumentePanel from '../../DokumentePanel'
 import { KontaktForm } from '../KontakteClient'
 import {
   Receipt, Trash2, Pencil, Mail, Phone, Smartphone, Home, MapPin,
@@ -330,12 +329,6 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
         {a.beschreibung && !emailOpen && a.art !== 'email' && (
           <p className="text-xs text-gray-500 mt-0.5">{a.beschreibung}</p>
         )}
-        {/* Dokumente */}
-        <DokumentePanel
-          aktivitaetId={a.id}
-          initialDokumente={a.dokumente ?? []}
-          writeOk={writeOk}
-        />
         {/* Inline-Antworten für Email-Aktivitäten */}
         {a.art === 'email' && replyOpen && (
           <div className="mt-2 space-y-2">

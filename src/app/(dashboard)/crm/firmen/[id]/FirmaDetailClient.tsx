@@ -10,7 +10,6 @@ import {
 } from '@/lib/crm/types'
 import type { FirmaRow, KontaktRow, AktivitaetRow, PipelineEintragRow, VerkaufRow } from '@/lib/crm/types'
 import { verkaufSumme } from '@/lib/crm/types'
-import DokumentePanel from '../../DokumentePanel'
 import { FirmaForm } from '../FirmenClient'
 import {
   Receipt, Trash2, Pencil, Mail, Phone, Globe, MapPin, Reply, Check, X,
@@ -342,12 +341,6 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
         {a.beschreibung && !emailOpen && a.art !== 'email' && (
           <p className="text-xs text-gray-500 mt-0.5">{a.beschreibung}</p>
         )}
-        {/* Dokumente */}
-        <DokumentePanel
-          aktivitaetId={a.id}
-          initialDokumente={a.dokumente ?? []}
-          writeOk={writeOk}
-        />
         {a.art === 'email' && replyOpen && (
           <div className="mt-2 space-y-2">
             <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={3}

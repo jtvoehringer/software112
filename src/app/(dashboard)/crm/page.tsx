@@ -63,7 +63,13 @@ export default async function CRMUebersichtPage() {
 
   const eintraege: KalenderEintrag[] = [
     // Aktivitäten (ohne Verkaufs-Einträge)
-    ...(aktivRaw as AR[] ?? []).filter((a: AR) => a.art !== 'verkauf' && a.art !== 'notiz' && a.art !== 'email').map((a: AR) => {
+    // Erledigte Aufgaben verschwinden aus dem Kalender (anders als sonstige
+    // erledigte Termine, die nur ausgegraut bleiben) - siehe chipFarbe() in
+    // CRMUebersichtClient.tsx fuer die generelle "erledigt"-Ausgrauung.
+    ...(aktivRaw as AR[] ?? []).filter((a: AR) =>
+      a.art !== 'verkauf' && a.art !== 'notiz' && a.art !== 'email' &&
+      !(a.art === 'aufgabe' && a.erledigt)
+    ).map((a: AR) => {
       const artDef = AKTIVITAET_ARTEN.find(x => x.value === a.art)
       return {
         id: `a_${a.id}`,
