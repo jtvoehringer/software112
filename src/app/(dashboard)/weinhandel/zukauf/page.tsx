@@ -86,6 +86,11 @@ export default async function ZukaufPage({
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-2 text-sm text-s112-muted">
+        <Link href="/weinhandel" className="hover:text-s112-teal transition-colors">Weinhandel</Link>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">Zukäufe</span>
+      </div>
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">Zukäufe</h1>
         {writeOk && (

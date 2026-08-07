@@ -59,6 +59,11 @@ export default async function ExportPage() {
 
   return (
     <div className="space-y-6 max-w-3xl">
+      <div className="flex items-center gap-2 text-sm text-s112-muted">
+        <span>Controlling</span>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">Datenexport</span>
+      </div>
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Datenexport</h1>
         <p className="text-sm text-s112-muted mt-1">CSV-Exporte für Excel, Steuerberater und externe Systeme</p>

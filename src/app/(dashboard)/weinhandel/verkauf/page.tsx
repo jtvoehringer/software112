@@ -65,6 +65,12 @@ export default async function VerkaufPage() {
   return (
     <div className="space-y-6">
 
+      <div className="flex items-center gap-2 text-sm text-s112-muted">
+        <Link href="/weinhandel" className="hover:text-s112-teal transition-colors">Weinhandel</Link>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">Verkauf</span>
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

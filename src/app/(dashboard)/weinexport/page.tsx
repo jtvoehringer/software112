@@ -38,6 +38,11 @@ export default async function WeinexportPage() {
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
+      <div className="flex items-center gap-2 text-sm text-s112-muted mb-4">
+        <Link href="/weinhandel" className="hover:text-s112-teal transition-colors">Weinhandel</Link>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">Weinexport</span>
+      </div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">

@@ -33,6 +33,11 @@ export default function ReleaseNotesAdminPage() {
 
   return (
     <div className="p-8 max-w-3xl mx-auto space-y-6">
+      <div className="flex items-center gap-2 text-sm text-s112-muted">
+        <span>Administration</span>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">Release Notes verwalten</span>
+      </div>
       <h1 className="text-2xl font-bold text-gray-900">Release Notes verwalten</h1>
       <div className="bg-white rounded-2xl border border-s112-border p-6">
         <h2 className="font-semibold text-gray-800 mb-4">Neue Release Note</h2>

@@ -67,7 +67,11 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <Link href="/weinexport" className="text-s112-muted hover:text-gray-700 text-sm">← Exportaufträge</Link>
+          <div className="flex items-center gap-2 text-sm text-s112-muted mb-1">
+            <Link href="/weinexport" className="hover:text-s112-teal transition-colors">Weinexport</Link>
+            <span>/</span>
+            <span className="text-gray-700 font-medium">{auftrag.referenz ?? 'Exportauftrag'}</span>
+          </div>
           <h1 className="text-2xl font-bold text-gray-900 mt-1">
              {auftrag.referenz ?? 'Exportauftrag'}
           </h1>

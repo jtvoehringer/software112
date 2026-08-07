@@ -1566,10 +1566,12 @@ export default function MandantDetailClient({ tenant, settings, members }: {
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <div className="flex items-center gap-2 mb-0.5">
-            <Link href="/admin/mandanten" className="text-sm text-s112-muted hover:text-s112-teal">
-              ← Mandanten
-            </Link>
+          <div className="flex items-center gap-2 text-sm text-s112-muted mb-1.5">
+            <span>Administration</span>
+            <span>/</span>
+            <Link href="/admin/mandanten" className="hover:text-s112-teal transition-colors">Mandanten</Link>
+            <span>/</span>
+            <span className="text-gray-700 font-medium">{tenant.name}</span>
           </div>
           {editName ? (
             <form onSubmit={handleRename} className="flex items-center gap-2 mt-1">

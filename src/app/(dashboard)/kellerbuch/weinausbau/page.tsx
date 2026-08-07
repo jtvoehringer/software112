@@ -79,6 +79,11 @@ export default async function WeinausbauListePage() {
 
   return (
     <div>
+      <div className="flex items-center gap-2 text-sm text-s112-muted mb-4">
+        <Link href="/kellerbuch" className="hover:text-s112-teal transition-colors">Kellerbuch</Link>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">Weinausbau</span>
+      </div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Weinausbau</h1>

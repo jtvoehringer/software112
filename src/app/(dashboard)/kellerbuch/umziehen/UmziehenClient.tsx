@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { umziehen, deleteUmzug, updateUmzug } from './actions'
 import { ArrowLeftRight, Filter, X, AlertTriangle, CheckCircle2, Pencil, Trash2 } from 'lucide-react'
 
@@ -467,6 +468,11 @@ export default function UmziehenClient({
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-2 text-sm text-s112-muted">
+        <Link href="/kellerbuch" className="hover:text-s112-teal transition-colors">Kellerbuch</Link>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">Umziehen</span>
+      </div>
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Umziehen</h1>

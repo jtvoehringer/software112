@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { Pencil, Trash2 } from 'lucide-react'
 import { createRabattgruppe, updateRabattgruppe, deleteRabattgruppe } from './actions'
 import type { Rabattgruppe } from './page'
@@ -81,6 +82,11 @@ export default function RabattgruppenClient({
 
   return (
     <div className="space-y-6 max-w-2xl">
+      <div className="flex items-center gap-2 text-sm text-s112-muted">
+        <Link href="/weinhandel" className="hover:text-s112-teal transition-colors">Weinhandel</Link>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">Rabattgruppen</span>
+      </div>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Rabattgruppen</h1>

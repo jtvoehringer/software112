@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Camera, X } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
@@ -167,6 +168,11 @@ export default function VisitkartenScannerPage() {
 
   return (
     <div className="p-6 max-w-lg mx-auto space-y-4">
+      <div className="flex items-center gap-2 text-sm text-s112-muted">
+        <Link href="/crm/kontakte" className="hover:text-s112-teal transition-colors">Kontakte</Link>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">Visitenkarte scannen</span>
+      </div>
       <div className="flex items-center gap-3">
         <button onClick={() => { kameraStop(); router.back() }} className="text-s112-muted hover:text-gray-700 text-sm">← Zurück</button>
         <h1 className="text-xl font-bold text-gray-900">Visitenkarte scannen</h1>

@@ -254,6 +254,11 @@ export default function KostenrechnungPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
+      <div className="flex items-center gap-2 text-sm text-s112-muted">
+        <span>Controlling</span>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">Kostenrechnung</span>
+      </div>
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Kostenrechnung</h1>
         <p className="text-sm text-s112-muted mt-0.5">{new Date().getFullYear()}: <strong className="text-gray-800">{eur(gesamtJahr)}</strong></p>

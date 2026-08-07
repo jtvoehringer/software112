@@ -102,6 +102,11 @@ export default function FAQPage() {
 
   return (
     <div className="space-y-5 max-w-3xl">
+      <div className="flex items-center gap-2 text-sm text-s112-muted">
+        <span>Hilfe</span>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">Häufige Fragen (FAQ)</span>
+      </div>
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Häufige Fragen (FAQ)</h1>
         <p className="text-sm text-s112-muted mt-1">Antworten auf die häufigsten Fragen zu software:112 · Version 2.3 · Stand Juli 2026</p>

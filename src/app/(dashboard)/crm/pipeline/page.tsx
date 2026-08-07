@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import PipelineClient from './PipelineClient'
 import type { PipelineEintragRow } from '@/lib/crm/types'
 
@@ -67,6 +68,11 @@ export default async function PipelinePage() {
 
   return (
     <div>
+      <div className="flex items-center gap-2 text-sm text-s112-muted mb-4">
+        <Link href="/crm" className="hover:text-s112-teal transition-colors">CRM</Link>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">Verkaufs-Pipeline</span>
+      </div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Verkaufs-Pipeline</h1>

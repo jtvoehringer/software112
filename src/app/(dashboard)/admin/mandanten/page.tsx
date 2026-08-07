@@ -73,6 +73,11 @@ export default async function MandantenPage() {
 
   return (
     <div>
+      <div className="flex items-center gap-2 text-sm text-s112-muted mb-4">
+        <span>Administration</span>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">Mandanten</span>
+      </div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Mandanten</h1>

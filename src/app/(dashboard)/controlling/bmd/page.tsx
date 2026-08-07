@@ -24,6 +24,11 @@ export default function BMDPage() {
 
   return (
     <div className="space-y-6 max-w-xl">
+      <div className="flex items-center gap-2 text-sm text-s112-muted">
+        <span>Controlling</span>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">BMD NTCS Export</span>
+      </div>
       <div>
         <h1 className="text-2xl font-bold text-gray-900">BMD NTCS Export</h1>
         <p className="text-sm text-s112-muted mt-1">Verkaufsbuchungen im BMD NTCS-kompatiblen Format exportieren</p>

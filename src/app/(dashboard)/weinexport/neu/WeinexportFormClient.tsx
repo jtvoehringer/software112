@@ -73,8 +73,12 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
+      <div className="flex items-center gap-2 text-sm text-s112-muted mb-2">
+        <Link href="/weinexport" className="hover:text-s112-teal transition-colors">Weinexport</Link>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">Neuer Exportauftrag</span>
+      </div>
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/weinexport" className="text-s112-muted hover:text-gray-700 text-sm">← Exportaufträge</Link>
         <h1 className="text-2xl font-bold text-gray-900">Neuer Exportauftrag</h1>
       </div>
 

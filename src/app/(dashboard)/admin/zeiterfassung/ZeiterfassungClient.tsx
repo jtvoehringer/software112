@@ -181,6 +181,11 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-2 text-sm text-s112-muted">
+        <span>Administration</span>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">Zeiterfassung</span>
+      </div>
       {/* ── Header ── */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>

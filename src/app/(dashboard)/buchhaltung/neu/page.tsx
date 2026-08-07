@@ -46,8 +46,12 @@ export default async function BuchhaltungNeuPage() {
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
+      <div className="flex items-center gap-2 text-sm text-s112-muted mb-2">
+        <Link href="/buchhaltung" className="hover:text-s112-teal transition-colors">E&amp;A-Rechnung</Link>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">Neue Buchung</span>
+      </div>
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/buchhaltung" className="text-sm text-s112-muted hover:text-gray-700">← Buchungen</Link>
         <h1 className="text-2xl font-bold text-gray-900">Neue Buchung</h1>
       </div>
 

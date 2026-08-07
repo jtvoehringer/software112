@@ -113,8 +113,8 @@ export default async function TraubenverkaufPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3 text-sm text-s112-muted">
-        <Link href="/weinhandel" className="hover:text-s112-teal transition-colors">Warenlager</Link>
+      <div className="flex items-center gap-2 text-sm text-s112-muted">
+        <Link href="/weinhandel" className="hover:text-s112-teal transition-colors">Weinhandel</Link>
         <span>/</span>
         <span className="text-gray-700 font-medium">Traubenverkauf</span>
       </div>

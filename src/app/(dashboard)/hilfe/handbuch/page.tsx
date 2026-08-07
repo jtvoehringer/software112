@@ -124,6 +124,11 @@ export default function HandbuchPage() {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center gap-2 text-sm text-s112-muted">
+        <span>Hilfe</span>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">Benutzerhandbuch</span>
+      </div>
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Benutzerhandbuch</h1>
         <p className="text-sm text-s112-muted mt-1">software:112 – Weinbau-Management · Version 2.3 · Stand Juli 2026</p>
