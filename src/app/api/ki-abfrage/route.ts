@@ -122,6 +122,11 @@ REGELN für die SQL-Abfrage:
   selbst zusammenzählen müsste.
 - Wenn die Frage nach einer LISTE fragt ("zeig mir", "welche", "liste"), gib die Einzelzeilen zurück
   (sinnvoll sortiert, LIMIT nicht nötig – das System begrenzt ohnehin auf maximal 500 Zeilen).
+- Wenn die Frage BEIDES verlangt (z.B. "wie viel ... UND liste mir die Rechnungen/Positionen dazu"), gib die
+  Einzelzeilen zurück (wie bei einer Liste) und ergänze zusätzlich eine Gesamtsumme als eigene Spalte mit einer
+  Fenster-Funktion (z.B. "SUM(vp.menge) OVER () AS gesamt_menge") – NICHT versuchen, eine reine Aggregat-Zeile
+  und eine Liste in zwei getrennten Antworten oder JSON-Objekten unterzubringen, es gibt immer nur EIN
+  JSON-Objekt mit genau einer SQL-Abfrage.
 - Verwende sprechende Spalten-Aliase auf Deutsch (z.B. "AS gesamt_liter", "AS anzahl_flaschen") – diese
   werden dem User als Tabellenüberschriften angezeigt.
 - Bei Textsuche IMMER ILIKE mit %...% verwenden (Groß-/Kleinschreibung ignorieren), nie exaktes "=" bei
@@ -137,7 +142,9 @@ REGELN für die SQL-Abfrage:
   hinzufügen, wenn die Frage explizit auch abgeschlossene/historische Chargen einschließen will).
 - Keine Kommentare (--) und kein Semikolon außer optional ganz am Ende.
 
-Antworte NUR mit validem JSON, keine Erklärungen außerhalb des JSON:
+Antworte IMMER mit GENAU EINEM validen JSON-Objekt, ohne Markdown-Codeblock (keine \`\`\`), ohne Text davor
+oder danach, ohne mehrere JSON-Objekte hintereinander. Halte "zusammenfassung" und "empfehlung" kurz und
+knapp, auch bei komplexeren Abfragen mit mehreren Aspekten:
 {
   "sql": "SELECT ...",
   "zusammenfassung": "Kurze deutsche Erklärung was die Abfrage zeigt (1 Satz)",
@@ -189,15 +196,17 @@ export async function POST(req: NextRequest) {
     let rohdaten: R[] | null = null
     let letzterFehler: string | null = null
 
-    // Bis zu 2 Versuche: 1. Versuch generiert die SQL, bei einem Ausführungsfehler
-    // (z.B. Tippfehler in einem Spaltennamen) bekommt Claude den Postgres-Fehlertext
-    // zurück und darf die Abfrage EINMAL korrigieren, bevor wir aufgeben.
+    // Bis zu 2 Versuche: 1. Versuch generiert die SQL. Sowohl bei einem Ausführungsfehler
+    // (z.B. Tippfehler in einem Spaltennamen) als auch bei einer nicht als JSON verwertbaren
+    // Antwort (z.B. bei komplexeren/zusammengesetzten Fragen durch ein abgeschnittenes oder
+    // unsauber formatiertes Antwortende) bekommt Claude eine Rückmeldung und darf die Abfrage
+    // EINMAL korrigieren, bevor wir aufgeben.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const messages: any[] = [{ role: 'user', content: `Frage des Winzers: "${frage}"` }]
     for (let versuch = 0; versuch < 2; versuch++) {
       const msg = await client.messages.create({
         model,
-        max_tokens: 600,
+        max_tokens: 1200,
         system: systemPrompt(schemaText),
         messages,
       })
@@ -208,8 +217,16 @@ export async function POST(req: NextRequest) {
       try {
         queryParams = extraheJson(rawText)
       } catch {
+        queryParams = null
         letzterFehler = 'KI-Antwort konnte nicht als JSON verarbeitet werden'
-        break
+        if (versuch === 0) {
+          messages.push({ role: 'assistant', content: rawText })
+          messages.push({
+            role: 'user',
+            content: 'Deine letzte Antwort war kein gültiges, vollständiges JSON-Objekt. Antworte erneut mit GENAU EINEM validen JSON-Objekt im vorgegebenen Format, ohne Text davor/danach und ohne Markdown-Codeblock. Halte "zusammenfassung" und "empfehlung" kurz.',
+          })
+        }
+        continue
       }
       if (!queryParams?.sql) {
         letzterFehler = 'KI hat keine SQL-Abfrage geliefert'
