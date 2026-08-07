@@ -45,7 +45,6 @@ const ONBOARDING_SCHRITTE: Gruppe[] = [
     schritte: [
       { id: 's12', pflicht: false, titel: 'Bestandskunden importieren', beschreibung: 'CRM > Kontakte: Kontakte manuell anlegen oder per CSV-Import (Datenexport > Kontakte als Vorlage). Wichtig: E-Mail-Adressen für E-Mail-Matching eintragen.', link: '/crm/kontakte', linkLabel: 'Kontakte öffnen' },
       { id: 's13', pflicht: false, titel: 'Rabattgruppen anlegen', beschreibung: 'Warenwirtschaft > Rabattgruppen: z.B. "Gastronomie 10%", "Stammkunde 5%". Können dann direkt Kontakten/Firmen zugewiesen werden.', link: '/weinhandel/rabattgruppen', linkLabel: 'Rabattgruppen öffnen' },
-      { id: 's14', pflicht: false, titel: 'Preislisten anlegen', beschreibung: 'Warenwirtschaft > Preisliste: mindestens eine aktive Preisliste anlegen (z.B. Ab-Hof 2025). Positionen mit VK-Preisen je Wein/Flaschengröße.', link: '/weinhandel/preisliste', linkLabel: 'Preisliste öffnen' },
     ],
   },
   {

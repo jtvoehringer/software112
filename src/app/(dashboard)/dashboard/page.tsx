@@ -2,7 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { ReceiptText, Package, Users, Plus, ShoppingCart, Calendar, Wallet } from 'lucide-react'
+import { ReceiptText, Package, Users, ShoppingCart, Calendar, Wallet } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Übersicht – software:112' }
 export const dynamic = 'force-dynamic'
@@ -219,7 +219,8 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
 
-      {/* Begrüßung + Primäraktion */}
+      {/* Begrüßung */}
+      {/* "+ Neuer Auftrag"-Button auf Wunsch entfernt (7.8.2026). */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="font-display text-2xl font-semibold text-s112-text">{tenantName ?? 'Übersicht'}</h1>
@@ -227,10 +228,6 @@ export default async function DashboardPage() {
             Wirtschaftsjahr {wirtschaftsjahr} · Stand {heute.toLocaleDateString('de-AT', { weekday: 'long', day: '2-digit', month: 'long' })}
           </p>
         </div>
-        <Link href="/weinhandel/verkauf/neu" className="btn-primary inline-flex items-center gap-1.5">
-          <Plus size={16} strokeWidth={2} />
-          Neuer Auftrag
-        </Link>
       </div>
 
       {/* ── KPI-Kacheln ─────────────────────────────────────────────── */}
