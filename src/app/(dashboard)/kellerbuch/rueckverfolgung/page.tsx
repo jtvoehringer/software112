@@ -3,6 +3,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Boxes, ArrowLeftRight, Filter, Microscope, Leaf, Wine, Search, GitMerge } from 'lucide-react'
 import { resolveBlendKompositionFuellung, type KompositionUrsprung } from '@/lib/wein/blendKomposition'
+import RueckverfolgungPrintButton from './PrintButton'
+import RueckverfolgungCsvExportButton from './CsvExportButton'
 
 export const metadata: Metadata = { title: 'Rückverfolgung – software:112' }
 export const dynamic = 'force-dynamic'
@@ -379,9 +381,9 @@ function ChargeKette({
 export default async function RueckverfolgungPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; fuellung_id?: string }>
+  searchParams: Promise<{ q?: string; fuellung_id?: string; jahrgang?: string; sorte?: string; bezeichnung?: string }>
 }) {
-  const { q, fuellung_id } = await searchParams
+  const { q, fuellung_id, jahrgang, sorte, bezeichnung } = await searchParams
   const supabase = await createSupabaseServerClient()
 
   // ── Autocomplete-Vorschläge ──────────────────────────────────────────────
@@ -395,6 +397,37 @@ export default async function RueckverfolgungPage({
     if (row.pruefnummer)   autocompleteOptions.push(row.pruefnummer)
     if (row.name)          autocompleteOptions.push(row.name)
   }
+
+  // ── Trefferliste: leichterer Zugang über Jahrgang/Sorte/Bezeichnung ───────
+  // Statt zwingend eine exakte Chargen-/Prüfnummer zu kennen, kann hier über
+  // Filter eine Liste passender Füllungen durchsucht werden. Ein Klick auf
+  // einen Treffer öffnet wie gehabt die volle Rückverfolgungskette (fuellung_id).
+  const { data: filterOptionenRaw } = await (supabase.from('fuellungen') as any)
+    .select('jahrgang, rebsorte, bezeichnung')
+  const filterOptionenRows = (filterOptionenRaw ?? []) as R[]
+  const jahrgangOptionen = Array.from(
+    new Set(filterOptionenRows.map(f => f.jahrgang).filter((j): j is number => j != null))
+  ).sort((a, b) => b - a)
+  const sorteOptionen = Array.from(
+    new Set(filterOptionenRows.map(f => f.rebsorte).filter((s): s is string => !!s))
+  ).sort((a, b) => a.localeCompare(b, 'de-AT'))
+  const bezeichnungOptionen = Array.from(
+    new Set(filterOptionenRows.map(f => f.bezeichnung).filter((s): s is string => !!s))
+  ).sort((a, b) => a.localeCompare(b, 'de-AT'))
+
+  let trefferQuery = (supabase.from('fuellungen') as any)
+    .select('id, name, bezeichnung, jahrgang, rebsorte, qualitaet, chargennummer, pruefnummer, bestand_flaschen, flaschengroesse_ml, aktiv')
+    .order('jahrgang', { ascending: false })
+    .order('name', { ascending: true })
+  if (jahrgang)     trefferQuery = trefferQuery.eq('jahrgang', parseInt(jahrgang))
+  if (sorte)        trefferQuery = trefferQuery.eq('rebsorte', sorte)
+  if (bezeichnung)  trefferQuery = trefferQuery.eq('bezeichnung', bezeichnung)
+  const { data: trefferRaw } = await trefferQuery
+  const trefferliste = (trefferRaw ?? []) as R[]
+
+  const oLagerbestandFlaschen = trefferliste.length > 0
+    ? trefferliste.reduce((s, f) => s + (parseInt(f.bestand_flaschen) || 0), 0) / trefferliste.length
+    : null
 
   // ── Direkteinstieg per Fuellung-ID (z.B. Klick aus Warenwirtschaft/Lager) ──
   // ── oder Suche nach Chargennummer/Prüfnummer/Produktname ─────────────────
@@ -479,8 +512,12 @@ export default async function RueckverfolgungPage({
     ? await resolveBlendKompositionFuellung(supabase, fuellung.id)
     : []
 
+  const filterAktiv = !!(jahrgang || sorte || bezeichnung)
+  const inputCls = 'w-full border border-s112-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  const labelCls = 'block text-xs font-medium text-gray-600 mb-1'
+
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-5xl space-y-6">
 
       {/* Header */}
       <div>
@@ -493,12 +530,123 @@ export default async function RueckverfolgungPage({
           <Search className="w-5 h-5" />Rückverfolgung
         </h1>
         <p className="text-sm text-s112-muted mt-1">
-          Chargennummer oder Prüfnummer eingeben → vollständige Kette von der Flasche zum Weingarten
+          Nach Jahrgang, Sorte oder Bezeichnung filtern, oder direkt Chargennummer/Prüfnummer eingeben → vollständige Kette von der Flasche zum Weingarten
         </p>
       </div>
 
-      {/* Suchfeld */}
-      <form method="get" className="flex gap-2">
+      {/* Filtern nach Jahrgang / Sorte / Bezeichnung – leichterer Zugang zum Durchsuchen,
+          ohne dass eine exakte Chargen-/Prüfnummer schon bekannt sein muss. */}
+      <div className="card p-5 space-y-4 print:hidden">
+        <h2 className="font-semibold text-gray-800 text-sm">Füllungen filtern</h2>
+        <form method="get" className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className={labelCls}>Jahrgang</label>
+            <select name="jahrgang" defaultValue={jahrgang ?? ''} className={inputCls}>
+              <option value="">– alle –</option>
+              {jahrgangOptionen.map(j => (
+                <option key={j} value={j}>{j}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Sorte</label>
+            <select name="sorte" defaultValue={sorte ?? ''} className={inputCls}>
+              <option value="">– alle –</option>
+              {sorteOptionen.map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Bezeichnung</label>
+            <select name="bezeichnung" defaultValue={bezeichnung ?? ''} className={inputCls}>
+              <option value="">– alle –</option>
+              {bezeichnungOptionen.map(b => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+          </div>
+          <div className="sm:col-span-3 flex items-center gap-3">
+            <button type="submit"
+              className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+              Filtern
+            </button>
+            {filterAktiv && (
+              <Link href="/kellerbuch/rueckverfolgung" className="text-sm text-s112-muted hover:text-s112-teal transition-colors">
+                Filter zurücksetzen
+              </Link>
+            )}
+          </div>
+        </form>
+      </div>
+
+      {/* Trefferliste */}
+      <div className="card p-5 space-y-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h2 className="font-semibold text-gray-800 text-sm">
+              Füllungen{filterAktiv ? ' (gefiltert)' : ''}
+            </h2>
+            <p className="text-xs text-s112-muted mt-0.5">
+              {trefferliste.length} {trefferliste.length === 1 ? 'Treffer' : 'Treffer'}
+              {oLagerbestandFlaschen != null && (
+                <> · Ø Lagerbestand: <strong className="text-gray-700">{oLagerbestandFlaschen.toLocaleString('de-AT', { maximumFractionDigits: 1 })} Fl.</strong></>
+              )}
+            </p>
+          </div>
+          {trefferliste.length > 0 && (
+            <div className="flex items-center gap-2 print:hidden">
+              <RueckverfolgungPrintButton />
+              <RueckverfolgungCsvExportButton treffer={trefferliste} />
+            </div>
+          )}
+        </div>
+
+        {trefferliste.length === 0 ? (
+          <p className="text-sm text-s112-muted italic">Keine Füllungen für diese Auswahl gefunden.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-s112-bg border-b border-s112-border">
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Produktname</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Bezeichnung</th>
+                  <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Jahrgang</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Sorte</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Chargennr.</th>
+                  <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Bestand</th>
+                  <th className="px-3 py-2 print:hidden" />
+                </tr>
+              </thead>
+              <tbody>
+                {trefferliste.map((f: R, i: number) => (
+                  <tr key={f.id} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''} ${!f.aktiv ? 'opacity-50' : ''}`}>
+                    <td className="px-3 py-2 font-medium text-gray-800">{f.name}</td>
+                    <td className="px-3 py-2 text-gray-600">{f.bezeichnung ?? '–'}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-gray-600">{f.jahrgang ?? '–'}</td>
+                    <td className="px-3 py-2 text-gray-600">{f.rebsorte ?? '–'}</td>
+                    <td className="px-3 py-2 text-gray-600 text-xs font-mono">{f.chargennummer ?? '–'}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-s112-teal font-medium">
+                      {(parseInt(f.bestand_flaschen) || 0).toLocaleString('de-AT')} Fl.
+                    </td>
+                    <td className="px-3 py-2 text-right print:hidden">
+                      <Link href={`/kellerbuch/rueckverfolgung?fuellung_id=${f.id}`}
+                        className="text-xs text-s112-teal border border-s112-teal/30 rounded-full px-2.5 py-1 hover:bg-s112-teal hover:text-white transition-colors whitespace-nowrap">
+                        Details →
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Suchfeld: direkter Sprung per Chargen-/Prüfnummer */}
+      <div className="card p-5 space-y-3 print:hidden">
+        <h2 className="font-semibold text-gray-800 text-sm">Oder direkt nach Chargennummer / Prüfnummer suchen</h2>
+        <form method="get" className="flex gap-2">
         <input
           name="q"
           defaultValue={q ?? fuellung?.chargennummer ?? ''}
@@ -519,10 +667,11 @@ export default async function RueckverfolgungPage({
       </form>
 
       {suchFehler && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+        <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
           {suchFehler}
         </div>
       )}
+      </div>
 
       {/* ── Ergebnis ─────────────────────────────────────────────────────── */}
       {fuellung && (
@@ -597,13 +746,6 @@ export default async function RueckverfolgungPage({
             </div>
           )}
 
-        </div>
-      )}
-
-      {!q && !fuellung_id && (
-        <div className="card p-8 text-center text-s112-muted">
-          <Search className="w-8 h-8 mx-auto mb-3" />
-          <p className="text-sm">Chargennummer oder Prüfnummer eingeben um die vollständige Herkunftskette anzuzeigen.</p>
         </div>
       )}
 
