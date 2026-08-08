@@ -8,7 +8,7 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import type { UserRole } from '@/lib/auth/roles'
 import type { TenantBranding } from '@/app/(dashboard)/layout'
 import {
-  LayoutDashboard, Mail, Grape, BookOpen, Warehouse, Calculator, ReceiptText,
+  LayoutDashboard, Grape, BookOpen, Warehouse, Calculator, ReceiptText,
   Users, BarChart3, Sparkles, HelpCircle, Settings, ChevronRight,
   ArrowLeftRight, LogOut, PanelLeftClose, PanelLeft,
   type LucideIcon,
@@ -42,7 +42,6 @@ type NavEntry = NavGroup | NavLink | NavOverline
 
 const NAV: NavEntry[] = [
   { kind: 'link',  href: '/dashboard',   label: 'Übersicht', icon: LayoutDashboard },
-  { kind: 'link',  href: '/nachrichten', label: 'E-Mail',    icon: Mail },
 
   { kind: 'overline', label: 'Betrieb' },
 
@@ -106,6 +105,7 @@ const NAV: NavEntry[] = [
   {
     kind: 'group', label: 'CRM', icon: Users,
     items: [
+      { href: '/nachrichten',  label: 'E-Mail'    },
       { href: '/crm',           label: 'Kalender'  },
       { href: '/crm/kontakte',  label: 'Kontakte'  },
       { href: '/crm/kontakte/visitkarte', label: 'Visitenkarte scannen', child: true },
