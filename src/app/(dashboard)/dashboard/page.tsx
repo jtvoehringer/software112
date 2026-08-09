@@ -189,9 +189,13 @@ export default async function DashboardPage() {
     .slice(0, 5)
 
   // Nächste unerledigte Aktivitäten (für "Nächste Termine")
+  // art-Ausschluss analog zum Kalender (crm/page.tsx) ergänzt (7.8.2026): automatisch
+  // angelegte E-Mail-/Verkaufs-/Notiz-Einträge sind keine "Termine" und haben hier bisher
+  // die wenigen Plätze (limit 4) belegt, wodurch die Sektion faelschlich leer wirkte.
   const { data: naechsteAktivitaetenRaw } = await tf(q('aktivitaeten')
     .select('id, art, betreff, datum, erledigt, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name)')
     .eq('erledigt', false).gte('datum', heuteStr)
+    .not('art', 'in', '(verkauf,notiz,email)')
     .order('datum', { ascending: true }).limit(4))
   const naechsteAkt = (naechsteAktivitaetenRaw ?? []) as R[]
   function aktKundenName(a: R): string {
@@ -203,11 +207,19 @@ export default async function DashboardPage() {
   // Meine Aktivitäten (nächste 30 Tage, offen, NUR eigene - auf Wunsch echter User-Filter
   // auf erstellt_von ergänzt, 5.8.2026: vorher wurden hier alle Aktivitäten des ganzen
   // Betriebs gezeigt, nicht nur die des angemeldeten Users)
+  //
+  // Zusatz 7.8.2026: erstellt_von ist bei Alt-/Importdaten (von vor der Nachverfolgung)
+  // sowie bei inzwischen entfernten Erstellern (ON DELETE SET NULL, Migration 050) oft
+  // NULL - ein reines .eq('erstellt_von', currentUser.id) liess dadurch fast alle
+  // Aktivitäten verschwinden ("eher leer"-Feedback), obwohl sie inhaltlich durchaus dem
+  // aktuellen User zuzurechnen waeren. Solche unattribuierten Eintraege daher zusaetzlich
+  // mit anzeigen, statt sie stillschweigend auszublenden (gleiche Logik wie im
+  // Kalender-Filter, CRMUebersichtClient.tsx).
   const in30 = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   const { data: meineAkts } = currentUser
     ? await tf((supabase.from('aktivitaeten') as any)
         .select('id, art, betreff, datum, erledigt, kontakt_id, firma_id, kontakte(vorname,nachname), firmen(name)')
-        .eq('erledigt', false).eq('erstellt_von', currentUser.id)
+        .eq('erledigt', false).or(`erstellt_von.eq.${currentUser.id},erstellt_von.is.null`)
         .gte('datum', heuteStr).lte('datum', in30)
         .order('datum', { ascending: true }).limit(10))
     : { data: [] }

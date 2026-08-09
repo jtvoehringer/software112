@@ -267,8 +267,16 @@ function ZeitachseView({
   // Nach erstellendem User filtern, falls nicht "Alle" ausgewaehlt. uniqueUsers
   // bewusst weiterhin aus dem UNGEFILTERTEN eintraege ableiten (sonst wuerden
   // die Filter-Buttons nach dem Filtern selbst wieder verschwinden).
+  //
+  // Termine OHNE erstellt_von (Alt-/Importdaten von vor der Nachverfolgung, oder
+  // durch ON DELETE SET NULL bei inzwischen entfernten Erstellern - siehe Migration
+  // 050) lassen sich niemandem mehr zuordnen. Sie unter jedem Namens-Filter
+  // stillschweigend verschwinden zu lassen (Kalender-Feedback 7.8.2026: "alle
+  // Termine bis auf einen verschwunden") ist irrefuehrend - sie werden daher bei
+  // JEDEM Filter mit angezeigt, nicht nur unter "Alle" (in der Detailansicht ist
+  // durch "Erstellt von: -" trotzdem erkennbar, dass keine Zuordnung vorliegt).
   const gefilterteEintraege = useMemo(
-    () => filterUser === 'alle' ? eintraege : eintraege.filter(e => e.erstellt_von === filterUser),
+    () => filterUser === 'alle' ? eintraege : eintraege.filter(e => e.erstellt_von === filterUser || !e.erstellt_von),
     [eintraege, filterUser]
   )
 
@@ -356,8 +364,15 @@ function ZeitachseView({
     const evs: Ev[] = items
       .map(e => {
         const start = e.uhrzeit_von ? toMin(e.uhrzeit_von) : 0
-        const end   = e.uhrzeit_bis ? toMin(e.uhrzeit_bis) : start + 30
-        return { id: e.id, start, end: Math.max(end, start + 30) }
+        // ECHTE Endzeit fuer die Ueberlappungs-Erkennung verwenden (nur ohne uhrzeit_bis
+        // auf 30 Min. Default zurueckfallen) - NICHT zusaetzlich auf mind. 30 Min. auf-
+        // runden, sonst werden kurze, unmittelbar aneinander anschliessende Termine
+        // (z.B. 10:30-10:45 gefolgt von 10:45-11:15) faelschlich als ueberlappend erkannt
+        // und nebeneinander statt hintereinander dargestellt. Die visuelle Mindesthoehe
+        // fuer sehr kurze Termine wird unabhaengig davon bereits in blockHeight() (oben)
+        // sichergestellt.
+        const end = e.uhrzeit_bis ? toMin(e.uhrzeit_bis) : start + 30
+        return { id: e.id, start, end }
       })
       .sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start))
 
@@ -752,6 +767,13 @@ function ZeitachseView({
                 )}
                 {viewAkt.kontaktName && <p><span className="font-medium text-gray-700">Kontakt:</span> {viewAkt.kontaktName}</p>}
                 {viewAkt.firmaName   && <p><span className="font-medium text-gray-700">Firma:</span> {viewAkt.firmaName}</p>}
+                {viewAkt.typ === 'aktivitaet' && (
+                  <p><span className="font-medium text-gray-700">Erstellt von:</span>{' '}
+                    {viewAkt.erstellt_von && userProfiles[viewAkt.erstellt_von]
+                      ? userProfiles[viewAkt.erstellt_von]
+                      : <span className="text-gray-400">unbekannt (Alt-/Importdaten)</span>}
+                  </p>
+                )}
                 {viewAkt.ist_privat  && <p className="text-gray-400 text-xs inline-flex items-center gap-1"><Lock size={11} />Privater Termin</p>}
               </div>
               {viewAkt.typ === 'aktivitaet' && viewAkt.art === 'aufgabe' && (
