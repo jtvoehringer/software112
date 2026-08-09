@@ -43,8 +43,6 @@ type NavEntry = NavGroup | NavLink | NavOverline
 const NAV: NavEntry[] = [
   { kind: 'link',  href: '/dashboard',   label: 'Übersicht', icon: LayoutDashboard },
 
-  { kind: 'overline', label: 'Betrieb' },
-
   {
     kind: 'group', label: 'Rieden', icon: Grape,
     items: [
@@ -65,8 +63,6 @@ const NAV: NavEntry[] = [
     ],
   },
 
-  { kind: 'overline', label: 'Handel' },
-
   {
     kind: 'group', label: 'Warenwirtschaft', icon: Warehouse,
     items: [
@@ -81,10 +77,14 @@ const NAV: NavEntry[] = [
   },
 
   {
-    kind: 'group', label: 'Controlling', icon: Calculator,
+    kind: 'group', label: 'CRM', icon: Users,
     items: [
-      { href: '/controlling/export',        label: 'Datenexport' },
-      { href: '/controlling/kostenrechnung',label: 'Kostenrechnung'   },
+      { href: '/nachrichten',  label: 'E-Mail'    },
+      { href: '/crm',           label: 'Kalender'  },
+      { href: '/crm/kontakte',  label: 'Kontakte'  },
+      { href: '/crm/kontakte/visitkarte', label: 'Visitenkarte scannen', child: true },
+      { href: '/crm/firmen',    label: 'Firmen'    },
+      { href: '/crm/pipeline',  label: 'Pipeline'  },
     ],
   },
 
@@ -100,17 +100,11 @@ const NAV: NavEntry[] = [
     ],
   },
 
-  { kind: 'overline', label: 'Kontakte' },
-
   {
-    kind: 'group', label: 'CRM', icon: Users,
+    kind: 'group', label: 'Controlling', icon: Calculator,
     items: [
-      { href: '/nachrichten',  label: 'E-Mail'    },
-      { href: '/crm',           label: 'Kalender'  },
-      { href: '/crm/kontakte',  label: 'Kontakte'  },
-      { href: '/crm/kontakte/visitkarte', label: 'Visitenkarte scannen', child: true },
-      { href: '/crm/firmen',    label: 'Firmen'    },
-      { href: '/crm/pipeline',  label: 'Pipeline'  },
+      { href: '/controlling/export',        label: 'Datenexport' },
+      { href: '/controlling/kostenrechnung',label: 'Kostenrechnung'   },
     ],
   },
 
