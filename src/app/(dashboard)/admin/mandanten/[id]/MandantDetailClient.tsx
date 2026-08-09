@@ -618,8 +618,9 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
       </div>
 
       <div>
+        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Bewirtschaftung</p>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Bio-Status</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
           <select name="bio_status" defaultValue={tenant.bio_status} className={inputCls()} style={{ maxWidth: '320px' }}>
             {BIO_STATUS_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
