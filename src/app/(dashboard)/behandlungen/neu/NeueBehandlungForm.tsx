@@ -37,6 +37,7 @@ const ART_OPTIONS = [
   { value: 'sonstiges',        label: 'Sonstiges',        icon: MoreHorizontal },
 ]
 const MENGE_EINHEITEN = ['kg', 'l', 'g', 'ml']
+const SCHADERREGER_OPTIONEN = ['Oidium', 'Peronospora', 'Botrytis']
 const LAUBARBEIT_OPTIONEN = [
   { value: 'entblaettern', label: 'Entblättern' },
   { value: 'ausgeizen',    label: 'Ausgeizen' },
@@ -94,6 +95,15 @@ export default function NeueBehandlungForm({
   const [art, setArt] = useState<Art>('spritzung')
   const [mengeGesamt, setMengeGesamt] = useState<string>('')
   const [mengeEinheit, setMengeEinheit] = useState('kg')
+  const [wasseraufwand, setWasseraufwand] = useState<string>('')
+  // Welches der beiden Felder Gesamtmenge/Spritzbrühe(l/ha) der Nutzer zuletzt befüllt hat -
+  // dieses treibt die Berechnung, das jeweils andere wird gesperrt (Punkt 1 der Anforderung)
+  const [mengeQuelle, setMengeQuelle] = useState<'gesamt' | 'wasser' | null>(null)
+  const [aufwandmenge, setAufwandmenge] = useState<string>('')
+  const [aufwandmengeEinheit, setAufwandmengeEinheit] = useState('kg_ha')
+  const [konzentration, setKonzentration] = useState<string>('')
+  // Analog zu mengeQuelle, für Aufwandmenge/Konzentration (Punkt 2)
+  const [aufwandQuelle, setAufwandQuelle] = useState<'aufwand' | 'konzentration' | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   // Kosten-Vorschlagsfunktion
@@ -111,6 +121,10 @@ export default function NeueBehandlungForm({
     if (art !== 'spritzung' && art !== 'sonstiges') setSelectedPsmId('')
     if (art !== 'duengung') setSelectedDuengemittelId('')
     setSelectedSatzId('')
+    // Sperr-Zustände der verknüpften Felder zurücksetzen, da sich je nach Art
+    // sichtbare Felder ändern (Feld-Matrix)
+    setMengeQuelle(null)
+    setAufwandQuelle(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [art])
 
@@ -141,15 +155,77 @@ export default function NeueBehandlungForm({
     weingaerten.filter(w => selectedWGs.has(w.id)).reduce((s, w) => s + w.gst_ha_aktiv, 0) +
     Array.from(selectedGSTs.keys()).reduce((s, gstId) => s + (gstLookup.get(gstId)?.flaeche_ha ?? 0), 0)
 
+  // ─── Punkt 1: Gesamtmenge eingesetzt ↔ Spritzbrühe (l/ha) - gegenseitige Sperre + Berechnung ──
+  // Je nachdem, welches der beiden Felder zuletzt befüllt wurde (mengeQuelle), wird das jeweils
+  // andere daraus berechnet und gesperrt. Grundlage ist die aktuell ausgewählte Fläche (totalHaAktiv,
+  // wie bei der bereits bestehenden Live-Zusammenfassung). Wird die Spritzbrühe(l/ha) vorgegeben,
+  // ergibt sich die Gesamtmenge zwingend in Liter (Gesamtmenge = Spritzbrühe(l/ha) × Fläche).
+  const wasserBerechnet = mengeQuelle === 'gesamt' && mengeGesamt && totalHaAktiv > 0
+    ? parseFloat(mengeGesamt) / totalHaAktiv
+    : null
+  const mengeGesamtBerechnet = mengeQuelle === 'wasser' && wasseraufwand && totalHaAktiv > 0
+    ? parseFloat(wasseraufwand) * totalHaAktiv
+    : null
+  const wasserGesperrt = mengeQuelle === 'gesamt' && wasserBerechnet != null
+  const mengeGesamtGesperrt = mengeQuelle === 'wasser' && mengeGesamtBerechnet != null
+
+  // Effektive Gesamtmenge/Einheit für alle nachgelagerten Berechnungen (Aufwand/ha, Cu-Beitrag,
+  // Reinkupfer) - berücksichtigt, ob die Gesamtmenge gerade aus der Spritzbrühe berechnet wird
+  const mengeGesamtNum = mengeGesamtGesperrt ? mengeGesamtBerechnet : (mengeGesamt ? parseFloat(mengeGesamt) : null)
+  const mengeEinheitEff = mengeQuelle === 'wasser' ? 'l' : mengeEinheit
+
   // Aufwand pro ha (live berechnet)
-  const aufwandProHa = mengeGesamt && totalHaAktiv > 0
-    ? (parseFloat(mengeGesamt) / totalHaAktiv).toLocaleString('de-AT', { maximumFractionDigits: 3 }) + ' ' + mengeEinheit + '/ha'
+  const aufwandProHa = mengeGesamtNum != null && totalHaAktiv > 0
+    ? (mengeGesamtNum / totalHaAktiv).toLocaleString('de-AT', { maximumFractionDigits: 3 }) + ' ' + mengeEinheitEff + '/ha'
     : null
 
-  // Cu-Beitrag (live berechnet, nur für kg)
-  const cuBeitragG = selectedPsm?.cu_gehalt_pct && mengeGesamt && mengeEinheit === 'kg'
-    ? Math.round(parseFloat(mengeGesamt) * 1000 * ((selectedPsm.cu_gehalt_pct) / 100)).toLocaleString('de-AT') + ' g Cu'
+  // Cu-Beitrag (live berechnet, nur für kg) + Reinkupfer je ha (Punkt 4) - Berechnungsgrundlage
+  // ist der Cu-Gehalt (%) des gewählten PSM aus den Stammdaten
+  const cuBeitragGRaw = selectedPsm?.cu_gehalt_pct && mengeGesamtNum && mengeEinheitEff === 'kg'
+    ? mengeGesamtNum * 1000 * (selectedPsm.cu_gehalt_pct / 100)
     : null
+  const cuBeitragG = cuBeitragGRaw != null
+    ? Math.round(cuBeitragGRaw).toLocaleString('de-AT') + ' g Cu'
+    : null
+  const reinkupferKgHaRaw = cuBeitragGRaw != null && totalHaAktiv > 0
+    ? (cuBeitragGRaw / 1000) / totalHaAktiv
+    : null
+  const reinkupferKgHa = reinkupferKgHaRaw != null
+    ? reinkupferKgHaRaw.toLocaleString('de-AT', { maximumFractionDigits: 3 }) + ' kg Cu/ha'
+    : null
+
+  // ─── Punkt 2: Aufwandmenge (Etikett) ↔ Konzentration (%) - gegenseitige Sperre + Berechnung ──
+  // Bei Etikettangaben je Spritzbrühe (g/hl, ml/hl) ergibt sich die Konzentration direkt daraus
+  // (g/hl ÷ 1000 ≈ %). Bei Angaben je Fläche (kg/ha, l/ha) wird zusätzlich die Spritzbrühe (l/ha)
+  // aus Punkt 1 benötigt (Konzentration % = Aufwandmenge ÷ Spritzbrühe(l/ha) × 100); ist diese nicht
+  // bekannt, bleiben beide Felder unabhängig voneinander editierbar.
+  const effektivesWasserLHa = wasserGesperrt ? wasserBerechnet : (wasseraufwand ? parseFloat(wasseraufwand) : null)
+
+  function konzentrationAusAufwand(wertStr: string, einheit: string): number | null {
+    const wert = parseFloat(wertStr)
+    if (isNaN(wert)) return null
+    if (einheit === 'g_hl' || einheit === 'ml_hl') return wert / 1000
+    if ((einheit === 'kg_ha' || einheit === 'l_ha') && effektivesWasserLHa && effektivesWasserLHa > 0) {
+      return (wert / effektivesWasserLHa) * 100
+    }
+    return null
+  }
+  function aufwandAusKonzentration(konzStr: string, einheit: string): number | null {
+    const konz = parseFloat(konzStr)
+    if (isNaN(konz)) return null
+    if (einheit === 'g_hl' || einheit === 'ml_hl') return konz * 1000
+    if ((einheit === 'kg_ha' || einheit === 'l_ha') && effektivesWasserLHa && effektivesWasserLHa > 0) {
+      return (konz / 100) * effektivesWasserLHa
+    }
+    return null
+  }
+
+  const konzentrationBerechnet = aufwandQuelle === 'aufwand'
+    ? konzentrationAusAufwand(aufwandmenge, aufwandmengeEinheit) : null
+  const aufwandmengeBerechnet = aufwandQuelle === 'konzentration'
+    ? aufwandAusKonzentration(konzentration, aufwandmengeEinheit) : null
+  const konzentrationGesperrt = aufwandQuelle === 'aufwand' && konzentrationBerechnet != null
+  const aufwandmengeGesperrt = aufwandQuelle === 'konzentration' && aufwandmengeBerechnet != null
 
   // ─── Kosten-Vorschlag: passende Hektarsätze für die aktuelle Art + Vorschlagssumme ──
   const passendeSaetze = saetzeMassnahmen.filter(s => s.art === art)
@@ -159,8 +235,8 @@ export default function NeueBehandlungForm({
     art === 'spritzung' || art === 'sonstiges' ? selectedPsm?.preis_pro_einheit :
     art === 'duengung'  ? selectedDuengemittel?.preis_pro_einheit :
     undefined
-  const materialkosten = materialpreisProEinheit && mengeGesamt
-    ? materialpreisProEinheit * parseFloat(mengeGesamt)
+  const materialkosten = materialpreisProEinheit && mengeGesamtNum
+    ? materialpreisProEinheit * mengeGesamtNum
     : 0
   const personalkosten = gewaehlterSatz && totalHaAktiv > 0
     ? gewaehlterSatz.satz_pro_ha * totalHaAktiv
@@ -187,7 +263,7 @@ export default function NeueBehandlungForm({
   // Weingärten nach Ried gruppieren
   const lagenMap = new Map<string, WeingartenOption[]>()
   for (const w of weingaerten) {
-    const key = w.lage_name ?? '(Keine Ried)'
+    const key = w.lage_name ?? 'Alle Rieden'
     const arr = lagenMap.get(key) ?? []
     arr.push(w)
     lagenMap.set(key, arr)
@@ -259,6 +335,27 @@ export default function NeueBehandlungForm({
     const fd = new FormData(e.currentTarget)
     selectedWGs.forEach(id => fd.append('weingarten_ids', id))
     selectedGSTs.forEach((_wgId, gstId) => fd.append('grundstueck_ids', gstId))
+    // Gesperrte (berechnete) Felder werden als disabled gerendert und daher NICHT automatisch
+    // in die FormData übernommen - hier explizit mit dem berechneten Wert nachtragen.
+    if (felder.mengeGesamt !== 'hidden') {
+      if (mengeGesamtGesperrt && mengeGesamtBerechnet != null) {
+        fd.set('menge_gesamt', String(mengeGesamtBerechnet))
+        fd.set('menge_einheit', 'l')
+      } else {
+        fd.set('menge_gesamt', mengeGesamt)
+      }
+    }
+    if (felder.wasseraufwand !== 'hidden') {
+      fd.set('wasseraufwand_l_ha', wasserGesperrt && wasserBerechnet != null ? String(wasserBerechnet) : wasseraufwand)
+    }
+    if (felder.aufwandmenge !== 'hidden') {
+      fd.set('aufwandmenge', aufwandmengeGesperrt && aufwandmengeBerechnet != null ? String(aufwandmengeBerechnet) : aufwandmenge)
+      fd.set('aufwandmenge_einheit', aufwandmengeEinheit)
+    }
+    if (felder.konzentration !== 'hidden') {
+      fd.set('konzentration', konzentrationGesperrt && konzentrationBerechnet != null ? String(konzentrationBerechnet) : konzentration)
+    }
+    fd.set('reinkupfer_kg_ha', reinkupferKgHaRaw != null ? String(reinkupferKgHaRaw) : '')
     startTransition(async () => {
       try {
         await createBehandlung(fd)
@@ -399,23 +496,33 @@ export default function NeueBehandlungForm({
             </label>
             <div className="flex gap-2">
               <input name="menge_gesamt" type="number" step="0.001" min="0"
-                required={felder.mengeGesamt === 'pflicht'}
+                required={felder.mengeGesamt === 'pflicht' && !mengeGesamtGesperrt}
                 placeholder="z.B. 2.4"
-                value={mengeGesamt}
-                onChange={e => setMengeGesamt(e.target.value)}
-                className="flex-1 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
-              <select name="menge_einheit" value={mengeEinheit}
+                value={mengeGesamtGesperrt ? (mengeGesamtBerechnet != null ? mengeGesamtBerechnet.toFixed(2) : '') : mengeGesamt}
+                disabled={mengeGesamtGesperrt}
+                onChange={e => { setMengeGesamt(e.target.value); setMengeQuelle(e.target.value === '' ? null : 'gesamt') }}
+                className="flex-1 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-gray-500" />
+              <select name="menge_einheit" value={mengeQuelle === 'wasser' ? 'l' : mengeEinheit}
+                disabled={mengeGesamtGesperrt}
                 onChange={e => setMengeEinheit(e.target.value)}
-                className="w-24 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                className="w-24 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-gray-500">
                 {MENGE_EINHEITEN.map(e => <option key={e} value={e}>{e}</option>)}
               </select>
             </div>
+            {mengeQuelle === 'wasser' && (
+              <p className="text-xs text-s112-muted mt-1">
+                {mengeGesamtGesperrt
+                  ? 'Automatisch berechnet aus Spritzbrühe (l/ha) × Fläche.'
+                  : 'Wird berechnet, sobald Ried(en) ausgewählt sind.'}
+              </p>
+            )}
             {/* Live-Zusammenfassung */}
-            {(aufwandProHa || cuBeitragG) && (
+            {(aufwandProHa || cuBeitragG || reinkupferKgHa) && (
               <div className="mt-2 bg-s112-bg rounded-lg px-3 py-2 text-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
                 {totalHaAktiv > 0 && <span>Behandelte Fläche: <strong>{fmtHa(totalHaAktiv)}</strong></span>}
                 {aufwandProHa && <span>≈ <strong>{aufwandProHa}</strong></span>}
                 {cuBeitragG && <span className="text-blue-600">Cu-Eintrag: <strong>{cuBeitragG}</strong></span>}
+                {reinkupferKgHa && <span className="text-blue-600">Reinkupfer: <strong>{reinkupferKgHa}</strong></span>}
               </div>
             )}
           </div>
@@ -431,12 +538,16 @@ export default function NeueBehandlungForm({
                     {felder.aufwandmenge === 'pflicht' && <span className="text-red-500"> *</span>}
                   </label>
                   <input name="aufwandmenge" type="number" step="0.001" min="0" placeholder="z.B. 3.0"
-                    required={felder.aufwandmenge === 'pflicht'}
-                    className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                    required={felder.aufwandmenge === 'pflicht' && !aufwandmengeGesperrt}
+                    value={aufwandmengeGesperrt ? (aufwandmengeBerechnet != null ? aufwandmengeBerechnet.toFixed(3) : '') : aufwandmenge}
+                    disabled={aufwandmengeGesperrt}
+                    onChange={e => { setAufwandmenge(e.target.value); setAufwandQuelle(e.target.value === '' ? null : 'aufwand') }}
+                    className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-gray-500" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Einheit</label>
-                  <select name="aufwandmenge_einheit"
+                  <select name="aufwandmenge_einheit" value={aufwandmengeEinheit}
+                    onChange={e => setAufwandmengeEinheit(e.target.value)}
                     className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                     {EINHEITEN_AUFWAND.map(e => <option key={e} value={e}>{EINHEITEN_LABEL[e]}</option>)}
                   </select>
@@ -448,7 +559,14 @@ export default function NeueBehandlungForm({
                 <label className="block text-sm font-medium text-gray-700 mb-1">Konzentration (%)</label>
                 <input name="konzentration" type="number" step="0.01" min="0" max="100"
                   placeholder="z.B. 0.5"
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                  value={konzentrationGesperrt ? (konzentrationBerechnet != null ? konzentrationBerechnet.toFixed(3) : '') : konzentration}
+                  disabled={konzentrationGesperrt}
+                  onChange={e => { setKonzentration(e.target.value); setAufwandQuelle(e.target.value === '' ? null : 'konzentration') }}
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-gray-500" />
+                {aufwandQuelle != null && !konzentrationGesperrt && !aufwandmengeGesperrt && effektivesWasserLHa == null
+                  && (aufwandmengeEinheit === 'kg_ha' || aufwandmengeEinheit === 'l_ha') && (
+                  <p className="text-xs text-s112-muted mt-1">Für die automatische Berechnung bitte Spritzbrühe (l/ha) angeben.</p>
+                )}
               </div>
             )}
           </div>
@@ -471,9 +589,19 @@ export default function NeueBehandlungForm({
             )}
             {felder.wasseraufwand !== 'hidden' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Wasser (l/ha)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Spritzbrühe (l/ha)</label>
                 <input name="wasseraufwand_l_ha" type="number" step="1" min="0" placeholder="z.B. 500"
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                  value={wasserGesperrt ? (wasserBerechnet != null ? wasserBerechnet.toFixed(1) : '') : wasseraufwand}
+                  disabled={wasserGesperrt}
+                  onChange={e => { setWasseraufwand(e.target.value); setMengeQuelle(e.target.value === '' ? null : 'wasser') }}
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-gray-500" />
+                {mengeQuelle === 'gesamt' && (
+                  <p className="text-xs text-s112-muted mt-1">
+                    {wasserGesperrt
+                      ? 'Automatisch berechnet aus Gesamtmenge ÷ Fläche.'
+                      : 'Wird berechnet, sobald Ried(en) ausgewählt sind.'}
+                  </p>
+                )}
               </div>
             )}
             {felder.schaderreger !== 'hidden' && (
@@ -484,7 +612,13 @@ export default function NeueBehandlungForm({
                 </label>
                 <input name="schaderreger" type="text" required={felder.schaderreger === 'pflicht'}
                   placeholder={art === 'sonstiges' ? 'z.B. Rodung' : 'z.B. Peronospora'}
+                  list={art === 'sonstiges' ? undefined : 'schaderreger-kb'}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                {art !== 'sonstiges' && (
+                  <datalist id="schaderreger-kb">
+                    {SCHADERREGER_OPTIONEN.map(s => <option key={s} value={s} />)}
+                  </datalist>
+                )}
               </div>
             )}
           </div>
@@ -734,6 +868,7 @@ export default function NeueBehandlungForm({
             <span className="font-semibold">{fmtHa(totalHaAktiv)}</span> aktive Fläche
             {aufwandProHa && <> · <span className="text-gray-500">≈ {aufwandProHa}</span></>}
             {cuBeitragG && <> · <span className="text-blue-600 font-medium">Cu: {cuBeitragG}</span></>}
+            {reinkupferKgHa && <> · <span className="text-blue-600 font-medium">Reinkupfer: {reinkupferKgHa}</span></>}
           </div>
         )}
       </div>

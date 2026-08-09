@@ -222,6 +222,7 @@ export async function createBehandlung(formData: FormData) {
   const mengeEinheit    = (formData.get('menge_einheit') as string) || null
   const konzentration   = parseDecimal(formData.get('konzentration'))
   const wasseraufwand   = formData.get('wasseraufwand_l_ha') ? Number(formData.get('wasseraufwand_l_ha')) : null
+  const reinkupferKgHa  = formData.get('reinkupfer_kg_ha') ? Number(formData.get('reinkupfer_kg_ha')) : null
   const bbch            = (formData.get('bbch_stadium') as string) || null
   const schaderreger    = (formData.get('schaderreger') as string) || null
   const witterung       = (formData.get('witterung') as string) || null
@@ -278,6 +279,7 @@ export async function createBehandlung(formData: FormData) {
       menge_einheit:        mengeEinheit,
       konzentration,
       wasseraufwand_l_ha:   wasseraufwand,
+      reinkupfer_kg_ha:     reinkupferKgHa,
       bbch_stadium:         bbch,
       schaderreger,
       witterung,
@@ -368,6 +370,7 @@ export async function updateBehandlung(id: string, formData: FormData) {
   const mengeEinheit   = (formData.get('menge_einheit') as string) || null
   const konzentration  = parseDecimal(formData.get('konzentration'))
   const wasseraufwand  = formData.get('wasseraufwand_l_ha') ? Number(formData.get('wasseraufwand_l_ha')) : null
+  const reinkupferKgHa = formData.get('reinkupfer_kg_ha') ? Number(formData.get('reinkupfer_kg_ha')) : null
   const bbch           = (formData.get('bbch_stadium') as string) || null
   const schaderreger   = (formData.get('schaderreger') as string) || null
   const witterung      = (formData.get('witterung') as string) || null
@@ -394,6 +397,7 @@ export async function updateBehandlung(id: string, formData: FormData) {
       aufwandmenge, aufwandmenge_einheit: aufwandEinheit,
       menge_gesamt: mengeGesamt, menge_einheit: mengeEinheit,
       konzentration, wasseraufwand_l_ha: wasseraufwand,
+      reinkupfer_kg_ha: reinkupferKgHa,
       bbch_stadium: bbch, schaderreger, witterung, temperatur_c: temperatur,
       ernte_fruehesteins: ernteFruehesteins, notizen,
       bearbeitungstiefe_cm: bearbeitungstiefe, bearbeitungsgeraet,

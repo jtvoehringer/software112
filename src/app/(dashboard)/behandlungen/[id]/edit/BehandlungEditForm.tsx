@@ -37,6 +37,7 @@ const ART_OPTIONS = [
   { value: 'sonstiges',        label: 'Sonstiges',        icon: MoreHorizontal },
 ]
 const MENGE_EINHEITEN = ['kg', 'l', 'g', 'ml']
+const SCHADERREGER_OPTIONEN = ['Oidium', 'Peronospora', 'Botrytis']
 const LAUBARBEIT_OPTIONEN = [
   { value: 'entblaettern', label: 'Entblättern' },
   { value: 'ausgeizen',    label: 'Ausgeizen' },
@@ -77,6 +78,7 @@ export type BehandlungEdit = {
   menge_einheit: string | null
   konzentration: number | null
   wasseraufwand_l_ha: number | null
+  reinkupfer_kg_ha: number | null
   bbch_stadium: string | null
   schaderreger: string | null
   witterung: string | null
@@ -134,6 +136,15 @@ export default function BehandlungEditForm({
   const [art, setArt] = useState<Art>((behandlung.art as Art) ?? 'spritzung')
   const [selectedPsmId, setSelectedPsmId] = useState(behandlung.psm_id ?? '')
   const [selectedDuengemittelId, setSelectedDuengemittelId] = useState(behandlung.duengemittel_id ?? '')
+  const [aufwandmenge, setAufwandmenge] = useState(behandlung.aufwandmenge != null ? String(behandlung.aufwandmenge) : '')
+  const [aufwandmengeEinheit, setAufwandmengeEinheit] = useState(behandlung.aufwandmenge_einheit ?? 'l_ha')
+  const [konzentration, setKonzentration] = useState(behandlung.konzentration != null ? String(behandlung.konzentration) : '')
+  const [wasseraufwand, setWasseraufwand] = useState(behandlung.wasseraufwand_l_ha != null ? String(behandlung.wasseraufwand_l_ha) : '')
+  // Analog zum Anlegen-Formular (NeueBehandlungForm.tsx, Punkt 2 der Anforderung): Aufwandmenge
+  // und Konzentration berechnen sich gegenseitig. Die Gesamtmenge/Spritzbrühe-Kopplung (Punkt 1)
+  // wird hier bewusst NICHT nachgebildet, da die Flächendaten der Maßnahme beim Bearbeiten nicht
+  // zur Verfügung stehen (Ried-Auswahl ist nicht änderbar) - Gesamtmenge bleibt daher frei editierbar.
+  const [aufwandQuelle, setAufwandQuelle] = useState<'aufwand' | 'konzentration' | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const felder = FELD_MATRIX[art] ?? FELD_MATRIX.spritzung
@@ -155,6 +166,37 @@ export default function BehandlungEditForm({
   const bioSperre  = BIO_SPERRE.has(bioStatus) && mittelNichtOeko
   const bioWarnung = !bioSperre && BIO_WARNUNG.has(bioStatus) && mittelNichtOeko
 
+  // ─── Punkt 2: Aufwandmenge (Etikett) ↔ Konzentration (%) - gegenseitige Sperre + Berechnung ──
+  // Formel identisch zum Anlegen-Formular; effektivesWasserLHa kommt hier direkt aus dem frei
+  // editierbaren Spritzbrühe-Feld (keine Fläche nötig für diese Formel).
+  const effektivesWasserLHa = wasseraufwand ? parseFloat(wasseraufwand) : null
+
+  function konzentrationAusAufwand(wertStr: string, einheit: string): number | null {
+    const wert = parseFloat(wertStr)
+    if (isNaN(wert)) return null
+    if (einheit === 'g_hl' || einheit === 'ml_hl') return wert / 1000
+    if ((einheit === 'kg_ha' || einheit === 'l_ha') && effektivesWasserLHa && effektivesWasserLHa > 0) {
+      return (wert / effektivesWasserLHa) * 100
+    }
+    return null
+  }
+  function aufwandAusKonzentration(konzStr: string, einheit: string): number | null {
+    const konz = parseFloat(konzStr)
+    if (isNaN(konz)) return null
+    if (einheit === 'g_hl' || einheit === 'ml_hl') return konz * 1000
+    if ((einheit === 'kg_ha' || einheit === 'l_ha') && effektivesWasserLHa && effektivesWasserLHa > 0) {
+      return (konz / 100) * effektivesWasserLHa
+    }
+    return null
+  }
+
+  const konzentrationBerechnet = aufwandQuelle === 'aufwand'
+    ? konzentrationAusAufwand(aufwandmenge, aufwandmengeEinheit) : null
+  const aufwandmengeBerechnet = aufwandQuelle === 'konzentration'
+    ? aufwandAusKonzentration(konzentration, aufwandmengeEinheit) : null
+  const konzentrationGesperrt = aufwandQuelle === 'aufwand' && konzentrationBerechnet != null
+  const aufwandmengeGesperrt = aufwandQuelle === 'konzentration' && aufwandmengeBerechnet != null
+
   const updateWithId = updateBehandlung.bind(null, behandlung.id)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -169,6 +211,18 @@ export default function BehandlungEditForm({
     const wartezeit = selectedPsm?.wartezeit_tage ?? selectedDuengemittel?.wartezeit_tage
     if (wartezeit != null) {
       fd.set('wartezeit_tage', String(wartezeit))
+    }
+    // Gesperrte (berechnete) Felder werden als disabled gerendert und daher NICHT automatisch
+    // in die FormData übernommen - hier explizit mit dem berechneten Wert nachtragen.
+    if (felder.aufwandmenge !== 'hidden') {
+      fd.set('aufwandmenge', aufwandmengeGesperrt && aufwandmengeBerechnet != null ? String(aufwandmengeBerechnet) : aufwandmenge)
+      fd.set('aufwandmenge_einheit', aufwandmengeEinheit)
+    }
+    if (felder.konzentration !== 'hidden') {
+      fd.set('konzentration', konzentrationGesperrt && konzentrationBerechnet != null ? String(konzentrationBerechnet) : konzentration)
+    }
+    if (felder.wasseraufwand !== 'hidden') {
+      fd.set('wasseraufwand_l_ha', wasseraufwand)
     }
     startTransition(async () => {
       try {
@@ -309,8 +363,14 @@ export default function BehandlungEditForm({
               <div>
                 <label className={labelCls}>Konzentration (%)</label>
                 <input name="konzentration" type="number" step="0.01" min="0" max="100"
-                  defaultValue={behandlung.konzentration ?? ''}
-                  className={inputCls} />
+                  value={konzentrationGesperrt ? (konzentrationBerechnet != null ? konzentrationBerechnet.toFixed(3) : '') : konzentration}
+                  disabled={konzentrationGesperrt}
+                  onChange={e => { setKonzentration(e.target.value); setAufwandQuelle(e.target.value === '' ? null : 'konzentration') }}
+                  className={`${inputCls} disabled:bg-s112-bg disabled:text-gray-500`} />
+                {aufwandQuelle != null && !konzentrationGesperrt && !aufwandmengeGesperrt && effektivesWasserLHa == null
+                  && (aufwandmengeEinheit === 'kg_ha' || aufwandmengeEinheit === 'l_ha') && (
+                  <p className="text-xs text-s112-muted mt-1">Für die automatische Berechnung bitte Spritzbrühe (l/ha) angeben.</p>
+                )}
               </div>
             )}
           </div>
@@ -326,13 +386,16 @@ export default function BehandlungEditForm({
                     {felder.aufwandmenge === 'pflicht' && <span className="text-red-500"> *</span>}
                   </label>
                   <input name="aufwandmenge" type="number" step="0.001" min="0"
-                    required={felder.aufwandmenge === 'pflicht'}
-                    defaultValue={behandlung.aufwandmenge ?? ''} className={inputCls} />
+                    required={felder.aufwandmenge === 'pflicht' && !aufwandmengeGesperrt}
+                    value={aufwandmengeGesperrt ? (aufwandmengeBerechnet != null ? aufwandmengeBerechnet.toFixed(3) : '') : aufwandmenge}
+                    disabled={aufwandmengeGesperrt}
+                    onChange={e => { setAufwandmenge(e.target.value); setAufwandQuelle(e.target.value === '' ? null : 'aufwand') }}
+                    className={`${inputCls} disabled:bg-s112-bg disabled:text-gray-500`} />
                 </div>
                 <div>
                   <label className={labelCls}>Einheit</label>
-                  <select name="aufwandmenge_einheit"
-                    defaultValue={behandlung.aufwandmenge_einheit ?? 'l_ha'}
+                  <select name="aufwandmenge_einheit" value={aufwandmengeEinheit}
+                    onChange={e => setAufwandmengeEinheit(e.target.value)}
                     className={inputCls}>
                     {EINHEITEN_AUFWAND.map(e => <option key={e} value={e}>{EINHEITEN_LABEL[e]}</option>)}
                   </select>
@@ -341,9 +404,11 @@ export default function BehandlungEditForm({
             )}
             {felder.wasseraufwand !== 'hidden' && (
               <div>
-                <label className={labelCls}>Wasser (l/ha)</label>
+                <label className={labelCls}>Spritzbrühe (l/ha)</label>
                 <input name="wasseraufwand_l_ha" type="number" step="1" min="0"
-                  defaultValue={behandlung.wasseraufwand_l_ha ?? ''} className={inputCls} />
+                  value={wasseraufwand}
+                  onChange={e => setWasseraufwand(e.target.value)}
+                  className={inputCls} />
               </div>
             )}
           </div>
@@ -362,10 +427,14 @@ export default function BehandlungEditForm({
               <label className={labelCls}>Schaderreger</label>
               <input name="schaderreger" type="text"
                 defaultValue={behandlung.schaderreger ?? ''} className={inputCls}
-                placeholder="z.B. Peronospora" />
+                placeholder="z.B. Peronospora" list="schaderreger-kb" />
+              <datalist id="schaderreger-kb">
+                {SCHADERREGER_OPTIONEN.map(s => <option key={s} value={s} />)}
+              </datalist>
             </div>
           </div>
         )}
+        <input type="hidden" name="reinkupfer_kg_ha" defaultValue={behandlung.reinkupfer_kg_ha ?? ''} />
 
         {/* Düngung: Einarbeitung */}
         {art === 'duengung' && (

@@ -38,7 +38,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     (supabase.from('behandlungen') as any)
       .select(`
         id, datum, datum_bis, art, psm_id, duengemittel_id, aufwandmenge, aufwandmenge_einheit,
-        menge_gesamt, menge_einheit, konzentration, wasseraufwand_l_ha,
+        menge_gesamt, menge_einheit, konzentration, wasseraufwand_l_ha, reinkupfer_kg_ha,
         bbch_stadium, schaderreger, witterung, temperatur_c, notizen,
         bearbeitungstiefe_cm, bearbeitungsgeraet, schnittart, laubarbeit_art,
         einarbeitung, einarbeitung_zeitpunkt,
@@ -91,6 +91,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     menge_einheit:        b.menge_einheit ?? null,
     konzentration:        b.konzentration ?? null,
     wasseraufwand_l_ha:   b.wasseraufwand_l_ha ?? null,
+    reinkupfer_kg_ha:     b.reinkupfer_kg_ha ?? null,
     bbch_stadium:         b.bbch_stadium ?? null,
     schaderreger:         b.schaderreger ?? null,
     witterung:            b.witterung ?? null,
