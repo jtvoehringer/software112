@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { exportCSV } from '@/lib/utils/csv'
-import { BarChart3, Calculator, FileText, Droplet } from 'lucide-react'
+import { BarChart3, Calculator, FileText, Droplet, Sprout } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -987,6 +987,7 @@ export default function ReportsClient({
                 { href: '/reports/ama', icon: FileText, title: 'AMA Erntemeldung', desc: 'Weinerntemeldung je Jahrgang · Druckfertig mit Unterschriftsfeld' },
                 { href: '/reports/behandlungsprotokoll', icon: FileText, title: 'Behandlungsprotokoll', desc: 'Weinbauliches Spritzprotokoll nach Saison · für Bio-Kontrolle und Landwirtschaftskammer' },
                 { href: '/reports/cu-bilanz', icon: Droplet, title: 'Cu-Bilanz Jahresbericht', desc: 'Kupfer-Nachweis gem. EU-Bio-VO 2018/848 · Ampel vs. 4 kg/ha EU-Limit' },
+                { href: '/reports/naehrstoffbilanz', icon: Sprout, title: 'Nährstoffbilanz Jahresbericht', desc: 'Stickstoff/Phosphor aus Düngungen · Ampel vs. Richtwerte (NAPV 2023)' },
               ].map(doc => (
                 <a key={doc.href} href={doc.href}
                   className="card p-5 hover:border-s112-teal hover:shadow-md transition-all group flex flex-col gap-2">
