@@ -507,6 +507,8 @@ export default function NeuerVerkaufPage() {
     startTransition(async () => {
       try {
         await createVerkauf(formData)
+        router.push('/weinhandel/verkauf')
+        router.refresh()
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Fehler beim Speichern')
       }

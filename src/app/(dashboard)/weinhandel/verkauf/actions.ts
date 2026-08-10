@@ -10,6 +10,23 @@ import { syncEaEinnahmeFuerVerkauf } from '@/app/(dashboard)/buchhaltung/actions
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
+// Parst einen im oesterreichischen Format eingegebenen/vorbefuellten Betrag (z.B. "5 695,00" -
+// toLocaleString('de-AT', ...) verwendet als Tausendertrennzeichen ein Leerzeichen, je nach
+// Laufzeitumgebung auch eine geschuetzte/schmale Variante davon statt eines normalen
+// Leerzeichens). Ein einfaches ".replace(',', '.')" reicht dafuer NICHT: parseFloat bricht
+// beim ersten Leerzeichen ab und liefert nur die fuehrende Ziffer zurueck (Bugreport
+// 10.8.2026: bei "Zahlung buchen" mit vorbefuelltem Betrag wurde so aus "5 695,00" nur "5"
+// verbucht). Fix: zuerst ALLE Whitespace-Varianten (das Regex-\s deckt in JS auch
+// geschuetzte/schmale Leerzeichen ab) sowie Tausenderpunkte entfernen, erst danach das
+// Dezimal-Komma in einen Punkt umwandeln.
+function parseBetragDeAt(raw: string): number {
+  const cleaned = (raw || '')
+    .replace(/\s/g, '')  // alle Leerzeichen-Varianten (inkl. geschuetzt/schmal) entfernen
+    .replace(/\./g, '')  // Tausenderpunkt entfernen (falls vorhanden)
+    .replace(',', '.')    // Dezimalkomma -> Punkt
+  return parseFloat(cleaned)
+}
+
 async function getTenantId(): Promise<string> {
   const supabase = await createSupabaseServerClient()
   const { data } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
@@ -516,7 +533,7 @@ export async function createZahlung(
   'use server'
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
-  const betrag  = parseFloat((formData.get('betrag') as string || '').replace(',', '.'))
+  const betrag  = parseBetragDeAt(formData.get('betrag') as string || '')
   const art     = formData.get('art') as string
   const datum   = formData.get('datum') as string
   const notizen = (formData.get('notizen') as string) || null
