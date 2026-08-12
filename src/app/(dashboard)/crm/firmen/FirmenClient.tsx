@@ -404,17 +404,20 @@ function FirmaKarte({
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 
 export default function FirmenClient({
-  firmen, kontakteMap, rabattgruppen, writeOk,
+  firmen, kontakteMap, rabattgruppen, writeOk, initialFilter,
 }: {
   firmen: FirmaRow[]
   kontakteMap: Record<string, KontaktKurz[]>
   rabattgruppen?: {id:string;name:string;rabatt_pct:number}[]
   writeOk: boolean
+  initialFilter?: 'alle' | 'lead' | 'kunde'
 }) {
   const [showForm, setShowForm] = useState(false)
   const [suche, setSuche] = useState('')
   const [segment, setSegment] = useState('alle')
-  const [filterLead, setFilterLead] = useState<'alle' | 'lead' | 'kunde'>('alle')
+  // Sprungziel von der Dashboard-Leads-Kachel (?filter=lead) - springt direkt auf die
+  // gefilterte Ansicht, statt dass man den Filter nach dem Klick nochmal manuell setzen muss.
+  const [filterLead, setFilterLead] = useState<'alle' | 'lead' | 'kunde'>(initialFilter ?? 'alle')
   const BUCHSTABEN = ['Alle', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')]
   const [buchstabe, setBuchstabe] = useState('Alle')
 

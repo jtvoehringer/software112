@@ -283,17 +283,27 @@ export default async function DashboardPage() {
             Kontakten als auch bei Firmen (jeweils eigenes is_lead-Feld) - die Kachel zeigte
             bisher nur die Kontakt-Leads, Firmen-Leads fehlten in der Summe. Anpassung
             12.8.2026 (2): Unterzeile zeigt jetzt die Aufteilung Kontakte/Firmen statt der
-            (fachlich irrelevanten) Gesamt-Kontaktanzahl. */}
-        <Link href="/crm/kontakte" className="bg-white border border-s112-line rounded-xl p-4 flex flex-col gap-2 hover:shadow-sm transition-shadow">
+            (fachlich irrelevanten) Gesamt-Kontaktanzahl. Anpassung 12.8.2026 (3): Kachel ist
+            nicht mehr als Ganzes ein Link (zwei unterschiedliche Ziele je nach Kontakt/Firma
+            möglich) - stattdessen sind "Kontakt(e)" und "Firma/Firmen" in der Unterzeile
+            jeweils einzeln verlinkt und springen direkt auf die entsprechend gefilterte
+            Lead-Liste (?filter=lead). */}
+        <div className="bg-white border border-s112-line rounded-xl p-4 flex flex-col gap-2">
           <div className="flex items-center gap-1.5">
             <Users size={18} strokeWidth={1.5} className="text-s112-tertiary" />
             <p className="text-[11.5px] font-semibold text-s112-text-2">Leads</p>
           </div>
           <p className="font-mono text-2xl text-s112-text tabular-nums">{(leadCount ?? 0) + (firmaLeadCount ?? 0)}</p>
           <p className="text-[11.5px] text-s112-tertiary">
-            {leadCount ?? 0} {(leadCount ?? 0) === 1 ? 'Kontakt' : 'Kontakte'} · {firmaLeadCount ?? 0} {(firmaLeadCount ?? 0) === 1 ? 'Firma' : 'Firmen'}
+            <Link href="/crm/kontakte?filter=lead" className="hover:text-s112-teal hover:underline">
+              {leadCount ?? 0} {(leadCount ?? 0) === 1 ? 'Kontakt' : 'Kontakte'}
+            </Link>
+            {' · '}
+            <Link href="/crm/firmen?filter=lead" className="hover:text-s112-teal hover:underline">
+              {firmaLeadCount ?? 0} {(firmaLeadCount ?? 0) === 1 ? 'Firma' : 'Firmen'}
+            </Link>
           </p>
-        </Link>
+        </div>
       </div>
 
       {/* ── Balkendiagramm + Tabelle ────────────────────────────────── */}

@@ -11,7 +11,14 @@ export const dynamic = 'force-dynamic'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-export default async function FirmenPage() {
+export default async function FirmenPage({
+  searchParams,
+}: {
+  searchParams: { filter?: string }
+}) {
+  const sp = await searchParams
+  const initialFilter = sp.filter === 'lead' ? 'lead' : sp.filter === 'kunde' ? 'kunde' : 'alle'
+
   const supabase = await createSupabaseServerClient()
   const role    = await getCurrentUserRole()
   const writeOk = canWrite(role)
@@ -79,7 +86,7 @@ export default async function FirmenPage() {
         <span className="text-sm text-s112-muted">{firmen.length} Firmen</span>
       </div>
 
-      <FirmenClient firmen={firmen} kontakteMap={kontakteMap} rabattgruppen={rabattgruppen} writeOk={writeOk} />
+      <FirmenClient firmen={firmen} kontakteMap={kontakteMap} rabattgruppen={rabattgruppen} writeOk={writeOk} initialFilter={initialFilter} />
     </div>
   )
 }
