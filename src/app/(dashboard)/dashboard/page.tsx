@@ -73,7 +73,6 @@ export default async function DashboardPage() {
     { data: monatsVerkaufRaw },
     { data: vormonatsVerkaufRaw },
     { data: letzteVerkaeufRaw },
-    { count: kontakteCount },
     { count: leadCount },
     { count: firmaLeadCount },
     { count: auftraegeWocheCount },
@@ -104,7 +103,8 @@ export default async function DashboardPage() {
       .select('id, datum, rechnungsnummer, bezahlt, storniert, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name), positionen:verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
       .eq('aktiv', true).eq('bezahlt', false).eq('storniert', false).order('datum', { ascending: true }).limit(200)),
 
-    tf(q('kontakte').select('*', { count: 'exact', head: true }).eq('aktiv', true)),
+    // Gesamt-Kontaktzahl bewusst nicht mehr abgefragt (Feedback 12.8.2026: "Gesamtzahl ist
+    // irrelevant") - die Unterzeile zeigt stattdessen die Aufteilung Kontakte-Leads/Firmen-Leads.
     tf(q('kontakte').select('*', { count: 'exact', head: true }).eq('aktiv', true).eq('is_lead', true)),
     // Firmen-Leads separat zählen (Bugreport 12.8.2026: Leads-Kachel zeigte nur Kontakt-Leads,
     // Firmen können aber genauso als Lead gefuehrt werden - siehe firmen.is_lead, Migration 034)
@@ -281,14 +281,18 @@ export default async function DashboardPage() {
         {/* Leads (auf Wunsch von "Kontakte" umgestellt, 5.8.2026: Hauptzahl jetzt Leads,
             Gesamt-Kontakte in der Unterzeile). Bugfix 12.8.2026: Leads gibt es sowohl bei
             Kontakten als auch bei Firmen (jeweils eigenes is_lead-Feld) - die Kachel zeigte
-            bisher nur die Kontakt-Leads, Firmen-Leads fehlten in der Summe. */}
+            bisher nur die Kontakt-Leads, Firmen-Leads fehlten in der Summe. Anpassung
+            12.8.2026 (2): Unterzeile zeigt jetzt die Aufteilung Kontakte/Firmen statt der
+            (fachlich irrelevanten) Gesamt-Kontaktanzahl. */}
         <Link href="/crm/kontakte" className="bg-white border border-s112-line rounded-xl p-4 flex flex-col gap-2 hover:shadow-sm transition-shadow">
           <div className="flex items-center gap-1.5">
             <Users size={18} strokeWidth={1.5} className="text-s112-tertiary" />
             <p className="text-[11.5px] font-semibold text-s112-text-2">Leads</p>
           </div>
           <p className="font-mono text-2xl text-s112-text tabular-nums">{(leadCount ?? 0) + (firmaLeadCount ?? 0)}</p>
-          <p className="text-[11.5px] text-s112-tertiary">{kontakteCount ?? 0} Kontakte gesamt</p>
+          <p className="text-[11.5px] text-s112-tertiary">
+            {leadCount ?? 0} {(leadCount ?? 0) === 1 ? 'Kontakt' : 'Kontakte'} · {firmaLeadCount ?? 0} {(firmaLeadCount ?? 0) === 1 ? 'Firma' : 'Firmen'}
+          </p>
         </Link>
       </div>
 
