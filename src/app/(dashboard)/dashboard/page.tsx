@@ -75,6 +75,7 @@ export default async function DashboardPage() {
     { data: letzteVerkaeufRaw },
     { count: kontakteCount },
     { count: leadCount },
+    { count: firmaLeadCount },
     { count: auftraegeWocheCount },
     { count: auftraegeVorwocheCount },
     { data: absatzSeriesRaw },
@@ -105,6 +106,9 @@ export default async function DashboardPage() {
 
     tf(q('kontakte').select('*', { count: 'exact', head: true }).eq('aktiv', true)),
     tf(q('kontakte').select('*', { count: 'exact', head: true }).eq('aktiv', true).eq('is_lead', true)),
+    // Firmen-Leads separat zählen (Bugreport 12.8.2026: Leads-Kachel zeigte nur Kontakt-Leads,
+    // Firmen können aber genauso als Lead gefuehrt werden - siehe firmen.is_lead, Migration 034)
+    tf(q('firmen').select('*', { count: 'exact', head: true }).eq('aktiv', true).eq('is_lead', true)),
 
     // Aufträge diese Woche / Vorwoche (für Vergleich)
     tf(q('verkaufsposten').select('*', { count: 'exact', head: true }).eq('aktiv', true).eq('storniert', false).gte('datum', wochenStartStr)),
@@ -275,13 +279,15 @@ export default async function DashboardPage() {
         </Link>
 
         {/* Leads (auf Wunsch von "Kontakte" umgestellt, 5.8.2026: Hauptzahl jetzt Leads,
-            Gesamt-Kontakte in der Unterzeile) */}
+            Gesamt-Kontakte in der Unterzeile). Bugfix 12.8.2026: Leads gibt es sowohl bei
+            Kontakten als auch bei Firmen (jeweils eigenes is_lead-Feld) - die Kachel zeigte
+            bisher nur die Kontakt-Leads, Firmen-Leads fehlten in der Summe. */}
         <Link href="/crm/kontakte" className="bg-white border border-s112-line rounded-xl p-4 flex flex-col gap-2 hover:shadow-sm transition-shadow">
           <div className="flex items-center gap-1.5">
             <Users size={18} strokeWidth={1.5} className="text-s112-tertiary" />
             <p className="text-[11.5px] font-semibold text-s112-text-2">Leads</p>
           </div>
-          <p className="font-mono text-2xl text-s112-text tabular-nums">{leadCount ?? 0}</p>
+          <p className="font-mono text-2xl text-s112-text tabular-nums">{(leadCount ?? 0) + (firmaLeadCount ?? 0)}</p>
           <p className="text-[11.5px] text-s112-tertiary">{kontakteCount ?? 0} Kontakte gesamt</p>
         </Link>
       </div>
