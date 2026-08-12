@@ -43,6 +43,8 @@ export function FirmaForm({ initial, rabattgruppen = [], defaultSegment, existin
   const router = useRouter()
   const [segmentVal, setSegmentVal] = useState(initial?.segment ?? defaultSegment ?? 'handel')
   const [isLead, setIsLead]           = useState(initial?.is_lead ?? true)
+  const [istKunde, setIstKunde]       = useState(initial?.ist_kunde ?? true)
+  const [istLieferant, setIstLieferant] = useState(initial?.ist_lieferant ?? false)
   const [landVal, setLandVal]           = useState(initial?.land ?? 'AT')
   const [saveError, setSaveError]   = useState<string | null>(null)
   const [dubletteWarnung, setDubletteWarnung] = useState<string | null>(null)
@@ -125,6 +127,22 @@ export function FirmaForm({ initial, rabattgruppen = [], defaultSegment, existin
         <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-gray-600 mb-1">Firmenname *</label>
           <input name="name" defaultValue={v('name')} required className={inputCls()} />
+        </div>
+        {/* Kunde / Lieferant (Feedback 12.8.2026: Firmen sollen Kunde, Lieferant oder
+            beides sein können - steuert u.a. die Firma-Auswahllisten in Verkauf/Zukauf) */}
+        <div className="sm:col-span-2 flex items-center gap-6 bg-white border border-s112-border rounded-xl px-4 py-2.5">
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer select-none">
+            <input type="checkbox" checked={istKunde} onChange={e => setIstKunde(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-s112-teal focus:ring-2 focus:ring-s112-teal/40" />
+            Kunde
+          </label>
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer select-none">
+            <input type="checkbox" checked={istLieferant} onChange={e => setIstLieferant(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-s112-teal focus:ring-2 focus:ring-s112-teal/40" />
+            Lieferant
+          </label>
+          <input type="hidden" name="ist_kunde" value={String(istKunde)} />
+          <input type="hidden" name="ist_lieferant" value={String(istLieferant)} />
         </div>
         {/* Lead / Kunde Toggle */}
         <div className="sm:col-span-2 flex items-center justify-between bg-white border border-s112-border rounded-xl px-4 py-2.5">
@@ -336,6 +354,12 @@ function FirmaKarte({
               ? <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Lead</span>
               : <span className="text-xs px-2 py-0.5 rounded-full bg-s112-teal/10 text-s112-teal font-medium">Aktiv</span>
             }
+            {firma.ist_kunde && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">Kunde</span>
+            )}
+            {firma.ist_lieferant && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">Lieferant</span>
+            )}
             {firma.rabattgruppe_name && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
                 {firma.rabattgruppe_pct}% {firma.rabattgruppe_name}

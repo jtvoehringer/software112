@@ -34,7 +34,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     { data: vRaw },
   ] = await Promise.all([
     (supabase.from('firmen') as any)
-      .select('id, kundennummer, name, segment, strasse, plz, ort, land, email, telefon, telefon_vorwahl, website, uid_nummer, betrieb_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
+      .select('id, kundennummer, name, segment, strasse, plz, ort, land, email, telefon, telefon_vorwahl, website, uid_nummer, betrieb_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, ist_kunde, ist_lieferant, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
       .eq('id', id)
       .single(),
 
@@ -87,6 +87,12 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     rabattgruppe_id: f.rabattgruppe_id ?? null,
     rabattgruppe_name: (f.rabattgruppe as R | null)?.name ?? null,
     rabattgruppe_pct: (f.rabattgruppe as R | null)?.rabatt_pct ?? null,
+    // is_lead war hier bisher nicht gemappt (nur im SELECT abgefragt) - die Lead-Badge auf
+    // der Detailseite hat dadurch nie funktioniert. Bei dieser Gelegenheit mit ergänzt,
+    // zusammen mit den neuen Kunde/Lieferant-Feldern (Migration 158).
+    is_lead:          !!(f.is_lead as boolean),
+    ist_kunde:        f.ist_kunde ?? true,
+    ist_lieferant:    !!(f.ist_lieferant as boolean),
   }
 
   const kontakte: KontaktRow[] = ((kRaw ?? []) as R[]).map(k => ({

@@ -7,7 +7,7 @@ import { QUALITAET_LABEL, QUALITAET_ORDER } from '@/lib/weinqualitaet'
 import { AlertTriangle } from 'lucide-react'
 
 interface Kontakt  { id: string; vorname: string | null; nachname: string; firma_id: string | null }
-interface Firma    { id: string; name: string }
+interface Firma    { id: string; name: string; ist_kunde?: boolean; ist_lieferant?: boolean }
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
 
 interface SucheItem { id: string; label: string; sub?: string }
@@ -163,7 +163,9 @@ export default function ZukaufNeuPage() {
           fetch('/api/verkauf-stammdaten'),
           fetch('/api/zukauf-stammdaten'),
         ])
-        if (r1.ok) { const j1 = await r1.json(); setKontakte(j1.kontakte ?? []); setFirmen(j1.firmen ?? []) }
+        // Nur Firmen mit Häkchen bei "Lieferant" auswählbar (Feedback 12.8.2026: Firmen
+        // können Kunde, Lieferant oder beides sein - im Zukauf sind nur Lieferanten relevant).
+        if (r1.ok) { const j1 = await r1.json(); setKontakte(j1.kontakte ?? []); setFirmen(((j1.firmen ?? []) as Firma[]).filter((f: Firma) => f.ist_lieferant === true)) }
         if (r2.ok) { const j2 = await r2.json(); setBehaelter(j2.behaelter ?? []); setWeinausbauListe(j2.weinausbau ?? []) }
       } catch { /* ignore */ } finally { setLoading(false) }
     }

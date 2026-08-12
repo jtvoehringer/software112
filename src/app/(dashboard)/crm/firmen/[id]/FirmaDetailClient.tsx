@@ -509,6 +509,12 @@ export default function FirmaDetailClient({
             {firma.is_lead && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Lead</span>
             )}
+              {firma.ist_kunde && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">Kunde</span>
+              )}
+              {firma.ist_lieferant && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">Lieferant</span>
+              )}
               {firma.land && firma.land !== 'AT' && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{firma.land}</span>
               )}

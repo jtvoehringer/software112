@@ -151,6 +151,8 @@ export async function createFirma(formData: FormData): Promise<{ error?: string 
       skonto_pct:       parseFloat(formData.get('skonto_pct') as string) || 0,
       skonto_tage:      parseInt(formData.get('skonto_tage') as string) || 10,
       is_lead: formData.get('is_lead') === 'true',
+      ist_kunde:        formData.get('ist_kunde') === 'true',
+      ist_lieferant:    formData.get('ist_lieferant') === 'true',
     }
     payload.kundennummer = await generateKundennummer(tenantId)
     const { error } = await (supabase.from('firmen') as any).insert(payload)
@@ -187,6 +189,8 @@ export async function updateFirma(id: string, formData: FormData): Promise<{ err
       skonto_pct:       parseFloat(formData.get('skonto_pct') as string) || 0,
       skonto_tage:      parseInt(formData.get('skonto_tage') as string) || 10,
       is_lead: formData.get('is_lead') === 'true',
+      ist_kunde:        formData.get('ist_kunde') === 'true',
+      ist_lieferant:    formData.get('ist_lieferant') === 'true',
       aktualisiert_am:    new Date().toISOString(),
     }
     const { error } = await (supabase.from('firmen') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)

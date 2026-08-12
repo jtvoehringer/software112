@@ -127,6 +127,10 @@ export type FirmaRow = {
   skonto_pct?: number | null
   skonto_tage?: number | null
   is_lead?: boolean
+  // Kunde/Lieferant-Kennzeichnung (Migration 158) - eine Firma kann beides, eines oder
+  // (uebergangsweise) keines von beiden sein.
+  ist_kunde?: boolean
+  ist_lieferant?: boolean
   telefon_vorwahl?: string | null
   // Zahlungsziel in Tagen - Pflichtfeld seit 6.8.2026 (war zuvor optional,
   // Betrieb hatte ein zentrales Zahlungsziel; jetzt pro Kunde). 0 = "bei

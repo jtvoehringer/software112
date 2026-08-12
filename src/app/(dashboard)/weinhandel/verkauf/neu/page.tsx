@@ -87,6 +87,8 @@ interface Firma {
   sonderrabatt_pct: number
   skonto_pct: number
   skonto_tage: number
+  ist_kunde?: boolean
+  ist_lieferant?: boolean
 }
 
 interface Position {
@@ -365,7 +367,9 @@ export default function NeuerVerkaufPage() {
         setZukaufPosten(json.zukauf_posten ?? [])
         setPressungDirekt(json.pressung_direkt ?? [])
         setKontakte(json.kontakte ?? [])
-        setFirmen(json.firmen ?? [])
+        // Nur Firmen mit Häkchen bei "Kunde" auswählbar (Feedback 12.8.2026: Firmen können
+        // Kunde, Lieferant oder beides sein - im Verkauf sind nur Kunden relevant).
+        setFirmen(((json.firmen ?? []) as Firma[]).filter(f => f.ist_kunde !== false))
         setSonstigeArtikel(json.sonstige_artikel ?? [])
         setWeingaerten(json.weingaerten ?? [])
         setJahrgaenge(json.jahrgaenge ?? [])

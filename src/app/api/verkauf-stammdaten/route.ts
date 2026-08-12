@@ -40,7 +40,7 @@ export async function GET() {
         .eq('aktiv', true).order('nachname'),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('firmen') as any)
-        .select('id, name, sonderrabatt_pct, skonto_pct, skonto_tage, rabattgruppe:rabattgruppe_id(rabatt_pct)')
+        .select('id, name, sonderrabatt_pct, skonto_pct, skonto_tage, ist_kunde, ist_lieferant, rabattgruppe:rabattgruppe_id(rabatt_pct)')
         .eq('aktiv', true).order('name'),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('sonstige_artikel') as any)
