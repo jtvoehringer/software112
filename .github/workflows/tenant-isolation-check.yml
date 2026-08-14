@@ -1,0 +1,24 @@
+name: Tenant-Isolation-Check
+
+# Läuft bei jedem Push/PR gegen main als schnelles Feedback (unabhängig vom
+# "prebuild"-Skript, das denselben Check zusätzlich bei jedem Vercel-Deploy blockierend
+# ausführt - siehe package.json "prebuild" und scripts/check-tenant-isolation.js).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Dependencies installieren (nur für das 'typescript'-Paket benötigt)
+        run: npm install --no-save typescript
+      - name: Tenant-Isolation-Guard ausführen
+        run: node scripts/check-tenant-isolation.js

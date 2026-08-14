@@ -3,6 +3,7 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole } from '@/lib/auth/roles'
+import { setActiveTenantCookie } from '@/lib/auth/activeTenant'
 import { revalidatePath } from 'next/cache'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -44,6 +45,15 @@ export async function createMandant(formData: FormData) {
     const { error: membershipError } = await (supabase.from('tenant_memberships') as any)
       .insert({ tenant_id: (tenant as AR).id, user_id: user.id, role: 'system_admin', aktiv: true })
     if (membershipError) throw new Error((membershipError as AR).message)
+
+    // Aktiven Betrieb sofort auf den neu angelegten Mandanten umschalten - sonst bleibt
+    // der Ersteller (server- wie clientseitig) auf dem vorher aktiven Betrieb "hängen":
+    // getCurrentMembership() liest den aktiven Betrieb ausschließlich aus diesem Cookie,
+    // ohne diesen Wechsel würden z.B. der CSV-Import oder andere schreibende Aktionen
+    // gegen den FALSCHEN (alten) Betrieb geprüft/ausgeführt - dort hat der User evtl. gar
+    // keine Schreibrechte, was fälschlich wie ein Berechtigungsfehler aussieht, obwohl der
+    // User auf dem neuen Mandanten korrekt system_admin ist.
+    await setActiveTenantCookie((tenant as AR).id)
   }
 
   revalidatePath('/admin/mandanten')

@@ -18,12 +18,23 @@ export async function getCurrentUserRole(): Promise<UserRole> {
 export async function getCurrentMembership(): Promise<{ tenantId: string; role: UserRole } | null> {
   const supabase = await createSupabaseServerClient()
   const activeTenantId = await getActiveTenantCookie()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
 
   if (activeTenantId) {
-    // Validiere Cookie gegen tatsächliche Memberships (RLS schützt automatisch)
+    // Validiere Cookie gegen tatsächliche Memberships. WICHTIG: zusätzlich zu RLS explizit
+    // auf user_id filtern - die RLS-Policy "memberships: tenant_admin can view all in
+    // tenant" lässt system_admin/tenant_admin absichtlich ALLE Mitgliedschafts-Zeilen ihres
+    // Tenants sehen (für die Nutzerverwaltung), nicht nur ihre eigene. Ohne .eq('user_id',
+    // user.id) könnte .limit(1).maybeSingle() bei einem Tenant mit mehreren Mitgliedern
+    // eine BELIEBIGE dieser sichtbaren Zeilen zurückgeben - und damit einem system_admin/
+    // tenant_admin fälschlich die Rolle eines ANDEREN Mitglieds zuweisen (z.B. 'leser'
+    // statt der eigenen 'system_admin'-Rolle), abhängig von einer nicht garantierten
+    // Zeilenreihenfolge ohne ORDER BY.
     const { data } = await (supabase.from('tenant_memberships') as any)
       .select('tenant_id, role')
       .eq('tenant_id', activeTenantId)
+      .eq('user_id', user.id)
       .limit(1)
       .maybeSingle()
     if (data) return { tenantId: (data as R).tenant_id, role: (data as R).role as UserRole }
@@ -32,10 +43,13 @@ export async function getCurrentMembership(): Promise<{ tenantId: string; role: 
   // Fallback: erste Membership (kein Cookie gesetzt oder Cookie veraltet). Das IST hier
   // die kanonische "irgendeine Mitgliedschaft"-Fallback-Logik selbst, auf die sich
   // getCurrentMembership() als Ganzes stützt - jede andere Stelle im Code soll
-  // stattdessen getCurrentMembership() aufrufen statt diese Query zu duplizieren.
+  // stattdessen getCurrentMembership() aufrufen statt diese Query zu duplizieren. Auch
+  // hier auf user_id gefiltert (siehe Kommentar oben) - ansonsten dieselbe Gefahr einer
+  // fremden Mitgliedschaftszeile, nur diesmal sogar potenziell eines FREMDEN Mandanten.
   // tenant-isolation-ignore: kanonischer Fallback ohne aktiven Tenant-Cookie, siehe Kommentar oben
   const { data } = await (supabase.from('tenant_memberships') as any)
     .select('tenant_id, role')
+    .eq('user_id', user.id)
     .limit(1)
     .maybeSingle()
   if (!data) return null
