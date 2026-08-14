@@ -3,7 +3,7 @@ import { useState, useRef } from 'react'
 import { Upload } from 'lucide-react'
 import { createEroeffnungsbestandVonImport } from '@/app/(dashboard)/kellerbuch/gebinde-actions'
 
-type ImportTyp = 'kontakte' | 'firmen' | 'fuellungen' | 'rieden' | 'gebinde'
+type ImportTyp = 'kontakte' | 'firmen' | 'fuellungen' | 'rieden' | 'rieden_details' | 'grundstuecke' | 'gebinde'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -68,6 +68,24 @@ const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean 
     { key: 'name',      label: 'Bezeichnung (Ried)', pflicht: true },
     { key: 'notizen',   label: 'Notizen' },
   ],
+  rieden_details: [
+    { key: 'name',       label: 'Bezeichnung', pflicht: true },
+    { key: 'ried',       label: 'Ried (Zuordnung – wird bei Bedarf automatisch angelegt)' },
+    { key: 'rebsorte',   label: 'Rebsorte' },
+    { key: 'pflanzjahr', label: 'Pflanzjahr' },
+    { key: 'weinart',    label: 'Weinart (weiss/rot/rose – leer = unbekannt)' },
+    { key: 'flaeche_ha', label: 'Fläche (ha)' },
+  ],
+  grundstuecke: [
+    { key: 'gst_nr',              label: 'GST-Nummer', pflicht: true },
+    { key: 'ried_flaeche',        label: 'Ried – Bezeichnung (aus Tab "Rieden (Details)")', pflicht: true },
+    { key: 'katastralgemeinde',   label: 'KGNr.' },
+    { key: 'flaeche_ha',          label: 'Fläche lt. AMA (ha)' },
+    { key: 'flaeche_ha_kataster', label: 'Fläche lt. Kataster (ha)' },
+    { key: 'rebsorte',            label: 'Rebsorte' },
+    { key: 'bewirtschaftung',     label: 'Bewirtschaftung (biodynamisch/biologisch/in_umstellung/nachhaltig/kip/konventionell)' },
+    { key: 'status',              label: 'Status (aktiv/brache/gruenbrache)' },
+  ],
   gebinde: [
     { key: 'name',           label: 'Bezeichnung', pflicht: true },
     { key: 'typ',            label: 'Typ (lagertank/immervolltank/holzfass/betonei/amphore/sonstiges)' },
@@ -81,6 +99,8 @@ const TYP_LABEL: Record<ImportTyp, string> = {
   firmen:   'Firmen',
   fuellungen: 'Füllungen (Weinlager)',
   rieden:   'Rieden',
+  rieden_details: 'Rieden (Details)',
+  grundstuecke: 'Grundstücke',
   gebinde:  'Gebinde',
 }
 
@@ -184,6 +204,20 @@ export default function ImportClient({
           </button>
         ))}
       </div>
+
+      {typ === 'rieden_details' && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-5 text-sm text-blue-800">
+          Legt Rieden mit vollen Detailfeldern (Rebsorte, Pflanzjahr, Fläche, …) an. Die Spalte
+          &quot;Ried&quot; ordnet der bestehenden Ried-Bezeichnung zu (Tab &quot;Rieden&quot;) – gibt es
+          noch keine passende, wird sie automatisch mit angelegt.
+        </div>
+      )}
+      {typ === 'grundstuecke' && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-5 text-sm text-blue-800">
+          Setzt voraus, dass die zugehörige Ried bereits über den Tab &quot;Rieden (Details)&quot;
+          angelegt wurde (Zuordnung über die Spalte &quot;Ried – Bezeichnung&quot;, exakter Namensabgleich).
+        </div>
+      )}
 
       {/* Anfangsbestandsbuchung: Charge aus Altsystem übernehmen - nur bei Gebinde, und
           bewusst nur hier im Datenimport angeboten (nicht als eigener Menüpunkt). Nutzt
