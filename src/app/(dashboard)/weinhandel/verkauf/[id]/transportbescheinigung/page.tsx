@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import type { Metadata } from 'next'
@@ -13,6 +14,8 @@ type R = Record<string, any>
 export default async function TransportbescheinigungPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
 
   const [{ data: postenRaw, error: postenErr }, { data: cfgRaw }, { data: tbRaw }] = await Promise.all([
     (supabase.from('verkaufsposten') as any)
@@ -28,15 +31,18 @@ export default async function TransportbescheinigungPage({ params }: { params: P
         )
       `)
       .eq('id', id)
+      .eq('tenant_id', tenantId ?? '')
       .single(),
     // RLS-gescopter Client statt Admin-Client: verhindert, dass Firmendaten eines
     // anderen Mandanten auf dieses gesetzlich vorgeschriebene Dokument gelangen.
     (supabase.from('tenant_einstellungen') as any)
       .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_telefon, betrieb_betriebsnummer')
+      .eq('tenant_id', tenantId ?? '')
       .limit(1).maybeSingle(),
     (supabase.from('transportbescheinigungen') as any)
       .select('formular_daten')
       .eq('verkaufsposten_id', id)
+      .eq('tenant_id', tenantId ?? '')
       .maybeSingle(),
   ])
 
@@ -52,6 +58,7 @@ export default async function TransportbescheinigungPage({ params }: { params: P
     const { data: dacRaw } = await (supabase.from('dac_antrag') as any)
       .select('weinausbau_id, pruefnummer')
       .in('weinausbau_id', tankWaIds)
+      .eq('tenant_id', tenantId ?? '')
       .not('pruefnummer', 'is', null)
     for (const d of (dacRaw ?? []) as R[]) {
       if (!pnMap[d.weinausbau_id]) pnMap[d.weinausbau_id] = d.pruefnummer

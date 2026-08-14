@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import UmziehenClient from './UmziehenClient'
 
@@ -16,32 +16,40 @@ export default async function UmziehenPage({ searchParams }: { searchParams: Pro
   const role     = await getCurrentUserRole()
   const writeOk  = canWrite(role)
 
+  // Aktiv gewählten Betrieb respektieren (Cookie-basiert, s. lib/auth/roles.ts) statt einer
+  // beliebigen/ersten tenant_memberships-Zeile – sonst können bei Mehrfach-Mitgliedschaft
+  // Daten eines anderen Betriebs als des gerade ausgewählten angezeigt werden.
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
+
   const [
     { data: waRaw },
     { data: bhRaw },
     { data: umzugRaw },
   ] = await Promise.all([
     // Aktive Chargen mit Behälter-Info (für Quellen-Auflösung)
-    (supabase.from('weinausbau') as any)
+    tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, menge_liter, qualitaetsstufe, status, behaelter_id, behaelter:behaelter_id(id, name, volumen_liter)')
       .eq('aktiv', true)
       .neq('status', 'abgeschlossen')
       .not('behaelter_id', 'is', null)
       .gt('menge_liter', 0)
-      .order('name'),
+      .order('name')),
 
     // Alle aktiven Behälter (für Ziele)
-    (supabase.from('behaelter') as any)
+    tf((supabase.from('behaelter') as any)
       .select('id, name, volumen_liter')
       .eq('aktiv', true)
-      .order('name'),
+      .order('name')),
 
     // Umzug-Protokoll
-    (supabase.from('keller_umzuege') as any)
+    tf((supabase.from('keller_umzuege') as any)
       .select('id, datum, menge_liter, schwund_liter, umzug_typ, notizen, von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name)), nach_behaelter:nach_behaelter_id(name)')
       .order('datum', { ascending: false })
       .order('id', { ascending: false })
-      .limit(50),
+      .limit(50)),
   ])
 
   // Behälter-mit-Charge-Mapping für Quell-Picker

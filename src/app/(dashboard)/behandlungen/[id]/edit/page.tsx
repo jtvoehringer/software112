@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -21,10 +21,12 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
   if (!canWrite(role)) redirect('/behandlungen')
 
   // Tenant + Bio-Status (steuert Warn-/Sperrlogik bei der Mittelwahl, siehe Neu-Formular)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: membership } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id').limit(1).single()
-  const tenantId = (membership as AR | null)?.tenant_id as string | undefined
+  // Aktiv gewählten Betrieb respektieren (Cookie-basiert) statt einer beliebigen
+  // Mitgliedschaft – sonst können bei Mehrfach-Mitgliedschaft Daten eines anderen
+  // Betriebs angezeigt/bearbeitet werden.
+  const membership = await getCurrentMembership()
+  if (!membership) notFound()
+  const tenantId = membership.tenantId
   let bioStatus: string = 'konventionell'
   if (tenantId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -46,6 +48,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
         psm:psm_id(wartezeit_tage)
       `)
       .eq('id', id)
+      .eq('tenant_id', tenantId)
       .single(),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -72,6 +75,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     (supabase.from('kosteneintraege') as any)
       .select('id, kostenart_id, betrag, beschreibung')
       .eq('behandlung_id', id)
+      .eq('tenant_id', tenantId)
       .maybeSingle(),
   ])
 

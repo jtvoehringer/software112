@@ -15,17 +15,25 @@ export async function ermittleQuellenName(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   weingartenId: string | null,
   zukaufPostenId: string | null,
+  // Optional, um bestehende Aufrufer (z.B. erntemeldung/actions.ts) nicht zu brechen –
+  // wird bei Übergabe zur zusätzlichen Mandanten-Eingrenzung verwendet (RLS erlaubt
+  // sonst auch Datensätze anderer Mitgliedschafts-Mandanten des Users, siehe oben).
+  tenantId?: string,
 ): Promise<string> {
   if (weingartenId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (supabase.from('weingarten') as any).select('name').eq('id', weingartenId).single()
+    let q = (supabase.from('weingarten') as any).select('name').eq('id', weingartenId)
+    if (tenantId) q = q.eq('tenant_id', tenantId)
+    const { data } = await q.single()
     return (data as AR | null)?.name as string ?? 'Weingarten'
   }
   if (zukaufPostenId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (supabase.from('zukauf_posten') as any)
+    let q = (supabase.from('zukauf_posten') as any)
       .select('rebsorte, lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname), lieferant_firma:firmen!lieferant_firma_id(name)')
-      .eq('id', zukaufPostenId).single()
+      .eq('id', zukaufPostenId)
+    if (tenantId) q = q.eq('tenant_id', tenantId)
+    const { data } = await q.single()
     const z = data as AR | null
     const lieferant = z?.lieferant_kontakt
       ? [z.lieferant_kontakt.vorname, z.lieferant_kontakt.nachname].filter(Boolean).join(' ')
@@ -90,6 +98,7 @@ export async function createVerkaufspostenFuerTrauben(
 async function updateVerkaufspostenFuerTrauben(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   postenId: string,
+  tenantId: string,
   opts: {
     datum: string
     kontaktId: string | null
@@ -103,11 +112,13 @@ async function updateVerkaufspostenFuerTrauben(
   await (supabase.from('verkaufsposten') as any)
     .update({ datum: opts.datum, kontakt_id: opts.kontaktId, firma_id: opts.firmaId })
     .eq('id', postenId)
+    .eq('tenant_id', tenantId)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: pos } = await (supabase.from('verkauf_positionen') as any)
     .select('id')
     .eq('verkaufsposten_id', postenId)
+    .eq('tenant_id', tenantId)
     .limit(1)
     .single()
   const posId = (pos as AR | null)?.id as string | null
@@ -120,6 +131,7 @@ async function updateVerkaufspostenFuerTrauben(
         preis_brutto: opts.preisPerKg,
       })
       .eq('id', posId)
+      .eq('tenant_id', tenantId)
   }
 }
 
@@ -149,7 +161,7 @@ export async function upsertTraubenverkauf(formData: FormData) {
 
   // Bezeichnung der Quelle (eigener Weingarten ODER zugekaufter Posten) für die
   // Positionsbezeichnung im Verkaufsposten laden.
-  const weingartenName = await ermittleQuellenName(supabase, weingartenId, zukaufPostenId)
+  const weingartenName = await ermittleQuellenName(supabase, weingartenId, zukaufPostenId, tenantId)
 
   const verkaufsOpts = { datum, kontaktId, firmaId, weingartenName, mengeKg, preisPerKg }
 
@@ -178,6 +190,7 @@ export async function upsertTraubenverkauf(formData: FormData) {
     const { data: tvAlt } = await (supabase.from('traubenverkauf') as any)
       .select('verkaufsposten_id')
       .eq('id', existing_id)
+      .eq('tenant_id', tenantId)
       .single()
     const altPostenId = (tvAlt as AR | null)?.verkaufsposten_id as string | null
 
@@ -189,13 +202,14 @@ export async function upsertTraubenverkauf(formData: FormData) {
     if (error) throw new Error((error as AR).message)
 
     if (altPostenId) {
-      await updateVerkaufspostenFuerTrauben(supabase, altPostenId, verkaufsOpts)
+      await updateVerkaufspostenFuerTrauben(supabase, altPostenId, tenantId, verkaufsOpts)
     } else {
       const postenId = await createVerkaufspostenFuerTrauben(supabase, tenantId, verkaufsOpts)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase.from('traubenverkauf') as any)
         .update({ verkaufsposten_id: postenId })
         .eq('id', existing_id)
+        .eq('tenant_id', tenantId)
     }
   } else {
     // Liefernummer bei Neuanlage auto-generieren
@@ -216,6 +230,7 @@ export async function upsertTraubenverkauf(formData: FormData) {
     await (supabase.from('traubenverkauf') as any)
       .update({ verkaufsposten_id: postenId })
       .eq('id', newId)
+      .eq('tenant_id', tenantId)
   }
 
   revalidatePath('/weinhandel/traubenverkauf')
@@ -234,6 +249,7 @@ export async function deleteTraubenverkauf(id: string) {
   const { data: tv } = await (supabase.from('traubenverkauf') as any)
     .select('verkaufsposten_id')
     .eq('id', id)
+    .eq('tenant_id', membership.tenantId)
     .single()
   const postenId = (tv as AR | null)?.verkaufsposten_id as string | null
 
@@ -249,10 +265,12 @@ export async function deleteTraubenverkauf(id: string) {
     await (supabase.from('verkauf_positionen') as any)
       .delete()
       .eq('verkaufsposten_id', postenId)
+      .eq('tenant_id', membership.tenantId)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('verkaufsposten') as any)
       .delete()
       .eq('id', postenId)
+      .eq('tenant_id', membership.tenantId)
   }
 
   revalidatePath('/weinhandel/traubenverkauf')

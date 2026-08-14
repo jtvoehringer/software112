@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import { fmtLiter } from '@/lib/format'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -18,11 +19,17 @@ function fmt(n: number | null) {
 
 export default async function BehaelterUmzuegePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createSupabaseServerClient()
+  const supabase   = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  const tenantId   = membership?.tenantId ?? null
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb – ohne diesen Filter könnten bei
+  // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  const { data: bhRow } = await (supabase.from('behaelter') as any)
+  const { data: bhRow } = await tf((supabase.from('behaelter') as any)
     .select('id, name, typ, volumen_liter, standort')
-    .eq('id', id)
+    .eq('id', id))
     .single()
 
   if (!bhRow) notFound()
@@ -37,10 +44,10 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
       von_weinausbau:von_weinausbau_id(name),
       nach_weinausbau:nach_weinausbau_id(name)
     `
-  const { data: initialRaw } = await (supabase.from('keller_umzuege') as any)
+  const { data: initialRaw } = await tf((supabase.from('keller_umzuege') as any)
     .select(UMZUG_SELECT)
     .or(`von_behaelter_id.eq.${id},nach_behaelter_id.eq.${id}`)
-    .order('datum', { ascending: false })
+    .order('datum', { ascending: false }))
 
   const initial = (initialRaw ?? []) as R[]
 
@@ -48,9 +55,9 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
   // dort nicht direkt referenziert ist – deshalb den kompletten Batch nachladen.
   const batchIds = [...new Set(initial.filter(r => r.umzug_batch_id).map(r => r.umzug_batch_id as string))]
   const { data: batchRowsRaw } = batchIds.length > 0
-    ? await (supabase.from('keller_umzuege') as any)
+    ? await tf((supabase.from('keller_umzuege') as any)
         .select(UMZUG_SELECT)
-        .in('umzug_batch_id', batchIds)
+        .in('umzug_batch_id', batchIds))
     : { data: [] }
   const batchRows = (batchRowsRaw ?? []) as R[]
 

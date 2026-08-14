@@ -2,16 +2,15 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
 async function getTenantId(): Promise<string> {
-  const supabase = await createSupabaseServerClient()
-  const { data } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
-  const id = (data as AR | null)?.tenant_id
-  if (!id) throw new Error('Kein Betrieb gefunden')
-  return id
+  const membership = await getCurrentMembership()
+  if (!membership) throw new Error('Kein aktiver Mandant gefunden')
+  return membership.tenantId
 }
 
 export async function upsertSonstigesArtikel(formData: FormData) {

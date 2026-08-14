@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import KontakteClient from './KontakteClient'
@@ -12,17 +12,14 @@ export const dynamic = 'force-dynamic'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-export default async function KontaktePage({
-  searchParams,
-}: {
-  searchParams: { filter?: string }
-}) {
-  const sp = await searchParams
-  const initialFilter = sp.filter === 'lead' ? 'lead' : sp.filter === 'kunde' ? 'kunde' : 'alle'
-
+export default async function KontaktePage() {
   const supabase = await createSupabaseServerClient()
   const role    = await getCurrentUserRole()
   const writeOk = canWrite(role)
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [
     { data: kRaw },
@@ -30,25 +27,25 @@ export default async function KontaktePage({
     { data: aRaw },
     { data: pRaw },
   ] = await Promise.all([
-    (supabase.from('kontakte') as any)
+    tf((supabase.from('kontakte') as any)
       .select('id, kundennummer, vorname, nachname, segment, firma_id, firmen:firma_id(name), email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, newsletter, newsletter_bestaetigt, stammkunde, aktiv, notizen, erstellt_am, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct), zahlungsziel_tage')
       .eq('aktiv', true)
-      .order('nachname'),
+      .order('nachname')),
 
-    (supabase.from('firmen') as any)
+    tf((supabase.from('firmen') as any)
       .select('id, name, segment')
       .eq('aktiv', true)
-      .order('name'),
+      .order('name')),
 
-    (supabase.from('aktivitaeten') as any)
+    tf((supabase.from('aktivitaeten') as any)
       .select('id, art, betreff, beschreibung, datum, erledigt, kontakt_id')
       .not('kontakt_id', 'is', null)
-      .order('datum', { ascending: false }),
+      .order('datum', { ascending: false })),
 
-    (supabase.from('pipeline_eintraege') as any)
+    tf((supabase.from('pipeline_eintraege') as any)
       .select('id, stufe, titel, wert_euro, wahrscheinlichkeit, erwartetes_datum, kontakt_id')
       .not('kontakt_id', 'is', null)
-      .order('aktualisiert_am', { ascending: false }),
+      .order('aktualisiert_am', { ascending: false })),
 
   ])
 
@@ -147,7 +144,6 @@ export default async function KontaktePage({
         aktivitaetenMap={aktivitaetenMap}
         pipelineMap={pipelineMap}
         writeOk={writeOk}
-        initialFilter={initialFilter}
       />
     </div>
   )

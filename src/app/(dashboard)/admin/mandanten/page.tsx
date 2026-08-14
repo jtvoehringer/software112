@@ -68,6 +68,7 @@ export default async function MandantenPage() {
   try {
     const { data } = await (supabase.from('tenant_einstellungen') as any)
       .select('tenant_id, anzeigename, logo_url, primary_color, secondary_color, modul_newsletter')
+      .in('tenant_id', eigeneTenantIds)
     einstellungen = (data ?? []) as R[]
   } catch {
     // Tabelle noch nicht migriert – Branding-Felder bleiben leer

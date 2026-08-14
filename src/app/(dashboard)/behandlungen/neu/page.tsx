@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import NeueBehandlungForm from './NeueBehandlungForm'
@@ -39,10 +39,11 @@ export default async function NeueBehandlungPage() {
   const supabase = await createSupabaseServerClient()
 
   // Tenant + Bio-Status (steuert Warn-/Sperrlogik bei der Mittelwahl)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: membership } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id').limit(1).single()
-  const tenantId = (membership as AR | null)?.tenant_id as string | undefined
+  // Aktiv gewählten Betrieb respektieren (Cookie-basiert) statt einer beliebigen
+  // Mitgliedschaft – sonst können bei Mehrfach-Mitgliedschaft Daten eines anderen
+  // Betriebs angezeigt werden.
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId
   let bioStatus: string = 'konventionell'
   if (tenantId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,13 +51,15 @@ export default async function NeueBehandlungPage() {
       .select('bio_status').eq('id', tenantId).maybeSingle()
     bioStatus = (tenantRow as AR | null)?.bio_status ?? 'konventionell'
   }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   // PSM laden (global + eigene) — inkl. cu_gehalt_pct + preis_pro_einheit
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawPSM } = await (supabase.from('pflanzenschutzmittel') as any)
+  const { data: rawPSM } = await tf((supabase.from('pflanzenschutzmittel') as any)
     .select('id, name, handelsname, kategorie, wartezeit_tage, oeko_zugelassen, cu_gehalt_pct, preis_pro_einheit')
     .eq('aktiv', true)
-    .order('name')
+    .order('name'))
   const psm: PSM[] = ((rawPSM ?? []) as AR[]).map(p => ({
     id:             p.id,
     name:           p.name,
@@ -70,10 +73,10 @@ export default async function NeueBehandlungPage() {
 
   // Düngemittel laden (global + eigene) — inkl. preis_pro_einheit
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawDuenger } = await (supabase.from('duengemittel') as any)
+  const { data: rawDuenger } = await tf((supabase.from('duengemittel') as any)
     .select('id, name, handelsname, typ, wartezeit_tage, oeko_zugelassen, preis_pro_einheit')
     .eq('aktiv', true)
-    .order('name')
+    .order('name'))
   const duengemittel: DuengemittelOption[] = ((rawDuenger ?? []) as AR[]).map(d => ({
     id:              d.id,
     name:            d.name,
@@ -86,36 +89,36 @@ export default async function NeueBehandlungPage() {
 
   // Kostenarten (für die Kosten-Vorschlagsfunktion)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawKostenarten } = await (supabase.from('kostenarten') as any)
+  const { data: rawKostenarten } = await tf((supabase.from('kostenarten') as any)
     .select('id, name, kategorie')
     .eq('aktiv', true)
-    .order('name')
+    .order('name'))
   const kostenarten: KostenartOption[] = ((rawKostenarten ?? []) as AR[]).map(k => ({
     id: k.id, name: k.name, kategorie: k.kategorie ?? null,
   }))
 
   // Hektarsätze je Maßnahmenart (für die Kosten-Vorschlagsfunktion, migration 133)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawSaetze } = await (supabase.from('saetze_massnahmen') as any)
+  const { data: rawSaetze } = await tf((supabase.from('saetze_massnahmen') as any)
     .select('id, art, bezeichnung, satz_pro_ha')
     .eq('aktiv', true)
     .order('art')
-    .order('bezeichnung')
+    .order('bezeichnung'))
   const saetzeMassnahmen: SatzOption[] = ((rawSaetze ?? []) as AR[]).map(s => ({
     id: s.id, art: s.art, bezeichnung: s.bezeichnung, satz_pro_ha: s.satz_pro_ha,
   }))
 
   // Aktive Weingärten mit Lage
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawW } = await (supabase.from('weingarten') as any)
+  const { data: rawW } = await tf((supabase.from('weingarten') as any)
     .select('id, name, ried, lage_id, lagen:lage_id(name)')
     .eq('aktiv', true)
-    .order('name')
+    .order('name'))
 
   // Grundstücke laden: status + flaeche_ha + gst_nr (für Ried→GST-Auswahl)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawG } = await (supabase.from('grundstuecke') as any)
-    .select('id, weingarten_id, gst_nr, rebsorte, status, flaeche_ha')
+  const { data: rawG } = await tf((supabase.from('grundstuecke') as any)
+    .select('id, weingarten_id, gst_nr, rebsorte, status, flaeche_ha'))
 
   // Flächensumme und Spritzbarkeit je Weingarten berechnen
   const gstByWG = new Map<string, { status: string; ha: number }[]>()

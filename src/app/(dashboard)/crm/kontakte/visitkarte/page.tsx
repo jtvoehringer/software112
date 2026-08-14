@@ -1,9 +1,8 @@
 'use client'
 import { useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { Camera, X } from 'lucide-react'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { createLeadFromVisitkarte } from '../../actions'
 
 type Kontakt = {
   vorname: string|null; nachname: string|null; firma: string|null
@@ -119,44 +118,12 @@ export default function VisitkartenScannerPage() {
   const speichern = async () => {
     if (!kontakt) return
     setPhase('speichern')
-    const s = createSupabaseBrowserClient()
-    const { data: { user } } = await s.auth.getUser()
-    const { data: memb } = await (s.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
-    const tenantId = (memb as any)?.tenant_id
-    if (!tenantId) { setFehler('Kein Betrieb gefunden'); setPhase('bestaetigen'); return }
-
-    // Firma anlegen falls vorhanden
-    let firmaId: string | null = null
-    if (kontakt.firma) {
-      const { data: f } = await (s.from('firmen') as any).insert({
-        tenant_id: tenantId, name: kontakt.firma, aktiv: true, is_lead: true,
-        strasse: kontakt.strasse, plz: kontakt.plz, ort: kontakt.ort, land: kontakt.land ?? 'AT',
-      }).select().single()
-      firmaId = (f as any)?.id ?? null
-    }
-
-    // Kontakt als Lead anlegen
-    const { data: k } = await (s.from('kontakte') as any).insert({
-      tenant_id: tenantId,
-      vorname: kontakt.vorname || null,
-      nachname: kontakt.nachname || '(unbekannt)',
-      email: kontakt.email || null,
-      telefon: kontakt.telefon || null,
-      mobil: kontakt.mobil || null,
-      strasse: kontakt.strasse || null,
-      plz: kontakt.plz || null,
-      ort: kontakt.ort || null,
-      land: kontakt.land ?? 'AT',
-      firma_id: firmaId,
-      notizen: kontakt.position ? `Position: ${kontakt.position}` : null,
-      aktiv: true, stammkunde: false, newsletter: false,
-      newsletter_bestaetigt: false, is_lead: true,
-      segment: 'privat',
-    }).select().single()
-
-    const kontaktId = (k as any)?.id
+    // Anlage läuft über eine Server Action (createLeadFromVisitkarte), damit der
+    // korrekt aktive Betrieb (Betrieb-Wechsler-Cookie via getCurrentMembership())
+    // verwendet wird - im Browser ist dieser Cookie nicht auslesbar.
+    const { kontaktId, error } = await createLeadFromVisitkarte(kontakt)
     if (kontaktId) router.push(`/crm/kontakte/${kontaktId}`)
-    else { setFehler('Kontakt konnte nicht gespeichert werden'); setPhase('bestaetigen') }
+    else { setFehler(error || 'Kontakt konnte nicht gespeichert werden'); setPhase('bestaetigen') }
   }
 
   const f = (v: string|null|undefined, label: string) => v ? (
@@ -168,11 +135,6 @@ export default function VisitkartenScannerPage() {
 
   return (
     <div className="p-6 max-w-lg mx-auto space-y-4">
-      <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/crm/kontakte" className="hover:text-s112-teal transition-colors">Kontakte</Link>
-        <span>/</span>
-        <span className="text-gray-700 font-medium">Visitenkarte scannen</span>
-      </div>
       <div className="flex items-center gap-3">
         <button onClick={() => { kameraStop(); router.back() }} className="text-s112-muted hover:text-gray-700 text-sm">← Zurück</button>
         <h1 className="text-xl font-bold text-gray-900">Visitenkarte scannen</h1>

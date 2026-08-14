@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import ReportsClient from './ReportsClient'
@@ -11,6 +12,12 @@ type R = Record<string, any>
 
 export default async function ReportsPage() {
   const supabase = await createSupabaseServerClient()
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb.
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const heute = new Date()
   const thisYear  = heute.getFullYear()
@@ -22,10 +29,10 @@ export default async function ReportsPage() {
     const d = new Date(thisYear, thisMonth - i, 1)
     const von = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]
     const bis = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0]
-    const { data } = await (supabase.from('verkaufsposten') as any)
+    const { data } = await tf((supabase.from('verkaufsposten') as any)
       .select('id, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
       .eq('aktiv', true).eq('storniert', false)
-      .gte('datum', von).lte('datum', bis)
+      .gte('datum', von).lte('datum', bis))
     const posten = (data ?? []) as R[]
     const summe = posten.reduce((s: number, p: R) =>
       s + ((p.verkauf_positionen ?? []) as R[]).reduce((ps: number, pos: R) => {
@@ -39,18 +46,18 @@ export default async function ReportsPage() {
   }
 
   // ── Lagerbestand ─────────────────────────────────────────────────────────
-  const { data: lagerRaw } = await (supabase.from('fuellungen') as any)
+  const { data: lagerRaw } = await tf((supabase.from('fuellungen') as any)
     .select('id, name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv')
-    .eq('aktiv', true).order('bestand_flaschen', { ascending: false })
+    .eq('aktiv', true).order('bestand_flaschen', { ascending: false }))
   const lager = (lagerRaw ?? []) as R[]
   // Lagerwert nach Einstandspreis (konsistent mit /weinhandel)
   const lagerWert = lager.reduce((s: number, f: R) =>
     s + (Number(f.bestand_flaschen) || 0) * (Number(f.einstandspreis) || 0), 0)
 
   // ── Behandlungsübersicht (aktuelles Jahr) ─────────────────────────────────
-  const { data: behandlungenRaw } = await (supabase.from('behandlungen') as any)
+  const { data: behandlungenRaw } = await tf((supabase.from('behandlungen') as any)
     .select('id, datum, menge_gesamt, menge_einheit, art, psm:psm_id(name, cu_gehalt_pct)')
-    .gte('datum', `${thisYear}-01-01`).order('datum', { ascending: false })
+    .gte('datum', `${thisYear}-01-01`).order('datum', { ascending: false }))
   const behandlungen = (behandlungenRaw ?? []) as R[]
 
   // Cu-Bilanz: kg Kupfer gesamt DURCH die bewirtschaftete Fläche teilen, sonst wird eine
@@ -62,29 +69,29 @@ export default async function ReportsPage() {
     const menge = Number(b.menge_gesamt) || 0
     return s + (menge * cu / 100)
   }, 0)
-  const { data: flaecheRaw } = await (supabase.from('weingarten') as any).select('flaeche_ha').eq('aktiv', true)
+  const { data: flaecheRaw } = await tf((supabase.from('weingarten') as any).select('flaeche_ha').eq('aktiv', true))
   const gesamtHaFuerCu = ((flaecheRaw ?? []) as R[]).reduce((s: number, w: R) => s + (Number(w.flaeche_ha) || 0), 0)
   const cuKgHa = gesamtHaFuerCu > 0 ? totalCuKg / gesamtHaFuerCu : 0
 
   // ── Lead-Pipeline ─────────────────────────────────────────────────────────
-  const { data: pipelineRaw } = await (supabase.from('pipeline_eintraege') as any)
+  const { data: pipelineRaw } = await tf((supabase.from('pipeline_eintraege') as any)
     .select('id, stufe, kategorie, erledigt, kontakt:kontakte!kontakt_id(vorname, nachname, segment), firma:firmen(name, segment)')
-    .order('erstellt_am', { ascending: false })
+    .order('erstellt_am', { ascending: false }))
   const pipeline = (pipelineRaw ?? []) as R[]
 
   // ── Kontaktfrequenz ───────────────────────────────────────────────────────
-  const { data: kontakteRaw } = await (supabase.from('kontakte') as any)
+  const { data: kontakteRaw } = await tf((supabase.from('kontakte') as any)
     .select('id, vorname, nachname, kundennummer, aktiv')
-    .eq('aktiv', true).eq('is_lead', false).order('nachname').limit(50)
+    .eq('aktiv', true).eq('is_lead', false).order('nachname').limit(50))
   const kontakte = (kontakteRaw ?? []) as R[]
 
   const kontaktFrequenz: { id: string; name: string; kundennummer: string | null; letzterKontakt: string | null; tage: number }[] = []
   if (kontakte.length > 0) {
-    const { data: letzteAktsRaw } = await (supabase.from('aktivitaeten') as any)
+    const { data: letzteAktsRaw } = await tf((supabase.from('aktivitaeten') as any)
       .select('kontakt_id, datum')
       .in('kontakt_id', kontakte.map(k => k.id))
       .eq('erledigt', true)
-      .order('datum', { ascending: false })
+      .order('datum', { ascending: false }))
     const letzteAkts = (letzteAktsRaw ?? []) as R[]
     const letztMap: Record<string, string> = {}
     letzteAkts.forEach((a: R) => { if (!letztMap[a.kontakt_id]) letztMap[a.kontakt_id] = a.datum })
@@ -98,17 +105,17 @@ export default async function ReportsPage() {
   }
 
   // ── Offene Posten ─────────────────────────────────────────────────────────
-  const { data: offeneRaw } = await (supabase.from('verkaufsposten') as any)
+  const { data: offeneRaw } = await tf((supabase.from('verkaufsposten') as any)
     .select('id, datum, rechnungsnummer, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name), verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
     .eq('aktiv', true).eq('bezahlt', false).eq('storniert', false)
-    .order('datum', { ascending: true })
+    .order('datum', { ascending: true }))
   const offene = (offeneRaw ?? []) as R[]
 
   // ── Verkaufsstatistik: Filteroptionen ───────────────────────────────────
   // Bewusst NICHT auf aktiv=true eingeschränkt, damit auch historische
   // (inzwischen inaktive/ausverkaufte) Füllungen filterbar bleiben.
-  const { data: vsFuellungenRaw } = await (supabase.from('fuellungen') as any)
-    .select('jahrgang, rebsorte, bezeichnung')
+  const { data: vsFuellungenRaw } = await tf((supabase.from('fuellungen') as any)
+    .select('jahrgang, rebsorte, bezeichnung'))
   const vsFuellungen = (vsFuellungenRaw ?? []) as R[]
   const vsJahrgaenge = Array.from(
     new Set(vsFuellungen.map(f => f.jahrgang).filter((j): j is number => j != null))
@@ -121,8 +128,8 @@ export default async function ReportsPage() {
   ).sort((a, b) => a.localeCompare(b, 'de-AT'))
 
   const [{ data: vsKontakteRaw }, { data: vsFirmenRaw }] = await Promise.all([
-    (supabase.from('kontakte') as any).select('id, vorname, nachname, ort, land').order('nachname'),
-    (supabase.from('firmen') as any).select('id, name, ort, land').order('name'),
+    tf((supabase.from('kontakte') as any).select('id, vorname, nachname, ort, land').order('nachname')),
+    tf((supabase.from('firmen') as any).select('id, name, ort, land').order('name')),
   ])
   const vsKontakte = (vsKontakteRaw ?? []) as R[]
   const vsFirmen   = (vsFirmenRaw ?? []) as R[]
@@ -141,8 +148,8 @@ export default async function ReportsPage() {
   // Bewusst über ALLE Weinausbau-Chargen (aktiv + abgeschlossen), da die
   // Sammlung gerade für Prüfungen (BKI) auch historische/abgeschlossene
   // Chargen auffindbar machen soll.
-  const { data: wbChargenRaw } = await (supabase.from('weinausbau') as any)
-    .select('jahrgang, rebsorte, name')
+  const { data: wbChargenRaw } = await tf((supabase.from('weinausbau') as any)
+    .select('jahrgang, rebsorte, name'))
   const wbChargen = (wbChargenRaw ?? []) as R[]
   const wbJahrgaenge = Array.from(
     new Set(wbChargen.map(c => c.jahrgang).filter((j): j is number => j != null))

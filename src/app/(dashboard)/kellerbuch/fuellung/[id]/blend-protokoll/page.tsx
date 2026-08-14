@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -30,16 +31,22 @@ function fmtMenge(liter: number | null): string {
 
 export default async function BlendProtokollFuellungPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createSupabaseServerClient()
+  const supabase   = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  const tenantId   = membership?.tenantId ?? null
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb – ohne diesen Filter könnten bei
+  // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [{ data: fRaw }, { data: settingsRaw }] = await Promise.all([
-    (supabase.from('fuellungen') as any)
+    tf((supabase.from('fuellungen') as any)
       .select('id, name, chargennummer, pruefnummer, jahrgang, rebsorte, datum, anzahl_flaschen, flaschengroesse_ml, menge_liter_gefuellt')
       .eq('id', id)
-      .maybeSingle(),
-    (supabase.from('tenant_einstellungen') as any)
+      .maybeSingle()),
+    tf((supabase.from('tenant_einstellungen') as any)
       .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, logo_url')
-      .limit(1).maybeSingle(),
+      .limit(1).maybeSingle()),
   ])
 
   const fuellung = fRaw as R | null

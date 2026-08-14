@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import KontaktDetailClient from './KontaktDetailClient'
@@ -13,7 +13,10 @@ type R = Record<string, any>
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params
   const supabase = await createSupabaseServerClient()
-  const { data } = await (supabase.from('kontakte') as any).select('vorname, nachname').eq('id', id).single()
+  const membership = await getCurrentMembership()
+  let query = (supabase.from('kontakte') as any).select('vorname, nachname').eq('id', id)
+  if (membership) query = query.eq('tenant_id', membership.tenantId)
+  const { data } = await query.single()
   const name = data ? [data.vorname, data.nachname].filter(Boolean).join(' ') : 'Kontakt'
   return { title: `${name} – software:112` }
 }
@@ -25,6 +28,10 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
   const writeOk = canWrite(role)
   const { data: { user } } = await supabase.auth.getUser()
   const currentUserId = user?.id ?? null
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [
     { data: kRaw },
@@ -32,30 +39,30 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
     { data: pRaw },
     { data: vRaw },
   ] = await Promise.all([
-    (supabase.from('kontakte') as any)
+    tf((supabase.from('kontakte') as any)
       .select('id, kundennummer, vorname, nachname, segment, firma_id, firmen:firma_id(name, segment), email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, newsletter, newsletter_bestaetigt, stammkunde, notizen, aktiv, erstellt_am, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct), zahlungsziel_tage')
       .eq('id', id)
-      .single(),
+      .single()),
 
-    (supabase.from('aktivitaeten') as any)
+    tf((supabase.from('aktivitaeten') as any)
       .select('*, aktivitaet_dokumente(id, dateiname, dateityp, groesse_bytes, erstellt_am)')
       .eq('kontakt_id', id)
-      .order('datum', { ascending: false }),
+      .order('datum', { ascending: false })),
 
-    (supabase.from('pipeline_eintraege') as any)
+    tf((supabase.from('pipeline_eintraege') as any)
       .select('id, stufe, titel, kategorie, wert_euro, wahrscheinlichkeit, erwartetes_datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, erledigt_am, notizen, kontakt_id, firma_id, aktualisiert_am')
       .eq('kontakt_id', id)
-      .order('aktualisiert_am', { ascending: false }),
+      .order('aktualisiert_am', { ascending: false })),
 
     // Echte Verkaufsdaten (statt des fehleranfälligen aktivitaeten-Spiegels, siehe unten)
-    (supabase.from('verkaufsposten') as any)
+    tf((supabase.from('verkaufsposten') as any)
       .select(`
         id, datum, rechnungsnummer, transaktions_nr, storniert, bezahlt,
         positionen:verkauf_positionen(menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct)
       `)
       .eq('kontakt_id', id)
       .eq('aktiv', true)
-      .order('datum', { ascending: false }),
+      .order('datum', { ascending: false })),
   ])
 
   if (!kRaw) notFound()

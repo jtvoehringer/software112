@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite, canAdmin } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { BarChart3 } from 'lucide-react'
@@ -34,11 +34,17 @@ export default async function BehandlungenPage() {
   const role = await getCurrentUserRole()
   const writeOk = canWrite(role)
   const adminOk = canAdmin(role)
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb.
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   // Behandlungen + PSM (weingarten_id ist oft null – Namen kommen aus Junction)
   const [{ data: rawB }, { data: rawBG }, { data: rawKosten }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('behandlungen') as any)
+    tf((supabase.from('behandlungen') as any)
       .select(`
         id, datum, art, weingarten_id, aufwandmenge, aufwandmenge_einheit,
         bbch_stadium, witterung, ernte_fruehesteins, notizen,
@@ -46,7 +52,7 @@ export default async function BehandlungenPage() {
         psm:psm_id ( name, wartezeit_tage )
       `)
       .order('datum', { ascending: false })
-      .limit(200),
+      .limit(200)),
 
     // Weingarten-Namen über Junction-Tabelle (für Behandlungen ohne direkten weingarten_id-FK)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -55,9 +61,9 @@ export default async function BehandlungenPage() {
 
     // Kosten je Maßnahme (Punkt 7, Migration 139)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('kosteneintraege') as any)
+    tf((supabase.from('kosteneintraege') as any)
       .select('behandlung_id, betrag')
-      .not('behandlung_id', 'is', null),
+      .not('behandlung_id', 'is', null)),
   ])
 
   const kostenByBeh = new Map<string, number>()
@@ -120,11 +126,6 @@ export default async function BehandlungenPage() {
 
   return (
     <div>
-      <div className="flex items-center gap-2 text-sm text-s112-muted mb-4">
-        <Link href="/weingarten" className="hover:text-s112-teal transition-colors">Rieden</Link>
-        <span>/</span>
-        <span className="text-gray-700 font-medium">Maßnahmen</span>
-      </div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Maßnahmen</h1>

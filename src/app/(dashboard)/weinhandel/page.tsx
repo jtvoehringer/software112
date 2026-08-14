@@ -1,6 +1,6 @@
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import FuellungLoeschen from './FuellungLoeschen'
@@ -27,9 +27,14 @@ const STATUS_VERKAUF: Record<string, { label: string; color: string }> = {
 const ART_LABEL: Record<string, string> = { wein: 'Wein', trauben: 'Trauben', most: 'Most' }
 
 export default async function WeinhandelPage() {
-  const supabase  = await createSupabaseServerClient()
-  const role      = await getCurrentUserRole()
-  const writeOk   = canWrite(role)
+  const supabase   = await createSupabaseServerClient()
+  const role       = await getCurrentUserRole()
+  const writeOk    = canWrite(role)
+  const membership = await getCurrentMembership()
+  const tenantId   = membership?.tenantId ?? null
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [
     { data: fuellungenRaw },
@@ -38,16 +43,16 @@ export default async function WeinhandelPage() {
     { data: direktTankRaw },
     { data: tvRaw },
   ] = await Promise.all([
-    (supabase.from('fuellungen') as any)
+    tf((supabase.from('fuellungen') as any)
       .select('id, name, jahrgang, rebsorte, qualitaet, anbaugebiet, bezeichnung, datum, flaschengroesse_ml, anzahl_flaschen, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv')
       .eq('aktiv', true)
-      .order('datum', { ascending: false }),
-    (supabase.from('weinausbau') as any)
+      .order('datum', { ascending: false })),
+    tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, menge_liter, status, behaelter_id, einstandspreis_pro_liter, behaelter:behaelter_id(name)')
       .eq('aktiv', true)
       .in('status', ['ausbau', 'abfuellung'])
-      .order('jahrgang', { ascending: false }),
-    (supabase.from('zukauf_posten') as any)
+      .order('jahrgang', { ascending: false })),
+    tf((supabase.from('zukauf_posten') as any)
       .select('id, art, datum, menge, einheit, rebsorte, jahrgang, notizen, preis_gesamt, lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname), lieferant_firma:firmen!lieferant_firma_id(name)')
       .eq('aktiv', true)
       .gt('menge', 0)
@@ -57,17 +62,17 @@ export default async function WeinhandelPage() {
       // immer als zusätzlicher, nie schrumpfender Doppel-Bestand mitgezählt (unabhängig vom
       // separaten Bugfix zur Zukauf-Bearbeitung, siehe commit-kellerbuch-zukauf-bugfixes.ps1).
       .is('ziel_weinausbau_id', null)
-      .order('datum', { ascending: false }),
+      .order('datum', { ascending: false })),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('pressung_behaelter') as any)
       .select('id, menge_liter, behaelter:behaelter_id(name), pressung:pressung_id(datum, weinbezeichnung, kmw_grad, jahrgang:jahrgang_id(jahrgang))')
       .is('weinausbau_id', null)
       .gt('menge_liter', 0),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('traubenverkauf') as any)
+    tf((supabase.from('traubenverkauf') as any)
       .select('id, datum, menge_kg, preis_per_kg, liefernummer, weingarten:weingarten_id(name), firma:firma_id(name), kontakt:kontakt_id(vorname, nachname)')
       .order('datum', { ascending: false })
-      .limit(5),
+      .limit(5)),
   ])
 
   const fuellungen  = (fuellungenRaw ?? []) as R[]

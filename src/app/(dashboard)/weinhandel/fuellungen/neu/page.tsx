@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -23,17 +23,21 @@ export default async function NeueFuellungPage({
 
   const { charge: chargeId } = await searchParams
   const supabase = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   // Alle aktiven Weinausbau-Chargen + DAC-Anträge parallel laden
   const [{ data: chargenRaw }, { data: dacRaw }] = await Promise.all([
-  (supabase.from('weinausbau') as any)
+  tf((supabase.from('weinausbau') as any)
     .select('id, name, jahrgang, rebsorte, menge_liter, status, qualitaetsstufe, herkunft_code')
     .eq('aktiv', true)
     .neq('status', 'abgeschlossen')
-    .order('jahrgang', { ascending: false }),
-  (supabase.from('dac_antrag') as any)
+    .order('jahrgang', { ascending: false })),
+  tf((supabase.from('dac_antrag') as any)
     .select('id, bezeichnung, dac_region, jahrgang, rebsorte, pruefnummer, status, weinausbau_id')
-    .order('jahrgang', { ascending: false }),
+    .order('jahrgang', { ascending: false })),
   ])
 
   const dacAntraege = (dacRaw ?? []) as R[]
@@ -45,9 +49,9 @@ export default async function NeueFuellungPage({
   // Wenn über "Abfüllen"-Button mit chargeId aufgerufen: diese Charge immer mitladen,
   // auch wenn Status 'abgeschlossen' ist (Füllung kann trotzdem angelegt werden)
   if (chargeId && !chargen.find((c: R) => c.id === chargeId)) {
-    const { data: extraRaw } = await (supabase.from('weinausbau') as any)
+    const { data: extraRaw } = await tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, menge_liter, status, qualitaetsstufe, herkunft_code')
-      .eq('id', chargeId)
+      .eq('id', chargeId))
       .single()
     if (extraRaw) chargen = [extraRaw as R, ...chargen]
   }

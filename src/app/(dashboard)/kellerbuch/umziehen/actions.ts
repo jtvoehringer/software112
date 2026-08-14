@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { minQualitaet } from '@/lib/wein/qualitaet'
 import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { deleteUmzug as _deleteUmzug } from '../gebinde-actions'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -27,9 +28,12 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
   const totalNach = ziele.reduce((s, z) => s + z.menge, 0)
   const schwund   = Math.max(0, +(totalVon - totalNach).toFixed(3))
 
-  const { data: membership } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id').limit(1).single()
-  const tenantId = (membership as R)?.tenant_id
+  // Aktiv gewählten Betrieb respektieren (Cookie-basiert) statt einer beliebigen/ersten
+  // tenant_memberships-Zeile – sonst können bei Mehrfach-Mitgliedschaft Daten des falschen
+  // Betriebs gelesen/verändert werden.
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId
+  if (!tenantId) throw new Error('Kein aktiver Mandant gefunden')
 
   const batchId = crypto.randomUUID()
   let verschneidungNeeded: { existingChargeId: string; newChargeId: string; menge: number } | undefined
@@ -43,7 +47,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
     const q = quellen[i]
 
     const { data: vonRaw } = await (supabase.from('weinausbau') as any)
-      .select('*').eq('id', q.weinausbau_id).single()
+      .select('*').eq('id', q.weinausbau_id).eq('tenant_id', tenantId).single()
     const von = vonRaw as R
     if (!von) throw new Error('Charge nicht gefunden')
 
@@ -63,10 +67,12 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
       await (supabase.from('weinausbau') as any)
         .update({ menge_liter: 0, aktiv: false, status: 'abgeschlossen' })
         .eq('id', q.weinausbau_id)
+        .eq('tenant_id', tenantId)
     } else {
       await (supabase.from('weinausbau') as any)
         .update({ menge_liter: restmenge })
         .eq('id', q.weinausbau_id)
+        .eq('tenant_id', tenantId)
     }
 
     // Quelle-Record (zeilen_typ = 'quelle') – ein Eintrag pro Quell-Charge
@@ -105,6 +111,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
       .eq('behaelter_id', z.behaelter_id)
       .eq('aktiv', true)
       .neq('status', 'abgeschlossen')
+      .eq('tenant_id', tenantId)
     const vorhandenListe = (vorhandenRaw ?? []) as R[]
 
     let nachWeinausbauId: string | null = null
@@ -156,6 +163,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
         await (supabase.from('weinausbau') as any)
           .update({ notizen: neueNotizen })
           .eq('id', vorhanden.id)
+          .eq('tenant_id', tenantId)
       }
 
       await (supabase.from('weinausbau') as any)
@@ -164,6 +172,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
           qualitaetsstufe: neueQualitaet,
         })
         .eq('id', vorhanden.id)
+        .eq('tenant_id', tenantId)
       nachWeinausbauId = vorhanden.id
     } else if (vorhanden && istRebsortenmix) {
       // Rebsortenmix: separate neue Charge anlegen, Verschneidung wird danach getriggert
@@ -251,9 +260,12 @@ export async function deleteUmzug(id: string) {
 // ── Umzug Datum/Notizen aktualisieren ────────────────────────────────────────
 export async function updateUmzug(umzugId: string, datum: string, notizen: string | null) {
   const supabase = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  if (!membership) throw new Error('Kein aktiver Mandant gefunden')
   await (supabase.from('keller_umzuege') as any)
     .update({ datum, notizen: notizen || null })
     .eq('id', umzugId)
+    .eq('tenant_id', membership.tenantId)
   revalidatePath('/kellerbuch')
   revalidatePath('/kellerbuch/umziehen')
   revalidatePath('/kellerbuch/behaelter', 'layout')

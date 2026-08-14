@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import OffenePostenClient from './OffenePostenClient'
 
@@ -10,11 +10,15 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 export default async function OffenePostenPage() {
-  const supabase = await createSupabaseServerClient()
-  const role     = await getCurrentUserRole()
-  const writeOk  = canWrite(role)
+  const supabase   = await createSupabaseServerClient()
+  const role       = await getCurrentUserRole()
+  const writeOk    = canWrite(role)
+  const membership = await getCurrentMembership()
+  const tenantId   = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  const { data: raw } = await (supabase.from('verkaufsposten') as any)
+  const { data: raw } = await tf((supabase.from('verkaufsposten') as any)
     .select(`
       id, datum, rechnungsnummer, storniert, bezahlt, bezahlt_am, erstellt_am,
       kontakt:kontakte!kontakt_id(id, vorname, nachname),
@@ -23,14 +27,14 @@ export default async function OffenePostenPage() {
     `)
     .eq('storniert', false)
     .eq('aktiv',     true)
-    .order('datum', { ascending: false })
+    .order('datum', { ascending: false }))
 
   const offeneIds = ((raw ?? []) as R[]).filter(p => !p.bezahlt).map(p => p.id as string)
   const bereitsBezahltMap = new Map<string, number>()
   if (offeneIds.length > 0) {
-    const { data: zahlungenRaw } = await (supabase.from('zahlungen') as any)
+    const { data: zahlungenRaw } = await tf((supabase.from('zahlungen') as any)
       .select('verkaufsposten_id, betrag')
-      .in('verkaufsposten_id', offeneIds)
+      .in('verkaufsposten_id', offeneIds))
     for (const z of (zahlungenRaw ?? []) as R[]) {
       const key = z.verkaufsposten_id as string
       bereitsBezahltMap.set(key, (bereitsBezahltMap.get(key) ?? 0) + Number(z.betrag ?? 0))

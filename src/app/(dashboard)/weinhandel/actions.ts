@@ -5,16 +5,15 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { istNiedrigerAls, QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
 async function getTenantId(): Promise<string> {
-  const supabase = await createSupabaseServerClient()
-  const { data } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
-  const id = (data as AR | null)?.tenant_id
-  if (!id) throw new Error('Kein Betrieb gefunden')
-  return id
+  const membership = await getCurrentMembership()
+  if (!membership) throw new Error('Kein aktiver Mandant gefunden')
+  return membership.tenantId
 }
 
 // Neue Fuellung anlegen
@@ -41,6 +40,7 @@ export async function createFuellung(formData: FormData) {
     const { data: wa } = await (supabase.from('weinausbau') as any)
       .select('menge_liter, status, qualitaetsstufe, herkunft_code')
       .eq('id', weinausbauId)
+      .eq('tenant_id', tenantId)
       .single()
     const verfuegbar = parseFloat((wa as AR | null)?.menge_liter ?? '0') || 0
     // Toleranz = eine Flaschengröße (Rundung beim Abfüllen)
@@ -120,6 +120,7 @@ export async function createFuellung(formData: FormData) {
     const { data: wa } = await (supabase.from('weinausbau') as any)
       .select('menge_liter, behaelter_id')
       .eq('id', weinausbauId)
+      .eq('tenant_id', tenantId)
       .single()
     const aktuell        = parseFloat((wa as AR | null)?.menge_liter ?? '0') || 0
     const behaelterId    = (wa as AR | null)?.behaelter_id as string | null
@@ -134,6 +135,7 @@ export async function createFuellung(formData: FormData) {
     await (supabase.from('weinausbau') as any)
       .update({ menge_liter: finalMenge, status: neuStatus, aktiv: neuAktiv })
       .eq('id', weinausbauId)
+      .eq('tenant_id', tenantId)
 
     // Schwund automatisch ausbuchen wenn Charge abgeschlossen und Restmenge > 0
     if (wirdAbgeschlossen && neuMenge > 0.01 && behaelterId) {
@@ -160,6 +162,7 @@ export async function createFuellung(formData: FormData) {
 
 export async function updateFuellung(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
+  const tenantId  = await getTenantId()
 
   const anzahl = parseInt(formData.get('anzahl_flaschen') as string)
   const weinausbauId     = (formData.get('weinausbau_id') as string) || null
@@ -173,6 +176,7 @@ export async function updateFuellung(id: string, formData: FormData) {
     const { data: wa } = await (supabase.from('weinausbau') as any)
       .select('qualitaetsstufe, herkunft_code')
       .eq('id', weinausbauId)
+      .eq('tenant_id', tenantId)
       .single()
     const chargeQualitaet = (wa as AR | null)?.qualitaetsstufe as string | null ?? null
     const chargeHerkunft  = (wa as AR | null)?.herkunft_code as string | null ?? null
@@ -219,7 +223,7 @@ export async function updateFuellung(id: string, formData: FormData) {
     aktualisiert_am:      new Date().toISOString(),
   }
 
-  const { error } = await (supabase.from('fuellungen') as any).update(payload).eq('id', id)
+  const { error } = await (supabase.from('fuellungen') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/weinhandel')
   redirect('/weinhandel')
@@ -229,9 +233,11 @@ export async function updateFuellung(id: string, formData: FormData) {
 
 export async function updateFuellungBestand(id: string, bestand: number) {
   const supabase = await createSupabaseServerClient()
+  const tenantId  = await getTenantId()
   const { error } = await (supabase.from('fuellungen') as any)
     .update({ bestand_flaschen: bestand, aktualisiert_am: new Date().toISOString() })
     .eq('id', id)
+    .eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/weinhandel')
 }
@@ -240,15 +246,17 @@ export async function updateFuellungBestand(id: string, bestand: number) {
 
 export async function schwundAusbuchen(fuellungId: string) {
   const supabase = await createSupabaseServerClient()
+  const tenantId  = await getTenantId()
 
   const { data: f } = await (supabase.from('fuellungen') as any)
-    .select('weinausbau_id').eq('id', fuellungId).single()
+    .select('weinausbau_id').eq('id', fuellungId).eq('tenant_id', tenantId).single()
   const weinausbauId = (f as AR | null)?.weinausbau_id
   if (!weinausbauId) throw new Error('Keine Charge verknüpft')
 
   const { error } = await (supabase.from('weinausbau') as any)
     .update({ menge_liter: 0, status: 'abgeschlossen', aktiv: false })
     .eq('id', weinausbauId)
+    .eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
 
   revalidatePath('/weinhandel')
@@ -260,26 +268,29 @@ export async function schwundAusbuchen(fuellungId: string) {
 
 export async function deactivateFuellung(id: string) {
   const supabase = await createSupabaseServerClient()
+  const tenantId  = await getTenantId()
 
   // Menge + Charge lesen bevor wir deaktivieren
   const { data: f } = await (supabase.from('fuellungen') as any)
-    .select('menge_liter_gefuellt, weinausbau_id').eq('id', id).single()
+    .select('menge_liter_gefuellt, weinausbau_id').eq('id', id).eq('tenant_id', tenantId).single()
   const menge       = parseFloat((f as AR | null)?.menge_liter_gefuellt ?? '0') || 0
   const weinausbauId = (f as AR | null)?.weinausbau_id as string | null
 
   const { error } = await (supabase.from('fuellungen') as any)
     .update({ aktiv: false, aktualisiert_am: new Date().toISOString() })
     .eq('id', id)
+    .eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
 
   // Weinausbau-Bestand wiederherstellen
   if (weinausbauId && menge > 0) {
     const { data: wa } = await (supabase.from('weinausbau') as any)
-      .select('menge_liter').eq('id', weinausbauId).single()
+      .select('menge_liter').eq('id', weinausbauId).eq('tenant_id', tenantId).single()
     const aktuell = parseFloat((wa as AR | null)?.menge_liter ?? '0') || 0
     await (supabase.from('weinausbau') as any)
       .update({ menge_liter: aktuell + menge })
       .eq('id', weinausbauId)
+      .eq('tenant_id', tenantId)
   }
 
   revalidatePath('/weinhandel')

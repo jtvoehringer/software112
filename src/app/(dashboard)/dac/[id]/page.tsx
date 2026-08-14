@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -15,21 +16,27 @@ type R = Record<string, any>
 export default async function DacEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createSupabaseServerClient()
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb.
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [{ data: rows }, { data: waRaw }] = await Promise.all([
-    (supabase.from('dac_antrag') as any)
+    tf((supabase.from('dac_antrag') as any)
       .select('id, weinausbau_id, bezeichnung, dac_region, jahrgang, rebsorte, menge_liter, alkohol_prozent, status, pruefnummer, eingereicht_am, bescheid_am, notizen, aktiv')
-      .eq('id', id).limit(1),
-    (supabase.from('weinausbau') as any).select('id, name').eq('aktiv', true).order('name'),
+      .eq('id', id).limit(1)),
+    tf((supabase.from('weinausbau') as any).select('id, name').eq('aktiv', true).order('name')),
   ])
 
   const dac0 = (((rows ?? []) as R[])[0] ?? null)
   const { data: anRaw } = dac0?.weinausbau_id
-    ? await (supabase.from('weinanalysen') as any)
+    ? await tf((supabase.from('weinanalysen') as any)
         .select('analyse_datum, labor, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl')
         .eq('weinausbau_id', dac0.weinausbau_id)
-        .order('analyse_datum', { ascending: false })
+        .order('analyse_datum', { ascending: false }))
     : { data: [] }
   const analysen = (anRaw ?? []) as R[]
 

@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -38,18 +38,24 @@ type Analyse = {
 
 export default async function AnalysenPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createSupabaseServerClient()
-  const role     = await getCurrentUserRole()
-  const writeOk  = canWrite(role)
+  const supabase   = await createSupabaseServerClient()
+  const role       = await getCurrentUserRole()
+  const writeOk    = canWrite(role)
+  const membership = await getCurrentMembership()
+  const tenantId   = membership?.tenantId ?? null
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb – ohne diesen Filter könnten bei
+  // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [{ data: waRaw }, { data: anRaw }] = await Promise.all([
-    (supabase.from('weinausbau') as any)
+    tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte')
-      .eq('id', id).maybeSingle(),
-    (supabase.from('weinanalysen') as any)
+      .eq('id', id).maybeSingle()),
+    tf((supabase.from('weinanalysen') as any)
       .select('id, analyse_datum, labor, probe_nr, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl, bewertung, notizen')
       .eq('weinausbau_id', id)
-      .order('analyse_datum', { ascending: false }),
+      .order('analyse_datum', { ascending: false })),
   ])
 
   if (!waRaw) notFound()

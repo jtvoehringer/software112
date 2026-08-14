@@ -1,19 +1,15 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>
 
 async function getTenantId(): Promise<string | null> {
-  const supabase = await createSupabaseServerClient()
-  const { data } = await supabase
-    .from('tenant_memberships')
-    .select('tenant_id')
-    .limit(1)
-    .single()
-  return (data as AnyRecord | null)?.tenant_id ?? null
+  const membership = await getCurrentMembership()
+  return membership?.tenantId ?? null
 }
 
 export async function createWeingarten(formData: FormData) {
@@ -36,6 +32,8 @@ export async function createWeingarten(formData: FormData) {
 
 export async function updateWeingarten(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  if (!tenantId) throw new Error('Kein Betrieb gefunden')
 
   const payload: AnyRecord = {
     name:                 formData.get('name') as string,
@@ -44,15 +42,17 @@ export async function updateWeingarten(id: string, formData: FormData) {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('weingarten') as any).update(payload).eq('id', id)
+  const { error } = await (supabase.from('weingarten') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AnyRecord).message)
   revalidatePath('/weingarten')
 }
 
 export async function deactivateWeingarten(id: string) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  if (!tenantId) throw new Error('Kein Betrieb gefunden')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('weingarten') as any).update({ aktiv: false }).eq('id', id)
+  const { error } = await (supabase.from('weingarten') as any).update({ aktiv: false }).eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AnyRecord).message)
   revalidatePath('/weingarten')
 }
@@ -60,8 +60,10 @@ export async function deactivateWeingarten(id: string) {
 export async function deleteWeingarten(id: string): Promise<{ error?: string }> {
   try {
     const supabase = await createSupabaseServerClient()
+    const tenantId = await getTenantId()
+    if (!tenantId) return { error: 'Kein Betrieb gefunden' }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('weingarten') as any).delete().eq('id', id)
+    const { error } = await (supabase.from('weingarten') as any).delete().eq('id', id).eq('tenant_id', tenantId)
     if (error) {
       const err = error as AnyRecord
       // Postgres 23503 = Foreign-Key-Verletzung, z.B. wenn noch Pressungen
@@ -123,6 +125,8 @@ export async function createGrundstueck(weingartenId: string, formData: FormData
 
 export async function updateGrundstueck(id: string, weingartenId: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  if (!tenantId) throw new Error('Kein Betrieb gefunden')
   const status = formData.get('status') as string || 'aktiv'
   const payload: AnyRecord = {
     gst_nr:                formData.get('gst_nr') as string,
@@ -146,7 +150,7 @@ export async function updateGrundstueck(id: string, weingartenId: string, formDa
     notizen:               (formData.get('notizen') as string) || null,
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('grundstuecke') as any).update(payload).eq('id', id)
+  const { error } = await (supabase.from('grundstuecke') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AnyRecord).message)
   revalidatePath('/weingarten')
   revalidatePath(`/weingarten/${weingartenId}`)
@@ -154,8 +158,10 @@ export async function updateGrundstueck(id: string, weingartenId: string, formDa
 
 export async function deleteGrundstueck(id: string, weingartenId: string) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  if (!tenantId) throw new Error('Kein Betrieb gefunden')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('grundstuecke') as any).delete().eq('id', id)
+  const { error } = await (supabase.from('grundstuecke') as any).delete().eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AnyRecord).message)
   revalidatePath('/weingarten')
   revalidatePath(`/weingarten/${weingartenId}`)

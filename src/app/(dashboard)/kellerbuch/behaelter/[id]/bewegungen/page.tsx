@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { fmtLiter } from '@/lib/format'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -24,13 +24,19 @@ type Bewegung = {
 
 export default async function BehaelterBewegungsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createSupabaseServerClient()
-  const role     = await getCurrentUserRole()
-  const writeOk  = canWrite(role)
+  const supabase   = await createSupabaseServerClient()
+  const role       = await getCurrentUserRole()
+  const writeOk    = canWrite(role)
+  const membership = await getCurrentMembership()
+  const tenantId   = membership?.tenantId ?? null
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb – ohne diesen Filter könnten bei
+  // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  const { data: bhRow } = await (supabase.from('behaelter') as any)
+  const { data: bhRow } = await tf((supabase.from('behaelter') as any)
     .select('id, name, typ, volumen_liter, standort')
-    .eq('id', id)
+    .eq('id', id))
     .single()
 
   if (!bhRow) notFound()
@@ -47,21 +53,21 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
       .select('id, menge_liter, weinausbau_id, notizen, pressung:pressung_id(id, datum, notizen)')
       .eq('behaelter_id', id)
       .order('id', { ascending: true }),
-    (supabase.from('keller_umzuege') as any)
+    tf((supabase.from('keller_umzuege') as any)
       .select('id, datum, menge_liter, brutto_liter, schwund_liter, umzug_typ, nach_weinausbau_id, von_behaelter:von_behaelter_id(name), von_weinausbau:von_weinausbau_id(name, jahrgang, behaelter:behaelter_id(name)), notizen, umzug_batch_id, zeilen_typ')
       .eq('nach_behaelter_id', id)
-      .order('datum', { ascending: true }),
-    (supabase.from('weinausbau') as any)
+      .order('datum', { ascending: true })),
+    tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, menge_liter, aktiv, ist_eroeffnungsbestand, anfangsbestand_liter, created_at')
       .eq('behaelter_id', id)
-      .order('id', { ascending: true }),
-    (supabase.from('keller_umzuege') as any)
+      .order('id', { ascending: true })),
+    tf((supabase.from('keller_umzuege') as any)
       .select('von_weinausbau_id')
-      .eq('von_behaelter_id', id),
-    (supabase.from('keller_behandlungen') as any)
+      .eq('von_behaelter_id', id)),
+    tf((supabase.from('keller_behandlungen') as any)
       .select('id, datum, menge, einheit, notizen, typ:typ_id(name)')
       .eq('behaelter_id', id)
-      .order('datum', { ascending: true }),
+      .order('datum', { ascending: true })),
   ])
 
   const chargeIds = new Set<string>()
@@ -84,15 +90,15 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     { data: zukaufRaw },
   ] = chargeIdList.length > 0
     ? await Promise.all([
-        (supabase.from('keller_umzuege') as any)
+        tf((supabase.from('keller_umzuege') as any)
           .select('id, datum, menge_liter, brutto_liter, schwund_liter, zeilen_typ, umzug_typ, nach_behaelter:nach_behaelter_id(name), von_weinausbau_id, von_weinausbau:von_weinausbau_id(name), notizen, umzug_batch_id')
           .in('von_weinausbau_id', chargeIdList)
-          .order('datum', { ascending: true }),
-        (supabase.from('fuellungen') as any)
+          .order('datum', { ascending: true })),
+        tf((supabase.from('fuellungen') as any)
           .select('id, datum, name, anzahl_flaschen, menge_liter_gefuellt, flaschengroesse_ml, pruefnummer, weinausbau_id')
           .in('weinausbau_id', chargeIdList)
           .eq('aktiv', true)
-          .order('datum', { ascending: true }),
+          .order('datum', { ascending: true })),
         (supabase.from('verkauf_positionen') as any)
           .select('id, menge, einheit, weinausbau_id, verkaufsposten:verkaufsposten_id(datum, storniert)')
           .in('weinausbau_id', chargeIdList)
@@ -103,12 +109,12 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
         // ihn längst korrekt mitrechnet. Ohne diesen Zugang lief der hier lokal nachgerechnete Saldo
         // für jede Zukauf-basierte Charge sobald abgefüllt/verkauft wurde ins Negative und die Charge
         // verschwand fälschlich aus "Aktuelle Chargen" / "Aktueller Bestand".
-        (supabase.from('zukauf_posten') as any)
+        tf((supabase.from('zukauf_posten') as any)
           .select('id, datum, menge, ziel_weinausbau_id, rebsorte, jahrgang')
           .in('ziel_weinausbau_id', chargeIdList)
           .eq('aktiv', true)
           .in('art', ['wein', 'most'])
-          .order('datum', { ascending: true }),
+          .order('datum', { ascending: true })),
       ])
     : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }]
 
@@ -136,10 +142,10 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
   const zielByBatch:   Record<string, R[]> = {}
 
   if (einZielBatchIds.length > 0) {
-    const { data: quelleRows } = await (supabase.from('keller_umzuege') as any)
+    const { data: quelleRows } = await tf((supabase.from('keller_umzuege') as any)
       .select('umzug_batch_id, von_behaelter:von_behaelter_id(name), von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name))')
       .in('umzug_batch_id', einZielBatchIds)
-      .eq('zeilen_typ', 'quelle')
+      .eq('zeilen_typ', 'quelle'))
     for (const q of ((quelleRows ?? []) as R[])) {
       if (!quelleByBatch[q.umzug_batch_id]) quelleByBatch[q.umzug_batch_id] = []
       quelleByBatch[q.umzug_batch_id].push(q)
@@ -147,10 +153,10 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
   }
 
   if (ausQuelleBatchIds.length > 0) {
-    const { data: zielRows } = await (supabase.from('keller_umzuege') as any)
+    const { data: zielRows } = await tf((supabase.from('keller_umzuege') as any)
       .select('umzug_batch_id, nach_behaelter:nach_behaelter_id(name), nach_weinausbau:nach_weinausbau_id(name), menge_liter')
       .in('umzug_batch_id', ausQuelleBatchIds)
-      .eq('zeilen_typ', 'ziel')
+      .eq('zeilen_typ', 'ziel'))
     for (const z of ((zielRows ?? []) as R[])) {
       if (!zielByBatch[z.umzug_batch_id]) zielByBatch[z.umzug_batch_id] = []
       zielByBatch[z.umzug_batch_id].push(z)

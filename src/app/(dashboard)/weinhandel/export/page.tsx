@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Users, Building2, Wine, ShoppingCart, type LucideIcon } from 'lucide-react'
@@ -8,14 +9,18 @@ export const dynamic = 'force-dynamic'
 
 export default async function ExportPage() {
   const supabase = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   // Zähler für Info
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [{ count: kontakteCount }, { count: firmenCount }, { count: fuellungenCount }, { count: verkaufCount }] = await Promise.all([
-    (supabase.from('kontakte') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true),
-    (supabase.from('firmen') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true),
-    (supabase.from('fuellungen') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true),
-    (supabase.from('verkaufsposten') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true),
+    tf((supabase.from('kontakte') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true)),
+    tf((supabase.from('firmen') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true)),
+    tf((supabase.from('fuellungen') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true)),
+    tf((supabase.from('verkaufsposten') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true)),
   ])
 
   const exports: {

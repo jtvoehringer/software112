@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { BookOpen } from 'lucide-react'
@@ -29,12 +30,17 @@ export default async function WeinbuecherSammlungPage({
 }) {
   const { jahrgang, sorte, bezeichnung } = await searchParams
   const supabase = await createSupabaseServerClient()
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb.
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
 
   let query = (supabase.from('weinausbau') as any)
     .select('id, name, jahrgang, rebsorte')
     .order('jahrgang', { ascending: false })
     .order('name')
 
+  if (tenantId)    query = query.eq('tenant_id', tenantId)
   if (jahrgang)    query = query.eq('jahrgang', jahrgang)
   if (sorte)       query = query.eq('rebsorte', sorte)
   if (bezeichnung) query = query.eq('name', bezeichnung)

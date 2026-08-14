@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { fmtLiter } from '@/lib/format'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -19,14 +19,21 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 }
 
 export default async function WeinausbauListePage() {
-  const supabase = await createSupabaseServerClient()
-  const role     = await getCurrentUserRole()
-  const writeOk  = canWrite(role)
+  const supabase   = await createSupabaseServerClient()
+  const role       = await getCurrentUserRole()
+  const writeOk    = canWrite(role)
+  const membership = await getCurrentMembership()
+  const tenantId   = membership?.tenantId ?? null
 
-  const { data: raw } = await (supabase.from('weinausbau') as any)
+  let query = (supabase.from('weinausbau') as any)
     .select('id, name, jahrgang, rebsorte, menge_liter, status, aktiv, ist_eroeffnungsbestand, behaelter:behaelter_id(name)')
     .order('jahrgang', { ascending: false })
     .order('name')
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb – ohne diesen Filter könnten bei
+  // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
+  if (tenantId) query = query.eq('tenant_id', tenantId)
+  const { data: raw } = await query
 
   const chargen = (raw ?? []) as R[]
   const aktive  = chargen.filter((w: R) => w.status !== 'abgeschlossen' && !w.ist_eroeffnungsbestand)

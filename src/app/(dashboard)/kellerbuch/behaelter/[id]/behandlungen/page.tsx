@@ -33,6 +33,11 @@ export default function KellerbehandlungenPage() {
   const [aktuellerInhalt, setAktuellerInhalt] = useState<number>(0)
   const [loading, setLoading]           = useState(true)
   const [isPending, startTransition]    = useTransition()
+  // Aktiver Tenant des Nutzers (client-seitig ermittelt, da diese Seite eine reine
+  // Client-Komponente ist und die serverseitige getCurrentMembership()/Betrieb-Wechsler-
+  // Cookie-Logik hier nicht direkt aufgerufen werden kann). Wird zusätzlich zu RLS als
+  // expliziter Tenant-Filter verwendet, da RLS Zeilen aus JEDER Mitgliedschaft erlaubt.
+  const [tenantId, setTenantId]         = useState<string | null>(null)
 
   // Formular-State
   const [chargenImBehaelter, setChargenImBehaelter] = useState<R[]>([])
@@ -54,19 +59,35 @@ export default function KellerbehandlungenPage() {
   const [typSaving, setTypSaving]         = useState(false)
 
   async function loadData() {
+    const { data: session } = await (supabase.auth as any).getSession()
+    const userId = session?.session?.user?.id
+    const { data: memberRow } = await (supabase.from('tenant_memberships') as any)
+      .select('tenant_id').eq('user_id', userId).limit(1).maybeSingle()
+    const activeTenantId = (memberRow?.tenant_id as string | undefined) ?? null
+    setTenantId(activeTenantId)
+
+    let behaelterQuery = (supabase.from('behaelter') as any).select('id, name, typ, volumen_liter, standort').eq('id', behaelterId)
+    let weinausbauQuery = (supabase.from('weinausbau') as any).select('id, name, menge_liter, aktiv').eq('behaelter_id', behaelterId).eq('aktiv', true)
+    let behandlungenQuery = (supabase.from('keller_behandlungen') as any)
+      .select('id, datum, typ_id, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, typ:typ_id(name)')
+      .eq('behaelter_id', behaelterId)
+      .order('datum', { ascending: false })
+    if (activeTenantId) {
+      behaelterQuery    = behaelterQuery.eq('tenant_id', activeTenantId)
+      weinausbauQuery   = weinausbauQuery.eq('tenant_id', activeTenantId)
+      behandlungenQuery = behandlungenQuery.eq('tenant_id', activeTenantId)
+    }
+
     const [
       { data: bh },
       { data: bh_data },
       { data: typenData },
       { data: behandlungenData },
     ] = await Promise.all([
-      (supabase.from('behaelter') as any).select('id, name, typ, volumen_liter, standort').eq('id', behaelterId).single(),
-      (supabase.from('weinausbau') as any).select('id, name, menge_liter, aktiv').eq('behaelter_id', behaelterId).eq('aktiv', true),
+      behaelterQuery.single(),
+      weinausbauQuery,
       (supabase.from('keller_behandlungstypen') as any).select('id, name, einheit_standard').order('sort_order').order('name'),
-      (supabase.from('keller_behandlungen') as any)
-        .select('id, datum, typ_id, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, typ:typ_id(name)')
-        .eq('behaelter_id', behaelterId)
-        .order('datum', { ascending: false }),
+      behandlungenQuery,
     ])
     setBehaelter(bh)
     const inhalt = ((bh_data ?? []) as R[]).reduce((s: number, w: R) => s + (parseFloat(w.menge_liter) || 0), 0)
@@ -155,15 +176,17 @@ export default function KellerbehandlungenPage() {
 
     startTransition(async () => {
       if (editId) {
-        await (supabase.from('keller_behandlungen') as any)
+        let updateQuery = (supabase.from('keller_behandlungen') as any)
           .update({ ...payload, updated_at: new Date().toISOString() }).eq('id', editId)
+        if (tenantId) updateQuery = updateQuery.eq('tenant_id', tenantId)
+        await updateQuery
       } else {
         const { data: session } = await (supabase.auth as any).getSession()
         const userId = session?.session?.user?.id
         const { data: memberRow } = await (supabase.from('tenant_memberships') as any)
-          .select('tenant_id').eq('user_id', userId).single()
+          .select('tenant_id').eq('user_id', userId).limit(1).maybeSingle()
         await (supabase.from('keller_behandlungen') as any)
-          .insert({ ...payload, tenant_id: memberRow.tenant_id })
+          .insert({ ...payload, tenant_id: tenantId ?? memberRow?.tenant_id })
       }
       setShowForm(false)
       loadData()
@@ -172,7 +195,9 @@ export default function KellerbehandlungenPage() {
 
   async function handleDelete(id: string) {
     if (!confirm('Behandlung löschen?')) return
-    await (supabase.from('keller_behandlungen') as any).delete().eq('id', id)
+    let deleteQuery = (supabase.from('keller_behandlungen') as any).delete().eq('id', id)
+    if (tenantId) deleteQuery = deleteQuery.eq('tenant_id', tenantId)
+    await deleteQuery
     loadData()
   }
 

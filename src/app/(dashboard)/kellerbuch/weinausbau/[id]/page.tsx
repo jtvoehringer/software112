@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { fmtLiter } from '@/lib/format'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -29,9 +29,16 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 export default async function WeinausbauDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ form?: string; quelle?: string; menge?: string; abstufung?: string }> }) {
   const { id } = await params
   const { form: openForm, quelle: initialQuelleId, menge: initialQuelleMenge, abstufung: abstufungParam } = await searchParams
-  const supabase = await createSupabaseServerClient()
-  const role     = await getCurrentUserRole()
-  const writeOk  = canWrite(role)
+  const supabase   = await createSupabaseServerClient()
+  const role       = await getCurrentUserRole()
+  const writeOk    = canWrite(role)
+  const membership = await getCurrentMembership()
+  const tenantId   = membership?.tenantId ?? null
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb – ohne diesen Filter könnten bei
+  // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden (inkl. Zugriff auf
+  // fremde Chargen per ID-Ratespiel auf dieser [id]-Detailseite).
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [
     { data: rows },
@@ -47,26 +54,26 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
     { data: verschnEinRaw },
     { data: zukaufRaw },
   ] = await Promise.all([
-    (supabase.from('weinausbau') as any)
+    tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, weingarten_id, behaelter_id, menge_liter, anfangsbestand_liter, ist_eroeffnungsbestand, status, qualitaetsstufe, herkunft_code, weinart, notizen, aktiv, einstandspreis_pro_liter, behaelter:behaelter_id(name)')
-      .eq('id', id).limit(1),
-    (supabase.from('weingarten') as any).select('id, name').eq('aktiv', true).order('name'),
-    (supabase.from('behaelter') as any).select('id, name, volumen_liter').eq('aktiv', true).order('name'),
+      .eq('id', id).limit(1)),
+    tf((supabase.from('weingarten') as any).select('id, name').eq('aktiv', true).order('name')),
+    tf((supabase.from('behaelter') as any).select('id, name, volumen_liter').eq('aktiv', true).order('name')),
     // Ausgehende Umzüge (von dieser Charge weg) – enthält 'transfer' und 'quelle'-Zeilen
-    (supabase.from('keller_umzuege') as any)
+    tf((supabase.from('keller_umzuege') as any)
       .select('id, datum, menge_liter, brutto_liter, schwund_liter, nach_behaelter:nach_behaelter_id(name), notizen, umzug_batch_id, zeilen_typ')
       .eq('von_weinausbau_id', id)
-      .order('datum', { ascending: true }),
+      .order('datum', { ascending: true })),
     // Eingehende Umzüge (in diese Charge rein) – enthält 'transfer' und 'ziel'-Zeilen
-    (supabase.from('keller_umzuege') as any)
+    tf((supabase.from('keller_umzuege') as any)
       .select('id, datum, menge_liter, von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name)), notizen, umzug_batch_id, zeilen_typ')
       .eq('nach_weinausbau_id', id)
-      .order('datum', { ascending: true }),
+      .order('datum', { ascending: true })),
     // Abfüllungen
-    (supabase.from('fuellungen') as any)
+    tf((supabase.from('fuellungen') as any)
       .select('id, datum, name, anzahl_flaschen, menge_liter_gefuellt, flaschengroesse_ml, pruefnummer, chargennummer')
       .eq('weinausbau_id', id)
-      .order('datum', { ascending: true }),
+      .order('datum', { ascending: true })),
     // Tank-Verkäufe
     (supabase.from('verkauf_positionen') as any)
       .select('id, menge, einheit, verkaufsposten:verkaufsposten_id(datum, storniert)')
@@ -84,11 +91,11 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       .eq('weinausbau_id', id),
 
     // Alle anderen aktiven Chargen (für Verschneidungs- und Umziehen-Formular)
-    (supabase.from('weinausbau') as any)
+    tf((supabase.from('weinausbau') as any)
       .select('id, name, menge_liter, qualitaetsstufe, herkunft_code, behaelter_id, rebsorte, weinart')
       .eq('aktiv', true)
       .neq('id', id)
-      .order('name'),
+      .order('name')),
 
     // Verschneidungen: diese Charge als Ziel
     (supabase.from('verschneidungen') as any)
@@ -102,12 +109,12 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
     // Saldo für jede Zukauf-basierte Charge sobald abgefüllt/verkauft wurde ins Negative – und
     // der (fehlerhafte) Saldo wurde per Auto-Sync unten sogar in weinausbau.menge_liter
     // zurückgeschrieben.
-    (supabase.from('zukauf_posten') as any)
+    tf((supabase.from('zukauf_posten') as any)
       .select('id, datum, menge, rebsorte, jahrgang')
       .eq('ziel_weinausbau_id', id)
       .eq('aktiv', true)
       .in('art', ['wein', 'most'])
-      .order('datum', { ascending: true }),
+      .order('datum', { ascending: true })),
   ])
 
   const ausRecs = (umzuegeAusRaw ?? []) as R[]
@@ -127,11 +134,11 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
   const quelleRecsByBatch: Record<string, R[]> = {}
 
   if (quelleAusBatchIds.length > 0) {
-    const { data: zielRaw } = await (supabase.from('keller_umzuege') as any)
+    const { data: zielRaw } = await tf((supabase.from('keller_umzuege') as any)
       // nach_weinausbau als Fallback wenn nach_behaelter_id NULL ist
       .select('umzug_batch_id, nach_behaelter:nach_behaelter_id(name), nach_weinausbau:nach_weinausbau_id(name), menge_liter')
       .in('umzug_batch_id', quelleAusBatchIds)
-      .eq('zeilen_typ', 'ziel')
+      .eq('zeilen_typ', 'ziel'))
     for (const z of ((zielRaw ?? []) as R[])) {
       if (!zielRecsByBatch[z.umzug_batch_id]) zielRecsByBatch[z.umzug_batch_id] = []
       zielRecsByBatch[z.umzug_batch_id].push(z)
@@ -139,11 +146,11 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
   }
 
   if (zielEinBatchIds.length > 0) {
-    const { data: quelleRaw } = await (supabase.from('keller_umzuege') as any)
+    const { data: quelleRaw } = await tf((supabase.from('keller_umzuege') as any)
       // von_behaelter direkt (einstufig) als Fallback wenn doppelter Join fehlschlägt
       .select('umzug_batch_id, von_behaelter:von_behaelter_id(name), von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name)), brutto_liter')
       .in('umzug_batch_id', zielEinBatchIds)
-      .eq('zeilen_typ', 'quelle')
+      .eq('zeilen_typ', 'quelle'))
     for (const q of ((quelleRaw ?? []) as R[])) {
       if (!quelleRecsByBatch[q.umzug_batch_id]) quelleRecsByBatch[q.umzug_batch_id] = []
       quelleRecsByBatch[q.umzug_batch_id].push(q)
@@ -373,9 +380,9 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
   // Auto-Sync: DB-menge_liter korrigieren wenn Abweichung > 1 L
   if (Math.abs(berechneterSaldo - aktuell) > 1) {
-    await (supabase.from('weinausbau') as any)
+    await tf((supabase.from('weinausbau') as any)
       .update({ menge_liter: berechneterSaldo })
-      .eq('id', id)
+      .eq('id', id))
   }
 
   const st = STATUS_LABELS[weinausbau.status] ?? { label: weinausbau.status, color: 'bg-gray-100 text-gray-600' }

@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -16,12 +17,19 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
   const aktJahr = jahrParam ? parseInt(jahrParam) : new Date().getFullYear()
   const jahre = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
 
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb.
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
+
   const [{ data: behandlungenRaw }, { data: settingsRaw }] = await Promise.all([
-    (supabase.from('behandlungen') as any)
+    tf((supabase.from('behandlungen') as any)
       .select('id, datum, aufwandmenge, aufwandmenge_einheit, menge_gesamt, menge_einheit, art, bbch_stadium, witterung, notizen, weingarten:weingarten_id(name, ried), psm:psm_id(name, handelsname, wirkstoff, wartezeit_tage, oeko_zugelassen, cu_gehalt_pct)')
       .gte('datum', `${aktJahr}-01-01`).lte('datum', `${aktJahr}-12-31`)
-      .order('datum'),
-    (supabase.from('tenant_einstellungen') as any).select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, logo_url').limit(1).maybeSingle(),
+      .order('datum')),
+    tf((supabase.from('tenant_einstellungen') as any).select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, logo_url').limit(1)).maybeSingle(),
   ])
 
   const behandlungen = (behandlungenRaw ?? []) as R[]

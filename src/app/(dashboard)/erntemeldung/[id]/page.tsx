@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite, canAdmin } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -45,6 +45,10 @@ export default async function ErnteDetailPage({ params }: Props) {
   const role = await getCurrentUserRole()
   const writeOk = canWrite(role)
   const adminOk = canAdmin(role)
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [
     { data: jg },
@@ -60,7 +64,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     { data: rawTVFirmen },
   ] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('weinjahrgaenge') as any).select('*').eq('id', id).single(),
+    tf((supabase.from('weinjahrgaenge') as any).select('*').eq('id', id).single()),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('ernte_parzellen') as any)
@@ -68,44 +72,44 @@ export default async function ErnteDetailPage({ params }: Props) {
       .eq('jahrgang_id', id).order('ernte_datum', { ascending: false }),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('weingarten') as any)
-      .select('id, name, rebsorte, trauben_verkauf, trauben_herkunft_code, lagen:lage_id(name)').eq('aktiv', true).order('name'),
+    tf((supabase.from('weingarten') as any)
+      .select('id, name, rebsorte, trauben_verkauf, trauben_herkunft_code, lagen:lage_id(name)').eq('aktiv', true).order('name')),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('ama_erntemeldungen') as any)
+    tf((supabase.from('ama_erntemeldungen') as any)
       .select('id, status, gesamtmenge_kg, gesamtmenge_hl, n8n_status, n8n_fehler, eingereicht_am')
-      .eq('jahrgang_id', id).maybeSingle(),
+      .eq('jahrgang_id', id).maybeSingle()),
 
     // Pressungen mit Sub-Tabellen
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('pressungen') as any)
+    tf((supabase.from('pressungen') as any)
       .select(`id, datum, most_liter_gesamt, weinbezeichnung, notizen, kmw_grad,
         weingaerten:pressung_weingaerten(id, weingarten_id, grundstueck_id, zukauf_posten_id, trauben_kg, rebsorte, notizen, weingarten:weingarten_id(name)),
         behaelter:pressung_behaelter(id, behaelter_id, weinausbau_id, menge_liter, notizen, behaelter:behaelter_id(name), weinausbau:weinausbau_id(name, jahrgang))`)
-      .eq('jahrgang_id', id).order('datum', { ascending: false }),
+      .eq('jahrgang_id', id).order('datum', { ascending: false })),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('behaelter') as any).select('id, name, volumen_liter').eq('aktiv', true).order('name'),
+    tf((supabase.from('behaelter') as any).select('id, name, volumen_liter').eq('aktiv', true).order('name')),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, behaelter_id, rebsorte, menge_liter, qualitaetsstufe, herkunft_code').eq('aktiv', true).neq('status', 'abgeschlossen').order('name'),
+    tf((supabase.from('weinausbau') as any)
+      .select('id, name, jahrgang, behaelter_id, rebsorte, menge_liter, qualitaetsstufe, herkunft_code').eq('aktiv', true).neq('status', 'abgeschlossen').order('name')),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('grundstuecke') as any)
-      .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha').eq('status', 'aktiv').order('gst_nr'),
+    tf((supabase.from('grundstuecke') as any)
+      .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha').eq('status', 'aktiv').order('gst_nr')),
 
     // Traubenverkäufe dieses Jahrgangs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('traubenverkauf') as any)
+    tf((supabase.from('traubenverkauf') as any)
       .select('id, weingarten_id, grundstueck_id, zukauf_posten_id, kontakt_id, firma_id, datum, menge_kg, preis_per_kg, kmw_grad, qualitaetsstufe, gesundheit, herkunft_code, notizen, liefernummer, weingarten:weingarten_id(name), kontakt:kontakt_id(vorname, nachname), firma:firma_id(name)')
-      .eq('jahrgang_id', id).order('datum', { ascending: false }),
+      .eq('jahrgang_id', id).order('datum', { ascending: false })),
 
     // Kontakte + Firmen für Abnehmer-Dropdown
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('kontakte') as any).select('id, vorname, nachname, betrieb_nr').order('nachname'),
+    tf((supabase.from('kontakte') as any).select('id, vorname, nachname, betrieb_nr').order('nachname')),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('firmen') as any).select('id, name, betrieb_nr').order('name'),
+    tf((supabase.from('firmen') as any).select('id, name, betrieb_nr').order('name')),
   ])
 
   if (!jg) notFound()
@@ -113,7 +117,7 @@ export default async function ErnteDetailPage({ params }: Props) {
   // Zugekaufte Trauben dieses Jahrgangs (art='trauben') - stehen als zusätzliche
   // Quelle für Pressungs-Vorschlag und Traubenverkauf zur Verfügung.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawZukaufTrauben } = await (supabase.from('zukauf_posten') as any)
+  const { data: rawZukaufTrauben } = await tf((supabase.from('zukauf_posten') as any)
     .select(`
       id, datum, menge, rebsorte, herkunft, qualitaetsstufe, kmw,
       lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname),
@@ -122,7 +126,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     .eq('art', 'trauben')
     .eq('aktiv', true)
     .eq('jahrgang', (jg as AR).jahrgang)
-    .order('datum', { ascending: false })
+    .order('datum', { ascending: false }))
 
   const parzellen: ErnteParzelle[] = ((rawP ?? []) as AR[]).map(p => ({
     id: p.id, weingarten_id: p.weingarten_id,

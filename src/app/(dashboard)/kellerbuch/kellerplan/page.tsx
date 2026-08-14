@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createKellerplan, updateKellerplan, deleteKellerplan } from './actions'
@@ -16,14 +16,21 @@ const iCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focu
 const lCls = 'block text-xs font-medium text-gray-600 mb-1'
 
 export default async function KellerplanListPage() {
-  const supabase = await createSupabaseServerClient()
-  const role     = await getCurrentUserRole()
-  const writeOk  = canWrite(role)
+  const supabase   = await createSupabaseServerClient()
+  const role       = await getCurrentUserRole()
+  const writeOk    = canWrite(role)
+  const membership = await getCurrentMembership()
+  const tenantId   = membership?.tenantId ?? null
 
-  const { data: raw } = await (supabase.from('kellerplaene') as any)
+  let query = (supabase.from('kellerplaene') as any)
     .select('id, name, breite_m, laenge_m, notizen, aktiv')
     .eq('aktiv', true)
     .order('name')
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb – ohne diesen Filter könnten bei
+  // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
+  if (tenantId) query = query.eq('tenant_id', tenantId)
+  const { data: raw } = await query
 
   const plaene = (raw ?? []) as R[]
 

@@ -1,6 +1,7 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -8,11 +9,9 @@ import { redirect } from 'next/navigation'
 type AR = Record<string, any>
 
 async function getTenantId(): Promise<string> {
-  const supabase = await createSupabaseServerClient()
-  const { data } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
-  const id = (data as AR | null)?.tenant_id
-  if (!id) throw new Error('Kein Betrieb gefunden')
-  return id
+  const membership = await getCurrentMembership()
+  if (!membership) throw new Error('Kein aktiver Mandant gefunden')
+  return membership.tenantId
 }
 
 async function createZukaufCharge(
@@ -59,12 +58,13 @@ async function createZukaufCharge(
 // bereits IRGENDWIE bewegt, bleibt sie unangetastet (der reale Bestand darf hier nicht blind
 // genullt werden) – nur eine Charge OHNE jede Bewegung ist eine echte Karteileiche und darf
 // sicher geschlossen + auf 0 gesetzt werden.
-async function bereinigCharge(supabase: any, weinausbauId: string): Promise<void> {
-  const hatBewegungen = await chargeHatBewegungen(supabase, weinausbauId)
+async function bereinigCharge(supabase: any, weinausbauId: string, tenantId: string): Promise<void> {
+  const hatBewegungen = await chargeHatBewegungen(supabase, weinausbauId, tenantId)
   if (hatBewegungen) return
   await (supabase.from('weinausbau') as any)
     .update({ menge_liter: 0, status: 'abgeschlossen', aktiv: false })
     .eq('id', weinausbauId)
+    .eq('tenant_id', tenantId)
 }
 
 // Prüft, ob gegen eine Weinausbau-Charge bereits irgendeine Bewegung gebucht wurde (abgefüllt,
@@ -74,7 +74,7 @@ async function bereinigCharge(supabase: any, weinausbauId: string): Promise<void
 // deaktiviert/neu angelegt werden darf (das würde den physisch noch vorhandenen Restbestand aus
 // allen Übersichten verschwinden lassen, siehe Bugreport 5.8.2026 – Kellerbuch zeigte "Kein Wein
 // in diesem Behälter", obwohl laut Bewegungsbuch/View noch mehrere tausend Liter vorhanden waren).
-async function chargeHatBewegungen(supabase: any, weinausbauId: string): Promise<boolean> {
+async function chargeHatBewegungen(supabase: any, weinausbauId: string, tenantId: string): Promise<boolean> {
   const [
     { count: umzugCount },
     { count: fuellungCount },
@@ -84,19 +84,23 @@ async function chargeHatBewegungen(supabase: any, weinausbauId: string): Promise
   ] = await Promise.all([
     (supabase.from('keller_umzuege') as any)
       .select('id', { count: 'exact', head: true })
-      .or(`von_weinausbau_id.eq.${weinausbauId},nach_weinausbau_id.eq.${weinausbauId}`),
+      .or(`von_weinausbau_id.eq.${weinausbauId},nach_weinausbau_id.eq.${weinausbauId}`)
+      .eq('tenant_id', tenantId),
     (supabase.from('fuellungen') as any)
       .select('id', { count: 'exact', head: true })
-      .eq('weinausbau_id', weinausbauId),
+      .eq('weinausbau_id', weinausbauId)
+      .eq('tenant_id', tenantId),
     (supabase.from('verkauf_positionen') as any)
       .select('id', { count: 'exact', head: true })
-      .eq('weinausbau_id', weinausbauId),
+      .eq('weinausbau_id', weinausbauId)
+      .eq('tenant_id', tenantId),
     (supabase.from('verschneidung_quellen') as any)
       .select('id', { count: 'exact', head: true })
       .eq('quell_weinausbau_id', weinausbauId),
     (supabase.from('verschneidungen') as any)
       .select('id', { count: 'exact', head: true })
-      .eq('ziel_weinausbau_id', weinausbauId),
+      .eq('ziel_weinausbau_id', weinausbauId)
+      .eq('tenant_id', tenantId),
   ])
   return (umzugCount ?? 0) > 0 || (fuellungCount ?? 0) > 0 || (verkaufCount ?? 0) > 0
     || (verschnQuelleCount ?? 0) > 0 || (verschnZielCount ?? 0) > 0
@@ -107,7 +111,8 @@ async function chargeHatBewegungen(supabase: any, weinausbauId: string): Promise
 // String-Parameter) sauber als Server-Action-Export bleibt.
 export async function pruefeChargeHatBewegungen(weinausbauId: string): Promise<boolean> {
   const supabase = await createSupabaseServerClient()
-  return chargeHatBewegungen(supabase, weinausbauId)
+  const tenantId = await getTenantId()
+  return chargeHatBewegungen(supabase, weinausbauId, tenantId)
 }
 
 function parseZukaufFormData(formData: FormData) {
@@ -205,6 +210,7 @@ export async function createZukauf(formData: FormData) {
     const { data: andereRebsorte } = await (supabase.from('weinausbau') as any)
       .select('id')
       .eq('behaelter_id', f.zielBehaelterId)
+      .eq('tenant_id', tenantId)
       .eq('aktiv', true)
       .neq('id', zielWeinausbauId)
       .neq('rebsorte', f.rebsorte)
@@ -219,6 +225,7 @@ export async function createZukauf(formData: FormData) {
       const { data: gleicheRebsorte } = await (supabase.from('weinausbau') as any)
         .select('id, qualitaetsstufe')
         .eq('behaelter_id', f.zielBehaelterId)
+        .eq('tenant_id', tenantId)
         .eq('aktiv', true)
         .neq('id', zielWeinausbauId)
         .eq('rebsorte', f.rebsorte)
@@ -246,6 +253,7 @@ export async function updateZukauf(id: string, formData: FormData) {
   const { data: alt } = await (supabase.from('zukauf_posten') as any)
     .select('ziel_weinausbau_id, menge')
     .eq('id', id)
+    .eq('tenant_id', tenantId)
     .single()
   const altWeinausbauId: string | null = (alt as AR | null)?.ziel_weinausbau_id ?? null
   const alteZukaufMenge: number = parseFloat((alt as AR | null)?.menge ?? '0') || 0
@@ -253,7 +261,7 @@ export async function updateZukauf(id: string, formData: FormData) {
   let zielWeinausbauId: string | null = altWeinausbauId
 
   if ((f.art === 'wein' || f.art === 'most') && f.zielBehaelterId) {
-    const hatBewegungen = altWeinausbauId ? await chargeHatBewegungen(supabase, altWeinausbauId) : false
+    const hatBewegungen = altWeinausbauId ? await chargeHatBewegungen(supabase, altWeinausbauId, tenantId) : false
 
     if (altWeinausbauId && hatBewegungen) {
       // Die bisherige Charge wurde bereits abgefüllt/umgezogen/verkauft/verschnitten – NICHT
@@ -265,6 +273,7 @@ export async function updateZukauf(id: string, formData: FormData) {
       const { data: alteCharge } = await (supabase.from('weinausbau') as any)
         .select('behaelter_id, menge_liter')
         .eq('id', altWeinausbauId)
+        .eq('tenant_id', tenantId)
         .single()
       const alterBehaelterId = (alteCharge as AR | null)?.behaelter_id ?? null
       if (alterBehaelterId && alterBehaelterId !== f.zielBehaelterId) {
@@ -286,18 +295,19 @@ export async function updateZukauf(id: string, formData: FormData) {
           qualitaetsstufe:          f.qualitaetsstufe ?? null,
         })
         .eq('id', altWeinausbauId)
+        .eq('tenant_id', tenantId)
       if (updChargeErr) throw new Error((updChargeErr as AR).message)
       zielWeinausbauId = altWeinausbauId
     } else {
       // Noch keine Bewegungen gegen die bisherige Charge gebucht – bisheriges Verhalten
       // (deaktivieren + frisch anlegen) ist hier unbedenklich, da noch nichts verbraucht wurde.
-      if (altWeinausbauId) await bereinigCharge(supabase, altWeinausbauId)
+      if (altWeinausbauId) await bereinigCharge(supabase, altWeinausbauId, tenantId)
       zielWeinausbauId = await createZukaufCharge(
         supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaetsstufe,
       )
     }
   } else if (!(f.art === 'wein' || f.art === 'most')) {
-    if (altWeinausbauId) await bereinigCharge(supabase, altWeinausbauId)
+    if (altWeinausbauId) await bereinigCharge(supabase, altWeinausbauId, tenantId)
     zielWeinausbauId = null
   }
 
@@ -326,7 +336,7 @@ export async function updateZukauf(id: string, formData: FormData) {
     einstandspreis_pro_liter: f.einstandspreisLiter ?? null,
     notizen:                  f.notizen,
     ziel_weinausbau_id:       zielWeinausbauId,
-  }).eq('id', id)
+  }).eq('id', id).eq('tenant_id', tenantId)
 
   if (error) throw new Error((error as AR).message)
 
@@ -338,19 +348,22 @@ export async function updateZukauf(id: string, formData: FormData) {
 
 export async function deleteZukauf(id: string) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
 
   const { data: zukauf } = await (supabase.from('zukauf_posten') as any)
     .select('ziel_weinausbau_id')
     .eq('id', id)
+    .eq('tenant_id', tenantId)
     .single()
   const weinausbauId: string | null = (zukauf as AR | null)?.ziel_weinausbau_id ?? null
 
   const { error } = await (supabase.from('zukauf_posten') as any)
     .update({ aktiv: false })
     .eq('id', id)
+    .eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
 
-  if (weinausbauId) await bereinigCharge(supabase, weinausbauId)
+  if (weinausbauId) await bereinigCharge(supabase, weinausbauId, tenantId)
 
   revalidatePath('/weinhandel/zukauf')
   revalidatePath('/weinhandel')

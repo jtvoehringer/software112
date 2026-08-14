@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import ZukaufEditForm from './ZukaufEditForm'
 import { pruefeChargeHatBewegungen } from '../../actions'
@@ -11,6 +12,7 @@ type R = Record<string, any>
 export default async function ZukaufEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
 
   const { data } = await (supabase.from('zukauf_posten') as any)
     .select(`
@@ -24,6 +26,7 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
       ziel_weinausbau:weinausbau!ziel_weinausbau_id(behaelter_id, weinart, menge_liter)
     `)
     .eq('id', id)
+    .eq('tenant_id', membership?.tenantId ?? '')
     .eq('aktiv', true)
     .single()
 
@@ -31,19 +34,22 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
   const z = data as R
 
   // Wurde gegen die verknüpfte Kellerbuch-Charge bereits etwas gebucht (Verkauf,
-  // Umzug, Abfüllung, Verschnitt)? Falls ja, aktualisiert updateZukauf die Charge
-  // beim Speichern nur per DIFFERENZ zur ursprünglichen Zukaufsmenge (der bereits
-  // verbrauchte/verkaufte Anteil bleibt erhalten) statt sie vollständig zu
-  // ersetzen - die Gebinde-Vorschau im Formular muss dieses Verhalten kennen,
-  // um "Inhalt jetzt"/"Rest nach Zukauf" korrekt zu simulieren (siehe
-  // ZukaufEditForm.tsx).
+  // Umzug, Abfüllung, Verschnitt)? WICHTIG: eine Kellerbuch-Charge behält ihre
+  // behaelter_id NIE über einen Umzug hinweg - beim Umziehen wird die
+  // Ursprungscharge nur reduziert/deaktiviert, der Wein landet in einer ANDEREN
+  // weinausbau-Zeile im Zielgebinde (siehe kellerbuch/umziehen/actions.ts). D.h.
+  // sobald hatBewegungen true ist, kann diese Seite NICHT mehr zuverlässig
+  // sagen, wo der Wein aus diesem Zukauf gerade tatsächlich steht (dafür müsste
+  // man der keller_umzuege/Verschneidungs-Historie folgen, ggf. über mehrere
+  // Stationen und mit Vermischung anderer Chargen). Die Gebinde-Vorschau im
+  // Formular zeigt deshalb in diesem Fall bewusst nur noch den UNVERÄNDERLICHEN
+  // ursprünglichen Zugang (Behälter + Menge zum Zeitpunkt der Befüllung) plus
+  // einen Hinweis, den aktuellen Bestand im Kellerbuch nachzusehen - siehe
+  // ZukaufEditForm.tsx.
   const zielWeinausbauId: string | null = z.ziel_weinausbau_id ?? null
   const hatBewegungen = zielWeinausbauId
     ? await pruefeChargeHatBewegungen(zielWeinausbauId)
     : false
-  const eigeneAktuelleMenge: number = (z.ziel_weinausbau as R | null)?.menge_liter != null
-    ? Number((z.ziel_weinausbau as R | null)?.menge_liter)
-    : 0
 
   return (
     <ZukaufEditForm
@@ -76,7 +82,7 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
         staatliche_pruefnummer:   z.staatliche_pruefnummer ?? '',
       }}
       hatBewegungen={hatBewegungen}
-      eigeneAktuelleMenge={eigeneAktuelleMenge}
+      eigeneAktuelleMenge={(z.ziel_weinausbau as R | null)?.menge_liter ?? 0}
       lieferantName={
         z.lieferant_kontakt
           ? [z.lieferant_kontakt.vorname, z.lieferant_kontakt.nachname].filter(Boolean).join(' ')

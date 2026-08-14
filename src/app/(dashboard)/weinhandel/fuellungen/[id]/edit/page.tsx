@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -57,12 +57,16 @@ export default async function EditFuellungPage({
 
   const { id } = await params
   const supabase = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [{ data: raw }, { data: waRaw }] = await Promise.all([
-    (supabase.from('fuellungen') as any).select('*').eq('id', id).single(),
-    (supabase.from('weinausbau') as any)
+    tf((supabase.from('fuellungen') as any).select('*').eq('id', id)).single(),
+    tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, status')
-      .order('jahrgang', { ascending: false }),
+      .order('jahrgang', { ascending: false })),
   ])
 
   if (!raw) redirect('/weinhandel')
@@ -77,8 +81,8 @@ export default async function EditFuellungPage({
   let waCeilingQualitaet: string | null = null
   let waCeilingHerkunft: string | null = null
   if (f.weinausbau_id) {
-    const { data: waAktuell } = await (supabase.from('weinausbau') as any)
-      .select('menge_liter, status, qualitaetsstufe, herkunft_code').eq('id', f.weinausbau_id).single()
+    const { data: waAktuell } = await tf((supabase.from('weinausbau') as any)
+      .select('menge_liter, status, qualitaetsstufe, herkunft_code').eq('id', f.weinausbau_id)).single()
     const wa = waAktuell as R | null
     if (wa && wa.status !== 'abgeschlossen') {
       waRestmenge = parseFloat(wa.menge_liter ?? '0') || 0
@@ -90,8 +94,8 @@ export default async function EditFuellungPage({
   const chargeInListe = !f.weinausbau_id || chargen.find((c: R) => c.id === f.weinausbau_id)
   let chargenListe = chargen
   if (!chargeInListe && f.weinausbau_id) {
-    const { data: extra } = await (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, status').eq('id', f.weinausbau_id).single()
+    const { data: extra } = await tf((supabase.from('weinausbau') as any)
+      .select('id, name, jahrgang, status').eq('id', f.weinausbau_id)).single()
     if (extra) chargenListe = [extra as R, ...chargen]
   }
 

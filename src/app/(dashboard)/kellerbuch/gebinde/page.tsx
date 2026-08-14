@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { fmtLiter } from '@/lib/format'
-import { getCurrentUserRole, canWrite, canAdmin } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Pencil } from 'lucide-react'
@@ -45,28 +45,36 @@ export default async function GebindePage({
   const writeOk  = canWrite(role)
   const adminOk  = canAdmin(role)
 
+  // Aktiv gewählten Betrieb respektieren (Cookie-basiert, s. lib/auth/roles.ts) statt einer
+  // beliebigen/ersten tenant_memberships-Zeile – sonst können bei Mehrfach-Mitgliedschaft
+  // Daten eines anderen Betriebs als des gerade ausgewählten angezeigt werden.
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
+
   const [
     { data: gebindeRaw },
     { data: chargenRaw },
     { data: eroeffnungRaw },
     { data: umzuegeRaw },
   ] = await Promise.all([
-    (supabase.from('behaelter') as any)
+    tf((supabase.from('behaelter') as any)
       .select('id, name, typ, volumen_liter, standort, aktiv')
-      .order('name'),
-    (supabase.from('weinausbau') as any)
+      .order('name')),
+    tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, menge_liter, behaelter_id, aktiv, behaelter:behaelter_id(name)')
       .eq('aktiv', true)
-      .order('name'),
-    (supabase.from('weinausbau') as any)
+      .order('name')),
+    tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, kmw, menge_liter, qualitaetsstufe, behaelter_id, behaelter:behaelter_id(name), notizen, einstandspreis_pro_liter, referenz_altsystem, transaktions_nr, aktiv')
       .eq('ist_eroeffnungsbestand', true)
       .eq('aktiv', true)
-      .order('jahrgang', { ascending: false }),
-    (supabase.from('keller_umzuege') as any)
+      .order('jahrgang', { ascending: false })),
+    tf((supabase.from('keller_umzuege') as any)
       .select('id, datum, menge_liter, schwund_liter, brutto_liter, umzug_batch_id, zeilen_typ, notizen, transaktions_nr, von_weinausbau:von_weinausbau_id(name, jahrgang), von_behaelter:von_behaelter_id(name), nach_behaelter:nach_behaelter_id(name)')
       .order('datum', { ascending: false })
-      .limit(200),
+      .limit(200)),
   ])
 
   const gebinde      = (gebindeRaw   ?? []) as R[]

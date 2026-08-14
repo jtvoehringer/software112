@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -26,16 +27,22 @@ function herkunftLabel(u: KompositionUrsprung): string {
 
 export default async function BlendProtokollPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createSupabaseServerClient()
+  const supabase   = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  const tenantId   = membership?.tenantId ?? null
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb – ohne diesen Filter könnten bei
+  // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [{ data: waRaw }, { data: settingsRaw }] = await Promise.all([
-    (supabase.from('weinausbau') as any)
+    tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, qualitaetsstufe, menge_liter')
       .eq('id', id)
-      .maybeSingle(),
-    (supabase.from('tenant_einstellungen') as any)
+      .maybeSingle()),
+    tf((supabase.from('tenant_einstellungen') as any)
       .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, logo_url')
-      .limit(1).maybeSingle(),
+      .limit(1).maybeSingle()),
   ])
 
   const wa = waRaw as R | null

@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -36,13 +36,19 @@ export default async function EroeffnungsbestandEditPage({ params }: { params: P
   const role = await getCurrentUserRole()
   if (!canWrite(role)) redirect('/kellerbuch/gebinde?tab=eroeffnungsbestand')
 
-  const supabase = await createSupabaseServerClient()
+  const supabase   = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  const tenantId   = membership?.tenantId ?? null
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb – ohne diesen Filter könnten bei
+  // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [{ data: rowRaw }, { data: gebindeRaw }] = await Promise.all([
-    (supabase.from('weinausbau') as any)
+    tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, kmw, menge_liter, qualitaetsstufe, behaelter_id, notizen, einstandspreis_pro_liter, referenz_altsystem')
-      .eq('id', id).eq('ist_eroeffnungsbestand', true).limit(1),
-    (supabase.from('behaelter') as any).select('id, name').eq('aktiv', true).order('name'),
+      .eq('id', id).eq('ist_eroeffnungsbestand', true).limit(1)),
+    tf((supabase.from('behaelter') as any).select('id, name').eq('aktiv', true).order('name')),
   ])
 
   const eintrag = (((rowRaw ?? []) as R[])[0] ?? null) as R | null

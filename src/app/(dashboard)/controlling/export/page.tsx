@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Users, Building2, Package, ShoppingCart, type LucideIcon } from 'lucide-react'
@@ -8,14 +9,20 @@ export const dynamic = 'force-dynamic'
 
 export default async function ExportPage() {
   const supabase = await createSupabaseServerClient()
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb.
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   // Zähler für Info
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [{ count: kontakteCount }, { count: firmenCount }, { count: fuellungenCount }, { count: verkaufCount }] = await Promise.all([
-    (supabase.from('kontakte') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true),
-    (supabase.from('firmen') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true),
-    (supabase.from('fuellungen') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true),
-    (supabase.from('verkaufsposten') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true),
+    tf((supabase.from('kontakte') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true)),
+    tf((supabase.from('firmen') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true)),
+    tf((supabase.from('fuellungen') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true)),
+    tf((supabase.from('verkaufsposten') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true)),
   ])
 
   const exports: { title: string; beschreibung: string; anzahl: number; einheit: string; href: string; icon: LucideIcon; format: string }[] = [
@@ -59,11 +66,6 @@ export default async function ExportPage() {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <span>Controlling</span>
-        <span>/</span>
-        <span className="text-gray-700 font-medium">Datenexport</span>
-      </div>
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Datenexport</h1>
         <p className="text-sm text-s112-muted mt-1">CSV-Exporte für Excel, Steuerberater und externe Systeme</p>

@@ -1,7 +1,17 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
+
+// Aktiv gewählten Betrieb respektieren (Cookie-basiert, s. lib/auth/roles.ts) statt einer
+// beliebigen/ersten tenant_memberships-Zeile – sonst können bei Mehrfach-Mitgliedschaft
+// Daten eines anderen Betriebs als des gerade ausgewählten angezeigt/verändert werden.
+async function getTenantId(): Promise<string> {
+  const membership = await getCurrentMembership()
+  if (!membership) throw new Error('Kein aktiver Mandant gefunden')
+  return membership.tenantId
+}
 
 export async function upsertLagerBewegung(fd: FormData) {
   const supabase = await createSupabaseServerClient()
@@ -10,11 +20,7 @@ export async function upsertLagerBewegung(fd: FormData) {
   const { data: { user } } = await (supabase.auth as any).getUser()
   if (!user) throw new Error('Nicht angemeldet')
 
-  // Tenant ermitteln
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: membership } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id').eq('user_id', user.id).single()
-  if (!membership) throw new Error('Kein Mandant')
+  const tenantId = await getTenantId()
 
   const existingId = fd.get('existing_id') as string | null
   const mengeRaw = parseFloat((fd.get('menge') as string) ?? '0')
@@ -22,7 +28,7 @@ export async function upsertLagerBewegung(fd: FormData) {
   const menge = richtung === 'ausgang' ? -Math.abs(mengeRaw) : Math.abs(mengeRaw)
 
   const payload = {
-    tenant_id: membership.tenant_id,
+    tenant_id: tenantId,
     psm_id:    fd.get('psm_id') as string,
     datum:     fd.get('datum') as string,
     typ:       fd.get('typ') as string,
@@ -34,7 +40,7 @@ export async function upsertLagerBewegung(fd: FormData) {
   if (existingId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('psm_lager_bewegungen') as any)
-      .update(payload).eq('id', existingId)
+      .update(payload).eq('id', existingId).eq('tenant_id', tenantId)
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('psm_lager_bewegungen') as any).insert(payload)
@@ -45,8 +51,9 @@ export async function upsertLagerBewegung(fd: FormData) {
 
 export async function deleteLagerBewegung(id: string) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('psm_lager_bewegungen') as any).delete().eq('id', id)
+  await (supabase.from('psm_lager_bewegungen') as any).delete().eq('id', id).eq('tenant_id', tenantId)
   revalidatePath('/behandlungen/lager')
 }
 
@@ -59,11 +66,7 @@ export async function upsertDuengerBewegung(fd: FormData) {
   const { data: { user } } = await (supabase.auth as any).getUser()
   if (!user) throw new Error('Nicht angemeldet')
 
-  // Tenant ermitteln
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: membership } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id').eq('user_id', user.id).single()
-  if (!membership) throw new Error('Kein Mandant')
+  const tenantId = await getTenantId()
 
   const existingId = fd.get('existing_id') as string | null
   const mengeRaw = parseFloat((fd.get('menge') as string) ?? '0')
@@ -71,7 +74,7 @@ export async function upsertDuengerBewegung(fd: FormData) {
   const menge = richtung === 'ausgang' ? -Math.abs(mengeRaw) : Math.abs(mengeRaw)
 
   const payload = {
-    tenant_id:       membership.tenant_id,
+    tenant_id:       tenantId,
     duengemittel_id: fd.get('duengemittel_id') as string,
     datum:           fd.get('datum') as string,
     typ:             fd.get('typ') as string,
@@ -83,7 +86,7 @@ export async function upsertDuengerBewegung(fd: FormData) {
   if (existingId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('duengemittel_lager_bewegungen') as any)
-      .update(payload).eq('id', existingId)
+      .update(payload).eq('id', existingId).eq('tenant_id', tenantId)
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('duengemittel_lager_bewegungen') as any).insert(payload)
@@ -94,8 +97,9 @@ export async function upsertDuengerBewegung(fd: FormData) {
 
 export async function deleteDuengerBewegung(id: string) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('duengemittel_lager_bewegungen') as any).delete().eq('id', id)
+  await (supabase.from('duengemittel_lager_bewegungen') as any).delete().eq('id', id).eq('tenant_id', tenantId)
   revalidatePath('/behandlungen/lager')
 }
 
@@ -108,15 +112,12 @@ export async function upsertPSM(fd: FormData) {
   const { data: { user } } = await (supabase.auth as any).getUser()
   if (!user) throw new Error('Nicht angemeldet')
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: membership } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id').eq('user_id', user.id).single()
-  if (!membership) throw new Error('Kein Mandant')
+  const tenantId = await getTenantId()
 
   const existingId = fd.get('existing_id') as string | null
 
   const payload = {
-    tenant_id:          membership.tenant_id,
+    tenant_id:          tenantId,
     name:               fd.get('name') as string,
     handelsname:        (fd.get('handelsname') as string) || null,
     wirkstoff:          (fd.get('wirkstoff') as string) || null,
@@ -134,7 +135,7 @@ export async function upsertPSM(fd: FormData) {
   if (existingId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('pflanzenschutzmittel') as any)
-      .update(payload).eq('id', existingId)
+      .update(payload).eq('id', existingId).eq('tenant_id', tenantId)
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('pflanzenschutzmittel') as any).insert(payload)
@@ -147,9 +148,10 @@ export async function upsertPSM(fd: FormData) {
 
 export async function deactivatePSM(id: string) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase.from('pflanzenschutzmittel') as any)
-    .update({ aktiv: false }).eq('id', id)
+    .update({ aktiv: false }).eq('id', id).eq('tenant_id', tenantId)
   revalidatePath('/behandlungen/lager')
 }
 
@@ -162,15 +164,12 @@ export async function upsertDuengemittel(fd: FormData) {
   const { data: { user } } = await (supabase.auth as any).getUser()
   if (!user) throw new Error('Nicht angemeldet')
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: membership } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id').eq('user_id', user.id).single()
-  if (!membership) throw new Error('Kein Mandant')
+  const tenantId = await getTenantId()
 
   const existingId = fd.get('existing_id') as string | null
 
   const payload = {
-    tenant_id:                 membership.tenant_id,
+    tenant_id:                 tenantId,
     name:                      fd.get('name') as string,
     handelsname:               (fd.get('handelsname') as string) || null,
     typ:                       (fd.get('typ') as string) || null,
@@ -189,7 +188,7 @@ export async function upsertDuengemittel(fd: FormData) {
   if (existingId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('duengemittel') as any)
-      .update(payload).eq('id', existingId)
+      .update(payload).eq('id', existingId).eq('tenant_id', tenantId)
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('duengemittel') as any).insert(payload)
@@ -201,9 +200,10 @@ export async function upsertDuengemittel(fd: FormData) {
 
 export async function deactivateDuengemittel(id: string) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase.from('duengemittel') as any)
-    .update({ aktiv: false }).eq('id', id)
+    .update({ aktiv: false }).eq('id', id).eq('tenant_id', tenantId)
   revalidatePath('/behandlungen/lager')
 }
 
@@ -216,15 +216,12 @@ export async function upsertSatzMassnahme(fd: FormData) {
   const { data: { user } } = await (supabase.auth as any).getUser()
   if (!user) throw new Error('Nicht angemeldet')
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: membership } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id').eq('user_id', user.id).single()
-  if (!membership) throw new Error('Kein Mandant')
+  const tenantId = await getTenantId()
 
   const existingId = fd.get('existing_id') as string | null
 
   const payload = {
-    tenant_id:    membership.tenant_id,
+    tenant_id:    tenantId,
     art:          fd.get('art') as string,
     bezeichnung:  fd.get('bezeichnung') as string,
     satz_pro_ha:  parseFloat(fd.get('satz_pro_ha') as string) || 0,
@@ -236,7 +233,7 @@ export async function upsertSatzMassnahme(fd: FormData) {
   if (existingId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('saetze_massnahmen') as any)
-      .update(payload).eq('id', existingId)
+      .update(payload).eq('id', existingId).eq('tenant_id', tenantId)
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('saetze_massnahmen') as any).insert(payload)
@@ -248,8 +245,9 @@ export async function upsertSatzMassnahme(fd: FormData) {
 
 export async function deactivateSatzMassnahme(id: string) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase.from('saetze_massnahmen') as any)
-    .update({ aktiv: false }).eq('id', id)
+    .update({ aktiv: false }).eq('id', id).eq('tenant_id', tenantId)
   revalidatePath('/behandlungen/lager')
 }

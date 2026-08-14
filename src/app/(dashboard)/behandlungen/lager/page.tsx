@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite, canAdmin } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import LagerClient from './LagerClient'
@@ -90,20 +90,26 @@ export default async function LagerPage({
   const role = await getCurrentUserRole()
   const writeOk = canWrite(role)
   const adminOk = canAdmin(role)
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb.
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   // Alle PSM (aktiv) – Basisdaten für Bestand
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawPSM } = await (supabase.from('pflanzenschutzmittel') as any)
+  const { data: rawPSM } = await tf((supabase.from('pflanzenschutzmittel') as any)
     .select('id, name, kategorie')
     .eq('aktiv', true)
-    .order('name')
+    .order('name'))
 
   // Vollständige PSM-Stammdaten (für den Stammdaten-Tab)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawPSMStamm } = await (supabase.from('pflanzenschutzmittel') as any)
+  const { data: rawPSMStamm } = await tf((supabase.from('pflanzenschutzmittel') as any)
     .select('id, name, handelsname, kategorie, wirkstoff, wirkstoffgehalt_pct, cu_gehalt_pct, max_aufwand_kg_ha, max_anwendungen, wartezeit_tage, oeko_zugelassen, notizen')
     .eq('aktiv', true)
-    .order('name')
+    .order('name'))
 
   const psmStammdaten: PSMEintrag[] = ((rawPSMStamm ?? []) as AR[]).map(p => ({
     id:                  p.id,
@@ -122,10 +128,10 @@ export default async function LagerPage({
 
   // Düngemittel-Stammdaten (für den Düngemittel-Tab)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawDuengerStamm } = await (supabase.from('duengemittel') as any)
+  const { data: rawDuengerStamm } = await tf((supabase.from('duengemittel') as any)
     .select('id, name, handelsname, typ, naehrstoff_n_pct, naehrstoff_p_pct, naehrstoff_k_pct, wartezeit_tage, oeko_zugelassen, einarbeitung_erforderlich, preis_pro_einheit, einheit, notizen')
     .eq('aktiv', true)
-    .order('name')
+    .order('name'))
 
   const duengemittelStammdaten: DuengemittelEintrag[] = ((rawDuengerStamm ?? []) as AR[]).map(d => ({
     id:                        d.id,
@@ -145,11 +151,11 @@ export default async function LagerPage({
 
   // Sätze/Stundensätze je Maßnahmenart (für den Stundensätze-Tab)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawSaetze } = await (supabase.from('saetze_massnahmen') as any)
+  const { data: rawSaetze } = await tf((supabase.from('saetze_massnahmen') as any)
     .select('id, art, bezeichnung, satz_pro_ha, gueltig_ab, notizen')
     .eq('aktiv', true)
     .order('art')
-    .order('bezeichnung')
+    .order('bezeichnung'))
 
   const saetzeMassnahmen: SatzEintrag[] = ((rawSaetze ?? []) as AR[]).map(s => ({
     id:           s.id,
@@ -162,16 +168,16 @@ export default async function LagerPage({
 
   // Lagerbewegungen
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawBew } = await (supabase.from('psm_lager_bewegungen') as any)
+  const { data: rawBew } = await tf((supabase.from('psm_lager_bewegungen') as any)
     .select('id, psm_id, datum, typ, menge, einheit, notizen')
-    .order('datum', { ascending: false })
+    .order('datum', { ascending: false }))
 
   // Verbrauch aus Behandlungen (menge_gesamt pro PSM, nur spritzung)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawBehandlungen } = await (supabase.from('behandlungen') as any)
+  const { data: rawBehandlungen } = await tf((supabase.from('behandlungen') as any)
     .select('psm_id, menge_gesamt, menge_einheit')
     .not('psm_id', 'is', null)
-    .not('menge_gesamt', 'is', null)
+    .not('menge_gesamt', 'is', null))
 
   // Verbrauch je PSM aggregieren
   const verbrauchByPsm = new Map<string, { menge: number; einheit: string | null }>()
@@ -218,16 +224,16 @@ export default async function LagerPage({
 
   // ── Düngemittel-Lagerbewegungen (Migration 142, analog PSM oben) ────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawDuengerBew } = await (supabase.from('duengemittel_lager_bewegungen') as any)
+  const { data: rawDuengerBew } = await tf((supabase.from('duengemittel_lager_bewegungen') as any)
     .select('id, duengemittel_id, datum, typ, menge, einheit, notizen')
-    .order('datum', { ascending: false })
+    .order('datum', { ascending: false }))
 
   // Verbrauch aus Behandlungen (menge_gesamt pro Düngemittel, nur art='duengung')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawDuengerBehandlungen } = await (supabase.from('behandlungen') as any)
+  const { data: rawDuengerBehandlungen } = await tf((supabase.from('behandlungen') as any)
     .select('duengemittel_id, menge_gesamt, menge_einheit')
     .not('duengemittel_id', 'is', null)
-    .not('menge_gesamt', 'is', null)
+    .not('menge_gesamt', 'is', null))
 
   const verbrauchByDuenger = new Map<string, { menge: number; einheit: string | null }>()
   for (const b of ((rawDuengerBehandlungen ?? []) as AR[])) {

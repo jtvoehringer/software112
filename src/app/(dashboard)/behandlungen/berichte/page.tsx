@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import BerichteClient from './BerichteClient'
@@ -39,10 +40,14 @@ export type BehandlungReport = {
 
 export default async function BerichtePage() {
   const supabase = await createSupabaseServerClient()
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb.
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
 
   // Behandlungen mit Grundstücken, Weingärten, Lagen
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawB } = await (supabase.from('behandlungen') as any)
+  let behQuery = (supabase.from('behandlungen') as any)
     .select(`
       id, datum, datum_bis, art, menge_gesamt, menge_einheit, notizen,
       weingarten_id,
@@ -53,6 +58,8 @@ export default async function BerichtePage() {
       )
     `)
     .order('datum', { ascending: false })
+  if (tenantId) behQuery = behQuery.eq('tenant_id', tenantId)
+  const { data: rawB } = await behQuery
 
   // Behandlung-Grundstücke mit Weingarten & Lage
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

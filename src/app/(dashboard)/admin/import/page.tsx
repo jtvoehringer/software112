@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import ImportClient from './ImportClient'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 export const metadata: Metadata = { title: 'Datenimport – software:112' }
 export const dynamic = 'force-dynamic'
 
@@ -14,11 +15,17 @@ export default async function ImportPage({
 }) {
   const { typ, eb, err } = await searchParams
   const supabase = await createSupabaseServerClient()
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb.
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
 
   // Gebinde-Liste fuer die Anfangsbestandsbuchung (Datenimport > Gebinde) - wird nur
   // dort benoetigt, deshalb hier serverseitig geladen und als Prop durchgereicht.
-  const { data: gebindeRaw } = await (supabase.from('behaelter') as any)
+  let gebindeQuery = (supabase.from('behaelter') as any)
     .select('id, name').eq('aktiv', true).order('name')
+  if (tenantId) gebindeQuery = gebindeQuery.eq('tenant_id', tenantId)
+  const { data: gebindeRaw } = await gebindeQuery
 
   return (
     <ImportClient

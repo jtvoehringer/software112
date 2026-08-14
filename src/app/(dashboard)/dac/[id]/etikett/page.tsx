@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -30,14 +31,20 @@ function fmtMenge(liter: number | null): string {
 export default async function EtikettPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createSupabaseServerClient()
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb.
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [{ data: rows }, { data: settingsRaw }] = await Promise.all([
-    (supabase.from('dac_antrag') as any)
+    tf((supabase.from('dac_antrag') as any)
       .select('id, bezeichnung, dac_region, jahrgang, rebsorte, menge_liter, alkohol_prozent, status, pruefnummer, bescheid_am')
-      .eq('id', id).limit(1),
-    (supabase.from('tenant_einstellungen') as any)
+      .eq('id', id).limit(1)),
+    tf((supabase.from('tenant_einstellungen') as any)
       .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, logo_url')
-      .limit(1).maybeSingle(),
+      .limit(1)).maybeSingle(),
   ])
 
   const dac = (((rows ?? []) as R[])[0] ?? null) as R | null

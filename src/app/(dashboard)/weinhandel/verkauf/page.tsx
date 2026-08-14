@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import ClickableTableRow from '@/components/ui/ClickableTableRow'
@@ -15,16 +15,22 @@ export default async function VerkaufPage() {
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
   const writeOk  = canWrite(role)
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
 
   // Verkaufsposten mit Positionen + Kundendaten
-  const { data: postenRaw } = await (supabase.from('verkaufsposten') as any)
-    .select(`
-      id, datum, rechnungsnummer, transaktions_nr, notizen, erstellt_am, storniert, bezahlt,
-      kontakt:kontakte!kontakt_id(id, vorname, nachname),
-      firma:firmen(id, name),
-      positionen:verkauf_positionen(id, name, menge, einheit, preis_brutto, typ, rabatt_pct, sonderrabatt_pct)
-    `)
-    .eq('aktiv', true)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
+  const { data: postenRaw } = await tf(
+    (supabase.from('verkaufsposten') as any)
+      .select(`
+        id, datum, rechnungsnummer, transaktions_nr, notizen, erstellt_am, storniert, bezahlt,
+        kontakt:kontakte!kontakt_id(id, vorname, nachname),
+        firma:firmen(id, name),
+        positionen:verkauf_positionen(id, name, menge, einheit, preis_brutto, typ, rabatt_pct, sonderrabatt_pct)
+      `)
+      .eq('aktiv', true)
+  )
     .order('datum', { ascending: false })
     .order('erstellt_am', { ascending: false })
     .limit(100)
@@ -64,12 +70,6 @@ export default async function VerkaufPage() {
 
   return (
     <div className="space-y-6">
-
-      <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/weinhandel" className="hover:text-s112-teal transition-colors">Weinhandel</Link>
-        <span>/</span>
-        <span className="text-gray-700 font-medium">Verkauf</span>
-      </div>
 
       {/* Header */}
       <div className="flex items-center justify-between">

@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Pencil } from 'lucide-react'
@@ -30,11 +30,17 @@ export default async function DacPage() {
   const supabase = await createSupabaseServerClient()
   const role = await getCurrentUserRole()
   const writeOk = canWrite(role)
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb.
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: raw } = await (supabase.from('dac_antrag') as any)
+  let query = (supabase.from('dac_antrag') as any)
     .select('id, bezeichnung, dac_region, jahrgang, rebsorte, status, pruefnummer, eingereicht_am, aktiv')
     .order('created_at', { ascending: false })
+  if (tenantId) query = query.eq('tenant_id', tenantId)
+  const { data: raw } = await query
 
   const antraege = (raw ?? []) as R[]
   const genehmigt   = antraege.filter((a: R) => a.status === 'genehmigt').length
@@ -43,11 +49,6 @@ export default async function DacPage() {
 
   return (
     <div>
-      <div className="flex items-center gap-2 text-sm text-s112-muted mb-4">
-        <Link href="/kellerbuch" className="hover:text-s112-teal transition-colors">Kellerbuch</Link>
-        <span>/</span>
-        <span className="text-gray-700 font-medium">DAC &amp; Prüfnummern</span>
-      </div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">DAC & Prüfnummern</h1>

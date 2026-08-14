@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -17,10 +17,12 @@ type R = Record<string, any>
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params
   const supabase = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data } = await (supabase.from('verkaufsposten') as any)
     .select('rechnungsnummer, datum')
     .eq('id', id)
+    .eq('tenant_id', membership?.tenantId ?? '')
     .single()
   const d = data as R | null
   const label = d?.rechnungsnummer
@@ -30,13 +32,14 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 // ── Tenant-Einstellungen (Briefkopf + Rechnung) ──────────────────────────────
-async function getTenantSettings(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>) {
+async function getTenantSettings(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, tenantId: string | null) {
   try {
     const { data } = await (supabase.from('tenant_einstellungen') as any)
       .select(`anzeigename, logo_url,
                betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort,
                betrieb_telefon, betrieb_email, betrieb_website, betrieb_uid,
                rechnung_iban, rechnung_bic, rechnung_zahlungsziel, rechnung_fusstext`)
+      .eq('tenant_id', tenantId ?? '')
       .limit(1)
       .single()
     return (data as R | null) ?? {}
@@ -52,6 +55,8 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
   const writeOk  = canWrite(role)
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
 
   const [{ data: postenRaw }, settings, { data: zahlungenRaw }] = await Promise.all([
     (supabase.from('verkaufsposten') as any)
@@ -69,12 +74,14 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
         )
       `)
       .eq('id', id)
+      .eq('tenant_id', tenantId ?? '')
       .eq('aktiv', true)
       .single(),
-    getTenantSettings(supabase),
+    getTenantSettings(supabase, tenantId),
     (supabase.from('zahlungen') as any)
       .select('id, betrag, art, datum, notizen, erstellt_am')
       .eq('verkaufsposten_id', id)
+      .eq('tenant_id', tenantId ?? '')
       .order('datum', { ascending: true }),
   ])
 

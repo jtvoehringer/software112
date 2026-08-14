@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import FirmaDetailClient from './FirmaDetailClient'
@@ -13,7 +13,10 @@ type R = Record<string, any>
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params
   const supabase = await createSupabaseServerClient()
-  const { data } = await (supabase.from('firmen') as any).select('name').eq('id', id).single()
+  const membership = await getCurrentMembership()
+  let query = (supabase.from('firmen') as any).select('name').eq('id', id)
+  if (membership) query = query.eq('tenant_id', membership.tenantId)
+  const { data } = await query.single()
   return { title: `${(data as R | null)?.name ?? 'Firma'} – software:112` }
 }
 
@@ -24,6 +27,10 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
   const writeOk = canWrite(role)
   const { data: { user } } = await supabase.auth.getUser()
   const currentUserId = user?.id ?? null
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [
     { data: fRaw },
@@ -33,41 +40,41 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     { data: rgRaw },
     { data: vRaw },
   ] = await Promise.all([
-    (supabase.from('firmen') as any)
-      .select('id, kundennummer, name, segment, strasse, plz, ort, land, email, telefon, telefon_vorwahl, website, uid_nummer, betrieb_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, ist_kunde, ist_lieferant, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
+    tf((supabase.from('firmen') as any)
+      .select('id, kundennummer, name, segment, strasse, plz, ort, land, email, telefon, telefon_vorwahl, website, uid_nummer, betrieb_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
       .eq('id', id)
-      .single(),
+      .single()),
 
-    (supabase.from('kontakte') as any)
+    tf((supabase.from('kontakte') as any)
       .select('id, vorname, nachname, segment, firma_id, email, telefon, mobil, ort, land, newsletter, newsletter_bestaetigt, stammkunde, notizen, aktiv, erstellt_am, mobil, zahlungsziel_tage')
       .eq('firma_id', id)
       .eq('aktiv', true)
-      .order('nachname'),
+      .order('nachname')),
 
-    (supabase.from('aktivitaeten') as any)
+    tf((supabase.from('aktivitaeten') as any)
       .select('*, aktivitaet_dokumente(id, dateiname, dateityp, groesse_bytes, erstellt_am)')
       .eq('firma_id', id)
-      .order('datum', { ascending: false }),
+      .order('datum', { ascending: false })),
     // (Filterung "nur für mich sichtbar" -> siehe aRaw unten)
 
-    (supabase.from('pipeline_eintraege') as any)
+    tf((supabase.from('pipeline_eintraege') as any)
       .select('id, stufe, titel, kategorie, wert_euro, wahrscheinlichkeit, erwartetes_datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, erledigt_am, notizen, kontakt_id, firma_id, aktualisiert_am')
       .eq('firma_id', id)
-      .order('aktualisiert_am', { ascending: false }),
+      .order('aktualisiert_am', { ascending: false })),
 
     (supabase.from('rabattgruppen') as any)
       .select('id, name, rabatt_pct')
       .order('rabatt_pct'),
 
     // Echte Verkaufsdaten (statt des fehleranfälligen aktivitaeten-Spiegels, siehe unten)
-    (supabase.from('verkaufsposten') as any)
+    tf((supabase.from('verkaufsposten') as any)
       .select(`
         id, datum, rechnungsnummer, transaktions_nr, storniert, bezahlt,
         positionen:verkauf_positionen(menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct)
       `)
       .eq('firma_id', id)
       .eq('aktiv', true)
-      .order('datum', { ascending: false }),
+      .order('datum', { ascending: false })),
   ])
 
   if (!fRaw) notFound()
@@ -87,12 +94,6 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     rabattgruppe_id: f.rabattgruppe_id ?? null,
     rabattgruppe_name: (f.rabattgruppe as R | null)?.name ?? null,
     rabattgruppe_pct: (f.rabattgruppe as R | null)?.rabatt_pct ?? null,
-    // is_lead war hier bisher nicht gemappt (nur im SELECT abgefragt) - die Lead-Badge auf
-    // der Detailseite hat dadurch nie funktioniert. Bei dieser Gelegenheit mit ergänzt,
-    // zusammen mit den neuen Kunde/Lieferant-Feldern (Migration 158).
-    is_lead:          !!(f.is_lead as boolean),
-    ist_kunde:        f.ist_kunde ?? true,
-    ist_lieferant:    !!(f.ist_lieferant as boolean),
   }
 
   const kontakte: KontaktRow[] = ((kRaw ?? []) as R[]).map(k => ({

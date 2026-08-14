@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { randomUUID } from 'crypto'
@@ -10,29 +11,10 @@ import { syncEaEinnahmeFuerVerkauf } from '@/app/(dashboard)/buchhaltung/actions
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
-// Parst einen im oesterreichischen Format eingegebenen/vorbefuellten Betrag (z.B. "5 695,00" -
-// toLocaleString('de-AT', ...) verwendet als Tausendertrennzeichen ein Leerzeichen, je nach
-// Laufzeitumgebung auch eine geschuetzte/schmale Variante davon statt eines normalen
-// Leerzeichens). Ein einfaches ".replace(',', '.')" reicht dafuer NICHT: parseFloat bricht
-// beim ersten Leerzeichen ab und liefert nur die fuehrende Ziffer zurueck (Bugreport
-// 10.8.2026: bei "Zahlung buchen" mit vorbefuelltem Betrag wurde so aus "5 695,00" nur "5"
-// verbucht). Fix: zuerst ALLE Whitespace-Varianten (das Regex-\s deckt in JS auch
-// geschuetzte/schmale Leerzeichen ab) sowie Tausenderpunkte entfernen, erst danach das
-// Dezimal-Komma in einen Punkt umwandeln.
-function parseBetragDeAt(raw: string): number {
-  const cleaned = (raw || '')
-    .replace(/\s/g, '')  // alle Leerzeichen-Varianten (inkl. geschuetzt/schmal) entfernen
-    .replace(/\./g, '')  // Tausenderpunkt entfernen (falls vorhanden)
-    .replace(',', '.')    // Dezimalkomma -> Punkt
-  return parseFloat(cleaned)
-}
-
 async function getTenantId(): Promise<string> {
-  const supabase = await createSupabaseServerClient()
-  const { data } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
-  const id = (data as AR | null)?.tenant_id
-  if (!id) throw new Error('Kein Betrieb gefunden')
-  return id
+  const membership = await getCurrentMembership()
+  if (!membership) throw new Error('Kein aktiver Mandant gefunden')
+  return membership.tenantId
 }
 
 // Atomisch: Rechnungsnummer generieren (Zähler +1 in einer DB-Transaktion)
@@ -115,7 +97,7 @@ export async function createVerkauf(formData: FormData) {
   for (const p of positionen) {
     if (p.typ === 'flasche' && p.fuellung_id) {
       const { data: f } = await (supabase.from('fuellungen') as any)
-        .select('name, bestand_flaschen').eq('id', p.fuellung_id).single()
+        .select('name, bestand_flaschen').eq('id', p.fuellung_id).eq('tenant_id', tenantId).single()
       const verfuegbar = (f as AR | null)?.bestand_flaschen ?? 0
       if (Math.round(p.menge) > verfuegbar) {
         throw new Error(
@@ -124,7 +106,7 @@ export async function createVerkauf(formData: FormData) {
       }
     } else if (p.typ === 'tank' && p.weinausbau_id) {
       const { data: w } = await (supabase.from('weinausbau') as any)
-        .select('name, menge_liter').eq('id', p.weinausbau_id).single()
+        .select('name, menge_liter').eq('id', p.weinausbau_id).eq('tenant_id', tenantId).single()
       const verfuegbar = parseFloat((w as AR | null)?.menge_liter ?? '0') || 0
       if (p.menge > verfuegbar + 0.01) {
         throw new Error(
@@ -133,7 +115,7 @@ export async function createVerkauf(formData: FormData) {
       }
     } else if (p.typ === 'tank' && p.zukauf_id) {
       const { data: zk } = await (supabase.from('zukauf_posten') as any)
-        .select('rebsorte, menge').eq('id', p.zukauf_id).single()
+        .select('rebsorte, menge').eq('id', p.zukauf_id).eq('tenant_id', tenantId).single()
       const verfuegbar = parseFloat((zk as AR | null)?.menge ?? '0') || 0
       if (p.menge > verfuegbar + 0.01) {
         throw new Error(
@@ -239,34 +221,40 @@ export async function createVerkauf(formData: FormData) {
       const { data: fuellung } = await (supabase.from('fuellungen') as any)
         .select('bestand_flaschen')
         .eq('id', p.fuellung_id)
+        .eq('tenant_id', tenantId)
         .single()
       const aktuell = (fuellung as AR | null)?.bestand_flaschen ?? 0
       const neu = Math.max(0, aktuell - Math.round(p.menge))
       await (supabase.from('fuellungen') as any)
         .update({ bestand_flaschen: neu, aktualisiert_am: new Date().toISOString() })
         .eq('id', p.fuellung_id)
+        .eq('tenant_id', tenantId)
     } else if (p.typ === 'tank' && p.weinausbau_id) {
       // menge_liter in Kellerbuch-Charge dekrementieren
       const { data: wein } = await (supabase.from('weinausbau') as any)
         .select('menge_liter')
         .eq('id', p.weinausbau_id)
+        .eq('tenant_id', tenantId)
         .single()
       const aktuell = parseFloat((wein as AR | null)?.menge_liter ?? '0') || 0
       const neu = Math.max(0, aktuell - p.menge)
       await (supabase.from('weinausbau') as any)
         .update({ menge_liter: neu })
         .eq('id', p.weinausbau_id)
+        .eq('tenant_id', tenantId)
     } else if (p.typ === 'tank' && p.zukauf_id) {
       // menge in Zukauf-Posten dekrementieren
       const { data: zk } = await (supabase.from('zukauf_posten') as any)
         .select('menge')
         .eq('id', p.zukauf_id)
+        .eq('tenant_id', tenantId)
         .single()
       const aktuell = parseFloat((zk as AR | null)?.menge ?? '0') || 0
       const neu = Math.max(0, aktuell - p.menge)
       await (supabase.from('zukauf_posten') as any)
         .update({ menge: neu })
         .eq('id', p.zukauf_id)
+        .eq('tenant_id', tenantId)
     } else if (p.typ === 'tank' && p.pressung_behaelter_id) {
       const { data: pb } = await (supabase.from('pressung_behaelter') as any)
         .select('menge_liter').eq('id', p.pressung_behaelter_id).single()
@@ -315,12 +303,14 @@ export async function createVerkauf(formData: FormData) {
     await (supabase.from('kontakte') as any)
       .update({ is_lead: false })
       .eq('id', kontaktId)
+      .eq('tenant_id', tenantId)
       .eq('is_lead', true)  // nur wenn noch Lead
   }
   if (firmaId) {
     await (supabase.from('firmen') as any)
       .update({ is_lead: false })
       .eq('id', firmaId)
+      .eq('tenant_id', tenantId)
       .eq('is_lead', true)
   }
 
@@ -334,9 +324,11 @@ export async function createVerkauf(formData: FormData) {
 
 export async function deactivateVerkauf(id: string) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
   const { error } = await (supabase.from('verkaufsposten') as any)
     .update({ aktiv: false, aktualisiert_am: new Date().toISOString() })
     .eq('id', id)
+    .eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
 
   // Verknüpfte, nicht gesperrte E&A-Einnahmebuchungen entfernen
@@ -344,6 +336,7 @@ export async function deactivateVerkauf(id: string) {
     .delete()
     .eq('verkaufsposten_id', id)
     .eq('is_locked', false)
+    .eq('tenant_id', tenantId)
 
   revalidatePath('/weinhandel/verkauf')
   revalidatePath('/buchhaltung')
@@ -354,11 +347,13 @@ export async function deactivateVerkauf(id: string) {
 
 export async function stornoVerkauf(id: string) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
 
   // Positionen laden für Rückbuchung
   const { data: posRaw } = await (supabase.from('verkauf_positionen') as any)
     .select('typ, fuellung_id, weinausbau_id, zukauf_id, pressung_behaelter_id, menge, traubenverkauf_id')
     .eq('verkaufsposten_id', id)
+    .eq('tenant_id', tenantId)
 
   const positionen = (posRaw ?? []) as AR[]
 
@@ -366,25 +361,28 @@ export async function stornoVerkauf(id: string) {
   for (const p of positionen) {
     if (p.typ === 'flasche' && p.fuellung_id) {
       const { data: f } = await (supabase.from('fuellungen') as any)
-        .select('bestand_flaschen').eq('id', p.fuellung_id).single()
+        .select('bestand_flaschen').eq('id', p.fuellung_id).eq('tenant_id', tenantId).single()
       const aktuell = (f as AR | null)?.bestand_flaschen ?? 0
       await (supabase.from('fuellungen') as any)
         .update({ bestand_flaschen: aktuell + Math.round(p.menge), aktualisiert_am: new Date().toISOString() })
         .eq('id', p.fuellung_id)
+        .eq('tenant_id', tenantId)
     } else if (p.typ === 'tank' && p.weinausbau_id) {
       const { data: w } = await (supabase.from('weinausbau') as any)
-        .select('menge_liter').eq('id', p.weinausbau_id).single()
+        .select('menge_liter').eq('id', p.weinausbau_id).eq('tenant_id', tenantId).single()
       const aktuell = parseFloat((w as AR | null)?.menge_liter ?? '0') || 0
       await (supabase.from('weinausbau') as any)
         .update({ menge_liter: aktuell + p.menge })
         .eq('id', p.weinausbau_id)
+        .eq('tenant_id', tenantId)
     } else if (p.typ === 'tank' && p.zukauf_id) {
       const { data: zk } = await (supabase.from('zukauf_posten') as any)
-        .select('menge').eq('id', p.zukauf_id).single()
+        .select('menge').eq('id', p.zukauf_id).eq('tenant_id', tenantId).single()
       const aktuell = parseFloat((zk as AR | null)?.menge ?? '0') || 0
       await (supabase.from('zukauf_posten') as any)
         .update({ menge: aktuell + p.menge })
         .eq('id', p.zukauf_id)
+        .eq('tenant_id', tenantId)
     } else if (p.typ === 'tank' && p.pressung_behaelter_id) {
       const { data: pb } = await (supabase.from('pressung_behaelter') as any)
         .select('menge_liter').eq('id', p.pressung_behaelter_id).single()
@@ -401,17 +399,19 @@ export async function stornoVerkauf(id: string) {
       await (supabase.from('traubenverkauf') as any)
         .delete()
         .eq('id', p.traubenverkauf_id)
+        .eq('tenant_id', tenantId)
     }
   }
 
   // Rechnungsnummer vorab lesen
   const { data: vorabStorno } = await (supabase.from('verkaufsposten') as any)
-    .select('rechnungsnummer').eq('id', id).single()
+    .select('rechnungsnummer').eq('id', id).eq('tenant_id', tenantId).single()
 
   // Posten als storniert markieren
   const { error } = await (supabase.from('verkaufsposten') as any)
     .update({ storniert: true, storniert_am: new Date().toISOString() })
     .eq('id', id)
+    .eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
 
   // Verknüpfte, nicht gesperrte E&A-Einnahmebuchungen entfernen – ein Storno
@@ -420,6 +420,7 @@ export async function stornoVerkauf(id: string) {
     .delete()
     .eq('verkaufsposten_id', id)
     .eq('is_locked', false)
+    .eq('tenant_id', tenantId)
 
   // CRM-Aktivität auf STORNIERT setzen
   try {
@@ -427,6 +428,7 @@ export async function stornoVerkauf(id: string) {
     await (supabase.from('aktivitaeten') as any)
       .update({ betreff: `Verkauf ${re ?? ''} · STORNIERT` })
       .eq('beschreibung', `Verkaufsposten: ${id}`)
+      .eq('tenant_id', tenantId)
   } catch { /* nicht kritisch */ }
 
   revalidatePath('/weinhandel/verkauf')
@@ -452,6 +454,7 @@ export async function markiereAlsBezahlt(id: string) {
   const { data: postenRaw } = await (supabase.from('verkaufsposten') as any)
     .select('rechnungsnummer, positionen:verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
     .eq('id', id)
+    .eq('tenant_id', tenantId)
     .single()
   const posten = postenRaw as AR | null
   const positionen = (posten?.positionen ?? []) as AR[]
@@ -466,6 +469,7 @@ export async function markiereAlsBezahlt(id: string) {
   const { data: zahlungenRaw } = await (supabase.from('zahlungen') as any)
     .select('betrag')
     .eq('verkaufsposten_id', id)
+    .eq('tenant_id', tenantId)
   const bereitsBezahlt = ((zahlungenRaw ?? []) as AR[]).reduce((s, z) => s + Number(z.betrag ?? 0), 0)
   const offen = gesamt - bereitsBezahlt
 
@@ -487,6 +491,7 @@ export async function markiereAlsBezahlt(id: string) {
     await (supabase.from('aktivitaeten') as any)
       .update({ betreff: `Verkauf ${re ?? ''} · Bezahlt` })
       .eq('beschreibung', `Verkaufsposten: ${id}`)
+      .eq('tenant_id', tenantId)
   } catch { /* nicht kritisch */ }
 
   await syncEaEinnahmeFuerVerkauf(id)
@@ -533,7 +538,7 @@ export async function createZahlung(
   'use server'
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
-  const betrag  = parseBetragDeAt(formData.get('betrag') as string || '')
+  const betrag  = parseFloat((formData.get('betrag') as string || '').replace(',', '.'))
   const art     = formData.get('art') as string
   const datum   = formData.get('datum') as string
   const notizen = (formData.get('notizen') as string) || null
@@ -561,7 +566,8 @@ export async function deleteZahlung(
 ): Promise<void> {
   'use server'
   const supabase = await createSupabaseServerClient()
-  const { error } = await (supabase.from('zahlungen') as any).delete().eq('id', zahlungId)
+  const tenantId = await getTenantId()
+  const { error } = await (supabase.from('zahlungen') as any).delete().eq('id', zahlungId).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
 
   await syncEaEinnahmeFuerVerkauf(verkaufspostenId)

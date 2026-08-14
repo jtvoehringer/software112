@@ -203,6 +203,7 @@ export async function syncEaEinnahmeFuerVerkauf(
   const { data: zahlungenRaw } = await (supabase.from('zahlungen') as any)
     .select('betrag, datum')
     .eq('verkaufsposten_id', verkaufspostenId)
+    .eq('tenant_id', tenantId)
     .order('datum', { ascending: false })
   const zahlungen = (zahlungenRaw ?? []) as R[]
   const bezahltSumme = zahlungen.reduce((s: number, z: R) => s + Number(z.betrag ?? 0), 0)

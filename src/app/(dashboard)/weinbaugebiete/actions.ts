@@ -1,18 +1,20 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
 export type CustomWeinbaugebiet = { id: string; name: string }
 
+// Aktiv gewählten Betrieb respektieren (Cookie-basiert, s. lib/auth/roles.ts) statt einer
+// beliebigen/ersten tenant_memberships-Zeile – sonst können bei Mehrfach-Mitgliedschaft
+// Daten eines anderen Betriebs als des gerade ausgewählten angezeigt/verändert werden.
 async function getTenantId(): Promise<string> {
-  const supabase = await createSupabaseServerClient()
-  const { data } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
-  const id = (data as AR | null)?.tenant_id
-  if (!id) throw new Error('Kein Betrieb gefunden')
-  return id
+  const membership = await getCurrentMembership()
+  if (!membership) throw new Error('Kein aktiver Mandant gefunden')
+  return membership.tenantId
 }
 
 // Lädt die eigenen (aktiven) Weinbaugebiete des Mandanten – wird server-seitig
@@ -20,9 +22,11 @@ async function getTenantId(): Promise<string> {
 // (Grundstück-Formular, Füllung anlegen/bearbeiten).
 export async function ladeCustomWeinbaugebiete(): Promise<CustomWeinbaugebiet[]> {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
   const { data } = await (supabase.from('weinbaugebiete_custom') as any)
     .select('id, name')
     .eq('aktiv', true)
+    .eq('tenant_id', tenantId)
     .order('name', { ascending: true })
   return (data ?? []) as CustomWeinbaugebiet[]
 }
@@ -46,7 +50,7 @@ export async function createCustomWeinbaugebiet(name: string): Promise<CustomWei
   if (bestehend) {
     const b = bestehend as AR
     if (!b.aktiv) {
-      await (supabase.from('weinbaugebiete_custom') as any).update({ aktiv: true }).eq('id', b.id)
+      await (supabase.from('weinbaugebiete_custom') as any).update({ aktiv: true }).eq('id', b.id).eq('tenant_id', tenantId)
     }
     return { id: b.id, name: b.name }
   }

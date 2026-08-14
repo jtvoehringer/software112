@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite, canAdmin } from '@/lib/auth/roles'
+import { getCurrentUserRole, getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import WeingartenBaum, { type WRow, type GSTRow } from './WeingartenBaum'
@@ -10,21 +10,26 @@ export const metadata: Metadata = { title: 'Rieden – software:112' }
 export default async function WeingartenPage() {
   const supabase = await createSupabaseServerClient()
   const role = await getCurrentUserRole()
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
   const writeOk = canWrite(role)
   const adminOk = canAdmin(role)
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
+
   // Weingärten
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawW } = await (supabase.from('weingarten') as any)
-    .select('id, name, ried, rebsorte, weinart, flaeche_ha, bewirtschaftung, aktiv')
+  const { data: rawW } = await tf((supabase.from('weingarten') as any)
+    .select('id, name, ried, rebsorte, weinart, flaeche_ha, bewirtschaftung, aktiv'))
     .order('ried', { nullsFirst: false })
     .order('name')
   const weingaerten = (rawW ?? []) as WRow[]
 
   // Grundstücke
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawG } = await (supabase.from('grundstuecke') as any)
-    .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha, flaeche_ha_kataster, spritzbar, katastralgemeinde')
+  const { data: rawG } = await tf((supabase.from('grundstuecke') as any)
+    .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha, flaeche_ha_kataster, spritzbar, katastralgemeinde'))
     .order('gst_nr')
   const grundstuecke = (rawG ?? []) as GSTRow[]
 

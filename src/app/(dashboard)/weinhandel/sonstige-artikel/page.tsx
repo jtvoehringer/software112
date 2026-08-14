@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import Link from 'next/link'
 import SonstigeArtikelClient from './SonstigeArtikelClient'
 
@@ -6,9 +7,13 @@ export const dynamic = 'force-dynamic'
 
 export default async function SonstigeArtikelPage() {
   const supabase = await createSupabaseServerClient()
-  const { data } = await (supabase.from('sonstige_artikel') as any)
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
+  const { data } = await tf((supabase.from('sonstige_artikel') as any)
     .select('id, name, einheit, default_preis, aktiv, erstellt_am')
-    .order('name')
+    .order('name'))
 
   return (
     <div className="space-y-6 max-w-2xl">

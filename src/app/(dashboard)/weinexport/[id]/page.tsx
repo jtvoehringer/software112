@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import WeinexportDetailClient from './WeinexportDetailClient'
@@ -12,8 +13,11 @@ export default async function WeinexportDetailPage({ params }: { params: Promise
 
   // Exportaufträge ist ein optionales Modul (Migration 152) - pro Mandant unter
   // Admin > Mandant > Module ein-/ausschaltbar.
-  const { data: membership } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
-  const tenantId = (membership as R | null)?.tenant_id
+  // Aktiv gewählten Betrieb respektieren (Cookie-basiert) statt einer beliebigen
+  // Mitgliedschaft – sonst können bei Mehrfach-Mitgliedschaft Daten eines anderen
+  // Betriebs angezeigt werden.
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId
   const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
     .select('modul_export').eq('tenant_id', tenantId).maybeSingle()
   if (!einst?.modul_export) redirect('/dashboard')
@@ -22,12 +26,12 @@ export default async function WeinexportDetailPage({ params }: { params: Promise
   const [{ data: auftrag }, { data: positionen }, { data: dokumente }] = await Promise.all([
     (supabase.from('exportauftraege') as any)
       .select('*, kontakte(vorname,nachname,email,telefon), firmen(name,email,telefon)')
-      .eq('id', id).single(),
+      .eq('id', id).eq('tenant_id', tenantId).single(),
     (supabase.from('exportauftrag_positionen') as any)
       .select('*, fuellungen(bezeichnung,flaschengroesse_ml)')
-      .eq('exportauftrag_id', id).order('sort_order'),
+      .eq('exportauftrag_id', id).eq('tenant_id', tenantId).order('sort_order'),
     (supabase.from('export_dokumente') as any)
-      .select('*').eq('exportauftrag_id', id).order('dokument_art'),
+      .select('*').eq('exportauftrag_id', id).eq('tenant_id', tenantId).order('dokument_art'),
   ])
 
   if (!auftrag) return (

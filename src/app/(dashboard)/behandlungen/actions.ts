@@ -1,17 +1,16 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
 async function getTenantId(): Promise<string> {
-  const supabase = await createSupabaseServerClient()
-  const { data } = await supabase.from('tenant_memberships').select('tenant_id').limit(1).single()
-  const id = (data as AR | null)?.tenant_id
-  if (!id) throw new Error('Kein Betrieb gefunden')
-  return id
+  const membership = await getCurrentMembership()
+  if (!membership) throw new Error('Kein aktiver Mandant gefunden')
+  return membership.tenantId
 }
 
 
@@ -102,6 +101,7 @@ async function ggfKostenEintragAktualisieren(
   const { data: bestehend } = await (supabase.from('kosteneintraege') as any)
     .select('id')
     .eq('behandlung_id', behandlungId)
+    .eq('tenant_id', tenantId)
     .maybeSingle()
   const bestehendId = (bestehend as AR | null)?.id as string | undefined
 
@@ -110,7 +110,7 @@ async function ggfKostenEintragAktualisieren(
   if (!kostenAktiv) {
     if (bestehendId) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('kosteneintraege') as any).delete().eq('id', bestehendId)
+      await (supabase.from('kosteneintraege') as any).delete().eq('id', bestehendId).eq('tenant_id', tenantId)
       revalidatePath('/controlling/kostenrechnung')
     }
     return
@@ -147,6 +147,7 @@ async function ggfKostenEintragAktualisieren(
           periode:      datum?.slice(0, 7) ?? null,
         })
         .eq('id', eintragId)
+        .eq('tenant_id', tenantId)
       if (updErr) throw updErr
       // Weingarten-Splits neu berechnen (bestehende ersetzen)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -222,7 +223,6 @@ export async function createBehandlung(formData: FormData) {
   const mengeEinheit    = (formData.get('menge_einheit') as string) || null
   const konzentration   = parseDecimal(formData.get('konzentration'))
   const wasseraufwand   = formData.get('wasseraufwand_l_ha') ? Number(formData.get('wasseraufwand_l_ha')) : null
-  const reinkupferKgHa  = formData.get('reinkupfer_kg_ha') ? Number(formData.get('reinkupfer_kg_ha')) : null
   const bbch            = (formData.get('bbch_stadium') as string) || null
   const schaderreger    = (formData.get('schaderreger') as string) || null
   const witterung       = (formData.get('witterung') as string) || null
@@ -279,7 +279,6 @@ export async function createBehandlung(formData: FormData) {
       menge_einheit:        mengeEinheit,
       konzentration,
       wasseraufwand_l_ha:   wasseraufwand,
-      reinkupfer_kg_ha:     reinkupferKgHa,
       bbch_stadium:         bbch,
       schaderreger,
       witterung,
@@ -311,6 +310,7 @@ export async function createBehandlung(formData: FormData) {
       .select('id, weingarten_id, flaeche_ha')
       .in('weingarten_id', weingartenIds)
       .eq('status', 'aktiv')
+      .eq('tenant_id', tenantId)
     if (gErr) throw new Error((gErr as AR).message)
     for (const g of ((gVonRieden ?? []) as AR[])) {
       grundstueckeById.set(g.id, { id: g.id, weingarten_id: g.weingarten_id, flaeche_ha: g.flaeche_ha ?? null })
@@ -323,6 +323,7 @@ export async function createBehandlung(formData: FormData) {
       .select('id, weingarten_id, flaeche_ha')
       .in('id', grundstueckIds)
       .eq('status', 'aktiv')
+      .eq('tenant_id', tenantId)
     if (gErr2) throw new Error((gErr2 as AR).message)
     for (const g of ((gEinzeln ?? []) as AR[])) {
       grundstueckeById.set(g.id, { id: g.id, weingarten_id: g.weingarten_id, flaeche_ha: g.flaeche_ha ?? null })
@@ -370,7 +371,6 @@ export async function updateBehandlung(id: string, formData: FormData) {
   const mengeEinheit   = (formData.get('menge_einheit') as string) || null
   const konzentration  = parseDecimal(formData.get('konzentration'))
   const wasseraufwand  = formData.get('wasseraufwand_l_ha') ? Number(formData.get('wasseraufwand_l_ha')) : null
-  const reinkupferKgHa = formData.get('reinkupfer_kg_ha') ? Number(formData.get('reinkupfer_kg_ha')) : null
   const bbch           = (formData.get('bbch_stadium') as string) || null
   const schaderreger   = (formData.get('schaderreger') as string) || null
   const witterung      = (formData.get('witterung') as string) || null
@@ -397,7 +397,6 @@ export async function updateBehandlung(id: string, formData: FormData) {
       aufwandmenge, aufwandmenge_einheit: aufwandEinheit,
       menge_gesamt: mengeGesamt, menge_einheit: mengeEinheit,
       konzentration, wasseraufwand_l_ha: wasseraufwand,
-      reinkupfer_kg_ha: reinkupferKgHa,
       bbch_stadium: bbch, schaderreger, witterung, temperatur_c: temperatur,
       ernte_fruehesteins: ernteFruehesteins, notizen,
       bearbeitungstiefe_cm: bearbeitungstiefe, bearbeitungsgeraet,
@@ -405,6 +404,7 @@ export async function updateBehandlung(id: string, formData: FormData) {
       einarbeitung, einarbeitung_zeitpunkt: einarbeitungZeitpunkt,
     })
     .eq('id', id)
+    .eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
 
   await ggfKostenEintragAktualisieren(supabase, tenantId, formData, datum, id)
@@ -415,9 +415,10 @@ export async function updateBehandlung(id: string, formData: FormData) {
 
 export async function deleteBehandlung(id: string) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
   // CASCADE löscht behandlung_grundstuecke automatisch mit
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('behandlungen') as any).delete().eq('id', id)
+  const { error } = await (supabase.from('behandlungen') as any).delete().eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/behandlungen')
 }

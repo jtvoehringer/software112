@@ -35,6 +35,7 @@ export default async function ZukaufPage({
 
   const sp    = await searchParams
   const zjahr = parseInt(sp.zjahr ?? '') || new Date().getFullYear()
+  const tenantId = membership?.tenantId ?? null
 
   const { data } = await (supabase.from('zukauf_posten') as any)
     .select(`
@@ -45,6 +46,7 @@ export default async function ZukaufPage({
       ziel_weinausbau:weinausbau!ziel_weinausbau_id(id, name, behaelter:behaelter!behaelter_id(id, name))
     `)
     .eq('aktiv', true)
+    .eq('tenant_id', tenantId ?? '')
     .order('datum', { ascending: false })
 
   const posten = (data ?? []) as R[]
@@ -65,11 +67,12 @@ export default async function ZukaufPage({
 
     if (istWeinproduzent) {
       const [{ data: rawGSTFl }, { data: rawTraubenZukauf }] = await Promise.all([
-        (supabase.from('grundstuecke') as any).select('flaeche_ha').eq('status', 'aktiv'),
+        (supabase.from('grundstuecke') as any).select('flaeche_ha').eq('status', 'aktiv').eq('tenant_id', membership.tenantId),
         (supabase.from('zukauf_posten') as any)
           .select('menge')
           .eq('art', 'trauben')
           .eq('aktiv', true)
+          .eq('tenant_id', membership.tenantId)
           .gte('datum', `${zjahr}-01-01`)
           .lte('datum', `${zjahr}-12-31`),
       ])
@@ -86,11 +89,6 @@ export default async function ZukaufPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/weinhandel" className="hover:text-s112-teal transition-colors">Weinhandel</Link>
-        <span>/</span>
-        <span className="text-gray-700 font-medium">Zukäufe</span>
-      </div>
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">Zukäufe</h1>
         {writeOk && (

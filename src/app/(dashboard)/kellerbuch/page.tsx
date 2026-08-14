@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { fmtLiter } from '@/lib/format'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -31,20 +31,28 @@ export default async function KellerbuchPage() {
   const role     = await getCurrentUserRole()
   const writeOk  = canWrite(role)
 
+  // Aktiv gewählten Betrieb respektieren (Cookie-basiert, s. lib/auth/roles.ts) statt einer
+  // beliebigen/ersten tenant_memberships-Zeile – sonst können bei Mehrfach-Mitgliedschaft
+  // Daten eines anderen Betriebs als des gerade ausgewählten angezeigt werden.
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
+
   const [
     { data: behaelterRaw },
     { data: weinausbauRaw },
     { data: fuellstandRaw },
   ] = await Promise.all([
-    (supabase.from('behaelter') as any)
+    tf((supabase.from('behaelter') as any)
       .select('id, name, typ, volumen_liter, standort, aktiv')
-      .order('name'),
-    (supabase.from('weinausbau') as any)
+      .order('name')),
+    tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, weinart, menge_liter, status, aktiv, behaelter_id, ist_eroeffnungsbestand')
-      .order('jahrgang', { ascending: false }),
+      .order('jahrgang', { ascending: false })),
     // Event-basierter Füllstand pro Behälter (identisch zur Bewegungen-Page)
-    (supabase.from('v_behaelter_fuellstand') as any)
-      .select('behaelter_id, liter_aktuell'),
+    tf((supabase.from('v_behaelter_fuellstand') as any)
+      .select('behaelter_id, liter_aktuell')),
   ])
 
   const behaelter  = (behaelterRaw  ?? []) as R[]

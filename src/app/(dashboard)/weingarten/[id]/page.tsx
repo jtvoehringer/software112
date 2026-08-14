@@ -36,19 +36,21 @@ export default async function WeingartenEditPage({ params }: Props) {
 
   // Weingarten
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rows } = await (supabase.from('weingarten') as any)
+  let weingartenQuery = (supabase.from('weingarten') as any)
     .select('id, name, rebsorte, pflanzjahr, bewirtschaftung, bewirtschaftung_seit, weinart, notizen, aktiv')
     .eq('id', id)
-    .limit(1)
+  if (membership) weingartenQuery = weingartenQuery.eq('tenant_id', membership.tenantId)
+  const { data: rows } = await weingartenQuery.limit(1)
   const weingarten = ((rows as WeingartenRow[] | null)?.[0]) ?? null
   if (!weingarten) notFound()
 
   // Grundstücke
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawG } = await (supabase.from('grundstuecke') as any)
+  let grundstueckeQuery = (supabase.from('grundstuecke') as any)
     .select('id, weingarten_id, gst_nr, katastralgemeinde, einlagezahl, kg_bezeichnung, ama_feldnummer, boden, rechtsverhaeltnis, unterlagsrebe, rebsorte, pflanzjahr, weinart, bewirtschaftung, bewirtschaftung_seit, flaeche_ha, flaeche_ha_kataster, trauben_herkunft_code, status, notizen')
     .eq('weingarten_id', id)
-    .order('gst_nr')
+  if (membership) grundstueckeQuery = grundstueckeQuery.eq('tenant_id', membership.tenantId)
+  const { data: rawG } = await grundstueckeQuery.order('gst_nr')
   const grundstuecke = (rawG ?? []) as GST[]
 
   // Eigene, vom Mandanten selbst angelegte Weinbaugebiete (Herkunft-Code-Selbstverwaltung)

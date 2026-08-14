@@ -5,16 +5,15 @@ import { revalidatePath } from 'next/cache'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import { findePassendeHerkunftsstufe, HERKUNFT_LABEL, minHerkunft } from '@/lib/herkunft'
 import { createVerkaufspostenFuerTrauben, ermittleQuellenName } from '@/app/(dashboard)/weinhandel/traubenverkauf/actions'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
 async function getTenantId(): Promise<string> {
-  const supabase = await createSupabaseServerClient()
-  const { data } = await supabase.from('tenant_memberships').select('tenant_id').limit(1).single()
-  const id = (data as AR | null)?.tenant_id
-  if (!id) throw new Error('Kein Betrieb gefunden')
-  return id
+  const membership = await getCurrentMembership()
+  if (!membership) throw new Error('Kein aktiver Mandant gefunden')
+  return membership.tenantId
 }
 
 
@@ -62,6 +61,7 @@ export async function updateJahrgang(id: string, formData: FormData) {
 
 export async function upsertErnteParzelle(jahrgangId: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
   const weingartenId = formData.get('weingarten_id') as string
   // .replace(',', '.') ist nötig, da die Felder °KMW-typisch mit Komma-Dezimaltrennzeichen
   // erfasst werden (de-AT) - ohne die Ersetzung liefert Number() bei "9,5" NaN.
@@ -76,7 +76,7 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
   if (grundstueckId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: gst } = await (supabase.from('grundstuecke') as any)
-      .select('trauben_herkunft_code, rebsorte').eq('id', grundstueckId).maybeSingle()
+      .select('trauben_herkunft_code, rebsorte').eq('id', grundstueckId).eq('tenant_id', tenantId).maybeSingle()
     const gstHerkunft = (gst as AR | null)?.trauben_herkunft_code as string | null ?? null
     const gstRebsorte = (gst as AR | null)?.rebsorte as string | null ?? null
     const passend = findePassendeHerkunftsstufe(gstHerkunft, gstRebsorte)
@@ -119,6 +119,7 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
 // Mehrfacherfassung: eine Parzelle pro Weingarten mit gemeinsamen Feldern
 export async function createMultipleErnteParzellen(jahrgangId: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
   const weingartenIds = formData.getAll('weingarten_ids') as string[]
 
   type GSTEntry = { gst_id: string; weingarten_id: string; flaeche_ha: number | null; menge_kg?: number | null; kmw?: number | null; lesemethode?: string | null; notizen?: string | null }
@@ -164,7 +165,7 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   for (const wgId of weingartenIds) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: gsts } = await (supabase.from('grundstuecke') as any)
-      .select('id, flaeche_ha, trauben_herkunft_code, rebsorte').eq('weingarten_id', wgId).eq('status', 'aktiv').order('gst_nr')
+      .select('id, flaeche_ha, trauben_herkunft_code, rebsorte').eq('weingarten_id', wgId).eq('status', 'aktiv').eq('tenant_id', tenantId).order('gst_nr')
     const gstList = (gsts ?? []) as AR[]
     if (gstList.length === 0) {
       // Keine GSTs → eine Zeile für die ganze Ried (kein GST-Herkunft-Code verfügbar)
@@ -194,7 +195,7 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   const alleGstIds = gstEntries.map(g => g.gst_id).filter(Boolean)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: gstStammdaten } = alleGstIds.length > 0
-    ? await (supabase.from('grundstuecke') as any).select('id, trauben_herkunft_code, rebsorte').in('id', alleGstIds)
+    ? await (supabase.from('grundstuecke') as any).select('id, trauben_herkunft_code, rebsorte').in('id', alleGstIds).eq('tenant_id', tenantId)
     : { data: [] }
   const gstStammdatenMap = new Map<string, AR>(((gstStammdaten ?? []) as AR[]).map((g: AR) => [g.id, g]))
 
@@ -289,7 +290,7 @@ export async function createOrUpdateAMAMeldung(jahrgangId: string) {
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: neu } = await (supabase.from('ama_erntemeldungen') as any)
-      .insert(meldungPayload).select('id').single()
+      .insert(meldungPayload).eq('tenant_id', tenantId).select('id').single()
     meldungId = (neu as AR).id
   }
 
@@ -366,6 +367,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: neu } = await (supabase.from('pressungen') as any)
       .insert({ tenant_id: tenantId, jahrgang_id: jahrgangId, datum, most_liter_gesamt: mostLiter, weinbezeichnung, kmw_grad: kmwGrad, notizen })
+      .eq('tenant_id', tenantId)
       .select('id').single()
     pressId = (neu as AR).id
     if (weingaerten.length > 0)
@@ -399,7 +401,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
   // Jahrgang-Jahr für Bezeichnung laden
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: jgData } = await (supabase.from('weinjahrgaenge') as any)
-    .select('jahrgang, qualitaet_gesamt').eq('id', jahrgangId).single()
+    .select('jahrgang, qualitaet_gesamt').eq('id', jahrgangId).eq('tenant_id', tenantId).single()
   const jgJahr      = (jgData as AR)?.jahrgang as number | null
   const jgQualitaet = (jgData as AR)?.qualitaet_gesamt as string | null
   // Qualität: User-Input > KMW-Ableitung > Fallback 'qualitaetswein'
@@ -433,10 +435,10 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
     const wgIds  = weingaerten.map(w => w.weingarten_id).filter(Boolean) as string[]
     const gstIds = weingaerten.map(w => w.grundstueck_id).filter(Boolean) as string[]
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: wgRows } = await (supabase.from('weingarten') as any).select('rebsorte, weinart').in('id', wgIds)
+    const { data: wgRows } = await (supabase.from('weingarten') as any).select('rebsorte, weinart').in('id', wgIds).eq('tenant_id', tenantId)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: gstRows } = gstIds.length > 0
-      ? await (supabase.from('grundstuecke') as any).select('weinart').in('id', gstIds)
+      ? await (supabase.from('grundstuecke') as any).select('weinart').in('id', gstIds).eq('tenant_id', tenantId)
       : { data: [] }
     const wgArr  = ((wgRows  ?? []) as AR[])
     const gstArr = ((gstRows ?? []) as AR[])
@@ -492,6 +494,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
           weinart:         autoWeinart,
           aktiv:           true,
         })
+        .eq('tenant_id', tenantId)
         .select('id').single()
       if (waErr) throw new Error(`Kellerbuch-Charge konnte nicht angelegt werden: ${waErr.message}`)
       if (neuWA) {
@@ -529,9 +532,10 @@ export async function deletePressung(id: string, jahrgangId: string) {
 
 export async function deleteJahrgang(id: string) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
   // Cascade-Reihenfolge (FK ohne ON DELETE CASCADE)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: pressIds } = await (supabase.from('pressungen') as any).select('id').eq('jahrgang_id', id)
+  const { data: pressIds } = await (supabase.from('pressungen') as any).select('id').eq('jahrgang_id', id).eq('tenant_id', tenantId)
   for (const p of ((pressIds ?? []) as AR[])) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('pressung_weingaerten') as any).delete().eq('pressung_id', p.id)
@@ -539,19 +543,19 @@ export async function deleteJahrgang(id: string) {
     await (supabase.from('pressung_behaelter') as any).delete().eq('pressung_id', p.id)
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('pressungen') as any).delete().eq('jahrgang_id', id)
+  await (supabase.from('pressungen') as any).delete().eq('jahrgang_id', id).eq('tenant_id', tenantId)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: ama } = await (supabase.from('ama_erntemeldungen') as any).select('id').eq('jahrgang_id', id)
+  const { data: ama } = await (supabase.from('ama_erntemeldungen') as any).select('id').eq('jahrgang_id', id).eq('tenant_id', tenantId)
   for (const a of ((ama ?? []) as AR[])) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('ama_meldepositionen') as any).delete().eq('meldung_id', a.id)
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('ama_erntemeldungen') as any).delete().eq('jahrgang_id', id)
+  await (supabase.from('ama_erntemeldungen') as any).delete().eq('jahrgang_id', id).eq('tenant_id', tenantId)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase.from('ernte_parzellen') as any).delete().eq('jahrgang_id', id)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('weinjahrgaenge') as any).delete().eq('id', id)
+  const { error } = await (supabase.from('weinjahrgaenge') as any).delete().eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/erntemeldung')
 }
@@ -577,7 +581,7 @@ export async function createTraubenverkauf(fd: FormData) {
   const firmaId      = (fd.get('firma_id') as string) || null
   const datum        = fd.get('datum') as string
 
-  const weingartenName = await ermittleQuellenName(supabase, weingartenId, zukaufPostenId)
+  const weingartenName = await ermittleQuellenName(supabase, weingartenId, zukaufPostenId, tenantId)
 
   const payload: AR = {
     tenant_id:       tenantId,
@@ -598,7 +602,7 @@ export async function createTraubenverkauf(fd: FormData) {
     liefernummer,
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: inserted, error } = await (supabase.from('traubenverkauf') as any).insert(payload).select('id').single()
+  const { data: inserted, error } = await (supabase.from('traubenverkauf') as any).insert(payload).eq('tenant_id', tenantId).select('id').single()
   if (error) throw new Error((error as AR).message)
 
   // Verkaufsposten anlegen, damit der Traubenverkauf auch in der Buchhaltung/Rechnungsübersicht auftaucht
@@ -607,7 +611,7 @@ export async function createTraubenverkauf(fd: FormData) {
     datum, kontaktId, firmaId, weingartenName, mengeKg, preisPerKg,
   })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('traubenverkauf') as any).update({ verkaufsposten_id: postenId }).eq('id', (inserted as AR).id)
+  await (supabase.from('traubenverkauf') as any).update({ verkaufsposten_id: postenId }).eq('id', (inserted as AR).id).eq('tenant_id', tenantId)
 
   if (jahrgangId) revalidatePath(`/erntemeldung/${jahrgangId}`)
   revalidatePath('/erntemeldung')
@@ -643,21 +647,21 @@ export async function updateTraubenverkauf(id: string, fd: FormData) {
     notizen:         (fd.get('notizen') as string) || null,
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: tvAlt } = await (supabase.from('traubenverkauf') as any).select('verkaufsposten_id').eq('id', id).single()
+  const { data: tvAlt } = await (supabase.from('traubenverkauf') as any).select('verkaufsposten_id').eq('id', id).eq('tenant_id', tenantId).single()
   const altPostenId = (tvAlt as AR | null)?.verkaufsposten_id as string | null
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('traubenverkauf') as any).update(payload).eq('id', id)
+  const { error } = await (supabase.from('traubenverkauf') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
 
-  const weingartenName = await ermittleQuellenName(supabase, weingartenId, zukaufPostenId)
+  const weingartenName = await ermittleQuellenName(supabase, weingartenId, zukaufPostenId, tenantId)
   const verkaufsOpts = { datum, kontaktId, firmaId, weingartenName, mengeKg, preisPerKg }
 
   if (!altPostenId) {
     // Bisher noch kein Verkaufsposten verknüpft (z.B. vor diesem Fix angelegte Zeile) -> jetzt nachziehen
     const postenId = await createVerkaufspostenFuerTrauben(supabase, tenantId, verkaufsOpts)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('traubenverkauf') as any).update({ verkaufsposten_id: postenId }).eq('id', id)
+    await (supabase.from('traubenverkauf') as any).update({ verkaufsposten_id: postenId }).eq('id', id).eq('tenant_id', tenantId)
   }
 
   if (jahrgangId) revalidatePath(`/erntemeldung/${jahrgangId}`)
@@ -667,8 +671,9 @@ export async function updateTraubenverkauf(id: string, fd: FormData) {
 
 export async function deleteTraubenverkauf(id: string, jahrgangId: string) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('traubenverkauf') as any).delete().eq('id', id)
+  const { error } = await (supabase.from('traubenverkauf') as any).delete().eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
   revalidatePath(`/erntemeldung/${jahrgangId}`)
   revalidatePath('/erntemeldung')

@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import CRMUebersichtClient from './CRMUebersichtClient'
 import type { KalenderEintrag } from './CRMUebersichtClient'
 import { AKTIVITAET_ARTEN } from '@/lib/crm/types'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,12 +14,16 @@ export default async function CRMUebersichtPage() {
   const heute = new Date().toISOString().split('T')[0]
   const { data: { user } } = await supabase.auth.getUser()
   const currentUserId = user?.id ?? null
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   // Alle Aktivitäten mit Datum
-  const { data: aktivRawAll } = await (supabase.from('aktivitaeten') as any)
+  const { data: aktivRawAll } = await tf((supabase.from('aktivitaeten') as any)
     .select('id, art, betreff, datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, kontakt_id, firma_id, ist_privat, erstellt_von, bis_datum')
     .not('datum', 'is', null)
-    .order('datum', { ascending: true })
+    .order('datum', { ascending: true }))
 
   // "Nur für mich sichtbar"-Termine anderer Nutzer serverseitig herausfiltern
   const aktivRaw = ((aktivRawAll ?? []) as AR[]).filter(
@@ -26,10 +31,10 @@ export default async function CRMUebersichtPage() {
   )
 
   // Namen aus Kontakte & Firmen
-  const { data: kontakteRaw } = await (supabase.from('kontakte') as any)
-    .select('id, vorname, nachname')
-  const { data: firmenRaw } = await (supabase.from('firmen') as any)
-    .select('id, name')
+  const { data: kontakteRaw } = await tf((supabase.from('kontakte') as any)
+    .select('id, vorname, nachname'))
+  const { data: firmenRaw } = await tf((supabase.from('firmen') as any)
+    .select('id, name'))
 
   // User-Profile für Klarname in Filter-Chips
   const uniqueUserIds = [...new Set(

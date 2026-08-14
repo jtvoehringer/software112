@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Boxes, ArrowLeftRight, Filter, Microscope, Leaf, Wine, Search, GitMerge } from 'lucide-react'
@@ -53,12 +54,17 @@ function herkunftLabel(u: KompositionUrsprung): string {
 }
 
 // ── Hilfsfunktion: vollständige Kette für eine Weinausbau-Charge laden ───────
-async function ladeChargeKette(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, wId: string) {
+async function ladeChargeKette(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, wId: string, tenantId: string | null) {
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb – ohne diesen Filter könnten bei
+  // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
+
   const [waRes, prRes, anRes, umRes] = await Promise.all([
     // Weinausbau-Charge
-    (supabase.from('weinausbau') as any)
+    tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, status, qualitaetsstufe, behaelter_id, behaelter:behaelter_id(name, typ, volumen_liter)')
-      .eq('id', wId)
+      .eq('id', wId))
       .single(),
 
     // Pressungen die in diese Charge geflossen sind
@@ -77,20 +83,20 @@ async function ladeChargeKette(supabase: Awaited<ReturnType<typeof createSupabas
       .eq('weinausbau_id', wId),
 
     // Analysen der Charge (Tabelle heißt weinanalysen, ein Datensatz pro Analyse-Termin)
-    (supabase.from('weinanalysen') as any)
+    tf((supabase.from('weinanalysen') as any)
       .select('analyse_datum, labor, probe_nr, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl, bewertung, notizen')
       .eq('weinausbau_id', wId)
-      .order('analyse_datum', { ascending: true }),
+      .order('analyse_datum', { ascending: true })),
 
     // Umzüge (Behälter-Verlauf) – 'quelle'-Zeilen des n:n-Formats
-    (supabase.from('keller_umzuege') as any)
+    tf((supabase.from('keller_umzuege') as any)
       .select(`
         datum, menge_liter, brutto_liter, schwund_liter, notizen, zeilen_typ, umzug_batch_id,
         von_behaelter:von_behaelter_id(name),
         nach_behaelter:nach_behaelter_id(name)
       `)
       .eq('von_weinausbau_id', wId)
-      .order('datum', { ascending: true }),
+      .order('datum', { ascending: true })),
   ])
 
   const weinausbau = waRes.data as R | null
@@ -114,9 +120,9 @@ async function ladeChargeKette(supabase: Awaited<ReturnType<typeof createSupabas
 
   let behandlungen: R[] = []
   if (weingartenIds.size > 0) {
-    const { data: grundstueckeRows } = await (supabase.from('grundstuecke') as any)
+    const { data: grundstueckeRows } = await tf((supabase.from('grundstuecke') as any)
       .select('id')
-      .in('weingarten_id', Array.from(weingartenIds))
+      .in('weingarten_id', Array.from(weingartenIds)))
     const grundstueckIds = ((grundstueckeRows ?? []) as R[]).map(g => g.id)
 
     if (grundstueckIds.length > 0) {
@@ -158,10 +164,10 @@ async function ladeChargeKette(supabase: Awaited<ReturnType<typeof createSupabas
 
   const zielByBatch: Record<string, R> = {}
   if (quelleBatchIds.length > 0) {
-    const { data: zielRows } = await (supabase.from('keller_umzuege') as any)
+    const { data: zielRows } = await tf((supabase.from('keller_umzuege') as any)
       .select('umzug_batch_id, nach_behaelter:nach_behaelter_id(name), nach_weinausbau:nach_weinausbau_id(name), menge_liter')
       .in('umzug_batch_id', quelleBatchIds)
-      .eq('zeilen_typ', 'ziel')
+      .eq('zeilen_typ', 'ziel'))
     for (const z of ((zielRows ?? []) as R[])) {
       if (!zielByBatch[z.umzug_batch_id]) zielByBatch[z.umzug_batch_id] = z
     }
@@ -384,13 +390,19 @@ export default async function RueckverfolgungPage({
   searchParams: Promise<{ q?: string; fuellung_id?: string; jahrgang?: string; sorte?: string; bezeichnung?: string }>
 }) {
   const { q, fuellung_id, jahrgang, sorte, bezeichnung } = await searchParams
-  const supabase = await createSupabaseServerClient()
+  const supabase   = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  const tenantId   = membership?.tenantId ?? null
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb – ohne diesen Filter könnten bei
+  // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   // ── Autocomplete-Vorschläge ──────────────────────────────────────────────
-  const { data: autocompleteRaw } = await (supabase.from('fuellungen') as any)
+  const { data: autocompleteRaw } = await tf((supabase.from('fuellungen') as any)
     .select('chargennummer, pruefnummer, name')
     .eq('aktiv', true)
-    .order('name', { ascending: true })
+    .order('name', { ascending: true }))
   const autocompleteOptions: string[] = []
   for (const row of ((autocompleteRaw ?? []) as R[])) {
     if (row.chargennummer) autocompleteOptions.push(row.chargennummer)
@@ -402,8 +414,8 @@ export default async function RueckverfolgungPage({
   // Statt zwingend eine exakte Chargen-/Prüfnummer zu kennen, kann hier über
   // Filter eine Liste passender Füllungen durchsucht werden. Ein Klick auf
   // einen Treffer öffnet wie gehabt die volle Rückverfolgungskette (fuellung_id).
-  const { data: filterOptionenRaw } = await (supabase.from('fuellungen') as any)
-    .select('jahrgang, rebsorte, bezeichnung')
+  const { data: filterOptionenRaw } = await tf((supabase.from('fuellungen') as any)
+    .select('jahrgang, rebsorte, bezeichnung'))
   const filterOptionenRows = (filterOptionenRaw ?? []) as R[]
   const jahrgangOptionen = Array.from(
     new Set(filterOptionenRows.map(f => f.jahrgang).filter((j): j is number => j != null))
@@ -415,10 +427,10 @@ export default async function RueckverfolgungPage({
     new Set(filterOptionenRows.map(f => f.bezeichnung).filter((s): s is string => !!s))
   ).sort((a, b) => a.localeCompare(b, 'de-AT'))
 
-  let trefferQuery = (supabase.from('fuellungen') as any)
+  let trefferQuery = tf((supabase.from('fuellungen') as any)
     .select('id, name, bezeichnung, jahrgang, rebsorte, qualitaet, chargennummer, pruefnummer, bestand_flaschen, flaschengroesse_ml, aktiv')
     .order('jahrgang', { ascending: false })
-    .order('name', { ascending: true })
+    .order('name', { ascending: true }))
   if (jahrgang)     trefferQuery = trefferQuery.eq('jahrgang', parseInt(jahrgang))
   if (sorte)        trefferQuery = trefferQuery.eq('rebsorte', sorte)
   if (bezeichnung)  trefferQuery = trefferQuery.eq('bezeichnung', bezeichnung)
@@ -435,9 +447,9 @@ export default async function RueckverfolgungPage({
   let suchFehler: string | null = null
 
   if (fuellung_id?.trim()) {
-    const { data, error } = await (supabase.from('fuellungen') as any)
+    const { data, error } = await tf((supabase.from('fuellungen') as any)
       .select('*')
-      .eq('id', fuellung_id.trim())
+      .eq('id', fuellung_id.trim()))
       .single()
 
     if (error || !data) {
@@ -447,9 +459,9 @@ export default async function RueckverfolgungPage({
     }
   } else if (q?.trim()) {
     const qTrim = q.trim()
-    const { data, error } = await (supabase.from('fuellungen') as any)
+    const { data, error } = await tf((supabase.from('fuellungen') as any)
       .select('*')
-      .or(`chargennummer.eq.${qTrim},pruefnummer.eq.${qTrim},name.ilike.*${qTrim}*`)
+      .or(`chargennummer.eq.${qTrim},pruefnummer.eq.${qTrim},name.ilike.*${qTrim}*`))
       .limit(1)
       .single()
 
@@ -501,7 +513,7 @@ export default async function RueckverfolgungPage({
       weinausbauIds.map(async ({ id, anteil }) => ({
         weinausbauId: id,
         anteilLiter: anteil,
-        kette: await ladeChargeKette(supabase, id),
+        kette: await ladeChargeKette(supabase, id, tenantId),
       }))
     )
   }
