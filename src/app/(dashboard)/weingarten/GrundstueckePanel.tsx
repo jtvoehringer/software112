@@ -23,11 +23,6 @@ export type GST = {
   status: string; notizen: string | null
 }
 
-export type ErtragHistorie = {
-  jahrgang: number; menge_kg: number; datum: string | null
-  grundstueck_id: string | null; gst_nr: string | null
-}
-
 export type MassnahmeHistorie = {
   id: string; datum: string; art: string
   psm_name: string | null
@@ -91,75 +86,7 @@ function StatusBadge({ status }: { status: string }) {
 const inputCls = "w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
 const labelCls = "block text-xs font-medium text-gray-600 mb-1"
 
-// ── Ertragshistorie für ein einzelnes GST ─────────────────────────────────────
-function GstErtragPanel({ gst, eintraege }: { gst: GST; eintraege: ErtragHistorie[] }) {
-  const haAma      = gst.flaeche_ha ?? 0
-  const haKataster = gst.flaeche_ha_kataster ?? 0
-
-  const totalKg = eintraege.reduce((s, e) => s + e.menge_kg, 0)
-
-  return (
-    <div className="bg-s112-bg/60 border-t border-s112-border/50 px-3 py-2">
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="text-gray-500">
-            <th className="text-left py-1 pr-3 font-medium">Jahrgang</th>
-            <th className="text-left py-1 pr-3 font-medium">Ernte-Datum</th>
-            <th className="text-right py-1 pr-3 font-medium">Menge (kg)</th>
-            {haAma > 0 && <th className="text-right py-1 pr-3 font-medium">kg/ha (AMA)</th>}
-            {haKataster > 0 && <th className="text-right py-1 font-medium">kg/ha (Kataster)</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {eintraege.map((e, i) => (
-            <tr key={i} className="border-t border-s112-border/30">
-              <td className="py-1 pr-3 font-semibold text-gray-700">{e.jahrgang}</td>
-              <td className="py-1 pr-3 text-s112-muted">
-                {e.datum
-                  ? new Date(e.datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                  : '–'}
-              </td>
-              <td className="py-1 pr-3 text-right font-mono text-gray-800">
-                {e.menge_kg.toLocaleString('de-AT', { maximumFractionDigits: 0 })}
-              </td>
-              {haAma > 0 && (
-                <td className="py-1 pr-3 text-right font-mono text-s112-muted">
-                  {(e.menge_kg / haAma).toLocaleString('de-AT', { maximumFractionDigits: 0 })}
-                </td>
-              )}
-              {haKataster > 0 && (
-                <td className="py-1 text-right font-mono text-s112-muted">
-                  {(e.menge_kg / haKataster).toLocaleString('de-AT', { maximumFractionDigits: 0 })}
-                </td>
-              )}
-            </tr>
-          ))}
-          {eintraege.length > 1 && (
-            <tr className="border-t-2 border-s112-border/60 font-semibold">
-              <td className="py-1 pr-3 text-gray-600">Gesamt</td>
-              <td className="py-1 pr-3" />
-              <td className="py-1 pr-3 text-right font-mono text-gray-700">
-                {totalKg.toLocaleString('de-AT', { maximumFractionDigits: 0 })}
-              </td>
-              {haAma > 0 && (
-                <td className="py-1 pr-3 text-right font-mono text-gray-600">
-                  Ø {(totalKg / eintraege.length / haAma).toLocaleString('de-AT', { maximumFractionDigits: 0 })}
-                </td>
-              )}
-              {haKataster > 0 && (
-                <td className="py-1 text-right font-mono text-gray-600">
-                  Ø {(totalKg / eintraege.length / haKataster).toLocaleString('de-AT', { maximumFractionDigits: 0 })}
-                </td>
-              )}
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-// ── Maßnahmen-Verlauf für ein einzelnes GST (Punkt 10, analog Ertragshistorie) ────
+// ── Maßnahmen-Verlauf für ein einzelnes GST (Punkt 10) ────────────────────────
 function GstMassnahmenPanel({ massnahmen }: { massnahmen: MassnahmeHistorie[] }) {
   return (
     <div className="bg-s112-bg/60 border-t border-s112-border/50 px-3 py-2">
@@ -458,11 +385,10 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
 
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 export default function GrundstueckePanel({
-  weingartenId, grundstuecke, ertragByGst = {}, massnahmenByGst = {}, customWeinbaugebiete = [],
+  weingartenId, grundstuecke, massnahmenByGst = {}, customWeinbaugebiete = [],
 }: {
   weingartenId: string
   grundstuecke: GST[]
-  ertragByGst?: Record<string, ErtragHistorie[]>
   massnahmenByGst?: Record<string, MassnahmeHistorie[]>
   customWeinbaugebiete?: CustomWeinbaugebiet[]
 }) {
@@ -541,10 +467,9 @@ export default function GrundstueckePanel({
             </thead>
             <tbody>
               {grundstuecke.map(g => {
-                const eintraege = ertragByGst[g.id] ?? []
                 const massnahmen = massnahmenByGst[g.id] ?? []
                 const isExpanded = expandedIds.has(g.id)
-                const hasHistory = eintraege.length > 0 || massnahmen.length > 0
+                const hasHistory = massnahmen.length > 0
                 return (
                   <React.Fragment key={g.id}>
                     <tr
@@ -558,7 +483,7 @@ export default function GrundstueckePanel({
                           <button
                             onClick={() => toggleExpand(g.id)}
                             className="text-s112-muted hover:text-s112-teal transition-colors text-xs leading-none"
-                            title={isExpanded ? 'Ertrags-/Maßnahmen-Verlauf ausblenden' : 'Ertrags-/Maßnahmen-Verlauf einblenden'}
+                            title={isExpanded ? 'Maßnahmen-Verlauf ausblenden' : 'Maßnahmen-Verlauf einblenden'}
                           >
                             {isExpanded ? '▼' : '▶'}
                           </button>
@@ -568,11 +493,6 @@ export default function GrundstueckePanel({
                       </td>
                       <td className="px-3 py-2 font-mono text-xs font-medium">
                         {g.gst_nr}
-                        {eintraege.length > 0 && (
-                          <span className="ml-1.5 text-xs text-s112-muted font-normal">
-                            ({eintraege.length}×)
-                          </span>
-                        )}
                       </td>
                       <td className="px-3 py-2 text-s112-muted text-xs">
                         {g.rebsorte ?? '–'}
@@ -609,11 +529,10 @@ export default function GrundstueckePanel({
                         </div>
                       </td>
                     </tr>
-                    {/* Ertragshistorie + Maßnahmen-Verlauf aufgeklappt (Punkt 10) */}
+                    {/* Maßnahmen-Verlauf aufgeklappt (Punkt 10) */}
                     {isExpanded && hasHistory && (
                       <tr className="border-b border-s112-border/50">
                         <td colSpan={9} className="p-0 divide-y divide-s112-border/50">
-                          {eintraege.length > 0 && <GstErtragPanel gst={g} eintraege={eintraege} />}
                           {massnahmen.length > 0 && <GstMassnahmenPanel massnahmen={massnahmen} />}
                         </td>
                       </tr>

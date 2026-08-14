@@ -1,6 +1,7 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -46,13 +47,25 @@ export async function updateLage(id: string, formData: FormData) {
   revalidatePath('/weingarten')
 }
 
-export async function deleteLage(id: string) {
-  const supabase = await createSupabaseServerClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('lagen') as any).delete().eq('id', id)
-  if (error) throw new Error((error as AR).message)
-  revalidatePath('/lagen')
-  revalidatePath('/weingarten')
+export async function deleteLage(id: string): Promise<{ error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const membership = await getCurrentMembership()
+    if (!membership) return { error: 'Kein Betrieb gefunden' }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from('lagen') as any)
+      .delete()
+      .eq('id', id)
+      .eq('tenant_id', membership.tenantId)
+    if (error) return { error: (error as AR).message }
+
+    revalidatePath('/lagen')
+    revalidatePath('/weingarten')
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Unbekannter Fehler beim Löschen der Ried' }
+  }
 }
 
 export async function assignWeingartenToLage(weingartenId: string, lageId: string | null) {

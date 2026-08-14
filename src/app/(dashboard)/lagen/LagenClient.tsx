@@ -36,7 +36,10 @@ function LageKarte({
       return
     }
     if (!confirm(`Ried "${lage.name}" wirklich löschen?`)) return
-    startTransition(() => deleteLage(lage.id))
+    startTransition(async () => {
+      const result = await deleteLage(lage.id)
+      if (result?.error) alert(`Fehler beim Löschen: ${result.error}`)
+    })
   }
 
   function handleAssign(weingartenId: string, assign: boolean) {

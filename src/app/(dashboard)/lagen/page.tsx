@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite, canAdmin } from '@/lib/auth/roles'
+import { getCurrentUserRole, getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import LagenClient from './LagenClient'
@@ -17,18 +17,21 @@ export type WeingartenRow = {
 export default async function LagenPage() {
   const supabase = await createSupabaseServerClient()
   const role = await getCurrentUserRole()
+  const membership = await getCurrentMembership()
   const writeOk = canWrite(role)
   const adminOk = canAdmin(role)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawL } = await (supabase.from('lagen') as any)
     .select('id, name, gemeinde, weinbaugebiet, notizen')
+    .eq('tenant_id', membership?.tenantId ?? '')
     .order('name')
   const lagen = (rawL ?? []) as Lage[]
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawW } = await (supabase.from('weingarten') as any)
     .select('id, name, lage_id, rebsorte, flaeche_ha')
+    .eq('tenant_id', membership?.tenantId ?? '')
     .eq('aktiv', true)
     .order('name')
   const weingaerten = (rawW ?? []) as WeingartenRow[]
