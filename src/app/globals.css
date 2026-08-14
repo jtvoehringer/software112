@@ -12,6 +12,14 @@
   --s112-bg:     #F7F8FA;
   --s112-muted:  #6E717A;
   --s112-border: #EDEEF1;
+
+  /* Schrift-Familien: selbst gehostet über @fontsource (siehe layout.tsx) statt
+     next/font/google, damit der Vercel-Build nicht mehr von einem Live-Fetch
+     zu fonts.gstatic.com abhängt (Ursache für die wiederholt fehlgeschlagenen
+     Deploys am 14.8.2026). */
+  --font-poppins:   'Poppins';
+  --font-plex-sans: 'IBM Plex Sans';
+  --font-plex-mono: 'IBM Plex Mono';
 }
 
 @layer base {

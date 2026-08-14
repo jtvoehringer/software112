@@ -453,8 +453,8 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
                   <Image
                     src="/icp-logo.png"
                     alt="ICP Solutions"
-                    width={41} height={14}
-                    className="object-contain object-left opacity-70 hover:opacity-100 transition-opacity"
+                    width={100} height={34}
+                    className="object-contain object-left"
                   />
                 </div>
               </>

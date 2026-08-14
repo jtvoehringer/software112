@@ -1,30 +1,22 @@
 import type { Metadata, Viewport } from 'next'
-import { Poppins, IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google'
-import './globals.css'
 
 // Design-System 2026-08: Poppins (Wortmarke/Überschriften), IBM Plex Sans (UI/Fließtext),
 // IBM Plex Mono (Zahlen/Belegnummern) — löst Inter ab, siehe project_design_relaunch.md.
-const poppins = Poppins({
-  subsets: ['latin'],
-  weight: ['600', '700'],
-  variable: '--font-poppins',
-  display: 'swap',
-  preload: false,
-})
-const plexSans = IBM_Plex_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-plex-sans',
-  display: 'swap',
-  preload: false,
-})
-const plexMono = IBM_Plex_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500'],
-  variable: '--font-plex-mono',
-  display: 'swap',
-  preload: false,
-})
+//
+// Selbst gehostet über @fontsource (Schriftdateien liegen im npm-Paket, kein
+// Live-Fetch von fonts.gstatic.com beim Build) statt next/font/google — dessen
+// build-zeitiger Font-Download ist am 14.8.2026 wiederholt mit 404s von
+// Google Fonts fehlgeschlagen und hat den Vercel-Build komplett blockiert.
+// Die CSS-Variablen --font-poppins/--font-plex-sans/--font-plex-mono werden
+// dafür statisch in globals.css gesetzt (siehe dort).
+import '@fontsource/poppins/latin-600.css'
+import '@fontsource/poppins/latin-700.css'
+import '@fontsource/ibm-plex-sans/latin-400.css'
+import '@fontsource/ibm-plex-sans/latin-500.css'
+import '@fontsource/ibm-plex-sans/latin-600.css'
+import '@fontsource/ibm-plex-mono/latin-400.css'
+import '@fontsource/ibm-plex-mono/latin-500.css'
+import './globals.css'
 
 export const metadata: Metadata = {
   title: {
@@ -54,7 +46,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="de" className={`${poppins.variable} ${plexSans.variable} ${plexMono.variable}`}>
+    <html lang="de">
       <body>{children}</body>
     </html>
   )
