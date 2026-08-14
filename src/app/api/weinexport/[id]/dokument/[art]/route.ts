@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -47,13 +48,14 @@ export async function GET(
   const supabase = await createSupabaseServerClient()
   const admin    = createSupabaseAdminClient()
 
-  const { data: membership } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
-  const tenantId = (membership as R | null)?.tenant_id
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId
+  if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 
   const [{ data: auftrag }, { data: positionen }, { data: betriebData }] = await Promise.all([
     (supabase.from('exportauftraege') as any)
       .select('*, kontakte(vorname,nachname,email), firmen(name,email)')
-      .eq('id', auftragId).single(),
+      .eq('id', auftragId).eq('tenant_id', tenantId).single(),
     (supabase.from('exportauftrag_positionen') as any)
       .select('*, fuellungen(bezeichnung,flaschengroesse_ml)').eq('exportauftrag_id', auftragId).order('sort_order'),
     (admin.from('tenant_einstellungen') as any)

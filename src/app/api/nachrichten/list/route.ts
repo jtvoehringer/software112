@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getValidUserAccessToken } from '@/lib/m365/graph'
 import { ImapFlow } from 'imapflow'
 import { decryptPass } from '@/lib/email/crypto'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -14,8 +15,8 @@ export async function GET(req: NextRequest) {
     const folderId = req.nextUrl.searchParams.get('folderId')  // echte Ordner-ID aus M365
     const supabase = await createSupabaseServerClient()
     const admin    = createSupabaseAdminClient()
-    const { data: membership } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
-    const tenantId = (membership as R | null)?.tenant_id
+    const membership = await getCurrentMembership()
+    const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 
     // Per-User Verbindung + Tenant App-Credentials laden
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
 
     // M365
     if (c?.m365_aktiv && c?.m365_access_token_enc) {
-      const token = await getValidUserAccessToken(c, tenantCfg as R, supabase)
+      const token = await getValidUserAccessToken(c, tenantCfg as R, supabase, tenantId, user?.id ?? '')
       // Echte Ordner-ID verwenden wenn vorhanden, sonst Standard-Ordner
       // Shared Mailbox: wenn monitored_email gesetzt → /users/{email}/... statt /me/...
       const mailboxBase = (c as R).monitored_email

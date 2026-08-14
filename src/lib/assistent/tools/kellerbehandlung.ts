@@ -8,6 +8,7 @@
 // Tool-Handler ruft ausschließlich diese neue Action auf, exakt nach
 // demselben Muster wie die übrigen Prozesse.
 import { createKellerbehandlung } from '@/app/(dashboard)/kellerbuch/actions'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -86,8 +87,14 @@ export async function fuehreKellerbehandlungErfassenAus(
     }
   }
 
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  if (!tenantId) {
+    return { erfolg: false, fehler: 'Kein Betrieb gefunden – Kellerbehandlung konnte nicht gespeichert werden.' }
+  }
+
   const { data: behaelter } = await (supabase.from('behaelter') as any)
-    .select('id').eq('id', input.behaelter_id).eq('aktiv', true).maybeSingle()
+    .select('id').eq('id', input.behaelter_id).eq('tenant_id', tenantId).eq('aktiv', true).maybeSingle()
   if (!behaelter) {
     return { erfolg: false, hinweis: `Behälter mit ID ${input.behaelter_id} nicht gefunden. Beim User nachfragen bzw. Stammdaten-Kontext erneut prüfen.` }
   }
@@ -96,25 +103,17 @@ export async function fuehreKellerbehandlungErfassenAus(
   let typId: string | null = input.typ_id ? String(input.typ_id) : null
   if (typId) {
     const { data: typExists } = await (supabase.from('keller_behandlungstypen') as any)
-      .select('id').eq('id', typId).maybeSingle()
+      .select('id').eq('id', typId).eq('tenant_id', tenantId).maybeSingle()
     if (!typExists) {
       return { erfolg: false, hinweis: `Behandlungstyp mit ID ${typId} nicht gefunden. Beim User nachfragen bzw. Stammdaten-Kontext erneut prüfen.` }
     }
   } else if (input.typ_name) {
     const typName = String(input.typ_name).trim()
     const { data: bestehenderTyp } = await (supabase.from('keller_behandlungstypen') as any)
-      .select('id').ilike('name', typName).maybeSingle()
+      .select('id').eq('tenant_id', tenantId).ilike('name', typName).maybeSingle()
     if ((bestehenderTyp as R | null)?.id) {
       typId = (bestehenderTyp as R).id
     } else {
-      // tenant_memberships ist RLS-gescoped auf den eingeloggten User – wie in getTenantId()
-      // an anderer Stelle im Projekt üblich, daher hier ohne explizite user_id-Filterung.
-      const { data: membership } = await (supabase.from('tenant_memberships') as any)
-        .select('tenant_id').limit(1).maybeSingle()
-      const tenantId = (membership as R | null)?.tenant_id
-      if (!tenantId) {
-        return { erfolg: false, fehler: 'Kein Betrieb gefunden – neuer Behandlungstyp konnte nicht angelegt werden.' }
-      }
       const { data: neuerTyp, error: typErr } = await (supabase.from('keller_behandlungstypen') as any)
         .insert({ tenant_id: tenantId, name: typName, einheit_standard: input.typ_einheit ? String(input.typ_einheit) : null })
         .select('id').single()

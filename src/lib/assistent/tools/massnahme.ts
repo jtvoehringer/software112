@@ -9,6 +9,7 @@
 // hier auch im Tool-Handler selbst hart durchgesetzt (siehe Konzeptdokument
 // Abschnitt 6 "Sicherheit & Vertrauen").
 import { createBehandlung } from '@/app/(dashboard)/behandlungen/actions'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -115,15 +116,27 @@ export async function fuehreMassnahmeDokumentierenAus(
 
   // Wartezeit automatisch aus dem gewählten Mittel ableiten (wie im Formular –
   // dort kommt sie über ein verstecktes Feld aus der PSM-/Düngemittel-Auswahl).
+  // pflanzenschutzmittel/duengemittel haben eine NULLABLE tenant_id: NULL = globaler
+  // Katalogeintrag (system_admin), sonst eigener Mandanten-Eintrag – daher .or() statt
+  // eines einfachen .eq(), analog zu kontext.ts.
   let wartezeitTage: number | null = null
-  if (input.psm_id) {
-    const { data } = await (supabase.from('pflanzenschutzmittel') as any)
-      .select('wartezeit_tage').eq('id', input.psm_id).maybeSingle()
-    wartezeitTage = (data as R | null)?.wartezeit_tage ?? null
-  } else if (input.duengemittel_id) {
-    const { data } = await (supabase.from('duengemittel') as any)
-      .select('wartezeit_tage').eq('id', input.duengemittel_id).maybeSingle()
-    wartezeitTage = (data as R | null)?.wartezeit_tage ?? null
+  if (input.psm_id || input.duengemittel_id) {
+    const membership = await getCurrentMembership()
+    const tenantId = membership?.tenantId ?? null
+    if (!tenantId) {
+      return { erfolg: false, fehler: 'Kein Betrieb gefunden – Maßnahme konnte nicht gespeichert werden.' }
+    }
+    if (input.psm_id) {
+      const { data } = await (supabase.from('pflanzenschutzmittel') as any)
+        .select('wartezeit_tage').eq('id', input.psm_id)
+        .or(`tenant_id.eq.${tenantId},tenant_id.is.null`).maybeSingle()
+      wartezeitTage = (data as R | null)?.wartezeit_tage ?? null
+    } else if (input.duengemittel_id) {
+      const { data } = await (supabase.from('duengemittel') as any)
+        .select('wartezeit_tage').eq('id', input.duengemittel_id)
+        .or(`tenant_id.eq.${tenantId},tenant_id.is.null`).maybeSingle()
+      wartezeitTage = (data as R | null)?.wartezeit_tage ?? null
+    }
   }
 
   const fd = new FormData()

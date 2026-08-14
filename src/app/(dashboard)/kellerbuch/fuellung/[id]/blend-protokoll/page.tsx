@@ -53,7 +53,7 @@ export default async function BlendProtokollFuellungPage({ params }: { params: P
   if (!fuellung) notFound()
   const s = (settingsRaw as R | null) ?? {}
 
-  const komposition = await resolveBlendKompositionFuellung(supabase, id)
+  const komposition = await resolveBlendKompositionFuellung(supabase, id, tenantId)
 
   return (
     <div className="max-w-2xl space-y-6">

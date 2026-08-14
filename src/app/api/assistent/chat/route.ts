@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
     let unterhaltungId = unterhaltungIdIn
     if (unterhaltungId) {
       const { data: bestehend } = await (supabase.from('assistent_unterhaltungen') as any)
-        .select('id').eq('id', unterhaltungId).eq('user_id', user.id).eq('status', 'aktiv').maybeSingle()
+        .select('id').eq('id', unterhaltungId).eq('tenant_id', membership.tenantId).eq('user_id', user.id).eq('status', 'aktiv').maybeSingle()
       if (!bestehend) unterhaltungId = undefined // ungültig/fremd/abgeschlossen -> neu anlegen
     }
     if (!unterhaltungId) {

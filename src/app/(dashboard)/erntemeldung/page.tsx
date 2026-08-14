@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite, canAdmin } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import JahrgaengeClient from './JahrgaengeClient'
@@ -22,11 +22,14 @@ export default async function ErntemeldungPage() {
   const role = await getCurrentUserRole()
   const writeOk = canWrite(role)
   const adminOk = canAdmin(role)
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawJ } = await (supabase.from('weinjahrgaenge') as any)
     .select(`id, jahrgang, ernte_beginn, ernte_ende, qualitaet_gesamt,
              ama_gemeldet, ama_meldedatum, abgeschlossen, notizen`)
+    .eq('tenant_id', tenantId)
     .order('jahrgang', { ascending: false })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -36,6 +39,7 @@ export default async function ErntemeldungPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawA } = await (supabase.from('ama_erntemeldungen') as any)
     .select('jahrgang_id, status')
+    .eq('tenant_id', tenantId)
 
   const parzellenByJG = new Map<string, { count: number; kg: number; kmwSum: number; kmwCount: number }>()
   for (const p of (rawP ?? []) as AR[]) {

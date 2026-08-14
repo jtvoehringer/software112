@@ -42,7 +42,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   let body: { to?: string; message?: string } = {}
   try { body = await req.json() } catch { /* kein Body mitgeschickt – ok */ }
 
-  // ── Rechnung + Betriebsdaten laden (RLS-scoped) ─────────────────────────────
+  // ── Rechnung + Betriebsdaten laden (RLS-scoped, zusätzlich explizit auf den
+  // aktiven Mandanten gefiltert - siehe check-tenant-isolation.js) ───────────
   const [{ data: postenRaw }, { data: einstRaw }] = await Promise.all([
     (supabase.from('verkaufsposten') as any)
       .select(`
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           fuellung:fuellungen(jahrgang, flaschengroesse_ml)
         )
       `)
-      .eq('id', id).eq('aktiv', true).maybeSingle(),
+      .eq('id', id).eq('tenant_id', tenantId).eq('aktiv', true).maybeSingle(),
     (supabase.from('tenant_einstellungen') as any)
       .select(`anzeigename, logo_url, betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort,
                betrieb_telefon, betrieb_email, betrieb_website, betrieb_uid,
@@ -213,7 +214,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const { data: tcfgRaw } = await (admin.from('tenant_einstellungen') as any)
         .select('m365_tenant_id, m365_client_id, m365_client_secret_enc')
         .eq('tenant_id', tenantId).maybeSingle()
-      const token = await getValidUserAccessToken(userCfg, tcfgRaw as R, admin)
+      const token = await getValidUserAccessToken(userCfg, tcfgRaw as R, admin, tenantId, authUser.id)
 
       const draftRes = await fetch('https://graph.microsoft.com/v1.0/me/messages', {
         method: 'POST',
@@ -272,7 +273,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const sentAt = new Date().toISOString()
   await (supabase.from('verkaufsposten') as any)
     .update({ rechnung_versendet_am: sentAt, rechnung_versendet_an: recipient })
-    .eq('id', id)
+    .eq('id', id).eq('tenant_id', tenantId)
 
   await (admin.from('aktivitaeten') as any).insert({
     tenant_id: tenantId,

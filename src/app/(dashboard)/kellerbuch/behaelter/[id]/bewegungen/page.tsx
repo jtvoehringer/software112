@@ -99,11 +99,11 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
           .in('weinausbau_id', chargeIdList)
           .eq('aktiv', true)
           .order('datum', { ascending: true })),
-        (supabase.from('verkauf_positionen') as any)
+        tf((supabase.from('verkauf_positionen') as any)
           .select('id, menge, einheit, weinausbau_id, verkaufsposten:verkaufsposten_id(datum, storniert)')
           .in('weinausbau_id', chargeIdList)
           .eq('typ', 'tank')
-          .order('id', { ascending: true }),
+          .order('id', { ascending: true })),
         // Zukauf-Eingang (Wein/Most direkt in dieses Gebinde gekauft) – fehlte bisher komplett in
         // diesem Bewegungsbuch, obwohl v_behaelter_fuellstand (Migration 127, siehe zukauf_ein-CTE)
         // ihn längst korrekt mitrechnet. Ohne diesen Zugang lief der hier lokal nachgerechnete Saldo
@@ -125,10 +125,10 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     : { data: [] }
 
   const { data: verschnEinRaw } = chargeIdList.length > 0
-    ? await (supabase.from('verschneidungen') as any)
+    ? await tf((supabase.from('verschneidungen') as any)
         .select('id, datum, notizen, ziel_weinausbau_id, quellen:verschneidung_quellen(menge_liter, quelle:quell_weinausbau_id(name, behaelter:behaelter_id(name)))')
         .in('ziel_weinausbau_id', chargeIdList)
-        .order('datum', { ascending: true })
+        .order('datum', { ascending: true }))
     : { data: [] }
 
   const einZielBatchIds = [...new Set(

@@ -49,7 +49,7 @@ export default async function BlendProtokollPage({ params }: { params: Promise<{
   if (!wa) notFound()
   const s = (settingsRaw as R | null) ?? {}
 
-  const komposition = await resolveBlendKomposition(supabase, id)
+  const komposition = await resolveBlendKomposition(supabase, id, tenantId)
 
   return (
     <div className="max-w-2xl space-y-6">

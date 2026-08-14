@@ -15,6 +15,7 @@
 // Sicherheits-Hinweis: Der Bot speichert NIE ohne explizite User-Bestätigung
 // (bestaetigt_vom_user), analog zu den anderen Prozessen.
 import { createJahrgang, createMultipleErnteParzellen } from '@/app/(dashboard)/erntemeldung/actions'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -135,9 +136,15 @@ export async function fuehreErnteErfassenAus(
     }
   }
 
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  if (!tenantId) {
+    return { erfolg: false, fehler: 'Kein Betrieb gefunden – Ernte konnte nicht gespeichert werden.' }
+  }
+
   // ── Jahrgang auflösen oder anlegen ──────────────────────────────────────────
   const { data: bestehenderJahrgang } = await (supabase.from('weinjahrgaenge') as any)
-    .select('id').eq('jahrgang', jahrgangJahr).maybeSingle()
+    .select('id').eq('tenant_id', tenantId).eq('jahrgang', jahrgangJahr).maybeSingle()
 
   let jahrgangId: string | null = (bestehenderJahrgang as R | null)?.id ?? null
   if (!jahrgangId) {
@@ -148,7 +155,7 @@ export async function fuehreErnteErfassenAus(
       return { erfolg: false, fehler: jgResult.error }
     }
     const { data: neuerJahrgang } = await (supabase.from('weinjahrgaenge') as any)
-      .select('id').eq('jahrgang', jahrgangJahr).maybeSingle()
+      .select('id').eq('tenant_id', tenantId).eq('jahrgang', jahrgangJahr).maybeSingle()
     jahrgangId = (neuerJahrgang as R | null)?.id ?? null
     if (!jahrgangId) {
       return { erfolg: false, fehler: `Jahrgang ${jahrgangJahr} konnte nicht angelegt/gefunden werden.` }
@@ -159,7 +166,7 @@ export async function fuehreErnteErfassenAus(
   const grundstueckJson: R[] = []
   for (const g of grundstueckeIn) {
     const { data: gst } = await (supabase.from('grundstuecke') as any)
-      .select('id, weingarten_id').eq('id', g.grundstueck_id).eq('status', 'aktiv').maybeSingle()
+      .select('id, weingarten_id').eq('id', g.grundstueck_id).eq('tenant_id', tenantId).eq('status', 'aktiv').maybeSingle()
     if (!gst) {
       return { erfolg: false, hinweis: `Grundstück mit ID ${g.grundstueck_id} nicht gefunden. Beim User nachfragen bzw. Stammdaten-Kontext erneut prüfen.` }
     }

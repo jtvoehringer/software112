@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 import { decryptPass } from '@/lib/email/crypto'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -14,8 +15,8 @@ export async function POST(req: NextRequest) {
 
     const supabase = await createSupabaseServerClient()
     const admin    = createSupabaseAdminClient()
-    const { data: membership } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
-    const tenantId = (membership as R | null)?.tenant_id
+    const membership = await getCurrentMembership()
+    const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 
     // Per-User Verbindung zuerst prüfen
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
       const { getValidUserAccessToken, graphPost } = await import('@/lib/m365/graph')
       const { data: tcfg } = await (admin.from('tenant_einstellungen') as any)
         .select('m365_tenant_id, m365_client_id, m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle()
-      const token = await getValidUserAccessToken(uc, tcfg as R, supabase)
+      const token = await getValidUserAccessToken(uc, tcfg as R, supabase, tenantId, authUser?.id ?? '')
       // Mehrere Empfänger: Komma-getrennt parsen
       const empfaenger = an.split(',').map((e: string) => e.trim()).filter(Boolean)
       // Shared Mailbox als Absender wenn explizit gewählt (erfordert Send-As-Rechte in Exchange)

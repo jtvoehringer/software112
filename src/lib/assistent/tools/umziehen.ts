@@ -18,6 +18,7 @@
 // 1:1 zurück, der System-Prompt weist den Bot an, dies dem User explizit
 // mitzuteilen statt nur "erledigt" zu melden.
 import { umziehen } from '@/app/(dashboard)/kellerbuch/umziehen/actions'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -89,9 +90,15 @@ export async function fuehreUmziehenAus(
     return { erfolg: false, hinweis: 'Datum, Quell-Charge, Ziel-Gebinde und eine Menge > 0 L sind Pflichtfelder – bitte beim User nachfragen.' }
   }
 
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  if (!tenantId) {
+    return { erfolg: false, fehler: 'Kein Betrieb gefunden – Umzug konnte nicht gespeichert werden.' }
+  }
+
   const [{ data: quelle }, { data: ziel }] = await Promise.all([
-    (supabase.from('weinausbau') as any).select('id, menge_liter').eq('id', input.weinausbau_id).eq('aktiv', true).maybeSingle(),
-    (supabase.from('behaelter') as any).select('id').eq('id', input.ziel_behaelter_id).eq('aktiv', true).maybeSingle(),
+    (supabase.from('weinausbau') as any).select('id, menge_liter').eq('id', input.weinausbau_id).eq('tenant_id', tenantId).eq('aktiv', true).maybeSingle(),
+    (supabase.from('behaelter') as any).select('id').eq('id', input.ziel_behaelter_id).eq('tenant_id', tenantId).eq('aktiv', true).maybeSingle(),
   ])
   if (!quelle) {
     return { erfolg: false, hinweis: `Quell-Charge mit ID ${input.weinausbau_id} nicht gefunden. Beim User nachfragen bzw. Stammdaten-Kontext erneut prüfen.` }

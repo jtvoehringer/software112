@@ -46,6 +46,7 @@ async function resolveRoh(
   weinausbauId: string,
   cache: Map<string, Promise<RohEintrag[]>>,
   besucht: Set<string>,
+  tenantId: string | null,
 ): Promise<RohEintrag[]> {
   if (besucht.has(weinausbauId)) {
     return [{
@@ -120,7 +121,7 @@ async function resolveRoh(
 
     // 2. Eigene Herkunft: Zukäufe (Wein/Most) direkt in diese Charge
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: zkRows } = await (supabase.from('zukauf_posten') as any)
+    let zkQuery = (supabase.from('zukauf_posten') as any)
       .select(`
         menge, art, rebsorte, jahrgang, datum,
         lieferant_firma:firmen!lieferant_firma_id(name),
@@ -129,6 +130,8 @@ async function resolveRoh(
       .eq('ziel_weinausbau_id', weinausbauId)
       .eq('aktiv', true)
       .in('art', ['wein', 'most'])
+    if (tenantId) zkQuery = zkQuery.eq('tenant_id', tenantId)
+    const { data: zkRows } = await zkQuery
 
     for (const zk of ((zkRows ?? []) as R[])) {
       const liter = mengeNum(zk.menge)
@@ -149,10 +152,11 @@ async function resolveRoh(
 
     // 3. Eigene Herkunft: Eröffnungsbestand (historisch, nicht weiter rückverfolgbar)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: waRow } = await (supabase.from('weinausbau') as any)
+    let waQuery = (supabase.from('weinausbau') as any)
       .select('ist_eroeffnungsbestand, anfangsbestand_liter, menge_liter, rebsorte, jahrgang')
       .eq('id', weinausbauId)
-      .maybeSingle()
+    if (tenantId) waQuery = waQuery.eq('tenant_id', tenantId)
+    const { data: waRow } = await waQuery.maybeSingle()
     const wa = waRow as R | null
     if (wa?.ist_eroeffnungsbestand) {
       const liter = mengeNum(wa.anfangsbestand_liter ?? wa.menge_liter)
@@ -170,15 +174,17 @@ async function resolveRoh(
 
     // 4. Verschneidungen, bei denen diese Charge das Ziel ist – Quellen rekursiv auflösen
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: vRows } = await (supabase.from('verschneidungen') as any)
+    let vQuery = (supabase.from('verschneidungen') as any)
       .select('id, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter)')
       .eq('ziel_weinausbau_id', weinausbauId)
+    if (tenantId) vQuery = vQuery.eq('tenant_id', tenantId)
+    const { data: vRows } = await vQuery
 
     for (const v of ((vRows ?? []) as R[])) {
       for (const q of ((v.quellen ?? []) as R[])) {
         const quelleLiter = mengeNum(q.menge_liter)
         if (quelleLiter <= EPSILON || !q.quell_weinausbau_id) continue
-        const quelleKomposition = await resolveRoh(supabase, q.quell_weinausbau_id, cache, naechsteBesucht)
+        const quelleKomposition = await resolveRoh(supabase, q.quell_weinausbau_id, cache, naechsteBesucht, tenantId)
         const quelleTotal = quelleKomposition.reduce((s, e) => s + e.liter, 0)
         if (quelleTotal <= EPSILON) continue
         for (const e of quelleKomposition) {
@@ -227,9 +233,9 @@ function normalisiere(eintraege: RohEintrag[]): KompositionUrsprung[] {
  * Weinausbau-Charge (in %) – über alle Verschneidungs-Generationen zurück bis zu den
  * ursprünglichen Pressungen/Zukäufen/Eröffnungsbeständen.
  */
-export async function resolveBlendKomposition(supabase: SB, weinausbauId: string): Promise<KompositionUrsprung[]> {
+export async function resolveBlendKomposition(supabase: SB, weinausbauId: string, tenantId: string | null): Promise<KompositionUrsprung[]> {
   const cache = new Map<string, Promise<RohEintrag[]>>()
-  const roh = await resolveRoh(supabase, weinausbauId, cache, new Set())
+  const roh = await resolveRoh(supabase, weinausbauId, cache, new Set(), tenantId)
   return normalisiere(roh)
 }
 
@@ -238,11 +244,13 @@ export async function resolveBlendKomposition(supabase: SB, weinausbauId: string
  * `fuellung_chargen`, mit Fallback auf `fuellungen.weinausbau_id` bei alten Direkt-Füllungen)
  * gewichtet nach Anteil-Litern.
  */
-export async function resolveBlendKompositionFuellung(supabase: SB, fuellungId: string): Promise<KompositionUrsprung[]> {
+export async function resolveBlendKompositionFuellung(supabase: SB, fuellungId: string, tenantId: string | null): Promise<KompositionUrsprung[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: fcRows } = await (supabase.from('fuellung_chargen') as any)
+  let fcQuery = (supabase.from('fuellung_chargen') as any)
     .select('weinausbau_id, anteil_liter')
     .eq('fuellung_id', fuellungId)
+  if (tenantId) fcQuery = fcQuery.eq('tenant_id', tenantId)
+  const { data: fcRows } = await fcQuery
 
   let chargen: Array<{ id: string; anteil: number | null }> = ((fcRows ?? []) as R[])
     .filter(r => r.weinausbau_id)
@@ -250,8 +258,10 @@ export async function resolveBlendKompositionFuellung(supabase: SB, fuellungId: 
 
   if (chargen.length === 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: fRow } = await (supabase.from('fuellungen') as any)
-      .select('weinausbau_id').eq('id', fuellungId).maybeSingle()
+    let fQuery = (supabase.from('fuellungen') as any)
+      .select('weinausbau_id').eq('id', fuellungId)
+    if (tenantId) fQuery = fQuery.eq('tenant_id', tenantId)
+    const { data: fRow } = await fQuery.maybeSingle()
     const direktId = (fRow as R | null)?.weinausbau_id
     if (direktId) chargen = [{ id: direktId, anteil: null }]
   }
@@ -270,7 +280,7 @@ export async function resolveBlendKompositionFuellung(supabase: SB, fuellungId: 
   for (const c of chargen) {
     const gewicht = c.anteil ?? ersatzAnteil
     if (gewicht <= EPSILON) continue
-    const roh = await resolveRoh(supabase, c.id, cache, new Set())
+    const roh = await resolveRoh(supabase, c.id, cache, new Set(), tenantId)
     const rohTotal = roh.reduce((s, e) => s + e.liter, 0)
     if (rohTotal <= EPSILON) continue
     for (const e of roh) {

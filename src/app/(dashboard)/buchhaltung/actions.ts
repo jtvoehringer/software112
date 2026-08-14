@@ -191,6 +191,7 @@ export async function syncEaEinnahmeFuerVerkauf(
     await (supabase.from('ea_transaktionen') as any)
       .delete()
       .in('id', bestehende.map((b: R) => b.id))
+      .eq('tenant_id', tenantId)
   }
 
   if (posten.storniert) {

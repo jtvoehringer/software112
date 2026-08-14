@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -14,9 +15,15 @@ type R = Record<string, any>
 export default async function BehaelterEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  const tenantId    = membership?.tenantId ?? null
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rows } = await (supabase.from('behaelter') as any)
+  let rowsQuery = (supabase.from('behaelter') as any)
     .select('id, name, typ, volumen_liter, standort, aktiv').eq('id', id).limit(1)
+  if (tenantId) rowsQuery = rowsQuery.eq('tenant_id', tenantId)
+  const { data: rows } = await rowsQuery
   type BehaelterRow = { id: string; name: string; typ: string | null; volumen_liter: number | null; standort: string | null; aktiv: boolean }
   const behaelter = (((rows ?? []) as R[])[0] ?? null) as BehaelterRow | null
   if (!behaelter) notFound()

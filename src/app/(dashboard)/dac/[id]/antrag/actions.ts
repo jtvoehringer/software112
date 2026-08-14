@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -10,9 +11,8 @@ export async function savePNA(dacAntragId: string, daten: R): Promise<{ id: stri
   const supabase = await createSupabaseServerClient()
   const admin    = createSupabaseAdminClient()
 
-  const { data: mb } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id').limit(1).single()
-  const tenantId = (mb as R | null)?.tenant_id
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId
   if (!tenantId) throw new Error('Kein Tenant')
 
   const { data: existing } = await (supabase.from('pruefnummernantraege') as any)
@@ -25,6 +25,7 @@ export async function savePNA(dacAntragId: string, daten: R): Promise<{ id: stri
     await (admin.from('pruefnummernantraege') as any)
       .update({ formular_daten: daten, aktualisiert_am: new Date().toISOString() })
       .eq('id', existing.id)
+      .eq('tenant_id', tenantId)
     return { id: existing.id }
   }
 

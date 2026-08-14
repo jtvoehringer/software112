@@ -48,11 +48,17 @@ export interface Weinbuch {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function buildWeinbuch(supabase: any, id: string): Promise<Weinbuch | null> {
+export async function buildWeinbuch(supabase: any, id: string, tenantId: string | null): Promise<Weinbuch | null> {
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb – ohne diesen Filter könnten bei
+  // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
+
   // ── 1. Weinausbau-Charge laden ────────────────────────────────────────────
-  const { data: waRaw, error: waErr } = await (supabase.from('weinausbau') as any)
+  const { data: waRaw, error: waErr } = await tf((supabase.from('weinausbau') as any)
     .select('id, name, jahrgang, rebsorte, qualitaetsstufe, status, menge_liter, behaelter_id, behaelter:behaelter_id(name)')
-    .eq('id', id)
+    .eq('id', id))
     .maybeSingle()
 
   if (waErr || !waRaw) return null
@@ -95,31 +101,31 @@ export async function buildWeinbuch(supabase: any, id: string): Promise<Weinbuch
       `)
       .eq('weinausbau_id', id),
 
-    (supabase.from('keller_umzuege') as any)
+    tf((supabase.from('keller_umzuege') as any)
       .select(`
         datum, menge_liter, brutto_liter, schwund_liter, zeilen_typ, umzug_batch_id, umzug_typ, notizen,
         von_behaelter:von_behaelter_id(name),
         nach_behaelter:nach_behaelter_id(name)
       `)
       .eq('von_weinausbau_id', id)
-      .order('datum', { ascending: true }),
+      .order('datum', { ascending: true })),
 
-    (supabase.from('keller_behandlungen') as any)
+    tf((supabase.from('keller_behandlungen') as any)
       .select('datum, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, typ:typ_id(name)')
       .eq('weinausbau_id', id)
-      .order('datum', { ascending: true }),
+      .order('datum', { ascending: true })),
 
-    (supabase.from('weinanalysen') as any)
+    tf((supabase.from('weinanalysen') as any)
       .select('analyse_datum, labor, probe_nr, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl, bewertung, notizen')
       .eq('weinausbau_id', id)
-      .order('analyse_datum', { ascending: true }),
+      .order('analyse_datum', { ascending: true })),
 
-    (supabase.from('dac_antrag') as any)
+    tf((supabase.from('dac_antrag') as any)
       .select('id, bezeichnung, dac_region, status, pruefnummer, eingereicht_am, bescheid_am, created_at')
       .eq('weinausbau_id', id)
-      .order('created_at', { ascending: true }),
+      .order('created_at', { ascending: true })),
 
-    (supabase.from('fuellung_chargen') as any)
+    tf((supabase.from('fuellung_chargen') as any)
       .select(`
         anteil_liter,
         fuellung:fuellung_id(
@@ -127,22 +133,22 @@ export async function buildWeinbuch(supabase: any, id: string): Promise<Weinbuch
           anzahl_flaschen, flaschengroesse_ml, menge_liter_gefuellt
         )
       `)
-      .eq('weinausbau_id', id),
+      .eq('weinausbau_id', id)),
 
-    (supabase.from('fuellungen') as any)
+    tf((supabase.from('fuellungen') as any)
       .select('id, datum, chargennummer, pruefnummer, name, anzahl_flaschen, flaschengroesse_ml, menge_liter_gefuellt')
-      .eq('weinausbau_id', id),
+      .eq('weinausbau_id', id)),
 
-    (supabase.from('weinausbau_weingaerten') as any)
+    tf((supabase.from('weinausbau_weingaerten') as any)
       .select('weingarten_id, weingarten:weingarten_id(id, name)')
-      .eq('weinausbau_id', id),
+      .eq('weinausbau_id', id)),
 
-    (supabase.from('verschneidungen') as any)
+    tf((supabase.from('verschneidungen') as any)
       .select(`datum, notizen,
         quellen:verschneidung_quellen(menge_liter, anteil_pct,
           quelle:quell_weinausbau_id(id, name, rebsorte))`)
       .eq('ziel_weinausbau_id', id)
-      .order('datum', { ascending: true }),
+      .order('datum', { ascending: true })),
 
     (supabase.from('verschneidung_quellen') as any)
       .select(`menge_liter, anteil_pct,
@@ -156,10 +162,10 @@ export async function buildWeinbuch(supabase: any, id: string): Promise<Weinbuch
   let kellerBeh     = (kbRes.data ?? []) as R[]
   // Fallback: alte Einträge ohne weinausbau_id → über behaelter_id suchen
   if (kellerBeh.length === 0 && wa.behaelter_id) {
-    const { data: kbFallbackRaw } = await (supabase.from('keller_behandlungen') as any)
+    const { data: kbFallbackRaw } = await tf((supabase.from('keller_behandlungen') as any)
       .select('datum, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, typ:typ_id(name)')
       .eq('behaelter_id', wa.behaelter_id)
-      .order('datum', { ascending: true })
+      .order('datum', { ascending: true }))
     kellerBeh = (kbFallbackRaw ?? []) as R[]
   }
   const analysen      = (anRes.data ?? []) as R[]
@@ -180,10 +186,10 @@ export async function buildWeinbuch(supabase: any, id: string): Promise<Weinbuch
   )] as string[]
   const zielByBatch: Record<string, R> = {}
   if (batchIds.length > 0) {
-    const { data: zielRows } = await (supabase.from('keller_umzuege') as any)
+    const { data: zielRows } = await tf((supabase.from('keller_umzuege') as any)
       .select('umzug_batch_id, nach_behaelter:nach_behaelter_id(name)')
       .in('umzug_batch_id', batchIds)
-      .eq('zeilen_typ', 'ziel')
+      .eq('zeilen_typ', 'ziel'))
     for (const z of ((zielRows ?? []) as R[])) {
       if (!zielByBatch[z.umzug_batch_id]) zielByBatch[z.umzug_batch_id] = z
     }
@@ -210,9 +216,9 @@ export async function buildWeinbuch(supabase: any, id: string): Promise<Weinbuch
 
   const ernteDaten: Array<{ datum: string; details: string[] }> = []
   if (weingartenIds.size > 0) {
-    const { data: jgRow } = await (supabase.from('weinjahrgaenge') as any)
+    const { data: jgRow } = await tf((supabase.from('weinjahrgaenge') as any)
       .select('id')
-      .eq('jahrgang', wa.jahrgang)
+      .eq('jahrgang', wa.jahrgang))
       .maybeSingle()
     const jahrgangId = (jgRow as R | null)?.id
 
@@ -272,19 +278,20 @@ export async function buildWeinbuch(supabase: any, id: string): Promise<Weinbuch
   // Feldbehandlungen: via RPC (umgeht RLS-Subquery-Problem bei behandlung_grundstuecke)
   let feldbehandlungen: R[] = []
   if (weingartenIds.size > 0) {
-    const { data: gstRaw } = await (supabase.from('grundstuecke') as any)
-      .select('id').in('weingarten_id', Array.from(weingartenIds))
+    const { data: gstRaw } = await tf((supabase.from('grundstuecke') as any)
+      .select('id').in('weingarten_id', Array.from(weingartenIds)))
     const grundstueckIds = ((gstRaw ?? []) as R[]).map((g: R) => g.id as string)
 
     if (grundstueckIds.length > 0) {
-      const { data: tenantRow } = await (supabase.from('weinausbau') as any)
-        .select('tenant_id').eq('id', id).maybeSingle()
-      const tenantId = (tenantRow as R | null)?.tenant_id as string | null
+      const { data: tenantRow } = await tf((supabase.from('weinausbau') as any)
+        .select('tenant_id').eq('id', id))
+        .maybeSingle()
+      const rpcTenantId = (tenantRow as R | null)?.tenant_id as string | null
 
-      if (tenantId) {
+      if (rpcTenantId) {
         const { data: rpcRaw } = await (supabase.rpc as any)(
           'get_behandlungen_fuer_grundstuecke',
-          { p_grundstueck_ids: grundstueckIds, p_tenant_id: tenantId }
+          { p_grundstueck_ids: grundstueckIds, p_tenant_id: rpcTenantId }
         )
         feldbehandlungen = ((rpcRaw ?? []) as R[]).map((r: R) => ({
           id: r.behandlung_id,
@@ -303,10 +310,10 @@ export async function buildWeinbuch(supabase: any, id: string): Promise<Weinbuch
     }
 
     if (feldbehandlungen.length === 0) {
-      const { data: fbDirektRaw } = await (supabase.from('behandlungen') as any)
+      const { data: fbDirektRaw } = await tf((supabase.from('behandlungen') as any)
         .select('id, datum, art, aufwandmenge, aufwandmenge_einheit, bbch_stadium, schaderreger, notizen, psm:psm_id(name), weingarten:weingarten_id(name)')
         .in('weingarten_id', Array.from(weingartenIds))
-        .order('datum', { ascending: true })
+        .order('datum', { ascending: true }))
       feldbehandlungen = ((fbDirektRaw ?? []) as R[]).map((r: R) => ({
         ...r,
         psm_name: (r.psm as R | null)?.name ?? null,

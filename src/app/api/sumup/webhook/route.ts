@@ -74,16 +74,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true })
   }
 
-  // Checkout-ID auflösen (SumUp sendet checkout_reference)
+  // Checkout-ID (+ dessen EIGENE tenant_id) auflösen (SumUp sendet checkout_reference).
+  // Der query-param tenant_id kommt ungeprüft aus der URL (SumUp-Server, keine Session) –
+  // für das spätere Update verwenden wir daher NICHT diesen Wert, sondern die tenant_id,
+  // die tatsächlich am gefundenen sumup_checkouts-Datensatz hinterlegt ist.
   let checkoutId: string | null = null
+  let checkoutTenantId: string | null = null
   const checkoutRef = tx.checkout_reference ?? tx.checkout_id ?? null
   if (checkoutRef) {
     const { data: checkout } = await (supabaseAdmin.from('sumup_checkouts') as any)
-      .select('id')
+      .select('id, tenant_id')
       .eq('sumup_checkout_id', checkoutRef)
       .eq('tenant_id', tenantId)
       .maybeSingle()
     checkoutId = checkout?.id ?? null
+    checkoutTenantId = checkout?.tenant_id ?? null
   }
 
   // Transaktion eintragen (service_role umgeht RLS)
@@ -109,7 +114,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Checkout-Status aktualisieren
-  if (checkoutId) {
+  if (checkoutId && checkoutTenantId) {
     const isSuccess = (tx.status ?? '').toUpperCase() === 'SUCCESSFUL' || eventType.includes('success')
     await (supabaseAdmin.from('sumup_checkouts') as any)
       .update({
@@ -117,6 +122,7 @@ export async function POST(req: NextRequest) {
         aktualisiert_am: new Date().toISOString(),
       })
       .eq('id', checkoutId)
+      .eq('tenant_id', checkoutTenantId)
   }
 
   return NextResponse.json({ received: true })

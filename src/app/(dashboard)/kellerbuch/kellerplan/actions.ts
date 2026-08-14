@@ -1,16 +1,19 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
+// Liefert den aktiven Tenant des Nutzers über getCurrentMembership() statt einer
+// ungefilterten tenant_memberships-Abfrage – letztere würde bei Mehrfach-Mitgliedschaft
+// irgendeine (nicht zwingend die aktive) Mitgliedschaft zurückliefern.
 async function getTenantId(): Promise<string> {
-  const supabase = await createSupabaseServerClient()
-  const { data } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
-  const id = (data as AR | null)?.tenant_id
+  const membership = await getCurrentMembership()
+  const id = membership?.tenantId
   if (!id) throw new Error('Kein Betrieb gefunden')
   return id
 }
@@ -38,13 +41,14 @@ export async function createKellerplan(formData: FormData) {
 
 export async function updateKellerplan(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
+  const tenantId  = await getTenantId()
   const { error } = await (supabase.from('kellerplaene') as any).update({
     name:     formData.get('name') as string,
     breite_m: parseFloat(formData.get('breite_m') as string) || 20,
     laenge_m: parseFloat(formData.get('laenge_m') as string) || 10,
     notizen:  (formData.get('notizen') as string) || null,
     aktualisiert_am: new Date().toISOString(),
-  }).eq('id', id)
+  }).eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/kellerbuch/kellerplan')
   revalidatePath(`/kellerbuch/kellerplan/${id}`)
@@ -64,7 +68,7 @@ export async function upsertKellerplanPosition(
   // bereits auf einem anderen Plan platziert ist, wird es hierher verschoben
   // (onConflict auf behaelter_id allein statt der Kombination mit kellerplan_id).
   const { data: existing } = await (supabase.from('kellerplan_positionen') as any)
-    .select('kellerplan_id').eq('behaelter_id', behaelterId).maybeSingle()
+    .select('kellerplan_id').eq('behaelter_id', behaelterId).eq('tenant_id', tenantId).maybeSingle()
   const alterPlanId = (existing as AR | null)?.kellerplan_id ?? null
 
   const { error } = await (supabase.from('kellerplan_positionen') as any)
@@ -87,10 +91,12 @@ export async function upsertKellerplanPosition(
 
 export async function deleteKellerplanPosition(kellerplanId: string, behaelterId: string) {
   const supabase = await createSupabaseServerClient()
+  const tenantId  = await getTenantId()
   const { error } = await (supabase.from('kellerplan_positionen') as any)
     .delete()
     .eq('kellerplan_id', kellerplanId)
     .eq('behaelter_id', behaelterId)
+    .eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
   revalidatePath(`/kellerbuch/kellerplan/${kellerplanId}`)
 }
@@ -99,7 +105,8 @@ export async function deleteKellerplanPosition(kellerplanId: string, behaelterId
 
 export async function deleteKellerplan(id: string) {
   const supabase = await createSupabaseServerClient()
-  const { error } = await (supabase.from('kellerplaene') as any).delete().eq('id', id)
+  const tenantId  = await getTenantId()
+  const { error } = await (supabase.from('kellerplaene') as any).delete().eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/kellerbuch/kellerplan')
   redirect('/kellerbuch/kellerplan')

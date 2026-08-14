@@ -482,9 +482,9 @@ export default async function RueckverfolgungPage({
 
   if (fuellung) {
     // 1. fuellung_chargen abfragen
-    const { data: fcRows } = await (supabase.from('fuellung_chargen') as any)
+    const { data: fcRows } = await tf((supabase.from('fuellung_chargen') as any)
       .select('weinausbau_id, anteil_liter')
-      .eq('fuellung_id', fuellung.id)
+      .eq('fuellung_id', fuellung.id))
 
     const junctionRows = (fcRows ?? []) as R[]
 
@@ -521,7 +521,7 @@ export default async function RueckverfolgungPage({
   // ── Blend-Protokoll: vollständige Herkunfts-Zusammensetzung (rekursiv über alle
   // Verschneidungs-Generationen) ────────────────────────────────────────────────
   const blendKomposition: KompositionUrsprung[] = fuellung
-    ? await resolveBlendKompositionFuellung(supabase, fuellung.id)
+    ? await resolveBlendKompositionFuellung(supabase, fuellung.id, tenantId)
     : []
 
   const filterAktiv = !!(jahrgang || sorte || bezeichnung)

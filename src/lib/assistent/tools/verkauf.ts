@@ -13,6 +13,7 @@
 // (bestaetigt_vom_user), analog zu massnahme_dokumentieren.
 import { createVerkauf } from '@/app/(dashboard)/weinhandel/verkauf/actions'
 import { FLASCHEN_LABEL } from '@/lib/assistent/kontext'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -117,6 +118,12 @@ export async function fuehreVerkaufAnlegenAus(
     return { erfolg: false, hinweis: 'Keine Position angegeben. Mindestens eine Position (Flasche oder Fass/Tank) ist erforderlich.' }
   }
 
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  if (!tenantId) {
+    return { erfolg: false, fehler: 'Kein Betrieb gefunden – Verkauf konnte nicht gespeichert werden.' }
+  }
+
   const posForServer: R[] = []
   for (const p of positionenIn) {
     if (!(Number(p.menge) > 0)) {
@@ -133,7 +140,7 @@ export async function fuehreVerkaufAnlegenAus(
       }
       const { data: f } = await (supabase.from('fuellungen') as any)
         .select('id, name, jahrgang, flaschengroesse_ml, vk_preis_brutto')
-        .eq('id', p.fuellung_id).eq('aktiv', true).maybeSingle()
+        .eq('id', p.fuellung_id).eq('tenant_id', tenantId).eq('aktiv', true).maybeSingle()
       if (!f) {
         return { erfolg: false, hinweis: `Füllung mit ID ${p.fuellung_id} nicht gefunden. Beim User nachfragen bzw. Stammdaten-Kontext erneut prüfen.` }
       }
@@ -164,7 +171,7 @@ export async function fuehreVerkaufAnlegenAus(
       }
       const { data: w } = await (supabase.from('weinausbau') as any)
         .select('id, name')
-        .eq('id', p.weinausbau_id).eq('aktiv', true).maybeSingle()
+        .eq('id', p.weinausbau_id).eq('tenant_id', tenantId).eq('aktiv', true).maybeSingle()
       if (!w) {
         return { erfolg: false, hinweis: `Weinausbau-Charge mit ID ${p.weinausbau_id} nicht gefunden. Beim User nachfragen bzw. Stammdaten-Kontext erneut prüfen.` }
       }

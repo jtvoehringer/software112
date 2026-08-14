@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { graphPost, getValidAccessToken } from '@/lib/m365/graph'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -36,14 +37,21 @@ export async function POST(req: NextRequest) {
       if (!user) return NextResponse.json({ fehler: 'Unauthorized' }, { status: 401 })
     }
 
-    // Für Cron: alle aktiven M365-Tenants erneuern; für Session: nur eigenen Tenant
-    const { data: membership } = await (supabase.from('tenant_memberships') as any)
-      .select('tenant_id').limit(1).single()
-    const tenantId = (membership as R | null)?.tenant_id
+    // Für Cron: alle aktiven M365-Tenants erneuern; für Session: nur eigenen (aktiven) Tenant.
+    // getCurrentMembership() liest den Cookie des eingeloggten Users; bei einem reinen
+    // Cron-Aufruf (kein Session-Cookie) liefert es null -> tenantId bleibt undefined und
+    // der Cron-Zweig unten (alle Tenants) greift wie zuvor.
+    const membership = await getCurrentMembership()
+    const tenantId = membership?.tenantId
     if (!tenantId && !hasCronAuth) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 
     // Wenn Cron ohne Session: alle M365-Tenants erneuern
     if (hasCronAuth && !tenantId) {
+      // Bewusst mandantenübergreifend – dieser Cron-Zweig erneuert die Graph-Webhook-
+      // Subscription für JEDEN Mandanten mit aktivem M365-Modul (nicht nur den aktiven
+      // Tenant eines Users), siehe Kommentar oben. Läuft mit dem service-role Admin-Client
+      // außerhalb jeder User-Session.
+      // tenant-isolation-ignore: bewusst mandantenübergreifender Cron-Zweig, siehe Kommentar oben
       const { data: allCfgs } = await (admin.from('tenant_einstellungen') as any)
         .select('*').eq('m365_modul_aktiv', true).not('m365_refresh_token_enc', 'is', null)
       const cfgs = (allCfgs ?? []) as R[]

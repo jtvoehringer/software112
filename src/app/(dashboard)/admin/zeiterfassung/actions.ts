@@ -46,18 +46,20 @@ export async function createZeiteintrag(formData: FormData) {
 }
 
 export async function updateZeiteintrag(id: string, formData: FormData) {
-  const { supabase } = await getTenantAdmin()
+  const { supabase, tenantId } = await getTenantAdmin()
   const { error } = await (supabase.from('zeiterfassung') as any)
     .update({ ...parseForm(formData), aktualisiert_am: new Date().toISOString() })
     .eq('id', id)
+    .eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/admin/zeiterfassung')
 }
 
 export async function deleteZeiteintrag(id: string) {
-  const { supabase } = await getTenantAdmin()
+  const { supabase, tenantId } = await getTenantAdmin()
   const { error } = await (supabase.from('zeiterfassung') as any)
     .delete().eq('id', id)
+    .eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/admin/zeiterfassung')
 }

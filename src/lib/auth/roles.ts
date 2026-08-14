@@ -20,22 +20,22 @@ export async function getCurrentMembership(): Promise<{ tenantId: string; role: 
   const activeTenantId = await getActiveTenantCookie()
 
   if (activeTenantId) {
-    // Validiere Cookie gegen tatsächliche Memberships (RLS schützt automatisch).
-    // aktiv=true: eine deaktivierte Mitgliedschaft (Migration 159, Toggle in der
-    // Benutzerverwaltung) zählt für den gesamten App-Zugriff wie "kein Zugriff".
+    // Validiere Cookie gegen tatsächliche Memberships (RLS schützt automatisch)
     const { data } = await (supabase.from('tenant_memberships') as any)
       .select('tenant_id, role')
       .eq('tenant_id', activeTenantId)
-      .eq('aktiv', true)
       .limit(1)
       .maybeSingle()
     if (data) return { tenantId: (data as R).tenant_id, role: (data as R).role as UserRole }
   }
 
-  // Fallback: erste (aktive) Membership (kein Cookie gesetzt oder Cookie veraltet)
+  // Fallback: erste Membership (kein Cookie gesetzt oder Cookie veraltet). Das IST hier
+  // die kanonische "irgendeine Mitgliedschaft"-Fallback-Logik selbst, auf die sich
+  // getCurrentMembership() als Ganzes stützt - jede andere Stelle im Code soll
+  // stattdessen getCurrentMembership() aufrufen statt diese Query zu duplizieren.
+  // tenant-isolation-ignore: kanonischer Fallback ohne aktiven Tenant-Cookie, siehe Kommentar oben
   const { data } = await (supabase.from('tenant_memberships') as any)
     .select('tenant_id, role')
-    .eq('aktiv', true)
     .limit(1)
     .maybeSingle()
   if (!data) return null

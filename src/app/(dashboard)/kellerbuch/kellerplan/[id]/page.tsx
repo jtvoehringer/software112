@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -14,7 +14,13 @@ type R = Record<string, any>
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params
   const supabase = await createSupabaseServerClient()
-  const { data } = await (supabase.from('kellerplaene') as any).select('name').eq('id', id).single()
+  const membership = await getCurrentMembership()
+  const tenantId    = membership?.tenantId ?? null
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb.
+  let query = (supabase.from('kellerplaene') as any).select('name').eq('id', id)
+  if (tenantId) query = query.eq('tenant_id', tenantId)
+  const { data } = await query.single()
   return { title: `${(data as R | null)?.name ?? 'Kellerplan'} – software:112` }
 }
 
@@ -23,6 +29,12 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
   const writeOk  = canWrite(role)
+  const membership = await getCurrentMembership()
+  const tenantId    = membership?.tenantId ?? null
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb – ohne diesen Filter könnten bei
+  // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [
     { data: planRaw },
@@ -31,33 +43,35 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
     { data: behaelterRaw },
     { data: weinRaw },
   ] = await Promise.all([
-    (supabase.from('kellerplaene') as any)
+    tf((supabase.from('kellerplaene') as any)
       .select('id, name, breite_m, laenge_m, notizen')
-      .eq('id', id)
+      .eq('id', id))
       .single(),
 
-    (supabase.from('kellerplan_positionen') as any)
+    tf((supabase.from('kellerplan_positionen') as any)
       .select('behaelter_id, pos_x_pct, pos_y_pct, breite_pct, hoehe_pct')
-      .eq('kellerplan_id', id),
+      .eq('kellerplan_id', id)),
 
     // Platzierungen auf ALLEN Kellerplänen – ein Gebinde steht nur einem
     // Standort zur Verfügung, daher dürfen anderswo platzierte Behälter hier
     // nicht als "nicht platziert" angeboten werden (sonst Mehrfachzuordnung).
-    (supabase.from('kellerplan_positionen') as any)
-      .select('behaelter_id, kellerplan_id'),
+    // Weiterhin auf den aktiven Tenant beschränkt (nicht auf einen einzelnen
+    // Kellerplan), damit keine Positionen anderer Betriebe durchsickern.
+    tf((supabase.from('kellerplan_positionen') as any)
+      .select('behaelter_id, kellerplan_id')),
 
-    (supabase.from('behaelter') as any)
+    tf((supabase.from('behaelter') as any)
       .select('id, name, typ, volumen_liter')
       .eq('aktiv', true)
-      .order('name'),
+      .order('name')),
 
     // Aktuelle Weinchargen je Behälter (für Beschriftung + Füllstand auf dem Plan
     // + Sprung zu "Abfüllen" im Gebinde-Dialog)
-    (supabase.from('weinausbau') as any)
+    tf((supabase.from('weinausbau') as any)
       .select('id, behaelter_id, name, jahrgang, rebsorte, menge_liter')
       .not('behaelter_id', 'is', null)
       .not('status', 'eq', 'abgeschlossen')
-      .eq('aktiv', true),
+      .eq('aktiv', true)),
   ])
 
   if (!planRaw) notFound()

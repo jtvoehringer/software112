@@ -44,6 +44,7 @@ export async function createJahrgang(formData: FormData): Promise<{ error?: stri
 
 export async function updateJahrgang(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('weinjahrgaenge') as any).update({
     ernte_beginn:        (formData.get('ernte_beginn') as string) || null,
@@ -51,7 +52,7 @@ export async function updateJahrgang(id: string, formData: FormData) {
     qualitaet_gesamt:    (formData.get('qualitaet_gesamt') as string) || null,
     witterungscharakter: (formData.get('witterungscharakter') as string) || null,
     notizen:             (formData.get('notizen') as string) || null,
-  }).eq('id', id)
+  }).eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
   revalidatePath('/erntemeldung')
   revalidatePath(`/erntemeldung/${id}`)
@@ -283,7 +284,7 @@ export async function createOrUpdateAMAMeldung(jahrgangId: string) {
   if (existing) {
     meldungId = (existing as AR).id
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('ama_erntemeldungen') as any).update(meldungPayload).eq('id', meldungId)
+    await (supabase.from('ama_erntemeldungen') as any).update(meldungPayload).eq('id', meldungId).eq('tenant_id', tenantId)
     // Positionen löschen und neu aufbauen
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('ama_meldepositionen') as any).delete().eq('meldung_id', meldungId)
@@ -352,7 +353,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
   if (existingId) {
     pressId = existingId
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('pressungen') as any).update({ datum, most_liter_gesamt: mostLiter, weinbezeichnung, kmw_grad: kmwGrad, notizen }).eq('id', existingId)
+    await (supabase.from('pressungen') as any).update({ datum, most_liter_gesamt: mostLiter, weinbezeichnung, kmw_grad: kmwGrad, notizen }).eq('id', existingId).eq('tenant_id', tenantId)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('pressung_weingaerten') as any).delete().eq('pressung_id', existingId)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -476,6 +477,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
           weinart:         autoWeinart !== 'unbekannt' ? autoWeinart : undefined,
         })
         .eq('id', beh.weinausbau_id)
+        .eq('tenant_id', tenantId)
     } else {
       // Neue Charge für diesen Behälter anlegen
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -517,15 +519,16 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
 
 export async function deletePressung(id: string, jahrgangId: string) {
   const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
   // Auto-erstellte Weinausbau-Chargen mitlöschen
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: behRows } = await (supabase.from('pressung_behaelter') as any)
     .select('weinausbau_id').eq('pressung_id', id)
   const waIds = ((behRows ?? []) as AR[]).map((b: AR) => b.weinausbau_id).filter(Boolean)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if (waIds.length > 0) await (supabase.from('weinausbau') as any).delete().in('id', waIds)
+  if (waIds.length > 0) await (supabase.from('weinausbau') as any).delete().in('id', waIds).eq('tenant_id', tenantId)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('pressungen') as any).delete().eq('id', id)
+  await (supabase.from('pressungen') as any).delete().eq('id', id).eq('tenant_id', tenantId)
   revalidatePath(`/erntemeldung/${jahrgangId}`)
   revalidatePath('/kellerbuch')
 }

@@ -47,6 +47,12 @@ export default async function BetriebWaehlenPage() {
 
   // Anzeigenamen aus tenant_einstellungen laden
   const tenantIds = (memberships as R[]).map(m => m.tenant_id)
+  // Bewusst mandantenübergreifend - .in('tenant_id', tenantIds) ist bereits auf die eigenen,
+  // oben per .eq('user_id', user.id).eq('aktiv', true) geprüften Mitgliedschaften
+  // eingeschränkt. Diese Seite existiert genau dafür, ALLE eigenen Betriebe zur Auswahl
+  // anzuzeigen (bevor überhaupt ein "aktiver" Tenant gewählt wurde) - ein Filter auf einen
+  // einzelnen tenant_id würde den Zweck der Seite zerstören.
+  // tenant-isolation-ignore: mandantenübergreifende Auswahlseite, siehe Kommentar oben
   const { data: einstellungen } = await (supabase.from('tenant_einstellungen') as any)
     .select('tenant_id, anzeigename, logo_url, primary_color')
     .in('tenant_id', tenantIds)

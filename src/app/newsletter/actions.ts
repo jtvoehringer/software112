@@ -56,6 +56,7 @@ export async function newsletterAnmelden(formData: FormData): Promise<AnmeldeRes
     const { error } = await (supabase.from('kontakte') as any)
       .update({ newsletter: true, newsletter_token: token, newsletter_opt_in_am: now, aktualisiert_am: now })
       .eq('id', (existing as AR).id)
+      .eq('tenant_id', tenantId)
     if (error) return { ok: false, error: 'Anmeldung derzeit nicht möglich. Bitte später erneut versuchen.' }
   } else {
     const { error } = await (supabase.from('kontakte') as any).insert({
@@ -131,6 +132,7 @@ export async function newsletterBestaetigen(token: string): Promise<Bestaetigung
   const { data } = await (supabase.from('kontakte') as any)
     .select('id, email, vorname, nachname, segment, newsletter_opt_in_am, newsletter_bestaetigt')
     .eq('newsletter_token', token)
+    .eq('tenant_id', tenantId)
     .maybeSingle()
 
   const kontakt = data as AR | null
@@ -152,6 +154,7 @@ export async function newsletterBestaetigen(token: string): Promise<Bestaetigung
   const { error: updErr } = await (supabase.from('kontakte') as any)
     .update({ newsletter_bestaetigt: true, newsletter_token: null, aktualisiert_am: now })
     .eq('id', kontakt.id)
+    .eq('tenant_id', tenantId)
   if (updErr) return { ok: false, error: 'Bestätigung derzeit nicht möglich. Bitte später erneut versuchen.' }
 
   // Consent-Log

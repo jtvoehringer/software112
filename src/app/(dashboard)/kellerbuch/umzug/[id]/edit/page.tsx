@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -20,10 +20,17 @@ export default async function UmzugEditPage({ params }: { params: Promise<{ id: 
 
   const supabase = await createSupabaseServerClient()
 
+  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
+  // des Nutzers, nicht nur dem aktiv gewählten Betrieb – ohne diesen Filter könnten bei
+  // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt/bearbeitet werden.
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
+
   // Datensatz laden (um batch_id zu ermitteln)
-  const { data: rowRaw } = await (supabase.from('keller_umzuege') as any)
+  const { data: rowRaw } = await tf((supabase.from('keller_umzuege') as any)
     .select('id, umzug_batch_id, datum, notizen, zeilen_typ, von_weinausbau_id, von_behaelter_id, nach_behaelter_id, menge_liter, brutto_liter, schwund_liter')
-    .eq('id', id).single()
+    .eq('id', id)).single()
   const umzug = rowRaw as R | null
   if (!umzug) notFound()
 
@@ -32,9 +39,9 @@ export default async function UmzugEditPage({ params }: { params: Promise<{ id: 
   // Alle Batch-Zeilen laden
   let batchRecs: R[] = []
   if (batchId) {
-    const { data: batchData } = await (supabase.from('keller_umzuege') as any)
+    const { data: batchData } = await tf((supabase.from('keller_umzuege') as any)
       .select('id, zeilen_typ, von_weinausbau_id, von_behaelter_id, nach_behaelter_id, menge_liter, brutto_liter, schwund_liter, datum, notizen')
-      .eq('umzug_batch_id', batchId)
+      .eq('umzug_batch_id', batchId))
     batchRecs = (batchData ?? []) as R[]
   } else {
     batchRecs = [umzug]
@@ -42,11 +49,11 @@ export default async function UmzugEditPage({ params }: { params: Promise<{ id: 
 
   // Gebinde + Chargen laden
   const [{ data: gebindeRaw }, { data: chargenRaw }] = await Promise.all([
-    (supabase.from('behaelter') as any)
-      .select('id, name, aktiv').eq('aktiv', true).order('name'),
-    (supabase.from('weinausbau') as any)
+    tf((supabase.from('behaelter') as any)
+      .select('id, name, aktiv').eq('aktiv', true).order('name')),
+    tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, menge_liter, behaelter_id, aktiv, behaelter:behaelter_id(name)')
-      .eq('aktiv', true).order('name'),
+      .eq('aktiv', true).order('name')),
   ])
 
   const gebinde = (gebindeRaw ?? []) as R[]

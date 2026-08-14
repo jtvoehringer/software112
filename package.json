@@ -4,10 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "prebuild": "node scripts/check-tenant-isolation.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "check-tenant-isolation": "node scripts/check-tenant-isolation.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.36.0",

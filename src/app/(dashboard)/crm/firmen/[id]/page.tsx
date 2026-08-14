@@ -62,9 +62,9 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
       .eq('firma_id', id)
       .order('aktualisiert_am', { ascending: false })),
 
-    (supabase.from('rabattgruppen') as any)
+    tf((supabase.from('rabattgruppen') as any)
       .select('id, name, rabatt_pct')
-      .order('rabatt_pct'),
+      .order('rabatt_pct')),
 
     // Echte Verkaufsdaten (statt des fehleranfälligen aktivitaeten-Spiegels, siehe unten)
     tf((supabase.from('verkaufsposten') as any)

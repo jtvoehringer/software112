@@ -75,20 +75,20 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       .eq('weinausbau_id', id)
       .order('datum', { ascending: true })),
     // Tank-Verkäufe
-    (supabase.from('verkauf_positionen') as any)
+    tf((supabase.from('verkauf_positionen') as any)
       .select('id, menge, einheit, verkaufsposten:verkaufsposten_id(datum, storniert)')
       .eq('weinausbau_id', id)
       .eq('typ', 'tank')
-      .order('id', { ascending: true }),
+      .order('id', { ascending: true })),
     // Pressungen / Ernte
     (supabase.from('pressung_behaelter') as any)
       .select('id, menge_liter, notizen, pressung:pressung_id(datum, notizen, kmw_grad)')
       .eq('weinausbau_id', id)
       .order('id', { ascending: true }),
     // Verknüpfte Rieden / Weingärten
-    (supabase.from('weinausbau_weingaerten') as any)
+    tf((supabase.from('weinausbau_weingaerten') as any)
       .select('weingarten_id')
-      .eq('weinausbau_id', id),
+      .eq('weinausbau_id', id)),
 
     // Alle anderen aktiven Chargen (für Verschneidungs- und Umziehen-Formular)
     tf((supabase.from('weinausbau') as any)
@@ -98,10 +98,10 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       .order('name')),
 
     // Verschneidungen: diese Charge als Ziel
-    (supabase.from('verschneidungen') as any)
+    tf((supabase.from('verschneidungen') as any)
       .select('id, datum, notizen, quellen:verschneidung_quellen(menge_liter, anteil_pct, quelle:quell_weinausbau_id(id, name, rebsorte))')
       .eq('ziel_weinausbau_id', id)
-      .order('datum', { ascending: false }),
+      .order('datum', { ascending: false })),
 
     // Zukauf-Eingang (Wein/Most direkt in diese Charge gekauft) – fehlte bisher komplett in
     // diesem Bewegungsbuch (siehe zukauf_ein-CTE in v_behaelter_fuellstand, Migration 127, die

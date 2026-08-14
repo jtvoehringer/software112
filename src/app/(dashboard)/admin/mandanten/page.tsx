@@ -66,6 +66,11 @@ export default async function MandantenPage() {
   // tenant_einstellungen existiert erst nach Migration 021 → graceful fallback
   let einstellungen: R[] = []
   try {
+    // Bewusst mandantenübergreifend - .in('tenant_id', eigeneTenantIds) ist bereits auf die
+    // eigenen, oben per .eq('user_id', user.id).eq('aktiv', true) geprüften Mitgliedschaften
+    // eingeschränkt. Diese Übersichtsseite zeigt absichtlich ALLE vom Nutzer verwalteten
+    // Betriebe gleichzeitig (nicht nur den aktiven) - genau ihr Zweck.
+    // tenant-isolation-ignore: mandantenübergreifende Verwaltungsübersicht, siehe Kommentar oben
     const { data } = await (supabase.from('tenant_einstellungen') as any)
       .select('tenant_id, anzeigename, logo_url, primary_color, secondary_color, modul_newsletter')
       .in('tenant_id', eigeneTenantIds)

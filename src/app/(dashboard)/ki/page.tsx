@@ -1,5 +1,5 @@
-import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import KiClient from './KiClient'
 export const metadata: Metadata = { title: 'Frag dein Weingut – software:112' }
@@ -8,10 +8,9 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 export default async function KiPage() {
-  const supabase = await createSupabaseServerClient()
   const admin    = createSupabaseAdminClient()
-  const { data: membership } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
-  const tenantId = (membership as R | null)?.tenant_id
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
 
   const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
     .select('ki_abfragen_aktiv, ki_abfragen_paket, ki_abfragen_zaehler')

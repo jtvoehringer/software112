@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import DacForm from '@/components/dac/DacForm'
@@ -17,13 +18,16 @@ export default async function NeuePage({
 }) {
   const { charge: preCharge } = await searchParams
   const supabase = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
 
   const [{ data: raw }, { data: anRaw }] = await Promise.all([
-    (supabase.from('weinausbau') as any).select('id, name').eq('aktiv', true).order('name'),
+    (supabase.from('weinausbau') as any).select('id, name').eq('aktiv', true).eq('tenant_id', tenantId).order('name'),
     preCharge
       ? (supabase.from('weinanalysen') as any)
           .select('analyse_datum, labor, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl')
           .eq('weinausbau_id', preCharge)
+          .eq('tenant_id', tenantId)
           .order('analyse_datum', { ascending: false })
       : Promise.resolve({ data: [] }),
   ])

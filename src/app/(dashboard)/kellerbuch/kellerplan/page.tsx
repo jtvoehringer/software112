@@ -34,8 +34,10 @@ export default async function KellerplanListPage() {
 
   const plaene = (raw ?? []) as R[]
 
-  const { data: posRaw } = await (supabase.from('kellerplan_positionen') as any)
+  let posQuery = (supabase.from('kellerplan_positionen') as any)
     .select('kellerplan_id')
+  if (tenantId) posQuery = posQuery.eq('tenant_id', tenantId)
+  const { data: posRaw } = await posQuery
   const posCounts: Record<string, number> = {}
   for (const p of (posRaw ?? []) as R[]) {
     posCounts[p.kellerplan_id] = (posCounts[p.kellerplan_id] ?? 0) + 1

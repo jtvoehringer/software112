@@ -57,8 +57,14 @@ export async function DELETE(
   // Storage löschen
   await supabase.storage.from('aktivitaet-dokumente').remove([(dok as R).storage_pfad])
 
-  // DB-Eintrag löschen
-  const { error } = await (supabase.from('aktivitaet_dokumente') as any).delete().eq('id', dok_id)
+  // DB-Eintrag löschen - explizit zusätzlich auf tenant_id gefiltert (die vorausgehende
+  // Ownership-Prüfung oben stellt zwar sicher, dass das Dokument zum aktiven Mandanten
+  // gehört, aber ohne .eq('tenant_id', ...) HIER würde ein Race zwischen Prüfung und
+  // DELETE - so unwahrscheinlich er ist - theoretisch die Mandantengrenze umgehen können;
+  // zudem macht das den DELETE-Aufruf für sich genommen konsistent mit allen anderen
+  // mandantenbezogenen Schreibzugriffen in dieser App (siehe check-tenant-isolation.js).
+  const { error } = await (supabase.from('aktivitaet_dokumente') as any)
+    .delete().eq('id', dok_id).eq('tenant_id', tenantId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ ok: true })

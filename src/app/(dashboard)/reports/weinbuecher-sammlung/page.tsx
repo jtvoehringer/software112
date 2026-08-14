@@ -53,7 +53,7 @@ export default async function WeinbuecherSammlungPage({
   // Datenbankverbindung unnötig belasten.
   const weinbuecher: Weinbuch[] = []
   for (const c of chargen) {
-    const wb = await buildWeinbuch(supabase, c.id)
+    const wb = await buildWeinbuch(supabase, c.id, tenantId)
     if (wb) weinbuecher.push(wb)
   }
 

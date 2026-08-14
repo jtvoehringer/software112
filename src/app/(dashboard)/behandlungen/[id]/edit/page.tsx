@@ -55,12 +55,14 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     (supabase.from('pflanzenschutzmittel') as any)
       .select('id, name, handelsname, oeko_zugelassen, cu_gehalt_pct, wartezeit_tage')
       .eq('aktiv', true)
+      .or(`tenant_id.eq.${tenantId},tenant_id.is.null`)
       .order('name'),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('duengemittel') as any)
       .select('id, name, handelsname, typ, wartezeit_tage, oeko_zugelassen')
       .eq('aktiv', true)
+      .or(`tenant_id.eq.${tenantId},tenant_id.is.null`)
       .order('name'),
 
     // Kostenarten (für die Kosten-Sektion im Bearbeiten-Formular, Punkte 6, 9)
@@ -68,6 +70,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     (supabase.from('kostenarten') as any)
       .select('id, name, kategorie')
       .eq('aktiv', true)
+      .eq('tenant_id', tenantId)
       .order('name'),
 
     // Bestehender Kosteneintrag dieser Maßnahme, falls vorhanden (Migration 139)

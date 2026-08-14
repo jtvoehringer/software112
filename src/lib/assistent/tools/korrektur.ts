@@ -15,6 +15,8 @@
 // Tabelle ausschließlich vom Bot selbst befüllt wird (keine bestehende
 // UI/Formular-Schreiblogik, die wiederverwendet werden könnte).
 
+import { getCurrentMembership } from '@/lib/auth/roles'
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
@@ -79,12 +81,8 @@ export async function fuehreKorrekturMerkenAus(
     return { erfolg: false, hinweis: 'Begriff und Interpretation sind Pflichtfelder – bitte beim User nachfragen.' }
   }
 
-  // tenant_memberships ist RLS-gescoped auf den eingeloggten User – wie bereits in
-  // kellerbehandlung.ts an anderer Stelle im Projekt üblich, daher ohne explizite
-  // user_id-Filterung.
-  const { data: membership } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id').limit(1).maybeSingle()
-  const tenantId = (membership as R | null)?.tenant_id
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
   if (!tenantId) {
     return { erfolg: false, fehler: 'Kein Betrieb gefunden – Korrektur konnte nicht gespeichert werden.' }
   }
@@ -99,7 +97,7 @@ export async function fuehreKorrekturMerkenAus(
   if ((bestehend as R | null)?.id) {
     const { error: updateErr } = await (supabase.from('assistent_korrekturen') as any)
       .update({ interpretation, kategorie, erstellt_von: userId })
-      .eq('id', (bestehend as R).id)
+      .eq('id', (bestehend as R).id).eq('tenant_id', tenantId)
     if (updateErr) return { erfolg: false, fehler: (updateErr as R).message }
     return { erfolg: true, korrektur_id: (bestehend as R).id, aktualisiert: true }
   }

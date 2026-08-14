@@ -84,11 +84,9 @@ export async function ladeAssistentKontext(
     (supabase.from('tenant_memberships') as any)
       .select('user_id, role, profiles:user_id(full_name)')
       .eq('tenant_id', tenantId),
-    // fuellungen/weinausbau sind (wie im Verkaufsformular) rein RLS-mandantengescoped,
-    // keine explizite tenant_id-Spalte-Filterung – siehe weinhandel/page.tsx als Vorbild.
     (supabase.from('fuellungen') as any)
       .select('id, name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto')
-      .eq('aktiv', true).gt('bestand_flaschen', 0)
+      .eq('tenant_id', tenantId).eq('aktiv', true).gt('bestand_flaschen', 0)
       .order('name').limit(300),
     // WICHTIG (Bugfix 5.8.2026): vorher .in('status', ['ausbau', 'abfuellung']) - das hat
     // Chargen im Status "Gärung" (und "Ernte") komplett unsichtbar für den Bot gemacht, obwohl
@@ -101,7 +99,7 @@ export async function ladeAssistentKontext(
     // ausschließen - alle anderen aktiven Status sind für den Bot sichtbar.
     (supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, menge_liter')
-      .eq('aktiv', true).neq('status', 'abgeschlossen').gt('menge_liter', 0)
+      .eq('tenant_id', tenantId).eq('aktiv', true).neq('status', 'abgeschlossen').gt('menge_liter', 0)
       .order('jahrgang', { ascending: false }).limit(300),
     (supabase.from('tenant_einstellungen') as any)
       .select('ust_satz_standard')
@@ -114,10 +112,9 @@ export async function ladeAssistentKontext(
       .select('id, name, typ, volumen_liter')
       .eq('tenant_id', tenantId).eq('aktiv', true)
       .order('name').limit(300),
-    // keller_behandlungstypen ist wie fuellungen/weinausbau rein RLS-mandantengescoped
-    // (siehe bestehende Kellerbehandlungen-Seite, dort ebenfalls ohne tenant_id-Filter).
     (supabase.from('keller_behandlungstypen') as any)
       .select('id, name, einheit_standard')
+      .eq('tenant_id', tenantId)
       .order('sort_order').order('name').limit(200),
     // Korrekturgedächtnis (Phase 5) – pro Mandant gelernte Begriffs-Zuordnungen, siehe
     // Migration 148 (assistent_korrekturen). Limit als Sicherheitsgrenze gegen unbegrenzt

@@ -27,6 +27,7 @@ export async function saveTB(verkaufspostenId: string, daten: R): Promise<{ id: 
     await (admin.from('transportbescheinigungen') as any)
       .update({ formular_daten: daten, aktualisiert_am: new Date().toISOString() })
       .eq('id', existing.id)
+      .eq('tenant_id', tenantId)
     return { id: existing.id }
   }
 

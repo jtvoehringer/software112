@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -16,9 +17,11 @@ export default async function WeinbuchPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const supabase = await createSupabaseServerClient()
+  const supabase   = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  const tenantId   = membership?.tenantId ?? null
 
-  const weinbuch = await buildWeinbuch(supabase, id)
+  const weinbuch = await buildWeinbuch(supabase, id, tenantId)
   if (!weinbuch) notFound()
   const { wa, events } = weinbuch
 

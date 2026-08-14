@@ -95,8 +95,18 @@ export async function getValidAccessToken(cfg: R, admin: R): Promise<string> {
 
 
 // Per-User Token: App-Credentials aus tenantCfg, User-Token aus userCfg
+//
+// tenantId/userId als eigene Parameter (statt aus userCfg.id): jeder bisherige Aufrufer
+// selektiert user_email_connections OHNE 'id' in der select()-Liste (nur die m365_/imap_-
+// Felder), d.h. userCfg.id war hier bereits vorher immer undefined und das .eq('id', ...)
+// beim Update hat still KEINE Zeile getroffen - der aktualisierte Token wurde also nie
+// gespeichert. Zusätzlich fehlte hier die für diese App sonst überall verbindliche
+// tenant_id-Filterung (RLS allein reicht nicht, siehe check-tenant-isolation.js). Da jeder
+// Aufrufer tenantId (aus getCurrentMembership()) und die User-Id ohnehin schon zur Hand hat
+// (beides wird für die vorausgehende user_email_connections-Abfrage gebraucht), ist das
+// Durchreichen hier der korrekte, minimal-invasive Fix für beide Probleme gleichzeitig.
 export async function getValidUserAccessToken(
-  userCfg: R, tenantCfg: R, supabase: R
+  userCfg: R, tenantCfg: R, supabase: R, tenantId: string, userId: string
 ): Promise<string> {
   if (!userCfg.m365_access_token_enc) throw new Error('Mailbox nicht verbunden')
 
@@ -113,13 +123,14 @@ export async function getValidUserAccessToken(
     'common', tenantCfg.m365_client_id, clientSecret, refreshToken
   )
 
-  // Neuen Token in user_email_connections speichern
+  // Neuen Token in user_email_connections speichern - eindeutig über (tenant_id, user_id)
+  // identifiziert (der Primärschlüssel 'id' steht hier wie erläutert nicht zur Verfügung).
   await (supabase.from('user_email_connections') as any).update({
     m365_access_token_enc:  encryptPass(tokens.access_token),
     ...(tokens.refresh_token ? { m365_refresh_token_enc: encryptPass(tokens.refresh_token) } : {}),
     m365_token_expires_at:  new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
     aktualisiert_am:        new Date().toISOString(),
-  }).eq('id', userCfg.id)
+  }).eq('tenant_id', tenantId).eq('user_id', userId)
 
   return tokens.access_token
 }

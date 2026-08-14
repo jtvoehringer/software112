@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import WeinexportFormClient from './WeinexportFormClient'
 export const metadata: Metadata = { title: 'Neuer Exportauftrag – software:112' }
@@ -7,17 +8,18 @@ type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explic
 
 export default async function NeuPage() {
   const supabase = await createSupabaseServerClient()
-  // Rollen-Check: leser darf keinen Exportauftrag anlegen
-  const { data: { user } } = await supabase.auth.getUser()
-  const { data: memb } = await (supabase.from('tenant_memberships') as any)
-    .select('role').eq('user_id', user?.id ?? '').limit(1).single()
-  const rolle = (memb as any)?.role ?? 'leser'
-  if (rolle === 'leser') {
+  // Rollen-Check: leser darf keinen Exportauftrag anlegen. Ohne Mitgliedschaft ist rolle
+  // 'leser' (Fallback) -> wir landen dann bereits im redirect() oben; ab hier ist membership
+  // also garantiert vorhanden, tenantId also garantiert ein string (kein null-Fall mehr für
+  // WeinexportFormClient, das eine verpflichtende tenantId erwartet).
+  const membership = await getCurrentMembership()
+  const rolle = membership?.role ?? 'leser'
+  if (rolle === 'leser' || !membership) {
     const { redirect } = await import('next/navigation')
     redirect('/weinexport')
+    return null
   }
-  const { data: membership } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
-  const tenantId = (membership as R | null)?.tenant_id
+  const tenantId = membership.tenantId
 
   // Exportaufträge ist ein optionales Modul (Migration 152) - pro Mandant unter
   // Admin > Mandant > Module ein-/ausschaltbar.

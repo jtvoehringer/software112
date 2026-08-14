@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     // damit der Client die zuletzt erfolgreich geladenen Termine NICHT überschreibt/löscht.
     let token: string
     try {
-      token = await getValidUserAccessToken(c, tenantCfg as R, supabase)
+      token = await getValidUserAccessToken(c, tenantCfg as R, supabase, tenantId, user.id)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       console.error(`[outlook-kalender] Token-Fehler für user=${user.id} tenant=${tenantId}:`, msg)

@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { redirect, notFound } from 'next/navigation'
 import { updateLage } from '../actions'
 import type { Metadata } from 'next'
@@ -17,9 +17,11 @@ export default async function EditLagePage({ params }: Props) {
   if (!canWrite(role)) redirect('/lagen')
 
   const supabase = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data } = await (supabase.from('lagen') as any)
-    .select('*').eq('id', id).single()
+    .select('*').eq('id', id).eq('tenant_id', tenantId).single()
   const lage = data as AR | null
   if (!lage) notFound()
 

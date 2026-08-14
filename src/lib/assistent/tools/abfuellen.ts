@@ -13,6 +13,7 @@
 // abgestuft, NIE aufgestuft werden dürfen (hart blockiert) – der Bot muss
 // diese Regel nicht selbst prüfen, sie greift automatisch.
 import { createFuellung } from '@/app/(dashboard)/weinhandel/actions'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -100,9 +101,15 @@ export async function fuehreAbfuellenAus(
     return { erfolg: false, hinweis: 'Produktname, Datum, Flaschengröße und Anzahl Flaschen (> 0) sind Pflichtfelder – bitte beim User nachfragen.' }
   }
 
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  if (!tenantId) {
+    return { erfolg: false, fehler: 'Kein Betrieb gefunden – Abfüllung konnte nicht gespeichert werden.' }
+  }
+
   const { data: charge } = await (supabase.from('weinausbau') as any)
     .select('id, name, jahrgang, rebsorte, menge_liter, qualitaetsstufe, herkunft_code')
-    .eq('id', input.weinausbau_id).eq('aktiv', true).maybeSingle()
+    .eq('id', input.weinausbau_id).eq('tenant_id', tenantId).eq('aktiv', true).maybeSingle()
   if (!charge) {
     return { erfolg: false, hinweis: `Charge mit ID ${input.weinausbau_id} nicht gefunden. Beim User nachfragen bzw. Stammdaten-Kontext erneut prüfen.` }
   }

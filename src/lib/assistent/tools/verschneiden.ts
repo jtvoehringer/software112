@@ -12,6 +12,7 @@
 // diese Folgeeffekte dem User nach dem Speichern explizit mitzuteilen – nicht
 // nur "erledigt" zu melden.
 import { createVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -99,8 +100,14 @@ export async function fuehreVerschneidenAus(
     }
   }
 
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  if (!tenantId) {
+    return { erfolg: false, fehler: 'Kein Betrieb gefunden – Verschneidung konnte nicht gespeichert werden.' }
+  }
+
   const { data: ziel } = await (supabase.from('weinausbau') as any)
-    .select('id').eq('id', input.ziel_weinausbau_id).eq('aktiv', true).maybeSingle()
+    .select('id').eq('id', input.ziel_weinausbau_id).eq('tenant_id', tenantId).eq('aktiv', true).maybeSingle()
   if (!ziel) {
     return { erfolg: false, hinweis: `Ziel-Charge mit ID ${input.ziel_weinausbau_id} nicht gefunden. Beim User nachfragen bzw. Stammdaten-Kontext erneut prüfen.` }
   }

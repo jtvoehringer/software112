@@ -21,10 +21,26 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
   const chargennummer = decodeURIComponent(charge)
   // Öffentliche Seite ohne Login (QR-Code auf der Flasche) -> Service-Role-Client nötig,
   // da die einzige RLS-SELECT-Policy auf fuellungen eine eingeloggte Tenant-Mitgliedschaft
-  // verlangt und für anonyme Besucher sonst immer 0 Zeilen liefert.
+  // verlangt und für anonyme Besucher sonst immer 0 Zeilen liefert. Es gibt hier bewusst
+  // KEINE tenant_id-Filterung (kein aktiver Mandant auf einer öffentlichen, unangemeldeten
+  // Seite) - siehe check-tenant-isolation.js TENANT_FILTER_MISSING für diese Zeile.
+  //
+  // WICHTIG: chargennummer ist NUR pro Mandant eindeutig (auto-vergeben über
+  // get_next_chargennummer(), Muster z.B. "CH-2025-001" mit pro Mandant konfigurierbarem,
+  // aber standardmäßig identischem Prefix "CH") - KEINE globale Eindeutigkeit über alle
+  // Mandanten hinweg garantiert. Zwei Mandanten mit Standardeinstellungen können also exakt
+  // dieselbe Chargennummer vergeben. .limit(1) VOR .single() würde eine solche Kollision
+  // still verdecken und irgendeine der mehreren passenden Zeilen (ggf. eines FREMDEN
+  // Mandanten) anzeigen. Deshalb bewusst OHNE .limit(1): .single() liefert dann bei mehr
+  // als einer Trefferzeile einen Fehler statt einer beliebigen Zeile, und die Seite zeigt
+  // "nicht gefunden" statt (möglicherweise) fremder Daten. Löst NICHT das zugrunde liegende
+  // Produktproblem (chargennummer sollte langfristig global eindeutig sein, z.B. über eine
+  // UUID-basierte oder mandanten-präfigierte Weinpass-URL) - das braucht eine bewusste
+  // Entscheidung, siehe Rückmeldung an den Nutzer.
   const supabase = createSupabaseAdminClient()
 
   // Füllung laden (öffentliche Felder)
+  // tenant-isolation-ignore: oeffentliche, unangemeldete Seite ohne aktiven Mandanten - siehe Kommentar oben
   const { data: fuellungRaw } = await (supabase.from('fuellungen') as any)
     .select(`
       chargennummer, pruefnummer, name, jahrgang, rebsorte, qualitaet,
@@ -32,7 +48,6 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
       weinausbau_id
     `)
     .eq('chargennummer', chargennummer)
-    .limit(1)
     .single()
 
   if (!fuellungRaw) notFound()

@@ -87,6 +87,7 @@ export async function POST(req: NextRequest) {
       await (supabase.from('sumup_checkouts') as any)
         .update({ sumup_checkout_id: checkoutRef })
         .eq('id', (localCheckout as R).id)
+        .eq('tenant_id', tenantId)
     } else {
       const errData: R = await sumupRes.json().catch(() => ({}))
       console.error('[SumUp Checkout] API-Fehler:', errData)

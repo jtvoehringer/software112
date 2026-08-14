@@ -59,11 +59,13 @@ export default function KellerbehandlungenPage() {
   const [typSaving, setTypSaving]         = useState(false)
 
   async function loadData() {
-    const { data: session } = await (supabase.auth as any).getSession()
-    const userId = session?.session?.user?.id
-    const { data: memberRow } = await (supabase.from('tenant_memberships') as any)
-      .select('tenant_id').eq('user_id', userId).limit(1).maybeSingle()
-    const activeTenantId = (memberRow?.tenant_id as string | undefined) ?? null
+    // Aktiven Mandanten über /api/me/active-tenant ermitteln (nutzt serverseitig die
+    // kanonische getCurrentMembership()-Logik inkl. Cookie-Validierung) statt einer eigenen,
+    // ungefilterten tenant_memberships-Abfrage, die bei Mehrfach-Mitgliedschaft eine
+    // BELIEBIGE statt der aktiv gewählten Mitgliedschaft treffen konnte.
+    const activeTenantRes = await fetch('/api/me/active-tenant')
+    const activeTenantJson = activeTenantRes.ok ? await activeTenantRes.json() : { tenantId: null }
+    const activeTenantId = (activeTenantJson?.tenantId as string | undefined) ?? null
     setTenantId(activeTenantId)
 
     let behaelterQuery = (supabase.from('behaelter') as any).select('id, name, typ, volumen_liter, standort').eq('id', behaelterId)
@@ -72,10 +74,12 @@ export default function KellerbehandlungenPage() {
       .select('id, datum, typ_id, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, typ:typ_id(name)')
       .eq('behaelter_id', behaelterId)
       .order('datum', { ascending: false })
+    let typenQuery = (supabase.from('keller_behandlungstypen') as any).select('id, name, einheit_standard').order('sort_order').order('name')
     if (activeTenantId) {
       behaelterQuery    = behaelterQuery.eq('tenant_id', activeTenantId)
       weinausbauQuery   = weinausbauQuery.eq('tenant_id', activeTenantId)
       behandlungenQuery = behandlungenQuery.eq('tenant_id', activeTenantId)
+      typenQuery        = typenQuery.eq('tenant_id', activeTenantId)
     }
 
     const [
@@ -86,7 +90,7 @@ export default function KellerbehandlungenPage() {
     ] = await Promise.all([
       behaelterQuery.single(),
       weinausbauQuery,
-      (supabase.from('keller_behandlungstypen') as any).select('id, name, einheit_standard').order('sort_order').order('name'),
+      typenQuery,
       behandlungenQuery,
     ])
     setBehaelter(bh)
@@ -181,12 +185,17 @@ export default function KellerbehandlungenPage() {
         if (tenantId) updateQuery = updateQuery.eq('tenant_id', tenantId)
         await updateQuery
       } else {
-        const { data: session } = await (supabase.auth as any).getSession()
-        const userId = session?.session?.user?.id
-        const { data: memberRow } = await (supabase.from('tenant_memberships') as any)
-          .select('tenant_id').eq('user_id', userId).limit(1).maybeSingle()
+        // tenantId kommt aus loadData() (state, siehe /api/me/active-tenant oben) - kein
+        // eigener Fallback-Lookup mehr hier (der frühere ungefilterte tenant_memberships-
+        // Fallback konnte bei Mehrfach-Mitgliedschaft eine BELIEBIGE statt der aktiven
+        // Mitgliedschaft treffen). Ohne bekannten aktiven Mandanten wird bewusst NICHT
+        // eingefügt, statt zu raten.
+        if (!tenantId) {
+          setFormError('Aktiver Betrieb konnte nicht ermittelt werden. Bitte Seite neu laden.')
+          return
+        }
         await (supabase.from('keller_behandlungen') as any)
-          .insert({ ...payload, tenant_id: tenantId ?? memberRow?.tenant_id })
+          .insert({ ...payload, tenant_id: tenantId })
       }
       setShowForm(false)
       loadData()

@@ -245,8 +245,8 @@ export async function createBehandlung(formData: FormData) {
     const [{ data: tenantRow }, { data: mittelRow }] = await Promise.all([
       (supabase.from('tenants') as any).select('bio_status').eq('id', tenantId).maybeSingle(),
       psmId
-        ? (supabase.from('pflanzenschutzmittel') as any).select('oeko_zugelassen').eq('id', psmId).maybeSingle()
-        : (supabase.from('duengemittel') as any).select('oeko_zugelassen').eq('id', duengemittelId).maybeSingle(),
+        ? (supabase.from('pflanzenschutzmittel') as any).select('oeko_zugelassen').eq('id', psmId).or(`tenant_id.eq.${tenantId},tenant_id.is.null`).maybeSingle()
+        : (supabase.from('duengemittel') as any).select('oeko_zugelassen').eq('id', duengemittelId).or(`tenant_id.eq.${tenantId},tenant_id.is.null`).maybeSingle(),
     ])
     const bioStatus = (tenantRow as AR | null)?.bio_status ?? 'konventionell'
     const mittelOeko = (mittelRow as AR | null)?.oeko_zugelassen ?? false

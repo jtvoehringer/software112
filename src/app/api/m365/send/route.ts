@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { graphPost, getValidAccessToken } from '@/lib/m365/graph'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -12,8 +13,8 @@ export async function POST(req: NextRequest) {
     const supabase = await createSupabaseServerClient()
     const admin    = createSupabaseAdminClient()
 
-    const { data: membership } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
-    const tenantId = (membership as R | null)?.tenant_id
+    const membership = await getCurrentMembership()
+    const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 
     const { data: cfg } = await (admin.from('tenant_einstellungen') as any)

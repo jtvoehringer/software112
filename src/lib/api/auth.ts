@@ -3,7 +3,7 @@
  * Verhindert Code-Duplikation und stellt konsistente Sicherheitschecks sicher
  */
 import { getValidUserAccessToken } from '@/lib/m365/graph'
-import { getActiveTenantCookie } from '@/lib/auth/activeTenant'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -13,23 +13,16 @@ export const USER_EMAIL_CONN_SELECT =
   'imap_aktiv, imap_host, imap_port, imap_user, imap_pass_enc, monitored_email'
 
 /**
- * Tenant-ID aus Cookie laden; Fallback auf erste Membership.
- * NIEMALS aus Request-Body lesen.
+ * Aktive Tenant-ID des eingeloggten Users (Cookie-validiert gegen echte Memberships,
+ * mit Fallback auf erste Membership, falls kein/kein gültiges Cookie gesetzt ist).
+ * Delegiert bewusst an die kanonische getCurrentMembership() statt die Query hier zu
+ * duplizieren (siehe Kommentar dort) – vermeidet eine zweite, unabhängige
+ * "irgendeine Mitgliedschaft"-Fallback-Logik. NIEMALS aus Request-Body lesen.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getTenantId(supabase: any): Promise<string | null> {
-  const activeTenantId = await getActiveTenantCookie()
-
-  if (activeTenantId) {
-    const { data } = await (supabase.from('tenant_memberships') as any)
-      .select('tenant_id').eq('tenant_id', activeTenantId).limit(1).maybeSingle()
-    if (data) return (data as R).tenant_id
-  }
-
-  // Fallback: erste Membership
-  const { data } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id').limit(1).maybeSingle()
-  return (data as R | null)?.tenant_id ?? null
+  const membership = await getCurrentMembership()
+  return membership?.tenantId ?? null
 }
 
 /**
@@ -60,7 +53,7 @@ export async function getM365Token(
   if (!(uc as R | null)?.m365_aktiv || !(uc as R | null)?.m365_access_token_enc)
     return { uc: uc as R | null, token: null }
   try {
-    const token = await getValidUserAccessToken(uc as R, tc as R, supabase)
+    const token = await getValidUserAccessToken(uc as R, tc as R, supabase, tenantId, userId)
     return { uc: uc as R | null, token }
   } catch {
     return { uc: uc as R | null, token: null }

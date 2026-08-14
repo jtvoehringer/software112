@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import type { Metadata } from 'next'
@@ -13,20 +14,25 @@ type R = Record<string, any>
 export default async function PruefnummernantragPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
 
   const [{ data: dacRaw }, { data: cfgRaw }, { data: pnaRaw }] = await Promise.all([
     (supabase.from('dac_antrag') as any)
       .select('id, bezeichnung, dac_region, jahrgang, rebsorte, menge_liter, qualitaetsstufe: status, weinausbau_id')
       .eq('id', id)
+      .eq('tenant_id', tenantId)
       .single(),
     // RLS-gescopter Client statt Admin-Client (wie reports/ama, reports/cu-bilanz):
     // verhindert Betriebsdaten eines fremden Mandanten auf dem amtlichen Prüfnummernantrag.
     (supabase.from('tenant_einstellungen') as any)
       .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_telefon, betrieb_email, betrieb_betriebsnummer')
+      .eq('tenant_id', tenantId)
       .limit(1).maybeSingle(),
     (supabase.from('pruefnummernantraege') as any)
       .select('formular_daten')
       .eq('dac_antrag_id', id)
+      .eq('tenant_id', tenantId)
       .maybeSingle(),
   ])
 

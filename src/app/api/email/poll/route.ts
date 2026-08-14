@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
 import { decryptPass } from '@/lib/email/crypto'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,9 +24,8 @@ export async function POST(req: NextRequest) {
     const supabase = await createSupabaseServerClient()
     const admin    = createSupabaseAdminClient()
 
-    const { data: membership } = await (supabase.from('tenant_memberships') as any)
-      .select('tenant_id').limit(1).single()
-    const tenantId = (membership as R | null)?.tenant_id
+    const membership = await getCurrentMembership()
+    const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 
     const { data: cfg } = await (supabase.from('tenant_einstellungen') as any)

@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { getValidUserAccessToken } from '@/lib/m365/graph'
+import { getCurrentMembership } from '@/lib/auth/roles'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -9,8 +10,8 @@ export async function GET() {
   try {
     const supabase = await createSupabaseServerClient()
     const admin    = createSupabaseAdminClient()
-    const { data: membership } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
-    const tenantId = (membership as R | null)?.tenant_id
+    const membership = await getCurrentMembership()
+    const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 
     const { data: { user } } = await supabase.auth.getUser()
@@ -20,7 +21,7 @@ export async function GET() {
     ])
     if (!(uc as R | null)?.m365_aktiv) return NextResponse.json({ fehler: 'Mailbox nicht verbunden' }, { status: 400 })
 
-    const token = await getValidUserAccessToken(uc as R, tc as R, supabase)
+    const token = await getValidUserAccessToken(uc as R, tc as R, supabase, tenantId, user?.id ?? '')
     const mailboxBase = (uc as R).monitored_email
         ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent((uc as R).monitored_email)}`
         : 'https://graph.microsoft.com/v1.0/me'

@@ -87,8 +87,8 @@ export default async function KontaktePage() {
   // Rabattgruppen (non-fatal – Tabelle existiert erst nach Migration 031)
   let rRaw: R[] = []
   try {
-    const { data: r } = await (supabase.from('rabattgruppen') as any)
-      .select('id, name, rabatt_pct').order('rabatt_pct')
+    const { data: r } = await tf((supabase.from('rabattgruppen') as any)
+      .select('id, name, rabatt_pct').order('rabatt_pct'))
     rRaw = (r ?? []) as R[]
   } catch { /* Tabelle noch nicht vorhanden */ }
 

@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import PipelineClient from './PipelineClient'
@@ -15,21 +15,25 @@ export default async function PipelinePage() {
   const supabase = await createSupabaseServerClient()
   const role    = await getCurrentUserRole()
   const writeOk = canWrite(role)
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [{ data: pRaw }, { data: kRaw }, { data: fRaw }] = await Promise.all([
-    (supabase.from('pipeline_eintraege') as any)
+    tf((supabase.from('pipeline_eintraege') as any)
       .select('id, stufe, titel, kategorie, wert_euro, wahrscheinlichkeit, erwartetes_datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, erledigt_am, notizen, aktualisiert_am, kontakt_id, kontakte:kontakt_id(vorname,nachname), firma_id, firmen:firma_id(name)')
-      .order('aktualisiert_am', { ascending: false }),
+      .order('aktualisiert_am', { ascending: false })),
 
-    (supabase.from('kontakte') as any)
+    tf((supabase.from('kontakte') as any)
       .select('id, vorname, nachname')
       .eq('aktiv', true)
-      .order('nachname'),
+      .order('nachname')),
 
-    (supabase.from('firmen') as any)
+    tf((supabase.from('firmen') as any)
       .select('id, name')
       .eq('aktiv', true)
-      .order('name'),
+      .order('name')),
   ])
 
   const eintraege: PipelineEintragRow[] = ((pRaw ?? []) as R[]).map(p => {
