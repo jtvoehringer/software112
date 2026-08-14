@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -27,17 +28,21 @@ const P_RICHTWERT_KG_HA = 15   // Fachliche Erhaltungsdüngung, Bodengehaltsklas
 export default async function NaehrstoffbilanzPage({ searchParams }: { searchParams: Promise<{ jahr?: string }> }) {
   const { jahr: jahrParam } = await searchParams
   const supabase = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
   const aktJahr = jahrParam ? parseInt(jahrParam) : new Date().getFullYear()
   const jahre = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
 
   const [{ data: raw }, { data: settingsRaw }, { data: flaecheRaw }] = await Promise.all([
-    (supabase.from('behandlungen') as any)
+    tf((supabase.from('behandlungen') as any)
       .select('id, datum, menge_gesamt, menge_einheit, art, weingarten:weingarten_id(name, flaeche_ha), duengemittel:duengemittel_id(name, handelsname, typ, naehrstoff_n_pct, naehrstoff_p_pct)')
       .eq('art', 'duengung')
       .gte('datum', `${aktJahr}-01-01`).lte('datum', `${aktJahr}-12-31`)
-      .order('datum'),
-    (supabase.from('tenant_einstellungen') as any).select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, logo_url').limit(1).maybeSingle(),
-    (supabase.from('weingarten') as any).select('flaeche_ha').eq('aktiv', true),
+      .order('datum')),
+    tf((supabase.from('tenant_einstellungen') as any).select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, logo_url').limit(1).maybeSingle()),
+    tf((supabase.from('weingarten') as any).select('flaeche_ha').eq('aktiv', true)),
   ])
 
   const s = (settingsRaw as R | null) ?? {}

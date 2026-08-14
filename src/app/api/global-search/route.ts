@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,6 +21,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ results: [] })
   }
 
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId
+  if (!tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 401 })
+
   const supabase = await createSupabaseServerClient()
   const results: SearchResult[] = []
 
@@ -27,6 +32,7 @@ export async function GET(req: NextRequest) {
   const { data: kontakte } = await (supabase.from('kontakte') as any)
     .select('id, vorname, nachname, email, segment, kundennummer')
     .or(`vorname.ilike.%${q}%,nachname.ilike.%${q}%,email.ilike.%${q}%,kundennummer.ilike.%${q}%`)
+    .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .limit(5)
 
@@ -44,6 +50,7 @@ export async function GET(req: NextRequest) {
   const { data: firmen } = await (supabase.from('firmen') as any)
     .select('id, name, email, segment, kundennummer')
     .or(`name.ilike.%${q}%,email.ilike.%${q}%,kundennummer.ilike.%${q}%`)
+    .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .limit(5)
 
@@ -61,6 +68,7 @@ export async function GET(req: NextRequest) {
   const { data: fuellungen } = await (supabase.from('fuellungen') as any)
     .select('id, name, jahrgang, rebsorte, chargennummer')
     .or(`name.ilike.%${q}%,chargennummer.ilike.%${q}%,rebsorte.ilike.%${q}%`)
+    .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .limit(5)
 
@@ -78,6 +86,7 @@ export async function GET(req: NextRequest) {
   const { data: verkauf } = await (supabase.from('verkaufsposten') as any)
     .select('id, rechnungsnummer, datum, bezahlt, storniert')
     .ilike('rechnungsnummer', `%${q}%`)
+    .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .limit(5)
 
@@ -96,6 +105,7 @@ export async function GET(req: NextRequest) {
   const { data: weingaerten } = await (supabase.from('weingarten') as any)
     .select('id, name, ried, rebsorte')
     .or(`name.ilike.%${q}%,ried.ilike.%${q}%,rebsorte.ilike.%${q}%`)
+    .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .limit(5)
 
@@ -113,6 +123,7 @@ export async function GET(req: NextRequest) {
   const { data: grundstuecke } = await (supabase.from('grundstuecke') as any)
     .select('id, weingarten_id, gst_nr, rebsorte, katastralgemeinde, weingarten:weingarten_id(name)')
     .or(`gst_nr.ilike.%${q}%,rebsorte.ilike.%${q}%,katastralgemeinde.ilike.%${q}%`)
+    .eq('tenant_id', tenantId)
     .eq('status', 'aktiv')
     .limit(5)
 
@@ -130,6 +141,7 @@ export async function GET(req: NextRequest) {
   const { data: jahrgaenge } = await (supabase.from('weinjahrgaenge') as any)
     .select('id, jahrgang, qualitaet_gesamt, abgeschlossen')
     .or(`jahrgang::text.ilike.%${q}%`)
+    .eq('tenant_id', tenantId)
     .limit(5)
 
   ;(jahrgaenge as R[] ?? []).forEach((j: R) => {
@@ -146,6 +158,7 @@ export async function GET(req: NextRequest) {
   const { data: chargen } = await (supabase.from('weinausbau') as any)
     .select('id, name, jahrgang, rebsorte, qualitaetsstufe, status')
     .or(`name.ilike.%${q}%,rebsorte.ilike.%${q}%,jahrgang::text.ilike.%${q}%`)
+    .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .limit(5)
 

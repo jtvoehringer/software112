@@ -1,11 +1,12 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
-async function getTId(s: any): Promise<string | null> { // eslint-disable-line @typescript-eslint/no-explicit-any
-  const { data } = await (s.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
-  return (data as R | null)?.tenant_id ?? null
+async function getTId(): Promise<string | null> {
+  const membership = await getCurrentMembership()
+  return membership?.tenantId ?? null
 }
 
 async function saveWgSplit(s: any, eintragsId: string, wgSplit: R[], betrag: number) { // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -28,7 +29,7 @@ async function saveWgSplit(s: any, eintragsId: string, wgSplit: R[], betrag: num
 
 export async function GET(req: NextRequest) {
   const s = await createSupabaseServerClient()
-  const t = await getTId(s)
+  const t = await getTId()
   if (!t) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
   const a = req.nextUrl.searchParams.get('action')
 
@@ -86,7 +87,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const s = await createSupabaseServerClient()
-  const t = await getTId(s)
+  const t = await getTId()
   if (!t) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
   const b = await req.json() as R
 

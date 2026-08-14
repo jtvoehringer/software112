@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -15,8 +16,12 @@ export async function GET(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
 
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId
+  if (!tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 403 })
+
   const { data: dok } = await (supabase.from('aktivitaet_dokumente') as any)
-    .select('storage_pfad, dateiname').eq('id', dok_id).single()
+    .select('storage_pfad, dateiname').eq('id', dok_id).eq('tenant_id', tenantId).single()
   if (!dok) return NextResponse.json({ error: 'Dokument nicht gefunden' }, { status: 404 })
 
   const { data: signed, error } = await supabase.storage
@@ -41,9 +46,8 @@ export async function DELETE(
 
   const { data: { session } } = await supabase.auth.getSession()
 
-  const { data: memb } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id').eq('user_id', user.id).limit(1).single()
-  const tenantId = (memb as R | null)?.tenant_id
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 403 })
 
   const { data: dok } = await (supabase.from('aktivitaet_dokumente') as any)

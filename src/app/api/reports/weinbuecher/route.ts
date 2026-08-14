@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 
@@ -11,6 +12,10 @@ type R = Record<string, any>
 // bleiben, "Bezeichnung" entspricht hier dem Chargennamen (weinausbau.name).
 export async function GET(req: NextRequest) {
   try {
+    const membership = await getCurrentMembership()
+    const tenantId = membership?.tenantId
+    if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
+
     const { searchParams } = new URL(req.url)
     const jahrgang    = searchParams.get('jahrgang')
     const sorte       = searchParams.get('sorte')
@@ -20,6 +25,7 @@ export async function GET(req: NextRequest) {
 
     let query = (supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, qualitaetsstufe, status, menge_liter, behaelter:behaelter_id(name)')
+      .eq('tenant_id', tenantId)
       .order('jahrgang', { ascending: false })
       .order('name')
 

@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import KellerAuswertungenClient from './KellerAuswertungenClient'
 
@@ -10,6 +11,10 @@ type R = Record<string, any>
 
 export default async function KellerAuswertungenPage() {
   const supabase = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const thisYear    = new Date().getFullYear()
   const jahresStart = `${thisYear}-01-01`
@@ -21,22 +26,22 @@ export default async function KellerAuswertungenPage() {
     { data: umzuegeRaw },
     { data: fuellungenRaw },
   ] = await Promise.all([
-    (supabase.from('behaelter') as any)
+    tf((supabase.from('behaelter') as any)
       .select('id, name, typ, volumen_liter, standort, aktiv')
-      .eq('aktiv', true).order('name'),
-    (supabase.from('weinausbau') as any)
+      .eq('aktiv', true).order('name')),
+    tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, menge_liter, status, aktiv, behaelter_id, ist_eroeffnungsbestand')
-      .order('jahrgang', { ascending: false }),
-    (supabase.from('keller_behandlungen') as any)
+      .order('jahrgang', { ascending: false })),
+    tf((supabase.from('keller_behandlungen') as any)
       .select('id, datum, menge, einheit, behaelter_id, behaelter:behaelter_id(name), typ:typ_id(name)')
-      .gte('datum', jahresStart).order('datum', { ascending: false }),
-    (supabase.from('keller_umzuege') as any)
+      .gte('datum', jahresStart).order('datum', { ascending: false })),
+    tf((supabase.from('keller_umzuege') as any)
       .select('id, datum, menge_liter, brutto_liter, schwund_liter, umzug_typ, notizen, von_behaelter:von_behaelter_id(name), nach_behaelter:nach_behaelter_id(name), von_weinausbau:von_weinausbau_id(name)')
       .gte('datum', jahresStart).not('zeilen_typ', 'eq', 'ziel')
-      .order('datum', { ascending: false }).limit(100),
-    (supabase.from('fuellungen') as any)
+      .order('datum', { ascending: false }).limit(100)),
+    tf((supabase.from('fuellungen') as any)
       .select('id, datum, name, anzahl_flaschen, menge_liter_gefuellt')
-      .gte('datum', jahresStart).order('datum', { ascending: false }),
+      .gte('datum', jahresStart).order('datum', { ascending: false })),
   ])
 
   const behaelter    = (behaelterRaw    ?? []) as R[]

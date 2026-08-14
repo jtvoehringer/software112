@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +14,11 @@ type R = Record<string, any>
 // und Inhalte loslassen"). Ausführung + Sicherheitsdesign: siehe Migration 155
 // (ki_readonly_query – läuft als security invoker, RLS greift automatisch; zusätzliche
 // Sperrliste für interne Tabellen/Schemas; nur ein lesendes Statement; Zeilen-/Zeitlimit).
+// Seit Migration 160 bekommt ki_readonly_query zusätzlich den aktiv gewählten Betrieb
+// (p_tenant_id) mit und setzt damit für die Dauer der Abfrage app.active_tenant_id, was
+// get_user_tenant_ids() (und damit jede darauf aufbauende RLS-Policy) auf genau diesen
+// einen Mandanten einschränkt - vorher griff RLS hier (wie ursprünglich überall in der App)
+// über ALLE Mitgliedschaften des Users, nicht nur die aktive.
 
 // ── Erlaubnisliste: nur diese Tabellen werden der KI im Prompt bekannt gemacht ────────────
 // (zweite Sicherheitsebene in ki_readonly_query() sperrt zusätzlich explizit interne/
@@ -170,11 +176,6 @@ knapp, auch bei komplexeren Abfragen mit mehreren Aspekten:
 }`
 }
 
-async function getTenantId(supabase: R): Promise<string | null> {
-  const { data } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
-  return (data as R | null)?.tenant_id ?? null
-}
-
 function extraheJson(rawText: string): R {
   const match = rawText.match(/\{[\s\S]*\}/)
   return JSON.parse(match?.[0] ?? rawText)
@@ -187,7 +188,8 @@ export async function POST(req: NextRequest) {
     const frage = String(frageRaw).slice(0, 500).replace(/[`\\]/g, '')
 
     const supabase = await createSupabaseServerClient()
-    const tenantId = await getTenantId(supabase)
+    const membership = await getCurrentMembership()
+    const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb gefunden' }, { status: 401 })
 
     if (!process.env.ANTHROPIC_API_KEY) {
@@ -251,7 +253,11 @@ export async function POST(req: NextRequest) {
         break
       }
 
-      const { data: rows, error: sqlError } = await (supabase.rpc as any)('ki_readonly_query', { p_sql: queryParams.sql })
+      // p_tenant_id wird server-seitig gesetzt (app.active_tenant_id, siehe Migration 160)
+      // und schränkt get_user_tenant_ids() für die Dauer dieser einen Abfrage auf den aktiv
+      // gewählten Betrieb ein - sonst würde RLS (die einzige Schranke für dieses frei generierte
+      // SQL) bei Mehrfach-Mitgliedschaft Daten ALLER Mandanten des Users zurückgeben.
+      const { data: rows, error: sqlError } = await (supabase.rpc as any)('ki_readonly_query', { p_sql: queryParams.sql, p_tenant_id: tenantId })
       if (!sqlError) {
         rohdaten = (rows ?? []) as R[]
         letzterFehler = null

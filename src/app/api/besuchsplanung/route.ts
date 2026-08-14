@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -69,12 +70,17 @@ function findBundesland(filter: string): [string, string][] | null {
 
 export async function POST(req: NextRequest) {
   try {
+    const membership = await getCurrentMembership()
+    const tenantId = membership?.tenantId
+    if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
+
     const { ort_filter, segment, include_leads, include_kunden } = await req.json()
     const supabase = await createSupabaseServerClient()
 
     // Kontakte laden
     let kq = (supabase.from('kontakte') as any)
       .select('id, kundennummer, vorname, nachname, segment, email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, plz, ort, strasse, land, is_lead, firma:firma_id(name)')
+      .eq('tenant_id', tenantId)
       .eq('aktiv', true)
 
     const bundeslandRanges = ort_filter?.trim() ? findBundesland(ort_filter) : null
@@ -103,6 +109,7 @@ export async function POST(req: NextRequest) {
       const { data: akts } = await (supabase.from('aktivitaeten') as any)
         .select('kontakt_id, datum')
         .in('kontakt_id', ids)
+        .eq('tenant_id', tenantId)
         .eq('erledigt', true)
         .order('datum', { ascending: false })
       const seen = new Set<string>()

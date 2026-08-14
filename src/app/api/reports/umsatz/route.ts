@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
@@ -36,12 +37,13 @@ function monatsBereich(von: MonatsZiel, bis: MonatsZiel): MonatsZiel[] {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function ladeMonat(supabase: any, ziel: MonatsZiel): Promise<UmsatzMonat> {
+async function ladeMonat(supabase: any, ziel: MonatsZiel, tenantId: string): Promise<UmsatzMonat> {
   const von = new Date(ziel.jahr, ziel.monatIdx, 1).toISOString().split('T')[0]
   const bis = new Date(ziel.jahr, ziel.monatIdx + 1, 0).toISOString().split('T')[0]
 
   const { data } = await (supabase.from('verkaufsposten') as any)
     .select('id, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
+    .eq('tenant_id', tenantId)
     .eq('aktiv', true).eq('storniert', false)
     .gte('datum', von).lte('datum', bis)
 
@@ -67,6 +69,10 @@ async function ladeMonat(supabase: any, ziel: MonatsZiel): Promise<UmsatzMonat> 
 //                                  in genau der übergebenen Reihenfolge (für Monatsvergleich)
 // Ohne Parameter: Fallback auf die letzten 12 Monate (gleicher Einstiegspunkt wie bisher).
 export async function GET(req: NextRequest) {
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId
+  if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
+
   const monateParam = req.nextUrl.searchParams.get('monate')
   const vonParam    = req.nextUrl.searchParams.get('von')
   const bisParam    = req.nextUrl.searchParams.get('bis')
@@ -97,7 +103,7 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = await createSupabaseServerClient()
-  const monate = await Promise.all(ziele.map(z => ladeMonat(supabase, z)))
+  const monate = await Promise.all(ziele.map(z => ladeMonat(supabase, z, tenantId)))
 
   return NextResponse.json({ monate })
 }

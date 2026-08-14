@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -13,15 +14,15 @@ export async function POST(req: NextRequest) {
     const admin    = createSupabaseAdminClient()
     // Nur tenant_admin und winzer dürfen Exportaufträge anlegen
     const { data: { user: authUser } } = await supabase.auth.getUser()
-    const { data: memb } = await (supabase.from('tenant_memberships') as any)
-      .select('role').eq('user_id', authUser?.id ?? '').limit(1).single()
-    if ((memb as any)?.role === 'leser')
-      return NextResponse.json({ fehler: 'Keine Berechtigung' }, { status: 403 })
+    if (!authUser) return NextResponse.json({ fehler: 'Nicht angemeldet' }, { status: 401 })
 
-    // tenant_id IMMER aus Session – niemals aus Request-Body (Sicherheit)
-    const { data: membership } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
-    const tenantId = (membership as R | null)?.tenant_id
+    // tenant_id + Rolle IMMER aus aktivem Tenant (Cookie) – niemals aus Request-Body
+    // oder einer beliebigen Membership (Sicherheit)
+    const membership = await getCurrentMembership()
+    const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Nicht autorisiert' }, { status: 401 })
+    if (membership?.role === 'leser')
+      return NextResponse.json({ fehler: 'Keine Berechtigung' }, { status: 403 })
 
     // Referenznummer generieren
     const { data: refData } = await (admin.rpc as any)('get_next_exportnummer', { p_tenant_id: tenantId })

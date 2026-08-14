@@ -1,8 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type R = Record<string, any>
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 // POST /api/crm/aktivitaet/[id]/dokument – Datei hochladen
 export async function POST(
@@ -15,9 +13,8 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
 
-  const { data: memb } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id').eq('user_id', user.id).limit(1).single()
-  const tenantId = (memb as R | null)?.tenant_id
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 403 })
 
   // Prüfen ob Aktivität zu diesem Tenant gehört
@@ -73,9 +70,14 @@ export async function GET(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
 
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId
+  if (!tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 403 })
+
   const { data } = await (supabase.from('aktivitaet_dokumente') as any)
     .select('id, dateiname, dateityp, groesse_bytes, erstellt_am')
     .eq('aktivitaet_id', aktivitaetId)
+    .eq('tenant_id', tenantId)
     .order('erstellt_am', { ascending: true })
 
   return NextResponse.json(data ?? [])

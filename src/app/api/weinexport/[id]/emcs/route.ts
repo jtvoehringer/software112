@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -13,14 +14,14 @@ export async function GET(
   const { id } = await params
   const supabase = await createSupabaseServerClient()
   const admin    = createSupabaseAdminClient()
-  const { data: _mb } = await (supabase.from('tenant_memberships') as any).select('tenant_id').limit(1).single()
-  const tenantId = (_mb as R | null)?.tenant_id
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ fehler: 'Nicht autorisiert' }, { status: 401 })
 
   const [{ data: a }, { data: pos }, { data: b }] = await Promise.all([
     (supabase.from('exportauftraege') as any)
       .select('*, kontakte(vorname,nachname), firmen(name)')
-      .eq('id', id).single(),
+      .eq('id', id).eq('tenant_id', tenantId).single(),
     (supabase.from('exportauftrag_positionen') as any)
       .select('*, fuellungen(bezeichnung)').eq('exportauftrag_id', id).order('sort_order'),
     (admin.from('tenant_einstellungen') as any)

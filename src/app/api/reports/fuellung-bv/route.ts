@@ -1,10 +1,15 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
 export async function GET(req: NextRequest) {
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId
+  if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
+
   const id = req.nextUrl.searchParams.get('id')
   if (!id) return NextResponse.json({ fehler: 'id fehlt' }, { status: 400 })
 
@@ -15,6 +20,7 @@ export async function GET(req: NextRequest) {
     .from('verkauf_positionen') as any)
     .select('id, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct, erstellt_am, verkaufsposten:verkaufsposten_id(id, datum, rechnungsnummer, storniert, bezahlt, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name))')
     .eq('fuellung_id', id)
+    .eq('tenant_id', tenantId)
     .order('erstellt_am', { ascending: false })
     .limit(50)
 

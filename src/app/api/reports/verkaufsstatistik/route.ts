@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 
@@ -10,6 +11,10 @@ type R = Record<string, any>
 // Kunde/PLZ-Bereich/Ort/Land (aus Kontakt oder Firma des Verkaufspostens).
 export async function GET(req: NextRequest) {
   try {
+    const membership = await getCurrentMembership()
+    const tenantId = membership?.tenantId
+    if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
+
     const { searchParams } = new URL(req.url)
     const jahrgang    = searchParams.get('jahrgang')
     const sorte       = searchParams.get('sorte')
@@ -30,6 +35,7 @@ export async function GET(req: NextRequest) {
         verkauf_positionen(id, typ, name, menge, preis_brutto, rabatt_pct, sonderrabatt_pct,
           fuellung:fuellungen(name, jahrgang, rebsorte, bezeichnung))
       `)
+      .eq('tenant_id', tenantId)
       .eq('aktiv', true).eq('storniert', false)
 
     if (kunde?.startsWith('kontakt:')) query = query.eq('kontakt_id', kunde.slice(8))

@@ -1,12 +1,17 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 export async function GET() {
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId
+  if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
+
   const supabase = await createSupabaseServerClient()
   const { data } = await (supabase.from('verkaufsposten') as any)
     .select('datum, rechnungsnummer, bezahlt, storniert, kontakt:kontakte!kontakt_id(vorname,nachname,kundennummer), firma:firmen(name,kundennummer), verkauf_positionen(name,menge,einheit,preis_brutto,rabatt_pct,sonderrabatt_pct,ust_satz)')
-    .eq('aktiv', true).order('datum', { ascending: false })
+    .eq('tenant_id', tenantId).eq('aktiv', true).order('datum', { ascending: false })
   const rows = (data ?? []) as R[]
   const esc = (v: unknown) => { if (v==null) return ''; const s=String(v).replace(/"/g,'""'); return s.includes(';')||s.includes('"')||s.includes('\n')?`"${s}"`:s }
   const headers = ['Datum','Rechnungsnummer','Kundennummer','Kunde','Artikel','Menge','Einheit','Preis (€)','Rabatt %','Sonderrabatt %','USt %','Zeilenbetrag (€)','Bezahlt','Storniert']

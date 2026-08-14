@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -14,10 +15,14 @@ type R = Record<string, any>
 export default async function AMAPage({ searchParams }: { searchParams: Promise<{ jahrgang?: string }> }) {
   const { jahrgang: jahrgangParam } = await searchParams
   const supabase = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [{ data: jahrgaengeRaw }, { data: settingsRaw }] = await Promise.all([
-    (supabase.from('weinjahrgaenge') as any).select('id, jahrgang').order('jahrgang', { ascending: false }),
-    (supabase.from('tenant_einstellungen') as any).select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, logo_url').limit(1).maybeSingle(),
+    tf((supabase.from('weinjahrgaenge') as any).select('id, jahrgang').order('jahrgang', { ascending: false })),
+    tf((supabase.from('tenant_einstellungen') as any).select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, logo_url').limit(1).maybeSingle()),
   ])
 
   const jahrgaenge = (jahrgaengeRaw ?? []) as R[]
@@ -31,26 +36,26 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
 
   if (aktJahrgang) {
     // Zuerst: AMA-Meldung für diesen Jahrgang suchen
-    const { data: amaMeldung } = await (supabase.from('ama_erntemeldungen') as any)
+    const { data: amaMeldung } = await tf((supabase.from('ama_erntemeldungen') as any)
       .select('id, gesamtmenge_kg, gesamtmenge_hl, status')
       .eq('jahrgang_id', aktJahrgang.id)
-      .maybeSingle()
+      .maybeSingle())
 
     if (amaMeldung) {
       // Positionen aus ama_meldepositionen (aggregiert je Rebsorte)
-      const { data: pos } = await (supabase.from('ama_meldepositionen') as any)
+      const { data: pos } = await tf((supabase.from('ama_meldepositionen') as any)
         .select('rebsorte_name, flaeche_ha, menge_kg, menge_hl, qualitaetsstufe, oechsle')
         .eq('meldung_id', (amaMeldung as R).id)
-        .order('rebsorte_name')
+        .order('rebsorte_name'))
       positionen = (pos ?? []) as R[]
       gesamtKg = (amaMeldung as R).gesamtmenge_kg ?? positionen.reduce((s: number, p: R) => s + (p.menge_kg ?? 0), 0)
       gesamtHl = (amaMeldung as R).gesamtmenge_hl ?? positionen.reduce((s: number, p: R) => s + (p.menge_hl ?? 0), 0)
     } else {
       // Fallback: ernte_parzellen direkt (gruppiert nach Rebsorte)
-      const { data: parz } = await (supabase.from('ernte_parzellen') as any)
+      const { data: parz } = await tf((supabase.from('ernte_parzellen') as any)
         .select('menge_kg, menge_hl, klosterneuburger, qualitaetsstufe, weingarten:weingarten_id(name, rebsorte, flaeche_ha)')
         .eq('jahrgang_id', aktJahrgang.id)
-        .order('id')
+        .order('id'))
       const rawParz = (parz ?? []) as R[]
       // Aggregieren nach Rebsorte
       const byRebsorte = new Map<string, R>()
@@ -70,20 +75,20 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
   }
 
   // ── Lagerbestand: Flaschen ──────────────────────────────────────────────────
-  const { data: bestandRaw } = await (supabase.from('fuellungen') as any)
+  const { data: bestandRaw } = await tf((supabase.from('fuellungen') as any)
     .select('name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen')
-    .eq('aktiv', true).gt('bestand_flaschen', 0).order('name')
+    .eq('aktiv', true).gt('bestand_flaschen', 0).order('name'))
   const bestand = (bestandRaw ?? []) as R[]
   const gesamtFlaschen = bestand.reduce((s: number, f: R) => s + (f.bestand_flaschen ?? 0), 0)
   const gesamtFlaschenHl = bestand.reduce((s: number, f: R) => s + ((f.bestand_flaschen ?? 0) * (f.flaschengroesse_ml ?? 750)) / 100000, 0)
 
   // ── Lagerbestand: Wein in Gebinden (Tanks/Fässer) ──────────────────────────
-  const { data: tanksRaw } = await (supabase.from('weinausbau') as any)
+  const { data: tanksRaw } = await tf((supabase.from('weinausbau') as any)
     .select('name, jahrgang, rebsorte, menge_liter, status, behaelter:behaelter_id(name)')
     .eq('aktiv', true)
     .neq('status', 'abgeschlossen')
     .gt('menge_liter', 0)
-    .order('jahrgang', { ascending: false })
+    .order('jahrgang', { ascending: false }))
   const tanks = (tanksRaw ?? []) as R[]
   const gesamtTankHl = tanks.reduce((s: number, t: R) => s + (parseFloat(t.menge_liter) || 0), 0) / 100
 

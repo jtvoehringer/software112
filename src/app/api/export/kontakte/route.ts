@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -7,10 +8,14 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 export async function GET() {
+  const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId
+  if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
+
   const supabase = await createSupabaseServerClient()
   const { data } = await (supabase.from('kontakte') as any)
     .select('kundennummer, vorname, nachname, segment, email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, stammkunde, is_lead, sonderrabatt_pct, notizen, erstellt_am')
-    .eq('aktiv', true).order('nachname')
+    .eq('tenant_id', tenantId).eq('aktiv', true).order('nachname')
 
   const rows = (data ?? []) as R[]
   const escape = (v: unknown) => { if (v == null) return ''; const s = String(v).replace(/"/g, '""'); return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s}"` : s }

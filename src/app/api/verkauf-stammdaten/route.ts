@@ -1,14 +1,19 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { getCurrentMembership } from '@/lib/auth/roles'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
+    const membership = await getCurrentMembership()
+    const tenantId = membership?.tenantId
+    if (!tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 401 })
+
     const supabase = await createSupabaseServerClient()
 
     const { data: einstellungen } = await (supabase.from('tenant_einstellungen') as any)
-      .select('ust_satz_standard').limit(1).maybeSingle()
+      .select('ust_satz_standard').eq('tenant_id', tenantId).maybeSingle()
     const ustStandard: number = parseFloat((einstellungen as any)?.ust_satz_standard) || 13
 
     const [
@@ -29,23 +34,23 @@ export async function GET() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('fuellungen') as any)
         .select('id, name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto')
-        .eq('aktiv', true).gt('bestand_flaschen', 0).order('name'),
+        .eq('tenant_id', tenantId).eq('aktiv', true).gt('bestand_flaschen', 0).order('name'),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('weinausbau') as any)
         .select('id, name, menge_liter')
-        .eq('aktiv', true).neq('status', 'abgeschlossen').gt('menge_liter', 0).order('name'),
+        .eq('tenant_id', tenantId).eq('aktiv', true).neq('status', 'abgeschlossen').gt('menge_liter', 0).order('name'),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('kontakte') as any)
         .select('id, vorname, nachname, firma_id, sonderrabatt_pct, skonto_pct, skonto_tage, rabattgruppe:rabattgruppe_id(rabatt_pct)')
-        .eq('aktiv', true).order('nachname'),
+        .eq('tenant_id', tenantId).eq('aktiv', true).order('nachname'),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('firmen') as any)
         .select('id, name, sonderrabatt_pct, skonto_pct, skonto_tage, ist_kunde, ist_lieferant, rabattgruppe:rabattgruppe_id(rabatt_pct)')
-        .eq('aktiv', true).order('name'),
+        .eq('tenant_id', tenantId).eq('aktiv', true).order('name'),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('sonstige_artikel') as any)
         .select('id, name, einheit, default_preis')
-        .eq('aktiv', true).order('name'),
+        .eq('tenant_id', tenantId).eq('aktiv', true).order('name'),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       // Nur Zukäufe, die noch KEINEM Gebinde zugeordnet sind (ziel_weinausbau_id
       // IS NULL), dürfen hier als eigenständige "Zukauf"-Verkaufsoption erscheinen.
@@ -60,40 +65,46 @@ export async function GET() {
       // gleiche Filterung + Begründung in weinhandel/page.tsx, KPI "Zukäufe").
       (supabase.from('zukauf_posten') as any)
         .select('id, art, menge, einheit, rebsorte, jahrgang, notizen')
-        .eq('aktiv', true).gt('menge', 0).is('ziel_weinausbau_id', null)
+        .eq('tenant_id', tenantId).eq('aktiv', true).gt('menge', 0).is('ziel_weinausbau_id', null)
         .order('erstellt_am', { ascending: false }),
       // Pressung-Direktbefüllungen (noch keiner Kellerbuch-Charge zugeordnet)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('pressung_behaelter') as any)
         .select('id, menge_liter, behaelter:behaelter_id(name), pressung:pressung_id(datum, weinbezeichnung)')
-        .is('weinausbau_id', null).gt('menge_liter', 0)
+        .eq('tenant_id', tenantId).is('weinausbau_id', null).gt('menge_liter', 0)
         .order('menge_liter', { ascending: false }),
       // Weingärten für Traubenverkauf (mit Ried-Name)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('weingarten') as any)
         .select('id, name, trauben_herkunft_code, lage:lage_id(name)')
+        .eq('tenant_id', tenantId)
         .order('name'),
       // Jahrgänge
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('weinjahrgaenge') as any)
         .select('id, jahrgang')
+        .eq('tenant_id', tenantId)
         .order('jahrgang', { ascending: false }),
       // Grundstücke für Traubenverkauf
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('grundstuecke') as any)
         .select('id, gst_nr, weingarten_id, rebsorte')
+        .eq('tenant_id', tenantId)
         .order('gst_nr'),
       // Verfügbare kg: Lesemeldungen − Pressungen − bereits verkaufte Trauben
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('ernte_parzellen') as any)
         .select('weingarten_id, grundstueck_id, menge_kg, klosterneuburger, qualitaetsstufe, ernte_datum, jahrgang_id')
+        .eq('tenant_id', tenantId)
         .order('ernte_datum', { ascending: false }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('pressung_weingaerten') as any)
-        .select('weingarten_id, grundstueck_id, trauben_kg'),
+        .select('weingarten_id, grundstueck_id, trauben_kg')
+        .eq('tenant_id', tenantId),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('traubenverkauf') as any)
-        .select('weingarten_id, grundstueck_id, menge_kg'),
+        .select('weingarten_id, grundstueck_id, menge_kg')
+        .eq('tenant_id', tenantId),
     ])
 
     // ── Verfügbare kg pro Weingarten + Grundstück berechnen ─────────────────
