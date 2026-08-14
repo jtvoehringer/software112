@@ -21,7 +21,7 @@ function mapVal(row: R, csvKey: string | undefined, transform?: (v: string) => u
 export async function POST(req: NextRequest) {
   try {
     const { typ, rows, mapping } = await req.json() as {
-      typ: 'kontakte' | 'firmen' | 'fuellungen' | 'rieden' | 'rieden_details' | 'grundstuecke' | 'gebinde'
+      typ: 'kontakte' | 'firmen' | 'fuellungen' | 'rieden_details' | 'grundstuecke' | 'gebinde'
       rows: R[]
       mapping: Record<string, string>
     }
@@ -135,17 +135,6 @@ export async function POST(req: NextRequest) {
             vk_preis_brutto:    mapVal(row, mapping.vk_preis_brutto, v => parseFloat(v.replace(',','.')) || null) ?? null,
             einstandspreis:     mapVal(row, mapping.einkaufspreis, v => parseFloat(v.replace(',','.')) || null) ?? null,
             notizen:            mapVal(row, mapping.notizen) ?? null,
-            aktiv: true,
-          })
-          if (error) { details.push(`Zeile ${i+2}: ${error.message}`); continue }
-
-        } else if (typ === 'rieden') {
-          const name = mapVal(row, mapping.name)
-          if (!name) { details.push(`Zeile ${i+2}: Bezeichnung fehlt – übersprungen`); continue }
-          const { error } = await (supabase.from('weingarten') as any).insert({
-            tenant_id: tenantId,
-            name,
-            notizen:   mapVal(row, mapping.notizen) ?? null,
             aktiv: true,
           })
           if (error) { details.push(`Zeile ${i+2}: ${error.message}`); continue }

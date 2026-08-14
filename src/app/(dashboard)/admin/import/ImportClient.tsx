@@ -3,7 +3,7 @@ import { useState, useRef } from 'react'
 import { Upload } from 'lucide-react'
 import { createEroeffnungsbestandVonImport } from '@/app/(dashboard)/kellerbuch/gebinde-actions'
 
-type ImportTyp = 'kontakte' | 'firmen' | 'fuellungen' | 'rieden' | 'rieden_details' | 'grundstuecke' | 'gebinde'
+type ImportTyp = 'kontakte' | 'firmen' | 'fuellungen' | 'rieden_details' | 'grundstuecke' | 'gebinde'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -64,10 +64,6 @@ const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean 
     { key: 'einkaufspreis',       label: 'Einkaufspreis (€)' },
     { key: 'notizen',             label: 'Notizen' },
   ],
-  rieden: [
-    { key: 'name',      label: 'Bezeichnung (Ried)', pflicht: true },
-    { key: 'notizen',   label: 'Notizen' },
-  ],
   rieden_details: [
     { key: 'name',       label: 'Bezeichnung', pflicht: true },
     { key: 'ried',       label: 'Ried (Zuordnung – wird bei Bedarf automatisch angelegt)' },
@@ -78,7 +74,7 @@ const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean 
   ],
   grundstuecke: [
     { key: 'gst_nr',              label: 'GST-Nummer', pflicht: true },
-    { key: 'ried_flaeche',        label: 'Ried – Bezeichnung (aus Tab "Rieden (Details)")', pflicht: true },
+    { key: 'ried_flaeche',        label: 'Ried – Bezeichnung (aus Tab "Rieden")', pflicht: true },
     { key: 'katastralgemeinde',   label: 'KGNr.' },
     { key: 'flaeche_ha',          label: 'Fläche lt. AMA (ha)' },
     { key: 'flaeche_ha_kataster', label: 'Fläche lt. Kataster (ha)' },
@@ -98,8 +94,7 @@ const TYP_LABEL: Record<ImportTyp, string> = {
   kontakte: 'Kontakte',
   firmen:   'Firmen',
   fuellungen: 'Füllungen (Weinlager)',
-  rieden:   'Rieden',
-  rieden_details: 'Rieden (Details)',
+  rieden_details: 'Rieden',
   grundstuecke: 'Grundstücke',
   gebinde:  'Gebinde',
 }
@@ -208,13 +203,13 @@ export default function ImportClient({
       {typ === 'rieden_details' && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-5 text-sm text-blue-800">
           Legt Rieden mit vollen Detailfeldern (Rebsorte, Pflanzjahr, Fläche, …) an. Die Spalte
-          &quot;Ried&quot; ordnet der bestehenden Ried-Bezeichnung zu (Tab &quot;Rieden&quot;) – gibt es
-          noch keine passende, wird sie automatisch mit angelegt.
+          &quot;Ried&quot; ordnet einer bestehenden Ried-Bezeichnung zu – gibt es noch keine passende,
+          wird sie automatisch mit angelegt.
         </div>
       )}
       {typ === 'grundstuecke' && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-5 text-sm text-blue-800">
-          Setzt voraus, dass die zugehörige Ried bereits über den Tab &quot;Rieden (Details)&quot;
+          Setzt voraus, dass die zugehörige Ried bereits über den Tab &quot;Rieden&quot;
           angelegt wurde (Zuordnung über die Spalte &quot;Ried – Bezeichnung&quot;, exakter Namensabgleich).
         </div>
       )}
