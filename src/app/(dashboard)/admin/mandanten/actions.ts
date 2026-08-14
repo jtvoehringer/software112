@@ -1,6 +1,7 @@
 'use server'
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 
@@ -27,8 +28,24 @@ export async function createMandant(formData: FormData) {
   // Eindeutigkeit sicherstellen: ggf. Timestamp-Suffix anhängen
   const slug = `${baseSlug}-${Date.now().toString(36)}`
 
-  const { error } = await (supabase.from('tenants') as any).insert({ name, slug })
+  const { data: tenant, error } = await (supabase.from('tenants') as any)
+    .insert({ name, slug })
+    .select('id')
+    .single()
   if (error) throw new Error((error as AR).message)
+
+  // Den anlegenden System-Admin sofort als aktives Mitglied eintragen - sonst
+  // ist der neue (noch leere) Mandant für niemanden sichtbar: die Mandanten-Liste
+  // zeigt nur Mandanten mit aktiver Mitgliedschaft (siehe page.tsx), und ohne
+  // Mitgliedschaft gäbe es keinen Weg mehr, sich selbst dort einzuladen.
+  const authClient = await createSupabaseServerClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (user) {
+    const { error: membershipError } = await (supabase.from('tenant_memberships') as any)
+      .insert({ tenant_id: (tenant as AR).id, user_id: user.id, role: 'system_admin', aktiv: true })
+    if (membershipError) throw new Error((membershipError as AR).message)
+  }
+
   revalidatePath('/admin/mandanten')
 }
 
