@@ -2,10 +2,11 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef } from 'react'
 import { CheckCircle2, AlertTriangle, Pencil } from 'lucide-react'
 import {
   saveTenantSettings,
+  uploadTenantLogo,
   inviteUserToTenant,
   updateMemberRoleAdmin,
   updateMemberNameAdmin,
@@ -81,6 +82,22 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
   const [primary, setPrimary]      = useState(settings.primary_color)
   const [secondary, setSecondary]  = useState(settings.secondary_color)
   const [logoUrl, setLogoUrl]      = useState(settings.logo_url ?? '')
+  const [logoUploading, setLogoUploading] = useState(false)
+  const [logoError, setLogoError]  = useState<string | null>(null)
+  const logoInputRef               = useRef<HTMLInputElement>(null)
+
+  function handleLogoFile(file: File) {
+    setLogoUploading(true)
+    setLogoError(null)
+    const fd = new FormData()
+    fd.append('file', file)
+    startTransition(async () => {
+      const result = await uploadTenantLogo(tenant.id, fd)
+      setLogoUploading(false)
+      if (result.error) setLogoError(result.error)
+      else if (result.url) setLogoUrl(result.url)
+    })
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -110,12 +127,37 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Logo-URL</label>
+        <label className="block text-xs font-medium text-gray-600 mb-1">Logo</label>
+
+        <input
+          ref={logoInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+          className="hidden"
+          onChange={e => {
+            const f = e.target.files?.[0]
+            if (f) handleLogoFile(f)
+            e.target.value = ''
+          }}
+        />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => logoInputRef.current?.click()}
+            disabled={logoUploading}
+            className="text-xs font-medium bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-teal px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40"
+          >
+            {logoUploading ? 'Hochladen…' : 'Logo-Datei hochladen'}
+          </button>
+          {logoError && <span className="text-xs text-red-500">{logoError}</span>}
+        </div>
+        <p className="text-xs text-s112-muted mt-1">PNG, JPG, WebP oder SVG, max. 2 MB. Empfohlen: max. 140×40 px.</p>
+
         <input name="logo_url" value={logoUrl} onChange={e => setLogoUrl(e.target.value)}
-          placeholder="/logos/mein-logo.png oder https://..." className={inputCls()} />
+          placeholder="/logos/mein-logo.png oder https://..." className={inputCls() + ' mt-2'} />
         <p className="text-xs text-s112-muted mt-1">
-          Öffentliche URL oder Pfad im <code className="bg-gray-100 px-1 rounded">/public</code>-Ordner.
-          Empfohlen: PNG/SVG, max. 140×40 px.
+          Wird beim Hochladen automatisch befüllt. Alternativ kann hier auch direkt eine
+          öffentliche URL oder ein Pfad im <code className="bg-gray-100 px-1 rounded">/public</code>-Ordner eingetragen werden.
         </p>
         {logoUrl && (
           <div className="mt-2 p-3 bg-gray-50 border border-s112-border rounded-lg inline-block">
@@ -1166,7 +1208,7 @@ function ChecklisteTab({ tenant, settings, members }: {
           hint="→ Tab Branding: Anzeigename eintragen" />
         <CheckItem ok={hasLogo}
           label="Logo konfiguriert"
-          hint="→ Tab Branding: Logo-URL eintragen. Datei in /public/logos/ ablegen oder externe URL verwenden." />
+          hint="→ Tab Branding: Logo-Datei hochladen (oder alternativ Logo-URL eintragen)." />
         <CheckItem ok={hasUser}
           label="Mindestens 1 Benutzer zugewiesen"
           hint="→ Tab Benutzer: Benutzer einladen. Der eingeladene Benutzer erhält eine E-Mail von Supabase." />

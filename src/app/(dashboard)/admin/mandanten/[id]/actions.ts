@@ -60,6 +60,42 @@ export async function saveTenantSettings(tenantId: string, formData: FormData) {
   revalidatePath('/admin/mandanten')
 }
 
+// ── Branding: Logo-Datei-Upload ───────────────────────────────────────────────
+
+const LOGO_MAX_BYTES = 2 * 1024 * 1024 // 2 MB
+const LOGO_ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml']
+
+export async function uploadTenantLogo(tenantId: string, formData: FormData): Promise<{ url?: string; error?: string }> {
+  await assertSystemAdmin()
+  const admin = createSupabaseAdminClient()
+
+  const file = formData.get('file') as File | null
+  if (!file || file.size === 0) return { error: 'Keine Datei ausgewählt' }
+  if (file.size > LOGO_MAX_BYTES) return { error: 'Datei zu groß (max. 2 MB)' }
+  if (!LOGO_ALLOWED_TYPES.includes(file.type)) return { error: 'Nur PNG, JPG, WebP oder SVG erlaubt' }
+
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'png'
+  const path = `${tenantId}/logo-${Date.now()}.${ext}`
+
+  const { error: uploadErr } = await admin.storage
+    .from('mandant-logos')
+    .upload(path, file, { contentType: file.type, upsert: true })
+  if (uploadErr) return { error: uploadErr.message }
+
+  const { data: pub } = admin.storage.from('mandant-logos').getPublicUrl(path)
+
+  const { error: dbErr } = await (admin.from('tenant_einstellungen') as any)
+    .upsert(
+      { tenant_id: tenantId, logo_url: pub.publicUrl, aktualisiert_am: new Date().toISOString() },
+      { onConflict: 'tenant_id' }
+    )
+  if (dbErr) return { error: dbErr.message }
+
+  revalidatePath(`/admin/mandanten/${tenantId}`)
+  revalidatePath('/admin/mandanten')
+  return { url: pub.publicUrl }
+}
+
 // ── Benutzer: Einladung ───────────────────────────────────────────────────────
 
 export async function inviteUserToTenant(tenantId: string, email: string, role: string, fullName: string) {
