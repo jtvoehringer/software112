@@ -85,7 +85,10 @@ function WeingartenZeile({
 
   function handleDelete() {
     if (!confirm(`"${w.name}" wirklich löschen?`)) return
-    startTransition(() => deleteWeingarten(w.id))
+    startTransition(async () => {
+      const result = await deleteWeingarten(w.id)
+      if (result?.error) alert(`Fehler beim Löschen: ${result.error}`)
+    })
   }
   function handleDeactivate() {
     startTransition(() => deactivateWeingarten(w.id))

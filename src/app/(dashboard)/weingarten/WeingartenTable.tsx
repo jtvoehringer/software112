@@ -76,7 +76,10 @@ export default function WeingartenTable({
 
   function handleDelete(id: string, name: string) {
     if (!confirm(`Weingarten "${name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return
-    startTransition(() => deleteWeingarten(id))
+    startTransition(async () => {
+      const result = await deleteWeingarten(id)
+      if (result?.error) alert(`Fehler beim Löschen: ${result.error}`)
+    })
   }
 
   function handleDeactivate(id: string) {

@@ -57,12 +57,31 @@ export async function deactivateWeingarten(id: string) {
   revalidatePath('/weingarten')
 }
 
-export async function deleteWeingarten(id: string) {
-  const supabase = await createSupabaseServerClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('weingarten') as any).delete().eq('id', id)
-  if (error) throw new Error((error as AnyRecord).message)
-  revalidatePath('/weingarten')
+export async function deleteWeingarten(id: string): Promise<{ error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from('weingarten') as any).delete().eq('id', id)
+    if (error) {
+      const err = error as AnyRecord
+      // Postgres 23503 = Foreign-Key-Verletzung, z.B. wenn noch Pressungen
+      // (Lese/Pressvorgänge, siehe Migration 018) auf dieses Ried verweisen –
+      // pressungen.weingarten_id hat bewusst kein "on delete cascade/set null",
+      // damit ein Pressvorgang nie stillschweigend seinen Ried-Bezug verliert.
+      if (err.code === '23503' || /foreign key/i.test(String(err.message ?? ''))) {
+        return {
+          error: 'Dieser Ried kann nicht gelöscht werden, da noch verknüpfte Daten vorhanden sind ' +
+            '(z. B. Pressungen/Lese). Bitte zuerst diese Datensätze entfernen oder den Ried stattdessen ' +
+            'deaktivieren statt löschen.',
+        }
+      }
+      return { error: err.message }
+    }
+    revalidatePath('/weingarten')
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Unbekannter Fehler beim Löschen des Rieds' }
+  }
 }
 
 // ── Grundstücke ─────────────────────────────────────────────────────────────────────────────────
