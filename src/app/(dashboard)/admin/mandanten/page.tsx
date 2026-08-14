@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -27,11 +28,39 @@ export default async function MandantenPage() {
   const role = await getCurrentUserRole()
   if (role !== 'system_admin') redirect('/dashboard')
 
+  // Nur Mandanten zeigen, wo der aktuelle User eine AKTIVE Mitgliedschaft hat -
+  // nicht pauschal alle Mandanten der Instanz. Wenn ein Betriebsleiter Jörgens
+  // Mitgliedschaft über /benutzer deaktiviert (Migration 159 Aktiv-Toggle),
+  // verschwindet der Mandant dadurch automatisch auch aus dieser Übersicht.
+  const authClient = await createSupabaseServerClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) redirect('/login')
+
   const supabase = createSupabaseAdminClient()
 
+  const { data: eigeneMemberships } = await (supabase.from('tenant_memberships') as any)
+    .select('tenant_id')
+    .eq('user_id', user.id)
+    .eq('aktiv', true)
+  const eigeneTenantIds = ((eigeneMemberships ?? []) as R[]).map(m => m.tenant_id)
+
+  if (eigeneTenantIds.length === 0) {
+    return (
+      <div>
+        <div className="flex items-center gap-2 text-sm text-s112-muted mb-4">
+          <span>Administration</span>
+          <span>/</span>
+          <span className="text-gray-700 font-medium">Mandanten</span>
+        </div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Mandanten</h1>
+        <p className="text-sm text-s112-muted">Keine aktive Mitgliedschaft in einem Mandanten gefunden.</p>
+      </div>
+    )
+  }
+
   const [{ data: tenants }, { data: memberships }] = await Promise.all([
-    (supabase.from('tenants') as any).select('id, name, created_at').order('created_at'),
-    (supabase.from('tenant_memberships') as any).select('tenant_id'),
+    (supabase.from('tenants') as any).select('id, name, created_at').in('id', eigeneTenantIds).order('created_at'),
+    (supabase.from('tenant_memberships') as any).select('tenant_id').in('tenant_id', eigeneTenantIds),
   ])
 
   // tenant_einstellungen existiert erst nach Migration 021 → graceful fallback

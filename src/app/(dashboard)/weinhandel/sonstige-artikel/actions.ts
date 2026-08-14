@@ -48,3 +48,21 @@ export async function toggleAktivSonstigesArtikel(id: string, aktiv: boolean) {
   if (error) throw new Error((error as AR).message)
   revalidatePath('/weinhandel/sonstige-artikel')
 }
+
+export async function deleteSonstigesArtikel(id: string): Promise<{ error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const tenantId = await getTenantId()
+    // sonstige_artikel ist ein reiner Auswahl-Katalog (Verkaufspositionen speichern
+    // Name/Preis direkt, keine Fremdschlüssel-Referenz hierher) - Löschen ist daher
+    // immer unbedenklich, anders als z.B. bei Rieden mit verknüpften Pressungen.
+    const { error } = await (supabase.from('sonstige_artikel') as any)
+      .delete()
+      .eq('id', id).eq('tenant_id', tenantId)
+    if (error) return { error: (error as AR).message }
+    revalidatePath('/weinhandel/sonstige-artikel')
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Unbekannter Fehler beim Löschen' }
+  }
+}

@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Pencil } from 'lucide-react'
-import { upsertSonstigesArtikel, toggleAktivSonstigesArtikel } from './actions'
+import { Pencil, Trash2 } from 'lucide-react'
+import { upsertSonstigesArtikel, toggleAktivSonstigesArtikel, deleteSonstigesArtikel } from './actions'
 import { useRouter } from 'next/navigation'
 
 interface Artikel {
@@ -49,6 +49,16 @@ function ArtikelRow({ artikel, onRefresh }: { artikel: Artikel; onRefresh: () =>
     })
   }
 
+  function handleDelete() {
+    if (!confirm(`"${artikel.name}" wirklich löschen?`)) return
+    setError(null)
+    startTransition(async () => {
+      const result = await deleteSonstigesArtikel(artikel.id)
+      if (result?.error) setError(result.error)
+      else onRefresh()
+    })
+  }
+
   if (editing) {
     return (
       <tr className="bg-s112-teal/5">
@@ -91,7 +101,10 @@ function ArtikelRow({ artikel, onRefresh }: { artikel: Artikel; onRefresh: () =>
 
   return (
     <tr className={!artikel.aktiv ? 'opacity-40' : 'hover:bg-s112-bg/50 transition-colors'}>
-      <td className="px-3 py-2.5 text-sm text-gray-800 font-medium">{artikel.name}</td>
+      <td className="px-3 py-2.5 text-sm text-gray-800 font-medium">
+        {artikel.name}
+        {error && <p className="text-xs text-red-500 mt-1 font-normal">{error}</p>}
+      </td>
       <td className="px-3 py-2.5 text-sm text-s112-muted">{artikel.einheit}</td>
       <td className="px-3 py-2.5 text-sm text-right tabular-nums text-gray-700">
         {artikel.default_preis != null
@@ -109,6 +122,11 @@ function ArtikelRow({ artikel, onRefresh }: { artikel: Artikel; onRefresh: () =>
             title={artikel.aktiv ? 'Deaktivieren' : 'Aktivieren'}
             className="text-xs text-s112-muted hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-100">
             {artikel.aktiv ? 'Deaktivieren' : 'Aktivieren'}
+          </button>
+          <button onClick={handleDelete} disabled={isPending}
+            title="Löschen"
+            className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50">
+            <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
       </td>

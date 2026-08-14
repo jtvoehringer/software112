@@ -2,10 +2,10 @@
 
 import { useState, useMemo, useRef, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { createAktivitaet, moveAktivitaet, updateAktivitaet, updatePipelineEintrag, toggleAktivitaetErledigt } from './actions'
+import { createAktivitaet, moveAktivitaet, updateAktivitaet, updatePipelineEintrag, toggleAktivitaetErledigt, deleteAktivitaet, deletePipelineEintrag } from './actions'
 import { AKTIVITAET_ARTEN } from '@/lib/crm/types'
 import Link from 'next/link'
-import { X, Lock, Pencil, Calendar, Check } from 'lucide-react'
+import { X, Lock, Pencil, Calendar, Check, Trash2 } from 'lucide-react'
 
 // ── Typeahead-Suche ───────────────────────────────────────────────────────────
 interface SucheItem { id: string; label: string; sub?: string }
@@ -776,6 +776,9 @@ function ZeitachseView({
                 )}
                 {viewAkt.ist_privat  && <p className="text-gray-400 text-xs inline-flex items-center gap-1"><Lock size={11} />Privater Termin</p>}
               </div>
+              {saveErr && (
+                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">{saveErr}</p>
+              )}
               {viewAkt.typ === 'aktivitaet' && viewAkt.art === 'aufgabe' && (
                 <div className="mb-4 border-t border-s112-border/40 pt-3">
                   <button onClick={() => {
@@ -830,6 +833,28 @@ function ZeitachseView({
                     className="border border-sky-300 text-sky-700 px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-sky-50">
                     In Outlook öffnen →
                   </a>
+                )}
+                {(viewAkt.typ === 'aktivitaet' || viewAkt.typ === 'pipeline') && (
+                  <button onClick={() => {
+                    if (!confirm(`"${viewAkt.titel}" wirklich löschen?`)) return
+                    setSaveErr(null)
+                    startTransition(async () => {
+                      try {
+                        if (viewAkt.typ === 'aktivitaet') {
+                          await deleteAktivitaet(viewAkt.id.replace('a_', ''))
+                        } else {
+                          await deletePipelineEintrag(viewAkt.id.replace('p_', ''))
+                        }
+                        setViewAkt(null)
+                        router.refresh()
+                      } catch (err) {
+                        setSaveErr(err instanceof Error ? err.message : 'Fehler beim Löschen')
+                      }
+                    })
+                  }} disabled={pending}
+                    className="text-red-500 border border-red-200 px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-red-50 disabled:opacity-50 inline-flex items-center gap-1.5">
+                    <Trash2 size={14} />Löschen
+                  </button>
                 )}
                 <button onClick={() => { setViewAkt(null); setEditAktMode(false); setEditPipeMode(false) }}
                   className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
