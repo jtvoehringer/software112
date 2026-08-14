@@ -12,11 +12,10 @@ function Spinner() {
 }
 
 export default function BetriebCard({
-  displayName, roleLabel, plan, accentColor,
+  displayName, roleLabel, accentColor,
 }: {
   displayName: string
   roleLabel: string
-  plan?: string | null
   accentColor?: string | null
 }) {
   const { pending } = useFormStatus()
@@ -34,7 +33,6 @@ export default function BetriebCard({
           </p>
           <p className="text-xs text-s112-muted mt-0.5">
             {roleLabel}
-            {plan && <span className="ml-2 opacity-60">· {plan}</span>}
           </p>
         </div>
         {pending

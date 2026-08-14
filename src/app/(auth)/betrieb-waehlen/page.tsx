@@ -21,9 +21,20 @@ export default async function BetriebWaehlenPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Alle Memberships mit Tenant-Info laden
+  // Alle Memberships mit Tenant-Info laden.
+  // WICHTIG: .eq('user_id', ...) explizit setzen statt nur auf RLS zu
+  // vertrauen – die RLS-Policy "memberships: tenant_admin can view all in
+  // tenant" erlaubt system_admin/tenant_admin absichtlich das Lesen ALLER
+  // Mitgliedschafts-Zeilen eines Mandanten (für /benutzer-Verwaltung).
+  // Ohne diesen Filter sah ein system_admin hier eine Karte pro
+  // Mitgliedschafts-Zeile im Mandanten (also z.B. eine Karte pro User mit
+  // Zugriff auf "Sandbox"), statt eine Karte pro eigenem Mandanten.
+  // .eq('aktiv', true) blendet zusätzlich gesperrte Mitgliedschaften aus,
+  // konsistent mit dem Mitgliedschaft-Aktiv-Toggle (Migration 159).
   const { data: memberships } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id, role, tenants(name, slug, plan)')
+    .select('tenant_id, role, tenants(name, slug)')
+    .eq('user_id', user.id)
+    .eq('aktiv', true)
     .order('created_at', { ascending: true })
 
   if (!memberships || memberships.length === 0) redirect('/login')
@@ -68,7 +79,6 @@ export default async function BetriebWaehlenPage() {
                 <BetriebCard
                   displayName={displayName}
                   roleLabel={ROLE_LABEL[m.role] ?? m.role}
-                  plan={tenant?.plan}
                   accentColor={eins?.primary_color}
                 />
               </form>
