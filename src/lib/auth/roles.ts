@@ -20,18 +20,22 @@ export async function getCurrentMembership(): Promise<{ tenantId: string; role: 
   const activeTenantId = await getActiveTenantCookie()
 
   if (activeTenantId) {
-    // Validiere Cookie gegen tatsächliche Memberships (RLS schützt automatisch)
+    // Validiere Cookie gegen tatsächliche Memberships (RLS schützt automatisch).
+    // aktiv=true: eine deaktivierte Mitgliedschaft (Migration 159, Toggle in der
+    // Benutzerverwaltung) zählt für den gesamten App-Zugriff wie "kein Zugriff".
     const { data } = await (supabase.from('tenant_memberships') as any)
       .select('tenant_id, role')
       .eq('tenant_id', activeTenantId)
+      .eq('aktiv', true)
       .limit(1)
       .maybeSingle()
     if (data) return { tenantId: (data as R).tenant_id, role: (data as R).role as UserRole }
   }
 
-  // Fallback: erste Membership (kein Cookie gesetzt oder Cookie veraltet)
+  // Fallback: erste (aktive) Membership (kein Cookie gesetzt oder Cookie veraltet)
   const { data } = await (supabase.from('tenant_memberships') as any)
     .select('tenant_id, role')
+    .eq('aktiv', true)
     .limit(1)
     .maybeSingle()
   if (!data) return null

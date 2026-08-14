@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { updateMemberRole, removeMember, assignUserToTenant } from './actions'
+import { updateMemberRole, removeMember, assignUserToTenant, toggleMemberAktiv } from './actions'
 import type { MemberWithEmail, UnassignedUser } from './actions'
 import { Users } from 'lucide-react'
 
@@ -63,6 +63,14 @@ export default function BenutzerClient({ members, unassigned }: Props) {
     })
   }
 
+  const handleToggleAktiv = (membershipId: string, aktivNeu: boolean) => {
+    setError(null)
+    startTransition(async () => {
+      const result = await toggleMemberAktiv(membershipId, aktivNeu)
+      if (result?.error) setError(result.error)
+    })
+  }
+
   const handleAssign = () => {
     if (!assignUserId) return
     setError(null)
@@ -104,6 +112,7 @@ export default function BenutzerClient({ members, unassigned }: Props) {
               <tr className="bg-s112-bg border-b border-s112-border">
                 <th className="text-left px-4 py-3 font-semibold text-gray-700">E-Mail</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-700">Rolle</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-700">Status</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-700">Dabei seit</th>
                 <th className="text-right px-4 py-3 font-semibold text-gray-700">Aktionen</th>
               </tr>
@@ -129,6 +138,30 @@ export default function BenutzerClient({ members, unassigned }: Props) {
                         {ROLE_LABELS[m.role] ?? m.role}
                       </span>
                     )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {/* Mitgliedschaft de-/aktivieren (Migration 159) - bewusst für ALLE
+                        Rollen inkl. system_admin sichtbar/bedienbar (im Unterschied zu
+                        "Rolle ändern"/"Entfernen" unten), damit der Betriebsleiter z.B.
+                        einen System-Admin-Zugriff für seinen Betrieb sperren kann. Die
+                        eigene Mitgliedschaft ist serverseitig geschützt (siehe actions.ts). */}
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => {
+                        if (m.aktiv && !confirm(`Zugriff für "${m.email}" auf diesen Betrieb wirklich deaktivieren?`)) return
+                        handleToggleAktiv(m.id, !m.aktiv)
+                      }}
+                      title={m.aktiv ? 'Klicken zum Deaktivieren' : 'Klicken zum Aktivieren'}
+                      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium transition-colors disabled:opacity-50 ${
+                        m.aktiv
+                          ? 'bg-s112-teal/10 text-s112-teal hover:bg-s112-teal/20'
+                          : 'bg-red-100 text-red-700 hover:bg-red-200'
+                      }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${m.aktiv ? 'bg-s112-teal' : 'bg-red-500'}`} />
+                      {m.aktiv ? 'Aktiv' : 'Inaktiv'}
+                    </button>
                   </td>
                   <td className="px-4 py-3 text-s112-muted text-xs">
                     {m.created_at ? new Date(m.created_at).toLocaleDateString('de-AT') : '–'}
@@ -235,8 +268,9 @@ export default function BenutzerClient({ members, unassigned }: Props) {
       )}
 
       <p className="text-xs text-s112-muted mt-4">
-        System-Admins können nicht über diese Seite bearbeitet werden.
-        Die eigene Rolle ist durch RLS geschützt.
+        System-Admins können über diese Seite nicht in der Rolle geändert oder entfernt
+        werden - der Zugriff lässt sich aber über den Status (Aktiv/Inaktiv) sperren.
+        Die eigene Mitgliedschaft ist durch RLS geschützt.
       </p>
     </>
   )

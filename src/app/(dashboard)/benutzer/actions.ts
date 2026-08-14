@@ -14,6 +14,7 @@ export type MemberWithEmail = {
   role: string
   created_at: string
   email: string
+  aktiv: boolean
 }
 
 export type UnassignedUser = {
@@ -29,10 +30,11 @@ export async function getTenantMembers(): Promise<MemberWithEmail[]> {
   const supabase = await createSupabaseServerClient()
   const admin    = createSupabaseAdminClient()
 
-  // Memberships laden
+  // Memberships laden (inkl. inaktive - die Verwaltung muss sie sehen können,
+  // um sie ggf. wieder zu aktivieren, siehe toggleMemberAktiv unten)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: memberships } = await (supabase.from('tenant_memberships') as any)
-    .select('id, user_id, role, created_at')
+    .select('id, user_id, role, created_at, aktiv')
     .eq('tenant_id', membership.tenantId)
     .order('created_at')
 
@@ -49,6 +51,7 @@ export async function getTenantMembers(): Promise<MemberWithEmail[]> {
     role:       m.role,
     created_at: m.created_at,
     email:      emailMap[m.user_id] ?? m.user_id,
+    aktiv:      m.aktiv ?? true,
   }))
 }
 
@@ -103,6 +106,46 @@ export async function updateMemberRole(membershipId: string, newRole: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error, count } = await (admin.from('tenant_memberships') as any)
     .update({ role: newRole }, { count: 'exact' })
+    .eq('id', membershipId)
+    .eq('tenant_id', membership.tenantId)
+
+  if (error) return { error: error.message }
+  if (count === 0) return { error: 'Eintrag nicht gefunden oder keine Änderung möglich.' }
+  revalidatePath('/benutzer')
+  return { success: true }
+}
+
+/** Mitgliedschaft de-/aktivieren (Migration 159) - Betriebsleiter (tenant_admin) oder
+ *  system_admin können damit z.B. den Zugriff eines System-Admin-Accounts für ihren
+ *  Betrieb sperren, ohne die Mitgliedschaft komplett zu löschen. Eine deaktivierte
+ *  Mitgliedschaft zählt app-weit (RLS + getCurrentMembership) wie "kein Zugriff" auf
+ *  diesen Betrieb. Anders als bei Rollenänderung/Entfernen bewusst AUCH für
+ *  system_admin-Zeilen erlaubt - siehe BenutzerClient.tsx. */
+export async function toggleMemberAktiv(membershipId: string, aktiv: boolean) {
+  const membership = await getCurrentMembership()
+  if (!membership || !canManageUsers(membership.role)) {
+    return { error: 'Keine Berechtigung' }
+  }
+
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Nicht angemeldet' }
+
+  // Eigene Mitgliedschaft kann man nicht selbst deaktivieren (Selbstaussperrung
+  // verhindern) - analog zu "Sich selbst kann man nicht entfernen" bei removeMember.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: target } = await (supabase.from('tenant_memberships') as any)
+    .select('user_id').eq('id', membershipId).eq('tenant_id', membership.tenantId).maybeSingle()
+  if (!target) return { error: 'Eintrag nicht gefunden.' }
+  if ((target as R).user_id === user.id) {
+    return { error: 'Die eigene Mitgliedschaft kann nicht deaktiviert werden.' }
+  }
+
+  // Admin-Client verwenden, damit RLS das Update nicht blockiert
+  const admin = createSupabaseAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error, count } = await (admin.from('tenant_memberships') as any)
+    .update({ aktiv }, { count: 'exact' })
     .eq('id', membershipId)
     .eq('tenant_id', membership.tenantId)
 
