@@ -134,6 +134,13 @@ export default function ImportClient({
   const [mapping, setMapping]       = useState<Record<string, string>>({})
   const [importing, setImporting]   = useState(false)
   const [result, setResult]         = useState<{ ok: number; fehler: number; details: string[] } | null>(null)
+  // Separater State fuer echte Fehlerantworten (401/403/500). Die API liefert bei
+  // Erfolg { ok, fehler: <Anzahl>, details: [...] }, bei Ablehnung/Absturz aber nur
+  // { fehler: '<Text>' } OHNE details/ok - dieselbe "result"-Variable fuer beide
+  // Faelle zu verwenden fuehrte dazu, dass result.details.length beim Rendern auf
+  // undefined traf und die ganze Seite mit einem unbehandelten Absturz beendete,
+  // noch bevor der eigentliche Fehlertext (z.B. "Keine Berechtigung") sichtbar wurde.
+  const [errorMsg, setErrorMsg]     = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -162,15 +169,27 @@ export default function ImportClient({
 
   async function startImport() {
     if (!parsed) return
-    setImporting(true); setResult(null)
-    const res = await fetch('/api/import', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ typ, rows: parsed.rows, mapping }),
-    })
-    const data = await res.json()
-    setResult(data)
-    setImporting(false)
+    setImporting(true); setResult(null); setErrorMsg(null)
+    try {
+      const res = await fetch('/api/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ typ, rows: parsed.rows, mapping }),
+      })
+      const data = await res.json()
+      // Bei 401/403/500 liefert die API nur { fehler: '<Text>' } ohne ok/details -
+      // als eigenen Fehlertext behandeln statt als (unvollstaendiges) Erfolgsergebnis,
+      // sonst crasht die details.length-Anzeige weiter unten mit einem leeren Bildschirm.
+      if (!res.ok) {
+        setErrorMsg(typeof data?.fehler === 'string' ? data.fehler : `Fehler (Status ${res.status})`)
+      } else {
+        setResult(data)
+      }
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : String(err))
+    } finally {
+      setImporting(false)
+    }
   }
 
   const felder = FELDER[typ]
@@ -191,7 +210,7 @@ export default function ImportClient({
       {/* Typ-Wahl */}
       <div className="flex gap-3 mb-6">
         {(Object.keys(TYP_LABEL) as ImportTyp[]).map(t => (
-          <button key={t} onClick={() => { setTyp(t); setParsed(null); setMapping({}); setResult(null) }}
+          <button key={t} onClick={() => { setTyp(t); setParsed(null); setMapping({}); setResult(null); setErrorMsg(null) }}
             className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
               typ === t ? 'bg-s112-teal text-white border-s112-teal' : 'border-s112-border text-gray-600 hover:bg-s112-bg'
             }`}>
@@ -370,12 +389,18 @@ export default function ImportClient({
             {importing ? 'Importiere…' : `${parsed.rows.length} Zeilen importieren`}
           </button>
 
+          {errorMsg && (
+            <div className="mt-4 p-4 rounded-xl border bg-red-50 border-red-200">
+              <p className="font-semibold text-sm text-red-700">Import fehlgeschlagen: {errorMsg}</p>
+            </div>
+          )}
+
           {result && (
             <div className={`mt-4 p-4 rounded-xl border ${result.fehler === 0 ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
               <p className="font-semibold text-sm">
                 {result.ok} erfolgreich · {result.fehler} Fehler
               </p>
-              {result.details.length > 0 && (
+              {(result.details ?? []).length > 0 && (
                 <ul className="mt-2 text-xs text-gray-600 space-y-0.5">
                   {result.details.slice(0, 10).map((d, i) => <li key={i}>{d}</li>)}
                   {result.details.length > 10 && <li>… und {result.details.length - 10} weitere</li>}
