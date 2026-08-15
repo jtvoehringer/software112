@@ -57,7 +57,7 @@ function GSTZeile({ gst }: { gst: GSTRow }) {
       onClick={() => router.push(`/weingarten/${gst.weingarten_id}`)}
       title="Zum Weingarten (Grundstück bearbeiten)"
     >
-      <td className="pl-16 pr-3 py-2 text-xs text-gray-500">
+      <td className="pl-8 pr-3 py-2 text-xs text-gray-500">
         <span className="font-mono">GST {gst.gst_nr}</span>
         {gst.katastralgemeinde && (
           <span className="ml-2 text-gray-400">{gst.katastralgemeinde}</span>
@@ -192,6 +192,24 @@ function LageGruppe({
     return s + gsts.reduce((a, g) => a + (g.flaeche_ha_kataster ?? 0), 0)
   }, 0)
 
+  // Weingärten mit eigenen Grundstücken sind hier oft nur ein technischer
+  // Container pro Rebsorte (z.B. "<Ried> - Gelber Muskateller 2013" und
+  // "<Ried> - Zierfandler 2013" für dieselbe Lage) - ihre eigene Zeile
+  // wiederholt den Ried-Namen aus der Gruppenüberschrift nochmal und bringt
+  // sonst keine Information, die nicht auch direkt auf der GST-Zeile steht
+  // (Rebsorte, Fläche). Deshalb werden ihre Grundstücke direkt unter dem Ried
+  // gelistet, ohne die Zwischenzeile - nach GST-Nr. sortiert, damit z.B. zwei
+  // Rebsorten auf demselben Grundstück nebeneinander stehen. Bearbeiten des
+  // jeweiligen Weingartens bleibt per Klick auf eine seiner GST-Zeilen
+  // erreichbar (siehe GSTZeile onClick → /weingarten/[id]).
+  // Weingärten OHNE eigene Grundstücke (z.B. Flächen ohne GST-Aufteilung)
+  // haben keine andere Darstellung und behalten deshalb ihre eigene Zeile.
+  const weingaertenMitGst = weingaerten.filter(w => (gstMap.get(w.id) ?? []).length > 0)
+  const weingaertenOhneGst = weingaerten.filter(w => (gstMap.get(w.id) ?? []).length === 0)
+  const flatGst = weingaertenMitGst
+    .flatMap(w => gstMap.get(w.id) ?? [])
+    .sort((a, b) => a.gst_nr.localeCompare(b.gst_nr, 'de', { numeric: true }))
+
   return (
     <>
       <tr
@@ -214,11 +232,13 @@ function LageGruppe({
         <td className="px-4 py-2.5" />
       </tr>
 
-      {open && weingaerten.map(w => (
+      {open && flatGst.map(g => <GSTZeile key={g.id} gst={g} />)}
+
+      {open && weingaertenOhneGst.map(w => (
         <WeingartenZeile
           key={w.id}
           w={w}
-          gsts={gstMap.get(w.id) ?? []}
+          gsts={[]}
           writeOk={writeOk}
           adminOk={adminOk}
         />
