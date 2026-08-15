@@ -775,7 +775,7 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
             <li>portal.azure.com → App-Registrierungen → Neue Registrierung</li>
             <li>Umleitungs-URI (Web): <code className="bg-white px-1 rounded">https://software112.icp-consultants.at/api/auth/m365/callback</code></li>
             <li>Zertifikate & Geheimnisse → Neuer geheimer Clientschlüssel</li>
-            <li>API-Berechtigungen → Microsoft Graph → Mail.Read + Mail.Send (delegiert)</li>
+            <li>API-Berechtigungen → Microsoft Graph → delegiert: Mail.ReadWrite, Mail.Send, Calendars.Read, offline_access – danach „Administratorzustimmung erteilen"</li>
           </ol>
         </div>
 
