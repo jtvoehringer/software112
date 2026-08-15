@@ -117,6 +117,8 @@ export default async function BuchhaltungPage({
       {/* Quick-Links */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex gap-2 text-sm">
+          <Link href="/buchhaltung/belege" className="text-s112-teal hover:underline">Belege</Link>
+          <span className="text-gray-300">·</span>
           <Link href="/buchhaltung/uva" className="text-s112-teal hover:underline">UVA-Meldung</Link>
           <span className="text-gray-300">·</span>
           <Link href="/buchhaltung/kategorien" className="text-s112-teal hover:underline">Kategorien</Link>

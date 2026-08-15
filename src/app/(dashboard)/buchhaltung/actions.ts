@@ -1,5 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 
@@ -358,4 +359,92 @@ export async function schliesseEaMonat(jahr: number, monat: number): Promise<{ o
   revalidatePath('/buchhaltung')
   revalidatePath('/buchhaltung/uva')
   return { ok: true }
+}
+
+// ── Beleg verbuchen (aus KI-Erkennung oder manuell nach Upload) ───────────────
+//
+// Legt aus den vom Nutzer geprüften/korrigierten Formularwerten eine normale
+// ea_transaktionen-Zeile an (identische Logik/Prüfungen wie createEaTransaktion
+// oben) und verknüpft den Beleg damit (status='verbucht'). Die von Claude
+// vorgeschlagenen Werte (ea_belege.erkannte_daten) dienen nur der Vorbefüllung
+// im Formular - gebucht wird ausschließlich das, was der Nutzer bestätigt hat.
+
+export async function verbucheBeleg(belegId: string, formData: FormData) {
+  const { supabase, tenantId } = await getCtx()
+
+  const { data: belegRaw } = await (supabase.from('ea_belege') as any)
+    .select('id, status')
+    .eq('id', belegId).eq('tenant_id', tenantId).maybeSingle()
+  const beleg = belegRaw as R | null
+  if (!beleg) return { error: 'Beleg nicht gefunden' }
+  if (beleg.status === 'verbucht') return { error: 'Dieser Beleg wurde bereits verbucht.' }
+
+  const typ          = formData.get('typ') as string
+  const datum        = formData.get('datum') as string
+  const beschreibung = formData.get('beschreibung') as string
+  const kategorie_id = (formData.get('kategorie_id') as string) || null
+  const betrag_netto = parseFloat(formData.get('betrag_netto') as string)
+  const ust_satz     = parseFloat(formData.get('ust_satz') as string)
+  const notizen      = (formData.get('notizen') as string) || null
+  const konto_id     = (formData.get('konto_id') as string) || null
+
+  if (!typ || !datum || !beschreibung || isNaN(betrag_netto)) {
+    return { error: 'Pflichtfelder fehlen' }
+  }
+
+  const { data: pruefRaw } = await (supabase.rpc as any)('pruefe_ea_zeitraum_offen', {
+    p_tenant_id: tenantId, p_datum: datum,
+  })
+  const pruef = Array.isArray(pruefRaw) ? pruefRaw[0] : pruefRaw
+  if (pruef && pruef.offen === false) {
+    return { error: pruef.grund ?? 'Zeitraum ist geschlossen.' }
+  }
+
+  const { data: neu, error } = await (supabase.from('ea_transaktionen') as any)
+    .insert({
+      tenant_id: tenantId, typ, datum, beschreibung,
+      kategorie_id, betrag_netto, ust_satz: ust_satz || 20,
+      notizen, konto_id,
+    })
+    .select('id')
+    .single()
+
+  if (error) return { error: (error as R).message }
+
+  await (supabase.from('ea_belege') as any)
+    .update({
+      ea_transaktion_id: (neu as R).id,
+      status:             'verbucht',
+      verbucht_am:         new Date().toISOString(),
+    })
+    .eq('id', belegId).eq('tenant_id', tenantId)
+
+  revalidatePath('/buchhaltung')
+  revalidatePath('/buchhaltung/belege')
+  return { ok: true }
+}
+
+// ── Beleg verwerfen (löschen, ohne Buchung) ────────────────────────────────────
+//
+// Nur für noch nicht verbuchte Belege (status 'erkannt'/'fehler') - z.B. bei
+// einem versehentlichen Doppel-Upload oder einem für die Buchhaltung
+// irrelevanten Foto. Bereits verbuchte Belege bleiben als Nachweis erhalten
+// und können hier nicht mehr gelöscht werden.
+
+export async function verwerfeBeleg(belegId: string): Promise<void> {
+  const { supabase, tenantId } = await getCtx()
+
+  const { data: belegRaw } = await (supabase.from('ea_belege') as any)
+    .select('storage_pfad, status')
+    .eq('id', belegId).eq('tenant_id', tenantId).maybeSingle()
+  const beleg = belegRaw as R | null
+
+  if (beleg && beleg.status !== 'verbucht') {
+    await (supabase.from('ea_belege') as any)
+      .delete().eq('id', belegId).eq('tenant_id', tenantId)
+    await supabase.storage.from('ea-belege').remove([beleg.storage_pfad])
+  }
+
+  revalidatePath('/buchhaltung/belege')
+  redirect('/buchhaltung/belege')
 }

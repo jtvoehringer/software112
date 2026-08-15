@@ -103,10 +103,11 @@ const NAV: NavEntry[] = [
     kind: 'group', label: 'E&A-Rechnung', icon: ReceiptText, modulKey: 'modul_ea',
     items: [
       { href: '/buchhaltung',              label: 'Buchungen'         },
+      { href: '/buchhaltung/belege',       label: 'Belege', child: true },
       { href: '/buchhaltung/kategorien',   label: 'Kategorien', child: true },
       { href: '/buchhaltung/dauerauftraege', label: 'Daueraufträge', child: true },
-      { href: '/buchhaltung/uva',          label: 'UVA-Meldung'      },
       { href: '/buchhaltung/monatsabschluss', label: 'Monatsabschluss', child: true },
+      { href: '/buchhaltung/uva',          label: 'UVA-Meldung'      },
       { href: '/weinhandel/offene-posten', label: 'Offene Posten'    },
       { href: '/konten',                   label: 'Konten'           },
       { href: '/controlling/bmd',          label: 'BMD NTCS'         },
