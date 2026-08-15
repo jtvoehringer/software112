@@ -538,10 +538,11 @@ export async function createZahlung(
   'use server'
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
-  const betrag  = parseFloat((formData.get('betrag') as string || '').replace(',', '.'))
-  const art     = formData.get('art') as string
-  const datum   = formData.get('datum') as string
-  const notizen = (formData.get('notizen') as string) || null
+  const betrag   = parseFloat((formData.get('betrag') as string || '').replace(',', '.'))
+  const art      = formData.get('art') as string
+  const datum    = formData.get('datum') as string
+  const notizen  = (formData.get('notizen') as string) || null
+  const konto_id = (formData.get('konto_id') as string) || null
   if (isNaN(betrag) || betrag <= 0) throw new Error('Ungültiger Betrag')
   const { error } = await (supabase.from('zahlungen') as any).insert({
     tenant_id: tenantId,
@@ -549,7 +550,7 @@ export async function createZahlung(
     betrag,
     art,
     datum: datum || new Date().toISOString().slice(0, 10),
-    notizen,
+    notizen, konto_id,
   })
   if (error) throw new Error((error as AR).message)
 

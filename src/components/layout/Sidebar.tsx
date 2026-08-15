@@ -108,6 +108,7 @@ const NAV: NavEntry[] = [
       { href: '/buchhaltung/uva',          label: 'UVA-Meldung'      },
       { href: '/buchhaltung/monatsabschluss', label: 'Monatsabschluss', child: true },
       { href: '/weinhandel/offene-posten', label: 'Offene Posten'    },
+      { href: '/konten',                   label: 'Konten'           },
       { href: '/controlling/bmd',          label: 'BMD NTCS'         },
     ],
   },

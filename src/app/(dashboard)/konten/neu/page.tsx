@@ -1,0 +1,90 @@
+import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
+import { createKonto } from '../actions'
+
+export const dynamic = 'force-dynamic'
+
+const TYPEN = [
+  { value: 'giro',        label: 'Girokonto' },
+  { value: 'kreditkarte', label: 'Kreditkarte' },
+  { value: 'kassa',       label: 'Kassa' },
+  { value: 'sonstiges',   label: 'Sonstiges' },
+]
+
+export default async function KontoNeuPage() {
+  const supabase   = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  if (!membership?.tenantId) redirect('/login')
+
+  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
+    .select('modul_ea').eq('tenant_id', membership.tenantId).maybeSingle()
+  if (!einst?.modul_ea) redirect('/dashboard')
+  if (!canAdmin(membership.role)) redirect('/konten')
+
+  async function handleSubmit(formData: FormData) {
+    'use server'
+    const result = await createKonto(formData)
+    if (!result?.error) redirect('/konten')
+  }
+
+  return (
+    <div className="p-6 max-w-lg mx-auto">
+      <div className="flex items-center gap-2 text-sm text-s112-muted mb-2">
+        <Link href="/konten" className="hover:text-s112-teal transition-colors">Konten</Link>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">Neues Konto</span>
+      </div>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">Neues Konto</h1>
+
+      <form action={handleSubmit} className="bg-white rounded-2xl border border-s112-border p-6 space-y-5">
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Bezeichnung *</label>
+          <input name="name" required placeholder="z.B. Raiffeisen Girokonto"
+            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Typ</label>
+          <select name="typ" defaultValue="giro"
+            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            {TYPEN.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">IBAN</label>
+          <input name="iban" placeholder="Optional"
+            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Eröffnungsdatum *</label>
+            <input type="date" name="eroeffnungsdatum" required
+              defaultValue={new Date().toISOString().slice(0, 10)}
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            <p className="text-xs text-s112-muted mt-1">Datum des letzten Kontoauszugs, ab dem hier weitergeführt wird.</p>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Eröffnungssaldo (€) *</label>
+            <input type="number" name="eroeffnungssaldo" step="0.01" required defaultValue="0.00"
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+          </div>
+        </div>
+
+        <div className="flex gap-3 pt-2">
+          <button type="submit"
+            className="bg-s112-teal text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+            Konto anlegen
+          </button>
+          <Link href="/konten"
+            className="px-6 py-2.5 rounded-xl text-sm border border-s112-border text-gray-600 hover:bg-s112-bg">
+            Abbrechen
+          </Link>
+        </div>
+      </form>
+    </div>
+  )
+}

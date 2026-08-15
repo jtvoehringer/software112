@@ -25,7 +25,9 @@ function fmtBetragInput(n: number) {
   return n.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-function PostenZeile({ p, writeOk }: { p: Posten; writeOk: boolean }) {
+type Konto = { id: string; name: string }
+
+function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; konten: Konto[] }) {
   const [expanded, setExpanded] = useState(false)
   const offenerBetrag = Math.max(0, p.gesamt - p.bereitsBezahlt)
   const createZahlungBound = createZahlung.bind(null, p.id)
@@ -128,6 +130,14 @@ function PostenZeile({ p, writeOk }: { p: Posten; writeOk: boolean }) {
                   <input name="notizen" type="text" placeholder="Optional…" className="form-input text-sm w-full" />
                 </div>
               </div>
+              {konten.length > 0 && (
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Bezahlt über Konto</label>
+                  <select name="konto_id" required className="form-input text-sm w-full max-w-xs">
+                    {konten.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
+                  </select>
+                </div>
+              )}
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
@@ -149,12 +159,13 @@ function PostenZeile({ p, writeOk }: { p: Posten; writeOk: boolean }) {
 }
 
 export default function OffenePostenClient({
-  offene, bezahlte, summeOffen, writeOk,
+  offene, bezahlte, summeOffen, writeOk, konten,
 }: {
   offene:     Posten[]
   bezahlte:   Posten[]
   summeOffen: number
   writeOk:    boolean
+  konten:     Konto[]
 }) {
   const [showBezahlt, setShowBezahlt] = useState(false)
   const alle = showBezahlt ? [...offene, ...bezahlte] : offene
@@ -217,7 +228,7 @@ export default function OffenePostenClient({
             </thead>
             <tbody>
               {alle.map(p => (
-                <PostenZeile key={p.id} p={p} writeOk={writeOk} />
+                <PostenZeile key={p.id} p={p} writeOk={writeOk} konten={konten} />
               ))}
             </tbody>
             {offene.length > 0 && (

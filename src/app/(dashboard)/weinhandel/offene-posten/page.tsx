@@ -74,12 +74,17 @@ export default async function OffenePostenPage() {
   const bezahlte   = posten.filter(p => p.bezahlt)
   const summeOffen = offene.reduce((s, p) => s + p.gesamt, 0)
 
+  const { data: kontenRaw } = await tf((supabase.from('konten') as any)
+    .select('id, name').eq('aktiv', true).order('sortierung').order('name'))
+  const konten = ((kontenRaw ?? []) as R[]).map(k => ({ id: k.id as string, name: k.name as string }))
+
   return (
     <OffenePostenClient
       offene={offene}
       bezahlte={bezahlte}
       summeOffen={summeOffen}
       writeOk={writeOk}
+      konten={konten}
     />
   )
 }

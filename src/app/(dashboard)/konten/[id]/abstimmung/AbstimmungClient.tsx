@@ -1,0 +1,210 @@
+'use client'
+
+import { useState, useTransition } from 'react'
+import Link from 'next/link'
+import { createUmbuchung, deleteUmbuchung, setzeAbgeglichen } from '../../actions'
+import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
+import { AlertTriangle, Lock } from 'lucide-react'
+import type { Bewegung } from './page'
+
+type Konto = {
+  id: string
+  name: string
+  typ: string
+  iban: string | null
+  eroeffnungsdatum: string
+  eroeffnungssaldo: number
+}
+
+function fmt(n: number) {
+  return n.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+}
+
+function BewegungsZeile({ b, kontoId, writeOk }: { b: Bewegung; kontoId: string; writeOk: boolean }) {
+  const [pending, startTransition] = useTransition()
+
+  return (
+    <tr className="border-b border-s112-border/50 hover:bg-s112-bg/50">
+      <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap text-sm">
+        {new Date(b.datum).toLocaleDateString('de-AT')}
+      </td>
+      <td className="px-4 py-2.5 text-sm">
+        {b.beschreibung}
+        {b.gesperrt && (
+          <span title="Zeitraum gesperrt (Monatsabschluss oder UVA übermittelt)">
+            <Lock className="inline-block w-3 h-3 text-gray-400 ml-1.5 -mt-0.5" />
+          </span>
+        )}
+      </td>
+      <td className={`px-4 py-2.5 text-right font-mono text-sm font-semibold ${b.betrag >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+        {fmt(b.betrag)}
+      </td>
+      <td className="px-4 py-2.5 text-right font-mono text-sm text-gray-500 tabular-nums">
+        {b.saldoNachher != null ? fmt(b.saldoNachher) : '–'}
+      </td>
+      <td className="px-4 py-2.5 text-center">
+        <input
+          type="checkbox"
+          checked={b.abgeglichen}
+          disabled={!writeOk || pending}
+          onChange={() => startTransition(() => { setzeAbgeglichen(kontoId, b.quelle, b.id, !b.abgeglichen) })}
+          className="rounded accent-s112-teal cursor-pointer disabled:cursor-not-allowed"
+          title="Gegen Kontoauszug abgeglichen"
+        />
+      </td>
+      <td className="px-2 py-2.5">
+        {writeOk && (b.quelle === 'umbuchung_von' || b.quelle === 'umbuchung_nach') && (
+          <ConfirmDeleteForm
+            action={async () => { await deleteUmbuchung(b.id, kontoId, b.andereKontoId ?? kontoId) }}
+            message="Diese Umbuchung löschen? Sie wird auf beiden Konten entfernt."
+            title="Umbuchung löschen"
+            className="text-xs text-red-400 hover:text-red-600"
+          />
+        )}
+      </td>
+    </tr>
+  )
+}
+
+export default function AbstimmungClient({
+  konto, andereKonten, bewegungen, anzahlVorEroeffnung, aktuellerSaldo, writeOk,
+}: {
+  konto:               Konto
+  andereKonten:        { id: string; name: string }[]
+  bewegungen:          Bewegung[]
+  anzahlVorEroeffnung: number
+  aktuellerSaldo:      number
+  writeOk:             boolean
+}) {
+  const [umbExpanded, setUmbExpanded] = useState(false)
+  const [richtung, setRichtung] = useState<'von' | 'nach'>('von')
+
+  return (
+    <div className="p-6 max-w-3xl mx-auto space-y-6">
+      <div className="flex items-center gap-2 text-sm text-s112-muted">
+        <Link href="/konten" className="hover:text-s112-teal transition-colors">Konten</Link>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">{konto.name}</span>
+      </div>
+
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">{konto.name}</h1>
+          <p className="text-sm text-s112-muted mt-0.5">
+            Eröffnet {new Date(konto.eroeffnungsdatum).toLocaleDateString('de-AT')} mit {fmt(konto.eroeffnungssaldo)}
+            {konto.iban ? ` · ${konto.iban}` : ''}
+          </p>
+        </div>
+        <div className="bg-white rounded-2xl border border-s112-border px-5 py-3 text-right">
+          <p className="text-xs text-s112-muted">Aktueller Saldo</p>
+          <p className={`text-2xl font-bold tabular-nums ${aktuellerSaldo >= 0 ? 'text-s112-teal' : 'text-red-600'}`}>
+            {fmt(aktuellerSaldo)}
+          </p>
+        </div>
+      </div>
+
+      {anzahlVorEroeffnung > 0 && (
+        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
+          <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <span>
+            {anzahlVorEroeffnung} {anzahlVorEroeffnung === 1 ? 'Bewegung liegt' : 'Bewegungen liegen'} am oder vor dem
+            Eröffnungsdatum ({new Date(konto.eroeffnungsdatum).toLocaleDateString('de-AT')}) und {anzahlVorEroeffnung === 1 ? 'steckt' : 'stecken'} bereits
+            im Eröffnungssaldo – sie werden hier nicht separat aufgeführt.
+          </span>
+        </div>
+      )}
+
+      {writeOk && andereKonten.length > 0 && (
+        <div className="bg-white rounded-2xl border border-s112-border p-4">
+          {!umbExpanded ? (
+            <button
+              onClick={() => setUmbExpanded(true)}
+              className="text-sm font-medium text-s112-teal hover:underline"
+            >
+              + Umbuchung erfassen
+            </button>
+          ) : (
+            <form
+              action={async (formData: FormData) => {
+                const ziel = formData.get('ziel_konto_id') as string
+                formData.set(richtung === 'von' ? 'von_konto_id' : 'nach_konto_id', konto.id)
+                formData.set(richtung === 'von' ? 'nach_konto_id' : 'von_konto_id', ziel)
+                const result = await createUmbuchung(formData)
+                if (!result?.error) setUmbExpanded(false)
+                else alert(result.error)
+              }}
+              className="space-y-3"
+            >
+              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Umbuchung erfassen</p>
+              <div className="flex gap-3">
+                <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                  <input type="radio" name="richtung" checked={richtung === 'von'} onChange={() => setRichtung('von')} className="accent-s112-teal" />
+                  Von {konto.name} an …
+                </label>
+                <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                  <input type="radio" name="richtung" checked={richtung === 'nach'} onChange={() => setRichtung('nach')} className="accent-s112-teal" />
+                  Auf {konto.name} von …
+                </label>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">{richtung === 'von' ? 'Ziel-Konto' : 'Quell-Konto'}</label>
+                  <select name="ziel_konto_id" required className="form-input text-sm w-full">
+                    {andereKonten.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Datum</label>
+                  <input name="datum" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="form-input text-sm w-full" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Betrag (€)</label>
+                  <input name="betrag" type="text" inputMode="decimal" required placeholder="0,00" className="form-input text-sm w-full" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Notiz</label>
+                  <input name="beschreibung" type="text" placeholder="Optional…" className="form-input text-sm w-full" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setUmbExpanded(false)}
+                  className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-s112-bg transition-colors">
+                  Abbrechen
+                </button>
+                <button type="submit" className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors">
+                  Umbuchung buchen
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
+
+      {bewegungen.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-s112-border p-10 text-center text-s112-muted">
+          Noch keine Bewegungen auf diesem Konto seit dem Eröffnungsdatum.
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-s112-border overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-s112-border bg-s112-bg">
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-600">Datum</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-600">Beschreibung</th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-gray-600">Betrag</th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-gray-600">Saldo</th>
+                <th className="text-center px-4 py-3 text-xs font-medium text-gray-600">Abgeglichen</th>
+                <th className="px-2 py-3" />
+              </tr>
+            </thead>
+            <tbody>
+              {bewegungen.map(b => (
+                <BewegungsZeile key={`${b.quelle}-${b.id}`} b={b} kontoId={konto.id} writeOk={writeOk} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}

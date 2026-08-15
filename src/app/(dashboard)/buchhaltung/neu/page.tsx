@@ -35,6 +35,12 @@ export default async function BuchhaltungNeuPage() {
     .eq('aktiv', true)
     .order('sortierung')
 
+  // Konten laden (optional – nur wenn welche angelegt sind)
+  const { data: konten } = await (supabase.from('konten') as any)
+    .select('id, name')
+    .eq('tenant_id', tenantId).eq('aktiv', true)
+    .order('sortierung').order('name')
+
   async function handleSubmit(formData: FormData) {
     'use server'
     const result = await createEaTransaktion(formData)
@@ -117,6 +123,19 @@ export default async function BuchhaltungNeuPage() {
             </optgroup>
           </select>
         </div>
+
+        {/* Konto (optional – für Kontoabstimmung) */}
+        {konten && (konten as R[]).length > 0 && (
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Konto</label>
+            <select name="konto_id" defaultValue=""
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+              <option value="">– keines –</option>
+              {(konten as R[]).map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
+            </select>
+            <p className="text-xs text-s112-muted mt-1">Optional – wenn gesetzt, erscheint die Buchung in der Kontoabstimmung dieses Kontos.</p>
+          </div>
+        )}
 
         {/* Notizen */}
         <div>

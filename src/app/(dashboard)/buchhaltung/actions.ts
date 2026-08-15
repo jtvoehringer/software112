@@ -25,6 +25,7 @@ export async function createEaTransaktion(formData: FormData) {
   const betrag_netto = parseFloat(formData.get('betrag_netto') as string)
   const ust_satz     = parseFloat(formData.get('ust_satz') as string)
   const notizen      = (formData.get('notizen') as string) || null
+  const konto_id     = (formData.get('konto_id') as string) || null
 
   if (!typ || !datum || !beschreibung || isNaN(betrag_netto)) {
     return { error: 'Pflichtfelder fehlen' }
@@ -44,7 +45,7 @@ export async function createEaTransaktion(formData: FormData) {
   const { error } = await (supabase.from('ea_transaktionen') as any).insert({
     tenant_id: tenantId, typ, datum, beschreibung,
     kategorie_id, betrag_netto, ust_satz: ust_satz || 20,
-    notizen,
+    notizen, konto_id,
   })
 
   if (error) return { error: (error as R).message }
