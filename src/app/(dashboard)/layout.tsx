@@ -60,11 +60,19 @@ export default async function DashboardLayout({
   // Tenant-Branding laden
   let branding: TenantBranding = DEFAULT_BRANDING
   let assistentAktiv = false
+  let isSandbox = false
   if (membership?.tenantId) {
-    const { data } = await (supabase.from('tenant_einstellungen') as any)
-      .select('anzeigename, logo_url, primary_color, secondary_color, modul_newsletter, modul_ea, modul_sumup, modul_export, session_timeout_minuten, assistent_aktiv')
-      .eq('tenant_id', membership.tenantId)
-      .maybeSingle()
+    const [{ data }, { data: tenantRow }] = await Promise.all([
+      (supabase.from('tenant_einstellungen') as any)
+        .select('anzeigename, logo_url, primary_color, secondary_color, modul_newsletter, modul_ea, modul_sumup, modul_export, session_timeout_minuten, assistent_aktiv')
+        .eq('tenant_id', membership.tenantId)
+        .maybeSingle(),
+      // Nur für sandboxOnly-Nav-Items (z.B. Zeiterfassung, siehe Sidebar.tsx) -
+      // bewusst über den echten Mandantennamen ermittelt, nicht über den frei
+      // editierbaren Branding-Anzeigenamen (der könnte in der Sandbox jederzeit
+      // zu Testzwecken geändert werden).
+      (supabase.from('tenants') as any).select('name').eq('id', membership.tenantId).maybeSingle(),
+    ])
 
     if (data) {
       const d = data as R
@@ -81,6 +89,7 @@ export default async function DashboardLayout({
       }
       assistentAktiv = !!d.assistent_aktiv
     }
+    isSandbox = (tenantRow as R | null)?.name === 'Sandbox'
   }
 
   return (
@@ -101,6 +110,7 @@ export default async function DashboardLayout({
         roleLabel={roleLabel(role)}
         branding={branding}
         betriebCount={betriebCount ?? 1}
+        isSandbox={isSandbox}
       >
         {children}
       </ResponsiveLayout>

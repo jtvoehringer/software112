@@ -10,7 +10,7 @@ import type { TenantBranding } from '@/app/(dashboard)/layout'
 import {
   LayoutDashboard, Grape, BookOpen, Warehouse, Calculator, ReceiptText,
   Users, BarChart3, Sparkles, HelpCircle, Settings, ChevronRight,
-  ArrowLeftRight, LogOut, PanelLeftClose, PanelLeft,
+  ArrowLeftRight, LogOut, PanelLeftClose, PanelLeft, Building2,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -27,10 +27,21 @@ type NavItem = {
   // (z.B. Exportaufträge - anders als E&A/SumUp kein eigener Gruppen-Header,
   // daher hier auf Item-Ebene statt via NavGroup.modulKey).
   requireModul?: ModulKey
+  // Nur im Mandanten "Sandbox" sichtbar (unabhängig von der Rolle) - für
+  // interne Test-/Diagnose-Funktionen, die bei echten Kunden nichts verloren
+  // haben. Siehe Sidebar-Filterlogik weiter unten (isSandbox-Prop).
+  sandboxOnly?: boolean
 }
 type NavGroup = {
   kind: 'group'; label: string; icon: LucideIcon; items: NavItem[]; adminOnly?: boolean
   modulKey?: ModulKey
+  // Strenger als adminOnly (isAdmin = system_admin ODER tenant_admin): diese
+  // Gruppe nur für system_admin, auch Betriebsleiter sehen sie nicht. Für
+  // plattformweite Verwaltung (Mandantenliste aller Kunden, System-Admin-
+  // Werkzeuge usw.) - ein Betriebsleiter braucht/darf das nicht sehen, hat
+  // aber über den separaten "Mein Betrieb"-Link weiterhin Zugriff auf die
+  // Einstellungen des eigenen Betriebs (Branding/Benutzer/Betrieb/bawb.at).
+  systemAdminOnly?: boolean
 }
 type NavLink = {
   kind: 'link'; href: string; label: string; icon: LucideIcon
@@ -121,15 +132,24 @@ const NAV: NavEntry[] = [
     ],
   },
 
+  // Für system_admin UND tenant_admin (Betriebsleiter) sichtbar - eigene
+  // Betriebseinstellungen (Branding/Benutzer/Betrieb/bawb.at), immer nur für
+  // den aktuell aktiven Betrieb. Bewusst getrennt von "Administration"
+  // (systemAdminOnly) darunter, die plattformweite System-Admin-Funktionen
+  // bündelt, die ein Betriebsleiter weder sehen noch nutzen soll.
+  { kind: 'link', href: '/betrieb/einstellungen', label: 'Mein Betrieb', icon: Building2, adminOnly: true },
+
   {
-    kind: 'group', label: 'Administration', icon: Settings, adminOnly: true,
+    kind: 'group', label: 'Administration', icon: Settings, adminOnly: true, systemAdminOnly: true,
     items: [
       { href: '/admin/mandanten',   label: 'Mandanten' },
       { href: '/admin/release-notes', label: 'Release Notes' },
       { href: '/admin/import',      label: 'Datenimport' },
       { href: '/admin/benutzer',    label: 'System-Admin', adminOnly: true },
       { href: '/admin/onboarding',  label: 'Onboarding Guide', adminOnly: true },
-      { href: '/admin/zeiterfassung', label: 'Zeiterfassung',      adminOnly: true },
+      // Nur in der Sandbox sichtbar - interne Testfunktion, hat bei echten
+      // Kunden nichts verloren (Rückmeldung 15.8.2026).
+      { href: '/admin/zeiterfassung', label: 'Zeiterfassung',      adminOnly: true, sandboxOnly: true },
     ],
   },
 ]
@@ -199,16 +219,16 @@ function SubItem({ item, pathname }: { item: NavItem; pathname: string }) {
 // ── Gruppe ────────────────────────────────────────────────────────────────────────
 
 function NavGroupItem({
-  entry, pathname, isAdmin,
+  entry, pathname, isAdmin, isSandbox,
 }: {
-  entry: NavGroup; pathname: string; isAdmin: boolean
+  entry: NavGroup; pathname: string; isAdmin: boolean; isSandbox: boolean
 }) {
   const active = groupIsActive(entry.items, pathname)
   const [open, setOpen] = useState(active)
   const router = useRouter()
   const Icon = entry.icon
 
-  const visibleItems = entry.items.filter(i => !i.adminOnly || isAdmin)
+  const visibleItems = entry.items.filter(i => (!i.adminOnly || isAdmin) && (!i.sandboxOnly || isSandbox))
 
   return (
     <div>
@@ -218,7 +238,7 @@ function NavGroupItem({
           // Moduls (erstes Sub-Item) – analog zu allen Modulen, unabhängig
           // davon, ob man sich bereits auf einer Unterseite dieses Moduls
           // befindet (vorher: Sprung nur, wenn das Modul noch nicht aktiv war).
-          const firstItem = entry.items.filter(i => !i.adminOnly || isAdmin).find(i => i.phase !== 2)
+          const firstItem = entry.items.filter(i => (!i.adminOnly || isAdmin) && (!i.sandboxOnly || isSandbox)).find(i => i.phase !== 2)
           if (firstItem) router.push(firstItem.href)
           setOpen(o => !o)
         }}
@@ -258,13 +278,18 @@ interface SidebarProps {
   betriebCount?: number
   collapsed?: boolean
   onToggleCollapse?: () => void
+  // true, wenn der AKTUELL AKTIVE Betrieb "Sandbox" ist (siehe layout.tsx) -
+  // steuert ausschließlich sandboxOnly-Nav-Items (z.B. Zeiterfassung), völlig
+  // unabhängig von der Rolle des Users.
+  isSandbox?: boolean
 }
 
-export default function Sidebar({ userEmail, userName, role, roleLabel, branding, betriebCount = 1, collapsed = false, onToggleCollapse }: SidebarProps) {
+export default function Sidebar({ userEmail, userName, role, roleLabel, branding, betriebCount = 1, collapsed = false, onToggleCollapse, isSandbox = false }: SidebarProps) {
   const pathname = usePathname()
   const router   = useRouter()
   const supabase = createSupabaseBrowserClient()
   const isAdmin  = role === 'system_admin' || role === 'tenant_admin'
+  const isSysAdmin = role === 'system_admin'
   const displayName = userName || userEmail
   const [userMenuOpen, setUserMenuOpen] = useState(false)
 
@@ -324,6 +349,7 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
 
           if (entry.kind === 'group') {
             if (entry.adminOnly && !isAdmin) return null
+            if (entry.systemAdminOnly && !isSysAdmin) return null
             if (entry.modulKey && !branding[entry.modulKey]) return null
             const filteredItems = entry.items.filter(it =>
               !it.hideIfModul?.some(m => branding[m as keyof TenantBranding]) &&
@@ -333,7 +359,7 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
             const Icon = entry.icon
             if (collapsed) {
               // Im Collapsed-Modus: nur Icon als Link zum ersten Sub-Item
-              const firstItem = filteredItems.filter(it => !it.adminOnly || isAdmin).find(it => it.phase !== 2)
+              const firstItem = filteredItems.filter(it => (!it.adminOnly || isAdmin) && (!it.sandboxOnly || isSandbox)).find(it => it.phase !== 2)
               const isGroupActive = groupIsActive(filteredItems, pathname)
               if (!firstItem) return null
               return (
@@ -344,7 +370,7 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
               )
             }
             return (
-              <NavGroupItem key={i} entry={filteredEntry} pathname={pathname} isAdmin={isAdmin} />
+              <NavGroupItem key={i} entry={filteredEntry} pathname={pathname} isAdmin={isAdmin} isSandbox={isSandbox} />
             )
           }
 

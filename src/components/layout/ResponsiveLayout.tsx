@@ -17,9 +17,10 @@ interface Props {
   role: UserRole
   roleLabel: string
   branding: TenantBranding
+  isSandbox?: boolean
 }
 
-export default function ResponsiveLayout({ children, userEmail, userName, role, roleLabel, branding, betriebCount = 1 }: Props) {
+export default function ResponsiveLayout({ children, userEmail, userName, role, roleLabel, branding, betriebCount = 1, isSandbox = false }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
@@ -65,7 +66,7 @@ export default function ResponsiveLayout({ children, userEmail, userName, role, 
     return () => { document.body.style.overflow = '' }
   }, [drawerOpen])
 
-  const sidebarProps = { userEmail, userName, role, roleLabel, branding, betriebCount }
+  const sidebarProps = { userEmail, userName, role, roleLabel, branding, betriebCount, isSandbox }
 
   return (
     <div className="flex h-screen bg-s112-bg overflow-hidden">
