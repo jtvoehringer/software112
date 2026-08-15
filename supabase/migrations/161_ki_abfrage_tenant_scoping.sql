@@ -1,4 +1,4 @@
--- 160_ki_abfrage_tenant_scoping.sql
+-- 161_ki_abfrage_tenant_scoping.sql
 --
 -- Schliesst die letzte offene Luecke aus dem Mandanten-Isolation-Fix (Commit
 -- "Mandanten-Isolation systemweit erzwingen (nicht nur RLS)"): die "Frag dein
@@ -125,7 +125,7 @@ $$;
 comment on function ki_readonly_query(text, uuid) is
   'Führt eine von "Frag dein Weingut" (Claude) generierte, rein lesende SQL-Abfrage aus, '
   'eingeschränkt auf den per p_tenant_id übergebenen aktiv gewählten Mandanten '
-  '(app.active_tenant_id, siehe Migration 160). Läuft weiterhin als security invoker, '
+  '(app.active_tenant_id, siehe Migration 161). Läuft weiterhin als security invoker, '
   'RLS bleibt die eigentliche Schranke - siehe Migration 155 für die übrige '
   'Sicherheitsdokumentation (Statement-Validierung, Sperrlisten, Zeilen-/Zeitlimit).';
 

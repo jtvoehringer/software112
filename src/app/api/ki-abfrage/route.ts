@@ -14,7 +14,7 @@ type R = Record<string, any>
 // und Inhalte loslassen"). Ausführung + Sicherheitsdesign: siehe Migration 155
 // (ki_readonly_query – läuft als security invoker, RLS greift automatisch; zusätzliche
 // Sperrliste für interne Tabellen/Schemas; nur ein lesendes Statement; Zeilen-/Zeitlimit).
-// Seit Migration 160 bekommt ki_readonly_query zusätzlich den aktiv gewählten Betrieb
+// Seit Migration 161 bekommt ki_readonly_query zusätzlich den aktiv gewählten Betrieb
 // (p_tenant_id) mit und setzt damit für die Dauer der Abfrage app.active_tenant_id, was
 // get_user_tenant_ids() (und damit jede darauf aufbauende RLS-Policy) auf genau diesen
 // einen Mandanten einschränkt - vorher griff RLS hier (wie ursprünglich überall in der App)
@@ -253,7 +253,7 @@ export async function POST(req: NextRequest) {
         break
       }
 
-      // p_tenant_id wird server-seitig gesetzt (app.active_tenant_id, siehe Migration 160)
+      // p_tenant_id wird server-seitig gesetzt (app.active_tenant_id, siehe Migration 161)
       // und schränkt get_user_tenant_ids() für die Dauer dieser einen Abfrage auf den aktiv
       // gewählten Betrieb ein - sonst würde RLS (die einzige Schranke für dieses frei generierte
       // SQL) bei Mehrfach-Mitgliedschaft Daten ALLER Mandanten des Users zurückgeben.
