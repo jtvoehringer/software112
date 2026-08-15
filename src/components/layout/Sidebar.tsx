@@ -448,12 +448,18 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
                   )}
                 </p>
                 {/* ICP-Branding */}
+                {/* Inline-Lockup (ICP + SOLUTIONS auf einer Zeile) statt gestapelter Version -
+                    bei der gestapelten Variante war der "SOLUTIONS"-Schriftzug nur eine von zwei
+                    Zeilen innerhalb der Bildhöhe und dadurch bei 34px Höhe kaum lesbar. Beim
+                    Inline-Lockup nimmt der Text die volle Bildhöhe ein und bleibt auch klein
+                    lesbar. Copyright-Zeichen von 9px/tertiary (sehr blass) auf 10px/text-2
+                    angehoben, damit es nicht mehr fast unsichtbar ist. */}
                 <div className="mt-2 pt-2 border-t border-s112-line flex items-center gap-1.5">
-                  <span className="text-[9px] text-s112-tertiary flex-shrink-0">&copy;</span>
+                  <span className="text-[10px] text-s112-text-2 flex-shrink-0">&copy;</span>
                   <Image
                     src="/icp-logo.png"
                     alt="ICP Solutions"
-                    width={122} height={34}
+                    width={150} height={32}
                     className="object-contain object-left"
                   />
                 </div>
