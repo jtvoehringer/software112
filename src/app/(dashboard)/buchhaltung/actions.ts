@@ -30,6 +30,17 @@ export async function createEaTransaktion(formData: FormData) {
     return { error: 'Pflichtfelder fehlen' }
   }
 
+  // Zeitraum darf weder abgeschlossen (Monatsabschluss) noch bereits per UVA
+  // übermittelt sein – sonst könnte ein geschlossener Zeitraum durch eine
+  // neue, ungesperrte Buchung unterlaufen werden.
+  const { data: pruefRaw } = await (supabase.rpc as any)('pruefe_ea_zeitraum_offen', {
+    p_tenant_id: tenantId, p_datum: datum,
+  })
+  const pruef = Array.isArray(pruefRaw) ? pruefRaw[0] : pruefRaw
+  if (pruef && pruef.offen === false) {
+    return { error: pruef.grund ?? 'Zeitraum ist geschlossen.' }
+  }
+
   const { error } = await (supabase.from('ea_transaktionen') as any).insert({
     tenant_id: tenantId, typ, datum, beschreibung,
     kategorie_id, betrag_netto, ust_satz: ust_satz || 20,
@@ -301,5 +312,30 @@ export async function markiereUvaAlsUebermittelt(uvaId: string): Promise<{ ok: b
 
   revalidatePath('/buchhaltung/uva')
   revalidatePath('/buchhaltung')
+  return { ok: true }
+}
+
+// ── Monat abschließen ─────────────────────────────────────────────────────────
+//
+// Sperrt (is_locked=true) alle E&A-Buchungen des gewählten Monats und trägt
+// den Abschluss in ea_monatsabschluss ein. Irreversibel über die UI – nur
+// Admin-Rollen dürfen das auslösen (analog zur UVA-Übermittlung).
+export async function schliesseEaMonat(jahr: number, monat: number): Promise<{ ok: boolean; error?: string }> {
+  const { supabase, tenantId } = await getCtx()
+  const membership = await getCurrentMembership()
+  if (!canAdmin(membership?.role ?? null)) {
+    return { ok: false, error: 'Keine Berechtigung – nur Admins dürfen einen Monat abschließen.' }
+  }
+
+  const { error } = await (supabase.rpc as any)('sperre_ea_monat', {
+    p_tenant_id: tenantId,
+    p_jahr:      jahr,
+    p_monat:     monat,
+  })
+  if (error) return { ok: false, error: (error as R).message }
+
+  revalidatePath('/buchhaltung/monatsabschluss')
+  revalidatePath('/buchhaltung')
+  revalidatePath('/buchhaltung/uva')
   return { ok: true }
 }

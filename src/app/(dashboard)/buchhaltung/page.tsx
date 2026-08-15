@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { deleteEaTransaktion } from './actions'
 import CsvExportButton from './CsvExportButton'
-import { Trash2, Link2 } from 'lucide-react'
+import { Trash2, Link2, Lock } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -122,6 +122,8 @@ export default async function BuchhaltungPage({
           <Link href="/buchhaltung/kategorien" className="text-s112-teal hover:underline">Kategorien</Link>
           <span className="text-gray-300">·</span>
           <Link href="/buchhaltung/dauerauftraege" className="text-s112-teal hover:underline">Daueraufträge</Link>
+          <span className="text-gray-300">·</span>
+          <Link href="/buchhaltung/monatsabschluss" className="text-s112-teal hover:underline">Monatsabschluss</Link>
         </div>
         {buchungen && buchungen.length > 0 && (
           <CsvExportButton buchungen={buchungen as R[]} jahr={jahr} />
@@ -159,6 +161,9 @@ export default async function BuchhaltungPage({
                 <td className="px-4 py-3">
                   <span className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${b.typ === 'einnahme' ? 'bg-green-500' : 'bg-red-400'}`} />
                   {b.beschreibung}
+                  {b.is_locked && (
+                    <Lock className="inline-block w-3 h-3 text-gray-400 ml-1.5 -mt-0.5" title="Zeitraum gesperrt (Monatsabschluss oder UVA übermittelt)" />
+                  )}
                 </td>
                 <td className="px-4 py-3 text-gray-500 text-xs">{b.ea_kategorien?.name ?? '–'}</td>
                 <td className="px-4 py-3 text-gray-500">{b.ust_satz}%</td>
