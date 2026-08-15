@@ -56,7 +56,7 @@ function ChevronIcon({ open }: { open: boolean }) {
 
 // ── Grundstück-Zeile ──────────────────────────────────────────────────────────
 
-function GSTZeile({ gst }: { gst: GSTRow }) {
+function GSTZeile({ gst, verschachtelt = false }: { gst: GSTRow; verschachtelt?: boolean }) {
   const router = useRouter()
   return (
     <tr
@@ -64,7 +64,13 @@ function GSTZeile({ gst }: { gst: GSTRow }) {
       onClick={() => router.push(`/weingarten/${gst.weingarten_id}`)}
       title="Zum Weingarten (Grundstück bearbeiten)"
     >
-      <td className="pl-8 pr-3 py-2 text-xs text-gray-500">
+      {/* Zwei Kontexte: direkt unter dem Ried (verschachtelt=false, "flatGst" in
+          LageGruppe - ersetzt dort die Weingarten-Zeile komplett, liegt also auf
+          deren Ebene) vs. als aufklappbares Kind EINER konkreten Weingarten-Zeile
+          (verschachtelt=true, siehe WeingartenZeile) - dort eine Ebene tiefer
+          einrücken, sonst sieht es so aus, als gehöre das Grundstück nicht zu der
+          Weingarten-Zeile darüber. */}
+      <td className={`${verschachtelt ? 'pl-16' : 'pl-8'} pr-3 py-2 text-xs text-gray-500`}>
         <span className="font-mono">GST {gst.gst_nr}</span>
         {gst.katastralgemeinde && (
           <span className="ml-2 text-gray-400">{gst.katastralgemeinde}</span>
@@ -172,7 +178,7 @@ function WeingartenZeile({
         </td>
       </tr>
 
-      {open && gsts.map(g => <GSTZeile key={g.id} gst={g} />)}
+      {open && gsts.map(g => <GSTZeile key={g.id} gst={g} verschachtelt />)}
     </>
   )
 }
