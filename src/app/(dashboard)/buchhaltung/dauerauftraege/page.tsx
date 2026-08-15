@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership } from '@/lib/auth/roles'
-import { createEaDauerauftrag } from '../actions'
+import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
+import { createEaDauerauftrag, deaktiviereEaDauerauftrag } from '../actions'
+import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,14 +22,15 @@ export default async function DauerauftraegePage() {
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) redirect('/login')
   const tenantId = membership.tenantId
+  const adminOk  = canAdmin(membership.role)
 
   const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
     .select('modul_ea').eq('tenant_id', tenantId).maybeSingle()
   if (!einst?.modul_ea) redirect('/dashboard')
 
-  const [{ data: dauerauftraege }, { data: kategorien }] = await Promise.all([
+  const [{ data: dauerauftraege }, { data: kategorien }, { data: konten }, { data: log }] = await Promise.all([
     (supabase.from('ea_dauerauftraege') as any)
-      .select('*, ea_kategorien(name)')
+      .select('*, ea_kategorien(name), konten(name)')
       .eq('tenant_id', tenantId)
       .order('naechste_faelligkeit'),
     (supabase.from('ea_kategorien') as any)
@@ -36,6 +38,14 @@ export default async function DauerauftraegePage() {
       .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`)
       .eq('aktiv', true)
       .order('sortierung'),
+    (supabase.from('konten') as any)
+      .select('id, name').eq('tenant_id', tenantId).eq('aktiv', true)
+      .order('sortierung').order('name'),
+    (supabase.from('ea_dauerauftrag_log') as any)
+      .select('*, ea_dauerauftraege(beschreibung)')
+      .eq('tenant_id', tenantId)
+      .order('erstellt_am', { ascending: false })
+      .limit(10),
   ])
 
   return (
@@ -113,6 +123,17 @@ export default async function DauerauftraegePage() {
               </select>
             </div>
           </div>
+          {konten && (konten as R[]).length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Konto</label>
+              <select name="konto_id" defaultValue=""
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
+                <option value="">– keines –</option>
+                {(konten as R[]).map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
+              </select>
+              <p className="text-xs text-s112-muted mt-1">Optional – wird an jede automatisch erzeugte Buchung weitergegeben.</p>
+            </div>
+          )}
           <button type="submit"
             className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
             Dauerauftrag anlegen
@@ -136,6 +157,8 @@ export default async function DauerauftraegePage() {
                 <th className="text-left px-4 py-2 font-medium text-gray-600">Intervall</th>
                 <th className="text-right px-4 py-2 font-medium text-gray-600">Netto/USt</th>
                 <th className="text-left px-4 py-2 font-medium text-gray-600">Nächste Fälligkeit</th>
+                <th className="text-left px-4 py-2 font-medium text-gray-600">Konto</th>
+                <th className="px-4 py-2" />
               </tr>
             </thead>
             <tbody>
@@ -159,12 +182,55 @@ export default async function DauerauftraegePage() {
                       ? new Date(d.naechste_faelligkeit).toLocaleDateString('de-AT')
                       : '–'}
                   </td>
+                  <td className="px-4 py-2.5 text-gray-500 text-xs">{d.konten?.name ?? '–'}</td>
+                  <td className="px-4 py-2.5 text-right">
+                    {adminOk && (
+                      <ConfirmDeleteForm
+                        action={async () => { await deaktiviereEaDauerauftrag(d.id) }}
+                        message={`"${d.beschreibung}" deaktivieren? Es werden dann keine weiteren Buchungen mehr automatisch erzeugt.`}
+                        title="Deaktivieren"
+                        label="Deaktivieren"
+                        className="text-xs text-red-400 hover:text-red-600"
+                      />
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </div>
+
+      {/* Letzte Ausführungen */}
+      {log && (log as R[]).length > 0 && (
+        <div className="bg-white rounded-2xl border border-s112-border overflow-hidden mt-6">
+          <div className="px-5 py-3 border-b border-s112-border">
+            <h2 className="font-semibold text-gray-800">Letzte Ausführungen</h2>
+          </div>
+          <table className="w-full text-sm">
+            <tbody>
+              {(log as R[]).map(l => (
+                <tr key={l.id} className="border-b border-s112-border/40 last:border-0">
+                  <td className="px-4 py-2 text-gray-600 whitespace-nowrap">
+                    {new Date(l.erstellt_am).toLocaleString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </td>
+                  <td className="px-4 py-2 text-gray-800">{l.ea_dauerauftraege?.beschreibung ?? '–'}</td>
+                  <td className="px-4 py-2">
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      l.status === 'erstellt' ? 'bg-green-100 text-green-700'
+                      : l.status === 'uebersprungen' ? 'bg-gray-100 text-gray-600'
+                      : 'bg-red-100 text-red-600'
+                    }`}>
+                      {l.status === 'erstellt' ? 'Erstellt' : l.status === 'uebersprungen' ? 'Übersprungen' : 'Fehler'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 text-gray-500 text-xs">{l.fehler_details ?? ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }

@@ -102,7 +102,26 @@ export async function createEaDauerauftrag(formData: FormData) {
     intervall:          formData.get('intervall'),
     tag_im_monat:       parseInt(formData.get('tag_im_monat') as string) || 1,
     naechste_faelligkeit: formData.get('naechste_faelligkeit'),
+    konto_id:           (formData.get('konto_id') as string) || null,
   })
+
+  if (error) return { error: (error as R).message }
+  revalidatePath('/buchhaltung/dauerauftraege')
+  return { ok: true }
+}
+
+// ── Dauerauftrag deaktivieren ─────────────────────────────────────────────────
+
+export async function deaktiviereEaDauerauftrag(id: string) {
+  const { supabase, tenantId } = await getCtx()
+  const membership = await getCurrentMembership()
+  if (!canAdmin(membership?.role ?? null)) {
+    return { error: 'Keine Berechtigung – nur Admins dürfen Daueraufträge deaktivieren.' }
+  }
+
+  const { error } = await (supabase.from('ea_dauerauftraege') as any)
+    .update({ aktiv: false })
+    .eq('id', id).eq('tenant_id', tenantId)
 
   if (error) return { error: (error as R).message }
   revalidatePath('/buchhaltung/dauerauftraege')
