@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -182,11 +183,13 @@ export async function POST(req: NextRequest) {
             details.push(`Zeile ${i+2}: Ried "${riedFlaeche}" nicht gefunden (zuerst über Tab "Rieden (Details)" anlegen) – übersprungen`)
             continue
           }
+          const kgnr = mapVal(row, mapping.katastralgemeinde) as string | null
           const { error } = await (supabase.from('grundstuecke') as any).insert({
             tenant_id:            tenantId,
             weingarten_id:        weingartenId,
             gst_nr:               gstNr,
-            katastralgemeinde:    mapVal(row, mapping.katastralgemeinde) ?? null,
+            katastralgemeinde:    kgnr ?? null,
+            kg_bezeichnung:       kgnr ? (getKgBezeichnung(kgnr) ?? null) : null,
             flaeche_ha:           mapVal(row, mapping.flaeche_ha, v => parseFloat(v.replace(',', '.')) || null) ?? null,
             flaeche_ha_kataster:  mapVal(row, mapping.flaeche_ha_kataster, v => parseFloat(v.replace(',', '.')) || null) ?? null,
             rebsorte:             mapVal(row, mapping.rebsorte) ?? null,

@@ -65,12 +65,14 @@ function GSTZeile({ gst, verschachtelt = false }: { gst: GSTRow; verschachtelt?:
       title="Zum Weingarten (Grundstück bearbeiten)"
     >
       {/* Zwei Kontexte: direkt unter dem Ried (verschachtelt=false, "flatGst" in
-          LageGruppe - ersetzt dort die Weingarten-Zeile komplett, liegt also auf
-          deren Ebene) vs. als aufklappbares Kind EINER konkreten Weingarten-Zeile
-          (verschachtelt=true, siehe WeingartenZeile) - dort eine Ebene tiefer
-          einrücken, sonst sieht es so aus, als gehöre das Grundstück nicht zu der
-          Weingarten-Zeile darüber. */}
-      <td className={`${verschachtelt ? 'pl-16' : 'pl-8'} pr-3 py-2 text-xs text-gray-500`}>
+          LageGruppe - ersetzt dort die Weingarten-Zeile komplett) vs. als
+          aufklappbares Kind EINER konkreten Weingarten-Zeile (verschachtelt=true,
+          siehe WeingartenZeile) - dort eine Ebene tiefer einrücken. Beide Fälle
+          sind reiner Text ohne Chevron-Icon, ihr Eltern-Zeile (LageGruppe bzw.
+          WeingartenZeile) hat aber ein Chevron+Abstand vor dem Label - pl-8 lag
+          dadurch optisch auf oder sogar vor dem Ried-Titel statt sichtbar
+          eingerückt. pl-12 (flach) / pl-16 (verschachtelt) gleichen das aus. */}
+      <td className={`${verschachtelt ? 'pl-16' : 'pl-12'} pr-3 py-2 text-xs text-gray-500`}>
         <span className="font-mono">GST {gst.gst_nr}</span>
         {gst.katastralgemeinde && (
           <span className="ml-2 text-gray-400">{gst.katastralgemeinde}</span>
