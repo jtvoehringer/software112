@@ -228,10 +228,6 @@ export default async function DashboardPage() {
         .order('datum', { ascending: true }).limit(10))
     : { data: [] }
 
-  const wirtschaftsjahr = heute.getMonth() >= 8
-    ? `${heute.getFullYear()}/${String(heute.getFullYear() + 1).slice(2)}`
-    : `${heute.getFullYear() - 1}/${String(heute.getFullYear()).slice(2)}`
-
   return (
     <div className="space-y-6">
 
@@ -241,7 +237,7 @@ export default async function DashboardPage() {
         <div>
           <h1 className="font-display text-2xl font-semibold text-s112-text">{tenantName ?? 'Übersicht'}</h1>
           <p className="text-s112-tertiary text-[11.5px] mt-1">
-            Wirtschaftsjahr {wirtschaftsjahr} · Stand {heute.toLocaleDateString('de-AT', { weekday: 'long', day: '2-digit', month: 'long' })}
+            Stand {heute.toLocaleDateString('de-AT', { weekday: 'long', day: '2-digit', month: 'long' })}
           </p>
         </div>
       </div>
