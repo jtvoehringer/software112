@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -32,11 +32,12 @@ export async function POST(req: NextRequest) {
     const tenantId = activeMembership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Nicht autorisiert' }, { status: 401 })
 
-    // Nur tenant_admin darf importieren
-    const { data: { user } } = await supabase.auth.getUser()
-    const { data: membership } = await (supabase.from('tenant_memberships') as any)
-      .select('role').eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle()
-    if (!['tenant_admin', 'winzer'].includes((membership as R | null)?.role ?? ''))
+    // Nur Rollen mit Schreibrecht dürfen importieren (system_admin/tenant_admin/winzer,
+    // nicht leser) - einheitlich über canWrite() statt einer eigenen, unvollständigen
+    // Rollenliste (die frühere Liste ['tenant_admin','winzer'] vergaß system_admin, was
+    // z.B. beim Ersteller eines neuen Mandanten - immer system_admin - zu einem
+    // faelschlichen 403 fuehrte).
+    if (!canWrite(activeMembership.role))
       return NextResponse.json({ fehler: 'Keine Berechtigung' }, { status: 403 })
 
     let ok = 0
