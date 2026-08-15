@@ -162,7 +162,9 @@ export default async function BuchhaltungPage({
                   <span className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${b.typ === 'einnahme' ? 'bg-green-500' : 'bg-red-400'}`} />
                   {b.beschreibung}
                   {b.is_locked && (
-                    <Lock className="inline-block w-3 h-3 text-gray-400 ml-1.5 -mt-0.5" title="Zeitraum gesperrt (Monatsabschluss oder UVA übermittelt)" />
+                    <span title="Zeitraum gesperrt (Monatsabschluss oder UVA übermittelt)">
+                      <Lock className="inline-block w-3 h-3 text-gray-400 ml-1.5 -mt-0.5" />
+                    </span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-gray-500 text-xs">{b.ea_kategorien?.name ?? '–'}</td>
