@@ -19,6 +19,14 @@ function mapVal(row: R, csvKey: string | undefined, transform?: (v: string) => u
   return transform ? transform(raw) : raw
 }
 
+function normalizeWeinart(v: string): string {
+  const s = v.trim().toLowerCase()
+  if (s === 'weiss' || s === 'weiß' || s === 'weißwein' || s === 'weisswein') return 'weiss'
+  if (s === 'rot' || s === 'rotwein') return 'rot'
+  if (s === 'rose' || s === 'rosé' || s === 'roséwein') return 'rose'
+  return 'unbekannt'
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { typ, rows, mapping } = await req.json() as {
@@ -182,6 +190,10 @@ export async function POST(req: NextRequest) {
             flaeche_ha:           mapVal(row, mapping.flaeche_ha, v => parseFloat(v.replace(',', '.')) || null) ?? null,
             flaeche_ha_kataster:  mapVal(row, mapping.flaeche_ha_kataster, v => parseFloat(v.replace(',', '.')) || null) ?? null,
             rebsorte:             mapVal(row, mapping.rebsorte) ?? null,
+            weinart:              mapVal(row, mapping.weinart, normalizeWeinart) ?? null,
+            pflanzjahr:           mapVal(row, mapping.pflanzjahr, v => parseInt(v) || null) ?? null,
+            ama_feldnummer:       mapVal(row, mapping.ama_feldnummer) ?? null,
+            boden:                mapVal(row, mapping.boden) ?? null,
             bewirtschaftung:      mapVal(row, mapping.bewirtschaftung) ?? null,
             status:               (mapVal(row, mapping.status) as string) || 'aktiv',
           })
