@@ -7,6 +7,13 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { deactivateWeingarten, deleteWeingarten } from './actions'
 import { fmtHa } from '@/lib/format'
 
+// Auffangkorb-Label für Weingärten ohne eigene Ried-Zuordnung (w.ried === null) -
+// KEIN echter Ried, nur eine technische Sammelgruppe. Wird verwendet, um beim
+// Rendern zu entscheiden, ob GST-Zeilen direkt unter der Gruppe gezeigt werden
+// dürfen (nur bei einer echten Lage sinnvoll) oder ob jeder Weingarten weiterhin
+// seine eigene, benannte/bearbeitbare Zeile behalten muss (siehe LageGruppe).
+const KEIN_RIED = 'Rieden'
+
 const BEWIRTSCHAFTUNG_BADGE: Record<string, string> = {
   biodynamisch:  'bg-green-100 text-green-800',
   biologisch:    'bg-green-100 text-green-700',
@@ -173,10 +180,10 @@ function WeingartenZeile({
 // ── Lage-Gruppe ───────────────────────────────────────────────────────────────
 
 function LageGruppe({
-  ried, weingaerten, gstMap, writeOk, adminOk,
+  ried, weingaerten, gstMap, writeOk, adminOk, istEchteLage,
 }: {
   ried: string; weingaerten: WRow[]; gstMap: Map<string, GSTRow[]>
-  writeOk: boolean; adminOk: boolean
+  writeOk: boolean; adminOk: boolean; istEchteLage: boolean
 }) {
   const [open, setOpen] = useState(true)
 
@@ -204,8 +211,17 @@ function LageGruppe({
   // erreichbar (siehe GSTZeile onClick → /weingarten/[id]).
   // Weingärten OHNE eigene Grundstücke (z.B. Flächen ohne GST-Aufteilung)
   // haben keine andere Darstellung und behalten deshalb ihre eigene Zeile.
-  const weingaertenMitGst = weingaerten.filter(w => (gstMap.get(w.id) ?? []).length > 0)
-  const weingaertenOhneGst = weingaerten.filter(w => (gstMap.get(w.id) ?? []).length === 0)
+  //
+  // WICHTIG: das Flatten passiert NUR innerhalb einer echten Lage (istEchteLage).
+  // Der Auffangkorb für Weingärten OHNE Ried-Zuordnung (siehe KEIN_RIED weiter
+  // unten) ist kein Ried, sondern nur eine technische Sammelgruppe - dort jeden
+  // Weingarten weiterhin als eigene, benannte/bearbeitbare Zeile zeigen wie
+  // bisher, sonst verschwinden bei Mandanten, die Rieden gar nicht nutzen
+  // (z.B. Sandbox: jedes GST ist dort direkt als eigener Weingarten "GST xxx"
+  // angelegt, ohne Ried), die Weingarten-Namen und die Bearbeiten/Löschen-Icons
+  // komplett - genau das ist am 15.8. in der Sandbox passiert.
+  const weingaertenMitGst = istEchteLage ? weingaerten.filter(w => (gstMap.get(w.id) ?? []).length > 0) : []
+  const weingaertenOhneGst = istEchteLage ? weingaerten.filter(w => (gstMap.get(w.id) ?? []).length === 0) : weingaerten
   const flatGst = weingaertenMitGst
     .flatMap(w => gstMap.get(w.id) ?? [])
     .sort((a, b) => a.gst_nr.localeCompare(b.gst_nr, 'de', { numeric: true }))
@@ -238,7 +254,7 @@ function LageGruppe({
         <WeingartenZeile
           key={w.id}
           w={w}
-          gsts={[]}
+          gsts={gstMap.get(w.id) ?? []}
           writeOk={writeOk}
           adminOk={adminOk}
         />
@@ -264,7 +280,7 @@ export default function WeingartenBaum({
 
   const lagenMap = new Map<string, WRow[]>()
   for (const w of weingaerten) {
-    const ried = w.ried ?? 'Rieden'
+    const ried = w.ried ?? KEIN_RIED
     const arr = lagenMap.get(ried) ?? []
     arr.push(w)
     lagenMap.set(ried, arr)
@@ -292,6 +308,7 @@ export default function WeingartenBaum({
               gstMap={gstMap}
               writeOk={writeOk}
               adminOk={adminOk}
+              istEchteLage={ried !== KEIN_RIED}
             />
           ))}
         </tbody>
