@@ -142,6 +142,39 @@ export async function inviteUserToTenant(tenantId: string, email: string, role: 
   return { success: true }
 }
 
+// ── Benutzer: Einladung erneut senden ──────────────────────────────────────────
+//
+// Für Benutzer, die ihr Konto noch nicht aktiviert haben (email_confirmed_at
+// leer) - z.B. weil der erste Einladungslink abgelaufen ist, bevor er
+// angeklickt wurde. inviteUserToTenant() oben verschickt bei einem bereits
+// existierenden Auth-User bewusst KEINE neue Mail (das ist dort so gewollt,
+// damit ein bestehender, bereits aktiver Nutzer ohne Fehlermeldung einem
+// weiteren Mandanten zugewiesen werden kann) - für den "steckengebliebenen"
+// Fall hier braucht es also einen eigenen, expliziten Weg. Ruft dieselbe
+// GoTrue-Route wie eine Erst-Einladung auf: für einen noch unbestätigten
+// User erzeugt das einen frischen, neuen Einladungslink und verschickt ihn
+// erneut über dieselbe Supabase-Mail (kein separates E-Mail-System nötig).
+export async function resendInvite(userId: string, tenantId: string) {
+  await assertSystemAdmin()
+  const admin = createSupabaseAdminClient()
+
+  const { data: userRes, error: getErr } = await admin.auth.admin.getUserById(userId)
+  const user = userRes?.user
+  if (getErr || !user?.email) return { error: 'Benutzer nicht gefunden' }
+
+  if (user.email_confirmed_at) {
+    return { error: 'Dieser Benutzer hat sein Konto bereits aktiviert – kein erneuter Einladungslink nötig. Bei Anmeldeproblemen bitte „Passwort vergessen" auf der Login-Seite verwenden.' }
+  }
+
+  const { error } = await admin.auth.admin.inviteUserByEmail(user.email, {
+    redirectTo: 'https://software112.icp-consultants.at/auth/invite',
+  })
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/mandanten/${tenantId}`)
+  return { success: true }
+}
+
 // ── Benutzer: Name ändern ─────────────────────────────────────────────────────
 
 export async function updateMemberNameAdmin(userId: string, fullName: string, tenantId: string) {

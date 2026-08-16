@@ -95,6 +95,7 @@ export type TenantSettings = {
 export type TenantMember = {
   id: string; userId: string; email: string; role: string; createdAt: string
   fullName: string | null
+  confirmed: boolean
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -129,7 +130,11 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
   if (!tenantRaw) notFound()
 
   const emailMap: Record<string, string> = {}
-  users.forEach(u => { emailMap[u.id] = u.email ?? '–' })
+  const confirmedMap: Record<string, boolean> = {}
+  users.forEach(u => {
+    emailMap[u.id] = u.email ?? '–'
+    confirmedMap[u.id] = !!u.email_confirmed_at
+  })
 
   // Klarnamen der Mitglieder (Name wird seit 7.8.2026 hier zentral administriert,
   // nicht mehr vom Benutzer selbst unter /profil - siehe MandantDetailClient BenutzerTab).
@@ -228,6 +233,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     role:      m.role,
     createdAt: m.created_at,
     fullName:  nameMap[m.user_id] ?? null,
+    confirmed: confirmedMap[m.user_id] ?? false,
   }))
 
   return (

@@ -8,6 +8,7 @@ import {
   saveTenantSettings,
   uploadTenantLogo,
   inviteUserToTenant,
+  resendInvite,
   updateMemberRoleAdmin,
   updateMemberNameAdmin,
   removeMemberAdmin,
@@ -281,6 +282,15 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
     })
   }
 
+  function handleResendInvite(m: TenantMember) {
+    setError(null); setSuccess(null)
+    startTransition(async () => {
+      const r = await resendInvite(m.userId, tenant.id)
+      if (r.error) { setError(r.error); return }
+      setSuccess(`Neue Einladung an ${m.email} versandt.`)
+    })
+  }
+
   return (
     <div className="space-y-4">
       {error   && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{error}</div>}
@@ -324,7 +334,15 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
                     </button>
                   )}
                 </td>
-                <td className="px-4 py-3 text-gray-700">{m.email}</td>
+                <td className="px-4 py-3 text-gray-700">
+                  {m.email}
+                  {!m.confirmed && (
+                    <span className="ml-2 inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700"
+                      title="Einladung verschickt, aber noch nicht angenommen">
+                      Ausstehend
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3">
                   {editingId === m.id ? (
                     <select value={editRole} onChange={e => setEditRole(e.target.value)}
@@ -351,6 +369,12 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
                     </div>
                   ) : m.role !== 'system_admin' ? (
                     <div className="flex gap-3 justify-end">
+                      {!m.confirmed && (
+                        <button onClick={() => handleResendInvite(m)} disabled={pending}
+                          className="text-xs text-s112-teal hover:underline font-medium disabled:opacity-50">
+                          Einladung erneut senden
+                        </button>
+                      )}
                       <button onClick={() => { setEditingId(m.id); setEditRole(m.role) }}
                         className="text-xs text-s112-teal hover:underline font-medium">Rolle</button>
                       <button onClick={() => handleRemove(m)} disabled={pending}
