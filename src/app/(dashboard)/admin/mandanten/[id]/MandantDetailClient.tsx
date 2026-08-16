@@ -787,9 +787,10 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
         <div className="p-4 rounded-xl border border-red-300 bg-red-50 text-sm text-red-800 space-y-1">
           <p className="font-semibold">Verbindung fehlgeschlagen</p>
           <p className="text-xs break-all">{m365Error}</p>
-          {m365Error.includes('AADSTS500113') && (
-            <p className="text-xs">→ In Azure fehlt die Umleitungs-URI. Unter „Authentifizierung" → „+ Plattform hinzufügen" → Web →{' '}
-              <code className="bg-white px-1 rounded">https://software112.icp-consultants.at/api/auth/m365/callback</code> eintragen.</p>
+          {(m365Error.includes('AADSTS500113') || m365Error.includes('AADSTS50011')) && (
+            <p className="text-xs">→ In Azure fehlt eine Umleitungs-URI. Unter „Authentifizierung" → „+ Plattform hinzufügen" → Web beide URIs eintragen:{' '}
+              <code className="bg-white px-1 rounded">https://software112.icp-consultants.at/api/auth/m365/callback</code> und{' '}
+              <code className="bg-white px-1 rounded">https://software112.icp-consultants.at/api/auth/m365/user/callback</code>.</p>
           )}
           {(m365Error.includes('AADSTS7000215') || m365Error.includes('invalid_client')) && (
             <p className="text-xs">→ Der geheime Clientschlüssel ist falsch oder abgelaufen. Bitte in Azure unter „Zertifikate &amp; Geheimnisse" ein neues Secret anlegen, den „Wert" (nicht die Geheime Text-ID) kopieren und hier neu eintragen.</p>
@@ -827,7 +828,12 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
           <p className="font-semibold text-blue-800">Azure AD App-Registrierung (einmalig):</p>
           <ol className="list-decimal ml-4 space-y-1 text-blue-700">
             <li>portal.azure.com → App-Registrierungen → Neue Registrierung</li>
-            <li>Umleitungs-URI (Web): <code className="bg-white px-1 rounded">https://software112.icp-consultants.at/api/auth/m365/callback</code></li>
+            <li>Authentifizierung → Plattform hinzufügen → Web – dort BEIDE Umleitungs-URIs eintragen (eine für diese Mandanten-Verbindung, eine für die persönliche Mailbox-Verbindung jedes einzelnen Users unter „Nachrichten"):
+              <div className="mt-1 space-y-0.5">
+                <code className="block bg-white px-1 rounded">https://software112.icp-consultants.at/api/auth/m365/callback</code>
+                <code className="block bg-white px-1 rounded">https://software112.icp-consultants.at/api/auth/m365/user/callback</code>
+              </div>
+            </li>
             <li>Zertifikate & Geheimnisse → Neuer geheimer Clientschlüssel</li>
             <li>API-Berechtigungen → Microsoft Graph → delegiert: Mail.ReadWrite, Mail.Send, Calendars.Read, offline_access – danach „Administratorzustimmung erteilen"</li>
           </ol>
