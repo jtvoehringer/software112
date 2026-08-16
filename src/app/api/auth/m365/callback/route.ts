@@ -11,17 +11,22 @@ export async function GET(req: NextRequest) {
   const state = searchParams.get('state') ?? ''
   const error = searchParams.get('error')
 
-  if (error) return NextResponse.redirect(new URL(`/admin/mandanten?m365_error=${error}`, req.url))
-  if (!code) return NextResponse.redirect(new URL('/admin/mandanten?m365_error=no_code', req.url))
-
+  // tenantId zuerst aus dem state parsen, damit JEDE Rückleitung (Erfolg wie
+  // Fehler) auf die konkrete Mandanten-Detailseite geht statt auf die
+  // allgemeine Liste, die m365_ok/m365_error ohnehin nicht auswertet.
   const [tenantId] = state.split(':')
+  const zurueck = tenantId ? `/admin/mandanten/${tenantId}` : '/admin/mandanten'
+
+  if (error) return NextResponse.redirect(new URL(`${zurueck}?m365_error=${error}`, req.url))
+  if (!code) return NextResponse.redirect(new URL(`${zurueck}?m365_error=no_code`, req.url))
+
   const admin = createSupabaseAdminClient()
 
   const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
     .select('m365_tenant_id, m365_client_id, m365_client_secret_enc')
     .eq('tenant_id', tenantId).maybeSingle()
   const c = cfg as R | null
-  if (!c) return NextResponse.redirect(new URL('/admin/mandanten?m365_error=tenant_not_found', req.url))
+  if (!c) return NextResponse.redirect(new URL(`${zurueck}?m365_error=tenant_not_found`, req.url))
 
   try {
     const { decryptPass } = await import('@/lib/email/crypto')
@@ -44,8 +49,8 @@ export async function GET(req: NextRequest) {
       m365_user_email:        userEmail,
     }).eq('tenant_id', tenantId)
 
-    return NextResponse.redirect(new URL('/admin/mandanten?m365_ok=1', req.url))
+    return NextResponse.redirect(new URL(`${zurueck}?m365_ok=1`, req.url))
   } catch (err) {
-    return NextResponse.redirect(new URL(`/admin/mandanten?m365_error=${encodeURIComponent(String(err))}`, req.url))
+    return NextResponse.redirect(new URL(`${zurueck}?m365_error=${encodeURIComponent(String(err))}`, req.url))
   }
 }

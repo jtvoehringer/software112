@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useState, useTransition, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, useTransition, useRef, Suspense } from 'react'
 import { CheckCircle2, AlertTriangle, Pencil } from 'lucide-react'
 import {
   saveTenantSettings,
@@ -738,6 +738,13 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
   const [pending, startTransition] = useTransition()
   const [saved,   setSaved]        = useState(false)
 
+  // Rückmeldung vom OAuth-Callback (/api/auth/m365/callback) auswerten.
+  // Vorher landete das Ergebnis unausgewertet in der URL der allgemeinen
+  // Mandanten-Liste - hier wird es jetzt tatsächlich angezeigt.
+  const searchParams = useSearchParams()
+  const m365Ok    = searchParams.get('m365_ok')
+  const m365Error = searchParams.get('m365_error')
+
   const isConnected = !!settings.m365_user_email
   // Access Token läuft nach ~1h ab; getValidAccessToken refresht automatisch via Refresh Token.
   // Daher: "verbunden" wenn m365_user_email gesetzt, auch wenn Access Token abgelaufen.
@@ -770,6 +777,29 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
 
   return (
     <div className="space-y-6 max-w-lg">
+      {/* Rückmeldung vom OAuth-Callback */}
+      {m365Ok && (
+        <div className="p-4 rounded-xl border border-green-300 bg-green-50 text-sm text-green-800">
+          Verbindung erfolgreich hergestellt.
+        </div>
+      )}
+      {m365Error && (
+        <div className="p-4 rounded-xl border border-red-300 bg-red-50 text-sm text-red-800 space-y-1">
+          <p className="font-semibold">Verbindung fehlgeschlagen</p>
+          <p className="text-xs break-all">{m365Error}</p>
+          {m365Error.includes('AADSTS500113') && (
+            <p className="text-xs">→ In Azure fehlt die Umleitungs-URI. Unter „Authentifizierung" → „+ Plattform hinzufügen" → Web →{' '}
+              <code className="bg-white px-1 rounded">https://software112.icp-consultants.at/api/auth/m365/callback</code> eintragen.</p>
+          )}
+          {(m365Error.includes('AADSTS7000215') || m365Error.includes('invalid_client')) && (
+            <p className="text-xs">→ Der geheime Clientschlüssel ist falsch oder abgelaufen. Bitte in Azure unter „Zertifikate &amp; Geheimnisse" ein neues Secret anlegen, den „Wert" (nicht die Geheime Text-ID) kopieren und hier neu eintragen.</p>
+          )}
+          {m365Error.includes('AADSTS65001') && (
+            <p className="text-xs">→ Der Administrator hat die API-Berechtigungen noch nicht bestätigt. Unter „API-Berechtigungen" auf „Administratorzustimmung erteilen" klicken.</p>
+          )}
+        </div>
+      )}
+
       {/* Status */}
       <div className={`flex items-center gap-3 p-4 rounded-xl border ${isConnected && tokenOk ? 'border-green-300 bg-green-50' : 'border-amber-300 bg-amber-50'}`}>
         {isConnected && tokenOk
@@ -1703,7 +1733,11 @@ export default function MandantDetailClient({ tenant, settings, members }: {
       {tab === 'betrieb'    && <BetriebTab    tenant={tenant} settings={settings} />}
       {tab === 'verkauf'    && <VerkaufTab    tenant={tenant} settings={settings} />}
       {tab === 'email'      && <EmailTab      tenant={tenant} settings={settings} />}
-      {tab === 'm365'       && <M365Tab       tenant={tenant} settings={settings} />}
+      {tab === 'm365'       && (
+        <Suspense fallback={<p className="text-sm text-s112-muted">Laden…</p>}>
+          <M365Tab tenant={tenant} settings={settings} />
+        </Suspense>
+      )}
       {tab === 'bawb'       && <BawbTab       tenant={tenant} settings={settings} />}
       {tab === 'sumup'      && <SumUpTab      tenant={tenant} settings={settings} />}
       {tab === 'stripe'     && <StripeTab     tenant={tenant} />}
