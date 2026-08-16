@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
-import { getTenantMembers, getUnassignedUsers } from '../../benutzer/actions'
+import { getTenantMembers } from '../../benutzer/actions'
 import EinstellungenClient from './EinstellungenClient'
 
 export const metadata: Metadata = { title: 'Mein Betrieb – software:112' }
@@ -47,7 +47,7 @@ export default async function MeinBetriebPage() {
   // Schreib-Aktionen zu bleiben - die Auswahl der Spalten selbst ist die
   // eigentliche Sicherheitsgrenze hier, nicht RLS.
   const admin = createSupabaseAdminClient()
-  const [{ data: tenantRaw }, { data: settingsRaw }, members, unassigned] = await Promise.all([
+  const [{ data: tenantRaw }, { data: settingsRaw }, members] = await Promise.all([
     (admin.from('tenants') as any).select('id, name, bio_status').eq('id', membership.tenantId).single(),
     (admin.from('tenant_einstellungen') as any)
       .select(`
@@ -60,7 +60,6 @@ export default async function MeinBetriebPage() {
       .eq('tenant_id', membership.tenantId)
       .maybeSingle(),
     getTenantMembers(),
-    getUnassignedUsers(),
   ])
 
   if (!tenantRaw) redirect('/dashboard')
@@ -97,7 +96,6 @@ export default async function MeinBetriebPage() {
     <EinstellungenClient
       daten={daten}
       members={members}
-      unassigned={unassigned}
       isSystemAdmin={membership.role === 'system_admin'}
     />
   )

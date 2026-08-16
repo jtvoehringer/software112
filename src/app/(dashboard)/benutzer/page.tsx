@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { getCurrentMembership, canManageUsers } from '@/lib/auth/roles'
-import { getTenantMembers, getUnassignedUsers } from './actions'
+import { getTenantMembers } from './actions'
 import BenutzerClient from './BenutzerClient'
 
 export const metadata: Metadata = { title: 'Benutzerverwaltung – software:112' }
@@ -14,10 +14,7 @@ export default async function BenutzerPage() {
     redirect('/dashboard')
   }
 
-  const [members, unassigned] = await Promise.all([
-    getTenantMembers(),
-    getUnassignedUsers(),
-  ])
+  const members = await getTenantMembers()
 
   return (
     <div>
@@ -28,7 +25,7 @@ export default async function BenutzerPage() {
         </div>
       </div>
 
-      <BenutzerClient members={members} unassigned={unassigned} />
+      <BenutzerClient members={members} />
     </div>
   )
 }

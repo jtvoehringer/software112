@@ -15,11 +15,7 @@ export type MemberWithEmail = {
   created_at: string
   email: string
   aktiv: boolean
-}
-
-export type UnassignedUser = {
-  user_id: string
-  email: string
+  confirmed: boolean
 }
 
 /** Mitglieder des Tenants + Email aus auth.users */
@@ -40,10 +36,14 @@ export async function getTenantMembers(): Promise<MemberWithEmail[]> {
 
   if (!memberships || memberships.length === 0) return []
 
-  // Alle Auth-User laden (admin API) um Emails zu bekommen
+  // Alle Auth-User laden (admin API) um Emails + Bestätigungsstatus zu bekommen
   const { data: { users } } = await admin.auth.admin.listUsers({ perPage: 1000 })
   const emailMap: Record<string, string> = {}
-  users.forEach(u => { emailMap[u.id] = u.email ?? '–' })
+  const confirmedMap: Record<string, boolean> = {}
+  users.forEach(u => {
+    emailMap[u.id] = u.email ?? '–'
+    confirmedMap[u.id] = !!u.email_confirmed_at
+  })
 
   return (memberships as R[]).map(m => ({
     id:         m.id,
@@ -52,33 +52,16 @@ export async function getTenantMembers(): Promise<MemberWithEmail[]> {
     created_at: m.created_at,
     email:      emailMap[m.user_id] ?? m.user_id,
     aktiv:      m.aktiv ?? true,
+    confirmed:  confirmedMap[m.user_id] ?? false,
   }))
 }
 
-/** Auth-User die noch NICHT im Tenant sind (für Zuweisung) */
-export async function getUnassignedUsers(): Promise<UnassignedUser[]> {
-  const membership = await getCurrentMembership()
-  if (!membership || !canManageUsers(membership.role)) return []
-
-  const supabase = await createSupabaseServerClient()
-  const admin    = createSupabaseAdminClient()
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: memberships } = await (supabase.from('tenant_memberships') as any)
-    .select('user_id')
-    .eq('tenant_id', membership.tenantId)
-
-  const assignedIds = new Set((memberships ?? []).map((m: R) => m.user_id as string))
-
-  const { data: { users } } = await admin.auth.admin.listUsers({ perPage: 1000 })
-
-  return users
-    .filter(u => !assignedIds.has(u.id))
-    .map(u => ({ user_id: u.id, email: u.email ?? '–' }))
-}
-
-/** Bestehenden Auth-User dem Tenant zuweisen */
-export async function assignUserToTenant(userId: string, role: string) {
+/** Einladung erneut senden – für Mitglieder, die ihr Konto noch nicht aktiviert
+ *  haben (z.B. weil der erste Einladungslink abgelaufen ist, bevor er
+ *  angeklickt wurde). Prüft zuerst, dass der Ziel-User tatsächlich Mitglied
+ *  DIESES Betriebs ist (sonst könnte ein Betriebsleiter hierüber eine
+ *  Einladung für eine fremde user_id/einen fremden Betrieb auslösen). */
+export async function resendInvite(userId: string) {
   const membership = await getCurrentMembership()
   if (!membership || !canManageUsers(membership.role)) {
     return { error: 'Keine Berechtigung' }
@@ -86,11 +69,26 @@ export async function assignUserToTenant(userId: string, role: string) {
 
   const supabase = await createSupabaseServerClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('tenant_memberships') as any)
-    .insert({ tenant_id: membership.tenantId, user_id: userId, role })
+  const { data: target } = await (supabase.from('tenant_memberships') as any)
+    .select('id').eq('tenant_id', membership.tenantId).eq('user_id', userId).maybeSingle()
+  if (!target) return { error: 'Benutzer ist kein Mitglied dieses Betriebs.' }
 
+  const admin = createSupabaseAdminClient()
+  const { data: userRes, error: getErr } = await admin.auth.admin.getUserById(userId)
+  const user = userRes?.user
+  if (getErr || !user?.email) return { error: 'Benutzer nicht gefunden' }
+
+  if (user.email_confirmed_at) {
+    return { error: 'Dieser Benutzer hat sein Konto bereits aktiviert – kein erneuter Einladungslink nötig. Bei Anmeldeproblemen bitte „Passwort vergessen" auf der Login-Seite verwenden.' }
+  }
+
+  const { error } = await admin.auth.admin.inviteUserByEmail(user.email, {
+    redirectTo: 'https://software112.icp-consultants.at/auth/invite',
+  })
   if (error) return { error: error.message }
+
   revalidatePath('/benutzer')
+  revalidatePath('/betrieb/einstellungen')
   return { success: true }
 }
 

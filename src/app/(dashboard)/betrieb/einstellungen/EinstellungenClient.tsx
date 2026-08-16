@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { saveBrandingOwn, uploadLogoOwn, saveBetriebOwn, saveBawbOwn } from './actions'
 import type { EigeneBetriebsdaten } from './page'
 import BenutzerClient from '../../benutzer/BenutzerClient'
-import type { MemberWithEmail, UnassignedUser } from '../../benutzer/actions'
+import type { MemberWithEmail } from '../../benutzer/actions'
 
 const BIO_STATUS_OPTS = [
   { value: 'konventionell', label: 'Konventionell' },
@@ -24,11 +24,10 @@ function inputCls() {
 type Tab = 'branding' | 'benutzer' | 'betrieb' | 'bawb'
 
 export default function EinstellungenClient({
-  daten, members, unassigned, isSystemAdmin,
+  daten, members, isSystemAdmin,
 }: {
   daten: EigeneBetriebsdaten
   members: MemberWithEmail[]
-  unassigned: UnassignedUser[]
   isSystemAdmin: boolean
 }) {
   const [tab, setTab] = useState<Tab>('branding')
@@ -77,7 +76,7 @@ export default function EinstellungenClient({
       </div>
 
       {tab === 'branding' && <BrandingTabOwn daten={daten} />}
-      {tab === 'benutzer' && <BenutzerClient members={members} unassigned={unassigned} />}
+      {tab === 'benutzer' && <BenutzerClient members={members} />}
       {tab === 'betrieb'  && <BetriebTabOwn daten={daten} />}
       {tab === 'bawb'     && <BawbTabOwn daten={daten} />}
     </div>
