@@ -103,7 +103,7 @@ const NAV: NavEntry[] = [
     kind: 'group', label: 'E&A-Rechnung', icon: ReceiptText, modulKey: 'modul_ea',
     items: [
       { href: '/buchhaltung',              label: 'Buchungen'         },
-      { href: '/buchhaltung/belege',       label: 'Belege', child: true },
+      { href: '/buchhaltung/belege',       label: 'Belege (OCR)', child: true },
       { href: '/buchhaltung/kategorien',   label: 'Kategorien', child: true },
       { href: '/buchhaltung/dauerauftraege', label: 'Daueraufträge', child: true },
       { href: '/buchhaltung/monatsabschluss', label: 'Monatsabschluss', child: true },

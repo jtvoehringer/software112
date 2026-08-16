@@ -5,7 +5,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { verwerfeBeleg } from '../actions'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import BelegUpload from './BelegUpload'
-import { AlertTriangle, FileText, Image as ImageIcon, Trash2 } from 'lucide-react'
+import { AlertTriangle, FileText, Image as ImageIcon, Trash2, Info } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -107,6 +107,20 @@ export default async function BelegePage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Belege</h1>
           <p className="text-sm text-s112-muted">Foto oder PDF hochladen – Claude liest Datum, Betrag, USt-Satz und eine passende Kategorie automatisch aus.</p>
+        </div>
+      </div>
+
+      <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+        <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+        <div className="text-xs text-blue-800">
+          <p className="font-semibold mb-1">Wie es funktioniert</p>
+          <p className="text-blue-700">
+            Foto oder Scan hochladen (JPG, PNG, PDF) → KI erkennt automatisch Datum, Betrag, USt-Satz,
+            Kategorie und – bei Eingangsrechnungen – den Lieferanten (wird mit einer bestehenden Firma
+            im CRM verknüpft, oder Sie legen sie direkt neu an) → Daten prüfen und ggf. korrigieren →
+            „Buchung anlegen" erstellt die Buchung und verknüpft den Beleg. Belege werden verschlüsselt
+            und mandantengetrennt in der Cloud gespeichert.
+          </p>
         </div>
       </div>
 

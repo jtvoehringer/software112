@@ -387,6 +387,9 @@ export async function verbucheBeleg(belegId: string, formData: FormData) {
   const ust_satz     = parseFloat(formData.get('ust_satz') as string)
   const notizen      = (formData.get('notizen') as string) || null
   const konto_id     = (formData.get('konto_id') as string) || null
+  // Migration 167 - optionaler Lieferant (aus Belege-OCR erkannt/bestätigt
+  // oder manuell zugeordnet). Bewusst kein Pflichtfeld.
+  const firma_id     = (formData.get('firma_id') as string) || null
 
   if (!typ || !datum || !beschreibung || isNaN(betrag_netto)) {
     return { error: 'Pflichtfelder fehlen' }
@@ -404,7 +407,7 @@ export async function verbucheBeleg(belegId: string, formData: FormData) {
     .insert({
       tenant_id: tenantId, typ, datum, beschreibung,
       kategorie_id, betrag_netto, ust_satz: ust_satz || 20,
-      notizen, konto_id,
+      notizen, konto_id, firma_id,
     })
     .select('id')
     .single()

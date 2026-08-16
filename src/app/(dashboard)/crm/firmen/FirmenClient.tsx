@@ -38,14 +38,35 @@ const LAENDER = ['AT', 'DE', 'CH', 'IT', 'FR', 'HU', 'SK', 'CZ', 'US', 'GB']
 
 // ── Formular ──────────────────────────────────────────────────────────────────
 
-export function FirmaForm({ initial, rabattgruppen = [], defaultSegment, existingFirmen, onDone }: { initial?: FirmaRow | null; rabattgruppen?: {id:string;name:string;rabatt_pct:number}[]; defaultSegment?: string; existingFirmen?: FirmaRow[]; onDone: () => void }) {
+export function FirmaForm({
+  initial, rabattgruppen = [], defaultSegment, existingFirmen, onDone, onCreated,
+  prefillName, defaultIstKunde, defaultIstLieferant,
+}: {
+  initial?: FirmaRow | null
+  rabattgruppen?: {id:string;name:string;rabatt_pct:number}[]
+  defaultSegment?: string
+  existingFirmen?: FirmaRow[]
+  onDone: () => void
+  // Wird zusätzlich zu onDone aufgerufen, wenn eine NEUE Firma erfolgreich
+  // angelegt wurde (nicht bei Bearbeitung) - übergibt deren neue ID, damit
+  // der Aufrufer sie direkt weiterverknüpfen kann (z.B. Belege-OCR-
+  // Lieferantenzuordnung). Bestehende Aufrufer (Firmenliste, Firma
+  // bearbeiten) lassen das weg und verhalten sich unverändert.
+  onCreated?: (id: string) => void
+  // Vorbefüllung bei Neuanlage aus einem anderen Kontext heraus (z.B. der aus
+  // einem Beleg erkannte Lieferantenname) - initial hat hier bewusst Vorrang,
+  // falls doch im Bearbeiten-Modus aufgerufen.
+  prefillName?: string
+  defaultIstKunde?: boolean
+  defaultIstLieferant?: boolean
+}) {
   const [pending, startTransition] = useTransition()
   const router = useRouter()
   const [segmentVal, setSegmentVal] = useState(initial?.segment ?? defaultSegment ?? 'handel')
   const [isLead, setIsLead]           = useState(initial?.is_lead ?? true)
-  const [istKunde, setIstKunde]       = useState(initial?.ist_kunde ?? true)
-  const [istLieferant, setIstLieferant] = useState(initial?.ist_lieferant ?? false)
   const [landVal, setLandVal]           = useState(initial?.land ?? 'AT')
+  const [istKunde, setIstKunde]         = useState(initial?.ist_kunde ?? defaultIstKunde ?? true)
+  const [istLieferant, setIstLieferant] = useState(initial?.ist_lieferant ?? defaultIstLieferant ?? false)
   const [saveError, setSaveError]   = useState<string | null>(null)
   const [dubletteWarnung, setDubletteWarnung] = useState<string | null>(null)
   const [dubletteIgnorieren, setDubletteIgnorieren] = useState(false)
@@ -96,7 +117,11 @@ export function FirmaForm({ initial, rabattgruppen = [], defaultSegment, existin
         setSaveError(result.error)
         return
       }
-      onDone()
+      if (!initial && result?.id && onCreated) {
+        onCreated(result.id)
+      } else {
+        onDone()
+      }
       router.refresh()
     })
   }
@@ -126,23 +151,23 @@ export function FirmaForm({ initial, rabattgruppen = [], defaultSegment, existin
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-gray-600 mb-1">Firmenname *</label>
-          <input name="name" defaultValue={v('name')} required className={inputCls()} />
+          <input name="name" defaultValue={v('name') || prefillName || ''} required className={inputCls()} />
         </div>
-        {/* Kunde / Lieferant (Feedback 12.8.2026: Firmen sollen Kunde, Lieferant oder
-            beides sein können - steuert u.a. die Firma-Auswahllisten in Verkauf/Zukauf) */}
-        <div className="sm:col-span-2 flex items-center gap-6 bg-white border border-s112-border rounded-xl px-4 py-2.5">
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer select-none">
-            <input type="checkbox" checked={istKunde} onChange={e => setIstKunde(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-s112-teal focus:ring-2 focus:ring-s112-teal/40" />
-            Kunde
-          </label>
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer select-none">
-            <input type="checkbox" checked={istLieferant} onChange={e => setIstLieferant(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-s112-teal focus:ring-2 focus:ring-s112-teal/40" />
-            Lieferant
-          </label>
+        {/* Kunde / Lieferant - Migration 167 */}
+        <div className="sm:col-span-2 flex items-center gap-5 bg-white border border-s112-border rounded-xl px-4 py-2.5">
           <input type="hidden" name="ist_kunde" value={String(istKunde)} />
           <input type="hidden" name="ist_lieferant" value={String(istLieferant)} />
+          <label className="flex items-center gap-2 cursor-pointer select-none text-sm">
+            <input type="checkbox" checked={istKunde} onChange={e => setIstKunde(e.target.checked)}
+              className="accent-s112-teal w-4 h-4" />
+            Kunde
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer select-none text-sm">
+            <input type="checkbox" checked={istLieferant} onChange={e => setIstLieferant(e.target.checked)}
+              className="accent-s112-teal w-4 h-4" />
+            Lieferant
+          </label>
+          <p className="text-[10px] text-gray-400 ml-auto">Eine Firma kann Kunde, Lieferant oder beides sein.</p>
         </div>
         {/* Lead / Kunde Toggle */}
         <div className="sm:col-span-2 flex items-center justify-between bg-white border border-s112-border rounded-xl px-4 py-2.5">
@@ -354,12 +379,6 @@ function FirmaKarte({
               ? <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Lead</span>
               : <span className="text-xs px-2 py-0.5 rounded-full bg-s112-teal/10 text-s112-teal font-medium">Aktiv</span>
             }
-            {firma.ist_kunde && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">Kunde</span>
-            )}
-            {firma.ist_lieferant && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">Lieferant</span>
-            )}
             {firma.rabattgruppe_name && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
                 {firma.rabattgruppe_pct}% {firma.rabattgruppe_name}
@@ -428,20 +447,17 @@ function FirmaKarte({
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 
 export default function FirmenClient({
-  firmen, kontakteMap, rabattgruppen, writeOk, initialFilter,
+  firmen, kontakteMap, rabattgruppen, writeOk,
 }: {
   firmen: FirmaRow[]
   kontakteMap: Record<string, KontaktKurz[]>
   rabattgruppen?: {id:string;name:string;rabatt_pct:number}[]
   writeOk: boolean
-  initialFilter?: 'alle' | 'lead' | 'kunde'
 }) {
   const [showForm, setShowForm] = useState(false)
   const [suche, setSuche] = useState('')
   const [segment, setSegment] = useState('alle')
-  // Sprungziel von der Dashboard-Leads-Kachel (?filter=lead) - springt direkt auf die
-  // gefilterte Ansicht, statt dass man den Filter nach dem Klick nochmal manuell setzen muss.
-  const [filterLead, setFilterLead] = useState<'alle' | 'lead' | 'kunde'>(initialFilter ?? 'alle')
+  const [filterLead, setFilterLead] = useState<'alle' | 'lead' | 'kunde'>('alle')
   const BUCHSTABEN = ['Alle', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')]
   const [buchstabe, setBuchstabe] = useState('Alle')
 

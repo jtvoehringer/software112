@@ -124,7 +124,7 @@ export async function deleteKontakt(id: string) {
 
 // ── Firmen ────────────────────────────────────────────────────────────────────
 
-export async function createFirma(formData: FormData): Promise<{ error?: string }> {
+export async function createFirma(formData: FormData): Promise<{ error?: string; id?: string }> {
   try {
     const supabase = await createSupabaseServerClient()
     const tenantId = await getTenantId()
@@ -150,18 +150,25 @@ export async function createFirma(formData: FormData): Promise<{ error?: string 
       skonto_pct:       parseFloat(formData.get('skonto_pct') as string) || 0,
       skonto_tage:      parseInt(formData.get('skonto_tage') as string) || 10,
       is_lead: formData.get('is_lead') === 'true',
+      // Migration 167 - Default ist_kunde=true/ist_lieferant=false, außer das
+      // Formular sendet explizit einen anderen Wert (z.B. Lieferanten-
+      // Schnellanlage aus der Belege-OCR, siehe buchhaltung/belege/[id]).
+      ist_kunde:     formData.get('ist_kunde')     !== 'false',
+      ist_lieferant: formData.get('ist_lieferant') === 'true',
     }
     payload.kundennummer = await generateKundennummer(tenantId)
-    const { error } = await (supabase.from('firmen') as any).insert(payload).eq('tenant_id', tenantId)
+    const { data, error } = await (supabase.from('firmen') as any)
+      .insert(payload).eq('tenant_id', tenantId)
+      .select('id').single()
     if (error) return { error: (error as AR).message }
     revalidatePath('/crm/firmen')
-    return {}
+    return { id: (data as AR)?.id as string | undefined }
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
   }
 }
 
-export async function updateFirma(id: string, formData: FormData): Promise<{ error?: string }> {
+export async function updateFirma(id: string, formData: FormData): Promise<{ error?: string; id?: string }> {
   try {
     const supabase = await createSupabaseServerClient()
     const tenantId = await getTenantId()
@@ -186,6 +193,8 @@ export async function updateFirma(id: string, formData: FormData): Promise<{ err
       skonto_pct:       parseFloat(formData.get('skonto_pct') as string) || 0,
       skonto_tage:      parseInt(formData.get('skonto_tage') as string) || 10,
       is_lead: formData.get('is_lead') === 'true',
+      ist_kunde:     formData.get('ist_kunde')     !== 'false',
+      ist_lieferant: formData.get('ist_lieferant') === 'true',
       aktualisiert_am:    new Date().toISOString(),
     }
     const { error } = await (supabase.from('firmen') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)

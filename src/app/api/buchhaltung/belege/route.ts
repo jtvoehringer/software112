@@ -53,6 +53,10 @@ const BELEG_TOOL = {
       kategorie_id: { type: 'string', description: 'Die ID der am besten passenden Kategorie aus der mitgelieferten Liste, oder null falls keine passt.' },
       konfidenz: { type: 'string', enum: ['hoch', 'mittel', 'niedrig'], description: 'Wie sicher die Erkennung insgesamt ist.' },
       hinweis: { type: 'string', description: 'Optionaler Hinweis an den Nutzer, z.B. bei Unsicherheiten, unlesbaren Stellen oder mehreren USt-Sätzen. Sonst weglassen.' },
+      lieferant_name: {
+        type: 'string',
+        description: 'Name des Lieferanten/Rechnungsstellers, NUR wenn klar erkennbar (z.B. Firmenname im Rechnungskopf einer Eingangsrechnung, "Weinbau Bedarf Müller GmbH"). Bei anonymen Kassenbons, Tankrechnungen ohne erkennbaren Geschäftspartner oder Ausgangsrechnungen (typ=einnahme) weglassen bzw. leer lassen - nicht erzwingen.',
+      },
     },
     required: ['typ', 'beschreibung', 'betrag_brutto', 'ust_satz', 'konfidenz'],
   },
@@ -143,6 +147,10 @@ export async function POST(req: NextRequest) {
     // Kategorie-Vorschlag validieren – muss wirklich existieren, sonst lieber leer lassen
     const kategorieOk = kategorien.some(k => k.id === input.kategorie_id)
 
+    const lieferantName = typeof input.lieferant_name === 'string' && input.lieferant_name.trim()
+      ? input.lieferant_name.trim().slice(0, 120)
+      : null
+
     erkannteDaten = {
       typ:            input.typ === 'einnahme' ? 'einnahme' : 'ausgabe',
       datum:          typeof input.datum === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input.datum) ? input.datum : null,
@@ -153,6 +161,23 @@ export async function POST(req: NextRequest) {
       kategorie_id:   kategorieOk ? input.kategorie_id : null,
       konfidenz:      ['hoch', 'mittel', 'niedrig'].includes(input.konfidenz) ? input.konfidenz : 'niedrig',
       hinweis:        typeof input.hinweis === 'string' && input.hinweis.trim() ? input.hinweis.trim() : null,
+      lieferant_name: lieferantName,
+      firma_id_vorschlag: null as string | null,
+    }
+
+    // Lieferanten-Abgleich: nur bei Ausgaben mit erkanntem Namen versuchen -
+    // Tankrechnungen/Kassenbons ohne Geschäftspartner (lieferantName === null)
+    // brauchen bewusst keine Firmenzuordnung (siehe Beleg-Buchen-Formular).
+    if (erkannteDaten.typ === 'ausgabe' && lieferantName) {
+      const { data: lieferantenRaw } = await (supabase.from('firmen') as any)
+        .select('id, name')
+        .eq('tenant_id', tenantId).eq('ist_lieferant', true)
+      const lieferanten = (lieferantenRaw ?? []) as R[]
+      const normalisiert = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ')
+      const gesucht = normalisiert(lieferantName)
+      const treffer = lieferanten.find(f => normalisiert(f.name) === gesucht)
+        ?? lieferanten.find(f => normalisiert(f.name).includes(gesucht) || gesucht.includes(normalisiert(f.name)))
+      erkannteDaten.firma_id_vorschlag = treffer?.id ?? null
     }
   } catch (e) {
     fehlerDetails = e instanceof Error ? e.message : 'Unbekannter Fehler bei der Beleg-Erkennung'
