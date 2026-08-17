@@ -47,7 +47,7 @@ export default async function KategorienPage() {
       {/* Neue Kategorie */}
       <div className="bg-white rounded-2xl border border-s112-border p-5 mb-6">
         <h2 className="font-semibold text-gray-800 mb-4">Neue Kategorie anlegen</h2>
-        <form action={async (fd: FormData) => { 'use server'; await createEaKategorie(fd) }} className="grid grid-cols-4 gap-3 items-end">
+        <form action={async (fd: FormData) => { 'use server'; await createEaKategorie(fd) }} className="grid grid-cols-5 gap-3 items-end">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Typ *</label>
             <select name="typ" required
@@ -77,7 +77,13 @@ export default async function KategorienPage() {
               <option value="20">20%</option>
             </select>
           </div>
-          <div className="col-span-4 flex justify-end">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Abzugsfähig %</label>
+            <input name="abzugsfaehig_pct" type="number" min="0" max="100" step="1" defaultValue={100}
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" />
+            <p className="text-[10px] text-gray-400 mt-0.5">z.B. 50 bei Bewirtung/Repräsentation (§ 20 EStG)</p>
+          </div>
+          <div className="col-span-5 flex justify-end">
             <button type="submit"
               className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
               Speichern
@@ -99,6 +105,7 @@ export default async function KategorienPage() {
                 <th className="text-left px-4 py-2 font-medium text-gray-600">Typ</th>
                 <th className="text-left px-4 py-2 font-medium text-gray-600">Konto</th>
                 <th className="text-left px-4 py-2 font-medium text-gray-600">USt</th>
+                <th className="text-left px-4 py-2 font-medium text-gray-600">Abzugsfähig</th>
               </tr>
             </thead>
             <tbody>
@@ -110,6 +117,11 @@ export default async function KategorienPage() {
                   </td>
                   <td className="px-4 py-2.5 text-gray-500">{k.konto_nr ?? '–'}</td>
                   <td className="px-4 py-2.5 text-gray-500">{k.ust_satz_std}%</td>
+                  <td className="px-4 py-2.5">
+                    {Number(k.abzugsfaehig_pct) < 100
+                      ? <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">{k.abzugsfaehig_pct}%</span>
+                      : <span className="text-gray-400 text-xs">100%</span>}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -130,6 +142,7 @@ export default async function KategorienPage() {
               <th className="text-left px-4 py-2 font-medium text-gray-600">Typ</th>
               <th className="text-left px-4 py-2 font-medium text-gray-600">Konto</th>
               <th className="text-left px-4 py-2 font-medium text-gray-600">USt</th>
+              <th className="text-left px-4 py-2 font-medium text-gray-600">Abzugsfähig</th>
             </tr>
           </thead>
           <tbody>
@@ -141,6 +154,11 @@ export default async function KategorienPage() {
                 </td>
                 <td className="px-4 py-2 text-gray-500">{k.konto_nr ?? '–'}</td>
                 <td className="px-4 py-2 text-gray-500">{k.ust_satz_std}%</td>
+                <td className="px-4 py-2">
+                  {Number(k.abzugsfaehig_pct) < 100
+                    ? <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">{k.abzugsfaehig_pct}%</span>
+                    : <span className="text-gray-400 text-xs">100%</span>}
+                </td>
               </tr>
             ))}
           </tbody>

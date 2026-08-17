@@ -27,7 +27,7 @@ const UST_SAETZE = [
   { value: 20, label: '20% (Standard)' },
 ]
 
-type Kategorie = { id: string; name: string; typ: string }
+type Kategorie = { id: string; name: string; typ: string; abzugsfaehigPct: number }
 type Konto = { id: string; name: string }
 
 export default function BelegBuchenForm({
@@ -64,6 +64,10 @@ export default function BelegBuchenForm({
   const [zeigeFirmaDialog, setZeigeFirmaDialog] = useState(false)
   const [zeigeManuelleSuche, setZeigeManuelleSuche] = useState(false)
   const [sucheQuery, setSucheQuery] = useState('')
+  const [kategorieId, setKategorieId] = useState(e.kategorie_id ?? '')
+
+  const alleKategorien = [...einnahmeKat, ...ausgabeKat]
+  const gewaehlteKategorie = alleKategorien.find(k => k.id === kategorieId) ?? null
 
   const gefundeneFirma = firmaId ? (lieferanten.find(f => f.id === firmaId) ?? allFirmen.find(f => f.id === firmaId)) : null
   const sucheTreffer = sucheQuery.length < 1
@@ -227,16 +231,21 @@ export default function BelegBuchenForm({
 
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Kategorie</label>
-          <select name="kategorie_id" defaultValue={e.kategorie_id ?? ''}
+          <select name="kategorie_id" value={kategorieId} onChange={ev => setKategorieId(ev.target.value)}
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             <option value="">– keine –</option>
             <optgroup label="Einnahmen">
-              {einnahmeKat.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
+              {einnahmeKat.map(k => <option key={k.id} value={k.id}>{k.name}{k.abzugsfaehigPct < 100 ? ` — nur ${k.abzugsfaehigPct}% abzugsfähig` : ''}</option>)}
             </optgroup>
             <optgroup label="Ausgaben">
-              {ausgabeKat.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
+              {ausgabeKat.map(k => <option key={k.id} value={k.id}>{k.name}{k.abzugsfaehigPct < 100 ? ` — nur ${k.abzugsfaehigPct}% abzugsfähig` : ''}</option>)}
             </optgroup>
           </select>
+          {gewaehlteKategorie && gewaehlteKategorie.abzugsfaehigPct < 100 && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mt-1.5">
+              Nur {gewaehlteKategorie.abzugsfaehigPct}% dieser Ausgabe ist steuerlich abzugsfähig (§ 20 EStG) – wird automatisch erfasst und in der Übersicht ausgewiesen.
+            </p>
+          )}
         </div>
 
         {konten.length > 0 && (

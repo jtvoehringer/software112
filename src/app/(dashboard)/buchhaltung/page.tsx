@@ -38,6 +38,7 @@ export default async function BuchhaltungPage({
   // Buchungen laden
   let query = (supabase.from('ea_transaktionen') as any)
     .select('*, ea_kategorien(name), verkaufsposten(rechnungsnummer)')
+    // abzugsfaehig_pct/betrag_abzugsfaehig kommen bereits über '*' mit (Migration 168)
     .eq('tenant_id', tenantId)
     .gte('datum', `${jahr}-01-01`)
     .lte('datum', `${jahr}-12-31`)
@@ -53,6 +54,13 @@ export default async function BuchhaltungPage({
     .reduce((s: number, b: R) => s + (b.betrag_brutto ?? 0), 0) ?? 0
   const ausgaben = (buchungen as R[])?.filter(b => b.typ === 'ausgabe')
     .reduce((s: number, b: R) => s + (b.betrag_brutto ?? 0), 0) ?? 0
+
+  // Migration 168 - nicht abzugsfähiger Anteil bei eingeschränkt abzugsfähigen
+  // Ausgaben (z.B. 50% Bewirtung/Repräsentation gem. § 20 EStG). Nur ein
+  // Info-Wert zur Abstimmung mit dem Steuerberater - ersetzt keine
+  // vollständige steuerliche Gewinnermittlung (AfA, GWG, Privatanteile etc.).
+  const nichtAbzugsfaehig = (buchungen as R[])?.filter(b => b.typ === 'ausgabe')
+    .reduce((s: number, b: R) => s + Math.max(0, (b.betrag_netto ?? 0) - (b.betrag_abzugsfaehig ?? b.betrag_netto ?? 0)), 0) ?? 0
 
   const jahre = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
 
@@ -70,7 +78,7 @@ export default async function BuchhaltungPage({
       </div>
 
       {/* KPI-Karten */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className={`grid gap-4 mb-6 ${nichtAbzugsfaehig > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
         <div className="bg-white rounded-2xl border border-s112-border p-4">
           <p className="text-xs text-s112-muted mb-1">Einnahmen (Brutto)</p>
           <p className="text-2xl font-bold text-green-600">€ {fmt(einnahmen)}</p>
@@ -85,6 +93,14 @@ export default async function BuchhaltungPage({
             € {fmt(einnahmen - ausgaben)}
           </p>
         </div>
+        {nichtAbzugsfaehig > 0 && (
+          <div className="bg-white rounded-2xl border border-amber-200 p-4">
+            <p className="text-xs text-s112-muted mb-1" title="Anteil gebuchter Ausgaben, der laut hinterlegter Kategorie steuerlich nicht abzugsfähig ist (z.B. 50% Bewirtung/Repräsentation gem. § 20 EStG). Info-Wert zur Abstimmung mit dem Steuerberater - keine vollständige steuerliche Gewinnermittlung.">
+              davon nicht abzugsfähig ⓘ
+            </p>
+            <p className="text-2xl font-bold text-amber-600">€ {fmt(nichtAbzugsfaehig)}</p>
+          </div>
+        )}
       </div>
 
       {/* Filter */}
@@ -169,7 +185,15 @@ export default async function BuchhaltungPage({
                     </span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-gray-500 text-xs">{b.ea_kategorien?.name ?? '–'}</td>
+                <td className="px-4 py-3 text-gray-500 text-xs">
+                  {b.ea_kategorien?.name ?? '–'}
+                  {Number(b.abzugsfaehig_pct ?? 100) < 100 && (
+                    <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700"
+                      title="Eingeschränkt abzugsfähig">
+                      {b.abzugsfaehig_pct}%
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-gray-500">{b.ust_satz}%</td>
                 <td className="px-4 py-3 text-right font-mono">€ {fmt(b.betrag_netto)}</td>
                 <td className={`px-4 py-3 text-right font-mono font-semibold ${b.typ === 'einnahme' ? 'text-green-600' : 'text-red-500'}`}>

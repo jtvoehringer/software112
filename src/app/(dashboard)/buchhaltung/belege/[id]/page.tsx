@@ -38,7 +38,7 @@ export default async function BelegBuchenPage({ params }: { params: Promise<{ id
 
   const [{ data: kategorien }, { data: konten }, { data: firmenRaw }] = await Promise.all([
     (supabase.from('ea_kategorien') as any)
-      .select('id, name, typ')
+      .select('id, name, typ, abzugsfaehig_pct')
       .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`)
       .eq('aktiv', true)
       .order('sortierung'),
@@ -87,7 +87,7 @@ export default async function BelegBuchenPage({ params }: { params: Promise<{ id
   const lieferanten = allFirmen.filter(f => f.ist_lieferant)
 
   const e = (beleg.erkannte_daten ?? {}) as R
-  const kategorienListe = ((kategorien as R[]) ?? []).map(k => ({ id: k.id as string, name: k.name as string, typ: k.typ as string }))
+  const kategorienListe = ((kategorien as R[]) ?? []).map(k => ({ id: k.id as string, name: k.name as string, typ: k.typ as string, abzugsfaehigPct: Number(k.abzugsfaehig_pct ?? 100) }))
   const einnahmeKat = kategorienListe.filter(k => k.typ === 'einnahme' || k.typ === 'beides')
   const ausgabeKat  = kategorienListe.filter(k => k.typ === 'ausgabe' || k.typ === 'beides')
   const kontenListe = ((konten as R[]) ?? []).map(k => ({ id: k.id as string, name: k.name as string }))

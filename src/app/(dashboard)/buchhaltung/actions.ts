@@ -14,6 +14,26 @@ async function getCtx() {
   return { supabase, tenantId: membership.tenantId }
 }
 
+// Migration 168 - liest den abzugsfaehig_pct-Wert der gewählten Kategorie, um
+// ihn als Snapshot auf der neuen Buchung zu speichern (siehe dortiger
+// Spalten-Kommentar). Ohne Kategorie bzw. bei Lesefehler: 100 (voll
+// abzugsfähig), also unverändertes Verhalten wie vor Migration 168.
+// tenant_id-Filter wie bei den übrigen ea_kategorien-Abfragen dieses Moduls
+// (Kategorie ist entweder System-Kategorie mit tenant_id IS NULL oder gehört
+// dem eigenen Mandanten) - verhindert, dass eine erratene fremde
+// Kategorie-ID hier einen fremden Prozentsatz liefert.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getKategorieAbzugsfaehigPct(supabase: any, tenantId: string, kategorieId: string | null): Promise<number> {
+  if (!kategorieId) return 100
+  const { data } = await supabase.from('ea_kategorien')
+    .select('abzugsfaehig_pct')
+    .eq('id', kategorieId)
+    .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`)
+    .maybeSingle()
+  const pct = (data as R | null)?.abzugsfaehig_pct
+  return pct == null ? 100 : Number(pct)
+}
+
 // ── Buchung anlegen ───────────────────────────────────────────────────────────
 
 export async function createEaTransaktion(formData: FormData) {
@@ -43,10 +63,12 @@ export async function createEaTransaktion(formData: FormData) {
     return { error: pruef.grund ?? 'Zeitraum ist geschlossen.' }
   }
 
+  const abzugsfaehig_pct = await getKategorieAbzugsfaehigPct(supabase, tenantId, kategorie_id)
+
   const { error } = await (supabase.from('ea_transaktionen') as any).insert({
     tenant_id: tenantId, typ, datum, beschreibung,
     kategorie_id, betrag_netto, ust_satz: ust_satz || 20,
-    notizen, konto_id,
+    notizen, konto_id, abzugsfaehig_pct,
   })
 
   if (error) return { error: (error as R).message }
@@ -75,12 +97,18 @@ export async function deleteEaTransaktion(id: string) {
 export async function createEaKategorie(formData: FormData) {
   const { supabase, tenantId } = await getCtx()
 
+  // Migration 168 - Default 100 (voll abzugsfähig), niedriger bei gesetzlich
+  // beschränkt abzugsfähigen Ausgaben (z.B. Bewirtung/Repräsentation 50%).
+  const abzugsfaehigRaw = parseFloat(formData.get('abzugsfaehig_pct') as string)
+  const abzugsfaehig_pct = isNaN(abzugsfaehigRaw) ? 100 : Math.min(100, Math.max(0, abzugsfaehigRaw))
+
   const { error } = await (supabase.from('ea_kategorien') as any).insert({
     tenant_id:    tenantId,
     typ:          formData.get('typ'),
     name:         formData.get('name'),
     konto_nr:     formData.get('konto_nr') ? parseInt(formData.get('konto_nr') as string) : null,
     ust_satz_std: parseFloat(formData.get('ust_satz_std') as string) || 20,
+    abzugsfaehig_pct,
   })
 
   if (error) return { error: (error as R).message }
@@ -403,11 +431,13 @@ export async function verbucheBeleg(belegId: string, formData: FormData) {
     return { error: pruef.grund ?? 'Zeitraum ist geschlossen.' }
   }
 
+  const abzugsfaehig_pct = await getKategorieAbzugsfaehigPct(supabase, tenantId, kategorie_id)
+
   const { data: neu, error } = await (supabase.from('ea_transaktionen') as any)
     .insert({
       tenant_id: tenantId, typ, datum, beschreibung,
       kategorie_id, betrag_netto, ust_satz: ust_satz || 20,
-      notizen, konto_id, firma_id,
+      notizen, konto_id, firma_id, abzugsfaehig_pct,
     })
     .select('id')
     .single()

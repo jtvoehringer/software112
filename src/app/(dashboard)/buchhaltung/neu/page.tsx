@@ -30,7 +30,7 @@ export default async function BuchhaltungNeuPage() {
 
   // Kategorien laden
   const { data: kategorien } = await (supabase.from('ea_kategorien') as any)
-    .select('id, name, typ, ust_satz_std')
+    .select('id, name, typ, ust_satz_std, abzugsfaehig_pct')
     .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`)
     .eq('aktiv', true)
     .order('sortierung')
@@ -116,12 +116,13 @@ export default async function BuchhaltungNeuPage() {
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             <option value="">– keine –</option>
             <optgroup label="Einnahmen">
-              {einnahmeKat.map((k: R) => <option key={k.id} value={k.id}>{k.name}</option>)}
+              {einnahmeKat.map((k: R) => <option key={k.id} value={k.id}>{k.name}{Number(k.abzugsfaehig_pct) < 100 ? ` — nur ${k.abzugsfaehig_pct}% abzugsfähig` : ''}</option>)}
             </optgroup>
             <optgroup label="Ausgaben">
-              {ausgabeKat.map((k: R) => <option key={k.id} value={k.id}>{k.name}</option>)}
+              {ausgabeKat.map((k: R) => <option key={k.id} value={k.id}>{k.name}{Number(k.abzugsfaehig_pct) < 100 ? ` — nur ${k.abzugsfaehig_pct}% abzugsfähig` : ''}</option>)}
             </optgroup>
           </select>
+          <p className="text-xs text-s112-muted mt-1">Bei eingeschränkt abzugsfähigen Kategorien (z.B. Bewirtung) wird der nicht abzugsfähige Anteil automatisch erfasst und in der Übersicht ausgewiesen.</p>
         </div>
 
         {/* Konto (optional – für Kontoabstimmung) */}
