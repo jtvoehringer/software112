@@ -74,6 +74,11 @@ export default function NachrichtenClient() {
       window.history.replaceState({}, '', '/nachrichten')
       pendingEmailIdRef.current = emailId
     }
+    // Gespeicherte "Funktionale Mailbox" laden - bisher gab es dafür keinen
+    // GET-Endpunkt, der State startete daher nach jedem Reload wieder leer.
+    fetch('/api/nachrichten/monitored').then(r => r.json()).then(d => {
+      if (d.monitored_email) setMonitoredEmail(d.monitored_email)
+    }).catch(() => {})
     // Verbindungsstatus prüfen
     fetch('/api/nachrichten/list?folder=inbox').then(async r => {
       const data = await r.json()
