@@ -29,7 +29,7 @@ export default async function WeingartenPage() {
   // Grundstücke
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawG } = await tf((supabase.from('grundstuecke') as any)
-    .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha, flaeche_ha_kataster, spritzbar, katastralgemeinde'))
+    .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha, flaeche_ha_kataster, spritzbar, katastralgemeinde, status'))
     .order('gst_nr')
   const grundstuecke = (rawG ?? []) as GSTRow[]
 

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Pencil, Trash2 } from 'lucide-react'
 import { deactivateWeingarten, deleteWeingarten } from './actions'
 import { fmtHa } from '@/lib/format'
+import { StatusBadge } from '@/lib/wein/grundstueckStatus'
 
 // Auffangkorb-Label für Weingärten ohne eigene Ried-Zuordnung (w.ried === null) -
 // KEIN echter Ried, nur eine technische Sammelgruppe. Wird verwendet, um beim
@@ -43,7 +44,7 @@ export type WRow = {
 export type GSTRow = {
   id: string; weingarten_id: string; gst_nr: string
   rebsorte: string | null; flaeche_ha: number | null; flaeche_ha_kataster: number | null
-  spritzbar: boolean; katastralgemeinde: string | null
+  spritzbar: boolean; katastralgemeinde: string | null; status: string
 }
 
 function ChevronIcon({ open }: { open: boolean }) {
@@ -79,6 +80,7 @@ function GSTZeile({ gst, verschachtelt = false }: { gst: GSTRow; verschachtelt?:
         )}
       </td>
       <td className="px-3 py-2 text-xs text-s112-muted">{gst.rebsorte ?? '–'}</td>
+      <td className="px-3 py-2 text-xs"><StatusBadge status={gst.status} /></td>
       <td className="px-3 py-2 text-xs text-right tabular-nums text-s112-muted">{gst.flaeche_ha_kataster ? fmtHa(gst.flaeche_ha_kataster) : '–'}</td>
       <td className="px-3 py-2 text-xs text-right tabular-nums text-s112-muted">
         {fmtHa(gst.flaeche_ha)}
@@ -153,6 +155,7 @@ function WeingartenZeile({
             )}
           </div>
         </td>
+        <td className="px-3 py-2.5" />
         <td className="px-3 py-2.5 text-sm text-right tabular-nums text-gray-400">{gstKatasterHa > 0 ? fmtHa(gstKatasterHa) : '–'}</td>
         <td className="px-3 py-2.5 text-sm text-right tabular-nums">
           {w.flaeche_ha != null ? fmtHa(w.flaeche_ha) : (gstHa > 0 ? fmtHa(gstHa) : '–')}
@@ -251,6 +254,7 @@ function LageGruppe({
             </span>
           </div>
         </td>
+        <td className="px-4 py-2.5" />
         <td className="px-4 py-2.5 text-sm text-right tabular-nums text-gray-400">{totalKatasterHa > 0 ? fmtHa(totalKatasterHa) : '–'}</td>
         <td className="px-4 py-2.5 text-sm text-right tabular-nums text-gray-500">{fmtHa(totalHa)}</td>
         <td className="px-4 py-2.5" />
@@ -302,6 +306,7 @@ export default function WeingartenBaum({
           <tr className="bg-s112-bg border-b-2 border-s112-border">
             <th className="text-left px-4 py-3 font-semibold text-gray-700">Ried / Grundstück</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">Rebsorte</th>
+            <th className="text-left px-3 py-3 font-semibold text-gray-700">Status</th>
             <th className="text-right px-3 py-3 font-semibold text-gray-700 leading-tight">GST-Fläche<br />lt. Kataster</th>
             <th className="text-right px-3 py-3 font-semibold text-gray-700 leading-tight">GST-Fläche<br />lt. AMA</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">GST</th>

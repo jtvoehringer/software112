@@ -8,6 +8,7 @@ import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
 import { HERKUNFT_ORDER, HERKUNFT_LABEL } from '@/lib/herkunft'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import type { CustomWeinbaugebiet } from '../weinbaugebiete/actions'
+import { STATUS_OPTIONS, StatusBadge } from '@/lib/wein/grundstueckStatus'
 
 const HERKUNFT_OPTIONS = HERKUNFT_ORDER.map(code => ({ value: code, label: HERKUNFT_LABEL[code] }))
 
@@ -38,12 +39,6 @@ const MASSNAHME_EINHEIT_LABEL: Record<string, string> = {
   kg_ha: 'kg/ha', l_ha: 'l/ha', g_hl: 'g/hl', ml_hl: 'ml/hl', kg: 'kg', l: 'l',
 }
 
-const STATUS_OPTIONS = [
-  { value: 'aktiv',   label: 'Ausgepflanzt', badge: 'bg-green-100 text-green-700' },
-  { value: 'brache',  label: 'Brache',  badge: 'bg-yellow-100 text-yellow-700' },
-  { value: 'gruenbrache', label: 'Grünbrache', badge: 'bg-orange-100 text-orange-600' },
-]
-
 const BEWIRTSCHAFTUNG_OPTIONS = [
   { value: 'biodynamisch',  label: 'Biodynamisch' },
   { value: 'biologisch',    label: 'Biologisch/Organisch' },
@@ -72,15 +67,6 @@ const BEWIRTSCHAFTUNG_LABEL: Record<string, string> = {
   konventionell: 'Konventionell',
   bio:           'Bio',
   demeter:       'Biodynamisch',
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const opt = STATUS_OPTIONS.find(o => o.value === status) ?? STATUS_OPTIONS[0]
-  return (
-    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${opt.badge}`}>
-      {opt.label}
-    </span>
-  )
 }
 
 const inputCls = "w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
