@@ -60,6 +60,9 @@ export default function NachrichtenClient() {
   const [activeMailbox, setActiveMailbox] = useState<'own'|'shared'>('own')
   const [showSettings, setShowSettings]       = useState(false)
   const [deleteConfirm, setDeleteConfirm]       = useState(false)
+  const [moveMode, setMoveMode]                 = useState(false)
+  const [moveTarget, setMoveTarget]             = useState('')
+  const [moving, setMoving]                     = useState(false)
   const [forwardAn, setForwardAn]               = useState('')
   const [forwardMode, setForwardMode]           = useState(false)
   const [sendVon, setSendVon]                   = useState<'own'|'shared'>('own')
@@ -168,6 +171,7 @@ export default function NachrichtenClient() {
 
   async function openMessage(msg: Msg) {
     setDeleteConfirm(false)
+    setMoveMode(false); setMoveTarget('')
     setThreadMsgs([]); setForwardMode(false)
     if (msg.quelle !== 'm365') { setSelected({ ...msg, bodyHtml: null, bodyText: msg.vorschau, conversationId: null, kontaktInfo: null }); return }
     setDetailLaden(true); setSelected(null)
@@ -443,6 +447,47 @@ export default function NachrichtenClient() {
                     className="text-xs border border-s112-border text-gray-600 px-3 py-1.5 rounded-lg hover:bg-s112-bg">
                     Weiterleiten
                   </button>
+                  {!moveMode ? (
+                    <button onClick={() => { setMoveMode(true); setMoveTarget('') }} title="In Ordner verschieben"
+                      className="text-xs border border-s112-border text-gray-600 px-3 py-1.5 rounded-lg hover:bg-s112-bg flex items-center gap-1">
+                      <Folder className="w-3.5 h-3.5" /> Verschieben
+                    </button>
+                  ) : (
+                    <span className="flex items-center gap-1">
+                      <select value={moveTarget} onChange={e => setMoveTarget(e.target.value)}
+                        className="text-xs border border-s112-border rounded-lg px-2 py-1.5 focus:outline-none max-w-[9rem]">
+                        <option value="">Zielordner…</option>
+                        {folders.filter(f => f.id !== folderId).map(f => (
+                          <option key={f.id} value={f.id}>{f.name}</option>
+                        ))}
+                      </select>
+                      <button onClick={async () => {
+                        if (!moveTarget) return
+                        const moveId = selected.id
+                        setMoving(true)
+                        const r = await fetch('/api/nachrichten/move', {
+                          method: 'POST', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ id: moveId, destinationId: moveTarget, mailbox: activeMailbox }),
+                        })
+                        setMoving(false)
+                        if (!r.ok) {
+                          const d = await r.json().catch(() => ({}))
+                          setFehler('Verschieben fehlgeschlagen: ' + (d.fehler ?? r.status))
+                          return
+                        }
+                        setMoveMode(false); setMoveTarget('')
+                        loadGenRef.current++  // in-flight ladeMessages ignorieren
+                        setMessages(prev => prev.filter(m => m.id !== moveId))
+                        setSelected(null)
+                        ladeFolders(activeMailbox)  // Ordner-Zähler aktualisieren
+                      }} disabled={moving || !moveTarget}
+                        className="text-xs bg-s112-teal text-white px-2 py-1 rounded hover:bg-opacity-90 disabled:opacity-40">
+                        {moving ? '…' : 'OK'}
+                      </button>
+                      <button onClick={() => setMoveMode(false)}
+                        className="text-xs border border-gray-300 text-gray-600 px-2 py-1 rounded hover:bg-gray-50">Abbrechen</button>
+                    </span>
+                  )}
                   {!deleteConfirm ? (
                     <button onClick={() => setDeleteConfirm(true)} title="Löschen"
                       className="border border-red-200 text-red-400 p-1.5 rounded-lg hover:bg-red-50 hover:text-red-600">
