@@ -19,6 +19,15 @@ const EINHEIT_OPTS = ['kg', 'l']
 
 function DuengemittelForm({ duengemittel, onDone }: { duengemittel?: DuengemittelEintrag; onDone: () => void }) {
   const [pending, startTransition] = useTransition()
+  // Gleicher Bug wie im PSM-Formular (siehe PSMClient.tsx): hidden+checkbox-
+  // Paar wurde nur per onChange synchronisiert, nicht beim initialen Rendern
+  // eines bereits angehakten Werts - dadurch gingen "false" (hidden) UND
+  // "true" (Checkbox) gleichzeitig ins FormData, FormData.get() nahm den
+  // ersten Treffer ("false") und das Häkchen ging beim Speichern verloren.
+  // Fix: kontrollierte Checkbox, disabled am hidden-Zwilling aus demselben
+  // State.
+  const [oekoZugelassen, setOekoZugelassen] = useState(duengemittel?.oeko_zugelassen ?? false)
+  const [einarbeitung, setEinarbeitung] = useState(duengemittel?.einarbeitung_erforderlich ?? false)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -102,26 +111,20 @@ function DuengemittelForm({ duengemittel, onDone }: { duengemittel?: Duengemitte
 
         <div className="flex items-end pb-1.5">
           <label className="flex items-center gap-2 cursor-pointer">
-            <input type="hidden" name="oeko_zugelassen" value="false" />
+            <input type="hidden" name="oeko_zugelassen" value="false" disabled={oekoZugelassen} />
             <input type="checkbox" name="oeko_zugelassen" value="true"
-              defaultChecked={duengemittel?.oeko_zugelassen ?? false}
-              onChange={e => {
-                const hidden = e.currentTarget.previousElementSibling as HTMLInputElement
-                hidden.disabled = e.currentTarget.checked
-              }}
+              checked={oekoZugelassen}
+              onChange={e => setOekoZugelassen(e.currentTarget.checked)}
               className="accent-s112-teal w-4 h-4" />
             <span className="text-sm text-gray-700">Bio/Öko zugelassen</span>
           </label>
         </div>
         <div className="flex items-end pb-1.5">
           <label className="flex items-center gap-2 cursor-pointer">
-            <input type="hidden" name="einarbeitung_erforderlich" value="false" />
+            <input type="hidden" name="einarbeitung_erforderlich" value="false" disabled={einarbeitung} />
             <input type="checkbox" name="einarbeitung_erforderlich" value="true"
-              defaultChecked={duengemittel?.einarbeitung_erforderlich ?? false}
-              onChange={e => {
-                const hidden = e.currentTarget.previousElementSibling as HTMLInputElement
-                hidden.disabled = e.currentTarget.checked
-              }}
+              checked={einarbeitung}
+              onChange={e => setEinarbeitung(e.currentTarget.checked)}
               className="accent-s112-teal w-4 h-4" />
             <span className="text-sm text-gray-700">Einarbeitung erforderlich</span>
           </label>

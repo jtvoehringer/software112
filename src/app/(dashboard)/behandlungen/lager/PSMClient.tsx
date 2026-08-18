@@ -27,6 +27,20 @@ const KAT_COLOR: Record<string, string> = {
 
 function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
   const [pending, startTransition] = useTransition()
+  // Bug (gemeldet): beim Ändern eines anderen Felds "verlor" das Formular das
+  // Häkchen bei "Bio/Öko zugelassen", auch ohne es angefasst zu haben. Ursache:
+  // das hidden+checkbox-Paar (Standard-Trick, damit eine NICHT angehakte Box
+  // trotzdem "false" mitsendet) wurde nur per onChange synchronisiert - beim
+  // Bearbeiten eines bereits angehakten Mittels war die Checkbox zwar dank
+  // defaultChecked von Anfang an sichtbar angehakt, das disabled am hidden-
+  // Zwilling blieb aber unverändert (false). Ohne Klick auf die Checkbox
+  // feuerte onChange nie, also gingen BEIDE Felder namens oeko_zugelassen ins
+  // FormData - "false" (hidden, zuerst im DOM) UND "true" (Checkbox, danach).
+  // FormData.get() liefert den ERSTEN Treffer, also "false" - die Aktion hat
+  // das Häkchen beim Speichern jedes anderen Feldes stillschweigend gelöscht.
+  // Fix: kontrollierte Checkbox + disabled am hidden-Zwilling direkt aus
+  // demselben State ableiten, statt es nur reaktiv per onChange nachzuziehen.
+  const [oekoZugelassen, setOekoZugelassen] = useState(psm?.oeko_zugelassen ?? false)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -107,13 +121,10 @@ function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
         </div>
         <div className="flex items-end pb-1.5">
           <label className="flex items-center gap-2 cursor-pointer">
-            <input type="hidden" name="oeko_zugelassen" value="false" />
+            <input type="hidden" name="oeko_zugelassen" value="false" disabled={oekoZugelassen} />
             <input type="checkbox" name="oeko_zugelassen" value="true"
-              defaultChecked={psm?.oeko_zugelassen ?? false}
-              onChange={e => {
-                const hidden = e.currentTarget.previousElementSibling as HTMLInputElement
-                hidden.disabled = e.currentTarget.checked
-              }}
+              checked={oekoZugelassen}
+              onChange={e => setOekoZugelassen(e.currentTarget.checked)}
               className="accent-s112-teal w-4 h-4" />
             <span className="text-sm text-gray-700">Bio/Öko zugelassen</span>
           </label>
