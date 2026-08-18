@@ -40,8 +40,9 @@ export async function GET(req: NextRequest) {
     )
     const data = await res.json() as R
     if (!res.ok || data.error) {
+      const code = (data as R)?.error?.code
       const msg = (data as R)?.error?.message ?? res.statusText
-      return NextResponse.json({ fehler: `Thread konnte nicht geladen werden (Graph API ${res.status}): ${msg}` }, { status: 502 })
+      return NextResponse.json({ fehler: `Thread konnte nicht geladen werden (Graph API ${res.status}${code ? ' ' + code : ''}): ${msg}` }, { status: 502 })
     }
     const messages = (data.value ?? []).map((m: R) => ({
       id: m.id,

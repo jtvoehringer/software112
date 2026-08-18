@@ -34,8 +34,9 @@ export async function DELETE(req: NextRequest) {
     })
     if (!moveRes.ok) {
       const errBody = await moveRes.json().catch(() => ({}))
+      const code = (errBody as R)?.error?.code
       const msg = (errBody as R)?.error?.message ?? moveRes.statusText
-      return NextResponse.json({ fehler: `Graph API Fehler ${moveRes.status}: ${msg}` }, { status: 502 })
+      return NextResponse.json({ fehler: `Graph API Fehler ${moveRes.status}${code ? ' ' + code : ''}: ${msg}` }, { status: 502 })
     }
     return NextResponse.json({ ok: true })
   } catch (err) { return NextResponse.json({ fehler: String(err) }, { status: 500 }) }

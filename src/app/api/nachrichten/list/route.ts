@@ -43,11 +43,12 @@ export async function GET(req: NextRequest) {
       )
       const data = await res.json() as R
       if (!res.ok || data.error) {
+        const code = (data as R)?.error?.code
         const msg = (data as R)?.error?.message ?? res.statusText
         const hint = mailbox === 'shared'
-          ? ' – Hat die verbundene Person "Vollzugriff" (Full Access) auf diese Mailbox in Exchange? Die Berechtigung kann bis zu 60 Minuten dauern, bis sie wirksam wird.'
+          ? ' – Hat die verbundene Person "Vollzugriff" (Full Access) DIREKT (nicht nur über eine Gruppe) auf diese Mailbox in Exchange? Microsoft Graph berücksichtigt Full-Access-Rechte, die nur über eine Gruppenmitgliedschaft vergeben wurden, oft nicht - anders als Outlook.'
           : ''
-        return NextResponse.json({ fehler: `Nachrichten konnten nicht geladen werden (Graph API ${res.status}): ${msg}${hint}` }, { status: 502 })
+        return NextResponse.json({ fehler: `Nachrichten konnten nicht geladen werden (Graph API ${res.status}${code ? ' ' + code : ''}): ${msg}${hint}` }, { status: 502 })
       }
       const messages = (data.value ?? []).map((m: R) => ({
         id: m.id,
