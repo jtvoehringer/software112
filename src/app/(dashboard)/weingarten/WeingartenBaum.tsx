@@ -45,6 +45,7 @@ export type GSTRow = {
   id: string; weingarten_id: string; gst_nr: string
   rebsorte: string | null; flaeche_ha: number | null; flaeche_ha_kataster: number | null
   spritzbar: boolean; katastralgemeinde: string | null; status: string
+  ama_feldnummer: string | null
 }
 
 function ChevronIcon({ open }: { open: boolean }) {
@@ -79,6 +80,7 @@ function GSTZeile({ gst, verschachtelt = false }: { gst: GSTRow; verschachtelt?:
           <span className="ml-2 text-gray-400">{gst.katastralgemeinde}</span>
         )}
       </td>
+      <td className="px-3 py-2 text-xs text-s112-muted">{gst.ama_feldnummer ?? '–'}</td>
       <td className="px-3 py-2 text-xs text-s112-muted">{gst.rebsorte ?? '–'}</td>
       <td className="px-3 py-2 text-xs"><StatusBadge status={gst.status} /></td>
       <td className="px-3 py-2 text-xs text-right tabular-nums text-s112-muted">{gst.flaeche_ha_kataster ? fmtHa(gst.flaeche_ha_kataster) : '–'}</td>
@@ -141,6 +143,7 @@ function WeingartenZeile({
             )}
           </div>
         </td>
+        <td className="px-3 py-2.5" />
         <td className="px-3 py-2.5 text-sm">
           <div className="flex items-center gap-1.5 flex-wrap">
             {w.weinart && w.weinart !== 'unbekannt' && (
@@ -255,6 +258,7 @@ function LageGruppe({
           </div>
         </td>
         <td className="px-4 py-2.5" />
+        <td className="px-4 py-2.5" />
         <td className="px-4 py-2.5 text-sm text-right tabular-nums text-gray-400">{totalKatasterHa > 0 ? fmtHa(totalKatasterHa) : '–'}</td>
         <td className="px-4 py-2.5 text-sm text-right tabular-nums text-gray-500">{fmtHa(totalHa)}</td>
         <td className="px-4 py-2.5" />
@@ -305,6 +309,7 @@ export default function WeingartenBaum({
         <thead>
           <tr className="bg-s112-bg border-b-2 border-s112-border">
             <th className="text-left px-4 py-3 font-semibold text-gray-700">Ried / Grundstück</th>
+            <th className="text-left px-3 py-3 font-semibold text-gray-700">AMA-Feldstücknr.</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">Rebsorte</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">Status</th>
             <th className="text-right px-3 py-3 font-semibold text-gray-700 leading-tight">GST-Fläche<br />lt. Kataster</th>
