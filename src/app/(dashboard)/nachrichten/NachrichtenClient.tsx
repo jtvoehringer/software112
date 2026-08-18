@@ -79,8 +79,12 @@ export default function NachrichtenClient() {
     try {
       const res = await fetch(`/api/nachrichten/folders?mailbox=${mb}`)
       const d = await res.json()
-      if (d.folders) setFolders(sortFolders(d.folders))
-    } catch { /* Ordner bleiben leer – kein harter Fehler */ }
+      // Vorher wurde d.fehler hier nie ausgewertet - bei einem Graph-API-Fehler
+      // (z.B. fehlende "Vollzugriff"-Berechtigung auf eine geteilte Mailbox)
+      // blieb die Ordnerliste einfach leer, ohne dass der Grund sichtbar war.
+      if (d.folders) { setFolders(sortFolders(d.folders)); setFehler(null) }
+      else if (d.fehler) setFehler(d.fehler)
+    } catch (e) { setFehler(String(e)) }
   }, [])
 
   useEffect(() => {

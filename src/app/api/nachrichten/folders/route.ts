@@ -29,6 +29,13 @@ export async function GET(req: NextRequest) {
       { headers: { Authorization: `Bearer ${token}` } }
     )
     const data = await res.json() as R
+    if (!res.ok || data.error) {
+      const msg = (data as R)?.error?.message ?? res.statusText
+      const hint = mailbox === 'shared'
+        ? ' – Hat die verbundene Person "Vollzugriff" (Full Access) auf diese Mailbox in Exchange? Die Berechtigung kann bis zu 60 Minuten dauern, bis sie wirksam wird.'
+        : ''
+      return NextResponse.json({ fehler: `Ordner konnten nicht geladen werden (Graph API ${res.status}): ${msg}${hint}` }, { status: 502 })
+    }
     const folders = ((data.value ?? []) as R[]).map((f: R) => ({
       id: f.id, name: f.displayName, unread: f.unreadItemCount ?? 0, total: f.totalItemCount ?? 0,
     }))
