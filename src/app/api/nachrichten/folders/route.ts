@@ -1,13 +1,14 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
-import { NextResponse } from 'next/server'
-import { getValidUserAccessToken } from '@/lib/m365/graph'
+import { NextRequest, NextResponse } from 'next/server'
+import { getValidUserAccessToken, getMailboxBase } from '@/lib/m365/graph'
 import { getCurrentMembership } from '@/lib/auth/roles'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const mailbox = req.nextUrl.searchParams.get('mailbox') === 'shared' ? 'shared' : 'own'
     const supabase = await createSupabaseServerClient()
     const admin    = createSupabaseAdminClient()
     const membership = await getCurrentMembership()
@@ -22,9 +23,7 @@ export async function GET() {
     if (!(uc as R | null)?.m365_aktiv) return NextResponse.json({ fehler: 'Mailbox nicht verbunden' }, { status: 400 })
 
     const token = await getValidUserAccessToken(uc as R, tc as R, supabase, tenantId, user?.id ?? '')
-    const mailboxBase = (uc as R).monitored_email
-        ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent((uc as R).monitored_email)}`
-        : 'https://graph.microsoft.com/v1.0/me'
+    const mailboxBase = getMailboxBase(uc as R, mailbox)
     const res = await fetch(
       `${mailboxBase}/mailFolders?$select=id,displayName,unreadItemCount,totalItemCount&$top=50`,
       { headers: { Authorization: `Bearer ${token}` } }

@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
-import { getValidUserAccessToken } from '@/lib/m365/graph'
+import { getValidUserAccessToken, getMailboxBase } from '@/lib/m365/graph'
 import { getCurrentMembership } from '@/lib/auth/roles'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
   try {
     const conversationId = req.nextUrl.searchParams.get('id')
     if (!conversationId) return NextResponse.json({ fehler: 'Keine ID' }, { status: 400 })
+    const mailbox = req.nextUrl.searchParams.get('mailbox') === 'shared' ? 'shared' : 'own'
 
     const supabase = await createSupabaseServerClient()
     const admin    = createSupabaseAdminClient()
@@ -24,9 +25,7 @@ export async function GET(req: NextRequest) {
     ])
     const token = await getValidUserAccessToken(uc as R, tc as R, supabase, tenantId, user?.id ?? '')
 
-    const mailboxBase = (uc as R).monitored_email
-      ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent((uc as R).monitored_email)}`
-      : 'https://graph.microsoft.com/v1.0/me'
+    const mailboxBase = getMailboxBase(uc as R, mailbox)
 
     // Alle Nachrichten dieser Conversation laden (alle Ordner)
     const params = new URLSearchParams({

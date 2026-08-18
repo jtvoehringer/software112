@@ -23,6 +23,19 @@ function fmtDate(d: string) {
   return dt.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit' })
 }
 
+// Wichtige Ordner zuerst, dann alphabetisch (für eigene & geteilte Mailbox gleich)
+const FOLDER_PRIO = ['Inbox','Posteingang','Sent Items','Gesendete Elemente','Drafts','Entwürfe','Deleted Items','Gelöschte Elemente','Junk Email','Junk-E-Mail']
+function sortFolders(list: {id: string; name: string; unread: number; total: number}[]) {
+  return [...list].sort((a, b) => {
+    const ai = FOLDER_PRIO.findIndex(p => p.toLowerCase() === a.name.toLowerCase())
+    const bi = FOLDER_PRIO.findIndex(p => p.toLowerCase() === b.name.toLowerCase())
+    if (ai !== -1 && bi !== -1) return ai - bi
+    if (ai !== -1) return -1
+    if (bi !== -1) return 1
+    return a.name.localeCompare(b.name, 'de')
+  })
+}
+
 export default function NachrichtenClient() {
   const [folder, setFolder]       = useState<'inbox'|'sent'>('inbox')
   const [messages, setMessages]   = useState<Msg[]>([])
@@ -40,6 +53,11 @@ export default function NachrichtenClient() {
   const [verbEmail, setVerbEmail]         = useState('')
   const [monitoredEmail, setMonitoredEmail] = useState('')
   const [monitoredSaving, setMonitoredSaving] = useState(false)
+  // Migration/Feature: geteilte Mailbox wird ZUSÄTZLICH angezeigt statt die
+  // eigene zu ersetzen - activeMailbox bestimmt, welche der beiden gerade in
+  // Ordnerliste/Nachrichtenliste angezeigt wird (rein clientseitig, wird bei
+  // jedem API-Aufruf als ?mailbox=own|shared mitgeschickt).
+  const [activeMailbox, setActiveMailbox] = useState<'own'|'shared'>('own')
   const [showSettings, setShowSettings]       = useState(false)
   const [deleteConfirm, setDeleteConfirm]       = useState(false)
   const [forwardAn, setForwardAn]               = useState('')
@@ -52,6 +70,18 @@ export default function NachrichtenClient() {
   const pendingEmailIdRef = useRef<string | null>(null)
   const [folders, setFolders]     = useState<{id: string; name: string; unread: number; total: number}[]>([])
   const [folderId, setFolderId]   = useState<string | null>(null)  // null = inbox
+  const isFirstMailboxRender = useRef(true)
+
+  // Ordnerstruktur für eine bestimmte Mailbox ('own' oder 'shared') laden.
+  // Wiederverwendet vom initialen Verbindungscheck und beim Umschalten der
+  // aktiven Mailbox.
+  const ladeFolders = useCallback(async (mb: 'own'|'shared') => {
+    try {
+      const res = await fetch(`/api/nachrichten/folders?mailbox=${mb}`)
+      const d = await res.json()
+      if (d.folders) setFolders(sortFolders(d.folders))
+    } catch { /* Ordner bleiben leer – kein harter Fehler */ }
+  }, [])
 
   useEffect(() => {
     // URL-Params prüfen
@@ -99,22 +129,10 @@ export default function NachrichtenClient() {
             .then(d => { if (!d.fehler) setSelected(d) })
             .catch(() => {})
         }
-        // Ordnerstruktur aus Mailbox laden
-        fetch('/api/nachrichten/folders').then(r => r.json()).then(d => {
-          if (d.folders) {
-          // Wichtige Ordner zuerst, dann alphabetisch
-          const PRIO = ['Inbox','Posteingang','Sent Items','Gesendete Elemente','Drafts','Entwürfe','Deleted Items','Gelöschte Elemente','Junk Email','Junk-E-Mail']
-          const sorted = [...d.folders].sort((a: {name:string}, b: {name:string}) => {
-            const ai = PRIO.findIndex(p => p.toLowerCase() === a.name.toLowerCase())
-            const bi = PRIO.findIndex(p => p.toLowerCase() === b.name.toLowerCase())
-            if (ai !== -1 && bi !== -1) return ai - bi
-            if (ai !== -1) return -1
-            if (bi !== -1) return 1
-            return a.name.localeCompare(b.name, 'de')
-          })
-          setFolders(sorted)
-        }
-        }).catch(() => {})
+        // Ordnerstruktur aus Mailbox laden (eigene Mailbox - beim ersten Laden
+        // immer activeMailbox==='own'; das separate Effect unten übernimmt
+        // das Nachladen beim Umschalten auf die geteilte Mailbox)
+        ladeFolders('own')
       }
     }).catch(() => setVerbunden(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -124,23 +142,32 @@ export default function NachrichtenClient() {
     const gen = ++loadGenRef.current
     setLaden(true); setFehler(null); setSelected(null)
     try {
-      const res = await fetch(`/api/nachrichten/list?folder=${folder}${folderId ? `&folderId=${folderId}` : ''}`)
+      const res = await fetch(`/api/nachrichten/list?folder=${folder}${folderId ? `&folderId=${folderId}` : ''}&mailbox=${activeMailbox}`)
       const data = await res.json()
       if (gen !== loadGenRef.current) return  // veraltete Antwort – ignorieren
       if (!res.ok || data.fehler) { setFehler(data.fehler ?? 'Fehler'); return }
       setMessages(data.messages ?? [])
     } catch (e) { if (gen === loadGenRef.current) setFehler(String(e)) }
     finally { if (gen === loadGenRef.current) setLaden(false) }
-  }, [folder, folderId])
+  }, [folder, folderId, activeMailbox])
 
   useEffect(() => { ladeMessages() }, [ladeMessages])
+
+  // Mailbox gewechselt (Eigene ↔ geteilte Mailbox): Ordnerliste neu laden und
+  // Auswahl zurücksetzen, da Ordner-IDs zwischen Mailboxen nicht kompatibel sind.
+  // Der erste Render lädt bereits über den obigen Verbindungscheck-Effect.
+  useEffect(() => {
+    if (isFirstMailboxRender.current) { isFirstMailboxRender.current = false; return }
+    setFolderId(null); setFolder('inbox'); setSelected(null)
+    ladeFolders(activeMailbox)
+  }, [activeMailbox, ladeFolders])
 
   async function openMessage(msg: Msg) {
     setDeleteConfirm(false)
     setThreadMsgs([]); setForwardMode(false)
     if (msg.quelle !== 'm365') { setSelected({ ...msg, bodyHtml: null, bodyText: msg.vorschau, conversationId: null, kontaktInfo: null }); return }
     setDetailLaden(true); setSelected(null)
-    const res = await fetch(`/api/nachrichten/message?id=${msg.id}`)
+    const res = await fetch(`/api/nachrichten/message?id=${msg.id}&mailbox=${activeMailbox}`)
     const data = await res.json()
     setDetailLaden(false)
     if (data.fehler) return
@@ -150,7 +177,7 @@ export default function NachrichtenClient() {
     // Thread-Nachrichten nachladen (cross-folder)
     if (data.conversationId) {
       setThreadLaden(true)
-      fetch(`/api/nachrichten/conversation?id=${encodeURIComponent(data.conversationId)}`)
+      fetch(`/api/nachrichten/conversation?id=${encodeURIComponent(data.conversationId)}&mailbox=${activeMailbox}`)
         .then(r => r.json()).then(d => {
           if (d.messages) setThreadMsgs(d.messages.filter((m: Msg) => m.id !== data.id))
         }).catch(() => {}).finally(() => setThreadLaden(false))
@@ -234,6 +261,23 @@ export default function NachrichtenClient() {
             Verfassen
           </button>
         </div>
+        {monitoredEmail && (
+          <div className="px-3 pb-2 flex flex-col gap-1">
+            <p className="text-[10px] text-s112-muted font-medium uppercase tracking-wide">Mailbox</p>
+            <button onClick={() => setActiveMailbox('own')}
+              className={`w-full text-left text-xs px-2 py-1.5 rounded-lg border transition-colors truncate
+                ${activeMailbox === 'own' ? 'bg-s112-teal text-white border-s112-teal font-medium' : 'border-s112-border text-gray-600 hover:bg-white'}`}
+              title={verbEmail || 'Eigene Mailbox'}>
+              Eigene Mailbox
+            </button>
+            <button onClick={() => setActiveMailbox('shared')}
+              className={`w-full text-left text-xs px-2 py-1.5 rounded-lg border transition-colors truncate
+                ${activeMailbox === 'shared' ? 'bg-s112-teal text-white border-s112-teal font-medium' : 'border-s112-border text-gray-600 hover:bg-white'}`}
+              title={monitoredEmail}>
+              {monitoredEmail}
+            </button>
+          </div>
+        )}
         <nav className="flex-1 px-2 space-y-0.5 overflow-y-auto">
           {/* Echte Ordnerstruktur aus Mailbox */}
           {folders.length > 0 ? folders.map(f => (
@@ -409,7 +453,7 @@ export default function NachrichtenClient() {
                         loadGenRef.current++  // in-flight ladeMessages ignorieren
                         setMessages(prev => prev.filter(m => m.id !== delId))
                         setSelected(null)
-                        const r = await fetch(`/api/nachrichten/delete?id=${delId}`, { method: 'DELETE' })
+                        const r = await fetch(`/api/nachrichten/delete?id=${delId}&mailbox=${activeMailbox}`, { method: 'DELETE' })
                         if (!r.ok) {
                           const d = await r.json().catch(() => ({}))
                           setFehler('Löschen fehlgeschlagen: ' + (d.fehler ?? r.status))

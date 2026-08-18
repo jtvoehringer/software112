@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
-import { getValidUserAccessToken } from '@/lib/m365/graph'
+import { getValidUserAccessToken, getMailboxBase } from '@/lib/m365/graph'
 import { getCurrentMembership } from '@/lib/auth/roles'
 
 export const dynamic = 'force-dynamic'
@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
   try {
     const id = req.nextUrl.searchParams.get('id')
     if (!id) return NextResponse.json({ fehler: 'Keine ID' }, { status: 400 })
+    const mailbox = req.nextUrl.searchParams.get('mailbox') === 'shared' ? 'shared' : 'own'
 
     const supabase = await createSupabaseServerClient()
     const admin    = createSupabaseAdminClient()
@@ -29,9 +30,7 @@ export async function GET(req: NextRequest) {
 
     if (c?.m365_aktiv && c?.m365_access_token_enc) {
       const token = await getValidUserAccessToken(c, tenantCfg as R, supabase, tenantId, user?.id ?? '')
-      const mailboxBase = (c as R).monitored_email
-        ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent((c as R).monitored_email)}`
-        : 'https://graph.microsoft.com/v1.0/me'
+      const mailboxBase = getMailboxBase(c as R, mailbox)
       const res = await fetch(
         `${mailboxBase}/messages/${id}?$select=id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,body,conversationId,isRead`,
         { headers: { Authorization: `Bearer ${token}` } }

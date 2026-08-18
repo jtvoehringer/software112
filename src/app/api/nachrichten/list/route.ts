@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
-import { getValidUserAccessToken } from '@/lib/m365/graph'
+import { getValidUserAccessToken, getMailboxBase } from '@/lib/m365/graph'
 import { ImapFlow } from 'imapflow'
 import { decryptPass } from '@/lib/email/crypto'
 import { getCurrentMembership } from '@/lib/auth/roles'
@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
   try {
     const folder   = req.nextUrl.searchParams.get('folder') ?? 'inbox'
     const folderId = req.nextUrl.searchParams.get('folderId')  // echte Ordner-ID aus M365
+    const mailbox  = req.nextUrl.searchParams.get('mailbox') === 'shared' ? 'shared' : 'own'
     const supabase = await createSupabaseServerClient()
     const admin    = createSupabaseAdminClient()
     const membership = await getCurrentMembership()
@@ -33,10 +34,8 @@ export async function GET(req: NextRequest) {
     if (c?.m365_aktiv && c?.m365_access_token_enc) {
       const token = await getValidUserAccessToken(c, tenantCfg as R, supabase, tenantId, user?.id ?? '')
       // Echte Ordner-ID verwenden wenn vorhanden, sonst Standard-Ordner
-      // Shared Mailbox: wenn monitored_email gesetzt → /users/{email}/... statt /me/...
-      const mailboxBase = (c as R).monitored_email
-        ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent((c as R).monitored_email)}`
-        : 'https://graph.microsoft.com/v1.0/me'
+      // Mailbox laut ?mailbox=own|shared (own = Standard, siehe getMailboxBase)
+      const mailboxBase = getMailboxBase(c as R, mailbox)
       const folderPath = folderId ? folderId : (folder === 'sent' ? 'sentItems' : 'inbox')
       const res = await fetch(
         `${mailboxBase}/mailFolders/${folderPath}/messages?$select=id,subject,from,toRecipients,receivedDateTime,sentDateTime,isRead,bodyPreview,conversationId&$top=30&$orderby=${folder === 'sent' ? 'sentDateTime' : 'receivedDateTime'} desc`,

@@ -135,4 +135,22 @@ export async function getValidUserAccessToken(
   return tokens.access_token
 }
 
+// Basis-URL für Graph-Mailbox-Aufrufe (Nachrichten-Modul).
+//
+// Vorher wurde userCfg.monitored_email allein als globaler Schalter benutzt:
+// war eine geteilte Mailbox hinterlegt, zeigten ALLE Ansichten (Ordner, Liste,
+// Detail, Löschen) ausschließlich diese - die eigene Mailbox war dann gar
+// nicht mehr erreichbar. Jetzt bestimmt der pro Request mitgegebene 'mailbox'-
+// Parameter ('own' = Standard, 'shared'), welche Mailbox angefragt wird, damit
+// beide additiv nebeneinander angezeigt werden können (s. NachrichtenClient.tsx
+// activeMailbox). Fällt auf 'own' zurück, falls 'shared' angefragt wird, aber
+// keine geteilte Mailbox hinterlegt ist.
+export function getMailboxBase(userCfg: R, mailbox: 'own' | 'shared' = 'own'): string {
+  const monitoredEmail = userCfg?.monitored_email as string | undefined
+  if (mailbox === 'shared' && monitoredEmail) {
+    return `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(monitoredEmail)}`
+  }
+  return 'https://graph.microsoft.com/v1.0/me'
+}
+
 export { encryptPass, decryptPass }
