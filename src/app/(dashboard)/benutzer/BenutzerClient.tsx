@@ -1,9 +1,13 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { updateMemberRole, removeMember, toggleMemberAktiv, resendInvite } from './actions'
+import { updateMemberRole, removeMember, toggleMemberAktiv, resendInvite, inviteMember } from './actions'
 import type { MemberWithEmail } from './actions'
 import { Users } from 'lucide-react'
+
+function inputCls() {
+  return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+}
 
 const ROLLEN = [
   { value: 'tenant_admin', label: 'Betriebsleiter' },
@@ -35,6 +39,25 @@ export default function BenutzerClient({ members }: Props) {
   const [error, setError]                 = useState<string | null>(null)
   const [success, setSuccess]             = useState<string | null>(null)
   const [isPending, startTransition]      = useTransition()
+
+  // ── Neuen Benutzer hinzufügen ──
+  const [showInvite, setShowInvite]   = useState(false)
+  const [inviteName, setInviteName]   = useState('')
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole]   = useState('winzer')
+
+  const handleInvite = (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null); setSuccess(null)
+    startTransition(async () => {
+      const result = await inviteMember(inviteEmail, inviteRole, inviteName)
+      if (result?.error) setError(result.error)
+      else {
+        setSuccess(`Einladung an ${inviteEmail} versandt.`)
+        setInviteName(''); setInviteEmail(''); setInviteRole('winzer'); setShowInvite(false)
+      }
+    })
+  }
 
   const handleEditRole = (m: MemberWithEmail) => {
     setEditingId(m.id)
@@ -213,6 +236,50 @@ export default function BenutzerClient({ members }: Props) {
           </table>
         )}
       </div>
+
+      {!showInvite ? (
+        <button onClick={() => setShowInvite(true)}
+          className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+          <span>＋</span> Benutzer hinzufügen
+        </button>
+      ) : (
+        <form onSubmit={handleInvite} className="bg-s112-bg border border-s112-border rounded-xl p-5 space-y-3">
+          <h3 className="text-sm font-semibold text-gray-800">Benutzer hinzufügen</h3>
+          <p className="text-xs text-s112-muted">
+            Neuer Benutzer: erhält Einladungs-E-Mail von Supabase zum Passwort setzen.<br />
+            Bestehender Supabase-User: wird direkt zugewiesen.
+          </p>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Name *</label>
+              <input value={inviteName} onChange={e => setInviteName(e.target.value)}
+                required className={inputCls()} placeholder="Vorname Nachname" disabled={isPending} autoFocus />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">E-Mail *</label>
+              <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
+                required className={inputCls()} placeholder="benutzer@weingut.at" disabled={isPending} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Rolle *</label>
+              <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}
+                className={inputCls()} disabled={isPending}>
+                {ROLLEN.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button type="submit" disabled={isPending}
+              className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+              {isPending ? 'Wird eingeladen…' : 'Einladen'}
+            </button>
+            <button type="button" onClick={() => { setShowInvite(false); setInviteName(''); setInviteEmail('') }}
+              className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800">
+              Abbrechen
+            </button>
+          </div>
+        </form>
+      )}
 
       <p className="text-xs text-s112-muted mt-4">
         System-Admins können über diese Seite nicht in der Rolle geändert oder entfernt

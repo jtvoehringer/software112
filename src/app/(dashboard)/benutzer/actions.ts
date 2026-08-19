@@ -56,6 +56,65 @@ export async function getTenantMembers(): Promise<MemberWithEmail[]> {
   }))
 }
 
+// Rollen, die ein Betriebsleiter (tenant_admin) hier selbst vergeben darf -
+// bewusst OHNE system_admin, das bleibt ausschließlich system_admin selbst
+// über /admin/mandanten/[id] vorbehalten (siehe inviteUserToTenant dort).
+const VERGEBBARE_ROLLEN = ['tenant_admin', 'winzer', 'leser']
+
+/** Neuen Benutzer zum eigenen Betrieb einladen (Rückmeldung 19.8.2026: der
+ *  Betriebsleiter (tenant_admin) konnte bisher nur bestehende Mitglieder
+ *  verwalten, aber niemanden neu hinzufügen - das war bisher ausschließlich
+ *  einem system_admin über /admin/mandanten/[id] vorbehalten). Analog zu
+ *  inviteUserToTenant() dort, aber der Ziel-Betrieb kommt AUSSCHLIESSLICH aus
+ *  der aktiven Mitgliedschaft (serverseitig) statt von einem Client-Parameter -
+ *  ein Betriebsleiter kann so technisch nie einen fremden Betrieb bestücken. */
+export async function inviteMember(email: string, role: string, fullName: string) {
+  const membership = await getCurrentMembership()
+  if (!membership || !canManageUsers(membership.role)) {
+    return { error: 'Keine Berechtigung' }
+  }
+  if (!VERGEBBARE_ROLLEN.includes(role)) {
+    return { error: 'Ungültige Rolle' }
+  }
+
+  const name = fullName.trim()
+  if (!name) return { error: 'Name ist ein Pflichtfeld.' }
+  const mail = email.trim()
+  if (!mail) return { error: 'E-Mail ist ein Pflichtfeld.' }
+
+  const admin = createSupabaseAdminClient()
+
+  // Prüfen ob User schon existiert
+  const { data: { users } } = await admin.auth.admin.listUsers({ perPage: 1000 })
+  let userId = users.find(u => u.email === mail)?.id
+
+  if (!userId) {
+    const { data, error } = await admin.auth.admin.inviteUserByEmail(mail, {
+      redirectTo: 'https://software112.icp-consultants.at/auth/invite',
+    })
+    if (error || !data.user) return { error: error?.message ?? 'Einladung fehlgeschlagen' }
+    userId = data.user.id
+  }
+
+  // Prüfen ob Membership schon existiert
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: existing } = await (admin.from('tenant_memberships') as any)
+    .select('id').eq('user_id', userId).eq('tenant_id', membership.tenantId).maybeSingle()
+  if (existing) return { error: 'Benutzer ist bereits Mitglied dieses Betriebs.' }
+
+  const { error: memberError } = await (admin.from('tenant_memberships') as any)
+    .insert({ tenant_id: membership.tenantId, user_id: userId, role })
+  if (memberError) return { error: (memberError as R).message }
+
+  const { error: profileError } = await (admin.from('profiles') as any)
+    .upsert({ id: userId, full_name: name, updated_at: new Date().toISOString() }, { onConflict: 'id' })
+  if (profileError) return { error: (profileError as R).message }
+
+  revalidatePath('/benutzer')
+  revalidatePath('/betrieb/einstellungen')
+  return { success: true }
+}
+
 /** Einladung erneut senden – für Mitglieder, die ihr Konto noch nicht aktiviert
  *  haben (z.B. weil der erste Einladungslink abgelaufen ist, bevor er
  *  angeklickt wurde). Prüft zuerst, dass der Ziel-User tatsächlich Mitglied

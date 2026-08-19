@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { inviteSystemAdmin, removeSystemAdmin } from './systemAdminActions'
 import type { SystemAdminUser } from './page'
 
-export default function SystemAdminClient({ admins }: { admins: SystemAdminUser[] }) {
+export default function SystemAdminClient({ admins, canInvite = true }: { admins: SystemAdminUser[]; canInvite?: boolean }) {
   const [showInvite, setShowInvite]   = useState(false)
   const [email, setEmail]             = useState('')
   const [error, setError]             = useState<string | null>(null)
@@ -60,7 +60,7 @@ export default function SystemAdminClient({ admins }: { admins: SystemAdminUser[
                   {new Date(m.createdAt).toLocaleDateString('de-AT')}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {admins.length > 1 && (
+                  {canInvite && admins.length > 1 && (
                     <button onClick={() => handleRemove(m)} disabled={pending}
                       className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40">
                       Entfernen
@@ -73,7 +73,7 @@ export default function SystemAdminClient({ admins }: { admins: SystemAdminUser[
         </table>
       </div>
 
-      {!showInvite ? (
+      {canInvite && (!showInvite ? (
         <button onClick={() => setShowInvite(true)}
           className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
           <span>＋</span> System-Admin einladen
@@ -100,11 +100,12 @@ export default function SystemAdminClient({ admins }: { admins: SystemAdminUser[
             </button>
           </div>
         </form>
-      )}
+      ))}
 
       <p className="text-xs text-s112-muted">
-        System-Admins haben Zugriff auf alle Mandanten und diese Verwaltungsseite.
-        Mindestens ein System-Admin muss immer vorhanden sein.
+        {canInvite
+          ? 'System-Admins haben Zugriff auf alle Mandanten und diese Verwaltungsseite. Mindestens ein System-Admin muss immer vorhanden sein.'
+          : 'Nur lesbar: diese Ansicht zeigt in der Sandbox ausschließlich etwaige System-Admins des Sandbox-Mandanten selbst.'}
       </p>
     </div>
   )

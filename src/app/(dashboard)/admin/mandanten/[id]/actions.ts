@@ -1,23 +1,40 @@
 'use server'
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { encryptPass } from '@/lib/email/crypto'
-import { getCurrentUserRole } from '@/lib/auth/roles'
+import { getCurrentUserRole, isSandboxAdminUnlock } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import { getStripe } from '@/lib/stripe/client'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-async function assertSystemAdmin() {
+// Nimmt jetzt bewusst die Ziel-tenantId entgegen (bisher parameterlos) - Grund:
+// Sandbox-Sonderfreigabe (siehe isSandboxAdminUnlock in lib/auth/roles.ts). Die
+// beiden dort freigeschalteten E-Mails dürfen diese Aktionen NUR für den
+// Sandbox-Mandanten selbst ausführen, nie für einen echten Kunden-Mandanten -
+// das lässt sich nur prüfen, wenn die Ziel-tenantId hier bekannt ist. Jede
+// aufrufende Funktion unten hat bereits ein eigenes tenantId-Parameter in
+// Scope, der Aufruf wird daher einheitlich zu assertSystemAdmin(tenantId).
+async function assertSystemAdmin(tenantId: string) {
   const role = await getCurrentUserRole()
-  if (role !== 'system_admin') throw new Error('Nur system_admin erlaubt')
+  if (role === 'system_admin') return
+
+  const authClient = await createSupabaseServerClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  const admin = createSupabaseAdminClient()
+  const { data: sandboxTenantRow } = await (admin.from('tenants') as any).select('id').eq('name', 'Sandbox').maybeSingle()
+  const isSandboxTarget = (sandboxTenantRow as R | null)?.id === tenantId
+  if (isSandboxAdminUnlock(user?.email, isSandboxTarget)) return
+
+  throw new Error('Nur system_admin erlaubt')
 }
 
 // ── Branding + Module + Brevo speichern ───────────────────────────────────────
 
 export async function saveTenantSettings(tenantId: string, formData: FormData) {
-  await assertSystemAdmin()
+  await assertSystemAdmin(tenantId)
   const admin = createSupabaseAdminClient()
 
   const num = (key: string) => {
@@ -66,7 +83,7 @@ const LOGO_MAX_BYTES = 2 * 1024 * 1024 // 2 MB
 const LOGO_ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml']
 
 export async function uploadTenantLogo(tenantId: string, formData: FormData): Promise<{ url?: string; error?: string }> {
-  await assertSystemAdmin()
+  await assertSystemAdmin(tenantId)
   const admin = createSupabaseAdminClient()
 
   const file = formData.get('file') as File | null
@@ -99,7 +116,7 @@ export async function uploadTenantLogo(tenantId: string, formData: FormData): Pr
 // ── Benutzer: Einladung ───────────────────────────────────────────────────────
 
 export async function inviteUserToTenant(tenantId: string, email: string, role: string, fullName: string) {
-  await assertSystemAdmin()
+  await assertSystemAdmin(tenantId)
   const admin = createSupabaseAdminClient()
 
   // Name ist seit 7.8.2026 ein Pflichtfeld: der Klarname wird nicht mehr vom
@@ -155,7 +172,7 @@ export async function inviteUserToTenant(tenantId: string, email: string, role: 
 // User erzeugt das einen frischen, neuen Einladungslink und verschickt ihn
 // erneut über dieselbe Supabase-Mail (kein separates E-Mail-System nötig).
 export async function resendInvite(userId: string, tenantId: string) {
-  await assertSystemAdmin()
+  await assertSystemAdmin(tenantId)
   const admin = createSupabaseAdminClient()
 
   const { data: userRes, error: getErr } = await admin.auth.admin.getUserById(userId)
@@ -178,7 +195,7 @@ export async function resendInvite(userId: string, tenantId: string) {
 // ── Benutzer: Name ändern ─────────────────────────────────────────────────────
 
 export async function updateMemberNameAdmin(userId: string, fullName: string, tenantId: string) {
-  await assertSystemAdmin()
+  await assertSystemAdmin(tenantId)
   const admin = createSupabaseAdminClient()
 
   const name = fullName.trim()
@@ -195,7 +212,7 @@ export async function updateMemberNameAdmin(userId: string, fullName: string, te
 // ── Benutzer: Rolle ändern ────────────────────────────────────────────────────
 
 export async function updateMemberRoleAdmin(membershipId: string, role: string, tenantId: string) {
-  await assertSystemAdmin()
+  await assertSystemAdmin(tenantId)
   const admin = createSupabaseAdminClient()
 
   const { error } = await (admin.from('tenant_memberships') as any)
@@ -209,7 +226,7 @@ export async function updateMemberRoleAdmin(membershipId: string, role: string, 
 // ── Benutzer: Entfernen ───────────────────────────────────────────────────────
 
 export async function removeMemberAdmin(membershipId: string, tenantId: string) {
-  await assertSystemAdmin()
+  await assertSystemAdmin(tenantId)
   const admin = createSupabaseAdminClient()
 
   const { error } = await (admin.from('tenant_memberships') as any)
@@ -223,7 +240,7 @@ export async function removeMemberAdmin(membershipId: string, tenantId: string) 
 // ── Betriebsdaten + Rechnungs-Einstellungen speichern ────────────────────────
 
 export async function saveBetriebEinstellungen(tenantId: string, formData: FormData) {
-  await assertSystemAdmin()
+  await assertSystemAdmin(tenantId)
   const admin = createSupabaseAdminClient()
 
   const { error } = await (admin.from('tenant_einstellungen') as any)
@@ -266,7 +283,7 @@ export async function saveBetriebEinstellungen(tenantId: string, formData: FormD
 // ── Rechnungsnummer-Einstellungen speichern ───────────────────────────────────
 
 export async function saveVerkaufEinstellungen(tenantId: string, formData: FormData) {
-  await assertSystemAdmin()
+  await assertSystemAdmin(tenantId)
   const admin = createSupabaseAdminClient()
 
   const rPrefix  = (formData.get('rechnung_prefix') as string)?.trim() || 'RE'
@@ -292,7 +309,7 @@ export async function saveVerkaufEinstellungen(tenantId: string, formData: FormD
 // ── M365-Einstellungen speichern ──────────────────────────────────────────────
 
 export async function saveM365Einstellungen(tenantId: string, formData: FormData) {
-  await assertSystemAdmin()
+  await assertSystemAdmin(tenantId)
   const admin = createSupabaseAdminClient()
   const clientSecret = (formData.get('m365_client_secret') as string).trim()
 
@@ -316,7 +333,7 @@ export async function saveM365Einstellungen(tenantId: string, formData: FormData
 // ── E-Mail-Einstellungen speichern ────────────────────────────────────────────
 
 export async function saveEmailEinstellungen(tenantId: string, formData: FormData) {
-  await assertSystemAdmin()
+  await assertSystemAdmin(tenantId)
   const admin = createSupabaseAdminClient()
 
   const smtpPass = (formData.get('email_smtp_pass') as string).trim()
@@ -351,7 +368,7 @@ export async function saveEmailEinstellungen(tenantId: string, formData: FormDat
 // ── Rechnungsnummer-Zähler zurücksetzen ───────────────────────────────────────
 
 export async function resetRechnungsZaehler(tenantId: string, auf: number) {
-  await assertSystemAdmin()
+  await assertSystemAdmin(tenantId)
   const admin = createSupabaseAdminClient()
 
   const { error } = await (admin.from('tenant_einstellungen') as any)
@@ -368,7 +385,7 @@ export async function resetRechnungsZaehler(tenantId: string, auf: number) {
 // ── Kundennummer-Zähler zurücksetzen ─────────────────────────────────────────
 
 export async function resetKundenZaehler(tenantId: string, auf: number) {
-  await assertSystemAdmin()
+  await assertSystemAdmin(tenantId)
   const admin = createSupabaseAdminClient()
 
   const { error } = await (admin.from('tenant_einstellungen') as any)
@@ -385,7 +402,7 @@ export async function resetKundenZaehler(tenantId: string, auf: number) {
 // ── Tenant umbenennen ─────────────────────────────────────────────────────────
 
 export async function renameTenantAdmin(tenantId: string, name: string) {
-  await assertSystemAdmin()
+  await assertSystemAdmin(tenantId)
   const admin = createSupabaseAdminClient()
 
   const { error } = await (admin.from('tenants') as any)
@@ -400,7 +417,7 @@ export async function renameTenantAdmin(tenantId: string, name: string) {
 // ── SumUp-Konfiguration speichern ────────────────────────────────────────────
 
 export async function saveSumUpConfig(tenantId: string, formData: FormData) {
-  await assertSystemAdmin()
+  await assertSystemAdmin(tenantId)
   const admin = createSupabaseAdminClient()
 
   const { error } = await (admin.from('tenant_einstellungen') as any).upsert({
@@ -420,7 +437,7 @@ export async function saveSumUpConfig(tenantId: string, formData: FormData) {
 // ── bawb.at Zugangsdaten speichern ───────────────────────────────────────────
 
 export async function saveBawbZugangsdaten(tenantId: string, formData: FormData) {
-  await assertSystemAdmin()
+  await assertSystemAdmin(tenantId)
   const admin = createSupabaseAdminClient()
 
   const { error } = await (admin.from('tenant_einstellungen') as any).upsert({
@@ -438,7 +455,7 @@ export async function saveBawbZugangsdaten(tenantId: string, formData: FormData)
 // ── Stripe: Mandant als Customer anlegen ──────────────────────────────────────
 
 export async function createStripeCustomer(tenantId: string, tenantName: string, email: string) {
-  await assertSystemAdmin()
+  await assertSystemAdmin(tenantId)
   const admin = createSupabaseAdminClient()
 
   // Prüfen ob schon ein Customer existiert
@@ -474,7 +491,7 @@ export async function createStripeCheckoutSession(
   customerId: string,
   priceId: string,
 ) {
-  await assertSystemAdmin()
+  await assertSystemAdmin(tenantId)
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://software112.icp-consultants.at'
 
@@ -499,7 +516,7 @@ export async function createStripeCheckoutSession(
 // ── Stripe: Customer Portal (Mandant verwaltet Abo selbst) ────────────────────
 
 export async function createStripePortalSession(tenantId: string, customerId: string) {
-  await assertSystemAdmin()
+  await assertSystemAdmin(tenantId)
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://software112.icp-consultants.at'
 
@@ -517,7 +534,7 @@ export async function createStripePortalSession(tenantId: string, customerId: st
 // ── Stripe: Subscription direkt kündigen ─────────────────────────────────────
 
 export async function cancelStripeSubscription(tenantId: string, subscriptionId: string) {
-  await assertSystemAdmin()
+  await assertSystemAdmin(tenantId)
 
   try {
     await getStripe().subscriptions.cancel(subscriptionId)

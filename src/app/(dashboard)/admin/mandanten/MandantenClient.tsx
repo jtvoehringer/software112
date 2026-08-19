@@ -44,19 +44,23 @@ import type { MandantRow } from './page'
 
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 
-export default function MandantenClient({ mandanten }: { mandanten: MandantRow[] }) {
+export default function MandantenClient({ mandanten, canCreate = true }: { mandanten: MandantRow[]; canCreate?: boolean }) {
   const [showForm, setShowForm] = useState(false)
 
   return (
     <div className="space-y-4">
-      {!showForm && (
+      {/* "Neuer Mandant" nur für echte system_admin - die Sandbox-Sonderfreigabe
+          (siehe isSandboxAdminUnlock) sieht diese Liste nur lesend, damit sie
+          nie außerhalb der Sandbox einen echten neuen Mandanten anlegen kann,
+          bei dem sie automatisch als system_admin eingetragen würde. */}
+      {canCreate && !showForm && (
         <button onClick={() => setShowForm(true)}
           className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
           <span>＋</span> Neuer Mandant
         </button>
       )}
 
-      {showForm && <NeuMandantForm onDone={() => setShowForm(false)} />}
+      {canCreate && showForm && <NeuMandantForm onDone={() => setShowForm(false)} />}
 
       <div className="card p-0 overflow-hidden">
         <table className="w-full text-sm">

@@ -18,9 +18,14 @@ interface Props {
   roleLabel: string
   branding: TenantBranding
   isSandbox?: boolean
+  // Sandbox-Sonderfreigabe (siehe isSandboxAdminUnlock in lib/auth/roles.ts) -
+  // schaltet in der Sidebar ausschließlich den Administration-Menübaum frei,
+  // unabhängig von der Rolle. Bereits serverseitig in layout.tsx auf
+  // "isSandbox && E-Mail auf Allowlist" geprüft.
+  sandboxAdminUnlock?: boolean
 }
 
-export default function ResponsiveLayout({ children, userEmail, userName, role, roleLabel, branding, betriebCount = 1, isSandbox = false }: Props) {
+export default function ResponsiveLayout({ children, userEmail, userName, role, roleLabel, branding, betriebCount = 1, isSandbox = false, sandboxAdminUnlock = false }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
@@ -66,7 +71,7 @@ export default function ResponsiveLayout({ children, userEmail, userName, role, 
     return () => { document.body.style.overflow = '' }
   }, [drawerOpen])
 
-  const sidebarProps = { userEmail, userName, role, roleLabel, branding, betriebCount, isSandbox }
+  const sidebarProps = { userEmail, userName, role, roleLabel, branding, betriebCount, isSandbox, sandboxAdminUnlock }
 
   return (
     <div className="flex h-screen bg-s112-bg overflow-hidden">

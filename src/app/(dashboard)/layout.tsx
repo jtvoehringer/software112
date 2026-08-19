@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, getCurrentMembership, roleLabel, canWrite } from '@/lib/auth/roles'
+import { getCurrentUserRole, getCurrentMembership, roleLabel, canWrite, isSandboxAdminUnlock } from '@/lib/auth/roles'
 import ResponsiveLayout from '@/components/layout/ResponsiveLayout'
 import ReleaseNotesModal from '@/components/ReleaseNotesModal'
 import SessionTimeout from '@/components/SessionTimeout'
@@ -111,6 +111,7 @@ export default async function DashboardLayout({
         branding={branding}
         betriebCount={betriebCount ?? 1}
         isSandbox={isSandbox}
+        sandboxAdminUnlock={isSandboxAdminUnlock(user.email, isSandbox)}
       >
         {children}
       </ResponsiveLayout>

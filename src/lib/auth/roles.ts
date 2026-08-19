@@ -88,3 +88,30 @@ export function roleLabel(role: UserRole): string {
   }
   return role ? (labels[role] ?? role) : '–'
 }
+
+// ── Sandbox-Sonderfreigabe für den Administration-Menübaum ─────────────────
+//
+// paul.derstroff@outlook.com und jg@weingut-gebeshuber.at sollen den
+// Administration-Menübaum (Mandanten/Release Notes/Datenimport/System-Admin/
+// Onboarding Guide/Zeiterfassung) sehen und nutzen können, aber AUSSCHLIESSLICH
+// solange ihr aktiver Betrieb der Mandant "Sandbox" ist - in jedem anderen
+// Mandanten (auch dem echten Weingut Gebeshuber) NIE (Rückmeldung 19.8.2026).
+// Das gilt unabhängig von ihrer tatsächlichen Rolle im jeweiligen Mandanten.
+//
+// WICHTIG: Diese Liste schaltet nur die MENÜSICHTBARKEIT frei (Sidebar.tsx).
+// Die dahinterliegenden Seiten /admin/mandanten, /admin/mandanten/[id] und
+// /admin/benutzer sind zusätzlich selbst gehärtet, damit die Sonderfreigabe
+// NIEMALS echte Kundendaten (u.a. Stripe/Brevo/SMTP-IMAP/M365/SumUp-
+// Zugangsdaten oder System-Admin-Listen anderer Mandanten) ausliefert, egal
+// welche URL direkt aufgerufen wird - siehe isSandboxAdminUnlock()-Aufrufe in
+// den jeweiligen page.tsx/actions.ts-Dateien. /admin/import und
+// /admin/onboarding sind bereits von sich aus ungefährlich (tenant-gescopt
+// bzw. rein statischer Inhalt) und brauchen keine zusätzliche Härtung.
+export const SANDBOX_ADMIN_ALLOWLIST = ['paul.derstroff@outlook.com', 'jg@weingut-gebeshuber.at']
+
+/** true, wenn diese E-Mail zur Sandbox-Sonderfreigabe gehört UND der aktuell
+ *  aktive/betroffene Mandant tatsächlich "Sandbox" ist. */
+export function isSandboxAdminUnlock(email: string | null | undefined, isSandbox: boolean): boolean {
+  if (!isSandbox || !email) return false
+  return SANDBOX_ADMIN_ALLOWLIST.includes(email.toLowerCase())
+}

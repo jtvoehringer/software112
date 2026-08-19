@@ -222,16 +222,19 @@ function SubItem({ item, pathname }: { item: NavItem; pathname: string }) {
 // ── Gruppe ────────────────────────────────────────────────────────────────────────
 
 function NavGroupItem({
-  entry, pathname, isAdmin, isSandbox,
+  entry, pathname, isAdmin, isSandbox, sandboxAdminUnlock,
 }: {
-  entry: NavGroup; pathname: string; isAdmin: boolean; isSandbox: boolean
+  entry: NavGroup; pathname: string; isAdmin: boolean; isSandbox: boolean; sandboxAdminUnlock: boolean
 }) {
   const active = groupIsActive(entry.items, pathname)
   const [open, setOpen] = useState(active)
   const router = useRouter()
   const Icon = entry.icon
 
-  const visibleItems = entry.items.filter(i => (!i.adminOnly || isAdmin) && (!i.sandboxOnly || isSandbox))
+  // sandboxAdminUnlock schaltet adminOnly-Sub-Items (z.B. "System-Admin",
+  // "Onboarding Guide" innerhalb von Administration) zusätzlich frei - siehe
+  // Kommentar bei der Gruppen-Sichtbarkeitsprüfung weiter unten.
+  const visibleItems = entry.items.filter(i => (!i.adminOnly || isAdmin || sandboxAdminUnlock) && (!i.sandboxOnly || isSandbox))
 
   return (
     <div>
@@ -241,7 +244,7 @@ function NavGroupItem({
           // Moduls (erstes Sub-Item) – analog zu allen Modulen, unabhängig
           // davon, ob man sich bereits auf einer Unterseite dieses Moduls
           // befindet (vorher: Sprung nur, wenn das Modul noch nicht aktiv war).
-          const firstItem = entry.items.filter(i => (!i.adminOnly || isAdmin) && (!i.sandboxOnly || isSandbox)).find(i => i.phase !== 2)
+          const firstItem = entry.items.filter(i => (!i.adminOnly || isAdmin || sandboxAdminUnlock) && (!i.sandboxOnly || isSandbox)).find(i => i.phase !== 2)
           if (firstItem) router.push(firstItem.href)
           setOpen(o => !o)
         }}
@@ -285,9 +288,15 @@ interface SidebarProps {
   // steuert ausschließlich sandboxOnly-Nav-Items (z.B. Zeiterfassung), völlig
   // unabhängig von der Rolle des Users.
   isSandbox?: boolean
+  // Sandbox-Sonderfreigabe für zwei namentlich erlaubte E-Mails (siehe
+  // isSandboxAdminUnlock in lib/auth/roles.ts, bereits serverseitig in
+  // layout.tsx berechnet) - schaltet NUR die systemAdminOnly-Gruppe
+  // "Administration" frei, unabhängig von der Rolle. Alle dahinterliegenden
+  // Seiten sind selbst zusätzlich auf den Sandbox-Mandanten gehärtet.
+  sandboxAdminUnlock?: boolean
 }
 
-export default function Sidebar({ userEmail, userName, role, roleLabel, branding, betriebCount = 1, collapsed = false, onToggleCollapse, isSandbox = false }: SidebarProps) {
+export default function Sidebar({ userEmail, userName, role, roleLabel, branding, betriebCount = 1, collapsed = false, onToggleCollapse, isSandbox = false, sandboxAdminUnlock = false }: SidebarProps) {
   const pathname = usePathname()
   const router   = useRouter()
   const supabase = createSupabaseBrowserClient()
@@ -351,8 +360,19 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
           }
 
           if (entry.kind === 'group') {
-            if (entry.adminOnly && !isAdmin) return null
-            if (entry.systemAdminOnly && !isSysAdmin) return null
+            // systemAdminOnly (aktuell nur "Administration") schließt adminOnly
+            // ein - die Sandbox-Sonderfreigabe (sandboxAdminUnlock) ersetzt hier
+            // bewusst BEIDE Prüfungen, nicht nur systemAdminOnly: die beiden
+            // freigeschalteten E-Mails sollen die Gruppe unabhängig von ihrer
+            // tatsächlichen Rolle sehen. Für Gruppen mit NUR adminOnly (z.B.
+            // "Mein Betrieb" ist aktuell kein group, aber zukünftige Fälle)
+            // bleibt sandboxAdminUnlock wirkungslos - das ist beabsichtigt,
+            // die Sonderfreigabe gilt ausschließlich für "Administration".
+            if (entry.systemAdminOnly) {
+              if (!isSysAdmin && !sandboxAdminUnlock) return null
+            } else if (entry.adminOnly && !isAdmin) {
+              return null
+            }
             if (entry.modulKey && !branding[entry.modulKey]) return null
             const filteredItems = entry.items.filter(it =>
               !it.hideIfModul?.some(m => branding[m as keyof TenantBranding]) &&
@@ -362,7 +382,7 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
             const Icon = entry.icon
             if (collapsed) {
               // Im Collapsed-Modus: nur Icon als Link zum ersten Sub-Item
-              const firstItem = filteredItems.filter(it => (!it.adminOnly || isAdmin) && (!it.sandboxOnly || isSandbox)).find(it => it.phase !== 2)
+              const firstItem = filteredItems.filter(it => (!it.adminOnly || isAdmin || sandboxAdminUnlock) && (!it.sandboxOnly || isSandbox)).find(it => it.phase !== 2)
               const isGroupActive = groupIsActive(filteredItems, pathname)
               if (!firstItem) return null
               return (
@@ -373,7 +393,7 @@ export default function Sidebar({ userEmail, userName, role, roleLabel, branding
               )
             }
             return (
-              <NavGroupItem key={i} entry={filteredEntry} pathname={pathname} isAdmin={isAdmin} isSandbox={isSandbox} />
+              <NavGroupItem key={i} entry={filteredEntry} pathname={pathname} isAdmin={isAdmin} isSandbox={isSandbox} sandboxAdminUnlock={sandboxAdminUnlock} />
             )
           }
 

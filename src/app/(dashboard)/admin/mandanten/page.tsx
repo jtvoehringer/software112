@@ -1,6 +1,6 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole } from '@/lib/auth/roles'
+import { getCurrentUserRole, getCurrentMembership, isSandboxAdminUnlock } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import MandantenClient from './MandantenClient'
@@ -26,23 +26,44 @@ export type MandantRow = {
 
 export default async function MandantenPage() {
   const role = await getCurrentUserRole()
-  if (role !== 'system_admin') redirect('/dashboard')
 
-  // Nur Mandanten zeigen, wo der aktuelle User eine AKTIVE Mitgliedschaft hat -
-  // nicht pauschal alle Mandanten der Instanz. Wenn ein Betriebsleiter Jörgens
-  // Mitgliedschaft über /benutzer deaktiviert (Migration 159 Aktiv-Toggle),
-  // verschwindet der Mandant dadurch automatisch auch aus dieser Übersicht.
   const authClient = await createSupabaseServerClient()
   const { data: { user } } = await authClient.auth.getUser()
   if (!user) redirect('/login')
 
   const supabase = createSupabaseAdminClient()
 
-  const { data: eigeneMemberships } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id')
-    .eq('user_id', user.id)
-    .eq('aktiv', true)
-  const eigeneTenantIds = ((eigeneMemberships ?? []) as R[]).map(m => m.tenant_id)
+  // Sandbox-Tenant-ID ermitteln - wird für die Sonderfreigabe (siehe unten)
+  // UND für deren Härtung gebraucht (Sonderfreigabe darf NIE echte Mandanten
+  // sehen, siehe isSandboxAdminUnlock in lib/auth/roles.ts).
+  const { data: sandboxTenantRow } = await (supabase.from('tenants') as any)
+    .select('id').eq('name', 'Sandbox').maybeSingle()
+  const sandboxTenantId = (sandboxTenantRow as R | null)?.id ?? null
+
+  const membership = await getCurrentMembership()
+  const isSandboxActive = !!sandboxTenantId && membership?.tenantId === sandboxTenantId
+  const sandboxUnlock = isSandboxAdminUnlock(user.email, isSandboxActive)
+
+  if (role !== 'system_admin' && !sandboxUnlock) redirect('/dashboard')
+
+  // Nur Mandanten zeigen, wo der aktuelle User eine AKTIVE Mitgliedschaft hat -
+  // nicht pauschal alle Mandanten der Instanz. Wenn ein Betriebsleiter Jörgens
+  // Mitgliedschaft über /benutzer deaktiviert (Migration 159 Aktiv-Toggle),
+  // verschwindet der Mandant dadurch automatisch auch aus dieser Übersicht.
+  let eigeneTenantIds: string[]
+  if (role !== 'system_admin' && sandboxUnlock) {
+    // Sandbox-Sonderfreigabe: zeigt IMMER nur den Sandbox-Mandanten selbst,
+    // unabhängig davon, in welchen echten Mandanten dieser User sonst noch
+    // aktive Mitgliedschaften hat (z.B. der echte Weingut-Gebeshuber-Betrieb
+    // von jg@weingut-gebeshuber.at) - "sonst NIE" (Rückmeldung 19.8.2026).
+    eigeneTenantIds = [sandboxTenantId as string]
+  } else {
+    const { data: eigeneMemberships } = await (supabase.from('tenant_memberships') as any)
+      .select('tenant_id')
+      .eq('user_id', user.id)
+      .eq('aktiv', true)
+    eigeneTenantIds = ((eigeneMemberships ?? []) as R[]).map(m => m.tenant_id)
+  }
 
   if (eigeneTenantIds.length === 0) {
     return (
@@ -120,7 +141,7 @@ export default async function MandantenPage() {
         </div>
         <span className="text-sm text-s112-muted">{mandanten.length} Mandanten</span>
       </div>
-      <MandantenClient mandanten={mandanten} />
+      <MandantenClient mandanten={mandanten} canCreate={role === 'system_admin'} />
     </div>
   )
 }
