@@ -307,7 +307,11 @@ export default function WeingartenBaum({
     <div className="card p-0 overflow-hidden">
       <table className="w-full text-sm">
         <thead>
-          <tr className="bg-s112-bg border-b-2 border-s112-border">
+          {/* Fixiert die Kopfzeile beim Runterscrollen (Rückmeldung 19.8.2026) -
+              sticky relativ zum scrollenden <main> aus ResponsiveLayout.tsx,
+              deshalb genügt top-0 ohne zusätzlichen Offset (die äußere
+              Kopfleiste mit Suche/Glocke liegt außerhalb des Scroll-Containers). */}
+          <tr className="sticky top-0 z-10 bg-s112-bg border-b-2 border-s112-border shadow-sm">
             <th className="text-left px-4 py-3 font-semibold text-gray-700">Ried / Grundstück</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">AMA-Feldstücknr.</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">Rebsorte</th>
