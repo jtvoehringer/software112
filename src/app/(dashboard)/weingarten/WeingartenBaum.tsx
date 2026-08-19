@@ -304,7 +304,15 @@ export default function WeingartenBaum({
   const lagen = Array.from(lagenMap.entries()).sort(([a], [b]) => a.localeCompare(b, 'de'))
 
   return (
-    <div className="card p-0 overflow-hidden">
+    // WICHTIG: kein "overflow-hidden" mehr auf diesem Wrapper - das hätte die
+    // sticky-Kopfzeile unten wirkungslos gemacht. position: sticky verankert
+    // sich immer am NÄCHSTEN Vorfahren mit overflow != visible; solange dieser
+    // Wrapper overflow-hidden trägt (und selbst nie scrollt, weil er sich mit
+    // seinem Inhalt mitausdehnt), "klebt" die Zeile an diesem Wrapper fest
+    // statt am tatsächlich scrollenden <main> - optisch identisch mit "klebt
+    // gar nicht". Die abgerundeten oberen Ecken werden stattdessen direkt auf
+    // den äußeren th-Zellen gesetzt (siehe rounded-tl-2xl/rounded-tr-2xl unten).
+    <div className="card p-0">
       <table className="w-full text-sm">
         <thead>
           {/* Fixiert die Kopfzeile beim Runterscrollen (Rückmeldung 19.8.2026) -
@@ -312,13 +320,13 @@ export default function WeingartenBaum({
               deshalb genügt top-0 ohne zusätzlichen Offset (die äußere
               Kopfleiste mit Suche/Glocke liegt außerhalb des Scroll-Containers). */}
           <tr className="sticky top-0 z-10 bg-s112-bg border-b-2 border-s112-border shadow-sm">
-            <th className="text-left px-4 py-3 font-semibold text-gray-700">Ried / Grundstück</th>
+            <th className="text-left px-4 py-3 font-semibold text-gray-700 rounded-tl-2xl">Ried / Grundstück</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">AMA-Feldstücknr.</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">Rebsorte</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">Status</th>
             <th className="text-right px-3 py-3 font-semibold text-gray-700 leading-tight">GST-Fläche<br />lt. Kataster</th>
             <th className="text-right px-3 py-3 font-semibold text-gray-700 leading-tight">GST-Fläche<br />lt. AMA</th>
-            <th className="text-left px-3 py-3 font-semibold text-gray-700">GST</th>
+            <th className="text-left px-3 py-3 font-semibold text-gray-700 rounded-tr-2xl">GST</th>
           </tr>
         </thead>
         <tbody>
