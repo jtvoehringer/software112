@@ -7,6 +7,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { deactivateWeingarten, deleteWeingarten } from './actions'
 import { fmtHa } from '@/lib/format'
 import { StatusBadge } from '@/lib/wein/grundstueckStatus'
+import { getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 
 // Auffangkorb-Label für Weingärten ohne eigene Ried-Zuordnung (w.ried === null) -
 // KEIN echter Ried, nur eine technische Sammelgruppe. Wird verwendet, um beim
@@ -82,6 +83,7 @@ function GSTZeile({ gst, verschachtelt = false }: { gst: GSTRow; verschachtelt?:
       </td>
       <td className="px-3 py-2 text-xs text-s112-muted">{gst.ama_feldnummer ?? '–'}</td>
       <td className="px-3 py-2 text-xs text-s112-muted">{gst.rebsorte ?? '–'}</td>
+      <td className="px-3 py-2 text-xs text-s112-muted font-mono">{getRebsorteKuerzel(gst.rebsorte) || '–'}</td>
       <td className="px-3 py-2 text-xs"><StatusBadge status={gst.status} /></td>
       <td className="px-3 py-2 text-xs text-right tabular-nums text-s112-muted">{gst.flaeche_ha_kataster ? fmtHa(gst.flaeche_ha_kataster) : '–'}</td>
       <td className="px-3 py-2 text-xs text-right tabular-nums text-s112-muted">
@@ -158,6 +160,7 @@ function WeingartenZeile({
             )}
           </div>
         </td>
+        <td className="px-3 py-2.5" />
         <td className="px-3 py-2.5" />
         <td className="px-3 py-2.5 text-sm text-right tabular-nums text-gray-400">{gstKatasterHa > 0 ? fmtHa(gstKatasterHa) : '–'}</td>
         <td className="px-3 py-2.5 text-sm text-right tabular-nums">
@@ -259,6 +262,7 @@ function LageGruppe({
         </td>
         <td className="px-4 py-2.5" />
         <td className="px-4 py-2.5" />
+        <td className="px-4 py-2.5" />
         <td className="px-4 py-2.5 text-sm text-right tabular-nums text-gray-400">{totalKatasterHa > 0 ? fmtHa(totalKatasterHa) : '–'}</td>
         <td className="px-4 py-2.5 text-sm text-right tabular-nums text-gray-500">{fmtHa(totalHa)}</td>
         <td className="px-4 py-2.5" />
@@ -323,6 +327,7 @@ export default function WeingartenBaum({
             <th className="text-left px-4 py-3 font-semibold text-gray-700 rounded-tl-2xl">Ried / Grundstück</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">AMA-Feldstücknr.</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">Rebsorte</th>
+            <th className="text-left px-3 py-3 font-semibold text-gray-700">Kürzel</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">Status</th>
             <th className="text-right px-3 py-3 font-semibold text-gray-700 leading-tight">GST-Fläche<br />lt. Kataster</th>
             <th className="text-right px-3 py-3 font-semibold text-gray-700 leading-tight">GST-Fläche<br />lt. AMA</th>
