@@ -40,6 +40,12 @@ const TYP: Record<string, { bg: string; border: string; label: string }> = {
   holzfass:     { bg: '#fffbeb', border: '#d97706', label: 'Holzfass'       },
   betonei:   { bg: '#fafaf9', border: '#78716c', label: 'Betonei'   },
   amphore:   { bg: '#fff7ed', border: '#ea580c', label: 'Amphore'   },
+  bottich:        { bg: '#f0fdf4', border: '#16a34a', label: 'Bottich'         },
+  gaerstaender:   { bg: '#fefce8', border: '#ca8a04', label: 'Gärständer'      },
+  zisterne:       { bg: '#ecfeff', border: '#0891b2', label: 'Zisterne'        },
+  presse:         { bg: '#faf5ff', border: '#9333ea', label: 'Presse'          },
+  barrique:       { bg: '#fef2f2', border: '#b45309', label: 'Barrique'        },
+  doppelbarrique: { bg: '#fdf2f8', border: '#be185d', label: 'Doppel-Barrique' },
   sonstiges: { bg: '#f9fafb', border: '#9ca3af', label: 'Sonstiges' },
 }
 

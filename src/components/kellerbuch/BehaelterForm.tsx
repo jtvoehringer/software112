@@ -53,6 +53,12 @@ export default function BehaelterForm({ behaelter, action }: Props) {
               <option value="holzfass">Holzfass</option>
               <option value="betonei">Betonei</option>
               <option value="amphore">Amphore</option>
+              <option value="bottich">Bottich</option>
+              <option value="gaerstaender">Gärständer</option>
+              <option value="zisterne">Zisterne</option>
+              <option value="presse">Presse</option>
+              <option value="barrique">Barrique</option>
+              <option value="doppelbarrique">Doppel-Barrique</option>
               <option value="sonstiges">Sonstiges</option>
             </select>
           </div>

@@ -88,7 +88,7 @@ const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean 
   ],
   gebinde: [
     { key: 'name',           label: 'Bezeichnung', pflicht: true },
-    { key: 'typ',            label: 'Typ (lagertank/immervolltank/holzfass/betonei/amphore/sonstiges)' },
+    { key: 'typ',            label: 'Typ (lagertank/immervolltank/holzfass/betonei/amphore/bottich/gaerstaender/zisterne/presse/barrique/doppelbarrique/sonstiges)' },
     { key: 'volumen_liter',  label: 'Fassungsvermögen (Liter)' },
     { key: 'standort',       label: 'Standort' },
   ],
