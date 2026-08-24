@@ -21,7 +21,7 @@ export default async function WeingartenPage() {
   // Weingärten
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawW } = await tf((supabase.from('weingarten') as any)
-    .select('id, name, ried, rebsorte, weinart, flaeche_ha, bewirtschaftung, aktiv'))
+    .select('id, name, ried, rebsorte, weinart, flaeche_ha, bewirtschaftung, aktiv, ama_feldnummer, codes'))
     .order('ried', { nullsFirst: false })
     .order('name')
   const weingaerten = (rawW ?? []) as WRow[]
@@ -29,7 +29,7 @@ export default async function WeingartenPage() {
   // Grundstücke
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawG } = await tf((supabase.from('grundstuecke') as any)
-    .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha, flaeche_ha_kataster, spritzbar, katastralgemeinde, status, ama_feldnummer'))
+    .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha, flaeche_ha_kataster, spritzbar, katastralgemeinde, status, nutzart, ama_feldnummer'))
     .order('gst_nr')
   const grundstuecke = (rawG ?? []) as GSTRow[]
 

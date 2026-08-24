@@ -20,6 +20,8 @@ export async function createWeingarten(formData: FormData) {
   const payload: AnyRecord = {
     tenant_id:            tenantId,
     name:                 formData.get('name') as string,
+    ama_feldnummer:       (formData.get('ama_feldnummer') as string) || null,
+    codes:                (formData.get('codes') as string) || null,
     notizen:              (formData.get('notizen') as string) || null,
     aktiv:                true,
   }
@@ -37,6 +39,8 @@ export async function updateWeingarten(id: string, formData: FormData) {
 
   const payload: AnyRecord = {
     name:                 formData.get('name') as string,
+    ama_feldnummer:       (formData.get('ama_feldnummer') as string) || null,
+    codes:                (formData.get('codes') as string) || null,
     notizen:              (formData.get('notizen') as string) || null,
     aktiv:                formData.get('aktiv') === 'true',
   }
@@ -93,7 +97,13 @@ export async function createGrundstueck(weingartenId: string, formData: FormData
   const tenantId = await getTenantId()
   if (!tenantId) throw new Error('Kein Betrieb gefunden')
 
-  const status = formData.get('status') as string || 'aktiv'
+  // Rückmeldung 24.8.2026: "status" wird nicht mehr gepflegt (abgelöst durch
+  // "nutzart") - bewusst NICHT mehr aus formData gelesen/geschrieben, das
+  // Formular hat kein Status-Feld mehr. spritzbar leitet sich jetzt aus
+  // nutzart==='WI' ab (vorher status==='aktiv') - steuert Ernte-Meldung,
+  // Behandlungsplanung, KI-Assistent-Validierung und Zukauf-Flächensumme.
+  const nutzart = formData.get('nutzart') as string
+  if (!nutzart) throw new Error('Nutzart ist ein Pflichtfeld')
   const payload: AnyRecord = {
     tenant_id:             tenantId,
     weingarten_id:         weingartenId,
@@ -113,8 +123,8 @@ export async function createGrundstueck(weingartenId: string, formData: FormData
     flaeche_ha:            formData.get('flaeche_ha') ? Number(formData.get('flaeche_ha')) : null,
     flaeche_ha_kataster:   formData.get('flaeche_ha_kataster') ? Number(formData.get('flaeche_ha_kataster')) : null,
     trauben_herkunft_code: (formData.get('trauben_herkunft_code') as string) || null,
-    status,
-    spritzbar:             status === 'aktiv',
+    nutzart,
+    spritzbar:             nutzart === 'WI',
     notizen:               (formData.get('notizen') as string) || null,
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -127,7 +137,10 @@ export async function updateGrundstueck(id: string, weingartenId: string, formDa
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   if (!tenantId) throw new Error('Kein Betrieb gefunden')
-  const status = formData.get('status') as string || 'aktiv'
+  // Rückmeldung 24.8.2026: "status" wird nicht mehr gepflegt, siehe
+  // createGrundstueck weiter oben.
+  const nutzart = formData.get('nutzart') as string
+  if (!nutzart) throw new Error('Nutzart ist ein Pflichtfeld')
   const payload: AnyRecord = {
     gst_nr:                formData.get('gst_nr') as string,
     katastralgemeinde:     (formData.get('katastralgemeinde') as string) || null,
@@ -145,8 +158,8 @@ export async function updateGrundstueck(id: string, weingartenId: string, formDa
     flaeche_ha:            formData.get('flaeche_ha') ? Number(formData.get('flaeche_ha')) : null,
     flaeche_ha_kataster:   formData.get('flaeche_ha_kataster') ? Number(formData.get('flaeche_ha_kataster')) : null,
     trauben_herkunft_code: (formData.get('trauben_herkunft_code') as string) || null,
-    status,
-    spritzbar:             status === 'aktiv',
+    nutzart,
+    spritzbar:             nutzart === 'WI',
     notizen:               (formData.get('notizen') as string) || null,
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

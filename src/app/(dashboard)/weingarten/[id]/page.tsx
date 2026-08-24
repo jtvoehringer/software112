@@ -24,6 +24,7 @@ type WeingartenRow = {
   rebsorte: string | null; pflanzjahr: number | null
   bewirtschaftung: string | null; bewirtschaftung_seit: string | null
   notizen: string | null; aktiv: boolean; weinart: string | null
+  ama_feldnummer: string | null; codes: string | null
 }
 
 export default async function WeingartenEditPage({ params }: Props) {
@@ -37,7 +38,7 @@ export default async function WeingartenEditPage({ params }: Props) {
   // Weingarten
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let weingartenQuery = (supabase.from('weingarten') as any)
-    .select('id, name, rebsorte, pflanzjahr, bewirtschaftung, bewirtschaftung_seit, weinart, notizen, aktiv')
+    .select('id, name, rebsorte, pflanzjahr, bewirtschaftung, bewirtschaftung_seit, weinart, notizen, aktiv, ama_feldnummer, codes')
     .eq('id', id)
   if (membership) weingartenQuery = weingartenQuery.eq('tenant_id', membership.tenantId)
   const { data: rows } = await weingartenQuery.limit(1)
@@ -47,7 +48,7 @@ export default async function WeingartenEditPage({ params }: Props) {
   // Grundstücke
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let grundstueckeQuery = (supabase.from('grundstuecke') as any)
-    .select('id, weingarten_id, gst_nr, katastralgemeinde, einlagezahl, kg_bezeichnung, ama_feldnummer, boden, rechtsverhaeltnis, unterlagsrebe, rebsorte, pflanzjahr, weinart, bewirtschaftung, bewirtschaftung_seit, flaeche_ha, flaeche_ha_kataster, trauben_herkunft_code, status, notizen')
+    .select('id, weingarten_id, gst_nr, katastralgemeinde, einlagezahl, kg_bezeichnung, ama_feldnummer, boden, rechtsverhaeltnis, unterlagsrebe, rebsorte, pflanzjahr, weinart, bewirtschaftung, bewirtschaftung_seit, flaeche_ha, flaeche_ha_kataster, trauben_herkunft_code, status, nutzart, notizen')
     .eq('weingarten_id', id)
   if (membership) grundstueckeQuery = grundstueckeQuery.eq('tenant_id', membership.tenantId)
   const { data: rawG } = await grundstueckeQuery.order('gst_nr')

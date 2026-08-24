@@ -8,7 +8,7 @@ import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
 import { HERKUNFT_ORDER, HERKUNFT_LABEL } from '@/lib/herkunft'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import type { CustomWeinbaugebiet } from '../weinbaugebiete/actions'
-import { STATUS_OPTIONS, StatusBadge } from '@/lib/wein/grundstueckStatus'
+import { NUTZART_OPTIONS, NutzungBadge } from '@/lib/wein/grundstueckStatus'
 
 const HERKUNFT_OPTIONS = HERKUNFT_ORDER.map(code => ({ value: code, label: HERKUNFT_LABEL[code] }))
 
@@ -21,7 +21,7 @@ export type GST = {
   trauben_herkunft_code: string | null
   ama_feldnummer: string | null; kg_bezeichnung: string | null
   boden: string | null; rechtsverhaeltnis: string | null; unterlagsrebe: string | null
-  status: string; notizen: string | null
+  status: string; nutzart: string | null; notizen: string | null
 }
 
 export type MassnahmeHistorie = {
@@ -185,9 +185,10 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
           <input name="gst_nr" required defaultValue={gst?.gst_nr ?? ''} placeholder="z.B. 1411/1" className={inputCls} />
         </div>
         <div>
-          <label className={labelCls}>Status</label>
-          <select name="status" defaultValue={gst?.status ?? 'aktiv'} className={inputCls}>
-            {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          <label className={labelCls}>Nutzart <span className="text-red-500">*</span></label>
+          <select name="nutzart" required defaultValue={gst?.nutzart ?? ''} className={inputCls}>
+            <option value="" disabled>– bitte wählen –</option>
+            {NUTZART_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.value} – {o.label}</option>)}
           </select>
         </div>
         <div>
@@ -395,7 +396,7 @@ export default function GrundstueckePanel({
 
   const totalAma      = grundstuecke.reduce((s, g) => s + (g.flaeche_ha ?? 0), 0)
   const totalKataster = grundstuecke.reduce((s, g) => s + (g.flaeche_ha_kataster ?? 0), 0)
-  const aktiv         = grundstuecke.filter(g => g.status === 'aktiv').length
+  const aktiv         = grundstuecke.filter(g => g.nutzart === 'WI').length
 
   function toggleExpand(id: string) {
     setExpandedIds(prev => {
@@ -447,7 +448,8 @@ export default function GrundstueckePanel({
                 <th className="text-right px-3 py-2 font-semibold leading-tight">GST-Fläche<br/>lt. AMA</th>
                 <th className="text-right px-3 py-2 font-semibold leading-tight">GST-Fläche<br/>lt. Kataster</th>
                 <th className="text-right px-3 py-2 font-semibold">Pflanzjahr</th>
-                <th className="text-center px-3 py-2 font-semibold">Status</th>
+                <th className="text-center px-3 py-2 font-semibold">Nutzart</th>
+                <th className="text-center px-3 py-2 font-semibold">Nutzung</th>
                 <th className="px-3 py-2 sticky right-0 bg-s112-bg border-l border-s112-border" />
               </tr>
             </thead>
@@ -459,7 +461,7 @@ export default function GrundstueckePanel({
                 return (
                   <React.Fragment key={g.id}>
                     <tr
-                      className={`group border-b border-s112-border/50 cursor-pointer hover:bg-s112-bg/40 transition-colors ${!isExpanded ? 'last:border-0' : ''} ${g.status !== 'aktiv' ? 'opacity-60' : ''}`}
+                      className={`group border-b border-s112-border/50 cursor-pointer hover:bg-s112-bg/40 transition-colors ${!isExpanded ? 'last:border-0' : ''} ${g.nutzart !== 'WI' ? 'opacity-60' : ''}`}
                       onClick={() => { setEditId(g.id); setShowForm(false) }}
                       title="Grundstück bearbeiten"
                     >
@@ -503,7 +505,10 @@ export default function GrundstueckePanel({
                         {g.flaeche_ha_kataster != null ? fmtHa(g.flaeche_ha_kataster) : '–'}
                       </td>
                       <td className="px-3 py-2 text-right text-s112-muted text-xs">{g.pflanzjahr ?? '–'}</td>
-                      <td className="px-3 py-2 text-center"><StatusBadge status={g.status} /></td>
+                      <td className="px-3 py-2 text-center text-xs text-s112-muted" title={NUTZART_OPTIONS.find(o => o.value === g.nutzart)?.label ?? ''}>
+                        {g.nutzart ?? '–'}
+                      </td>
+                      <td className="px-3 py-2 text-center"><NutzungBadge nutzart={g.nutzart} /></td>
                       <td className="px-3 py-2 text-right sticky right-0 bg-white border-l border-s112-border/40" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
                           <button onClick={() => { setEditId(g.id); setShowForm(false) }}
@@ -518,7 +523,7 @@ export default function GrundstueckePanel({
                     {/* Maßnahmen-Verlauf aufgeklappt (Punkt 10) */}
                     {isExpanded && hasHistory && (
                       <tr className="border-b border-s112-border/50">
-                        <td colSpan={9} className="p-0 divide-y divide-s112-border/50">
+                        <td colSpan={10} className="p-0 divide-y divide-s112-border/50">
                           {massnahmen.length > 0 && <GstMassnahmenPanel massnahmen={massnahmen} />}
                         </td>
                       </tr>
@@ -526,7 +531,7 @@ export default function GrundstueckePanel({
                     {/* Bearbeiten-Formular */}
                     {editId === g.id && (
                       <tr>
-                        <td colSpan={9} className="px-3 py-2">
+                        <td colSpan={10} className="px-3 py-2">
                           <GSTForm weingartenId={weingartenId} gst={g} customWeinbaugebiete={eigeneWeinbaugebiete} onNeuesWeinbaugebiet={handleNeuesWeinbaugebiet} onDone={() => setEditId(null)} />
                         </td>
                       </tr>

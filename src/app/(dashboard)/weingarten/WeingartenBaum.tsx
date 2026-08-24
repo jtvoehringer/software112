@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Pencil, Trash2 } from 'lucide-react'
 import { deactivateWeingarten, deleteWeingarten } from './actions'
 import { fmtHa } from '@/lib/format'
-import { StatusBadge } from '@/lib/wein/grundstueckStatus'
+import { NutzungBadge } from '@/lib/wein/grundstueckStatus'
 import { getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 
 // Auffangkorb-Label für Weingärten ohne eigene Ried-Zuordnung (w.ried === null) -
@@ -41,11 +41,13 @@ const BEWIRTSCHAFTUNG_LABEL: Record<string, string> = {
 export type WRow = {
   id: string; name: string; ried: string | null; rebsorte: string | null
   weinart: string | null; flaeche_ha: number | null; bewirtschaftung: string | null; aktiv: boolean
+  ama_feldnummer: string | null; codes: string | null
 }
 export type GSTRow = {
   id: string; weingarten_id: string; gst_nr: string
   rebsorte: string | null; flaeche_ha: number | null; flaeche_ha_kataster: number | null
   spritzbar: boolean; katastralgemeinde: string | null; status: string
+  nutzart: string | null
   ama_feldnummer: string | null
 }
 
@@ -82,9 +84,10 @@ function GSTZeile({ gst, verschachtelt = false }: { gst: GSTRow; verschachtelt?:
         )}
       </td>
       <td className="px-3 py-2 text-xs text-s112-muted">{gst.ama_feldnummer ?? '–'}</td>
+      <td className="px-3 py-2 text-xs text-s112-muted" />
       <td className="px-3 py-2 text-xs text-s112-muted">{gst.rebsorte ?? '–'}</td>
       <td className="px-3 py-2 text-xs text-s112-muted font-mono">{getRebsorteKuerzel(gst.rebsorte) || '–'}</td>
-      <td className="px-3 py-2 text-xs"><StatusBadge status={gst.status} /></td>
+      <td className="px-3 py-2 text-xs"><NutzungBadge nutzart={gst.nutzart} /></td>
       <td className="px-3 py-2 text-xs text-right tabular-nums text-s112-muted">{gst.flaeche_ha_kataster ? fmtHa(gst.flaeche_ha_kataster) : '–'}</td>
       <td className="px-3 py-2 text-xs text-right tabular-nums text-s112-muted">
         {fmtHa(gst.flaeche_ha)}
@@ -145,7 +148,8 @@ function WeingartenZeile({
             )}
           </div>
         </td>
-        <td className="px-3 py-2.5" />
+        <td className="px-3 py-2.5 text-xs text-s112-muted">{w.ama_feldnummer ?? '–'}</td>
+        <td className="px-3 py-2.5 text-xs text-s112-muted" title="EOP = Einsatz von Organismen und Pheromonen, PSMBIO = Einsatz von Pflanzenschutzmitteln laut Bio-Verordnung">{w.codes ?? '–'}</td>
         <td className="px-3 py-2.5 text-sm">
           <div className="flex items-center gap-1.5 flex-wrap">
             {w.weinart && w.weinart !== 'unbekannt' && (
@@ -202,7 +206,9 @@ function LageGruppe({
   ried: string; weingaerten: WRow[]; gstMap: Map<string, GSTRow[]>
   writeOk: boolean; adminOk: boolean; istEchteLage: boolean
 }) {
-  const [open, setOpen] = useState(true)
+  // Rückmeldung 24.8.2026: Rieden-Übersicht soll beim Einstieg eingeklappt
+  // starten statt aufgeklappt.
+  const [open, setOpen] = useState(false)
 
   const totalHa = weingaerten.reduce((s, w) => {
     const gsts = gstMap.get(w.id) ?? []
@@ -260,6 +266,7 @@ function LageGruppe({
             </span>
           </div>
         </td>
+        <td className="px-4 py-2.5" />
         <td className="px-4 py-2.5" />
         <td className="px-4 py-2.5" />
         <td className="px-4 py-2.5" />
@@ -326,9 +333,10 @@ export default function WeingartenBaum({
           <tr className="sticky top-0 z-10 bg-s112-bg border-b-2 border-s112-border shadow-sm">
             <th className="text-left px-4 py-3 font-semibold text-gray-700 rounded-tl-2xl">Ried / Grundstück</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">AMA-Feldstücknr.</th>
+            <th className="text-left px-3 py-3 font-semibold text-gray-700">Codes</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">Rebsorte</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">Kürzel</th>
-            <th className="text-left px-3 py-3 font-semibold text-gray-700">Status</th>
+            <th className="text-left px-3 py-3 font-semibold text-gray-700">Nutzung</th>
             <th className="text-right px-3 py-3 font-semibold text-gray-700 leading-tight">GST-Fläche<br />lt. Kataster</th>
             <th className="text-right px-3 py-3 font-semibold text-gray-700 leading-tight">GST-Fläche<br />lt. AMA</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700 rounded-tr-2xl">GST</th>

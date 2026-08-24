@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 type WeingartenRow = {
   id: string
   name: string
+  ama_feldnummer?: string | null
+  codes?: string | null
   notizen: string | null
   aktiv: boolean
 }
@@ -56,6 +58,31 @@ export default function WeingartenForm({ weingarten, action }: Props) {
             className="form-input"
             placeholder="z.B. Kremser Schmidt"
           />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="form-label">AMA-Feldstücknr.</label>
+            <input
+              name="ama_feldnummer"
+              type="text"
+              maxLength={3}
+              pattern="[0-9]{1,3}"
+              defaultValue={weingarten?.ama_feldnummer ?? ''}
+              className="form-input"
+              placeholder="z.B. 12"
+            />
+          </div>
+          <div>
+            <label className="form-label">Codes</label>
+            <input
+              name="codes"
+              type="text"
+              defaultValue={weingarten?.codes ?? ''}
+              className="form-input"
+              placeholder="z.B. EOP,PSMBIO"
+              title="EOP = Einsatz von Organismen und Pheromonen, PSMBIO = Einsatz von Pflanzenschutzmitteln laut Bio-Verordnung"
+            />
+          </div>
         </div>
       </div>
 
