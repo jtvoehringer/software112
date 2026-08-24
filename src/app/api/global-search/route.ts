@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
     .select('id, weingarten_id, gst_nr, rebsorte, katastralgemeinde, weingarten:weingarten_id(name)')
     .or(`gst_nr.ilike.%${q}%,rebsorte.ilike.%${q}%,katastralgemeinde.ilike.%${q}%`)
     .eq('tenant_id', tenantId)
-    .eq('status', 'aktiv')
+    .eq('nutzart', 'WI')
     .limit(5)
 
   ;(grundstuecke as R[] ?? []).forEach((g: R) => {

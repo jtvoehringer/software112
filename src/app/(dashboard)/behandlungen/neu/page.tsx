@@ -115,23 +115,25 @@ export default async function NeueBehandlungPage() {
     .eq('aktiv', true)
     .order('name'))
 
-  // Grundstücke laden: status + flaeche_ha + gst_nr (für Ried→GST-Auswahl)
+  // Grundstücke laden: nutzart + flaeche_ha + gst_nr (für Ried→GST-Auswahl)
+  // Rückmeldung 24.8.2026: vorher "status" - "aktiv" abgelöst durch
+  // nutzart==='WI' (Nutzart ersetzt Status als Quelle für Spritzbarkeit).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawG } = await tf((supabase.from('grundstuecke') as any)
-    .select('id, weingarten_id, gst_nr, rebsorte, status, flaeche_ha'))
+    .select('id, weingarten_id, gst_nr, rebsorte, nutzart, flaeche_ha'))
 
   // Flächensumme und Spritzbarkeit je Weingarten berechnen
-  const gstByWG = new Map<string, { status: string; ha: number }[]>()
+  const gstByWG = new Map<string, { nutzart: string | null; ha: number }[]>()
   for (const g of ((rawG ?? []) as AR[])) {
     const arr = gstByWG.get(g.weingarten_id) ?? []
-    arr.push({ status: g.status, ha: g.flaeche_ha ?? 0 })
+    arr.push({ nutzart: g.nutzart, ha: g.flaeche_ha ?? 0 })
     gstByWG.set(g.weingarten_id, arr)
   }
 
   const weingaerten: WeingartenOption[] = ((rawW ?? []) as AR[]).map(w => {
     const gsts = gstByWG.get(w.id) ?? []
-    const spritzbar = gsts.length === 0 || gsts.some(g => g.status === 'aktiv')
-    const gst_ha_aktiv = gsts.filter(g => g.status === 'aktiv').reduce((s, g) => s + g.ha, 0)
+    const spritzbar = gsts.length === 0 || gsts.some(g => g.nutzart === 'WI')
+    const gst_ha_aktiv = gsts.filter(g => g.nutzart === 'WI').reduce((s, g) => s + g.ha, 0)
     return {
       id:           w.id,
       name:         w.name,
@@ -146,7 +148,7 @@ export default async function NeueBehandlungPage() {
   // Einzelne (aktive) Grundstücke je Weingarten – für die GST-Feinauswahl im Formular
   const gstByWeingarten: Record<string, GSTOption[]> = {}
   for (const g of ((rawG ?? []) as AR[])) {
-    if (g.status !== 'aktiv') continue
+    if (g.nutzart !== 'WI') continue
     if (!gstByWeingarten[g.weingarten_id]) gstByWeingarten[g.weingarten_id] = []
     gstByWeingarten[g.weingarten_id].push({
       id: g.id, weingarten_id: g.weingarten_id, gst_nr: g.gst_nr,

@@ -67,7 +67,7 @@ export default async function ZukaufPage({
 
     if (istWeinproduzent) {
       const [{ data: rawGSTFl }, { data: rawTraubenZukauf }] = await Promise.all([
-        (supabase.from('grundstuecke') as any).select('flaeche_ha').eq('status', 'aktiv').eq('tenant_id', membership.tenantId),
+        (supabase.from('grundstuecke') as any).select('flaeche_ha').eq('nutzart', 'WI').eq('tenant_id', membership.tenantId),
         (supabase.from('zukauf_posten') as any)
           .select('menge')
           .eq('art', 'trauben')

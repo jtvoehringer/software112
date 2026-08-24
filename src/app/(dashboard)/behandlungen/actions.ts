@@ -309,7 +309,7 @@ export async function createBehandlung(formData: FormData) {
     const { data: gVonRieden, error: gErr } = await (supabase.from('grundstuecke') as any)
       .select('id, weingarten_id, flaeche_ha')
       .in('weingarten_id', weingartenIds)
-      .eq('status', 'aktiv')
+      .eq('nutzart', 'WI')
       .eq('tenant_id', tenantId)
     if (gErr) throw new Error((gErr as AR).message)
     for (const g of ((gVonRieden ?? []) as AR[])) {
@@ -322,7 +322,7 @@ export async function createBehandlung(formData: FormData) {
     const { data: gEinzeln, error: gErr2 } = await (supabase.from('grundstuecke') as any)
       .select('id, weingarten_id, flaeche_ha')
       .in('id', grundstueckIds)
-      .eq('status', 'aktiv')
+      .eq('nutzart', 'WI')
       .eq('tenant_id', tenantId)
     if (gErr2) throw new Error((gErr2 as AR).message)
     for (const g of ((gEinzeln ?? []) as AR[])) {

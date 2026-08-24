@@ -198,7 +198,10 @@ export async function POST(req: NextRequest) {
             ama_feldnummer:       mapVal(row, mapping.ama_feldnummer) ?? null,
             boden:                mapVal(row, mapping.boden) ?? null,
             bewirtschaftung:      mapVal(row, mapping.bewirtschaftung) ?? null,
-            status:               (mapVal(row, mapping.status) as string) || 'aktiv',
+            // Rückmeldung 24.8.2026: "status" abgelöst durch "nutzart"
+            // (A/G/WI) - steuert jetzt Ernte-/Behandlungs-/Zukauf-Logik.
+            nutzart:              (mapVal(row, mapping.nutzart) as string)?.toUpperCase() || null,
+            spritzbar:            (mapVal(row, mapping.nutzart) as string)?.toUpperCase() === 'WI',
           })
           if (error) { details.push(`Zeile ${i+2}: ${error.message}`); continue }
 

@@ -97,7 +97,7 @@ export default async function ErnteDetailPage({ params }: Props) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('grundstuecke') as any)
-      .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha').eq('status', 'aktiv').order('gst_nr')),
+      .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha').eq('nutzart', 'WI').order('gst_nr')),
 
     // Traubenverkäufe dieses Jahrgangs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -63,7 +63,7 @@ export async function ladeAssistentKontext(
       .order('name').limit(300),
     (supabase.from('grundstuecke') as any)
       .select('id, gst_nr, katastralgemeinde, rebsorte, weingarten_id')
-      .eq('tenant_id', tenantId).eq('status', 'aktiv')
+      .eq('tenant_id', tenantId).eq('nutzart', 'WI')
       .order('gst_nr').limit(500),
     (supabase.from('pflanzenschutzmittel') as any)
       .select('id, name, kategorie, oeko_zugelassen')

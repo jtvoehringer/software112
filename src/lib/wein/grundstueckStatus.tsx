@@ -1,14 +1,43 @@
-// Gemeinsame Definition des Grundstück-Status – bisher nur lokal in
-// GrundstueckePanel.tsx dupliziert, jetzt zusätzlich in der Rieden-Übersicht
-// (WeingartenBaum.tsx) verwendet. Einheitliche Anzeige an beiden Stellen
-// statt zweier unabhängig gepflegter Kopien.
+// ──────────────────────────────────────────────────────────────────────────
+// Rückmeldung 24.8.2026: "Status" wurde durch "Nutzart"/"Nutzung" abgelöst.
 //
-// Werte entsprechen dem CHECK-Constraint auf grundstuecke.status (Migration
-// 013_lagen.sql, erweitert in 116_grundstuecke_status_gruenbrache.sql):
-// 'aktiv' | 'brache' | 'gruenbrache' | 'gerodet'. 'gerodet' wird hier bewusst
-// mitgeführt (fällt sonst auf den 'aktiv'-Fallback zurück und würde eine
-// dauerhaft entfernte Fläche fälschlich als bewirtschaftet anzeigen), auch
-// wenn es aktuell in keinem Formular aktiv auswählbar ist.
+// STATUS_OPTIONS/StatusBadge (unten) sind DEPRECATED und werden nirgends
+// mehr verwendet - grundstuecke.status wird nicht mehr gepflegt (bestehende
+// Werte wurden per Migration 171 gelöscht/auf NULL gesetzt), die Spalte
+// bleibt aber in der DB bestehen (kein Breaking Change für evtl. externe
+// Auswertungen). Bewusst nicht gelöscht, nur nicht mehr verdrahtet, falls
+// doch noch irgendwo referenziert.
+//
+// NUTZART_OPTIONS/NutzungBadge (neu) sind die einzige Quelle für die
+// "Nutzung"-Anzeige (vormals "Status") UND für die zugehörige
+// Geschäftslogik (Ernte-Meldung, Behandlungsplanung/Spritzbar, KI-Assistent,
+// Zukauf-Flächensumme - alle umgestellt von status==='aktiv' auf
+// nutzart==='WI'). Werte entsprechen dem CHECK-Constraint auf
+// grundstuecke.nutzart (Migration 170_ried_ama_codes_gst_nutzart.sql):
+// 'A' | 'G' | 'WI'.
+export const NUTZART_OPTIONS = [
+  { value: 'A',  label: 'Grünbrache',      badge: 'bg-yellow-100 text-yellow-700' },
+  { value: 'G',  label: 'Grünlandbrache',  badge: 'bg-orange-100 text-orange-600' },
+  { value: 'WI', label: 'Wein',            badge: 'bg-green-100 text-green-700' },
+]
+
+export function NutzungBadge({ nutzart }: { nutzart: string | null | undefined }) {
+  const opt = NUTZART_OPTIONS.find(o => o.value === nutzart)
+  if (!opt) {
+    return (
+      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400" title="Nutzart noch nicht erfasst">
+        – offen –
+      </span>
+    )
+  }
+  return (
+    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${opt.badge}`}>
+      {opt.label}
+    </span>
+  )
+}
+
+/** @deprecated Ersetzt durch NUTZART_OPTIONS/NutzungBadge, siehe Kommentar oben. */
 export const STATUS_OPTIONS = [
   { value: 'aktiv',       label: 'Ausgepflanzt', badge: 'bg-green-100 text-green-700' },
   { value: 'brache',      label: 'Brache',       badge: 'bg-yellow-100 text-yellow-700' },
@@ -16,6 +45,7 @@ export const STATUS_OPTIONS = [
   { value: 'gerodet',     label: 'Gerodet',      badge: 'bg-gray-200 text-gray-600' },
 ]
 
+/** @deprecated Ersetzt durch NutzungBadge, siehe Kommentar oben. */
 export function StatusBadge({ status }: { status: string }) {
   const opt = STATUS_OPTIONS.find(o => o.value === status) ?? STATUS_OPTIONS[0]
   return (

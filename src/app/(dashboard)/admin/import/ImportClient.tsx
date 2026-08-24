@@ -84,7 +84,7 @@ const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean 
     { key: 'ama_feldnummer',      label: 'AMA-Feldstücknr.' },
     { key: 'boden',               label: 'Boden' },
     { key: 'bewirtschaftung',     label: 'Bewirtschaftung (biodynamisch/biologisch/in_umstellung/nachhaltig/kip/konventionell)' },
-    { key: 'status',              label: 'Status (aktiv/brache/gruenbrache)' },
+    { key: 'nutzart',             label: 'Nutzart (A = Grünbrache / G = Grünlandbrache / WI = Wein)' },
   ],
   gebinde: [
     { key: 'name',           label: 'Bezeichnung', pflicht: true },

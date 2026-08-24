@@ -166,7 +166,7 @@ export async function fuehreErnteErfassenAus(
   const grundstueckJson: R[] = []
   for (const g of grundstueckeIn) {
     const { data: gst } = await (supabase.from('grundstuecke') as any)
-      .select('id, weingarten_id').eq('id', g.grundstueck_id).eq('tenant_id', tenantId).eq('status', 'aktiv').maybeSingle()
+      .select('id, weingarten_id').eq('id', g.grundstueck_id).eq('tenant_id', tenantId).eq('nutzart', 'WI').maybeSingle()
     if (!gst) {
       return { erfolg: false, hinweis: `Grundstück mit ID ${g.grundstueck_id} nicht gefunden. Beim User nachfragen bzw. Stammdaten-Kontext erneut prüfen.` }
     }

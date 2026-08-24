@@ -166,7 +166,7 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   for (const wgId of weingartenIds) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: gsts } = await (supabase.from('grundstuecke') as any)
-      .select('id, flaeche_ha, trauben_herkunft_code, rebsorte').eq('weingarten_id', wgId).eq('status', 'aktiv').eq('tenant_id', tenantId).order('gst_nr')
+      .select('id, flaeche_ha, trauben_herkunft_code, rebsorte').eq('weingarten_id', wgId).eq('nutzart', 'WI').eq('tenant_id', tenantId).order('gst_nr')
     const gstList = (gsts ?? []) as AR[]
     if (gstList.length === 0) {
       // Keine GSTs → eine Zeile für die ganze Ried (kein GST-Herkunft-Code verfügbar)
