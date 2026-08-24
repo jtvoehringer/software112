@@ -36,8 +36,9 @@ export async function createLage(formData: FormData) {
 export async function updateLage(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
+  const name = formData.get('name') as string
   const payload: AR = {
-    name:         formData.get('name') as string,
+    name,
     gemeinde:     (formData.get('gemeinde') as string) || null,
     weinbaugebiet:(formData.get('weinbaugebiet') as string) || null,
     notizen:      (formData.get('notizen') as string) || null,
@@ -45,6 +46,17 @@ export async function updateLage(id: string, formData: FormData) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('lagen') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
+
+  // Rückmeldung 24.8.2026: das denormalisierte Textfeld weingarten.ried (nach
+  // dem die Rieden-Übersicht gruppiert, siehe WeingartenBaum.tsx) muss beim
+  // Umbenennen einer Lage für alle zugewiesenen Weingarten-Datensätze
+  // mitgezogen werden, sonst zeigt die Übersicht weiterhin den alten Namen
+  // (analog zum selben Fix in weingarten/actions.ts::updateWeingarten).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from('weingarten') as any)
+    .update({ ried: name })
+    .eq('lage_id', id).eq('tenant_id', tenantId)
+
   revalidatePath('/lagen')
   revalidatePath('/weingarten')
 }

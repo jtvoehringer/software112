@@ -17,9 +17,15 @@ export async function createWeingarten(formData: FormData) {
   const tenantId = await getTenantId()
   if (!tenantId) throw new Error('Kein Betrieb gefunden')
 
+  const name = formData.get('name') as string
   const payload: AnyRecord = {
     tenant_id:            tenantId,
-    name:                 formData.get('name') as string,
+    name,
+    // "ried" ist das Feld, nach dem die Rieden-Übersicht gruppiert
+    // (WeingartenBaum.tsx) - ohne das würde eine neu angelegte Ried hier in
+    // den "Rieden"-Auffangkorb für nicht zugeordnete Weingärten fallen statt
+    // als eigene Gruppe mit ihrem Namen zu erscheinen.
+    ried:                 name || null,
     ama_feldnummer:       (formData.get('ama_feldnummer') as string) || null,
     codes:                (formData.get('codes') as string) || null,
     notizen:              (formData.get('notizen') as string) || null,
@@ -37,18 +43,52 @@ export async function updateWeingarten(id: string, formData: FormData) {
   const tenantId = await getTenantId()
   if (!tenantId) throw new Error('Kein Betrieb gefunden')
 
+  const name = formData.get('name') as string
+
   const payload: AnyRecord = {
-    name:                 formData.get('name') as string,
+    name,
     ama_feldnummer:       (formData.get('ama_feldnummer') as string) || null,
     codes:                (formData.get('codes') as string) || null,
     notizen:              (formData.get('notizen') as string) || null,
     aktiv:                formData.get('aktiv') === 'true',
   }
 
+  // Rückmeldung 24.8.2026: Umbenennen einer Ried über das "Riedname"-Feld
+  // aktualisierte bisher nur weingarten.name - die Rieden-Übersicht
+  // (WeingartenBaum.tsx) gruppiert aber nach dem separaten Textfeld "ried",
+  // das dadurch beim alten Namen blieb. Praktisch jeder bestehende
+  // Weingarten-Datensatz ist über lage_id mit einer Zeile in "lagen"
+  // verknüpft (der Kellerbuch-Altsystem-Import in api/import/route.ts setzt
+  // lage_id und ried immer gemeinsam) - für diesen Fall wird beim Umbenennen
+  // jetzt auch lagen.name mitgezogen und "ried" für ALLE Weingarten-
+  // Datensätze dieser Lage aktualisiert (eine Ried kann aus mehreren
+  // Weingarten-Datensätzen bestehen, siehe Kommentare in WeingartenBaum.tsx -
+  // das Umbenennen betrifft dann bewusst die ganze Ried-Gruppe, nicht nur
+  // diesen einen Datensatz). Nur bei Datensätzen ganz ohne Lage-Verknüpfung
+  // wird "ried" direkt auf dieser Zeile mitgesetzt.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: existing } = await (supabase.from('weingarten') as any)
+    .select('lage_id')
+    .eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+
+  if (existing?.lage_id) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('lagen') as any)
+      .update({ name })
+      .eq('id', existing.lage_id).eq('tenant_id', tenantId)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('weingarten') as any)
+      .update({ ried: name })
+      .eq('lage_id', existing.lage_id).eq('tenant_id', tenantId)
+  } else {
+    payload.ried = name || null
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('weingarten') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AnyRecord).message)
   revalidatePath('/weingarten')
+  revalidatePath('/lagen')
 }
 
 export async function deactivateWeingarten(id: string) {

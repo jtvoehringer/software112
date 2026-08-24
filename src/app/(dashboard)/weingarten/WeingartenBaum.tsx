@@ -16,6 +16,41 @@ import { getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 // seine eigene, benannte/bearbeitbare Zeile behalten muss (siehe LageGruppe).
 const KEIN_RIED = 'Rieden'
 
+// AMA-Feldstücknr. und Codes hängen am Weingarten-Datensatz (Ried-Formular),
+// eine Lage/Ried kann aber aus mehreren Weingarten-Datensätzen bestehen -
+// genügt hier wie in LageGruppe der erste vorhandene Wert (siehe dortiger
+// Kommentar). Als eigene Funktion, weil sowohl LageGruppe (Anzeige) als auch
+// WeingartenBaum (Sortierung nach AMA-Feldstücknr., Rückmeldung 24.8.2026)
+// denselben repräsentativen Wert pro Lage brauchen.
+function amaFeldnummerFuerLage(weingaerten: WRow[]): string | null {
+  return weingaerten.find(w => w.ama_feldnummer)?.ama_feldnummer ?? null
+}
+
+// Rückmeldung 24.8.2026: die Sortierung nach AMA-Feldstücknr. (Klick auf die
+// Spaltenüberschrift, siehe sortBy in WeingartenBaum) soll nicht nur die
+// Reihenfolge der Ried-Gruppen selbst bestimmen, sondern auch die GST-Zeilen
+// INNERHALB einer aufgeklappten Ried - vorher blieben die immer stur nach
+// GST-Nr. sortiert, unabhängig von der gewählten Sortierung. Nulls (keine
+// AMA-Feldstücknr. auf dem Grundstück) ans Ende, sonst numerisch, bei
+// Gleichstand nach GST-Nr. - dieselbe Logik wie beim Sortieren der Lagen
+// (siehe dort), nur eine Ebene tiefer.
+function sortGst(gsts: GSTRow[], sortBy: 'ried' | 'ama'): GSTRow[] {
+  const sorted = [...gsts]
+  if (sortBy === 'ama') {
+    sorted.sort((a, b) => {
+      const x = a.ama_feldnummer
+      const y = b.ama_feldnummer
+      if (x == null && y == null) return a.gst_nr.localeCompare(b.gst_nr, 'de', { numeric: true })
+      if (x == null) return 1
+      if (y == null) return -1
+      return x.localeCompare(y, 'de', { numeric: true }) || a.gst_nr.localeCompare(b.gst_nr, 'de', { numeric: true })
+    })
+  } else {
+    sorted.sort((a, b) => a.gst_nr.localeCompare(b.gst_nr, 'de', { numeric: true }))
+  }
+  return sorted
+}
+
 const BEWIRTSCHAFTUNG_BADGE: Record<string, string> = {
   biodynamisch:  'bg-green-100 text-green-800',
   biologisch:    'bg-green-100 text-green-700',
@@ -100,9 +135,9 @@ function GSTZeile({ gst, verschachtelt = false }: { gst: GSTRow; verschachtelt?:
 // ── Weingarten-Zeile ──────────────────────────────────────────────────────────
 
 function WeingartenZeile({
-  w, gsts, writeOk, adminOk,
+  w, gsts, writeOk, adminOk, sortBy,
 }: {
-  w: WRow; gsts: GSTRow[]; writeOk: boolean; adminOk: boolean
+  w: WRow; gsts: GSTRow[]; writeOk: boolean; adminOk: boolean; sortBy: 'ried' | 'ama'
 }) {
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
@@ -193,7 +228,7 @@ function WeingartenZeile({
         </td>
       </tr>
 
-      {open && gsts.map(g => <GSTZeile key={g.id} gst={g} verschachtelt />)}
+      {open && sortGst(gsts, sortBy).map(g => <GSTZeile key={g.id} gst={g} verschachtelt />)}
     </>
   )
 }
@@ -201,10 +236,10 @@ function WeingartenZeile({
 // ── Lage-Gruppe ───────────────────────────────────────────────────────────────
 
 function LageGruppe({
-  ried, weingaerten, gstMap, writeOk, adminOk, istEchteLage,
+  ried, weingaerten, gstMap, writeOk, adminOk, istEchteLage, sortBy,
 }: {
   ried: string; weingaerten: WRow[]; gstMap: Map<string, GSTRow[]>
-  writeOk: boolean; adminOk: boolean; istEchteLage: boolean
+  writeOk: boolean; adminOk: boolean; istEchteLage: boolean; sortBy: 'ried' | 'ama'
 }) {
   // Rückmeldung 24.8.2026: Rieden-Übersicht soll beim Einstieg eingeklappt
   // starten statt aufgeklappt.
@@ -221,6 +256,17 @@ function LageGruppe({
     const gsts = gstMap.get(w.id) ?? []
     return s + gsts.reduce((a, g) => a + (g.flaeche_ha_kataster ?? 0), 0)
   }, 0)
+
+  // AMA-Feldstücknr. und Codes sind Felder auf dem Weingarten-Datensatz
+  // (Ried-Formular), nicht pro Grundstück. Eine Lage/Ried kann aus mehreren
+  // Weingarten-Datensätzen zusammengesetzt sein (siehe Kommentar unten zu
+  // weingaertenMitGst/weingaertenOhneGst) - in der Praxis sollten diese beiden
+  // Felder für dieselbe physische Ried aber übereinstimmen, deshalb genügt der
+  // erste vorhandene Wert. Ohne das wären beide Werte in der Übersicht nirgends
+  // sichtbar, sobald die GST-Zeilen flach unter dem Ried gelistet werden (siehe
+  // flatGst) - dort wird ja keine eigene Weingarten-Zeile mehr gezeigt.
+  const amaFeldnummer = amaFeldnummerFuerLage(weingaerten)
+  const codes = weingaerten.find(w => w.codes)?.codes ?? null
 
   // Weingärten mit eigenen Grundstücken sind hier oft nur ein technischer
   // Container pro Rebsorte (z.B. "<Ried> - Gelber Muskateller 2013" und
@@ -245,9 +291,7 @@ function LageGruppe({
   // komplett - genau das ist am 15.8. in der Sandbox passiert.
   const weingaertenMitGst = istEchteLage ? weingaerten.filter(w => (gstMap.get(w.id) ?? []).length > 0) : []
   const weingaertenOhneGst = istEchteLage ? weingaerten.filter(w => (gstMap.get(w.id) ?? []).length === 0) : weingaerten
-  const flatGst = weingaertenMitGst
-    .flatMap(w => gstMap.get(w.id) ?? [])
-    .sort((a, b) => a.gst_nr.localeCompare(b.gst_nr, 'de', { numeric: true }))
+  const flatGst = sortGst(weingaertenMitGst.flatMap(w => gstMap.get(w.id) ?? []), sortBy)
 
   return (
     <>
@@ -255,18 +299,14 @@ function LageGruppe({
         className="bg-s112-bg border-b border-s112-border cursor-pointer select-none hover:bg-s112-bg/80 transition-colors"
         onClick={() => setOpen(o => !o)}
       >
-        <td className="px-4 py-2.5" colSpan={2}>
+        <td className="px-4 py-2.5">
           <div className="flex items-center gap-2">
             <span className="text-s112-teal"><ChevronIcon open={open} /></span>
             <span className="font-semibold text-gray-900 text-sm">{ried}</span>
-            <span className="text-xs text-s112-muted ml-1">
-              {weingaerten.length} {weingaerten.length === 1 ? 'Ried' : 'Rieden'}
-              {' · '}
-              {fmtHa(totalHa)} ha
-            </span>
           </div>
         </td>
-        <td className="px-4 py-2.5" />
+        <td className="px-4 py-2.5 text-sm text-s112-muted">{amaFeldnummer ?? '–'}</td>
+        <td className="px-4 py-2.5 text-sm text-s112-muted" title="EOP = Einsatz von Organismen und Pheromonen, PSMBIO = Einsatz von Pflanzenschutzmitteln laut Bio-Verordnung">{codes ?? '–'}</td>
         <td className="px-4 py-2.5" />
         <td className="px-4 py-2.5" />
         <td className="px-4 py-2.5" />
@@ -284,6 +324,7 @@ function LageGruppe({
           gsts={gstMap.get(w.id) ?? []}
           writeOk={writeOk}
           adminOk={adminOk}
+          sortBy={sortBy}
         />
       ))}
     </>
@@ -298,6 +339,11 @@ export default function WeingartenBaum({
   weingaerten: WRow[]; grundstuecke: GSTRow[]
   writeOk: boolean; adminOk: boolean
 }) {
+  // Rückmeldung 24.8.2026: Übersicht soll wahlweise nach AMA-Feldstücknr.
+  // sortierbar sein (Klick auf die Spaltenüberschrift), Standard bleibt wie
+  // bisher alphabetisch nach Ried/Grundstück.
+  const [sortBy, setSortBy] = useState<'ried' | 'ama'>('ried')
+
   const gstMap = new Map<string, GSTRow[]>()
   for (const g of grundstuecke) {
     const arr = gstMap.get(g.weingarten_id) ?? []
@@ -312,7 +358,19 @@ export default function WeingartenBaum({
     arr.push(w)
     lagenMap.set(ried, arr)
   }
-  const lagen = Array.from(lagenMap.entries()).sort(([a], [b]) => a.localeCompare(b, 'de'))
+  const lagen = Array.from(lagenMap.entries()).sort(([riedA, wgsA], [riedB, wgsB]) => {
+    if (sortBy === 'ama') {
+      const a = amaFeldnummerFuerLage(wgsA)
+      const b = amaFeldnummerFuerLage(wgsB)
+      // Lagen ohne AMA-Feldstücknr. ans Ende, sonst numerisch (1, 2, ..., 12
+      // statt alphabetisch 1, 12, 2), bei Gleichstand alphabetisch nach Ried.
+      if (a == null && b == null) return riedA.localeCompare(riedB, 'de')
+      if (a == null) return 1
+      if (b == null) return -1
+      return a.localeCompare(b, 'de', { numeric: true }) || riedA.localeCompare(riedB, 'de')
+    }
+    return riedA.localeCompare(riedB, 'de')
+  })
 
   return (
     // WICHTIG: kein "overflow-hidden" mehr auf diesem Wrapper - das hätte die
@@ -331,15 +389,27 @@ export default function WeingartenBaum({
               deshalb genügt top-0 ohne zusätzlichen Offset (die äußere
               Kopfleiste mit Suche/Glocke liegt außerhalb des Scroll-Containers). */}
           <tr className="sticky top-0 z-10 bg-s112-bg border-b-2 border-s112-border shadow-sm">
-            <th className="text-left px-4 py-3 font-semibold text-gray-700 rounded-tl-2xl">Ried / Grundstück</th>
-            <th className="text-left px-3 py-3 font-semibold text-gray-700">AMA-Feldstücknr.</th>
+            <th
+              className="text-left px-4 py-3 font-semibold text-gray-700 rounded-tl-2xl cursor-pointer select-none hover:text-s112-teal"
+              onClick={() => setSortBy('ried')}
+              title="Nach Ried/Grundstück sortieren"
+            >
+              Ried / Grundstück{sortBy === 'ried' && ' ▲'}
+            </th>
+            <th
+              className="text-left px-3 py-3 font-semibold text-gray-700 cursor-pointer select-none hover:text-s112-teal"
+              onClick={() => setSortBy('ama')}
+              title="Nach AMA-Feldstücknr. sortieren"
+            >
+              AMA-Feldstücknr.{sortBy === 'ama' && ' ▲'}
+            </th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">Codes</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">Rebsorte</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">Kürzel</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">Nutzung</th>
             <th className="text-right px-3 py-3 font-semibold text-gray-700 leading-tight">GST-Fläche<br />lt. Kataster</th>
             <th className="text-right px-3 py-3 font-semibold text-gray-700 leading-tight">GST-Fläche<br />lt. AMA</th>
-            <th className="text-left px-3 py-3 font-semibold text-gray-700 rounded-tr-2xl">GST</th>
+            <th className="text-left px-3 py-3 font-semibold text-gray-700 rounded-tr-2xl" />
           </tr>
         </thead>
         <tbody>
@@ -352,6 +422,7 @@ export default function WeingartenBaum({
               writeOk={writeOk}
               adminOk={adminOk}
               istEchteLage={ried !== KEIN_RIED}
+              sortBy={sortBy}
             />
           ))}
         </tbody>
