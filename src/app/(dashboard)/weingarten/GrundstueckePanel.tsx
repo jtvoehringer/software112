@@ -334,6 +334,7 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
             <option value="">– bitte wählen –</option>
             <option value="eigentum">Eigentum</option>
             <option value="pacht">Pacht</option>
+            <option value="nutzung">Nutzung</option>
           </select>
         </div>
 
