@@ -26,17 +26,17 @@ function amaFeldnummerFuerLage(weingaerten: WRow[]): string | null {
   return weingaerten.find(w => w.ama_feldnummer)?.ama_feldnummer ?? null
 }
 
-// Rückmeldung 24.8.2026: die Sortierung nach AMA-Feldstücknr. (Klick auf die
-// Spaltenüberschrift, siehe sortBy in WeingartenBaum) soll nicht nur die
-// Reihenfolge der Ried-Gruppen selbst bestimmen, sondern auch die GST-Zeilen
-// INNERHALB einer aufgeklappten Ried - vorher blieben die immer stur nach
-// GST-Nr. sortiert, unabhängig von der gewählten Sortierung. Nulls (keine
-// AMA-Feldstücknr. auf dem Grundstück) ans Ende, sonst numerisch, bei
-// Gleichstand nach GST-Nr. - dieselbe Logik wie beim Sortieren der Lagen
-// (siehe dort), nur eine Ebene tiefer.
-function sortGst(gsts: GSTRow[], sortBy: 'ried' | 'ama'): GSTRow[] {
+// Rückmeldung 24.8.2026 (Teil 2): AMA-Feldstücknr. (auf dem Ried/Weingarten-
+// Datensatz) und AMA-Schlagnr. (auf dem einzelnen Grundstück) sind ZWEI
+// verschiedene Nummernkreise, die vorher fälschlich dieselbe Spalte/denselben
+// Sortierzustand teilten. Eigene, von der Ried-Gruppen-Sortierung (sortBy in
+// WeingartenBaum) unabhängige Sortierung für die GST-Zeilen INNERHALB einer
+// aufgeklappten Ried, per Klick auf die eigene "AMA-Schlagnr."-Spaltenüber-
+// schrift. Nulls (keine Schlagnr. auf dem Grundstück) ans Ende, sonst
+// numerisch, bei Gleichstand nach GST-Nr.
+function sortGst(gsts: GSTRow[], gstSort: 'gst_nr' | 'schlag'): GSTRow[] {
   const sorted = [...gsts]
-  if (sortBy === 'ama') {
+  if (gstSort === 'schlag') {
     sorted.sort((a, b) => {
       const x = a.ama_feldnummer
       const y = b.ama_feldnummer
@@ -118,6 +118,7 @@ function GSTZeile({ gst, verschachtelt = false }: { gst: GSTRow; verschachtelt?:
           <span className="ml-2 text-gray-400">{gst.katastralgemeinde}</span>
         )}
       </td>
+      <td className="px-3 py-2 text-xs text-s112-muted" />
       <td className="px-3 py-2 text-xs text-s112-muted">{gst.ama_feldnummer ?? '–'}</td>
       <td className="px-3 py-2 text-xs text-s112-muted" />
       <td className="px-3 py-2 text-xs text-s112-muted">{gst.rebsorte ?? '–'}</td>
@@ -135,9 +136,9 @@ function GSTZeile({ gst, verschachtelt = false }: { gst: GSTRow; verschachtelt?:
 // ── Weingarten-Zeile ──────────────────────────────────────────────────────────
 
 function WeingartenZeile({
-  w, gsts, writeOk, adminOk, sortBy,
+  w, gsts, writeOk, adminOk, gstSort,
 }: {
-  w: WRow; gsts: GSTRow[]; writeOk: boolean; adminOk: boolean; sortBy: 'ried' | 'ama'
+  w: WRow; gsts: GSTRow[]; writeOk: boolean; adminOk: boolean; gstSort: 'gst_nr' | 'schlag'
 }) {
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
@@ -184,6 +185,7 @@ function WeingartenZeile({
           </div>
         </td>
         <td className="px-3 py-2.5 text-xs text-s112-muted">{w.ama_feldnummer ?? '–'}</td>
+        <td className="px-3 py-2.5 text-xs text-s112-muted" />
         <td className="px-3 py-2.5 text-xs text-s112-muted" title="EOP = Einsatz von Organismen und Pheromonen, PSMBIO = Einsatz von Pflanzenschutzmitteln laut Bio-Verordnung">{w.codes ?? '–'}</td>
         <td className="px-3 py-2.5 text-sm">
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -228,7 +230,7 @@ function WeingartenZeile({
         </td>
       </tr>
 
-      {open && sortGst(gsts, sortBy).map(g => <GSTZeile key={g.id} gst={g} verschachtelt />)}
+      {open && sortGst(gsts, gstSort).map(g => <GSTZeile key={g.id} gst={g} verschachtelt />)}
     </>
   )
 }
@@ -236,10 +238,10 @@ function WeingartenZeile({
 // ── Lage-Gruppe ───────────────────────────────────────────────────────────────
 
 function LageGruppe({
-  ried, weingaerten, gstMap, writeOk, adminOk, istEchteLage, sortBy,
+  ried, weingaerten, gstMap, writeOk, adminOk, istEchteLage, gstSort,
 }: {
   ried: string; weingaerten: WRow[]; gstMap: Map<string, GSTRow[]>
-  writeOk: boolean; adminOk: boolean; istEchteLage: boolean; sortBy: 'ried' | 'ama'
+  writeOk: boolean; adminOk: boolean; istEchteLage: boolean; gstSort: 'gst_nr' | 'schlag'
 }) {
   // Rückmeldung 24.8.2026: Rieden-Übersicht soll beim Einstieg eingeklappt
   // starten statt aufgeklappt.
@@ -291,7 +293,7 @@ function LageGruppe({
   // komplett - genau das ist am 15.8. in der Sandbox passiert.
   const weingaertenMitGst = istEchteLage ? weingaerten.filter(w => (gstMap.get(w.id) ?? []).length > 0) : []
   const weingaertenOhneGst = istEchteLage ? weingaerten.filter(w => (gstMap.get(w.id) ?? []).length === 0) : weingaerten
-  const flatGst = sortGst(weingaertenMitGst.flatMap(w => gstMap.get(w.id) ?? []), sortBy)
+  const flatGst = sortGst(weingaertenMitGst.flatMap(w => gstMap.get(w.id) ?? []), gstSort)
 
   return (
     <>
@@ -306,6 +308,7 @@ function LageGruppe({
           </div>
         </td>
         <td className="px-4 py-2.5 text-sm text-s112-muted">{amaFeldnummer ?? '–'}</td>
+        <td className="px-4 py-2.5" />
         <td className="px-4 py-2.5 text-sm text-s112-muted" title="EOP = Einsatz von Organismen und Pheromonen, PSMBIO = Einsatz von Pflanzenschutzmitteln laut Bio-Verordnung">{codes ?? '–'}</td>
         <td className="px-4 py-2.5" />
         <td className="px-4 py-2.5" />
@@ -324,7 +327,7 @@ function LageGruppe({
           gsts={gstMap.get(w.id) ?? []}
           writeOk={writeOk}
           adminOk={adminOk}
-          sortBy={sortBy}
+          gstSort={gstSort}
         />
       ))}
     </>
@@ -343,6 +346,10 @@ export default function WeingartenBaum({
   // sortierbar sein (Klick auf die Spaltenüberschrift), Standard bleibt wie
   // bisher alphabetisch nach Ried/Grundstück.
   const [sortBy, setSortBy] = useState<'ried' | 'ama'>('ried')
+  // Rückmeldung 24.8.2026 (Teil 2): eigener, von sortBy unabhängiger
+  // Sortierzustand für die AMA-Schlagnr.-Spalte (pro Grundstück) - siehe
+  // sortGst weiter oben.
+  const [gstSort, setGstSort] = useState<'gst_nr' | 'schlag'>('gst_nr')
 
   const gstMap = new Map<string, GSTRow[]>()
   for (const g of grundstuecke) {
@@ -403,6 +410,13 @@ export default function WeingartenBaum({
             >
               AMA-Feldstücknr.{sortBy === 'ama' && ' ▲'}
             </th>
+            <th
+              className="text-left px-3 py-3 font-semibold text-gray-700 cursor-pointer select-none hover:text-s112-teal"
+              onClick={() => setGstSort('schlag')}
+              title="Nach AMA-Schlagnr. sortieren"
+            >
+              AMA-Schlagnr.{gstSort === 'schlag' && ' ▲'}
+            </th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">Codes</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">Rebsorte</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-700">Kürzel</th>
@@ -422,7 +436,7 @@ export default function WeingartenBaum({
               writeOk={writeOk}
               adminOk={adminOk}
               istEchteLage={ried !== KEIN_RIED}
-              sortBy={sortBy}
+              gstSort={gstSort}
             />
           ))}
         </tbody>

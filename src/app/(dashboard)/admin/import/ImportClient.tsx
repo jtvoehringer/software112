@@ -81,7 +81,7 @@ const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean 
     { key: 'rebsorte',            label: 'Rebsorte' },
     { key: 'weinart',             label: 'Weinart (weiss/rot/rose – leer = unbekannt)' },
     { key: 'pflanzjahr',          label: 'Pflanzjahr' },
-    { key: 'ama_feldnummer',      label: 'AMA-Feldstücknr.' },
+    { key: 'ama_feldnummer',      label: 'AMA-Schlagnr.' },
     { key: 'boden',               label: 'Boden' },
     { key: 'bewirtschaftung',     label: 'Bewirtschaftung (biodynamisch/biologisch/in_umstellung/nachhaltig/kip/konventionell)' },
     { key: 'nutzart',             label: 'Nutzart (A = Grünbrache / G = Grünlandbrache / WI = Wein)' },

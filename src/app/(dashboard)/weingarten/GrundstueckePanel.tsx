@@ -116,6 +116,7 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
   onDone: () => void
 }) {
   const [pending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
   const [bewirtschaftung, setBewirtschaftung] = useState(gst?.bewirtschaftung ?? '')
   const [weinart, setWeinart] = useState(gst?.weinart ?? 'unbekannt')
   const [kgnr, setKgnr] = useState(gst?.katastralgemeinde ?? '')
@@ -164,11 +165,20 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    setError(null)
     const fd = new FormData(e.currentTarget)
     startTransition(async () => {
-      if (gst) await updateGrundstueck(gst.id, weingartenId, fd)
-      else      await createGrundstueck(weingartenId, fd)
-      onDone()
+      try {
+        if (gst) await updateGrundstueck(gst.id, weingartenId, fd)
+        else      await createGrundstueck(weingartenId, fd)
+        onDone()
+      } catch (err) {
+        // Ohne try/catch riss ein Fehler aus der Server Action (z.B. ein
+        // DB-Constraint-Fehler) die ganze Seite ab ("This page couldn't
+        // load" statt einer Fehlermeldung im Formular) - siehe Rückmeldung
+        // 24.8.2026 zum Speichern-Fehler bei Rechtsverhältnis "Nutzung".
+        setError(err instanceof Error ? err.message : 'Unbekannter Fehler beim Speichern')
+      }
     })
   }
 
@@ -177,6 +187,11 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
       <h3 className="text-sm font-semibold text-gray-800">
         {gst ? 'Grundstück bearbeiten' : 'Grundstück hinzufügen'}
       </h3>
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">
+          <strong>Fehler:</strong> {error}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         {/* Identifikation */}
@@ -320,9 +335,12 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
           <p className="text-xs text-s112-muted mt-1">Herkunftsstufe gem. Weingesetz/DAC-Verordnung – wird an Lese, Kellerbuch und Füllung weitergegeben (nur Abstufungen möglich). Fehlt ein Gebiet, kann es direkt im Dropdown über „+ Neues Weinbaugebiet hinzufügen…" ergänzt werden.</p>
         </div>
 
-        {/* AMA-Feldstücknummer */}
+        {/* AMA-Schlagnummer (pro Grundstück - NICHT zu verwechseln mit der
+            AMA-Feldstücknr. auf dem Ried/Weingarten-Datensatz, Rückmeldung
+            24.8.2026: beide hießen zuvor identisch "AMA-Feldstücknr." und
+            wurden in der Rieden-Übersicht in derselben Spalte angezeigt) */}
         <div>
-          <label className={labelCls}>AMA-Feldstücknr.</label>
+          <label className={labelCls}>AMA-Schlagnr.</label>
           <input name="ama_feldnummer" maxLength={3} pattern="[0-9]{1,3}" defaultValue={gst?.ama_feldnummer ?? ''} placeholder="z.B. 12" className={inputCls} />
           <p className="text-xs text-s112-muted mt-1">Max. 3-stellig numerisch</p>
         </div>
