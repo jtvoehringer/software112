@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { BookOpen, GitMerge } from 'lucide-react'
 import { buildWeinbuch } from '@/lib/wein/weinbuch'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { WeinbuchTimeline } from './WeinbuchTimeline'
 import PrintButton from './PrintButton'
 
@@ -46,7 +47,7 @@ export default async function WeinbuchPage({
           <p className="text-s112-muted text-sm mt-1">
             {wa.name}
             {wa.jahrgang ? ` · Jahrgang ${wa.jahrgang}` : ''}
-            {wa.rebsorte ? ` · ${wa.rebsorte}` : ''}
+            {wa.rebsorte ? ` · ${formatRebsorteMitKuerzel(wa.rebsorte)}` : ''}
           </p>
           <p className="text-xs text-s112-muted mt-0.5">
             Von der Rebe bis zur Flasche – vollständige Prozesshistorie dieser Charge

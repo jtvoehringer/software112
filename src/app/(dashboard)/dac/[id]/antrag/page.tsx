@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import PNAFormular from './PNAFormular'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Prüfnummernantrag – software:112' }
@@ -76,10 +77,10 @@ export default async function PruefnummernantragPage({ params }: { params: Promi
     angereichert: false,
     gesuesst: false,
     einreichmenge: dac.menge_liter ? String(Math.round(Number(dac.menge_liter))) : '',
-    rebsorte: dac.rebsorte ?? '',
+    rebsorte: dac.rebsorte ? formatRebsorteMitKuerzel(dac.rebsorte) : '',
     abgefuellt: '' as const,
     teilmenge_pn: '',
-    bez_rebsorte: dac.rebsorte ?? '',
+    bez_rebsorte: dac.rebsorte ? formatRebsorteMitKuerzel(dac.rebsorte) : '',
     qualitaetsstufe: dac.dac_region ?? '',
     weinbaugebiet: dac.dac_region ?? '',
     bez_jahrgang: dac.jahrgang ? String(dac.jahrgang) : '',

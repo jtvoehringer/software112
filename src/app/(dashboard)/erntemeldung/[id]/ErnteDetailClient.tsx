@@ -9,6 +9,7 @@ import PressungSection from './PressungSection'
 import type { Pressung, WGOption, BehOption, WAOption, ZukaufTraubenOpt } from './PressungSection'
 import { fmtHa, fmtZahl, fmtProzent } from '@/lib/format'
 import { Pencil, Trash2, AlertTriangle, Plus } from 'lucide-react'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 // QUALITAET_OPTS: aus lib/wein/qualitaet importiert (s.u. import qualitaetLabel)
 const LESEMETHODE_OPTS = [
@@ -178,7 +179,7 @@ function NeueParzellenForm({
                                   <span className={`font-mono ${isGstSel ? 'text-s112-teal font-medium' : 'text-gray-600'}`}>
                                     GST {g.gst_nr}
                                   </span>
-                                  {g.rebsorte && <span className="text-s112-muted">· {g.rebsorte}</span>}
+                                  {g.rebsorte && <span className="text-s112-muted">· {formatRebsorteMitKuerzel(g.rebsorte)}</span>}
                                   {g.flaeche_ha && <span className="text-s112-muted ml-auto">{g.flaeche_ha.toFixed(4)} ha</span>}
                                 </label>
                                 {isGstSel && (
@@ -352,7 +353,7 @@ function ParzellForm({
             {Array.from(lagenMap.entries()).map(([lage, wgs]) => (
               <optgroup key={lage} label={lage}>
                 {wgs.map(w => (
-                  <option key={w.id} value={w.id}>{w.name}{w.rebsorte ? ` (${w.rebsorte})` : ''}</option>
+                  <option key={w.id} value={w.id}>{w.name}{w.rebsorte ? ` (${formatRebsorteMitKuerzel(w.rebsorte)})` : ''}</option>
                 ))}
               </optgroup>
             ))}
@@ -367,7 +368,7 @@ function ParzellForm({
               <option value="">– kein GST –</option>
               {verfuegbareGSTs.map(g => (
                 <option key={g.id} value={g.id}>
-                  {g.gst_nr}{g.rebsorte ? ' · ' + g.rebsorte : ''}{g.flaeche_ha ? ' · ' + g.flaeche_ha.toFixed(4) + ' ha' : ''}
+                  {g.gst_nr}{g.rebsorte ? ' · ' + formatRebsorteMitKuerzel(g.rebsorte) : ''}{g.flaeche_ha ? ' · ' + g.flaeche_ha.toFixed(4) + ' ha' : ''}
                 </option>
               ))}
             </select>
@@ -529,7 +530,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
                         {p.weingarten_name}
                       </td>
                       <td className="px-3 py-2 text-xs text-s112-muted font-mono">{p.grundstueck_nr ?? '–'}</td>
-                      <td className="px-3 py-2 text-xs text-s112-muted">{p.grundstueck_rebsorte ?? p.weingarten_rebsorte ?? '–'}</td>
+                      <td className="px-3 py-2 text-xs text-s112-muted">{formatRebsorteMitKuerzel(p.grundstueck_rebsorte ?? p.weingarten_rebsorte)}</td>
                       <td className="px-3 py-2 text-s112-muted whitespace-nowrap">{formatDate(p.ernte_datum)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{p.menge_kg?.toLocaleString('de-AT') ?? '–'}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{p.klosterneuburger ?? '–'}</td>
@@ -686,7 +687,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
                   <tbody>
                     {amaMeldung.positionen.map((pos, i) => (
                       <tr key={i} className="border-b border-s112-border/40 last:border-0">
-                        <td className="py-1.5">{pos.rebsorte_name}</td>
+                        <td className="py-1.5">{formatRebsorteMitKuerzel(pos.rebsorte_name)}</td>
                         <td className="py-1.5 text-right tabular-nums">{fmtHa(pos.flaeche_ha)}</td>
                         <td className="py-1.5 text-right tabular-nums">{pos.menge_kg?.toLocaleString('de-AT') ?? '–'}</td>
                       </tr>

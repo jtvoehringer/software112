@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import TBFormular from './TBFormular'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Transportbescheinigung – software:112' }
@@ -117,7 +118,7 @@ export default async function TransportbescheinigungPage({ params }: { params: P
             return {
               menge_liter:      String(p.menge ?? ''),
               art:              'Weiß',
-              traubensorte:     wa?.rebsorte ?? '',
+              traubensorte:     wa?.rebsorte ? formatRebsorteMitKuerzel(wa.rebsorte) : '',
               qualitaetsstufe:  wa?.qualitaetsstufe ?? '',
               jahrgang:         wa?.jahrgang ? String(wa.jahrgang) : '',
               herkunft:         cfg.betrieb_ort ?? '',
@@ -139,7 +140,7 @@ export default async function TransportbescheinigungPage({ params }: { params: P
             return {
               menge_liter:      literMenge != null ? String(literMenge) : String(p.menge ?? ''),
               art:              'Weiß',
-              traubensorte:     f?.rebsorte ?? '',
+              traubensorte:     f?.rebsorte ? formatRebsorteMitKuerzel(f.rebsorte) : '',
               qualitaetsstufe:  f?.qualitaet ?? '',
               jahrgang:         f?.jahrgang ? String(f.jahrgang) : '',
               herkunft:         f?.anbaugebiet ?? cfg.betrieb_ort ?? '',
@@ -156,7 +157,7 @@ export default async function TransportbescheinigungPage({ params }: { params: P
           return {
             menge_liter:      String(p.menge ?? ''),
             art:              'Weiß',
-            traubensorte:     (tv?.grundstueck as R | null)?.rebsorte ?? '',
+            traubensorte:     (tv?.grundstueck as R | null)?.rebsorte ? formatRebsorteMitKuerzel((tv?.grundstueck as R | null)?.rebsorte) : '',
             qualitaetsstufe:  tv?.qualitaetsstufe ?? '',
             jahrgang:         '',
             herkunft:         tv?.herkunft_code ?? cfg.betrieb_ort ?? '',

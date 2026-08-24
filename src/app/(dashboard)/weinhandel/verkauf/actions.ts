@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { randomUUID } from 'crypto'
 import { syncEaEinnahmeFuerVerkauf } from '@/app/(dashboard)/buchhaltung/actions'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -119,7 +120,7 @@ export async function createVerkauf(formData: FormData) {
       const verfuegbar = parseFloat((zk as AR | null)?.menge ?? '0') || 0
       if (p.menge > verfuegbar + 0.01) {
         throw new Error(
-          `„${(zk as AR | null)?.rebsorte ?? 'Zukauf'}": Menge (${p.menge.toLocaleString('de-AT')} L) überschreitet verfügbaren Zukauf-Bestand (${verfuegbar.toLocaleString('de-AT')} L).`
+          `„${(zk as AR | null)?.rebsorte ? formatRebsorteMitKuerzel((zk as AR).rebsorte) : 'Zukauf'}": Menge (${p.menge.toLocaleString('de-AT')} L) überschreitet verfügbaren Zukauf-Bestand (${verfuegbar.toLocaleString('de-AT')} L).`
         )
       }
     } else if (p.typ === 'tank' && p.pressung_behaelter_id) {

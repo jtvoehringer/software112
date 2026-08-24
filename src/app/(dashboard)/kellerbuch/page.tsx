@@ -4,6 +4,7 @@ import { fmtLiter } from '@/lib/format'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Pencil, Boxes } from 'lucide-react'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 export const metadata: Metadata = { title: 'Kellerbuch – software:112' }
 export const dynamic = 'force-dynamic'
@@ -219,7 +220,7 @@ export default async function KellerbuchPage() {
                               className="after:absolute after:inset-0">
                               {w.name}
                             </Link>
-                            {w.rebsorte && <span className="text-xs text-s112-muted ml-1">· {w.rebsorte}</span>}
+                            {w.rebsorte && <span className="text-xs text-s112-muted ml-1">· {formatRebsorteMitKuerzel(w.rebsorte)}</span>}
                             {istEB && <span className="text-xs text-s112-muted ml-1 italic">(Eröffnungsbestand)</span>}
                             {(w.weinart && w.weinart !== 'unbekannt') && (
                               <span className={`inline-block ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${wa.color}`}>{wa.label}</span>

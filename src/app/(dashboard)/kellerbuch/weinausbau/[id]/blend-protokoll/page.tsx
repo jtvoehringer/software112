@@ -7,6 +7,7 @@ import { notFound } from 'next/navigation'
 import { GitMerge } from 'lucide-react'
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
 import { resolveBlendKomposition, type KompositionUrsprung } from '@/lib/wein/blendKomposition'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import PrintButton from './PrintButton'
 
 export const metadata: Metadata = { title: 'Blend-Protokoll – software:112' }
@@ -106,7 +107,7 @@ export default async function BlendProtokollPage({ params }: { params: Promise<{
         <div className="text-center py-4 border-b border-s112-border">
           <p className="text-2xl font-bold text-gray-900 tracking-tight">{wa.name}</p>
           <p className="text-sm text-gray-600 mt-1">
-            {[wa.jahrgang, wa.rebsorte, wa.qualitaetsstufe ? qualitaetLabel(wa.qualitaetsstufe) : null].filter(Boolean).join(' · ')}
+            {[wa.jahrgang, wa.rebsorte ? formatRebsorteMitKuerzel(wa.rebsorte) : null, wa.qualitaetsstufe ? qualitaetLabel(wa.qualitaetsstufe) : null].filter(Boolean).join(' · ')}
           </p>
           {wa.menge_liter && (
             <p className="text-xs text-gray-400 mt-1">
@@ -134,7 +135,7 @@ export default async function BlendProtokollPage({ params }: { params: Promise<{
               {komposition.map(u => (
                 <tr key={u.key} className="border-b border-s112-border/60 last:border-0">
                   <td className="py-2 text-gray-800">{herkunftLabel(u)}</td>
-                  <td className="py-2 text-gray-600">{u.rebsorte ?? '–'}</td>
+                  <td className="py-2 text-gray-600">{formatRebsorteMitKuerzel(u.rebsorte)}</td>
                   <td className="py-2 text-gray-600">{u.jahrgang ?? '–'}</td>
                   <td className="py-2 text-gray-800 font-semibold text-right">
                     {u.anteil_pct.toLocaleString('de-AT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %

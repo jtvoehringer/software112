@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
 import { deleteVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
 import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { GitMerge } from 'lucide-react'
 
 type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
@@ -113,15 +114,19 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
 
       {verschneidungen.length > 0 && (() => {
         // Aggregation nach Rebsorte/Name – gleiche Rebsorten (auch über mehrere Verschneidungen) zusammenfassen
-        const quellenMap: Record<string, { name: string; menge: number }> = {}
+        // istRebsorte merkt sich, ob "name" wirklich eine Rebsorte ist (nur dann macht ein
+        // Kürzel-Zusatz Sinn - beim Fallback auf den Chargen-Namen würde formatRebsorteMitKuerzel()
+        // sonst einen unsinnigen 4-Buchstaben-"Kürzel" aus dem Namen erzeugen).
+        const quellenMap: Record<string, { name: string; menge: number; istRebsorte: boolean }> = {}
         let gesamtMenge = 0
         for (const v of verschneidungen) {
           for (const q of ((v.quellen ?? []) as R[])) {
             const src    = q.quelle as R | null
             // Rebsorte bevorzugen; Fallback auf Name der Charge
-            const label  = src?.rebsorte ?? src?.name ?? '?'
+            const rebsorteWert = src?.rebsorte ?? null
+            const label  = rebsorteWert ?? src?.name ?? '?'
             const ml     = parseFloat(q.menge_liter) || 0
-            if (!quellenMap[label]) quellenMap[label] = { name: label, menge: 0 }
+            if (!quellenMap[label]) quellenMap[label] = { name: label, menge: 0, istRebsorte: !!rebsorteWert }
             quellenMap[label].menge += ml
             gesamtMenge += ml
           }
@@ -131,13 +136,12 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
         if (originalMenge > 0.5) {
           // Original-Anteil unter der Rebsorte des Ziel-Weins eintragen und ggf. mit
           // gleichnamiger Verschnitt-Quelle zusammenführen (z.B. 2× Rotgipfler → eine Bubble)
-          const originalLabel = (zielCharge.rebsorte && zielCharge.rebsorte !== 'Sortenverschnitt')
-            ? zielCharge.rebsorte
-            : zielCharge.name
+          const originalIstRebsorte = !!(zielCharge.rebsorte && zielCharge.rebsorte !== 'Sortenverschnitt')
+          const originalLabel = originalIstRebsorte ? (zielCharge.rebsorte as string) : zielCharge.name
           if (quellenMap[originalLabel]) {
             quellenMap[originalLabel].menge += originalMenge
           } else {
-            quellenMap[originalLabel] = { name: originalLabel, menge: originalMenge }
+            quellenMap[originalLabel] = { name: originalLabel, menge: originalMenge, istRebsorte: originalIstRebsorte }
           }
           gesamtMenge += originalMenge
         }
@@ -150,7 +154,7 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
               const pct = gesamtMenge > 0 ? Math.round((q.menge / gesamtMenge) * 1000) / 10 : 0
               return (
                 <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-50 border border-violet-200 text-xs text-violet-800 font-medium">
-                  {q.name}
+                  {q.istRebsorte ? formatRebsorteMitKuerzel(q.name) : q.name}
                   <span className="text-violet-500 font-normal">{pct.toLocaleString('de-AT')} %</span>
                 </span>
               )

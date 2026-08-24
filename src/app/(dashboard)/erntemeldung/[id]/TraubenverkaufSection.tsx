@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { createTraubenverkauf, updateTraubenverkauf, deleteTraubenverkauf } from '../actions'
 import type { ZukaufTraubenOpt } from './PressungSection'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -190,7 +191,7 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
               <option value="">– Zukauf wählen –</option>
               {zukaufOptions.map(z => (
                 <option key={z.id} value={z.id}>
-                  {fmtDate(z.datum)}{z.rebsorte ? ' · ' + z.rebsorte : ''}{' · '}{z.lieferant}
+                  {fmtDate(z.datum)}{z.rebsorte ? ' · ' + formatRebsorteMitKuerzel(z.rebsorte) : ''}{' · '}{z.lieferant}
                   {' – '}{verfuegbarZukauf(z.id).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg verf.
                 </option>
               ))}

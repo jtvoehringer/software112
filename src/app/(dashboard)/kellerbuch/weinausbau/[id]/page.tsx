@@ -10,6 +10,7 @@ import { kmwZuQualitaet, minQualitaet } from '@/lib/weinqualitaet'
 import VerschneidungWidget from './VerschneidungWidget'
 import UmziehenWidget from '@/components/kellerbuch/UmziehenWidget'
 import { umziehen } from '../../umziehen/actions'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { Wine, ArrowLeftRight, GitMerge, BookOpen, Microscope, Award, TrendingDown } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Charge bearbeiten – software:112' }
@@ -211,7 +212,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
   for (const z of ((zukaufRaw ?? []) as R[])) {
     const liter = parseFloat(z.menge) || 0
     if (liter <= 0) continue
-    const bezeichnung = [z.rebsorte, z.jahrgang].filter(Boolean).join(' ')
+    const bezeichnung = [z.rebsorte ? formatRebsorteMitKuerzel(z.rebsorte) : null, z.jahrgang].filter(Boolean).join(' ')
     bewegungen.push({
       datum: z.datum ?? '',
       art: 'zukauf',

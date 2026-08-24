@@ -6,6 +6,7 @@
 // (Sammel-PDF) identisch wiederverwendet werden kann, statt sie zu duplizieren.
 
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -269,7 +270,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
         if (w?.name) details.push(`Weingarten: ${w.name}`)
         if (wg.trauben_kg) details.push(`${parseFloat(wg.trauben_kg).toLocaleString('de-AT')} kg`)
         if (wg.kmw) details.push(`${wg.kmw} °KMW`)
-        if (wg.rebsorte) details.push(wg.rebsorte)
+        if (wg.rebsorte) details.push(formatRebsorteMitKuerzel(wg.rebsorte))
         ernteDaten.push({ datum: wg.ernte_datum, details })
       }
     }

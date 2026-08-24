@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { exportCSV } from '@/lib/utils/csv'
 import { BarChart3, Calculator, FileText, Droplet, Sprout } from 'lucide-react'
+import { formatRebsorteMitKuerzel, getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -307,6 +308,7 @@ export default function ReportsClient({
         produkt:     z.produkt,
         jahrgang:    z.jahrgang ?? '',
         sorte:       z.sorte ?? '',
+        kuerzel:     getRebsorteKuerzel(z.sorte),
         bezeichnung: z.bezeichnung ?? '',
         stk:         z.menge,
         betrag:      z.betrag.toFixed(2),
@@ -321,6 +323,7 @@ export default function ReportsClient({
         { key: 'produkt',     header: 'Produkt' },
         { key: 'jahrgang',    header: 'Jahrgang' },
         { key: 'sorte',       header: 'Sorte' },
+        { key: 'kuerzel',     header: 'Kürzel' },
         { key: 'bezeichnung', header: 'Bezeichnung' },
         { key: 'stk',         header: 'Stk' },
         { key: 'betrag',      header: 'Betrag (€)' },
@@ -1115,7 +1118,7 @@ export default function ReportsClient({
                             <td className="px-3 py-2 tabular-nums text-s112-muted whitespace-nowrap">{fmtDate(z.datum)}</td>
                             <td className="px-3 py-2 font-medium text-gray-800">{z.produkt}</td>
                             <td className="px-3 py-2 text-right tabular-nums text-gray-600">{z.jahrgang ?? '–'}</td>
-                            <td className="px-3 py-2 text-gray-600">{z.sorte ?? '–'}</td>
+                            <td className="px-3 py-2 text-gray-600">{formatRebsorteMitKuerzel(z.sorte)}</td>
                             <td className="px-3 py-2 text-gray-600">{z.bezeichnung ?? '–'}</td>
                             <td className="px-3 py-2 text-gray-600">{z.kunde}</td>
                             <td className="px-3 py-2 text-gray-600">{[z.plz, z.ort].filter(Boolean).join(' ') || '–'}</td>
@@ -1211,7 +1214,7 @@ export default function ReportsClient({
                         <tr key={c.id} className={`border-b border-s112-border/40 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
                           <td className="px-3 py-2 font-medium text-gray-800">{c.name}</td>
                           <td className="px-3 py-2 text-right tabular-nums text-gray-600">{c.jahrgang ?? '–'}</td>
-                          <td className="px-3 py-2 text-gray-600">{c.rebsorte ?? '–'}</td>
+                          <td className="px-3 py-2 text-gray-600">{formatRebsorteMitKuerzel(c.rebsorte)}</td>
                           <td className="px-3 py-2 text-gray-600">{c.behaelter ?? '–'}</td>
                           <td className="px-3 py-2 text-gray-600">{c.status}</td>
                           <td className="px-3 py-2 text-right tabular-nums">{Number(c.menge_liter ?? 0).toLocaleString('de-AT')} L</td>

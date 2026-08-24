@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import PrintButton from './PrintButton'
 
 export const metadata: Metadata = { title: 'Weinetikett – software:112' }
@@ -127,7 +128,7 @@ export default async function EtikettPage({ params }: { params: Promise<{ id: st
         {/* Pflichtangaben Grid */}
         <div className="grid grid-cols-2 gap-x-8 gap-y-3">
           {[
-            ['Rebsorte', dac.rebsorte ?? '–'],
+            ['Rebsorte', dac.rebsorte ? formatRebsorteMitKuerzel(dac.rebsorte) : '–'],
             ['Qualitätsstufe', 'DAC – Qualitätswein bestimmter Herkunft'],
             ['Alkohol', dac.alkohol_prozent ? `${String(dac.alkohol_prozent).replace('.', ',')} % vol.` : '–'],
             ['Füllmenge', fmtMenge(dac.menge_liter)],

@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 type Gebinde = { id: string; name: string; volumen_liter?: number | null }
 type Charge  = { id: string; name: string; menge_liter: number | null; behaelter_id?: string | null; rebsorte?: string | null }
@@ -40,7 +41,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
   const weinByGebinde: Record<string, string[]> = {}
   for (const c of alleChargen) {
     if (c.behaelter_id) {
-      const label = c.rebsorte || c.name
+      const label = c.rebsorte ? formatRebsorteMitKuerzel(c.rebsorte) : c.name
       if (!weinByGebinde[c.behaelter_id]) weinByGebinde[c.behaelter_id] = []
       if (!weinByGebinde[c.behaelter_id].includes(label)) weinByGebinde[c.behaelter_id].push(label)
     }
@@ -248,7 +249,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
                 <AlertTriangle size={14} strokeWidth={2} className="mt-0.5 shrink-0" />
                 <span>
                   <span className="font-semibold">Rebsortenverschnitt:</span>{' '}
-                  Das Ziel-Gebinde enthält bereits Chargen mit Rebsorte <strong>{andereRebsorten.join(', ')}</strong>.
+                  Das Ziel-Gebinde enthält bereits Chargen mit Rebsorte <strong>{andereRebsorten.map(r => formatRebsorteMitKuerzel(r)).join(', ')}</strong>.
                   Nach dem Umzug wird automatisch das Verschneiden-Formular geöffnet.
                 </span>
               </div>

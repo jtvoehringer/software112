@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import PrintButton from '../PrintButton'
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 export const metadata: Metadata = { title: 'AMA Erntemeldung – software:112' }
 export const dynamic = 'force-dynamic'
@@ -155,7 +156,7 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
               </tr>
             ) : positionen.map((p, i) => (
               <tr key={i} className={i % 2 === 1 ? 'bg-gray-50' : ''}>
-                <td className="px-3 py-2 border border-gray-200 font-medium">{p.rebsorte_name ?? '–'}</td>
+                <td className="px-3 py-2 border border-gray-200 font-medium">{formatRebsorteMitKuerzel(p.rebsorte_name)}</td>
                 <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">
                   {p.flaeche_ha != null ? Number(p.flaeche_ha).toLocaleString('de-AT', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : '–'}
                 </td>
@@ -208,7 +209,7 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
                 return (<tr key={i} className={i % 2 === 1 ? 'bg-gray-50' : ''}>
                   <td className="px-3 py-2 border border-gray-200">{f.name}</td>
                   <td className="px-3 py-2 border border-gray-200">{f.jahrgang ?? '–'}</td>
-                  <td className="px-3 py-2 border border-gray-200">{f.rebsorte ?? '–'}</td>
+                  <td className="px-3 py-2 border border-gray-200">{formatRebsorteMitKuerzel(f.rebsorte)}</td>
                   <td className="px-3 py-2 border border-gray-200 text-right">{f.flaschengroesse_ml ?? 750}</td>
                   <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">{(f.bestand_flaschen ?? 0).toLocaleString('de-AT')}</td>
                   <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">{hl.toFixed(3).replace('.', ',')}</td>
@@ -242,7 +243,7 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
                 return (<tr key={i} className={i % 2 === 1 ? 'bg-gray-50' : ''}>
                   <td className="px-3 py-2 border border-gray-200">{t.name}</td>
                   <td className="px-3 py-2 border border-gray-200">{t.jahrgang ?? '–'}</td>
-                  <td className="px-3 py-2 border border-gray-200">{t.rebsorte ?? '–'}</td>
+                  <td className="px-3 py-2 border border-gray-200">{formatRebsorteMitKuerzel(t.rebsorte)}</td>
                   <td className="px-3 py-2 border border-gray-200 text-xs text-gray-500">{(t.behaelter as R)?.name ?? '–'}</td>
                   <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">{liter.toLocaleString('de-AT', { maximumFractionDigits: 1 })}</td>
                   <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">{hl.toFixed(3).replace('.', ',')}</td>

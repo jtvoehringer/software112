@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { BookOpen } from 'lucide-react'
 import { buildWeinbuch, type Weinbuch } from '@/lib/wein/weinbuch'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { WeinbuchTimeline } from '@/app/(dashboard)/kellerbuch/weinausbau/[id]/buch/WeinbuchTimeline'
 import PrintButton from '@/app/(dashboard)/kellerbuch/weinausbau/[id]/buch/PrintButton'
 
@@ -95,7 +96,7 @@ export default async function WeinbuecherSammlungPage({
               <h2 className="text-xl font-bold text-gray-900">{wb.wa.name}</h2>
               <p className="text-sm text-s112-muted mt-0.5">
                 {wb.wa.jahrgang ? `Jahrgang ${wb.wa.jahrgang}` : ''}
-                {wb.wa.rebsorte ? ` · ${wb.wa.rebsorte}` : ''}
+                {wb.wa.rebsorte ? ` · ${formatRebsorteMitKuerzel(wb.wa.rebsorte)}` : ''}
                 {' · '}{STATUS_LABELS[wb.wa.status] ?? wb.wa.status}
                 {' · '}{Number(wb.wa.menge_liter ?? 0).toLocaleString('de-AT')} L
                 {wb.wa.behaelter_name ? ` · ${wb.wa.behaelter_name}` : ''}

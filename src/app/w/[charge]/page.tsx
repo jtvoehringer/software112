@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { Sprout } from 'lucide-react'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 export const dynamic = 'force-dynamic'
 
@@ -105,7 +106,7 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
           {f.rebsorte && (
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Rebsorte</span>
-              <span className="font-semibold text-gray-900">{f.rebsorte}</span>
+              <span className="font-semibold text-gray-900">{formatRebsorteMitKuerzel(f.rebsorte)}</span>
             </div>
           )}
           {f.qualitaet && (

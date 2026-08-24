@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Info, AlertTriangle } from 'lucide-react'
 import { QUALITAET_OPTS } from '@/lib/wein/qualitaet'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 const REBSORTEN = [
   'Grüner Veltliner','Riesling','Welschriesling','Müller-Thurgau',
@@ -115,7 +116,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
             {vonPressung ? (
               <>
                 <input type="hidden" name="rebsorte" value={weinausbau?.rebsorte ?? ''} />
-                <div className={rdOnly}>{weinausbau?.rebsorte ?? '–'}</div>
+                <div className={rdOnly}>{formatRebsorteMitKuerzel(weinausbau?.rebsorte)}</div>
               </>
             ) : (
               <>

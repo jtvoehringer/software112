@@ -3,6 +3,7 @@ import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/r
 import { fmtLiter } from '@/lib/format'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 export const metadata: Metadata = { title: 'Weinausbau – software:112' }
 export const dynamic = 'force-dynamic'
@@ -64,7 +65,7 @@ export default async function WeinausbauListePage() {
               <tr key={w.id} className="border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40">
                 <td className="px-4 py-2.5 font-medium text-gray-800">{w.name}</td>
                 <td className="px-4 py-2.5 text-s112-muted text-xs">{w.jahrgang ?? '–'}</td>
-                <td className="px-4 py-2.5 text-s112-muted text-xs">{w.rebsorte ?? '–'}</td>
+                <td className="px-4 py-2.5 text-s112-muted text-xs">{formatRebsorteMitKuerzel(w.rebsorte)}</td>
                 <td className="px-4 py-2.5 text-s112-muted text-xs">{(w.behaelter as R)?.name ?? '–'}</td>
                 <td className="px-4 py-2.5">
                   <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>

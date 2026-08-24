@@ -1,12 +1,14 @@
 'use client'
 
+import { getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
 export default function RueckverfolgungCsvExportButton({ treffer }: { treffer: R[] }) {
   function handleCSV() {
     const BOM = '﻿'
-    const headers = ['Produktname', 'Bezeichnung', 'Jahrgang', 'Sorte', 'Qualität', 'Chargennummer', 'Prüfnummer', 'Bestand (Flaschen)']
+    const headers = ['Produktname', 'Bezeichnung', 'Jahrgang', 'Sorte', 'Kürzel', 'Qualität', 'Chargennummer', 'Prüfnummer', 'Bestand (Flaschen)']
     const rows: string[][] = [headers]
     for (const f of treffer) {
       rows.push([
@@ -14,6 +16,7 @@ export default function RueckverfolgungCsvExportButton({ treffer }: { treffer: R
         f.bezeichnung ?? '',
         f.jahrgang != null ? String(f.jahrgang) : '',
         f.rebsorte ?? '',
+        getRebsorteKuerzel(f.rebsorte),
         f.qualitaet ?? '',
         f.chargennummer ?? '',
         f.pruefnummer ?? '',

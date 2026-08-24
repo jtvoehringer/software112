@@ -5,6 +5,7 @@ import { createVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
 import { QUALITAET_LABEL, QUALITAET_ORDER, istNiedrigerAls, minQualitaet } from '@/lib/weinqualitaet'
 import { HERKUNFT_LABEL, istNiedrigerAls as herkunftIstNiedrigerAls, minHerkunft } from '@/lib/herkunft'
 import { GitMerge, AlertTriangle, Ban, CheckCircle2, Info, X } from 'lucide-react'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
 
@@ -235,7 +236,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
                 {verfuegbar.map(c => (
                   <option key={c.id} value={c.id}>
                     {c.name}{c.menge_liter != null ? ` (${c.menge_liter.toLocaleString('de-AT')} L)` : ''}
-                    {c.rebsorte ? ` · ${c.rebsorte}` : ''}
+                    {c.rebsorte ? ` · ${formatRebsorteMitKuerzel(c.rebsorte)}` : ''}
                     {c.qualitaetsstufe ? ` · ${QUALITAET_LABEL[c.qualitaetsstufe] ?? c.qualitaetsstufe}` : ''}
                   </option>
                 ))}
@@ -310,9 +311,9 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
             <div>
               <p className="font-medium text-amber-800">Rebsortenverschnitt</p>
               <p className="text-xs text-amber-700 mt-0.5">
-                Ziel-Charge: <strong>{zielRebsorte}</strong> –
+                Ziel-Charge: <strong>{formatRebsorteMitKuerzel(zielRebsorte)}</strong> –
                 Quelle{quellenMitAndererRebsorte.length > 1 ? 'n' : ''}{' '}
-                <strong>{quellenMitAndererRebsorte.map(c => `${c.name} (${c.rebsorte})`).join(', ')}</strong>{' '}
+                <strong>{quellenMitAndererRebsorte.map(c => `${c.name} (${formatRebsorteMitKuerzel(c.rebsorte)})`).join(', ')}</strong>{' '}
                 {quellenMitAndererRebsorte.length > 1 ? 'haben' : 'hat'} eine andere Rebsorte.
                 Die Mischung gilt als Sortenverschnitt.
               </p>
@@ -392,13 +393,13 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
           </span>
           <div>
             {rebsortenPreview.typ === 'unveraendert' && (
-              <p className="font-medium">Rebsorte bleibt unverändert ({rebsortenPreview.rebsorte})</p>
+              <p className="font-medium">Rebsorte bleibt unverändert ({formatRebsorteMitKuerzel(rebsortenPreview.rebsorte)})</p>
             )}
             {rebsortenPreview.typ === 'bezeichnungsunschaedlich' && (
               <>
                 <p className="font-medium">Bezeichnungsunschädlicher Verschnitt – Rebsorte bleibt unverändert</p>
                 <p className="text-xs mt-0.5">
-                  <strong>{rebsortenPreview.rebsorte}</strong> macht {rebsortenPreview.anteilPct} % aus (≥ 85 %)
+                  <strong>{formatRebsorteMitKuerzel(rebsortenPreview.rebsorte)}</strong> macht {rebsortenPreview.anteilPct} % aus (≥ 85 %)
                 </p>
               </>
             )}

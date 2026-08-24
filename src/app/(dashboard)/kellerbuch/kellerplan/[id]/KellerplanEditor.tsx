@@ -4,6 +4,7 @@ import { useState, useRef, useTransition, useCallback } from 'react'
 import Link from 'next/link'
 import { ArrowLeftRight, FlaskConical, Wine } from 'lucide-react'
 import { upsertKellerplanPosition, deleteKellerplanPosition } from '../actions'
+import { getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
 
@@ -532,7 +533,7 @@ export default function KellerplanEditor({
             <h3 className="font-semibold text-gray-800">{dialogBehaelter.name}</h3>
             <p className="text-xs text-s112-muted mt-0.5 mb-4">
               {dialogWein
-                ? `${dialogWein.name}${dialogWein.jahrgang ? ` ${dialogWein.jahrgang}` : ''}${dialogWein.rebsorte ? ` · ${dialogWein.rebsorte}` : ''}`
+                ? `${dialogWein.name}${dialogWein.jahrgang ? ` ${dialogWein.jahrgang}` : ''}${dialogWein.rebsorte ? ` · ${dialogWein.rebsorte}${getRebsorteKuerzel(dialogWein.rebsorte) ? ` (${getRebsorteKuerzel(dialogWein.rebsorte)})` : ''}` : ''}`
                 : 'Kein Wein im Behälter'}
             </p>
 

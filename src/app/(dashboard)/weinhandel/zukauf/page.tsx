@@ -5,6 +5,7 @@ import { Pencil, AlertTriangle } from 'lucide-react'
 import ZukaufLoeschen from './ZukaufLoeschen'
 import ClickableTableRow from '@/components/ui/ClickableTableRow'
 import StopPropagation from '@/components/ui/StopPropagation'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 export const dynamic = 'force-dynamic'
 
@@ -164,7 +165,7 @@ export default async function ZukaufPage({
                 const lieferant = p.lieferant_kontakt
                   ? [p.lieferant_kontakt.vorname, p.lieferant_kontakt.nachname].filter(Boolean).join(' ')
                   : p.lieferant_firma?.name ?? '–'
-                const rebInfo = [p.rebsorte, p.jahrgang].filter(Boolean).join(' ') || '–'
+                const rebInfo = [p.rebsorte ? formatRebsorteMitKuerzel(p.rebsorte) : null, p.jahrgang].filter(Boolean).join(' ') || '–'
                 return (
                   <ClickableTableRow key={p.id} href={`/weinhandel/zukauf/${p.id}/edit`} className="hover:bg-s112-bg/50 transition-colors">
                     <td className="px-4 py-3 text-gray-700 whitespace-nowrap">

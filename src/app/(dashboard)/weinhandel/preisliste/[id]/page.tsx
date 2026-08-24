@@ -10,6 +10,7 @@ import {
 import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButton'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import { Trash2 } from 'lucide-react'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 export const dynamic = 'force-dynamic'
 
@@ -197,7 +198,7 @@ export default async function PreislisteDetailPage({ params }: { params: Promise
                     <div className="font-medium text-gray-900">{pos.name}</div>
                     <div className="text-xs text-s112-muted flex gap-2 mt-0.5">
                       {pos.jahrgang    && <span>{pos.jahrgang}</span>}
-                      {pos.rebsorte    && <span>{pos.rebsorte}</span>}
+                      {pos.rebsorte    && <span>{formatRebsorteMitKuerzel(pos.rebsorte)}</span>}
                       {pos.flaschengroesse_ml && (
                         <span>{FLASCHEN_LABEL[pos.flaschengroesse_ml] ?? `${pos.flaschengroesse_ml} ml`}</span>
                       )}

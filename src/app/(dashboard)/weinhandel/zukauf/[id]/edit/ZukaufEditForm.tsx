@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { updateZukauf } from '../../actions'
 import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { AlertTriangle } from 'lucide-react'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
 
@@ -427,7 +428,7 @@ export default function ZukaufEditForm({
                   const rest = vol != null ? vol - inhalt : null
                   const rebsortenListe = chargen.map(w => w.rebsorte)
                   if (eigeneHier > 0 && rebsorte) rebsortenListe.push(rebsorte)
-                  const rebsorten = [...new Set(rebsortenListe.filter(Boolean))].join(', ')
+                  const rebsorten = [...new Set(rebsortenListe.filter(Boolean))].map(r => formatRebsorteMitKuerzel(r)).join(', ')
                   const kapSuffix = vol != null ? ` · ${vol.toLocaleString('de-AT')} L` : ''
                   const inhaltSuffix = inhalt > 0 ? ` · Inhalt: ${inhalt.toLocaleString('de-AT')} L${rebsorten ? ` (${rebsorten})` : ''}` : ' · leer'
                   const restSuffix = rest != null ? ` · Rest: ${rest.toLocaleString('de-AT')} L` : ''
@@ -475,7 +476,7 @@ export default function ZukaufEditForm({
                         {inhalt.toLocaleString('de-AT', { maximumFractionDigits: 1 })} L
                         {(chargen.length > 0 || eigeneHier > 0) && (
                           <span className="ml-1 font-normal text-s112-muted">
-                            ({[...new Set(rebsortenListe.filter(Boolean))].join(', ') || '–'})
+                            ({[...new Set(rebsortenListe.filter(Boolean))].map(r => formatRebsorteMitKuerzel(r)).join(', ') || '–'})
                           </span>
                         )}
                       </p>

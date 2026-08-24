@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { randomUUID } from 'crypto'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -38,7 +39,7 @@ export async function ermittleQuellenName(
     const lieferant = z?.lieferant_kontakt
       ? [z.lieferant_kontakt.vorname, z.lieferant_kontakt.nachname].filter(Boolean).join(' ')
       : (z?.lieferant_firma?.name ?? null)
-    return `Zukauf${z?.rebsorte ? ' – ' + z.rebsorte : ''}${lieferant ? ' (' + lieferant + ')' : ''}` || 'Zukauf'
+    return `Zukauf${z?.rebsorte ? ' – ' + formatRebsorteMitKuerzel(z.rebsorte) : ''}${lieferant ? ' (' + lieferant + ')' : ''}` || 'Zukauf'
   }
   return 'Trauben'
 }

@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Boxes, ArrowLeftRight, Filter, Microscope, Leaf, Wine, Search, GitMerge } from 'lucide-react'
 import { resolveBlendKompositionFuellung, type KompositionUrsprung } from '@/lib/wein/blendKomposition'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import RueckverfolgungPrintButton from './PrintButton'
 import RueckverfolgungCsvExportButton from './CsvExportButton'
 
@@ -217,7 +218,7 @@ function ChargeKette({
       <Section title={showNr ? `Kellerbuch-Charge ${chargeNr} / ${total}` : 'Kellerbuch-Charge'} icon={<Boxes className="w-4 h-4" />}>
         <InfoRow label="Charge" value={weinausbau.name} />
         <InfoRow label="Jahrgang" value={weinausbau.jahrgang} />
-        <InfoRow label="Rebsorte" value={weinausbau.rebsorte} />
+        <InfoRow label="Rebsorte" value={weinausbau.rebsorte ? formatRebsorteMitKuerzel(weinausbau.rebsorte) : null} />
         <InfoRow label="Qualität" value={weinausbau.qualitaetsstufe} />
         <InfoRow label="Status" value={weinausbau.status} />
         <InfoRow label="Behälter" value={(weinausbau.behaelter as R | null)?.name} />
@@ -298,7 +299,7 @@ function ChargeKette({
                           )}
                           <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-600">
                             {wg.trauben_kg && <span>{parseFloat(wg.trauben_kg).toLocaleString('de-AT')} kg</span>}
-                            {wg.rebsorte && <span>{wg.rebsorte}</span>}
+                            {wg.rebsorte && <span>{formatRebsorteMitKuerzel(wg.rebsorte)}</span>}
                             {wg.ernte_datum && <span>Lese: {new Date(wg.ernte_datum).toLocaleDateString('de-AT')}</span>}
                             {wg.kmw && <span>{wg.kmw} °KMW</span>}
                           </div>
@@ -636,7 +637,7 @@ export default async function RueckverfolgungPage({
                     <td className="px-3 py-2 font-medium text-gray-800">{f.name}</td>
                     <td className="px-3 py-2 text-gray-600">{f.bezeichnung ?? '–'}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-gray-600">{f.jahrgang ?? '–'}</td>
-                    <td className="px-3 py-2 text-gray-600">{f.rebsorte ?? '–'}</td>
+                    <td className="px-3 py-2 text-gray-600">{formatRebsorteMitKuerzel(f.rebsorte)}</td>
                     <td className="px-3 py-2 text-gray-600 text-xs font-mono">{f.chargennummer ?? '–'}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-s112-teal font-medium">
                       {(parseInt(f.bestand_flaschen) || 0).toLocaleString('de-AT')} Fl.
@@ -695,7 +696,7 @@ export default async function RueckverfolgungPage({
             <InfoRow label="Prüfnummer" value={fuellung.pruefnummer ?? '–'} />
             <InfoRow label="Produktname" value={fuellung.name} />
             <InfoRow label="Jahrgang" value={fuellung.jahrgang} />
-            <InfoRow label="Rebsorte" value={fuellung.rebsorte} />
+            <InfoRow label="Rebsorte" value={fuellung.rebsorte ? formatRebsorteMitKuerzel(fuellung.rebsorte) : null} />
             <InfoRow label="Qualität" value={fuellung.qualitaet} />
             <InfoRow label="Anbaugebiet" value={fuellung.anbaugebiet} />
             <InfoRow label="Ried / Bezeichnung" value={fuellung.bezeichnung} />
@@ -719,7 +720,7 @@ export default async function RueckverfolgungPage({
                     <span className="text-gray-700">
                       {herkunftLabel(u)}
                       {(u.rebsorte || u.jahrgang) && (
-                        <span className="text-s112-muted"> · {[u.rebsorte, u.jahrgang].filter(Boolean).join(' · ')}</span>
+                        <span className="text-s112-muted"> · {[u.rebsorte ? formatRebsorteMitKuerzel(u.rebsorte) : null, u.jahrgang].filter(Boolean).join(' · ')}</span>
                       )}
                     </span>
                     <span className="text-gray-800 font-semibold shrink-0">

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createVerkauf, createSonstigesArtikel, SonstigesArtikelData } from '../actions'
 import { Check } from 'lucide-react'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
 
@@ -792,7 +793,7 @@ export default function NeuerVerkaufPage() {
                         <optgroup label="Zukauf">
                           {zukaufPosten.map(z => (
                             <option key={z.id} value={`zk:${z.id}`}>
-                              {[z.rebsorte, z.jahrgang].filter(Boolean).join(' ')}
+                              {[z.rebsorte ? formatRebsorteMitKuerzel(z.rebsorte) : null, z.jahrgang].filter(Boolean).join(' ')}
                               {z.notizen ? ` · ${z.notizen}` : ''}
                               {` · ${z.menge} ${z.einheit}`}
                             </option>
@@ -849,7 +850,7 @@ export default function NeuerVerkaufPage() {
                           .filter(g => g.weingarten_id === pos.trauben_weingarten_id && g.verfuegbar_kg > 0)
                           .map(g => (
                             <option key={g.id} value={g.id}>
-                              GST {g.gst_nr}{g.rebsorte ? ` – ${g.rebsorte}` : ''} · {g.verfuegbar_kg.toLocaleString('de-AT')} kg verf.
+                              GST {g.gst_nr}{g.rebsorte ? ` – ${formatRebsorteMitKuerzel(g.rebsorte)}` : ''} · {g.verfuegbar_kg.toLocaleString('de-AT')} kg verf.
                             </option>
                           ))}
                       </select>

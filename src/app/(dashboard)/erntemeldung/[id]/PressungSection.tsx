@@ -6,6 +6,7 @@ import { upsertPressung, deletePressung } from '../actions'
 import { fmtProzent } from '@/lib/format'
 import { kmwZuQualitaet, QUALITAET_LABEL, QUALITAET_ORDER } from '@/lib/weinqualitaet'
 import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -449,7 +450,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
                 </div>
                 <div className="col-span-3 flex items-center px-2">
                   <span className="text-sm text-gray-600 truncate">
-                    {row.rebsorte || <span className="text-gray-400 text-xs">–</span>}
+                    {row.rebsorte ? formatRebsorteMitKuerzel(row.rebsorte) : <span className="text-gray-400 text-xs">–</span>}
                   </span>
                 </div>
                 <div className="col-span-2 flex justify-end">
@@ -487,7 +488,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
                       ? ` · ${vol.toLocaleString('de-AT')} L · frei: ${frei!.toLocaleString('de-AT', { maximumFractionDigits: 0 })} L`
                       : ''
                     const inhaltSuffix = existing.length > 0
-                      ? ` [${existing.map(c => c.rebsorte ? `${c.name} (${c.rebsorte})` : c.name).join(', ')}]`
+                      ? ` [${existing.map(c => c.rebsorte ? `${c.name} (${formatRebsorteMitKuerzel(c.rebsorte)})` : c.name).join(', ')}]`
                       : ' [leer]'
                     return <option key={b.id} value={b.id}>{b.name}{kapSuffix}{inhaltSuffix}</option>
                   })}
@@ -539,7 +540,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
                             {existing.map((c, ci) => (
                               <li key={ci} className="flex justify-between">
                                 <span className={isFarbmix ? 'text-red-700' : isMix ? 'text-amber-700' : 'text-gray-700'}>
-                                  {c.name}{c.rebsorte ? ` · ${c.rebsorte}` : ''}
+                                  {c.name}{c.rebsorte ? ` · ${formatRebsorteMitKuerzel(c.rebsorte)}` : ''}
                                 </span>
                                 <span className="tabular-nums text-gray-500 ml-2">
                                   {c.menge_liter != null ? c.menge_liter.toLocaleString('de-AT', { maximumFractionDigits: 1 }) + ' L' : '–'}
@@ -734,7 +735,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                         {p.weingaerten.map(w => (
                           <span key={w.id} className="inline-flex items-center gap-1 bg-green-50 border border-green-200 text-green-800 text-xs px-2 py-0.5 rounded-full">
                             {w.weingarten_name}
-                            {w.rebsorte && <span className="text-green-600">· {w.rebsorte}</span>}
+                            {w.rebsorte && <span className="text-green-600">· {formatRebsorteMitKuerzel(w.rebsorte)}</span>}
                             <span className="font-medium">· {fmt(w.trauben_kg)} kg</span>
                           </span>
                         ))}

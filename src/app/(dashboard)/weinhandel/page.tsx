@@ -5,6 +5,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import FuellungLoeschen from './FuellungLoeschen'
 import { Package, Truck, Grape, Search, Pencil } from 'lucide-react'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 export const metadata: Metadata = { title: 'Warenwirtschaft – software:112' }
 export const dynamic = 'force-dynamic'
@@ -185,7 +186,7 @@ export default async function WeinhandelPage() {
                         </Link>
                         <div className="text-xs text-s112-muted mt-0.5 flex gap-2">
                           {f.jahrgang    && <span>{f.jahrgang}</span>}
-                          {f.rebsorte    && <span>{f.rebsorte}</span>}
+                          {f.rebsorte    && <span>{formatRebsorteMitKuerzel(f.rebsorte)}</span>}
                           {f.anbaugebiet && <span>{f.anbaugebiet}</span>}
                         </div>
                       </td>
@@ -274,7 +275,7 @@ export default async function WeinhandelPage() {
                     <tr key={t.id} className={`border-b border-s112-border last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
                       <td className="px-4 py-3 font-medium text-gray-900">{t.name}</td>
                       <td className="px-4 py-3 text-s112-muted">{t.jahrgang ?? '–'}</td>
-                      <td className="px-4 py-3 text-s112-muted">{t.rebsorte ?? '–'}</td>
+                      <td className="px-4 py-3 text-s112-muted">{formatRebsorteMitKuerzel(t.rebsorte)}</td>
                       <td className="px-4 py-3">
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>{st.label}</span>
                       </td>
@@ -366,7 +367,7 @@ export default async function WeinhandelPage() {
                   const lieferant = z.lieferant_kontakt
                     ? [z.lieferant_kontakt.vorname, z.lieferant_kontakt.nachname].filter(Boolean).join(' ')
                     : (z.lieferant_firma as R | null)?.name ?? '–'
-                  const rebInfo = [z.rebsorte, z.jahrgang].filter(Boolean).join(' ') || '–'
+                  const rebInfo = [z.rebsorte ? formatRebsorteMitKuerzel(z.rebsorte) : null, z.jahrgang].filter(Boolean).join(' ') || '–'
                   return (
                     <tr key={z.id} className={`border-b border-s112-border last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
                       <td className="px-4 py-3 whitespace-nowrap">{ART_LABEL[z.art] ?? z.art}</td>

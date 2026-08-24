@@ -182,16 +182,18 @@ export const FLASCHEN_LABEL: Record<number, string> = {
  * Bewusst als einfache Listen (keine JSON-Verschachtelung) – spart Tokens
  * und ist für das Sprachmodell genauso gut auswertbar.
  */
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+
 export function formatiereKontextFuerPrompt(k: AssistentKontext): string {
   const zeile = (id: string, label: string, extra?: string | null) =>
     `- [${id}] ${label}${extra ? ` (${extra})` : ''}`
 
   return `
 WEINGÄRTEN / RIEDEN (${k.weingaerten.length}):
-${k.weingaerten.map(w => zeile(w.id, w.name, [w.ried, w.rebsorte].filter(Boolean).join(', ') || null)).join('\n') || '(keine)'}
+${k.weingaerten.map(w => zeile(w.id, w.name, [w.ried, w.rebsorte ? formatRebsorteMitKuerzel(w.rebsorte) : null].filter(Boolean).join(', ') || null)).join('\n') || '(keine)'}
 
 GRUNDSTÜCKE (${k.grundstuecke.length}):
-${k.grundstuecke.map(g => zeile(g.id, g.gst_nr, [g.katastralgemeinde, g.rebsorte].filter(Boolean).join(', ') || null)).join('\n') || '(keine)'}
+${k.grundstuecke.map(g => zeile(g.id, g.gst_nr, [g.katastralgemeinde, g.rebsorte ? formatRebsorteMitKuerzel(g.rebsorte) : null].filter(Boolean).join(', ') || null)).join('\n') || '(keine)'}
 
 PFLANZENSCHUTZMITTEL (${k.psm.length}):
 ${k.psm.map(p => zeile(p.id, p.name, [p.kategorie, p.oeko_zugelassen ? 'bio-zugelassen' : null].filter(Boolean).join(', ') || null)).join('\n') || '(keine)'}
@@ -209,10 +211,10 @@ TEAM-MITGLIEDER:
 ${k.mitarbeiter.map(m => `- ${m.name} (${m.rolle})`).join('\n') || '(keine)'}
 
 FÜLLUNGEN / FLASCHEN-BESTAND (${k.fuellungen.length}, nur mit Bestand > 0):
-${k.fuellungen.map(f => zeile(f.id, f.name, [f.jahrgang, f.rebsorte, f.flaschengroesse_ml ? FLASCHEN_LABEL[f.flaschengroesse_ml] : null, `${f.bestand_flaschen} Stk verfügbar`, f.vk_preis_brutto != null ? `VK ${f.vk_preis_brutto} €` : null].filter(Boolean).join(', ') || null)).join('\n') || '(keine)'}
+${k.fuellungen.map(f => zeile(f.id, f.name, [f.jahrgang, f.rebsorte ? formatRebsorteMitKuerzel(f.rebsorte) : null, f.flaschengroesse_ml ? FLASCHEN_LABEL[f.flaschengroesse_ml] : null, `${f.bestand_flaschen} Stk verfügbar`, f.vk_preis_brutto != null ? `VK ${f.vk_preis_brutto} €` : null].filter(Boolean).join(', ') || null)).join('\n') || '(keine)'}
 
 WEINAUSBAU-CHARGEN / FASS-TANK-BESTAND (${k.weinausbau.length}, nur mit Menge > 0):
-${k.weinausbau.map(w => zeile(w.id, w.name, [w.jahrgang, w.rebsorte, `${w.menge_liter} L verfügbar`].filter(Boolean).join(', ') || null)).join('\n') || '(keine)'}
+${k.weinausbau.map(w => zeile(w.id, w.name, [w.jahrgang, w.rebsorte ? formatRebsorteMitKuerzel(w.rebsorte) : null, `${w.menge_liter} L verfügbar`].filter(Boolean).join(', ') || null)).join('\n') || '(keine)'}
 
 STANDARD-UST-SATZ DES BETRIEBS: ${k.ustSatzStandard}%
 

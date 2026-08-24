@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { manuellSchwundBuchen } from '../../../actions'
 import { Boxes, Droplet } from 'lucide-react'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 export const metadata: Metadata = { title: 'Bewegungsbuch – software:112' }
 export const dynamic = 'force-dynamic'
@@ -187,7 +188,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     bewegungen.push({
       datum: z.datum ?? '',
       art: 'zukauf',
-      beschreibung: `Zukauf${[z.rebsorte, z.jahrgang].filter(Boolean).join(' ') ? `: ${[z.rebsorte, z.jahrgang].filter(Boolean).join(' ')}` : ''}`,
+      beschreibung: `Zukauf${[z.rebsorte ? formatRebsorteMitKuerzel(z.rebsorte) : null, z.jahrgang].filter(Boolean).join(' ') ? `: ${[z.rebsorte ? formatRebsorteMitKuerzel(z.rebsorte) : null, z.jahrgang].filter(Boolean).join(' ')}` : ''}`,
       menge: liter,
     })
   }

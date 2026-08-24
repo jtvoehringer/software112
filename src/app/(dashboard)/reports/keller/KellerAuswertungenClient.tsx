@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { exportCSV } from '@/lib/utils/csv'
+import { formatRebsorteMitKuerzel, getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -83,6 +84,7 @@ export default function KellerAuswertungenClient({
         return {
           name:      c.name,
           rebsorte:  c.rebsorte ?? '',
+          kuerzel:   getRebsorteKuerzel(c.rebsorte),
           jahrgang:  c.jahrgang ?? '',
           status:    st,
           behaelter: bh?.name ?? '',
@@ -92,6 +94,7 @@ export default function KellerAuswertungenClient({
     exportCSV(rows, [
       { key: 'name',      header: 'Charge' },
       { key: 'rebsorte',  header: 'Rebsorte' },
+      { key: 'kuerzel',   header: 'Kürzel' },
       { key: 'jahrgang',  header: 'Jahrgang' },
       { key: 'status',    header: 'Status' },
       { key: 'behaelter', header: 'Behälter' },
@@ -268,7 +271,7 @@ export default function KellerAuswertungenClient({
                     <td className="px-4 py-2.5 font-medium text-gray-800">
                       <Link href={`/kellerbuch/weinausbau/${c.id}`} className="hover:text-s112-teal">
                         {c.name}
-                        {c.rebsorte && <span className="text-xs text-s112-muted ml-1">· {c.rebsorte}</span>}
+                        {c.rebsorte && <span className="text-xs text-s112-muted ml-1">· {formatRebsorteMitKuerzel(c.rebsorte)}</span>}
                       </Link>
                     </td>
                     <td className="px-4 py-2.5 text-gray-500 text-xs">{c.jahrgang ?? '–'}</td>

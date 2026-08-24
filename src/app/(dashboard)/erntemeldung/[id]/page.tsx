@@ -6,6 +6,7 @@ import Link from 'next/link'
 import ErnteDetailClient from './ErnteDetailClient'
 import type { Pressung, PressungWG, PressungBeh, WGOption, BehOption, WAOption, ZukaufTraubenOpt } from './PressungSection'
 import TraubenverkaufSection, { type Traubenverkauf, type TVWGOption, type TVKontaktOption, type TVFirmaOption, type TVQuelleOption } from './TraubenverkaufSection'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 export const metadata: Metadata = { title: 'Lese – software:112' }
 export const dynamic = 'force-dynamic'
@@ -290,7 +291,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     zukauf_posten_id: v.zukauf_posten_id ?? null,
     weingarten_name: (v.weingarten as AR | null)?.name
       ?? (zukaufQuelle
-            ? `Zukauf – ${zukaufQuelle.rebsorte ?? '–'}${zukaufQuelle.lieferant ? ' (' + zukaufQuelle.lieferant + ')' : ''}`
+            ? `Zukauf – ${zukaufQuelle.rebsorte ? formatRebsorteMitKuerzel(zukaufQuelle.rebsorte) : '–'}${zukaufQuelle.lieferant ? ' (' + zukaufQuelle.lieferant + ')' : ''}`
             : (v.zukauf_posten_id ? 'Zukauf' : '–')),
     kontakt_id: v.kontakt_id ?? null,
     kontakt_name: v.kontakt ? `${(v.kontakt as AR).vorname ?? ''} ${(v.kontakt as AR).nachname ?? ''}`.trim() : null,

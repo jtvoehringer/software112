@@ -3,6 +3,7 @@ import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/r
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 export const metadata: Metadata = { title: 'Laboranalysen – software:112' }
 export const dynamic = 'force-dynamic'
@@ -79,7 +80,7 @@ export default async function AnalysenPage({ params }: { params: Promise<{ id: s
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Laboranalysen</h1>
           <p className="text-sm text-s112-muted mt-0.5">
-            {wa.name}{wa.jahrgang ? ` · ${wa.jahrgang}` : ''}{wa.rebsorte ? ` · ${wa.rebsorte}` : ''}
+            {wa.name}{wa.jahrgang ? ` · ${wa.jahrgang}` : ''}{wa.rebsorte ? ` · ${formatRebsorteMitKuerzel(wa.rebsorte)}` : ''}
           </p>
         </div>
         {writeOk && (

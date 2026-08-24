@@ -3,6 +3,7 @@
 import React, { useState, useTransition } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { upsertTraubenverkauf, deleteTraubenverkauf } from './actions'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -312,7 +313,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
                   <option value="">– Zukauf wählen –</option>
                   {zukaufOptions.map(z => (
                     <option key={z.id} value={z.id}>
-                      {fmtDate(z.datum)}{z.rebsorte ? ' · ' + z.rebsorte : ''}{' · '}{z.lieferant}
+                      {fmtDate(z.datum)}{z.rebsorte ? ' · ' + formatRebsorteMitKuerzel(z.rebsorte) : ''}{' · '}{z.lieferant}
                       {' – '}{verfuegbarZukauf(z.id).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg verf.
                     </option>
                   ))}
@@ -353,7 +354,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
                   <option value="">– gesamt (alle GST) –</option>
                   {gstList.map(g => (
                     <option key={g.id} value={g.id}>
-                      {'GST ' + g.gst_nr + (g.rebsorte ? ' – ' + g.rebsorte : '')}
+                      {'GST ' + g.gst_nr + (g.rebsorte ? ' – ' + formatRebsorteMitKuerzel(g.rebsorte) : '')}
                     </option>
                   ))}
                 </select>
@@ -505,7 +506,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
               : null
             const quelleLabel = wg?.name
               ?? (zukaufPosten
-                    ? `Zukauf – ${zukaufPosten.rebsorte ?? '–'}${zukaufPosten.lieferant ? ' (' + zukaufPosten.lieferant + ')' : ''}`
+                    ? `Zukauf – ${zukaufPosten.rebsorte ? formatRebsorteMitKuerzel(zukaufPosten.rebsorte) : '–'}${zukaufPosten.lieferant ? ' (' + zukaufPosten.lieferant + ')' : ''}`
                     : (v.zukauf_posten_id ? 'Zukauf' : '–'))
             return (
               <div key={v.id} className="group card">

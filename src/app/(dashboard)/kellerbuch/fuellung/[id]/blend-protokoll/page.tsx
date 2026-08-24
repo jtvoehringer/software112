@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { GitMerge } from 'lucide-react'
 import { resolveBlendKompositionFuellung, type KompositionUrsprung } from '@/lib/wein/blendKomposition'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import PrintButton from './PrintButton'
 
 export const metadata: Metadata = { title: 'Blend-Protokoll – software:112' }
@@ -111,7 +112,7 @@ export default async function BlendProtokollFuellungPage({ params }: { params: P
         <div className="text-center py-4 border-b border-s112-border">
           <p className="text-2xl font-bold text-gray-900 tracking-tight">{fuellung.name ?? '–'}</p>
           <p className="text-sm text-gray-600 mt-1">
-            {[fuellung.jahrgang, fuellung.rebsorte].filter(Boolean).join(' · ')}
+            {[fuellung.jahrgang, fuellung.rebsorte ? formatRebsorteMitKuerzel(fuellung.rebsorte) : null].filter(Boolean).join(' · ')}
           </p>
           <div className="flex items-center justify-center gap-4 text-xs text-gray-400 mt-2">
             {fuellung.chargennummer && <span>Charge: {fuellung.chargennummer}</span>}
@@ -142,7 +143,7 @@ export default async function BlendProtokollFuellungPage({ params }: { params: P
               {komposition.map(u => (
                 <tr key={u.key} className="border-b border-s112-border/60 last:border-0">
                   <td className="py-2 text-gray-800">{herkunftLabel(u)}</td>
-                  <td className="py-2 text-gray-600">{u.rebsorte ?? '–'}</td>
+                  <td className="py-2 text-gray-600">{formatRebsorteMitKuerzel(u.rebsorte)}</td>
                   <td className="py-2 text-gray-600">{u.jahrgang ?? '–'}</td>
                   <td className="py-2 text-gray-800 font-semibold text-right">
                     {u.anteil_pct.toLocaleString('de-AT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %

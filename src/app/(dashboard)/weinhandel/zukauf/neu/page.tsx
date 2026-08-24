@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createZukauf } from '../actions'
 import { QUALITAET_LABEL, QUALITAET_ORDER } from '@/lib/weinqualitaet'
 import { AlertTriangle } from 'lucide-react'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 interface Kontakt  { id: string; vorname: string | null; nachname: string; firma_id: string | null }
 interface Firma    { id: string; name: string; ist_kunde?: boolean; ist_lieferant?: boolean }
@@ -533,7 +534,7 @@ export default function ZukaufNeuPage() {
                   const chargen = weinausbauListe.filter(w => w.behaelter_id === b.id)
                   const inhalt = chargen.reduce((s, w) => s + (w.menge_liter ?? 0), 0)
                   const rest = vol != null ? vol - inhalt : null
-                  const rebsorten = [...new Set(chargen.map(w => w.rebsorte).filter(Boolean))].join(', ')
+                  const rebsorten = [...new Set(chargen.map(w => w.rebsorte).filter(Boolean))].map(r => formatRebsorteMitKuerzel(r)).join(', ')
                   const kapSuffix = vol != null ? ` · ${vol.toLocaleString('de-AT')} L` : ''
                   const inhaltSuffix = inhalt > 0 ? ` · Inhalt: ${inhalt.toLocaleString('de-AT')} L${rebsorten ? ` (${rebsorten})` : ''}` : ' · leer'
                   const restSuffix = rest != null ? ` · Rest: ${rest.toLocaleString('de-AT')} L` : ''
@@ -569,7 +570,7 @@ export default function ZukaufNeuPage() {
                         {inhalt.toLocaleString('de-AT', { maximumFractionDigits: 1 })} L
                         {chargen.length > 0 && (
                           <span className="ml-1 font-normal text-s112-muted">
-                            ({[...new Set(chargen.map(c => c.rebsorte).filter(Boolean))].join(', ') || '–'})
+                            ({[...new Set(chargen.map(c => c.rebsorte).filter(Boolean))].map(r => formatRebsorteMitKuerzel(r)).join(', ') || '–'})
                           </span>
                         )}
                       </p>
@@ -596,7 +597,7 @@ export default function ZukaufNeuPage() {
               <div className="bg-amber-50 border border-amber-300 rounded-lg px-3 py-2.5 text-sm text-amber-800">
                 <span className="font-semibold inline-flex items-center gap-1.5"><AlertTriangle size={14} /> Rebsortenverschnitt:</span>{' '}
                 Das gewählte Gebinde enthält bereits Chargen mit anderer Rebsorte:{' '}
-                <strong>{andereChargenImZiel.map(c => `${c.name} (${c.rebsorte})`).join(', ')}</strong>.
+                <strong>{andereChargenImZiel.map(c => `${c.name} (${formatRebsorteMitKuerzel(c.rebsorte)})`).join(', ')}</strong>.
                 Nach dem Speichern wird das Verschneiden-Formular geöffnet.
               </div>
             )}
