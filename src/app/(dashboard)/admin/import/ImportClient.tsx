@@ -84,7 +84,7 @@ const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean 
     { key: 'ama_feldnummer',      label: 'AMA-Schlagnr.' },
     { key: 'boden',               label: 'Boden' },
     { key: 'bewirtschaftung',     label: 'Bewirtschaftung (biodynamisch/biologisch/in_umstellung/nachhaltig/kip/konventionell)' },
-    { key: 'nutzart',             label: 'Nutzart (A = Grünbrache / G = Grünlandbrache / WI = Wein / GL1 = GLÖZ Rain-Böschung-Trockensteinmauer / GL2 = GLÖZ Hecke-Ufergehölz / GL3 = GLÖZ Feldgehölz-Baum-Gebüschgruppe)' },
+    { key: 'nutzart',             label: 'Nutzart (A = Grünbrache / G = Grünlandbrache / WI = Wein / GL1 = GLÖZ Rain-Böschung-Trockensteinmauer / GL2 = GLÖZ Hecke-Ufergehölz / GL3 = GLÖZ Feldgehölz-Baum-Gebüschgruppe / LSE = LSE Bäume-Büsche)' },
   ],
   gebinde: [
     { key: 'name',           label: 'Bezeichnung', pflicht: true },

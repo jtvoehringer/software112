@@ -166,6 +166,10 @@ export async function createGrundstueck(weingartenId: string, formData: FormData
     flaeche_ha_kataster:   formData.get('flaeche_ha_kataster') ? Number(formData.get('flaeche_ha_kataster')) : null,
     trauben_herkunft_code: (formData.get('trauben_herkunft_code') as string) || null,
     nutzart,
+    // Stückzahl (Bäume/Büsche) gehört nur zu Nutzart "LSE" - bewusst nur dann
+    // aus formData übernehmen, sonst null (auch wenn das Feld aus einer alten
+    // Eingabe technisch noch im FormData-Objekt hängen würde).
+    lse_stueckzahl:        nutzart === 'LSE' && formData.get('lse_stueckzahl') ? Number(formData.get('lse_stueckzahl')) : null,
     spritzbar:             nutzart === 'WI',
     notizen:               (formData.get('notizen') as string) || null,
   }
@@ -201,6 +205,7 @@ export async function updateGrundstueck(id: string, weingartenId: string, formDa
     flaeche_ha_kataster:   formData.get('flaeche_ha_kataster') ? Number(formData.get('flaeche_ha_kataster')) : null,
     trauben_herkunft_code: (formData.get('trauben_herkunft_code') as string) || null,
     nutzart,
+    lse_stueckzahl:        nutzart === 'LSE' && formData.get('lse_stueckzahl') ? Number(formData.get('lse_stueckzahl')) : null,
     spritzbar:             nutzart === 'WI',
     notizen:               (formData.get('notizen') as string) || null,
   }

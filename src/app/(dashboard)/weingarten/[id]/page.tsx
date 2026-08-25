@@ -48,7 +48,7 @@ export default async function WeingartenEditPage({ params }: Props) {
   // Grundstücke
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let grundstueckeQuery = (supabase.from('grundstuecke') as any)
-    .select('id, weingarten_id, gst_nr, katastralgemeinde, einlagezahl, kg_bezeichnung, ama_feldnummer, boden, rechtsverhaeltnis, unterlagsrebe, rebsorte, pflanzjahr, weinart, bewirtschaftung, bewirtschaftung_seit, flaeche_ha, flaeche_ha_kataster, trauben_herkunft_code, status, nutzart, notizen')
+    .select('id, weingarten_id, gst_nr, katastralgemeinde, einlagezahl, kg_bezeichnung, ama_feldnummer, boden, rechtsverhaeltnis, unterlagsrebe, rebsorte, pflanzjahr, weinart, bewirtschaftung, bewirtschaftung_seit, flaeche_ha, flaeche_ha_kataster, trauben_herkunft_code, status, nutzart, notizen, lse_stueckzahl')
     .eq('weingarten_id', id)
   if (membership) grundstueckeQuery = grundstueckeQuery.eq('tenant_id', membership.tenantId)
   const { data: rawG } = await grundstueckeQuery.order('gst_nr')

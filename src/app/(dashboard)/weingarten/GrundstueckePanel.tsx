@@ -22,6 +22,7 @@ export type GST = {
   ama_feldnummer: string | null; kg_bezeichnung: string | null
   boden: string | null; rechtsverhaeltnis: string | null; unterlagsrebe: string | null
   status: string; nutzart: string | null; notizen: string | null
+  lse_stueckzahl: number | null
 }
 
 export type MassnahmeHistorie = {
@@ -119,6 +120,12 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
   const [error, setError] = useState<string | null>(null)
   const [bewirtschaftung, setBewirtschaftung] = useState(gst?.bewirtschaftung ?? '')
   const [weinart, setWeinart] = useState(gst?.weinart ?? 'unbekannt')
+  // Rückmeldung 24.8.2026: bei Nutzart "LSE" (Landschaftselement) muss
+  // zusätzlich die Stückzahl (Bäume/Büsche) erfasst werden können - Feld nur
+  // sichtbar, wenn diese Nutzart gewählt ist, daher kontrolliert statt
+  // defaultValue (analog "In Umstellung seit" bei Bewirtschaftung oben).
+  const [nutzart, setNutzart] = useState(gst?.nutzart ?? '')
+  const [lseStueck, setLseStueck] = useState<string>(gst?.lse_stueckzahl != null ? String(gst.lse_stueckzahl) : '')
   const [kgnr, setKgnr] = useState(gst?.katastralgemeinde ?? '')
   const [kgBezeichnung, setKgBezeichnung] = useState(gst?.kg_bezeichnung ?? '')
   const [katasterHa, setKatasterHa] = useState<string>(gst?.flaeche_ha_kataster != null ? String(gst.flaeche_ha_kataster) : '')
@@ -201,11 +208,25 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
         </div>
         <div>
           <label className={labelCls}>Nutzart <span className="text-red-500">*</span></label>
-          <select name="nutzart" required defaultValue={gst?.nutzart ?? ''} className={inputCls}>
+          <select name="nutzart" required value={nutzart} onChange={e => setNutzart(e.target.value)} className={inputCls}>
             <option value="" disabled>– bitte wählen –</option>
             {NUTZART_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.value} – {o.label}</option>)}
           </select>
         </div>
+        {nutzart === 'LSE' && (
+          <div>
+            <label className={labelCls}>Stückzahl</label>
+            <input
+              name="lse_stueckzahl"
+              type="number" min="0" step="1"
+              value={lseStueck}
+              onChange={e => setLseStueck(e.target.value)}
+              placeholder="z.B. 5"
+              className={inputCls}
+            />
+            <p className="text-xs text-s112-muted mt-1">Anzahl Bäume/Büsche</p>
+          </div>
+        )}
         <div>
           <label className={labelCls}>KGNr.</label>
           <input
@@ -527,7 +548,12 @@ export default function GrundstueckePanel({
                       <td className="px-3 py-2 text-center text-xs text-s112-muted" title={NUTZART_OPTIONS.find(o => o.value === g.nutzart)?.label ?? ''}>
                         {g.nutzart ?? '–'}
                       </td>
-                      <td className="px-3 py-2 text-center"><NutzungBadge nutzart={g.nutzart} /></td>
+                      <td className="px-3 py-2 text-center">
+                        <NutzungBadge nutzart={g.nutzart} />
+                        {g.nutzart === 'LSE' && g.lse_stueckzahl != null && (
+                          <span className="block text-[11px] text-s112-muted mt-0.5">{g.lse_stueckzahl} Stk.</span>
+                        )}
+                      </td>
                       <td className="px-3 py-2 text-right sticky right-0 bg-white border-l border-s112-border/40" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
                           <button onClick={() => { setEditId(g.id); setShowForm(false) }}

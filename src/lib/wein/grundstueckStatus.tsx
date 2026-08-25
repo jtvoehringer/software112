@@ -14,8 +14,9 @@
 // Zukauf-Flächensumme - alle umgestellt von status==='aktiv' auf
 // nutzart==='WI'). Werte entsprechen dem CHECK-Constraint auf
 // grundstuecke.nutzart (Migration 170_ried_ama_codes_gst_nutzart.sql,
-// erweitert um GL1/GL2/GL3 in Migration 176_nutzart_gloez_codes.sql):
-// 'A' | 'G' | 'WI' | 'GL1' | 'GL2' | 'GL3'.
+// erweitert um GL1/GL2/GL3 in Migration 176_nutzart_gloez_codes.sql und um
+// LSE in Migration 177_nutzart_lse.sql):
+// 'A' | 'G' | 'WI' | 'GL1' | 'GL2' | 'GL3' | 'LSE'.
 export const NUTZART_OPTIONS = [
   { value: 'A',   label: 'Grünbrache',                                          badge: 'bg-yellow-100 text-yellow-700' },
   { value: 'G',   label: 'Grünlandbrache',                                      badge: 'bg-orange-100 text-orange-600' },
@@ -23,6 +24,9 @@ export const NUTZART_OPTIONS = [
   { value: 'GL1', label: 'GLÖZ Rain / Böschung / Trockensteinmauer',            badge: 'bg-teal-100 text-teal-700' },
   { value: 'GL2', label: 'GLÖZ Hecke / Ufergehölz',                             badge: 'bg-teal-100 text-teal-700' },
   { value: 'GL3', label: 'GLÖZ Feldgehölz / Baum- / Gebüschgruppe',             badge: 'bg-teal-100 text-teal-700' },
+  // LSE = Landschaftselement. Einzige Nutzart mit zusätzlicher Stückzahl-
+  // Erfassung (grundstuecke.lse_stueckzahl) - siehe GrundstueckePanel.tsx.
+  { value: 'LSE', label: 'LSE Bäume / Büsche',                                  badge: 'bg-lime-100 text-lime-700' },
 ]
 
 export function NutzungBadge({ nutzart }: { nutzart: string | null | undefined }) {
