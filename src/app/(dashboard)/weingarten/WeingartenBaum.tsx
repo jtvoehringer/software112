@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Pencil, Trash2 } from 'lucide-react'
-import { deactivateWeingarten, deleteWeingarten } from './actions'
+import { deactivateWeingarten, deleteWeingarten, deleteRied } from './actions'
 import { fmtHa } from '@/lib/format'
 import { NutzungBadge } from '@/lib/wein/grundstueckStatus'
 import { getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
@@ -261,6 +261,7 @@ function LageGruppe({
   // Rückmeldung 24.8.2026: Rieden-Übersicht soll beim Einstieg eingeklappt
   // starten statt aufgeklappt.
   const [open, setOpen] = useState(false)
+  const [pending, startTransition] = useTransition()
 
   const totalHa = weingaerten.reduce((s, w) => {
     const gsts = gstMap.get(w.id) ?? []
@@ -311,10 +312,29 @@ function LageGruppe({
   const weingaertenOhneGst = istEchteLage ? weingaerten.filter(w => (gstMap.get(w.id) ?? []).length === 0) : weingaerten
   const flatGst = sortGst(weingaertenMitGst.flatMap(w => gstMap.get(w.id) ?? []), gstSort)
 
+  // Rückmeldung 24.8.2026: Löschen einer ganzen Ried (inkl. aller
+  // darunterliegenden GST) war bisher gar nicht möglich - nur einzelne
+  // weingarten-Datensätze waren über WeingartenZeile löschbar, für "echte"
+  // Rieden mit flach angezeigten GST-Zeilen (siehe flatGst oben) gab es hier
+  // in der Gruppenkopfzeile keine Löschen-Aktion. deleteRied() löscht ALLE
+  // weingarten-Zeilen dieser Gruppe in einem atomaren Schritt - grundstuecke
+  // werden dank "on delete cascade" automatisch mitgelöscht.
+  function handleDeleteRied() {
+    const anzahlGst = flatGst.length
+    const bestaetigt = confirm(
+      `Sie sind im Begriff die Ried "${ried}" mit allen ${anzahlGst} Grundstücken unwiderruflich zu löschen.\n\nDiese Aktion kann nicht rückgängig gemacht werden. Fortfahren?`
+    )
+    if (!bestaetigt) return
+    startTransition(async () => {
+      const result = await deleteRied(weingaerten.map(w => w.id))
+      if (result?.error) alert(`Fehler beim Löschen: ${result.error}`)
+    })
+  }
+
   return (
     <>
       <tr
-        className="bg-s112-bg border-b border-s112-border cursor-pointer select-none hover:bg-s112-bg/80 transition-colors"
+        className={`bg-s112-bg border-b border-s112-border cursor-pointer select-none hover:bg-s112-bg/80 transition-colors ${pending ? 'opacity-40 pointer-events-none' : ''}`}
         onClick={() => setOpen(o => !o)}
       >
         <td className="px-4 py-2.5">
@@ -336,7 +356,18 @@ function LageGruppe({
         <td className="px-4 py-2.5" />
         <td className="px-4 py-2.5 text-sm text-right tabular-nums text-gray-400">{totalKatasterHa > 0 ? fmtHa(totalKatasterHa) : '–'}</td>
         <td className="px-4 py-2.5 text-sm text-right tabular-nums text-gray-500">{fmtHa(totalHa)}</td>
-        <td className="px-4 py-2.5" />
+        <td className="px-4 py-2.5" onClick={e => e.stopPropagation()}>
+          {istEchteLage && adminOk && (
+            <button
+              onClick={handleDeleteRied}
+              title="Ried inkl. aller Grundstücke löschen"
+              aria-label="Ried inkl. aller Grundstücke löschen"
+              className="text-red-400 hover:text-red-600"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
+        </td>
       </tr>
 
       {open && flatGst.map(g => <GSTZeile key={g.id} gst={g} />)}

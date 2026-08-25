@@ -103,6 +103,21 @@ export async function deactivateWeingarten(id: string) {
   revalidatePath('/weingarten')
 }
 
+// Gemeinsame Fehlermeldung für FK-Verletzungen beim Löschen eines oder
+// mehrerer Ried-Datensätze (weingarten). grundstuecke.weingarten_id hat "on
+// delete cascade" (Migration 012) - GST-Zeilen werden also automatisch mit
+// gelöscht, das braucht hier keinen eigenen Schritt. Blockieren können nur
+// die Tabellen OHNE Cascade/Set-Null: pressungen.weingarten_id (Migration 018,
+// Lese/Pressvorgänge) und traubenverkauf.weingarten_id (Migration 109).
+function friendlyFkError(err: AnyRecord): string | null {
+  if (err.code === '23503' || /foreign key/i.test(String(err.message ?? ''))) {
+    return 'Dieser Ried kann nicht gelöscht werden, da noch verknüpfte Daten vorhanden sind ' +
+      '(z. B. Pressungen/Lese oder Traubenverkauf). Bitte zuerst diese Datensätze entfernen oder den ' +
+      'Ried stattdessen deaktivieren statt löschen.'
+  }
+  return null
+}
+
 export async function deleteWeingarten(id: string): Promise<{ error?: string }> {
   try {
     const supabase = await createSupabaseServerClient()
@@ -111,24 +126,46 @@ export async function deleteWeingarten(id: string): Promise<{ error?: string }> 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('weingarten') as any).delete().eq('id', id).eq('tenant_id', tenantId)
     if (error) {
-      const err = error as AnyRecord
-      // Postgres 23503 = Foreign-Key-Verletzung, z.B. wenn noch Pressungen
-      // (Lese/Pressvorgänge, siehe Migration 018) auf dieses Ried verweisen –
-      // pressungen.weingarten_id hat bewusst kein "on delete cascade/set null",
-      // damit ein Pressvorgang nie stillschweigend seinen Ried-Bezug verliert.
-      if (err.code === '23503' || /foreign key/i.test(String(err.message ?? ''))) {
-        return {
-          error: 'Dieser Ried kann nicht gelöscht werden, da noch verknüpfte Daten vorhanden sind ' +
-            '(z. B. Pressungen/Lese). Bitte zuerst diese Datensätze entfernen oder den Ried stattdessen ' +
-            'deaktivieren statt löschen.',
-        }
-      }
-      return { error: err.message }
+      const friendly = friendlyFkError(error as AnyRecord)
+      if (friendly) return { error: friendly }
+      return { error: (error as AnyRecord).message }
     }
     revalidatePath('/weingarten')
     return {}
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Unbekannter Fehler beim Löschen des Rieds' }
+  }
+}
+
+// Rückmeldung 24.8.2026: eine "echte" Ried (Lage) besteht in der Rieden-
+// Übersicht oft aus mehreren weingarten-Datensätzen (deren GST-Zeilen dort
+// flach zusammen unter einer Gruppe angezeigt werden, siehe LageGruppe in
+// WeingartenBaum.tsx) - dafür gab es bisher gar keine Löschen-Möglichkeit,
+// nur einzelne weingarten-Datensätze waren löschbar. Löscht alle
+// weingarten-Zeilen der Gruppe in EINEM atomaren DELETE-Statement (entweder
+// alle oder keine, z.B. falls eine davon noch verknüpfte Pressungen hat) -
+// die zugehörigen grundstuecke-Zeilen werden dank "on delete cascade"
+// automatisch mitgelöscht.
+export async function deleteRied(weingartenIds: string[]): Promise<{ error?: string }> {
+  try {
+    if (weingartenIds.length === 0) return { error: 'Keine Weingarten-Datensätze zum Löschen übergeben' }
+    const supabase = await createSupabaseServerClient()
+    const tenantId = await getTenantId()
+    if (!tenantId) return { error: 'Kein Betrieb gefunden' }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from('weingarten') as any)
+      .delete()
+      .in('id', weingartenIds)
+      .eq('tenant_id', tenantId)
+    if (error) {
+      const friendly = friendlyFkError(error as AnyRecord)
+      if (friendly) return { error: friendly }
+      return { error: (error as AnyRecord).message }
+    }
+    revalidatePath('/weingarten')
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Unbekannter Fehler beim Löschen der Ried' }
   }
 }
 
