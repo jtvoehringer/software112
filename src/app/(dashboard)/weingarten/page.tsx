@@ -3,6 +3,7 @@ import { getCurrentUserRole, getCurrentMembership, canWrite, canAdmin } from '@/
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import WeingartenBaum, { type WRow, type GSTRow } from './WeingartenBaum'
+import WeingartenCsvExportButton from './WeingartenCsvExportButton'
 import { fmtHa } from '@/lib/format'
 
 export const metadata: Metadata = { title: 'Rieden – software:112' }
@@ -57,14 +58,19 @@ export default async function WeingartenPage() {
           <h1 className="text-2xl font-bold text-gray-900">Rieden</h1>
           <p className="text-sm text-s112-muted mt-0.5">Rieden & Grundstücke</p>
         </div>
-        {writeOk && (
-          <Link
-            href="/weingarten/neu"
-            className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
-          >
-            Neue Ried
-          </Link>
-        )}
+        <div className="flex items-center gap-3">
+          {weingaerten.length > 0 && (
+            <WeingartenCsvExportButton weingaerten={weingaerten} grundstuecke={grundstuecke} />
+          )}
+          {writeOk && (
+            <Link
+              href="/weingarten/neu"
+              className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
+            >
+              Neue Ried
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
