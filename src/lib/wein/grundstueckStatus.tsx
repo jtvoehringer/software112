@@ -13,12 +13,16 @@
 // Geschäftslogik (Ernte-Meldung, Behandlungsplanung/Spritzbar, KI-Assistent,
 // Zukauf-Flächensumme - alle umgestellt von status==='aktiv' auf
 // nutzart==='WI'). Werte entsprechen dem CHECK-Constraint auf
-// grundstuecke.nutzart (Migration 170_ried_ama_codes_gst_nutzart.sql):
-// 'A' | 'G' | 'WI'.
+// grundstuecke.nutzart (Migration 170_ried_ama_codes_gst_nutzart.sql,
+// erweitert um GL1/GL2/GL3 in Migration 176_nutzart_gloez_codes.sql):
+// 'A' | 'G' | 'WI' | 'GL1' | 'GL2' | 'GL3'.
 export const NUTZART_OPTIONS = [
-  { value: 'A',  label: 'Grünbrache',      badge: 'bg-yellow-100 text-yellow-700' },
-  { value: 'G',  label: 'Grünlandbrache',  badge: 'bg-orange-100 text-orange-600' },
-  { value: 'WI', label: 'Wein',            badge: 'bg-green-100 text-green-700' },
+  { value: 'A',   label: 'Grünbrache',                                          badge: 'bg-yellow-100 text-yellow-700' },
+  { value: 'G',   label: 'Grünlandbrache',                                      badge: 'bg-orange-100 text-orange-600' },
+  { value: 'WI',  label: 'Wein',                                                badge: 'bg-green-100 text-green-700' },
+  { value: 'GL1', label: 'GLÖZ Rain / Böschung / Trockensteinmauer',            badge: 'bg-teal-100 text-teal-700' },
+  { value: 'GL2', label: 'GLÖZ Hecke / Ufergehölz',                             badge: 'bg-teal-100 text-teal-700' },
+  { value: 'GL3', label: 'GLÖZ Feldgehölz / Baum- / Gebüschgruppe',             badge: 'bg-teal-100 text-teal-700' },
 ]
 
 export function NutzungBadge({ nutzart }: { nutzart: string | null | undefined }) {
