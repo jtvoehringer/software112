@@ -28,6 +28,7 @@ export async function createWeingarten(formData: FormData) {
     ried:                 name || null,
     ama_feldnummer:       (formData.get('ama_feldnummer') as string) || null,
     codes:                (formData.get('codes') as string) || null,
+    interne_bezeichnung:  (formData.get('interne_bezeichnung') as string) || null,
     notizen:              (formData.get('notizen') as string) || null,
     aktiv:                true,
   }
@@ -49,6 +50,7 @@ export async function updateWeingarten(id: string, formData: FormData) {
     name,
     ama_feldnummer:       (formData.get('ama_feldnummer') as string) || null,
     codes:                (formData.get('codes') as string) || null,
+    interne_bezeichnung:  (formData.get('interne_bezeichnung') as string) || null,
     notizen:              (formData.get('notizen') as string) || null,
     aktiv:                formData.get('aktiv') === 'true',
   }

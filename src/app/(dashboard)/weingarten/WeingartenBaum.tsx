@@ -26,6 +26,14 @@ function amaFeldnummerFuerLage(weingaerten: WRow[]): string | null {
   return weingaerten.find(w => w.ama_feldnummer)?.ama_feldnummer ?? null
 }
 
+// Rückmeldung 24.8.2026 (Teil 3): "Interne Bezeichnung" ist ein optionales
+// zweites, betriebsinternes Namensfeld auf dem Ried-Formular - analog zu
+// AMA-Feldstücknr./Codes weiter oben genügt der erste vorhandene Wert pro
+// Lage, wird aber nur angezeigt, wenn tatsächlich einer gesetzt ist.
+function interneBezeichnungFuerLage(weingaerten: WRow[]): string | null {
+  return weingaerten.find(w => w.interne_bezeichnung)?.interne_bezeichnung ?? null
+}
+
 // Rückmeldung 24.8.2026 (Teil 2): AMA-Feldstücknr. (auf dem Ried/Weingarten-
 // Datensatz) und AMA-Schlagnr. (auf dem einzelnen Grundstück) sind ZWEI
 // verschiedene Nummernkreise, die vorher fälschlich dieselbe Spalte/denselben
@@ -76,7 +84,7 @@ const BEWIRTSCHAFTUNG_LABEL: Record<string, string> = {
 export type WRow = {
   id: string; name: string; ried: string | null; rebsorte: string | null
   weinart: string | null; flaeche_ha: number | null; bewirtschaftung: string | null; aktiv: boolean
-  ama_feldnummer: string | null; codes: string | null
+  ama_feldnummer: string | null; codes: string | null; interne_bezeichnung: string | null
 }
 export type GSTRow = {
   id: string; weingarten_id: string; gst_nr: string
@@ -170,18 +178,25 @@ function WeingartenZeile({
             <span className={`text-gray-400 ${gsts.length === 0 ? 'invisible' : ''}`}>
               <ChevronIcon open={open} />
             </span>
-            <Link
-              href={`/weingarten/${w.id}`}
-              onClick={e => e.stopPropagation()}
-              className="font-medium text-gray-800 text-sm hover:text-s112-teal hover:underline"
-            >
-              {w.name}
-            </Link>
-            {w.bewirtschaftung && (
-              <span className={`inline-block px-1.5 py-0 rounded-full text-xs font-medium ${BEWIRTSCHAFTUNG_BADGE[w.bewirtschaftung] ?? 'bg-gray-100 text-gray-600'}`}>
-                {BEWIRTSCHAFTUNG_LABEL[w.bewirtschaftung] ?? w.bewirtschaftung}
-              </span>
-            )}
+            <div>
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/weingarten/${w.id}`}
+                  onClick={e => e.stopPropagation()}
+                  className="font-medium text-gray-800 text-sm hover:text-s112-teal hover:underline"
+                >
+                  {w.name}
+                </Link>
+                {w.bewirtschaftung && (
+                  <span className={`inline-block px-1.5 py-0 rounded-full text-xs font-medium ${BEWIRTSCHAFTUNG_BADGE[w.bewirtschaftung] ?? 'bg-gray-100 text-gray-600'}`}>
+                    {BEWIRTSCHAFTUNG_LABEL[w.bewirtschaftung] ?? w.bewirtschaftung}
+                  </span>
+                )}
+              </div>
+              {w.interne_bezeichnung && (
+                <div className="text-xs text-s112-muted">{w.interne_bezeichnung}</div>
+              )}
+            </div>
           </div>
         </td>
         <td className="px-3 py-2.5 text-xs text-s112-muted">{w.ama_feldnummer ?? '–'}</td>
@@ -269,6 +284,7 @@ function LageGruppe({
   // flatGst) - dort wird ja keine eigene Weingarten-Zeile mehr gezeigt.
   const amaFeldnummer = amaFeldnummerFuerLage(weingaerten)
   const codes = weingaerten.find(w => w.codes)?.codes ?? null
+  const interneBezeichnung = interneBezeichnungFuerLage(weingaerten)
 
   // Weingärten mit eigenen Grundstücken sind hier oft nur ein technischer
   // Container pro Rebsorte (z.B. "<Ried> - Gelber Muskateller 2013" und
@@ -304,7 +320,12 @@ function LageGruppe({
         <td className="px-4 py-2.5">
           <div className="flex items-center gap-2">
             <span className="text-s112-teal"><ChevronIcon open={open} /></span>
-            <span className="font-semibold text-gray-900 text-sm">{ried}</span>
+            <div>
+              <div className="font-semibold text-gray-900 text-sm">{ried}</div>
+              {interneBezeichnung && (
+                <div className="text-xs text-s112-muted">{interneBezeichnung}</div>
+              )}
+            </div>
           </div>
         </td>
         <td className="px-4 py-2.5 text-sm text-s112-muted">{amaFeldnummer ?? '–'}</td>

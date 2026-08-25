@@ -8,6 +8,7 @@ type WeingartenRow = {
   name: string
   ama_feldnummer?: string | null
   codes?: string | null
+  interne_bezeichnung?: string | null
   notizen: string | null
   aktiv: boolean
 }
@@ -48,16 +49,28 @@ export default function WeingartenForm({ weingarten, action }: Props) {
       {/* Basisdaten */}
       <div className="card space-y-4">
         <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Basisdaten</h2>
-        <div>
-          <label className="form-label">Riedname *</label>
-          <input
-            name="name"
-            type="text"
-            required
-            defaultValue={weingarten?.name ?? ''}
-            className="form-input"
-            placeholder="z.B. Kremser Schmidt"
-          />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="form-label">Riedname *</label>
+            <input
+              name="name"
+              type="text"
+              required
+              defaultValue={weingarten?.name ?? ''}
+              className="form-input"
+              placeholder="z.B. Kremser Schmidt"
+            />
+          </div>
+          <div>
+            <label className="form-label">Interne Bezeichnung (optional)</label>
+            <input
+              name="interne_bezeichnung"
+              type="text"
+              defaultValue={weingarten?.interne_bezeichnung ?? ''}
+              className="form-input"
+              placeholder="z.B. Innerbüchl"
+            />
+          </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>

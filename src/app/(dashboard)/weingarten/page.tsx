@@ -21,7 +21,7 @@ export default async function WeingartenPage() {
   // Weingärten
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawW } = await tf((supabase.from('weingarten') as any)
-    .select('id, name, ried, rebsorte, weinart, flaeche_ha, bewirtschaftung, aktiv, ama_feldnummer, codes'))
+    .select('id, name, ried, rebsorte, weinart, flaeche_ha, bewirtschaftung, aktiv, ama_feldnummer, codes, interne_bezeichnung'))
     .order('ried', { nullsFirst: false })
     .order('name')
   const weingaerten = (rawW ?? []) as WRow[]

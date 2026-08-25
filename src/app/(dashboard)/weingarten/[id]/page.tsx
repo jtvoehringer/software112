@@ -24,7 +24,7 @@ type WeingartenRow = {
   rebsorte: string | null; pflanzjahr: number | null
   bewirtschaftung: string | null; bewirtschaftung_seit: string | null
   notizen: string | null; aktiv: boolean; weinart: string | null
-  ama_feldnummer: string | null; codes: string | null
+  ama_feldnummer: string | null; codes: string | null; interne_bezeichnung: string | null
 }
 
 export default async function WeingartenEditPage({ params }: Props) {
@@ -38,7 +38,7 @@ export default async function WeingartenEditPage({ params }: Props) {
   // Weingarten
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let weingartenQuery = (supabase.from('weingarten') as any)
-    .select('id, name, rebsorte, pflanzjahr, bewirtschaftung, bewirtschaftung_seit, weinart, notizen, aktiv, ama_feldnummer, codes')
+    .select('id, name, rebsorte, pflanzjahr, bewirtschaftung, bewirtschaftung_seit, weinart, notizen, aktiv, ama_feldnummer, codes, interne_bezeichnung')
     .eq('id', id)
   if (membership) weingartenQuery = weingartenQuery.eq('tenant_id', membership.tenantId)
   const { data: rows } = await weingartenQuery.limit(1)
