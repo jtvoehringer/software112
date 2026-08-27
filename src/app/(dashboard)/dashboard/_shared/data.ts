@@ -201,23 +201,27 @@ export async function ladeWeingarten(ctx: Ctx) {
   for (const g of grundstuecke) {
     const arr = gstProRied.get(g.weingarten_id) ?? []; arr.push(g); gstProRied.set(g.weingarten_id, arr)
   }
+  // Fläche je Ried wie auf der Rieden-Seite (weingarten/page.tsx): Summe der
+  // Grundstücke, falls welche erfasst sind, sonst die Fläche am Weingarten selbst.
+  // (Bugfix 27.8.2026: Übersicht zeigte 0,00 ha, weil nur weingarten.flaeche_ha gelesen wurde.)
+  const riedenListe = rieden.map(w => {
+    const gst = gstProRied.get(w.id) ?? []
+    const gstHa = gst.reduce((s, g) => s + (Number(g.flaeche_ha) || 0), 0)
+    const fs = Array.from(new Set([w.ama_feldnummer, ...gst.map(g => g.ama_feldnummer)].filter(Boolean))) as string[]
+    return {
+      id: w.id as string, name: w.name as string, ried: (w.ried ?? null) as string | null, rebsorte: (w.rebsorte ?? null) as string | null,
+      flaeche_ha: gst.length > 0 ? gstHa : (Number(w.flaeche_ha) || 0), gstCount: gst.length, amaFs: fs,
+      codes: (Array.isArray(w.codes) ? w.codes : (w.codes ? String(w.codes).split(/[,;\s]+/).filter(Boolean) : [])) as string[],
+    }
+  })
   const wartefristen = behandlungen
     .filter(b => b.ernte_fruehesteins && b.ernte_fruehesteins >= ctx.heuteStr)
     .map(b => ({ id: b.id as string, datum: b.datum as string, freiAb: b.ernte_fruehesteins as string, ried: (b.weingarten?.name ?? '–') as string }))
     .sort((a, b) => a.freiAb.localeCompare(b.freiAb))
   return {
-    rieden: rieden.map(w => {
-      const gst = gstProRied.get(w.id) ?? []
-      const gstHa = gst.reduce((s, g) => s + (Number(g.flaeche_ha) || 0), 0)
-      const fs = Array.from(new Set([w.ama_feldnummer, ...gst.map(g => g.ama_feldnummer)].filter(Boolean))) as string[]
-      return {
-        id: w.id as string, name: w.name as string, ried: (w.ried ?? null) as string | null, rebsorte: (w.rebsorte ?? null) as string | null,
-        flaeche_ha: Number(w.flaeche_ha) || gstHa, gstCount: gst.length, amaFs: fs,
-        codes: (Array.isArray(w.codes) ? w.codes : (w.codes ? String(w.codes).split(/[,;\s]+/).filter(Boolean) : [])) as string[],
-      }
-    }),
+    rieden: riedenListe,
     grundstueckeCount: grundstuecke.length,
-    flaecheHa: rieden.reduce((s, w) => s + (Number(w.flaeche_ha) || 0), 0),
+    flaecheHa: riedenListe.reduce((s, r) => s + r.flaeche_ha, 0),
     behandlungenSaison: behandlungen.length,
     wartefristen,
   }
