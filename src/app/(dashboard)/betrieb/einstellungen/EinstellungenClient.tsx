@@ -195,6 +195,26 @@ function BrandingTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
         </p>
       </div>
 
+      {/* Dashboard-Regeln (Migration 179): steuern Kanban "Messung fällig", die
+          Fristen-Ampel und den Zähler in der Glocke – vorher Code-Konstanten. */}
+      <div className="pt-2 border-t border-s112-border">
+        <p className="text-sm font-semibold text-gray-700 mb-2">Dashboard-Regeln</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Gärkontrolle fällig nach (Tage)</label>
+            <input name="gaerung_messintervall_tage" type="number" min="1" max="60" required
+              defaultValue={daten.gaerung_messintervall_tage} className={inputCls()} style={{ maxWidth: '180px' }} />
+            <p className="text-xs text-s112-muted mt-1">Charge in Gärung ohne Weinanalyse seit so vielen Tagen gilt als „Messung fällig“ (Kellerbuch-Kanban, Übersicht, Glocke).</p>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Fristen-Vorwarnung (Tage)</label>
+            <input name="fristen_vorwarnung_tage" type="number" min="1" max="365" required
+              defaultValue={daten.fristen_vorwarnung_tage} className={inputCls()} style={{ maxWidth: '180px' }} />
+            <p className="text-xs text-s112-muted mt-1">So viele Tage vor dem Termin springt eine Frist von „offen“ auf „fällig“ (Ampel, Glocke, Offene Aufgaben).</p>
+          </div>
+        </div>
+      </div>
+
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending}
           className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
@@ -268,6 +288,12 @@ function BetriebTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
               <label className="block text-xs font-medium text-gray-600 mb-1">Weinbau-Betriebsnummer</label>
               <input name="betrieb_betriebsnummer" defaultValue={daten.betrieb_betriebsnummer ?? ''} className={inputCls()} placeholder="z.B. 4489781" />
               <p className="text-[10px] text-gray-400 mt-0.5">Für Transportbescheinigung &amp; Prüfnummernantrag</p>
+            </div>
+            {/* Betriebsbeginn / Systemstart der E&A-Rechnung (Migration 180) */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Betriebsbeginn E&amp;A-Rechnung</label>
+              <input name="ea_betriebsbeginn" type="date" defaultValue={daten.ea_betriebsbeginn ?? ''} className={inputCls()} />
+              <p className="text-[10px] text-gray-400 mt-0.5">Systemstart: Monate davor gelten nicht als offen (Monatsabschluss, UVA, Dashboard). Leer = keine Einschränkung.</p>
             </div>
           </div>
         </div>

@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Warehouse, FlaskConical, Droplets } from 'lucide-react'
 import { DashHeader, Tile, Note, fmtNum } from '../_shared/ui'
-import { getCtx, ladeKeller, ladeEinstellungen, GAERUNG_MESSINTERVALL_TAGE } from '../_shared/data'
+import { getCtx, ladeKeller, ladeEinstellungen } from '../_shared/data'
 import { canWrite } from '@/lib/auth/roles'
 import ChargenKanban from './ChargenKanban'
 
@@ -16,7 +16,8 @@ export const dynamic = 'force-dynamic'
 
 export default async function KellerbuchSichtPage() {
   const ctx = await getCtx()
-  const [keller, einst] = await Promise.all([ladeKeller(ctx), ladeEinstellungen(ctx)])
+  const einst = await ladeEinstellungen(ctx)
+  const keller = await ladeKeller(ctx, einst.messintervallTage)
 
   return (
     <div className="space-y-6">
@@ -32,7 +33,7 @@ export default async function KellerbuchSichtPage() {
           sub={`Kapazität ${fmtNum(keller.kapazitaet)} L · ${fmtNum(keller.gesamtLiter)} L im Keller`} />
         <Tile label="Aktive Gärungen" icon={FlaskConical}
           value={fmtNum(keller.gaerungen)}
-          sub={keller.messungFaellig > 0 ? `${keller.messungFaellig} Messung${keller.messungFaellig === 1 ? '' : 'en'} fällig (> ${GAERUNG_MESSINTERVALL_TAGE} Tage)` : keller.gaerungen > 0 ? 'Alle Messungen aktuell' : 'Keine Gärung aktiv'}
+          sub={keller.messungFaellig > 0 ? `${keller.messungFaellig} Messung${keller.messungFaellig === 1 ? '' : 'en'} fällig (≥ ${einst.messintervallTage} Tage)` : keller.gaerungen > 0 ? 'Alle Messungen aktuell' : 'Keine Gärung aktiv'}
           tone={keller.messungFaellig > 0 ? 'warn' : keller.gaerungen > 0 ? 'ok' : undefined} />
         <Tile label="Füllfertig" icon={Droplets}
           value={fmtNum(keller.fuellfertig)}
@@ -45,7 +46,7 @@ export default async function KellerbuchSichtPage() {
       </div>
 
       <Note>
-        Regel „Messung fällig“: Charge in Gärung ohne Analyse seit {GAERUNG_MESSINTERVALL_TAGE} Tagen (fachlich abzustimmen, Konstante GAERUNG_MESSINTERVALL_TAGE).
+        Regel „Messung fällig“: Charge in Gärung ohne Analyse seit {einst.messintervallTage} Tagen – einstellbar unter <Link href="/betrieb/einstellungen" className="underline">Mein Betrieb</Link>.
         Die Phasen entsprechen dem Status im Kellerbuch – Statuswechsel erfolgen dort, das Kanban ist eine Sicht.
       </Note>
     </div>

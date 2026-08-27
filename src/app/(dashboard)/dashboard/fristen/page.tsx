@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic'
 export default async function FristenSichtPage() {
   const ctx = await getCtx()
   const einst = await ladeEinstellungen(ctx)
-  const fristen = await ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum })
+  const fristen = await ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum, vorwarnungTage: einst.vorwarnungTage, betriebsbeginn: einst.betriebsbeginn })
   const ueberfaellig = fristen.filter(f => f.status === 'ueberfaellig').length
   const faellig = fristen.filter(f => f.status === 'faellig').length
 
@@ -30,7 +30,7 @@ export default async function FristenSichtPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-5">
         <Card title="Überwachte Fristen">
-          <FristenClient fristen={fristen} darfSchreiben={canWrite(ctx.role)} />
+          <FristenClient fristen={fristen} darfSchreiben={canWrite(ctx.role)} vorwarnungTage={einst.vorwarnungTage} />
         </Card>
 
         <div className="space-y-5">

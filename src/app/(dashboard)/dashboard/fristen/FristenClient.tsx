@@ -21,7 +21,7 @@ const STATUS: Record<FristStatus, { label: string; tone: BadgeTone }> = {
   erledigt:     { label: 'Erledigt',   tone: 'ok' },
 }
 
-export default function FristenClient({ fristen, darfSchreiben }: { fristen: Frist[]; darfSchreiben: boolean }) {
+export default function FristenClient({ fristen, darfSchreiben, vorwarnungTage }: { fristen: Frist[]; darfSchreiben: boolean; vorwarnungTage: number }) {
   const [pending, start] = useTransition()
   const [fehler, setFehler] = useState<string | null>(null)
   const [formOffen, setFormOffen] = useState(false)
@@ -108,7 +108,7 @@ export default function FristenClient({ fristen, darfSchreiben }: { fristen: Fri
         </form>
       )}
       {fehler && <p className="text-[12px] text-s112-err-fg mt-2">{fehler}</p>}
-      <p className="text-[11px] text-s112-tertiary mt-3">Ampel: überfällig = Frist verstrichen · fällig = innerhalb 30 Tagen · laufend = fortlaufend überwacht. Fälligkeit heute: {fmtDate(new Date())}.</p>
+      <p className="text-[11px] text-s112-tertiary mt-3">Ampel: überfällig = Frist verstrichen · fällig = innerhalb {vorwarnungTage} Tagen (einstellbar unter Mein Betrieb) · laufend = fortlaufend überwacht. Fälligkeit heute: {fmtDate(new Date())}.</p>
     </div>
   )
 }

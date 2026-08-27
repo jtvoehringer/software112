@@ -49,6 +49,9 @@ export async function saveBrandingOwn(formData: FormData) {
       primary_color:             (formData.get('primary_color') as string) || '#4F86D6',
       secondary_color:           (formData.get('secondary_color') as string) || '#FFFFFF',
       session_timeout_minuten:   num('session_timeout_minuten'),
+      // Dashboard-Regeln (Migration 179) – Grenzen wie der CHECK in der DB
+      gaerung_messintervall_tage: Math.min(60,  Math.max(1, num('gaerung_messintervall_tage') ?? 3)),
+      fristen_vorwarnung_tage:    Math.min(365, Math.max(1, num('fristen_vorwarnung_tage')    ?? 30)),
       aktualisiert_am:           new Date().toISOString(),
       // Absichtlich KEINE brevo_*/modul_*/sumup_*/email_*/m365_*-Felder hier -
       // .upsert() setzt nur die angegebenen Spalten, alle anderen bleiben
@@ -113,6 +116,8 @@ export async function saveBetriebOwn(formData: FormData) {
       betrieb_website:           (formData.get('betrieb_website') as string) || null,
       betrieb_uid:               (formData.get('betrieb_uid')           as string) || null,
       betrieb_betriebsnummer:    (formData.get('betrieb_betriebsnummer') as string) || null,
+      // Betriebsbeginn E&A (Migration 180): leer = keine Einschränkung
+      ea_betriebsbeginn:         /^\d{4}-\d{2}-\d{2}$/.test(String(formData.get('ea_betriebsbeginn') ?? '')) ? String(formData.get('ea_betriebsbeginn')) : null,
       rechnung_iban:             (formData.get('rechnung_iban')   as string) || null,
       rechnung_bic:              (formData.get('rechnung_bic')    as string) || null,
       rechnung_fusstext:         (formData.get('rechnung_fusstext') as string) || null,

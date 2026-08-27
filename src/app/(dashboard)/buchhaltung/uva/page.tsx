@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
+import { monatVorBeginn, monateDerPeriode, periodeVorBeginn } from '@/lib/ea/betriebsbeginn'
 import { berechneUndSpeichereUva, markiereUvaAlsUebermittelt } from '../actions'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import { Lock } from 'lucide-react'
@@ -29,8 +30,11 @@ export default async function UvaPage({
   const adminOk  = canAdmin(membership.role)
 
   const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_ea, ea_uva_zeitraum').eq('tenant_id', tenantId).maybeSingle()
+    .select('modul_ea, ea_uva_zeitraum, ea_betriebsbeginn').eq('tenant_id', tenantId).maybeSingle()
   if (!einst?.modul_ea) redirect('/dashboard')
+  // Betriebsbeginn (Migration 180): Perioden/Monate davor existieren fachlich nicht
+  const betriebsbeginn: string | null = einst?.ea_betriebsbeginn ?? null
+  const beginnJahr = betriebsbeginn ? new Date(betriebsbeginn).getFullYear() : null
 
   const sp   = await searchParams
   const jahr = parseInt(sp.jahr ?? '') || new Date().getFullYear()
@@ -43,10 +47,24 @@ export default async function UvaPage({
     .eq('jahr', jahr)
     .order('zeitraum')
 
+  // Abgeschlossene Monate dieses Jahres – Voraussetzung für UVA-Übermittlung
+  // (siehe Migration 165: sperre_ea_uva prüft das serverseitig ohnehin, hier
+  // nur zur besseren UX vorab angezeigt statt erst nach einem Fehlversuch).
+  const { data: abschluesseRaw } = await (supabase.from('ea_monatsabschluss') as any)
+    .select('monat').eq('tenant_id', tenantId).eq('jahr', jahr)
+  const abgeschlosseneMonate = new Set(((abschluesseRaw ?? []) as R[]).map(a => a.monat as number))
+
+  const MONATSNAMEN = ['Jän','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']
+  // Monate der Periode, die nach dem Betriebsbeginn liegen (nur die brauchen einen Abschluss)
+  const benoetigteMonate = (z: string): number[] =>
+    monateDerPeriode(z).filter(m => !monatVorBeginn(jahr, m, betriebsbeginn))
+
   const jahre = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
-  const alleZeitraeume = uvaZeitraum === 'monatlich'
+    .filter(j => beginnJahr === null || j >= beginnJahr)
+  const alleZeitraeume = (uvaZeitraum === 'monatlich'
     ? Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'))
     : QUARTALE
+  ).filter(z => !periodeVorBeginn(jahr, z, betriebsbeginn))
   const gesperrteZeitraeume = new Set(((uvaListe ?? []) as R[]).filter(u => u.gesperrt).map(u => u.zeitraum))
   const zeitraeume = alleZeitraeume.filter(z => !gesperrteZeitraeume.has(z))
 
@@ -137,6 +155,7 @@ export default async function UvaPage({
           {(uvaListe as R[]).map((uva: R) => {
             const kz000 = (uva.bmgl_ust_0 ?? 0) + (uva.bmgl_ust_10 ?? 0) + (uva.bmgl_ust_13 ?? 0) + (uva.bmgl_ust_20 ?? 0)
             const zahllast = uva.zahllast ?? 0
+            const fehlendeMonate = uva.gesperrt ? [] : benoetigteMonate(uva.zeitraum).filter(m => !abgeschlosseneMonate.has(m))
             return (
               <div key={uva.id} className="bg-white rounded-2xl border border-s112-border overflow-hidden">
                 <div className="bg-s112-bg px-5 py-3 border-b border-s112-border flex items-center justify-between gap-3 flex-wrap">
@@ -151,13 +170,23 @@ export default async function UvaPage({
                       <>
                         <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Entwurf</span>
                         {adminOk && (
-                          <ConfirmDeleteForm
-                            action={handleUebermitteln.bind(null, uva.id)}
-                            message={`Diese UVA-Meldung (${zeitraumLabel(uva.zeitraum)}) als übermittelt markieren? Dies ist nicht rückgängig zu machen und sperrt alle Buchungen dieses Zeitraums gegen weitere Änderungen.`}
-                            label="Als übermittelt markieren"
-                            title="Als übermittelt markieren"
-                            className="text-xs bg-s112-teal text-white px-2.5 py-1 rounded-full font-medium hover:bg-opacity-90"
-                          />
+                          fehlendeMonate.length > 0 ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-full"
+                              title="UVA kann erst übermittelt werden, wenn alle Monate dieser Periode abgeschlossen sind">
+                              Monatsabschluss fehlt: {fehlendeMonate.map(m => MONATSNAMEN[m - 1]).join(', ')}
+                              <Link href="/buchhaltung/monatsabschluss" className="underline font-medium hover:text-amber-900">
+                                jetzt abschließen →
+                              </Link>
+                            </span>
+                          ) : (
+                            <ConfirmDeleteForm
+                              action={handleUebermitteln.bind(null, uva.id)}
+                              message={`Diese UVA-Meldung (${zeitraumLabel(uva.zeitraum)}) als übermittelt markieren? Dies ist nicht rückgängig zu machen und sperrt alle Buchungen dieses Zeitraums gegen weitere Änderungen.`}
+                              label="Als übermittelt markieren"
+                              title="Als übermittelt markieren"
+                              className="text-xs bg-s112-teal text-white px-2.5 py-1 rounded-full font-medium hover:bg-opacity-90"
+                            />
+                          )
                         )}
                       </>
                     )}

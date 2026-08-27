@@ -7,6 +7,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, type UserRole } from '@/lib/auth/roles'
 import type { Charge, Frist, FristStatus } from './types'
+import { periodeVorBeginn } from '@/lib/ea/betriebsbeginn'
 export { STATUS_LABEL } from './types'
 export type { Charge, Frist, FristStatus } from './types'
 
@@ -96,10 +97,11 @@ export async function ladeOffenePosten(ctx: Ctx) {
 
 // ── Kellerbuch ───────────────────────────────────────────────────────────────
 
-/** Regel "Messung fällig": Charge in Gärung ohne Analyse seit X Tagen (fachlich abzustimmen) */
+/** Regel "Messung fällig": Charge in Gärung ohne Analyse seit X Tagen – Fallback,
+ *  je Betrieb einstellbar in "Mein Betrieb" (tenant_einstellungen.gaerung_messintervall_tage, Migration 179) */
 export const GAERUNG_MESSINTERVALL_TAGE = 3
 
-export async function ladeKeller(ctx: Ctx) {
+export async function ladeKeller(ctx: Ctx, messintervallTage: number = GAERUNG_MESSINTERVALL_TAGE) {
   const [{ data: behaelterRaw }, { data: chargenRaw }, { data: fuellstandRaw }] = await Promise.all([
     ctx.tf(ctx.q('behaelter').select('id, name, typ, volumen_liter, aktiv')),
     ctx.tf(ctx.q('weinausbau')
@@ -142,7 +144,7 @@ export async function ladeKeller(ctx: Ctx) {
       qualitaetsstufe: c.qualitaetsstufe ?? null, notizen: c.notizen ?? null,
       letzteAnalyse: a ? { datum: a.analyse_datum, alkohol_vol: a.alkohol_vol, restzucker_gl: a.restzucker_gl, freie_so2_mgl: a.freie_so2_mgl, gesamtsaeure_gl: a.gesamtsaeure_gl } : null,
       letzteMassnahme: m ? { datum: m.datum, typ: m.typ_name_snapshot ?? null, menge: m.menge, einheit: m.einheit } : null,
-      messungFaellig: c.status === 'gaerung' && (tage === null || tage >= GAERUNG_MESSINTERVALL_TAGE),
+      messungFaellig: c.status === 'gaerung' && (tage === null || tage >= messintervallTage),
       tageSeitMessung: tage,
     }
   })
@@ -223,14 +225,15 @@ export async function ladeWeingarten(ctx: Ctx) {
 
 // ── Fristen (betriebseigene + aus Fachtabellen abgeleitete) ──────────────────
 
+/** Vorwarnung "fällig" X Tage vor Termin – Fallback, je Betrieb einstellbar (tenant_einstellungen.fristen_vorwarnung_tage) */
 export const FAELLIG_TAGE = 30
 
-function statusAus(faelligAm: string | null, erledigt: boolean, heuteStr: string): FristStatus {
+function statusAus(faelligAm: string | null, erledigt: boolean, heuteStr: string, vorwarnungTage: number = FAELLIG_TAGE): FristStatus {
   if (erledigt) return 'erledigt'
   if (!faelligAm) return 'offen'
   if (faelligAm < heuteStr) return 'ueberfaellig'
   const tage = Math.round((new Date(faelligAm).getTime() - new Date(heuteStr).getTime()) / 86400000)
-  return tage <= FAELLIG_TAGE ? 'faellig' : 'offen'
+  return tage <= vorwarnungTage ? 'faellig' : 'offen'
 }
 
 /** UVA-Perioden: Fälligkeit 15. des zweitfolgenden Monats nach Periodenende */
@@ -254,8 +257,9 @@ function uvaPerioden(zeitraum: 'monatlich' | 'quartalsweise', heute: Date) {
   return out
 }
 
-export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitraum: 'monatlich' | 'quartalsweise' }) {
+export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitraum: 'monatlich' | 'quartalsweise'; vorwarnungTage?: number; betriebsbeginn?: string | null }) {
   const jahr = ctx.heute.getFullYear()
+  const vt = opts.vorwarnungTage ?? FAELLIG_TAGE
   const [{ data: eigeneRaw }, { data: uvaRaw }, { data: jgRaw }, { data: dacRaw }, { data: wfRaw }] = await Promise.all([
     ctx.tf(ctx.q('fristen').select('id, bezeichnung, beschreibung, kategorie, faellig_am, wiederholung, href, status, erledigt_am').order('faellig_am')),
     opts.modulEa ? ctx.tf(ctx.q('ea_uva').select('jahr, zeitraum, gesperrt, gesperrt_am')) : Promise.resolve({ data: [] }),
@@ -269,7 +273,7 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
   // Betriebseigene Fristen (Tabelle) – jährliche Wiederholung: erledigte des
   // Vorjahres werden nicht angezeigt, offene bleiben stehen bis erledigt.
   for (const f of (eigeneRaw ?? []) as R[]) {
-    const st = statusAus(f.faellig_am, f.status === 'erledigt', ctx.heuteStr)
+    const st = statusAus(f.faellig_am, f.status === 'erledigt', ctx.heuteStr, vt)
     fristen.push({
       key: `f:${f.id}`, id: f.id, bezeichnung: f.bezeichnung, hinweis: f.beschreibung ?? '', kategorie: f.kategorie,
       faelligAm: f.faellig_am, status: st,
@@ -285,9 +289,11 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
     const perioden = uvaPerioden(opts.uvaZeitraum, ctx.heute)
     let letzteErledigt: Frist | null = null
     for (const p of perioden) {
+      // Betriebsbeginn (Migration 180): Perioden davor existieren fachlich nicht
+      if (periodeVorBeginn(p.jahr, p.zeitraum, opts.betriebsbeginn)) continue
       const row = uva.find(u => Number(u.jahr) === p.jahr && u.zeitraum === p.zeitraum)
       const erledigt = !!row?.gesperrt
-      const st = statusAus(p.faelligAm, erledigt, ctx.heuteStr)
+      const st = statusAus(p.faelligAm, erledigt, ctx.heuteStr, vt)
       const eintrag: Frist = {
         key: `uva:${p.jahr}:${p.zeitraum}`, bezeichnung: `UVA ${p.label}`, kategorie: 'steuer',
         hinweis: 'Aus E/A-Rechnung · FinanzOnline (CSV-Export)', faelligAm: p.faelligAm, status: st,
@@ -306,7 +312,7 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
     const am = jg?.ama_erntemeldungen?.[0] ?? (Array.isArray(jg?.ama_erntemeldungen) ? null : jg?.ama_erntemeldungen)
     const eingereicht = !!jg?.ama_gemeldet || ['eingereicht', 'bestaetigt'].includes(am?.status)
     const faelligAm = `${jahr}-12-15`
-    const st = statusAus(faelligAm, eingereicht, ctx.heuteStr)
+    const st = statusAus(faelligAm, eingereicht, ctx.heuteStr, vt)
     fristen.push({
       key: `ernte:${jahr}`, bezeichnung: `Erntemeldung ${jahr}`, kategorie: 'weinrecht',
       hinweis: jg ? (eingereicht ? 'Über eAMA gemeldet' : `Entwurf entsteht aus den Pressungen · Status ${am?.status ?? 'entwurf'}`) : `Jahrgang ${jahr} noch nicht angelegt`,
@@ -362,9 +368,9 @@ export async function ladeNaechsteTermine(ctx: Ctx, limit = 5) {
 // ── Tenant-Einstellungen, die die Sichten brauchen ───────────────────────────
 
 export async function ladeEinstellungen(ctx: Ctx) {
-  if (!ctx.tenantId) return { modulEa: false, uvaZeitraum: 'quartalsweise' as const, bawbKennung: false, assistentAktiv: false, m365Aktiv: false }
+  if (!ctx.tenantId) return { modulEa: false, uvaZeitraum: 'quartalsweise' as const, bawbKennung: false, assistentAktiv: false, m365Aktiv: false, messintervallTage: GAERUNG_MESSINTERVALL_TAGE, vorwarnungTage: FAELLIG_TAGE, betriebsbeginn: null as string | null }
   const { data } = await ctx.q('tenant_einstellungen')
-    .select('modul_ea, ea_uva_zeitraum, bawb_kennung, assistent_aktiv, m365_modul_aktiv')
+    .select('modul_ea, ea_uva_zeitraum, bawb_kennung, assistent_aktiv, m365_modul_aktiv, gaerung_messintervall_tage, fristen_vorwarnung_tage, ea_betriebsbeginn')
     .eq('tenant_id', ctx.tenantId).maybeSingle()
   const d = (data ?? {}) as R
   return {
@@ -373,5 +379,10 @@ export async function ladeEinstellungen(ctx: Ctx) {
     bawbKennung: !!d.bawb_kennung,
     assistentAktiv: !!d.assistent_aktiv,
     m365Aktiv: !!d.m365_modul_aktiv,
+    // Dashboard-Regeln je Betrieb (Migration 179), Fallback = Konstanten oben
+    messintervallTage: Number(d.gaerung_messintervall_tage) > 0 ? Number(d.gaerung_messintervall_tage) : GAERUNG_MESSINTERVALL_TAGE,
+    vorwarnungTage:    Number(d.fristen_vorwarnung_tage)    > 0 ? Number(d.fristen_vorwarnung_tage)    : FAELLIG_TAGE,
+    // Betriebsbeginn E&A (Migration 180) – UVA-Perioden davor nicht als offen zeigen
+    betriebsbeginn:    (d.ea_betriebsbeginn ?? null) as string | null,
   }
 }

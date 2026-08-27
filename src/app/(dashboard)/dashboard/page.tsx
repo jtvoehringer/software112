@@ -21,10 +21,10 @@ export default async function UebersichtPage() {
   const jahr = ctx.heute.getFullYear()
 
   const [keller, flaschen, offen, fristen, termine, weingarten, { data: profil }, { count: checklistOffen }, { count: belegeErkannt }] = await Promise.all([
-    ladeKeller(ctx),
+    ladeKeller(ctx, einst.messintervallTage),
     ladeFlaschenlager(ctx),
     ladeOffenePosten(ctx),
-    ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum }),
+    ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum, vorwarnungTage: einst.vorwarnungTage, betriebsbeginn: einst.betriebsbeginn }),
     ladeNaechsteTermine(ctx, 3),
     ladeWeingarten(ctx),
     ctx.userId ? ctx.q('profiles').select('full_name').eq('id', ctx.userId).maybeSingle() : Promise.resolve({ data: null }),
@@ -95,7 +95,7 @@ export default async function UebersichtPage() {
           tone={offen.ueberfaellig > 0 ? 'err' : undefined} />
         <Tile label="Offene Aufgaben" icon={ListChecks} href="/dashboard/fristen"
           value={fmtNum(aufgaben)}
-          sub={fristenDringend.length > 0 ? `${fristenDringend.length} Meldefrist${fristenDringend.length === 1 ? '' : 'en'} < 30 Tage` : keller.messungFaellig > 0 ? `${keller.messungFaellig} Gärkontrolle${keller.messungFaellig === 1 ? '' : 'n'} fällig` : 'Nichts Dringendes'}
+          sub={fristenDringend.length > 0 ? `${fristenDringend.length} Meldefrist${fristenDringend.length === 1 ? '' : 'en'} < ${einst.vorwarnungTage} Tage` : keller.messungFaellig > 0 ? `${keller.messungFaellig} Gärkontrolle${keller.messungFaellig === 1 ? '' : 'n'} fällig` : 'Nichts Dringendes'}
           tone={fristenDringend.some(f => f.status === 'ueberfaellig') ? 'err' : fristenDringend.length > 0 || keller.messungFaellig > 0 ? 'warn' : undefined} />
       </div>
 

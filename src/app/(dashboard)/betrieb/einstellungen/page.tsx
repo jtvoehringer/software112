@@ -20,6 +20,9 @@ export type EigeneBetriebsdaten = {
   primary_color: string
   secondary_color: string
   session_timeout_minuten: number | null
+  // Migration 179 – Dashboard-Regeln je Betrieb
+  gaerung_messintervall_tage: number
+  fristen_vorwarnung_tage: number
   betrieb_name: string | null
   betrieb_strasse: string | null
   betrieb_plz: string | null
@@ -29,6 +32,9 @@ export type EigeneBetriebsdaten = {
   betrieb_website: string | null
   betrieb_uid: string | null
   betrieb_betriebsnummer: string | null
+  // Migration 180 – Betriebsbeginn/Systemstart der E&A-Rechnung
+  ea_betriebsbeginn: string | null
+  modul_ea: boolean
   rechnung_iban: string | null
   rechnung_bic: string | null
   rechnung_fusstext: string | null
@@ -52,8 +58,9 @@ export default async function MeinBetriebPage() {
     (admin.from('tenant_einstellungen') as any)
       .select(`
         anzeigename, logo_url, primary_color, secondary_color, session_timeout_minuten,
+        gaerung_messintervall_tage, fristen_vorwarnung_tage,
         betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_telefon,
-        betrieb_email, betrieb_website, betrieb_uid, betrieb_betriebsnummer,
+        betrieb_email, betrieb_website, betrieb_uid, betrieb_betriebsnummer, ea_betriebsbeginn, modul_ea,
         rechnung_iban, rechnung_bic, rechnung_fusstext,
         bawb_kennung, bawb_passwort
       `)
@@ -76,6 +83,8 @@ export default async function MeinBetriebPage() {
     primary_color:    s?.primary_color ?? '#4F86D6',
     secondary_color:  s?.secondary_color ?? '#FFFFFF',
     session_timeout_minuten: s?.session_timeout_minuten ?? null,
+    gaerung_messintervall_tage: Number(s?.gaerung_messintervall_tage ?? 3),
+    fristen_vorwarnung_tage:    Number(s?.fristen_vorwarnung_tage ?? 30),
     betrieb_name:      s?.betrieb_name ?? null,
     betrieb_strasse:   s?.betrieb_strasse ?? null,
     betrieb_plz:       s?.betrieb_plz ?? null,
@@ -85,6 +94,8 @@ export default async function MeinBetriebPage() {
     betrieb_website:   s?.betrieb_website ?? null,
     betrieb_uid:       s?.betrieb_uid ?? null,
     betrieb_betriebsnummer: s?.betrieb_betriebsnummer ?? null,
+    ea_betriebsbeginn: s?.ea_betriebsbeginn ?? null,
+    modul_ea:          !!(s?.modul_ea),
     rechnung_iban:     s?.rechnung_iban ?? null,
     rechnung_bic:      s?.rechnung_bic ?? null,
     rechnung_fusstext: s?.rechnung_fusstext ?? null,
