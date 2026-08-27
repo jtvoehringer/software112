@@ -295,6 +295,9 @@ function LageGruppe({
   // Koordinaten (Stufe 1, Migration 181): liegen auf Riedenebene – alle Zeilen
   // derselben Ried tragen denselben Pin, deshalb genügt die erste mit Wert.
   const geo = weingaerten.find(w => w.zentrum_lat != null && w.zentrum_lon != null)
+  // Stammdaten der Ried = erster Weingarten-Datensatz (Ried-Formular hängt am
+  // weingarten-Datensatz; Feldstücknr./Codes/Koordinaten gelten je Ried).
+  const stammdatenId = weingaerten[0]?.id ?? null
   const codes = weingaerten.find(w => w.codes)?.codes ?? null
   const interneBezeichnung = interneBezeichnungFuerLage(weingaerten)
 
@@ -353,12 +356,23 @@ function LageGruppe({
             <span className="text-s112-teal"><ChevronIcon open={open} /></span>
             <div>
               <div className="font-semibold text-gray-900 text-sm flex items-center gap-1.5">
-                {ried}
-                {geo && (
-                  <a href={googleMapsUrl(Number(geo.zentrum_lat), Number(geo.zentrum_lon))} target="_blank" rel="noopener"
-                    onClick={e => e.stopPropagation()} title="In Google Maps öffnen" aria-label="In Google Maps öffnen"
-                    className="text-s112-teal hover:text-s112-blue-700"><MapPin size={13} strokeWidth={1.75} /></a>
-                )}
+                {/* Rückmeldung 27.8.2026: Klick auf den Riednamen öffnet die Stammdaten
+                    (erster Weingarten-Datensatz der Ried), der Chevron/Rest der Zeile
+                    klappt weiterhin auf/zu. */}
+                {istEchteLage && stammdatenId ? (
+                  <Link href={`/weingarten/${stammdatenId}`} onClick={e => e.stopPropagation()}
+                    title="Stammdaten der Ried öffnen" className="hover:text-s112-teal hover:underline">{ried}</Link>
+                ) : ried}
+                {/* Geo-Pin immer sichtbar: mit Koordinaten → Google Maps, ohne → Detailseite zum Setzen */}
+                {istEchteLage && (geo
+                  ? <a href={googleMapsUrl(Number(geo.zentrum_lat), Number(geo.zentrum_lon))} target="_blank" rel="noopener"
+                      onClick={e => e.stopPropagation()} title={`In Google Maps öffnen (${Number(geo.zentrum_lat).toFixed(5)}, ${Number(geo.zentrum_lon).toFixed(5)})`} aria-label="In Google Maps öffnen"
+                      className="text-s112-teal hover:text-s112-blue-700"><MapPin size={13} strokeWidth={1.75} /></a>
+                  : stammdatenId && (
+                    <Link href={`/weingarten/${stammdatenId}`} onClick={e => e.stopPropagation()}
+                      title="Noch keine Koordinaten – in den Stammdaten setzen" aria-label="Koordinaten setzen"
+                      className="text-gray-300 hover:text-s112-teal"><MapPin size={13} strokeWidth={1.5} /></Link>
+                  ))}
               </div>
               {interneBezeichnung && (
                 <div className="text-xs text-s112-muted">{interneBezeichnung}</div>
