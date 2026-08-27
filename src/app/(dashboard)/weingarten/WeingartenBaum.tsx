@@ -3,7 +3,8 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, MapPin } from 'lucide-react'
+import { googleMapsUrl } from '@/lib/geo/rieden'
 import { deactivateWeingarten, deleteWeingarten, deleteRied } from './actions'
 import { fmtHa } from '@/lib/format'
 import { NutzungBadge } from '@/lib/wein/grundstueckStatus'
@@ -85,6 +86,8 @@ export type WRow = {
   id: string; name: string; ried: string | null; rebsorte: string | null
   weinart: string | null; flaeche_ha: number | null; bewirtschaftung: string | null; aktiv: boolean
   ama_feldnummer: string | null; codes: string | null; interne_bezeichnung: string | null
+  // Stufe 1 Rieden-Koordinaten (Migration 181), optional
+  zentrum_lat?: number | null; zentrum_lon?: number | null
 }
 export type GSTRow = {
   id: string; weingarten_id: string; gst_nr: string
@@ -187,6 +190,11 @@ function WeingartenZeile({
                 >
                   {w.name}
                 </Link>
+                {w.zentrum_lat != null && w.zentrum_lon != null && (
+                  <a href={googleMapsUrl(Number(w.zentrum_lat), Number(w.zentrum_lon))} target="_blank" rel="noopener"
+                    onClick={e => e.stopPropagation()} title="In Google Maps öffnen" aria-label="In Google Maps öffnen"
+                    className="text-s112-teal hover:text-s112-blue-700"><MapPin size={13} strokeWidth={1.75} /></a>
+                )}
                 {w.bewirtschaftung && (
                   <span className={`inline-block px-1.5 py-0 rounded-full text-xs font-medium ${BEWIRTSCHAFTUNG_BADGE[w.bewirtschaftung] ?? 'bg-gray-100 text-gray-600'}`}>
                     {BEWIRTSCHAFTUNG_LABEL[w.bewirtschaftung] ?? w.bewirtschaftung}
@@ -284,6 +292,9 @@ function LageGruppe({
   // sichtbar, sobald die GST-Zeilen flach unter dem Ried gelistet werden (siehe
   // flatGst) - dort wird ja keine eigene Weingarten-Zeile mehr gezeigt.
   const amaFeldnummer = amaFeldnummerFuerLage(weingaerten)
+  // Koordinaten (Stufe 1, Migration 181): liegen auf Riedenebene – alle Zeilen
+  // derselben Ried tragen denselben Pin, deshalb genügt die erste mit Wert.
+  const geo = weingaerten.find(w => w.zentrum_lat != null && w.zentrum_lon != null)
   const codes = weingaerten.find(w => w.codes)?.codes ?? null
   const interneBezeichnung = interneBezeichnungFuerLage(weingaerten)
 
@@ -341,7 +352,14 @@ function LageGruppe({
           <div className="flex items-center gap-2">
             <span className="text-s112-teal"><ChevronIcon open={open} /></span>
             <div>
-              <div className="font-semibold text-gray-900 text-sm">{ried}</div>
+              <div className="font-semibold text-gray-900 text-sm flex items-center gap-1.5">
+                {ried}
+                {geo && (
+                  <a href={googleMapsUrl(Number(geo.zentrum_lat), Number(geo.zentrum_lon))} target="_blank" rel="noopener"
+                    onClick={e => e.stopPropagation()} title="In Google Maps öffnen" aria-label="In Google Maps öffnen"
+                    className="text-s112-teal hover:text-s112-blue-700"><MapPin size={13} strokeWidth={1.75} /></a>
+                )}
+              </div>
               {interneBezeichnung && (
                 <div className="text-xs text-s112-muted">{interneBezeichnung}</div>
               )}

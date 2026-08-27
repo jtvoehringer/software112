@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Grape, FlaskConical, Clock } from 'lucide-react'
+import { Grape, FlaskConical, Clock, MapPin } from 'lucide-react'
+import RiedKarte, { type KartenPin } from '@/components/weingarten/RiedKarte'
+import { googleMapsUrl } from '@/lib/geo/rieden'
 import { DashHeader, Tile, Card, Badge, Note, Empty, Th, Td, fmtNum, fmtDate } from '../_shared/ui'
 import { getCtx, ladeWeingarten, type R } from '../_shared/data'
 import { canWrite } from '@/lib/auth/roles'
@@ -24,6 +26,17 @@ export default async function WeingartenSichtPage() {
     .map(p => ({ id: p.id, text: p.text, zustaendig: p.zustaendig ?? null, faellig_am: p.faellig_am ?? null, faellig_hinweis: p.faellig_hinweis ?? null, erledigt: !!p.erledigt }))
   const naechsteWf = wg.wartefristen[0]
 
+  // Karte: ein Pin je Ried (Riedenebene – mehrere Weingarten-Zeilen derselben
+  // Ried tragen denselben Pin, deshalb nach Ried-Name + Koordinate zusammenfassen)
+  const pinMap = new Map<string, KartenPin>()
+  for (const r of wg.rieden) {
+    if (r.lat == null || r.lon == null) continue
+    const key = `${r.ried ?? r.name}|${r.lat.toFixed(5)}|${r.lon.toFixed(5)}`
+    if (!pinMap.has(key)) pinMap.set(key, { id: r.id, name: r.ried ?? r.name, lat: r.lat, lon: r.lon, sub: [r.rebsorte, `${fmtNum(r.flaeche_ha, 2)} ha`].filter(Boolean).join(' · '), href: `/weingarten/${r.id}` })
+  }
+  const pins = Array.from(pinMap.values())
+  const ohneKoordinaten = wg.rieden.filter(r => r.lat == null).length
+
   return (
     <div className="space-y-6">
       <DashHeader
@@ -45,6 +58,18 @@ export default async function WeingartenSichtPage() {
           tone={wg.wartefristen.length > 0 ? 'warn' : 'ok'} />
       </div>
 
+      <Card title="Rieden-Karte" right={
+        <span className="text-[11.5px] text-s112-text-2">
+          {pins.length} Ried{pins.length === 1 ? '' : 'en'} mit Koordinaten{ohneKoordinaten > 0 ? ` · ${ohneKoordinaten} ohne` : ''} · <Link href="/api/export/rieden-geo?format=gpx" className="text-s112-blue-700 hover:underline">GPX</Link> · <Link href="/api/export/rieden-geo?format=kml" className="text-s112-blue-700 hover:underline">KML</Link>
+        </span>
+      }>
+        {pins.length === 0 ? (
+          <Empty action={{ href: '/weingarten', label: 'Rieden öffnen und Pin setzen' }}>Noch keine Ried mit Koordinaten – in der Ried-Detailseite auf die Karte klicken oder den Standort übernehmen.</Empty>
+        ) : (
+          <RiedKarte pins={pins} height={300} />
+        )}
+      </Card>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card title="Rieden – Übersicht" right={<Link href="/weingarten" className="text-[11.5px] text-s112-blue-700 hover:underline">alle →</Link>}>
           {wg.rieden.length === 0 ? (
@@ -52,7 +77,7 @@ export default async function WeingartenSichtPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead><tr><Th>Ried</Th><Th>Rebsorte(n)</Th><Th right>Fläche</Th><Th right>GST</Th><Th>AMA-FS</Th><Th>Codes</Th></tr></thead>
+                <thead><tr><Th>Ried</Th><Th>Rebsorte(n)</Th><Th right>Fläche</Th><Th right>GST</Th><Th>AMA-FS</Th><Th>Codes</Th><Th>Lage</Th></tr></thead>
                 <tbody>
                   {wg.rieden.slice(0, 12).map(r => (
                     <tr key={r.id} className="hover:bg-[#F8FAFC]">
@@ -62,6 +87,9 @@ export default async function WeingartenSichtPage() {
                       <Td right mono>{r.gstCount}</Td>
                       <Td mono>{r.amaFs.length ? r.amaFs.slice(0, 3).join(', ') + (r.amaFs.length > 3 ? ' …' : '') : '–'}</Td>
                       <Td>{r.codes.length ? <span className="flex flex-wrap gap-1">{r.codes.slice(0, 3).map(c => <Badge key={c} tone="info">{c}</Badge>)}</span> : '–'}</Td>
+                      <Td>{r.lat != null && r.lon != null
+                        ? <a href={googleMapsUrl(r.lat, r.lon)} target="_blank" rel="noopener" title="In Google Maps öffnen" className="text-s112-teal hover:text-s112-blue-700"><MapPin size={14} strokeWidth={1.75} /></a>
+                        : <Link href={`/weingarten/${r.id}`} title="Koordinaten setzen" className="text-s112-tertiary hover:text-s112-blue-700"><MapPin size={14} strokeWidth={1.25} /></Link>}</Td>
                     </tr>
                   ))}
                 </tbody>

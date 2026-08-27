@@ -20,6 +20,7 @@
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.46.2",
     "imapflow": "*",
+    "leaflet": "^1.9.4",
     "lucide-react": "^1.28.0",
     "next": "^16.2.6",
     "nodemailer": "*",
@@ -28,6 +29,7 @@
     "stripe": "^17.7.0"
   },
   "devDependencies": {
+    "@types/leaflet": "^1.9.12",
     "@types/node": "^20",
     "@types/nodemailer": "*",
     "@types/react": "^19",

@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import WeingartenBaum, { type WRow, type GSTRow } from './WeingartenBaum'
 import WeingartenCsvExportButton from './WeingartenCsvExportButton'
+import RiedenGeoExportButton from './RiedenGeoExportButton'
 import { fmtHa } from '@/lib/format'
 
 export const metadata: Metadata = { title: 'Rieden – software:112' }
@@ -22,7 +23,7 @@ export default async function WeingartenPage() {
   // Weingärten
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawW } = await tf((supabase.from('weingarten') as any)
-    .select('id, name, ried, rebsorte, weinart, flaeche_ha, bewirtschaftung, aktiv, ama_feldnummer, codes, interne_bezeichnung'))
+    .select('id, name, ried, rebsorte, weinart, flaeche_ha, bewirtschaftung, aktiv, ama_feldnummer, codes, interne_bezeichnung, zentrum_lat, zentrum_lon'))
     .order('ried', { nullsFirst: false })
     .order('name')
   const weingaerten = (rawW ?? []) as WRow[]
@@ -60,7 +61,10 @@ export default async function WeingartenPage() {
         </div>
         <div className="flex items-center gap-3">
           {weingaerten.length > 0 && (
-            <WeingartenCsvExportButton weingaerten={weingaerten} grundstuecke={grundstuecke} />
+            <>
+              <RiedenGeoExportButton anzahl={aktive.filter(w => w.zentrum_lat != null && w.zentrum_lon != null).length} />
+              <WeingartenCsvExportButton weingaerten={weingaerten} grundstuecke={grundstuecke} />
+            </>
           )}
           {writeOk && (
             <Link

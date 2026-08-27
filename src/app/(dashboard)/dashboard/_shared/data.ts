@@ -190,7 +190,7 @@ export async function ladeFlaschenlager(ctx: Ctx) {
 export async function ladeWeingarten(ctx: Ctx) {
   const jahr = ctx.heute.getFullYear()
   const [{ data: wRaw }, { data: gRaw }, { data: bRaw }] = await Promise.all([
-    ctx.tf(ctx.q('weingarten').select('id, name, ried, rebsorte, weinart, flaeche_ha, bewirtschaftung, aktiv, ama_feldnummer, codes, interne_bezeichnung').eq('aktiv', true).order('name')),
+    ctx.tf(ctx.q('weingarten').select('id, name, ried, rebsorte, weinart, flaeche_ha, bewirtschaftung, aktiv, ama_feldnummer, codes, interne_bezeichnung, zentrum_lat, zentrum_lon').eq('aktiv', true).order('name')),
     ctx.tf(ctx.q('grundstuecke').select('id, weingarten_id, flaeche_ha, ama_feldnummer')),
     ctx.tf(ctx.q('behandlungen').select('id, datum, ernte_fruehesteins, weingarten_id, weingarten:weingarten_id(name)').gte('datum', `${jahr}-01-01`).order('datum', { ascending: false }).limit(500)),
   ])
@@ -211,6 +211,7 @@ export async function ladeWeingarten(ctx: Ctx) {
     return {
       id: w.id as string, name: w.name as string, ried: (w.ried ?? null) as string | null, rebsorte: (w.rebsorte ?? null) as string | null,
       flaeche_ha: gst.length > 0 ? gstHa : (Number(w.flaeche_ha) || 0), gstCount: gst.length, amaFs: fs,
+      lat: w.zentrum_lat != null ? Number(w.zentrum_lat) : null, lon: w.zentrum_lon != null ? Number(w.zentrum_lon) : null,
       codes: (Array.isArray(w.codes) ? w.codes : (w.codes ? String(w.codes).split(/[,;\s]+/).filter(Boolean) : [])) as string[],
     }
   })

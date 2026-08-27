@@ -8,6 +8,7 @@ import { notFound } from 'next/navigation'
 import WeingartenForm from '@/components/weingarten/WeingartenForm'
 import GrundstueckePanel, { type GST, type MassnahmeHistorie } from '../GrundstueckePanel'
 import { updateWeingarten } from '../actions'
+import RiedGeoPanel from '@/components/weingarten/RiedGeoPanel'
 import { ladeCustomWeinbaugebiete } from '../../weinbaugebiete/actions'
 
 export const metadata: Metadata = { title: 'Ried bearbeiten – software:112' }
@@ -25,6 +26,7 @@ type WeingartenRow = {
   bewirtschaftung: string | null; bewirtschaftung_seit: string | null
   notizen: string | null; aktiv: boolean; weinart: string | null
   ama_feldnummer: string | null; codes: string | null; interne_bezeichnung: string | null
+  zentrum_lat: number | null; zentrum_lon: number | null; geometrie: unknown; geo_quelle: string | null; geo_stand: string | null
 }
 
 export default async function WeingartenEditPage({ params }: Props) {
@@ -38,7 +40,7 @@ export default async function WeingartenEditPage({ params }: Props) {
   // Weingarten
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let weingartenQuery = (supabase.from('weingarten') as any)
-    .select('id, name, rebsorte, pflanzjahr, bewirtschaftung, bewirtschaftung_seit, weinart, notizen, aktiv, ama_feldnummer, codes, interne_bezeichnung')
+    .select('id, name, rebsorte, pflanzjahr, bewirtschaftung, bewirtschaftung_seit, weinart, notizen, aktiv, ama_feldnummer, codes, interne_bezeichnung, zentrum_lat, zentrum_lon, geometrie, geo_quelle, geo_stand')
     .eq('id', id)
   if (membership) weingartenQuery = weingartenQuery.eq('tenant_id', membership.tenantId)
   const { data: rows } = await weingartenQuery.limit(1)
@@ -141,6 +143,20 @@ export default async function WeingartenEditPage({ params }: Props) {
       </div>
 
       </div>{/* end max-w-2xl */}
+
+      {/* Lage & Koordinaten – Riedenebene (Stufe 1, Migration 181) */}
+      <div className="mt-6">
+        <RiedGeoPanel
+          weingartenId={id}
+          name={weingarten.name}
+          lat={weingarten.zentrum_lat != null ? Number(weingarten.zentrum_lat) : null}
+          lon={weingarten.zentrum_lon != null ? Number(weingarten.zentrum_lon) : null}
+          geometrie={weingarten.geometrie ?? null}
+          geoQuelle={weingarten.geo_quelle}
+          geoStand={weingarten.geo_stand}
+          writeOk={writeOk}
+        />
+      </div>
 
       {/* Grundstücke – volle Breite */}
       <div className="card mt-6">
