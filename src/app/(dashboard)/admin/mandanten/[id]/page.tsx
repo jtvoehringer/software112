@@ -84,6 +84,10 @@ export type TenantSettings = {
   modul_export:        boolean
   // Migration 148 – Prozess-Assistent (Bot)
   assistent_aktiv:     boolean
+  // Migration 037 – KI-Modul "Frag dein Weingut" (bis 27.8.2026 nirgends im Admin schaltbar)
+  ki_abfragen_aktiv:   boolean
+  ki_abfragen_paket:   string
+  ki_abfragen_zaehler: number
   ea_buchung_modus:    string
   ea_kleinunternehmer: boolean
   ea_uva_zeitraum:     string
@@ -236,6 +240,9 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     bawb_kennung:        s?.bawb_kennung ?? null,
     bawb_passwort:       s?.bawb_passwort ?? null,
     assistent_aktiv:     !!(s?.assistent_aktiv),
+    ki_abfragen_aktiv:   !!(s?.ki_abfragen_aktiv),
+    ki_abfragen_paket:   s?.ki_abfragen_paket ?? 'basic',
+    ki_abfragen_zaehler: Number(s?.ki_abfragen_zaehler ?? 0),
   }
 
   const members: TenantMember[] = ((memberships ?? []) as R[]).map(m => ({

@@ -57,6 +57,14 @@ export async function saveTenantSettings(tenantId: string, formData: FormData) {
     modul_sumup:        formData.get('modul_sumup')        === 'true',
     modul_export:       formData.get('modul_export')       === 'true',
     assistent_aktiv:    formData.get('assistent_aktiv')    === 'true',
+    // KI-Modul "Frag dein Weingut" (Migration 037): nur ändern, wenn der Module-Tab die
+    // Felder mitschickt – Branding-/Brevo-Tab rufen dieselbe Action ohne diese Felder auf
+    // und dürfen die KI-Freischaltung nicht versehentlich zurücksetzen.
+    ...(formData.has('ki_abfragen_aktiv') ? {
+      ki_abfragen_aktiv: formData.get('ki_abfragen_aktiv') === 'true',
+      ki_abfragen_paket: ['basic', 'standard', 'unlimited'].includes(String(formData.get('ki_abfragen_paket')))
+        ? String(formData.get('ki_abfragen_paket')) : 'basic',
+    } : {}),
     brevo_api_key:      (formData.get('brevo_api_key') as string) || null,
     brevo_sender_mail:  (formData.get('brevo_sender_mail') as string) || null,
     brevo_sender_name:  (formData.get('brevo_sender_name') as string) || null,

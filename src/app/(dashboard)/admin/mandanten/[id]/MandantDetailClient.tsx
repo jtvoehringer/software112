@@ -547,7 +547,9 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
     modul_sumup:      settings.modul_sumup       ?? false,
     modul_export:     settings.modul_export      ?? false,
     assistent_aktiv:  settings.assistent_aktiv   ?? false,
+    ki_abfragen_aktiv: settings.ki_abfragen_aktiv ?? false,
   })
+  const [kiPaket, setKiPaket] = useState(settings.ki_abfragen_paket ?? 'basic')
 
   function toggle(key: keyof typeof mods) {
     setMods(m => ({ ...m, [key]: !m[key] }))
@@ -567,6 +569,8 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
     fd.set('modul_sumup',      mods.modul_sumup         ? 'true' : 'false')
     fd.set('modul_export',     mods.modul_export        ? 'true' : 'false')
     fd.set('assistent_aktiv',  mods.assistent_aktiv     ? 'true' : 'false')
+    fd.set('ki_abfragen_aktiv', mods.ki_abfragen_aktiv  ? 'true' : 'false')
+    fd.set('ki_abfragen_paket', kiPaket)
     fd.set('brevo_api_key',     settings.brevo_api_key ?? '')
     fd.set('brevo_sender_mail', settings.brevo_sender_mail ?? '')
     fd.set('brevo_sender_name', settings.brevo_sender_name ?? '')
@@ -601,6 +605,23 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
           )}
         <Toggle on={mods.modul_export} onToggle={() => toggle('modul_export')} label="Exportaufträge (Weinexport)" />
         <Toggle on={mods.assistent_aktiv} onToggle={() => toggle('assistent_aktiv')} label="bot:112 – Beta" />
+        {/* KI-Modul "Frag dein Weingut" (Migration 037) – Freischaltung + Paket. Bis
+            27.8.2026 gab es dafür keine Admin-Oberfläche, /ki zeigte deshalb dauerhaft
+            "KI-Modul nicht aktiv". */}
+        <Toggle on={mods.ki_abfragen_aktiv} onToggle={() => toggle('ki_abfragen_aktiv')} label="Frag dein Weingut (KI-Abfragen)" />
+        {mods.ki_abfragen_aktiv && (
+          <div className="ml-12 -mt-2 space-y-1.5">
+            <label className="block text-xs text-gray-600">
+              Paket
+              <select value={kiPaket} onChange={e => setKiPaket(e.target.value)} className="form-input mt-1 max-w-[220px]">
+                <option value="basic">Basic – 100 Abfragen/Monat</option>
+                <option value="standard">Standard – 200 Abfragen/Monat</option>
+                <option value="unlimited">Unlimited</option>
+              </select>
+            </label>
+            <p className="text-xs text-gray-500">Verbrauch im laufenden Monat: {settings.ki_abfragen_zaehler ?? 0} Abfragen</p>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-3">
