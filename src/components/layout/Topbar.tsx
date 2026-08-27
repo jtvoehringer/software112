@@ -5,8 +5,9 @@
 // software:112 als Absender auf (Wortmarke links), hohenstein steht im
 // Fußbereich (siehe AppShell). Rechts daneben der Mandant – Logo und/oder
 // Anzeigename aus tenant_einstellungen (in "Mein Betrieb" anpassbar).
-// Rechts: Befehlspalette (Strg K), Benachrichtigungen, Benutzermenü
-// (Profil, Betrieb wechseln, Abmelden).
+// Rechts: Befehlspalette (Strg K), Benachrichtigungen (Fristenzähler aus
+// /api/dashboard/hinweise: überfällige/fällige Fristen + fällige Gärkontrollen),
+// Benutzermenü (Profil, Betrieb wechseln, Abmelden).
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -14,8 +15,13 @@ import Link from 'next/link'
 import { Search, Bell, LogOut, ArrowLeftRight, User, ChevronDown } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import type { TenantBranding } from '@/app/(dashboard)/layout'
+import type { Hinweis } from '@/app/api/dashboard/hinweise/route'
+
+const HINWEISE_INTERVALL_MS = 5 * 60 * 1000
 
 export const PALETTE_EVENT = 's112:palette'
+/** Fordert die Topbar auf, den Fristenzähler neu zu laden */
+export const HINWEISE_EVENT = 's112:hinweise'
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean)
@@ -39,6 +45,28 @@ export default function Topbar({
   const menuRef  = useRef<HTMLDivElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
   const displayName = userName || userEmail
+  const [hinweise, setHinweise] = useState<Hinweis[] | null>(null) // null = noch nicht geladen
+
+  // Fristenzähler laden – beim Start und danach alle 5 Minuten (Topbar lebt im
+  // Layout und bleibt bei Client-Navigation erhalten, daher kein Reload je Seite).
+  useEffect(() => {
+    let aktiv = true
+    const laden = async () => {
+      try {
+        const res = await fetch('/api/dashboard/hinweise', { cache: 'no-store' })
+        if (!res.ok) return
+        const json = await res.json()
+        if (aktiv) setHinweise(Array.isArray(json.hinweise) ? json.hinweise : [])
+      } catch { /* Netzfehler: alten Stand behalten */ }
+    }
+    void laden()
+    const t = setInterval(laden, HINWEISE_INTERVALL_MS)
+    // z.B. nach "Frist erledigt" in der Fristen-Sicht sofort aktualisieren
+    window.addEventListener(HINWEISE_EVENT, laden)
+    return () => { aktiv = false; clearInterval(t); window.removeEventListener(HINWEISE_EVENT, laden) }
+  }, [])
+  const anzahl = hinweise?.length ?? 0
+  const anzahlErr = hinweise?.filter(h => h.tone === 'err').length ?? 0
 
   // Dropdowns bei Außenklick schließen
   useEffect(() => {
@@ -90,21 +118,47 @@ export default function Topbar({
             <kbd className="hidden md:inline font-mono text-[10.5px] text-white/60 border border-white/25 rounded-sm px-1.5 py-px">Strg K</kbd>
           </button>
 
-          {/* Benachrichtigungen */}
+          {/* Benachrichtigungen: Fristenzähler */}
           <div className="relative" ref={notifRef}>
             <button
               type="button"
               onClick={() => setNotifOpen(o => !o)}
-              className="w-8 h-8 flex items-center justify-center rounded-md text-white/80 hover:bg-white/10 hover:text-white transition-colors"
-              aria-label="Benachrichtigungen"
-              title="Benachrichtigungen"
+              className="relative w-8 h-8 flex items-center justify-center rounded-md text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+              aria-label={anzahl ? `${anzahl} Hinweise` : 'Benachrichtigungen'}
+              title={anzahl ? `${anzahl} offene Hinweise (Fristen, Gärkontrollen)` : 'Benachrichtigungen'}
             >
               <Bell size={17} strokeWidth={1.5} />
+              {anzahl > 0 && (
+                <span className={`absolute -top-0.5 -right-0.5 min-w-[17px] h-[17px] px-1 rounded-full font-mono text-[10px] font-semibold leading-[17px] text-center text-white ${anzahlErr > 0 ? 'bg-s112-err' : 'bg-s112-warn'}`}>
+                  {anzahl > 99 ? '99+' : anzahl}
+                </span>
+              )}
             </button>
             {notifOpen && (
-              <div className="absolute right-0 top-10 z-50 w-64 bg-white rounded-xl border border-s112-line shadow-lg p-3 text-s112-text">
-                <p className="text-xs font-semibold mb-1">Benachrichtigungen</p>
-                <p className="text-xs text-s112-tertiary">Keine neuen Benachrichtigungen.</p>
+              <div className="absolute right-0 top-10 z-50 w-80 bg-white rounded-xl border border-s112-line shadow-lg text-s112-text overflow-hidden">
+                <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-s112-line">
+                  <p className="text-xs font-semibold">Hinweise</p>
+                  <Link href="/dashboard/fristen" onClick={() => setNotifOpen(false)} className="text-[11.5px] text-s112-blue-700 hover:underline">alle Fristen →</Link>
+                </div>
+                {hinweise === null ? (
+                  <p className="px-3.5 py-4 text-xs text-s112-tertiary">Wird geladen …</p>
+                ) : hinweise.length === 0 ? (
+                  <p className="px-3.5 py-4 text-xs text-s112-tertiary">Nichts Dringendes – keine fälligen Fristen oder Gärkontrollen.</p>
+                ) : (
+                  <ul className="max-h-[60vh] overflow-y-auto py-1">
+                    {hinweise.map(h => (
+                      <li key={h.key}>
+                        <Link href={h.href} onClick={() => setNotifOpen(false)} className="flex items-start gap-2.5 px-3.5 py-2 hover:bg-s112-bg">
+                          <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${h.tone === 'err' ? 'bg-s112-err' : 'bg-s112-warn'}`} />
+                          <span className="min-w-0">
+                            <span className="block text-[12.5px] font-medium truncate">{h.titel}</span>
+                            <span className="block text-[11px] text-s112-text-2 truncate">{h.detail}</span>
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
           </div>

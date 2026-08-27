@@ -11,6 +11,7 @@ import { Badge, Th, Td, fmtDate, type BadgeTone } from '../_shared/ui'
 import type { Frist, FristStatus } from '../_shared/types'
 import { KATEGORIE_LABEL } from './vorlage'
 import { standardfristenAnlegen, fristAnlegen, fristErledigen, fristWiedereroeffnen, fristLoeschen } from './actions'
+import { HINWEISE_EVENT } from '@/components/layout/Topbar'
 
 const STATUS: Record<FristStatus, { label: string; tone: BadgeTone }> = {
   ueberfaellig: { label: 'Überfällig', tone: 'err' },
@@ -29,7 +30,7 @@ export default function FristenClient({ fristen, darfSchreiben }: { fristen: Fri
 
   const run = (fn: () => Promise<void>) => start(async () => {
     setFehler(null)
-    try { await fn() } catch (e) { setFehler(e instanceof Error ? e.message : String(e)) }
+    try { await fn(); window.dispatchEvent(new Event(HINWEISE_EVENT)) } catch (e) { setFehler(e instanceof Error ? e.message : String(e)) }
   })
 
   const sichtbar = fristen.filter(f => zeigeErledigt || f.status !== 'erledigt' || f.quelle === 'system')
