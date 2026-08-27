@@ -33,6 +33,7 @@
 - Alle Server Components mit `export const dynamic = 'force-dynamic'` wenn nötig
 - CSS-Klassen: `s112-teal`, `s112-muted`, `s112-border`, `s112-bg` (siehe tailwind.config.ts)
 - Rollenmodell: `leser` / `winzer` / `tenant_admin`
+- **Navigation (seit 27.8.2026, Dashboard-Relaunch):** keine Sidebar mehr – Navy-Topbar + zweizeilige Tab-Navigation (`src/components/layout/AppShell.tsx`, `Topbar.tsx`, `TabNav.tsx`), Struktur/Sichtbarkeitsregeln zentral in `src/lib/navigation/index.ts`; Befehlspalette Strg K in `src/components/CommandPalette.tsx`. Dashboard = fünf Sichten unter `src/app/(dashboard)/dashboard/` (Übersicht, kellerbuch, verkauf, weingarten, fristen; gemeinsame Bausteine in `_shared/`). `lib/auth/roles` ist server-only – `canWrite` nie in Client-Komponenten importieren.
 - **Sprache:** In allen deutschen Texten (UI-Labels, Kommentare, Fehlermeldungen) immer Umlaute verwenden: ä/ö/ü/Ä/Ö/Ü – niemals ae/oe/ue als Ersatz
 - **Skript-Sprache:** Python bevorzugt für Datei- und Datenoperationen; Node.js wenn npm-Pakete nötig (z.B. docx); Bash nur für einfache Einzeiler
 

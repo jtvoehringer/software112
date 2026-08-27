@@ -444,7 +444,7 @@ export default function WeingartenBaum({
       <table className="w-full text-sm">
         <thead>
           {/* Fixiert die Kopfzeile beim Runterscrollen (Rückmeldung 19.8.2026) -
-              sticky relativ zum scrollenden <main> aus ResponsiveLayout.tsx,
+              sticky relativ zum scrollenden <main> aus AppShell.tsx,
               deshalb genügt top-0 ohne zusätzlichen Offset (die äußere
               Kopfleiste mit Suche/Glocke liegt außerhalb des Scroll-Containers). */}
           <tr className="sticky top-0 z-10 bg-s112-bg border-b-2 border-s112-border shadow-sm">

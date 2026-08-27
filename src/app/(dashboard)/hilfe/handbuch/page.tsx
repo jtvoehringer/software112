@@ -2,12 +2,23 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Sprout, Wine, ShoppingCart, Truck, Users, Mail, Bot, Upload, Settings, BarChart3, type LucideIcon } from 'lucide-react'
+import { LayoutDashboard, Sprout, Wine, ShoppingCart, Truck, Users, Mail, Bot, Upload, Settings, BarChart3, type LucideIcon } from 'lucide-react'
 
 type Abschnitt = { titel: string; inhalt: string }
 type Kapitel = { id: string; icon: LucideIcon; titel: string; abschnitte: Abschnitt[] }
 
 const KAPITEL: Kapitel[] = [
+  {
+    id: 'navigation', icon: LayoutDashboard, titel: 'Navigation & Dashboard',
+    abschnitte: [
+      { titel: 'Hauptnavigation (zwei Zeilen)', inhalt: 'Seit dem Dashboard-Relaunch (August 2026) gibt es keine linke Seitenleiste mehr. Unter der dunklen Kopfleiste zeigt die erste Zeile die Bereiche (Übersicht, Rieden, Kellerbuch, Warenwirtschaft, CRM, E&A-Rechnung, Controlling, Auswertungen, Frag dein Weingut, System), die zweite Zeile die Seiten des gewählten Bereichs. Auf schmalen Bildschirmen lassen sich beide Zeilen seitlich scrollen. Welche Bereiche und Seiten sichtbar sind, hängt wie bisher von Rolle und aktivierten Modulen ab.' },
+      { titel: 'Kopfleiste', inhalt: 'Links steht software:112, daneben der aktive Betrieb (Logo und Name aus "Mein Betrieb" > Branding). Rechts: Suchen oder Befehl (Strg K), Benachrichtigungen und das Benutzermenü mit Profil, Betrieb wechseln (bei mehreren Betrieben) und Abmelden.' },
+      { titel: 'Strg K – Suchen oder Befehl', inhalt: 'Die Befehlspalette öffnet sich mit Strg K (Mac: ⌘K) oder über den Knopf in der Kopfleiste. Tippe einen Seitennamen ("Offene Posten"), eine Aktion ("Neuer Verkauf", "Maßnahme erfassen", "Abmelden") oder einen Suchbegriff – ab zwei Zeichen werden Kontakte, Firmen, Rechnungen, Füllungen, Chargen, Rieden, Grundstücke und Jahrgänge durchsucht. Mit ↑↓ wählen, ↵ öffnen, Esc schließen.' },
+      { titel: 'Dashboard mit fünf Sichten', inhalt: 'Der Bereich "Übersicht" hat fünf Sichten: Übersicht (Kellerbestand, Flaschenlager, Offene Posten, Offene Aufgaben, "Nächste Schritte" über alle Module, Stand der Anbindungen), Kellerbuch (Chargen-Pipeline als Kanban mit Detail-Modal und bot:112-Aktionen), Verkauf & CRM (Umsatz, Aufträge, Leads, überfällige Rechnungen, Aktivitäten – das bisherige Dashboard), Weingarten & Ernte (Rieden mit AMA-Feldstücken, Wartefristen, Lesevorbereitungs-Checkliste) und Meldungen & Fristen (Ampel über UVA, Erntemeldung, Prüfnummernanträge, Wartefristen und betriebseigene Fristen).' },
+      { titel: 'Lesevorbereitungs-Checkliste', inhalt: 'Unter Übersicht > Weingarten & Ernte lässt sich je Saison eine Checkliste aus einer Vorlage anlegen (Betriebsleiter/Winzer). Punkte können abgehakt, ergänzt und gelöscht werden; der Fortschritt erscheint als Balken und zählt in die "Offenen Aufgaben" der Übersicht.' },
+      { titel: 'Meldungen & Fristen', inhalt: 'Systemfristen (UVA je Voranmeldungszeitraum, Erntemeldung des laufenden Jahrgangs, offene Prüfnummernanträge, Wartefristen Pflanzenschutz) werden automatisch aus den Modulen abgeleitet. Betriebseigene Fristen (z.B. Bestandsmeldung, Inventur) legst du selbst an oder übernimmst die Standardvorlage; jährliche Fristen werden beim Erledigen automatisch für das Folgejahr neu angelegt. Ampel: überfällig, fällig (innerhalb 30 Tagen), offen, laufend, erledigt. Die Termine sind Betriebs-Stammdaten, keine Rechtsberatung.' },
+    ],
+  },
   {
     id: 'weingarten', icon: Sprout, titel: 'Rieden',
     abschnitte: [
@@ -30,7 +41,7 @@ const KAPITEL: Kapitel[] = [
       { titel: 'Qualitätsstufen- und Weinart-Regeln beim Verschnitt', inhalt: 'Mischst du Chargen verschiedener Qualitätsstufen, wird die Ziel-Charge automatisch auf die niedrigste beteiligte Stufe gesetzt (Bestätigungsabfrage vor dem Speichern); ein Upgrade über die höchste Quell-Stufe hinaus ist nie möglich. Enthalten Quelle und Ziel unterschiedliche Rebsorten, prüft eine Live-Vorschau die 85 %-Regel: Macht eine Sorte mindestens 85 % der Gesamtmenge aus, bleibt sie sortenrein bezeichenbar, sonst gilt die Charge als "Sortenverschnitt". Rotwein und Weißwein lassen sich grundsätzlich nicht miteinander verschneiden (Weinart-Konflikt, Speichern-Button gesperrt).' },
       { titel: 'Kapazität und Standort von Gebinden', inhalt: 'Bei Umziehen, Verschneiden und Pressung wird die Kapazität des Zielgebindes live geprüft; bei Überschreitung wird die Buchung blockiert. Ein Gebinde kann außerdem nur einem Kellerplan (Standort) zugeordnet sein – ist es dort bereits platziert, verschwindet es aus der Auswahl anderer Kellerpläne. Löschen ist nur ohne aktive Charge und ohne bestehende Referenzen möglich, sonst über "Bearbeiten" auf "Inaktiv" setzen.' },
       { titel: 'Abfüllen', inhalt: 'Eine Charge füllst du über den "Abfüllen"-Link in der Kellerbuch-Übersicht bzw. den "Abfüllen"-Button in der Charge-Detailseite ab: Flaschengröße, Anzahl Flaschen und VK-Preis wählen. Die Füllung erscheint danach im Warenwirtschaft-Lager. Der frühere eigenständige "Neue Füllung"-Button in der Übersicht wurde entfernt.' },
-      { titel: 'Kellerbuch-Übersicht und Navigation', inhalt: 'Gebinde und die Chargenliste (Weinausbau) wurden aus der linken Seitenleiste entfernt, sind aber über die Kacheln "Aktive Behälter" bzw. "Laufende Chargen" auf der Kellerbuch-Übersichtsseite weiterhin erreichbar (bzw. direkt über /kellerbuch/gebinde und /kellerbuch/weinausbau). Chargen-Zeilen sind komplett anklickbar und führen zur Charge-Detailseite; ein Weinart-Badge (Weiß/Rot/Rosé) sowie ein Kapazitätsbalken je Behälter geben einen schnellen Überblick.' },
+      { titel: 'Kellerbuch-Übersicht und Navigation', inhalt: 'Gebinde und die Chargenliste (Weinausbau) wurden aus der Navigation entfernt, sind aber über die Kacheln "Aktive Behälter" bzw. "Laufende Chargen" auf der Kellerbuch-Übersichtsseite weiterhin erreichbar (bzw. direkt über /kellerbuch/gebinde und /kellerbuch/weinausbau). Chargen-Zeilen sind komplett anklickbar und führen zur Charge-Detailseite; ein Weinart-Badge (Weiß/Rot/Rosé) sowie ein Kapazitätsbalken je Behälter geben einen schnellen Überblick.' },
       { titel: 'Kellerplan', inhalt: 'Der Kellerplan zeigt eine visuelle Übersicht aller Behälter mit aktueller Belegung. Ein Klick (kein Ziehen) auf ein Gebinde öffnet ein Dialogfenster mit direkten Sprüngen zu "Umziehen", "Kellerbehandlungen" und – falls Wein enthalten ist – "Abfüllen". Nützlich auch für Bio-Kontrolle und Raumplanung.' },
       { titel: 'bawb.at im Prüfnummern-Antrag', inhalt: 'Im Prüfnummern-Antrag (Kellerbuch > Prüfnummern) öffnet der Button "bawb.at öffnen" das LFRZ-Portal "Weinkontrolle Online" als Schnellzugriff in einem neuen Tab. Es findet keine automatische Datenübertragung statt – Status und Prüfnummer aus dem Portal trägst du weiterhin manuell in den Antrag ein.' },
     ],
@@ -85,7 +96,7 @@ const KAPITEL: Kapitel[] = [
   {
     id: 'ki', icon: Bot, titel: 'Frag dein Weingut (KI)',
     abschnitte: [
-      { titel: 'Abfrage stellen', inhalt: 'Unter "Frag dein Weingut" in der Seitenleiste: Frage in natürlicher Sprache eingeben, z.B. "Welche Gastronomie-Kunden haben wir in Wien?" oder "Zeig mir Rotwein-Füllungen mit mehr als 200 Flaschen". Die KI (Claude Haiku) interpretiert die Frage und zeigt eine gefilterte Tabelle mit Zusammenfassung.' },
+      { titel: 'Abfrage stellen', inhalt: 'Unter "Frag dein Weingut" in der Hauptnavigation: Frage in natürlicher Sprache eingeben, z.B. "Welche Gastronomie-Kunden haben wir in Wien?" oder "Zeig mir Rotwein-Füllungen mit mehr als 200 Flaschen". Die KI (Claude Haiku) interpretiert die Frage und zeigt eine gefilterte Tabelle mit Zusammenfassung.' },
       { titel: 'Beispiel-Fragen', inhalt: 'Klick auf einen der Beispiel-Chips startet sofort die Abfrage. Weitere Beispiele: "Wer hat noch keinen Stammkunden-Status?", "Offene Pipeline-Einträge im Stadium Angebot", "Weinausbau mit mehr als 1000 Liter aktuell im Keller".' },
       { titel: 'Ertragshistorie je Grundstück abfragen', inhalt: 'Die KI kann jetzt auch Erntemengen je Grundstück (GST) über mehrere Jahrgänge auswerten, inkl. Ertrag in kg/ha. Beispiel-Fragen: "Wie war die Ertragshistorie für GST 123 in den letzten Jahren?" oder "Zeig mir den Ertrag pro Hektar je Ried für 2023".' },
       { titel: 'Abfrage-Limit', inhalt: 'Das KI-Modul hat ein monatliches Abfrage-Limit (Basic: 100, Standard: 200, Unlimited: unbegrenzt). Der aktuelle Verbrauch wird oben rechts angezeigt. Bei Limit-Erreichen bitte den Administrator kontaktieren.' },

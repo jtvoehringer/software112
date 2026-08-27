@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, getCurrentMembership, roleLabel, canWrite, isSandboxAdminUnlock } from '@/lib/auth/roles'
-import ResponsiveLayout from '@/components/layout/ResponsiveLayout'
+import AppShell from '@/components/layout/AppShell'
 import ReleaseNotesModal from '@/components/ReleaseNotesModal'
 import SessionTimeout from '@/components/SessionTimeout'
 import AssistentWidget from '@/components/assistent/AssistentWidget'
@@ -103,7 +103,7 @@ export default async function DashboardLayout({
       `}</style>
       <ReleaseNotesModal />
       <SessionTimeout timeoutMinuten={(branding as any).session_timeout} />
-      <ResponsiveLayout
+      <AppShell
         userEmail={user.email ?? ''}
         userName={(profil as any)?.full_name || user.user_metadata?.display_name || user.user_metadata?.name || (user.email ?? '').split('@')[0]}
         role={role}
@@ -112,9 +112,10 @@ export default async function DashboardLayout({
         betriebCount={betriebCount ?? 1}
         isSandbox={isSandbox}
         sandboxAdminUnlock={isSandboxAdminUnlock(user.email, isSandbox)}
+        darfSchreiben={canWrite(role)}
       >
         {children}
-      </ResponsiveLayout>
+      </AppShell>
       {assistentAktiv && canWrite(role) && <AssistentWidget />}
     </>
   )

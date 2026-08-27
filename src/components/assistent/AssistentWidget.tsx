@@ -80,6 +80,23 @@ export default function AssistentWidget() {
     }
   }
 
+  // Dashboard-Relaunch (27.8.2026): andere Stellen der App (z.B. das Chargen-
+  // Modal der Dashboard-Sicht "Kellerbuch") können dem Bot eine vorformulierte
+  // Nachricht übergeben – Widget öffnet sich und sendet sie sofort. Die
+  // Bestätigung jeder Buchung bleibt wie gehabt beim Menschen im Chat.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const text = (e as CustomEvent<{ nachricht?: string }>).detail?.nachricht?.trim()
+      if (!text) return
+      setOffen(true)
+      // kurz warten, bis das Panel gerendert ist (Fokus/Scroll), dann senden
+      setTimeout(() => { void senden(undefined, text) }, 50)
+    }
+    window.addEventListener('s112:assistent', handler)
+    return () => window.removeEventListener('s112:assistent', handler)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [laden, unterhaltungId])
+
   return (
     <div className="fixed bottom-5 right-5 z-50">
       {offen && (
