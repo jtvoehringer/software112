@@ -44,3 +44,6 @@ _to_delete_claude_cleanup/
 # Lokale Arbeitsdateien (kein App-Code)
 Prozess-Assistent_Konzept_MVP_1.docx
 Software112 Design-Überarbeitung.zip
+
+# eAMA-GIS-Exporte (Betriebsdaten Gebeshuber) – nie committen
+/eama-export/

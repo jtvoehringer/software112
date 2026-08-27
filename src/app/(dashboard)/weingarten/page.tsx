@@ -67,6 +67,13 @@ export default async function WeingartenPage() {
             </>
           )}
           {writeOk && (
+            <Link href="/weingarten/import-gis"
+              className="inline-flex items-center gap-2 border border-s112-border bg-white text-gray-700 px-3 py-2 rounded-xl text-sm font-medium hover:bg-s112-bg transition-colors"
+              title="Feldstück-Umrisse aus dem INVEKOS-GIS (Shapefile-Export) übernehmen">
+              eAMA-GIS importieren
+            </Link>
+          )}
+          {writeOk && (
             <Link
               href="/weingarten/neu"
               className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"

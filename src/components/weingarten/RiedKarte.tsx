@@ -18,12 +18,16 @@ const ATTR  = 'Grundkarte: <a href="https://basemap.at" target="_blank" rel="noo
 // Standardausschnitt, wenn noch keine Koordinaten da sind: Thermenregion / Gumpoldskirchen
 const START: [number, number] = [48.05, 16.28]
 
+export type KartenUmriss = { name: string; geometrie: unknown }
+
 export default function RiedKarte({
-  pins, geometrie, editable = false, onPick, height = 320, zoom,
+  pins, geometrie, weitere = [], editable = false, onPick, height = 320, zoom,
 }: {
   pins: KartenPin[]
   /** GeoJSON-Geometrie (Polygon/MultiPolygon) – wird gezeichnet, wenn vorhanden (Stufe 2) */
   geometrie?: unknown
+  /** Weitere Umrisse (z.B. Schläge/Grundstücke der Ried), gestrichelt mit Tooltip */
+  weitere?: KartenUmriss[]
   /** Klick auf die Karte setzt den Pin neu (nur Einzelpin-Modus) */
   editable?: boolean
   onPick?: (lat: number, lon: number) => void
@@ -66,7 +70,7 @@ export default function RiedKarte({
       zeichnen(L)
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pins, geometrie, editable])
+  }, [pins, geometrie, weitere, editable])
 
   function zeichnen(L: typeof import('leaflet')) {
     const map = mapRef.current, layer = layerRef.current
@@ -77,6 +81,13 @@ export default function RiedKarte({
       try {
         const gj = L.geoJSON(geometrie as GeoJSON.GeoJsonObject, { style: { color: '#4F86D6', weight: 2, fillColor: '#77A6E7', fillOpacity: 0.25 } })
         gj.addTo(layer); bounds.extend(gj.getBounds())
+      } catch { /* ungültige Geometrie ignorieren */ }
+    }
+    for (const u of weitere) {
+      if (!u.geometrie || typeof u.geometrie !== 'object') continue
+      try {
+        const gj = L.geoJSON(u.geometrie as GeoJSON.GeoJsonObject, { style: { color: '#2F63AC', weight: 1.5, dashArray: '4 3', fillColor: '#4F86D6', fillOpacity: 0.08 } })
+        gj.bindTooltip(u.name, { sticky: true }); gj.addTo(layer); bounds.extend(gj.getBounds())
       } catch { /* ungültige Geometrie ignorieren */ }
     }
     for (const p of pins) {

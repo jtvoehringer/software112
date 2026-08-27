@@ -7,15 +7,17 @@
 
 import { useState, useTransition } from 'react'
 import { MapPin, Navigation, LocateFixed, Trash2, Download } from 'lucide-react'
-import RiedKarte from './RiedKarte'
+import RiedKarte, { type KartenUmriss } from './RiedKarte'
 import { fmtKoord, googleMapsUrl, navigationUrl, parseKoordinaten, inOesterreich } from '@/lib/geo/rieden'
 import { speichereRiedGeo, loescheRiedGeo } from '@/app/(dashboard)/weingarten/actions'
 
 export default function RiedGeoPanel({
-  weingartenId, name, lat, lon, geometrie, geoQuelle, geoStand, writeOk,
+  weingartenId, name, lat, lon, geometrie, weitere = [], geoQuelle, geoStand, writeOk,
 }: {
   weingartenId: string; name: string
   lat: number | null; lon: number | null; geometrie: unknown
+  /** Schlag-/Grundstücks-Umrisse der Ried (aus dem eAMA-Import) */
+  weitere?: KartenUmriss[]
   geoQuelle: string | null; geoStand: string | null; writeOk: boolean
 }) {
   const [pending, start] = useTransition()
@@ -83,6 +85,7 @@ export default function RiedGeoPanel({
       <RiedKarte
         pins={pos ? [{ id: weingartenId, name, lat: pos.lat, lon: pos.lon }] : []}
         geometrie={geometrie}
+        weitere={weitere}
         editable={writeOk}
         onPick={writeOk ? (la, lo) => setzen({ lat: la, lon: lo }) : undefined}
         height={340}
@@ -106,7 +109,7 @@ export default function RiedGeoPanel({
       {(meldung || warnung) && (
         <p className={`text-xs mt-2 ${meldung?.fehler || warnung ? 'text-s112-err-fg' : 'text-s112-ok-fg'}`}>{warnung ?? meldung?.text}</p>
       )}
-      <p className="text-[11px] text-s112-tertiary mt-2">Stufe 1: Mittelpunkt je Ried. Umrisse folgen mit dem eAMA-GIS-Import (Feldstücke über die AMA-Feldstücknummer).</p>
+      <p className="text-[11px] text-s112-tertiary mt-2">Umriss und Mittelpunkt kommen aus dem eAMA-GIS-Import (Rieden › eAMA-GIS importieren) oder werden hier manuell gesetzt. Gestrichelt: Schlag-Umrisse der Grundstücke.</p>
     </div>
   )
 }
