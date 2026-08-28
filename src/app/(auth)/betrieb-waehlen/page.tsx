@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { setActiveTenantCookie } from '@/lib/auth/activeTenant'
 import { selectBetriebAction } from './actions'
 import BetriebCard from './BetriebCard'
 
@@ -39,10 +38,10 @@ export default async function BetriebWaehlenPage() {
 
   if (!memberships || memberships.length === 0) redirect('/login')
 
-  // Einzelner Betrieb: sofort Cookie setzen und weiterleiten
+  // Einzelner Betrieb: über den Route Handler setzen (Cookies dürfen nicht
+  // beim Rendern geschrieben werden – sonst Serverfehler beim ersten Login).
   if (memberships.length === 1) {
-    await setActiveTenantCookie((memberships[0] as R).tenant_id)
-    redirect('/dashboard')
+    redirect(`/auth/betrieb?tenant_id=${(memberships[0] as R).tenant_id}`)
   }
 
   // Anzeigenamen aus tenant_einstellungen laden
