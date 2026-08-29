@@ -15,6 +15,11 @@ type Posten = {
   kundenName: string
   kontaktId: string | null
   firmaId: string | null
+  // Rückmeldung 29.8.2026: "die überfälligen bitte rot markieren" - Erkennung
+  // kommt bereits aus page.tsx (gleiche 30-Tage-Zahlungsziel-Annahme wie im
+  // Dashboard), hier nur noch farblich in der Tabelle sichtbar machen.
+  ueberfaellig: boolean
+  tageUeberfaellig: number
 }
 
 function fmt(n: number) {
@@ -34,8 +39,8 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
 
   return (
     <>
-      <tr className={`border-b border-s112-border last:border-0 hover:bg-s112-bg/50 transition-colors ${p.bezahlt ? 'opacity-60' : ''} ${expanded ? 'bg-s112-bg/40' : ''}`}>
-        <td className="px-4 py-3 text-sm tabular-nums text-s112-muted">
+      <tr className={`border-b border-s112-border last:border-0 hover:bg-s112-bg/50 transition-colors ${p.bezahlt ? 'opacity-60' : ''} ${expanded ? 'bg-s112-bg/40' : ''} ${p.ueberfaellig ? 'bg-s112-err-bg/30' : ''}`}>
+        <td className={`px-4 py-3 text-sm tabular-nums ${p.ueberfaellig ? 'text-s112-err-fg font-semibold' : 'text-s112-muted'}`}>
           {new Date(p.datum).toLocaleDateString('de-AT')}
         </td>
         <td className="px-4 py-3">
@@ -75,15 +80,24 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
                 </p>
               )}
             </div>
-          ) : writeOk ? (
-            <button
-              onClick={() => setExpanded(v => !v)}
-              className="text-xs font-medium text-green-700 border border-green-300 rounded-full px-3 py-0.5 hover:bg-green-500 hover:text-white hover:border-green-500 transition-colors"
-            >
-              {expanded ? 'Abbrechen' : 'Zahlung buchen'}
-            </button>
           ) : (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Offen</span>
+            <div className="flex flex-col items-center gap-1">
+              {p.ueberfaellig && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-s112-err-bg text-s112-err-fg font-semibold whitespace-nowrap">
+                  {p.tageUeberfaellig} Tage überfällig
+                </span>
+              )}
+              {writeOk ? (
+                <button
+                  onClick={() => setExpanded(v => !v)}
+                  className="text-xs font-medium text-green-700 border border-green-300 rounded-full px-3 py-0.5 hover:bg-green-500 hover:text-white hover:border-green-500 transition-colors"
+                >
+                  {expanded ? 'Abbrechen' : 'Zahlung buchen'}
+                </button>
+              ) : !p.ueberfaellig ? (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Offen</span>
+              ) : null}
+            </div>
           )}
         </td>
       </tr>

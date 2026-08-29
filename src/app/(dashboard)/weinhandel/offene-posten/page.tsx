@@ -9,6 +9,15 @@ export const dynamic = 'force-dynamic'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
+// Rückmeldung 29.8.2026: "die überfälligen bitte rot markieren (in der
+// Übersicht, werden die ja bereits erkannt)" - dieselbe Zahlungsziel-Annahme
+// wie im Dashboard (dashboard/page.tsx, dort bereits als "X überfällig"-KPI
+// und "Überfällige Rechnungen"-Widget sichtbar): kein eigenes Fälligkeitsdatum
+// im Datenmodell vorhanden, daher gilt ein offener Posten ab 30 Tagen nach
+// Belegdatum als überfällig. Hier bisher nur berechnet, aber nicht an die
+// Tabelle durchgereicht/farblich markiert - wird jetzt nachgeholt.
+const ZAHLUNGSZIEL_TAGE = 30
+
 export default async function OffenePostenPage() {
   const supabase   = await createSupabaseServerClient()
   const role       = await getCurrentUserRole()
@@ -41,6 +50,7 @@ export default async function OffenePostenPage() {
     }
   }
 
+  const heuteMs = Date.now()
   const posten = ((raw ?? []) as R[]).map((p: R) => {
     const gesamt = ((p.positionen ?? []) as R[]).reduce((s: number, pos: R) => {
       if (pos.preis_brutto == null) return s
@@ -56,17 +66,22 @@ export default async function OffenePostenPage() {
       : kontakt
         ? [kontakt.vorname, kontakt.nachname].filter(Boolean).join(' ')
         : '–'
+    const bezahlt = (p.bezahlt ?? false) as boolean
+    const tage = Math.floor((heuteMs - new Date(p.datum).getTime()) / 86400000)
+    const ueberfaellig = !bezahlt && Number.isFinite(tage) && tage > ZAHLUNGSZIEL_TAGE
     return {
       id:              p.id as string,
       datum:           p.datum as string,
       rechnungsnummer: (p.rechnungsnummer ?? null) as string | null,
-      bezahlt:         (p.bezahlt ?? false) as boolean,
+      bezahlt,
       bezahlt_am:      (p.bezahlt_am ?? null) as string | null,
       gesamt,
       bereitsBezahlt:  bereitsBezahltMap.get(p.id as string) ?? 0,
       kundenName,
       kontaktId:       (p.kontakt as R | null)?.id ?? null,
       firmaId:         (p.firma   as R | null)?.id ?? null,
+      ueberfaellig,
+      tageUeberfaellig: ueberfaellig ? tage : 0,
     }
   })
 
