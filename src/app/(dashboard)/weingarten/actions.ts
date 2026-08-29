@@ -326,3 +326,56 @@ export async function fetchBevFlaeche(kgnr: string, gstNr: string): Promise<BevR
     return { ok: false, message: 'BEV-API nicht erreichbar' }
   }
 }
+
+// ── Rieden-Koordinaten (Stufe 1, Migration 181) ───────────────────────────────
+//
+// Riedenebene: eine Ried kann aus mehreren weingarten-Zeilen bestehen (gleiche
+// lage_id bzw. gleicher ried-Text, siehe Kommentare in WeingartenBaum.tsx).
+// Der Pin wird deshalb auf ALLE Zeilen derselben Ried geschrieben – analog zum
+// Umbenennen in updateWeingarten().
+async function riedGeschwister(supabase: any, tenantId: string, weingartenId: string): Promise<string[]> { // eslint-disable-line @typescript-eslint/no-explicit-any
+  const { data: w } = await (supabase.from('weingarten') as any).select('id, lage_id, ried').eq('id', weingartenId).eq('tenant_id', tenantId).maybeSingle()
+  if (!w) return []
+  let q = (supabase.from('weingarten') as any).select('id').eq('tenant_id', tenantId)
+  if (w.lage_id) q = q.eq('lage_id', w.lage_id)
+  else if (w.ried) q = q.eq('ried', w.ried).is('lage_id', null)
+  else return [w.id]
+  const { data: rows } = await q
+  const ids = ((rows ?? []) as { id: string }[]).map(r => r.id)
+  return ids.length ? ids : [w.id]
+}
+
+export async function speichereRiedGeo(weingartenId: string, lat: number, lon: number): Promise<{ error?: string; anzahl?: number }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const { tenantId } = await requireWrite()
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return { error: 'Ungültige Koordinaten' }
+
+    const ids = await riedGeschwister(supabase, tenantId, weingartenId)
+    if (!ids.length) return { error: 'Ried nicht gefunden' }
+    const { error } = await (supabase.from('weingarten') as any)
+      .update({ zentrum_lat: Number(lat.toFixed(6)), zentrum_lon: Number(lon.toFixed(6)), geo_quelle: 'manuell', geo_stand: new Date().toISOString() })
+      .in('id', ids).eq('tenant_id', tenantId)
+    if (error) return { error: error.message }
+    revalidatePath(`/weingarten/${weingartenId}`); revalidatePath('/weingarten'); revalidatePath('/dashboard/weingarten')
+    return { anzahl: ids.length }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Unbekannter Fehler beim Speichern der Koordinaten' }
+  }
+}
+
+export async function loescheRiedGeo(weingartenId: string): Promise<{ error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const { tenantId } = await requireWrite()
+    const ids = await riedGeschwister(supabase, tenantId, weingartenId)
+    const { error } = await (supabase.from('weingarten') as any)
+      .update({ zentrum_lat: null, zentrum_lon: null, geometrie: null, geo_quelle: null, geo_stand: null })
+      .in('id', ids).eq('tenant_id', tenantId)
+    if (error) return { error: error.message }
+    revalidatePath(`/weingarten/${weingartenId}`); revalidatePath('/weingarten'); revalidatePath('/dashboard/weingarten')
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Unbekannter Fehler beim Löschen der Koordinaten' }
+  }
+}
