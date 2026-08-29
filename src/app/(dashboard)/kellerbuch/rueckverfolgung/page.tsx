@@ -547,6 +547,88 @@ export default async function RueckverfolgungPage({
         </p>
       </div>
 
+      {/* ── Ergebnis (bewusst OBEN, direkt unter dem Header: der Klick auf
+          „Details" in der Liste soll sofort sichtbar etwas zeigen) ─────────── */}
+      {fuellung && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3 print:hidden">
+            <p className="text-sm text-s112-muted">Rückverfolgung für <strong className="text-gray-800">{fuellung.name}</strong>{fuellung.chargennummer ? <> · <span className="font-mono text-xs">{fuellung.chargennummer}</span></> : null}</p>
+            <Link href="/kellerbuch/rueckverfolgung" className="text-sm text-s112-teal hover:underline shrink-0">← alle Füllungen</Link>
+          </div>
+
+          {/* Flasche / Abfüllung */}
+          <Section title="Abfüllung" icon={<Wine className="w-4 h-4" />}>
+            <InfoRow label="Chargennummer" value={fuellung.chargennummer ?? '–'} />
+            <InfoRow label="Prüfnummer" value={fuellung.pruefnummer ?? '–'} />
+            <InfoRow label="Produktname" value={fuellung.name} />
+            <InfoRow label="Jahrgang" value={fuellung.jahrgang} />
+            <InfoRow label="Rebsorte" value={fuellung.rebsorte ? formatRebsorteMitKuerzel(fuellung.rebsorte) : null} />
+            <InfoRow label="Qualität" value={fuellung.qualitaet} />
+            <InfoRow label="Anbaugebiet" value={fuellung.anbaugebiet} />
+            <InfoRow label="Ried / Bezeichnung" value={fuellung.bezeichnung} />
+            <InfoRow label="Abfülldatum" value={fuellung.datum ? new Date(fuellung.datum).toLocaleDateString('de-AT') : null} />
+            <InfoRow label="Flaschengröße" value={fuellung.flaschengroesse_ml ? `${fuellung.flaschengroesse_ml} ml` : null} />
+            <InfoRow label="Anzahl Flaschen" value={fuellung.anzahl_flaschen?.toLocaleString('de-AT')} />
+            <InfoRow label="Liter abgefüllt" value={fuellung.menge_liter_gefuellt ? `${parseFloat(fuellung.menge_liter_gefuellt).toLocaleString('de-AT', { minimumFractionDigits: 2 })} L` : null} />
+            {chargeEntries.length > 1 && (
+              <div className="mt-1 text-xs text-s112-muted bg-s112-bg rounded-lg px-3 py-1.5">
+                Verschnitt aus {chargeEntries.length} Kellerbuch-Chargen
+              </div>
+            )}
+          </Section>
+
+          {/* Blend-Protokoll: vollständige Herkunfts-Zusammensetzung */}
+          {blendKomposition.length > 0 && (
+            <Section title="Blend-Protokoll" icon={<GitMerge className="w-4 h-4" />}>
+              <div className="space-y-1.5">
+                {blendKomposition.map(u => (
+                  <div key={u.key} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="text-gray-700">
+                      {herkunftLabel(u)}
+                      {(u.rebsorte || u.jahrgang) && (
+                        <span className="text-s112-muted"> · {[u.rebsorte ? formatRebsorteMitKuerzel(u.rebsorte) : null, u.jahrgang].filter(Boolean).join(' · ')}</span>
+                      )}
+                    </span>
+                    <span className="text-gray-800 font-semibold shrink-0">
+                      {u.anteil_pct.toLocaleString('de-AT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <Link
+                href={`/kellerbuch/fuellung/${fuellung.id}/blend-protokoll`}
+                className="inline-block mt-1 text-sm font-medium text-s112-teal hover:underline"
+              >
+                Vollständiges Blend-Protokoll ansehen / drucken →
+              </Link>
+            </Section>
+          )}
+
+          {/* Charge-Ketten */}
+          {chargeEntries.length > 0 ? (
+            chargeEntries.map((entry, idx) => (
+              <ChargeKette
+                key={entry.weinausbauId}
+                weinausbau={entry.kette.weinausbau}
+                pressungen={entry.kette.pressungen}
+                behandlungen={entry.kette.behandlungen}
+                analysen={entry.kette.analysen}
+                umzuege={entry.kette.umzuege}
+                anteilLiter={chargeEntries.length > 1 ? entry.anteilLiter : undefined}
+                chargeNr={idx + 1}
+                total={chargeEntries.length}
+              />
+            ))
+          ) : (
+            <div className="bg-s112-bg border border-s112-border rounded-xl p-4 text-sm text-s112-muted">
+              Diese Füllung hat keine verknüpfte Kellerbuch-Charge – Rückverfolgung nur bis zur Abfüllung möglich.
+            </div>
+          )}
+
+        </div>
+      )}
+
+
       {/* Filtern nach Jahrgang / Sorte / Bezeichnung – leichterer Zugang zum Durchsuchen,
           ohne dass eine exakte Chargen-/Prüfnummer schon bekannt sein muss. */}
       <div className="card p-5 space-y-4 print:hidden">
@@ -685,82 +767,6 @@ export default async function RueckverfolgungPage({
         </div>
       )}
       </div>
-
-      {/* ── Ergebnis ─────────────────────────────────────────────────────── */}
-      {fuellung && (
-        <div className="space-y-4">
-
-          {/* Flasche / Abfüllung */}
-          <Section title="Abfüllung" icon={<Wine className="w-4 h-4" />}>
-            <InfoRow label="Chargennummer" value={fuellung.chargennummer ?? '–'} />
-            <InfoRow label="Prüfnummer" value={fuellung.pruefnummer ?? '–'} />
-            <InfoRow label="Produktname" value={fuellung.name} />
-            <InfoRow label="Jahrgang" value={fuellung.jahrgang} />
-            <InfoRow label="Rebsorte" value={fuellung.rebsorte ? formatRebsorteMitKuerzel(fuellung.rebsorte) : null} />
-            <InfoRow label="Qualität" value={fuellung.qualitaet} />
-            <InfoRow label="Anbaugebiet" value={fuellung.anbaugebiet} />
-            <InfoRow label="Ried / Bezeichnung" value={fuellung.bezeichnung} />
-            <InfoRow label="Abfülldatum" value={fuellung.datum ? new Date(fuellung.datum).toLocaleDateString('de-AT') : null} />
-            <InfoRow label="Flaschengröße" value={fuellung.flaschengroesse_ml ? `${fuellung.flaschengroesse_ml} ml` : null} />
-            <InfoRow label="Anzahl Flaschen" value={fuellung.anzahl_flaschen?.toLocaleString('de-AT')} />
-            <InfoRow label="Liter abgefüllt" value={fuellung.menge_liter_gefuellt ? `${parseFloat(fuellung.menge_liter_gefuellt).toLocaleString('de-AT', { minimumFractionDigits: 2 })} L` : null} />
-            {chargeEntries.length > 1 && (
-              <div className="mt-1 text-xs text-s112-muted bg-s112-bg rounded-lg px-3 py-1.5">
-                Verschnitt aus {chargeEntries.length} Kellerbuch-Chargen
-              </div>
-            )}
-          </Section>
-
-          {/* Blend-Protokoll: vollständige Herkunfts-Zusammensetzung */}
-          {blendKomposition.length > 0 && (
-            <Section title="Blend-Protokoll" icon={<GitMerge className="w-4 h-4" />}>
-              <div className="space-y-1.5">
-                {blendKomposition.map(u => (
-                  <div key={u.key} className="flex items-center justify-between gap-2 text-sm">
-                    <span className="text-gray-700">
-                      {herkunftLabel(u)}
-                      {(u.rebsorte || u.jahrgang) && (
-                        <span className="text-s112-muted"> · {[u.rebsorte ? formatRebsorteMitKuerzel(u.rebsorte) : null, u.jahrgang].filter(Boolean).join(' · ')}</span>
-                      )}
-                    </span>
-                    <span className="text-gray-800 font-semibold shrink-0">
-                      {u.anteil_pct.toLocaleString('de-AT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <Link
-                href={`/kellerbuch/fuellung/${fuellung.id}/blend-protokoll`}
-                className="inline-block mt-1 text-sm font-medium text-s112-teal hover:underline"
-              >
-                Vollständiges Blend-Protokoll ansehen / drucken →
-              </Link>
-            </Section>
-          )}
-
-          {/* Charge-Ketten */}
-          {chargeEntries.length > 0 ? (
-            chargeEntries.map((entry, idx) => (
-              <ChargeKette
-                key={entry.weinausbauId}
-                weinausbau={entry.kette.weinausbau}
-                pressungen={entry.kette.pressungen}
-                behandlungen={entry.kette.behandlungen}
-                analysen={entry.kette.analysen}
-                umzuege={entry.kette.umzuege}
-                anteilLiter={chargeEntries.length > 1 ? entry.anteilLiter : undefined}
-                chargeNr={idx + 1}
-                total={chargeEntries.length}
-              />
-            ))
-          ) : (
-            <div className="bg-s112-bg border border-s112-border rounded-xl p-4 text-sm text-s112-muted">
-              Diese Füllung hat keine verknüpfte Kellerbuch-Charge – Rückverfolgung nur bis zur Abfüllung möglich.
-            </div>
-          )}
-
-        </div>
-      )}
 
     </div>
   )
