@@ -16,9 +16,16 @@ type WeingartenRow = {
 interface Props {
   weingarten?: WeingartenRow
   action: (formData: FormData) => Promise<void>
+  // Rückmeldung 24.8.2026: Formular wird jetzt auch für Rollen ohne
+  // Schreibrechte (Rolle "Nur-Lesen") gerendert - actions.ts blockt
+  // createWeingarten/updateWeingarten serverseitig bereits ab (requireWrite()),
+  // ohne readOnly würde ein Nur-Lesen-Nutzer aber erst nach Klick auf
+  // "Speichern" eine Fehlermeldung sehen. readOnly=true deaktiviert alle
+  // Felder und blendet den Speichern-Button aus statt dieses Umwegs.
+  readOnly?: boolean
 }
 
-export default function WeingartenForm({ weingarten, action }: Props) {
+export default function WeingartenForm({ weingarten, action, readOnly = false }: Props) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -56,8 +63,9 @@ export default function WeingartenForm({ weingarten, action }: Props) {
               name="name"
               type="text"
               required
+              disabled={readOnly}
               defaultValue={weingarten?.name ?? ''}
-              className="form-input"
+              className="form-input disabled:opacity-60 disabled:cursor-not-allowed"
               placeholder="z.B. Kremser Schmidt"
             />
           </div>
@@ -66,8 +74,9 @@ export default function WeingartenForm({ weingarten, action }: Props) {
             <input
               name="interne_bezeichnung"
               type="text"
+              disabled={readOnly}
               defaultValue={weingarten?.interne_bezeichnung ?? ''}
-              className="form-input"
+              className="form-input disabled:opacity-60 disabled:cursor-not-allowed"
               placeholder="z.B. Innerbüchl"
             />
           </div>
@@ -80,8 +89,9 @@ export default function WeingartenForm({ weingarten, action }: Props) {
               type="text"
               maxLength={3}
               pattern="[0-9]{1,3}"
+              disabled={readOnly}
               defaultValue={weingarten?.ama_feldnummer ?? ''}
-              className="form-input"
+              className="form-input disabled:opacity-60 disabled:cursor-not-allowed"
               placeholder="z.B. 12"
             />
           </div>
@@ -90,8 +100,9 @@ export default function WeingartenForm({ weingarten, action }: Props) {
             <input
               name="codes"
               type="text"
+              disabled={readOnly}
               defaultValue={weingarten?.codes ?? ''}
-              className="form-input"
+              className="form-input disabled:opacity-60 disabled:cursor-not-allowed"
               placeholder="z.B. EOP,PSMBIO"
               title="EOP = Einsatz von Organismen und Pheromonen, PSMBIO = Einsatz von Pflanzenschutzmitteln laut Bio-Verordnung"
             />
@@ -105,8 +116,9 @@ export default function WeingartenForm({ weingarten, action }: Props) {
         <textarea
           name="notizen"
           rows={4}
+          disabled={readOnly}
           defaultValue={weingarten?.notizen ?? ''}
-          className="form-input resize-none"
+          className="form-input resize-none disabled:opacity-60 disabled:cursor-not-allowed"
           placeholder="Besonderheiten, Bodenart, Ausrichtung …"
         />
       </div>
@@ -119,6 +131,7 @@ export default function WeingartenForm({ weingarten, action }: Props) {
               type="checkbox"
               name="aktiv"
               value="true"
+              disabled={readOnly}
               defaultChecked={weingarten.aktiv}
               className="w-4 h-4 accent-s112-teal"
             />
@@ -129,19 +142,21 @@ export default function WeingartenForm({ weingarten, action }: Props) {
 
       {/* Aktionen */}
       <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={saving}
-          className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50"
-        >
-          {saving ? 'Wird gespeichert …' : 'Speichern'}
-        </button>
+        {!readOnly && (
+          <button
+            type="submit"
+            disabled={saving}
+            className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50"
+          >
+            {saving ? 'Wird gespeichert …' : 'Speichern'}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => router.push('/weingarten')}
           className="text-sm text-s112-muted hover:text-gray-700 transition-colors"
         >
-          Abbrechen
+          {readOnly ? 'Zurück' : 'Abbrechen'}
         </button>
       </div>
     </form>

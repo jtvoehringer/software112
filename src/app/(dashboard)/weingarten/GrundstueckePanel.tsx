@@ -412,12 +412,21 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
 
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 export default function GrundstueckePanel({
-  weingartenId, grundstuecke, massnahmenByGst = {}, customWeinbaugebiete = [],
+  weingartenId, grundstuecke, massnahmenByGst = {}, customWeinbaugebiete = [], writeOk, adminOk,
 }: {
   weingartenId: string
   grundstuecke: GST[]
   massnahmenByGst?: Record<string, MassnahmeHistorie[]>
   customWeinbaugebiete?: CustomWeinbaugebiet[]
+  // Rückmeldung 24.8.2026: dieses Panel prüfte bisher überhaupt keine
+  // Berechtigungen - jeder eingeloggte Tenant-Nutzer (auch Rolle "Nur-Lesen")
+  // konnte Grundstücke anlegen/bearbeiten/löschen. writeOk (alle außer
+  // "leser") steuert Anlegen/Bearbeiten, adminOk (nur "Betriebsleiter" =
+  // tenant_admin + system_admin, siehe canAdmin() in roles.ts) steuert
+  // ausschließlich Löschen - analog zur bereits vorhandenen Gate-Logik in
+  // WeingartenBaum.tsx.
+  writeOk: boolean
+  adminOk: boolean
 }) {
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId]     = useState<string | null>(null)
@@ -462,7 +471,7 @@ export default function GrundstueckePanel({
             {totalKataster > 0 && ` · Kataster: ${fmtHa(totalKataster)} ha`}
           </span>
         </div>
-        {!showForm && (
+        {writeOk && !showForm && (
           <button onClick={() => { setShowForm(true); setEditId(null) }}
             className="inline-flex items-center gap-1 text-xs bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-teal font-medium px-3 py-1.5 rounded-lg transition-colors">
             Grundstück
@@ -470,7 +479,7 @@ export default function GrundstueckePanel({
         )}
       </div>
 
-      {showForm && !editId && (
+      {writeOk && showForm && !editId && (
         <div className="mb-3">
           <GSTForm weingartenId={weingartenId} customWeinbaugebiete={eigeneWeinbaugebiete} onNeuesWeinbaugebiet={handleNeuesWeinbaugebiet} onDone={() => setShowForm(false)} />
         </div>
@@ -501,9 +510,9 @@ export default function GrundstueckePanel({
                 return (
                   <React.Fragment key={g.id}>
                     <tr
-                      className={`group border-b border-s112-border/50 cursor-pointer hover:bg-s112-bg/40 transition-colors ${!isExpanded ? 'last:border-0' : ''} ${g.nutzart !== 'WI' ? 'opacity-60' : ''}`}
-                      onClick={() => { setEditId(g.id); setShowForm(false) }}
-                      title="Grundstück bearbeiten"
+                      className={`group border-b border-s112-border/50 transition-colors ${writeOk ? 'cursor-pointer hover:bg-s112-bg/40' : ''} ${!isExpanded ? 'last:border-0' : ''} ${g.nutzart !== 'WI' ? 'opacity-60' : ''}`}
+                      onClick={() => { if (writeOk) { setEditId(g.id); setShowForm(false) } }}
+                      title={writeOk ? 'Grundstück bearbeiten' : undefined}
                     >
                       {/* Expand-Toggle */}
                       <td className="px-2 py-2 text-center" onClick={e => e.stopPropagation()}>
@@ -556,12 +565,16 @@ export default function GrundstueckePanel({
                       </td>
                       <td className="px-3 py-2 text-right sticky right-0 bg-white border-l border-s112-border/40" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => { setEditId(g.id); setShowForm(false) }}
-                            title="Bearbeiten" aria-label="Bearbeiten"
-                            className="text-s112-teal hover:text-s112-teal/70"><Pencil size={14} /></button>
-                          <button onClick={() => handleDelete(g.id, g.gst_nr)}
-                            title="Löschen" aria-label="Löschen"
-                            className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
+                          {writeOk && (
+                            <button onClick={() => { setEditId(g.id); setShowForm(false) }}
+                              title="Bearbeiten" aria-label="Bearbeiten"
+                              className="text-s112-teal hover:text-s112-teal/70"><Pencil size={14} /></button>
+                          )}
+                          {adminOk && (
+                            <button onClick={() => handleDelete(g.id, g.gst_nr)}
+                              title="Löschen" aria-label="Löschen"
+                              className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -574,7 +587,7 @@ export default function GrundstueckePanel({
                       </tr>
                     )}
                     {/* Bearbeiten-Formular */}
-                    {editId === g.id && (
+                    {writeOk && editId === g.id && (
                       <tr>
                         <td colSpan={10} className="px-3 py-2">
                           <GSTForm weingartenId={weingartenId} gst={g} customWeinbaugebiete={eigeneWeinbaugebiete} onNeuesWeinbaugebiet={handleNeuesWeinbaugebiet} onDone={() => setEditId(null)} />

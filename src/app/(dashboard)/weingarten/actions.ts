@@ -1,21 +1,45 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership, getCurrentUserRole, canWrite } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>
 
-async function getTenantId(): Promise<string | null> {
+// Rückmeldung 24.8.2026 ("löschen sollte nur dem Betriebsleiter (Rolle)
+// möglich sein!!!"): bisher prüften ALLE Server Actions in dieser Datei nur
+// getTenantId() (= ist der Nutzer überhaupt Mitglied dieses Mandanten), aber
+// NIE die tatsächliche Rolle. Die UI hat Buttons zwar schon anhand von
+// writeOk/adminOk (siehe roles.ts) ausgeblendet - das ist aber reine
+// Kosmetik: jeder eingeloggte Tenant-Mitglied (auch Rolle "Nur-Lesen") hätte
+// diese Actions weiterhin direkt aufrufen können. requireWrite()/
+// requireAdmin() sind der serverseitige Ersatz für die bisherigen
+// getTenantId()-Aufrufe und werfen bei fehlender Berechtigung - das wird in
+// den try/catch-Blöcken unten (deleteWeingarten, deleteRied) bereits sauber
+// zu { error } abgefangen, bzw. propagiert bei den nicht try/catch-
+// umschlossenen Actions als geworfener Fehler an den Aufrufer.
+async function requireWrite(): Promise<{ tenantId: string }> {
   const membership = await getCurrentMembership()
-  return membership?.tenantId ?? null
+  if (!membership) throw new Error('Kein Betrieb gefunden')
+  if (!canWrite(membership.role)) {
+    throw new Error('Keine Berechtigung: Diese Aktion ist Betriebsleiter, System-Admin oder Winzer/Kellermeister vorbehalten.')
+  }
+  return { tenantId: membership.tenantId }
+}
+
+async function requireAdmin(): Promise<{ tenantId: string }> {
+  const membership = await getCurrentMembership()
+  if (!membership) throw new Error('Kein Betrieb gefunden')
+  if (!canAdmin(membership.role)) {
+    throw new Error('Keine Berechtigung: Löschen (und Deaktivieren) ist nur dem Betriebsleiter bzw. System-Admin vorbehalten.')
+  }
+  return { tenantId: membership.tenantId }
 }
 
 export async function createWeingarten(formData: FormData) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-  if (!tenantId) throw new Error('Kein Betrieb gefunden')
+  const { tenantId } = await requireWrite()
 
   const name = formData.get('name') as string
   const payload: AnyRecord = {
@@ -41,8 +65,7 @@ export async function createWeingarten(formData: FormData) {
 
 export async function updateWeingarten(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-  if (!tenantId) throw new Error('Kein Betrieb gefunden')
+  const { tenantId } = await requireWrite()
 
   const name = formData.get('name') as string
 
@@ -95,8 +118,7 @@ export async function updateWeingarten(id: string, formData: FormData) {
 
 export async function deactivateWeingarten(id: string) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-  if (!tenantId) throw new Error('Kein Betrieb gefunden')
+  const { tenantId } = await requireAdmin()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('weingarten') as any).update({ aktiv: false }).eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AnyRecord).message)
@@ -121,8 +143,7 @@ function friendlyFkError(err: AnyRecord): string | null {
 export async function deleteWeingarten(id: string): Promise<{ error?: string }> {
   try {
     const supabase = await createSupabaseServerClient()
-    const tenantId = await getTenantId()
-    if (!tenantId) return { error: 'Kein Betrieb gefunden' }
+    const { tenantId } = await requireAdmin()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('weingarten') as any).delete().eq('id', id).eq('tenant_id', tenantId)
     if (error) {
@@ -150,8 +171,7 @@ export async function deleteRied(weingartenIds: string[]): Promise<{ error?: str
   try {
     if (weingartenIds.length === 0) return { error: 'Keine Weingarten-Datensätze zum Löschen übergeben' }
     const supabase = await createSupabaseServerClient()
-    const tenantId = await getTenantId()
-    if (!tenantId) return { error: 'Kein Betrieb gefunden' }
+    const { tenantId } = await requireAdmin()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('weingarten') as any)
       .delete()
@@ -173,8 +193,7 @@ export async function deleteRied(weingartenIds: string[]): Promise<{ error?: str
 
 export async function createGrundstueck(weingartenId: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-  if (!tenantId) throw new Error('Kein Betrieb gefunden')
+  const { tenantId } = await requireWrite()
 
   // Rückmeldung 24.8.2026: "status" wird nicht mehr gepflegt (abgelöst durch
   // "nutzart") - bewusst NICHT mehr aus formData gelesen/geschrieben, das
@@ -218,8 +237,7 @@ export async function createGrundstueck(weingartenId: string, formData: FormData
 
 export async function updateGrundstueck(id: string, weingartenId: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-  if (!tenantId) throw new Error('Kein Betrieb gefunden')
+  const { tenantId } = await requireWrite()
   // Rückmeldung 24.8.2026: "status" wird nicht mehr gepflegt, siehe
   // createGrundstueck weiter oben.
   const nutzart = formData.get('nutzart') as string
@@ -255,8 +273,7 @@ export async function updateGrundstueck(id: string, weingartenId: string, formDa
 
 export async function deleteGrundstueck(id: string, weingartenId: string) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-  if (!tenantId) throw new Error('Kein Betrieb gefunden')
+  const { tenantId } = await requireAdmin()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('grundstuecke') as any).delete().eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AnyRecord).message)
@@ -308,55 +325,4 @@ export async function fetchBevFlaeche(kgnr: string, gstNr: string): Promise<BevR
   } catch {
     return { ok: false, message: 'BEV-API nicht erreichbar' }
   }
-}
-
-// ── Rieden-Koordinaten (Stufe 1, Migration 181) ───────────────────────────────
-//
-// Riedenebene: eine Ried kann aus mehreren weingarten-Zeilen bestehen (gleiche
-// lage_id bzw. gleicher ried-Text, siehe Kommentare in WeingartenBaum.tsx).
-// Der Pin wird deshalb auf ALLE Zeilen derselben Ried geschrieben – analog zum
-// Umbenennen in updateWeingarten().
-async function riedGeschwister(supabase: any, tenantId: string, weingartenId: string): Promise<string[]> { // eslint-disable-line @typescript-eslint/no-explicit-any
-  const { data: w } = await (supabase.from('weingarten') as any).select('id, lage_id, ried').eq('id', weingartenId).eq('tenant_id', tenantId).maybeSingle()
-  if (!w) return []
-  let q = (supabase.from('weingarten') as any).select('id').eq('tenant_id', tenantId)
-  if (w.lage_id) q = q.eq('lage_id', w.lage_id)
-  else if (w.ried) q = q.eq('ried', w.ried).is('lage_id', null)
-  else return [w.id]
-  const { data: rows } = await q
-  const ids = ((rows ?? []) as { id: string }[]).map(r => r.id)
-  return ids.length ? ids : [w.id]
-}
-
-export async function speichereRiedGeo(weingartenId: string, lat: number, lon: number): Promise<{ error?: string; anzahl?: number }> {
-  const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-  if (!tenantId) return { error: 'Kein Betrieb gefunden' }
-  const role = await getCurrentUserRole()
-  if (!canWrite(role)) return { error: 'Keine Berechtigung' }
-  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return { error: 'Ungültige Koordinaten' }
-
-  const ids = await riedGeschwister(supabase, tenantId, weingartenId)
-  if (!ids.length) return { error: 'Ried nicht gefunden' }
-  const { error } = await (supabase.from('weingarten') as any)
-    .update({ zentrum_lat: Number(lat.toFixed(6)), zentrum_lon: Number(lon.toFixed(6)), geo_quelle: 'manuell', geo_stand: new Date().toISOString() })
-    .in('id', ids).eq('tenant_id', tenantId)
-  if (error) return { error: error.message }
-  revalidatePath(`/weingarten/${weingartenId}`); revalidatePath('/weingarten'); revalidatePath('/dashboard/weingarten')
-  return { anzahl: ids.length }
-}
-
-export async function loescheRiedGeo(weingartenId: string): Promise<{ error?: string }> {
-  const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-  if (!tenantId) return { error: 'Kein Betrieb gefunden' }
-  const role = await getCurrentUserRole()
-  if (!canWrite(role)) return { error: 'Keine Berechtigung' }
-  const ids = await riedGeschwister(supabase, tenantId, weingartenId)
-  const { error } = await (supabase.from('weingarten') as any)
-    .update({ zentrum_lat: null, zentrum_lon: null, geometrie: null, geo_quelle: null, geo_stand: null })
-    .in('id', ids).eq('tenant_id', tenantId)
-  if (error) return { error: error.message }
-  revalidatePath(`/weingarten/${weingartenId}`); revalidatePath('/weingarten'); revalidatePath('/dashboard/weingarten')
-  return {}
 }
