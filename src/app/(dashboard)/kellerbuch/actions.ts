@@ -37,12 +37,69 @@ export async function createBehaelter(formData: FormData) {
   revalidatePath('/kellerbuch')
 }
 
+// Rückmeldung 29.8.2026: "wenn eine Gebinde im lfd. Betrieb umbenannt wird,
+// dann notiere das bitte in den Maßnahmen!" - die "Maßnahmen" je Behälter
+// sind die Kellerbehandlungen (Tabelle keller_behandlungen, Seite
+// .../behaelter/[id]/behandlungen, taucht dort UND im Bewegungsbuch als
+// Eintrag mit art:'behandlung' auf, siehe bewegungen/page.tsx). Bei
+// tatsächlicher Namensänderung wird hier automatisch ein solcher Eintrag mit
+// Typ "Umbenennung" angelegt (Menge/Einheit bewusst leer - reine
+// Protokollnotiz, keine Mengenbewegung). Der Typ "Umbenennung" wird beim
+// allerersten Mal je Mandant automatisch angelegt (find-or-create per Name),
+// exakt nach demselben Muster wie der Bot-Tool-Handler in
+// src/lib/assistent/tools/kellerbehandlung.ts für neue Behandlungstypen.
+// Schlägt das Protokollieren aus irgendeinem Grund fehl, soll das die
+// eigentliche (bereits gespeicherte) Umbenennung nicht rückgängig machen -
+// daher nur geloggt, nicht geworfen.
+async function protokolliereGebindeUmbenennung(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  tenantId: string,
+  behaelterId: string,
+  alterName: string,
+  neuerName: string
+) {
+  const TYP_NAME = 'Umbenennung'
+  const { data: bestehenderTyp } = await (supabase.from('keller_behandlungstypen') as any)
+    .select('id').eq('tenant_id', tenantId).ilike('name', TYP_NAME).maybeSingle()
+  let typId = (bestehenderTyp as R | null)?.id ?? null
+  if (!typId) {
+    const { data: neuerTyp, error: typErr } = await (supabase.from('keller_behandlungstypen') as any)
+      .insert({ tenant_id: tenantId, name: TYP_NAME, einheit_standard: '-' })
+      .select('id').single()
+    if (typErr) {
+      console.error('[protokolliereGebindeUmbenennung] Typ konnte nicht angelegt werden:', (typErr as R).message)
+      return
+    }
+    typId = (neuerTyp as R).id
+  }
+
+  const { error: behErr } = await (supabase.from('keller_behandlungen') as any).insert({
+    tenant_id:         tenantId,
+    behaelter_id:      behaelterId,
+    datum:             new Date().toISOString().slice(0, 10),
+    typ_id:            typId,
+    typ_name_snapshot: TYP_NAME,
+    notizen:           `Gebinde umbenannt von „${alterName}" zu „${neuerName}"`,
+  })
+  if (behErr) {
+    console.error('[protokolliereGebindeUmbenennung] Eintrag konnte nicht gespeichert werden:', (behErr as R).message)
+  }
+}
+
 export async function updateBehaelter(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
   if (!tenantId) throw new Error('Kein Betrieb gefunden')
+
+  const neuerName = formData.get('name') as string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: altRow } = await (supabase.from('behaelter') as any)
+    .select('name').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+  const alterName = (altRow as R | null)?.name ?? null
+
   const payload: R = {
-    name:          formData.get('name') as string,
+    name:          neuerName,
     typ:           (formData.get('typ') as string) || null,
     volumen_liter: formData.get('volumen_liter') ? Number((formData.get('volumen_liter') as string).replace(',', '.')) : null,
     standort:      (formData.get('standort') as string) || null,
@@ -51,6 +108,11 @@ export async function updateBehaelter(id: string, formData: FormData) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('behaelter') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as R).message)
+
+  if (alterName && neuerName && alterName.trim() !== neuerName.trim()) {
+    await protokolliereGebindeUmbenennung(supabase, tenantId, id, alterName, neuerName)
+  }
+
   revalidatePath('/kellerbuch')
 }
 
