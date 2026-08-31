@@ -1,10 +1,12 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, getCurrentMembership, roleLabel, canWrite, isSandboxAdminUnlock } from '@/lib/auth/roles'
+import { STRIPE_BLOCKED_STATUSES } from '@/lib/stripe/client'
 import AppShell from '@/components/layout/AppShell'
 import ReleaseNotesModal from '@/components/ReleaseNotesModal'
 import SessionTimeout from '@/components/SessionTimeout'
 import AssistentWidget from '@/components/assistent/AssistentWidget'
+import Link from 'next/link'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -61,6 +63,13 @@ export default async function DashboardLayout({
   let branding: TenantBranding = DEFAULT_BRANDING
   let assistentAktiv = false
   let isSandbox = false
+  // Rückmeldung 31.8.2026 ("die Plattform soll sich selber abrechnen können,
+  // damit wir zu unserem Geld kommen"): Zugriffssperre für Mandanten ohne
+  // aktives Abo. system_admin (Plattformbetreiber) und die Sandbox sind
+  // ausgenommen. 'past_due' sperrt bewusst nicht sofort (siehe stripe/client.ts),
+  // zeigt aber eine Warnung mit Link zur Selbstverwaltung (/abo).
+  let billingBlocked = false
+  let billingWarnung = false
   if (membership?.tenantId) {
     const [{ data }, { data: tenantRow }] = await Promise.all([
       (supabase.from('tenant_einstellungen') as any)
@@ -70,8 +79,9 @@ export default async function DashboardLayout({
       // Nur für sandboxOnly-Nav-Items (z.B. Zeiterfassung, siehe Sidebar.tsx) -
       // bewusst über den echten Mandantennamen ermittelt, nicht über den frei
       // editierbaren Branding-Anzeigenamen (der könnte in der Sandbox jederzeit
-      // zu Testzwecken geändert werden).
-      (supabase.from('tenants') as any).select('name').eq('id', membership.tenantId).maybeSingle(),
+      // zu Testzwecken geändert werden). Zusätzlich jetzt stripe_status für die
+      // Zugriffssperre.
+      (supabase.from('tenants') as any).select('name, stripe_status').eq('id', membership.tenantId).maybeSingle(),
     ])
 
     if (data) {
@@ -90,7 +100,15 @@ export default async function DashboardLayout({
       assistentAktiv = !!d.assistent_aktiv
     }
     isSandbox = (tenantRow as R | null)?.name === 'Sandbox'
+
+    const stripeStatus = (tenantRow as R | null)?.stripe_status ?? null
+    if (stripeStatus && role !== 'system_admin' && !isSandbox) {
+      if (STRIPE_BLOCKED_STATUSES.includes(stripeStatus)) billingBlocked = true
+      else if (stripeStatus === 'past_due') billingWarnung = true
+    }
   }
+
+  if (billingBlocked) redirect('/abo')
 
   return (
     <>
@@ -114,6 +132,12 @@ export default async function DashboardLayout({
         sandboxAdminUnlock={isSandboxAdminUnlock(user.email, isSandbox)}
         darfSchreiben={canWrite(role)}
       >
+        {billingWarnung && (
+          <div className="mb-4 px-4 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-center justify-between gap-3 flex-wrap">
+            <span>Es gibt ein Problem mit der letzten Zahlung für Ihr Abo. Bitte aktualisieren Sie Ihre Zahlungsdaten, um eine Sperre zu vermeiden.</span>
+            <Link href="/abo" className="font-semibold underline whitespace-nowrap hover:text-amber-900">Zahlungsdaten verwalten →</Link>
+          </div>
+        )}
         {children}
       </AppShell>
       {assistentAktiv && canWrite(role) && <AssistentWidget />}

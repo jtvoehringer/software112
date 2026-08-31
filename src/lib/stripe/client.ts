@@ -31,3 +31,14 @@ export const STRIPE_STATUS_META: Record<string, { label: string; color: string }
   incomplete:         { label: 'Zahlung ausstehend', color: 'bg-yellow-100 text-yellow-700' },
   incomplete_expired: { label: 'Abgelaufen',         color: 'bg-gray-100 text-gray-500' },
 }
+
+// Rückmeldung 31.8.2026 ("die Plattform soll sich selber abrechnen können,
+// damit wir zu unserem Geld kommen"): stripe_status wurde bisher nirgends
+// außerhalb der Admin-Seiten und des Webhooks gelesen - ein Mandant mit
+// abgelaufenem/gekündigtem Abo hatte trotzdem uneingeschränkten Zugriff.
+// Diese Status führen jetzt zur Zugriffssperre (siehe (dashboard)/layout.tsx,
+// leitet auf /abo um). 'past_due' ist bewusst NICHT dabei - Stripes eigenes
+// Dunning eskaliert fehlgeschlagene Zahlungsversuche nach einigen Tagen
+// automatisch zu 'unpaid' (das dann sperrt); bis dahin gibt's im Layout nur
+// eine Warnung mit Link zur Selbstverwaltung.
+export const STRIPE_BLOCKED_STATUSES = ['unpaid', 'canceled', 'cancelled', 'incomplete', 'incomplete_expired', 'paused']
