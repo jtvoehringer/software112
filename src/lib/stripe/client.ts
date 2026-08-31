@@ -42,3 +42,13 @@ export const STRIPE_STATUS_META: Record<string, { label: string; color: string }
 // automatisch zu 'unpaid' (das dann sperrt); bis dahin gibt's im Layout nur
 // eine Warnung mit Link zur Selbstverwaltung.
 export const STRIPE_BLOCKED_STATUSES = ['unpaid', 'canceled', 'cancelled', 'incomplete', 'incomplete_expired', 'paused']
+
+// Rückmeldung 31.8.2026 ("Trial-Ablauf: 14 Tage, dann Sperre wie bei unpaid"):
+// 'trialing' bleibt bewusst NICHT in STRIPE_BLOCKED_STATUSES (sonst wäre jede
+// laufende Testphase sofort gesperrt) - stattdessen sperrt eine trialing-
+// Subscription erst, wenn das von Stripe gelieferte trial_end (14 Tage nach
+// Checkout, dort als trial_period_days konfiguriert) in der Vergangenheit
+// liegt. Zentral hier statt doppelt in layout.tsx und /abo gepflegt.
+export function istTrialAbgelaufen(stripeStatus: string | null, trialEndsAt: string | null): boolean {
+  return stripeStatus === 'trialing' && !!trialEndsAt && new Date(trialEndsAt).getTime() < Date.now()
+}

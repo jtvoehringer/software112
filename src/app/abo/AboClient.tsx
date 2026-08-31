@@ -12,18 +12,20 @@ import { createOwnStripePortalSession } from './actions'
 
 export default function AboClient({
   hardBlocked,
+  trialAbgelaufen,
   warned,
   darfVerwalten,
   hasCustomer,
   planLabel,
   statusLabel,
 }: {
-  hardBlocked:   boolean
-  warned:        boolean
-  darfVerwalten: boolean
-  hasCustomer:   boolean
-  planLabel:     string | null
-  statusLabel:   string | null
+  hardBlocked:     boolean
+  trialAbgelaufen: boolean
+  warned:          boolean
+  darfVerwalten:   boolean
+  hasCustomer:     boolean
+  planLabel:       string | null
+  statusLabel:     string | null
 }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -64,7 +66,15 @@ export default function AboClient({
         </div>
 
         <div className="card space-y-4">
-          {hardBlocked ? (
+          {hardBlocked && trialAbgelaufen ? (
+            <div className="px-4 py-3 rounded-lg bg-s112-err-bg text-s112-err-fg text-sm">
+              <p className="font-semibold mb-1">Testphase abgelaufen</p>
+              <p>
+                Ihre kostenlose 14-tägige Testphase ist beendet. Bitte hinterlegen Sie Ihre Zahlungsdaten,
+                um software:112 weiter zu nutzen.
+              </p>
+            </div>
+          ) : hardBlocked ? (
             <div className="px-4 py-3 rounded-lg bg-s112-err-bg text-s112-err-fg text-sm">
               <p className="font-semibold mb-1">Zugriff derzeit gesperrt</p>
               <p>

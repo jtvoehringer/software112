@@ -18,6 +18,7 @@ async function updateTenantStripe(
     stripe_status:          string | null
     stripe_plan:            string | null
     stripe_current_period_end: string | null
+    stripe_trial_ends_at:   string | null
   }>,
 ): Promise<string[]> {
   const col = where.customer_id ? 'stripe_customer_id' : 'stripe_subscription_id'
@@ -137,6 +138,11 @@ export async function POST(req: NextRequest) {
           stripe_status:            sub.status,
           stripe_plan:              plan,
           stripe_current_period_end: (sub as R).current_period_end ? new Date((sub as R).current_period_end * 1000).toISOString() : null,
+          // Trial-Ablauf ("14 Tage, dann Sperre wie bei unpaid"): trial_end
+          // bleibt in Stripe auch nach Trial-Ende als historischer Zeitpunkt
+          // stehen - ausgewertet wird das nur, solange stripe_status noch
+          // 'trialing' ist (siehe istTrialAbgelaufen in lib/stripe/client.ts).
+          stripe_trial_ends_at:     sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
         },
       )
       await synchronisiereModule(admin, tenantIds, plan)
@@ -154,6 +160,7 @@ export async function POST(req: NextRequest) {
           stripe_status:            'cancelled',
           stripe_plan:              null,
           stripe_current_period_end: null,
+          stripe_trial_ends_at:     null,
         },
       )
       await synchronisiereModule(admin, tenantIds, null)
