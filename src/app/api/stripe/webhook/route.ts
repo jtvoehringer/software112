@@ -9,6 +9,7 @@ export const runtime = 'nodejs'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
+/** Aktualisiert tenants und gibt die betroffene(n) tenant_id(s) zurück (für Folge-Sync wie Modul-Flags). */
 async function updateTenantStripe(
   admin: ReturnType<typeof createSupabaseAdminClient>,
   where: { customer_id?: string; subscription_id?: string },
@@ -18,11 +19,12 @@ async function updateTenantStripe(
     stripe_plan:            string | null
     stripe_current_period_end: string | null
   }>,
-) {
+): Promise<string[]> {
   const col = where.customer_id ? 'stripe_customer_id' : 'stripe_subscription_id'
   const val = where.customer_id ?? where.subscription_id
-  const { error } = await (admin.from('tenants') as any).update(data).eq(col, val)
-  if (error) console.error('[Stripe Webhook] DB-Update fehlgeschlagen:', error.message)
+  const { data: betroffen, error } = await (admin.from('tenants') as any).update(data).eq(col, val).select('id')
+  if (error) { console.error('[Stripe Webhook] DB-Update fehlgeschlagen:', error.message); return [] }
+  return ((betroffen ?? []) as R[]).map(t => t.id as string)
 }
 
 function planFromPrice(priceId: string | null | undefined): string {
@@ -31,6 +33,35 @@ function planFromPrice(priceId: string | null | undefined): string {
   if (priceId === process.env.NEXT_PUBLIC_STRIPE_PRICE_PROFESSIONAL_PLUS)  return 'ki_standard'
   if (priceId === process.env.NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE) return 'ki_unlimited'
   return 'base'
+}
+
+// Rückmeldung ("Modul-Sync zuerst"): stripe_plan und die KI-Modul-Flags in
+// tenant_einstellungen (ki_abfragen_aktiv/-paket) waren bisher komplett
+// unabhängig voneinander gepflegt - ein Upgrade/Downgrade in Stripe hatte
+// keinerlei Wirkung auf das tatsächlich freigeschaltete Modul. Setzt die
+// Modul-Flags jetzt automatisch passend zum Plan. Admins können das im
+// Mandanten-Detail weiterhin manuell überschreiben - wird aber beim nächsten
+// Subscription-Event von Stripe wieder überschrieben (Plan ist die Quelle).
+const PLAN_MODUL: Record<string, { aktiv: boolean; paket: string }> = {
+  base:         { aktiv: false, paket: 'basic' },
+  ki_basic:     { aktiv: true,  paket: 'basic' },
+  ki_standard:  { aktiv: true,  paket: 'standard' },
+  ki_unlimited: { aktiv: true,  paket: 'unlimited' },
+}
+
+async function synchronisiereModule(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  tenantIds: string[],
+  stripePlan: string | null,
+) {
+  if (tenantIds.length === 0) return
+  const m = stripePlan ? PLAN_MODUL[stripePlan] : undefined
+  const werte = { ki_abfragen_aktiv: m?.aktiv ?? false, ki_abfragen_paket: m?.paket ?? 'basic' }
+  for (const tenantId of tenantIds) {
+    const { error } = await (admin.from('tenant_einstellungen') as any)
+      .upsert({ tenant_id: tenantId, ...werte }, { onConflict: 'tenant_id' })
+    if (error) console.error('[Stripe Webhook] Modul-Sync fehlgeschlagen:', error.message)
+  }
 }
 
 // Rückmeldung 31.8.2026 ("Zahlungstracking in die Hohenstein Suite übernehmen
@@ -98,15 +129,17 @@ export async function POST(req: NextRequest) {
       const sub        = event.data.object as Stripe.Subscription
       const priceId    = (sub.items.data[0]?.price?.id) ?? null
       const customerId = typeof sub.customer === 'string' ? sub.customer : (sub.customer as R).id as string
-      await updateTenantStripe(admin,
+      const plan       = planFromPrice(priceId)
+      const tenantIds  = await updateTenantStripe(admin,
         { customer_id: customerId },
         {
           stripe_subscription_id:   sub.id,
           stripe_status:            sub.status,
-          stripe_plan:              planFromPrice(priceId),
+          stripe_plan:              plan,
           stripe_current_period_end: (sub as R).current_period_end ? new Date((sub as R).current_period_end * 1000).toISOString() : null,
         },
       )
+      await synchronisiereModule(admin, tenantIds, plan)
       break
     }
 
@@ -114,7 +147,7 @@ export async function POST(req: NextRequest) {
     case 'customer.subscription.deleted': {
       const sub        = event.data.object as Stripe.Subscription
       const customerId = typeof sub.customer === 'string' ? sub.customer : (sub.customer as R).id as string
-      await updateTenantStripe(admin,
+      const tenantIds  = await updateTenantStripe(admin,
         { customer_id: customerId },
         {
           stripe_subscription_id:   null,
@@ -123,6 +156,7 @@ export async function POST(req: NextRequest) {
           stripe_current_period_end: null,
         },
       )
+      await synchronisiereModule(admin, tenantIds, null)
       break
     }
 
