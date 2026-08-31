@@ -33,6 +33,49 @@ function planFromPrice(priceId: string | null | undefined): string {
   return 'base'
 }
 
+// Rückmeldung 31.8.2026 ("Zahlungstracking in die Hohenstein Suite übernehmen
+// und bei den Kunden im E&A-Modul anhängen"): protokolliert jede erfolgreiche
+// Zahlung in stripe_zahlungen_log (Migration 183) - die Hohenstein Suite holt
+// sich neue Zeilen per Service-Role ab und bucht sie automatisch als
+// E&A-Einnahme. Idempotent über die unique-Spalte stripe_invoice_id (Stripe
+// kann Webhooks mehrfach zustellen) - ein Konflikt wird bewusst ignoriert.
+async function protokolliereZahlung(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  customerId: string,
+  inv: Stripe.Invoice,
+) {
+  const { data: tenantRow } = await (admin.from('tenants') as any)
+    .select('id, stripe_plan').eq('stripe_customer_id', customerId).maybeSingle()
+  const tenantId = (tenantRow as R | null)?.id as string | undefined
+  if (!tenantId) {
+    console.error('[Stripe Webhook] Kein Mandant zu Stripe-Customer gefunden, Zahlung nicht protokolliert:', customerId)
+    return
+  }
+  const subscriptionId = typeof (inv as R).subscription === 'string'
+    ? (inv as R).subscription as string
+    : ((inv as R).subscription as R | null)?.id ?? null
+  const periode = (inv as R).lines?.data?.[0]?.period as { start?: number; end?: number } | undefined
+  const bezahltAm = (inv as R).status_transitions?.paid_at ?? inv.created
+
+  const { error } = await (admin.from('stripe_zahlungen_log') as any)
+    .insert({
+      tenant_id:              tenantId,
+      stripe_invoice_id:      inv.id,
+      stripe_customer_id:     customerId,
+      stripe_subscription_id: subscriptionId,
+      stripe_plan:            (tenantRow as R).stripe_plan ?? null,
+      betrag_brutto:          (inv.amount_paid ?? 0) / 100,
+      waehrung:               inv.currency ?? 'eur',
+      periode_start:          periode?.start ? new Date(periode.start * 1000).toISOString() : null,
+      periode_ende:           periode?.end ? new Date(periode.end * 1000).toISOString() : null,
+      bezahlt_am:             new Date(bezahltAm * 1000).toISOString(),
+    })
+  if (error && (error as R).code !== '23505') {
+    // 23505 = unique_violation (bereits protokolliert, z.B. erneut zugestelltes Webhook-Event)
+    console.error('[Stripe Webhook] Zahlung konnte nicht protokolliert werden:', (error as R).message)
+  }
+}
+
 export async function POST(req: NextRequest) {
   const body      = await req.text()
   const signature = req.headers.get('stripe-signature') ?? ''
@@ -55,9 +98,6 @@ export async function POST(req: NextRequest) {
       const sub        = event.data.object as Stripe.Subscription
       const priceId    = (sub.items.data[0]?.price?.id) ?? null
       const customerId = typeof sub.customer === 'string' ? sub.customer : (sub.customer as R).id as string
-      console.log('[Stripe Webhook] sub.customer raw:', JSON.stringify(sub.customer))
-      console.log('[Stripe Webhook] customerId:', customerId)
-      console.log('[Stripe Webhook] sub.id:', sub.id, 'status:', sub.status)
       await updateTenantStripe(admin,
         { customer_id: customerId },
         {
@@ -67,7 +107,6 @@ export async function POST(req: NextRequest) {
           stripe_current_period_end: (sub as R).current_period_end ? new Date((sub as R).current_period_end * 1000).toISOString() : null,
         },
       )
-      console.log('[Stripe Webhook] DB update done')
       break
     }
 
@@ -96,6 +135,7 @@ export async function POST(req: NextRequest) {
           { customer_id: customerId },
           { stripe_status: 'active' },
         )
+        await protokolliereZahlung(admin, customerId, inv)
       }
       break
     }
