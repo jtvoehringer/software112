@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
-import { createOwnStripePortalSession } from './actions'
+import { createOwnStripePortalSession, starteZahlungAction } from './actions'
 
 // Rückmeldung 31.8.2026 ("die Plattform soll sich selber abrechnen können,
 // damit wir zu unserem Geld kommen"): Selbstverwaltungsseite für Mandanten
@@ -16,6 +16,7 @@ export default function AboClient({
   warned,
   darfVerwalten,
   hasCustomer,
+  hatAbo,
   planLabel,
   statusLabel,
 }: {
@@ -24,6 +25,7 @@ export default function AboClient({
   warned:          boolean
   darfVerwalten:   boolean
   hasCustomer:     boolean
+  hatAbo:          boolean
   planLabel:       string | null
   statusLabel:     string | null
 }) {
@@ -35,6 +37,22 @@ export default function AboClient({
     setLoading(true)
     setError(null)
     const res = await createOwnStripePortalSession()
+    if ('error' in res && res.error) {
+      setError(res.error)
+      setLoading(false)
+      return
+    }
+    if ('url' in res && res.url) {
+      window.location.href = res.url
+      return
+    }
+    setLoading(false)
+  }
+
+  async function handleZahlungNachholen() {
+    setLoading(true)
+    setError(null)
+    const res = await starteZahlungAction()
     if ('error' in res && res.error) {
       setError(res.error)
       setLoading(false)
@@ -97,13 +115,25 @@ export default function AboClient({
           )}
 
           {darfVerwalten ? (
-            hasCustomer ? (
+            hatAbo ? (
               <button
                 onClick={handlePortal}
                 disabled={loading}
                 className="w-full bg-s112-teal text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-60"
               >
                 {loading ? 'Wird geöffnet…' : 'Zahlungsdaten verwalten'}
+              </button>
+            ) : hasCustomer ? (
+              // Self-Service-Signup ohne abgeschlossenen Checkout: noch kein
+              // Abo vorhanden - das Customer-Portal (oben) hätte hier nichts
+              // zu verwalten. Startet stattdessen einen neuen Checkout inkl.
+              // der vollen 14-tägigen Testphase.
+              <button
+                onClick={handleZahlungNachholen}
+                disabled={loading}
+                className="w-full bg-s112-teal text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-60"
+              >
+                {loading ? 'Wird geöffnet…' : 'Jetzt Zahlungsdaten hinterlegen'}
               </button>
             ) : (
               <p className="text-sm text-s112-muted">

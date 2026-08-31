@@ -1,0 +1,57 @@
+import { redirect } from 'next/navigation'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentUserRole, getCurrentMembership } from '@/lib/auth/roles'
+import { STRIPE_BLOCKED_STATUSES, istTrialAbgelaufen } from '@/lib/stripe/client'
+
+// ── Zwischenseite nach erfolgreichem Stripe-Checkout ─────────────────────────
+// Rückmeldung 31.8.2026: der Webhook (customer.subscription.created), der
+// stripe_status auf 'trialing' setzt, trifft manchmal erst 1-2 Sekunden NACH
+// dem Redirect zurück aus Stripe ein - ohne diese Zwischenseite würde die
+// Person kurz auf /abo als "gesperrt" landen, obwohl der Checkout gerade
+// erfolgreich war. Pollt per Meta-Refresh, bis die Sperre weg ist.
+
+export const dynamic = 'force-dynamic'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type R = Record<string, any>
+
+export default async function WillkommenPage() {
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const role       = await getCurrentUserRole()
+  const membership = await getCurrentMembership()
+  if (!membership) redirect('/dashboard')
+
+  const { data: tenantRow } = await (supabase.from('tenants') as R)
+    .select('stripe_status, stripe_trial_ends_at')
+    .eq('id', membership.tenantId)
+    .maybeSingle()
+  const t = tenantRow as R | null
+  const status      = (t?.stripe_status ?? null) as string | null
+  const trialEndsAt = (t?.stripe_trial_ends_at ?? null) as string | null
+
+  const nochGesperrt = role !== 'system_admin' && !!status &&
+    (STRIPE_BLOCKED_STATUSES.includes(status) || istTrialAbgelaufen(status, trialEndsAt))
+
+  if (!nochGesperrt) redirect('/dashboard')
+
+  return (
+    <div className="min-h-screen bg-s112-bg flex items-center justify-center p-4">
+      {/* eslint-disable-next-line @next/next/no-head-element */}
+      <meta httpEquiv="refresh" content="2" />
+      <div className="w-full max-w-md text-center">
+        <div className="card space-y-3">
+          <svg className="w-8 h-8 animate-spin mx-auto text-s112-teal" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          <h1 className="text-lg font-semibold text-gray-800">Vielen Dank! Ihr Konto wird eingerichtet …</h1>
+          <p className="text-sm text-s112-muted">Das dauert nur wenige Sekunden.</p>
+          <a href="/login" className="text-xs text-s112-teal hover:underline block pt-2">Dauert es zu lange? Hier einloggen</a>
+        </div>
+      </div>
+    </div>
+  )
+}

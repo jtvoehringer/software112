@@ -52,3 +52,6 @@ export const STRIPE_BLOCKED_STATUSES = ['unpaid', 'canceled', 'cancelled', 'inco
 export function istTrialAbgelaufen(stripeStatus: string | null, trialEndsAt: string | null): boolean {
   return stripeStatus === 'trialing' && !!trialEndsAt && new Date(trialEndsAt).getTime() < Date.now()
 }
+
+/** Länge der kostenlosen Testphase beim Self-Service-Signup (Rückmeldung 31.8.2026). */
+export const TRIAL_TAGE = 14

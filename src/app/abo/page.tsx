@@ -27,7 +27,7 @@ export default async function AboPage() {
   if (!membership) redirect('/betrieb-waehlen')
 
   const { data: tenantRow } = await (supabase.from('tenants') as any)
-    .select('name, stripe_status, stripe_plan, stripe_customer_id, stripe_trial_ends_at')
+    .select('name, stripe_status, stripe_plan, stripe_customer_id, stripe_subscription_id, stripe_trial_ends_at')
     .eq('id', membership.tenantId)
     .maybeSingle()
 
@@ -36,6 +36,11 @@ export default async function AboPage() {
   const stripeStatus = (t?.stripe_status ?? null) as string | null
   const stripePlan   = (t?.stripe_plan ?? null) as string | null
   const hasCustomer  = !!t?.stripe_customer_id
+  // Self-Service-Signup wurde ohne Stripe-Checkout-Abschluss abgebrochen:
+  // Customer existiert ggf. schon, aber (noch) keine Subscription - dann
+  // "Zahlung nachholen" statt "Zahlungsdaten verwalten" (Portal setzt ein
+  // bestehendes Abo voraus).
+  const hatAbo       = !!t?.stripe_subscription_id
   const trialEndsAt  = (t?.stripe_trial_ends_at ?? null) as string | null
 
   const exempt          = role === 'system_admin' || isSandbox
@@ -53,6 +58,7 @@ export default async function AboPage() {
       warned={warned}
       darfVerwalten={canAdmin(role)}
       hasCustomer={hasCustomer}
+      hatAbo={hatAbo}
       planLabel={planLabel}
       statusLabel={statusMeta?.label ?? null}
     />
