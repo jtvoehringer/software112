@@ -178,7 +178,13 @@ export async function POST(req: NextRequest) {
             land:               mapVal(row, mapping.land) || 'AT',
             segment,
             uid_nummer:         mapVal(row, mapping.uid_nummer) ?? null,
-            zahlungsziel_tage:  mapVal(row, mapping.zahlungsziel_tage, v => parseInt(v) || null) ?? null,
+            // zahlungsziel_tage ist seit Migration 150 NOT NULL (DB-Default 30). Ein
+            // explizites "null" (z.B. bei "– nicht importieren –" oder einem leeren/
+            // ungültigen Wert) überschreibt den Spalten-Default und lässt den Insert
+            // mit "violates not-null constraint" scheitern - deshalb hier hart auf 30
+            // fallen statt auf null (Rückmeldung 1.9.2026: alle 6 Zeilen fehlgeschlagen,
+            // obwohl "Zahlungsziel" bewusst nicht zugeordnet war).
+            zahlungsziel_tage:  mapVal(row, mapping.zahlungsziel_tage, v => parseInt(v) || 30) ?? 30,
             notizen:            mapVal(row, mapping.notizen) ?? null,
             aktiv: true, is_lead: true,
           })
