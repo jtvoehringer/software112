@@ -32,6 +32,46 @@ export function segmentFarbe(value: string | null | undefined): string {
   return SEGMENTE.find(s => s.value === value)?.farbe ?? 'bg-gray-100 text-gray-600'
 }
 
+// ── Länder / Vorwahlen ────────────────────────────────────────────────────────
+// Migration 190 (1.9.2026) – zentralisiert (vorher identisch dupliziert in
+// FirmenClient.tsx und KontakteClient.tsx) und um weitere Länder ergänzt,
+// nachdem ein dänischer Kunde weder im Ländercode-Dropdown noch in der
+// Vorwahlen-Liste vorhanden war (Vorwahl ist dadurch fälschlich auf +43
+// zurückgefallen). Falls weitere Länder fehlen, hier ergänzen statt erneut
+// pro Komponente zu duplizieren.
+
+export const LAENDER = [
+  'AT', 'DE', 'CH', 'IT', 'FR', 'HU', 'SK', 'CZ', 'SI', 'LI',
+  'NL', 'BE', 'LU', 'DK', 'SE', 'NO', 'FI', 'PL', 'ES', 'PT',
+  'IE', 'GB', 'US', 'CA',
+]
+
+export const DIAL_CODES = [
+  { code: '+43',  flag: '🇦🇹', iso: 'AT' },
+  { code: '+49',  flag: '🇩🇪', iso: 'DE' },
+  { code: '+41',  flag: '🇨🇭', iso: 'CH' },
+  { code: '+423', flag: '🇱🇮', iso: 'LI' },
+  { code: '+39',  flag: '🇮🇹', iso: 'IT' },
+  { code: '+386', flag: '🇸🇮', iso: 'SI' },
+  { code: '+421', flag: '🇸🇰', iso: 'SK' },
+  { code: '+420', flag: '🇨🇿', iso: 'CZ' },
+  { code: '+36',  flag: '🇭🇺', iso: 'HU' },
+  { code: '+33',  flag: '🇫🇷', iso: 'FR' },
+  { code: '+31',  flag: '🇳🇱', iso: 'NL' },
+  { code: '+32',  flag: '🇧🇪', iso: 'BE' },
+  { code: '+352', flag: '🇱🇺', iso: 'LU' },
+  { code: '+45',  flag: '🇩🇰', iso: 'DK' },
+  { code: '+46',  flag: '🇸🇪', iso: 'SE' },
+  { code: '+47',  flag: '🇳🇴', iso: 'NO' },
+  { code: '+358', flag: '🇫🇮', iso: 'FI' },
+  { code: '+48',  flag: '🇵🇱', iso: 'PL' },
+  { code: '+34',  flag: '🇪🇸', iso: 'ES' },
+  { code: '+351', flag: '🇵🇹', iso: 'PT' },
+  { code: '+353', flag: '🇮🇪', iso: 'IE' },
+  { code: '+44',  flag: '🇬🇧', iso: 'GB' },
+  { code: '+1',   flag: '🇺🇸/🇨🇦', iso: 'US' },
+]
+
 // ── Pipeline-Stufen ───────────────────────────────────────────────────────────
 
 export const PIPELINE_STUFEN = [

@@ -41,7 +41,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     { data: vRaw },
   ] = await Promise.all([
     tf((supabase.from('firmen') as any)
-      .select('id, accountnummer, name, segment, strasse, plz, ort, land, email, telefon, telefon_vorwahl, website, uid_nummer, betrieb_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
+      .select('id, accountnummer, name, segment, strasse, plz, ort, land, email, telefon, telefon_vorwahl, website, uid_nummer, betrieb_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, ist_kunde, ist_lieferant, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
       .eq('id', id)
       .single()),
 
@@ -91,6 +91,8 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     zahlungsziel_tage: f.zahlungsziel_tage ?? 30, skonto_pct: f.skonto_pct ?? 0, skonto_tage: f.skonto_tage ?? 10,
     waehrung: f.waehrung ?? null,
     notizen: f.notizen ?? null, aktiv: f.aktiv ?? true,
+    is_lead: f.is_lead ?? false,
+    ist_kunde: f.ist_kunde ?? true, ist_lieferant: f.ist_lieferant ?? false,
     rabattgruppe_id: f.rabattgruppe_id ?? null,
     rabattgruppe_name: (f.rabattgruppe as R | null)?.name ?? null,
     rabattgruppe_pct: (f.rabattgruppe as R | null)?.rabatt_pct ?? null,

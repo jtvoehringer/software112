@@ -4,7 +4,7 @@ import { useState, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createKontakt, updateKontakt, deleteKontakt, createAktivitaet, createPipelineEintrag } from '../actions'
-import { SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN, segmentLabel, segmentFarbe } from '@/lib/crm/types'
+import { SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN, LAENDER, DIAL_CODES, segmentLabel, segmentFarbe } from '@/lib/crm/types'
 import type { KontaktRow } from '@/lib/crm/types'
 import { AlertTriangle, Trash2, Pencil } from 'lucide-react'
 
@@ -20,27 +20,6 @@ type PipelineRow = {
 }
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────
-
-const LAENDER = ['AT', 'DE', 'CH', 'IT', 'FR', 'HU', 'SK', 'CZ', 'US', 'GB']
-
-
-const DIAL_CODES = [
-  { code: '+43', flag: '🇦🇹', iso: 'AT' },
-  { code: '+49', flag: '🇩🇪', iso: 'DE' },
-  { code: '+41', flag: '🇨🇭', iso: 'CH' },
-  { code: '+423', flag: '🇱🇮', iso: 'LI' },
-  { code: '+39', flag: '🇮🇹', iso: 'IT' },
-  { code: '+386', flag: '🇸🇮', iso: 'SI' },
-  { code: '+421', flag: '🇸🇰', iso: 'SK' },
-  { code: '+420', flag: '🇨🇿', iso: 'CZ' },
-  { code: '+36', flag: '🇭🇺', iso: 'HU' },
-  { code: '+33', flag: '🇫🇷', iso: 'FR' },
-  { code: '+31', flag: '🇳🇱', iso: 'NL' },
-  { code: '+32', flag: '🇧🇪', iso: 'BE' },
-  { code: '+44', flag: '🇬🇧', iso: 'GB' },
-  { code: '+48', flag: '🇵🇱', iso: 'PL' },
-  { code: '+1',  flag: '🇺🇸', iso: 'US' },
-]
 
 function inputCls() {
   return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
