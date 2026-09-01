@@ -12,7 +12,7 @@ import type { FirmaRow, KontaktRow, AktivitaetRow, PipelineEintragRow, VerkaufRo
 import { verkaufSumme } from '@/lib/crm/types'
 import { FirmaForm } from '../FirmenClient'
 import {
-  Receipt, Trash2, Pencil, Mail, Phone, Globe, MapPin, Reply, Check, X,
+  Receipt, Trash2, Pencil, Mail, Phone, Smartphone, Globe, MapPin, Reply, Check, X,
   ClipboardCheck, Handshake, Wine, Building2, Car, FileText, ShoppingCart,
   MoreHorizontal, Palmtree, UserX, StickyNote,
 } from 'lucide-react'
@@ -530,6 +530,13 @@ export default function FirmaDetailClient({
                   onClick={e => handlePhoneClick(e, `${firma.telefon_vorwahl ?? '+43'} ${firma.telefon}`)}
                   className="text-sm text-gray-600 hover:text-s112-teal flex items-center gap-1">
                   <Phone size={14} /> {firma.telefon_vorwahl ?? '+43'} {firma.telefon}
+                </a>
+              )}
+              {firma.mobil && (
+                <a href={`tel:${firma.mobil_vorwahl ?? '+43'}${firma.mobil?.replace(/\s/g, '')}`}
+                  onClick={e => handlePhoneClick(e, `${firma.mobil_vorwahl ?? '+43'} ${firma.mobil}`)}
+                  className="text-sm text-gray-600 hover:text-s112-teal flex items-center gap-1">
+                  <Smartphone size={14} /> {firma.mobil_vorwahl ?? '+43'} {firma.mobil}
                 </a>
               )}
               {firma.website && (

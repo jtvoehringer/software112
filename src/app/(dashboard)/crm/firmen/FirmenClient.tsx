@@ -227,6 +227,21 @@ export function FirmaForm({
           </div>
         </div>
         <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Mobil</label>
+          <div className="flex gap-1.5">
+            <select
+              name="mobil_vorwahl"
+              defaultValue={initial?.mobil_vorwahl ?? '+43'}
+              className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-24 flex-shrink-0"
+            >
+              {DIAL_CODES.map(d => (
+                <option key={d.code} value={d.code}>{d.flag} {d.code}</option>
+              ))}
+            </select>
+            <input name="mobil" defaultValue={v('mobil' as keyof FirmaRow)} className={inputCls()} />
+          </div>
+        </div>
+        <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">E-Mail</label>
           <input name="email" type="email" defaultValue={v('email')} className={inputCls()} />
         </div>
@@ -377,6 +392,7 @@ function FirmaKarte({
             {firma.ort && <span className="text-xs text-s112-muted">{firma.plz ? `${firma.plz} ` : ''}{firma.ort}</span>}
             {firma.email && <span className="text-xs text-s112-muted">{firma.email}</span>}
             {firma.telefon && <span className="text-xs text-s112-muted">{firma.telefon_vorwahl ? `${firma.telefon_vorwahl} ` : ''}{firma.telefon}</span>}
+            {firma.mobil && <span className="text-xs text-s112-muted">{firma.mobil_vorwahl ? `${firma.mobil_vorwahl} ` : ''}{firma.mobil}</span>}
             {firma.uid_nummer && <span className="text-xs text-s112-muted">UID: {firma.uid_nummer}</span>}
             {firma.zahlungsziel_tage !== 30 && (
               <span className="text-xs text-s112-muted">

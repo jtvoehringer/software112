@@ -200,6 +200,10 @@ export type FirmaRow = {
   skonto_tage?: number | null
   is_lead?: boolean
   telefon_vorwahl?: string | null
+  // Migration 190 (1.9.2026) - Firmen konnten bisher (anders als Kontakte)
+  // keine eigene Mobilnummer erfassen.
+  mobil?: string | null
+  mobil_vorwahl?: string | null
   // Zahlungsziel in Tagen - Pflichtfeld seit 6.8.2026 (war zuvor optional,
   // Betrieb hatte ein zentrales Zahlungsziel; jetzt pro Kunde). 0 = "bei
   // Erhalt" (siehe verkaufRechnungPdf.tsx).

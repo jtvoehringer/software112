@@ -249,12 +249,14 @@ export async function POST(req: NextRequest) {
             name,
             email,
             telefon:            mapVal(row, mapping.telefon) ?? null,
+            mobil:              mapVal(row, mapping.mobil) ?? null,
             strasse:            mapVal(row, mapping.strasse) ?? null,
             plz:                mapVal(row, mapping.plz) ?? null,
             ort:                mapVal(row, mapping.ort) ?? null,
             land:               mapVal(row, mapping.land) || 'AT',
             segment,
             uid_nummer:         mapVal(row, mapping.uid_nummer) ?? null,
+            betrieb_nr:         mapVal(row, mapping.betrieb_nr) ?? null,
             // zahlungsziel_tage ist seit Migration 150 NOT NULL (DB-Default 30). Ein
             // explizites "null" (z.B. bei "– nicht importieren –" oder einem leeren/
             // ungültigen Wert) überschreibt den Spalten-Default und lässt den Insert
