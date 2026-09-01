@@ -5,12 +5,21 @@ import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
+// Der Ziel-Enum "kundensegment" in der DB kennt: privat, gastronomie, handel,
+// export, grosshandel, produzent, weinhauer - NICHT "gastro". SEGMENT_MAP
+// mappte CSV-Werte bisher auf genau dieses ungültige "gastro" (sowohl hier
+// als auch als Fallback unten bei typ === 'firmen') - jede Firmen-Zeile schlug
+// dadurch mit "invalid input value for enum kundensegment" fehl, auch wenn
+// die Spaltenzuordnung selbst gepasst hätte (Rückmeldung 1.9.2026: "gastro
+// wird gar nicht angeführt" - stimmt, im Enum heißt es "gastronomie").
 const SEGMENT_MAP: Record<string, string> = {
   'privat': 'privat', 'private': 'privat',
-  'gastro': 'gastro', 'gastronomie': 'gastro',
+  'gastro': 'gastronomie', 'gastronomie': 'gastronomie',
   'handel': 'handel', 'trade': 'handel',
   'export': 'export',
   'grosshandel': 'grosshandel', 'großhandel': 'grosshandel', 'wholesale': 'grosshandel',
+  'produzent': 'produzent',
+  'weinhauer': 'weinhauer', 'winzer': 'weinhauer', 'weingut': 'weinhauer',
 }
 
 function mapVal(row: R, csvKey: string | undefined, transform?: (v: string) => unknown): unknown {
@@ -146,7 +155,7 @@ export async function POST(req: NextRequest) {
         } else if (typ === 'firmen') {
           const name = mapVal(row, mapping.name)
           if (!name) { details.push(`Zeile ${i+2}: Name fehlt – übersprungen`); continue }
-          const segment = SEGMENT_MAP[(mapVal(row, mapping.segment) as string)?.toLowerCase() ?? ''] ?? 'gastro'
+          const segment = SEGMENT_MAP[(mapVal(row, mapping.segment) as string)?.toLowerCase() ?? ''] ?? 'gastronomie'
           const { error } = await (supabase.from('firmen') as any).insert({
             tenant_id: tenantId,
             name,

@@ -900,7 +900,7 @@ export default function ReportsClient({
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle Segmente</option>
                   <option value="privat">Privat</option>
-                  <option value="gastro">Gastronomie</option>
+                  <option value="gastronomie">Gastronomie</option>
                   <option value="handel">Handel</option>
                   <option value="export">Export</option>
                   <option value="grosshandel">Großhandel</option>
