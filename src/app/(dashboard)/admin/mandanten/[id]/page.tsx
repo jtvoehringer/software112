@@ -39,12 +39,12 @@ export type TenantSettings = {
   rechnung_prefix:   string
   rechnung_zaehler:  number
   rechnung_stellen:  number
+  // Migration 189 – Suffix mit {JJ}/{JJJJ}-Jahresplatzhalter, steuert den
+  // automatischen Jahreswechsel-Reset in get_next_rechnungsnummer().
+  rechnung_suffix:   string
   account_prefix:     string
   account_zaehler:    number
   account_stellen:    number
-  // Migration 188 – Suffix mit {JJ}/{JJJJ}-Jahresplatzhalter, steuert den
-  // automatischen Jahreswechsel-Reset in get_next_accountnummer().
-  account_suffix:     string
   // Migration 030 – Betriebsdaten + Rechnungseinstellungen
   betrieb_name:             string | null
   betrieb_strasse:          string | null
@@ -194,10 +194,10 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     rechnung_prefix:   s?.rechnung_prefix ?? 'RE',
     rechnung_zaehler:  s?.rechnung_zaehler ?? 1,
     rechnung_stellen:  s?.rechnung_stellen ?? 4,
+    rechnung_suffix:   s?.rechnung_suffix ?? '',
     account_prefix:     s?.account_prefix ?? 'K',
     account_zaehler:    s?.account_zaehler ?? 1,
     account_stellen:    s?.account_stellen ?? 4,
-    account_suffix:     s?.account_suffix ?? '',
     betrieb_name:      s?.betrieb_name ?? null,
     betrieb_strasse:   s?.betrieb_strasse ?? null,
     betrieb_plz:       s?.betrieb_plz ?? null,

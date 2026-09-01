@@ -1021,23 +1021,28 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
 
   const [ustStandard, setUstStandard] = useState(settings.ust_satz_standard)
 
-  // Vorschau der nächsten Rechnungsnummer
-  const [prefix,   setPrefix]   = useState(settings.rechnung_prefix)
-  const [stellen,  setStellen]  = useState(settings.rechnung_stellen)
-  const naechste = `${prefix}-${String(zaehler).padStart(stellen, '0')}`
-
-  // Vorschau der nächsten Accountnummer. Migration 188: Suffix mit {JJ}/{JJJJ}-
-  // Platzhalter - ist ein Jahres-Platzhalter gesetzt, beginnt der Zähler bei
-  // jedem Jahreswechsel automatisch wieder bei 1 (siehe get_next_accountnummer()).
-  const [kPrefix,  setKPrefix]  = useState(settings.account_prefix)
-  const [kStellen, setKStellen] = useState(settings.account_stellen)
-  const [kSuffix,  setKSuffix]  = useState(settings.account_suffix)
-  const kHatJahresPlatzhalter = kSuffix.includes('{JJ')
-  const resolveSuffix = (suffix: string) => {
-    const jahr = new Date().getFullYear()
+  const resolveSuffix = (suffix: string, jahr: number) => {
     return suffix.replace(/\{JJJJ\}/g, String(jahr)).replace(/\{JJ\}/g, String(jahr).slice(-2))
   }
-  const naechsteKunde = `${kPrefix}-${String(kZaehler).padStart(kStellen, '0')}${resolveSuffix(kSuffix)}`
+
+  // Vorschau der nächsten Rechnungsnummer. Migration 189: Suffix mit {JJ}/{JJJJ}-
+  // Platzhalter (gehört zur Rechnungsnummer, NICHT zur Accountnummer - erste
+  // Fassung war an der falschen Stelle, Rückmeldung 1.9.2026) - ist ein
+  // Jahres-Platzhalter gesetzt, beginnt der Zähler bei jedem Jahreswechsel
+  // automatisch wieder bei 1 (siehe get_next_rechnungsnummer()).
+  const [prefix,   setPrefix]   = useState(settings.rechnung_prefix)
+  const [stellen,  setStellen]  = useState(settings.rechnung_stellen)
+  const [suffix,   setSuffix]   = useState(settings.rechnung_suffix)
+  const hatJahresPlatzhalter = suffix.includes('{JJ')
+  const heuer = new Date().getFullYear()
+  const naechste = `${prefix}-${String(zaehler).padStart(stellen, '0')}${resolveSuffix(suffix, heuer)}`
+  const naechsteFolgejahr = `${prefix}-${'1'.padStart(stellen, '0')}${resolveSuffix(suffix, heuer + 1)}`
+
+  // Vorschau der nächsten Accountnummer (kein Suffix/Jahreswechsel-Reset -
+  // Accountnummern laufen bewusst endlos weiter, siehe get_next_accountnummer()).
+  const [kPrefix,  setKPrefix]  = useState(settings.account_prefix)
+  const [kStellen, setKStellen] = useState(settings.account_stellen)
+  const naechsteKunde = `${kPrefix}-${String(kZaehler).padStart(kStellen, '0')}`
 
   function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -1096,7 +1101,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
 
         {/* Rechnungsnummer */}
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Rechnungsnummer</p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Präfix</label>
             <input
@@ -1119,15 +1124,39 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
               className={inputCls()}
             />
           </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Suffix</label>
+            <input
+              name="rechnung_suffix"
+              value={suffix}
+              onChange={e => setSuffix(e.target.value)}
+              maxLength={16}
+              placeholder="/{JJ}"
+              className={inputCls()}
+            />
+          </div>
         </div>
+        <p className="text-xs text-s112-muted -mt-2">
+          Platzhalter im Suffix: {'{JJ}'} für das zweistellige Jahr, {'{JJJJ}'} für das vierstellige. Leer lassen für keinen Suffix. Das Jahr richtet sich nach dem Rechnungsdatum.
+        </p>
         <div className="bg-s112-bg border border-s112-border rounded-lg px-4 py-2.5 flex items-center justify-between">
           <p className="text-xs text-s112-muted">Nächste Rechnungsnummer</p>
           <p className="text-base font-mono font-bold text-s112-teal tracking-wider">{naechste}</p>
         </div>
+        {hatJahresPlatzhalter ? (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 text-xs text-blue-800">
+            Der Zähler beginnt zu jedem Jahreswechsel wieder bei 1 – im Beispiel oben also {naechsteFolgejahr} für die erste Rechnung des Folgejahres.
+            Die Nummern bleiben eindeutig, weil das Jahr Teil der Nummer ist.
+          </div>
+        ) : (
+          <p className="text-xs text-s112-muted">
+            Ohne Jahres-Platzhalter im Suffix läuft der Zähler wie bisher endlos weiter (kein automatischer Reset – sonst wären Nummern nicht mehr eindeutig).
+          </p>
+        )}
 
         {/* Accountnummer */}
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider pt-2">Accountnummer</p>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Präfix</label>
             <input
@@ -1150,34 +1179,11 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
               className={inputCls()}
             />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Suffix</label>
-            <input
-              name="account_suffix"
-              value={kSuffix}
-              onChange={e => setKSuffix(e.target.value)}
-              maxLength={16}
-              placeholder="/{JJ}"
-              className={inputCls()}
-            />
-          </div>
         </div>
-        <p className="text-xs text-s112-muted -mt-2">
-          Platzhalter im Suffix: {'{JJ}'} für das zweistellige Jahr, {'{JJJJ}'} für das vierstellige. Leer lassen für keinen Suffix.
-        </p>
         <div className="bg-s112-bg border border-s112-border rounded-lg px-4 py-2.5 flex items-center justify-between">
           <p className="text-xs text-s112-muted">Nächste Accountnummer</p>
           <p className="text-base font-mono font-bold text-s112-teal tracking-wider">{naechsteKunde}</p>
         </div>
-        {kHatJahresPlatzhalter ? (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 text-xs text-blue-800">
-            Der Zähler beginnt zu jedem Jahreswechsel automatisch wieder bei 1. Die Nummern bleiben eindeutig, weil das Jahr Teil der Nummer ist.
-          </div>
-        ) : (
-          <p className="text-xs text-s112-muted">
-            Ohne Jahres-Platzhalter im Suffix läuft der Zähler wie bisher endlos weiter (kein automatischer Reset – sonst wären Nummern nicht mehr eindeutig).
-          </p>
-        )}
 
         <div className="flex items-center gap-3">
           <button type="submit" disabled={pending}
@@ -1215,7 +1221,9 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
           </button>
         </div>
         <p className="text-xs text-s112-muted">
-          Nur bei Ersteinrichtung oder Jahreswechsel. Bereits vergebene Nummern bleiben unverändert.
+          {hatJahresPlatzhalter
+            ? 'Nur bei Ersteinrichtung nötig – ist ein Jahres-Platzhalter im Suffix gesetzt, läuft der Reset zum Jahreswechsel automatisch.'
+            : 'Nur bei Ersteinrichtung oder Jahreswechsel. Bereits vergebene Nummern bleiben unverändert.'}
         </p>
       </div>
 
@@ -1246,9 +1254,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
           </button>
         </div>
         <p className="text-xs text-s112-muted">
-          {kHatJahresPlatzhalter
-            ? 'Nur bei Ersteinrichtung nötig – ist ein Jahres-Platzhalter im Suffix gesetzt, läuft der Reset zum Jahreswechsel automatisch.'
-            : 'Nur bei Ersteinrichtung. Bereits vergebene Nummern bleiben unverändert.'}
+          Nur bei Ersteinrichtung. Bereits vergebene Nummern bleiben unverändert.
         </p>
       </div>
     </div>
