@@ -20,6 +20,21 @@ function mapVal(row: R, csvKey: string | undefined, transform?: (v: string) => u
   return transform ? transform(raw) : raw
 }
 
+// Altsystem-Exporte liefern Zahlen oft im deutschen Format mit Tausender-
+// leerzeichen/-punkt statt reinem Dezimalkomma, z.B. "4 000" oder "3.625,00".
+// parseFloat() bricht am ersten nicht-numerischen Zeichen ab - "4 000" wurde
+// dadurch bisher stillschweigend zu 4 statt 4000 (Rückmeldung 1.9.2026:
+// "aus den Volumina wird 4, 15 bzw. 90 L - die Tsd. werden abgeschnitten").
+// Entfernt zuerst alle Leerzeichen (auch geschützte), macht danach - falls ein
+// Komma vorkommt - jeden Punkt davor zum Tausendertrennzeichen (wird entfernt)
+// und das Komma selbst zum Dezimalpunkt.
+function parseDeZahl(v: string): number | null {
+  let s = v.trim().replace(/[\s ]/g, '')
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.')
+  const n = parseFloat(s)
+  return Number.isFinite(n) ? n : null
+}
+
 function normalizeWeinart(v: string): string {
   const s = v.trim().toLowerCase()
   if (s === 'weiss' || s === 'weiß' || s === 'weißwein' || s === 'weisswein') return 'weiss'
@@ -159,8 +174,8 @@ export async function POST(req: NextRequest) {
             rebsorte:           mapVal(row, mapping.rebsorte) ?? null,
             flaschengroesse_ml: mapVal(row, mapping.flaschengroesse_ml, v => parseInt(v) || 750) ?? 750,
             bestand_flaschen:   mapVal(row, mapping.lagerbestand_fl, v => parseInt(v) || 0) ?? 0,
-            vk_preis_brutto:    mapVal(row, mapping.vk_preis_brutto, v => parseFloat(v.replace(',','.')) || null) ?? null,
-            einstandspreis:     mapVal(row, mapping.einkaufspreis, v => parseFloat(v.replace(',','.')) || null) ?? null,
+            vk_preis_brutto:    mapVal(row, mapping.vk_preis_brutto, parseDeZahl) ?? null,
+            einstandspreis:     mapVal(row, mapping.einkaufspreis, parseDeZahl) ?? null,
             notizen:            mapVal(row, mapping.notizen) ?? null,
             aktiv: true,
           })
@@ -184,7 +199,7 @@ export async function POST(req: NextRequest) {
             rebsorte:   mapVal(row, mapping.rebsorte) ?? null,
             pflanzjahr: mapVal(row, mapping.pflanzjahr, v => parseInt(v) || null) ?? null,
             weinart:    (mapVal(row, mapping.weinart) as string) || 'unbekannt',
-            flaeche_ha: mapVal(row, mapping.flaeche_ha, v => parseFloat(v.replace(',', '.')) || null) ?? null,
+            flaeche_ha: mapVal(row, mapping.flaeche_ha, parseDeZahl) ?? null,
             aktiv: true,
           })
           if (error) { details.push(`Zeile ${i+2}: ${error.message}`); continue }
@@ -206,8 +221,8 @@ export async function POST(req: NextRequest) {
             gst_nr:               gstNr,
             katastralgemeinde:    kgnr ?? null,
             kg_bezeichnung:       kgnr ? (getKgBezeichnung(kgnr) ?? null) : null,
-            flaeche_ha:           mapVal(row, mapping.flaeche_ha, v => parseFloat(v.replace(',', '.')) || null) ?? null,
-            flaeche_ha_kataster:  mapVal(row, mapping.flaeche_ha_kataster, v => parseFloat(v.replace(',', '.')) || null) ?? null,
+            flaeche_ha:           mapVal(row, mapping.flaeche_ha, parseDeZahl) ?? null,
+            flaeche_ha_kataster:  mapVal(row, mapping.flaeche_ha_kataster, parseDeZahl) ?? null,
             rebsorte:             mapVal(row, mapping.rebsorte) ?? null,
             weinart:              mapVal(row, mapping.weinart, normalizeWeinart) ?? null,
             pflanzjahr:           mapVal(row, mapping.pflanzjahr, v => parseInt(v) || null) ?? null,
@@ -228,7 +243,7 @@ export async function POST(req: NextRequest) {
             tenant_id:     tenantId,
             name,
             typ:           mapVal(row, mapping.typ, normalizeBehaelterTyp) ?? null,
-            volumen_liter: mapVal(row, mapping.volumen_liter, v => parseFloat(v.replace(',', '.')) || null) ?? null,
+            volumen_liter: mapVal(row, mapping.volumen_liter, parseDeZahl) ?? null,
             standort:      mapVal(row, mapping.standort) ?? null,
             aktiv: true,
           })
