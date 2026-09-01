@@ -49,7 +49,7 @@ export const LAENDER = [
   // Exportmärkte Fernost (1.9.2026)
   'JP', 'KR', 'SG', 'MY', 'TH', 'CN',
   // weitere Exportmärkte (1.9.2026)
-  'MC',
+  'MC', 'AE', 'AL', 'BG', 'RO', 'UA',
 ]
 
 export const DIAL_CODES = [
@@ -85,6 +85,11 @@ export const DIAL_CODES = [
   { code: '+86',  flag: '🇨🇳', iso: 'CN' },
   // weitere Exportmärkte (1.9.2026)
   { code: '+377', flag: '🇲🇨', iso: 'MC' },
+  { code: '+971', flag: '🇦🇪', iso: 'AE' },
+  { code: '+355', flag: '🇦🇱', iso: 'AL' },
+  { code: '+359', flag: '🇧🇬', iso: 'BG' },
+  { code: '+40',  flag: '🇷🇴', iso: 'RO' },
+  { code: '+380', flag: '🇺🇦', iso: 'UA' },
 ]
 
 // ── Pipeline-Stufen ───────────────────────────────────────────────────────────
