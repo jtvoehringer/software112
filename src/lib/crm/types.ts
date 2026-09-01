@@ -37,13 +37,17 @@ export function segmentFarbe(value: string | null | undefined): string {
 // FirmenClient.tsx und KontakteClient.tsx) und um weitere Länder ergänzt,
 // nachdem ein dänischer Kunde weder im Ländercode-Dropdown noch in der
 // Vorwahlen-Liste vorhanden war (Vorwahl ist dadurch fälschlich auf +43
-// zurückgefallen). Falls weitere Länder fehlen, hier ergänzen statt erneut
-// pro Komponente zu duplizieren.
+// zurückgefallen). Rückmeldung 1.9.2026: für exportorientierte Kunden werden
+// nach und nach weitere Länder ergänzt (zunächst Fernost-Exportmärkte:
+// Thailand, Singapur, Südkorea, Japan, Malaysia). Falls weitere Länder
+// fehlen, hier ergänzen statt erneut pro Komponente zu duplizieren.
 
 export const LAENDER = [
   'AT', 'DE', 'CH', 'IT', 'FR', 'HU', 'SK', 'CZ', 'SI', 'LI',
   'NL', 'BE', 'LU', 'DK', 'SE', 'NO', 'FI', 'PL', 'ES', 'PT',
   'IE', 'GB', 'US', 'CA',
+  // Exportmärkte Fernost (1.9.2026)
+  'JP', 'KR', 'SG', 'MY', 'TH',
 ]
 
 export const DIAL_CODES = [
@@ -70,6 +74,12 @@ export const DIAL_CODES = [
   { code: '+353', flag: '🇮🇪', iso: 'IE' },
   { code: '+44',  flag: '🇬🇧', iso: 'GB' },
   { code: '+1',   flag: '🇺🇸/🇨🇦', iso: 'US' },
+  // Exportmärkte Fernost (1.9.2026)
+  { code: '+81',  flag: '🇯🇵', iso: 'JP' },
+  { code: '+82',  flag: '🇰🇷', iso: 'KR' },
+  { code: '+65',  flag: '🇸🇬', iso: 'SG' },
+  { code: '+60',  flag: '🇲🇾', iso: 'MY' },
+  { code: '+66',  flag: '🇹🇭', iso: 'TH' },
 ]
 
 // ── Pipeline-Stufen ───────────────────────────────────────────────────────────
