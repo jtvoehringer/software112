@@ -93,7 +93,7 @@ export default async function KellerplanListPage() {
       {writeOk && (
         <div className="card p-5 max-w-lg">
           <h2 className="font-semibold text-gray-800 mb-4">
-            {plaene.length === 0 ? 'Ersten Kellerplan anlegen' : '+ Weiterer Kellerplan'}
+            {plaene.length === 0 ? 'Ersten Kellerplan anlegen' : 'Weiterer Kellerplan'}
           </h2>
           <form action={createKellerplan} className="space-y-4">
             <div>
