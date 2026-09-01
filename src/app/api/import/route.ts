@@ -28,6 +28,22 @@ function normalizeWeinart(v: string): string {
   return 'unbekannt'
 }
 
+// behaelter_typ_check (Migration 169) erlaubt nur exakt diese Kleinschreibung
+// ('stahltank', 'lagertank', 'immervolltank', 'holzfass', 'betonei', 'amphore',
+// 'bottich', 'gaerstaender', 'zisterne', 'presse', 'barrique', 'doppelbarrique',
+// 'sonstiges'). Altsystem-Exporte (z.B. Weingut Gebeshuber) liefern "Lagertank",
+// "Presse" etc. mit Großbuchstaben - das ließ jede Gebinde-Import-Zeile mit
+// einem für die Anwenderin kaum verständlichen DB-Constraint-Fehler abbrechen,
+// obwohl der Typ eigentlich gültig war (Rückmeldung 1.9.2026: "verstehe den
+// Fehler nicht"). Unbekannte Werte werden bewusst unverändert durchgereicht
+// statt verworfen - der DB-Constraint fängt die weiterhin ab, aber ein
+// bekannter Typ (nur andere Groß-/Kleinschreibung oder Umlaute) schlägt jetzt
+// nicht mehr grundlos fehl.
+function normalizeBehaelterTyp(v: string): string {
+  return v.trim().toLowerCase()
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { typ, rows, mapping } = await req.json() as {
@@ -211,7 +227,7 @@ export async function POST(req: NextRequest) {
           const { error } = await (supabase.from('behaelter') as any).insert({
             tenant_id:     tenantId,
             name,
-            typ:           mapVal(row, mapping.typ) ?? null,
+            typ:           mapVal(row, mapping.typ, normalizeBehaelterTyp) ?? null,
             volumen_liter: mapVal(row, mapping.volumen_liter, v => parseFloat(v.replace(',', '.')) || null) ?? null,
             standort:      mapVal(row, mapping.standort) ?? null,
             aktiv: true,
