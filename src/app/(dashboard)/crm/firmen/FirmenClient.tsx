@@ -458,6 +458,11 @@ export default function FirmenClient({
   const [suche, setSuche] = useState('')
   const [segment, setSegment] = useState('alle')
   const [filterLead, setFilterLead] = useState<'alle' | 'lead' | 'kunde'>('alle')
+  // Kunde/Lieferant sind nicht exklusiv (Migration 167 – eine Firma kann beides,
+  // eines oder keines von beidem sein), daher zwei unabhängige Toggles statt
+  // einer Radio-Auswahl.
+  const [filterKunde, setFilterKunde] = useState(false)
+  const [filterLieferant, setFilterLieferant] = useState(false)
   const BUCHSTABEN = ['Alle', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')]
   const [buchstabe, setBuchstabe] = useState('Alle')
 
@@ -465,8 +470,10 @@ export default function FirmenClient({
     const text = [f.kundennummer, f.name, f.ort, f.email, f.telefon].filter(Boolean).join(' ').toLowerCase()
     const matchAlpha = buchstabe === 'Alle' || (f.name ?? '').toUpperCase().startsWith(buchstabe)
     const matchLead = filterLead === 'alle' || (filterLead === 'lead' ? f.is_lead : !f.is_lead)
+    const matchTyp = (!filterKunde && !filterLieferant) ||
+      (filterKunde && f.ist_kunde) || (filterLieferant && f.ist_lieferant)
     return (!suche || text.includes(suche.toLowerCase())) &&
-           (segment === 'alle' || f.segment === segment) && matchAlpha && matchLead
+           (segment === 'alle' || f.segment === segment) && matchAlpha && matchLead && matchTyp
   })
 
   const bSegmente = SEGMENTE.filter(s => s.value !== 'privat')
@@ -497,7 +504,6 @@ export default function FirmenClient({
           </button>
           {bSegmente.map(s => {
             const count = firmen.filter(f => f.segment === s.value).length
-            if (count === 0) return null
             return (
               <button key={s.value} onClick={() => setSegment(s.value)}
                 className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${segment === s.value ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:text-gray-900'}`}>
@@ -514,6 +520,16 @@ export default function FirmenClient({
               {' '}({v === 'alle' ? firmen.length : firmen.filter(f => v === 'lead' ? f.is_lead : !f.is_lead).length})
             </button>
           ))}
+        </div>
+        <div className="flex gap-1">
+          <button onClick={() => setFilterKunde(v => !v)}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterKunde ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:text-gray-900'}`}>
+            Kunde ({firmen.filter(f => f.ist_kunde).length})
+          </button>
+          <button onClick={() => setFilterLieferant(v => !v)}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterLieferant ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:text-gray-900'}`}>
+            Lieferant ({firmen.filter(f => f.ist_lieferant).length})
+          </button>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <a href="/api/export/firmen" download
