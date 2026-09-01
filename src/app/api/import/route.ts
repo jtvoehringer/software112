@@ -12,14 +12,22 @@ type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explic
 // dadurch mit "invalid input value for enum kundensegment" fehl, auch wenn
 // die Spaltenzuordnung selbst gepasst hätte (Rückmeldung 1.9.2026: "gastro
 // wird gar nicht angeführt" - stimmt, im Enum heißt es "gastronomie").
+// Migration 185 (1.9.2026): kundensegment-Enum um die "Kundengruppe"-Werte des
+// DKB-Altsystem-Exports (Kontakte_Firmen_DKB.csv) ergänzt, damit diese direkt
+// übernommen werden statt pauschal auf einen Standardwert zu fallen.
 const SEGMENT_MAP: Record<string, string> = {
   'privat': 'privat', 'private': 'privat',
-  'gastro': 'gastronomie', 'gastronomie': 'gastronomie',
+  'gastro': 'gastronomie', 'gastronomie': 'gastronomie', 'restaurant': 'restaurant',
   'handel': 'handel', 'trade': 'handel',
   'export': 'export',
   'grosshandel': 'grosshandel', 'großhandel': 'grosshandel', 'wholesale': 'grosshandel',
   'produzent': 'produzent',
   'weinhauer': 'weinhauer', 'winzer': 'weinhauer', 'weingut': 'weinhauer',
+  // DKB-Kundengruppe-Werte:
+  'firmenkunde': 'firmenkunde',
+  'vinothek': 'vinothek',
+  'ab hof': 'abhof', 'ab-hof': 'abhof', 'abhof': 'abhof',
+  'tourismus': 'tourismus',
 }
 
 function mapVal(row: R, csvKey: string | undefined, transform?: (v: string) => unknown): unknown {

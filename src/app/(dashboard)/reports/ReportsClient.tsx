@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { exportCSV } from '@/lib/utils/csv'
 import { BarChart3, Calculator, FileText, Droplet, Sprout } from 'lucide-react'
 import { formatRebsorteMitKuerzel, getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
+import { SEGMENTE } from '@/lib/crm/types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -899,11 +900,9 @@ export default function ReportsClient({
                 <select value={bSegment} onChange={e => setBSegment(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle Segmente</option>
-                  <option value="privat">Privat</option>
-                  <option value="gastronomie">Gastronomie</option>
-                  <option value="handel">Handel</option>
-                  <option value="export">Export</option>
-                  <option value="grosshandel">Großhandel</option>
+                  {SEGMENTE.map(s => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
                 </select>
               </div>
               <div>

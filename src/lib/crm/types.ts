@@ -8,6 +8,14 @@ export const SEGMENTE = [
   { value: 'grosshandel', label: 'Großhandel',         farbe: 'bg-gray-100 text-gray-800'   },
   { value: 'produzent',   label: 'Produzent',           farbe: 'bg-rose-100 text-rose-800'    },
   { value: 'weinhauer',   label: 'Weinhauer',           farbe: 'bg-lime-100 text-lime-800'     },
+  // Migration 185 (1.9.2026) – ergänzt auf Kundenwunsch um die Kundengruppen
+  // aus dem DKB-Altsystem-Import (Kontakte_Firmen_DKB.csv), damit diese beim
+  // Import nicht mehr pauschal auf einen Standardwert fallen.
+  { value: 'firmenkunde', label: 'Firmenkunde',        farbe: 'bg-indigo-100 text-indigo-800' },
+  { value: 'vinothek',    label: 'Vinothek',            farbe: 'bg-amber-100 text-amber-800'   },
+  { value: 'abhof',       label: 'Ab Hof',              farbe: 'bg-emerald-100 text-emerald-800' },
+  { value: 'restaurant',  label: 'Restaurant',          farbe: 'bg-pink-100 text-pink-800'     },
+  { value: 'tourismus',   label: 'Tourismus',           farbe: 'bg-cyan-100 text-cyan-800'     },
 ] as const
 
 export type Kundensegment = (typeof SEGMENTE)[number]['value']
