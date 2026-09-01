@@ -188,6 +188,11 @@ export function FirmaForm({
           <p className="text-[10px] text-gray-400 mt-0.5">Betriebsnummer des Abnehmers für BKI-Transportliste</p>
         </div>
         <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">DebitorNr.</label>
+          <input name="debitor_nr" defaultValue={v('debitor_nr' as keyof FirmaRow)} placeholder="z.B. 227002" className={inputCls()} />
+          <p className="text-[10px] text-gray-400 mt-0.5">Kontonummer im BMD-Kontenplan (Buchhaltung), falls dort bereits angelegt</p>
+        </div>
+        <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Straße</label>
           <input name="strasse" defaultValue={v('strasse')} className={inputCls()} />
         </div>
@@ -394,6 +399,7 @@ function FirmaKarte({
             {firma.telefon && <span className="text-xs text-s112-muted">{firma.telefon_vorwahl ? `${firma.telefon_vorwahl} ` : ''}{firma.telefon}</span>}
             {firma.mobil && <span className="text-xs text-s112-muted">{firma.mobil_vorwahl ? `${firma.mobil_vorwahl} ` : ''}{firma.mobil}</span>}
             {firma.uid_nummer && <span className="text-xs text-s112-muted">UID: {firma.uid_nummer}</span>}
+            {firma.debitor_nr && <span className="text-xs text-s112-muted">DebitorNr.: {firma.debitor_nr}</span>}
             {firma.zahlungsziel_tage !== 30 && (
               <span className="text-xs text-s112-muted">
                 Zahlungsziel: {firma.zahlungsziel_tage === 0 ? 'bei Erhalt' : `${firma.zahlungsziel_tage} Tage`}

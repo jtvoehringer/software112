@@ -23,12 +23,17 @@ export default function CsvExportButton({
     const BOM = '﻿'
     const headers = [
       'Datum', 'Typ', 'Bezeichnung', 'Kategorie', 'USt-Satz (%)',
-      'Netto EUR', 'USt-Betrag EUR', 'Brutto EUR', 'Beleg/Verkauf', 'Quelle', 'Notizen',
+      'Netto EUR', 'USt-Betrag EUR', 'Brutto EUR', 'Beleg/Verkauf', 'DebitorNr.', 'Quelle', 'Notizen',
     ]
     const rows: string[][] = [headers]
     for (const b of buchungen) {
       const kategorie = (b.ea_kategorien as R | null)?.name ?? ''
-      const beleg = (b.verkaufsposten as R | null)?.rechnungsnummer ?? ''
+      const vp = (b.verkaufsposten as R | null)
+      const beleg = vp?.rechnungsnummer ?? ''
+      // DebitorNr. (BMD-Konto) der Firma, falls hinterlegt (Migration 191) - sonst
+      // ersatzweise unsere interne Accountnummer (Firma oder Kontakt), damit die
+      // Spalte auch ohne BMD-Anbindung eine Kundenzuordnung ermöglicht.
+      const debitorNr = vp?.firma?.debitor_nr || vp?.firma?.accountnummer || vp?.kontakt?.accountnummer || ''
       rows.push([
         fmtDate(b.datum),
         b.typ === 'einnahme' ? 'Einnahme' : 'Ausgabe',
@@ -39,6 +44,7 @@ export default function CsvExportButton({
         fmtNum(b.ust_betrag),
         fmtNum(b.betrag_brutto),
         beleg,
+        debitorNr,
         b.import_quelle === 'verkauf' ? 'Automatisch (Verkauf)' : (b.import_quelle ?? 'manuell'),
         b.notizen ?? '',
       ])

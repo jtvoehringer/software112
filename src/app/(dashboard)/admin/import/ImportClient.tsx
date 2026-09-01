@@ -54,6 +54,7 @@ const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean 
     { key: 'segment',            label: 'Segment (gastronomie/handel/export/grosshandel/firmenkunde/vinothek/ab hof/restaurant/tourismus/medien/importeur/sonstige)' },
     { key: 'uid_nummer',         label: 'UID-Nummer' },
     { key: 'betrieb_nr',         label: 'Betriebsnummer (BKI)' },
+    { key: 'debitor_nr',         label: 'DebitorNr. (BMD-Konto)' },
     { key: 'zahlungsziel_tage',  label: 'Zahlungsziel (Tage)' },
     { key: 'notizen',            label: 'Notizen' },
   ],

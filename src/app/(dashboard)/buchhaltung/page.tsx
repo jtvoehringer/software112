@@ -37,7 +37,7 @@ export default async function BuchhaltungPage({
 
   // Buchungen laden
   let query = (supabase.from('ea_transaktionen') as any)
-    .select('*, ea_kategorien(name), verkaufsposten(rechnungsnummer)')
+    .select('*, ea_kategorien(name), verkaufsposten(rechnungsnummer, kontakt:kontakte!kontakt_id(accountnummer), firma:firmen(debitor_nr, accountnummer))')
     // abzugsfaehig_pct/betrag_abzugsfaehig kommen bereits über '*' mit (Migration 168)
     .eq('tenant_id', tenantId)
     .gte('datum', `${jahr}-01-01`)

@@ -191,6 +191,10 @@ export type FirmaRow = {
   website: string | null
   uid_nummer: string | null
   betrieb_nr?: string | null
+  // Migration 191 (1.9.2026) - Debitorenkonto-Nummer aus der externen
+  // Buchhaltung (BMD NTCS) bzw. "Das Kellerbuch" - unabhängig von der
+  // intern vergebenen accountnummer, siehe Migrationskommentar.
+  debitor_nr?: string | null
   kreditlimit: number | null
   rabattgruppe_id: string | null
   rabattgruppe_name?: string | null
