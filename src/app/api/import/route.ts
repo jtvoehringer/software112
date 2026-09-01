@@ -28,6 +28,9 @@ const SEGMENT_MAP: Record<string, string> = {
   'vinothek': 'vinothek',
   'ab hof': 'abhof', 'ab-hof': 'abhof', 'abhof': 'abhof',
   'tourismus': 'tourismus',
+  'medien': 'medien', 'presse': 'medien',
+  'importeur': 'importeur', 'import': 'importeur',
+  'sonstige': 'sonstige', 'sonstiges': 'sonstige', 'other': 'sonstige',
 }
 
 function mapVal(row: R, csvKey: string | undefined, transform?: (v: string) => unknown): unknown {

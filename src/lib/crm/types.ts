@@ -16,6 +16,10 @@ export const SEGMENTE = [
   { value: 'abhof',       label: 'Ab Hof',              farbe: 'bg-emerald-100 text-emerald-800' },
   { value: 'restaurant',  label: 'Restaurant',          farbe: 'bg-pink-100 text-pink-800'     },
   { value: 'tourismus',   label: 'Tourismus',           farbe: 'bg-cyan-100 text-cyan-800'     },
+  // Migration 186 (1.9.2026) – auf Kundenwunsch ergänzt.
+  { value: 'medien',      label: 'Medien',               farbe: 'bg-fuchsia-100 text-fuchsia-800' },
+  { value: 'importeur',   label: 'Importeur',            farbe: 'bg-teal-100 text-teal-800'     },
+  { value: 'sonstige',    label: 'Sonstige',             farbe: 'bg-slate-100 text-slate-800'   },
 ] as const
 
 export type Kundensegment = (typeof SEGMENTE)[number]['value']

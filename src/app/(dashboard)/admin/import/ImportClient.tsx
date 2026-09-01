@@ -49,7 +49,7 @@ const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean 
     { key: 'plz',                label: 'PLZ' },
     { key: 'ort',                label: 'Ort' },
     { key: 'land',               label: 'Land' },
-    { key: 'segment',            label: 'Segment (gastronomie/handel/export/grosshandel/firmenkunde/vinothek/ab hof/restaurant/tourismus)' },
+    { key: 'segment',            label: 'Segment (gastronomie/handel/export/grosshandel/firmenkunde/vinothek/ab hof/restaurant/tourismus/medien/importeur/sonstige)' },
     { key: 'uid_nummer',         label: 'UID-Nummer' },
     { key: 'zahlungsziel_tage',  label: 'Zahlungsziel (Tage)' },
     { key: 'notizen',            label: 'Notizen' },
