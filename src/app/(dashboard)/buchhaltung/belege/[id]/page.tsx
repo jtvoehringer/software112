@@ -51,7 +51,7 @@ export default async function BelegBuchenPage({ params }: { params: Promise<{ id
     // allFirmen zusätzlich für die Dublettenprüfung in FirmaForm bei
     // Neuanlage aus diesem Formular heraus.
     (supabase.from('firmen') as any)
-      .select('id, kundennummer, name, segment, strasse, plz, ort, land, telefon, telefon_vorwahl, email, website, uid_nummer, betrieb_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, sonderrabatt_pct, rabattgruppe_id, ist_kunde, ist_lieferant, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
+      .select('id, accountnummer, name, segment, strasse, plz, ort, land, telefon, telefon_vorwahl, email, website, uid_nummer, betrieb_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, sonderrabatt_pct, rabattgruppe_id, ist_kunde, ist_lieferant, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
       .eq('tenant_id', tenantId).eq('aktiv', true)
       .order('name'),
   ])
@@ -69,7 +69,7 @@ export default async function BelegBuchenPage({ params }: { params: Promise<{ id
   }))
 
   const allFirmen: FirmaRow[] = ((firmenRaw ?? []) as R[]).map(f => ({
-    id: f.id, kundennummer: f.kundennummer ?? null, name: f.name, segment: f.segment,
+    id: f.id, accountnummer: f.accountnummer ?? null, name: f.name, segment: f.segment,
     strasse: f.strasse ?? null, plz: f.plz ?? null, ort: f.ort ?? null, land: f.land ?? null,
     telefon: f.telefon ?? null, email: f.email ?? null, website: f.website ?? null,
     uid_nummer: f.uid_nummer ?? null, kreditlimit: f.kreditlimit ?? null,

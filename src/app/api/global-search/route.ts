@@ -30,8 +30,8 @@ export async function GET(req: NextRequest) {
 
   // ── Kontakte ────────────────────────────────────────────────────────────
   const { data: kontakte } = await (supabase.from('kontakte') as any)
-    .select('id, vorname, nachname, email, segment, kundennummer')
-    .or(`vorname.ilike.%${q}%,nachname.ilike.%${q}%,email.ilike.%${q}%,kundennummer.ilike.%${q}%`)
+    .select('id, vorname, nachname, email, segment, accountnummer')
+    .or(`vorname.ilike.%${q}%,nachname.ilike.%${q}%,email.ilike.%${q}%,accountnummer.ilike.%${q}%`)
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .limit(5)
@@ -41,15 +41,15 @@ export async function GET(req: NextRequest) {
       id:          k.id,
       kategorie:   'kontakt',
       titel:       `${k.vorname ?? ''} ${k.nachname ?? ''}`.trim() || k.email,
-      untertitel:  [k.kundennummer, k.segment, k.email].filter(Boolean).join(' · '),
+      untertitel:  [k.accountnummer, k.segment, k.email].filter(Boolean).join(' · '),
       href:        `/crm/kontakte/${k.id}`,
     })
   })
 
   // ── Firmen ──────────────────────────────────────────────────────────────
   const { data: firmen } = await (supabase.from('firmen') as any)
-    .select('id, name, email, segment, kundennummer')
-    .or(`name.ilike.%${q}%,email.ilike.%${q}%,kundennummer.ilike.%${q}%`)
+    .select('id, name, email, segment, accountnummer')
+    .or(`name.ilike.%${q}%,email.ilike.%${q}%,accountnummer.ilike.%${q}%`)
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .limit(5)
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
       id:         f.id,
       kategorie:  'firma',
       titel:      f.name,
-      untertitel: [f.kundennummer, f.segment, f.email].filter(Boolean).join(' · '),
+      untertitel: [f.accountnummer, f.segment, f.email].filter(Boolean).join(' · '),
       href:       `/crm/firmen/${f.id}`,
     })
   })

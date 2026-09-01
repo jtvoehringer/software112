@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
 
     // Kontakte laden
     let kq = (supabase.from('kontakte') as any)
-      .select('id, kundennummer, vorname, nachname, segment, email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, plz, ort, strasse, land, is_lead, firma:firma_id(name)')
+      .select('id, accountnummer, vorname, nachname, segment, email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, plz, ort, strasse, land, is_lead, firma:firma_id(name)')
       .eq('tenant_id', tenantId)
       .eq('aktiv', true)
 

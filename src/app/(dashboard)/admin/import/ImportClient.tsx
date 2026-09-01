@@ -2,6 +2,7 @@
 import { useState, useRef } from 'react'
 import { Upload } from 'lucide-react'
 import { createEroeffnungsbestandVonImport } from '@/app/(dashboard)/kellerbuch/gebinde-actions'
+import { exportCSV } from '@/lib/utils/csv'
 
 type ImportTyp = 'kontakte' | 'firmen' | 'fuellungen' | 'rieden_details' | 'grundstuecke' | 'gebinde'
 
@@ -136,8 +137,15 @@ export default function ImportClient({
   const [csvText, setCsvText]       = useState('')
   const [parsed, setParsed]         = useState<{ headers: string[]; rows: Record<string, string>[] } | null>(null)
   const [mapping, setMapping]       = useState<Record<string, string>>({})
+  // Nur relevant für Kontakte/Firmen (Rückmeldung 1.9.2026: Kunden und Leads
+  // werden bewusst getrennt importiert; bei einem Lead-Import werden bereits
+  // aktive Kunden per Name/E-Mail erkannt und nicht dupliziert, siehe unten).
+  const [istLead, setIstLead]       = useState(true)
   const [importing, setImporting]   = useState(false)
-  const [result, setResult]         = useState<{ ok: number; fehler: number; details: string[] } | null>(null)
+  const [result, setResult]         = useState<{
+    ok: number; fehler: number; details: string[]
+    duplikate?: { zeile: number; name: string; email: string | null; grund: string }[]
+  } | null>(null)
   // Separater State fuer echte Fehlerantworten (401/403/500). Die API liefert bei
   // Erfolg { ok, fehler: <Anzahl>, details: [...] }, bei Ablehnung/Absturz aber nur
   // { fehler: '<Text>' } OHNE details/ok - dieselbe "result"-Variable fuer beide
@@ -178,7 +186,7 @@ export default function ImportClient({
       const res = await fetch('/api/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ typ, rows: parsed.rows, mapping }),
+        body: JSON.stringify({ typ, rows: parsed.rows, mapping, istLead }),
       })
       const data = await res.json()
       // Bei 401/403/500 liefert die API nur { fehler: '<Text>' } ohne ok/details -
@@ -222,6 +230,27 @@ export default function ImportClient({
           </button>
         ))}
       </div>
+
+      {(typ === 'kontakte' || typ === 'firmen') && (
+        <div className="bg-white rounded-2xl border border-s112-border p-4 mb-5 flex flex-wrap items-center gap-4">
+          <span className="text-sm font-medium text-gray-700">Diese Datei enthält:</span>
+          <div className="flex gap-1">
+            {(['lead', 'kunde'] as const).map(v => (
+              <button key={v} onClick={() => setIstLead(v === 'lead')}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  (v === 'lead') === istLead ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:text-gray-900'
+                }`}>
+                {v === 'lead' ? 'Leads' : 'Aktive Kunden'}
+              </button>
+            ))}
+          </div>
+          {istLead && (
+            <span className="text-xs text-s112-muted">
+              Datensätze, die per Name oder E-Mail bereits als aktiver Kunde vorhanden sind, werden beim Import übersprungen und als Duplikat ausgewiesen.
+            </span>
+          )}
+        </div>
+      )}
 
       {typ === 'rieden_details' && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-5 text-sm text-blue-800">
@@ -403,12 +432,40 @@ export default function ImportClient({
             <div className={`mt-4 p-4 rounded-xl border ${result.fehler === 0 ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
               <p className="font-semibold text-sm">
                 {result.ok} erfolgreich · {result.fehler} Fehler
+                {(result.duplikate?.length ?? 0) > 0 && ` · ${result.duplikate!.length} Duplikate übersprungen`}
               </p>
               {(result.details ?? []).length > 0 && (
                 <ul className="mt-2 text-xs text-gray-600 space-y-0.5">
                   {result.details.slice(0, 10).map((d, i) => <li key={i}>{d}</li>)}
                   {result.details.length > 10 && <li>… und {result.details.length - 10} weitere</li>}
                 </ul>
+              )}
+              {(result.duplikate?.length ?? 0) > 0 && (
+                <div className="mt-3 pt-3 border-t border-amber-200">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs font-semibold text-gray-700">Übersprungene Duplikate (bereits aktiver Kunde):</p>
+                    <button
+                      onClick={() => exportCSV(
+                        result.duplikate!.map(d => ({ zeile: d.zeile, name: d.name, email: d.email ?? '', grund: d.grund })),
+                        [
+                          { key: 'zeile', header: 'Zeile' },
+                          { key: 'name', header: 'Name' },
+                          { key: 'email', header: 'E-Mail' },
+                          { key: 'grund', header: 'Grund' },
+                        ],
+                        `import_duplikate_${typ}.csv`,
+                      )}
+                      className="text-xs text-s112-teal hover:underline font-medium">
+                      Als CSV herunterladen
+                    </button>
+                  </div>
+                  <ul className="text-xs text-gray-600 space-y-0.5">
+                    {result.duplikate!.slice(0, 10).map((d, i) => (
+                      <li key={i}>Zeile {d.zeile}: {d.name}{d.email ? ` (${d.email})` : ''}</li>
+                    ))}
+                    {result.duplikate!.length > 10 && <li>… und {result.duplikate!.length - 10} weitere (siehe CSV)</li>}
+                  </ul>
+                </div>
               )}
             </div>
           )}

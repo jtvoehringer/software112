@@ -22,7 +22,7 @@ export default async function FirmenPage() {
 
   const [{ data: fRaw }, { data: kRaw }] = await Promise.all([
     tf((supabase.from('firmen') as any)
-      .select('id, kundennummer, name, segment, strasse, plz, ort, land, telefon, telefon_vorwahl, email, website, uid_nummer, betrieb_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, ist_kunde, ist_lieferant, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
+      .select('id, accountnummer, name, segment, strasse, plz, ort, land, telefon, telefon_vorwahl, email, website, uid_nummer, betrieb_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, ist_kunde, ist_lieferant, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
       .eq('aktiv', true)
       .order('name')),
 
@@ -34,7 +34,7 @@ export default async function FirmenPage() {
   ])
 
   const firmen: FirmaRow[] = ((fRaw ?? []) as R[]).map(f => ({
-    id: f.id, kundennummer: f.kundennummer ?? null, name: f.name, segment: f.segment,
+    id: f.id, accountnummer: f.accountnummer ?? null, name: f.name, segment: f.segment,
     strasse: f.strasse ?? null, plz: f.plz ?? null, ort: f.ort ?? null, land: f.land ?? null,
     telefon: f.telefon ?? null, email: f.email ?? null, website: f.website ?? null,
     uid_nummer: f.uid_nummer ?? null, kreditlimit: f.kreditlimit ?? null,

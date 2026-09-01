@@ -365,8 +365,8 @@ function FirmaKarte({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            {firma.kundennummer && (
-              <span className="text-xs font-mono text-s112-muted">{firma.kundennummer}</span>
+            {firma.accountnummer && (
+              <span className="text-xs font-mono text-s112-muted">{firma.accountnummer}</span>
             )}
             <Link href={`/crm/firmen/${firma.id}`}
               className="font-semibold text-gray-900 text-sm hover:text-s112-teal hover:underline">
@@ -467,7 +467,7 @@ export default function FirmenClient({
   const [buchstabe, setBuchstabe] = useState('Alle')
 
   const gefiltert = firmen.filter(f => {
-    const text = [f.kundennummer, f.name, f.ort, f.email, f.telefon].filter(Boolean).join(' ').toLowerCase()
+    const text = [f.accountnummer, f.name, f.ort, f.email, f.telefon].filter(Boolean).join(' ').toLowerCase()
     const matchAlpha = buchstabe === 'Alle' || (f.name ?? '').toUpperCase().startsWith(buchstabe)
     const matchLead = filterLead === 'alle' || (filterLead === 'lead' ? f.is_lead : !f.is_lead)
     const matchTyp = (!filterKunde && !filterLieferant) ||
@@ -494,7 +494,7 @@ export default function FirmenClient({
         ))}
       </div>
 
-              <input type="search" placeholder="Name, Kundennummer, E-Mail, Ort…"
+              <input type="search" placeholder="Name, Accountnummer, E-Mail, Ort…"
           value={suche} onChange={e => setSuche(e.target.value)}
           className="border border-s112-border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         <div className="flex gap-1">

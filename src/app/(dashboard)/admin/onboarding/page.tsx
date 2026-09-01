@@ -27,7 +27,7 @@ const ONBOARDING_SCHRITTE: Gruppe[] = [
     schritte: [
       { id: 's4', pflicht: true, titel: 'Betriebsdaten eintragen', beschreibung: 'Admin > Mandant > Betrieb: Name, Adresse, UID-Nummer eintragen. Erscheint auf allen gedruckten Dokumenten (Rechnung, Etikett, Behandlungsprotokoll).', link: '/admin/mandanten', linkLabel: 'Admin öffnen' },
       { id: 's5', pflicht: true, titel: 'Branding einrichten', beschreibung: 'Admin > Mandant > Branding: Logo hochladen (URL), Primärfarbe (teal) und Sekundärfarbe (gelb) anpassen. Logo erscheint in der Sidebar und auf Druckdokumenten.' },
-      { id: 's6', pflicht: true, titel: 'Rechnungseinstellungen', beschreibung: 'Admin > Mandant > Verkauf: Rechnungsnummer-Präfix (z.B. RE), Stellen (z.B. 4), Kundennummer-Präfix (z.B. K). IBAN + BIC + Zahlungsziel für Rechnungsdruck.' },
+      { id: 's6', pflicht: true, titel: 'Rechnungseinstellungen', beschreibung: 'Admin > Mandant > Verkauf: Rechnungsnummer-Präfix (z.B. RE), Stellen (z.B. 4), Accountnummer-Präfix (z.B. K). IBAN + BIC + Zahlungsziel für Rechnungsdruck.' },
       { id: 's7', pflicht: true, titel: 'USt.-Satz festlegen', beschreibung: 'Admin > Mandant > Verkauf: 13% für Weinproduzenten (Standard), 20% für Weinhändler. Kann später geändert werden.' },
     ],
   },

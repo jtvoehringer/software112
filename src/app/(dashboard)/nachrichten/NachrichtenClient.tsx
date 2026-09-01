@@ -12,7 +12,7 @@ type Msg = {
 type MsgDetail = Msg & {
   bodyHtml: string | null; bodyText: string
   conversationId: string | null
-  kontaktInfo: { typ: string; id: string; name: string; kundennummer: string | null } | null
+  kontaktInfo: { typ: string; id: string; name: string; accountnummer: string | null } | null
 }
 
 function fmtDate(d: string) {

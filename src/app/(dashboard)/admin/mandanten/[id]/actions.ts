@@ -57,14 +57,6 @@ export async function saveTenantSettings(tenantId: string, formData: FormData) {
     modul_sumup:        formData.get('modul_sumup')        === 'true',
     modul_export:       formData.get('modul_export')       === 'true',
     assistent_aktiv:    formData.get('assistent_aktiv')    === 'true',
-    // KI-Modul "Frag dein Weingut" (Migration 037): nur ändern, wenn der Module-Tab die
-    // Felder mitschickt – Branding-/Brevo-Tab rufen dieselbe Action ohne diese Felder auf
-    // und dürfen die KI-Freischaltung nicht versehentlich zurücksetzen.
-    ...(formData.has('ki_abfragen_aktiv') ? {
-      ki_abfragen_aktiv: formData.get('ki_abfragen_aktiv') === 'true',
-      ki_abfragen_paket: ['basic', 'standard', 'unlimited'].includes(String(formData.get('ki_abfragen_paket')))
-        ? String(formData.get('ki_abfragen_paket')) : 'basic',
-    } : {}),
     brevo_api_key:      (formData.get('brevo_api_key') as string) || null,
     brevo_sender_mail:  (formData.get('brevo_sender_mail') as string) || null,
     brevo_sender_name:  (formData.get('brevo_sender_name') as string) || null,
@@ -296,16 +288,22 @@ export async function saveVerkaufEinstellungen(tenantId: string, formData: FormD
 
   const rPrefix  = (formData.get('rechnung_prefix') as string)?.trim() || 'RE'
   const rStellen = Math.max(1, Math.min(8, parseInt(formData.get('rechnung_stellen') as string) || 4))
-  const kPrefix  = (formData.get('kunden_prefix') as string)?.trim() || 'K'
-  const kStellen = Math.max(1, Math.min(8, parseInt(formData.get('kunden_stellen') as string) || 4))
+  const kPrefix  = (formData.get('account_prefix') as string)?.trim() || 'K'
+  const kStellen = Math.max(1, Math.min(8, parseInt(formData.get('account_stellen') as string) || 4))
+  // Migration 188: Suffix mit {JJ}/{JJJJ}-Platzhalter - steuert den automatischen
+  // Jahreswechsel-Reset in get_next_accountnummer(). Kein serverseitiges
+  // Whitelisting der Platzhalter nötig, die DB-Funktion ersetzt nur bekannte
+  // Tokens und lässt alles andere (z.B. ein Tippfehler) unverändert im Suffix stehen.
+  const kSuffix  = ((formData.get('account_suffix') as string) ?? '').trim().slice(0, 16)
 
   const { error } = await (admin.from('tenant_einstellungen') as any)
     .upsert({
       tenant_id:        tenantId,
       rechnung_prefix:  rPrefix,
       rechnung_stellen: rStellen,
-      kunden_prefix:    kPrefix,
-      kunden_stellen:    kStellen,
+      account_prefix:    kPrefix,
+      account_stellen:    kStellen,
+      account_suffix:    kSuffix,
       ust_satz_standard: parseFloat(formData.get('ust_satz_standard') as string) || 13,
       aktualisiert_am:   new Date().toISOString(),
     }, { onConflict: 'tenant_id' })
@@ -390,7 +388,7 @@ export async function resetRechnungsZaehler(tenantId: string, auf: number) {
   revalidatePath(`/admin/mandanten/${tenantId}`)
 }
 
-// ── Kundennummer-Zähler zurücksetzen ─────────────────────────────────────────
+// ── Accountnummer-Zähler zurücksetzen ─────────────────────────────────────────
 
 export async function resetKundenZaehler(tenantId: string, auf: number) {
   await assertSystemAdmin(tenantId)
@@ -398,8 +396,13 @@ export async function resetKundenZaehler(tenantId: string, auf: number) {
 
   const { error } = await (admin.from('tenant_einstellungen') as any)
     .upsert({
-      tenant_id:       tenantId,
-      kunden_zaehler:  Math.max(1, auf),
+      tenant_id:            tenantId,
+      account_zaehler:      Math.max(1, auf),
+      // Ein manueller Reset zählt als "für dieses Jahr erledigt" - sonst würde
+      // der automatische Jahreswechsel-Reset (Migration 188, falls ein
+      // Jahres-Platzhalter im Suffix gesetzt ist) den Wert beim nächsten Aufruf
+      // von get_next_accountnummer() sofort wieder auf 1 überschreiben.
+      account_zaehler_jahr: new Date().getFullYear(),
       aktualisiert_am: new Date().toISOString(),
     }, { onConflict: 'tenant_id' })
 

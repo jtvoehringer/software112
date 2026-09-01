@@ -28,7 +28,7 @@ export default async function KontaktePage() {
     { data: pRaw },
   ] = await Promise.all([
     tf((supabase.from('kontakte') as any)
-      .select('id, kundennummer, vorname, nachname, segment, firma_id, firmen:firma_id(name), email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, newsletter, newsletter_bestaetigt, stammkunde, aktiv, notizen, erstellt_am, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct), zahlungsziel_tage')
+      .select('id, accountnummer, vorname, nachname, segment, firma_id, firmen:firma_id(name), email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, newsletter, newsletter_bestaetigt, stammkunde, aktiv, notizen, erstellt_am, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct), zahlungsziel_tage')
       .eq('aktiv', true)
       .order('nachname')),
 
@@ -51,7 +51,7 @@ export default async function KontaktePage() {
 
   const kontakte: KontaktRow[] = ((kRaw ?? []) as R[]).map(k => ({
     id:                    k.id,
-    kundennummer:          k.kundennummer ?? null,
+    accountnummer:          k.accountnummer ?? null,
     vorname:               k.vorname ?? null,
     nachname:              k.nachname,
     segment:               k.segment,

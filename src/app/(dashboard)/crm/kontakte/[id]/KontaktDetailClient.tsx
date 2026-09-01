@@ -510,7 +510,7 @@ export default function KontaktDetailClient({
         <div className="flex items-start gap-4">
           <div className="flex flex-col items-center justify-center bg-s112-bg border border-s112-border rounded-xl px-3 py-2 flex-shrink-0 min-w-[72px]">
             <span className="text-[10px] text-s112-muted font-medium uppercase tracking-wide">Kd.-Nr.</span>
-            <span className="text-sm font-bold text-s112-teal tabular-nums">{kontakt.kundennummer ?? '–'}</span>
+            <span className="text-sm font-bold text-s112-teal tabular-nums">{kontakt.accountnummer ?? '–'}</span>
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold text-gray-900">{name}</h1>

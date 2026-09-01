@@ -17,7 +17,7 @@ interface Props {
   behandlungen: R[]
   cuKgHa: number
   pipeline: R[]
-  kontaktFrequenz: { id: string; name: string; kundennummer: string | null; letzterKontakt: string | null; tage: number }[]
+  kontaktFrequenz: { id: string; name: string; accountnummer: string | null; letzterKontakt: string | null; tage: number }[]
   offene: R[]
   heute: string
   vsJahrgaenge: number[]
@@ -822,7 +822,7 @@ export default function ReportsClient({
                       <td className="px-3 py-2">
                         <Link href={`/crm/kontakte/${k.id}`} className="font-medium text-gray-800 hover:text-s112-teal">{k.name}</Link>
                       </td>
-                      <td className="px-3 py-2 text-xs text-s112-muted font-mono">{k.kundennummer??'–'}</td>
+                      <td className="px-3 py-2 text-xs text-s112-muted font-mono">{k.accountnummer??'–'}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-s112-muted">{fmtDate(k.letzterKontakt)}</td>
                       <td className="px-3 py-2 text-right">
                         <span className={`text-xs font-bold px-2 py-0.5 rounded-full tabular-nums ${k.tage>180?'bg-red-100 text-red-700':k.tage>90?'bg-amber-100 text-amber-700':'bg-green-100 text-green-700'}`}>

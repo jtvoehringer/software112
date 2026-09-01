@@ -50,11 +50,11 @@ export async function GET(req: NextRequest) {
       let kontaktInfo = null
       if (fromEmail) {
         const { data: k } = await (supabase.from('kontakte') as any)
-          .select('id, vorname, nachname, kundennummer').eq('tenant_id', tenantId).eq('email', fromEmail).maybeSingle()
+          .select('id, vorname, nachname, accountnummer').eq('tenant_id', tenantId).eq('email', fromEmail).maybeSingle()
         const { data: f } = await (supabase.from('firmen') as any)
-          .select('id, name, kundennummer').eq('tenant_id', tenantId).eq('email', fromEmail).maybeSingle()
-        if (k) kontaktInfo = { typ: 'kontakt', id: (k as R).id, name: [(k as R).vorname, (k as R).nachname].filter(Boolean).join(' '), kundennummer: (k as R).kundennummer }
-        else if (f) kontaktInfo = { typ: 'firma', id: (f as R).id, name: (f as R).name, kundennummer: (f as R).kundennummer }
+          .select('id, name, accountnummer').eq('tenant_id', tenantId).eq('email', fromEmail).maybeSingle()
+        if (k) kontaktInfo = { typ: 'kontakt', id: (k as R).id, name: [(k as R).vorname, (k as R).nachname].filter(Boolean).join(' '), accountnummer: (k as R).accountnummer }
+        else if (f) kontaktInfo = { typ: 'firma', id: (f as R).id, name: (f as R).name, accountnummer: (f as R).accountnummer }
 
         // Eingehende Email als Aktivität speichern (fire-and-forget)
         if (kontaktInfo && msg.id && tenantId) {

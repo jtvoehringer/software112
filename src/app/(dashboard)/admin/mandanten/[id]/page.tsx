@@ -39,9 +39,12 @@ export type TenantSettings = {
   rechnung_prefix:   string
   rechnung_zaehler:  number
   rechnung_stellen:  number
-  kunden_prefix:     string
-  kunden_zaehler:    number
-  kunden_stellen:    number
+  account_prefix:     string
+  account_zaehler:    number
+  account_stellen:    number
+  // Migration 188 – Suffix mit {JJ}/{JJJJ}-Jahresplatzhalter, steuert den
+  // automatischen Jahreswechsel-Reset in get_next_accountnummer().
+  account_suffix:     string
   // Migration 030 – Betriebsdaten + Rechnungseinstellungen
   betrieb_name:             string | null
   betrieb_strasse:          string | null
@@ -84,10 +87,6 @@ export type TenantSettings = {
   modul_export:        boolean
   // Migration 148 – Prozess-Assistent (Bot)
   assistent_aktiv:     boolean
-  // Migration 037 – KI-Modul "Frag dein Weingut" (bis 27.8.2026 nirgends im Admin schaltbar)
-  ki_abfragen_aktiv:   boolean
-  ki_abfragen_paket:   string
-  ki_abfragen_zaehler: number
   ea_buchung_modus:    string
   ea_kleinunternehmer: boolean
   ea_uva_zeitraum:     string
@@ -195,9 +194,10 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     rechnung_prefix:   s?.rechnung_prefix ?? 'RE',
     rechnung_zaehler:  s?.rechnung_zaehler ?? 1,
     rechnung_stellen:  s?.rechnung_stellen ?? 4,
-    kunden_prefix:     s?.kunden_prefix ?? 'K',
-    kunden_zaehler:    s?.kunden_zaehler ?? 1,
-    kunden_stellen:    s?.kunden_stellen ?? 4,
+    account_prefix:     s?.account_prefix ?? 'K',
+    account_zaehler:    s?.account_zaehler ?? 1,
+    account_stellen:    s?.account_stellen ?? 4,
+    account_suffix:     s?.account_suffix ?? '',
     betrieb_name:      s?.betrieb_name ?? null,
     betrieb_strasse:   s?.betrieb_strasse ?? null,
     betrieb_plz:       s?.betrieb_plz ?? null,
@@ -240,9 +240,6 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     bawb_kennung:        s?.bawb_kennung ?? null,
     bawb_passwort:       s?.bawb_passwort ?? null,
     assistent_aktiv:     !!(s?.assistent_aktiv),
-    ki_abfragen_aktiv:   !!(s?.ki_abfragen_aktiv),
-    ki_abfragen_paket:   s?.ki_abfragen_paket ?? 'basic',
-    ki_abfragen_zaehler: Number(s?.ki_abfragen_zaehler ?? 0),
   }
 
   const members: TenantMember[] = ((memberships ?? []) as R[]).map(m => ({

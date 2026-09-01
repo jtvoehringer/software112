@@ -83,7 +83,7 @@ export const AKTIVITAET_ARTEN = [
 
 export type KontaktRow = {
   id: string
-  kundennummer: string | null
+  accountnummer: string | null
   vorname: string | null
   nachname: string
   segment: Kundensegment
@@ -119,7 +119,7 @@ export type KontaktRow = {
 
 export type FirmaRow = {
   id: string
-  kundennummer: string | null
+  accountnummer: string | null
   name: string
   segment: Kundensegment
   strasse: string | null

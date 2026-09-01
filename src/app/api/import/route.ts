@@ -79,13 +79,40 @@ function normalizeBehaelterTyp(v: string): string {
     .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
 }
 
+// Für den Duplikat-Abgleich (Lead-Import gegen bestehende aktive Kunden):
+// trim + lowercase + Mehrfach-Leerzeichen zusammenfassen, damit z.B.
+// "Karl  Grill" und "karl grill" als derselbe Name erkannt werden.
+function normName(v: string | null | undefined): string {
+  return (v ?? '').toString().trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+// Identische RPC wie beim manuellen Anlegen einer Firma/eines Kontakts über das
+// Formular (src/app/(dashboard)/crm/actions.ts) - atomischer, pro Mandant
+// fortlaufender Zähler mit Prefix (z.B. "K-00042"), damit importierte
+// Datensätze dieselbe Nummernvergabe erhalten wie manuell angelegte
+// (Rückmeldung 1.9.2026: importierte Kunden/Kontakte brauchen eine
+// Accountnummer - vorher blieb das Feld beim Import leer).
+async function generateAccountnummer(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  tenantId: string,
+): Promise<string | null> {
+  const { data, error } = await (supabase.rpc as any)('get_next_accountnummer', { p_tenant_id: tenantId })
+  if (error) { console.error('generateAccountnummer:', error.message); return null }
+  return data as string | null
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { typ, rows, mapping } = await req.json() as {
+    const { typ, rows, mapping, istLead } = await req.json() as {
       typ: 'kontakte' | 'firmen' | 'fuellungen' | 'rieden_details' | 'grundstuecke' | 'gebinde'
       rows: R[]
       mapping: Record<string, string>
+      istLead?: boolean
     }
+    // Kunden und Leads werden laut Rückmeldung (1.9.2026) bewusst aus getrennten
+    // Dateien importiert - Default true entspricht dem bisherigen (fest
+    // verdrahteten) Verhalten, falls das Frontend nichts mitschickt.
+    const leadImport = istLead ?? true
 
     const supabase = await createSupabaseServerClient()
     const activeMembership = await getCurrentMembership()
@@ -102,6 +129,36 @@ export async function POST(req: NextRequest) {
 
     let ok = 0
     const details: string[] = []
+    const duplikate: { zeile: number; name: string; email: string | null; grund: string }[] = []
+
+    // Lead-Import (Rückmeldung 1.9.2026): Kunden und Leads kommen aus getrennten
+    // Altsystem-Exporten. Kommt ein Datensatz später nochmal als Lead herein, der
+    // hier bereits als aktiver Kunde (is_lead=false, aktiv=true) existiert, soll er
+    // NICHT dupliziert, sondern übersprungen und im Report ausgewiesen werden.
+    // Abgleich über Name (normalisiert) ODER E-Mail - bewusst kein Fuzzy-Matching,
+    // Altsystem-Exporte sind schon unzuverlässig genug (siehe SEGMENT_MAP-Historie
+    // oben), ein zu aggressiver Abgleich würde sonst echte Neuanlagen verschlucken.
+    const kundenNameSet = new Set<string>()
+    const kundenEmailSet = new Set<string>()
+    if (leadImport && (typ === 'kontakte' || typ === 'firmen')) {
+      if (typ === 'kontakte') {
+        const { data: bestehende } = await (supabase.from('kontakte') as any)
+          .select('vorname, nachname, email')
+          .eq('tenant_id', tenantId).eq('aktiv', true).eq('is_lead', false)
+        for (const k of (bestehende ?? []) as R[]) {
+          kundenNameSet.add(normName([k.vorname, k.nachname].filter(Boolean).join(' ')))
+          if (k.email) kundenEmailSet.add(normName(k.email))
+        }
+      } else {
+        const { data: bestehende } = await (supabase.from('firmen') as any)
+          .select('name, email')
+          .eq('tenant_id', tenantId).eq('aktiv', true).eq('is_lead', false)
+        for (const f of (bestehende ?? []) as R[]) {
+          kundenNameSet.add(normName(f.name))
+          if (f.email) kundenEmailSet.add(normName(f.email))
+        }
+      }
+    }
 
     // Caches für "Rieden (Details)" (Ried-Name → lagen.id, legt bei Bedarf neu an)
     // und "Grundstücke" (Weingarten-Name → weingarten.id), damit derselbe Name
@@ -142,14 +199,25 @@ export async function POST(req: NextRequest) {
       const row = rows[i]
       try {
         if (typ === 'kontakte') {
+          const vorname = mapVal(row, mapping.vorname) as string | null | undefined
           const nachname = mapVal(row, mapping.nachname)
           if (!nachname) { details.push(`Zeile ${i+2}: Nachname fehlt – übersprungen`); continue }
+          const email = ((mapVal(row, mapping.email) as string | null | undefined) ?? null)
+          const vollname = [vorname, nachname].filter(Boolean).join(' ')
+          if (leadImport) {
+            const emailKey = email ? normName(email) : null
+            if ((emailKey && kundenEmailSet.has(emailKey)) || kundenNameSet.has(normName(vollname))) {
+              duplikate.push({ zeile: i+2, name: vollname, email, grund: 'bereits aktiver Kunde' })
+              continue
+            }
+          }
           const segment = SEGMENT_MAP[(mapVal(row, mapping.segment) as string)?.toLowerCase() ?? ''] ?? 'privat'
           const { error } = await (supabase.from('kontakte') as any).insert({
             tenant_id: tenantId,
-            vorname:   mapVal(row, mapping.vorname) ?? null,
+            accountnummer: await generateAccountnummer(supabase, tenantId),
+            vorname:   vorname ?? null,
             nachname,
-            email:     mapVal(row, mapping.email) ?? null,
+            email,
             telefon:   mapVal(row, mapping.telefon) ?? null,
             mobil:     mapVal(row, mapping.mobil) ?? null,
             strasse:   mapVal(row, mapping.strasse) ?? null,
@@ -159,18 +227,27 @@ export async function POST(req: NextRequest) {
             segment,
             notizen:   mapVal(row, mapping.notizen) ?? null,
             aktiv: true, stammkunde: false, newsletter: false,
-            newsletter_bestaetigt: false, is_lead: true,
+            newsletter_bestaetigt: false, is_lead: leadImport,
           })
           if (error) { details.push(`Zeile ${i+2}: ${error.message}`); continue }
 
         } else if (typ === 'firmen') {
           const name = mapVal(row, mapping.name)
           if (!name) { details.push(`Zeile ${i+2}: Name fehlt – übersprungen`); continue }
+          const email = ((mapVal(row, mapping.email) as string | null | undefined) ?? null)
+          if (leadImport) {
+            const emailKey = email ? normName(email) : null
+            if ((emailKey && kundenEmailSet.has(emailKey)) || kundenNameSet.has(normName(name as string))) {
+              duplikate.push({ zeile: i+2, name: name as string, email, grund: 'bereits aktiver Kunde' })
+              continue
+            }
+          }
           const segment = SEGMENT_MAP[(mapVal(row, mapping.segment) as string)?.toLowerCase() ?? ''] ?? 'gastronomie'
           const { error } = await (supabase.from('firmen') as any).insert({
             tenant_id: tenantId,
+            accountnummer: await generateAccountnummer(supabase, tenantId),
             name,
-            email:              mapVal(row, mapping.email) ?? null,
+            email,
             telefon:            mapVal(row, mapping.telefon) ?? null,
             strasse:            mapVal(row, mapping.strasse) ?? null,
             plz:                mapVal(row, mapping.plz) ?? null,
@@ -186,7 +263,7 @@ export async function POST(req: NextRequest) {
             // obwohl "Zahlungsziel" bewusst nicht zugeordnet war).
             zahlungsziel_tage:  mapVal(row, mapping.zahlungsziel_tage, v => parseInt(v) || 30) ?? 30,
             notizen:            mapVal(row, mapping.notizen) ?? null,
-            aktiv: true, is_lead: true,
+            aktiv: true, is_lead: leadImport,
           })
           if (error) { details.push(`Zeile ${i+2}: ${error.message}`); continue }
 
@@ -281,7 +358,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ ok, fehler: rows.length - ok, details })
+    return NextResponse.json({ ok, fehler: rows.length - ok - duplikate.length, duplikate, details })
   } catch (err) {
     return NextResponse.json({ fehler: String(err) }, { status: 500 })
   }

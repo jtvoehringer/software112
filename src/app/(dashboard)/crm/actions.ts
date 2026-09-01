@@ -13,12 +13,12 @@ async function getTenantId(): Promise<string> {
   return membership.tenantId
 }
 
-async function generateKundennummer(tenantId: string): Promise<string | null> {
+async function generateAccountnummer(tenantId: string): Promise<string | null> {
   const supabase = await createSupabaseServerClient()
-  const { data, error } = await (supabase.rpc as any)('get_next_kundennummer', {
+  const { data, error } = await (supabase.rpc as any)('get_next_accountnummer', {
     p_tenant_id: tenantId,
   })
-  if (error) { console.error('generateKundennummer:', error.message); return null }
+  if (error) { console.error('generateAccountnummer:', error.message); return null }
   return data as string | null
 }
 
@@ -66,7 +66,7 @@ export async function createKontakt(formData: FormData): Promise<{ error?: strin
       zahlungsziel_tage: parseZahlungszielTage(formData),
       is_lead: formData.get('is_lead') === 'true',
     }
-    payload.kundennummer = await generateKundennummer(tenantId)
+    payload.accountnummer = await generateAccountnummer(tenantId)
     const { error } = await (supabase.from('kontakte') as any).insert(payload).eq('tenant_id', tenantId)
     if (error) return { error: (error as AR).message }
     revalidatePath('/crm/kontakte')
@@ -156,7 +156,7 @@ export async function createFirma(formData: FormData): Promise<{ error?: string;
       ist_kunde:     formData.get('ist_kunde')     !== 'false',
       ist_lieferant: formData.get('ist_lieferant') === 'true',
     }
-    payload.kundennummer = await generateKundennummer(tenantId)
+    payload.accountnummer = await generateAccountnummer(tenantId)
     const { data, error } = await (supabase.from('firmen') as any)
       .insert(payload).eq('tenant_id', tenantId)
       .select('id').single()

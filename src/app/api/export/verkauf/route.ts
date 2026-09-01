@@ -10,14 +10,14 @@ export async function GET() {
 
   const supabase = await createSupabaseServerClient()
   const { data } = await (supabase.from('verkaufsposten') as any)
-    .select('datum, rechnungsnummer, bezahlt, storniert, kontakt:kontakte!kontakt_id(vorname,nachname,kundennummer), firma:firmen(name,kundennummer), verkauf_positionen(name,menge,einheit,preis_brutto,rabatt_pct,sonderrabatt_pct,ust_satz)')
+    .select('datum, rechnungsnummer, bezahlt, storniert, kontakt:kontakte!kontakt_id(vorname,nachname,accountnummer), firma:firmen(name,accountnummer), verkauf_positionen(name,menge,einheit,preis_brutto,rabatt_pct,sonderrabatt_pct,ust_satz)')
     .eq('tenant_id', tenantId).eq('aktiv', true).order('datum', { ascending: false })
   const rows = (data ?? []) as R[]
   const esc = (v: unknown) => { if (v==null) return ''; const s=String(v).replace(/"/g,'""'); return s.includes(';')||s.includes('"')||s.includes('\n')?`"${s}"`:s }
-  const headers = ['Datum','Rechnungsnummer','Kundennummer','Kunde','Artikel','Menge','Einheit','Preis (€)','Rabatt %','Sonderrabatt %','USt %','Zeilenbetrag (€)','Bezahlt','Storniert']
+  const headers = ['Datum','Rechnungsnummer','Accountnummer','Kunde','Artikel','Menge','Einheit','Preis (€)','Rabatt %','Sonderrabatt %','USt %','Zeilenbetrag (€)','Bezahlt','Storniert']
   const lines = [headers.join(';')]
   rows.forEach((p: R) => {
-    const kdnr = p.kontakt?.kundennummer ?? p.firma?.kundennummer ?? ''
+    const kdnr = p.kontakt?.accountnummer ?? p.firma?.accountnummer ?? ''
     const kunde = p.kontakt ? [p.kontakt.vorname,p.kontakt.nachname].filter(Boolean).join(' ') : p.firma?.name ?? '–'
     ;(p.verkauf_positionen ?? []).forEach((pos: R) => {
       const brutto = (Number(pos.preis_brutto)||0)*(Number(pos.menge)||0)

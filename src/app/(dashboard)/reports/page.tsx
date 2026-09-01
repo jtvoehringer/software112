@@ -81,11 +81,11 @@ export default async function ReportsPage() {
 
   // ── Kontaktfrequenz ───────────────────────────────────────────────────────
   const { data: kontakteRaw } = await tf((supabase.from('kontakte') as any)
-    .select('id, vorname, nachname, kundennummer, aktiv')
+    .select('id, vorname, nachname, accountnummer, aktiv')
     .eq('aktiv', true).eq('is_lead', false).order('nachname').limit(50))
   const kontakte = (kontakteRaw ?? []) as R[]
 
-  const kontaktFrequenz: { id: string; name: string; kundennummer: string | null; letzterKontakt: string | null; tage: number }[] = []
+  const kontaktFrequenz: { id: string; name: string; accountnummer: string | null; letzterKontakt: string | null; tage: number }[] = []
   if (kontakte.length > 0) {
     const { data: letzteAktsRaw } = await tf((supabase.from('aktivitaeten') as any)
       .select('kontakt_id, datum')
@@ -99,7 +99,7 @@ export default async function ReportsPage() {
     kontakte.forEach(k => {
       const letzt = letztMap[k.id] ?? null
       const tage = letzt ? Math.floor((heuteMs - new Date(letzt).getTime()) / 86400000) : 999
-      kontaktFrequenz.push({ id: k.id, name: [k.vorname, k.nachname].filter(Boolean).join(' '), kundennummer: k.kundennummer, letzterKontakt: letzt, tage })
+      kontaktFrequenz.push({ id: k.id, name: [k.vorname, k.nachname].filter(Boolean).join(' '), accountnummer: k.accountnummer, letzterKontakt: letzt, tage })
     })
     kontaktFrequenz.sort((a, b) => b.tage - a.tage)
   }

@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const bis = req.nextUrl.searchParams.get('bis') ?? ''
 
   const { data } = await (supabase.from('verkaufsposten') as any)
-    .select('id, datum, rechnungsnummer, storniert, kontakt:kontakte!kontakt_id(nachname, vorname, kundennummer), firma:firmen(name, kundennummer), verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz)')
+    .select('id, datum, rechnungsnummer, storniert, kontakt:kontakte!kontakt_id(nachname, vorname, accountnummer), firma:firmen(name, accountnummer), verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz)')
     .eq('tenant_id', tenantId).eq('aktiv', true).eq('storniert', false)
     .gte('datum', von).lte('datum', bis)
     .order('datum')
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   for (const p of posten) {
     const datum = p.datum?.replace(/-/g, '') ?? ''
     const belnr = p.rechnungsnummer ?? p.id.slice(0, 8)
-    const kdnr  = p.kontakt?.kundennummer ?? p.firma?.kundennummer ?? '10000'
+    const kdnr  = p.kontakt?.accountnummer ?? p.firma?.accountnummer ?? '10000'
     const name  = p.kontakt ? [p.kontakt.vorname, p.kontakt.nachname].filter(Boolean).join(' ') : (p.firma?.name ?? '–')
 
     for (const pos of (p.verkauf_positionen ?? []) as R[]) {

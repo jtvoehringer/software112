@@ -547,9 +547,7 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
     modul_sumup:      settings.modul_sumup       ?? false,
     modul_export:     settings.modul_export      ?? false,
     assistent_aktiv:  settings.assistent_aktiv   ?? false,
-    ki_abfragen_aktiv: settings.ki_abfragen_aktiv ?? false,
   })
-  const [kiPaket, setKiPaket] = useState(settings.ki_abfragen_paket ?? 'basic')
 
   function toggle(key: keyof typeof mods) {
     setMods(m => ({ ...m, [key]: !m[key] }))
@@ -569,8 +567,6 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
     fd.set('modul_sumup',      mods.modul_sumup         ? 'true' : 'false')
     fd.set('modul_export',     mods.modul_export        ? 'true' : 'false')
     fd.set('assistent_aktiv',  mods.assistent_aktiv     ? 'true' : 'false')
-    fd.set('ki_abfragen_aktiv', mods.ki_abfragen_aktiv  ? 'true' : 'false')
-    fd.set('ki_abfragen_paket', kiPaket)
     fd.set('brevo_api_key',     settings.brevo_api_key ?? '')
     fd.set('brevo_sender_mail', settings.brevo_sender_mail ?? '')
     fd.set('brevo_sender_name', settings.brevo_sender_name ?? '')
@@ -605,23 +601,6 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
           )}
         <Toggle on={mods.modul_export} onToggle={() => toggle('modul_export')} label="Exportaufträge (Weinexport)" />
         <Toggle on={mods.assistent_aktiv} onToggle={() => toggle('assistent_aktiv')} label="bot:112 – Beta" />
-        {/* KI-Modul "Frag dein Weingut" (Migration 037) – Freischaltung + Paket. Bis
-            27.8.2026 gab es dafür keine Admin-Oberfläche, /ki zeigte deshalb dauerhaft
-            "KI-Modul nicht aktiv". */}
-        <Toggle on={mods.ki_abfragen_aktiv} onToggle={() => toggle('ki_abfragen_aktiv')} label="Frag dein Weingut (KI-Abfragen)" />
-        {mods.ki_abfragen_aktiv && (
-          <div className="ml-12 -mt-2 space-y-1.5">
-            <label className="block text-xs text-gray-600">
-              Paket
-              <select value={kiPaket} onChange={e => setKiPaket(e.target.value)} className="form-input mt-1 max-w-[220px]">
-                <option value="basic">Basic – 100 Abfragen/Monat</option>
-                <option value="standard">Standard – 200 Abfragen/Monat</option>
-                <option value="unlimited">Unlimited</option>
-              </select>
-            </label>
-            <p className="text-xs text-gray-500">Verbrauch im laufenden Monat: {settings.ki_abfragen_zaehler ?? 0} Abfragen</p>
-          </div>
-        )}
       </div>
 
       <div className="flex items-center gap-3">
@@ -1037,8 +1016,8 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
   const [saved,   setSaved]        = useState(false)
   const [resetVal,  setResetVal]   = useState(String(settings.rechnung_zaehler))
   const [zaehler,   setZaehler]    = useState(settings.rechnung_zaehler)
-  const [kResetVal, setKResetVal]  = useState(String(settings.kunden_zaehler))
-  const [kZaehler,  setKZaehler]   = useState(settings.kunden_zaehler)
+  const [kResetVal, setKResetVal]  = useState(String(settings.account_zaehler))
+  const [kZaehler,  setKZaehler]   = useState(settings.account_zaehler)
 
   const [ustStandard, setUstStandard] = useState(settings.ust_satz_standard)
 
@@ -1047,10 +1026,18 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
   const [stellen,  setStellen]  = useState(settings.rechnung_stellen)
   const naechste = `${prefix}-${String(zaehler).padStart(stellen, '0')}`
 
-  // Vorschau der nächsten Kundennummer
-  const [kPrefix,  setKPrefix]  = useState(settings.kunden_prefix)
-  const [kStellen, setKStellen] = useState(settings.kunden_stellen)
-  const naechsteKunde = `${kPrefix}-${String(kZaehler).padStart(kStellen, '0')}`
+  // Vorschau der nächsten Accountnummer. Migration 188: Suffix mit {JJ}/{JJJJ}-
+  // Platzhalter - ist ein Jahres-Platzhalter gesetzt, beginnt der Zähler bei
+  // jedem Jahreswechsel automatisch wieder bei 1 (siehe get_next_accountnummer()).
+  const [kPrefix,  setKPrefix]  = useState(settings.account_prefix)
+  const [kStellen, setKStellen] = useState(settings.account_stellen)
+  const [kSuffix,  setKSuffix]  = useState(settings.account_suffix)
+  const kHatJahresPlatzhalter = kSuffix.includes('{JJ')
+  const resolveSuffix = (suffix: string) => {
+    const jahr = new Date().getFullYear()
+    return suffix.replace(/\{JJJJ\}/g, String(jahr)).replace(/\{JJ\}/g, String(jahr).slice(-2))
+  }
+  const naechsteKunde = `${kPrefix}-${String(kZaehler).padStart(kStellen, '0')}${resolveSuffix(kSuffix)}`
 
   function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -1138,13 +1125,13 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
           <p className="text-base font-mono font-bold text-s112-teal tracking-wider">{naechste}</p>
         </div>
 
-        {/* Kundennummer */}
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider pt-2">Kundennummer</p>
-        <div className="grid grid-cols-2 gap-3">
+        {/* Accountnummer */}
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider pt-2">Accountnummer</p>
+        <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Präfix</label>
             <input
-              name="kunden_prefix"
+              name="account_prefix"
               value={kPrefix}
               onChange={e => setKPrefix(e.target.value.toUpperCase())}
               maxLength={8}
@@ -1155,7 +1142,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Stellen</label>
             <input
-              name="kunden_stellen"
+              name="account_stellen"
               type="number"
               value={kStellen}
               onChange={e => setKStellen(Math.max(1, Math.min(8, parseInt(e.target.value) || 4)))}
@@ -1163,11 +1150,34 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
               className={inputCls()}
             />
           </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Suffix</label>
+            <input
+              name="account_suffix"
+              value={kSuffix}
+              onChange={e => setKSuffix(e.target.value)}
+              maxLength={16}
+              placeholder="/{JJ}"
+              className={inputCls()}
+            />
+          </div>
         </div>
+        <p className="text-xs text-s112-muted -mt-2">
+          Platzhalter im Suffix: {'{JJ}'} für das zweistellige Jahr, {'{JJJJ}'} für das vierstellige. Leer lassen für keinen Suffix.
+        </p>
         <div className="bg-s112-bg border border-s112-border rounded-lg px-4 py-2.5 flex items-center justify-between">
-          <p className="text-xs text-s112-muted">Nächste Kundennummer</p>
+          <p className="text-xs text-s112-muted">Nächste Accountnummer</p>
           <p className="text-base font-mono font-bold text-s112-teal tracking-wider">{naechsteKunde}</p>
         </div>
+        {kHatJahresPlatzhalter ? (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 text-xs text-blue-800">
+            Der Zähler beginnt zu jedem Jahreswechsel automatisch wieder bei 1. Die Nummern bleiben eindeutig, weil das Jahr Teil der Nummer ist.
+          </div>
+        ) : (
+          <p className="text-xs text-s112-muted">
+            Ohne Jahres-Platzhalter im Suffix läuft der Zähler wie bisher endlos weiter (kein automatischer Reset – sonst wären Nummern nicht mehr eindeutig).
+          </p>
+        )}
 
         <div className="flex items-center gap-3">
           <button type="submit" disabled={pending}
@@ -1209,7 +1219,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
         </p>
       </div>
 
-      {/* Kundennummer-Zähler */}
+      {/* Accountnummer-Zähler */}
       <div className="border border-s112-border rounded-xl p-4 space-y-3">
         <div>
           <p className="text-sm font-semibold text-gray-700">Kunden-Zählerstand</p>
@@ -1235,6 +1245,11 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
             Zähler setzen
           </button>
         </div>
+        <p className="text-xs text-s112-muted">
+          {kHatJahresPlatzhalter
+            ? 'Nur bei Ersteinrichtung nötig – ist ein Jahres-Platzhalter im Suffix gesetzt, läuft der Reset zum Jahreswechsel automatisch.'
+            : 'Nur bei Ersteinrichtung. Bereits vergebene Nummern bleiben unverändert.'}
+        </p>
       </div>
     </div>
   )

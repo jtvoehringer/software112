@@ -461,8 +461,8 @@ function KontaktKarte({
       <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            {kontakt.kundennummer && (
-              <span className="text-xs font-bold text-s112-teal font-mono bg-s112-teal/10 px-2 py-0.5 rounded">{kontakt.kundennummer}</span>
+            {kontakt.accountnummer && (
+              <span className="text-xs font-bold text-s112-teal font-mono bg-s112-teal/10 px-2 py-0.5 rounded">{kontakt.accountnummer}</span>
             )}
             <Link href={`/crm/kontakte/${kontakt.id}`}
               className="font-semibold text-gray-900 text-sm hover:text-s112-teal hover:underline">
@@ -653,7 +653,7 @@ export default function KontakteClient({
 
   const gefiltert = kontakte
     .filter(k => {
-      const name = [k.kundennummer, k.vorname, k.nachname, k.email, k.mobil, k.telefon, k.firma_name].filter(Boolean).join(' ').toLowerCase()
+      const name = [k.accountnummer, k.vorname, k.nachname, k.email, k.mobil, k.telefon, k.firma_name].filter(Boolean).join(' ').toLowerCase()
       const matchSuche = !suche || name.includes(suche.toLowerCase())
       const matchSeg = segment === 'alle' || k.segment === segment
       const matchAlpha = buchstabe === 'Alle' || (k.nachname ?? '').toUpperCase().startsWith(buchstabe)
@@ -684,7 +684,7 @@ export default function KontakteClient({
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">
         <input
-          type="search" placeholder="Name, Kundennummer, E-Mail, Telefon…"
+          type="search" placeholder="Name, Accountnummer, E-Mail, Telefon…"
           value={suche} onChange={e => setSuche(e.target.value)}
           className="border border-s112-border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
         />
