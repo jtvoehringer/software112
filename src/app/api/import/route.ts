@@ -55,6 +55,17 @@ function parseDeZahl(v: string): number | null {
   return Number.isFinite(n) ? n : null
 }
 
+// Ganzzahl-Variante von parseDeZahl - für Felder wie Jahrgang/Lagerbestand/
+// Zahlungsziel, die ebenfalls im deutschen Tausender-Format geliefert werden
+// können (z.B. "1 474" Flaschen oder "2 025" als Jahrgang). Reines parseInt(v)
+// bricht wie parseFloat am ersten Leerzeichen ab und lieferte hier bisher
+// stillschweigend 1 bzw. 2 statt 1474/2025 (Rückmeldung 2.9.2026,
+// Füllungen-Import).
+function parseDeInt(v: string): number | null {
+  const n = parseDeZahl(v)
+  return n != null ? Math.round(n) : null
+}
+
 function normalizeWeinart(v: string): string {
   const s = v.trim().toLowerCase()
   if (s === 'weiss' || s === 'weiß' || s === 'weißwein' || s === 'weisswein') return 'weiss'
@@ -264,7 +275,7 @@ export async function POST(req: NextRequest) {
             // mit "violates not-null constraint" scheitern - deshalb hier hart auf 30
             // fallen statt auf null (Rückmeldung 1.9.2026: alle 6 Zeilen fehlgeschlagen,
             // obwohl "Zahlungsziel" bewusst nicht zugeordnet war).
-            zahlungsziel_tage:  mapVal(row, mapping.zahlungsziel_tage, v => parseInt(v) || 30) ?? 30,
+            zahlungsziel_tage:  mapVal(row, mapping.zahlungsziel_tage, v => parseDeInt(v) || 30) ?? 30,
             notizen:            mapVal(row, mapping.notizen) ?? null,
             aktiv: true, is_lead: leadImport,
           })
@@ -273,13 +284,27 @@ export async function POST(req: NextRequest) {
         } else if (typ === 'fuellungen') {
           const bezeichnung = mapVal(row, mapping.bezeichnung)
           if (!bezeichnung) { details.push(`Zeile ${i+2}: Bezeichnung fehlt – übersprungen`); continue }
+          const bestand = (mapVal(row, mapping.lagerbestand_fl, v => parseDeInt(v) || 0) as number | null) ?? 0
           const { error } = await (supabase.from('fuellungen') as any).insert({
             tenant_id:          tenantId,
-            bezeichnung,
-            jahrgang:           mapVal(row, mapping.jahrgang, v => parseInt(v) || null) ?? null,
+            // "fuellungen.name" ist NOT NULL ohne Default und wurde hier bisher
+            // gar nicht gesetzt (nur "bezeichnung", ein separates, nullable
+            // Zusatzfeld) - jede Zeile scheiterte dadurch an der NOT-NULL-
+            // Constraint, unabhängig vom Spalten-Mapping (Rückmeldung 2.9.2026,
+            // "null value in column name"). Die importierte Verkaufsbezeichnung
+            // dient hier zugleich als Name; bezeichnung bleibt für Importe leer,
+            // um keinen doppelten Text ("X – X") in der Übersicht anzuzeigen.
+            name: bezeichnung,
+            jahrgang:           mapVal(row, mapping.jahrgang, v => parseDeInt(v)) ?? null,
             rebsorte:           mapVal(row, mapping.rebsorte) ?? null,
-            flaschengroesse_ml: mapVal(row, mapping.flaschengroesse_ml, v => parseInt(v) || 750) ?? 750,
-            bestand_flaschen:   mapVal(row, mapping.lagerbestand_fl, v => parseInt(v) || 0) ?? 0,
+            flaschengroesse_ml: mapVal(row, mapping.flaschengroesse_ml, v => parseDeInt(v) || 750) ?? 750,
+            // "anzahl_flaschen" (ursprünglich abgefüllte Menge) ist ebenfalls
+            // NOT NULL ohne Default und wurde bisher gar nicht gesetzt. Die
+            // tatsächliche Füllmenge kennen wir beim Import nicht mehr - wie bei
+            // einer manuellen Neuanlage (siehe weinhandel/actions.ts) auf den
+            // importierten Lagerbestand setzen.
+            anzahl_flaschen:    bestand,
+            bestand_flaschen:   bestand,
             vk_preis_brutto:    mapVal(row, mapping.vk_preis_brutto, parseDeZahl) ?? null,
             einstandspreis:     mapVal(row, mapping.einkaufspreis, parseDeZahl) ?? null,
             notizen:            mapVal(row, mapping.notizen) ?? null,
@@ -303,7 +328,7 @@ export async function POST(req: NextRequest) {
             lage_id:    lageId,
             ried:       riedText,
             rebsorte:   mapVal(row, mapping.rebsorte) ?? null,
-            pflanzjahr: mapVal(row, mapping.pflanzjahr, v => parseInt(v) || null) ?? null,
+            pflanzjahr: mapVal(row, mapping.pflanzjahr, v => parseDeInt(v)) ?? null,
             weinart:    (mapVal(row, mapping.weinart) as string) || 'unbekannt',
             flaeche_ha: mapVal(row, mapping.flaeche_ha, parseDeZahl) ?? null,
             aktiv: true,
@@ -331,7 +356,7 @@ export async function POST(req: NextRequest) {
             flaeche_ha_kataster:  mapVal(row, mapping.flaeche_ha_kataster, parseDeZahl) ?? null,
             rebsorte:             mapVal(row, mapping.rebsorte) ?? null,
             weinart:              mapVal(row, mapping.weinart, normalizeWeinart) ?? null,
-            pflanzjahr:           mapVal(row, mapping.pflanzjahr, v => parseInt(v) || null) ?? null,
+            pflanzjahr:           mapVal(row, mapping.pflanzjahr, v => parseDeInt(v)) ?? null,
             ama_feldnummer:       mapVal(row, mapping.ama_feldnummer) ?? null,
             boden:                mapVal(row, mapping.boden) ?? null,
             bewirtschaftung:      mapVal(row, mapping.bewirtschaftung) ?? null,
