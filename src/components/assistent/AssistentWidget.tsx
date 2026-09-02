@@ -7,8 +7,20 @@
 // muss sich dafür nichts ändern.
 
 import { useEffect, useRef, useState } from 'react'
-import { X, Send, Loader2 } from 'lucide-react'
+import { X, Send, Loader2, Mic, Square, Volume2, VolumeX } from 'lucide-react'
 import { BotIcon } from './BotIcon'
+import { useSpracheingabe, kannVorlesen, vorlesen, vorlesenStoppen } from './useSpracheingabe'
+
+// Sprachsteuerung (Rückmeldung 2.9.2026, Paket "Premium: Bot:112 mit
+// Sprachsteuerung"): Mikrofon-Button neben dem Eingabefeld (Web Speech API,
+// siehe useSpracheingabe.ts) - gesprochener Text wird nach Ende der Äußerung
+// automatisch als Nachricht abgeschickt, damit es im Weingarten wirklich
+// freihändig geht. Unkritisch, weil der Bot vor jedem Schreibzugriff ohnehin
+// eine Zusammenfassung zeigt und auf Bestätigung wartet - ein verhörtes Wort
+// lässt sich in der nächsten Nachricht korrigieren, gebucht wird nichts ohne
+// ausdrückliches Ja. Optional (Lautsprecher-Symbol im Header, Standard aus):
+// Antworten des Bots vorlesen lassen.
+const VORLESEN_KEY = 's112_bot_vorlesen'
 
 type Nachricht = { rolle: 'user' | 'assistant'; inhalt: string }
 
@@ -35,6 +47,22 @@ export default function AssistentWidget() {
   const [unterhaltungId, setUnterhaltungId] = useState<string | undefined>(undefined)
   const listRef  = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [vorlesenAn, setVorlesenAn]   = useState(false)
+  const [vorlesenMoeglich, setVorlesenMoeglich] = useState(false)
+
+  useEffect(() => {
+    setVorlesenMoeglich(kannVorlesen())
+    try { setVorlesenAn(localStorage.getItem(VORLESEN_KEY) === '1') } catch { /* privater Modus o.ä. */ }
+  }, [])
+
+  function vorlesenUmschalten() {
+    setVorlesenAn(v => {
+      const neu = !v
+      try { localStorage.setItem(VORLESEN_KEY, neu ? '1' : '0') } catch { /* ignorieren */ }
+      if (!neu) vorlesenStoppen()
+      return neu
+    })
+  }
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
@@ -66,6 +94,7 @@ export default function AssistentWidget() {
       }
       setUnterhaltungId(data.unterhaltungId)
       setNachrichten(prev => [...prev, { rolle: 'assistant', inhalt: data.antwort }])
+      if (vorlesenAn) vorlesen(String(data.antwort ?? ''))
     } catch (err) {
       setFehler(String(err))
     } finally {
@@ -80,22 +109,14 @@ export default function AssistentWidget() {
     }
   }
 
-  // Dashboard-Relaunch (27.8.2026): andere Stellen der App (z.B. das Chargen-
-  // Modal der Dashboard-Sicht "Kellerbuch") können dem Bot eine vorformulierte
-  // Nachricht übergeben – Widget öffnet sich und sendet sie sofort. Die
-  // Bestätigung jeder Buchung bleibt wie gehabt beim Menschen im Chat.
+  // Endgültig erkannter Text -> wie eine getippte Nachricht abschicken. (Der
+  // Hook hält den Callback in einem Ref, daher kein useCallback nötig.)
+  const sprache = useSpracheingabe((text: string) => { void senden(undefined, text) })
+
+  // Beim Schließen des Panels laufende Aufnahme/Vorlesen beenden
   useEffect(() => {
-    const handler = (e: Event) => {
-      const text = (e as CustomEvent<{ nachricht?: string }>).detail?.nachricht?.trim()
-      if (!text) return
-      setOffen(true)
-      // kurz warten, bis das Panel gerendert ist (Fokus/Scroll), dann senden
-      setTimeout(() => { void senden(undefined, text) }, 50)
-    }
-    window.addEventListener('s112:assistent', handler)
-    return () => window.removeEventListener('s112:assistent', handler)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [laden, unterhaltungId])
+    if (!offen) { sprache.abbrechen(); vorlesenStoppen() }
+  }, [offen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="fixed bottom-5 right-5 z-50">
@@ -107,9 +128,22 @@ export default function AssistentWidget() {
               <BotIcon size={18} />
               <span className="font-semibold text-sm">bot:112</span>
             </div>
-            <button onClick={() => setOffen(false)} aria-label="Schließen" className="hover:opacity-75">
-              <X size={18} />
-            </button>
+            <div className="flex items-center gap-3">
+              {vorlesenMoeglich && (
+                <button
+                  onClick={vorlesenUmschalten}
+                  aria-pressed={vorlesenAn}
+                  aria-label={vorlesenAn ? 'Antworten vorlesen: an' : 'Antworten vorlesen: aus'}
+                  title={vorlesenAn ? 'Antworten werden vorgelesen (klicken zum Ausschalten)' : 'Antworten vorlesen lassen'}
+                  className={`hover:opacity-75 ${vorlesenAn ? '' : 'opacity-60'}`}
+                >
+                  {vorlesenAn ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                </button>
+              )}
+              <button onClick={() => setOffen(false)} aria-label="Schließen" className="hover:opacity-75">
+                <X size={18} />
+              </button>
+            </div>
           </div>
 
           {/* Nachrichtenverlauf */}
@@ -152,9 +186,9 @@ export default function AssistentWidget() {
                 </div>
               </div>
             )}
-            {fehler && (
+            {(fehler || sprache.fehler) && (
               <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700">
-                {fehler}
+                {fehler ?? sprache.fehler}
               </div>
             )}
           </div>
@@ -163,11 +197,31 @@ export default function AssistentWidget() {
           <form onSubmit={senden} className="flex items-center gap-2 p-2.5 border-t border-s112-border flex-shrink-0 bg-white">
             <input
               ref={inputRef}
-              value={eingabe}
+              value={sprache.hoert ? sprache.zwischenstand : eingabe}
               onChange={e => setEingabe(e.target.value)}
-              placeholder="Nachricht…"
-              className="flex-1 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+              readOnly={sprache.hoert}
+              placeholder={sprache.hoert ? 'Ich höre zu…' : 'Nachricht…'}
+              className={`flex-1 min-w-0 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${
+                sprache.hoert ? 'border-red-300 bg-red-50/40 italic text-gray-600' : 'border-s112-border'
+              }`}
             />
+            {sprache.unterstuetzt && (
+              <button
+                type="button"
+                onClick={() => (sprache.hoert ? sprache.stop() : sprache.start())}
+                disabled={laden}
+                aria-pressed={sprache.hoert}
+                aria-label={sprache.hoert ? 'Aufnahme beenden' : 'Sprechen'}
+                title={sprache.hoert ? 'Aufnahme beenden' : 'Sprechen statt tippen'}
+                className={`p-2 rounded-lg flex-shrink-0 transition-colors disabled:opacity-40 ${
+                  sprache.hoert
+                    ? 'bg-red-500 text-white animate-pulse'
+                    : 'border border-s112-border text-gray-600 hover:border-s112-teal hover:text-s112-teal'
+                }`}
+              >
+                {sprache.hoert ? <Square size={16} /> : <Mic size={16} />}
+              </button>
+            )}
             <button
               type="submit"
               disabled={laden || !eingabe.trim()}
