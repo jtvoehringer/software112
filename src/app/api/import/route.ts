@@ -93,6 +93,9 @@ function normalizeBehaelterTyp(v: string): string {
 // Für den Duplikat-Abgleich (Lead-Import gegen bestehende aktive Kunden):
 // trim + lowercase + Mehrfach-Leerzeichen zusammenfassen, damit z.B.
 // "Karl  Grill" und "karl grill" als derselbe Name erkannt werden.
+// Muss mit HERKUNFT_DEFAULT in admin/import/ImportClient.tsx übereinstimmen.
+const HERKUNFT_DEFAULT = 'Datenmigration aus Drittsystem'
+
 function normName(v: string | null | undefined): string {
   return (v ?? '').toString().trim().toLowerCase().replace(/\s+/g, ' ')
 }
@@ -114,16 +117,37 @@ async function generateAccountnummer(
 
 export async function POST(req: NextRequest) {
   try {
-    const { typ, rows, mapping, istLead } = await req.json() as {
+    const { typ, rows, mapping, istLead, herkunft } = await req.json() as {
       typ: 'kontakte' | 'firmen' | 'fuellungen' | 'rieden_details' | 'grundstuecke' | 'gebinde'
       rows: R[]
       mapping: Record<string, string>
       istLead?: boolean
+      herkunft?: string
     }
     // Kunden und Leads werden laut Rückmeldung (1.9.2026) bewusst aus getrennten
     // Dateien importiert - Default true entspricht dem bisherigen (fest
     // verdrahteten) Verhalten, falls das Frontend nichts mitschickt.
     const leadImport = istLead ?? true
+
+    // Herkunftskennzeichnung (Rückmeldung 2.9.2026: "allen Einträgen einen Text
+    // 'Datenmigration aus Drittsystem' hinzufügen"). Zweigleisig:
+    //  - sichtbar: Text wird im Notizen-Feld vorangestellt (bestehende Notiz
+    //    aus der CSV bleibt darunter erhalten),
+    //  - strukturiert: import_quelle + importiert_am (Migration 192) auf allen
+    //    Import-Zieltabellen, damit importierte Datensätze später filter-,
+    //    auswert- und gesammelt bereinigbar sind - auch bei Gebinde, die gar
+    //    kein Notizen-Feld haben.
+    // Der Text kommt aus dem Import-Dialog (dort vorbelegt und anpassbar, z.B.
+    // auf den Namen des Altsystems); leer/fehlend -> Default.
+    const importQuelle = (typeof herkunft === 'string' && herkunft.trim()) ? herkunft.trim().slice(0, 120) : HERKUNFT_DEFAULT
+    const importiertAm = new Date()
+    const importDatumDe = importiertAm.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Vienna' })
+    const herkunftZeile = `${importQuelle} – importiert am ${importDatumDe}`
+    const mitHerkunft = (notiz: unknown): string => {
+      const n = (notiz ?? '').toString().trim()
+      return n ? `${herkunftZeile}\n${n}` : herkunftZeile
+    }
+    const herkunftFelder = { import_quelle: importQuelle, importiert_am: importiertAm.toISOString() }
 
     const supabase = await createSupabaseServerClient()
     const activeMembership = await getCurrentMembership()
@@ -188,7 +212,7 @@ export async function POST(req: NextRequest) {
         return (bestehend as R).id
       }
       const { data: neu, error } = await (supabase.from('lagen') as any)
-        .insert({ tenant_id: tenantId, name: name.trim() })
+        .insert({ tenant_id: tenantId, name: name.trim(), notizen: mitHerkunft(null), ...herkunftFelder })
         .select('id').single()
       if (error) throw new Error(`Ried "${name}" konnte nicht angelegt werden: ${error.message}`)
       lageCache.set(key, (neu as R).id)
@@ -236,7 +260,8 @@ export async function POST(req: NextRequest) {
             ort:       mapVal(row, mapping.ort) ?? null,
             land:      mapVal(row, mapping.land) || 'AT',
             segment,
-            notizen:   mapVal(row, mapping.notizen) ?? null,
+            notizen:   mitHerkunft(mapVal(row, mapping.notizen)),
+            ...herkunftFelder,
             aktiv: true, stammkunde: false, newsletter: false,
             newsletter_bestaetigt: false, is_lead: leadImport,
           })
@@ -276,7 +301,8 @@ export async function POST(req: NextRequest) {
             // fallen statt auf null (Rückmeldung 1.9.2026: alle 6 Zeilen fehlgeschlagen,
             // obwohl "Zahlungsziel" bewusst nicht zugeordnet war).
             zahlungsziel_tage:  mapVal(row, mapping.zahlungsziel_tage, v => parseDeInt(v) || 30) ?? 30,
-            notizen:            mapVal(row, mapping.notizen) ?? null,
+            notizen:            mitHerkunft(mapVal(row, mapping.notizen)),
+            ...herkunftFelder,
             aktiv: true, is_lead: leadImport,
           })
           if (error) { details.push(`Zeile ${i+2}: ${error.message}`); continue }
@@ -307,7 +333,8 @@ export async function POST(req: NextRequest) {
             bestand_flaschen:   bestand,
             vk_preis_brutto:    mapVal(row, mapping.vk_preis_brutto, parseDeZahl) ?? null,
             einstandspreis:     mapVal(row, mapping.einkaufspreis, parseDeZahl) ?? null,
-            notizen:            mapVal(row, mapping.notizen) ?? null,
+            notizen:            mitHerkunft(mapVal(row, mapping.notizen)),
+            ...herkunftFelder,
             aktiv: true,
           })
           if (error) { details.push(`Zeile ${i+2}: ${error.message}`); continue }
@@ -331,6 +358,8 @@ export async function POST(req: NextRequest) {
             pflanzjahr: mapVal(row, mapping.pflanzjahr, v => parseDeInt(v)) ?? null,
             weinart:    (mapVal(row, mapping.weinart) as string) || 'unbekannt',
             flaeche_ha: mapVal(row, mapping.flaeche_ha, parseDeZahl) ?? null,
+            notizen:    mitHerkunft(null),
+            ...herkunftFelder,
             aktiv: true,
           })
           if (error) { details.push(`Zeile ${i+2}: ${error.message}`); continue }
@@ -364,6 +393,8 @@ export async function POST(req: NextRequest) {
             // (A/G/WI) - steuert jetzt Ernte-/Behandlungs-/Zukauf-Logik.
             nutzart:              (mapVal(row, mapping.nutzart) as string)?.toUpperCase() || null,
             spritzbar:            (mapVal(row, mapping.nutzart) as string)?.toUpperCase() === 'WI',
+            notizen:              mitHerkunft(null),
+            ...herkunftFelder,
           })
           if (error) { details.push(`Zeile ${i+2}: ${error.message}`); continue }
 
@@ -376,6 +407,8 @@ export async function POST(req: NextRequest) {
             typ:           mapVal(row, mapping.typ, normalizeBehaelterTyp) ?? null,
             volumen_liter: mapVal(row, mapping.volumen_liter, parseDeZahl) ?? null,
             standort:      mapVal(row, mapping.standort) ?? null,
+            // behaelter hat kein Notizen-Feld - Kennzeichnung nur strukturiert.
+            ...herkunftFelder,
             aktiv: true,
           })
           if (error) { details.push(`Zeile ${i+2}: ${error.message}`); continue }

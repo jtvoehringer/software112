@@ -160,6 +160,10 @@ function parseCsv(text: string): { headers: string[]; rows: Record<string, strin
 
 const ALLE_TYPEN = Object.keys(TYP_LABEL) as ImportTyp[]
 
+// Vorbelegung des Herkunftstexts; muss mit HERKUNFT_DEFAULT in api/import/route.ts
+// übereinstimmen (dort Fallback, falls der Client nichts mitschickt).
+const HERKUNFT_DEFAULT = 'Datenmigration aus Drittsystem'
+
 export default function ImportClient({
   gebinde = [],
   initialTyp,
@@ -180,6 +184,12 @@ export default function ImportClient({
   // werden bewusst getrennt importiert; bei einem Lead-Import werden bereits
   // aktive Kunden per Name/E-Mail erkannt und nicht dupliziert, siehe unten).
   const [istLead, setIstLead]       = useState(true)
+  // Herkunftstext (Rückmeldung 2.9.2026): wird an jedem importierten Datensatz
+  // hinterlegt - sichtbar vorangestellt im Notizen-Feld und strukturiert in
+  // import_quelle/importiert_am (Migration 192), damit Import-Datensätze später
+  // filter- und gesammelt bereinigbar sind. Pro Import anpassbar, z.B. auf den
+  // Namen des Altsystems.
+  const [herkunft, setHerkunft]     = useState(HERKUNFT_DEFAULT)
   const [importing, setImporting]   = useState(false)
   const [result, setResult]         = useState<{
     ok: number; fehler: number; details: string[]
@@ -225,7 +235,7 @@ export default function ImportClient({
       const res = await fetch('/api/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ typ, rows: parsed.rows, mapping, istLead }),
+        body: JSON.stringify({ typ, rows: parsed.rows, mapping, istLead, herkunft: herkunft.trim() || HERKUNFT_DEFAULT }),
       })
       const data = await res.json()
       // Bei 401/403/500 liefert die API nur { fehler: '<Text>' } ohne ok/details -
@@ -268,6 +278,23 @@ export default function ImportClient({
             {TYP_LABEL[t]}
           </button>
         ))}
+      </div>
+
+      <div className="bg-white rounded-2xl border border-s112-border p-4 mb-5 flex flex-wrap items-center gap-4">
+        <label htmlFor="import-herkunft" className="text-sm font-medium text-gray-700">Herkunft:</label>
+        <input
+          id="import-herkunft"
+          type="text"
+          value={herkunft}
+          onChange={e => setHerkunft(e.target.value)}
+          maxLength={120}
+          placeholder={HERKUNFT_DEFAULT}
+          className="flex-1 min-w-[16rem] border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal"
+        />
+        <span className="text-xs text-s112-muted basis-full">
+          Wird an jedem importierten Datensatz hinterlegt (im Notizen-Feld vorangestellt und als Import-Kennzeichen gespeichert),
+          damit sich Import-Daten später von manuell angelegten unterscheiden lassen. Bei Bedarf anpassen, z.&nbsp;B. auf den Namen des Altsystems.
+        </span>
       </div>
 
       {(typ === 'kontakte' || typ === 'firmen') && (
