@@ -110,6 +110,7 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
     fd.set('modul_ea',         settings.modul_ea          ? 'true' : 'false')
     fd.set('modul_sumup',      settings.modul_sumup       ? 'true' : 'false')
     fd.set('modul_export',     settings.modul_export      ? 'true' : 'false')
+    fd.set('modul_controlling', settings.modul_controlling ? 'true' : 'false')
     fd.set('assistent_aktiv',  settings.assistent_aktiv   ? 'true' : 'false')
     startTransition(async () => {
       await saveTenantSettings(tenant.id, fd)
@@ -457,6 +458,7 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
     fd.set('modul_ea',         settings.modul_ea          ? 'true' : 'false')
     fd.set('modul_sumup',      settings.modul_sumup       ? 'true' : 'false')
     fd.set('modul_export',     settings.modul_export      ? 'true' : 'false')
+    fd.set('modul_controlling', settings.modul_controlling ? 'true' : 'false')
     fd.set('assistent_aktiv',  settings.assistent_aktiv   ? 'true' : 'false')
     startTransition(async () => {
       await saveTenantSettings(tenant.id, fd)
@@ -546,6 +548,7 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
     modul_ea:         settings.modul_ea         ?? false,
     modul_sumup:      settings.modul_sumup       ?? false,
     modul_export:     settings.modul_export      ?? false,
+    modul_controlling: settings.modul_controlling ?? false,
     assistent_aktiv:  settings.assistent_aktiv   ?? false,
   })
 
@@ -566,6 +569,7 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
     fd.set('modul_ea',         mods.modul_ea           ? 'true' : 'false')
     fd.set('modul_sumup',      mods.modul_sumup         ? 'true' : 'false')
     fd.set('modul_export',     mods.modul_export        ? 'true' : 'false')
+    fd.set('modul_controlling', mods.modul_controlling   ? 'true' : 'false')
     fd.set('assistent_aktiv',  mods.assistent_aktiv     ? 'true' : 'false')
     fd.set('brevo_api_key',     settings.brevo_api_key ?? '')
     fd.set('brevo_sender_mail', settings.brevo_sender_mail ?? '')
@@ -600,6 +604,7 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
             </p>
           )}
         <Toggle on={mods.modul_export} onToggle={() => toggle('modul_export')} label="Exportaufträge (Weinexport)" />
+        <Toggle on={mods.modul_controlling} onToggle={() => toggle('modul_controlling')} label="Controlling (Auswertungen, Kostenrechnung, Datenexport)" />
         <Toggle on={mods.assistent_aktiv} onToggle={() => toggle('assistent_aktiv')} label="bot:112 – Beta" />
       </div>
 
@@ -1751,6 +1756,7 @@ export default function MandantDetailClient({ tenant, settings, members }: {
           {settings.modul_ea         && <span className="text-xs bg-lime-100 text-lime-700 px-2 py-0.5 rounded-full">E&A</span>}
           {settings.modul_sumup      && <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">SumUp</span>}
           {settings.modul_export     && <span className="text-xs bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-full">Exportaufträge</span>}
+          {settings.modul_controlling && <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">Controlling</span>}
           {tenant.stripe_status === 'active'   && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Abo aktiv</span>}
           {tenant.stripe_status === 'past_due' && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Zahlung offen</span>}
           {tenant.stripe_status === 'cancelled' && <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Abo gekündigt</span>}

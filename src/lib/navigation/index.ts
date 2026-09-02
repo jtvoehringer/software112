@@ -13,12 +13,12 @@
 
 import {
   LayoutDashboard, Grape, BookOpen, Warehouse, Calculator, ReceiptText,
-  Users, BarChart3, Sparkles, Settings,
+  Users, Sparkles, Settings,
   type LucideIcon,
 } from 'lucide-react'
 import type { UserRole } from '@/lib/auth/roles'
 
-export type ModulKey = 'modul_ea' | 'modul_sumup' | 'modul_export'
+export type ModulKey = 'modul_ea' | 'modul_sumup' | 'modul_export' | 'modul_controlling'
 
 /** Teilmenge des Tenant-Brandings, die die Navigation braucht (Modul-Toggles). */
 export type NavBranding = Record<ModulKey, boolean>
@@ -121,17 +121,19 @@ const NAV: NavGroup[] = [
       { href: '/controlling/bmd',             label: 'BMD NTCS',        keywords: 'steuerberater export' },
     ],
   },
+  // Controlling ist seit Migration 193 ein zuschaltbares Modul (Rückmeldung
+  // 2.9.2026, Paket "Standard"), analog zu E&A-Rechnung: Bereich nur sichtbar,
+  // wenn tenant_einstellungen.modul_controlling gesetzt ist (Toggle in
+  // Administration → Mandanten). "Auswertungen" (vorher eigener Bereich) und
+  // die Kosten-Auswertung (vorher nur aus /reports verlinkt) sind hier
+  // eingehängt. Die Routen selbst sichern Layout-Guards ab (lib/auth/modul.ts).
   {
-    key: 'controlling', label: 'Controlling', icon: Calculator,
+    key: 'controlling', label: 'Controlling', icon: Calculator, modulKey: 'modul_controlling',
     items: [
-      { href: '/controlling/export',         label: 'Datenexport',    keywords: 'csv' },
-      { href: '/controlling/kostenrechnung', label: 'Kostenrechnung', keywords: 'kostenstellen' },
-    ],
-  },
-  {
-    key: 'auswertungen', label: 'Auswertungen', icon: BarChart3,
-    items: [
-      { href: '/reports', label: 'Auswertungen', keywords: 'reports berichte weinbuch protokoll' },
+      { href: '/reports',                     label: 'Auswertungen',      keywords: 'reports berichte weinbuch protokoll umsatz lager' },
+      { href: '/controlling/kostenrechnung',  label: 'Kostenrechnung',    keywords: 'kostenstellen kostenarten' },
+      { href: '/auswertungen/kostenrechnung', label: 'Kosten-Auswertung', child: true, keywords: 'kosten je ried behälter periode' },
+      { href: '/controlling/export',          label: 'Datenexport',       keywords: 'csv' },
     ],
   },
   {
@@ -162,7 +164,7 @@ const NAV: NavGroup[] = [
 ]
 
 /** Pfade, die nur exakt matchen (kein Präfix-Match für Unterrouten) */
-const EXACT_PATHS = new Set(['/dashboard', '/crm', '/weinhandel', '/auswertungen', '/kellerbuch', '/reports', '/behandlungen', '/buchhaltung'])
+const EXACT_PATHS = new Set(['/dashboard', '/crm', '/weinhandel', '/auswertungen', '/kellerbuch', '/behandlungen', '/buchhaltung'])
 
 export function isActivePath(href: string, pathname: string): boolean {
   return pathname === href || (!EXACT_PATHS.has(href) && pathname.startsWith(href))

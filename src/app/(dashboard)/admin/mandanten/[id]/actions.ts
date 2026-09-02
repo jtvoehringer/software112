@@ -56,6 +56,7 @@ export async function saveTenantSettings(tenantId: string, formData: FormData) {
     modul_ea:           formData.get('modul_ea')           === 'true',
     modul_sumup:        formData.get('modul_sumup')        === 'true',
     modul_export:       formData.get('modul_export')       === 'true',
+    modul_controlling:  formData.get('modul_controlling')  === 'true',
     assistent_aktiv:    formData.get('assistent_aktiv')    === 'true',
     brevo_api_key:      (formData.get('brevo_api_key') as string) || null,
     brevo_sender_mail:  (formData.get('brevo_sender_mail') as string) || null,

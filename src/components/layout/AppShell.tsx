@@ -43,10 +43,10 @@ export default function AppShell({
 }: Props) {
   const groups = useMemo(() => buildNav({
     role,
-    branding: { modul_ea: branding.modul_ea, modul_sumup: branding.modul_sumup, modul_export: branding.modul_export },
+    branding: { modul_ea: branding.modul_ea, modul_sumup: branding.modul_sumup, modul_export: branding.modul_export, modul_controlling: branding.modul_controlling },
     isSandbox,
     sandboxAdminUnlock,
-  }), [role, branding.modul_ea, branding.modul_sumup, branding.modul_export, isSandbox, sandboxAdminUnlock])
+  }), [role, branding.modul_ea, branding.modul_sumup, branding.modul_export, branding.modul_controlling, isSandbox, sandboxAdminUnlock])
 
   const buildSha = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA
 
