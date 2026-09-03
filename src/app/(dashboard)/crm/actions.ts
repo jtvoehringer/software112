@@ -122,6 +122,108 @@ export async function deleteKontakt(id: string) {
   revalidatePath('/crm/kontakte')
 }
 
+// ── Kontakt → Firma umwandeln (Rückmeldung 2.9.2026) ──────────────────────────
+//
+// Ein als Person erfasster Kunde stellt sich als Betrieb heraus (Gasthaus,
+// Vinothek, Händler ...). Statt die Firma händisch neu anzulegen und alles
+// umzuhängen: Firma aus den Stammdaten des Kontakts erzeugen, den Kontakt als
+// Ansprechperson daran hängen (kontakte.firma_id) und die komplette Historie
+// (Aktivitäten, Pipeline, Verkäufe, Bestellungen, Exportaufträge,
+// Traubenverkauf) auf die Firma umhängen - der Kontakt bleibt dort als Person
+// (kontakt_id) erhalten, Umsatzauswertungen laufen ab jetzt über die Firma.
+// Entscheidungen 2.9.2026: Kontakt bleibt bestehen (nicht deaktivieren),
+// Historie wandert vollständig mit, nur diese Richtung (keine Firma → Kontakt).
+const HISTORIE_TABELLEN = ['aktivitaeten', 'pipeline_eintraege', 'verkaufsposten', 'bestellungen', 'exportauftraege', 'traubenverkauf'] as const
+
+export async function kontaktZuFirmaUmwandeln(
+  kontaktId: string,
+  eingabe: { name: string; segment: string },
+): Promise<{ error?: string; firmaId?: string; verschoben?: Record<string, number> }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const tenantId = await getTenantId()
+
+    const name = eingabe.name.trim()
+    if (!name) return { error: 'Bitte einen Firmennamen angeben.' }
+
+    const { data: kRaw, error: kErr } = await (supabase.from('kontakte') as any)
+      .select('*').eq('id', kontaktId).eq('tenant_id', tenantId).maybeSingle()
+    if (kErr) return { error: (kErr as AR).message }
+    const k = kRaw as AR | null
+    if (!k) return { error: 'Kontakt nicht gefunden.' }
+    if (k.firma_id) return { error: 'Dieser Kontakt ist bereits einer Firma zugeordnet – bitte dort weiterarbeiten.' }
+
+    const personName = [k.vorname, k.nachname].filter(Boolean).join(' ')
+    const heute = new Date().toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    const hinweis = `Umgewandelt aus Kontakt „${personName}" am ${heute}`
+    const notizen = k.notizen ? `${hinweis}\n${k.notizen}` : hinweis
+
+    const payload: AR = {
+      tenant_id:         tenantId,
+      name,
+      segment:           eingabe.segment || k.segment || 'gastronomie',
+      strasse:           k.strasse ?? null,
+      plz:               k.plz ?? null,
+      ort:               k.ort ?? null,
+      land:              k.land ?? 'AT',
+      telefon:           k.telefon ?? null,
+      telefon_vorwahl:   k.telefon_vorwahl ?? '+43',
+      mobil:             k.mobil ?? null,
+      mobil_vorwahl:     k.mobil_vorwahl ?? '+43',
+      email:             k.email ?? null,
+      betrieb_nr:        k.betrieb_nr ?? null,
+      zahlungsziel_tage: typeof k.zahlungsziel_tage === 'number' ? k.zahlungsziel_tage : 30,
+      waehrung:          'EUR',
+      notizen,
+      rabattgruppe_id:   k.rabattgruppe_id ?? null,
+      sonderrabatt_pct:  k.sonderrabatt_pct ?? 0,
+      skonto_pct:        k.skonto_pct ?? 0,
+      skonto_tage:       k.skonto_tage ?? 10,
+      is_lead:           !!k.is_lead,
+      ist_kunde:         true,
+      ist_lieferant:     false,
+      aktiv:             true,
+      // Herkunftskennzeichnung (Migration 192) mitnehmen, damit ein
+      // importierter Kontakt auch als Firma als Import erkennbar bleibt.
+      import_quelle:     k.import_quelle ?? null,
+      importiert_am:     k.importiert_am ?? null,
+    }
+    payload.accountnummer = await generateAccountnummer(tenantId)
+
+    const { data: fRaw, error: fErr } = await (supabase.from('firmen') as any)
+      .insert(payload).select('id').single()
+    if (fErr) return { error: (fErr as AR).message }
+    const firmaId = (fRaw as AR).id as string
+
+    // Kontakt als Ansprechperson an die neue Firma hängen
+    const { error: linkErr } = await (supabase.from('kontakte') as any)
+      .update({ firma_id: firmaId, aktualisiert_am: new Date().toISOString() })
+      .eq('id', kontaktId).eq('tenant_id', tenantId)
+    if (linkErr) return { error: `Firma angelegt, Kontakt konnte aber nicht zugeordnet werden: ${(linkErr as AR).message}` }
+
+    // Historie umhängen: firma_id setzen, kontakt_id bleibt (Person an der Firma)
+    const verschoben: Record<string, number> = {}
+    for (const tabelle of HISTORIE_TABELLEN) {
+      const { error, count } = await (supabase.from(tabelle) as any)
+        .update({ firma_id: firmaId }, { count: 'exact' })
+        .eq('kontakt_id', kontaktId).eq('tenant_id', tenantId)
+      if (error) {
+        console.error(`kontaktZuFirmaUmwandeln: ${tabelle} konnte nicht umgehängt werden:`, (error as AR).message)
+        continue
+      }
+      verschoben[tabelle] = count ?? 0
+    }
+
+    revalidatePath('/crm/kontakte')
+    revalidatePath(`/crm/kontakte/${kontaktId}`)
+    revalidatePath('/crm/firmen')
+    revalidatePath(`/crm/firmen/${firmaId}`)
+    return { firmaId, verschoben }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
+  }
+}
+
 // ── Firmen ────────────────────────────────────────────────────────────────────
 
 export async function createFirma(formData: FormData): Promise<{ error?: string; id?: string }> {

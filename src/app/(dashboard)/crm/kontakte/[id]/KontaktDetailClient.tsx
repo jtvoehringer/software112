@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createAktivitaet, createPipelineEintrag, toggleAktivitaetErledigt, updateAktivitaet, deleteAktivitaet, deleteKontakt } from '../../actions'
+import { createAktivitaet, createPipelineEintrag, toggleAktivitaetErledigt, updateAktivitaet, deleteAktivitaet, deleteKontakt, kontaktZuFirmaUmwandeln } from '../../actions'
 import {
   SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN,
   segmentLabel, segmentFarbe, fmtUhrzeit,
@@ -14,7 +14,7 @@ import { KontaktForm } from '../KontakteClient'
 import {
   Receipt, Trash2, Pencil, Mail, Phone, Smartphone, Home, MapPin,
   Reply, Check, X, ClipboardCheck, CheckCircle2, Handshake, Wine, Building2, Car, FileText,
-  ShoppingCart, MoreHorizontal, Palmtree, UserX, StickyNote,
+  ShoppingCart, MoreHorizontal, Palmtree, UserX, StickyNote, ArrowRightLeft,
 } from 'lucide-react'
 
 // Aktivitäts-Art -> Lucide-Icon (Timeline-Avatar). Gleiches Vokabular wie
@@ -409,6 +409,27 @@ export default function KontaktDetailClient({
     })
   }
 
+  // ── Kontakt → Firma umwandeln (Rückmeldung 2.9.2026) ──
+  // Nur für Kontakte ohne Firmenzuordnung; legt eine Firma aus den
+  // Stammdaten an, hängt den Kontakt als Ansprechperson daran und zieht die
+  // Historie (Aktivitäten, Pipeline, Verkäufe, ...) auf die Firma um.
+  const [showUmwandeln, setShowUmwandeln] = useState(false)
+  const [umwName, setUmwName]             = useState(() => [kontakt.vorname, kontakt.nachname].filter(Boolean).join(' '))
+  const [umwSegment, setUmwSegment]       = useState<string>(kontakt.segment === 'privat' ? 'gastronomie' : kontakt.segment)
+  const [umwFehler, setUmwFehler]         = useState<string | null>(null)
+  const [umwPending, startUmwTransition]  = useTransition()
+
+  function handleUmwandeln(e: React.FormEvent) {
+    e.preventDefault()
+    setUmwFehler(null)
+    startUmwTransition(async () => {
+      const res = await kontaktZuFirmaUmwandeln(kontakt.id, { name: umwName, segment: umwSegment })
+      if (res.error || !res.firmaId) { setUmwFehler(res.error ?? 'Unbekannter Fehler'); return }
+      router.push(`/crm/firmen/${res.firmaId}`)
+      router.refresh()
+    })
+  }
+
   const [showEmailModal, setShowEmailModal] = useState(false)
   const [emailBetreff, setEmailBetreff]   = useState('')
   const [emailText, setEmailText]         = useState('')
@@ -540,6 +561,14 @@ export default function KontaktDetailClient({
                 className="inline-flex items-center justify-center border border-s112-border text-gray-600 w-8 h-8 rounded-lg hover:bg-s112-bg transition-colors">
                 <Pencil size={15} />
               </button>
+              {!kontakt.firma_id && (
+                <button
+                  onClick={() => { setUmwFehler(null); setShowUmwandeln(true) }}
+                  title="In Firma umwandeln" aria-label="In Firma umwandeln"
+                  className="inline-flex items-center justify-center border border-s112-border text-gray-600 w-8 h-8 rounded-lg hover:bg-s112-bg transition-colors">
+                  <ArrowRightLeft size={15} />
+                </button>
+              )}
               <button
                 onClick={handleDelete}
                 disabled={deletePending}
@@ -875,6 +904,51 @@ export default function KontaktDetailClient({
                   {emailSending ? 'Senden…' : 'Senden'}
                 </button>
                 <button type="button" onClick={() => setShowEmailModal(false)}
+                  className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
+                  Abbrechen
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Kontakt → Firma umwandeln ── */}
+      {showUmwandeln && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => !umwPending && setShowUmwandeln(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4"
+            onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-gray-900 mb-1 inline-flex items-center gap-1.5"><ArrowRightLeft size={16} />In Firma umwandeln</h3>
+            <p className="text-xs text-s112-muted mb-4">
+              Es wird eine neue Firma mit den Stammdaten dieses Kontakts angelegt (Adresse, Telefon, E-Mail,
+              Zahlungsziel, Rabatte). Der Kontakt bleibt bestehen und wird der Firma als Ansprechperson zugeordnet.
+              Aktivitäten, Pipeline-Einträge, Verkäufe, Bestellungen und Exportaufträge wandern zur Firma –
+              Umsätze werden ab dann bei der Firma ausgewertet.
+            </p>
+            <form onSubmit={handleUmwandeln} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Firmenname *</label>
+                <input value={umwName} onChange={e => setUmwName(e.target.value)} required autoFocus
+                  placeholder="z. B. Gasthaus Musterwirt"
+                  className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Segment</label>
+                <select value={umwSegment} onChange={e => setUmwSegment(e.target.value)}
+                  className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  {SEGMENTE.map(sg => <option key={sg.value} value={sg.value}>{sg.label}</option>)}
+                </select>
+              </div>
+              {umwFehler && (
+                <p className="text-xs font-medium text-red-600 inline-flex items-center gap-1"><X size={12} />{umwFehler}</p>
+              )}
+              <div className="flex gap-2 pt-1">
+                <button type="submit" disabled={umwPending || !umwName.trim()}
+                  className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+                  {umwPending ? 'Wird umgewandelt…' : 'Firma anlegen'}
+                </button>
+                <button type="button" onClick={() => setShowUmwandeln(false)} disabled={umwPending}
                   className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
                   Abbrechen
                 </button>
