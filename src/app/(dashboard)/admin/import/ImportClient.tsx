@@ -28,7 +28,11 @@ const QUALITAETEN = [
   { value: 'sonstiges',            label: 'Sonstiges' },
 ]
 
-const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean }[]> = {
+// Rückmeldung 2.9.2026 ("besser lesbar machen, ohne Details anzeigen"): die
+// Wertelisten (z.B. alle Segment-Werte) standen bisher direkt im Label und
+// haben das Zuordnungs-Raster gesprengt. Jetzt kurzes Label + optionaler
+// `hinweis`, der nur als Tooltip (ⓘ) erscheint.
+const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean; hinweis?: string }[]> = {
   kontakte: [
     { key: 'vorname',    label: 'Vorname' },
     { key: 'nachname',   label: 'Nachname', pflicht: true },
@@ -39,7 +43,7 @@ const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean 
     { key: 'plz',        label: 'PLZ' },
     { key: 'ort',        label: 'Ort' },
     { key: 'land',       label: 'Land' },
-    { key: 'segment',    label: 'Segment (privat/gastronomie/handel/export)' },
+    { key: 'segment',    label: 'Segment', hinweis: 'Erlaubte Werte: privat, gastronomie, handel, export – unbekannte Werte werden zu „privat"' },
     { key: 'notizen',    label: 'Notizen' },
   ],
   firmen: [
@@ -51,7 +55,7 @@ const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean 
     { key: 'plz',                label: 'PLZ' },
     { key: 'ort',                label: 'Ort' },
     { key: 'land',               label: 'Land' },
-    { key: 'segment',            label: 'Segment (gastronomie/handel/export/grosshandel/firmenkunde/vinothek/ab hof/restaurant/tourismus/medien/importeur/sonstige)' },
+    { key: 'segment',            label: 'Segment', hinweis: 'Erlaubte Werte: gastronomie, handel, export, grosshandel, firmenkunde, vinothek, ab hof, restaurant, tourismus, medien, importeur, sonstige – unbekannte Werte werden zu „gastronomie"' },
     { key: 'uid_nummer',         label: 'UID-Nummer' },
     { key: 'betrieb_nr',         label: 'Betriebsnummer (BKI)' },
     { key: 'debitor_nr',         label: 'DebitorNr. (BMD-Konto)' },
@@ -70,29 +74,29 @@ const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean 
   ],
   rieden_details: [
     { key: 'name',       label: 'Bezeichnung', pflicht: true },
-    { key: 'ried',       label: 'Ried (Zuordnung – wird bei Bedarf automatisch angelegt)' },
+    { key: 'ried',       label: 'Ried', hinweis: 'Zuordnung zu einer Ried-Bezeichnung – wird bei Bedarf automatisch angelegt' },
     { key: 'rebsorte',   label: 'Rebsorte' },
     { key: 'pflanzjahr', label: 'Pflanzjahr' },
-    { key: 'weinart',    label: 'Weinart (weiss/rot/rose – leer = unbekannt)' },
+    { key: 'weinart',    label: 'Weinart', hinweis: 'weiss, rot oder rose – leer = unbekannt' },
     { key: 'flaeche_ha', label: 'Fläche (ha)' },
   ],
   grundstuecke: [
     { key: 'gst_nr',              label: 'GST-Nummer', pflicht: true },
-    { key: 'ried_flaeche',        label: 'Ried – Bezeichnung (aus Tab "Rieden")', pflicht: true },
+    { key: 'ried_flaeche',        label: 'Ried – Bezeichnung', pflicht: true, hinweis: 'Muss einer Ried aus dem Tab „Rieden (Details)" entsprechen' },
     { key: 'katastralgemeinde',   label: 'KGNr.' },
     { key: 'flaeche_ha',          label: 'Fläche lt. AMA (ha)' },
     { key: 'flaeche_ha_kataster', label: 'Fläche lt. Kataster (ha)' },
     { key: 'rebsorte',            label: 'Rebsorte' },
-    { key: 'weinart',             label: 'Weinart (weiss/rot/rose – leer = unbekannt)' },
+    { key: 'weinart',             label: 'Weinart', hinweis: 'weiss, rot oder rose – leer = unbekannt' },
     { key: 'pflanzjahr',          label: 'Pflanzjahr' },
     { key: 'ama_feldnummer',      label: 'AMA-Schlagnr.' },
     { key: 'boden',               label: 'Boden' },
-    { key: 'bewirtschaftung',     label: 'Bewirtschaftung (biodynamisch/biologisch/in_umstellung/nachhaltig/kip/konventionell)' },
-    { key: 'nutzart',             label: 'Nutzart (A = Grünbrache / G = Grünlandbrache / WI = Wein / GL1 = GLÖZ Rain-Böschung-Trockensteinmauer / GL2 = GLÖZ Hecke-Ufergehölz / GL3 = GLÖZ Feldgehölz-Baum-Gebüschgruppe / LSE = LSE Bäume-Büsche)' },
+    { key: 'bewirtschaftung',     label: 'Bewirtschaftung', hinweis: 'biodynamisch, biologisch, in_umstellung, nachhaltig, kip oder konventionell' },
+    { key: 'nutzart',             label: 'Nutzart', hinweis: 'A = Grünbrache · G = Grünlandbrache · WI = Wein · GL1 = GLÖZ Rain/Böschung/Trockensteinmauer · GL2 = GLÖZ Hecke/Ufergehölz · GL3 = GLÖZ Feldgehölz/Baum/Gebüschgruppe · LSE = LSE Bäume/Büsche' },
   ],
   gebinde: [
     { key: 'name',           label: 'Bezeichnung', pflicht: true },
-    { key: 'typ',            label: 'Typ (lagertank/immervolltank/holzfass/betonei/amphore/bottich/gaerstaender/zisterne/presse/barrique/doppelbarrique/sonstiges)' },
+    { key: 'typ',            label: 'Typ', hinweis: 'lagertank, immervolltank, holzfass, betonei, amphore, bottich, gaerstaender, zisterne, presse, barrique, doppelbarrique oder sonstiges' },
     { key: 'volumen_liter',  label: 'Fassungsvermögen (Liter)' },
     { key: 'standort',       label: 'Standort' },
   ],
@@ -462,8 +466,15 @@ export default function ImportClient({
           <div className="grid grid-cols-2 gap-3">
             {felder.map(f => (
               <div key={f.key} className="flex items-center gap-3">
-                <label className="text-sm text-gray-700 w-48 flex-shrink-0">
-                  {f.label}{f.pflicht && <span className="text-red-500 ml-1">*</span>}
+                <label className="text-sm text-gray-700 w-48 flex-shrink-0 inline-flex items-center gap-1 min-w-0">
+                  <span className="truncate" title={f.label}>{f.label}</span>
+                  {f.pflicht && <span className="text-red-500">*</span>}
+                  {f.hinweis && (
+                    <span title={f.hinweis} aria-label={f.hinweis}
+                      className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-s112-border text-[10px] text-s112-muted cursor-help flex-shrink-0">
+                      i
+                    </span>
+                  )}
                 </label>
                 <select value={mapping[f.key] ?? ''} onChange={e => setMapping(m => ({ ...m, [f.key]: e.target.value }))}
                   className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
