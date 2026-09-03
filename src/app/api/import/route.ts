@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
+import { zerlegeTelefon } from '@/lib/crm/telefon'
 export const dynamic = 'force-dynamic'
 // Große Importe (Dynamics-Leads 3.9.2026: 4.200 Firmen / 7.900 Kontakte) kommen
 // vom Client in Blöcken (siehe ImportClient.tsx, IMPORT_BLOCKGROESSE) - ein
@@ -281,6 +282,12 @@ export async function POST(req: NextRequest) {
             const vermerk = `Firma lt. Import: ${firmaName} (nicht zugeordnet)`
             notizKontakt = notizKontakt ? `${vermerk}\n${notizKontakt}` : vermerk
           }
+          // Telefon/Mobil in Vorwahl + nationale Nummer zerlegen (Rückmeldung
+          // 3.9.2026: "+49 (36041) 428 95" landete komplett im Feld telefon,
+          // Vorwahl blieb +43 -> Anzeige "+43 +49 ..."). Siehe lib/crm/telefon.ts.
+          const landK = ((mapVal(row, mapping.land) as string | null | undefined) || 'AT').toUpperCase()
+          const telK = zerlegeTelefon(mapVal(row, mapping.telefon) as string | null | undefined, landK)
+          const mobK = zerlegeTelefon(mapVal(row, mapping.mobil) as string | null | undefined, landK)
           const { error } = await (supabase.from('kontakte') as any).insert({
             tenant_id: tenantId,
             accountnummer: await generateAccountnummer(supabase, tenantId),
@@ -288,12 +295,14 @@ export async function POST(req: NextRequest) {
             nachname,
             firma_id:  firmaId,
             email,
-            telefon:   mapVal(row, mapping.telefon) ?? null,
-            mobil:     mapVal(row, mapping.mobil) ?? null,
+            telefon:   telK.nummer,
+            telefon_vorwahl: telK.vorwahl,
+            mobil:     mobK.nummer,
+            mobil_vorwahl: mobK.vorwahl,
             strasse:   mapVal(row, mapping.strasse) ?? null,
             plz:       mapVal(row, mapping.plz) ?? null,
             ort:       mapVal(row, mapping.ort) ?? null,
-            land:      mapVal(row, mapping.land) || 'AT',
+            land:      landK,
             segment,
             notizen:   mitHerkunft(notizKontakt),
             ...herkunftFelder,
@@ -314,17 +323,22 @@ export async function POST(req: NextRequest) {
             }
           }
           const segment = SEGMENT_MAP[(mapVal(row, mapping.segment) as string)?.toLowerCase() ?? ''] ?? 'gastronomie'
+          const landF = ((mapVal(row, mapping.land) as string | null | undefined) || 'AT').toUpperCase()
+          const telF = zerlegeTelefon(mapVal(row, mapping.telefon) as string | null | undefined, landF)
+          const mobF = zerlegeTelefon(mapVal(row, mapping.mobil) as string | null | undefined, landF)
           const { error } = await (supabase.from('firmen') as any).insert({
             tenant_id: tenantId,
             accountnummer: await generateAccountnummer(supabase, tenantId),
             name,
             email,
-            telefon:            mapVal(row, mapping.telefon) ?? null,
-            mobil:              mapVal(row, mapping.mobil) ?? null,
+            telefon:            telF.nummer,
+            telefon_vorwahl:    telF.vorwahl,
+            mobil:              mobF.nummer,
+            mobil_vorwahl:      mobF.vorwahl,
             strasse:            mapVal(row, mapping.strasse) ?? null,
             plz:                mapVal(row, mapping.plz) ?? null,
             ort:                mapVal(row, mapping.ort) ?? null,
-            land:               mapVal(row, mapping.land) || 'AT',
+            land:               landF,
             segment,
             uid_nummer:         mapVal(row, mapping.uid_nummer) ?? null,
             betrieb_nr:         mapVal(row, mapping.betrieb_nr) ?? null,
