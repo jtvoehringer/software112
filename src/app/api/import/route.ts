@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
 export const dynamic = 'force-dynamic'
+// Große Importe (Dynamics-Leads 3.9.2026: 4.200 Firmen / 7.900 Kontakte) kommen
+// vom Client in Blöcken (siehe ImportClient.tsx, IMPORT_BLOCKGROESSE) - ein
+// Block muss sicher innerhalb des Funktions-Limits fertig werden.
+export const maxDuration = 60
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 // Der Ziel-Enum "kundensegment" in der DB kennt: privat, gastronomie, handel,
@@ -117,13 +121,16 @@ async function generateAccountnummer(
 
 export async function POST(req: NextRequest) {
   try {
-    const { typ, rows, mapping, istLead, herkunft } = await req.json() as {
+    const { typ, rows, mapping, istLead, herkunft, zeilenOffset } = await req.json() as {
       typ: 'kontakte' | 'firmen' | 'fuellungen' | 'rieden_details' | 'grundstuecke' | 'gebinde'
       rows: R[]
       mapping: Record<string, string>
       istLead?: boolean
       herkunft?: string
+      /** Zeilenversatz des Blocks (0-basiert) für die Zeilennummern in den Meldungen */
+      zeilenOffset?: number
     }
+    const zeilenBasis = 2 + (Number.isFinite(zeilenOffset) && (zeilenOffset ?? 0) > 0 ? Number(zeilenOffset) : 0)
     // Kunden und Leads werden laut Rückmeldung (1.9.2026) bewusst aus getrennten
     // Dateien importiert - Default true entspricht dem bisherigen (fest
     // verdrahteten) Verhalten, falls das Frontend nichts mitschickt.
@@ -201,6 +208,24 @@ export async function POST(req: NextRequest) {
     const lageCache: Map<string, string> = new Map()
     const weingartenCache: Map<string, string> = new Map()
 
+    // Kontakte → Firma per Namensabgleich (Rückmeldung 3.9.2026, Dynamics-
+    // Leads: 5.000+ Kontakte tragen ihren Firmennamen). Alle Firmen des
+    // Mandanten einmal laden statt pro Zeile abzufragen; Schlüssel = Name
+    // normalisiert (trim, lowercase, Mehrfach-Leerzeichen).
+    let firmenIndex: Map<string, string> | null = null
+    async function findFirmaId(name: string): Promise<string | null> {
+      if (!firmenIndex) {
+        firmenIndex = new Map()
+        const { data } = await (supabase.from('firmen') as any)
+          .select('id, name').eq('tenant_id', tenantId)
+        for (const f of (data ?? []) as R[]) {
+          const key = normName(f.name)
+          if (key && !firmenIndex.has(key)) firmenIndex.set(key, f.id as string)
+        }
+      }
+      return firmenIndex.get(normName(name)) ?? null
+    }
+
     async function findOrCreateLageId(name: string): Promise<string> {
       const key = name.trim().toLowerCase()
       const cached = lageCache.get(key)
@@ -236,22 +261,32 @@ export async function POST(req: NextRequest) {
         if (typ === 'kontakte') {
           const vorname = mapVal(row, mapping.vorname) as string | null | undefined
           const nachname = mapVal(row, mapping.nachname)
-          if (!nachname) { details.push(`Zeile ${i+2}: Nachname fehlt – übersprungen`); continue }
+          if (!nachname) { details.push(`Zeile ${i+zeilenBasis}: Nachname fehlt – übersprungen`); continue }
           const email = ((mapVal(row, mapping.email) as string | null | undefined) ?? null)
           const vollname = [vorname, nachname].filter(Boolean).join(' ')
           if (leadImport) {
             const emailKey = email ? normName(email) : null
             if ((emailKey && kundenEmailSet.has(emailKey)) || kundenNameSet.has(normName(vollname))) {
-              duplikate.push({ zeile: i+2, name: vollname, email, grund: 'bereits aktiver Kunde' })
+              duplikate.push({ zeile: i+zeilenBasis, name: vollname, email, grund: 'bereits aktiver Kunde' })
               continue
             }
           }
           const segment = SEGMENT_MAP[(mapVal(row, mapping.segment) as string)?.toLowerCase() ?? ''] ?? 'privat'
+          // Firmenzuordnung: gefunden -> firma_id; nicht gefunden -> Vermerk in
+          // den Notizen, damit die Information nicht verloren geht.
+          const firmaName = (mapVal(row, mapping.firma) as string | null | undefined)?.trim() || null
+          const firmaId = firmaName ? await findFirmaId(firmaName) : null
+          let notizKontakt = (mapVal(row, mapping.notizen) as string | null | undefined) ?? null
+          if (firmaName && !firmaId) {
+            const vermerk = `Firma lt. Import: ${firmaName} (nicht zugeordnet)`
+            notizKontakt = notizKontakt ? `${vermerk}\n${notizKontakt}` : vermerk
+          }
           const { error } = await (supabase.from('kontakte') as any).insert({
             tenant_id: tenantId,
             accountnummer: await generateAccountnummer(supabase, tenantId),
             vorname:   vorname ?? null,
             nachname,
+            firma_id:  firmaId,
             email,
             telefon:   mapVal(row, mapping.telefon) ?? null,
             mobil:     mapVal(row, mapping.mobil) ?? null,
@@ -260,21 +295,21 @@ export async function POST(req: NextRequest) {
             ort:       mapVal(row, mapping.ort) ?? null,
             land:      mapVal(row, mapping.land) || 'AT',
             segment,
-            notizen:   mitHerkunft(mapVal(row, mapping.notizen)),
+            notizen:   mitHerkunft(notizKontakt),
             ...herkunftFelder,
             aktiv: true, stammkunde: false, newsletter: false,
             newsletter_bestaetigt: false, is_lead: leadImport,
           })
-          if (error) { details.push(`Zeile ${i+2}: ${error.message}`); continue }
+          if (error) { details.push(`Zeile ${i+zeilenBasis}: ${error.message}`); continue }
 
         } else if (typ === 'firmen') {
           const name = mapVal(row, mapping.name)
-          if (!name) { details.push(`Zeile ${i+2}: Name fehlt – übersprungen`); continue }
+          if (!name) { details.push(`Zeile ${i+zeilenBasis}: Name fehlt – übersprungen`); continue }
           const email = ((mapVal(row, mapping.email) as string | null | undefined) ?? null)
           if (leadImport) {
             const emailKey = email ? normName(email) : null
             if ((emailKey && kundenEmailSet.has(emailKey)) || kundenNameSet.has(normName(name as string))) {
-              duplikate.push({ zeile: i+2, name: name as string, email, grund: 'bereits aktiver Kunde' })
+              duplikate.push({ zeile: i+zeilenBasis, name: name as string, email, grund: 'bereits aktiver Kunde' })
               continue
             }
           }
@@ -305,11 +340,11 @@ export async function POST(req: NextRequest) {
             ...herkunftFelder,
             aktiv: true, is_lead: leadImport,
           })
-          if (error) { details.push(`Zeile ${i+2}: ${error.message}`); continue }
+          if (error) { details.push(`Zeile ${i+zeilenBasis}: ${error.message}`); continue }
 
         } else if (typ === 'fuellungen') {
           const bezeichnung = mapVal(row, mapping.bezeichnung)
-          if (!bezeichnung) { details.push(`Zeile ${i+2}: Bezeichnung fehlt – übersprungen`); continue }
+          if (!bezeichnung) { details.push(`Zeile ${i+zeilenBasis}: Bezeichnung fehlt – übersprungen`); continue }
           const bestand = (mapVal(row, mapping.lagerbestand_fl, v => parseDeInt(v) || 0) as number | null) ?? 0
           const { error } = await (supabase.from('fuellungen') as any).insert({
             tenant_id:          tenantId,
@@ -337,11 +372,11 @@ export async function POST(req: NextRequest) {
             ...herkunftFelder,
             aktiv: true,
           })
-          if (error) { details.push(`Zeile ${i+2}: ${error.message}`); continue }
+          if (error) { details.push(`Zeile ${i+zeilenBasis}: ${error.message}`); continue }
 
         } else if (typ === 'rieden_details') {
           const name = mapVal(row, mapping.name)
-          if (!name) { details.push(`Zeile ${i+2}: Bezeichnung fehlt – übersprungen`); continue }
+          if (!name) { details.push(`Zeile ${i+zeilenBasis}: Bezeichnung fehlt – übersprungen`); continue }
           const riedName = mapVal(row, mapping.ried) as string | null
           let lageId: string | null = null
           let riedText: string | null = null
@@ -362,16 +397,16 @@ export async function POST(req: NextRequest) {
             ...herkunftFelder,
             aktiv: true,
           })
-          if (error) { details.push(`Zeile ${i+2}: ${error.message}`); continue }
+          if (error) { details.push(`Zeile ${i+zeilenBasis}: ${error.message}`); continue }
 
         } else if (typ === 'grundstuecke') {
           const gstNr = mapVal(row, mapping.gst_nr)
-          if (!gstNr) { details.push(`Zeile ${i+2}: GST-Nummer fehlt – übersprungen`); continue }
+          if (!gstNr) { details.push(`Zeile ${i+zeilenBasis}: GST-Nummer fehlt – übersprungen`); continue }
           const riedFlaeche = mapVal(row, mapping.ried_flaeche) as string | null
-          if (!riedFlaeche) { details.push(`Zeile ${i+2}: Ried-Zuordnung fehlt – übersprungen`); continue }
+          if (!riedFlaeche) { details.push(`Zeile ${i+zeilenBasis}: Ried-Zuordnung fehlt – übersprungen`); continue }
           const weingartenId = await findWeingartenId(riedFlaeche)
           if (!weingartenId) {
-            details.push(`Zeile ${i+2}: Ried "${riedFlaeche}" nicht gefunden (zuerst über Tab "Rieden (Details)" anlegen) – übersprungen`)
+            details.push(`Zeile ${i+zeilenBasis}: Ried "${riedFlaeche}" nicht gefunden (zuerst über Tab "Rieden (Details)" anlegen) – übersprungen`)
             continue
           }
           const kgnr = mapVal(row, mapping.katastralgemeinde) as string | null
@@ -396,11 +431,11 @@ export async function POST(req: NextRequest) {
             notizen:              mitHerkunft(null),
             ...herkunftFelder,
           })
-          if (error) { details.push(`Zeile ${i+2}: ${error.message}`); continue }
+          if (error) { details.push(`Zeile ${i+zeilenBasis}: ${error.message}`); continue }
 
         } else if (typ === 'gebinde') {
           const name = mapVal(row, mapping.name)
-          if (!name) { details.push(`Zeile ${i+2}: Bezeichnung fehlt – übersprungen`); continue }
+          if (!name) { details.push(`Zeile ${i+zeilenBasis}: Bezeichnung fehlt – übersprungen`); continue }
           const { error } = await (supabase.from('behaelter') as any).insert({
             tenant_id:     tenantId,
             name,
@@ -411,11 +446,11 @@ export async function POST(req: NextRequest) {
             ...herkunftFelder,
             aktiv: true,
           })
-          if (error) { details.push(`Zeile ${i+2}: ${error.message}`); continue }
+          if (error) { details.push(`Zeile ${i+zeilenBasis}: ${error.message}`); continue }
         }
         ok++
       } catch (err) {
-        details.push(`Zeile ${i+2}: ${String(err)}`)
+        details.push(`Zeile ${i+zeilenBasis}: ${String(err)}`)
       }
     }
 

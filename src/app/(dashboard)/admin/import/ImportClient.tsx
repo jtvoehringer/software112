@@ -44,6 +44,7 @@ const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean;
     { key: 'ort',        label: 'Ort' },
     { key: 'land',       label: 'Land' },
     { key: 'segment',    label: 'Segment', hinweis: 'Erlaubte Werte: privat, gastronomie, handel, export – unbekannte Werte werden zu „privat"' },
+    { key: 'firma',      label: 'Firma', hinweis: 'Firmenname – der Kontakt wird einer bestehenden Firma dieses Betriebs zugeordnet (Namensabgleich, Groß-/Kleinschreibung egal). Firmen daher zuerst importieren; nicht gefundene Firmen landen als Vermerk in den Notizen.' },
     { key: 'notizen',    label: 'Notizen' },
   ],
   firmen: [
@@ -168,6 +169,13 @@ const ALLE_TYPEN = Object.keys(TYP_LABEL) as ImportTyp[]
 // übereinstimmen (dort Fallback, falls der Client nichts mitschickt).
 const HERKUNFT_DEFAULT = 'Datenmigration aus Drittsystem'
 
+// Große Dateien blockweise an die API schicken (Rückmeldung 3.9.2026: Dynamics-
+// Leads mit 4.200 Firmen / 7.900 Kontakten). Ein Request pro Datei würde am
+// Laufzeitlimit der Serverfunktion scheitern; die API verarbeitet ohnehin Zeile
+// für Zeile, ein Block ist daher fachlich gleichwertig. Zeilennummern in den
+// Meldungen bleiben über zeilenOffset korrekt.
+const IMPORT_BLOCKGROESSE = 100
+
 export default function ImportClient({
   gebinde = [],
   initialTyp,
@@ -232,28 +240,42 @@ export default function ImportClient({
     reader.readAsText(file, 'UTF-8')
   }
 
+  const [fortschritt, setFortschritt] = useState<{ erledigt: number; gesamt: number } | null>(null)
+
   async function startImport() {
     if (!parsed) return
     setImporting(true); setResult(null); setErrorMsg(null)
+    const gesamt = parsed.rows.length
+    const summe = { ok: 0, fehler: 0, details: [] as string[], duplikate: [] as { zeile: number; name: string; email: string | null; grund: string }[] }
     try {
-      const res = await fetch('/api/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ typ, rows: parsed.rows, mapping, istLead, herkunft: herkunft.trim() || HERKUNFT_DEFAULT }),
-      })
-      const data = await res.json()
-      // Bei 401/403/500 liefert die API nur { fehler: '<Text>' } ohne ok/details -
-      // als eigenen Fehlertext behandeln statt als (unvollstaendiges) Erfolgsergebnis,
-      // sonst crasht die details.length-Anzeige weiter unten mit einem leeren Bildschirm.
-      if (!res.ok) {
-        setErrorMsg(typeof data?.fehler === 'string' ? data.fehler : `Fehler (Status ${res.status})`)
-      } else {
-        setResult(data)
+      for (let start = 0; start < gesamt; start += IMPORT_BLOCKGROESSE) {
+        setFortschritt({ erledigt: start, gesamt })
+        const block = parsed.rows.slice(start, start + IMPORT_BLOCKGROESSE)
+        const res = await fetch('/api/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ typ, rows: block, mapping, istLead, herkunft: herkunft.trim() || HERKUNFT_DEFAULT, zeilenOffset: start }),
+        })
+        const data = await res.json()
+        // Bei 401/403/500 liefert die API nur { fehler: '<Text>' } ohne ok/details -
+        // als eigenen Fehlertext behandeln statt als (unvollstaendiges) Erfolgsergebnis,
+        // sonst crasht die details.length-Anzeige weiter unten mit einem leeren Bildschirm.
+        if (!res.ok) {
+          setErrorMsg((typeof data?.fehler === 'string' ? data.fehler : `Fehler (Status ${res.status})`)
+            + (start > 0 ? ` – abgebrochen nach ${start} von ${gesamt} Zeilen (bereits importierte Zeilen bleiben erhalten)` : ''))
+          break
+        }
+        summe.ok += Number(data.ok ?? 0)
+        summe.fehler += Number(data.fehler ?? 0)
+        summe.details.push(...((data.details ?? []) as string[]))
+        summe.duplikate.push(...((data.duplikate ?? []) as typeof summe.duplikate))
+        setResult({ ...summe, details: [...summe.details], duplikate: [...summe.duplikate] })
       }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : String(err))
     } finally {
       setImporting(false)
+      setFortschritt(null)
     }
   }
 
@@ -496,7 +518,9 @@ export default function ImportClient({
           )}
           <button onClick={startImport} disabled={importing || !pflichtMapped}
             className="bg-s112-teal text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
-            {importing ? 'Importiere…' : `${parsed.rows.length} Zeilen importieren`}
+            {importing
+              ? (fortschritt ? `Importiere… ${fortschritt.erledigt} / ${fortschritt.gesamt}` : 'Importiere…')
+              : `${parsed.rows.length} Zeilen importieren`}
           </button>
 
           {errorMsg && (

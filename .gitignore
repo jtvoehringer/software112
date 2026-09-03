@@ -47,3 +47,6 @@ Software112 Design-Überarbeitung.zip
 
 # eAMA-GIS-Exporte (Betriebsdaten Gebeshuber) – nie committen
 /eama-export/
+
+# Kundendaten für den Datenimport (personenbezogen) – nie ins Repo
+import-daten/
