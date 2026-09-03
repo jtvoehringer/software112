@@ -108,7 +108,7 @@
 
 - **UAT** – Gebeshuber testet alle Module im Echtbetrieb (Juni 2026)
 - **Testautomatisierung + Regressionstests** – Smoke Tests + Playwright E2E nach UAT-Abschluss
-- **Stripe/Mandanten-Abrechnung** – vor Kunde #2 zwingend erforderlich
+- **Stripe-Einrichtung (Konto, 3 Produkte, Webhook, Vercel-Variablen)** – Code fürs Paketmodell Basis/Standard/Premium ist fertig (`src/lib/pakete.ts`, Commit 80e24a2), Stripe selbst bewusst zurückgestellt bis das Konto steht – **spätestens vor dem ersten zahlenden Kunden**. Schritt-für-Schritt-Checkliste: `docs/STRIPE_EINRICHTUNG.md`
 - **Multi-Betrieb-Login** – nach Login Betrieb auswählen (wenn User in mehreren Tenants); aktiver Tenant in Cookie; Switch im Header; ~2 Tage
 - **Traubenverkauf-Modul** – Toggle in Ernte „für Verkauf freigeben"; Verkauf als neuer Verkaufsposten-Typ; Datenblatt gem. § 3 Weingesetz-Formularverordnung BGBl. II Nr. 13/2012 (Excel-Export); ~2 Tage
 - **EMCS-Integration via n8n** – Weinexport Pro (€59/Mo)
