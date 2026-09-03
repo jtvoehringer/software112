@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -25,15 +26,15 @@ export default async function PipelinePage() {
       .select('id, stufe, titel, kategorie, wert_euro, wahrscheinlichkeit, erwartetes_datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, erledigt_am, notizen, aktualisiert_am, kontakt_id, kontakte:kontakt_id(vorname,nachname), firma_id, firmen:firma_id(name)')
       .order('aktualisiert_am', { ascending: false })),
 
-    tf((supabase.from('kontakte') as any)
+    alle(tf((supabase.from('kontakte') as any)
       .select('id, vorname, nachname')
       .eq('aktiv', true)
-      .order('nachname')),
+      .order('nachname').order('id'))),
 
-    tf((supabase.from('firmen') as any)
+    alle(tf((supabase.from('firmen') as any)
       .select('id, name')
       .eq('aktiv', true)
-      .order('name')),
+      .order('name').order('id'))),
   ])
 
   const eintraege: PipelineEintragRow[] = ((pRaw ?? []) as R[]).map(p => {

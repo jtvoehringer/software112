@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 
@@ -40,13 +41,13 @@ export async function GET() {
         .select('id, name, menge_liter')
         .eq('tenant_id', tenantId).eq('aktiv', true).neq('status', 'abgeschlossen').gt('menge_liter', 0).order('name'),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase.from('kontakte') as any)
+      alle((supabase.from('kontakte') as any)
         .select('id, vorname, nachname, firma_id, sonderrabatt_pct, skonto_pct, skonto_tage, rabattgruppe:rabattgruppe_id(rabatt_pct)')
-        .eq('tenant_id', tenantId).eq('aktiv', true).order('nachname'),
+        .eq('tenant_id', tenantId).eq('aktiv', true).order('nachname').order('id')),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase.from('firmen') as any)
+      alle((supabase.from('firmen') as any)
         .select('id, name, sonderrabatt_pct, skonto_pct, skonto_tage, ist_kunde, ist_lieferant, rabattgruppe:rabattgruppe_id(rabatt_pct)')
-        .eq('tenant_id', tenantId).eq('aktiv', true).order('name'),
+        .eq('tenant_id', tenantId).eq('aktiv', true).order('name').order('id')),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('sonstige_artikel') as any)
         .select('id, name, einheit, default_preis')

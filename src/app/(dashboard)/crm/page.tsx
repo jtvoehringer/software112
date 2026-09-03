@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import CRMUebersichtClient from './CRMUebersichtClient'
 import type { KalenderEintrag } from './CRMUebersichtClient'
 import { AKTIVITAET_ARTEN } from '@/lib/crm/types'
@@ -31,10 +32,10 @@ export default async function CRMUebersichtPage() {
   )
 
   // Namen aus Kontakte & Firmen
-  const { data: kontakteRaw } = await tf((supabase.from('kontakte') as any)
-    .select('id, vorname, nachname'))
-  const { data: firmenRaw } = await tf((supabase.from('firmen') as any)
-    .select('id, name'))
+  const { data: kontakteRaw } = await alle(tf((supabase.from('kontakte') as any)
+    .select('id, vorname, nachname').order('id')))
+  const { data: firmenRaw } = await alle(tf((supabase.from('firmen') as any)
+    .select('id, name').order('id')))
 
   // User-Profile für Klarname in Filter-Chips
   const uniqueUserIds = [...new Set(

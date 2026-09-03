@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 
@@ -98,20 +99,25 @@ export async function POST(req: NextRequest) {
     else if (!include_leads && include_kunden) kq = kq.eq('is_lead', false)
     // beide = kein Filter
 
-    kq = kq.order('plz').order('nachname')
-    const { data: kontakteRaw } = await kq
+    kq = kq.order('plz').order('nachname').order('id')
+    const { data: kontakteRaw } = await alle(kq)
     const kontakte = (kontakteRaw ?? []) as R[]
 
     // Letzten Kontakt je Person laden
     const ids = kontakte.map(k => k.id)
     let letzteMap: Record<string, string> = {}
     if (ids.length > 0) {
-      const { data: akts } = await (supabase.from('aktivitaeten') as any)
+      // Kein .in(ids) mehr: bei mehreren tausend Kontakten würde die URL zu
+      // lang. Stattdessen alle erledigten Aktivitäten des Mandanten seitenweise
+      // laden und im Speicher auf die geladenen Kontakte einschränken.
+      const idSet = new Set(ids)
+      const { data: aktsAlle } = await alle((supabase.from('aktivitaeten') as any)
         .select('kontakt_id, datum')
-        .in('kontakt_id', ids)
         .eq('tenant_id', tenantId)
         .eq('erledigt', true)
-        .order('datum', { ascending: false })
+        .not('kontakt_id', 'is', null)
+        .order('datum', { ascending: false }).order('id'))
+      const akts = (aktsAlle as R[]).filter(a => idSet.has(a.kontakt_id))
       const seen = new Set<string>()
       ;(akts ?? []).forEach((a: R) => {
         if (!seen.has(a.kontakt_id)) {

@@ -467,6 +467,10 @@ export default function FirmenClient({
   const [filterLieferant, setFilterLieferant] = useState(false)
   const BUCHSTABEN = ['Alle', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')]
   const [buchstabe, setBuchstabe] = useState('Alle')
+  // Anzeige in Blöcken (siehe KontakteClient) - 4.600+ Firmen seit dem Dynamics-Import.
+  const ANZEIGE_SCHRITT = 200
+  const [anzeigeLimit, setAnzeigeLimit] = useState(ANZEIGE_SCHRITT)
+  useEffect(() => { setAnzeigeLimit(ANZEIGE_SCHRITT) }, [suche, segment, buchstabe, filterLead, filterKunde, filterLieferant])
 
   const gefiltert = firmen.filter(f => {
     const text = [f.accountnummer, f.name, f.ort, f.email, f.telefon].filter(Boolean).join(' ').toLowerCase()
@@ -562,12 +566,18 @@ export default function FirmenClient({
         </div>
       ) : (
         <div className="space-y-2">
-          {gefiltert.map(f => (
+          {gefiltert.slice(0, anzeigeLimit).map(f => (
             <FirmaKarte key={f.id} firma={f}
               kontakte={kontakteMap[f.id] ?? []}
               rabattgruppen={rabattgruppen}
               writeOk={writeOk} />
           ))}
+          {gefiltert.length > anzeigeLimit && (
+            <button type="button" onClick={() => setAnzeigeLimit(n => n + ANZEIGE_SCHRITT)}
+              className="w-full card text-center py-3 text-sm font-medium text-s112-teal hover:bg-s112-bg">
+              Mehr anzeigen ({Math.min(anzeigeLimit, gefiltert.length)} von {gefiltert.length})
+            </button>
+          )}
         </div>
       )}
     </div>

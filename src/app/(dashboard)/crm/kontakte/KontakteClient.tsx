@@ -629,6 +629,12 @@ export default function KontakteClient({
   const BUCHSTABEN = ['Alle', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')]
   const [buchstabe, setBuchstabe] = useState('Alle')
   const [sortBy, setSortBy] = useState<'nachname' | 'vorname'>('nachname')
+  // Seit dem Dynamics-Import (3.9.2026) sind es 8.000+ Kontakte - alle Karten
+  // auf einmal zu rendern macht die Seite träge. Es werden zunächst 200
+  // gezeigt, der Rest per "Mehr anzeigen"; Filter/Suche wirken weiter auf alle.
+  const ANZEIGE_SCHRITT = 200
+  const [anzeigeLimit, setAnzeigeLimit] = useState(ANZEIGE_SCHRITT)
+  useEffect(() => { setAnzeigeLimit(ANZEIGE_SCHRITT) }, [suche, segment, buchstabe, filterLead, sortBy])
 
   const gefiltert = kontakte
     .filter(k => {
@@ -732,7 +738,7 @@ export default function KontakteClient({
         </div>
       ) : (
         <div className="space-y-2">
-          {gefiltert.map(k => (
+          {gefiltert.slice(0, anzeigeLimit).map(k => (
             <KontaktKarte
               key={k.id}
               kontakt={k}
@@ -744,6 +750,12 @@ export default function KontakteClient({
               sortBy={sortBy}
             />
           ))}
+          {gefiltert.length > anzeigeLimit && (
+            <button type="button" onClick={() => setAnzeigeLimit(n => n + ANZEIGE_SCHRITT)}
+              className="w-full card text-center py-3 text-sm font-medium text-s112-teal hover:bg-s112-bg">
+              Mehr anzeigen ({Math.min(anzeigeLimit, gefiltert.length)} von {gefiltert.length})
+            </button>
+          )}
         </div>
       )}
     </div>

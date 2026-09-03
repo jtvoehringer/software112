@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -50,15 +51,15 @@ export default async function TraubenverkaufPage() {
   const ernteOptions = (ernteRaw ?? []) as R[]
 
   // Kontakte + Firmen für Abnehmer-Dropdown
-  const { data: kontakteRaw } = await (supabase.from('kontakte') as any)
+  const { data: kontakteRaw } = await alle((supabase.from('kontakte') as any)
     .select('id, vorname, nachname, betrieb_nr')
     .eq('tenant_id', membership.tenantId)
-    .order('nachname')
+    .order('nachname').order('id'))
 
-  const { data: firmenRaw } = await (supabase.from('firmen') as any)
+  const { data: firmenRaw } = await alle((supabase.from('firmen') as any)
     .select('id, name, betrieb_nr')
     .eq('tenant_id', membership.tenantId)
-    .order('name')
+    .order('name').order('id'))
 
   const kontakte = (kontakteRaw ?? []) as R[]
   const firmen   = (firmenRaw   ?? []) as R[]

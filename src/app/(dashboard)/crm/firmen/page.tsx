@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -21,15 +22,17 @@ export default async function FirmenPage() {
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [{ data: fRaw }, { data: kRaw }] = await Promise.all([
-    tf((supabase.from('firmen') as any)
+    // alle(): seitenweise laden - PostgREST kappt sonst bei 1.000 Zeilen (3.9.2026)
+    alle(tf((supabase.from('firmen') as any)
       .select('id, accountnummer, name, segment, strasse, plz, ort, land, telefon, telefon_vorwahl, mobil, mobil_vorwahl, email, website, uid_nummer, betrieb_nr, debitor_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, ist_kunde, ist_lieferant, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
       .eq('aktiv', true)
-      .order('name')),
+      .order('name').order('id'))),
 
-    tf((supabase.from('kontakte') as any)
+    alle(tf((supabase.from('kontakte') as any)
       .select('id, vorname, nachname, segment, firma_id')
       .eq('aktiv', true)
-      .not('firma_id', 'is', null)),
+      .not('firma_id', 'is', null)
+      .order('id'))),
 
   ])
 

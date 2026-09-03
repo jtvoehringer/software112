@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 
@@ -13,9 +14,9 @@ export async function GET() {
   if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 
   const supabase = await createSupabaseServerClient()
-  const { data } = await (supabase.from('kontakte') as any)
+  const { data } = await alle((supabase.from('kontakte') as any)
     .select('accountnummer, vorname, nachname, segment, email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, stammkunde, is_lead, sonderrabatt_pct, notizen, erstellt_am')
-    .eq('tenant_id', tenantId).eq('aktiv', true).order('nachname')
+    .eq('tenant_id', tenantId).eq('aktiv', true).order('nachname').order('id'))
 
   const rows = (data ?? []) as R[]
   const escape = (v: unknown) => { if (v == null) return ''; const s = String(v).replace(/"/g, '""'); return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s}"` : s }

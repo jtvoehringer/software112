@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -128,8 +129,8 @@ export default async function ReportsPage() {
   ).sort((a, b) => a.localeCompare(b, 'de-AT'))
 
   const [{ data: vsKontakteRaw }, { data: vsFirmenRaw }] = await Promise.all([
-    tf((supabase.from('kontakte') as any).select('id, vorname, nachname, ort, land').order('nachname')),
-    tf((supabase.from('firmen') as any).select('id, name, ort, land').order('name')),
+    alle(tf((supabase.from('kontakte') as any).select('id, vorname, nachname, ort, land').order('nachname').order('id'))),
+    alle(tf((supabase.from('firmen') as any).select('id, name, ort, land').order('name').order('id'))),
   ])
   const vsKontakte = (vsKontakteRaw ?? []) as R[]
   const vsFirmen   = (vsFirmenRaw ?? []) as R[]

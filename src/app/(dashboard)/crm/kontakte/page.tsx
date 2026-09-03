@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -27,15 +28,16 @@ export default async function KontaktePage() {
     { data: aRaw },
     { data: pRaw },
   ] = await Promise.all([
-    tf((supabase.from('kontakte') as any)
+    // alle(): seitenweise laden - PostgREST kappt sonst bei 1.000 Zeilen (3.9.2026)
+    alle(tf((supabase.from('kontakte') as any)
       .select('id, accountnummer, vorname, nachname, segment, firma_id, firmen:firma_id(name), email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, newsletter, newsletter_bestaetigt, stammkunde, aktiv, notizen, erstellt_am, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct), zahlungsziel_tage')
       .eq('aktiv', true)
-      .order('nachname')),
+      .order('nachname').order('id'))),
 
-    tf((supabase.from('firmen') as any)
+    alle(tf((supabase.from('firmen') as any)
       .select('id, name, segment')
       .eq('aktiv', true)
-      .order('name')),
+      .order('name').order('id'))),
 
     tf((supabase.from('aktivitaeten') as any)
       .select('id, art, betreff, beschreibung, datum, erledigt, kontakt_id')
