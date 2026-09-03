@@ -6,6 +6,8 @@ import { encryptPass } from '@/lib/email/crypto'
 import { getCurrentUserRole, isSandboxAdminUnlock } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import { getStripe } from '@/lib/stripe/client'
+import { pruefeBenutzerlimit, benutzerlimitFehler, wendePaketAn, ladePaket } from '@/lib/pakete-server'
+import { istPaketKey } from '@/lib/pakete'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -126,6 +128,13 @@ export async function inviteUserToTenant(tenantId: string, email: string, role: 
   // updateMemberNameAdmin unten).
   const name = fullName.trim()
   if (!name) return { error: 'Name ist ein Pflichtfeld.' }
+
+  // Benutzerlimit des Pakets (Migration 194). system_admin-Mitgliedschaften
+  // zählen nicht mit - ein Plattform-Admin darf sich immer selbst hinzufügen.
+  if (role !== 'system_admin') {
+    const limit = await pruefeBenutzerlimit(admin, tenantId)
+    if (!limit.erlaubt) return { error: benutzerlimitFehler(limit) }
+  }
 
   // Prüfen ob User schon existiert
   const { data: { users } } = await admin.auth.admin.listUsers({ perPage: 1000 })
@@ -564,4 +573,23 @@ export async function cancelStripeSubscription(tenantId: string, subscriptionId:
   }).eq('id', tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   return { success: true }
+}
+
+// ── Paket-Vorgaben anwenden (Administration → Mandanten → Module) ─────────────
+// Setzt Modul-Flags und Benutzerlimit exakt auf das gebuchte Paket
+// (tenants.stripe_plan, lib/pakete.ts) - dasselbe, was der Stripe-Webhook bei
+// jedem Subscription-Event macht. Für manuell betreute Mandanten ohne Stripe
+// kann optional ein Paket vorgegeben werden.
+export async function wendePaketVorgabenAn(tenantId: string, paketWunsch?: string) {
+  await assertSystemAdmin(tenantId)
+  const admin = createSupabaseAdminClient()
+  const paket = istPaketKey(paketWunsch) ? paketWunsch : await ladePaket(admin, tenantId)
+  if (!paket) return { error: 'Für diesen Mandanten ist kein Paket hinterlegt (kein Stripe-Abo).' }
+  if (istPaketKey(paketWunsch)) {
+    await (admin.from('tenants') as any).update({ stripe_plan: paket }).eq('id', tenantId)
+  }
+  const fehler = await wendePaketAn(admin, tenantId, paket)
+  if (fehler) return { error: fehler }
+  revalidatePath(`/admin/mandanten/${tenantId}`)
+  return { success: true, paket }
 }

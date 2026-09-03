@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getStripe } from '@/lib/stripe/client'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { paketFromPriceId, type PaketKey } from '@/lib/pakete'
+import { wendePaketAn } from '@/lib/pakete-server'
 import Stripe from 'stripe'
 
 // Vercel streamt den Body — wir brauchen ihn als Buffer für die Signatur-Prüfung
@@ -28,40 +30,29 @@ async function updateTenantStripe(
   return ((betroffen ?? []) as R[]).map(t => t.id as string)
 }
 
-function planFromPrice(priceId: string | null | undefined): string {
-  if (!priceId) return 'base'
-  if (priceId === process.env.NEXT_PUBLIC_STRIPE_PRICE_PROFESSIONAL)     return 'ki_basic'
-  if (priceId === process.env.NEXT_PUBLIC_STRIPE_PRICE_PROFESSIONAL_PLUS)  return 'ki_standard'
-  if (priceId === process.env.NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE) return 'ki_unlimited'
-  return 'base'
-}
-
-// Rückmeldung ("Modul-Sync zuerst"): stripe_plan und die KI-Modul-Flags in
-// tenant_einstellungen (ki_abfragen_aktiv/-paket) waren bisher komplett
-// unabhängig voneinander gepflegt - ein Upgrade/Downgrade in Stripe hatte
-// keinerlei Wirkung auf das tatsächlich freigeschaltete Modul. Setzt die
-// Modul-Flags jetzt automatisch passend zum Plan. Admins können das im
-// Mandanten-Detail weiterhin manuell überschreiben - wird aber beim nächsten
-// Subscription-Event von Stripe wieder überschrieben (Plan ist die Quelle).
-const PLAN_MODUL: Record<string, { aktiv: boolean; paket: string }> = {
-  base:         { aktiv: false, paket: 'basic' },
-  ki_basic:     { aktiv: true,  paket: 'basic' },
-  ki_standard:  { aktiv: true,  paket: 'standard' },
-  ki_unlimited: { aktiv: true,  paket: 'unlimited' },
+// Paketmodell Basis / Standard / Premium (Rückmeldung 2.9.2026): der
+// Stripe-Preis bestimmt das Paket (lib/pakete.ts, inkl. Abbildung der
+// Alt-Preise Professional/Professional+/Enterprise), das Paket bestimmt hart
+// die Modul-Flags (Newsletter, E&A, Controlling, Export, bot:112, KI-Abfragen)
+// und das Benutzerlimit. Bisher hing am Preis nur das KI-Kontingent, alle
+// anderen Module wurden händisch geschaltet. Manuelle Toggles in
+// Administration → Mandanten wirken weiterhin als Override - bis zum nächsten
+// Subscription-Event, dann gilt wieder das Paket (Entscheidung: Downgrade
+// schaltet hart ab, Daten bleiben erhalten).
+function planFromPrice(priceId: string | null | undefined): PaketKey | null {
+  const paket = paketFromPriceId(priceId)
+  if (!paket && priceId) console.error('[Stripe Webhook] Unbekannte Preis-ID, kein Paket zugeordnet:', priceId)
+  return paket
 }
 
 async function synchronisiereModule(
   admin: ReturnType<typeof createSupabaseAdminClient>,
   tenantIds: string[],
-  stripePlan: string | null,
+  paket: PaketKey | null,
 ) {
-  if (tenantIds.length === 0) return
-  const m = stripePlan ? PLAN_MODUL[stripePlan] : undefined
-  const werte = { ki_abfragen_aktiv: m?.aktiv ?? false, ki_abfragen_paket: m?.paket ?? 'basic' }
   for (const tenantId of tenantIds) {
-    const { error } = await (admin.from('tenant_einstellungen') as any)
-      .upsert({ tenant_id: tenantId, ...werte }, { onConflict: 'tenant_id' })
-    if (error) console.error('[Stripe Webhook] Modul-Sync fehlgeschlagen:', error.message)
+    const fehler = await wendePaketAn(admin, tenantId, paket)
+    if (fehler) console.error('[Stripe Webhook]', fehler)
   }
 }
 
@@ -136,6 +127,7 @@ export async function POST(req: NextRequest) {
         {
           stripe_subscription_id:   sub.id,
           stripe_status:            sub.status,
+          // 'basis' | 'standard' | 'premium' (lib/pakete.ts); null bei unbekanntem Preis
           stripe_plan:              plan,
           stripe_current_period_end: (sub as R).current_period_end ? new Date((sub as R).current_period_end * 1000).toISOString() : null,
           // Trial-Ablauf ("14 Tage, dann Sperre wie bei unpaid"): trial_end

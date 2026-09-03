@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
-import { createOwnStripePortalSession, starteZahlungAction } from './actions'
+import { createOwnStripePortalSession, starteZahlungAction, wechslePaketAction } from './actions'
+import { PAKETE, preisText, type PaketKey } from '@/lib/pakete'
 
 // Rückmeldung 31.8.2026 ("die Plattform soll sich selber abrechnen können,
 // damit wir zu unserem Geld kommen"): Selbstverwaltungsseite für Mandanten
@@ -11,6 +12,9 @@ import { createOwnStripePortalSession, starteZahlungAction } from './actions'
 // bzw. warnt) - Layout/Stil analog (auth)/betrieb-waehlen/page.tsx.
 
 export default function AboClient({
+  aktuellesPaket,
+  verfuegbarePakete,
+  benutzerAnzahl,
   hardBlocked,
   trialAbgelaufen,
   warned,
@@ -20,6 +24,9 @@ export default function AboClient({
   planLabel,
   statusLabel,
 }: {
+  aktuellesPaket:    PaketKey | null
+  verfuegbarePakete: PaketKey[]
+  benutzerAnzahl:    number
   hardBlocked:     boolean
   trialAbgelaufen: boolean
   warned:          boolean
@@ -32,6 +39,10 @@ export default function AboClient({
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState<string | null>(null)
+  // Paketwechsel: zweistufig (Klick -> Bestätigen), damit ein Downgrade nicht
+  // aus Versehen passiert.
+  const [wahl, setWahl]       = useState<PaketKey | null>(null)
+  const [hinweis, setHinweis] = useState<string | null>(null)
 
   async function handlePortal() {
     setLoading(true)
@@ -49,10 +60,10 @@ export default function AboClient({
     setLoading(false)
   }
 
-  async function handleZahlungNachholen() {
+  async function handleZahlungNachholen(paket?: PaketKey) {
     setLoading(true)
     setError(null)
-    const res = await starteZahlungAction()
+    const res = await starteZahlungAction(paket)
     if ('error' in res && res.error) {
       setError(res.error)
       setLoading(false)
@@ -65,6 +76,38 @@ export default function AboClient({
     setLoading(false)
   }
 
+  async function handlePaketwechsel(paket: PaketKey) {
+    setLoading(true)
+    setError(null)
+    setHinweis(null)
+    const res = await wechslePaketAction(paket)
+    if ('error' in res && res.error) {
+      setError(res.error)
+      setLoading(false)
+      return
+    }
+    setWahl(null)
+    setHinweis(`Ihr Paket wurde auf ${PAKETE[paket].label} umgestellt. Die Abrechnung erfolgt anteilig ab heute.`)
+    setLoading(false)
+    router.refresh()
+  }
+
+  function istDowngrade(paket: PaketKey): boolean {
+    if (!aktuellesPaket) return false
+    return PAKETE[paket].preisMonat < PAKETE[aktuellesPaket].preisMonat
+  }
+
+  // Module, die beim Wechsel wegfallen würden (Downgrade-Hinweis)
+  function wegfallendeModule(paket: PaketKey): string[] {
+    if (!aktuellesPaket) return []
+    const alt = PAKETE[aktuellesPaket].module, neu = PAKETE[paket].module
+    const namen: [keyof typeof alt, string][] = [
+      ['modul_newsletter', 'Newsletter'], ['modul_ea', 'E&A-Rechnung'], ['modul_controlling', 'Controlling'],
+      ['modul_export', 'Exportaufträge'], ['assistent_aktiv', 'bot:112'],
+    ]
+    return namen.filter(([k]) => alt[k] === true && neu[k] === false).map(([, n]) => n)
+  }
+
   async function handleLogout() {
     const supabase = createSupabaseBrowserClient()
     await supabase.auth.signOut()
@@ -74,7 +117,7 @@ export default function AboClient({
 
   return (
     <div className="min-h-screen bg-s112-bg flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+      <div className={`w-full ${darfVerwalten && verfuegbarePakete.length > 0 ? 'max-w-3xl' : 'max-w-md'}`}>
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-s112-teal inline-flex items-baseline gap-0">
@@ -129,7 +172,7 @@ export default function AboClient({
               // zu verwalten. Startet stattdessen einen neuen Checkout inkl.
               // der vollen 14-tägigen Testphase.
               <button
-                onClick={handleZahlungNachholen}
+                onClick={() => handleZahlungNachholen()}
                 disabled={loading}
                 className="w-full bg-s112-teal text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-60"
               >
@@ -148,6 +191,74 @@ export default function AboClient({
 
           {error && (
             <p className="text-sm text-s112-err-fg">{error}</p>
+          )}
+          {hinweis && (
+            <p className="text-sm text-green-800 bg-green-50 border border-green-200 rounded-lg px-3 py-2">{hinweis}</p>
+          )}
+
+          {/* Paketwahl / -wechsel (Paketmodell Basis · Standard · Premium, 2.9.2026) */}
+          {darfVerwalten && verfuegbarePakete.length > 0 && (
+            <div className="pt-2">
+              <p className="text-sm font-semibold text-gray-800 mb-2">
+                {hatAbo ? 'Paket wechseln' : 'Paket wählen'}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {verfuegbarePakete.map(k => {
+                  const p = PAKETE[k]
+                  const aktiv = aktuellesPaket === k
+                  const wegfall = wegfallendeModule(k)
+                  const ueberBenutzer = p.maxBenutzer !== null && benutzerAnzahl > p.maxBenutzer
+                  return (
+                    <div key={k} className={`rounded-xl border p-3.5 flex flex-col ${aktiv ? 'border-s112-teal ring-1 ring-s112-teal bg-s112-teal/5' : 'border-gray-200'}`}>
+                      <div className="flex items-baseline justify-between">
+                        <p className="font-semibold text-gray-800">{p.label}</p>
+                        {aktiv && <span className="text-[10.5px] font-semibold uppercase tracking-wide text-s112-teal">Aktuell</span>}
+                      </div>
+                      <p className="text-s112-teal font-medium text-sm">{preisText(p)}</p>
+                      <ul className="text-[11.5px] text-s112-muted mt-2 space-y-0.5 flex-1">
+                        {p.leistungen.map(l => <li key={l}>· {l}</li>)}
+                      </ul>
+                      {!aktiv && (
+                        hatAbo ? (
+                          wahl === k ? (
+                            <div className="mt-3 space-y-1.5">
+                              {istDowngrade(k) && (
+                                <p className="text-[11.5px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+                                  {wegfall.length > 0 && <>Nicht mehr enthalten: {wegfall.join(', ')}. Ihre Daten bleiben erhalten.<br /></>}
+                                  {ueberBenutzer && <>Sie haben {benutzerAnzahl} aktive Benutzer, das Paket umfasst {p.maxBenutzer}. Bestehende bleiben aktiv, neue können nicht eingeladen werden.</>}
+                                  {!wegfall.length && !ueberBenutzer && 'Ihr Abo wird ab sofort anteilig auf das neue Paket umgestellt.'}
+                                </p>
+                              )}
+                              <button onClick={() => handlePaketwechsel(k)} disabled={loading}
+                                className="w-full bg-s112-teal text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-60">
+                                {loading ? 'Wird umgestellt…' : 'Wechsel bestätigen'}
+                              </button>
+                              <button onClick={() => setWahl(null)} disabled={loading}
+                                className="w-full text-xs text-s112-muted hover:text-gray-700">Abbrechen</button>
+                            </div>
+                          ) : (
+                            <button onClick={() => { setWahl(k); setError(null); setHinweis(null) }} disabled={loading}
+                              className="mt-3 w-full border border-s112-teal text-s112-teal px-3 py-2 rounded-lg text-sm font-semibold hover:bg-s112-teal/5 disabled:opacity-60">
+                              {istDowngrade(k) ? 'Auf dieses Paket wechseln' : 'Upgrade'}
+                            </button>
+                          )
+                        ) : hasCustomer ? (
+                          <button onClick={() => handleZahlungNachholen(k)} disabled={loading}
+                            className="mt-3 w-full border border-s112-teal text-s112-teal px-3 py-2 rounded-lg text-sm font-semibold hover:bg-s112-teal/5 disabled:opacity-60">
+                            Auswählen
+                          </button>
+                        ) : null
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              {hatAbo && (
+                <p className="text-[11.5px] text-s112-muted mt-2">
+                  Ein Wechsel wird sofort wirksam und anteilig abgerechnet. Kündigung und Rechnungen finden Sie unter „Zahlungsdaten verwalten".
+                </p>
+              )}
+            </div>
           )}
 
           <button

@@ -31,9 +31,13 @@ const ROLE_LABELS: Record<string, string> = {
 
 interface Props {
   members: MemberWithEmail[]
+  /** Benutzerlimit des Pakets (Migration 194): anzahl = aktive Benutzer ohne
+   *  Plattform-Admins, limit = null bei unbegrenzt. Optional, damit die
+   *  Komponente auch ohne Limit-Info nutzbar bleibt. */
+  limit?: { anzahl: number; limit: number | null; erlaubt: boolean }
 }
 
-export default function BenutzerClient({ members }: Props) {
+export default function BenutzerClient({ members, limit }: Props) {
   const [editingId, setEditingId]         = useState<string | null>(null)
   const [selectedRole, setSelectedRole]   = useState<string>('')
   const [error, setError]                 = useState<string | null>(null)
@@ -237,9 +241,18 @@ export default function BenutzerClient({ members }: Props) {
         )}
       </div>
 
+      {limit && limit.limit !== null && (
+        <p className={`text-xs ${limit.erlaubt ? 'text-s112-muted' : 'text-amber-800'}`}>
+          {limit.anzahl} von {limit.limit} Benutzern Ihres Pakets belegt.
+          {!limit.erlaubt && <> Für weitere Benutzer können Sie Ihr Paket unter <a href="/abo" className="underline">Abo</a> erweitern.</>}
+        </p>
+      )}
+
       {!showInvite ? (
         <button onClick={() => setShowInvite(true)}
-          className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+          disabled={!!limit && !limit.erlaubt}
+          title={limit && !limit.erlaubt ? 'Benutzerlimit des Pakets erreicht' : undefined}
+          className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40 disabled:cursor-not-allowed">
           <span>＋</span> Benutzer hinzufügen
         </button>
       ) : (

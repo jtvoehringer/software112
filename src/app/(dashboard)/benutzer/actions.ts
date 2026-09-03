@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canManageUsers } from '@/lib/auth/roles'
+import { pruefeBenutzerlimit, benutzerlimitFehler } from '@/lib/pakete-server'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -83,6 +84,12 @@ export async function inviteMember(email: string, role: string, fullName: string
   if (!mail) return { error: 'E-Mail ist ein Pflichtfeld.' }
 
   const admin = createSupabaseAdminClient()
+
+  // Benutzerlimit des Pakets (Basis 1 / Standard 5 / Premium unbegrenzt,
+  // Migration 194) - VOR der Einladung prüfen, damit kein Auth-User ohne
+  // Mitgliedschaft entsteht.
+  const limit = await pruefeBenutzerlimit(admin, membership.tenantId)
+  if (!limit.erlaubt) return { error: benutzerlimitFehler(limit) }
 
   // Prüfen ob User schon existiert
   const { data: { users } } = await admin.auth.admin.listUsers({ perPage: 1000 })
@@ -200,6 +207,12 @@ export async function toggleMemberAktiv(membershipId: string, aktiv: boolean) {
 
   // Admin-Client verwenden, damit RLS das Update nicht blockiert
   const admin = createSupabaseAdminClient()
+  // Reaktivieren zählt wie eine neue Einladung gegen das Benutzerlimit des
+  // Pakets (Migration 194); Deaktivieren ist immer erlaubt.
+  if (aktiv) {
+    const limit = await pruefeBenutzerlimit(admin, membership.tenantId)
+    if (!limit.erlaubt) return { error: benutzerlimitFehler(limit) }
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error, count } = await (admin.from('tenant_memberships') as any)
     .update({ aktiv }, { count: 'exact' })

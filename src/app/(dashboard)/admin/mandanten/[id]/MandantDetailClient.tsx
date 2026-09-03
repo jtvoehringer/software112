@@ -25,7 +25,9 @@ import {
   createStripeCheckoutSession,
   createStripePortalSession,
   cancelStripeSubscription,
+  wendePaketVorgabenAn,
 } from './actions'
+import { PAKETE, PAKET_REIHENFOLGE, paketAusPlan, paketPriceId, preisText, type PaketKey } from '@/lib/pakete'
 import { STRIPE_STATUS_META, STRIPE_PLAN_LABELS } from '@/lib/stripe/client'
 import type { TenantDetail, TenantSettings, TenantMember } from './page'
 
@@ -539,6 +541,22 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
 function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
   const router                     = useRouter()
   const [pending, startTransition] = useTransition()
+  // Paketmodell (2.9.2026): das gebuchte Paket (tenants.stripe_plan) gibt die
+  // Flags vor, der Stripe-Webhook setzt sie bei jedem Subscription-Event hart.
+  // Die Toggles hier sind ein Override bis zum nächsten Paketwechsel.
+  const paket = paketAusPlan(tenant.stripe_plan)
+  const [paketWahl, setPaketWahl]  = useState<PaketKey | ''>(paket ?? '')
+  const [paketMsg, setPaketMsg]    = useState<string | null>(null)
+
+  function handlePaketAnwenden() {
+    setPaketMsg(null)
+    startTransition(async () => {
+      const r = await wendePaketVorgabenAn(tenant.id, paketWahl || undefined)
+      if ('error' in r && r.error) { setPaketMsg(r.error); return }
+      setPaketMsg(`Vorgaben des Pakets ${PAKETE[(r as { paket: PaketKey }).paket].label} angewendet.`)
+      router.refresh()
+    })
+  }
   const [saved, setSaved]          = useState(false)
   const [mods, setMods]            = useState({
     modul_weingarten: settings.modul_weingarten,
@@ -588,6 +606,30 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
 
   return (
     <div className="space-y-5 max-w-sm">
+      <div className="card space-y-3">
+        <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Paket</h2>
+        <p className="text-sm text-gray-700">
+          {paket ? <>Gebucht: <span className="font-medium">{PAKETE[paket].label}</span> ({preisText(PAKETE[paket])}, {PAKETE[paket].maxBenutzer === null ? 'unbegrenzt Benutzer' : `${PAKETE[paket].maxBenutzer} Benutzer`})</> : 'Kein Paket hinterlegt (kein Stripe-Abo).'}
+        </p>
+        <p className="text-xs text-s112-muted">
+          Die Modul-Schalter unten sind Vorgaben des Pakets und können hier übersteuert werden – bis zum nächsten
+          Paketwechsel in Stripe, dann gilt wieder das Paket. „Paket-Vorgaben anwenden" setzt Module und Benutzerlimit
+          zurück auf das gewählte Paket.
+        </p>
+        <div className="flex items-center gap-2">
+          <select value={paketWahl} onChange={e => setPaketWahl(e.target.value as PaketKey | '')}
+            className="border border-s112-border rounded-lg px-2 py-1.5 text-sm">
+            <option value="">– gebuchtes Paket –</option>
+            {PAKET_REIHENFOLGE.map(k => <option key={k} value={k}>{PAKETE[k].label}</option>)}
+          </select>
+          <button type="button" onClick={handlePaketAnwenden} disabled={pending}
+            className="border border-s112-teal text-s112-teal px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/5 disabled:opacity-40">
+            Paket-Vorgaben anwenden
+          </button>
+        </div>
+        {paketMsg && <p className="text-xs text-gray-700">{paketMsg}</p>}
+      </div>
+
       <div className="card space-y-4">
         <Toggle on={mods.modul_weingarten} onToggle={() => toggle('modul_weingarten')} label="Weingarten-Modul" />
         <Toggle on={mods.modul_kellerbuch} onToggle={() => toggle('modul_kellerbuch')} label="Kellerbuch-Modul" />
@@ -1544,11 +1586,8 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
   const [error,  setError]   = useState<string | null>(null)
   const [email,  setEmail]   = useState('')
 
-  const PLANS = [
-    { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_PROFESSIONAL      ?? '', label: 'Professional (€299/Mo)' },
-    { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_PROFESSIONAL_PLUS   ?? '', label: 'Professional+ (€349/Mo)' },
-    { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE  ?? '', label: 'Enterprise (€399/Mo)' },
-  ]
+  // Paketmodell Basis / Standard / Premium (2.9.2026), Definition lib/pakete.ts
+  const PLANS = PAKET_REIHENFOLGE.map(k => ({ id: paketPriceId(k), label: `${PAKETE[k].label} (${preisText(PAKETE[k])})` }))
 
   const statusMeta = tenant.stripe_status ? (STRIPE_STATUS_META[tenant.stripe_status] ?? null) : null
   const planLabel  = tenant.stripe_plan   ? (STRIPE_PLAN_LABELS[tenant.stripe_plan] ?? tenant.stripe_plan) : null
@@ -1605,6 +1644,7 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
             : <span className="text-sm text-s112-muted italic">Kein Stripe-Abo</span>
           }
           {planLabel && <span className="text-sm text-gray-600">{planLabel}</span>}
+          {tenant.max_benutzer !== null && <span className="text-xs text-s112-muted">· max. {tenant.max_benutzer} Benutzer</span>}
           {tenant.stripe_current_period_end && (
             <span className="text-xs text-s112-muted">
               Periode bis {new Date(tenant.stripe_current_period_end).toLocaleDateString('de-AT')}
@@ -1742,7 +1782,7 @@ export default function MandantDetailClient({ tenant, settings, members }: {
             </div>
           )}
           <p className="text-xs text-s112-muted mt-0.5">
-            {tenant.slug} · {tenant.plan} ·
+            {tenant.slug} · {paketAusPlan(tenant.stripe_plan) ? PAKETE[paketAusPlan(tenant.stripe_plan)!].label : 'kein Paket'} ·
             Erstellt {new Date(tenant.created_at).toLocaleDateString('de-AT')}
           </p>
         </div>

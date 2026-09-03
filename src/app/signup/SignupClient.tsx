@@ -7,12 +7,11 @@
 
 import { useState } from 'react'
 import { registrierenAction } from './actions'
+import { PAKETE, PAKET_REIHENFOLGE, paketPriceId, preisText, type PaketKey } from '@/lib/pakete'
 
-const PLAN_OPTIONEN = [
-  { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_PROFESSIONAL      ?? '', label: 'Professional',  preis: '299 €/Monat', hinweis: 'KI-Abfragen Basic' },
-  { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_PROFESSIONAL_PLUS ?? '', label: 'Professional+', preis: '349 €/Monat', hinweis: 'KI-Abfragen Standard' },
-  { id: process.env.NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE        ?? '', label: 'Enterprise',    preis: '399 €/Monat', hinweis: 'KI-Abfragen Unlimited' },
-].filter(p => p.id)
+// Paketmodell Basis / Standard / Premium (2.9.2026), Definition in lib/pakete.ts.
+// Nur Pakete mit hinterlegter Stripe-Preis-ID werden angeboten.
+const PAKET_OPTIONEN = PAKET_REIHENFOLGE.map(k => PAKETE[k]).filter(p => paketPriceId(p.key))
 
 export default function SignupClient() {
   const [betrieb, setBetrieb]   = useState('')
@@ -20,7 +19,10 @@ export default function SignupClient() {
   const [email, setEmail]       = useState('')
   const [passwort, setPasswort] = useState('')
   const [passwort2, setPasswort2] = useState('')
-  const [priceId, setPriceId]   = useState(PLAN_OPTIONEN[0]?.id ?? '')
+  // Vorbelegt: Standard (mittleres Paket), sonst das erste verfügbare
+  const [paket, setPaket]       = useState<PaketKey | ''>(
+    PAKET_OPTIONEN.some(p => p.key === 'standard') ? 'standard' : (PAKET_OPTIONEN[0]?.key ?? ''),
+  )
   const [zustimmung, setZustimmung] = useState(false)
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState<string | null>(null)
@@ -31,7 +33,7 @@ export default function SignupClient() {
 
     if (passwort !== passwort2) { setError('Die Passwörter stimmen nicht überein.'); return }
     if (!zustimmung) { setError('Bitte AGB und Datenschutzerklärung bestätigen.'); return }
-    if (!priceId) { setError('Bitte einen Plan auswählen.'); return }
+    if (!paket) { setError('Bitte ein Paket auswählen.'); return }
 
     setLoading(true)
     const fd = new FormData()
@@ -39,7 +41,7 @@ export default function SignupClient() {
     fd.set('name', name)
     fd.set('email', email)
     fd.set('passwort', passwort)
-    fd.set('priceId', priceId)
+    fd.set('paket', paket)
 
     const res = await registrierenAction(fd)
     if (!res.ok) {
@@ -94,24 +96,27 @@ export default function SignupClient() {
               </div>
             </div>
 
-            {PLAN_OPTIONEN.length > 0 && (
+            {PAKET_OPTIONEN.length > 0 && (
               <div>
-                <span className="block text-sm font-medium text-gray-700 mb-1.5">Plan</span>
+                <span className="block text-sm font-medium text-gray-700 mb-1.5">Paket</span>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {PLAN_OPTIONEN.map(p => (
+                  {PAKET_OPTIONEN.map(p => (
                     <button
-                      key={p.id}
+                      key={p.key}
                       type="button"
-                      onClick={() => setPriceId(p.id)}
+                      onClick={() => setPaket(p.key)}
+                      aria-pressed={paket === p.key}
                       className={`text-left px-3 py-2.5 rounded-lg border text-sm transition-colors ${
-                        priceId === p.id
+                        paket === p.key
                           ? 'border-s112-teal bg-s112-teal/5 ring-1 ring-s112-teal'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
                       <p className="font-semibold text-gray-800">{p.label}</p>
-                      <p className="text-s112-teal font-medium">{p.preis}</p>
-                      <p className="text-[11.5px] text-s112-muted mt-0.5">{p.hinweis}</p>
+                      <p className="text-s112-teal font-medium">{preisText(p)}</p>
+                      <ul className="text-[11.5px] text-s112-muted mt-1 space-y-0.5">
+                        {p.leistungen.map(l => <li key={l}>· {l}</li>)}
+                      </ul>
                     </button>
                   ))}
                 </div>

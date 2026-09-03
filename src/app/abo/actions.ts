@@ -11,6 +11,9 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { getStripe, TRIAL_TAGE } from '@/lib/stripe/client'
+import { istPaketKey, paketPriceId, paketAusPlan, PAKETE, type PaketKey } from '@/lib/pakete'
+import { wendePaketAn } from '@/lib/pakete-server'
+import { revalidatePath } from 'next/cache'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -55,7 +58,7 @@ export async function createOwnStripePortalSession() {
 // neuen Checkout für genau diesen Mandanten, inkl. der vollen 14-tägigen
 // Testphase (die ja nie begonnen hat). Existiert bereits eine
 // stripe_subscription_id, ist das NICHT der richtige Weg (dann: Portal oben).
-export async function starteZahlungAction() {
+export async function starteZahlungAction(paketWunsch?: string) {
   const membership = await getCurrentMembership()
   if (!membership) return { error: 'Kein Betrieb gefunden' }
   if (!canAdmin(membership.role)) {
@@ -75,8 +78,10 @@ export async function starteZahlungAction() {
     return { error: 'Für Ihren Betrieb existiert bereits ein Abo – bitte „Zahlungsdaten verwalten" verwenden.' }
   }
 
-  const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_PROFESSIONAL ?? ''
-  if (!priceId) return { error: 'Kein Plan konfiguriert – bitte kontaktieren Sie uns.' }
+  // Paketmodell (2.9.2026): Paket aus der Auswahl auf /abo, sonst Standard.
+  const paket: PaketKey = istPaketKey(paketWunsch) ? paketWunsch : 'standard'
+  const priceId = paketPriceId(paket)
+  if (!priceId) return { error: `Für das Paket ${PAKETE[paket].label} ist noch kein Stripe-Preis hinterlegt – bitte kontaktieren Sie uns.` }
 
   // tenants darf ein Betriebsleiter per RLS i.d.R. nicht selbst schreiben
   // (stripe_customer_id ist bewusst dem Webhook/Admin-Bereich vorbehalten) -
@@ -111,4 +116,59 @@ export async function starteZahlungAction() {
   } catch (err) {
     return { error: `Stripe-Fehler: ${(err as Error).message}` }
   }
+}
+
+// ── Paketwechsel (Selbstservice, Entscheidung 2.9.2026) ─────────────────────
+// Betriebsleiter wechselt das Paket direkt auf /abo. Der Wechsel läuft über
+// Stripe (Subscription-Item auf den neuen Preis, anteilige Verrechnung ab
+// sofort); das Webhook-Event customer.subscription.updated setzt danach
+// Modul-Flags und Benutzerlimit (lib/pakete-server.ts). Damit die Oberfläche
+// nicht auf den Webhook warten muss, werden Paket und Vorgaben hier zusätzlich
+// sofort geschrieben - der Webhook bestätigt dasselbe Ergebnis. Downgrade
+// schaltet hart ab (Daten bleiben); sind mehr Benutzer aktiv als das neue
+// Paket erlaubt, bleiben sie aktiv, es können nur keine neuen eingeladen
+// werden.
+export async function wechslePaketAction(paketWunsch: string) {
+  const membership = await getCurrentMembership()
+  if (!membership) return { error: 'Kein Betrieb gefunden' }
+  if (!canAdmin(membership.role)) {
+    return { error: 'Nur der Betriebsleiter bzw. System-Admin kann das Paket wechseln.' }
+  }
+  if (!istPaketKey(paketWunsch)) return { error: 'Unbekanntes Paket.' }
+  const paket = paketWunsch
+  const priceId = paketPriceId(paket)
+  if (!priceId) return { error: `Für das Paket ${PAKETE[paket].label} ist noch kein Stripe-Preis hinterlegt – bitte kontaktieren Sie uns.` }
+
+  const admin = createSupabaseAdminClient()
+  const { data: tenantRow } = await (admin.from('tenants') as R)
+    .select('stripe_subscription_id, stripe_plan')
+    .eq('id', membership.tenantId)
+    .maybeSingle()
+  const t = tenantRow as R | null
+  if (!t?.stripe_subscription_id) {
+    return { error: 'Für Ihren Betrieb existiert noch kein Abo – bitte zuerst „Zahlungsdaten hinterlegen" verwenden.' }
+  }
+  if (paketAusPlan(t.stripe_plan) === paket) return { error: 'Dieses Paket ist bereits aktiv.' }
+
+  try {
+    const stripe = getStripe()
+    const sub = await stripe.subscriptions.retrieve(t.stripe_subscription_id)
+    const item = sub.items.data[0]
+    if (!item) return { error: 'Abo ohne Position – bitte kontaktieren Sie uns.' }
+    await stripe.subscriptions.update(sub.id, {
+      items: [{ id: item.id, price: priceId }],
+      proration_behavior: 'create_prorations',
+      metadata: { ...(sub.metadata ?? {}), tenant_id: membership.tenantId },
+    })
+  } catch (err) {
+    return { error: `Stripe-Fehler: ${(err as Error).message}` }
+  }
+
+  await (admin.from('tenants') as R).update({ stripe_plan: paket }).eq('id', membership.tenantId)
+  const fehler = await wendePaketAn(admin, membership.tenantId, paket)
+  if (fehler) return { error: fehler }
+
+  revalidatePath('/abo')
+  revalidatePath('/', 'layout')
+  return { ok: true, paket }
 }

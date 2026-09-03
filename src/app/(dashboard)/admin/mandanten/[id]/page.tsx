@@ -16,6 +16,8 @@ export type TenantDetail = {
   stripe_subscription_id:   string | null
   stripe_status:            string | null
   stripe_plan:              string | null
+  /** Benutzerlimit des Pakets (Migration 194), null = unbegrenzt */
+  max_benutzer:             number | null
   stripe_current_period_end: string | null
   bio_status:               string
 }
@@ -136,7 +138,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     { data: { users } },
   ] = await Promise.all([
     (admin.from('tenants') as any)
-      .select('id, name, slug, plan, created_at, stripe_customer_id, stripe_subscription_id, stripe_status, stripe_plan, stripe_current_period_end, bio_status').eq('id', id).single(),
+      .select('id, name, slug, plan, created_at, stripe_customer_id, stripe_subscription_id, stripe_status, stripe_plan, stripe_current_period_end, max_benutzer, bio_status').eq('id', id).single(),
     (admin.from('tenant_einstellungen') as any)
       .select('*').eq('tenant_id', id).maybeSingle(),
     (admin.from('tenant_memberships') as any)
@@ -172,6 +174,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     stripe_subscription_id:    t.stripe_subscription_id    ?? null,
     stripe_status:             t.stripe_status             ?? null,
     stripe_plan:               t.stripe_plan               ?? null,
+    max_benutzer:              t.max_benutzer              ?? null,
     stripe_current_period_end: t.stripe_current_period_end ?? null,
     bio_status:                t.bio_status                ?? 'konventionell',
   }

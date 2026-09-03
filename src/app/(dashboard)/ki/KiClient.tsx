@@ -17,7 +17,10 @@ const BEISPIELE = [
   'Wie viele Flaschen habe ich dieses Jahr insgesamt verkauft?',
 ]
 
-const LIMIT_MAP: Record<string, number> = { basic: 100, standard: 200, unlimited: 99999 }
+// Paketmodell 2.9.2026 (Basis 50 / Standard 100 / Premium unbegrenzt) - muss
+// mit limit_map in check_und_increment_ki_abfrage (Migration 194) und kiLimit
+// in lib/pakete.ts übereinstimmen.
+const LIMIT_MAP: Record<string, number> = { basic: 50, standard: 100, unlimited: 99999 }
 
 // Formatiert einen Zellenwert für Tabelle und Gesamt-Zusammenfassung einheitlich.
 function formatWert(val: unknown): string {
@@ -37,7 +40,7 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
   const [laden, setLaden]       = useState(false)
   const [ergebnis, setErgebnis] = useState<R | null>(null)
   const [fehler, setFehler]     = useState<string | null>(null)
-  const limit = LIMIT_MAP[paket] ?? 100
+  const limit = LIMIT_MAP[paket] ?? 50
 
   async function abfragen(e: React.FormEvent | null, beispiel?: string) {
     if (e) e.preventDefault()

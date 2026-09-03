@@ -3,6 +3,9 @@ import type { Metadata } from 'next'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { STRIPE_BLOCKED_STATUSES, STRIPE_PLAN_LABELS, STRIPE_STATUS_META, istTrialAbgelaufen } from '@/lib/stripe/client'
+import { PAKET_REIHENFOLGE, paketAusPlan, paketPriceId } from '@/lib/pakete'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { pruefeBenutzerlimit } from '@/lib/pakete-server'
 import AboClient from './AboClient'
 
 // Rückmeldung 31.8.2026 ("die Plattform soll sich selber abrechnen können,
@@ -51,8 +54,17 @@ export default async function AboPage() {
   const planLabel   = stripePlan ? (STRIPE_PLAN_LABELS[stripePlan] ?? stripePlan) : null
   const statusMeta  = stripeStatus ? STRIPE_STATUS_META[stripeStatus] : undefined
 
+  // Paketmodell (2.9.2026): aktuelles Paket, verfügbare Pakete (nur mit
+  // hinterlegter Stripe-Preis-ID) und Benutzerstand für den Downgrade-Hinweis.
+  const aktuellesPaket = paketAusPlan(stripePlan)
+  const verfuegbarePakete = PAKET_REIHENFOLGE.filter(k => !!paketPriceId(k))
+  const limit = await pruefeBenutzerlimit(createSupabaseAdminClient(), membership.tenantId)
+
   return (
     <AboClient
+      aktuellesPaket={aktuellesPaket}
+      verfuegbarePakete={verfuegbarePakete}
+      benutzerAnzahl={limit.anzahl}
       hardBlocked={hardBlocked}
       trialAbgelaufen={trialAbgelaufen}
       warned={warned}

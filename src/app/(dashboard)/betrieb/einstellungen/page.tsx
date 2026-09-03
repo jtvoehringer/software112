@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { getTenantMembers } from '../../benutzer/actions'
 import EinstellungenClient from './EinstellungenClient'
+import { pruefeBenutzerlimit } from '@/lib/pakete-server'
 
 export const metadata: Metadata = { title: 'Mein Betrieb – software:112' }
 export const dynamic = 'force-dynamic'
@@ -53,7 +54,7 @@ export default async function MeinBetriebPage() {
   // Schreib-Aktionen zu bleiben - die Auswahl der Spalten selbst ist die
   // eigentliche Sicherheitsgrenze hier, nicht RLS.
   const admin = createSupabaseAdminClient()
-  const [{ data: tenantRaw }, { data: settingsRaw }, members] = await Promise.all([
+  const [{ data: tenantRaw }, { data: settingsRaw }, members, benutzerlimit] = await Promise.all([
     (admin.from('tenants') as any).select('id, name, bio_status').eq('id', membership.tenantId).single(),
     (admin.from('tenant_einstellungen') as any)
       .select(`
@@ -67,6 +68,7 @@ export default async function MeinBetriebPage() {
       .eq('tenant_id', membership.tenantId)
       .maybeSingle(),
     getTenantMembers(),
+    pruefeBenutzerlimit(admin, membership.tenantId),
   ])
 
   if (!tenantRaw) redirect('/dashboard')
@@ -107,6 +109,7 @@ export default async function MeinBetriebPage() {
     <EinstellungenClient
       daten={daten}
       members={members}
+      benutzerlimit={benutzerlimit}
       isSystemAdmin={membership.role === 'system_admin'}
     />
   )

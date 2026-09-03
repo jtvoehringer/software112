@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { saveBrandingOwn, uploadLogoOwn, saveBetriebOwn, saveBawbOwn } from './actions'
 import type { EigeneBetriebsdaten } from './page'
 import BenutzerClient from '../../benutzer/BenutzerClient'
+import type { BenutzerlimitStatus } from '@/lib/pakete-server'
 import type { MemberWithEmail } from '../../benutzer/actions'
 
 const BIO_STATUS_OPTS = [
@@ -24,10 +25,11 @@ function inputCls() {
 type Tab = 'branding' | 'benutzer' | 'betrieb' | 'bawb'
 
 export default function EinstellungenClient({
-  daten, members, isSystemAdmin,
+  daten, members, benutzerlimit, isSystemAdmin,
 }: {
   daten: EigeneBetriebsdaten
   members: MemberWithEmail[]
+  benutzerlimit?: BenutzerlimitStatus
   isSystemAdmin: boolean
 }) {
   const [tab, setTab] = useState<Tab>('branding')
@@ -76,7 +78,7 @@ export default function EinstellungenClient({
       </div>
 
       {tab === 'branding' && <BrandingTabOwn daten={daten} />}
-      {tab === 'benutzer' && <BenutzerClient members={members} />}
+      {tab === 'benutzer' && <BenutzerClient members={members} limit={benutzerlimit} />}
       {tab === 'betrieb'  && <BetriebTabOwn daten={daten} />}
       {tab === 'bawb'     && <BawbTabOwn daten={daten} />}
     </div>

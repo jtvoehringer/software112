@@ -16,6 +16,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { setActiveTenantCookie } from '@/lib/auth/activeTenant'
 import { getStripe, TRIAL_TAGE } from '@/lib/stripe/client'
+import { istPaketKey, paketPriceId, PAKETE } from '@/lib/pakete'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -34,13 +35,18 @@ export async function registrierenAction(formData: FormData): Promise<Ergebnis> 
   const name     = ((formData.get('name')     as string) || '').trim()
   const email    = ((formData.get('email')    as string) || '').trim().toLowerCase()
   const passwort = (formData.get('passwort') as string) || ''
-  const priceId  = ((formData.get('priceId')  as string) || '').trim()
+  // Paketmodell (2.9.2026): der Client schickt nur den Paket-Schlüssel, die
+  // Stripe-Preis-ID wird serverseitig aufgelöst (lib/pakete.ts) - so kann
+  // niemand eine fremde/alte Preis-ID unterschieben.
+  const paket    = ((formData.get('paket')    as string) || '').trim()
 
   if (!betrieb)  return { ok: false, fehler: 'Bitte den Namen Ihres Betriebs angeben.' }
   if (!name)     return { ok: false, fehler: 'Bitte Ihren Namen angeben.' }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, fehler: 'Bitte eine gültige E-Mail-Adresse angeben.' }
   if (passwort.length < 8) return { ok: false, fehler: 'Das Passwort muss mindestens 8 Zeichen haben.' }
-  if (!priceId)  return { ok: false, fehler: 'Bitte einen Plan auswählen.' }
+  if (!istPaketKey(paket)) return { ok: false, fehler: 'Bitte ein Paket auswählen.' }
+  const priceId = paketPriceId(paket)
+  if (!priceId)  return { ok: false, fehler: `Für das Paket ${PAKETE[paket].label} ist noch kein Stripe-Preis hinterlegt. Bitte den Support kontaktieren.` }
 
   const admin = createSupabaseAdminClient()
 

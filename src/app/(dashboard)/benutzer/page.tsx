@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { getCurrentMembership, canManageUsers } from '@/lib/auth/roles'
 import { getTenantMembers } from './actions'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { pruefeBenutzerlimit } from '@/lib/pakete-server'
 import BenutzerClient from './BenutzerClient'
 
 export const metadata: Metadata = { title: 'Benutzerverwaltung – software:112' }
@@ -14,7 +16,10 @@ export default async function BenutzerPage() {
     redirect('/dashboard')
   }
 
-  const members = await getTenantMembers()
+  const [members, limit] = await Promise.all([
+    getTenantMembers(),
+    pruefeBenutzerlimit(createSupabaseAdminClient(), membership.tenantId),
+  ])
 
   return (
     <div>
@@ -25,7 +30,7 @@ export default async function BenutzerPage() {
         </div>
       </div>
 
-      <BenutzerClient members={members} />
+      <BenutzerClient members={members} limit={limit} />
     </div>
   )
 }

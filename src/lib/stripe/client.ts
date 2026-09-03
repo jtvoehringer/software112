@@ -11,12 +11,17 @@ export function getStripe(): Stripe {
   return _stripe
 }
 
-/** Stripe-Plan-Labels für die UI */
+/** Stripe-Plan-Labels für die UI. Seit 2.9.2026 gilt das Paketmodell
+ *  Basis / Standard / Premium (lib/pakete.ts); die alten Slugs bleiben lesbar,
+ *  bis der nächste Subscription-Event den Mandanten auf ein neues Paket setzt. */
 export const STRIPE_PLAN_LABELS: Record<string, string> = {
-  base:         'software:112 Starter',
-  ki_basic:     'software:112 Professional',
-  ki_standard:  'software:112 Professional+',
-  ki_unlimited: 'software:112 Enterprise',
+  basis:        'software:112 Basis',
+  standard:     'software:112 Standard',
+  premium:      'software:112 Premium',
+  base:         'software:112 Starter (alt)',
+  ki_basic:     'software:112 Professional (alt)',
+  ki_standard:  'software:112 Professional+ (alt)',
+  ki_unlimited: 'software:112 Enterprise (alt)',
 }
 
 /** Stripe-Status-Labels und Farben */
