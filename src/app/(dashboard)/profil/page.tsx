@@ -1,7 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, X } from 'lucide-react'
+import { Check, X, KeyRound } from 'lucide-react'
+import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 export default function ProfilPage() {
   const router = useRouter()
@@ -49,6 +50,45 @@ export default function ProfilPage() {
     setSaving(false)
   }
 
+  // ── Passwort ändern (Rückmeldung 4.9.2026: bisher nur über "Passwort
+  // vergessen" bzw. Einladungslink möglich). Das aktuelle Passwort wird über
+  // eine erneute Anmeldung geprüft, dann setzt updateUser() das neue. Nutzer
+  // mit Microsoft-365-Login haben kein Passwort - für sie greift der Hinweis.
+  const [pwAlt, setPwAlt]       = useState('')
+  const [pwNeu, setPwNeu]       = useState('')
+  const [pwNeu2, setPwNeu2]     = useState('')
+  const [pwSaving, setPwSaving] = useState(false)
+  const [pwErfolg, setPwErfolg] = useState(false)
+  const [pwFehler, setPwFehler] = useState('')
+
+  async function passwortAendern(e: React.FormEvent) {
+    e.preventDefault()
+    setPwFehler(''); setPwErfolg(false)
+    if (pwNeu.length < 8)  { setPwFehler('Das neue Passwort braucht mindestens 8 Zeichen.'); return }
+    if (pwNeu !== pwNeu2)  { setPwFehler('Die Wiederholung stimmt nicht mit dem neuen Passwort überein.'); return }
+    if (pwNeu === pwAlt)   { setPwFehler('Das neue Passwort muss sich vom aktuellen unterscheiden.'); return }
+    setPwSaving(true)
+    try {
+      const supabase = createSupabaseBrowserClient()
+      const { error: loginErr } = await supabase.auth.signInWithPassword({ email, password: pwAlt })
+      if (loginErr) {
+        setPwFehler(/invalid/i.test(loginErr.message)
+          ? 'Das aktuelle Passwort ist nicht richtig.'
+          : `Prüfung fehlgeschlagen: ${loginErr.message}`)
+        return
+      }
+      const { error } = await supabase.auth.updateUser({ password: pwNeu })
+      if (error) { setPwFehler(error.message); return }
+      setPwAlt(''); setPwNeu(''); setPwNeu2('')
+      setPwErfolg(true)
+      setTimeout(() => setPwErfolg(false), 4000)
+    } catch {
+      setPwFehler('Netzwerkfehler')
+    } finally {
+      setPwSaving(false)
+    }
+  }
+
   if (laden) return <div className="p-8 text-s112-muted text-sm">Laden…</div>
 
   return (
@@ -78,6 +118,40 @@ export default function ProfilPage() {
             </button>
             {erfolg && <p className="text-sm text-green-600 inline-flex items-center gap-1"><Check size={14} strokeWidth={2.25} />Gespeichert</p>}
             {fehler && <p className="text-sm text-red-600 inline-flex items-center gap-1"><X size={14} strokeWidth={2.25} />{fehler}</p>}
+          </div>
+        </form>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-s112-border p-6 mt-6">
+        <h2 className="font-semibold text-gray-800 mb-1 inline-flex items-center gap-2"><KeyRound size={16} strokeWidth={1.75} />Passwort ändern</h2>
+        <p className="text-xs text-s112-muted mb-4">
+          Mindestens 8 Zeichen. Wenn du dich mit Microsoft 365 anmeldest, hast du hier kein Passwort – dann verwaltest du es bei Microsoft.
+        </p>
+        <form onSubmit={passwortAendern} className="space-y-4" autoComplete="off">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Aktuelles Passwort</label>
+            <input type="password" value={pwAlt} onChange={e => setPwAlt(e.target.value)} required autoComplete="current-password"
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Neues Passwort</label>
+              <input type="password" value={pwNeu} onChange={e => setPwNeu(e.target.value)} required minLength={8} autoComplete="new-password" placeholder="Min. 8 Zeichen"
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Neues Passwort wiederholen</label>
+              <input type="password" value={pwNeu2} onChange={e => setPwNeu2(e.target.value)} required minLength={8} autoComplete="new-password"
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            </div>
+          </div>
+          <div className="flex items-center gap-3 pt-1">
+            <button type="submit" disabled={pwSaving || !pwAlt || !pwNeu || !pwNeu2}
+              className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+              {pwSaving ? 'Wird geändert…' : 'Passwort ändern'}
+            </button>
+            {pwErfolg && <p className="text-sm text-green-600 inline-flex items-center gap-1"><Check size={14} strokeWidth={2.25} />Passwort geändert</p>}
+            {pwFehler && <p className="text-sm text-red-600 inline-flex items-center gap-1"><X size={14} strokeWidth={2.25} />{pwFehler}</p>}
           </div>
         </form>
       </div>

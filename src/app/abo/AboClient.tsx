@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
-import { createOwnStripePortalSession, starteZahlungAction, wechslePaketAction } from './actions'
+import { createOwnStripePortalSession, starteZahlungAction, wechslePaketAction, setzeBuchhaltungsartAction, type Buchhaltungsart } from './actions'
 import { PAKETE, preisText, type PaketKey } from '@/lib/pakete'
 
 // Rückmeldung 31.8.2026 ("die Plattform soll sich selber abrechnen können,
@@ -23,6 +23,8 @@ export default function AboClient({
   hatAbo,
   planLabel,
   statusLabel,
+  hatEa,
+  buchhaltungsart: buchhaltungsartAktuell,
 }: {
   aktuellesPaket:    PaketKey | null
   verfuegbarePakete: PaketKey[]
@@ -35,6 +37,10 @@ export default function AboClient({
   hatAbo:          boolean
   planLabel:       string | null
   statusLabel:     string | null
+  /** E&A-Modul aktuell aktiv (dann ist die Buchhaltungsart schon entschieden) */
+  hatEa:           boolean
+  /** Migration 197: 'ea' = E&A in software:112, 'doppik' = Steuerberater/BMD */
+  buchhaltungsart: Buchhaltungsart
 }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -43,6 +49,24 @@ export default function AboClient({
   // aus Versehen passiert.
   const [wahl, setWahl]       = useState<PaketKey | null>(null)
   const [hinweis, setHinweis] = useState<string | null>(null)
+  // Migration 197 (Rückmeldung 4.9.2026): kommt mit dem Paket die E&A-Rechnung
+  // neu dazu, muss der Betrieb sagen, wer die Buchhaltung führt. '' = noch
+  // nicht gewählt -> Bestätigen gesperrt (die Server-Action prüft zusätzlich).
+  const [buchhaltungsWahl, setBuchhaltungsWahl] = useState<Buchhaltungsart | ''>('')
+  const [artSpeichern, setArtSpeichern] = useState(false)
+  const brauchtBuchhaltungsWahl = (k: PaketKey) => PAKETE[k].module.modul_ea && !hatEa
+
+  async function handleBuchhaltungsart(art: Buchhaltungsart) {
+    if (art === buchhaltungsartAktuell) return
+    setArtSpeichern(true); setError(null); setHinweis(null)
+    const res = await setzeBuchhaltungsartAction(art)
+    if ('error' in res && res.error) setError(res.error)
+    else setHinweis(art === 'doppik'
+      ? 'Umgestellt: Ihr Steuerberater führt die Buchhaltung in BMD – Belege übergeben Sie unter „Belege & BMD“, die UVA ist nur noch eine Vorschau.'
+      : 'Umgestellt: Sie führen die E&A-Rechnung in software:112 (UVA, Monatsabschluss).')
+    setArtSpeichern(false)
+    router.refresh()
+  }
 
   async function handlePortal() {
     setLoading(true)
@@ -63,7 +87,7 @@ export default function AboClient({
   async function handleZahlungNachholen(paket?: PaketKey) {
     setLoading(true)
     setError(null)
-    const res = await starteZahlungAction(paket)
+    const res = await starteZahlungAction(paket, buchhaltungsWahl || undefined)
     if ('error' in res && res.error) {
       setError(res.error)
       setLoading(false)
@@ -80,7 +104,7 @@ export default function AboClient({
     setLoading(true)
     setError(null)
     setHinweis(null)
-    const res = await wechslePaketAction(paket)
+    const res = await wechslePaketAction(paket, buchhaltungsWahl || undefined)
     if ('error' in res && res.error) {
       setError(res.error)
       setLoading(false)
@@ -106,6 +130,27 @@ export default function AboClient({
       ['modul_export', 'Exportaufträge'], ['assistent_aktiv', 'bot:112'],
     ]
     return namen.filter(([k]) => alt[k] === true && neu[k] === false).map(([, n]) => n)
+  }
+
+  // Radio "wer macht die Buchhaltung?" (in der Paketkarte beim Wechsel/Kauf)
+  function BuchhaltungsWahl({ wert, onChange }: { wert: Buchhaltungsart | ''; onChange: (a: Buchhaltungsart) => void }) {
+    return (
+      <div className="space-y-1.5">
+        <p className="text-[11.5px] font-medium text-gray-700">Enthält die E&amp;A-Rechnung – wer macht Ihre Buchhaltung?</p>
+        {([
+          ['ea',     'Ich führe die E&A-Rechnung in software:112', 'UVA und Monatsabschluss entstehen hier.'],
+          ['doppik', 'Mein Steuerberater (doppelte Buchhaltung, BMD)', 'Ich erfasse Belege, software:112 übergibt sie an BMD. UVA nur Vorschau.'],
+        ] as [Buchhaltungsart, string, string][]).map(([key, label, hinweisText]) => (
+          <label key={key} className={`flex items-start gap-2 cursor-pointer rounded-lg border px-2.5 py-2 text-left ${wert === key ? 'border-s112-teal bg-s112-teal/5' : 'border-gray-200'}`}>
+            <input type="radio" checked={wert === key} onChange={() => onChange(key)} className="mt-0.5" />
+            <span>
+              <span className="block text-[12px] font-medium text-gray-800">{label}</span>
+              <span className="block text-[11px] text-s112-muted">{hinweisText}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+    )
   }
 
   async function handleLogout() {
@@ -229,7 +274,8 @@ export default function AboClient({
                                   {!wegfall.length && !ueberBenutzer && 'Ihr Abo wird ab sofort anteilig auf das neue Paket umgestellt.'}
                                 </p>
                               )}
-                              <button onClick={() => handlePaketwechsel(k)} disabled={loading}
+                              {brauchtBuchhaltungsWahl(k) && <BuchhaltungsWahl wert={buchhaltungsWahl} onChange={setBuchhaltungsWahl} />}
+                              <button onClick={() => handlePaketwechsel(k)} disabled={loading || (brauchtBuchhaltungsWahl(k) && !buchhaltungsWahl)}
                                 className="w-full bg-s112-teal text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-60">
                                 {loading ? 'Wird umgestellt…' : 'Wechsel bestätigen'}
                               </button>
@@ -237,16 +283,35 @@ export default function AboClient({
                                 className="w-full text-xs text-s112-muted hover:text-gray-700">Abbrechen</button>
                             </div>
                           ) : (
-                            <button onClick={() => { setWahl(k); setError(null); setHinweis(null) }} disabled={loading}
+                            <button onClick={() => { setWahl(k); setBuchhaltungsWahl(''); setError(null); setHinweis(null) }} disabled={loading}
                               className="mt-3 w-full border border-s112-teal text-s112-teal px-3 py-2 rounded-lg text-sm font-semibold hover:bg-s112-teal/5 disabled:opacity-60">
                               {istDowngrade(k) ? 'Auf dieses Paket wechseln' : 'Upgrade'}
                             </button>
                           )
                         ) : hasCustomer ? (
-                          <button onClick={() => handleZahlungNachholen(k)} disabled={loading}
-                            className="mt-3 w-full border border-s112-teal text-s112-teal px-3 py-2 rounded-lg text-sm font-semibold hover:bg-s112-teal/5 disabled:opacity-60">
-                            Auswählen
-                          </button>
+                          brauchtBuchhaltungsWahl(k) ? (
+                            wahl === k ? (
+                              <div className="mt-3 space-y-1.5">
+                                <BuchhaltungsWahl wert={buchhaltungsWahl} onChange={setBuchhaltungsWahl} />
+                                <button onClick={() => handleZahlungNachholen(k)} disabled={loading || !buchhaltungsWahl}
+                                  className="w-full bg-s112-teal text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-60">
+                                  {loading ? 'Weiter zu Stripe…' : 'Weiter zur Zahlung'}
+                                </button>
+                                <button onClick={() => setWahl(null)} disabled={loading}
+                                  className="w-full text-xs text-s112-muted hover:text-gray-700">Abbrechen</button>
+                              </div>
+                            ) : (
+                              <button onClick={() => { setWahl(k); setBuchhaltungsWahl(''); setError(null); setHinweis(null) }} disabled={loading}
+                                className="mt-3 w-full border border-s112-teal text-s112-teal px-3 py-2 rounded-lg text-sm font-semibold hover:bg-s112-teal/5 disabled:opacity-60">
+                                Auswählen
+                              </button>
+                            )
+                          ) : (
+                            <button onClick={() => handleZahlungNachholen(k)} disabled={loading}
+                              className="mt-3 w-full border border-s112-teal text-s112-teal px-3 py-2 rounded-lg text-sm font-semibold hover:bg-s112-teal/5 disabled:opacity-60">
+                              Auswählen
+                            </button>
+                          )
                         ) : null
                       )}
                     </div>
@@ -258,6 +323,29 @@ export default function AboClient({
                   Ein Wechsel wird sofort wirksam und anteilig abgerechnet. Kündigung und Rechnungen finden Sie unter „Zahlungsdaten verwalten".
                 </p>
               )}
+            </div>
+          )}
+
+          {/* Buchhaltungsart (Migration 197): jederzeit umstellbar, gleiche Einstellung wie in der Administration */}
+          {darfVerwalten && hatEa && (
+            <div className="pt-2 border-t border-gray-100">
+              <p className="text-sm font-semibold text-gray-800 mb-1">Buchhaltung</p>
+              <p className="text-[11.5px] text-s112-muted mb-2">Wer macht die Buchhaltung Ihres Betriebs? Kann jederzeit umgestellt werden – Ihre Belege bleiben erhalten.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {([
+                  ['ea',     'E&A-Rechnung in software:112',                  'UVA, Monatsabschluss und Jahresergebnis entstehen hier.'],
+                  ['doppik', 'Doppelte Buchhaltung beim Steuerberater (BMD)', 'Sie erfassen Belege, software:112 übergibt sie an BMD. UVA nur als Vorschau.'],
+                ] as [Buchhaltungsart, string, string][]).map(([key, label, hinweisText]) => (
+                  <label key={key} className={`flex items-start gap-2 cursor-pointer rounded-xl border px-3 py-2.5 ${buchhaltungsartAktuell === key ? 'border-s112-teal ring-1 ring-s112-teal bg-s112-teal/5' : 'border-gray-200'}`}>
+                    <input type="radio" name="buchhaltungsart" checked={buchhaltungsartAktuell === key} disabled={artSpeichern}
+                      onChange={() => handleBuchhaltungsart(key)} className="mt-1" />
+                    <span>
+                      <span className="block text-sm font-medium text-gray-800">{label}</span>
+                      <span className="block text-[11px] text-s112-muted">{hinweisText}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
             </div>
           )}
 

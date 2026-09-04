@@ -59,6 +59,10 @@ export default async function AboPage() {
   const aktuellesPaket = paketAusPlan(stripePlan)
   const verfuegbarePakete = PAKET_REIHENFOLGE.filter(k => !!paketPriceId(k))
   const limit = await pruefeBenutzerlimit(createSupabaseAdminClient(), membership.tenantId)
+  // Migration 197: Buchhaltungsart (E&A in software:112 / Doppik beim Steuerberater)
+  const { data: einstRow } = await (supabase.from('tenant_einstellungen') as any)
+    .select('modul_ea, buchhaltungsart').eq('tenant_id', membership.tenantId).maybeSingle()
+  const einst = einstRow as R | null
 
   return (
     <AboClient
@@ -73,6 +77,8 @@ export default async function AboPage() {
       hatAbo={hatAbo}
       planLabel={planLabel}
       statusLabel={statusMeta?.label ?? null}
+      hatEa={!!einst?.modul_ea}
+      buchhaltungsart={einst?.buchhaltungsart === 'doppik' ? 'doppik' : 'ea'}
     />
   )
 }

@@ -58,7 +58,7 @@ export async function createOwnStripePortalSession() {
 // neuen Checkout für genau diesen Mandanten, inkl. der vollen 14-tägigen
 // Testphase (die ja nie begonnen hat). Existiert bereits eine
 // stripe_subscription_id, ist das NICHT der richtige Weg (dann: Portal oben).
-export async function starteZahlungAction(paketWunsch?: string) {
+export async function starteZahlungAction(paketWunsch?: string, buchhaltungsart?: string) {
   const membership = await getCurrentMembership()
   if (!membership) return { error: 'Kein Betrieb gefunden' }
   if (!canAdmin(membership.role)) {
@@ -82,6 +82,9 @@ export async function starteZahlungAction(paketWunsch?: string) {
   const paket: PaketKey = istPaketKey(paketWunsch) ? paketWunsch : 'standard'
   const priceId = paketPriceId(paket)
   if (!priceId) return { error: `Für das Paket ${PAKETE[paket].label} ist noch kein Stripe-Preis hinterlegt – bitte kontaktieren Sie uns.` }
+  if (PAKETE[paket].module.modul_ea && !istBuchhaltungsart(buchhaltungsart)) {
+    return { error: `Das Paket ${PAKETE[paket].label} enthält die E&A-Rechnung – bitte wählen Sie, ob Sie die E&A-Rechnung in software:112 führen oder Ihr Steuerberater die doppelte Buchhaltung (BMD) macht.` }
+  }
 
   // tenants darf ein Betriebsleiter per RLS i.d.R. nicht selbst schreiben
   // (stripe_customer_id ist bewusst dem Webhook/Admin-Bereich vorbehalten) -
@@ -99,6 +102,13 @@ export async function starteZahlungAction(paketWunsch?: string) {
     } catch (err) {
       return { error: `Stripe-Fehler: ${(err as Error).message}` }
     }
+  }
+
+  // Buchhaltungsart schon jetzt merken (Migration 197) - der Webhook schaltet
+  // nach dem Checkout nur die Module, die Entscheidung kommt von hier.
+  if (istBuchhaltungsart(buchhaltungsart)) {
+    const fehler = await speichereBuchhaltungsart(admin, membership.tenantId, buchhaltungsart)
+    if (fehler) return { error: fehler }
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://software112.icp-consultants.at'
@@ -128,7 +138,7 @@ export async function starteZahlungAction(paketWunsch?: string) {
 // schaltet hart ab (Daten bleiben); sind mehr Benutzer aktiv als das neue
 // Paket erlaubt, bleiben sie aktiv, es können nur keine neuen eingeladen
 // werden.
-export async function wechslePaketAction(paketWunsch: string) {
+export async function wechslePaketAction(paketWunsch: string, buchhaltungsart?: string) {
   const membership = await getCurrentMembership()
   if (!membership) return { error: 'Kein Betrieb gefunden' }
   if (!canAdmin(membership.role)) {
@@ -149,6 +159,12 @@ export async function wechslePaketAction(paketWunsch: string) {
     return { error: 'Für Ihren Betrieb existiert noch kein Abo – bitte zuerst „Zahlungsdaten hinterlegen" verwenden.' }
   }
   if (paketAusPlan(t.stripe_plan) === paket) return { error: 'Dieses Paket ist bereits aktiv.' }
+  // Migration 197: kommt E&A neu dazu, muss die Buchhaltungsart gewählt sein
+  const altesPaket = paketAusPlan(t.stripe_plan)
+  const eaNeu = PAKETE[paket].module.modul_ea && !(altesPaket && PAKETE[altesPaket].module.modul_ea)
+  if (eaNeu && !istBuchhaltungsart(buchhaltungsart)) {
+    return { error: `Das Paket ${PAKETE[paket].label} enthält die E&A-Rechnung – bitte wählen Sie, ob Sie die E&A-Rechnung in software:112 führen oder Ihr Steuerberater die doppelte Buchhaltung (BMD) macht.` }
+  }
 
   try {
     const stripe = getStripe()
@@ -167,8 +183,39 @@ export async function wechslePaketAction(paketWunsch: string) {
   await (admin.from('tenants') as R).update({ stripe_plan: paket }).eq('id', membership.tenantId)
   const fehler = await wendePaketAn(admin, membership.tenantId, paket)
   if (fehler) return { error: fehler }
+  if (istBuchhaltungsart(buchhaltungsart)) {
+    const f2 = await speichereBuchhaltungsart(admin, membership.tenantId, buchhaltungsart)
+    if (f2) return { error: f2 }
+  }
 
   revalidatePath('/abo')
   revalidatePath('/', 'layout')
   return { ok: true, paket }
+}
+
+// ── Buchhaltungsart (Migration 197, Rückmeldung 4.9.2026) ───────────────────
+// Pakete mit E&A (Standard, Premium) verlangen die Entscheidung, wer die
+// Buchhaltung führt: 'ea' = E&A-Rechnung in software:112, 'doppik' = doppelte
+// Buchhaltung beim Steuerberater (BMD-Übergabe, UVA nur Vorschau). Wird beim
+// Paketwechsel/-kauf mit abgefragt und kann hier vom Betriebsleiter jederzeit
+// umgestellt werden (gleiche Einstellung wie Administration → Mandanten).
+export type Buchhaltungsart = 'ea' | 'doppik'
+const istBuchhaltungsart = (v: unknown): v is Buchhaltungsart => v === 'ea' || v === 'doppik'
+
+async function speichereBuchhaltungsart(admin: R, tenantId: string, art: Buchhaltungsart): Promise<string | null> {
+  const { error } = await admin.from('tenant_einstellungen')
+    .upsert({ tenant_id: tenantId, buchhaltungsart: art }, { onConflict: 'tenant_id' })
+  return error ? `Buchhaltungsart konnte nicht gespeichert werden: ${(error as R).message}` : null
+}
+
+export async function setzeBuchhaltungsartAction(art: string) {
+  const membership = await getCurrentMembership()
+  if (!membership) return { error: 'Kein Betrieb gefunden' }
+  if (!canAdmin(membership.role)) return { error: 'Nur der Betriebsleiter bzw. System-Admin kann die Buchhaltungsart ändern.' }
+  if (!istBuchhaltungsart(art)) return { error: 'Ungültige Buchhaltungsart.' }
+  const fehler = await speichereBuchhaltungsart(createSupabaseAdminClient(), membership.tenantId, art)
+  if (fehler) return { error: fehler }
+  revalidatePath('/abo')
+  revalidatePath('/', 'layout')
+  return { ok: true }
 }
