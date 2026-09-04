@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { createOwnStripePortalSession, starteZahlungAction, wechslePaketAction, setzeBuchhaltungsartAction, type Buchhaltungsart } from './actions'
 import { PAKETE, preisText, type PaketKey } from '@/lib/pakete'
@@ -163,6 +165,13 @@ export default function AboClient({
   return (
     <div className="min-h-screen bg-s112-bg flex items-center justify-center p-4">
       <div className={`w-full ${darfVerwalten && verfuegbarePakete.length > 0 ? 'max-w-3xl' : 'max-w-md'}`}>
+        {/* Rückweg in die Anwendung (Rückmeldung 4.9.2026) - nur, wenn der
+            Betrieb nicht gesperrt ist; gesperrte landen ohnehin wieder hier. */}
+        {!hardBlocked && (
+          <Link href="/betrieb/einstellungen" className="inline-flex items-center gap-1.5 text-sm text-s112-muted hover:text-s112-teal mb-4">
+            <ArrowLeft size={15} strokeWidth={1.75} /> Zurück zu „Mein Betrieb“
+          </Link>
+        )}
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-s112-teal inline-flex items-baseline gap-0">
