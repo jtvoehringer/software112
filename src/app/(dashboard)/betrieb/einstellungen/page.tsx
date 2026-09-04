@@ -5,6 +5,7 @@ import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { getTenantMembers } from '../../benutzer/actions'
 import EinstellungenClient from './EinstellungenClient'
 import { pruefeBenutzerlimit } from '@/lib/pakete-server'
+import { paketAusPlan } from '@/lib/pakete'
 
 export const metadata: Metadata = { title: 'Mein Betrieb – software:112' }
 export const dynamic = 'force-dynamic'
@@ -41,6 +42,12 @@ export type EigeneBetriebsdaten = {
   rechnung_fusstext: string | null
   bawb_kennung: string | null
   bawb_passwort: string | null
+  // Abo & Paket (Rückmeldung 4.9.2026): Betriebsleiter sieht sein Paket und
+  // kommt von hier zu /abo (Wechsel, Zahlungsdaten, Buchhaltungsart)
+  paket: string | null
+  stripe_status: string | null
+  buchhaltungsart: 'ea' | 'doppik'
+  max_benutzer: number | null
 }
 
 export default async function MeinBetriebPage() {
@@ -55,13 +62,13 @@ export default async function MeinBetriebPage() {
   // eigentliche Sicherheitsgrenze hier, nicht RLS.
   const admin = createSupabaseAdminClient()
   const [{ data: tenantRaw }, { data: settingsRaw }, members, benutzerlimit] = await Promise.all([
-    (admin.from('tenants') as any).select('id, name, bio_status').eq('id', membership.tenantId).single(),
+    (admin.from('tenants') as any).select('id, name, bio_status, stripe_plan, stripe_status, max_benutzer').eq('id', membership.tenantId).single(),
     (admin.from('tenant_einstellungen') as any)
       .select(`
         anzeigename, logo_url, primary_color, secondary_color, session_timeout_minuten,
         gaerung_messintervall_tage, fristen_vorwarnung_tage,
         betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_telefon,
-        betrieb_email, betrieb_website, betrieb_uid, betrieb_betriebsnummer, ea_betriebsbeginn, modul_ea,
+        betrieb_email, betrieb_website, betrieb_uid, betrieb_betriebsnummer, ea_betriebsbeginn, modul_ea, buchhaltungsart,
         rechnung_iban, rechnung_bic, rechnung_fusstext,
         bawb_kennung, bawb_passwort
       `)
@@ -103,6 +110,10 @@ export default async function MeinBetriebPage() {
     rechnung_fusstext: s?.rechnung_fusstext ?? null,
     bawb_kennung:      s?.bawb_kennung ?? null,
     bawb_passwort:     s?.bawb_passwort ?? null,
+    paket:             paketAusPlan(t.stripe_plan) ?? null,
+    stripe_status:     t.stripe_status ?? null,
+    buchhaltungsart:   s?.buchhaltungsart === 'doppik' ? 'doppik' : 'ea',
+    max_benutzer:      t.max_benutzer ?? null,
   }
 
   return (

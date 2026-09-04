@@ -35,6 +35,7 @@ export async function getCurrentMembership(): Promise<{ tenantId: string; role: 
       .select('tenant_id, role')
       .eq('tenant_id', activeTenantId)
       .eq('user_id', user.id)
+      .eq('aktiv', true)   // deaktivierte Mitgliedschaft (Migration 159) zählt nicht - wie in RLS
       .limit(1)
       .maybeSingle()
     if (data) return { tenantId: (data as R).tenant_id, role: (data as R).role as UserRole }
@@ -50,6 +51,7 @@ export async function getCurrentMembership(): Promise<{ tenantId: string; role: 
   const { data } = await (supabase.from('tenant_memberships') as any)
     .select('tenant_id, role')
     .eq('user_id', user.id)
+    .eq('aktiv', true)
     .limit(1)
     .maybeSingle()
   if (!data) return null

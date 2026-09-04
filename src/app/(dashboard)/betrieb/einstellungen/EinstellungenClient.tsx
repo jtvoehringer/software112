@@ -7,6 +7,7 @@ import type { EigeneBetriebsdaten } from './page'
 import BenutzerClient from '../../benutzer/BenutzerClient'
 import type { BenutzerlimitStatus } from '@/lib/pakete-server'
 import type { MemberWithEmail } from '../../benutzer/actions'
+import { PAKETE, preisText, istPaketKey } from '@/lib/pakete'
 
 const BIO_STATUS_OPTS = [
   { value: 'konventionell', label: 'Konventionell' },
@@ -22,7 +23,7 @@ function inputCls() {
   return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
 }
 
-type Tab = 'branding' | 'benutzer' | 'betrieb' | 'bawb'
+type Tab = 'branding' | 'benutzer' | 'betrieb' | 'bawb' | 'abo'
 
 export default function EinstellungenClient({
   daten, members, benutzerlimit, isSystemAdmin,
@@ -39,6 +40,7 @@ export default function EinstellungenClient({
     { id: 'benutzer', label: 'Benutzer', count: members.length },
     { id: 'betrieb',  label: 'Betrieb' },
     { id: 'bawb',     label: 'bawb.at' },
+    { id: 'abo',      label: 'Abo & Paket' },
   ]
 
   return (
@@ -81,6 +83,51 @@ export default function EinstellungenClient({
       {tab === 'benutzer' && <BenutzerClient members={members} limit={benutzerlimit} />}
       {tab === 'betrieb'  && <BetriebTabOwn daten={daten} />}
       {tab === 'bawb'     && <BawbTabOwn daten={daten} />}
+      {tab === 'abo'      && <AboTabOwn daten={daten} />}
+    </div>
+  )
+}
+
+// ── Tab: Abo & Paket ─────────────────────────────────────────────────────────
+// Rückmeldung 4.9.2026: der Betriebsleiter konnte sein Abo nirgends erreichen
+// (/abo war nur über den Zahlungs-Hinweis verlinkt). Hier die Zusammenfassung,
+// der Wechsel selbst läuft weiter auf /abo (Stripe, Buchhaltungsfrage).
+
+function AboTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
+  const p = istPaketKey(daten.paket) ? PAKETE[daten.paket] : null
+  const statusText: Record<string, string> = {
+    active: 'aktiv', trialing: 'Testphase', past_due: 'Zahlung offen', cancelled: 'gekündigt', canceled: 'gekündigt', unpaid: 'unbezahlt',
+  }
+  return (
+    <div className="max-w-lg space-y-4">
+      <div className="card space-y-3">
+        <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Gebuchtes Paket</h2>
+        {p ? (
+          <>
+            <p className="text-lg font-semibold text-gray-900">{p.label} <span className="text-sm font-normal text-s112-teal">{preisText(p)}</span></p>
+            <p className="text-sm text-gray-700">
+              {p.maxBenutzer === null ? 'Unbegrenzt Benutzer' : `${p.maxBenutzer} Benutzer`} · KI-Abfragen {p.kiLimit === null ? 'unbegrenzt' : `${p.kiLimit}/Monat`}
+              {daten.stripe_status && <> · Abo {statusText[daten.stripe_status] ?? daten.stripe_status}</>}
+            </p>
+            <ul className="text-xs text-s112-muted space-y-0.5">
+              {p.leistungen.map(l => <li key={l}>· {l}</li>)}
+            </ul>
+          </>
+        ) : (
+          <p className="text-sm text-gray-700">Noch kein Paket gebucht.</p>
+        )}
+        {daten.modul_ea && (
+          <p className="text-xs text-gray-700 border-t border-s112-border pt-3">
+            Buchhaltung: <span className="font-medium">{daten.buchhaltungsart === 'doppik' ? 'doppelte Buchhaltung beim Steuerberater (BMD-Übergabe)' : 'E&A-Rechnung in software:112'}</span>
+          </p>
+        )}
+        <Link href="/abo" className="inline-block bg-s112-teal text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-opacity-90">
+          Abo &amp; Paket verwalten →
+        </Link>
+        <p className="text-[11.5px] text-s112-muted">
+          Paket wechseln (sofort wirksam, anteilig abgerechnet), Zahlungsdaten und Rechnungen, Buchhaltungsart umstellen.
+        </p>
+      </div>
     </div>
   )
 }
