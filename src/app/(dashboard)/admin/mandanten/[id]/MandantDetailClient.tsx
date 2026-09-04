@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState, useTransition, useRef, Suspense } from 'react'
+import { useState, useEffect, useTransition, useRef, Suspense } from 'react'
 import { CheckCircle2, AlertTriangle, Pencil } from 'lucide-react'
 import {
   saveTenantSettings,
@@ -541,37 +541,39 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
 function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
   const router                     = useRouter()
   const [pending, startTransition] = useTransition()
-  // Paketmodell (2.9.2026): das gebuchte Paket (tenants.stripe_plan) gibt die
-  // Flags vor, der Stripe-Webhook setzt sie bei jedem Subscription-Event hart.
-  // Die Toggles hier sind ein Override bis zum nächsten Paketwechsel.
+  // Paketmodell (2.9.2026, Rückmeldung 4.9.2026): die Module kommen aus dem
+  // gebuchten Paket (tenants.stripe_plan) - keine Einzel-Toggles mehr, der
+  // Stripe-Webhook setzt die Flags bei jedem Subscription-Event hart, bis
+  // dahin "Paket-Vorgaben anwenden". Vom System geführt: enthält das Paket
+  // die E&A-Rechnung (Standard, Premium), muss die Buchhaltungsart gewählt
+  // werden (Migration 197) - E&A in software:112 oder Doppik beim
+  // Steuerberater (BMD). Einzige weitere Handeinstellung: SumUp (Hardware).
   const paket = paketAusPlan(tenant.stripe_plan)
   const [paketWahl, setPaketWahl]  = useState<PaketKey | ''>(paket ?? '')
   const [paketMsg, setPaketMsg]    = useState<string | null>(null)
+  // '' = noch nicht gewählt (bei Betrieben ohne E&A gibt es noch keine Wahl)
+  const [buchhaltungsart, setBuchhaltungsart] = useState<'ea' | 'doppik' | ''>(settings.modul_ea ? (settings.buchhaltungsart ?? 'ea') : '')
+  const [sumup, setSumup]          = useState(settings.modul_sumup ?? false)
+  const [saved, setSaved]          = useState(false)
+
+  // Props nach router.refresh() (Paket-Vorgaben, Stripe-Webhook) übernehmen
+  useEffect(() => {
+    setBuchhaltungsart(settings.modul_ea ? (settings.buchhaltungsart ?? 'ea') : '')
+    setSumup(settings.modul_sumup ?? false)
+  }, [settings])
+
+  const gewaehlt = paketWahl ? PAKETE[paketWahl] : (paket ? PAKETE[paket] : null)
+  const brauchtBuchhaltungsart = !!gewaehlt?.module.modul_ea
+  const wahlFehlt = brauchtBuchhaltungsart && buchhaltungsart === ''
 
   function handlePaketAnwenden() {
     setPaketMsg(null)
     startTransition(async () => {
-      const r = await wendePaketVorgabenAn(tenant.id, paketWahl || undefined)
+      const r = await wendePaketVorgabenAn(tenant.id, paketWahl || undefined, buchhaltungsart)
       if ('error' in r && r.error) { setPaketMsg(r.error); return }
       setPaketMsg(`Vorgaben des Pakets ${PAKETE[(r as { paket: PaketKey }).paket].label} angewendet.`)
       router.refresh()
     })
-  }
-  const [saved, setSaved]          = useState(false)
-  const [mods, setMods]            = useState({
-    modul_weingarten: settings.modul_weingarten,
-    modul_kellerbuch: settings.modul_kellerbuch,
-    modul_crm:        settings.modul_crm,
-    modul_newsletter: settings.modul_newsletter,
-    modul_ea:         settings.modul_ea         ?? false,
-    modul_sumup:      settings.modul_sumup       ?? false,
-    modul_export:     settings.modul_export      ?? false,
-    modul_controlling: settings.modul_controlling ?? false,
-    assistent_aktiv:  settings.assistent_aktiv   ?? false,
-  })
-
-  function toggle(key: keyof typeof mods) {
-    setMods(m => ({ ...m, [key]: !m[key] }))
   }
 
   function handleSave() {
@@ -580,15 +582,16 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
     fd.set('logo_url',         settings.logo_url ?? '')
     fd.set('primary_color',    settings.primary_color)
     fd.set('secondary_color',  settings.secondary_color)
-    fd.set('modul_weingarten', mods.modul_weingarten ? 'true' : 'false')
-    fd.set('modul_kellerbuch', mods.modul_kellerbuch  ? 'true' : 'false')
-    fd.set('modul_crm',        mods.modul_crm         ? 'true' : 'false')
-    fd.set('modul_newsletter', mods.modul_newsletter   ? 'true' : 'false')
-    fd.set('modul_ea',         mods.modul_ea           ? 'true' : 'false')
-    fd.set('modul_sumup',      mods.modul_sumup         ? 'true' : 'false')
-    fd.set('modul_export',     mods.modul_export        ? 'true' : 'false')
-    fd.set('modul_controlling', mods.modul_controlling   ? 'true' : 'false')
-    fd.set('assistent_aktiv',  mods.assistent_aktiv     ? 'true' : 'false')
+    fd.set('modul_weingarten', settings.modul_weingarten ? 'true' : 'false')
+    fd.set('modul_kellerbuch', settings.modul_kellerbuch  ? 'true' : 'false')
+    fd.set('modul_crm',        settings.modul_crm         ? 'true' : 'false')
+    fd.set('modul_newsletter', settings.modul_newsletter   ? 'true' : 'false')
+    fd.set('modul_ea',         settings.modul_ea           ? 'true' : 'false')
+    fd.set('modul_sumup',      sumup && settings.modul_ea  ? 'true' : 'false')
+    fd.set('modul_export',     settings.modul_export        ? 'true' : 'false')
+    fd.set('modul_controlling', settings.modul_controlling   ? 'true' : 'false')
+    fd.set('buchhaltungsart',  buchhaltungsart || 'ea')
+    fd.set('assistent_aktiv',  settings.assistent_aktiv     ? 'true' : 'false')
     fd.set('brevo_api_key',     settings.brevo_api_key ?? '')
     fd.set('brevo_sender_mail', settings.brevo_sender_mail ?? '')
     fd.set('brevo_sender_name', settings.brevo_sender_name ?? '')
@@ -600,21 +603,54 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
     startTransition(async () => {
       await saveTenantSettings(tenant.id, fd)
       setSaved(true)
-      setTimeout(() => router.push('/admin/mandanten'), 800)
+      router.refresh()
+      setTimeout(() => setSaved(false), 2500)
     })
   }
 
+  // Was der Betrieb aktuell hat (tatsächliche Flags - nach Paket-Anwendung bzw. Webhook)
+  const p = paket ? PAKETE[paket] : null
+  const module: { label: string; aktiv: boolean; hinweis?: string }[] = [
+    { label: 'Weingarten & Rieden',      aktiv: settings.modul_weingarten },
+    { label: 'Kellerbuch',               aktiv: settings.modul_kellerbuch },
+    { label: 'CRM',                      aktiv: settings.modul_crm },
+    { label: 'Newsletter (Brevo)',       aktiv: settings.modul_newsletter,  hinweis: 'ab Standard' },
+    { label: settings.buchhaltungsart === 'doppik' && settings.modul_ea ? 'Belege & BMD-Übergabe (Doppik beim Steuerberater)' : 'E&A-Rechnung inkl. BMD-Übergabe', aktiv: settings.modul_ea, hinweis: 'ab Standard' },
+    { label: 'Controlling (Auswertungen, Kostenrechnung, Datenexport)', aktiv: settings.modul_controlling, hinweis: 'ab Standard' },
+    { label: 'Exportaufträge (Weinexport)', aktiv: settings.modul_export, hinweis: 'Premium' },
+    { label: 'bot:112 mit Sprachsteuerung', aktiv: settings.assistent_aktiv, hinweis: 'Premium' },
+    { label: 'SumUp Kartenterminal',     aktiv: settings.modul_sumup,       hinweis: 'Zusatzoption' },
+  ]
+  const geaendert = (buchhaltungsart || 'ea') !== (settings.buchhaltungsart ?? 'ea') || sumup !== (settings.modul_sumup ?? false)
+
+  const BuchhaltungsWahl = (
+    <div className="space-y-2">
+      {([
+        ['ea',     'E&A-Rechnung in software:112',                  'UVA, Monatsabschluss und Jahresergebnis entstehen hier.'],
+        ['doppik', 'Doppelte Buchhaltung beim Steuerberater (BMD)', 'software:112 erfasst Rechnungen und Belege und übergibt sie per BMD-Übergabe. UVA nur als Vorschau, Meldung macht die Kanzlei.'],
+      ] as ['ea' | 'doppik', string, string][]).map(([key, label, hinweis]) => (
+        <label key={key} className={`flex items-start gap-2.5 cursor-pointer rounded-xl border px-3 py-2.5 text-sm ${buchhaltungsart === key ? 'border-s112-teal bg-s112-teal/5' : 'border-s112-border'}`}>
+          <input type="radio" name="buchhaltungsart" value={key} checked={buchhaltungsart === key}
+            onChange={() => setBuchhaltungsart(key)} className="mt-1" />
+          <span>
+            <span className="text-gray-800 font-medium">{label}</span>
+            <span className="block text-[11px] text-s112-muted mt-0.5">{hinweis}</span>
+          </span>
+        </label>
+      ))}
+    </div>
+  )
+
   return (
-    <div className="space-y-5 max-w-sm">
+    <div className="space-y-5 max-w-md">
       <div className="card space-y-3">
         <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Paket</h2>
         <p className="text-sm text-gray-700">
-          {paket ? <>Gebucht: <span className="font-medium">{PAKETE[paket].label}</span> ({preisText(PAKETE[paket])}, {PAKETE[paket].maxBenutzer === null ? 'unbegrenzt Benutzer' : `${PAKETE[paket].maxBenutzer} Benutzer`})</> : 'Kein Paket hinterlegt (kein Stripe-Abo).'}
+          {p ? <>Gebucht: <span className="font-medium">{p.label}</span> ({preisText(p)}, {p.maxBenutzer === null ? 'unbegrenzt Benutzer' : `${p.maxBenutzer} Benutzer`}, KI-Abfragen {p.kiLimit === null ? 'unbegrenzt' : `${p.kiLimit}/Monat`})</> : 'Kein Paket hinterlegt (kein Stripe-Abo).'}
         </p>
         <p className="text-xs text-s112-muted">
-          Die Modul-Schalter unten sind Vorgaben des Pakets und können hier übersteuert werden – bis zum nächsten
-          Paketwechsel in Stripe, dann gilt wieder das Paket. „Paket-Vorgaben anwenden" setzt Module und Benutzerlimit
-          zurück auf das gewählte Paket.
+          Die Module ergeben sich aus dem Paket. Bis Stripe angebunden ist, wird das Paket hier gewählt und mit
+          „Paket-Vorgaben anwenden“ gesetzt – danach übernimmt das der Stripe-Webhook bei jedem Paketwechsel.
         </p>
         <div className="flex items-center gap-2">
           <select value={paketWahl} onChange={e => setPaketWahl(e.target.value as PaketKey | '')}
@@ -622,41 +658,52 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
             <option value="">– gebuchtes Paket –</option>
             {PAKET_REIHENFOLGE.map(k => <option key={k} value={k}>{PAKETE[k].label}</option>)}
           </select>
-          <button type="button" onClick={handlePaketAnwenden} disabled={pending}
+          <button type="button" onClick={handlePaketAnwenden} disabled={pending || wahlFehlt}
             className="border border-s112-teal text-s112-teal px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/5 disabled:opacity-40">
             Paket-Vorgaben anwenden
           </button>
         </div>
-        {paketMsg && <p className="text-xs text-gray-700">{paketMsg}</p>}
-      </div>
-
-      <div className="card space-y-4">
-        <Toggle on={mods.modul_weingarten} onToggle={() => toggle('modul_weingarten')} label="Weingarten-Modul" />
-        <Toggle on={mods.modul_kellerbuch} onToggle={() => toggle('modul_kellerbuch')} label="Kellerbuch-Modul" />
-        <Toggle on={mods.modul_crm}        onToggle={() => toggle('modul_crm')}        label="CRM-Modul" />
-        <Toggle on={mods.modul_newsletter} onToggle={() => toggle('modul_newsletter')} label="Newsletter-Modul (Brevo)" />
-        <Toggle on={mods.modul_ea}         onToggle={() => toggle('modul_ea')}         label="E&A-Rechnung (§ 4 Abs. 3)" />
-        <Toggle on={mods.modul_sumup} onToggle={() => {
-            if (!mods.modul_sumup && !mods.modul_ea) toggle('modul_ea')
-            toggle('modul_sumup')
-          }} label="SumUp Kartenterminal" />
-          {!mods.modul_ea && (
-            <p className="text-xs text-amber-600 -mt-2 ml-12">
-              Erfordert E&amp;A – Aktivierung schaltet E&amp;A automatisch mit ein
+        {brauchtBuchhaltungsart && (
+          <div className="rounded-xl border border-s112-border bg-s112-bg/60 p-3 space-y-2">
+            <p className="text-xs font-medium text-gray-700">
+              {gewaehlt?.label} enthält die E&amp;A-Rechnung – wer macht die Buchhaltung?
+              {wahlFehlt && <span className="text-amber-600 font-normal"> Bitte wählen, dann kann das Paket angewendet werden.</span>}
             </p>
-          )}
-        <Toggle on={mods.modul_export} onToggle={() => toggle('modul_export')} label="Exportaufträge (Weinexport)" />
-        <Toggle on={mods.modul_controlling} onToggle={() => toggle('modul_controlling')} label="Controlling (Auswertungen, Kostenrechnung, Datenexport)" />
-        <Toggle on={mods.assistent_aktiv} onToggle={() => toggle('assistent_aktiv')} label="bot:112 – Beta" />
+            {BuchhaltungsWahl}
+          </div>
+        )}
+        {paketMsg && <p className="text-xs text-gray-700">{paketMsg}</p>}
+
+        <ul className="divide-y divide-s112-border/60 border-t border-s112-border/60 pt-1">
+          {module.map(m => (
+            <li key={m.label} className="flex items-center justify-between py-2 text-sm">
+              <span className={m.aktiv ? 'text-gray-800' : 'text-gray-400'}>
+                {m.aktiv ? <CheckCircle2 className="inline w-4 h-4 text-s112-teal mr-1.5 -mt-0.5" /> : <span className="inline-block w-4 h-4 mr-1.5 align-middle rounded-full border border-gray-300" />}
+                {m.label}
+              </span>
+              {m.hinweis && <span className="text-[11px] text-s112-muted">{m.hinweis}</span>}
+            </li>
+          ))}
+        </ul>
       </div>
 
-      <div className="flex items-center gap-3">
-        <button onClick={handleSave} disabled={pending}
-          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
-          {pending ? 'Speichern…' : 'Speichern'}
-        </button>
-        {saved && <span className="text-xs text-s112-teal font-medium">Gespeichert</span>}
-      </div>
+      {settings.modul_ea && (
+        <div className="card space-y-3">
+          <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Buchhaltung &amp; Zusatzoptionen</h2>
+          <p className="text-xs text-s112-muted">Wird nicht vom Paket entschieden, sondern vom Betrieb – kann jederzeit umgestellt werden.</p>
+          {BuchhaltungsWahl}
+          <div className="pt-1">
+            <Toggle on={sumup} onToggle={() => setSumup(v => !v)} label="SumUp Kartenterminal (Zusatzoption, Hardware)" />
+          </div>
+          <div className="flex items-center gap-3 pt-1">
+            <button onClick={handleSave} disabled={pending || !geaendert}
+              className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+              {pending ? 'Speichern…' : 'Speichern'}
+            </button>
+            {saved && <span className="text-xs text-s112-teal font-medium">Gespeichert</span>}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1793,7 +1840,7 @@ export default function MandantDetailClient({ tenant, settings, members }: {
           {settings.modul_kellerbuch && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">Kellerbuch</span>}
           {settings.modul_crm        && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">CRM</span>}
           {settings.modul_newsletter && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">Newsletter</span>}
-          {settings.modul_ea         && <span className="text-xs bg-lime-100 text-lime-700 px-2 py-0.5 rounded-full">E&A</span>}
+          {settings.modul_ea         && <span className="text-xs bg-lime-100 text-lime-700 px-2 py-0.5 rounded-full">{settings.buchhaltungsart === 'doppik' ? 'E&A · Doppik/BMD' : 'E&A'}</span>}
           {settings.modul_sumup      && <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">SumUp</span>}
           {settings.modul_export     && <span className="text-xs bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-full">Exportaufträge</span>}
           {settings.modul_controlling && <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">Controlling</span>}

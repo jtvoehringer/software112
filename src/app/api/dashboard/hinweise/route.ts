@@ -18,7 +18,7 @@ export async function GET() {
 
   const einst = await ladeEinstellungen(ctx)
   const [fristen, keller] = await Promise.all([
-    ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum, vorwarnungTage: einst.vorwarnungTage, betriebsbeginn: einst.betriebsbeginn }),
+    ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum, vorwarnungTage: einst.vorwarnungTage, betriebsbeginn: einst.betriebsbeginn, doppik: einst.doppik }),
     ladeKeller(ctx, einst.messintervallTage),
   ])
 

@@ -177,6 +177,8 @@ export type NavContext = {
   isSandbox: boolean
   /** Sandbox-Sonderfreigabe (lib/auth/roles.ts isSandboxAdminUnlock) */
   sandboxAdminUnlock: boolean
+  /** Migration 197: doppelte Buchhaltung beim Steuerberater (BMD) statt E&A in software:112 */
+  doppik?: boolean
 }
 
 const ADMIN_PREFIX = '/admin/'
@@ -214,9 +216,21 @@ export function buildNav(ctx: NavContext): NavGroup[] {
       return true
     })
     if (items.length === 0) continue
-    result.push({ ...g, items })
+    result.push(g.key === 'ea' && ctx.doppik ? fuerDoppik({ ...g, items }) : { ...g, items })
   }
   return result
+}
+
+// Doppik-Mandant (Migration 197): software:112 ist nur Vorsystem, die
+// Buchhaltung führt die Kanzlei in BMD. Der Bereich heißt dann "Belege & BMD",
+// die BMD-Übergabe rückt direkt hinter die Buchungen, die UVA ist nur noch eine
+// Vorschau (Meldung macht die Kanzlei aus BMD).
+function fuerDoppik(g: NavGroup): NavGroup {
+  const bmd = g.items.find(it => it.href === '/controlling/bmd')
+  const rest = g.items.filter(it => it !== bmd).map(it =>
+    it.href === '/buchhaltung/uva' ? { ...it, label: 'UVA (Vorschau)' } : it)
+  const items = bmd ? [rest[0], { ...bmd, child: false }, ...rest.slice(1)].filter(Boolean) as NavItem[] : rest
+  return { ...g, label: 'Belege & BMD', items }
 }
 
 /** Bereich, zu dem der aktuelle Pfad gehört (Fallback: erster Bereich) */

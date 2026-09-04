@@ -89,6 +89,8 @@ export type TenantSettings = {
   modul_export:        boolean
   // Migration 193 – Controlling (Auswertungen, Kostenrechnung, Datenexport)
   modul_controlling:   boolean
+  // Migration 197 – Buchhaltungsart: 'ea' (E&A in software:112) | 'doppik' (Steuerberater/BMD)
+  buchhaltungsart:     'ea' | 'doppik'
   // Migration 148 – Prozess-Assistent (Bot)
   assistent_aktiv:     boolean
   ea_buchung_modus:    string
@@ -238,6 +240,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     modul_sumup:         !!(s?.modul_sumup),
     modul_export:        !!(s?.modul_export),
     modul_controlling:   !!(s?.modul_controlling),
+    buchhaltungsart:     s?.buchhaltungsart === 'doppik' ? 'doppik' : 'ea',
     ea_buchung_modus:    s?.ea_buchung_modus ?? 'brutto',
     ea_kleinunternehmer: !!(s?.ea_kleinunternehmer),
     ea_uva_zeitraum:     s?.ea_uva_zeitraum ?? 'quartalsweise',

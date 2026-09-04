@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic'
 export default async function FristenSichtPage() {
   const ctx = await getCtx()
   const einst = await ladeEinstellungen(ctx)
-  const fristen = await ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum, vorwarnungTage: einst.vorwarnungTage, betriebsbeginn: einst.betriebsbeginn })
+  const fristen = await ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum, vorwarnungTage: einst.vorwarnungTage, betriebsbeginn: einst.betriebsbeginn, doppik: einst.doppik })
   const ueberfaellig = fristen.filter(f => f.status === 'ueberfaellig').length
   const faellig = fristen.filter(f => f.status === 'faellig').length
 

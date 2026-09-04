@@ -7,7 +7,7 @@ import { getCurrentUserRole, isSandboxAdminUnlock } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import { getStripe } from '@/lib/stripe/client'
 import { pruefeBenutzerlimit, benutzerlimitFehler, wendePaketAn, ladePaket } from '@/lib/pakete-server'
-import { istPaketKey } from '@/lib/pakete'
+import { istPaketKey, PAKETE } from '@/lib/pakete'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -59,6 +59,9 @@ export async function saveTenantSettings(tenantId: string, formData: FormData) {
     modul_sumup:        formData.get('modul_sumup')        === 'true',
     modul_export:       formData.get('modul_export')       === 'true',
     modul_controlling:  formData.get('modul_controlling')  === 'true',
+    // Migration 197 – nur schreiben, wenn der Aufrufer sie mitschickt (Tab Module);
+    // die anderen Tabs (Branding, Brevo) lassen die Buchhaltungsart unverändert.
+    ...(formData.has('buchhaltungsart') ? { buchhaltungsart: formData.get('buchhaltungsart') === 'doppik' ? 'doppik' : 'ea' } : {}),
     assistent_aktiv:    formData.get('assistent_aktiv')    === 'true',
     brevo_api_key:      (formData.get('brevo_api_key') as string) || null,
     brevo_sender_mail:  (formData.get('brevo_sender_mail') as string) || null,
@@ -580,16 +583,27 @@ export async function cancelStripeSubscription(tenantId: string, subscriptionId:
 // (tenants.stripe_plan, lib/pakete.ts) - dasselbe, was der Stripe-Webhook bei
 // jedem Subscription-Event macht. Für manuell betreute Mandanten ohne Stripe
 // kann optional ein Paket vorgegeben werden.
-export async function wendePaketVorgabenAn(tenantId: string, paketWunsch?: string) {
+// Rückmeldung 4.9.2026: Pakete mit E&A (Standard, Premium) verlangen die
+// Buchhaltungsart (Migration 197) - 'ea' = E&A in software:112, 'doppik' =
+// Steuerberater/BMD. Sie wird hier in einem Zug mit dem Paket gesetzt.
+export async function wendePaketVorgabenAn(tenantId: string, paketWunsch?: string, buchhaltungsart?: 'ea' | 'doppik' | '') {
   await assertSystemAdmin(tenantId)
   const admin = createSupabaseAdminClient()
   const paket = istPaketKey(paketWunsch) ? paketWunsch : await ladePaket(admin, tenantId)
   if (!paket) return { error: 'Für diesen Mandanten ist kein Paket hinterlegt (kein Stripe-Abo).' }
+  if (PAKETE[paket].module.modul_ea && buchhaltungsart !== 'ea' && buchhaltungsart !== 'doppik') {
+    return { error: `Das Paket ${PAKETE[paket].label} enthält die E&A-Rechnung - bitte zuerst wählen, ob der Betrieb die E&A-Rechnung in software:112 führt oder die doppelte Buchhaltung beim Steuerberater (BMD).` }
+  }
   if (istPaketKey(paketWunsch)) {
     await (admin.from('tenants') as any).update({ stripe_plan: paket }).eq('id', tenantId)
   }
   const fehler = await wendePaketAn(admin, tenantId, paket)
   if (fehler) return { error: fehler }
+  if (buchhaltungsart === 'ea' || buchhaltungsart === 'doppik') {
+    const { error } = await (admin.from('tenant_einstellungen') as any)
+      .update({ buchhaltungsart }).eq('tenant_id', tenantId)
+    if (error) return { error: `Buchhaltungsart konnte nicht gesetzt werden: ${(error as R).message}` }
+  }
   revalidatePath(`/admin/mandanten/${tenantId}`)
   return { success: true, paket }
 }

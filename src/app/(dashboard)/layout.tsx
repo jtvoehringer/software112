@@ -22,6 +22,8 @@ export type TenantBranding = {
   modul_sumup: boolean
   modul_export: boolean
   modul_controlling: boolean
+  /** Migration 197: 'ea' = E&A in software:112, 'doppik' = Steuerberater/BMD */
+  buchhaltungsart: 'ea' | 'doppik'
 }
 
 // Entspricht exakt den CSS-Fallback-Werten in globals.css/tailwind.config.ts
@@ -38,6 +40,7 @@ const DEFAULT_BRANDING: TenantBranding = {
   modul_sumup:      false,
   modul_export:     false,
   modul_controlling: false,
+  buchhaltungsart:  'ea',
 }
 
 export default async function DashboardLayout({
@@ -75,7 +78,7 @@ export default async function DashboardLayout({
   if (membership?.tenantId) {
     const [{ data }, { data: tenantRow }] = await Promise.all([
       (supabase.from('tenant_einstellungen') as any)
-        .select('anzeigename, logo_url, primary_color, secondary_color, modul_newsletter, modul_ea, modul_sumup, modul_export, modul_controlling, session_timeout_minuten, assistent_aktiv')
+        .select('anzeigename, logo_url, primary_color, secondary_color, modul_newsletter, modul_ea, modul_sumup, modul_export, modul_controlling, buchhaltungsart, session_timeout_minuten, assistent_aktiv')
         .eq('tenant_id', membership.tenantId)
         .maybeSingle(),
       // Nur für sandboxOnly-Nav-Items (z.B. Zeiterfassung, siehe Sidebar.tsx) -
@@ -99,6 +102,7 @@ export default async function DashboardLayout({
         modul_sumup:      d.modul_sumup ?? false,
         modul_export:     d.modul_export ?? false,
         modul_controlling: d.modul_controlling ?? false,
+        buchhaltungsart:  d.buchhaltungsart === 'doppik' ? 'doppik' : 'ea',
       }
       assistentAktiv = !!d.assistent_aktiv
     }

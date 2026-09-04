@@ -3,7 +3,6 @@ import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { schliesseEaMonat } from '../actions'
-import { monatVorBeginn } from '@/lib/ea/betriebsbeginn'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import { Lock, LockOpen } from 'lucide-react'
 
@@ -30,16 +29,15 @@ export default async function MonatsabschlussPage({
   const adminOk  = canAdmin(membership.role)
 
   const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_ea, ea_betriebsbeginn').eq('tenant_id', tenantId).maybeSingle()
+    .select('modul_ea, buchhaltungsart').eq('tenant_id', tenantId).maybeSingle()
   if (!einst?.modul_ea) redirect('/dashboard')
-  // Betriebsbeginn (Migration 180): Monate davor existieren fachlich nicht
-  const betriebsbeginn: string | null = einst?.ea_betriebsbeginn ?? null
-  const beginnJahr = betriebsbeginn ? new Date(betriebsbeginn).getFullYear() : null
+  // Migration 197: bei Doppik beim Steuerberater bedeutet der Abschluss "Belege
+  // dieses Monats sind vollständig und übergeben" - keine steuerliche Sperre.
+  const doppik = einst?.buchhaltungsart === 'doppik'
 
   const sp   = await searchParams
   const jahr = parseInt(sp.jahr ?? '') || new Date().getFullYear()
   const jahre = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
-    .filter(j => beginnJahr === null || j >= beginnJahr)
 
   const { data: abschluesseRaw } = await (supabase.from('ea_monatsabschluss') as any)
     .select('monat, abgeschlossen_am')
@@ -67,6 +65,16 @@ export default async function MonatsabschlussPage({
         Ein abgeschlossener Monat sperrt alle Buchungen dieses Monats gegen Bearbeiten, Löschen und neue
         Buchungen mit einem Datum in diesem Monat. Das ist nicht rückgängig zu machen.
       </p>
+      {doppik && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-2xl px-5 py-4 mb-6 text-sm">
+          <p className="font-semibold mb-1">Doppelte Buchhaltung beim Steuerberater</p>
+          <p>
+            Der Monatsabschluss heißt hier: alle Belege des Monats sind erfasst und per BMD-Übergabe an die Kanzlei
+            gegangen – danach sollen sie sich nicht mehr ändern. Vor dem Abschließen also zuerst{' '}
+            <Link href="/controlling/bmd" className="underline font-medium">Ausgangsrechnungen und Eingangsbelege übergeben</Link>.
+          </p>
+        </div>
+      )}
 
       <form method="GET" className="flex gap-3 mb-6 items-end">
         <div>
@@ -84,7 +92,6 @@ export default async function MonatsabschlussPage({
           const monat = idx + 1
           const abgeschlossenAm = abschluesse.get(monat) as string | undefined
           const zukunft = istZukunft(monat)
-          const vorBeginn = monatVorBeginn(jahr, monat, betriebsbeginn)
           return (
             <div key={monat}
               className="flex items-center justify-between px-5 py-3 border-b border-s112-border/60 last:border-0">
@@ -98,8 +105,6 @@ export default async function MonatsabschlussPage({
                 <span className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">
                   Abgeschlossen am {fmtDateTime(abgeschlossenAm)}
                 </span>
-              ) : vorBeginn ? (
-                <span className="text-xs text-s112-muted" title={`Vor dem Betriebsbeginn ${new Date(betriebsbeginn!).toLocaleDateString('de-AT')} – kein Abschluss nötig`}>vor Betriebsbeginn</span>
               ) : zukunft ? (
                 <span className="text-xs text-s112-muted">–</span>
               ) : adminOk ? (

@@ -262,15 +262,30 @@ function uvaPerioden(zeitraum: 'monatlich' | 'quartalsweise', heute: Date) {
   return out
 }
 
-export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitraum: 'monatlich' | 'quartalsweise'; vorwarnungTage?: number; betriebsbeginn?: string | null }) {
+/** Erster/letzter Tag einer UVA-Periode ('01'..'12' oder 'Q1'..'Q4') */
+function periodeGrenzen(jahr: number, zeitraum: string): [string, string] {
+  if (zeitraum.startsWith('Q')) {
+    const q = Number(zeitraum.slice(1))
+    return [toDateStr(new Date(jahr, (q - 1) * 3, 1)), toDateStr(new Date(jahr, q * 3, 0))]
+  }
+  const m = Number(zeitraum)
+  return [toDateStr(new Date(jahr, m - 1, 1)), toDateStr(new Date(jahr, m, 0))]
+}
+
+export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitraum: 'monatlich' | 'quartalsweise'; vorwarnungTage?: number; betriebsbeginn?: string | null; doppik?: boolean }) {
   const jahr = ctx.heute.getFullYear()
   const vt = opts.vorwarnungTage ?? FAELLIG_TAGE
-  const [{ data: eigeneRaw }, { data: uvaRaw }, { data: jgRaw }, { data: dacRaw }, { data: wfRaw }] = await Promise.all([
+  const doppik = !!opts.modulEa && !!opts.doppik
+  const seit = toDateStr(new Date(ctx.heute.getFullYear() - 1, ctx.heute.getMonth(), 1))
+  const [{ data: eigeneRaw }, { data: uvaRaw }, { data: jgRaw }, { data: dacRaw }, { data: wfRaw }, { data: offenVpRaw }, { data: offenEaRaw }] = await Promise.all([
     ctx.tf(ctx.q('fristen').select('id, bezeichnung, beschreibung, kategorie, faellig_am, wiederholung, href, status, erledigt_am').order('faellig_am')),
-    opts.modulEa ? ctx.tf(ctx.q('ea_uva').select('jahr, zeitraum, gesperrt, gesperrt_am')) : Promise.resolve({ data: [] }),
+    opts.modulEa && !doppik ? ctx.tf(ctx.q('ea_uva').select('jahr, zeitraum, gesperrt, gesperrt_am')) : Promise.resolve({ data: [] }),
     ctx.tf(ctx.q('weinjahrgaenge').select('id, jahrgang, ama_gemeldet, ama_meldedatum, ama_erntemeldungen(status, eingereicht_am)').eq('jahrgang', jahr).limit(1)),
     ctx.tf(ctx.q('dac_antrag').select('id, bezeichnung, status, eingereicht_am').eq('aktiv', true).in('status', ['entwurf', 'eingereicht', 'in_pruefung']).order('created_at', { ascending: false }).limit(20)),
     ctx.tf(ctx.q('behandlungen').select('id, ernte_fruehesteins').gte('ernte_fruehesteins', ctx.heuteStr).order('ernte_fruehesteins').limit(50)),
+    // Doppik (Migration 197): noch nicht an BMD übergebene Belege der letzten 12 Monate
+    doppik ? ctx.tf(ctx.q('verkaufsposten').select('datum').eq('aktiv', true).eq('storniert', false).is('bmd_export_id', null).gte('datum', seit).limit(1000)) : Promise.resolve({ data: [] }),
+    doppik ? ctx.tf(ctx.q('ea_transaktionen').select('datum').eq('typ', 'ausgabe').is('bmd_export_id', null).gte('datum', seit).limit(1000)) : Promise.resolve({ data: [] }),
   ])
 
   const fristen: Frist[] = []
@@ -287,9 +302,33 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
     })
   }
 
-  // UVA (nur mit E&A-Modul): Perioden der letzten 12 Monate, nicht übermittelte
-  // als fällig/überfällig, die zuletzt übermittelte als erledigt.
-  if (opts.modulEa) {
+  // Doppik beim Steuerberater (Migration 197): statt "UVA fällig" zählt hier,
+  // ob alle Belege der Periode an BMD übergeben sind - die UVA meldet die
+  // Kanzlei. Fälligkeit: 10. des Folgemonats nach Periodenende (damit die
+  // Kanzlei die Buchungen vor dem UVA-Termin am 15. des zweitfolgenden Monats hat).
+  if (doppik) {
+    const offen = [...((offenVpRaw ?? []) as R[]), ...((offenEaRaw ?? []) as R[])].map(r => String(r.datum ?? '').slice(0, 10)).filter(Boolean)
+    const perioden = uvaPerioden(opts.uvaZeitraum, ctx.heute)
+    for (const p of perioden) {
+      if (periodeVorBeginn(p.jahr, p.zeitraum, opts.betriebsbeginn)) continue
+      const [von, bis] = periodeGrenzen(p.jahr, p.zeitraum)
+      if (bis >= ctx.heuteStr) continue // Periode läuft noch
+      const anzahl = offen.filter(d => d >= von && d <= bis).length
+      const faelligAm = toDateStr(new Date(new Date(bis).getFullYear(), new Date(bis).getMonth() + 1, 10))
+      const st = statusAus(faelligAm, anzahl === 0, ctx.heuteStr, vt)
+      if (anzahl === 0 && st === 'erledigt' && p !== perioden[perioden.length - 1]) continue
+      fristen.push({
+        key: `bmd:${p.jahr}:${p.zeitraum}`, bezeichnung: `BMD-Übergabe ${p.label}`, kategorie: 'steuer',
+        hinweis: 'Belege an den Steuerberater (BMD NTCS) übergeben', faelligAm, status: st,
+        statusText: anzahl === 0 ? 'alle Belege übergeben' : `${anzahl} ${anzahl === 1 ? 'Beleg' : 'Belege'} noch nicht übergeben · bis ${new Date(faelligAm).toLocaleDateString('de-AT')}`,
+        href: '/controlling/bmd', quelle: 'system',
+      })
+    }
+  }
+
+  // UVA (nur mit E&A-Modul in software:112): Perioden der letzten 12 Monate,
+  // nicht übermittelte als fällig/überfällig, die zuletzt übermittelte als erledigt.
+  if (opts.modulEa && !doppik) {
     const uva = (uvaRaw ?? []) as R[]
     const perioden = uvaPerioden(opts.uvaZeitraum, ctx.heute)
     let letzteErledigt: Frist | null = null
@@ -373,13 +412,15 @@ export async function ladeNaechsteTermine(ctx: Ctx, limit = 5) {
 // ── Tenant-Einstellungen, die die Sichten brauchen ───────────────────────────
 
 export async function ladeEinstellungen(ctx: Ctx) {
-  if (!ctx.tenantId) return { modulEa: false, uvaZeitraum: 'quartalsweise' as const, bawbKennung: false, assistentAktiv: false, m365Aktiv: false, messintervallTage: GAERUNG_MESSINTERVALL_TAGE, vorwarnungTage: FAELLIG_TAGE, betriebsbeginn: null as string | null }
+  if (!ctx.tenantId) return { modulEa: false, doppik: false, uvaZeitraum: 'quartalsweise' as const, bawbKennung: false, assistentAktiv: false, m365Aktiv: false, messintervallTage: GAERUNG_MESSINTERVALL_TAGE, vorwarnungTage: FAELLIG_TAGE, betriebsbeginn: null as string | null }
   const { data } = await ctx.q('tenant_einstellungen')
-    .select('modul_ea, ea_uva_zeitraum, bawb_kennung, assistent_aktiv, m365_modul_aktiv, gaerung_messintervall_tage, fristen_vorwarnung_tage, ea_betriebsbeginn')
+    .select('modul_ea, buchhaltungsart, ea_uva_zeitraum, bawb_kennung, assistent_aktiv, m365_modul_aktiv, gaerung_messintervall_tage, fristen_vorwarnung_tage, ea_betriebsbeginn')
     .eq('tenant_id', ctx.tenantId).maybeSingle()
   const d = (data ?? {}) as R
   return {
     modulEa: !!d.modul_ea,
+    // Migration 197: doppelte Buchhaltung beim Steuerberater (BMD) statt E&A hier
+    doppik: d.buchhaltungsart === 'doppik',
     uvaZeitraum: (d.ea_uva_zeitraum === 'monatlich' ? 'monatlich' : 'quartalsweise') as 'monatlich' | 'quartalsweise',
     bawbKennung: !!d.bawb_kennung,
     assistentAktiv: !!d.assistent_aktiv,

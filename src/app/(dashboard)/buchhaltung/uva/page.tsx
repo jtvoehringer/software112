@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
-import { monatVorBeginn, monateDerPeriode, periodeVorBeginn } from '@/lib/ea/betriebsbeginn'
 import { berechneUndSpeichereUva, markiereUvaAlsUebermittelt } from '../actions'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import { Lock } from 'lucide-react'
@@ -30,11 +29,13 @@ export default async function UvaPage({
   const adminOk  = canAdmin(membership.role)
 
   const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_ea, ea_uva_zeitraum, ea_betriebsbeginn').eq('tenant_id', tenantId).maybeSingle()
+    .select('modul_ea, ea_uva_zeitraum, buchhaltungsart').eq('tenant_id', tenantId).maybeSingle()
   if (!einst?.modul_ea) redirect('/dashboard')
-  // Betriebsbeginn (Migration 180): Perioden/Monate davor existieren fachlich nicht
-  const betriebsbeginn: string | null = einst?.ea_betriebsbeginn ?? null
-  const beginnJahr = betriebsbeginn ? new Date(betriebsbeginn).getFullYear() : null
+  // Migration 197: bei doppelter Buchhaltung beim Steuerberater ist die UVA hier
+  // nur eine Kontroll-Vorschau - die Meldung macht die Kanzlei aus BMD. Deshalb
+  // kein "Als übermittelt markieren" (das würde die Buchungen sperren und
+  // suggerieren, die UVA sei abgegeben).
+  const doppik = einst?.buchhaltungsart === 'doppik'
 
   const sp   = await searchParams
   const jahr = parseInt(sp.jahr ?? '') || new Date().getFullYear()
@@ -55,16 +56,15 @@ export default async function UvaPage({
   const abgeschlosseneMonate = new Set(((abschluesseRaw ?? []) as R[]).map(a => a.monat as number))
 
   const MONATSNAMEN = ['Jän','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']
-  // Monate der Periode, die nach dem Betriebsbeginn liegen (nur die brauchen einen Abschluss)
   const benoetigteMonate = (z: string): number[] =>
-    monateDerPeriode(z).filter(m => !monatVorBeginn(jahr, m, betriebsbeginn))
+    z.startsWith('Q')
+      ? [1, 2, 3].map(i => (parseInt(z[1]) - 1) * 3 + i)
+      : [parseInt(z)]
 
   const jahre = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
-    .filter(j => beginnJahr === null || j >= beginnJahr)
-  const alleZeitraeume = (uvaZeitraum === 'monatlich'
+  const alleZeitraeume = uvaZeitraum === 'monatlich'
     ? Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'))
     : QUARTALE
-  ).filter(z => !periodeVorBeginn(jahr, z, betriebsbeginn))
   const gesperrteZeitraeume = new Set(((uvaListe ?? []) as R[]).filter(u => u.gesperrt).map(u => u.zeitraum))
   const zeitraeume = alleZeitraeume.filter(z => !gesperrteZeitraeume.has(z))
 
@@ -94,11 +94,23 @@ export default async function UvaPage({
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-2">
         <Link href="/buchhaltung" className="hover:text-s112-teal transition-colors">E&amp;A-Rechnung</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">UVA-Meldung</span>
+        <span className="text-gray-700 font-medium">{doppik ? 'UVA (Vorschau)' : 'UVA-Meldung'}</span>
       </div>
       <div className="flex items-center gap-3 mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">UVA-Meldung</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{doppik ? 'UVA (Vorschau)' : 'UVA-Meldung'}</h1>
       </div>
+
+      {doppik && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-2xl px-5 py-4 mb-6 text-sm">
+          <p className="font-semibold mb-1">Die UVA meldet dein Steuerberater aus BMD.</p>
+          <p>
+            Dieser Betrieb führt die doppelte Buchhaltung beim Steuerberater. Die Zahlen hier sind eine Kontroll-Vorschau
+            aus den in software:112 erfassten Belegen – bitte nicht zusätzlich in FinanzOnline eingeben. Entscheidend ist,
+            dass alle Belege des Zeitraums übergeben sind:{' '}
+            <Link href="/controlling/bmd" className="underline font-medium">zur BMD-Übergabe →</Link>
+          </p>
+        </div>
+      )}
 
       {/* Jahr-Wahl */}
       <form method="GET" className="flex gap-3 mb-6 items-end">
@@ -169,7 +181,7 @@ export default async function UvaPage({
                     ) : (
                       <>
                         <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Entwurf</span>
-                        {adminOk && (
+                        {adminOk && !doppik && (
                           fehlendeMonate.length > 0 ? (
                             <span className="inline-flex items-center gap-1.5 text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-full"
                               title="UVA kann erst übermittelt werden, wenn alle Monate dieser Periode abgeschlossen sind">
