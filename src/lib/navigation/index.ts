@@ -118,7 +118,7 @@ const NAV: NavGroup[] = [
       { href: '/buchhaltung/uva',             label: 'UVA-Meldung',     keywords: 'umsatzsteuer finanzonline' },
       { href: '/weinhandel/offene-posten',    label: 'Offene Posten' },
       { href: '/konten',                      label: 'Konten',          keywords: 'bank kassa' },
-      { href: '/controlling/bmd',             label: 'BMD NTCS',        keywords: 'steuerberater export' },
+      { href: '/controlling/bmd',             label: 'BMD-Übergabe',    keywords: 'steuerberater export ntcs buchungsstapel kontenmapping' },
     ],
   },
   // Controlling ist seit Migration 193 ein zuschaltbares Modul (Rückmeldung
