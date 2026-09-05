@@ -63,8 +63,46 @@ Komponenten:
 
 - Mobile UX
 - Erweiterte Auswertungen
-- DATEV/BMD-Export (falls relevant)
+- DATEV-Export (erst bei Markteintritt DE; BMD-Übergabe ist seit 4.9.2026 umgesetzt)
 - Weitere Zahlungsmethoden
+
+---
+
+## Ideen für spätere Phasen (noch nicht beschlossen)
+
+### Flugauftrag für Agrardrohnen (Pflanzenschutz aus der Luft)
+
+Stand 4.9.2026, Entscheidung im Jour fixe am 9.9.2026. Kein To-do.
+
+**Verortung:** Premium-Paket, zusätzlich einmalige Einrichtungsgebühr je Betrieb
+(Einmessen der Rieden, Hindernisse, Abstimmung mit dem Drohnen-Dienstleister).
+
+**Idee:** software:112 steuert keine Drohne, sondern erzeugt aus den vorhandenen
+Daten den Flugauftrag für eine Agrardrohne (Lohnunternehmer) und nimmt das
+Flugprotokoll als Behandlung zurück.
+
+- Datenbasis vorhanden: eAMA-Polygone je Weingarten und Grundstück (bei
+  Gebeshuber 52 Weingärten / 234 Grundstücke), Zentrum, Fläche, Feldstück,
+  Kennzeichen „spritzbar“; Behandlungen mit Mittel, Aufwandmenge, Wasseraufwand,
+  BBCH, Witterung/Wind, Wartezeit. Betriebsstandort als Adresse (Startpunkt →
+  einmal geokodieren).
+- Stufe 1: Rieden wählen → KMZ/KML mit Polygonen + Sprühparametern
+  (Aufwand l/ha, Flughöhe, Bahnabstand) + Auftragsblatt (PDF) mit Start am
+  Betriebsstandort, Anzeigedatum für die Behörde, Wartezeit. Aufwand ca. 1–2 Tage.
+- Stufe 2: Flugprotokoll der Drohne (DJI Agras, XAG …) importieren → Behandlung
+  mit Ist-Fläche/Ist-Menge, Wartefrist-Ampel, Kupferbilanz. Aufwand je nach
+  Herstellerformat.
+- Je Ried zu erfassen: Zeilenrichtung/Reihenabstand, Hindernisse (Masten,
+  Leitungen, Bäume), Pufferzonen, Luftraum lt. Austro-Control-Drohnenkarte.
+- Vorbedingungen (nicht Software): Pflanzenschutz aus der Luft ist in der EU
+  nur mit Ausnahmebewilligung erlaubt – Bewilligung der Bezirksverwaltungsbehörde
+  (Landesrecht; OÖ Pflanzenschutzdrohnen-Verordnung seit 1/2024, NÖ-Praxis
+  klären), Anzeige jeder Anwendung, Mittel im BAES-Register für unbemannte
+  Luftfahrzeuge zugelassen, Sachkundeausweis; luftfahrtrechtlich Sprühdrohnen
+  > 25 kg = „spezielle“ Kategorie (EU 2019/947) mit Austro-Control-Genehmigung.
+  Realistisch fliegt ein Dienstleister, nicht der Betrieb.
+- Nächster Schritt nach Beschluss: Import-/Exportformat des konkreten
+  Drohnen-Dienstleisters ansehen und Stufe 1 daran ausrichten.
 
 ---
 
