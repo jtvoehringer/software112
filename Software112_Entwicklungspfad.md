@@ -104,6 +104,56 @@ Flugprotokoll als Behandlung zurück.
 - Nächster Schritt nach Beschluss: Import-/Exportformat des konkreten
   Drohnen-Dienstleisters ansehen und Stufe 1 daran ausrichten.
 
+### Morgenbericht – täglicher Scan auf Unregelmäßigkeiten je Betrieb
+
+Stand 4.9.2026, zur Entscheidung im Jour fixe am 9.9.2026.
+
+**Verortung:** Basisfunktion für alle Pakete (deterministische Prüfungen);
+die KI-Zusammenfassung und bot:112-Ausgabe zählen gegen das KI-Kontingent
+des Pakets (Standard/Premium-Argument).
+
+- Vercel-Cron einmal täglich (05:00 UTC, damit der Bericht um 7 Uhr früh
+  lokal vorliegt), je Mandant: Chargen in Gärung ohne Messung, Rechnungen
+  über Zahlungsziel, Belege ohne Kategorie oder mit ungewöhnlichem Betrag,
+  negative Bestände, Wartefrist-Konflikte bei geplanten Behandlungen,
+  doppelte Kontakte, Abo mit offener Zahlung, nicht übergebene Belege (Doppik).
+- Ausgabe: Glocke und Dashboard (baut auf den bestehenden Hinweisen Fristen /
+  Gärkontrolle auf), optional E-Mail und bot:112.
+- Prüfungen deterministisch (nachvollziehbar), KI nur für Zusammenfassung und
+  Priorisierung.
+- Aufwand: ca. 1 Woche für Cron, Prüfregeln und Anzeige.
+
+### Wetteranbindung und Maßnahmen-Empfehlungen
+
+Stand 4.9.2026, zur Entscheidung im Jour fixe am 9.9.2026.
+
+**Verortung:** Standard/Premium (Weingarten-Modul + KI); liefert in den
+Morgenbericht.
+
+- Quellen (frei): GeoSphere Austria Data Hub (TAWES-Stationen, 10-Minuten-
+  Werte: Temperatur, Niederschlag, Feuchte, Wind, Strahlung; Open Data CC BY),
+  Pflanzenschutz-Warndienst der Landwirtschaftskammern (warndienst.at,
+  VitiMeteo-Modelle Peronospora/Oidium/Botrytis je Weinbau-Wetterstation),
+  rebschutzdienst.at. Infektionsmodelle NICHT nachbauen - Fachstellen nutzen.
+- Unser Mehrwert = Verknüpfung mit Betriebsdaten: letzte Behandlung je Ried,
+  Niederschlag seit der Behandlung (Belag ab ca. 20-30 mm abgewaschen), BBCH,
+  Wartezeit bis Ernte, Kupferbilanz, Zulassung des Mittels, Kennzeichen
+  "spritzbar". Ergebnis z. B. "Ried X: Risiko hoch lt. Warndienst, letzte
+  Behandlung vor 11 Tagen, seither 34 mm - Schutz nicht mehr gegeben".
+- Regelteil deterministisch (haftungsrelevant), KI formuliert, priorisiert
+  und beantwortet Rückfragen in "Frag dein Weingut".
+- Technik: nächste Station je Betrieb aus den Rieden-Koordinaten, stündlicher
+  Abruf in eine Wettertabelle, Regelmaschine gegen Behandlungen, Anzeige im
+  Dashboard "Weingarten & Ernte". Warndienst-API prüfen, sonst Verlinkung.
+- Aufwand: ca. 1-2 Wochen für eine erste brauchbare Version.
+
+### Betreiber-Check (intern, kein Produktfeature)
+
+Tägliche geplante Aufgabe bei Claude (05:00 UTC): Vercel-Fehler, Supabase-
+Advisor (Sicherheit/Performance), fehlgeschlagene Cron-Läufe und Webhooks,
+KI-Verbrauch je Mandant, ungewöhnliche Datenmengen -> Kurzbericht an Jörgen.
+Einrichtung ca. 1 Stunde, jederzeit möglich.
+
 ---
 
 ## Technischer Stack
