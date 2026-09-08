@@ -110,6 +110,7 @@ const NAV: NavGroup[] = [
   {
     key: 'ea', label: 'E&A-Rechnung', icon: ReceiptText, modulKey: 'modul_ea',
     items: [
+      { href: '/buchhaltung/uebersicht',      label: 'Finanzübersicht', keywords: 'wo stehe ich ergebnis liquidität vorjahr kennzahlen' },
       { href: '/buchhaltung',                 label: 'Buchungen',       keywords: 'einnahmen ausgaben' },
       { href: '/buchhaltung/belege',          label: 'Belege (OCR)',    child: true, keywords: 'scan foto upload' },
       { href: '/buchhaltung/kategorien',      label: 'Kategorien',      child: true },
@@ -118,6 +119,7 @@ const NAV: NavGroup[] = [
       { href: '/buchhaltung/uva',             label: 'UVA-Meldung',     keywords: 'umsatzsteuer finanzonline' },
       { href: '/weinhandel/offene-posten',    label: 'Offene Posten' },
       { href: '/konten',                      label: 'Konten',          keywords: 'bank kassa' },
+      { href: '/buchhaltung/svs',             label: 'SV-Beiträge (SVS)', keywords: 'sozialversicherung einheitswert bauern beitragsgrundlage option' },
       { href: '/controlling/bmd',             label: 'BMD-Übergabe',    keywords: 'steuerberater export ntcs buchungsstapel kontenmapping' },
     ],
   },
@@ -229,7 +231,9 @@ function fuerDoppik(g: NavGroup): NavGroup {
   const bmd = g.items.find(it => it.href === '/controlling/bmd')
   const rest = g.items.filter(it => it !== bmd).map(it =>
     it.href === '/buchhaltung/uva' ? { ...it, label: 'UVA (Vorschau)' } : it)
-  const items = bmd ? [rest[0], { ...bmd, child: false }, ...rest.slice(1)].filter(Boolean) as NavItem[] : rest
+  // BMD-Übergabe direkt hinter "Buchungen" (Finanzübersicht bleibt erster Punkt)
+  const pos = Math.max(0, rest.findIndex(it => it.href === '/buchhaltung')) + 1
+  const items = bmd ? [...rest.slice(0, pos), { ...bmd, child: false }, ...rest.slice(pos)] as NavItem[] : rest
   return { ...g, label: 'Belege & BMD', items }
 }
 

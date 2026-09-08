@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { Wine, Package, ReceiptText, ListChecks, ShoppingCart, Calendar, Wallet, FlaskConical, Grape } from 'lucide-react'
 import { DashHeader, Tile, Card, Badge, Note, Empty, fmtEur, fmtNum, fmtDate, tageBis, type BadgeTone } from './_shared/ui'
 import { getCtx, ladeKeller, ladeFlaschenlager, ladeOffenePosten, ladeFristen, ladeEinstellungen, ladeNaechsteTermine, ladeWeingarten, type R } from './_shared/data'
+import { ladeFinanzen } from '@/lib/finanzen/uebersicht'
+import { TrendingUp } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Übersicht – software:112' }
 export const dynamic = 'force-dynamic'
@@ -20,7 +22,7 @@ export default async function UebersichtPage() {
   const einst = await ladeEinstellungen(ctx)
   const jahr = ctx.heute.getFullYear()
 
-  const [keller, flaschen, offen, fristen, termine, weingarten, { data: profil }, { count: checklistOffen }, { count: belegeErkannt }] = await Promise.all([
+  const [keller, flaschen, offen, fristen, termine, weingarten, { data: profil }, { count: checklistOffen }, { count: belegeErkannt }, finanzen] = await Promise.all([
     ladeKeller(ctx, einst.messintervallTage),
     ladeFlaschenlager(ctx),
     ladeOffenePosten(ctx),
@@ -30,6 +32,8 @@ export default async function UebersichtPage() {
     ctx.userId ? ctx.q('profiles').select('full_name').eq('id', ctx.userId).maybeSingle() : Promise.resolve({ data: null }),
     ctx.tf(ctx.q('checklisten_punkte').select('id, checkliste:checkliste_id!inner(jahr, typ)', { count: 'exact', head: true }).eq('erledigt', false).eq('checkliste.jahr', jahr)),
     einst.modulEa ? ctx.tf(ctx.q('ea_belege').select('id', { count: 'exact', head: true }).eq('status', 'erkannt')) : Promise.resolve({ count: 0 }),
+    // Finanzübersicht-Kachel (Rückmeldung 8.9.2026): "wo stehe ich" auf einen Klick
+    einst.modulEa ? ladeFinanzen(ctx, { art: einst.doppik ? 'doppik' : 'ea', uvaZeitraum: einst.uvaZeitraum }) : Promise.resolve(null),
   ])
 
   const vorname = ((profil as R | null)?.full_name ?? '').split(/\s+/)[0] || null
@@ -98,6 +102,33 @@ export default async function UebersichtPage() {
           sub={fristenDringend.length > 0 ? `${fristenDringend.length} Meldefrist${fristenDringend.length === 1 ? '' : 'en'} < ${einst.vorwarnungTage} Tage` : keller.messungFaellig > 0 ? `${keller.messungFaellig} Gärkontrolle${keller.messungFaellig === 1 ? '' : 'n'} fällig` : 'Nichts Dringendes'}
           tone={fristenDringend.some(f => f.status === 'ueberfaellig') ? 'err' : fristenDringend.length > 0 || keller.messungFaellig > 0 ? 'warn' : undefined} />
       </div>
+
+      {/* ── Finanzen (E&A / Doppik) ─────────────────────────────────────── */}
+      {finanzen && (() => {
+        const f = finanzen
+        const d = f.ytd.ergebnisVj === 0 ? null : (f.ytd.ergebnis - f.ytd.ergebnisVj) / Math.abs(f.ytd.ergebnisVj) * 100
+        const offenUebergabe = f.uebergabe ? f.uebergabe.rechnungenOffen + f.uebergabe.belegeOffen : 0
+        return (
+          <Link href="/buchhaltung/uebersicht" className="block bg-white border border-s112-line rounded-xl px-[18px] py-3.5 hover:border-s112-teal hover:shadow-sm transition-all">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <TrendingUp size={16} strokeWidth={1.75} className="text-s112-teal" />
+                <span className="font-display font-semibold text-[14.5px] text-s112-navy">Finanzen {jahr}</span>
+                <span className="text-[12px] text-s112-tertiary">bis heute · {einst.doppik ? 'Belege für den Steuerberater' : 'E&A-Rechnung'}</span>
+              </div>
+              <div className="flex items-center gap-6 flex-wrap text-[13px]">
+                <span><span className="text-s112-text-2">Ergebnis </span><span className={`font-mono font-semibold ${f.ytd.ergebnis < 0 ? 'text-s112-err-fg' : ''}`}>{fmtEur(f.ytd.ergebnis)}</span>{d !== null && <span className={`ml-1 text-[12px] ${d < 0 ? 'text-s112-err-fg' : 'text-s112-ok-fg'}`}>{d >= 0 ? '+' : ''}{d.toFixed(0)} % VJ</span>}</span>
+                <span><span className="text-s112-text-2">Liquidität </span><span className={`font-mono font-semibold ${f.liquiditaet.summe < 0 ? 'text-s112-err-fg' : ''}`}>{fmtEur(f.liquiditaet.summe)}</span></span>
+                <span><span className="text-s112-text-2">Forderungen </span><span className="font-mono font-semibold">{fmtEur(f.forderungen.summe)}</span></span>
+                {f.uebergabe
+                  ? <Badge tone={offenUebergabe > 0 ? 'warn' : 'ok'}>{offenUebergabe > 0 ? `${offenUebergabe} Belege nicht übergeben` : 'alles übergeben'}</Badge>
+                  : f.uva && <Badge tone={f.uva.status === 'uebermittelt' ? 'ok' : f.uva.faelligAm < ctx.heuteStr ? 'err' : 'warn'}>UVA {f.uva.label}: {f.uva.status === 'uebermittelt' ? 'übermittelt' : f.uva.status === 'entwurf' ? 'Entwurf' : 'offen'}</Badge>}
+                <span className="text-[12px] text-s112-blue-700">Finanzübersicht →</span>
+              </div>
+            </div>
+          </Link>
+        )
+      })()}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* ── Nächste Schritte ───────────────────────────────────────────── */}
