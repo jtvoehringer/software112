@@ -17,7 +17,7 @@ function inputCls() {
 }
 
 function stufeFarbe(stufe: string) {
-  return PIPELINE_STUFEN.find(s => s.value === stufe)?.farbe ?? 'bg-gray-100 text-gray-700'
+  return PIPELINE_STUFEN.find(s => s.value === stufe)?.farbe ?? 'bg-[#F2F3F5] text-s112-text-1'
 }
 function stufeLabel(stufe: string) {
   return PIPELINE_STUFEN.find(s => s.value === stufe)?.label ?? stufe
@@ -58,78 +58,78 @@ function PipelineForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-5 space-y-4">
-      <h3 className="text-sm font-semibold text-gray-800">{initial ? 'Eintrag bearbeiten' : 'Neue Chance'}</h3>
+      <h3 className="text-sm font-semibold text-s112-text">{initial ? 'Eintrag bearbeiten' : 'Neue Chance'}</h3>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="sm:col-span-2">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Titel *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Titel *</label>
           <input name="titel" defaultValue={v('titel')} required
             placeholder="z.B. Weinsortiment 2024 – Restaurant Zum Raben" className={inputCls()} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Stufe *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Stufe *</label>
           <select name="stufe" defaultValue={v('stufe') || 'interessent'} required className={inputCls()}>
             {PIPELINE_STUFEN.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Kategorie</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Kategorie</label>
           <select name="kategorie" defaultValue={v('kategorie')} className={inputCls()}>
             <option value="">– keine –</option>
             {PIPELINE_KATEGORIEN.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Wert (€)</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Wert (€)</label>
           <input name="wert_euro" type="number" defaultValue={v('wert_euro')} min="0" step="0.01"
             placeholder="z.B. 2400" className={inputCls()} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Kontakt</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Kontakt</label>
           <select name="kontakt_id" defaultValue={v('kontakt_id')} className={inputCls()}>
             <option value="">– kein –</option>
             {kontakte.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Firma</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Firma</label>
           <select name="firma_id" defaultValue={v('firma_id')} className={inputCls()}>
             <option value="">– keine –</option>
             {firmen.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Wahrscheinlichkeit (%)</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Wahrscheinlichkeit (%)</label>
           <input name="wahrscheinlichkeit" type="number" defaultValue={v('wahrscheinlichkeit')}
             min="0" max="100" placeholder="z.B. 60" className={inputCls()} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Erwarteter Abschluss</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Erwarteter Abschluss</label>
           <input name="erwartetes_datum" type="date" defaultValue={v('erwartetes_datum')} className={inputCls()} />
         </div>
         <div className="sm:col-span-2">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Uhrzeit</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Uhrzeit</label>
           <div className="flex items-center gap-3 flex-wrap">
-            <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none shrink-0">
+            <label className="flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer select-none shrink-0">
               <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)} className="rounded" />
               Ganztags
             </label>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-400">Von</span>
+              <span className="text-xs text-s112-tertiary">Von</span>
               <input name="uhrzeit_von" type="time" step="1800" disabled={ganztags}
                 defaultValue={v('uhrzeit_von').slice(0,5)}
-                className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-gray-50' : ''}`} />
-              <span className="text-xs text-gray-400">–</span>
+                className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
+              <span className="text-xs text-s112-tertiary">–</span>
               <input name="uhrzeit_bis" type="time" step="1800" disabled={ganztags}
                 defaultValue={v('uhrzeit_bis').slice(0,5)}
-                className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-gray-50' : ''}`} />
+                className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
             </div>
           </div>
         </div>
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
+        <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
         <textarea name="notizen" defaultValue={v('notizen')} rows={2}
           className={inputCls() + ' resize-none'} />
       </div>
@@ -140,7 +140,7 @@ function PipelineForm({
           {pending ? 'Wird gespeichert…' : (initial ? 'Speichern' : 'Anlegen')}
         </button>
         <button type="button" onClick={onDone}
-          className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800">
+          className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:text-s112-text">
           Abbrechen
         </button>
       </div>
@@ -193,8 +193,8 @@ function EintragZeile({
           title={eintrag.erledigt ? 'Als offen markieren' : 'Als erledigt markieren'}
           className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-50 ${
             eintrag.erledigt
-              ? 'bg-green-500 border-green-500 text-white'
-              : 'bg-white border-gray-300 hover:border-green-400 text-transparent'
+              ? 'bg-s112-ok border-s112-ok text-white'
+              : 'bg-white border-s112-line-str hover:border-s112-ok/50 text-transparent'
           }`}
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -205,7 +205,7 @@ function EintragZeile({
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className={`font-medium text-sm text-gray-900 truncate ${eintrag.erledigt ? 'line-through text-gray-400' : ''}`}>
+          <span className={`font-medium text-sm text-s112-text truncate ${eintrag.erledigt ? 'line-through text-s112-tertiary' : ''}`}>
             {eintrag.titel}
           </span>
           {katLabel && (
@@ -214,7 +214,7 @@ function EintragZeile({
             </span>
           )}
           {eintrag.wert_euro != null && (
-            <span className="text-xs font-semibold text-s112-teal">{fmt(eintrag.wert_euro)}</span>
+            <span className="text-xs font-semibold text-s112-blue-700">{fmt(eintrag.wert_euro)}</span>
           )}
           {eintrag.wahrscheinlichkeit != null && (
             <span className="text-xs text-s112-muted">{eintrag.wahrscheinlichkeit}%</span>
@@ -225,7 +225,7 @@ function EintragZeile({
           {eintrag.firma_name && <span className="text-xs text-s112-muted">{eintrag.firma_name}</span>}
           {abschluss && <span className="text-xs text-s112-muted">{abschluss}</span>}
           {eintrag.erledigt && eintrag.erledigt_am && (
-            <span className="text-xs text-green-600">
+            <span className="text-xs text-s112-ok-fg">
               {new Date(eintrag.erledigt_am).toLocaleDateString('de-AT')}
             </span>
           )}
@@ -248,12 +248,12 @@ function EintragZeile({
         <div className="flex gap-1">
           <button onClick={() => setEditing(true)}
             title="Bearbeiten" aria-label="Bearbeiten"
-            className="text-s112-muted hover:text-s112-teal px-2 py-1 rounded">
+            className="text-s112-muted hover:text-s112-blue-700 px-2 py-1 rounded">
             <Pencil className="w-4 h-4" />
           </button>
           <button onClick={handleDelete} disabled={pending}
             title="Löschen" aria-label="Löschen"
-            className="text-s112-muted hover:text-red-500 px-2 py-1 rounded">
+            className="text-s112-muted hover:text-s112-err px-2 py-1 rounded">
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
@@ -287,9 +287,9 @@ function StufenGruppe({
         </span>
         <span className="text-sm text-s112-muted">{eintraege.length} {eintraege.length === 1 ? 'Eintrag' : 'Einträge'}</span>
         {gesamtwert > 0 && (
-          <span className="text-sm font-semibold text-s112-teal">{fmt(gesamtwert)}</span>
+          <span className="text-sm font-semibold text-s112-blue-700">{fmt(gesamtwert)}</span>
         )}
-        <svg className={`w-3.5 h-3.5 text-gray-400 ml-auto transition-transform ${open ? 'rotate-90' : ''}`}
+        <svg className={`w-3.5 h-3.5 text-s112-tertiary ml-auto transition-transform ${open ? 'rotate-90' : ''}`}
           fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
         </svg>
@@ -359,7 +359,7 @@ export default function PipelineClient({
             className={`text-xs px-3 py-1 rounded-full font-medium border transition-colors ${
               filterStufe === 'alle'
                 ? 'bg-s112-teal text-white border-s112-teal'
-                : 'bg-white text-gray-600 border-s112-border hover:border-s112-teal/50'
+                : 'bg-white text-s112-text-2 border-s112-border hover:border-s112-teal/50'
             }`}>
             Alle ({eintraege.length})
           </button>
@@ -372,7 +372,7 @@ export default function PipelineClient({
                 className={`text-xs px-3 py-1 rounded-full font-medium border transition-colors ${
                   filterStufe === s.value
                     ? s.farbe + ' border-transparent'
-                    : 'bg-white text-gray-500 border-s112-border hover:border-s112-teal/50'
+                    : 'bg-white text-s112-text-2 border-s112-border hover:border-s112-teal/50'
                 }`}>
                 {s.label} <span className="opacity-60">({count})</span>
               </button>
@@ -402,7 +402,7 @@ export default function PipelineClient({
                 className={`px-3 py-1.5 font-medium transition-colors ${
                   filterStatus === s
                     ? 'bg-s112-teal text-white'
-                    : 'bg-white text-gray-600 hover:bg-s112-bg'
+                    : 'bg-white text-s112-text-2 hover:bg-s112-bg'
                 }`}>
                 {s === 'offen' ? 'Offen' : s === 'erledigt' ? 'Erledigt' : 'Alle'}
               </button>
@@ -416,25 +416,25 @@ export default function PipelineClient({
         <div className="card px-4 py-3 flex gap-6 flex-1 flex-wrap">
           <div>
             <p className="text-xs text-s112-muted">Aktive Chancen</p>
-            <p className="text-lg font-bold text-gray-900">
+            <p className="text-lg font-semibold text-s112-text">
               {eintraege.filter(e => !['verloren', 'stammkunde'].includes(e.stufe) && !e.erledigt).length}
             </p>
           </div>
           {gesamtWert > 0 && (
             <div>
               <p className="text-xs text-s112-muted">Potenzieller Wert</p>
-              <p className="text-lg font-bold text-s112-teal">{fmt(gesamtWert)}</p>
+              <p className="text-lg font-semibold text-s112-blue-700">{fmt(gesamtWert)}</p>
             </div>
           )}
           <div>
             <p className="text-xs text-s112-muted">Stammkunden</p>
-            <p className="text-lg font-bold text-gray-900">
+            <p className="text-lg font-semibold text-s112-text">
               {eintraege.filter(e => e.stufe === 'stammkunde').length}
             </p>
           </div>
           <div>
             <p className="text-xs text-s112-muted">Erledigt</p>
-            <p className="text-lg font-bold text-gray-900">
+            <p className="text-lg font-semibold text-s112-text">
               {eintraege.filter(e => e.erledigt).length}
             </p>
           </div>

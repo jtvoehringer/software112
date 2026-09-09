@@ -285,14 +285,14 @@ export default async function LagerPage({
   return (
     <div>
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-6">
-        <Link href="/behandlungen" className="hover:text-s112-teal transition-colors">Maßnahmen</Link>
+        <Link href="/behandlungen" className="hover:text-s112-blue-700 transition-colors">Maßnahmen</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Betriebsmittel</span>
+        <span className="text-s112-text-1 font-medium">Betriebsmittel</span>
       </div>
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Betriebsmittel-Lagerverwaltung</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Betriebsmittel-Lagerverwaltung</h1>
           <p className="text-sm text-s112-muted mt-0.5">
             {tab === 'stammdaten'
               ? 'Pflanzenschutzmittel anlegen und pflegen · Cu-Gehalt · Grenzwerte · Bio-Zulassung'
@@ -312,8 +312,8 @@ export default async function LagerPage({
             href={`/behandlungen/lager?tab=${t.key}`}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors
               ${tab === t.key
-                ? 'bg-white border border-b-white border-s112-border text-s112-teal -mb-px'
-                : 'text-s112-muted hover:text-s112-teal'}`}
+                ? 'bg-white border border-b-white border-s112-border text-s112-blue-700 -mb-px'
+                : 'text-s112-muted hover:text-s112-blue-700'}`}
           >
             {t.label}
           </Link>
@@ -329,7 +329,7 @@ export default async function LagerPage({
       ) : (
         <div className="space-y-8">
           <div>
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Pflanzenschutzmittel</h2>
+            <h2 className="text-sm font-semibold text-s112-text-2 uppercase tracking-wide mb-3">Pflanzenschutzmittel</h2>
             <LagerClient
               psms={aktivePsm}
               allePsm={psmOptions}
@@ -338,7 +338,7 @@ export default async function LagerPage({
             />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Düngemittel</h2>
+            <h2 className="text-sm font-semibold text-s112-text-2 uppercase tracking-wide mb-3">Düngemittel</h2>
             <DuengerLagerClient
               duenger={aktiveDuenger}
               alleDuenger={duengerOptions}

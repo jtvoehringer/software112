@@ -16,13 +16,13 @@ const KATEGORIE_OPTS = [
 ]
 
 const KAT_COLOR: Record<string, string> = {
-  fungizid:        'bg-purple-50 text-purple-700 border-purple-200',
-  insektizid:      'bg-orange-50 text-orange-700 border-orange-200',
-  herbizid:        'bg-red-50 text-red-700 border-red-200',
-  akarizid:        'bg-pink-50 text-pink-700 border-pink-200',
-  wachstumsregler: 'bg-blue-50 text-blue-700 border-blue-200',
-  naehrstoff:      'bg-green-50 text-green-700 border-green-200',
-  sonstiges:       'bg-gray-50 text-gray-600 border-gray-200',
+  fungizid:        'bg-[#F2F3F5] text-s112-text-1 border-s112-line-str',
+  insektizid:      'bg-s112-warn-bg text-s112-warn-fg border-s112-warn/30',
+  herbizid:        'bg-s112-err-bg text-s112-err-fg border-s112-err/30',
+  akarizid:        'bg-[#F2F3F5] text-s112-text-1 border-s112-line-str',
+  wachstumsregler: 'bg-s112-blue-50 text-s112-blue-700 border-s112-blue-100',
+  naehrstoff:      'bg-s112-ok-bg text-s112-ok-fg border-s112-ok/30',
+  sonstiges:       'bg-s112-bg text-s112-text-2 border-s112-line',
 }
 
 function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
@@ -53,26 +53,26 @@ function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-3">
-      <h3 className="text-sm font-semibold text-gray-800">
+      <h3 className="text-sm font-semibold text-s112-text">
         {psm ? 'Mittel bearbeiten' : 'Neues Mittel anlegen'}
       </h3>
       {psm && <input type="hidden" name="existing_id" value={psm.id} />}
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Name *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Name *</label>
           <input name="name" required defaultValue={psm?.name ?? ''}
             placeholder="z.B. Cuprozin progress"
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Handelsname</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Handelsname</label>
           <input name="handelsname" defaultValue={psm?.handelsname ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Kategorie</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Kategorie</label>
           <select name="kategorie" defaultValue={psm?.kategorie ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             <option value="">– keine –</option>
@@ -80,20 +80,20 @@ function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Wirkstoff</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Wirkstoff</label>
           <input name="wirkstoff" defaultValue={psm?.wirkstoff ?? ''}
             placeholder="z.B. Kupferhydroxid"
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Wirkstoffgehalt (%)</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Wirkstoffgehalt (%)</label>
           <input name="wirkstoffgehalt_pct" type="number" step="0.01" min="0" max="100"
             defaultValue={psm?.wirkstoffgehalt_pct ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Cu-Gehalt (%)</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Cu-Gehalt (%)</label>
           <input name="cu_gehalt_pct" type="number" step="0.01" min="0" max="100"
             defaultValue={psm?.cu_gehalt_pct ?? ''}
             placeholder="nur bei Kupfermitteln"
@@ -101,20 +101,20 @@ function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Max. Aufwand (kg/ha)</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Max. Aufwand (kg/ha)</label>
           <input name="max_aufwand_kg_ha" type="number" step="0.001" min="0"
             defaultValue={psm?.max_aufwand_kg_ha ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Max. Anwendungen</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Max. Anwendungen</label>
           <input name="max_anwendungen" type="number" min="0"
             defaultValue={psm?.max_anwendungen ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Wartezeit (Tage)</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Wartezeit (Tage)</label>
           <input name="wartezeit_tage" type="number" min="0"
             defaultValue={psm?.wartezeit_tage ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
@@ -126,12 +126,12 @@ function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
               checked={oekoZugelassen}
               onChange={e => setOekoZugelassen(e.currentTarget.checked)}
               className="accent-s112-teal w-4 h-4" />
-            <span className="text-sm text-gray-700">Bio/Öko zugelassen</span>
+            <span className="text-sm text-s112-text-1">Bio/Öko zugelassen</span>
           </label>
         </div>
 
         <div className="col-span-2">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
           <input name="notizen" defaultValue={psm?.notizen ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
@@ -143,7 +143,7 @@ function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
           {pending ? 'Speichert…' : 'Speichern'}
         </button>
         <button type="button" onClick={onDone}
-          className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800">
+          className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:text-s112-text">
           Abbrechen
         </button>
       </div>
@@ -205,7 +205,7 @@ export default function PSMClient({
               {psm.map(p => (
                 <>
                   <tr key={p.id} className="group border-b border-s112-border/40 hover:bg-s112-bg/30">
-                    <td className="py-2.5 pr-3 font-medium text-gray-900">
+                    <td className="py-2.5 pr-3 font-medium text-s112-text">
                       {p.name}
                       {p.handelsname && p.handelsname !== p.name && (
                         <span className="ml-1 text-xs text-s112-muted">({p.handelsname})</span>
@@ -213,7 +213,7 @@ export default function PSMClient({
                     </td>
                     <td className="py-2.5 pr-3">
                       {p.kategorie ? (
-                        <span className={`text-xs px-2 py-0.5 rounded-full border ${KAT_COLOR[p.kategorie] ?? 'bg-gray-50 text-gray-600 border-gray-200'}`}>
+                        <span className={`text-xs px-2 py-0.5 rounded-full border ${KAT_COLOR[p.kategorie] ?? 'bg-s112-bg text-s112-text-2 border-s112-line'}`}>
                           {KATEGORIE_OPTS.find(o => o.value === p.kategorie)?.label ?? p.kategorie}
                         </span>
                       ) : '–'}
@@ -221,7 +221,7 @@ export default function PSMClient({
                     <td className="py-2.5 pr-3 text-s112-muted text-xs">{p.wirkstoff ?? '–'}</td>
                     <td className="py-2.5 pr-3 text-right tabular-nums text-xs">
                       {p.cu_gehalt_pct ? (
-                        <span className="text-blue-600 font-medium">{p.cu_gehalt_pct} %</span>
+                        <span className="text-s112-blue-700 font-medium">{p.cu_gehalt_pct} %</span>
                       ) : '–'}
                     </td>
                     <td className="py-2.5 pr-3 text-right tabular-nums text-xs text-s112-muted">
@@ -232,8 +232,8 @@ export default function PSMClient({
                     </td>
                     <td className="py-2.5 pr-3 text-center">
                       {p.oeko_zugelassen
-                        ? <span className="text-green-600">Ja</span>
-                        : <span className="text-gray-300">–</span>}
+                        ? <span className="text-s112-ok-fg">Ja</span>
+                        : <span className="text-s112-tertiary">–</span>}
                     </td>
                     {(writeOk || adminOk) && (
                       <td className="py-2.5 px-3 text-right sticky right-0 bg-white border-l border-s112-border/40">
@@ -241,12 +241,12 @@ export default function PSMClient({
                           {writeOk && (
                             <button onClick={() => setEditId(editId === p.id ? null : p.id)}
                               title="Bearbeiten" aria-label="Bearbeiten"
-                              className="text-s112-teal hover:text-s112-teal/70"><Pencil className="w-4 h-4" /></button>
+                              className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil className="w-4 h-4" /></button>
                           )}
                           {adminOk && (
                             <button onClick={() => handleDeactivate(p.id)}
                               title="Deaktivieren" aria-label="Deaktivieren"
-                              className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                              className="text-s112-err hover:text-s112-err-fg"><Trash2 className="w-4 h-4" /></button>
                           )}
                         </div>
                       </td>

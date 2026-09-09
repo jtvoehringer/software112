@@ -115,12 +115,12 @@ export default async function TraubenverkaufPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/weinhandel" className="hover:text-s112-teal transition-colors">Weinhandel</Link>
+        <Link href="/weinhandel" className="hover:text-s112-blue-700 transition-colors">Weinhandel</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Traubenverkauf</span>
+        <span className="text-s112-text-1 font-medium">Traubenverkauf</span>
       </div>
       <div>
-        <h1 className="text-xl font-bold text-gray-900">Traubenverkauf</h1>
+        <h1 className="text-xl font-semibold text-s112-text">Traubenverkauf</h1>
         <p className="text-sm text-s112-muted mt-0.5">Verkauf von Weintrauben gem. § 3 Weingesetz-Formularverordnung</p>
       </div>
 

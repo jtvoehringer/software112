@@ -50,21 +50,21 @@ export default async function DacEditPage({ params }: { params: Promise<{ id: st
   return (
     <div className="max-w-2xl">
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-6">
-        <Link href="/dac" className="hover:text-s112-teal transition-colors">DAC & Prüfnummern</Link>
+        <Link href="/dac" className="hover:text-s112-blue-700 transition-colors">DAC & Prüfnummern</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">{dac.bezeichnung}</span>
+        <span className="text-s112-text-1 font-medium">{dac.bezeichnung}</span>
       </div>
       <div className="flex items-start justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{dac.bezeichnung}</h1>
+        <h1 className="text-2xl font-semibold text-s112-text">{dac.bezeichnung}</h1>
         <div className="flex items-center gap-2">
           {dac.pruefnummer && (
-            <span className="bg-green-50 text-green-700 text-sm font-mono px-3 py-1 rounded-lg border border-green-200">
+            <span className="bg-s112-ok-bg text-s112-ok-fg text-sm font-mono px-3 py-1 rounded-lg border border-s112-ok/30">
               {dac.pruefnummer}
             </span>
           )}
           <Link
             href={`/dac/${id}/antrag`}
-            className="flex items-center gap-1.5 border border-s112-border px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-1.5 border border-s112-border px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-s112-bg transition-colors"
           >
             <FileText size={14} /> Prüfnummernantrag
           </Link>

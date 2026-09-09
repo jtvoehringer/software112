@@ -78,14 +78,14 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
     }
   }
 
-  const rdOnly = "form-input bg-gray-50 text-gray-500 cursor-not-allowed select-none"
+  const rdOnly = "form-input bg-s112-bg text-s112-text-2 cursor-not-allowed select-none"
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm"><strong>Fehler:</strong> {error}</div>}
+      {error && <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm"><strong>Fehler:</strong> {error}</div>}
 
       {vonPressung && (
-        <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-xl px-4 py-2.5 text-xs flex items-start gap-1.5">
+        <div className="bg-s112-blue-50 border border-s112-blue-100 text-s112-blue-700 rounded-xl px-4 py-2.5 text-xs flex items-start gap-1.5">
           <Info size={14} strokeWidth={1.75} className="mt-0.5 shrink-0" />
           <span>Grau hinterlegte Felder werden aus der Pressung abgeleitet und können hier nicht geändert werden.</span>
         </div>
@@ -173,7 +173,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
                       ))}
                     </select>
                     {basisQ && (
-                      <p className="text-xs text-amber-600 mt-1 inline-flex items-center gap-1">
+                      <p className="text-xs text-s112-warn-fg mt-1 inline-flex items-center gap-1">
                         <AlertTriangle size={12} strokeWidth={2} />
                         Downgrade möglich · kein Upgrade über {QUALITAET_OPTS.find(o => o.value === basisQ)?.label ?? basisQ} hinaus
                       </p>
@@ -246,7 +246,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
                       onClick={() => setWgOpen(o => !o)}
                       className="form-input w-full text-left flex items-center justify-between"
                     >
-                      <span className="text-sm text-gray-700">
+                      <span className="text-sm text-s112-text-1">
                         {selWg.size === 0
                           ? '– keine Auswahl –'
                           : selWg.size === 1
@@ -265,7 +265,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
                               onChange={() => toggleWg(w.id)}
                               className="w-4 h-4 accent-s112-teal shrink-0"
                             />
-                            <span className="text-sm text-gray-700">{w.name}</span>
+                            <span className="text-sm text-s112-text-1">{w.name}</span>
                           </label>
                         ))}
                       </div>
@@ -314,7 +314,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
         <div className="card">
           <label className="flex items-center gap-3 cursor-pointer">
             <input type="checkbox" name="aktiv" value="true" defaultChecked={weinausbau.aktiv} className="w-4 h-4 accent-s112-teal" />
-            <span className="text-sm font-medium text-gray-700">Charge aktiv</span>
+            <span className="text-sm font-medium text-s112-text-1">Charge aktiv</span>
           </label>
         </div>
       )}
@@ -323,7 +323,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
         <button type="submit" disabled={saving} className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
           {saving ? 'Wird gespeichert …' : 'Speichern'}
         </button>
-        <button type="button" onClick={() => router.push('/kellerbuch')} className="text-sm text-s112-muted hover:text-gray-700 transition-colors">Abbrechen</button>
+        <button type="button" onClick={() => router.push('/kellerbuch')} className="text-sm text-s112-muted hover:text-s112-text-1 transition-colors">Abbrechen</button>
       </div>
     </form>
   )

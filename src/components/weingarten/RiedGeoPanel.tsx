@@ -65,7 +65,7 @@ export default function RiedGeoPanel({
     <div className="card">
       <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
         <div>
-          <h2 className="text-base font-semibold text-gray-800 flex items-center gap-2"><MapPin size={16} strokeWidth={1.75} className="text-s112-teal" /> Lage &amp; Koordinaten</h2>
+          <h2 className="text-base font-semibold text-s112-text flex items-center gap-2"><MapPin size={16} strokeWidth={1.75} className="text-s112-blue-700" /> Lage &amp; Koordinaten</h2>
           <p className="text-xs text-s112-muted mt-0.5">
             {pos
               ? <>Mittelpunkt {fmtKoord(pos.lat, pos.lon)}{geoQuelle ? ` · Quelle: ${geoQuelle}` : ''}{geoStand ? ` · Stand ${new Date(geoStand).toLocaleDateString('de-AT')}` : ''}</>
@@ -94,7 +94,7 @@ export default function RiedGeoPanel({
       {writeOk && (
         <div className="mt-3 flex flex-wrap items-end gap-2">
           <label className="block flex-1 min-w-[240px]">
-            <span className="block text-xs font-medium text-gray-600 mb-1">Koordinaten (Breite, Länge – WGS84)</span>
+            <span className="block text-xs font-medium text-s112-text-2 mb-1">Koordinaten (Breite, Länge – WGS84)</span>
             <input value={eingabe} onChange={e => setEingabe(e.target.value)} onBlur={() => eingabe.trim() && uebernehmen()}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); uebernehmen() } }}
               placeholder="48,05123, 16,28456" className="form-input font-mono text-sm" />

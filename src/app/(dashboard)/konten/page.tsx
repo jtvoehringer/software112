@@ -68,7 +68,7 @@ export default async function KontenPage() {
     <div className="p-6 max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Konten</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Konten</h1>
           <p className="text-sm text-s112-muted">Bankkonten &amp; Kassen · Kontoabstimmung</p>
         </div>
         {adminOk && (
@@ -80,25 +80,25 @@ export default async function KontenPage() {
       </div>
 
       {kontenMitSaldo.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-s112-border p-10 text-center text-s112-muted">
+        <div className="bg-white rounded-xl border border-s112-border p-10 text-center text-s112-muted">
           Noch keine Konten angelegt.
-          {adminOk && <> <Link href="/konten/neu" className="text-s112-teal hover:underline">Erstes Konto anlegen →</Link></>}
+          {adminOk && <> <Link href="/konten/neu" className="text-s112-blue-700 hover:underline">Erstes Konto anlegen →</Link></>}
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-s112-border overflow-hidden">
+        <div className="bg-white rounded-xl border border-s112-border overflow-hidden">
           {kontenMitSaldo.map(k => {
             const Icon = TYP_ICON[k.typ] ?? Circle
             return (
               <Link key={k.id} href={`/konten/${k.id}/abstimmung`}
                 className="flex items-center justify-between px-5 py-4 border-b border-s112-border/60 last:border-0 hover:bg-s112-bg/50 transition-colors">
                 <div className="flex items-center gap-3">
-                  <Icon className="w-5 h-5 text-s112-teal" />
+                  <Icon className="w-5 h-5 text-s112-blue-700" />
                   <div>
-                    <p className="text-sm font-semibold text-gray-800">{k.name}</p>
+                    <p className="text-sm font-semibold text-s112-text">{k.name}</p>
                     <p className="text-xs text-s112-muted">{TYP_LABEL[k.typ] ?? k.typ}{k.iban ? ` · ${k.iban}` : ''}</p>
                   </div>
                 </div>
-                <p className={`text-lg font-bold tabular-nums ${k.saldo >= 0 ? 'text-s112-teal' : 'text-red-600'}`}>
+                <p className={`text-lg font-semibold tabular-nums ${k.saldo >= 0 ? 'text-s112-blue-700' : 'text-s112-err-fg'}`}>
                   {fmt(k.saldo)}
                 </p>
               </Link>

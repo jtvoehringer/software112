@@ -112,8 +112,8 @@ export default async function UebersichtPage() {
           <Link href="/buchhaltung/uebersicht" className="block bg-white border border-s112-line rounded-xl px-[18px] py-3.5 hover:border-s112-teal hover:shadow-sm transition-all">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div className="flex items-center gap-2">
-                <TrendingUp size={16} strokeWidth={1.75} className="text-s112-teal" />
-                <span className="font-display font-semibold text-[14.5px] text-s112-navy">Finanzen {jahr}</span>
+                <TrendingUp size={16} strokeWidth={1.75} className="text-s112-blue-700" />
+                <span className="font-display font-semibold text-[14.5px] text-s112-text">Finanzen {jahr}</span>
                 <span className="text-[12px] text-s112-tertiary">bis heute · {einst.doppik ? 'Belege für den Steuerberater' : 'E&A-Rechnung'}</span>
               </div>
               <div className="flex items-center gap-6 flex-wrap text-[13px]">
@@ -139,7 +139,7 @@ export default async function UebersichtPage() {
             <table className="w-full">
               <tbody>
                 {schritte.slice(0, 8).map(s => (
-                  <tr key={s.key} className="border-b border-s112-line last:border-0 hover:bg-[#F8FAFC]">
+                  <tr key={s.key} className="border-b border-s112-line last:border-0 hover:bg-[#F7F8FA]">
                     <td className="py-2.5 pr-2">
                       <Link href={s.href} className="block">
                         <span className="block text-[13.5px] font-semibold text-s112-text">{s.titel}</span>
@@ -189,7 +189,7 @@ export default async function UebersichtPage() {
           ].map(item => (
             <Link key={item.href} href={item.href}
               className="bg-white border border-s112-line rounded-xl p-4 flex items-center gap-3 hover:border-s112-teal hover:shadow-sm transition-all">
-              <item.icon size={20} strokeWidth={1.75} className="text-s112-teal" />
+              <item.icon size={20} strokeWidth={1.75} className="text-s112-blue-700" />
               <span className="text-sm font-medium text-s112-text">{item.label}</span>
             </Link>
           ))}

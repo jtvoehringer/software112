@@ -87,9 +87,9 @@ export default function UmziehenFormClient({
       {/* QUELL-CHARGEN */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Quell-Chargen</span>
+          <span className="text-xs font-semibold text-s112-text-2 uppercase tracking-wide">Quell-Chargen</span>
           <button type="button" onClick={addQuelle}
-            className="text-xs font-medium text-s112-teal hover:underline">
+            className="text-xs font-medium text-s112-blue-700 hover:underline">
             + Quelle hinzufügen
           </button>
         </div>
@@ -119,7 +119,7 @@ export default function UmziehenFormClient({
                   {charge && (
                     <p className="text-xs text-s112-muted mt-0.5">
                       {bh ? `in: ${bh}` : 'kein Gebinde zugewiesen'} · verfügbar:{' '}
-                      <span className="text-s112-teal font-medium">
+                      <span className="text-s112-blue-700 font-medium">
                         {verf != null ? verf.toLocaleString('de-AT', { maximumFractionDigits: 2 }) : '?'} L
                       </span>
                     </p>
@@ -135,7 +135,7 @@ export default function UmziehenFormClient({
                 </div>
                 {quellen.length > 1 && (
                   <button type="button" onClick={() => removeQuelle(i)}
-                    className="text-red-400 hover:text-red-600 text-sm mt-2.5 shrink-0" title="Zeile entfernen">
+                    className="text-s112-err hover:text-s112-err-fg text-sm mt-2.5 shrink-0" title="Zeile entfernen">
                     <X size={13} strokeWidth={2} />
                   </button>
                 )}
@@ -148,9 +148,9 @@ export default function UmziehenFormClient({
       {/* ZIEL-GEBINDE */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Ziel-Gebinde</span>
+          <span className="text-xs font-semibold text-s112-text-2 uppercase tracking-wide">Ziel-Gebinde</span>
           <button type="button" onClick={addZiel}
-            className="text-xs font-medium text-s112-teal hover:underline">
+            className="text-xs font-medium text-s112-blue-700 hover:underline">
             + Ziel hinzufügen
           </button>
         </div>
@@ -181,14 +181,14 @@ export default function UmziehenFormClient({
               />
               {ziele.length > 1 && (
                 <button type="button" onClick={() => removeZiel(i)}
-                  className="text-red-400 hover:text-red-600 text-sm shrink-0" title="Zeile entfernen">
+                  className="text-s112-err hover:text-s112-err-fg text-sm shrink-0" title="Zeile entfernen">
                   <X size={13} strokeWidth={2} />
                 </button>
               )}
             </div>
           ))}
           {ueberschuss && (
-            <p className="text-xs text-red-600">
+            <p className="text-xs text-s112-err-fg">
               Summe Netto ({sumNetto.toLocaleString('de-AT', { maximumFractionDigits: 2 })} L) überschreitet Brutto – bitte korrigieren.
             </p>
           )}
@@ -197,7 +197,7 @@ export default function UmziehenFormClient({
 
       {/* SCHWUND-BOX */}
       {sumBrutto > 0 && (
-        <div className={`rounded-lg border px-4 py-2.5 text-sm ${ueberschuss ? 'bg-red-50 border-red-300' : 'bg-s112-bg border-s112-border'}`}>
+        <div className={`rounded-lg border px-4 py-2.5 text-sm ${ueberschuss ? 'bg-s112-err-bg border-s112-err/30' : 'bg-s112-bg border-s112-border'}`}>
           <div className="flex justify-between">
             <span className="text-s112-muted">Gesamt brutto:</span>
             <span className="font-medium tabular-nums">{sumBrutto.toLocaleString('de-AT', { maximumFractionDigits: 2 })} L</span>
@@ -207,8 +207,8 @@ export default function UmziehenFormClient({
             <span className="font-medium tabular-nums">{sumNetto.toLocaleString('de-AT', { maximumFractionDigits: 2 })} L</span>
           </div>
           <div className="flex justify-between border-t border-s112-border/50 pt-1.5 mt-1.5">
-            <span className={ueberschuss ? 'text-red-600 font-semibold' : 'text-s112-muted'}>Schwund:</span>
-            <span className={`font-semibold tabular-nums inline-flex items-center gap-1 ${ueberschuss ? 'text-red-600' : 'text-gray-800'}`}>
+            <span className={ueberschuss ? 'text-s112-err-fg font-semibold' : 'text-s112-muted'}>Schwund:</span>
+            <span className={`font-semibold tabular-nums inline-flex items-center gap-1 ${ueberschuss ? 'text-s112-err-fg' : 'text-s112-text'}`}>
               {ueberschuss
                 ? <><AlertTriangle size={12} strokeWidth={2} />Netto &gt; Brutto</>
                 : `${schwund.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`}

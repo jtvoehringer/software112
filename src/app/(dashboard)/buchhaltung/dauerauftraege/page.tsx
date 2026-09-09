@@ -51,21 +51,21 @@ export default async function DauerauftraegePage() {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-2">
-        <Link href="/buchhaltung" className="hover:text-s112-teal transition-colors">E&amp;A-Rechnung</Link>
+        <Link href="/buchhaltung" className="hover:text-s112-blue-700 transition-colors">E&amp;A-Rechnung</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Daueraufträge</span>
+        <span className="text-s112-text-1 font-medium">Daueraufträge</span>
       </div>
       <div className="flex items-center gap-3 mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Daueraufträge</h1>
+        <h1 className="text-2xl font-semibold text-s112-text">Daueraufträge</h1>
       </div>
 
       {/* Neuer Dauerauftrag */}
-      <div className="bg-white rounded-2xl border border-s112-border p-5 mb-6">
-        <h2 className="font-semibold text-gray-800 mb-4">Neuer Dauerauftrag</h2>
+      <div className="bg-white rounded-xl border border-s112-border p-5 mb-6">
+        <h2 className="font-semibold text-s112-text mb-4">Neuer Dauerauftrag</h2>
         <form action={async (fd: FormData) => { 'use server'; await createEaDauerauftrag(fd) }} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Typ *</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Typ *</label>
               <select name="typ" required
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
                 <option value="einnahme">Einnahme</option>
@@ -73,7 +73,7 @@ export default async function DauerauftraegePage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Intervall *</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Intervall *</label>
               <select name="intervall" required
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
                 {INTERVALLE.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
@@ -81,18 +81,18 @@ export default async function DauerauftraegePage() {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Bezeichnung *</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung *</label>
             <input name="beschreibung" required placeholder="z.B. Miete Lagerhalle"
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" />
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Betrag Netto (€) *</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Betrag Netto (€) *</label>
               <input type="number" name="betrag_netto" step="0.01" min="0.01" required
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">USt-Satz</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">USt-Satz</label>
               <select name="ust_satz" defaultValue="20"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
                 <option value="0">0%</option><option value="10">10%</option>
@@ -100,20 +100,20 @@ export default async function DauerauftraegePage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Tag im Monat</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Tag im Monat</label>
               <input type="number" name="tag_im_monat" min="1" max="28" defaultValue="1"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Nächste Fälligkeit *</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Nächste Fälligkeit *</label>
               <input type="date" name="naechste_faelligkeit" required
                 defaultValue={new Date().toISOString().split('T')[0]}
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Kategorie</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Kategorie</label>
               <select name="kategorie_id"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
                 <option value="">– keine –</option>
@@ -125,7 +125,7 @@ export default async function DauerauftraegePage() {
           </div>
           {konten && (konten as R[]).length > 0 && (
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Konto</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Konto</label>
               <select name="konto_id" defaultValue=""
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
                 <option value="">– keines –</option>
@@ -142,9 +142,9 @@ export default async function DauerauftraegePage() {
       </div>
 
       {/* Liste */}
-      <div className="bg-white rounded-2xl border border-s112-border overflow-hidden">
+      <div className="bg-white rounded-xl border border-s112-border overflow-hidden">
         <div className="px-5 py-3 border-b border-s112-border">
-          <h2 className="font-semibold text-gray-800">Aktive Daueraufträge</h2>
+          <h2 className="font-semibold text-s112-text">Aktive Daueraufträge</h2>
         </div>
         {(!dauerauftraege || dauerauftraege.length === 0) ? (
           <p className="text-center py-8 text-s112-muted text-sm">Noch keine Daueraufträge</p>
@@ -152,37 +152,37 @@ export default async function DauerauftraegePage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-s112-border bg-s112-bg">
-                <th className="text-left px-4 py-2 font-medium text-gray-600">Bezeichnung</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-600">Typ</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-600">Intervall</th>
-                <th className="text-right px-4 py-2 font-medium text-gray-600">Netto/USt</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-600">Nächste Fälligkeit</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-600">Konto</th>
+                <th className="text-left px-4 py-2 font-medium text-s112-text-2">Bezeichnung</th>
+                <th className="text-left px-4 py-2 font-medium text-s112-text-2">Typ</th>
+                <th className="text-left px-4 py-2 font-medium text-s112-text-2">Intervall</th>
+                <th className="text-right px-4 py-2 font-medium text-s112-text-2">Netto/USt</th>
+                <th className="text-left px-4 py-2 font-medium text-s112-text-2">Nächste Fälligkeit</th>
+                <th className="text-left px-4 py-2 font-medium text-s112-text-2">Konto</th>
                 <th className="px-4 py-2" />
               </tr>
             </thead>
             <tbody>
               {(dauerauftraege as R[]).filter(d => d.aktiv).map((d: R) => (
                 <tr key={d.id} className="border-b border-s112-border/40 hover:bg-s112-bg/40">
-                  <td className="px-4 py-2.5 font-medium text-gray-800">{d.beschreibung}</td>
+                  <td className="px-4 py-2.5 font-medium text-s112-text">{d.beschreibung}</td>
                   <td className="px-4 py-2.5">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${d.typ === 'einnahme' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${d.typ === 'einnahme' ? 'bg-s112-ok-bg text-s112-ok-fg' : 'bg-s112-err-bg text-s112-err-fg'}`}>
                       {d.typ}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 text-gray-600">
+                  <td className="px-4 py-2.5 text-s112-text-2">
                     {INTERVALLE.find(i => i.value === d.intervall)?.label ?? d.intervall}
                   </td>
                   <td className="px-4 py-2.5 text-right font-mono">
                     € {d.betrag_netto?.toLocaleString('de-AT', { minimumFractionDigits: 2 })}
-                    <span className="text-gray-400 ml-1">+{d.ust_satz}%</span>
+                    <span className="text-s112-tertiary ml-1">+{d.ust_satz}%</span>
                   </td>
-                  <td className="px-4 py-2.5 text-gray-600">
+                  <td className="px-4 py-2.5 text-s112-text-2">
                     {d.naechste_faelligkeit
                       ? new Date(d.naechste_faelligkeit).toLocaleDateString('de-AT')
                       : '–'}
                   </td>
-                  <td className="px-4 py-2.5 text-gray-500 text-xs">{d.konten?.name ?? '–'}</td>
+                  <td className="px-4 py-2.5 text-s112-text-2 text-xs">{d.konten?.name ?? '–'}</td>
                   <td className="px-4 py-2.5 text-right">
                     {adminOk && (
                       <ConfirmDeleteForm
@@ -190,7 +190,7 @@ export default async function DauerauftraegePage() {
                         message={`"${d.beschreibung}" deaktivieren? Es werden dann keine weiteren Buchungen mehr automatisch erzeugt.`}
                         title="Deaktivieren"
                         label="Deaktivieren"
-                        className="text-xs text-red-400 hover:text-red-600"
+                        className="text-xs text-s112-err hover:text-s112-err-fg"
                       />
                     )}
                   </td>
@@ -203,28 +203,28 @@ export default async function DauerauftraegePage() {
 
       {/* Letzte Ausführungen */}
       {log && (log as R[]).length > 0 && (
-        <div className="bg-white rounded-2xl border border-s112-border overflow-hidden mt-6">
+        <div className="bg-white rounded-xl border border-s112-border overflow-hidden mt-6">
           <div className="px-5 py-3 border-b border-s112-border">
-            <h2 className="font-semibold text-gray-800">Letzte Ausführungen</h2>
+            <h2 className="font-semibold text-s112-text">Letzte Ausführungen</h2>
           </div>
           <table className="w-full text-sm">
             <tbody>
               {(log as R[]).map(l => (
                 <tr key={l.id} className="border-b border-s112-border/40 last:border-0">
-                  <td className="px-4 py-2 text-gray-600 whitespace-nowrap">
+                  <td className="px-4 py-2 text-s112-text-2 whitespace-nowrap">
                     {new Date(l.erstellt_am).toLocaleString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </td>
-                  <td className="px-4 py-2 text-gray-800">{l.ea_dauerauftraege?.beschreibung ?? '–'}</td>
+                  <td className="px-4 py-2 text-s112-text">{l.ea_dauerauftraege?.beschreibung ?? '–'}</td>
                   <td className="px-4 py-2">
                     <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      l.status === 'erstellt' ? 'bg-green-100 text-green-700'
-                      : l.status === 'uebersprungen' ? 'bg-gray-100 text-gray-600'
-                      : 'bg-red-100 text-red-600'
+                      l.status === 'erstellt' ? 'bg-s112-ok-bg text-s112-ok-fg'
+                      : l.status === 'uebersprungen' ? 'bg-[#F2F3F5] text-s112-text-2'
+                      : 'bg-s112-err-bg text-s112-err-fg'
                     }`}>
                       {l.status === 'erstellt' ? 'Erstellt' : l.status === 'uebersprungen' ? 'Übersprungen' : 'Fehler'}
                     </span>
                   </td>
-                  <td className="px-4 py-2 text-gray-500 text-xs">{l.fehler_details ?? ''}</td>
+                  <td className="px-4 py-2 text-s112-text-2 text-xs">{l.fehler_details ?? ''}</td>
                 </tr>
               ))}
             </tbody>

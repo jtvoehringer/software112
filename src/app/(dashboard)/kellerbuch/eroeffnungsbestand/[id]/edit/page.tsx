@@ -56,17 +56,17 @@ export default async function EroeffnungsbestandEditPage({ params }: { params: P
 
   const gebinde = (gebindeRaw ?? []) as R[]
   const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
-  const labelCls = 'block text-xs font-medium text-gray-600 mb-1'
+  const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
   return (
     <div className="max-w-2xl space-y-6">
       <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/kellerbuch/gebinde?tab=eroeffnungsbestand" className="hover:text-s112-teal">Eröffnungsbestand</Link>
+        <Link href="/kellerbuch/gebinde?tab=eroeffnungsbestand" className="hover:text-s112-blue-700">Eröffnungsbestand</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Bearbeiten</span>
+        <span className="text-s112-text-1 font-medium">Bearbeiten</span>
       </div>
 
-      <h1 className="text-2xl font-bold text-gray-900">Eröffnungsbestand bearbeiten</h1>
+      <h1 className="text-2xl font-semibold text-s112-text">Eröffnungsbestand bearbeiten</h1>
 
       <form action={updateEroeffnungsbestand.bind(null, id)} className="card p-6 space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -129,7 +129,7 @@ export default async function EroeffnungsbestandEditPage({ params }: { params: P
             Speichern
           </button>
           <Link href="/kellerbuch/gebinde?tab=eroeffnungsbestand"
-            className="px-6 py-2 rounded-xl text-sm text-gray-600 hover:text-gray-800 transition-colors">
+            className="px-6 py-2 rounded-xl text-sm text-s112-text-2 hover:text-s112-text transition-colors">
             Abbrechen
           </Link>
         </div>

@@ -8,8 +8,8 @@ const STATUS_LABEL: Record<string,string> = {
   entwurf:'Entwurf', bestaetigt:'Bestätigt', versendet:'Versendet', abgeschlossen:'Abgeschlossen'
 }
 const STATUS_COLOR: Record<string,string> = {
-  entwurf:'bg-gray-100 text-gray-600', bestaetigt:'bg-blue-100 text-blue-700',
-  versendet:'bg-amber-100 text-amber-700', abgeschlossen:'bg-green-100 text-green-700'
+  entwurf:'bg-[#F2F3F5] text-s112-text-2', bestaetigt:'bg-s112-blue-100 text-s112-blue-700',
+  versendet:'bg-s112-warn-bg text-s112-warn-fg', abgeschlossen:'bg-s112-ok-bg text-s112-ok-fg'
 }
 const DOK_LABEL: Record<string,string> = {
   v1v2:'V1/V2 Begleitdokument', eur1:'EUR.1 Ursprungszeugnis',
@@ -22,8 +22,8 @@ const DOK_STATUS_LABEL: Record<string,string> = {
   ausgestellt:'Ausgestellt', nicht_erforderlich:'Nicht erforderlich',
 }
 const DOK_STATUS_COLOR: Record<string,string> = {
-  ausstehend:'bg-gray-100 text-gray-500', beantragt:'bg-amber-100 text-amber-700',
-  ausgestellt:'bg-green-100 text-green-700', nicht_erforderlich:'bg-gray-50 text-gray-400',
+  ausstehend:'bg-[#F2F3F5] text-s112-text-2', beantragt:'bg-s112-warn-bg text-s112-warn-fg',
+  ausgestellt:'bg-s112-ok-bg text-s112-ok-fg', nicht_erforderlich:'bg-s112-bg text-s112-tertiary',
 }
 
 interface Props { auftrag: R; positionen: R[]; dokumente: R[] }
@@ -68,11 +68,11 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
       <div className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2 text-sm text-s112-muted mb-1">
-            <Link href="/weinexport" className="hover:text-s112-teal transition-colors">Weinexport</Link>
+            <Link href="/weinexport" className="hover:text-s112-blue-700 transition-colors">Weinexport</Link>
             <span>/</span>
-            <span className="text-gray-700 font-medium">{auftrag.referenz ?? 'Exportauftrag'}</span>
+            <span className="text-s112-text-1 font-medium">{auftrag.referenz ?? 'Exportauftrag'}</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mt-1">
+          <h1 className="text-2xl font-semibold text-s112-text mt-1">
              {auftrag.referenz ?? 'Exportauftrag'}
           </h1>
           <p className="text-sm text-s112-muted mt-0.5">{importeur}</p>
@@ -92,8 +92,8 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
         {/* Linke Spalte: Auftragsdaten + Positionen */}
         <div className="col-span-2 space-y-5">
           {/* Auftragsdaten */}
-          <div className="bg-white rounded-2xl border border-s112-border p-5">
-            <h2 className="font-semibold text-gray-800 mb-4">Auftragsdaten</h2>
+          <div className="bg-white rounded-xl border border-s112-border p-5">
+            <h2 className="font-semibold text-s112-text mb-4">Auftragsdaten</h2>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
               <div><dt className="text-xs text-s112-muted">Importeur</dt><dd className="font-medium">{importeur}</dd></div>
               <div><dt className="text-xs text-s112-muted">Incoterms</dt><dd>{auftrag.incoterms ?? '–'}</dd></div>
@@ -105,7 +105,7 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
               <div><dt className="text-xs text-s112-muted">Versicherungswert</dt><dd>{auftrag.versicherungswert ? `EUR ${parseFloat(auftrag.versicherungswert).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '–'}</dd></div>
             </dl>
             {auftrag.notizen && (
-              <div className="mt-4 p-3 bg-s112-bg rounded-lg text-sm text-gray-700">
+              <div className="mt-4 p-3 bg-s112-bg rounded-lg text-sm text-s112-text-1">
                 <span className="text-xs font-medium text-s112-muted block mb-1">Notizen</span>
                 {auftrag.notizen}
               </div>
@@ -113,8 +113,8 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
           </div>
 
           {/* Positionen */}
-          <div className="bg-white rounded-2xl border border-s112-border p-5">
-            <h2 className="font-semibold text-gray-800 mb-4">Weinpositionen</h2>
+          <div className="bg-white rounded-xl border border-s112-border p-5">
+            <h2 className="font-semibold text-s112-text mb-4">Weinpositionen</h2>
             {positionen.length === 0 ? (
               <p className="text-sm text-s112-muted">Keine Positionen erfasst.</p>
             ) : (
@@ -153,14 +153,14 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
 
         {/* Rechte Spalte: Dokumenten-Checkliste */}
         <div className="space-y-5">
-          <div className="bg-white rounded-2xl border border-s112-border p-5">
+          <div className="bg-white rounded-xl border border-s112-border p-5">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-gray-800">Dokumente</h2>
+              <h2 className="font-semibold text-s112-text">Dokumente</h2>
               <span className="text-xs text-s112-muted">{ausgestellt}/{gesamt}</span>
             </div>
             <p className="text-[10px] text-s112-muted mt-1">Nur 'Ausgestellt' zählt zum Fortschritt</p>
             {/* Progress Bar */}
-            <div className="w-full bg-gray-100 rounded-full h-1.5 mb-4">
+            <div className="w-full bg-[#F2F3F5] rounded-full h-1.5 mb-4">
               <div className="bg-s112-teal h-1.5 rounded-full transition-all"
                 style={{ width: gesamt > 0 ? `${(ausgestellt/gesamt)*100}%` : '0%' }} />
             </div>
@@ -169,7 +169,7 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
               {dokumente.map((dok: R) => (
                 <div key={dok.id} className="flex items-start gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-gray-800 truncate">
+                    <p className="text-xs font-medium text-s112-text truncate">
                       {DOK_LABEL[dok.dokument_art] ?? dok.dokument_art}
                     </p>
                     <select value={dok.status}
@@ -183,7 +183,7 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
                     dok.dokument_art === 'rechnung' || dok.dokument_art === 'certificate_of_origin') && (
                     <a href={`/api/weinexport/${auftrag.id}/dokument/${dok.dokument_art}`}
                       target="_blank" rel="noopener noreferrer"
-                      className="mt-5 text-[10px] text-s112-teal border border-s112-teal/30 px-2 py-1 rounded hover:bg-s112-teal/5 flex-shrink-0">
+                      className="mt-5 text-[10px] text-s112-blue-700 border border-s112-teal/30 px-2 py-1 rounded hover:bg-s112-teal/5 flex-shrink-0">
                       PDF
                     </a>
                   )}

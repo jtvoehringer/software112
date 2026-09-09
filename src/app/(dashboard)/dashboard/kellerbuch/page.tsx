@@ -41,7 +41,7 @@ export default async function KellerbuchSichtPage() {
       </div>
 
       <div>
-        <h2 className="font-display font-semibold text-[15px] text-s112-navy mb-3">Chargen-Pipeline</h2>
+        <h2 className="font-display font-semibold text-[15px] text-s112-text mb-3">Chargen-Pipeline</h2>
         <ChargenKanban chargen={keller.chargen} assistentAktiv={einst.assistentAktiv && canWrite(ctx.role)} />
       </div>
 

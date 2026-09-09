@@ -123,14 +123,14 @@ export default function OnboardingPage() {
       <div className="flex items-center gap-2 text-sm text-s112-muted">
         <span>Administration</span>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Onboarding Guide</span>
+        <span className="text-s112-text-1 font-medium">Onboarding Guide</span>
       </div>
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Onboarding Guide</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Onboarding Guide</h1>
           <p className="text-sm text-s112-muted mt-1">Checkliste für die Einrichtung eines neuen Mandanten</p>
         </div>
-        <button onClick={reset} className="text-xs text-s112-muted hover:text-red-500 border border-s112-border px-3 py-1.5 rounded-lg">
+        <button onClick={reset} className="text-xs text-s112-muted hover:text-s112-err border border-s112-border px-3 py-1.5 rounded-lg">
           Zurücksetzen
         </button>
       </div>
@@ -143,10 +143,10 @@ export default function OnboardingPage() {
               placeholder="Mandanten-Name (optional)"
               className="border border-s112-border rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-60" />
           </div>
-          <span className={`text-lg font-bold ${pct === 100 ? 'text-green-600' : 'text-s112-teal'}`}>{pct}%</span>
+          <span className={`text-lg font-semibold ${pct === 100 ? 'text-s112-ok-fg' : 'text-s112-blue-700'}`}>{pct}%</span>
         </div>
         <div className="w-full bg-s112-bg rounded-full h-3">
-          <div className={`h-3 rounded-full transition-all ${pct === 100 ? 'bg-green-500' : 'bg-s112-teal'}`}
+          <div className={`h-3 rounded-full transition-all ${pct === 100 ? 'bg-s112-ok' : 'bg-s112-teal'}`}
             style={{ width: `${pct}%` }} />
         </div>
         <p className="text-xs text-s112-muted mt-1">{done} von {gesamt} Schritten erledigt</p>
@@ -155,7 +155,7 @@ export default function OnboardingPage() {
       {/* Schritte */}
       {ONBOARDING_SCHRITTE.map(gruppe => (
         <div key={gruppe.gruppe}>
-          <h2 className="text-base font-semibold text-gray-800 mb-3">
+          <h2 className="text-base font-semibold text-s112-text mb-3">
             {gruppe.gruppe}
           </h2>
           <div className="space-y-2">
@@ -166,19 +166,19 @@ export default function OnboardingPage() {
                   className={`card p-4 flex gap-3 ${done ? 'opacity-60' : ''}`}>
                   <button type="button" onClick={() => toggle(s.id)}
                     className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors
-                      ${done ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-gray-300 hover:border-green-400'}`}>
+                      ${done ? 'bg-s112-ok border-s112-ok text-white' : 'bg-white border-s112-line-str hover:border-s112-ok/50'}`}>
                     {done && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                     </svg>}
                   </button>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <p className={`text-sm font-medium ${done ? 'line-through text-gray-400' : 'text-gray-800'}`}>{s.titel}</p>
-                      {!s.pflicht && <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">optional</span>}
+                      <p className={`text-sm font-medium ${done ? 'line-through text-s112-tertiary' : 'text-s112-text'}`}>{s.titel}</p>
+                      {!s.pflicht && <span className="text-xs bg-[#F2F3F5] text-s112-text-2 px-1.5 py-0.5 rounded">optional</span>}
                     </div>
-                    <p className="text-xs text-gray-500 leading-relaxed">{s.beschreibung}</p>
+                    <p className="text-xs text-s112-text-2 leading-relaxed">{s.beschreibung}</p>
                     {s.link && !done && (
-                      <a href={s.link} className="text-xs text-s112-teal hover:underline mt-1 inline-block">
+                      <a href={s.link} className="text-xs text-s112-blue-700 hover:underline mt-1 inline-block">
                         {s.linkLabel} →
                       </a>
                     )}
@@ -191,9 +191,9 @@ export default function OnboardingPage() {
       ))}
 
       {pct === 100 && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
-          <p className="font-bold text-green-800">{mandant ? `${mandant} ist` : 'Der Mandant ist'} vollständig eingerichtet!</p>
-          <p className="text-sm text-green-600 mt-1">Alle Pflichtschritte erledigt. software:112 ist bereit für den Produktivbetrieb.</p>
+        <div className="bg-s112-ok-bg border border-s112-ok/30 rounded-xl p-5 text-center">
+          <p className="font-semibold text-s112-ok-fg">{mandant ? `${mandant} ist` : 'Der Mandant ist'} vollständig eingerichtet!</p>
+          <p className="text-sm text-s112-ok-fg mt-1">Alle Pflichtschritte erledigt. software:112 ist bereit für den Produktivbetrieb.</p>
         </div>
       )}
     </div>

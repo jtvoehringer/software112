@@ -48,11 +48,11 @@ export default function LoginPage() {
 
       {/* Card */}
       <div className="card">
-        <h2 className="text-lg font-semibold text-gray-800 mb-6">Anmelden</h2>
+        <h2 className="text-lg font-semibold text-s112-text mb-6">Anmelden</h2>
 
         <form onSubmit={handleLogin} autoComplete="on" className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="email" className="block text-sm font-medium text-s112-text-1 mb-1">
               E-Mail
             </label>
             <input
@@ -68,7 +68,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-s112-text-1 mb-1">
               Passwort
             </label>
             <input
@@ -84,7 +84,7 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">
+            <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg text-sm px-3 py-2 rounded-lg">
               {error}
             </div>
           )}
@@ -104,7 +104,7 @@ export default function LoginPage() {
             {loading ? 'Anmelden…' : 'Anmelden'}
           </button>
           <div className="text-center mt-3">
-            <a href="/login/reset" className="text-xs text-s112-teal hover:underline">
+            <a href="/login/reset" className="text-xs text-s112-blue-700 hover:underline">
               Passwort vergessen?
             </a>
           </div>
@@ -114,7 +114,7 @@ export default function LoginPage() {
       <p className="text-center text-xs text-s112-muted mt-6">
         software:112 · IC&P Consultants e.U.
       </p>
-      <p className="text-center text-[10px] text-gray-400 mt-1">v2.1.0 · Juni 2026</p>
+      <p className="text-center text-[10px] text-s112-tertiary mt-1">v2.1.0 · Juni 2026</p>
     </div>
   )
 }

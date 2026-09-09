@@ -100,7 +100,7 @@ export default async function EditFuellungPage({
   }
 
   const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
-  const labelCls = 'block text-xs font-medium text-gray-600 mb-1'
+  const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
   // Bind updateFuellung with id
   const updateWithId = updateFuellung.bind(null, id)
@@ -147,12 +147,12 @@ export default async function EditFuellungPage({
     <div className="max-w-2xl">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-s112-muted mb-6">
-        <Link href="/weinhandel" className="hover:text-s112-teal">Weinhandel</Link>
+        <Link href="/weinhandel" className="hover:text-s112-blue-700">Weinhandel</Link>
         <span>/</span>
-        <span className="text-gray-800 font-medium">Füllung bearbeiten</span>
+        <span className="text-s112-text font-medium">Füllung bearbeiten</span>
       </nav>
 
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">Füllung bearbeiten</h1>
+      <h1 className="text-2xl font-semibold text-s112-text mb-1">Füllung bearbeiten</h1>
       <p className="text-sm text-s112-muted mb-6">{f.name}</p>
 
       {/* ── Weinpass / QR-Code ── */}
@@ -167,12 +167,12 @@ export default async function EditFuellungPage({
             className="rounded-xl border border-s112-border shrink-0"
           />
           <div className="space-y-2 min-w-0">
-            <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5"><Wine className="w-4 h-4 text-s112-teal" /> Weinpass</p>
-            <p className="text-xs text-s112-muted">Chargennummer: <span className="font-mono text-gray-700">{f.chargennummer}</span></p>
+            <p className="text-sm font-semibold text-s112-text flex items-center gap-1.5"><Wine className="w-4 h-4 text-s112-blue-700" /> Weinpass</p>
+            <p className="text-xs text-s112-muted">Chargennummer: <span className="font-mono text-s112-text-1">{f.chargennummer}</span></p>
             <a
               href={`/w/${encodeURIComponent(f.chargennummer)}`}
               target="_blank" rel="noopener noreferrer"
-              className="text-xs text-s112-teal hover:underline break-all">
+              className="text-xs text-s112-blue-700 hover:underline break-all">
               /w/{f.chargennummer} ↗
             </a>
             <div className="flex gap-2 pt-1">
@@ -180,12 +180,12 @@ export default async function EditFuellungPage({
                 href={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`https://software112.icp-consultants.at/w/${encodeURIComponent(f.chargennummer)}`)}`}
                 download={`weinpass-${f.chargennummer}.png`}
                 target="_blank" rel="noopener noreferrer"
-                className="text-xs border border-s112-border px-3 py-1 rounded-lg text-gray-600 hover:bg-s112-bg">
+                className="text-xs border border-s112-border px-3 py-1 rounded-lg text-s112-text-2 hover:bg-s112-bg">
                 QR laden
               </a>
               <a
                 href={`/kellerbuch/rueckverfolgung?q=${encodeURIComponent(f.chargennummer)}`}
-                className="text-xs border border-s112-border px-3 py-1 rounded-lg text-gray-600 hover:bg-s112-bg">
+                className="text-xs border border-s112-border px-3 py-1 rounded-lg text-s112-text-2 hover:bg-s112-bg">
                 Rückverfolgung
               </a>
             </div>
@@ -197,9 +197,9 @@ export default async function EditFuellungPage({
 
         {/* Kellerbuch-Charge */}
         <div className="card p-5 space-y-2">
-          <h2 className="font-semibold text-gray-800 text-sm">Kellerbuch-Charge</h2>
+          <h2 className="font-semibold text-s112-text text-sm">Kellerbuch-Charge</h2>
           {!f.weinausbau_id && (
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <p className="text-xs text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2">
               Keine Charge verknüpft – Rückverfolgung nur bis zur Abfüllung möglich. Bitte hier nachträglich zuordnen.
             </p>
           )}
@@ -218,11 +218,11 @@ export default async function EditFuellungPage({
 
         {/* ── Schwund-Ausbuchen ── */}
         {waRestmenge !== null && waRestmenge > 0.01 && (
-          <div className="card p-5 border-amber-200 bg-amber-50 space-y-3">
+          <div className="card p-5 border-s112-warn/30 bg-s112-warn-bg space-y-3">
             <div className="flex items-start gap-2">
               <div>
-                <p className="text-sm font-semibold text-amber-800">Weinausbau-Charge nicht abgeschlossen</p>
-                <p className="text-xs text-amber-700 mt-0.5">
+                <p className="text-sm font-semibold text-s112-warn-fg">Weinausbau-Charge nicht abgeschlossen</p>
+                <p className="text-xs text-s112-warn-fg mt-0.5">
                   Die verknüpfte Charge hat noch{' '}
                   <strong>{waRestmenge.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L</strong>{' '}
                   Restbestand. Diese wurden beim Abfüllen nicht als Schwund ausgebucht.
@@ -232,7 +232,7 @@ export default async function EditFuellungPage({
             <form action={schwundAusbuchen.bind(null, id)}>
               <button
                 type="submit"
-                className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-amber-700 transition-colors"
+                className="bg-s112-warn-fg text-white px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-colors"
               >
                 {waRestmenge.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L als Schwund ausbuchen & Charge abschließen
               </button>
@@ -242,7 +242,7 @@ export default async function EditFuellungPage({
 
         {/* ── Produktbezeichnung ── */}
         <div className="card p-5 space-y-4">
-          <h2 className="font-semibold text-gray-800 text-sm">Produktbezeichnung</h2>
+          <h2 className="font-semibold text-s112-text text-sm">Produktbezeichnung</h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
@@ -298,7 +298,7 @@ export default async function EditFuellungPage({
 
         {/* ── Abfüllung ── */}
         <div className="card p-5 space-y-4">
-          <h2 className="font-semibold text-gray-800 text-sm">Abfüllung</h2>
+          <h2 className="font-semibold text-s112-text text-sm">Abfüllung</h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -337,7 +337,7 @@ export default async function EditFuellungPage({
 
         {/* ── Preise ── */}
         <div className="card p-5 space-y-4">
-          <h2 className="font-semibold text-gray-800 text-sm">Preise</h2>
+          <h2 className="font-semibold text-s112-text text-sm">Preise</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>VK-Preis brutto pro Flasche (€)</label>
@@ -370,7 +370,7 @@ export default async function EditFuellungPage({
 
         {/* ── Export / Zoll ── */}
         <div className="card p-5 space-y-3">
-          <h2 className="font-semibold text-gray-800 text-sm">Export (intern)</h2>
+          <h2 className="font-semibold text-s112-text text-sm">Export (intern)</h2>
           <div>
             <label className={labelCls}>
               KN-Code / Zolltarifnummer{' '}
@@ -408,7 +408,7 @@ export default async function EditFuellungPage({
             className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
             Änderungen speichern
           </button>
-          <Link href="/weinhandel" className="px-6 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors">
+          <Link href="/weinhandel" className="px-6 py-2 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text transition-colors">
             Abbrechen
           </Link>
         </div>

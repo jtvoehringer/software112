@@ -112,7 +112,7 @@ export default function HerkunftCodeSelect({
           <button
             type="button"
             onClick={() => { setNeuModus(false); setNeuName(''); setFehler(null) }}
-            className="shrink-0 px-2 py-2 rounded-lg text-xs text-s112-muted hover:text-gray-700 transition-colors"
+            className="shrink-0 px-2 py-2 rounded-lg text-xs text-s112-muted hover:text-s112-text-1 transition-colors"
           >
             Abbrechen
           </button>
@@ -142,7 +142,7 @@ export default function HerkunftCodeSelect({
         </select>
       )}
 
-      {fehler && <p className="text-xs text-red-500 mt-1">{fehler}</p>}
+      {fehler && <p className="text-xs text-s112-err mt-1">{fehler}</p>}
     </div>
   )
 }

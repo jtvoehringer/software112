@@ -28,16 +28,16 @@ export default function KellerplanEditModal({ plan, action, inputCls, labelCls }
     <>
       <button onClick={() => setOpen(true)}
         title="Bearbeiten" aria-label="Bearbeiten"
-        className="text-s112-teal hover:text-s112-teal/70">
+        className="text-s112-blue-700 hover:text-s112-blue-700/70">
         <Pencil className="w-4 h-4" />
       </button>
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
           onClick={() => setOpen(false)}>
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm"
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm"
             onClick={e => e.stopPropagation()}>
-            <h3 className="font-semibold text-gray-800 mb-4">Kellerplan bearbeiten</h3>
+            <h3 className="font-semibold text-s112-text mb-4">Kellerplan bearbeiten</h3>
             <form action={handleSubmit} className="space-y-3">
               <div>
                 <label className={labelCls}>Name *</label>
@@ -65,7 +65,7 @@ export default function KellerplanEditModal({ plan, action, inputCls, labelCls }
                   Speichern
                 </button>
                 <button type="button" onClick={() => setOpen(false)}
-                  className="px-4 py-2 rounded-xl text-sm text-gray-600 hover:text-gray-800">
+                  className="px-4 py-2 rounded-xl text-sm text-s112-text-2 hover:text-s112-text">
                   Abbrechen
                 </button>
               </div>

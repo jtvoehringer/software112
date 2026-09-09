@@ -30,24 +30,24 @@ function RabattForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-5 space-y-3">
-      <h3 className="text-sm font-semibold text-gray-800">
+      <h3 className="text-sm font-semibold text-s112-text">
         {initial ? 'Rabattgruppe bearbeiten' : 'Neue Rabattgruppe'}
       </h3>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Bezeichnung *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung *</label>
           <input name="name" defaultValue={initial?.name ?? ''} required
             placeholder="z.B. Stammkunde, Großhändler" className={inputCls()} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Rabatt %</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Rabatt %</label>
           <input name="rabatt_pct" type="number" step="0.5" min="0" max="100"
             defaultValue={initial?.rabatt_pct ?? 0}
             placeholder="z.B. 10" className={inputCls()} />
         </div>
       </div>
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
+        <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
         <input name="notizen" defaultValue={initial?.notizen ?? ''}
           placeholder="Optional" className={inputCls()} />
       </div>
@@ -57,7 +57,7 @@ function RabattForm({
           {pending ? 'Speichern…' : (initial ? 'Speichern' : 'Anlegen')}
         </button>
         <button type="button" onClick={onDone}
-          className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800">
+          className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:text-s112-text">
           Abbrechen
         </button>
       </div>
@@ -83,13 +83,13 @@ export default function RabattgruppenClient({
   return (
     <div className="space-y-6 max-w-2xl">
       <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/weinhandel" className="hover:text-s112-teal transition-colors">Weinhandel</Link>
+        <Link href="/weinhandel" className="hover:text-s112-blue-700 transition-colors">Weinhandel</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Rabattgruppen</span>
+        <span className="text-s112-text-1 font-medium">Rabattgruppen</span>
       </div>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Rabattgruppen</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Rabattgruppen</h1>
           <p className="text-sm text-s112-muted mt-0.5">Kundenrabatte nach Kategorie verwalten</p>
         </div>
         {writeOk && !showForm && !editing && (
@@ -116,8 +116,8 @@ export default function RabattgruppenClient({
             <div key={g.id} className="card p-4 flex items-center gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3">
-                  <span className="font-semibold text-gray-900">{g.name}</span>
-                  <span className="text-sm font-bold text-s112-teal bg-s112-teal/10 px-2 py-0.5 rounded-full tabular-nums">
+                  <span className="font-semibold text-s112-text">{g.name}</span>
+                  <span className="text-sm font-semibold text-s112-blue-700 bg-s112-teal/10 px-2 py-0.5 rounded-full tabular-nums">
                     {g.rabatt_pct > 0 ? `${g.rabatt_pct}%` : 'Kein Rabatt'}
                   </span>
                 </div>
@@ -129,12 +129,12 @@ export default function RabattgruppenClient({
                 <div className="flex gap-1 flex-shrink-0">
                   <button onClick={() => setEditing(g)}
                     title="Bearbeiten" aria-label="Bearbeiten"
-                    className="text-s112-muted hover:text-s112-teal px-2 py-1 rounded transition-colors">
+                    className="text-s112-muted hover:text-s112-blue-700 px-2 py-1 rounded transition-colors">
                     <Pencil className="w-4 h-4" />
                   </button>
                   <button onClick={() => handleDelete(g.id, g.name)} disabled={pending}
                     title="Löschen" aria-label="Löschen"
-                    className="text-s112-muted hover:text-red-500 px-2 py-1 rounded transition-colors">
+                    className="text-s112-muted hover:text-s112-err px-2 py-1 rounded transition-colors">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>

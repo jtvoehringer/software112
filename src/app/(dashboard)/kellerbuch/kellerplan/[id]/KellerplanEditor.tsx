@@ -22,10 +22,10 @@ type WeinInfo = { weinausbauId: string; name: string; jahrgang: number | null; r
 // ── Füllstand-Farbskala ───────────────────────────────────────────────────────
 
 function getFillColor(pct: number): string {
-  if (pct >= 1.0) return '#EF4444'   // rot   – voll / überfüllt
-  if (pct >= 0.9) return '#F97316'   // orange – fast voll (≥ 90 %)
-  if (pct >= 0.7) return '#F9E54F'   // gelb  – mittelvoll (≥ 70 %)
-  return '#98C780'                    // grün  – gut (< 70 %)
+  if (pct >= 1.0) return '#C9564E'   // Fehler – voll / überfüllt
+  if (pct >= 0.9) return '#D9A441'   // Warnung – fast voll (≥ 90 %)
+  if (pct >= 0.7) return '#E9CB86'   // Warnung hell – mittelvoll (≥ 70 %)
+  return '#3E9B79'                    // OK – gut (< 70 %)
 }
 
 // pos_x_pct / pos_y_pct = linke obere Ecke des Kreisboundingbox (% des Canvas)
@@ -35,19 +35,20 @@ type PosData = { pos_x_pct: number; pos_y_pct: number; breite_pct: number; hoehe
 // ── Farben pro Behälter-Typ ───────────────────────────────────────────────────
 
 const TYP: Record<string, { bg: string; border: string; label: string }> = {
-  lagertank:    { bg: '#f1f5f9', border: '#94a3b8', label: 'Lagertank'      },
-  immervolltank:{ bg: '#e0f2fe', border: '#0284c7', label: 'Immervoll-Tank' },
-  stahltank:    { bg: '#f1f5f9', border: '#94a3b8', label: 'Stahltank'      }, // legacy
-  holzfass:     { bg: '#fffbeb', border: '#d97706', label: 'Holzfass'       },
-  betonei:   { bg: '#fafaf9', border: '#78716c', label: 'Betonei'   },
-  amphore:   { bg: '#fff7ed', border: '#ea580c', label: 'Amphore'   },
-  bottich:        { bg: '#f0fdf4', border: '#16a34a', label: 'Bottich'         },
-  gaerstaender:   { bg: '#fefce8', border: '#ca8a04', label: 'Gärständer'      },
-  zisterne:       { bg: '#ecfeff', border: '#0891b2', label: 'Zisterne'        },
-  presse:         { bg: '#faf5ff', border: '#9333ea', label: 'Presse'          },
-  barrique:       { bg: '#fef2f2', border: '#b45309', label: 'Barrique'        },
-  doppelbarrique: { bg: '#fdf2f8', border: '#be185d', label: 'Doppel-Barrique' },
-  sonstiges: { bg: '#f9fafb', border: '#9ca3af', label: 'Sonstiges' },
+  // CD: keine Signalfarben als Gestaltungsmittel – Typen über Grau-/Blau-Stufen unterschieden
+  lagertank:    { bg: '#F7F8FA', border: '#99999D', label: 'Lagertank'      },
+  immervolltank:{ bg: '#EEF4FD', border: '#2F63AC', label: 'Immervoll-Tank' },
+  stahltank:    { bg: '#F7F8FA', border: '#99999D', label: 'Stahltank'      }, // legacy
+  holzfass:     { bg: '#F2F3F5', border: '#5A5D66', label: 'Holzfass'       },
+  betonei:      { bg: '#FFFFFF', border: '#6E717A', label: 'Betonei'        },
+  amphore:      { bg: '#FFFFFF', border: '#99999D', label: 'Amphore'        },
+  bottich:      { bg: '#DCE8FA', border: '#77A6E7', label: 'Bottich'        },
+  gaerstaender: { bg: '#EEF4FD', border: '#77A6E7', label: 'Gärständer'     },
+  zisterne:     { bg: '#DCE8FA', border: '#2F63AC', label: 'Zisterne'       },
+  presse:       { bg: '#F2F3F5', border: '#22252B', label: 'Presse'         },
+  barrique:     { bg: '#EDEEF1', border: '#5A5D66', label: 'Barrique'       },
+  doppelbarrique:{ bg: '#EDEEF1', border: '#22252B', label: 'Doppel-Barrique' },
+  sonstiges:    { bg: '#F7F8FA', border: '#A0A3AB', label: 'Sonstiges'      },
 }
 
 // ── Konstanten ────────────────────────────────────────────────────────────────
@@ -106,8 +107,8 @@ export default function KellerplanEditor({
   // ── Gitter: 1 Gitterzelle = 1 Meter im Raum ──────────────────────────────
   const gridBgStyle = {
     backgroundImage:
-      'linear-gradient(to right, #e5e7eb 1px, transparent 1px), ' +
-      'linear-gradient(to bottom, #e5e7eb 1px, transparent 1px)',
+      'linear-gradient(to right, #EDEEF1 1px, transparent 1px), ' +
+      'linear-gradient(to bottom, #EDEEF1 1px, transparent 1px)',
     backgroundSize: `${100 / plan.breite_m}% ${100 / plan.laenge_m}%`,
   }
 
@@ -279,7 +280,7 @@ export default function KellerplanEditor({
         <p className="no-print text-xs text-s112-muted mb-1">Wird gespeichert…</p>
       )}
       {saveError && (
-        <p className="no-print text-xs text-red-500 mb-1">{saveError}</p>
+        <p className="no-print text-xs text-s112-err mb-1">{saveError}</p>
       )}
 
       <div className="flex gap-6 items-start">
@@ -290,7 +291,7 @@ export default function KellerplanEditor({
           {/* A4-Canvas – festes Seitenverhältnis 210:297 */}
           <div
             ref={canvasRef}
-            className="kellerplan-canvas relative w-full border-2 border-gray-500 bg-white select-none"
+            className="kellerplan-canvas relative w-full border-2 border-s112-grey bg-white select-none"
             style={{
               paddingBottom: `${A4_PERCENT}%`,
               cursor: writeOk ? 'crosshair' : 'default',
@@ -360,7 +361,7 @@ export default function KellerplanEditor({
                   {/* Entfernen-Button */}
                   {writeOk && (
                     <button
-                      className="no-print absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-gray-400 hover:bg-red-500 text-white text-[9px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="no-print absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-s112-grey hover:bg-s112-err text-white text-[9px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={e => { e.stopPropagation(); handleRemove(behaelterId) }}
                       onPointerDown={e => e.stopPropagation()}
                       title="Vom Plan entfernen"
@@ -373,7 +374,7 @@ export default function KellerplanEditor({
                   {writeOk && (
                     <>
                       <button
-                        className="no-print absolute bottom-1 left-1 w-4 h-4 rounded-full bg-gray-200 hover:bg-s112-teal hover:text-white text-gray-600 text-[11px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 transition-opacity font-bold"
+                        className="no-print absolute bottom-1 left-1 w-4 h-4 rounded-full bg-s112-line hover:bg-s112-teal hover:text-white text-s112-text-2 text-[11px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 transition-opacity font-semibold"
                         onClick={e => { e.stopPropagation(); handleResize(behaelterId, -RESIZE_STEP) }}
                         onPointerDown={e => e.stopPropagation()}
                         title="Kleiner"
@@ -381,7 +382,7 @@ export default function KellerplanEditor({
                         −
                       </button>
                       <button
-                        className="no-print absolute bottom-1 right-1 w-4 h-4 rounded-full bg-gray-200 hover:bg-s112-teal hover:text-white text-gray-600 text-[11px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 transition-opacity font-bold"
+                        className="no-print absolute bottom-1 right-1 w-4 h-4 rounded-full bg-s112-line hover:bg-s112-teal hover:text-white text-s112-text-2 text-[11px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 transition-opacity font-semibold"
                         onClick={e => { e.stopPropagation(); handleResize(behaelterId, +RESIZE_STEP) }}
                         onPointerDown={e => e.stopPropagation()}
                         title="Größer"
@@ -394,14 +395,14 @@ export default function KellerplanEditor({
                   {/* Inhalt: Name, Füllstand, Wein – über der Fill-Fläche */}
                   <div className="px-1 text-center w-4/5 pointer-events-none" style={{ position: 'relative', zIndex: 2 }}>
                     <p
-                      className="font-bold text-gray-800 leading-tight truncate w-full text-center"
+                      className="font-semibold text-s112-text leading-tight truncate w-full text-center"
                       style={{ fontSize: 'clamp(5px, 1.4cqw, 11px)' }}
                     >
                       {b.name}
                     </p>
                     {b.volumen_liter && (
                       <p
-                        className="text-gray-600 leading-tight font-medium"
+                        className="text-s112-text-2 leading-tight font-medium"
                         style={{ fontSize: 'clamp(4px, 1.1cqw, 9px)' }}
                       >
                         {fillLiter > 0
@@ -431,14 +432,14 @@ export default function KellerplanEditor({
             {/* Leer-Hinweis */}
             {Object.keys(positions).length === 0 && writeOk && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <p className="text-sm text-gray-400 text-center px-8">
+                <p className="text-sm text-s112-tertiary text-center px-8">
                   Behälter aus der Liste rechts in den Grundriss ziehen
                 </p>
               </div>
             )}
 
             {/* A4-Label für Druck */}
-            <div className="print-only absolute bottom-1 right-2 text-[8px] text-gray-300">
+            <div className="print-only absolute bottom-1 right-2 text-[8px] text-s112-tertiary">
               DIN A4 · {plan.breite_m} × {plan.laenge_m} m
             </div>
           </div>
@@ -449,22 +450,22 @@ export default function KellerplanEditor({
               <span
                 key={key}
                 className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border"
-                style={{ backgroundColor: t.bg, borderColor: t.border, color: '#374151' }}
+                style={{ backgroundColor: t.bg, borderColor: t.border, color: '#22252B' }}
               >
                 {t.label}
                   </span>
             ))}
-            <span className="text-[10px] text-gray-400 mx-1">|</span>
+            <span className="text-[10px] text-s112-tertiary mx-1">|</span>
             {[
-              { color: '#98C780', label: '< 70 %' },
-              { color: '#F9E54F', label: '70–90 %' },
-              { color: '#F97316', label: '90–100 %' },
-              { color: '#EF4444', label: '≥ 100 %' },
+              { color: '#3E9B79', label: '< 70 %' },
+              { color: '#E9CB86', label: '70–90 %' },
+              { color: '#D9A441', label: '90–100 %' },
+              { color: '#C9564E', label: '≥ 100 %' },
             ].map(({ color, label }) => (
               <span
                 key={label}
-                className="inline-flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full border border-gray-200"
-                style={{ color: '#374151' }}
+                className="inline-flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full border border-s112-line"
+                style={{ color: '#22252B' }}
               >
                 <span
                   style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: color, opacity: 0.8 }}
@@ -483,7 +484,7 @@ export default function KellerplanEditor({
         {/* ── Sidebar: nicht platzierte Behälter ────────────────────────────── */}
         {writeOk && (
           <div className="no-print w-44 flex-shrink-0">
-            <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
+            <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wide mb-2">
               Nicht platziert
             </p>
             {unplaced.length === 0 ? (
@@ -497,13 +498,13 @@ export default function KellerplanEditor({
                       key={b.id}
                       draggable
                       onDragStart={e => handleSidebarDragStart(e, b.id)}
-                      className="flex items-center gap-2 px-2 py-1.5 border-2 rounded-full text-xs font-medium text-gray-700 cursor-grab hover:shadow-sm active:opacity-70 transition-shadow"
+                      className="flex items-center gap-2 px-2 py-1.5 border-2 rounded-full text-xs font-medium text-s112-text-1 cursor-grab hover:shadow-sm active:opacity-70 transition-shadow"
                       style={{ backgroundColor: typ.bg, borderColor: typ.border }}
                       title="In den Plan ziehen"
                     >
                       <div className="min-w-0 flex-1">
                         <p className="truncate">{b.name}</p>
-                        <p className="text-[10px] text-gray-500">
+                        <p className="text-[10px] text-s112-text-2">
                           {typ.label}{b.volumen_liter ? ` · ${b.volumen_liter.toLocaleString('de-AT')} L` : ''}
                         </p>
                       </div>
@@ -528,9 +529,9 @@ export default function KellerplanEditor({
       {dialogBehaelter && (
         <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/30"
           onClick={() => setDialogBehaelterId(null)}>
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm"
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm"
             onClick={e => e.stopPropagation()}>
-            <h3 className="font-semibold text-gray-800">{dialogBehaelter.name}</h3>
+            <h3 className="font-semibold text-s112-text">{dialogBehaelter.name}</h3>
             <p className="text-xs text-s112-muted mt-0.5 mb-4">
               {dialogWein
                 ? `${dialogWein.name}${dialogWein.jahrgang ? ` ${dialogWein.jahrgang}` : ''}${dialogWein.rebsorte ? ` · ${dialogWein.rebsorte}${getRebsorteKuerzel(dialogWein.rebsorte) ? ` (${getRebsorteKuerzel(dialogWein.rebsorte)})` : ''}` : ''}`
@@ -541,14 +542,14 @@ export default function KellerplanEditor({
               <Link
                 href={`/kellerbuch/behaelter/${dialogBehaelter.id}/umzuege`}
                 onClick={() => setDialogBehaelterId(null)}
-                className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-s112-border hover:border-s112-teal/50 hover:bg-s112-bg/40 transition-colors text-sm font-medium text-gray-700"
+                className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-s112-border hover:border-s112-teal/50 hover:bg-s112-bg/40 transition-colors text-sm font-medium text-s112-text-1"
               >
                 <ArrowLeftRight className="w-4 h-4" /> Umziehen
               </Link>
               <Link
                 href={`/kellerbuch/behaelter/${dialogBehaelter.id}/behandlungen`}
                 onClick={() => setDialogBehaelterId(null)}
-                className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-s112-border hover:border-s112-teal/50 hover:bg-s112-bg/40 transition-colors text-sm font-medium text-gray-700"
+                className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-s112-border hover:border-s112-teal/50 hover:bg-s112-bg/40 transition-colors text-sm font-medium text-s112-text-1"
               >
                 <FlaskConical className="w-4 h-4" /> Kellerbehandlungen
               </Link>
@@ -556,14 +557,14 @@ export default function KellerplanEditor({
                 <Link
                   href={`/weinhandel/fuellungen/neu?charge=${dialogWein.weinausbauId}`}
                   onClick={() => setDialogBehaelterId(null)}
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-s112-border hover:border-s112-teal/50 hover:bg-s112-bg/40 transition-colors text-sm font-medium text-gray-700"
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-s112-border hover:border-s112-teal/50 hover:bg-s112-bg/40 transition-colors text-sm font-medium text-s112-text-1"
                 >
                   <Wine className="w-4 h-4" /> Abfüllen
                 </Link>
               ) : (
                 <div
                   title="Kein Wein im Behälter – nichts zum Abfüllen"
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-s112-border opacity-40 cursor-not-allowed text-sm font-medium text-gray-500"
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-s112-border opacity-40 cursor-not-allowed text-sm font-medium text-s112-text-2"
                 >
                   <Wine className="w-4 h-4" /> Abfüllen
                 </div>
@@ -571,7 +572,7 @@ export default function KellerplanEditor({
             </div>
 
             <button type="button" onClick={() => setDialogBehaelterId(null)}
-              className="mt-4 px-4 py-1.5 rounded-lg text-sm text-gray-600 hover:text-gray-800">
+              className="mt-4 px-4 py-1.5 rounded-lg text-sm text-s112-text-2 hover:text-s112-text">
               Schließen
             </button>
           </div>

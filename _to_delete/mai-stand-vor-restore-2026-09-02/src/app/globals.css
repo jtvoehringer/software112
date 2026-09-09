@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* software:112 Brand Tokens */
+  --s112-teal:   #025450;
+  --s112-navy:   #0E3C62;
+  --s112-green:  #98C780;
+  --s112-blue:   #98C6DD;
+  --s112-yellow: #F9E54F;
+  --s112-bg:     #F8F8F3;
+  --s112-muted:  #5C6E6B;
+  --s112-border: #E2E8E7;
+}
+
+@layer base {
+  body {
+    background-color: var(--s112-bg);
+    color: #1A1A1A;
+    font-family: var(--font-inter), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    color: #1A1A1A;
+  }
+}
+
+@layer components {
+  /* Primär-Button */
+  .btn-primary {
+    @apply bg-s112-teal text-white px-4 py-2 rounded-lg font-medium
+           hover:opacity-90 disabled:opacity-50 transition-opacity
+           focus:outline-none focus:ring-2 focus:ring-s112-teal focus:ring-offset-2;
+  }
+
+  /* Sekundär-Button */
+  .btn-secondary {
+    @apply bg-white text-s112-teal border border-s112-teal px-4 py-2 rounded-lg font-medium
+           hover:bg-s112-bg disabled:opacity-50 transition-colors
+           focus:outline-none focus:ring-2 focus:ring-s112-teal focus:ring-offset-2;
+  }
+
+  /* Card */
+  .card {
+    @apply bg-white rounded-2xl border border-s112-border shadow-sm p-6;
+  }
+
+  /* Input */
+  .input {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+           focus:outline-none focus:ring-2 focus:ring-s112-teal focus:border-transparent
+           placeholder:text-gray-400;
+  }
+
+  /* Form Input */
+  .form-input {
+    @apply w-full px-3 py-2 border border-s112-border rounded-lg text-sm bg-white
+           focus:outline-none focus:ring-2 focus:ring-s112-teal focus:border-transparent
+           placeholder:text-gray-400 transition-colors;
+  }
+
+  /* Form Label */
+  .form-label {
+    @apply block text-sm font-medium text-gray-700 mb-1;
+  }
+
+  /* Sidebar Nav Item */
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
+           text-s112-muted hover:bg-s112-bg hover:text-s112-teal transition-colors;
+  }
+
+  .nav-item.active {
+    @apply bg-s112-bg text-s112-teal;
+  }
+}
+
+/* ─── Print / PDF ──────────────────────────────────────────────────────────── */
+@media print {
+  /* Sidebar, Header und UI-Elemente ausblenden */
+  aside,
+  nav,
+  header,
+  [data-print="hide"] {
+    display: none !important;
+  }
+
+  /* Hauptbereich auf volle Breite */
+  main, body, html {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  /* Kein Schatten, keine runden Ecken auf Karten */
+  .card {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    border: 1px solid #ccc !important;
+    break-inside: avoid;
+  }
+
+  /* Tabellen sauber umbrechen */
+  table { border-collapse: collapse !important; width: 100% !important; }
+  thead { display: table-header-group; }
+  tr    { break-inside: avoid; }
+
+  /* Links nicht unterstreichen */
+  a { text-decoration: none !important; color: inherit !important; }
+
+  /* Seitenränder */
+  @page {
+    margin: 1.5cm;
+    size: A4;
+  }
+}

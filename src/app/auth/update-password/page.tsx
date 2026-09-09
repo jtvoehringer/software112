@@ -26,28 +26,28 @@ export default function UpdatePasswordPage() {
   return (
     <div className="w-full max-w-sm">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-s112-teal inline-flex items-baseline gap-0">
+        <h1 className="text-3xl font-semibold text-s112-blue-700 inline-flex items-baseline gap-0">
           software<span className="text-s112-yellow">:</span>112
         </h1>
         <p className="text-s112-muted text-sm mt-1">Passwort festlegen</p>
       </div>
       <div className="card">
-        <h2 className="text-lg font-semibold text-gray-800 mb-2">Passwort festlegen</h2>
+        <h2 className="text-lg font-semibold text-s112-text mb-2">Passwort festlegen</h2>
         <p className="text-sm text-s112-muted mb-4">Lege ein sicheres Passwort fest um dich kuenftig einloggen zu koennen.</p>
         <form onSubmit={handleUpdate} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Neues Passwort</label>
+            <label className="block text-sm font-medium text-s112-text-1 mb-1">Neues Passwort</label>
             <input type="password" value={password} onChange={e => setPassword(e.target.value)}
               required autoComplete="new-password" minLength={8} placeholder="Min. 8 Zeichen"
               className="input w-full" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Bestätigen</label>
+            <label className="block text-sm font-medium text-s112-text-1 mb-1">Bestätigen</label>
             <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)}
               required autoComplete="new-password" placeholder="Passwort wiederholen"
               className="input w-full" />
           </div>
-          {error && <p className="text-red-600 text-sm">{error}</p>}
+          {error && <p className="text-s112-err-fg text-sm">{error}</p>}
           <button type="submit" disabled={loading} className="btn-primary w-full">
             {loading ? 'Speichern…' : 'Passwort speichern'}
           </button>

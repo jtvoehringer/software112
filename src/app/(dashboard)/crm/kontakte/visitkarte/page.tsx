@@ -129,28 +129,28 @@ export default function VisitkartenScannerPage() {
   const f = (v: string|null|undefined, label: string) => v ? (
     <div key={label}>
       <span className="text-xs text-s112-muted">{label}: </span>
-      <span className="text-sm text-gray-800">{v}</span>
+      <span className="text-sm text-s112-text">{v}</span>
     </div>
   ) : null
 
   return (
     <div className="p-6 max-w-lg mx-auto space-y-4">
       <div className="flex items-center gap-3">
-        <button onClick={() => { kameraStop(); router.back() }} className="text-s112-muted hover:text-gray-700 text-sm">← Zurück</button>
-        <h1 className="text-xl font-bold text-gray-900">Visitenkarte scannen</h1>
+        <button onClick={() => { kameraStop(); router.back() }} className="text-s112-muted hover:text-s112-text-1 text-sm">← Zurück</button>
+        <h1 className="text-xl font-semibold text-s112-text">Visitenkarte scannen</h1>
       </div>
 
       {fehler && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700 flex justify-between">
+        <div className="bg-s112-err-bg border border-s112-err/30 rounded-xl p-3 text-sm text-s112-err-fg flex justify-between">
           {fehler}
-          <button onClick={() => { setFehler(null); setPhase('start') }} className="text-red-400 hover:text-red-600"><X className="w-4 h-4" /></button>
+          <button onClick={() => { setFehler(null); setPhase('start') }} className="text-s112-err hover:text-s112-err-fg"><X className="w-4 h-4" /></button>
         </div>
       )}
 
       {phase === 'start' && (
-        <div className="bg-white rounded-2xl border border-s112-border p-8 text-center space-y-4">
-          <Camera className="w-12 h-12 text-s112-teal mx-auto" />
-          <h2 className="font-semibold text-gray-800">Visitenkarte fotografieren</h2>
+        <div className="bg-white rounded-xl border border-s112-border p-8 text-center space-y-4">
+          <Camera className="w-12 h-12 text-s112-blue-700 mx-auto" />
+          <h2 className="font-semibold text-s112-text">Visitenkarte fotografieren</h2>
           <p className="text-sm text-s112-muted">KI liest die Karte aus und legt den Kontakt als Lead an.</p>
           <button onClick={kameraStarten}
             className="bg-s112-teal text-white px-6 py-3 rounded-xl font-semibold hover:bg-opacity-90 w-full">
@@ -172,21 +172,21 @@ export default function VisitkartenScannerPage() {
       {phase === 'camera' && (
         <div className="space-y-3">
           <video ref={videoRef} autoPlay playsInline muted
-            className="w-full rounded-2xl border-2 border-s112-teal" />
+            className="w-full rounded-xl border-2 border-s112-teal" />
           <canvas ref={canvasRef} className="hidden" />
           {!videoReady && (
             <p className="text-xs text-center text-s112-muted animate-pulse">Kamera wird gestartet…</p>
           )}
           <button onClick={fotografieren} disabled={!videoReady}
-            className={`w-full py-4 rounded-2xl font-bold text-lg transition-opacity inline-flex items-center justify-center gap-2
-              ${videoReady ? 'bg-s112-teal text-white hover:bg-opacity-90' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
+            className={`w-full py-4 rounded-xl font-semibold text-lg transition-opacity inline-flex items-center justify-center gap-2
+              ${videoReady ? 'bg-s112-teal text-white hover:bg-opacity-90' : 'bg-s112-line text-s112-tertiary cursor-not-allowed'}`}>
             <Camera className="w-5 h-5" /> Fotografieren
           </button>
         </div>
       )}
 
       {phase === 'analyse' && (
-        <div className="bg-white rounded-2xl border border-s112-border p-8 text-center space-y-3">
+        <div className="bg-white rounded-xl border border-s112-border p-8 text-center space-y-3">
           {foto && <img src={foto} alt="Visitenkarte" className="w-full rounded-xl max-h-48 object-contain" />}
           <p className="text-sm text-s112-muted animate-pulse">KI analysiert die Visitenkarte…</p>
         </div>
@@ -195,8 +195,8 @@ export default function VisitkartenScannerPage() {
       {phase === 'bestaetigen' && kontakt && (
         <div className="space-y-4">
           {foto && <img src={foto} alt="Visitenkarte" className="w-full rounded-xl max-h-32 object-contain border border-s112-border" />}
-          <div className="bg-white rounded-2xl border border-s112-border p-5 space-y-2">
-            <h2 className="font-semibold text-gray-800 mb-3">Erkannte Daten</h2>
+          <div className="bg-white rounded-xl border border-s112-border p-5 space-y-2">
+            <h2 className="font-semibold text-s112-text mb-3">Erkannte Daten</h2>
             {f([kontakt.vorname, kontakt.nachname].filter(Boolean).join(' '), 'Name')}
             {f(kontakt.firma, 'Firma')}
             {f(kontakt.position, 'Position')}
@@ -211,7 +211,7 @@ export default function VisitkartenScannerPage() {
               Als Lead speichern
             </button>
             <button onClick={() => { setFoto(null); setKontakt(null); setPhase('start') }}
-              className="px-4 py-3 rounded-xl border border-s112-border text-gray-600 hover:bg-s112-bg text-sm">
+              className="px-4 py-3 rounded-xl border border-s112-border text-s112-text-2 hover:bg-s112-bg text-sm">
               Nochmal
             </button>
           </div>
@@ -219,7 +219,7 @@ export default function VisitkartenScannerPage() {
       )}
 
       {phase === 'speichern' && (
-        <div className="bg-white rounded-2xl border border-s112-border p-8 text-center">
+        <div className="bg-white rounded-xl border border-s112-border p-8 text-center">
           <p className="text-sm text-s112-muted animate-pulse">Kontakt wird angelegt…</p>
         </div>
       )}

@@ -242,7 +242,7 @@ function MappingTab({ overrides, kategorien, darfAendern }: { overrides: Record<
 
       {MAPPING_GRUPPEN.map(g => (
         <div key={g.key} className="bg-white border border-s112-line rounded-xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-s112-border bg-[#FBFBFC]">
+          <div className="px-5 py-3 border-b border-s112-border bg-[#F7F8FA]">
             <p className="font-display text-sm font-semibold text-s112-text">{g.label}</p>
           </div>
           <table className="w-full text-sm">
@@ -289,7 +289,7 @@ function MappingTab({ overrides, kategorien, darfAendern }: { overrides: Record<
       )}
 
       <div className="bg-white border border-s112-line rounded-xl overflow-hidden">
-        <div className="px-5 py-3 border-b border-s112-border bg-[#FBFBFC] flex items-center justify-between">
+        <div className="px-5 py-3 border-b border-s112-border bg-[#F7F8FA] flex items-center justify-between">
           <p className="font-display text-sm font-semibold text-s112-text">Aufwands- und Ertragskonten der E&amp;A-Kategorien</p>
           <Link href="/buchhaltung/kategorien" className="text-xs text-s112-blue-700 hover:underline">Kategorien verwalten →</Link>
         </div>
@@ -330,7 +330,7 @@ function ProtokollTab({ protokoll }: { protokoll: R[] }) {
   return (
     <div className="bg-white border border-s112-line rounded-xl overflow-hidden">
       <table className="w-full text-sm">
-        <thead className="bg-[#FBFBFC] text-xs text-s112-text-2">
+        <thead className="bg-[#F7F8FA] text-xs text-s112-text-2">
           <tr>
             <th className="text-left px-4 py-2 font-medium">Übergeben am</th>
             <th className="text-left px-4 py-2 font-medium">Art</th>

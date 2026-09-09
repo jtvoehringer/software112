@@ -22,7 +22,7 @@ export default function ZukaufLoeschen({ id, info }: { id: string; info: string 
       onClick={handleClick}
       disabled={isPending}
       title="Löschen" aria-label="Löschen"
-      className="text-red-500 hover:text-red-700 disabled:opacity-50"
+      className="text-s112-err hover:text-s112-err-fg disabled:opacity-50"
     >
       {isPending ? '…' : <Trash2 className="w-4 h-4" />}
     </button>

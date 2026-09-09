@@ -22,12 +22,12 @@ export default async function NeuePage() {
   return (
     <div className="max-w-2xl">
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-6">
-        <Link href="/weingarten" className="hover:text-s112-teal transition-colors">Rieden</Link>
+        <Link href="/weingarten" className="hover:text-s112-blue-700 transition-colors">Rieden</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Neu anlegen</span>
+        <span className="text-s112-text-1 font-medium">Neu anlegen</span>
       </div>
 
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Neue Ried</h1>
+      <h1 className="text-2xl font-semibold text-s112-text mb-6">Neue Ried</h1>
 
       <WeingartenForm action={createWeingarten} />
     </div>

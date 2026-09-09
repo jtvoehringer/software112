@@ -44,7 +44,7 @@ export default function FristenClient({ fristen, darfSchreiben, vorwarnungTage }
           <tbody>
             {sichtbar.length === 0 && <tr><td colSpan={4} className="py-6 text-center text-[13px] text-s112-text-2">Keine Fristen vorhanden.</td></tr>}
             {sichtbar.map(f => (
-              <tr key={f.key} className={`hover:bg-[#F8FAFC] ${pending ? 'opacity-70' : ''}`}>
+              <tr key={f.key} className={`hover:bg-[#F7F8FA] ${pending ? 'opacity-70' : ''}`}>
                 <Td>
                   {f.href ? <Link href={f.href} className="font-semibold text-s112-text hover:text-s112-blue-700">{f.bezeichnung}</Link> : <span className="font-semibold text-s112-text">{f.bezeichnung}</span>}
                   <span className="block text-[11.5px] text-s112-text-2">{f.hinweis}{f.quelle === 'betrieb' && <span className="text-s112-tertiary"> · {KATEGORIE_LABEL[f.kategorie] ?? f.kategorie}</span>}</span>

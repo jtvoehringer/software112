@@ -57,11 +57,11 @@ function LageKarte({
         onClick={() => setOpen(o => !o)}
       >
         <div className="flex items-center gap-3">
-          <span className="text-s112-teal"><ChevronIcon open={open} /></span>
+          <span className="text-s112-blue-700"><ChevronIcon open={open} /></span>
           <div>
-            <span className="font-semibold text-gray-900">{lage.name}</span>
+            <span className="font-semibold text-s112-text">{lage.name}</span>
             {lage.gemeinde && <span className="ml-2 text-xs text-s112-muted">{lage.gemeinde}</span>}
-            {lage.weinbaugebiet && <span className="ml-2 text-xs text-gray-400">{lage.weinbaugebiet}</span>}
+            {lage.weinbaugebiet && <span className="ml-2 text-xs text-s112-tertiary">{lage.weinbaugebiet}</span>}
           </div>
           <span className="text-xs text-s112-muted bg-white px-2 py-0.5 rounded-full border border-s112-border">
             {weingaerten.length} WG · {fmtHa(haTotal, 2)} ha
@@ -71,14 +71,14 @@ function LageKarte({
           {writeOk && (
             <Link href={`/lagen/${lage.id}`}
               title="Bearbeiten" aria-label="Bearbeiten"
-              className="text-s112-teal hover:text-s112-teal/70">
+              className="text-s112-blue-700 hover:text-s112-blue-700/70">
               <Pencil size={16} strokeWidth={2} />
             </Link>
           )}
           {adminOk && (
             <button onClick={handleDelete}
               title="Löschen" aria-label="Löschen"
-              className="text-red-400 hover:text-red-600">
+              className="text-s112-err hover:text-s112-err-fg">
               <Trash2 size={16} strokeWidth={2} />
             </button>
           )}
@@ -92,16 +92,16 @@ function LageKarte({
             <table className="w-full text-sm mb-4">
               <thead>
                 <tr className="text-left border-b border-s112-border">
-                  <th className="pb-1 font-medium text-gray-600">Weingarten</th>
-                  <th className="pb-1 font-medium text-gray-600">Rebsorte</th>
-                  <th className="pb-1 font-medium text-gray-600 text-right">Fläche (ha)</th>
+                  <th className="pb-1 font-medium text-s112-text-2">Weingarten</th>
+                  <th className="pb-1 font-medium text-s112-text-2">Rebsorte</th>
+                  <th className="pb-1 font-medium text-s112-text-2 text-right">Fläche (ha)</th>
                   {writeOk && <th className="pb-1" />}
                 </tr>
               </thead>
               <tbody>
                 {weingaerten.map(w => (
                   <tr key={w.id} className="border-b border-s112-border/50 last:border-0">
-                    <td className="py-1.5 font-medium text-gray-800">{w.name}</td>
+                    <td className="py-1.5 font-medium text-s112-text">{w.name}</td>
                     <td className="py-1.5 text-s112-muted">{w.rebsorte ?? '–'}</td>
                     <td className="py-1.5 text-right tabular-nums">
                       {fmtHa(w.flaeche_ha)}
@@ -110,7 +110,7 @@ function LageKarte({
                       <td className="py-1.5 text-right">
                         <button
                           onClick={() => handleAssign(w.id, false)}
-                          className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                          className="text-xs text-s112-tertiary hover:text-s112-err transition-colors"
                           title="Zuordnung entfernen"
                         >
                           <X size={14} />
@@ -128,7 +128,7 @@ function LageKarte({
           {/* Weingarten zuordnen */}
           {writeOk && verfuegbar.filter(w => w.lage_id !== lage.id).length > 0 && (
             <div className="border-t border-s112-border pt-3">
-              <p className="text-xs font-medium text-gray-600 mb-2">Weingarten hinzufügen:</p>
+              <p className="text-xs font-medium text-s112-text-2 mb-2">Weingarten hinzufügen:</p>
               <div className="flex flex-wrap gap-2">
                 {verfuegbar
                   .filter(w => w.lage_id !== lage.id)
@@ -136,7 +136,7 @@ function LageKarte({
                     <button
                       key={w.id}
                       onClick={() => handleAssign(w.id, true)}
-                      className="text-xs bg-s112-bg hover:bg-s112-teal/10 border border-s112-border hover:border-s112-teal text-gray-700 hover:text-s112-teal px-2 py-1 rounded-lg transition-colors"
+                      className="text-xs bg-s112-bg hover:bg-s112-teal/10 border border-s112-border hover:border-s112-teal text-s112-text-1 hover:text-s112-blue-700 px-2 py-1 rounded-lg transition-colors"
                     >
                       + {w.name}
                     </button>
@@ -173,7 +173,7 @@ export default function LagenClient({
   if (lagen.length === 0) {
     return (
       <div className="card text-center py-16">
-        <p className="text-gray-700 font-medium">Noch keine Lagen angelegt</p>
+        <p className="text-s112-text-1 font-medium">Noch keine Lagen angelegt</p>
         <p className="text-s112-muted text-sm mt-1 mb-6">Legen Sie Ihre erste Ried an</p>
         {writeOk && (
           <Link href="/lagen/neu" className="inline-flex items-center gap-2 bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
@@ -198,13 +198,13 @@ export default function LagenClient({
       ))}
 
       {unzugeordnet.length > 0 && (
-        <div className="card border-dashed border-amber-300 bg-amber-50/50 p-4">
-          <p className="text-sm font-medium text-amber-700 mb-2">
+        <div className="card border-dashed border-s112-warn/30 bg-s112-warn-bg/50 p-4">
+          <p className="text-sm font-medium text-s112-warn-fg mb-2">
             {unzugeordnet.length} Weingarten/Weingärten ohne Ried
           </p>
           <div className="flex flex-wrap gap-1">
             {unzugeordnet.map(w => (
-              <span key={w.id} className="text-xs bg-white border border-amber-200 text-amber-700 px-2 py-0.5 rounded">
+              <span key={w.id} className="text-xs bg-white border border-s112-warn/30 text-s112-warn-fg px-2 py-0.5 rounded">
                 {w.name}
               </span>
             ))}

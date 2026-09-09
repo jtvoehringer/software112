@@ -166,18 +166,18 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
 
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-4">
-      <h3 className="text-sm font-semibold text-gray-800">{tv ? 'Traubenverkauf bearbeiten' : 'Traubenverkauf erfassen'}</h3>
+      <h3 className="text-sm font-semibold text-s112-text">{tv ? 'Traubenverkauf bearbeiten' : 'Traubenverkauf erfassen'}</h3>
 
       {/* Quelle */}
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-2">Quelle</label>
+        <label className="block text-xs font-medium text-s112-text-2 mb-2">Quelle</label>
         <div className="flex gap-2">
           <button type="button" onClick={() => setQuelle('ernte')}
-            className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${quelle === 'ernte' ? 'bg-s112-teal text-white' : 'bg-s112-bg border border-s112-border text-gray-600 hover:border-s112-teal'}`}>
+            className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${quelle === 'ernte' ? 'bg-s112-teal text-white' : 'bg-s112-bg border border-s112-border text-s112-text-2 hover:border-s112-teal'}`}>
             Eigene Ernte
           </button>
           <button type="button" onClick={() => setQuelle('zukauf')}
-            className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${quelle === 'zukauf' ? 'bg-s112-teal text-white' : 'bg-s112-bg border border-s112-border text-gray-600 hover:border-s112-teal'}`}>
+            className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${quelle === 'zukauf' ? 'bg-s112-teal text-white' : 'bg-s112-bg border border-s112-border text-s112-text-2 hover:border-s112-teal'}`}>
             Zukauf
           </button>
         </div>
@@ -186,7 +186,7 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
       <div className="grid grid-cols-2 gap-3">
         {quelle === 'zukauf' ? (
           <div className="col-span-2">
-            <label className="block text-xs font-medium text-gray-600 mb-1">Zukauf-Posten *</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Zukauf-Posten *</label>
             <select value={zukaufId} onChange={e => handleZukaufChange(e.target.value)} required className={inp}>
               <option value="">– Zukauf wählen –</option>
               {zukaufOptions.map(z => (
@@ -197,17 +197,17 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
               ))}
             </select>
             {zukaufOptions.length === 0 && (
-              <p className="text-xs text-amber-600 mt-1">Keine zugekauften Trauben vorhanden.</p>
+              <p className="text-xs text-s112-warn-fg mt-1">Keine zugekauften Trauben vorhanden.</p>
             )}
             {zukaufId && (
               <p className="text-xs text-s112-muted mt-1">
-                Verfügbar: <span className="font-medium text-gray-700">{verfuegbarZukauf(zukaufId).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg</span>
+                Verfügbar: <span className="font-medium text-s112-text-1">{verfuegbarZukauf(zukaufId).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg</span>
               </p>
             )}
           </div>
         ) : (
           <div className="col-span-2">
-            <label className="block text-xs font-medium text-gray-600 mb-1">Ried / GST *</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Ried / GST *</label>
             <select value={quelleId} onChange={e => handleQuelleChange(e.target.value)} required className={inp}>
               <option value="">– Ried/GST wählen –</option>
               {quelleOptions.map(o => (
@@ -218,11 +218,11 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
               ))}
             </select>
             {quelleOptions.length === 0 && (
-              <p className="text-xs text-amber-600 mt-1">Keine Lesedaten für diesen Jahrgang vorhanden.</p>
+              <p className="text-xs text-s112-warn-fg mt-1">Keine Lesedaten für diesen Jahrgang vorhanden.</p>
             )}
             {quelleId && (
               <p className="text-xs text-s112-muted mt-1">
-                Verfügbar: <span className="font-medium text-gray-700">{verfuegbarQuelle(quelleId).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg</span>
+                Verfügbar: <span className="font-medium text-s112-text-1">{verfuegbarQuelle(quelleId).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg</span>
               </p>
             )}
           </div>
@@ -230,34 +230,34 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
 
         {/* Datum */}
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Datum *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
           <input type="date" value={datum} onChange={e => setDatum(e.target.value)} required className={inp} />
         </div>
 
         {/* Menge kg */}
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Menge (kg) *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge (kg) *</label>
           <input type="text" inputMode="decimal" value={mengeKg} onChange={e => setMengeKg(e.target.value)}
             placeholder="z.B. 1.250" required className={inp} />
         </div>
 
         {/* Preis/kg */}
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Preis (€/kg)</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Preis (€/kg)</label>
           <input type="text" inputMode="decimal" value={preis} onChange={e => setPreis(e.target.value)}
             placeholder="z.B. 0,65" className={inp} />
         </div>
 
         {/* KMW */}
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">KMW°</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">KMW°</label>
           <input type="text" inputMode="decimal" value={kmw} onChange={e => setKmw(e.target.value)}
             placeholder="z.B. 17,5" className={inp} />
         </div>
 
         {/* Qualitätsstufe */}
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Qualitätsstufe</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Qualitätsstufe</label>
           <select value={qualitaet} onChange={e => setQualitaet(e.target.value)} className={inp}>
             <option value="">– keine –</option>
             {QUALITAETEN.map(q => <option key={q.value} value={q.value}>{q.label}</option>)}
@@ -266,7 +266,7 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
 
         {/* Gesundheit */}
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Gesundheit</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Gesundheit</label>
           <select value={gesundheit} onChange={e => setGesundheit(e.target.value)} className={inp}>
             <option value="G">G – Gut</option>
             <option value="K">K – Krank/beschädigt</option>
@@ -276,24 +276,24 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
         {/* Herkunftscode (read-only aus WG, bzw. Freitext bei Zukauf) */}
         {herkunft && (
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Herkunftscode (BKI)</label>
-            <div className={inp + ' bg-white text-gray-500 cursor-not-allowed'}>{herkunft}</div>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Herkunftscode (BKI)</label>
+            <div className={inp + ' bg-white text-s112-text-2 cursor-not-allowed'}>{herkunft}</div>
           </div>
         )}
       </div>
 
       {/* Abnehmer */}
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-2">Käufer</label>
+        <label className="block text-xs font-medium text-s112-text-2 mb-2">Käufer</label>
         <div className="flex gap-2 mb-2">
           <button type="button"
             onClick={() => { setBuyerType('firma'); setKontakt('') }}
-            className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${buyerType === 'firma' ? 'bg-s112-teal text-white' : 'bg-s112-bg border border-s112-border text-gray-600 hover:border-s112-teal'}`}>
+            className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${buyerType === 'firma' ? 'bg-s112-teal text-white' : 'bg-s112-bg border border-s112-border text-s112-text-2 hover:border-s112-teal'}`}>
             Firma
           </button>
           <button type="button"
             onClick={() => { setBuyerType('kontakt'); setFirma('') }}
-            className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${buyerType === 'kontakt' ? 'bg-s112-teal text-white' : 'bg-s112-bg border border-s112-border text-gray-600 hover:border-s112-teal'}`}>
+            className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${buyerType === 'kontakt' ? 'bg-s112-teal text-white' : 'bg-s112-bg border border-s112-border text-s112-text-2 hover:border-s112-teal'}`}>
             Privatperson
           </button>
         </div>
@@ -317,8 +317,8 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
       {/* Live-Kalkulation */}
       {gesamtWert != null && gesamtWert > 0 && (
         <div className="flex gap-4 text-xs bg-white border border-s112-border rounded-lg px-3 py-2">
-          <span className="text-gray-600">
-            Gesamtwert: <strong className="text-gray-900">
+          <span className="text-s112-text-2">
+            Gesamtwert: <strong className="text-s112-text">
               € {gesamtWert.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </strong>
           </span>
@@ -327,7 +327,7 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
 
       {/* Notizen */}
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
+        <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
         <input type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
           placeholder="z.B. Abholung durch Genossenschaft …" className={inp} />
       </div>
@@ -337,7 +337,7 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
           className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50">
           {pending ? 'Speichert…' : 'Speichern'}
         </button>
-        <button type="button" onClick={onDone} className="px-4 py-1.5 text-sm text-gray-600 hover:text-gray-800">
+        <button type="button" onClick={onDone} className="px-4 py-1.5 text-sm text-s112-text-2 hover:text-s112-text">
           Abbrechen
         </button>
       </div>
@@ -401,27 +401,27 @@ export default function TraubenverkaufSection({
     <div className={`card space-y-4 ${pending ? 'opacity-60 pointer-events-none' : ''}`}>
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-base font-semibold text-gray-800">Traubenverkauf</h2>
+          <h2 className="text-base font-semibold text-s112-text">Traubenverkauf</h2>
           <p className="text-xs text-s112-muted">Verkauf von Weintrauben gem. § 3 Weingesetz-Formularverordnung</p>
         </div>
         <div className="flex items-center gap-3">
           {verkauefe.length > 0 && (
             <span className="text-xs text-s112-muted">
               {fmt(gesamtKg)} kg
-              {gesamtWert > 0 && <span className="ml-1 font-medium text-gray-700">
+              {gesamtWert > 0 && <span className="ml-1 font-medium text-s112-text-1">
                 · € {gesamtWert.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>}
             </span>
           )}
           {verkauefe.length > 0 && (
             <button onClick={handleCSV}
-              className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium px-3 py-1.5 rounded-lg transition-colors">
+              className="text-xs bg-[#F2F3F5] hover:bg-s112-line text-s112-text-2 font-medium px-3 py-1.5 rounded-lg transition-colors">
               CSV
             </button>
           )}
           {writeOk && !showForm && (
             <button onClick={() => { setShowForm(true); setEditId(null) }}
-              className="text-xs bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-teal font-medium px-3 py-1.5 rounded-lg transition-colors">
+              className="text-xs bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-blue-700 font-medium px-3 py-1.5 rounded-lg transition-colors">
               Traubenverkauf
             </button>
           )}
@@ -452,21 +452,21 @@ export default function TraubenverkaufSection({
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         {v.liefernummer && (
-                          <span className="font-mono text-xs bg-s112-teal/10 text-s112-teal px-2 py-0.5 rounded-full font-semibold">
+                          <span className="font-mono text-xs bg-s112-teal/10 text-s112-blue-700 px-2 py-0.5 rounded-full font-semibold">
                             {v.liefernummer}
                           </span>
                         )}
-                        <span className="font-medium text-gray-800 text-sm">{fmtDate(v.datum)}</span>
-                        <span className="text-sm text-gray-700">· {v.weingarten_name}</span>
+                        <span className="font-medium text-s112-text text-sm">{fmtDate(v.datum)}</span>
+                        <span className="text-sm text-s112-text-1">· {v.weingarten_name}</span>
                         {v.gesundheit === 'K' && (
-                          <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">K – Krank</span>
+                          <span className="text-xs bg-s112-warn-bg text-s112-warn-fg px-2 py-0.5 rounded-full font-medium">K – Krank</span>
                         )}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-s112-muted flex-wrap">
-                        <span className="font-semibold text-gray-700">{fmt(v.menge_kg)} kg</span>
+                        <span className="font-semibold text-s112-text-1">{fmt(v.menge_kg)} kg</span>
                         {v.preis_per_kg != null && (
                           <span>· € {v.preis_per_kg.toLocaleString('de-AT', { minimumFractionDigits: 2 })}/kg
-                            <span className="ml-1 font-medium text-gray-700">
+                            <span className="ml-1 font-medium text-s112-text-1">
                               = € {(v.menge_kg * v.preis_per_kg).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                           </span>
@@ -481,10 +481,10 @@ export default function TraubenverkaufSection({
                     </div>
                     <div className="flex items-center gap-2 shrink-0 text-xs">
                       {writeOk && (
-                        <button onClick={() => setEditId(v.id)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-teal hover:text-s112-teal/70"><Pencil size={14} /></button>
+                        <button onClick={() => setEditId(v.id)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={14} /></button>
                       )}
                       {adminOk && (
-                        <button onClick={() => handleDelete(v.id)} title="Löschen" aria-label="Löschen" className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
+                        <button onClick={() => handleDelete(v.id)} title="Löschen" aria-label="Löschen" className="text-s112-err hover:text-s112-err-fg"><Trash2 size={14} /></button>
                       )}
                     </div>
                   </div>

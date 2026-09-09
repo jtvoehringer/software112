@@ -38,8 +38,8 @@ export default function SystemAdminClient({ admins, canInvite = true }: { admins
 
   return (
     <div className="space-y-4">
-      {error   && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{error}</div>}
-      {success && <div className="p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700">{success}</div>}
+      {error   && <div className="p-3 bg-s112-err-bg border border-s112-err/30 rounded-xl text-sm text-s112-err-fg">{error}</div>}
+      {success && <div className="p-3 bg-s112-ok-bg border border-s112-ok/30 rounded-xl text-sm text-s112-ok-fg">{success}</div>}
 
       <div className="card p-0 overflow-hidden">
         <table className="w-full text-sm">
@@ -54,7 +54,7 @@ export default function SystemAdminClient({ admins, canInvite = true }: { admins
           <tbody>
             {admins.map(m => (
               <tr key={m.membershipId} className="border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/50">
-                <td className="px-4 py-3 font-medium text-gray-900">{m.email}</td>
+                <td className="px-4 py-3 font-medium text-s112-text">{m.email}</td>
                 <td className="px-4 py-3 text-xs text-s112-muted">{m.tenantName}</td>
                 <td className="px-4 py-3 text-xs text-s112-muted tabular-nums">
                   {new Date(m.createdAt).toLocaleDateString('de-AT')}
@@ -62,7 +62,7 @@ export default function SystemAdminClient({ admins, canInvite = true }: { admins
                 <td className="px-4 py-3 text-right">
                   {canInvite && admins.length > 1 && (
                     <button onClick={() => handleRemove(m)} disabled={pending}
-                      className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40">
+                      className="text-xs text-s112-err hover:text-s112-err-fg disabled:opacity-40">
                       Entfernen
                     </button>
                   )}
@@ -80,10 +80,10 @@ export default function SystemAdminClient({ admins, canInvite = true }: { admins
         </button>
       ) : (
         <form onSubmit={handleInvite} className="bg-s112-bg border border-s112-border rounded-xl p-5 space-y-3">
-          <h3 className="text-sm font-semibold text-gray-800">Neuen System-Admin einladen</h3>
+          <h3 className="text-sm font-semibold text-s112-text">Neuen System-Admin einladen</h3>
           <p className="text-xs text-s112-muted">Der Benutzer erhält eine Einladungs-E-Mail von Supabase.</p>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">E-Mail-Adresse *</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">E-Mail-Adresse *</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)}
               required placeholder="admin@example.com"
               className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
@@ -95,7 +95,7 @@ export default function SystemAdminClient({ admins, canInvite = true }: { admins
               {pending ? 'Wird eingeladen…' : 'Einladen'}
             </button>
             <button type="button" onClick={() => { setShowInvite(false); setEmail('') }}
-              className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800">
+              className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:text-s112-text">
               Abbrechen
             </button>
           </div>

@@ -60,17 +60,17 @@ function AktivitaetForm({ kontaktId, onDone }: { kontaktId: string; onDone: () =
           required className={inputCls()} />
       </div>
       <div className="flex items-center gap-3 flex-wrap">
-        <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none shrink-0">
+        <label className="flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer select-none shrink-0">
           <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)} className="rounded" />
           Ganztags
         </label>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">Von</span>
+          <span className="text-xs text-s112-tertiary">Von</span>
           <input name="uhrzeit_von" type="time" step="1800" disabled={ganztags}
-            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-gray-50' : ''}`} />
-          <span className="text-xs text-gray-400">-</span>
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
+          <span className="text-xs text-s112-tertiary">-</span>
           <input name="uhrzeit_bis" type="time" step="1800" disabled={ganztags}
-            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-gray-50' : ''}`} />
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
         </div>
       </div>
       <input name="betreff" placeholder="Betreff *" required className={inputCls()} />
@@ -81,7 +81,7 @@ function AktivitaetForm({ kontaktId, onDone }: { kontaktId: string; onDone: () =
           className="bg-s112-teal text-white px-3 py-1 rounded-lg text-xs font-medium disabled:opacity-40">
           {pending ? '...' : 'Eintragen'}
         </button>
-        <button type="button" onClick={onDone} className="text-xs text-gray-500 hover:text-gray-700">Abbrechen</button>
+        <button type="button" onClick={onDone} className="text-xs text-s112-text-2 hover:text-s112-text-1">Abbrechen</button>
       </div>
     </form>
   )
@@ -112,17 +112,17 @@ function PipelineForm({ kontaktId, onDone }: { kontaktId: string; onDone: () => 
         <input name="wahrscheinlichkeit" type="number" min="0" max="100" placeholder="Wahrsch. % (optional)" className={inputCls()} />
       </div>
       <div className="flex items-center gap-3 flex-wrap">
-        <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none shrink-0">
+        <label className="flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer select-none shrink-0">
           <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)} className="rounded" />
           Ganztags
         </label>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">Von</span>
+          <span className="text-xs text-s112-tertiary">Von</span>
           <input name="uhrzeit_von" type="time" step="1800" disabled={ganztags}
-            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-gray-50' : ''}`} />
-          <span className="text-xs text-gray-400">–</span>
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
+          <span className="text-xs text-s112-tertiary">–</span>
           <input name="uhrzeit_bis" type="time" step="1800" disabled={ganztags}
-            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-gray-50' : ''}`} />
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
         </div>
       </div>
       <div className="flex gap-2">
@@ -130,7 +130,7 @@ function PipelineForm({ kontaktId, onDone }: { kontaktId: string; onDone: () => 
           className="bg-s112-teal text-white px-3 py-1 rounded-lg text-xs font-medium disabled:opacity-40">
           {pending ? '...' : 'Eintragen'}
         </button>
-        <button type="button" onClick={onDone} className="text-xs text-gray-500 hover:text-gray-700">Abbrechen</button>
+        <button type="button" onClick={onDone} className="text-xs text-s112-text-2 hover:text-s112-text-1">Abbrechen</button>
       </div>
     </form>
   )
@@ -173,7 +173,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
     const isStorniert = a.betreff?.includes('STORNIERT')
     return (
       <div className="card p-4 flex gap-3">
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-s112-teal">
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-s112-blue-700">
           <Receipt size={16} />
         </div>
         <div className="flex-1 min-w-0">
@@ -181,15 +181,15 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
             <span className="text-xs text-s112-muted tabular-nums">
               {new Date(a.datum).toLocaleDateString('de-AT')}
             </span>
-            <span className="text-xs font-medium text-s112-teal">Verkauf</span>
+            <span className="text-xs font-medium text-s112-blue-700">Verkauf</span>
             {isStorniert && (
-              <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Storniert</span>
+              <span className="text-xs px-1.5 py-0.5 rounded-full bg-s112-err-bg text-s112-err-fg font-medium">Storniert</span>
             )}
           </div>
-          <p className="text-sm font-medium text-gray-800 mt-0.5">{a.betreff}</p>
+          <p className="text-sm font-medium text-s112-text mt-0.5">{a.betreff}</p>
           {postenId && postenId !== a.beschreibung && (
             <a href={`/weinhandel/verkauf/${postenId}`}
-              className="text-xs text-s112-teal hover:underline mt-0.5 inline-block">
+              className="text-xs text-s112-blue-700 hover:underline mt-0.5 inline-block">
               → Beleg ansehen
             </a>
           )}
@@ -205,7 +205,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
         <form onSubmit={handleSave} className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Art</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Art</label>
               <select name="art" defaultValue={a.art} className={inputCls()}>
                 {a.art === 'email' && <input type="hidden" name="art" value="email" />}
                 {AKTIVITAET_ARTEN.filter(x => !('nurAnzeige' in x) || x.value === a.art).map(x => (
@@ -214,16 +214,16 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Datum</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum</label>
               <input type="date" name="datum" defaultValue={a.datum ?? ''} required className={inputCls()} />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Betreff</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Betreff</label>
             <input type="text" name="betreff" defaultValue={a.betreff ?? ''} className={inputCls()} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Bericht</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Bericht</label>
             <textarea name="beschreibung" defaultValue={a.beschreibung ?? ''} rows={2} className={inputCls()} />
           </div>
           <div className="flex items-center gap-4 flex-wrap text-xs">
@@ -240,7 +240,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
             {!ganztags && (
               <div className="flex items-center gap-1.5">
                 <input type="time" name="uhrzeit_von" step="1800" defaultValue={a.uhrzeit_von ?? ''} className="border border-s112-border rounded px-2 py-1 text-xs focus:outline-none" />
-                <span className="text-gray-400">–</span>
+                <span className="text-s112-tertiary">–</span>
                 <input type="time" name="uhrzeit_bis" step="1800" defaultValue={a.uhrzeit_bis ?? ''} className="border border-s112-border rounded px-2 py-1 text-xs focus:outline-none" />
               </div>
             )}
@@ -255,12 +255,12 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
               {pending ? 'Speichern…' : 'Speichern'}
             </button>
             <button type="button" onClick={() => setEditMode(false)}
-              className="text-xs px-3 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
+              className="text-xs px-3 py-1.5 rounded-lg border border-s112-border text-s112-text-2 hover:bg-s112-bg">
               Abbrechen
             </button>
             <button type="button" onClick={handleDelete} disabled={pending}
               title="Löschen" aria-label="Löschen"
-              className="ml-auto text-xs px-3 py-1.5 rounded-lg text-red-500 hover:bg-red-50 border border-red-200 disabled:opacity-40">
+              className="ml-auto text-xs px-3 py-1.5 rounded-lg text-s112-err hover:bg-s112-err-bg border border-s112-err/30 disabled:opacity-40">
               <Trash2 size={14} />
             </button>
           </div>
@@ -275,14 +275,14 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
         <button type="button" onClick={handleErledigt} disabled={pending}
           title={a.erledigt ? 'Als offen markieren' : 'Als erledigt markieren'}
           className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-50 ${
-            a.erledigt ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-gray-300 hover:border-green-400 text-transparent'
+            a.erledigt ? 'bg-s112-ok border-s112-ok text-white' : 'bg-white border-s112-line-str hover:border-s112-ok/50 text-transparent'
           }`}>
           <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
           </svg>
         </button>
       )}
-      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-gray-600">
+      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-s112-text-2">
         <ArtIcon size={16} strokeWidth={1.75} />
       </div>
       <div className="flex-1 min-w-0">
@@ -291,20 +291,20 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
             {new Date(a.datum).toLocaleDateString('de-AT')}
           </span>
           {!a.ganztags && von && (
-            <span className="text-xs font-medium text-s112-teal tabular-nums">
+            <span className="text-xs font-medium text-s112-blue-700 tabular-nums">
               {von}{bis ? `–${bis}` : ''}
             </span>
           )}
           <span className="text-xs text-s112-muted">{artDef?.label ?? a.art}</span>
-          {a.ist_privat && <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">Privat</span>}
+          {a.ist_privat && <span className="text-xs bg-[#F2F3F5] text-s112-text-2 px-1.5 py-0.5 rounded">Privat</span>}
         </div>
         {a.art === 'email' ? (
           <button type="button" onClick={() => setEmailOpen(v => !v)}
-            className={`text-sm font-medium text-left w-full text-s112-teal hover:underline mt-0.5 block ${a.erledigt ? 'opacity-60' : ''}`}>
+            className={`text-sm font-medium text-left w-full text-s112-blue-700 hover:underline mt-0.5 block ${a.erledigt ? 'opacity-60' : ''}`}>
             {a.betreff ?? '(kein Betreff)'} {emailOpen ? '▴' : '▾'}
           </button>
         ) : (
-          <p className={`text-sm font-medium text-gray-800 mt-0.5 ${a.erledigt ? 'text-gray-400' : ''}`}>
+          <p className={`text-sm font-medium text-s112-text mt-0.5 ${a.erledigt ? 'text-s112-tertiary' : ''}`}>
             {a.betreff}
           </p>
         )}
@@ -317,17 +317,17 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
             </div>
             {a.email_body
               ? (a.email_body_html
-                  ? <div className="px-3 py-2 text-xs text-gray-700 max-h-64 overflow-y-auto"
+                  ? <div className="px-3 py-2 text-xs text-s112-text-1 max-h-64 overflow-y-auto"
                       dangerouslySetInnerHTML={{ __html: a.email_body_html }} />
-                  : <pre className="px-3 py-2 text-xs text-gray-700 whitespace-pre-wrap font-sans max-h-64 overflow-y-auto">{a.email_body}</pre>)
+                  : <pre className="px-3 py-2 text-xs text-s112-text-1 whitespace-pre-wrap font-sans max-h-64 overflow-y-auto">{a.email_body}</pre>)
               : a.beschreibung
-                ? <p className="px-3 py-2 text-xs text-gray-700 italic">{a.beschreibung}</p>
+                ? <p className="px-3 py-2 text-xs text-s112-text-1 italic">{a.beschreibung}</p>
                 : <p className="px-3 py-2 text-xs text-s112-muted italic">Inhalt in /nachrichten öffnen um vollständig zu laden</p>
             }
           </div>
         )}
         {a.beschreibung && !emailOpen && a.art !== 'email' && (
-          <p className="text-xs text-gray-500 mt-0.5">{a.beschreibung}</p>
+          <p className="text-xs text-s112-text-2 mt-0.5">{a.beschreibung}</p>
         )}
         {/* Inline-Antworten für Email-Aktivitäten */}
         {a.art === 'email' && replyOpen && (
@@ -348,7 +348,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
                 {replySending ? 'Senden…' : 'Senden'}
               </button>
               <button type="button" onClick={() => setReplyOpen(false)}
-                className="text-xs border border-s112-border text-gray-600 px-3 py-1.5 rounded-lg hover:bg-s112-bg">
+                className="text-xs border border-s112-border text-s112-text-2 px-3 py-1.5 rounded-lg hover:bg-s112-bg">
                 Abbrechen
               </button>
             </div>
@@ -358,20 +358,20 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
       <div className="flex flex-col gap-1 flex-shrink-0">
         {a.art === 'email' && kontaktEmail && !replyOpen && (
           <button type="button" onClick={() => setReplyOpen(true)} title="Antworten"
-            className="text-xs text-s112-teal border border-s112-teal/30 px-2 py-1 rounded-lg hover:bg-s112-teal/5">
+            className="text-xs text-s112-blue-700 border border-s112-teal/30 px-2 py-1 rounded-lg hover:bg-s112-teal/5">
             <Reply size={13} />
           </button>
         )}
         {writeOk && a.art === 'email' && (
           <button type="button" title="Email-Aktivität löschen"
             onClick={() => { if (confirm('Email aus Aktivitätenliste entfernen?')) startTransition(async () => { await deleteAktivitaet(a.id) }) }}
-            className="text-gray-300 hover:text-red-400 transition-colors">
+            className="text-s112-tertiary hover:text-s112-err transition-colors">
             <Trash2 size={14} />
           </button>
         )}
         {writeOk && a.art !== 'email' && (
           <button type="button" onClick={() => setEditMode(true)} title="Bearbeiten"
-            className="text-gray-300 hover:text-s112-teal transition-colors">
+            className="text-s112-tertiary hover:text-s112-blue-700 transition-colors">
             <Pencil size={14} />
           </button>
         )}
@@ -517,9 +517,9 @@ export default function KontaktDetailClient({
   return (
     <div className="space-y-6">
       <nav className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/crm/kontakte" className="hover:text-s112-teal">Kontakte</Link>
+        <Link href="/crm/kontakte" className="hover:text-s112-blue-700">Kontakte</Link>
         <span>/</span>
-        <span className="text-gray-800 font-medium">{name}</span>
+        <span className="text-s112-text font-medium">{name}</span>
       </nav>
 
       {editing ? (
@@ -531,25 +531,25 @@ export default function KontaktDetailClient({
         <div className="flex items-start gap-4">
           <div className="flex flex-col items-center justify-center bg-s112-bg border border-s112-border rounded-xl px-3 py-2 flex-shrink-0 min-w-[72px]">
             <span className="text-[10px] text-s112-muted font-medium uppercase tracking-wide">Kd.-Nr.</span>
-            <span className="text-sm font-bold text-s112-teal tabular-nums">{kontakt.accountnummer ?? '–'}</span>
+            <span className="text-sm font-semibold text-s112-blue-700 tabular-nums">{kontakt.accountnummer ?? '–'}</span>
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold text-gray-900">{name}</h1>
+            <h1 className="text-2xl font-semibold text-s112-text">{name}</h1>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${segmentFarbe(kontakt.segment)}`}>
                 {segmentLabel(kontakt.segment)}
               </span>
               {kontakt.stammkunde && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-s112-yellow/20 text-amber-700 font-medium">Stammkunde</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-s112-yellow/20 text-s112-warn-fg font-medium">Stammkunde</span>
               )}
               {kontakt.is_lead && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Lead</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-s112-warn-bg text-s112-warn-fg font-medium">Lead</span>
               )}
               {kontakt.newsletter && kontakt.newsletter_bestaetigt && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Newsletter</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-s112-ok-bg text-s112-ok-fg font-medium">Newsletter</span>
               )}
               {kontakt.newsletter && !kontakt.newsletter_bestaetigt && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium">ausstehend</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-s112-warn-bg text-s112-warn-fg font-medium">ausstehend</span>
               )}
             </div>
           </div>
@@ -558,14 +558,14 @@ export default function KontaktDetailClient({
               <button
                 onClick={() => setEditing(true)}
                 title="Bearbeiten" aria-label="Bearbeiten"
-                className="inline-flex items-center justify-center border border-s112-border text-gray-600 w-8 h-8 rounded-lg hover:bg-s112-bg transition-colors">
+                className="inline-flex items-center justify-center border border-s112-border text-s112-text-2 w-8 h-8 rounded-lg hover:bg-s112-bg transition-colors">
                 <Pencil size={15} />
               </button>
               {!kontakt.firma_id && (
                 <button
                   onClick={() => { setUmwFehler(null); setShowUmwandeln(true) }}
                   title="In Firma umwandeln" aria-label="In Firma umwandeln"
-                  className="inline-flex items-center justify-center border border-s112-border text-gray-600 w-8 h-8 rounded-lg hover:bg-s112-bg transition-colors">
+                  className="inline-flex items-center justify-center border border-s112-border text-s112-text-2 w-8 h-8 rounded-lg hover:bg-s112-bg transition-colors">
                   <ArrowRightLeft size={15} />
                 </button>
               )}
@@ -573,7 +573,7 @@ export default function KontaktDetailClient({
                 onClick={handleDelete}
                 disabled={deletePending}
                 title="Löschen" aria-label="Löschen"
-                className="inline-flex items-center justify-center border border-red-200 text-red-600 w-8 h-8 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40">
+                className="inline-flex items-center justify-center border border-s112-err/30 text-s112-err-fg w-8 h-8 rounded-lg hover:bg-s112-err-bg transition-colors disabled:opacity-40">
                 <Trash2 size={15} />
               </button>
             </div>
@@ -586,11 +586,11 @@ export default function KontaktDetailClient({
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <h2 className="text-base font-semibold text-gray-800">Aktivitäten</h2>
-              <Link href="/crm" className="text-xs text-s112-muted hover:text-s112-teal">→ Kalender</Link>
+              <h2 className="text-base font-semibold text-s112-text">Aktivitäten</h2>
+              <Link href="/crm" className="text-xs text-s112-muted hover:text-s112-blue-700">→ Kalender</Link>
             </div>
             {writeOk && !showAktForm && (
-              <button onClick={() => setShowAktForm(true)} className="text-xs text-s112-teal hover:underline font-medium">
+              <button onClick={() => setShowAktForm(true)} className="text-xs text-s112-blue-700 hover:underline font-medium">
                 + Aktivität
               </button>
             )}
@@ -635,22 +635,22 @@ export default function KontaktDetailClient({
                         const expanded = expandedThreads.has(threadId)
                         const latest   = msgs[msgs.length - 1]
                         return (
-                          <div key={threadId} className={`border rounded-xl overflow-hidden ${item.erledigt ? 'border-green-200 opacity-60' : 'border-s112-border'}`}>
+                          <div key={threadId} className={`border rounded-xl overflow-hidden ${item.erledigt ? 'border-s112-ok/30 opacity-60' : 'border-s112-border'}`}>
                             <button type="button"
                               onClick={() => setExpandedThreads(prev => {
                                 const next = new Set(prev)
                                 expanded ? next.delete(threadId) : next.add(threadId)
                                 return next
                               })}
-                              className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors text-left ${item.erledigt ? 'bg-green-50 hover:bg-green-100' : 'bg-blue-50 hover:bg-blue-100'}`}>
+                              className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors text-left ${item.erledigt ? 'bg-s112-ok-bg hover:bg-s112-ok/25' : 'bg-s112-blue-50 hover:bg-s112-blue-100'}`}>
                               {item.erledigt
-                                ? <CheckCircle2 size={16} className="text-green-600 flex-shrink-0" />
-                                : <Mail size={16} className="text-blue-600 flex-shrink-0" />}
+                                ? <CheckCircle2 size={16} className="text-s112-ok-fg flex-shrink-0" />
+                                : <Mail size={16} className="text-s112-blue-700 flex-shrink-0" />}
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-800 truncate">{latest.betreff}</p>
+                                <p className="text-sm font-medium text-s112-text truncate">{latest.betreff}</p>
                                 <p className="text-xs text-s112-muted">{msgs.length} E-Mail{msgs.length !== 1 ? 's' : ''} · {new Date(latest.datum).toLocaleDateString('de-AT')} · {expanded ? 'einklappen ▴' : 'ausklappen ▾'}</p>
                               </div>
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${item.erledigt ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{msgs.length}</span>
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${item.erledigt ? 'bg-s112-ok-bg text-s112-ok-fg' : 'bg-s112-blue-100 text-s112-blue-700'}`}>{msgs.length}</span>
                             </button>
                             {expanded && (
                               <div className="divide-y divide-s112-border/40">
@@ -670,17 +670,17 @@ export default function KontaktDetailClient({
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-base font-semibold text-gray-800">Informationen</h2>
+          <h2 className="text-base font-semibold text-s112-text">Informationen</h2>
 
           <div className="card p-4 space-y-2">
-            <h2 className="text-sm font-semibold text-gray-800 mb-3">Kontaktdaten</h2>
+            <h2 className="text-sm font-semibold text-s112-text mb-3">Kontaktdaten</h2>
             {kontakt.email && (
               <div className="flex items-center gap-2 text-sm">
-                <Mail size={16} className="text-gray-500" />
-                <a href={`mailto:${kontakt.email}`} className="text-s112-teal hover:underline">{kontakt.email}</a>
+                <Mail size={16} className="text-s112-text-2" />
+                <a href={`mailto:${kontakt.email}`} className="text-s112-blue-700 hover:underline">{kontakt.email}</a>
                 {writeOk && (
                   <button onClick={() => setShowEmailModal(true)}
-                    className="ml-auto text-xs border border-s112-border px-2 py-0.5 rounded-lg text-gray-600 hover:bg-s112-bg flex-shrink-0">
+                    className="ml-auto text-xs border border-s112-border px-2 py-0.5 rounded-lg text-s112-text-2 hover:bg-s112-bg flex-shrink-0">
                     Senden
                   </button>
                 )}
@@ -688,32 +688,32 @@ export default function KontaktDetailClient({
             )}
             {kontakt.telefon && (
               <div className="flex items-center gap-2 text-sm">
-                <Phone size={16} className="text-gray-500" />
-                <a href={`tel:${kontakt.telefon_vorwahl ?? '+43'}${kontakt.telefon?.replace(/\s/g, '')}`} onClick={e => handlePhoneClick(e, `${kontakt.telefon_vorwahl ?? '+43'} ${kontakt.telefon}`)} className="text-gray-700 hover:text-s112-teal cursor-pointer">{kontakt.telefon_vorwahl ?? '+43'} {kontakt.telefon}</a>
+                <Phone size={16} className="text-s112-text-2" />
+                <a href={`tel:${kontakt.telefon_vorwahl ?? '+43'}${kontakt.telefon?.replace(/\s/g, '')}`} onClick={e => handlePhoneClick(e, `${kontakt.telefon_vorwahl ?? '+43'} ${kontakt.telefon}`)} className="text-s112-text-1 hover:text-s112-blue-700 cursor-pointer">{kontakt.telefon_vorwahl ?? '+43'} {kontakt.telefon}</a>
               </div>
             )}
             {kontakt.mobil && (
               <div className="flex items-center gap-2 text-sm">
-                <Smartphone size={16} className="text-gray-500" />
-                <a href={`tel:${kontakt.mobil_vorwahl ?? '+43'}${kontakt.mobil?.replace(/\s/g, '')}`} onClick={e => handlePhoneClick(e, `${kontakt.mobil_vorwahl ?? '+43'} ${kontakt.mobil}`)} className="text-gray-700 hover:text-s112-teal cursor-pointer">{kontakt.mobil_vorwahl ?? '+43'} {kontakt.mobil}</a>
+                <Smartphone size={16} className="text-s112-text-2" />
+                <a href={`tel:${kontakt.mobil_vorwahl ?? '+43'}${kontakt.mobil?.replace(/\s/g, '')}`} onClick={e => handlePhoneClick(e, `${kontakt.mobil_vorwahl ?? '+43'} ${kontakt.mobil}`)} className="text-s112-text-1 hover:text-s112-blue-700 cursor-pointer">{kontakt.mobil_vorwahl ?? '+43'} {kontakt.mobil}</a>
               </div>
             )}
             {kontakt.strasse && (
               <div className="flex items-center gap-2 text-sm">
-                <Home size={16} className="text-gray-500" />
-                <span className="text-gray-700">{kontakt.strasse}</span>
+                <Home size={16} className="text-s112-text-2" />
+                <span className="text-s112-text-1">{kontakt.strasse}</span>
               </div>
             )}
             {kontakt.ort && (
               <div className="flex items-center gap-2 text-sm">
-                <MapPin size={16} className="text-gray-500" />
-                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([kontakt.strasse, kontakt.plz, kontakt.ort, kontakt.land ?? 'Österreich'].filter(Boolean).join(', '))}`} target="_blank" rel="noopener noreferrer" className="text-gray-700 hover:text-s112-teal">{kontakt.plz ? `${kontakt.plz} ` : ''}{kontakt.ort}{kontakt.land && kontakt.land !== 'AT' ? `, ${kontakt.land}` : ''}</a>
+                <MapPin size={16} className="text-s112-text-2" />
+                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([kontakt.strasse, kontakt.plz, kontakt.ort, kontakt.land ?? 'Österreich'].filter(Boolean).join(', '))}`} target="_blank" rel="noopener noreferrer" className="text-s112-text-1 hover:text-s112-blue-700">{kontakt.plz ? `${kontakt.plz} ` : ''}{kontakt.ort}{kontakt.land && kontakt.land !== 'AT' ? `, ${kontakt.land}` : ''}</a>
               </div>
             )}
             {kontakt.firma_name && (
               <div className="flex items-center gap-2 text-sm">
-                <Building2 size={16} className="text-gray-500" />
-                <Link href={`/crm/firmen/${kontakt.firma_id}`} className="text-s112-teal hover:underline">{kontakt.firma_name}</Link>
+                <Building2 size={16} className="text-s112-text-2" />
+                <Link href={`/crm/firmen/${kontakt.firma_id}`} className="text-s112-blue-700 hover:underline">{kontakt.firma_name}</Link>
                 {firmaSegment && (
                   <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${segmentFarbe(firmaSegment)}`}>
                     {segmentLabel(firmaSegment)}
@@ -722,13 +722,13 @@ export default function KontaktDetailClient({
               </div>
             )}
             {kontakt.notizen && (
-              <p className="text-xs text-gray-500 italic pt-1 border-t border-s112-border/60">{kontakt.notizen}</p>
+              <p className="text-xs text-s112-text-2 italic pt-1 border-t border-s112-border/60">{kontakt.notizen}</p>
             )}
           </div>
           {/* ── Notizen ── */}
           <div className="card p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-800">Notizen</h2>
+              <h2 className="text-sm font-semibold text-s112-text">Notizen</h2>
               <span className="text-xs text-s112-muted">{aktivitaeten.filter(a => a.art === 'notiz').length} Einträge</span>
             </div>
             {/* Neue Notiz */}
@@ -756,7 +756,7 @@ export default function KontaktDetailClient({
               {[...aktivitaeten.filter(a => a.art === 'notiz')].sort((a,b) => Number(a.erledigt) - Number(b.erledigt)).map(n => (
                 <div key={n.id} className={`flex items-start gap-2 py-1.5 border-b border-s112-border/30 last:border-0 ${n.erledigt ? 'opacity-50' : ''}`}>
                   <button type="button" onClick={() => toggleAktivitaetErledigt(n.id, !n.erledigt)}
-                    className={`mt-0.5 w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${n.erledigt ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}>
+                    className={`mt-0.5 w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${n.erledigt ? 'bg-s112-ok border-s112-ok' : 'border-s112-line-str'}`}>
                     {n.erledigt && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                   </button>
                   {notizEditId === n.id ? (
@@ -766,17 +766,17 @@ export default function KontaktDetailClient({
                       <button type="button" onClick={async () => {
                         const fd = new FormData(); fd.set('betreff', notizEditText)
                         await updateAktivitaet(n.id, fd); setNotizEditId(null)
-                      }} className="text-xs text-s112-teal font-medium"><Check size={13} /></button>
+                      }} className="text-xs text-s112-blue-700 font-medium"><Check size={13} /></button>
                       <button type="button" onClick={() => setNotizEditId(null)} className="text-xs text-s112-muted"><X size={13} /></button>
                     </div>
                   ) : (
                     <div className="flex-1 min-w-0 flex items-start justify-between gap-1">
                       <div className="min-w-0">
-                        <p className={`text-xs ${n.erledigt ? 'text-gray-400' : 'text-gray-700'}`}>{n.betreff}</p>
+                        <p className={`text-xs ${n.erledigt ? 'text-s112-tertiary' : 'text-s112-text-1'}`}>{n.betreff}</p>
                         <p className="text-[10px] text-s112-muted">{new Date(n.datum).toLocaleDateString('de-AT')}</p>
                       </div>
                       <button type="button" onClick={() => { setNotizEditId(n.id); setNotizEditText(n.betreff ?? '') }}
-                        className="text-gray-300 hover:text-s112-teal flex-shrink-0 mt-0.5"><Pencil size={11} /></button>
+                        className="text-s112-tertiary hover:text-s112-blue-700 flex-shrink-0 mt-0.5"><Pencil size={11} /></button>
                     </div>
                   )}
                 </div>
@@ -790,9 +790,9 @@ export default function KontaktDetailClient({
 
           <div className="card p-4 space-y-2">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-gray-800">Pipeline</h2>
+              <h2 className="text-sm font-semibold text-s112-text">Pipeline</h2>
               {writeOk && !showPipelineForm && (
-                <button onClick={() => setShowPipelineForm(true)} className="text-xs text-s112-teal hover:underline font-medium">
+                <button onClick={() => setShowPipelineForm(true)} className="text-xs text-s112-blue-700 hover:underline font-medium">
                   + Eintrag
                 </button>
               )}
@@ -812,16 +812,16 @@ export default function KontaktDetailClient({
                     <div key={p.id} className="border border-s112-border/60 rounded-lg p-3 space-y-1 hover:border-s112-teal/40 transition-colors">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${stufeDef?.farbe ?? 'bg-gray-100 text-gray-700'}`}>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${stufeDef?.farbe ?? 'bg-[#F2F3F5] text-s112-text-1'}`}>
                             {stufeDef?.label ?? p.stufe}
                           </span>
                           {p.erledigt && (
-                            <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Erledigt</span>
+                            <span className="text-xs px-1.5 py-0.5 rounded-full bg-s112-ok-bg text-s112-ok-fg font-medium">Erledigt</span>
                           )}
                         </div>
-                        <Link href="/crm/pipeline" className="text-xs text-s112-teal hover:underline flex-shrink-0">→ Pipeline</Link>
+                        <Link href="/crm/pipeline" className="text-xs text-s112-blue-700 hover:underline flex-shrink-0">→ Pipeline</Link>
                       </div>
-                      <p className="text-sm font-medium text-gray-800">{p.titel}</p>
+                      <p className="text-sm font-medium text-s112-text">{p.titel}</p>
                       <div className="flex gap-3 text-xs text-s112-muted">
                         {p.wert_euro != null && (
                           <span>{p.wert_euro.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}</span>
@@ -838,7 +838,7 @@ export default function KontaktDetailClient({
               {/* Verkäufe */}
               {verkaeufeSorted.length > 0 && (
                 <div className="card p-4 space-y-2">
-                  <h2 className="text-sm font-semibold text-gray-800 mb-3">Verkäufe ({verkaeufeSorted.length})</h2>
+                  <h2 className="text-sm font-semibold text-s112-text mb-3">Verkäufe ({verkaeufeSorted.length})</h2>
                   <div className="space-y-1">
                     {verkaeufeSorted.map(v => {
                       const summe = verkaufSumme(v)
@@ -846,19 +846,19 @@ export default function KontaktDetailClient({
                         <div key={v.id} className="flex items-center justify-between text-xs py-1.5 border-b border-s112-border/40 last:border-0">
                           <div className="flex-1 min-w-0">
                             <span className="tabular-nums text-s112-muted mr-2">{new Date(v.datum).toLocaleDateString('de-AT')}</span>
-                            <span className="font-mono text-gray-800">{v.rechnungsnummer ?? '–'}</span>
+                            <span className="font-mono text-s112-text">{v.rechnungsnummer ?? '–'}</span>
                             {summe > 0 && (
-                              <span className="ml-2 font-semibold text-s112-teal tabular-nums">
+                              <span className="ml-2 font-semibold text-s112-blue-700 tabular-nums">
                                 {summe.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
                               </span>
                             )}
                           </div>
                           <div className="flex items-center gap-2 ml-2 flex-shrink-0">
-                            {v.storniert && <span className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Storniert</span>}
-                            {v.bezahlt  && <span className="px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Bezahlt</span>}
-                            {!v.storniert && !v.bezahlt && <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Offen</span>}
+                            {v.storniert && <span className="px-1.5 py-0.5 rounded-full bg-s112-err-bg text-s112-err-fg font-medium">Storniert</span>}
+                            {v.bezahlt  && <span className="px-1.5 py-0.5 rounded-full bg-s112-ok-bg text-s112-ok-fg font-medium">Bezahlt</span>}
+                            {!v.storniert && !v.bezahlt && <span className="px-1.5 py-0.5 rounded-full bg-s112-warn-bg text-s112-warn-fg font-medium">Offen</span>}
                             <a href={`/weinhandel/verkauf/${v.id}`}
-                              className="text-s112-teal hover:underline">→</a>
+                              className="text-s112-blue-700 hover:underline">→</a>
                           </div>
                         </div>
                       )
@@ -874,26 +874,26 @@ export default function KontaktDetailClient({
       {showEmailModal && kontakt.email && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
           onClick={() => setShowEmailModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4"
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
             onClick={e => e.stopPropagation()}>
-            <h3 className="text-base font-bold text-gray-900 mb-4 inline-flex items-center gap-1.5"><Mail size={16} />E-Mail senden</h3>
+            <h3 className="text-base font-semibold text-s112-text mb-4 inline-flex items-center gap-1.5"><Mail size={16} />E-Mail senden</h3>
             <form onSubmit={sendEmail} className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">An</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">An</label>
                 <input value={kontakt.email} readOnly className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm bg-s112-bg" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Betreff *</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Betreff *</label>
                 <input value={emailBetreff} onChange={e => setEmailBetreff(e.target.value)} required autoFocus
                   className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Nachricht</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Nachricht</label>
                 <textarea value={emailText} onChange={e => setEmailText(e.target.value)} rows={5}
                   className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
               </div>
               {emailResult && (
-                <p className={`text-xs font-medium inline-flex items-center gap-1 ${emailResult === 'E-Mail gesendet' ? 'text-green-600' : 'text-red-600'}`}>
+                <p className={`text-xs font-medium inline-flex items-center gap-1 ${emailResult === 'E-Mail gesendet' ? 'text-s112-ok-fg' : 'text-s112-err-fg'}`}>
                   {emailResult === 'E-Mail gesendet' ? <Check size={12} /> : <X size={12} />}
                   {emailResult}
                 </p>
@@ -904,7 +904,7 @@ export default function KontaktDetailClient({
                   {emailSending ? 'Senden…' : 'Senden'}
                 </button>
                 <button type="button" onClick={() => setShowEmailModal(false)}
-                  className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
+                  className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-s112-text-2 hover:bg-s112-bg">
                   Abbrechen
                 </button>
               </div>
@@ -917,9 +917,9 @@ export default function KontaktDetailClient({
       {showUmwandeln && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
           onClick={() => !umwPending && setShowUmwandeln(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4"
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
             onClick={e => e.stopPropagation()}>
-            <h3 className="text-base font-bold text-gray-900 mb-1 inline-flex items-center gap-1.5"><ArrowRightLeft size={16} />In Firma umwandeln</h3>
+            <h3 className="text-base font-semibold text-s112-text mb-1 inline-flex items-center gap-1.5"><ArrowRightLeft size={16} />In Firma umwandeln</h3>
             <p className="text-xs text-s112-muted mb-4">
               Es wird eine neue Firma mit den Stammdaten dieses Kontakts angelegt (Adresse, Telefon, E-Mail,
               Zahlungsziel, Rabatte). Der Kontakt bleibt bestehen und wird der Firma als Ansprechperson zugeordnet.
@@ -928,20 +928,20 @@ export default function KontaktDetailClient({
             </p>
             <form onSubmit={handleUmwandeln} className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Firmenname *</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Firmenname *</label>
                 <input value={umwName} onChange={e => setUmwName(e.target.value)} required autoFocus
                   placeholder="z. B. Gasthaus Musterwirt"
                   className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Segment</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Segment</label>
                 <select value={umwSegment} onChange={e => setUmwSegment(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   {SEGMENTE.map(sg => <option key={sg.value} value={sg.value}>{sg.label}</option>)}
                 </select>
               </div>
               {umwFehler && (
-                <p className="text-xs font-medium text-red-600 inline-flex items-center gap-1"><X size={12} />{umwFehler}</p>
+                <p className="text-xs font-medium text-s112-err-fg inline-flex items-center gap-1"><X size={12} />{umwFehler}</p>
               )}
               <div className="flex gap-2 pt-1">
                 <button type="submit" disabled={umwPending || !umwName.trim()}
@@ -949,7 +949,7 @@ export default function KontaktDetailClient({
                   {umwPending ? 'Wird umgewandelt…' : 'Firma anlegen'}
                 </button>
                 <button type="button" onClick={() => setShowUmwandeln(false)} disabled={umwPending}
-                  className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
+                  className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-s112-text-2 hover:bg-s112-bg">
                   Abbrechen
                 </button>
               </div>
@@ -960,7 +960,7 @@ export default function KontaktDetailClient({
 
       {/* Kopiert-Toast */}
       {copiedNum && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm px-4 py-2 rounded-xl shadow-lg inline-flex items-center gap-1.5">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-s112-text text-white text-sm px-4 py-2 rounded-xl shadow-lg inline-flex items-center gap-1.5">
           <ClipboardCheck size={14} /> {copiedNum} kopiert
         </div>
       )}

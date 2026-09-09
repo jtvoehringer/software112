@@ -61,15 +61,15 @@ function sortGst(gsts: GSTRow[], gstSort: 'gst_nr' | 'schlag'): GSTRow[] {
 }
 
 const BEWIRTSCHAFTUNG_BADGE: Record<string, string> = {
-  biodynamisch:  'bg-green-100 text-green-800',
-  biologisch:    'bg-green-100 text-green-700',
-  in_umstellung: 'bg-yellow-100 text-yellow-700',
-  nachhaltig:    'bg-teal-100 text-teal-700',
-  kip:           'bg-blue-100 text-blue-700',
-  konventionell: 'bg-gray-100 text-gray-600',
+  biodynamisch:  'bg-s112-ok-bg text-s112-ok-fg',
+  biologisch:    'bg-s112-ok-bg text-s112-ok-fg',
+  in_umstellung: 'bg-s112-warn-bg text-s112-warn-fg',
+  nachhaltig:    'bg-[#F2F3F5] text-s112-text-1',
+  kip:           'bg-s112-blue-100 text-s112-blue-700',
+  konventionell: 'bg-[#F2F3F5] text-s112-text-2',
   // Legacy-Werte
-  bio:           'bg-green-100 text-green-700',
-  demeter:       'bg-green-100 text-green-800',
+  bio:           'bg-s112-ok-bg text-s112-ok-fg',
+  demeter:       'bg-s112-ok-bg text-s112-ok-fg',
 }
 const BEWIRTSCHAFTUNG_LABEL: Record<string, string> = {
   biodynamisch:  'Biodynamisch',
@@ -123,10 +123,10 @@ function GSTZeile({ gst, verschachtelt = false }: { gst: GSTRow; verschachtelt?:
           WeingartenZeile) hat aber ein Chevron+Abstand vor dem Label - pl-8 lag
           dadurch optisch auf oder sogar vor dem Ried-Titel statt sichtbar
           eingerückt. pl-12 (flach) / pl-16 (verschachtelt) gleichen das aus. */}
-      <td className={`${verschachtelt ? 'pl-16' : 'pl-12'} pr-3 py-2 text-xs text-gray-500`}>
+      <td className={`${verschachtelt ? 'pl-16' : 'pl-12'} pr-3 py-2 text-xs text-s112-text-2`}>
         <span className="font-mono">GST {gst.gst_nr}</span>
         {gst.katastralgemeinde && (
-          <span className="ml-2 text-gray-400">{gst.katastralgemeinde}</span>
+          <span className="ml-2 text-s112-tertiary">{gst.katastralgemeinde}</span>
         )}
       </td>
       <td className="px-3 py-2 text-xs text-s112-muted" />
@@ -178,7 +178,7 @@ function WeingartenZeile({
       >
         <td className="pl-8 pr-3 py-2.5">
           <div className="flex items-center gap-2">
-            <span className={`text-gray-400 ${gsts.length === 0 ? 'invisible' : ''}`}>
+            <span className={`text-s112-tertiary ${gsts.length === 0 ? 'invisible' : ''}`}>
               <ChevronIcon open={open} />
             </span>
             <div>
@@ -186,17 +186,17 @@ function WeingartenZeile({
                 <Link
                   href={`/weingarten/${w.id}`}
                   onClick={e => e.stopPropagation()}
-                  className="font-medium text-gray-800 text-sm hover:text-s112-teal hover:underline"
+                  className="font-medium text-s112-text text-sm hover:text-s112-blue-700 hover:underline"
                 >
                   {w.name}
                 </Link>
                 {w.zentrum_lat != null && w.zentrum_lon != null && (
                   <a href={googleMapsUrl(Number(w.zentrum_lat), Number(w.zentrum_lon))} target="_blank" rel="noopener"
                     onClick={e => e.stopPropagation()} title="In Google Maps öffnen" aria-label="In Google Maps öffnen"
-                    className="text-s112-teal hover:text-s112-blue-700"><MapPin size={13} strokeWidth={1.75} /></a>
+                    className="text-s112-blue-700 hover:opacity-75"><MapPin size={13} strokeWidth={1.75} /></a>
                 )}
                 {w.bewirtschaftung && (
-                  <span className={`inline-block px-1.5 py-0 rounded-full text-xs font-medium ${BEWIRTSCHAFTUNG_BADGE[w.bewirtschaftung] ?? 'bg-gray-100 text-gray-600'}`}>
+                  <span className={`inline-block px-1.5 py-0 rounded-full text-xs font-medium ${BEWIRTSCHAFTUNG_BADGE[w.bewirtschaftung] ?? 'bg-[#F2F3F5] text-s112-text-2'}`}>
                     {BEWIRTSCHAFTUNG_LABEL[w.bewirtschaftung] ?? w.bewirtschaftung}
                   </span>
                 )}
@@ -214,10 +214,10 @@ function WeingartenZeile({
           <div className="flex items-center gap-1.5 flex-wrap">
             {w.weinart && w.weinart !== 'unbekannt' && (
               <span className={`inline-block px-1.5 py-0 rounded-full text-xs font-medium ${
-                w.weinart === 'rot'   ? 'bg-red-100 text-red-700' :
-                w.weinart === 'weiss' ? 'bg-amber-100 text-amber-700' :
-                w.weinart === 'rose'  ? 'bg-pink-100 text-pink-700' :
-                'bg-gray-100 text-gray-500'
+                w.weinart === 'rot'   ? 'bg-s112-err-bg text-s112-err-fg' :
+                w.weinart === 'weiss' ? 'bg-s112-warn-bg text-s112-warn-fg' :
+                w.weinart === 'rose'  ? 'bg-[#F2F3F5] text-s112-text-1' :
+                'bg-[#F2F3F5] text-s112-text-2'
               }`}>
                 {w.weinart === 'rot' ? 'Rot' : w.weinart === 'weiss' ? 'Weiß' : 'Rosé'}
               </span>
@@ -226,25 +226,25 @@ function WeingartenZeile({
         </td>
         <td className="px-3 py-2.5" />
         <td className="px-3 py-2.5" />
-        <td className="px-3 py-2.5 text-sm text-right tabular-nums text-gray-400">{gstKatasterHa > 0 ? fmtHa(gstKatasterHa) : '–'}</td>
+        <td className="px-3 py-2.5 text-sm text-right tabular-nums text-s112-tertiary">{gstKatasterHa > 0 ? fmtHa(gstKatasterHa) : '–'}</td>
         <td className="px-3 py-2.5 text-sm text-right tabular-nums">
           {w.flaeche_ha != null ? fmtHa(w.flaeche_ha) : (gstHa > 0 ? fmtHa(gstHa) : '–')}
         </td>
         <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between gap-3">
-            <span className="text-xs text-gray-400">{gsts.length > 0 ? gsts.length + ' GST' : ''}</span>
+            <span className="text-xs text-s112-tertiary">{gsts.length > 0 ? gsts.length + ' GST' : ''}</span>
             <div className="flex items-center gap-3">
             {writeOk && (
               <Link href={`/weingarten/${w.id}`}
                 title="Bearbeiten" aria-label="Bearbeiten"
-                className="text-s112-teal hover:text-s112-teal/70">
+                className="text-s112-blue-700 hover:text-s112-blue-700/70">
                 <Pencil size={14} />
               </Link>
             )}
             {adminOk && (
               <button onClick={handleDelete}
                 title="Löschen" aria-label="Löschen"
-                className="text-red-400 hover:text-red-600">
+                className="text-s112-err hover:text-s112-err-fg">
                 <Trash2 size={14} />
               </button>
             )}
@@ -353,25 +353,25 @@ function LageGruppe({
       >
         <td className="px-4 py-2.5">
           <div className="flex items-center gap-2">
-            <span className="text-s112-teal"><ChevronIcon open={open} /></span>
+            <span className="text-s112-blue-700"><ChevronIcon open={open} /></span>
             <div>
-              <div className="font-semibold text-gray-900 text-sm flex items-center gap-1.5">
+              <div className="font-semibold text-s112-text text-sm flex items-center gap-1.5">
                 {/* Rückmeldung 27.8.2026: Klick auf den Riednamen öffnet die Stammdaten
                     (erster Weingarten-Datensatz der Ried), der Chevron/Rest der Zeile
                     klappt weiterhin auf/zu. */}
                 {istEchteLage && stammdatenId ? (
                   <Link href={`/weingarten/${stammdatenId}`} onClick={e => e.stopPropagation()}
-                    title="Stammdaten der Ried öffnen" className="hover:text-s112-teal hover:underline">{ried}</Link>
+                    title="Stammdaten der Ried öffnen" className="hover:text-s112-blue-700 hover:underline">{ried}</Link>
                 ) : ried}
                 {/* Geo-Pin immer sichtbar: mit Koordinaten → Google Maps, ohne → Detailseite zum Setzen */}
                 {istEchteLage && (geo
                   ? <a href={googleMapsUrl(Number(geo.zentrum_lat), Number(geo.zentrum_lon))} target="_blank" rel="noopener"
                       onClick={e => e.stopPropagation()} title={`In Google Maps öffnen (${Number(geo.zentrum_lat).toFixed(5)}, ${Number(geo.zentrum_lon).toFixed(5)})`} aria-label="In Google Maps öffnen"
-                      className="text-s112-teal hover:text-s112-blue-700"><MapPin size={13} strokeWidth={1.75} /></a>
+                      className="text-s112-blue-700 hover:opacity-75"><MapPin size={13} strokeWidth={1.75} /></a>
                   : stammdatenId && (
                     <Link href={`/weingarten/${stammdatenId}`} onClick={e => e.stopPropagation()}
                       title="Noch keine Koordinaten – in den Stammdaten setzen" aria-label="Koordinaten setzen"
-                      className="text-gray-300 hover:text-s112-teal"><MapPin size={13} strokeWidth={1.5} /></Link>
+                      className="text-s112-tertiary hover:text-s112-blue-700"><MapPin size={13} strokeWidth={1.5} /></Link>
                   ))}
               </div>
               {interneBezeichnung && (
@@ -386,15 +386,15 @@ function LageGruppe({
         <td className="px-4 py-2.5" />
         <td className="px-4 py-2.5" />
         <td className="px-4 py-2.5" />
-        <td className="px-4 py-2.5 text-sm text-right tabular-nums text-gray-400">{totalKatasterHa > 0 ? fmtHa(totalKatasterHa) : '–'}</td>
-        <td className="px-4 py-2.5 text-sm text-right tabular-nums text-gray-500">{fmtHa(totalHa)}</td>
+        <td className="px-4 py-2.5 text-sm text-right tabular-nums text-s112-tertiary">{totalKatasterHa > 0 ? fmtHa(totalKatasterHa) : '–'}</td>
+        <td className="px-4 py-2.5 text-sm text-right tabular-nums text-s112-text-2">{fmtHa(totalHa)}</td>
         <td className="px-4 py-2.5" onClick={e => e.stopPropagation()}>
           {istEchteLage && adminOk && (
             <button
               onClick={handleDeleteRied}
               title="Ried inkl. aller Grundstücke löschen"
               aria-label="Ried inkl. aller Grundstücke löschen"
-              className="text-red-400 hover:text-red-600"
+              className="text-s112-err hover:text-s112-err-fg"
             >
               <Trash2 size={14} />
             </button>
@@ -481,33 +481,33 @@ export default function WeingartenBaum({
               Kopfleiste mit Suche/Glocke liegt außerhalb des Scroll-Containers). */}
           <tr className="sticky top-0 z-10 bg-s112-bg border-b-2 border-s112-border shadow-sm">
             <th
-              className="text-left px-4 py-3 font-semibold text-gray-700 rounded-tl-2xl cursor-pointer select-none hover:text-s112-teal"
+              className="text-left px-4 py-3 font-semibold text-s112-text-1 rounded-tl-2xl cursor-pointer select-none hover:text-s112-blue-700"
               onClick={() => setSortBy('ried')}
               title="Nach Ried/Grundstück sortieren"
             >
               Ried / Grundstück{sortBy === 'ried' && ' ▲'}
             </th>
             <th
-              className="text-left px-3 py-3 font-semibold text-gray-700 cursor-pointer select-none hover:text-s112-teal"
+              className="text-left px-3 py-3 font-semibold text-s112-text-1 cursor-pointer select-none hover:text-s112-blue-700"
               onClick={() => setSortBy('ama')}
               title="Nach AMA-Feldstücknr. sortieren"
             >
               AMA-Feldstücknr.{sortBy === 'ama' && ' ▲'}
             </th>
             <th
-              className="text-left px-3 py-3 font-semibold text-gray-700 cursor-pointer select-none hover:text-s112-teal"
+              className="text-left px-3 py-3 font-semibold text-s112-text-1 cursor-pointer select-none hover:text-s112-blue-700"
               onClick={() => setGstSort('schlag')}
               title="Nach AMA-Schlagnr. sortieren"
             >
               AMA-Schlagnr.{gstSort === 'schlag' && ' ▲'}
             </th>
-            <th className="text-left px-3 py-3 font-semibold text-gray-700">Codes</th>
-            <th className="text-left px-3 py-3 font-semibold text-gray-700">Rebsorte</th>
-            <th className="text-left px-3 py-3 font-semibold text-gray-700">Kürzel</th>
-            <th className="text-left px-3 py-3 font-semibold text-gray-700">Nutzung</th>
-            <th className="text-right px-3 py-3 font-semibold text-gray-700 leading-tight">GST-Fläche<br />lt. Kataster</th>
-            <th className="text-right px-3 py-3 font-semibold text-gray-700 leading-tight">GST-Fläche<br />lt. AMA</th>
-            <th className="text-left px-3 py-3 font-semibold text-gray-700 rounded-tr-2xl" />
+            <th className="text-left px-3 py-3 font-semibold text-s112-text-1">Codes</th>
+            <th className="text-left px-3 py-3 font-semibold text-s112-text-1">Rebsorte</th>
+            <th className="text-left px-3 py-3 font-semibold text-s112-text-1">Kürzel</th>
+            <th className="text-left px-3 py-3 font-semibold text-s112-text-1">Nutzung</th>
+            <th className="text-right px-3 py-3 font-semibold text-s112-text-1 leading-tight">GST-Fläche<br />lt. Kataster</th>
+            <th className="text-right px-3 py-3 font-semibold text-s112-text-1 leading-tight">GST-Fläche<br />lt. AMA</th>
+            <th className="text-left px-3 py-3 font-semibold text-s112-text-1 rounded-tr-2xl" />
           </tr>
         </thead>
         <tbody>

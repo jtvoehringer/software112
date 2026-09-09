@@ -372,17 +372,17 @@ export default function NeueBehandlungForm({
 
       {/* Art & Datum */}
       <div className="card space-y-4">
-        <h2 className="text-base font-semibold text-gray-800">Maßnahme</h2>
+        <h2 className="text-base font-semibold text-s112-text">Maßnahme</h2>
 
         {/* Art der Maßnahme */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Art <span className="text-red-500">*</span></label>
+          <label className="block text-sm font-medium text-s112-text-1 mb-1">Art <span className="text-s112-err">*</span></label>
           <div className="flex flex-wrap gap-2">
             {ART_OPTIONS.map(o => (
               <label key={o.value} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm cursor-pointer transition-colors
                 ${art === o.value
                   ? 'bg-s112-teal text-white border-s112-teal'
-                  : 'bg-white text-gray-700 border-s112-border hover:border-s112-teal/50'}`}>
+                  : 'bg-white text-s112-text-1 border-s112-border hover:border-s112-teal/50'}`}>
                 <input type="radio" name="art" value={o.value} checked={art === o.value}
                   onChange={() => setArt(o.value as Art)} className="sr-only" />
                 <o.icon size={14} />{o.label}
@@ -393,15 +393,15 @@ export default function NeueBehandlungForm({
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Datum von <span className="text-red-500">*</span>
+            <label className="block text-sm font-medium text-s112-text-1 mb-1">
+              Datum von <span className="text-s112-err">*</span>
             </label>
             <input name="datum" type="date" required
               defaultValue={new Date().toISOString().split('T')[0]}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Datum bis</label>
+            <label className="block text-sm font-medium text-s112-text-1 mb-1">Datum bis</label>
             <input name="datum_bis" type="date"
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
@@ -410,9 +410,9 @@ export default function NeueBehandlungForm({
         {/* PSM */}
         {felder.psm !== 'hidden' && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-s112-text-1 mb-1">
               Spritzmittel / Mittel (PSM)
-              {felder.psm === 'pflicht' && <span className="text-red-500"> *</span>}
+              {felder.psm === 'pflicht' && <span className="text-s112-err"> *</span>}
             </label>
             <select name="psm_id" value={selectedPsmId} required={felder.psm === 'pflicht'}
               onChange={e => setSelectedPsmId(e.target.value)}
@@ -427,12 +427,12 @@ export default function NeueBehandlungForm({
               ))}
             </select>
             {selectedPsm?.wartezeit_tage != null && (
-              <p className="text-xs text-amber-600 mt-1 inline-flex items-center gap-1">
+              <p className="text-xs text-s112-warn-fg mt-1 inline-flex items-center gap-1">
                 <Hourglass size={12} />Wartezeit: {selectedPsm.wartezeit_tage} Tage vor Ernte
               </p>
             )}
             {selectedPsm?.cu_gehalt_pct ? (
-              <p className="text-xs text-blue-600 mt-1 inline-flex items-center gap-1">
+              <p className="text-xs text-s112-blue-700 mt-1 inline-flex items-center gap-1">
                 <Info size={12} />Kupferhaltiges Mittel – Cu-Anteil: {selectedPsm.cu_gehalt_pct} %
               </p>
             ) : null}
@@ -443,9 +443,9 @@ export default function NeueBehandlungForm({
         {/* Düngemittel */}
         {felder.duengemittel !== 'hidden' && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-s112-text-1 mb-1">
               Düngemittel
-              {felder.duengemittel === 'pflicht' && <span className="text-red-500"> *</span>}
+              {felder.duengemittel === 'pflicht' && <span className="text-s112-err"> *</span>}
             </label>
             <select name="duengemittel_id" value={selectedDuengemittelId} required={felder.duengemittel === 'pflicht'}
               onChange={e => setSelectedDuengemittelId(e.target.value)}
@@ -465,7 +465,7 @@ export default function NeueBehandlungForm({
               </p>
             )}
             {selectedDuengemittel?.wartezeit_tage != null && (
-              <p className="text-xs text-amber-600 mt-1 inline-flex items-center gap-1">
+              <p className="text-xs text-s112-warn-fg mt-1 inline-flex items-center gap-1">
                 <Hourglass size={12} />Wartezeit: {selectedDuengemittel.wartezeit_tage} Tage vor Ernte
               </p>
             )}
@@ -474,14 +474,14 @@ export default function NeueBehandlungForm({
         )}
 
         {bioSperre && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm flex items-start gap-2">
+          <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm flex items-start gap-2">
             <Ban size={16} className="mt-0.5 flex-shrink-0" />
             <span>Das gewählte Mittel ist nicht öko-zugelassen – passt nicht zum Bio-Status des Betriebs
             ({bioStatus === 'bio_eu' ? 'Bio-EU' : 'Biodynamisch'}). Absenden ist gesperrt, bitte ein zugelassenes Mittel wählen.</span>
           </div>
         )}
         {bioWarnung && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-3 text-sm flex items-start gap-2">
+          <div className="bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg rounded-xl px-4 py-3 text-sm flex items-start gap-2">
             <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
             <span>Das gewählte Mittel ist nicht öko-zugelassen – der Betrieb ist als {bioStatus === 'kip' ? 'KIP' : 'nachhaltig'} eingestuft. Bitte prüfen, ob das beabsichtigt ist.</span>
           </div>
@@ -490,9 +490,9 @@ export default function NeueBehandlungForm({
         {/* Gesamtmenge */}
         {felder.mengeGesamt !== 'hidden' && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-s112-text-1 mb-1">
               Gesamtmenge eingesetzt
-              {felder.mengeGesamt === 'pflicht' && <span className="text-red-500"> *</span>}
+              {felder.mengeGesamt === 'pflicht' && <span className="text-s112-err"> *</span>}
             </label>
             <div className="flex gap-2">
               <input name="menge_gesamt" type="number" step="0.001" min="0"
@@ -501,11 +501,11 @@ export default function NeueBehandlungForm({
                 value={mengeGesamtGesperrt ? (mengeGesamtBerechnet != null ? mengeGesamtBerechnet.toFixed(2) : '') : mengeGesamt}
                 disabled={mengeGesamtGesperrt}
                 onChange={e => { setMengeGesamt(e.target.value); setMengeQuelle(e.target.value === '' ? null : 'gesamt') }}
-                className="flex-1 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-gray-500" />
+                className="flex-1 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
               <select name="menge_einheit" value={mengeQuelle === 'wasser' ? 'l' : mengeEinheit}
                 disabled={mengeGesamtGesperrt}
                 onChange={e => setMengeEinheit(e.target.value)}
-                className="w-24 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-gray-500">
+                className="w-24 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2">
                 {MENGE_EINHEITEN.map(e => <option key={e} value={e}>{e}</option>)}
               </select>
             </div>
@@ -518,11 +518,11 @@ export default function NeueBehandlungForm({
             )}
             {/* Live-Zusammenfassung */}
             {(aufwandProHa || cuBeitragG || reinkupferKgHa) && (
-              <div className="mt-2 bg-s112-bg rounded-lg px-3 py-2 text-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
+              <div className="mt-2 bg-s112-bg rounded-lg px-3 py-2 text-xs text-s112-text-2 flex flex-wrap gap-x-4 gap-y-1">
                 {totalHaAktiv > 0 && <span>Behandelte Fläche: <strong>{fmtHa(totalHaAktiv)}</strong></span>}
                 {aufwandProHa && <span>≈ <strong>{aufwandProHa}</strong></span>}
-                {cuBeitragG && <span className="text-blue-600">Cu-Eintrag: <strong>{cuBeitragG}</strong></span>}
-                {reinkupferKgHa && <span className="text-blue-600">Reinkupfer: <strong>{reinkupferKgHa}</strong></span>}
+                {cuBeitragG && <span className="text-s112-blue-700">Cu-Eintrag: <strong>{cuBeitragG}</strong></span>}
+                {reinkupferKgHa && <span className="text-s112-blue-700">Reinkupfer: <strong>{reinkupferKgHa}</strong></span>}
               </div>
             )}
           </div>
@@ -533,19 +533,19 @@ export default function NeueBehandlungForm({
             {felder.aufwandmenge !== 'hidden' && (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-s112-text-1 mb-1">
                     Aufwandmenge (Etikett)
-                    {felder.aufwandmenge === 'pflicht' && <span className="text-red-500"> *</span>}
+                    {felder.aufwandmenge === 'pflicht' && <span className="text-s112-err"> *</span>}
                   </label>
                   <input name="aufwandmenge" type="number" step="0.001" min="0" placeholder="z.B. 3.0"
                     required={felder.aufwandmenge === 'pflicht' && !aufwandmengeGesperrt}
                     value={aufwandmengeGesperrt ? (aufwandmengeBerechnet != null ? aufwandmengeBerechnet.toFixed(3) : '') : aufwandmenge}
                     disabled={aufwandmengeGesperrt}
                     onChange={e => { setAufwandmenge(e.target.value); setAufwandQuelle(e.target.value === '' ? null : 'aufwand') }}
-                    className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-gray-500" />
+                    className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Einheit</label>
+                  <label className="block text-sm font-medium text-s112-text-1 mb-1">Einheit</label>
                   <select name="aufwandmenge_einheit" value={aufwandmengeEinheit}
                     onChange={e => setAufwandmengeEinheit(e.target.value)}
                     className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
@@ -556,13 +556,13 @@ export default function NeueBehandlungForm({
             )}
             {felder.konzentration !== 'hidden' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Konzentration (%)</label>
+                <label className="block text-sm font-medium text-s112-text-1 mb-1">Konzentration (%)</label>
                 <input name="konzentration" type="number" step="0.01" min="0" max="100"
                   placeholder="z.B. 0.5"
                   value={konzentrationGesperrt ? (konzentrationBerechnet != null ? konzentrationBerechnet.toFixed(3) : '') : konzentration}
                   disabled={konzentrationGesperrt}
                   onChange={e => { setKonzentration(e.target.value); setAufwandQuelle(e.target.value === '' ? null : 'konzentration') }}
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-gray-500" />
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
                 {aufwandQuelle != null && !konzentrationGesperrt && !aufwandmengeGesperrt && effektivesWasserLHa == null
                   && (aufwandmengeEinheit === 'kg_ha' || aufwandmengeEinheit === 'l_ha') && (
                   <p className="text-xs text-s112-muted mt-1">Für die automatische Berechnung bitte Spritzbrühe (l/ha) angeben.</p>
@@ -576,9 +576,9 @@ export default function NeueBehandlungForm({
           <div className="grid grid-cols-2 gap-3">
             {felder.bbch !== 'hidden' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-s112-text-1 mb-1">
                   BBCH-Stadium
-                  {felder.bbch === 'pflicht' && <span className="text-red-500"> *</span>}
+                  {felder.bbch === 'pflicht' && <span className="text-s112-err"> *</span>}
                 </label>
                 <select name="bbch_stadium" required={felder.bbch === 'pflicht'}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
@@ -589,12 +589,12 @@ export default function NeueBehandlungForm({
             )}
             {felder.wasseraufwand !== 'hidden' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Spritzbrühe (l/ha)</label>
+                <label className="block text-sm font-medium text-s112-text-1 mb-1">Spritzbrühe (l/ha)</label>
                 <input name="wasseraufwand_l_ha" type="number" step="1" min="0" placeholder="z.B. 500"
                   value={wasserGesperrt ? (wasserBerechnet != null ? wasserBerechnet.toFixed(1) : '') : wasseraufwand}
                   disabled={wasserGesperrt}
                   onChange={e => { setWasseraufwand(e.target.value); setMengeQuelle(e.target.value === '' ? null : 'wasser') }}
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-gray-500" />
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
                 {mengeQuelle === 'gesamt' && (
                   <p className="text-xs text-s112-muted mt-1">
                     {wasserGesperrt
@@ -606,9 +606,9 @@ export default function NeueBehandlungForm({
             )}
             {felder.schaderreger !== 'hidden' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-s112-text-1 mb-1">
                   {art === 'sonstiges' ? 'Grund / Anlass' : 'Schaderreger'}
-                  {felder.schaderreger === 'pflicht' && <span className="text-red-500"> *</span>}
+                  {felder.schaderreger === 'pflicht' && <span className="text-s112-err"> *</span>}
                 </label>
                 <input name="schaderreger" type="text" required={felder.schaderreger === 'pflicht'}
                   placeholder={art === 'sonstiges' ? 'z.B. Rodung' : 'z.B. Peronospora'}
@@ -627,12 +627,12 @@ export default function NeueBehandlungForm({
         {/* Düngung: Einarbeitung (nur bei organischem Dünger relevant) */}
         {felder.einarbeitung !== 'hidden' && selectedDuengemittel?.typ === 'organisch' && (
           <div className="grid grid-cols-2 gap-3 items-end">
-            <label className="flex items-center gap-2 text-sm text-gray-700">
+            <label className="flex items-center gap-2 text-sm text-s112-text-1">
               <input type="checkbox" name="einarbeitung" className="accent-s112-teal" />
               Eingearbeitet
             </label>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Zeitpunkt Einarbeitung</label>
+              <label className="block text-sm font-medium text-s112-text-1 mb-1">Zeitpunkt Einarbeitung</label>
               <input name="einarbeitung_zeitpunkt" type="date"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
@@ -643,18 +643,18 @@ export default function NeueBehandlungForm({
         {felder.bearbeitung !== 'hidden' && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-s112-text-1 mb-1">
                 Bearbeitungstiefe (cm)
-                {felder.bearbeitung === 'pflicht' && <span className="text-red-500"> *</span>}
+                {felder.bearbeitung === 'pflicht' && <span className="text-s112-err"> *</span>}
               </label>
               <input name="bearbeitungstiefe_cm" type="number" step="1" min="0" placeholder="z.B. 10"
                 required={felder.bearbeitung === 'pflicht'}
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-s112-text-1 mb-1">
                 Gerät
-                {felder.bearbeitung === 'pflicht' && <span className="text-red-500"> *</span>}
+                {felder.bearbeitung === 'pflicht' && <span className="text-s112-err"> *</span>}
               </label>
               <input name="bearbeitungsgeraet" type="text" placeholder="z.B. Grubber"
                 required={felder.bearbeitung === 'pflicht'}
@@ -666,9 +666,9 @@ export default function NeueBehandlungForm({
         {/* Schnitt */}
         {felder.schnittart !== 'hidden' && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-s112-text-1 mb-1">
               Schnittart
-              {felder.schnittart === 'pflicht' && <span className="text-red-500"> *</span>}
+              {felder.schnittart === 'pflicht' && <span className="text-s112-err"> *</span>}
             </label>
             <input name="schnittart" type="text" placeholder="z.B. Guyot, Kordon"
               required={felder.schnittart === 'pflicht'}
@@ -679,9 +679,9 @@ export default function NeueBehandlungForm({
         {/* Laubarbeit */}
         {felder.laubarbeitArt !== 'hidden' && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-s112-text-1 mb-1">
               Art der Laubarbeit
-              {felder.laubarbeitArt === 'pflicht' && <span className="text-red-500"> *</span>}
+              {felder.laubarbeitArt === 'pflicht' && <span className="text-s112-err"> *</span>}
             </label>
             <select name="laubarbeit_art" required={felder.laubarbeitArt === 'pflicht'}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
@@ -695,7 +695,7 @@ export default function NeueBehandlungForm({
           <div className="grid grid-cols-2 gap-3">
             {felder.witterung !== 'hidden' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Witterung</label>
+                <label className="block text-sm font-medium text-s112-text-1 mb-1">Witterung</label>
                 <select name="witterung"
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">–</option>
@@ -705,7 +705,7 @@ export default function NeueBehandlungForm({
             )}
             {felder.temperatur !== 'hidden' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Temperatur (°C)</label>
+                <label className="block text-sm font-medium text-s112-text-1 mb-1">Temperatur (°C)</label>
                 <input name="temperatur_c" type="number" step="0.1" placeholder="z.B. 18.5"
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
@@ -714,7 +714,7 @@ export default function NeueBehandlungForm({
         )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Notizen</label>
+          <label className="block text-sm font-medium text-s112-text-1 mb-1">Notizen</label>
           <textarea name="notizen" rows={2}
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
@@ -730,10 +730,10 @@ export default function NeueBehandlungForm({
               fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
-            <h2 className="text-base font-semibold text-gray-800">
+            <h2 className="text-base font-semibold text-s112-text">
               Ried(en) auswählen
               {totalSelCount > 0 && (
-                <span className="ml-2 text-sm text-s112-teal font-normal">
+                <span className="ml-2 text-sm text-s112-blue-700 font-normal">
                   {totalSelCount} ausgewählt · {fmtHa(totalHaAktiv)}
                 </span>
               )}
@@ -742,7 +742,7 @@ export default function NeueBehandlungForm({
           {riedenExpanded && (
             <button type="button"
               onClick={selectAll}
-              className="text-xs text-s112-teal hover:underline">
+              className="text-xs text-s112-blue-700 hover:underline">
               Alle auswählen
             </button>
           )}
@@ -774,10 +774,10 @@ export default function NeueBehandlungForm({
                     ref={el => { if (el) el.indeterminate = someSelected && !allSelected }}
                     className="accent-s112-teal"
                   />
-                  <span className="text-sm font-semibold text-gray-800">{lageName}</span>
+                  <span className="text-sm font-semibold text-s112-text">{lageName}</span>
                   <span className="text-xs text-s112-muted">{spritzbare.length} spritzbar</span>
                   {lageHa > 0 && (
-                    <span className="ml-auto text-xs text-s112-teal">{fmtHa(lageHa)}</span>
+                    <span className="ml-auto text-xs text-s112-blue-700">{fmtHa(lageHa)}</span>
                   )}
                 </div>
                 {/* Rieden mit GST-Feinauswahl */}
@@ -792,7 +792,7 @@ export default function NeueBehandlungForm({
                     const isActive = wgSel || someGstSel
 
                     return (
-                      <div key={w.id} className={!w.spritzbar ? 'bg-gray-50' : ''}>
+                      <div key={w.id} className={!w.spritzbar ? 'bg-s112-bg' : ''}>
                         <div className={`flex items-center gap-3 px-4 py-2 text-sm transition-colors
                           ${w.spritzbar ? 'hover:bg-s112-bg/40' : 'opacity-40'}`}>
                           <input
@@ -811,19 +811,19 @@ export default function NeueBehandlungForm({
                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                               </svg>
-                              <span className={`font-medium ${isActive ? 'text-s112-teal' : 'text-gray-800'}`}>{w.name}</span>
+                              <span className={`font-medium ${isActive ? 'text-s112-blue-700' : 'text-s112-text'}`}>{w.name}</span>
                               <span className="text-xs text-s112-muted">{gsts.length} GST</span>
                               {w.gst_ha_aktiv > 0 && (
                                 <span className="text-xs text-s112-muted ml-auto">{fmtHa(w.gst_ha_aktiv)}</span>
                               )}
                             </button>
                           ) : (
-                            <span className={`font-medium flex-1 ${isActive ? 'text-s112-teal' : 'text-gray-800'}`}>
+                            <span className={`font-medium flex-1 ${isActive ? 'text-s112-blue-700' : 'text-s112-text'}`}>
                               {w.name}
                             </span>
                           )}
                           {!w.spritzbar && (
-                            <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">
+                            <span className="text-xs bg-[#F2F3F5] text-s112-text-2 px-1.5 py-0.5 rounded-full">
                               Brache / Gerodet
                             </span>
                           )}
@@ -839,7 +839,7 @@ export default function NeueBehandlungForm({
                                       checked={isGstSel}
                                       onChange={() => toggleGST(g.id, w.id)}
                                       className="accent-s112-teal" />
-                                    <span className={`font-mono ${isGstSel ? 'text-s112-teal font-medium' : 'text-gray-600'}`}>
+                                    <span className={`font-mono ${isGstSel ? 'text-s112-blue-700 font-medium' : 'text-s112-text-2'}`}>
                                       GST {g.gst_nr}
                                     </span>
                                     {g.rebsorte && <span className="text-s112-muted">· {g.rebsorte}</span>}
@@ -862,13 +862,13 @@ export default function NeueBehandlungForm({
 
         {/* Zusammenfassung */}
         {totalSelCount > 0 && (
-          <div className="mt-3 bg-s112-teal/5 border border-s112-teal/20 rounded-xl px-4 py-2.5 text-sm text-gray-700">
-            <span className="font-semibold text-s112-teal">{selectedWGs.size}</span> Ried/Rieden
-            {selectedGSTs.size > 0 && <> · <span className="font-semibold text-s112-teal">{selectedGSTs.size}</span> GST</>} ·{' '}
+          <div className="mt-3 bg-s112-teal/5 border border-s112-teal/20 rounded-xl px-4 py-2.5 text-sm text-s112-text-1">
+            <span className="font-semibold text-s112-blue-700">{selectedWGs.size}</span> Ried/Rieden
+            {selectedGSTs.size > 0 && <> · <span className="font-semibold text-s112-blue-700">{selectedGSTs.size}</span> GST</>} ·{' '}
             <span className="font-semibold">{fmtHa(totalHaAktiv)}</span> aktive Fläche
-            {aufwandProHa && <> · <span className="text-gray-500">≈ {aufwandProHa}</span></>}
-            {cuBeitragG && <> · <span className="text-blue-600 font-medium">Cu: {cuBeitragG}</span></>}
-            {reinkupferKgHa && <> · <span className="text-blue-600 font-medium">Reinkupfer: {reinkupferKgHa}</span></>}
+            {aufwandProHa && <> · <span className="text-s112-text-2">≈ {aufwandProHa}</span></>}
+            {cuBeitragG && <> · <span className="text-s112-blue-700 font-medium">Cu: {cuBeitragG}</span></>}
+            {reinkupferKgHa && <> · <span className="text-s112-blue-700 font-medium">Reinkupfer: {reinkupferKgHa}</span></>}
           </div>
         )}
       </div>
@@ -879,7 +879,7 @@ export default function NeueBehandlungForm({
           <input type="checkbox" name="kosten_aktiv" checked={kostenAktiv}
             onChange={e => { setKostenAktiv(e.target.checked); betragManuellGeaendert.current = false }}
             className="accent-s112-teal" />
-          <h2 className="text-base font-semibold text-gray-800">Kosten erfassen</h2>
+          <h2 className="text-base font-semibold text-s112-text">Kosten erfassen</h2>
         </label>
         <p className="text-xs text-s112-muted -mt-2">
           Optional: Material- und Personalkosten dieser Maßnahme automatisch vorschlagen (aus Mittelpreis
@@ -889,7 +889,7 @@ export default function NeueBehandlungForm({
         {kostenAktiv && (
           <div className="space-y-3 pt-1">
             {(materialkosten > 0 || personalkosten > 0) && (
-              <div className="bg-s112-bg rounded-lg px-3 py-2 text-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
+              <div className="bg-s112-bg rounded-lg px-3 py-2 text-xs text-s112-text-2 flex flex-wrap gap-x-4 gap-y-1">
                 {materialkosten > 0 && <span>Material: <strong>{fmtEuro(materialkosten)} €</strong></span>}
                 {personalkosten > 0 && (
                   <span>
@@ -897,13 +897,13 @@ export default function NeueBehandlungForm({
                     {gewaehlterSatz && <> ({fmtEuro(gewaehlterSatz.satz_pro_ha)} €/ha × {fmtHa(totalHaAktiv)})</>}
                   </span>
                 )}
-                <span>Vorschlag gesamt: <strong className="text-s112-teal">{fmtEuro(kostenVorschlag)} €</strong></span>
+                <span>Vorschlag gesamt: <strong className="text-s112-blue-700">{fmtEuro(kostenVorschlag)} €</strong></span>
               </div>
             )}
 
             {passendeSaetze.length > 0 && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Hektarsatz</label>
+                <label className="block text-sm font-medium text-s112-text-1 mb-1">Hektarsatz</label>
                 <select value={selectedSatzId || passendeSaetze[0].id}
                   onChange={e => { setSelectedSatzId(e.target.value); betragManuellGeaendert.current = false }}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
@@ -921,7 +921,7 @@ export default function NeueBehandlungForm({
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Kostenart</label>
+                <label className="block text-sm font-medium text-s112-text-1 mb-1">Kostenart</label>
                 <select name="kosten_kostenart_id" value={kostenKostenartId}
                   onChange={e => setKostenKostenartId(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
@@ -930,7 +930,7 @@ export default function NeueBehandlungForm({
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Betrag (€)</label>
+                <label className="block text-sm font-medium text-s112-text-1 mb-1">Betrag (€)</label>
                 <input name="kosten_betrag" type="number" step="0.01" min="0"
                   value={kostenBetrag}
                   onChange={e => { setKostenBetrag(e.target.value); betragManuellGeaendert.current = true }}
@@ -939,7 +939,7 @@ export default function NeueBehandlungForm({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Beschreibung</label>
+              <label className="block text-sm font-medium text-s112-text-1 mb-1">Beschreibung</label>
               <input name="kosten_beschreibung" type="text" value={kostenBeschreibung}
                 onChange={e => setKostenBeschreibung(e.target.value)}
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
@@ -949,7 +949,7 @@ export default function NeueBehandlungForm({
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
+        <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm">
           {error}
         </div>
       )}
@@ -959,7 +959,7 @@ export default function NeueBehandlungForm({
           className="bg-s112-teal text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
           {pending ? 'Speichert…' : `Maßnahme erfassen (${totalSelCount} ausgewählt)`}
         </button>
-        <a href="/behandlungen" className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-800">
+        <a href="/behandlungen" className="px-5 py-2.5 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text">
           Abbrechen
         </a>
       </div>

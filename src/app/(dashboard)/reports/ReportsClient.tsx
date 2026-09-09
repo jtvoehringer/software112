@@ -75,7 +75,7 @@ function kundenName(p: R) {
 function CsvBtn({ onClick, label = '↓ CSV' }: { onClick: () => void; label?: string }) {
   return (
     <button onClick={onClick}
-      className="flex items-center gap-1.5 text-xs border border-s112-border text-gray-500 px-2.5 py-1.5 rounded-lg hover:bg-s112-bg transition-colors print:hidden">
+      className="flex items-center gap-1.5 text-xs border border-s112-border text-s112-text-2 px-2.5 py-1.5 rounded-lg hover:bg-s112-bg transition-colors print:hidden">
       {label}
     </button>
   )
@@ -390,11 +390,11 @@ export default function ReportsClient({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Auswertungen</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Auswertungen</h1>
           <p className="text-sm text-s112-muted mt-0.5">Betriebsauswertungen · automatisch aktualisiert</p>
         </div>
         <button onClick={() => window.print()}
-          className="flex items-center gap-2 border border-s112-border text-gray-600 px-3 py-2 rounded-xl text-sm hover:bg-s112-bg transition-colors print:hidden">
+          className="flex items-center gap-2 border border-s112-border text-s112-text-2 px-3 py-2 rounded-xl text-sm hover:bg-s112-bg transition-colors print:hidden">
           Drucken
         </button>
       </div>
@@ -402,18 +402,18 @@ export default function ReportsClient({
       {/* Weitere Auswertungen */}
       <div className="grid grid-cols-2 gap-4 print:hidden">
         <a href="/reports/keller"
-          className="card p-5 hover:border-s112-teal hover:shadow-md transition-all group flex flex-col gap-2">
-          <BarChart3 className="w-8 h-8 text-s112-teal" strokeWidth={1.75} />
-          <p className="font-semibold text-gray-900 group-hover:text-s112-teal">Keller-Auswertungen</p>
-          <p className="text-xs text-gray-500 leading-relaxed">Behälter-Auslastung, Chargen, Kellerbehandlungen, Umzüge & Filtrationen</p>
-          <p className="text-xs text-s112-teal font-medium mt-auto">Öffnen →</p>
+          className="card p-5 hover:border-s112-teal hover:shadow-sm transition-all group flex flex-col gap-2">
+          <BarChart3 className="w-8 h-8 text-s112-blue-700" strokeWidth={1.75} />
+          <p className="font-semibold text-s112-text group-hover:text-s112-blue-700">Keller-Auswertungen</p>
+          <p className="text-xs text-s112-text-2 leading-relaxed">Behälter-Auslastung, Chargen, Kellerbehandlungen, Umzüge & Filtrationen</p>
+          <p className="text-xs text-s112-blue-700 font-medium mt-auto">Öffnen →</p>
         </a>
         <a href="/auswertungen/kostenrechnung"
-          className="card p-5 hover:border-s112-teal hover:shadow-md transition-all group flex flex-col gap-2">
-          <Calculator className="w-8 h-8 text-s112-teal" strokeWidth={1.75} />
-          <p className="font-semibold text-gray-900 group-hover:text-s112-teal">Kosten-Auswertung</p>
-          <p className="text-xs text-gray-500 leading-relaxed">Kostenstellen, Kostenarten, Buchungsübersicht</p>
-          <p className="text-xs text-s112-teal font-medium mt-auto">Öffnen →</p>
+          className="card p-5 hover:border-s112-teal hover:shadow-sm transition-all group flex flex-col gap-2">
+          <Calculator className="w-8 h-8 text-s112-blue-700" strokeWidth={1.75} />
+          <p className="font-semibold text-s112-text group-hover:text-s112-blue-700">Kosten-Auswertung</p>
+          <p className="text-xs text-s112-text-2 leading-relaxed">Kostenstellen, Kostenarten, Buchungsübersicht</p>
+          <p className="text-xs text-s112-blue-700 font-medium mt-auto">Öffnen →</p>
         </a>
       </div>
 
@@ -421,7 +421,7 @@ export default function ReportsClient({
       <div className="flex gap-1 flex-wrap print:hidden">
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === t.id ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:bg-s112-teal/10'}`}>
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === t.id ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:bg-s112-teal/10'}`}>
             {t.label}
           </button>
         ))}
@@ -430,7 +430,7 @@ export default function ReportsClient({
       {/* Report-Inhalt */}
       <div className="card p-6">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-bold text-gray-900">
+          <h2 className="text-base font-semibold text-s112-text">
             {tab === 'umsatz'
               ? (umsatzModus === 'vergleich' ? 'Umsatzvergleich' : umsatzModus === 'benutzerdefiniert' ? 'Monatsumsatz Warenwirtschaft (Zeitraum)' : current.title)
               : current.title}
@@ -448,7 +448,7 @@ export default function ReportsClient({
             <div className="flex flex-wrap items-end gap-x-4 gap-y-2 pb-4 mb-2 border-b border-s112-border/60 print:hidden">
               <button
                 onClick={umsatzLetzte12}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${umsatzModus === 'standard' ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:bg-s112-teal/10'}`}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${umsatzModus === 'standard' ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:bg-s112-teal/10'}`}
               >
                 Letzte 12 Monate
               </button>
@@ -467,7 +467,7 @@ export default function ReportsClient({
                 <button
                   onClick={umsatzZeitraumAnwenden}
                   disabled={!vonMonat || !bisMonat || umsatzLoading}
-                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-s112-bg text-gray-600 hover:bg-s112-teal/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-s112-bg text-s112-text-2 hover:bg-s112-teal/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   {umsatzLoading && umsatzModus !== 'vergleich' ? 'Lädt…' : 'Zeitraum anwenden'}
                 </button>
@@ -489,13 +489,13 @@ export default function ReportsClient({
                 <button
                   onClick={umsatzVergleichen}
                   disabled={!vergleichA || !vergleichB || umsatzLoading}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${umsatzModus === 'vergleich' ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:bg-s112-teal/10'}`}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${umsatzModus === 'vergleich' ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:bg-s112-teal/10'}`}
                 >
                   {umsatzLoading && umsatzModus === 'vergleich' ? 'Lädt…' : 'Vergleichen'}
                 </button>
               </div>
 
-              {umsatzFehler && <span className="text-xs text-red-500">{umsatzFehler}</span>}
+              {umsatzFehler && <span className="text-xs text-s112-err">{umsatzFehler}</span>}
             </div>
 
             {umsatzModus === 'vergleich' ? (
@@ -508,7 +508,7 @@ export default function ReportsClient({
                     {vergleichData.map((m, i) => (
                       <div key={i} className="bg-s112-bg rounded-xl p-4">
                         <p className="text-xs text-s112-muted">{m.monat}</p>
-                        <p className="text-xl font-bold text-s112-teal tabular-nums mt-1">{eur(m.umsatz)}</p>
+                        <p className="text-xl font-semibold text-s112-blue-700 tabular-nums mt-1">{eur(m.umsatz)}</p>
                         <p className="text-xs text-s112-muted mt-0.5">{m.anzahl} Verkäufe</p>
                       </div>
                     ))}
@@ -522,7 +522,7 @@ export default function ReportsClient({
                       <div className="bg-s112-bg rounded-xl p-4 flex items-center justify-between flex-wrap gap-2">
                         <div>
                           <p className="text-xs text-s112-muted">Veränderung {a.monat} → {b.monat}</p>
-                          <p className={`text-lg font-bold tabular-nums mt-1 ${positiv ? 'text-green-600' : 'text-red-500'}`}>
+                          <p className={`text-lg font-semibold tabular-nums mt-1 ${positiv ? 'text-s112-ok-fg' : 'text-s112-err'}`}>
                             {positiv ? '+' : ''}{eur(diff)} ({positiv ? '+' : ''}{pct.toFixed(1)}%)
                           </p>
                         </div>
@@ -543,7 +543,7 @@ export default function ReportsClient({
                   ].map(kpi => (
                     <div key={kpi.label} className="bg-s112-bg rounded-xl p-4">
                       <p className="text-xs text-s112-muted">{kpi.label}</p>
-                      <p className="text-xl font-bold text-s112-teal tabular-nums mt-1">{kpi.val}</p>
+                      <p className="text-xl font-semibold text-s112-blue-700 tabular-nums mt-1">{kpi.val}</p>
                       <p className="text-xs text-s112-muted mt-0.5">{kpi.sub}</p>
                     </div>
                   ))}
@@ -562,9 +562,9 @@ export default function ReportsClient({
                           <div className="h-full rounded-full transition-all"
                             style={{ width: `${Math.max(2, (m.umsatz / maxUmsatz) * 100)}%`, backgroundColor: 'var(--s112-yellow)' }} />
                         </div>
-                        <span className="text-xs font-semibold text-gray-700 tabular-nums w-24 text-right">{eur(m.umsatz)}</span>
+                        <span className="text-xs font-semibold text-s112-text-1 tabular-nums w-24 text-right">{eur(m.umsatz)}</span>
                         <span className="text-xs text-s112-muted w-8 text-right">{m.anzahl}</span>
-                        <span className="text-xs text-s112-muted group-hover:text-s112-teal w-4">{umsatzExpand === m.monat ? '▲' : '▼'}</span>
+                        <span className="text-xs text-s112-muted group-hover:text-s112-blue-700 w-4">{umsatzExpand === m.monat ? '▲' : '▼'}</span>
                       </button>
 
                       {/* Drill-down: Verkäufe dieses Monats */}
@@ -577,7 +577,7 @@ export default function ReportsClient({
                           ) : (
                             <table className="w-full text-xs">
                               <thead>
-                                <tr className="bg-s112-bg border-b border-s112-border/50 text-gray-500">
+                                <tr className="bg-s112-bg border-b border-s112-border/50 text-s112-text-2">
                                   <th className="text-left px-3 py-1.5 font-medium">Datum</th>
                                   <th className="text-left px-3 py-1.5 font-medium">Rechnung</th>
                                   <th className="text-left px-3 py-1.5 font-medium">Kunde</th>
@@ -590,14 +590,14 @@ export default function ReportsClient({
                                   <tr key={p.id} className={`border-b border-s112-border/30 last:border-0 ${i%2===1?'bg-s112-bg/20':''}`}>
                                     <td className="px-3 py-1.5 text-s112-muted tabular-nums">{fmtDate(p.datum)}</td>
                                     <td className="px-3 py-1.5">
-                                      <Link href={`/weinhandel/verkauf/${p.id}`} className="text-s112-teal hover:underline font-mono">{p.rechnungsnummer ?? '–'}</Link>
+                                      <Link href={`/weinhandel/verkauf/${p.id}`} className="text-s112-blue-700 hover:underline font-mono">{p.rechnungsnummer ?? '–'}</Link>
                                     </td>
-                                    <td className="px-3 py-1.5 font-medium text-gray-800">{kundenName(p)}</td>
-                                    <td className="px-3 py-1.5 text-right font-semibold text-s112-teal tabular-nums">{eur(posSum(p))}</td>
+                                    <td className="px-3 py-1.5 font-medium text-s112-text">{kundenName(p)}</td>
+                                    <td className="px-3 py-1.5 text-right font-semibold text-s112-blue-700 tabular-nums">{eur(posSum(p))}</td>
                                     <td className="px-3 py-1.5 text-center">
-                                      {p.storniert ? <span className="text-red-500">Storno</span>
-                                        : p.bezahlt ? <span className="text-green-600">Bezahlt</span>
-                                        : <span className="text-amber-500">Offen</span>}
+                                      {p.storniert ? <span className="text-s112-err">Storno</span>
+                                        : p.bezahlt ? <span className="text-s112-ok-fg">Bezahlt</span>
+                                        : <span className="text-s112-warn">Offen</span>}
                                     </td>
                                   </tr>
                                 ))}
@@ -620,19 +620,19 @@ export default function ReportsClient({
             <div className="grid grid-cols-3 gap-4 mb-5">
               <div className="bg-s112-bg rounded-xl p-4">
                 <p className="text-xs text-s112-muted">Artikel mit Bestand</p>
-                <p className="text-xl font-bold text-s112-teal mt-1">{lager.filter(f=>f.bestand_flaschen>0).length}</p>
+                <p className="text-xl font-semibold text-s112-blue-700 mt-1">{lager.filter(f=>f.bestand_flaschen>0).length}</p>
               </div>
               <div className="bg-s112-bg rounded-xl p-4">
                 <p className="text-xs text-s112-muted">Flaschen gesamt</p>
-                <p className="text-xl font-bold text-s112-teal mt-1 tabular-nums">{lager.reduce((s,f)=>s+(f.bestand_flaschen||0),0).toLocaleString('de-AT')}</p>
+                <p className="text-xl font-semibold text-s112-blue-700 mt-1 tabular-nums">{lager.reduce((s,f)=>s+(f.bestand_flaschen||0),0).toLocaleString('de-AT')}</p>
               </div>
               <div className="bg-s112-bg rounded-xl p-4">
                 <p className="text-xs text-s112-muted">Lagerwert (Einstandspreis)</p>
-                <p className="text-xl font-bold text-s112-teal mt-1 tabular-nums">{eur(lagerWert)}</p>
+                <p className="text-xl font-semibold text-s112-blue-700 mt-1 tabular-nums">{eur(lagerWert)}</p>
               </div>
             </div>
             <table className="w-full text-sm">
-              <thead><tr className="bg-s112-bg border-b border-s112-border text-xs text-gray-600">
+              <thead><tr className="bg-s112-bg border-b border-s112-border text-xs text-s112-text-2">
                 <th className="text-left px-3 py-2 font-semibold">Wein</th>
                 <th className="text-right px-3 py-2 font-semibold">Jahrgang</th>
                 <th className="text-right px-3 py-2 font-semibold">Größe</th>
@@ -645,17 +645,17 @@ export default function ReportsClient({
                 {lager.filter(f=>f.bestand_flaschen>0).map((f,i) => (
                   <>
                     <tr key={f.id} className={`border-b border-s112-border/40 ${i%2===1?'bg-s112-bg/30':''} ${lagerExpand===f.id?'border-b-0':''}`}>
-                      <td className="px-3 py-2 font-medium text-gray-800">{f.name}</td>
+                      <td className="px-3 py-2 font-medium text-s112-text">{f.name}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-s112-muted">{f.jahrgang??'–'}</td>
                       <td className="px-3 py-2 text-right text-xs text-s112-muted">{ML_LABEL[f.flaschengroesse_ml]??`${f.flaschengroesse_ml} ml`}</td>
-                      <td className="px-3 py-2 text-right font-bold tabular-nums">{f.bestand_flaschen}</td>
+                      <td className="px-3 py-2 text-right font-semibold tabular-nums">{f.bestand_flaschen}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-s112-muted">{f.einstandspreis!=null?eur2(f.einstandspreis):'–'}</td>
-                      <td className="px-3 py-2 text-right tabular-nums font-semibold text-s112-teal">{f.einstandspreis!=null?eur(f.bestand_flaschen*f.einstandspreis):'–'}</td>
+                      <td className="px-3 py-2 text-right tabular-nums font-semibold text-s112-blue-700">{f.einstandspreis!=null?eur(f.bestand_flaschen*f.einstandspreis):'–'}</td>
                       <td className="px-3 py-2 text-center print:hidden">
                         <button
                           onClick={() => toggleLagerDrill(f.id)}
                           title="Bestandsveränderungen"
-                          className={`text-xs px-2 py-0.5 rounded-lg border transition-colors ${lagerExpand===f.id ? 'bg-s112-teal text-white border-s112-teal' : 'border-s112-border text-s112-muted hover:border-s112-teal hover:text-s112-teal'}`}
+                          className={`text-xs px-2 py-0.5 rounded-lg border transition-colors ${lagerExpand===f.id ? 'bg-s112-teal text-white border-s112-teal' : 'border-s112-border text-s112-muted hover:border-s112-teal hover:text-s112-blue-700'}`}
                         >
                           {lagerExpand===f.id ? '▲' : '↓ BV'}
                         </button>
@@ -670,19 +670,19 @@ export default function ReportsClient({
                             {lagerBVLoading ? (
                               <div className="px-4 py-3 text-xs text-s112-muted">Lade Bestandsveränderungen…</div>
                             ) : lagerBV?.fehler ? (
-                              <div className="px-4 py-3 text-xs text-red-500">{lagerBV.fehler}</div>
+                              <div className="px-4 py-3 text-xs text-s112-err">{lagerBV.fehler}</div>
                             ) : lagerBV?.bv?.length === 0 ? (
                               <div className="px-4 py-3 text-xs text-s112-muted italic">Noch keine Verkäufe für diese Füllung.</div>
                             ) : (
                               <>
-                                <div className="flex items-center gap-4 px-4 py-2.5 bg-s112-bg border-b border-s112-border/50 text-xs text-gray-600">
-                                  <span>Verkauft: <strong className="text-gray-800">{lagerBV?.gesamtVerkauft ?? 0} Fl.</strong></span>
-                                  <span>Umsatz: <strong className="text-s112-teal">{eur(lagerBV?.gesamtUmsatz ?? 0)}</strong></span>
-                                  <Link href={`/weinhandel/fuellungen/${f.id}/edit`} className="ml-auto text-s112-teal hover:underline">Füllung bearbeiten →</Link>
+                                <div className="flex items-center gap-4 px-4 py-2.5 bg-s112-bg border-b border-s112-border/50 text-xs text-s112-text-2">
+                                  <span>Verkauft: <strong className="text-s112-text">{lagerBV?.gesamtVerkauft ?? 0} Fl.</strong></span>
+                                  <span>Umsatz: <strong className="text-s112-blue-700">{eur(lagerBV?.gesamtUmsatz ?? 0)}</strong></span>
+                                  <Link href={`/weinhandel/fuellungen/${f.id}/edit`} className="ml-auto text-s112-blue-700 hover:underline">Füllung bearbeiten →</Link>
                                 </div>
                                 <table className="w-full text-xs">
                                   <thead>
-                                    <tr className="bg-s112-bg/50 border-b border-s112-border/30 text-gray-500">
+                                    <tr className="bg-s112-bg/50 border-b border-s112-border/30 text-s112-text-2">
                                       <th className="text-left px-3 py-1.5 font-medium">Datum</th>
                                       <th className="text-left px-3 py-1.5 font-medium">Rechnung</th>
                                       <th className="text-left px-3 py-1.5 font-medium">Kunde</th>
@@ -697,13 +697,13 @@ export default function ReportsClient({
                                         <td className="px-3 py-1.5 text-s112-muted">{fmtDate(bv.datum)}</td>
                                         <td className="px-3 py-1.5">
                                           {bv.verkauf_id
-                                            ? <Link href={`/weinhandel/verkauf/${bv.verkauf_id}`} className="text-s112-teal hover:underline font-mono">{bv.rechnungsnummer ?? '–'}</Link>
+                                            ? <Link href={`/weinhandel/verkauf/${bv.verkauf_id}`} className="text-s112-blue-700 hover:underline font-mono">{bv.rechnungsnummer ?? '–'}</Link>
                                             : <span className="text-s112-muted">–</span>}
                                         </td>
-                                        <td className="px-3 py-1.5 font-medium text-gray-800">{bv.kunde}</td>
+                                        <td className="px-3 py-1.5 font-medium text-s112-text">{bv.kunde}</td>
                                         <td className="px-3 py-1.5 text-right tabular-nums">{bv.menge} {bv.einheit}</td>
                                         <td className="px-3 py-1.5 text-right tabular-nums text-s112-muted">{eur2(bv.netto_preis)}</td>
-                                        <td className="px-3 py-1.5 text-right tabular-nums font-semibold text-s112-teal">{eur(bv.umsatz)}</td>
+                                        <td className="px-3 py-1.5 text-right tabular-nums font-semibold text-s112-blue-700">{eur(bv.umsatz)}</td>
                                       </tr>
                                     ))}
                                   </tbody>
@@ -727,11 +727,11 @@ export default function ReportsClient({
             <div className="grid grid-cols-2 gap-4 mb-5">
               <div className="bg-s112-bg rounded-xl p-4">
                 <p className="text-xs text-s112-muted">Behandlungen dieses Jahr</p>
-                <p className="text-xl font-bold text-s112-teal mt-1">{behandlungen.length}</p>
+                <p className="text-xl font-semibold text-s112-blue-700 mt-1">{behandlungen.length}</p>
               </div>
-              <div className={`rounded-xl p-4 ${cuKgHa>4?'bg-red-50':'bg-green-50'}`}>
+              <div className={`rounded-xl p-4 ${cuKgHa>4?'bg-s112-err-bg':'bg-s112-ok-bg'}`}>
                 <p className="text-xs text-s112-muted">Kupfer eingesetzt (kg Wirkstoff/ha)</p>
-                <p className={`text-xl font-bold mt-1 tabular-nums ${cuKgHa>4?'text-red-600':'text-green-700'}`}>
+                <p className={`text-xl font-semibold mt-1 tabular-nums ${cuKgHa>4?'text-s112-err-fg':'text-s112-ok-fg'}`}>
                   {cuKgHa.toFixed(2).replace('.',',')} kg/ha
                 </p>
                 <p className="text-xs text-s112-muted mt-0.5">{cuKgHa>4?'Über EU-Limit (4 kg/ha/Jahr)':'Im EU-Bio-Limit'}</p>
@@ -741,7 +741,7 @@ export default function ReportsClient({
               <p className="text-center text-s112-muted py-8">Keine Behandlungen dieses Jahr erfasst.</p>
             ) : (
               <table className="w-full text-sm">
-                <thead><tr className="bg-s112-bg border-b border-s112-border text-xs text-gray-600">
+                <thead><tr className="bg-s112-bg border-b border-s112-border text-xs text-s112-text-2">
                   <th className="text-left px-3 py-2 font-semibold">Datum</th>
                   <th className="text-left px-3 py-2 font-semibold">Mittel</th>
                   <th className="text-left px-3 py-2 font-semibold">Art</th>
@@ -751,7 +751,7 @@ export default function ReportsClient({
                   {behandlungen.slice(0,30).map((b,i) => (
                     <tr key={b.id} className={`border-b border-s112-border/40 ${i%2===1?'bg-s112-bg/30':''}`}>
                       <td className="px-3 py-2 tabular-nums text-s112-muted">{fmtDate(b.datum)}</td>
-                      <td className="px-3 py-2 font-medium text-gray-800">{(b.psm as R|null)?.name??'–'}</td>
+                      <td className="px-3 py-2 font-medium text-s112-text">{(b.psm as R|null)?.name??'–'}</td>
                       <td className="px-3 py-2 text-xs text-s112-muted capitalize">{b.art??'–'}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{b.menge_gesamt??'–'} {b.menge_einheit??''}</td>
                     </tr>
@@ -768,11 +768,11 @@ export default function ReportsClient({
             <div className="grid grid-cols-2 gap-4 mb-5">
               <div className="bg-s112-bg rounded-xl p-4">
                 <p className="text-xs text-s112-muted">Aktive Pipeline-Einträge</p>
-                <p className="text-xl font-bold text-s112-teal mt-1">{pipelineAktiv.length}</p>
+                <p className="text-xl font-semibold text-s112-blue-700 mt-1">{pipelineAktiv.length}</p>
               </div>
               <div className="bg-s112-bg rounded-xl p-4">
                 <p className="text-xs text-s112-muted">Gesamt (inkl. abgeschlossen)</p>
-                <p className="text-xl font-bold text-gray-700 mt-1">{pipeline.length}</p>
+                <p className="text-xl font-semibold text-s112-text-1 mt-1">{pipeline.length}</p>
               </div>
             </div>
             <div className="space-y-3">
@@ -781,7 +781,7 @@ export default function ReportsClient({
                 return (
                   <div key={stufe}>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-semibold text-gray-700">{STUFEN_LABEL[stufe]??stufe}</span>
+                      <span className="text-sm font-semibold text-s112-text-1">{STUFEN_LABEL[stufe]??stufe}</span>
                       <span className="text-xs bg-s112-bg text-s112-muted px-2 py-0.5 rounded-full">{items.length}</span>
                     </div>
                     <div className="space-y-1">
@@ -789,7 +789,7 @@ export default function ReportsClient({
                         const name = p.kontakt ? [p.kontakt.vorname,p.kontakt.nachname].filter(Boolean).join(' ') : p.firma?.name ?? '–'
                         return (
                           <div key={p.id} className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg ${p.erledigt?'opacity-50':''} bg-s112-bg/50`}>
-                            <span className="font-medium text-gray-800">{name}</span>
+                            <span className="font-medium text-s112-text">{name}</span>
                             {p.kategorie && <span className="text-xs text-s112-muted">· {p.kategorie}</span>}
                           </div>
                         )
@@ -810,7 +810,7 @@ export default function ReportsClient({
               <p className="text-center text-s112-muted py-8">Keine Kunden erfasst.</p>
             ) : (
               <table className="w-full text-sm">
-                <thead><tr className="bg-s112-bg border-b border-s112-border text-xs text-gray-600">
+                <thead><tr className="bg-s112-bg border-b border-s112-border text-xs text-s112-text-2">
                   <th className="text-left px-3 py-2 font-semibold">Kunde</th>
                   <th className="text-left px-3 py-2 font-semibold">Kd.-Nr.</th>
                   <th className="text-right px-3 py-2 font-semibold">Letzter Kontakt</th>
@@ -820,12 +820,12 @@ export default function ReportsClient({
                   {kontaktFrequenz.map((k,i) => (
                     <tr key={k.id} className={`border-b border-s112-border/40 ${i%2===1?'bg-s112-bg/30':''}`}>
                       <td className="px-3 py-2">
-                        <Link href={`/crm/kontakte/${k.id}`} className="font-medium text-gray-800 hover:text-s112-teal">{k.name}</Link>
+                        <Link href={`/crm/kontakte/${k.id}`} className="font-medium text-s112-text hover:text-s112-blue-700">{k.name}</Link>
                       </td>
                       <td className="px-3 py-2 text-xs text-s112-muted font-mono">{k.accountnummer??'–'}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-s112-muted">{fmtDate(k.letzterKontakt)}</td>
                       <td className="px-3 py-2 text-right">
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full tabular-nums ${k.tage>180?'bg-red-100 text-red-700':k.tage>90?'bg-amber-100 text-amber-700':'bg-green-100 text-green-700'}`}>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full tabular-nums ${k.tage>180?'bg-s112-err-bg text-s112-err-fg':k.tage>90?'bg-s112-warn-bg text-s112-warn-fg':'bg-s112-ok-bg text-s112-ok-fg'}`}>
                           {k.tage===999?'–':k.tage}
                         </span>
                       </td>
@@ -843,18 +843,18 @@ export default function ReportsClient({
             <div className="grid grid-cols-2 gap-4 mb-5">
               <div className="bg-s112-bg rounded-xl p-4">
                 <p className="text-xs text-s112-muted">Anzahl offene Rechnungen</p>
-                <p className="text-xl font-bold text-amber-600 mt-1">{offene.length}</p>
+                <p className="text-xl font-semibold text-s112-warn-fg mt-1">{offene.length}</p>
               </div>
               <div className="bg-s112-bg rounded-xl p-4">
                 <p className="text-xs text-s112-muted">Offener Gesamtbetrag</p>
-                <p className="text-xl font-bold text-amber-600 mt-1 tabular-nums">{eur(offeneSum)}</p>
+                <p className="text-xl font-semibold text-s112-warn-fg mt-1 tabular-nums">{eur(offeneSum)}</p>
               </div>
             </div>
             {offene.length === 0 ? (
-              <p className="text-center text-green-600 font-medium py-8">Alle Rechnungen bezahlt!</p>
+              <p className="text-center text-s112-ok-fg font-medium py-8">Alle Rechnungen bezahlt!</p>
             ) : (
               <table className="w-full text-sm">
-                <thead><tr className="bg-s112-bg border-b border-s112-border text-xs text-gray-600">
+                <thead><tr className="bg-s112-bg border-b border-s112-border text-xs text-s112-text-2">
                   <th className="text-left px-3 py-2 font-semibold">Datum</th>
                   <th className="text-left px-3 py-2 font-semibold">Rechnung</th>
                   <th className="text-left px-3 py-2 font-semibold">Kunde</th>
@@ -868,12 +868,12 @@ export default function ReportsClient({
                       <tr key={p.id} className={`border-b border-s112-border/40 ${i%2===1?'bg-s112-bg/30':''}`}>
                         <td className="px-3 py-2 tabular-nums text-s112-muted">{fmtDate(p.datum)}</td>
                         <td className="px-3 py-2 font-mono text-xs">
-                          <Link href={`/weinhandel/verkauf/${p.id}`} className="text-s112-teal hover:underline">{p.rechnungsnummer??'–'}</Link>
+                          <Link href={`/weinhandel/verkauf/${p.id}`} className="text-s112-blue-700 hover:underline">{p.rechnungsnummer??'–'}</Link>
                         </td>
-                        <td className="px-3 py-2 font-medium text-gray-800">{kundenName(p)}</td>
-                        <td className="px-3 py-2 text-right font-semibold text-s112-teal tabular-nums">{eur(posSum(p))}</td>
+                        <td className="px-3 py-2 font-medium text-s112-text">{kundenName(p)}</td>
+                        <td className="px-3 py-2 text-right font-semibold text-s112-blue-700 tabular-nums">{eur(posSum(p))}</td>
                         <td className="px-3 py-2 text-right">
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full tabular-nums ${tage>30?'bg-red-100 text-red-700':tage>14?'bg-amber-100 text-amber-700':'bg-gray-100 text-gray-600'}`}>
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full tabular-nums ${tage>30?'bg-s112-err-bg text-s112-err-fg':tage>14?'bg-s112-warn-bg text-s112-warn-fg':'bg-[#F2F3F5] text-s112-text-2'}`}>
                             {tage}
                           </span>
                         </td>
@@ -891,12 +891,12 @@ export default function ReportsClient({
           <div className="space-y-5">
             <form onSubmit={ladeBesuch} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Region / Ort</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Region / Ort</label>
                 <input value={bOrt} onChange={e => setBOrt(e.target.value)} placeholder="z.B. Salzburg, Wien…"
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Segment</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Segment</label>
                 <select value={bSegment} onChange={e => setBSegment(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle Segmente</option>
@@ -906,7 +906,7 @@ export default function ReportsClient({
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Einschließen</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Einschließen</label>
                 <div className="flex gap-3 mt-1.5">
                   <label className="flex items-center gap-1.5 text-sm cursor-pointer">
                     <input type="checkbox" checked={bKunden} onChange={e => setBKunden(e.target.checked)} className="accent-s112-teal" /> Kunden
@@ -923,23 +923,23 @@ export default function ReportsClient({
                 </button>
               </div>
             </form>
-            {bFehler && <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">{bFehler}</div>}
+            {bFehler && <div className="bg-s112-err-bg border border-s112-err/30 rounded-xl px-4 py-3 text-sm text-s112-err-fg">{bFehler}</div>}
             {bResult && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between bg-s112-bg rounded-xl px-4 py-3">
-                  <p className="text-sm font-medium text-gray-700">{bResult.anzahl} Kontakte · {bResult.plz_count} PLZ-Gebiete</p>
+                  <p className="text-sm font-medium text-s112-text-1">{bResult.anzahl} Kontakte · {bResult.plz_count} PLZ-Gebiete</p>
                 </div>
                 {Object.entries(bResult.cluster).sort(([a],[b])=>a.localeCompare(b)).map(([plz,kontakte]) => (
                   <div key={plz} className="border border-s112-border rounded-xl overflow-hidden">
                     <div className="flex items-center justify-between px-4 py-2.5 bg-s112-bg border-b border-s112-border">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-s112-teal text-sm">{plz}</span>
+                        <span className="font-semibold text-s112-blue-700 text-sm">{plz}</span>
                         <span className="text-xs text-s112-muted">{kontakte[0]?.ort ?? ''}</span>
-                        <span className="text-xs bg-white border border-s112-border px-2 py-0.5 rounded-full text-gray-600">{kontakte.length}</span>
+                        <span className="text-xs bg-white border border-s112-border px-2 py-0.5 rounded-full text-s112-text-2">{kontakte.length}</span>
                       </div>
                       {googleMapsUrl(kontakte) && (
                         <a href={googleMapsUrl(kontakte)} target="_blank" rel="noopener noreferrer"
-                          className="text-xs text-s112-teal hover:underline">In Maps öffnen</a>
+                          className="text-xs text-s112-blue-700 hover:underline">In Maps öffnen</a>
                       )}
                     </div>
                     <div className="divide-y divide-s112-border/40">
@@ -947,11 +947,11 @@ export default function ReportsClient({
                         <div key={k.id} className="flex items-start justify-between px-4 py-2.5 hover:bg-s112-bg/40">
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-gray-800">
+                              <span className="text-sm font-medium text-s112-text">
                                 {k.vorname} {k.nachname}
                                 {k.firma_name && <span className="text-s112-muted font-normal"> · {k.firma_name}</span>}
                               </span>
-                              {k.is_lead && <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">Lead</span>}
+                              {k.is_lead && <span className="text-xs bg-s112-warn-bg text-s112-warn-fg px-1.5 py-0.5 rounded-full">Lead</span>}
                             </div>
                             <p className="text-xs text-s112-muted mt-0.5">
                               {k.strasse && `${k.strasse} · `}{k.telefon ?? k.mobil ?? k.email ?? '–'}
@@ -960,7 +960,7 @@ export default function ReportsClient({
                           <div className="text-right flex-shrink-0 ml-4">
                             <p className="text-[9px] text-s112-muted uppercase tracking-wide mb-0.5">Letzter Kontakt</p>
                             {k.tage_seit_kontakt !== null ? (
-                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${k.tage_seit_kontakt > 180 ? 'bg-red-100 text-red-700' : k.tage_seit_kontakt > 90 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${k.tage_seit_kontakt > 180 ? 'bg-s112-err-bg text-s112-err-fg' : k.tage_seit_kontakt > 90 ? 'bg-s112-warn-bg text-s112-warn-fg' : 'bg-s112-ok-bg text-s112-ok-fg'}`}>
                                 {k.tage_seit_kontakt} Tage
                               </span>
                             ) : (
@@ -992,11 +992,11 @@ export default function ReportsClient({
                 { href: '/reports/naehrstoffbilanz', icon: Sprout, title: 'Nährstoffbilanz Jahresbericht', desc: 'Stickstoff/Phosphor aus Düngungen · Ampel vs. Richtwerte (NAPV 2023)' },
               ].map(doc => (
                 <a key={doc.href} href={doc.href}
-                  className="card p-5 hover:border-s112-teal hover:shadow-md transition-all group flex flex-col gap-2">
-                  <doc.icon className="w-8 h-8 text-s112-teal" strokeWidth={1.75} />
-                  <p className="font-semibold text-gray-900 group-hover:text-s112-teal">{doc.title}</p>
-                  <p className="text-xs text-gray-500 leading-relaxed">{doc.desc}</p>
-                  <p className="text-xs text-s112-teal font-medium mt-auto">Öffnen & Drucken →</p>
+                  className="card p-5 hover:border-s112-teal hover:shadow-sm transition-all group flex flex-col gap-2">
+                  <doc.icon className="w-8 h-8 text-s112-blue-700" strokeWidth={1.75} />
+                  <p className="font-semibold text-s112-text group-hover:text-s112-blue-700">{doc.title}</p>
+                  <p className="text-xs text-s112-text-2 leading-relaxed">{doc.desc}</p>
+                  <p className="text-xs text-s112-blue-700 font-medium mt-auto">Öffnen & Drucken →</p>
                 </a>
               ))}
             </div>
@@ -1008,7 +1008,7 @@ export default function ReportsClient({
           <div className="space-y-5">
             <form onSubmit={ladeVerkaufsstatistik} className="grid grid-cols-1 sm:grid-cols-4 gap-3 print:hidden">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Jahrgang</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Jahrgang</label>
                 <select value={vsJahrgang} onChange={e => setVsJahrgang(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
@@ -1016,7 +1016,7 @@ export default function ReportsClient({
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Sorte</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Sorte</label>
                 <select value={vsSorte} onChange={e => setVsSorte(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
@@ -1024,7 +1024,7 @@ export default function ReportsClient({
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Bezeichnung</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung</label>
                 <select value={vsBezeichnung} onChange={e => setVsBezeichnung(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
@@ -1032,7 +1032,7 @@ export default function ReportsClient({
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Kunde (Kontakt/Firma)</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Kunde (Kontakt/Firma)</label>
                 <select value={vsKunde} onChange={e => setVsKunde(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
@@ -1040,17 +1040,17 @@ export default function ReportsClient({
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">PLZ von</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">PLZ von</label>
                 <input value={vsPlzVon} onChange={e => setVsPlzVon(e.target.value)} placeholder="z.B. 1000"
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">PLZ bis</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">PLZ bis</label>
                 <input value={vsPlzBis} onChange={e => setVsPlzBis(e.target.value)} placeholder="z.B. 3500"
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Ort</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Ort</label>
                 <select value={vsOrt} onChange={e => setVsOrt(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
@@ -1058,7 +1058,7 @@ export default function ReportsClient({
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Land</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Land</label>
                 <select value={vsLand} onChange={e => setVsLand(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
@@ -1071,13 +1071,13 @@ export default function ReportsClient({
                   {vsLaden ? 'Lädt…' : 'Auswerten'}
                 </button>
                 <button type="button" onClick={vsZuruecksetzen}
-                  className="px-3 py-2 rounded-xl text-sm font-medium text-gray-600 border border-s112-border hover:bg-s112-bg transition-colors">
+                  className="px-3 py-2 rounded-xl text-sm font-medium text-s112-text-2 border border-s112-border hover:bg-s112-bg transition-colors">
                   Zurücksetzen
                 </button>
               </div>
             </form>
 
-            {vsFehler && <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">{vsFehler}</div>}
+            {vsFehler && <div className="bg-s112-err-bg border border-s112-err/30 rounded-xl px-4 py-3 text-sm text-s112-err-fg">{vsFehler}</div>}
 
             {vsResult && (
               vsResult.zeilen.length === 0 ? (
@@ -1087,20 +1087,20 @@ export default function ReportsClient({
                   <div className="grid grid-cols-3 gap-4">
                     <div className="bg-s112-bg rounded-xl p-4">
                       <p className="text-xs text-s112-muted">Verkäufe (Positionen)</p>
-                      <p className="text-xl font-bold text-s112-teal tabular-nums mt-1">{vsResult.anzahl}</p>
+                      <p className="text-xl font-semibold text-s112-blue-700 tabular-nums mt-1">{vsResult.anzahl}</p>
                     </div>
                     <div className="bg-s112-bg rounded-xl p-4">
                       <p className="text-xs text-s112-muted">Stk gesamt</p>
-                      <p className="text-xl font-bold text-s112-teal tabular-nums mt-1">{vsResult.summeMenge.toLocaleString('de-AT')}</p>
+                      <p className="text-xl font-semibold text-s112-blue-700 tabular-nums mt-1">{vsResult.summeMenge.toLocaleString('de-AT')}</p>
                     </div>
                     <div className="bg-s112-bg rounded-xl p-4">
                       <p className="text-xs text-s112-muted">Umsatz gesamt</p>
-                      <p className="text-xl font-bold text-s112-teal tabular-nums mt-1">{eur2(vsResult.summeBetrag)}</p>
+                      <p className="text-xl font-semibold text-s112-blue-700 tabular-nums mt-1">{eur2(vsResult.summeBetrag)}</p>
                     </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead><tr className="bg-s112-bg border-b border-s112-border text-xs text-gray-600">
+                      <thead><tr className="bg-s112-bg border-b border-s112-border text-xs text-s112-text-2">
                         <th className="text-left px-3 py-2 font-semibold">Datum</th>
                         <th className="text-left px-3 py-2 font-semibold">Produkt</th>
                         <th className="text-right px-3 py-2 font-semibold">Jahrgang</th>
@@ -1115,14 +1115,14 @@ export default function ReportsClient({
                         {vsResult.zeilen.map((z, i) => (
                           <tr key={i} className={`border-b border-s112-border/40 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
                             <td className="px-3 py-2 tabular-nums text-s112-muted whitespace-nowrap">{fmtDate(z.datum)}</td>
-                            <td className="px-3 py-2 font-medium text-gray-800">{z.produkt}</td>
-                            <td className="px-3 py-2 text-right tabular-nums text-gray-600">{z.jahrgang ?? '–'}</td>
-                            <td className="px-3 py-2 text-gray-600">{formatRebsorteMitKuerzel(z.sorte)}</td>
-                            <td className="px-3 py-2 text-gray-600">{z.bezeichnung ?? '–'}</td>
-                            <td className="px-3 py-2 text-gray-600">{z.kunde}</td>
-                            <td className="px-3 py-2 text-gray-600">{[z.plz, z.ort].filter(Boolean).join(' ') || '–'}</td>
+                            <td className="px-3 py-2 font-medium text-s112-text">{z.produkt}</td>
+                            <td className="px-3 py-2 text-right tabular-nums text-s112-text-2">{z.jahrgang ?? '–'}</td>
+                            <td className="px-3 py-2 text-s112-text-2">{formatRebsorteMitKuerzel(z.sorte)}</td>
+                            <td className="px-3 py-2 text-s112-text-2">{z.bezeichnung ?? '–'}</td>
+                            <td className="px-3 py-2 text-s112-text-2">{z.kunde}</td>
+                            <td className="px-3 py-2 text-s112-text-2">{[z.plz, z.ort].filter(Boolean).join(' ') || '–'}</td>
                             <td className="px-3 py-2 text-right tabular-nums">{z.menge.toLocaleString('de-AT')}</td>
-                            <td className="px-3 py-2 text-right font-semibold text-s112-teal tabular-nums">{eur2(z.betrag)}</td>
+                            <td className="px-3 py-2 text-right font-semibold text-s112-blue-700 tabular-nums">{eur2(z.betrag)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1147,7 +1147,7 @@ export default function ReportsClient({
             </p>
             <form onSubmit={ladeWeinbuecher} className="grid grid-cols-1 sm:grid-cols-3 gap-3 print:hidden">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Jahrgang</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Jahrgang</label>
                 <select value={wbJahrgang} onChange={e => setWbJahrgang(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
@@ -1155,7 +1155,7 @@ export default function ReportsClient({
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Sorte</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Sorte</label>
                 <select value={wbSorte} onChange={e => setWbSorte(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
@@ -1163,7 +1163,7 @@ export default function ReportsClient({
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Bezeichnung</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung</label>
                 <select value={wbBezeichnung} onChange={e => setWbBezeichnung(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
@@ -1176,14 +1176,14 @@ export default function ReportsClient({
                   {wbLaden ? 'Lädt…' : 'Auswerten'}
                 </button>
                 <button type="button" onClick={wbZuruecksetzen}
-                  className="px-3 py-2 rounded-xl text-sm font-medium text-gray-600 border border-s112-border hover:bg-s112-bg transition-colors">
+                  className="px-3 py-2 rounded-xl text-sm font-medium text-s112-text-2 border border-s112-border hover:bg-s112-bg transition-colors">
                   Zurücksetzen
                 </button>
                 {wbResult && wbResult.chargen.length > 0 && (
                   <a
                     href={`/reports/weinbuecher-sammlung?${wbParams().toString()}`}
                     target="_blank" rel="noopener noreferrer"
-                    className="ml-auto flex items-center gap-1.5 text-sm font-medium text-s112-teal border border-s112-teal/40 px-4 py-2 rounded-xl hover:bg-s112-teal/10 transition-colors"
+                    className="ml-auto flex items-center gap-1.5 text-sm font-medium text-s112-blue-700 border border-s112-teal/40 px-4 py-2 rounded-xl hover:bg-s112-teal/10 transition-colors"
                   >
                     Alle {wbResult.chargen.length} Weinbücher als PDF sammeln →
                   </a>
@@ -1191,7 +1191,7 @@ export default function ReportsClient({
               </div>
             </form>
 
-            {wbFehler && <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">{wbFehler}</div>}
+            {wbFehler && <div className="bg-s112-err-bg border border-s112-err/30 rounded-xl px-4 py-3 text-sm text-s112-err-fg">{wbFehler}</div>}
 
             {wbResult && (
               wbResult.chargen.length === 0 ? (
@@ -1199,7 +1199,7 @@ export default function ReportsClient({
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead><tr className="bg-s112-bg border-b border-s112-border text-xs text-gray-600">
+                    <thead><tr className="bg-s112-bg border-b border-s112-border text-xs text-s112-text-2">
                       <th className="text-left px-3 py-2 font-semibold">Charge</th>
                       <th className="text-right px-3 py-2 font-semibold">Jg.</th>
                       <th className="text-left px-3 py-2 font-semibold">Sorte</th>
@@ -1211,15 +1211,15 @@ export default function ReportsClient({
                     <tbody>
                       {wbResult.chargen.map((c, i) => (
                         <tr key={c.id} className={`border-b border-s112-border/40 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
-                          <td className="px-3 py-2 font-medium text-gray-800">{c.name}</td>
-                          <td className="px-3 py-2 text-right tabular-nums text-gray-600">{c.jahrgang ?? '–'}</td>
-                          <td className="px-3 py-2 text-gray-600">{formatRebsorteMitKuerzel(c.rebsorte)}</td>
-                          <td className="px-3 py-2 text-gray-600">{c.behaelter ?? '–'}</td>
-                          <td className="px-3 py-2 text-gray-600">{c.status}</td>
+                          <td className="px-3 py-2 font-medium text-s112-text">{c.name}</td>
+                          <td className="px-3 py-2 text-right tabular-nums text-s112-text-2">{c.jahrgang ?? '–'}</td>
+                          <td className="px-3 py-2 text-s112-text-2">{formatRebsorteMitKuerzel(c.rebsorte)}</td>
+                          <td className="px-3 py-2 text-s112-text-2">{c.behaelter ?? '–'}</td>
+                          <td className="px-3 py-2 text-s112-text-2">{c.status}</td>
                           <td className="px-3 py-2 text-right tabular-nums">{Number(c.menge_liter ?? 0).toLocaleString('de-AT')} L</td>
                           <td className="px-3 py-2 text-right">
                             <Link href={`/kellerbuch/weinausbau/${c.id}/buch`}
-                              className="text-xs text-s112-teal hover:underline whitespace-nowrap">
+                              className="text-xs text-s112-blue-700 hover:underline whitespace-nowrap">
                               Weinbuch →
                             </Link>
                           </td>

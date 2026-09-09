@@ -57,8 +57,8 @@ export default async function MonatsabschlussPage({
   return (
     <div className="p-6 max-w-2xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/buchhaltung" className="text-sm text-s112-muted hover:text-gray-700">← Buchungen</Link>
-        <h1 className="text-2xl font-bold text-gray-900">Monatsabschluss</h1>
+        <Link href="/buchhaltung" className="text-sm text-s112-muted hover:text-s112-text-1">← Buchungen</Link>
+        <h1 className="text-2xl font-semibold text-s112-text">Monatsabschluss</h1>
       </div>
 
       <p className="text-sm text-s112-muted mb-6">
@@ -66,7 +66,7 @@ export default async function MonatsabschlussPage({
         Buchungen mit einem Datum in diesem Monat. Das ist nicht rückgängig zu machen.
       </p>
       {doppik && (
-        <div className="bg-s112-blue-50 border border-s112-blue-100 text-s112-blue-700 rounded-2xl px-5 py-4 mb-6 text-sm">
+        <div className="bg-s112-blue-50 border border-s112-blue-100 text-s112-blue-700 rounded-xl px-5 py-4 mb-6 text-sm">
           <p className="font-semibold mb-1">Doppelte Buchhaltung beim Steuerberater</p>
           <p>
             Der Monatsabschluss heißt hier: alle Belege des Monats sind erfasst und per BMD-Übergabe an die Kanzlei
@@ -78,7 +78,7 @@ export default async function MonatsabschlussPage({
 
       <form method="GET" className="flex gap-3 mb-6 items-end">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Jahr</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Jahr</label>
           <select name="jahr" defaultValue={String(jahr)}
             className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
             {jahre.map(j => <option key={j} value={j}>{j}</option>)}
@@ -87,7 +87,7 @@ export default async function MonatsabschlussPage({
         <button type="submit" className="bg-s112-teal text-white px-4 py-2 rounded-lg text-sm">Anzeigen</button>
       </form>
 
-      <div className="bg-white rounded-2xl border border-s112-border overflow-hidden">
+      <div className="bg-white rounded-xl border border-s112-border overflow-hidden">
         {MONATE.map((name, idx) => {
           const monat = idx + 1
           const abgeschlossenAm = abschluesse.get(monat) as string | undefined
@@ -97,12 +97,12 @@ export default async function MonatsabschlussPage({
               className="flex items-center justify-between px-5 py-3 border-b border-s112-border/60 last:border-0">
               <div className="flex items-center gap-2.5">
                 {abgeschlossenAm
-                  ? <Lock className="w-4 h-4 text-gray-400" />
-                  : <LockOpen className="w-4 h-4 text-s112-teal/60" />}
-                <span className="text-sm font-medium text-gray-800">{name} {jahr}</span>
+                  ? <Lock className="w-4 h-4 text-s112-tertiary" />
+                  : <LockOpen className="w-4 h-4 text-s112-blue-700/60" />}
+                <span className="text-sm font-medium text-s112-text">{name} {jahr}</span>
               </div>
               {abgeschlossenAm ? (
-                <span className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">
+                <span className="text-xs bg-[#F2F3F5] text-s112-text-2 px-2.5 py-1 rounded-full">
                   Abgeschlossen am {fmtDateTime(abgeschlossenAm)}
                 </span>
               ) : zukunft ? (
@@ -116,7 +116,7 @@ export default async function MonatsabschlussPage({
                   className="text-xs bg-s112-teal text-white px-2.5 py-1 rounded-full font-medium hover:bg-opacity-90"
                 />
               ) : (
-                <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Offen</span>
+                <span className="text-xs bg-s112-warn-bg text-s112-warn-fg px-2 py-0.5 rounded-full">Offen</span>
               )}
             </div>
           )

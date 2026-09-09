@@ -14,7 +14,7 @@ interface Behaelter { id: string; name: string; typ: string; volumen_liter: numb
 interface SucheItem { id: string; label: string; sub?: string }
 
 const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
-const labelCls = 'block text-xs font-medium text-gray-600 mb-1'
+const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
 const DEFAULT_EINHEIT: Record<string, string> = {
   wein: 'L', trauben: 'kg', most: 'L',
@@ -54,11 +54,11 @@ function KundenSuche({ items, value, onChange, placeholder, disabled }: {
   if (selected) {
     return (
       <div className="flex items-center gap-2 border border-s112-border rounded-lg px-3 py-2 bg-white text-sm">
-        <span className="flex-1 truncate font-medium text-gray-800">{selected.label}</span>
+        <span className="flex-1 truncate font-medium text-s112-text">{selected.label}</span>
         {selected.sub && <span className="text-xs text-s112-muted truncate">{selected.sub}</span>}
         {!disabled && (
           <button type="button" onClick={() => { onChange(''); setQuery('') }}
-            className="text-s112-muted hover:text-red-500 ml-1 flex-shrink-0 text-base leading-none">×</button>
+            className="text-s112-muted hover:text-s112-err ml-1 flex-shrink-0 text-base leading-none">×</button>
         )}
       </div>
     )
@@ -81,7 +81,7 @@ function KundenSuche({ items, value, onChange, placeholder, disabled }: {
             <button key={item.id} type="button"
               onMouseDown={() => { onChange(item.id); setQuery(''); setOpen(false) }}
               className="w-full text-left px-3 py-2 text-sm hover:bg-s112-teal/10 flex items-center justify-between gap-2">
-              <span className="font-medium text-gray-800 truncate">{item.label}</span>
+              <span className="font-medium text-s112-text truncate">{item.label}</span>
               {item.sub && <span className="text-xs text-s112-muted flex-shrink-0">{item.sub}</span>}
             </button>
           ))}
@@ -226,27 +226,27 @@ export default function ZukaufNeuPage() {
   return (
     <div className="space-y-6 max-w-2xl">
       <nav className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/weinhandel/zukauf" className="hover:text-s112-teal">Zukäufe</Link>
+        <Link href="/weinhandel/zukauf" className="hover:text-s112-blue-700">Zukäufe</Link>
         <span>/</span>
-        <span className="text-gray-800 font-medium">Neuer Zukauf</span>
+        <span className="text-s112-text font-medium">Neuer Zukauf</span>
       </nav>
 
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">Neuer Zukauf</h1>
+        <h1 className="text-xl font-semibold text-s112-text">Neuer Zukauf</h1>
         <span className="text-xs text-s112-muted bg-s112-bg border border-s112-border rounded-full px-3 py-1">
           Transportbescheinigung gem. Weingesetz
         </span>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
+        <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg px-4 py-3 rounded-lg text-sm">{error}</div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
 
         {/* ── 1. Lieferung ──────────────────────────────────────────────── */}
         <div className="card p-5 space-y-4">
-          <h2 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Lieferung</h2>
+          <h2 className="font-semibold text-s112-text-1 text-sm uppercase tracking-wide">Lieferung</h2>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Datum *</label>
@@ -266,7 +266,7 @@ export default function ZukaufNeuPage() {
                 <label key={value} className="flex items-center gap-1.5 cursor-pointer">
                   <input type="radio" name="art" value={value} checked={art === value}
                     onChange={() => handleArtChange(value)} className="accent-s112-teal" />
-                  <span className="text-sm text-gray-700">{label}</span>
+                  <span className="text-sm text-s112-text-1">{label}</span>
                 </label>
               ))}
             </div>
@@ -275,7 +275,7 @@ export default function ZukaufNeuPage() {
 
         {/* ── 2. Versender ──────────────────────────────────────────────── */}
         <div className="card p-5 space-y-4">
-          <h2 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Versender</h2>
+          <h2 className="font-semibold text-s112-text-1 text-sm uppercase tracking-wide">Versender</h2>
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <label className={labelCls}>Lieferant</label>
@@ -316,7 +316,7 @@ export default function ZukaufNeuPage() {
                 <div className="col-span-2">
                   <label className={labelCls}>z.H. (zu Händen) — optional</label>
                   {firmKontakte.length === 0 && kontakte.length > 0 && (
-                    <p className="text-xs text-amber-600 mb-1">ℹ Noch kein Kontakt dieser Firma zugeordnet – alle Kontakte werden angezeigt.</p>
+                    <p className="text-xs text-s112-warn-fg mb-1">ℹ Noch kein Kontakt dieser Firma zugeordnet – alle Kontakte werden angezeigt.</p>
                   )}
                   <KundenSuche
                     key={lieferantFirma}
@@ -340,7 +340,7 @@ export default function ZukaufNeuPage() {
 
         {/* ── 3. Transportmittel ────────────────────────────────────────── */}
         <div className="card p-5 space-y-4">
-          <h2 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Transportmittel</h2>
+          <h2 className="font-semibold text-s112-text-1 text-sm uppercase tracking-wide">Transportmittel</h2>
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className={labelCls}>Zugmaschine (Kennzeichen)</label>
@@ -365,18 +365,18 @@ export default function ZukaufNeuPage() {
 
         {/* ── 4. Ware ───────────────────────────────────────────────────── */}
         <div className="card p-5 space-y-4">
-          <h2 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Ware</h2>
+          <h2 className="font-semibold text-s112-text-1 text-sm uppercase tracking-wide">Ware</h2>
 
           {/* Weinart */}
           <div>
             <label className={labelCls}>Weinart *</label>
             <div className="flex gap-4 mt-1.5">
-              {([['weiss','Weißwein','bg-yellow-300'],['rot','Rotwein','bg-red-600'],['rose','Rosé','bg-pink-300'],['unbekannt','Unbekannt','bg-gray-200']] as const).map(([val, lbl, dot]) => (
+              {([['weiss','Weißwein','bg-s112-tertiary'],['rot','Rotwein','bg-s112-text'],['rose','Rosé','bg-s112-grey'],['unbekannt','Unbekannt','bg-s112-line']] as const).map(([val, lbl, dot]) => (
                 <label key={val} className="flex items-center gap-1.5 cursor-pointer">
                   <input type="radio" name="weinart" value={val} checked={weinart === val}
                     onChange={() => setWeinart(val)} className="accent-s112-teal" />
                   <span className={`inline-block w-2.5 h-2.5 rounded-full border border-black/10 ${dot}`} />
-                  <span className="text-sm text-gray-700">{lbl}</span>
+                  <span className="text-sm text-s112-text-1">{lbl}</span>
                 </label>
               ))}
             </div>
@@ -459,14 +459,14 @@ export default function ZukaufNeuPage() {
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={anreicherung} onChange={e => setAnreicherung(e.target.checked)}
                 className="accent-s112-teal w-4 h-4" />
-              <span className="text-sm text-gray-700">Anreicherung (Zuckerung) erfolgt / geplant</span>
+              <span className="text-sm text-s112-text-1">Anreicherung (Zuckerung) erfolgt / geplant</span>
             </label>
           )}
         </div>
 
         {/* ── 5. Menge & Preis ──────────────────────────────────────────── */}
         <div className="card p-5 space-y-4">
-          <h2 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Menge & Preis</h2>
+          <h2 className="font-semibold text-s112-text-1 text-sm uppercase tracking-wide">Menge & Preis</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
               <label className={labelCls}>Menge *</label>
@@ -523,7 +523,7 @@ export default function ZukaufNeuPage() {
         {/* ── 6. Gebinde (nur Wein / Most) ──────────────────────────────── */}
         {(art === 'wein' || art === 'most') && (
           <div className="card p-5 space-y-3">
-            <h2 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">In Gebinde füllen</h2>
+            <h2 className="font-semibold text-s112-text-1 text-sm uppercase tracking-wide">In Gebinde füllen</h2>
             <div>
               <label className={labelCls}>Gebinde (optional)</label>
               <select value={zielBehaelter} onChange={e => setZielBehaelter(e.target.value)}
@@ -562,11 +562,11 @@ export default function ZukaufNeuPage() {
                   <div className="grid grid-cols-3 gap-3">
                     <div>
                       <p className="text-s112-muted mb-0.5">Kapazität</p>
-                      <p className="font-semibold text-gray-800">{vol != null ? vol.toLocaleString('de-AT') + ' L' : '–'}</p>
+                      <p className="font-semibold text-s112-text">{vol != null ? vol.toLocaleString('de-AT') + ' L' : '–'}</p>
                     </div>
                     <div>
                       <p className="text-s112-muted mb-0.5">Inhalt jetzt</p>
-                      <p className="font-semibold text-gray-800">
+                      <p className="font-semibold text-s112-text">
                         {inhalt.toLocaleString('de-AT', { maximumFractionDigits: 1 })} L
                         {chargen.length > 0 && (
                           <span className="ml-1 font-normal text-s112-muted">
@@ -577,7 +577,7 @@ export default function ZukaufNeuPage() {
                     </div>
                     <div>
                       <p className="text-s112-muted mb-0.5">{mengeNum > 0 ? 'Rest nach Zukauf' : 'Restkapazität'}</p>
-                      <p className={`font-semibold ${ueber ? 'text-red-600' : 'text-s112-teal'}`}>
+                      <p className={`font-semibold ${ueber ? 'text-s112-err-fg' : 'text-s112-blue-700'}`}>
                         {vol != null
                           ? (mengeNum > 0 ? restNach! : vol - inhalt).toLocaleString('de-AT', { maximumFractionDigits: 1 }) + ' L'
                           : '–'}
@@ -585,7 +585,7 @@ export default function ZukaufNeuPage() {
                     </div>
                   </div>
                   {ueber && (
-                    <p className="text-red-600 font-semibold flex items-center gap-1.5">
+                    <p className="text-s112-err-fg font-semibold flex items-center gap-1.5">
                       <AlertTriangle size={14} /> Behälter hat nicht genug Kapazität
                     </p>
                   )}
@@ -594,7 +594,7 @@ export default function ZukaufNeuPage() {
             })()}
 
             {hatRebsortenmixZukauf && (
-              <div className="bg-amber-50 border border-amber-300 rounded-lg px-3 py-2.5 text-sm text-amber-800">
+              <div className="bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2.5 text-sm text-s112-warn-fg">
                 <span className="font-semibold inline-flex items-center gap-1.5"><AlertTriangle size={14} /> Rebsortenverschnitt:</span>{' '}
                 Das gewählte Gebinde enthält bereits Chargen mit anderer Rebsorte:{' '}
                 <strong>{andereChargenImZiel.map(c => `${c.name} (${formatRebsorteMitKuerzel(c.rebsorte)})`).join(', ')}</strong>.
@@ -615,7 +615,7 @@ export default function ZukaufNeuPage() {
         {/* ── Submit ────────────────────────────────────────────────────── */}
         <div className="flex justify-end gap-3">
           <Link href="/weinhandel/zukauf"
-            className="text-sm text-s112-muted hover:text-gray-700 px-4 py-2">
+            className="text-sm text-s112-muted hover:text-s112-text-1 px-4 py-2">
             Abbrechen
           </Link>
           <button type="submit" disabled={isPending}

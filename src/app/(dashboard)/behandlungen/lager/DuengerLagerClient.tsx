@@ -15,9 +15,9 @@ const TYP_LABEL: Record<string, string> = {
   korrektur:      'Korrektur',
 }
 const TYP_COLOR: Record<string, string> = {
-  anfangsbestand: 'bg-blue-50 text-blue-700 border-blue-200',
-  einkauf:        'bg-green-50 text-green-700 border-green-200',
-  korrektur:      'bg-amber-50 text-amber-700 border-amber-200',
+  anfangsbestand: 'bg-s112-blue-50 text-s112-blue-700 border-s112-blue-100',
+  einkauf:        'bg-s112-ok-bg text-s112-ok-fg border-s112-ok/30',
+  korrektur:      'bg-s112-warn-bg text-s112-warn-fg border-s112-warn/30',
 }
 
 function fmtDate(d: string) {
@@ -57,7 +57,7 @@ function BuchungsForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-3">
-      <h3 className="text-sm font-semibold text-gray-800">
+      <h3 className="text-sm font-semibold text-s112-text">
         {edit ? 'Buchung bearbeiten' : 'Neue Buchung'}
       </h3>
       {edit && <input type="hidden" name="existing_id" value={edit.id} />}
@@ -65,7 +65,7 @@ function BuchungsForm({
       <div className="grid grid-cols-2 gap-3">
         {/* Düngemittel */}
         <div className="col-span-2">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Mittel *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Mittel *</label>
           <select name="duengemittel_id" required defaultValue={edit?.duengemittel_id ?? defaultDuengerId ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             <option value="">– Auswählen –</option>
@@ -75,7 +75,7 @@ function BuchungsForm({
 
         {/* Typ */}
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Typ *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Typ *</label>
           <select name="typ" required value={typ} onChange={e => setTyp(e.target.value)}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             <option value="anfangsbestand">Anfangsbestand</option>
@@ -86,7 +86,7 @@ function BuchungsForm({
 
         {/* Datum */}
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Datum *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
           <input name="datum" type="date" required
             defaultValue={edit?.datum ?? new Date().toISOString().split('T')[0]}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
@@ -95,7 +95,7 @@ function BuchungsForm({
         {/* Richtung (nur bei Korrektur) */}
         {isKorrektur && (
           <div className="col-span-2">
-            <label className="block text-xs font-medium text-gray-600 mb-1">Richtung</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Richtung</label>
             <div className="flex gap-3">
               {(['eingang', 'ausgang'] as const).map(r => (
                 <label key={r} className="flex items-center gap-1.5 cursor-pointer">
@@ -111,7 +111,7 @@ function BuchungsForm({
 
         {/* Menge */}
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Menge *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge *</label>
           <input name="menge" type="number" step="0.001" min="0" required
             defaultValue={edit ? Math.abs(edit.menge) : ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
@@ -119,7 +119,7 @@ function BuchungsForm({
 
         {/* Einheit */}
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Einheit</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Einheit</label>
           <select name="einheit" defaultValue={edit?.einheit ?? 'kg'}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             <option value="kg">kg</option>
@@ -131,7 +131,7 @@ function BuchungsForm({
 
         {/* Notizen */}
         <div className="col-span-2">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
           <input name="notizen" defaultValue={edit?.notizen ?? ''}
             placeholder="z.B. Lieferant, Rechnung, Grund der Korrektur…"
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
@@ -144,7 +144,7 @@ function BuchungsForm({
           {pending ? 'Speichert…' : 'Speichern'}
         </button>
         <button type="button" onClick={onDone}
-          className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800">
+          className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:text-s112-text">
           Abbrechen
         </button>
       </div>
@@ -167,7 +167,7 @@ function DuengerKarte({
   const bestand = zugang - abgang - duenger.verbrauch_gesamt
   const einheit = duenger.bewegungen[0]?.einheit ?? duenger.einheit_behandlung ?? 'kg'
 
-  const bestandColor = bestand < 0 ? 'text-red-600' : bestand < 1 ? 'text-amber-500' : 'text-s112-teal'
+  const bestandColor = bestand < 0 ? 'text-s112-err-fg' : bestand < 1 ? 'text-s112-warn' : 'text-s112-blue-700'
 
   function handleDelete(id: string) {
     if (!confirm('Buchung löschen?')) return
@@ -179,13 +179,13 @@ function DuengerKarte({
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h3 className="font-semibold text-gray-900">{duenger.duengemittel_name}</h3>
+          <h3 className="font-semibold text-s112-text">{duenger.duengemittel_name}</h3>
           {duenger.typ && (
             <span className="text-xs text-s112-muted capitalize">{duenger.typ}</span>
           )}
         </div>
         <div className="text-right">
-          <p className={`text-2xl font-bold tabular-nums ${bestandColor}`}>
+          <p className={`text-2xl font-semibold tabular-nums ${bestandColor}`}>
             {bestand.toLocaleString('de-AT', { maximumFractionDigits: 3 })} {einheit}
           </p>
           <p className="text-xs text-s112-muted">Aktueller Bestand</p>
@@ -194,23 +194,23 @@ function DuengerKarte({
 
       {/* Saldo-Übersicht */}
       <div className="grid grid-cols-3 gap-3 mb-4 text-center">
-        <div className="bg-green-50 rounded-lg p-2">
-          <p className="text-sm font-semibold text-green-700 tabular-nums">
+        <div className="bg-s112-ok-bg rounded-lg p-2">
+          <p className="text-sm font-semibold text-s112-ok-fg tabular-nums">
             +{zugang.toLocaleString('de-AT', { maximumFractionDigits: 3 })} {einheit}
           </p>
-          <p className="text-xs text-green-600">Zugänge</p>
+          <p className="text-xs text-s112-ok-fg">Zugänge</p>
         </div>
-        <div className="bg-blue-50 rounded-lg p-2">
-          <p className="text-sm font-semibold text-blue-700 tabular-nums">
+        <div className="bg-s112-blue-50 rounded-lg p-2">
+          <p className="text-sm font-semibold text-s112-blue-700 tabular-nums">
             –{duenger.verbrauch_gesamt.toLocaleString('de-AT', { maximumFractionDigits: 3 })} {duenger.einheit_behandlung ?? einheit}
           </p>
-          <p className="text-xs text-blue-600">Verbrauch (Maßnahmen)</p>
+          <p className="text-xs text-s112-blue-700">Verbrauch (Maßnahmen)</p>
         </div>
-        <div className="bg-amber-50 rounded-lg p-2">
-          <p className="text-sm font-semibold text-amber-700 tabular-nums">
+        <div className="bg-s112-warn-bg rounded-lg p-2">
+          <p className="text-sm font-semibold text-s112-warn-fg tabular-nums">
             {abgang > 0 ? `–${abgang.toLocaleString('de-AT', { maximumFractionDigits: 3 })}` : '–'} {abgang > 0 ? einheit : ''}
           </p>
-          <p className="text-xs text-amber-600">Korrekturen</p>
+          <p className="text-xs text-s112-warn-fg">Korrekturen</p>
         </div>
       </div>
 
@@ -231,7 +231,7 @@ function DuengerKarte({
         <div className="border border-s112-border rounded-xl overflow-hidden mb-3">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-s112-bg border-b border-s112-border text-xs text-gray-600">
+              <tr className="bg-s112-bg border-b border-s112-border text-xs text-s112-text-2">
                 <th className="text-left px-3 py-2 font-semibold">Datum</th>
                 <th className="text-left px-3 py-2 font-semibold">Typ</th>
                 <th className="text-right px-3 py-2 font-semibold">Menge</th>
@@ -248,7 +248,7 @@ function DuengerKarte({
                       {TYP_LABEL[b.typ] ?? b.typ}
                     </span>
                   </td>
-                  <td className={`px-3 py-2 text-right tabular-nums font-medium ${b.menge < 0 ? 'text-red-600' : 'text-green-700'}`}>
+                  <td className={`px-3 py-2 text-right tabular-nums font-medium ${b.menge < 0 ? 'text-s112-err-fg' : 'text-s112-ok-fg'}`}>
                     {fmtMenge(b.menge, b.einheit)}
                   </td>
                   <td className="px-3 py-2 text-xs text-s112-muted">{b.notizen ?? '–'}</td>
@@ -258,12 +258,12 @@ function DuengerKarte({
                         {writeOk && (
                           <button onClick={() => setEditBew({ ...b, duengemittel_id: duenger.duengemittel_id })}
                             title="Bearbeiten" aria-label="Bearbeiten"
-                            className="text-s112-teal hover:text-s112-teal/70"><Pencil className="w-4 h-4" /></button>
+                            className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil className="w-4 h-4" /></button>
                         )}
                         {adminOk && (
                           <button onClick={() => handleDelete(b.id)}
                             title="Löschen" aria-label="Löschen"
-                            className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                            className="text-s112-err hover:text-s112-err-fg"><Trash2 className="w-4 h-4" /></button>
                         )}
                       </div>
                     </td>
@@ -272,14 +272,14 @@ function DuengerKarte({
               ))}
               {/* Verbrauch-Zeile (read-only, aus Behandlungen) */}
               {duenger.verbrauch_gesamt > 0 && (
-                <tr className="border-b border-s112-border/40 last:border-0 bg-blue-50/30">
+                <tr className="border-b border-s112-border/40 last:border-0 bg-s112-blue-50/30">
                   <td className="px-3 py-2 tabular-nums text-s112-muted text-xs">aus Maßnahmen</td>
                   <td className="px-3 py-2">
-                    <span className="text-xs px-2 py-0.5 rounded-full border bg-blue-50 text-blue-700 border-blue-200 font-medium">
+                    <span className="text-xs px-2 py-0.5 rounded-full border bg-s112-blue-50 text-s112-blue-700 border-s112-blue-100 font-medium">
                       Verbrauch (berechnet)
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums font-medium text-blue-600">
+                  <td className="px-3 py-2 text-right tabular-nums font-medium text-s112-blue-700">
                     –{duenger.verbrauch_gesamt.toLocaleString('de-AT', { maximumFractionDigits: 3 })} {duenger.einheit_behandlung ?? ''}
                   </td>
                   <td className="px-3 py-2 text-xs text-s112-muted italic">automatisch aus Düngungen</td>
@@ -294,7 +294,7 @@ function DuengerKarte({
       {/* + Buchung Button */}
       {writeOk && !showForm && !editBew && (
         <button onClick={() => setShowForm(true)}
-          className="text-xs bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-teal font-medium px-3 py-1.5 rounded-lg transition-colors">
+          className="text-xs bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-blue-700 font-medium px-3 py-1.5 rounded-lg transition-colors">
           Buchung erfassen
         </button>
       )}
@@ -328,7 +328,7 @@ export default function DuengerLagerClient({
 
       {duenger.length === 0 ? (
         <div className="card text-center py-16 text-s112-muted">
-          <p className="font-medium text-gray-600">Noch keine Lagerbewegungen</p>
+          <p className="font-medium text-s112-text-2">Noch keine Lagerbewegungen</p>
           <p className="text-sm mt-1 max-w-sm mx-auto">
             Erfasse den Anfangsbestand oder einen Einkauf für ein Düngemittel.
             Der Verbrauch wird automatisch aus den Maßnahmen berechnet.

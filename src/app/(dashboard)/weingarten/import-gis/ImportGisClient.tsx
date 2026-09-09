@@ -85,17 +85,17 @@ export default function ImportGisClient() {
     <div className="space-y-5 max-w-5xl">
       {/* Schritt 1: Dateien */}
       <div className="card">
-        <h2 className="text-base font-semibold text-gray-800 mb-1">1. Export-Dateien aus dem INVEKOS-GIS</h2>
+        <h2 className="text-base font-semibold text-s112-text mb-1">1. Export-Dateien aus dem INVEKOS-GIS</h2>
         <p className="text-sm text-s112-muted mb-4">eAMA › Flächen › INVEKOS-GIS aufrufen › Extras › GIS-Datenexport › Dateiformat <b>Shapefile</b>. Die ZIP-Dateien unverändert hochladen; das Parsen passiert im Browser, es wird nichts an Dritte gesendet.</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label className="block border border-dashed border-s112-line-str rounded-xl p-4 hover:border-s112-teal cursor-pointer">
-            <span className="flex items-center gap-2 text-sm font-semibold text-gray-800"><Upload size={16} className="text-s112-teal" /> Exporttyp „beantragte Feldstücke“ (ZIP) <span className="text-s112-err-fg">*</span></span>
+            <span className="flex items-center gap-2 text-sm font-semibold text-s112-text"><Upload size={16} className="text-s112-blue-700" /> Exporttyp „beantragte Feldstücke“ (ZIP) <span className="text-s112-err-fg">*</span></span>
             <span className="block text-xs text-s112-muted mt-1">Ein Polygon je Feldstück → Umriss und Pin der Ried</span>
             <input type="file" accept=".zip" className="mt-2 text-xs" onChange={e => e.target.files?.[0] && dateiLesen(e.target.files[0], 'fs')} />
             {feldstuecke && <span className="block mt-2 text-xs text-s112-ok-fg inline-flex items-center gap-1"><CheckCircle2 size={13} /> {feldstuecke.length} Feldstücke gelesen</span>}
           </label>
           <label className="block border border-dashed border-s112-line-str rounded-xl p-4 hover:border-s112-teal cursor-pointer">
-            <span className="flex items-center gap-2 text-sm font-semibold text-gray-800"><Upload size={16} className="text-s112-teal" /> Exporttyp „beantragte Schläge (flächig)“ (ZIP)</span>
+            <span className="flex items-center gap-2 text-sm font-semibold text-s112-text"><Upload size={16} className="text-s112-blue-700" /> Exporttyp „beantragte Schläge (flächig)“ (ZIP)</span>
             <span className="block text-xs text-s112-muted mt-1">Optional: ein Polygon je Schlag/Rebsorte → Umriss der Grundstücke (Schlagnummer)</span>
             <input type="file" accept=".zip" className="mt-2 text-xs" onChange={e => e.target.files?.[0] && dateiLesen(e.target.files[0], 'sl')} />
             {schlaege.length > 0 && <span className="block mt-2 text-xs text-s112-ok-fg inline-flex items-center gap-1"><CheckCircle2 size={13} /> {schlaege.length} Schläge gelesen</span>}
@@ -111,7 +111,7 @@ export default function ImportGisClient() {
       {/* Schritt 2: Vorschau */}
       {vorschau && !ergebnis && (
         <div className="card">
-          <h2 className="text-base font-semibold text-gray-800 mb-1">2. Zuordnung prüfen</h2>
+          <h2 className="text-base font-semibold text-s112-text mb-1">2. Zuordnung prüfen</h2>
           <p className="text-sm text-s112-muted mb-3">
             {zugeordnet} von {vorschau.zuordnungen.length} Feldstücken einer Ried zugeordnet (über die AMA-Feldstücknummer)
             {offen > 0 && <> · <span className="text-s112-warn-fg">{offen} ohne Ried</span></>}
@@ -120,13 +120,13 @@ export default function ImportGisClient() {
           <div className="overflow-x-auto max-h-[50vh] overflow-y-auto border border-s112-line rounded-lg">
             <table className="w-full text-sm">
               <thead className="bg-s112-bg sticky top-0"><tr>
-                <th className="text-left px-3 py-2 font-semibold text-gray-700">FS-Nr.</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-700">Feldstück (AMA)</th>
-                <th className="text-right px-3 py-2 font-semibold text-gray-700">ha (AMA)</th>
-                <th className="text-right px-3 py-2 font-semibold text-gray-700">ha (Umriss)</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-700">Ried in software:112</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-700">Bisher</th>
-                <th className="text-right px-3 py-2 font-semibold text-gray-700">Schläge / GST</th>
+                <th className="text-left px-3 py-2 font-semibold text-s112-text-1">FS-Nr.</th>
+                <th className="text-left px-3 py-2 font-semibold text-s112-text-1">Feldstück (AMA)</th>
+                <th className="text-right px-3 py-2 font-semibold text-s112-text-1">ha (AMA)</th>
+                <th className="text-right px-3 py-2 font-semibold text-s112-text-1">ha (Umriss)</th>
+                <th className="text-left px-3 py-2 font-semibold text-s112-text-1">Ried in software:112</th>
+                <th className="text-left px-3 py-2 font-semibold text-s112-text-1">Bisher</th>
+                <th className="text-right px-3 py-2 font-semibold text-s112-text-1">Schläge / GST</th>
               </tr></thead>
               <tbody>
                 {vorschau.zuordnungen.map(z => {
@@ -157,7 +157,7 @@ export default function ImportGisClient() {
             <p className="text-xs text-s112-muted mt-1">Schläge ohne passendes Grundstück (Schlagnr. am GST fehlt): {vorschau.schlaegeOhneGst.slice(0, 12).map(s => `${s.fsnr}/${s.slnr}${s.sorte ? ` ${s.sorte}` : ''}`).join(', ')}{vorschau.schlaegeOhneGst.length > 12 ? ' …' : ''}</p>
           )}
           <div className="mt-4 flex flex-wrap items-center gap-4">
-            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+            <label className="inline-flex items-center gap-2 text-sm text-s112-text-1">
               <input type="checkbox" checked={ueberschreiben} onChange={e => setUeberschreiben(e.target.checked)} className="accent-s112-teal" disabled={manuellePins === 0} />
               Manuell gesetzte Pins durch AMA-Mittelpunkt ersetzen{manuellePins > 0 ? ` (${manuellePins})` : ''}
             </label>
@@ -170,7 +170,7 @@ export default function ImportGisClient() {
       {ergebnis && (
         <div className="card border-s112-ok bg-s112-ok-bg/40">
           <h2 className="text-base font-semibold text-s112-ok-fg inline-flex items-center gap-2"><CheckCircle2 size={18} /> Import abgeschlossen</h2>
-          <p className="text-sm text-gray-700 mt-1">{ergebnis.rieden} Rieden mit Umriss, {ergebnis.pins} Pins gesetzt, {ergebnis.grundstuecke} Grundstücke mit Schlag-Umriss.</p>
+          <p className="text-sm text-s112-text-1 mt-1">{ergebnis.rieden} Rieden mit Umriss, {ergebnis.pins} Pins gesetzt, {ergebnis.grundstuecke} Grundstücke mit Schlag-Umriss.</p>
           <div className="mt-3 flex gap-3">
             <Link href="/weingarten" className="btn-primary text-sm py-1.5">Zu den Rieden</Link>
             <Link href="/dashboard/weingarten" className="btn-secondary text-sm py-1.5 inline-flex items-center gap-1.5"><MapPin size={14} /> Rieden-Karte</Link>

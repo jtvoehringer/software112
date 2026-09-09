@@ -108,20 +108,20 @@ export function FirmaForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-5 space-y-4">
-      <h3 className="text-sm font-semibold text-gray-800">{initial ? 'Firma bearbeiten' : 'Neue Firma'}</h3>
-      {saveError && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{saveError}</p>}
+      <h3 className="text-sm font-semibold text-s112-text">{initial ? 'Firma bearbeiten' : 'Neue Firma'}</h3>
+      {saveError && <p className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{saveError}</p>}
       {dubletteWarnung && (
-        <div className="bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 text-sm">
-          <p className="font-medium text-amber-800 mb-1 flex items-center gap-1.5"><AlertTriangle className="w-4 h-4" /> Mögliche Dublette</p>
-          <p className="text-amber-700 mb-3">{dubletteWarnung}</p>
-          <p className="text-amber-700 mb-3">Möchten Sie den Eintrag trotzdem übernehmen oder verwerfen?</p>
+        <div className="bg-s112-warn-bg border border-s112-warn/30 rounded-xl px-4 py-3 text-sm">
+          <p className="font-medium text-s112-warn-fg mb-1 flex items-center gap-1.5"><AlertTriangle className="w-4 h-4" /> Mögliche Dublette</p>
+          <p className="text-s112-warn-fg mb-3">{dubletteWarnung}</p>
+          <p className="text-s112-warn-fg mb-3">Möchten Sie den Eintrag trotzdem übernehmen oder verwerfen?</p>
           <div className="flex gap-2">
             <button type="button" onClick={() => { setDubletteIgnorieren(true); setDubletteWarnung(null); setTimeout(() => { (document.activeElement as HTMLElement)?.closest('form')?.requestSubmit() }, 10) }}
-              className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-amber-700">
+              className="bg-s112-warn-fg text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:opacity-90">
               Trotzdem übernehmen
             </button>
             <button type="button" onClick={() => { setDubletteWarnung(null); onDone() }}
-              className="border border-amber-400 text-amber-700 px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-amber-100">
+              className="border border-s112-warn/50 text-s112-warn-fg px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-s112-warn-bg">
               Verwerfen
             </button>
           </div>
@@ -130,7 +130,7 @@ export function FirmaForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="sm:col-span-2">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Firmenname *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Firmenname *</label>
           <input name="name" defaultValue={v('name') || prefillName || ''} required className={inputCls()} />
         </div>
         {/* Kunde / Lieferant - Migration 167 */}
@@ -147,12 +147,12 @@ export function FirmaForm({
               className="accent-s112-teal w-4 h-4" />
             Lieferant
           </label>
-          <p className="text-[10px] text-gray-400 ml-auto">Eine Firma kann Kunde, Lieferant oder beides sein.</p>
+          <p className="text-[10px] text-s112-tertiary ml-auto">Eine Firma kann Kunde, Lieferant oder beides sein.</p>
         </div>
         {/* Lead / Kunde Toggle */}
         <div className="sm:col-span-2 flex items-center justify-between bg-white border border-s112-border rounded-xl px-4 py-2.5">
           <div>
-            <p className={`text-sm font-semibold ${isLead ? 'text-amber-600' : 'text-s112-teal'}`}>
+            <p className={`text-sm font-semibold ${isLead ? 'text-s112-warn-fg' : 'text-s112-blue-700'}`}>
               {isLead ? 'Lead' : 'Aktiv'}
             </p>
             <p className="text-xs text-s112-muted">
@@ -162,16 +162,16 @@ export function FirmaForm({
           <label className="flex items-center gap-2.5 cursor-pointer select-none">
             <input type="hidden" name="is_lead" value={String(isLead)} />
             <div onClick={() => setIsLead(v => !v)}
-              className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${isLead ? 'bg-amber-400' : 'bg-s112-teal'}`}>
+              className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${isLead ? 'bg-s112-grey' : 'bg-s112-teal'}`}>
               <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${isLead ? 'translate-x-0' : 'translate-x-5'}`} />
             </div>
-            <span className={`text-sm font-semibold min-w-[48px] ${isLead ? 'text-amber-600' : 'text-s112-teal'}`}>
+            <span className={`text-sm font-semibold min-w-[48px] ${isLead ? 'text-s112-warn-fg' : 'text-s112-blue-700'}`}>
               {isLead ? 'Lead' : 'Aktiv'}
             </span>
           </label>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Segment *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Segment *</label>
           <select name="segment" value={segmentVal} onChange={e => setSegmentVal(e.target.value)} required className={inputCls()}>
             {SEGMENTE.filter(s => s.value !== 'privat').map(s =>
               <option key={s.value} value={s.value}>{s.label}</option>
@@ -179,41 +179,41 @@ export function FirmaForm({
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">UID-Nummer</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">UID-Nummer</label>
           <input name="uid_nummer" defaultValue={v('uid_nummer')} placeholder="ATU…" className={inputCls()} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">BKI-Betriebsnummer</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">BKI-Betriebsnummer</label>
           <input name="betrieb_nr" defaultValue={v('betrieb_nr' as keyof FirmaRow)} placeholder="z.B. 905721" className={inputCls()} />
-          <p className="text-[10px] text-gray-400 mt-0.5">Betriebsnummer des Abnehmers für BKI-Transportliste</p>
+          <p className="text-[10px] text-s112-tertiary mt-0.5">Betriebsnummer des Abnehmers für BKI-Transportliste</p>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">DebitorNr.</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">DebitorNr.</label>
           <input name="debitor_nr" defaultValue={v('debitor_nr' as keyof FirmaRow)} placeholder="z.B. 227002" className={inputCls()} />
-          <p className="text-[10px] text-gray-400 mt-0.5">Kontonummer im BMD-Kontenplan (Buchhaltung), falls dort bereits angelegt</p>
+          <p className="text-[10px] text-s112-tertiary mt-0.5">Kontonummer im BMD-Kontenplan (Buchhaltung), falls dort bereits angelegt</p>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Straße</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Straße</label>
           <input name="strasse" defaultValue={v('strasse')} className={inputCls()} />
         </div>
         <div className="grid grid-cols-3 gap-2">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">PLZ</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">PLZ</label>
             <input name="plz" defaultValue={v('plz')} className={inputCls()} />
           </div>
           <div className="col-span-2">
-            <label className="block text-xs font-medium text-gray-600 mb-1">Ort</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Ort</label>
             <input name="ort" defaultValue={v('ort')} className={inputCls()} />
           </div>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Land</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Land</label>
           <select name="land" value={landVal} onChange={e => setLandVal(e.target.value)} className={inputCls()}>
             {LAENDER.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Telefon</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Telefon</label>
           <div className="flex gap-1.5">
             <select
               name="telefon_vorwahl"
@@ -232,7 +232,7 @@ export function FirmaForm({
           </div>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Mobil</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Mobil</label>
           <div className="flex gap-1.5">
             <select
               name="mobil_vorwahl"
@@ -247,30 +247,30 @@ export function FirmaForm({
           </div>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">E-Mail</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">E-Mail</label>
           <input name="email" type="email" defaultValue={v('email')} className={inputCls()} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Website</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Website</label>
           <input name="website" defaultValue={v('website')} placeholder="https://…" className={inputCls()} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Zahlungsziel (Tage) *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Zahlungsziel (Tage) *</label>
           {/* Bewusst NICHT ueber den v()-Helfer (initial?.[field] ?? '') || '30' -
               das wuerde eine eingetragene 0 stillschweigend durch 30 ersetzen,
               0 ist hier aber ein gueltiger, bewusster Wert ("bei Erhalt"). */}
           <input name="zahlungsziel_tage" type="number" required defaultValue={initial?.zahlungsziel_tage ?? 30}
             min="0" max="365" className={inputCls()} />
-          <p className="text-[10px] text-gray-400 mt-0.5">0 = Rechnung wird mit "bei Erhalt" statt Fälligkeitsdatum gedruckt</p>
+          <p className="text-[10px] text-s112-tertiary mt-0.5">0 = Rechnung wird mit "bei Erhalt" statt Fälligkeitsdatum gedruckt</p>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Währung</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Währung</label>
           <select name="waehrung" defaultValue={v('waehrung') || 'EUR'} className={inputCls()}>
             {WAEHRUNGEN.map(w => <option key={w} value={w}>{w}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Rabattgruppe</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Rabattgruppe</label>
           <select name="rabattgruppe_id" defaultValue={initial?.rabattgruppe_id ?? ''} className={inputCls()}>
             <option value="">– kein Rabatt –</option>
             {rabattgruppen.map(r => (
@@ -279,7 +279,7 @@ export function FirmaForm({
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Sonderrabatt %</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Sonderrabatt %</label>
           <input
             name="sonderrabatt_pct"
             type="number"
@@ -293,7 +293,7 @@ export function FirmaForm({
 
       <div className="flex gap-2">
         <div className="flex-1">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Skonto %</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Skonto %</label>
           <input
             name="skonto_pct"
             type="number"
@@ -304,7 +304,7 @@ export function FirmaForm({
           />
         </div>
         <div className="flex-1">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Skonto-Frist (Tage)</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Skonto-Frist (Tage)</label>
           <input
             name="skonto_tage"
             type="number"
@@ -317,7 +317,7 @@ export function FirmaForm({
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
+        <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
         <textarea name="notizen" defaultValue={v('notizen')} rows={2}
           className={inputCls() + ' resize-none'} />
       </div>
@@ -328,7 +328,7 @@ export function FirmaForm({
           {pending ? 'Wird gespeichert…' : (initial ? 'Speichern' : 'Anlegen')}
         </button>
         <button type="button" onClick={onDone}
-          className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800">
+          className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:text-s112-text">
           Abbrechen
         </button>
       </div>
@@ -360,7 +360,7 @@ function FirmaKarte({
   return (
     <div className="card p-4">
       <div className="flex items-start gap-3">
-        <div className="w-9 h-9 rounded-lg bg-s112-teal/10 flex items-center justify-center text-s112-teal font-bold text-sm flex-shrink-0">
+        <div className="w-9 h-9 rounded-lg bg-s112-teal/10 flex items-center justify-center text-s112-blue-700 font-semibold text-sm flex-shrink-0">
           {firma.name[0].toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
@@ -369,28 +369,28 @@ function FirmaKarte({
               <span className="text-xs font-mono text-s112-muted">{firma.accountnummer}</span>
             )}
             <Link href={`/crm/firmen/${firma.id}`}
-              className="font-semibold text-gray-900 text-sm hover:text-s112-teal hover:underline">
+              className="font-semibold text-s112-text text-sm hover:text-s112-blue-700 hover:underline">
               {firma.name}
             </Link>
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${segmentFarbe(firma.segment)}`}>
               {segmentLabel(firma.segment)}
             </span>
             {firma.is_lead
-              ? <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Lead</span>
-              : <span className="text-xs px-2 py-0.5 rounded-full bg-s112-teal/10 text-s112-teal font-medium">Aktiv</span>
+              ? <span className="text-xs px-2 py-0.5 rounded-full bg-s112-warn-bg text-s112-warn-fg font-medium">Lead</span>
+              : <span className="text-xs px-2 py-0.5 rounded-full bg-s112-teal/10 text-s112-blue-700 font-medium">Aktiv</span>
             }
             {firma.rabattgruppe_name && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-s112-ok-bg text-s112-ok-fg font-medium">
                 {firma.rabattgruppe_pct}% {firma.rabattgruppe_name}
               </span>
             )}
             {(firma.sonderrabatt_pct ?? 0) > 0 && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-s112-warn-bg text-s112-warn-fg font-medium">
                 {firma.sonderrabatt_pct}% Sonderrab.
               </span>
             )}
             {firma.land !== 'AT' && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{firma.land}</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-[#F2F3F5] text-s112-text-2 font-medium">{firma.land}</span>
             )}
           </div>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5">
@@ -406,18 +406,18 @@ function FirmaKarte({
               </span>
             )}
           </div>
-          {firma.notizen && <p className="mt-1 text-xs text-gray-500 italic">{firma.notizen}</p>}
+          {firma.notizen && <p className="mt-1 text-xs text-s112-text-2 italic">{firma.notizen}</p>}
         </div>
         {writeOk && (
           <div className="flex gap-1 flex-shrink-0">
             <button onClick={() => setEditing(true)}
               title="Bearbeiten" aria-label="Bearbeiten"
-              className="text-s112-muted hover:text-s112-teal px-2 py-1 rounded transition-colors">
+              className="text-s112-muted hover:text-s112-blue-700 px-2 py-1 rounded transition-colors">
               <Pencil className="w-4 h-4" />
             </button>
             <button onClick={handleDelete} disabled={pending}
               title="Löschen" aria-label="Löschen"
-              className="text-s112-muted hover:text-red-500 px-2 py-1 rounded transition-colors">
+              className="text-s112-muted hover:text-s112-err px-2 py-1 rounded transition-colors">
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
@@ -428,7 +428,7 @@ function FirmaKarte({
       {kontakte.length > 0 && (
         <div className="mt-3 border-t border-s112-border/60 pt-2">
           <button onClick={() => setShowKontakte(o => !o)}
-            className="text-xs text-s112-muted hover:text-gray-700 flex items-center gap-1">
+            className="text-xs text-s112-muted hover:text-s112-text-1 flex items-center gap-1">
             {showKontakte ? '▾' : '▸'} {kontakte.length} {kontakte.length === 1 ? 'Kontakt' : 'Kontakte'}
           </button>
           {showKontakte && (
@@ -494,7 +494,7 @@ export default function FirmenClient({
             className={`min-w-[1.75rem] px-1 py-0.5 text-xs font-medium rounded transition-colors
               ${buchstabe === b
                 ? 'bg-s112-teal text-white'
-                : 'bg-s112-bg text-gray-500 hover:bg-s112-teal/10 hover:text-s112-teal'}`}>
+                : 'bg-s112-bg text-s112-text-2 hover:bg-s112-teal/10 hover:text-s112-blue-700'}`}>
             {b}
           </button>
         ))}
@@ -505,14 +505,14 @@ export default function FirmenClient({
           className="border border-s112-border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         <div className="flex gap-1">
           <button onClick={() => setSegment('alle')}
-            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${segment === 'alle' ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:text-gray-900'}`}>
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${segment === 'alle' ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
             Alle ({firmen.length})
           </button>
           {bSegmente.map(s => {
             const count = firmen.filter(f => f.segment === s.value).length
             return (
               <button key={s.value} onClick={() => setSegment(s.value)}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${segment === s.value ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:text-gray-900'}`}>
+                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${segment === s.value ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
                 {s.label} ({count})
               </button>
             )
@@ -521,7 +521,7 @@ export default function FirmenClient({
         <div className="flex gap-1">
           {(['alle', 'lead', 'kunde'] as const).map(v => (
             <button key={v} onClick={() => setFilterLead(v)}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterLead === v ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:text-gray-900'}`}>
+              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterLead === v ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
               {v === 'alle' ? 'Alle' : v === 'lead' ? 'Lead' : 'Aktiv'}
               {' '}({v === 'alle' ? firmen.length : firmen.filter(f => v === 'lead' ? f.is_lead : !f.is_lead).length})
             </button>
@@ -529,17 +529,17 @@ export default function FirmenClient({
         </div>
         <div className="flex gap-1">
           <button onClick={() => setFilterKunde(v => !v)}
-            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterKunde ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:text-gray-900'}`}>
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterKunde ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
             Kunde ({firmen.filter(f => f.ist_kunde).length})
           </button>
           <button onClick={() => setFilterLieferant(v => !v)}
-            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterLieferant ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:text-gray-900'}`}>
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterLieferant ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
             Lieferant ({firmen.filter(f => f.ist_lieferant).length})
           </button>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <a href="/api/export/firmen" download
-            className="inline-flex items-center gap-1.5 border border-s112-border text-gray-600 px-3 py-2 rounded-xl text-sm hover:bg-s112-bg transition-colors">
+            className="inline-flex items-center gap-1.5 border border-s112-border text-s112-text-2 px-3 py-2 rounded-xl text-sm hover:bg-s112-bg transition-colors">
             CSV
           </a>
           {writeOk && !showForm && (
@@ -574,7 +574,7 @@ export default function FirmenClient({
           ))}
           {gefiltert.length > anzeigeLimit && (
             <button type="button" onClick={() => setAnzeigeLimit(n => n + ANZEIGE_SCHRITT)}
-              className="w-full card text-center py-3 text-sm font-medium text-s112-teal hover:bg-s112-bg">
+              className="w-full card text-center py-3 text-sm font-medium text-s112-blue-700 hover:bg-s112-bg">
               Mehr anzeigen ({Math.min(anzeigeLimit, gefiltert.length)} von {gefiltert.length})
             </button>
           )}

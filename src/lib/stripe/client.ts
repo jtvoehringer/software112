@@ -26,15 +26,15 @@ export const STRIPE_PLAN_LABELS: Record<string, string> = {
 
 /** Stripe-Status-Labels und Farben */
 export const STRIPE_STATUS_META: Record<string, { label: string; color: string }> = {
-  trialing:           { label: 'Testphase',          color: 'bg-blue-100 text-blue-700' },
-  active:             { label: 'Aktiv',               color: 'bg-green-100 text-green-700' },
-  past_due:           { label: 'Zahlung offen',      color: 'bg-amber-100 text-amber-700' },
-  unpaid:             { label: 'Unbezahlt',          color: 'bg-red-100 text-red-700' },
-  canceled:           { label: 'Gekündigt',          color: 'bg-gray-100 text-gray-600' },
-  cancelled:          { label: 'Gekündigt',          color: 'bg-gray-100 text-gray-600' },
-  paused:             { label: 'Pausiert',            color: 'bg-gray-100 text-gray-600' },
-  incomplete:         { label: 'Zahlung ausstehend', color: 'bg-yellow-100 text-yellow-700' },
-  incomplete_expired: { label: 'Abgelaufen',         color: 'bg-gray-100 text-gray-500' },
+  trialing:           { label: 'Testphase',          color: 'bg-s112-blue-100 text-s112-blue-700' },
+  active:             { label: 'Aktiv',               color: 'bg-s112-ok-bg text-s112-ok-fg' },
+  past_due:           { label: 'Zahlung offen',      color: 'bg-s112-warn-bg text-s112-warn-fg' },
+  unpaid:             { label: 'Unbezahlt',          color: 'bg-s112-err-bg text-s112-err-fg' },
+  canceled:           { label: 'Gekündigt',          color: 'bg-[#F2F3F5] text-s112-text-2' },
+  cancelled:          { label: 'Gekündigt',          color: 'bg-[#F2F3F5] text-s112-text-2' },
+  paused:             { label: 'Pausiert',            color: 'bg-[#F2F3F5] text-s112-text-2' },
+  incomplete:         { label: 'Zahlung ausstehend', color: 'bg-s112-warn-bg text-s112-warn-fg' },
+  incomplete_expired: { label: 'Abgelaufen',         color: 'bg-[#F2F3F5] text-s112-text-2' },
 }
 
 // Rückmeldung 31.8.2026 ("die Plattform soll sich selber abrechnen können,

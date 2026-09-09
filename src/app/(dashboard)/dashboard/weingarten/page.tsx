@@ -80,7 +80,7 @@ export default async function WeingartenSichtPage() {
                 <thead><tr><Th>Ried</Th><Th>Rebsorte(n)</Th><Th right>Fläche</Th><Th right>GST</Th><Th>AMA-FS</Th><Th>Codes</Th><Th>Lage</Th></tr></thead>
                 <tbody>
                   {wg.rieden.slice(0, 12).map(r => (
-                    <tr key={r.id} className="hover:bg-[#F8FAFC]">
+                    <tr key={r.id} className="hover:bg-[#F7F8FA]">
                       <Td><Link href={`/weingarten/${r.id}`} className="font-semibold text-s112-text hover:text-s112-blue-700">{r.name}</Link>{r.ried && r.ried !== r.name && <span className="block text-[11.5px] text-s112-tertiary">{r.ried}</span>}</Td>
                       <Td>{r.rebsorte ?? '–'}</Td>
                       <Td right mono>{fmtNum(r.flaeche_ha, 2)} ha</Td>
@@ -88,7 +88,7 @@ export default async function WeingartenSichtPage() {
                       <Td mono>{r.amaFs.length ? r.amaFs.slice(0, 3).join(', ') + (r.amaFs.length > 3 ? ' …' : '') : '–'}</Td>
                       <Td>{r.codes.length ? <span className="flex flex-wrap gap-1">{r.codes.slice(0, 3).map(c => <Badge key={c} tone="info">{c}</Badge>)}</span> : '–'}</Td>
                       <Td>{r.lat != null && r.lon != null
-                        ? <a href={googleMapsUrl(r.lat, r.lon)} target="_blank" rel="noopener" title="In Google Maps öffnen" className="text-s112-teal hover:text-s112-blue-700"><MapPin size={14} strokeWidth={1.75} /></a>
+                        ? <a href={googleMapsUrl(r.lat, r.lon)} target="_blank" rel="noopener" title="In Google Maps öffnen" className="text-s112-blue-700 hover:opacity-75"><MapPin size={14} strokeWidth={1.75} /></a>
                         : <Link href={`/weingarten/${r.id}`} title="Koordinaten setzen" className="text-s112-tertiary hover:text-s112-blue-700"><MapPin size={14} strokeWidth={1.25} /></Link>}</Td>
                     </tr>
                   ))}

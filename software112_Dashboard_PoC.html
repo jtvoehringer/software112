@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>software:112 — Dashboard-PoC</title>
+<style>
+:root{
+  /* software:112 Design-System 2026-08 (tailwind.config.ts) */
+  --navy:#0E3C62; --navy-2:#0B3050;
+  --teal:#4F86D6; --teal-h:#2F63AC;
+  --ink:#22252B; --ink-2:#5A5D66; --ink-3:#A0A3AB;
+  --line:#EDEEF1; --line-2:#D6D8DD; --bg:#F7F8FA; --card:#FFFFFF;
+  --accent:#77A6E7; --chart-1:#2F63AC; --chart-2:#77A6E7;
+  --good:#3E9B79; --good-bg:#EAF5F0; --good-fg:#2C6B55;
+  --warn:#D9A441; --warn-bg:#FBF3E3; --warn-fg:#8A6415;
+  --crit:#C9564E; --crit-bg:#FBEEED; --crit-fg:#8E3A34;
+  --info-bg:#EEF4FD; --info-fg:#2F63AC;
+  --sans:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+  --display:'Poppins','Segoe UI',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',Consolas,'Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer}
+
+/* ---------- header ---------- */
+header{background:var(--navy);color:#fff;position:sticky;top:0;z-index:50;box-shadow:0 1px 4px rgba(14,60,98,.25)}
+.hdr-in{max-width:1200px;margin:0 auto;padding:0 24px;display:flex;align-items:center;gap:20px;height:64px}
+.wordmark{font-family:var(--display);font-size:21px;font-weight:300;letter-spacing:.04em;white-space:nowrap}
+.wordmark b{color:#5D98E6;font-weight:700}
+.hdr-title{font-size:15px;font-weight:500;letter-spacing:.02em;opacity:.92;border-left:1px solid rgba(255,255,255,.25);padding-left:20px}
+.hdr-badge{margin-left:auto;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.08em;background:var(--accent);color:#0B2540;border-radius:4px;padding:3px 10px}
+
+/* ---------- nav ---------- */
+nav{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:64px;z-index:49}
+.nav-in{max-width:1200px;margin:0 auto;padding:0 16px;display:flex;gap:2px;overflow-x:auto}
+.tab{background:none;border:none;border-bottom:3px solid transparent;padding:13px 14px 10px;font-size:14.5px;font-weight:500;color:var(--ink-2);white-space:nowrap}
+.tab:hover{color:var(--navy)}
+.tab.active{color:var(--navy);border-bottom-color:var(--teal);font-weight:600}
+
+main{max-width:1200px;margin:0 auto;padding:28px 24px 80px}
+section.mod{display:none}
+section.mod.active{display:block}
+h1{font-family:var(--display);font-size:24px;font-weight:600;color:var(--navy);letter-spacing:-.01em}
+.sub{color:var(--ink-2);font-size:14.5px;margin:4px 0 24px;max-width:72ch}
+h2{font-family:var(--display);font-size:16.5px;font-weight:600;color:var(--navy);margin:0 0 12px}
+h3{font-size:14.5px;font-weight:600;color:var(--ink)}
+
+/* ---------- cards & layout ---------- */
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}}
+.mt{margin-top:16px}.mt24{margin-top:24px}
+
+/* stat tiles */
+.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.tile .k{font-size:12.5px;font-weight:500;color:var(--ink-2);letter-spacing:.02em}
+.tile .v{font-family:var(--mono);font-size:29px;font-weight:600;color:var(--navy);line-height:1.15;margin-top:6px}
+.tile .d{font-size:12.5px;color:var(--ink-3);margin-top:4px}
+.tile .d b{color:var(--good-fg);font-weight:600}
+.tile .d .neg{color:var(--crit-fg);font-weight:600}
+
+/* badges */
+.b{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.03em;border-radius:4px;padding:2px 8px;white-space:nowrap}
+.b-good{background:var(--good-bg);color:var(--good-fg)}
+.b-warn{background:var(--warn-bg);color:var(--warn-fg)}
+.b-crit{background:var(--crit-bg);color:var(--crit-fg)}
+.b-info{background:var(--info-bg);color:var(--info-fg)}
+.b-gray{background:#EEF1F5;color:var(--ink-2)}
+.src{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10.5px;color:var(--ink-2);border:1px dashed var(--line-2);border-radius:4px;padding:2px 7px}
+.src::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--teal)}
+
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line-2)}
+td{padding:10px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+td.num,th.num{text-align:right;font-family:var(--mono);font-size:13px;white-space:nowrap}
+tbody tr:hover{background:#F8FAFC}
+.sm-note{font-size:12.5px;color:var(--ink-2)}
+
+/* kanban */
+.kb{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:start}
+@media(max-width:1000px){.kb{grid-template-columns:1fr}}
+.kb-col{background:#EEF1F5;border-radius:10px;padding:10px;min-height:120px}
+.kb-col h3{font-size:11.5px;font-family:var(--mono);font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-2);padding:2px 6px 8px;display:flex;justify-content:space-between}
+.kb-col h3 .n{color:var(--ink-3)}
+.cand{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:box-shadow .15s,transform .15s}
+.cand:hover{box-shadow:0 2px 8px rgba(14,60,98,.14);transform:translateY(-1px)}
+.cand .nm{font-weight:600;font-size:13.5px}
+.cand .pos{font-size:12px;color:var(--ink-2);margin:2px 0 6px}
+.cand .meta{font-family:var(--mono);font-size:11px;color:var(--ink-2)}
+
+/* buttons */
+.btn{border:1px solid var(--teal);background:var(--teal);color:#fff;border-radius:7px;padding:8px 16px;font-size:13.5px;font-weight:500}
+.btn:hover{background:var(--teal-h);border-color:var(--teal-h)}
+.btn.sec{background:var(--card);color:var(--teal-h)}
+.btn.sec:hover{background:var(--info-bg)}
+.btn.sm{padding:5px 11px;font-size:12.5px;border-radius:6px}
+
+/* modal */
+.ovl{display:none;position:fixed;inset:0;background:rgba(10,26,42,.5);z-index:100;padding:4vh 16px;overflow-y:auto}
+.ovl.open{display:block}
+.modal{max-width:760px;margin:0 auto;background:var(--card);border-radius:12px;padding:26px 28px;position:relative}
+.modal .x{position:absolute;top:14px;right:14px;border:none;background:#EEF1F5;color:var(--ink-2);width:30px;height:30px;border-radius:6px;font-size:15px}
+.modal .x:hover{background:var(--line)}
+
+/* ai panel */
+.ai{background:linear-gradient(135deg,#F1F6FD,#EDF3FA);border:1px solid #CFDFF5;border-radius:10px;padding:16px 18px}
+.ai h3{display:flex;align-items:center;gap:8px;color:var(--teal-h);font-size:13px;font-family:var(--mono);letter-spacing:.05em;text-transform:uppercase}
+.ai h3::before{content:"✦";color:var(--teal);font-size:15px}
+.draft{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px;font-size:13.5px;white-space:pre-wrap;margin-top:10px;display:none}
+.draft.show{display:block}
+.typing{font-family:var(--mono);font-size:12px;color:var(--ink-3);display:none;margin-top:10px}
+.typing.show{display:inline-block}
+
+/* checklist */
+.chk{list-style:none}
+.chk li{display:flex;align-items:flex-start;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line);font-size:14px}
+.chk li:last-child{border-bottom:none}
+.chk input{width:16px;height:16px;margin-top:3px;accent-color:var(--teal)}
+.chk .who{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-3);white-space:nowrap}
+.chk li.done label{text-decoration:line-through;color:var(--ink-3)}
+.prog{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin:8px 0 4px}
+.prog i{display:block;height:100%;border-radius:4px;background:var(--good);transition:width .3s}
+
+/* key-value */
+.kv{display:grid;grid-template-columns:minmax(150px,40%) 1fr;font-size:13.5px}
+.kv>div{padding:7px 4px;border-bottom:1px solid var(--line)}
+.kv>div:nth-last-child(-n+2){border-bottom:none}
+.kv .k{color:var(--ink-2)}
+.kv .v{font-weight:500}
+.kv .v.mono{font-family:var(--mono);font-size:12.5px;font-weight:600}
+
+/* charts (HTML bars, direkte Labels) */
+.chart{margin-top:6px}
+.crow{display:grid;grid-template-columns:88px 1fr 76px;align-items:center;gap:10px;padding:5px 0}
+.crow .lbl{font-size:12.5px;color:var(--ink-2)}
+.crow .val{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ink);text-align:right}
+.cbar{height:16px;border-radius:0 4px 4px 0;background:var(--chart-1);min-width:2px}
+.cbar.c2{background:var(--chart-2)}
+.cbar.warn{background:#C98A1B}
+
+.note{background:var(--info-bg);border:1px solid #CFDFF5;border-radius:8px;padding:12px 16px;font-size:13px;color:#1D4576}
+.foot{margin-top:48px;border-top:1px solid var(--line);padding-top:16px;font-size:12.5px;color:var(--ink-3);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.foot .mono{font-family:var(--mono);font-size:11.5px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hdr-in">
+    <span class="wordmark">software<b>:</b>112</span>
+    <div class="hdr-title">Digitales Weingut · Weinbau Gebeshuber (Demo)</div>
+    <div class="hdr-badge">PoC · DEMO-DATEN</div>
+  </div>
+</header>
+
+<nav><div class="nav-in">
+  <button class="tab active" data-m="dash">Übersicht</button>
+  <button class="tab" data-m="keller">Kellerbuch</button>
+  <button class="tab" data-m="verkauf">Verkauf &amp; CRM</button>
+  <button class="tab" data-m="garten">Weingarten &amp; Ernte</button>
+  <button class="tab" data-m="fristen">Meldungen &amp; Fristen</button>
+</div></nav>
+
+<main>
+<!-- ============ ÜBERSICHT ============ -->
+<section class="mod active" id="mod-dash">
+  <h1>Guten Morgen 👋</h1>
+  <p class="sub">Kellerbuch, Weingarten, Verkauf und Meldungen an einem Ort — statt Kellerbuch-Zettel, Excel-Listen und drei Portal-Logins. Alles was heute ansteht, auf einen Blick.</p>
+
+  <div class="grid g4">
+    <div class="tile"><div class="k">Kellerbestand</div><div class="v">48.230 L</div><div class="d">davon 12.400 L Jungwein 2026</div></div>
+    <div class="tile"><div class="k">Flaschenlager</div><div class="v">21.480 Fl.</div><div class="d"><b>+640</b> abgefüllt diese Woche</div></div>
+    <div class="tile"><div class="k">Offene Posten</div><div class="v">€ 14.320</div><div class="d"><span class="neg">3 überfällig</span> · € 4.870</div></div>
+    <div class="tile"><div class="k">Offene Aufgaben</div><div class="v">6</div><div class="d">2 Meldefristen &lt; 30 Tage</div></div>
+  </div>
+
+  <div class="grid g2 mt24">
+    <div class="card">
+      <h2>Nächste Schritte</h2>
+      <table>
+        <tbody>
+          <tr><td><b>Gärkontrolle</b> — Tank 7 · GV Ried Hausbergen<br><span class="sm-note">Restzucker-Messung fällig</span></td><td class="num">heute</td><td style="text-align:right"><span class="b b-warn">FÄLLIG</span></td></tr>
+          <tr><td><b>Abfüllung planen</b> — GV DAC 2025<br><span class="sm-note">2.400 L füllfertig · Etiketten lagernd</span></td><td class="num">Fr, 29.08.</td><td style="text-align:right"><span class="b b-info">GEPLANT</span></td></tr>
+          <tr><td><b>UVA Juli übermitteln</b><br><span class="sm-note">Aus E/A-Rechnung vorbefüllt</span></td><td class="num">bis 15.09.</td><td style="text-align:right"><span class="b b-warn">OFFEN</span></td></tr>
+          <tr><td><b>Angebot nachfassen</b> — Vinothek Huber<br><span class="sm-note">KI-Entwurf liegt zur Prüfung bereit</span></td><td class="num">bis 01.09.</td><td style="text-align:right"><span class="b b-info">ENTWURF</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h2>Datenfluss statt Zettelwirtschaft</h2>
+      <p style="font-size:13.5px;color:var(--ink-2);margin-bottom:14px">Stammdaten und Meldungen fließen strukturiert — nichts endet mehr in Excel-Dateien oder Aktenordnern.</p>
+      <div class="kv">
+        <div class="k">Rieden &amp; Grundstücke</div><div class="v"><span class="src">AMA MFA-Import · in Analyse</span></div>
+        <div class="k">E-Mail &amp; CRM</div><div class="v"><span class="src">Microsoft 365 · Sync aktiv</span></div>
+        <div class="k">Belege Buchhaltung</div><div class="v"><span class="src">OCR-Scan · 4 neu erkannt</span></div>
+        <div class="k">Erntemeldung / bawb.at</div><div class="v"><span class="b b-good">✓ KENNUNG HINTERLEGT</span></div>
+        <div class="k">Weinbuch / Kellerbuch</div><div class="v"><span class="b b-info">→ PDF-EXPORT JEDERZEIT</span></div>
+      </div>
+      <div class="note mt">In der PoC simuliert — die Anbindungen (M365, OCR, AMA-MFA) existieren bzw. sind in Analyse; dieses Dashboard bündelt sie in einer Startsicht.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ KELLERBUCH ============ -->
+<section class="mod" id="mod-keller">
+  <h1>Kellerbuch</h1>
+  <p class="sub">Alle Chargen des Jahrgangs im Fluss — von der Übernahme bis zur Füllung. <b>Auf eine Charge klicken</b> öffnet Details mit KI-Unterstützung durch bot:112.</p>
+
+  <div class="grid g3">
+    <div class="tile"><div class="k">Gebinde belegt</div><div class="v">14 / 18</div><div class="d">Kapazität 61.500 L</div></div>
+    <div class="tile"><div class="k">Aktive Gärungen</div><div class="v">5</div><div class="d">1 Messung überfällig</div></div>
+    <div class="tile"><div class="k">Maßnahmen offen</div><div class="v">3</div><div class="d">2× Schwefelung · 1× Abstich</div></div>
+  </div>
+
+  <div class="mt24">
+    <h2 style="margin-bottom:12px">Chargen-Pipeline — Jahrgang 2026</h2>
+    <div class="kb" id="kanban"></div>
+  </div>
+</section>
+
+<!-- ============ VERKAUF & CRM ============ -->
+<section class="mod" id="mod-verkauf">
+  <h1>Verkauf &amp; CRM</h1>
+  <p class="sub">Umsatz, Aufträge und offene Posten laufend im Blick — Rechnungen, Lieferscheine und Transportscheine entstehen direkt aus dem Auftrag.</p>
+
+  <div class="grid g3">
+    <div class="tile"><div class="k">Umsatz August</div><div class="v">€ 18.640</div><div class="d"><b>+12 %</b> ggü. Vormonat</div></div>
+    <div class="tile"><div class="k">Aufträge diese Woche</div><div class="v">9</div><div class="d">Vorwoche: 6</div></div>
+    <div class="tile"><div class="k">Offene Leads</div><div class="v">4</div><div class="d">2 aus M365-Posteingang erkannt</div></div>
+  </div>
+
+  <div class="grid g2 mt">
+    <div class="card">
+      <h2>Absatz je Monat — Flaschen</h2>
+      <p style="font-size:12.5px;color:var(--ink-2);margin-bottom:6px">Verkaufte Flaschen 2026 · Quelle: Aufträge (Demo)</p>
+      <div class="chart" id="absatzChart"></div>
+      <div class="note mt">Spitzen im April (Ab-Hof-Tage) und Juli (Gastro-Saison) — die Reihe kommt direkt aus den Auftragspositionen.</div>
+    </div>
+    <div class="card">
+      <h2>Offene Posten</h2>
+      <table>
+        <thead><tr><th>Kunde</th><th>Beleg</th><th class="num">Betrag</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td><b>Vinothek Huber</b></td><td class="num">RE-2026-118 · 12.07.</td><td class="num">€ 2.140</td><td><span class="b b-crit">45 T ÜBERFÄLLIG</span></td></tr>
+          <tr><td><b>Gasthaus Krone</b></td><td class="num">RE-2026-131 · 21.07.</td><td class="num">€ 1.480</td><td><span class="b b-crit">ÜBERFÄLLIG</span></td></tr>
+          <tr><td><b>Weinhandel Steiner</b></td><td class="num">RE-2026-139 · 25.07.</td><td class="num">€ 1.250</td><td><span class="b b-crit">ÜBERFÄLLIG</span></td></tr>
+          <tr><td><b>Hotel Panorama</b></td><td class="num">RE-2026-144 · 08.08.</td><td class="num">€ 3.860</td><td><span class="b b-warn">OFFEN</span></td></tr>
+          <tr><td><b>Ab-Hof Sammelrechnung</b></td><td class="num">RE-2026-151 · 19.08.</td><td class="num">€ 5.590</td><td><span class="b b-warn">OFFEN</span></td></tr>
+        </tbody>
+      </table>
+      <h2 class="mt24">Flaschenbestand nach Rebsorte</h2>
+      <div class="chart" id="bestandChart"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ WEINGARTEN & ERNTE ============ -->
+<section class="mod" id="mod-garten">
+  <h1>Weingarten &amp; Ernte</h1>
+  <p class="sub">Rieden, Grundstücke und Behandlungen — inklusive AMA-Stammdaten (Feldstücknr., Nutzart, Codes) und Vorbereitung auf die Lese 2026.</p>
+
+  <div class="grid g3">
+    <div class="tile"><div class="k">Rieden / Grundstücke</div><div class="v">8 / 42</div><div class="d">6,84 ha lt. AMA</div></div>
+    <div class="tile"><div class="k">Behandlungen Saison</div><div class="v">23</div><div class="d">PSM-Doku vollständig</div></div>
+    <div class="tile"><div class="k">Wartefristen aktiv</div><div class="v">1</div><div class="d">Ried Wiege · frei ab 02.09.</div></div>
+  </div>
+
+  <div class="grid g2 mt">
+    <div class="card">
+      <h2>Rieden — Übersicht</h2>
+      <table>
+        <thead><tr><th>Ried</th><th>Rebsorte(n)</th><th class="num">Fläche</th><th class="num">AMA-FS</th><th>Codes</th></tr></thead>
+        <tbody>
+          <tr><td><b>Untere Hausbergen</b></td><td>GV, Frühroter Veltliner</td><td class="num">0,42 ha</td><td class="num">1</td><td><span class="b b-info">EOP</span></td></tr>
+          <tr><td><b>Wiege</b></td><td>Zierfandler, Rotgipfler</td><td class="num">1,18 ha</td><td class="num">2</td><td><span class="b b-info">PSMBIO</span></td></tr>
+          <tr><td><b>Modler</b></td><td>Grüner Veltliner</td><td class="num">1,65 ha</td><td class="num">3</td><td>—</td></tr>
+          <tr><td><b>Gaisruck</b></td><td>Zweigelt, St. Laurent</td><td class="num">1,44 ha</td><td class="num">5</td><td>—</td></tr>
+          <tr><td><b>Pfaffstättner Kogel</b></td><td>Riesling</td><td class="num">0,87 ha</td><td class="num">7</td><td><span class="b b-info">EOP</span></td></tr>
+        </tbody>
+      </table>
+      <div class="note mt"><b>AMA-MFA-Import (in Analyse):</b> Feldstücksliste als PDF hochladen → KI-Extraktion → Review → Import. Die heutige Machbarkeitsanalyse liegt im Projektordner.</div>
+    </div>
+    <div class="card">
+      <h2>Lesevorbereitung 2026 <span id="obPct" style="float:right;font-family:var(--mono);font-size:13px;color:var(--good-fg)"></span></h2>
+      <div class="prog"><i id="obBar"></i></div>
+      <ul class="chk" id="obList">
+        <li data-done="1"><input type="checkbox" checked id="c1"><label for="c1">Lesetermine mit Erntehelfern abgestimmt</label><span class="who">Betrieb · 18.08.</span></li>
+        <li data-done="1"><input type="checkbox" checked id="c2"><label for="c2">Presse gewartet &amp; Dichtungen geprüft</label><span class="who">Keller · 22.08.</span></li>
+        <li><input type="checkbox" id="c3"><label for="c3">Gebinde reinigen (T1–T6, Bottiche)</label><span class="who">Keller · bis 05.09.</span></li>
+        <li><input type="checkbox" id="c4"><label for="c4">Waage kalibrieren &amp; Übernahmescheine drucken</label><span class="who">Betrieb · bis 08.09.</span></li>
+        <li><input type="checkbox" id="c5"><label for="c5">Reife-Messungen Ried Modler (KMW-Verlauf)</label><span class="who">wöchentlich</span></li>
+        <li><input type="checkbox" id="c6"><label for="c6">Erntemeldung-Entwurf aus Pressungen prüfen</label><span class="who">Betrieb · Nov.</span></li>
+      </ul>
+      <div class="note mt">Die Checkliste speist sich aus Vorjahres-Vorlagen — abhaken statt Zettel suchen.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MELDUNGEN & FRISTEN ============ -->
+<section class="mod" id="mod-fristen">
+  <h1>Meldungen &amp; Fristen</h1>
+  <p class="sub">Was rechtlich zu melden und aufzubewahren ist — als überwachte Regeln mit Ampel statt Kopfwissen und Kalenderzettel.</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <h2>Automatisch überwachte Fristen</h2>
+      <table>
+        <thead><tr><th>Meldung / Regel</th><th>Frist / Bezug</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td><b>Bestandsmeldung Wein</b><br><span class="sm-note">Stichtag 31.07. · aus Kellerbuch erzeugt</span></td><td class="num">erledigt 12.08.</td><td><span class="b b-good">GEMELDET</span></td></tr>
+          <tr><td><b>UVA Juli</b><br><span class="sm-note">Aus E/A-Rechnung vorbefüllt · FinanzOnline</span></td><td class="num">bis 15.09.</td><td><span class="b b-warn">FÄLLIG</span></td></tr>
+          <tr><td><b>Erntemeldung 2026</b><br><span class="sm-note">Entwurf entsteht laufend aus den Pressungen</span></td><td class="num">bis 15.12.</td><td><span class="b b-info">IN VORBEREITUNG</span></td></tr>
+          <tr><td><b>Prüfnummernantrag GV DAC 2025</b><br><span class="sm-note">Vor Vermarktung · Antrag aus Charge befüllt</span></td><td class="num">eingereicht 04.08.</td><td><span class="b b-good">EINGEREICHT</span></td></tr>
+          <tr><td><b>Wartefristen Pflanzenschutz</b><br><span class="sm-note">Warnung bei Lese/Behandlung im Sperrzeitraum</span></td><td class="num">laufend</td><td><span class="b b-good">0 VERSTÖSSE</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div>
+      <div class="card">
+        <h2>Portale &amp; Zugänge</h2>
+        <div class="kv">
+          <div class="k">bawb.at (Weinkontrolle)</div><div class="v"><span class="b b-good">✓ KENNUNG HINTERLEGT</span></div>
+          <div class="k">eAMA</div><div class="v"><span class="b b-gray">MANUELL</span></div>
+          <div class="k">FinanzOnline (UVA)</div><div class="v"><span class="b b-info">CSV-EXPORT BEREIT</span></div>
+        </div>
+      </div>
+      <div class="card mt">
+        <h2>Aufbewahrung &amp; Nachweise</h2>
+        <div class="kv">
+          <div class="k">Belege / Buchhaltung</div><div class="v mono">7 Jahre (BAO)</div>
+          <div class="k">Kellerbuch-Aufzeichnungen</div><div class="v mono">mind. 5 Jahre</div>
+          <div class="k">PSM-Aufzeichnungen</div><div class="v mono">lt. Vorgabe · exportierbar</div>
+          <div class="k">Rückverfolgbarkeit</div><div class="v mono">Charge → Ried lückenlos</div>
+        </div>
+        <div class="note mt">Jede Meldung und jeder Export wird protokolliert — auskunftsfähig bei Kontrolle durch Bundeskellereiinspektion.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="foot">
+  <div>software:112 · PoC „Dashboard-Relaunch“ — alle Zahlen, Chargen und Kundendaten sind fiktiv. Keine Rechtsberatung.</div>
+  <div class="mono">Single-File-HTML · kein Server · Stand 26.08.2026</div>
+</div>
+</main>
+
+<!-- ============ CHARGEN-MODAL ============ -->
+<div class="ovl" id="ovl">
+  <div class="modal">
+    <button class="x" onclick="closeModal()">✕</button>
+    <div id="mBody"></div>
+  </div>
+</div>
+
+<script>
+/* ---------- Demo-Daten (in-memory) ---------- */
+const STAGES = ["Übernahme","Pressung","Gärung","Ausbau","Füllfertig"];
+const CHARGEN = [
+  {id:1,n:"GV Ried Hausbergen",g:"Tank 7",l:3200,st:2,kmw:"17,2° KMW bei Lese",rz:"34 g/l → fallend",mass:"Reinzuchthefe 21.08. · Temp. 16,5 °C",note:"Gärverlauf zügig, Messung heute fällig.",warn:true},
+  {id:2,n:"Zierfandler Ried Wiege",g:"Tank 3",l:2100,st:2,kmw:"18,1° KMW",rz:"58 g/l → fallend",mass:"Angärung 23.08.",note:"",warn:false},
+  {id:3,n:"Rotgipfler Ried Wiege",g:"Tank 4",l:1850,st:2,kmw:"17,8° KMW",rz:"61 g/l",mass:"Angärung 23.08.",note:"",warn:false},
+  {id:4,n:"Zweigelt Ried Gaisruck",g:"Bottich 2",l:2600,st:1,kmw:"18,4° KMW",rz:"—",mass:"Maischestandzeit Tag 3",note:"Pressung für 29.08. geplant.",warn:false},
+  {id:5,n:"Riesling Pfaffst. Kogel",g:"—",l:0,st:0,kmw:"Lese geplant KW 37",rz:"—",mass:"—",note:"",warn:false},
+  {id:6,n:"GV Klassik 2025",g:"Tank 12",l:5400,st:3,kmw:"12,1 % vol",rz:"1,8 g/l trocken",mass:"2. Abstich 14.08. · SO₂ 35 mg/l frei",note:"Schwefelung prüfen vor Füllung.",warn:false},
+  {id:7,n:"GV DAC 2025",g:"Tank 9",l:2400,st:4,kmw:"12,6 % vol",rz:"2,1 g/l trocken",mass:"Filtration 20.08. · füllfertig",note:"Abfüllung Fr, 29.08. · Prüfnummer eingereicht.",warn:false},
+  {id:8,n:"St. Laurent Reserve 2025",g:"Barrique 1–4",l:900,st:3,kmw:"13,2 % vol",rz:"trocken",mass:"Ausbau 11 Monate · Verkostung Sept.",note:"",warn:false}
+];
+
+/* ---------- Tabs ---------- */
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('section.mod').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  document.getElementById('mod-'+t.dataset.m).classList.add('active');
+  window.scrollTo({top:0});
+}));
+
+/* ---------- Kanban ---------- */
+function renderKanban(){
+  const kb=document.getElementById('kanban'); kb.innerHTML='';
+  STAGES.forEach((s,i)=>{
+    const col=document.createElement('div'); col.className='kb-col';
+    const items=CHARGEN.filter(c=>c.st===i);
+    col.innerHTML=`<h3>${s}<span class="n">${items.length}</span></h3>`;
+    items.forEach(c=>{
+      const el=document.createElement('div'); el.className='cand'; el.onclick=()=>openModal(c.id);
+      const foot=c.warn?`<span class="b b-warn">MESSUNG FÄLLIG</span>`
+        :(c.l?`<span class="meta">${c.g} · ${c.l.toLocaleString('de-AT')} L</span>`:`<span class="b b-gray">GEPLANT</span>`);
+      el.innerHTML=`<div class="nm">${c.n}</div><div class="pos">${i===2?'Gärung läuft':i===3?'im Ausbau':i===4?'füllfertig':i===1?'Maische/Pressung':'Lese geplant'}</div>${foot}`;
+      col.appendChild(el);
+    });
+    kb.appendChild(col);
+  });
+}
+renderKanban();
+
+/* ---------- Modal ---------- */
+function openModal(id){
+  const c=CHARGEN.find(x=>x.id===id);
+  let h=`<h2 style="font-size:20px">${c.n}</h2>
+  <div style="font-size:13.5px;color:var(--ink-2);margin:2px 0 16px">Phase: <b>${STAGES[c.st]}</b>${c.g!=='—'?` · ${c.g}`:''}${c.l?` · ${c.l.toLocaleString('de-AT')} L`:''}</div>`;
+
+  h+=`<div class="kv">
+    <div class="k">Mostgewicht / Alkohol</div><div class="v mono">${c.kmw}</div>
+    <div class="k">Restzucker</div><div class="v mono">${c.rz}</div>
+    <div class="k">Letzte Maßnahme</div><div class="v">${c.mass}</div>
+    <div class="k">Herkunft</div><div class="v">Rückverfolgbar bis Grundstück (GST-Nr.)</div>
+  </div>`;
+
+  h+=`<div class="ai mt"><h3>bot:112 — KI-Unterstützung</h3>
+    <div style="margin-top:10px;font-size:13px;color:var(--ink-2)">Fragen zur Charge stellen oder Routineaufgaben anstoßen — jede Buchung wird vor dem Speichern von dir bestätigt.</div>`;
+  if(c.st>=2){
+    h+=`<div class="mt" style="display:flex;gap:10px;flex-wrap:wrap">
+      ${c.st===2?`<button class="btn sec sm" onclick="analyse(${c.id})">✦ Gärverlauf analysieren</button>`:''}
+      <button class="btn sec sm" onclick="beschreibung(${c.id})">✦ Entwurf: Weinbeschreibung</button>
+    </div>
+    <span class="typing" id="dTyping">■ bot:112 formuliert …</span>
+    <div class="draft" id="dBox"></div>`;
+  } else {
+    h+=`<div style="margin-top:10px;font-size:13px;color:var(--ink-3)">Für diese Phase noch keine KI-Aktionen — verfügbar ab Gärung (Analyse) bzw. Ausbau (Weinbeschreibung).</div>`;
+  }
+  h+=`</div>`;
+
+  h+=`<div class="card mt" style="padding:14px 16px"><h3 style="margin-bottom:6px">Notizen</h3>
+    <div style="font-size:13.5px;color:${c.note?'var(--ink)':'var(--ink-3)'}">${c.note||'Noch keine Einträge.'}</div></div>`;
+
+  document.getElementById('mBody').innerHTML=h;
+  document.getElementById('ovl').classList.add('open');
+}
+function closeModal(){document.getElementById('ovl').classList.remove('open')}
+document.getElementById('ovl').addEventListener('click',e=>{if(e.target.id==='ovl')closeModal()});
+
+function showDraft(text){
+  const t=document.getElementById('dTyping'),b=document.getElementById('dBox');
+  b.classList.remove('show'); t.classList.add('show');
+  setTimeout(()=>{t.classList.remove('show');b.textContent=text;b.classList.add('show')},1100);
+}
+function analyse(id){
+  const c=CHARGEN.find(x=>x.id===id);
+  showDraft(`Analyse ${c.n} (Demo):\n\n· Restzucker fällt kontinuierlich — kein Hinweis auf Gärstockung.\n· Temperatur im Zielband (15–17 °C).\n· Empfehlung: nächste Messung in 48 h; fällt der Restzucker um weniger als 5 g/l pro Tag, Belüftung prüfen.\n\n— KI-Vorschlag zur Unterstützung · Entscheidung und Buchung durch den Menschen —`);
+}
+function beschreibung(id){
+  const c=CHARGEN.find(x=>x.id===id);
+  showDraft(`Entwurf Weinbeschreibung — ${c.n} (Demo):\n\n„Helles Gelbgrün, feine Würze nach weißem Pfeffer und Kernobst; am Gaumen saftig mit lebendiger Säure und typischem ‚Pfefferl‘. Aus den kalkreichen Böden der Thermenregion.“\n\n— KI-Entwurf · Vor Verwendung persönlich prüfen —`);
+}
+
+/* ---------- Lesevorbereitung-Checkliste ---------- */
+function updProg(){
+  const items=[...document.querySelectorAll('#obList input')];
+  const done=items.filter(i=>i.checked).length;
+  const pct=Math.round(done/items.length*100);
+  document.getElementById('obBar').style.width=pct+'%';
+  document.getElementById('obPct').textContent=done+' / '+items.length+' erledigt';
+  items.forEach(i=>i.closest('li').classList.toggle('done',i.checked));
+}
+document.querySelectorAll('#obList input').forEach(i=>i.addEventListener('change',updProg));
+document.querySelectorAll('.chk input:checked').forEach(i=>i.closest('li').classList.add('done'));
+updProg();
+
+/* ---------- Charts (HTML-Balken, direkte Labels) ---------- */
+const ABSATZ=[["Sep 25",980],["Okt",1140],["Nov",1620],["Dez",2340],["Jän 26",760],["Feb",890],["Mär",1210],["Apr",1980],["Mai",1450],["Jun",1520],["Jul",1870],["Aug",1640]];
+const aMax=2500;
+document.getElementById('absatzChart').innerHTML=ABSATZ.map(([m,v])=>
+  `<div class="crow" title="${m}: ${v.toLocaleString('de-AT')} Flaschen"><span class="lbl">${m}</span><div><div class="cbar" style="width:${v/aMax*100}%"></div></div><span class="val">${v.toLocaleString('de-AT')}</span></div>`).join('');
+
+const BESTAND=[["Grüner Veltliner",8420],["Zierfandler",3180],["Rotgipfler",2960],["Zweigelt",3640],["Riesling",1890],["St. Laurent",1390]];
+const bMax=9000;
+document.getElementById('bestandChart').innerHTML=BESTAND.map(([s,v])=>
+  `<div class="crow" style="grid-template-columns:118px 1fr 76px" title="${s}: ${v.toLocaleString('de-AT')} Flaschen"><span class="lbl">${s}</span><div><div class="cbar c2" style="width:${v/bMax*100}%;height:13px"></div></div><span class="val">${v.toLocaleString('de-AT')} Fl.</span></div>`).join('');
+</script>
+</body>
+</html>

@@ -128,13 +128,13 @@ export default async function BehandlungenPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Maßnahmen</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Maßnahmen</h1>
           <p className="text-sm text-s112-muted mt-0.5">Pflanzenschutz-Protokoll</p>
         </div>
         <div className="flex items-center gap-2">
           <Link
             href="/behandlungen/berichte"
-            className="inline-flex items-center gap-2 border border-s112-border text-gray-700 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-bg transition-colors"
+            className="inline-flex items-center gap-2 border border-s112-border text-s112-text-1 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-bg transition-colors"
           >
             <BarChart3 className="w-4 h-4" /> Berichte
           </Link>
@@ -152,15 +152,15 @@ export default async function BehandlungenPage() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="card text-center">
-          <p className="text-3xl font-bold text-s112-teal">{behandlungen.length}</p>
+          <p className="text-3xl font-semibold text-s112-blue-700">{behandlungen.length}</p>
           <p className="text-xs text-s112-muted mt-1">Maßnahmen gesamt</p>
         </div>
         <div className="card text-center">
-          <p className="text-3xl font-bold text-s112-teal">{letzten30}</p>
+          <p className="text-3xl font-semibold text-s112-blue-700">{letzten30}</p>
           <p className="text-xs text-s112-muted mt-1">Letzte 30 Tage</p>
         </div>
         <div className="card text-center">
-          <p className={`text-3xl font-bold ${offeneWartezeiten > 0 ? 'text-amber-500' : 'text-s112-teal'}`}>
+          <p className={`text-3xl font-semibold ${offeneWartezeiten > 0 ? 'text-s112-warn' : 'text-s112-blue-700'}`}>
             {offeneWartezeiten}
           </p>
           <p className="text-xs text-s112-muted mt-1">Offene Wartezeiten</p>

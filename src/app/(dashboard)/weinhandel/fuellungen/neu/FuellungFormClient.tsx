@@ -144,7 +144,7 @@ export default function FuellungFormClient({
   const schwundWarning = schwund !== null && (schwund < -bottleL || schwund > verfuegbar * 0.2)
 
   const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
-  const labelCls = 'block text-xs font-medium text-gray-600 mb-1'
+  const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
   function handleChargeChange(id: string) {
     setSelectedChargeId(id)
@@ -186,7 +186,7 @@ export default function FuellungFormClient({
 
       {/* Charge */}
       <div className="card p-5 space-y-4">
-        <h2 className="font-semibold text-gray-800 text-sm">Kellerbuch-Charge</h2>
+        <h2 className="font-semibold text-s112-text text-sm">Kellerbuch-Charge</h2>
         <div>
           <label className={labelCls}>Weinausbau-Charge</label>
           <select
@@ -212,7 +212,7 @@ export default function FuellungFormClient({
 
       {/* Produktbezeichnung */}
       <div className="card p-5 space-y-4">
-        <h2 className="font-semibold text-gray-800 text-sm">Produktbezeichnung</h2>
+        <h2 className="font-semibold text-s112-text text-sm">Produktbezeichnung</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
             <label className={labelCls}>Produktname *</label>
@@ -296,7 +296,7 @@ export default function FuellungFormClient({
 
       {/* Abfüllung */}
       <div className="card p-5 space-y-4">
-        <h2 className="font-semibold text-gray-800 text-sm">Abfüllung</h2>
+        <h2 className="font-semibold text-s112-text text-sm">Abfüllung</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -312,7 +312,7 @@ export default function FuellungFormClient({
                   ))}
                 </select>
                 {selectedDacId && dacAntraege.find(d => d.id === selectedDacId)?.status !== 'genehmigt' && (
-                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1 inline-flex items-center gap-1">
+                  <p className="text-xs text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded px-2 py-1 inline-flex items-center gap-1">
                     <AlertTriangle size={12} strokeWidth={2} />DAC-Antrag noch nicht genehmigt – Abfüllung möglich, aber Prüfnummer fehlt.
                   </p>
                 )}
@@ -375,7 +375,7 @@ export default function FuellungFormClient({
           {/* Berechnete Liter – read-only Anzeige + hidden input */}
           <div>
             <label className={labelCls}>Abgefüllte Menge (berechnet)</label>
-            <div className={`${inputCls} bg-gray-50 text-gray-700 font-medium`}>
+            <div className={`${inputCls} bg-s112-bg text-s112-text-1 font-medium`}>
               {berechneteLiter !== null ? fmtL(berechneteLiter) : '–'}
             </div>
             {berechneteLiter !== null && (
@@ -393,10 +393,10 @@ export default function FuellungFormClient({
         {schwund !== null && berechneteLiter !== null && (
           <div className={`rounded-lg px-4 py-3 text-sm ${
             schwund < -bottleL
-              ? 'bg-red-50 border border-red-200 text-red-700'
+              ? 'bg-s112-err-bg border border-s112-err/30 text-s112-err-fg'
               : schwundWarning
-              ? 'bg-amber-50 border border-amber-200 text-amber-700'
-              : 'bg-green-50 border border-green-200 text-green-700'
+              ? 'bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg'
+              : 'bg-s112-ok-bg border border-s112-ok/30 text-s112-ok-fg'
           }`}>
             {schwund < -bottleL ? (
               <span className="inline-flex items-start gap-1.5"><AlertTriangle size={15} strokeWidth={1.75} className="mt-0.5 shrink-0" /><span><strong>Überabfüllung:</strong> Abgefüllte Menge ({fmtL(berechneteLiter)}) übersteigt verfügbaren Bestand ({fmtL(verfuegbar)}) um {fmtL(Math.abs(schwund))}.</span></span>
@@ -413,8 +413,8 @@ export default function FuellungFormClient({
             ausgebucht werden. Das Häkchen bleibt zusätzlich als schnelle Vorauswahl für
             geübtere User erhalten - beide Bedienelemente steuern denselben Zustand. */}
         {schwund !== null && schwund > 0.01 && (
-          <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 space-y-3">
-            <p className="text-sm text-amber-800 inline-flex items-start gap-1.5">
+          <div className="rounded-lg border border-s112-warn/30 bg-s112-warn-bg px-4 py-3 space-y-3">
+            <p className="text-sm text-s112-warn-fg inline-flex items-start gap-1.5">
               <AlertTriangle size={15} strokeWidth={1.75} className="mt-0.5 shrink-0" />
               <span>
                 <strong>Achtung, noch Rest vorhanden</strong> – {fmtL(schwund)} verbleiben nach der Abfüllung im Tank.
@@ -428,8 +428,8 @@ export default function FuellungFormClient({
                 onClick={() => setAbschliessen(true)}
                 className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
                   abschliessen
-                    ? 'bg-amber-600 text-white border-amber-600'
-                    : 'bg-white text-amber-700 border-amber-300 hover:bg-amber-100'
+                    ? 'bg-s112-warn-fg text-white border-s112-warn-fg'
+                    : 'bg-white text-s112-warn-fg border-s112-warn/30 hover:bg-s112-warn-bg'
                 }`}
               >
                 Ja, Schwund buchen &amp; abschließen
@@ -439,8 +439,8 @@ export default function FuellungFormClient({
                 onClick={() => setAbschliessen(false)}
                 className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
                   !abschliessen
-                    ? 'bg-gray-700 text-white border-gray-700'
-                    : 'bg-white text-gray-600 border-s112-border hover:bg-gray-50'
+                    ? 'bg-s112-text text-white border-s112-text'
+                    : 'bg-white text-s112-text-2 border-s112-border hover:bg-s112-bg'
                 }`}
               >
                 Nein, Charge bleibt offen
@@ -456,7 +456,7 @@ export default function FuellungFormClient({
                 onChange={e => setAbschliessen(e.target.checked)}
                 className="mt-0.5 w-3.5 h-3.5 accent-s112-teal"
               />
-              <span className="text-xs text-amber-700/80">
+              <span className="text-xs text-s112-warn-fg/80">
                 Charge nach dieser Füllung abschließen – {fmtL(schwund)} Restwein als Schwund ausbuchen, Status → Abgeschlossen
               </span>
             </label>
@@ -466,7 +466,7 @@ export default function FuellungFormClient({
 
       {/* Preise */}
       <div className="card p-5 space-y-4">
-        <h2 className="font-semibold text-gray-800 text-sm">Preise</h2>
+        <h2 className="font-semibold text-s112-text text-sm">Preise</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={labelCls}>VK-Preis brutto pro Flasche (€)</label>
@@ -497,7 +497,7 @@ export default function FuellungFormClient({
 
       {/* Export */}
       <div className="card p-5 space-y-3">
-        <h2 className="font-semibold text-gray-800 text-sm">Export (intern)</h2>
+        <h2 className="font-semibold text-s112-text text-sm">Export (intern)</h2>
         <div>
           <label className={labelCls}>
             KN-Code / Zolltarifnummer{' '}
@@ -528,7 +528,7 @@ export default function FuellungFormClient({
       </div>
 
       {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{error}</p>
+        <p className="text-sm text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-4 py-2">{error}</p>
       )}
 
       <div className="flex gap-3">
@@ -537,7 +537,7 @@ export default function FuellungFormClient({
           className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
           Füllung anlegen
         </button>
-        <Link href="/weinhandel" className="px-6 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors">
+        <Link href="/weinhandel" className="px-6 py-2 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text transition-colors">
           Abbrechen
         </Link>
       </div>

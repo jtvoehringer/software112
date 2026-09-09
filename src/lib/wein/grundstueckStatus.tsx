@@ -18,22 +18,22 @@
 // LSE in Migration 177_nutzart_lse.sql):
 // 'A' | 'G' | 'WI' | 'GL1' | 'GL2' | 'GL3' | 'LSE'.
 export const NUTZART_OPTIONS = [
-  { value: 'A',   label: 'Grünbrache',                                          badge: 'bg-yellow-100 text-yellow-700' },
-  { value: 'G',   label: 'Grünlandbrache',                                      badge: 'bg-orange-100 text-orange-600' },
-  { value: 'WI',  label: 'Wein',                                                badge: 'bg-green-100 text-green-700' },
-  { value: 'GL1', label: 'GLÖZ Rain / Böschung / Trockensteinmauer',            badge: 'bg-teal-100 text-teal-700' },
-  { value: 'GL2', label: 'GLÖZ Hecke / Ufergehölz',                             badge: 'bg-teal-100 text-teal-700' },
-  { value: 'GL3', label: 'GLÖZ Feldgehölz / Baum- / Gebüschgruppe',             badge: 'bg-teal-100 text-teal-700' },
+  { value: 'A',   label: 'Grünbrache',                                          badge: 'bg-s112-warn-bg text-s112-warn-fg' },
+  { value: 'G',   label: 'Grünlandbrache',                                      badge: 'bg-s112-warn-bg text-s112-warn-fg' },
+  { value: 'WI',  label: 'Wein',                                                badge: 'bg-s112-ok-bg text-s112-ok-fg' },
+  { value: 'GL1', label: 'GLÖZ Rain / Böschung / Trockensteinmauer',            badge: 'bg-[#F2F3F5] text-s112-text-1' },
+  { value: 'GL2', label: 'GLÖZ Hecke / Ufergehölz',                             badge: 'bg-[#F2F3F5] text-s112-text-1' },
+  { value: 'GL3', label: 'GLÖZ Feldgehölz / Baum- / Gebüschgruppe',             badge: 'bg-[#F2F3F5] text-s112-text-1' },
   // LSE = Landschaftselement. Einzige Nutzart mit zusätzlicher Stückzahl-
   // Erfassung (grundstuecke.lse_stueckzahl) - siehe GrundstueckePanel.tsx.
-  { value: 'LSE', label: 'LSE Bäume / Büsche',                                  badge: 'bg-lime-100 text-lime-700' },
+  { value: 'LSE', label: 'LSE Bäume / Büsche',                                  badge: 'bg-s112-ok-bg text-s112-ok-fg' },
 ]
 
 export function NutzungBadge({ nutzart }: { nutzart: string | null | undefined }) {
   const opt = NUTZART_OPTIONS.find(o => o.value === nutzart)
   if (!opt) {
     return (
-      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400" title="Nutzart noch nicht erfasst">
+      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-[#F2F3F5] text-s112-tertiary" title="Nutzart noch nicht erfasst">
         – offen –
       </span>
     )
@@ -47,10 +47,10 @@ export function NutzungBadge({ nutzart }: { nutzart: string | null | undefined }
 
 /** @deprecated Ersetzt durch NUTZART_OPTIONS/NutzungBadge, siehe Kommentar oben. */
 export const STATUS_OPTIONS = [
-  { value: 'aktiv',       label: 'Ausgepflanzt', badge: 'bg-green-100 text-green-700' },
-  { value: 'brache',      label: 'Brache',       badge: 'bg-yellow-100 text-yellow-700' },
-  { value: 'gruenbrache', label: 'Grünbrache',   badge: 'bg-orange-100 text-orange-600' },
-  { value: 'gerodet',     label: 'Gerodet',      badge: 'bg-gray-200 text-gray-600' },
+  { value: 'aktiv',       label: 'Ausgepflanzt', badge: 'bg-s112-ok-bg text-s112-ok-fg' },
+  { value: 'brache',      label: 'Brache',       badge: 'bg-s112-warn-bg text-s112-warn-fg' },
+  { value: 'gruenbrache', label: 'Grünbrache',   badge: 'bg-s112-warn-bg text-s112-warn-fg' },
+  { value: 'gerodet',     label: 'Gerodet',      badge: 'bg-s112-line text-s112-text-2' },
 ]
 
 /** @deprecated Ersetzt durch NutzungBadge, siehe Kommentar oben. */

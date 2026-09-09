@@ -93,21 +93,21 @@ export default function ProfilPage() {
 
   return (
     <div className="p-8 max-w-lg mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Mein Profil</h1>
-      <div className="bg-white rounded-2xl border border-s112-border p-6">
+      <h1 className="text-2xl font-semibold text-s112-text mb-6">Mein Profil</h1>
+      <div className="bg-white rounded-xl border border-s112-border p-6">
         <form onSubmit={speichern} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">E-Mail (nicht änderbar)</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">E-Mail (nicht änderbar)</label>
             <input value={email} disabled className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm bg-s112-bg text-s112-muted" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Vollständiger Name (nicht änderbar)</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Vollständiger Name (nicht änderbar)</label>
             <input value={fullName || '–'} disabled
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm bg-s112-bg text-s112-muted" />
-            <p className="text-[10px] text-gray-400 mt-0.5">Wird vom Administrator verwaltet (Admin &gt; Mandant &gt; Benutzer).</p>
+            <p className="text-[10px] text-s112-tertiary mt-0.5">Wird vom Administrator verwaltet (Admin &gt; Mandant &gt; Benutzer).</p>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Telefon</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Telefon</label>
             <input value={telefon} onChange={e => setTelefon(e.target.value)} placeholder="+43 664 …"
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
@@ -116,31 +116,31 @@ export default function ProfilPage() {
               className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
               {saving ? 'Speichern…' : 'Profil speichern'}
             </button>
-            {erfolg && <p className="text-sm text-green-600 inline-flex items-center gap-1"><Check size={14} strokeWidth={2.25} />Gespeichert</p>}
-            {fehler && <p className="text-sm text-red-600 inline-flex items-center gap-1"><X size={14} strokeWidth={2.25} />{fehler}</p>}
+            {erfolg && <p className="text-sm text-s112-ok-fg inline-flex items-center gap-1"><Check size={14} strokeWidth={2.25} />Gespeichert</p>}
+            {fehler && <p className="text-sm text-s112-err-fg inline-flex items-center gap-1"><X size={14} strokeWidth={2.25} />{fehler}</p>}
           </div>
         </form>
       </div>
 
-      <div className="bg-white rounded-2xl border border-s112-border p-6 mt-6">
-        <h2 className="font-semibold text-gray-800 mb-1 inline-flex items-center gap-2"><KeyRound size={16} strokeWidth={1.75} />Passwort ändern</h2>
+      <div className="bg-white rounded-xl border border-s112-border p-6 mt-6">
+        <h2 className="font-semibold text-s112-text mb-1 inline-flex items-center gap-2"><KeyRound size={16} strokeWidth={1.75} />Passwort ändern</h2>
         <p className="text-xs text-s112-muted mb-4">
           Mindestens 8 Zeichen. Wenn du dich mit Microsoft 365 anmeldest, hast du hier kein Passwort – dann verwaltest du es bei Microsoft.
         </p>
         <form onSubmit={passwortAendern} className="space-y-4" autoComplete="off">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Aktuelles Passwort</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Aktuelles Passwort</label>
             <input type="password" value={pwAlt} onChange={e => setPwAlt(e.target.value)} required autoComplete="current-password"
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Neues Passwort</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Neues Passwort</label>
               <input type="password" value={pwNeu} onChange={e => setPwNeu(e.target.value)} required minLength={8} autoComplete="new-password" placeholder="Min. 8 Zeichen"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Neues Passwort wiederholen</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Neues Passwort wiederholen</label>
               <input type="password" value={pwNeu2} onChange={e => setPwNeu2(e.target.value)} required minLength={8} autoComplete="new-password"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
@@ -150,8 +150,8 @@ export default function ProfilPage() {
               className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
               {pwSaving ? 'Wird geändert…' : 'Passwort ändern'}
             </button>
-            {pwErfolg && <p className="text-sm text-green-600 inline-flex items-center gap-1"><Check size={14} strokeWidth={2.25} />Passwort geändert</p>}
-            {pwFehler && <p className="text-sm text-red-600 inline-flex items-center gap-1"><X size={14} strokeWidth={2.25} />{pwFehler}</p>}
+            {pwErfolg && <p className="text-sm text-s112-ok-fg inline-flex items-center gap-1"><Check size={14} strokeWidth={2.25} />Passwort geändert</p>}
+            {pwFehler && <p className="text-sm text-s112-err-fg inline-flex items-center gap-1"><X size={14} strokeWidth={2.25} />{pwFehler}</p>}
           </div>
         </form>
       </div>

@@ -11,16 +11,16 @@ function fmtDate(d: string | null | undefined) {
 }
 
 const EVENT_STYLE: Record<EventTyp, { icon: LucideIcon; dot: string; card: string }> = {
-  feldbehandlung: { icon: Leaf,           dot: 'bg-green-500',   card: 'border-green-100  bg-green-50/40'  },
-  ernte:          { icon: Grape,          dot: 'bg-purple-500',  card: 'border-purple-100 bg-purple-50/40' },
-  pressung:       { icon: Filter,         dot: 'bg-orange-400',  card: 'border-orange-100 bg-orange-50/40' },
-  umzug:          { icon: ArrowLeftRight, dot: 'bg-blue-400',    card: 'border-blue-100   bg-blue-50/40'   },
-  schwund:        { icon: Wind,           dot: 'bg-red-400',     card: 'border-red-100    bg-red-50/40'    },
-  kellerbehandlung:{ icon: FlaskConical,  dot: 'bg-teal-500',    card: 'border-teal-100   bg-teal-50/40'   },
-  analyse:        { icon: Microscope,     dot: 'bg-indigo-400',  card: 'border-indigo-100 bg-indigo-50/40' },
-  dac:            { icon: Award,          dot: 'bg-yellow-500',  card: 'border-yellow-100 bg-yellow-50/40' },
+  feldbehandlung: { icon: Leaf,           dot: 'bg-s112-ok',   card: 'border-s112-ok/30  bg-s112-ok-bg/40'  },
+  ernte:          { icon: Grape,          dot: 'bg-s112-grey',  card: 'border-s112-line-str bg-[#F2F3F5]' },
+  pressung:       { icon: Filter,         dot: 'bg-s112-warn',  card: 'border-s112-warn/30 bg-s112-warn-bg/40' },
+  umzug:          { icon: ArrowLeftRight, dot: 'bg-s112-teal',    card: 'border-s112-blue-100   bg-s112-blue-50/40'   },
+  schwund:        { icon: Wind,           dot: 'bg-s112-err',     card: 'border-s112-err/30    bg-s112-err-bg/40'    },
+  kellerbehandlung:{ icon: FlaskConical,  dot: 'bg-s112-grey',    card: 'border-s112-line-str   bg-[#F2F3F5]'   },
+  analyse:        { icon: Microscope,     dot: 'bg-s112-teal',  card: 'border-s112-blue-100 bg-s112-blue-50/40' },
+  dac:            { icon: Award,          dot: 'bg-s112-warn',  card: 'border-s112-warn/30 bg-s112-warn-bg/40' },
   fuellung:       { icon: Wine,           dot: 'bg-s112-teal',   card: 'border-s112-teal/20 bg-s112-teal/5'},
-  verschneidung:  { icon: GitMerge,       dot: 'bg-violet-500',  card: 'border-violet-100 bg-violet-50/40' },
+  verschneidung:  { icon: GitMerge,       dot: 'bg-s112-grey',  card: 'border-s112-line-str bg-[#F2F3F5]' },
 }
 
 const EVENT_LABEL: Record<EventTyp, string> = {
@@ -58,21 +58,21 @@ export function WeinbuchTimeline({ events, zeigeLegende = true }: { events: Time
                   <div className={`flex-1 rounded-xl border p-4 ${style.card}`}>
                     <div className="flex items-start justify-between gap-2 flex-wrap">
                       <div>
-                        <p className="font-semibold text-gray-800 text-sm">{ev.titel}</p>
+                        <p className="font-semibold text-s112-text text-sm">{ev.titel}</p>
                         {ev.badge && (
-                          <span className="inline-block text-xs font-medium text-gray-600 bg-white/70 border border-gray-200 rounded-full px-2 py-0.5 mt-0.5">
+                          <span className="inline-block text-xs font-medium text-s112-text-2 bg-white/70 border border-s112-line rounded-full px-2 py-0.5 mt-0.5">
                             {ev.badge}
                           </span>
                         )}
                       </div>
-                      <span className="text-xs text-gray-500 tabular-nums shrink-0">
+                      <span className="text-xs text-s112-text-2 tabular-nums shrink-0">
                         {fmtDate(ev.datum)}
                       </span>
                     </div>
                     {ev.details.length > 0 && (
                       <ul className="mt-1.5 space-y-0.5">
                         {ev.details.map((d, j) => (
-                          <li key={j} className="text-xs text-gray-600">{d}</li>
+                          <li key={j} className="text-xs text-s112-text-2">{d}</li>
                         ))}
                       </ul>
                     )}
@@ -82,7 +82,7 @@ export function WeinbuchTimeline({ events, zeigeLegende = true }: { events: Time
             })}
 
             <div className="relative flex gap-4 items-center">
-              <div className="relative z-10 w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-gray-200 text-gray-400 text-lg shadow-sm">
+              <div className="relative z-10 w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-s112-line text-s112-tertiary text-lg shadow-sm">
                 ∎
               </div>
               <p className="text-xs text-s112-muted">Ende der Aufzeichnung</p>
@@ -93,13 +93,13 @@ export function WeinbuchTimeline({ events, zeigeLegende = true }: { events: Time
 
       {zeigeLegende && (
         <div className="card p-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Legende</p>
+          <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wider mb-2">Legende</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {(Object.entries(EVENT_STYLE) as [EventTyp, typeof EVENT_STYLE[EventTyp]][]).map(([typ, style]) => (
               <div key={typ} className="flex items-center gap-1.5">
                 <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${style.dot}`} />
-                <span className="text-xs text-gray-600 inline-flex items-center gap-1">
-                  <style.icon size={13} strokeWidth={1.75} className="text-gray-500" />
+                <span className="text-xs text-s112-text-2 inline-flex items-center gap-1">
+                  <style.icon size={13} strokeWidth={1.75} className="text-s112-text-2" />
                   {EVENT_LABEL[typ]}
                 </span>
               </div>

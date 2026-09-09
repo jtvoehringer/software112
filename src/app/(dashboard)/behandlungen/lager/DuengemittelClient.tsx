@@ -11,8 +11,8 @@ const TYP_OPTS = [
 ]
 
 const TYP_COLOR: Record<string, string> = {
-  organisch:   'bg-green-50 text-green-700 border-green-200',
-  mineralisch: 'bg-blue-50 text-blue-700 border-blue-200',
+  organisch:   'bg-s112-ok-bg text-s112-ok-fg border-s112-ok/30',
+  mineralisch: 'bg-s112-blue-50 text-s112-blue-700 border-s112-blue-100',
 }
 
 const EINHEIT_OPTS = ['kg', 'l']
@@ -40,26 +40,26 @@ function DuengemittelForm({ duengemittel, onDone }: { duengemittel?: Duengemitte
 
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-3">
-      <h3 className="text-sm font-semibold text-gray-800">
+      <h3 className="text-sm font-semibold text-s112-text">
         {duengemittel ? 'Düngemittel bearbeiten' : 'Neues Düngemittel anlegen'}
       </h3>
       {duengemittel && <input type="hidden" name="existing_id" value={duengemittel.id} />}
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Name *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Name *</label>
           <input name="name" required defaultValue={duengemittel?.name ?? ''}
             placeholder="z.B. Hornspäne"
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Handelsname</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Handelsname</label>
           <input name="handelsname" defaultValue={duengemittel?.handelsname ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Typ</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Typ</label>
           <select name="typ" defaultValue={duengemittel?.typ ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             <option value="">– keiner –</option>
@@ -67,41 +67,41 @@ function DuengemittelForm({ duengemittel, onDone }: { duengemittel?: Duengemitte
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Wartezeit (Tage)</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Wartezeit (Tage)</label>
           <input name="wartezeit_tage" type="number" min="0"
             defaultValue={duengemittel?.wartezeit_tage ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">N-Gehalt (%)</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">N-Gehalt (%)</label>
           <input name="naehrstoff_n_pct" type="number" step="0.01" min="0" max="100"
             defaultValue={duengemittel?.naehrstoff_n_pct ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">P-Gehalt (%)</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">P-Gehalt (%)</label>
           <input name="naehrstoff_p_pct" type="number" step="0.01" min="0" max="100"
             defaultValue={duengemittel?.naehrstoff_p_pct ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">K-Gehalt (%)</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">K-Gehalt (%)</label>
           <input name="naehrstoff_k_pct" type="number" step="0.01" min="0" max="100"
             defaultValue={duengemittel?.naehrstoff_k_pct ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Preis/Einheit (€)</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Preis/Einheit (€)</label>
             <input name="preis_pro_einheit" type="number" step="0.0001" min="0"
               defaultValue={duengemittel?.preis_pro_einheit ?? ''}
               placeholder="jährlich prüfen"
               className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Einheit</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Einheit</label>
             <select name="einheit" defaultValue={duengemittel?.einheit ?? 'kg'}
               className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               {EINHEIT_OPTS.map(e => <option key={e} value={e}>{e}</option>)}
@@ -116,7 +116,7 @@ function DuengemittelForm({ duengemittel, onDone }: { duengemittel?: Duengemitte
               checked={oekoZugelassen}
               onChange={e => setOekoZugelassen(e.currentTarget.checked)}
               className="accent-s112-teal w-4 h-4" />
-            <span className="text-sm text-gray-700">Bio/Öko zugelassen</span>
+            <span className="text-sm text-s112-text-1">Bio/Öko zugelassen</span>
           </label>
         </div>
         <div className="flex items-end pb-1.5">
@@ -126,12 +126,12 @@ function DuengemittelForm({ duengemittel, onDone }: { duengemittel?: Duengemitte
               checked={einarbeitung}
               onChange={e => setEinarbeitung(e.currentTarget.checked)}
               className="accent-s112-teal w-4 h-4" />
-            <span className="text-sm text-gray-700">Einarbeitung erforderlich</span>
+            <span className="text-sm text-s112-text-1">Einarbeitung erforderlich</span>
           </label>
         </div>
 
         <div className="col-span-2">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
           <input name="notizen" defaultValue={duengemittel?.notizen ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
@@ -143,7 +143,7 @@ function DuengemittelForm({ duengemittel, onDone }: { duengemittel?: Duengemitte
           {pending ? 'Speichert…' : 'Speichern'}
         </button>
         <button type="button" onClick={onDone}
-          className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800">
+          className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:text-s112-text">
           Abbrechen
         </button>
       </div>
@@ -204,7 +204,7 @@ export default function DuengemittelClient({
               {duengemittel.map(d => (
                 <>
                   <tr key={d.id} className="group border-b border-s112-border/40 hover:bg-s112-bg/30">
-                    <td className="py-2.5 pr-3 font-medium text-gray-900">
+                    <td className="py-2.5 pr-3 font-medium text-s112-text">
                       {d.name}
                       {d.handelsname && d.handelsname !== d.name && (
                         <span className="ml-1 text-xs text-s112-muted">({d.handelsname})</span>
@@ -212,7 +212,7 @@ export default function DuengemittelClient({
                     </td>
                     <td className="py-2.5 pr-3">
                       {d.typ ? (
-                        <span className={`text-xs px-2 py-0.5 rounded-full border ${TYP_COLOR[d.typ] ?? 'bg-gray-50 text-gray-600 border-gray-200'}`}>
+                        <span className={`text-xs px-2 py-0.5 rounded-full border ${TYP_COLOR[d.typ] ?? 'bg-s112-bg text-s112-text-2 border-s112-line'}`}>
                           {TYP_OPTS.find(o => o.value === d.typ)?.label ?? d.typ}
                         </span>
                       ) : '–'}
@@ -230,8 +230,8 @@ export default function DuengemittelClient({
                     </td>
                     <td className="py-2.5 pr-3 text-center">
                       {d.oeko_zugelassen
-                        ? <span className="text-green-600">Ja</span>
-                        : <span className="text-gray-300">–</span>}
+                        ? <span className="text-s112-ok-fg">Ja</span>
+                        : <span className="text-s112-tertiary">–</span>}
                     </td>
                     {(writeOk || adminOk) && (
                       <td className="py-2.5 px-3 text-right sticky right-0 bg-white border-l border-s112-border/40">
@@ -239,12 +239,12 @@ export default function DuengemittelClient({
                           {writeOk && (
                             <button onClick={() => setEditId(editId === d.id ? null : d.id)}
                               title="Bearbeiten" aria-label="Bearbeiten"
-                              className="text-s112-teal hover:text-s112-teal/70"><Pencil className="w-4 h-4" /></button>
+                              className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil className="w-4 h-4" /></button>
                           )}
                           {adminOk && (
                             <button onClick={() => handleDeactivate(d.id)}
                               title="Deaktivieren" aria-label="Deaktivieren"
-                              className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                              className="text-s112-err hover:text-s112-err-fg"><Trash2 className="w-4 h-4" /></button>
                           )}
                         </div>
                       </td>

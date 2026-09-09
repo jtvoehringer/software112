@@ -20,11 +20,11 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  ernte:        { label: 'Ernte',         color: 'bg-yellow-100 text-yellow-700' },
-  gaerung:      { label: 'Gärung',        color: 'bg-orange-100 text-orange-700' },
-  ausbau:       { label: 'Ausbau',        color: 'bg-blue-100 text-blue-700' },
-  abfuellung:   { label: 'Abfüllung',     color: 'bg-purple-100 text-purple-700' },
-  abgeschlossen:{ label: 'Abgeschlossen', color: 'bg-green-100 text-green-700' },
+  ernte:        { label: 'Ernte',         color: 'bg-s112-warn-bg text-s112-warn-fg' },
+  gaerung:      { label: 'Gärung',        color: 'bg-s112-warn-bg text-s112-warn-fg' },
+  ausbau:       { label: 'Ausbau',        color: 'bg-s112-blue-100 text-s112-blue-700' },
+  abfuellung:   { label: 'Abfüllung',     color: 'bg-[#F2F3F5] text-s112-text-1' },
+  abgeschlossen:{ label: 'Abgeschlossen', color: 'bg-s112-ok-bg text-s112-ok-fg' },
 }
 
 export default async function WeinausbauDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ form?: string; quelle?: string; menge?: string; abstufung?: string }> }) {
@@ -386,21 +386,21 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       .eq('id', id))
   }
 
-  const st = STATUS_LABELS[weinausbau.status] ?? { label: weinausbau.status, color: 'bg-gray-100 text-gray-600' }
+  const st = STATUS_LABELS[weinausbau.status] ?? { label: weinausbau.status, color: 'bg-[#F2F3F5] text-s112-text-2' }
 
   return (
     <div className="max-w-4xl space-y-8">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/kellerbuch" className="hover:text-s112-teal transition-colors">Kellerbuch</Link>
+        <Link href="/kellerbuch" className="hover:text-s112-blue-700 transition-colors">Kellerbuch</Link>
         <span>/</span>
-        <Link href="/kellerbuch/weinausbau" className="hover:text-s112-teal transition-colors">Weinausbau</Link>
+        <Link href="/kellerbuch/weinausbau" className="hover:text-s112-blue-700 transition-colors">Weinausbau</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">{weinausbau.name}</span>
+        <span className="text-s112-text-1 font-medium">{weinausbau.name}</span>
       </div>
 
       {bestandsUnstimmigkeit && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+        <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg px-4 py-3 rounded-lg text-sm">
           <p className="font-semibold">Unstimmigkeit im Bewegungsbuch</p>
           <p className="mt-0.5">
             Laut Bewegungsbuch wurde mehr aus dieser Charge entnommen, als je vorhanden war
@@ -413,7 +413,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{weinausbau.name}</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">{weinausbau.name}</h1>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
             {weinausbau.jahrgang && <span className="text-xs text-s112-muted">Jahrgang {weinausbau.jahrgang}</span>}
@@ -421,7 +421,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
           </div>
         </div>
         <div className="text-right shrink-0">
-          <p className="text-2xl font-bold text-s112-teal tabular-nums">{fmtLiter(berechneterSaldo)}</p>
+          <p className="text-2xl font-semibold text-s112-blue-700 tabular-nums">{fmtLiter(berechneterSaldo)}</p>
           <p className="text-xs text-s112-muted mt-0.5">verfügbarer Bestand</p>
           {writeOk && berechneterSaldo > 0.01 && (
             <Link href={`/weinhandel/fuellungen/neu?charge=${weinausbau.id}`}
@@ -437,21 +437,21 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
           )}
           {writeOk && (
             <Link href={`/kellerbuch/weinausbau/${weinausbau.id}?form=verschneiden`}
-              className="mt-1 inline-flex items-center gap-1 text-xs bg-violet-600 text-white px-3 py-1 rounded-lg hover:bg-opacity-90 transition-colors">
+              className="mt-1 inline-flex items-center gap-1 text-xs bg-s112-grey text-white px-3 py-1 rounded-lg hover:bg-opacity-90 transition-colors">
               <GitMerge size={13} strokeWidth={1.75} />Verschneiden
             </Link>
           )}
           <Link href={`/kellerbuch/weinausbau/${weinausbau.id}/buch`}
-            className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-teal px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
+            className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-blue-700 px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
             <BookOpen size={13} strokeWidth={1.75} />Weinbuch
           </Link>
           <Link href={`/kellerbuch/weinausbau/${weinausbau.id}/analysen`}
-            className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-teal px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
+            className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-blue-700 px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
             <Microscope size={13} strokeWidth={1.75} />Analysen
           </Link>
           {writeOk && (
             <Link href={`/dac/neu?charge=${weinausbau.id}`}
-              className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-teal px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
+              className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-blue-700 px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
               <Award size={13} strokeWidth={1.75} />Prüfnummer
             </Link>
           )}
@@ -460,8 +460,8 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
       {/* Abstufungs-Hinweis nach Umziehen */}
       {abstufungParam && (
-        <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 text-sm text-amber-900">
-          <TrendingDown size={18} strokeWidth={1.75} className="mt-0.5 text-amber-600 shrink-0" />
+        <div className="flex items-start gap-3 bg-s112-warn-bg border border-s112-warn/30 rounded-xl px-4 py-3 text-sm text-s112-warn-fg">
+          <TrendingDown size={18} strokeWidth={1.75} className="mt-0.5 text-s112-warn-fg shrink-0" />
           <div>
             <p className="font-semibold">Qualitätsabstufung durch Zusammenführung</p>
             <p className="text-xs mt-0.5">
@@ -475,27 +475,27 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
       {/* Bewegungsbuch */}
       <section>
-        <h2 className="font-semibold text-gray-800 mb-3">Bewegungsbuch</h2>
+        <h2 className="font-semibold text-s112-text mb-3">Bewegungsbuch</h2>
         <div className="card p-0 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-s112-bg border-b border-s112-border">
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Datum</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Vorgang</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Menge</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Saldo</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Datum</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Vorgang</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Menge</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Saldo</th>
               </tr>
             </thead>
             <tbody>
               {/* Anfangsbestand – immer zeigen wenn > 0 */}
               {hatAnfangsbestand && (
-                <tr className="border-b border-s112-border/40 bg-green-50/50">
-                  <td className="px-4 py-2.5 text-xs text-gray-500">–</td>
-                  <td className="px-4 py-2.5 font-medium text-gray-700">Anfangsbestand</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-green-700 font-semibold">
+                <tr className="border-b border-s112-border/40 bg-s112-ok-bg/50">
+                  <td className="px-4 py-2.5 text-xs text-s112-text-2">–</td>
+                  <td className="px-4 py-2.5 font-medium text-s112-text-1">Anfangsbestand</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-s112-ok-fg font-semibold">
                     +{fmtLiter(anfangsbestand, { noUnit: false })}
                   </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-800">
+                  <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-s112-text">
                     {fmtLiter(anfangsbestand)}
                   </td>
                 </tr>
@@ -512,22 +512,22 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
               {bewegungenMitSaldo.map((bew, i) => {
                 const istAbgang    = bew.menge < 0
                 const istZugang    = bew.menge > 0
-                const colorClass   = istAbgang ? 'text-red-600' : istZugang ? 'text-green-600' : 'text-gray-500'
+                const colorClass   = istAbgang ? 'text-s112-err-fg' : istZugang ? 'text-s112-ok-fg' : 'text-s112-text-2'
                 const isZugangsRow = bew.art === 'zukauf' || bew.art === 'ernte' || bew.art === 'umziehen_ein'
-                const rowBg        = isZugangsRow ? 'bg-green-50/50' : (i % 2 === 1 ? 'bg-s112-bg/30' : '')
+                const rowBg        = isZugangsRow ? 'bg-s112-ok-bg/50' : (i % 2 === 1 ? 'bg-s112-bg/30' : '')
                 return (
                   <tr key={i} className={`border-b border-s112-border/30 last:border-0 ${rowBg}`}>
-                    <td className="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">
+                    <td className="px-4 py-2.5 text-xs text-s112-text-2 whitespace-nowrap">
                       {bew.datum ? new Date(bew.datum).toLocaleDateString('de-AT') : '–'}
                     </td>
                     <td className="px-4 py-2.5">
-                      <p className="text-gray-700">{bew.beschreibung}</p>
+                      <p className="text-s112-text-1">{bew.beschreibung}</p>
                       {bew.extra && <p className="text-xs text-s112-muted">{bew.extra}</p>}
                     </td>
                     <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${colorClass}`}>
                       {istAbgang ? '' : '+'}{fmtLiter(bew.menge)}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-700">
+                    <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-1">
                       {fmtLiter(bew.saldo)}
                     </td>
                   </tr>
@@ -536,11 +536,11 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
               {/* Saldo-Zeile */}
               <tr className="border-t-2 border-s112-teal/30 bg-s112-teal/5">
-                <td colSpan={2} className="px-4 py-2.5 font-semibold text-gray-700 text-sm">
+                <td colSpan={2} className="px-4 py-2.5 font-semibold text-s112-text-1 text-sm">
                   Aktueller Bestand
                 </td>
                 <td className="px-4 py-2.5 text-right" />
-                <td className="px-4 py-2.5 text-right tabular-nums font-bold text-s112-teal text-base">
+                <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-s112-blue-700 text-base">
                   {fmtLiter(berechneterSaldo)}
                 </td>
               </tr>
@@ -578,7 +578,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       {/* Edit-Formular */}
       {writeOk && (
         <section>
-          <h2 className="font-semibold text-gray-800 mb-3">Charge bearbeiten</h2>
+          <h2 className="font-semibold text-s112-text mb-3">Charge bearbeiten</h2>
           <WeinausbauForm
             weinausbau={weinausbau}
             weingaerten={weingaerten}

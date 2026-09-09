@@ -25,7 +25,7 @@ export default async function BenutzerPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Benutzerverwaltung</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Benutzerverwaltung</h1>
           <p className="text-sm text-s112-muted mt-0.5">Mitglieder und Rollen Ihres Betriebs</p>
         </div>
       </div>

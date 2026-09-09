@@ -85,15 +85,15 @@ export default function BelegBuchenForm({
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-s112-border p-6 space-y-5">
+    <div className="bg-white rounded-xl border border-s112-border p-6 space-y-5">
       {status === 'fehler' && (
-        <div className="flex items-start gap-2 bg-amber-50 text-amber-800 text-sm px-3 py-2.5 rounded-lg">
+        <div className="flex items-start gap-2 bg-s112-warn-bg text-s112-warn-fg text-sm px-3 py-2.5 rounded-lg">
           <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
           <span>Automatische Erkennung fehlgeschlagen{fehlerDetails ? ` (${fehlerDetails})` : ''} – bitte alle Felder manuell ausfüllen.</span>
         </div>
       )}
       {e.hinweis && (
-        <div className="flex items-start gap-2 bg-amber-50 text-amber-800 text-sm px-3 py-2.5 rounded-lg">
+        <div className="flex items-start gap-2 bg-s112-warn-bg text-s112-warn-fg text-sm px-3 py-2.5 rounded-lg">
           <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
           <span>{e.hinweis}</span>
         </div>
@@ -102,34 +102,34 @@ export default function BelegBuchenForm({
         <p className="text-xs text-s112-muted">Erkennungssicherheit: {e.konfidenz === 'mittel' ? 'mittel' : 'niedrig'} – bitte Werte vor dem Buchen prüfen.</p>
       )}
       {submitError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2.5 rounded-lg">{submitError}</div>
+        <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg text-sm px-3 py-2.5 rounded-lg">{submitError}</div>
       )}
 
       {/* ── Lieferanten-Zuordnung ─────────────────────────────────────────── */}
       {gefundeneFirma ? (
         <div className="flex items-center gap-2 bg-s112-teal/5 border border-s112-teal/30 rounded-xl px-3 py-2.5 text-sm">
-          <Building2 className="w-4 h-4 text-s112-teal flex-shrink-0" />
+          <Building2 className="w-4 h-4 text-s112-blue-700 flex-shrink-0" />
           <span className="flex-1">
-            Lieferant: <span className="font-medium text-gray-800">{gefundeneFirma.name}</span>
+            Lieferant: <span className="font-medium text-s112-text">{gefundeneFirma.name}</span>
             {vorschlagId === firmaId && <span className="text-xs text-s112-muted"> (automatisch erkannt)</span>}
           </span>
           <button type="button" onClick={() => { setFirmaId(null); setFrageOffen(false) }}
-            className="text-s112-muted hover:text-red-500" title="Verknüpfung entfernen">
+            className="text-s112-muted hover:text-s112-err" title="Verknüpfung entfernen">
             <X className="w-4 h-4" />
           </button>
         </div>
       ) : frageOffen ? (
-        <div className="bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 text-sm space-y-2">
-          <p className="text-amber-800">
+        <div className="bg-s112-warn-bg border border-s112-warn/30 rounded-xl px-4 py-3 text-sm space-y-2">
+          <p className="text-s112-warn-fg">
             Konnte keinen bestehenden Lieferanten für „{lieferantName}" finden. Soll ein neuer Lieferant erstellt werden?
           </p>
           <div className="flex gap-2">
             <button type="button" onClick={() => { setZeigeFirmaDialog(true); setFrageOffen(false) }}
-              className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-amber-700">
+              className="bg-s112-warn-fg text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:opacity-90">
               Ja, Lieferant anlegen
             </button>
             <button type="button" onClick={() => setFrageOffen(false)}
-              className="border border-amber-400 text-amber-700 px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-amber-100">
+              className="border border-s112-warn/50 text-s112-warn-fg px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-s112-warn-bg">
               Nein, ohne Lieferant buchen
             </button>
           </div>
@@ -137,8 +137,8 @@ export default function BelegBuchenForm({
       ) : zeigeManuelleSuche ? (
         <div className="border border-s112-border rounded-xl p-3 space-y-2">
           <div className="flex items-center justify-between">
-            <label className="block text-xs font-medium text-gray-600">Lieferant suchen</label>
-            <button type="button" onClick={() => setZeigeManuelleSuche(false)} className="text-s112-muted hover:text-gray-700">
+            <label className="block text-xs font-medium text-s112-text-2">Lieferant suchen</label>
+            <button type="button" onClick={() => setZeigeManuelleSuche(false)} className="text-s112-muted hover:text-s112-text-1">
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -156,11 +156,11 @@ export default function BelegBuchenForm({
             {sucheTreffer.length === 0 && <p className="text-xs text-s112-muted px-2 py-1">Kein Lieferant gefunden.</p>}
           </div>
           <button type="button" onClick={() => { setZeigeFirmaDialog(true); setZeigeManuelleSuche(false) }}
-            className="text-xs text-s112-teal hover:underline">+ Neuen Lieferanten anlegen</button>
+            className="text-xs text-s112-blue-700 hover:underline">+ Neuen Lieferanten anlegen</button>
         </div>
       ) : (
         <button type="button" onClick={() => setZeigeManuelleSuche(true)}
-          className="text-xs text-s112-muted hover:text-s112-teal">+ Lieferant zuordnen (optional)</button>
+          className="text-xs text-s112-muted hover:text-s112-blue-700">+ Lieferant zuordnen (optional)</button>
       )}
 
       {zeigeFirmaDialog && (
@@ -178,11 +178,11 @@ export default function BelegBuchenForm({
       {/* ── Buchungsformular ──────────────────────────────────────────────── */}
       <form action={handleSubmit} className="space-y-5">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-2">Typ *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-2">Typ *</label>
           <div className="flex gap-3">
             {[
-              { value: 'einnahme', label: '↑ Einnahme', color: 'text-green-700 border-green-300 bg-green-50' },
-              { value: 'ausgabe',  label: '↓ Ausgabe',  color: 'text-red-600 border-red-300 bg-red-50'     },
+              { value: 'einnahme', label: '↑ Einnahme', color: 'text-s112-ok-fg border-s112-ok/30 bg-s112-ok-bg' },
+              { value: 'ausgabe',  label: '↓ Ausgabe',  color: 'text-s112-err-fg border-s112-err/30 bg-s112-err-bg'     },
             ].map(t => (
               <label key={t.value} className={`flex items-center gap-2 px-4 py-2 rounded-xl border cursor-pointer text-sm font-medium ${t.color}`}>
                 <input type="radio" name="typ" value={t.value} required
@@ -196,13 +196,13 @@ export default function BelegBuchenForm({
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Datum *</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
             <input type="date" name="datum" required
               defaultValue={e.datum ?? new Date().toISOString().split('T')[0]}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">USt-Satz *</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">USt-Satz *</label>
             <select name="ust_satz" defaultValue={e.ust_satz ?? ustStandard}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               {UST_SAETZE.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
@@ -211,14 +211,14 @@ export default function BelegBuchenForm({
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Bezeichnung *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung *</label>
           <input name="beschreibung" required defaultValue={e.beschreibung ?? ''}
             placeholder="z.B. Diesel Tankstelle Müller"
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Betrag Netto (€) *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Betrag Netto (€) *</label>
           <input type="number" name="betrag_netto" step="0.01" min="0" required
             defaultValue={e.betrag_netto ?? ''} placeholder="0.00"
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
@@ -230,7 +230,7 @@ export default function BelegBuchenForm({
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Kategorie</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Kategorie</label>
           <select name="kategorie_id" value={kategorieId} onChange={ev => setKategorieId(ev.target.value)}
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             <option value="">– keine –</option>
@@ -242,7 +242,7 @@ export default function BelegBuchenForm({
             </optgroup>
           </select>
           {gewaehlteKategorie && gewaehlteKategorie.abzugsfaehigPct < 100 && (
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mt-1.5">
+            <p className="text-xs text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-2.5 py-1.5 mt-1.5">
               Nur {gewaehlteKategorie.abzugsfaehigPct}% dieser Ausgabe ist steuerlich abzugsfähig (§ 20 EStG) – wird automatisch erfasst und in der Übersicht ausgewiesen.
             </p>
           )}
@@ -250,7 +250,7 @@ export default function BelegBuchenForm({
 
         {konten.length > 0 && (
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Konto</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Konto</label>
             <select name="konto_id" defaultValue=""
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– keines –</option>
@@ -261,7 +261,7 @@ export default function BelegBuchenForm({
         )}
 
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
           <textarea name="notizen" rows={2} defaultValue={`Beleg: ${dateiname}`}
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
         </div>
@@ -272,7 +272,7 @@ export default function BelegBuchenForm({
             {pending ? 'Wird gebucht…' : 'Buchung anlegen'}
           </button>
           <Link href="/buchhaltung/belege"
-            className="px-6 py-2.5 rounded-xl text-sm border border-s112-border text-gray-600 hover:bg-s112-bg">
+            className="px-6 py-2.5 rounded-xl text-sm border border-s112-border text-s112-text-2 hover:bg-s112-bg">
             Später
           </Link>
         </div>
@@ -284,7 +284,7 @@ export default function BelegBuchenForm({
           message="Beleg verwerfen? Die Datei wird endgültig gelöscht, es entsteht keine Buchung."
           label={<span className="inline-flex items-center gap-1.5"><Trash2 size={14} /> Beleg verwerfen</span>}
           title="Verwerfen"
-          className="text-xs text-red-400 hover:text-red-600"
+          className="text-xs text-s112-err hover:text-s112-err-fg"
         />
       </div>
     </div>

@@ -32,21 +32,21 @@ export default async function KontoNeuPage() {
   return (
     <div className="p-6 max-w-lg mx-auto">
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-2">
-        <Link href="/konten" className="hover:text-s112-teal transition-colors">Konten</Link>
+        <Link href="/konten" className="hover:text-s112-blue-700 transition-colors">Konten</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Neues Konto</span>
+        <span className="text-s112-text-1 font-medium">Neues Konto</span>
       </div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Neues Konto</h1>
+      <h1 className="text-2xl font-semibold text-s112-text mb-6">Neues Konto</h1>
 
-      <form action={handleSubmit} className="bg-white rounded-2xl border border-s112-border p-6 space-y-5">
+      <form action={handleSubmit} className="bg-white rounded-xl border border-s112-border p-6 space-y-5">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Bezeichnung *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung *</label>
           <input name="name" required placeholder="z.B. Raiffeisen Girokonto"
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Typ</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Typ</label>
           <select name="typ" defaultValue="giro"
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             {TYPEN.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -54,21 +54,21 @@ export default async function KontoNeuPage() {
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">IBAN</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">IBAN</label>
           <input name="iban" placeholder="Optional"
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Eröffnungsdatum *</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Eröffnungsdatum *</label>
             <input type="date" name="eroeffnungsdatum" required
               defaultValue={new Date().toISOString().slice(0, 10)}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             <p className="text-xs text-s112-muted mt-1">Datum des letzten Kontoauszugs, ab dem hier weitergeführt wird.</p>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Eröffnungssaldo (€) *</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Eröffnungssaldo (€) *</label>
             <input type="number" name="eroeffnungssaldo" step="0.01" required defaultValue="0.00"
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
@@ -80,7 +80,7 @@ export default async function KontoNeuPage() {
             Konto anlegen
           </button>
           <Link href="/konten"
-            className="px-6 py-2.5 rounded-xl text-sm border border-s112-border text-gray-600 hover:bg-s112-bg">
+            className="px-6 py-2.5 rounded-xl text-sm border border-s112-border text-s112-text-2 hover:bg-s112-bg">
             Abbrechen
           </Link>
         </div>

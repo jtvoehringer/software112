@@ -17,9 +17,9 @@ function NeuMandantForm({ onDone }: { onDone: () => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-5 space-y-3">
-      <h3 className="text-sm font-semibold text-gray-800">Neuer Mandant</h3>
+      <h3 className="text-sm font-semibold text-s112-text">Neuer Mandant</h3>
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Name des Betriebs *</label>
+        <label className="block text-xs font-medium text-s112-text-2 mb-1">Name des Betriebs *</label>
         <input name="name" required placeholder="z.B. Weingut Mustermann"
           className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
           autoFocus />
@@ -30,7 +30,7 @@ function NeuMandantForm({ onDone }: { onDone: () => void }) {
           {pending ? 'Wird angelegt…' : 'Anlegen'}
         </button>
         <button type="button" onClick={onDone}
-          className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800">
+          className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:text-s112-text">
           Abbrechen
         </button>
       </div>
@@ -78,7 +78,7 @@ export default function MandantenClient({ mandanten, canCreate = true }: { manda
               <tr key={m.id} className="border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/50">
                 <td className="px-4 py-3">
                   <Link href={`/admin/mandanten/${m.id}`}
-                    className="font-medium text-s112-teal hover:underline text-sm">
+                    className="font-medium text-s112-blue-700 hover:underline text-sm">
                     {m.name}
                   </Link>
                   {m.anzeigename && m.anzeigename !== m.name && (
@@ -88,9 +88,9 @@ export default function MandantenClient({ mandanten, canCreate = true }: { manda
                 <td className="px-4 py-3 text-xs text-s112-muted font-mono">{m.id.slice(0, 8)}…</td>
                 <td className="px-4 py-3 text-center">
                   <div className="flex items-center justify-center gap-1.5">
-                    <div className="w-4 h-4 rounded-full border border-gray-200 flex-shrink-0"
+                    <div className="w-4 h-4 rounded-full border border-s112-line flex-shrink-0"
                       style={{ background: m.primary_color }} title={m.primary_color} />
-                    <div className="w-4 h-4 rounded-full border border-gray-200 flex-shrink-0"
+                    <div className="w-4 h-4 rounded-full border border-s112-line flex-shrink-0"
                       style={{ background: m.secondary_color }} title={m.secondary_color} />
                   </div>
                 </td>

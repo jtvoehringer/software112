@@ -9,8 +9,8 @@ export default function EmcsPanel({ auftragId, initialArc, initialStatus }: Prop
   const [saving, setSaving] = useState(false)
 
   return (
-    <div className="bg-white rounded-2xl border border-s112-border p-5 mt-5">
-      <h2 className="font-semibold text-gray-800 mb-3">EMCS</h2>
+    <div className="bg-white rounded-xl border border-s112-border p-5 mt-5">
+      <h2 className="font-semibold text-s112-text mb-3">EMCS</h2>
       <div className="space-y-2">
         <label className="block text-xs text-s112-muted">ARC-Nummer</label>
         <input value={arc} onChange={e => setArc(e.target.value)}
@@ -39,7 +39,7 @@ export default function EmcsPanel({ auftragId, initialArc, initialStatus }: Prop
           {saving ? 'Speichern...' : 'EMCS speichern'}
         </button>
         <a href={'/api/weinexport/' + auftragId + '/emcs'}
-          className="block text-center text-xs border border-s112-border text-gray-600 py-1.5 rounded-lg hover:bg-s112-bg mt-1">
+          className="block text-center text-xs border border-s112-border text-s112-text-2 py-1.5 rounded-lg hover:bg-s112-bg mt-1">
           e-AD XML Download
         </a>
       </div>

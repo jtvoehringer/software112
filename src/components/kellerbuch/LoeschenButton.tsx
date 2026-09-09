@@ -32,10 +32,10 @@ export default function LoeschenButton({ action, bestaetigung = 'Eintrag wirklic
     <span className="inline-flex flex-col items-end gap-0.5">
       <button type="button" onClick={handleClick} disabled={pending}
         title="Löschen" aria-label="Löschen"
-        className="text-red-400 hover:text-red-600 disabled:opacity-50">
+        className="text-s112-err hover:text-s112-err-fg disabled:opacity-50">
         {pending ? '…' : <Trash2 className="w-4 h-4" />}
       </button>
-      {error && <span className="text-[10px] text-red-600 max-w-[180px] text-right">{error}</span>}
+      {error && <span className="text-[10px] text-s112-err-fg max-w-[180px] text-right">{error}</span>}
     </span>
   )
 }

@@ -73,8 +73,8 @@ interface Props {
   initial: PNADaten
 }
 
-const inputCls = 'border border-gray-400 px-1.5 py-0.5 text-xs w-full focus:outline-none focus:border-s112-teal bg-white'
-const labelCls = 'text-[10px] text-gray-500 leading-tight block mb-0.5'
+const inputCls = 'border border-s112-line-str px-1.5 py-0.5 text-xs w-full focus:outline-none focus:border-s112-teal bg-white'
+const labelCls = 'text-[10px] text-s112-text-2 leading-tight block mb-0.5'
 
 function Feld({ label, children, className = '' }: { label: string; children: React.ReactNode; className?: string }) {
   return (
@@ -130,22 +130,22 @@ export default function PNAFormular({ dacAntragId, initial }: Props) {
           className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
-        {gespeichert && <span className="text-xs text-green-600">Gespeichert</span>}
+        {gespeichert && <span className="text-xs text-s112-ok-fg">Gespeichert</span>}
         <button onClick={() => window.print()}
-          className="border border-s112-border px-4 py-1.5 rounded-lg text-sm hover:bg-gray-50">
+          className="border border-s112-border px-4 py-1.5 rounded-lg text-sm hover:bg-s112-bg">
           Drucken
         </button>
       </div>
 
       {/* ── Offizielles Formular ── */}
-      <div className="bg-white border border-gray-300 p-6 space-y-4 font-sans text-xs" id="pna-formular">
+      <div className="bg-white border border-s112-line-str p-6 space-y-4 font-sans text-xs" id="pna-formular">
 
         {/* Titel + Antragsnummer */}
-        <div className="flex justify-between items-start border-b border-gray-800 pb-3 mb-2">
+        <div className="flex justify-between items-start border-b border-s112-text pb-3 mb-2">
           <div>
-            <h1 className="text-base font-bold">Antrag auf Erteilung einer staatlichen Prüfnummer</h1>
-            <p className="text-[10px] text-gray-600">gemäß § 25 des Weingesetzes 2009</p>
-            <p className="text-[10px] text-gray-500 mt-1">Füllen Sie bitte diesen Antrag in BLOCKSCHRIFT aus. Zutreffendes bitte ankreuzen!</p>
+            <h1 className="text-base font-semibold">Antrag auf Erteilung einer staatlichen Prüfnummer</h1>
+            <p className="text-[10px] text-s112-text-2">gemäß § 25 des Weingesetzes 2009</p>
+            <p className="text-[10px] text-s112-text-2 mt-1">Füllen Sie bitte diesen Antrag in BLOCKSCHRIFT aus. Zutreffendes bitte ankreuzen!</p>
           </div>
           <div className="text-right space-y-1 min-w-[160px]">
             <Feld label="ANTRAGSNUMMER">
@@ -161,8 +161,8 @@ export default function PNAFormular({ dacAntragId, initial }: Props) {
         </div>
 
         {/* Antragsteller */}
-        <div className="space-y-2 border-b border-gray-300 pb-3">
-          <h2 className="font-bold text-xs">Antragsteller</h2>
+        <div className="space-y-2 border-b border-s112-line-str pb-3">
+          <h2 className="font-semibold text-xs">Antragsteller</h2>
           <div className="grid grid-cols-4 gap-1">
             <Feld label="Betriebsnummer">
               <input className={inputCls} value={d.betriebsnummer} onChange={e => set('betriebsnummer', e.target.value)} />
@@ -220,8 +220,8 @@ export default function PNAFormular({ dacAntragId, initial }: Props) {
         </div>
 
         {/* Aufbewahrungsort */}
-        <div className="space-y-2 border-b border-gray-300 pb-3">
-          <h2 className="font-bold text-xs">Aufbewahrungsort des Weines (wenn nicht wie oben)</h2>
+        <div className="space-y-2 border-b border-s112-line-str pb-3">
+          <h2 className="font-semibold text-xs">Aufbewahrungsort des Weines (wenn nicht wie oben)</h2>
           <div className="grid grid-cols-5 gap-1">
             <Feld label="Postleitzahl">
               <input className={inputCls} value={d.aufbew_plz} onChange={e => set('aufbew_plz', e.target.value)} />
@@ -240,8 +240,8 @@ export default function PNAFormular({ dacAntragId, initial }: Props) {
         </div>
 
         {/* Angaben über den Wein */}
-        <div className="space-y-2 border-b border-gray-300 pb-3">
-          <h2 className="font-bold text-xs">Angaben über den Wein</h2>
+        <div className="space-y-2 border-b border-s112-line-str pb-3">
+          <h2 className="font-semibold text-xs">Angaben über den Wein</h2>
           <div className="flex flex-wrap gap-4 items-end">
             <div>
               <span className={labelCls}>Farbe</span>
@@ -294,8 +294,8 @@ export default function PNAFormular({ dacAntragId, initial }: Props) {
         </div>
 
         {/* Bezeichnung des Weines */}
-        <div className="space-y-2 border-b border-gray-300 pb-3">
-          <h2 className="font-bold text-xs">Bezeichnung des Weines</h2>
+        <div className="space-y-2 border-b border-s112-line-str pb-3">
+          <h2 className="font-semibold text-xs">Bezeichnung des Weines</h2>
           <div className="grid grid-cols-5 gap-2">
             <Feld label="Qualitätsweinrebsorte(n)">
               <input className={inputCls} value={d.bez_rebsorte} onChange={e => set('bez_rebsorte', e.target.value)} />
@@ -340,30 +340,30 @@ export default function PNAFormular({ dacAntragId, initial }: Props) {
         </div>
 
         {/* Mostchargennummern */}
-        <div className="space-y-2 border-b border-gray-300 pb-3">
-          <h2 className="font-bold text-xs">Zugrundeliegende Mostchargennummern <span className="font-normal text-gray-500">(aus der Mostwägerbestätigung – nur bei Prädikatsweinen)</span></h2>
+        <div className="space-y-2 border-b border-s112-line-str pb-3">
+          <h2 className="font-semibold text-xs">Zugrundeliegende Mostchargennummern <span className="font-normal text-s112-text-2">(aus der Mostwägerbestätigung – nur bei Prädikatsweinen)</span></h2>
           <table className="w-full border-collapse text-[10px]">
             <thead>
-              <tr className="bg-gray-50 border border-gray-300">
-                <th className="border border-gray-300 px-2 py-1 text-left font-semibold">Betriebsnummer</th>
-                <th className="border border-gray-300 px-2 py-1 text-left font-semibold">Laufende Nummer</th>
-                <th className="border border-gray-300 px-2 py-1 text-left font-semibold">Jahr</th>
-                <th className="border border-gray-300 px-2 py-1 text-left font-semibold">Teilmengen in Liter</th>
+              <tr className="bg-s112-bg border border-s112-line-str">
+                <th className="border border-s112-line-str px-2 py-1 text-left font-semibold">Betriebsnummer</th>
+                <th className="border border-s112-line-str px-2 py-1 text-left font-semibold">Laufende Nummer</th>
+                <th className="border border-s112-line-str px-2 py-1 text-left font-semibold">Jahr</th>
+                <th className="border border-s112-line-str px-2 py-1 text-left font-semibold">Teilmengen in Liter</th>
               </tr>
             </thead>
             <tbody>
               {d.mostchargen.map((mc, i) => (
-                <tr key={i} className="border border-gray-200">
-                  <td className="border border-gray-300 p-0.5">
+                <tr key={i} className="border border-s112-line">
+                  <td className="border border-s112-line-str p-0.5">
                     <input className={inputCls} value={mc.betriebsnummer} onChange={e => setMC(i, 'betriebsnummer', e.target.value)} />
                   </td>
-                  <td className="border border-gray-300 p-0.5">
+                  <td className="border border-s112-line-str p-0.5">
                     <input className={inputCls} value={mc.laufende_nr} onChange={e => setMC(i, 'laufende_nr', e.target.value)} />
                   </td>
-                  <td className="border border-gray-300 p-0.5">
+                  <td className="border border-s112-line-str p-0.5">
                     <input className={inputCls} value={mc.jahr} onChange={e => setMC(i, 'jahr', e.target.value)} />
                   </td>
-                  <td className="border border-gray-300 p-0.5">
+                  <td className="border border-s112-line-str p-0.5">
                     <input className={inputCls} value={mc.teilmenge} onChange={e => setMC(i, 'teilmenge', e.target.value)} />
                   </td>
                 </tr>
@@ -376,12 +376,12 @@ export default function PNAFormular({ dacAntragId, initial }: Props) {
         <div className="flex justify-between items-end pt-2">
           <CB checked={d.versiegelungsverzicht} onChange={v => set('versiegelungsverzicht', v)} label="Versiegelungsverzicht 4. Probe" />
           <div className="w-80">
-            <div className="h-10 border-b border-gray-500 mb-1" />
-            <p className="text-[10px] text-gray-500 text-right">Datum, Unterschrift des Antragstellers (Verfügungsberechtigten)</p>
+            <div className="h-10 border-b border-s112-grey mb-1" />
+            <p className="text-[10px] text-s112-text-2 text-right">Datum, Unterschrift des Antragstellers (Verfügungsberechtigten)</p>
           </div>
         </div>
 
-        <p className="text-[9px] text-gray-400 text-center pt-1">
+        <p className="text-[9px] text-s112-tertiary text-center pt-1">
           Erstellt mittels software:112 (IC&amp;P Consultants) · Unrichtige Angaben ziehen den Verlust der Prüfnummer gemäß § 25 (9) Z. 1 nach sich!
         </p>
       </div>

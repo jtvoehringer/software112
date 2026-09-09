@@ -60,14 +60,14 @@ export default function KostenAuswertungPage() {
     <div className="p-6 max-w-5xl mx-auto space-y-5 print:p-0">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-s112-muted print:hidden">
-        <Link href="/reports" className="hover:text-s112-teal transition-colors">Auswertungen</Link>
+        <Link href="/reports" className="hover:text-s112-blue-700 transition-colors">Auswertungen</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Kosten-Auswertung</span>
+        <span className="text-s112-text-1 font-medium">Kosten-Auswertung</span>
       </div>
 
       <div className="flex items-center justify-between print:hidden">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Kosten-Auswertung</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Kosten-Auswertung</h1>
           <p className="text-sm text-s112-muted mt-0.5">Jahresübersicht nach Kostenstelle, Kostenart und Weingarten</p>
         </div>
         <div className="flex items-center gap-3">
@@ -88,20 +88,20 @@ export default function KostenAuswertungPage() {
 
       {/* Druckkopf */}
       <div className="hidden print:block mb-6">
-        <h1 className="text-2xl font-bold">Kosten-Auswertung {jahr}</h1>
-        <p className="text-sm text-gray-500">Gesamt: {eur(gesamt)}</p>
+        <h1 className="text-2xl font-semibold">Kosten-Auswertung {jahr}</h1>
+        <p className="text-sm text-s112-text-2">Gesamt: {eur(gesamt)}</p>
       </div>
 
       {/* KPI */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          ['Gesamtkosten', eur(gesamt), 'text-gray-900'],
-          ['Kostenstellen', String(new Set(daten.map(e=>e.kostenstelle?.name).filter(Boolean)).size), 'text-s112-teal'],
-          ['Buchungen', String(daten.length), 'text-s112-teal'],
+          ['Gesamtkosten', eur(gesamt), 'text-s112-text'],
+          ['Kostenstellen', String(new Set(daten.map(e=>e.kostenstelle?.name).filter(Boolean)).size), 'text-s112-blue-700'],
+          ['Buchungen', String(daten.length), 'text-s112-blue-700'],
         ].map(([label, val, cls]) => (
-          <div key={label} className="bg-white rounded-2xl border border-s112-border p-4 text-center">
+          <div key={label} className="bg-white rounded-xl border border-s112-border p-4 text-center">
             <p className="text-xs text-s112-muted mb-1">{label}</p>
-            <p className={`text-2xl font-bold ${cls}`}>{val}</p>
+            <p className={`text-2xl font-semibold ${cls}`}>{val}</p>
           </div>
         ))}
       </div>
@@ -112,11 +112,11 @@ export default function KostenAuswertungPage() {
           ['Nach Kostenstelle', (e: Eintrag) => e.kostenstelle?.name ?? '(keine)', (e: Eintrag) => e.betrag] as const,
           ['Nach Kostenart',    (e: Eintrag) => e.kostenart?.name    ?? '(keine)', (e: Eintrag) => e.betrag] as const,
         ]).map(([title, kFn, vFn]) => (
-          <div key={title} className="bg-white rounded-2xl border border-s112-border p-4">
-            <h3 className="text-sm font-semibold text-gray-800 mb-3 pb-2 border-b border-s112-border">{title}</h3>
+          <div key={title} className="bg-white rounded-xl border border-s112-border p-4">
+            <h3 className="text-sm font-semibold text-s112-text mb-3 pb-2 border-b border-s112-border">{title}</h3>
             {sumBy(daten, kFn, vFn).map(([n, s]) => (
               <div key={n} className="flex justify-between text-sm mb-2">
-                <span className="text-gray-600 truncate mr-2">{n}</span>
+                <span className="text-s112-text-2 truncate mr-2">{n}</span>
                 <span className="font-medium tabular-nums flex-shrink-0">{eur(s)}</span>
               </div>
             ))}
@@ -125,8 +125,8 @@ export default function KostenAuswertungPage() {
         ))}
 
         {/* Nach Weingarten */}
-        <div className="bg-white rounded-2xl border border-s112-border p-4">
-          <h3 className="text-sm font-semibold text-gray-800 mb-3 pb-2 border-b border-s112-border">Nach Ried</h3>
+        <div className="bg-white rounded-xl border border-s112-border p-4">
+          <h3 className="text-sm font-semibold text-s112-text mb-3 pb-2 border-b border-s112-border">Nach Ried</h3>
           {(() => {
             const m: Record<string, number> = {}
             splits.forEach(s => { const n = s.wg?.name ?? '?'; m[n] = (m[n]||0) + (s.betrag_anteil ?? 0) })
@@ -134,7 +134,7 @@ export default function KostenAuswertungPage() {
             if (ohneSplit.length > 0) m['Alle WG'] = (m['Alle WG']||0) + ohneSplit.reduce((s,e)=>s+e.betrag,0)
             return Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([n,s]) => (
               <div key={n} className="flex justify-between text-sm mb-2">
-                <span className="text-gray-600 truncate mr-2">{n}</span>
+                <span className="text-s112-text-2 truncate mr-2">{n}</span>
                 <span className="font-medium tabular-nums flex-shrink-0">{eur(s)}</span>
               </div>
             ))
@@ -144,8 +144,8 @@ export default function KostenAuswertungPage() {
       </div>
 
       {/* Monatsverlauf */}
-      <div className="bg-white rounded-2xl border border-s112-border p-5">
-        <h3 className="text-sm font-semibold text-gray-800 mb-4">Monatsverlauf {jahr}</h3>
+      <div className="bg-white rounded-xl border border-s112-border p-5">
+        <h3 className="text-sm font-semibold text-s112-text mb-4">Monatsverlauf {jahr}</h3>
         <div className="grid grid-cols-12 gap-2">
           {Array.from({length:12},(_,i)=>{
             const m = String(i+1).padStart(2,'0')
@@ -159,7 +159,7 @@ export default function KostenAuswertungPage() {
                   <div className="w-full bg-s112-teal rounded transition-all" style={{height:`${pct}%`}} title={eur(sum)} />
                 </div>
                 <span className="text-[10px] text-s112-muted">{monate[i]}</span>
-                {sum > 0 && <span className="text-[10px] font-medium text-gray-700">{sum >= 1000 ? `${(sum/1000).toFixed(1)}k` : Math.round(sum)}</span>}
+                {sum > 0 && <span className="text-[10px] font-medium text-s112-text-1">{sum >= 1000 ? `${(sum/1000).toFixed(1)}k` : Math.round(sum)}</span>}
               </div>
             )
           })}

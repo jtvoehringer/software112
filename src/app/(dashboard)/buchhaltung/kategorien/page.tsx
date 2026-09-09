@@ -29,27 +29,27 @@ export default async function KategorienPage() {
   const mandantKat  = (kategorien as R[])?.filter(k => k.tenant_id)  ?? []
 
   const typFarbe = (typ: string) =>
-    typ === 'einnahme' ? 'bg-green-100 text-green-700' :
-    typ === 'ausgabe'  ? 'bg-red-100 text-red-600' :
-    'bg-gray-100 text-gray-600'
+    typ === 'einnahme' ? 'bg-s112-ok-bg text-s112-ok-fg' :
+    typ === 'ausgabe'  ? 'bg-s112-err-bg text-s112-err-fg' :
+    'bg-[#F2F3F5] text-s112-text-2'
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-2">
-        <Link href="/buchhaltung" className="hover:text-s112-teal transition-colors">E&amp;A-Rechnung</Link>
+        <Link href="/buchhaltung" className="hover:text-s112-blue-700 transition-colors">E&amp;A-Rechnung</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Buchungskategorien</span>
+        <span className="text-s112-text-1 font-medium">Buchungskategorien</span>
       </div>
       <div className="flex items-center gap-3 mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Buchungskategorien</h1>
+        <h1 className="text-2xl font-semibold text-s112-text">Buchungskategorien</h1>
       </div>
 
       {/* Neue Kategorie */}
-      <div className="bg-white rounded-2xl border border-s112-border p-5 mb-6">
-        <h2 className="font-semibold text-gray-800 mb-4">Neue Kategorie anlegen</h2>
+      <div className="bg-white rounded-xl border border-s112-border p-5 mb-6">
+        <h2 className="font-semibold text-s112-text mb-4">Neue Kategorie anlegen</h2>
         <form action={async (fd: FormData) => { 'use server'; await createEaKategorie(fd) }} className="grid grid-cols-5 gap-3 items-end">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Typ *</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Typ *</label>
             <select name="typ" required
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
               <option value="einnahme">Einnahme</option>
@@ -58,17 +58,17 @@ export default async function KategorienPage() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Name *</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Name *</label>
             <input name="name" required placeholder="z.B. Hofverkauf"
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Konto-Nr. (EKR)</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Konto-Nr. (EKR)</label>
             <input name="konto_nr" type="number" placeholder="z.B. 4000"
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">USt-Satz</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">USt-Satz</label>
             <select name="ust_satz_std" defaultValue="20"
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
               <option value="0">0%</option>
@@ -78,10 +78,10 @@ export default async function KategorienPage() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Abzugsfähig %</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Abzugsfähig %</label>
             <input name="abzugsfaehig_pct" type="number" min="0" max="100" step="1" defaultValue={100}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" />
-            <p className="text-[10px] text-gray-400 mt-0.5">z.B. 50 bei Bewirtung/Repräsentation (§ 20 EStG)</p>
+            <p className="text-[10px] text-s112-tertiary mt-0.5">z.B. 50 bei Bewirtung/Repräsentation (§ 20 EStG)</p>
           </div>
           <div className="col-span-5 flex justify-end">
             <button type="submit"
@@ -94,33 +94,33 @@ export default async function KategorienPage() {
 
       {/* Eigene Kategorien */}
       {mandantKat.length > 0 && (
-        <div className="bg-white rounded-2xl border border-s112-border mb-4">
+        <div className="bg-white rounded-xl border border-s112-border mb-4">
           <div className="px-5 py-3 border-b border-s112-border">
-            <h2 className="font-semibold text-gray-800">Eigene Kategorien</h2>
+            <h2 className="font-semibold text-s112-text">Eigene Kategorien</h2>
           </div>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-s112-border bg-s112-bg">
-                <th className="text-left px-4 py-2 font-medium text-gray-600">Name</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-600">Typ</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-600">Konto</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-600">USt</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-600">Abzugsfähig</th>
+                <th className="text-left px-4 py-2 font-medium text-s112-text-2">Name</th>
+                <th className="text-left px-4 py-2 font-medium text-s112-text-2">Typ</th>
+                <th className="text-left px-4 py-2 font-medium text-s112-text-2">Konto</th>
+                <th className="text-left px-4 py-2 font-medium text-s112-text-2">USt</th>
+                <th className="text-left px-4 py-2 font-medium text-s112-text-2">Abzugsfähig</th>
               </tr>
             </thead>
             <tbody>
               {mandantKat.map((k: R) => (
                 <tr key={k.id} className="border-b border-s112-border/40">
-                  <td className="px-4 py-2.5 font-medium text-gray-800">{k.name}</td>
+                  <td className="px-4 py-2.5 font-medium text-s112-text">{k.name}</td>
                   <td className="px-4 py-2.5">
                     <span className={`text-xs px-2 py-0.5 rounded-full ${typFarbe(k.typ)}`}>{k.typ}</span>
                   </td>
-                  <td className="px-4 py-2.5 text-gray-500">{k.konto_nr ?? '–'}</td>
-                  <td className="px-4 py-2.5 text-gray-500">{k.ust_satz_std}%</td>
+                  <td className="px-4 py-2.5 text-s112-text-2">{k.konto_nr ?? '–'}</td>
+                  <td className="px-4 py-2.5 text-s112-text-2">{k.ust_satz_std}%</td>
                   <td className="px-4 py-2.5">
                     {Number(k.abzugsfaehig_pct) < 100
-                      ? <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">{k.abzugsfaehig_pct}%</span>
-                      : <span className="text-gray-400 text-xs">100%</span>}
+                      ? <span className="text-xs px-2 py-0.5 rounded-full bg-s112-warn-bg text-s112-warn-fg font-medium">{k.abzugsfaehig_pct}%</span>
+                      : <span className="text-s112-tertiary text-xs">100%</span>}
                   </td>
                 </tr>
               ))}
@@ -130,34 +130,34 @@ export default async function KategorienPage() {
       )}
 
       {/* Systemkategorien */}
-      <div className="bg-white rounded-2xl border border-s112-border">
+      <div className="bg-white rounded-xl border border-s112-border">
         <div className="px-5 py-3 border-b border-s112-border flex items-center justify-between">
-          <h2 className="font-semibold text-gray-800">Systemkategorien (österr. EKR)</h2>
+          <h2 className="font-semibold text-s112-text">Systemkategorien (österr. EKR)</h2>
           <span className="text-xs text-s112-muted">Nur Ansicht, nicht bearbeitbar</span>
         </div>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-s112-border bg-s112-bg">
-              <th className="text-left px-4 py-2 font-medium text-gray-600">Name</th>
-              <th className="text-left px-4 py-2 font-medium text-gray-600">Typ</th>
-              <th className="text-left px-4 py-2 font-medium text-gray-600">Konto</th>
-              <th className="text-left px-4 py-2 font-medium text-gray-600">USt</th>
-              <th className="text-left px-4 py-2 font-medium text-gray-600">Abzugsfähig</th>
+              <th className="text-left px-4 py-2 font-medium text-s112-text-2">Name</th>
+              <th className="text-left px-4 py-2 font-medium text-s112-text-2">Typ</th>
+              <th className="text-left px-4 py-2 font-medium text-s112-text-2">Konto</th>
+              <th className="text-left px-4 py-2 font-medium text-s112-text-2">USt</th>
+              <th className="text-left px-4 py-2 font-medium text-s112-text-2">Abzugsfähig</th>
             </tr>
           </thead>
           <tbody>
             {systemKat.map((k: R) => (
               <tr key={k.id} className="border-b border-s112-border/40 hover:bg-s112-bg/40">
-                <td className="px-4 py-2 text-gray-700">{k.name}</td>
+                <td className="px-4 py-2 text-s112-text-1">{k.name}</td>
                 <td className="px-4 py-2">
                   <span className={`text-xs px-2 py-0.5 rounded-full ${typFarbe(k.typ)}`}>{k.typ}</span>
                 </td>
-                <td className="px-4 py-2 text-gray-500">{k.konto_nr ?? '–'}</td>
-                <td className="px-4 py-2 text-gray-500">{k.ust_satz_std}%</td>
+                <td className="px-4 py-2 text-s112-text-2">{k.konto_nr ?? '–'}</td>
+                <td className="px-4 py-2 text-s112-text-2">{k.ust_satz_std}%</td>
                 <td className="px-4 py-2">
                   {Number(k.abzugsfaehig_pct) < 100
-                    ? <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">{k.abzugsfaehig_pct}%</span>
-                    : <span className="text-gray-400 text-xs">100%</span>}
+                    ? <span className="text-xs px-2 py-0.5 rounded-full bg-s112-warn-bg text-s112-warn-fg font-medium">{k.abzugsfaehig_pct}%</span>
+                    : <span className="text-s112-tertiary text-xs">100%</span>}
                 </td>
               </tr>
             ))}

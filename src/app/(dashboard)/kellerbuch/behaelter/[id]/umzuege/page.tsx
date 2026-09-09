@@ -119,19 +119,19 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
     <div className="max-w-4xl space-y-6">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/kellerbuch" className="hover:text-s112-teal transition-colors">Kellerbuch</Link>
+        <Link href="/kellerbuch" className="hover:text-s112-blue-700 transition-colors">Kellerbuch</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">{bh.name}</span>
+        <span className="text-s112-text-1 font-medium">{bh.name}</span>
         <span>/</span>
-        <span className="text-gray-500">Umzüge</span>
+        <span className="text-s112-text-2">Umzüge</span>
       </div>
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-start gap-3">
-          <Boxes className="w-7 h-7 text-s112-teal mt-0.5" />
+          <Boxes className="w-7 h-7 text-s112-blue-700 mt-0.5" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{bh.name}</h1>
+            <h1 className="text-2xl font-semibold text-s112-text">{bh.name}</h1>
             <div className="flex items-center gap-3 mt-0.5 flex-wrap text-xs text-s112-muted">
               {bh.standort && <span>{bh.standort}</span>}
               {bh.volumen_liter && <span>{fmtLiter(parseFloat(bh.volumen_liter))} Kapazität</span>}
@@ -139,7 +139,7 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
           </div>
         </div>
         <Link href="/kellerbuch/umziehen?neu=1"
-          className="text-xs border border-s112-teal text-s112-teal px-3 py-1.5 rounded-lg hover:bg-s112-teal/5 font-medium">
+          className="text-xs border border-s112-teal text-s112-blue-700 px-3 py-1.5 rounded-lg hover:bg-s112-teal/5 font-medium">
           Neuer Umzug
         </Link>
       </div>
@@ -147,14 +147,14 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
       {/* Tabs */}
       <div className="flex gap-1 border-b border-s112-border">
         <Link href={`/kellerbuch/behaelter/${id}/bewegungen`}
-          className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300 -mb-px transition-colors">
+          className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-s112-text-1 border-b-2 border-transparent hover:border-s112-line-str -mb-px transition-colors">
           Bewegungsbuch
         </Link>
-        <span className="px-4 py-2 text-sm font-medium text-s112-teal border-b-2 border-s112-teal -mb-px">
+        <span className="px-4 py-2 text-sm font-medium text-s112-blue-700 border-b-2 border-s112-teal -mb-px">
           Umziehen
         </span>
         <Link href={`/kellerbuch/behaelter/${id}/behandlungen`}
-          className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300 -mb-px transition-colors">
+          className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-s112-text-1 border-b-2 border-transparent hover:border-s112-line-str -mb-px transition-colors">
           Kellerbehandlungen
         </Link>
       </div>
@@ -164,7 +164,7 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
         <div className="card text-center py-10">
           <p className="text-sm text-s112-muted">Noch keine Umzüge für diesen Behälter</p>
           <Link href="/kellerbuch/umziehen?neu=1"
-            className="mt-3 inline-block text-xs text-s112-teal font-semibold hover:underline">
+            className="mt-3 inline-block text-xs text-s112-blue-700 font-semibold hover:underline">
             → Zum Umziehen-Formular
           </Link>
         </div>
@@ -173,13 +173,13 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-s112-bg border-b border-s112-border">
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Datum</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Art</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Von</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Nach</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Brutto</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Netto</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Schwund</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Datum</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Art</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Von</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Nach</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Brutto</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Netto</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Schwund</th>
               </tr>
             </thead>
             <tbody>
@@ -195,14 +195,14 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
                 const istFilt    = u.umzug_typ === 'filtration'
                 const istSchwund = u.umzug_typ === 'schwund'
                 const artBadge = istSchwund
-                  ? { cls: 'bg-amber-100 text-amber-700', label: 'Schwund' }
+                  ? { cls: 'bg-s112-warn-bg text-s112-warn-fg', label: 'Schwund' }
                   : istFilt
-                    ? { cls: 'bg-blue-100 text-blue-700', label: 'Filtration' }
-                    : { cls: 'bg-gray-100 text-gray-600', label: 'Umzug' }
+                    ? { cls: 'bg-s112-blue-100 text-s112-blue-700', label: 'Filtration' }
+                    : { cls: 'bg-[#F2F3F5] text-s112-text-2', label: 'Umzug' }
                 return (
                   <tr key={u.id}
-                    className={`border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40 ${istQuelle ? 'bg-red-50/20' : 'bg-green-50/20'}`}>
-                    <td className="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">
+                    className={`border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40 ${istQuelle ? 'bg-s112-err-bg/20' : 'bg-s112-ok-bg/20'}`}>
+                    <td className="px-4 py-2.5 text-xs text-s112-text-2 whitespace-nowrap">
                       {new Date(u.datum).toLocaleDateString('de-AT')}
                     </td>
                     <td className="px-4 py-2.5">
@@ -211,16 +211,16 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
                       </span>
                     </td>
                     <td className="px-4 py-2.5">
-                      <p className={`text-sm ${istQuelle ? 'font-semibold text-s112-teal' : 'text-gray-600'}`}>{vonBeh}</p>
+                      <p className={`text-sm ${istQuelle ? 'font-semibold text-s112-blue-700' : 'text-s112-text-2'}`}>{vonBeh}</p>
                       {vonCharge && <p className="text-xs text-s112-muted">{vonCharge}</p>}
                     </td>
                     <td className="px-4 py-2.5">
-                      <p className={`text-sm ${!istQuelle ? 'font-semibold text-s112-teal' : 'text-gray-600'}`}>{nachBeh}</p>
+                      <p className={`text-sm ${!istQuelle ? 'font-semibold text-s112-blue-700' : 'text-s112-text-2'}`}>{nachBeh}</p>
                       {nachCharge && <p className="text-xs text-s112-muted">{nachCharge}</p>}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-700 text-xs">{fmt(brutto)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-gray-800">{fmt(netto)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-amber-600 text-xs">
+                    <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-1 text-xs">{fmt(brutto)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-s112-text">{fmt(netto)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-s112-warn-fg text-xs">
                       {schwund > 0 ? fmt(schwund) : '–'}
                     </td>
                   </tr>

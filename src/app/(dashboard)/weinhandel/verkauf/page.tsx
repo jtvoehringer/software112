@@ -74,7 +74,7 @@ export default async function VerkaufPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Verkauf</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Verkauf</h1>
           <p className="text-sm text-s112-muted mt-0.5">Verkaufsvorgänge &amp; Rechnungen</p>
         </div>
         {writeOk && (
@@ -91,14 +91,14 @@ export default async function VerkaufPage() {
       <div className="grid grid-cols-2 gap-4">
         <div className="card p-5">
           <p className="text-xs text-s112-muted">{monatName}</p>
-          <p className="text-2xl font-bold text-s112-teal mt-1 tabular-nums">
+          <p className="text-2xl font-semibold text-s112-blue-700 mt-1 tabular-nums">
             {monatUmsatz.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
           </p>
           <p className="text-xs text-s112-muted mt-0.5">{monatPosten.length} {monatPosten.length === 1 ? 'Vorgang' : 'Vorgänge'}</p>
         </div>
         <div className="card p-5">
           <p className="text-xs text-s112-muted">Gesamt (aktive)</p>
-          <p className="text-2xl font-bold text-gray-800 mt-1 tabular-nums">
+          <p className="text-2xl font-semibold text-s112-text mt-1 tabular-nums">
             {gesamtUmsatz.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
           </p>
           <p className="text-xs text-s112-muted mt-0.5">{posten.length} {posten.length === 1 ? 'Vorgang' : 'Vorgänge'}</p>
@@ -110,7 +110,7 @@ export default async function VerkaufPage() {
         <div className="card text-center py-12">
           <p className="text-sm text-s112-muted">Noch keine Verkäufe erfasst.</p>
           {writeOk && (
-            <Link href="/weinhandel/verkauf/neu" className="mt-3 inline-block text-sm text-s112-teal hover:underline">
+            <Link href="/weinhandel/verkauf/neu" className="mt-3 inline-block text-sm text-s112-blue-700 hover:underline">
               Ersten Verkauf anlegen →
             </Link>
           )}
@@ -120,12 +120,12 @@ export default async function VerkaufPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-s112-bg border-b border-s112-border">
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Datum</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Belegnr.</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Kunde</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Status</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Positionen</th>
-                <th className="text-right px-4 py-3 font-semibold text-gray-700">Summe</th>
+                <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Datum</th>
+                <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Belegnr.</th>
+                <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Kunde</th>
+                <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Status</th>
+                <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Positionen</th>
+                <th className="text-right px-4 py-3 font-semibold text-s112-text-1">Summe</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -140,23 +140,23 @@ export default async function VerkaufPage() {
                       {new Date(p.datum).toLocaleDateString('de-AT')}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-mono text-xs text-gray-700">{p.rechnungsnummer ?? <span className="text-s112-muted">–</span>}</div>
+                      <div className="font-mono text-xs text-s112-text-1">{p.rechnungsnummer ?? <span className="text-s112-muted">–</span>}</div>
                       {p.transaktions_nr && <div className="font-mono text-xs text-s112-muted mt-0.5">{p.transaktions_nr}</div>}
                     </td>
-                    <td className="px-4 py-3 font-medium text-gray-900">{kundenName(p)}</td>
+                    <td className="px-4 py-3 font-medium text-s112-text">{kundenName(p)}</td>
                     <td className="px-4 py-3">
                       {p.storniert
-                        ? <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Storniert</span>
+                        ? <span className="text-xs px-2 py-0.5 rounded-full bg-s112-err-bg text-s112-err-fg font-medium">Storniert</span>
                         : p.bezahlt
-                          ? <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Bezahlt</span>
-                          : <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Offen</span>
+                          ? <span className="text-xs px-2 py-0.5 rounded-full bg-s112-ok-bg text-s112-ok-fg font-medium">Bezahlt</span>
+                          : <span className="text-xs px-2 py-0.5 rounded-full bg-s112-warn-bg text-s112-warn-fg font-medium">Offen</span>
                       }
                     </td>
                     <td className="px-4 py-3 text-s112-muted text-xs">
                       {posCount} Position{posCount !== 1 ? 'en' : ''}
-                      {hasTank && <span className="ml-2 bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-xs">Tank</span>}
+                      {hasTank && <span className="ml-2 bg-s112-blue-100 text-s112-blue-700 px-1.5 py-0.5 rounded text-xs">Tank</span>}
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold text-s112-teal tabular-nums">
+                    <td className="px-4 py-3 text-right font-semibold text-s112-blue-700 tabular-nums">
                       {summe > 0
                         ? summe.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
                         : <span className="text-s112-muted font-normal">–</span>}
@@ -165,7 +165,7 @@ export default async function VerkaufPage() {
                       <StopPropagation>
                         <Link
                           href={`/weinhandel/verkauf/${p.id}`}
-                          className="text-xs text-s112-teal hover:underline"
+                          className="text-xs text-s112-blue-700 hover:underline"
                         >
                           Details →
                         </Link>

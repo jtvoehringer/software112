@@ -72,7 +72,7 @@ export default async function PreislisteDetailPage({ params }: { params: Promise
   const fuellungen = (fuellungenRaw ?? []) as R[]
 
   const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
-  const labelCls = 'block text-xs font-medium text-gray-600 mb-1'
+  const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
   const updateWithId = updatePreisliste.bind(null, id)
   const deactivateWithId = deactivatePreisliste.bind(null, id)
@@ -96,9 +96,9 @@ export default async function PreislisteDetailPage({ params }: { params: Promise
       {/* Breadcrumb */}
       <div className="flex items-center justify-between no-print">
         <nav className="flex items-center gap-2 text-sm text-s112-muted">
-          <Link href="/weinhandel/preisliste" className="hover:text-s112-teal">Preislisten</Link>
+          <Link href="/weinhandel/preisliste" className="hover:text-s112-blue-700">Preislisten</Link>
           <span>/</span>
-          <span className="text-gray-800 font-medium">{pl.name}</span>
+          <span className="text-s112-text font-medium">{pl.name}</span>
         </nav>
         <div className="flex items-center gap-2">
           <PrintButton />
@@ -109,7 +109,7 @@ export default async function PreislisteDetailPage({ params }: { params: Promise
       <div className="card p-5">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">{pl.name}</h1>
+            <h1 className="text-xl font-semibold text-s112-text">{pl.name}</h1>
             {pl.beschreibung && <p className="text-sm text-s112-muted mt-0.5">{pl.beschreibung}</p>}
             <div className="flex gap-4 mt-2 text-xs text-s112-muted">
               {pl.gueltig_von && <span>ab {new Date(pl.gueltig_von).toLocaleDateString('de-AT')}</span>}
@@ -124,7 +124,7 @@ export default async function PreislisteDetailPage({ params }: { params: Promise
                 message="Preisliste wirklich löschen?"
                 label={<Trash2 size={16} />}
                 title="Löschen"
-                className="text-red-500 hover:text-red-700"
+                className="text-s112-err hover:text-s112-err-fg"
               />
             </div>
           )}
@@ -133,7 +133,7 @@ export default async function PreislisteDetailPage({ params }: { params: Promise
         {/* Kopf bearbeiten */}
         {writeOk && (
           <details className="no-print">
-            <summary className="text-xs text-s112-teal cursor-pointer hover:underline">Kopfdaten bearbeiten</summary>
+            <summary className="text-xs text-s112-blue-700 cursor-pointer hover:underline">Kopfdaten bearbeiten</summary>
             <form action={updateWithId} className="mt-3 grid grid-cols-2 gap-3">
               <div className="col-span-2">
                 <label className={labelCls}>Name</label>
@@ -165,9 +165,9 @@ export default async function PreislisteDetailPage({ params }: { params: Promise
       <div className="card p-0 overflow-hidden">
         {/* Print-Kopf */}
         <div className="print-only px-6 pt-5 pb-3 border-b">
-          <h2 className="text-lg font-bold">{pl.name}</h2>
+          <h2 className="text-lg font-semibold">{pl.name}</h2>
           {pl.gueltig_von && pl.gueltig_bis && (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-s112-text-2">
               Gültig {new Date(pl.gueltig_von).toLocaleDateString('de-AT')} –{' '}
               {new Date(pl.gueltig_bis).toLocaleDateString('de-AT')}
             </p>
@@ -177,9 +177,9 @@ export default async function PreislisteDetailPage({ params }: { params: Promise
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-s112-bg border-b border-s112-border">
-              <th className="text-left px-4 py-3 font-semibold text-gray-700">Produkt</th>
-              <th className="text-left px-4 py-3 font-semibold text-gray-700">Einheit</th>
-              <th className="text-right px-4 py-3 font-semibold text-gray-700">Preis (brutto)</th>
+              <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Produkt</th>
+              <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Einheit</th>
+              <th className="text-right px-4 py-3 font-semibold text-s112-text-1">Preis (brutto)</th>
               {writeOk && <th className="no-print px-4 py-3" />}
             </tr>
           </thead>
@@ -195,7 +195,7 @@ export default async function PreislisteDetailPage({ params }: { params: Promise
               return (
                 <tr key={pos.id} className={`border-b border-s112-border last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
                   <td className="px-4 py-3">
-                    <div className="font-medium text-gray-900">{pos.name}</div>
+                    <div className="font-medium text-s112-text">{pos.name}</div>
                     <div className="text-xs text-s112-muted flex gap-2 mt-0.5">
                       {pos.jahrgang    && <span>{pos.jahrgang}</span>}
                       {pos.rebsorte    && <span>{formatRebsorteMitKuerzel(pos.rebsorte)}</span>}
@@ -205,7 +205,7 @@ export default async function PreislisteDetailPage({ params }: { params: Promise
                     </div>
                   </td>
                   <td className="px-4 py-3 text-s112-muted">{pos.einheit}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-s112-teal tabular-nums">
+                  <td className="px-4 py-3 text-right font-semibold text-s112-blue-700 tabular-nums">
                     {pos.preis_brutto != null
                       ? Number(pos.preis_brutto).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
                       : <span className="text-s112-muted font-normal">–</span>}
@@ -217,7 +217,7 @@ export default async function PreislisteDetailPage({ params }: { params: Promise
                         message="Position löschen?"
                         label={<Trash2 size={16} />}
                         title="Löschen"
-                        className="text-red-400 hover:text-red-600"
+                        className="text-s112-err hover:text-s112-err-fg"
                       />
                     </td>
                   )}
@@ -228,7 +228,7 @@ export default async function PreislisteDetailPage({ params }: { params: Promise
         </table>
 
         {/* MwSt.-Hinweis im Druck */}
-        <div className="print-only px-4 py-3 text-xs text-gray-400 text-right border-t">
+        <div className="print-only px-4 py-3 text-xs text-s112-tertiary text-right border-t">
           Alle Preise in EUR inkl. 13% MwSt.
         </div>
       </div>
@@ -236,7 +236,7 @@ export default async function PreislisteDetailPage({ params }: { params: Promise
       {/* Position hinzufügen */}
       {writeOk && (
         <section className="card p-5 no-print">
-          <h2 className="font-semibold text-gray-700 text-sm mb-4">Position hinzufügen</h2>
+          <h2 className="font-semibold text-s112-text-1 text-sm mb-4">Position hinzufügen</h2>
           <form action={createPosWithId} className="space-y-3">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {/* Aus Füllung übernehmen */}

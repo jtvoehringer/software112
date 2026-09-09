@@ -43,7 +43,7 @@ export default function RechnungVersandPanel({
   return (
     <>
       {sentAt && (
-        <span className="inline-flex items-center gap-1 text-xs font-medium bg-s112-bg text-s112-teal px-2.5 py-1 rounded-full no-print">
+        <span className="inline-flex items-center gap-1 text-xs font-medium bg-s112-bg text-s112-blue-700 px-2.5 py-1 rounded-full no-print">
           <Mail size={12} />
           Versendet am {new Date(sentAt).toLocaleDateString('de-AT')}{sentTo ? ` an ${sentTo}` : ''}
         </span>
@@ -52,7 +52,7 @@ export default function RechnungVersandPanel({
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-s112-teal bg-white border border-s112-border hover:bg-s112-bg px-2.5 py-1.5 rounded-lg transition-colors no-print"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-s112-blue-700 bg-white border border-s112-border hover:bg-s112-bg px-2.5 py-1.5 rounded-lg transition-colors no-print"
         >
           <Mail size={14} /> Per E-Mail senden
         </button>
@@ -60,26 +60,26 @@ export default function RechnungVersandPanel({
 
       {open && (
         <div className="card p-5 space-y-3 no-print w-full">
-          <p className="text-sm font-semibold text-gray-800">Rechnung per E-Mail senden</p>
+          <p className="text-sm font-semibold text-s112-text">Rechnung per E-Mail senden</p>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Empfänger-E-Mail-Adresse</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Empfänger-E-Mail-Adresse</label>
             <input type="email" value={to} onChange={e => setTo(e.target.value)}
               placeholder="kunde@beispiel.at" className="form-input text-sm w-full" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Nachricht (optional)</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Nachricht (optional)</label>
             <textarea rows={2} value={message} onChange={e => setMessage(e.target.value)}
               placeholder="z.B. anbei erhalten Sie die Rechnung wie besprochen."
               className="form-input text-sm w-full resize-none" />
           </div>
-          {error && <p className="text-red-600 text-sm bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+          {error && <p className="text-s112-err-fg text-sm bg-s112-err-bg px-3 py-2 rounded-lg">{error}</p>}
           <div className="flex gap-2">
             <button onClick={handleSend} disabled={sending}
               className="bg-s112-teal text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
               {sending ? 'Wird gesendet…' : 'Senden'}
             </button>
             <button onClick={() => { setOpen(false); setError('') }}
-              className="px-4 py-2 text-sm text-s112-muted hover:text-gray-700">
+              className="px-4 py-2 text-sm text-s112-muted hover:text-s112-text-1">
               Abbrechen
             </button>
           </div>

@@ -243,7 +243,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
   const sumKg  = verkaufe.reduce((s, v) => s + Number(v.menge_kg ?? 0), 0)
   const sumEur = verkaufe.reduce((s, v) => v.preis_per_kg != null ? s + Number(v.menge_kg) * Number(v.preis_per_kg) : s, 0)
   const inp = 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
-  const btnToggle = (active: boolean) => `px-3 py-1 text-xs rounded-lg font-medium transition-colors ${active ? 'bg-s112-teal text-white' : 'bg-s112-bg border border-s112-border text-gray-600 hover:border-s112-teal'}`
+  const btnToggle = (active: boolean) => `px-3 py-1 text-xs rounded-lg font-medium transition-colors ${active ? 'bg-s112-teal text-white' : 'bg-s112-bg border border-s112-border text-s112-text-2 hover:border-s112-teal'}`
 
   return (
     <div className={`space-y-6 ${isPending ? 'opacity-60 pointer-events-none' : ''}`}>
@@ -255,7 +255,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
             <>
               <span className="text-sm text-s112-muted">{sumKg.toLocaleString('de-AT')} kg gesamt</span>
               {sumEur > 0 && (
-                <span className="text-sm font-semibold text-gray-800">
+                <span className="text-sm font-semibold text-s112-text">
                   {'·'} {'€'} {sumEur.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               )}
@@ -264,7 +264,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
         </div>
         <div className="flex items-center gap-3">
           {verkaufe.length > 0 && (
-            <button onClick={handleCSV} className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium px-3 py-1.5 rounded-lg transition-colors">
+            <button onClick={handleCSV} className="text-xs bg-[#F2F3F5] hover:bg-s112-line text-s112-text-2 font-medium px-3 py-1.5 rounded-lg transition-colors">
               CSV exportieren
             </button>
           )}
@@ -279,11 +279,11 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
       {/* Formular */}
       {showForm && writeOk && (
         <div className="card border-2 border-s112-teal/30">
-          <h2 className="text-sm font-semibold text-gray-800 mb-4">
+          <h2 className="text-sm font-semibold text-s112-text mb-4">
             {editRow ? 'Traubenverkauf bearbeiten' : 'Neuer Traubenverkauf'}
           </h2>
           {error && (
-            <div className="mb-3 bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-xs">
+            <div className="mb-3 bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-3 py-2 text-xs">
               {error}
             </div>
           )}
@@ -295,7 +295,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
 
             {/* Quelle */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-2">Quelle</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-2">Quelle</label>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setQuelle('ernte')} className={btnToggle(quelle === 'ernte')}>
                   Eigene Ernte
@@ -308,7 +308,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
 
             {quelle === 'zukauf' ? (
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Zukauf-Posten *</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Zukauf-Posten *</label>
                 <select value={zukaufId} onChange={e => handleZukaufChange(e.target.value)} required className={inp}>
                   <option value="">– Zukauf wählen –</option>
                   {zukaufOptions.map(z => (
@@ -319,11 +319,11 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
                   ))}
                 </select>
                 {zukaufOptions.length === 0 && (
-                  <p className="text-xs text-amber-600 mt-1">Keine zugekauften Trauben vorhanden.</p>
+                  <p className="text-xs text-s112-warn-fg mt-1">Keine zugekauften Trauben vorhanden.</p>
                 )}
                 {zukaufId && (
                   <p className="text-xs text-s112-muted mt-1">
-                    Verfügbar: <span className="font-medium text-gray-700">{verfuegbarZukauf(zukaufId).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg</span>
+                    Verfügbar: <span className="font-medium text-s112-text-1">{verfuegbarZukauf(zukaufId).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg</span>
                   </p>
                 )}
               </div>
@@ -332,24 +332,24 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
 
               {/* Ried */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Ried *</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Ried *</label>
                 <select value={wgId} onChange={e => handleWgChange(e.target.value)} required className={inp}>
                   <option value="">– Ried wählen –</option>
                   {wgList.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
                 {ernteOptions.length === 0 && (
-                  <p className="text-xs text-amber-600 mt-1">Noch keine Ernte vorhanden.</p>
+                  <p className="text-xs text-s112-warn-fg mt-1">Noch keine Ernte vorhanden.</p>
                 )}
                 {wgId && (
                   <p className="text-xs text-s112-muted mt-1">
-                    Verfügbar: <span className="font-medium text-gray-700">{verfuegbareKgByWG(wgId).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg</span>
+                    Verfügbar: <span className="font-medium text-s112-text-1">{verfuegbareKgByWG(wgId).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg</span>
                   </p>
                 )}
               </div>
 
               {/* GST */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Grundstück (GST)</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Grundstück (GST)</label>
                 <select value={gstId} onChange={e => handleGstChange(e.target.value)} disabled={!wgId || gstList.length === 0} className={inp}>
                   <option value="">– gesamt (alle GST) –</option>
                   {gstList.map(g => (
@@ -360,7 +360,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
                 </select>
                 {gstId && (
                   <p className="text-xs text-s112-muted mt-1">
-                    Verfügbar: <span className="font-medium text-gray-700">{verfuegbareKgByGST(gstId).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg</span>
+                    Verfügbar: <span className="font-medium text-s112-text-1">{verfuegbareKgByGST(gstId).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg</span>
                   </p>
                 )}
               </div>
@@ -371,14 +371,14 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
               {/* Jahrgang (abgeleitet) */}
               {jahrgangNr && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Jahrgang (abgeleitet)</label>
-                  <div className={inp + ' bg-s112-bg text-gray-500 cursor-not-allowed'}>{jahrgangNr}</div>
+                  <label className="block text-xs font-medium text-s112-text-2 mb-1">Jahrgang (abgeleitet)</label>
+                  <div className={inp + ' bg-s112-bg text-s112-text-2 cursor-not-allowed'}>{jahrgangNr}</div>
                 </div>
               )}
 
               {/* Lieferdatum */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Lieferdatum *</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Lieferdatum *</label>
                 <input name="datum" type="date" required
                   defaultValue={editRow?.datum ?? new Date().toISOString().split('T')[0]}
                   className={inp} />
@@ -386,21 +386,21 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
 
               {/* Menge */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Menge (kg) *</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge (kg) *</label>
                 <input name="menge_kg" type="text" inputMode="decimal" required
                   defaultValue={editRow?.menge_kg ?? ''} placeholder="z.B. 1.250" className={inp} />
               </div>
 
               {/* Preis */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Preis (EUR/kg)</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Preis (EUR/kg)</label>
                 <input name="preis_per_kg" type="text" inputMode="decimal"
                   defaultValue={editRow?.preis_per_kg ?? ''} placeholder="z.B. 0,65" className={inp} />
               </div>
 
               {/* KMW */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">KMW Grad</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">KMW Grad</label>
                 <input name="klosterneuburger" type="text" inputMode="decimal"
                   value={kmw} onChange={e => setKmw(e.target.value)}
                   placeholder="z.B. 17,5" className={inp} />
@@ -408,7 +408,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
 
               {/* Qualität */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Qualitätsstufe</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Qualitätsstufe</label>
                 <select name="qualitaetsstufe" value={qualitaet} onChange={e => setQualitaet(e.target.value)} className={inp}>
                   <option value="">– keine –</option>
                   {QUALITAETEN.map(q => <option key={q.value} value={q.value}>{q.label}</option>)}
@@ -417,7 +417,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
 
               {/* Gesundheit */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Traubengesundheit</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Traubengesundheit</label>
                 <select name="gesundheit" defaultValue={editRow?.gesundheit ?? 'G'} className={inp}>
                   <option value="G">G – Gut (Standard)</option>
                   <option value="K">K – Krank / beschädigt</option>
@@ -427,8 +427,8 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
               {/* Herkunft-Code */}
               {herkunft && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Herkunft-Code (BKI)</label>
-                  <div className={inp + ' bg-s112-bg text-gray-500 cursor-not-allowed'}>{herkunft}</div>
+                  <label className="block text-xs font-medium text-s112-text-2 mb-1">Herkunft-Code (BKI)</label>
+                  <div className={inp + ' bg-s112-bg text-s112-text-2 cursor-not-allowed'}>{herkunft}</div>
                 </div>
               )}
 
@@ -436,7 +436,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
 
             {/* Käufer */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-2">Käufer</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-2">Käufer</label>
               <div className="flex gap-2 mb-2">
                 <button type="button" onClick={() => setKaeuferTyp('firma')} className={btnToggle(kaeuferTyp === 'firma')}>
                   Firma
@@ -468,7 +468,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
 
             {/* Notizen */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
               <input name="notizen" type="text" defaultValue={editRow?.notizen ?? ''} placeholder="optional" className={inp} />
             </div>
 
@@ -478,7 +478,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
                 {isPending ? 'Speichert…' : 'Speichern'}
               </button>
               <button type="button" onClick={() => { setShowForm(false); setEditRow(null) }}
-                className="px-4 py-1.5 text-sm text-gray-600 hover:text-gray-800">
+                className="px-4 py-1.5 text-sm text-s112-text-2 hover:text-s112-text">
                 Abbrechen
               </button>
             </div>
@@ -512,12 +512,12 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
               <div key={v.id} className="group card">
                 {deleteConfirm === v.id ? (
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-red-700 font-medium">Traubenverkauf wirklich löschen?</p>
+                    <p className="text-sm text-s112-err-fg font-medium">Traubenverkauf wirklich löschen?</p>
                     <div className="flex gap-2">
-                      <button onClick={() => handleDelete(v.id)} className="text-xs bg-red-600 text-white px-3 py-1 rounded-lg hover:bg-red-700">
+                      <button onClick={() => handleDelete(v.id)} className="text-xs bg-s112-err text-white px-3 py-1 rounded-lg hover:bg-s112-err-fg">
                         Ja, löschen
                       </button>
-                      <button onClick={() => setDeleteConfirm(null)} className="text-xs text-gray-600 px-3 py-1 rounded-lg hover:bg-gray-100">
+                      <button onClick={() => setDeleteConfirm(null)} className="text-xs text-s112-text-2 px-3 py-1 rounded-lg hover:bg-[#F2F3F5]">
                         Abbrechen
                       </button>
                     </div>
@@ -527,12 +527,12 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         {v.liefernummer && (
-                          <span className="font-mono text-xs bg-s112-teal/10 text-s112-teal px-2 py-0.5 rounded-full font-semibold">
+                          <span className="font-mono text-xs bg-s112-teal/10 text-s112-blue-700 px-2 py-0.5 rounded-full font-semibold">
                             {v.liefernummer}
                           </span>
                         )}
-                        <span className="font-medium text-gray-800 text-sm">{fmtDate(v.datum)}</span>
-                        <span className="text-sm text-gray-700">{'·'} {quelleLabel}</span>
+                        <span className="font-medium text-s112-text text-sm">{fmtDate(v.datum)}</span>
+                        <span className="text-sm text-s112-text-1">{'·'} {quelleLabel}</span>
                         {gst && (
                           <span className="text-xs font-mono text-s112-muted bg-s112-bg px-1.5 py-0.5 rounded">
                             GST {gst.gst_nr}
@@ -540,17 +540,17 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
                         )}
                         {jg && <span className="text-xs text-s112-muted">JG {jg.jahrgang}</span>}
                         {v.gesundheit === 'K' && (
-                          <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">
+                          <span className="text-xs bg-s112-warn-bg text-s112-warn-fg px-2 py-0.5 rounded-full font-medium">
                             K {'–'} Krank
                           </span>
                         )}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-s112-muted flex-wrap">
-                        <span className="font-semibold text-gray-700">{fmt(v.menge_kg, 0)} kg</span>
+                        <span className="font-semibold text-s112-text-1">{fmt(v.menge_kg, 0)} kg</span>
                         {v.preis_per_kg != null && (
                           <span>
                             {'·'} EUR {fmt(v.preis_per_kg)}/kg{' '}
-                            <span className="font-medium text-gray-700">
+                            <span className="font-medium text-s112-text-1">
                               = EUR {fmt(Number(v.menge_kg) * Number(v.preis_per_kg), 2)}
                             </span>
                           </span>
@@ -564,10 +564,10 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
                     </div>
                     {writeOk && (
                       <div className="flex items-center gap-2 shrink-0 text-xs">
-                        <button onClick={() => openEdit(v)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-teal hover:text-s112-teal/70">
+                        <button onClick={() => openEdit(v)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-blue-700 hover:text-s112-blue-700/70">
                           <Pencil className="w-4 h-4" />
                         </button>
-                        <button onClick={() => setDeleteConfirm(v.id)} title="Löschen" aria-label="Löschen" className="text-red-400 hover:text-red-600">
+                        <button onClick={() => setDeleteConfirm(v.id)} title="Löschen" aria-label="Löschen" className="text-s112-err hover:text-s112-err-fg">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>

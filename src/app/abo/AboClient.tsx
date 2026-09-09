@@ -138,15 +138,15 @@ export default function AboClient({
   function BuchhaltungsWahl({ wert, onChange }: { wert: Buchhaltungsart | ''; onChange: (a: Buchhaltungsart) => void }) {
     return (
       <div className="space-y-1.5">
-        <p className="text-[11.5px] font-medium text-gray-700">Enthält die E&amp;A-Rechnung – wer macht Ihre Buchhaltung?</p>
+        <p className="text-[11.5px] font-medium text-s112-text-1">Enthält die E&amp;A-Rechnung – wer macht Ihre Buchhaltung?</p>
         {([
           ['ea',     'Ich führe die E&A-Rechnung in software:112', 'UVA und Monatsabschluss entstehen hier.'],
           ['doppik', 'Mein Steuerberater (doppelte Buchhaltung, BMD)', 'Ich erfasse Belege, software:112 übergibt sie an BMD. UVA nur Vorschau.'],
         ] as [Buchhaltungsart, string, string][]).map(([key, label, hinweisText]) => (
-          <label key={key} className={`flex items-start gap-2 cursor-pointer rounded-lg border px-2.5 py-2 text-left ${wert === key ? 'border-s112-teal bg-s112-teal/5' : 'border-gray-200'}`}>
+          <label key={key} className={`flex items-start gap-2 cursor-pointer rounded-lg border px-2.5 py-2 text-left ${wert === key ? 'border-s112-teal bg-s112-teal/5' : 'border-s112-line'}`}>
             <input type="radio" checked={wert === key} onChange={() => onChange(key)} className="mt-0.5" />
             <span>
-              <span className="block text-[12px] font-medium text-gray-800">{label}</span>
+              <span className="block text-[12px] font-medium text-s112-text">{label}</span>
               <span className="block text-[11px] text-s112-muted">{hinweisText}</span>
             </span>
           </label>
@@ -168,13 +168,13 @@ export default function AboClient({
         {/* Rückweg in die Anwendung (Rückmeldung 4.9.2026) - nur, wenn der
             Betrieb nicht gesperrt ist; gesperrte landen ohnehin wieder hier. */}
         {!hardBlocked && (
-          <Link href="/betrieb/einstellungen" className="inline-flex items-center gap-1.5 text-sm text-s112-muted hover:text-s112-teal mb-4">
+          <Link href="/betrieb/einstellungen" className="inline-flex items-center gap-1.5 text-sm text-s112-muted hover:text-s112-blue-700 mb-4">
             <ArrowLeft size={15} strokeWidth={1.75} /> Zurück zu „Mein Betrieb“
           </Link>
         )}
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-s112-teal inline-flex items-baseline gap-0">
+          <h1 className="text-3xl font-semibold text-s112-blue-700 inline-flex items-baseline gap-0">
             software<span className="text-s112-yellow">:</span>112
           </h1>
           <p className="text-s112-muted text-sm mt-1">Abo & Zahlung</p>
@@ -198,14 +198,14 @@ export default function AboClient({
               </p>
             </div>
           ) : warned ? (
-            <div className="px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+            <div className="px-4 py-3 rounded-lg bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg text-sm">
               <p className="font-semibold mb-1">Problem mit der letzten Zahlung</p>
               <p>
                 Bitte aktualisieren Sie Ihre Zahlungsdaten zeitnah, um eine Sperre zu vermeiden.
               </p>
             </div>
           ) : (
-            <div className="px-4 py-3 rounded-lg bg-green-50 border border-green-200 text-green-800 text-sm">
+            <div className="px-4 py-3 rounded-lg bg-s112-ok-bg border border-s112-ok/30 text-s112-ok-fg text-sm">
               <p className="font-semibold">Ihr Abo ist aktiv.</p>
               {planLabel && <p className="mt-0.5">Aktueller Plan: {planLabel}</p>}
             </div>
@@ -247,13 +247,13 @@ export default function AboClient({
             <p className="text-sm text-s112-err-fg">{error}</p>
           )}
           {hinweis && (
-            <p className="text-sm text-green-800 bg-green-50 border border-green-200 rounded-lg px-3 py-2">{hinweis}</p>
+            <p className="text-sm text-s112-ok-fg bg-s112-ok-bg border border-s112-ok/30 rounded-lg px-3 py-2">{hinweis}</p>
           )}
 
           {/* Paketwahl / -wechsel (Paketmodell Basis · Standard · Premium, 2.9.2026) */}
           {darfVerwalten && verfuegbarePakete.length > 0 && (
             <div className="pt-2">
-              <p className="text-sm font-semibold text-gray-800 mb-2">
+              <p className="text-sm font-semibold text-s112-text mb-2">
                 {hatAbo ? 'Paket wechseln' : 'Paket wählen'}
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -263,12 +263,12 @@ export default function AboClient({
                   const wegfall = wegfallendeModule(k)
                   const ueberBenutzer = p.maxBenutzer !== null && benutzerAnzahl > p.maxBenutzer
                   return (
-                    <div key={k} className={`rounded-xl border p-3.5 flex flex-col ${aktiv ? 'border-s112-teal ring-1 ring-s112-teal bg-s112-teal/5' : 'border-gray-200'}`}>
+                    <div key={k} className={`rounded-xl border p-3.5 flex flex-col ${aktiv ? 'border-s112-teal ring-1 ring-s112-teal bg-s112-teal/5' : 'border-s112-line'}`}>
                       <div className="flex items-baseline justify-between">
-                        <p className="font-semibold text-gray-800">{p.label}</p>
-                        {aktiv && <span className="text-[10.5px] font-semibold uppercase tracking-wide text-s112-teal">Aktuell</span>}
+                        <p className="font-semibold text-s112-text">{p.label}</p>
+                        {aktiv && <span className="text-[10.5px] font-semibold uppercase tracking-wide text-s112-blue-700">Aktuell</span>}
                       </div>
-                      <p className="text-s112-teal font-medium text-sm">{preisText(p)}</p>
+                      <p className="text-s112-blue-700 font-medium text-sm">{preisText(p)}</p>
                       <ul className="text-[11.5px] text-s112-muted mt-2 space-y-0.5 flex-1">
                         {p.leistungen.map(l => <li key={l}>· {l}</li>)}
                       </ul>
@@ -277,7 +277,7 @@ export default function AboClient({
                           wahl === k ? (
                             <div className="mt-3 space-y-1.5">
                               {istDowngrade(k) && (
-                                <p className="text-[11.5px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+                                <p className="text-[11.5px] text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded-md px-2 py-1.5">
                                   {wegfall.length > 0 && <>Nicht mehr enthalten: {wegfall.join(', ')}. Ihre Daten bleiben erhalten.<br /></>}
                                   {ueberBenutzer && <>Sie haben {benutzerAnzahl} aktive Benutzer, das Paket umfasst {p.maxBenutzer}. Bestehende bleiben aktiv, neue können nicht eingeladen werden.</>}
                                   {!wegfall.length && !ueberBenutzer && 'Ihr Abo wird ab sofort anteilig auf das neue Paket umgestellt.'}
@@ -289,11 +289,11 @@ export default function AboClient({
                                 {loading ? 'Wird umgestellt…' : 'Wechsel bestätigen'}
                               </button>
                               <button onClick={() => setWahl(null)} disabled={loading}
-                                className="w-full text-xs text-s112-muted hover:text-gray-700">Abbrechen</button>
+                                className="w-full text-xs text-s112-muted hover:text-s112-text-1">Abbrechen</button>
                             </div>
                           ) : (
                             <button onClick={() => { setWahl(k); setBuchhaltungsWahl(''); setError(null); setHinweis(null) }} disabled={loading}
-                              className="mt-3 w-full border border-s112-teal text-s112-teal px-3 py-2 rounded-lg text-sm font-semibold hover:bg-s112-teal/5 disabled:opacity-60">
+                              className="mt-3 w-full border border-s112-teal text-s112-blue-700 px-3 py-2 rounded-lg text-sm font-semibold hover:bg-s112-teal/5 disabled:opacity-60">
                               {istDowngrade(k) ? 'Auf dieses Paket wechseln' : 'Upgrade'}
                             </button>
                           )
@@ -307,17 +307,17 @@ export default function AboClient({
                                   {loading ? 'Weiter zu Stripe…' : 'Weiter zur Zahlung'}
                                 </button>
                                 <button onClick={() => setWahl(null)} disabled={loading}
-                                  className="w-full text-xs text-s112-muted hover:text-gray-700">Abbrechen</button>
+                                  className="w-full text-xs text-s112-muted hover:text-s112-text-1">Abbrechen</button>
                               </div>
                             ) : (
                               <button onClick={() => { setWahl(k); setBuchhaltungsWahl(''); setError(null); setHinweis(null) }} disabled={loading}
-                                className="mt-3 w-full border border-s112-teal text-s112-teal px-3 py-2 rounded-lg text-sm font-semibold hover:bg-s112-teal/5 disabled:opacity-60">
+                                className="mt-3 w-full border border-s112-teal text-s112-blue-700 px-3 py-2 rounded-lg text-sm font-semibold hover:bg-s112-teal/5 disabled:opacity-60">
                                 Auswählen
                               </button>
                             )
                           ) : (
                             <button onClick={() => handleZahlungNachholen(k)} disabled={loading}
-                              className="mt-3 w-full border border-s112-teal text-s112-teal px-3 py-2 rounded-lg text-sm font-semibold hover:bg-s112-teal/5 disabled:opacity-60">
+                              className="mt-3 w-full border border-s112-teal text-s112-blue-700 px-3 py-2 rounded-lg text-sm font-semibold hover:bg-s112-teal/5 disabled:opacity-60">
                               Auswählen
                             </button>
                           )
@@ -337,19 +337,19 @@ export default function AboClient({
 
           {/* Buchhaltungsart (Migration 197): jederzeit umstellbar, gleiche Einstellung wie in der Administration */}
           {darfVerwalten && hatEa && (
-            <div className="pt-2 border-t border-gray-100">
-              <p className="text-sm font-semibold text-gray-800 mb-1">Buchhaltung</p>
+            <div className="pt-2 border-t border-s112-line">
+              <p className="text-sm font-semibold text-s112-text mb-1">Buchhaltung</p>
               <p className="text-[11.5px] text-s112-muted mb-2">Wer macht die Buchhaltung Ihres Betriebs? Kann jederzeit umgestellt werden – Ihre Belege bleiben erhalten.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {([
                   ['ea',     'E&A-Rechnung in software:112',                  'UVA, Monatsabschluss und Jahresergebnis entstehen hier.'],
                   ['doppik', 'Doppelte Buchhaltung beim Steuerberater (BMD)', 'Sie erfassen Belege, software:112 übergibt sie an BMD. UVA nur als Vorschau.'],
                 ] as [Buchhaltungsart, string, string][]).map(([key, label, hinweisText]) => (
-                  <label key={key} className={`flex items-start gap-2 cursor-pointer rounded-xl border px-3 py-2.5 ${buchhaltungsartAktuell === key ? 'border-s112-teal ring-1 ring-s112-teal bg-s112-teal/5' : 'border-gray-200'}`}>
+                  <label key={key} className={`flex items-start gap-2 cursor-pointer rounded-xl border px-3 py-2.5 ${buchhaltungsartAktuell === key ? 'border-s112-teal ring-1 ring-s112-teal bg-s112-teal/5' : 'border-s112-line'}`}>
                     <input type="radio" name="buchhaltungsart" checked={buchhaltungsartAktuell === key} disabled={artSpeichern}
                       onChange={() => handleBuchhaltungsart(key)} className="mt-1" />
                     <span>
-                      <span className="block text-sm font-medium text-gray-800">{label}</span>
+                      <span className="block text-sm font-medium text-s112-text">{label}</span>
                       <span className="block text-[11px] text-s112-muted">{hinweisText}</span>
                     </span>
                   </label>
@@ -360,7 +360,7 @@ export default function AboClient({
 
           <button
             onClick={handleLogout}
-            className="w-full text-center text-xs text-s112-muted hover:text-s112-teal transition-colors pt-2"
+            className="w-full text-center text-xs text-s112-muted hover:text-s112-blue-700 transition-colors pt-2"
           >
             Abmelden
           </button>

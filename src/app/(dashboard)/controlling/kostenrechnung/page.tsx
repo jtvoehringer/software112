@@ -29,12 +29,12 @@ function MultiSelect({ items, selected, onToggle, splitModus, setSplitModus, ant
   return (
     <div className="col-span-2 border border-s112-border rounded-xl p-4">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-medium text-gray-700">{label} <span className="text-s112-muted font-normal">(leer = alle)</span></p>
+        <p className="text-xs font-medium text-s112-text-1">{label} <span className="text-s112-muted font-normal">(leer = alle)</span></p>
         {selected.length > 1 && (
           <div className="flex gap-1">
             {(['gleich','prozent'] as const).map(m => (
               <button key={m} type="button" onClick={() => setSplitModus(m)}
-                className={`text-xs px-2 py-1 rounded ${splitModus===m ? 'bg-s112-teal text-white' : 'border border-s112-border text-gray-600'}`}>
+                className={`text-xs px-2 py-1 rounded ${splitModus===m ? 'bg-s112-teal text-white' : 'border border-s112-border text-s112-text-2'}`}>
                 {m === 'gleich' ? 'Gleichmäßig' : 'Gewichtet %'}
               </button>
             ))}
@@ -59,13 +59,13 @@ function MultiSelect({ items, selected, onToggle, splitModus, setSplitModus, ant
                   onClick={e => e.stopPropagation()}
                   className="w-14 border border-s112-border rounded px-1.5 py-0.5 text-xs text-right focus:outline-none" placeholder="%" />
               )}
-              {checked && betrag > 0 && <span className="text-xs text-s112-teal font-medium flex-shrink-0">{eur(anteilEur)}</span>}
+              {checked && betrag > 0 && <span className="text-xs text-s112-blue-700 font-medium flex-shrink-0">{eur(anteilEur)}</span>}
             </div>
           )
         })}
       </div>
       {selected.length > 1 && splitModus === 'prozent' && (
-        <p className={`text-xs mt-2 inline-flex items-center gap-1 ${Math.abs(total-100)<0.5 ? 'text-green-600' : 'text-red-500'}`}>
+        <p className={`text-xs mt-2 inline-flex items-center gap-1 ${Math.abs(total-100)<0.5 ? 'text-s112-ok-fg' : 'text-s112-err'}`}>
           Summe: {total.toLocaleString('de-AT', { maximumFractionDigits: 1 })}% {Math.abs(total-100)<0.5 ? <Check size={12} /> : '(muss 100% ergeben)'}
         </p>
       )}
@@ -95,7 +95,7 @@ function StammdatenTab({ items, onSave, onDelete, fields }: {
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-s112-border p-5">
+    <div className="bg-white rounded-xl border border-s112-border p-5">
       <div className="flex justify-between items-center mb-4">
         <p className="text-sm text-s112-muted">{items.length} Einträge</p>
         <button onClick={startNeu} className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg hover:bg-opacity-90">+ Neu</button>
@@ -104,7 +104,7 @@ function StammdatenTab({ items, onSave, onDelete, fields }: {
         <div className="border border-s112-teal/30 rounded-xl p-4 mb-4 space-y-3 bg-s112-teal/5">
           {fields.map(f => (
             <div key={f.key}>
-              <label className="block text-xs font-medium text-gray-600 mb-1">{f.label}</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">{f.label}</label>
               {f.options ? (
                 <select value={form[f.key]??''} onChange={e => setForm({...form,[f.key]:e.target.value})}
                   className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
@@ -129,8 +129,8 @@ function StammdatenTab({ items, onSave, onDelete, fields }: {
             {item.kuerzel && <span className="font-mono text-xs text-s112-muted w-12">{item.kuerzel}</span>}
             {item.kategorie && <span className="text-xs bg-s112-bg px-2 py-0.5 rounded text-s112-muted">{item.kategorie}</span>}
             <span className="text-sm flex-1">{item.name}</span>
-            <button onClick={() => startEdit(item)} className="text-xs text-s112-muted hover:text-s112-teal"><Pencil size={13} /></button>
-            <button onClick={() => { if(confirm(`"${item.name}" deaktivieren?`)) onDelete(item.id ?? '') }} className="text-xs text-s112-muted hover:text-red-500"><Trash2 size={13} /></button>
+            <button onClick={() => startEdit(item)} className="text-xs text-s112-muted hover:text-s112-blue-700"><Pencil size={13} /></button>
+            <button onClick={() => { if(confirm(`"${item.name}" deaktivieren?`)) onDelete(item.id ?? '') }} className="text-xs text-s112-muted hover:text-s112-err"><Trash2 size={13} /></button>
           </div>
         ))}
         {items.length === 0 && <p className="text-xs text-s112-muted py-4 text-center">Noch keine Einträge</p>}
@@ -257,33 +257,33 @@ export default function KostenrechnungPage() {
       <div className="flex items-center gap-2 text-sm text-s112-muted">
         <span>Controlling</span>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Kostenrechnung</span>
+        <span className="text-s112-text-1 font-medium">Kostenrechnung</span>
       </div>
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Kostenrechnung</h1>
-        <p className="text-sm text-s112-muted mt-0.5">{new Date().getFullYear()}: <strong className="text-gray-800">{eur(gesamtJahr)}</strong></p>
+        <h1 className="text-2xl font-semibold text-s112-text">Kostenrechnung</h1>
+        <p className="text-sm text-s112-muted mt-0.5">{new Date().getFullYear()}: <strong className="text-s112-text">{eur(gesamtJahr)}</strong></p>
       </div>
 
       {/* Formular */}
-      <div className={`bg-white rounded-2xl border p-5 ${editId ? 'border-s112-teal ring-2 ring-s112-teal/20' : 'border-s112-border'}`}>
+      <div className={`bg-white rounded-xl border p-5 ${editId ? 'border-s112-teal ring-2 ring-s112-teal/20' : 'border-s112-border'}`}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-gray-800">
+          <h2 className="font-semibold text-s112-text">
             {editId ? <span className="inline-flex items-center gap-1.5"><Pencil size={15} />Buchung bearbeiten</span> : 'Neue Buchung'}
           </h2>
-          {editId && <button onClick={resetForm} className="text-xs text-s112-muted hover:text-gray-700">Abbrechen</button>}
+          {editId && <button onClick={resetForm} className="text-xs text-s112-muted hover:text-s112-text-1">Abbrechen</button>}
         </div>
         <form onSubmit={buchen} className="grid grid-cols-2 gap-3">
-          <div><label className="block text-xs font-medium text-gray-600 mb-1">Datum</label>
+          <div><label className="block text-xs font-medium text-s112-text-2 mb-1">Datum</label>
             <input type="date" value={datum} onChange={e=>setDatum(e.target.value)} required className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" /></div>
-          <div><label className="block text-xs font-medium text-gray-600 mb-1">Betrag (€)</label>
+          <div><label className="block text-xs font-medium text-s112-text-2 mb-1">Betrag (€)</label>
             <input type="number" step="0.01" value={betrag} onChange={e=>setBetrag(e.target.value)} required placeholder="0,00" className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" /></div>
-          <div><label className="block text-xs font-medium text-gray-600 mb-1">Kostenstelle</label>
+          <div><label className="block text-xs font-medium text-s112-text-2 mb-1">Kostenstelle</label>
             <select value={ksId} onChange={e=>setKsId(e.target.value)} className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– Kostenstelle –</option>{ks.map(k=><option key={k.id} value={k.id}>{k.name}</option>)}</select></div>
-          <div><label className="block text-xs font-medium text-gray-600 mb-1">Kostenart</label>
+          <div><label className="block text-xs font-medium text-s112-text-2 mb-1">Kostenart</label>
             <select value={kaId} onChange={e=>setKaId(e.target.value)} className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– Kostenart –</option>{ka.map(k=><option key={k.id} value={k.id}>{k.name}</option>)}</select></div>
-          <div><label className="block text-xs font-medium text-gray-600 mb-1">Zuordnung</label>
+          <div><label className="block text-xs font-medium text-s112-text-2 mb-1">Zuordnung</label>
             <select value={objektTyp} onChange={e=>{setObjektTyp(e.target.value);setSelWgs([]);setSelBhs([])}} className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– keine –</option><option value="weingarten">Ried</option><option value="keller">Keller / Behälter</option></select></div>
           <div />
@@ -297,13 +297,13 @@ export default function KostenrechnungPage() {
               splitModus={bhModus} setSplitModus={setBhModus} anteile={bhAnteile} setAnteile={setBhAnteile}
               betrag={parseFloat(betrag)||0} label="Behälter auswählen" />
           )}
-          <div className="col-span-2"><label className="block text-xs font-medium text-gray-600 mb-1">Beschreibung</label>
+          <div className="col-span-2"><label className="block text-xs font-medium text-s112-text-2 mb-1">Beschreibung</label>
             <input value={beschreibung} onChange={e=>setBeschreibung(e.target.value)} placeholder="z.B. Traktor-Service, Spritzarbeit…" className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" /></div>
           <div className="col-span-2 flex items-center gap-3">
             <button type="submit" disabled={saving} className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
               {saving ? 'Speichern…' : editId ? 'Aktualisieren' : 'Buchen'}</button>
-            {fehler && <p className="text-sm text-red-600">{fehler}</p>}
-            {erfolg && <p className="text-sm text-green-600 inline-flex items-center gap-1"><Check size={13} />Gespeichert</p>}
+            {fehler && <p className="text-sm text-s112-err-fg">{fehler}</p>}
+            {erfolg && <p className="text-sm text-s112-ok-fg inline-flex items-center gap-1"><Check size={13} />Gespeichert</p>}
           </div>
         </form>
       </div>
@@ -312,12 +312,12 @@ export default function KostenrechnungPage() {
       <div className="flex gap-2">
         {[['buchungen','Buchungen'],['kostenstellen','Kostenstellen'],['kostenarten','Kostenarten']].map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id as Tab)}
-            className={`px-4 py-2 rounded-xl text-sm font-medium ${tab===id?'bg-s112-teal text-s112-yellow':'bg-s112-bg text-gray-600 hover:bg-s112-teal/10'}`}>{label}</button>
+            className={`px-4 py-2 rounded-xl text-sm font-medium ${tab===id?'bg-s112-teal text-s112-yellow':'bg-s112-bg text-s112-text-2 hover:bg-s112-teal/10'}`}>{label}</button>
         ))}
       </div>
 
       {tab === 'buchungen' && (
-        <div className="bg-white rounded-2xl border border-s112-border overflow-x-auto">
+        <div className="bg-white rounded-xl border border-s112-border overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-s112-bg text-xs text-s112-muted uppercase">
               <tr><th className="px-4 py-3 text-left">TXN</th><th className="px-4 py-3 text-left">Datum</th><th className="px-4 py-3 text-left">Beschreibung</th><th className="px-4 py-3 text-left">KSt / KA</th><th className="px-4 py-3 text-left">Zuordnung</th><th className="px-4 py-3 text-right">Betrag</th><th className="px-4 py-3" /></tr>
@@ -328,16 +328,16 @@ export default function KostenrechnungPage() {
                   <td className="px-4 py-2.5 font-mono text-xs text-s112-muted whitespace-nowrap">{e.transaktions_nr??'–'}</td>
                   <td className="px-4 py-2.5 text-s112-muted tabular-nums">{new Date(e.datum).toLocaleDateString('de-AT')}</td>
                   <td className="px-4 py-2.5">{e.beschreibung??'–'}</td>
-                  <td className="px-4 py-2.5 text-gray-600"><div>{e.kostenstelle?.name??'–'}</div><div className="text-xs text-s112-muted">{e.kostenart?.name??''}</div></td>
-                  <td className="px-4 py-2.5 text-gray-600">
+                  <td className="px-4 py-2.5 text-s112-text-2"><div>{e.kostenstelle?.name??'–'}</div><div className="text-xs text-s112-muted">{e.kostenart?.name??''}</div></td>
+                  <td className="px-4 py-2.5 text-s112-text-2">
                     <div className="text-xs">{splitLabel(e)}</div>
                     {(e.wg_splits?.length??0) > 1 && <div className="text-[10px] text-s112-muted">{e.wg_splits!.map(s=>`${s.wg?.name}: ${eur(s.betrag_anteil??0)}`).join(' · ')}</div>}
                     {(e.bh_splits?.length??0) > 1 && <div className="text-[10px] text-s112-muted">{e.bh_splits!.map(s=>`${s.bh?.name}: ${eur(s.betrag_anteil??0)}`).join(' · ')}</div>}
                   </td>
                   <td className="px-4 py-2.5 text-right font-medium tabular-nums">{eur(e.betrag)}</td>
                   <td className="px-4 py-2.5"><div className="flex gap-2">
-                    <button onClick={()=>startEdit(e)} className="text-s112-muted hover:text-s112-teal text-xs"><Pencil size={13} /></button>
-                    <button onClick={()=>{if(confirm('Löschen?'))api({action:'loeschen',id:e.id}).then(ladeDaten)}} className="text-s112-muted hover:text-red-500 text-xs"><Trash2 size={13} /></button>
+                    <button onClick={()=>startEdit(e)} className="text-s112-muted hover:text-s112-blue-700 text-xs"><Pencil size={13} /></button>
+                    <button onClick={()=>{if(confirm('Löschen?'))api({action:'loeschen',id:e.id}).then(ladeDaten)}} className="text-s112-muted hover:text-s112-err text-xs"><Trash2 size={13} /></button>
                   </div></td>
                 </tr>
               ))}

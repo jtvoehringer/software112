@@ -16,10 +16,10 @@ const ROLLEN = [
 ]
 
 const ROLE_COLORS: Record<string, string> = {
-  system_admin: 'bg-red-100 text-red-700',
-  tenant_admin: 'bg-purple-100 text-purple-700',
-  winzer:       'bg-blue-100 text-blue-700',
-  leser:        'bg-gray-100 text-gray-600',
+  system_admin: 'bg-s112-err-bg text-s112-err-fg',
+  tenant_admin: 'bg-[#F2F3F5] text-s112-text-1',
+  winzer:       'bg-s112-blue-100 text-s112-blue-700',
+  leser:        'bg-[#F2F3F5] text-s112-text-2',
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -107,12 +107,12 @@ export default function BenutzerClient({ members, limit }: Props) {
   return (
     <>
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+        <div className="mb-4 p-3 bg-s112-err-bg border border-s112-err/30 rounded-xl text-sm text-s112-err-fg">
           {error}
         </div>
       )}
       {success && (
-        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700">
+        <div className="mb-4 p-3 bg-s112-ok-bg border border-s112-ok/30 rounded-xl text-sm text-s112-ok-fg">
           {success}
         </div>
       )}
@@ -120,7 +120,7 @@ export default function BenutzerClient({ members, limit }: Props) {
       {/* ── Aktive Mitglieder ── */}
       <div className="card p-0 overflow-hidden mb-6">
         <div className="px-4 py-3 border-b border-s112-border flex items-center justify-between">
-          <h2 className="font-semibold text-gray-800">Aktive Mitglieder</h2>
+          <h2 className="font-semibold text-s112-text">Aktive Mitglieder</h2>
           <span className="text-xs text-s112-muted">{members.length} Mitglied{members.length !== 1 ? 'er' : ''}</span>
         </div>
 
@@ -133,20 +133,20 @@ export default function BenutzerClient({ members, limit }: Props) {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-s112-bg border-b border-s112-border">
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">E-Mail</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Rolle</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Status</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Dabei seit</th>
-                <th className="text-right px-4 py-3 font-semibold text-gray-700">Aktionen</th>
+                <th className="text-left px-4 py-3 font-semibold text-s112-text-1">E-Mail</th>
+                <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Rolle</th>
+                <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Status</th>
+                <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Dabei seit</th>
+                <th className="text-right px-4 py-3 font-semibold text-s112-text-1">Aktionen</th>
               </tr>
             </thead>
             <tbody>
               {members.map((m, i) => (
                 <tr key={m.id} className={`border-b border-s112-border last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/50' : ''}`}>
-                  <td className="px-4 py-3 font-medium text-gray-900">
+                  <td className="px-4 py-3 font-medium text-s112-text">
                     {m.email}
                     {!m.confirmed && (
-                      <span className="ml-2 inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700"
+                      <span className="ml-2 inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-s112-warn-bg text-s112-warn-fg"
                         title="Einladung verschickt, aber noch nicht angenommen">
                         Ausstehend
                       </span>
@@ -165,7 +165,7 @@ export default function BenutzerClient({ members, limit }: Props) {
                         ))}
                       </select>
                     ) : (
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_COLORS[m.role] ?? 'bg-gray-100 text-gray-600'}`}>
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_COLORS[m.role] ?? 'bg-[#F2F3F5] text-s112-text-2'}`}>
                         {ROLE_LABELS[m.role] ?? m.role}
                       </span>
                     )}
@@ -186,11 +186,11 @@ export default function BenutzerClient({ members, limit }: Props) {
                       title={m.aktiv ? 'Klicken zum Deaktivieren' : 'Klicken zum Aktivieren'}
                       className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium transition-colors disabled:opacity-50 ${
                         m.aktiv
-                          ? 'bg-s112-teal/10 text-s112-teal hover:bg-s112-teal/20'
-                          : 'bg-red-100 text-red-700 hover:bg-red-200'
+                          ? 'bg-s112-teal/10 text-s112-blue-700 hover:bg-s112-teal/20'
+                          : 'bg-s112-err-bg text-s112-err-fg hover:bg-s112-err-fg/25'
                       }`}
                     >
-                      <span className={`w-1.5 h-1.5 rounded-full ${m.aktiv ? 'bg-s112-teal' : 'bg-red-500'}`} />
+                      <span className={`w-1.5 h-1.5 rounded-full ${m.aktiv ? 'bg-s112-teal' : 'bg-s112-err'}`} />
                       {m.aktiv ? 'Aktiv' : 'Inaktiv'}
                     </button>
                   </td>
@@ -202,11 +202,11 @@ export default function BenutzerClient({ members, limit }: Props) {
                       {editingId === m.id ? (
                         <>
                           <button onClick={() => handleSaveRole(m.id)} disabled={isPending}
-                            className="text-s112-teal hover:underline text-xs font-semibold disabled:opacity-50">
+                            className="text-s112-blue-700 hover:underline text-xs font-semibold disabled:opacity-50">
                             Speichern
                           </button>
                           <button onClick={() => setEditingId(null)} disabled={isPending}
-                            className="text-s112-muted hover:text-gray-700 text-xs">
+                            className="text-s112-muted hover:text-s112-text-1 text-xs">
                             Abbrechen
                           </button>
                         </>
@@ -214,18 +214,18 @@ export default function BenutzerClient({ members, limit }: Props) {
                         <>
                           {!m.confirmed && (
                             <button onClick={() => handleResendInvite(m)} disabled={isPending}
-                              className="text-s112-teal hover:underline text-xs font-medium disabled:opacity-50">
+                              className="text-s112-blue-700 hover:underline text-xs font-medium disabled:opacity-50">
                               Einladung erneut senden
                             </button>
                           )}
                           {m.role !== 'system_admin' && (
                             <>
                               <button onClick={() => handleEditRole(m)}
-                                className="text-s112-teal hover:underline text-xs font-medium">
+                                className="text-s112-blue-700 hover:underline text-xs font-medium">
                                 Rolle ändern
                               </button>
                               <button onClick={() => handleRemove(m.id, m.email)} disabled={isPending}
-                                className="text-red-400 hover:text-red-600 text-xs disabled:opacity-50">
+                                className="text-s112-err hover:text-s112-err-fg text-xs disabled:opacity-50">
                                 Entfernen
                               </button>
                             </>
@@ -242,7 +242,7 @@ export default function BenutzerClient({ members, limit }: Props) {
       </div>
 
       {limit && limit.limit !== null && (
-        <p className={`text-xs ${limit.erlaubt ? 'text-s112-muted' : 'text-amber-800'}`}>
+        <p className={`text-xs ${limit.erlaubt ? 'text-s112-muted' : 'text-s112-warn-fg'}`}>
           {limit.anzahl} von {limit.limit} Benutzern Ihres Pakets belegt.
           {!limit.erlaubt && <> Für weitere Benutzer können Sie Ihr Paket unter <a href="/abo" className="underline">Abo</a> erweitern.</>}
         </p>
@@ -257,24 +257,24 @@ export default function BenutzerClient({ members, limit }: Props) {
         </button>
       ) : (
         <form onSubmit={handleInvite} className="bg-s112-bg border border-s112-border rounded-xl p-5 space-y-3">
-          <h3 className="text-sm font-semibold text-gray-800">Benutzer hinzufügen</h3>
+          <h3 className="text-sm font-semibold text-s112-text">Benutzer hinzufügen</h3>
           <p className="text-xs text-s112-muted">
             Neuer Benutzer: erhält Einladungs-E-Mail von Supabase zum Passwort setzen.<br />
             Bestehender Supabase-User: wird direkt zugewiesen.
           </p>
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Name *</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Name *</label>
               <input value={inviteName} onChange={e => setInviteName(e.target.value)}
                 required className={inputCls()} placeholder="Vorname Nachname" disabled={isPending} autoFocus />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">E-Mail *</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">E-Mail *</label>
               <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
                 required className={inputCls()} placeholder="benutzer@weingut.at" disabled={isPending} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Rolle *</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Rolle *</label>
               <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}
                 className={inputCls()} disabled={isPending}>
                 {ROLLEN.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
@@ -287,7 +287,7 @@ export default function BenutzerClient({ members, limit }: Props) {
               {isPending ? 'Wird eingeladen…' : 'Einladen'}
             </button>
             <button type="button" onClick={() => { setShowInvite(false); setInviteName(''); setInviteEmail('') }}
-              className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800">
+              className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:text-s112-text">
               Abbrechen
             </button>
           </div>

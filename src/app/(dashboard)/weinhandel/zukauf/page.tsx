@@ -91,7 +91,7 @@ export default async function ZukaufPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">Zukäufe</h1>
+        <h1 className="text-xl font-semibold text-s112-text">Zukäufe</h1>
         {writeOk && (
           <Link href="/weinhandel/zukauf/neu"
             className="bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
@@ -103,8 +103,8 @@ export default async function ZukaufPage({
       {traubenzukaufsgrenze && (
         <div className={`rounded-xl px-4 py-3 text-sm border ${
           traubenzukaufsgrenze.ueberschritten
-            ? 'bg-red-50 border-red-200 text-red-700'
-            : 'bg-s112-bg border-s112-border text-gray-600'
+            ? 'bg-s112-err-bg border-s112-err/30 text-s112-err-fg'
+            : 'bg-s112-bg border-s112-border text-s112-text-2'
         }`}>
           <div className="flex items-center justify-between flex-wrap gap-2">
             <span className="inline-flex items-start gap-1.5">
@@ -139,7 +139,7 @@ export default async function ZukaufPage({
           <p className="mt-1">Erfasse zugekauften Wein, Trauben oder Traubenmost.</p>
           {writeOk && (
             <Link href="/weinhandel/zukauf/neu"
-              className="mt-4 inline-block text-s112-teal hover:underline text-sm font-medium">
+              className="mt-4 inline-block text-s112-blue-700 hover:underline text-sm font-medium">
               Ersten Zukauf anlegen →
             </Link>
           )}
@@ -149,14 +149,14 @@ export default async function ZukaufPage({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-s112-border bg-s112-bg text-left">
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500">Datum</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500">Belegnr.</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500">Art</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500">Lieferant</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500">Rebsorte / Jg.</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 text-right">Menge</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 text-right">Gesamtpreis</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500">Gebinde</th>
+                <th className="px-4 py-3 text-xs font-semibold text-s112-text-2">Datum</th>
+                <th className="px-4 py-3 text-xs font-semibold text-s112-text-2">Belegnr.</th>
+                <th className="px-4 py-3 text-xs font-semibold text-s112-text-2">Art</th>
+                <th className="px-4 py-3 text-xs font-semibold text-s112-text-2">Lieferant</th>
+                <th className="px-4 py-3 text-xs font-semibold text-s112-text-2">Rebsorte / Jg.</th>
+                <th className="px-4 py-3 text-xs font-semibold text-s112-text-2 text-right">Menge</th>
+                <th className="px-4 py-3 text-xs font-semibold text-s112-text-2 text-right">Gesamtpreis</th>
+                <th className="px-4 py-3 text-xs font-semibold text-s112-text-2">Gebinde</th>
                 {writeOk && <th className="px-4 py-3" />}
               </tr>
             </thead>
@@ -168,19 +168,19 @@ export default async function ZukaufPage({
                 const rebInfo = [p.rebsorte ? formatRebsorteMitKuerzel(p.rebsorte) : null, p.jahrgang].filter(Boolean).join(' ') || '–'
                 return (
                   <ClickableTableRow key={p.id} href={`/weinhandel/zukauf/${p.id}/edit`} className="hover:bg-s112-bg/50 transition-colors">
-                    <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                    <td className="px-4 py-3 text-s112-text-1 whitespace-nowrap">
                       {new Date(p.datum).toLocaleDateString('de-AT')}
                     </td>
                     <td className="px-4 py-3">
-                      <span className="font-mono text-xs text-gray-700">{p.eingangsrechnungsnummer || <span className="text-s112-muted">–</span>}</span>
+                      <span className="font-mono text-xs text-s112-text-1">{p.eingangsrechnungsnummer || <span className="text-s112-muted">–</span>}</span>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">{ART_LABEL[p.art] ?? p.art}</td>
-                    <td className="px-4 py-3 text-gray-700">{lieferant}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{rebInfo}</td>
-                    <td className="px-4 py-3 text-right tabular-nums font-medium text-gray-800">
+                    <td className="px-4 py-3 text-s112-text-1">{lieferant}</td>
+                    <td className="px-4 py-3 text-s112-text-2 text-xs">{rebInfo}</td>
+                    <td className="px-4 py-3 text-right tabular-nums font-medium text-s112-text">
                       {Number(p.menge).toLocaleString('de-AT')} {p.einheit}
                     </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-gray-700">
+                    <td className="px-4 py-3 text-right tabular-nums text-s112-text-1">
                       {p.preis_gesamt != null
                         ? Number(p.preis_gesamt).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
                         : '–'}
@@ -194,7 +194,7 @@ export default async function ZukaufPage({
                           <Link
                             href={`/weinhandel/zukauf/${p.id}/edit`}
                             title="Bearbeiten" aria-label="Bearbeiten"
-                            className="text-s112-teal hover:text-s112-teal/70">
+                            className="text-s112-blue-700 hover:text-s112-blue-700/70">
                             <Pencil className="w-4 h-4" />
                           </Link>
                           <ZukaufLoeschen id={p.id} info={rebInfo} />

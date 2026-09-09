@@ -115,18 +115,18 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
       {/* Breadcrumb + Header */}
       <div className="flex items-center justify-between mb-5 no-print">
         <nav className="flex items-center gap-2 text-sm text-s112-muted">
-          <Link href="/kellerbuch" className="hover:text-s112-teal">Kellerbuch</Link>
+          <Link href="/kellerbuch" className="hover:text-s112-blue-700">Kellerbuch</Link>
           <span>/</span>
-          <Link href="/kellerbuch/kellerplan" className="hover:text-s112-teal">Kellerplan</Link>
+          <Link href="/kellerbuch/kellerplan" className="hover:text-s112-blue-700">Kellerplan</Link>
           <span>/</span>
-          <span className="text-gray-800 font-medium">{plan.name}</span>
+          <span className="text-s112-text font-medium">{plan.name}</span>
         </nav>
         <PrintButton />
       </div>
 
       {/* Plan-Titel für Druck */}
       <div className="mb-4">
-        <h1 className="text-xl font-bold text-gray-900">{plan.name}</h1>
+        <h1 className="text-xl font-semibold text-s112-text">{plan.name}</h1>
         <p className="text-xs text-s112-muted">{plan.breite_m} × {plan.laenge_m} m</p>
       </div>
 
@@ -145,7 +145,7 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
       />
 
       {/* Print-Datum */}
-      <div className="print-only mt-4 text-xs text-gray-400 text-right" style={{ display: 'none' }}>
+      <div className="print-only mt-4 text-xs text-s112-tertiary text-right" style={{ display: 'none' }}>
         Gedruckt: {new Date().toLocaleDateString('de-AT')}
       </div>
     </div>

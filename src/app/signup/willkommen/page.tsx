@@ -43,13 +43,13 @@ export default async function WillkommenPage() {
       <meta httpEquiv="refresh" content="2" />
       <div className="w-full max-w-md text-center">
         <div className="card space-y-3">
-          <svg className="w-8 h-8 animate-spin mx-auto text-s112-teal" fill="none" viewBox="0 0 24 24">
+          <svg className="w-8 h-8 animate-spin mx-auto text-s112-blue-700" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
-          <h1 className="text-lg font-semibold text-gray-800">Vielen Dank! Ihr Konto wird eingerichtet …</h1>
+          <h1 className="text-lg font-semibold text-s112-text">Vielen Dank! Ihr Konto wird eingerichtet …</h1>
           <p className="text-sm text-s112-muted">Das dauert nur wenige Sekunden.</p>
-          <a href="/login" className="text-xs text-s112-teal hover:underline block pt-2">Dauert es zu lange? Hier einloggen</a>
+          <a href="/login" className="text-xs text-s112-blue-700 hover:underline block pt-2">Dauert es zu lange? Hier einloggen</a>
         </div>
       </div>
     </div>

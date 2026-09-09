@@ -102,15 +102,15 @@ export default async function WeingartenEditPage({ params }: Props) {
     <div>
       <div className="max-w-2xl">
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-6">
-        <Link href="/weingarten" className="hover:text-s112-teal transition-colors">Rieden</Link>
+        <Link href="/weingarten" className="hover:text-s112-blue-700 transition-colors">Rieden</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">{weingarten.name}</span>
+        <span className="text-s112-text-1 font-medium">{weingarten.name}</span>
       </div>
 
       <div className="flex items-start justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{weingarten.name}</h1>
+        <h1 className="text-2xl font-semibold text-s112-text">{weingarten.name}</h1>
         {!weingarten.aktiv && (
-          <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded-full font-medium">
+          <span className="bg-[#F2F3F5] text-s112-text-2 text-xs px-2 py-1 rounded-full font-medium">
             Inaktiv
           </span>
         )}
@@ -118,7 +118,7 @@ export default async function WeingartenEditPage({ params }: Props) {
 
       {/* Stammdaten-Formular */}
       <div className="card mb-6">
-        <h2 className="text-base font-semibold text-gray-800 mb-4">Stammdaten</h2>
+        <h2 className="text-base font-semibold text-s112-text mb-4">Stammdaten</h2>
         <WeingartenForm weingarten={weingarten} action={action} readOnly={!writeOk} />
 
         {/* GST-Flächensummen (read-only, aus Grundstücken) */}

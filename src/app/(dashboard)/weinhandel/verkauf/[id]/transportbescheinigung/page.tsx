@@ -179,13 +179,13 @@ export default async function TransportbescheinigungPage({ params }: { params: P
   return (
     <div className="max-w-5xl space-y-4">
       <div className="flex items-center gap-2 text-sm text-s112-muted no-print">
-        <Link href="/weinhandel/verkauf" className="hover:text-s112-teal transition-colors">Verkauf</Link>
+        <Link href="/weinhandel/verkauf" className="hover:text-s112-blue-700 transition-colors">Verkauf</Link>
         <span>/</span>
-        <Link href={`/weinhandel/verkauf/${id}`} className="hover:text-s112-teal transition-colors">
+        <Link href={`/weinhandel/verkauf/${id}`} className="hover:text-s112-blue-700 transition-colors">
           {posten.rechnungsnummer ?? new Date(posten.datum).toLocaleDateString('de-AT')}
         </Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Transportbescheinigung</span>
+        <span className="text-s112-text-1 font-medium">Transportbescheinigung</span>
       </div>
 
       <TBFormular verkaufspostenId={id} initial={initial} />

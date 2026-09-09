@@ -56,7 +56,7 @@ export default function SignupClient() {
     <div className="min-h-screen bg-s112-bg flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-s112-teal inline-flex items-baseline gap-0">
+          <h1 className="text-3xl font-semibold text-s112-blue-700 inline-flex items-baseline gap-0">
             software<span className="text-s112-yellow">:</span>112
           </h1>
           <p className="text-s112-muted text-sm mt-1">14 Tage kostenlos testen – digitale Klarheit für den Weinbau</p>
@@ -65,19 +65,19 @@ export default function SignupClient() {
         <div className="card space-y-5">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="betrieb" className="block text-sm font-medium text-gray-700 mb-1">Name Ihres Betriebs</label>
+              <label htmlFor="betrieb" className="block text-sm font-medium text-s112-text-1 mb-1">Name Ihres Betriebs</label>
               <input id="betrieb" type="text" required className="input" placeholder="Weingut Musterhof"
                 value={betrieb} onChange={e => setBetrieb(e.target.value)} />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Ihr Name</label>
+                <label htmlFor="name" className="block text-sm font-medium text-s112-text-1 mb-1">Ihr Name</label>
                 <input id="name" type="text" required className="input" placeholder="Maria Musterfrau"
                   value={name} onChange={e => setName(e.target.value)} />
               </div>
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">E-Mail</label>
+                <label htmlFor="email" className="block text-sm font-medium text-s112-text-1 mb-1">E-Mail</label>
                 <input id="email" type="email" required autoComplete="username" className="input" placeholder="maria@weingut.at"
                   value={email} onChange={e => setEmail(e.target.value)} />
               </div>
@@ -85,12 +85,12 @@ export default function SignupClient() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="passwort" className="block text-sm font-medium text-gray-700 mb-1">Passwort</label>
+                <label htmlFor="passwort" className="block text-sm font-medium text-s112-text-1 mb-1">Passwort</label>
                 <input id="passwort" type="password" required minLength={8} autoComplete="new-password" className="input" placeholder="mind. 8 Zeichen"
                   value={passwort} onChange={e => setPasswort(e.target.value)} />
               </div>
               <div>
-                <label htmlFor="passwort2" className="block text-sm font-medium text-gray-700 mb-1">Passwort wiederholen</label>
+                <label htmlFor="passwort2" className="block text-sm font-medium text-s112-text-1 mb-1">Passwort wiederholen</label>
                 <input id="passwort2" type="password" required autoComplete="new-password" className="input" placeholder="mind. 8 Zeichen"
                   value={passwort2} onChange={e => setPasswort2(e.target.value)} />
               </div>
@@ -98,7 +98,7 @@ export default function SignupClient() {
 
             {PAKET_OPTIONEN.length > 0 && (
               <div>
-                <span className="block text-sm font-medium text-gray-700 mb-1.5">Paket</span>
+                <span className="block text-sm font-medium text-s112-text-1 mb-1.5">Paket</span>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {PAKET_OPTIONEN.map(p => (
                     <button
@@ -109,11 +109,11 @@ export default function SignupClient() {
                       className={`text-left px-3 py-2.5 rounded-lg border text-sm transition-colors ${
                         paket === p.key
                           ? 'border-s112-teal bg-s112-teal/5 ring-1 ring-s112-teal'
-                          : 'border-gray-200 hover:border-gray-300'
+                          : 'border-s112-line hover:border-s112-line-str'
                       }`}
                     >
-                      <p className="font-semibold text-gray-800">{p.label}</p>
-                      <p className="text-s112-teal font-medium">{preisText(p)}</p>
+                      <p className="font-semibold text-s112-text">{p.label}</p>
+                      <p className="text-s112-blue-700 font-medium">{preisText(p)}</p>
                       <ul className="text-[11.5px] text-s112-muted mt-1 space-y-0.5">
                         {p.leistungen.map(l => <li key={l}>· {l}</li>)}
                       </ul>
@@ -129,13 +129,13 @@ export default function SignupClient() {
             <label className="flex items-start gap-2 text-[12.5px] text-s112-muted">
               <input type="checkbox" className="mt-0.5" checked={zustimmung} onChange={e => setZustimmung(e.target.checked)} />
               <span>
-                Ich habe die <a href="/agb" target="_blank" className="text-s112-teal hover:underline">AGB</a> und{' '}
-                <a href="/datenschutz" target="_blank" className="text-s112-teal hover:underline">Datenschutzerklärung</a> gelesen und stimme zu.
+                Ich habe die <a href="/agb" target="_blank" className="text-s112-blue-700 hover:underline">AGB</a> und{' '}
+                <a href="/datenschutz" target="_blank" className="text-s112-blue-700 hover:underline">Datenschutzerklärung</a> gelesen und stimme zu.
               </span>
             </label>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{error}</div>
+              <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg text-sm px-3 py-2 rounded-lg">{error}</div>
             )}
 
             <button type="submit" disabled={loading} className="btn-primary w-full mt-2">
@@ -145,7 +145,7 @@ export default function SignupClient() {
         </div>
 
         <p className="text-center text-xs text-s112-muted mt-6">
-          Sie haben schon ein Konto? <a href="/login" className="text-s112-teal hover:underline">Hier anmelden</a>
+          Sie haben schon ein Konto? <a href="/login" className="text-s112-blue-700 hover:underline">Hier anmelden</a>
         </p>
       </div>
     </div>

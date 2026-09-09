@@ -121,7 +121,7 @@ export default function AssistentWidget() {
   return (
     <div className="fixed bottom-5 right-5 z-50">
       {offen && (
-        <div className="mb-3 w-[360px] max-w-[92vw] h-[480px] max-h-[75vh] bg-white rounded-2xl shadow-xl border border-s112-border flex flex-col overflow-hidden">
+        <div className="mb-3 w-[360px] max-w-[92vw] h-[480px] max-h-[75vh] bg-white rounded-xl shadow-xl border border-s112-border flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-s112-teal text-white flex-shrink-0">
             <div className="flex items-center gap-2">
@@ -160,7 +160,7 @@ export default function AssistentWidget() {
                       key={t.label}
                       onClick={() => senden(undefined, t.nachricht)}
                       disabled={laden}
-                      className="text-left text-sm bg-white border border-s112-border rounded-lg px-3 py-2 hover:border-s112-teal hover:text-s112-teal transition-colors disabled:opacity-40"
+                      className="text-left text-sm bg-white border border-s112-border rounded-lg px-3 py-2 hover:border-s112-teal hover:text-s112-blue-700 transition-colors disabled:opacity-40"
                     >
                       {t.label}
                     </button>
@@ -173,7 +173,7 @@ export default function AssistentWidget() {
                 <div className={`max-w-[85%] rounded-xl px-3 py-2 text-sm whitespace-pre-wrap ${
                   n.rolle === 'user'
                     ? 'bg-s112-teal text-white rounded-br-sm'
-                    : 'bg-white border border-s112-border text-gray-800 rounded-bl-sm'
+                    : 'bg-white border border-s112-border text-s112-text rounded-bl-sm'
                 }`}>
                   {n.inhalt}
                 </div>
@@ -187,7 +187,7 @@ export default function AssistentWidget() {
               </div>
             )}
             {(fehler || sprache.fehler) && (
-              <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700">
+              <div className="bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2 text-xs text-s112-err-fg">
                 {fehler ?? sprache.fehler}
               </div>
             )}
@@ -202,7 +202,7 @@ export default function AssistentWidget() {
               readOnly={sprache.hoert}
               placeholder={sprache.hoert ? 'Ich höre zu…' : 'Nachricht…'}
               className={`flex-1 min-w-0 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${
-                sprache.hoert ? 'border-red-300 bg-red-50/40 italic text-gray-600' : 'border-s112-border'
+                sprache.hoert ? 'border-s112-err/30 bg-s112-err-bg/40 italic text-s112-text-2' : 'border-s112-border'
               }`}
             />
             {sprache.unterstuetzt && (
@@ -215,8 +215,8 @@ export default function AssistentWidget() {
                 title={sprache.hoert ? 'Aufnahme beenden' : 'Sprechen statt tippen'}
                 className={`p-2 rounded-lg flex-shrink-0 transition-colors disabled:opacity-40 ${
                   sprache.hoert
-                    ? 'bg-red-500 text-white animate-pulse'
-                    : 'border border-s112-border text-gray-600 hover:border-s112-teal hover:text-s112-teal'
+                    ? 'bg-s112-err text-white animate-pulse'
+                    : 'border border-s112-border text-s112-text-2 hover:border-s112-teal hover:text-s112-blue-700'
                 }`}
               >
                 {sprache.hoert ? <Square size={16} /> : <Mic size={16} />}

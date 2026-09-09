@@ -50,14 +50,14 @@ const BEWIRTSCHAFTUNG_OPTIONS = [
 ]
 
 const BEWIRTSCHAFTUNG_BADGE: Record<string, string> = {
-  biodynamisch:  'bg-green-100 text-green-800',
-  biologisch:    'bg-green-100 text-green-700',
-  in_umstellung: 'bg-yellow-100 text-yellow-700',
-  nachhaltig:    'bg-teal-100 text-teal-700',
-  kip:           'bg-blue-100 text-blue-700',
-  konventionell: 'bg-gray-100 text-gray-600',
-  bio:           'bg-green-100 text-green-700',
-  demeter:       'bg-green-100 text-green-800',
+  biodynamisch:  'bg-s112-ok-bg text-s112-ok-fg',
+  biologisch:    'bg-s112-ok-bg text-s112-ok-fg',
+  in_umstellung: 'bg-s112-warn-bg text-s112-warn-fg',
+  nachhaltig:    'bg-[#F2F3F5] text-s112-text-1',
+  kip:           'bg-s112-blue-100 text-s112-blue-700',
+  konventionell: 'bg-[#F2F3F5] text-s112-text-2',
+  bio:           'bg-s112-ok-bg text-s112-ok-fg',
+  demeter:       'bg-s112-ok-bg text-s112-ok-fg',
 }
 const BEWIRTSCHAFTUNG_LABEL: Record<string, string> = {
   biodynamisch:  'Biodynamisch',
@@ -71,16 +71,16 @@ const BEWIRTSCHAFTUNG_LABEL: Record<string, string> = {
 }
 
 const inputCls = "w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
-const labelCls = "block text-xs font-medium text-gray-600 mb-1"
+const labelCls = "block text-xs font-medium text-s112-text-2 mb-1"
 
 // ── Maßnahmen-Verlauf für ein einzelnes GST (Punkt 10) ────────────────────────
 function GstMassnahmenPanel({ massnahmen }: { massnahmen: MassnahmeHistorie[] }) {
   return (
     <div className="bg-s112-bg/60 border-t border-s112-border/50 px-3 py-2">
-      <p className="text-xs font-medium text-gray-600 mb-1">Maßnahmen-Verlauf</p>
+      <p className="text-xs font-medium text-s112-text-2 mb-1">Maßnahmen-Verlauf</p>
       <table className="w-full text-xs">
         <thead>
-          <tr className="text-gray-500">
+          <tr className="text-s112-text-2">
             <th className="text-left py-1 pr-3 font-medium">Datum</th>
             <th className="text-left py-1 pr-3 font-medium">Art</th>
             <th className="text-left py-1 pr-3 font-medium">Mittel</th>
@@ -93,9 +93,9 @@ function GstMassnahmenPanel({ massnahmen }: { massnahmen: MassnahmeHistorie[] })
               <td className="py-1 pr-3 text-s112-muted">
                 {new Date(m.datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })}
               </td>
-              <td className="py-1 pr-3 text-gray-700">{MASSNAHME_ART_LABEL[m.art] ?? m.art}</td>
-              <td className="py-1 pr-3 text-gray-700">{m.psm_name ?? '–'}</td>
-              <td className="py-1 text-right font-mono text-gray-600">
+              <td className="py-1 pr-3 text-s112-text-1">{MASSNAHME_ART_LABEL[m.art] ?? m.art}</td>
+              <td className="py-1 pr-3 text-s112-text-1">{m.psm_name ?? '–'}</td>
+              <td className="py-1 text-right font-mono text-s112-text-2">
                 {m.aufwandmenge != null
                   ? `${m.aufwandmenge} ${m.aufwandmenge_einheit ? MASSNAHME_EINHEIT_LABEL[m.aufwandmenge_einheit] ?? m.aufwandmenge_einheit : ''}`
                   : '–'}
@@ -191,11 +191,11 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
 
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-3">
-      <h3 className="text-sm font-semibold text-gray-800">
+      <h3 className="text-sm font-semibold text-s112-text">
         {gst ? 'Grundstück bearbeiten' : 'Grundstück hinzufügen'}
       </h3>
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">
+        <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-3 py-2 text-sm">
           <strong>Fehler:</strong> {error}
         </div>
       )}
@@ -203,11 +203,11 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
       <div className="grid grid-cols-2 gap-3">
         {/* Identifikation */}
         <div>
-          <label className={labelCls}>GST-Nummer <span className="text-red-500">*</span></label>
+          <label className={labelCls}>GST-Nummer <span className="text-s112-err">*</span></label>
           <input name="gst_nr" required defaultValue={gst?.gst_nr ?? ''} placeholder="z.B. 1411/1" className={inputCls} />
         </div>
         <div>
-          <label className={labelCls}>Nutzart <span className="text-red-500">*</span></label>
+          <label className={labelCls}>Nutzart <span className="text-s112-err">*</span></label>
           <select name="nutzart" required value={nutzart} onChange={e => setNutzart(e.target.value)} className={inputCls}>
             <option value="" disabled>– bitte wählen –</option>
             {NUTZART_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.value} – {o.label}</option>)}
@@ -241,7 +241,7 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
         <div>
           <label className={labelCls}>Katastralgemeinde</label>
           <input name="kg_bezeichnung" type="hidden" value={kgBezeichnung} />
-          <div className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm bg-gray-50 text-gray-700 min-h-[34px]">
+          <div className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm bg-s112-bg text-s112-text-1 min-h-[34px]">
             {kgBezeichnung || <span className="text-s112-muted italic">wird aus KGNr. ermittelt</span>}
           </div>
         </div>
@@ -301,21 +301,21 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
               onClick={handleBevImport}
               disabled={bevLoading}
               title="Fläche aus BEV-Kataster holen"
-              className="shrink-0 px-2.5 py-1.5 rounded-lg border border-s112-border text-xs font-medium text-s112-teal hover:bg-s112-teal/10 disabled:opacity-40 transition-colors whitespace-nowrap"
+              className="shrink-0 px-2.5 py-1.5 rounded-lg border border-s112-border text-xs font-medium text-s112-blue-700 hover:bg-s112-teal/10 disabled:opacity-40 transition-colors whitespace-nowrap"
             >
               {bevLoading ? '…' : 'BEV'}
             </button>
           </div>
           {bevMsg && (
-            <p className={'text-xs mt-1 ' + (bevOk ? 'text-green-600' : 'text-orange-600')}>
+            <p className={'text-xs mt-1 ' + (bevOk ? 'text-s112-ok-fg' : 'text-s112-warn-fg')}>
               {bevMsg}
             </p>
           )}
           {bevAlleNutzungen && bevAlleNutzungen.length > 0 && (
-            <div className="mt-2 border border-orange-200 rounded-lg overflow-hidden text-xs">
+            <div className="mt-2 border border-s112-warn/30 rounded-lg overflow-hidden text-xs">
               <table className="w-full">
                 <thead>
-                  <tr className="bg-orange-50 text-orange-700">
+                  <tr className="bg-s112-warn-bg text-s112-warn-fg">
                     <th className="text-left px-2 py-1 font-medium">NS</th>
                     <th className="text-left px-2 py-1 font-medium">Nutzung</th>
                     <th className="text-right px-2 py-1 font-medium">ha</th>
@@ -323,15 +323,15 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
                 </thead>
                 <tbody>
                   {bevAlleNutzungen.map((n, i) => (
-                    <tr key={i} className="border-t border-orange-100">
-                      <td className="px-2 py-1 font-mono text-orange-600">{n.ns}</td>
-                      <td className="px-2 py-1 text-gray-700">{n.nutzung}</td>
-                      <td className="px-2 py-1 text-right font-mono text-gray-700">{n.ha.toFixed(4)}</td>
+                    <tr key={i} className="border-t border-s112-warn/30">
+                      <td className="px-2 py-1 font-mono text-s112-warn-fg">{n.ns}</td>
+                      <td className="px-2 py-1 text-s112-text-1">{n.nutzung}</td>
+                      <td className="px-2 py-1 text-right font-mono text-s112-text-1">{n.ha.toFixed(4)}</td>
                     </tr>
                   ))}
-                  <tr className="border-t border-orange-200 bg-orange-50 font-semibold">
-                    <td className="px-2 py-1 text-orange-700" colSpan={2}>Gesamt</td>
-                    <td className="px-2 py-1 text-right font-mono text-orange-700">
+                  <tr className="border-t border-s112-warn/30 bg-s112-warn-bg font-semibold">
+                    <td className="px-2 py-1 text-s112-warn-fg" colSpan={2}>Gesamt</td>
+                    <td className="px-2 py-1 text-right font-mono text-s112-warn-fg">
                       {bevAlleNutzungen.reduce((s, n) => s + n.ha, 0).toFixed(4)}
                     </td>
                   </tr>
@@ -402,7 +402,7 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
           {pending ? 'Speichert…' : 'Speichern'}
         </button>
         <button type="button" onClick={onDone}
-          className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors">
+          className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:text-s112-text transition-colors">
           Abbrechen
         </button>
       </div>
@@ -465,7 +465,7 @@ export default function GrundstueckePanel({
     <div className={pending ? 'opacity-60 pointer-events-none' : ''}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
-          <h2 className="text-base font-semibold text-gray-800">Grundstücke</h2>
+          <h2 className="text-base font-semibold text-s112-text">Grundstücke</h2>
           <span className="text-xs text-s112-muted">
             {grundstuecke.length} GST · {aktiv} aktiv · AMA: {fmtHa(totalAma)} ha
             {totalKataster > 0 && ` · Kataster: ${fmtHa(totalKataster)} ha`}
@@ -473,7 +473,7 @@ export default function GrundstueckePanel({
         </div>
         {writeOk && !showForm && (
           <button onClick={() => { setShowForm(true); setEditId(null) }}
-            className="inline-flex items-center gap-1 text-xs bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-teal font-medium px-3 py-1.5 rounded-lg transition-colors">
+            className="inline-flex items-center gap-1 text-xs bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-blue-700 font-medium px-3 py-1.5 rounded-lg transition-colors">
             Grundstück
           </button>
         )}
@@ -489,7 +489,7 @@ export default function GrundstueckePanel({
         <div className="border border-s112-border rounded-xl overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-s112-bg border-b border-s112-border text-xs text-gray-600">
+              <tr className="bg-s112-bg border-b border-s112-border text-xs text-s112-text-2">
                 <th className="w-6 px-2 py-2" />
                 <th className="text-left px-3 py-2 font-semibold">GST-Nr</th>
                 <th className="text-left px-3 py-2 font-semibold">Rebsorte</th>
@@ -519,13 +519,13 @@ export default function GrundstueckePanel({
                         {hasHistory ? (
                           <button
                             onClick={() => toggleExpand(g.id)}
-                            className="text-s112-muted hover:text-s112-teal transition-colors text-xs leading-none"
+                            className="text-s112-muted hover:text-s112-blue-700 transition-colors text-xs leading-none"
                             title={isExpanded ? 'Maßnahmen-Verlauf ausblenden' : 'Maßnahmen-Verlauf einblenden'}
                           >
                             {isExpanded ? '▼' : '▶'}
                           </button>
                         ) : (
-                          <span className="text-gray-200 text-xs">▶</span>
+                          <span className="text-s112-tertiary text-xs">▶</span>
                         )}
                       </td>
                       <td className="px-3 py-2 font-mono text-xs font-medium">
@@ -535,16 +535,16 @@ export default function GrundstueckePanel({
                         {g.rebsorte ?? '–'}
                         {g.weinart && g.weinart !== 'unbekannt' && (
                           <span className={`ml-1 inline-block px-1 py-0 rounded-full text-xs font-medium ${
-                            g.weinart === 'rot' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                            g.weinart === 'rot' ? 'bg-s112-err-bg text-s112-err-fg' : 'bg-s112-warn-bg text-s112-warn-fg'
                           }`}>{g.weinart === 'rot' ? 'Rot' : 'Weiß'}</span>
                         )}
                       </td>
                       <td className="px-3 py-2">
                         {g.bewirtschaftung ? (
-                          <span className={`inline-block px-1.5 py-0 rounded-full text-xs font-medium ${BEWIRTSCHAFTUNG_BADGE[g.bewirtschaftung] ?? 'bg-gray-100 text-gray-600'}`}>
+                          <span className={`inline-block px-1.5 py-0 rounded-full text-xs font-medium ${BEWIRTSCHAFTUNG_BADGE[g.bewirtschaftung] ?? 'bg-[#F2F3F5] text-s112-text-2'}`}>
                             {BEWIRTSCHAFTUNG_LABEL[g.bewirtschaftung] ?? g.bewirtschaftung}
                             {g.bewirtschaftung === 'in_umstellung' && g.bewirtschaftung_seit && (
-                              <span className="ml-1 text-gray-500">seit {new Date(g.bewirtschaftung_seit).toLocaleDateString('de-AT', { month: '2-digit', year: 'numeric' })}</span>
+                              <span className="ml-1 text-s112-text-2">seit {new Date(g.bewirtschaftung_seit).toLocaleDateString('de-AT', { month: '2-digit', year: 'numeric' })}</span>
                             )}
                           </span>
                         ) : <span className="text-s112-muted text-xs">–</span>}
@@ -568,12 +568,12 @@ export default function GrundstueckePanel({
                           {writeOk && (
                             <button onClick={() => { setEditId(g.id); setShowForm(false) }}
                               title="Bearbeiten" aria-label="Bearbeiten"
-                              className="text-s112-teal hover:text-s112-teal/70"><Pencil size={14} /></button>
+                              className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={14} /></button>
                           )}
                           {adminOk && (
                             <button onClick={() => handleDelete(g.id, g.gst_nr)}
                               title="Löschen" aria-label="Löschen"
-                              className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
+                              className="text-s112-err hover:text-s112-err-fg"><Trash2 size={14} /></button>
                           )}
                         </div>
                       </td>

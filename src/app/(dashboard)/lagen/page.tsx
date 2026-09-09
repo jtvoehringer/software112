@@ -40,7 +40,7 @@ export default async function LagenPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Rieden</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Rieden</h1>
           <p className="text-sm text-s112-muted mt-0.5">Rieden verwalten</p>
         </div>
         {writeOk && (
@@ -56,17 +56,17 @@ export default async function LagenPage() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="card text-center">
-          <p className="text-3xl font-bold text-s112-teal">{lagen.length}</p>
+          <p className="text-3xl font-semibold text-s112-blue-700">{lagen.length}</p>
           <p className="text-xs text-s112-muted mt-1">Lagen</p>
         </div>
         <div className="card text-center">
-          <p className="text-3xl font-bold text-s112-teal">
+          <p className="text-3xl font-semibold text-s112-blue-700">
             {weingaerten.filter(w => w.lage_id).length}
           </p>
           <p className="text-xs text-s112-muted mt-1">Zugeordnete Weingärten</p>
         </div>
         <div className="card text-center">
-          <p className="text-3xl font-bold text-s112-teal">
+          <p className="text-3xl font-semibold text-s112-blue-700">
             {weingaerten.filter(w => !w.lage_id).length}
           </p>
           <p className="text-xs text-s112-muted mt-1">Nicht zugeordnet</p>

@@ -56,7 +56,7 @@ export default async function WeingartenPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Rieden</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Rieden</h1>
           <p className="text-sm text-s112-muted mt-0.5">Rieden & Grundstücke</p>
         </div>
         <div className="flex items-center gap-3">
@@ -68,7 +68,7 @@ export default async function WeingartenPage() {
           )}
           {writeOk && (
             <Link href="/weingarten/import-gis"
-              className="inline-flex items-center gap-2 border border-s112-border bg-white text-gray-700 px-3 py-2 rounded-xl text-sm font-medium hover:bg-s112-bg transition-colors"
+              className="inline-flex items-center gap-2 border border-s112-border bg-white text-s112-text-1 px-3 py-2 rounded-xl text-sm font-medium hover:bg-s112-bg transition-colors"
               title="Feldstück-Umrisse aus dem INVEKOS-GIS (Shapefile-Export) übernehmen">
               eAMA-GIS importieren
             </Link>
@@ -87,19 +87,19 @@ export default async function WeingartenPage() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         <div className="card text-center">
-          <p className="text-3xl font-bold text-s112-teal">{aktive.length}</p>
+          <p className="text-3xl font-semibold text-s112-blue-700">{aktive.length}</p>
           <p className="text-xs text-s112-muted mt-1">Rieden</p>
         </div>
         <div className="card text-center">
-          <p className="text-3xl font-bold text-s112-teal">{grundstuecke.length}</p>
+          <p className="text-3xl font-semibold text-s112-blue-700">{grundstuecke.length}</p>
           <p className="text-xs text-s112-muted mt-1">Grundstücke</p>
         </div>
         <div className="card text-center">
-          <p className="text-3xl font-bold text-s112-teal">{fmtHa(gesamtHaAma)}</p>
+          <p className="text-3xl font-semibold text-s112-blue-700">{fmtHa(gesamtHaAma)}</p>
           <p className="text-xs text-s112-muted mt-1 leading-tight">GST-Fläche<br />lt. AMA</p>
         </div>
         <div className="card text-center">
-          <p className="text-3xl font-bold text-s112-teal">{gesamtHaKataster > 0 ? fmtHa(gesamtHaKataster) : '–'}</p>
+          <p className="text-3xl font-semibold text-s112-blue-700">{gesamtHaKataster > 0 ? fmtHa(gesamtHaKataster) : '–'}</p>
           <p className="text-xs text-s112-muted mt-1 leading-tight">GST-Fläche<br />lt. Kataster</p>
         </div>
       </div>
@@ -114,7 +114,7 @@ export default async function WeingartenPage() {
         />
       ) : (
         <div className="card text-center py-16">
-          <p className="text-gray-700 font-medium">Noch keine Rieden angelegt</p>
+          <p className="text-s112-text-1 font-medium">Noch keine Rieden angelegt</p>
           <p className="text-s112-muted text-sm mt-1 mb-6">Legen Sie Ihre erste Ried an</p>
           {writeOk && (
             <Link

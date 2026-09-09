@@ -45,9 +45,9 @@ export default function SessionTimeout({ timeoutMinuten }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4 text-center space-y-4">
-        <Bell className="w-9 h-9 mx-auto text-amber-500" strokeWidth={1.75} />
-        <h2 className="text-lg font-bold text-gray-900">Sitzung läuft ab</h2>
+      <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4 text-center space-y-4">
+        <Bell className="w-9 h-9 mx-auto text-s112-warn" strokeWidth={1.75} />
+        <h2 className="text-lg font-semibold text-s112-text">Sitzung läuft ab</h2>
         <p className="text-sm text-s112-muted">
           Du wirst in 2 Minuten automatisch abgemeldet.
         </p>
@@ -57,7 +57,7 @@ export default function SessionTimeout({ timeoutMinuten }: Props) {
             Aktiv bleiben
           </button>
           <button onClick={abmelden}
-            className="px-4 py-2.5 rounded-xl border border-s112-border text-gray-600 hover:bg-s112-bg text-sm">
+            className="px-4 py-2.5 rounded-xl border border-s112-border text-s112-text-2 hover:bg-s112-bg text-sm">
             Abmelden
           </button>
         </div>

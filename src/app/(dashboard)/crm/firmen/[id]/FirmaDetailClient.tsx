@@ -66,18 +66,18 @@ function AktivitaetForm({ firmaId, onDone }: { firmaId: string; onDone: () => vo
 
       {/* Uhrzeit – immer sichtbar, bei Ganztags deaktiviert */}
       <div className="flex items-center gap-3 flex-wrap">
-        <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none shrink-0">
+        <label className="flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer select-none shrink-0">
           <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)}
             className="rounded" />
           Ganztags
         </label>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">Von</span>
+          <span className="text-xs text-s112-tertiary">Von</span>
           <input name="uhrzeit_von" type="time" step="1800" disabled={ganztags}
-            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-gray-50' : ''}`} />
-          <span className="text-xs text-gray-400">–</span>
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
+          <span className="text-xs text-s112-tertiary">–</span>
           <input name="uhrzeit_bis" type="time" step="1800" disabled={ganztags}
-            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-gray-50' : ''}`} />
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
         </div>
       </div>
 
@@ -89,7 +89,7 @@ function AktivitaetForm({ firmaId, onDone }: { firmaId: string; onDone: () => vo
           className="bg-s112-teal text-white px-3 py-1 rounded-lg text-xs font-medium disabled:opacity-40">
           {pending ? '…' : 'Eintragen'}
         </button>
-        <button type="button" onClick={onDone} className="text-xs text-gray-500 hover:text-gray-700">Abbrechen</button>
+        <button type="button" onClick={onDone} className="text-xs text-s112-text-2 hover:text-s112-text-1">Abbrechen</button>
       </div>
     </form>
   )
@@ -122,17 +122,17 @@ function PipelineForm({ firmaId, onDone }: { firmaId: string; onDone: () => void
         <input name="erwartetes_datum" type="date" className={inputCls()} />
       </div>
       <div className="flex items-center gap-3 flex-wrap">
-        <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none shrink-0">
+        <label className="flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer select-none shrink-0">
           <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)} className="rounded" />
           Ganztags
         </label>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">Von</span>
+          <span className="text-xs text-s112-tertiary">Von</span>
           <input name="uhrzeit_von" type="time" step="1800" disabled={ganztags}
-            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-gray-50' : ''}`} />
-          <span className="text-xs text-gray-400">–</span>
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
+          <span className="text-xs text-s112-tertiary">–</span>
           <input name="uhrzeit_bis" type="time" step="1800" disabled={ganztags}
-            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-gray-50' : ''}`} />
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
         </div>
       </div>
       <div className="flex gap-2">
@@ -140,7 +140,7 @@ function PipelineForm({ firmaId, onDone }: { firmaId: string; onDone: () => void
           className="bg-s112-teal text-white px-3 py-1 rounded-lg text-xs font-medium disabled:opacity-40">
           {pending ? '…' : 'Eintragen'}
         </button>
-        <button type="button" onClick={onDone} className="text-xs text-gray-500 hover:text-gray-700">Abbrechen</button>
+        <button type="button" onClick={onDone} className="text-xs text-s112-text-2 hover:text-s112-text-1">Abbrechen</button>
       </div>
     </form>
   )
@@ -185,7 +185,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
     const isStorniert = a.betreff?.includes('STORNIERT')
     return (
       <div className="card p-4 flex gap-3">
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-s112-teal">
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-s112-blue-700">
           <Receipt size={16} />
         </div>
         <div className="flex-1 min-w-0">
@@ -193,15 +193,15 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
             <span className="text-xs text-s112-muted tabular-nums">
               {new Date(a.datum).toLocaleDateString('de-AT')}
             </span>
-            <span className="text-xs font-medium text-s112-teal">Verkauf</span>
+            <span className="text-xs font-medium text-s112-blue-700">Verkauf</span>
             {isStorniert && (
-              <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Storniert</span>
+              <span className="text-xs px-1.5 py-0.5 rounded-full bg-s112-err-bg text-s112-err-fg font-medium">Storniert</span>
             )}
           </div>
-          <p className="text-sm font-medium text-gray-800 mt-0.5">{a.betreff}</p>
+          <p className="text-sm font-medium text-s112-text mt-0.5">{a.betreff}</p>
           {postenId && postenId !== a.beschreibung && (
             <a href={`/weinhandel/verkauf/${postenId}`}
-              className="text-xs text-s112-teal hover:underline mt-0.5 inline-block">
+              className="text-xs text-s112-blue-700 hover:underline mt-0.5 inline-block">
               → Beleg ansehen
             </a>
           )}
@@ -217,7 +217,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
         <form onSubmit={handleSave} className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Art</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Art</label>
               <select name="art" defaultValue={a.art} className={inputCls()}>
                 {a.art === 'email' && <input type="hidden" name="art" value="email" />}
                 {AKTIVITAET_ARTEN.filter(x => !('nurAnzeige' in x) || x.value === a.art).map(x => (
@@ -226,16 +226,16 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Datum</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum</label>
               <input type="date" name="datum" defaultValue={a.datum ?? ''} required className={inputCls()} />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Betreff</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Betreff</label>
             <input type="text" name="betreff" defaultValue={a.betreff ?? ''} className={inputCls()} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Bericht</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Bericht</label>
             <textarea name="beschreibung" defaultValue={a.beschreibung ?? ''} rows={2} className={inputCls()} />
           </div>
           <div className="flex items-center gap-4 flex-wrap text-xs">
@@ -252,7 +252,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
             {!ganztags && (
               <div className="flex items-center gap-1.5">
                 <input type="time" name="uhrzeit_von" step="1800" defaultValue={a.uhrzeit_von ?? ''} className="border border-s112-border rounded px-2 py-1 text-xs focus:outline-none" />
-                <span className="text-gray-400">–</span>
+                <span className="text-s112-tertiary">–</span>
                 <input type="time" name="uhrzeit_bis" step="1800" defaultValue={a.uhrzeit_bis ?? ''} className="border border-s112-border rounded px-2 py-1 text-xs focus:outline-none" />
               </div>
             )}
@@ -267,12 +267,12 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
               {pending ? 'Speichern…' : 'Speichern'}
             </button>
             <button type="button" onClick={() => setEditMode(false)}
-              className="text-xs px-3 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
+              className="text-xs px-3 py-1.5 rounded-lg border border-s112-border text-s112-text-2 hover:bg-s112-bg">
               Abbrechen
             </button>
             <button type="button" onClick={handleDelete} disabled={pending}
               title="Löschen" aria-label="Löschen"
-              className="ml-auto text-xs px-3 py-1.5 rounded-lg text-red-500 hover:bg-red-50 border border-red-200 disabled:opacity-40">
+              className="ml-auto text-xs px-3 py-1.5 rounded-lg text-s112-err hover:bg-s112-err-bg border border-s112-err/30 disabled:opacity-40">
               <Trash2 size={14} />
             </button>
           </div>
@@ -287,14 +287,14 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
         <button type="button" onClick={handleErledigt} disabled={pending}
           title={a.erledigt ? 'Als offen markieren' : 'Als erledigt markieren'}
           className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-50 ${
-            a.erledigt ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-gray-300 hover:border-green-400 text-transparent'
+            a.erledigt ? 'bg-s112-ok border-s112-ok text-white' : 'bg-white border-s112-line-str hover:border-s112-ok/50 text-transparent'
           }`}>
           <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
           </svg>
         </button>
       )}
-      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-gray-600">
+      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-s112-text-2">
         <ArtIcon size={16} strokeWidth={1.75} />
       </div>
       <div className="flex-1 min-w-0">
@@ -303,20 +303,20 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
             {new Date(a.datum).toLocaleDateString('de-AT')}
           </span>
           {!a.ganztags && von && (
-            <span className="text-xs font-medium text-s112-teal tabular-nums">
+            <span className="text-xs font-medium text-s112-blue-700 tabular-nums">
               {von}{bis ? `–${bis}` : ''}
             </span>
           )}
           <span className="text-xs text-s112-muted">{artDef?.label ?? a.art}</span>
-          {a.ist_privat && <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">Privat</span>}
+          {a.ist_privat && <span className="text-xs bg-[#F2F3F5] text-s112-text-2 px-1.5 py-0.5 rounded">Privat</span>}
         </div>
         {a.art === 'email' ? (
           <button type="button" onClick={() => setEmailOpen(v => !v)}
-            className={`text-sm font-medium text-left w-full text-s112-teal hover:underline mt-0.5 block ${a.erledigt ? 'opacity-60' : ''}`}>
+            className={`text-sm font-medium text-left w-full text-s112-blue-700 hover:underline mt-0.5 block ${a.erledigt ? 'opacity-60' : ''}`}>
             {a.betreff ?? '(kein Betreff)'} {emailOpen ? '▴' : '▾'}
           </button>
         ) : (
-          <p className={`text-sm font-medium text-gray-800 mt-0.5 ${a.erledigt ? 'text-gray-400' : ''}`}>
+          <p className={`text-sm font-medium text-s112-text mt-0.5 ${a.erledigt ? 'text-s112-tertiary' : ''}`}>
             {a.betreff}
           </p>
         )}
@@ -329,17 +329,17 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
             </div>
             {a.email_body
               ? (a.email_body_html
-                  ? <div className="px-3 py-2 text-xs text-gray-700 max-h-64 overflow-y-auto"
+                  ? <div className="px-3 py-2 text-xs text-s112-text-1 max-h-64 overflow-y-auto"
                       dangerouslySetInnerHTML={{ __html: a.email_body_html }} />
-                  : <pre className="px-3 py-2 text-xs text-gray-700 whitespace-pre-wrap font-sans max-h-64 overflow-y-auto">{a.email_body}</pre>)
+                  : <pre className="px-3 py-2 text-xs text-s112-text-1 whitespace-pre-wrap font-sans max-h-64 overflow-y-auto">{a.email_body}</pre>)
               : a.beschreibung
-                ? <p className="px-3 py-2 text-xs text-gray-700 italic">{a.beschreibung}</p>
+                ? <p className="px-3 py-2 text-xs text-s112-text-1 italic">{a.beschreibung}</p>
                 : <p className="px-3 py-2 text-xs text-s112-muted italic">Inhalt in /nachrichten öffnen um vollständig zu laden</p>
             }
           </div>
         )}
         {a.beschreibung && !emailOpen && a.art !== 'email' && (
-          <p className="text-xs text-gray-500 mt-0.5">{a.beschreibung}</p>
+          <p className="text-xs text-s112-text-2 mt-0.5">{a.beschreibung}</p>
         )}
         {a.art === 'email' && replyOpen && (
           <div className="mt-2 space-y-2">
@@ -359,7 +359,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
                 {replySending ? 'Senden…' : 'Senden'}
               </button>
               <button type="button" onClick={() => setReplyOpen(false)}
-                className="text-xs border border-s112-border text-gray-600 px-3 py-1.5 rounded-lg hover:bg-s112-bg">
+                className="text-xs border border-s112-border text-s112-text-2 px-3 py-1.5 rounded-lg hover:bg-s112-bg">
                 Abbrechen
               </button>
             </div>
@@ -369,20 +369,20 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
       <div className="flex flex-col gap-1 flex-shrink-0">
         {a.art === 'email' && firmaEmail && !replyOpen && (
           <button type="button" onClick={() => setReplyOpen(true)} title="Antworten"
-            className="text-xs text-s112-teal border border-s112-teal/30 px-2 py-1 rounded-lg hover:bg-s112-teal/5">
+            className="text-xs text-s112-blue-700 border border-s112-teal/30 px-2 py-1 rounded-lg hover:bg-s112-teal/5">
             <Reply size={13} />
           </button>
         )}
         {writeOk && a.art === 'email' && (
           <button type="button" title="Email-Aktivität löschen"
             onClick={() => { if (confirm('Email aus Aktivitätenliste entfernen?')) startTransition(async () => { await deleteAktivitaet(a.id) }) }}
-            className="text-gray-300 hover:text-red-400 transition-colors">
+            className="text-s112-tertiary hover:text-s112-err transition-colors">
             <Trash2 size={14} />
           </button>
         )}
         {writeOk && a.art !== 'email' && (
           <button type="button" onClick={() => setEditMode(true)} title="Bearbeiten"
-            className="text-gray-300 hover:text-s112-teal transition-colors">
+            className="text-s112-tertiary hover:text-s112-blue-700 transition-colors">
             <Pencil size={14} />
           </button>
         )}
@@ -482,9 +482,9 @@ export default function FirmaDetailClient({
     <div className="space-y-6">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/crm/firmen" className="hover:text-s112-teal">Firmen</Link>
+        <Link href="/crm/firmen" className="hover:text-s112-blue-700">Firmen</Link>
         <span>/</span>
-        <span className="text-gray-800 font-medium">{firma.name}</span>
+        <span className="text-s112-text font-medium">{firma.name}</span>
       </nav>
 
       {/* Kopfbereich */}
@@ -497,73 +497,73 @@ export default function FirmaDetailClient({
       ) : (
       <div className="card p-5">
         <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-lg bg-s112-teal/10 flex items-center justify-center text-s112-teal font-bold text-lg flex-shrink-0">
+          <div className="w-12 h-12 rounded-lg bg-s112-teal/10 flex items-center justify-center text-s112-blue-700 font-semibold text-lg flex-shrink-0">
             {firma.name[0].toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-bold text-gray-900">{firma.name}</h1>
+              <h1 className="text-2xl font-semibold text-s112-text">{firma.name}</h1>
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${segmentFarbe(firma.segment)}`}>
                 {segmentLabel(firma.segment)}
               </span>
             {firma.is_lead && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Lead</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-s112-warn-bg text-s112-warn-fg font-medium">Lead</span>
             )}
               {firma.ist_kunde && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">Kunde</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-s112-blue-100 text-s112-blue-700 font-medium">Kunde</span>
               )}
               {firma.ist_lieferant && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">Lieferant</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-[#F2F3F5] text-s112-text-1 font-medium">Lieferant</span>
               )}
               {firma.land && firma.land !== 'AT' && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{firma.land}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-[#F2F3F5] text-s112-text-2 font-medium">{firma.land}</span>
               )}
             </div>
             <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1">
               {firma.email && (
-                <a href={`mailto:${firma.email}`} className="text-sm text-s112-teal hover:underline flex items-center gap-1">
+                <a href={`mailto:${firma.email}`} className="text-sm text-s112-blue-700 hover:underline flex items-center gap-1">
                   <Mail size={14} /> {firma.email}
                 </a>
               )}
               {firma.telefon && (
                 <a href={`tel:${firma.telefon_vorwahl ?? '+43'}${firma.telefon?.replace(/\s/g, '')}`}
                   onClick={e => handlePhoneClick(e, `${firma.telefon_vorwahl ?? '+43'} ${firma.telefon}`)}
-                  className="text-sm text-gray-600 hover:text-s112-teal flex items-center gap-1">
+                  className="text-sm text-s112-text-2 hover:text-s112-blue-700 flex items-center gap-1">
                   <Phone size={14} /> {firma.telefon_vorwahl ?? '+43'} {firma.telefon}
                 </a>
               )}
               {firma.mobil && (
                 <a href={`tel:${firma.mobil_vorwahl ?? '+43'}${firma.mobil?.replace(/\s/g, '')}`}
                   onClick={e => handlePhoneClick(e, `${firma.mobil_vorwahl ?? '+43'} ${firma.mobil}`)}
-                  className="text-sm text-gray-600 hover:text-s112-teal flex items-center gap-1">
+                  className="text-sm text-s112-text-2 hover:text-s112-blue-700 flex items-center gap-1">
                   <Smartphone size={14} /> {firma.mobil_vorwahl ?? '+43'} {firma.mobil}
                 </a>
               )}
               {firma.website && (
                 <a href={firma.website} target="_blank" rel="noopener noreferrer"
-                  className="text-sm text-s112-teal hover:underline flex items-center gap-1">
+                  className="text-sm text-s112-blue-700 hover:underline flex items-center gap-1">
                   <Globe size={14} /> {firma.website.replace(/^https?:\/\//, '')}
                 </a>
               )}
               {(firma.plz || firma.ort) && (
                 <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([firma.strasse, firma.plz, firma.ort, 'Österreich'].filter(Boolean).join(', '))}`}
                   target="_blank" rel="noopener noreferrer"
-                  className="text-sm text-gray-600 hover:text-s112-teal flex items-center gap-1">
+                  className="text-sm text-s112-text-2 hover:text-s112-blue-700 flex items-center gap-1">
                   <MapPin size={14} /> {[firma.strasse, firma.plz && firma.ort ? `${firma.plz} ${firma.ort}` : (firma.plz ?? firma.ort)].filter(Boolean).join(', ')}
                 </a>
               )}
               {firma.uid_nummer && (
-                <span className="text-sm text-gray-600">UID: {firma.uid_nummer}</span>
+                <span className="text-sm text-s112-text-2">UID: {firma.uid_nummer}</span>
               )}
               {firma.debitor_nr && (
-                <span className="text-sm text-gray-600">DebitorNr.: {firma.debitor_nr}</span>
+                <span className="text-sm text-s112-text-2">DebitorNr.: {firma.debitor_nr}</span>
               )}
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-s112-text-2">
                 Zahlungsziel: {firma.zahlungsziel_tage === 0 ? 'bei Erhalt' : `${firma.zahlungsziel_tage} Tage`}
               </span>
             </div>
             {firma.notizen && (
-              <p className="mt-2 text-sm text-gray-500 italic">{firma.notizen}</p>
+              <p className="mt-2 text-sm text-s112-text-2 italic">{firma.notizen}</p>
             )}
           </div>
           {writeOk && (
@@ -571,14 +571,14 @@ export default function FirmaDetailClient({
               <button
                 onClick={() => setEditing(true)}
                 title="Bearbeiten" aria-label="Bearbeiten"
-                className="inline-flex items-center justify-center border border-s112-border text-gray-600 w-8 h-8 rounded-lg hover:bg-s112-bg transition-colors">
+                className="inline-flex items-center justify-center border border-s112-border text-s112-text-2 w-8 h-8 rounded-lg hover:bg-s112-bg transition-colors">
                 <Pencil size={15} />
               </button>
               <button
                 onClick={handleDelete}
                 disabled={deletePending}
                 title="Löschen" aria-label="Löschen"
-                className="inline-flex items-center justify-center border border-red-200 text-red-600 w-8 h-8 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40">
+                className="inline-flex items-center justify-center border border-s112-err/30 text-s112-err-fg w-8 h-8 rounded-lg hover:bg-s112-err-bg transition-colors disabled:opacity-40">
                 <Trash2 size={15} />
               </button>
             </div>
@@ -600,8 +600,8 @@ export default function FirmaDetailClient({
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 tab === t.id
-                  ? 'border-s112-teal text-s112-teal'
-                  : 'border-transparent text-s112-muted hover:text-gray-700'
+                  ? 'border-s112-teal text-s112-blue-700'
+                  : 'border-transparent text-s112-muted hover:text-s112-text-1'
               }`}>
               {t.label}
             </button>
@@ -620,24 +620,24 @@ export default function FirmaDetailClient({
             const kName = [k.vorname, k.nachname].filter(Boolean).join(' ')
             return (
               <div key={k.id} className="card p-4 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-s112-teal/10 flex items-center justify-center text-s112-teal font-semibold text-sm flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-s112-teal/10 flex items-center justify-center text-s112-blue-700 font-semibold text-sm flex-shrink-0">
                   {(k.vorname?.[0] ?? k.nachname[0]).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <Link href={`/crm/kontakte/${k.id}`}
-                      className="text-sm font-medium text-gray-800 hover:text-s112-teal hover:underline">
+                      className="text-sm font-medium text-s112-text hover:text-s112-blue-700 hover:underline">
                       {kName}
                     </Link>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${segmentFarbe(k.segment)}`}>
                       {segmentLabel(k.segment)}
                     </span>
                     {k.stammkunde && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-s112-yellow/20 text-amber-700 font-medium">Stammkunde</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-s112-yellow/20 text-s112-warn-fg font-medium">Stammkunde</span>
                     )}
                   </div>
                   {k.email && (
-                    <a href={`mailto:${k.email}`} className="text-xs text-s112-teal hover:underline">{k.email}</a>
+                    <a href={`mailto:${k.email}`} className="text-xs text-s112-blue-700 hover:underline">{k.email}</a>
                   )}
                 </div>
               </div>
@@ -650,10 +650,10 @@ export default function FirmaDetailClient({
       {tab === 'aktivitaeten' && (
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <Link href="/crm" className="text-xs text-s112-muted hover:text-s112-teal">→ Kalender</Link>
+            <Link href="/crm" className="text-xs text-s112-muted hover:text-s112-blue-700">→ Kalender</Link>
             {writeOk && !showAktForm && (
               <button onClick={() => setShowAktForm(true)}
-                className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors">
+                className="text-xs font-medium text-s112-blue-700 border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors">
                 + Aktivität
               </button>
             )}
@@ -694,13 +694,13 @@ export default function FirmaDetailClient({
                       <div key={cid} className="border border-s112-border rounded-xl overflow-hidden">
                         <button type="button"
                           onClick={() => setExpandedThreads(prev => { const s=new Set(prev); expanded?s.delete(cid):s.add(cid); return s })}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 transition-colors text-left">
-                          <Mail size={16} className="text-blue-600 flex-shrink-0" />
+                          className="w-full flex items-center gap-3 px-4 py-2.5 bg-s112-blue-50 hover:bg-s112-blue-100 transition-colors text-left">
+                          <Mail size={16} className="text-s112-blue-700 flex-shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-800 truncate">{latest.betreff}</p>
+                            <p className="text-sm font-medium text-s112-text truncate">{latest.betreff}</p>
                             <p className="text-xs text-s112-muted">{msgs.length} E-Mails · {new Date(latest.datum).toLocaleDateString('de-AT')} · {expanded ? 'einklappen ▴' : 'ausklappen ▾'}</p>
                           </div>
-                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">{msgs.length}</span>
+                          <span className="text-xs bg-s112-blue-100 text-s112-blue-700 px-2 py-0.5 rounded-full font-semibold">{msgs.length}</span>
                         </button>
                         {expanded && (
                           <div className="divide-y divide-s112-border/40">
@@ -725,7 +725,7 @@ export default function FirmaDetailClient({
           <div className="flex justify-end">
             {writeOk && !showPipelineForm && (
               <button onClick={() => setShowPipelineForm(true)}
-                className="text-xs font-medium text-s112-teal border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors">
+                className="text-xs font-medium text-s112-blue-700 border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors">
                 + Pipeline-Eintrag
               </button>
             )}
@@ -750,16 +750,16 @@ export default function FirmaDetailClient({
                   <div key={p.id} className="card p-4 space-y-2">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${stufeDef?.farbe ?? 'bg-gray-100 text-gray-700'}`}>
+                      <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${stufeDef?.farbe ?? 'bg-[#F2F3F5] text-s112-text-1'}`}>
                         {stufeDef?.label ?? p.stufe}
                       </span>
-                      <span className="text-sm font-medium text-gray-800">{p.titel}</span>
+                      <span className="text-sm font-medium text-s112-text">{p.titel}</span>
                       </div>
-                      <Link href="/crm/pipeline" className="text-xs text-s112-teal hover:underline flex-shrink-0">→ Pipeline</Link>
+                      <Link href="/crm/pipeline" className="text-xs text-s112-blue-700 hover:underline flex-shrink-0">→ Pipeline</Link>
                     </div>
                     <div className="flex gap-4 text-xs text-s112-muted flex-wrap">
                       {p.wert_euro != null && (
-                        <span className="font-semibold text-s112-teal">
+                        <span className="font-semibold text-s112-blue-700">
                           {p.wert_euro.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
                         </span>
                       )}
@@ -767,7 +767,7 @@ export default function FirmaDetailClient({
                       {abschluss && <span>{abschluss}</span>}
                     </div>
                     {p.notizen && (
-                      <p className="text-xs text-gray-500 italic">{p.notizen}</p>
+                      <p className="text-xs text-s112-text-2 italic">{p.notizen}</p>
                     )}
                   </div>
                 )
@@ -786,10 +786,10 @@ export default function FirmaDetailClient({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-s112-bg border-b border-s112-border">
-                    <th className="text-left px-4 py-2.5 font-semibold text-gray-700">Datum</th>
-                    <th className="text-left px-4 py-2.5 font-semibold text-gray-700">Belegnr.</th>
-                    <th className="text-right px-4 py-2.5 font-semibold text-gray-700">Betrag</th>
-                    <th className="text-center px-4 py-2.5 font-semibold text-gray-700">Status</th>
+                    <th className="text-left px-4 py-2.5 font-semibold text-s112-text-1">Datum</th>
+                    <th className="text-left px-4 py-2.5 font-semibold text-s112-text-1">Belegnr.</th>
+                    <th className="text-right px-4 py-2.5 font-semibold text-s112-text-1">Betrag</th>
+                    <th className="text-center px-4 py-2.5 font-semibold text-s112-text-1">Status</th>
                     <th className="px-4 py-2.5" />
                   </tr>
                 </thead>
@@ -801,27 +801,27 @@ export default function FirmaDetailClient({
                         <td className="px-4 py-2.5 text-xs tabular-nums text-s112-muted">
                           {new Date(v.datum).toLocaleDateString('de-AT')}
                         </td>
-                        <td className="px-4 py-2.5 text-xs font-medium text-gray-800">
+                        <td className="px-4 py-2.5 text-xs font-medium text-s112-text">
                           <div className="font-mono">{v.rechnungsnummer ?? '–'}</div>
                           {v.transaktions_nr && <div className="font-mono text-s112-muted mt-0.5">{v.transaktions_nr}</div>}
                         </td>
-                        <td className="px-4 py-2.5 text-right font-semibold text-s112-teal tabular-nums">
+                        <td className="px-4 py-2.5 text-right font-semibold text-s112-blue-700 tabular-nums">
                           {summe > 0
                             ? summe.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
                             : <span className="text-s112-muted font-normal">–</span>}
                         </td>
                         <td className="px-4 py-2.5 text-center">
                           {v.storniert ? (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Storniert</span>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-s112-err-bg text-s112-err-fg font-medium">Storniert</span>
                           ) : v.bezahlt ? (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Bezahlt</span>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-s112-ok-bg text-s112-ok-fg font-medium">Bezahlt</span>
                           ) : (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Offen</span>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-s112-warn-bg text-s112-warn-fg font-medium">Offen</span>
                           )}
                         </td>
                         <td className="px-4 py-2.5 text-right">
                           <a href={`/weinhandel/verkauf/${v.id}`}
-                            className="text-xs text-s112-teal hover:underline">Beleg →</a>
+                            className="text-xs text-s112-blue-700 hover:underline">Beleg →</a>
                         </td>
                       </tr>
                     )
@@ -837,26 +837,26 @@ export default function FirmaDetailClient({
       {showEmailModal && firma.email && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
           onClick={() => setShowEmailModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4"
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
             onClick={e => e.stopPropagation()}>
-            <h3 className="text-base font-bold text-gray-900 mb-4 inline-flex items-center gap-1.5"><Mail size={16} />E-Mail senden</h3>
+            <h3 className="text-base font-semibold text-s112-text mb-4 inline-flex items-center gap-1.5"><Mail size={16} />E-Mail senden</h3>
             <form onSubmit={sendEmail} className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">An</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">An</label>
                 <input value={firma.email} readOnly className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm bg-s112-bg" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Betreff *</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Betreff *</label>
                 <input value={emailBetreff} onChange={e => setEmailBetreff(e.target.value)} required autoFocus
                   className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Nachricht</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Nachricht</label>
                 <textarea value={emailText} onChange={e => setEmailText(e.target.value)} rows={5}
                   className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
               </div>
               {emailResult && (
-                <p className={`text-xs font-medium inline-flex items-center gap-1 ${emailResult === 'E-Mail gesendet' ? 'text-green-600' : 'text-red-600'}`}>
+                <p className={`text-xs font-medium inline-flex items-center gap-1 ${emailResult === 'E-Mail gesendet' ? 'text-s112-ok-fg' : 'text-s112-err-fg'}`}>
                   {emailResult === 'E-Mail gesendet' ? <Check size={12} /> : <X size={12} />}
                   {emailResult}
                 </p>
@@ -867,7 +867,7 @@ export default function FirmaDetailClient({
                   {emailSending ? 'Senden…' : 'Senden'}
                 </button>
                 <button type="button" onClick={() => setShowEmailModal(false)}
-                  className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
+                  className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-s112-text-2 hover:bg-s112-bg">
                   Abbrechen
                 </button>
               </div>
@@ -877,7 +877,7 @@ export default function FirmaDetailClient({
       )}
 
       {copiedNum && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm px-4 py-2 rounded-xl shadow-lg inline-flex items-center gap-1.5">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-s112-text text-white text-sm px-4 py-2 rounded-xl shadow-lg inline-flex items-center gap-1.5">
           <ClipboardCheck size={14} /> {copiedNum} kopiert
         </div>
       )}
@@ -910,11 +910,11 @@ export default function FirmaDetailClient({
               {[...aktivitaeten.filter(a => a.art === 'notiz')].sort((a,b) => Number(a.erledigt) - Number(b.erledigt)).map(n => (
                 <div key={n.id} className={`card p-4 flex gap-3 ${n.erledigt ? 'opacity-60' : ''}`}>
                   <button type="button" onClick={() => toggleAktivitaetErledigt(n.id, !n.erledigt)}
-                    className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${n.erledigt ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 hover:border-green-400'}`}>
+                    className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${n.erledigt ? 'bg-s112-ok border-s112-ok text-white' : 'border-s112-line-str hover:border-s112-ok/50'}`}>
                     {n.erledigt && <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                   </button>
                   <div className="flex-1">
-                    <p className={`text-sm ${n.erledigt ? 'text-gray-400' : 'text-gray-800'}`}>{n.betreff}</p>
+                    <p className={`text-sm ${n.erledigt ? 'text-s112-tertiary' : 'text-s112-text'}`}>{n.betreff}</p>
                     <p className="text-xs text-s112-muted mt-0.5">{new Date(n.datum).toLocaleDateString('de-AT')}</p>
                   </div>
                 </div>

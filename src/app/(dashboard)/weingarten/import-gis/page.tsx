@@ -14,11 +14,11 @@ export default async function ImportGisPage() {
   return (
     <div>
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-6">
-        <Link href="/weingarten" className="hover:text-s112-teal transition-colors">Rieden</Link>
+        <Link href="/weingarten" className="hover:text-s112-blue-700 transition-colors">Rieden</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">eAMA-GIS importieren</span>
+        <span className="text-s112-text-1 font-medium">eAMA-GIS importieren</span>
       </div>
-      <h1 className="text-2xl font-bold text-gray-900">Umrisse aus dem eAMA importieren</h1>
+      <h1 className="text-2xl font-semibold text-s112-text">Umrisse aus dem eAMA importieren</h1>
       <p className="text-sm text-s112-muted mt-0.5 mb-6">Feldstück-Polygone aus dem INVEKOS-GIS werden über die AMA-Feldstücknummer den Rieden zugeordnet – Umriss und Mittelpunkt je Ried, optional Schlag-Umrisse je Grundstück.</p>
       <ImportGisClient />
     </div>

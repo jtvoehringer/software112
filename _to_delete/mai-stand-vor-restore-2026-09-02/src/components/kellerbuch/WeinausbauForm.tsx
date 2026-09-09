@@ -1,0 +1,149 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { QUALITAET_OPTS } from '@/lib/wein/qualitaet'
+
+const REBSORTEN = [
+  'Grüner Veltliner','Riesling','Welschriesling','Müller-Thurgau',
+  'Chardonnay','Sauvignon Blanc','Weißburgunder','Grauburgunder',
+  'Zweigelt','Blaufränkisch','St. Laurent','Pinot Noir','Merlot',
+]
+
+type Row = { id: string; name: string }
+type WeinausbauRow = {
+  id: string; name: string; jahrgang: number | null; rebsorte: string | null
+  weingarten_id: string | null; behaelter_id: string | null
+  menge_liter: number | null; status: string; qualitaetsstufe: string | null
+  notizen: string | null; aktiv: boolean
+}
+
+interface Props {
+  weinausbau?: WeinausbauRow
+  weingaerten: Row[]
+  behaelter: Row[]
+  action: (formData: FormData) => Promise<void>
+}
+
+export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, action }: Props) {
+  const router = useRouter()
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setError(null)
+    setSaving(true)
+    const raw = new FormData(e.currentTarget)
+    const normalized = new FormData()
+    raw.forEach((value, key) => {
+      if (key === 'menge_liter' && typeof value === 'string') {
+        normalized.append(key, value.replace(',', '.'))
+      } else {
+        normalized.append(key, value)
+      }
+    })
+    try {
+      await action(normalized)
+      router.push('/kellerbuch')
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Fehler beim Speichern')
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm"><strong>Fehler:</strong> {error}</div>}
+
+      <div className="card space-y-4">
+        <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Charge</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="form-label">Bezeichnung *</label>
+            <input name="name" type="text" required defaultValue={weinausbau?.name ?? ''} className="form-input" placeholder="z.B. GV Kremser Schmidt 2025" />
+          </div>
+          <div>
+            <label className="form-label">Jahrgang</label>
+            <input name="jahrgang" type="number" min="1900" max="2100" defaultValue={weinausbau?.jahrgang ?? new Date().getFullYear()} className="form-input" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="form-label">Rebsorte</label>
+            <input name="rebsorte" type="text" list="rebsorten-kb" defaultValue={weinausbau?.rebsorte ?? ''} className="form-input" placeholder="Rebsorte" />
+            <datalist id="rebsorten-kb">{REBSORTEN.map(r => <option key={r} value={r} />)}</datalist>
+          </div>
+          <div>
+            <label className="form-label">Menge (Liter)</label>
+            <input name="menge_liter" type="text" inputMode="decimal"
+              defaultValue={weinausbau?.menge_liter?.toString().replace('.', ',') ?? ''}
+              className="form-input" placeholder="z.B. 1.500" />
+          </div>
+        </div>
+
+        {/* Qualitätsstufe */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="form-label">Qualitätsstufe</label>
+            <select name="qualitaetsstufe" defaultValue={weinausbau?.qualitaetsstufe ?? ''} className="form-input">
+              <option value="">– noch nicht festgelegt –</option>
+              {QUALITAET_OPTS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="form-label">Status</label>
+            <select name="status" defaultValue={weinausbau?.status ?? 'ernte'} className="form-input">
+              <option value="ernte">🍇 Ernte</option>
+              <option value="gaerung">🫧 Gärung</option>
+              <option value="ausbau">🛢️ Ausbau</option>
+              <option value="abfuellung">🍾 Abfüllung</option>
+              <option value="abgeschlossen">✅ Abgeschlossen</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="form-label">Weingarten</label>
+            <select name="weingarten_id" defaultValue={weinausbau?.weingarten_id ?? ''} className="form-input">
+              <option value="">– kein Weingarten –</option>
+              {weingaerten.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="form-label">Behälter</label>
+            <select name="behaelter_id" defaultValue={weinausbau?.behaelter_id ?? ''} className="form-input">
+              <option value="">– kein Behälter –</option>
+              {behaelter.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div className="card space-y-4">
+        <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Notizen</h2>
+        <textarea name="notizen" rows={3} defaultValue={weinausbau?.notizen ?? ''} className="form-input resize-none" placeholder="Kellermeister-Notizen, Maßnahmen …" />
+      </div>
+
+      {weinausbau && (
+        <div className="card">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" name="aktiv" value="true" defaultChecked={weinausbau.aktiv} className="w-4 h-4 accent-s112-teal" />
+            <span className="text-sm font-medium text-gray-700">Charge aktiv</span>
+          </label>
+        </div>
+      )}
+
+      <div className="flex items-center gap-3">
+        <button type="submit" disabled={saving} className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
+          {saving ? 'Wird gespeichert …' : 'Speichern'}
+        </button>
+        <button type="button" onClick={() => router.push('/kellerbuch')} className="text-sm text-s112-muted hover:text-gray-700 transition-colors">Abbrechen</button>
+      </div>
+    </form>
+  )
+}

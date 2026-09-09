@@ -48,7 +48,7 @@ export default function WeingartenForm({ weingarten, action, readOnly = false }:
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
+        <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm">
           <strong>Fehler:</strong> {error}
         </div>
       )}
@@ -135,7 +135,7 @@ export default function WeingartenForm({ weingarten, action, readOnly = false }:
               defaultChecked={weingarten.aktiv}
               className="w-4 h-4 accent-s112-teal"
             />
-            <span className="text-sm font-medium text-gray-700">Ried aktiv</span>
+            <span className="text-sm font-medium text-s112-text-1">Ried aktiv</span>
           </label>
         </div>
       )}
@@ -154,7 +154,7 @@ export default function WeingartenForm({ weingarten, action, readOnly = false }:
         <button
           type="button"
           onClick={() => router.push('/weingarten')}
-          className="text-sm text-s112-muted hover:text-gray-700 transition-colors"
+          className="text-sm text-s112-muted hover:text-s112-text-1 transition-colors"
         >
           {readOnly ? 'Zurück' : 'Abbrechen'}
         </button>

@@ -97,15 +97,15 @@ export default async function BelegBuchenPage({ params }: { params: Promise<{ id
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-2">
-        <Link href="/buchhaltung/belege" className="hover:text-s112-teal transition-colors">Belege</Link>
+        <Link href="/buchhaltung/belege" className="hover:text-s112-blue-700 transition-colors">Belege</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium truncate">{beleg.dateiname}</span>
+        <span className="text-s112-text-1 font-medium truncate">{beleg.dateiname}</span>
       </div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Beleg buchen</h1>
+      <h1 className="text-2xl font-semibold text-s112-text mb-6">Beleg buchen</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         {/* Vorschau */}
-        <div className="bg-white rounded-2xl border border-s112-border p-4">
+        <div className="bg-white rounded-xl border border-s112-border p-4">
           {previewUrl ? (
             istBild ? (
               // eslint-disable-next-line @next/next/no-img-element

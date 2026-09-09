@@ -300,8 +300,8 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     ]
     if (verschneidungOpen) {
       return (
-        <div className="bg-s112-bg border border-amber-200 rounded-xl p-4">
-          <p className="text-sm font-semibold text-gray-800 mb-3">Chargen verschneiden</p>
+        <div className="bg-s112-bg border border-s112-warn/30 rounded-xl p-4">
+          <p className="text-sm font-semibold text-s112-text mb-3">Chargen verschneiden</p>
           <VerschneidungForm
             zielCharge={zielCharge}
             alleChargen={alleChargen}
@@ -313,9 +313,9 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
       )
     }
     return (
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
-        <p className="text-sm font-semibold text-amber-800">Pressung gespeichert</p>
-        <p className="text-sm text-amber-700">
+      <div className="bg-s112-warn-bg border border-s112-warn/30 rounded-xl p-4 space-y-3">
+        <p className="text-sm font-semibold text-s112-warn-fg">Pressung gespeichert</p>
+        <p className="text-sm text-s112-warn-fg">
           Die neue Charge <strong>{verschneidung.newCharge.name}</strong> wurde in einen
           Behälter mit bestehenden Chargen gefüllt:
           {' '}<strong>{verschneidung.existingChargen.map(c => c.name).join(', ')}</strong>.
@@ -332,7 +332,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
           <button
             type="button"
             onClick={() => { setVerschneidung(null); onDone() }}
-            className="px-4 py-1.5 text-sm text-gray-600 hover:text-gray-800"
+            className="px-4 py-1.5 text-sm text-s112-text-2 hover:text-s112-text"
           >
             Später / Kein Verschnitt
           </button>
@@ -343,27 +343,27 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
 
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-4">
-      <h3 className="text-sm font-semibold text-gray-800">{pressung ? 'Pressung bearbeiten' : 'Pressung erfassen'}</h3>
+      <h3 className="text-sm font-semibold text-s112-text">{pressung ? 'Pressung bearbeiten' : 'Pressung erfassen'}</h3>
 
       {/* Datum + Most + Bezeichnung */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Datum *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
           <input type="date" value={datum} onChange={e => setDatum(e.target.value)} required className={inp} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Mostausbeute gesamt (L) *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Mostausbeute gesamt (L) *</label>
           <input type="text" inputMode="decimal" required value={mostLiter} onChange={e => setMostLiter(e.target.value)}
             placeholder="z.B. 1.050" className={inp} />
         </div>
         <div className="col-span-2">
-          <label className="block text-xs font-medium text-gray-600 mb-1">KMW° & Qualitätsstufe</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">KMW° & Qualitätsstufe</label>
           <div className="flex items-center gap-2">
-            <div className="border border-s112-border rounded-lg px-2 py-1.5 text-sm bg-s112-bg text-gray-700 cursor-not-allowed whitespace-nowrap shrink-0">
+            <div className="border border-s112-border rounded-lg px-2 py-1.5 text-sm bg-s112-bg text-s112-text-1 cursor-not-allowed whitespace-nowrap shrink-0">
               {kmwGrad ? `${kmwGrad} °KMW` : <span className="text-s112-muted text-xs">– kein KMW</span>}
             </div>
             <div className="flex-1 flex items-center gap-2 border border-s112-border rounded-lg px-2 py-1.5 bg-s112-bg">
-              <span className="shrink-0 text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap">
+              <span className="shrink-0 text-xs font-semibold px-2 py-1 rounded-full bg-s112-warn-bg text-s112-warn-fg whitespace-nowrap">
                 {QUALITAET_LABEL[kmwQualitaet ?? 'qualitaetswein']}
               </span>
               <span className="text-xs text-s112-muted">automatisch aus °KMW · manuelles Abstufen bei der Abfüllung möglich</span>
@@ -371,7 +371,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
           </div>
         </div>
         <div className="col-span-2">
-          <label className="block text-xs font-medium text-gray-600 mb-1">
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">
             Bezeichnung <span className="text-s112-muted font-normal">(z.B. Gemischter Satz – optional)</span>
           </label>
           <input type="text" value={weinbezeichnung} onChange={e => setWeinbez(e.target.value)}
@@ -384,7 +384,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
               || `Pressung ${datum ? new Date(datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '…'}`
             return (
               <p className="text-xs text-s112-muted mt-1">
-                → Charge: <strong className="text-gray-700">&ldquo;{preview}&rdquo;</strong>
+                → Charge: <strong className="text-s112-text-1">&ldquo;{preview}&rdquo;</strong>
               </p>
             )
           })()}
@@ -394,15 +394,15 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
       {/* Live-Kalkulation */}
       {gesamtKg > 0 && (
         <div className="flex gap-4 text-xs bg-white border border-s112-border rounded-lg px-3 py-2">
-          <span className="text-gray-600">Trauben: <strong className="text-gray-900">{fmt(gesamtKg)} kg</strong></span>
+          <span className="text-s112-text-2">Trauben: <strong className="text-s112-text">{fmt(gesamtKg)} kg</strong></span>
           {mostL > 0 && <>
-            <span className="text-gray-400">→</span>
-            <span className="text-gray-600">Most: <strong className="text-gray-900">{fmt(mostL)} L</strong></span>
-            <span className="text-gray-400">→</span>
-            <span className={`font-semibold ${ausbeute && ausbeute < 65 ? 'text-amber-600' : 'text-green-700'}`}>
+            <span className="text-s112-tertiary">→</span>
+            <span className="text-s112-text-2">Most: <strong className="text-s112-text">{fmt(mostL)} L</strong></span>
+            <span className="text-s112-tertiary">→</span>
+            <span className={`font-semibold ${ausbeute && ausbeute < 65 ? 'text-s112-warn-fg' : 'text-s112-ok-fg'}`}>
               {fmtProzent(ausbeute)} % Ausbeute
             </span>
-            <span className="text-gray-400 ml-auto">Faustregel: 70 %</span>
+            <span className="text-s112-tertiary ml-auto">Faustregel: 70 %</span>
           </>}
         </div>
       )}
@@ -410,9 +410,9 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
       {/* Gelesene GST */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <label className="text-xs font-semibold text-gray-700">Gelesene GST</label>
+          <label className="text-xs font-semibold text-s112-text-1">Gelesene GST</label>
           <button type="button" onClick={() => setWgRows(r => [...r, emptyWG()])}
-            className="text-xs text-s112-teal hover:underline">GST</button>
+            className="text-xs text-s112-blue-700 hover:underline">GST</button>
         </div>
         <div className="space-y-1.5">
           {wgRows.map((row, i) => {
@@ -449,14 +449,14 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
                     placeholder="kg" className={inp} />
                 </div>
                 <div className="col-span-3 flex items-center px-2">
-                  <span className="text-sm text-gray-600 truncate">
-                    {row.rebsorte ? formatRebsorteMitKuerzel(row.rebsorte) : <span className="text-gray-400 text-xs">–</span>}
+                  <span className="text-sm text-s112-text-2 truncate">
+                    {row.rebsorte ? formatRebsorteMitKuerzel(row.rebsorte) : <span className="text-s112-tertiary text-xs">–</span>}
                   </span>
                 </div>
                 <div className="col-span-2 flex justify-end">
                   {wgRows.length > 1 && (
                     <button type="button" onClick={() => setWgRows(r => r.filter((_, j) => j !== i))}
-                      className="text-xs text-red-400 hover:text-red-600 px-1"><X size={14} /></button>
+                      className="text-xs text-s112-err hover:text-s112-err-fg px-1"><X size={14} /></button>
                   )}
                 </div>
               </div>
@@ -468,9 +468,9 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
       {/* Befüllte Behälter/Chargen */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <label className="text-xs font-semibold text-gray-700">Most in Behälter/Charge *</label>
+          <label className="text-xs font-semibold text-s112-text-1">Most in Behälter/Charge *</label>
           <button type="button" onClick={() => setBehRows(r => [...r, emptyBeh()])}
-            className="text-xs text-s112-teal hover:underline">Behälter</button>
+            className="text-xs text-s112-blue-700 hover:underline">Behälter</button>
         </div>
         <div className="space-y-1.5">
           {behRows.map((row, i) => (
@@ -524,7 +524,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
                         </div>
                         <div>
                           <p className="text-s112-muted mb-0.5">{eingabe > 0 ? 'Rest nach Pressung' : 'Restkapazität'}</p>
-                          <p className={`font-medium tabular-nums ${ueber ? 'text-red-600' : 'text-s112-teal'}`}>
+                          <p className={`font-medium tabular-nums ${ueber ? 'text-s112-err-fg' : 'text-s112-blue-700'}`}>
                             {vol != null ? (eingabe > 0 ? restNach! : vol - inhaltJetzt).toLocaleString('de-AT', { maximumFractionDigits: 1 }) + ' L' : '–'}
                           </p>
                         </div>
@@ -532,17 +532,17 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
 
                       {/* Bestehende Chargen */}
                       {existing.length > 0 && (
-                        <div className={`rounded px-2 py-1.5 border ${isFarbmix ? 'bg-red-50 border-red-300' : isMix ? 'bg-amber-50 border-amber-200' : 'bg-white border-s112-border'}`}>
-                          <p className={`font-medium mb-1 ${isFarbmix ? 'text-red-700' : isMix ? 'text-amber-700' : 'text-gray-600'}`}>
+                        <div className={`rounded px-2 py-1.5 border ${isFarbmix ? 'bg-s112-err-bg border-s112-err/30' : isMix ? 'bg-s112-warn-bg border-s112-warn/30' : 'bg-white border-s112-border'}`}>
+                          <p className={`font-medium mb-1 ${isFarbmix ? 'text-s112-err-fg' : isMix ? 'text-s112-warn-fg' : 'text-s112-text-2'}`}>
                             {isFarbmix ? 'Rotwein/Weißwein-Mischung nicht erlaubt!' : isMix ? 'Rebsortenverschnitt' : 'Enthält bereits'}
                           </p>
                           <ul className="space-y-0.5">
                             {existing.map((c, ci) => (
                               <li key={ci} className="flex justify-between">
-                                <span className={isFarbmix ? 'text-red-700' : isMix ? 'text-amber-700' : 'text-gray-700'}>
+                                <span className={isFarbmix ? 'text-s112-err-fg' : isMix ? 'text-s112-warn-fg' : 'text-s112-text-1'}>
                                   {c.name}{c.rebsorte ? ` · ${formatRebsorteMitKuerzel(c.rebsorte)}` : ''}
                                 </span>
-                                <span className="tabular-nums text-gray-500 ml-2">
+                                <span className="tabular-nums text-s112-text-2 ml-2">
                                   {c.menge_liter != null ? c.menge_liter.toLocaleString('de-AT', { maximumFractionDigits: 1 }) + ' L' : '–'}
                                 </span>
                               </li>
@@ -551,7 +551,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
                         </div>
                       )}
 
-                      {ueber && <p className="text-red-600 font-medium">Behälter hat nicht genug Kapazität</p>}
+                      {ueber && <p className="text-s112-err-fg font-medium">Behälter hat nicht genug Kapazität</p>}
                     </div>
                   )
                 })()}
@@ -564,7 +564,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
               <div className="col-span-2 flex justify-end">
                 {behRows.length > 1 && (
                   <button type="button" onClick={() => setBehRows(r => r.filter((_, j) => j !== i))}
-                    className="text-xs text-red-400 hover:text-red-600 px-1"><X size={14} /></button>
+                    className="text-xs text-s112-err hover:text-s112-err-fg px-1"><X size={14} /></button>
                 )}
               </div>
             </div>
@@ -574,7 +574,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
 
       {/* Notizen */}
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
+        <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
         <input type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
           placeholder="z.B. Nachtlese, Botrytis teilweise …" className={inp} />
       </div>
@@ -584,7 +584,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
           className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50">
           {pending ? 'Speichert…' : 'Speichern'}
         </button>
-        <button type="button" onClick={onDone} className="px-4 py-1.5 text-sm text-gray-600 hover:text-gray-800">
+        <button type="button" onClick={onDone} className="px-4 py-1.5 text-sm text-s112-text-2 hover:text-s112-text">
           Abbrechen
         </button>
       </div>
@@ -623,13 +623,13 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
         <button type="button" onClick={() => setCollapsed(c => !c)}
           className="flex items-center gap-1.5 text-left" title={collapsed ? 'Pressungen einblenden' : 'Pressungen ausblenden'}>
           <ChevronDown size={16} className={`text-s112-muted transition-transform ${collapsed ? '-rotate-90' : ''}`} />
-          <h2 className="text-base font-semibold text-gray-800">Pressungen</h2>
+          <h2 className="text-base font-semibold text-s112-text">Pressungen</h2>
         </button>
         <div className="flex items-center gap-3">
           {pressungen.length > 0 && (
             <span className="text-xs text-s112-muted">
               {fmt(gesamtKg)} kg → {fmt(gesamtLiter)} L
-              {ausbeute && <span className="ml-1 font-medium text-gray-700">({ausbeute.toFixed(1)} %)</span>}
+              {ausbeute && <span className="ml-1 font-medium text-s112-text-1">({ausbeute.toFixed(1)} %)</span>}
             </span>
           )}
           {writeOk && !showForm && (
@@ -638,7 +638,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                   className="inline-flex items-center gap-1.5 bg-s112-teal text-white font-semibold px-3 py-1.5 rounded-lg text-xs hover:bg-opacity-90 transition-colors shadow-sm">
                   <Plus size={14} strokeWidth={2.5} /> Pressung erfassen
                 </button>
-              : <span className="text-xs text-amber-600 font-medium bg-amber-50 px-3 py-1.5 rounded-lg">
+              : <span className="text-xs text-s112-warn-fg font-medium bg-s112-warn-bg px-3 py-1.5 rounded-lg">
                   Keine Trauben für Pressung verfügbar
                 </span>
           )}
@@ -651,15 +651,15 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
       {pressungen.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-s112-bg rounded-xl p-3 text-center">
-            <p className="text-lg font-bold text-gray-800">{fmt(gesamtKg / 1000)} t</p>
+            <p className="text-lg font-semibold text-s112-text">{fmt(gesamtKg / 1000)} t</p>
             <p className="text-xs text-s112-muted">Trauben gesamt</p>
           </div>
           <div className="bg-s112-bg rounded-xl p-3 text-center">
-            <p className="text-lg font-bold text-gray-800">{fmt(gesamtLiter)} L</p>
+            <p className="text-lg font-semibold text-s112-text">{fmt(gesamtLiter)} L</p>
             <p className="text-xs text-s112-muted">Most gesamt</p>
           </div>
           <div className="bg-s112-bg rounded-xl p-3 text-center">
-            <p className={`text-lg font-bold ${ausbeute && ausbeute < 65 ? 'text-amber-600' : 'text-green-700'}`}>
+            <p className={`text-lg font-semibold ${ausbeute && ausbeute < 65 ? 'text-s112-warn-fg' : 'text-s112-ok-fg'}`}>
               {ausbeute ? `${ausbeute.toFixed(1)} %` : '–'}
             </p>
             <p className="text-xs text-s112-muted">Ausbeute (FK 70 %)</p>
@@ -698,9 +698,9 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-800 text-sm">{fmtDate(p.datum)}</span>
+                          <span className="font-medium text-s112-text text-sm">{fmtDate(p.datum)}</span>
                           {p.weinbezeichnung && (
-                            <span className="bg-s112-teal/10 text-s112-teal text-xs font-semibold px-2 py-0.5 rounded-full">
+                            <span className="bg-s112-teal/10 text-s112-blue-700 text-xs font-semibold px-2 py-0.5 rounded-full">
                               {p.weinbezeichnung}
                             </span>
                           )}
@@ -708,23 +708,23 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                         {p.notizen && <span className="text-xs text-s112-muted">{p.notizen}</span>}
                       </div>
                       <div className="flex items-center gap-3 text-xs shrink-0">
-                        <span className="text-gray-600">{fmt(pKg)} kg</span>
+                        <span className="text-s112-text-2">{fmt(pKg)} kg</span>
                         {p.most_liter_gesamt && <>
-                          <span className="text-gray-400">→</span>
-                          <span className="text-gray-600">{fmt(p.most_liter_gesamt)} L</span>
-                          {pAusbeute && <span className={`font-semibold ${pAusbeute < 65 ? 'text-amber-600' : 'text-green-700'}`}>
+                          <span className="text-s112-tertiary">→</span>
+                          <span className="text-s112-text-2">{fmt(p.most_liter_gesamt)} L</span>
+                          {pAusbeute && <span className={`font-semibold ${pAusbeute < 65 ? 'text-s112-warn-fg' : 'text-s112-ok-fg'}`}>
                             {fmtProzent(pAusbeute)} %
                           </span>}
                         </>}
                         {p.kmw_grad != null && (
-                          <span className="font-semibold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
+                          <span className="font-semibold text-s112-warn-fg bg-s112-warn-bg px-2 py-0.5 rounded-full">
                             {p.kmw_grad.toString().replace('.', ',')} °KMW
                             {' · '}{QUALITAET_LABEL[kmwZuQualitaet(p.kmw_grad)]}
                           </span>
                         )}
                         <span className="flex items-center gap-2">
-                          {writeOk && <button onClick={() => setEditId(p.id)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-teal hover:text-s112-teal/70"><Pencil size={14} /></button>}
-                          {adminOk && <button onClick={() => handleDelete(p.id)} title="Löschen" aria-label="Löschen" className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button>}
+                          {writeOk && <button onClick={() => setEditId(p.id)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={14} /></button>}
+                          {adminOk && <button onClick={() => handleDelete(p.id)} title="Löschen" aria-label="Löschen" className="text-s112-err hover:text-s112-err-fg"><Trash2 size={14} /></button>}
                         </span>
                       </div>
                     </div>
@@ -733,9 +733,9 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                     {p.weingaerten.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mb-2">
                         {p.weingaerten.map(w => (
-                          <span key={w.id} className="inline-flex items-center gap-1 bg-green-50 border border-green-200 text-green-800 text-xs px-2 py-0.5 rounded-full">
+                          <span key={w.id} className="inline-flex items-center gap-1 bg-s112-ok-bg border border-s112-ok/30 text-s112-ok-fg text-xs px-2 py-0.5 rounded-full">
                             {w.weingarten_name}
-                            {w.rebsorte && <span className="text-green-600">· {formatRebsorteMitKuerzel(w.rebsorte)}</span>}
+                            {w.rebsorte && <span className="text-s112-ok-fg">· {formatRebsorteMitKuerzel(w.rebsorte)}</span>}
                             <span className="font-medium">· {fmt(w.trauben_kg)} kg</span>
                           </span>
                         ))}
@@ -748,16 +748,16 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                         {p.behaelter.map(b => (
                           b.weinausbau_id ? (
                             <a key={b.id} href={`/kellerbuch/weinausbau/${b.weinausbau_id}/buch`}
-                              className="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 text-blue-800 text-xs px-2 py-0.5 rounded-full hover:bg-blue-100 transition-colors">
+                              className="inline-flex items-center gap-1 bg-s112-blue-50 border border-s112-blue-100 text-s112-blue-700 text-xs px-2 py-0.5 rounded-full hover:bg-s112-blue-100 transition-colors">
                               {b.behaelter_name ? `${b.behaelter_name} · ` : ''}{b.weinausbau_name ?? '–'}
                               {b.menge_liter && <span className="font-medium">· {fmt(b.menge_liter)} L</span>}
-                              <span className="text-blue-400">→ KB</span>
+                              <span className="text-s112-blue-300">→ KB</span>
                             </a>
                           ) : (
-                            <span key={b.id} className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-800 text-xs px-2 py-0.5 rounded-full">
+                            <span key={b.id} className="inline-flex items-center gap-1 bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg text-xs px-2 py-0.5 rounded-full">
                               {b.behaelter_name ?? '–'}
                               {b.menge_liter && <span className="font-medium">· {fmt(b.menge_liter)} L</span>}
-                              <span className="text-amber-500 ml-0.5">keine Charge</span>
+                              <span className="text-s112-warn ml-0.5">keine Charge</span>
                             </span>
                           )
                         ))}

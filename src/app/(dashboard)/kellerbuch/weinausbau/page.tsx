@@ -12,11 +12,11 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  ernte:         { label: 'Ernte',         color: 'bg-yellow-100 text-yellow-700' },
-  gaerung:       { label: 'Gärung',        color: 'bg-orange-100 text-orange-700' },
-  ausbau:        { label: 'Ausbau',        color: 'bg-blue-100 text-blue-700' },
-  abfuellung:    { label: 'Abfüllung',     color: 'bg-purple-100 text-purple-700' },
-  abgeschlossen: { label: 'Abgeschlossen', color: 'bg-green-100 text-green-700' },
+  ernte:         { label: 'Ernte',         color: 'bg-s112-warn-bg text-s112-warn-fg' },
+  gaerung:       { label: 'Gärung',        color: 'bg-s112-warn-bg text-s112-warn-fg' },
+  ausbau:        { label: 'Ausbau',        color: 'bg-s112-blue-100 text-s112-blue-700' },
+  abfuellung:    { label: 'Abfüllung',     color: 'bg-[#F2F3F5] text-s112-text-1' },
+  abgeschlossen: { label: 'Abgeschlossen', color: 'bg-s112-ok-bg text-s112-ok-fg' },
 }
 
 export default async function WeinausbauListePage() {
@@ -48,32 +48,32 @@ export default async function WeinausbauListePage() {
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-s112-border/50">
-            <th className="text-left px-4 py-2 text-xs font-medium text-gray-500">Charge</th>
-            <th className="text-left px-4 py-2 text-xs font-medium text-gray-500">Jg.</th>
-            <th className="text-left px-4 py-2 text-xs font-medium text-gray-500">Rebsorte</th>
-            <th className="text-left px-4 py-2 text-xs font-medium text-gray-500">Behälter</th>
-            <th className="text-left px-4 py-2 text-xs font-medium text-gray-500">Status</th>
-            <th className="text-right px-4 py-2 text-xs font-medium text-gray-500">Liter</th>
+            <th className="text-left px-4 py-2 text-xs font-medium text-s112-text-2">Charge</th>
+            <th className="text-left px-4 py-2 text-xs font-medium text-s112-text-2">Jg.</th>
+            <th className="text-left px-4 py-2 text-xs font-medium text-s112-text-2">Rebsorte</th>
+            <th className="text-left px-4 py-2 text-xs font-medium text-s112-text-2">Behälter</th>
+            <th className="text-left px-4 py-2 text-xs font-medium text-s112-text-2">Status</th>
+            <th className="text-right px-4 py-2 text-xs font-medium text-s112-text-2">Liter</th>
             <th className="px-4 py-2" />
           </tr>
         </thead>
         <tbody>
           {liste.map((w: R) => {
-            const st    = STATUS_LABELS[w.status] ?? { label: w.status, color: 'bg-gray-100 text-gray-600' }
+            const st    = STATUS_LABELS[w.status] ?? { label: w.status, color: 'bg-[#F2F3F5] text-s112-text-2' }
             const menge = parseFloat(w.menge_liter) || 0
             return (
               <tr key={w.id} className="border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40">
-                <td className="px-4 py-2.5 font-medium text-gray-800">{w.name}</td>
+                <td className="px-4 py-2.5 font-medium text-s112-text">{w.name}</td>
                 <td className="px-4 py-2.5 text-s112-muted text-xs">{w.jahrgang ?? '–'}</td>
                 <td className="px-4 py-2.5 text-s112-muted text-xs">{formatRebsorteMitKuerzel(w.rebsorte)}</td>
                 <td className="px-4 py-2.5 text-s112-muted text-xs">{(w.behaelter as R)?.name ?? '–'}</td>
                 <td className="px-4 py-2.5">
                   <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
                 </td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-gray-800">{fmtLiter(menge)}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums text-s112-text">{fmtLiter(menge)}</td>
                 <td className="px-4 py-2.5 text-right">
                   <Link href={`/kellerbuch/weinausbau/${w.id}`}
-                    className="text-xs text-s112-teal hover:underline whitespace-nowrap">
+                    className="text-xs text-s112-blue-700 hover:underline whitespace-nowrap">
                     Details →
                   </Link>
                 </td>
@@ -88,17 +88,17 @@ export default async function WeinausbauListePage() {
   return (
     <div>
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-4">
-        <Link href="/kellerbuch" className="hover:text-s112-teal transition-colors">Kellerbuch</Link>
+        <Link href="/kellerbuch" className="hover:text-s112-blue-700 transition-colors">Kellerbuch</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Weinausbau</span>
+        <span className="text-s112-text-1 font-medium">Weinausbau</span>
       </div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Weinausbau</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Weinausbau</h1>
           <p className="text-sm text-s112-muted mt-0.5">Alle Chargen im Überblick</p>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/kellerbuch" className="text-sm text-s112-muted hover:text-s112-teal">
+          <Link href="/kellerbuch" className="text-sm text-s112-muted hover:text-s112-blue-700">
             ← Kellerbuch
           </Link>
         </div>
@@ -107,7 +107,7 @@ export default async function WeinausbauListePage() {
       {/* Laufende Chargen */}
       <div className="card p-0 overflow-hidden mb-6">
         <div className="flex items-center justify-between px-4 py-3 bg-s112-bg border-b border-s112-border">
-          <h2 className="font-semibold text-gray-800 text-sm">Laufende Chargen</h2>
+          <h2 className="font-semibold text-s112-text text-sm">Laufende Chargen</h2>
           <span className="text-xs text-s112-muted">{aktive.length} Einträge</span>
         </div>
         <ChargenTabelle liste={aktive} showNew />
@@ -120,7 +120,7 @@ export default async function WeinausbauListePage() {
           <summary className="flex items-center justify-between px-4 py-3 bg-s112-bg border-b border-s112-border cursor-pointer select-none list-none">
             <span className="flex items-center gap-2">
               <span className="text-s112-muted text-xs transition-transform group-open:rotate-90">▶</span>
-              <h2 className="font-semibold text-gray-800 text-sm">Abgeschlossene Chargen</h2>
+              <h2 className="font-semibold text-s112-text text-sm">Abgeschlossene Chargen</h2>
             </span>
             <span className="text-xs text-s112-muted">{abgesch.length} Einträge</span>
           </summary>

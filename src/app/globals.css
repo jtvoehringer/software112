@@ -5,9 +5,9 @@
 :root {
   /* software:112 Brand Tokens — Design-System 2026-08 (siehe project_design_relaunch.md) */
   --s112-teal:   #4F86D6; /* Aktion, per Tenant überschreibbar (primary_color) */
-  --s112-navy:   #0E3C62;
-  --s112-green:  #98C780;
-  --s112-blue:   #98C6DD;
+  --s112-navy:   #22252B; /* Alt-Token, jetzt Anthrazit (CD: kein Navy) */
+  --s112-green:  #3E9B79; /* Alt-Token → Signal OK */
+  --s112-blue:   #77A6E7; /* Alt-Token → Markenblau */
   --s112-yellow: #FFFFFF; /* Text auf Aktion-Fläche, per Tenant überschreibbar (secondary_color) */
   --s112-bg:     #F7F8FA;
   --s112-muted:  #6E717A;
@@ -47,43 +47,43 @@
 
   /* Sekundär-Button */
   .btn-secondary {
-    @apply bg-white text-s112-teal border border-s112-teal px-4 py-2 rounded-lg font-medium
+    @apply bg-white text-s112-blue-700 border border-s112-line-str px-4 py-2 rounded-lg font-medium
            hover:bg-s112-bg disabled:opacity-50 transition-colors
            focus:outline-none focus:ring-2 focus:ring-s112-teal focus:ring-offset-2;
   }
 
   /* Card */
   .card {
-    @apply bg-white rounded-2xl border border-s112-border shadow-sm p-6;
+    @apply bg-white rounded-xl border border-s112-line shadow-sm p-6;
   }
 
   /* Input */
   .input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
-           focus:outline-none focus:ring-2 focus:ring-s112-teal focus:border-transparent
-           placeholder:text-gray-400;
+    @apply w-full px-3 py-2 border border-s112-line-str rounded-lg text-sm bg-white text-s112-text
+           focus:outline-none focus:ring-2 focus:ring-s112-teal/40 focus:border-s112-teal
+           placeholder:text-s112-tertiary;
   }
 
   /* Form Input */
   .form-input {
-    @apply w-full px-3 py-2 border border-s112-border rounded-lg text-sm bg-white
-           focus:outline-none focus:ring-2 focus:ring-s112-teal focus:border-transparent
-           placeholder:text-gray-400 transition-colors;
+    @apply w-full px-3 py-2 border border-s112-line-str rounded-lg text-sm bg-white text-s112-text
+           focus:outline-none focus:ring-2 focus:ring-s112-teal/40 focus:border-s112-teal
+           placeholder:text-s112-tertiary transition-colors;
   }
 
   /* Form Label */
   .form-label {
-    @apply block text-sm font-medium text-gray-700 mb-1;
+    @apply block text-sm font-medium text-s112-text-1 mb-1;
   }
 
   /* Sidebar Nav Item */
   .nav-item {
     @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
-           text-s112-muted hover:bg-s112-bg hover:text-s112-teal transition-colors;
+           text-s112-text-1 hover:bg-s112-bg hover:text-s112-blue-700 transition-colors;
   }
 
   .nav-item.active {
-    @apply bg-s112-bg text-s112-teal;
+    @apply bg-s112-blue-50 text-s112-blue-700;
   }
 }
 
@@ -134,7 +134,7 @@
   .card {
     box-shadow: none !important;
     border-radius: 0 !important;
-    border: 1px solid #ccc !important;
+    border: 1px solid #D6D8DD !important;
     break-inside: avoid;
   }
 

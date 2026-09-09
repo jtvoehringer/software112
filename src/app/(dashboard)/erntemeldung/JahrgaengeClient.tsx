@@ -12,11 +12,11 @@ const QUALITAET_LABEL: Record<string, string> = {
   durchschnittlich: 'Durchschnittlich', schlecht: 'Schlecht',
 }
 const AMA_STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  entwurf:     { label: 'Entwurf',     cls: 'bg-gray-100 text-gray-600' },
-  bereit:      { label: 'Bereit',      cls: 'bg-blue-100 text-blue-700' },
-  eingereicht: { label: 'Eingereicht', cls: 'bg-amber-100 text-amber-700' },
-  bestaetigt:  { label: 'Bestätigt',   cls: 'bg-green-100 text-green-700' },
-  abgelehnt:   { label: 'Abgelehnt',   cls: 'bg-red-100 text-red-700' },
+  entwurf:     { label: 'Entwurf',     cls: 'bg-[#F2F3F5] text-s112-text-2' },
+  bereit:      { label: 'Bereit',      cls: 'bg-s112-blue-100 text-s112-blue-700' },
+  eingereicht: { label: 'Eingereicht', cls: 'bg-s112-warn-bg text-s112-warn-fg' },
+  bestaetigt:  { label: 'Bestätigt',   cls: 'bg-s112-ok-bg text-s112-ok-fg' },
+  abgelehnt:   { label: 'Abgelehnt',   cls: 'bg-s112-err-bg text-s112-err-fg' },
 }
 
 function formatDate(d: string | null) {
@@ -32,7 +32,7 @@ export default function JahrgaengeClient({
   if (jahrgaenge.length === 0) {
     return (
       <div className="card text-center py-16">
-        <p className="text-gray-700 font-medium">Noch keine Jahrgänge erfasst</p>
+        <p className="text-s112-text-1 font-medium">Noch keine Jahrgänge erfasst</p>
         <p className="text-s112-muted text-sm mt-1 mb-6">Ersten Jahrgang anlegen und Erntedaten erfassen</p>
         {writeOk && (
           <Link href="/erntemeldung/neu"
@@ -74,23 +74,23 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
   }
 
   return (
-    <div className={`card hover:shadow-md transition-shadow ${pending ? 'opacity-50 pointer-events-none' : ''}`}>
+    <div className={`card hover:shadow-sm transition-shadow ${pending ? 'opacity-50 pointer-events-none' : ''}`}>
       {editing ? (
         <form onSubmit={handleSave} className="space-y-3">
-          <h3 className="text-sm font-semibold text-gray-800">Jahrgang {j.jahrgang} bearbeiten</h3>
+          <h3 className="text-sm font-semibold text-s112-text">Jahrgang {j.jahrgang} bearbeiten</h3>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Ernte Beginn</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Ernte Beginn</label>
               <input name="ernte_beginn" type="date" defaultValue={j.ernte_beginn ?? ''}
                 className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Ernte Ende</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Ernte Ende</label>
               <input name="ernte_ende" type="date" defaultValue={j.ernte_ende ?? ''}
                 className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-600 mb-1">Qualität</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Qualität</label>
               <select name="qualitaet_gesamt" defaultValue={j.qualitaet_gesamt ?? ''}
                 className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                 <option value="">– keine Bewertung –</option>
@@ -98,7 +98,7 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
               </select>
             </div>
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
               <input name="notizen" defaultValue={j.notizen ?? ''}
                 className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
@@ -109,7 +109,7 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
               Speichern
             </button>
             <button type="button" onClick={() => setEditing(false)}
-              className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800">
+              className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:text-s112-text">
               Abbrechen
             </button>
           </div>
@@ -118,10 +118,10 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
         <>
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <div className="text-4xl font-bold text-s112-teal tabular-nums">{j.jahrgang}</div>
+              <div className="text-4xl font-semibold text-s112-blue-700 tabular-nums">{j.jahrgang}</div>
               <div>
                 {j.qualitaet_gesamt && (
-                  <p className="text-sm font-medium text-gray-700">{QUALITAET_LABEL[j.qualitaet_gesamt]}</p>
+                  <p className="text-sm font-medium text-s112-text-1">{QUALITAET_LABEL[j.qualitaet_gesamt]}</p>
                 )}
                 <p className="text-xs text-s112-muted mt-0.5">
                   {j.ernte_beginn ? `Ernte: ${formatDate(j.ernte_beginn)}` : 'Ernte: nicht erfasst'}
@@ -137,7 +137,7 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
                 </span>
               )}
               {j.abgeschlossen && (
-                <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-500">Abgeschlossen</span>
+                <span className="text-xs px-2 py-1 rounded-full bg-[#F2F3F5] text-s112-text-2">Abgeschlossen</span>
               )}
               <Link href={`/erntemeldung/${j.id}`}
                 className="bg-s112-teal text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-opacity-90 transition-colors">
@@ -146,14 +146,14 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
               {writeOk && (
                 <button onClick={() => setEditing(true)}
                   title="Bearbeiten" aria-label="Bearbeiten"
-                  className="text-s112-teal hover:text-s112-teal/70">
+                  className="text-s112-blue-700 hover:text-s112-blue-700/70">
                   <Pencil size={14} />
                 </button>
               )}
               {adminOk && (
                 <button onClick={handleDelete}
                   title="Löschen" aria-label="Löschen"
-                  className="text-red-400 hover:text-red-600">
+                  className="text-s112-err hover:text-s112-err-fg">
                   <Trash2 size={14} />
                 </button>
               )}
@@ -163,25 +163,25 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
           {/* Stats */}
           <div className="grid grid-cols-4 gap-4 mt-4 pt-4 border-t border-s112-border">
             <div>
-              <p className="text-lg font-bold text-gray-800 tabular-nums">
+              <p className="text-lg font-semibold text-s112-text tabular-nums">
                 {j.gesamtmenge_kg > 0 ? `${fmtZahl(j.gesamtmenge_kg / 1000, 2)} t` : '–'}
               </p>
               <p className="text-xs text-s112-muted">Ernte gesamt</p>
             </div>
             <div>
-              <p className="text-lg font-bold text-gray-800 tabular-nums">
+              <p className="text-lg font-semibold text-s112-text tabular-nums">
                 {j.gesamtmenge_kg > 0 ? `${fmtProzent(j.gesamtmenge_kg / 130)} hl` : '–'}
               </p>
               <p className="text-xs text-s112-muted">Most (≈)</p>
             </div>
             <div>
-              <p className="text-lg font-bold text-gray-800 tabular-nums">
+              <p className="text-lg font-semibold text-s112-text tabular-nums">
                 {j.avg_kmw != null ? `${fmtZahl(j.avg_kmw, 1)} °KMW` : '–'}
               </p>
               <p className="text-xs text-s112-muted">Ø KMW</p>
             </div>
             <div>
-              <p className="text-lg font-bold text-gray-800 tabular-nums">{j.parzellen_count}</p>
+              <p className="text-lg font-semibold text-s112-text tabular-nums">{j.parzellen_count}</p>
               <p className="text-xs text-s112-muted">Parzellen</p>
             </div>
           </div>

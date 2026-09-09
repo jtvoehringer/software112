@@ -15,12 +15,12 @@ export default async function NeuerJahrgangPage() {
   return (
     <div className="max-w-lg">
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-4">
-        <Link href="/erntemeldung" className="hover:text-s112-teal transition-colors">Lese</Link>
+        <Link href="/erntemeldung" className="hover:text-s112-blue-700 transition-colors">Lese</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Neuer Jahrgang</span>
+        <span className="text-s112-text-1 font-medium">Neuer Jahrgang</span>
       </div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Neuer Jahrgang</h1>
+        <h1 className="text-2xl font-semibold text-s112-text">Neuer Jahrgang</h1>
         <p className="text-sm text-s112-muted mt-0.5">Jahrgang anlegen und Erntezeitraum festlegen</p>
       </div>
       <div className="card">

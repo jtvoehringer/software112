@@ -71,9 +71,9 @@ export default async function MandantenPage() {
         <div className="flex items-center gap-2 text-sm text-s112-muted mb-4">
           <span>Administration</span>
           <span>/</span>
-          <span className="text-gray-700 font-medium">Mandanten</span>
+          <span className="text-s112-text-1 font-medium">Mandanten</span>
         </div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Mandanten</h1>
+        <h1 className="text-2xl font-semibold text-s112-text mb-2">Mandanten</h1>
         <p className="text-sm text-s112-muted">Keine aktive Mitgliedschaft in einem Mandanten gefunden.</p>
       </div>
     )
@@ -132,11 +132,11 @@ export default async function MandantenPage() {
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-4">
         <span>Administration</span>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Mandanten</span>
+        <span className="text-s112-text-1 font-medium">Mandanten</span>
       </div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Mandanten</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Mandanten</h1>
           <p className="text-sm text-s112-muted mt-0.5">Alle Betriebe auf dieser Instanz</p>
         </div>
         <span className="text-sm text-s112-muted">{mandanten.length} Mandanten</span>

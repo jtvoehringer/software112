@@ -40,10 +40,10 @@ const ROLLEN = [
 ]
 
 const ROLE_COLORS: Record<string, string> = {
-  system_admin: 'bg-red-100 text-red-700',
-  tenant_admin: 'bg-purple-100 text-purple-700',
-  winzer:       'bg-blue-100 text-blue-700',
-  leser:        'bg-gray-100 text-gray-600',
+  system_admin: 'bg-s112-err-bg text-s112-err-fg',
+  tenant_admin: 'bg-[#F2F3F5] text-s112-text-1',
+  winzer:       'bg-s112-blue-100 text-s112-blue-700',
+  leser:        'bg-[#F2F3F5] text-s112-text-2',
 }
 const ROLE_LABELS: Record<string, string> = {
   system_admin: 'System-Admin',
@@ -68,10 +68,10 @@ function Toggle({ on, onToggle, label }: { on: boolean; onToggle: () => void; la
   return (
     <label className="flex items-center gap-3 cursor-pointer">
       <div onClick={onToggle}
-        className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${on ? 'bg-s112-teal' : 'bg-gray-300'}`}>
+        className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${on ? 'bg-s112-teal' : 'bg-s112-line-str'}`}>
         <div className={`w-4 h-4 bg-white rounded-full shadow mt-0.5 transition-transform ${on ? 'translate-x-4' : 'translate-x-0.5'}`} />
       </div>
-      <span className="text-sm text-gray-700">{label}</span>
+      <span className="text-sm text-s112-text-1">{label}</span>
     </label>
   )
 }
@@ -124,14 +124,14 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
   return (
     <form onSubmit={handleSubmit} className="space-y-5 max-w-lg">
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Anzeigename</label>
+        <label className="block text-xs font-medium text-s112-text-2 mb-1">Anzeigename</label>
         <input name="anzeigename" defaultValue={settings.anzeigename ?? tenant.name}
           placeholder={tenant.name} className={inputCls()} />
         <p className="text-xs text-s112-muted mt-1">Wird in der Sidebar unter dem Logo angezeigt.</p>
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Logo</label>
+        <label className="block text-xs font-medium text-s112-text-2 mb-1">Logo</label>
 
         <input
           ref={logoInputRef}
@@ -149,11 +149,11 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
             type="button"
             onClick={() => logoInputRef.current?.click()}
             disabled={logoUploading}
-            className="text-xs font-medium bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-teal px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40"
+            className="text-xs font-medium bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-blue-700 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40"
           >
             {logoUploading ? 'Hochladen…' : 'Logo-Datei hochladen'}
           </button>
-          {logoError && <span className="text-xs text-red-500">{logoError}</span>}
+          {logoError && <span className="text-xs text-s112-err">{logoError}</span>}
         </div>
         <p className="text-xs text-s112-muted mt-1">PNG, JPG, WebP oder SVG, max. 2 MB. Empfohlen: max. 140×40 px.</p>
 
@@ -161,10 +161,10 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
           placeholder="/logos/mein-logo.png oder https://..." className={inputCls() + ' mt-2'} />
         <p className="text-xs text-s112-muted mt-1">
           Wird beim Hochladen automatisch befüllt. Alternativ kann hier auch direkt eine
-          öffentliche URL oder ein Pfad im <code className="bg-gray-100 px-1 rounded">/public</code>-Ordner eingetragen werden.
+          öffentliche URL oder ein Pfad im <code className="bg-[#F2F3F5] px-1 rounded">/public</code>-Ordner eingetragen werden.
         </p>
         {logoUrl && (
-          <div className="mt-2 p-3 bg-gray-50 border border-s112-border rounded-lg inline-block">
+          <div className="mt-2 p-3 bg-s112-bg border border-s112-border rounded-lg inline-block">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={logoUrl} alt="Vorschau" className="max-h-10 max-w-[140px] object-contain" />
           </div>
@@ -173,7 +173,7 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Primärfarbe</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Primärfarbe</label>
           <div className="flex gap-2 items-center">
             <input type="color" value={primary} onChange={e => setPrimary(e.target.value)}
               className="w-8 h-8 rounded border border-s112-border cursor-pointer p-0.5 flex-shrink-0" />
@@ -182,7 +182,7 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
           </div>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Sekundärfarbe</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Sekundärfarbe</label>
           <div className="flex gap-2 items-center">
             <input type="color" value={secondary} onChange={e => setSecondary(e.target.value)}
               className="w-8 h-8 rounded border border-s112-border cursor-pointer p-0.5 flex-shrink-0" />
@@ -193,7 +193,7 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">
+        <label className="block text-xs font-medium text-s112-text-2 mb-1">
           Session Timeout (Minuten)
         </label>
         <input name="session_timeout_minuten" type="number" min="5" max="480"
@@ -219,7 +219,7 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
           className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
-        {saved && <span className="text-xs text-s112-teal font-medium">Gespeichert</span>}
+        {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
       </div>
     </form>
   )
@@ -296,8 +296,8 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
 
   return (
     <div className="space-y-4">
-      {error   && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{error}</div>}
-      {success && <div className="p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700">{success}</div>}
+      {error   && <div className="p-3 bg-s112-err-bg border border-s112-err/30 rounded-xl text-sm text-s112-err-fg">{error}</div>}
+      {success && <div className="p-3 bg-s112-ok-bg border border-s112-ok/30 rounded-xl text-sm text-s112-ok-fg">{success}</div>}
 
       <div className="card p-0 overflow-hidden">
         <table className="w-full text-sm">
@@ -325,22 +325,22 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
                         required disabled={pending} autoFocus
                         className="border border-s112-border rounded-lg px-2 py-1 text-xs w-36 focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
                       <button onClick={() => handleNameUpdate(m)} disabled={pending || !editName.trim()}
-                        className="text-xs text-s112-teal hover:underline font-semibold disabled:opacity-50">Speichern</button>
+                        className="text-xs text-s112-blue-700 hover:underline font-semibold disabled:opacity-50">Speichern</button>
                       <button onClick={() => setEditingNameId(null)}
-                        className="text-xs text-s112-muted hover:text-gray-700">Abbrechen</button>
+                        className="text-xs text-s112-muted hover:text-s112-text-1">Abbrechen</button>
                     </div>
                   ) : (
                     <button onClick={() => { setEditingNameId(m.id); setEditName(m.fullName ?? '') }}
-                      className="font-medium text-gray-900 hover:text-s112-teal inline-flex items-center gap-1.5 group">
-                      {m.fullName ?? <span className="text-red-500 font-normal italic">kein Name hinterlegt</span>}
+                      className="font-medium text-s112-text hover:text-s112-blue-700 inline-flex items-center gap-1.5 group">
+                      {m.fullName ?? <span className="text-s112-err font-normal italic">kein Name hinterlegt</span>}
                       <Pencil size={11} className="opacity-0 group-hover:opacity-60" />
                     </button>
                   )}
                 </td>
-                <td className="px-4 py-3 text-gray-700">
+                <td className="px-4 py-3 text-s112-text-1">
                   {m.email}
                   {!m.confirmed && (
-                    <span className="ml-2 inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700"
+                    <span className="ml-2 inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-s112-warn-bg text-s112-warn-fg"
                       title="Einladung verschickt, aber noch nicht angenommen">
                       Ausstehend
                     </span>
@@ -354,7 +354,7 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
                       {ROLLEN.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                     </select>
                   ) : (
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_COLORS[m.role] ?? 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_COLORS[m.role] ?? 'bg-[#F2F3F5] text-s112-text-2'}`}>
                       {ROLE_LABELS[m.role] ?? m.role}
                     </span>
                   )}
@@ -366,22 +366,22 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
                   {editingId === m.id ? (
                     <div className="flex gap-2 justify-end">
                       <button onClick={() => handleRoleUpdate(m.id)} disabled={pending}
-                        className="text-xs text-s112-teal hover:underline font-semibold disabled:opacity-50">Speichern</button>
+                        className="text-xs text-s112-blue-700 hover:underline font-semibold disabled:opacity-50">Speichern</button>
                       <button onClick={() => setEditingId(null)}
-                        className="text-xs text-s112-muted hover:text-gray-700">Abbrechen</button>
+                        className="text-xs text-s112-muted hover:text-s112-text-1">Abbrechen</button>
                     </div>
                   ) : m.role !== 'system_admin' ? (
                     <div className="flex gap-3 justify-end">
                       {!m.confirmed && (
                         <button onClick={() => handleResendInvite(m)} disabled={pending}
-                          className="text-xs text-s112-teal hover:underline font-medium disabled:opacity-50">
+                          className="text-xs text-s112-blue-700 hover:underline font-medium disabled:opacity-50">
                           Einladung erneut senden
                         </button>
                       )}
                       <button onClick={() => { setEditingId(m.id); setEditRole(m.role) }}
-                        className="text-xs text-s112-teal hover:underline font-medium">Rolle</button>
+                        className="text-xs text-s112-blue-700 hover:underline font-medium">Rolle</button>
                       <button onClick={() => handleRemove(m)} disabled={pending}
-                        className="text-xs text-red-400 hover:text-red-600 disabled:opacity-50">Entfernen</button>
+                        className="text-xs text-s112-err hover:text-s112-err-fg disabled:opacity-50">Entfernen</button>
                     </div>
                   ) : null}
                 </td>
@@ -398,24 +398,24 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
         </button>
       ) : (
         <form onSubmit={handleInvite} className="bg-s112-bg border border-s112-border rounded-xl p-5 space-y-3">
-          <h3 className="text-sm font-semibold text-gray-800">Benutzer einladen</h3>
+          <h3 className="text-sm font-semibold text-s112-text">Benutzer einladen</h3>
           <p className="text-xs text-s112-muted">
             Neuer Benutzer: erhält Einladungs-E-Mail von Supabase zum Passwort setzen.<br />
             Bestehender Supabase-User: wird direkt zugewiesen.
           </p>
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Name *</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Name *</label>
               <input value={inviteName} onChange={e => setInviteName(e.target.value)}
                 required className={inputCls()} placeholder="Vorname Nachname" autoFocus />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">E-Mail *</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">E-Mail *</label>
               <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
                 required className={inputCls()} placeholder="benutzer@weingut.at" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Rolle *</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Rolle *</label>
               <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}
                 className={inputCls()}>
                 {ROLLEN.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
@@ -428,7 +428,7 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
               {pending ? 'Einladen…' : 'Einladen'}
             </button>
             <button type="button" onClick={() => { setShowInvite(false); setInviteEmail(''); setInviteName('') }}
-              className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800">
+              className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:text-s112-text">
               Abbrechen
             </button>
           </div>
@@ -471,7 +471,7 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
 
   if (!settings.modul_newsletter) {
     return (
-      <div className="p-6 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+      <div className="p-6 bg-s112-warn-bg border border-s112-warn/30 rounded-xl text-sm text-s112-warn-fg">
         <p className="font-semibold mb-1">Newsletter-Modul ist deaktiviert</p>
         <p>Aktiviere das Newsletter-Modul im Tab <strong>Module</strong>, um die Brevo-Konfiguration zu verwenden.</p>
       </div>
@@ -480,7 +480,7 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5 max-w-lg">
-      <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 space-y-1">
+      <div className="p-4 bg-s112-blue-50 border border-s112-blue-100 rounded-xl text-xs text-s112-blue-700 space-y-1">
         <p className="font-semibold">Brevo-Einrichtung – Hinweise</p>
         <p>→ API-Key: <a href="https://app.brevo.com/settings/keys/api" target="_blank" rel="noreferrer" className="underline">app.brevo.com → Account → API Keys</a></p>
         <p>→ Listen-IDs: <a href="https://app.brevo.com/contact/list-listing" target="_blank" rel="noreferrer" className="underline">app.brevo.com → Contacts → Lists</a> → ID in der URL</p>
@@ -489,24 +489,24 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
 
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
-          <label className="block text-xs font-medium text-gray-600 mb-1">API-Key</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">API-Key</label>
           <input name="brevo_api_key" defaultValue={settings.brevo_api_key ?? ''}
             placeholder="xkeysib-…" className={inputCls()} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Absender E-Mail</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Absender E-Mail</label>
           <input name="brevo_sender_mail" defaultValue={settings.brevo_sender_mail ?? ''}
             placeholder="info@weingut.at" className={inputCls()} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Absender Name</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Absender Name</label>
           <input name="brevo_sender_name" defaultValue={settings.brevo_sender_name ?? ''}
             placeholder="Weingut Mustermann" className={inputCls()} />
         </div>
       </div>
 
       <div>
-        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Listen-IDs</p>
+        <p className="text-xs font-semibold text-s112-text-1 uppercase tracking-wide mb-2">Listen-IDs</p>
         <div className="grid grid-cols-2 gap-2">
           {[
             { name: 'brevo_list_privat', label: 'Privat',       val: settings.brevo_list_privat },
@@ -516,7 +516,7 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
             { name: 'brevo_list_grossh', label: 'Großhandel',   val: settings.brevo_list_grossh },
           ].map(f => (
             <div key={f.name}>
-              <label className="block text-xs font-medium text-gray-600 mb-1">{f.label}</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">{f.label}</label>
               <input name={f.name} defaultValue={f.val ?? ''}
                 placeholder="z.B. 3" type="number" min="1"
                 className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
@@ -530,7 +530,7 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
           className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
-        {saved && <span className="text-xs text-s112-teal font-medium">Gespeichert</span>}
+        {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
       </div>
     </form>
   )
@@ -633,7 +633,7 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
           <input type="radio" name="buchhaltungsart" value={key} checked={buchhaltungsart === key}
             onChange={() => setBuchhaltungsart(key)} className="mt-1" />
           <span>
-            <span className="text-gray-800 font-medium">{label}</span>
+            <span className="text-s112-text font-medium">{label}</span>
             <span className="block text-[11px] text-s112-muted mt-0.5">{hinweis}</span>
           </span>
         </label>
@@ -645,7 +645,7 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
     <div className="space-y-5 max-w-md">
       <div className="card space-y-3">
         <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Paket</h2>
-        <p className="text-sm text-gray-700">
+        <p className="text-sm text-s112-text-1">
           {p ? <>Gebucht: <span className="font-medium">{p.label}</span> ({preisText(p)}, {p.maxBenutzer === null ? 'unbegrenzt Benutzer' : `${p.maxBenutzer} Benutzer`}, KI-Abfragen {p.kiLimit === null ? 'unbegrenzt' : `${p.kiLimit}/Monat`})</> : 'Kein Paket hinterlegt (kein Stripe-Abo).'}
         </p>
         <p className="text-xs text-s112-muted">
@@ -659,26 +659,26 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
             {PAKET_REIHENFOLGE.map(k => <option key={k} value={k}>{PAKETE[k].label}</option>)}
           </select>
           <button type="button" onClick={handlePaketAnwenden} disabled={pending || wahlFehlt}
-            className="border border-s112-teal text-s112-teal px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/5 disabled:opacity-40">
+            className="border border-s112-teal text-s112-blue-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/5 disabled:opacity-40">
             Paket-Vorgaben anwenden
           </button>
         </div>
         {brauchtBuchhaltungsart && (
           <div className="rounded-xl border border-s112-border bg-s112-bg/60 p-3 space-y-2">
-            <p className="text-xs font-medium text-gray-700">
+            <p className="text-xs font-medium text-s112-text-1">
               {gewaehlt?.label} enthält die E&amp;A-Rechnung – wer macht die Buchhaltung?
-              {wahlFehlt && <span className="text-amber-600 font-normal"> Bitte wählen, dann kann das Paket angewendet werden.</span>}
+              {wahlFehlt && <span className="text-s112-warn-fg font-normal"> Bitte wählen, dann kann das Paket angewendet werden.</span>}
             </p>
             {BuchhaltungsWahl}
           </div>
         )}
-        {paketMsg && <p className="text-xs text-gray-700">{paketMsg}</p>}
+        {paketMsg && <p className="text-xs text-s112-text-1">{paketMsg}</p>}
 
         <ul className="divide-y divide-s112-border/60 border-t border-s112-border/60 pt-1">
           {module.map(m => (
             <li key={m.label} className="flex items-center justify-between py-2 text-sm">
-              <span className={m.aktiv ? 'text-gray-800' : 'text-gray-400'}>
-                {m.aktiv ? <CheckCircle2 className="inline w-4 h-4 text-s112-teal mr-1.5 -mt-0.5" /> : <span className="inline-block w-4 h-4 mr-1.5 align-middle rounded-full border border-gray-300" />}
+              <span className={m.aktiv ? 'text-s112-text' : 'text-s112-tertiary'}>
+                {m.aktiv ? <CheckCircle2 className="inline w-4 h-4 text-s112-blue-700 mr-1.5 -mt-0.5" /> : <span className="inline-block w-4 h-4 mr-1.5 align-middle rounded-full border border-s112-line-str" />}
                 {m.label}
               </span>
               {m.hinweis && <span className="text-[11px] text-s112-muted">{m.hinweis}</span>}
@@ -700,7 +700,7 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
               className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
               {pending ? 'Speichern…' : 'Speichern'}
             </button>
-            {saved && <span className="text-xs text-s112-teal font-medium">Gespeichert</span>}
+            {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
           </div>
         </div>
       )}
@@ -729,62 +729,62 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-w-lg">
       <div>
-        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Betriebsdaten (Briefkopf)</p>
+        <p className="text-xs font-semibold text-s112-text-1 uppercase tracking-wide mb-3">Betriebsdaten (Briefkopf)</p>
         <div className="grid grid-cols-1 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Betriebsname *</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Betriebsname *</label>
             <input name="betrieb_name" defaultValue={settings.betrieb_name ?? ''} required className={inputCls()} placeholder="Weingut Gebeshuber" />
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-600 mb-1">Straße + Nr.</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Straße + Nr.</label>
               <input name="betrieb_strasse" defaultValue={settings.betrieb_strasse ?? ''} className={inputCls()} placeholder="Hauptstraße 1" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">PLZ</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">PLZ</label>
               <input name="betrieb_plz" defaultValue={settings.betrieb_plz ?? ''} className={inputCls()} placeholder="3421" />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Ort</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Ort</label>
             <input name="betrieb_ort" defaultValue={settings.betrieb_ort ?? ''} className={inputCls()} placeholder="Krems an der Donau" />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Telefon</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Telefon</label>
               <input name="betrieb_telefon" defaultValue={settings.betrieb_telefon ?? ''} className={inputCls()} placeholder="+43 2732 12345" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">E-Mail</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">E-Mail</label>
               <input name="betrieb_email" type="email" defaultValue={settings.betrieb_email ?? ''} className={inputCls()} placeholder="office@weingut.at" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Website</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Website</label>
               <input name="betrieb_website" defaultValue={settings.betrieb_website ?? ''} className={inputCls()} placeholder="www.weingut.at" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">UID-Nummer</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">UID-Nummer</label>
               <input name="betrieb_uid" defaultValue={settings.betrieb_uid ?? ''} className={inputCls()} placeholder="ATU12345678" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Weinbau-Betriebsnummer</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Weinbau-Betriebsnummer</label>
               <input name="betrieb_betriebsnummer" defaultValue={settings.betrieb_betriebsnummer ?? ''} className={inputCls()} placeholder="z.B. 4489781" />
-              <p className="text-[10px] text-gray-400 mt-0.5">Für Transportbescheinigung &amp; Prüfnummernantrag</p>
+              <p className="text-[10px] text-s112-tertiary mt-0.5">Für Transportbescheinigung &amp; Prüfnummernantrag</p>
             </div>
           </div>
         </div>
       </div>
 
       <div>
-        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Bewirtschaftung</p>
+        <p className="text-xs font-semibold text-s112-text-1 uppercase tracking-wide mb-3">Bewirtschaftung</p>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Status</label>
           <select name="bio_status" defaultValue={tenant.bio_status} className={inputCls()} style={{ maxWidth: '320px' }}>
             {BIO_STATUS_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
-          <p className="text-[10px] text-gray-400 mt-0.5">
+          <p className="text-[10px] text-s112-tertiary mt-0.5">
             Steuert die Warn-/Sperrlogik bei der Mittelwahl im Maßnahmenformular: bei Bio-EU/biodynamisch
             wird ein nicht öko-zugelassenes Mittel gesperrt, bei KIP/nachhaltig nur als Warnung angezeigt.
           </p>
@@ -792,14 +792,14 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
       </div>
 
       <div>
-        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Bankverbindung</p>
+        <p className="text-xs font-semibold text-s112-text-1 uppercase tracking-wide mb-3">Bankverbindung</p>
         <div className="grid grid-cols-1 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">IBAN</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">IBAN</label>
             <input name="rechnung_iban" defaultValue={settings.rechnung_iban ?? ''} className={inputCls()} placeholder="AT12 3456 7890 1234 5678" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">BIC</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">BIC</label>
             <input name="rechnung_bic" defaultValue={settings.rechnung_bic ?? ''} className={inputCls()} placeholder="RLNWATWWXXX" style={{ maxWidth: '320px' }} />
           </div>
           {/* Zahlungsziel wurde vom Betrieb zum Kunden verschoben (6.8.2026) -
@@ -808,7 +808,7 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
       </div>
 
       <div>
-        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Rechnungs-Fußtext</p>
+        <p className="text-xs font-semibold text-s112-text-1 uppercase tracking-wide mb-3">Rechnungs-Fußtext</p>
         <textarea name="rechnung_fusstext" defaultValue={settings.rechnung_fusstext ?? ''}
           rows={3} placeholder="z.B. Gemäß § 6 Abs. 1 Z 8 UStG befreit von der Umsatzsteuer."
           className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
@@ -819,7 +819,7 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
           className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
-        {saved && <span className="text-xs text-s112-teal font-medium">Gespeichert</span>}
+        {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
       </div>
     </form>
   )
@@ -873,12 +873,12 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
     <div className="space-y-6 max-w-lg">
       {/* Rückmeldung vom OAuth-Callback */}
       {m365Ok && (
-        <div className="p-4 rounded-xl border border-green-300 bg-green-50 text-sm text-green-800">
+        <div className="p-4 rounded-xl border border-s112-ok/30 bg-s112-ok-bg text-sm text-s112-ok-fg">
           Verbindung erfolgreich hergestellt.
         </div>
       )}
       {m365Error && (
-        <div className="p-4 rounded-xl border border-red-300 bg-red-50 text-sm text-red-800 space-y-1">
+        <div className="p-4 rounded-xl border border-s112-err/30 bg-s112-err-bg text-sm text-s112-err-fg space-y-1">
           <p className="font-semibold">Verbindung fehlgeschlagen</p>
           <p className="text-xs break-all">{m365Error}</p>
           {(m365Error.includes('AADSTS500113') || m365Error.includes('AADSTS50011')) && (
@@ -896,17 +896,17 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
       )}
 
       {/* Status */}
-      <div className={`flex items-center gap-3 p-4 rounded-xl border ${isConnected && tokenOk ? 'border-green-300 bg-green-50' : 'border-amber-300 bg-amber-50'}`}>
+      <div className={`flex items-center gap-3 p-4 rounded-xl border ${isConnected && tokenOk ? 'border-s112-ok/30 bg-s112-ok-bg' : 'border-s112-warn/30 bg-s112-warn-bg'}`}>
         {isConnected && tokenOk
-          ? <CheckCircle2 className="w-6 h-6 text-green-600 flex-shrink-0" />
-          : <AlertTriangle className="w-6 h-6 text-amber-600 flex-shrink-0" />}
+          ? <CheckCircle2 className="w-6 h-6 text-s112-ok-fg flex-shrink-0" />
+          : <AlertTriangle className="w-6 h-6 text-s112-warn-fg flex-shrink-0" />}
         <div>
           <p className="text-sm font-semibold">{isConnected ? `Verbunden als ${settings.m365_user_email}` : 'Noch nicht verbunden'}</p>
           {isConnected && tokenExpired && (
-            <p className="text-xs text-amber-700">Access Token abgelaufen – wird beim nächsten E-Mail-Abruf automatisch erneuert</p>
+            <p className="text-xs text-s112-warn-fg">Access Token abgelaufen – wird beim nächsten E-Mail-Abruf automatisch erneuert</p>
           )}
           {isConnected && !tokenExpired && settings.m365_token_expires_at && (
-            <p className="text-xs text-gray-500">Token gültig bis: {new Date(settings.m365_token_expires_at).toLocaleString('de-AT')}</p>
+            <p className="text-xs text-s112-text-2">Token gültig bis: {new Date(settings.m365_token_expires_at).toLocaleString('de-AT')}</p>
           )}
         </div>
         {isConnected && (
@@ -918,9 +918,9 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
 
       {/* Setup */}
       <form onSubmit={handleSave} className="space-y-4">
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs space-y-1.5">
-          <p className="font-semibold text-blue-800">Azure AD App-Registrierung (einmalig):</p>
-          <ol className="list-decimal ml-4 space-y-1 text-blue-700">
+        <div className="bg-s112-blue-50 border border-s112-blue-100 rounded-xl p-4 text-xs space-y-1.5">
+          <p className="font-semibold text-s112-blue-700">Azure AD App-Registrierung (einmalig):</p>
+          <ol className="list-decimal ml-4 space-y-1 text-s112-blue-700">
             <li>portal.azure.com → App-Registrierungen → Neue Registrierung</li>
             <li>Authentifizierung → Plattform hinzufügen → Web – dort BEIDE Umleitungs-URIs eintragen (eine für diese Mandanten-Verbindung, eine für die persönliche Mailbox-Verbindung jedes einzelnen Users unter „Nachrichten"):
               <div className="mt-1 space-y-0.5">
@@ -935,15 +935,15 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
 
         <div className="grid grid-cols-1 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Azure AD Verzeichnis-ID (Tenant ID)</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Azure AD Verzeichnis-ID (Tenant ID)</label>
             <input name="m365_tenant_id" defaultValue={settings.m365_tenant_id ?? ''} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" className={inputCls()} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Anwendungs-ID (Client ID)</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Anwendungs-ID (Client ID)</label>
             <input name="m365_client_id" defaultValue={settings.m365_client_id ?? ''} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" className={inputCls()} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Geheimer Clientschlüssel</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Geheimer Clientschlüssel</label>
             <input name="m365_client_secret" type="password" placeholder="Neu setzen (leer = unverändert)" className={inputCls()} />
           </div>
         </div>
@@ -953,10 +953,10 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
             className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
             {pending ? 'Speichern…' : 'Speichern'}
           </button>
-          {saved && <span className="text-xs text-s112-teal font-medium">Gespeichert</span>}
+          {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
           {settings.m365_tenant_id && settings.m365_client_id && (
             <a href="/api/auth/m365"
-              className="ml-auto bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700">
+              className="ml-auto bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-blue-700">
               Mit Microsoft 365 verbinden
             </a>
           )}
@@ -966,7 +966,7 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
       {/* Webhook Info */}
       {isConnected && (
         <div className="border border-s112-border rounded-xl p-4 space-y-2">
-          <p className="text-sm font-semibold text-gray-700">Echtzeit-Webhook</p>
+          <p className="text-sm font-semibold text-s112-text-1">Echtzeit-Webhook</p>
           <p className="text-xs text-s112-muted mb-3">
             {settings.m365_webhook_sub_id
               ? `Aktive Subscription (${settings.m365_webhook_sub_id.slice(0, 16)}…)`
@@ -977,7 +977,7 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
             className="text-sm border border-s112-border px-4 py-1.5 rounded-lg hover:bg-s112-bg disabled:opacity-40">
             {subLoading ? 'Registrieren…' : settings.m365_webhook_sub_id ? 'Webhook erneuern' : 'Webhook registrieren'}
           </button>
-          {subResult && <p className="text-xs font-medium text-gray-700 mt-2">{subResult}</p>}
+          {subResult && <p className="text-xs font-medium text-s112-text-1 mt-2">{subResult}</p>}
         </div>
       )}
     </div>
@@ -1017,11 +1017,11 @@ function EmailTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
       <div className="flex items-center gap-3">
         <label className="flex items-center gap-2.5 cursor-pointer select-none">
           <div onClick={() => setAktiv(v => !v)}
-            className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${aktiv ? 'bg-s112-teal' : 'bg-gray-300'}`}>
+            className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${aktiv ? 'bg-s112-teal' : 'bg-s112-line-str'}`}>
             <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${aktiv ? 'translate-x-5' : 'translate-x-0'}`} />
           </div>
         </label>
-        <span className={`text-sm font-semibold ${aktiv ? 'text-s112-teal' : 'text-gray-500'}`}>
+        <span className={`text-sm font-semibold ${aktiv ? 'text-s112-blue-700' : 'text-s112-text-2'}`}>
           E-Mail-Modul {aktiv ? 'aktiv' : 'inaktiv'}
         </span>
       </div>
@@ -1029,26 +1029,26 @@ function EmailTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
       <form onSubmit={handleSave} className="space-y-5">
         {/* SMTP Ausgehend */}
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">SMTP – Ausgehende E-Mails</p>
+          <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wider mb-3">SMTP – Ausgehende E-Mails</p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">SMTP-Host</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">SMTP-Host</label>
               <input name="email_smtp_host" defaultValue={settings.email_smtp_host ?? ''} placeholder="smtp.gmail.com" className={inputCls()} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Port</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Port</label>
               <input name="email_smtp_port" type="number" defaultValue={settings.email_smtp_port} className={inputCls()} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Benutzername / E-Mail</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Benutzername / E-Mail</label>
               <input name="email_smtp_user" defaultValue={settings.email_smtp_user ?? ''} placeholder="name@domain.at" className={inputCls()} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Passwort / App-Passwort</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Passwort / App-Passwort</label>
               <input name="email_smtp_pass" type="password" placeholder="Neu setzen (leer = unverändert)" className={inputCls()} />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-600 mb-1">Absendername</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Absendername</label>
               <input name="email_smtp_from_name" defaultValue={settings.email_smtp_from_name ?? ''} placeholder="Weingut Gebeshuber" className={inputCls()} />
             </div>
           </div>
@@ -1056,22 +1056,22 @@ function EmailTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
 
         {/* IMAP Eingehend */}
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">IMAP – Eingehende E-Mails</p>
+          <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wider mb-3">IMAP – Eingehende E-Mails</p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">IMAP-Host</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">IMAP-Host</label>
               <input name="email_imap_host" defaultValue={settings.email_imap_host ?? ''} placeholder="imap.gmail.com" className={inputCls()} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Port</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Port</label>
               <input name="email_imap_port" type="number" defaultValue={settings.email_imap_port} className={inputCls()} />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-600 mb-1">Benutzername / E-Mail</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Benutzername / E-Mail</label>
               <input name="email_imap_user" defaultValue={settings.email_imap_user ?? ''} className={inputCls()} />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-600 mb-1">Passwort / App-Passwort</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Passwort / App-Passwort</label>
               <input name="email_imap_pass" type="password" placeholder="Neu setzen (leer = unverändert)" className={inputCls()} />
             </div>
           </div>
@@ -1085,19 +1085,19 @@ function EmailTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
             className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
             {pending ? 'Speichern…' : 'Speichern'}
           </button>
-          {saved && <span className="text-xs text-s112-teal font-medium">Gespeichert</span>}
+          {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
         </div>
       </form>
 
       {/* Manueller IMAP-Poll */}
       <div className="border border-s112-border rounded-xl p-4 space-y-3">
-        <p className="text-sm font-semibold text-gray-700">Posteingang jetzt abrufen</p>
+        <p className="text-sm font-semibold text-s112-text-1">Posteingang jetzt abrufen</p>
         <p className="text-xs text-s112-muted">Importiert ungelesene E-Mails der letzten 7 Tage und legt Aktivitäten für bekannte Kontakte an.</p>
         <button type="button" onClick={handlePoll} disabled={polling}
           className="text-sm border border-s112-border px-4 py-1.5 rounded-lg hover:bg-s112-bg disabled:opacity-40">
           {polling ? 'Abrufen…' : 'Jetzt abrufen'}
         </button>
-        {pollResult && <p className="text-xs font-medium text-gray-700">{pollResult}</p>}
+        {pollResult && <p className="text-xs font-medium text-s112-text-1">{pollResult}</p>}
       </div>
     </div>
   )
@@ -1174,7 +1174,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
       {/* Einstellungen */}
       <form onSubmit={handleSave} className="space-y-4">
         {/* USt-Standard */}
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Standard-Umsatzsteuer</p>
+        <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wider">Standard-Umsatzsteuer</p>
         <input type="hidden" name="ust_satz_standard" value={ustStandard} />
         <div className="grid grid-cols-2 gap-3">
           {([{ val: 13, label: '13 %', hint: 'Weinproduzent (stiller Wein)' }, { val: 20, label: '20 %', hint: 'Weinhändler / Spirituosen' }] as const).map(opt => (
@@ -1184,20 +1184,20 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
               onClick={() => setUstStandard(opt.val)}
               className={`flex flex-col items-start px-4 py-3 rounded-xl border-2 text-left transition-colors
                 ${ustStandard === opt.val
-                  ? 'border-s112-teal bg-s112-teal/5 text-s112-teal'
-                  : 'border-s112-border text-gray-600 hover:border-s112-teal/40'}`}
+                  ? 'border-s112-teal bg-s112-teal/5 text-s112-blue-700'
+                  : 'border-s112-border text-s112-text-2 hover:border-s112-teal/40'}`}
             >
-              <span className="text-lg font-bold">{opt.label}</span>
+              <span className="text-lg font-semibold">{opt.label}</span>
               <span className="text-xs mt-0.5 opacity-70">{opt.hint}</span>
             </button>
           ))}
         </div>
 
         {/* Rechnungsnummer */}
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Rechnungsnummer</p>
+        <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wider">Rechnungsnummer</p>
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Präfix</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Präfix</label>
             <input
               name="rechnung_prefix"
               value={prefix}
@@ -1208,7 +1208,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Stellen</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Stellen</label>
             <input
               name="rechnung_stellen"
               type="number"
@@ -1219,7 +1219,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Suffix</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Suffix</label>
             <input
               name="rechnung_suffix"
               value={suffix}
@@ -1235,10 +1235,10 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
         </p>
         <div className="bg-s112-bg border border-s112-border rounded-lg px-4 py-2.5 flex items-center justify-between">
           <p className="text-xs text-s112-muted">Nächste Rechnungsnummer</p>
-          <p className="text-base font-mono font-bold text-s112-teal tracking-wider">{naechste}</p>
+          <p className="text-base font-mono font-semibold text-s112-blue-700 tracking-wider">{naechste}</p>
         </div>
         {hatJahresPlatzhalter ? (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 text-xs text-blue-800">
+          <div className="bg-s112-blue-50 border border-s112-blue-100 rounded-lg px-4 py-2.5 text-xs text-s112-blue-700">
             Der Zähler beginnt zu jedem Jahreswechsel wieder bei 1 – im Beispiel oben also {naechsteFolgejahr} für die erste Rechnung des Folgejahres.
             Die Nummern bleiben eindeutig, weil das Jahr Teil der Nummer ist.
           </div>
@@ -1249,10 +1249,10 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
         )}
 
         {/* Accountnummer */}
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider pt-2">Accountnummer</p>
+        <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wider pt-2">Accountnummer</p>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Präfix</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Präfix</label>
             <input
               name="account_prefix"
               value={kPrefix}
@@ -1263,7 +1263,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Stellen</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Stellen</label>
             <input
               name="account_stellen"
               type="number"
@@ -1276,7 +1276,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
         </div>
         <div className="bg-s112-bg border border-s112-border rounded-lg px-4 py-2.5 flex items-center justify-between">
           <p className="text-xs text-s112-muted">Nächste Accountnummer</p>
-          <p className="text-base font-mono font-bold text-s112-teal tracking-wider">{naechsteKunde}</p>
+          <p className="text-base font-mono font-semibold text-s112-blue-700 tracking-wider">{naechsteKunde}</p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -1284,17 +1284,17 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
             className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
             {pending ? 'Speichern…' : 'Speichern'}
           </button>
-          {saved && <span className="text-xs text-s112-teal font-medium">Gespeichert</span>}
+          {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
         </div>
       </form>
 
       {/* Zähler zurücksetzen */}
       <div className="border border-s112-border rounded-xl p-4 space-y-3">
         <div>
-          <p className="text-sm font-semibold text-gray-700">Zählerstand</p>
+          <p className="text-sm font-semibold text-s112-text-1">Zählerstand</p>
           <p className="text-xs text-s112-muted mt-0.5">
-            Aktuell: <span className="font-mono font-semibold text-gray-900">{zaehler}</span>
-            {' '}(nächste vergebene Nummer: <span className="font-mono text-gray-900">{naechste}</span>)
+            Aktuell: <span className="font-mono font-semibold text-s112-text">{zaehler}</span>
+            {' '}(nächste vergebene Nummer: <span className="font-mono text-s112-text">{naechste}</span>)
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -1309,7 +1309,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
             type="button"
             onClick={handleReset}
             disabled={pending}
-            className="text-sm text-red-500 hover:text-red-700 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-50 disabled:opacity-40 transition-colors"
+            className="text-sm text-s112-err hover:text-s112-err-fg border border-s112-err/30 px-3 py-1.5 rounded-lg hover:bg-s112-err-bg disabled:opacity-40 transition-colors"
           >
             Zähler setzen
           </button>
@@ -1324,10 +1324,10 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
       {/* Accountnummer-Zähler */}
       <div className="border border-s112-border rounded-xl p-4 space-y-3">
         <div>
-          <p className="text-sm font-semibold text-gray-700">Kunden-Zählerstand</p>
+          <p className="text-sm font-semibold text-s112-text-1">Kunden-Zählerstand</p>
           <p className="text-xs text-s112-muted mt-0.5">
-            Aktuell: <span className="font-mono font-semibold text-gray-900">{kZaehler}</span>
-            {' '}(nächste: <span className="font-mono text-gray-900">{naechsteKunde}</span>)
+            Aktuell: <span className="font-mono font-semibold text-s112-text">{kZaehler}</span>
+            {' '}(nächste: <span className="font-mono text-s112-text">{naechsteKunde}</span>)
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -1342,7 +1342,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
             type="button"
             onClick={handleKundenReset}
             disabled={pending}
-            className="text-sm text-red-500 hover:text-red-700 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-50 disabled:opacity-40 transition-colors"
+            className="text-sm text-s112-err hover:text-s112-err-fg border border-s112-err/30 px-3 py-1.5 rounded-lg hover:bg-s112-err-bg disabled:opacity-40 transition-colors"
           >
             Zähler setzen
           </button>
@@ -1359,13 +1359,13 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
 
 function CheckItem({ ok, label, hint }: { ok: boolean; label: string; hint?: string }) {
   return (
-    <div className={`flex gap-3 p-3 rounded-xl border ${ok ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'}`}>
+    <div className={`flex gap-3 p-3 rounded-xl border ${ok ? 'border-s112-ok/30 bg-s112-ok-bg' : 'border-s112-warn/30 bg-s112-warn-bg'}`}>
       {ok
-        ? <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-        : <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />}
+        ? <CheckCircle2 className="w-5 h-5 text-s112-ok-fg flex-shrink-0 mt-0.5" />
+        : <AlertTriangle className="w-5 h-5 text-s112-warn-fg flex-shrink-0 mt-0.5" />}
       <div>
-        <p className={`text-sm font-medium ${ok ? 'text-green-800' : 'text-amber-800'}`}>{label}</p>
-        {!ok && hint && <p className="text-xs text-amber-700 mt-0.5">{hint}</p>}
+        <p className={`text-sm font-medium ${ok ? 'text-s112-ok-fg' : 'text-s112-warn-fg'}`}>{label}</p>
+        {!ok && hint && <p className="text-xs text-s112-warn-fg mt-0.5">{hint}</p>}
       </div>
     </div>
   )
@@ -1391,7 +1391,7 @@ function ChecklisteTab({ tenant, settings, members }: {
   return (
     <div className="space-y-4 max-w-lg">
       {allOk && (
-        <div className="p-4 bg-green-50 border border-green-200 rounded-xl text-sm text-green-800 font-medium flex items-center gap-2">
+        <div className="p-4 bg-s112-ok-bg border border-s112-ok/30 rounded-xl text-sm text-s112-ok-fg font-medium flex items-center gap-2">
           <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
           Dieser Mandant ist vollständig konfiguriert und einsatzbereit!
         </div>
@@ -1426,7 +1426,7 @@ function ChecklisteTab({ tenant, settings, members }: {
           hint="→ Tab Stripe: Plan wählen → Stripe Checkout öffnet sich → Zahlungsdaten eingeben." />
       </div>
 
-      <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 space-y-2">
+      <div className="mt-4 p-4 bg-s112-blue-50 border border-s112-blue-100 rounded-xl text-xs text-s112-blue-700 space-y-2">
         <p className="font-semibold">Supabase Setup für neuen Benutzer</p>
         <p>1. Klicke auf <strong>Benutzer einladen</strong> und trage die E-Mail-Adresse ein.</p>
         <p>2. Supabase sendet automatisch eine Einladungs-E-Mail mit Link zum Passwort setzen.</p>
@@ -1475,7 +1475,7 @@ function BawbTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
       <div className="card p-5 space-y-3">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="font-semibold text-gray-800 mb-1">LFRZ Weinkontrolle Online (bawb.at)</h3>
+            <h3 className="font-semibold text-s112-text mb-1">LFRZ Weinkontrolle Online (bawb.at)</h3>
             <p className="text-sm text-s112-muted">
               Österreichisches Weingesetz-Onlineportal für Erntemeldung, Betriebsmitteilung und Verarbeitungsprotokoll.
             </p>
@@ -1489,18 +1489,18 @@ function BawbTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
             bawb.at öffnen
           </a>
         </div>
-        <p className="text-xs text-s112-muted bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+        <p className="text-xs text-s112-muted bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2">
           Die Zugangsdaten werden in der Datenbank gespeichert (wie API-Keys). Für erhöhte Sicherheit empfiehlt sich Supabase Vault – aktuell nicht aktiviert.
         </p>
       </div>
 
       {/* Zugangsdaten */}
       <form onSubmit={handleSave} className="card p-5 space-y-4">
-        <h3 className="font-semibold text-gray-800 text-sm">Zugangsdaten</h3>
+        <h3 className="font-semibold text-s112-text text-sm">Zugangsdaten</h3>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Kennung (Betriebsnummer)</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Kennung (Betriebsnummer)</label>
             <input
               type="text"
               value={kennung}
@@ -1510,7 +1510,7 @@ function BawbTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Passwort</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Passwort</label>
             <div className="relative">
               <input
                 type={showPw ? 'text' : 'password'}
@@ -1522,7 +1522,7 @@ function BawbTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
               <button
                 type="button"
                 onClick={() => setShowPw(v => !v)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-s112-muted hover:text-gray-700 px-1"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-s112-muted hover:text-s112-text-1 px-1"
               >
                 {showPw ? 'verbergen' : 'anzeigen'}
               </button>
@@ -1530,29 +1530,29 @@ function BawbTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
           </div>
         </div>
 
-        {errMsg && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{errMsg}</p>}
+        {errMsg && <p className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{errMsg}</p>}
 
         <div className="flex items-center gap-3">
           <button type="submit" disabled={status === 'saving'}
             className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
             {status === 'saving' ? 'Speichert…' : 'Zugangsdaten speichern'}
           </button>
-          {status === 'ok' && <span className="text-xs text-green-700 font-medium">Gespeichert</span>}
+          {status === 'ok' && <span className="text-xs text-s112-ok-fg font-medium">Gespeichert</span>}
         </div>
       </form>
 
       {/* Gespeicherte Zugangsdaten – Kopier-Hilfe */}
       {(settings.bawb_kennung || settings.bawb_passwort) && (
         <div className="card p-4 space-y-2 bg-s112-bg">
-          <p className="text-xs font-semibold text-gray-700">Gespeicherte Zugangsdaten (zum Kopieren)</p>
+          <p className="text-xs font-semibold text-s112-text-1">Gespeicherte Zugangsdaten (zum Kopieren)</p>
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div>
               <span className="text-s112-muted">Kennung:</span>{' '}
-              <span className="font-mono font-medium text-gray-800">{settings.bawb_kennung ?? '–'}</span>
+              <span className="font-mono font-medium text-s112-text">{settings.bawb_kennung ?? '–'}</span>
             </div>
             <div>
               <span className="text-s112-muted">Passwort:</span>{' '}
-              <span className="font-mono font-medium text-gray-800">{settings.bawb_passwort ?? '–'}</span>
+              <span className="font-mono font-medium text-s112-text">{settings.bawb_passwort ?? '–'}</span>
             </div>
           </div>
         </div>
@@ -1593,26 +1593,26 @@ function SumUpTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
 
   return (
     <div className="max-w-lg space-y-5">
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+      <div className="bg-s112-warn-bg border border-s112-warn/30 rounded-xl p-4 text-sm text-s112-warn-fg">
         <strong>Hinweis:</strong> API-Key und Merchant-Code werden in der Datenbank gespeichert.
         Für Produktionseinsatz empfiehlt sich Supabase Vault.
       </div>
       <form onSubmit={handleSave} className="space-y-4">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">SumUp API Key</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">SumUp API Key</label>
           <input value={apiKey} onChange={e => setApiKey(e.target.value)}
             placeholder="sup_sk_…"
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           <p className="text-xs text-s112-muted mt-1">Persönlicher Access-Token aus dem SumUp-Dashboard → API Keys</p>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Merchant Code</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Merchant Code</label>
           <input value={merchantCode} onChange={e => setMerchantCode(e.target.value)}
             placeholder="M…"
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           <p className="text-xs text-s112-muted mt-1">Zu finden unter SumUp-Profil → Unternehmensinformationen</p>
         </div>
-        {msg && <p className={`text-sm ${msgIsError ? 'text-red-600' : 'text-green-600'}`}>{msg}</p>}
+        {msg && <p className={`text-sm ${msgIsError ? 'text-s112-err-fg' : 'text-s112-ok-fg'}`}>{msg}</p>}
         <button type="submit" disabled={saving}
           className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
           {saving ? 'Speichern…' : 'Speichern'}
@@ -1680,7 +1680,7 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
 
   return (
     <div className="space-y-6">
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">{error}</div>}
+      {error && <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm">{error}</div>}
 
       {/* Status-Karte */}
       <div className="card p-4 space-y-3">
@@ -1690,7 +1690,7 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
             ? <span className={`text-sm font-semibold px-3 py-1 rounded-full ${statusMeta.color}`}>{statusMeta.label}</span>
             : <span className="text-sm text-s112-muted italic">Kein Stripe-Abo</span>
           }
-          {planLabel && <span className="text-sm text-gray-600">{planLabel}</span>}
+          {planLabel && <span className="text-sm text-s112-text-2">{planLabel}</span>}
           {tenant.max_benutzer !== null && <span className="text-xs text-s112-muted">· max. {tenant.max_benutzer} Benutzer</span>}
           {tenant.stripe_current_period_end && (
             <span className="text-xs text-s112-muted">
@@ -1734,7 +1734,7 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
               <button key={p.id} type="button" disabled={pending}
                 onClick={() => handleCheckout(p.id)}
                 className="border border-s112-border rounded-lg px-4 py-3 text-sm text-left hover:border-s112-teal hover:bg-s112-bg transition-colors disabled:opacity-50">
-                <span className="font-medium text-gray-800">{p.label}</span>
+                <span className="font-medium text-s112-text">{p.label}</span>
                 <span className="text-xs text-s112-muted block mt-0.5">→ Stripe Checkout</span>
               </button>
             ))}
@@ -1752,7 +1752,7 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
               {pending ? 'Lade…' : 'software:112 Kundenportal'}
             </button>
             <button type="button" onClick={handleCancel} disabled={pending}
-              className="border border-red-200 text-red-500 px-4 py-2 rounded-lg text-sm hover:bg-red-50 disabled:opacity-50">
+              className="border border-s112-err/30 text-s112-err px-4 py-2 rounded-lg text-sm hover:bg-s112-err-bg disabled:opacity-50">
               Abo kündigen
             </button>
           </div>
@@ -1805,25 +1805,25 @@ export default function MandantDetailClient({ tenant, settings, members }: {
           <div className="flex items-center gap-2 text-sm text-s112-muted mb-1.5">
             <span>Administration</span>
             <span>/</span>
-            <Link href="/admin/mandanten" className="hover:text-s112-teal transition-colors">Mandanten</Link>
+            <Link href="/admin/mandanten" className="hover:text-s112-blue-700 transition-colors">Mandanten</Link>
             <span>/</span>
-            <span className="text-gray-700 font-medium">{tenant.name}</span>
+            <span className="text-s112-text-1 font-medium">{tenant.name}</span>
           </div>
           {editName ? (
             <form onSubmit={handleRename} className="flex items-center gap-2 mt-1">
               <input value={name} onChange={e => setName(e.target.value)}
-                className="text-2xl font-bold text-gray-900 border-b-2 border-s112-teal outline-none bg-transparent"
+                className="text-2xl font-semibold text-s112-text border-b-2 border-s112-teal outline-none bg-transparent"
                 autoFocus />
               <button type="submit" disabled={pending}
                 className="text-xs bg-s112-teal text-white px-2.5 py-1 rounded-lg disabled:opacity-40">OK</button>
               <button type="button" onClick={() => { setEditName(false); setName(tenant.name) }}
-                className="text-xs text-s112-muted hover:text-gray-700">Abbrechen</button>
+                className="text-xs text-s112-muted hover:text-s112-text-1">Abbrechen</button>
             </form>
           ) : (
             <div className="flex items-center gap-2 mt-1">
-              <h1 className="text-2xl font-bold text-gray-900">{tenant.name}</h1>
+              <h1 className="text-2xl font-semibold text-s112-text">{tenant.name}</h1>
               <button onClick={() => setEditName(true)}
-                className="text-s112-muted hover:text-s112-teal mt-0.5">
+                className="text-s112-muted hover:text-s112-blue-700 mt-0.5">
                 <Pencil className="w-4 h-4" />
               </button>
             </div>
@@ -1836,17 +1836,17 @@ export default function MandantDetailClient({ tenant, settings, members }: {
 
         {/* Status-Badges */}
         <div className="flex gap-2 flex-wrap justify-end">
-          {settings.modul_weingarten && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Weingarten</span>}
-          {settings.modul_kellerbuch && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">Kellerbuch</span>}
-          {settings.modul_crm        && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">CRM</span>}
-          {settings.modul_newsletter && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">Newsletter</span>}
-          {settings.modul_ea         && <span className="text-xs bg-lime-100 text-lime-700 px-2 py-0.5 rounded-full">{settings.buchhaltungsart === 'doppik' ? 'E&A · Doppik/BMD' : 'E&A'}</span>}
-          {settings.modul_sumup      && <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">SumUp</span>}
-          {settings.modul_export     && <span className="text-xs bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-full">Exportaufträge</span>}
-          {settings.modul_controlling && <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">Controlling</span>}
-          {tenant.stripe_status === 'active'   && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Abo aktiv</span>}
-          {tenant.stripe_status === 'past_due' && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Zahlung offen</span>}
-          {tenant.stripe_status === 'cancelled' && <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Abo gekündigt</span>}
+          {settings.modul_weingarten && <span className="text-xs bg-s112-ok-bg text-s112-ok-fg px-2 py-0.5 rounded-full">Weingarten</span>}
+          {settings.modul_kellerbuch && <span className="text-xs bg-[#F2F3F5] text-s112-text-1 px-2 py-0.5 rounded-full">Kellerbuch</span>}
+          {settings.modul_crm        && <span className="text-xs bg-s112-blue-100 text-s112-blue-700 px-2 py-0.5 rounded-full">CRM</span>}
+          {settings.modul_newsletter && <span className="text-xs bg-s112-warn-bg text-s112-warn-fg px-2 py-0.5 rounded-full">Newsletter</span>}
+          {settings.modul_ea         && <span className="text-xs bg-s112-ok-bg text-s112-ok-fg px-2 py-0.5 rounded-full">{settings.buchhaltungsart === 'doppik' ? 'E&A · Doppik/BMD' : 'E&A'}</span>}
+          {settings.modul_sumup      && <span className="text-xs bg-[#F2F3F5] text-s112-text-1 px-2 py-0.5 rounded-full">SumUp</span>}
+          {settings.modul_export     && <span className="text-xs bg-[#F2F3F5] text-s112-text-1 px-2 py-0.5 rounded-full">Exportaufträge</span>}
+          {settings.modul_controlling && <span className="text-xs bg-[#F2F3F5] text-s112-text-1 px-2 py-0.5 rounded-full">Controlling</span>}
+          {tenant.stripe_status === 'active'   && <span className="text-xs bg-s112-ok-bg text-s112-ok-fg px-2 py-0.5 rounded-full">Abo aktiv</span>}
+          {tenant.stripe_status === 'past_due' && <span className="text-xs bg-s112-warn-bg text-s112-warn-fg px-2 py-0.5 rounded-full">Zahlung offen</span>}
+          {tenant.stripe_status === 'cancelled' && <span className="text-xs bg-[#F2F3F5] text-s112-text-2 px-2 py-0.5 rounded-full">Abo gekündigt</span>}
         </div>
       </div>
 
@@ -1856,12 +1856,12 @@ export default function MandantDetailClient({ tenant, settings, members }: {
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
               tab === t.id
-                ? 'border-s112-teal text-s112-teal'
-                : 'border-transparent text-s112-muted hover:text-gray-700'
+                ? 'border-s112-teal text-s112-blue-700'
+                : 'border-transparent text-s112-muted hover:text-s112-text-1'
             }`}>
             {t.label}
             {t.id === 'benutzer' && members.length > 0 &&
-              <span className="ml-1.5 text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full">{members.length}</span>}
+              <span className="ml-1.5 text-xs bg-[#F2F3F5] text-s112-text-2 px-1.5 py-0.5 rounded-full">{members.length}</span>}
           </button>
         ))}
       </div>

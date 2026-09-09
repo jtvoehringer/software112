@@ -92,16 +92,16 @@ export default async function UvaPage({
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-2">
-        <Link href="/buchhaltung" className="hover:text-s112-teal transition-colors">E&amp;A-Rechnung</Link>
+        <Link href="/buchhaltung" className="hover:text-s112-blue-700 transition-colors">E&amp;A-Rechnung</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">{doppik ? 'UVA (Vorschau)' : 'UVA-Meldung'}</span>
+        <span className="text-s112-text-1 font-medium">{doppik ? 'UVA (Vorschau)' : 'UVA-Meldung'}</span>
       </div>
       <div className="flex items-center gap-3 mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{doppik ? 'UVA (Vorschau)' : 'UVA-Meldung'}</h1>
+        <h1 className="text-2xl font-semibold text-s112-text">{doppik ? 'UVA (Vorschau)' : 'UVA-Meldung'}</h1>
       </div>
 
       {doppik && (
-        <div className="bg-s112-blue-50 border border-s112-blue-100 text-s112-blue-700 rounded-2xl px-5 py-4 mb-6 text-sm">
+        <div className="bg-s112-blue-50 border border-s112-blue-100 text-s112-blue-700 rounded-xl px-5 py-4 mb-6 text-sm">
           <p className="font-semibold mb-1">Die UVA meldet dein Steuerberater aus BMD.</p>
           <p>
             Dieser Betrieb führt die doppelte Buchhaltung beim Steuerberater. Die Zahlen hier sind eine Kontroll-Vorschau
@@ -115,7 +115,7 @@ export default async function UvaPage({
       {/* Jahr-Wahl */}
       <form method="GET" className="flex gap-3 mb-6 items-end">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Geschäftsjahr</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Geschäftsjahr</label>
           <select name="jahr" defaultValue={String(jahr)}
             className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
             {jahre.map(j => <option key={j} value={j}>{j}</option>)}
@@ -125,14 +125,14 @@ export default async function UvaPage({
       </form>
 
       {/* Berechnen */}
-      <div className="bg-white rounded-2xl border border-s112-border p-5 mb-6">
-        <h2 className="font-semibold text-gray-800 mb-3">Zeitraum berechnen</h2>
+      <div className="bg-white rounded-xl border border-s112-border p-5 mb-6">
+        <h2 className="font-semibold text-s112-text mb-3">Zeitraum berechnen</h2>
         {zeitraeume.length > 0 ? (
           <>
             <form action={handleBerechnen} className="flex gap-3 items-end">
               <input type="hidden" name="jahr" value={jahr} />
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Zeitraum *</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Zeitraum *</label>
                 <select name="zeitraum" required
                   className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
                   {zeitraeume.map(z => <option key={z} value={z}>{zeitraumLabel(z)}</option>)}
@@ -155,7 +155,7 @@ export default async function UvaPage({
 
       {/* UVA-Liste */}
       {(!uvaListe || uvaListe.length === 0) ? (
-        <div className="bg-white rounded-2xl border border-s112-border p-8 text-center text-s112-muted">
+        <div className="bg-white rounded-xl border border-s112-border p-8 text-center text-s112-muted">
           Noch keine UVA-Meldungen für {jahr}. Zeitraum berechnen →
         </div>
       ) : (
@@ -169,24 +169,24 @@ export default async function UvaPage({
             const zahllast = uva.zahllast ?? 0
             const fehlendeMonate = uva.gesperrt ? [] : benoetigteMonate(uva.zeitraum).filter(m => !abgeschlosseneMonate.has(m))
             return (
-              <div key={uva.id} className="bg-white rounded-2xl border border-s112-border overflow-hidden">
+              <div key={uva.id} className="bg-white rounded-xl border border-s112-border overflow-hidden">
                 <div className="bg-s112-bg px-5 py-3 border-b border-s112-border flex items-center justify-between gap-3 flex-wrap">
-                  <h3 className="font-semibold text-gray-800">{zeitraumLabel(uva.zeitraum)}</h3>
+                  <h3 className="font-semibold text-s112-text">{zeitraumLabel(uva.zeitraum)}</h3>
                   <div className="flex items-center gap-2">
                     {uva.gesperrt ? (
-                      <span className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                      <span className="inline-flex items-center gap-1 text-xs bg-[#F2F3F5] text-s112-text-2 px-2 py-0.5 rounded-full">
                         <Lock className="w-3 h-3" />
                         Übermittelt{fmtDateTime(uva.gesperrt_am) ? ` am ${fmtDateTime(uva.gesperrt_am)}` : ''}
                       </span>
                     ) : (
                       <>
-                        <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Entwurf</span>
+                        <span className="text-xs bg-s112-warn-bg text-s112-warn-fg px-2 py-0.5 rounded-full">Entwurf</span>
                         {adminOk && !doppik && (
                           fehlendeMonate.length > 0 ? (
-                            <span className="inline-flex items-center gap-1.5 text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-full"
+                            <span className="inline-flex items-center gap-1.5 text-xs bg-s112-warn-bg text-s112-warn-fg border border-s112-warn/30 px-2.5 py-1 rounded-full"
                               title="UVA kann erst übermittelt werden, wenn alle Monate dieser Periode abgeschlossen sind">
                               Monatsabschluss fehlt: {fehlendeMonate.map(m => MONATSNAMEN[m - 1]).join(', ')}
-                              <Link href="/buchhaltung/monatsabschluss" className="underline font-medium hover:text-amber-900">
+                              <Link href="/buchhaltung/monatsabschluss" className="underline font-medium hover:text-s112-warn-fg">
                                 jetzt abschließen →
                               </Link>
                             </span>
@@ -208,16 +208,16 @@ export default async function UvaPage({
                 <div className="p-5 space-y-5 text-sm">
                   {/* 1. Umsätze */}
                   <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">1. Umsätze</p>
+                    <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wide mb-2">1. Umsätze</p>
                     <div className="flex items-center justify-between py-1">
-                      <span className="text-gray-700">
+                      <span className="text-s112-text-1">
                         Gesamtbetrag der Bemessungsgrundlagen für Lieferungen und sonstige Leistungen{' '}
-                        <span className="text-gray-400">(Kz 000)</span>
+                        <span className="text-s112-tertiary">(Kz 000)</span>
                       </span>
                       <span className="font-semibold tabular-nums">€ {fmt(kz000)}</span>
                     </div>
 
-                    <p className="text-xs font-medium text-gray-500 mt-3 mb-1">Davon steuerpflichtig:</p>
+                    <p className="text-xs font-medium text-s112-text-2 mt-3 mb-1">Davon steuerpflichtig:</p>
                     <table className="w-full">
                       <tbody>
                         {[
@@ -226,18 +226,18 @@ export default async function UvaPage({
                           { label: '13% ermäßigter Steuersatz', kz: 'Kz 006', bmgl: uva.bmgl_ust_13, ust: uva.ust_13 },
                         ].map(row => (
                           <tr key={row.kz}>
-                            <td className="py-1 text-gray-600">{row.label} <span className="text-gray-400 text-xs">({row.kz})</span></td>
-                            <td className="py-1 text-right text-gray-500 tabular-nums">€ {fmt(row.bmgl)}</td>
-                            <td className="py-1 text-right font-medium tabular-nums text-orange-600">USt € {fmt(row.ust)}</td>
+                            <td className="py-1 text-s112-text-2">{row.label} <span className="text-s112-tertiary text-xs">({row.kz})</span></td>
+                            <td className="py-1 text-right text-s112-text-2 tabular-nums">€ {fmt(row.bmgl)}</td>
+                            <td className="py-1 text-right font-medium tabular-nums text-s112-warn-fg">USt € {fmt(row.ust)}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
 
                     <div className="flex items-center justify-between py-1 mt-2 pt-2 border-t border-s112-border/60">
-                      <span className="text-gray-600">
+                      <span className="text-s112-text-2">
                         Steuerfreie Umsätze mit Vorsteuerabzug (z. B. Ausfuhrlieferungen){' '}
-                        <span className="text-gray-400 text-xs">(Kz 011)</span>
+                        <span className="text-s112-tertiary text-xs">(Kz 011)</span>
                       </span>
                       <span className="tabular-nums">€ {fmt(uva.bmgl_ust_0)}</span>
                     </div>
@@ -245,8 +245,8 @@ export default async function UvaPage({
 
                   {/* 2. Vorsteuer */}
                   <div className="pt-4 border-t border-s112-border">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">2. Vorsteuer</p>
-                    <table className="w-full text-xs text-gray-500 mb-1">
+                    <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wide mb-2">2. Vorsteuer</p>
+                    <table className="w-full text-xs text-s112-text-2 mb-1">
                       <tbody>
                         {[
                           { label: 'VSt 20%', vst: uva.vst_20 },
@@ -261,20 +261,20 @@ export default async function UvaPage({
                       </tbody>
                     </table>
                     <div className="flex items-center justify-between py-1">
-                      <span className="text-gray-700">
-                        Gesamtbetrag der abziehbaren Vorsteuer <span className="text-gray-400">(Kz 060)</span>
+                      <span className="text-s112-text-1">
+                        Gesamtbetrag der abziehbaren Vorsteuer <span className="text-s112-tertiary">(Kz 060)</span>
                       </span>
-                      <span className="font-semibold tabular-nums text-blue-600">€ {fmt(uva.vst_gesamt)}</span>
+                      <span className="font-semibold tabular-nums text-s112-blue-700">€ {fmt(uva.vst_gesamt)}</span>
                     </div>
                   </div>
 
                   {/* Ergebnis */}
                   <div className="pt-4 border-t-2 border-s112-border flex items-center justify-between">
-                    <span className="font-semibold text-gray-700">
+                    <span className="font-semibold text-s112-text-1">
                       {zahllast >= 0 ? '7.1 Vorauszahlung (Zahllast)' : '7.2 Überschuss (Gutschrift)'}{' '}
-                      <span className="text-gray-400 font-normal text-xs">(Kz 095)</span>
+                      <span className="text-s112-tertiary font-normal text-xs">(Kz 095)</span>
                     </span>
-                    <span className={`text-xl font-bold tabular-nums ${zahllast >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    <span className={`text-xl font-semibold tabular-nums ${zahllast >= 0 ? 'text-s112-err-fg' : 'text-s112-ok-fg'}`}>
                       € {fmt(Math.abs(zahllast))}
                     </span>
                   </div>

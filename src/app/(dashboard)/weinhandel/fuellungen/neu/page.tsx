@@ -59,12 +59,12 @@ export default async function NeueFuellungPage({
   return (
     <div className="max-w-2xl">
       <nav className="flex items-center gap-2 text-sm text-s112-muted mb-6">
-        <Link href="/weinhandel" className="hover:text-s112-teal">Weinhandel</Link>
+        <Link href="/weinhandel" className="hover:text-s112-blue-700">Weinhandel</Link>
         <span>/</span>
-        <span className="text-gray-800 font-medium">Neue Füllung</span>
+        <span className="text-s112-text font-medium">Neue Füllung</span>
       </nav>
 
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">Neue Füllung anlegen</h1>
+      <h1 className="text-2xl font-semibold text-s112-text mb-1">Neue Füllung anlegen</h1>
       <p className="text-sm text-s112-muted mb-6">
         Der Wein verlässt den Keller und wird als verkaufsfertiger Artikel im Weinhandel angelegt.
       </p>

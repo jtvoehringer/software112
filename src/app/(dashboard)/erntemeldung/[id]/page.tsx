@@ -376,15 +376,15 @@ export default async function ErnteDetailPage({ params }: Props) {
   return (
     <div className="max-w-3xl">
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-6">
-        <Link href="/erntemeldung" className="hover:text-s112-teal transition-colors">Lese</Link>
+        <Link href="/erntemeldung" className="hover:text-s112-blue-700 transition-colors">Lese</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Jahrgang {(jg as AR).jahrgang}</span>
+        <span className="text-s112-text-1 font-medium">Jahrgang {(jg as AR).jahrgang}</span>
       </div>
 
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-s112-teal tabular-nums">{(jg as AR).jahrgang}</h1>
+        <h1 className="text-3xl font-semibold text-s112-blue-700 tabular-nums">{(jg as AR).jahrgang}</h1>
         {(jg as AR).abgeschlossen && (
-          <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">Abgeschlossen</span>
+          <span className="text-xs bg-[#F2F3F5] text-s112-text-2 px-2 py-1 rounded-full">Abgeschlossen</span>
         )}
       </div>
 

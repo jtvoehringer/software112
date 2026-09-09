@@ -158,7 +158,7 @@ export default async function GebindePage({
   }
 
   const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
-  const labelCls = 'block text-xs font-medium text-gray-600 mb-1'
+  const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
   const TABS = [
     { key: 'gebinde',            label: 'Gebinde' },
@@ -170,12 +170,12 @@ export default async function GebindePage({
   return (
     <div className="max-w-5xl space-y-6">
       <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/kellerbuch" className="hover:text-s112-teal transition-colors">Kellerbuch</Link>
+        <Link href="/kellerbuch" className="hover:text-s112-blue-700 transition-colors">Kellerbuch</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Gebinde</span>
+        <span className="text-s112-text-1 font-medium">Gebinde</span>
       </div>
 
-      <h1 className="text-2xl font-bold text-gray-900">Gebinde</h1>
+      <h1 className="text-2xl font-semibold text-s112-text">Gebinde</h1>
 
       <div className="flex gap-1 border-b border-s112-border">
         {TABS.map(t => (
@@ -184,8 +184,8 @@ export default async function GebindePage({
             href={`/kellerbuch/gebinde?tab=${t.key}`}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors
               ${tab === t.key
-                ? 'bg-white border border-b-white border-s112-border text-s112-teal -mb-px'
-                : 'text-s112-muted hover:text-s112-teal'}`}
+                ? 'bg-white border border-b-white border-s112-border text-s112-blue-700 -mb-px'
+                : 'text-s112-muted hover:text-s112-blue-700'}`}
           >
             {t.label}
           </Link>
@@ -197,7 +197,7 @@ export default async function GebindePage({
         <div className="space-y-6">
           {writeOk && (
             <details className="card p-5">
-              <summary className="cursor-pointer font-semibold text-sm text-gray-800 select-none">
+              <summary className="cursor-pointer font-semibold text-sm text-s112-text select-none">
                 + Neues Gebinde anlegen
               </summary>
               <form action={createBehaelter} className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -244,12 +244,12 @@ export default async function GebindePage({
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-s112-bg border-b border-s112-border">
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Bezeichnung</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Typ</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Volumen</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Standort</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Inhalt</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Füllstand</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Bezeichnung</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Typ</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Volumen</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Standort</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Inhalt</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Füllstand</th>
                   {writeOk && <th className="px-4 py-2.5" />}
                 </tr>
               </thead>
@@ -260,35 +260,35 @@ export default async function GebindePage({
                   const volumen = g.volumen_liter ? parseFloat(g.volumen_liter) : null
                   const fuellPct = volumen && volumen > 0 ? (inhaltLiter / volumen) * 100 : null
                   const barColor = fuellPct == null ? ''
-                    : fuellPct > 100 ? 'bg-red-500'
-                    : fuellPct > 85  ? 'bg-yellow-400'
-                    : 'bg-green-500'
+                    : fuellPct > 100 ? 'bg-s112-err'
+                    : fuellPct > 85  ? 'bg-s112-warn'
+                    : 'bg-s112-ok'
                   return (
                     <tr key={g.id} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''} ${!g.aktiv ? 'opacity-40' : ''}`}>
-                      <td className="px-4 py-2.5 font-medium text-gray-800">{g.name}</td>
-                      <td className="px-4 py-2.5 text-gray-600 capitalize">{g.typ ?? '–'}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
+                      <td className="px-4 py-2.5 font-medium text-s112-text">{g.name}</td>
+                      <td className="px-4 py-2.5 text-s112-text-2 capitalize">{g.typ ?? '–'}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-2">
                         {volumen ? fmtLiter(volumen) : '–'}
                       </td>
-                      <td className="px-4 py-2.5 text-gray-600">{g.standort ?? '–'}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-s112-teal font-medium">
+                      <td className="px-4 py-2.5 text-s112-text-2">{g.standort ?? '–'}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-s112-blue-700 font-medium">
                         {inhaltLiter > 0 ? fmtLiter(inhaltLiter) : '–'}
                       </td>
                       <td className="px-4 py-2.5">
                         {fuellPct != null ? (
                           <div className="flex items-center gap-2 min-w-[100px]">
-                            <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+                            <div className="flex-1 bg-s112-line rounded-full h-2 overflow-hidden">
                               <div
                                 className={`h-2 rounded-full transition-all ${barColor}`}
                                 style={{ width: `${Math.min(fuellPct, 100).toFixed(0)}%` }}
                               />
                             </div>
-                            <span className={`text-xs font-medium tabular-nums shrink-0 ${fuellPct > 100 ? 'text-red-600' : fuellPct > 85 ? 'text-yellow-600' : 'text-green-700'}`}>
+                            <span className={`text-xs font-medium tabular-nums shrink-0 ${fuellPct > 100 ? 'text-s112-err-fg' : fuellPct > 85 ? 'text-s112-warn-fg' : 'text-s112-ok-fg'}`}>
                               {fuellPct.toFixed(0)} %
                             </span>
                           </div>
                         ) : (
-                          <span className="text-xs text-gray-400">–</span>
+                          <span className="text-xs text-s112-tertiary">–</span>
                         )}
                       </td>
                       {writeOk && (
@@ -322,14 +322,14 @@ export default async function GebindePage({
           </p>
 
           {err && (
-            <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="rounded-lg border border-s112-err/30 bg-s112-err-bg px-4 py-3 text-sm text-s112-err-fg">
               <strong>Fehler beim Speichern:</strong> {err}
             </div>
           )}
 
           {writeOk && (
             <details className="card p-5">
-              <summary className="cursor-pointer font-semibold text-sm text-gray-800 select-none">
+              <summary className="cursor-pointer font-semibold text-sm text-s112-text select-none">
                 + Eröffnungsbestand erfassen
               </summary>
               <form action={createEroeffnungsbestand} className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -396,15 +396,15 @@ export default async function GebindePage({
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-s112-bg border-b border-s112-border">
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">TXN</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Wein</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">JG</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">KMW</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Menge</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Einstand/L</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Gebinde</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Qualität</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Referenz Altsystem</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">TXN</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Wein</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">JG</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">KMW</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Menge</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Einstand/L</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Gebinde</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Qualität</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Referenz Altsystem</th>
                   {writeOk && <th className="px-4 py-2.5" />}
                 </tr>
               </thead>
@@ -412,33 +412,33 @@ export default async function GebindePage({
                 {eroeffnungen.map((e: R, i: number) => (
                   <tr key={e.id} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
                     <td className="px-4 py-2.5 text-xs font-mono text-s112-muted whitespace-nowrap">{e.transaktions_nr ?? '–'}</td>
-                    <td className="px-4 py-2.5 font-medium text-gray-800">{e.name}</td>
-                    <td className="px-4 py-2.5 text-gray-600">{e.jahrgang ?? '–'}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
+                    <td className="px-4 py-2.5 font-medium text-s112-text">{e.name}</td>
+                    <td className="px-4 py-2.5 text-s112-text-2">{e.jahrgang ?? '–'}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-2">
                       {e.kmw ? `${parseFloat(e.kmw).toLocaleString('de-AT')} °KMW` : '–'}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-s112-teal font-medium">
+                    <td className="px-4 py-2.5 text-right tabular-nums text-s112-blue-700 font-medium">
                       {fmtLiter(parseFloat(e.menge_liter))}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
+                    <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-2">
                       {e.einstandspreis_pro_liter != null
                         ? `€ ${parseFloat(e.einstandspreis_pro_liter).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`
                         : '–'}
                     </td>
-                    <td className="px-4 py-2.5 text-gray-600">{(e.behaelter as R | null)?.name ?? '–'}</td>
-                    <td className="px-4 py-2.5 text-gray-600 text-xs">{e.qualitaetsstufe ?? '–'}</td>
-                    <td className="px-4 py-2.5 text-gray-600 text-xs">{e.referenz_altsystem ?? '–'}</td>
+                    <td className="px-4 py-2.5 text-s112-text-2">{(e.behaelter as R | null)?.name ?? '–'}</td>
+                    <td className="px-4 py-2.5 text-s112-text-2 text-xs">{e.qualitaetsstufe ?? '–'}</td>
+                    <td className="px-4 py-2.5 text-s112-text-2 text-xs">{e.referenz_altsystem ?? '–'}</td>
                     {writeOk && (
                       <td className="px-4 py-2.5 text-right whitespace-nowrap">
                         {parseFloat(e.menge_liter) > 0.01 && (
                           <Link href={`/weinhandel/fuellungen/neu?charge=${e.id}`}
-                            className="text-xs text-s112-teal border border-s112-teal/30 rounded-full px-2 py-0.5 hover:bg-s112-teal hover:text-white transition-colors whitespace-nowrap mr-2">
+                            className="text-xs text-s112-blue-700 border border-s112-teal/30 rounded-full px-2 py-0.5 hover:bg-s112-teal hover:text-white transition-colors whitespace-nowrap mr-2">
                             Abfüllen
                           </Link>
                         )}
                         <Link href={`/kellerbuch/eroeffnungsbestand/${e.id}/edit`}
                           title="Bearbeiten" aria-label="Bearbeiten"
-                          className="text-s112-teal hover:text-s112-teal/70 mr-3 inline-flex"><Pencil className="w-4 h-4" /></Link>
+                          className="text-s112-blue-700 hover:text-s112-blue-700/70 mr-3 inline-flex"><Pencil className="w-4 h-4" /></Link>
                         <LoeschenButton
                           action={deleteEroeffnungsbestand.bind(null, e.id)}
                           bestaetigung="Eröffnungsbestand wirklich löschen?" />
@@ -466,13 +466,13 @@ export default async function GebindePage({
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-s112-bg border-b border-s112-border">
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">TXN</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Datum</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Quell-Gebinde</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Ziel-Gebinde (netto)</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Brutto</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Schwund</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Notizen</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">TXN</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Datum</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Quell-Gebinde</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Ziel-Gebinde (netto)</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Brutto</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Schwund</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Notizen</th>
                   {writeOk && <th className="px-4 py-2.5" />}
                 </tr>
               </thead>
@@ -480,36 +480,36 @@ export default async function GebindePage({
                 {umzuege.map((u, i) => (
                   <tr key={u.key} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
                     <td className="px-4 py-2.5 text-xs font-mono text-s112-muted whitespace-nowrap">{u.transaktions_nr ?? '–'}</td>
-                    <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">
+                    <td className="px-4 py-2.5 text-s112-text-2 whitespace-nowrap">
                       {new Date(u.datum).toLocaleDateString('de-AT')}
                     </td>
-                    <td className="px-4 py-2.5 text-gray-800">
+                    <td className="px-4 py-2.5 text-s112-text">
                       {u.quellenNames.join(' · ')}
                     </td>
-                    <td className="px-4 py-2.5 text-gray-600">
+                    <td className="px-4 py-2.5 text-s112-text-2">
                       {u.ziele.map((z, zi) => (
                         <span key={zi}>
-                          {zi > 0 && <span className="text-gray-400 mx-1">·</span>}
+                          {zi > 0 && <span className="text-s112-tertiary mx-1">·</span>}
                           {z.gebinde}
-                          <span className="text-s112-teal font-medium ml-1 text-xs">
+                          <span className="text-s112-blue-700 font-medium ml-1 text-xs">
                             {fmtLiter(z.menge)}
                           </span>
                         </span>
                       ))}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-700 font-medium">
+                    <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-1 font-medium">
                       {fmtLiter(u.brutto)}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-500">
+                    <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-2">
                       {u.schwund > 0
                         ? fmtLiter(u.schwund) : '–'}
                     </td>
-                    <td className="px-4 py-2.5 text-gray-500 text-xs">{u.notizen ?? '–'}</td>
+                    <td className="px-4 py-2.5 text-s112-text-2 text-xs">{u.notizen ?? '–'}</td>
                     {writeOk && (
                       <td className="px-4 py-2.5 text-right whitespace-nowrap">
                         <Link href={`/kellerbuch/umzug/${u.ersteId}/edit`}
                           title="Bearbeiten" aria-label="Bearbeiten"
-                          className="text-s112-teal hover:text-s112-teal/70 mr-3 inline-flex"><Pencil className="w-4 h-4" /></Link>
+                          className="text-s112-blue-700 hover:text-s112-blue-700/70 mr-3 inline-flex"><Pencil className="w-4 h-4" /></Link>
                         <LoeschenButton
                           action={deleteUmzug.bind(null, u.ersteId)}
                           bestaetigung="Umzug wirklich löschen? Der Quell-Bestand wird wiederhergestellt." />
@@ -531,7 +531,7 @@ export default async function GebindePage({
         <div className="card p-8 text-center text-s112-muted text-sm">
           <p className="mb-2">Der Kellerplan zeigt die visuelle Anordnung aller Gebinde.</p>
           <Link href="/kellerbuch/kellerplan"
-            className="inline-block text-s112-teal font-medium hover:underline">
+            className="inline-block text-s112-blue-700 font-medium hover:underline">
             Zum Kellerplan →
           </Link>
         </div>

@@ -125,10 +125,10 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
 
   return (
     <section>
-      <h2 className="font-semibold text-gray-800 mb-3">Umziehen</h2>
+      <h2 className="font-semibold text-s112-text mb-3">Umziehen</h2>
       <div className="card space-y-4">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-2.5 text-sm">{error}</div>
+          <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-4 py-2.5 text-sm">{error}</div>
         )}
         <form onSubmit={handleSubmit} className="space-y-4">
 
@@ -147,9 +147,9 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
           {/* Quelle – gesperrt */}
           <div>
             <label className="form-label">Quelle (diese Partie)</label>
-            <div className="form-input bg-gray-50 text-gray-500 cursor-not-allowed select-none">{chargeName}</div>
+            <div className="form-input bg-s112-bg text-s112-text-2 cursor-not-allowed select-none">{chargeName}</div>
             <p className="text-xs text-s112-muted mt-1">
-              Verfügbar: <span className="text-s112-teal font-medium">
+              Verfügbar: <span className="text-s112-blue-700 font-medium">
                 {verfuegbarLiter.toLocaleString('de-AT', { maximumFractionDigits: 2 })} L
               </span>
             </p>
@@ -161,7 +161,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
               <input type="text" inputMode="decimal" value={brutto}
                 onChange={e => setBrutto(e.target.value)} placeholder="z.B. 1.200" className="form-input" />
               {bruttoVal > verfuegbarLiter + 0.01 && (
-                <p className="text-xs text-red-600 mt-1">Überschreitet verfügbaren Bestand</p>
+                <p className="text-xs text-s112-err-fg mt-1">Überschreitet verfügbaren Bestand</p>
               )}
             </div>
             <div>
@@ -169,7 +169,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
               <input type="text" inputMode="decimal" value={netto}
                 onChange={e => setNetto(e.target.value)} placeholder="z.B. 1.190" className="form-input" />
               {nettoVal > bruttoVal + 0.01 && (
-                <p className="text-xs text-red-600 mt-1">Netto &gt; Brutto nicht erlaubt</p>
+                <p className="text-xs text-s112-err-fg mt-1">Netto &gt; Brutto nicht erlaubt</p>
               )}
             </div>
           </div>
@@ -223,7 +223,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
                     </div>
                     <div>
                       <p className="text-s112-muted mb-0.5">{nettoVal > 0 ? 'Rest nach Umzug' : 'Restkapazität'}</p>
-                      <p className={`font-medium tabular-nums ${ueber ? 'text-red-600' : 'text-s112-teal'}`}>
+                      <p className={`font-medium tabular-nums ${ueber ? 'text-s112-err-fg' : 'text-s112-blue-700'}`}>
                         {restJetzt != null ? (nettoVal > 0 ? restNach : restJetzt)!.toLocaleString('de-AT', { maximumFractionDigits: 1 }) + ' L' : '–'}
                       </p>
                     </div>
@@ -241,11 +241,11 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
               const g = gebinde.find(g => g.id === zielId)
               const f = g ? frei(g) : null
               return f != null && nettoVal > f + 0.01 ? (
-                <p className="text-xs text-red-600 mt-1">Netto überschreitet Restkapazität des Gebindes</p>
+                <p className="text-xs text-s112-err-fg mt-1">Netto überschreitet Restkapazität des Gebindes</p>
               ) : null
             })()}
             {hatRebsortenmix && (
-              <div className="mt-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 text-xs text-amber-800 flex items-start gap-1.5">
+              <div className="mt-2 bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2 text-xs text-s112-warn-fg flex items-start gap-1.5">
                 <AlertTriangle size={14} strokeWidth={2} className="mt-0.5 shrink-0" />
                 <span>
                   <span className="font-semibold">Rebsortenverschnitt:</span>{' '}
@@ -262,7 +262,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
               {pending ? 'Wird gebucht …' : 'Umzug buchen'}
             </button>
              <button type="button" onClick={handleClose}
-              className="text-sm text-s112-muted hover:text-gray-700 transition-colors">
+              className="text-sm text-s112-muted hover:text-s112-text-1 transition-colors">
               Abbrechen
             </button>
           </div>

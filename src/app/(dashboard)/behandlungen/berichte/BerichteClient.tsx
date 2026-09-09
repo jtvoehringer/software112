@@ -51,7 +51,7 @@ function TabRied({ behandlungen, jahr, ried, art }: { behandlungen: BehandlungRe
     <div className="space-y-4">
       {lagen.map(([lId, lage]) => (
         <div key={lId} className="card">
-          <h3 className="font-semibold text-gray-900 mb-3">{lage.name}</h3>
+          <h3 className="font-semibold text-s112-text mb-3">{lage.name}</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
@@ -75,12 +75,12 @@ function TabRied({ behandlungen, jahr, ried, art }: { behandlungen: BehandlungRe
                     <tr key={b.id} className="border-b border-s112-border/40 hover:bg-s112-bg/30">
                       <td className="py-2 pr-3 tabular-nums">{fmtDate(b.datum)}</td>
                       <td className="py-2 pr-3">{ART_LABEL[b.art] ?? b.art}</td>
-                      <td className="py-2 pr-3 text-gray-600">{b.psm_name ?? '–'}</td>
+                      <td className="py-2 pr-3 text-s112-text-2">{b.psm_name ?? '–'}</td>
                       <td className="py-2 pr-3 text-right tabular-nums">
                         {b.menge_gesamt != null ? `${fmtNum(b.menge_gesamt, 2)} ${b.menge_einheit ?? ''}` : '–'}
                       </td>
                       <td className="py-2 pr-3 text-right tabular-nums">{fmtHa(lageHa)}</td>
-                      <td className="py-2 text-right tabular-nums font-medium text-s112-teal">
+                      <td className="py-2 text-right tabular-nums font-medium text-s112-blue-700">
                         {anteilMenge != null ? `${fmtNum(anteilMenge, 3)} ${b.menge_einheit ?? ''}` : '–'}
                       </td>
                     </tr>
@@ -144,13 +144,13 @@ function TabMittel({ behandlungen, jahr }: { behandlungen: BehandlungReport[]; j
               return (
                 <tr key={m.name} className="border-b border-s112-border/40 hover:bg-s112-bg/30">
                   <td className="py-2.5 pr-3 font-medium">{m.name}</td>
-                  <td className={`py-2.5 pr-3 text-right tabular-nums font-semibold ${!anwOk ? 'text-red-600' : ''}`}>
+                  <td className={`py-2.5 pr-3 text-right tabular-nums font-semibold ${!anwOk ? 'text-s112-err-fg' : ''}`}>
                     {m.anwendungen}
                   </td>
                   <td className="py-2.5 pr-3 text-right tabular-nums text-s112-muted">
                     {m.max_anwendungen ?? '–'}
                   </td>
-                  <td className={`py-2.5 pr-3 text-right tabular-nums font-semibold ${!aufwandOk ? 'text-red-600' : ''}`}>
+                  <td className={`py-2.5 pr-3 text-right tabular-nums font-semibold ${!aufwandOk ? 'text-s112-err-fg' : ''}`}>
                     {aufwandProHa != null ? `${fmtNum(aufwandProHa, 3)} ${m.einheit ?? ''}/ha` : '–'}
                   </td>
                   <td className="py-2.5 pr-3 text-right tabular-nums text-s112-muted">
@@ -158,8 +158,8 @@ function TabMittel({ behandlungen, jahr }: { behandlungen: BehandlungReport[]; j
                   </td>
                   <td className="py-2.5 text-right">
                     {ok
-                      ? <span className="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full">OK</span>
-                      : <span className="text-xs bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded-full">Grenzwert</span>
+                      ? <span className="text-xs bg-s112-ok-bg text-s112-ok-fg border border-s112-ok/30 px-2 py-0.5 rounded-full">OK</span>
+                      : <span className="text-xs bg-s112-err-bg text-s112-err-fg border border-s112-err/30 px-2 py-0.5 rounded-full">Grenzwert</span>
                     }
                   </td>
                 </tr>
@@ -233,7 +233,7 @@ function TabCu({ behandlungen }: { behandlungen: BehandlungReport[] }) {
     return (
       <div className="card">
         <div className="text-center py-12 text-s112-muted">
-          <p className="font-medium text-gray-600">Keine Cu-Daten vorhanden</p>
+          <p className="font-medium text-s112-text-2">Keine Cu-Daten vorhanden</p>
           <p className="text-sm mt-1 max-w-sm mx-auto">
             Erfassen Sie Maßnahmen mit kupferhaltigen Mitteln. Der Cu-Gehalt muss in den
             PSM-Stammdaten (Betriebsmittel, Feld &quot;cu_gehalt_pct&quot;) hinterlegt sein und die Menge in kg oder l angegeben werden.
@@ -248,18 +248,18 @@ function TabCu({ behandlungen }: { behandlungen: BehandlungReport[] }) {
 
       {/* 5-Jahres-Übersicht */}
       {jahre.length > 1 && (
-        <div className="card bg-blue-50 border-blue-200">
+        <div className="card bg-s112-blue-50 border-s112-blue-100">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold text-blue-900">5-Jahres-Bilanz (AT-Grenzwert)</h3>
-            <span className="text-xs text-blue-600 font-medium">Limit: 20 kg Cu/ha über 5 Jahre</span>
+            <h3 className="font-semibold text-s112-blue-700">5-Jahres-Bilanz (AT-Grenzwert)</h3>
+            <span className="text-xs text-s112-blue-700 font-medium">Limit: 20 kg Cu/ha über 5 Jahre</span>
           </div>
-          <div className="h-4 bg-blue-100 rounded-full overflow-hidden">
+          <div className="h-4 bg-s112-blue-100 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full ${cu5JahreG / Math.max(cu5JahreHa, 0.001) > CU_LIMIT_G_HA_5JAHRE ? 'bg-red-500' : 'bg-blue-500'}`}
+              className={`h-full rounded-full ${cu5JahreG / Math.max(cu5JahreHa, 0.001) > CU_LIMIT_G_HA_5JAHRE ? 'bg-s112-err' : 'bg-s112-teal'}`}
               style={{ width: `${Math.min(100, (cu5JahreG / Math.max(cu5JahreHa, 0.001)) / CU_LIMIT_G_HA_5JAHRE * 100)}%` }}
             />
           </div>
-          <p className="text-xs text-blue-700 mt-1.5">
+          <p className="text-xs text-s112-blue-700 mt-1.5">
             Gesamteintrag: <strong>{fmtNum(cu5JahreG / 1000, 2)} kg Cu</strong> über {jahre.length} Jahre
             · Ø {cu5JahreHa > 0 ? fmtNum((cu5JahreG / cu5JahreHa) / 1000, 3) : '–'} kg Cu/ha
           </p>
@@ -272,10 +272,10 @@ function TabCu({ behandlungen }: { behandlungen: BehandlungReport[] }) {
         const status = cuProHa > CU_LIMIT_G_HA_JAHR ? 'red'
                      : cuProHa > CU_LIMIT_G_HA_JAHR * 0.8 ? 'amber'
                      : 'green'
-        const barColor = status === 'red' ? 'bg-red-500' : status === 'amber' ? 'bg-amber-400' : 'bg-s112-teal'
-        const badgeColor = status === 'red'   ? 'bg-red-50 text-red-700 border-red-200'
-                         : status === 'amber' ? 'bg-amber-50 text-amber-700 border-amber-200'
-                         : 'bg-green-50 text-green-700 border-green-200'
+        const barColor = status === 'red' ? 'bg-s112-err' : status === 'amber' ? 'bg-s112-warn' : 'bg-s112-teal'
+        const badgeColor = status === 'red'   ? 'bg-s112-err-bg text-s112-err-fg border-s112-err/30'
+                         : status === 'amber' ? 'bg-s112-warn-bg text-s112-warn-fg border-s112-warn/30'
+                         : 'bg-s112-ok-bg text-s112-ok-fg border-s112-ok/30'
 
         // Anwendungsanzahl je PSM in diesem Jahr
         const anwByPsm = new Map<string, number>()
@@ -284,7 +284,7 @@ function TabCu({ behandlungen }: { behandlungen: BehandlungReport[] }) {
         return (
           <div key={y} className="card space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold text-gray-900 tabular-nums">{y}</h3>
+              <h3 className="text-xl font-semibold text-s112-text tabular-nums">{y}</h3>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-s112-muted">EU-Bio: 4 kg/ha/Jahr</span>
                 <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${badgeColor}`}>
@@ -295,17 +295,17 @@ function TabCu({ behandlungen }: { behandlungen: BehandlungReport[] }) {
 
             {/* Progress Bar */}
             <div>
-              <div className="h-6 bg-gray-100 rounded-lg overflow-hidden relative border border-s112-border">
+              <div className="h-6 bg-[#F2F3F5] rounded-lg overflow-hidden relative border border-s112-border">
                 <div className={`h-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
                 {/* Marker bei 80% */}
-                <div className="absolute top-0 bottom-0 border-l-2 border-dashed border-amber-400 opacity-60" style={{ left: '80%' }} />
-                <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-gray-700 mix-blend-multiply">
+                <div className="absolute top-0 bottom-0 border-l-2 border-dashed border-s112-warn/50 opacity-60" style={{ left: '80%' }} />
+                <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-s112-text-1 mix-blend-multiply">
                   {pct.toLocaleString('de-AT', { maximumFractionDigits: 1 })} % des Grenzwerts
                 </div>
               </div>
               <div className="flex justify-between text-xs text-s112-muted mt-1">
                 <span>0</span>
-                <span className="text-amber-600">Warnschwelle 80 %</span>
+                <span className="text-s112-warn-fg">Warnschwelle 80 %</span>
                 <span className="font-medium">4 kg/ha</span>
               </div>
             </div>
@@ -340,10 +340,10 @@ function TabCu({ behandlungen }: { behandlungen: BehandlungReport[] }) {
                         <td className="py-2 pr-3 text-right tabular-nums">
                           {fmtNum(e.menge, 2)} {e.einheit}
                         </td>
-                        <td className="py-2 pr-3 text-right tabular-nums font-semibold text-blue-600">
+                        <td className="py-2 pr-3 text-right tabular-nums font-semibold text-s112-blue-700">
                           {fmtNum(e.cuG / 1000, 3)} kg
                         </td>
-                        <td className={`py-2 text-right tabular-nums text-xs ${!anwOk ? 'text-red-600 font-semibold' : 'text-s112-muted'}`}>
+                        <td className={`py-2 text-right tabular-nums text-xs ${!anwOk ? 'text-s112-err-fg font-semibold' : 'text-s112-muted'}`}>
                           {e.max_anwendungen ? `${anwBisher} / ${e.max_anwendungen}` : `${anwBisher} / –`}
                         </td>
                       </tr>
@@ -352,8 +352,8 @@ function TabCu({ behandlungen }: { behandlungen: BehandlungReport[] }) {
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-s112-border bg-s112-bg/40">
-                    <td colSpan={4} className="py-2 pr-3 text-xs font-semibold text-gray-600">Summe {y}</td>
-                    <td className="py-2 pr-3 text-right tabular-nums font-bold text-blue-700">
+                    <td colSpan={4} className="py-2 pr-3 text-xs font-semibold text-s112-text-2">Summe {y}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums font-semibold text-s112-blue-700">
                       {fmtNum(data.cuG / 1000, 3)} kg Cu
                     </td>
                     <td />
@@ -372,7 +372,7 @@ function TabCu({ behandlungen }: { behandlungen: BehandlungReport[] }) {
 function EmptyState({ msg = 'Keine Daten für den gewählten Zeitraum' }: { msg?: string }) {
   return (
     <div className="card text-center py-12 text-s112-muted">
-      <p className="font-medium text-gray-600">{msg}</p>
+      <p className="font-medium text-s112-text-2">{msg}</p>
     </div>
   )
 }
@@ -427,8 +427,8 @@ export default function BerichteClient({ behandlungen }: { behandlungen: Behandl
               onClick={() => setTab(t.id)}
               className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap -mb-px
                 ${tab === t.id
-                  ? 'border-s112-teal text-s112-teal'
-                  : 'border-transparent text-s112-muted hover:text-gray-700'}`}
+                  ? 'border-s112-teal text-s112-blue-700'
+                  : 'border-transparent text-s112-muted hover:text-s112-text-1'}`}
             >
               {t.label}
             </button>
@@ -469,7 +469,7 @@ export default function BerichteClient({ behandlungen }: { behandlungen: Behandl
           <div className="pb-1 self-center ml-2">
             <button
               onClick={() => window.print()}
-              className="inline-flex items-center gap-1.5 border border-s112-border text-gray-600 px-3 py-1 rounded-lg text-sm hover:bg-s112-bg transition-colors"
+              className="inline-flex items-center gap-1.5 border border-s112-border text-s112-text-2 px-3 py-1 rounded-lg text-sm hover:bg-s112-bg transition-colors"
               title="Als PDF speichern oder drucken"
             >
               Drucken / PDF
@@ -479,14 +479,14 @@ export default function BerichteClient({ behandlungen }: { behandlungen: Behandl
       </div>
 
       {/* Print-Header (nur beim Drucken sichtbar) */}
-      <div className="hidden print:block mb-6 pb-4 border-b-2 border-gray-300">
+      <div className="hidden print:block mb-6 pb-4 border-b-2 border-s112-line-str">
         <div className="flex items-baseline justify-between">
           <div>
-            <p className="text-xs text-gray-500 font-semibold tracking-widest uppercase">software:112 – Gebeshuber Weinbau</p>
-            <h1 className="text-2xl font-bold text-gray-900 mt-0.5">{TAB_TITLES[tab]}</h1>
-            <p className="text-sm text-gray-500 mt-1">Zeitraum: {jahrLabel}</p>
+            <p className="text-xs text-s112-text-2 font-semibold tracking-widest uppercase">software:112 – Gebeshuber Weinbau</p>
+            <h1 className="text-2xl font-semibold text-s112-text mt-0.5">{TAB_TITLES[tab]}</h1>
+            <p className="text-sm text-s112-text-2 mt-1">Zeitraum: {jahrLabel}</p>
           </div>
-          <p className="text-sm text-gray-400">Erstellt: {heute}</p>
+          <p className="text-sm text-s112-tertiary">Erstellt: {heute}</p>
         </div>
       </div>
 

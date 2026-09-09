@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 const iCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
-const lCls = 'block text-xs font-medium text-gray-600 mb-1'
+const lCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
 export default async function KellerplanListPage() {
   const supabase   = await createSupabaseServerClient()
@@ -46,14 +46,14 @@ export default async function KellerplanListPage() {
   return (
     <div>
       <nav className="flex items-center gap-2 text-sm text-s112-muted mb-4">
-        <Link href="/kellerbuch" className="hover:text-s112-teal">Kellerbuch</Link>
+        <Link href="/kellerbuch" className="hover:text-s112-blue-700">Kellerbuch</Link>
         <span>/</span>
-        <span className="text-gray-800 font-medium">Kellerplan</span>
+        <span className="text-s112-text font-medium">Kellerplan</span>
       </nav>
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Kellerplan</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Kellerplan</h1>
           <p className="text-sm text-s112-muted mt-0.5">Grundrisse mit Gebinde-Positionen</p>
         </div>
       </div>
@@ -64,7 +64,7 @@ export default async function KellerplanListPage() {
             <div key={p.id} className="card p-5 flex flex-col gap-3">
               <Link href={`/kellerbuch/kellerplan/${p.id}`} className="flex items-start gap-3 group flex-1">
                 <div className="flex-1 min-w-0">
-                  <h2 className="font-semibold text-gray-900 group-hover:text-s112-teal transition-colors">
+                  <h2 className="font-semibold text-s112-text group-hover:text-s112-blue-700 transition-colors">
                     {p.name}
                   </h2>
                   <p className="text-xs text-s112-muted mt-0.5">
@@ -72,7 +72,7 @@ export default async function KellerplanListPage() {
                     {posCounts[p.id] ? ` · ${posCounts[p.id]} Gebinde` : ' · Noch leer'}
                   </p>
                   {p.notizen && (
-                    <p className="text-xs text-gray-500 mt-1 italic truncate">{p.notizen}</p>
+                    <p className="text-xs text-s112-text-2 mt-1 italic truncate">{p.notizen}</p>
                   )}
                 </div>
               </Link>
@@ -92,7 +92,7 @@ export default async function KellerplanListPage() {
 
       {writeOk && (
         <div className="card p-5 max-w-lg">
-          <h2 className="font-semibold text-gray-800 mb-4">
+          <h2 className="font-semibold text-s112-text mb-4">
             {plaene.length === 0 ? 'Ersten Kellerplan anlegen' : 'Weiterer Kellerplan'}
           </h2>
           <form action={createKellerplan} className="space-y-4">

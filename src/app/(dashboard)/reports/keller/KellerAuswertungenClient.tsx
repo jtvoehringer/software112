@@ -7,11 +7,11 @@ import { formatRebsorteMitKuerzel, getRebsorteKuerzel } from '@/lib/wein/bki_kue
 type R = Record<string, any>
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  ernte:         { label: 'Ernte',         color: 'bg-yellow-100 text-yellow-700' },
-  gaerung:       { label: 'Gärung',        color: 'bg-orange-100 text-orange-700' },
-  ausbau:        { label: 'Ausbau',        color: 'bg-blue-100 text-blue-700' },
-  abfuellung:    { label: 'Abfüllung',     color: 'bg-purple-100 text-purple-700' },
-  abgeschlossen: { label: 'Abgeschlossen', color: 'bg-green-100 text-green-700' },
+  ernte:         { label: 'Ernte',         color: 'bg-s112-warn-bg text-s112-warn-fg' },
+  gaerung:       { label: 'Gärung',        color: 'bg-s112-warn-bg text-s112-warn-fg' },
+  ausbau:        { label: 'Ausbau',        color: 'bg-s112-blue-100 text-s112-blue-700' },
+  abfuellung:    { label: 'Abfüllung',     color: 'bg-[#F2F3F5] text-s112-text-1' },
+  abgeschlossen: { label: 'Abgeschlossen', color: 'bg-s112-ok-bg text-s112-ok-fg' },
 }
 
 function fmtLiter(n: number) {
@@ -37,7 +37,7 @@ function CsvBtn({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-1.5 text-xs border border-s112-border text-gray-500 px-2.5 py-1.5 rounded-lg hover:bg-s112-bg transition-colors print:hidden"
+      className="flex items-center gap-1.5 text-xs border border-s112-border text-s112-text-2 px-2.5 py-1.5 rounded-lg hover:bg-s112-bg transition-colors print:hidden"
     >
       ↓ CSV
     </button>
@@ -142,18 +142,18 @@ export default function KellerAuswertungenClient({
     <div className="max-w-5xl space-y-8">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/reports" className="hover:text-s112-teal transition-colors">Auswertungen</Link>
+        <Link href="/reports" className="hover:text-s112-blue-700 transition-colors">Auswertungen</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Keller-Auswertungen</span>
+        <span className="text-s112-text-1 font-medium">Keller-Auswertungen</span>
       </div>
 
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Keller-Auswertungen</h1>
+        <h1 className="text-2xl font-semibold text-s112-text">Keller-Auswertungen</h1>
         <div className="flex items-center gap-3 print:hidden">
           <span className="text-sm text-s112-muted">Jahrgang {thisYear}</span>
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-2 border border-s112-border text-gray-600 px-3 py-2 rounded-xl text-sm hover:bg-s112-bg transition-colors"
+            className="flex items-center gap-2 border border-s112-border text-s112-text-2 px-3 py-2 rounded-xl text-sm hover:bg-s112-bg transition-colors"
           >
             Drucken
           </button>
@@ -163,22 +163,22 @@ export default function KellerAuswertungenClient({
       {/* KPI-Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="card text-center p-4">
-          <p className="text-2xl font-bold text-s112-teal">{gesamtLiter.toLocaleString('de-AT', { maximumFractionDigits: 0 })}</p>
+          <p className="text-2xl font-semibold text-s112-blue-700">{gesamtLiter.toLocaleString('de-AT', { maximumFractionDigits: 0 })}</p>
           <p className="text-xs text-s112-muted mt-1">Liter im Ausbau</p>
           {gesamtKapazitaet > 0 && (
-            <p className="text-xs text-gray-400 mt-0.5">{Math.round(gesamtAuslastung)} % Auslastung</p>
+            <p className="text-xs text-s112-tertiary mt-0.5">{Math.round(gesamtAuslastung)} % Auslastung</p>
           )}
         </div>
         <div className="card text-center p-4">
-          <p className="text-2xl font-bold text-s112-teal">{aktiveChargen.filter(c => !c.ist_eroeffnungsbestand).length}</p>
+          <p className="text-2xl font-semibold text-s112-blue-700">{aktiveChargen.filter(c => !c.ist_eroeffnungsbestand).length}</p>
           <p className="text-xs text-s112-muted mt-1">Laufende Chargen</p>
         </div>
         <div className="card text-center p-4">
-          <p className="text-2xl font-bold text-amber-600">{schwundGesamt.toLocaleString('de-AT', { maximumFractionDigits: 0 })}</p>
+          <p className="text-2xl font-semibold text-s112-warn-fg">{schwundGesamt.toLocaleString('de-AT', { maximumFractionDigits: 0 })}</p>
           <p className="text-xs text-s112-muted mt-1">Liter Schwund {thisYear}</p>
         </div>
         <div className="card text-center p-4">
-          <p className="text-2xl font-bold text-purple-600">{abgefuelltLiter.toLocaleString('de-AT', { maximumFractionDigits: 0 })}</p>
+          <p className="text-2xl font-semibold text-s112-text-1">{abgefuelltLiter.toLocaleString('de-AT', { maximumFractionDigits: 0 })}</p>
           <p className="text-xs text-s112-muted mt-1">Liter abgefüllt {thisYear}</p>
         </div>
       </div>
@@ -186,18 +186,18 @@ export default function KellerAuswertungenClient({
       {/* Behälter-Auslastung */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-gray-800">Behälter-Auslastung</h2>
+          <h2 className="font-semibold text-s112-text">Behälter-Auslastung</h2>
           <CsvBtn onClick={exportBehaelter} />
         </div>
         <div className="card p-0 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-s112-bg border-b border-s112-border">
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Behälter</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Standort</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Kapazität</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Inhalt</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 w-40">Auslastung</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Behälter</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Standort</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Kapazität</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Inhalt</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2 w-40">Auslastung</th>
               </tr>
             </thead>
             <tbody>
@@ -207,31 +207,31 @@ export default function KellerAuswertungenClient({
                 const pct        = kapazitaet && kapazitaet > 0 ? Math.min(100, (liter / kapazitaet) * 100) : null
                 return (
                   <tr key={b.id} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
-                    <td className="px-4 py-2.5 font-medium text-gray-800">
-                      <Link href={`/kellerbuch/behaelter/${b.id}/bewegungen`} className="flex items-center gap-2 hover:text-s112-teal">
+                    <td className="px-4 py-2.5 font-medium text-s112-text">
+                      <Link href={`/kellerbuch/behaelter/${b.id}/bewegungen`} className="flex items-center gap-2 hover:text-s112-blue-700">
                         {b.name}
                       </Link>
                     </td>
-                    <td className="px-4 py-2.5 text-gray-500 text-xs">{b.standort ?? '–'}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-500 text-xs">
+                    <td className="px-4 py-2.5 text-s112-text-2 text-xs">{b.standort ?? '–'}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-2 text-xs">
                       {kapazitaet ? fmtLiter(kapazitaet) : '–'}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-s112-teal">
-                      {liter > 0 ? fmtLiter(liter) : <span className="text-gray-300">–</span>}
+                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-s112-blue-700">
+                      {liter > 0 ? fmtLiter(liter) : <span className="text-s112-tertiary">–</span>}
                     </td>
                     <td className="px-4 py-2.5">
                       {pct !== null ? (
                         <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-gray-200 rounded-full h-2">
+                          <div className="flex-1 bg-s112-line rounded-full h-2">
                             <div
-                              className={`h-2 rounded-full ${pct > 95 ? 'bg-red-500' : pct > 80 ? 'bg-amber-500' : 'bg-s112-teal'}`}
+                              className={`h-2 rounded-full ${pct > 95 ? 'bg-s112-err' : pct > 80 ? 'bg-s112-warn' : 'bg-s112-teal'}`}
                               style={{ width: `${pct}%` }}
                             />
                           </div>
-                          <span className="text-xs tabular-nums text-gray-500 w-9 text-right">{Math.round(pct)} %</span>
+                          <span className="text-xs tabular-nums text-s112-text-2 w-9 text-right">{Math.round(pct)} %</span>
                         </div>
                       ) : (
-                        <span className="text-xs text-gray-300">–</span>
+                        <span className="text-xs text-s112-tertiary">–</span>
                       )}
                     </td>
                   </tr>
@@ -248,44 +248,44 @@ export default function KellerAuswertungenClient({
       {/* Chargen im Ausbau */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-gray-800">Chargen im Ausbau</h2>
+          <h2 className="font-semibold text-s112-text">Chargen im Ausbau</h2>
           <CsvBtn onClick={exportChargen} />
         </div>
         <div className="card p-0 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-s112-bg border-b border-s112-border">
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Charge</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">JG</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Status</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Behälter</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Liter</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Charge</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">JG</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Status</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Behälter</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Liter</th>
               </tr>
             </thead>
             <tbody>
               {aktiveChargen.filter(c => !c.ist_eroeffnungsbestand).map((c, i) => {
-                const st = STATUS_LABELS[c.status] ?? { label: c.status ?? '–', color: 'bg-gray-100 text-gray-600' }
+                const st = STATUS_LABELS[c.status] ?? { label: c.status ?? '–', color: 'bg-[#F2F3F5] text-s112-text-2' }
                 const bh = behaelter.find(b => b.id === c.behaelter_id)
                 return (
                   <tr key={c.id} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
-                    <td className="px-4 py-2.5 font-medium text-gray-800">
-                      <Link href={`/kellerbuch/weinausbau/${c.id}`} className="hover:text-s112-teal">
+                    <td className="px-4 py-2.5 font-medium text-s112-text">
+                      <Link href={`/kellerbuch/weinausbau/${c.id}`} className="hover:text-s112-blue-700">
                         {c.name}
                         {c.rebsorte && <span className="text-xs text-s112-muted ml-1">· {formatRebsorteMitKuerzel(c.rebsorte)}</span>}
                       </Link>
                     </td>
-                    <td className="px-4 py-2.5 text-gray-500 text-xs">{c.jahrgang ?? '–'}</td>
+                    <td className="px-4 py-2.5 text-s112-text-2 text-xs">{c.jahrgang ?? '–'}</td>
                     <td className="px-4 py-2.5">
                       <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
                     </td>
-                    <td className="px-4 py-2.5 text-gray-600 text-sm">
+                    <td className="px-4 py-2.5 text-s112-text-2 text-sm">
                       {bh ? (
-                        <Link href={`/kellerbuch/behaelter/${bh.id}/bewegungen`} className="hover:text-s112-teal">
+                        <Link href={`/kellerbuch/behaelter/${bh.id}/bewegungen`} className="hover:text-s112-blue-700">
                           {bh.name}
                         </Link>
-                      ) : <span className="text-amber-600 text-xs">kein Behälter</span>}
+                      ) : <span className="text-s112-warn-fg text-xs">kein Behälter</span>}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-s112-teal">
+                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-s112-blue-700">
                       {fmtLiter(parseFloat(c.menge_liter) || 0)}
                     </td>
                   </tr>
@@ -303,7 +303,7 @@ export default function KellerAuswertungenClient({
       <section>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
-            <h2 className="font-semibold text-gray-800">Kellerbehandlungen {thisYear}</h2>
+            <h2 className="font-semibold text-s112-text">Kellerbehandlungen {thisYear}</h2>
             <span className="text-xs text-s112-muted">{behandlungen.length} Einträge</span>
           </div>
           <CsvBtn onClick={exportBehandlungen} />
@@ -312,7 +312,7 @@ export default function KellerAuswertungenClient({
         {behandlungTypMap.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-4">
             {behandlungTypMap.sort((a, b) => b[1] - a[1]).map(([typ, anzahl]) => (
-              <span key={typ} className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-100">
+              <span key={typ} className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs bg-s112-blue-50 text-s112-blue-700 border border-s112-blue-100">
                 {typ}<span className="font-semibold ml-0.5">{anzahl}×</span>
               </span>
             ))}
@@ -323,21 +323,21 @@ export default function KellerAuswertungenClient({
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-s112-bg border-b border-s112-border">
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Datum</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Behandlung</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Behälter</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Menge</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Datum</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Behandlung</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Behälter</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Menge</th>
               </tr>
             </thead>
             <tbody>
               {behandlungen.map((b, i) => (
                 <tr key={b.id} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
-                  <td className="px-4 py-2.5 text-gray-500 whitespace-nowrap text-xs">
+                  <td className="px-4 py-2.5 text-s112-text-2 whitespace-nowrap text-xs">
                     {new Date(b.datum).toLocaleDateString('de-AT')}
                   </td>
-                  <td className="px-4 py-2.5 text-gray-800">{(b.typ as R | null)?.name ?? '–'}</td>
-                  <td className="px-4 py-2.5 text-gray-600">{(b.behaelter as R | null)?.name ?? '–'}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-700">
+                  <td className="px-4 py-2.5 text-s112-text">{(b.typ as R | null)?.name ?? '–'}</td>
+                  <td className="px-4 py-2.5 text-s112-text-2">{(b.behaelter as R | null)?.name ?? '–'}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-1">
                     {b.menge && b.einheit ? `${parseFloat(b.menge).toLocaleString('de-AT')} ${b.einheit}` : '–'}
                   </td>
                 </tr>
@@ -354,7 +354,7 @@ export default function KellerAuswertungenClient({
       <section>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
-            <h2 className="font-semibold text-gray-800">Umzüge & Filtrationen {thisYear}</h2>
+            <h2 className="font-semibold text-s112-text">Umzüge & Filtrationen {thisYear}</h2>
             <span className="text-xs text-s112-muted">{umzuege.length} Einträge</span>
           </div>
           <CsvBtn onClick={exportUmzuege} />
@@ -363,11 +363,11 @@ export default function KellerAuswertungenClient({
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-s112-bg border-b border-s112-border">
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Datum</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Von</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Nach</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Brutto</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Schwund</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Datum</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Von</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Nach</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Brutto</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Schwund</th>
               </tr>
             </thead>
             <tbody>
@@ -383,19 +383,19 @@ export default function KellerAuswertungenClient({
                   : (u.nach_behaelter as R | null)?.name ?? '–'
                 return (
                   <tr key={u.id} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
-                    <td className="px-4 py-2.5 text-gray-500 whitespace-nowrap text-xs">
+                    <td className="px-4 py-2.5 text-s112-text-2 whitespace-nowrap text-xs">
                       {new Date(u.datum).toLocaleDateString('de-AT')}
                     </td>
-                    <td className="px-4 py-2.5 text-gray-700">
+                    <td className="px-4 py-2.5 text-s112-text-1">
                       {vonName}
                     </td>
-                    <td className="px-4 py-2.5 text-gray-700">
+                    <td className="px-4 py-2.5 text-s112-text-1">
                       {nachName}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-gray-700">
+                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-s112-text-1">
                       {brutto > 0 ? fmtLiter(brutto) : '–'}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-amber-600">
+                    <td className="px-4 py-2.5 text-right tabular-nums text-s112-warn-fg">
                       {schwund > 0 ? fmtLiter(schwund) : '–'}
                     </td>
                   </tr>

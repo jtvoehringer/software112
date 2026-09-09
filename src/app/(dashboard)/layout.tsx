@@ -141,9 +141,9 @@ export default async function DashboardLayout({
         darfSchreiben={canWrite(role)}
       >
         {billingWarnung && (
-          <div className="mb-4 px-4 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-center justify-between gap-3 flex-wrap">
+          <div className="mb-4 px-4 py-2.5 rounded-lg bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg text-sm flex items-center justify-between gap-3 flex-wrap">
             <span>Es gibt ein Problem mit der letzten Zahlung für Ihr Abo. Bitte aktualisieren Sie Ihre Zahlungsdaten, um eine Sperre zu vermeiden.</span>
-            <Link href="/abo" className="font-semibold underline whitespace-nowrap hover:text-amber-900">Zahlungsdaten verwalten →</Link>
+            <Link href="/abo" className="font-semibold underline whitespace-nowrap hover:text-s112-warn-fg">Zahlungsdaten verwalten →</Link>
           </div>
         )}
         {children}

@@ -124,7 +124,7 @@ const FLASCHEN_LABEL: Record<number, string> = {
 }
 
 const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
-const labelCls = 'block text-xs font-medium text-gray-600 mb-1'
+const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
 // ── Kunden-Suche (Typeahead) ──────────────────────────────────────────────────
 
@@ -160,11 +160,11 @@ function KundenSuche({ items, value, onChange, placeholder, disabled }: {
   if (selected) {
     return (
       <div className="flex items-center gap-2 border border-s112-border rounded-lg px-3 py-2 bg-white text-sm">
-        <span className="flex-1 truncate font-medium text-gray-800">{selected.label}</span>
+        <span className="flex-1 truncate font-medium text-s112-text">{selected.label}</span>
         {selected.sub && <span className="text-xs text-s112-muted truncate">{selected.sub}</span>}
         {!disabled && (
           <button type="button" onClick={() => { onChange(''); setQuery('') }}
-            className="text-s112-muted hover:text-red-500 ml-1 flex-shrink-0 text-base leading-none">×</button>
+            className="text-s112-muted hover:text-s112-err ml-1 flex-shrink-0 text-base leading-none">×</button>
         )}
       </div>
     )
@@ -189,7 +189,7 @@ function KundenSuche({ items, value, onChange, placeholder, disabled }: {
             <button key={item.id} type="button"
               onMouseDown={() => { onChange(item.id); setQuery(''); setOpen(false) }}
               className="w-full text-left px-3 py-2 text-sm hover:bg-s112-teal/10 flex items-center justify-between gap-2">
-              <span className="font-medium text-gray-800 truncate">{item.label}</span>
+              <span className="font-medium text-s112-text truncate">{item.label}</span>
               {item.sub && <span className="text-xs text-s112-muted flex-shrink-0">{item.sub}</span>}
             </button>
           ))}
@@ -254,7 +254,7 @@ function SonstigesKombo({ artikel, name, onNameChange, onArtikelSelect, onSpeich
             <button key={a.id} type="button"
               onMouseDown={() => { onArtikelSelect(a); setOpen(false) }}
               className="w-full text-left px-3 py-2 text-sm hover:bg-s112-teal/10 flex items-center justify-between gap-2">
-              <span className="font-medium text-gray-800 truncate">{a.name}</span>
+              <span className="font-medium text-s112-text truncate">{a.name}</span>
               <span className="text-xs text-s112-muted flex-shrink-0">
                 {a.einheit}{a.default_preis != null ? ` · € ${Number(a.default_preis).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}
               </span>
@@ -269,7 +269,7 @@ function SonstigesKombo({ artikel, name, onNameChange, onArtikelSelect, onSpeich
       {zeigeBtn && (
         <div className="flex items-center gap-1.5 mt-1">
           {savedOk ? (
-            <span className="text-xs text-green-600 font-medium inline-flex items-center gap-1"><Check size={12} />Als Produkt gespeichert</span>
+            <span className="text-xs text-s112-ok-fg font-medium inline-flex items-center gap-1"><Check size={12} />Als Produkt gespeichert</span>
           ) : (
             <>
               <span className="text-xs text-s112-muted">Neues Produkt —</span>
@@ -282,7 +282,7 @@ function SonstigesKombo({ artikel, name, onNameChange, onArtikelSelect, onSpeich
                   setSavedOk(true)
                 }}
                 disabled={saving}
-                className="text-xs text-s112-teal hover:underline disabled:opacity-50"
+                className="text-xs text-s112-blue-700 hover:underline disabled:opacity-50"
               >
                 {saving ? 'Wird gespeichert…' : 'Als Produkt speichern'}
               </button>
@@ -523,15 +523,15 @@ export default function NeuerVerkaufPage() {
   return (
     <div className="space-y-6 max-w-3xl">
       <nav className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/weinhandel/verkauf" className="hover:text-s112-teal">Verkauf</Link>
+        <Link href="/weinhandel/verkauf" className="hover:text-s112-blue-700">Verkauf</Link>
         <span>/</span>
-        <span className="text-gray-800 font-medium">Neuer Verkauf</span>
+        <span className="text-s112-text font-medium">Neuer Verkauf</span>
       </nav>
 
-      <h1 className="text-xl font-bold text-gray-900">Neuer Verkauf</h1>
+      <h1 className="text-xl font-semibold text-s112-text">Neuer Verkauf</h1>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+        <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg px-4 py-3 rounded-lg text-sm">
           {error}
         </div>
       )}
@@ -540,7 +540,7 @@ export default function NeuerVerkaufPage() {
 
         {/* Kopfdaten */}
         <div className="card p-5 space-y-4">
-          <h2 className="font-semibold text-gray-700 text-sm">Belegdaten</h2>
+          <h2 className="font-semibold text-s112-text-1 text-sm">Belegdaten</h2>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Datum *</label>
@@ -629,7 +629,7 @@ export default function NeuerVerkaufPage() {
                 <div className="col-span-2">
                   <label className={labelCls}>z.H. (zu Händen) — optional</label>
                   {firmKontakte.length === 0 && kontakte.length > 0 && (
-                    <p className="text-xs text-amber-600 mb-1">ℹ Noch kein Kontakt dieser Firma zugeordnet – alle Kontakte werden angezeigt.</p>
+                    <p className="text-xs text-s112-warn-fg mb-1">ℹ Noch kein Kontakt dieser Firma zugeordnet – alle Kontakte werden angezeigt.</p>
                   )}
                   <KundenSuche
                     key={firmaId}
@@ -656,7 +656,7 @@ export default function NeuerVerkaufPage() {
                 <input type="checkbox" checked={skontoAktiv}
                   onChange={e => setSkontoAktiv(e.target.checked)}
                   className="rounded accent-s112-teal" />
-                <span className="text-sm font-medium text-gray-700">Skonto gewähren</span>
+                <span className="text-sm font-medium text-s112-text-1">Skonto gewähren</span>
               </label>
               {skontoAktiv && (
                 <div className="flex gap-3 mt-2">
@@ -665,15 +665,15 @@ export default function NeuerVerkaufPage() {
                       onChange={e => setSkontoPct(parseFloat(e.target.value) || 0)}
                       min="0" max="20" step="0.5" placeholder="2"
                       className={inputCls + ' w-20'} />
-                    <span className="text-sm text-gray-600">%</span>
+                    <span className="text-sm text-s112-text-2">%</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm text-gray-500">bei Zahlung innerhalb von</span>
+                    <span className="text-sm text-s112-text-2">bei Zahlung innerhalb von</span>
                     <input type="number" value={skontoTage}
                       onChange={e => setSkontoTage(parseInt(e.target.value) || 0)}
                       min="1" max="60" step="1" placeholder="10"
                       className={inputCls + ' w-20'} />
-                    <span className="text-sm text-gray-600">Tagen</span>
+                    <span className="text-sm text-s112-text-2">Tagen</span>
                   </div>
                   <p className="text-xs text-s112-muted self-end">
                     → {((gesamt * skontoPct) / 100).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })} Skonto-Betrag
@@ -686,15 +686,15 @@ export default function NeuerVerkaufPage() {
 
         {/* Positionen */}
         <div className="card p-5 space-y-4">
-          <h2 className="font-semibold text-gray-700 text-sm">Produkte</h2>
+          <h2 className="font-semibold text-s112-text-1 text-sm">Produkte</h2>
 
           {positionen.map((pos, idx) => (
             <div key={pos.id} className="border border-s112-border rounded-lg p-4 space-y-3 relative">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-gray-500">Produkt {idx + 1}</span>
+                <span className="text-xs font-semibold text-s112-text-2">Produkt {idx + 1}</span>
                 {positionen.length > 1 && (
                   <button type="button" onClick={() => removePosition(idx)}
-                    className="text-xs text-red-400 hover:text-red-600">
+                    className="text-xs text-s112-err hover:text-s112-err-fg">
                     × entfernen
                   </button>
                 )}
@@ -717,7 +717,7 @@ export default function NeuerVerkaufPage() {
                       })}
                       className="accent-s112-teal"
                     />
-                    <span className="text-xs text-gray-600">
+                    <span className="text-xs text-s112-text-2">
                       {t === 'flasche' ? 'Flasche' : t === 'tank' ? 'Tank / Liter' : t === 'trauben' ? 'Weintrauben (kg)' : 'Sonstiges'}
                     </span>
                   </label>
@@ -806,7 +806,7 @@ export default function NeuerVerkaufPage() {
 
                 {/* Trauben-Felder */}
                 {pos.typ === 'trauben' && (
-                  <div className="col-span-4 grid grid-cols-2 sm:grid-cols-3 gap-3 mb-1 p-3 bg-green-50 rounded-lg border border-green-100">
+                  <div className="col-span-4 grid grid-cols-2 sm:grid-cols-3 gap-3 mb-1 p-3 bg-s112-ok-bg rounded-lg border border-s112-ok/30">
                     <div>
                       <label className={labelCls}>Ried *</label>
                       <select value={pos.trauben_weingarten_id}
@@ -927,7 +927,7 @@ export default function NeuerVerkaufPage() {
                     <input type="text" value={pos.name}
                       onChange={e => updatePos(idx, { name: e.target.value })}
                       placeholder="Auto-befüllt aus Weingarten"
-                      className={inputCls + ' w-full bg-gray-50'} />
+                      className={inputCls + ' w-full bg-s112-bg'} />
                   ) : (
                     <input type="text" value={pos.name}
                       onChange={e => updatePos(idx, { name: e.target.value })}
@@ -951,7 +951,7 @@ export default function NeuerVerkaufPage() {
                 <div>
                   <label className={labelCls}>Einheit</label>
                   {pos.typ === 'trauben' ? (
-                    <div className={inputCls + ' w-full bg-gray-50 text-gray-500'}>kg</div>
+                    <div className={inputCls + ' w-full bg-s112-bg text-s112-text-2'}>kg</div>
                   ) : (
                     <select value={pos.einheit}
                       onChange={e => updatePos(idx, { einheit: e.target.value })}
@@ -978,7 +978,7 @@ export default function NeuerVerkaufPage() {
                 <div className="flex items-end">
                   <div className="text-right w-full">
                     <p className="text-xs text-s112-muted mb-1">Zeile</p>
-                    <p className="font-semibold text-s112-teal tabular-nums text-sm">
+                    <p className="font-semibold text-s112-blue-700 tabular-nums text-sm">
                       {(() => {
                         const preis  = parseFloat(pos.preis_brutto) || 0
                         const menge  = parseFloat(pos.menge) || 0
@@ -999,12 +999,12 @@ export default function NeuerVerkaufPage() {
                     <input type="checkbox" checked={pos.rabatt_aktiv}
                       onChange={e => updatePos(idx, { rabatt_aktiv: e.target.checked })}
                       className="rounded accent-s112-teal" />
-                    <span className={pos.rabatt_aktiv ? 'text-green-700 font-medium' : 'text-gray-400 line-through'}>
+                    <span className={pos.rabatt_aktiv ? 'text-s112-ok-fg font-medium' : 'text-s112-tertiary line-through'}>
                       {pos.rabatt_pct}% Kundenrabatt
                     </span>
                   </label>
                 )}
-                <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
+                <label className="flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer select-none">
                   <input type="checkbox" checked={pos.sonderrabatt_aktiv}
                     onChange={e => updatePos(idx, { sonderrabatt_aktiv: e.target.checked })}
                     className="rounded accent-s112-teal" />
@@ -1016,11 +1016,11 @@ export default function NeuerVerkaufPage() {
                       onChange={e => updatePos(idx, { sonderrabatt: e.target.value })}
                         min="0" max="100" step="0.1" placeholder="0"
                       className="w-20 border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40" />
-                    <span className="text-xs text-gray-500">%</span>
+                    <span className="text-xs text-s112-text-2">%</span>
                   </div>
                 )}
                 {/* USt-Satz */}
-                <div className="flex items-center gap-1.5 text-xs text-gray-500 ml-auto">
+                <div className="flex items-center gap-1.5 text-xs text-s112-text-2 ml-auto">
                   <span>USt:</span>
                   <select value={pos.ust_satz}
                     onChange={e => updatePos(idx, { ust_satz: e.target.value })}
@@ -1053,7 +1053,7 @@ export default function NeuerVerkaufPage() {
           ))}
 
           <button type="button" onClick={addPosition}
-            className="w-full border-2 border-dashed border-s112-border rounded-xl py-3 text-sm text-s112-muted hover:border-s112-teal hover:text-s112-teal transition-colors">
+            className="w-full border-2 border-dashed border-s112-border rounded-xl py-3 text-sm text-s112-muted hover:border-s112-teal hover:text-s112-blue-700 transition-colors">
             + Produkt hinzufügen
           </button>
         </div>
@@ -1068,7 +1068,7 @@ export default function NeuerVerkaufPage() {
 
         {/* ── Submit ── */}
         <div className="flex justify-end gap-3 pb-8">
-          <Link href="/weinhandel/verkauf" className="text-sm text-s112-muted hover:text-gray-700 px-4 py-2">
+          <Link href="/weinhandel/verkauf" className="text-sm text-s112-muted hover:text-s112-text-1 px-4 py-2">
             Abbrechen
           </Link>
           <button type="submit" disabled={isPending}

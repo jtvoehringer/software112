@@ -128,7 +128,7 @@ export default function AssistantPanel() {
               <div className={
                 m.role === 'user'
                   ? 'max-w-[84%] px-[13px] py-[10px] text-[13px] leading-[1.5] whitespace-pre-wrap bg-s112-teal text-white rounded-[12px_12px_4px_12px]'
-                  : 'max-w-[90%] px-[13px] py-[10px] text-[13px] leading-[1.5] whitespace-pre-wrap bg-[#F4F5F7] text-s112-text rounded-[12px_12px_12px_4px]'
+                  : 'max-w-[90%] px-[13px] py-[10px] text-[13px] leading-[1.5] whitespace-pre-wrap bg-[#F2F3F5] text-s112-text rounded-[12px_12px_12px_4px]'
               }>
                 {m.text}
                 {m.actions && m.actions.length > 0 && (
@@ -149,7 +149,7 @@ export default function AssistantPanel() {
           ))}
           {thinking && (
             <div className="flex justify-start">
-              <div className="max-w-[90%] px-[13px] py-[10px] rounded-[12px_12px_12px_4px] bg-[#F4F5F7] text-[13px] text-s112-tertiary">
+              <div className="max-w-[90%] px-[13px] py-[10px] rounded-[12px_12px_12px_4px] bg-[#F2F3F5] text-[13px] text-s112-tertiary">
                 tippt …
               </div>
             </div>
@@ -164,7 +164,7 @@ export default function AssistantPanel() {
                 key={chip}
                 onClick={() => send(chip)}
                 disabled={thinking}
-                className="px-[11px] py-[6px] rounded-full bg-s112-bg border border-s112-line text-s112-text-1 text-[11.5px] hover:border-s112-blue-300 hover:text-s112-blue-700 hover:bg-[#FAFCFF] transition-colors disabled:opacity-50"
+                className="px-[11px] py-[6px] rounded-full bg-s112-bg border border-s112-line text-s112-text-1 text-[11.5px] hover:border-s112-blue-300 hover:text-s112-blue-700 hover:bg-[#F7F8FA] transition-colors disabled:opacity-50"
               >
                 {chip}
               </button>

@@ -63,8 +63,8 @@ interface Props {
   initial: TBDaten
 }
 
-const inputCls = 'border border-gray-400 px-1.5 py-0.5 text-xs w-full focus:outline-none focus:border-s112-teal print:border-gray-300 bg-white'
-const labelCls = 'text-[10px] text-gray-500 leading-tight block mb-0.5'
+const inputCls = 'border border-s112-line-str px-1.5 py-0.5 text-xs w-full focus:outline-none focus:border-s112-teal print:border-s112-line-str bg-white'
+const labelCls = 'text-[10px] text-s112-text-2 leading-tight block mb-0.5'
 
 function FeldGruppe({ label, children, className = '' }: { label: string; children: React.ReactNode; className?: string }) {
   return (
@@ -128,30 +128,30 @@ export default function TBFormular({ verkaufspostenId, initial }: Props) {
           >
             {pending ? 'Speichern…' : 'Speichern'}
           </button>
-          {gespeichert && <span className="text-xs text-green-600">Gespeichert</span>}
+          {gespeichert && <span className="text-xs text-s112-ok-fg">Gespeichert</span>}
           <button
             onClick={() => window.print()}
-            className="border border-s112-border px-4 py-1.5 rounded-lg text-sm hover:bg-gray-50"
+            className="border border-s112-border px-4 py-1.5 rounded-lg text-sm hover:bg-s112-bg"
           >
             Drucken
           </button>
         </div>
-        <button onClick={addPos} className="text-xs text-s112-teal hover:underline no-print">
+        <button onClick={addPos} className="text-xs text-s112-blue-700 hover:underline no-print">
           + Weinposition hinzufügen
         </button>
       </div>
 
       {/* ── Offizielles Formular ── */}
-      <div className="bg-white border border-gray-300 p-6 space-y-4 font-sans text-xs" id="tb-formular">
+      <div className="bg-white border border-s112-line-str p-6 space-y-4 font-sans text-xs" id="tb-formular">
 
         {/* Titel */}
-        <div className="text-center border-b border-gray-800 pb-2 mb-4">
-          <h1 className="text-base font-bold tracking-wide">Transportbescheinigung gemäß Weingesetz</h1>
-          <p className="text-[10px] text-gray-500 mt-0.5">Nicht stempeln! Nicht heften!</p>
+        <div className="text-center border-b border-s112-text pb-2 mb-4">
+          <h1 className="text-base font-semibold tracking-wide">Transportbescheinigung gemäß Weingesetz</h1>
+          <p className="text-[10px] text-s112-text-2 mt-0.5">Nicht stempeln! Nicht heften!</p>
         </div>
 
         {/* Laufende Nr + Datum + Kennzeichen */}
-        <div className="grid grid-cols-12 gap-2 border-b border-gray-300 pb-3">
+        <div className="grid grid-cols-12 gap-2 border-b border-s112-line-str pb-3">
           <div className="col-span-2">
             <FeldGruppe label="Laufende Nummer">
               <input className={inputCls} value={daten.laufende_nr} onChange={e => set('laufende_nr', e.target.value)} />
@@ -188,10 +188,10 @@ export default function TBFormular({ verkaufspostenId, initial }: Props) {
         </div>
 
         {/* Versender / Empfänger */}
-        <div className="grid grid-cols-2 gap-6 border-b border-gray-300 pb-3">
+        <div className="grid grid-cols-2 gap-6 border-b border-s112-line-str pb-3">
           {/* Versender */}
           <div className="space-y-2">
-            <h2 className="font-bold text-sm border-b border-gray-400 pb-1">Versender</h2>
+            <h2 className="font-semibold text-sm border-b border-s112-line-str pb-1">Versender</h2>
             <div className="grid grid-cols-2 gap-1">
               <FeldGruppe label="Betriebsnummer des Versenders">
                 <input className={inputCls} value={daten.v_betriebsnummer} onChange={e => set('v_betriebsnummer', e.target.value)} />
@@ -230,7 +230,7 @@ export default function TBFormular({ verkaufspostenId, initial }: Props) {
                 </FeldGruppe>
               </div>
             </div>
-            <div className="border-t border-dashed border-gray-300 pt-2">
+            <div className="border-t border-dashed border-s112-line-str pt-2">
               <div className="grid grid-cols-3 gap-1">
                 <div className="col-span-2">
                   <FeldGruppe label="Ort der Versendung">
@@ -246,7 +246,7 @@ export default function TBFormular({ verkaufspostenId, initial }: Props) {
 
           {/* Empfänger */}
           <div className="space-y-2">
-            <h2 className="font-bold text-sm border-b border-gray-400 pb-1">Empfänger</h2>
+            <h2 className="font-semibold text-sm border-b border-s112-line-str pb-1">Empfänger</h2>
             <div className="grid grid-cols-2 gap-1">
               <FeldGruppe label="Betriebsnummer des Empfängers">
                 <input className={inputCls} value={daten.e_betriebsnummer} onChange={e => set('e_betriebsnummer', e.target.value)} />
@@ -285,7 +285,7 @@ export default function TBFormular({ verkaufspostenId, initial }: Props) {
                 </FeldGruppe>
               </div>
             </div>
-            <div className="border-t border-dashed border-gray-300 pt-2">
+            <div className="border-t border-dashed border-s112-line-str pt-2">
               <div className="grid grid-cols-3 gap-1">
                 <div className="col-span-2">
                   <FeldGruppe label="Ort der Einlagerung">
@@ -302,70 +302,70 @@ export default function TBFormular({ verkaufspostenId, initial }: Props) {
 
         {/* Weinpositionen */}
         <div>
-          <h2 className="font-bold text-sm mb-2">Angaben über den Wein</h2>
+          <h2 className="font-semibold text-sm mb-2">Angaben über den Wein</h2>
           <table className="w-full border-collapse text-[10px]">
             <thead>
-              <tr className="border border-gray-400 bg-gray-50">
-                <th className="border border-gray-400 px-1 py-1 text-left font-semibold">Menge (Liter/kg)</th>
-                <th className="border border-gray-400 px-1 py-1 text-left font-semibold">Art<br/><span className="font-normal text-gray-500">Rot/Weiß/Rosé</span></th>
-                <th className="border border-gray-400 px-1 py-1 text-left font-semibold">Traubensorte(n)</th>
-                <th className="border border-gray-400 px-1 py-1 text-left font-semibold">Qualitätsstufe</th>
-                <th className="border border-gray-400 px-1 py-1 text-left font-semibold">Jahrgang</th>
-                <th className="border border-gray-400 px-1 py-1 text-left font-semibold">Herkunft</th>
-                <th className="border border-gray-400 px-1 py-1 text-left font-semibold">Fremdsorten-<br/>anteil %</th>
-                <th className="border border-gray-400 px-1 py-1 text-left font-semibold">Fremd-JG-<br/>anteil %</th>
-                <th className="border border-gray-400 px-1 py-1 text-left font-semibold">Staatl.<br/>Prüfnummer</th>
-                <th className="border border-gray-400 px-1 py-1 text-left font-semibold">Ange-<br/>reichert<br/>J/N</th>
-                <th className="border border-gray-400 px-1 py-1 text-left font-semibold">Alkohol<br/>% vol / °KMW</th>
-                <th className="border border-gray-400 px-1 py-1 no-print"></th>
+              <tr className="border border-s112-line-str bg-s112-bg">
+                <th className="border border-s112-line-str px-1 py-1 text-left font-semibold">Menge (Liter/kg)</th>
+                <th className="border border-s112-line-str px-1 py-1 text-left font-semibold">Art<br/><span className="font-normal text-s112-text-2">Rot/Weiß/Rosé</span></th>
+                <th className="border border-s112-line-str px-1 py-1 text-left font-semibold">Traubensorte(n)</th>
+                <th className="border border-s112-line-str px-1 py-1 text-left font-semibold">Qualitätsstufe</th>
+                <th className="border border-s112-line-str px-1 py-1 text-left font-semibold">Jahrgang</th>
+                <th className="border border-s112-line-str px-1 py-1 text-left font-semibold">Herkunft</th>
+                <th className="border border-s112-line-str px-1 py-1 text-left font-semibold">Fremdsorten-<br/>anteil %</th>
+                <th className="border border-s112-line-str px-1 py-1 text-left font-semibold">Fremd-JG-<br/>anteil %</th>
+                <th className="border border-s112-line-str px-1 py-1 text-left font-semibold">Staatl.<br/>Prüfnummer</th>
+                <th className="border border-s112-line-str px-1 py-1 text-left font-semibold">Ange-<br/>reichert<br/>J/N</th>
+                <th className="border border-s112-line-str px-1 py-1 text-left font-semibold">Alkohol<br/>% vol / °KMW</th>
+                <th className="border border-s112-line-str px-1 py-1 no-print"></th>
               </tr>
             </thead>
             <tbody>
               {daten.positionen.map((pos, i) => (
-                <tr key={i} className="border border-gray-300">
-                  <td className="border border-gray-300 p-0.5">
+                <tr key={i} className="border border-s112-line-str">
+                  <td className="border border-s112-line-str p-0.5">
                     <input className={inputCls} value={pos.menge_liter} onChange={e => setPos(i, 'menge_liter', e.target.value)} />
                   </td>
-                  <td className="border border-gray-300 p-0.5">
+                  <td className="border border-s112-line-str p-0.5">
                     <select className={inputCls} value={pos.art} onChange={e => setPos(i, 'art', e.target.value)}>
                       <option>Weiß</option>
                       <option>Rot</option>
                       <option>Rosé</option>
                     </select>
                   </td>
-                  <td className="border border-gray-300 p-0.5">
+                  <td className="border border-s112-line-str p-0.5">
                     <input className={inputCls} value={pos.traubensorte} onChange={e => setPos(i, 'traubensorte', e.target.value)} />
                   </td>
-                  <td className="border border-gray-300 p-0.5">
+                  <td className="border border-s112-line-str p-0.5">
                     <input className={inputCls} value={pos.qualitaetsstufe} onChange={e => setPos(i, 'qualitaetsstufe', e.target.value)} />
                   </td>
-                  <td className="border border-gray-300 p-0.5">
+                  <td className="border border-s112-line-str p-0.5">
                     <input className={inputCls} value={pos.jahrgang} onChange={e => setPos(i, 'jahrgang', e.target.value)} />
                   </td>
-                  <td className="border border-gray-300 p-0.5">
+                  <td className="border border-s112-line-str p-0.5">
                     <input className={inputCls} value={pos.herkunft} onChange={e => setPos(i, 'herkunft', e.target.value)} />
                   </td>
-                  <td className="border border-gray-300 p-0.5">
+                  <td className="border border-s112-line-str p-0.5">
                     <input className={inputCls} value={pos.fremd_sorten_pct} onChange={e => setPos(i, 'fremd_sorten_pct', e.target.value)} />
                   </td>
-                  <td className="border border-gray-300 p-0.5">
+                  <td className="border border-s112-line-str p-0.5">
                     <input className={inputCls} value={pos.fremd_jg_pct} onChange={e => setPos(i, 'fremd_jg_pct', e.target.value)} />
                   </td>
-                  <td className="border border-gray-300 p-0.5">
+                  <td className="border border-s112-line-str p-0.5">
                     <input className={inputCls} value={pos.pruefnummer} onChange={e => setPos(i, 'pruefnummer', e.target.value)} />
                   </td>
-                  <td className="border border-gray-300 p-0.5">
+                  <td className="border border-s112-line-str p-0.5">
                     <select className={inputCls} value={pos.anreicherung} onChange={e => setPos(i, 'anreicherung', e.target.value)}>
                       <option>N</option>
                       <option>J</option>
                     </select>
                   </td>
-                  <td className="border border-gray-300 p-0.5">
+                  <td className="border border-s112-line-str p-0.5">
                     <input className={inputCls} value={pos.alkohol_pct} placeholder="% / °KMW" onChange={e => setPos(i, 'alkohol_pct', e.target.value)} />
                   </td>
-                  <td className="border border-gray-300 p-0.5 no-print">
+                  <td className="border border-s112-line-str p-0.5 no-print">
                     {daten.positionen.length > 1 && (
-                      <button onClick={() => removePos(i)} title="Löschen" aria-label="Löschen" className="text-red-400 hover:text-red-600 text-xs px-1">
+                      <button onClick={() => removePos(i)} title="Löschen" aria-label="Löschen" className="text-s112-err hover:text-s112-err-fg text-xs px-1">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
@@ -377,18 +377,18 @@ export default function TBFormular({ verkaufspostenId, initial }: Props) {
         </div>
 
         {/* Unterschriften */}
-        <div className="grid grid-cols-2 gap-12 pt-6 border-t border-gray-300 mt-4">
+        <div className="grid grid-cols-2 gap-12 pt-6 border-t border-s112-line-str mt-4">
           <div>
-            <div className="h-10 border-b border-gray-500 mb-1" />
-            <p className="text-[10px] text-gray-500">Ort, Datum, Unterschrift des Versenders bzw. Verfügungsberechtigten</p>
+            <div className="h-10 border-b border-s112-grey mb-1" />
+            <p className="text-[10px] text-s112-text-2">Ort, Datum, Unterschrift des Versenders bzw. Verfügungsberechtigten</p>
           </div>
           <div>
-            <div className="h-10 border-b border-gray-500 mb-1" />
-            <p className="text-[10px] text-gray-500">Ort, Datum, Unterschrift des Empfängers bzw. Verfügungsberechtigten</p>
+            <div className="h-10 border-b border-s112-grey mb-1" />
+            <p className="text-[10px] text-s112-text-2">Ort, Datum, Unterschrift des Empfängers bzw. Verfügungsberechtigten</p>
           </div>
         </div>
 
-        <p className="text-[9px] text-gray-400 pt-1 text-center">
+        <p className="text-[9px] text-s112-tertiary pt-1 text-center">
           Für den Empfänger zuständiger Bundeskellereiinspektor
         </p>
       </div>

@@ -74,25 +74,25 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-2">
-        <Link href="/weinexport" className="hover:text-s112-teal transition-colors">Weinexport</Link>
+        <Link href="/weinexport" className="hover:text-s112-blue-700 transition-colors">Weinexport</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Neuer Exportauftrag</span>
+        <span className="text-s112-text-1 font-medium">Neuer Exportauftrag</span>
       </div>
       <div className="flex items-center gap-3 mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Neuer Exportauftrag</h1>
+        <h1 className="text-2xl font-semibold text-s112-text">Neuer Exportauftrag</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Importeur */}
-        <div className="bg-white rounded-2xl border border-s112-border p-6">
-          <h2 className="font-semibold text-gray-800 mb-4">Importeur / Empfänger</h2>
+        <div className="bg-white rounded-xl border border-s112-border p-6">
+          <h2 className="font-semibold text-s112-text mb-4">Importeur / Empfänger</h2>
           <div className="flex gap-2 mb-4">
             <button type="button" onClick={() => setEmpfaengerTyp('firma')}
-              className={`px-4 py-1.5 rounded-lg text-sm border ${empfaengerTyp==='firma'?'bg-s112-teal text-white border-s112-teal':'border-s112-border text-gray-600'}`}>
+              className={`px-4 py-1.5 rounded-lg text-sm border ${empfaengerTyp==='firma'?'bg-s112-teal text-white border-s112-teal':'border-s112-border text-s112-text-2'}`}>
               Firma
             </button>
             <button type="button" onClick={() => setEmpfaengerTyp('kontakt')}
-              className={`px-4 py-1.5 rounded-lg text-sm border ${empfaengerTyp==='kontakt'?'bg-s112-teal text-white border-s112-teal':'border-s112-border text-gray-600'}`}>
+              className={`px-4 py-1.5 rounded-lg text-sm border ${empfaengerTyp==='kontakt'?'bg-s112-teal text-white border-s112-teal':'border-s112-border text-s112-text-2'}`}>
               Kontakt
             </button>
           </div>
@@ -111,12 +111,12 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
           )}
           <div className="grid grid-cols-2 gap-4 mt-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">EORI-Nummer Importeur</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">EORI-Nummer Importeur</label>
               <input value={eori} onChange={e => setEori(e.target.value)} placeholder="z.B. AT1234567890"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Versicherungswert (EUR)</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Versicherungswert (EUR)</label>
               <input type="number" value={versicherung} onChange={e => setVersicherung(e.target.value)} placeholder="0.00"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
@@ -124,35 +124,35 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
         </div>
 
         {/* Logistik */}
-        <div className="bg-white rounded-2xl border border-s112-border p-6">
-          <h2 className="font-semibold text-gray-800 mb-4">Logistik & Destination</h2>
+        <div className="bg-white rounded-xl border border-s112-border p-6">
+          <h2 className="font-semibold text-s112-text mb-4">Logistik & Destination</h2>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Auftragsdatum</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Auftragsdatum</label>
               <input type="date" value={datum} onChange={e => setDatum(e.target.value)} required
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Lieferdatum (geplant)</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Lieferdatum (geplant)</label>
               <input type="date" value={lieferdatum} onChange={e => setLieferdatum(e.target.value)}
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Incoterms</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Incoterms</label>
               <select value={incoterms} onChange={e => setIncoterms(e.target.value)}
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                 {INCOTERMS.map(t => <option key={t}>{t}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Transportart</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Transportart</label>
               <select value={transportArt} onChange={e => setTransportArt(e.target.value)}
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                 {TRANSPORT.map(t => <option key={t}>{t}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Destination Land *</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Destination Land *</label>
               <select value={destLand} onChange={e => setDestLand(e.target.value)} required
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                 <option value="">– Land wählen –</option>
@@ -160,7 +160,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Destination Stadt</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Destination Stadt</label>
               <input value={destStadt} onChange={e => setDestStadt(e.target.value)} placeholder="z.B. München"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
@@ -168,11 +168,11 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
         </div>
 
         {/* Positionen */}
-        <div className="bg-white rounded-2xl border border-s112-border p-6">
+        <div className="bg-white rounded-xl border border-s112-border p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-gray-800">Weinpositionen</h2>
+            <h2 className="font-semibold text-s112-text">Weinpositionen</h2>
             <button type="button" onClick={addPosition}
-              className="text-xs text-s112-teal border border-s112-teal px-3 py-1 rounded-lg hover:bg-s112-teal/5">
+              className="text-xs text-s112-blue-700 border border-s112-teal px-3 py-1 rounded-lg hover:bg-s112-teal/5">
               + Position
             </button>
           </div>
@@ -213,33 +213,33 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
                   placeholder="€/Einheit" className="w-full border border-s112-border rounded px-2 py-1.5 text-xs focus:outline-none" />
               </div>
               <div className="col-span-1 flex justify-center pt-1">
-                <button type="button" onClick={() => removePos(i)} className="text-red-400 hover:text-red-600 text-xs">
+                <button type="button" onClick={() => removePos(i)} className="text-s112-err hover:text-s112-err-fg text-xs">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
           ))}
           {positionen.length > 0 && (
-            <div className="text-right text-sm font-semibold text-gray-800 border-t border-s112-border pt-3 mt-2">
+            <div className="text-right text-sm font-semibold text-s112-text border-t border-s112-border pt-3 mt-2">
               Gesamt: EUR {gesamtEUR.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           )}
         </div>
 
         {/* Notizen */}
-        <div className="bg-white rounded-2xl border border-s112-border p-6">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Notizen / Besonderheiten</label>
+        <div className="bg-white rounded-xl border border-s112-border p-6">
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen / Besonderheiten</label>
           <textarea value={notizen} onChange={e => setNotizen(e.target.value)} rows={3}
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
         </div>
 
-        {fehler && <p className="text-red-600 text-sm">{fehler}</p>}
+        {fehler && <p className="text-s112-err-fg text-sm">{fehler}</p>}
         <div className="flex gap-3">
           <button type="submit" disabled={saving}
             className="bg-s112-teal text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
             {saving ? 'Speichern…' : 'Exportauftrag anlegen'}
           </button>
-          <Link href="/weinexport" className="px-6 py-2.5 rounded-xl text-sm border border-s112-border text-gray-600 hover:bg-s112-bg">
+          <Link href="/weinexport" className="px-6 py-2.5 rounded-xl text-sm border border-s112-border text-s112-text-2 hover:bg-s112-bg">
             Abbrechen
           </Link>
         </div>

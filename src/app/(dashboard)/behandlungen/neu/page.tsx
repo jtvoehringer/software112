@@ -159,11 +159,11 @@ export default async function NeueBehandlungPage() {
   return (
     <div className="max-w-2xl">
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-6">
-        <a href="/behandlungen" className="hover:text-s112-teal transition-colors">Maßnahmen</a>
+        <a href="/behandlungen" className="hover:text-s112-blue-700 transition-colors">Maßnahmen</a>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Neue Maßnahme</span>
+        <span className="text-s112-text-1 font-medium">Neue Maßnahme</span>
       </div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Neue Maßnahme erfassen</h1>
+      <h1 className="text-2xl font-semibold text-s112-text mb-6">Neue Maßnahme erfassen</h1>
       <NeueBehandlungForm
         psm={psm}
         duengemittel={duengemittel}

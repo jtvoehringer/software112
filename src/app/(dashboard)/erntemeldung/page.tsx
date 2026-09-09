@@ -72,13 +72,13 @@ export default async function ErntemeldungPage() {
   return (
     <div>
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-4">
-        <Link href="/weingarten" className="hover:text-s112-teal transition-colors">Rieden</Link>
+        <Link href="/weingarten" className="hover:text-s112-blue-700 transition-colors">Rieden</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Lese</span>
+        <span className="text-s112-text-1 font-medium">Lese</span>
       </div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Lese</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Lese</h1>
           <p className="text-sm text-s112-muted mt-0.5">Jahrgänge, Lesedaten & AMA-Meldung</p>
         </div>
         {writeOk && (

@@ -18,11 +18,11 @@ const LESEMETHODE_OPTS = [
   { value: 'selektionslese', label: 'Selektionslese' },
 ]
 const AMA_STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  entwurf:     { label: 'Entwurf',     cls: 'bg-gray-100 text-gray-600' },
-  bereit:      { label: 'Bereit',      cls: 'bg-blue-100 text-blue-700' },
-  eingereicht: { label: 'Eingereicht', cls: 'bg-amber-100 text-amber-700' },
-  bestaetigt:  { label: 'Bestätigt',   cls: 'bg-green-100 text-green-700' },
-  abgelehnt:   { label: 'Abgelehnt',   cls: 'bg-red-100 text-red-700' },
+  entwurf:     { label: 'Entwurf',     cls: 'bg-[#F2F3F5] text-s112-text-2' },
+  bereit:      { label: 'Bereit',      cls: 'bg-s112-blue-100 text-s112-blue-700' },
+  eingereicht: { label: 'Eingereicht', cls: 'bg-s112-warn-bg text-s112-warn-fg' },
+  bestaetigt:  { label: 'Bestätigt',   cls: 'bg-s112-ok-bg text-s112-ok-fg' },
+  abgelehnt:   { label: 'Abgelehnt',   cls: 'bg-s112-err-bg text-s112-err-fg' },
 }
 
 function formatDate(d: string | null) {
@@ -110,14 +110,14 @@ function NeueParzellenForm({
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-800">Lesedaten erfassen</h3>
-        {totalSelCount > 0 && <span className="text-xs text-s112-teal font-medium">{totalSelCount} gewählt</span>}
+        <h3 className="text-sm font-semibold text-s112-text">Lesedaten erfassen</h3>
+        {totalSelCount > 0 && <span className="text-xs text-s112-blue-700 font-medium">{totalSelCount} gewählt</span>}
       </div>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between mb-1">
-          <label className="block text-xs font-medium text-gray-600">Rieden <span className="text-red-500">*</span></label>
-          <button type="button" onClick={selectAll} className="text-xs text-s112-teal hover:underline">Alle auswählen</button>
+          <label className="block text-xs font-medium text-s112-text-2">Rieden <span className="text-s112-err">*</span></label>
+          <button type="button" onClick={selectAll} className="text-xs text-s112-blue-700 hover:underline">Alle auswählen</button>
         </div>
         {rieden.map(([lageName, wgs]) => {
           const allLageSel = wgs.every(w => selectedWGs.has(w.id))
@@ -129,7 +129,7 @@ function NeueParzellenForm({
                 <input type="checkbox" readOnly checked={allLageSel}
                   ref={el => { if (el) el.indeterminate = someLageSel && !allLageSel }}
                   className="accent-s112-teal" />
-                <span className="text-xs font-semibold text-gray-800">{lageName}</span>
+                <span className="text-xs font-semibold text-s112-text">{lageName}</span>
                 <span className="text-xs text-s112-muted ml-1">{wgs.length} Rieden</span>
               </div>
               <div className="divide-y divide-s112-border/40 border-t border-s112-border/40">
@@ -156,12 +156,12 @@ function NeueParzellenForm({
                               fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
-                            <span className={`text-xs ${isActive ? 'font-medium text-s112-teal' : 'text-gray-700'}`}>{w.name}</span>
+                            <span className={`text-xs ${isActive ? 'font-medium text-s112-blue-700' : 'text-s112-text-1'}`}>{w.name}</span>
                             <span className="text-xs text-s112-muted ml-auto">{gsts.length} GST</span>
                           </button>
                         ) : (
                           <label className="flex items-center gap-1.5 flex-1 cursor-pointer">
-                            <span className={`text-xs ${isActive ? 'font-medium text-s112-teal' : 'text-gray-700'}`}>{w.name}</span>
+                            <span className={`text-xs ${isActive ? 'font-medium text-s112-blue-700' : 'text-s112-text-1'}`}>{w.name}</span>
                           </label>
                         )}
                       </div>
@@ -176,7 +176,7 @@ function NeueParzellenForm({
                                     checked={isGstSel}
                                     onChange={() => toggleGST(g.id, w.id)}
                                     className="accent-s112-teal" />
-                                  <span className={`font-mono ${isGstSel ? 'text-s112-teal font-medium' : 'text-gray-600'}`}>
+                                  <span className={`font-mono ${isGstSel ? 'text-s112-blue-700 font-medium' : 'text-s112-text-2'}`}>
                                     GST {g.gst_nr}
                                   </span>
                                   {g.rebsorte && <span className="text-s112-muted">· {formatRebsorteMitKuerzel(g.rebsorte)}</span>}
@@ -186,21 +186,21 @@ function NeueParzellenForm({
                                   <div className="pl-10 pr-4 pb-2 pt-1 bg-s112-teal/5 border-b border-s112-border/20">
                                     <div className="grid grid-cols-4 gap-2">
                                       <div>
-                                        <label className="block text-xs text-gray-500 mb-0.5">Menge kg</label>
+                                        <label className="block text-xs text-s112-text-2 mb-0.5">Menge kg</label>
                                         <input type="text" inputMode="decimal" placeholder="–"
                                           value={gstData.get(g.id)?.menge_kg ?? ''}
                                           onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', lesemethode: '', notizen: '' }; n.set(g.id, { ...d, menge_kg: e.target.value }); return n })}
                                           className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white" />
                                       </div>
                                       <div>
-                                        <label className="block text-xs text-gray-500 mb-0.5">°KMW</label>
+                                        <label className="block text-xs text-s112-text-2 mb-0.5">°KMW</label>
                                         <input type="text" inputMode="decimal" placeholder="–"
                                           value={gstData.get(g.id)?.kmw ?? ''}
                                           onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', lesemethode: '', notizen: '' }; n.set(g.id, { ...d, kmw: e.target.value }); return n })}
                                           className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white" />
                                       </div>
                                       <div>
-                                        <label className="block text-xs text-gray-500 mb-0.5">Lesemethode</label>
+                                        <label className="block text-xs text-s112-text-2 mb-0.5">Lesemethode</label>
                                         <select
                                           value={gstData.get(g.id)?.lesemethode ?? ''}
                                           onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', lesemethode: '', notizen: '' }; n.set(g.id, { ...d, lesemethode: e.target.value }); return n })}
@@ -210,7 +210,7 @@ function NeueParzellenForm({
                                         </select>
                                       </div>
                                       <div>
-                                        <label className="block text-xs text-gray-500 mb-0.5">Notizen</label>
+                                        <label className="block text-xs text-s112-text-2 mb-0.5">Notizen</label>
                                         <input type="text" placeholder="–"
                                           value={gstData.get(g.id)?.notizen ?? ''}
                                           onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', lesemethode: '', notizen: '' }; n.set(g.id, { ...d, notizen: e.target.value }); return n })}
@@ -235,7 +235,7 @@ function NeueParzellenForm({
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Ernte-Datum</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Ernte-Datum</label>
           <input name="ernte_datum" type="date" defaultValue={new Date().toISOString().split('T')[0]} className={inputCls} />
         </div>
 
@@ -247,25 +247,25 @@ function NeueParzellenForm({
         {selectedGSTs.size === 0 ? (
           <>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Lesemethode</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Lesemethode</label>
               <select name="lesemethode" className={inputCls}>
                 <option value="">–</option>
                 {LESEMETHODE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">
                 Menge kg <span className="text-s112-muted font-normal">(anteilsmäßig auf GST aufgeteilt)</span>
               </label>
               <input name="menge_kg" type="text" inputMode="decimal" className={inputCls} placeholder="–" />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-600 mb-1">°KMW & Qualitätsstufe</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">°KMW & Qualitätsstufe</label>
               <div className="flex items-center gap-2">
                 <input name="klosterneuburger" type="text" inputMode="decimal" placeholder="–"
                   onChange={e => setKmwNeu(e.target.value ? parseFloat(e.target.value.replace(',', '.')) : null)}
                   className={`flex-1 ${inputCls}`} />
-                <span className="shrink-0 text-xs font-semibold px-2 py-1.5 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap">
+                <span className="shrink-0 text-xs font-semibold px-2 py-1.5 rounded-full bg-s112-warn-bg text-s112-warn-fg whitespace-nowrap">
                   {qualitaetLabel(derivedQualitaetNeu)}
                 </span>
               </div>
@@ -281,12 +281,12 @@ function NeueParzellenForm({
         )}
 
         <div className="col-span-2">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
           <input name="notizen" className={inputCls} placeholder="optional" />
         </div>
       </div>
 
-      {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
+      {error && <p className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{error}</p>}
 
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending || totalSelCount === 0}
@@ -294,7 +294,7 @@ function NeueParzellenForm({
           {pending ? 'Speichert…' : `${totalSelCount > 0 ? `${totalSelCount} × ` : ''}Speichern`}
         </button>
         <button type="button" onClick={onDone}
-          className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800">
+          className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:text-s112-text">
           Abbrechen
         </button>
       </div>
@@ -339,13 +339,13 @@ function ParzellForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-3">
-      <h3 className="text-sm font-semibold text-gray-800">
+      <h3 className="text-sm font-semibold text-s112-text">
         {parzelle ? 'Lesedaten bearbeiten' : 'Lesedaten erfassen'}
       </h3>
       {parzelle && <input type="hidden" name="existing_id" value={parzelle.id} />}
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Weingarten <span className="text-red-500">*</span></label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Weingarten <span className="text-s112-err">*</span></label>
           <select name="weingarten_id" required value={selWgId}
             onChange={e => { setSelWgId(e.target.value); setSelGstId('') }}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
@@ -361,7 +361,7 @@ function ParzellForm({
         </div>
         {verfuegbareGSTs.length > 0 && (
           <div className="col-span-2">
-            <label className="block text-xs font-medium text-gray-600 mb-1">Grundstück (GST)</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Grundstück (GST)</label>
             <input type="hidden" name="grundstueck_id" value={selGstId} />
             <select value={selGstId} onChange={e => setSelGstId(e.target.value)}
               className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
@@ -375,12 +375,12 @@ function ParzellForm({
           </div>
         )}
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Ernte-Datum</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Ernte-Datum</label>
           <input name="ernte_datum" type="date" defaultValue={parzelle?.ernte_datum ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Lesemethode</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Lesemethode</label>
           <select name="lesemethode" defaultValue={parzelle?.lesemethode ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             <option value="">–</option>
@@ -388,21 +388,21 @@ function ParzellForm({
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Menge (kg)</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge (kg)</label>
           <input name="menge_kg" type="text" inputMode="decimal"
             defaultValue={parzelle?.menge_kg ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <input type="hidden" name="oechsle" value="" />
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">°KMW</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">°KMW</label>
           <input name="klosterneuburger" type="text" inputMode="decimal"
             defaultValue={parzelle?.klosterneuburger ?? ''}
             onChange={e => { setKmwEdit(e.target.value ? parseFloat(e.target.value.replace(',', '.')) : null); setQualitaetEdit(null) }}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Qualitätsstufe</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Qualitätsstufe</label>
           <select name="qualitaetsstufe" value={effectiveQualitaetEdit}
             onChange={e => setQualitaetEdit(e.target.value)}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
@@ -415,7 +415,7 @@ function ParzellForm({
           )}
         </div>
         <div className="col-span-2">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
           <input name="notizen" defaultValue={parzelle?.notizen ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
@@ -426,7 +426,7 @@ function ParzellForm({
           {pending ? 'Speichert…' : 'Speichern'}
         </button>
         <button type="button" onClick={onDone}
-          className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800">
+          className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:text-s112-text">
           Abbrechen
         </button>
       </div>
@@ -469,16 +469,16 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
     <div className={`space-y-6 ${pending ? 'opacity-60 pointer-events-none' : ''}`}>
 
       {/* Print-Header (nur beim Drucken sichtbar) */}
-      <div className="hidden print:block mb-4 pb-4 border-b-2 border-gray-300">
-        <p className="text-xs text-gray-500 font-semibold tracking-widest uppercase">software:112 – Gebeshuber Weinbau</p>
-        <h1 className="text-2xl font-bold text-gray-900 mt-0.5">Jahrgang {jahrgang.jahrgang}</h1>
-        <p className="text-sm text-gray-400 mt-1">Erstellt: {heute}</p>
+      <div className="hidden print:block mb-4 pb-4 border-b-2 border-s112-line-str">
+        <p className="text-xs text-s112-text-2 font-semibold tracking-widest uppercase">software:112 – Gebeshuber Weinbau</p>
+        <h1 className="text-2xl font-semibold text-s112-text mt-0.5">Jahrgang {jahrgang.jahrgang}</h1>
+        <p className="text-sm text-s112-tertiary mt-1">Erstellt: {heute}</p>
       </div>
 
       {/* Ernte-Übersicht */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-gray-800">Lesedaten</h2>
+          <h2 className="text-base font-semibold text-s112-text">Lesedaten</h2>
           <div className="flex items-center gap-3">
             <span className="text-sm text-s112-muted">{parzellen.length} Parzellen · {fmtZahl(gesamtKg/1000, 2)} t</span>
             {writeOk && !showForm && (
@@ -491,7 +491,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
             <button
               onClick={() => window.print()}
               data-print="hide"
-              className="inline-flex items-center gap-1.5 border border-s112-border text-gray-600 px-3 py-1.5 rounded-lg text-xs hover:bg-s112-bg transition-colors"
+              className="inline-flex items-center gap-1.5 border border-s112-border text-s112-text-2 px-3 py-1.5 rounded-lg text-xs hover:bg-s112-bg transition-colors"
               title="Als PDF speichern oder drucken"
             >
               Drucken / PDF
@@ -509,7 +509,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
           <div className="border border-s112-border rounded-xl overflow-x-auto">
             <table className="w-full text-sm min-w-[640px]">
               <thead>
-                <tr className="bg-s112-bg border-b border-s112-border text-xs text-gray-600">
+                <tr className="bg-s112-bg border-b border-s112-border text-xs text-s112-text-2">
                   <th className="text-left px-3 py-2 font-semibold">Ried</th>
                   <th className="text-left px-3 py-2 font-semibold">GST</th>
                   <th className="text-left px-3 py-2 font-semibold">Sorte</th>
@@ -526,7 +526,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
                 {parzellen.map(p => (
                   <React.Fragment key={p.id}>
                     <tr className="group border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/30">
-                      <td className="px-3 py-2 font-medium text-gray-800">
+                      <td className="px-3 py-2 font-medium text-s112-text">
                         {p.weingarten_name}
                       </td>
                       <td className="px-3 py-2 text-xs text-s112-muted font-mono">{p.grundstueck_nr ?? '–'}</td>
@@ -541,12 +541,12 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
                             {writeOk && (
                               <button onClick={() => { setEditId(p.id); setShowForm(false) }}
                                 title="Bearbeiten" aria-label="Bearbeiten"
-                                className="text-s112-teal hover:text-s112-teal/70"><Pencil size={14} /></button>
+                                className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={14} /></button>
                             )}
                             {adminOk && (
                               <button onClick={() => handleDelete(p.id)}
                                 title="Löschen" aria-label="Löschen"
-                                className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
+                                className="text-s112-err hover:text-s112-err-fg"><Trash2 size={14} /></button>
                             )}
                           </div>
                         </td>
@@ -564,8 +564,8 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
               </tbody>
               <tfoot>
                 <tr className="bg-s112-bg border-t-2 border-s112-border font-semibold text-sm">
-                  <td className="px-3 py-2 text-gray-700" colSpan={3}>Gesamt</td>
-                  <td className="px-3 py-2 text-right tabular-nums text-gray-800">{gesamtKg.toLocaleString('de-AT')} kg</td>
+                  <td className="px-3 py-2 text-s112-text-1" colSpan={3}>Gesamt</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-s112-text">{gesamtKg.toLocaleString('de-AT')} kg</td>
                   <td colSpan={3} className="px-3 py-2 text-xs text-s112-muted">
                     ≈ {fmtProzent(gesamtKg / 130)} hl
                   </td>
@@ -584,8 +584,8 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
       {hektarhoechstertrag.gesamtKgQualitaetswein > 0 && (
         <div className={`rounded-xl px-4 py-3 text-sm border ${
           hektarhoechstertrag.ueberschritten
-            ? 'bg-red-50 border-red-200 text-red-700'
-            : 'bg-s112-bg border-s112-border text-gray-600'
+            ? 'bg-s112-err-bg border-s112-err/30 text-s112-err-fg'
+            : 'bg-s112-bg border-s112-border text-s112-text-2'
         }`} data-print="hide">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <span className="inline-flex items-start gap-1.5">
@@ -654,9 +654,9 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
       {writeOk && (
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-gray-800">AMA Erntemeldung</h2>
+            <h2 className="text-base font-semibold text-s112-text">AMA Erntemeldung</h2>
             {amaMeldung && (
-              <span className={`text-xs px-2 py-1 rounded-full font-medium ${AMA_STATUS_BADGE[amaMeldung.status]?.cls ?? 'bg-gray-100 text-gray-600'}`}>
+              <span className={`text-xs px-2 py-1 rounded-full font-medium ${AMA_STATUS_BADGE[amaMeldung.status]?.cls ?? 'bg-[#F2F3F5] text-s112-text-2'}`}>
                 {AMA_STATUS_BADGE[amaMeldung.status]?.label ?? amaMeldung.status}
               </span>
             )}
@@ -666,11 +666,11 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
             <div>
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="bg-s112-bg rounded-xl p-3">
-                  <p className="text-lg font-bold text-gray-800">{amaMeldung.gesamtmenge_kg?.toLocaleString('de-AT')} kg</p>
+                  <p className="text-lg font-semibold text-s112-text">{amaMeldung.gesamtmenge_kg?.toLocaleString('de-AT')} kg</p>
                   <p className="text-xs text-s112-muted">Gesamtmenge</p>
                 </div>
                 <div className="bg-s112-bg rounded-xl p-3">
-                  <p className="text-lg font-bold text-gray-800">{fmtProzent(amaMeldung.gesamtmenge_hl)} hl</p>
+                  <p className="text-lg font-semibold text-s112-text">{fmtProzent(amaMeldung.gesamtmenge_hl)} hl</p>
                   <p className="text-xs text-s112-muted">Most (≈)</p>
                 </div>
               </div>
@@ -678,7 +678,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
               {amaMeldung.positionen.length > 0 && (
                 <table className="w-full text-sm mb-4">
                   <thead>
-                    <tr className="border-b border-s112-border text-xs text-gray-600">
+                    <tr className="border-b border-s112-border text-xs text-s112-text-2">
                       <th className="text-left pb-1 font-semibold">Rebsorte</th>
                       <th className="text-right pb-1 font-semibold">Fläche (ha)</th>
                       <th className="text-right pb-1 font-semibold">Menge (kg)</th>
@@ -697,14 +697,14 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
               )}
 
               {amaMeldung.n8n_fehler && (
-                <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-xs mb-3">
+                <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-3 py-2 text-xs mb-3">
                   Fehler: {amaMeldung.n8n_fehler}
                 </div>
               )}
 
               <div className="flex gap-2" data-print="hide">
                 <button onClick={handleAMA}
-                  className="text-sm bg-s112-bg border border-s112-border hover:border-s112-teal text-gray-700 hover:text-s112-teal px-4 py-2 rounded-lg transition-colors">
+                  className="text-sm bg-s112-bg border border-s112-border hover:border-s112-teal text-s112-text-1 hover:text-s112-blue-700 px-4 py-2 rounded-lg transition-colors">
                   Neu berechnen
                 </button>
               </div>

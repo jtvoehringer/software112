@@ -36,8 +36,8 @@ export default async function WeinexportDetailPage({ params }: { params: Promise
 
   if (!auftrag) return (
     <div className="p-8">
-      <p className="text-red-600">Exportauftrag nicht gefunden.</p>
-      <Link href="/weinexport" className="text-s112-teal text-sm mt-2 inline-block">← Zurück</Link>
+      <p className="text-s112-err-fg">Exportauftrag nicht gefunden.</p>
+      <Link href="/weinexport" className="text-s112-blue-700 text-sm mt-2 inline-block">← Zurück</Link>
     </div>
   )
 

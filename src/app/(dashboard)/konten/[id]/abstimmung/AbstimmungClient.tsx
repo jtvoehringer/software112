@@ -25,21 +25,21 @@ function BewegungsZeile({ b, kontoId, writeOk }: { b: Bewegung; kontoId: string;
 
   return (
     <tr className="border-b border-s112-border/50 hover:bg-s112-bg/50">
-      <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap text-sm">
+      <td className="px-4 py-2.5 text-s112-text-2 whitespace-nowrap text-sm">
         {new Date(b.datum).toLocaleDateString('de-AT')}
       </td>
       <td className="px-4 py-2.5 text-sm">
         {b.beschreibung}
         {b.gesperrt && (
           <span title="Zeitraum gesperrt (Monatsabschluss oder UVA übermittelt)">
-            <Lock className="inline-block w-3 h-3 text-gray-400 ml-1.5 -mt-0.5" />
+            <Lock className="inline-block w-3 h-3 text-s112-tertiary ml-1.5 -mt-0.5" />
           </span>
         )}
       </td>
-      <td className={`px-4 py-2.5 text-right font-mono text-sm font-semibold ${b.betrag >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+      <td className={`px-4 py-2.5 text-right font-mono text-sm font-semibold ${b.betrag >= 0 ? 'text-s112-ok-fg' : 'text-s112-err'}`}>
         {fmt(b.betrag)}
       </td>
-      <td className="px-4 py-2.5 text-right font-mono text-sm text-gray-500 tabular-nums">
+      <td className="px-4 py-2.5 text-right font-mono text-sm text-s112-text-2 tabular-nums">
         {b.saldoNachher != null ? fmt(b.saldoNachher) : '–'}
       </td>
       <td className="px-4 py-2.5 text-center">
@@ -58,7 +58,7 @@ function BewegungsZeile({ b, kontoId, writeOk }: { b: Bewegung; kontoId: string;
             action={async () => { await deleteUmbuchung(b.id, kontoId, b.andereKontoId ?? kontoId) }}
             message="Diese Umbuchung löschen? Sie wird auf beiden Konten entfernt."
             title="Umbuchung löschen"
-            className="text-xs text-red-400 hover:text-red-600"
+            className="text-xs text-s112-err hover:text-s112-err-fg"
           />
         )}
       </td>
@@ -82,29 +82,29 @@ export default function AbstimmungClient({
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
       <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/konten" className="hover:text-s112-teal transition-colors">Konten</Link>
+        <Link href="/konten" className="hover:text-s112-blue-700 transition-colors">Konten</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">{konto.name}</span>
+        <span className="text-s112-text-1 font-medium">{konto.name}</span>
       </div>
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{konto.name}</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">{konto.name}</h1>
           <p className="text-sm text-s112-muted mt-0.5">
             Eröffnet {new Date(konto.eroeffnungsdatum).toLocaleDateString('de-AT')} mit {fmt(konto.eroeffnungssaldo)}
             {konto.iban ? ` · ${konto.iban}` : ''}
           </p>
         </div>
-        <div className="bg-white rounded-2xl border border-s112-border px-5 py-3 text-right">
+        <div className="bg-white rounded-xl border border-s112-border px-5 py-3 text-right">
           <p className="text-xs text-s112-muted">Aktueller Saldo</p>
-          <p className={`text-2xl font-bold tabular-nums ${aktuellerSaldo >= 0 ? 'text-s112-teal' : 'text-red-600'}`}>
+          <p className={`text-2xl font-semibold tabular-nums ${aktuellerSaldo >= 0 ? 'text-s112-blue-700' : 'text-s112-err-fg'}`}>
             {fmt(aktuellerSaldo)}
           </p>
         </div>
       </div>
 
       {anzahlVorEroeffnung > 0 && (
-        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
+        <div className="flex items-start gap-2 bg-s112-warn-bg border border-s112-warn/30 rounded-xl px-4 py-3 text-sm text-s112-warn-fg">
           <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
           <span>
             {anzahlVorEroeffnung} {anzahlVorEroeffnung === 1 ? 'Bewegung liegt' : 'Bewegungen liegen'} am oder vor dem
@@ -115,11 +115,11 @@ export default function AbstimmungClient({
       )}
 
       {writeOk && andereKonten.length > 0 && (
-        <div className="bg-white rounded-2xl border border-s112-border p-4">
+        <div className="bg-white rounded-xl border border-s112-border p-4">
           {!umbExpanded ? (
             <button
               onClick={() => setUmbExpanded(true)}
-              className="text-sm font-medium text-s112-teal hover:underline"
+              className="text-sm font-medium text-s112-blue-700 hover:underline"
             >
               + Umbuchung erfassen
             </button>
@@ -135,7 +135,7 @@ export default function AbstimmungClient({
               }}
               className="space-y-3"
             >
-              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Umbuchung erfassen</p>
+              <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wider">Umbuchung erfassen</p>
               <div className="flex gap-3">
                 <label className="flex items-center gap-1.5 text-sm cursor-pointer">
                   <input type="radio" name="richtung" checked={richtung === 'von'} onChange={() => setRichtung('von')} className="accent-s112-teal" />
@@ -148,27 +148,27 @@ export default function AbstimmungClient({
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">{richtung === 'von' ? 'Ziel-Konto' : 'Quell-Konto'}</label>
+                  <label className="block text-xs text-s112-text-2 mb-1">{richtung === 'von' ? 'Ziel-Konto' : 'Quell-Konto'}</label>
                   <select name="ziel_konto_id" required className="form-input text-sm w-full">
                     {andereKonten.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Datum</label>
+                  <label className="block text-xs text-s112-text-2 mb-1">Datum</label>
                   <input name="datum" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="form-input text-sm w-full" />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Betrag (€)</label>
+                  <label className="block text-xs text-s112-text-2 mb-1">Betrag (€)</label>
                   <input name="betrag" type="text" inputMode="decimal" required placeholder="0,00" className="form-input text-sm w-full" />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Notiz</label>
+                  <label className="block text-xs text-s112-text-2 mb-1">Notiz</label>
                   <input name="beschreibung" type="text" placeholder="Optional…" className="form-input text-sm w-full" />
                 </div>
               </div>
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setUmbExpanded(false)}
-                  className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-s112-bg transition-colors">
+                  className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:bg-s112-bg transition-colors">
                   Abbrechen
                 </button>
                 <button type="submit" className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors">
@@ -181,19 +181,19 @@ export default function AbstimmungClient({
       )}
 
       {bewegungen.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-s112-border p-10 text-center text-s112-muted">
+        <div className="bg-white rounded-xl border border-s112-border p-10 text-center text-s112-muted">
           Noch keine Bewegungen auf diesem Konto seit dem Eröffnungsdatum.
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-s112-border overflow-hidden">
+        <div className="bg-white rounded-xl border border-s112-border overflow-hidden">
           <table className="w-full">
             <thead>
               <tr className="border-b border-s112-border bg-s112-bg">
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-600">Datum</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-600">Beschreibung</th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-600">Betrag</th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-600">Saldo</th>
-                <th className="text-center px-4 py-3 text-xs font-medium text-gray-600">Abgeglichen</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-s112-text-2">Datum</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-s112-text-2">Beschreibung</th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-s112-text-2">Betrag</th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-s112-text-2">Saldo</th>
+                <th className="text-center px-4 py-3 text-xs font-medium text-s112-text-2">Abgeglichen</th>
                 <th className="px-2 py-3" />
               </tr>
             </thead>

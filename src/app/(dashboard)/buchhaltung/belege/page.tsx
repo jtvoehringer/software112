@@ -48,7 +48,7 @@ export default async function BelegePage() {
           {istBild ? <ImageIcon className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
         </div>
         <div className="flex-1 min-w-0">
-          <Link href={`/buchhaltung/belege/${b.id}`} className="font-medium text-gray-800 hover:text-s112-teal truncate block">
+          <Link href={`/buchhaltung/belege/${b.id}`} className="font-medium text-s112-text hover:text-s112-blue-700 truncate block">
             {e.beschreibung || b.dateiname}
           </Link>
           <p className="text-xs text-s112-muted truncate">
@@ -56,24 +56,24 @@ export default async function BelegePage() {
             {e.datum ? ` · Belegdatum ${new Date(e.datum).toLocaleDateString('de-AT')}` : ''}
           </p>
           {b.status === 'fehler' && (
-            <p className="text-xs text-amber-700 flex items-center gap-1 mt-0.5">
+            <p className="text-xs text-s112-warn-fg flex items-center gap-1 mt-0.5">
               <AlertTriangle className="w-3 h-3" /> Erkennung fehlgeschlagen – bitte manuell buchen
             </p>
           )}
         </div>
         <div className="text-right flex-shrink-0">
           {e.betrag_brutto != null && (
-            <p className={`font-mono font-semibold ${e.typ === 'einnahme' ? 'text-green-600' : 'text-red-500'}`}>
+            <p className={`font-mono font-semibold ${e.typ === 'einnahme' ? 'text-s112-ok-fg' : 'text-s112-err'}`}>
               € {fmt(e.betrag_brutto)}
             </p>
           )}
           {e.konfidenz && e.konfidenz !== 'hoch' && (
-            <p className="text-xs text-amber-600">Erkennung: {e.konfidenz}</p>
+            <p className="text-xs text-s112-warn-fg">Erkennung: {e.konfidenz}</p>
           )}
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
           {b.status === 'verbucht' ? (
-            <span className="text-xs font-medium bg-green-100 text-green-700 px-2.5 py-1 rounded-full">Verbucht</span>
+            <span className="text-xs font-medium bg-s112-ok-bg text-s112-ok-fg px-2.5 py-1 rounded-full">Verbucht</span>
           ) : (
             <Link
               href={`/buchhaltung/belege/${b.id}`}
@@ -88,7 +88,7 @@ export default async function BelegePage() {
               message="Beleg verwerfen? Die Datei wird endgültig gelöscht, es entsteht keine Buchung."
               label={<Trash2 size={16} />}
               title="Verwerfen"
-              className="text-red-400 hover:text-red-600"
+              className="text-s112-err hover:text-s112-err-fg"
             />
           )}
         </div>
@@ -99,22 +99,22 @@ export default async function BelegePage() {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-2">
-        <Link href="/buchhaltung" className="hover:text-s112-teal transition-colors">E&amp;A-Rechnung</Link>
+        <Link href="/buchhaltung" className="hover:text-s112-blue-700 transition-colors">E&amp;A-Rechnung</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Belege</span>
+        <span className="text-s112-text-1 font-medium">Belege</span>
       </div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Belege</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Belege</h1>
           <p className="text-sm text-s112-muted">Foto oder PDF hochladen – Claude liest Datum, Betrag, USt-Satz und eine passende Kategorie automatisch aus.</p>
         </div>
       </div>
 
-      <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-        <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-        <div className="text-xs text-blue-800">
+      <div className="flex items-start gap-2.5 bg-s112-blue-50 border border-s112-blue-100 rounded-xl p-4 mb-6">
+        <Info className="w-4 h-4 text-s112-blue-700 mt-0.5 flex-shrink-0" />
+        <div className="text-xs text-s112-blue-700">
           <p className="font-semibold mb-1">Wie es funktioniert</p>
-          <p className="text-blue-700">
+          <p className="text-s112-blue-700">
             Foto oder Scan hochladen (JPG, PNG, PDF) → KI erkennt automatisch Datum, Betrag, USt-Satz,
             Kategorie und – bei Eingangsrechnungen – den Lieferanten (wird mit einer bestehenden Firma
             im CRM verknüpft, oder Sie legen sie direkt neu an) → Daten prüfen und ggf. korrigieren →
@@ -128,9 +128,9 @@ export default async function BelegePage() {
         <BelegUpload />
       </div>
 
-      <div className="bg-white rounded-2xl border border-s112-border overflow-hidden mb-8">
+      <div className="bg-white rounded-xl border border-s112-border overflow-hidden mb-8">
         <div className="px-4 py-3 bg-s112-bg border-b border-s112-border">
-          <h2 className="text-sm font-semibold text-gray-700">
+          <h2 className="text-sm font-semibold text-s112-text-1">
             Zu verbuchen {offen.length > 0 && <span className="text-s112-muted font-normal">({offen.length})</span>}
           </h2>
         </div>
@@ -142,9 +142,9 @@ export default async function BelegePage() {
       </div>
 
       {verbucht.length > 0 && (
-        <div className="bg-white rounded-2xl border border-s112-border overflow-hidden">
+        <div className="bg-white rounded-xl border border-s112-border overflow-hidden">
           <div className="px-4 py-3 bg-s112-bg border-b border-s112-border">
-            <h2 className="text-sm font-semibold text-gray-700">Zuletzt verbucht</h2>
+            <h2 className="text-sm font-semibold text-s112-text-1">Zuletzt verbucht</h2>
           </div>
           {verbucht.map(b => <BelegZeile key={b.id} b={b} zeigeVerwerfen={false} />)}
         </div>

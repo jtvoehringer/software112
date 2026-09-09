@@ -80,13 +80,13 @@ export default async function FirmenPage() {
   return (
     <div>
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-4">
-        <Link href="/crm" className="hover:text-s112-teal transition-colors">CRM</Link>
+        <Link href="/crm" className="hover:text-s112-blue-700 transition-colors">CRM</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Firmen</span>
+        <span className="text-s112-text-1 font-medium">Firmen</span>
       </div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Firmen</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Firmen</h1>
           <p className="text-sm text-s112-muted mt-0.5">Gastronomie, Handel, Export & Großhandel</p>
         </div>
         <span className="text-sm text-s112-muted">{firmen.length} Firmen</span>

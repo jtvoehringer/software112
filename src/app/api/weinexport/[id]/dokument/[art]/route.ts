@@ -23,9 +23,9 @@ function css() {
     .label{font-size:8pt;color:#666;margin-bottom:1mm}
     .value{font-size:10pt;font-weight:500}
     table{width:100%;border-collapse:collapse;margin:3mm 0}
-    th{background:#f5f5f5;border:1px solid #ccc;padding:2mm 3mm;font-size:9pt;text-align:left}
+    th{background:#F7F8FA;border:1px solid #ccc;padding:2mm 3mm;font-size:9pt;text-align:left}
     td{border:1px solid #ddd;padding:2mm 3mm;font-size:10pt}
-    .total{font-weight:bold;background:#f9f9f9}
+    .total{font-weight:bold;background:#F7F8FA}
     .stamp{border:2px solid #ccc;padding:3mm;min-height:20mm;margin-top:4mm;font-size:8pt;color:#999}
     .sign{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8mm;margin-top:8mm}
     .sign-box{border-top:1px solid #333;padding-top:2mm;font-size:8pt;text-align:center}

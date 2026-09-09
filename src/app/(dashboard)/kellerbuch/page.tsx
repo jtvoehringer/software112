@@ -13,18 +13,18 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  ernte:        { label: 'Ernte',        color: 'bg-yellow-100 text-yellow-700' },
-  gaerung:      { label: 'Gärung',       color: 'bg-orange-100 text-orange-700' },
-  ausbau:       { label: 'Ausbau',       color: 'bg-blue-100 text-blue-700' },
-  abfuellung:   { label: 'Abfüllung',   color: 'bg-purple-100 text-purple-700' },
-  abgeschlossen:{ label: 'Abgeschlossen',color: 'bg-green-100 text-green-700' },
+  ernte:        { label: 'Ernte',        color: 'bg-s112-warn-bg text-s112-warn-fg' },
+  gaerung:      { label: 'Gärung',       color: 'bg-s112-warn-bg text-s112-warn-fg' },
+  ausbau:       { label: 'Ausbau',       color: 'bg-s112-blue-100 text-s112-blue-700' },
+  abfuellung:   { label: 'Abfüllung',   color: 'bg-[#F2F3F5] text-s112-text-1' },
+  abgeschlossen:{ label: 'Abgeschlossen',color: 'bg-s112-ok-bg text-s112-ok-fg' },
 }
 
 const WEINART_BADGE: Record<string, { label: string; color: string }> = {
-  weiss:    { label: 'Weiß',    color: 'bg-yellow-100 text-yellow-800' },
-  rot:      { label: 'Rot',     color: 'bg-red-100 text-red-800' },
-  rose:     { label: 'Rosé',    color: 'bg-pink-100 text-pink-800' },
-  unbekannt:{ label: '?',       color: 'bg-gray-100 text-gray-500' },
+  weiss:    { label: 'Weiß',    color: 'bg-s112-warn-bg text-s112-warn-fg' },
+  rot:      { label: 'Rot',     color: 'bg-s112-err-bg text-s112-err-fg' },
+  rose:     { label: 'Rosé',    color: 'bg-[#F2F3F5] text-s112-text-1' },
+  unbekannt:{ label: '?',       color: 'bg-[#F2F3F5] text-s112-text-2' },
 }
 
 export default async function KellerbuchPage() {
@@ -96,27 +96,27 @@ export default async function KellerbuchPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Kellerbuch</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Kellerbuch</h1>
           <p className="text-sm text-s112-muted mt-0.5">Übersicht Behälter &amp; Chargen</p>
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-8">
-        <Link href="/kellerbuch/gebinde" className="card text-center p-4 hover:shadow-md hover:border-s112-teal/30 transition-all cursor-pointer">
-          <p className="text-3xl font-bold text-s112-teal">{behaelter.filter((b: R) => b.aktiv).length}</p>
+        <Link href="/kellerbuch/gebinde" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
+          <p className="text-3xl font-semibold text-s112-blue-700">{behaelter.filter((b: R) => b.aktiv).length}</p>
           <p className="text-xs text-s112-muted mt-1">Aktive Behälter</p>
-          <p className="text-[10px] text-s112-teal/60 mt-1">→ Gebinde verwalten</p>
+          <p className="text-[10px] text-s112-blue-700/60 mt-1">→ Gebinde verwalten</p>
         </Link>
-        <Link href="/kellerbuch/weinausbau" className="card text-center p-4 hover:shadow-md hover:border-s112-teal/30 transition-all cursor-pointer">
-          <p className="text-3xl font-bold text-s112-teal">{aktiveChargen.length}</p>
+        <Link href="/kellerbuch/weinausbau" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
+          <p className="text-3xl font-semibold text-s112-blue-700">{aktiveChargen.length}</p>
           <p className="text-xs text-s112-muted mt-1">Laufende Chargen</p>
-          <p className="text-[10px] text-s112-teal/60 mt-1">→ Weinausbau</p>
+          <p className="text-[10px] text-s112-blue-700/60 mt-1">→ Weinausbau</p>
         </Link>
-        <Link href="/kellerbuch/rueckverfolgung" className="card text-center p-4 hover:shadow-md hover:border-s112-teal/30 transition-all cursor-pointer">
-          <p className="text-3xl font-bold text-s112-teal">{fmtLiter(gesamtLiter)}</p>
+        <Link href="/kellerbuch/rueckverfolgung" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
+          <p className="text-3xl font-semibold text-s112-blue-700">{fmtLiter(gesamtLiter)}</p>
           <p className="text-xs text-s112-muted mt-1">Liter in Ausbau</p>
-          <p className="text-[10px] text-s112-teal/60 mt-1">→ Rückverfolgung</p>
+          <p className="text-[10px] text-s112-blue-700/60 mt-1">→ Rückverfolgung</p>
         </Link>
       </div>
 
@@ -135,7 +135,7 @@ export default async function KellerbuchPage() {
               <div className="flex items-center gap-3 px-4 py-3 bg-s112-bg border-b border-s112-border">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-gray-800 text-sm">{b.name}</span>
+                    <span className="font-semibold text-s112-text text-sm">{b.name}</span>
                     {b.standort && <span className="text-xs text-s112-muted">{b.standort}</span>}
                     {kapazitaet && (
                       <span className="text-xs text-s112-muted">
@@ -145,32 +145,32 @@ export default async function KellerbuchPage() {
                   </div>
                   {auslastung !== null && (
                     <div className="mt-1.5 flex items-center gap-2">
-                      <div className="flex-1 bg-gray-200 rounded-full h-1.5 max-w-40">
+                      <div className="flex-1 bg-s112-line rounded-full h-1.5 max-w-40">
                         <div
-                          className={`h-1.5 rounded-full ${literImBehaelter < 0 ? 'bg-red-500' : auslastung > 90 ? 'bg-amber-500' : 'bg-s112-teal'}`}
+                          className={`h-1.5 rounded-full ${literImBehaelter < 0 ? 'bg-s112-err' : auslastung > 90 ? 'bg-s112-warn' : 'bg-s112-teal'}`}
                           style={{ width: `${Math.max(0, Math.min(100, auslastung))}%` }}
                         />
                       </div>
-                      <span className={`text-xs tabular-nums ${literImBehaelter < 0 ? 'text-red-600 font-semibold' : 'text-gray-600'}`}>
+                      <span className={`text-xs tabular-nums ${literImBehaelter < 0 ? 'text-s112-err-fg font-semibold' : 'text-s112-text-2'}`}>
                         {fmtLiter(literImBehaelter)} / {fmtLiter(kapazitaet)}
                       </span>
                     </div>
                   )}
                   {!kapazitaet && literImBehaelter !== 0 && (
-                    <p className={`text-xs mt-0.5 ${literImBehaelter < 0 ? 'text-red-600 font-semibold' : 'text-gray-600'}`}>
+                    <p className={`text-xs mt-0.5 ${literImBehaelter < 0 ? 'text-s112-err-fg font-semibold' : 'text-s112-text-2'}`}>
                       {fmtLiter(literImBehaelter)} belegt
                     </p>
                   )}
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <Link href={`/kellerbuch/behaelter/${b.id}/bewegungen`}
-                    className="text-xs text-s112-teal hover:underline whitespace-nowrap font-medium">
+                    className="text-xs text-s112-blue-700 hover:underline whitespace-nowrap font-medium">
                     Bewegungen →
                   </Link>
                   {writeOk && (
                     <Link href={`/kellerbuch/behaelter/${b.id}`}
                       title="Bearbeiten" aria-label="Bearbeiten"
-                      className="text-s112-muted hover:text-s112-teal">
+                      className="text-s112-muted hover:text-s112-blue-700">
                       <Pencil className="w-4 h-4" />
                     </Link>
                   )}
@@ -179,7 +179,7 @@ export default async function KellerbuchPage() {
 
               {/* Negativer Bestand – Warnung */}
               {literImBehaelter < 0 && (
-                <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border-b border-red-200 text-red-700 text-xs font-medium">
+                <div className="flex items-center gap-2 px-4 py-2 bg-s112-err-bg border-b border-s112-err/30 text-s112-err-fg text-xs font-medium">
                   Negativer Bestand: {fmtLiter(literImBehaelter)} — Buchungsfehler prüfen
                 </div>
               )}
@@ -196,16 +196,16 @@ export default async function KellerbuchPage() {
                   </colgroup>
                   <thead>
                     <tr className="border-b border-s112-border/50">
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500">Charge</th>
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500">Jg.</th>
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500">Status</th>
-                      <th className="text-right px-4 py-2 text-xs font-medium text-gray-500">Liter</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-s112-text-2">Charge</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-s112-text-2">Jg.</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-s112-text-2">Status</th>
+                      <th className="text-right px-4 py-2 text-xs font-medium text-s112-text-2">Liter</th>
                       <th className="px-4 py-2" />
                     </tr>
                   </thead>
                   <tbody>
                     {chargen.map((w: R) => {
-                      const st = STATUS_LABELS[w.status] ?? { label: w.status, color: 'bg-gray-100 text-gray-600' }
+                      const st = STATUS_LABELS[w.status] ?? { label: w.status, color: 'bg-[#F2F3F5] text-s112-text-2' }
                       // Bei einer einzigen Charge im Behälter: View-Wert (event-basiert) verwenden,
                       // da weinausbau.menge_liter durch direkte Bearbeitung veralten kann
                       const menge = chargen.length === 1
@@ -215,7 +215,7 @@ export default async function KellerbuchPage() {
                       const wa = WEINART_BADGE[w.weinart ?? 'unbekannt'] ?? WEINART_BADGE.unbekannt
                       return (
                         <tr key={w.id} className={`relative border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40 cursor-pointer ${istEB ? 'opacity-75' : ''}`}>
-                          <td className="px-4 py-2.5 font-medium text-gray-800">
+                          <td className="px-4 py-2.5 font-medium text-s112-text">
                             <Link href={`/kellerbuch/weinausbau/${w.id}`}
                               className="after:absolute after:inset-0">
                               {w.name}
@@ -230,12 +230,12 @@ export default async function KellerbuchPage() {
                           <td className="px-4 py-2.5">
                             <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
                           </td>
-                          <td className="px-4 py-2.5 text-right tabular-nums font-medium text-gray-800">
+                          <td className="px-4 py-2.5 text-right tabular-nums font-medium text-s112-text">
                             {menge > 0
                               ? fmtLiter(menge)
                               : menge < 0
-                                ? <span className="text-red-600 font-semibold">{fmtLiter(menge)}</span>
-                                : <span className="text-red-500">0,00 L</span>}
+                                ? <span className="text-s112-err-fg font-semibold">{fmtLiter(menge)}</span>
+                                : <span className="text-s112-err">0,00 L</span>}
                           </td>
                           {/* Abfüllen-Aktion bewusst entfernt (5.8.2026) - erfolgt jetzt nur
                               noch auf der Chargen-Detailseite, nicht mehr aus der Übersicht. */}
@@ -255,8 +255,8 @@ export default async function KellerbuchPage() {
         {/* Chargen ohne Behälter */}
         {chargenOhneBehaelter.length > 0 && (
           <div className="card p-0 overflow-hidden">
-            <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border-b border-amber-200">
-              <span className="font-semibold text-amber-800 text-sm">Chargen ohne Behälterzuweisung</span>
+            <div className="flex items-center gap-3 px-4 py-3 bg-s112-warn-bg border-b border-s112-warn/30">
+              <span className="font-semibold text-s112-warn-fg text-sm">Chargen ohne Behälterzuweisung</span>
             </div>
             <table className="w-full text-sm table-fixed">
               <colgroup>
@@ -268,10 +268,10 @@ export default async function KellerbuchPage() {
               </colgroup>
               <tbody>
                 {chargenOhneBehaelter.map((w: R) => {
-                  const st = STATUS_LABELS[w.status] ?? { label: w.status, color: 'bg-gray-100 text-gray-600' }
+                  const st = STATUS_LABELS[w.status] ?? { label: w.status, color: 'bg-[#F2F3F5] text-s112-text-2' }
                   return (
                     <tr key={w.id} className="relative border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40 cursor-pointer">
-                      <td className="px-4 py-2.5 font-medium text-gray-800">
+                      <td className="px-4 py-2.5 font-medium text-s112-text">
                         <Link href={`/kellerbuch/weinausbau/${w.id}`}
                           className="after:absolute after:inset-0">
                           {w.name}
@@ -281,7 +281,7 @@ export default async function KellerbuchPage() {
                       <td className="px-4 py-2.5">
                         <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
                       </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-gray-800">
+                      <td className="px-4 py-2.5 text-right tabular-nums text-s112-text">
                         {fmtLiter(parseFloat(w.menge_liter) || 0)}
                       </td>
                       <td className="relative z-10 px-4 py-2.5 text-right" />
@@ -299,7 +299,7 @@ export default async function KellerbuchPage() {
             <p className="text-sm text-s112-muted">Noch keine Behälter angelegt</p>
             {writeOk && (
               <Link href="/kellerbuch/behaelter/neu"
-                className="mt-3 inline-block text-xs text-s112-teal font-semibold hover:underline">
+                className="mt-3 inline-block text-xs text-s112-blue-700 font-semibold hover:underline">
                 + Ersten Behälter anlegen
               </Link>
             )}

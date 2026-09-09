@@ -25,12 +25,12 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: 700, marginBottom: 4 },
   nr: { fontSize: 10.5, fontWeight: 700, marginBottom: 4 },
   metaText: { fontSize: 9, color: '#555' },
-  recipientBlock: { marginBottom: 24, padding: 10, borderWidth: 1, borderColor: '#e5e5e5', alignSelf: 'flex-start', minWidth: 200 },
+  recipientBlock: { marginBottom: 24, padding: 10, borderWidth: 1, borderColor: '#EDEEF1', alignSelf: 'flex-start', minWidth: 200 },
   rname: { fontSize: 10.5, fontWeight: 700 },
   rdetail: { fontSize: 9, color: '#555' },
-  tableHead: { flexDirection: 'row', borderBottomWidth: 2, borderBottomColor: '#35609E', paddingBottom: 4, marginBottom: 4 },
+  tableHead: { flexDirection: 'row', borderBottomWidth: 2, borderBottomColor: '#2F63AC', paddingBottom: 4, marginBottom: 4 },
   th: { fontSize: 8, color: '#666', textTransform: 'uppercase' },
-  posRow: { flexDirection: 'row', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#f2f2f2' },
+  posRow: { flexDirection: 'row', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#EDEEF1' },
   posName: { flex: 1, paddingRight: 6 },
   posTitle: { fontSize: 9.5, fontWeight: 700 },
   posSub: { fontSize: 8, color: '#888', marginTop: 1 },
@@ -45,14 +45,14 @@ const styles = StyleSheet.create({
   ustBlock: { alignSelf: 'flex-end', width: 220, marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#eee' },
   ustRow: { flexDirection: 'row', justifyContent: 'space-between', fontSize: 8.5, color: '#777', paddingVertical: 1 },
   ustTotal: { flexDirection: 'row', justifyContent: 'space-between', fontSize: 9.5, fontWeight: 700, color: '#333', marginTop: 3, paddingTop: 3, borderTopWidth: 1, borderTopColor: '#eee' },
-  skonto: { marginTop: 16, padding: 8, backgroundColor: '#fef3e0', fontSize: 9, color: '#92620a' },
-  payment: { marginTop: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#eeeeee' },
+  skonto: { marginTop: 16, padding: 8, backgroundColor: '#FBF3E3', fontSize: 9, color: '#8A6415' },
+  payment: { marginTop: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#EDEEF1' },
   paymentH: { fontSize: 8.5, fontWeight: 700, color: '#444', textTransform: 'uppercase', marginBottom: 4 },
   paymentP: { fontSize: 9, color: '#555', marginTop: 2 },
   notes: { fontSize: 9, color: '#666', fontStyle: 'italic', marginTop: 16 },
   footer: {
     position: 'absolute', bottom: 30, left: 40, right: 40, fontSize: 7.5, color: '#aaa',
-    textAlign: 'center', borderTopWidth: 1, borderTopColor: '#eeeeee', paddingTop: 8,
+    textAlign: 'center', borderTopWidth: 1, borderTopColor: '#EDEEF1', paddingTop: 8,
   },
 })
 
@@ -99,7 +99,7 @@ export type VerkaufRechnungPdfProps = {
 
 export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
   const { betrieb, rechnung, kunde, positionen, gesamt, gesamtNetto, ustGruppen, skonto, bank, fusstext } = props
-  const color = '#35609E'
+  const color = '#2F63AC'
   // react-pdf's <Image> unterstützt zuverlässig nur Raster-Formate (PNG/JPG).
   // SVG-Logos (z. B. das App-Platzhalter-Logo mit eingebettetem <text>) lassen
   // sich damit nicht sicher einbetten – react-pdf versucht dabei intern eine

@@ -64,9 +64,9 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
   if (!aktiv) return (
     <div className="p-8 max-w-2xl mx-auto text-center py-20">
       <Bot className="w-12 h-12 text-s112-muted mx-auto mb-4" />
-      <h1 className="text-2xl font-bold text-gray-800 mb-2">KI-Modul nicht aktiv</h1>
+      <h1 className="text-2xl font-semibold text-s112-text mb-2">KI-Modul nicht aktiv</h1>
       <p className="text-s112-muted mb-4">Das Modul „Frag dein Weingut" ist für diesen Betrieb noch nicht freigeschaltet.</p>
-      <Link href="/admin/mandanten" className="text-s112-teal hover:underline text-sm">Zum Admin-Bereich</Link>
+      <Link href="/admin/mandanten" className="text-s112-blue-700 hover:underline text-sm">Zum Admin-Bereich</Link>
     </div>
   )
 
@@ -85,14 +85,14 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><Bot className="w-6 h-6" /> Frag dein Weingut</h1>
+          <h1 className="text-2xl font-semibold text-s112-text flex items-center gap-2"><Bot className="w-6 h-6" /> Frag dein Weingut</h1>
           <p className="text-sm text-s112-muted mt-1">Stelle Fragen über deine Betriebsdaten in natürlicher Sprache</p>
         </div>
         <div className="text-right text-xs text-s112-muted">
-          <p className="font-medium text-gray-700 capitalize">{paket === 'unlimited' ? 'Unlimited' : paket.charAt(0).toUpperCase() + paket.slice(1)}-Paket</p>
+          <p className="font-medium text-s112-text-1 capitalize">{paket === 'unlimited' ? 'Unlimited' : paket.charAt(0).toUpperCase() + paket.slice(1)}-Paket</p>
           <p>{paket === 'unlimited' ? `${verbraucht} Abfragen` : `${verbraucht} / ${limit} Abfragen`}</p>
           {paket !== 'unlimited' && (
-            <div className="w-24 bg-gray-100 rounded-full h-1 mt-1 ml-auto">
+            <div className="w-24 bg-[#F2F3F5] rounded-full h-1 mt-1 ml-auto">
               <div className="bg-s112-teal h-1 rounded-full" style={{ width: `${Math.min(100,(verbraucht/limit)*100)}%` }} />
             </div>
           )}
@@ -127,7 +127,7 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
           <div className="flex flex-wrap gap-2">
             {BEISPIELE.map(b => (
               <button key={b} onClick={() => abfragen(null, b)}
-                className="text-xs bg-white border border-s112-border text-gray-600 px-3 py-1.5 rounded-full hover:bg-s112-bg hover:text-s112-teal transition-colors">
+                className="text-xs bg-white border border-s112-border text-s112-text-2 px-3 py-1.5 rounded-full hover:bg-s112-bg hover:text-s112-blue-700 transition-colors">
                 {b}
               </button>
             ))}
@@ -137,9 +137,9 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
 
       {/* Fehler */}
       {fehler && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
-          <p className="text-sm text-red-700 font-medium">Fehler</p>
-          <p className="text-sm text-red-600 mt-1">{fehler}</p>
+        <div className="bg-s112-err-bg border border-s112-err/30 rounded-xl p-4 mb-6">
+          <p className="text-sm text-s112-err-fg font-medium">Fehler</p>
+          <p className="text-sm text-s112-err-fg mt-1">{fehler}</p>
         </div>
       )}
 
@@ -149,9 +149,9 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
           {/* Zusammenfassung */}
           <div className="bg-s112-teal/5 border border-s112-teal/20 rounded-xl p-4">
             <div className="flex items-start gap-3">
-              <Bot className="w-5 h-5 text-s112-teal flex-shrink-0" />
+              <Bot className="w-5 h-5 text-s112-blue-700 flex-shrink-0" />
               <div>
-                <p className="text-sm font-medium text-gray-800">{ergebnis.zusammenfassung}</p>
+                <p className="text-sm font-medium text-s112-text">{ergebnis.zusammenfassung}</p>
                 {ergebnis.empfehlung && (
                   <p className="text-xs text-s112-muted mt-1 italic">{ergebnis.empfehlung}</p>
                 )}
@@ -165,10 +165,10 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
           {/* SQL-Transparenz */}
           {ergebnis.sql && (
             <details className="text-xs">
-              <summary className="cursor-pointer text-s112-muted hover:text-s112-teal select-none">
+              <summary className="cursor-pointer text-s112-muted hover:text-s112-blue-700 select-none">
                 Verwendete Abfrage anzeigen
               </summary>
-              <pre className="mt-2 bg-gray-50 border border-s112-border rounded-lg p-3 overflow-x-auto whitespace-pre-wrap text-gray-700">
+              <pre className="mt-2 bg-s112-bg border border-s112-border rounded-lg p-3 overflow-x-auto whitespace-pre-wrap text-s112-text-1">
                 {ergebnis.sql}
               </pre>
             </details>
@@ -180,7 +180,7 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
               {gesamtCols.map((col: string) => (
                 <div key={col} className="text-sm">
                   <span className="text-s112-muted">{col.replace(/^gesamt_/i, 'Gesamt ').replace(/_/g, ' ')}:</span>{' '}
-                  <span className="font-semibold text-gray-800">{formatWert(ergebnis.ergebnisse[0][col])}</span>
+                  <span className="font-semibold text-s112-text">{formatWert(ergebnis.ergebnisse[0][col])}</span>
                 </div>
               ))}
             </div>
@@ -188,7 +188,7 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
 
           {/* Tabelle */}
           {hatZeilen && cols.length > 0 ? (
-            <div className="bg-white rounded-2xl border border-s112-border overflow-x-auto">
+            <div className="bg-white rounded-xl border border-s112-border overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-s112-bg text-xs text-s112-muted uppercase tracking-wide">
                   <tr>
@@ -203,7 +203,7 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
                   {ergebnis.ergebnisse.map((row: R, i: number) => (
                     <tr key={i} className="hover:bg-s112-bg/30">
                       {cols.map((col: string) => (
-                        <td key={col} className="px-4 py-2.5 text-gray-700 whitespace-nowrap">
+                        <td key={col} className="px-4 py-2.5 text-s112-text-1 whitespace-nowrap">
                           {formatWert(row[col])}
                         </td>
                       ))}
@@ -232,13 +232,13 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
             const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
             a.download = `ki-abfrage-${new Date().toISOString().slice(0,10)}.csv`; a.click()
-          }} className="text-xs border border-s112-border text-gray-600 px-3 py-1.5 rounded-lg hover:bg-s112-bg">
+          }} className="text-xs border border-s112-border text-s112-text-2 px-3 py-1.5 rounded-lg hover:bg-s112-bg">
             CSV / Excel
           </button>
 
           {/* Neue Frage */}
           <button onClick={() => { setErgebnis(null); setFrage('') }}
-            className="text-sm text-s112-teal hover:underline">
+            className="text-sm text-s112-blue-700 hover:underline">
             Neue Frage stellen
           </button>
         </div>

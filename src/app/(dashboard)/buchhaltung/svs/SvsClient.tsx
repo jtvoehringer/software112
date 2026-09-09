@@ -107,7 +107,7 @@ function BeitraegeTab({ v, p, jahr, opt, setOpt, einkuenfteVorjahr, einkuenfte, 
         <div className={`bg-white border border-s112-line rounded-xl p-[18px] space-y-3 ${opt.svs_option === 'pauschal' ? 'ring-1 ring-s112-teal' : ''}`}>
           <div className="flex items-center justify-between">
             <h2 className="font-display font-semibold text-[14.5px] text-s112-text">Pauschalsystem (Einheitswert)</h2>
-            {opt.svs_option === 'pauschal' && <span className="text-[10.5px] font-semibold uppercase tracking-wide text-s112-teal">gewählt</span>}
+            {opt.svs_option === 'pauschal' && <span className="text-[10.5px] font-semibold uppercase tracking-wide text-s112-blue-700">gewählt</span>}
           </div>
           <table className="w-full text-sm">
             <tbody>
@@ -127,7 +127,7 @@ function BeitraegeTab({ v, p, jahr, opt, setOpt, einkuenfteVorjahr, einkuenfte, 
         <div className={`bg-white border border-s112-line rounded-xl p-[18px] space-y-3 ${opt.svs_option === 'option' ? 'ring-1 ring-s112-teal' : ''}`}>
           <div className="flex items-center justify-between">
             <h2 className="font-display font-semibold text-[14.5px] text-s112-text">Beitragsgrundlagenoption (Einkünfte)</h2>
-            {opt.svs_option === 'option' && <span className="text-[10.5px] font-semibold uppercase tracking-wide text-s112-teal">gewählt{opt.svs_option_seit ? ` seit ${opt.svs_option_seit.split('-').reverse().join('.')}` : ''}</span>}
+            {opt.svs_option === 'option' && <span className="text-[10.5px] font-semibold uppercase tracking-wide text-s112-blue-700">gewählt{opt.svs_option_seit ? ` seit ${opt.svs_option_seit.split('-').reverse().join('.')}` : ''}</span>}
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Einkünfte aus Land- und Forstwirtschaft lt. Einkommensteuerbescheid {einkuenfteVorjahr.jahr} (Jahr)</label>
@@ -156,7 +156,7 @@ function BeitraegeTab({ v, p, jahr, opt, setOpt, einkuenfteVorjahr, einkuenfte, 
 
       {v.option && (
         <div className={`bg-white border border-s112-line rounded-xl p-[18px] flex items-start gap-3 ${guenstiger === 'option' ? 'bg-s112-ok-bg' : 'bg-s112-bg'}`}>
-          <CheckCircle2 size={20} className="text-s112-teal mt-0.5 flex-shrink-0" />
+          <CheckCircle2 size={20} className="text-s112-blue-700 mt-0.5 flex-shrink-0" />
           <div className="text-sm">
             <p className="font-semibold text-s112-text">
               {Math.abs(v.ersparnisOptionJahr!) < 1
@@ -260,7 +260,7 @@ function EinheitswerteTab({ gst, setGst, darfSchreiben }: { gst: Gst[]; setGst: 
       </div>
       <div className="bg-white border border-s112-line rounded-xl overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-[#FBFBFC] text-xs text-s112-text-2">
+          <thead className="bg-[#F7F8FA] text-xs text-s112-text-2">
             <tr>
               <th className="text-left px-3 py-2 font-medium">KG</th>
               <th className="text-left px-3 py-2 font-medium">GST-Nr.</th>

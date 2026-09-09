@@ -66,14 +66,14 @@ export default async function WeinbuecherSammlungPage({
       {/* Kopf (nicht gedruckt) */}
       <div className="print:hidden space-y-4">
         <nav className="flex items-center gap-2 text-sm text-s112-muted">
-          <Link href="/reports" className="hover:text-s112-teal transition-colors">Auswertungen</Link>
+          <Link href="/reports" className="hover:text-s112-blue-700 transition-colors">Auswertungen</Link>
           <span>/</span>
-          <span className="text-gray-700 font-medium">Weinbuch-Sammlung</span>
+          <span className="text-s112-text-1 font-medium">Weinbuch-Sammlung</span>
         </nav>
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <BookOpen size={22} strokeWidth={1.75} className="text-s112-teal" />Weinbuch-Sammlung
+            <h1 className="text-2xl font-semibold text-s112-text flex items-center gap-2">
+              <BookOpen size={22} strokeWidth={1.75} className="text-s112-blue-700" />Weinbuch-Sammlung
             </h1>
             <p className="text-sm text-s112-muted mt-0.5">
               {weinbuecher.length} {weinbuecher.length === 1 ? 'Charge' : 'Chargen'}
@@ -93,7 +93,7 @@ export default async function WeinbuecherSammlungPage({
         weinbuecher.map((wb, i) => (
           <div key={wb.wa.id} className={i > 0 ? 'break-before-page pt-6' : ''}>
             <div className="border-b border-s112-border pb-3 mb-5">
-              <h2 className="text-xl font-bold text-gray-900">{wb.wa.name}</h2>
+              <h2 className="text-xl font-semibold text-s112-text">{wb.wa.name}</h2>
               <p className="text-sm text-s112-muted mt-0.5">
                 {wb.wa.jahrgang ? `Jahrgang ${wb.wa.jahrgang}` : ''}
                 {wb.wa.rebsorte ? ` · ${formatRebsorteMitKuerzel(wb.wa.rebsorte)}` : ''}

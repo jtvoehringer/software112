@@ -30,12 +30,12 @@ function SortTh({
   const active = col === current
   return (
     <th
-      className={`px-4 py-3 font-semibold text-gray-700 cursor-pointer select-none hover:text-s112-teal transition-colors ${align === 'right' ? 'text-right' : 'text-left'}`}
+      className={`px-4 py-3 font-semibold text-s112-text-1 cursor-pointer select-none hover:text-s112-blue-700 transition-colors ${align === 'right' ? 'text-right' : 'text-left'}`}
       onClick={() => onSort(col)}
     >
       <span className="inline-flex items-center gap-1">
         {label}
-        <span className={`text-xs ${active ? 'text-s112-teal' : 'text-gray-300'}`}>
+        <span className={`text-xs ${active ? 'text-s112-blue-700' : 'text-s112-tertiary'}`}>
           {active ? (dir === 'asc' ? '▲' : '▼') : '⇅'}
         </span>
       </span>
@@ -96,8 +96,8 @@ export default function WeingartenTable({
             <SortTh label="Rebsorte"       col="rebsorte"       current={sortCol} dir={sortDir} onSort={handleSort} />
             <SortTh label="Fläche (ha)"    col="flaeche_ha"     current={sortCol} dir={sortDir} onSort={handleSort} align="right" />
             <SortTh label="Bewirtschaftung" col="bewirtschaftung" current={sortCol} dir={sortDir} onSort={handleSort} />
-            <th className="text-center px-4 py-3 font-semibold text-gray-700">Status</th>
-            <th className="text-right px-4 py-3 font-semibold text-gray-700">Aktionen</th>
+            <th className="text-center px-4 py-3 font-semibold text-s112-text-1">Status</th>
+            <th className="text-right px-4 py-3 font-semibold text-s112-text-1">Aktionen</th>
           </tr>
         </thead>
         <tbody>
@@ -106,7 +106,7 @@ export default function WeingartenTable({
               key={w.id}
               className={`border-b border-s112-border last:border-0 ${!w.aktiv ? 'opacity-50' : ''} ${i % 2 === 0 ? '' : 'bg-s112-bg/50'}`}
             >
-              <td className="px-4 py-3 font-medium text-gray-900">{w.name}</td>
+              <td className="px-4 py-3 font-medium text-s112-text">{w.name}</td>
               <td className="px-4 py-3 text-s112-muted">{w.ried ?? '–'}</td>
               <td className="px-4 py-3">{w.rebsorte ?? '–'}</td>
               <td className="px-4 py-3 text-right tabular-nums">
@@ -116,17 +116,17 @@ export default function WeingartenTable({
                 {w.bewirtschaftung ? (
                   <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
                     w.bewirtschaftung === 'bio' || w.bewirtschaftung === 'demeter'
-                      ? 'bg-green-100 text-green-700'
+                      ? 'bg-s112-ok-bg text-s112-ok-fg'
                       : w.bewirtschaftung === 'in_umstellung'
-                      ? 'bg-yellow-100 text-yellow-700'
-                      : 'bg-gray-100 text-gray-600'
+                      ? 'bg-s112-warn-bg text-s112-warn-fg'
+                      : 'bg-[#F2F3F5] text-s112-text-2'
                   }`}>
                     {BEWIRTSCHAFTUNG_LABELS[w.bewirtschaftung] ?? w.bewirtschaftung}
                   </span>
                 ) : '–'}
               </td>
               <td className="px-4 py-3 text-center">
-                <span className={`inline-block w-2 h-2 rounded-full ${w.aktiv ? 'bg-green-500' : 'bg-gray-300'}`} />
+                <span className={`inline-block w-2 h-2 rounded-full ${w.aktiv ? 'bg-s112-ok' : 'bg-s112-line-str'}`} />
               </td>
               <td className="px-4 py-3 text-right">
                 <div className="flex items-center justify-end gap-3">
@@ -134,7 +134,7 @@ export default function WeingartenTable({
                     <Link
                       href={`/weingarten/${w.id}`}
                       title="Bearbeiten" aria-label="Bearbeiten"
-                      className="text-s112-teal hover:text-s112-teal/70"
+                      className="text-s112-blue-700 hover:text-s112-blue-700/70"
                     >
                       <Pencil size={14} />
                     </Link>
@@ -143,7 +143,7 @@ export default function WeingartenTable({
                     <button
                       onClick={() => handleDelete(w.id, w.name)}
                       title="Löschen" aria-label="Löschen"
-                      className="text-red-400 hover:text-red-600"
+                      className="text-s112-err hover:text-s112-err-fg"
                     >
                       <Trash2 size={14} />
                     </button>

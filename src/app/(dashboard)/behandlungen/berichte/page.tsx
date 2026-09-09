@@ -136,13 +136,13 @@ export default async function BerichtePage() {
   return (
     <div>
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-6">
-        <Link href="/behandlungen" className="hover:text-s112-teal transition-colors">Maßnahmen</Link>
+        <Link href="/behandlungen" className="hover:text-s112-blue-700 transition-colors">Maßnahmen</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Berichte</span>
+        <span className="text-s112-text-1 font-medium">Berichte</span>
       </div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Berichte & Aufzeichnungen</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Berichte & Aufzeichnungen</h1>
           <p className="text-sm text-s112-muted mt-0.5">Anteilige Mittelverteilung · Cu-Bilanz · Behördennachweise</p>
         </div>
       </div>

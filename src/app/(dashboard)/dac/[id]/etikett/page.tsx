@@ -61,18 +61,18 @@ export default async function EtikettPage({ params }: { params: Promise<{ id: st
       {/* Breadcrumb + Aktionen (ausgeblendet beim Drucken) */}
       <div className="flex items-center justify-between print:hidden">
         <nav className="flex items-center gap-2 text-sm text-s112-muted">
-          <Link href="/dac" className="hover:text-s112-teal">Prüfnummern</Link>
+          <Link href="/dac" className="hover:text-s112-blue-700">Prüfnummern</Link>
           <span>/</span>
-          <Link href={`/dac/${id}`} className="hover:text-s112-teal">{dac.bezeichnung}</Link>
+          <Link href={`/dac/${id}`} className="hover:text-s112-blue-700">{dac.bezeichnung}</Link>
           <span>/</span>
-          <span className="text-gray-700 font-medium">Etikett</span>
+          <span className="text-s112-text-1 font-medium">Etikett</span>
         </nav>
         <PrintButton />
       </div>
 
       {/* Hinweis wenn noch keine Prüfnummer */}
       {!dac.pruefnummer && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800 print:hidden">
+        <div className="bg-s112-warn-bg border border-s112-warn/30 rounded-xl px-4 py-3 text-sm text-s112-warn-fg print:hidden">
           Noch keine Prüfnummer vergeben – Etikett enthält Platzhalterdaten. Bitte erst nach Genehmigung drucken.
         </div>
       )}
@@ -92,23 +92,23 @@ export default async function EtikettPage({ params }: { params: Promise<{ id: st
               />
             )}
             {s.betrieb_name && (
-              <p className="text-base font-bold text-gray-900">{s.betrieb_name}</p>
+              <p className="text-base font-semibold text-s112-text">{s.betrieb_name}</p>
             )}
             {(s.betrieb_strasse || s.betrieb_plz || s.betrieb_ort) && (
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-s112-text-2">
                 {[s.betrieb_strasse, [s.betrieb_plz, s.betrieb_ort].filter(Boolean).join(' ')].filter(Boolean).join(', ')}
               </p>
             )}
             {s.betrieb_uid && (
-              <p className="text-xs text-gray-400 mt-0.5">UID: {s.betrieb_uid}</p>
+              <p className="text-xs text-s112-tertiary mt-0.5">UID: {s.betrieb_uid}</p>
             )}
           </div>
           {dac.pruefnummer && (
             <div className="text-right">
-              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Prüfnummer</p>
-              <p className="text-2xl font-bold text-s112-teal font-mono mt-0.5">{dac.pruefnummer}</p>
+              <p className="text-xs text-s112-tertiary font-medium uppercase tracking-wide">Prüfnummer</p>
+              <p className="text-2xl font-semibold text-s112-blue-700 font-mono mt-0.5">{dac.pruefnummer}</p>
               {dac.bescheid_am && (
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-xs text-s112-tertiary mt-0.5">
                   Bescheid: {new Date(dac.bescheid_am).toLocaleDateString('de-AT')}
                 </p>
               )}
@@ -118,11 +118,11 @@ export default async function EtikettPage({ params }: { params: Promise<{ id: st
 
         {/* Weinbezeichnung */}
         <div className="text-center py-4 border-b border-s112-border">
-          <p className="text-3xl font-bold text-gray-900 tracking-tight">{dac.bezeichnung}</p>
+          <p className="text-3xl font-semibold text-s112-text tracking-tight">{dac.bezeichnung}</p>
           {dac.jahrgang && (
-            <p className="text-xl text-gray-600 mt-1">{dac.jahrgang}</p>
+            <p className="text-xl text-s112-text-2 mt-1">{dac.jahrgang}</p>
           )}
-          <p className="text-base font-semibold text-s112-teal mt-2">{regionLabel}</p>
+          <p className="text-base font-semibold text-s112-blue-700 mt-2">{regionLabel}</p>
         </div>
 
         {/* Pflichtangaben Grid */}
@@ -136,8 +136,8 @@ export default async function EtikettPage({ params }: { params: Promise<{ id: st
             ['Enthält', 'Sulfite'],
           ].map(([label, value]) => (
             <div key={label}>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{label}</p>
-              <p className="text-sm font-medium text-gray-900 mt-0.5">{value}</p>
+              <p className="text-xs font-semibold text-s112-tertiary uppercase tracking-wide">{label}</p>
+              <p className="text-sm font-medium text-s112-text mt-0.5">{value}</p>
             </div>
           ))}
         </div>
@@ -145,14 +145,14 @@ export default async function EtikettPage({ params }: { params: Promise<{ id: st
         {/* Fußzeile */}
         <div className="border-t border-s112-border pt-4 flex items-end justify-between">
           <div>
-            <p className="text-xs text-gray-400">Erzeuger &amp; Abfüller</p>
-            <p className="text-sm font-medium text-gray-700">
+            <p className="text-xs text-s112-tertiary">Erzeuger &amp; Abfüller</p>
+            <p className="text-sm font-medium text-s112-text-1">
               {s.betrieb_name ?? '–'}
               {s.betrieb_ort ? `, ${s.betrieb_ort}` : ''}
               , Österreich
             </p>
           </div>
-          <p className="text-xs text-gray-300">software:112</p>
+          <p className="text-xs text-s112-tertiary">software:112</p>
         </div>
       </div>
 

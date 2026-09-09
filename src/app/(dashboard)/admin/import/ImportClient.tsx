@@ -113,7 +113,7 @@ const TYP_LABEL: Record<ImportTyp, string> = {
 }
 
 const ebInputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
-const ebLabelCls = 'block text-xs font-medium text-gray-600 mb-1'
+const ebLabelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
 // Quote-bewusster CSV-Parser (RFC4180-artig). Ein Feld in Anführungszeichen
 // darf das Trennzeichen (oder einen Zeilenumbruch) enthalten, z.B.
@@ -287,9 +287,9 @@ export default function ImportClient({
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-2">
         <span>Administration</span>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Datenimport</span>
+        <span className="text-s112-text-1 font-medium">Datenimport</span>
       </div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+      <h1 className="text-2xl font-semibold text-s112-text mb-2 flex items-center gap-2">
         <Upload className="w-6 h-6" /> Datenimport
       </h1>
       <p className="text-sm text-s112-muted mb-6">CSV-Datei importieren – Semikolon oder Komma als Trennzeichen</p>
@@ -299,15 +299,15 @@ export default function ImportClient({
         {(Object.keys(TYP_LABEL) as ImportTyp[]).map(t => (
           <button key={t} onClick={() => { setTyp(t); setParsed(null); setMapping({}); setResult(null); setErrorMsg(null) }}
             className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
-              typ === t ? 'bg-s112-teal text-white border-s112-teal' : 'border-s112-border text-gray-600 hover:bg-s112-bg'
+              typ === t ? 'bg-s112-teal text-white border-s112-teal' : 'border-s112-border text-s112-text-2 hover:bg-s112-bg'
             }`}>
             {TYP_LABEL[t]}
           </button>
         ))}
       </div>
 
-      <div className="bg-white rounded-2xl border border-s112-border p-4 mb-5 flex flex-wrap items-center gap-4">
-        <label htmlFor="import-herkunft" className="text-sm font-medium text-gray-700">Herkunft:</label>
+      <div className="bg-white rounded-xl border border-s112-border p-4 mb-5 flex flex-wrap items-center gap-4">
+        <label htmlFor="import-herkunft" className="text-sm font-medium text-s112-text-1">Herkunft:</label>
         <input
           id="import-herkunft"
           type="text"
@@ -324,13 +324,13 @@ export default function ImportClient({
       </div>
 
       {(typ === 'kontakte' || typ === 'firmen') && (
-        <div className="bg-white rounded-2xl border border-s112-border p-4 mb-5 flex flex-wrap items-center gap-4">
-          <span className="text-sm font-medium text-gray-700">Diese Datei enthält:</span>
+        <div className="bg-white rounded-xl border border-s112-border p-4 mb-5 flex flex-wrap items-center gap-4">
+          <span className="text-sm font-medium text-s112-text-1">Diese Datei enthält:</span>
           <div className="flex gap-1">
             {(['lead', 'kunde'] as const).map(v => (
               <button key={v} onClick={() => setIstLead(v === 'lead')}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  (v === 'lead') === istLead ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:text-gray-900'
+                  (v === 'lead') === istLead ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'
                 }`}>
                 {v === 'lead' ? 'Leads' : 'Aktive Kunden'}
               </button>
@@ -345,14 +345,14 @@ export default function ImportClient({
       )}
 
       {typ === 'rieden_details' && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-5 text-sm text-blue-800">
+        <div className="bg-s112-blue-50 border border-s112-blue-100 rounded-xl p-4 mb-5 text-sm text-s112-blue-700">
           Legt Rieden mit vollen Detailfeldern (Rebsorte, Pflanzjahr, Fläche, …) an. Die Spalte
           &quot;Ried&quot; ordnet einer bestehenden Ried-Bezeichnung zu – gibt es noch keine passende,
           wird sie automatisch mit angelegt.
         </div>
       )}
       {typ === 'grundstuecke' && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-5 text-sm text-blue-800">
+        <div className="bg-s112-blue-50 border border-s112-blue-100 rounded-xl p-4 mb-5 text-sm text-s112-blue-700">
           Setzt voraus, dass die zugehörige Ried bereits über den Tab &quot;Rieden&quot;
           angelegt wurde (Zuordnung über die Spalte &quot;Ried – Bezeichnung&quot;, exakter Namensabgleich).
         </div>
@@ -363,25 +363,25 @@ export default function ImportClient({
           dieselbe Server-Action wie die Eröffnungsbestand-Erfassung im Kellerbuch
           ("Chargenformular recyceln"), leitet nach dem Speichern aber hierher zurück. */}
       {typ === 'gebinde' && (
-        <div className="bg-white rounded-2xl border border-s112-border p-6 mb-5">
-          <h2 className="font-semibold text-gray-800 mb-1">Anfangsbestandsbuchung: Charge aus Altsystem übernehmen</h2>
+        <div className="bg-white rounded-xl border border-s112-border p-6 mb-5">
+          <h2 className="font-semibold text-s112-text mb-1">Anfangsbestandsbuchung: Charge aus Altsystem übernehmen</h2>
           <p className="text-sm text-s112-muted mb-4">
             Einzelne Charge mit Restbestand aus dem Altsystem direkt in ein Gebinde einbuchen (Bestand wird auf den 1.1. des laufenden Jahres gebucht).
           </p>
 
           {ebOk && (
-            <div className="mb-4 rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-700">
+            <div className="mb-4 rounded-lg border border-s112-ok/30 bg-s112-ok-bg px-4 py-3 text-sm text-s112-ok-fg">
               Anfangsbestand wurde gespeichert.
             </div>
           )}
           {ebErr && (
-            <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="mb-4 rounded-lg border border-s112-err/30 bg-s112-err-bg px-4 py-3 text-sm text-s112-err-fg">
               <strong>Fehler beim Speichern:</strong> {ebErr}
             </div>
           )}
 
           <details className="group">
-            <summary className="cursor-pointer font-semibold text-sm text-gray-800 select-none">
+            <summary className="cursor-pointer font-semibold text-sm text-s112-text select-none">
               + Anfangsbestand erfassen
             </summary>
             <form action={createEroeffnungsbestandVonImport} className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -446,8 +446,8 @@ export default function ImportClient({
       )}
 
       {/* CSV-Upload */}
-      <div className="bg-white rounded-2xl border border-s112-border p-6 mb-5">
-        <h2 className="font-semibold text-gray-800 mb-3">1. CSV-Datei wählen</h2>
+      <div className="bg-white rounded-xl border border-s112-border p-6 mb-5">
+        <h2 className="font-semibold text-s112-text mb-3">1. CSV-Datei wählen</h2>
         <div className="flex items-center gap-4">
           <input ref={fileRef} type="file" accept=".csv,.txt" onChange={handleFile} className="hidden" />
           <button onClick={() => fileRef.current?.click()}
@@ -455,7 +455,7 @@ export default function ImportClient({
             CSV-Datei öffnen
           </button>
           {parsed && (
-            <p className="text-sm text-green-600 font-medium">
+            <p className="text-sm text-s112-ok-fg font-medium">
               {parsed.rows.length} Zeilen geladen · {parsed.headers.length} Spalten
             </p>
           )}
@@ -483,14 +483,14 @@ export default function ImportClient({
 
       {/* Spalten-Mapping */}
       {parsed && (
-        <div className="bg-white rounded-2xl border border-s112-border p-6 mb-5">
-          <h2 className="font-semibold text-gray-800 mb-4">2. Spalten zuordnen</h2>
+        <div className="bg-white rounded-xl border border-s112-border p-6 mb-5">
+          <h2 className="font-semibold text-s112-text mb-4">2. Spalten zuordnen</h2>
           <div className="grid grid-cols-2 gap-3">
             {felder.map(f => (
               <div key={f.key} className="flex items-center gap-3">
-                <label className="text-sm text-gray-700 w-48 flex-shrink-0 inline-flex items-center gap-1 min-w-0">
+                <label className="text-sm text-s112-text-1 w-48 flex-shrink-0 inline-flex items-center gap-1 min-w-0">
                   <span className="truncate" title={f.label}>{f.label}</span>
-                  {f.pflicht && <span className="text-red-500">*</span>}
+                  {f.pflicht && <span className="text-s112-err">*</span>}
                   {f.hinweis && (
                     <span title={f.hinweis} aria-label={f.hinweis}
                       className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-s112-border text-[10px] text-s112-muted cursor-help flex-shrink-0">
@@ -511,10 +511,10 @@ export default function ImportClient({
 
       {/* Import starten */}
       {parsed && (
-        <div className="bg-white rounded-2xl border border-s112-border p-6">
-          <h2 className="font-semibold text-gray-800 mb-4">3. Import starten</h2>
+        <div className="bg-white rounded-xl border border-s112-border p-6">
+          <h2 className="font-semibold text-s112-text mb-4">3. Import starten</h2>
           {!pflichtMapped && (
-            <p className="text-sm text-amber-600 mb-3">Bitte alle Pflichtfelder (*) zuordnen</p>
+            <p className="text-sm text-s112-warn-fg mb-3">Bitte alle Pflichtfelder (*) zuordnen</p>
           )}
           <button onClick={startImport} disabled={importing || !pflichtMapped}
             className="bg-s112-teal text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
@@ -524,27 +524,27 @@ export default function ImportClient({
           </button>
 
           {errorMsg && (
-            <div className="mt-4 p-4 rounded-xl border bg-red-50 border-red-200">
-              <p className="font-semibold text-sm text-red-700">Import fehlgeschlagen: {errorMsg}</p>
+            <div className="mt-4 p-4 rounded-xl border bg-s112-err-bg border-s112-err/30">
+              <p className="font-semibold text-sm text-s112-err-fg">Import fehlgeschlagen: {errorMsg}</p>
             </div>
           )}
 
           {result && (
-            <div className={`mt-4 p-4 rounded-xl border ${result.fehler === 0 ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+            <div className={`mt-4 p-4 rounded-xl border ${result.fehler === 0 ? 'bg-s112-ok-bg border-s112-ok/30' : 'bg-s112-warn-bg border-s112-warn/30'}`}>
               <p className="font-semibold text-sm">
                 {result.ok} erfolgreich · {result.fehler} Fehler
                 {(result.duplikate?.length ?? 0) > 0 && ` · ${result.duplikate!.length} Duplikate übersprungen`}
               </p>
               {(result.details ?? []).length > 0 && (
-                <ul className="mt-2 text-xs text-gray-600 space-y-0.5">
+                <ul className="mt-2 text-xs text-s112-text-2 space-y-0.5">
                   {result.details.slice(0, 10).map((d, i) => <li key={i}>{d}</li>)}
                   {result.details.length > 10 && <li>… und {result.details.length - 10} weitere</li>}
                 </ul>
               )}
               {(result.duplikate?.length ?? 0) > 0 && (
-                <div className="mt-3 pt-3 border-t border-amber-200">
+                <div className="mt-3 pt-3 border-t border-s112-warn/30">
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-xs font-semibold text-gray-700">Übersprungene Duplikate (bereits aktiver Kunde):</p>
+                    <p className="text-xs font-semibold text-s112-text-1">Übersprungene Duplikate (bereits aktiver Kunde):</p>
                     <button
                       onClick={() => exportCSV(
                         result.duplikate!.map(d => ({ zeile: d.zeile, name: d.name, email: d.email ?? '', grund: d.grund })),
@@ -556,11 +556,11 @@ export default function ImportClient({
                         ],
                         `import_duplikate_${typ}.csv`,
                       )}
-                      className="text-xs text-s112-teal hover:underline font-medium">
+                      className="text-xs text-s112-blue-700 hover:underline font-medium">
                       Als CSV herunterladen
                     </button>
                   </div>
-                  <ul className="text-xs text-gray-600 space-y-0.5">
+                  <ul className="text-xs text-s112-text-2 space-y-0.5">
                     {result.duplikate!.slice(0, 10).map((d, i) => (
                       <li key={i}>Zeile {d.zeile}: {d.name}{d.email ? ` (${d.email})` : ''}</li>
                     ))}

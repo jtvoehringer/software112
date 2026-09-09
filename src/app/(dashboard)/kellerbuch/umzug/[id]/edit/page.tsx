@@ -93,19 +93,19 @@ export default async function UmzugEditPage({ params }: { params: Promise<{ id: 
   }
 
   const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
-  const labelCls = 'block text-xs font-medium text-gray-600 mb-1'
+  const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
   return (
     <div className="max-w-2xl space-y-6">
       <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/kellerbuch/gebinde?tab=umziehen" className="hover:text-s112-teal transition-colors">
+        <Link href="/kellerbuch/gebinde?tab=umziehen" className="hover:text-s112-blue-700 transition-colors">
           Umziehen
         </Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Bearbeiten</span>
+        <span className="text-s112-text-1 font-medium">Bearbeiten</span>
       </div>
 
-      <h1 className="text-2xl font-bold text-gray-900">Umzug bearbeiten</h1>
+      <h1 className="text-2xl font-semibold text-s112-text">Umzug bearbeiten</h1>
 
       <p className="text-sm text-s112-muted">
         Beim Speichern wird die bestehende Buchung storniert und neu angelegt. Die Bestände werden entsprechend angepasst.
@@ -127,7 +127,7 @@ export default async function UmzugEditPage({ params }: { params: Promise<{ id: 
       </div>
 
       <Link href="/kellerbuch/gebinde?tab=umziehen"
-        className="inline-block text-sm text-gray-500 hover:text-gray-700 transition-colors">
+        className="inline-block text-sm text-s112-text-2 hover:text-s112-text-1 transition-colors">
         ← Abbrechen
       </Link>
     </div>

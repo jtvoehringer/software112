@@ -228,7 +228,7 @@ export default function CommandPalette({
             type="button"
             onClick={() => setOffen(false)}
             aria-label="Schließen"
-            className="font-mono text-[10.5px] text-s112-tertiary border border-s112-line-str rounded-sm px-1.5 py-0.5 hover:bg-s112-bg hover:text-s112-navy transition-colors"
+            className="font-mono text-[10.5px] text-s112-tertiary border border-s112-line-str rounded-sm px-1.5 py-0.5 hover:bg-s112-bg hover:text-s112-text transition-colors"
           >
             ESC
           </button>

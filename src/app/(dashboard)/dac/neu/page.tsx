@@ -40,11 +40,11 @@ export default async function NeuePage({
   return (
     <div className="max-w-2xl">
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-6">
-        <Link href="/dac" className="hover:text-s112-teal transition-colors">DAC & Prüfnummern</Link>
+        <Link href="/dac" className="hover:text-s112-blue-700 transition-colors">DAC & Prüfnummern</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Neuer Antrag</span>
+        <span className="text-s112-text-1 font-medium">Neuer Antrag</span>
       </div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Neuer Prüfnummern-Antrag</h1>
+      <h1 className="text-2xl font-semibold text-s112-text mb-6">Neuer Prüfnummern-Antrag</h1>
       <DacForm
         weinausbau={weinausbau}
         analysen={analysen}

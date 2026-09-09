@@ -215,23 +215,23 @@ export default function KellerbehandlungenPage() {
     : null
 
   if (loading) return <div className="p-6 text-s112-muted text-sm">Lade…</div>
-  if (!behaelter) return <div className="p-6 text-red-500 text-sm">Behälter nicht gefunden.</div>
+  if (!behaelter) return <div className="p-6 text-s112-err text-sm">Behälter nicht gefunden.</div>
 
   return (
     <div className="max-w-4xl space-y-6">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/kellerbuch" className="hover:text-s112-teal transition-colors">Kellerbuch</Link>
+        <Link href="/kellerbuch" className="hover:text-s112-blue-700 transition-colors">Kellerbuch</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">{behaelter.name}</span>
+        <span className="text-s112-text-1 font-medium">{behaelter.name}</span>
         <span>/</span>
-        <span className="text-gray-500">Kellerbehandlungen</span>
+        <span className="text-s112-text-2">Kellerbehandlungen</span>
       </div>
 
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-          <FlaskConical size={20} strokeWidth={1.75} className="text-s112-teal" />Kellerbehandlungen – {behaelter.name}
+        <h1 className="text-xl font-semibold text-s112-text flex items-center gap-2">
+          <FlaskConical size={20} strokeWidth={1.75} className="text-s112-blue-700" />Kellerbehandlungen – {behaelter.name}
         </h1>
         <button onClick={openNeu}
           className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg hover:bg-opacity-90 font-medium">
@@ -242,14 +242,14 @@ export default function KellerbehandlungenPage() {
       {/* Tabs */}
       <div className="flex gap-1 border-b border-s112-border">
         <Link href={`/kellerbuch/behaelter/${behaelterId}/bewegungen`}
-          className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300 -mb-px transition-colors inline-flex items-center gap-1.5">
+          className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-s112-text-1 border-b-2 border-transparent hover:border-s112-line-str -mb-px transition-colors inline-flex items-center gap-1.5">
           <BarChart3 size={14} strokeWidth={1.75} />Bewegungsbuch
         </Link>
         <Link href={`/kellerbuch/behaelter/${behaelterId}/umzuege`}
-          className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300 -mb-px transition-colors inline-flex items-center gap-1.5">
+          className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-s112-text-1 border-b-2 border-transparent hover:border-s112-line-str -mb-px transition-colors inline-flex items-center gap-1.5">
           <ArrowLeftRight size={14} strokeWidth={1.75} />Umziehen
         </Link>
-        <span className="px-4 py-2 text-sm font-medium text-s112-teal border-b-2 border-s112-teal -mb-px inline-flex items-center gap-1.5">
+        <span className="px-4 py-2 text-sm font-medium text-s112-blue-700 border-b-2 border-s112-teal -mb-px inline-flex items-center gap-1.5">
           <FlaskConical size={14} strokeWidth={1.75} />Kellerbehandlungen
         </span>
       </div>
@@ -257,18 +257,18 @@ export default function KellerbehandlungenPage() {
       {/* Formular */}
       {showForm && (
         <div className="card p-5 border-s112-teal/30 border-2">
-          <h2 className="font-semibold text-gray-800 mb-4 text-sm">
+          <h2 className="font-semibold text-s112-text mb-4 text-sm">
             {editId ? 'Behandlung bearbeiten' : 'Neue Behandlung'}
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Datum *</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
                 <input type="date" value={formDatum} onChange={e => setFormDatum(e.target.value)}
                   className="input w-full" required />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Behandlungstyp *</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Behandlungstyp *</label>
                 {!showNeuerTyp ? (
                   <div className="flex gap-2">
                     <select value={formTypId} onChange={e => onTypChange(e.target.value)}
@@ -279,7 +279,7 @@ export default function KellerbehandlungenPage() {
                       ))}
                     </select>
                     <button type="button" onClick={() => setShowNeuerTyp(true)}
-                      className="text-xs text-s112-teal border border-s112-teal/30 px-2 rounded-lg hover:bg-s112-teal hover:text-white transition-colors whitespace-nowrap">
+                      className="text-xs text-s112-blue-700 border border-s112-teal/30 px-2 rounded-lg hover:bg-s112-teal hover:text-white transition-colors whitespace-nowrap">
                       + Neu
                     </button>
                   </div>
@@ -296,7 +296,7 @@ export default function KellerbehandlungenPage() {
                       {typSaving ? '…' : 'Speichern'}
                     </button>
                     <button type="button" onClick={() => setShowNeuerTyp(false)}
-                      className="text-xs text-s112-muted hover:text-gray-700">Abbrechen</button>
+                      className="text-xs text-s112-muted hover:text-s112-text-1">Abbrechen</button>
                   </div>
                 )}
               </div>
@@ -304,21 +304,21 @@ export default function KellerbehandlungenPage() {
 
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Menge</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge</label>
                 <input type="text" value={formMenge} onChange={e => setFormMenge(e.target.value)}
                   placeholder="0,00" className="input w-full" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Einheit</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Einheit</label>
                 <select value={formEinheit} onChange={e => setFormEinheit(e.target.value)} className="input w-full">
                   {EINHEITEN.map(e => <option key={e} value={e}>{e}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">
                   Volumen Ist (L)
                   {gHl && (
-                    <span className="ml-2 text-s112-teal font-semibold">= {gHl} g/hl</span>
+                    <span className="ml-2 text-s112-blue-700 font-semibold">= {gHl} g/hl</span>
                   )}
                 </label>
                 <input type="text" value={formVolumen} onChange={e => setFormVolumen(e.target.value)}
@@ -329,7 +329,7 @@ export default function KellerbehandlungenPage() {
 
             {chargenImBehaelter.length > 0 && (
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Kellerbuch-Charge</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Kellerbuch-Charge</label>
                 <select value={formWeinausbauId} onChange={e => setFormWeinausbauId(e.target.value)}
                   className="input w-full">
                   <option value="">– keine Zuordnung –</option>
@@ -341,16 +341,16 @@ export default function KellerbehandlungenPage() {
               </div>
             )}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Notizen</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
               <textarea value={formNotizen} onChange={e => setFormNotizen(e.target.value)}
                 rows={2} className="input w-full resize-none" placeholder="Optionale Anmerkungen…" />
             </div>
 
-            {formError && <p className="text-red-500 text-xs">{formError}</p>}
+            {formError && <p className="text-s112-err text-xs">{formError}</p>}
 
             <div className="flex justify-end gap-2 pt-1">
               <button type="button" onClick={() => setShowForm(false)}
-                className="text-xs text-s112-muted border border-gray-200 px-4 py-1.5 rounded-lg hover:border-gray-400">
+                className="text-xs text-s112-muted border border-s112-line px-4 py-1.5 rounded-lg hover:border-s112-line-str">
                 Abbrechen
               </button>
               <button type="submit" disabled={isPending}
@@ -368,7 +368,7 @@ export default function KellerbehandlungenPage() {
           <FlaskConical size={28} strokeWidth={1.5} className="mx-auto mb-2 text-s112-tertiary" />
           <p className="text-sm text-s112-muted">Noch keine Kellerbehandlungen erfasst</p>
           <button onClick={openNeu}
-            className="mt-3 text-xs text-s112-teal font-semibold hover:underline">
+            className="mt-3 text-xs text-s112-blue-700 font-semibold hover:underline">
             + Erste Behandlung erfassen
           </button>
         </div>
@@ -377,11 +377,11 @@ export default function KellerbehandlungenPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-s112-bg border-b border-s112-border">
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Datum</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Behandlung</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Menge</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">g/hl</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Volumen Ist</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Datum</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Behandlung</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Menge</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">g/hl</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Volumen Ist</th>
                 <th className="px-4 py-2.5" />
               </tr>
             </thead>
@@ -394,32 +394,32 @@ export default function KellerbehandlungenPage() {
                   ? calcGProHl(menge, b.einheit, vol) : null
                 return (
                   <tr key={b.id} className="border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40">
-                    <td className="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">
+                    <td className="px-4 py-2.5 text-xs text-s112-text-2 whitespace-nowrap">
                       {new Date(b.datum).toLocaleDateString('de-AT')}
                     </td>
                     <td className="px-4 py-2.5">
-                      <p className="font-medium text-gray-800">{typName}</p>
+                      <p className="font-medium text-s112-text">{typName}</p>
                       {b.notizen && <p className="text-xs text-s112-muted">{b.notizen}</p>}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-700">
+                    <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-1">
                       {menge != null && b.einheit !== '-'
                         ? `${menge.toLocaleString('de-AT')} ${b.einheit ?? ''}`
                         : '–'}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-s112-teal">
+                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-s112-blue-700">
                       {ghl ? `${ghl} g/hl` : '–'}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-500 text-xs">
+                    <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-2 text-xs">
                       {vol != null ? `${vol.toLocaleString('de-AT')} L` : '–'}
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-3">
                         <button onClick={() => openEdit(b)}
                           title="Bearbeiten" aria-label="Bearbeiten"
-                          className="text-s112-teal hover:text-s112-teal/70"><Pencil size={15} strokeWidth={1.75} /></button>
+                          className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={15} strokeWidth={1.75} /></button>
                         <button onClick={() => handleDelete(b.id)}
                           title="Löschen" aria-label="Löschen"
-                          className="text-red-400 hover:text-red-600"><Trash2 size={15} strokeWidth={1.75} /></button>
+                          className="text-s112-err hover:text-s112-err-fg"><Trash2 size={15} strokeWidth={1.75} /></button>
                       </div>
                     </td>
                   </tr>

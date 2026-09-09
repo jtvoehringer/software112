@@ -68,17 +68,17 @@ export default async function AnalysenPage({ params }: { params: Promise<{ id: s
 
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-s112-muted flex-wrap">
-        <Link href="/kellerbuch" className="hover:text-s112-teal">Kellerbuch</Link>
+        <Link href="/kellerbuch" className="hover:text-s112-blue-700">Kellerbuch</Link>
         <span>/</span>
-        <Link href={`/kellerbuch/weinausbau/${id}`} className="hover:text-s112-teal">{wa.name}</Link>
+        <Link href={`/kellerbuch/weinausbau/${id}`} className="hover:text-s112-blue-700">{wa.name}</Link>
         <span>/</span>
-        <span className="text-gray-800 font-medium">Laboranalysen</span>
+        <span className="text-s112-text font-medium">Laboranalysen</span>
       </nav>
 
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Laboranalysen</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Laboranalysen</h1>
           <p className="text-sm text-s112-muted mt-0.5">
             {wa.name}{wa.jahrgang ? ` · ${wa.jahrgang}` : ''}{wa.rebsorte ? ` · ${formatRebsorteMitKuerzel(wa.rebsorte)}` : ''}
           </p>
@@ -96,11 +96,11 @@ export default async function AnalysenPage({ params }: { params: Promise<{ id: s
       {/* Liste */}
       {analysen.length === 0 ? (
         <div className="card text-center py-12 text-s112-muted">
-          <p className="font-medium text-gray-600">Noch keine Analysen erfasst</p>
+          <p className="font-medium text-s112-text-2">Noch keine Analysen erfasst</p>
           {writeOk && (
             <Link
               href={`/kellerbuch/weinausbau/${id}/analysen/neu`}
-              className="mt-4 inline-block text-sm text-s112-teal hover:underline"
+              className="mt-4 inline-block text-sm text-s112-blue-700 hover:underline"
             >
               Erste Analyse erfassen →
             </Link>
@@ -113,13 +113,13 @@ export default async function AnalysenPage({ params }: { params: Promise<{ id: s
               {/* Kopf */}
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div>
-                  <p className="font-semibold text-gray-800">{fmtDate(a.analyse_datum)}</p>
+                  <p className="font-semibold text-s112-text">{fmtDate(a.analyse_datum)}</p>
                   <p className="text-sm text-s112-muted">
                     {a.labor ? a.labor : 'Eigenlabor'}
                     {a.probe_nr ? ` · Probe-Nr. ${a.probe_nr}` : ''}
                   </p>
                 </div>
-                <span className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-lg font-medium">
+                <span className="text-xs bg-s112-blue-50 text-s112-blue-700 border border-s112-blue-100 px-2 py-0.5 rounded-lg font-medium">
                   Analyse
                 </span>
               </div>
@@ -172,7 +172,7 @@ export default async function AnalysenPage({ params }: { params: Promise<{ id: s
 
               {/* Bewertung / Notizen */}
               {(a.bewertung || a.notizen) && (
-                <div className="border-t border-s112-border pt-3 space-y-1 text-sm text-gray-600">
+                <div className="border-t border-s112-border pt-3 space-y-1 text-sm text-s112-text-2">
                   {a.bewertung && <p><span className="font-medium">Bewertung:</span> {a.bewertung}</p>}
                   {a.notizen   && <p><span className="font-medium">Notizen:</span> {a.notizen}</p>}
                 </div>

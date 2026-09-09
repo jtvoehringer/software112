@@ -29,7 +29,7 @@ export function DashHeader({ title, sub, right }: { title: ReactNode; sub?: Reac
   return (
     <div className="flex items-start justify-between gap-4 flex-wrap">
       <div>
-        <h1 className="font-display text-2xl font-semibold text-s112-navy tracking-[-.01em]">{title}</h1>
+        <h1 className="font-display text-2xl font-semibold text-s112-text tracking-[-.01em]">{title}</h1>
         {sub && <p className="text-s112-text-2 text-[13.5px] mt-1 max-w-[72ch]">{sub}</p>}
       </div>
       {right}
@@ -42,7 +42,7 @@ export function Card({ children, className = '', title, right, pad = true }: { c
     <div className={`bg-white border border-s112-line rounded-xl ${pad ? 'p-[18px]' : ''} ${className}`}>
       {(title || right) && (
         <div className={`flex items-center justify-between gap-3 mb-3 ${pad ? '' : 'px-[18px] pt-4'}`}>
-          {title && <h2 className="font-display font-semibold text-[14.5px] text-s112-navy">{title}</h2>}
+          {title && <h2 className="font-display font-semibold text-[14.5px] text-s112-text">{title}</h2>}
           {right}
         </div>
       )}
@@ -61,7 +61,7 @@ export function Tile({ label, value, sub, icon: Icon, href, tone }: {
         {Icon && <Icon size={18} strokeWidth={1.5} className="text-s112-tertiary" />}
         <p className="text-[11.5px] font-semibold text-s112-text-2 tracking-[.02em]">{label}</p>
       </div>
-      <p className="font-mono text-[26px] leading-[1.15] text-s112-navy tabular-nums">{value}</p>
+      <p className="font-mono text-[26px] leading-[1.15] text-s112-text tabular-nums">{value}</p>
       {sub && <p className={`text-[11.5px] ${subCls}`}>{sub}</p>}
     </>
   )
@@ -78,7 +78,7 @@ export function Badge({ tone = 'gray', children }: { tone?: BadgeTone; children:
     warn: 'bg-s112-warn-bg text-s112-warn-fg',
     err:  'bg-s112-err-bg text-s112-err-fg',
     info: 'bg-s112-blue-50 text-s112-blue-700',
-    gray: 'bg-[#EEF1F5] text-s112-text-1',
+    gray: 'bg-[#F2F3F5] text-s112-text-1',
   }
   return <span className={`inline-flex items-center gap-1 font-mono text-[10.5px] font-semibold tracking-[.03em] uppercase rounded px-2 py-0.5 whitespace-nowrap ${map[tone]}`}>{children}</span>
 }

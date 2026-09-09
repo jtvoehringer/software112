@@ -107,11 +107,11 @@ export default async function PruefnummernantragPage({ params }: { params: Promi
     <div className="max-w-4xl space-y-4">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-s112-muted no-print">
-        <Link href="/dac" className="hover:text-s112-teal transition-colors">DAC & Prüfnummern</Link>
+        <Link href="/dac" className="hover:text-s112-blue-700 transition-colors">DAC & Prüfnummern</Link>
         <span>/</span>
-        <Link href={`/dac/${id}`} className="hover:text-s112-teal transition-colors">{dac.bezeichnung}</Link>
+        <Link href={`/dac/${id}`} className="hover:text-s112-blue-700 transition-colors">{dac.bezeichnung}</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Prüfnummernantrag</span>
+        <span className="text-s112-text-1 font-medium">Prüfnummernantrag</span>
       </div>
 
       <PNAFormular dacAntragId={id} initial={initial} />

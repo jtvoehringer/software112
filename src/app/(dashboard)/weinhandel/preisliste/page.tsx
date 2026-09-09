@@ -28,14 +28,14 @@ export default async function PreislistePage() {
   const listen = (listenRaw ?? []) as R[]
 
   const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
-  const labelCls = 'block text-xs font-medium text-gray-600 mb-1'
+  const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
   // Gültigkeitsstatus berechnen
   function gueltigkeit(von: string | null, bis: string | null) {
     const heute = new Date().toISOString().split('T')[0]
-    if (bis && bis < heute) return { label: 'Abgelaufen', cls: 'bg-red-100 text-red-700' }
-    if (von && von > heute) return { label: 'Noch nicht aktiv', cls: 'bg-yellow-100 text-yellow-700' }
-    return { label: 'Aktiv', cls: 'bg-green-100 text-green-700' }
+    if (bis && bis < heute) return { label: 'Abgelaufen', cls: 'bg-s112-err-bg text-s112-err-fg' }
+    if (von && von > heute) return { label: 'Noch nicht aktiv', cls: 'bg-s112-warn-bg text-s112-warn-fg' }
+    return { label: 'Aktiv', cls: 'bg-s112-ok-bg text-s112-ok-fg' }
   }
 
   return (
@@ -44,7 +44,7 @@ export default async function PreislistePage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Preislisten</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Preislisten</h1>
           <p className="text-sm text-s112-muted mt-0.5">Mehrere Preislisten gleichzeitig aktiv</p>
         </div>
       </div>
@@ -63,10 +63,10 @@ export default async function PreislistePage() {
               <Link
                 key={pl.id}
                 href={`/weinhandel/preisliste/${pl.id}`}
-                className="card p-5 hover:shadow-md transition-shadow block"
+                className="card p-5 hover:shadow-sm transition-shadow block"
               >
                 <div className="flex items-start justify-between mb-2">
-                  <h2 className="font-semibold text-gray-900">{pl.name}</h2>
+                  <h2 className="font-semibold text-s112-text">{pl.name}</h2>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${g.cls}`}>{g.label}</span>
                 </div>
                 {pl.beschreibung && (
@@ -86,7 +86,7 @@ export default async function PreislistePage() {
       {/* Neue Preisliste */}
       {writeOk && (
         <section className="card p-6">
-          <h2 className="font-semibold text-gray-800 mb-4">Neue Preisliste anlegen</h2>
+          <h2 className="font-semibold text-s112-text mb-4">Neue Preisliste anlegen</h2>
           <form action={createPreisliste} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2">

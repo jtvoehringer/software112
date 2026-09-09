@@ -27,8 +27,8 @@ export default function TabNav({ groups }: { groups: NavGroup[] }) {
               aria-current={active ? 'true' : undefined}
               className={`px-3.5 pt-[13px] pb-[10px] text-[14.5px] whitespace-nowrap border-b-[3px] transition-colors duration-[120ms] ${
                 active
-                  ? 'text-s112-navy font-semibold border-s112-teal'
-                  : 'text-s112-text-1 font-medium border-transparent hover:text-s112-navy'
+                  ? 'text-s112-text font-semibold border-s112-teal'
+                  : 'text-s112-text-1 font-medium border-transparent hover:text-s112-text'
               }`}
             >
               {g.label}
@@ -62,7 +62,7 @@ export default function TabNav({ groups }: { groups: NavGroup[] }) {
                   className={`inline-flex items-center gap-1.5 px-2.5 py-[5px] rounded-md text-[13px] whitespace-nowrap transition-colors duration-[120ms] ${item.child ? 'ml-[-2px] text-[12.5px]' : ''} ${
                     active
                       ? 'bg-s112-blue-50 text-s112-blue-700 font-semibold'
-                      : 'text-s112-text-1 hover:bg-s112-line/60 hover:text-s112-navy'
+                      : 'text-s112-text-1 hover:bg-s112-line/60 hover:text-s112-text'
                   }`}
                 >
                   {item.child && <span className="w-1 h-1 rounded-full bg-s112-tertiary/70" />}

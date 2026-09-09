@@ -65,7 +65,7 @@ function ArtikelRow({ artikel, onRefresh }: { artikel: Artikel; onRefresh: () =>
         <td className="px-3 py-2">
           <input value={name} onChange={e => setName(e.target.value)}
             className={inputCls + ' w-full'} autoFocus />
-          {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+          {error && <p className="text-xs text-s112-err mt-1">{error}</p>}
         </td>
         <td className="px-3 py-2">
           <select value={einheit} onChange={e => setEinheit(e.target.value)}
@@ -86,7 +86,7 @@ function ArtikelRow({ artikel, onRefresh }: { artikel: Artikel; onRefresh: () =>
         <td className="px-3 py-2 text-right">
           <div className="flex gap-2 justify-end">
             <button onClick={() => setEditing(false)}
-              className="text-xs text-s112-muted hover:text-gray-600 px-2 py-1 rounded">
+              className="text-xs text-s112-muted hover:text-s112-text-2 px-2 py-1 rounded">
               Abbrechen
             </button>
             <button onClick={handleSave} disabled={isPending}
@@ -101,12 +101,12 @@ function ArtikelRow({ artikel, onRefresh }: { artikel: Artikel; onRefresh: () =>
 
   return (
     <tr className={!artikel.aktiv ? 'opacity-40' : 'hover:bg-s112-bg/50 transition-colors'}>
-      <td className="px-3 py-2.5 text-sm text-gray-800 font-medium">
+      <td className="px-3 py-2.5 text-sm text-s112-text font-medium">
         {artikel.name}
-        {error && <p className="text-xs text-red-500 mt-1 font-normal">{error}</p>}
+        {error && <p className="text-xs text-s112-err mt-1 font-normal">{error}</p>}
       </td>
       <td className="px-3 py-2.5 text-sm text-s112-muted">{artikel.einheit}</td>
-      <td className="px-3 py-2.5 text-sm text-right tabular-nums text-gray-700">
+      <td className="px-3 py-2.5 text-sm text-right tabular-nums text-s112-text-1">
         {artikel.default_preis != null
           ? Number(artikel.default_preis).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
           : <span className="text-s112-muted">–</span>}
@@ -115,17 +115,17 @@ function ArtikelRow({ artikel, onRefresh }: { artikel: Artikel; onRefresh: () =>
         <div className="flex gap-1 justify-end items-center">
           <button onClick={() => setEditing(true)}
             title="Bearbeiten"
-            className="text-xs text-s112-muted hover:text-s112-teal px-2 py-1 rounded hover:bg-s112-teal/10">
+            className="text-xs text-s112-muted hover:text-s112-blue-700 px-2 py-1 rounded hover:bg-s112-teal/10">
             <Pencil className="w-3.5 h-3.5" />
           </button>
           <button onClick={handleToggle} disabled={isPending}
             title={artikel.aktiv ? 'Deaktivieren' : 'Aktivieren'}
-            className="text-xs text-s112-muted hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-100">
+            className="text-xs text-s112-muted hover:text-s112-text-2 px-2 py-1 rounded hover:bg-[#F2F3F5]">
             {artikel.aktiv ? 'Deaktivieren' : 'Aktivieren'}
           </button>
           <button onClick={handleDelete} disabled={isPending}
             title="Löschen"
-            className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50">
+            className="text-xs text-s112-err hover:text-s112-err-fg px-2 py-1 rounded hover:bg-s112-err-bg">
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -161,11 +161,11 @@ function NeuerArtikelRow({ onRefresh, onCancel }: { onRefresh: () => void; onCan
   }
 
   return (
-    <tr className="bg-green-50">
+    <tr className="bg-s112-ok-bg">
       <td className="px-3 py-2">
         <input value={name} onChange={e => setName(e.target.value)}
           placeholder="Produktname *" className={inputCls + ' w-full'} autoFocus />
-        {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+        {error && <p className="text-xs text-s112-err mt-1">{error}</p>}
       </td>
       <td className="px-3 py-2">
         <select value={einheit} onChange={e => setEinheit(e.target.value)}
@@ -186,11 +186,11 @@ function NeuerArtikelRow({ onRefresh, onCancel }: { onRefresh: () => void; onCan
       <td className="px-3 py-2 text-right">
         <div className="flex gap-2 justify-end">
           <button onClick={onCancel}
-            className="text-xs text-s112-muted hover:text-gray-600 px-2 py-1 rounded">
+            className="text-xs text-s112-muted hover:text-s112-text-2 px-2 py-1 rounded">
             Abbrechen
           </button>
           <button onClick={handleSave} disabled={isPending}
-            className="text-xs bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700 disabled:opacity-50">
+            className="text-xs bg-s112-teal text-s112-yellow px-3 py-1 rounded-lg hover:bg-s112-blue-700 disabled:opacity-50">
             {isPending ? '…' : '+ Anlegen'}
           </button>
         </div>
@@ -231,9 +231,9 @@ export default function SonstigeArtikelClient({ initialArtikel }: { initialArtik
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-s112-border bg-s112-bg text-left">
-                <th className="px-3 py-2.5 text-xs font-semibold text-gray-500">Name</th>
-                <th className="px-3 py-2.5 text-xs font-semibold text-gray-500">Einheit</th>
-                <th className="px-3 py-2.5 text-xs font-semibold text-gray-500 text-right">Standardpreis</th>
+                <th className="px-3 py-2.5 text-xs font-semibold text-s112-text-2">Name</th>
+                <th className="px-3 py-2.5 text-xs font-semibold text-s112-text-2">Einheit</th>
+                <th className="px-3 py-2.5 text-xs font-semibold text-s112-text-2 text-right">Standardpreis</th>
                 <th className="px-3 py-2.5 w-24"></th>
               </tr>
             </thead>

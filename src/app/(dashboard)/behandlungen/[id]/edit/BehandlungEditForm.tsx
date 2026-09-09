@@ -119,7 +119,7 @@ export type BestehenderKostenEintrag = {
 }
 
 const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
-const labelCls = 'block text-sm font-medium text-gray-700 mb-1'
+const labelCls = 'block text-sm font-medium text-s112-text-1 mb-1'
 
 export default function BehandlungEditForm({
   behandlung, psm, duengemittel, bioStatus, kostenarten, bestehenderKostenEintrag,
@@ -242,13 +242,13 @@ export default function BehandlungEditForm({
       {behandlung.weingarten_name && (
         <div className="card bg-s112-bg/50 p-4">
           <p className="text-xs text-s112-muted">Weingarten (nicht änderbar)</p>
-          <p className="font-semibold text-gray-800">{behandlung.weingarten_name}</p>
+          <p className="font-semibold text-s112-text">{behandlung.weingarten_name}</p>
         </div>
       )}
 
       {/* Art & Datum */}
       <div className="card space-y-4">
-        <h2 className="text-base font-semibold text-gray-800">Maßnahme</h2>
+        <h2 className="text-base font-semibold text-s112-text">Maßnahme</h2>
 
         <div>
           <label className={labelCls}>Art</label>
@@ -257,7 +257,7 @@ export default function BehandlungEditForm({
               <label key={o.value} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm cursor-pointer transition-colors
                 ${art === o.value
                   ? 'bg-s112-teal text-white border-s112-teal'
-                  : 'bg-white text-gray-700 border-s112-border hover:border-s112-teal/50'}`}>
+                  : 'bg-white text-s112-text-1 border-s112-border hover:border-s112-teal/50'}`}>
                 <input type="radio" name="art" value={o.value} checked={art === o.value}
                   onChange={() => setArt(o.value as Art)} className="sr-only" />
                 <o.icon size={14} />{o.label}
@@ -268,7 +268,7 @@ export default function BehandlungEditForm({
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className={labelCls}>Datum von <span className="text-red-500">*</span></label>
+            <label className={labelCls}>Datum von <span className="text-s112-err">*</span></label>
             <input name="datum" type="date" required defaultValue={behandlung.datum} className={inputCls} />
           </div>
           <div>
@@ -294,7 +294,7 @@ export default function BehandlungEditForm({
               ))}
             </select>
             {selectedPsm?.wartezeit_tage != null && (
-              <p className="text-xs text-amber-600 mt-1 inline-flex items-center gap-1">
+              <p className="text-xs text-s112-warn-fg mt-1 inline-flex items-center gap-1">
                 <Hourglass size={12} />Wartezeit: {selectedPsm.wartezeit_tage} Tage vor Ernte
               </p>
             )}
@@ -318,7 +318,7 @@ export default function BehandlungEditForm({
               ))}
             </select>
             {selectedDuengemittel?.wartezeit_tage != null && (
-              <p className="text-xs text-amber-600 mt-1 inline-flex items-center gap-1">
+              <p className="text-xs text-s112-warn-fg mt-1 inline-flex items-center gap-1">
                 <Hourglass size={12} />Wartezeit: {selectedDuengemittel.wartezeit_tage} Tage vor Ernte
               </p>
             )}
@@ -326,13 +326,13 @@ export default function BehandlungEditForm({
         )}
 
         {bioSperre && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm flex items-start gap-2">
+          <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm flex items-start gap-2">
             <Ban size={16} className="mt-0.5 flex-shrink-0" />
             <span>Das gewählte Mittel ist nicht öko-zugelassen – passt nicht zum Bio-Status des Betriebs. Speichern ist gesperrt.</span>
           </div>
         )}
         {bioWarnung && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-3 text-sm flex items-start gap-2">
+          <div className="bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg rounded-xl px-4 py-3 text-sm flex items-start gap-2">
             <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
             <span>Das gewählte Mittel ist nicht öko-zugelassen – bitte prüfen, ob das beabsichtigt ist.</span>
           </div>
@@ -345,7 +345,7 @@ export default function BehandlungEditForm({
               <div>
                 <label className={labelCls}>
                   Gesamtmenge eingesetzt
-                  {felder.mengeGesamt === 'pflicht' && <span className="text-red-500"> *</span>}
+                  {felder.mengeGesamt === 'pflicht' && <span className="text-s112-err"> *</span>}
                 </label>
                 <div className="flex gap-2">
                   <input name="menge_gesamt" type="number" step="0.001" min="0"
@@ -366,7 +366,7 @@ export default function BehandlungEditForm({
                   value={konzentrationGesperrt ? (konzentrationBerechnet != null ? konzentrationBerechnet.toFixed(3) : '') : konzentration}
                   disabled={konzentrationGesperrt}
                   onChange={e => { setKonzentration(e.target.value); setAufwandQuelle(e.target.value === '' ? null : 'konzentration') }}
-                  className={`${inputCls} disabled:bg-s112-bg disabled:text-gray-500`} />
+                  className={`${inputCls} disabled:bg-s112-bg disabled:text-s112-text-2`} />
                 {aufwandQuelle != null && !konzentrationGesperrt && !aufwandmengeGesperrt && effektivesWasserLHa == null
                   && (aufwandmengeEinheit === 'kg_ha' || aufwandmengeEinheit === 'l_ha') && (
                   <p className="text-xs text-s112-muted mt-1">Für die automatische Berechnung bitte Spritzbrühe (l/ha) angeben.</p>
@@ -383,14 +383,14 @@ export default function BehandlungEditForm({
                 <div>
                   <label className={labelCls}>
                     Aufwandmenge (Etikett)
-                    {felder.aufwandmenge === 'pflicht' && <span className="text-red-500"> *</span>}
+                    {felder.aufwandmenge === 'pflicht' && <span className="text-s112-err"> *</span>}
                   </label>
                   <input name="aufwandmenge" type="number" step="0.001" min="0"
                     required={felder.aufwandmenge === 'pflicht' && !aufwandmengeGesperrt}
                     value={aufwandmengeGesperrt ? (aufwandmengeBerechnet != null ? aufwandmengeBerechnet.toFixed(3) : '') : aufwandmenge}
                     disabled={aufwandmengeGesperrt}
                     onChange={e => { setAufwandmenge(e.target.value); setAufwandQuelle(e.target.value === '' ? null : 'aufwand') }}
-                    className={`${inputCls} disabled:bg-s112-bg disabled:text-gray-500`} />
+                    className={`${inputCls} disabled:bg-s112-bg disabled:text-s112-text-2`} />
                 </div>
                 <div>
                   <label className={labelCls}>Einheit</label>
@@ -439,7 +439,7 @@ export default function BehandlungEditForm({
         {/* Düngung: Einarbeitung */}
         {art === 'duengung' && (
           <div className="grid grid-cols-2 gap-3 items-end">
-            <label className="flex items-center gap-2 text-sm text-gray-700">
+            <label className="flex items-center gap-2 text-sm text-s112-text-1">
               <input type="checkbox" name="einarbeitung" defaultChecked={!!behandlung.einarbeitung} className="accent-s112-teal" />
               Eingearbeitet
             </label>
@@ -515,7 +515,7 @@ export default function BehandlungEditForm({
           <input type="checkbox" name="kosten_aktiv" checked={kostenAktiv}
             onChange={e => setKostenAktiv(e.target.checked)}
             className="accent-s112-teal" />
-          <h2 className="text-base font-semibold text-gray-800">Kosten erfassen</h2>
+          <h2 className="text-base font-semibold text-s112-text">Kosten erfassen</h2>
         </label>
         <p className="text-xs text-s112-muted -mt-2">
           {bestehenderKostenEintrag
@@ -554,7 +554,7 @@ export default function BehandlungEditForm({
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">{error}</div>
+        <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm">{error}</div>
       )}
 
       <div className="flex gap-3">
@@ -562,7 +562,7 @@ export default function BehandlungEditForm({
           className="bg-s112-teal text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
           {pending ? 'Speichert…' : 'Änderungen speichern'}
         </button>
-        <a href="/behandlungen" className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-800">
+        <a href="/behandlungen" className="px-5 py-2.5 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text">
           Abbrechen
         </a>
       </div>

@@ -8,11 +8,11 @@ import { createZeiteintrag, updateZeiteintrag, deleteZeiteintrag } from './actio
 // ── Phasen ────────────────────────────────────────────────────────────────────
 
 const PHASEN = [
-  { nr: 0, label: 'Phase 0 – Setup',        bg: 'bg-gray-100',   text: 'text-gray-700'  },
-  { nr: 1, label: 'Phase 1 – Grundmodul',   bg: 'bg-blue-50',    text: 'text-blue-800'  },
-  { nr: 2, label: 'Phase 2 – Kellerbuch',   bg: 'bg-green-50',   text: 'text-green-800' },
-  { nr: 3, label: 'Phase 3 – CRM & KI',     bg: 'bg-yellow-50',  text: 'text-yellow-800'},
-  { nr: 4, label: 'Phase 4 – Abschluss',    bg: 'bg-orange-50',  text: 'text-orange-800'},
+  { nr: 0, label: 'Phase 0 – Setup',        bg: 'bg-[#F2F3F5]',   text: 'text-s112-text-1'  },
+  { nr: 1, label: 'Phase 1 – Grundmodul',   bg: 'bg-s112-blue-50',    text: 'text-s112-blue-700'  },
+  { nr: 2, label: 'Phase 2 – Kellerbuch',   bg: 'bg-s112-ok-bg',   text: 'text-s112-ok-fg' },
+  { nr: 3, label: 'Phase 3 – CRM & KI',     bg: 'bg-s112-warn-bg',  text: 'text-s112-warn-fg'},
+  { nr: 4, label: 'Phase 4 – Abschluss',    bg: 'bg-s112-warn-bg',  text: 'text-s112-warn-fg'},
 ]
 
 function phaseMeta(nr: number) {
@@ -65,11 +65,11 @@ function ZeitForm({
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Datum *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
           <input type="date" name="datum" required defaultValue={initial?.datum ?? today} className={inputCls} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Phase *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Phase *</label>
           <select name="phase" defaultValue={initial?.phase ?? 0} className={inputCls}>
             {PHASEN.map(p => (
               <option key={p.nr} value={p.nr}>{p.label}</option>
@@ -79,7 +79,7 @@ function ZeitForm({
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Beschreibung *</label>
+        <label className="block text-xs font-medium text-s112-text-2 mb-1">Beschreibung *</label>
         <textarea name="beschreibung" required rows={3}
           defaultValue={initial?.beschreibung ?? ''}
           className={inputCls + ' resize-none'} />
@@ -87,39 +87,39 @@ function ZeitForm({
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Stunden *</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Stunden *</label>
           <input type="number" name="stunden" required step="0.25" min="0"
             defaultValue={initial?.stunden ?? ''} className={inputCls} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Stundensatz (€)</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Stundensatz (€)</label>
           <input type="number" name="stundensatz" step="1" min="0"
             defaultValue={initial?.stundensatz ?? 50} className={inputCls} />
         </div>
       </div>
 
       <div className="border-t border-s112-border/40 pt-3">
-        <p className="text-xs font-medium text-gray-500 mb-2">Claude Token-Verbrauch (optional)</p>
+        <p className="text-xs font-medium text-s112-text-2 mb-2">Claude Token-Verbrauch (optional)</p>
         <div className="grid grid-cols-3 gap-2">
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Input Tokens</label>
+            <label className="block text-xs text-s112-text-2 mb-1">Input Tokens</label>
             <input type="number" name="tokens_input" min="0"
               defaultValue={initial?.tokens_input ?? ''} className={inputCls} />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Output Tokens</label>
+            <label className="block text-xs text-s112-text-2 mb-1">Output Tokens</label>
             <input type="number" name="tokens_output" min="0"
               defaultValue={initial?.tokens_output ?? ''} className={inputCls} />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Kosten (€)</label>
+            <label className="block text-xs text-s112-text-2 mb-1">Kosten (€)</label>
             <input type="number" name="token_kosten_euro" step="0.0001" min="0"
               defaultValue={initial?.token_kosten_euro ?? ''} className={inputCls} />
           </div>
         </div>
       </div>
 
-      {err && <p className="text-xs text-red-600">{err}</p>}
+      {err && <p className="text-xs text-s112-err-fg">{err}</p>}
 
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending}
@@ -127,7 +127,7 @@ function ZeitForm({
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
         <button type="button" onClick={onCancel}
-          className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
+          className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-s112-text-2 hover:bg-s112-bg">
           Abbrechen
         </button>
       </div>
@@ -141,11 +141,11 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto"
+      <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-gray-900 text-base">{title}</h3>
-          <button onClick={onClose} className="text-s112-muted hover:text-gray-700"><X className="w-5 h-5" /></button>
+          <h3 className="font-semibold text-s112-text text-base">{title}</h3>
+          <button onClick={onClose} className="text-s112-muted hover:text-s112-text-1"><X className="w-5 h-5" /></button>
         </div>
         {children}
       </div>
@@ -184,12 +184,12 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
       <div className="flex items-center gap-2 text-sm text-s112-muted">
         <span>Administration</span>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Zeiterfassung</span>
+        <span className="text-s112-text-1 font-medium">Zeiterfassung</span>
       </div>
       {/* ── Header ── */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Zeiterfassung</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Zeiterfassung</h1>
           <p className="text-sm text-s112-muted mt-0.5">software:112 · IC&P Consultants</p>
         </div>
         <button onClick={() => setShowNew(true)}
@@ -209,7 +209,7 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
         ].map(({ label, value }) => (
           <div key={label} className="bg-white border border-s112-border rounded-xl p-3 shadow-sm">
             <p className="text-xs text-s112-muted">{label}</p>
-            <p className="text-lg font-bold text-gray-900 mt-0.5">{value}</p>
+            <p className="text-lg font-semibold text-s112-text mt-0.5">{value}</p>
           </div>
         ))}
       </div>
@@ -217,7 +217,7 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
       {/* ── Phasen-Filter ── */}
       <div className="flex flex-wrap gap-2">
         <button onClick={() => setFilterPhase(null)}
-          className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${filterPhase === null ? 'bg-s112-teal text-white border-s112-teal' : 'bg-white text-gray-600 border-s112-border hover:bg-s112-bg'}`}>
+          className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${filterPhase === null ? 'bg-s112-teal text-white border-s112-teal' : 'bg-white text-s112-text-2 border-s112-border hover:bg-s112-bg'}`}>
           Alle
         </button>
         {PHASEN.map(p => (
@@ -234,16 +234,16 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-s112-border bg-s112-bg">
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-600 whitespace-nowrap">Datum</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-600">Phase</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-600">Beschreibung</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-600 whitespace-nowrap">Stunden</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-600 whitespace-nowrap">€/h</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-600 whitespace-nowrap">Betrag</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-600 whitespace-nowrap">Tokens In</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-600 whitespace-nowrap">Tokens Out</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-600 whitespace-nowrap">Token-€</th>
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-600 whitespace-nowrap">Lizenz-€</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2 whitespace-nowrap">Datum</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Phase</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Beschreibung</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2 whitespace-nowrap">Stunden</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2 whitespace-nowrap">€/h</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2 whitespace-nowrap">Betrag</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2 whitespace-nowrap">Tokens In</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2 whitespace-nowrap">Tokens Out</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2 whitespace-nowrap">Token-€</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2 whitespace-nowrap">Lizenz-€</th>
                 <th className="px-4 py-2.5" />
               </tr>
             </thead>
@@ -260,7 +260,7 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
                 const betrag = e.stunden * e.stundensatz
                 return (
                   <tr key={e.id}
-                    className={`border-b border-s112-border/40 hover:bg-s112-bg/50 transition-colors ${i % 2 === 0 ? '' : 'bg-gray-50/30'}`}>
+                    className={`border-b border-s112-border/40 hover:bg-s112-bg/50 transition-colors ${i % 2 === 0 ? '' : 'bg-s112-bg/30'}`}>
                     <td className={`px-4 py-2.5 whitespace-nowrap text-xs font-mono ${phase.text}`}>
                       {fmtDate(e.datum)}
                     </td>
@@ -269,38 +269,38 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
                         Ph.{e.phase}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-gray-700 max-w-xs">
+                    <td className="px-4 py-2.5 text-s112-text-1 max-w-xs">
                       <span className="line-clamp-2 text-xs">{e.beschreibung}</span>
                     </td>
-                    <td className="px-4 py-2.5 text-right font-mono text-xs text-gray-700 whitespace-nowrap">
+                    <td className="px-4 py-2.5 text-right font-mono text-xs text-s112-text-1 whitespace-nowrap">
                       {fmtH(e.stunden)}
                     </td>
-                    <td className="px-4 py-2.5 text-right font-mono text-xs text-gray-500 whitespace-nowrap">
+                    <td className="px-4 py-2.5 text-right font-mono text-xs text-s112-text-2 whitespace-nowrap">
                       {e.stundensatz}
                     </td>
-                    <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold text-gray-800 whitespace-nowrap">
+                    <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold text-s112-text whitespace-nowrap">
                       {fmtEuro(betrag)}
                     </td>
-                    <td className="px-4 py-2.5 text-right font-mono text-xs text-gray-500 whitespace-nowrap">
+                    <td className="px-4 py-2.5 text-right font-mono text-xs text-s112-text-2 whitespace-nowrap">
                       {e.tokens_input?.toLocaleString('de-AT') ?? '–'}
                     </td>
-                    <td className="px-4 py-2.5 text-right font-mono text-xs text-gray-500 whitespace-nowrap">
+                    <td className="px-4 py-2.5 text-right font-mono text-xs text-s112-text-2 whitespace-nowrap">
                       {e.tokens_output?.toLocaleString('de-AT') ?? '–'}
                     </td>
-                    <td className="px-4 py-2.5 text-right font-mono text-xs text-gray-500 whitespace-nowrap">
+                    <td className="px-4 py-2.5 text-right font-mono text-xs text-s112-text-2 whitespace-nowrap">
                       {fmtEuro(e.token_kosten_euro)}
                     </td>
-                    <td className="px-4 py-2.5 text-right font-mono text-xs text-gray-500 whitespace-nowrap">
+                    <td className="px-4 py-2.5 text-right font-mono text-xs text-s112-text-2 whitespace-nowrap">
                       {fmtEuro(e.lizenzkosten_euro)}
                     </td>
                     <td className="px-4 py-2.5 whitespace-nowrap">
                       <div className="flex items-center gap-1 justify-end">
                         <button onClick={() => setEditEntry(e)}
-                          className="text-s112-muted hover:text-s112-teal p-1 rounded transition-colors" title="Bearbeiten">
+                          className="text-s112-muted hover:text-s112-blue-700 p-1 rounded transition-colors" title="Bearbeiten">
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button onClick={() => setDeleteId(e.id)}
-                          className="text-s112-muted hover:text-red-500 p-1 rounded transition-colors" title="Löschen">
+                          className="text-s112-muted hover:text-s112-err p-1 rounded transition-colors" title="Löschen">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -312,26 +312,26 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
             {filtered.length > 0 && (
               <tfoot>
                 <tr className="bg-s112-teal/5 border-t-2 border-s112-teal/20">
-                  <td colSpan={3} className="px-4 py-2.5 text-xs font-bold text-gray-700">
+                  <td colSpan={3} className="px-4 py-2.5 text-xs font-semibold text-s112-text-1">
                     GESAMT ({filtered.length} Einträge{filterPhase !== null ? ` – ${phaseMeta(filterPhase).label}` : ''})
                   </td>
-                  <td className="px-4 py-2.5 text-right font-mono text-xs font-bold text-gray-800 whitespace-nowrap">
+                  <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold text-s112-text whitespace-nowrap">
                     {fmtH(filtered.reduce((s, e) => s + e.stunden, 0))}
                   </td>
                   <td />
-                  <td className="px-4 py-2.5 text-right font-mono text-xs font-bold text-s112-teal whitespace-nowrap">
+                  <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold text-s112-blue-700 whitespace-nowrap">
                     {fmtEuro(filtered.reduce((s, e) => s + e.stunden * e.stundensatz, 0))}
                   </td>
-                  <td className="px-4 py-2.5 text-right font-mono text-xs font-bold text-gray-700 whitespace-nowrap">
+                  <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold text-s112-text-1 whitespace-nowrap">
                     {filtered.reduce((s, e) => s + (e.tokens_input ?? 0), 0).toLocaleString('de-AT')}
                   </td>
-                  <td className="px-4 py-2.5 text-right font-mono text-xs font-bold text-gray-700 whitespace-nowrap">
+                  <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold text-s112-text-1 whitespace-nowrap">
                     {filtered.reduce((s, e) => s + (e.tokens_output ?? 0), 0).toLocaleString('de-AT')}
                   </td>
-                  <td className="px-4 py-2.5 text-right font-mono text-xs font-bold text-gray-700 whitespace-nowrap">
+                  <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold text-s112-text-1 whitespace-nowrap">
                     {fmtEuro(filtered.reduce((s, e) => s + (e.token_kosten_euro ?? 0), 0))}
                   </td>
-                  <td className="px-4 py-2.5 text-right font-mono text-xs font-bold text-gray-700 whitespace-nowrap">
+                  <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold text-s112-text-1 whitespace-nowrap">
                     {fmtEuro(filtered.reduce((s, e) => s + (e.lizenzkosten_euro ?? 0), 0))}
                   </td>
                   <td />
@@ -366,7 +366,7 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
       {/* ── Löschen-Bestätigung ── */}
       {deleteId && (
         <Modal title="Eintrag löschen?" onClose={() => setDeleteId(null)}>
-          <p className="text-sm text-gray-600 mb-4">Dieser Zeiteintrag wird unwiderruflich gelöscht.</p>
+          <p className="text-sm text-s112-text-2 mb-4">Dieser Zeiteintrag wird unwiderruflich gelöscht.</p>
           <div className="flex gap-2">
             <button disabled={delPending}
               onClick={() => startDel(async () => {
@@ -374,11 +374,11 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
                 setDeleteId(null)
                 refresh()
               })}
-              className="bg-red-500 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-red-600 disabled:opacity-40">
+              className="bg-s112-err text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-s112-err-fg disabled:opacity-40">
               {delPending ? 'Löschen…' : 'Löschen'}
             </button>
             <button onClick={() => setDeleteId(null)}
-              className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-gray-600 hover:bg-s112-bg">
+              className="text-sm px-4 py-1.5 rounded-lg border border-s112-border text-s112-text-2 hover:bg-s112-bg">
               Abbrechen
             </button>
           </div>

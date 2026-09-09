@@ -106,10 +106,10 @@ export default function FAQPage() {
       <div className="flex items-center gap-2 text-sm text-s112-muted">
         <span>Hilfe</span>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Häufige Fragen (FAQ)</span>
+        <span className="text-s112-text-1 font-medium">Häufige Fragen (FAQ)</span>
       </div>
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Häufige Fragen (FAQ)</h1>
+        <h1 className="text-2xl font-semibold text-s112-text">Häufige Fragen (FAQ)</h1>
         <p className="text-sm text-s112-muted mt-1">Antworten auf die häufigsten Fragen zu software:112 · Version 2.3 · Stand Juli 2026</p>
       </div>
 
@@ -121,7 +121,7 @@ export default function FAQPage() {
           {['Alle', ...KATEGORIEN].map(k => (
             <button key={k} onClick={() => setKategorie(k)}
               className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors
-                ${kategorie === k ? 'bg-s112-teal text-white' : 'bg-s112-bg text-gray-600 hover:bg-s112-teal/10'}`}>
+                ${kategorie === k ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:bg-s112-teal/10'}`}>
               {k}
             </button>
           ))}
@@ -134,15 +134,15 @@ export default function FAQPage() {
             <button onClick={() => setOffen(offen === i ? null : i)}
               className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-s112-bg/50 transition-colors">
               <div className="flex items-center gap-3">
-                <span className="text-xs bg-s112-bg border border-s112-border px-2 py-0.5 rounded text-gray-500 flex-shrink-0">
+                <span className="text-xs bg-s112-bg border border-s112-border px-2 py-0.5 rounded text-s112-text-2 flex-shrink-0">
                   {f.kategorie}
                 </span>
-                <span className="text-sm font-medium text-gray-800">{f.frage}</span>
+                <span className="text-sm font-medium text-s112-text">{f.frage}</span>
               </div>
               <span className={`text-s112-muted flex-shrink-0 ml-3 transition-transform ${offen === i ? 'rotate-180' : ''}`}>▾</span>
             </button>
             {offen === i && (
-              <div className="px-5 pb-4 pt-1 text-sm text-gray-600 leading-relaxed border-t border-s112-border/40">
+              <div className="px-5 pb-4 pt-1 text-sm text-s112-text-2 leading-relaxed border-t border-s112-border/40">
                 {f.antwort}
               </div>
             )}
@@ -154,7 +154,7 @@ export default function FAQPage() {
       </div>
 
       <div className="text-center pt-2">
-        <Link href="/hilfe/handbuch" className="text-sm text-s112-teal hover:underline">
+        <Link href="/hilfe/handbuch" className="text-sm text-s112-blue-700 hover:underline">
           Zum vollständigen Handbuch →
         </Link>
       </div>

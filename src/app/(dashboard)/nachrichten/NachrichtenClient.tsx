@@ -219,18 +219,18 @@ export default function NachrichtenClient() {
     return (
       <div className="flex flex-col items-center justify-center h-96 gap-5">
         <Mail className="w-10 h-10 text-s112-muted" />
-        <h2 className="text-xl font-bold text-gray-800">Deine Mailbox verbinden</h2>
+        <h2 className="text-xl font-semibold text-s112-text">Deine Mailbox verbinden</h2>
         <p className="text-sm text-s112-muted text-center max-w-md">
           Verbinde dein persönliches E-Mail-Konto um Nachrichten direkt in software:112 zu lesen und zu schreiben.
           Jeder User verbindet seine eigene Mailbox.
         </p>
-        {fehler && <p className="text-sm text-red-600">{fehler}</p>}
+        {fehler && <p className="text-sm text-s112-err-fg">{fehler}</p>}
         <a href="/api/auth/m365/user"
-          className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl text-sm font-semibold hover:bg-blue-700">
+          className="flex items-center gap-2 bg-s112-teal text-white px-6 py-3 rounded-xl text-sm font-semibold hover:bg-s112-blue-700">
           Mit Microsoft 365 verbinden
         </a>
         <div className="mt-4 pt-4 border-t border-s112-border space-y-2">
-          <p className="text-xs font-medium text-gray-700">Optional: Funktionale Mailbox überwachen</p>
+          <p className="text-xs font-medium text-s112-text-1">Optional: Funktionale Mailbox überwachen</p>
           <p className="text-xs text-s112-muted">z.B. office@weingut.at, info@weingut.at – du brauchst Vollzugriff auf diese Mailbox in Exchange.</p>
           <div className="flex gap-2">
             <input value={monitoredEmail} onChange={e => setMonitoredEmail(e.target.value)}
@@ -274,13 +274,13 @@ export default function NachrichtenClient() {
             <p className="text-[10px] text-s112-muted font-medium uppercase tracking-wide">Mailbox</p>
             <button onClick={() => setActiveMailbox('own')}
               className={`w-full text-left text-xs px-2 py-1.5 rounded-lg border transition-colors truncate
-                ${activeMailbox === 'own' ? 'bg-s112-teal text-white border-s112-teal font-medium' : 'border-s112-border text-gray-600 hover:bg-white'}`}
+                ${activeMailbox === 'own' ? 'bg-s112-teal text-white border-s112-teal font-medium' : 'border-s112-border text-s112-text-2 hover:bg-white'}`}
               title={verbEmail || 'Eigene Mailbox'}>
               Eigene Mailbox
             </button>
             <button onClick={() => setActiveMailbox('shared')}
               className={`w-full text-left text-xs px-2 py-1.5 rounded-lg border transition-colors truncate
-                ${activeMailbox === 'shared' ? 'bg-s112-teal text-white border-s112-teal font-medium' : 'border-s112-border text-gray-600 hover:bg-white'}`}
+                ${activeMailbox === 'shared' ? 'bg-s112-teal text-white border-s112-teal font-medium' : 'border-s112-border text-s112-text-2 hover:bg-white'}`}
               title={monitoredEmail}>
               {monitoredEmail}
             </button>
@@ -291,7 +291,7 @@ export default function NachrichtenClient() {
           {folders.length > 0 ? folders.map(f => (
             <button key={f.id} onClick={() => { setFolderId(f.id); setFolder('inbox'); setSelected(null) }}
               className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors
-                ${folderId === f.id ? 'bg-s112-teal/10 text-s112-teal font-medium' : 'text-gray-600 hover:bg-white'}`}>
+                ${folderId === f.id ? 'bg-s112-teal/10 text-s112-blue-700 font-medium' : 'text-s112-text-2 hover:bg-white'}`}>
               <span className="flex-shrink-0">{f.name === 'Inbox' || f.name === 'Posteingang' ? <Inbox className="w-3.5 h-3.5" /> : f.name === 'Sent Items' || f.name === 'Gesendete Elemente' ? <Send className="w-3.5 h-3.5" /> : f.name === 'Deleted Items' || f.name === 'Gelöschte Elemente' ? <Trash2 className="w-3.5 h-3.5" /> : f.name === 'Drafts' || f.name === 'Entwürfe' ? <FileText className="w-3.5 h-3.5" /> : <Folder className="w-3.5 h-3.5" />}</span>
               <span className="flex-1 text-left truncate text-xs">{f.name}</span>
               {f.unread > 0 && <span className="text-xs bg-s112-teal text-white px-1.5 py-0.5 rounded-full">{f.unread}</span>}
@@ -301,7 +301,7 @@ export default function NachrichtenClient() {
             ['inbox', 'sent'].map(id => (
               <button key={id} onClick={() => { setFolderId(null); setFolder(id as 'inbox'|'sent') }}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors
-                  ${folder === id && !folderId ? 'bg-s112-teal/10 text-s112-teal font-medium' : 'text-gray-600 hover:bg-white'}`}>
+                  ${folder === id && !folderId ? 'bg-s112-teal/10 text-s112-blue-700 font-medium' : 'text-s112-text-2 hover:bg-white'}`}>
                 <span>{id === 'inbox' ? <Inbox className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}</span>
                 <span className="flex-1 text-left">{id === 'inbox' ? 'Posteingang' : 'Gesendet'}</span>
               </button>
@@ -310,11 +310,11 @@ export default function NachrichtenClient() {
         </nav>
         <div className="p-3 border-t border-s112-border">
           <button onClick={ladeMessages} disabled={laden}
-            className="w-full text-xs text-s112-muted hover:text-s112-teal py-1">
+            className="w-full text-xs text-s112-muted hover:text-s112-blue-700 py-1">
             {laden ? 'Laden…' : 'Aktualisieren'}
           </button>
           <button onClick={() => setShowSettings(v => !v)}
-            className="w-full text-xs text-s112-muted hover:text-s112-teal py-1">
+            className="w-full text-xs text-s112-muted hover:text-s112-blue-700 py-1">
             Einstellungen
           </button>
           {showSettings && (
@@ -324,7 +324,7 @@ export default function NachrichtenClient() {
                 <button onClick={async () => {
                   await fetch('/api/nachrichten/disconnect', { method: 'POST' })
                   window.location.reload()
-                }} className="w-full text-[10px] border border-red-200 text-red-500 px-2 py-1 rounded hover:bg-red-50">
+                }} className="w-full text-[10px] border border-s112-err/30 text-s112-err px-2 py-1 rounded hover:bg-s112-err-bg">
                   Trennen &amp; neu verbinden
                 </button>
               </div>
@@ -355,27 +355,27 @@ export default function NachrichtenClient() {
       {/* ── Nachrichten-Liste ── */}
       <div className="w-72 flex-shrink-0 border-r border-s112-border flex flex-col bg-white">
         <div className="px-4 py-3 border-b border-s112-border">
-          <p className="text-sm font-semibold text-gray-800">
+          <p className="text-sm font-semibold text-s112-text">
             {folderId
               ? (folders.find(f => f.id === folderId)?.name ?? 'Posteingang')
               : folder === 'inbox' ? 'Posteingang' : 'Gesendet'}
           </p>
           <p className="text-xs text-s112-muted">{messages.length} Nachrichten</p>
         </div>
-        {fehler && <p className="text-xs text-red-500 px-4 py-2">{fehler}</p>}
+        {fehler && <p className="text-xs text-s112-err px-4 py-2">{fehler}</p>}
         <div className="flex-1 overflow-y-auto divide-y divide-s112-border/40">
           {messages.map(msg => (
             <button key={msg.id} onClick={() => openMessage(msg)}
               className={`w-full text-left px-4 py-3 hover:bg-s112-bg/50 transition-colors
                 ${selected?.id === msg.id ? 'bg-s112-teal/5 border-l-2 border-s112-teal' : ''}
-                ${!msg.gelesen ? 'bg-blue-50/30' : ''}`}>
+                ${!msg.gelesen ? 'bg-s112-blue-50/30' : ''}`}>
               <div className="flex items-start justify-between gap-2 mb-1">
-                <p className={`text-xs truncate ${!msg.gelesen ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
+                <p className={`text-xs truncate ${!msg.gelesen ? 'font-semibold text-s112-text' : 'font-medium text-s112-text-1'}`}>
                   {folder === 'sent' ? msg.an : (msg.vonName || msg.von)}
                 </p>
                 <p className="text-[10px] text-s112-muted flex-shrink-0">{fmtDate(msg.datum)}</p>
               </div>
-              <p className={`text-xs truncate ${!msg.gelesen ? 'font-semibold text-gray-800' : 'text-gray-700'}`}>{msg.betreff}</p>
+              <p className={`text-xs truncate ${!msg.gelesen ? 'font-semibold text-s112-text' : 'text-s112-text-1'}`}>{msg.betreff}</p>
               {msg.vorschau && <p className="text-[11px] text-s112-muted truncate mt-0.5">{msg.vorschau}</p>}
             </button>
           ))}
@@ -398,8 +398,8 @@ export default function NachrichtenClient() {
         {selected && forwardMode && (
           <div className="flex-1 flex flex-col p-6 gap-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-800">Weiterleiten</h3>
-              <button onClick={() => setForwardMode(false)} className="text-xs text-s112-muted hover:text-gray-700">Abbrechen</button>
+              <h3 className="text-sm font-semibold text-s112-text">Weiterleiten</h3>
+              <button onClick={() => setForwardMode(false)} className="text-xs text-s112-muted hover:text-s112-text-1">Abbrechen</button>
             </div>
             <p className="text-xs text-s112-muted">Betreff: Fwd: {selected.betreff}</p>
             <input value={forwardAn} onChange={e => setForwardAn(e.target.value)}
@@ -426,16 +426,16 @@ export default function NachrichtenClient() {
         {selected && !forwardMode && !compose && (
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="px-6 py-4 border-b border-s112-border">
-              <h2 className="text-base font-bold text-gray-900 mb-2">{selected.betreff}</h2>
+              <h2 className="text-base font-semibold text-s112-text mb-2">{selected.betreff}</h2>
               <div className="text-xs text-s112-muted space-y-0.5">
-                <p><span className="font-medium text-gray-700">Von:</span> {selected.vonName} &lt;{selected.von}&gt;</p>
-                {selected.an && <p><span className="font-medium text-gray-700">An:</span> {selected.an}</p>}
-                <p><span className="font-medium text-gray-700">Datum:</span> {new Date(selected.datum).toLocaleString('de-AT')}</p>
+                <p><span className="font-medium text-s112-text-1">Von:</span> {selected.vonName} &lt;{selected.von}&gt;</p>
+                {selected.an && <p><span className="font-medium text-s112-text-1">An:</span> {selected.an}</p>}
+                <p><span className="font-medium text-s112-text-1">Datum:</span> {new Date(selected.datum).toLocaleString('de-AT')}</p>
               </div>
               <div className="flex flex-wrap gap-2 mt-3">
                   {selected.kontaktInfo && (
                     <Link href={`/crm/${selected.kontaktInfo.typ === 'firma' ? 'firmen' : 'kontakte'}/${selected.kontaktInfo.id}`}
-                      className="text-xs text-s112-teal border border-s112-border px-3 py-1.5 rounded-lg hover:bg-s112-bg">
+                      className="text-xs text-s112-blue-700 border border-s112-border px-3 py-1.5 rounded-lg hover:bg-s112-bg">
                       {selected.kontaktInfo.name}
                     </Link>
                   )}
@@ -444,12 +444,12 @@ export default function NachrichtenClient() {
                     Antworten
                   </button>
                   <button onClick={() => { setForwardMode(true); setForwardAn(''); setCompose(false) }}
-                    className="text-xs border border-s112-border text-gray-600 px-3 py-1.5 rounded-lg hover:bg-s112-bg">
+                    className="text-xs border border-s112-border text-s112-text-2 px-3 py-1.5 rounded-lg hover:bg-s112-bg">
                     Weiterleiten
                   </button>
                   {!moveMode ? (
                     <button onClick={() => { setMoveMode(true); setMoveTarget('') }} title="In Ordner verschieben"
-                      className="text-xs border border-s112-border text-gray-600 px-3 py-1.5 rounded-lg hover:bg-s112-bg flex items-center gap-1">
+                      className="text-xs border border-s112-border text-s112-text-2 px-3 py-1.5 rounded-lg hover:bg-s112-bg flex items-center gap-1">
                       <Folder className="w-3.5 h-3.5" /> Verschieben
                     </button>
                   ) : (
@@ -485,17 +485,17 @@ export default function NachrichtenClient() {
                         {moving ? '…' : 'OK'}
                       </button>
                       <button onClick={() => setMoveMode(false)}
-                        className="text-xs border border-gray-300 text-gray-600 px-2 py-1 rounded hover:bg-gray-50">Abbrechen</button>
+                        className="text-xs border border-s112-line-str text-s112-text-2 px-2 py-1 rounded hover:bg-s112-bg">Abbrechen</button>
                     </span>
                   )}
                   {!deleteConfirm ? (
                     <button onClick={() => setDeleteConfirm(true)} title="Löschen"
-                      className="border border-red-200 text-red-400 p-1.5 rounded-lg hover:bg-red-50 hover:text-red-600">
+                      className="border border-s112-err/30 text-s112-err p-1.5 rounded-lg hover:bg-s112-err-bg hover:text-s112-err-fg">
                       <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
                     </button>
                   ) : (
                     <span className="flex items-center gap-1">
-                      <span className="text-xs text-red-500">Löschen?</span>
+                      <span className="text-xs text-s112-err">Löschen?</span>
                       <button onClick={async () => {
                         const delId = selected.id
                         setDeleteConfirm(false)
@@ -507,9 +507,9 @@ export default function NachrichtenClient() {
                           const d = await r.json().catch(() => ({}))
                           setFehler('Löschen fehlgeschlagen: ' + (d.fehler ?? r.status))
                         }
-                      }} className="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600">Ja</button>
+                      }} className="text-xs bg-s112-err text-white px-2 py-1 rounded hover:bg-s112-err-fg">Ja</button>
                       <button onClick={() => setDeleteConfirm(false)}
-                        className="text-xs border border-gray-300 text-gray-600 px-2 py-1 rounded hover:bg-gray-50">Nein</button>
+                        className="text-xs border border-s112-line-str text-s112-text-2 px-2 py-1 rounded hover:bg-s112-bg">Nein</button>
                     </span>
                   )}
                 </div>
@@ -526,14 +526,14 @@ export default function NachrichtenClient() {
                       <div key={tm.id} className="border border-s112-border rounded-xl p-4 hover:bg-s112-bg/30 cursor-pointer"
                         onClick={() => openMessage(tm)}>
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-semibold text-gray-800">{tm.vonName || tm.von}</span>
+                          <span className="text-xs font-semibold text-s112-text">{tm.vonName || tm.von}</span>
                           <span className="text-[10px] text-s112-muted">{fmtDate(tm.datum)}</span>
                         </div>
-                        <p className="text-xs text-gray-700 truncate">{tm.betreff}</p>
+                        <p className="text-xs text-s112-text-1 truncate">{tm.betreff}</p>
                         {tm.vorschau && <p className="text-[11px] text-s112-muted mt-1 line-clamp-2">{tm.vorschau}</p>}
                         <div className="flex gap-2 mt-2">
                           <button onClick={e => { e.stopPropagation(); setCompose(true); setAn(tm.von); setBetreff(`Re: ${tm.betreff}`); setText('') }}
-                            className="text-[10px] text-s112-teal border border-s112-teal/30 px-2 py-0.5 rounded hover:bg-s112-teal/5">
+                            className="text-[10px] text-s112-blue-700 border border-s112-teal/30 px-2 py-0.5 rounded hover:bg-s112-teal/5">
                             Antworten
                           </button>
                         </div>
@@ -544,12 +544,12 @@ export default function NachrichtenClient() {
               )}
               {selected.bodyHtml ? (
                 <iframe
-                  srcDoc={`<base target="_blank"><style>body{font-family:Arial,sans-serif;font-size:13px;color:#374151;margin:0;padding:0}a{color:#4F86D6}</style>${selected.bodyHtml}`}
+                  srcDoc={`<base target="_blank"><style>body{font-family:Arial,sans-serif;font-size:13px;color:#22252B;margin:0;padding:0}a{color:#4F86D6}</style>${selected.bodyHtml}`}
                   className="w-full min-h-96 border-0" sandbox="allow-popups allow-same-origin"
                   style={{ height: '100%', minHeight: '400px' }}
                 />
               ) : (
-                <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">{selected.bodyText}</pre>
+                <pre className="text-sm text-s112-text-1 whitespace-pre-wrap font-sans leading-relaxed">{selected.bodyText}</pre>
               )}
             </div>
           </div>
@@ -559,50 +559,50 @@ export default function NachrichtenClient() {
         {compose && (
           <div className="flex-1 flex flex-col p-6">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="font-bold text-gray-900 flex items-center gap-2"><Mail className="w-4 h-4" /> Neue E-Mail verfassen</h2>
+              <h2 className="font-semibold text-s112-text flex items-center gap-2"><Mail className="w-4 h-4" /> Neue E-Mail verfassen</h2>
               <button onClick={() => { setCompose(false); setSendResult(null) }}
-                className="text-s112-muted hover:text-gray-700"><X className="w-4 h-4" /></button>
+                className="text-s112-muted hover:text-s112-text-1"><X className="w-4 h-4" /></button>
             </div>
             <form onSubmit={sendEmail} className="flex-1 flex flex-col gap-3">
               {monitoredEmail && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Von</label>
+                  <label className="block text-xs font-medium text-s112-text-2 mb-1">Von</label>
                   <div className="flex gap-2">
                     <button type="button" onClick={() => setSendVon('own')}
-                      className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${sendVon === 'own' ? 'bg-s112-teal text-white border-s112-teal' : 'border-s112-border text-gray-600 hover:bg-s112-bg'}`}>
+                      className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${sendVon === 'own' ? 'bg-s112-teal text-white border-s112-teal' : 'border-s112-border text-s112-text-2 hover:bg-s112-bg'}`}>
                       Eigene Mailbox
                     </button>
                     <button type="button" onClick={() => setSendVon('shared')}
-                      className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${sendVon === 'shared' ? 'bg-s112-teal text-white border-s112-teal' : 'border-s112-border text-gray-600 hover:bg-s112-bg'}`}>
+                      className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${sendVon === 'shared' ? 'bg-s112-teal text-white border-s112-teal' : 'border-s112-border text-s112-text-2 hover:bg-s112-bg'}`}>
                       {monitoredEmail}
                     </button>
                   </div>
                 </div>
               )}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">An * <span className="font-normal text-s112-muted">(mehrere mit Komma trennen)</span></label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">An * <span className="font-normal text-s112-muted">(mehrere mit Komma trennen)</span></label>
                 <input value={an} onChange={e => setAn(e.target.value)} required
                   placeholder="empfaenger@email.at, zweiter@email.at"
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Betreff *</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Betreff *</label>
                 <input value={betreff} onChange={e => setBetreff(e.target.value)} required
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div className="flex-1 flex flex-col">
-                <label className="block text-xs font-medium text-gray-600 mb-1">Nachricht</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Nachricht</label>
                 <textarea value={text} onChange={e => setText(e.target.value)} rows={12}
                   className="flex-1 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
               </div>
-              {sendResult && <p className={`text-sm font-medium ${sendResult.startsWith('Fehler') ? 'text-red-600' : 'text-green-600'}`}>{sendResult}</p>}
+              {sendResult && <p className={`text-sm font-medium ${sendResult.startsWith('Fehler') ? 'text-s112-err-fg' : 'text-s112-ok-fg'}`}>{sendResult}</p>}
               <div className="flex gap-2">
                 <button type="submit" disabled={sending}
                   className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
                   {sending ? 'Senden…' : 'Senden'}
                 </button>
                 <button type="button" onClick={() => setCompose(false)}
-                  className="text-sm px-4 py-2 rounded-xl border border-s112-border text-gray-600 hover:bg-s112-bg">
+                  className="text-sm px-4 py-2 rounded-xl border border-s112-border text-s112-text-2 hover:bg-s112-bg">
                   Abbrechen
                 </button>
               </div>

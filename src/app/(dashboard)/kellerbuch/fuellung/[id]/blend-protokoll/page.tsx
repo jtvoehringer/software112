@@ -62,9 +62,9 @@ export default async function BlendProtokollFuellungPage({ params }: { params: P
       {/* Breadcrumb + Aktionen (ausgeblendet beim Drucken) */}
       <div className="flex items-center justify-between print:hidden flex-wrap gap-2">
         <nav className="flex items-center gap-2 text-sm text-s112-muted">
-          <Link href="/kellerbuch/rueckverfolgung" className="hover:text-s112-teal">Rückverfolgung</Link>
+          <Link href="/kellerbuch/rueckverfolgung" className="hover:text-s112-blue-700">Rückverfolgung</Link>
           <span>/</span>
-          <span className="text-gray-700 font-medium">Blend-Protokoll</span>
+          <span className="text-s112-text-1 font-medium">Blend-Protokoll</span>
         </nav>
         <PrintButton />
       </div>
@@ -84,25 +84,25 @@ export default async function BlendProtokollFuellungPage({ params }: { params: P
               />
             )}
             {s.betrieb_name && (
-              <p className="text-base font-bold text-gray-900">{s.betrieb_name}</p>
+              <p className="text-base font-semibold text-s112-text">{s.betrieb_name}</p>
             )}
             {(s.betrieb_strasse || s.betrieb_plz || s.betrieb_ort) && (
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-s112-text-2">
                 {[s.betrieb_strasse, [s.betrieb_plz, s.betrieb_ort].filter(Boolean).join(' ')].filter(Boolean).join(', ')}
               </p>
             )}
             {s.betrieb_uid && (
-              <p className="text-xs text-gray-400 mt-0.5">UID: {s.betrieb_uid}</p>
+              <p className="text-xs text-s112-tertiary mt-0.5">UID: {s.betrieb_uid}</p>
             )}
           </div>
           <div className="text-right">
-            <p className="text-xs text-gray-400 font-medium uppercase tracking-wide flex items-center justify-end gap-1.5">
+            <p className="text-xs text-s112-tertiary font-medium uppercase tracking-wide flex items-center justify-end gap-1.5">
               <GitMerge size={13} strokeWidth={1.75} />Blend-Protokoll
             </p>
             {fuellung.pruefnummer && (
-              <p className="text-lg font-bold text-s112-teal font-mono mt-0.5">{fuellung.pruefnummer}</p>
+              <p className="text-lg font-semibold text-s112-blue-700 font-mono mt-0.5">{fuellung.pruefnummer}</p>
             )}
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-s112-tertiary mt-0.5">
               Stand: {new Date().toLocaleDateString('de-AT')}
             </p>
           </div>
@@ -110,11 +110,11 @@ export default async function BlendProtokollFuellungPage({ params }: { params: P
 
         {/* Produktbezeichnung */}
         <div className="text-center py-4 border-b border-s112-border">
-          <p className="text-2xl font-bold text-gray-900 tracking-tight">{fuellung.name ?? '–'}</p>
-          <p className="text-sm text-gray-600 mt-1">
+          <p className="text-2xl font-semibold text-s112-text tracking-tight">{fuellung.name ?? '–'}</p>
+          <p className="text-sm text-s112-text-2 mt-1">
             {[fuellung.jahrgang, fuellung.rebsorte ? formatRebsorteMitKuerzel(fuellung.rebsorte) : null].filter(Boolean).join(' · ')}
           </p>
-          <div className="flex items-center justify-center gap-4 text-xs text-gray-400 mt-2">
+          <div className="flex items-center justify-center gap-4 text-xs text-s112-tertiary mt-2">
             {fuellung.chargennummer && <span>Charge: {fuellung.chargennummer}</span>}
             {fuellung.datum && <span>Abgefüllt: {new Date(fuellung.datum).toLocaleDateString('de-AT')}</span>}
             {fuellung.anzahl_flaschen && fuellung.flaschengroesse_ml && (
@@ -133,19 +133,19 @@ export default async function BlendProtokollFuellungPage({ params }: { params: P
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-s112-border text-left">
-                <th className="py-2 font-semibold text-gray-500 text-xs uppercase tracking-wide">Herkunft</th>
-                <th className="py-2 font-semibold text-gray-500 text-xs uppercase tracking-wide">Rebsorte</th>
-                <th className="py-2 font-semibold text-gray-500 text-xs uppercase tracking-wide">Jahrgang</th>
-                <th className="py-2 font-semibold text-gray-500 text-xs uppercase tracking-wide text-right">Anteil</th>
+                <th className="py-2 font-semibold text-s112-text-2 text-xs uppercase tracking-wide">Herkunft</th>
+                <th className="py-2 font-semibold text-s112-text-2 text-xs uppercase tracking-wide">Rebsorte</th>
+                <th className="py-2 font-semibold text-s112-text-2 text-xs uppercase tracking-wide">Jahrgang</th>
+                <th className="py-2 font-semibold text-s112-text-2 text-xs uppercase tracking-wide text-right">Anteil</th>
               </tr>
             </thead>
             <tbody>
               {komposition.map(u => (
                 <tr key={u.key} className="border-b border-s112-border/60 last:border-0">
-                  <td className="py-2 text-gray-800">{herkunftLabel(u)}</td>
-                  <td className="py-2 text-gray-600">{formatRebsorteMitKuerzel(u.rebsorte)}</td>
-                  <td className="py-2 text-gray-600">{u.jahrgang ?? '–'}</td>
-                  <td className="py-2 text-gray-800 font-semibold text-right">
+                  <td className="py-2 text-s112-text">{herkunftLabel(u)}</td>
+                  <td className="py-2 text-s112-text-2">{formatRebsorteMitKuerzel(u.rebsorte)}</td>
+                  <td className="py-2 text-s112-text-2">{u.jahrgang ?? '–'}</td>
+                  <td className="py-2 text-s112-text font-semibold text-right">
                     {u.anteil_pct.toLocaleString('de-AT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %
                   </td>
                 </tr>
@@ -153,8 +153,8 @@ export default async function BlendProtokollFuellungPage({ params }: { params: P
             </tbody>
             <tfoot>
               <tr>
-                <td colSpan={3} className="pt-2 text-xs text-gray-400">Gesamt</td>
-                <td className="pt-2 text-xs text-gray-400 text-right">
+                <td colSpan={3} className="pt-2 text-xs text-s112-tertiary">Gesamt</td>
+                <td className="pt-2 text-xs text-s112-tertiary text-right">
                   {komposition.reduce((s, u) => s + u.anteil_pct, 0).toLocaleString('de-AT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %
                 </td>
               </tr>
@@ -164,11 +164,11 @@ export default async function BlendProtokollFuellungPage({ params }: { params: P
 
         {/* Fußzeile */}
         <div className="border-t border-s112-border pt-4 flex items-end justify-between">
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-s112-tertiary">
             Automatisch generiert aus den Kellerbuch-Verschneidungsdaten – rekursiv aufgelöst bis
             zur ursprünglichen Pressung/Ernte.
           </p>
-          <p className="text-xs text-gray-300">software:112</p>
+          <p className="text-xs text-s112-tertiary">software:112</p>
         </div>
       </div>
 

@@ -42,7 +42,7 @@ export default function ChargenKanban({ chargen, assistentAktiv }: { chargen: Ch
         {PHASEN.map(p => {
           const items = chargen.filter(c => c.status === p.status)
           return (
-            <div key={p.status} className="bg-[#EEF1F5] rounded-[10px] p-2.5 min-h-[120px]">
+            <div key={p.status} className="bg-[#F2F3F5] rounded-[10px] p-2.5 min-h-[120px]">
               <h3 className="flex items-center justify-between font-mono text-[11px] font-semibold uppercase tracking-[.05em] text-s112-text-2 px-1.5 pt-0.5 pb-2">
                 {p.label}<span className="text-s112-tertiary">{items.length}</span>
               </h3>
@@ -66,10 +66,10 @@ export default function ChargenKanban({ chargen, assistentAktiv }: { chargen: Ch
         <div className="fixed inset-0 z-[90] bg-[rgba(10,26,42,.5)] px-4 py-[4vh] overflow-y-auto" onMouseDown={e => { if (e.target === e.currentTarget) setAktiv(null) }}>
           <div role="dialog" aria-modal="true" className="max-w-[720px] mx-auto bg-white rounded-xl border border-s112-line p-6 relative">
             <button type="button" onClick={() => setAktiv(null)} aria-label="Schließen"
-              className="absolute top-3.5 right-3.5 w-8 h-8 rounded-md bg-[#EEF1F5] text-s112-text-2 hover:bg-s112-line flex items-center justify-center">
+              className="absolute top-3.5 right-3.5 w-8 h-8 rounded-md bg-[#F2F3F5] text-s112-text-2 hover:bg-s112-line flex items-center justify-center">
               <X size={15} strokeWidth={1.75} />
             </button>
-            <h2 className="font-display text-[20px] font-semibold text-s112-navy pr-10">{aktiv.name}</h2>
+            <h2 className="font-display text-[20px] font-semibold text-s112-text pr-10">{aktiv.name}</h2>
             <p className="text-[13px] text-s112-text-2 mt-0.5 mb-4">
               Phase: <b className="font-semibold text-s112-text">{STATUS_LABEL[aktiv.status] ?? aktiv.status}</b>
               {aktiv.behaelter && <> · {aktiv.behaelter}</>}{aktiv.menge_liter ? <> · {fmtNum(aktiv.menge_liter)} L</> : null}
@@ -106,9 +106,9 @@ export default function ChargenKanban({ chargen, assistentAktiv }: { chargen: Ch
             </div>
 
             {/* bot:112 */}
-            <div className="mt-4 rounded-[10px] border border-s112-blue-100 bg-gradient-to-br from-[#F1F6FD] to-[#EDF3FA] p-4">
+            <div className="mt-4 rounded-[10px] border border-s112-blue-100 bg-gradient-to-br from-[#EEF4FD] to-[#EEF4FD] p-4">
               <h3 className="flex items-center gap-2 font-mono text-[12px] font-semibold uppercase tracking-[.05em] text-s112-blue-700">
-                <Sparkles size={15} strokeWidth={1.75} className="text-s112-teal" /> bot:112 – KI-Unterstützung
+                <Sparkles size={15} strokeWidth={1.75} className="text-s112-blue-700" /> bot:112 – KI-Unterstützung
               </h3>
               {assistentAktiv ? (
                 <>

@@ -100,9 +100,9 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
       {/* Breadcrumb + Aktionen */}
       <div className="flex items-center justify-between print:hidden">
         <nav className="flex items-center gap-2 text-sm text-s112-muted">
-          <Link href="/reports" className="hover:text-s112-teal">Auswertungen</Link>
+          <Link href="/reports" className="hover:text-s112-blue-700">Auswertungen</Link>
           <span>/</span>
-          <span className="font-medium text-gray-800">AMA Erntemeldung</span>
+          <span className="font-medium text-s112-text">AMA Erntemeldung</span>
         </nav>
         <div className="flex gap-2">
           <form method="GET" action="/reports/ama">
@@ -122,143 +122,143 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
       {/* Dokument */}
       <div className="card p-8 print:border-0 print:shadow-none print:p-0">
         {/* Kopf */}
-        <div className="flex items-start justify-between border-b-2 border-gray-800 pb-4 mb-6">
+        <div className="flex items-start justify-between border-b-2 border-s112-text pb-4 mb-6">
           <div>
             {s.logo_url && <Image src={s.logo_url} alt="" width={150} height={40} className="object-contain object-left max-h-10 mb-2" />}
-            <p className="font-bold text-gray-900">{s.betrieb_name ?? 'software:112'}</p>
-            <p className="text-sm text-gray-600">{[s.betrieb_strasse, [s.betrieb_plz, s.betrieb_ort].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</p>
-            {s.betrieb_uid && <p className="text-xs text-gray-400">UID: {s.betrieb_uid}</p>}
+            <p className="font-semibold text-s112-text">{s.betrieb_name ?? 'software:112'}</p>
+            <p className="text-sm text-s112-text-2">{[s.betrieb_strasse, [s.betrieb_plz, s.betrieb_ort].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</p>
+            {s.betrieb_uid && <p className="text-xs text-s112-tertiary">UID: {s.betrieb_uid}</p>}
           </div>
           <div className="text-right">
-            <p className="text-lg font-bold text-gray-900">AMA Weinerntemeldung</p>
-            <p className="text-2xl font-extrabold text-s112-teal">Jahrgang {aktJahrgang?.jahrgang ?? '–'}</p>
-            <p className="text-xs text-gray-400 mt-1">Erstellt: {heute}</p>
+            <p className="text-lg font-semibold text-s112-text">AMA Weinerntemeldung</p>
+            <p className="text-2xl font-semibold text-s112-blue-700">Jahrgang {aktJahrgang?.jahrgang ?? '–'}</p>
+            <p className="text-xs text-s112-tertiary mt-1">Erstellt: {heute}</p>
           </div>
         </div>
 
         {/* Erntemeldung-Tabelle (je Rebsorte) */}
         <table className="w-full text-sm border-collapse mb-6">
           <thead>
-            <tr className="bg-gray-100 border border-gray-300">
-              <th className="text-left px-3 py-2 border border-gray-300 font-semibold">Rebsorte</th>
-              <th className="text-right px-3 py-2 border border-gray-300 font-semibold">Fläche (ha)</th>
-              <th className="text-right px-3 py-2 border border-gray-300 font-semibold">Menge (kg)</th>
-              <th className="text-right px-3 py-2 border border-gray-300 font-semibold">Menge (hl)</th>
-              <th className="text-left px-3 py-2 border border-gray-300 font-semibold">Qualitätsstufe</th>
+            <tr className="bg-[#F2F3F5] border border-s112-line-str">
+              <th className="text-left px-3 py-2 border border-s112-line-str font-semibold">Rebsorte</th>
+              <th className="text-right px-3 py-2 border border-s112-line-str font-semibold">Fläche (ha)</th>
+              <th className="text-right px-3 py-2 border border-s112-line-str font-semibold">Menge (kg)</th>
+              <th className="text-right px-3 py-2 border border-s112-line-str font-semibold">Menge (hl)</th>
+              <th className="text-left px-3 py-2 border border-s112-line-str font-semibold">Qualitätsstufe</th>
             </tr>
           </thead>
           <tbody>
             {positionen.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-3 py-4 text-center text-gray-400 text-sm italic border border-gray-200">
+                <td colSpan={5} className="px-3 py-4 text-center text-s112-tertiary text-sm italic border border-s112-line">
                   Keine Erntemeldung vorhanden – bitte auf der Lese-Seite &quot;AMA-Meldung erstellen&quot; klicken
                 </td>
               </tr>
             ) : positionen.map((p, i) => (
-              <tr key={i} className={i % 2 === 1 ? 'bg-gray-50' : ''}>
-                <td className="px-3 py-2 border border-gray-200 font-medium">{formatRebsorteMitKuerzel(p.rebsorte_name)}</td>
-                <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">
+              <tr key={i} className={i % 2 === 1 ? 'bg-s112-bg' : ''}>
+                <td className="px-3 py-2 border border-s112-line font-medium">{formatRebsorteMitKuerzel(p.rebsorte_name)}</td>
+                <td className="px-3 py-2 border border-s112-line text-right tabular-nums">
                   {p.flaeche_ha != null ? Number(p.flaeche_ha).toLocaleString('de-AT', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : '–'}
                 </td>
-                <td className="px-3 py-2 border border-gray-200 text-right tabular-nums font-medium">
+                <td className="px-3 py-2 border border-s112-line text-right tabular-nums font-medium">
                   {p.menge_kg != null ? Number(p.menge_kg).toLocaleString('de-AT') : '–'}
                 </td>
-                <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">
+                <td className="px-3 py-2 border border-s112-line text-right tabular-nums">
                   {p.menge_hl != null
                     ? Number(p.menge_hl).toFixed(2).replace('.', ',')
                     : p.menge_kg != null
                       ? (p.menge_kg / 130).toFixed(2).replace('.', ',')
                       : '–'}
                 </td>
-                <td className="px-3 py-2 border border-gray-200">{qualitaetLabel(p.qualitaetsstufe)}</td>
+                <td className="px-3 py-2 border border-s112-line">{qualitaetLabel(p.qualitaetsstufe)}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
-            <tr className="bg-gray-200 font-bold border-t-2 border-gray-400">
-              <td className="px-3 py-2 border border-gray-300">GESAMT</td>
-              <td className="px-3 py-2 border border-gray-300" />
-              <td className="px-3 py-2 border border-gray-300 text-right tabular-nums">{gesamtKg.toLocaleString('de-AT')} kg</td>
-              <td className="px-3 py-2 border border-gray-300 text-right tabular-nums">{gesamtHl > 0 ? gesamtHl.toFixed(2).replace('.', ',') : (gesamtKg / 130).toFixed(2).replace('.', ',')} hl</td>
-              <td className="px-3 py-2 border border-gray-300" />
+            <tr className="bg-s112-line font-semibold border-t-2 border-s112-line-str">
+              <td className="px-3 py-2 border border-s112-line-str">GESAMT</td>
+              <td className="px-3 py-2 border border-s112-line-str" />
+              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums">{gesamtKg.toLocaleString('de-AT')} kg</td>
+              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums">{gesamtHl > 0 ? gesamtHl.toFixed(2).replace('.', ',') : (gesamtKg / 130).toFixed(2).replace('.', ',')} hl</td>
+              <td className="px-3 py-2 border border-s112-line-str" />
             </tr>
           </tfoot>
         </table>
 
         {/* Weinbestandsmeldung */}
-        <div className="mt-10 pt-6 border-t-2 border-gray-300">
-          <h2 className="text-base font-bold text-gray-900 mb-1">Weinbestandsmeldung</h2>
-          <p className="text-xs text-gray-500 mb-3">§ 29 Weingesetz 2009 · Stichtag: <strong>31. Juli</strong> · Meldefrist: <strong>15. August</strong> · Weindatenbank: online.wein.bmluk.gv.at</p>
+        <div className="mt-10 pt-6 border-t-2 border-s112-line-str">
+          <h2 className="text-base font-semibold text-s112-text mb-1">Weinbestandsmeldung</h2>
+          <p className="text-xs text-s112-text-2 mb-3">§ 29 Weingesetz 2009 · Stichtag: <strong>31. Juli</strong> · Meldefrist: <strong>15. August</strong> · Weindatenbank: online.wein.bmluk.gv.at</p>
 
           {/* Abschnitt A: Flaschen */}
-          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">A – Flaschenwein</p>
+          <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wider mb-1">A – Flaschenwein</p>
           <table className="w-full border-collapse text-sm mb-4">
-            <thead><tr className="bg-gray-100">
-              <th className="px-3 py-2 border border-gray-200 text-left">Bezeichnung</th>
-              <th className="px-3 py-2 border border-gray-200 text-left">Jg.</th>
-              <th className="px-3 py-2 border border-gray-200 text-left">Rebsorte</th>
-              <th className="px-3 py-2 border border-gray-200 text-right">ml</th>
-              <th className="px-3 py-2 border border-gray-200 text-right">Flaschen</th>
-              <th className="px-3 py-2 border border-gray-200 text-right">hl</th>
+            <thead><tr className="bg-[#F2F3F5]">
+              <th className="px-3 py-2 border border-s112-line text-left">Bezeichnung</th>
+              <th className="px-3 py-2 border border-s112-line text-left">Jg.</th>
+              <th className="px-3 py-2 border border-s112-line text-left">Rebsorte</th>
+              <th className="px-3 py-2 border border-s112-line text-right">ml</th>
+              <th className="px-3 py-2 border border-s112-line text-right">Flaschen</th>
+              <th className="px-3 py-2 border border-s112-line text-right">hl</th>
             </tr></thead>
             <tbody>
               {bestand.length === 0 ? (
-                <tr><td colSpan={6} className="px-3 py-3 text-center text-gray-400 italic border border-gray-200 text-xs">Kein Flaschenbestand</td></tr>
+                <tr><td colSpan={6} className="px-3 py-3 text-center text-s112-tertiary italic border border-s112-line text-xs">Kein Flaschenbestand</td></tr>
               ) : bestand.map((f: R, i: number) => {
                 const hl = ((f.bestand_flaschen ?? 0) * (f.flaschengroesse_ml ?? 750)) / 100000
-                return (<tr key={i} className={i % 2 === 1 ? 'bg-gray-50' : ''}>
-                  <td className="px-3 py-2 border border-gray-200">{f.name}</td>
-                  <td className="px-3 py-2 border border-gray-200">{f.jahrgang ?? '–'}</td>
-                  <td className="px-3 py-2 border border-gray-200">{formatRebsorteMitKuerzel(f.rebsorte)}</td>
-                  <td className="px-3 py-2 border border-gray-200 text-right">{f.flaschengroesse_ml ?? 750}</td>
-                  <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">{(f.bestand_flaschen ?? 0).toLocaleString('de-AT')}</td>
-                  <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">{hl.toFixed(3).replace('.', ',')}</td>
+                return (<tr key={i} className={i % 2 === 1 ? 'bg-s112-bg' : ''}>
+                  <td className="px-3 py-2 border border-s112-line">{f.name}</td>
+                  <td className="px-3 py-2 border border-s112-line">{f.jahrgang ?? '–'}</td>
+                  <td className="px-3 py-2 border border-s112-line">{formatRebsorteMitKuerzel(f.rebsorte)}</td>
+                  <td className="px-3 py-2 border border-s112-line text-right">{f.flaschengroesse_ml ?? 750}</td>
+                  <td className="px-3 py-2 border border-s112-line text-right tabular-nums">{(f.bestand_flaschen ?? 0).toLocaleString('de-AT')}</td>
+                  <td className="px-3 py-2 border border-s112-line text-right tabular-nums">{hl.toFixed(3).replace('.', ',')}</td>
                 </tr>)
               })}
             </tbody>
-            <tfoot><tr className="bg-gray-200 font-bold border-t-2 border-gray-400">
-              <td className="px-3 py-2 border border-gray-300" colSpan={4}>GESAMT Flaschen</td>
-              <td className="px-3 py-2 border border-gray-300 text-right tabular-nums">{gesamtFlaschen.toLocaleString('de-AT')} Fl.</td>
-              <td className="px-3 py-2 border border-gray-300 text-right tabular-nums">{gesamtFlaschenHl.toFixed(3).replace('.', ',')} hl</td>
+            <tfoot><tr className="bg-s112-line font-semibold border-t-2 border-s112-line-str">
+              <td className="px-3 py-2 border border-s112-line-str" colSpan={4}>GESAMT Flaschen</td>
+              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums">{gesamtFlaschen.toLocaleString('de-AT')} Fl.</td>
+              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums">{gesamtFlaschenHl.toFixed(3).replace('.', ',')} hl</td>
             </tr></tfoot>
           </table>
 
           {/* Abschnitt B: Wein in Gebinden */}
-          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1 mt-4">B – Wein in Gebinden (Tank / Fass)</p>
+          <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wider mb-1 mt-4">B – Wein in Gebinden (Tank / Fass)</p>
           <table className="w-full border-collapse text-sm">
-            <thead><tr className="bg-gray-100">
-              <th className="px-3 py-2 border border-gray-200 text-left">Charge / Bezeichnung</th>
-              <th className="px-3 py-2 border border-gray-200 text-left">Jg.</th>
-              <th className="px-3 py-2 border border-gray-200 text-left">Rebsorte</th>
-              <th className="px-3 py-2 border border-gray-200 text-left">Behälter</th>
-              <th className="px-3 py-2 border border-gray-200 text-right">Liter</th>
-              <th className="px-3 py-2 border border-gray-200 text-right">hl</th>
+            <thead><tr className="bg-[#F2F3F5]">
+              <th className="px-3 py-2 border border-s112-line text-left">Charge / Bezeichnung</th>
+              <th className="px-3 py-2 border border-s112-line text-left">Jg.</th>
+              <th className="px-3 py-2 border border-s112-line text-left">Rebsorte</th>
+              <th className="px-3 py-2 border border-s112-line text-left">Behälter</th>
+              <th className="px-3 py-2 border border-s112-line text-right">Liter</th>
+              <th className="px-3 py-2 border border-s112-line text-right">hl</th>
             </tr></thead>
             <tbody>
               {tanks.length === 0 ? (
-                <tr><td colSpan={6} className="px-3 py-3 text-center text-gray-400 italic border border-gray-200 text-xs">Kein Wein in Gebinden</td></tr>
+                <tr><td colSpan={6} className="px-3 py-3 text-center text-s112-tertiary italic border border-s112-line text-xs">Kein Wein in Gebinden</td></tr>
               ) : tanks.map((t: R, i: number) => {
                 const liter = parseFloat(t.menge_liter) || 0
                 const hl    = liter / 100
-                return (<tr key={i} className={i % 2 === 1 ? 'bg-gray-50' : ''}>
-                  <td className="px-3 py-2 border border-gray-200">{t.name}</td>
-                  <td className="px-3 py-2 border border-gray-200">{t.jahrgang ?? '–'}</td>
-                  <td className="px-3 py-2 border border-gray-200">{formatRebsorteMitKuerzel(t.rebsorte)}</td>
-                  <td className="px-3 py-2 border border-gray-200 text-xs text-gray-500">{(t.behaelter as R)?.name ?? '–'}</td>
-                  <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">{liter.toLocaleString('de-AT', { maximumFractionDigits: 1 })}</td>
-                  <td className="px-3 py-2 border border-gray-200 text-right tabular-nums">{hl.toFixed(3).replace('.', ',')}</td>
+                return (<tr key={i} className={i % 2 === 1 ? 'bg-s112-bg' : ''}>
+                  <td className="px-3 py-2 border border-s112-line">{t.name}</td>
+                  <td className="px-3 py-2 border border-s112-line">{t.jahrgang ?? '–'}</td>
+                  <td className="px-3 py-2 border border-s112-line">{formatRebsorteMitKuerzel(t.rebsorte)}</td>
+                  <td className="px-3 py-2 border border-s112-line text-xs text-s112-text-2">{(t.behaelter as R)?.name ?? '–'}</td>
+                  <td className="px-3 py-2 border border-s112-line text-right tabular-nums">{liter.toLocaleString('de-AT', { maximumFractionDigits: 1 })}</td>
+                  <td className="px-3 py-2 border border-s112-line text-right tabular-nums">{hl.toFixed(3).replace('.', ',')}</td>
                 </tr>)
               })}
             </tbody>
-            <tfoot><tr className="bg-gray-200 font-bold border-t-2 border-gray-400">
-              <td className="px-3 py-2 border border-gray-300" colSpan={5}>GESAMT Gebinde</td>
-              <td className="px-3 py-2 border border-gray-300 text-right tabular-nums">{gesamtTankHl.toFixed(3).replace('.', ',')} hl</td>
+            <tfoot><tr className="bg-s112-line font-semibold border-t-2 border-s112-line-str">
+              <td className="px-3 py-2 border border-s112-line-str" colSpan={5}>GESAMT Gebinde</td>
+              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums">{gesamtTankHl.toFixed(3).replace('.', ',')} hl</td>
             </tr></tfoot>
           </table>
 
           {/* Gesamtsumme */}
           <div className="mt-3 flex justify-end">
-            <div className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-bold">
+            <div className="bg-s112-text text-white px-4 py-2 rounded-lg text-sm font-semibold">
               Gesamtbestand: {(gesamtFlaschenHl + gesamtTankHl).toFixed(3).replace('.', ',')} hl
             </div>
           </div>
@@ -267,10 +267,10 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
         {/* Unterschrift */}
         <div className="grid grid-cols-2 gap-16 mt-12 pt-4">
           <div>
-            <div className="border-t border-gray-400 pt-2 text-xs text-gray-500">Datum, Unterschrift Betriebsführer/in</div>
+            <div className="border-t border-s112-line-str pt-2 text-xs text-s112-text-2">Datum, Unterschrift Betriebsführer/in</div>
           </div>
           <div>
-            <div className="border-t border-gray-400 pt-2 text-xs text-gray-500">Stempel</div>
+            <div className="border-t border-s112-line-str pt-2 text-xs text-s112-text-2">Stempel</div>
           </div>
         </div>
       </div>

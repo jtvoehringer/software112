@@ -84,14 +84,14 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F8F3] flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl overflow-hidden">
+    <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center p-4">
+      <div className="w-full max-w-sm bg-white rounded-xl shadow-xl overflow-hidden">
 
         {/* Header */}
         <div className="bg-[#4F86D6] px-6 py-5 text-white text-center">
-          <p className="text-[10px] uppercase tracking-widest text-[#98C780] font-semibold mb-1">Weinpass</p>
-          <h1 className="text-xl font-bold">{f.name}</h1>
-          {f.bezeichnung && <p className="text-sm text-[#98C6DD] mt-0.5">{f.bezeichnung}</p>}
+          <p className="text-[10px] uppercase tracking-widest text-white/80 font-semibold mb-1">Weinpass</p>
+          <h1 className="text-xl font-semibold">{f.name}</h1>
+          {f.bezeichnung && <p className="text-sm text-white/85 mt-0.5">{f.bezeichnung}</p>}
           <p className="text-sm text-white/70 mt-2">{f.anbaugebiet}</p>
         </div>
 
@@ -99,44 +99,44 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
         <div className="px-6 py-5 space-y-3">
           {f.jahrgang && (
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Jahrgang</span>
-              <span className="font-semibold text-gray-900">{f.jahrgang}</span>
+              <span className="text-s112-text-2">Jahrgang</span>
+              <span className="font-semibold text-s112-text">{f.jahrgang}</span>
             </div>
           )}
           {f.rebsorte && (
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Rebsorte</span>
-              <span className="font-semibold text-gray-900">{formatRebsorteMitKuerzel(f.rebsorte)}</span>
+              <span className="text-s112-text-2">Rebsorte</span>
+              <span className="font-semibold text-s112-text">{formatRebsorteMitKuerzel(f.rebsorte)}</span>
             </div>
           )}
           {f.qualitaet && (
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Qualität</span>
-              <span className="font-semibold text-gray-900">{qualitaetLabels[f.qualitaet] ?? f.qualitaet}</span>
+              <span className="text-s112-text-2">Qualität</span>
+              <span className="font-semibold text-s112-text">{qualitaetLabels[f.qualitaet] ?? f.qualitaet}</span>
             </div>
           )}
           {f.datum && (
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Abgefüllt</span>
-              <span className="font-semibold text-gray-900">{new Date(f.datum).toLocaleDateString('de-AT')}</span>
+              <span className="text-s112-text-2">Abgefüllt</span>
+              <span className="font-semibold text-s112-text">{new Date(f.datum).toLocaleDateString('de-AT')}</span>
             </div>
           )}
           {f.flaschengroesse_ml && (
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Flaschengröße</span>
-              <span className="font-semibold text-gray-900">{f.flaschengroesse_ml} ml</span>
+              <span className="text-s112-text-2">Flaschengröße</span>
+              <span className="font-semibold text-s112-text">{f.flaschengroesse_ml} ml</span>
             </div>
           )}
 
           {/* Chargennummer */}
-          <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between text-sm">
-            <span className="text-gray-500">Chargennummer</span>
-            <span className="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-700">{f.chargennummer}</span>
+          <div className="mt-3 pt-3 border-t border-s112-line flex justify-between text-sm">
+            <span className="text-s112-text-2">Chargennummer</span>
+            <span className="font-mono text-xs bg-[#F2F3F5] px-2 py-0.5 rounded text-s112-text-1">{f.chargennummer}</span>
           </div>
           {f.pruefnummer && (
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Prüfnummer</span>
-              <span className="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-700">{f.pruefnummer}</span>
+              <span className="text-s112-text-2">Prüfnummer</span>
+              <span className="font-mono text-xs bg-[#F2F3F5] px-2 py-0.5 rounded text-s112-text-1">{f.pruefnummer}</span>
             </div>
           )}
         </div>
@@ -144,14 +144,14 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
         {/* Herkunft / Weingärten */}
         {weingaerten.length > 0 && (
           <div className="px-6 pb-5 space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Herkunft</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-s112-tertiary">Herkunft</p>
             {weingaerten.map((wg: R, i: number) => (
-              <div key={i} className="bg-[#F8F8F3] rounded-xl p-3 space-y-1">
+              <div key={i} className="bg-[#F7F8FA] rounded-xl p-3 space-y-1">
                 <p className="text-sm font-semibold text-[#4F86D6] flex items-center gap-1">
                   <Sprout className="w-3.5 h-3.5" aria-hidden="true" />
                   {(wg.weingarten as R).name}
                 </p>
-                <div className="flex flex-wrap gap-x-3 text-xs text-gray-500">
+                <div className="flex flex-wrap gap-x-3 text-xs text-s112-text-2">
                   {wg.trauben_kg && <span>{parseFloat(wg.trauben_kg).toLocaleString('de-AT')} kg</span>}
                   {wg.ernte_datum && <span>{new Date(wg.ernte_datum).toLocaleDateString('de-AT')}</span>}
                   {wg.kmw && <span>{wg.kmw} °KMW</span>}
@@ -162,7 +162,7 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
         )}
 
         <div className="px-6 pb-6 text-center">
-          <p className="text-[10px] text-gray-300">Powered by software:112</p>
+          <p className="text-[10px] text-s112-tertiary">Powered by software:112</p>
         </div>
       </div>
     </div>

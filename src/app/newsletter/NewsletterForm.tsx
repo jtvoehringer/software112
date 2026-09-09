@@ -14,7 +14,7 @@ const SEGMENTE = [
 
 function inputCls(error?: boolean) {
   return `w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 transition-colors ${
-    error ? 'border-red-400 bg-red-50' : 'border-s112-border'
+    error ? 'border-s112-err/50 bg-s112-err-bg' : 'border-s112-border'
   }`
 }
 
@@ -38,9 +38,9 @@ export default function NewsletterForm() {
     return (
       <div className="text-center py-4">
         <div className="mb-3 flex justify-center">
-          <Mail className="w-9 h-9 text-s112-teal" aria-hidden="true" />
+          <Mail className="w-9 h-9 text-s112-blue-700" aria-hidden="true" />
         </div>
-        <h3 className="font-semibold text-gray-900 mb-1">Bestätigung unterwegs!</h3>
+        <h3 className="font-semibold text-s112-text mb-1">Bestätigung unterwegs!</h3>
         <p className="text-sm text-s112-muted">
           Wir haben Ihnen eine Bestätigungs-E-Mail geschickt. Bitte klicken Sie auf den Link darin, um Ihre Anmeldung abzuschließen.
         </p>
@@ -55,23 +55,23 @@ export default function NewsletterForm() {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Vorname</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Vorname</label>
           <input name="vorname" className={inputCls()} placeholder="Maria" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Nachname</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Nachname</label>
           <input name="nachname" className={inputCls()} placeholder="Muster" />
         </div>
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">E-Mail-Adresse *</label>
+        <label className="block text-xs font-medium text-s112-text-2 mb-1">E-Mail-Adresse *</label>
         <input name="email" type="email" required className={inputCls(!!result?.error)}
           placeholder="maria.muster@beispiel.at" />
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Ich bin…</label>
+        <label className="block text-xs font-medium text-s112-text-2 mb-1">Ich bin…</label>
         <select name="segment" defaultValue="privat"
           className={inputCls()}>
           {SEGMENTE.map(s => (
@@ -82,7 +82,7 @@ export default function NewsletterForm() {
 
       {/* Fehlermeldung */}
       {result?.error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-700">
+        <div className="bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2 text-sm text-s112-err-fg">
           {result.error}
         </div>
       )}
@@ -91,7 +91,7 @@ export default function NewsletterForm() {
       <label className="flex items-start gap-2.5 cursor-pointer">
         <input type="checkbox" checked={datenschutz} onChange={e => setDatenschutz(e.target.checked)}
           className="accent-s112-teal w-4 h-4 mt-0.5 flex-shrink-0" />
-        <span className="text-xs text-gray-600">
+        <span className="text-xs text-s112-text-2">
           Ich stimme zu, dass meine Daten zur Zusendung des Newsletters verarbeitet werden.
           Die Einwilligung kann ich jederzeit widerrufen.
         </span>

@@ -14,14 +14,14 @@ export default function NewsletterPage() {
         {/* Logo/Header */}
         <div className="text-center mb-8">
           <div className="mb-3 flex justify-center">
-            <Wine className="w-12 h-12 text-s112-teal" aria-hidden="true" />
+            <Wine className="w-12 h-12 text-s112-blue-700" aria-hidden="true" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Weingut Gebeshuber</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Weingut Gebeshuber</h1>
           <p className="text-s112-muted text-sm mt-1">Newsletter-Anmeldung</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-s112-border p-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-1">Bleiben Sie informiert</h2>
+        <div className="bg-white rounded-xl shadow-sm border border-s112-border p-8">
+          <h2 className="text-lg font-semibold text-s112-text mb-1">Bleiben Sie informiert</h2>
           <p className="text-sm text-s112-muted mb-6">
             Neuigkeiten zu unseren Weinen, Jahrgängen und Verkostungsterminen – direkt in Ihr Postfach.
           </p>
@@ -32,7 +32,7 @@ export default function NewsletterPage() {
             Mit der Anmeldung erhalten Sie zunächst eine Bestätigungs-E-Mail (Double Opt-in).
             Ihre Daten werden ausschließlich für den Newsletter verwendet und nicht an Dritte weitergegeben.
             Sie können sich jederzeit abmelden.{' '}
-            <span className="text-gray-400">· DSGVO-konform</span>
+            <span className="text-s112-tertiary">· DSGVO-konform</span>
           </p>
         </div>
 

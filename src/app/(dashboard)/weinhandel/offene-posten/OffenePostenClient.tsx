@@ -45,24 +45,24 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
         </td>
         <td className="px-4 py-3">
           <Link href={`/weinhandel/verkauf/${p.id}`}
-            className="text-sm font-mono font-semibold text-s112-teal hover:underline">
+            className="text-sm font-mono font-semibold text-s112-blue-700 hover:underline">
             {p.rechnungsnummer ?? '–'}
           </Link>
         </td>
-        <td className="px-4 py-3 text-sm text-gray-800">
+        <td className="px-4 py-3 text-sm text-s112-text">
           {p.kontaktId ? (
-            <Link href={`/crm/kontakte/${p.kontaktId}`} className="hover:text-s112-teal hover:underline">
+            <Link href={`/crm/kontakte/${p.kontaktId}`} className="hover:text-s112-blue-700 hover:underline">
               {p.kundenName}
             </Link>
           ) : p.firmaId ? (
-            <Link href={`/crm/firmen/${p.firmaId}`} className="hover:text-s112-teal hover:underline">
+            <Link href={`/crm/firmen/${p.firmaId}`} className="hover:text-s112-blue-700 hover:underline">
               {p.kundenName}
             </Link>
           ) : (
             <span>{p.kundenName}</span>
           )}
         </td>
-        <td className="px-4 py-3 text-right font-semibold text-s112-teal tabular-nums">
+        <td className="px-4 py-3 text-right font-semibold text-s112-blue-700 tabular-nums">
           {fmt(p.gesamt)}
           {!p.bezahlt && p.bereitsBezahlt > 0 && (
             <p className="text-[10px] font-normal text-s112-muted mt-0.5">
@@ -73,7 +73,7 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
         <td className="px-4 py-3 text-center">
           {p.bezahlt ? (
             <div>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Bezahlt</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-s112-ok-bg text-s112-ok-fg font-medium">Bezahlt</span>
               {p.bezahlt_am && (
                 <p className="text-[10px] text-s112-muted mt-0.5">
                   {new Date(p.bezahlt_am).toLocaleDateString('de-AT')}
@@ -90,12 +90,12 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
               {writeOk ? (
                 <button
                   onClick={() => setExpanded(v => !v)}
-                  className="text-xs font-medium text-green-700 border border-green-300 rounded-full px-3 py-0.5 hover:bg-green-500 hover:text-white hover:border-green-500 transition-colors"
+                  className="text-xs font-medium text-s112-ok-fg border border-s112-ok/30 rounded-full px-3 py-0.5 hover:bg-s112-ok hover:text-white hover:border-s112-grey transition-colors"
                 >
                   {expanded ? 'Abbrechen' : 'Zahlung buchen'}
                 </button>
               ) : !p.ueberfaellig ? (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Offen</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-s112-warn-bg text-s112-warn-fg font-medium">Offen</span>
               ) : null}
             </div>
           )}
@@ -111,14 +111,14 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
               }}
               className="border border-s112-border rounded-lg p-3 space-y-3 bg-white"
             >
-              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Zahlung erfassen</p>
+              <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wider">Zahlung erfassen</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Datum</label>
+                  <label className="block text-xs text-s112-text-2 mb-1">Datum</label>
                   <input name="datum" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="form-input text-sm w-full" />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Art</label>
+                  <label className="block text-xs text-s112-text-2 mb-1">Art</label>
                   <select name="art" className="form-input text-sm w-full">
                     <option value="bar">Bar</option>
                     <option value="karte">Karte</option>
@@ -128,7 +128,7 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Betrag (€)</label>
+                  <label className="block text-xs text-s112-text-2 mb-1">Betrag (€)</label>
                   <input
                     name="betrag"
                     type="text"
@@ -140,13 +140,13 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Notiz</label>
+                  <label className="block text-xs text-s112-text-2 mb-1">Notiz</label>
                   <input name="notizen" type="text" placeholder="Optional…" className="form-input text-sm w-full" />
                 </div>
               </div>
               {konten.length > 0 && (
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Bezahlt über Konto</label>
+                  <label className="block text-xs text-s112-text-2 mb-1">Bezahlt über Konto</label>
                   <select name="konto_id" required className="form-input text-sm w-full max-w-xs">
                     {konten.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
                   </select>
@@ -156,7 +156,7 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
                 <button
                   type="button"
                   onClick={() => setExpanded(false)}
-                  className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-s112-bg transition-colors"
+                  className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:bg-s112-bg transition-colors"
                 >
                   Abbrechen
                 </button>
@@ -187,27 +187,27 @@ export default function OffenePostenClient({
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/weinhandel" className="hover:text-s112-teal transition-colors">Weinhandel</Link>
+        <Link href="/weinhandel" className="hover:text-s112-blue-700 transition-colors">Weinhandel</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Offene Posten</span>
+        <span className="text-s112-text-1 font-medium">Offene Posten</span>
       </div>
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Offene Posten</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Offene Posten</h1>
           <p className="text-sm text-s112-muted mt-0.5">
             {offene.length} offene {offene.length === 1 ? 'Rechnung' : 'Rechnungen'}
           </p>
         </div>
         <div className="card px-5 py-3 text-right">
           <p className="text-xs text-s112-muted">Offener Gesamtbetrag</p>
-          <p className="text-2xl font-bold text-s112-teal tabular-nums">{fmt(summeOffen)}</p>
+          <p className="text-2xl font-semibold text-s112-blue-700 tabular-nums">{fmt(summeOffen)}</p>
         </div>
       </div>
 
       {/* Toggle bezahlte anzeigen */}
       <div className="flex items-center justify-between">
-        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-600">
+        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-s112-text-2">
           <input
             type="checkbox"
             checked={showBezahlt}
@@ -216,7 +216,7 @@ export default function OffenePostenClient({
           />
           Bezahlte Rechnungen anzeigen ({bezahlte.length})
         </label>
-        <Link href="/weinhandel/verkauf" className="text-xs text-s112-teal hover:underline">
+        <Link href="/weinhandel/verkauf" className="text-xs text-s112-blue-700 hover:underline">
           → Alle Verkäufe
         </Link>
       </div>
@@ -233,11 +233,11 @@ export default function OffenePostenClient({
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-s112-bg border-b border-s112-border">
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Datum</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Belegnr.</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Kunde</th>
-                <th className="text-right px-4 py-3 font-semibold text-gray-700">Betrag</th>
-                <th className="text-center px-4 py-3 font-semibold text-gray-700">Status</th>
+                <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Datum</th>
+                <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Belegnr.</th>
+                <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Kunde</th>
+                <th className="text-right px-4 py-3 font-semibold text-s112-text-1">Betrag</th>
+                <th className="text-center px-4 py-3 font-semibold text-s112-text-1">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -248,10 +248,10 @@ export default function OffenePostenClient({
             {offene.length > 0 && (
               <tfoot>
                 <tr className="border-t-2 border-s112-border bg-s112-bg">
-                  <td colSpan={3} className="px-4 py-3 text-right font-semibold text-gray-700">
+                  <td colSpan={3} className="px-4 py-3 text-right font-semibold text-s112-text-1">
                     Offen gesamt
                   </td>
-                  <td className="px-4 py-3 text-right font-bold text-lg text-s112-teal tabular-nums">
+                  <td className="px-4 py-3 text-right font-semibold text-lg text-s112-blue-700 tabular-nums">
                     {fmt(summeOffen)}
                   </td>
                   <td />

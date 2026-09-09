@@ -33,18 +33,18 @@ function StornoButton({ id, zielId }: { id: string; zielId: string }) {
   if (confirm) {
     return (
       <span className="flex items-center gap-1">
-        <span className="text-xs text-red-600">Wirklich stornieren?</span>
+        <span className="text-xs text-s112-err-fg">Wirklich stornieren?</span>
         <button
           onClick={() => startTransition(async () => {
             await deleteVerschneidung(id)
             void zielId
           })}
           disabled={pending}
-          className="text-xs bg-red-600 text-white px-2 py-0.5 rounded font-medium disabled:opacity-50"
+          className="text-xs bg-s112-err text-white px-2 py-0.5 rounded font-medium disabled:opacity-50"
         >
           {pending ? '…' : 'Ja'}
         </button>
-        <button onClick={() => setConfirm(false)} className="text-xs text-gray-500 hover:text-gray-700 px-1">
+        <button onClick={() => setConfirm(false)} className="text-xs text-s112-text-2 hover:text-s112-text-1 px-1">
           Nein
         </button>
       </span>
@@ -54,7 +54,7 @@ function StornoButton({ id, zielId }: { id: string; zielId: string }) {
   return (
     <button
       onClick={() => setConfirm(true)}
-      className="text-xs text-red-400 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100"
+      className="text-xs text-s112-err hover:text-s112-err-fg transition-colors opacity-0 group-hover:opacity-100"
       title="Verschneidung stornieren"
     >
       Storno
@@ -87,8 +87,8 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
   return (
     <section ref={sectionRef}>
       <div className="flex items-center justify-between mb-3">
-        <h2 className="font-semibold text-gray-800 flex items-center gap-1.5">
-          <GitMerge size={16} strokeWidth={1.75} className="text-violet-600" />Verschneidungen
+        <h2 className="font-semibold text-s112-text flex items-center gap-1.5">
+          <GitMerge size={16} strokeWidth={1.75} className="text-s112-text-1" />Verschneidungen
         </h2>
       </div>
 
@@ -106,7 +106,7 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
             }}
           />
           <button type="button" onClick={handleClose}
-            className="mt-2 text-sm text-s112-muted hover:text-gray-700 transition-colors">
+            className="mt-2 text-sm text-s112-muted hover:text-s112-text-1 transition-colors">
             Abbrechen
           </button>
         </div>
@@ -149,13 +149,13 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
         if (quellenliste.length === 0) return null
         return (
           <div className="mb-3 flex flex-wrap gap-2 items-center">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Besteht aus:</span>
+            <span className="text-xs font-semibold text-s112-text-2 uppercase tracking-wide">Besteht aus:</span>
             {quellenliste.map((q, i) => {
               const pct = gesamtMenge > 0 ? Math.round((q.menge / gesamtMenge) * 1000) / 10 : 0
               return (
-                <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-50 border border-violet-200 text-xs text-violet-800 font-medium">
+                <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F2F3F5] border border-s112-line-str text-xs text-s112-text-1 font-medium">
                   {q.istRebsorte ? formatRebsorteMitKuerzel(q.name) : q.name}
-                  <span className="text-violet-500 font-normal">{pct.toLocaleString('de-AT')} %</span>
+                  <span className="text-s112-text-1 font-normal">{pct.toLocaleString('de-AT')} %</span>
                 </span>
               )
             })}
@@ -167,7 +167,7 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
         <div className="card p-0 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-s112-bg border-b border-s112-border text-xs text-gray-600">
+              <tr className="bg-s112-bg border-b border-s112-border text-xs text-s112-text-2">
                 <th className="text-left px-4 py-2 font-semibold">Datum</th>
                 <th className="text-left px-4 py-2 font-semibold">Quellen</th>
                 <th className="text-left px-4 py-2 font-semibold">Notizen</th>
@@ -186,7 +186,7 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
                         const ql = (q.quelle as R | null)?.qualitaetsstufe
                         return (
                           <p key={i} className="text-xs flex items-center gap-1.5">
-                            <span className="font-medium text-gray-800">{(q.quelle as R | null)?.name ?? '?'}</span>
+                            <span className="font-medium text-s112-text">{(q.quelle as R | null)?.name ?? '?'}</span>
                             {q.menge_liter != null && (
                               <span className="text-s112-muted">
                                 {parseFloat(q.menge_liter).toLocaleString('de-AT')} L
@@ -194,7 +194,7 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
                               </span>
                             )}
                             {ql && (
-                              <span className="text-xs bg-amber-50 border border-amber-200 text-amber-700 px-1.5 py-0.5 rounded-full">
+                              <span className="text-xs bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg px-1.5 py-0.5 rounded-full">
                                 {QUALITAET_LABEL[ql] ?? ql}
                               </span>
                             )}

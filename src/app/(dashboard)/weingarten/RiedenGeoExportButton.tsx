@@ -20,8 +20,8 @@ export default function RiedenGeoExportButton({ anzahl }: { anzahl: number }) {
     <div className="relative" ref={ref}>
       <button type="button" disabled={disabled} onClick={() => setOpen(o => !o)}
         title={disabled ? 'Noch keine Ried mit Koordinaten' : `${anzahl} Rieden mit Koordinaten exportieren`}
-        className="inline-flex items-center gap-1.5 border border-s112-border bg-white text-gray-700 px-3 py-2 rounded-xl text-sm font-medium hover:bg-s112-bg disabled:opacity-40 transition-colors">
-        <MapPin size={15} strokeWidth={1.75} className="text-s112-teal" /> Wegpunkte <ChevronDown size={13} />
+        className="inline-flex items-center gap-1.5 border border-s112-border bg-white text-s112-text-1 px-3 py-2 rounded-xl text-sm font-medium hover:bg-s112-bg disabled:opacity-40 transition-colors">
+        <MapPin size={15} strokeWidth={1.75} className="text-s112-blue-700" /> Wegpunkte <ChevronDown size={13} />
       </button>
       {open && (
         <div className="absolute right-0 top-11 z-40 w-64 bg-white rounded-xl border border-s112-line shadow-lg p-1.5 text-sm">

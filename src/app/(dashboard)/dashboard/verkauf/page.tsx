@@ -293,11 +293,11 @@ export default async function DashboardPage() {
           </div>
           <p className="font-mono text-2xl text-s112-text tabular-nums">{(leadCount ?? 0) + (firmaLeadCount ?? 0)}</p>
           <p className="text-[11.5px] text-s112-tertiary">
-            <Link href="/crm/kontakte?filter=lead" className="hover:text-s112-teal hover:underline">
+            <Link href="/crm/kontakte?filter=lead" className="hover:text-s112-blue-700 hover:underline">
               {leadCount ?? 0} {(leadCount ?? 0) === 1 ? 'Kontakt' : 'Kontakte'}
             </Link>
             {' · '}
-            <Link href="/crm/firmen?filter=lead" className="hover:text-s112-teal hover:underline">
+            <Link href="/crm/firmen?filter=lead" className="hover:text-s112-blue-700 hover:underline">
               {firmaLeadCount ?? 0} {(firmaLeadCount ?? 0) === 1 ? 'Firma' : 'Firmen'}
             </Link>
           </p>
@@ -341,7 +341,7 @@ export default async function DashboardPage() {
             <p className="text-sm text-s112-text-2 px-[18px] pb-5">Keine überfälligen Rechnungen.</p>
           ) : (
             <div>
-              <div className="grid grid-cols-[1.6fr_1fr_.9fr_.9fr_40px] px-[18px] py-[11px] bg-[#FBFBFC] border-b border-s112-line text-[11px] font-semibold uppercase tracking-[.08em] text-s112-tertiary">
+              <div className="grid grid-cols-[1.6fr_1fr_.9fr_.9fr_40px] px-[18px] py-[11px] bg-[#F7F8FA] border-b border-s112-line text-[11px] font-semibold uppercase tracking-[.08em] text-s112-tertiary">
                 <span>Kunde</span>
                 <span>Beleg-Nr.</span>
                 <span>Überfällig</span>
@@ -351,7 +351,7 @@ export default async function DashboardPage() {
               {belege.map(v => (
                 <Link key={v.id} href={`/weinhandel/verkauf/${v.id}`}
                   className="contents">
-                  <div className="col-span-5 grid grid-cols-[1.6fr_1fr_.9fr_.9fr_40px] items-center px-[18px] py-[13px] border-t border-[#F4F5F7] text-[13px] hover:bg-[#FAFCFF] transition-colors">
+                  <div className="col-span-5 grid grid-cols-[1.6fr_1fr_.9fr_.9fr_40px] items-center px-[18px] py-[13px] border-t border-[#F2F3F5] text-[13px] hover:bg-[#F7F8FA] transition-colors">
                     <span className="text-s112-text truncate">{v.kunde}</span>
                     <span className="font-mono text-s112-text-2">{v.rechnungsnummer ?? '–'}</span>
                     <span>
@@ -377,7 +377,7 @@ export default async function DashboardPage() {
         {/* Meine Aktivitäten */}
         <div className="card p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-gray-700 text-sm">Meine Aktivitäten</h2>
+            <h2 className="font-semibold text-s112-text-1 text-sm">Meine Aktivitäten</h2>
             <Link href="/crm" className="text-xs text-s112-blue-700 hover:underline">Kalender →</Link>
           </div>
           {(meineAkts ?? []).length === 0 ? (
@@ -391,7 +391,7 @@ export default async function DashboardPage() {
                 return (
                   <div key={a.id} className="flex items-start gap-2 py-1.5 border-b border-s112-border/30 last:border-0">
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-gray-800 truncate">{a.betreff}</p>
+                      <p className="text-xs font-medium text-s112-text truncate">{a.betreff}</p>
                       {who && <p className="text-[10px] text-s112-muted truncate">{who}</p>}
                     </div>
                     <span className="text-[10px] text-s112-muted flex-shrink-0">{new Date(a.datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit' })}</span>
@@ -405,7 +405,7 @@ export default async function DashboardPage() {
         {/* Nächste Termine */}
         <div className="card p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-gray-700 text-sm">Nächste Termine</h2>
+            <h2 className="font-semibold text-s112-text-1 text-sm">Nächste Termine</h2>
             <div className="flex items-center gap-3">
               <Link href="/crm" className="text-xs text-s112-blue-700 hover:underline">alle →</Link>
               <Link href="/crm" className="text-xs text-s112-blue-700 hover:underline">Kalender →</Link>
@@ -421,7 +421,7 @@ export default async function DashboardPage() {
               {naechsteAkt.map((a: R) => (
                 <div key={a.id} className="flex items-start gap-2 py-2 border-b border-s112-border last:border-0">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-800 truncate">{a.betreff || a.art}</p>
+                    <p className="text-sm font-medium text-s112-text truncate">{a.betreff || a.art}</p>
                     <p className="text-xs text-s112-muted">
                       {new Date(a.datum).toLocaleDateString('de-AT')}
                       {aktKundenName(a) && <span className="ml-1">· {aktKundenName(a)}</span>}
@@ -461,8 +461,8 @@ export default async function DashboardPage() {
           ].map(item => (
             <Link key={item.href} href={item.href}
               className="card p-4 flex items-center gap-3 hover:border-s112-teal hover:shadow-sm transition-all">
-              <item.icon size={20} strokeWidth={1.75} className="text-s112-teal" />
-              <span className="text-sm font-medium text-gray-700">{item.label}</span>
+              <item.icon size={20} strokeWidth={1.75} className="text-s112-blue-700" />
+              <span className="text-sm font-medium text-s112-text-1">{item.label}</span>
             </Link>
           ))}
         </div>

@@ -28,7 +28,7 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex gap-2 text-sm">
       <span className="text-s112-muted w-40 shrink-0">{label}</span>
-      <span className="text-gray-800 font-medium">{value}</span>
+      <span className="text-s112-text font-medium">{value}</span>
     </div>
   )
 }
@@ -36,7 +36,7 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="card p-5 space-y-3">
-      <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+      <h2 className="text-sm font-semibold text-s112-text flex items-center gap-2">
         <span>{icon}</span>{title}
       </h2>
       {children}
@@ -228,7 +228,7 @@ function ChargeKette({
         )}
         <Link
           href={`/kellerbuch/weinausbau/${weinausbau.id}/buch`}
-          className="inline-flex items-center gap-1 text-xs text-s112-teal hover:underline pt-1"
+          className="inline-flex items-center gap-1 text-xs text-s112-blue-700 hover:underline pt-1"
         >
           Weinbuch dieser Charge öffnen
         </Link>
@@ -243,9 +243,9 @@ function ChargeKette({
                 <span className="text-xs text-s112-muted tabular-nums w-24 shrink-0">
                   {new Date(u.datum).toLocaleDateString('de-AT')}
                 </span>
-                <span className="text-gray-600">{(u.von_behaelter as R | null)?.name ?? '?'}</span>
+                <span className="text-s112-text-2">{(u.von_behaelter as R | null)?.name ?? '?'}</span>
                 <span className="text-s112-muted">→</span>
-                <span className="text-gray-600">{(u.nach_behaelter as R | null)?.name ?? '?'}</span>
+                <span className="text-s112-text-2">{(u.nach_behaelter as R | null)?.name ?? '?'}</span>
                 <span className="text-xs text-s112-muted ml-auto">
                   {u.menge_liter ? `${parseFloat(u.menge_liter).toLocaleString('de-AT')} L` : ''}
                   {u.schwund_liter ? ` (Schwund: ${u.schwund_liter} L)` : ''}
@@ -269,7 +269,7 @@ function ChargeKette({
                   <span className="text-xs text-s112-muted tabular-nums">
                     {p.datum ? new Date(p.datum).toLocaleDateString('de-AT') : ''}
                   </span>
-                  <span className="text-sm font-medium text-gray-700">Pressung</span>
+                  <span className="text-sm font-medium text-s112-text-1">Pressung</span>
                   {p.most_liter_gesamt && (
                     <span className="text-xs text-s112-muted">
                       {parseFloat(p.most_liter_gesamt).toLocaleString('de-AT')} L Most
@@ -287,7 +287,7 @@ function ChargeKette({
                       return (
                         <div key={j} className="bg-s112-bg rounded-lg p-3 space-y-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-800">{w?.name ?? '–'}</span>
+                            <span className="text-sm font-medium text-s112-text">{w?.name ?? '–'}</span>
                             {w?.flaeche_ha && (
                               <span className="text-xs text-s112-muted">{parseFloat(w.flaeche_ha).toLocaleString('de-AT')} ha</span>
                             )}
@@ -297,7 +297,7 @@ function ChargeKette({
                               {g.katastralgemeinde}{g.gst_nr ? ` · GST ${g.gst_nr}` : ''}
                             </div>
                           )}
-                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-600">
+                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-s112-text-2">
                             {wg.trauben_kg && <span>{parseFloat(wg.trauben_kg).toLocaleString('de-AT')} kg</span>}
                             {wg.rebsorte && <span>{formatRebsorteMitKuerzel(wg.rebsorte)}</span>}
                             {wg.ernte_datum && <span>Lese: {new Date(wg.ernte_datum).toLocaleDateString('de-AT')}</span>}
@@ -321,15 +321,15 @@ function ChargeKette({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-s112-border/50">
-                  <th className="text-left px-2 py-1.5 text-xs font-medium text-gray-500">Datum</th>
-                  <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500">Alkohol</th>
-                  <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500">Restzucker</th>
-                  <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500">Gesamtsäure</th>
-                  <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500">pH</th>
-                  <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500">Flücht. Säure</th>
-                  <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500">SO₂ frei</th>
-                  <th className="text-right px-2 py-1.5 text-xs font-medium text-gray-500">SO₂ gesamt</th>
-                  <th className="text-left px-2 py-1.5 text-xs font-medium text-gray-500">Labor</th>
+                  <th className="text-left px-2 py-1.5 text-xs font-medium text-s112-text-2">Datum</th>
+                  <th className="text-right px-2 py-1.5 text-xs font-medium text-s112-text-2">Alkohol</th>
+                  <th className="text-right px-2 py-1.5 text-xs font-medium text-s112-text-2">Restzucker</th>
+                  <th className="text-right px-2 py-1.5 text-xs font-medium text-s112-text-2">Gesamtsäure</th>
+                  <th className="text-right px-2 py-1.5 text-xs font-medium text-s112-text-2">pH</th>
+                  <th className="text-right px-2 py-1.5 text-xs font-medium text-s112-text-2">Flücht. Säure</th>
+                  <th className="text-right px-2 py-1.5 text-xs font-medium text-s112-text-2">SO₂ frei</th>
+                  <th className="text-right px-2 py-1.5 text-xs font-medium text-s112-text-2">SO₂ gesamt</th>
+                  <th className="text-left px-2 py-1.5 text-xs font-medium text-s112-text-2">Labor</th>
                 </tr>
               </thead>
               <tbody>
@@ -366,7 +366,7 @@ function ChargeKette({
                     {new Date(b.datum).toLocaleDateString('de-AT')}
                   </span>
                   <div className="flex-1">
-                    <span className="font-medium text-gray-800">{psm?.name ?? ART_LABELS[b.art] ?? b.art}</span>
+                    <span className="font-medium text-s112-text">{psm?.name ?? ART_LABELS[b.art] ?? b.art}</span>
                     <span className="text-xs text-s112-muted ml-1">({ART_LABELS[b.art] ?? b.art})</span>
                     <div className="text-xs text-s112-muted">
                       {(b.grundstuecke as string[]).join(', ')}
@@ -527,7 +527,7 @@ export default async function RueckverfolgungPage({
 
   const filterAktiv = !!(jahrgang || sorte || bezeichnung)
   const inputCls = 'w-full border border-s112-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
-  const labelCls = 'block text-xs font-medium text-gray-600 mb-1'
+  const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -535,11 +535,11 @@ export default async function RueckverfolgungPage({
       {/* Header */}
       <div>
         <nav className="flex items-center gap-2 text-sm text-s112-muted mb-4">
-          <Link href="/kellerbuch" className="hover:text-s112-teal">Kellerbuch</Link>
+          <Link href="/kellerbuch" className="hover:text-s112-blue-700">Kellerbuch</Link>
           <span>/</span>
-          <span className="text-gray-800 font-medium">Rückverfolgung</span>
+          <span className="text-s112-text font-medium">Rückverfolgung</span>
         </nav>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+        <h1 className="text-2xl font-semibold text-s112-text flex items-center gap-2">
           <Search className="w-5 h-5" />Rückverfolgung
         </h1>
         <p className="text-sm text-s112-muted mt-1">
@@ -552,8 +552,8 @@ export default async function RueckverfolgungPage({
       {fuellung && (
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3 print:hidden">
-            <p className="text-sm text-s112-muted">Rückverfolgung für <strong className="text-gray-800">{fuellung.name}</strong>{fuellung.chargennummer ? <> · <span className="font-mono text-xs">{fuellung.chargennummer}</span></> : null}</p>
-            <Link href="/kellerbuch/rueckverfolgung" className="text-sm text-s112-teal hover:underline shrink-0">← alle Füllungen</Link>
+            <p className="text-sm text-s112-muted">Rückverfolgung für <strong className="text-s112-text">{fuellung.name}</strong>{fuellung.chargennummer ? <> · <span className="font-mono text-xs">{fuellung.chargennummer}</span></> : null}</p>
+            <Link href="/kellerbuch/rueckverfolgung" className="text-sm text-s112-blue-700 hover:underline shrink-0">← alle Füllungen</Link>
           </div>
 
           {/* Flasche / Abfüllung */}
@@ -583,13 +583,13 @@ export default async function RueckverfolgungPage({
               <div className="space-y-1.5">
                 {blendKomposition.map(u => (
                   <div key={u.key} className="flex items-center justify-between gap-2 text-sm">
-                    <span className="text-gray-700">
+                    <span className="text-s112-text-1">
                       {herkunftLabel(u)}
                       {(u.rebsorte || u.jahrgang) && (
                         <span className="text-s112-muted"> · {[u.rebsorte ? formatRebsorteMitKuerzel(u.rebsorte) : null, u.jahrgang].filter(Boolean).join(' · ')}</span>
                       )}
                     </span>
-                    <span className="text-gray-800 font-semibold shrink-0">
+                    <span className="text-s112-text font-semibold shrink-0">
                       {u.anteil_pct.toLocaleString('de-AT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %
                     </span>
                   </div>
@@ -597,7 +597,7 @@ export default async function RueckverfolgungPage({
               </div>
               <Link
                 href={`/kellerbuch/fuellung/${fuellung.id}/blend-protokoll`}
-                className="inline-block mt-1 text-sm font-medium text-s112-teal hover:underline"
+                className="inline-block mt-1 text-sm font-medium text-s112-blue-700 hover:underline"
               >
                 Vollständiges Blend-Protokoll ansehen / drucken →
               </Link>
@@ -632,7 +632,7 @@ export default async function RueckverfolgungPage({
       {/* Filtern nach Jahrgang / Sorte / Bezeichnung – leichterer Zugang zum Durchsuchen,
           ohne dass eine exakte Chargen-/Prüfnummer schon bekannt sein muss. */}
       <div className="card p-5 space-y-4 print:hidden">
-        <h2 className="font-semibold text-gray-800 text-sm">Füllungen filtern</h2>
+        <h2 className="font-semibold text-s112-text text-sm">Füllungen filtern</h2>
         <form method="get" className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label className={labelCls}>Jahrgang</label>
@@ -667,7 +667,7 @@ export default async function RueckverfolgungPage({
               Filtern
             </button>
             {filterAktiv && (
-              <Link href="/kellerbuch/rueckverfolgung" className="text-sm text-s112-muted hover:text-s112-teal transition-colors">
+              <Link href="/kellerbuch/rueckverfolgung" className="text-sm text-s112-muted hover:text-s112-blue-700 transition-colors">
                 Filter zurücksetzen
               </Link>
             )}
@@ -679,13 +679,13 @@ export default async function RueckverfolgungPage({
       <div className="card p-5 space-y-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h2 className="font-semibold text-gray-800 text-sm">
+            <h2 className="font-semibold text-s112-text text-sm">
               Füllungen{filterAktiv ? ' (gefiltert)' : ''}
             </h2>
             <p className="text-xs text-s112-muted mt-0.5">
               {trefferliste.length} {trefferliste.length === 1 ? 'Treffer' : 'Treffer'}
               {oLagerbestandFlaschen != null && (
-                <> · Ø Lagerbestand: <strong className="text-gray-700">{oLagerbestandFlaschen.toLocaleString('de-AT', { maximumFractionDigits: 1 })} Fl.</strong></>
+                <> · Ø Lagerbestand: <strong className="text-s112-text-1">{oLagerbestandFlaschen.toLocaleString('de-AT', { maximumFractionDigits: 1 })} Fl.</strong></>
               )}
             </p>
           </div>
@@ -704,29 +704,29 @@ export default async function RueckverfolgungPage({
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-s112-bg border-b border-s112-border">
-                  <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Produktname</th>
-                  <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Bezeichnung</th>
-                  <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Jahrgang</th>
-                  <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Sorte</th>
-                  <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Chargennr.</th>
-                  <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Bestand</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-s112-text-2">Produktname</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-s112-text-2">Bezeichnung</th>
+                  <th className="text-right px-3 py-2 text-xs font-semibold text-s112-text-2">Jahrgang</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-s112-text-2">Sorte</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-s112-text-2">Chargennr.</th>
+                  <th className="text-right px-3 py-2 text-xs font-semibold text-s112-text-2">Bestand</th>
                   <th className="px-3 py-2 print:hidden" />
                 </tr>
               </thead>
               <tbody>
                 {trefferliste.map((f: R, i: number) => (
                   <tr key={f.id} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''} ${!f.aktiv ? 'opacity-50' : ''}`}>
-                    <td className="px-3 py-2 font-medium text-gray-800">{f.name}</td>
-                    <td className="px-3 py-2 text-gray-600">{f.bezeichnung ?? '–'}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-gray-600">{f.jahrgang ?? '–'}</td>
-                    <td className="px-3 py-2 text-gray-600">{formatRebsorteMitKuerzel(f.rebsorte)}</td>
-                    <td className="px-3 py-2 text-gray-600 text-xs font-mono">{f.chargennummer ?? '–'}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-s112-teal font-medium">
+                    <td className="px-3 py-2 font-medium text-s112-text">{f.name}</td>
+                    <td className="px-3 py-2 text-s112-text-2">{f.bezeichnung ?? '–'}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-s112-text-2">{f.jahrgang ?? '–'}</td>
+                    <td className="px-3 py-2 text-s112-text-2">{formatRebsorteMitKuerzel(f.rebsorte)}</td>
+                    <td className="px-3 py-2 text-s112-text-2 text-xs font-mono">{f.chargennummer ?? '–'}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-s112-blue-700 font-medium">
                       {(parseInt(f.bestand_flaschen) || 0).toLocaleString('de-AT')} Fl.
                     </td>
                     <td className="px-3 py-2 text-right print:hidden">
                       <Link href={`/kellerbuch/rueckverfolgung?fuellung_id=${f.id}`}
-                        className="text-xs text-s112-teal border border-s112-teal/30 rounded-full px-2.5 py-1 hover:bg-s112-teal hover:text-white transition-colors whitespace-nowrap">
+                        className="text-xs text-s112-blue-700 border border-s112-teal/30 rounded-full px-2.5 py-1 hover:bg-s112-teal hover:text-white transition-colors whitespace-nowrap">
                         Details →
                       </Link>
                     </td>
@@ -740,7 +740,7 @@ export default async function RueckverfolgungPage({
 
       {/* Suchfeld: direkter Sprung per Chargen-/Prüfnummer */}
       <div className="card p-5 space-y-3 print:hidden">
-        <h2 className="font-semibold text-gray-800 text-sm">Oder direkt nach Chargennummer / Prüfnummer suchen</h2>
+        <h2 className="font-semibold text-s112-text text-sm">Oder direkt nach Chargennummer / Prüfnummer suchen</h2>
         <form method="get" className="flex gap-2">
         <input
           name="q"
@@ -762,7 +762,7 @@ export default async function RueckverfolgungPage({
       </form>
 
       {suchFehler && (
-        <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+        <div className="mt-3 bg-s112-warn-bg border border-s112-warn/30 rounded-xl p-4 text-sm text-s112-warn-fg">
           {suchFehler}
         </div>
       )}

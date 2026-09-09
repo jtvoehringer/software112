@@ -66,7 +66,7 @@ export default async function BetriebWaehlenPage() {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-s112-teal inline-flex items-baseline gap-0">
+          <h1 className="text-3xl font-semibold text-s112-blue-700 inline-flex items-baseline gap-0">
             software<span className="text-s112-yellow">:</span>112
           </h1>
           <p className="text-s112-muted text-sm mt-1">Welchen Betrieb möchtest du öffnen?</p>

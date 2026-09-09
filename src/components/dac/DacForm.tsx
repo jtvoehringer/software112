@@ -81,7 +81,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm"><strong>Fehler:</strong> {error}</div>}
+      {error && <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm"><strong>Fehler:</strong> {error}</div>}
 
       {/* Antragsdaten */}
       <div className="card space-y-4">
@@ -94,10 +94,10 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
           <div className="sm:col-span-2">
             <label className="flex items-center gap-2.5 cursor-pointer select-none">
               <div onClick={() => setIsDac(v => !v)}
-                className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${isDac ? 'bg-s112-teal' : 'bg-gray-300'}`}>
+                className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${isDac ? 'bg-s112-teal' : 'bg-s112-line-str'}`}>
                 <div className={`w-4 h-4 bg-white rounded-full shadow mt-0.5 transition-transform ${isDac ? 'translate-x-4' : 'translate-x-0.5'}`} />
               </div>
-              <span className="text-sm font-medium text-gray-700">DAC-Antrag (mit Lagenbezeichnung)</span>
+              <span className="text-sm font-medium text-s112-text-1">DAC-Antrag (mit Lagenbezeichnung)</span>
             </label>
           </div>
           {isDac && (
@@ -148,7 +148,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
                 <button
                   type="button"
                   onClick={() => setAlkohol(String(latestAnalyse.alkohol_vol).replace('.', ','))}
-                  className="flex-shrink-0 text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors whitespace-nowrap"
+                  className="flex-shrink-0 text-xs bg-s112-blue-50 text-s112-blue-700 border border-s112-blue-100 px-2 py-1.5 rounded-lg hover:bg-s112-blue-100 transition-colors whitespace-nowrap"
                   title="Wert aus letzter Analyse übernehmen"
                 >
                   {String(latestAnalyse.alkohol_vol).replace('.', ',')} %
@@ -208,13 +208,13 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
 
       {/* Laboranalysen – Referenzpanel */}
       {analysen.length > 0 && (
-        <div className="card space-y-3 border-indigo-100 bg-indigo-50/30">
+        <div className="card space-y-3 border-s112-blue-100 bg-s112-blue-50/30">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-indigo-700 uppercase tracking-wider">Laboranalysen ({analysen.length})</h2>
+            <h2 className="text-sm font-semibold text-s112-blue-700 uppercase tracking-wider">Laboranalysen ({analysen.length})</h2>
           </div>
           {analysen.map((a, i) => (
-            <div key={i} className="bg-white rounded-lg border border-indigo-100 p-3">
-              <p className="text-xs font-semibold text-gray-600 mb-2">
+            <div key={i} className="bg-white rounded-lg border border-s112-blue-100 p-3">
+              <p className="text-xs font-semibold text-s112-text-2 mb-2">
                 {new Date(a.analyse_datum).toLocaleDateString('de-AT')}
                 {a.labor ? ` · ${a.labor}` : ''}
               </p>
@@ -233,7 +233,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
       )}
 
       {analysen.length === 0 && (dac?.weinausbau_id || preChargeId) && (
-        <div className="card border-amber-100 bg-amber-50/40 text-sm text-amber-800 flex items-center gap-3">
+        <div className="card border-s112-warn/30 bg-s112-warn-bg/40 text-sm text-s112-warn-fg flex items-center gap-3">
           <span>Für diese Charge gibt es noch keine Laboranalyse. <a href={`/kellerbuch/weinausbau/${dac?.weinausbau_id ?? preChargeId}/analysen/neu`} className="underline font-medium">Jetzt erfassen →</a></span>
         </div>
       )}
@@ -242,7 +242,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
         <div className="card">
           <label className="flex items-center gap-3 cursor-pointer">
             <input type="checkbox" name="aktiv" value="true" defaultChecked={dac.aktiv} className="w-4 h-4 accent-s112-teal" />
-            <span className="text-sm font-medium text-gray-700">Antrag aktiv</span>
+            <span className="text-sm font-medium text-s112-text-1">Antrag aktiv</span>
           </label>
         </div>
       )}
@@ -251,7 +251,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
            <button type="submit" disabled={saving} className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
           {saving ? 'Wird gespeichert …' : 'Speichern'}
         </button>
-        <button type="button" onClick={() => router.push('/dac')} className="text-sm text-s112-muted hover:text-gray-700 transition-colors">Abbrechen</button>
+        <button type="button" onClick={() => router.push('/dac')} className="text-sm text-s112-muted hover:text-s112-text-1 transition-colors">Abbrechen</button>
       </div>
     </form>
   )

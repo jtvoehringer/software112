@@ -31,18 +31,18 @@ export default async function WeinbuchPage({
 
       {/* Breadcrumb (ausgeblendet beim Drucken) */}
       <nav className="flex items-center gap-2 text-sm text-s112-muted flex-wrap print:hidden">
-        <Link href="/kellerbuch" className="hover:text-s112-teal">Kellerbuch</Link>
+        <Link href="/kellerbuch" className="hover:text-s112-blue-700">Kellerbuch</Link>
         <span>/</span>
-        <Link href={`/kellerbuch/weinausbau/${id}`} className="hover:text-s112-teal">{wa.name}</Link>
+        <Link href={`/kellerbuch/weinausbau/${id}`} className="hover:text-s112-blue-700">{wa.name}</Link>
         <span>/</span>
-        <span className="text-gray-800 font-medium">Weinbuch</span>
+        <span className="text-s112-text font-medium">Weinbuch</span>
       </nav>
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <BookOpen size={22} strokeWidth={1.75} className="text-s112-teal" />Weinbuch
+          <h1 className="text-2xl font-semibold text-s112-text flex items-center gap-2">
+            <BookOpen size={22} strokeWidth={1.75} className="text-s112-blue-700" />Weinbuch
           </h1>
           <p className="text-s112-muted text-sm mt-1">
             {wa.name}
@@ -56,7 +56,7 @@ export default async function WeinbuchPage({
         <div className="flex items-center gap-3 shrink-0 print:hidden">
           <Link
             href={`/kellerbuch/weinausbau/${id}/blend-protokoll`}
-            className="flex items-center gap-1.5 text-sm font-medium text-s112-teal hover:underline"
+            className="flex items-center gap-1.5 text-sm font-medium text-s112-blue-700 hover:underline"
           >
             <GitMerge size={15} strokeWidth={1.75} />Blend-Protokoll
           </Link>

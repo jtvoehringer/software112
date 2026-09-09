@@ -78,9 +78,9 @@ export default async function NaehrstoffbilanzPage({ searchParams }: { searchPar
     <div className="max-w-4xl space-y-4">
       <div className="flex items-center justify-between print:hidden">
         <nav className="flex items-center gap-2 text-sm text-s112-muted">
-          <Link href="/reports" className="hover:text-s112-teal">Auswertungen</Link>
+          <Link href="/reports" className="hover:text-s112-blue-700">Auswertungen</Link>
           <span>/</span>
-          <span className="font-medium text-gray-800">Nährstoffbilanz Jahresbericht</span>
+          <span className="font-medium text-s112-text">Nährstoffbilanz Jahresbericht</span>
         </nav>
         <div className="flex gap-2">
           <form method="GET" action="/reports/naehrstoffbilanz">
@@ -98,87 +98,87 @@ export default async function NaehrstoffbilanzPage({ searchParams }: { searchPar
       </div>
 
       <div className="card p-8 print:border-0 print:shadow-none print:p-0">
-        <div className="flex items-start justify-between border-b-2 border-gray-800 pb-4 mb-6">
+        <div className="flex items-start justify-between border-b-2 border-s112-text pb-4 mb-6">
           <div>
             {s.logo_url && <Image src={s.logo_url} alt="" width={150} height={40} className="object-contain object-left max-h-10 mb-2" />}
-            <p className="font-bold text-gray-900">{s.betrieb_name ?? ''}</p>
-            <p className="text-sm text-gray-600">{[s.betrieb_strasse, [s.betrieb_plz, s.betrieb_ort].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</p>
+            <p className="font-semibold text-s112-text">{s.betrieb_name ?? ''}</p>
+            <p className="text-sm text-s112-text-2">{[s.betrieb_strasse, [s.betrieb_plz, s.betrieb_ort].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</p>
           </div>
           <div className="text-right">
-            <p className="text-lg font-bold text-gray-900">Nährstoffbilanz (Stickstoff/Phosphor)</p>
-            <p className="text-2xl font-extrabold text-s112-teal">Jahr {aktJahr}</p>
-            <p className="text-xs text-gray-400 mt-1">Gem. Nitrat-Aktionsprogramm-Verordnung (NAPV) · Erstellt: {heute}</p>
+            <p className="text-lg font-semibold text-s112-text">Nährstoffbilanz (Stickstoff/Phosphor)</p>
+            <p className="text-2xl font-semibold text-s112-blue-700">Jahr {aktJahr}</p>
+            <p className="text-xs text-s112-tertiary mt-1">Gem. Nitrat-Aktionsprogramm-Verordnung (NAPV) · Erstellt: {heute}</p>
           </div>
         </div>
 
         {/* KPI-Zusammenfassung */}
         <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className={`grid grid-cols-2 gap-4 p-4 rounded-xl border-2 ${nUeberRichtwert ? 'border-red-400 bg-red-50' : 'border-green-400 bg-green-50'}`}>
+          <div className={`grid grid-cols-2 gap-4 p-4 rounded-xl border-2 ${nUeberRichtwert ? 'border-s112-err/50 bg-s112-err-bg' : 'border-s112-ok/50 bg-s112-ok-bg'}`}>
             <div className="text-center">
-              <p className="text-xs text-gray-500 mb-1">N eingesetzt gesamt</p>
-              <p className="text-xl font-bold">{totalNKg.toFixed(2).replace('.', ',')} kg</p>
+              <p className="text-xs text-s112-text-2 mb-1">N eingesetzt gesamt</p>
+              <p className="text-xl font-semibold">{totalNKg.toFixed(2).replace('.', ',')} kg</p>
             </div>
             <div className="text-center">
-              <p className="text-xs text-gray-500 mb-1">N je ha</p>
-              <p className={`text-xl font-bold ${nUeberRichtwert ? 'text-red-600' : 'text-green-700'}`}>
+              <p className="text-xs text-s112-text-2 mb-1">N je ha</p>
+              <p className={`text-xl font-semibold ${nUeberRichtwert ? 'text-s112-err-fg' : 'text-s112-ok-fg'}`}>
                 {totalNKgHa.toFixed(2).replace('.', ',')} kg/ha
               </p>
               <p className="text-xs mt-0.5">{nUeberRichtwert ? 'ÜBER Richtwert' : `Richtwert: ${N_RICHTWERT_KG_HA} kg/ha/Jahr`}</p>
             </div>
           </div>
-          <div className={`grid grid-cols-2 gap-4 p-4 rounded-xl border-2 ${pUeberRichtwert ? 'border-red-400 bg-red-50' : 'border-green-400 bg-green-50'}`}>
+          <div className={`grid grid-cols-2 gap-4 p-4 rounded-xl border-2 ${pUeberRichtwert ? 'border-s112-err/50 bg-s112-err-bg' : 'border-s112-ok/50 bg-s112-ok-bg'}`}>
             <div className="text-center">
-              <p className="text-xs text-gray-500 mb-1">P eingesetzt gesamt</p>
-              <p className="text-xl font-bold">{totalPKg.toFixed(2).replace('.', ',')} kg</p>
+              <p className="text-xs text-s112-text-2 mb-1">P eingesetzt gesamt</p>
+              <p className="text-xl font-semibold">{totalPKg.toFixed(2).replace('.', ',')} kg</p>
             </div>
             <div className="text-center">
-              <p className="text-xs text-gray-500 mb-1">P je ha</p>
-              <p className={`text-xl font-bold ${pUeberRichtwert ? 'text-red-600' : 'text-green-700'}`}>
+              <p className="text-xs text-s112-text-2 mb-1">P je ha</p>
+              <p className={`text-xl font-semibold ${pUeberRichtwert ? 'text-s112-err-fg' : 'text-s112-ok-fg'}`}>
                 {totalPKgHa.toFixed(2).replace('.', ',')} kg/ha
               </p>
               <p className="text-xs mt-0.5">{pUeberRichtwert ? 'ÜBER Richtwert' : `Richtwert: ${P_RICHTWERT_KG_HA} kg/ha/Jahr`}</p>
             </div>
           </div>
         </div>
-        <p className="text-xs text-gray-500 mb-6 -mt-2">
+        <p className="text-xs text-s112-text-2 mb-6 -mt-2">
           Gesamtfläche: <strong>{gesamtHa.toFixed(2).replace('.', ',')} ha</strong>
         </p>
 
         {/* Detailtabelle */}
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr className="bg-gray-100">
+            <tr className="bg-[#F2F3F5]">
               {['Datum', 'Weingarten', 'Düngemittel', 'N %', 'P %', 'Menge kg', 'Fläche ha', 'N kg', 'N kg/ha', 'P kg', 'P kg/ha'].map(h => (
-                <th key={h} className="text-left px-2 py-2 border border-gray-300 font-semibold text-xs whitespace-nowrap">{h}</th>
+                <th key={h} className="text-left px-2 py-2 border border-s112-line-str font-semibold text-xs whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {eintraege.map((e, i) => (
-              <tr key={e.id} className={i % 2 === 1 ? 'bg-gray-50' : ''}>
-                <td className="px-2 py-1.5 border border-gray-200 tabular-nums whitespace-nowrap text-xs">{new Date(e.datum).toLocaleDateString('de-AT')}</td>
-                <td className="px-2 py-1.5 border border-gray-200 text-xs">{(e.weingarten as R)?.name ?? '–'}</td>
-                <td className="px-2 py-1.5 border border-gray-200 text-xs">{(e.duengemittel as R)?.handelsname ?? (e.duengemittel as R)?.name ?? '–'}</td>
-                <td className="px-2 py-1.5 border border-gray-200 text-right tabular-nums text-xs">{(e.duengemittel as R)?.naehrstoff_n_pct ?? '–'}</td>
-                <td className="px-2 py-1.5 border border-gray-200 text-right tabular-nums text-xs">{(e.duengemittel as R)?.naehrstoff_p_pct ?? '–'}</td>
-                <td className="px-2 py-1.5 border border-gray-200 text-right tabular-nums text-xs">{e.menge_gesamt ?? '–'}</td>
-                <td className="px-2 py-1.5 border border-gray-200 text-right tabular-nums text-xs">{e.ha.toFixed(2).replace('.', ',')}</td>
-                <td className="px-2 py-1.5 border border-gray-200 text-right tabular-nums font-medium text-xs">{e.nKg.toFixed(3).replace('.', ',')}</td>
-                <td className="px-2 py-1.5 border border-gray-200 text-right tabular-nums text-xs">{e.nKgHa.toFixed(3).replace('.', ',')}</td>
-                <td className="px-2 py-1.5 border border-gray-200 text-right tabular-nums font-medium text-xs">{e.pKg.toFixed(3).replace('.', ',')}</td>
-                <td className="px-2 py-1.5 border border-gray-200 text-right tabular-nums text-xs">{e.pKgHa.toFixed(3).replace('.', ',')}</td>
+              <tr key={e.id} className={i % 2 === 1 ? 'bg-s112-bg' : ''}>
+                <td className="px-2 py-1.5 border border-s112-line tabular-nums whitespace-nowrap text-xs">{new Date(e.datum).toLocaleDateString('de-AT')}</td>
+                <td className="px-2 py-1.5 border border-s112-line text-xs">{(e.weingarten as R)?.name ?? '–'}</td>
+                <td className="px-2 py-1.5 border border-s112-line text-xs">{(e.duengemittel as R)?.handelsname ?? (e.duengemittel as R)?.name ?? '–'}</td>
+                <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums text-xs">{(e.duengemittel as R)?.naehrstoff_n_pct ?? '–'}</td>
+                <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums text-xs">{(e.duengemittel as R)?.naehrstoff_p_pct ?? '–'}</td>
+                <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums text-xs">{e.menge_gesamt ?? '–'}</td>
+                <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums text-xs">{e.ha.toFixed(2).replace('.', ',')}</td>
+                <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums font-medium text-xs">{e.nKg.toFixed(3).replace('.', ',')}</td>
+                <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums text-xs">{e.nKgHa.toFixed(3).replace('.', ',')}</td>
+                <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums font-medium text-xs">{e.pKg.toFixed(3).replace('.', ',')}</td>
+                <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums text-xs">{e.pKgHa.toFixed(3).replace('.', ',')}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
-            <tr className="bg-gray-200 font-bold border-t-2 border-gray-400">
-              <td className="px-2 py-2 border border-gray-300 text-xs" colSpan={7}>GESAMT {aktJahr}</td>
-              <td className="px-2 py-2 border border-gray-300 text-right tabular-nums text-xs">{totalNKg.toFixed(3).replace('.', ',')} kg</td>
-              <td className={`px-2 py-2 border border-gray-300 text-right tabular-nums text-xs ${nUeberRichtwert ? 'text-red-700' : 'text-green-700'}`}>
+            <tr className="bg-s112-line font-semibold border-t-2 border-s112-line-str">
+              <td className="px-2 py-2 border border-s112-line-str text-xs" colSpan={7}>GESAMT {aktJahr}</td>
+              <td className="px-2 py-2 border border-s112-line-str text-right tabular-nums text-xs">{totalNKg.toFixed(3).replace('.', ',')} kg</td>
+              <td className={`px-2 py-2 border border-s112-line-str text-right tabular-nums text-xs ${nUeberRichtwert ? 'text-s112-err-fg' : 'text-s112-ok-fg'}`}>
                 {totalNKgHa.toFixed(3).replace('.', ',')} kg/ha
               </td>
-              <td className="px-2 py-2 border border-gray-300 text-right tabular-nums text-xs">{totalPKg.toFixed(3).replace('.', ',')} kg</td>
-              <td className={`px-2 py-2 border border-gray-300 text-right tabular-nums text-xs ${pUeberRichtwert ? 'text-red-700' : 'text-green-700'}`}>
+              <td className="px-2 py-2 border border-s112-line-str text-right tabular-nums text-xs">{totalPKg.toFixed(3).replace('.', ',')} kg</td>
+              <td className={`px-2 py-2 border border-s112-line-str text-right tabular-nums text-xs ${pUeberRichtwert ? 'text-s112-err-fg' : 'text-s112-ok-fg'}`}>
                 {totalPKgHa.toFixed(3).replace('.', ',')} kg/ha
               </td>
             </tr>
@@ -192,13 +192,13 @@ export default async function NaehrstoffbilanzPage({ searchParams }: { searchPar
         )}
 
         {uebersprungen.length > 0 && (
-          <p className="text-xs text-amber-600 mt-3">
+          <p className="text-xs text-s112-warn-fg mt-3">
             Hinweis: {uebersprungen.length} Düngungs-Eintrag/Einträge für {aktJahr} wurden hier nicht berücksichtigt
             (kein Düngemittel hinterlegt oder Gesamtmenge nicht in kg erfasst).
           </p>
         )}
 
-        <p className="text-xs text-gray-400 mt-4">
+        <p className="text-xs text-s112-tertiary mt-4">
           Richtwert Stickstoff: {N_RICHTWERT_KG_HA} kg N/ha/Jahr (Nitrat-Aktionsprogramm-Verordnung 2023,
           Düngeobergrenze Wein in Gebieten mit verstärkten Aktionen – außerhalb dieser Gebiete besteht keine
           eigene gesetzliche Obergrenze für Wein, der Wert dient dort nur als Orientierung) · Richtwert
@@ -209,8 +209,8 @@ export default async function NaehrstoffbilanzPage({ searchParams }: { searchPar
         </p>
 
         <div className="grid grid-cols-2 gap-16 mt-10 pt-4">
-          <div><div className="border-t border-gray-400 pt-2 text-xs text-gray-500">Datum, Unterschrift Betriebsführer/in</div></div>
-          <div><div className="border-t border-gray-400 pt-2 text-xs text-gray-500">Landwirtschaftskammer / Kontrollstelle</div></div>
+          <div><div className="border-t border-s112-line-str pt-2 text-xs text-s112-text-2">Datum, Unterschrift Betriebsführer/in</div></div>
+          <div><div className="border-t border-s112-line-str pt-2 text-xs text-s112-text-2">Landwirtschaftskammer / Kontrollstelle</div></div>
         </div>
       </div>
     </div>

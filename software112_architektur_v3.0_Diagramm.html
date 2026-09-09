@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>software:112 Systemarchitektur</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  /* ── Tokens ────────────────────────────────────────────────────────────── */
+  :root{
+    --ink:       #1B1F23;
+    --ink-soft:  #454B52;
+    --grey:      #707883;   /* Hohenstein Primärfarbe */
+    --blue:      #4F90E8;   /* Hohenstein Sekundärfarbe */
+    --blue-soft: #E8F0FC;
+    --blue-line: #C9DDF7;
+    --surface:   #FFFFFF;
+    --canvas:    #F3F4F6;
+    --line:      #E1E4E8;
+    --line-soft: #EDEFF1;
+    --good:      #2E9563;
+    --good-soft: #E4F5EC;
+    --warn:      #B5820F;
+    --warn-soft: #FBF1DA;
+    --live-soft: #EAF2FD;
+    --shadow:    0 1px 2px rgba(27,31,35,.04), 0 8px 24px rgba(27,31,35,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:       #E9EBED;
+      --ink-soft:  #B4BAC1;
+      --grey:      #9CA3AD;
+      --blue:      #6FA6F2;
+      --blue-soft: rgba(79,144,232,.14);
+      --blue-line: rgba(111,166,242,.35);
+      --surface:   #1C2024;
+      --canvas:    #131619;
+      --line:      #2B3036;
+      --line-soft: #22262A;
+      --good:      #49C98A;
+      --good-soft: rgba(73,201,138,.14);
+      --warn:      #E0AC3E;
+      --warn-soft: rgba(224,172,62,.14);
+      --live-soft: rgba(111,166,242,.12);
+      --shadow:    0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:       #E9EBED;
+    --ink-soft:  #B4BAC1;
+    --grey:      #9CA3AD;
+    --blue:      #6FA6F2;
+    --blue-soft: rgba(79,144,232,.14);
+    --blue-line: rgba(111,166,242,.35);
+    --surface:   #1C2024;
+    --canvas:    #131619;
+    --line:      #2B3036;
+    --line-soft: #22262A;
+    --good:      #49C98A;
+    --good-soft: rgba(73,201,138,.14);
+    --warn:      #E0AC3E;
+    --warn-soft: rgba(224,172,62,.14);
+    --live-soft: rgba(111,166,242,.12);
+    --shadow:    0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+  }
+  .page{ max-width: 1180px; margin: 0 auto; padding: 40px 24px 64px; }
+
+  h1,h2,h3{ font-family:'Poppins', ui-sans-serif, system-ui, sans-serif; text-wrap: balance; margin: 0; }
+  .mono{ font-family:'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace; }
+
+  a{ color: var(--blue); }
+
+  /* ── Header ────────────────────────────────────────────────────────────── */
+  .masthead{
+    display:flex; justify-content:space-between; align-items:flex-end; gap:24px;
+    flex-wrap:wrap; padding-bottom:22px; margin-bottom:28px;
+    border-bottom: 2px solid var(--grey);
+  }
+  .brand{ display:flex; align-items:center; gap:14px; }
+  .brand-mark{
+    width:40px; height:40px; border-radius:10px; flex:none;
+    background: linear-gradient(135deg, var(--blue) 0%, var(--grey) 130%);
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; font-family:'Poppins'; font-weight:700; font-size:15px; letter-spacing:-0.5px;
+    box-shadow: var(--shadow);
+  }
+  .masthead h1{ font-size: 25px; font-weight:700; letter-spacing:-0.3px; color: var(--ink); }
+  .masthead h1 .colon{ color: var(--blue); }
+  .masthead .tagline{ font-size:13.5px; color: var(--ink-soft); margin-top:3px; }
+  .masthead-meta{ text-align:right; }
+  .version-pill{
+    display:inline-flex; align-items:center; gap:6px;
+    background: var(--blue-soft); color: var(--blue); border:1px solid var(--blue-line);
+    font-family:'IBM Plex Mono'; font-size:11.5px; font-weight:600; letter-spacing:.3px;
+    padding:4px 11px; border-radius:20px;
+  }
+  .masthead-meta .stand{ font-size:11.5px; color: var(--ink-soft); margin-top:6px; }
+
+  /* ── Facts strip ──────────────────────────────────────────────────────── */
+  .facts{
+    display:grid; grid-template-columns: repeat(5,1fr); gap:1px;
+    background: var(--line); border:1px solid var(--line);
+    border-radius:12px; overflow:hidden; margin-bottom:14px; box-shadow: var(--shadow);
+  }
+  .fact{ background: var(--surface); padding:15px 16px; }
+  .fact .f-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.7px; color: var(--grey); margin-bottom:6px; font-weight:600; }
+  .fact .f-value{ font-size:17px; font-weight:700; color: var(--ink); font-family:'Poppins'; }
+  .fact .f-sub{ font-size:11px; color: var(--ink-soft); margin-top:3px; }
+
+  /* ── Changelog note ───────────────────────────────────────────────────── */
+  .changelog{
+    background: var(--live-soft); border:1px solid var(--blue-line); border-radius:12px;
+    padding:14px 18px; margin-bottom:34px; font-size:12.5px; color: var(--ink-soft);
+    display:flex; gap:12px; align-items:flex-start;
+  }
+  .changelog .cl-icon{ color: var(--blue); font-family:'IBM Plex Mono'; font-weight:600; font-size:12.5px; flex:none; padding-top:1px; }
+  .changelog strong{ color: var(--ink); }
+  .changelog ul{ margin:6px 0 0; padding-left:18px; }
+  .changelog li{ margin:2px 0; }
+
+  /* ── Layer bands ──────────────────────────────────────────────────────── */
+  .layer{
+    background: var(--surface); border:1px solid var(--line); border-radius:14px;
+    padding:22px 24px 24px; margin-bottom:16px; box-shadow: var(--shadow);
+  }
+  .layer-head{ display:flex; align-items:baseline; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+  .layer-eyebrow{
+    font-family:'IBM Plex Mono'; font-size:10.5px; font-weight:600; letter-spacing:.8px;
+    color: var(--blue); text-transform:uppercase; background: var(--blue-soft);
+    border:1px solid var(--blue-line); padding:3px 9px; border-radius:6px;
+  }
+  .layer h2{ font-size:16.5px; font-weight:600; color: var(--ink); }
+  .layer .layer-desc{ font-size:12.5px; color: var(--ink-soft); margin:2px 0 0; max-width:70ch; }
+
+  /* connector between bands */
+  .connector{ display:flex; justify-content:center; padding:2px 0 8px; }
+  .connector .line{ width:2px; height:16px; background: var(--line); position:relative; }
+  .connector .line::after{
+    content:''; position:absolute; bottom:-1px; left:50%; transform:translateX(-50%);
+    border-left:5px solid transparent; border-right:5px solid transparent; border-top:6px solid var(--line);
+  }
+
+  /* users row */
+  .users-row{ display:grid; grid-template-columns: repeat(4,1fr); gap:10px; }
+  .user-chip{
+    display:flex; align-items:center; gap:9px; background: var(--canvas);
+    border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px;
+  }
+  .user-chip .uc-mark{
+    width:28px; height:28px; border-radius:8px; background: var(--grey); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-family:'Poppins'; font-weight:600; font-size:12px; flex:none;
+  }
+  .user-chip .uc-name{ font-size:12.5px; font-weight:600; color: var(--ink); }
+  .user-chip .uc-role{ font-size:10.5px; color: var(--ink-soft); }
+
+  /* module groups */
+  .mod-groups{ display:grid; grid-template-columns: repeat(3, 1fr); gap:14px; }
+  .mod-group{ background: var(--canvas); border:1px solid var(--line-soft); border-radius:10px; padding:13px 14px; }
+  .mod-group .mg-title{
+    font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.6px; color: var(--grey);
+    margin-bottom:9px; padding-bottom:8px; border-bottom:1px solid var(--line-soft);
+  }
+  .mod-group ul{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+  .mod-group li{ font-size:12.5px; color: var(--ink); display:flex; align-items:baseline; gap:7px; }
+  .mod-group li::before{ content:'—'; color: var(--blue); flex:none; }
+  .mod-group li .mg-note{ color: var(--ink-soft); font-size:11px; }
+
+  /* platform grid (supabase) */
+  .plat-grid{ display:grid; grid-template-columns: repeat(4,1fr); gap:10px; }
+  .plat-card{ background: var(--canvas); border:1px solid var(--line-soft); border-radius:10px; padding:12px 13px; }
+  .plat-card .pc-name{ font-size:12.5px; font-weight:600; color: var(--ink); margin-bottom:3px; }
+  .plat-card .pc-desc{ font-size:11px; color: var(--ink-soft); }
+
+  /* flow steps (billing) */
+  .flow{ display:flex; align-items:stretch; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  .flow-step{
+    flex:1 1 150px; background: var(--canvas); border:1px solid var(--line-soft); border-radius:10px;
+    padding:11px 13px; position:relative;
+  }
+  .flow-step .fs-n{ font-family:'IBM Plex Mono'; font-size:10px; color: var(--blue); font-weight:600; }
+  .flow-step .fs-t{ font-size:12.5px; font-weight:600; color: var(--ink); margin-top:3px; }
+  .flow-step .fs-d{ font-size:10.5px; color: var(--ink-soft); margin-top:2px; }
+  .flow-arrow{ display:flex; align-items:center; color: var(--grey); font-size:14px; }
+
+  .feature-list{ display:grid; grid-template-columns: repeat(2,1fr); gap:10px; }
+  .feature-card{ background: var(--canvas); border:1px solid var(--line-soft); border-radius:10px; padding:12px 14px; }
+  .feature-card .fc-name{ font-size:13px; font-weight:600; color: var(--ink); }
+  .feature-card .fc-desc{ font-size:11.5px; color: var(--ink-soft); margin-top:3px; }
+
+  /* integrations table */
+  .integrations{ display:flex; flex-direction:column; gap:8px; }
+  .integ-row{
+    display:grid; grid-template-columns: 150px 1fr 130px; gap:14px; align-items:center;
+    background: var(--canvas); border:1px solid var(--line-soft); border-radius:10px; padding:10px 14px;
+  }
+  .integ-row .ir-name{ font-size:12.5px; font-weight:600; color: var(--ink); }
+  .integ-row .ir-desc{ font-size:11.5px; color: var(--ink-soft); }
+  .status-pill{
+    justify-self:end; font-family:'IBM Plex Mono'; font-size:10px; font-weight:600; letter-spacing:.3px;
+    padding:3px 9px; border-radius:20px; white-space:nowrap;
+  }
+  .status-pill.live{ background: var(--good-soft); color: var(--good); }
+  .status-pill.file{ background: var(--warn-soft); color: var(--warn); }
+  .status-pill.manual{ background: var(--line-soft); color: var(--ink-soft); }
+
+  /* bridge */
+  .bridge-row{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  .bridge-box{
+    flex:1 1 220px; border-radius:10px; padding:14px 16px;
+    border:1px solid var(--line-soft); background: var(--canvas);
+  }
+  .bridge-box.accent{ border-color: var(--blue-line); background: var(--blue-soft); }
+  .bridge-box .bb-name{ font-size:13px; font-weight:600; color: var(--ink); }
+  .bridge-box .bb-desc{ font-size:11.5px; color: var(--ink-soft); margin-top:3px; }
+  .bridge-arrow{ font-family:'IBM Plex Mono'; font-size:11px; color: var(--blue); text-align:center; flex:none; padding:0 4px; }
+  .bridge-arrow .ba-label{ font-size:10px; color: var(--ink-soft); margin-top:2px; white-space:nowrap; }
+
+  /* compliance + footer */
+  .compliance{
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+    background: var(--surface); border:1px solid var(--line); border-radius:12px;
+    padding:14px 18px; margin-top:6px; box-shadow: var(--shadow);
+  }
+  .compliance .cp-label{ font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.7px; color: var(--grey); }
+  .cp-tag{ font-size:11px; background: var(--canvas); border:1px solid var(--line-soft); padding:4px 11px; border-radius:8px; color: var(--ink-soft); }
+
+  .devmodel{
+    display:flex; gap:20px; align-items:center; flex-wrap:wrap;
+    background: linear-gradient(135deg, var(--ink) 0%, var(--ink-soft) 130%);
+    border-radius:14px; padding:20px 24px; margin:16px 0; color: var(--surface);
+  }
+  :root:not([data-theme="light"]) .devmodel{ background: linear-gradient(135deg, #262b30 0%, #34393f 130%); }
+  :root[data-theme="dark"] .devmodel{ background: linear-gradient(135deg, #262b30 0%, #34393f 130%); }
+  .devmodel .dm-actors{ display:flex; gap:10px; flex:none; }
+  .dm-actor{
+    background: rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14);
+    border-radius:10px; padding:10px 14px; text-align:center; min-width:110px;
+  }
+  .dm-actor .da-mark{ width:22px; height:22px; border-radius:5px; display:block; margin:0 auto 6px; }
+  .dm-actor .da-name{ font-size:12px; font-weight:600; }
+  .dm-actor .da-role{ font-size:10px; color:#b9c0c8; margin-top:2px; }
+  .dm-plus{ color: var(--blue); font-size:20px; font-weight:300; }
+  .devmodel p{ font-size:12.5px; color:#d3d8dd; line-height:1.65; margin:0; flex:1 1 320px; }
+
+  /* tech glossary */
+  .tech-grid{ display:grid; grid-template-columns: repeat(3,1fr); gap:14px; margin-bottom:14px; }
+  .tech-card{ background: var(--canvas); border:1px solid var(--line-soft); border-radius:10px; padding:15px 16px; }
+  .tech-head{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .tech-mark{
+    width:30px; height:30px; border-radius:8px; flex:none; display:flex; align-items:center; justify-content:center;
+    font-family:'IBM Plex Mono'; font-weight:600; font-size:11px; color:#fff;
+  }
+  .tech-mark.vercel{ background:#000; }
+  .tech-mark.supabase{ background:#3ECF8E; color:#0b2b1e; }
+  .tech-mark.nextjs{ background: var(--ink); }
+  .tech-name{ font-size:13.5px; font-weight:600; color: var(--ink); }
+  .tech-meta{ font-size:10.5px; color: var(--grey); font-family:'IBM Plex Mono'; }
+  .tech-desc{ font-size:12px; color: var(--ink-soft); line-height:1.6; }
+  .tech-fit{
+    font-size:12px; color: var(--ink-soft); background: var(--live-soft); border:1px solid var(--blue-line);
+    border-radius:10px; padding:10px 14px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+  }
+  .tech-fit b{ color: var(--ink); font-weight:600; }
+  .tech-sources{ font-size:10px; color: var(--grey); margin-top:10px; }
+
+  .footer{
+    text-align:center; font-size:11px; color: var(--grey);
+    margin-top:26px; padding-top:16px; border-top:1px solid var(--line);
+  }
+
+  @media (max-width: 860px){
+    .facts, .mod-groups, .plat-grid, .feature-list, .users-row{ grid-template-columns: repeat(2,1fr); }
+    .integ-row{ grid-template-columns: 1fr; }
+    .status-pill{ justify-self:start; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="masthead">
+    <div class="brand">
+      <div class="brand-mark">s:112</div>
+      <div>
+        <h1>software<span class="colon">:</span>112 <span style="font-weight:500;color:var(--ink-soft);">— Systemarchitektur</span></h1>
+        <p class="tagline">Integrierte Weinbau-Management-Plattform · Ist-Stand der produktiven Anwendung</p>
+      </div>
+    </div>
+    <div class="masthead-meta">
+      <span class="version-pill">● v3.0 — Ist-Stand</span>
+      <div class="stand">Stand September 2026 · Hohenstein Consulting</div>
+    </div>
+  </div>
+
+  <!-- Facts -->
+  <div class="facts">
+    <div class="fact">
+      <div class="f-label">Anwendungsmodule</div>
+      <div class="f-value">24</div>
+      <div class="f-sub">inkl. Admin &amp; Self-Service</div>
+    </div>
+    <div class="fact">
+      <div class="f-label">Mandantenfähigkeit</div>
+      <div class="f-value">Ab Tag 1</div>
+      <div class="f-sub">Supabase Row Level Security</div>
+    </div>
+    <div class="fact">
+      <div class="f-label">Abrechnung</div>
+      <div class="f-value">Vollautomatisiert</div>
+      <div class="f-sub">Stripe: Checkout, Trial, Sperre, Modul-Sync</div>
+    </div>
+    <div class="fact">
+      <div class="f-label">KI-Funktionen</div>
+      <div class="f-value">2 · Anthropic Claude</div>
+      <div class="f-sub">Assistent-Widget &amp; „Frag dein Weingut"</div>
+    </div>
+    <div class="fact">
+      <div class="f-label">Entwicklungsmodell</div>
+      <div class="f-value">ICP Solutions + Claude AI</div>
+      <div class="f-sub">Kein eigenes Dev-Team</div>
+    </div>
+  </div>
+
+  <!-- Changelog -->
+  <div class="changelog">
+    <span class="cl-icon">Δ</span>
+    <div>
+      <strong>Gegenüber Diagramm v2.0 (Mai 2026) überprüft und korrigiert:</strong>
+      <ul>
+        <li>Neu hinzugekommen: vollständiges Stripe-Abo-System (Self-Service-Signup, Checkout, 14-Tage-Trial, Zugriffssperre, Modul-Sync) und zwei KI-Funktionen auf Basis von Anthropic Claude.</li>
+        <li>Neu hinzugekommen: Anbindung an die Hohenstein Suite (internes ERP) für Zahlungsabstimmung und CRM.</li>
+        <li>Entfernt: n8n als Automatisierungsschicht sowie PWA-/Offline-Fähigkeit — beides war für v2.0 geplant, wurde aber nie umgesetzt.</li>
+        <li>Entfernt: ÖWM-Systemanbindung und Bio-Zertifizierung — im Code nicht vorhanden.</li>
+        <li>Korrigiert: BMD und AMA sind Datei-Exporte, kein Live-Datenaustausch; RKSV läuft real über die SumUp-Integration. Der Kostenvergleich v1.0 vs. v2.0 wurde entfernt — die Entscheidung ist getroffen, dieses Dokument zeigt den Ist-Stand.</li>
+        <li>Ergänzt: Vercel als Hosting/Deployment — fehlte auch schon in v2.0.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Layer: Nutzer -->
+  <div class="layer">
+    <div class="layer-head">
+      <span class="layer-eyebrow">Ebene 1</span>
+      <h2>Nutzer</h2>
+    </div>
+    <div class="users-row">
+      <div class="user-chip"><div class="uc-mark">W</div><div><div class="uc-name">Winzer:in</div><div class="uc-role">Weingarten, Lese, Behandlungen</div></div></div>
+      <div class="user-chip"><div class="uc-mark">K</div><div><div class="uc-name">Kellermeister:in</div><div class="uc-role">Kellerbuch, DAC, Warenwirtschaft</div></div></div>
+      <div class="user-chip"><div class="uc-mark">B</div><div><div class="uc-name">Buchhalter:in</div><div class="uc-role">Buchhaltung, Konten, Controlling</div></div></div>
+      <div class="user-chip"><div class="uc-mark">A</div><div><div class="uc-name">Admin / Plattform</div><div class="uc-role">Mandanten, Abo, Support</div></div></div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="line"></div></div>
+
+  <!-- Layer: Anwendung -->
+  <div class="layer">
+    <div class="layer-head">
+      <span class="layer-eyebrow">Ebene 2</span>
+      <h2>Next.js-Anwendung <span style="font-weight:400;color:var(--ink-soft);font-size:12.5px;">— gehostet auf Vercel</span></h2>
+      <p class="layer-desc">React · TypeScript · Server-Side Rendering. 24 Module, serverseitig über Server Actions an Supabase angebunden. Deployment automatisch bei jedem <span class="mono">git push</span> auf den main-Branch.</p>
+    </div>
+    <div class="mod-groups">
+      <div class="mod-group">
+        <div class="mg-title">Weinbau &amp; Keller</div>
+        <ul>
+          <li>Weingarten <span class="mg-note">+ Rieden, Weinbaugebiete, Grundstücke</span></li>
+          <li>Pflanzenschutz <span class="mg-note">Mittel-Verwaltung</span></li>
+          <li>Maßnahmen <span class="mg-note">Behandlungen</span></li>
+          <li>Lese <span class="mg-note">Erntemeldung</span></li>
+          <li>Kellerbuch</li>
+          <li>DAC &amp; Prüfnummern</li>
+        </ul>
+      </div>
+      <div class="mod-group">
+        <div class="mg-title">Handel, Finanzen &amp; CRM</div>
+        <ul>
+          <li>Warenwirtschaft <span class="mg-note">Weinhandel</span></li>
+          <li>Weinexport <span class="mg-note">inkl. EMCS/EVD</span></li>
+          <li>Buchhaltung &amp; Konten</li>
+          <li>Controlling <span class="mg-note">Kostenrechnung, BMD-Export</span></li>
+          <li>CRM <span class="mg-note">Firmen, Kontakte, Pipeline</span></li>
+          <li>Nachrichten <span class="mg-note">E-Mail-Posteingang</span></li>
+        </ul>
+      </div>
+      <div class="mod-group">
+        <div class="mg-title">Plattform &amp; Verwaltung</div>
+        <ul>
+          <li>Admin <span class="mg-note">Mandantenverwaltung</span></li>
+          <li>Abo &amp; Zahlung <span class="mg-note">Self-Service</span></li>
+          <li>Benutzer &amp; Betrieb</li>
+          <li>Frag dein Weingut <span class="mg-note">KI-Assistent</span></li>
+          <li>Reports &amp; Auswertungen</li>
+          <li>Hilfe <span class="mg-note">Handbuch, FAQ</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="line"></div></div>
+
+  <!-- Layer: Supabase -->
+  <div class="layer">
+    <div class="layer-head">
+      <span class="layer-eyebrow">Ebene 3</span>
+      <h2>Supabase-Plattform</h2>
+      <p class="layer-desc">Backend-as-a-Service, eu-central-1. Realtime und Edge Functions sind bewusst nicht im Einsatz — die Anwendung kommt ohne aus.</p>
+    </div>
+    <div class="plat-grid">
+      <div class="plat-card"><div class="pc-name">PostgreSQL</div><div class="pc-desc">Alle Module, Zeitreihendaten</div></div>
+      <div class="plat-card"><div class="pc-name">Row Level Security</div><div class="pc-desc">Mandantenisolation je Policy</div></div>
+      <div class="plat-card"><div class="pc-name">Auth</div><div class="pc-desc">JWT · Rollen (system_admin, tenant_admin, winzer, leser)</div></div>
+      <div class="plat-card"><div class="pc-name">Storage</div><div class="pc-desc">Prüfprotokolle, Rechnungen, Belege</div></div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="line"></div></div>
+
+  <!-- Layer: Abo -->
+  <div class="layer">
+    <div class="layer-head">
+      <span class="layer-eyebrow">Ebene 4</span>
+      <h2>Abo &amp; Self-Service <span style="font-weight:400;color:var(--ink-soft);font-size:12.5px;">— Stripe</span></h2>
+      <p class="layer-desc">Vollständig neu seit v2.0: die Plattform rechnet sich selbst ab. Self-Service-Signup ist fertig, aber noch nicht von einer Homepage verlinkt.</p>
+    </div>
+    <div class="flow">
+      <div class="flow-step"><div class="fs-n">01</div><div class="fs-t">Signup</div><div class="fs-d">Betrieb + Zugangsdaten + Plan</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="fs-n">02</div><div class="fs-t">Checkout</div><div class="fs-d">Karte hinterlegen, 0 € fällig</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="fs-n">03</div><div class="fs-t">14 Tage Trial</div><div class="fs-d">voller Zugriff, unbezahlt</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="fs-n">04</div><div class="fs-t">Automatische Abrechnung</div><div class="fs-d">oder Zugriffssperre bei Zahlungsproblem</div></div>
+    </div>
+    <div class="feature-list">
+      <div class="feature-card"><div class="fc-name">Zugriffssperre</div><div class="fc-desc">Kein aktives Abo → Redirect auf Selbstverwaltung, Admins &amp; Sandbox ausgenommen.</div></div>
+      <div class="feature-card"><div class="fc-name">Modul-Sync</div><div class="fc-desc">KI-Paket wird bei jedem Stripe-Event automatisch aus dem gebuchten Plan gesetzt.</div></div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="line"></div></div>
+
+  <!-- Layer: KI -->
+  <div class="layer">
+    <div class="layer-head">
+      <span class="layer-eyebrow">Ebene 5</span>
+      <h2>KI-Funktionen <span style="font-weight:400;color:var(--ink-soft);font-size:12.5px;">— Anthropic Claude</span></h2>
+      <p class="layer-desc">Ebenfalls neu seit v2.0. Nutzung paketbasiert (Basic/Standard/Unlimited) über Modul-Sync gesteuert.</p>
+    </div>
+    <div class="feature-list">
+      <div class="feature-card"><div class="fc-name">„Frag dein Weingut"</div><div class="fc-desc">Eigenes Modul für freie Abfragen über die Betriebsdaten, mit Verbrauchszähler je Paket.</div></div>
+      <div class="feature-card"><div class="fc-name">Assistent-Widget</div><div class="fc-desc">Kontextsensitiv im gesamten Dashboard verfügbar, wo aktiviert.</div></div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="line"></div></div>
+
+  <!-- Layer: External -->
+  <div class="layer">
+    <div class="layer-head">
+      <span class="layer-eyebrow">Ebene 6</span>
+      <h2>Externe Anbindungen</h2>
+      <p class="layer-desc">Nach Integrationstiefe eingeordnet — nicht jede „Anbindung" ist eine Live-API.</p>
+    </div>
+    <div class="integrations">
+      <div class="integ-row">
+        <div class="ir-name">SumUp</div>
+        <div class="ir-desc">Kassensystem / RKSV-Konformität — Checkout &amp; Webhook</div>
+        <span class="status-pill live">Live-Integration</span>
+      </div>
+      <div class="integ-row">
+        <div class="ir-name">EMCS / EVD</div>
+        <div class="ir-desc">EU-Weinbegleitdokument im Weinexport-Modul</div>
+        <span class="status-pill live">Live-Integration</span>
+      </div>
+      <div class="integ-row">
+        <div class="ir-name">Stripe</div>
+        <div class="ir-desc">Zahlungsabwicklung, Webhooks für Abo-Status</div>
+        <span class="status-pill live">Live-Integration</span>
+      </div>
+      <div class="integ-row">
+        <div class="ir-name">BMD</div>
+        <div class="ir-desc">Buchhaltungssoftware — FIBU-Exportdatei aus Controlling</div>
+        <span class="status-pill file">Datei-Export</span>
+      </div>
+      <div class="integ-row">
+        <div class="ir-name">AMA</div>
+        <div class="ir-desc">Agrarmarkt Austria — CSV-Export aus dem Weingarten-Modul</div>
+        <span class="status-pill file">Datei-Export</span>
+      </div>
+      <div class="integ-row">
+        <div class="ir-name">DAC-Prüfnummern</div>
+        <div class="ir-desc">Antrag/Formular-Generierung im DAC-Modul, keine Behörden-API</div>
+        <span class="status-pill manual">Formular</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="line"></div></div>
+
+  <!-- Layer: Hohenstein Suite bridge -->
+  <div class="layer">
+    <div class="layer-head">
+      <span class="layer-eyebrow">Ebene 7</span>
+      <h2>Anbindung Hohenstein Suite</h2>
+      <p class="layer-desc">Neu seit v2.0. Einseitige Lese-/Schreibbrücke per Service-Role — die Zugangsdaten liegen ausschließlich in der Hohenstein Suite, nicht in software:112.</p>
+    </div>
+    <div class="bridge-row">
+      <div class="bridge-box"><div class="bb-name">software:112</div><div class="bb-desc">Mandanten, Stripe-Status, Zahlungsprotokoll (stripe_zahlungen_log)</div></div>
+      <div class="bridge-arrow">←<div class="ba-label">Service-Role</div></div>
+      <div class="bridge-box accent"><div class="bb-name">Hohenstein Suite</div><div class="bb-desc">Internes ERP · CRM-Verknüpfung + automatische E&amp;A-Buchung je Mandant</div></div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="line"></div></div>
+
+  <!-- Layer: Tech-Glossar -->
+  <div class="layer">
+    <div class="layer-head">
+      <span class="layer-eyebrow">Hintergrund</span>
+      <h2>Der Stack in Kürze</h2>
+      <p class="layer-desc">Drei Namen, die im Diagramm ständig auftauchen — kurz eingeordnet für alle, die nicht täglich damit arbeiten.</p>
+    </div>
+    <div class="tech-grid">
+      <div class="tech-card">
+        <div class="tech-head">
+          <div class="tech-mark vercel">▲</div>
+          <div><div class="tech-name">Vercel</div><div class="tech-meta">seit 2015 · Guillermo Rauch</div></div>
+        </div>
+        <p class="tech-desc">Betreibt die „Frontend Cloud", auf der software:112 läuft: ein globales Netzwerk, das die Anwendung ausliefert und bei jedem <span class="mono">git push</span> automatisch neu baut und deployt. Vercel ist zugleich der Hersteller von Next.js.</p>
+      </div>
+      <div class="tech-card">
+        <div class="tech-head">
+          <div class="tech-mark supabase">S</div>
+          <div><div class="tech-name">Supabase</div><div class="tech-meta">seit 2020 · Copplestone &amp; Wilson</div></div>
+        </div>
+        <p class="tech-desc">Offene Alternative zu Googles Firebase: liefert eine gehostete PostgreSQL-Datenbank direkt mit Login, Datei-Ablage, Live-Updates und feingranularer Zugriffskontrolle je Mandant — der Grund, warum kein separates Datenbank-Team nötig ist.</p>
+      </div>
+      <div class="tech-card">
+        <div class="tech-head">
+          <div class="tech-mark nextjs">N</div>
+          <div><div class="tech-name">Next.js</div><div class="tech-meta">Open Source · v16 (2026)</div></div>
+        </div>
+        <p class="tech-desc">Kostenloses Framework auf Basis von React, mit dem software:112 tatsächlich programmiert ist. Bringt Server-seitiges Rendering und die Server-Actions mit, über die die Anwendung mit Supabase spricht.</p>
+      </div>
+    </div>
+    <div class="tech-fit">
+      <span><b>Next.js</b> = der Anwendungscode</span>
+      <span>·</span>
+      <span><b>Vercel</b> = wo er läuft</span>
+      <span>·</span>
+      <span><b>Supabase</b> = wo die Daten liegen</span>
+    </div>
+    <div class="tech-sources">Quellen: vercel.com/blog, supabase.com/blog, nextjs.org/blog — Stand September 2026.</div>
+  </div>
+
+  <!-- Dev model -->
+  <div class="devmodel">
+    <div class="dm-actors">
+      <div class="dm-actor"><img class="da-mark" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbgAAAGwCAYAAADbmXDeAAA2P0lEQVR4nO3dd3hU14E28PeqjLqQxEgICRV6BwESovdq042NMeAekk3iJHbKZvNtsvFukt3EiTeJE9txd8A2pheb3quRAAEGIUASRYB679LM3O+PrBxsq0y5M+feo/f3PH4eQKNz3hlL8956RoFRTJniY67pMUH1UmYoUCerKrooQBf88z8iIvKsegBlUJRSqGoZVGW7AuVw8Zm/Z4gOBgCK6AAdMY96bKrq7b1SUdW5ALqLzkNERB1QcQUKPlVtysbSs2tOi4qh24Izj17xGFRlJYC5orMQEZFzVBV7FUXd2Oynbqw8/mG5J+fWVcFFpS7vZrN5rQSUlQCSROchIiLN5KsqNimKsrEkfc0RT0wovuAGPWyKCPSbryjqPECZrwBdRUciIiL3UaBsVm3Wv5Sc/fCQe+cRJCr18WFWq+0bUNR5CpREUTmIiEgMVVHe8VKtrxSnf3jeHeN7vODCRjyW4OPj9V0A3wXg7+n5iYhIV5oA5RWLr/WVipMf3tJyYI8WnHn0ymeh4lcAunlyXiIi0r1CKMovS9LWvK7VgB4ruMiUVf+tQv2pp+YjIiIDUtXXlbqmHxdnbqhxdSiPFJw5ZeVHAB71xFxERGRsKnDSW8G3i9LWXnBlHC+tArUlcvSK/weWGxER2UkBxtlUbIlMeWySK+O4veBUVfmVu+cgIiLp9FShbDGPfnyeswO4teDMKauELdFCRERGp0RAtW0xj175glPfrXUcAOiasmK6AmW/O8YmIqLOR1Wxt/TM2tmOfI/mBWcevXI5VHyo9bhEREQl6Wvt7i1ND1H2mfucH8uNiIjcxZy8crW9j9W04CpKy/9Ly/GIiIi+RMHfwpNXDbHnoZoVnHn0inlQ8WOtxiMiImqNN1S7dqa024OzKc9oNhYREVFbFCyKTFk5p6OHaVJwEckrZ0LBIi3GIiIi6ohNQYc7VZoUnJeCp7UYh4iIyB6KiqXmUY9Nbe8xLhdc5OiVE8GluIiIyNO8vNrdi3N9D07teDeRiIjIDVZEjH58bFtfdKnguqasSFGBJ1wZg4iIyFleNlubO1kuFZwXy42IiERS8EzXkasGtvYlpwsufNTDXVQoi51PRURE5DovL7XVLnK64Hy8/BcDiHE6ERERkQZUBdoWnIrWG5OIiMjDkqNSV8z66j86VXD/tw7YApcjERERacBmVZZ89d+cKjhvxfa1gYiIiIRRsDh07DMR9/+Tk4coeXEJERHpSpTJ2vilnS+HC+7/FrhM0ioRERGRRr608+XEHpwyWaskREREmlExLSzpybCWvzpRcOoU7dIQERFpxt/bZJnS8heHCi5m1OpAFRijeSQiIiINKOo/jzI6VHANPrWJmqchIiLSjJrS8ieHCk6xegdrH4aIiEgz5pY/OHYOzktlwRERkZ51bfmDY3twNhYcERHpmpN7cERERAbBgiMiIimx4IiISEosOCIikhILjoiIpMSCIyIiKbHgiIhISiw4IiKSEguOiIikxIIjIiIpseCIiEhKLDgiIpISC46IiKTEgiMiIimx4IiISEosOCIikhILjoiIpMSCIyIiKbHgiIhISiw4IiKSEguOiIikxIIjIiIpseCIiEhKLDgiIpISC46IiKTEgiMiIimx4IiISEosOCIikhILjoiIpMSCIyIiKbHgiIhISiw4IiKSEguOiIikxIIjIiIpseCIiEhKLDgiIpISC46IiKTEgiMiIimx4IiISEosOCIikhILjoiIpMSCIyIiKbHgiIhISiw4IiKSEguOiIikxIIjIiIpseCIiEhKLDgiIpISC46IiKTEgiMiIimx4IiISEosOCIikhILjoiIpMSCIyIiKbHgiIhISiw4IiKSEguOiIikxIIjIiIpseCIiEhKLDgiIpISC46IiKTEgiMiIin5iA5A+hMY1Q0h8T1gCgmFb2AAvP0D0Fxbg4aSUpRdu4amqirREQ3H5OuDwX3j0SsuGnExZnTrGoYuIYEI8DPBarOhqqYOpeXVuFtYity8Qly/eQ/5xeWiYxvKwD5x6B3XDQmxUegeGY6wLsEI8veDqqqoqWtAaUU17hWV4eadImTfzseNvELRkcnNWHAEL5MJXXr2RFivngjtmQgfP/82Hxs7cQJqCwpQfvUayq5dQ3NNjQeTGos5PBQTkgdh/KiBSB3eDwN797D7ewtLKnD2cg5OZWThSNplXMnOc2NSY/Iz+WJC8iBMGDUQY0b0R9LAnvDx9rbre6tr63Huci4+O38VR9MvI+3CNTenJREURx5sTl65AAq2uSsMeY5fWBfEjhuHoO4xMIWGOD2Opa4OdSWlKDj9Garv3NUwoXEN6ZeAOZNGYub44Rg5uLfL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" alt="ICP Solutions"><div class="da-name">ICP Solutions</div><div class="da-role">Fachliche Anforderung, Abnahme</div></div>
+      <div class="dm-plus">+</div>
+      <div class="dm-actor"><div class="da-name">Claude AI</div><div class="da-role">Umsetzung, Code, Migrationen</div></div>
+    </div>
+    <p>Weiterentwicklung läuft laufend im direkten Zusammenspiel: Anforderung, Umsetzung, Verifikation (Typecheck, Build) und <span class="mono" style="color:#fff;">git push</span> → automatisches Deployment auf Vercel, in einem durchgehenden Arbeitsschritt — ohne separates Entwicklungsteam.</p>
+  </div>
+
+  <!-- Compliance -->
+  <div class="compliance">
+    <span class="cp-label">Compliance</span>
+    <span class="cp-tag">🇦🇹 Österr. Weingesetz</span>
+    <span class="cp-tag">🧾 RKSV</span>
+    <span class="cp-tag">🔒 DSGVO by Design</span>
+    <span class="cp-tag">☁️ Vercel</span>
+    <span class="cp-tag">🐘 Datenbank: EU (eu-central-1)</span>
+  </div>
+
+  <div class="footer">
+    software:112 · Systemarchitektur v3.0 — Ist-Stand · Hohenstein Consulting · September 2026 · Vertraulich – nur für interne Verwendung
+  </div>
+
+</div>
+</body>
+</html>

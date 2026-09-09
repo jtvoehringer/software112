@@ -1,25 +1,25 @@
 // ── Segment-Definitionen ──────────────────────────────────────────────────────
 
 export const SEGMENTE = [
-  { value: 'privat',      label: 'Privat',       farbe: 'bg-blue-100 text-blue-800'   },
-  { value: 'gastronomie', label: 'Gastronomie',        farbe: 'bg-orange-100 text-orange-800' },
-  { value: 'handel',      label: 'Handel',             farbe: 'bg-purple-100 text-purple-800' },
-  { value: 'export',      label: 'Export',             farbe: 'bg-green-100 text-green-800'  },
-  { value: 'grosshandel', label: 'Großhandel',         farbe: 'bg-gray-100 text-gray-800'   },
-  { value: 'produzent',   label: 'Produzent',           farbe: 'bg-rose-100 text-rose-800'    },
-  { value: 'weinhauer',   label: 'Weinhauer',           farbe: 'bg-lime-100 text-lime-800'     },
+  { value: 'privat',      label: 'Privat',       farbe: 'bg-s112-blue-100 text-s112-blue-700'   },
+  { value: 'gastronomie', label: 'Gastronomie',        farbe: 'bg-s112-warn-bg text-s112-warn-fg' },
+  { value: 'handel',      label: 'Handel',             farbe: 'bg-[#F2F3F5] text-s112-text-1' },
+  { value: 'export',      label: 'Export',             farbe: 'bg-s112-ok-bg text-s112-ok-fg'  },
+  { value: 'grosshandel', label: 'Großhandel',         farbe: 'bg-[#F2F3F5] text-s112-text'   },
+  { value: 'produzent',   label: 'Produzent',           farbe: 'bg-s112-err-bg text-s112-err-fg'    },
+  { value: 'weinhauer',   label: 'Weinhauer',           farbe: 'bg-s112-ok-bg text-s112-ok-fg'     },
   // Migration 185 (1.9.2026) – ergänzt auf Kundenwunsch um die Kundengruppen
   // aus dem DKB-Altsystem-Import (Kontakte_Firmen_DKB.csv), damit diese beim
   // Import nicht mehr pauschal auf einen Standardwert fallen.
-  { value: 'firmenkunde', label: 'Firmenkunde',        farbe: 'bg-indigo-100 text-indigo-800' },
-  { value: 'vinothek',    label: 'Vinothek',            farbe: 'bg-amber-100 text-amber-800'   },
-  { value: 'abhof',       label: 'Ab Hof',              farbe: 'bg-emerald-100 text-emerald-800' },
-  { value: 'restaurant',  label: 'Restaurant',          farbe: 'bg-pink-100 text-pink-800'     },
-  { value: 'tourismus',   label: 'Tourismus',           farbe: 'bg-cyan-100 text-cyan-800'     },
+  { value: 'firmenkunde', label: 'Firmenkunde',        farbe: 'bg-s112-blue-100 text-s112-blue-700' },
+  { value: 'vinothek',    label: 'Vinothek',            farbe: 'bg-s112-warn-bg text-s112-warn-fg'   },
+  { value: 'abhof',       label: 'Ab Hof',              farbe: 'bg-s112-ok-bg text-s112-ok-fg' },
+  { value: 'restaurant',  label: 'Restaurant',          farbe: 'bg-[#F2F3F5] text-s112-text-1'     },
+  { value: 'tourismus',   label: 'Tourismus',           farbe: 'bg-[#F2F3F5] text-s112-text-1'     },
   // Migration 186 (1.9.2026) – auf Kundenwunsch ergänzt.
-  { value: 'medien',      label: 'Medien',               farbe: 'bg-fuchsia-100 text-fuchsia-800' },
-  { value: 'importeur',   label: 'Importeur',            farbe: 'bg-teal-100 text-teal-800'     },
-  { value: 'sonstige',    label: 'Sonstige',             farbe: 'bg-slate-100 text-slate-800'   },
+  { value: 'medien',      label: 'Medien',               farbe: 'bg-[#F2F3F5] text-s112-text-1' },
+  { value: 'importeur',   label: 'Importeur',            farbe: 'bg-[#F2F3F5] text-s112-text-1'     },
+  { value: 'sonstige',    label: 'Sonstige',             farbe: 'bg-[#F2F3F5] text-s112-text'   },
 ] as const
 
 export type Kundensegment = (typeof SEGMENTE)[number]['value']
@@ -29,7 +29,7 @@ export function segmentLabel(value: string | null | undefined): string {
 }
 
 export function segmentFarbe(value: string | null | undefined): string {
-  return SEGMENTE.find(s => s.value === value)?.farbe ?? 'bg-gray-100 text-gray-600'
+  return SEGMENTE.find(s => s.value === value)?.farbe ?? 'bg-[#F2F3F5] text-s112-text-2'
 }
 
 // ── Länder / Vorwahlen ────────────────────────────────────────────────────────
@@ -155,14 +155,14 @@ export const DIAL_CODES = [
 // ── Pipeline-Stufen ───────────────────────────────────────────────────────────
 
 export const PIPELINE_STUFEN = [
-  { value: 'interessent',  label: 'Interessent',   farbe: 'bg-gray-100 text-gray-700'    },
-  { value: 'kontaktiert',  label: 'Kontaktiert',   farbe: 'bg-blue-100 text-blue-700'    },
-  { value: 'verkostung',   label: 'Verkostung',    farbe: 'bg-purple-100 text-purple-700' },
-  { value: 'angebot',      label: 'Angebot',       farbe: 'bg-yellow-100 text-yellow-800' },
-  { value: 'verhandlung',  label: 'Verhandlung',   farbe: 'bg-orange-100 text-orange-700' },
-  { value: 'abschluss',    label: 'Abschluss',     farbe: 'bg-green-100 text-green-700'  },
-  { value: 'stammkunde',   label: 'Stammkunde',    farbe: 'bg-teal-100 text-teal-700'    },
-  { value: 'verloren',     label: 'Verloren',      farbe: 'bg-red-100 text-red-700'      },
+  { value: 'interessent',  label: 'Interessent',   farbe: 'bg-[#F2F3F5] text-s112-text-1'    },
+  { value: 'kontaktiert',  label: 'Kontaktiert',   farbe: 'bg-s112-blue-100 text-s112-blue-700'    },
+  { value: 'verkostung',   label: 'Verkostung',    farbe: 'bg-[#F2F3F5] text-s112-text-1' },
+  { value: 'angebot',      label: 'Angebot',       farbe: 'bg-s112-warn-bg text-s112-warn-fg' },
+  { value: 'verhandlung',  label: 'Verhandlung',   farbe: 'bg-s112-warn-bg text-s112-warn-fg' },
+  { value: 'abschluss',    label: 'Abschluss',     farbe: 'bg-s112-ok-bg text-s112-ok-fg'  },
+  { value: 'stammkunde',   label: 'Stammkunde',    farbe: 'bg-[#F2F3F5] text-s112-text-1'    },
+  { value: 'verloren',     label: 'Verloren',      farbe: 'bg-s112-err-bg text-s112-err-fg'      },
 ] as const
 
 export type PipelineStufe = (typeof PIPELINE_STUFEN)[number]['value']

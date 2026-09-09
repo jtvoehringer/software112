@@ -11,11 +11,11 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 const STATUS: Record<string, { label: string; color: string }> = {
-  entwurf:      { label: 'Entwurf',       color: 'bg-gray-100 text-gray-600' },
-  eingereicht:  { label: 'Eingereicht',   color: 'bg-blue-100 text-blue-700' },
-  in_pruefung:  { label: 'In Prüfung',    color: 'bg-yellow-100 text-yellow-700' },
-  genehmigt:    { label: 'Genehmigt',     color: 'bg-green-100 text-green-700' },
-  abgelehnt:    { label: 'Abgelehnt',     color: 'bg-red-100 text-red-700' },
+  entwurf:      { label: 'Entwurf',       color: 'bg-[#F2F3F5] text-s112-text-2' },
+  eingereicht:  { label: 'Eingereicht',   color: 'bg-s112-blue-100 text-s112-blue-700' },
+  in_pruefung:  { label: 'In Prüfung',    color: 'bg-s112-warn-bg text-s112-warn-fg' },
+  genehmigt:    { label: 'Genehmigt',     color: 'bg-s112-ok-bg text-s112-ok-fg' },
+  abgelehnt:    { label: 'Abgelehnt',     color: 'bg-s112-err-bg text-s112-err-fg' },
 }
 
 const DAC_REGIONEN: Record<string, string> = {
@@ -51,7 +51,7 @@ export default async function DacPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">DAC & Prüfnummern</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">DAC & Prüfnummern</h1>
           <p className="text-sm text-s112-muted mt-0.5">Anträge nach österreichischem Weinrecht</p>
         </div>
         {writeOk && (
@@ -65,15 +65,15 @@ export default async function DacPage() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="card text-center">
-          <p className="text-3xl font-bold text-green-600">{genehmigt}</p>
+          <p className="text-3xl font-semibold text-s112-ok-fg">{genehmigt}</p>
           <p className="text-xs text-s112-muted mt-1">Genehmigt</p>
         </div>
         <div className="card text-center">
-          <p className="text-3xl font-bold text-blue-600">{offen}</p>
+          <p className="text-3xl font-semibold text-s112-blue-700">{offen}</p>
           <p className="text-xs text-s112-muted mt-1">In Bearbeitung</p>
         </div>
         <div className="card text-center">
-          <p className="text-3xl font-bold text-gray-500">{entwuerfe}</p>
+          <p className="text-3xl font-semibold text-s112-text-2">{entwuerfe}</p>
           <p className="text-xs text-s112-muted mt-1">Entwürfe</p>
         </div>
       </div>
@@ -83,18 +83,18 @@ export default async function DacPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-s112-bg border-b border-s112-border">
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Bezeichnung</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">DAC-Region</th>
-                <th className="text-center px-4 py-3 font-semibold text-gray-700">JG</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Status</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Prüfnummer</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Eingereicht</th>
-                <th className="text-right px-4 py-3 font-semibold text-gray-700"></th>
+                <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Bezeichnung</th>
+                <th className="text-left px-4 py-3 font-semibold text-s112-text-1">DAC-Region</th>
+                <th className="text-center px-4 py-3 font-semibold text-s112-text-1">JG</th>
+                <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Status</th>
+                <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Prüfnummer</th>
+                <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Eingereicht</th>
+                <th className="text-right px-4 py-3 font-semibold text-s112-text-1"></th>
               </tr>
             </thead>
             <tbody>
               {antraege.map((a: R, i: number) => {
-                const st = STATUS[a.status] ?? { label: a.status, color: 'bg-gray-100 text-gray-600' }
+                const st = STATUS[a.status] ?? { label: a.status, color: 'bg-[#F2F3F5] text-s112-text-2' }
                 return (
                   <tr key={a.id} className={`border-b border-s112-border last:border-0 ${!a.aktiv ? 'opacity-40' : ''} ${i%2===1 ? 'bg-s112-bg/50' : ''}`}>
                     <td className="px-4 py-3 font-medium">{a.bezeichnung}</td>
@@ -105,7 +105,7 @@ export default async function DacPage() {
                     </td>
                     <td className="px-4 py-3 font-mono text-xs">
                       {a.pruefnummer ? (
-                        <span className="bg-green-50 text-green-700 px-2 py-1 rounded">{a.pruefnummer}</span>
+                        <span className="bg-s112-ok-bg text-s112-ok-fg px-2 py-1 rounded">{a.pruefnummer}</span>
                       ) : '–'}
                     </td>
                     <td className="px-4 py-3 text-s112-muted text-xs">
@@ -115,7 +115,7 @@ export default async function DacPage() {
                       {writeOk && (
                         <Link href={`/dac/${a.id}`}
                           title="Bearbeiten" aria-label="Bearbeiten"
-                          className="text-s112-teal hover:text-s112-teal/70"><Pencil size={16} /></Link>
+                          className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={16} /></Link>
                       )}
                     </td>
                   </tr>
@@ -126,7 +126,7 @@ export default async function DacPage() {
         </div>
       ) : (
         <div className="card text-center py-16">
-          <p className="text-gray-700 font-medium">Noch keine Anträge</p>
+          <p className="text-s112-text-1 font-medium">Noch keine Anträge</p>
           <p className="text-s112-muted text-sm mt-1 mb-6">Legen Sie Ihren ersten Antrag an</p>
           {writeOk && (
             <Link href="/dac/neu"

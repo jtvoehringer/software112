@@ -142,10 +142,10 @@ export default function HandbuchPage() {
       <div className="flex items-center gap-2 text-sm text-s112-muted">
         <span>Hilfe</span>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Benutzerhandbuch</span>
+        <span className="text-s112-text-1 font-medium">Benutzerhandbuch</span>
       </div>
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Benutzerhandbuch</h1>
+        <h1 className="text-2xl font-semibold text-s112-text">Benutzerhandbuch</h1>
         <p className="text-sm text-s112-muted mt-1">software:112 – Weinbau-Management · Version 2.3 · Stand Juli 2026</p>
       </div>
 
@@ -155,14 +155,14 @@ export default function HandbuchPage() {
             {KAPITEL.map(k => (
               <button key={k.id} onClick={() => setAktiv(k.id)}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-left transition-colors
-                  ${aktiv === k.id ? 'bg-s112-teal text-white' : 'text-gray-600 hover:bg-s112-bg hover:text-gray-900'}`}>
+                  ${aktiv === k.id ? 'bg-s112-teal text-white' : 'text-s112-text-2 hover:bg-s112-bg hover:text-s112-text'}`}>
                 <k.icon size={16} />
                 {k.titel}
               </button>
             ))}
           </nav>
           <div className="mt-4 pt-4 border-t border-s112-border">
-            <Link href="/hilfe/faq" className="flex items-center gap-2 px-3 py-2 text-sm text-s112-teal hover:underline">
+            <Link href="/hilfe/faq" className="flex items-center gap-2 px-3 py-2 text-sm text-s112-blue-700 hover:underline">
               FAQ ansehen
             </Link>
           </div>
@@ -170,14 +170,14 @@ export default function HandbuchPage() {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 mb-5">
-            <kapitel.icon className="text-s112-teal" size={30} />
-            <h2 className="text-xl font-bold text-gray-900">{kapitel.titel}</h2>
+            <kapitel.icon className="text-s112-blue-700" size={30} />
+            <h2 className="text-xl font-semibold text-s112-text">{kapitel.titel}</h2>
           </div>
           <div className="space-y-3">
             {kapitel.abschnitte.map((a, i) => (
               <div key={i} className="card p-5">
-                <h3 className="font-semibold text-gray-800 mb-2">{a.titel}</h3>
-                <p className="text-sm text-gray-600 leading-relaxed">{a.inhalt}</p>
+                <h3 className="font-semibold text-s112-text mb-2">{a.titel}</h3>
+                <p className="text-sm text-s112-text-2 leading-relaxed">{a.inhalt}</p>
               </div>
             ))}
           </div>

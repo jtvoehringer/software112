@@ -18,12 +18,12 @@ export default async function SonstigeArtikelPage() {
   return (
     <div className="space-y-6 max-w-2xl">
       <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/weinhandel" className="hover:text-s112-teal transition-colors">Weinhandel</Link>
+        <Link href="/weinhandel" className="hover:text-s112-blue-700 transition-colors">Weinhandel</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">Sonstiges-Produkte</span>
+        <span className="text-s112-text-1 font-medium">Sonstiges-Produkte</span>
       </div>
       <div>
-        <h1 className="text-xl font-bold text-gray-900">Sonstiges-Produkte</h1>
+        <h1 className="text-xl font-semibold text-s112-text">Sonstiges-Produkte</h1>
         <p className="text-sm text-s112-muted mt-1">
           Häufig verkaufte Sonstiges-Positionen – werden beim Erstellen eines Verkaufs zur Auswahl angeboten.
         </p>
