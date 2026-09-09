@@ -69,20 +69,20 @@ export default function AnalyseNeuPage({ params }: Props) {
 
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-s112-muted flex-wrap">
-        <Link href="/kellerbuch" className="hover:text-s112-teal">Kellerbuch</Link>
+        <Link href="/kellerbuch" className="hover:text-s112-blue-700">Kellerbuch</Link>
         <span>/</span>
-        <Link href={`/kellerbuch/weinausbau/${weinausbauId}`} className="hover:text-s112-teal">Charge</Link>
+        <Link href={`/kellerbuch/weinausbau/${weinausbauId}`} className="hover:text-s112-blue-700">Charge</Link>
         <span>/</span>
-        <Link href={`/kellerbuch/weinausbau/${weinausbauId}/analysen`} className="hover:text-s112-teal">Laboranalysen</Link>
+        <Link href={`/kellerbuch/weinausbau/${weinausbauId}/analysen`} className="hover:text-s112-blue-700">Laboranalysen</Link>
         <span>/</span>
-        <span className="text-gray-800 font-medium">Neue Analyse</span>
+        <span className="text-s112-text font-medium">Neue Analyse</span>
       </nav>
 
-      <h1 className="text-2xl font-bold text-gray-900">Laboranalyse erfassen</h1>
+      <h1 className="text-2xl font-semibold text-s112-text">Laboranalyse erfassen</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
+          <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm">
             <strong>Fehler:</strong> {error}
           </div>
         )}
@@ -164,7 +164,7 @@ export default function AnalyseNeuPage({ params }: Props) {
           </button>
           <Link
             href={`/kellerbuch/weinausbau/${weinausbauId}/analysen`}
-            className="text-sm text-s112-muted hover:text-gray-700 transition-colors"
+            className="text-sm text-s112-muted hover:text-s112-text-1 transition-colors"
           >
             Abbrechen
           </Link>
