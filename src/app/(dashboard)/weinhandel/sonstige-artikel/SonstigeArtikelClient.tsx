@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { upsertSonstigesArtikel, toggleAktivSonstigesArtikel, deleteSonstigesArtikel } from './actions'
 import { useRouter } from 'next/navigation'
+import { fmtEur } from '@/lib/format'
 
 interface Artikel {
   id: string
@@ -108,7 +109,7 @@ function ArtikelRow({ artikel, onRefresh }: { artikel: Artikel; onRefresh: () =>
       <td className="px-3 py-2.5 text-sm text-s112-muted">{artikel.einheit}</td>
       <td className="px-3 py-2.5 text-sm text-right tabular-nums text-s112-text-1">
         {artikel.default_preis != null
-          ? Number(artikel.default_preis).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+          ? fmtEur(Number(artikel.default_preis))
           : <span className="text-s112-muted">–</span>}
       </td>
       <td className="px-3 py-2.5 text-right">

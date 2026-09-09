@@ -11,6 +11,7 @@ import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButto
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import { Trash2 } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { fmtEur, fmtNum } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
 
@@ -207,7 +208,7 @@ export default async function PreislisteDetailPage({ params }: { params: Promise
                   <td className="px-4 py-3 text-s112-muted">{pos.einheit}</td>
                   <td className="px-4 py-3 text-right font-semibold text-s112-blue-700 tabular-nums">
                     {pos.preis_brutto != null
-                      ? Number(pos.preis_brutto).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+                      ? fmtEur(Number(pos.preis_brutto))
                       : <span className="text-s112-muted font-normal">–</span>}
                   </td>
                   {writeOk && (
@@ -250,7 +251,7 @@ export default async function PreislisteDetailPage({ params }: { params: Promise
                     <option key={f.id} value={f.id}>
                       {f.name}{f.jahrgang ? ` (${f.jahrgang})` : ''}
                       {f.flaschengroesse_ml ? ` · ${FLASCHEN_LABEL[f.flaschengroesse_ml] ?? f.flaschengroesse_ml + ' ml'}` : ''}
-                      {f.vk_preis_brutto ? ` · ${Number(f.vk_preis_brutto).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €` : ''}
+                      {f.vk_preis_brutto ? ` · ${fmtNum(Number(f.vk_preis_brutto), 2)} €` : ''}
                     </option>
                   ))}
                 </select>

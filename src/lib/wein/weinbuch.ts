@@ -7,6 +7,7 @@
 
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { fmtNum } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -241,7 +242,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
         const details: string[] = []
         if (w?.name) details.push(`Ried: ${w.name}`)
         if (g?.gst_nr) details.push(`GST ${g.gst_nr}`)
-        if (ep.menge_kg) details.push(`${parseFloat(ep.menge_kg).toLocaleString('de-AT')} kg`)
+        if (ep.menge_kg) details.push(`${fmtNum(parseFloat(ep.menge_kg))} kg`)
         if (ep.klosterneuburger) details.push(`${ep.klosterneuburger} °KMW`)
         if (ep.oechsle) details.push(`${ep.oechsle} °Oe`)
         if (ep.qualitaetsstufe) details.push(qualitaetLabel(ep.qualitaetsstufe))
@@ -268,7 +269,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
         const w = wg.weingarten as R | null
         const details: string[] = []
         if (w?.name) details.push(`Weingarten: ${w.name}`)
-        if (wg.trauben_kg) details.push(`${parseFloat(wg.trauben_kg).toLocaleString('de-AT')} kg`)
+        if (wg.trauben_kg) details.push(`${fmtNum(parseFloat(wg.trauben_kg))} kg`)
         if (wg.kmw) details.push(`${wg.kmw} °KMW`)
         if (wg.rebsorte) details.push(formatRebsorteMitKuerzel(wg.rebsorte))
         ernteDaten.push({ datum: wg.ernte_datum, details })
@@ -336,7 +337,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
         b.aufwandmenge && `${b.aufwandmenge} ${b.aufwandmenge_einheit ?? ''}`.trim(),
         b.bbch_stadium && `BBCH ${b.bbch_stadium}`,
         b.schaderreger && `Schaderreger: ${b.schaderreger}`,
-        b.flaeche_ha_gesamt && `Fläche: ${parseFloat(b.flaeche_ha_gesamt).toLocaleString('de-AT')} ha`,
+        b.flaeche_ha_gesamt && `Fläche: ${fmtNum(parseFloat(b.flaeche_ha_gesamt))} ha`,
         wgName && `Weingarten: ${wgName}`,
         b.notizen,
       ].filter(Boolean) as string[],
@@ -359,8 +360,8 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
       typ: 'pressung',
       titel: p.weinbezeichnung ? `Pressung – ${p.weinbezeichnung}` : 'Pressung',
       details: [
-        p.most_liter_gesamt && `${parseFloat(p.most_liter_gesamt).toLocaleString('de-AT')} L Most`,
-        pb.menge_liter && `Anteil: ${parseFloat(pb.menge_liter).toLocaleString('de-AT')} L`,
+        p.most_liter_gesamt && `${fmtNum(parseFloat(p.most_liter_gesamt))} L Most`,
+        pb.menge_liter && `Anteil: ${fmtNum(parseFloat(pb.menge_liter))} L`,
         weingaertenText && `Weingärten: ${weingaertenText}`,
       ].filter(Boolean) as string[],
     })
@@ -375,7 +376,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
         typ: 'schwund',
         titel: behaelterName ? `Schwund – ${behaelterName}` : 'Schwund',
         details: [
-          menge && `${parseFloat(menge).toLocaleString('de-AT')} L Schwund`,
+          menge && `${fmtNum(parseFloat(menge))} L Schwund`,
           u.notizen,
         ].filter(Boolean) as string[],
       })
@@ -389,8 +390,8 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
       typ: 'umzug',
       titel: `${von} → ${nach}`,
       details: [
-        liter && `${parseFloat(liter).toLocaleString('de-AT')} L`,
-        u.schwund_liter && `Schwund: ${parseFloat(u.schwund_liter).toLocaleString('de-AT')} L`,
+        liter && `${fmtNum(parseFloat(liter))} L`,
+        u.schwund_liter && `Schwund: ${fmtNum(parseFloat(u.schwund_liter))} L`,
       ].filter(Boolean) as string[],
     })
   }
@@ -402,8 +403,8 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
       typ: 'kellerbehandlung',
       titel: typName,
       details: [
-        kb.menge != null && kb.einheit ? `${parseFloat(kb.menge).toLocaleString('de-AT')} ${kb.einheit}` : null,
-        kb.volumen_liter_ist ? `Volumen Ist: ${parseFloat(kb.volumen_liter_ist).toLocaleString('de-AT')} L` : null,
+        kb.menge != null && kb.einheit ? `${fmtNum(parseFloat(kb.menge))} ${kb.einheit}` : null,
+        kb.volumen_liter_ist ? `Volumen Ist: ${fmtNum(parseFloat(kb.volumen_liter_ist))} L` : null,
         kb.notizen,
       ].filter(Boolean) as string[],
     })
@@ -411,13 +412,13 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
 
   for (const a of analysen) {
     const params: string[] = [
-      a.alkohol_vol != null       ? `Alkohol: ${parseFloat(a.alkohol_vol).toLocaleString('de-AT')} % vol` : null,
-      a.restzucker_gl != null     ? `Restzucker: ${parseFloat(a.restzucker_gl).toLocaleString('de-AT')} g/l` : null,
-      a.gesamtsaeure_gl != null   ? `Gesamtsäure: ${parseFloat(a.gesamtsaeure_gl).toLocaleString('de-AT')} g/l` : null,
-      a.ph_wert != null           ? `pH-Wert: ${parseFloat(a.ph_wert).toLocaleString('de-AT')}` : null,
-      a['flüchtige_saeure_gl'] != null ? `Flüchtige Säure: ${parseFloat(a['flüchtige_saeure_gl']).toLocaleString('de-AT')} g/l` : null,
-      a.freie_so2_mgl != null     ? `Freies SO₂: ${parseFloat(a.freie_so2_mgl).toLocaleString('de-AT')} mg/l` : null,
-      a.gesamt_so2_mgl != null    ? `Gesamt-SO₂: ${parseFloat(a.gesamt_so2_mgl).toLocaleString('de-AT')} mg/l` : null,
+      a.alkohol_vol != null       ? `Alkohol: ${fmtNum(parseFloat(a.alkohol_vol))} % vol` : null,
+      a.restzucker_gl != null     ? `Restzucker: ${fmtNum(parseFloat(a.restzucker_gl))} g/l` : null,
+      a.gesamtsaeure_gl != null   ? `Gesamtsäure: ${fmtNum(parseFloat(a.gesamtsaeure_gl))} g/l` : null,
+      a.ph_wert != null           ? `pH-Wert: ${fmtNum(parseFloat(a.ph_wert))}` : null,
+      a['flüchtige_saeure_gl'] != null ? `Flüchtige Säure: ${fmtNum(parseFloat(a['flüchtige_saeure_gl']))} g/l` : null,
+      a.freie_so2_mgl != null     ? `Freies SO₂: ${fmtNum(parseFloat(a.freie_so2_mgl))} mg/l` : null,
+      a.gesamt_so2_mgl != null    ? `Gesamt-SO₂: ${fmtNum(parseFloat(a.gesamt_so2_mgl))} mg/l` : null,
       a.probe_nr                  ? `Probe-Nr.: ${a.probe_nr}` : null,
       a.bewertung,
       a.notizen,
@@ -457,8 +458,8 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
     const quelleTexte = ((v.quellen ?? []) as R[]).map((q: R) => {
       const name = (q.quelle as R | null)?.name ?? '?'
       return q.anteil_pct != null
-        ? `${name}: ${q.anteil_pct} % (${parseFloat(q.menge_liter ?? 0).toLocaleString('de-AT')} L)`
-        : `${name}: ${parseFloat(q.menge_liter ?? 0).toLocaleString('de-AT')} L`
+        ? `${name}: ${q.anteil_pct} % (${fmtNum(parseFloat(q.menge_liter ?? 0))} L)`
+        : `${name}: ${fmtNum(parseFloat(q.menge_liter ?? 0))} L`
     })
     events.push({
       datum: v.datum,
@@ -473,8 +474,8 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
     if (!v) continue
     const zielName = (v.ziel as R | null)?.name ?? '?'
     const detail = vq.anteil_pct != null
-      ? `→ ${zielName}: ${vq.anteil_pct} % (${parseFloat(vq.menge_liter ?? 0).toLocaleString('de-AT')} L)`
-      : `→ ${zielName}: ${parseFloat(vq.menge_liter ?? 0).toLocaleString('de-AT')} L`
+      ? `→ ${zielName}: ${vq.anteil_pct} % (${fmtNum(parseFloat(vq.menge_liter ?? 0))} L)`
+      : `→ ${zielName}: ${fmtNum(parseFloat(vq.menge_liter ?? 0))} L`
     events.push({
       datum: v.datum,
       typ: 'verschneidung',
@@ -504,14 +505,14 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
         f.chargennummer && `Charge: ${f.chargennummer}`,
         f.pruefnummer && `Prüfnr.: ${f.pruefnummer}`,
         f.anzahl_flaschen && f.flaschengroesse_ml
-          ? `${parseInt(f.anzahl_flaschen).toLocaleString('de-AT')} × ${f.flaschengroesse_ml} ml`
+          ? `${fmtNum(parseInt(f.anzahl_flaschen))} × ${f.flaschengroesse_ml} ml`
           : null,
-        gefuellt != null ? `${gefuellt.toLocaleString('de-AT')} L abgefüllt` : null,
+        gefuellt != null ? `${fmtNum(gefuellt)} L abgefüllt` : null,
         verarbeitet != null
-          ? `Verarbeitete Menge aus Behälter: ${verarbeitet.toLocaleString('de-AT')} L (davon ${schwundMenge!.toLocaleString('de-AT')} L Schwund)`
+          ? `Verarbeitete Menge aus Behälter: ${fmtNum(verarbeitet)} L (davon ${fmtNum(schwundMenge!)} L Schwund)`
           : null,
         fc.anteil_liter
-          ? `Anteil diese Charge: ${parseFloat(fc.anteil_liter).toLocaleString('de-AT')} L`
+          ? `Anteil diese Charge: ${fmtNum(parseFloat(fc.anteil_liter))} L`
           : null,
       ].filter(Boolean) as string[],
     })

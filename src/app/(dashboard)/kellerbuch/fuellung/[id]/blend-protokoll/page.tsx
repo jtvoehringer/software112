@@ -8,6 +8,7 @@ import { GitMerge } from 'lucide-react'
 import { resolveBlendKompositionFuellung, type KompositionUrsprung } from '@/lib/wein/blendKomposition'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import PrintButton from './PrintButton'
+import { fmtNum } from '@/lib/format'
 
 export const metadata: Metadata = { title: 'Blend-Protokoll – software:112' }
 export const dynamic = 'force-dynamic'
@@ -27,7 +28,7 @@ function herkunftLabel(u: KompositionUrsprung): string {
 
 function fmtMenge(liter: number | null): string {
   if (!liter) return '–'
-  return `${parseFloat(String(liter)).toLocaleString('de-AT')} L`
+  return `${fmtNum(parseFloat(String(liter)))} L`
 }
 
 export default async function BlendProtokollFuellungPage({ params }: { params: Promise<{ id: string }> }) {
@@ -118,7 +119,7 @@ export default async function BlendProtokollFuellungPage({ params }: { params: P
             {fuellung.chargennummer && <span>Charge: {fuellung.chargennummer}</span>}
             {fuellung.datum && <span>Abgefüllt: {new Date(fuellung.datum).toLocaleDateString('de-AT')}</span>}
             {fuellung.anzahl_flaschen && fuellung.flaschengroesse_ml && (
-              <span>{parseInt(fuellung.anzahl_flaschen).toLocaleString('de-AT')} × {fuellung.flaschengroesse_ml} ml</span>
+              <span>{fmtNum(parseInt(fuellung.anzahl_flaschen))} × {fuellung.flaschengroesse_ml} ml</span>
             )}
             {fuellung.menge_liter_gefuellt && <span>{fmtMenge(fuellung.menge_liter_gefuellt)} abgefüllt</span>}
           </div>
@@ -146,7 +147,7 @@ export default async function BlendProtokollFuellungPage({ params }: { params: P
                   <td className="py-2 text-s112-text-2">{formatRebsorteMitKuerzel(u.rebsorte)}</td>
                   <td className="py-2 text-s112-text-2">{u.jahrgang ?? '–'}</td>
                   <td className="py-2 text-s112-text font-semibold text-right">
-                    {u.anteil_pct.toLocaleString('de-AT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %
+                    {fmtNum(u.anteil_pct, 1)} %
                   </td>
                 </tr>
               ))}
@@ -155,7 +156,7 @@ export default async function BlendProtokollFuellungPage({ params }: { params: P
               <tr>
                 <td colSpan={3} className="pt-2 text-xs text-s112-tertiary">Gesamt</td>
                 <td className="pt-2 text-xs text-s112-tertiary text-right">
-                  {komposition.reduce((s, u) => s + u.anteil_pct, 0).toLocaleString('de-AT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %
+                  {fmtNum(komposition.reduce((s, u) => s + u.anteil_pct, 0), 1)} %
                 </td>
               </tr>
             </tfoot>

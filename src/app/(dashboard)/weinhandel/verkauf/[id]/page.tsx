@@ -8,6 +8,7 @@ import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButto
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import RechnungVersandPanel from './RechnungVersandPanel'
 import { Trash2, Undo2, Mail, Phone, Info, CreditCard, FileText } from 'lucide-react'
+import { fmtEur, fmtNum } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
 
@@ -427,12 +428,12 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                       <div className="text-xs text-s112-muted mt-0.5">{sub.join(' · ')}</div>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums">{Number(pos.menge).toLocaleString('de-AT')}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{fmtNum(Number(pos.menge))}</td>
                   <td className="px-4 py-3 text-s112-muted">{pos.einheit}</td>
                   {isRechnung && <>
                     <td className="px-4 py-3 text-right tabular-nums">
                       {pos.preis_brutto != null
-                        ? Number(pos.preis_brutto).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+                        ? fmtEur(Number(pos.preis_brutto))
                         : <span className="text-s112-muted">–</span>}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-s112-muted">
@@ -440,7 +441,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-s112-blue-700 tabular-nums">
                       {summe != null
-                        ? summe.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+                        ? fmtEur(summe)
                         : <span className="text-s112-muted font-normal">–</span>}
                     </td>
                   </>}
@@ -453,7 +454,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
               <tr className="border-t-2 border-s112-border bg-s112-bg">
                 <td colSpan={5} className="px-4 py-3 text-right font-semibold text-s112-text-1">Gesamt brutto</td>
                 <td className="px-4 py-3 text-right font-semibold text-lg text-s112-blue-700 tabular-nums">
-                  {gesamt.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
+                  {fmtEur(gesamt)}
                 </td>
               </tr>
             </tfoot>
@@ -463,13 +464,13 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
         {/* MwSt-Hinweis / Rechnung USt-Aufschlüsselung */}
         {isRechnung && (
           <div className="px-4 py-3 text-xs text-right border-t border-s112-border space-y-0.5 print-only">
-            <p className="text-s112-text-2">Nettobetrag: {gesamtNetto.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}</p>
+            <p className="text-s112-text-2">Nettobetrag: {fmtEur(gesamtNetto)}</p>
             {Object.entries(ustGruppen).map(([satz, netto]) => (
               <p key={satz} className="text-s112-text-2">
-                MwSt {satz}%: {((netto as number) * Number(satz) / 100).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
+                MwSt {satz}%: {fmtEur(((netto as number) * Number(satz) / 100))}
               </p>
             ))}
-            <p className="font-semibold text-s112-text-1">Rechnungsbetrag: {gesamt.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}</p>
+            <p className="font-semibold text-s112-text-1">Rechnungsbetrag: {fmtEur(gesamt)}</p>
           </div>
         )}
       </div>
@@ -483,8 +484,8 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                 <Info size={14} /> {posten.skonto_pct}% Skonto bei Zahlung bis {skontoDatum.toLocaleDateString('de-AT')}
               </p>
               <p className="text-s112-warn-fg text-xs mt-0.5">
-                Bei fristgerechter Zahlung: {(gesamt - skontoBetrag).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
-                {' '}(−{skontoBetrag.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })} Skonto)
+                Bei fristgerechter Zahlung: {fmtEur((gesamt - skontoBetrag))}
+                {' '}(−{fmtEur(skontoBetrag)} Skonto)
               </p>
             </div>
           )}
@@ -519,7 +520,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
               teilBezahlt ? 'bg-s112-warn-bg text-s112-warn-fg' :
               'bg-s112-err-bg text-s112-err-fg'
             }`}>
-              {vollBezahlt ? 'Bezahlt' : teilBezahlt ? `Teilweise (${bezahltSumme.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })} von ${gesamt.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })})` : 'Offen'}
+              {vollBezahlt ? 'Bezahlt' : teilBezahlt ? `Teilweise (${fmtEur(bezahltSumme)} von ${fmtEur(gesamt)})` : 'Offen'}
             </span>
           </div>
 
@@ -541,7 +542,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                       <td className="px-3 py-2 text-s112-text-1">{new Date(z.datum).toLocaleDateString('de-AT')}</td>
                       <td className="px-3 py-2">{ART_LABELS[z.art] ?? z.art}</td>
                       <td className="px-3 py-2 text-right font-semibold tabular-nums text-s112-blue-700">
-                        {Number(z.betrag).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
+                        {fmtEur(Number(z.betrag))}
                       </td>
                       <td className="px-3 py-2 text-right">
                         {writeOk && (
@@ -559,7 +560,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                   <tr className="border-t-2 border-s112-border bg-s112-bg/60">
                     <td colSpan={2} className="px-3 py-2 text-sm font-semibold text-s112-text-1">Summe eingegangen</td>
                     <td className="px-3 py-2 text-right font-semibold tabular-nums text-s112-ok-fg">
-                      {bezahltSumme.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
+                      {fmtEur(bezahltSumme)}
                     </td>
                     <td />
                   </tr>
@@ -567,7 +568,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                     <tr className="border-t border-s112-border">
                       <td colSpan={2} className="px-3 py-2 text-sm text-s112-text-2">Noch offen</td>
                       <td className="px-3 py-2 text-right font-semibold tabular-nums text-s112-err-fg">
-                        {offenerBetrag.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
+                        {fmtEur(offenerBetrag)}
                       </td>
                       <td />
                     </tr>
@@ -586,7 +587,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
               {new Date(new Date(posten.datum).setDate(
                 new Date(posten.datum).getDate() + (posten.skonto_tage ?? 0)
               )).toLocaleDateString('de-AT')}
-              {' '}(−{((gesamt * (posten.skonto_pct ?? 0)) / 100).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })})
+              {' '}(−{fmtEur(((gesamt * (posten.skonto_pct ?? 0)) / 100))})
               </span>
             </div>
           )}

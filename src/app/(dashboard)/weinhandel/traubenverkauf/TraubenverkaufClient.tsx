@@ -4,6 +4,7 @@ import React, { useState, useTransition } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { upsertTraubenverkauf, deleteTraubenverkauf } from './actions'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { fmtNum } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -34,7 +35,7 @@ function fmtDate(d: string) {
 }
 function fmt(n: number | null | undefined, digits = 2) {
   if (n == null) return '–'
-  return n.toLocaleString('de-AT', { minimumFractionDigits: digits, maximumFractionDigits: digits })
+  return fmtNum(n, digits)
 }
 
 export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOptions, kontakte, firmen, writeOk }: Props) {
@@ -253,10 +254,10 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
         <div className="flex items-center gap-3">
           {verkaufe.length > 0 && (
             <>
-              <span className="text-sm text-s112-muted">{sumKg.toLocaleString('de-AT')} kg gesamt</span>
+              <span className="text-sm text-s112-muted">{fmtNum(sumKg)} kg gesamt</span>
               {sumEur > 0 && (
                 <span className="text-sm font-semibold text-s112-text">
-                  {'·'} {'€'} {sumEur.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {'·'} {'€'} {fmtNum(sumEur, 2)}
                 </span>
               )}
             </>
@@ -314,7 +315,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
                   {zukaufOptions.map(z => (
                     <option key={z.id} value={z.id}>
                       {fmtDate(z.datum)}{z.rebsorte ? ' · ' + formatRebsorteMitKuerzel(z.rebsorte) : ''}{' · '}{z.lieferant}
-                      {' – '}{verfuegbarZukauf(z.id).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg verf.
+                      {' – '}{fmtNum(verfuegbarZukauf(z.id), { max: 0 })} kg verf.
                     </option>
                   ))}
                 </select>
@@ -323,7 +324,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
                 )}
                 {zukaufId && (
                   <p className="text-xs text-s112-muted mt-1">
-                    Verfügbar: <span className="font-medium text-s112-text-1">{verfuegbarZukauf(zukaufId).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg</span>
+                    Verfügbar: <span className="font-medium text-s112-text-1">{fmtNum(verfuegbarZukauf(zukaufId), { max: 0 })} kg</span>
                   </p>
                 )}
               </div>
@@ -342,7 +343,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
                 )}
                 {wgId && (
                   <p className="text-xs text-s112-muted mt-1">
-                    Verfügbar: <span className="font-medium text-s112-text-1">{verfuegbareKgByWG(wgId).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg</span>
+                    Verfügbar: <span className="font-medium text-s112-text-1">{fmtNum(verfuegbareKgByWG(wgId), { max: 0 })} kg</span>
                   </p>
                 )}
               </div>
@@ -360,7 +361,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
                 </select>
                 {gstId && (
                   <p className="text-xs text-s112-muted mt-1">
-                    Verfügbar: <span className="font-medium text-s112-text-1">{verfuegbareKgByGST(gstId).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg</span>
+                    Verfügbar: <span className="font-medium text-s112-text-1">{fmtNum(verfuegbareKgByGST(gstId), { max: 0 })} kg</span>
                   </p>
                 )}
               </div>

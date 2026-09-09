@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createBehandlung } from '../actions'
 import type { PSM, DuengemittelOption, WeingartenOption, GSTOption, KostenartOption, SatzOption } from './page'
 import { SprayCan, Sprout, Layers, Scissors, Leaf, MoreHorizontal, Hourglass, Info, Ban, AlertTriangle } from 'lucide-react'
+import { fmtNum } from '@/lib/format'
 
 const BBCH_OPTIONS = [
   { value: '09', label: '09 – Knospenaufbruch' },
@@ -66,11 +67,11 @@ const FELD_MATRIX: Record<Art, {
 }
 
 function fmtHa(n: number) {
-  return n.toLocaleString('de-AT', { maximumFractionDigits: 4 }) + ' ha'
+  return fmtNum(n, { max: 4 }) + ' ha'
 }
 
 function fmtEuro(n: number) {
-  return n.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return fmtNum(n, 2)
 }
 
 const BIO_SPERRE = new Set(['bio_eu', 'biodynamisch'])
@@ -176,7 +177,7 @@ export default function NeueBehandlungForm({
 
   // Aufwand pro ha (live berechnet)
   const aufwandProHa = mengeGesamtNum != null && totalHaAktiv > 0
-    ? (mengeGesamtNum / totalHaAktiv).toLocaleString('de-AT', { maximumFractionDigits: 3 }) + ' ' + mengeEinheitEff + '/ha'
+    ? fmtNum((mengeGesamtNum / totalHaAktiv), { max: 3 }) + ' ' + mengeEinheitEff + '/ha'
     : null
 
   // Cu-Beitrag (live berechnet, nur für kg) + Reinkupfer je ha (Punkt 4) - Berechnungsgrundlage
@@ -185,13 +186,13 @@ export default function NeueBehandlungForm({
     ? mengeGesamtNum * 1000 * (selectedPsm.cu_gehalt_pct / 100)
     : null
   const cuBeitragG = cuBeitragGRaw != null
-    ? Math.round(cuBeitragGRaw).toLocaleString('de-AT') + ' g Cu'
+    ? fmtNum(Math.round(cuBeitragGRaw)) + ' g Cu'
     : null
   const reinkupferKgHaRaw = cuBeitragGRaw != null && totalHaAktiv > 0
     ? (cuBeitragGRaw / 1000) / totalHaAktiv
     : null
   const reinkupferKgHa = reinkupferKgHaRaw != null
-    ? reinkupferKgHaRaw.toLocaleString('de-AT', { maximumFractionDigits: 3 }) + ' kg Cu/ha'
+    ? fmtNum(reinkupferKgHaRaw, { max: 3 }) + ' kg Cu/ha'
     : null
 
   // ─── Punkt 2: Aufwandmenge (Etikett) ↔ Konzentration (%) - gegenseitige Sperre + Berechnung ──

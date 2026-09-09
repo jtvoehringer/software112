@@ -6,6 +6,7 @@ import { verwerfeBeleg } from '../actions'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import BelegUpload from './BelegUpload'
 import { AlertTriangle, FileText, Image as ImageIcon, Trash2, Info } from 'lucide-react'
+import { fmtNum } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,7 +15,7 @@ type R = Record<string, any>
 
 function fmt(n: number | null | undefined) {
   if (n == null) return '–'
-  return n.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return fmtNum(n, 2)
 }
 
 export default async function BelegePage() {

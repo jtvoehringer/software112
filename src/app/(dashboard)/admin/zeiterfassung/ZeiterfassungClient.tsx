@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { X, Pencil, Trash2 } from 'lucide-react'
 import type { Zeiteintrag } from './page'
 import { createZeiteintrag, updateZeiteintrag, deleteZeiteintrag } from './actions'
+import { fmtNum } from '@/lib/format'
 
 // ── Phasen ────────────────────────────────────────────────────────────────────
 
@@ -23,11 +24,11 @@ function phaseMeta(nr: number) {
 
 function fmtEuro(v: number | null | undefined) {
   if (v == null) return '–'
-  return v.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
+  return fmtNum(v, 2) + ' €'
 }
 
 function fmtH(v: number) {
-  return v.toLocaleString('de-AT', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) + ' h'
+  return fmtNum(v, { min: 1, max: 2 }) + ' h'
 }
 
 function fmtDate(d: string) {
@@ -204,7 +205,7 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
           { label: 'Stunden gesamt',   value: fmtH(totals.stunden) },
           { label: 'Betrag gesamt',    value: fmtEuro(totals.betrag) },
           { label: 'Token-Kosten',     value: fmtEuro(totals.tokenKosten) },
-          { label: 'Tokens (In/Out)',  value: `${totals.tokensIn.toLocaleString('de-AT')} / ${totals.tokensOut.toLocaleString('de-AT')}` },
+          { label: 'Tokens (In/Out)',  value: `${fmtNum(totals.tokensIn)} / ${fmtNum(totals.tokensOut)}` },
           { label: 'Claude Lizenzkosten', value: fmtEuro(totals.lizenzkosten) },
         ].map(({ label, value }) => (
           <div key={label} className="bg-white border border-s112-border rounded-xl p-3 shadow-sm">
@@ -282,10 +283,10 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
                       {fmtEuro(betrag)}
                     </td>
                     <td className="px-4 py-2.5 text-right font-mono text-xs text-s112-text-2 whitespace-nowrap">
-                      {e.tokens_input?.toLocaleString('de-AT') ?? '–'}
+                      {(e.tokens_input == null ? undefined : fmtNum(e.tokens_input)) ?? '–'}
                     </td>
                     <td className="px-4 py-2.5 text-right font-mono text-xs text-s112-text-2 whitespace-nowrap">
-                      {e.tokens_output?.toLocaleString('de-AT') ?? '–'}
+                      {(e.tokens_output == null ? undefined : fmtNum(e.tokens_output)) ?? '–'}
                     </td>
                     <td className="px-4 py-2.5 text-right font-mono text-xs text-s112-text-2 whitespace-nowrap">
                       {fmtEuro(e.token_kosten_euro)}
@@ -323,10 +324,10 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
                     {fmtEuro(filtered.reduce((s, e) => s + e.stunden * e.stundensatz, 0))}
                   </td>
                   <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold text-s112-text-1 whitespace-nowrap">
-                    {filtered.reduce((s, e) => s + (e.tokens_input ?? 0), 0).toLocaleString('de-AT')}
+                    {fmtNum(filtered.reduce((s, e) => s + (e.tokens_input ?? 0), 0))}
                   </td>
                   <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold text-s112-text-1 whitespace-nowrap">
-                    {filtered.reduce((s, e) => s + (e.tokens_output ?? 0), 0).toLocaleString('de-AT')}
+                    {fmtNum(filtered.reduce((s, e) => s + (e.tokens_output ?? 0), 0))}
                   </td>
                   <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold text-s112-text-1 whitespace-nowrap">
                     {fmtEuro(filtered.reduce((s, e) => s + (e.token_kosten_euro ?? 0), 0))}

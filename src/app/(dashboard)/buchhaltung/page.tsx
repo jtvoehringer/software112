@@ -5,6 +5,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { deleteEaTransaktion } from './actions'
 import CsvExportButton from './CsvExportButton'
 import { Trash2, Link2, Lock } from 'lucide-react'
+import { fmtNum } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,7 +13,7 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 function fmt(n: number | null | undefined) {
-  return (n ?? 0).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return fmtNum((n ?? 0), 2)
 }
 
 export default async function BuchhaltungPage({

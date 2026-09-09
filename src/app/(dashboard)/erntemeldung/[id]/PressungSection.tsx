@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Pencil, Trash2, X, ChevronDown, Plus } from 'lucide-react'
 import { upsertPressung, deletePressung } from '../actions'
-import { fmtProzent } from '@/lib/format'
+import { fmtProzent, fmtNum } from '@/lib/format'
 import { kmwZuQualitaet, QUALITAET_LABEL, QUALITAET_ORDER } from '@/lib/weinqualitaet'
 import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
@@ -65,7 +65,7 @@ function weinfarbe(rebsorte: string | null): 'rot' | 'weiß' | null {
 }
 
 const fmt = (n: number | null) =>
-  n == null ? '–' : n.toLocaleString('de-AT', { maximumFractionDigits: 1 })
+  n == null ? '–' : fmtNum(n, { max: 1 })
 
 const fmtDate = (d: string) =>
   new Date(d).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -429,14 +429,14 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
                     <option value="">– GST/Ried –</option>
                     {gstOptionen.map(opt => (
                       <option key={opt.compositeId} value={opt.compositeId}>
-                        {opt.label} – {opt.verfuegbar_kg.toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg verf.
+                        {opt.label} – {fmtNum(opt.verfuegbar_kg, { max: 0 })} kg verf.
                       </option>
                     ))}
                     {zukaufOptionen.length > 0 && (
                       <optgroup label="Zugekaufte Trauben">
                         {zukaufOptionen.map(opt => (
                           <option key={opt.compositeId} value={opt.compositeId}>
-                            {opt.label} – {opt.verfuegbar_kg.toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg verf.
+                            {opt.label} – {fmtNum(opt.verfuegbar_kg, { max: 0 })} kg verf.
                           </option>
                         ))}
                       </optgroup>
@@ -485,7 +485,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
                     const inhalt = existing.reduce((s, c) => s + (parseFloat(String(c.menge_liter ?? 0)) || 0), 0)
                     const frei = vol != null ? vol - inhalt : null
                     const kapSuffix = vol != null
-                      ? ` · ${vol.toLocaleString('de-AT')} L · frei: ${frei!.toLocaleString('de-AT', { maximumFractionDigits: 0 })} L`
+                      ? ` · ${fmtNum(vol)} L · frei: ${fmtNum(frei!, { max: 0 })} L`
                       : ''
                     const inhaltSuffix = existing.length > 0
                       ? ` [${existing.map(c => c.rebsorte ? `${c.name} (${formatRebsorteMitKuerzel(c.rebsorte)})` : c.name).join(', ')}]`
@@ -516,16 +516,16 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
                       <div className="grid grid-cols-3 gap-1.5">
                         <div>
                           <p className="text-s112-muted mb-0.5">Kapazität</p>
-                          <p className="font-medium tabular-nums">{vol != null ? vol.toLocaleString('de-AT') + ' L' : '–'}</p>
+                          <p className="font-medium tabular-nums">{vol != null ? fmtNum(vol) + ' L' : '–'}</p>
                         </div>
                         <div>
                           <p className="text-s112-muted mb-0.5">Inhalt jetzt</p>
-                          <p className="font-medium tabular-nums">{inhaltJetzt.toLocaleString('de-AT', { maximumFractionDigits: 1 })} L</p>
+                          <p className="font-medium tabular-nums">{fmtNum(inhaltJetzt, { max: 1 })} L</p>
                         </div>
                         <div>
                           <p className="text-s112-muted mb-0.5">{eingabe > 0 ? 'Rest nach Pressung' : 'Restkapazität'}</p>
                           <p className={`font-medium tabular-nums ${ueber ? 'text-s112-err-fg' : 'text-s112-blue-700'}`}>
-                            {vol != null ? (eingabe > 0 ? restNach! : vol - inhaltJetzt).toLocaleString('de-AT', { maximumFractionDigits: 1 }) + ' L' : '–'}
+                            {vol != null ? fmtNum((eingabe > 0 ? restNach! : vol - inhaltJetzt), { max: 1 }) + ' L' : '–'}
                           </p>
                         </div>
                       </div>
@@ -543,7 +543,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
                                   {c.name}{c.rebsorte ? ` · ${formatRebsorteMitKuerzel(c.rebsorte)}` : ''}
                                 </span>
                                 <span className="tabular-nums text-s112-text-2 ml-2">
-                                  {c.menge_liter != null ? c.menge_liter.toLocaleString('de-AT', { maximumFractionDigits: 1 }) + ' L' : '–'}
+                                  {c.menge_liter != null ? fmtNum(c.menge_liter, { max: 1 }) + ' L' : '–'}
                                 </span>
                               </li>
                             ))}

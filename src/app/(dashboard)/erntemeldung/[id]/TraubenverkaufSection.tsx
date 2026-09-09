@@ -5,6 +5,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { createTraubenverkauf, updateTraubenverkauf, deleteTraubenverkauf } from '../actions'
 import type { ZukaufTraubenOpt } from './PressungSection'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { fmtNum } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -54,7 +55,7 @@ const QUALITAETEN = [
 ]
 
 const fmt = (n: number | null) =>
-  n == null ? '–' : n.toLocaleString('de-AT', { maximumFractionDigits: 2 })
+  n == null ? '–' : fmtNum(n, { max: 2 })
 const fmtDate = (d: string) =>
   new Date(d).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
 
@@ -192,7 +193,7 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
               {zukaufOptions.map(z => (
                 <option key={z.id} value={z.id}>
                   {fmtDate(z.datum)}{z.rebsorte ? ' · ' + formatRebsorteMitKuerzel(z.rebsorte) : ''}{' · '}{z.lieferant}
-                  {' – '}{verfuegbarZukauf(z.id).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg verf.
+                  {' – '}{fmtNum(verfuegbarZukauf(z.id), { max: 0 })} kg verf.
                 </option>
               ))}
             </select>
@@ -201,7 +202,7 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
             )}
             {zukaufId && (
               <p className="text-xs text-s112-muted mt-1">
-                Verfügbar: <span className="font-medium text-s112-text-1">{verfuegbarZukauf(zukaufId).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg</span>
+                Verfügbar: <span className="font-medium text-s112-text-1">{fmtNum(verfuegbarZukauf(zukaufId), { max: 0 })} kg</span>
               </p>
             )}
           </div>
@@ -213,7 +214,7 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
               {quelleOptions.map(o => (
                 <option key={o.compositeId} value={o.compositeId}>
                   {o.label}{o.herkunft_code ? ` (${o.herkunft_code})` : ''}
-                  {' – '}{verfuegbarQuelle(o.compositeId).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg verf.
+                  {' – '}{fmtNum(verfuegbarQuelle(o.compositeId), { max: 0 })} kg verf.
                 </option>
               ))}
             </select>
@@ -222,7 +223,7 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
             )}
             {quelleId && (
               <p className="text-xs text-s112-muted mt-1">
-                Verfügbar: <span className="font-medium text-s112-text-1">{verfuegbarQuelle(quelleId).toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg</span>
+                Verfügbar: <span className="font-medium text-s112-text-1">{fmtNum(verfuegbarQuelle(quelleId), { max: 0 })} kg</span>
               </p>
             )}
           </div>
@@ -319,7 +320,7 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
         <div className="flex gap-4 text-xs bg-white border border-s112-border rounded-lg px-3 py-2">
           <span className="text-s112-text-2">
             Gesamtwert: <strong className="text-s112-text">
-              € {gesamtWert.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              € {fmtNum(gesamtWert, 2)}
             </strong>
           </span>
         </div>
@@ -409,7 +410,7 @@ export default function TraubenverkaufSection({
             <span className="text-xs text-s112-muted">
               {fmt(gesamtKg)} kg
               {gesamtWert > 0 && <span className="ml-1 font-medium text-s112-text-1">
-                · € {gesamtWert.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                · € {fmtNum(gesamtWert, 2)}
               </span>}
             </span>
           )}
@@ -465,9 +466,9 @@ export default function TraubenverkaufSection({
                       <div className="flex items-center gap-3 text-xs text-s112-muted flex-wrap">
                         <span className="font-semibold text-s112-text-1">{fmt(v.menge_kg)} kg</span>
                         {v.preis_per_kg != null && (
-                          <span>· € {v.preis_per_kg.toLocaleString('de-AT', { minimumFractionDigits: 2 })}/kg
+                          <span>· € {fmtNum(v.preis_per_kg, { min: 2 })}/kg
                             <span className="ml-1 font-medium text-s112-text-1">
-                              = € {(v.menge_kg * v.preis_per_kg).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              = € {fmtNum((v.menge_kg * v.preis_per_kg), 2)}
                             </span>
                           </span>
                         )}

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { umziehen, deleteUmzug, updateUmzug } from './actions'
 import { ArrowLeftRight, Filter, X, AlertTriangle, CheckCircle2, Pencil, Trash2 } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { fmtNum } from '@/lib/format'
 
 type BehaelterMitCharge = {
   behaelter_id:   string
@@ -21,7 +22,7 @@ type UmzugRow  = { id: string; von_name: string; nach_name: string; menge_liter:
 
 function fmt(n: number | null) {
   if (n == null) return '–'
-  return n.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' L'
+  return fmtNum(n, 2) + ' L'
 }
 
 // ── Quell-Zeile: Behälter wählen → Charge + Menge auto-befüllt ───────────────

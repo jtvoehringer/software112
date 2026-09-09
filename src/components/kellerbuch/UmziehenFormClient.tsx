@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
+import { fmtNum } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -120,7 +121,7 @@ export default function UmziehenFormClient({
                     <p className="text-xs text-s112-muted mt-0.5">
                       {bh ? `in: ${bh}` : 'kein Gebinde zugewiesen'} · verfügbar:{' '}
                       <span className="text-s112-blue-700 font-medium">
-                        {verf != null ? verf.toLocaleString('de-AT', { maximumFractionDigits: 2 }) : '?'} L
+                        {verf != null ? fmtNum(verf, { max: 2 }) : '?'} L
                       </span>
                     </p>
                   )}
@@ -166,7 +167,7 @@ export default function UmziehenFormClient({
                 {gebinde.filter((g: R) => g.aktiv).map((g: R) => {
                   const frei = freiLiter(g)
                   const freiText = frei != null
-                    ? ` (frei: ${frei.toLocaleString('de-AT', { maximumFractionDigits: 0 })} L)`
+                    ? ` (frei: ${fmtNum(frei, { max: 0 })} L)`
                     : ''
                   return (
                     <option key={g.id} value={g.id}>{g.name}{freiText}</option>
@@ -189,7 +190,7 @@ export default function UmziehenFormClient({
           ))}
           {ueberschuss && (
             <p className="text-xs text-s112-err-fg">
-              Summe Netto ({sumNetto.toLocaleString('de-AT', { maximumFractionDigits: 2 })} L) überschreitet Brutto – bitte korrigieren.
+              Summe Netto ({fmtNum(sumNetto, { max: 2 })} L) überschreitet Brutto – bitte korrigieren.
             </p>
           )}
         </div>
@@ -200,18 +201,18 @@ export default function UmziehenFormClient({
         <div className={`rounded-lg border px-4 py-2.5 text-sm ${ueberschuss ? 'bg-s112-err-bg border-s112-err/30' : 'bg-s112-bg border-s112-border'}`}>
           <div className="flex justify-between">
             <span className="text-s112-muted">Gesamt brutto:</span>
-            <span className="font-medium tabular-nums">{sumBrutto.toLocaleString('de-AT', { maximumFractionDigits: 2 })} L</span>
+            <span className="font-medium tabular-nums">{fmtNum(sumBrutto, { max: 2 })} L</span>
           </div>
           <div className="flex justify-between">
             <span className="text-s112-muted">Gesamt netto:</span>
-            <span className="font-medium tabular-nums">{sumNetto.toLocaleString('de-AT', { maximumFractionDigits: 2 })} L</span>
+            <span className="font-medium tabular-nums">{fmtNum(sumNetto, { max: 2 })} L</span>
           </div>
           <div className="flex justify-between border-t border-s112-border/50 pt-1.5 mt-1.5">
             <span className={ueberschuss ? 'text-s112-err-fg font-semibold' : 'text-s112-muted'}>Schwund:</span>
             <span className={`font-semibold tabular-nums inline-flex items-center gap-1 ${ueberschuss ? 'text-s112-err-fg' : 'text-s112-text'}`}>
               {ueberschuss
                 ? <><AlertTriangle size={12} strokeWidth={2} />Netto &gt; Brutto</>
-                : `${schwund.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`}
+                : `${fmtNum(schwund, 2)} L`}
             </span>
           </div>
         </div>

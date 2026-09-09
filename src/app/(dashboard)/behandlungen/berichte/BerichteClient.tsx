@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { BehandlungReport } from './page'
+import { ZAHL_LOCALE } from '@/lib/format'
 
 type Tab = 'ried' | 'mittel' | 'cu'
 
@@ -16,10 +17,10 @@ function fmtDate(d: string | null) {
   return `${dd}.${m}.${y}`
 }
 function fmtNum(n: number, dec = 3) {
-  return n.toLocaleString('de-AT', { maximumFractionDigits: dec })
+  return n.toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: dec })
 }
 function fmtHa(n: number) {
-  return n.toLocaleString('de-AT', { maximumFractionDigits: 4 }) + ' ha'
+  return n.toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: 4 }) + ' ha'
 }
 
 // ─── Ried Tab ─────────────────────────────────────────────────────────────────
@@ -300,7 +301,7 @@ function TabCu({ behandlungen }: { behandlungen: BehandlungReport[] }) {
                 {/* Marker bei 80% */}
                 <div className="absolute top-0 bottom-0 border-l-2 border-dashed border-s112-warn/50 opacity-60" style={{ left: '80%' }} />
                 <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-s112-text-1 mix-blend-multiply">
-                  {pct.toLocaleString('de-AT', { maximumFractionDigits: 1 })} % des Grenzwerts
+                  {pct.toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: 1 })} % des Grenzwerts
                 </div>
               </div>
               <div className="flex justify-between text-xs text-s112-muted mt-1">

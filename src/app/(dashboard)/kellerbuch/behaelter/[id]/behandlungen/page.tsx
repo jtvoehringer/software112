@@ -5,6 +5,7 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { FlaskConical, BarChart3, ArrowLeftRight, Pencil, Trash2 } from 'lucide-react'
+import { fmtNum } from '@/lib/format'
 
 type R = Record<string, any>
 
@@ -19,7 +20,7 @@ function calcGProHl(menge: number, einheit: string, volumenLiter: number): strin
   else if (einheit === 'mg') mengeG = menge / 1000
   else return null
   const gHl = (mengeG / volumenLiter) * 100
-  return gHl.toLocaleString('de-AT', { maximumFractionDigits: 1 })
+  return fmtNum(gHl, { max: 1 })
 }
 
 export default function KellerbehandlungenPage() {
@@ -322,7 +323,7 @@ export default function KellerbehandlungenPage() {
                   )}
                 </label>
                 <input type="text" value={formVolumen} onChange={e => setFormVolumen(e.target.value)}
-                  placeholder={aktuellerInhalt > 0 ? aktuellerInhalt.toLocaleString('de-AT') : '0'}
+                  placeholder={aktuellerInhalt > 0 ? fmtNum(aktuellerInhalt) : '0'}
                   className="input w-full" />
               </div>
             </div>
@@ -403,14 +404,14 @@ export default function KellerbehandlungenPage() {
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-1">
                       {menge != null && b.einheit !== '-'
-                        ? `${menge.toLocaleString('de-AT')} ${b.einheit ?? ''}`
+                        ? `${fmtNum(menge)} ${b.einheit ?? ''}`
                         : '–'}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums font-medium text-s112-blue-700">
                       {ghl ? `${ghl} g/hl` : '–'}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-2 text-xs">
-                      {vol != null ? `${vol.toLocaleString('de-AT')} L` : '–'}
+                      {vol != null ? `${fmtNum(vol)} L` : '–'}
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-3">

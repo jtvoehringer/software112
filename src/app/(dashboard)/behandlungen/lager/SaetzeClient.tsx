@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { upsertSatzMassnahme, deactivateSatzMassnahme } from './actions'
 import type { SatzEintrag } from './page'
+import { fmtNum } from '@/lib/format'
 
 const ART_OPTS = [
   { value: 'spritzung',        label: 'Spritzung' },
@@ -160,7 +161,7 @@ export default function SaetzeClient({
                     </td>
                     <td className="py-2.5 pr-3 font-medium text-s112-text">{s.bezeichnung}</td>
                     <td className="py-2.5 pr-3 text-right tabular-nums font-medium text-s112-blue-700">
-                      {s.satz_pro_ha.toLocaleString('de-AT')} €
+                      {fmtNum(s.satz_pro_ha)} €
                     </td>
                     <td className="py-2.5 pr-3 text-xs text-s112-muted">{formatDate(s.gueltig_ab)}</td>
                     <td className="py-2.5 pr-3 text-xs text-s112-muted">{s.notizen ?? '–'}</td>

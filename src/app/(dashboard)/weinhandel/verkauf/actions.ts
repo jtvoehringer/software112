@@ -8,6 +8,7 @@ import { redirect } from 'next/navigation'
 import { randomUUID } from 'crypto'
 import { syncEaEinnahmeFuerVerkauf } from '@/app/(dashboard)/buchhaltung/actions'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { fmtEur, fmtNum } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -111,7 +112,7 @@ export async function createVerkauf(formData: FormData) {
       const verfuegbar = parseFloat((w as AR | null)?.menge_liter ?? '0') || 0
       if (p.menge > verfuegbar + 0.01) {
         throw new Error(
-          `„${(w as AR | null)?.name ?? 'Charge'}": Menge (${p.menge.toLocaleString('de-AT')} L) überschreitet verfügbaren Bestand (${verfuegbar.toLocaleString('de-AT')} L).`
+          `„${(w as AR | null)?.name ?? 'Charge'}": Menge (${fmtNum(p.menge)} L) überschreitet verfügbaren Bestand (${fmtNum(verfuegbar)} L).`
         )
       }
     } else if (p.typ === 'tank' && p.zukauf_id) {
@@ -120,7 +121,7 @@ export async function createVerkauf(formData: FormData) {
       const verfuegbar = parseFloat((zk as AR | null)?.menge ?? '0') || 0
       if (p.menge > verfuegbar + 0.01) {
         throw new Error(
-          `„${(zk as AR | null)?.rebsorte ? formatRebsorteMitKuerzel((zk as AR).rebsorte) : 'Zukauf'}": Menge (${p.menge.toLocaleString('de-AT')} L) überschreitet verfügbaren Zukauf-Bestand (${verfuegbar.toLocaleString('de-AT')} L).`
+          `„${(zk as AR | null)?.rebsorte ? formatRebsorteMitKuerzel((zk as AR).rebsorte) : 'Zukauf'}": Menge (${fmtNum(p.menge)} L) überschreitet verfügbaren Zukauf-Bestand (${fmtNum(verfuegbar)} L).`
         )
       }
     } else if (p.typ === 'tank' && p.pressung_behaelter_id) {
@@ -129,7 +130,7 @@ export async function createVerkauf(formData: FormData) {
       const verfuegbar = parseFloat((pb as AR | null)?.menge_liter ?? '0') || 0
       if (p.menge > verfuegbar + 0.01) {
         throw new Error(
-          `Pressung: Menge (${p.menge.toLocaleString('de-AT')} L) überschreitet verfügbaren Bestand (${verfuegbar.toLocaleString('de-AT')} L).`
+          `Pressung: Menge (${fmtNum(p.menge)} L) überschreitet verfügbaren Bestand (${fmtNum(verfuegbar)} L).`
         )
       }
     }
@@ -278,7 +279,7 @@ export async function createVerkauf(formData: FormData) {
       const betreff = [
         rechnungsnummer ? `Verkauf ${rechnungsnummer}` : 'Verkauf',
         gesamtBetrag > 0
-          ? gesamtBetrag.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+          ? fmtEur(gesamtBetrag)
           : null,
       ].filter(Boolean).join(' · ')
 

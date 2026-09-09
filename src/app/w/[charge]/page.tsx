@@ -6,6 +6,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { Sprout } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { fmtNum } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
 
@@ -152,7 +153,7 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
                   {(wg.weingarten as R).name}
                 </p>
                 <div className="flex flex-wrap gap-x-3 text-xs text-s112-text-2">
-                  {wg.trauben_kg && <span>{parseFloat(wg.trauben_kg).toLocaleString('de-AT')} kg</span>}
+                  {wg.trauben_kg && <span>{fmtNum(parseFloat(wg.trauben_kg))} kg</span>}
                   {wg.ernte_datum && <span>{new Date(wg.ernte_datum).toLocaleDateString('de-AT')}</span>}
                   {wg.kmw && <span>{wg.kmw} °KMW</span>}
                 </div>

@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { Check, Pencil, Trash2 } from 'lucide-react'
+import { fmtEur, fmtNum } from '@/lib/format'
 
 type KS = { id: string; name: string; kuerzel?: string; beschreibung?: string }
 type KA = { id: string; name: string; kuerzel?: string; kategorie?: string }
@@ -16,7 +17,7 @@ type Eintrag = {
 type Tab = 'buchungen' | 'kostenstellen' | 'kostenarten'
 const KAT = ['betriebsmittel','personal','energie','abschreibung','pacht','sonstiges']
 
-function eur(n: number) { return n.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' }) }
+function eur(n: number) { return fmtEur(n) }
 
 function MultiSelect({ items, selected, onToggle, splitModus, setSplitModus, anteile, setAnteile, betrag, label }: {
   items: { id: string; name: string; typ?: string }[]
@@ -66,7 +67,7 @@ function MultiSelect({ items, selected, onToggle, splitModus, setSplitModus, ant
       </div>
       {selected.length > 1 && splitModus === 'prozent' && (
         <p className={`text-xs mt-2 inline-flex items-center gap-1 ${Math.abs(total-100)<0.5 ? 'text-s112-ok-fg' : 'text-s112-err'}`}>
-          Summe: {total.toLocaleString('de-AT', { maximumFractionDigits: 1 })}% {Math.abs(total-100)<0.5 ? <Check size={12} /> : '(muss 100% ergeben)'}
+          Summe: {fmtNum(total, { max: 1 })}% {Math.abs(total-100)<0.5 ? <Check size={12} /> : '(muss 100% ergeben)'}
         </p>
       )}
       {selected.length === 0 && <p className="text-xs text-s112-muted mt-1">Keine Auswahl = gilt für alle</p>}

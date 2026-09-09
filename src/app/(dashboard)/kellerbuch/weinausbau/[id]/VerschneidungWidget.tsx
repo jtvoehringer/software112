@@ -7,6 +7,7 @@ import { deleteVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
 import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { GitMerge } from 'lucide-react'
+import { fmtNum } from '@/lib/format'
 
 type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -155,7 +156,7 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
               return (
                 <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F2F3F5] border border-s112-line-str text-xs text-s112-text-1 font-medium">
                   {q.istRebsorte ? formatRebsorteMitKuerzel(q.name) : q.name}
-                  <span className="text-s112-text-1 font-normal">{pct.toLocaleString('de-AT')} %</span>
+                  <span className="text-s112-text-1 font-normal">{fmtNum(pct)} %</span>
                 </span>
               )
             })}
@@ -189,7 +190,7 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
                             <span className="font-medium text-s112-text">{(q.quelle as R | null)?.name ?? '?'}</span>
                             {q.menge_liter != null && (
                               <span className="text-s112-muted">
-                                {parseFloat(q.menge_liter).toLocaleString('de-AT')} L
+                                {fmtNum(parseFloat(q.menge_liter))} L
                                 {q.anteil_pct != null && ` (${q.anteil_pct} %)`}
                               </span>
                             )}

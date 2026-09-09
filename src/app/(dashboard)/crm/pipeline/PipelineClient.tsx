@@ -8,6 +8,7 @@ import {
 } from '../actions'
 import { PIPELINE_STUFEN, PIPELINE_KATEGORIEN } from '@/lib/crm/types'
 import type { PipelineEintragRow } from '@/lib/crm/types'
+import { fmtNum } from '@/lib/format'
 
 type KontaktOption = { id: string; name: string }
 type FirmaOption   = { id: string; name: string }
@@ -28,7 +29,7 @@ function kategorieLabel(value: string | null) {
 }
 function fmt(n: number | null) {
   if (n == null) return null
-  return n.toLocaleString('de-AT', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' €'
+  return fmtNum(n, 0) + ' €'
 }
 
 // ── Formular ──────────────────────────────────────────────────────────────────

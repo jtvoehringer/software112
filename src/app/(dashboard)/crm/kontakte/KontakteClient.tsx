@@ -7,6 +7,7 @@ import { createKontakt, updateKontakt, deleteKontakt, createAktivitaet, createPi
 import { SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN, LAENDER, DIAL_CODES, segmentLabel, segmentFarbe } from '@/lib/crm/types'
 import type { KontaktRow } from '@/lib/crm/types'
 import { AlertTriangle, Trash2, Pencil } from 'lucide-react'
+import { fmtEur } from '@/lib/format'
 
 type FirmaOption = { id: string; name: string; segment: string }
 type RabattgruppeOption = { id: string; name: string; rabatt_pct: number }
@@ -578,7 +579,7 @@ function KontaktKarte({
                     <div className="flex gap-3 text-s112-muted mt-0.5">
                       {p.wert_euro != null && (
                         <span className="text-s112-blue-700 font-semibold">
-                          {p.wert_euro.toLocaleString('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                          {fmtEur(p.wert_euro)}
                         </span>
                       )}
                       {p.erwartetes_datum && (

@@ -6,6 +6,7 @@ import { updateZukauf } from '../../actions'
 import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { AlertTriangle } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { fmtNum } from '@/lib/format'
 
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
 
@@ -377,7 +378,7 @@ export default function ZukaufEditForm({
               <label className={labelCls}>Preis / {einheit}</label>
               <div className={inputCls + ' w-full bg-s112-bg text-s112-muted cursor-not-allowed text-right tabular-nums'}>
                 {preisProEinheit != null
-                  ? `€ ${Number(preisProEinheit).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`
+                  ? `€ ${fmtNum(Number(preisProEinheit), { min: 2, max: 4 })}`
                   : '–'}
               </div>
             </div>
@@ -388,7 +389,7 @@ export default function ZukaufEditForm({
                   <>
                     <div className={inputCls + ' w-full bg-s112-bg text-s112-muted cursor-not-allowed text-right tabular-nums'}>
                       {einstandspreisLiter
-                        ? `€ ${Number(einstandspreisLiter).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`
+                        ? `€ ${fmtNum(Number(einstandspreisLiter), { min: 2, max: 4 })}`
                         : '–'}
                     </div>
                     <p className="text-xs text-s112-muted mt-1">Automatisch aus Gesamtpreis ÷ Menge</p>
@@ -429,9 +430,9 @@ export default function ZukaufEditForm({
                   const rebsortenListe = chargen.map(w => w.rebsorte)
                   if (eigeneHier > 0 && rebsorte) rebsortenListe.push(rebsorte)
                   const rebsorten = [...new Set(rebsortenListe.filter(Boolean))].map(r => formatRebsorteMitKuerzel(r)).join(', ')
-                  const kapSuffix = vol != null ? ` · ${vol.toLocaleString('de-AT')} L` : ''
-                  const inhaltSuffix = inhalt > 0 ? ` · Inhalt: ${inhalt.toLocaleString('de-AT')} L${rebsorten ? ` (${rebsorten})` : ''}` : ' · leer'
-                  const restSuffix = rest != null ? ` · Rest: ${rest.toLocaleString('de-AT')} L` : ''
+                  const kapSuffix = vol != null ? ` · ${fmtNum(vol)} L` : ''
+                  const inhaltSuffix = inhalt > 0 ? ` · Inhalt: ${fmtNum(inhalt)} L${rebsorten ? ` (${rebsorten})` : ''}` : ' · leer'
+                  const restSuffix = rest != null ? ` · Rest: ${fmtNum(rest)} L` : ''
                   return (
                     <option key={b.id} value={b.id}>
                       {b.name}{kapSuffix}{inhaltSuffix}{restSuffix}
@@ -468,12 +469,12 @@ export default function ZukaufEditForm({
                   <div className="grid grid-cols-3 gap-3">
                     <div>
                       <p className="text-s112-muted mb-0.5">Kapazität</p>
-                      <p className="font-semibold text-s112-text">{vol != null ? vol.toLocaleString('de-AT') + ' L' : '–'}</p>
+                      <p className="font-semibold text-s112-text">{vol != null ? fmtNum(vol) + ' L' : '–'}</p>
                     </div>
                     <div>
                       <p className="text-s112-muted mb-0.5">Inhalt jetzt</p>
                       <p className="font-semibold text-s112-text">
-                        {inhalt.toLocaleString('de-AT', { maximumFractionDigits: 1 })} L
+                        {fmtNum(inhalt, { max: 1 })} L
                         {(chargen.length > 0 || eigeneHier > 0) && (
                           <span className="ml-1 font-normal text-s112-muted">
                             ({[...new Set(rebsortenListe.filter(Boolean))].map(r => formatRebsorteMitKuerzel(r)).join(', ') || '–'})
@@ -485,7 +486,7 @@ export default function ZukaufEditForm({
                       <p className="text-s112-muted mb-0.5">{mengeNum > 0 || hatBewegungen ? 'Rest nach Zukauf' : 'Restkapazität'}</p>
                       <p className={`font-semibold ${ueber ? 'text-s112-err-fg' : 'text-s112-blue-700'}`}>
                         {vol != null
-                          ? restNach!.toLocaleString('de-AT', { maximumFractionDigits: 1 }) + ' L'
+                          ? fmtNum(restNach!, { max: 1 }) + ' L'
                           : '–'}
                       </p>
                     </div>

@@ -7,6 +7,7 @@ import { buildWeinbuch, type Weinbuch } from '@/lib/wein/weinbuch'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { WeinbuchTimeline } from '@/app/(dashboard)/kellerbuch/weinausbau/[id]/buch/WeinbuchTimeline'
 import PrintButton from '@/app/(dashboard)/kellerbuch/weinausbau/[id]/buch/PrintButton'
+import { fmtNum } from '@/lib/format'
 
 export const metadata: Metadata = { title: 'Weinbuch-Sammlung – software:112' }
 export const dynamic = 'force-dynamic'
@@ -98,7 +99,7 @@ export default async function WeinbuecherSammlungPage({
                 {wb.wa.jahrgang ? `Jahrgang ${wb.wa.jahrgang}` : ''}
                 {wb.wa.rebsorte ? ` · ${formatRebsorteMitKuerzel(wb.wa.rebsorte)}` : ''}
                 {' · '}{STATUS_LABELS[wb.wa.status] ?? wb.wa.status}
-                {' · '}{Number(wb.wa.menge_liter ?? 0).toLocaleString('de-AT')} L
+                {' · '}{fmtNum(Number(wb.wa.menge_liter ?? 0))} L
                 {wb.wa.behaelter_name ? ` · ${wb.wa.behaelter_name}` : ''}
               </p>
             </div>

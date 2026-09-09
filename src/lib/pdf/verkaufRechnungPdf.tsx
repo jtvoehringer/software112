@@ -7,10 +7,10 @@
 import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from '@react-pdf/renderer'
 
 function fmt(n: number) {
-  return new Intl.NumberFormat('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+  return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) // CD: Tausenderpunkt
 }
 function fmtEur(n: number) {
-  return `${fmt(n)} €`
+  return `€ ${fmt(n)}` // CD-Manual: €-Zeichen vorne
 }
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('de-AT')

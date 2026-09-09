@@ -6,6 +6,7 @@ import ZukaufLoeschen from './ZukaufLoeschen'
 import ClickableTableRow from '@/components/ui/ClickableTableRow'
 import StopPropagation from '@/components/ui/StopPropagation'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { fmtEur, fmtNum } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
 
@@ -110,14 +111,14 @@ export default async function ZukaufPage({
             <span className="inline-flex items-start gap-1.5">
               {traubenzukaufsgrenze.ueberschritten && <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />}
               <span>
-                Traubenzukauf {traubenzukaufsgrenze.jahr}: <strong>{traubenzukaufsgrenze.summeKg.toLocaleString('de-AT')} kg</strong>
-                {' '}von max. <strong>{traubenzukaufsgrenze.maxKg.toLocaleString('de-AT', { maximumFractionDigits: 0 })} kg</strong>
-                {' '}({TRAUBENZUKAUFSGRENZE_KG_HA.toLocaleString('de-AT')} kg/ha × {traubenzukaufsgrenze.gesamtFlaecheHaBetrieb.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ha Rebfläche)
+                Traubenzukauf {traubenzukaufsgrenze.jahr}: <strong>{fmtNum(traubenzukaufsgrenze.summeKg)} kg</strong>
+                {' '}von max. <strong>{fmtNum(traubenzukaufsgrenze.maxKg, { max: 0 })} kg</strong>
+                {' '}({fmtNum(TRAUBENZUKAUFSGRENZE_KG_HA)} kg/ha × {fmtNum(traubenzukaufsgrenze.gesamtFlaecheHaBetrieb, 2)} ha Rebfläche)
               </span>
             </span>
             <div className="flex items-center gap-3">
               {traubenzukaufsgrenze.ueberschritten && (
-                <span className="font-semibold">Überschreitung: {traubenzukaufsgrenze.ueberschreitungKg.toLocaleString('de-AT')} kg</span>
+                <span className="font-semibold">Überschreitung: {fmtNum(traubenzukaufsgrenze.ueberschreitungKg)} kg</span>
               )}
               <div className="flex items-center gap-1 text-xs">
                 <Link href={`/weinhandel/zukauf?zjahr=${traubenzukaufsgrenze.jahr - 1}`} className="px-1.5 py-0.5 rounded hover:bg-black/5">← {traubenzukaufsgrenze.jahr - 1}</Link>
@@ -178,11 +179,11 @@ export default async function ZukaufPage({
                     <td className="px-4 py-3 text-s112-text-1">{lieferant}</td>
                     <td className="px-4 py-3 text-s112-text-2 text-xs">{rebInfo}</td>
                     <td className="px-4 py-3 text-right tabular-nums font-medium text-s112-text">
-                      {Number(p.menge).toLocaleString('de-AT')} {p.einheit}
+                      {fmtNum(Number(p.menge))} {p.einheit}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-s112-text-1">
                       {p.preis_gesamt != null
-                        ? Number(p.preis_gesamt).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+                        ? fmtEur(Number(p.preis_gesamt))
                         : '–'}
                     </td>
                     <td className="px-4 py-3 text-xs text-s112-muted">

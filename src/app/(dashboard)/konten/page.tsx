@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { Landmark, CreditCard, Wallet, Circle, type LucideIcon } from 'lucide-react'
+import { fmtEur } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,7 +11,7 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 function fmt(n: number) {
-  return n.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+  return fmtEur(n)
 }
 
 const TYP_ICON: Record<string, LucideIcon> = { giro: Landmark, kreditkarte: CreditCard, kassa: Wallet, sonstiges: Circle }

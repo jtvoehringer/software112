@@ -6,6 +6,7 @@ import { createZukauf } from '../actions'
 import { QUALITAET_LABEL, QUALITAET_ORDER } from '@/lib/weinqualitaet'
 import { AlertTriangle } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { fmtNum } from '@/lib/format'
 
 interface Kontakt  { id: string; vorname: string | null; nachname: string; firma_id: string | null }
 interface Firma    { id: string; name: string; ist_kunde?: boolean; ist_lieferant?: boolean }
@@ -494,7 +495,7 @@ export default function ZukaufNeuPage() {
               <label className={labelCls}>Preis / {einheit}</label>
               <div className={inputCls + ' w-full bg-s112-bg text-s112-muted cursor-not-allowed text-right tabular-nums'}>
                 {preisProEinheit != null
-                  ? `€ ${Number(preisProEinheit).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`
+                  ? `€ ${fmtNum(Number(preisProEinheit), { min: 2, max: 4 })}`
                   : '–'}
               </div>
             </div>
@@ -505,7 +506,7 @@ export default function ZukaufNeuPage() {
                   <>
                     <div className={inputCls + ' w-full bg-s112-bg text-s112-muted cursor-not-allowed text-right tabular-nums'}>
                       {einstandspreisLiter
-                        ? `€ ${Number(einstandspreisLiter).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`
+                        ? `€ ${fmtNum(Number(einstandspreisLiter), { min: 2, max: 4 })}`
                         : '–'}
                     </div>
                     <p className="text-xs text-s112-muted mt-1">Automatisch aus Gesamtpreis ÷ Menge</p>
@@ -535,9 +536,9 @@ export default function ZukaufNeuPage() {
                   const inhalt = chargen.reduce((s, w) => s + (w.menge_liter ?? 0), 0)
                   const rest = vol != null ? vol - inhalt : null
                   const rebsorten = [...new Set(chargen.map(w => w.rebsorte).filter(Boolean))].map(r => formatRebsorteMitKuerzel(r)).join(', ')
-                  const kapSuffix = vol != null ? ` · ${vol.toLocaleString('de-AT')} L` : ''
-                  const inhaltSuffix = inhalt > 0 ? ` · Inhalt: ${inhalt.toLocaleString('de-AT')} L${rebsorten ? ` (${rebsorten})` : ''}` : ' · leer'
-                  const restSuffix = rest != null ? ` · Rest: ${rest.toLocaleString('de-AT')} L` : ''
+                  const kapSuffix = vol != null ? ` · ${fmtNum(vol)} L` : ''
+                  const inhaltSuffix = inhalt > 0 ? ` · Inhalt: ${fmtNum(inhalt)} L${rebsorten ? ` (${rebsorten})` : ''}` : ' · leer'
+                  const restSuffix = rest != null ? ` · Rest: ${fmtNum(rest)} L` : ''
                   return (
                     <option key={b.id} value={b.id}>
                       {b.name}{kapSuffix}{inhaltSuffix}{restSuffix}
@@ -562,12 +563,12 @@ export default function ZukaufNeuPage() {
                   <div className="grid grid-cols-3 gap-3">
                     <div>
                       <p className="text-s112-muted mb-0.5">Kapazität</p>
-                      <p className="font-semibold text-s112-text">{vol != null ? vol.toLocaleString('de-AT') + ' L' : '–'}</p>
+                      <p className="font-semibold text-s112-text">{vol != null ? fmtNum(vol) + ' L' : '–'}</p>
                     </div>
                     <div>
                       <p className="text-s112-muted mb-0.5">Inhalt jetzt</p>
                       <p className="font-semibold text-s112-text">
-                        {inhalt.toLocaleString('de-AT', { maximumFractionDigits: 1 })} L
+                        {fmtNum(inhalt, { max: 1 })} L
                         {chargen.length > 0 && (
                           <span className="ml-1 font-normal text-s112-muted">
                             ({[...new Set(chargen.map(c => c.rebsorte).filter(Boolean))].map(r => formatRebsorteMitKuerzel(r)).join(', ') || '–'})
@@ -579,7 +580,7 @@ export default function ZukaufNeuPage() {
                       <p className="text-s112-muted mb-0.5">{mengeNum > 0 ? 'Rest nach Zukauf' : 'Restkapazität'}</p>
                       <p className={`font-semibold ${ueber ? 'text-s112-err-fg' : 'text-s112-blue-700'}`}>
                         {vol != null
-                          ? (mengeNum > 0 ? restNach! : vol - inhalt).toLocaleString('de-AT', { maximumFractionDigits: 1 }) + ' L'
+                          ? fmtNum((mengeNum > 0 ? restNach! : vol - inhalt), { max: 1 }) + ' L'
                           : '–'}
                       </p>
                     </div>

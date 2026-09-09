@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Trash2 } from 'lucide-react'
+import { fmtNum } from '@/lib/format'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 const INCOTERMS = ['EXW','FCA','FAS','FOB','CFR','CIF','CPT','CIP','DAP','DPU','DDP']
@@ -221,7 +222,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
           ))}
           {positionen.length > 0 && (
             <div className="text-right text-sm font-semibold text-s112-text border-t border-s112-border pt-3 mt-2">
-              Gesamt: EUR {gesamtEUR.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              Gesamt: EUR {fmtNum(gesamtEUR, 2)}
             </div>
           )}
         </div>

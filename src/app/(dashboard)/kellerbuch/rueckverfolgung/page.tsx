@@ -7,6 +7,7 @@ import { resolveBlendKompositionFuellung, type KompositionUrsprung } from '@/lib
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import RueckverfolgungPrintButton from './PrintButton'
 import RueckverfolgungCsvExportButton from './CsvExportButton'
+import { fmtNum } from '@/lib/format'
 
 export const metadata: Metadata = { title: 'Rückverfolgung – software:112' }
 export const dynamic = 'force-dynamic'
@@ -224,7 +225,7 @@ function ChargeKette({
         <InfoRow label="Behälter" value={(weinausbau.behaelter as R | null)?.name} />
         {anteilLiter != null && (
           <InfoRow label="Anteil dieser Charge"
-            value={`${anteilLiter.toLocaleString('de-AT', { minimumFractionDigits: 2 })} L`} />
+            value={`${fmtNum(anteilLiter, { min: 2 })} L`} />
         )}
         <Link
           href={`/kellerbuch/weinausbau/${weinausbau.id}/buch`}
@@ -247,7 +248,7 @@ function ChargeKette({
                 <span className="text-s112-muted">→</span>
                 <span className="text-s112-text-2">{(u.nach_behaelter as R | null)?.name ?? '?'}</span>
                 <span className="text-xs text-s112-muted ml-auto">
-                  {u.menge_liter ? `${parseFloat(u.menge_liter).toLocaleString('de-AT')} L` : ''}
+                  {u.menge_liter ? `${fmtNum(parseFloat(u.menge_liter))} L` : ''}
                   {u.schwund_liter ? ` (Schwund: ${u.schwund_liter} L)` : ''}
                 </span>
               </div>
@@ -272,11 +273,11 @@ function ChargeKette({
                   <span className="text-sm font-medium text-s112-text-1">Pressung</span>
                   {p.most_liter_gesamt && (
                     <span className="text-xs text-s112-muted">
-                      {parseFloat(p.most_liter_gesamt).toLocaleString('de-AT')} L Most
+                      {fmtNum(parseFloat(p.most_liter_gesamt))} L Most
                     </span>
                   )}
                   <span className="text-xs text-s112-muted ml-auto">
-                    Anteil: {pb.menge_liter ? `${parseFloat(pb.menge_liter).toLocaleString('de-AT')} L` : '–'}
+                    Anteil: {pb.menge_liter ? `${fmtNum(parseFloat(pb.menge_liter))} L` : '–'}
                   </span>
                 </div>
                 {wgListe.length > 0 && (
@@ -289,7 +290,7 @@ function ChargeKette({
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium text-s112-text">{w?.name ?? '–'}</span>
                             {w?.flaeche_ha && (
-                              <span className="text-xs text-s112-muted">{parseFloat(w.flaeche_ha).toLocaleString('de-AT')} ha</span>
+                              <span className="text-xs text-s112-muted">{fmtNum(parseFloat(w.flaeche_ha))} ha</span>
                             )}
                           </div>
                           {g && (
@@ -298,7 +299,7 @@ function ChargeKette({
                             </div>
                           )}
                           <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-s112-text-2">
-                            {wg.trauben_kg && <span>{parseFloat(wg.trauben_kg).toLocaleString('de-AT')} kg</span>}
+                            {wg.trauben_kg && <span>{fmtNum(parseFloat(wg.trauben_kg))} kg</span>}
                             {wg.rebsorte && <span>{formatRebsorteMitKuerzel(wg.rebsorte)}</span>}
                             {wg.ernte_datum && <span>Lese: {new Date(wg.ernte_datum).toLocaleDateString('de-AT')}</span>}
                             {wg.kmw && <span>{wg.kmw} °KMW</span>}
@@ -371,7 +372,7 @@ function ChargeKette({
                     <div className="text-xs text-s112-muted">
                       {(b.grundstuecke as string[]).join(', ')}
                       {b.aufwandmenge ? ` · ${b.aufwandmenge} ${b.aufwandmenge_einheit ?? ''}` : ''}
-                      {b.flaeche_ha_summe ? ` · ${Number(b.flaeche_ha_summe).toLocaleString('de-AT')} ha` : ''}
+                      {b.flaeche_ha_summe ? ` · ${fmtNum(Number(b.flaeche_ha_summe))} ha` : ''}
                     </div>
                     {b.schaderreger && <div className="text-xs text-s112-muted">Grund: {b.schaderreger}</div>}
                   </div>
@@ -568,8 +569,8 @@ export default async function RueckverfolgungPage({
             <InfoRow label="Ried / Bezeichnung" value={fuellung.bezeichnung} />
             <InfoRow label="Abfülldatum" value={fuellung.datum ? new Date(fuellung.datum).toLocaleDateString('de-AT') : null} />
             <InfoRow label="Flaschengröße" value={fuellung.flaschengroesse_ml ? `${fuellung.flaschengroesse_ml} ml` : null} />
-            <InfoRow label="Anzahl Flaschen" value={fuellung.anzahl_flaschen?.toLocaleString('de-AT')} />
-            <InfoRow label="Liter abgefüllt" value={fuellung.menge_liter_gefuellt ? `${parseFloat(fuellung.menge_liter_gefuellt).toLocaleString('de-AT', { minimumFractionDigits: 2 })} L` : null} />
+            <InfoRow label="Anzahl Flaschen" value={(fuellung.anzahl_flaschen == null ? undefined : fmtNum(fuellung.anzahl_flaschen))} />
+            <InfoRow label="Liter abgefüllt" value={fuellung.menge_liter_gefuellt ? `${fmtNum(parseFloat(fuellung.menge_liter_gefuellt), { min: 2 })} L` : null} />
             {chargeEntries.length > 1 && (
               <div className="mt-1 text-xs text-s112-muted bg-s112-bg rounded-lg px-3 py-1.5">
                 Verschnitt aus {chargeEntries.length} Kellerbuch-Chargen
@@ -590,7 +591,7 @@ export default async function RueckverfolgungPage({
                       )}
                     </span>
                     <span className="text-s112-text font-semibold shrink-0">
-                      {u.anteil_pct.toLocaleString('de-AT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %
+                      {fmtNum(u.anteil_pct, 1)} %
                     </span>
                   </div>
                 ))}
@@ -685,7 +686,7 @@ export default async function RueckverfolgungPage({
             <p className="text-xs text-s112-muted mt-0.5">
               {trefferliste.length} {trefferliste.length === 1 ? 'Treffer' : 'Treffer'}
               {oLagerbestandFlaschen != null && (
-                <> · Ø Lagerbestand: <strong className="text-s112-text-1">{oLagerbestandFlaschen.toLocaleString('de-AT', { maximumFractionDigits: 1 })} Fl.</strong></>
+                <> · Ø Lagerbestand: <strong className="text-s112-text-1">{fmtNum(oLagerbestandFlaschen, { max: 1 })} Fl.</strong></>
               )}
             </p>
           </div>
@@ -722,7 +723,7 @@ export default async function RueckverfolgungPage({
                     <td className="px-3 py-2 text-s112-text-2">{formatRebsorteMitKuerzel(f.rebsorte)}</td>
                     <td className="px-3 py-2 text-s112-text-2 text-xs font-mono">{f.chargennummer ?? '–'}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-s112-blue-700 font-medium">
-                      {(parseInt(f.bestand_flaschen) || 0).toLocaleString('de-AT')} Fl.
+                      {fmtNum((parseInt(f.bestand_flaschen) || 0))} Fl.
                     </td>
                     <td className="px-3 py-2 text-right print:hidden">
                       <Link href={`/kellerbuch/rueckverfolgung?fuellung_id=${f.id}`}

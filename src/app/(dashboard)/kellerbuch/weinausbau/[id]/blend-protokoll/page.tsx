@@ -9,6 +9,7 @@ import { qualitaetLabel } from '@/lib/wein/qualitaet'
 import { resolveBlendKomposition, type KompositionUrsprung } from '@/lib/wein/blendKomposition'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import PrintButton from './PrintButton'
+import { fmtNum } from '@/lib/format'
 
 export const metadata: Metadata = { title: 'Blend-Protokoll – software:112' }
 export const dynamic = 'force-dynamic'
@@ -111,7 +112,7 @@ export default async function BlendProtokollPage({ params }: { params: Promise<{
           </p>
           {wa.menge_liter && (
             <p className="text-xs text-s112-tertiary mt-1">
-              Aktueller Bestand: {parseFloat(wa.menge_liter).toLocaleString('de-AT')} L
+              Aktueller Bestand: {fmtNum(parseFloat(wa.menge_liter))} L
             </p>
           )}
         </div>
@@ -138,7 +139,7 @@ export default async function BlendProtokollPage({ params }: { params: Promise<{
                   <td className="py-2 text-s112-text-2">{formatRebsorteMitKuerzel(u.rebsorte)}</td>
                   <td className="py-2 text-s112-text-2">{u.jahrgang ?? '–'}</td>
                   <td className="py-2 text-s112-text font-semibold text-right">
-                    {u.anteil_pct.toLocaleString('de-AT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %
+                    {fmtNum(u.anteil_pct, 1)} %
                   </td>
                 </tr>
               ))}
@@ -147,7 +148,7 @@ export default async function BlendProtokollPage({ params }: { params: Promise<{
               <tr>
                 <td colSpan={3} className="pt-2 text-xs text-s112-tertiary">Gesamt</td>
                 <td className="pt-2 text-xs text-s112-tertiary text-right">
-                  {komposition.reduce((s, u) => s + u.anteil_pct, 0).toLocaleString('de-AT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %
+                  {fmtNum(komposition.reduce((s, u) => s + u.anteil_pct, 0), 1)} %
                 </td>
               </tr>
             </tfoot>

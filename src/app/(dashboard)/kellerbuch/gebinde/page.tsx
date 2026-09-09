@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { fmtLiter } from '@/lib/format'
+import { fmtLiter, fmtNum } from '@/lib/format'
 import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -415,14 +415,14 @@ export default async function GebindePage({
                     <td className="px-4 py-2.5 font-medium text-s112-text">{e.name}</td>
                     <td className="px-4 py-2.5 text-s112-text-2">{e.jahrgang ?? '–'}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-2">
-                      {e.kmw ? `${parseFloat(e.kmw).toLocaleString('de-AT')} °KMW` : '–'}
+                      {e.kmw ? `${fmtNum(parseFloat(e.kmw))} °KMW` : '–'}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-s112-blue-700 font-medium">
                       {fmtLiter(parseFloat(e.menge_liter))}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-2">
                       {e.einstandspreis_pro_liter != null
-                        ? `€ ${parseFloat(e.einstandspreis_pro_liter).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`
+                        ? `€ ${fmtNum(parseFloat(e.einstandspreis_pro_liter), { min: 2, max: 4 })}`
                         : '–'}
                     </td>
                     <td className="px-4 py-2.5 text-s112-text-2">{(e.behaelter as R | null)?.name ?? '–'}</td>

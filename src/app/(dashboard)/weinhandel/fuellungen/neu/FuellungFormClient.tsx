@@ -9,6 +9,7 @@ import { QUALITAET_LABEL, istNiedrigerAls as istQualitaetNiedriger } from '@/lib
 import { AlertTriangle, CheckCircle2, Droplet } from 'lucide-react'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import type { CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
+import { fmtNum } from '@/lib/format'
 
 type Charge = {
   id: string
@@ -63,7 +64,7 @@ const FLASCHENGROESSEN = [
 ]
 
 function fmtL(n: number) {
-  return n.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' L'
+  return fmtNum(n, 2) + ' L'
 }
 
 export default function FuellungFormClient({
@@ -198,7 +199,7 @@ export default function FuellungFormClient({
             <option value="">– keine Verknüpfung –</option>
             {chargen.map(c => (
               <option key={c.id} value={c.id}>
-                {c.name}{c.jahrgang ? ` (${c.jahrgang})` : ''}{c.menge_liter ? ` · ${parseFloat(String(c.menge_liter)).toLocaleString('de-AT')} L` : ''}
+                {c.name}{c.jahrgang ? ` (${c.jahrgang})` : ''}{c.menge_liter ? ` · ${fmtNum(parseFloat(String(c.menge_liter)))} L` : ''}
               </option>
             ))}
           </select>
@@ -383,7 +384,7 @@ export default function FuellungFormClient({
             )}
             <p className="text-xs text-s112-muted mt-1">
               {anzahl && groesse
-                ? `${parseInt(anzahl).toLocaleString('de-AT')} Fl. × ${parseInt(groesse)} ml`
+                ? `${fmtNum(parseInt(anzahl))} Fl. × ${parseInt(groesse)} ml`
                 : 'Wird aus Flaschen × Größe berechnet'}
             </p>
           </div>

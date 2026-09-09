@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { fmtNum } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -157,7 +158,7 @@ export async function createUmzug(formData: FormData) {
 
     if (q.brutto > verfuegbar + 0.01) {
       throw new Error(
-        `Brutto (${q.brutto.toLocaleString('de-AT', { maximumFractionDigits: 2 })} L) für Charge "${wa?.name}" übersteigt Bestand (${verfuegbar.toLocaleString('de-AT', { maximumFractionDigits: 2 })} L)`
+        `Brutto (${fmtNum(q.brutto, { max: 2 })} L) für Charge "${wa?.name}" übersteigt Bestand (${fmtNum(verfuegbar, { max: 2 })} L)`
       )
     }
     quelleData.push(wa)

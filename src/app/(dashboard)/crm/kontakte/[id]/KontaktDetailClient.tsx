@@ -16,6 +16,7 @@ import {
   Reply, Check, X, ClipboardCheck, CheckCircle2, Handshake, Wine, Building2, Car, FileText,
   ShoppingCart, MoreHorizontal, Palmtree, UserX, StickyNote, ArrowRightLeft,
 } from 'lucide-react'
+import { fmtEur } from '@/lib/format'
 
 // Aktivitäts-Art -> Lucide-Icon (Timeline-Avatar). Gleiches Vokabular wie
 // FirmaDetailClient.tsx / CRM-Kalender.
@@ -824,7 +825,7 @@ export default function KontaktDetailClient({
                       <p className="text-sm font-medium text-s112-text">{p.titel}</p>
                       <div className="flex gap-3 text-xs text-s112-muted">
                         {p.wert_euro != null && (
-                          <span>{p.wert_euro.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}</span>
+                          <span>{fmtEur(p.wert_euro)}</span>
                         )}
                         {p.wahrscheinlichkeit != null && <span>{p.wahrscheinlichkeit}%</span>}
                       </div>
@@ -849,7 +850,7 @@ export default function KontaktDetailClient({
                             <span className="font-mono text-s112-text">{v.rechnungsnummer ?? '–'}</span>
                             {summe > 0 && (
                               <span className="ml-2 font-semibold text-s112-blue-700 tabular-nums">
-                                {summe.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
+                                {fmtEur(summe)}
                               </span>
                             )}
                           </div>

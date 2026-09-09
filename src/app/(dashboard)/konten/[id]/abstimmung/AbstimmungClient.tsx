@@ -6,6 +6,7 @@ import { createUmbuchung, deleteUmbuchung, setzeAbgeglichen } from '../../action
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import { AlertTriangle, Lock } from 'lucide-react'
 import type { Bewegung } from './page'
+import { fmtEur } from '@/lib/format'
 
 type Konto = {
   id: string
@@ -17,7 +18,7 @@ type Konto = {
 }
 
 function fmt(n: number) {
-  return n.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+  return fmtEur(n)
 }
 
 function BewegungsZeile({ b, kontoId, writeOk }: { b: Bewegung; kontoId: string; writeOk: boolean }) {

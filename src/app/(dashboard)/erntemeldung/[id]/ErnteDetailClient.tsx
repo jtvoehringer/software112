@@ -7,7 +7,7 @@ import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import type { ErnteParzelle, WeingartenOpt, GSTOpt, AMAMeldung, HektarhoechstertragStatus } from './page'
 import PressungSection from './PressungSection'
 import type { Pressung, WGOption, BehOption, WAOption, ZukaufTraubenOpt } from './PressungSection'
-import { fmtHa, fmtZahl, fmtProzent } from '@/lib/format'
+import { fmtHa, fmtZahl, fmtProzent, fmtNum } from '@/lib/format'
 import { Pencil, Trash2, AlertTriangle, Plus } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
@@ -532,7 +532,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
                       <td className="px-3 py-2 text-xs text-s112-muted font-mono">{p.grundstueck_nr ?? '–'}</td>
                       <td className="px-3 py-2 text-xs text-s112-muted">{formatRebsorteMitKuerzel(p.grundstueck_rebsorte ?? p.weingarten_rebsorte)}</td>
                       <td className="px-3 py-2 text-s112-muted whitespace-nowrap">{formatDate(p.ernte_datum)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{p.menge_kg?.toLocaleString('de-AT') ?? '–'}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{(p.menge_kg == null ? undefined : fmtNum(p.menge_kg)) ?? '–'}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{p.klosterneuburger ?? '–'}</td>
                       <td className="px-3 py-2 text-xs text-s112-muted whitespace-nowrap">{qualitaetLabel(p.qualitaetsstufe)}</td>
                       {(writeOk || adminOk) && (
@@ -565,7 +565,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
               <tfoot>
                 <tr className="bg-s112-bg border-t-2 border-s112-border font-semibold text-sm">
                   <td className="px-3 py-2 text-s112-text-1" colSpan={3}>Gesamt</td>
-                  <td className="px-3 py-2 text-right tabular-nums text-s112-text">{gesamtKg.toLocaleString('de-AT')} kg</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-s112-text">{fmtNum(gesamtKg)} kg</td>
                   <td colSpan={3} className="px-3 py-2 text-xs text-s112-muted">
                     ≈ {fmtProzent(gesamtKg / 130)} hl
                   </td>
@@ -590,14 +590,14 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
           <div className="flex items-center justify-between flex-wrap gap-2">
             <span className="inline-flex items-start gap-1.5">
               {hektarhoechstertrag.ueberschritten && <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />}
-              <span>Qualitätswein betriebsweit: <strong>{hektarhoechstertrag.gesamtKgQualitaetswein.toLocaleString('de-AT')} kg</strong>
-              {' '}von max. <strong>{hektarhoechstertrag.maxKg.toLocaleString('de-AT')} kg</strong>
+              <span>Qualitätswein betriebsweit: <strong>{fmtNum(hektarhoechstertrag.gesamtKgQualitaetswein)} kg</strong>
+              {' '}von max. <strong>{fmtNum(hektarhoechstertrag.maxKg)} kg</strong>
               {' '}(10.000 kg/ha × {fmtHa(hektarhoechstertrag.gesamtFlaecheHaBetrieb)} Gesamtfläche lt. AMA)
               </span>
             </span>
             {hektarhoechstertrag.ueberschritten && (
               <span className="font-semibold">
-                Überschreitung: {hektarhoechstertrag.ueberschreitungKg.toLocaleString('de-AT')} kg
+                Überschreitung: {fmtNum(hektarhoechstertrag.ueberschreitungKg)} kg
               </span>
             )}
           </div>
@@ -666,7 +666,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
             <div>
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="bg-s112-bg rounded-xl p-3">
-                  <p className="text-lg font-semibold text-s112-text">{amaMeldung.gesamtmenge_kg?.toLocaleString('de-AT')} kg</p>
+                  <p className="text-lg font-semibold text-s112-text">{(amaMeldung.gesamtmenge_kg == null ? undefined : fmtNum(amaMeldung.gesamtmenge_kg))} kg</p>
                   <p className="text-xs text-s112-muted">Gesamtmenge</p>
                 </div>
                 <div className="bg-s112-bg rounded-xl p-3">
@@ -689,7 +689,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
                       <tr key={i} className="border-b border-s112-border/40 last:border-0">
                         <td className="py-1.5">{formatRebsorteMitKuerzel(pos.rebsorte_name)}</td>
                         <td className="py-1.5 text-right tabular-nums">{fmtHa(pos.flaeche_ha)}</td>
-                        <td className="py-1.5 text-right tabular-nums">{pos.menge_kg?.toLocaleString('de-AT') ?? '–'}</td>
+                        <td className="py-1.5 text-right tabular-nums">{(pos.menge_kg == null ? undefined : fmtNum(pos.menge_kg)) ?? '–'}</td>
                       </tr>
                     ))}
                   </tbody>

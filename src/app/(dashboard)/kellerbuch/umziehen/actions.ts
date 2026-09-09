@@ -6,6 +6,7 @@ import { minQualitaet } from '@/lib/wein/qualitaet'
 import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { deleteUmzug as _deleteUmzug } from '../gebinde-actions'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { fmtNum } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -54,7 +55,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
     const verfuegbar = parseFloat(von.menge_liter) || 0
     if (q.menge > verfuegbar + 0.01) {
       throw new Error(
-        `„${von.name}": Menge (${q.menge.toLocaleString('de-AT')} L) überschreitet verfügbaren Bestand (${verfuegbar.toLocaleString('de-AT')} L)`
+        `„${von.name}": Menge (${fmtNum(q.menge)} L) überschreitet verfügbaren Bestand (${fmtNum(verfuegbar)} L)`
       )
     }
 

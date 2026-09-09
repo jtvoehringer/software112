@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import EmcsPanel from './EmcsPanel'
+import { fmtNum } from '@/lib/format'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 const STATUS_LABEL: Record<string,string> = {
@@ -102,7 +103,7 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
               <div><dt className="text-xs text-s112-muted">Transportart</dt><dd>{auftrag.transport_art ?? '–'}</dd></div>
               <div><dt className="text-xs text-s112-muted">Destination</dt><dd>{[auftrag.destination_stadt, auftrag.destination_land].filter(Boolean).join(', ') || '–'}</dd></div>
               <div><dt className="text-xs text-s112-muted">EORI Importeur</dt><dd className="font-mono text-xs">{auftrag.eori_kunde ?? '–'}</dd></div>
-              <div><dt className="text-xs text-s112-muted">Versicherungswert</dt><dd>{auftrag.versicherungswert ? `EUR ${parseFloat(auftrag.versicherungswert).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '–'}</dd></div>
+              <div><dt className="text-xs text-s112-muted">Versicherungswert</dt><dd>{auftrag.versicherungswert ? `EUR ${fmtNum(parseFloat(auftrag.versicherungswert), 2)}` : '–'}</dd></div>
             </dl>
             {auftrag.notizen && (
               <div className="mt-4 p-3 bg-s112-bg rounded-lg text-sm text-s112-text-1">
@@ -133,7 +134,7 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
                     <tr key={p.id}>
                       <td className="py-2">{p.beschreibung ?? p.fuellungen?.bezeichnung ?? '–'}</td>
                       <td className="py-2 text-right">{p.menge} {p.einheit}</td>
-                      <td className="py-2 text-right">{parseFloat(p.preis_eur).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="py-2 text-right">{fmtNum(parseFloat(p.preis_eur), 2)}</td>
                       <td className="py-2 text-right font-medium">
                         {(parseFloat(p.menge) * parseFloat(p.preis_eur)).toFixed(2)}
                       </td>
@@ -142,7 +143,7 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
                   ))}
                   <tr className="border-t-2 border-s112-border font-semibold">
                     <td colSpan={3} className="pt-2 text-right text-xs uppercase tracking-wide text-s112-muted">Gesamtwert EUR</td>
-                    <td className="pt-2 text-right">{gesamtEUR.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td className="pt-2 text-right">{fmtNum(gesamtEUR, 2)}</td>
                     <td />
                   </tr>
                 </tbody>

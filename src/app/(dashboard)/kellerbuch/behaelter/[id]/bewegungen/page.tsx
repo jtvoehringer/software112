@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
-import { fmtLiter } from '@/lib/format'
+import { fmtLiter, fmtNum } from '@/lib/format'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -245,7 +245,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
         : `Zugang von ${vonBeschreibung}`,
       menge: liter,
       extra: schwund > 0
-        ? `Schwund: ${schwund.toLocaleString('de-AT')} L${u.notizen ? ` · ${u.notizen}` : ''}`
+        ? `Schwund: ${fmtNum(schwund)} L${u.notizen ? ` · ${u.notizen}` : ''}`
         : (u.notizen ?? undefined),
     })
   }
@@ -283,8 +283,8 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
       beschreibung: istSchwund
         ? `Schwund / Verlust${vonCharge?.name ? ` (${vonCharge.name})` : ''}`
         : istFiltAus
-          ? `Filtration nach ${nachBeschreibung}${schwund > 0.01 ? ` · Schwund: ${schwund.toLocaleString('de-AT')} L` : ''}`
-          : `Umzug nach ${nachBeschreibung}${schwund > 0.01 ? ` · Schwund: ${schwund.toLocaleString('de-AT')} L` : ''}`,
+          ? `Filtration nach ${nachBeschreibung}${schwund > 0.01 ? ` · Schwund: ${fmtNum(schwund)} L` : ''}`
+          : `Umzug nach ${nachBeschreibung}${schwund > 0.01 ? ` · Schwund: ${fmtNum(schwund)} L` : ''}`,
       menge: -abgang,
       extra: istSchwund
         ? undefined
@@ -303,7 +303,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
       art: 'abfuellung',
       beschreibung: `Abfuellung: ${f.name}${f.pruefnummer ? ` · Pruefnr. ${f.pruefnummer}` : ''}`,
       menge: -liter,
-      extra: `${parseInt(f.anzahl_flaschen).toLocaleString('de-AT')} Fl. a ${parseInt(f.flaschengroesse_ml)} ml`,
+      extra: `${fmtNum(parseInt(f.anzahl_flaschen))} Fl. a ${parseInt(f.flaschengroesse_ml)} ml`,
       fuellung_id: f.id,
     })
   }
@@ -325,7 +325,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
     if (!b.datum) continue
     const typName  = (b.typ as R | null)?.name ?? 'Behandlung'
     const mengeStr = b.menge && b.einheit
-      ? `${parseFloat(b.menge).toLocaleString('de-AT')} ${b.einheit}`
+      ? `${fmtNum(parseFloat(b.menge))} ${b.einheit}`
       : null
     bewegungen.push({
       datum: b.datum,

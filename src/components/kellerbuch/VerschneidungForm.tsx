@@ -6,6 +6,7 @@ import { QUALITAET_LABEL, QUALITAET_ORDER, istNiedrigerAls, minQualitaet } from 
 import { HERKUNFT_LABEL, istNiedrigerAls as herkunftIstNiedrigerAls, minHerkunft } from '@/lib/herkunft'
 import { GitMerge, AlertTriangle, Ban, CheckCircle2, Info, X } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { fmtNum } from '@/lib/format'
 
 type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
 
@@ -235,7 +236,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
                 <option value="">– Charge wählen –</option>
                 {verfuegbar.map(c => (
                   <option key={c.id} value={c.id}>
-                    {c.name}{c.menge_liter != null ? ` (${c.menge_liter.toLocaleString('de-AT')} L)` : ''}
+                    {c.name}{c.menge_liter != null ? ` (${fmtNum(c.menge_liter)} L)` : ''}
                     {c.rebsorte ? ` · ${formatRebsorteMitKuerzel(c.rebsorte)}` : ''}
                     {c.qualitaetsstufe ? ` · ${QUALITAET_LABEL[c.qualitaetsstufe] ?? c.qualitaetsstufe}` : ''}
                   </option>
@@ -251,7 +252,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
                 {anteil != null && (
                   <span className="text-xs text-s112-blue-700 font-medium w-14 text-right tabular-nums">{anteil} %</span>
                 )}
-                {src && <span className="text-xs text-s112-muted w-10 tabular-nums">max {src.menge_liter?.toLocaleString('de-AT')}</span>}
+                {src && <span className="text-xs text-s112-muted w-10 tabular-nums">max {(src.menge_liter == null ? undefined : fmtNum(src.menge_liter))}</span>}
               </div>
               {quellen.length > 1 && (
                 <button type="button" onClick={() => removeQuelle(i)}
@@ -347,16 +348,16 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
           <div className="grid grid-cols-3 gap-2 bg-s112-bg border border-s112-border rounded-lg px-4 py-2.5 text-xs">
             <div>
               <p className="text-s112-muted mb-0.5">Kapazität Gebinde</p>
-              <p className="font-medium tabular-nums">{vol.toLocaleString('de-AT')} L</p>
+              <p className="font-medium tabular-nums">{fmtNum(vol)} L</p>
             </div>
             <div>
               <p className="text-s112-muted mb-0.5">Inhalt jetzt</p>
-              <p className="font-medium tabular-nums">{inhaltGesamt.toLocaleString('de-AT', { maximumFractionDigits: 1 })} L</p>
+              <p className="font-medium tabular-nums">{fmtNum(inhaltGesamt, { max: 1 })} L</p>
             </div>
             <div>
               <p className="text-s112-muted mb-0.5">{gesamtLiter > 0 ? 'Rest nach Verschnitt' : 'Restkapazität'}</p>
               <p className={`font-medium tabular-nums ${ueber ? 'text-s112-err-fg' : 'text-s112-blue-700'}`}>
-                {(gesamtLiter > 0 ? restNach : restJetzt).toLocaleString('de-AT', { maximumFractionDigits: 1 })} L
+                {fmtNum((gesamtLiter > 0 ? restNach : restJetzt), { max: 1 })} L
               </p>
             </div>
             {ueber && (
@@ -370,8 +371,8 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
 
       {gesamtLiter > 0 && (
         <p className="text-xs text-s112-blue-700 bg-s112-blue-50 border border-s112-blue-100 rounded-lg px-3 py-2">
-          Gesamt zufließend: <strong>{gesamtLiter.toLocaleString('de-AT', { maximumFractionDigits: 1 })} L</strong>
-          {' → '}Zielbestand: <strong>{(parseFloat(String(zielCharge.menge_liter ?? 0)) + gesamtLiter).toLocaleString('de-AT', { maximumFractionDigits: 1 })} L</strong>
+          Gesamt zufließend: <strong>{fmtNum(gesamtLiter, { max: 1 })} L</strong>
+          {' → '}Zielbestand: <strong>{fmtNum((parseFloat(String(zielCharge.menge_liter ?? 0)) + gesamtLiter), { max: 1 })} L</strong>
         </p>
       )}
 

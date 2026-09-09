@@ -5,6 +5,7 @@ import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { berechneUndSpeichereUva, markiereUvaAlsUebermittelt } from '../actions'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import { Lock } from 'lucide-react'
+import { fmtNum } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,7 +13,7 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 function fmt(n: number | null | undefined) {
-  return (n ?? 0).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return fmtNum((n ?? 0), 2)
 }
 
 const QUARTALE = ['Q1', 'Q2', 'Q3', 'Q4']

@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { fmtNum } from '@/lib/format'
 
 type Gebinde = { id: string; name: string; volumen_liter?: number | null }
 type Charge  = { id: string; name: string; menge_liter: number | null; behaelter_id?: string | null; rebsorte?: string | null }
@@ -150,7 +151,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
             <div className="form-input bg-s112-bg text-s112-text-2 cursor-not-allowed select-none">{chargeName}</div>
             <p className="text-xs text-s112-muted mt-1">
               Verfügbar: <span className="text-s112-blue-700 font-medium">
-                {verfuegbarLiter.toLocaleString('de-AT', { maximumFractionDigits: 2 })} L
+                {fmtNum(verfuegbarLiter, { max: 2 })} L
               </span>
             </p>
           </div>
@@ -179,7 +180,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
             <div className="bg-s112-bg border border-s112-border rounded-lg px-4 py-2 text-sm flex justify-between">
               <span className="text-s112-muted">Schwund:</span>
               <span className="font-medium tabular-nums">
-                {schwund.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L
+                {fmtNum(schwund, 2)} L
               </span>
             </div>
           )}
@@ -193,7 +194,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
                 const inh = inhalt[g.id] ?? 0
                 const f   = frei(g)
                 const kap = g.volumen_liter
-                const fmt = (n: number) => n.toLocaleString('de-AT', { maximumFractionDigits: 0 })
+                const fmt = (n: number) => fmtNum(n, { max: 0 })
                 const wein = weinByGebinde[g.id]?.join(', ')
                 const info = kap != null
                   ? ` · ${fmt(kap)} L Kap · ${fmt(inh)} L Inh · ${fmt(f ?? 0)} L frei${wein ? ` · ${wein}` : ''}`
@@ -215,16 +216,16 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
                   <div className="grid grid-cols-3 gap-2">
                     <div>
                       <p className="text-s112-muted mb-0.5">Kapazität</p>
-                      <p className="font-medium tabular-nums">{g.volumen_liter != null ? g.volumen_liter.toLocaleString('de-AT') + ' L' : '–'}</p>
+                      <p className="font-medium tabular-nums">{g.volumen_liter != null ? fmtNum(g.volumen_liter) + ' L' : '–'}</p>
                     </div>
                     <div>
                       <p className="text-s112-muted mb-0.5">Inhalt jetzt</p>
-                      <p className="font-medium tabular-nums">{inhaltJetzt.toLocaleString('de-AT', { maximumFractionDigits: 1 })} L</p>
+                      <p className="font-medium tabular-nums">{fmtNum(inhaltJetzt, { max: 1 })} L</p>
                     </div>
                     <div>
                       <p className="text-s112-muted mb-0.5">{nettoVal > 0 ? 'Rest nach Umzug' : 'Restkapazität'}</p>
                       <p className={`font-medium tabular-nums ${ueber ? 'text-s112-err-fg' : 'text-s112-blue-700'}`}>
-                        {restJetzt != null ? (nettoVal > 0 ? restNach : restJetzt)!.toLocaleString('de-AT', { maximumFractionDigits: 1 }) + ' L' : '–'}
+                        {restJetzt != null ? fmtNum((nettoVal > 0 ? restNach : restJetzt)!, { max: 1 }) + ' L' : '–'}
                       </p>
                     </div>
                   </div>

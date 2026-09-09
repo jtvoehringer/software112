@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { createZahlung } from '../verkauf/actions'
+import { fmtEur, fmtNum } from '@/lib/format'
 
 type Posten = {
   id: string
@@ -23,11 +24,11 @@ type Posten = {
 }
 
 function fmt(n: number) {
-  return n.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+  return fmtEur(n)
 }
 
 function fmtBetragInput(n: number) {
-  return n.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return fmtNum(n, 2)
 }
 
 type Konto = { id: string; name: string }

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createVerkauf, createSonstigesArtikel, SonstigesArtikelData } from '../actions'
 import { Check } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { fmtEur, fmtNum } from '@/lib/format'
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
 
@@ -256,7 +257,7 @@ function SonstigesKombo({ artikel, name, onNameChange, onArtikelSelect, onSpeich
               className="w-full text-left px-3 py-2 text-sm hover:bg-s112-teal/10 flex items-center justify-between gap-2">
               <span className="font-medium text-s112-text truncate">{a.name}</span>
               <span className="text-xs text-s112-muted flex-shrink-0">
-                {a.einheit}{a.default_preis != null ? ` · € ${Number(a.default_preis).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}
+                {a.einheit}{a.default_preis != null ? ` · € ${fmtNum(Number(a.default_preis), 2)}` : ''}
               </span>
             </button>
           )) : (
@@ -676,7 +677,7 @@ export default function NeuerVerkaufPage() {
                     <span className="text-sm text-s112-text-2">Tagen</span>
                   </div>
                   <p className="text-xs text-s112-muted self-end">
-                    → {((gesamt * skontoPct) / 100).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })} Skonto-Betrag
+                    → {fmtEur(((gesamt * skontoPct) / 100))} Skonto-Betrag
                   </p>
                 </div>
               )}
@@ -827,7 +828,7 @@ export default function NeuerVerkaufPage() {
                         {weingaerten.map(wg => (
                           <option key={wg.id} value={wg.id}>
                             {wg.lage_name ?? wg.name}
-                            {wg.verfuegbar_kg > 0 ? ` – ${wg.verfuegbar_kg.toLocaleString('de-AT')} kg verf.` : ' – 0 kg verf.'}
+                            {wg.verfuegbar_kg > 0 ? ` – ${fmtNum(wg.verfuegbar_kg)} kg verf.` : ' – 0 kg verf.'}
                           </option>
                         ))}
                       </select>
@@ -850,7 +851,7 @@ export default function NeuerVerkaufPage() {
                           .filter(g => g.weingarten_id === pos.trauben_weingarten_id && g.verfuegbar_kg > 0)
                           .map(g => (
                             <option key={g.id} value={g.id}>
-                              GST {g.gst_nr}{g.rebsorte ? ` – ${formatRebsorteMitKuerzel(g.rebsorte)}` : ''} · {g.verfuegbar_kg.toLocaleString('de-AT')} kg verf.
+                              GST {g.gst_nr}{g.rebsorte ? ` – ${formatRebsorteMitKuerzel(g.rebsorte)}` : ''} · {fmtNum(g.verfuegbar_kg)} kg verf.
                             </option>
                           ))}
                       </select>
@@ -984,8 +985,7 @@ export default function NeuerVerkaufPage() {
                         const menge  = parseFloat(pos.menge) || 0
                         const rabatt = (parseFloat(pos.rabatt_pct) || 0) / 100
                         const sonder = pos.sonderrabatt_aktiv ? (parseFloat(pos.sonderrabatt) || 0) / 100 : 0
-                        return (preis * (1 - rabatt) * (1 - sonder) * menge)
-                          .toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+                        return fmtEur(preis * (1 - rabatt) * (1 - sonder) * menge)
                       })()}
                     </p>
                   </div>
@@ -1044,7 +1044,7 @@ export default function NeuerVerkaufPage() {
                     const netto  = brutto * (1 - rabatt/100) * (1 - sonder/100)
                     const total  = netto * menge
                     return total > 0
-                      ? `Gesamt: ${total.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}`
+                      ? `Gesamt: ${fmtEur(total)}`
                       : null
                   })()}
                 </div>

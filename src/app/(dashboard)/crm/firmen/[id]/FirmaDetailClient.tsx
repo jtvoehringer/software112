@@ -16,6 +16,7 @@ import {
   ClipboardCheck, Handshake, Wine, Building2, Car, FileText, ShoppingCart,
   MoreHorizontal, Palmtree, UserX, StickyNote,
 } from 'lucide-react'
+import { fmtEur } from '@/lib/format'
 
 // Aktivitäts-Art -> Lucide-Icon (Timeline-Avatar). Gleiches Vokabular wie im
 // CRM-Kalender (CRMUebersichtClient.tsx); dort werden Icons in Status-Chips
@@ -760,7 +761,7 @@ export default function FirmaDetailClient({
                     <div className="flex gap-4 text-xs text-s112-muted flex-wrap">
                       {p.wert_euro != null && (
                         <span className="font-semibold text-s112-blue-700">
-                          {p.wert_euro.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
+                          {fmtEur(p.wert_euro)}
                         </span>
                       )}
                       {p.wahrscheinlichkeit != null && <span>{p.wahrscheinlichkeit}%</span>}
@@ -807,7 +808,7 @@ export default function FirmaDetailClient({
                         </td>
                         <td className="px-4 py-2.5 text-right font-semibold text-s112-blue-700 tabular-nums">
                           {summe > 0
-                            ? summe.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+                            ? fmtEur(summe)
                             : <span className="text-s112-muted font-normal">–</span>}
                         </td>
                         <td className="px-4 py-2.5 text-center">

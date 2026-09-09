@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { ZAHL_LOCALE } from '@/lib/format'
 
 export const metadata: Metadata = { title: 'Laboranalysen – software:112' }
 export const dynamic = 'force-dynamic'
@@ -18,7 +19,7 @@ function fmtDate(d: string | null | undefined) {
 
 function fmtNum(v: number | null | undefined, dec = 2): string {
   if (v == null) return '–'
-  return parseFloat(String(v)).toLocaleString('de-AT', { minimumFractionDigits: dec, maximumFractionDigits: dec })
+  return parseFloat(String(v)).toLocaleString(ZAHL_LOCALE, { minimumFractionDigits: dec, maximumFractionDigits: dec })
 }
 
 type Analyse = {

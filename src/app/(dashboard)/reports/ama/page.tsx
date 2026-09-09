@@ -6,6 +6,7 @@ import Image from 'next/image'
 import PrintButton from '../PrintButton'
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { fmtNum } from '@/lib/format'
 
 export const metadata: Metadata = { title: 'AMA Erntemeldung – software:112' }
 export const dynamic = 'force-dynamic'
@@ -158,10 +159,10 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
               <tr key={i} className={i % 2 === 1 ? 'bg-s112-bg' : ''}>
                 <td className="px-3 py-2 border border-s112-line font-medium">{formatRebsorteMitKuerzel(p.rebsorte_name)}</td>
                 <td className="px-3 py-2 border border-s112-line text-right tabular-nums">
-                  {p.flaeche_ha != null ? Number(p.flaeche_ha).toLocaleString('de-AT', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : '–'}
+                  {p.flaeche_ha != null ? fmtNum(Number(p.flaeche_ha), 4) : '–'}
                 </td>
                 <td className="px-3 py-2 border border-s112-line text-right tabular-nums font-medium">
-                  {p.menge_kg != null ? Number(p.menge_kg).toLocaleString('de-AT') : '–'}
+                  {p.menge_kg != null ? fmtNum(Number(p.menge_kg)) : '–'}
                 </td>
                 <td className="px-3 py-2 border border-s112-line text-right tabular-nums">
                   {p.menge_hl != null
@@ -178,7 +179,7 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
             <tr className="bg-s112-line font-semibold border-t-2 border-s112-line-str">
               <td className="px-3 py-2 border border-s112-line-str">GESAMT</td>
               <td className="px-3 py-2 border border-s112-line-str" />
-              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums">{gesamtKg.toLocaleString('de-AT')} kg</td>
+              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums">{fmtNum(gesamtKg)} kg</td>
               <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums">{gesamtHl > 0 ? gesamtHl.toFixed(2).replace('.', ',') : (gesamtKg / 130).toFixed(2).replace('.', ',')} hl</td>
               <td className="px-3 py-2 border border-s112-line-str" />
             </tr>
@@ -211,14 +212,14 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
                   <td className="px-3 py-2 border border-s112-line">{f.jahrgang ?? '–'}</td>
                   <td className="px-3 py-2 border border-s112-line">{formatRebsorteMitKuerzel(f.rebsorte)}</td>
                   <td className="px-3 py-2 border border-s112-line text-right">{f.flaschengroesse_ml ?? 750}</td>
-                  <td className="px-3 py-2 border border-s112-line text-right tabular-nums">{(f.bestand_flaschen ?? 0).toLocaleString('de-AT')}</td>
+                  <td className="px-3 py-2 border border-s112-line text-right tabular-nums">{fmtNum((f.bestand_flaschen ?? 0))}</td>
                   <td className="px-3 py-2 border border-s112-line text-right tabular-nums">{hl.toFixed(3).replace('.', ',')}</td>
                 </tr>)
               })}
             </tbody>
             <tfoot><tr className="bg-s112-line font-semibold border-t-2 border-s112-line-str">
               <td className="px-3 py-2 border border-s112-line-str" colSpan={4}>GESAMT Flaschen</td>
-              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums">{gesamtFlaschen.toLocaleString('de-AT')} Fl.</td>
+              <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums">{fmtNum(gesamtFlaschen)} Fl.</td>
               <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums">{gesamtFlaschenHl.toFixed(3).replace('.', ',')} hl</td>
             </tr></tfoot>
           </table>
@@ -245,7 +246,7 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
                   <td className="px-3 py-2 border border-s112-line">{t.jahrgang ?? '–'}</td>
                   <td className="px-3 py-2 border border-s112-line">{formatRebsorteMitKuerzel(t.rebsorte)}</td>
                   <td className="px-3 py-2 border border-s112-line text-xs text-s112-text-2">{(t.behaelter as R)?.name ?? '–'}</td>
-                  <td className="px-3 py-2 border border-s112-line text-right tabular-nums">{liter.toLocaleString('de-AT', { maximumFractionDigits: 1 })}</td>
+                  <td className="px-3 py-2 border border-s112-line text-right tabular-nums">{fmtNum(liter, { max: 1 })}</td>
                   <td className="px-3 py-2 border border-s112-line text-right tabular-nums">{hl.toFixed(3).replace('.', ',')}</td>
                 </tr>)
               })}

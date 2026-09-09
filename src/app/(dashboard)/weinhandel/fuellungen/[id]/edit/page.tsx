@@ -10,6 +10,7 @@ import { HERKUNFT_ORDER, HERKUNFT_LABEL, istNiedrigerAls as istHerkunftNiedriger
 import { QUALITAET_LABEL, istNiedrigerAls as istQualitaetNiedriger } from '@/lib/weinqualitaet'
 import { ladeCustomWeinbaugebiete } from '../../../../weinbaugebiete/actions'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
+import { fmtNum } from '@/lib/format'
 
 export const metadata: Metadata = { title: 'Füllung bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -224,7 +225,7 @@ export default async function EditFuellungPage({
                 <p className="text-sm font-semibold text-s112-warn-fg">Weinausbau-Charge nicht abgeschlossen</p>
                 <p className="text-xs text-s112-warn-fg mt-0.5">
                   Die verknüpfte Charge hat noch{' '}
-                  <strong>{waRestmenge.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L</strong>{' '}
+                  <strong>{fmtNum(waRestmenge, 2)} L</strong>{' '}
                   Restbestand. Diese wurden beim Abfüllen nicht als Schwund ausgebucht.
                 </p>
               </div>
@@ -234,7 +235,7 @@ export default async function EditFuellungPage({
                 type="submit"
                 className="bg-s112-warn-fg text-white px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-colors"
               >
-                {waRestmenge.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L als Schwund ausbuchen & Charge abschließen
+                {fmtNum(waRestmenge, 2)} L als Schwund ausbuchen & Charge abschließen
               </button>
             </form>
           </div>

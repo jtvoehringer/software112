@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { AlertTriangle, CheckCircle2, Calculator, Table2, Upload, Settings2 } from 'lucide-react'
 import { vergleiche, ZURECHNUNG_LABEL, type SvsParameter, type Zurechnung } from '@/lib/svs/berechnung'
 import { speichereEinheitswerte, importiereEinheitswerte, speichereSvsOption, speichereSvsParameter } from './actions'
+import { fmtNum } from '@/lib/format'
 
 type Gst = {
   id: string; gst_nr: string; katastralgemeinde: string; kg_bezeichnung: string; einlagezahl: string
@@ -185,7 +186,7 @@ function BeitraegeTab({ v, p, jahr, opt, setOpt, einkuenfteVorjahr, einkuenfte, 
         </div>
         <label className={`flex items-center gap-2 text-sm ${darfOption ? 'cursor-pointer' : 'opacity-70'}`}>
           <input type="checkbox" checked={kvAng} disabled={!darfOption} onChange={e => setKvAng(e.target.checked)} />
-          Zusatzbeitrag Krankenversicherung für mitversicherte Angehörige ({p.satz_kv_zusatz.toLocaleString('de-AT')} %)
+          Zusatzbeitrag Krankenversicherung für mitversicherte Angehörige ({fmtNum(p.satz_kv_zusatz)} %)
         </label>
         {darfOption ? (
           <div className="flex items-center gap-3">
@@ -214,11 +215,11 @@ function BeitragsZeilen({ b, p }: { b: NonNullable<ReturnType<typeof vergleiche>
   return (
     <table className="w-full text-sm border-t border-s112-border pt-2">
       <tbody>
-        <Z k={`Pensionsversicherung ${p.satz_pv.toLocaleString('de-AT')} %`} v={eur(b.pv)} />
-        <Z k={`Krankenversicherung ${p.satz_kv.toLocaleString('de-AT')} %`} v={eur(b.kv)} />
-        <Z k={`Unfallversicherung ${p.satz_uv.toLocaleString('de-AT')} % (Grundlage ${eur(b.bgUv, 0)})`} v={eur(b.uv)} />
-        <Z k={`Betriebshilfe ${p.satz_bh.toLocaleString('de-AT')} %`} v={eur(b.bh)} />
-        {b.kvZusatz > 0 && <Z k={`Zusatzbeitrag KV Angehörige ${p.satz_kv_zusatz.toLocaleString('de-AT')} %`} v={eur(b.kvZusatz)} />}
+        <Z k={`Pensionsversicherung ${fmtNum(p.satz_pv)} %`} v={eur(b.pv)} />
+        <Z k={`Krankenversicherung ${fmtNum(p.satz_kv)} %`} v={eur(b.kv)} />
+        <Z k={`Unfallversicherung ${fmtNum(p.satz_uv)} % (Grundlage ${eur(b.bgUv, 0)})`} v={eur(b.uv)} />
+        <Z k={`Betriebshilfe ${fmtNum(p.satz_bh)} %`} v={eur(b.bh)} />
+        {b.kvZusatz > 0 && <Z k={`Zusatzbeitrag KV Angehörige ${fmtNum(p.satz_kv_zusatz)} %`} v={eur(b.kvZusatz)} />}
         <Z k="Beitrag pro Monat" v={eur(b.monat)} fett />
         <Z k="Beitrag pro Jahr" v={eur(b.jahr, 0)} fett />
       </tbody>
@@ -278,7 +279,7 @@ function EinheitswerteTab({ gst, setGst, darfSchreiben }: { gst: Gst[]; setGst: 
                 <td className="px-3 py-1.5 whitespace-nowrap">{g.kg_bezeichnung || g.katastralgemeinde}{g.kg_bezeichnung && g.katastralgemeinde ? <span className="text-s112-muted"> {g.katastralgemeinde}</span> : ''}</td>
                 <td className="px-3 py-1.5 font-mono">{g.gst_nr}</td>
                 <td className="px-3 py-1.5 text-s112-text-2">{g.ried}</td>
-                <td className="px-3 py-1.5 text-right font-mono text-s112-text-2">{g.flaeche_ha === null ? '–' : g.flaeche_ha.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td>
+                <td className="px-3 py-1.5 text-right font-mono text-s112-text-2">{g.flaeche_ha === null ? '–' : fmtNum(g.flaeche_ha, { min: 2, max: 4 })}</td>
                 <td className="px-3 py-1.5 text-s112-text-2 text-xs">{[g.nutzart, g.rechtsverhaeltnis].filter(Boolean).join(' · ')}</td>
                 <td className="px-3 py-1.5">
                   <select value={g.svs_zurechnung} disabled={!darfSchreiben} onChange={e => aendere(g.id, { svs_zurechnung: e.target.value })}

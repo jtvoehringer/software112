@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { fmtEur } from '@/lib/format'
 
 type Eintrag = {
   betrag: number; periode: string | null; objekt_typ: string | null
@@ -9,7 +10,7 @@ type Eintrag = {
 }
 type Split = { kosteneintrag_id: string; betrag_anteil: number; wg: { name: string } | null }
 
-function eur(n: number) { return n.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' }) }
+function eur(n: number) { return fmtEur(n) }
 function sumBy<T>(arr: T[], key: (t: T) => string, val: (t: T) => number) {
   const m: Record<string, number> = {}
   arr.forEach(t => { const k = key(t); m[k] = (m[k] || 0) + val(t) })

@@ -10,10 +10,11 @@
 import { getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 import { NUTZART_OPTIONS } from '@/lib/wein/grundstueckStatus'
 import type { WRow, GSTRow } from './WeingartenBaum'
+import { fmtNum } from '@/lib/format'
 
 function fmtHaCsv(n: number | null | undefined): string {
   if (n == null) return ''
-  return n.toLocaleString('de-AT', { minimumFractionDigits: 4, maximumFractionDigits: 4 })
+  return fmtNum(n, 4)
 }
 
 const WEINART_LABEL: Record<string, string> = { rot: 'Rot', weiss: 'Weiß', rose: 'Rosé' }

@@ -6,6 +6,7 @@ import { exportCSV } from '@/lib/utils/csv'
 import { BarChart3, Calculator, FileText, Droplet, Sprout } from 'lucide-react'
 import { formatRebsorteMitKuerzel, getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 import { SEGMENTE } from '@/lib/crm/types'
+import { fmtEur, fmtNum } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -55,8 +56,8 @@ const ML_LABEL: Record<number, string> = {
   187:'0,187 L',375:'0,375 L',500:'0,500 L',750:'0,75 L',1000:'1,0 L',1500:'1,5 L',3000:'3,0 L',6000:'6,0 L'
 }
 
-function eur(n: number) { return n.toLocaleString('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }) }
-function eur2(n: number) { return n.toLocaleString('de-AT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
+function eur(n: number) { return fmtEur(n) }
+function eur2(n: number) { return fmtEur(n) }
 function fmtDate(d: string | null) { return d ? new Date(d).toLocaleDateString('de-AT') : '–' }
 
 function posSum(p: R): number {
@@ -624,7 +625,7 @@ export default function ReportsClient({
               </div>
               <div className="bg-s112-bg rounded-xl p-4">
                 <p className="text-xs text-s112-muted">Flaschen gesamt</p>
-                <p className="text-xl font-semibold text-s112-blue-700 mt-1 tabular-nums">{lager.reduce((s,f)=>s+(f.bestand_flaschen||0),0).toLocaleString('de-AT')}</p>
+                <p className="text-xl font-semibold text-s112-blue-700 mt-1 tabular-nums">{fmtNum(lager.reduce((s,f)=>s+(f.bestand_flaschen||0),0))}</p>
               </div>
               <div className="bg-s112-bg rounded-xl p-4">
                 <p className="text-xs text-s112-muted">Lagerwert (Einstandspreis)</p>
@@ -1091,7 +1092,7 @@ export default function ReportsClient({
                     </div>
                     <div className="bg-s112-bg rounded-xl p-4">
                       <p className="text-xs text-s112-muted">Stk gesamt</p>
-                      <p className="text-xl font-semibold text-s112-blue-700 tabular-nums mt-1">{vsResult.summeMenge.toLocaleString('de-AT')}</p>
+                      <p className="text-xl font-semibold text-s112-blue-700 tabular-nums mt-1">{fmtNum(vsResult.summeMenge)}</p>
                     </div>
                     <div className="bg-s112-bg rounded-xl p-4">
                       <p className="text-xs text-s112-muted">Umsatz gesamt</p>
@@ -1121,7 +1122,7 @@ export default function ReportsClient({
                             <td className="px-3 py-2 text-s112-text-2">{z.bezeichnung ?? '–'}</td>
                             <td className="px-3 py-2 text-s112-text-2">{z.kunde}</td>
                             <td className="px-3 py-2 text-s112-text-2">{[z.plz, z.ort].filter(Boolean).join(' ') || '–'}</td>
-                            <td className="px-3 py-2 text-right tabular-nums">{z.menge.toLocaleString('de-AT')}</td>
+                            <td className="px-3 py-2 text-right tabular-nums">{fmtNum(z.menge)}</td>
                             <td className="px-3 py-2 text-right font-semibold text-s112-blue-700 tabular-nums">{eur2(z.betrag)}</td>
                           </tr>
                         ))}
@@ -1216,7 +1217,7 @@ export default function ReportsClient({
                           <td className="px-3 py-2 text-s112-text-2">{formatRebsorteMitKuerzel(c.rebsorte)}</td>
                           <td className="px-3 py-2 text-s112-text-2">{c.behaelter ?? '–'}</td>
                           <td className="px-3 py-2 text-s112-text-2">{c.status}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{Number(c.menge_liter ?? 0).toLocaleString('de-AT')} L</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{fmtNum(Number(c.menge_liter ?? 0))} L</td>
                           <td className="px-3 py-2 text-right">
                             <Link href={`/kellerbuch/weinausbau/${c.id}/buch`}
                               className="text-xs text-s112-blue-700 hover:underline whitespace-nowrap">

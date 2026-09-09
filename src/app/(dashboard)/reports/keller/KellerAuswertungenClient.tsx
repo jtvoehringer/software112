@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { exportCSV } from '@/lib/utils/csv'
 import { formatRebsorteMitKuerzel, getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
+import { fmtNum } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -15,7 +16,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 }
 
 function fmtLiter(n: number) {
-  return n.toLocaleString('de-AT', { maximumFractionDigits: 0 }) + ' L'
+  return fmtNum(n, { max: 0 }) + ' L'
 }
 
 interface Props {
@@ -163,7 +164,7 @@ export default function KellerAuswertungenClient({
       {/* KPI-Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="card text-center p-4">
-          <p className="text-2xl font-semibold text-s112-blue-700">{gesamtLiter.toLocaleString('de-AT', { maximumFractionDigits: 0 })}</p>
+          <p className="text-2xl font-semibold text-s112-blue-700">{fmtNum(gesamtLiter, { max: 0 })}</p>
           <p className="text-xs text-s112-muted mt-1">Liter im Ausbau</p>
           {gesamtKapazitaet > 0 && (
             <p className="text-xs text-s112-tertiary mt-0.5">{Math.round(gesamtAuslastung)} % Auslastung</p>
@@ -174,11 +175,11 @@ export default function KellerAuswertungenClient({
           <p className="text-xs text-s112-muted mt-1">Laufende Chargen</p>
         </div>
         <div className="card text-center p-4">
-          <p className="text-2xl font-semibold text-s112-warn-fg">{schwundGesamt.toLocaleString('de-AT', { maximumFractionDigits: 0 })}</p>
+          <p className="text-2xl font-semibold text-s112-warn-fg">{fmtNum(schwundGesamt, { max: 0 })}</p>
           <p className="text-xs text-s112-muted mt-1">Liter Schwund {thisYear}</p>
         </div>
         <div className="card text-center p-4">
-          <p className="text-2xl font-semibold text-s112-text-1">{abgefuelltLiter.toLocaleString('de-AT', { maximumFractionDigits: 0 })}</p>
+          <p className="text-2xl font-semibold text-s112-text-1">{fmtNum(abgefuelltLiter, { max: 0 })}</p>
           <p className="text-xs text-s112-muted mt-1">Liter abgefüllt {thisYear}</p>
         </div>
       </div>
@@ -338,7 +339,7 @@ export default function KellerAuswertungenClient({
                   <td className="px-4 py-2.5 text-s112-text">{(b.typ as R | null)?.name ?? '–'}</td>
                   <td className="px-4 py-2.5 text-s112-text-2">{(b.behaelter as R | null)?.name ?? '–'}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-1">
-                    {b.menge && b.einheit ? `${parseFloat(b.menge).toLocaleString('de-AT')} ${b.einheit}` : '–'}
+                    {b.menge && b.einheit ? `${fmtNum(parseFloat(b.menge))} ${b.einheit}` : '–'}
                   </td>
                 </tr>
               ))}

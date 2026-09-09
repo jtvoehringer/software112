@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Pencil, Trash2 } from 'lucide-react'
 import { deleteBehandlung } from './actions'
 import type { Behandlung } from './page'
+import { fmtNum } from '@/lib/format'
 
 const WITTERUNG_LABEL: Record<string, string> = {
   sonnig: 'Sonnig', bewoelkt: 'Bewölkt',
@@ -25,7 +26,7 @@ function formatDate(d: string) {
 }
 
 function formatEuro(betrag: number) {
-  return betrag.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return fmtNum(betrag, 2)
 }
 
 function WartezeitBadge({ datum }: { datum: string | null }) {

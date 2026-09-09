@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Info, AlertTriangle } from 'lucide-react'
 import { QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { fmtNum } from '@/lib/format'
 
 const REBSORTEN = [
   'Grüner Veltliner','Riesling','Welschriesling','Müller-Thurgau',
@@ -132,7 +133,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
                 <input type="hidden" name="menge_liter" value={weinausbau?.menge_liter?.toString().replace('.', ',') ?? ''} />
                 <div className={rdOnly}>
                   {weinausbau?.menge_liter != null
-                    ? weinausbau.menge_liter.toLocaleString('de-AT', { maximumFractionDigits: 1 })
+                    ? fmtNum(weinausbau.menge_liter, { max: 1 })
                     : '–'}
                 </div>
                 <p className="text-xs text-s112-muted mt-1">Wird automatisch aus dem Bewegungsbuch berechnet</p>

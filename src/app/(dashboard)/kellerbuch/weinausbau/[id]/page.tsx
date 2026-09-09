@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { fmtLiter } from '@/lib/format'
+import { fmtLiter, fmtNum } from '@/lib/format'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -307,7 +307,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       })
       const sumNetto  = zielRecs.reduce((s: number, z: R) => s + (parseFloat(z.menge_liter) || 0), 0)
       const schwund   = abgangLiter - sumNetto
-      beschreibung    = `Umziehen → ${zielNames.length > 0 ? zielNames.join(', ') : '?'}${schwund > 0.01 ? ` (Schwund: ${schwund.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L)` : ''}`
+      beschreibung    = `Umziehen → ${zielNames.length > 0 ? zielNames.join(', ') : '?'}${schwund > 0.01 ? ` (Schwund: ${fmtNum(schwund, 2)} L)` : ''}`
     } else {
       // Altes Format (transfer)
       const netto   = parseFloat(u.menge_liter) || 0
@@ -315,7 +315,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       // brutto_liter bevorzugen, sonst netto + schwund
       abgangLiter   = parseFloat(u.brutto_liter) || (netto + schwund) || netto
       const destName = (u.nach_behaelter as R | null)?.name ?? '?'
-      beschreibung   = `Umziehen → ${destName}${schwund > 0.01 ? ` (Schwund: ${schwund.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L)` : ''}`
+      beschreibung   = `Umziehen → ${destName}${schwund > 0.01 ? ` (Schwund: ${fmtNum(schwund, 2)} L)` : ''}`
     }
 
     bewegungen.push({
@@ -335,7 +335,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       art: 'abfuellung',
       beschreibung: `Abfüllung: ${f.name}${f.pruefnummer ? ` · Prüfnr. ${f.pruefnummer}` : ''}${f.chargennummer ? ` · Ch. ${f.chargennummer}` : ''}`,
       menge: -liter,
-      extra: `${parseInt(f.anzahl_flaschen).toLocaleString('de-AT')} Fl. à ${parseInt(f.flaschengroesse_ml)} ml`,
+      extra: `${fmtNum(parseInt(f.anzahl_flaschen))} Fl. à ${parseInt(f.flaschengroesse_ml)} ml`,
     })
   }
 

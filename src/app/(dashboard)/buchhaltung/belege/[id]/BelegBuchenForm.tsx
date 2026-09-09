@@ -16,6 +16,7 @@ import { verbucheBeleg } from '../../actions'
 import { FirmaForm } from '@/app/(dashboard)/crm/firmen/FirmenClient'
 import type { FirmaRow } from '@/lib/crm/types'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
+import { fmtNum } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -224,7 +225,7 @@ export default function BelegBuchenForm({
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           {e.betrag_brutto != null && (
             <p className="text-xs text-s112-muted mt-1">
-              Erkannter Bruttobetrag auf dem Beleg: € {Number(e.betrag_brutto).toLocaleString('de-AT', { minimumFractionDigits: 2 })}
+              Erkannter Bruttobetrag auf dem Beleg: € {fmtNum(Number(e.betrag_brutto), { min: 2 })}
             </p>
           )}
         </div>

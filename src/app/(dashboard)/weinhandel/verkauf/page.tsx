@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import ClickableTableRow from '@/components/ui/ClickableTableRow'
 import StopPropagation from '@/components/ui/StopPropagation'
+import { fmtEur } from '@/lib/format'
 
 export const metadata: Metadata = { title: 'Verkauf – software:112' }
 export const dynamic = 'force-dynamic'
@@ -92,14 +93,14 @@ export default async function VerkaufPage() {
         <div className="card p-5">
           <p className="text-xs text-s112-muted">{monatName}</p>
           <p className="text-2xl font-semibold text-s112-blue-700 mt-1 tabular-nums">
-            {monatUmsatz.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
+            {fmtEur(monatUmsatz)}
           </p>
           <p className="text-xs text-s112-muted mt-0.5">{monatPosten.length} {monatPosten.length === 1 ? 'Vorgang' : 'Vorgänge'}</p>
         </div>
         <div className="card p-5">
           <p className="text-xs text-s112-muted">Gesamt (aktive)</p>
           <p className="text-2xl font-semibold text-s112-text mt-1 tabular-nums">
-            {gesamtUmsatz.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
+            {fmtEur(gesamtUmsatz)}
           </p>
           <p className="text-xs text-s112-muted mt-0.5">{posten.length} {posten.length === 1 ? 'Vorgang' : 'Vorgänge'}</p>
         </div>
@@ -158,7 +159,7 @@ export default async function VerkaufPage() {
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-s112-blue-700 tabular-nums">
                       {summe > 0
-                        ? summe.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+                        ? fmtEur(summe)
                         : <span className="text-s112-muted font-normal">–</span>}
                     </td>
                     <td className="px-4 py-3 text-right">

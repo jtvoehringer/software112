@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { upsertLagerBewegung, deleteLagerBewegung } from './actions'
 import type { PSMLager, PSMOption } from './page'
+import { fmtNum } from '@/lib/format'
 
 const TYP_LABEL: Record<string, string> = {
   anfangsbestand: 'Anfangsbestand',
@@ -21,7 +22,7 @@ function fmtDate(d: string) {
   return `${dd}.${m}.${y}`
 }
 function fmtMenge(m: number, einheit: string | null) {
-  const abs = Math.abs(m).toLocaleString('de-AT', { maximumFractionDigits: 3 })
+  const abs = fmtNum(Math.abs(m), { max: 3 })
   return `${m < 0 ? '–' : '+'}${abs} ${einheit ?? ''}`
 }
 
@@ -182,7 +183,7 @@ function PsmKarte({
         </div>
         <div className="text-right">
           <p className={`text-2xl font-semibold tabular-nums ${bestandColor}`}>
-            {bestand.toLocaleString('de-AT', { maximumFractionDigits: 3 })} {einheit}
+            {fmtNum(bestand, { max: 3 })} {einheit}
           </p>
           <p className="text-xs text-s112-muted">Aktueller Bestand</p>
         </div>
@@ -192,19 +193,19 @@ function PsmKarte({
       <div className="grid grid-cols-3 gap-3 mb-4 text-center">
         <div className="bg-s112-ok-bg rounded-lg p-2">
           <p className="text-sm font-semibold text-s112-ok-fg tabular-nums">
-            +{zugang.toLocaleString('de-AT', { maximumFractionDigits: 3 })} {einheit}
+            +{fmtNum(zugang, { max: 3 })} {einheit}
           </p>
           <p className="text-xs text-s112-ok-fg">Zugänge</p>
         </div>
         <div className="bg-s112-blue-50 rounded-lg p-2">
           <p className="text-sm font-semibold text-s112-blue-700 tabular-nums">
-            –{psm.verbrauch_gesamt.toLocaleString('de-AT', { maximumFractionDigits: 3 })} {psm.einheit_behandlung ?? einheit}
+            –{fmtNum(psm.verbrauch_gesamt, { max: 3 })} {psm.einheit_behandlung ?? einheit}
           </p>
           <p className="text-xs text-s112-blue-700">Verbrauch (Maßnahmen)</p>
         </div>
         <div className="bg-s112-warn-bg rounded-lg p-2">
           <p className="text-sm font-semibold text-s112-warn-fg tabular-nums">
-            {abgang > 0 ? `–${abgang.toLocaleString('de-AT', { maximumFractionDigits: 3 })}` : '–'} {abgang > 0 ? einheit : ''}
+            {abgang > 0 ? `–${fmtNum(abgang, { max: 3 })}` : '–'} {abgang > 0 ? einheit : ''}
           </p>
           <p className="text-xs text-s112-warn-fg">Korrekturen</p>
         </div>
@@ -276,7 +277,7 @@ function PsmKarte({
                     </span>
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums font-medium text-s112-blue-700">
-                    –{psm.verbrauch_gesamt.toLocaleString('de-AT', { maximumFractionDigits: 3 })} {psm.einheit_behandlung ?? ''}
+                    –{fmtNum(psm.verbrauch_gesamt, { max: 3 })} {psm.einheit_behandlung ?? ''}
                   </td>
                   <td className="px-3 py-2 text-xs text-s112-muted italic">automatisch aus Spritzungen</td>
                   {(writeOk || adminOk) && <td />}

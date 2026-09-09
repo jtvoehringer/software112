@@ -6,6 +6,7 @@ import Link from 'next/link'
 import FuellungLoeschen from './FuellungLoeschen'
 import { Package, Truck, Grape, Search, Pencil } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { fmtEur, fmtNum } from '@/lib/format'
 
 export const metadata: Metadata = { title: 'Warenwirtschaft – software:112' }
 export const dynamic = 'force-dynamic'
@@ -112,14 +113,14 @@ export default async function WeinhandelPage() {
 
       <div className="grid grid-cols-3 gap-4">
         <Link href="/weinhandel" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
-          <p className="text-3xl font-semibold text-s112-blue-700">{gesamtFlaschen.toLocaleString('de-AT')}</p>
+          <p className="text-3xl font-semibold text-s112-blue-700">{fmtNum(gesamtFlaschen)}</p>
           <p className="text-xs text-s112-muted mt-1">Flaschen auf Lager</p>
           <p className="text-[10px] text-s112-blue-700/60 mt-1">→ Warenlager</p>
         </Link>
         <Link href="/weinhandel/verkauf" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-3xl font-semibold text-s112-blue-700">
             {gesamtWertGesamt > 0
-              ? gesamtWertGesamt.toLocaleString('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
+              ? fmtEur(gesamtWertGesamt)
               : '–'}
           </p>
           <p className="text-xs text-s112-muted mt-1">Lagerwert gesamt (Einstandspreis)</p>
@@ -127,7 +128,7 @@ export default async function WeinhandelPage() {
         </Link>
         <Link href="/weinhandel" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-3xl font-semibold text-s112-blue-700">
-            {gesamtLiterTank > 0 ? `${gesamtLiterTank.toLocaleString('de-AT')} L` : '–'}
+            {gesamtLiterTank > 0 ? `${fmtNum(gesamtLiterTank)} L` : '–'}
           </p>
           <p className="text-xs text-s112-muted mt-1">Liter im Tank (Direktverkauf)</p>
           <p className="text-[10px] text-s112-blue-700/60 mt-1">→ Warenlager</p>
@@ -195,22 +196,22 @@ export default async function WeinhandelPage() {
                         {FLASCHEN_LABEL[f.flaschengroesse_ml] ?? `${f.flaschengroesse_ml} ml`}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <span className={`font-semibold tabular-nums ${bestandClr}`}>{bestand.toLocaleString('de-AT')}</span>
-                        <span className="text-xs text-s112-muted ml-1">/ {gesamt.toLocaleString('de-AT')}</span>
+                        <span className={`font-semibold tabular-nums ${bestandClr}`}>{fmtNum(bestand)}</span>
+                        <span className="text-xs text-s112-muted ml-1">/ {fmtNum(gesamt)}</span>
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">
                         {einstand != null
-                          ? einstand.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+                          ? fmtEur(einstand)
                           : <span className="text-s112-muted">–</span>}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">
                         {vkPreis != null
-                          ? vkPreis.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+                          ? fmtEur(vkPreis)
                           : <span className="text-s112-muted">–</span>}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-s112-blue-700 font-semibold">
                         {lagerwert != null
-                          ? lagerwert.toLocaleString('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
+                          ? fmtEur(lagerwert)
                           : <span className="text-s112-muted font-normal">–</span>}
                       </td>
                       <td className="px-4 py-3 text-right text-s112-muted whitespace-nowrap">
@@ -281,16 +282,16 @@ export default async function WeinhandelPage() {
                       </td>
                       <td className="px-4 py-3 text-s112-muted">{(t.behaelter as R | null)?.name ?? '–'}</td>
                       <td className="px-4 py-3 text-right tabular-nums font-semibold text-s112-blue-700">
-                        {t.menge_liter ? Number(t.menge_liter).toLocaleString('de-AT') : '–'}
+                        {t.menge_liter ? fmtNum(Number(t.menge_liter)) : '–'}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-s112-muted text-sm">
                         {t.einstandspreis_pro_liter != null
-                          ? Number(t.einstandspreis_pro_liter).toLocaleString('de-AT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 4 })
+                          ? fmtEur(Number(t.einstandspreis_pro_liter), { min: 2, max: 4 })
                           : <span className="text-xs text-s112-warn">nicht gesetzt</span>}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums font-semibold text-s112-blue-700">
                         {t.einstandspreis_pro_liter != null && t.menge_liter
-                          ? (Number(t.menge_liter) * Number(t.einstandspreis_pro_liter)).toLocaleString('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
+                          ? fmtEur((Number(t.menge_liter) * Number(t.einstandspreis_pro_liter)))
                           : '–'}
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -326,7 +327,7 @@ export default async function WeinhandelPage() {
                       <td className="px-4 py-3 font-medium text-s112-text">{(d.behaelter as R | null)?.name ?? '–'}</td>
                       <td className="px-4 py-3 text-s112-muted text-xs">{(d.pressung as R | null)?.weinbezeichnung ?? new Date((d.pressung as R)?.datum ?? '').toLocaleDateString('de-AT')}</td>
                       <td className="px-4 py-3 text-s112-muted text-xs">{((d.pressung as R | null)?.jahrgang as R | null)?.jahrgang ?? '–'}</td>
-                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-s112-blue-700">{Number(d.menge_liter).toLocaleString('de-AT')} L</td>
+                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-s112-blue-700">{fmtNum(Number(d.menge_liter))} L</td>
                       <td className="px-4 py-3 text-right">
                         {writeOk && <Link href="/weinhandel/verkauf/neu" className="text-xs text-s112-blue-700 hover:underline font-medium">Verkauf →</Link>}
                       </td>
@@ -378,16 +379,16 @@ export default async function WeinhandelPage() {
                         {new Date(z.datum).toLocaleDateString('de-AT')}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums font-semibold text-s112-blue-700 whitespace-nowrap">
-                        {Number(z.menge).toLocaleString('de-AT')} {z.einheit}
+                        {fmtNum(Number(z.menge))} {z.einheit}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-s112-muted text-sm whitespace-nowrap">
                         {z.preis_gesamt && z.menge
-                          ? (Number(z.preis_gesamt) / Number(z.menge)).toLocaleString('de-AT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 4 })
+                          ? fmtEur((Number(z.preis_gesamt) / Number(z.menge)), { min: 2, max: 4 })
                           : '–'}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums font-semibold text-s112-blue-700 whitespace-nowrap">
                         {z.preis_gesamt
-                          ? Number(z.preis_gesamt).toLocaleString('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
+                          ? fmtEur(Number(z.preis_gesamt))
                           : '–'}
                       </td>
                       <td className="px-4 py-3 text-right">

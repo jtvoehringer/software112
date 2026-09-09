@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { AlertTriangle, Download, FileText, History, Settings2, CheckCircle2, RotateCcw } from 'lucide-react'
 import { MAPPING_FELDER, MAPPING_GRUPPEN, mappingAufloesen } from '@/lib/buchhaltung/bmd'
 import { speichereKontenmapping, setzeKontenmappingZurueck } from './actions'
+import { fmtEur } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -18,7 +19,7 @@ const ART_LABEL: Record<Art, string> = {
 }
 
 function eur(n: number | null | undefined) {
-  return n == null ? '–' : Number(n).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })
+  return n == null ? '–' : fmtEur(Number(n))
 }
 function datumDe(iso: string | null | undefined) {
   if (!iso) return '–'

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowLeftRight, FlaskConical, Wine } from 'lucide-react'
 import { upsertKellerplanPosition, deleteKellerplanPosition } from '../actions'
 import { getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
+import { fmtNum } from '@/lib/format'
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
 
@@ -406,8 +407,8 @@ export default function KellerplanEditor({
                         style={{ fontSize: 'clamp(4px, 1.1cqw, 9px)' }}
                       >
                         {fillLiter > 0
-                          ? `${fillLiter.toLocaleString('de-AT', { maximumFractionDigits: 0 })} / ${b.volumen_liter.toLocaleString('de-AT')} L`
-                          : `${b.volumen_liter.toLocaleString('de-AT')} L`
+                          ? `${fmtNum(fillLiter, { max: 0 })} / ${fmtNum(b.volumen_liter)} L`
+                          : `${fmtNum(b.volumen_liter)} L`
                         }
                         {fillPctDisplay !== null && fillLiter > 0 && (
                           <span style={{ marginLeft: '2px', color: fillColor ?? undefined }}>
@@ -505,7 +506,7 @@ export default function KellerplanEditor({
                       <div className="min-w-0 flex-1">
                         <p className="truncate">{b.name}</p>
                         <p className="text-[10px] text-s112-text-2">
-                          {typ.label}{b.volumen_liter ? ` · ${b.volumen_liter.toLocaleString('de-AT')} L` : ''}
+                          {typ.label}{b.volumen_liter ? ` · ${fmtNum(b.volumen_liter)} L` : ''}
                         </p>
                       </div>
                     </div>

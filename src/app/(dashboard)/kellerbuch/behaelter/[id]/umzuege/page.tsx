@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
-import { fmtLiter } from '@/lib/format'
+import { fmtLiter, fmtNum } from '@/lib/format'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -14,7 +14,7 @@ type R = Record<string, any>
 
 function fmt(n: number | null) {
   if (n == null || isNaN(n)) return '–'
-  return n.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' L'
+  return fmtNum(n, 2) + ' L'
 }
 
 export default async function BehaelterUmzuegePage({ params }: { params: Promise<{ id: string }> }) {

@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { createEaDauerauftrag, deaktiviereEaDauerauftrag } from '../actions'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
+import { fmtNum } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
 
@@ -174,7 +175,7 @@ export default async function DauerauftraegePage() {
                     {INTERVALLE.find(i => i.value === d.intervall)?.label ?? d.intervall}
                   </td>
                   <td className="px-4 py-2.5 text-right font-mono">
-                    € {d.betrag_netto?.toLocaleString('de-AT', { minimumFractionDigits: 2 })}
+                    € {(d.betrag_netto == null ? undefined : fmtNum(d.betrag_netto, { min: 2 }))}
                     <span className="text-s112-tertiary ml-1">+{d.ust_satz}%</span>
                   </td>
                   <td className="px-4 py-2.5 text-s112-text-2">
