@@ -60,14 +60,14 @@
   /* Input */
   .input {
     @apply w-full px-3 py-2 border border-s112-line-str rounded-lg text-sm bg-white text-s112-text
-           focus:outline-none focus:ring-2 focus:ring-s112-teal/40 focus:border-s112-teal
+           focus:outline-none focus:ring-2 focus:ring-s112-teal focus:border-transparent
            placeholder:text-s112-tertiary;
   }
 
   /* Form Input */
   .form-input {
     @apply w-full px-3 py-2 border border-s112-line-str rounded-lg text-sm bg-white text-s112-text
-           focus:outline-none focus:ring-2 focus:ring-s112-teal/40 focus:border-s112-teal
+           focus:outline-none focus:ring-2 focus:ring-s112-teal focus:border-transparent
            placeholder:text-s112-tertiary transition-colors;
   }
 
