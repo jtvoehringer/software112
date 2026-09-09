@@ -66,7 +66,7 @@ export default async function MonatsabschlussPage({
         Buchungen mit einem Datum in diesem Monat. Das ist nicht rückgängig zu machen.
       </p>
       {doppik && (
-        <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-2xl px-5 py-4 mb-6 text-sm">
+        <div className="bg-s112-blue-50 border border-s112-blue-100 text-s112-blue-700 rounded-2xl px-5 py-4 mb-6 text-sm">
           <p className="font-semibold mb-1">Doppelte Buchhaltung beim Steuerberater</p>
           <p>
             Der Monatsabschluss heißt hier: alle Belege des Monats sind erfasst und per BMD-Übergabe an die Kanzlei

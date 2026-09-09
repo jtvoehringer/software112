@@ -40,12 +40,12 @@ export default function BmdClient({ overrides, protokoll, kategorien, offeneRech
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/buchhaltung" className="hover:text-s112-teal transition-colors">E&amp;A-Rechnung</Link>
+        <Link href="/buchhaltung" className="hover:text-s112-blue-700 transition-colors">E&amp;A-Rechnung</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">BMD-Übergabe</span>
+        <span className="text-s112-text-1 font-medium">BMD-Übergabe</span>
       </div>
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">BMD-Übergabe</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-[-.01em] text-s112-text">BMD-Übergabe</h1>
         <p className="text-sm text-s112-muted mt-1">
           Ausgangsrechnungen, Eingangsbelege und Personenkonten als Buchungsstapel für BMD NTCS (Steuerberater) übergeben.
           software:112 bleibt Vorsystem - die doppelte Buchhaltung führt die Kanzlei.
@@ -60,7 +60,7 @@ export default function BmdClient({ overrides, protokoll, kategorien, offeneRech
         ] as [Tab, string, typeof Download][]).map(([key, label, Icon]) => (
           <button key={key} onClick={() => setTab(key)}
             className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              tab === key ? 'border-s112-teal text-s112-teal' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+              tab === key ? 'border-s112-teal text-s112-blue-700' : 'border-transparent text-s112-text-2 hover:text-s112-text-1'}`}>
             <Icon size={15} />{label}
           </button>
         ))}
@@ -117,14 +117,14 @@ function UebergabeTab({ offeneRechnungen, offeneAusgaben, darfUebergeben }: { of
 
   return (
     <div className="space-y-4">
-      <div className="card p-6 space-y-5">
+      <div className="bg-white border border-s112-line rounded-xl p-[18px] space-y-5">
         <div>
-          <p className="text-xs font-medium text-gray-600 mb-2">Was soll übergeben werden?</p>
+          <p className="text-xs font-medium text-s112-text-2 mb-2">Was soll übergeben werden?</p>
           <div className="grid grid-cols-3 gap-2">
             {(Object.keys(ART_LABEL) as Art[]).map(a => (
               <button key={a} onClick={() => setArt(a)}
                 className={`rounded-xl border px-3 py-2.5 text-sm text-left transition-colors ${
-                  art === a ? 'border-s112-teal bg-s112-teal/5 text-gray-900 font-medium' : 'border-s112-border text-gray-600 hover:border-gray-300'}`}>
+                  art === a ? 'border-s112-teal bg-s112-teal/5 text-s112-text font-medium' : 'border-s112-border text-s112-text-2 hover:border-s112-line-str'}`}>
                 {ART_LABEL[a]}
                 <span className="block text-[11px] text-s112-muted font-normal mt-0.5">
                   {a === 'ausgangsrechnungen' && `Verkauf + manuelle Einnahmen · ${offeneRechnungen} Rechnungen offen`}
@@ -139,12 +139,12 @@ function UebergabeTab({ offeneRechnungen, offeneAusgaben, darfUebergeben }: { of
         {!stammdaten && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Belegdatum von</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Belegdatum von</label>
               <input type="date" value={von} onChange={e => setVon(e.target.value)}
                 className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">bis</label>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">bis</label>
               <input type="date" value={bis} onChange={e => setBis(e.target.value)}
                 className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none" />
             </div>
@@ -165,20 +165,20 @@ function UebergabeTab({ offeneRechnungen, offeneAusgaben, darfUebergeben }: { of
         )}
 
         <button onClick={starten} disabled={laden || (!stammdaten && (!von || !bis))}
-          className="w-full bg-s112-teal text-s112-yellow px-4 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-40 inline-flex items-center justify-center gap-2">
+          className="w-full bg-s112-teal text-s112-yellow px-4 py-2.5 rounded-lg text-[13px] font-semibold hover:bg-s112-blue-700 disabled:opacity-40 inline-flex items-center justify-center gap-2">
           <Download size={16} />{laden ? 'Wird erstellt…' : `${ART_LABEL[art]} als BMD-CSV herunterladen`}
         </button>
 
         {meldung && (
-          <p className={`text-sm inline-flex items-start gap-1.5 ${meldung.typ === 'ok' ? 'text-green-600' : meldung.typ === 'info' ? 'text-gray-600' : 'text-red-600'}`}>
+          <p className={`text-sm inline-flex items-start gap-1.5 ${meldung.typ === 'ok' ? 'text-s112-ok-fg' : meldung.typ === 'info' ? 'text-s112-text-2' : 'text-s112-err-fg'}`}>
             {meldung.typ === 'ok' ? <CheckCircle2 size={15} className="mt-0.5 flex-shrink-0" /> : <AlertTriangle size={15} className="mt-0.5 flex-shrink-0" />}
             {meldung.text}
           </p>
         )}
       </div>
 
-      <div className="card p-5 space-y-2 text-xs text-s112-muted">
-        <p className="font-semibold text-gray-700 text-sm inline-flex items-center gap-1.5"><FileText size={14} />So kommt die Datei in BMD NTCS</p>
+      <div className="bg-white border border-s112-line rounded-xl p-[18px] space-y-2 text-xs text-s112-muted">
+        <p className="font-semibold text-s112-text-1 text-sm inline-flex items-center gap-1.5"><FileText size={14} />So kommt die Datei in BMD NTCS</p>
         <p>
           Die CSV ist ein Buchungsstapel im BMD-Standardformat (Strichpunkt, Dezimalkomma, Datum TT.MM.JJJJ) mit Kopfzeile
           <span className="font-mono"> satzart;konto;gkonto;belegnr;belegdatum;buchdatum;buchsymbol;buchcode;prozent;steuercode;betrag;steuer;text;…</span>.
@@ -190,7 +190,7 @@ function UebergabeTab({ offeneRechnungen, offeneAusgaben, darfUebergeben }: { of
           <li>Personenkonten: Debitoren-/Kreditorennummern werden bei der ersten Übergabe automatisch vergeben und am Kunden/Lieferanten gespeichert - die Stammdaten-Datei liefert Name, Adresse, UID und Zahlungsziel dazu.</li>
           <li>Stornierte Rechnungen werden nicht übergeben.</li>
         </ul>
-        <p className="text-amber-600 font-medium mt-2 inline-flex items-start gap-1.5">
+        <p className="text-s112-warn-fg font-medium mt-2 inline-flex items-start gap-1.5">
           <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
           Konten und Steuercodes sind eine Vorbelegung nach dem Österreichischen Einheitskontenrahmen - bitte vor der ersten Übergabe mit dem Steuerberater abstimmen (Reiter „Konten-Mapping“).
         </p>
@@ -231,19 +231,19 @@ function MappingTab({ overrides, kategorien, darfAendern }: { overrides: Record<
 
   return (
     <div className="space-y-4">
-      <div className="card p-5 text-xs text-s112-muted space-y-1">
-        <p className="text-amber-600 font-medium inline-flex items-start gap-1.5">
+      <div className="bg-white border border-s112-line rounded-xl p-[18px] text-xs text-s112-muted space-y-1">
+        <p className="text-s112-warn-fg font-medium inline-flex items-start gap-1.5">
           <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
           Vorbelegung nach dem Österreichischen Einheitskontenrahmen und den BMD-Standard-Steuercodes. Die Kanzlei des Mandanten kann abweichende Konten und Steuercodes führen - bitte vor der ersten Übergabe vom Steuerberater prüfen lassen.
         </p>
         <p>Es werden nur Abweichungen von der Vorbelegung gespeichert ({abweichungen} {abweichungen === 1 ? 'Abweichung' : 'Abweichungen'}). Abweichende Werte sind hervorgehoben.</p>
-        {!darfAendern && <p className="text-gray-600">Änderungen sind Mandanten-Administratoren vorbehalten.</p>}
+        {!darfAendern && <p className="text-s112-text-2">Änderungen sind Mandanten-Administratoren vorbehalten.</p>}
       </div>
 
       {MAPPING_GRUPPEN.map(g => (
-        <div key={g.key} className="card overflow-hidden">
-          <div className="px-5 py-3 border-b border-s112-border bg-gray-50/60">
-            <p className="text-sm font-semibold text-gray-800">{g.label}</p>
+        <div key={g.key} className="bg-white border border-s112-line rounded-xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-s112-border bg-[#FBFBFC]">
+            <p className="font-display text-sm font-semibold text-s112-text">{g.label}</p>
           </div>
           <table className="w-full text-sm">
             <tbody>
@@ -253,14 +253,14 @@ function MappingTab({ overrides, kategorien, darfAendern }: { overrides: Record<
                 return (
                   <tr key={f.schluessel} className="border-b border-s112-border last:border-0">
                     <td className="px-5 py-2.5 align-top">
-                      <span className="text-gray-800">{f.label}</span>
+                      <span className="text-s112-text">{f.label}</span>
                       {f.hinweis && <span className="block text-[11px] text-s112-muted">{f.hinweis}</span>}
                     </td>
                     <td className="px-3 py-2 w-40 align-top">
                       <input value={wert} disabled={!darfAendern}
                         onChange={e => setWerte(w => ({ ...w, [f.schluessel]: e.target.value }))}
                         placeholder={f.standard || '(leer)'}
-                        className={`w-full border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none disabled:bg-gray-50 ${
+                        className={`w-full border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none disabled:bg-s112-bg ${
                           weicht ? 'border-s112-teal bg-s112-teal/5' : 'border-s112-border'}`} />
                     </td>
                     <td className="px-3 py-2.5 w-28 text-[11px] text-s112-muted align-top whitespace-nowrap">
@@ -277,21 +277,21 @@ function MappingTab({ overrides, kategorien, darfAendern }: { overrides: Record<
       {darfAendern && (
         <div className="flex items-center gap-3">
           <button onClick={speichern} disabled={pending || !geaendert}
-            className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-40">
+            className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-lg text-[13px] font-semibold hover:bg-s112-blue-700 disabled:opacity-40">
             {pending ? 'Speichert…' : 'Konten-Mapping speichern'}
           </button>
           <button onClick={zuruecksetzen} disabled={pending || abweichungen === 0}
-            className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 disabled:opacity-40">
+            className="inline-flex items-center gap-1.5 text-sm text-s112-text-2 hover:text-s112-text disabled:opacity-40">
             <RotateCcw size={14} />Auf Vorbelegung zurücksetzen
           </button>
-          {meldung && <span className={`text-sm ${meldung.ok ? 'text-green-600' : 'text-red-600'}`}>{meldung.text}</span>}
+          {meldung && <span className={`text-sm ${meldung.ok ? 'text-s112-ok-fg' : 'text-s112-err-fg'}`}>{meldung.text}</span>}
         </div>
       )}
 
-      <div className="card overflow-hidden">
-        <div className="px-5 py-3 border-b border-s112-border bg-gray-50/60 flex items-center justify-between">
-          <p className="text-sm font-semibold text-gray-800">Aufwands- und Ertragskonten der E&amp;A-Kategorien</p>
-          <Link href="/buchhaltung/kategorien" className="text-xs text-s112-teal hover:underline">Kategorien verwalten →</Link>
+      <div className="bg-white border border-s112-line rounded-xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-s112-border bg-[#FBFBFC] flex items-center justify-between">
+          <p className="font-display text-sm font-semibold text-s112-text">Aufwands- und Ertragskonten der E&amp;A-Kategorien</p>
+          <Link href="/buchhaltung/kategorien" className="text-xs text-s112-blue-700 hover:underline">Kategorien verwalten →</Link>
         </div>
         <div className="px-5 py-3 text-xs text-s112-muted">
           Eingangsbelege werden auf die Kontonummer ihrer E&amp;A-Kategorie gebucht, manuelle Einnahmen auf das Konto ihrer Einnahmen-Kategorie.
@@ -299,20 +299,20 @@ function MappingTab({ overrides, kategorien, darfAendern }: { overrides: Record<
         </div>
         <div className="grid grid-cols-2 gap-x-6 px-5 pb-4 text-xs">
           <div>
-            <p className="font-medium text-gray-700 mb-1">Ausgaben</p>
+            <p className="font-medium text-s112-text-1 mb-1">Ausgaben</p>
             {aufwand.map(k => (
               <div key={k.id} className="flex justify-between py-0.5 border-b border-dashed border-s112-border last:border-0">
-                <span className="text-gray-700 truncate">{k.name}</span>
-                <span className={`font-mono ${k.konto_nr ? 'text-gray-800' : 'text-amber-600'}`}>{k.konto_nr ?? 'Fallback'}</span>
+                <span className="text-s112-text-1 truncate">{k.name}</span>
+                <span className={`font-mono ${k.konto_nr ? 'text-s112-text' : 'text-s112-warn-fg'}`}>{k.konto_nr ?? 'Fallback'}</span>
               </div>
             ))}
           </div>
           <div>
-            <p className="font-medium text-gray-700 mb-1">Einnahmen</p>
+            <p className="font-medium text-s112-text-1 mb-1">Einnahmen</p>
             {ertrag.map(k => (
               <div key={k.id} className="flex justify-between py-0.5 border-b border-dashed border-s112-border last:border-0">
-                <span className="text-gray-700 truncate">{k.name}</span>
-                <span className={`font-mono ${k.konto_nr ? 'text-gray-800' : 'text-amber-600'}`}>{k.konto_nr ?? 'Fallback'}</span>
+                <span className="text-s112-text-1 truncate">{k.name}</span>
+                <span className={`font-mono ${k.konto_nr ? 'text-s112-text' : 'text-s112-warn-fg'}`}>{k.konto_nr ?? 'Fallback'}</span>
               </div>
             ))}
           </div>
@@ -325,12 +325,12 @@ function MappingTab({ overrides, kategorien, darfAendern }: { overrides: Record<
 // ── Protokoll ───────────────────────────────────────────────────────────────
 function ProtokollTab({ protokoll }: { protokoll: R[] }) {
   if (protokoll.length === 0) {
-    return <div className="card p-6 text-sm text-s112-muted">Noch keine Übergabe protokolliert. Übergaben mit aktivem „protokollieren“ erscheinen hier.</div>
+    return <div className="bg-white border border-s112-line rounded-xl p-[18px] text-sm text-s112-muted">Noch keine Übergabe protokolliert. Übergaben mit aktivem „protokollieren“ erscheinen hier.</div>
   }
   return (
-    <div className="card overflow-hidden">
+    <div className="bg-white border border-s112-line rounded-xl overflow-hidden">
       <table className="w-full text-sm">
-        <thead className="bg-gray-50/60 text-xs text-gray-600">
+        <thead className="bg-[#FBFBFC] text-xs text-s112-text-2">
           <tr>
             <th className="text-left px-4 py-2 font-medium">Übergeben am</th>
             <th className="text-left px-4 py-2 font-medium">Art</th>
@@ -348,7 +348,7 @@ function ProtokollTab({ protokoll }: { protokoll: R[] }) {
               <td className="px-4 py-2 whitespace-nowrap">{p.zeitraum_von ? `${datumDe(p.zeitraum_von)} – ${datumDe(p.zeitraum_bis)}` : '–'}</td>
               <td className="px-4 py-2 text-right">{p.anzahl}</td>
               <td className="px-4 py-2 text-right">{eur(p.summe_brutto)}</td>
-              <td className="px-4 py-2 font-mono text-xs text-gray-600">{p.dateiname}</td>
+              <td className="px-4 py-2 font-mono text-[12px] text-s112-text-2">{p.dateiname}</td>
             </tr>
           ))}
         </tbody>

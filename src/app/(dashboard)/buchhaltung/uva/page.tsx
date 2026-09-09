@@ -101,7 +101,7 @@ export default async function UvaPage({
       </div>
 
       {doppik && (
-        <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-2xl px-5 py-4 mb-6 text-sm">
+        <div className="bg-s112-blue-50 border border-s112-blue-100 text-s112-blue-700 rounded-2xl px-5 py-4 mb-6 text-sm">
           <p className="font-semibold mb-1">Die UVA meldet dein Steuerberater aus BMD.</p>
           <p>
             Dieser Betrieb führt die doppelte Buchhaltung beim Steuerberater. Die Zahlen hier sind eine Kontroll-Vorschau

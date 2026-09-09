@@ -34,12 +34,12 @@ export default function SvsClient({ grundstuecke, parameter, jahr, option, einku
   return (
     <div className="space-y-6 max-w-5xl">
       <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/buchhaltung/uebersicht" className="hover:text-s112-teal transition-colors">Finanzübersicht</Link>
+        <Link href="/buchhaltung/uebersicht" className="hover:text-s112-blue-700 transition-colors">Finanzübersicht</Link>
         <span>/</span>
-        <span className="text-gray-700 font-medium">SV-Beiträge (SVS)</span>
+        <span className="text-s112-text-1 font-medium">SV-Beiträge (SVS)</span>
       </div>
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">SV-Beiträge (SVS)</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-[-.01em] text-s112-text">SV-Beiträge (SVS)</h1>
         <p className="text-sm text-s112-muted mt-1">
           Bäuerliche Sozialversicherung: Beitragsgrundlage aus den Einheitswerten der Grundstücke (Pauschalsystem) oder aus den Einkünften (Beitragsgrundlagenoption) – und welche Variante für den Betrieb günstiger ist.
         </p>
@@ -53,13 +53,13 @@ export default function SvsClient({ grundstuecke, parameter, jahr, option, einku
           ...(darfParameter ? [['parameter', 'SVS-Parameter', Settings2]] : []),
         ] as [Tab, string, typeof Calculator][]).map(([key, label, Icon]) => (
           <button key={key} onClick={() => setTab(key)}
-            className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === key ? 'border-s112-teal text-s112-teal' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+            className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === key ? 'border-s112-teal text-s112-blue-700' : 'border-transparent text-s112-text-2 hover:text-s112-text-1'}`}>
             <Icon size={15} />{label}
           </button>
         ))}
       </div>
 
-      {!param && <div className="card p-5 text-sm text-amber-700">Für {jahr} sind noch keine SVS-Parameter hinterlegt – bitte den Plattform-Admin verständigen.</div>}
+      {!param && <div className="bg-white border border-s112-line rounded-xl p-[18px] text-sm text-s112-warn-fg">Für {jahr} sind noch keine SVS-Parameter hinterlegt – bitte den Plattform-Admin verständigen.</div>}
 
       {tab === 'beitraege' && param && v && (
         <BeitraegeTab v={v} p={param} jahr={jahr} opt={opt} setOpt={setOpt} einkuenfteVorjahr={einkuenfteVorjahr} einkuenfte={einkuenfte} darfOption={darfOption} doppik={doppik} onZuEinheitswerten={() => setTab('einheitswerte')} />
@@ -97,25 +97,25 @@ function BeitraegeTab({ v, p, jahr, opt, setOpt, einkuenfteVorjahr, einkuenfte, 
   return (
     <div className="space-y-4">
       {ew.ohneWert > 0 && (
-        <p className="text-sm text-amber-700 inline-flex items-start gap-1.5"><AlertTriangle size={15} className="mt-0.5 flex-shrink-0" />
+        <p className="text-sm text-s112-warn-fg inline-flex items-start gap-1.5"><AlertTriangle size={15} className="mt-0.5 flex-shrink-0" />
           {ew.ohneWert} {ew.ohneWert === 1 ? 'Grundstück hat' : 'Grundstücke haben'} noch keinen Einheitswert – die Beitragsgrundlage ist deshalb unvollständig. <button onClick={onZuEinheitswerten} className="underline">Einheitswerte erfassen</button>
         </p>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Pauschal */}
-        <div className={`card p-5 space-y-3 ${opt.svs_option === 'pauschal' ? 'ring-1 ring-s112-teal' : ''}`}>
+        <div className={`bg-white border border-s112-line rounded-xl p-[18px] space-y-3 ${opt.svs_option === 'pauschal' ? 'ring-1 ring-s112-teal' : ''}`}>
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-gray-900">Pauschalsystem (Einheitswert)</h2>
+            <h2 className="font-display font-semibold text-[14.5px] text-s112-text">Pauschalsystem (Einheitswert)</h2>
             {opt.svs_option === 'pauschal' && <span className="text-[10.5px] font-semibold uppercase tracking-wide text-s112-teal">gewählt</span>}
           </div>
           <table className="w-full text-sm">
             <tbody>
-              <Z k="Einheitswert Eigentum" v={eur(ew.eigen, 0)} />
-              <Z k="Zupachtung Angehörige (voll)" v={eur(ew.pachtAngehoerige, 0)} />
-              <Z k="Zupachtung Fremde (2/3)" v={`${eur(ew.pachtFremd, 0)} → ${eur(ew.pachtFremd * 2 / 3, 0)}`} />
-              <Z k="Verpachtet (Abzug)" v={ew.verpachtet ? `− ${eur(ew.verpachtet, 0)}` : '–'} />
-              <Z k="Massgebender Einheitswert" v={eur(ew.massgebend, 0)} fett />
+              <Z k="Einheitswert Eigentum" v={eur(ew.eigen)} />
+              <Z k="Zupachtung Angehörige (voll)" v={eur(ew.pachtAngehoerige)} />
+              <Z k="Zupachtung Fremde (2/3)" v={`${eur(ew.pachtFremd)} → ${eur(ew.pachtFremd * 2 / 3)}`} />
+              <Z k="Verpachtet (Abzug)" v={ew.verpachtet ? `− ${eur(ew.verpachtet)}` : '–'} />
+              <Z k="Massgebender Einheitswert" v={eur(ew.massgebend)} fett />
               <Z k="Versicherungswert (Staffel)" v={`${eur(v.versicherungswert)} / Monat`} fett />
               <Z k="Beitragsgrundlage" v={`${eur(v.pauschal.beitragsgrundlage)}${v.pauschal.begrenzt === 'min' ? ' (Mindest)' : v.pauschal.begrenzt === 'max' ? ' (Höchst)' : ''}`} />
             </tbody>
@@ -124,16 +124,16 @@ function BeitraegeTab({ v, p, jahr, opt, setOpt, einkuenfteVorjahr, einkuenfte, 
         </div>
 
         {/* Option */}
-        <div className={`card p-5 space-y-3 ${opt.svs_option === 'option' ? 'ring-1 ring-s112-teal' : ''}`}>
+        <div className={`bg-white border border-s112-line rounded-xl p-[18px] space-y-3 ${opt.svs_option === 'option' ? 'ring-1 ring-s112-teal' : ''}`}>
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-gray-900">Beitragsgrundlagenoption (Einkünfte)</h2>
+            <h2 className="font-display font-semibold text-[14.5px] text-s112-text">Beitragsgrundlagenoption (Einkünfte)</h2>
             {opt.svs_option === 'option' && <span className="text-[10.5px] font-semibold uppercase tracking-wide text-s112-teal">gewählt{opt.svs_option_seit ? ` seit ${opt.svs_option_seit.split('-').reverse().join('.')}` : ''}</span>}
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Einkünfte aus Land- und Forstwirtschaft lt. Einkommensteuerbescheid {einkuenfteVorjahr.jahr} (Jahr)</label>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Einkünfte aus Land- und Forstwirtschaft lt. Einkommensteuerbescheid {einkuenfteVorjahr.jahr} (Jahr)</label>
             <input value={manuell} onChange={e => setManuell(e.target.value)} disabled={!darfOption}
               placeholder={einkuenfteVorjahr.buchungen && !doppik ? `Vorschlag aus E&A ${einkuenfteVorjahr.jahr}: ${eur(einkuenfteVorjahr.betrag, 0)}` : 'z. B. 28.500'}
-              className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none disabled:bg-gray-50" />
+              className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none disabled:bg-s112-bg" />
             <p className="text-[11px] text-s112-muted mt-1">
               {doppik ? 'Bei Doppik beim Steuerberater bitte den Wert aus dem Einkommensteuerbescheid eintragen.' : `Leer = Ergebnis der E&A-Rechnung ${einkuenfteVorjahr.jahr} als Näherung. Der Bescheidwert weicht meist ab (Pauschalierung, Abschreibungen).`}
             </p>
@@ -155,10 +155,10 @@ function BeitraegeTab({ v, p, jahr, opt, setOpt, einkuenfteVorjahr, einkuenfte, 
       </div>
 
       {v.option && (
-        <div className={`card p-5 flex items-start gap-3 ${guenstiger === 'option' ? 'bg-s112-ok-bg' : 'bg-s112-bg'}`}>
+        <div className={`bg-white border border-s112-line rounded-xl p-[18px] flex items-start gap-3 ${guenstiger === 'option' ? 'bg-s112-ok-bg' : 'bg-s112-bg'}`}>
           <CheckCircle2 size={20} className="text-s112-teal mt-0.5 flex-shrink-0" />
           <div className="text-sm">
-            <p className="font-semibold text-gray-900">
+            <p className="font-semibold text-s112-text">
               {Math.abs(v.ersparnisOptionJahr!) < 1
                 ? 'Beide Varianten liegen gleichauf.'
                 : guenstiger === 'option'
@@ -173,8 +173,8 @@ function BeitraegeTab({ v, p, jahr, opt, setOpt, einkuenfteVorjahr, einkuenfte, 
         </div>
       )}
 
-      <div className="card p-5 space-y-3">
-        <h2 className="font-semibold text-gray-900">Wahl des Betriebs</h2>
+      <div className="bg-white border border-s112-line rounded-xl p-[18px] space-y-3">
+        <h2 className="font-display font-semibold text-[14.5px] text-s112-text">Wahl des Betriebs</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {([['pauschal', 'Pauschalsystem – Beitragsgrundlage vom Einheitswert'], ['option', 'Beitragsgrundlagenoption – Beitragsgrundlage von den Einkünften']] as const).map(([k, l]) => (
             <label key={k} className={`flex items-start gap-2 rounded-xl border px-3 py-2.5 text-sm ${wahl === k ? 'border-s112-teal bg-s112-teal/5' : 'border-s112-border'} ${darfOption ? 'cursor-pointer' : 'opacity-70'}`}>
@@ -189,11 +189,11 @@ function BeitraegeTab({ v, p, jahr, opt, setOpt, einkuenfteVorjahr, einkuenfte, 
         </label>
         {darfOption ? (
           <div className="flex items-center gap-3">
-            <button onClick={speichern} disabled={pending} className="bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-40">{pending ? 'Speichert…' : 'Speichern'}</button>
-            {meldung && <span className={`text-sm ${meldung.ok ? 'text-green-600' : 'text-red-600'}`}>{meldung.text}</span>}
+            <button onClick={speichern} disabled={pending} className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-[13px] font-semibold hover:bg-s112-blue-700 disabled:opacity-40">{pending ? 'Speichert…' : 'Speichern'}</button>
+            {meldung && <span className={`text-sm ${meldung.ok ? 'text-s112-ok-fg' : 'text-s112-err-fg'}`}>{meldung.text}</span>}
           </div>
         ) : <p className="text-xs text-s112-muted">Die Wahl trifft der Betriebsleiter.</p>}
-        <p className="text-xs text-amber-700 inline-flex items-start gap-1.5"><AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+        <p className="text-xs text-s112-warn-fg inline-flex items-start gap-1.5"><AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
           Orientierungsrechnung mit den SVS-Sätzen {p.jahr}{p.hinweis ? ` – ${p.hinweis}` : ''}. Verbindlich ist der Beitragsbescheid der SVS; Entscheidung zur Option bitte mit SVS oder Steuerberater abstimmen.
         </p>
       </div>
@@ -204,8 +204,8 @@ function BeitraegeTab({ v, p, jahr, opt, setOpt, einkuenfteVorjahr, einkuenfte, 
 function Z({ k, v, fett }: { k: string; v: string; fett?: boolean }) {
   return (
     <tr className="border-b border-s112-border/60 last:border-0">
-      <td className={`py-1.5 pr-2 ${fett ? 'font-medium text-gray-900' : 'text-gray-600'}`}>{k}</td>
-      <td className={`py-1.5 text-right font-mono ${fett ? 'font-semibold text-gray-900' : 'text-gray-800'}`}>{v}</td>
+      <td className={`py-1.5 pr-2 ${fett ? 'font-medium text-s112-text' : 'text-s112-text-2'}`}>{k}</td>
+      <td className={`py-1.5 text-right font-mono ${fett ? 'font-semibold text-s112-text' : 'text-s112-text'}`}>{v}</td>
     </tr>
   )
 }
@@ -254,13 +254,13 @@ function EinheitswerteTab({ gst, setGst, darfSchreiben }: { gst: Gst[]; setGst: 
         <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter: KG, GST-Nr., Ried" className="border border-s112-border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none" />
         <div className="flex items-center gap-3 text-sm">
           <span className="text-s112-muted">{gst.length} Grundstücke · Summe Einheitswert {eur(summe, 0)}</span>
-          {darfSchreiben && <button onClick={speichern} disabled={pending || dirty.size === 0} className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-40">{pending ? 'Speichert…' : `Speichern (${dirty.size})`}</button>}
-          {meldung && <span className={meldung.ok ? 'text-green-600' : 'text-red-600'}>{meldung.text}</span>}
+          {darfSchreiben && <button onClick={speichern} disabled={pending || dirty.size === 0} className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-[13px] font-semibold hover:bg-s112-blue-700 disabled:opacity-40">{pending ? 'Speichert…' : `Speichern (${dirty.size})`}</button>}
+          {meldung && <span className={meldung.ok ? 'text-s112-ok-fg' : 'text-s112-err-fg'}>{meldung.text}</span>}
         </div>
       </div>
-      <div className="card overflow-x-auto">
+      <div className="bg-white border border-s112-line rounded-xl overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50/60 text-xs text-gray-600">
+          <thead className="bg-[#FBFBFC] text-xs text-s112-text-2">
             <tr>
               <th className="text-left px-3 py-2 font-medium">KG</th>
               <th className="text-left px-3 py-2 font-medium">GST-Nr.</th>
@@ -277,23 +277,23 @@ function EinheitswerteTab({ gst, setGst, darfSchreiben }: { gst: Gst[]; setGst: 
               <tr key={g.id} className={`border-t border-s112-border ${dirty.has(g.id) ? 'bg-s112-teal/5' : ''}`}>
                 <td className="px-3 py-1.5 whitespace-nowrap">{g.kg_bezeichnung || g.katastralgemeinde}{g.kg_bezeichnung && g.katastralgemeinde ? <span className="text-s112-muted"> {g.katastralgemeinde}</span> : ''}</td>
                 <td className="px-3 py-1.5 font-mono">{g.gst_nr}</td>
-                <td className="px-3 py-1.5 text-gray-600">{g.ried}</td>
-                <td className="px-3 py-1.5 text-right font-mono text-gray-600">{g.flaeche_ha === null ? '–' : g.flaeche_ha.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td>
-                <td className="px-3 py-1.5 text-gray-500 text-xs">{[g.nutzart, g.rechtsverhaeltnis].filter(Boolean).join(' · ')}</td>
+                <td className="px-3 py-1.5 text-s112-text-2">{g.ried}</td>
+                <td className="px-3 py-1.5 text-right font-mono text-s112-text-2">{g.flaeche_ha === null ? '–' : g.flaeche_ha.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td>
+                <td className="px-3 py-1.5 text-s112-text-2 text-xs">{[g.nutzart, g.rechtsverhaeltnis].filter(Boolean).join(' · ')}</td>
                 <td className="px-3 py-1.5">
                   <select value={g.svs_zurechnung} disabled={!darfSchreiben} onChange={e => aendere(g.id, { svs_zurechnung: e.target.value })}
-                    className="border border-s112-border rounded-lg px-2 py-1 text-xs bg-white disabled:bg-gray-50">
+                    className="border border-s112-border rounded-lg px-2 py-1 text-xs bg-white disabled:bg-s112-bg">
                     {ZUR.map(z => <option key={z} value={z}>{ZURECHNUNG_LABEL[z]}</option>)}
                   </select>
                 </td>
                 <td className="px-3 py-1.5 text-right">
                   <input type="number" step="0.01" min="0" value={g.einheitswert ?? ''} disabled={!darfSchreiben}
                     onChange={e => aendere(g.id, { einheitswert: e.target.value === '' ? null : parseFloat(e.target.value) })}
-                    className="w-28 border border-s112-border rounded-lg px-2 py-1 text-sm font-mono text-right focus:outline-none disabled:bg-gray-50" />
+                    className="w-28 border border-s112-border rounded-lg px-2 py-1 text-sm font-mono text-right focus:outline-none disabled:bg-s112-bg" />
                 </td>
                 <td className="px-3 py-1.5">
                   <input type="date" value={g.einheitswert_bescheid ?? ''} disabled={!darfSchreiben} onChange={e => aendere(g.id, { einheitswert_bescheid: e.target.value || null })}
-                    className="border border-s112-border rounded-lg px-2 py-1 text-xs focus:outline-none disabled:bg-gray-50" />
+                    className="border border-s112-border rounded-lg px-2 py-1 text-xs focus:outline-none disabled:bg-s112-bg" />
                   {g.einheitswert_quelle === 'import' && <span className="ml-1 text-[10px] text-s112-muted">Import</span>}
                 </td>
               </tr>
@@ -334,20 +334,20 @@ function ImportTab({ darfSchreiben }: { darfSchreiben: boolean }) {
   }
   return (
     <div className="space-y-4 max-w-2xl">
-      <div className="card p-5 space-y-3 text-sm">
-        <p className="text-gray-700">Datei aus SVS-Vorschreibung, Einheitswertbescheid oder eigener Excel-Liste: CSV mit Kopfzeile (Strichpunkt, Tab oder Komma). Erkannt werden die Spalten <span className="font-mono">KG</span> (optional), <span className="font-mono">GST</span>, <span className="font-mono">Einheitswert</span>, optional <span className="font-mono">Bescheid</span> (Datum) und <span className="font-mono">Zurechnung</span> (eigen / pacht / angehoerige / verpachtet / keine). Zuordnung über KG + GST-Nummer.</p>
-        <pre className="bg-gray-50 border border-s112-border rounded-lg p-3 text-xs overflow-x-auto">KG;GST;Einheitswert;Bescheid;Zurechnung{'\n'}16108;1234/2;3.450,00;01.01.2024;eigen{'\n'}16108;1235;1.120,50;;pacht</pre>
+      <div className="bg-white border border-s112-line rounded-xl p-[18px] space-y-3 text-sm">
+        <p className="text-s112-text-1">Datei aus SVS-Vorschreibung, Einheitswertbescheid oder eigener Excel-Liste: CSV mit Kopfzeile (Strichpunkt, Tab oder Komma). Erkannt werden die Spalten <span className="font-mono">KG</span> (optional), <span className="font-mono">GST</span>, <span className="font-mono">Einheitswert</span>, optional <span className="font-mono">Bescheid</span> (Datum) und <span className="font-mono">Zurechnung</span> (eigen / pacht / angehoerige / verpachtet / keine). Zuordnung über KG + GST-Nummer.</p>
+        <pre className="bg-s112-bg border border-s112-border rounded-lg p-3 text-xs overflow-x-auto">KG;GST;Einheitswert;Bescheid;Zurechnung{'\n'}16108;1234/2;3.450,00;01.01.2024;eigen{'\n'}16108;1235;1.120,50;;pacht</pre>
         <div className="flex items-center gap-3 flex-wrap">
           <input type="file" accept=".csv,.txt,.tsv" onChange={datei} disabled={!darfSchreiben} className="text-sm" />
-          <label className="text-xs text-gray-600">Bescheid-Datum (wenn nicht in der Datei) <input type="date" value={datum} onChange={e => setDatum(e.target.value)} className="ml-1 border border-s112-border rounded-lg px-2 py-1 text-xs" /></label>
+          <label className="text-xs text-s112-text-2">Bescheid-Datum (wenn nicht in der Datei) <input type="date" value={datum} onChange={e => setDatum(e.target.value)} className="ml-1 border border-s112-border rounded-lg px-2 py-1 text-xs" /></label>
         </div>
         <textarea value={text} onChange={e => setText(e.target.value)} rows={8} disabled={!darfSchreiben} placeholder="… oder Inhalt hier einfügen"
-          className="w-full border border-s112-border rounded-lg px-3 py-2 text-xs font-mono focus:outline-none disabled:bg-gray-50" />
+          className="w-full border border-s112-border rounded-lg px-3 py-2 text-xs font-mono focus:outline-none disabled:bg-s112-bg" />
         <div className="flex items-center gap-3">
-          <button onClick={los} disabled={pending || !text.trim() || !darfSchreiben} className="bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-40">{pending ? 'Importiert…' : 'Einheitswerte importieren'}</button>
-          {ergebnis && <span className={`text-sm ${ergebnis.ok ? 'text-green-600' : 'text-red-600'}`}>{ergebnis.text}</span>}
+          <button onClick={los} disabled={pending || !text.trim() || !darfSchreiben} className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-[13px] font-semibold hover:bg-s112-blue-700 disabled:opacity-40">{pending ? 'Importiert…' : 'Einheitswerte importieren'}</button>
+          {ergebnis && <span className={`text-sm ${ergebnis.ok ? 'text-s112-ok-fg' : 'text-s112-err-fg'}`}>{ergebnis.text}</span>}
         </div>
-        {ergebnis?.details?.map((d, i) => <p key={i} className="text-xs text-amber-700">{d}</p>)}
+        {ergebnis?.details?.map((d, i) => <p key={i} className="text-xs text-s112-warn-fg">{d}</p>)}
       </div>
     </div>
   )
@@ -376,12 +376,12 @@ function ParameterTab({ parameter, jahr }: { parameter: SvsParameter[]; jahr: nu
   }
   const feld = (k: keyof typeof form, label: string) => (
     <div>
-      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-s112-text-2 mb-1">{label}</label>
       <input value={form[k]} onChange={e => setForm({ ...form, [k]: e.target.value })} className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none" />
     </div>
   )
   return (
-    <div className="card p-5 space-y-4 max-w-3xl">
+    <div className="bg-white border border-s112-line rounded-xl p-[18px] space-y-4 max-w-3xl">
       <p className="text-sm text-s112-muted">Plattformweite Werte je Jahr aus der SVS-Beitragstabelle (gültig ab 1. Jänner). Vorhandene Jahre: {parameter.map(p => p.jahr).join(', ') || '–'}.</p>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {feld('jahr', 'Jahr')}{feld('satz_pv', 'PV %')}{feld('satz_kv', 'KV %')}{feld('satz_uv', 'UV %')}
@@ -389,16 +389,16 @@ function ParameterTab({ parameter, jahr }: { parameter: SvsParameter[]; jahr: nu
         {feld('hoechst_bg', 'Höchst-BG')}
       </div>
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Staffel Versicherungswert (JSON: bis = obere Einheitswertgrenze, prozent = Einkommensfaktor; letzte Stufe bis null)</label>
+        <label className="block text-xs font-medium text-s112-text-2 mb-1">Staffel Versicherungswert (JSON: bis = obere Einheitswertgrenze, prozent = Einkommensfaktor; letzte Stufe bis null)</label>
         <textarea value={form.staffel} onChange={e => setForm({ ...form, staffel: e.target.value })} rows={4} className="w-full border border-s112-border rounded-lg px-3 py-2 text-xs font-mono focus:outline-none" />
       </div>
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Hinweis (Quelle)</label>
+        <label className="block text-xs font-medium text-s112-text-2 mb-1">Hinweis (Quelle)</label>
         <input value={form.hinweis} onChange={e => setForm({ ...form, hinweis: e.target.value })} className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none" />
       </div>
       <div className="flex items-center gap-3">
-        <button onClick={speichern} disabled={pending} className="bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-40">{pending ? 'Speichert…' : 'Parameter speichern'}</button>
-        {meldung && <span className={`text-sm ${meldung.ok ? 'text-green-600' : 'text-red-600'}`}>{meldung.text}</span>}
+        <button onClick={speichern} disabled={pending} className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-[13px] font-semibold hover:bg-s112-blue-700 disabled:opacity-40">{pending ? 'Speichert…' : 'Parameter speichern'}</button>
+        {meldung && <span className={`text-sm ${meldung.ok ? 'text-s112-ok-fg' : 'text-s112-err-fg'}`}>{meldung.text}</span>}
       </div>
     </div>
   )

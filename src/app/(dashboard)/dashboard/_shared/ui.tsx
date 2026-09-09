@@ -97,9 +97,12 @@ export function Empty({ children, action }: { children: ReactNode; action?: { hr
 }
 
 /** Balkenreihe mit direkten Werten (HTML, keine Chart-Lib) */
-export function BarRow({ label, value, max, text, tone = 1, labelWidth = 92 }: { label: string; value: number; max: number; text: string; tone?: 1 | 2 | 'warn'; labelWidth?: number }) {
+// Töne lt. CD-Manual: 1 = Blau 700 (Hauptreihe), 2 = Blau 300 (Vergleich/Vorjahr),
+// 'grey' = Markengrau (zweite Datenreihe ohne Wertung), 'warn' = Signalfarbe Achtung
+// (nur für Zustände, nicht als Gestaltungsmittel).
+export function BarRow({ label, value, max, text, tone = 1, labelWidth = 92 }: { label: string; value: number; max: number; text: string; tone?: 1 | 2 | 'grey' | 'warn'; labelWidth?: number }) {
   const pct = max > 0 ? Math.max(1, Math.round(value / max * 100)) : 0
-  const color = tone === 'warn' ? 'bg-[#C98A1B]' : tone === 2 ? 'bg-s112-blue-300' : 'bg-s112-blue-700'
+  const color = tone === 'warn' ? 'bg-s112-warn' : tone === 'grey' ? 'bg-s112-grey' : tone === 2 ? 'bg-s112-blue-300' : 'bg-s112-blue-700'
   return (
     <div className="grid items-center gap-2.5 py-[3px]" style={{ gridTemplateColumns: `${labelWidth}px 1fr 84px` }} title={`${label}: ${text}`}>
       <span className="text-[12px] text-s112-text-2 truncate">{label}</span>

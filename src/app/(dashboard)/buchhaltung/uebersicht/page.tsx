@@ -48,7 +48,7 @@ export default async function FinanzUebersichtPage({ searchParams }: { searchPar
             <select name="jahr" defaultValue={String(jahr)} className="border border-s112-border rounded-lg px-2 py-1.5 text-sm bg-white">
               {Array.from({ length: 4 }, (_, i) => jahrAktuell - i).map(j => <option key={j} value={j}>{j}</option>)}
             </select>
-            <button type="submit" className="bg-s112-teal text-white px-3 py-1.5 rounded-lg text-sm">Anzeigen</button>
+            <button type="submit" className="bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg text-[13px] font-semibold hover:bg-s112-blue-700">Anzeigen</button>
           </form>
         }
       />
@@ -93,7 +93,7 @@ export default async function FinanzUebersichtPage({ searchParams }: { searchPar
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
         {/* ── Monatsverlauf ──────────────────────────────────────────────── */}
-        <Card className="lg:col-span-3" title={`Monatsverlauf ${jahr}`} right={<span className="text-[11.5px] text-s112-text-2">dunkel = {jahr}, hell = {jahr - 1}</span>}>
+        <Card className="lg:col-span-3" title={`Monatsverlauf ${jahr}`} right={<span className="text-[11.5px] text-s112-text-2">Blau = Einnahmen {jahr} · Hellblau = Einnahmen {jahr - 1} · Grau = Ausgaben {jahr}</span>}>
           <div className="space-y-2">
             {f.monate.slice(0, bisMonat).map(m => (
               <div key={m.monat} className="grid grid-cols-[44px_1fr] gap-2 items-start">
@@ -101,7 +101,7 @@ export default async function FinanzUebersichtPage({ searchParams }: { searchPar
                 <div>
                   <BarRow label="Einnahmen" value={m.einnahmen} max={maxMonat} text={fmtEur(m.einnahmen)} tone={1} labelWidth={70} />
                   <BarRow label={`VJ`} value={m.einnahmenVj} max={maxMonat} text={fmtEur(m.einnahmenVj)} tone={2} labelWidth={70} />
-                  <BarRow label="Ausgaben" value={m.ausgaben} max={maxMonat} text={fmtEur(m.ausgaben)} tone="warn" labelWidth={70} />
+                  <BarRow label="Ausgaben" value={m.ausgaben} max={maxMonat} text={fmtEur(m.ausgaben)} tone="grey" labelWidth={70} />
                 </div>
               </div>
             ))}
@@ -123,7 +123,7 @@ export default async function FinanzUebersichtPage({ searchParams }: { searchPar
                 <Zeile k="Letzte Übergabe" v={f.uebergabe.letzte ? `${fmtDate(f.uebergabe.letzte.erstelltAm)} · ${f.uebergabe.letzte.anzahl} Belege` : '–'} />
                 <Zeile k="UVA" v={<span className="text-s112-text-2">meldet der Steuerberater aus BMD · <Link href="/buchhaltung/uva" className="text-s112-blue-700 hover:underline">Vorschau</Link></span>} />
                 <Zeile k="Belege zu buchen" v={f.belege.zuBuchen > 0 ? <Link href="/buchhaltung/belege"><Badge tone="warn">{f.belege.zuBuchen} erkannt</Badge></Link> : <Badge tone="ok">nichts offen</Badge>} />
-                <Link href="/controlling/bmd" className="inline-flex items-center gap-1.5 mt-2 bg-s112-teal text-white px-3.5 py-2 rounded-lg text-sm font-medium hover:bg-opacity-90">
+                <Link href="/controlling/bmd" className="inline-flex items-center gap-1.5 mt-2 bg-s112-teal text-s112-yellow px-3.5 py-2 rounded-lg text-[13px] font-semibold hover:bg-s112-blue-700">
                   Zur BMD-Übergabe <ArrowRight size={15} />
                 </Link>
               </>
@@ -181,11 +181,11 @@ function KategorieKarte({ titel, zeilen, warn }: { titel: string; zeilen: { name
                 <tr key={z.name}>
                   <Td>
                     <span className="block">{z.name}</span>
-                    <div className="mt-1 h-[6px] rounded bg-s112-line overflow-hidden"><div className={`h-full ${warn ? 'bg-[#C98A1B]' : 'bg-s112-blue-700'}`} style={{ width: `${Math.max(2, z.betrag / max * 100)}%` }} /></div>
+                    <div className="mt-1 h-[6px] rounded bg-s112-line overflow-hidden"><div className={`h-full ${warn ? 'bg-s112-grey' : 'bg-s112-blue-700'}`} style={{ width: `${Math.max(2, z.betrag / max * 100)}%` }} /></div>
                   </Td>
-                  <Td right mono>{fmtEur(z.betrag)}</Td>
-                  <Td right mono className="text-s112-text-2">{fmtEur(z.vj)}</Td>
-                  <Td right mono className={d === null ? 'text-s112-tertiary' : (warn ? d > 15 : d < -15) ? 'text-s112-err-fg' : 'text-s112-text-2'}>{d === null ? '–' : `${d >= 0 ? '+' : ''}${d.toFixed(0)} %`}</Td>
+                  <Td right mono>{fmtEur(z.betrag, 2)}</Td>
+                  <Td right mono className="text-s112-text-2">{fmtEur(z.vj, 2)}</Td>
+                  <Td right mono className={d === null ? 'text-s112-tertiary' : (warn ? d > 15 : d < -15) ? 'text-s112-warn-fg' : 'text-s112-text-2'}>{d === null ? '–' : `${d >= 0 ? '+' : ''}${d.toFixed(0)} %`}</Td>
                 </tr>
               )
             })}
