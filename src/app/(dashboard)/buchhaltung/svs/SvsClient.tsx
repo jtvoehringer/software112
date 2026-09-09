@@ -15,7 +15,7 @@ type Gst = {
 type Option = { svs_option: 'pauschal' | 'option'; svs_option_seit: string | null; svs_einkuenfte_manuell: number | null; svs_kv_angehoerige: boolean }
 type Tab = 'beitraege' | 'einheitswerte' | 'import' | 'parameter'
 
-const eur = (n: number, d = 2) => n.toLocaleString('de-AT', { style: 'currency', currency: 'EUR', minimumFractionDigits: d, maximumFractionDigits: d })
+const eur = (n: number, d = 2) => `€ ${n.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d })}` // CD: Tausenderpunkt, zwei Nachkommastellen
 const ZUR: Zurechnung[] = ['eigen', 'pacht_fremd', 'pacht_angehoerige', 'verpachtet', 'keine']
 
 export default function SvsClient({ grundstuecke, parameter, jahr, option, einkuenfteVorjahr, darfSchreiben, darfOption, darfParameter, doppik }: {

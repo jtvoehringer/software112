@@ -7,11 +7,15 @@ import Link from 'next/link'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 
-export function fmtEur(v: number, digits = 0) {
-  return v.toLocaleString('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: digits, minimumFractionDigits: digits })
-}
+// CD-Manual (04 Typografie): Zahlen mit Tausenderpunkt und Dezimalkomma
+// („€ 48.320,00 · 1.284 hl“), Beträge immer mit zwei Nachkommastellen.
+// 'de-DE' statt 'de-AT', weil die Browser-/Node-Locale de-AT ein Leerzeichen
+// als Tausendertrennung setzt („10 583“); das €-Zeichen steht wie in Österreich üblich vorne.
 export function fmtNum(v: number, digits = 0) {
-  return v.toLocaleString('de-AT', { maximumFractionDigits: digits, minimumFractionDigits: digits })
+  return v.toLocaleString('de-DE', { maximumFractionDigits: digits, minimumFractionDigits: digits })
+}
+export function fmtEur(v: number, digits = 2) {
+  return `€ ${fmtNum(v, digits)}`
 }
 export function fmtDate(d: string | Date | null | undefined, opts: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit', year: 'numeric' }) {
   if (!d) return '–'
@@ -61,7 +65,7 @@ export function Tile({ label, value, sub, icon: Icon, href, tone }: {
         {Icon && <Icon size={18} strokeWidth={1.5} className="text-s112-tertiary" />}
         <p className="text-[11.5px] font-semibold text-s112-text-2 tracking-[.02em]">{label}</p>
       </div>
-      <p className="font-mono text-[26px] leading-[1.15] text-s112-text tabular-nums">{value}</p>
+      <p className="font-mono text-[24px] leading-[1.15] text-s112-text tabular-nums">{value}</p>
       {sub && <p className={`text-[11.5px] ${subCls}`}>{sub}</p>}
     </>
   )

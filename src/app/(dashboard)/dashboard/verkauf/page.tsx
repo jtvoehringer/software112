@@ -3,7 +3,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ReceiptText, Package, Users, ShoppingCart, Calendar, Wallet } from 'lucide-react'
-import { DashHeader, Card, BarRow, Empty, fmtNum } from '../_shared/ui'
+import { DashHeader, Card, BarRow, Empty, fmtNum, fmtEur } from '../_shared/ui'
 import { getCtx, ladeFlaschenlager } from '../_shared/data'
 
 export const metadata: Metadata = { title: 'Verkauf & CRM – software:112' }
@@ -255,7 +255,7 @@ export default async function DashboardPage() {
             <p className="text-[11.5px] font-semibold text-s112-text-2">Offene Rechnungen</p>
           </div>
           <p className="font-mono text-2xl text-s112-text tabular-nums">
-            {offenePosten.toLocaleString('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+            {fmtEur(offenePosten)}
           </p>
           <p className={`text-[11.5px] ${offenePostenUeberfaellig > 0 ? 'text-s112-err-fg' : 'text-s112-tertiary'}`}>
             {offenePostenListe.length === 0
@@ -318,7 +318,7 @@ export default async function DashboardPage() {
               const color = i === 11 ? 'bg-s112-teal' : i >= 9 ? 'bg-s112-blue-300' : 'bg-s112-blue-100'
               const heightPct = Math.max(3, Math.round((s.value / absatzMax) * 100))
               return (
-                <div key={i} className={`flex-1 h-full flex flex-col justify-end ${i < 6 ? 'hidden sm:flex' : ''}`} title={`${s.label}: ${s.value.toLocaleString('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}`}>
+                <div key={i} className={`flex-1 h-full flex flex-col justify-end ${i < 6 ? 'hidden sm:flex' : ''}`} title={`${s.label}: ${fmtEur(s.value)}`}>
                   <div className={`w-full rounded-t-[5px] ${color}`} style={{ height: `${heightPct}%` }} />
                 </div>
               )
@@ -360,7 +360,7 @@ export default async function DashboardPage() {
                       </span>
                     </span>
                     <span className="font-mono text-right text-s112-text tabular-nums">
-                      {v.betrag.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' })}
+                      {fmtEur(v.betrag)}
                     </span>
                     <span className="text-right text-s112-tertiary">⋯</span>
                   </div>
