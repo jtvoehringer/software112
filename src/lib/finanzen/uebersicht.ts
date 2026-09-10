@@ -15,6 +15,7 @@
 import { alle } from '@/lib/supabase/alle'
 import type { Ctx, R } from '@/app/(dashboard)/dashboard/_shared/data'
 import { posSum, ZAHLUNGSZIEL_TAGE, toDateStr } from '@/app/(dashboard)/dashboard/_shared/data'
+import { anlagenspiegel, buchwertAm, type Anlage } from '@/lib/ea/anlagen'
 
 export type Monat = { monat: number; einnahmen: number; ausgaben: number; einnahmenVj: number; ausgabenVj: number }
 export type KategorieZeile = { name: string; betrag: number; vj: number }
@@ -34,6 +35,17 @@ export type Finanzen = {
   belege: { zuBuchen: number; ohneKategorie: number; buchungenJahr: number }
   kategorien: { einnahmen: KategorieZeile[]; ausgaben: KategorieZeile[] }
   uebergabe: { rechnungenOffen: number; belegeOffen: number; letzte: { art: string; erstelltAm: string; anzahl: number } | null } | null
+  /** Anlagevermögen (Migration 200): Buchwert lt. Verzeichnis, AfA des Jahres, Anlagenkäufe (Kontenklasse 0) und steuerliches Ergebnis */
+  anlagen: {
+    imVerzeichnis: number; anzahlAktiv: number; buchwert: number; anschaffungskosten: number; kumulierteAfa: number
+    afaJahr: number; afaGebuchtJahr: number; afaVj: number
+    anlagenkaeufeJahr: number; anlagenkaeufeVj: number
+    /** Ergebnis + Anlagenkäufe − AfA (steuerlich, vereinfacht) – laufendes Jahr bzw. Vorjahr bis zum gleichen Stichtag */
+    ergebnisNachAfa: number; ergebnisNachAfaVj: number
+    /** Vorjahr gesamt (für SVS-Einkünfte-Vorschlag) */
+    ergebnisNachAfaVjGesamt: number
+    offeneKaeufe: number
+  }
 }
 
 const MONATE_KURZ = ['Jän', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
@@ -70,7 +82,7 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
 
   const [{ data: txRaw }, { data: vpRaw }, { data: kontenRaw }, { data: zahlRaw }, { data: umbRaw }, { data: uvaRaw }, { data: maRaw }, { count: belegeErkannt }, prot] = await Promise.all([
     alle<R>(ctx.tf(ctx.q('ea_transaktionen')
-      .select('datum, typ, betrag_netto, betrag_brutto, kategorie_id, konto_id, bmd_export_id, kategorie:ea_kategorien!kategorie_id(name)')
+      .select('id, datum, typ, betrag_netto, betrag_brutto, kategorie_id, konto_id, bmd_export_id, anlage_id, kategorie:ea_kategorien!kategorie_id(name, konto_nr)')
       .gte('datum', von).lte('datum', bis).order('datum').order('id'))),
     alle<R>(ctx.tf(ctx.q('verkaufsposten')
       .select('id, datum, bezahlt, bmd_export_id, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz)')
@@ -85,6 +97,8 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
       ? ctx.tf(ctx.q('buchhaltung_export_protokoll').select('art, erstellt_am, anzahl').order('erstellt_am', { ascending: false }).limit(1))
       : Promise.resolve({ data: [] }),
   ])
+  // Anlagenverzeichnis (Migration 200) – alle Jahre, für Buchwert und AfA
+  const { data: anlagenRaw } = await ctx.tf(ctx.q('ea_anlagen').select('id, name, gruppe, konto_nr, anschaffung_am, ak_netto, nutzungsdauer_jahre, methode, degressiv_satz, restwert, abgang_am, veraeusserungserloes, transaktion_id'))
 
   const tx = (txRaw ?? []) as R[]
   const vp = (vpRaw ?? []) as R[]
@@ -95,6 +109,11 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
   const gesamtVj = { einnahmen: 0, ausgaben: 0, ergebnis: 0 }
   const katMap = new Map<string, { typ: string; betrag: number; vj: number }>()
   let ohneKategorie = 0, buchungenJahr = 0
+  // Migration 200: AfA-Buchungen (anlage_id) sind nicht zahlungswirksam und
+  // werden getrennt gerechnet; Anlagenkäufe (Kategorie Kontenklasse 0) sind
+  // steuerlich keine Betriebsausgabe, sondern werden über die AfA abgesetzt.
+  let afaGebuchtJahr = 0, afaGebuchtVj = 0, anlagenkaeufeJahr = 0, anlagenkaeufeVj = 0, anlagenkaeufeVjGesamt = 0
+  const anlagenkaufIds = new Set<string>()
 
   for (const t of tx) {
     const d = String(t.datum).slice(0, 10)
@@ -102,6 +121,16 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
     const netto = Number(t.betrag_netto ?? 0) || 0
     const istEinnahme = t.typ === 'einnahme'
     const kat = t.kategorie?.name as string | undefined
+    if (t.anlage_id) {
+      if (j === jahr && d <= stichtag) afaGebuchtJahr += netto
+      else if (j === jahr - 1 && d <= stichtagVj) afaGebuchtVj += netto
+      continue
+    }
+    const istAnlagenkauf = !istEinnahme && t.kategorie?.konto_nr !== null && t.kategorie?.konto_nr !== undefined && Number(t.kategorie.konto_nr) < 1000
+    if (istAnlagenkauf) {
+      if (j === jahr && d <= stichtag) { anlagenkaeufeJahr += netto; anlagenkaufIds.add(t.id) }
+      else if (j === jahr - 1) { anlagenkaeufeVjGesamt += netto; if (d <= stichtagVj) anlagenkaeufeVj += netto }
+    }
     if (j === jahr) {
       if (d > stichtag) continue
       buchungenJahr++
@@ -174,8 +203,33 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
     }
   }
 
+  // ── Anlagevermögen (Migration 200) ────────────────────────────────────────
+  const anlagenListe: (Anlage & { transaktion_id: string | null })[] = ((anlagenRaw ?? []) as R[]).map(a => ({
+    id: a.id, name: a.name, gruppe: a.gruppe ?? null, konto_nr: a.konto_nr === null || a.konto_nr === undefined ? null : Number(a.konto_nr),
+    anschaffung_am: String(a.anschaffung_am).slice(0, 10), ak_netto: Number(a.ak_netto), nutzungsdauer_jahre: Number(a.nutzungsdauer_jahre),
+    methode: a.methode, degressiv_satz: a.degressiv_satz === null || a.degressiv_satz === undefined ? null : Number(a.degressiv_satz),
+    restwert: Number(a.restwert ?? 0), abgang_am: a.abgang_am ? String(a.abgang_am).slice(0, 10) : null,
+    veraeusserungserloes: a.veraeusserungserloes === null || a.veraeusserungserloes === undefined ? null : Number(a.veraeusserungserloes),
+    transaktion_id: a.transaktion_id ?? null,
+  }))
+  const spiegel = anlagenspiegel(anlagenListe, jahr)
+  const spiegelVj = anlagenspiegel(anlagenListe, jahr - 1)
+  const verknuepft = new Set(anlagenListe.map(a => a.transaktion_id).filter(Boolean) as string[])
+  const anlagen: Finanzen['anlagen'] = {
+    imVerzeichnis: anlagenListe.length, anzahlAktiv: spiegel.anzahlAktiv,
+    buchwert: anlagenListe.reduce((s, a) => s + buchwertAm(a, stichtag), 0),
+    anschaffungskosten: spiegel.anschaffungskosten, kumulierteAfa: spiegel.kumulierteAfa,
+    afaJahr: spiegel.afaJahr, afaGebuchtJahr, afaVj: spiegelVj.afaJahr,
+    anlagenkaeufeJahr, anlagenkaeufeVj,
+    ergebnisNachAfa: ytd.ergebnis + anlagenkaeufeJahr - spiegel.afaJahr,
+    ergebnisNachAfaVj: ytd.ergebnisVj + anlagenkaeufeVj - spiegelVj.afaJahr,
+    ergebnisNachAfaVjGesamt: gesamtVj.ergebnis + anlagenkaeufeVjGesamt - spiegelVj.afaJahr,
+    offeneKaeufe: [...anlagenkaufIds].filter(id => !verknuepft.has(id)).length,
+  }
+  void afaGebuchtVj
+
   return {
-    art: opts.art, jahr, stichtag, ytd, gesamtVj, monate,
+    art: opts.art, jahr, stichtag, ytd, gesamtVj, monate, anlagen,
     liquiditaet: { summe: konten.reduce((s, k) => s + k.saldo, 0), konten },
     forderungen,
     umsatz: { ytd: nettoUmsatz(vpJahr), vj: nettoUmsatz(vpVj) },

@@ -116,6 +116,7 @@ const NAV: NavGroup[] = [
       { href: '/buchhaltung/kategorien',      label: 'Kategorien',      child: true },
       { href: '/buchhaltung/dauerauftraege',  label: 'Daueraufträge',   child: true, keywords: 'wiederkehrend' },
       { href: '/buchhaltung/monatsabschluss', label: 'Monatsabschluss', child: true },
+      { href: '/buchhaltung/anlagen',         label: 'Anlagen & AfA',   child: true, keywords: 'anlagenverzeichnis abschreibung afa anlagenspiegel gwg nutzungsdauer buchwert' },
       { href: '/buchhaltung/uva',             label: 'UVA-Meldung',     keywords: 'umsatzsteuer finanzonline' },
       { href: '/weinhandel/offene-posten',    label: 'Offene Posten' },
       { href: '/konten',                      label: 'Konten',          keywords: 'bank kassa' },

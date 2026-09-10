@@ -145,6 +145,34 @@ export default async function FinanzUebersichtPage({ searchParams }: { searchPar
         </Card>
       </div>
 
+      {/* ── Anlagevermögen & steuerliches Ergebnis (Migration 200) ──────────── */}
+      <Card title="Anlagevermögen & Ergebnis nach AfA" right={<Link href="/buchhaltung/anlagen" className="text-[12.5px] text-s112-blue-700 hover:underline">Anlagen & AfA →</Link>}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-3 text-[13px]">
+          <div className="space-y-2">
+            <Zeile k={`Ergebnis (Einnahmen − Ausgaben)${jahr === jahrAktuell ? ' bis heute' : ''}`} v={<span className="font-mono">{fmtEur(f.ytd.ergebnis)}</span>} />
+            <Zeile k="+ Anlagenkäufe (Kontenklasse 0, aktivierungspflichtig)" v={<span className="font-mono">{f.anlagen.anlagenkaeufeJahr > 0 ? `+ ${fmtEur(f.anlagen.anlagenkaeufeJahr)}` : '–'}</span>} />
+            <Zeile k={`− Abschreibung (AfA) ${jahr} lt. Anlagenverzeichnis`} v={<span className="font-mono">{f.anlagen.afaJahr > 0 ? `− ${fmtEur(f.anlagen.afaJahr)}` : f.anlagen.imVerzeichnis === 0 ? <Link href="/buchhaltung/anlagen" className="text-s112-blue-700 hover:underline">Verzeichnis anlegen</Link> : '–'}</span>} />
+            <div className="flex items-baseline justify-between gap-3 pt-2 border-t border-s112-line-str">
+              <span className="font-semibold text-s112-text">Ergebnis nach AfA (steuerlich, vereinfacht)</span>
+              <span className={`font-mono font-semibold ${f.anlagen.ergebnisNachAfa < 0 ? 'text-s112-err-fg' : 'text-s112-text'}`}>{fmtEur(f.anlagen.ergebnisNachAfa)}</span>
+            </div>
+            <p className="text-[11.5px] text-s112-tertiary">Vorjahr bis zum gleichen Stichtag: {fmtEur(f.anlagen.ergebnisNachAfaVj)}{f.anlagen.afaGebuchtJahr > 0 && <> · AfA {jahr} bereits gebucht: {fmtEur(f.anlagen.afaGebuchtJahr)}</>}</p>
+          </div>
+          <div className="space-y-2">
+            <Zeile k="Anlagen im Verzeichnis" v={f.anlagen.imVerzeichnis === 0 ? <Badge tone="gray">keine</Badge> : <span className="font-mono">{f.anlagen.anzahlAktiv} aktiv</span>} />
+            <Zeile k="Anschaffungskosten (Bestand)" v={<span className="font-mono">{fmtEur(f.anlagen.anschaffungskosten)}</span>} />
+            <Zeile k="Kumulierte AfA" v={<span className="font-mono">{fmtEur(f.anlagen.kumulierteAfa)}</span>} />
+            <div className="flex items-baseline justify-between gap-3 pt-2 border-t border-s112-line-str">
+              <span className="font-semibold text-s112-text">Buchwert Anlagevermögen{jahr === jahrAktuell ? '' : ` 31.12.${jahr}`}</span>
+              <span className="font-mono font-semibold text-s112-text">{fmtEur(f.anlagen.buchwert)}</span>
+            </div>
+            {f.anlagen.offeneKaeufe > 0 && (
+              <p className="text-[12px]"><Link href="/buchhaltung/anlagen"><Badge tone="warn">{f.anlagen.offeneKaeufe} {f.anlagen.offeneKaeufe === 1 ? 'Anlagenkauf' : 'Anlagenkäufe'} noch nicht im Verzeichnis</Badge></Link></p>
+            )}
+          </div>
+        </div>
+      </Card>
+
       {/* ── Kategorien ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <KategorieKarte titel={`Einnahmen nach Kategorie ${jahr}`} zeilen={f.kategorien.einnahmen} />

@@ -26,7 +26,8 @@ type R = Record<string, any>
 //
 // Kontierung: src/lib/buchhaltung/bmd.ts (Vorbelegung Einheitskontenrahmen)
 // + Abweichungen des Mandanten aus buchhaltung_kontenmapping. Aufwands- und
-// Ertragskonten der E&A-Buchungen kommen aus ea_kategorien.konto_nr.
+// Ertragskonten der E&A-Buchungen kommen aus ea_kategorien.konto_nr (vierstellig,
+// Kontenklasse 0 wie „Anlagenkauf“ 660 → 0660; AfA-Buchungen laufen über 7010).
 //
 // Personenkonten (Debitor/Kreditor) werden bei der ersten Übergabe eines
 // Kunden/Lieferanten automatisch aus dem Nummernkreis des Mandanten vergeben
@@ -246,7 +247,7 @@ async function ausgangsrechnungen(supabase: any, tenantId: string, m: Mapping, k
     const belegnr = t.bank_ref || `EA-${t.id.slice(0, 8).toUpperCase()}`
     zeilen.push({
       satzart: '0', konto: await konten.debitor(t.firma ?? null, null),
-      gkonto: t.kategorie?.konto_nr ? String(t.kategorie.konto_nr) : m.ertrag_fallback,
+      gkonto: t.kategorie?.konto_nr ? String(t.kategorie.konto_nr).padStart(4, '0') : m.ertrag_fallback,
       belegnr, belegdatum: bmdDatum(t.datum), buchdatum: bmdDatum(t.datum),
       buchsymbol: m.buchsymbol_ar, buchcode: '1',
       prozent: satz, steuercode: steuercodeFuer(fall, m),
@@ -288,7 +289,7 @@ async function eingangsbelege(supabase: any, tenantId: string, m: Mapping, konte
     const lieferant = t.firma?.name ? `${t.firma.name}: ` : ''
     zeilen.push({
       satzart: '0', konto: await konten.kreditor(t.firma ?? null),
-      gkonto: t.kategorie?.konto_nr ? String(t.kategorie.konto_nr) : m.aufwand_fallback,
+      gkonto: t.kategorie?.konto_nr ? String(t.kategorie.konto_nr).padStart(4, '0') : m.aufwand_fallback,
       belegnr, belegdatum: bmdDatum(t.datum), buchdatum: bmdDatum(t.datum),
       buchsymbol: m.buchsymbol_er, buchcode: '2',
       prozent: satz, steuercode: satz > 0 ? m.steuercode_vst : m.steuercode_frei,

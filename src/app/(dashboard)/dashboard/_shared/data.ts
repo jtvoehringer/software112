@@ -8,6 +8,9 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, type UserRole } from '@/lib/auth/roles'
 import type { Charge, Frist, FristStatus } from './types'
 import { periodeVorBeginn } from '@/lib/ea/betriebsbeginn'
+import { afaBuchungsStatus } from '@/lib/ea/anlagen'
+
+const fmtEurKurz = (n: number) => `€ ${n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 export { STATUS_LABEL } from './types'
 export type { Charge, Frist, FristStatus } from './types'
 
@@ -323,6 +326,37 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
         statusText: anzahl === 0 ? 'alle Belege übergeben' : `${anzahl} ${anzahl === 1 ? 'Beleg' : 'Belege'} noch nicht übergeben · bis ${new Date(faelligAm).toLocaleDateString('de-AT')}`,
         href: '/controlling/bmd', quelle: 'system',
       })
+    }
+  }
+
+  // AfA des Vorjahres buchen (Migration 200, nur E&A in software:112): sobald
+  // das Jahr vorbei ist und das Anlagenverzeichnis AfA für das Vorjahr vorsieht,
+  // die noch nicht (vollständig) gebucht ist. Fällig mit dem Jahresabschluss
+  // (Stichtag 30.4. – vor der Steuererklärung), bis dahin als offener Punkt.
+  if (opts.modulEa && !doppik) {
+    const vj = jahr - 1
+    const [{ data: anlRaw }, { data: afaRaw }] = await Promise.all([
+      ctx.tf(ctx.q('ea_anlagen').select('id, name, gruppe, konto_nr, anschaffung_am, ak_netto, nutzungsdauer_jahre, methode, degressiv_satz, restwert, abgang_am, veraeusserungserloes').lte('anschaffung_am', `${vj}-12-31`)),
+      ctx.tf(ctx.q('ea_transaktionen').select('id, anlage_id, betrag_netto, datum, is_locked').not('anlage_id', 'is', null).gte('datum', `${vj}-01-01`).lte('datum', `${vj}-12-31`)),
+    ])
+    const anl = ((anlRaw ?? []) as R[]).map(a => ({
+      id: a.id, name: a.name, gruppe: a.gruppe ?? null, konto_nr: a.konto_nr == null ? null : Number(a.konto_nr),
+      anschaffung_am: String(a.anschaffung_am).slice(0, 10), ak_netto: Number(a.ak_netto), nutzungsdauer_jahre: Number(a.nutzungsdauer_jahre),
+      methode: a.methode, degressiv_satz: a.degressiv_satz == null ? null : Number(a.degressiv_satz), restwert: Number(a.restwert ?? 0),
+      abgang_am: a.abgang_am ? String(a.abgang_am).slice(0, 10) : null, veraeusserungserloes: a.veraeusserungserloes == null ? null : Number(a.veraeusserungserloes),
+    }))
+    if (anl.length > 0) {
+      const st = afaBuchungsStatus(anl, vj, ((afaRaw ?? []) as R[]).map(b => ({ id: b.id, anlage_id: b.anlage_id, betrag_netto: Number(b.betrag_netto), datum: String(b.datum).slice(0, 10), is_locked: !!b.is_locked })))
+      if (st.zeilen.length > 0) {
+        const faelligAm = `${jahr}-04-30`
+        const status = statusAus(faelligAm, st.komplett, ctx.heuteStr, vt)
+        fristen.push({
+          key: `afa:${vj}`, bezeichnung: `AfA ${vj} buchen`, kategorie: 'steuer',
+          hinweis: `Abschreibung lt. Anlagenverzeichnis ${fmtEurKurz(st.soll)} als Betriebsausgabe per 31.12.${vj}`, faelligAm, status,
+          statusText: st.komplett ? `gebucht · ${fmtEurKurz(st.ist)}` : `${st.offen} ${st.offen === 1 ? 'Position' : 'Positionen'} offen · bis ${new Date(faelligAm).toLocaleDateString('de-AT')}`,
+          href: `/buchhaltung/anlagen?jahr=${vj}`, quelle: 'system',
+        })
+      }
     }
   }
 

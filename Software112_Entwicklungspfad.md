@@ -64,6 +64,7 @@ Komponenten:
 - Mobile UX
 - Erweiterte Auswertungen
 - DATEV-Export (erst bei Markteintritt DE; BMD-Übergabe ist seit 4.9.2026 umgesetzt)
+- ✅ Anlagenverzeichnis, AfA-Buchung und Anlagenspiegel (10.9.2026, aus kps-smart-buchhaltung Welle 7/8 übernommen – Migration 200)
 - Weitere Zahlungsmethoden
 
 ---

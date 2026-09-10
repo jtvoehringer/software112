@@ -38,7 +38,7 @@ export default async function BuchhaltungPage({
 
   // Buchungen laden
   let query = (supabase.from('ea_transaktionen') as any)
-    .select('*, ea_kategorien(name), verkaufsposten(rechnungsnummer, kontakt:kontakte!kontakt_id(accountnummer), firma:firmen(debitor_nr, accountnummer))')
+    .select('*, ea_kategorien(name, konto_nr), verkaufsposten(rechnungsnummer, kontakt:kontakte!kontakt_id(accountnummer), firma:firmen(debitor_nr, accountnummer))')
     // abzugsfaehig_pct/betrag_abzugsfaehig kommen bereits über '*' mit (Migration 168)
     .eq('tenant_id', tenantId)
     .gte('datum', `${jahr}-01-01`)
@@ -49,6 +49,9 @@ export default async function BuchhaltungPage({
   if (q)         query = query.ilike('beschreibung', `%${q}%`)
 
   const { data: buchungen } = await query
+  // Anlagenverzeichnis (Migration 200): welche Anschaffungsbuchungen sind schon eine Anlage?
+  const { data: anlagenRaw } = await (supabase.from('ea_anlagen') as any).select('id, transaktion_id').eq('tenant_id', tenantId).not('transaktion_id', 'is', null)
+  const anlageZuBuchung = new Map<string, string>(((anlagenRaw ?? []) as R[]).map(a => [a.transaktion_id as string, a.id as string]))
 
   // Summen berechnen
   const einnahmen = (buchungen as R[])?.filter(b => b.typ === 'einnahme')
@@ -143,6 +146,8 @@ export default async function BuchhaltungPage({
           <Link href="/buchhaltung/dauerauftraege" className="text-s112-blue-700 hover:underline">Daueraufträge</Link>
           <span className="text-s112-tertiary">·</span>
           <Link href="/buchhaltung/monatsabschluss" className="text-s112-blue-700 hover:underline">Monatsabschluss</Link>
+          <span className="text-s112-tertiary">·</span>
+          <Link href="/buchhaltung/anlagen" className="text-s112-blue-700 hover:underline">Anlagen & AfA</Link>
         </div>
         {buchungen && buchungen.length > 0 && (
           <CsvExportButton buchungen={buchungen as R[]} jahr={jahr} />
@@ -188,6 +193,16 @@ export default async function BuchhaltungPage({
                 </td>
                 <td className="px-4 py-3 text-s112-text-2 text-xs">
                   {b.ea_kategorien?.name ?? '–'}
+                  {b.anlage_id && (
+                    <Link href={`/buchhaltung/anlagen/${b.anlage_id}`} className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-s112-blue-50 text-s112-blue-700 hover:underline" title="AfA-Buchung aus dem Anlagenverzeichnis – zurücknehmen unter Anlagen & AfA">
+                      AfA
+                    </Link>
+                  )}
+                  {!b.anlage_id && b.typ === 'ausgabe' && b.ea_kategorien?.konto_nr != null && Number(b.ea_kategorien.konto_nr) < 1000 && (
+                    anlageZuBuchung.has(b.id)
+                      ? <Link href={`/buchhaltung/anlagen/${anlageZuBuchung.get(b.id)}`} className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-[#F2F3F5] text-s112-text-1 hover:underline" title="Als Anlage erfasst">Anlage</Link>
+                      : <Link href={`/buchhaltung/anlagen/neu?buchung=${b.id}`} className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-s112-warn-bg text-s112-warn-fg hover:underline" title="Anschaffung noch nicht im Anlagenverzeichnis">Anlage anlegen</Link>
+                  )}
                   {Number(b.abzugsfaehig_pct ?? 100) < 100 && (
                     <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-s112-warn-bg text-s112-warn-fg"
                       title="Eingeschränkt abzugsfähig">
@@ -209,7 +224,7 @@ export default async function BuchhaltungPage({
                     >
                       <Link2 className="w-3.5 h-3.5" /> Verkauf
                     </Link>
-                  ) : !b.is_locked && (
+                  ) : b.anlage_id ? null : !b.is_locked && (
                     <form action={async () => {
                       'use server'
                       await deleteEaTransaktion(b.id)
