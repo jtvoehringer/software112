@@ -102,6 +102,7 @@ export async function bucheAfa(jahr: number, zeilen: { anlageId: string; name: s
   const pruef = Array.isArray(pruefRaw) ? pruefRaw[0] : pruefRaw
   if (pruef && pruef.offen === false) return { ok: false, fehler: pruef.grund ?? `Dezember ${jahr} ist abgeschlossen.` }
 
+  // tenant-isolation-ignore: Systemkategorie (tenant_id IS NULL) – gilt bewusst für alle Mandanten, kein Mandantendatum
   const { data: kat } = await (supabase.from('ea_kategorien') as any)
     .select('id').is('tenant_id', null).eq('name', 'Abschreibung (AfA)').limit(1).maybeSingle()
   if (!kat?.id) return { ok: false, fehler: 'Die Systemkategorie „Abschreibung (AfA)“ fehlt (Migration 200).' }
