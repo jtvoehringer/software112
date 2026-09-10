@@ -1,9 +1,12 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Wine, Package, ReceiptText, ListChecks, ShoppingCart, Calendar, Wallet, FlaskConical, Grape } from 'lucide-react'
-import { DashHeader, Tile, Card, Badge, Note, Empty, fmtEur, fmtNum, fmtDate, tageBis, type BadgeTone } from './_shared/ui'
+import { DashHeader, Tile, Card, Badge, Empty, fmtEur, fmtNum, fmtDate, tageBis, type BadgeTone } from './_shared/ui'
 import { getCtx, ladeKeller, ladeFlaschenlager, ladeOffenePosten, ladeFristen, ladeEinstellungen, ladeNaechsteTermine, ladeWeingarten, type R } from './_shared/data'
 import { ladeFinanzen } from '@/lib/finanzen/uebersicht'
+import { ladeMorgenbericht } from '@/lib/morgenbericht/erstellen'
+import { canWrite } from '@/lib/auth/roles'
+import MorgenberichtKarte from './morgenbericht/MorgenberichtKarte'
 import { TrendingUp } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Übersicht – software:112' }
@@ -12,7 +15,7 @@ export const dynamic = 'force-dynamic'
 // ── Sicht "Übersicht" (Dashboard-Relaunch 27.8.2026) ─────────────────────────
 // Bereichsübergreifende Startseite nach dem Dashboard-PoC: vier Kennzahlen
 // (Keller, Flaschenlager, Offene Posten, Aufgaben), "Nächste Schritte" über
-// alle Module und die Karte "Datenfluss". Die Verkaufs-Kennzahlen des
+// alle Module und die Karte "Morgenbericht" (täglicher Scan + Wetter je Ried). Die Verkaufs-Kennzahlen des
 // bisherigen Dashboards leben unverändert in der Sicht "Verkauf & CRM".
 
 type Schritt = { key: string; titel: string; hinweis: string; wann: string; badge: string; tone: BadgeTone; href: string; rang: number }
@@ -22,7 +25,7 @@ export default async function UebersichtPage() {
   const einst = await ladeEinstellungen(ctx)
   const jahr = ctx.heute.getFullYear()
 
-  const [keller, flaschen, offen, fristen, termine, weingarten, { data: profil }, { count: checklistOffen }, { count: belegeErkannt }, finanzen] = await Promise.all([
+  const [keller, flaschen, offen, fristen, termine, weingarten, { data: profil }, { count: checklistOffen }, finanzen, morgenbericht] = await Promise.all([
     ladeKeller(ctx, einst.messintervallTage),
     ladeFlaschenlager(ctx),
     ladeOffenePosten(ctx),
@@ -31,9 +34,10 @@ export default async function UebersichtPage() {
     ladeWeingarten(ctx),
     ctx.userId ? ctx.q('profiles').select('full_name').eq('id', ctx.userId).maybeSingle() : Promise.resolve({ data: null }),
     ctx.tf(ctx.q('checklisten_punkte').select('id, checkliste:checkliste_id!inner(jahr, typ)', { count: 'exact', head: true }).eq('erledigt', false).eq('checkliste.jahr', jahr)),
-    einst.modulEa ? ctx.tf(ctx.q('ea_belege').select('id', { count: 'exact', head: true }).eq('status', 'erkannt')) : Promise.resolve({ count: 0 }),
     // Finanzübersicht-Kachel (Rückmeldung 8.9.2026): "wo stehe ich" auf einen Klick
     einst.modulEa ? ladeFinanzen(ctx, { art: einst.doppik ? 'doppik' : 'ea', uvaZeitraum: einst.uvaZeitraum }) : Promise.resolve(null),
+    // Morgenbericht (Migration 201): jüngster gespeicherter Bericht
+    ctx.tenantId ? ladeMorgenbericht(ctx.supabase, ctx.tenantId) : Promise.resolve(null),
   ])
 
   const vorname = ((profil as R | null)?.full_name ?? '').split(/\s+/)[0] || null
@@ -155,25 +159,8 @@ export default async function UebersichtPage() {
           )}
         </Card>
 
-        {/* ── Datenfluss ─────────────────────────────────────────────────── */}
-        <Card title="Datenfluss statt Zettelwirtschaft">
-          <p className="text-[13px] text-s112-text-2 mb-3">Stammdaten und Meldungen fließen strukturiert – Stand der Anbindungen dieses Betriebs.</p>
-          <div className="grid grid-cols-[minmax(150px,40%)_1fr] text-[13px]">
-            <Zeile k="Rieden & Grundstücke">
-              <Link href="/weingarten" className="hover:underline">{fmtNum(weingarten.rieden.length)} Rieden · {fmtNum(weingarten.grundstueckeCount)} Grundstücke · {fmtNum(weingarten.flaecheHa, 2)} ha</Link>
-              {weingarten.rieden.some(r => r.amaFs.length > 0) ? <Badge tone="ok">AMA-FS hinterlegt</Badge> : <Badge tone="gray">AMA-FS offen</Badge>}
-            </Zeile>
-            <Zeile k="E-Mail & CRM">{einst.m365Aktiv ? <Badge tone="ok">Microsoft 365 aktiv</Badge> : <Badge tone="gray">M365 nicht verbunden</Badge>}</Zeile>
-            <Zeile k="Belege Buchhaltung">
-              {einst.modulEa
-                ? (belegeErkannt ?? 0) > 0 ? <Link href="/buchhaltung/belege"><Badge tone="warn">OCR · {belegeErkannt} zu buchen</Badge></Link> : <Badge tone="ok">OCR · nichts offen</Badge>
-                : <Badge tone="gray">E&A-Modul inaktiv</Badge>}
-            </Zeile>
-            <Zeile k="Erntemeldung / bawb.at">{einst.bawbKennung ? <Badge tone="ok">✓ Kennung hinterlegt</Badge> : <Link href="/betrieb/einstellungen"><Badge tone="gray">Kennung fehlt</Badge></Link>}</Zeile>
-            <Zeile k="Weinbuch / Kellerbuch"><Link href="/reports/weinbuecher-sammlung"><Badge tone="info">→ PDF-Export jederzeit</Badge></Link></Zeile>
-          </div>
-          <Note className="mt-3">Die Kennzahlen dieser Seite entstehen aus den Modulen des Betriebs – nichts wird doppelt erfasst. Fristen und Regeln sind Betriebs-Stammdaten, keine Rechtsberatung.</Note>
-        </Card>
+        {/* ── Morgenbericht (ersetzt seit 10.9.2026 „Datenfluss statt Zettelwirtschaft“) ── */}
+        <MorgenberichtKarte bericht={morgenbericht} darfSchreiben={canWrite(ctx.role)} wetterHinweis={!einst.wetterAktiv || !einst.modulWeingarten ? 'Wetter & Empfehlungen sind für diesen Betrieb deaktiviert (Mein Betrieb → Branding & Regeln).' : null} />
       </div>
 
       {/* ── Schnellzugriff ─────────────────────────────────────────────────── */}
@@ -200,11 +187,3 @@ export default async function UebersichtPage() {
   )
 }
 
-function Zeile({ k, children }: { k: string; children: React.ReactNode }) {
-  return (
-    <>
-      <div className="py-2 border-b border-s112-line text-s112-text-2">{k}</div>
-      <div className="py-2 border-b border-s112-line flex items-center gap-2 flex-wrap font-medium">{children}</div>
-    </>
-  )
-}

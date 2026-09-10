@@ -3,7 +3,10 @@
     {
       "source": "/api/email/poll",
       "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" }
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
       ]
     }
   ],
@@ -13,8 +16,8 @@
       "schedule": "0 5 * * *"
     },
     {
-      "path": "/api/cron/ea-dauerauftraege",
-      "schedule": "0 6 * * *"
+      "path": "/api/cron/taeglich",
+      "schedule": "0 5 * * *"
     }
   ]
 }

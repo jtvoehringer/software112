@@ -64,6 +64,7 @@ const NAV: NavGroup[] = [
       { href: '/dashboard/verkauf',    label: 'Verkauf & CRM',       keywords: 'umsatz aufträge leads offene posten' },
       { href: '/dashboard/weingarten', label: 'Weingarten & Ernte',  keywords: 'rieden lese checkliste wartefristen' },
       { href: '/dashboard/fristen',    label: 'Meldungen & Fristen', keywords: 'termine meldung uva erntemeldung ampel' },
+      { href: '/dashboard/morgenbericht', label: 'Morgenbericht',    keywords: 'wetter regen prognose spritzfenster scan befunde empfehlungen rieden' },
     ],
   },
   {

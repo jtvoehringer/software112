@@ -264,6 +264,31 @@ function BrandingTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
         </div>
       </div>
 
+      {/* Morgenbericht & Wetter (Migration 201, Jour fixe 9.9.2026) */}
+      <div className="pt-2 border-t border-s112-border">
+        <p className="text-sm font-semibold text-s112-text-1 mb-2">Morgenbericht & Wetter</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <label className="flex items-start gap-2 text-sm text-s112-text">
+            <input name="morgenbericht_aktiv" type="checkbox" defaultChecked={daten.morgenbericht_aktiv} className="mt-1 accent-s112-teal" />
+            <span>Morgenbericht täglich um 7 Uhr erstellen<span className="block text-xs text-s112-muted">Prüft Fristen, Gärkontrollen, Zahlungsziele, Belege, Bestände, Wartefristen, Kontakte und Abo; Zusammenfassung mit KI zählt als eine Abfrage im KI-Kontingent.</span></span>
+          </label>
+          <label className="flex items-start gap-2 text-sm text-s112-text">
+            <input name="wetter_aktiv" type="checkbox" defaultChecked={daten.wetter_aktiv} className="mt-1 accent-s112-teal" />
+            <span>Wetter & Empfehlungen je Ried<span className="block text-xs text-s112-muted">GeoSphere Austria (Rückblick 1 km, Prognose 2,5 km) für Rieden mit Koordinaten – Standard und Premium.</span></span>
+          </label>
+          <div>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Belag abgewaschen ab (mm Regen seit Behandlung)</label>
+            <input name="wetter_abwasch_mm" type="number" min="5" max="100" required defaultValue={daten.wetter_abwasch_mm} className={inputCls()} style={{ maxWidth: '180px' }} />
+            <p className="text-xs text-s112-muted mt-1">Faustregel 20–30 mm; ab 60 % davon gilt der Belag als nachlassend.</p>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Spritzintervall (Tage, Mai–August)</label>
+            <input name="wetter_intervall_tage" type="number" min="5" max="60" required defaultValue={daten.wetter_intervall_tage} className={inputCls()} style={{ maxWidth: '180px' }} />
+            <p className="text-xs text-s112-muted mt-1">Länger ohne Behandlung → Hinweis „Spritzintervall abgelaufen“ im Morgenbericht.</p>
+          </div>
+        </div>
+      </div>
+
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending}
           className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">

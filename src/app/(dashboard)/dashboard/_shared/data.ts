@@ -446,9 +446,9 @@ export async function ladeNaechsteTermine(ctx: Ctx, limit = 5) {
 // ── Tenant-Einstellungen, die die Sichten brauchen ───────────────────────────
 
 export async function ladeEinstellungen(ctx: Ctx) {
-  if (!ctx.tenantId) return { modulEa: false, doppik: false, uvaZeitraum: 'quartalsweise' as const, bawbKennung: false, assistentAktiv: false, m365Aktiv: false, messintervallTage: GAERUNG_MESSINTERVALL_TAGE, vorwarnungTage: FAELLIG_TAGE, betriebsbeginn: null as string | null }
+  if (!ctx.tenantId) return { modulEa: false, doppik: false, uvaZeitraum: 'quartalsweise' as const, bawbKennung: false, assistentAktiv: false, m365Aktiv: false, messintervallTage: GAERUNG_MESSINTERVALL_TAGE, vorwarnungTage: FAELLIG_TAGE, betriebsbeginn: null as string | null, morgenberichtAktiv: false, wetterAktiv: false, wetterAbwaschMm: 25, wetterIntervallTage: 14, modulWeingarten: false }
   const { data } = await ctx.q('tenant_einstellungen')
-    .select('modul_ea, buchhaltungsart, ea_uva_zeitraum, bawb_kennung, assistent_aktiv, m365_modul_aktiv, gaerung_messintervall_tage, fristen_vorwarnung_tage, ea_betriebsbeginn')
+    .select('modul_ea, buchhaltungsart, ea_uva_zeitraum, bawb_kennung, assistent_aktiv, m365_modul_aktiv, gaerung_messintervall_tage, fristen_vorwarnung_tage, ea_betriebsbeginn, morgenbericht_aktiv, wetter_aktiv, wetter_abwasch_mm, wetter_intervall_tage, modul_weingarten')
     .eq('tenant_id', ctx.tenantId).maybeSingle()
   const d = (data ?? {}) as R
   return {
@@ -464,5 +464,11 @@ export async function ladeEinstellungen(ctx: Ctx) {
     vorwarnungTage:    Number(d.fristen_vorwarnung_tage)    > 0 ? Number(d.fristen_vorwarnung_tage)    : FAELLIG_TAGE,
     // Betriebsbeginn E&A (Migration 180) – UVA-Perioden davor nicht als offen zeigen
     betriebsbeginn:    (d.ea_betriebsbeginn ?? null) as string | null,
+    // Morgenbericht & Wetter (Migration 201)
+    morgenberichtAktiv: d.morgenbericht_aktiv !== false,
+    wetterAktiv: d.wetter_aktiv !== false,
+    wetterAbwaschMm: Number(d.wetter_abwasch_mm) > 0 ? Number(d.wetter_abwasch_mm) : 25,
+    wetterIntervallTage: Number(d.wetter_intervall_tage) > 0 ? Number(d.wetter_intervall_tage) : 14,
+    modulWeingarten: d.modul_weingarten !== false,
   }
 }

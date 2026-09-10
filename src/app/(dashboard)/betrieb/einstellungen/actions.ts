@@ -52,6 +52,11 @@ export async function saveBrandingOwn(formData: FormData) {
       // Dashboard-Regeln (Migration 179) – Grenzen wie der CHECK in der DB
       gaerung_messintervall_tage: Math.min(60,  Math.max(1, num('gaerung_messintervall_tage') ?? 3)),
       fristen_vorwarnung_tage:    Math.min(365, Math.max(1, num('fristen_vorwarnung_tage')    ?? 30)),
+      // Morgenbericht & Wetter (Migration 201)
+      morgenbericht_aktiv:        formData.get('morgenbericht_aktiv') === 'on',
+      wetter_aktiv:               formData.get('wetter_aktiv') === 'on',
+      wetter_abwasch_mm:          Math.min(100, Math.max(5, num('wetter_abwasch_mm') ?? 25)),
+      wetter_intervall_tage:      Math.min(60, Math.max(5, num('wetter_intervall_tage') ?? 14)),
       aktualisiert_am:           new Date().toISOString(),
       // Absichtlich KEINE brevo_*/modul_*/sumup_*/email_*/m365_*-Felder hier -
       // .upsert() setzt nur die angegebenen Spalten, alle anderen bleiben

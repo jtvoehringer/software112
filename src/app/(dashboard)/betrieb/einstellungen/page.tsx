@@ -25,6 +25,11 @@ export type EigeneBetriebsdaten = {
   // Migration 179 – Dashboard-Regeln je Betrieb
   gaerung_messintervall_tage: number
   fristen_vorwarnung_tage: number
+  // Morgenbericht & Wetter (Migration 201)
+  morgenbericht_aktiv: boolean
+  wetter_aktiv: boolean
+  wetter_abwasch_mm: number
+  wetter_intervall_tage: number
   betrieb_name: string | null
   betrieb_strasse: string | null
   betrieb_plz: string | null
@@ -66,7 +71,7 @@ export default async function MeinBetriebPage() {
     (admin.from('tenant_einstellungen') as any)
       .select(`
         anzeigename, logo_url, primary_color, secondary_color, session_timeout_minuten,
-        gaerung_messintervall_tage, fristen_vorwarnung_tage,
+        gaerung_messintervall_tage, fristen_vorwarnung_tage, morgenbericht_aktiv, wetter_aktiv, wetter_abwasch_mm, wetter_intervall_tage,
         betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_telefon,
         betrieb_email, betrieb_website, betrieb_uid, betrieb_betriebsnummer, ea_betriebsbeginn, modul_ea, buchhaltungsart,
         rechnung_iban, rechnung_bic, rechnung_fusstext,
@@ -94,6 +99,10 @@ export default async function MeinBetriebPage() {
     session_timeout_minuten: s?.session_timeout_minuten ?? null,
     gaerung_messintervall_tage: Number(s?.gaerung_messintervall_tage ?? 3),
     fristen_vorwarnung_tage:    Number(s?.fristen_vorwarnung_tage ?? 30),
+    morgenbericht_aktiv: s?.morgenbericht_aktiv !== false,
+    wetter_aktiv: s?.wetter_aktiv !== false,
+    wetter_abwasch_mm: Number(s?.wetter_abwasch_mm ?? 25),
+    wetter_intervall_tage: Number(s?.wetter_intervall_tage ?? 14),
     betrieb_name:      s?.betrieb_name ?? null,
     betrieb_strasse:   s?.betrieb_strasse ?? null,
     betrieb_plz:       s?.betrieb_plz ?? null,

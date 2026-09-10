@@ -65,6 +65,7 @@ Komponenten:
 - Erweiterte Auswertungen
 - DATEV-Export (erst bei Markteintritt DE; BMD-Übergabe ist seit 4.9.2026 umgesetzt)
 - ✅ Anlagenverzeichnis, AfA-Buchung und Anlagenspiegel (10.9.2026, aus kps-smart-buchhaltung Welle 7/8 übernommen – Migration 200)
+- ✅ Morgenbericht und Wetteranbindung (beschlossen Jour fixe 9.9.2026, ausgeliefert 10.9.2026 – Migration 201, docs/Morgenbericht_Wetter.md; ersetzt die Karte „Datenfluss“ auf der Übersicht)
 - Weitere Zahlungsmethoden
 
 ---
@@ -107,7 +108,7 @@ Flugprotokoll als Behandlung zurück.
 
 ### Morgenbericht – täglicher Scan auf Unregelmäßigkeiten je Betrieb
 
-Stand 4.9.2026, zur Entscheidung im Jour fixe am 9.9.2026.
+**Beschlossen im Jour fixe 9.9.2026, umgesetzt 10.9.2026 (Migration 201, docs/Morgenbericht_Wetter.md).** Ursprüngliches Konzept:
 
 **Verortung:** Basisfunktion für alle Pakete (deterministische Prüfungen);
 die KI-Zusammenfassung und bot:112-Ausgabe zählen gegen das KI-Kontingent
@@ -126,7 +127,7 @@ des Pakets (Standard/Premium-Argument).
 
 ### Wetteranbindung und Maßnahmen-Empfehlungen
 
-Stand 4.9.2026, zur Entscheidung im Jour fixe am 9.9.2026.
+**Beschlossen im Jour fixe 9.9.2026, umgesetzt 10.9.2026 (GeoSphere INCA/AROME je Rieden-Koordinate, Regelmaschine, Migration 201).** Ursprüngliches Konzept:
 
 **Verortung:** Standard/Premium (Weingarten-Modul + KI); liefert in den
 Morgenbericht.
