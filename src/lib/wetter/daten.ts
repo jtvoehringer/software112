@@ -6,6 +6,7 @@
 // keinen stündlichen Cron; der Morgenbericht-Cron wärmt den Cache täglich vor.
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { alle } from '@/lib/supabase/alle'
 import { holePrognose, holeRueckblick, type WetterStunde } from './geosphere'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -21,7 +22,9 @@ export function wetterPunkte(rieden: WetterRied[]): WetterPunkt[] {
   const map = new Map<string, WetterPunkt>()
   for (const r of rieden) {
     if (r.lat === null || r.lon === null || Number.isNaN(r.lat) || Number.isNaN(r.lon)) continue
-    const lat = Math.round(r.lat / RASTER) * RASTER, lon = Math.round(r.lon / RASTER) * RASTER
+    // Ganzzahlig runden (1/RASTER = 50 Schritte je Grad), damit Gleitkomma-Artefakte
+    // keine Schein-Punkte erzeugen (48.43/0.02 = 2421.4999…)
+    const lat = Math.round(Math.round(r.lat * 1000) / (RASTER * 1000)) * RASTER, lon = Math.round(Math.round(r.lon * 1000) / (RASTER * 1000)) * RASTER
     const key = `${lat.toFixed(3)},${lon.toFixed(3)}`
     const p = map.get(key) ?? { key, lat: Number(lat.toFixed(3)), lon: Number(lon.toFixed(3)), riedIds: [] }
     p.riedIds.push(r.id)
@@ -92,8 +95,11 @@ export async function aktualisiereWetter(tenantId: string, punkte: WetterPunkt[]
 export async function ladeWetterdaten(client: any, tenantId: string, punkte: WetterPunkt[]): Promise<WetterDaten[]> {
   if (punkte.length === 0) return []
   const seit = new Date(Date.now() - RUECKBLICK_TAGE * 86400000).toISOString()
-  const { data } = await (client.from('wetter_stunden') as any).select('lat, lon, quelle, zeit, rr, t2m, rh2m, wind_ms, boe_ms, abgerufen_am')
-    .eq('tenant_id', tenantId).gte('zeit', seit).order('zeit')
+  // Bis zu 7 Punkte × 35 Tage × 24 h + Prognose = mehrere tausend Zeilen - PostgREST
+  // kappt bei 1.000, deshalb seitenweise über alle() (Rückmeldung 11.9.2026: sonst
+  // endete der Rückblick Mitte August und die Prognose fehlte ganz).
+  const { data } = await alle<R>((client.from('wetter_stunden') as any).select('lat, lon, quelle, zeit, rr, t2m, rh2m, wind_ms, boe_ms, abgerufen_am')
+    .eq('tenant_id', tenantId).gte('zeit', seit).order('zeit').order('quelle').order('lat').order('lon'))
   const rows = (data ?? []) as R[]
   return punkte.map(p => {
     const eigene = rows.filter(r => Number(r.lat) === p.lat && Number(r.lon) === p.lon)
