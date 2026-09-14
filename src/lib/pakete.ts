@@ -58,7 +58,7 @@ export const PAKETE: Record<PaketKey, Paket> = {
       modul_newsletter: false, modul_ea: false, modul_controlling: false, modul_export: false,
       assistent_aktiv: false, ki_abfragen_aktiv: true, ki_abfragen_paket: 'basic',
     },
-    leistungen: ['Weingarten & Rieden', 'Kellerbuch', 'CRM', '1 Benutzer', 'Frag dein Weingut: 50 Abfragen/Monat'],
+    leistungen: ['Weingarten & Rieden', 'Kellerbuch', 'CRM', 'Morgenbericht (täglicher Betriebs-Check)', '1 Benutzer', 'Frag dein Weingut: 50 Abfragen/Monat'],
   },
   standard: {
     key: 'standard', label: 'Standard', preisMonat: 299, maxBenutzer: 5, kiLimit: 100,
@@ -66,7 +66,7 @@ export const PAKETE: Record<PaketKey, Paket> = {
       modul_newsletter: true, modul_ea: true, modul_controlling: true, modul_export: false,
       assistent_aktiv: false, ki_abfragen_aktiv: true, ki_abfragen_paket: 'standard',
     },
-    leistungen: ['Alles aus Basis', 'Newsletter', 'E&A-Rechnung', 'Controlling', '5 Benutzer', 'Frag dein Weingut: 100 Abfragen/Monat'],
+    leistungen: ['Alles aus Basis', 'Newsletter', 'E&A-Rechnung mit BMD-Übergabe', 'Controlling', 'Wetter & Empfehlungen je Ried', '5 Benutzer', 'Frag dein Weingut: 100 Abfragen/Monat'],
   },
   premium: {
     key: 'premium', label: 'Premium', preisMonat: 399, maxBenutzer: null, kiLimit: null,
