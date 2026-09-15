@@ -111,7 +111,8 @@ const KAPITEL: Kapitel[] = [
       { titel: 'Antworten, Weiterleiten, Löschen', inhalt: 'Im E-Mail-Detail: "Antworten" öffnet ein Compose-Formular mit vorausgefüllter Adresse und Betreff. "Weiterleiten" öffnet dasselbe mit leerem Empfänger. Das Papierkorb-Icon verschiebt die E-Mail in Gelöschte Elemente.' },
       { titel: 'Neue E-Mail verfassen', inhalt: 'Oben links in der Sidebar auf "Verfassen" klicken. An, Betreff und Nachrichtentext eintragen. Bei verbundener Shared Mailbox: Absender wählen (eigene Mailbox oder z.B. office@weingut.at).' },
       { titel: 'Shared Mailbox einrichten', inhalt: 'Unter Nachrichten > Einstellungen (unten in der Sidebar): E-Mail-Adresse der Shared Mailbox eintragen (z.B. office@weingut.at). Speichern – Seite lädt mit der Shared Mailbox. Voraussetzung: Exchange Send-As-Berechtigung auf die Shared Mailbox.' },
-      { titel: 'E-Mails und CRM', inhalt: 'Öffnest du eine E-Mail in Nachrichten und der Absender ist ein hinterlegter Kontakt, wird die E-Mail automatisch dauerhaft im CRM gespeichert (Aktivitäten-Tab des Kontakts). Klick auf den Kontakt-Badge führt direkt zur Kontaktdetailansicht.' },
+      { titel: 'E-Mails und CRM', inhalt: 'Öffnest du eine E-Mail in Nachrichten und der Absender ist ein hinterlegter Kontakt, eine Firma oder ein Lead, wird die E-Mail automatisch dauerhaft im CRM gespeichert (Aktivitäten-Tab). Erkannt wird die genaue Adresse oder – bei Firmen – die Firmendomain (z. B. jede Adresse @gasthaus-huber.at). Klick auf den Kontakt-Badge führt direkt zur Detailansicht; Leads tragen dort ein "Lead"-Kennzeichen.' },
+      { titel: 'Lead aus E-Mail anlegen', inhalt: 'Ist der Absender weder Kunde noch Lead, fragt die Plattform beim Öffnen der E-Mail "Soll ein Lead angelegt werden?" (in der Liste sind solche Mails mit "neu" markiert). "Ja, Lead anlegen" öffnet den Dialog: die KI liest Signatur und Anliegen aus der E-Mail und belegt Name, E-Mail, Telefon, Position, Firma und Adresse vor – wie beim Visitenkarten-Scan, alle Felder bleiben editierbar. Im Dialog wählst du Segment, Firma (Privatperson, Firma neu als Lead anlegen oder bestehende Firma zuordnen), Rabattgruppe und Zahlungsziel; das Anliegen landet in den Notizen. "Als Lead speichern" legt den Kontakt (und ggf. die Firma) als Lead mit Accountnummer an und hängt die E-Mail als Aktivität an. "Jetzt nicht" blendet die Frage für diese Sitzung aus, "Nein, nicht mehr fragen" merkt sich den Absender dauerhaft (z. B. Newsletter, Lieferantenportal). Systemadressen (noreply, newsletter …) und die eigenen Postfächer lösen keine Frage aus.' },
       { titel: 'Verbindung trennen & neu verbinden', inhalt: 'Unter Nachrichten > Einstellungen: "Trennen & neu verbinden" klicken, um die Microsoft-365-Verbindung neu herzustellen – z.B. wenn eine neue Berechtigung (wie der Kalenderzugriff) freigegeben wurde und die bestehende Verbindung sie noch nicht kennt.' },
     ],
   },
@@ -177,7 +178,7 @@ export default function HandbuchPage() {
       </div>
       <div>
         <h1 className="text-2xl font-semibold text-s112-text">Benutzerhandbuch</h1>
-        <p className="text-sm text-s112-muted mt-1">software:112 – Weinbau-Management · Version 2.6 · Stand September 2026</p>
+        <p className="text-sm text-s112-muted mt-1">software:112 – Weinbau-Management · Version 2.7 · Stand September 2026</p>
       </div>
 
       <div className="flex gap-6">

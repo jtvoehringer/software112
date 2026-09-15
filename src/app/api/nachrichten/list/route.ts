@@ -5,6 +5,7 @@ import { getValidUserAccessToken, getMailboxBase } from '@/lib/m365/graph'
 import { ImapFlow } from 'imapflow'
 import { decryptPass } from '@/lib/email/crypto'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { ladeAbsenderIndex, absenderStatus } from '@/lib/crm/absender'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     const [{ data: cfg }, { data: tenantCfg }] = await Promise.all([
       (supabase.from('user_email_connections') as any)
-        .select('m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, imap_aktiv, imap_host, imap_port, imap_user, imap_pass_enc, monitored_email').eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle(),
+        .select('m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, imap_aktiv, imap_host, imap_port, imap_user, imap_pass_enc, monitored_email, email_address').eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle(),
       (admin.from('tenant_einstellungen') as any)
         .select('m365_tenant_id, m365_client_id, m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle(),
     ])
@@ -50,6 +51,10 @@ export async function GET(req: NextRequest) {
           : ''
         return NextResponse.json({ fehler: `Nachrichten konnten nicht geladen werden (Graph API ${res.status}${code ? ' ' + code : ''}): ${msg}${hint}` }, { status: 502 })
       }
+      // Absender-Status je Nachricht (kontakt/firma/lead/unbekannt …), damit die
+      // Liste unbekannte Absender als „neu“ markiert (E-Mail → Lead, 15.9.2026).
+      // Ein Index je Aufruf (drei kleine Abfragen), nicht je Nachricht.
+      const idx = await ladeAbsenderIndex(supabase, tenantId, [c.email_address, c.monitored_email, user?.email]).catch(() => null)
       const messages = (data.value ?? []).map((m: R) => ({
         id: m.id,
         betreff: m.subject ?? '(kein Betreff)',
@@ -61,6 +66,7 @@ export async function GET(req: NextRequest) {
         vorschau: m.bodyPreview?.slice(0, 120) ?? '',
         conversationId: m.conversationId ?? null,
         quelle: 'm365',
+        absender: idx ? absenderStatus(idx, m.from?.emailAddress?.address, m.from?.emailAddress?.name).status : null,
       }))
       return NextResponse.json({ messages, quelle: 'm365' })
     }

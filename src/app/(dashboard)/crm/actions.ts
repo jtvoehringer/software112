@@ -560,3 +560,124 @@ export async function createLeadFromVisitkarte(kontakt: {
     return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
   }
 }
+
+// ── E-Mail → Lead (Rückmeldung 15.9.2026) ─────────────────────────────────────
+// Gegenstück zum Dialog „Soll ein Lead angelegt werden?“ unter Nachrichten
+// (LeadDialog.tsx). Legt den Kontakt als Lead an - wahlweise mit neuer Firma
+// (ebenfalls Lead) oder an eine bestehende Firma gehängt - und verknüpft die
+// auslösende E-Mail als Aktivität, damit sie in der Kontakt-Historie steht.
+// Die Segment-Wahl u. dgl. kommt aus dem Dialog; Accountnummer wie bei
+// createKontakt/createFirma über get_next_accountnummer.
+export type LeadAusEmailDaten = {
+  anrede?: string | null
+  vorname: string | null
+  nachname: string
+  email: string | null
+  telefon: string | null
+  mobil: string | null
+  position: string | null
+  strasse: string | null
+  plz: string | null
+  ort: string | null
+  land: string | null
+  segment: string
+  rabattgruppe_id: string | null
+  zahlungsziel_tage: number | null
+  notizen: string | null
+  firma: { modus: 'keine' | 'neu' | 'bestehend'; id: string | null; name: string | null; website: string | null; segment: string | null }
+  mail: { id: string; conversationId: string | null; betreff: string; von: string; vonName: string; an: string; datum: string; bodyText: string; bodyHtml: string | null } | null
+}
+
+export async function createLeadAusEmail(d: LeadAusEmailDaten): Promise<{ kontaktId?: string; firmaId?: string | null; error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const tenantId = await getTenantId()
+    const { data: { user } } = await supabase.auth.getUser()
+    const nachname = (d.nachname ?? '').trim()
+    if (!nachname) return { error: 'Nachname fehlt' }
+    const land = (d.land ?? 'AT').toUpperCase().slice(0, 2) || 'AT'
+
+    // Firma: neu (als Lead) oder bestehende
+    let firmaId: string | null = null
+    if (d.firma.modus === 'bestehend' && d.firma.id) {
+      const { data: f } = await (supabase.from('firmen') as any).select('id').eq('tenant_id', tenantId).eq('id', d.firma.id).maybeSingle()
+      if (!f) return { error: 'Gewählte Firma nicht gefunden' }
+      firmaId = (f as AR).id
+    } else if (d.firma.modus === 'neu' && d.firma.name?.trim()) {
+      const website = d.firma.website?.trim() || null
+      const { data: f, error: fe } = await (supabase.from('firmen') as any).insert({
+        tenant_id: tenantId, name: d.firma.name.trim(), aktiv: true, is_lead: true,
+        segment: d.firma.segment && d.firma.segment !== 'privat' ? d.firma.segment : (d.segment !== 'privat' ? d.segment : 'firmenkunde'),
+        strasse: d.strasse || null, plz: d.plz || null, ort: d.ort || null, land,
+        website: website ? (website.startsWith('http') ? website : `https://${website}`) : null,
+        telefon: d.telefon || null,
+        accountnummer: await generateAccountnummer(tenantId),
+        notizen: d.mail ? `Lead aus E-Mail vom ${d.mail.datum.slice(0, 10)} („${d.mail.betreff}“)` : null,
+      }).eq('tenant_id', tenantId).select('id').single()
+      if (fe) return { error: (fe as AR).message }
+      firmaId = (f as AR | null)?.id ?? null
+    }
+
+    // Kontakt als Lead
+    const notizenTeile = [d.position ? `Position: ${d.position}` : null, d.notizen?.trim() || null].filter(Boolean)
+    const payload: AR = {
+      tenant_id: tenantId,
+      vorname: d.vorname?.trim() || null,
+      nachname,
+      segment: d.segment || 'privat',
+      firma_id: firmaId,
+      email: d.email?.trim().toLowerCase() || null,
+      telefon: d.telefon?.trim() || null,
+      mobil: d.mobil?.trim() || null,
+      strasse: d.strasse?.trim() || null, plz: d.plz?.trim() || null, ort: d.ort?.trim() || null, land,
+      notizen: notizenTeile.join('\n') || null,
+      aktiv: true, stammkunde: false, newsletter: false, newsletter_bestaetigt: false, is_lead: true,
+      ...(d.rabattgruppe_id ? { rabattgruppe_id: d.rabattgruppe_id } : {}),
+      ...(d.zahlungsziel_tage !== null && d.zahlungsziel_tage !== undefined && d.zahlungsziel_tage >= 0 ? { zahlungsziel_tage: d.zahlungsziel_tage } : {}),
+      accountnummer: await generateAccountnummer(tenantId),
+    }
+    const { data: k, error: ke } = await (supabase.from('kontakte') as any).insert(payload).eq('tenant_id', tenantId).select('id').single()
+    if (ke) return { error: (ke as AR).message }
+    const kontaktId = (k as AR | null)?.id as string | undefined
+    if (!kontaktId) return { error: 'Kontakt konnte nicht gespeichert werden' }
+
+    // Auslösende E-Mail als Aktivität an den Kontakt hängen (wie /api/nachrichten/message bei bekannten Absendern)
+    if (d.mail?.id) {
+      const bodyText = (d.mail.bodyText ?? '').replace(/<[^>]*>/g, '').trim()
+      await (supabase.from('aktivitaeten') as any).upsert({
+        tenant_id: tenantId, kontakt_id: kontaktId, firma_id: null,
+        art: 'email', erledigt: false, ganztags: true,
+        betreff: d.mail.betreff || '(kein Betreff)',
+        datum: (d.mail.datum || new Date().toISOString()).split('T')[0],
+        email_id: d.mail.id, email_conversation_id: d.mail.conversationId,
+        email_von: d.mail.von || null, email_von_name: d.mail.vonName || null, email_an: d.mail.an || null,
+        email_body: bodyText || null, email_body_html: d.mail.bodyHtml,
+        beschreibung: bodyText.slice(0, 500),
+        erstellt_von: user?.id ?? null,
+      }, { onConflict: 'tenant_id,email_id', ignoreDuplicates: true })
+    }
+
+    revalidatePath('/crm/kontakte')
+    if (firmaId) revalidatePath('/crm/firmen')
+    return { kontaktId, firmaId }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
+  }
+}
+
+/** „Nein, nicht mehr fragen“: Absender je Betrieb merken (email_lead_ignoriert, Migration 202) */
+export async function ignoriereAbsender(email: string, grund?: string | null): Promise<{ error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const tenantId = await getTenantId()
+    const { data: { user } } = await supabase.auth.getUser()
+    const e = (email ?? '').trim().toLowerCase()
+    if (!e.includes('@')) return { error: 'Keine gültige Adresse' }
+    const { error } = await (supabase.from('email_lead_ignoriert') as any)
+      .upsert({ tenant_id: tenantId, email: e, grund: grund?.trim() || null, erstellt_von: user?.id ?? null }, { onConflict: 'tenant_id,email' })
+    if (error) return { error: (error as AR).message }
+    return {}
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
+  }
+}

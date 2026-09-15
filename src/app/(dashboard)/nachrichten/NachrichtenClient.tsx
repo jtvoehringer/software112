@@ -2,17 +2,24 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { Mail, Inbox, Send, Trash2, FileText, Folder, X } from 'lucide-react'
+import { Mail, Inbox, Send, Trash2, FileText, Folder, X, UserPlus } from 'lucide-react'
+import LeadDialog from './LeadDialog'
+import { ignoriereAbsender } from '../crm/actions'
 
+// absender: Status aus der Absender-Erkennung (lib/crm/absender.ts) - 'lead'
+// und 'unbekannt' werden in der Liste markiert, 'unbekannt' löst beim Öffnen
+// die Frage „Soll ein Lead angelegt werden?“ aus (E-Mail → Lead, 15.9.2026).
 type Msg = {
   id: string; betreff: string; von: string; vonName: string
   an: string; datum: string; gelesen: boolean; vorschau: string; quelle: string
   conversationId?: string | null
+  absender?: 'kontakt' | 'firma' | 'lead' | 'unbekannt' | 'ignoriert' | 'system' | 'eigen' | null
 }
 type MsgDetail = Msg & {
   bodyHtml: string | null; bodyText: string
   conversationId: string | null
-  kontaktInfo: { typ: string; id: string; name: string; accountnummer: string | null } | null
+  kontaktInfo: { typ: string; id: string; name: string; accountnummer: string | null; istLead?: boolean; ueber?: 'email' | 'domain' } | null
+  leadVorschlag?: boolean
 }
 
 function fmtDate(d: string) {
@@ -58,6 +65,10 @@ export default function NachrichtenClient() {
   // Ordnerliste/Nachrichtenliste angezeigt wird (rein clientseitig, wird bei
   // jedem API-Aufruf als ?mailbox=own|shared mitgeschickt).
   const [activeMailbox, setActiveMailbox] = useState<'own'|'shared'>('own')
+  // E-Mail → Lead: Frage-Leiste je geöffneter Mail, Dialog, „Jetzt nicht“ merkt sich Absender für diese Sitzung
+  const [leadDialog, setLeadDialog] = useState(false)
+  const [leadSpaeter, setLeadSpaeter] = useState<Set<string>>(new Set())
+  const [leadIgnoriere, setLeadIgnoriere] = useState(false)
   const [showSettings, setShowSettings]       = useState(false)
   const [deleteConfirm, setDeleteConfirm]       = useState(false)
   const [moveMode, setMoveMode]                 = useState(false)
@@ -172,7 +183,7 @@ export default function NachrichtenClient() {
   async function openMessage(msg: Msg) {
     setDeleteConfirm(false)
     setMoveMode(false); setMoveTarget('')
-    setThreadMsgs([]); setForwardMode(false)
+    setThreadMsgs([]); setForwardMode(false); setLeadDialog(false)
     if (msg.quelle !== 'm365') { setSelected({ ...msg, bodyHtml: null, bodyText: msg.vorschau, conversationId: null, kontaktInfo: null }); return }
     setDetailLaden(true); setSelected(null)
     const res = await fetch(`/api/nachrichten/message?id=${msg.id}&mailbox=${activeMailbox}`)
@@ -372,6 +383,8 @@ export default function NachrichtenClient() {
               <div className="flex items-start justify-between gap-2 mb-1">
                 <p className={`text-xs truncate ${!msg.gelesen ? 'font-semibold text-s112-text' : 'font-medium text-s112-text-1'}`}>
                   {folder === 'sent' ? msg.an : (msg.vonName || msg.von)}
+                  {folder !== 'sent' && msg.absender === 'unbekannt' && <span title="Absender nicht im CRM – Lead anlegen?" className="ml-1.5 align-middle inline-block text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded bg-s112-warn-bg text-s112-warn-fg">neu</span>}
+                  {folder !== 'sent' && msg.absender === 'lead' && <span title="Lead im CRM" className="ml-1.5 align-middle inline-block text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded bg-s112-blue-50 text-s112-blue-700">lead</span>}
                 </p>
                 <p className="text-[10px] text-s112-muted flex-shrink-0">{fmtDate(msg.datum)}</p>
               </div>
@@ -432,12 +445,33 @@ export default function NachrichtenClient() {
                 {selected.an && <p><span className="font-medium text-s112-text-1">An:</span> {selected.an}</p>}
                 <p><span className="font-medium text-s112-text-1">Datum:</span> {new Date(selected.datum).toLocaleString('de-AT')}</p>
               </div>
+              {selected.leadVorschlag && !selected.kontaktInfo && !leadSpaeter.has(selected.von.toLowerCase()) && (
+                <div className="mt-3 rounded-lg border border-s112-teal/40 bg-s112-blue-50 px-3.5 py-2.5 flex flex-wrap items-center gap-2">
+                  <UserPlus className="w-4 h-4 text-s112-teal shrink-0" />
+                  <span className="text-xs text-s112-text flex-1 min-w-[12rem]"><b>{selected.vonName || selected.von}</b> ist weder Kunde noch Lead. Soll ein Lead angelegt werden?</span>
+                  <button onClick={() => setLeadDialog(true)} className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-opacity-90">Ja, Lead anlegen</button>
+                  <button onClick={() => setLeadSpaeter(prev => new Set(prev).add(selected.von.toLowerCase()))} className="text-xs border border-s112-line-str text-s112-text-2 px-3 py-1.5 rounded-lg hover:bg-white">Jetzt nicht</button>
+                  <button disabled={leadIgnoriere} onClick={async () => {
+                    setLeadIgnoriere(true)
+                    const r = await ignoriereAbsender(selected.von)
+                    setLeadIgnoriere(false)
+                    if (r.error) { setFehler('Konnte Absender nicht merken: ' + r.error); return }
+                    setSelected(prev => prev ? { ...prev, leadVorschlag: false } : prev)
+                    setMessages(prev => prev.map(m => m.von.toLowerCase() === selected.von.toLowerCase() ? { ...m, absender: 'ignoriert' } : m))
+                  }} className="text-xs text-s112-text-2 px-2 py-1.5 rounded-lg hover:bg-white hover:text-s112-text disabled:opacity-50" title="Für diesen Absender nicht mehr fragen (z. B. Newsletter, Lieferant)">Nein, nicht mehr fragen</button>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2 mt-3">
                   {selected.kontaktInfo && (
                     <Link href={`/crm/${selected.kontaktInfo.typ === 'firma' ? 'firmen' : 'kontakte'}/${selected.kontaktInfo.id}`}
-                      className="text-xs text-s112-blue-700 border border-s112-border px-3 py-1.5 rounded-lg hover:bg-s112-bg">
+                      title={selected.kontaktInfo.ueber === 'domain' ? 'Über die Firmendomain zugeordnet' : undefined}
+                      className="text-xs text-s112-blue-700 border border-s112-border px-3 py-1.5 rounded-lg hover:bg-s112-bg inline-flex items-center gap-1.5">
                       {selected.kontaktInfo.name}
+                      {selected.kontaktInfo.istLead && <span className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded bg-s112-blue-50 text-s112-blue-700">Lead</span>}
                     </Link>
+                  )}
+                  {selected.leadVorschlag && !selected.kontaktInfo && leadSpaeter.has(selected.von.toLowerCase()) && (
+                    <button onClick={() => setLeadDialog(true)} className="text-xs border border-s112-border text-s112-text-2 px-3 py-1.5 rounded-lg hover:bg-s112-bg inline-flex items-center gap-1"><UserPlus className="w-3.5 h-3.5" /> Lead anlegen</button>
                   )}
                   <button onClick={() => { setCompose(true); setAn(selected.von); setBetreff(`Re: ${selected.betreff}`); setText('') }}
                     className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg hover:bg-opacity-90">
@@ -610,6 +644,17 @@ export default function NachrichtenClient() {
           </div>
         )}
       </div>
+      {leadDialog && selected && (
+        <LeadDialog
+          mail={{ id: selected.id, conversationId: selected.conversationId, betreff: selected.betreff, von: selected.von, vonName: selected.vonName, an: selected.an, datum: selected.datum, bodyText: selected.bodyText ?? '', bodyHtml: selected.bodyHtml }}
+          onClose={() => setLeadDialog(false)}
+          onAngelegt={info => {
+            // Kopfzeile sofort auf „bekannt“ stellen und alle Mails dieses Absenders in der Liste als Lead markieren
+            setSelected(prev => prev && prev.id === selected.id ? { ...prev, leadVorschlag: false, kontaktInfo: { typ: 'kontakt', id: info.id, name: info.name, accountnummer: null, istLead: true, ueber: 'email' } } : prev)
+            setMessages(prev => prev.map(m => m.von.toLowerCase() === selected.von.toLowerCase() ? { ...m, absender: 'lead' } : m))
+          }}
+        />
+      )}
     </div>
   )
 }

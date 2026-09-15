@@ -3,9 +3,11 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { getValidUserAccessToken, getMailboxBase } from '@/lib/m365/graph'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { ladeAbsenderIndex, absenderStatus, type AbsenderStatus } from '@/lib/crm/absender'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
+type KontaktInfo = { typ: 'kontakt' | 'firma'; id: string; name: string; accountnummer: string | null; istLead: boolean; ueber: 'email' | 'domain' } | null
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,7 +24,7 @@ export async function GET(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     const [{ data: cfg }, { data: tenantCfg }] = await Promise.all([
       (supabase.from('user_email_connections') as any)
-        .select('m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, imap_aktiv, imap_host, imap_port, imap_user, imap_pass_enc, monitored_email').eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle(),
+        .select('m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, imap_aktiv, imap_host, imap_port, imap_user, imap_pass_enc, monitored_email, email_address').eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle(),
       (admin.from('tenant_einstellungen') as any)
         .select('m365_tenant_id, m365_client_id, m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle(),
     ])
@@ -45,16 +47,18 @@ export async function GET(req: NextRequest) {
         body: JSON.stringify({ isRead: true }),
       }).catch((e: unknown) => console.error('[nachrichten] Operation fehlgeschlagen:', e))
 
-      // Kontakt-Matching für Anzeige
+      // Kontakt-Matching für Anzeige (E-Mail exakt, sonst Firmendomain; Leads
+      // zählen als bekannt). Unbekannte Absender bekommen den Lead-Vorschlag
+      // (Dialog „Soll ein Lead angelegt werden?“ im NachrichtenClient) - außer
+      // Systemadressen, eigene Postfächer und „nicht mehr fragen“-Absender.
       const fromEmail = msg.from?.emailAddress?.address?.toLowerCase() ?? ''
-      let kontaktInfo = null
+      let kontaktInfo: KontaktInfo = null
+      let absender: AbsenderStatus = 'system'
       if (fromEmail) {
-        const { data: k } = await (supabase.from('kontakte') as any)
-          .select('id, vorname, nachname, accountnummer').eq('tenant_id', tenantId).eq('email', fromEmail).maybeSingle()
-        const { data: f } = await (supabase.from('firmen') as any)
-          .select('id, name, accountnummer').eq('tenant_id', tenantId).eq('email', fromEmail).maybeSingle()
-        if (k) kontaktInfo = { typ: 'kontakt', id: (k as R).id, name: [(k as R).vorname, (k as R).nachname].filter(Boolean).join(' '), accountnummer: (k as R).accountnummer }
-        else if (f) kontaktInfo = { typ: 'firma', id: (f as R).id, name: (f as R).name, accountnummer: (f as R).accountnummer }
+        const idx = await ladeAbsenderIndex(supabase, tenantId, [c.email_address, c.monitored_email, user?.email])
+        const s = absenderStatus(idx, fromEmail, msg.from?.emailAddress?.name)
+        absender = s.status
+        if (s.treffer) kontaktInfo = { typ: s.treffer.typ, id: s.treffer.id, name: s.treffer.name, accountnummer: s.treffer.accountnummer, istLead: s.treffer.istLead, ueber: s.treffer.ueber }
 
         // Eingehende Email als Aktivität speichern (fire-and-forget)
         if (kontaktInfo && msg.id && tenantId) {
@@ -106,6 +110,9 @@ export async function GET(req: NextRequest) {
         bodyText: msg.body?.contentType === 'text' ? msg.body.content : msg.body?.content ?? '',
         conversationId: msg.conversationId,
         kontaktInfo,
+        absender,
+        // Lead-Vorschlag nur für unbekannte Absender (eigene Postfächer → 'eigen')
+        leadVorschlag: absender === 'unbekannt',
       })
     }
     return NextResponse.json({ fehler: 'Mailbox nicht verbunden' }, { status: 400 })
