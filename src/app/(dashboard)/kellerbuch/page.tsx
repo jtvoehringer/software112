@@ -1,10 +1,10 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { ladeBehaelter } from '@/lib/keller/behaelter'
+import { ladeBehaelter, type BehaelterZeile } from '@/lib/keller/behaelter'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { fmtLiter } from '@/lib/format'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Pencil, Boxes } from 'lucide-react'
+import { Pencil, Boxes, ChevronRight } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
 export const metadata: Metadata = { title: 'Kellerbuch – software:112' }
@@ -90,42 +90,32 @@ export default async function KellerbuchPage() {
     }
   }
 
-  return (
-    <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-s112-text">Kellerbuch</h1>
-          <p className="text-sm text-s112-muted mt-0.5">Übersicht Behälter &amp; Chargen</p>
-        </div>
-      </div>
+  // Gruppierung je Keller (Standort): belegte Gebinde zuerst, dann leere, jeweils alphanumerisch (a1, a2, a10 …)
+  const literVon = (b: BehaelterZeile) => (fuellstandMap.get(b.id) ?? 0) + b.fremd_liter
+  const istBelegt = (b: BehaelterZeile) => literVon(b) > 0.01 || (chargenByBehaelter.get(b.id)?.length ?? 0) > 0
+  const cmpName = (x: BehaelterZeile, y: BehaelterZeile) => x.name.localeCompare(y.name, 'de', { numeric: true, sensitivity: 'base' })
+  const gruppenMap = new Map<string, BehaelterZeile[]>()
+  for (const b of behaelter.filter(b => b.aktiv)) {
+    const key = b.standort?.trim() || 'Ohne Standort'
+    if (!gruppenMap.has(key)) gruppenMap.set(key, [])
+    gruppenMap.get(key)!.push(b)
+  }
+  const gruppen = [...gruppenMap.entries()]
+    .sort(([a], [b]) => a === 'Ohne Standort' ? 1 : b === 'Ohne Standort' ? -1 : a.localeCompare(b, 'de', { numeric: true, sensitivity: 'base' }))
+    .map(([name, liste]) => ({
+      name,
+      belegt: liste.filter(istBelegt).sort(cmpName),
+      leer: liste.filter(b => !istBelegt(b)).sort(cmpName),
+      liter: liste.reduce((sum, b) => sum + Math.max(0, literVon(b)), 0),
+      kapazitaet: liste.reduce((sum, b) => sum + (b.volumen_liter ?? 0), 0),
+    }))
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        <Link href="/kellerbuch/gebinde" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
-          <p className="text-3xl font-semibold text-s112-blue-700">{behaelter.filter(b => b.aktiv).length}</p>
-          <p className="text-xs text-s112-muted mt-1">Aktive Behälter</p>
-          <p className="text-[10px] text-s112-blue-700/60 mt-1">→ Gebinde verwalten</p>
-        </Link>
-        <Link href="/kellerbuch/weinausbau" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
-          <p className="text-3xl font-semibold text-s112-blue-700">{aktiveChargen.length}</p>
-          <p className="text-xs text-s112-muted mt-1">Laufende Chargen</p>
-          <p className="text-[10px] text-s112-blue-700/60 mt-1">→ Weinausbau</p>
-        </Link>
-        <Link href="/kellerbuch/rueckverfolgung" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
-          <p className="text-3xl font-semibold text-s112-blue-700">{fmtLiter(gesamtLiter)}</p>
-          <p className="text-xs text-s112-muted mt-1">Liter in Ausbau</p>
-          <p className="text-[10px] text-s112-blue-700/60 mt-1">→ Rückverfolgung</p>
-        </Link>
-      </div>
-
-      {/* Behälter mit Chargen */}
-      <div className="space-y-4">
-        {behaelter.filter(b => b.aktiv).map(b => {
+  // Karte eines belegten Gebindes (eigene Chargen + ggf. fremde Belegung)
+  const karte = (b: BehaelterZeile) => {
           const chargen        = chargenByBehaelter.get(b.id) ?? []
-          // Event-basierter Füllstand aus View (konsistent mit Bewegungen-Page) +
+          // Event-basierter Füllstand aus View (je Betrieb, Migration 204) +
           // fremd belegte Liter eines Partnerbetriebs (ohne dessen Chargen)
-          const literImBehaelter = (fuellstandMap.get(b.id) ?? 0) + b.fremd_liter
+          const literImBehaelter = literVon(b)
           const kapazitaet     = b.volumen_liter
           const auslastung     = kapazitaet && kapazitaet > 0 ? Math.min(100, (literImBehaelter / kapazitaet) * 100) : null
 
@@ -252,7 +242,73 @@ export default async function KellerbuchPage() {
               )}
             </div>
           )
-        })}
+  }
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-s112-text">Kellerbuch</h1>
+          <p className="text-sm text-s112-muted mt-0.5">Übersicht Behälter &amp; Chargen</p>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        <Link href="/kellerbuch/gebinde" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
+          <p className="text-3xl font-semibold text-s112-blue-700">{behaelter.filter(b => b.aktiv).length}</p>
+          <p className="text-xs text-s112-muted mt-1">Aktive Behälter</p>
+          <p className="text-[10px] text-s112-blue-700/60 mt-1">→ Gebinde verwalten</p>
+        </Link>
+        <Link href="/kellerbuch/weinausbau" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
+          <p className="text-3xl font-semibold text-s112-blue-700">{aktiveChargen.length}</p>
+          <p className="text-xs text-s112-muted mt-1">Laufende Chargen</p>
+          <p className="text-[10px] text-s112-blue-700/60 mt-1">→ Weinausbau</p>
+        </Link>
+        <Link href="/kellerbuch/rueckverfolgung" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
+          <p className="text-3xl font-semibold text-s112-blue-700">{fmtLiter(gesamtLiter)}</p>
+          <p className="text-xs text-s112-muted mt-1">Liter in Ausbau</p>
+          <p className="text-[10px] text-s112-blue-700/60 mt-1">→ Rückverfolgung</p>
+        </Link>
+      </div>
+
+      {/* Behälter je Keller (Standort), aufklappbar; belegte zuerst, dann leere - jeweils alphanumerisch (Rückmeldung 16.9.2026) */}
+      <div className="space-y-4">
+        {gruppen.map(g => (
+          <details key={g.name} open className="card p-0 overflow-hidden group">
+            <summary className="cursor-pointer select-none flex items-center gap-3 px-4 py-3 bg-s112-bg border-b border-s112-border list-none [&::-webkit-details-marker]:hidden">
+              <ChevronRight className="w-4 h-4 text-s112-tertiary transition-transform group-open:rotate-90 shrink-0" />
+              <span className="font-semibold text-s112-text text-sm">{g.name}</span>
+              <span className="text-xs text-s112-text-2">{g.belegt.length} von {g.belegt.length + g.leer.length} Gebinden belegt</span>
+              <span className="ml-auto text-xs font-mono tabular-nums text-s112-text">{fmtLiter(g.liter)}{g.kapazitaet > 0 ? <span className="text-s112-tertiary"> / {fmtLiter(g.kapazitaet)}</span> : null}</span>
+            </summary>
+            <div className="p-3 space-y-3">
+              {g.belegt.map(b => karte(b))}
+              {g.belegt.length === 0 && <p className="px-1 text-xs text-s112-muted italic">Kein Gebinde in diesem Keller belegt</p>}
+              {g.leer.length > 0 && (
+                <>
+                  <p className="px-1 pt-1 text-[10.5px] font-mono uppercase tracking-[.04em] text-s112-tertiary">Leer · {g.leer.length}</p>
+                  <div className="rounded-lg border border-s112-line divide-y divide-s112-line">
+                    {g.leer.map(b => (
+                      <div key={b.id} className="flex items-center gap-3 px-3 py-1.5 text-sm">
+                        <span className="font-medium text-s112-text w-24 shrink-0">{b.name}</span>
+                        {b.fremd && <span title={`Gebinde von ${b.eigentuemer_name}`} className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded bg-s112-blue-50 text-s112-blue-700">{b.eigentuemer_name}</span>}
+                        <span className="text-xs text-s112-text-2 capitalize">{b.typ ?? '–'}</span>
+                        <span className="text-xs text-s112-text-2 font-mono tabular-nums">{b.volumen_liter ? fmtLiter(b.volumen_liter) : '–'}</span>
+                        {b.stapler && <span className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded bg-s112-bg text-s112-text-2 border border-s112-line">Stapler</span>}
+                        <span className="ml-auto flex items-center gap-3 shrink-0">
+                          <Link href={`/kellerbuch/behaelter/${b.id}/bewegungen`} className="text-xs text-s112-blue-700 hover:underline whitespace-nowrap">Bewegungen →</Link>
+                          {writeOk && !b.fremd && <Link href={`/kellerbuch/behaelter/${b.id}`} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-muted hover:text-s112-blue-700"><Pencil className="w-3.5 h-3.5" /></Link>}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </details>
+        ))}
 
         {/* Chargen ohne Behälter */}
         {chargenOhneBehaelter.length > 0 && (

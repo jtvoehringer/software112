@@ -40,3 +40,7 @@ Oberfläche:
 - Mapping: Sorte RG Rotgipfler, ZF Zierfandler, SL St. Laurent, BB Blauburgunder, SW Sortenverschnitt weiß, SO Sortenverschnitt rot, GW Gemischter Satz, CS Cabernet Sauvignon, CH Chardonnay · Qual. DAC → dac, QUW → qualitaetswein, SOE → sonstiges · Herkunft WLNO → wlnoe, WLTH → thermenregion_riedenwein (DAC + „ried …“) sonst thermenregion_gebietswein (Beschluss 16.9.: auch für QUW) · Farbe W/R → weiss/rot · KMW → kmw · DKB-Chargennummer → referenz_altsystem · Name = Bezeichnung (ohne Anführungszeichen), sonst „Sorte Jahrgang“.
 - Notizen je Charge: DKB-Codes, Bio-Status/Zertifizierung, Alkohol, Produkt (Destillat), „DKB %-FJ“.
 - Ergebnis aus Sicht beider Mandanten (RPC): 173 Gebinde sichtbar, 77 bzw. 19 eigene belegt, der Rest des jeweils anderen als „belegt · Betrieb“.
+
+## Nachtrag 16.9.2026 – Füllstand je Betrieb (Migration 204) und Übersicht nach Keller
+
+`v_behaelter_fuellstand` liefert jetzt eine Zeile je (Gebinde, Betrieb des Inhalts) statt je Gebinde/Eigentümer: Der Eigentümer sah sonst den Wein des Partners in „Liter in Ausbau“ und doppelt im Füllstand, der Partner seinen eigenen Wein im fremden Gebinde gar nicht. Kellerbuch-Übersicht: Gruppierung nach Standort (aufklappbar), belegte Gebinde zuerst als Karten, leere als kompakte Liste, alphanumerisch sortiert.
