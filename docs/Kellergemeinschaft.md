@@ -30,3 +30,13 @@ Oberfläche:
 ## Import Gebeshuber
 
 173 Gebinde aus „Gebinde mit Inhalt aus DKB.xlsx“ (830.414 l, 69 mit Stapler) per SQL angelegt (`supabase/import_gebeshuber_gebinde.sql`, `import_quelle` gesetzt). Typ-Mapping: Tank → stahltank, Immervoll → immervolltank, Faß → holzfass, Bottich → bottich, Presse → presse, Barrique/Doppelbarrique, Sonstiger Behälter und Trauben-Sammelbehälter → sonstiges (Notiz). Standorte: Keller, Barriquekeller, Füllstraße.
+
+## Chargen-Import Gebeshuber / Spaetrot (16.9.2026)
+
+„fassweinliste komplett NEU 09-2026.xlsx“ (96 Chargen, 116.403,5 l) als Eröffnungsbestand (`weinausbau`, `ist_eroeffnungsbestand`, Buchung 1.1.2026) importiert – `supabase/import_gebeshuber_chargen.sql`:
+
+- Spalte „bio/konv.“ = **konv.** → Mandant **Spaetrot Gebeshuber GmbH** (neu angelegt, `0569d025-…`, Jörgen als System-Admin-Mitglied; Freigabe Gebeshuber → Spaetrot aktiv): 19 Chargen, 33.864,5 l, EB-2026-0001…0019.
+- BIO / UM → **Weingut Johannes Gebeshuber**: 77 Chargen, 82.539 l, EB-2026-0001…0077.
+- Mapping: Sorte RG Rotgipfler, ZF Zierfandler, SL St. Laurent, BB Blauburgunder, SW Sortenverschnitt weiß, SO Sortenverschnitt rot, GW Gemischter Satz, CS Cabernet Sauvignon, CH Chardonnay · Qual. DAC → dac, QUW → qualitaetswein, SOE → sonstiges · Herkunft WLNO → wlnoe, WLTH → thermenregion_riedenwein (DAC + „ried …“) sonst thermenregion_gebietswein (Beschluss 16.9.: auch für QUW) · Farbe W/R → weiss/rot · KMW → kmw · DKB-Chargennummer → referenz_altsystem · Name = Bezeichnung (ohne Anführungszeichen), sonst „Sorte Jahrgang“.
+- Notizen je Charge: DKB-Codes, Bio-Status/Zertifizierung, Alkohol, Produkt (Destillat), „DKB %-FJ“.
+- Ergebnis aus Sicht beider Mandanten (RPC): 173 Gebinde sichtbar, 77 bzw. 19 eigene belegt, der Rest des jeweils anderen als „belegt · Betrieb“.
