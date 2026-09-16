@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import ImportClient from './ImportClient'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { getCurrentMembership } from '@/lib/auth/roles'
 export const metadata: Metadata = { title: 'Datenimport – software:112' }
 export const dynamic = 'force-dynamic'
@@ -22,10 +23,8 @@ export default async function ImportPage({
 
   // Gebinde-Liste fuer die Anfangsbestandsbuchung (Datenimport > Gebinde) - wird nur
   // dort benoetigt, deshalb hier serverseitig geladen und als Prop durchgereicht.
-  let gebindeQuery = (supabase.from('behaelter') as any)
-    .select('id, name').eq('aktiv', true).order('name')
-  if (tenantId) gebindeQuery = gebindeQuery.eq('tenant_id', tenantId)
-  const { data: gebindeRaw } = await gebindeQuery
+  // Eigene + freigegebene Gebinde, fremd belegte ausgenommen (Kellergemeinschaft, Migration 203)
+  const gebindeRaw = (await ladeBehaelter(supabase, tenantId, { alsZiel: true })).map(b => ({ id: b.id, name: b.anzeigeName }))
 
   return (
     <ImportClient

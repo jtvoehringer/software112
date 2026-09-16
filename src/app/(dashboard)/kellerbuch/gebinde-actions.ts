@@ -1,6 +1,7 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { ladeBehaelter, gebindeFehlerText } from '@/lib/keller/behaelter'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getCurrentMembership } from '@/lib/auth/roles'
@@ -141,6 +142,16 @@ export async function createUmzug(formData: FormData) {
     throw new Error('Bitte mindestens eine Quelle und ein Ziel angeben.')
   }
 
+  // Ziele vorab prüfen (Kellergemeinschaft, Migration 203): eigenes oder freigegebenes,
+  // aktives Gebinde, nicht durch einen anderen Betrieb belegt. Der DB-Trigger fängt das
+  // ebenfalls ab - aber erst beim Ziel-Insert, wenn die Quellen schon reduziert wären.
+  const zielGebinde = await ladeBehaelter(supabase, tenantId, { nurAktiv: true })
+  for (const z of ziele) {
+    const g = zielGebinde.find(b => b.id === z.behaelter_id)
+    if (!g) throw new Error('Ziel-Gebinde nicht gefunden oder nicht freigegeben.')
+    if (g.gesperrt) throw new Error(`Gebinde „${g.name}“ ist durch ${g.fremd_betrieb ?? 'einen anderen Betrieb'} belegt – Umziehen dorthin ist nicht möglich.`)
+  }
+
   const batchId = crypto.randomUUID()
 
   // Transaktionsnummer für diesen Umzugs-Batch
@@ -223,7 +234,7 @@ export async function createUmzug(formData: FormData) {
         .eq('tenant_id', tenantId)
       nachWeinausbauId = existing.id
     } else {
-      const { data: neu } = await (supabase.from('weinausbau') as any)
+      const { data: neu, error: neuErr } = await (supabase.from('weinausbau') as any)
         .insert({
           tenant_id:            tenantId,
           name:                 hauptQuelle?.name ?? 'Unbekannt',
@@ -238,6 +249,7 @@ export async function createUmzug(formData: FormData) {
           aktiv:                true,
         })
         .select('id').single()
+      if (neuErr) throw new Error(gebindeFehlerText((neuErr as R).message))
       nachWeinausbauId = (neu as R | null)?.id ?? null
     }
 

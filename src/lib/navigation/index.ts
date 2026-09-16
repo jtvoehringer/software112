@@ -158,6 +158,7 @@ const NAV: NavGroup[] = [
       { href: '/betrieb/einstellungen', label: 'Mein Betrieb',     adminOnly: true, keywords: 'einstellungen branding benutzer bawb' },
       // Administration: nur system_admin bzw. Sandbox-Sonderfreigabe (s.u.)
       { href: '/admin/mandanten',      label: 'Mandanten',         adminOnly: true, keywords: 'administration tenants' },
+      { href: '/admin/kellergemeinschaft', label: 'Kellergemeinschaft', adminOnly: true, keywords: 'administration gebinde freigabe partner keller' },
       { href: '/admin/release-notes',  label: 'Release Notes',     adminOnly: true, keywords: 'administration' },
       { href: '/admin/import',         label: 'Datenimport',       adminOnly: true, keywords: 'administration csv' },
       { href: '/admin/benutzer',       label: 'System-Admin',      adminOnly: true, keywords: 'administration benutzer' },

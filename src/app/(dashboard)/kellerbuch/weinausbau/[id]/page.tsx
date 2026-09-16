@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { fmtLiter, fmtNum } from '@/lib/format'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -44,7 +45,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
   const [
     { data: rows },
     { data: wgRaw },
-    { data: bhRaw },
+    bhRows,
     { data: umzuegeAusRaw },
     { data: umzuegeEinRaw },
     { data: fuellungenRaw },
@@ -59,7 +60,9 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       .select('id, name, jahrgang, rebsorte, weingarten_id, behaelter_id, menge_liter, anfangsbestand_liter, ist_eroeffnungsbestand, status, qualitaetsstufe, herkunft_code, weinart, notizen, aktiv, einstandspreis_pro_liter, behaelter:behaelter_id(name)')
       .eq('id', id).limit(1)),
     tf((supabase.from('weingarten') as any).select('id, name').eq('aktiv', true).order('name')),
-    tf((supabase.from('behaelter') as any).select('id, name, volumen_liter').eq('aktiv', true).order('name')),
+    // Gebinde als Umzugsziele: eigene + freigegebene, fremd belegte ausgenommen (Migration 203).
+    // Das eigene aktuelle Gebinde der Charge wird unten wieder ergänzt (Volumen-Lookup).
+    ladeBehaelter(supabase, tenantId, { nurAktiv: true }),
     // Ausgehende Umzüge (von dieser Charge weg) – enthält 'transfer' und 'quelle'-Zeilen
     tf((supabase.from('keller_umzuege') as any)
       .select('id, datum, menge_liter, brutto_liter, schwund_liter, nach_behaelter:nach_behaelter_id(name), notizen, umzug_batch_id, zeilen_typ')
@@ -170,7 +173,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
   if (!weinausbau) notFound()
 
   const weingaerten = (wgRaw ?? []) as NameRow[]
-  const behaelter   = (bhRaw  ?? []) as NameRow[]
+  const behaelter   = bhRows.filter(b => !b.gesperrt).map(b => ({ id: b.id, name: b.anzeigeName, volumen_liter: b.volumen_liter })) as (NameRow & { volumen_liter: number | null })[]
   const selectedWeingaertenIds = ((wawRaw ?? []) as R[]).map(r => r.weingarten_id as string)
 
   const alleChargen = (alleChargenRaw ?? []) as { id: string; name: string; menge_liter: number | null; qualitaetsstufe: string | null; herkunft_code?: string | null; behaelter_id: string | null; rebsorte?: string | null; weinart?: string | null }[]
@@ -566,7 +569,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       {/* Verschneidung (wird über Header-Button mit ?form=verschneiden geöffnet) */}
       {writeOk && (
         <VerschneidungWidget
-          zielCharge={{ id: weinausbau.id, name: weinausbau.name, menge_liter: berechneterSaldo, qualitaetsstufe: weinausbau.qualitaetsstufe ?? null, herkunft_code: weinausbau.herkunft_code ?? null, rebsorte: weinausbau.rebsorte ?? null, weinart: weinausbau.weinart ?? null, behaelter_id: weinausbau.behaelter_id ?? null, behaelter_volumen_liter: ((bhRaw ?? []) as any[]).find((b: any) => b.id === weinausbau.behaelter_id)?.volumen_liter ?? null }}
+          zielCharge={{ id: weinausbau.id, name: weinausbau.name, menge_liter: berechneterSaldo, qualitaetsstufe: weinausbau.qualitaetsstufe ?? null, herkunft_code: weinausbau.herkunft_code ?? null, rebsorte: weinausbau.rebsorte ?? null, weinart: weinausbau.weinart ?? null, behaelter_id: weinausbau.behaelter_id ?? null, behaelter_volumen_liter: bhRows.find(b => b.id === weinausbau.behaelter_id)?.volumen_liter ?? null }}
           alleChargen={alleChargen}
           verschneidungen={verschneidungenEin}
           initialOpen={openForm === 'verschneiden'}

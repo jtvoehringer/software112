@@ -54,7 +54,7 @@ export default function KellerAuswertungenClient({
   // ── CSV-Exporter ──────────────────────────────────────────────────────────
   function exportBehaelter() {
     const rows = behaelter.map(b => {
-      const liter      = literByBehaelter[b.id] ?? 0
+      const liter      = (literByBehaelter[b.id] ?? 0) + (parseFloat(b.fremd_liter) || 0)
       const kapazitaet = parseFloat(b.volumen_liter) || null
       const pct        = kapazitaet && kapazitaet > 0 ? Math.min(100, (liter / kapazitaet) * 100) : null
       return {
@@ -203,7 +203,9 @@ export default function KellerAuswertungenClient({
             </thead>
             <tbody>
               {behaelter.map((b, i) => {
-                const liter      = literByBehaelter[b.id] ?? 0
+                // fremd belegte Liter eines Partnerbetriebs zählen zur Auslastung (Kellergemeinschaft)
+                const fremdLiter = parseFloat(b.fremd_liter) || 0
+                const liter      = (literByBehaelter[b.id] ?? 0) + fremdLiter
                 const kapazitaet = parseFloat(b.volumen_liter) || null
                 const pct        = kapazitaet && kapazitaet > 0 ? Math.min(100, (liter / kapazitaet) * 100) : null
                 return (
@@ -219,6 +221,7 @@ export default function KellerAuswertungenClient({
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums font-medium text-s112-blue-700">
                       {liter > 0 ? fmtLiter(liter) : <span className="text-s112-tertiary">–</span>}
+                      {fremdLiter > 0 && <span className="block text-[11px] font-normal text-s112-warn-fg">belegt · {b.fremd_betrieb ?? 'Partner'}</span>}
                     </td>
                     <td className="px-4 py-2.5">
                       {pct !== null ? (

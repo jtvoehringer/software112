@@ -554,7 +554,7 @@ export default function KellerplanEditor({
               >
                 <FlaskConical className="w-4 h-4" /> Kellerbehandlungen
               </Link>
-              {dialogWein ? (
+              {dialogWein && dialogWein.weinausbauId ? (
                 <Link
                   href={`/weinhandel/fuellungen/neu?charge=${dialogWein.weinausbauId}`}
                   onClick={() => setDialogBehaelterId(null)}

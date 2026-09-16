@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { ladeBehaelterEinzeln } from '@/lib/keller/behaelter'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { fmtLiter, fmtNum } from '@/lib/format'
 import type { Metadata } from 'next'
@@ -27,13 +28,11 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
   // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  const { data: bhRow } = await tf((supabase.from('behaelter') as any)
-    .select('id, name, typ, volumen_liter, standort')
-    .eq('id', id))
-    .single()
-
+  // Eigenes oder freigegebenes Gebinde (Kellergemeinschaft, Migration 203) - die
+  // Bewegungen/Umzüge darunter bleiben über tf() auf den eigenen Betrieb beschränkt.
+  const bhRow = await ladeBehaelterEinzeln(supabase, tenantId, id)
   if (!bhRow) notFound()
-  const bh = bhRow as R
+  const bh = { ...bhRow, name: bhRow.anzeigeName } as R
 
   // Alle Umzüge bei denen dieser Behälter Quelle ODER Ziel war (alle Zeilentypen laden –
   // bei n:n-Umzügen steckt "Quelle" und "Ziel" auf zwei getrennten Zeilen, verknüpft über umzug_batch_id)

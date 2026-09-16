@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -40,7 +41,7 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
     { data: planRaw },
     { data: posRaw },
     { data: allePositionenRaw },
-    { data: behaelterRaw },
+    behaelterRows,
     { data: weinRaw },
   ] = await Promise.all([
     tf((supabase.from('kellerplaene') as any)
@@ -60,10 +61,8 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
     tf((supabase.from('kellerplan_positionen') as any)
       .select('behaelter_id, kellerplan_id')),
 
-    tf((supabase.from('behaelter') as any)
-      .select('id, name, typ, volumen_liter')
-      .eq('aktiv', true)
-      .order('name')),
+    // Eigene + freigegebene Gebinde (Kellergemeinschaft, Migration 203)
+    ladeBehaelter(supabase, tenantId, { nurAktiv: true }),
 
     // Aktuelle Weinchargen je Behälter (für Beschriftung + Füllstand auf dem Plan
     // + Sprung zu "Abfüllen" im Gebinde-Dialog)
@@ -85,12 +84,16 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
       .filter(p => p.kellerplan_id !== id)
       .map(p => p.behaelter_id)
   )
-  const behaelter = ((behaelterRaw ?? []) as R[]).filter(b => !anderswoPlatziert.has(b.id))
+  const behaelter = behaelterRows
+    .filter(b => !anderswoPlatziert.has(b.id))
+    .map(b => ({ id: b.id, name: b.anzeigeName, typ: b.typ, volumen_liter: b.volumen_liter, fremd: b.fremd, fremd_liter: b.fremd_liter, fremd_betrieb: b.fremd_betrieb })) as R[]
 
   // weinMap: behaelter_id → erste aktive Charge (für Beschriftung + Abfüllen-Sprung)
   // fillMap: behaelter_id → Summe aller menge_liter (für Füllstand-Visualisierung)
   const weinMap: Record<string, { weinausbauId: string; name: string; jahrgang: number | null; rebsorte: string | null }> = {}
   const fillMap: Record<string, number> = {}
+  // Fremd belegte Liter eines Partnerbetriebs zählen zum Füllstand (ohne Chargendetails)
+  for (const b of behaelter) if (b.fremd_liter > 0) { fillMap[b.id] = b.fremd_liter; weinMap[b.id] = { weinausbauId: '', name: `belegt · ${b.fremd_betrieb ?? 'Partner'}`, jahrgang: null, rebsorte: null } }
   for (const w of (weinRaw ?? []) as R[]) {
     if (!w.behaelter_id) continue
     fillMap[w.behaelter_id] = (fillMap[w.behaelter_id] ?? 0) + (parseFloat(w.menge_liter) || 0)

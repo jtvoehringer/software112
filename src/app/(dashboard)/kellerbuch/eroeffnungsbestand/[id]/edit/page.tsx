@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
 import { notFound } from 'next/navigation'
@@ -44,17 +45,19 @@ export default async function EroeffnungsbestandEditPage({ params }: { params: P
   // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  const [{ data: rowRaw }, { data: gebindeRaw }] = await Promise.all([
+  const [{ data: rowRaw }, gebindeRows] = await Promise.all([
     tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, kmw, menge_liter, qualitaetsstufe, behaelter_id, notizen, einstandspreis_pro_liter, referenz_altsystem')
       .eq('id', id).eq('ist_eroeffnungsbestand', true).limit(1)),
-    tf((supabase.from('behaelter') as any).select('id, name').eq('aktiv', true).order('name')),
+    // Ziele: eigene + freigegebene Gebinde, fremd belegte ausgenommen (Migration 203)
+    ladeBehaelter(supabase, tenantId, { alsZiel: true }),
   ])
 
   const eintrag = (((rowRaw ?? []) as R[])[0] ?? null) as R | null
   if (!eintrag) notFound()
 
-  const gebinde = (gebindeRaw ?? []) as R[]
+  // Das aktuell zugeordnete Gebinde bleibt wählbar, auch wenn es inzwischen gesperrt wäre
+  const gebinde = gebindeRows.map(b => ({ id: b.id, name: b.anzeigeName })) as R[]
   const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
   const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 

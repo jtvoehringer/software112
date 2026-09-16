@@ -69,7 +69,11 @@ export default function KellerbehandlungenPage() {
     const activeTenantId = (activeTenantJson?.tenantId as string | undefined) ?? null
     setTenantId(activeTenantId)
 
-    let behaelterQuery = (supabase.from('behaelter') as any).select('id, name, typ, volumen_liter, standort').eq('id', behaelterId)
+    // Eigenes oder freigegebenes Gebinde (Kellergemeinschaft): über die RPC lade_behaelter,
+    // damit auch Partner-Gebinde (Freigabe) sichtbar sind - Behandlungen selbst bleiben tenant-gefiltert.
+    const behaelterQuery = activeTenantId
+      ? (supabase.rpc as any)('lade_behaelter', { p_tenant_id: activeTenantId }).then((r: R) => ({ data: ((r.data ?? []) as R[]).find(b => b.id === behaelterId) ?? null }))
+      : Promise.resolve({ data: null })
     let weinausbauQuery = (supabase.from('weinausbau') as any).select('id, name, menge_liter, aktiv').eq('behaelter_id', behaelterId).eq('aktiv', true)
     let behandlungenQuery = (supabase.from('keller_behandlungen') as any)
       .select('id, datum, typ_id, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, typ:typ_id(name)')
@@ -77,7 +81,6 @@ export default function KellerbehandlungenPage() {
       .order('datum', { ascending: false })
     let typenQuery = (supabase.from('keller_behandlungstypen') as any).select('id, name, einheit_standard').order('sort_order').order('name')
     if (activeTenantId) {
-      behaelterQuery    = behaelterQuery.eq('tenant_id', activeTenantId)
       weinausbauQuery   = weinausbauQuery.eq('tenant_id', activeTenantId)
       behandlungenQuery = behandlungenQuery.eq('tenant_id', activeTenantId)
       typenQuery        = typenQuery.eq('tenant_id', activeTenantId)
@@ -89,7 +92,7 @@ export default function KellerbehandlungenPage() {
       { data: typenData },
       { data: behandlungenData },
     ] = await Promise.all([
-      behaelterQuery.single(),
+      behaelterQuery,
       weinausbauQuery,
       typenQuery,
       behandlungenQuery,

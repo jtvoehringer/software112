@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -57,7 +58,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     { data: rawW },
     { data: rawA },
     { data: rawPressungen },
-    { data: rawBeh },
+    behRows,
     { data: rawWA },
     { data: rawGST },
     { data: rawTV },
@@ -89,8 +90,8 @@ export default async function ErnteDetailPage({ params }: Props) {
         behaelter:pressung_behaelter(id, behaelter_id, weinausbau_id, menge_liter, notizen, behaelter:behaelter_id(name), weinausbau:weinausbau_id(name, jahrgang))`)
       .eq('jahrgang_id', id).order('datum', { ascending: false })),
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    tf((supabase.from('behaelter') as any).select('id, name, volumen_liter').eq('aktiv', true).order('name')),
+    // Gebinde für die Pressung: eigene + freigegebene, fremd belegte ausgenommen (Migration 203)
+    ladeBehaelter(supabase, tenantId, { alsZiel: true }),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('weinausbau') as any)
@@ -277,7 +278,7 @@ export default async function ErnteDetailPage({ params }: Props) {
       })
     }
   }
-  const behOptions: BehOption[] = ((rawBeh ?? []) as AR[]).map(b => ({ id: b.id, name: b.name, volumen_liter: b.volumen_liter ?? null }))
+  const behOptions: BehOption[] = behRows.map(b => ({ id: b.id, name: b.anzeigeName, volumen_liter: b.volumen_liter ?? null }))
   const waOptions: WAOption[]  = ((rawWA ?? []) as AR[]).map(w => ({ id: w.id, name: w.name, jahrgang: w.jahrgang ?? null }))
 
   // Traubenverkauf

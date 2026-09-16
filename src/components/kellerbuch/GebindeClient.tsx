@@ -12,9 +12,11 @@ interface Props {
   action: (formData: FormData) => Promise<void>
   inputCls: string
   labelCls: string
+  /** Namen der Partnerbetriebe (Kellergemeinschaft) - zeigt den Freigabe-Schalter; null = keine Partner */
+  partner?: string | null
 }
 
-export default function GebindeClient({ gebinde, action, inputCls, labelCls }: Props) {
+export default function GebindeClient({ gebinde, action, inputCls, labelCls, partner = null }: Props) {
   const [open, setOpen] = useState(false)
   const router = useRouter()
 
@@ -56,6 +58,7 @@ export default function GebindeClient({ gebinde, action, inputCls, labelCls }: P
                   <option value="holzfass">Holzfass</option>
                   <option value="immervolltank">Immervoll-Tank</option>
                   <option value="lagertank">Lagertank</option>
+                  <option value="stahltank">Stahltank</option>
                   <option value="presse">Presse</option>
                   <option value="zisterne">Zisterne</option>
                   <option value="sonstiges">Sonstiges</option>
@@ -69,6 +72,16 @@ export default function GebindeClient({ gebinde, action, inputCls, labelCls }: P
               <div>
                 <label className={labelCls}>Standort</label>
                 <input name="standort" defaultValue={gebinde.standort ?? ''} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Notizen</label>
+                <input name="notizen" defaultValue={gebinde.notizen ?? ''} className={inputCls} />
+              </div>
+              <div className="flex flex-wrap gap-4 text-sm text-s112-text">
+                <label className="inline-flex items-center gap-2 cursor-pointer"><input type="checkbox" name="stapler" value="true" defaultChecked={!!gebinde.stapler} className="accent-[var(--s112-teal)]" /> mit Stapler versetzbar</label>
+                {partner && (
+                  <label className="inline-flex items-center gap-2 cursor-pointer"><input type="hidden" name="gemeinsam_sichtbar" value="1" /><input type="checkbox" name="gemeinsam" value="true" defaultChecked={gebinde.gemeinsam !== false} className="accent-[var(--s112-teal)]" /> für Partnerbetriebe freigegeben ({partner})</label>
+                )}
               </div>
               <div>
                 <label className={labelCls}>Status</label>

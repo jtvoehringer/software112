@@ -8,6 +8,8 @@ import GebindeClient from '@/components/kellerbuch/GebindeClient'
 import LoeschenButton from '@/components/kellerbuch/LoeschenButton'
 import { createBehaelter, updateBehaelter, deleteBehaelter } from '../actions'
 import { createEroeffnungsbestand, deleteEroeffnungsbestand, deleteUmzug } from '../gebinde-actions'
+import { ladeBehaelter, ladeKellergemeinschaft } from '@/lib/keller/behaelter'
+import { Users } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Gebinde – software:112' }
 export const dynamic = 'force-dynamic'
@@ -54,14 +56,16 @@ export default async function GebindePage({
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [
-    { data: gebindeRaw },
+    gebinde,
+    gemeinschaft,
     { data: chargenRaw },
     { data: eroeffnungRaw },
     { data: umzuegeRaw },
   ] = await Promise.all([
-    tf((supabase.from('behaelter') as any)
-      .select('id, name, typ, volumen_liter, standort, aktiv')
-      .order('name')),
+    // Eigene + freigegebene Gebinde (Kellergemeinschaft, Migration 203) samt
+    // fremder Belegung - Chargen anderer Betriebe bleiben unsichtbar.
+    ladeBehaelter(supabase, tenantId),
+    ladeKellergemeinschaft(supabase, tenantId),
     tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, menge_liter, behaelter_id, aktiv, behaelter:behaelter_id(name)')
       .eq('aktiv', true)
@@ -77,8 +81,9 @@ export default async function GebindePage({
       .limit(200)),
   ])
 
-  const gebinde      = (gebindeRaw   ?? []) as R[]
   const chargen      = (chargenRaw   ?? []) as R[]
+  const istEigentuemer = gemeinschaft.alsEigentuemer.length > 0
+  const istNutzer      = gemeinschaft.alsNutzer.length > 0
   const eroeffnungen = (eroeffnungRaw ?? []) as R[]
   const umzuegeFlat  = (umzuegeRaw   ?? []) as R[]
 
@@ -218,6 +223,7 @@ export default async function GebindePage({
                     <option value="holzfass">Holzfass</option>
                     <option value="immervolltank">Immervoll-Tank</option>
                     <option value="lagertank">Lagertank</option>
+                    <option value="stahltank">Stahltank</option>
                     <option value="presse">Presse</option>
                     <option value="zisterne">Zisterne</option>
                     <option value="sonstiges">Sonstiges</option>
@@ -231,6 +237,16 @@ export default async function GebindePage({
                   <label className={labelCls}>Standort</label>
                   <input name="standort" placeholder="z.B. Keller 1, Reihe A" className={inputCls} />
                 </div>
+                <div className="sm:col-span-2">
+                  <label className={labelCls}>Notizen</label>
+                  <input name="notizen" placeholder="z.B. geliehen, Besonderheiten" className={inputCls} />
+                </div>
+                <div className="sm:col-span-2 flex flex-wrap gap-5 text-sm text-s112-text">
+                  <label className="inline-flex items-center gap-2 cursor-pointer"><input type="checkbox" name="stapler" value="true" className="accent-[var(--s112-teal)]" /> mit Stapler versetzbar</label>
+                  {istEigentuemer && (
+                    <label className="inline-flex items-center gap-2 cursor-pointer"><input type="hidden" name="gemeinsam_sichtbar" value="1" /><input type="checkbox" name="gemeinsam" value="true" defaultChecked className="accent-[var(--s112-teal)]" /> für Partnerbetriebe freigegeben ({gemeinschaft.alsEigentuemer.map(p => p.name).join(', ')})</label>
+                  )}
+                </div>
                 <div className="sm:col-span-2 flex gap-3">
                   <button type="submit" className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
                     Gebinde anlegen
@@ -238,6 +254,17 @@ export default async function GebindePage({
                 </div>
               </form>
             </details>
+          )}
+
+          {(istEigentuemer || istNutzer) && (
+            <div className="rounded-lg border border-s112-line bg-s112-bg px-4 py-3 text-xs text-s112-text-2 flex items-start gap-2">
+              <Users className="w-4 h-4 text-s112-tertiary shrink-0 mt-0.5" />
+              <span>
+                Kellergemeinschaft: {istEigentuemer && <>Deine freigegebenen Gebinde können von <b className="text-s112-text">{gemeinschaft.alsEigentuemer.map(p => p.name).join(', ')}</b> genutzt werden. </>}
+                {istNutzer && <>Du siehst zusätzlich die Gebinde von <b className="text-s112-text">{gemeinschaft.alsNutzer.map(p => p.name).join(', ')}</b>. </>}
+                Vom Wein anderer Betriebe ist nur „belegt“ samt Litern sichtbar; ein fremd belegtes Gebinde kann nicht als Ziel gewählt werden.
+              </span>
+            </div>
           )}
 
           <div className="card p-0 overflow-hidden">
@@ -254,10 +281,12 @@ export default async function GebindePage({
                 </tr>
               </thead>
               <tbody>
-                {gebinde.map((g: R, i: number) => {
+                {gebinde.map((g, i: number) => {
                   const inhalt = chargen.filter((c: R) => c.behaelter_id === g.id)
-                  const inhaltLiter = inhalt.reduce((s: number, c: R) => s + (parseFloat(c.menge_liter) || 0), 0)
-                  const volumen = g.volumen_liter ? parseFloat(g.volumen_liter) : null
+                  const eigenLiter = inhalt.reduce((s: number, c: R) => s + (parseFloat(c.menge_liter) || 0), 0)
+                  // Füllstand: eigener Wein + fremd belegte Liter (Details des Partners bleiben verborgen)
+                  const inhaltLiter = eigenLiter + g.fremd_liter
+                  const volumen = g.volumen_liter
                   const fuellPct = volumen && volumen > 0 ? (inhaltLiter / volumen) * 100 : null
                   const barColor = fuellPct == null ? ''
                     : fuellPct > 100 ? 'bg-s112-err'
@@ -265,14 +294,21 @@ export default async function GebindePage({
                     : 'bg-s112-ok'
                   return (
                     <tr key={g.id} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''} ${!g.aktiv ? 'opacity-40' : ''}`}>
-                      <td className="px-4 py-2.5 font-medium text-s112-text">{g.name}</td>
+                      <td className="px-4 py-2.5 font-medium text-s112-text">
+                        {g.name}
+                        {g.fremd && <span title={`Gebinde von ${g.eigentuemer_name}`} className="ml-1.5 align-middle inline-block text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded bg-s112-blue-50 text-s112-blue-700">{g.eigentuemer_name}</span>}
+                        {!g.fremd && istEigentuemer && !g.gemeinsam && <span title="Nicht für Partnerbetriebe freigegeben" className="ml-1.5 align-middle inline-block text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded bg-s112-bg text-s112-text-2 border border-s112-line">nur eigen</span>}
+                        {g.stapler && <span title="mit Stapler versetzbar" className="ml-1.5 align-middle inline-block text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded bg-s112-bg text-s112-text-2 border border-s112-line">Stapler</span>}
+                      </td>
                       <td className="px-4 py-2.5 text-s112-text-2 capitalize">{g.typ ?? '–'}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-2">
                         {volumen ? fmtLiter(volumen) : '–'}
                       </td>
-                      <td className="px-4 py-2.5 text-s112-text-2">{g.standort ?? '–'}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-s112-blue-700 font-medium">
-                        {inhaltLiter > 0 ? fmtLiter(inhaltLiter) : '–'}
+                      <td className="px-4 py-2.5 text-s112-text-2">{g.standort ?? '–'}{g.notizen ? <span className="block text-[11px] text-s112-tertiary">{g.notizen}</span> : null}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums font-medium">
+                        {g.gesperrt
+                          ? <span className="text-s112-warn-fg" title={`Belegt durch ${g.fremd_betrieb ?? 'anderen Betrieb'} – kein Ziel für Umzüge`}>belegt · {g.fremd_betrieb ?? 'Partner'}{eigenLiter > 0 ? '' : ` · ${fmtLiter(g.fremd_liter)}`}</span>
+                          : <span className="text-s112-blue-700">{eigenLiter > 0 ? fmtLiter(eigenLiter) : '–'}</span>}
                       </td>
                       <td className="px-4 py-2.5">
                         {fuellPct != null ? (
@@ -293,8 +329,8 @@ export default async function GebindePage({
                       </td>
                       {writeOk && (
                         <td className="px-4 py-2.5 text-right">
-                          <GebindeClient gebinde={g} action={updateBehaelter.bind(null, g.id)} inputCls={inputCls} labelCls={labelCls} />
-                          {adminOk && (
+                          {!g.fremd && <GebindeClient gebinde={g} action={updateBehaelter.bind(null, g.id)} inputCls={inputCls} labelCls={labelCls} partner={istEigentuemer ? gemeinschaft.alsEigentuemer.map(p => p.name).join(', ') : null} />}
+                          {adminOk && !g.fremd && (
                             <LoeschenButton
                               action={deleteBehaelter.bind(null, g.id)}
                               bestaetigung={`Gebinde "${g.name}" wirklich löschen?`}
@@ -341,8 +377,8 @@ export default async function GebindePage({
                   <label className={labelCls}>Gebinde</label>
                   <select name="behaelter_id" className={inputCls}>
                     <option value="">– kein –</option>
-                    {gebinde.filter((g: R) => g.aktiv).map((g: R) => (
-                      <option key={g.id} value={g.id}>{g.name}</option>
+                    {gebinde.filter(g => g.aktiv && !g.gesperrt).map(g => (
+                      <option key={g.id} value={g.id}>{g.anzeigeName}</option>
                     ))}
                   </select>
                 </div>

@@ -18,6 +18,7 @@
 // 1:1 zurück, der System-Prompt weist den Bot an, dies dem User explizit
 // mitzuteilen statt nur "erledigt" zu melden.
 import { umziehen } from '@/app/(dashboard)/kellerbuch/umziehen/actions'
+import { ladeBehaelterEinzeln } from '@/lib/keller/behaelter'
 import { getCurrentMembership } from '@/lib/auth/roles'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -96,10 +97,15 @@ export async function fuehreUmziehenAus(
     return { erfolg: false, fehler: 'Kein Betrieb gefunden – Umzug konnte nicht gespeichert werden.' }
   }
 
-  const [{ data: quelle }, { data: ziel }] = await Promise.all([
+  const [{ data: quelle }, zielRow] = await Promise.all([
     (supabase.from('weinausbau') as any).select('id, menge_liter').eq('id', input.weinausbau_id).eq('tenant_id', tenantId).eq('aktiv', true).maybeSingle(),
-    (supabase.from('behaelter') as any).select('id').eq('id', input.ziel_behaelter_id).eq('tenant_id', tenantId).eq('aktiv', true).maybeSingle(),
+    // eigene + freigegebene Gebinde (Kellergemeinschaft, Migration 203)
+    ladeBehaelterEinzeln(supabase, tenantId, input.ziel_behaelter_id),
   ])
+  const ziel = zielRow && zielRow.aktiv ? zielRow : null
+  if (ziel?.gesperrt) {
+    return { erfolg: false, hinweis: `Ziel-Gebinde „${ziel.name}“ ist durch ${ziel.fremd_betrieb ?? 'einen anderen Betrieb'} belegt – dorthin kann nicht umgezogen werden. Anderes Gebinde vorschlagen.` }
+  }
   if (!quelle) {
     return { erfolg: false, hinweis: `Quell-Charge mit ID ${input.weinausbau_id} nicht gefunden. Beim User nachfragen bzw. Stammdaten-Kontext erneut prüfen.` }
   }

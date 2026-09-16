@@ -29,6 +29,11 @@ export async function createBehaelter(formData: FormData) {
     typ:           (formData.get('typ') as string) || null,
     volumen_liter: formData.get('volumen_liter') ? Number((formData.get('volumen_liter') as string).replace(',', '.')) : null,
     standort:      (formData.get('standort') as string) || null,
+    notizen:       (formData.get('notizen') as string)?.trim() || null,
+    stapler:       formData.get('stapler') === 'true',
+    // Kellergemeinschaft (Migration 203): Checkbox nur im Formular, wenn Partner bestehen -
+    // fehlt sie, bleibt der Default (freigegeben), sonst der gesetzte Wert.
+    ...(formData.has('gemeinsam_sichtbar') ? { gemeinsam: formData.get('gemeinsam') === 'true' } : {}),
     aktiv:         true,
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -103,6 +108,9 @@ export async function updateBehaelter(id: string, formData: FormData) {
     typ:           (formData.get('typ') as string) || null,
     volumen_liter: formData.get('volumen_liter') ? Number((formData.get('volumen_liter') as string).replace(',', '.')) : null,
     standort:      (formData.get('standort') as string) || null,
+    notizen:       (formData.get('notizen') as string)?.trim() || null,
+    stapler:       formData.get('stapler') === 'true',
+    ...(formData.has('gemeinsam_sichtbar') ? { gemeinsam: formData.get('gemeinsam') === 'true' } : {}),
     aktiv:         formData.get('aktiv') === 'true',
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import UmziehenClient from './UmziehenClient'
@@ -26,7 +27,7 @@ export default async function UmziehenPage({ searchParams }: { searchParams: Pro
 
   const [
     { data: waRaw },
-    { data: bhRaw },
+    bhRows,
     { data: umzugRaw },
   ] = await Promise.all([
     // Aktive Chargen mit Behälter-Info (für Quellen-Auflösung)
@@ -38,11 +39,9 @@ export default async function UmziehenPage({ searchParams }: { searchParams: Pro
       .gt('menge_liter', 0)
       .order('name')),
 
-    // Alle aktiven Behälter (für Ziele)
-    tf((supabase.from('behaelter') as any)
-      .select('id, name, volumen_liter')
-      .eq('aktiv', true)
-      .order('name')),
+    // Alle aktiven Behälter als Ziele - eigene + freigegebene (Kellergemeinschaft),
+    // ohne fremd belegte (Migration 203)
+    ladeBehaelter(supabase, tenantId, { alsZiel: true }),
 
     // Umzug-Protokoll
     tf((supabase.from('keller_umzuege') as any)
@@ -73,9 +72,9 @@ export default async function UmziehenPage({ searchParams }: { searchParams: Pro
   }))
 
   const behaelter: { id: string; name: string; kapazitaet_liter: number | null }[] =
-    ((bhRaw ?? []) as R[]).map(b => ({
+    bhRows.map(b => ({
       id:              b.id,
-      name:            b.name,
+      name:            b.anzeigeName,
       kapazitaet_liter: b.volumen_liter ?? null,
     }))
 

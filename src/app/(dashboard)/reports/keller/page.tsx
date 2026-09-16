@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import KellerAuswertungenClient from './KellerAuswertungenClient'
@@ -20,15 +21,15 @@ export default async function KellerAuswertungenPage() {
   const jahresStart = `${thisYear}-01-01`
 
   const [
-    { data: behaelterRaw },
+    behaelterRows,
     { data: chargenRaw },
     { data: behandlungenRaw },
     { data: umzuegeRaw },
     { data: fuellungenRaw },
   ] = await Promise.all([
-    tf((supabase.from('behaelter') as any)
-      .select('id, name, typ, volumen_liter, standort, aktiv')
-      .eq('aktiv', true).order('name')),
+    // Eigene + freigegebene Gebinde (Kellergemeinschaft, Migration 203) - fremd
+    // belegte zeigen nur „belegt · Betrieb“, keine Chargen
+    ladeBehaelter(supabase, tenantId, { nurAktiv: true }),
     tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, menge_liter, status, aktiv, behaelter_id, ist_eroeffnungsbestand')
       .order('jahrgang', { ascending: false })),
@@ -44,7 +45,7 @@ export default async function KellerAuswertungenPage() {
       .gte('datum', jahresStart).order('datum', { ascending: false })),
   ])
 
-  const behaelter    = (behaelterRaw    ?? []) as R[]
+  const behaelter    = behaelterRows.map(b => ({ id: b.id, name: b.anzeigeName, typ: b.typ, volumen_liter: b.volumen_liter, standort: b.standort, aktiv: b.aktiv, fremd: b.fremd, fremd_liter: b.fremd_liter, fremd_betrieb: b.fremd_betrieb })) as R[]
   const chargen      = (chargenRaw      ?? []) as R[]
   const behandlungen = (behandlungenRaw ?? []) as R[]
   const umzuege      = (umzuegeRaw      ?? []) as R[]

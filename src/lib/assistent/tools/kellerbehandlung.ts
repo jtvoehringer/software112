@@ -8,6 +8,7 @@
 // Tool-Handler ruft ausschließlich diese neue Action auf, exakt nach
 // demselben Muster wie die übrigen Prozesse.
 import { createKellerbehandlung } from '@/app/(dashboard)/kellerbuch/actions'
+import { ladeBehaelterEinzeln } from '@/lib/keller/behaelter'
 import { getCurrentMembership } from '@/lib/auth/roles'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -93,8 +94,9 @@ export async function fuehreKellerbehandlungErfassenAus(
     return { erfolg: false, fehler: 'Kein Betrieb gefunden – Kellerbehandlung konnte nicht gespeichert werden.' }
   }
 
-  const { data: behaelter } = await (supabase.from('behaelter') as any)
-    .select('id').eq('id', input.behaelter_id).eq('tenant_id', tenantId).eq('aktiv', true).maybeSingle()
+  // eigene + freigegebene Gebinde (Kellergemeinschaft, Migration 203)
+  const behaelterRow = await ladeBehaelterEinzeln(supabase, tenantId, input.behaelter_id)
+  const behaelter = behaelterRow && behaelterRow.aktiv ? behaelterRow : null
   if (!behaelter) {
     return { erfolg: false, hinweis: `Behälter mit ID ${input.behaelter_id} nicht gefunden. Beim User nachfragen bzw. Stammdaten-Kontext erneut prüfen.` }
   }

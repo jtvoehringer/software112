@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { fmtLiter } from '@/lib/format'
 import type { Metadata } from 'next'
@@ -41,13 +42,12 @@ export default async function KellerbuchPage() {
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [
-    { data: behaelterRaw },
+    behaelter,
     { data: weinausbauRaw },
     { data: fuellstandRaw },
   ] = await Promise.all([
-    tf((supabase.from('behaelter') as any)
-      .select('id, name, typ, volumen_liter, standort, aktiv')
-      .order('name')),
+    // Eigene + freigegebene Gebinde (Kellergemeinschaft, Migration 203)
+    ladeBehaelter(supabase, tenantId),
     tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, weinart, menge_liter, status, aktiv, behaelter_id, ist_eroeffnungsbestand')
       .order('jahrgang', { ascending: false })),
@@ -56,7 +56,6 @@ export default async function KellerbuchPage() {
       .select('behaelter_id, liter_aktuell')),
   ])
 
-  const behaelter  = (behaelterRaw  ?? []) as R[]
   const weinausbau = (weinausbauRaw ?? []) as R[]
 
   // Füllstand-Map aus View (event-basiert, konsistent zur Bewegungen-Page)
@@ -104,7 +103,7 @@ export default async function KellerbuchPage() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-8">
         <Link href="/kellerbuch/gebinde" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
-          <p className="text-3xl font-semibold text-s112-blue-700">{behaelter.filter((b: R) => b.aktiv).length}</p>
+          <p className="text-3xl font-semibold text-s112-blue-700">{behaelter.filter(b => b.aktiv).length}</p>
           <p className="text-xs text-s112-muted mt-1">Aktive Behälter</p>
           <p className="text-[10px] text-s112-blue-700/60 mt-1">→ Gebinde verwalten</p>
         </Link>
@@ -122,11 +121,12 @@ export default async function KellerbuchPage() {
 
       {/* Behälter mit Chargen */}
       <div className="space-y-4">
-        {behaelter.filter((b: R) => b.aktiv).map((b: R) => {
+        {behaelter.filter(b => b.aktiv).map(b => {
           const chargen        = chargenByBehaelter.get(b.id) ?? []
-          // Event-basierter Füllstand aus View (konsistent mit Bewegungen-Page)
-          const literImBehaelter = fuellstandMap.get(b.id) ?? 0
-          const kapazitaet     = b.volumen_liter ? parseFloat(b.volumen_liter) : null
+          // Event-basierter Füllstand aus View (konsistent mit Bewegungen-Page) +
+          // fremd belegte Liter eines Partnerbetriebs (ohne dessen Chargen)
+          const literImBehaelter = (fuellstandMap.get(b.id) ?? 0) + b.fremd_liter
+          const kapazitaet     = b.volumen_liter
           const auslastung     = kapazitaet && kapazitaet > 0 ? Math.min(100, (literImBehaelter / kapazitaet) * 100) : null
 
           return (
@@ -136,6 +136,8 @@ export default async function KellerbuchPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-s112-text text-sm">{b.name}</span>
+                    {b.fremd && <span title={`Gebinde von ${b.eigentuemer_name}`} className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded bg-s112-blue-50 text-s112-blue-700">{b.eigentuemer_name}</span>}
+                    {b.gesperrt && <span title="Ein anderer Betrieb hat Wein in diesem Gebinde – kein Ziel für Umzüge" className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded bg-s112-warn-bg text-s112-warn-fg">belegt · {b.fremd_betrieb} · {fmtLiter(b.fremd_liter)}</span>}
                     {b.standort && <span className="text-xs text-s112-muted">{b.standort}</span>}
                     {kapazitaet && (
                       <span className="text-xs text-s112-muted">
@@ -167,7 +169,7 @@ export default async function KellerbuchPage() {
                     className="text-xs text-s112-blue-700 hover:underline whitespace-nowrap font-medium">
                     Bewegungen →
                   </Link>
-                  {writeOk && (
+                  {writeOk && !b.fremd && (
                     <Link href={`/kellerbuch/behaelter/${b.id}`}
                       title="Bearbeiten" aria-label="Bearbeiten"
                       className="text-s112-muted hover:text-s112-blue-700">
@@ -293,7 +295,7 @@ export default async function KellerbuchPage() {
           </div>
         )}
 
-        {behaelter.filter((b: R) => b.aktiv).length === 0 && (
+        {behaelter.filter(b => b.aktiv).length === 0 && (
           <div className="card text-center py-10">
             <Boxes className="w-8 h-8 mx-auto mb-2 text-s112-muted" />
             <p className="text-sm text-s112-muted">Noch keine Behälter angelegt</p>

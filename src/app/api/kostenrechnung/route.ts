@@ -1,3 +1,4 @@
+import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
@@ -65,8 +66,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ weingaerten: data ?? [] })
   }
   if (a === 'behaelter') {
-    const { data } = await (s.from('behaelter') as any).select('id, name, typ').eq('tenant_id', t).eq('aktiv', true).order('name')
-    return NextResponse.json({ behaelter: data ?? [] })
+    // eigene + freigegebene Gebinde (Kellergemeinschaft, Migration 203)
+    const rows = await ladeBehaelter(s, t, { nurAktiv: true })
+    return NextResponse.json({ behaelter: rows.map(b => ({ id: b.id, name: b.anzeigeName, typ: b.typ })) })
   }
   if (a === 'auswertung') {
     const jahr = req.nextUrl.searchParams.get('jahr') ?? new Date().getFullYear().toString()

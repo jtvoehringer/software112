@@ -1,6 +1,7 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { ladeBehaelter, gebindeFehlerText } from '@/lib/keller/behaelter'
 import { revalidatePath } from 'next/cache'
 import { minQualitaet } from '@/lib/wein/qualitaet'
 import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
@@ -35,6 +36,15 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId
   if (!tenantId) throw new Error('Kein aktiver Mandant gefunden')
+
+  // Ziele vorab prüfen (Kellergemeinschaft, Migration 203): eigenes oder freigegebenes,
+  // aktives Gebinde, nicht durch einen anderen Betrieb belegt - bevor Quellen reduziert werden.
+  const zielGebinde = await ladeBehaelter(supabase, tenantId, { nurAktiv: true })
+  for (const z of ziele) {
+    const g = zielGebinde.find(b => b.id === z.behaelter_id)
+    if (!g) throw new Error('Ziel-Gebinde nicht gefunden oder nicht freigegeben.')
+    if (g.gesperrt) throw new Error(`Gebinde „${g.name}“ ist durch ${g.fremd_betrieb ?? 'einen anderen Betrieb'} belegt – Umziehen dorthin ist nicht möglich.`)
+  }
 
   const batchId = crypto.randomUUID()
   let verschneidungNeeded: { existingChargeId: string; newChargeId: string; menge: number } | undefined
@@ -178,7 +188,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
     } else if (vorhanden && istRebsortenmix) {
       // Rebsortenmix: separate neue Charge anlegen, Verschneidung wird danach getriggert
       const von0 = quellenDaten[0]
-      const { data: newChargeData } = await (supabase.from('weinausbau') as any).insert({
+      const { data: newChargeData, error: neuErr } = await (supabase.from('weinausbau') as any).insert({
         tenant_id:            tenantId,
         name:                 von0?.name ?? 'Umzug',
         jahrgang:             von0?.jahrgang ?? null,
@@ -197,13 +207,14 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
         notizen:              `Umzug aus „${von0?.name ?? ''}"`,
         aktiv:                true,
       }).select('id')
+      if (neuErr) throw new Error(gebindeFehlerText((neuErr as R).message))
       nachWeinausbauId = ((newChargeData as R[])?.[0] as R | undefined)?.id ?? null
       if (nachWeinausbauId) {
         verschneidungNeeded = { existingChargeId: vorhanden.id, newChargeId: nachWeinausbauId, menge: z.menge }
       }
     } else {
       const von0 = quellenDaten[0]
-      const { data: newChargeData } = await (supabase.from('weinausbau') as any).insert({
+      const { data: newChargeData, error: neuErr } = await (supabase.from('weinausbau') as any).insert({
         tenant_id:            tenantId,
         name:                 quellenDaten.length > 1 ? 'Zusammenführung' : (von0?.name ?? 'Umzug'),
         jahrgang:             von0?.jahrgang ?? null,
@@ -222,6 +233,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
           : `Umzug aus „${von0?.name ?? ''}"`,
         aktiv:                true,
       }).select('id')
+      if (neuErr) throw new Error(gebindeFehlerText((neuErr as R).message))
       nachWeinausbauId = ((newChargeData as R[])?.[0] as R | undefined)?.id ?? null
     }
 

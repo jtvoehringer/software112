@@ -53,7 +53,7 @@ export async function ladeAssistentKontext(
     { data: weinausbauRaw },
     { data: einstellungenRaw },
     { data: jahrgaengeRaw },
-    { data: behaelterRaw },
+    behaelterRows,
     { data: behandlungstypenRaw },
     { data: korrekturenRaw },
   ] = await Promise.all([
@@ -108,10 +108,9 @@ export async function ladeAssistentKontext(
       .select('id, jahrgang')
       .eq('tenant_id', tenantId)
       .order('jahrgang', { ascending: false }).limit(50),
-    (supabase.from('behaelter') as any)
-      .select('id, name, typ, volumen_liter')
-      .eq('tenant_id', tenantId).eq('aktiv', true)
-      .order('name').limit(300),
+    // eigene + freigegebene Gebinde (Kellergemeinschaft, Migration 203) - fremd
+    // belegte bleiben drin, der Bot bekommt „belegt“ als Hinweis
+    ladeBehaelter(supabase, tenantId, { nurAktiv: true }),
     (supabase.from('keller_behandlungstypen') as any)
       .select('id, name, einheit_standard')
       .eq('tenant_id', tenantId)
@@ -160,8 +159,8 @@ export async function ladeAssistentKontext(
     })),
     ustSatzStandard: Number((einstellungenRaw as R | null)?.ust_satz_standard) || 13,
     jahrgaenge: ((jahrgaengeRaw ?? []) as R[]).map(j => ({ id: j.id, jahrgang: Number(j.jahrgang) })),
-    behaelter: ((behaelterRaw ?? []) as R[]).map(b => ({
-      id: b.id, name: b.name, typ: b.typ ?? null, volumen_liter: b.volumen_liter ?? null,
+    behaelter: behaelterRows.map(b => ({
+      id: b.id, name: b.anzeigeName + (b.gesperrt ? ` (belegt durch ${b.fremd_betrieb ?? 'Partnerbetrieb'} – kein Ziel)` : ''), typ: b.typ ?? null, volumen_liter: b.volumen_liter ?? null,
     })),
     behandlungstypen: ((behandlungstypenRaw ?? []) as R[]).map(t => ({
       id: t.id, name: t.name, einheit_standard: t.einheit_standard ?? null,
@@ -183,6 +182,7 @@ export const FLASCHEN_LABEL: Record<number, string> = {
  * und ist für das Sprachmodell genauso gut auswertbar.
  */
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { ladeBehaelter } from '@/lib/keller/behaelter'
 
 export function formatiereKontextFuerPrompt(k: AssistentKontext): string {
   const zeile = (id: string, label: string, extra?: string | null) =>

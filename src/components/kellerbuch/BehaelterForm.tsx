@@ -6,14 +6,17 @@ import { useRouter } from 'next/navigation'
 type BehaelterRow = {
   id: string; name: string; typ: string | null
   volumen_liter: number | null; standort: string | null; aktiv: boolean
+  notizen?: string | null; stapler?: boolean; gemeinsam?: boolean
 }
 
 interface Props {
   behaelter?: BehaelterRow
   action: (formData: FormData) => Promise<void>
+  /** Partnerbetriebe (Kellergemeinschaft) - zeigt den Freigabe-Schalter; null = keine */
+  partner?: string | null
 }
 
-export default function BehaelterForm({ behaelter, action }: Props) {
+export default function BehaelterForm({ behaelter, action, partner = null }: Props) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -57,6 +60,7 @@ export default function BehaelterForm({ behaelter, action }: Props) {
               <option value="holzfass">Holzfass</option>
               <option value="immervolltank">Immervoll-Tank</option>
               <option value="lagertank">Lagertank</option>
+              <option value="stahltank">Stahltank</option>
               <option value="presse">Presse</option>
               <option value="zisterne">Zisterne</option>
               <option value="sonstiges">Sonstiges</option>
@@ -74,6 +78,23 @@ export default function BehaelterForm({ behaelter, action }: Props) {
           <div>
             <label className="form-label">Standort</label>
             <input name="standort" type="text" defaultValue={behaelter?.standort ?? ''} className="form-input" placeholder="z.B. Keller Süd" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="form-label">Notizen</label>
+            <input name="notizen" type="text" defaultValue={behaelter?.notizen ?? ''} className="form-input" placeholder="z.B. geliehen, Besonderheiten" />
+          </div>
+          <div className="sm:col-span-2 flex flex-wrap gap-5">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" name="stapler" value="true" defaultChecked={!!behaelter?.stapler} className="w-4 h-4 accent-s112-teal" />
+              <span className="text-sm text-s112-text-1">mit Stapler versetzbar</span>
+            </label>
+            {partner && (
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="hidden" name="gemeinsam_sichtbar" value="1" />
+                <input type="checkbox" name="gemeinsam" value="true" defaultChecked={behaelter?.gemeinsam !== false} className="w-4 h-4 accent-s112-teal" />
+                <span className="text-sm text-s112-text-1">für Partnerbetriebe freigegeben ({partner})</span>
+              </label>
+            )}
           </div>
         </div>
       </div>

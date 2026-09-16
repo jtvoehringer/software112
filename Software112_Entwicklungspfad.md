@@ -66,6 +66,7 @@ Komponenten:
 - DATEV-Export (erst bei Markteintritt DE; BMD-Übergabe ist seit 4.9.2026 umgesetzt)
 - ✅ Anlagenverzeichnis, AfA-Buchung und Anlagenspiegel (10.9.2026, aus kps-smart-buchhaltung Welle 7/8 übernommen – Migration 200)
 - ✅ Morgenbericht und Wetteranbindung (beschlossen Jour fixe 9.9.2026, ausgeliefert 10.9.2026 – Migration 201, docs/Morgenbericht_Wetter.md; ersetzt die Karte „Datenfluss“ auf der Übersicht)
+- ✅ Kellergemeinschaft: Gebinde von n Mandanten nutzbar, Inhalte mandantengetrennt („belegt · Betrieb · Liter“), Sperre bei fremder Belegung (DB-Trigger), Administration › Kellergemeinschaft; 173 Gebinde Gebeshuber aus DKB importiert (16.9.2026 – Migration 203, docs/Kellergemeinschaft.md)
 - ✅ E-Mail → Lead: Absender-Erkennung (Kontakt/Firma/Lead, Firmendomain) unter Nachrichten und Dialog „Soll ein Lead angelegt werden?“ mit KI-Vorbelegung aus der Signatur wie beim Visitenkarten-Scan (15.9.2026 – Migration 202, docs/Email_Lead.md)
 - Weitere Zahlungsmethoden
 
