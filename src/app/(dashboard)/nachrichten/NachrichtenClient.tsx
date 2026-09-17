@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from '@/components/ui/Link'
-import { Mail, Inbox, Send, Trash2, FileText, Folder, X, UserPlus } from 'lucide-react'
+import { Mail, Inbox, Send, Trash2, FileText, Folder, X, UserPlus, Paperclip } from 'lucide-react'
 import LeadDialog from './LeadDialog'
 import { ignoriereAbsender } from '../crm/actions'
 
@@ -21,6 +21,15 @@ type MsgDetail = Msg & {
   kontaktInfo: { typ: string; id: string; name: string; accountnummer: string | null; istLead?: boolean; ueber?: 'email' | 'domain' } | null
   leadVorschlag?: boolean
   cc?: string
+  // Echte Anhänge (17.9.2026) - eingebettete Bilder stecken bereits im bodyHtml
+  anhaenge?: { id: string; name: string; groesse: number; typ: string }[]
+  mailbox?: 'own' | 'shared'
+}
+
+function fmtGroesse(b: number) {
+  if (b >= 1024 * 1024) return `${(b / 1024 / 1024).toFixed(1)} MB`
+  if (b >= 1024) return `${Math.round(b / 1024)} KB`
+  return `${b} B`
 }
 
 function fmtDate(d: string) {
@@ -654,6 +663,21 @@ export default function NachrichtenClient() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+              {(selected.anhaenge?.length ?? 0) > 0 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {selected.anhaenge!.map(a => (
+                    <a key={a.id}
+                      href={`/api/nachrichten/anhang?id=${encodeURIComponent(selected.id)}&aid=${encodeURIComponent(a.id)}&mailbox=${selected.mailbox ?? activeMailbox}`}
+                      download={a.name}
+                      className="inline-flex items-center gap-1.5 text-xs border border-s112-border rounded-lg px-2.5 py-1.5 text-s112-text-1 hover:bg-s112-bg/40 hover:border-s112-blue-700/40"
+                      title={a.typ}>
+                      <Paperclip className="w-3.5 h-3.5 text-s112-muted" />
+                      <span className="max-w-[16rem] truncate">{a.name}</span>
+                      <span className="text-s112-muted">{fmtGroesse(a.groesse)}</span>
+                    </a>
+                  ))}
                 </div>
               )}
               {selected.bodyHtml ? (

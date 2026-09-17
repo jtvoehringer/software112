@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache'
 import { getStripe } from '@/lib/stripe/client'
 import { pruefeBenutzerlimit, benutzerlimitFehler, wendePaketAn, ladePaket } from '@/lib/pakete-server'
 import { istPaketKey, PAKETE } from '@/lib/pakete'
+import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -79,6 +80,7 @@ export async function saveTenantSettings(tenantId: string, formData: FormData) {
     .upsert(payload, { onConflict: 'tenant_id' })
 
   if (error) throw new Error((error as R).message)
+  tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   revalidatePath('/admin/mandanten')
 }
@@ -114,6 +116,7 @@ export async function uploadTenantLogo(tenantId: string, formData: FormData): Pr
     )
   if (dbErr) return { error: dbErr.message }
 
+  tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   revalidatePath('/admin/mandanten')
   return { url: pub.publicUrl }
@@ -168,6 +171,7 @@ export async function inviteUserToTenant(tenantId: string, email: string, role: 
     .upsert({ id: userId, full_name: name, updated_at: new Date().toISOString() }, { onConflict: 'id' })
   if (profileError) return { error: (profileError as R).message }
 
+  tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   return { success: true }
 }
@@ -201,6 +205,7 @@ export async function resendInvite(userId: string, tenantId: string) {
   })
   if (error) return { error: error.message }
 
+  tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   return { success: true }
 }
@@ -218,6 +223,7 @@ export async function updateMemberNameAdmin(userId: string, fullName: string, te
     .upsert({ id: userId, full_name: name, updated_at: new Date().toISOString() }, { onConflict: 'id' })
 
   if (error) return { error: (error as R).message }
+  tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   return { success: true }
 }
@@ -232,6 +238,7 @@ export async function updateMemberRoleAdmin(membershipId: string, role: string, 
     .update({ role }).eq('id', membershipId)
 
   if (error) return { error: (error as R).message }
+  tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   return { success: true }
 }
@@ -290,6 +297,7 @@ export async function saveBetriebEinstellungen(tenantId: string, formData: FormD
     .eq('id', tenantId)
   if (bioError) throw new Error((bioError as R).message)
 
+  tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
 }
 
@@ -323,6 +331,7 @@ export async function saveVerkaufEinstellungen(tenantId: string, formData: FormD
     }, { onConflict: 'tenant_id' })
 
   if (error) throw new Error((error as R).message)
+  tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
 }
 
@@ -347,6 +356,7 @@ export async function saveM365Einstellungen(tenantId: string, formData: FormData
   const { error } = await (admin.from('tenant_einstellungen') as any)
     .upsert({ tenant_id: tenantId, ...payload }, { onConflict: 'tenant_id' })
   if (error) throw new Error((error as Record<string,string>).message)
+  tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
 }
 
@@ -382,6 +392,7 @@ export async function saveEmailEinstellungen(tenantId: string, formData: FormDat
   const { error } = await (admin.from('tenant_einstellungen') as any)
     .upsert({ tenant_id: tenantId, ...payload }, { onConflict: 'tenant_id' })
   if (error) throw new Error((error as Record<string,string>).message)
+  tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
 }
 
@@ -404,6 +415,7 @@ export async function resetRechnungsZaehler(tenantId: string, auf: number) {
     }, { onConflict: 'tenant_id' })
 
   if (error) throw new Error((error as R).message)
+  tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
 }
 
@@ -421,6 +433,7 @@ export async function resetKundenZaehler(tenantId: string, auf: number) {
     }, { onConflict: 'tenant_id' })
 
   if (error) throw new Error((error as R).message)
+  tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
 }
 
@@ -434,6 +447,7 @@ export async function renameTenantAdmin(tenantId: string, name: string) {
     .update({ name }).eq('id', tenantId)
 
   if (error) throw new Error((error as R).message)
+  tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   revalidatePath('/admin/mandanten')
 }
@@ -453,6 +467,7 @@ export async function saveSumUpConfig(tenantId: string, formData: FormData) {
   }, { onConflict: 'tenant_id' })
 
   if (error) return { error: (error as any).message }
+  tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   return null
 }
@@ -473,6 +488,7 @@ export async function saveBawbZugangsdaten(tenantId: string, formData: FormData)
   }, { onConflict: 'tenant_id' })
 
   if (error) return { error: (error as any).message }
+  tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   return null
 }
@@ -505,6 +521,7 @@ export async function createStripeCustomer(tenantId: string, tenantName: string,
     .update({ stripe_customer_id: customer.id }).eq('id', tenantId)
   if (error) return { error: (error as R).message }
 
+  tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   return { customerId: customer.id }
 }
@@ -574,6 +591,7 @@ export async function cancelStripeSubscription(tenantId: string, subscriptionId:
     stripe_plan:              null,
     stripe_current_period_end: null,
   }).eq('id', tenantId)
+  tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   return { success: true }
 }
@@ -604,6 +622,7 @@ export async function wendePaketVorgabenAn(tenantId: string, paketWunsch?: strin
       .update({ buchhaltungsart }).eq('tenant_id', tenantId)
     if (error) return { error: `Buchhaltungsart konnte nicht gesetzt werden: ${(error as R).message}` }
   }
+  tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   return { success: true, paket }
 }

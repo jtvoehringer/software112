@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef, useTransition } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
+import { paramsAusFilter, LISTE_SCHRITT, type ListenFilter, type Zaehler } from '@/lib/crm/liste'
 import Link from '@/components/ui/Link'
-import { createKontakt, updateKontakt, deleteKontakt, createAktivitaet, createPipelineEintrag } from '../actions'
+import { createKontakt, updateKontakt, pruefeKontaktDublette, deleteKontakt, createAktivitaet, createPipelineEintrag } from '../actions'
 import { SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN, LAENDER, DIAL_CODES, segmentLabel, segmentFarbe } from '@/lib/crm/types'
 import type { KontaktRow } from '@/lib/crm/types'
 import { AlertTriangle, Trash2, Pencil } from 'lucide-react'
@@ -58,34 +59,25 @@ export function KontaktForm({
     fd.set('stammkunde', stammkunde ? 'true' : 'false')
     setSaveError(null)
 
-    // Dublettenprüfung nur bei Neuanlage (nicht beim Bearbeiten) und nicht wenn bereits ignoriert
-    if (!initial && !dubletteIgnorieren && existingKontakte && existingKontakte.length > 0) {
-      const eingabeName     = ((fd.get('nachname') as string) ?? '').trim().toLowerCase()
-      const eingabeVorname  = ((fd.get('vorname')  as string) ?? '').trim().toLowerCase()
-      const eingabeStrasse  = ((fd.get('strasse')  as string) ?? '').trim().toLowerCase()
-      const eingabePlz      = ((fd.get('plz')      as string) ?? '').trim().toLowerCase()
-      const eingabeOrt      = ((fd.get('ort')      as string) ?? '').trim().toLowerCase()
-
-      const dubletteNamen = existingKontakte.find(k =>
-        k.nachname.trim().toLowerCase() === eingabeName &&
-        (k.vorname ?? '').trim().toLowerCase() === eingabeVorname
-      )
-      const dubletteAdresse = eingabeStrasse && eingabePlz && eingabeOrt
-        ? existingKontakte.find(k =>
-            (k.strasse ?? '').trim().toLowerCase() === eingabeStrasse &&
-            (k.plz ?? '').trim().toLowerCase() === eingabePlz &&
-            (k.ort ?? '').trim().toLowerCase() === eingabeOrt
-          )
-        : null
-
-      if (dubletteNamen) {
-        setDubletteWarnung(`Ein Kontakt „${dubletteNamen.vorname ? dubletteNamen.vorname + ' ' : ''}${dubletteNamen.nachname}" ist bereits vorhanden.`)
-        return
+    // Dublettenprüfung nur bei Neuanlage (nicht beim Bearbeiten) und nicht wenn
+    // bereits ignoriert - serverseitig (17.9.2026), da die Liste nicht mehr alle
+    // Kontakte enthält; existingKontakte (falls übergeben) dient nur noch als
+    // schneller Vorab-Check.
+    if (!initial && !dubletteIgnorieren) {
+      const eingabe = {
+        vorname: ((fd.get('vorname') as string) ?? ''), nachname: ((fd.get('nachname') as string) ?? ''),
+        strasse: ((fd.get('strasse') as string) ?? ''), plz: ((fd.get('plz') as string) ?? ''), ort: ((fd.get('ort') as string) ?? ''),
       }
-      if (dubletteAdresse) {
-        setDubletteWarnung(`Ein Kontakt mit dieser Adresse (${dubletteAdresse.strasse}, ${dubletteAdresse.plz} ${dubletteAdresse.ort}) ist bereits vorhanden: „${dubletteAdresse.vorname ? dubletteAdresse.vorname + ' ' : ''}${dubletteAdresse.nachname}".`)
-        return
-      }
+      startTransition(async () => {
+        const d = await pruefeKontaktDublette(eingabe)
+        if (d.name) { setDubletteWarnung(`Ein Kontakt „${d.name}" ist bereits vorhanden.`); return }
+        if (d.adresse) { setDubletteWarnung(`Ein Kontakt mit dieser Adresse ist bereits vorhanden: ${d.adresse}.`); return }
+        const result = await createKontakt(fd)
+        if (result?.error) { setSaveError(result.error); return }
+        onDone()
+        router.refresh()
+      })
+      return
     }
 
     startTransition(async () => {
@@ -611,7 +603,7 @@ function KontaktKarte({
 export type { AktivitaetRow, PipelineRow }
 
 export default function KontakteClient({
-  kontakte, firmen, rabattgruppen, aktivitaetenMap, pipelineMap, writeOk, initialFilter,
+  kontakte, firmen, rabattgruppen, aktivitaetenMap, pipelineMap, writeOk, filter, gesamt, zaehler,
 }: {
   kontakte: KontaktRow[]
   firmen?: FirmaOption[]
@@ -619,45 +611,45 @@ export default function KontakteClient({
   aktivitaetenMap: Record<string, AktivitaetRow[]>
   pipelineMap: Record<string, PipelineRow[]>
   writeOk: boolean
-  initialFilter?: 'alle' | 'lead' | 'kunde'
+  /** Aktive Filter (aus der URL, serverseitig angewendet - lib/crm/liste.ts) */
+  filter: ListenFilter
+  /** Treffer gesamt für den aktiven Filter (geladen sind höchstens filter.n) */
+  gesamt: number
+  /** Zähler je Segment / Lead über alle Kontakte des Betriebs */
+  zaehler: Zaehler
 }) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const [pending, startTransition] = useTransition()
   const [showForm, setShowForm] = useState(false)
-  const [suche, setSuche] = useState('')
-  const [segment, setSegment] = useState<string>('alle')
-  // Sprungziel von der Dashboard-Leads-Kachel (?filter=lead) - springt direkt auf die
-  // gefilterte Ansicht, statt dass man den Filter nach dem Klick nochmal manuell setzen muss.
-  const [filterLead, setFilterLead] = useState<'alle' | 'lead' | 'kunde'>(initialFilter ?? 'alle')
+  // Serverseitige Filter (17.9.2026): jede Änderung schreibt die URL, die Seite
+  // lädt nur die passenden Zeilen. Suche mit 300 ms Verzögerung.
+  const [suche, setSuche] = useState(filter.q)
+  const sucheTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => { setSuche(filter.q) }, [filter.q])
+  const setzeFilter = (aenderung: Partial<ListenFilter>) => {
+    const neu = { ...filter, ...aenderung }
+    if (!('n' in aenderung)) neu.n = LISTE_SCHRITT   // Filterwechsel: wieder von vorne
+    startTransition(() => router.replace(`${pathname}${paramsAusFilter(neu)}`, { scroll: false }))
+  }
+  const sucheEingabe = (v: string) => {
+    setSuche(v)
+    if (sucheTimer.current) clearTimeout(sucheTimer.current)
+    sucheTimer.current = setTimeout(() => setzeFilter({ q: v.trim() }), 300)
+  }
+  const segment = filter.segment
+  const filterLead = filter.lead
+  const buchstabe = filter.buchstabe
+  const sortBy: 'nachname' | 'vorname' = filter.sort === 'vorname' ? 'vorname' : 'nachname'
   const BUCHSTABEN = ['Alle', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')]
-  const [buchstabe, setBuchstabe] = useState('Alle')
-  const [sortBy, setSortBy] = useState<'nachname' | 'vorname'>('nachname')
-  // Seit dem Dynamics-Import (3.9.2026) sind es 8.000+ Kontakte - alle Karten
-  // auf einmal zu rendern macht die Seite träge. Es werden zunächst 200
-  // gezeigt, der Rest per "Mehr anzeigen"; Filter/Suche wirken weiter auf alle.
-  const ANZEIGE_SCHRITT = 200
-  const [anzeigeLimit, setAnzeigeLimit] = useState(ANZEIGE_SCHRITT)
-  useEffect(() => { setAnzeigeLimit(ANZEIGE_SCHRITT) }, [suche, segment, buchstabe, filterLead, sortBy])
-
   const gefiltert = kontakte
-    .filter(k => {
-      const name = [k.accountnummer, k.vorname, k.nachname, k.email, k.mobil, k.telefon, k.firma_name].filter(Boolean).join(' ').toLowerCase()
-      const matchSuche = !suche || name.includes(suche.toLowerCase())
-      const matchSeg = segment === 'alle' || k.segment === segment
-      const matchAlpha = buchstabe === 'Alle' || (k.nachname ?? '').toUpperCase().startsWith(buchstabe)
-      const matchLead = filterLead === 'alle' || (filterLead === 'lead' ? k.is_lead : !k.is_lead)
-      return matchSuche && matchSeg && matchAlpha && matchLead
-    })
-    .sort((a, b) => {
-      const ka = sortBy === 'nachname' ? a.nachname : (a.vorname ?? a.nachname)
-      const kb = sortBy === 'nachname' ? b.nachname : (b.vorname ?? b.nachname)
-      return ka.localeCompare(kb, 'de')
-    })
 
   return (
     <div className="space-y-4">
       {/* Alphabet-Filter */}
       <div className="flex flex-wrap gap-0.5">
         {BUCHSTABEN.map(b => (
-          <button key={b} onClick={() => setBuchstabe(b)}
+          <button key={b} onClick={() => setzeFilter({ buchstabe: b })}
             className={`min-w-[1.75rem] px-1 py-0.5 text-xs font-medium rounded transition-colors
               ${buchstabe === b
                 ? 'bg-s112-teal text-white'
@@ -671,18 +663,18 @@ export default function KontakteClient({
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="search" placeholder="Name, Accountnummer, E-Mail, Telefon…"
-          value={suche} onChange={e => setSuche(e.target.value)}
+          value={suche} onChange={e => sucheEingabe(e.target.value)}
           className="border border-s112-border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
         />
         <div className="flex gap-1">
-          <button onClick={() => setSegment('alle')}
+          <button onClick={() => setzeFilter({ segment: 'alle' })}
             className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${segment === 'alle' ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
-            Alle ({kontakte.length})
+            Alle ({zaehler.gesamt})
           </button>
-          {SEGMENTE.map(s => {
-            const count = kontakte.filter(k => k.segment === s.value).length
+          {SEGMENTE.filter(s => (zaehler.segment[s.value] ?? 0) > 0 || s.value === segment).map(s => {
+            const count = zaehler.segment[s.value] ?? 0
             return (
-              <button key={s.value} onClick={() => setSegment(s.value)}
+              <button key={s.value} onClick={() => setzeFilter({ segment: s.value })}
                 className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${segment === s.value ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
                 {s.label} ({count})
               </button>
@@ -690,7 +682,7 @@ export default function KontakteClient({
           })}
         </div>
         <button
-          onClick={() => setSortBy(s => s === 'nachname' ? 'vorname' : 'nachname')}
+          onClick={() => setzeFilter({ sort: sortBy === 'nachname' ? 'vorname' : 'nachname' })}
           title={`Sortierung: ${sortBy === 'nachname' ? 'nach Nachname' : 'nach Vorname'}`}
           className="text-xs text-s112-muted border border-s112-border rounded-lg px-2.5 py-1.5 hover:bg-s112-bg transition-colors flex items-center gap-1.5">
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -700,10 +692,10 @@ export default function KontakteClient({
         </button>
         <div className="flex gap-1">
           {(['alle', 'lead', 'kunde'] as const).map(v => (
-            <button key={v} onClick={() => setFilterLead(v)}
+            <button key={v} onClick={() => setzeFilter({ lead: v })}
               className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterLead === v ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
               {v === 'alle' ? 'Alle' : v === 'lead' ? 'Lead' : 'Aktiv'}
-              {' '}({v === 'alle' ? kontakte.length : kontakte.filter(k => v === 'lead' ? k.is_lead : !k.is_lead).length})
+              {' '}({v === 'alle' ? zaehler.gesamt : v === 'lead' ? zaehler.lead : zaehler.kunde})
             </button>
           ))}
         </div>
@@ -726,20 +718,20 @@ export default function KontakteClient({
         <KontaktForm
           firmen={firmen}
           rabattgruppen={rabattgruppen}
-          existingKontakte={kontakte}
           defaultSegment={segment !== 'alle' ? segment : undefined}
           onDone={() => setShowForm(false)}
         />
       )}
 
       {/* Liste */}
+      {pending && <p className="text-xs text-s112-tertiary animate-pulse">Lade…</p>}
       {gefiltert.length === 0 ? (
         <div className="card text-center py-12 text-s112-muted text-sm">
-          {kontakte.length === 0 ? 'Noch keine Kontakte angelegt.' : 'Keine Treffer für diesen Filter.'}
+          {zaehler.gesamt === 0 ? 'Noch keine Kontakte angelegt.' : 'Keine Treffer für diesen Filter.'}
         </div>
       ) : (
         <div className="space-y-2">
-          {gefiltert.slice(0, anzeigeLimit).map(k => (
+          {gefiltert.map(k => (
             <KontaktKarte
               key={k.id}
               kontakt={k}
@@ -751,10 +743,10 @@ export default function KontakteClient({
               sortBy={sortBy}
             />
           ))}
-          {gefiltert.length > anzeigeLimit && (
-            <button type="button" onClick={() => setAnzeigeLimit(n => n + ANZEIGE_SCHRITT)}
-              className="w-full card text-center py-3 text-sm font-medium text-s112-blue-700 hover:bg-s112-bg">
-              Mehr anzeigen ({Math.min(anzeigeLimit, gefiltert.length)} von {gefiltert.length})
+          {gesamt > gefiltert.length && (
+            <button type="button" disabled={pending} onClick={() => setzeFilter({ n: filter.n + LISTE_SCHRITT })}
+              className="w-full card text-center py-3 text-sm font-medium text-s112-blue-700 hover:bg-s112-bg disabled:opacity-50">
+              {pending ? 'Lade…' : `Mehr anzeigen (${gefiltert.length} von ${gesamt})`}
             </button>
           )}
         </div>

@@ -1,5 +1,4 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { alle } from '@/lib/supabase/alle'
 import CRMUebersichtClient from './CRMUebersichtClient'
 import type { KalenderEintrag } from './CRMUebersichtClient'
 import { AKTIVITAET_ARTEN } from '@/lib/crm/types'
@@ -24,18 +23,34 @@ export default async function CRMUebersichtPage() {
   const { data: aktivRawAll } = await tf((supabase.from('aktivitaeten') as any)
     .select('id, art, betreff, datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, kontakt_id, firma_id, ist_privat, erstellt_von, bis_datum')
     .not('datum', 'is', null)
-    .order('datum', { ascending: true }))
+    // Verkauf/Notiz/E-Mail erscheinen nicht im Kalender - gar nicht erst laden
+    // (E-Mail-Aktivitäten wachsen mit jeder geöffneten Nachricht, 17.9.2026)
+    .not('art', 'in', '("verkauf","notiz","email")')
+    .order('datum', { ascending: true })
+    .limit(5000))
 
   // "Nur für mich sichtbar"-Termine anderer Nutzer serverseitig herausfiltern
   const aktivRaw = ((aktivRawAll ?? []) as AR[]).filter(
     (a: AR) => !a.ist_privat || a.erstellt_von === currentUserId
   )
 
-  // Namen aus Kontakte & Firmen
-  const { data: kontakteRaw } = await alle(tf((supabase.from('kontakte') as any)
-    .select('id, vorname, nachname').order('id')))
-  const { data: firmenRaw } = await alle(tf((supabase.from('firmen') as any)
-    .select('id, name').order('id')))
+  // Namen nur für die in Aktivitäten verwiesenen Kontakte/Firmen (17.9.2026 -
+  // vorher alle 8.300 Kontakte + 4.600 Firmen; die Auswahlfelder im Termin-
+  // Dialog suchen jetzt serverseitig über /api/crm/suche).
+  const kontaktIds = [...new Set(aktivRaw.map((a: AR) => a.kontakt_id).filter(Boolean))] as string[]
+  const firmaIds   = [...new Set(aktivRaw.map((a: AR) => a.firma_id).filter(Boolean))] as string[]
+  const inBloecken = async (tabelle: string, spalten: string, ids: string[]) => {
+    const out: AR[] = []
+    for (let i = 0; i < ids.length; i += 300) {
+      const { data } = await tf((supabase.from(tabelle) as any).select(spalten).in('id', ids.slice(i, i + 300)))
+      out.push(...((data ?? []) as AR[]))
+    }
+    return out
+  }
+  const [kontakteRaw, firmenRaw] = await Promise.all([
+    inBloecken('kontakte', 'id, vorname, nachname', kontaktIds),
+    inBloecken('firmen', 'id, name', firmaIds),
+  ])
 
   // User-Profile für Klarname in Filter-Chips
   const uniqueUserIds = [...new Set(
@@ -109,14 +124,5 @@ export default async function CRMUebersichtPage() {
 
   ].sort((a, b) => a.datum.localeCompare(b.datum))
 
-  const kontakteList = (kontakteRaw as AR[] ?? []).map((k: AR) => ({
-    id: k.id as string,
-    name: [k.vorname, k.nachname].filter(Boolean).join(' ') as string,
-  }))
-  const firmenList = (firmenRaw as AR[] ?? []).map((f: AR) => ({
-    id: f.id as string,
-    name: f.name as string,
-  }))
-
-  return <CRMUebersichtClient eintraege={eintraege} heute={heute} kontakte={kontakteList} firmen={firmenList} userProfiles={userProfiles} />
+  return <CRMUebersichtClient eintraege={eintraege} heute={heute} userProfiles={userProfiles} />
 }

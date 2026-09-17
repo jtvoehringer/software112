@@ -9,16 +9,22 @@ import { X, Lock, Pencil, Calendar, Check, Trash2 } from 'lucide-react'
 
 // ── Typeahead-Suche ───────────────────────────────────────────────────────────
 interface SucheItem { id: string; label: string; sub?: string }
-function KundenSuche({ items, value, onChange, placeholder }: {
-  items: SucheItem[]; value: string; onChange: (v: string) => void; placeholder?: string
+function KundenSuche({ items = [], art, value, onChange, placeholder }: {
+  items?: SucheItem[]; art?: 'kontakt' | 'firma'; value: string; onChange: (v: string) => void; placeholder?: string
 }) {
+  // art gesetzt → Treffer serverseitig über /api/crm/suche (17.9.2026), sonst
+  // Filter über die mitgegebenen items.
   const [query, setQuery] = useState('')
   const [open,  setOpen]  = useState(false)
+  const [server, setServer] = useState<SucheItem[]>([])
+  const [gewaehlt, setGewaehlt] = useState<SucheItem | null>(null)
   const ref = useRef<HTMLDivElement>(null)
-  const selected = items.find(i => i.id === value)
-  const treffer = query.length < 1
-    ? items.slice(0, 50)
-    : items.filter(i => (i.label + ' ' + (i.sub ?? '')).toLowerCase().includes(query.toLowerCase())).slice(0, 50)
+  const selected = items.find(i => i.id === value) ?? (gewaehlt?.id === value ? gewaehlt : null)
+  const treffer = art
+    ? server
+    : query.length < 1
+      ? items.slice(0, 50)
+      : items.filter(i => (i.label + ' ' + (i.sub ?? '')).toLowerCase().includes(query.toLowerCase())).slice(0, 50)
   useEffect(() => {
     function handle(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
@@ -26,6 +32,20 @@ function KundenSuche({ items, value, onChange, placeholder }: {
     document.addEventListener('mousedown', handle)
     return () => document.removeEventListener('mousedown', handle)
   }, [])
+  useEffect(() => {
+    if (!art || !open) return
+    const t = setTimeout(() => {
+      fetch(`/api/crm/suche?art=${art}&q=${encodeURIComponent(query)}`)
+        .then(r => r.json()).then(d => setServer(d.treffer ?? [])).catch(() => setServer([]))
+    }, 250)
+    return () => clearTimeout(t)
+  }, [art, query, open])
+  useEffect(() => {
+    // Vorbelegter Wert (z.B. Bearbeiten) ohne Label → Namen nachladen
+    if (!art || !value || selected) return
+    fetch(`/api/crm/suche?art=${art}&ids=${encodeURIComponent(value)}`)
+      .then(r => r.json()).then(d => { const t = (d.treffer ?? [])[0]; if (t) setGewaehlt(t) }).catch(() => {})
+  }, [art, value, selected])
   return (
     <div ref={ref} className="relative">
       {selected ? (
@@ -45,7 +65,7 @@ function KundenSuche({ items, value, onChange, placeholder }: {
             <ul className="absolute z-50 mt-1 w-full bg-white border border-s112-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
               {treffer.map(i => (
                 <li key={i.id}
-                  onMouseDown={e => { e.preventDefault(); onChange(i.id); setQuery(''); setOpen(false) }}
+                  onMouseDown={e => { e.preventDefault(); onChange(i.id); setGewaehlt(i); setQuery(''); setOpen(false) }}
                   className="px-3 py-2 hover:bg-s112-bg cursor-pointer">
                   <span className="text-sm font-medium">{i.label}</span>
                   {i.sub && <span className="text-xs text-s112-muted ml-1">{i.sub}</span>}
@@ -239,13 +259,11 @@ function WochenView({ eintraege, current, heute }: { eintraege: KalenderEintrag[
 const HOUR_H = 64  // px per hour
 
 function ZeitachseView({
-  eintraege, current, heute, kontakte, firmen, userProfiles = {},
+  eintraege, current, heute, userProfiles = {},
 }: {
   eintraege: KalenderEintrag[]
   current: Date
   heute: string
-  kontakte: { id: string; name: string }[]
-  firmen: { id: string; name: string }[]
   userProfiles?: Record<string, string>
 }) {
   const router    = useRouter()
@@ -1044,7 +1062,7 @@ function ZeitachseView({
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Kontakt</label>
                 <KundenSuche
-                  items={kontakte.map(k => ({ id: k.id, label: k.name }))}
+                  art="kontakt"
                   value={newAktKontaktId}
                   onChange={setNewAktKontaktId}
                   placeholder="Name suchen…"
@@ -1053,7 +1071,7 @@ function ZeitachseView({
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Firma</label>
                 <KundenSuche
-                  items={firmen.map(f => ({ id: f.id, label: f.name }))}
+                  art="firma"
                   value={newAktFirmaId}
                   onChange={setNewAktFirmaId}
                   placeholder="Firmenname suchen…"
@@ -1279,12 +1297,10 @@ function JahrView({ eintraege, current, heute }: { eintraege: KalenderEintrag[];
 interface Props {
   eintraege: KalenderEintrag[]
   heute: string
-  kontakte: { id: string; name: string }[]
-  firmen: { id: string; name: string }[]
   userProfiles?: Record<string, string>
 }
 
-export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen, userProfiles = {} }: Props) {
+export default function CRMUebersichtClient({ eintraege, heute, userProfiles = {} }: Props) {
   const [view, setView]       = useState<ViewMode>('zeitachse')
   const [current, setCurrent] = useState<Date>(() => new Date())
 
@@ -1422,7 +1438,7 @@ export default function CRMUebersichtClient({ eintraege, heute, kontakte, firmen
       </div>
 
       {/* ── Kalender ── */}
-      {view === 'zeitachse' && <ZeitachseView eintraege={alleEintraege} current={current} heute={heute} kontakte={kontakte} firmen={firmen} userProfiles={userProfiles} />}
+      {view === 'zeitachse' && <ZeitachseView eintraege={alleEintraege} current={current} heute={heute} userProfiles={userProfiles} />}
       {view === 'monat'     && <MonatView     eintraege={alleEintraege} current={current} heute={heute} />}
       {view === 'jahr'      && <JahrView      eintraege={alleEintraege} current={current} heute={heute} />}
 

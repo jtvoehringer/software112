@@ -8,6 +8,7 @@ import SessionTimeout from '@/components/SessionTimeout'
 import AutoRefresh from '@/components/AutoRefresh'
 import AssistentWidget from '@/components/assistent/AssistentWidget'
 import Link from '@/components/ui/Link'
+import { ladeTenantKopf } from '@/lib/tenant/kopf'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -57,13 +58,13 @@ export default async function DashboardLayout({
   const role       = await getCurrentUserRole()
   const membership = await getCurrentMembership()
 
-  // Anzahl Betriebe des Users (für Betrieb-Wechsel-Button in Sidebar)
-  const { count: betriebCount } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id', { count: 'exact', head: true })
-
-  // Profilname aus profiles-Tabelle
-  const { data: profil } = await (supabase.from('profiles') as any)
-    .select('full_name').eq('id', user.id).maybeSingle()
+  // Anzahl Betriebe des Users (Betrieb-Wechsel-Button) und Profilname parallel
+  const [{ count: betriebCount }, { data: profil }] = await Promise.all([
+    (supabase.from('tenant_memberships') as any)
+      .select('tenant_id', { count: 'exact', head: true }),
+    (supabase.from('profiles') as any)
+      .select('full_name').eq('id', user.id).maybeSingle(),
+  ])
 
   // Tenant-Branding laden
   let branding: TenantBranding = DEFAULT_BRANDING
@@ -77,18 +78,13 @@ export default async function DashboardLayout({
   let billingBlocked = false
   let billingWarnung = false
   if (membership?.tenantId) {
-    const [{ data }, { data: tenantRow }] = await Promise.all([
-      (supabase.from('tenant_einstellungen') as any)
-        .select('anzeigename, logo_url, primary_color, secondary_color, modul_newsletter, modul_ea, modul_sumup, modul_export, modul_controlling, buchhaltungsart, session_timeout_minuten, assistent_aktiv')
-        .eq('tenant_id', membership.tenantId)
-        .maybeSingle(),
-      // Nur für sandboxOnly-Nav-Items (z.B. Zeiterfassung, siehe Sidebar.tsx) -
-      // bewusst über den echten Mandantennamen ermittelt, nicht über den frei
-      // editierbaren Branding-Anzeigenamen (der könnte in der Sandbox jederzeit
-      // zu Testzwecken geändert werden). Zusätzlich jetzt stripe_status (+
-      // stripe_trial_ends_at für den Trial-Ablauf) für die Zugriffssperre.
-      (supabase.from('tenants') as any).select('name, stripe_status, stripe_trial_ends_at').eq('id', membership.tenantId).maybeSingle(),
-    ])
+    // Branding/Module/Abo-Status aus dem 60-s-Layout-Cache (lib/tenant/kopf.ts,
+    // 17.9.2026) statt zwei Abfragen je Seitenaufruf. tenants.name nur für
+    // sandboxOnly-Nav-Items (bewusst der echte Mandantenname, nicht der frei
+    // editierbare Anzeigename); stripe_status/-trial für die Zugriffssperre.
+    const kopf = await ladeTenantKopf(membership.tenantId)
+    const data = kopf.einstellungen
+    const tenantRow = kopf.tenant
 
     if (data) {
       const d = data as R

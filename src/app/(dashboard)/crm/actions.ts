@@ -681,3 +681,50 @@ export async function ignoriereAbsender(email: string, grund?: string | null): P
     return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
   }
 }
+
+// ── Dublettenprüfung serverseitig (17.9.2026) ─────────────────────────────────
+// Die Kontakt-/Firmenlisten laden nicht mehr alle Datensätze in den Browser,
+// deshalb prüft das Formular Dubletten über diese Aktion (Name bzw. Adresse,
+// Groß-/Kleinschreibung egal) statt über die Liste im Client.
+export async function pruefeKontaktDublette(d: { vorname: string; nachname: string; strasse: string; plz: string; ort: string }): Promise<{ name?: string; adresse?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const tenantId = await getTenantId()
+    const out: { name?: string; adresse?: string } = {}
+    const nachname = d.nachname.trim(), vorname = d.vorname.trim()
+    if (nachname) {
+      let q = (supabase.from('kontakte') as any).select('vorname, nachname').eq('tenant_id', tenantId).eq('aktiv', true).ilike('nachname', nachname)
+      q = vorname ? q.ilike('vorname', vorname) : q.or('vorname.is.null,vorname.eq.')
+      const { data } = await q.limit(1)
+      const k = ((data ?? []) as AR[])[0]
+      if (k) out.name = `${k.vorname ? k.vorname + ' ' : ''}${k.nachname}`
+    }
+    if (d.strasse.trim() && d.plz.trim() && d.ort.trim()) {
+      const { data } = await (supabase.from('kontakte') as any).select('vorname, nachname, strasse, plz, ort').eq('tenant_id', tenantId).eq('aktiv', true)
+        .ilike('strasse', d.strasse.trim()).ilike('plz', d.plz.trim()).ilike('ort', d.ort.trim()).limit(1)
+      const k = ((data ?? []) as AR[])[0]
+      if (k) out.adresse = `${k.strasse}, ${k.plz} ${k.ort} – „${k.vorname ? k.vorname + ' ' : ''}${k.nachname}“`
+    }
+    return out
+  } catch { return {} }
+}
+
+export async function pruefeFirmaDublette(d: { name: string; strasse: string; plz: string; ort: string }): Promise<{ name?: string; adresse?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const tenantId = await getTenantId()
+    const out: { name?: string; adresse?: string } = {}
+    if (d.name.trim()) {
+      const { data } = await (supabase.from('firmen') as any).select('name').eq('tenant_id', tenantId).eq('aktiv', true).ilike('name', d.name.trim()).limit(1)
+      const f = ((data ?? []) as AR[])[0]
+      if (f) out.name = f.name
+    }
+    if (d.strasse.trim() && d.plz.trim() && d.ort.trim()) {
+      const { data } = await (supabase.from('firmen') as any).select('name, strasse, plz, ort').eq('tenant_id', tenantId).eq('aktiv', true)
+        .ilike('strasse', d.strasse.trim()).ilike('plz', d.plz.trim()).ilike('ort', d.ort.trim()).limit(1)
+      const f = ((data ?? []) as AR[])[0]
+      if (f) out.adresse = `${f.strasse}, ${f.plz} ${f.ort} – „${f.name}“`
+    }
+    return out
+  } catch { return {} }
+}

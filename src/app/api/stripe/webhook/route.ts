@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { paketFromPriceId, type PaketKey } from '@/lib/pakete'
 import { wendePaketAn } from '@/lib/pakete-server'
 import Stripe from 'stripe'
+import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 
 // Vercel streamt den Body — wir brauchen ihn als Buffer für die Signatur-Prüfung
 export const runtime = 'nodejs'
@@ -27,7 +28,9 @@ async function updateTenantStripe(
   const val = where.customer_id ?? where.subscription_id
   const { data: betroffen, error } = await (admin.from('tenants') as any).update(data).eq(col, val).select('id')
   if (error) { console.error('[Stripe Webhook] DB-Update fehlgeschlagen:', error.message); return [] }
-  return ((betroffen ?? []) as R[]).map(t => t.id as string)
+  const ids = ((betroffen ?? []) as R[]).map(t => t.id as string)
+  ids.forEach(tenantKopfInvalidieren) // Layout-Cache (Abo-Status) sofort aktualisieren
+  return ids
 }
 
 // Paketmodell Basis / Standard / Premium (Rückmeldung 2.9.2026): der
@@ -53,6 +56,7 @@ async function synchronisiereModule(
   for (const tenantId of tenantIds) {
     const fehler = await wendePaketAn(admin, tenantId, paket)
     if (fehler) console.error('[Stripe Webhook]', fehler)
+    tenantKopfInvalidieren(tenantId) // Modul-Flags im Layout-Cache erneuern
   }
 }
 

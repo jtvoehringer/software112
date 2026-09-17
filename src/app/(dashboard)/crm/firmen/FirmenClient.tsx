@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef, useTransition } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
+import { paramsAusFilter, LISTE_SCHRITT, type ListenFilter, type Zaehler } from '@/lib/crm/liste'
 import Link from '@/components/ui/Link'
-import { createFirma, updateFirma, deleteFirma } from '../actions'
+import { createFirma, updateFirma, deleteFirma, pruefeFirmaDublette } from '../actions'
 import { SEGMENTE, LAENDER, DIAL_CODES, segmentLabel, segmentFarbe } from '@/lib/crm/types'
 import type { FirmaRow } from '@/lib/crm/types'
 import { AlertTriangle, Pencil, Trash2 } from 'lucide-react'
@@ -61,32 +62,24 @@ export function FirmaForm({
     const fd = new FormData(e.currentTarget)
     setSaveError(null)
 
-    // Dublettenprüfung nur bei Neuanlage
-    if (!initial && !dubletteIgnorieren && existingFirmen && existingFirmen.length > 0) {
-      const eingabeName    = ((fd.get('name')    as string) ?? '').trim().toLowerCase()
-      const eingabeStrasse = ((fd.get('strasse') as string) ?? '').trim().toLowerCase()
-      const eingabePlz     = ((fd.get('plz')     as string) ?? '').trim().toLowerCase()
-      const eingabeOrt     = ((fd.get('ort')     as string) ?? '').trim().toLowerCase()
-
-      const dubletteNamen = existingFirmen.find(f =>
-        f.name.trim().toLowerCase() === eingabeName
-      )
-      const dubletteAdresse = eingabeStrasse && eingabePlz && eingabeOrt
-        ? existingFirmen.find(f =>
-            (f.strasse ?? '').trim().toLowerCase() === eingabeStrasse &&
-            (f.plz ?? '').trim().toLowerCase() === eingabePlz &&
-            (f.ort ?? '').trim().toLowerCase() === eingabeOrt
-          )
-        : null
-
-      if (dubletteNamen) {
-        setDubletteWarnung(`Eine Firma „${dubletteNamen.name}" ist bereits vorhanden.`)
-        return
+    // Dublettenprüfung nur bei Neuanlage - serverseitig (17.9.2026), da die
+    // Liste nicht mehr alle Firmen enthält.
+    if (!initial && !dubletteIgnorieren) {
+      const eingabe = { name: ((fd.get('name') as string) ?? ''), strasse: ((fd.get('strasse') as string) ?? ''), plz: ((fd.get('plz') as string) ?? ''), ort: ((fd.get('ort') as string) ?? '') }
+      startTransition(async () => {
+        const d = await pruefeFirmaDublette(eingabe)
+        if (d.name) { setDubletteWarnung(`Eine Firma „${d.name}" ist bereits vorhanden.`); return }
+        if (d.adresse) { setDubletteWarnung(`Eine Firma mit dieser Adresse ist bereits vorhanden: ${d.adresse}.`); return }
+        const result = await createFirma(fd)
+        if (result?.error) { setSaveError(result.error); return }
+      if (!initial && result?.id && onCreated) {
+        onCreated(result.id)
+      } else {
+        onDone()
       }
-      if (dubletteAdresse) {
-        setDubletteWarnung(`Eine Firma mit dieser Adresse (${dubletteAdresse.strasse}, ${dubletteAdresse.plz} ${dubletteAdresse.ort}) ist bereits vorhanden: „${dubletteAdresse.name}".`)
-        return
-      }
+      router.refresh()
+    })
+      return
     }
 
     startTransition(async () => {
@@ -449,38 +442,42 @@ function FirmaKarte({
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 
 export default function FirmenClient({
-  firmen, kontakteMap, rabattgruppen, writeOk,
+  firmen, kontakteMap, rabattgruppen, writeOk, filter, gesamt, zaehler,
 }: {
   firmen: FirmaRow[]
   kontakteMap: Record<string, KontaktKurz[]>
   rabattgruppen?: {id:string;name:string;rabatt_pct:number}[]
   writeOk: boolean
+  filter: ListenFilter
+  gesamt: number
+  zaehler: Zaehler
 }) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const [pending, startTransition] = useTransition()
   const [showForm, setShowForm] = useState(false)
-  const [suche, setSuche] = useState('')
-  const [segment, setSegment] = useState('alle')
-  const [filterLead, setFilterLead] = useState<'alle' | 'lead' | 'kunde'>('alle')
-  // Kunde/Lieferant sind nicht exklusiv (Migration 167 – eine Firma kann beides,
-  // eines oder keines von beidem sein), daher zwei unabhängige Toggles statt
-  // einer Radio-Auswahl.
-  const [filterKunde, setFilterKunde] = useState(false)
-  const [filterLieferant, setFilterLieferant] = useState(false)
+  // Serverseitige Filter (17.9.2026, wie KontakteClient): URL-Parameter, die
+  // Seite lädt nur die passenden Firmen; Suche mit 300 ms Verzögerung.
+  const [suche, setSuche] = useState(filter.q)
+  const sucheTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => { setSuche(filter.q) }, [filter.q])
+  const setzeFilter = (aenderung: Partial<ListenFilter>) => {
+    const neu = { ...filter, ...aenderung }
+    if (!('n' in aenderung)) neu.n = LISTE_SCHRITT
+    startTransition(() => router.replace(`${pathname}${paramsAusFilter(neu)}`, { scroll: false }))
+  }
+  const sucheEingabe = (v: string) => {
+    setSuche(v)
+    if (sucheTimer.current) clearTimeout(sucheTimer.current)
+    sucheTimer.current = setTimeout(() => setzeFilter({ q: v.trim() }), 300)
+  }
+  const segment = filter.segment
+  const filterLead = filter.lead
+  const filterKunde = filter.kunde
+  const filterLieferant = filter.lieferant
+  const buchstabe = filter.buchstabe
   const BUCHSTABEN = ['Alle', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')]
-  const [buchstabe, setBuchstabe] = useState('Alle')
-  // Anzeige in Blöcken (siehe KontakteClient) - 4.600+ Firmen seit dem Dynamics-Import.
-  const ANZEIGE_SCHRITT = 200
-  const [anzeigeLimit, setAnzeigeLimit] = useState(ANZEIGE_SCHRITT)
-  useEffect(() => { setAnzeigeLimit(ANZEIGE_SCHRITT) }, [suche, segment, buchstabe, filterLead, filterKunde, filterLieferant])
-
-  const gefiltert = firmen.filter(f => {
-    const text = [f.accountnummer, f.name, f.ort, f.email, f.telefon].filter(Boolean).join(' ').toLowerCase()
-    const matchAlpha = buchstabe === 'Alle' || (f.name ?? '').toUpperCase().startsWith(buchstabe)
-    const matchLead = filterLead === 'alle' || (filterLead === 'lead' ? f.is_lead : !f.is_lead)
-    const matchTyp = (!filterKunde && !filterLieferant) ||
-      (filterKunde && f.ist_kunde) || (filterLieferant && f.ist_lieferant)
-    return (!suche || text.includes(suche.toLowerCase())) &&
-           (segment === 'alle' || f.segment === segment) && matchAlpha && matchLead && matchTyp
-  })
+  const gefiltert = firmen
 
   const bSegmente = SEGMENTE.filter(s => s.value !== 'privat')
 
@@ -490,7 +487,7 @@ export default function FirmenClient({
       {/* Alphabet-Filter */}
       <div className="flex flex-wrap gap-0.5">
         {BUCHSTABEN.map(b => (
-          <button key={b} onClick={() => setBuchstabe(b)}
+          <button key={b} onClick={() => setzeFilter({ buchstabe: b })}
             className={`min-w-[1.75rem] px-1 py-0.5 text-xs font-medium rounded transition-colors
               ${buchstabe === b
                 ? 'bg-s112-teal text-white'
@@ -501,17 +498,17 @@ export default function FirmenClient({
       </div>
 
               <input type="search" placeholder="Name, Accountnummer, E-Mail, Ort…"
-          value={suche} onChange={e => setSuche(e.target.value)}
+          value={suche} onChange={e => sucheEingabe(e.target.value)}
           className="border border-s112-border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         <div className="flex gap-1">
-          <button onClick={() => setSegment('alle')}
+          <button onClick={() => setzeFilter({ segment: 'alle' })}
             className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${segment === 'alle' ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
-            Alle ({firmen.length})
+            Alle ({zaehler.gesamt})
           </button>
-          {bSegmente.map(s => {
-            const count = firmen.filter(f => f.segment === s.value).length
+          {bSegmente.filter(s => (zaehler.segment[s.value] ?? 0) > 0 || s.value === segment).map(s => {
+            const count = zaehler.segment[s.value] ?? 0
             return (
-              <button key={s.value} onClick={() => setSegment(s.value)}
+              <button key={s.value} onClick={() => setzeFilter({ segment: s.value })}
                 className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${segment === s.value ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
                 {s.label} ({count})
               </button>
@@ -520,21 +517,21 @@ export default function FirmenClient({
         </div>
         <div className="flex gap-1">
           {(['alle', 'lead', 'kunde'] as const).map(v => (
-            <button key={v} onClick={() => setFilterLead(v)}
+            <button key={v} onClick={() => setzeFilter({ lead: v })}
               className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterLead === v ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
               {v === 'alle' ? 'Alle' : v === 'lead' ? 'Lead' : 'Aktiv'}
-              {' '}({v === 'alle' ? firmen.length : firmen.filter(f => v === 'lead' ? f.is_lead : !f.is_lead).length})
+              {' '}({v === 'alle' ? zaehler.gesamt : v === 'lead' ? zaehler.lead : zaehler.kunde})
             </button>
           ))}
         </div>
         <div className="flex gap-1">
-          <button onClick={() => setFilterKunde(v => !v)}
+          <button onClick={() => setzeFilter({ kunde: !filterKunde })}
             className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterKunde ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
-            Kunde ({firmen.filter(f => f.ist_kunde).length})
+            Kunde ({zaehler.istKunde})
           </button>
-          <button onClick={() => setFilterLieferant(v => !v)}
+          <button onClick={() => setzeFilter({ lieferant: !filterLieferant })}
             className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterLieferant ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
-            Lieferant ({firmen.filter(f => f.ist_lieferant).length})
+            Lieferant ({zaehler.istLieferant})
           </button>
         </div>
         <div className="ml-auto flex items-center gap-2">
@@ -554,28 +551,28 @@ export default function FirmenClient({
       {showForm && (
         <FirmaForm
           rabattgruppen={rabattgruppen}
-          existingFirmen={firmen}
           defaultSegment={segment !== 'alle' ? segment : undefined}
           onDone={() => setShowForm(false)}
         />
       )}
 
+      {pending && <p className="text-xs text-s112-tertiary animate-pulse">Lade…</p>}
       {gefiltert.length === 0 ? (
         <div className="card text-center py-12 text-s112-muted text-sm">
-          {firmen.length === 0 ? 'Noch keine Firmen angelegt.' : 'Keine Treffer für diesen Filter.'}
+          {zaehler.gesamt === 0 ? 'Noch keine Firmen angelegt.' : 'Keine Treffer für diesen Filter.'}
         </div>
       ) : (
         <div className="space-y-2">
-          {gefiltert.slice(0, anzeigeLimit).map(f => (
+          {gefiltert.map(f => (
             <FirmaKarte key={f.id} firma={f}
               kontakte={kontakteMap[f.id] ?? []}
               rabattgruppen={rabattgruppen}
               writeOk={writeOk} />
           ))}
-          {gefiltert.length > anzeigeLimit && (
-            <button type="button" onClick={() => setAnzeigeLimit(n => n + ANZEIGE_SCHRITT)}
-              className="w-full card text-center py-3 text-sm font-medium text-s112-blue-700 hover:bg-s112-bg">
-              Mehr anzeigen ({Math.min(anzeigeLimit, gefiltert.length)} von {gefiltert.length})
+          {gesamt > gefiltert.length && (
+            <button type="button" disabled={pending} onClick={() => setzeFilter({ n: filter.n + LISTE_SCHRITT })}
+              className="w-full card text-center py-3 text-sm font-medium text-s112-blue-700 hover:bg-s112-bg disabled:opacity-50">
+              {pending ? 'Lade…' : `Mehr anzeigen (${gefiltert.length} von ${gesamt})`}
             </button>
           )}
         </div>

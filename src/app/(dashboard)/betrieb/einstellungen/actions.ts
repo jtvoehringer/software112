@@ -18,6 +18,7 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
+import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -64,6 +65,7 @@ export async function saveBrandingOwn(formData: FormData) {
     }, { onConflict: 'tenant_id' })
 
   if (error) return { error: error.message }
+  tenantKopfInvalidieren(auth.tenantId)
   revalidatePath('/betrieb/einstellungen')
   return { success: true }
 }
@@ -98,6 +100,7 @@ export async function uploadLogoOwn(formData: FormData): Promise<{ url?: string;
     )
   if (dbErr) return { error: dbErr.message }
 
+  tenantKopfInvalidieren(auth.tenantId)
   revalidatePath('/betrieb/einstellungen')
   return { url: pub.publicUrl }
 }
@@ -139,6 +142,7 @@ export async function saveBetriebOwn(formData: FormData) {
     .eq('id', auth.tenantId)
   if (bioError) return { error: bioError.message }
 
+  tenantKopfInvalidieren(auth.tenantId)
   revalidatePath('/betrieb/einstellungen')
   return { success: true }
 }
@@ -158,6 +162,7 @@ export async function saveBawbOwn(formData: FormData) {
   }, { onConflict: 'tenant_id' })
 
   if (error) return { error: error.message }
+  tenantKopfInvalidieren(auth.tenantId)
   revalidatePath('/betrieb/einstellungen')
   return { success: true }
 }

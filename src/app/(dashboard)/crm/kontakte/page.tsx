@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
+import { filterAusParams, ladeKontakteSeite, ladeZaehler } from '@/lib/crm/liste'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -13,7 +14,9 @@ export const dynamic = 'force-dynamic'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-export default async function KontaktePage() {
+export default async function KontaktePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const sp = await searchParams
+  const filter = filterAusParams(sp, 'kontakt')
   const supabase = await createSupabaseServerClient()
   const role    = await getCurrentUserRole()
   const writeOk = canWrite(role)
@@ -22,33 +25,27 @@ export default async function KontaktePage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  const [
-    { data: kRaw },
-    { data: fRaw },
-    { data: aRaw },
-    { data: pRaw },
-  ] = await Promise.all([
-    // alle(): seitenweise laden - PostgREST kappt sonst bei 1.000 Zeilen (3.9.2026)
-    alle(tf((supabase.from('kontakte') as any)
-      .select('id, accountnummer, vorname, nachname, segment, firma_id, firmen:firma_id(name), email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, newsletter, newsletter_bestaetigt, stammkunde, aktiv, notizen, erstellt_am, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct), zahlungsziel_tage')
-      .eq('aktiv', true)
-      .order('nachname').order('id'))),
-
+  // Serverseitig gefiltert und seitenweise (17.9.2026, lib/crm/liste.ts):
+  // Filter aus der URL, eine Abfrage mit Zähler; Firmen (für das Formular) und
+  // Zähler je Segment parallel dazu.
+  const [{ rows: kRaw, gesamt }, zaehler, { data: fRaw }] = await Promise.all([
+    ladeKontakteSeite(supabase, tenantId, filter),
+    ladeZaehler(supabase, tenantId, 'kontakt'),
     alle(tf((supabase.from('firmen') as any)
       .select('id, name, segment')
       .eq('aktiv', true)
       .order('name').order('id'))),
-
+  ])
+  const ids = kRaw.map(k => k.id as string)
+  const [{ data: aRaw }, { data: pRaw }] = ids.length === 0 ? [{ data: [] }, { data: [] }] : await Promise.all([
     tf((supabase.from('aktivitaeten') as any)
       .select('id, art, betreff, beschreibung, datum, erledigt, kontakt_id')
-      .not('kontakt_id', 'is', null)
+      .in('kontakt_id', ids)
       .order('datum', { ascending: false })),
-
     tf((supabase.from('pipeline_eintraege') as any)
       .select('id, stufe, titel, wert_euro, wahrscheinlichkeit, erwartetes_datum, kontakt_id')
-      .not('kontakt_id', 'is', null)
+      .in('kontakt_id', ids)
       .order('aktualisiert_am', { ascending: false })),
-
   ])
 
   const kontakte: KontaktRow[] = ((kRaw ?? []) as R[]).map(k => ({
@@ -136,7 +133,7 @@ export default async function KontaktePage() {
           <h1 className="text-2xl font-semibold text-s112-text">Kontakte</h1>
           <p className="text-sm text-s112-muted mt-0.5">Kunden, Ansprechpartner & Interessenten</p>
         </div>
-        <span className="text-sm text-s112-muted">{kontakte.length} Kontakte</span>
+        <span className="text-sm text-s112-muted">{zaehler.gesamt} Kontakte</span>
       </div>
 
       <KontakteClient
@@ -146,6 +143,9 @@ export default async function KontaktePage() {
         aktivitaetenMap={aktivitaetenMap}
         pipelineMap={pipelineMap}
         writeOk={writeOk}
+        filter={filter}
+        gesamt={gesamt}
+        zaehler={zaehler}
       />
     </div>
   )

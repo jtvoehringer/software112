@@ -40,6 +40,36 @@ export async function GET(req: NextRequest) {
       if (!res.ok) return NextResponse.json({ fehler: 'E-Mail nicht gefunden' }, { status: 404 })
       const msg = await res.json() as R
 
+      // Anhänge (17.9.2026): eingebettete Bilder (Signaturen, Logos) stehen im
+      // HTML als <img src="cid:…"> und wurden bisher nur als Alt-Text gezeigt
+      // („Obsah obrázku …“). Inline-Anhänge werden hier als data:-URI in das
+      // HTML eingesetzt, echte Anhänge als Liste mit Download-Link
+      // (/api/nachrichten/anhang) zurückgegeben.
+      const anhaenge: { id: string; name: string; groesse: number; typ: string }[] = []
+      let bodyHtml: string | null = msg.body?.contentType === 'html' ? msg.body.content : null
+      try {
+        const ar = await fetch(
+          `${mailboxBase}/messages/${id}/attachments?$select=id,name,contentType,size,isInline,contentId,contentBytes&$top=50`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+        if (ar.ok) {
+          const list = ((await ar.json() as R).value ?? []) as R[]
+          for (const a of list) {
+            const inline = !!a.isInline && !!a.contentId && typeof a.contentBytes === 'string'
+            if (inline && bodyHtml && a.size <= 3 * 1024 * 1024) {
+              const cid = String(a.contentId).replace(/^<|>$/g, '')
+              const daten = `data:${a.contentType || 'image/png'};base64,${a.contentBytes}`
+              const esc = cid.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+              const vorher = bodyHtml
+              bodyHtml = bodyHtml.replace(new RegExp(`(src\\s*=\\s*["']?)cid:${esc}(["'\\s>])`, 'gi'), `$1${daten}$2`)
+              if (vorher !== bodyHtml) continue
+            }
+            if (a['@odata.type'] === '#microsoft.graph.itemAttachment') continue // eingebettete E-Mails
+            anhaenge.push({ id: a.id, name: a.name ?? 'Anhang', groesse: Number(a.size ?? 0), typ: a.contentType ?? '' })
+          }
+        }
+      } catch (e) { console.error('[nachrichten] Anhänge:', e) }
+
       // Als gelesen markieren
       await fetch(`${mailboxBase}/messages/${id}`, {
         method: 'PATCH',
@@ -107,9 +137,11 @@ export async function GET(req: NextRequest) {
         an: (msg.toRecipients ?? []).map((r: R) => r.emailAddress?.address).join(', '),
         cc: (msg.ccRecipients ?? []).map((r: R) => r.emailAddress?.address).filter(Boolean).join(', '),
         datum: msg.receivedDateTime ?? msg.sentDateTime,
-        bodyHtml: msg.body?.contentType === 'html' ? msg.body.content : null,
+        bodyHtml,
         bodyText: msg.body?.contentType === 'text' ? msg.body.content : msg.body?.content ?? '',
         conversationId: msg.conversationId,
+        anhaenge,
+        mailbox,
         kontaktInfo,
         absender,
         // Lead-Vorschlag nur für unbekannte Absender (eigene Postfächer → 'eigen')

@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { alle } from '@/lib/supabase/alle'
+import { filterAusParams, ladeFirmenSeite, ladeZaehler } from '@/lib/crm/liste'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -12,7 +12,9 @@ export const dynamic = 'force-dynamic'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-export default async function FirmenPage() {
+export default async function FirmenPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const sp = await searchParams
+  const filter = filterAusParams(sp, 'firma')
   const supabase = await createSupabaseServerClient()
   const role    = await getCurrentUserRole()
   const writeOk = canWrite(role)
@@ -21,20 +23,18 @@ export default async function FirmenPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  const [{ data: fRaw }, { data: kRaw }] = await Promise.all([
-    // alle(): seitenweise laden - PostgREST kappt sonst bei 1.000 Zeilen (3.9.2026)
-    alle(tf((supabase.from('firmen') as any)
-      .select('id, accountnummer, name, segment, strasse, plz, ort, land, telefon, telefon_vorwahl, mobil, mobil_vorwahl, email, website, uid_nummer, betrieb_nr, debitor_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, ist_kunde, ist_lieferant, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
-      .eq('aktiv', true)
-      .order('name').order('id'))),
-
-    alle(tf((supabase.from('kontakte') as any)
-      .select('id, vorname, nachname, segment, firma_id')
-      .eq('aktiv', true)
-      .not('firma_id', 'is', null)
-      .order('id'))),
-
+  // Serverseitig gefiltert und seitenweise (17.9.2026, lib/crm/liste.ts);
+  // Ansprechpersonen nur für die geladenen Firmen.
+  const [{ rows: fRaw, gesamt }, zaehler] = await Promise.all([
+    ladeFirmenSeite(supabase, tenantId, filter),
+    ladeZaehler(supabase, tenantId, 'firma'),
   ])
+  const ids = fRaw.map(f => f.id as string)
+  const { data: kRaw } = ids.length === 0 ? { data: [] } : await tf((supabase.from('kontakte') as any)
+    .select('id, vorname, nachname, segment, firma_id')
+    .eq('aktiv', true)
+    .in('firma_id', ids)
+    .order('nachname'))
 
   const firmen: FirmaRow[] = ((fRaw ?? []) as R[]).map(f => ({
     id: f.id, accountnummer: f.accountnummer ?? null, name: f.name, segment: f.segment,
@@ -89,10 +89,10 @@ export default async function FirmenPage() {
           <h1 className="text-2xl font-semibold text-s112-text">Firmen</h1>
           <p className="text-sm text-s112-muted mt-0.5">Gastronomie, Handel, Export & Großhandel</p>
         </div>
-        <span className="text-sm text-s112-muted">{firmen.length} Firmen</span>
+        <span className="text-sm text-s112-muted">{zaehler.gesamt} Firmen</span>
       </div>
 
-      <FirmenClient firmen={firmen} kontakteMap={kontakteMap} rabattgruppen={rabattgruppen} writeOk={writeOk} />
+      <FirmenClient firmen={firmen} kontakteMap={kontakteMap} rabattgruppen={rabattgruppen} writeOk={writeOk} filter={filter} gesamt={gesamt} zaehler={zaehler} />
     </div>
   )
 }

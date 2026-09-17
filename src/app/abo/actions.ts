@@ -14,6 +14,7 @@ import { getStripe, TRIAL_TAGE } from '@/lib/stripe/client'
 import { istPaketKey, paketPriceId, paketAusPlan, PAKETE, type PaketKey } from '@/lib/pakete'
 import { wendePaketAn } from '@/lib/pakete-server'
 import { revalidatePath } from 'next/cache'
+import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -190,6 +191,7 @@ export async function wechslePaketAction(paketWunsch: string, buchhaltungsart?: 
 
   revalidatePath('/abo')
   revalidatePath('/', 'layout')
+  tenantKopfInvalidieren(membership.tenantId)
   return { ok: true, paket }
 }
 
@@ -217,5 +219,6 @@ export async function setzeBuchhaltungsartAction(art: string) {
   if (fehler) return { error: fehler }
   revalidatePath('/abo')
   revalidatePath('/', 'layout')
+  tenantKopfInvalidieren(membership.tenantId)
   return { ok: true }
 }

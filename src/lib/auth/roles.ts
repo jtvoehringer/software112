@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getActiveTenantCookie } from '@/lib/auth/activeTenant'
 
@@ -14,8 +15,10 @@ export async function getCurrentUserRole(): Promise<UserRole> {
   return m?.role ?? null
 }
 
-/** Gibt Tenant-ID + Rolle zurück – liest aktiven Tenant aus Cookie */
-export async function getCurrentMembership(): Promise<{ tenantId: string; role: UserRole } | null> {
+/** Gibt Tenant-ID + Rolle zurück – liest aktiven Tenant aus Cookie.
+ *  Per Request dedupliziert (React cache, 17.9.2026): Layout und Seite rufen
+ *  das mehrfach - vorher je Aufruf ein Auth-Roundtrip + Membership-Abfrage. */
+export const getCurrentMembership = cache(async function getCurrentMembership(): Promise<{ tenantId: string; role: UserRole } | null> {
   const supabase = await createSupabaseServerClient()
   const activeTenantId = await getActiveTenantCookie()
   const { data: { user } } = await supabase.auth.getUser()
@@ -56,7 +59,7 @@ export async function getCurrentMembership(): Promise<{ tenantId: string; role: 
     .maybeSingle()
   if (!data) return null
   return { tenantId: (data as R).tenant_id, role: (data as R).role as UserRole }
-}
+})
 
 // ── Berechtigungsprüfungen ─────────────────────────────────────────────────
 
