@@ -48,34 +48,32 @@ export async function GET(req: NextRequest) {
       const anhaenge: { id: string; name: string; groesse: number; typ: string }[] = []
       let bodyHtml: string | null = msg.body?.contentType === 'html' ? msg.body.content : null
       try {
-        const ar = await fetch(
-          `${mailboxBase}/messages/${id}/attachments?$select=id,name,contentType,size,isInline,contentId,contentBytes&$top=50`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        )
-        if (ar.ok) {
+        // Kein $select: contentBytes gehört zum Untertyp fileAttachment und wird
+        // in der Liste ohnehin mitgeliefert (mit $select lehnt Graph die Abfrage ab).
+        const ar = await fetch(`${mailboxBase}/messages/${id}/attachments?$top=50`, { headers: { Authorization: `Bearer ${token}` } })
+        if (!ar.ok) {
+          console.error('[nachrichten] Anhänge nicht ladbar:', ar.status, (await ar.text()).slice(0, 300))
+        } else {
           const list = ((await ar.json() as R).value ?? []) as R[]
+          const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
           for (const a of list) {
-            const inline = !!a.isInline && !!a.contentId && typeof a.contentBytes === 'string'
-            if (inline && bodyHtml && a.size <= 3 * 1024 * 1024) {
-              const cid = String(a.contentId).replace(/^<|>$/g, '')
+            const istDatei = typeof a.contentBytes === 'string'
+            if (istDatei && bodyHtml && Number(a.size ?? 0) <= 3 * 1024 * 1024) {
               const daten = `data:${a.contentType || 'image/png'};base64,${a.contentBytes}`
-              const esc = cid.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
               const vorher = bodyHtml
-              bodyHtml = bodyHtml.replace(new RegExp(`(src\\s*=\\s*["']?)cid:${esc}(["'\\s>])`, 'gi'), `$1${daten}$2`)
-              if (vorher !== bodyHtml) continue
+              // 1) über Content-ID (<img src="cid:image001.png@01DC…">)
+              const cid = a.contentId ? String(a.contentId).replace(/^<|>$/g, '') : ''
+              if (cid) bodyHtml = bodyHtml.replace(new RegExp(`(src\\s*=\\s*["']?)cid:${esc(cid)}(["'\\s>])`, 'gi'), `$1${daten}$2`)
+              // 2) Fallback über den Dateinamen (cid:image001.png@… ↔ name image001.png)
+              if (vorher === bodyHtml && a.name) bodyHtml = bodyHtml.replace(new RegExp(`(src\\s*=\\s*["']?)cid:${esc(String(a.name))}(@[^"'\\s>]*)?(["'\\s>])`, 'gi'), `$1${daten}$3`)
+              if (vorher !== bodyHtml) continue          // eingebettet → nicht in der Anhangsliste
+              if (a.isInline) continue                   // Inline ohne Verweis im Text (z.B. Signaturrest)
             }
             if (a['@odata.type'] === '#microsoft.graph.itemAttachment') continue // eingebettete E-Mails
             anhaenge.push({ id: a.id, name: a.name ?? 'Anhang', groesse: Number(a.size ?? 0), typ: a.contentType ?? '' })
           }
         }
       } catch (e) { console.error('[nachrichten] Anhänge:', e) }
-
-      // Als gelesen markieren
-      await fetch(`${mailboxBase}/messages/${id}`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isRead: true }),
-      }).catch((e: unknown) => console.error('[nachrichten] Operation fehlgeschlagen:', e))
 
       // Kontakt-Matching für Anzeige (E-Mail exakt, sonst Firmendomain; Leads
       // zählen als bekannt). Unbekannte Absender bekommen den Lead-Vorschlag

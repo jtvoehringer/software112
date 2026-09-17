@@ -35,11 +35,20 @@
 | **`loading.tsx`** für Buchhaltung, Weingarten, Reports, Controlling, Auswertungen, Administration, Mein Betrieb, Weinexport, Erntemeldung, Pflanzenschutz, Nachrichten (`components/ui/SeitenSkeleton.tsx`) | sofortiges Skelett statt weißer Seite beim Wechsel |
 | E-Mail: eingebettete Bilder (`cid:`) werden als Inline-Daten in den Nachrichtentext eingesetzt, echte Anhänge als Download-Liste (`/api/nachrichten/anhang`) | bisher nur Alt-Text („Obsah obrázku …“) statt Signaturbildern |
 
+## Umgesetzt, dritter Schritt (Build nach 9a65898)
+
+| Maßnahme | Wirkung |
+|---|---|
+| **Kundenauswahl im Verkauf/Zukauf** (`components/crm/PartnerSuche.tsx`): Typeahead sucht serverseitig über `/api/crm/suche?art=kunde|lieferant` (Kontakte + Firmen mit passendem Häkchen, 30 Treffer, Konditionen Rabattgruppe/Sonderrabatt/Skonto kommen mit dem Treffer); z.H.-Ansprechperson über `art=kontakt&firma_id=`; `/api/verkauf-stammdaten` liefert keine Kontakte/Firmen mehr | „Neuer Verkauf“ bei Gebeshuber: statt 8.300 + 4.600 Datensätzen (~2 MB JSON) nur noch Füllungen/Chargen/Artikel |
+| E-Mail: Anhänge-Liste ohne `$select` (Graph lehnt `contentBytes` auf der Basisliste ab → eingebettete Bilder blieben Alt-Text); Zuordnung zusätzlich über den Dateinamen | Signaturbilder werden angezeigt |
+| E-Mail: Thread-Verlauf (`/api/nachrichten/conversation`) ohne `$orderby` – Graph lehnt `$filter conversationId` + `$orderby` ab (bisher 502 bei jedem Öffnen) | Verlauf einer Konversation erscheint wieder |
+
+Weitere Stellen, die noch ganze Listen laden (unkritisch, kleine Mengen oder Export): `crm/pipeline`, `weinhandel/traubenverkauf`, `erntemeldung/[id]` (Kontakte für Auswahl), Exporte (gewollt).
+
 ## Empfehlungen (offen)
 
-1. **Kundenauswahl im Verkauf/Zukauf** (`weinhandel/verkauf/neu`, `zukauf/neu`) lädt weiterhin alle Kontakte/Firmen über die API in den Browser – auf `/api/crm/suche` umstellen (halber Tag, weil Rabattgruppe/Zahlungsziel/Sonderrabatt am gewählten Datensatz hängen).
-2. **Vercel Pro** prüfen, sobald mehrere Betriebe produktiv sind: Hobby hat 10 s Funktionslaufzeit im Standard, keine Fluid-Compute-Warmhaltung und nur zwei Cron-Jobs – die Kaltstarts (erste Anfrage nach Pause ~1–2 s) sind damit nicht wegzubekommen. Entscheidung des Betreibers, kein Code nötig.
-3. **Supabase Compute:** Projekt läuft auf der kleinsten Instanz; bei > 3 aktiven Betrieben auf „Small“ wechseln (mehr RAM für Index-Caches). Vorher den `pg_stat_statements`-Report ziehen (Dashboard › Reports › Query Performance), um langsame Abfragen zu sehen.
+1. **Vercel Pro** prüfen, sobald mehrere Betriebe produktiv sind: Hobby hat 10 s Funktionslaufzeit im Standard, keine Fluid-Compute-Warmhaltung und nur zwei Cron-Jobs – die Kaltstarts (erste Anfrage nach Pause ~1–2 s) sind damit nicht wegzubekommen. Entscheidung des Betreibers, kein Code nötig.
+2. **Supabase Compute:** Projekt läuft auf der kleinsten Instanz; bei > 3 aktiven Betrieben auf „Small“ wechseln (mehr RAM für Index-Caches). Vorher den `pg_stat_statements`-Report ziehen (Dashboard › Reports › Query Performance), um langsame Abfragen zu sehen.
 
 ## Hinweis zur Umstellung der Policies
 

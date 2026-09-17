@@ -1,56 +1,127 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
+import type { PartnerTreffer } from '@/components/crm/PartnerSuche'
 
 // Serverseitige Namenssuche für Auswahlfelder (17.9.2026):
-//   /api/crm/suche?art=kontakt|firma&q=<text>
-// Liefert höchstens 30 Treffer { id, label, sub } - statt alle Kontakte/Firmen
-// (bei Gebeshuber 8.300 / 4.600) in den Browser zu laden.
+//   /api/crm/suche?art=kontakt|firma|kunde|lieferant&q=<text>
+//     kontakt / firma  → nur die eine Tabelle, id = Datensatz-ID
+//     kunde            → Kontakte + Firmen mit ist_kunde, id = "kontakt:<id>" / "firma:<id>"
+//     lieferant        → Kontakte + Firmen mit ist_lieferant, id wie bei kunde
+//   &firma_id=<id>     → (art=kontakt) nur Ansprechpersonen dieser Firma; gibt es
+//                        keine, alle Kontakte (Antwort alle:true → Hinweis im Formular)
+//   &ids=a,b           → Datensätze zu bekannten IDs (Vorbelegung), Format wie oben
+// Liefert höchstens 30 Treffer { id, label, sub, daten } - daten enthält die
+// Verkaufskonditionen (Rabattgruppe, Sonderrabatt, Skonto, firma_id), damit das
+// Verkaufsformular nach der Auswahl nichts nachladen muss. Ersetzt das Laden
+// aller Kontakte/Firmen (Gebeshuber: 8.300 + 4.600) in den Browser.
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
+
+type SucheTreffer = PartnerTreffer
 
 function ilikeSicher(q: string) {
   return q.replace(/[%_,()]/g, ' ').trim()
 }
 
+function konditionen(typ: 'kontakt' | 'firma', r: R) {
+  return {
+    typ,
+    firma_id:         (r.firma_id as string | null) ?? null,
+    rabatt_pct:       (r.rabattgruppe as R | null)?.rabatt_pct != null ? Number((r.rabattgruppe as R).rabatt_pct) : null,
+    sonderrabatt_pct: parseFloat(r.sonderrabatt_pct) || 0,
+    skonto_pct:       parseFloat(r.skonto_pct) || 0,
+    skonto_tage:      parseInt(r.skonto_tage) || 10,
+  }
+}
+
+const K_SPALTEN = 'id, vorname, nachname, ort, accountnummer, firma_id, sonderrabatt_pct, skonto_pct, skonto_tage, rabattgruppe:rabattgruppe_id(rabatt_pct)'
+const F_SPALTEN = 'id, name, ort, accountnummer, ist_kunde, ist_lieferant, sonderrabatt_pct, skonto_pct, skonto_tage, rabattgruppe:rabattgruppe_id(rabatt_pct)'
+
+function kontaktTreffer(k: R, praefix = ''): SucheTreffer {
+  return {
+    id: praefix + k.id,
+    label: [k.vorname, k.nachname].filter(Boolean).join(' '),
+    sub: [praefix ? 'Person' : null, k.accountnummer, k.ort].filter(Boolean).join(' · ') || undefined,
+    daten: konditionen('kontakt', k),
+  }
+}
+function firmaTreffer(f: R, praefix = ''): SucheTreffer {
+  return {
+    id: praefix + f.id,
+    label: f.name,
+    sub: [praefix ? 'Firma' : null, f.accountnummer, f.ort].filter(Boolean).join(' · ') || undefined,
+    daten: konditionen('firma', f),
+  }
+}
+
 export async function GET(req: NextRequest) {
-  const art = req.nextUrl.searchParams.get('art') === 'firma' ? 'firma' : 'kontakt'
-  const q = ilikeSicher(req.nextUrl.searchParams.get('q') ?? '')
-  const ids = (req.nextUrl.searchParams.get('ids') ?? '').split(',').filter(Boolean).slice(0, 50)
+  const sp = req.nextUrl.searchParams
+  const artParam = sp.get('art')
+  const art: 'kontakt' | 'firma' | 'kunde' | 'lieferant' =
+    artParam === 'firma' || artParam === 'kunde' || artParam === 'lieferant' ? artParam : 'kontakt'
+  const q = ilikeSicher(sp.get('q') ?? '')
+  const idsRoh = (sp.get('ids') ?? '').split(',').filter(Boolean).slice(0, 50)
+  const firmaId = sp.get('firma_id') || null
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ treffer: [] })
   const supabase = await createSupabaseServerClient()
 
-  if (art === 'firma') {
-    let query = (supabase.from('firmen') as any)
-      .select('id, name, ort, accountnummer')
-      .eq('tenant_id', tenantId).eq('aktiv', true)
+  const kontakteAbfrage = (ids: string[], nurFirma: string | null) => {
+    let query = (supabase.from('kontakte') as any).select(K_SPALTEN).eq('tenant_id', tenantId).eq('aktiv', true)
     if (ids.length) query = query.in('id', ids)
-    else if (q) query = query.or(`name.ilike.%${q}%,accountnummer.ilike.%${q}%,ort.ilike.%${q}%`)
-    const { data } = await query.order('name').limit(30)
-    return NextResponse.json({
-      treffer: ((data ?? []) as R[]).map(f => ({ id: f.id, label: f.name, sub: [f.accountnummer, f.ort].filter(Boolean).join(' · ') || undefined })),
-    })
+    else {
+      if (nurFirma) query = query.eq('firma_id', nurFirma)
+      // Mehrere Wörter: jedes Wort muss in Vor-/Nachname/Ort/Accountnummer/E-Mail vorkommen
+      for (const w of q.split(/\s+/).filter(Boolean).slice(0, 4)) {
+        query = query.or(`nachname.ilike.%${w}%,vorname.ilike.%${w}%,accountnummer.ilike.%${w}%,ort.ilike.%${w}%,email.ilike.%${w}%`)
+      }
+    }
+    return query.order('nachname').order('vorname').limit(30)
+  }
+  const firmenAbfrage = (ids: string[], rolle: 'kunde' | 'lieferant' | null) => {
+    let query = (supabase.from('firmen') as any).select(F_SPALTEN).eq('tenant_id', tenantId).eq('aktiv', true)
+    if (ids.length) query = query.in('id', ids)
+    else {
+      // ist_kunde: Altdaten vor Migration 167 können null sein → zählt als Kunde
+      if (rolle === 'kunde') query = query.or('ist_kunde.is.null,ist_kunde.eq.true')
+      if (rolle === 'lieferant') query = query.eq('ist_lieferant', true)
+      if (q) query = query.or(`name.ilike.%${q}%,accountnummer.ilike.%${q}%,ort.ilike.%${q}%`)
+    }
+    return query.order('name').limit(30)
   }
 
-  let query = (supabase.from('kontakte') as any)
-    .select('id, vorname, nachname, ort, accountnummer')
-    .eq('tenant_id', tenantId).eq('aktiv', true)
-  if (ids.length) query = query.in('id', ids)
-  else if (q) {
-    // Mehrere Wörter: jedes Wort muss in Vor-/Nachname/Ort/Accountnummer vorkommen
-    for (const w of q.split(/\s+/).filter(Boolean).slice(0, 4)) {
-      query = query.or(`nachname.ilike.%${w}%,vorname.ilike.%${w}%,accountnummer.ilike.%${w}%,ort.ilike.%${w}%,email.ilike.%${w}%`)
-    }
+  if (art === 'firma') {
+    const { data } = await firmenAbfrage(idsRoh, null)
+    return NextResponse.json({ treffer: ((data ?? []) as R[]).map(f => firmaTreffer(f)) })
   }
-  const { data } = await query.order('nachname').order('vorname').limit(30)
-  return NextResponse.json({
-    treffer: ((data ?? []) as R[]).map(k => ({
-      id: k.id,
-      label: [k.vorname, k.nachname].filter(Boolean).join(' '),
-      sub: [k.accountnummer, k.ort].filter(Boolean).join(' · ') || undefined,
-    })),
-  })
+
+  if (art === 'kontakt') {
+    let alle = false
+    let { data } = await kontakteAbfrage(idsRoh, firmaId)
+    if (firmaId && !idsRoh.length && !(data ?? []).length) {
+      // Firma ohne zugeordnete Ansprechpersonen → alle Kontakte anbieten
+      const r = await kontakteAbfrage([], null)
+      data = r.data; alle = true
+    }
+    return NextResponse.json({ treffer: ((data ?? []) as R[]).map(k => kontaktTreffer(k)), alle })
+  }
+
+  // kunde / lieferant: beide Tabellen, IDs mit Präfix
+  const kIds = idsRoh.filter(i => i.startsWith('kontakt:')).map(i => i.slice(8))
+  const fIds = idsRoh.filter(i => i.startsWith('firma:')).map(i => i.slice(6))
+  const nurIds = idsRoh.length > 0
+  const [{ data: kRaw }, { data: fRaw }] = await Promise.all([
+    nurIds && !kIds.length ? Promise.resolve({ data: [] }) : kontakteAbfrage(kIds, null),
+    nurIds && !fIds.length ? Promise.resolve({ data: [] }) : firmenAbfrage(fIds, art),
+  ])
+  const treffer: SucheTreffer[] = [
+    ...((kRaw ?? []) as R[]).map(k => kontaktTreffer(k, 'kontakt:')),
+    ...((fRaw ?? []) as R[]).map(f => firmaTreffer(f, 'firma:')),
+  ]
+  // Gemischt alphabetisch, damit „Huber“ (Person) und „Huber GmbH“ nebeneinander stehen
+  treffer.sort((a, b) => a.label.localeCompare(b.label, 'de'))
+  return NextResponse.json({ treffer: treffer.slice(0, 30) })
 }

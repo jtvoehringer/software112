@@ -55,7 +55,7 @@ const KAPITEL: Kapitel[] = [
   {
     id: 'warenwirtschaft', icon: ShoppingCart, titel: 'Warenwirtschaft',
     abschnitte: [
-      { titel: 'Verkauf anlegen', inhalt: 'Unter Warenwirtschaft > Verkauf > Neuer Verkauf: zuerst Kontakt oder Firma wählen (Pflicht!), dann Positionen hinzufügen. Rabattgruppe und Sonderrabatt werden automatisch vorbelegt. Den USt.-Satz kannst du pro Position einzeln wählen (0 %, 10 %, 13 %, 20 %); Standard ist der im Mandanten hinterlegte Wert.' },
+      { titel: 'Verkauf anlegen', inhalt: 'Unter Warenwirtschaft > Verkauf > Neuer Verkauf: zuerst Kontakt oder Firma wählen (Pflicht!) – ins Feld "Kunde" tippen (Name, Accountnummer oder Ort), die Treffer kommen aus dem gesamten Bestand; bei mehr als 30 Treffern genauer eingeben. Dann Positionen hinzufügen. Rabattgruppe und Sonderrabatt werden automatisch vorbelegt. Den USt.-Satz kannst du pro Position einzeln wählen (0 %, 10 %, 13 %, 20 %); Standard ist der im Mandanten hinterlegte Wert.' },
       { titel: 'Rechnung drucken', inhalt: 'In der Verkaufsdetailansicht auf Rechnung klicken. Das System druckt ein PDF mit Briefkopf, USt-Aufschlüsselung und Bankdaten. Rechnungsnummer wird automatisch vergeben.' },
       { titel: 'Bezahlt markieren', inhalt: 'In der Verkaufsdetailansicht oder unter Offene Posten auf "Als bezahlt markieren" klicken. Das Datum wird gespeichert und der Eintrag verschwindet aus den offenen Posten.' },
       { titel: 'Rabatt & Sonderrabatt', inhalt: 'Beim Anlegen einer Verkaufsposition wird Rabatt aus der Rabattgruppe und Sonderrabatt aus dem Kontakt/der Firma automatisch vorbelegt. Beide Werte können direkt in der Position geändert oder auf 0 gesetzt werden, um keinen Rabatt anzuwenden.' },

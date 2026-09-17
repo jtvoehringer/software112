@@ -7,6 +7,7 @@ import { createVerkauf, createSonstigesArtikel, SonstigesArtikelData } from '../
 import { Check } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtEur, fmtNum } from '@/lib/format'
+import PartnerSuche from '@/components/crm/PartnerSuche'
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
 
@@ -71,28 +72,6 @@ interface Grundstueck {
   jahrgang_id: string | null
 }
 
-interface Kontakt {
-  id: string
-  vorname: string | null
-  nachname: string
-  firma_id: string | null
-  rabatt_pct: number | null
-  sonderrabatt_pct: number
-  skonto_pct: number
-  skonto_tage: number
-}
-
-interface Firma {
-  id: string
-  name: string
-  rabatt_pct: number | null
-  sonderrabatt_pct: number
-  skonto_pct: number
-  skonto_tage: number
-  ist_kunde?: boolean
-  ist_lieferant?: boolean
-}
-
 interface Position {
   id:            string
   typ:           'flasche' | 'tank' | 'sonstiges' | 'trauben'
@@ -127,83 +106,7 @@ const FLASCHEN_LABEL: Record<number, string> = {
 const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
 const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
-// ── Kunden-Suche (Typeahead) ──────────────────────────────────────────────────
-
-interface SucheItem { id: string; label: string; sub?: string }
-
-function KundenSuche({ items, value, onChange, placeholder, disabled }: {
-  items: SucheItem[]
-  value: string
-  onChange: (id: string) => void
-  placeholder: string
-  disabled?: boolean
-}) {
-  const [query, setQuery]   = useState('')
-  const [open, setOpen]     = useState(false)
-  const ref                 = useRef<HTMLDivElement>(null)
-
-  const selected = items.find(i => i.id === value)
-
-  const treffer = query.length < 1
-    ? items.slice(0, 50)
-    : items.filter(i =>
-        (i.label + ' ' + (i.sub ?? '')).toLowerCase().includes(query.toLowerCase())
-      ).slice(0, 50)
-
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  if (selected) {
-    return (
-      <div className="flex items-center gap-2 border border-s112-border rounded-lg px-3 py-2 bg-white text-sm">
-        <span className="flex-1 truncate font-medium text-s112-text">{selected.label}</span>
-        {selected.sub && <span className="text-xs text-s112-muted truncate">{selected.sub}</span>}
-        {!disabled && (
-          <button type="button" onClick={() => { onChange(''); setQuery('') }}
-            className="text-s112-muted hover:text-s112-err ml-1 flex-shrink-0 text-base leading-none">×</button>
-        )}
-      </div>
-    )
-  }
-
-  return (
-    <div ref={ref} className="relative">
-      <input
-        type="text"
-        value={query}
-        onChange={e => { setQuery(e.target.value); setOpen(true) }}
-        onFocus={() => setOpen(true)}
-        placeholder={placeholder}
-        disabled={disabled}
-        className={inputCls + ' w-full pr-8'}
-        autoComplete="off"
-      />
-      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-s112-muted text-xs pointer-events-none">▾</span>
-      {open && treffer.length > 0 && (
-        <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-s112-border rounded-xl shadow-lg max-h-60 overflow-y-auto">
-          {treffer.map(item => (
-            <button key={item.id} type="button"
-              onMouseDown={() => { onChange(item.id); setQuery(''); setOpen(false) }}
-              className="w-full text-left px-3 py-2 text-sm hover:bg-s112-teal/10 flex items-center justify-between gap-2">
-              <span className="font-medium text-s112-text truncate">{item.label}</span>
-              {item.sub && <span className="text-xs text-s112-muted flex-shrink-0">{item.sub}</span>}
-            </button>
-          ))}
-        </div>
-      )}
-      {open && query.length > 0 && treffer.length === 0 && (
-        <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-s112-border rounded-xl shadow-lg px-3 py-2 text-sm text-s112-muted">
-          Kein Eintrag gefunden
-        </div>
-      )}
-    </div>
-  )
-}
+// ── Kunden-Suche: serverseitig über components/crm/PartnerSuche (17.9.2026) ──
 
 // ── Sonstiges-Artikel-Kombofeld ───────────────────────────────────────────────
 
@@ -307,8 +210,6 @@ export default function NeuerVerkaufPage() {
   const [weinausbau,      setWeinausbau]      = useState<Weinausbau[]>([])
   const [zukaufPosten,    setZukaufPosten]    = useState<ZukaufPosten[]>([])
   const [pressungDirekt,  setPressungDirekt]  = useState<PressungDirekt[]>([])
-  const [kontakte,        setKontakte]        = useState<Kontakt[]>([])
-  const [firmen,          setFirmen]          = useState<Firma[]>([])
   const [sonstigeArtikel, setSonstigeArtikel] = useState<SonstigesArtikelData[]>([])
   const [weingaerten,     setWeingaerten]     = useState<Weingarten[]>([])
   const [jahrgaenge,      setJahrgaenge]      = useState<Jahrgang[]>([])
@@ -368,10 +269,6 @@ export default function NeuerVerkaufPage() {
         setWeinausbau(json.weinausbau ?? [])
         setZukaufPosten(json.zukauf_posten ?? [])
         setPressungDirekt(json.pressung_direkt ?? [])
-        setKontakte(json.kontakte ?? [])
-        // Nur Firmen mit Häkchen bei "Kunde" auswählbar (Feedback 12.8.2026: Firmen können
-        // Kunde, Lieferant oder beides sein - im Verkauf sind nur Kunden relevant).
-        setFirmen(((json.firmen ?? []) as Firma[]).filter(f => f.ist_kunde !== false))
         setSonstigeArtikel(json.sonstige_artikel ?? [])
         setWeingaerten(json.weingaerten ?? [])
         setJahrgaenge(json.jahrgaenge ?? [])
@@ -557,21 +454,12 @@ export default function NeuerVerkaufPage() {
             </div>
             <div className="col-span-2">
               <label className={labelCls}>Kunde *</label>
-              <KundenSuche
-                items={[
-                  ...kontakte.map(k => ({
-                    id: `kontakt:${k.id}`,
-                    label: [k.vorname, k.nachname].filter(Boolean).join(' '),
-                    sub: 'Person',
-                  })),
-                  ...firmen.map(f => ({
-                    id: `firma:${f.id}`,
-                    label: f.name,
-                    sub: 'Firma',
-                  })),
-                ]}
+              {/* Serverseitige Suche (17.9.2026): Kontakte + Firmen mit Häkchen
+                  "Kunde" (Feedback 12.8.2026), Konditionen kommen mit dem Treffer. */}
+              <PartnerSuche
+                art="kunde"
                 value={kontaktId ? `kontakt:${kontaktId}` : firmaId ? `firma:${firmaId}` : ''}
-                onChange={val => {
+                onChange={(val, treffer) => {
                   setZhKontaktId('')
                   if (!val) {
                     setKontaktId('')
@@ -585,25 +473,11 @@ export default function NeuerVerkaufPage() {
                   const trennerIdx = val.indexOf(':')
                   const typ = val.slice(0, trennerIdx)
                   const id  = val.slice(trennerIdx + 1)
-
-                  let rabatt = 0, sonder = 0, skPct = 0, skTage = 10
-                  if (typ === 'kontakt') {
-                    setKontaktId(id)
-                    setFirmaId('')
-                    const k = kontakte.find(x => x.id === id)
-                    rabatt = k?.rabatt_pct ?? 0
-                    sonder = k?.sonderrabatt_pct ?? 0
-                    skPct  = k?.skonto_pct ?? 0
-                    skTage = k?.skonto_tage ?? 10
-                  } else {
-                    setFirmaId(id)
-                    setKontaktId('')
-                    const f = firmen.find(x => x.id === id)
-                    rabatt = f?.rabatt_pct ?? 0
-                    sonder = f?.sonderrabatt_pct ?? 0
-                    skPct  = f?.skonto_pct ?? 0
-                    skTage = f?.skonto_tage ?? 10
-                  }
+                  if (typ === 'kontakt') { setKontaktId(id); setFirmaId('') }
+                  else                   { setFirmaId(id);   setKontaktId('') }
+                  const d = treffer?.daten
+                  const rabatt = d?.rabatt_pct ?? 0, sonder = d?.sonderrabatt_pct ?? 0
+                  const skPct = d?.skonto_pct ?? 0, skTage = d?.skonto_tage ?? 10
                   setKundenRabatt(rabatt)
                   setSkontoAktiv(skPct > 0)
                   setSkontoPct(skPct)
@@ -621,29 +495,21 @@ export default function NeuerVerkaufPage() {
               />
               <p className="text-xs text-s112-muted mt-1">Bei Firmen kann zusätzlich ein Ansprechpartner (z.H.) angegeben werden.</p>
             </div>
-            {firmaId && (() => {
-              const firmKontakte = kontakte.filter(k => k.firma_id === firmaId)
-              const zhItems = firmKontakte.length > 0
-                ? firmKontakte.map(k => ({ id: k.id, label: [k.vorname, k.nachname].filter(Boolean).join(' ') }))
-                : kontakte.map(k => ({ id: k.id, label: [k.vorname, k.nachname].filter(Boolean).join(' ') }))
-              return (
-                <div className="col-span-2">
-                  <label className={labelCls}>z.H. (zu Händen) — optional</label>
-                  {firmKontakte.length === 0 && kontakte.length > 0 && (
-                    <p className="text-xs text-s112-warn-fg mb-1">ℹ Noch kein Kontakt dieser Firma zugeordnet – alle Kontakte werden angezeigt.</p>
-                  )}
-                  <KundenSuche
-                    key={firmaId}
-                    items={zhItems}
-                    value={zhKontaktId}
-                    onChange={setZhKontaktId}
-                    placeholder="Ansprechpartner suchen…"
-                    disabled={loading}
-                  />
-                  <p className="text-xs text-s112-muted mt-1">Erscheint auf Rechnung/Lieferschein als „z.H. Vorname Nachname"</p>
-                </div>
-              )
-            })()}
+            {firmaId && (
+              <div className="col-span-2">
+                <label className={labelCls}>z.H. (zu Händen) — optional</label>
+                <PartnerSuche
+                  key={firmaId}
+                  art="kontakt"
+                  firmaId={firmaId}
+                  value={zhKontaktId}
+                  onChange={id => setZhKontaktId(id)}
+                  placeholder="Ansprechpartner suchen…"
+                  disabled={loading}
+                />
+                <p className="text-xs text-s112-muted mt-1">Erscheint auf Rechnung/Lieferschein als „z.H. Vorname Nachname"</p>
+              </div>
+            )}
             <div className="col-span-2">
               <label className={labelCls}>Notizen</label>
               <input type="text" value={notizen} onChange={e => setNotizen(e.target.value)}

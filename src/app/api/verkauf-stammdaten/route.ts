@@ -1,5 +1,4 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { alle } from '@/lib/supabase/alle'
 import { NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 
@@ -20,8 +19,6 @@ export async function GET() {
     const [
       { data: fuellungen },
       { data: weinausbau },
-      { data: kontakte },
-      { data: firmen },
       { data: sonstigeArtikel },
       { data: zukaufPosten },
       { data: pressungDirektRaw },
@@ -40,14 +37,8 @@ export async function GET() {
       (supabase.from('weinausbau') as any)
         .select('id, name, menge_liter')
         .eq('tenant_id', tenantId).eq('aktiv', true).neq('status', 'abgeschlossen').gt('menge_liter', 0).order('name'),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      alle((supabase.from('kontakte') as any)
-        .select('id, vorname, nachname, firma_id, sonderrabatt_pct, skonto_pct, skonto_tage, rabattgruppe:rabattgruppe_id(rabatt_pct)')
-        .eq('tenant_id', tenantId).eq('aktiv', true).order('nachname').order('id')),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      alle((supabase.from('firmen') as any)
-        .select('id, name, sonderrabatt_pct, skonto_pct, skonto_tage, ist_kunde, ist_lieferant, rabattgruppe:rabattgruppe_id(rabatt_pct)')
-        .eq('tenant_id', tenantId).eq('aktiv', true).order('name').order('id')),
+      // Kontakte/Firmen werden seit 17.9.2026 nicht mehr mitgeliefert - die
+      // Kundenauswahl sucht serverseitig über /api/crm/suche (PartnerSuche).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('sonstige_artikel') as any)
         .select('id, name, einheit, default_preis')
@@ -219,21 +210,7 @@ export async function GET() {
         pressung_datum:       (pb.pressung as any)?.datum ?? null,
         pressung_bezeichnung: (pb.pressung as any)?.weinbezeichnung ?? null,
       })),
-      kontakte: (kontakte ?? []).map((k: any) => ({
-        ...k,
-        rabatt_pct:       (k.rabattgruppe as any)?.rabatt_pct ?? null,
-        sonderrabatt_pct: parseFloat(k.sonderrabatt_pct) || 0,
-        skonto_pct:       parseFloat(k.skonto_pct) || 0,
-        skonto_tage:      parseInt(k.skonto_tage) || 10,
-      })),
       ust_satz_standard: ustStandard,
-      firmen: (firmen ?? []).map((f: any) => ({
-        ...f,
-        rabatt_pct:       (f.rabattgruppe as any)?.rabatt_pct ?? null,
-        sonderrabatt_pct: parseFloat(f.sonderrabatt_pct) || 0,
-        skonto_pct:       parseFloat(f.skonto_pct) || 0,
-        skonto_tage:      parseInt(f.skonto_tage) || 10,
-      })),
       weingaerten: weingaertenMitKg,
       jahrgaenge:  (jahrgaenge ?? []) as any[],
       grundstuecke: grundstueckeMitKg,

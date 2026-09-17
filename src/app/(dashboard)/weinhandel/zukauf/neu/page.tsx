@@ -1,18 +1,16 @@
 'use client'
 
-import { useState, useTransition, useEffect, useRef } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import Link from '@/components/ui/Link'
 import { createZukauf } from '../actions'
 import { QUALITAET_LABEL, QUALITAET_ORDER } from '@/lib/weinqualitaet'
 import { AlertTriangle } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
+import PartnerSuche from '@/components/crm/PartnerSuche'
 
-interface Kontakt  { id: string; vorname: string | null; nachname: string; firma_id: string | null }
-interface Firma    { id: string; name: string; ist_kunde?: boolean; ist_lieferant?: boolean }
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
 
-interface SucheItem { id: string; label: string; sub?: string }
 
 const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
 const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
@@ -28,81 +26,12 @@ const ZUKAUF_QUALITAETEN = [
   'dac', 'reserve',
 ] as const
 
-function KundenSuche({ items, value, onChange, placeholder, disabled }: {
-  items: SucheItem[]
-  value: string
-  onChange: (id: string) => void
-  placeholder: string
-  disabled?: boolean
-}) {
-  const [query, setQuery] = useState('')
-  const [open, setOpen]   = useState(false)
-  const ref               = useRef<HTMLDivElement>(null)
-  const selected          = items.find(i => i.id === value)
-
-  const treffer = query.length < 1
-    ? items.slice(0, 50)
-    : items.filter(i => (i.label + ' ' + (i.sub ?? '')).toLowerCase().includes(query.toLowerCase())).slice(0, 50)
-
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  if (selected) {
-    return (
-      <div className="flex items-center gap-2 border border-s112-border rounded-lg px-3 py-2 bg-white text-sm">
-        <span className="flex-1 truncate font-medium text-s112-text">{selected.label}</span>
-        {selected.sub && <span className="text-xs text-s112-muted truncate">{selected.sub}</span>}
-        {!disabled && (
-          <button type="button" onClick={() => { onChange(''); setQuery('') }}
-            className="text-s112-muted hover:text-s112-err ml-1 flex-shrink-0 text-base leading-none">×</button>
-        )}
-      </div>
-    )
-  }
-
-  return (
-    <div ref={ref} className="relative">
-      <input type="text" value={query}
-        onChange={e => { setQuery(e.target.value); setOpen(true) }}
-        onFocus={() => setOpen(true)}
-        placeholder={placeholder}
-        disabled={disabled}
-        className={inputCls + ' w-full pr-8'}
-        autoComplete="off"
-      />
-      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-s112-muted text-xs pointer-events-none">▾</span>
-      {open && treffer.length > 0 && (
-        <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-s112-border rounded-xl shadow-lg max-h-60 overflow-y-auto">
-          {treffer.map(item => (
-            <button key={item.id} type="button"
-              onMouseDown={() => { onChange(item.id); setQuery(''); setOpen(false) }}
-              className="w-full text-left px-3 py-2 text-sm hover:bg-s112-teal/10 flex items-center justify-between gap-2">
-              <span className="font-medium text-s112-text truncate">{item.label}</span>
-              {item.sub && <span className="text-xs text-s112-muted flex-shrink-0">{item.sub}</span>}
-            </button>
-          ))}
-        </div>
-      )}
-      {open && query.length > 0 && treffer.length === 0 && (
-        <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-s112-border rounded-xl shadow-lg px-3 py-2 text-sm text-s112-muted">
-          Kein Eintrag gefunden
-        </div>
-      )}
-    </div>
-  )
-}
+// Lieferanten-Suche: serverseitig über components/crm/PartnerSuche (17.9.2026)
 
 export default function ZukaufNeuPage() {
   const [isPending, startTransition] = useTransition()
   const [error, setError]            = useState<string | null>(null)
 
-  const [kontakte,        setKontakte]        = useState<Kontakt[]>([])
-  const [firmen,          setFirmen]          = useState<Firma[]>([])
   const [behaelter,       setBehaelter]       = useState<Behaelter[]>([])
   const [weinausbauListe, setWeinausbauListe] = useState<{ id: string; name: string; behaelter_id: string | null; rebsorte: string | null; menge_liter: number | null }[]>([])
   const [loading,         setLoading]         = useState(true)
@@ -161,13 +90,10 @@ export default function ZukaufNeuPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [r1, r2] = await Promise.all([
-          fetch('/api/verkauf-stammdaten'),
-          fetch('/api/zukauf-stammdaten'),
-        ])
-        // Nur Firmen mit Häkchen bei "Lieferant" auswählbar (Feedback 12.8.2026: Firmen
-        // können Kunde, Lieferant oder beides sein - im Zukauf sind nur Lieferanten relevant).
-        if (r1.ok) { const j1 = await r1.json(); setKontakte(j1.kontakte ?? []); setFirmen(((j1.firmen ?? []) as Firma[]).filter((f: Firma) => f.ist_lieferant === true)) }
+        // Lieferanten (Kontakte + Firmen mit Häkchen "Lieferant", Feedback 12.8.2026)
+        // werden seit 17.9.2026 serverseitig gesucht (PartnerSuche) - hier nur noch
+        // Behälter/Chargen laden.
+        const r2 = await fetch('/api/zukauf-stammdaten')
         if (r2.ok) { const j2 = await r2.json(); setBehaelter(j2.behaelter ?? []); setWeinausbauListe(j2.weinausbau ?? []) }
       } catch { /* ignore */ } finally { setLoading(false) }
     }
@@ -280,19 +206,8 @@ export default function ZukaufNeuPage() {
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <label className={labelCls}>Lieferant</label>
-              <KundenSuche
-                items={[
-                  ...kontakte.map(k => ({
-                    id: `kontakt:${k.id}`,
-                    label: [k.vorname, k.nachname].filter(Boolean).join(' '),
-                    sub: 'Person',
-                  })),
-                  ...firmen.map(f => ({
-                    id: `firma:${f.id}`,
-                    label: f.name,
-                    sub: 'Firma',
-                  })),
-                ]}
+              <PartnerSuche
+                art="lieferant"
                 value={lieferantKontakt ? `kontakt:${lieferantKontakt}` : lieferantFirma ? `firma:${lieferantFirma}` : ''}
                 onChange={val => {
                   setLieferantZh('')
@@ -308,28 +223,20 @@ export default function ZukaufNeuPage() {
               />
               <p className="text-xs text-s112-muted mt-1">Bei Firmen kann zusätzlich ein Ansprechpartner (z.H.) angegeben werden.</p>
             </div>
-            {lieferantFirma && (() => {
-              const firmKontakte = kontakte.filter(k => k.firma_id === lieferantFirma)
-              const zhItems = firmKontakte.length > 0
-                ? firmKontakte.map(k => ({ id: k.id, label: [k.vorname, k.nachname].filter(Boolean).join(' ') }))
-                : kontakte.map(k => ({ id: k.id, label: [k.vorname, k.nachname].filter(Boolean).join(' ') }))
-              return (
-                <div className="col-span-2">
-                  <label className={labelCls}>z.H. (zu Händen) — optional</label>
-                  {firmKontakte.length === 0 && kontakte.length > 0 && (
-                    <p className="text-xs text-s112-warn-fg mb-1">ℹ Noch kein Kontakt dieser Firma zugeordnet – alle Kontakte werden angezeigt.</p>
-                  )}
-                  <KundenSuche
-                    key={lieferantFirma}
-                    items={zhItems}
-                    value={lieferantZh}
-                    onChange={setLieferantZh}
-                    placeholder="Ansprechpartner suchen…"
-                    disabled={loading}
-                  />
-                </div>
-              )
-            })()}
+            {lieferantFirma && (
+              <div className="col-span-2">
+                <label className={labelCls}>z.H. (zu Händen) — optional</label>
+                <PartnerSuche
+                  key={lieferantFirma}
+                  art="kontakt"
+                  firmaId={lieferantFirma}
+                  value={lieferantZh}
+                  onChange={id => setLieferantZh(id)}
+                  placeholder="Ansprechpartner suchen…"
+                  disabled={loading}
+                />
+              </div>
+            )}
             <div className="col-span-2">
               <label className={labelCls}>Eingangs-Rechnungsnummer</label>
               <input type="text" value={eingangsrechnungsnummer} onChange={e => setEingangsrechnungsnummer(e.target.value)}

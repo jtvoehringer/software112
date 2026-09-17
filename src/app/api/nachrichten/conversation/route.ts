@@ -27,11 +27,13 @@ export async function GET(req: NextRequest) {
 
     const mailboxBase = getMailboxBase(uc as R, mailbox)
 
-    // Alle Nachrichten dieser Conversation laden (alle Ordner)
+    // Alle Nachrichten dieser Conversation laden (alle Ordner). Kein $orderby:
+    // Graph lehnt $filter auf conversationId zusammen mit $orderby ab
+    // (ErrorInvalidUrlQuery / "restriction or sort order is too complex" →
+    // bisher 502 bei jedem Öffnen, 17.9.2026); sortiert wird unten.
     const params = new URLSearchParams({
-      '$filter':  `conversationId eq '${conversationId}'`,
+      '$filter':  `conversationId eq '${conversationId.replace(/'/g, "''")}'`,
       '$select':  'id,subject,from,toRecipients,receivedDateTime,sentDateTime,isRead,bodyPreview,conversationId',
-      '$orderby': 'receivedDateTime asc',
       '$top':     '20',
     })
     const res = await fetch(
@@ -42,9 +44,12 @@ export async function GET(req: NextRequest) {
     if (!res.ok || data.error) {
       const code = (data as R)?.error?.code
       const msg = (data as R)?.error?.message ?? res.statusText
+      console.error('[nachrichten] Thread:', res.status, code, msg)
       return NextResponse.json({ fehler: `Thread konnte nicht geladen werden (Graph API ${res.status}${code ? ' ' + code : ''}): ${msg}` }, { status: 502 })
     }
-    const messages = (data.value ?? []).map((m: R) => ({
+    const sortiert = ((data.value ?? []) as R[]).slice().sort((a, b) =>
+      String(a.receivedDateTime ?? a.sentDateTime ?? '').localeCompare(String(b.receivedDateTime ?? b.sentDateTime ?? '')))
+    const messages = sortiert.map((m: R) => ({
       id: m.id,
       betreff: m.subject ?? '(kein Betreff)',
       von: m.from?.emailAddress?.address ?? '',
