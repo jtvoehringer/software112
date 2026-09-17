@@ -43,6 +43,13 @@
 | E-Mail: Anhänge-Liste ohne `$select` (Graph lehnt `contentBytes` auf der Basisliste ab → eingebettete Bilder blieben Alt-Text); Zuordnung zusätzlich über den Dateinamen | Signaturbilder werden angezeigt |
 | E-Mail: Thread-Verlauf (`/api/nachrichten/conversation`) ohne `$orderby` – Graph lehnt `$filter conversationId` + `$orderby` ab (bisher 502 bei jedem Öffnen) | Verlauf einer Konversation erscheint wieder |
 
+## Umgesetzt, vierter Schritt (Build nach 585b58d)
+
+| Maßnahme | Wirkung |
+|---|---|
+| **Sichtbare Reaktion auf jeden Klick** (Rückmeldung „Controlling dauert 4 s, man glaubt, der Klick war erfolglos“): `components/ui/Link.tsx` meldet jede Navigation, `components/NavigationsBalken.tsx` zeigt einen Ladebalken am oberen Rand bis die neue Seite da ist; in der Hauptnavigation dreht sich zusätzlich ein Symbol direkt am angeklickten Tab (`useLinkStatus`) | Rückmeldung innerhalb von Millisekunden, unabhängig von der Serverzeit |
+| **Controlling › Auswertungen** (`reports/page.tsx`): eine Umsatzabfrage über zwölf Monate statt zwölf nacheinander, alle Abfragen parallel, Orte/Länder per RPC `crm_filterwerte` (Migration 210) statt 13.000 Kontakt-/Firmenzeilen, Kundenfilter als serverseitige Suche (PartnerSuche) | Seitenaufbau von ~4 s auf < 1 s |
+
 Weitere Stellen, die noch ganze Listen laden (unkritisch, kleine Mengen oder Export): `crm/pipeline`, `weinhandel/traubenverkauf`, `erntemeldung/[id]` (Kontakte für Auswahl), Exporte (gewollt).
 
 ## Empfehlungen (offen)

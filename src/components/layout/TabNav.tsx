@@ -6,7 +6,7 @@
 // Beide Zeilen scrollen auf schmalen Bildschirmen horizontal – ein Mobile-
 // Drawer ist damit nicht mehr nötig.
 
-import Link from '@/components/ui/Link'
+import Link, { LinkSpinner } from '@/components/ui/Link'
 import { usePathname } from 'next/navigation'
 import { activeGroup, isActivePath, type NavGroup } from '@/lib/navigation'
 
@@ -25,13 +25,14 @@ export default function TabNav({ groups }: { groups: NavGroup[] }) {
               key={g.key}
               href={g.items[0].href}
               aria-current={active ? 'true' : undefined}
-              className={`px-3.5 pt-[13px] pb-[10px] text-[14.5px] whitespace-nowrap border-b-[3px] transition-colors duration-[120ms] ${
+              className={`inline-flex items-center gap-1.5 px-3.5 pt-[13px] pb-[10px] text-[14.5px] whitespace-nowrap border-b-[3px] transition-colors duration-[120ms] ${
                 active
                   ? 'text-s112-text font-semibold border-s112-teal'
                   : 'text-s112-text-1 font-medium border-transparent hover:text-s112-text'
               }`}
             >
               {g.label}
+              <LinkSpinner className="text-s112-teal" />
             </Link>
           )
         })}
@@ -67,6 +68,7 @@ export default function TabNav({ groups }: { groups: NavGroup[] }) {
                 >
                   {item.child && <span className="w-1 h-1 rounded-full bg-s112-tertiary/70" />}
                   {item.label}
+                  <LinkSpinner className="text-s112-blue-700" />
                 </Link>
               )
             })}

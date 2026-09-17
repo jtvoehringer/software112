@@ -7,6 +7,7 @@ import { BarChart3, Calculator, FileText, Droplet, Sprout } from 'lucide-react'
 import { formatRebsorteMitKuerzel, getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 import { SEGMENTE } from '@/lib/crm/types'
 import { fmtEur, fmtNum } from '@/lib/format'
+import PartnerSuche from '@/components/crm/PartnerSuche'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -24,7 +25,6 @@ interface Props {
   vsJahrgaenge: number[]
   vsSorten: string[]
   vsBezeichnungen: string[]
-  vsKunden: { id: string; name: string }[]
   vsOrte: string[]
   vsLaender: string[]
   wbJahrgaenge: number[]
@@ -84,7 +84,7 @@ function CsvBtn({ onClick, label = '↓ CSV' }: { onClick: () => void; label?: s
 
 export default function ReportsClient({
   umsatzMonate, lager, lagerWert, behandlungen, cuKgHa, pipeline, kontaktFrequenz, offene,
-  vsJahrgaenge, vsSorten, vsBezeichnungen, vsKunden, vsOrte, vsLaender,
+  vsJahrgaenge, vsSorten, vsBezeichnungen, vsOrte, vsLaender,
   wbJahrgaenge, wbSorten, wbBezeichnungen,
 }: Props) {
   const [tab, setTab] = useState<TabId>('umsatz')
@@ -1034,11 +1034,8 @@ export default function ReportsClient({
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Kunde (Kontakt/Firma)</label>
-                <select value={vsKunde} onChange={e => setVsKunde(e.target.value)}
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
-                  <option value="">Alle</option>
-                  {vsKunden.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
-                </select>
+                {/* Serverseitige Suche statt Auswahlliste mit allen Kontakten/Firmen (17.9.2026) */}
+                <PartnerSuche art="kunde" value={vsKunde} onChange={id => setVsKunde(id)} placeholder="Alle – Name suchen…" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">PLZ von</label>

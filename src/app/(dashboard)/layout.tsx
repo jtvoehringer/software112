@@ -6,6 +6,8 @@ import AppShell from '@/components/layout/AppShell'
 import ReleaseNotesModal from '@/components/ReleaseNotesModal'
 import SessionTimeout from '@/components/SessionTimeout'
 import AutoRefresh from '@/components/AutoRefresh'
+import NavigationsBalken from '@/components/NavigationsBalken'
+import { Suspense } from 'react'
 import AssistentWidget from '@/components/assistent/AssistentWidget'
 import Link from '@/components/ui/Link'
 import { ladeTenantKopf } from '@/lib/tenant/kopf'
@@ -127,6 +129,8 @@ export default async function DashboardLayout({
       <ReleaseNotesModal />
       <SessionTimeout timeoutMinuten={(branding as any).session_timeout} />
       <AutoRefresh />
+      {/* Ladebalken bei Seitenwechsel (useSearchParams braucht Suspense) */}
+      <Suspense fallback={null}><NavigationsBalken /></Suspense>
       <AppShell
         userEmail={user.email ?? ''}
         userName={(profil as any)?.full_name || user.user_metadata?.display_name || user.user_metadata?.name || (user.email ?? '').split('@')[0]}
