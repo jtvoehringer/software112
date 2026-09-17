@@ -14,6 +14,7 @@ type R = Record<string, any>
 export type MandantRow = {
   id: string
   name: string
+  kundennummer: string | null
   erstellt_am: string
   benutzer_anzahl: number
   // Branding
@@ -80,7 +81,7 @@ export default async function MandantenPage() {
   }
 
   const [{ data: tenants }, { data: memberships }] = await Promise.all([
-    (supabase.from('tenants') as any).select('id, name, created_at').in('id', eigeneTenantIds).order('created_at'),
+    (supabase.from('tenants') as any).select('id, name, created_at, kundennummer').in('id', eigeneTenantIds).order('created_at'),
     (supabase.from('tenant_memberships') as any).select('tenant_id').in('tenant_id', eigeneTenantIds),
   ])
 
@@ -117,6 +118,7 @@ export default async function MandantenPage() {
     return {
       id:              t.id,
       name:            t.name,
+      kundennummer:    (t.kundennummer as string | null) ?? null,
       erstellt_am:     t.created_at,
       benutzer_anzahl: countMap[t.id] ?? 0,
       anzeigename:     b?.anzeigename ?? null,

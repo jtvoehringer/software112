@@ -8,6 +8,7 @@ import BenutzerClient from '../../benutzer/BenutzerClient'
 import type { BenutzerlimitStatus } from '@/lib/pakete-server'
 import type { MemberWithEmail } from '../../benutzer/actions'
 import { PAKETE, preisText, istPaketKey } from '@/lib/pakete'
+import { bundeslandAusKundennummer } from '@/lib/tenant/kundennummer'
 
 const BIO_STATUS_OPTS = [
   { value: 'konventionell', label: 'Konventionell' },
@@ -48,6 +49,10 @@ export default function EinstellungenClient({
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-s112-text">{daten.tenantName}</h1>
         <p className="text-sm text-s112-muted mt-0.5">
+          {/* Kundennummer (Migration 209) - bitte bei Support-Anfragen angeben */}
+          {daten.kundennummer
+            ? <><span title={`Kundennummer${bundeslandAusKundennummer(daten.kundennummer) ? ' · ' + bundeslandAusKundennummer(daten.kundennummer) : ''}`}>Kundennummer <span className="font-mono text-s112-text-1">{daten.kundennummer}</span></span>{' · '}</>
+            : <><span className="text-s112-warn-fg" title="Wird automatisch vergeben, sobald unter Betrieb die Postleitzahl gespeichert ist">Kundennummer folgt nach Eingabe der PLZ</span>{' · '}</>}
           Einstellungen deines Betriebs
           {isSystemAdmin && (
             <>

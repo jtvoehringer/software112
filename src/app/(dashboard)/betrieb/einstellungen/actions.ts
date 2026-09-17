@@ -19,6 +19,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
+import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -142,6 +143,7 @@ export async function saveBetriebOwn(formData: FormData) {
     .eq('id', auth.tenantId)
   if (bioError) return { error: bioError.message }
 
+  await stripeKundennummerSync(auth.tenantId) // PLZ gespeichert → Kundennummer ggf. neu vergeben
   tenantKopfInvalidieren(auth.tenantId)
   revalidatePath('/betrieb/einstellungen')
   return { success: true }

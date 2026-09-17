@@ -9,6 +9,7 @@ import { getStripe } from '@/lib/stripe/client'
 import { pruefeBenutzerlimit, benutzerlimitFehler, wendePaketAn, ladePaket } from '@/lib/pakete-server'
 import { istPaketKey, PAKETE } from '@/lib/pakete'
 import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
+import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -297,6 +298,7 @@ export async function saveBetriebEinstellungen(tenantId: string, formData: FormD
     .eq('id', tenantId)
   if (bioError) throw new Error((bioError as R).message)
 
+  await stripeKundennummerSync(tenantId) // PLZ gespeichert → Kundennummer ggf. neu vergeben
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
 }
@@ -522,6 +524,7 @@ export async function createStripeCustomer(tenantId: string, tenantName: string,
   if (error) return { error: (error as R).message }
 
   tenantKopfInvalidieren(tenantId)
+  await stripeKundennummerSync(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   return { customerId: customer.id }
 }

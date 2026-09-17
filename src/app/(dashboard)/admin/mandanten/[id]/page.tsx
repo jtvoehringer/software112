@@ -12,6 +12,7 @@ type R = Record<string, any>
 
 export type TenantDetail = {
   id: string; name: string; slug: string; plan: string; created_at: string
+  kundennummer: string | null
   stripe_customer_id:       string | null
   stripe_subscription_id:   string | null
   stripe_status:            string | null
@@ -140,7 +141,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     { data: { users } },
   ] = await Promise.all([
     (admin.from('tenants') as any)
-      .select('id, name, slug, plan, created_at, stripe_customer_id, stripe_subscription_id, stripe_status, stripe_plan, stripe_current_period_end, max_benutzer, bio_status').eq('id', id).single(),
+      .select('id, name, slug, plan, created_at, kundennummer, stripe_customer_id, stripe_subscription_id, stripe_status, stripe_plan, stripe_current_period_end, max_benutzer, bio_status').eq('id', id).single(),
     (admin.from('tenant_einstellungen') as any)
       .select('*').eq('tenant_id', id).maybeSingle(),
     (admin.from('tenant_memberships') as any)
@@ -172,6 +173,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
 
   const tenant: TenantDetail = {
     id: t.id, name: t.name, slug: t.slug, plan: t.plan, created_at: t.created_at,
+    kundennummer: (t.kundennummer as string | null) ?? null,
     stripe_customer_id:        t.stripe_customer_id        ?? null,
     stripe_subscription_id:    t.stripe_subscription_id    ?? null,
     stripe_status:             t.stripe_status             ?? null,

@@ -17,6 +17,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { setActiveTenantCookie } from '@/lib/auth/activeTenant'
 import { getStripe, TRIAL_TAGE } from '@/lib/stripe/client'
 import { istPaketKey, paketPriceId, PAKETE } from '@/lib/pakete'
+import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -103,6 +104,7 @@ export async function registrierenAction(formData: FormData): Promise<Ergebnis> 
     return { ok: false, fehler: `Konto wurde angelegt, Stripe-Fehler: ${(err as Error).message}. Sie können sich einloggen und die Zahlungsdaten unter /abo nachtragen.` }
   }
   await (admin.from('tenants') as R).update({ stripe_customer_id: customer.id }).eq('id', tenantId)
+  await stripeKundennummerSync(tenantId)
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://software112.icp-consultants.at'
   try {

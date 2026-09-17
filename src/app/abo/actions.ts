@@ -15,6 +15,7 @@ import { istPaketKey, paketPriceId, paketAusPlan, PAKETE, type PaketKey } from '
 import { wendePaketAn } from '@/lib/pakete-server'
 import { revalidatePath } from 'next/cache'
 import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
+import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -100,6 +101,7 @@ export async function starteZahlungAction(paketWunsch?: string, buchhaltungsart?
       })
       customerId = customer.id
       await (admin.from('tenants') as R).update({ stripe_customer_id: customerId }).eq('id', membership.tenantId)
+      await stripeKundennummerSync(membership.tenantId)
     } catch (err) {
       return { error: `Stripe-Fehler: ${(err as Error).message}` }
     }

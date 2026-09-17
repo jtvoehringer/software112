@@ -16,6 +16,7 @@ type R = Record<string, any>
 export type EigeneBetriebsdaten = {
   tenantId: string
   tenantName: string
+  kundennummer: string | null
   bio_status: string
   anzeigename: string | null
   logo_url: string | null
@@ -67,7 +68,7 @@ export default async function MeinBetriebPage() {
   // eigentliche Sicherheitsgrenze hier, nicht RLS.
   const admin = createSupabaseAdminClient()
   const [{ data: tenantRaw }, { data: settingsRaw }, members, benutzerlimit] = await Promise.all([
-    (admin.from('tenants') as any).select('id, name, bio_status, stripe_plan, stripe_status, max_benutzer').eq('id', membership.tenantId).single(),
+    (admin.from('tenants') as any).select('id, name, kundennummer, bio_status, stripe_plan, stripe_status, max_benutzer').eq('id', membership.tenantId).single(),
     (admin.from('tenant_einstellungen') as any)
       .select(`
         anzeigename, logo_url, primary_color, secondary_color, session_timeout_minuten,
@@ -91,6 +92,7 @@ export default async function MeinBetriebPage() {
   const daten: EigeneBetriebsdaten = {
     tenantId:   t.id,
     tenantName: t.name,
+    kundennummer: (t.kundennummer as string | null) ?? null,
     bio_status: t.bio_status ?? 'konventionell',
     anzeigename:      s?.anzeigename ?? null,
     logo_url:         s?.logo_url ?? null,

@@ -27,7 +27,11 @@ export default function AboClient({
   statusLabel,
   hatEa,
   buchhaltungsart: buchhaltungsartAktuell,
+  kundennummer = null,
+  betriebName = null,
 }: {
+  kundennummer?: string | null
+  betriebName?: string | null
   aktuellesPaket:    PaketKey | null
   verfuegbarePakete: PaketKey[]
   benutzerAnzahl:    number
@@ -178,6 +182,11 @@ export default function AboClient({
             software<span className="text-s112-yellow">:</span>112
           </h1>
           <p className="text-s112-muted text-sm mt-1">Abo & Zahlung</p>
+          {(betriebName || kundennummer) && (
+            <p className="text-xs text-s112-muted mt-1">
+              {betriebName}{betriebName && kundennummer ? ' · ' : ''}{kundennummer && <>Kundennummer <span className="font-mono text-s112-text-1">{kundennummer}</span></>}
+            </p>
+          )}
         </div>
 
         <div className="card space-y-4">

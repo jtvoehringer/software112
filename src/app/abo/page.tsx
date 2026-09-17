@@ -30,7 +30,7 @@ export default async function AboPage() {
   if (!membership) redirect('/betrieb-waehlen')
 
   const { data: tenantRow } = await (supabase.from('tenants') as any)
-    .select('name, stripe_status, stripe_plan, stripe_customer_id, stripe_subscription_id, stripe_trial_ends_at')
+    .select('name, kundennummer, stripe_status, stripe_plan, stripe_customer_id, stripe_subscription_id, stripe_trial_ends_at')
     .eq('id', membership.tenantId)
     .maybeSingle()
 
@@ -78,6 +78,8 @@ export default async function AboPage() {
       planLabel={planLabel}
       statusLabel={statusMeta?.label ?? null}
       hatEa={!!einst?.modul_ea}
+      kundennummer={(t?.kundennummer as string | null) ?? null}
+      betriebName={(t?.name as string | null) ?? null}
       buchhaltungsart={einst?.buchhaltungsart === 'doppik' ? 'doppik' : 'ea'}
     />
   )

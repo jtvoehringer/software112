@@ -30,6 +30,7 @@ import {
 import { PAKETE, PAKET_REIHENFOLGE, paketAusPlan, paketPriceId, preisText, type PaketKey } from '@/lib/pakete'
 import { STRIPE_STATUS_META, STRIPE_PLAN_LABELS } from '@/lib/stripe/client'
 import type { TenantDetail, TenantSettings, TenantMember } from './page'
+import { bundeslandAusKundennummer } from '@/lib/tenant/kundennummer'
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────
 
@@ -1829,7 +1830,11 @@ export default function MandantDetailClient({ tenant, settings, members }: {
             </div>
           )}
           <p className="text-xs text-s112-muted mt-0.5">
-            {tenant.slug} · {paketAusPlan(tenant.stripe_plan) ? PAKETE[paketAusPlan(tenant.stripe_plan)!].label : 'kein Paket'} ·
+            {/* Kundennummer (Migration 209): S112-AT-<PLZ-Kreis><lfd. Nr.>, vergeben sobald die PLZ hinterlegt ist */}
+            {tenant.kundennummer
+              ? <span className="font-mono text-s112-text-1" title={`Kundennummer (für Support und Abrechnung)${bundeslandAusKundennummer(tenant.kundennummer) ? ' · ' + bundeslandAusKundennummer(tenant.kundennummer) : ''}`}>{tenant.kundennummer}</span>
+              : <span className="text-s112-warn-fg" title="Wird automatisch vergeben, sobald unter Betrieb die Postleitzahl gespeichert ist">Kundennummer: noch keine – PLZ fehlt</span>}
+            {' · '}{tenant.slug} · {paketAusPlan(tenant.stripe_plan) ? PAKETE[paketAusPlan(tenant.stripe_plan)!].label : 'kein Paket'} ·
             Erstellt {new Date(tenant.created_at).toLocaleDateString('de-AT')}
           </p>
         </div>

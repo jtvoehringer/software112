@@ -117,6 +117,7 @@ const FAQS: FAQ[] = [
   { kategorie: 'Kellerbuch', frage: 'Was macht der bawb.at-Button im Prüfnummern-Antrag genau?', antwort: 'Er öffnet nur das externe LFRZ-Portal (bawb.at, "Weinkontrolle Online") in einem neuen Tab als Schnellzugriff. Es werden keine Daten automatisch übertragen – Status und Prüfnummer musst du nach der Prüfung im Portal weiterhin manuell im Antrag eintragen.' },
 
   // Administration
+  { kategorie: 'Administration', frage: 'Wo finde ich die Kundennummer eines Betriebs?', antwort: 'Unter Administration > Mandanten in der Spalte "Kundennummer" und im Kopf der Mandanten-Detailseite; der Betrieb selbst sieht sie unter System > Mein Betrieb und auf der Abo-Seite. Format S112-AT-<Kreis><lfd. Nr.>, der Kreis ist die erste Ziffer der Betriebs-PLZ. Fehlt die Nummer ("noch keine – PLZ fehlt"), unter Betrieb die Postleitzahl speichern – sie wird dann sofort vergeben und zusätzlich am Stripe-Kunden als Metadaten hinterlegt.' },
   { kategorie: 'Administration', frage: 'Wo trage ich die bawb.at-Zugangsdaten ein?', antwort: 'Unter Administration > Mandanten > [Betrieb] > Tab "bawb.at" hinterlegst du Kennung (Betriebsnummer) und Passwort für das LFRZ-Portal. Ein Button öffnet das Portal direkt in einem neuen Tab.' },
 
   // Technik
