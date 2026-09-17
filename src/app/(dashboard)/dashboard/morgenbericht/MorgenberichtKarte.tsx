@@ -1,7 +1,7 @@
 // Karte „Morgenbericht“ auf der Übersicht (ersetzt seit 10.9.2026 die Karte
 // „Datenfluss statt Zettelwirtschaft“). Server-Komponente; der Knopf
 // „Jetzt aktualisieren“ ist ein kleiner Client-Teil.
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { Sunrise, CloudRain, Wind, Thermometer, Droplets } from 'lucide-react'
 import { Card, Badge, Note } from '../_shared/ui'
 import type { Morgenbericht } from '@/lib/morgenbericht/erstellen'

@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { ReceiptText, Package, Users, ShoppingCart, Calendar, Wallet } from 'lucide-react'
 import { DashHeader, Card, BarRow, Empty, fmtNum, fmtEur } from '../_shared/ui'
 import { getCtx, ladeFlaschenlager } from '../_shared/data'

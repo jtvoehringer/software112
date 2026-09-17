@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createAktivitaet, moveAktivitaet, updateAktivitaet, updatePipelineEintrag, toggleAktivitaetErledigt, deleteAktivitaet, deletePipelineEintrag } from './actions'
 import { AKTIVITAET_ARTEN } from '@/lib/crm/types'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { X, Lock, Pencil, Calendar, Check, Trash2 } from 'lucide-react'
 
 // ── Typeahead-Suche ───────────────────────────────────────────────────────────

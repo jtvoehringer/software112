@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { Warehouse, FlaskConical, Droplets } from 'lucide-react'
 import { DashHeader, Tile, Note, fmtNum } from '../_shared/ui'
 import { getCtx, ladeKeller, ladeEinstellungen } from '../_shared/data'

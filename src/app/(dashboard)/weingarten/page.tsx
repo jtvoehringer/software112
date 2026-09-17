@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import WeingartenBaum, { type WRow, type GSTRow } from './WeingartenBaum'
 import WeingartenCsvExportButton from './WeingartenCsvExportButton'
 import RiedenGeoExportButton from './RiedenGeoExportButton'

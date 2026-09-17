@@ -5,7 +5,7 @@
 // Anlegen betriebseigener Fristen über Server Actions.
 
 import { useState, useTransition } from 'react'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { Plus, Check, RotateCcw, Trash2 } from 'lucide-react'
 import { Badge, Th, Td, fmtDate, type BadgeTone } from '../_shared/ui'
 import type { Frist, FristStatus } from '../_shared/types'

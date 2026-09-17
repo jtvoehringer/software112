@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useTransition, useRef, Suspense } from 'react'
 import { CheckCircle2, AlertTriangle, Pencil } from 'lucide-react'

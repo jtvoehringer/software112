@@ -3,7 +3,7 @@ import { getCurrentUserRole, getCurrentMembership, canWrite, canAdmin } from '@/
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { notFound } from 'next/navigation'
 import WeingartenForm from '@/components/weingarten/WeingartenForm'
 import GrundstueckePanel, { type GST, type MassnahmeHistorie } from '../GrundstueckePanel'

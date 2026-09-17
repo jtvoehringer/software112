@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, isSystemAdmin } from '@/lib/auth/roles'
 import { laufMorgenberichte } from '@/lib/morgenbericht/lauf'
+import { spiegleMailboxen } from '@/lib/email/spiegel'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -36,9 +37,13 @@ async function handle(req: NextRequest) {
   const da = (Array.isArray(daRaw) ? daRaw[0] : daRaw) as R | null
   const dauerauftraege = daErr ? { fehler: daErr.message } : { verarbeitet: da?.verarbeitet ?? 0, erstellt: da?.erstellt ?? 0, uebersprungen: da?.uebersprungen ?? 0, fehler: da?.fehler ?? 0 }
 
-  // 2. Morgenberichte mit dem restlichen Zeitbudget
+  // 2. Morgenberichte (bis zu 60 % des restlichen Zeitbudgets)
   const rest = (maxDuration - 8) * 1000 - (Date.now() - start)
-  const morgenbericht = await laufMorgenberichte(Math.max(5000, rest))
+  const morgenbericht = await laufMorgenberichte(Math.max(5000, Math.floor(rest * 0.6)))
 
-  return NextResponse.json({ dauerMs: Date.now() - start, dauerauftraege, morgenbericht })
+  // 3. E-Mail-Spiegelung ins CRM (Posteingang/Gesendet aller verbundenen Postfächer, inkrementell)
+  const rest2 = (maxDuration - 6) * 1000 - (Date.now() - start)
+  const emailSpiegel = rest2 > 5000 ? await spiegleMailboxen(rest2) : { uebersprungen: 'kein Zeitbudget' }
+
+  return NextResponse.json({ dauerMs: Date.now() - start, dauerauftraege, morgenbericht, emailSpiegel })
 }

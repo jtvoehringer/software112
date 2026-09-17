@@ -8,7 +8,7 @@
 // wird nur nach Klick auf „Übernehmen“.
 
 import { useState, useTransition } from 'react'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { Upload, CheckCircle2, AlertTriangle, MapPin } from 'lucide-react'
 import { PROJ_MGI_AUSTRIA_LAMBERT, feldstueckAusFeature, schlagAusFeature, flaecheHa, type EamaFeldstueck, type EamaSchlag } from '@/lib/geo/eama'
 import { vorschauEamaGis, uebernehmeEamaGis, type Vorschau } from './actions'

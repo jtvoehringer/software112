@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { AlertTriangle, Download, FileText, History, Settings2, CheckCircle2, RotateCcw } from 'lucide-react'
 import { MAPPING_FELDER, MAPPING_GRUPPEN, mappingAufloesen } from '@/lib/buchhaltung/bmd'
 import { speichereKontenmapping, setzeKontenmappingZurueck } from './actions'

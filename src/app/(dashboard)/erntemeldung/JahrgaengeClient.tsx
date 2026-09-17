@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useTransition } from 'react'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { Pencil, Trash2 } from 'lucide-react'
 import type { Jahrgang } from './page'
 import { fmtZahl, fmtProzent } from '@/lib/format'

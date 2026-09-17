@@ -15,6 +15,10 @@ export async function GET(req: NextRequest) {
     const folder   = req.nextUrl.searchParams.get('folder') ?? 'inbox'
     const folderId = req.nextUrl.searchParams.get('folderId')  // echte Ordner-ID aus M365
     const mailbox  = req.nextUrl.searchParams.get('mailbox') === 'shared' ? 'shared' : 'own'
+    // Seitenweise laden (Rückmeldung 17.9.2026: ältere Nachrichten fehlten - bisher
+    // starr die 30 neuesten). 50 je Seite, ?skip=N holt die nächste Seite.
+    const SEITE = 50
+    const skip = Math.max(0, parseInt(req.nextUrl.searchParams.get('skip') ?? '0', 10) || 0)
     const supabase = await createSupabaseServerClient()
     const admin    = createSupabaseAdminClient()
     const membership = await getCurrentMembership()
@@ -39,7 +43,7 @@ export async function GET(req: NextRequest) {
       const mailboxBase = getMailboxBase(c as R, mailbox)
       const folderPath = folderId ? folderId : (folder === 'sent' ? 'sentItems' : 'inbox')
       const res = await fetch(
-        `${mailboxBase}/mailFolders/${folderPath}/messages?$select=id,subject,from,toRecipients,receivedDateTime,sentDateTime,isRead,bodyPreview,conversationId&$top=30&$orderby=${folder === 'sent' ? 'sentDateTime' : 'receivedDateTime'} desc`,
+        `${mailboxBase}/mailFolders/${folderPath}/messages?$select=id,subject,from,toRecipients,receivedDateTime,sentDateTime,isRead,bodyPreview,conversationId&$top=${SEITE}&$skip=${skip}&$orderby=${folder === 'sent' ? 'sentDateTime' : 'receivedDateTime'} desc`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       const data = await res.json() as R
@@ -68,7 +72,7 @@ export async function GET(req: NextRequest) {
         quelle: 'm365',
         absender: idx ? absenderStatus(idx, m.from?.emailAddress?.address, m.from?.emailAddress?.name).status : null,
       }))
-      return NextResponse.json({ messages, quelle: 'm365' })
+      return NextResponse.json({ messages, quelle: 'm365', skip, hatMehr: !!data['@odata.nextLink'] || messages.length === SEITE, naechsteSeite: skip + messages.length })
     }
 
     // IMAP Fallback

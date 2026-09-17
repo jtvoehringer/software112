@@ -1,6 +1,6 @@
 import { newsletterBestaetigen } from '../actions'
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { Wine, CheckCircle2, AlertTriangle } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Newsletter bestätigt – Weingut Gebeshuber' }

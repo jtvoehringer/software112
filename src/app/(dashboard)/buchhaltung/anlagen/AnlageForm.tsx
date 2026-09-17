@@ -4,7 +4,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { afaPlan, type AfaMethode, type Anlage } from '@/lib/ea/anlagen'
 import { fmtEur, fmtNum } from '@/lib/format'
 import { Th, Td, Note } from '@/app/(dashboard)/dashboard/_shared/ui'

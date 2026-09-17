@@ -3,7 +3,7 @@ import { ladeBehaelterEinzeln } from '@/lib/keller/behaelter'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { fmtLiter, fmtNum } from '@/lib/format'
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { notFound } from 'next/navigation'
 import { Boxes } from 'lucide-react'
 

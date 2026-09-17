@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 
 type FAQ = { frage: string; antwort: string; kategorie: string }
 
@@ -39,7 +39,10 @@ const FAQS: FAQ[] = [
   // E-Mail
   { kategorie: 'E-Mail', frage: 'Wie verbinde ich meine Mailbox?', antwort: 'Unter Nachrichten: "Mit Microsoft 365 verbinden" klicken und mit dem Weingut-Outlook-Konto anmelden. Jeder Benutzer verbindet sein eigenes Konto – die Verbindung ist persönlich, nicht geteilt.' },
   { kategorie: 'E-Mail', frage: 'Was ist eine Shared Mailbox und wie richte ich sie ein?', antwort: 'Eine Shared Mailbox ist eine gemeinsam genutzte E-Mail-Adresse (z.B. office@weingut.at). Unter Nachrichten > Einstellungen: Adresse eintragen und speichern. Voraussetzung: dein Exchange-Administrator muss dir "Send As"-Rechte auf die Shared Mailbox geben.' },
-  { kategorie: 'E-Mail', frage: 'Werden E-Mails dauerhaft gespeichert?', antwort: 'Ja! Wenn du eine E-Mail in /nachrichten öffnest und der Absender ist ein Kontakt, wird die E-Mail dauerhaft im CRM gespeichert – auch wenn du sie später in der Mailbox löschst. Der Inhalt ist jederzeit unter den Aktivitäten des Kontakts abrufbar.' },
+  { kategorie: 'E-Mail', frage: 'Werden E-Mails dauerhaft gespeichert?', antwort: 'Ja. Einmal täglich werden Posteingang und Gesendet aller verbundenen Postfächer ins CRM gespiegelt: Mails von oder an bekannte Kontakte/Firmen landen als Aktivität (erster Lauf 90 Tage rückwirkend, danach nur Neues). Öffnest du eine E-Mail in /nachrichten, wird sie sofort gespeichert. Der Inhalt bleibt unter den Aktivitäten des Kontakts abrufbar – auch wenn die Mail in der Mailbox gelöscht wird.' },
+  { kategorie: 'E-Mail', frage: 'Ich sehe nur die neuesten Nachrichten – wo sind die älteren?', antwort: 'Die Liste zeigt 50 Nachrichten je Ordner; unten in der Liste holt "Ältere Nachrichten laden" jeweils 50 weitere, so weit zurück wie das Postfach reicht. Unterordner erscheinen eingerückt in der Ordnerliste.' },
+  { kategorie: 'E-Mail', frage: 'Wie antworte ich allen und nehme die Originalnachricht mit?', antwort: '"Allen antworten" setzt Absender plus alle weiteren Empfänger aus An und CC (ohne deine eigene Adresse); An und CC kannst du vor dem Senden ändern. Bei "Antworten" und "Allen antworten" geht die Originalnachricht zitiert unter deinem Text mit und die Antwort bleibt im selben Thread.' },
+  { kategorie: 'Allgemein', frage: 'Änderungen erscheinen erst nach "Seite neu laden"?', antwort: 'software:112 aktualisiert die Daten jetzt selbst: beim Zurückkehren in den Tab, bei Browser-Zurück und alle drei Minuten im Hintergrund – Formulareingaben bleiben dabei erhalten. Wenn du etwas vermisst, einmal in einen anderen Tab und zurück wechseln genügt.' },
   { kategorie: 'E-Mail', frage: 'Warum sehe ich "Aktualisieren" und "Einstellungen" nicht?', antwort: 'Diese Buttons befinden sich am unteren Ende der Ordner-Sidebar. Falls du viele Ordner hast, scrolle im linken Bereich nach unten.' },
   { kategorie: 'E-Mail', frage: 'Ich sehe nach dem Löschen eine E-Mail noch kurz – ist das normal?', antwort: 'Die E-Mail wird sofort aus der Ansicht entfernt. Falls sie kurz wieder erscheint und dann weg ist, handelt es sich um ein kurzes Cache-Phänomen. Die E-Mail ist tatsächlich in "Gelöschte Elemente" verschoben.' },
 

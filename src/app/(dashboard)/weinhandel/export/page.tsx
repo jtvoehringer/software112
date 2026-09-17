@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { Users, Building2, Wine, ShoppingCart, type LucideIcon } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Datenexport – software:112' }

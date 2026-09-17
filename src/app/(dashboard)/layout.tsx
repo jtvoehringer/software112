@@ -5,8 +5,9 @@ import { STRIPE_BLOCKED_STATUSES, istTrialAbgelaufen } from '@/lib/stripe/client
 import AppShell from '@/components/layout/AppShell'
 import ReleaseNotesModal from '@/components/ReleaseNotesModal'
 import SessionTimeout from '@/components/SessionTimeout'
+import AutoRefresh from '@/components/AutoRefresh'
 import AssistentWidget from '@/components/assistent/AssistentWidget'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -129,6 +130,7 @@ export default async function DashboardLayout({
       `}</style>
       <ReleaseNotesModal />
       <SessionTimeout timeoutMinuten={(branding as any).session_timeout} />
+      <AutoRefresh />
       <AppShell
         userEmail={user.email ?? ''}
         userName={(profil as any)?.full_name || user.user_metadata?.display_name || user.user_metadata?.name || (user.email ?? '').split('@')[0]}

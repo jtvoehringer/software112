@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { DashHeader, Card, Badge, Note } from '../_shared/ui'
 import { getCtx, ladeFristen, ladeEinstellungen } from '../_shared/data'
 import { canWrite } from '@/lib/auth/roles'

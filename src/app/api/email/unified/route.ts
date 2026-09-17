@@ -10,8 +10,13 @@ type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explic
 
 export async function POST(req: NextRequest) {
   try {
-    const { an, betreff, text, kontakt_id, firma_id, useSharedMailbox } = await req.json()
+    const { an, cc, betreff, text, kontakt_id, firma_id, useSharedMailbox, antwortAuf, zitat } = await req.json() as R
     if (!an || !betreff) return NextResponse.json({ fehler: 'E-Mail und Betreff erforderlich' }, { status: 400 })
+    // antwortAuf (Rückmeldung 17.9.2026): { id, modus: 'reply'|'replyAll', mailbox: 'own'|'shared' } -
+    // Antwort über Graph createReply/createReplyAll, damit die Originalnachricht
+    // zitiert mitgeht und die Antwort im Thread (conversationId) bleibt.
+    const antwort = antwortAuf && typeof antwortAuf === 'object' && antwortAuf.id ? antwortAuf as { id: string; modus?: string; mailbox?: string } : null
+    const ccListe: string[] = String(cc ?? '').split(',').map((e: string) => e.trim()).filter(Boolean)
 
     const supabase = await createSupabaseServerClient()
     const admin    = createSupabaseAdminClient()
@@ -33,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     // ── Per-User M365 hat höchste Priorität ─────────────────────────────────
     if (uc?.m365_aktiv && uc?.m365_access_token_enc) {
-      const { getValidUserAccessToken, graphPost } = await import('@/lib/m365/graph')
+      const { getValidUserAccessToken, getMailboxBase } = await import('@/lib/m365/graph')
       const { data: tcfg } = await (admin.from('tenant_einstellungen') as any)
         .select('m365_tenant_id, m365_client_id, m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle()
       const token = await getValidUserAccessToken(uc, tcfg as R, supabase, tenantId, authUser?.id ?? '')
@@ -45,31 +50,64 @@ export async function POST(req: NextRequest) {
       const mailboxBase2 = sharedMailbox
         ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(sharedMailbox)}`
         : 'https://graph.microsoft.com/v1.0/me'
-      const messagePayload: R = {
-        subject: betreff,
-        body: { contentType: 'Text', content: text ?? '' },
-        toRecipients: empfaenger.map((addr: string) => ({ emailAddress: { address: addr } })),
+      const toRecipients = empfaenger.map((addr: string) => ({ emailAddress: { address: addr } }))
+      const ccRecipients = ccListe.map((addr: string) => ({ emailAddress: { address: addr } }))
+      const authHeaders = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+      let draft: R = {}
+      let sendBase = mailboxBase2
+      if (antwort) {
+        // Antwort: Entwurf aus der Originalnachricht (zitiert, gleicher Thread) in der
+        // Mailbox, in der die Nachricht liegt; Empfänger danach laut Formular setzen.
+        sendBase = getMailboxBase(uc as R, antwort.mailbox === 'shared' ? 'shared' : 'own')
+        const aktion = antwort.modus === 'replyAll' ? 'createReplyAll' : 'createReply'
+        const replyRes = await fetch(`${sendBase}/messages/${encodeURIComponent(antwort.id)}/${aktion}`, {
+          method: 'POST', headers: authHeaders, body: JSON.stringify({ comment: text ?? '' }),
+        })
+        draft = await replyRes.json() as R
+        if (!replyRes.ok || !draft.id) {
+          return NextResponse.json({ fehler: `Antwort-Entwurf fehlgeschlagen (Graph ${replyRes.status}): ${draft?.error?.message ?? ''}` }, { status: 502 })
+        }
+        const patch: R = { subject: betreff, toRecipients, ccRecipients }
+        if (sharedMailbox) patch.from = { emailAddress: { address: sharedMailbox } }
+        const patchRes = await fetch(`${sendBase}/messages/${draft.id}`, { method: 'PATCH', headers: authHeaders, body: JSON.stringify(patch) })
+        if (!patchRes.ok) {
+          const pe = await patchRes.json().catch(() => ({})) as R
+          return NextResponse.json({ fehler: `Empfänger konnten nicht gesetzt werden (Graph ${patchRes.status}): ${pe?.error?.message ?? ''}` }, { status: 502 })
+        }
+      } else {
+        const messagePayload: R = {
+          subject: betreff,
+          body: { contentType: 'Text', content: text ?? '' },
+          toRecipients, ccRecipients,
+        }
+        if (sharedMailbox) messagePayload.from = { emailAddress: { address: sharedMailbox } }
+        const draftRes = await fetch(`${mailboxBase2}/messages`, { method: 'POST', headers: authHeaders, body: JSON.stringify(messagePayload) })
+        draft = await draftRes.json() as R
+        if (!draftRes.ok || !draft.id) {
+          return NextResponse.json({ fehler: `Entwurf fehlgeschlagen (Graph ${draftRes.status}): ${draft?.error?.message ?? ''}` }, { status: 502 })
+        }
       }
-      if (sharedMailbox) messagePayload.from = { emailAddress: { address: sharedMailbox } }
-      // Draft anlegen
-      const draftRes = await fetch(`${mailboxBase2}/messages`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(messagePayload),
-      })
-      const draft = await draftRes.json() as R
       const draftId = draft.id as string | undefined
       const convId  = draft.conversationId as string | undefined
-      // Draft senden
-      if (draftId) {
-        await fetch(`${mailboxBase2}/messages/${draftId}/send`, {
-          method: 'POST', headers: { Authorization: `Bearer ${token}` },
-        })
+      // Entwurf senden
+      const sendRes = await fetch(`${sendBase}/messages/${draftId}/send`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+      if (!sendRes.ok) {
+        const se = await sendRes.json().catch(() => ({})) as R
+        return NextResponse.json({ fehler: `Senden fehlgeschlagen (Graph ${sendRes.status}): ${se?.error?.message ?? ''}` }, { status: 502 })
+      }
+      // Kontakt/Firma automatisch zuordnen, wenn nicht übergeben (Absender-Index wie unter Nachrichten)
+      let kId = kontakt_id ?? null, fId = firma_id ?? null
+      if (!kId && !fId) {
+        try {
+          const { ladeAbsenderIndex, findeAbsender } = await import('@/lib/crm/absender')
+          const idx = await ladeAbsenderIndex(supabase, tenantId, [])
+          for (const e of empfaenger) { const t = findeAbsender(idx, e); if (t) { if (t.typ === 'kontakt') kId = t.id; else fId = t.id; break } }
+        } catch { /* Zuordnung optional */ }
       }
       // Empfänger-Liste für Speicherung
-      const anStr = empfaenger.join(', ')
+      const anStr = [...empfaenger, ...ccListe.map((e: string) => `CC: ${e}`)].join(', ')
       await (admin.from('aktivitaeten') as any).insert({
-        tenant_id: tenantId, kontakt_id: kontakt_id ?? null, firma_id: firma_id ?? null,
+        tenant_id: tenantId, kontakt_id: kId, firma_id: fId,
         art: 'email', betreff,
         beschreibung: (text ?? '').slice(0, 500) || null,
         datum: new Date().toISOString().split('T')[0], erledigt: false, ganztags: true,
@@ -91,7 +129,9 @@ export async function POST(req: NextRequest) {
       })
       await transporter.sendMail({
         from: `"${c.email_smtp_from_name ?? 'software:112'}" <${c.email_smtp_user}>`,
-        to: an, subject: betreff, text,
+        // SMTP kennt keinen Graph-Antwortentwurf: Originalnachricht als Zitat (vom Client) anhängen
+        to: an, cc: ccListe.length ? ccListe.join(', ') : undefined, subject: betreff,
+        text: antwort && typeof zitat === 'string' && zitat ? `${text ?? ''}\n\n${zitat}` : text,
       })
       await (admin.from('aktivitaeten') as any).insert({
         tenant_id: tenantId, kontakt_id: kontakt_id ?? null, firma_id: firma_id ?? null,

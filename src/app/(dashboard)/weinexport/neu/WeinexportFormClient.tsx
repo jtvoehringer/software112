@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { Trash2 } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any

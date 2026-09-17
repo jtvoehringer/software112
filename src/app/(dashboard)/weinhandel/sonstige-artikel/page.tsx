@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import SonstigeArtikelClient from './SonstigeArtikelClient'
 
 export const dynamic = 'force-dynamic'

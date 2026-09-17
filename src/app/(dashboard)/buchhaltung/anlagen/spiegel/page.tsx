@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { redirect } from 'next/navigation'
 import { fmtEur, fmtNum } from '@/lib/format'
 import { afaSatzProzent, anlagenspiegelZeilen } from '@/lib/ea/anlagen'

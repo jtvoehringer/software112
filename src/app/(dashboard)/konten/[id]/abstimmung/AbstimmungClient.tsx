@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { createUmbuchung, deleteUmbuchung, setzeAbgeglichen } from '../../actions'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import { AlertTriangle, Lock } from 'lucide-react'

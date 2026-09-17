@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useEffect } from 'react'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { updateZukauf } from '../../actions'
 import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { AlertTriangle } from 'lucide-react'

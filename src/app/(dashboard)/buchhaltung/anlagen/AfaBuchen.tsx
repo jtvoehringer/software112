@@ -6,7 +6,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { CalendarCheck, RotateCcw } from 'lucide-react'
 import type { AfaBuchungsStatus } from '@/lib/ea/anlagen'
 import { fmtEur } from '@/lib/format'

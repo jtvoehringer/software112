@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { Pencil, AlertTriangle } from 'lucide-react'
 import ZukaufLoeschen from './ZukaufLoeschen'
 import ClickableTableRow from '@/components/ui/ClickableTableRow'

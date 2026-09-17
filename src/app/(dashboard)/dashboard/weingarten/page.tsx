@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { Grape, FlaskConical, Clock, MapPin } from 'lucide-react'
 import RiedKarte, { type KartenPin } from '@/components/weingarten/RiedKarte'
 import { googleMapsUrl } from '@/lib/geo/rieden'

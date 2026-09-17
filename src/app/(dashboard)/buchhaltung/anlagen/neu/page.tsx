@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { redirect } from 'next/navigation'
 import { canWrite } from '@/lib/auth/roles'
 import { fmtNum } from '@/lib/format'

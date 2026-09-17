@@ -1,5 +1,5 @@
 // Jahreswahl per Link (Server-Seite liest ?jahr=)
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 export default function JahrWaehler({ jahre, jahr, basis = '/buchhaltung/anlagen' }: { jahre: number[]; jahr: number; basis?: string }) {

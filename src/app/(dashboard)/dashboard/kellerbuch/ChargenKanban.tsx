@@ -7,7 +7,7 @@
 // Buchung wird dort wie gewohnt vom Menschen bestätigt.
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { X, Sparkles } from 'lucide-react'
 import { Badge, fmtNum, fmtDate } from '../_shared/ui'
 import { STATUS_LABEL, type Charge } from '../_shared/types'

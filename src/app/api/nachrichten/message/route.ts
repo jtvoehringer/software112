@@ -105,6 +105,7 @@ export async function GET(req: NextRequest) {
         von: msg.from?.emailAddress?.address ?? '',
         vonName: msg.from?.emailAddress?.name ?? '',
         an: (msg.toRecipients ?? []).map((r: R) => r.emailAddress?.address).join(', '),
+        cc: (msg.ccRecipients ?? []).map((r: R) => r.emailAddress?.address).filter(Boolean).join(', '),
         datum: msg.receivedDateTime ?? msg.sentDateTime,
         bodyHtml: msg.body?.contentType === 'html' ? msg.body.content : null,
         bodyText: msg.body?.contentType === 'text' ? msg.body.content : msg.body?.content ?? '',

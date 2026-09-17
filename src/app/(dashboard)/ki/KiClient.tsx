@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { Bot } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

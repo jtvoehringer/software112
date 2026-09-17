@@ -8,6 +8,13 @@ const nextConfig: NextConfig = {
   // in der Rechnungsversand-Route, obwohl lokal/im Sandbox-Test alles
   // funktioniert) – offizielle Empfehlung von react-pdf.org/compatibility.
   serverExternalPackages: ['@react-pdf/renderer'],
+  // Router-Cache (17.9.2026): dynamische Seiten nie aus dem Client-Cache
+  // wiederverwenden, vorab geladene statische Teile höchstens 30 s - zusammen
+  // mit components/AutoRefresh.tsx (refresh bei Fokus/Zurück/Intervall), damit
+  // Änderungen ohne „Seite neu laden“ sichtbar werden.
+  experimental: {
+    staleTimes: { dynamic: 0, static: 30 },
+  },
   images: {
     remotePatterns: [
       {

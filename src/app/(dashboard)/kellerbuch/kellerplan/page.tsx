@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { createKellerplan, updateKellerplan, deleteKellerplan } from './actions'
 import KellerplanEditModal from '@/components/kellerbuch/KellerplanEditModal'
 import LoeschenButton from '@/components/kellerbuch/LoeschenButton'

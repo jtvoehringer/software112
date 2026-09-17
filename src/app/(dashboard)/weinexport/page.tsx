@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { Truck } from 'lucide-react'
 export const metadata: Metadata = { title: 'Weinexport – software:112' }
 export const dynamic = 'force-dynamic'

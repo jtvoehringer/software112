@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useTransition, useCallback } from 'react'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { ArrowLeftRight, FlaskConical, Wine } from 'lucide-react'
 import { upsertKellerplanPosition, deleteKellerplanPosition } from '../actions'
 import { getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'

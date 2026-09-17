@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { BookOpen } from 'lucide-react'
 import { buildWeinbuch, type Weinbuch } from '@/lib/wein/weinbuch'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'

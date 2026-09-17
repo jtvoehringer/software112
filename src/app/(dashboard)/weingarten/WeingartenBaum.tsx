@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { useRouter } from 'next/navigation'
 import { Pencil, Trash2, MapPin } from 'lucide-react'
 import { googleMapsUrl } from '@/lib/geo/rieden'

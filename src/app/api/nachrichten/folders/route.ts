@@ -24,9 +24,10 @@ export async function GET(req: NextRequest) {
 
     const token = await getValidUserAccessToken(uc as R, tc as R, supabase, tenantId, user?.id ?? '')
     const mailboxBase = getMailboxBase(uc as R, mailbox)
+    const headers = { Authorization: `Bearer ${token}` }
     const res = await fetch(
-      `${mailboxBase}/mailFolders?$select=id,displayName,unreadItemCount,totalItemCount&$top=50`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      `${mailboxBase}/mailFolders?$select=id,displayName,unreadItemCount,totalItemCount,childFolderCount&$top=100`,
+      { headers }
     )
     const data = await res.json() as R
     if (!res.ok || data.error) {
@@ -37,9 +38,30 @@ export async function GET(req: NextRequest) {
         : ''
       return NextResponse.json({ fehler: `Ordner konnten nicht geladen werden (Graph API ${res.status}${code ? ' ' + code : ''}): ${msg}${hint}` }, { status: 502 })
     }
-    const folders = ((data.value ?? []) as R[]).map((f: R) => ({
+    // Unterordner mitspiegeln (Rückmeldung 17.9.2026): Graph liefert nur die
+    // oberste Ebene; childFolders je Ordner mit Unterordnern nachladen, bis zu
+    // drei Ebenen tief, parallel je Ebene. Ergebnis flach mit parentId/depth,
+    // die Sortierung (Eltern → Kinder) macht der Client.
+    type F = { id: string; name: string; unread: number; total: number; parentId: string | null; depth: number; childCount: number }
+    const zuF = (f: R, parentId: string | null, depth: number): F => ({
       id: f.id, name: f.displayName, unread: f.unreadItemCount ?? 0, total: f.totalItemCount ?? 0,
-    }))
+      parentId, depth, childCount: f.childFolderCount ?? 0,
+    })
+    let ebene: F[] = ((data.value ?? []) as R[]).map(f => zuF(f, null, 0))
+    const folders: F[] = [...ebene]
+    for (let depth = 1; depth <= 3; depth++) {
+      const eltern = ebene.filter(f => f.childCount > 0)
+      if (eltern.length === 0) break
+      const kinder = await Promise.all(eltern.map(async e => {
+        try {
+          const r = await fetch(`${mailboxBase}/mailFolders/${e.id}/childFolders?$select=id,displayName,unreadItemCount,totalItemCount,childFolderCount&$top=100`, { headers })
+          const d = await r.json() as R
+          return r.ok && !d.error ? ((d.value ?? []) as R[]).map(f => zuF(f, e.id, depth)) : []
+        } catch { return [] }
+      }))
+      ebene = kinder.flat()
+      folders.push(...ebene)
+    }
     return NextResponse.json({ folders })
   } catch (err) { return NextResponse.json({ fehler: String(err) }, { status: 500 }) }
 }

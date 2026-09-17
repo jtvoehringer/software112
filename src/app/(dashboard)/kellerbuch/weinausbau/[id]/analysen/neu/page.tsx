@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { createAnalyse } from '@/app/(dashboard)/kellerbuch/actions'
 
 interface Props {

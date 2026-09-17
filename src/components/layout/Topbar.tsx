@@ -11,7 +11,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { Search, Bell, LogOut, ArrowLeftRight, User, ChevronDown } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import type { TenantBranding } from '@/app/(dashboard)/layout'

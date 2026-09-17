@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { Pencil, Trash2, X } from 'lucide-react'
 import { deleteLage, assignWeingartenToLage } from './actions'
 import type { Lage, WeingartenRow } from './page'

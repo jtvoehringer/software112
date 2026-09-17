@@ -6,7 +6,7 @@
 // Beide Zeilen scrollen auf schmalen Bildschirmen horizontal – ein Mobile-
 // Drawer ist damit nicht mehr nötig.
 
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { usePathname } from 'next/navigation'
 import { activeGroup, isActivePath, type NavGroup } from '@/lib/navigation'
 

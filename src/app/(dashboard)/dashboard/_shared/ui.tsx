@@ -3,7 +3,7 @@
 // s112-Designsystem: flache weiße Karten mit 1-px-Rand, Zahlen in Mono,
 // Status-Badges gedämpft, Icons nur in Kachel-Labels.
 
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 

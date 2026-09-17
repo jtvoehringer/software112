@@ -10,7 +10,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { AlertTriangle, Trash2, Building2, X } from 'lucide-react'
 import { verbucheBeleg } from '../../actions'
 import { FirmaForm } from '@/app/(dashboard)/crm/firmen/FirmenClient'

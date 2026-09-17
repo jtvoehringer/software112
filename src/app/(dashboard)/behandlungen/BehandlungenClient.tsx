@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { Pencil, Trash2 } from 'lucide-react'
 import { deleteBehandlung } from './actions'
 import type { Behandlung } from './page'

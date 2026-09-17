@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { Mail, Inbox, Send, Trash2, FileText, Folder, X, UserPlus } from 'lucide-react'
 import LeadDialog from './LeadDialog'
 import { ignoriereAbsender } from '../crm/actions'
@@ -20,6 +20,7 @@ type MsgDetail = Msg & {
   conversationId: string | null
   kontaktInfo: { typ: string; id: string; name: string; accountnummer: string | null; istLead?: boolean; ueber?: 'email' | 'domain' } | null
   leadVorschlag?: boolean
+  cc?: string
 }
 
 function fmtDate(d: string) {
@@ -30,17 +31,36 @@ function fmtDate(d: string) {
   return dt.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit' })
 }
 
-// Wichtige Ordner zuerst, dann alphabetisch (für eigene & geteilte Mailbox gleich)
+// Wichtige Ordner zuerst, dann alphabetisch (für eigene & geteilte Mailbox gleich);
+// Unterordner (parentId/depth aus /api/nachrichten/folders) direkt unter ihrem
+// Elternordner, alphabetisch (Rückmeldung 17.9.2026: Unterordner mitspiegeln).
 const FOLDER_PRIO = ['Inbox','Posteingang','Sent Items','Gesendete Elemente','Drafts','Entwürfe','Deleted Items','Gelöschte Elemente','Junk Email','Junk-E-Mail']
-function sortFolders(list: {id: string; name: string; unread: number; total: number}[]) {
-  return [...list].sort((a, b) => {
+type MailFolder = { id: string; name: string; unread: number; total: number; parentId?: string | null; depth?: number }
+function sortFolders(list: MailFolder[]): MailFolder[] {
+  const byParent = new Map<string | null, MailFolder[]>()
+  for (const f of list) {
+    const key = f.parentId ?? null
+    if (!byParent.has(key)) byParent.set(key, [])
+    byParent.get(key)!.push(f)
+  }
+  const cmpTop = (a: MailFolder, b: MailFolder) => {
     const ai = FOLDER_PRIO.findIndex(p => p.toLowerCase() === a.name.toLowerCase())
     const bi = FOLDER_PRIO.findIndex(p => p.toLowerCase() === b.name.toLowerCase())
     if (ai !== -1 && bi !== -1) return ai - bi
     if (ai !== -1) return -1
     if (bi !== -1) return 1
     return a.name.localeCompare(b.name, 'de')
-  })
+  }
+  const out: MailFolder[] = []
+  const walk = (parent: string | null, depth: number) => {
+    const kinder = [...(byParent.get(parent) ?? [])].sort(parent === null ? cmpTop : (a, b) => a.name.localeCompare(b.name, 'de'))
+    for (const k of kinder) { out.push({ ...k, depth }); if (depth < 6) walk(k.id, depth + 1) }
+  }
+  walk(null, 0)
+  // Ordner, deren Eltern nicht geladen wurden (sollte nicht vorkommen), hinten anhängen
+  const seen = new Set(out.map(f => f.id))
+  for (const f of list) if (!seen.has(f.id)) out.push({ ...f, depth: 0 })
+  return out
 }
 
 export default function NachrichtenClient() {
@@ -82,7 +102,14 @@ export default function NachrichtenClient() {
   const [threadLaden, setThreadLaden]           = useState(false)
   const loadGenRef = useRef(0)
   const pendingEmailIdRef = useRef<string | null>(null)
-  const [folders, setFolders]     = useState<{id: string; name: string; unread: number; total: number}[]>([])
+  const [folders, setFolders]     = useState<MailFolder[]>([])
+  // Seitenweise laden (50 je Seite): weitere ältere Nachrichten anhängen
+  const [hatMehr, setHatMehr]     = useState(false)
+  const [naechsteSeite, setNaechsteSeite] = useState(0)
+  const [mehrLaden, setMehrLaden] = useState(false)
+  // Antwort / Allen antworten: Originalnachricht über Graph zitiert mitschicken
+  const [cc, setCc]               = useState('')
+  const [antwortAuf, setAntwortAuf] = useState<{ id: string; modus: 'reply' | 'replyAll'; mailbox: 'own' | 'shared'; zitat: string; von: string; datum: string } | null>(null)
   const [folderId, setFolderId]   = useState<string | null>(null)  // null = inbox
   const isFirstMailboxRender = useRef(true)
 
@@ -165,9 +192,47 @@ export default function NachrichtenClient() {
       if (gen !== loadGenRef.current) return  // veraltete Antwort – ignorieren
       if (!res.ok || data.fehler) { setFehler(data.fehler ?? 'Fehler'); return }
       setMessages(data.messages ?? [])
+      setHatMehr(!!data.hatMehr); setNaechsteSeite(data.naechsteSeite ?? (data.messages?.length ?? 0))
     } catch (e) { if (gen === loadGenRef.current) setFehler(String(e)) }
     finally { if (gen === loadGenRef.current) setLaden(false) }
   }, [folder, folderId, activeMailbox])
+
+  // Ältere Nachrichten nachladen (Rückmeldung 17.9.2026: bisher nur die 30 neuesten)
+  async function ladeWeitere() {
+    if (mehrLaden || !hatMehr) return
+    setMehrLaden(true)
+    const gen = loadGenRef.current
+    try {
+      const res = await fetch(`/api/nachrichten/list?folder=${folder}${folderId ? `&folderId=${folderId}` : ''}&mailbox=${activeMailbox}&skip=${naechsteSeite}`)
+      const data = await res.json()
+      if (gen !== loadGenRef.current) return
+      if (!res.ok || data.fehler) { setFehler(data.fehler ?? 'Fehler'); return }
+      setMessages(prev => { const ids = new Set(prev.map(m => m.id)); return [...prev, ...((data.messages ?? []) as Msg[]).filter(m => !ids.has(m.id))] })
+      setHatMehr(!!data.hatMehr); setNaechsteSeite(data.naechsteSeite ?? naechsteSeite + 50)
+    } catch (e) { setFehler(String(e)) }
+    finally { setMehrLaden(false) }
+  }
+
+  // Eigene Adressen (für „Allen antworten“: nicht an sich selbst)
+  const eigeneAdressen = () => new Set([verbEmail, monitoredEmail].map(e => e.trim().toLowerCase()).filter(Boolean))
+  const splitAdr = (v: string | null | undefined) => (v ?? '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+  const zitatVon = (m: { von: string; vonName: string; datum: string; bodyText?: string | null }) =>
+    `Am ${new Date(m.datum).toLocaleString('de-AT')} schrieb ${m.vonName || m.von} <${m.von}>:\n` + (m.bodyText ?? '').replace(/<[^>]*>/g, '').trim().split('\n').map(z => `> ${z}`).join('\n')
+
+  function antworten(m: MsgDetail | (Msg & { bodyText?: string | null; cc?: string }), modus: 'reply' | 'replyAll') {
+    const eigene = eigeneAdressen()
+    const anListe = [m.von.toLowerCase()]
+    let ccListe: string[] = []
+    if (modus === 'replyAll') {
+      for (const e of splitAdr(m.an)) if (!eigene.has(e) && !anListe.includes(e)) anListe.push(e)
+      ccListe = splitAdr(m.cc).filter(e => !eigene.has(e) && !anListe.includes(e))
+    }
+    setForwardMode(false); setCompose(true)
+    setAn(anListe.join(', ')); setCc(ccListe.join(', '))
+    setBetreff(/^(re|aw|wg):/i.test(m.betreff.trim()) ? m.betreff : `Re: ${m.betreff}`)
+    setText('')
+    setAntwortAuf({ id: m.id, modus, mailbox: activeMailbox, zitat: zitatVon({ von: m.von, vonName: m.vonName, datum: m.datum, bodyText: (m as MsgDetail).bodyText ?? '' }), von: m.vonName || m.von, datum: m.datum })
+  }
 
   useEffect(() => { ladeMessages() }, [ladeMessages])
 
@@ -216,12 +281,16 @@ export default function NachrichtenClient() {
     setSending(true); setSendResult(null)
     const res = await fetch('/api/email/unified', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ an, betreff, text, useSharedMailbox: sendVon === 'shared' && !!monitoredEmail }),
+      body: JSON.stringify({
+        an, cc, betreff, text, useSharedMailbox: sendVon === 'shared' && !!monitoredEmail,
+        antwortAuf: antwortAuf ? { id: antwortAuf.id, modus: antwortAuf.modus, mailbox: antwortAuf.mailbox } : null,
+        zitat: antwortAuf?.zitat ?? null,
+      }),
     })
     const data = await res.json()
     if (!res.ok || data.fehler) { setSendResult('Fehler: ' + (data.fehler ?? 'Unbekannt')); setSending(false); return }
     setSendResult('Gesendet')
-    setTimeout(() => { setCompose(false); setSendResult(null); setAn(''); setBetreff(''); setText('') }, 1500)
+    setTimeout(() => { setCompose(false); setSendResult(null); setAn(''); setCc(''); setBetreff(''); setText(''); setAntwortAuf(null) }, 1500)
     setSending(false)
     if (folder === 'sent') ladeMessages()
   }
@@ -275,7 +344,7 @@ export default function NachrichtenClient() {
       {/* ── Ordner-Sidebar ── */}
       <div className="w-44 flex-shrink-0 bg-s112-bg border-r border-s112-border flex flex-col">
         <div className="p-3">
-          <button onClick={() => setCompose(true)}
+          <button onClick={() => { setAntwortAuf(null); setCc(''); setAn(''); setBetreff(''); setText(''); setCompose(true) }}
             className="w-full bg-s112-teal text-white px-3 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 flex items-center justify-center gap-2">
             Verfassen
           </button>
@@ -301,6 +370,7 @@ export default function NachrichtenClient() {
           {/* Echte Ordnerstruktur aus Mailbox */}
           {folders.length > 0 ? folders.map(f => (
             <button key={f.id} onClick={() => { setFolderId(f.id); setFolder('inbox'); setSelected(null) }}
+              style={{ paddingLeft: `${12 + (f.depth ?? 0) * 14}px` }} title={f.name}
               className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors
                 ${folderId === f.id ? 'bg-s112-teal/10 text-s112-blue-700 font-medium' : 'text-s112-text-2 hover:bg-white'}`}>
               <span className="flex-shrink-0">{f.name === 'Inbox' || f.name === 'Posteingang' ? <Inbox className="w-3.5 h-3.5" /> : f.name === 'Sent Items' || f.name === 'Gesendete Elemente' ? <Send className="w-3.5 h-3.5" /> : f.name === 'Deleted Items' || f.name === 'Gelöschte Elemente' ? <Trash2 className="w-3.5 h-3.5" /> : f.name === 'Drafts' || f.name === 'Entwürfe' ? <FileText className="w-3.5 h-3.5" /> : <Folder className="w-3.5 h-3.5" />}</span>
@@ -395,6 +465,12 @@ export default function NachrichtenClient() {
           {!laden && messages.length === 0 && !fehler && (
             <p className="text-center text-s112-muted text-xs py-8">Keine Nachrichten</p>
           )}
+          {!laden && hatMehr && (
+            <button onClick={ladeWeitere} disabled={mehrLaden}
+              className="w-full text-xs text-s112-blue-700 hover:bg-s112-bg/60 py-3 disabled:opacity-50">
+              {mehrLaden ? 'Lade ältere Nachrichten…' : 'Ältere Nachrichten laden'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -473,9 +549,13 @@ export default function NachrichtenClient() {
                   {selected.leadVorschlag && !selected.kontaktInfo && leadSpaeter.has(selected.von.toLowerCase()) && (
                     <button onClick={() => setLeadDialog(true)} className="text-xs border border-s112-border text-s112-text-2 px-3 py-1.5 rounded-lg hover:bg-s112-bg inline-flex items-center gap-1"><UserPlus className="w-3.5 h-3.5" /> Lead anlegen</button>
                   )}
-                  <button onClick={() => { setCompose(true); setAn(selected.von); setBetreff(`Re: ${selected.betreff}`); setText('') }}
+                  <button onClick={() => antworten(selected, 'reply')}
                     className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg hover:bg-opacity-90">
                     Antworten
+                  </button>
+                  <button onClick={() => antworten(selected, 'replyAll')} title="Antwort an Absender und alle weiteren Empfänger (An + CC)"
+                    className="text-xs border border-s112-border text-s112-text-2 px-3 py-1.5 rounded-lg hover:bg-s112-bg">
+                    Allen antworten
                   </button>
                   <button onClick={() => { setForwardMode(true); setForwardAn(''); setCompose(false) }}
                     className="text-xs border border-s112-border text-s112-text-2 px-3 py-1.5 rounded-lg hover:bg-s112-bg">
@@ -566,7 +646,7 @@ export default function NachrichtenClient() {
                         <p className="text-xs text-s112-text-1 truncate">{tm.betreff}</p>
                         {tm.vorschau && <p className="text-[11px] text-s112-muted mt-1 line-clamp-2">{tm.vorschau}</p>}
                         <div className="flex gap-2 mt-2">
-                          <button onClick={e => { e.stopPropagation(); setCompose(true); setAn(tm.von); setBetreff(`Re: ${tm.betreff}`); setText('') }}
+                          <button onClick={e => { e.stopPropagation(); antworten(tm, 'reply') }}
                             className="text-[10px] text-s112-blue-700 border border-s112-teal/30 px-2 py-0.5 rounded hover:bg-s112-teal/5">
                             Antworten
                           </button>
@@ -593,8 +673,8 @@ export default function NachrichtenClient() {
         {compose && (
           <div className="flex-1 flex flex-col p-6">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="font-semibold text-s112-text flex items-center gap-2"><Mail className="w-4 h-4" /> Neue E-Mail verfassen</h2>
-              <button onClick={() => { setCompose(false); setSendResult(null) }}
+              <h2 className="font-semibold text-s112-text flex items-center gap-2"><Mail className="w-4 h-4" /> {antwortAuf ? (antwortAuf.modus === 'replyAll' ? 'Allen antworten' : 'Antworten') : 'Neue E-Mail verfassen'}</h2>
+              <button onClick={() => { setCompose(false); setSendResult(null); setAntwortAuf(null); setCc('') }}
                 className="text-s112-muted hover:text-s112-text-1"><X className="w-4 h-4" /></button>
             </div>
             <form onSubmit={sendEmail} className="flex-1 flex flex-col gap-3">
@@ -620,22 +700,34 @@ export default function NachrichtenClient() {
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">CC <span className="font-normal text-s112-muted">(optional, mehrere mit Komma trennen)</span></label>
+                <input value={cc} onChange={e => setCc(e.target.value)}
+                  placeholder="kopie@email.at"
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              </div>
+              <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Betreff *</label>
                 <input value={betreff} onChange={e => setBetreff(e.target.value)} required
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div className="flex-1 flex flex-col">
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Nachricht</label>
-                <textarea value={text} onChange={e => setText(e.target.value)} rows={12}
+                <textarea value={text} onChange={e => setText(e.target.value)} rows={antwortAuf ? 8 : 12} autoFocus={!!antwortAuf}
                   className="flex-1 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
               </div>
+              {antwortAuf && (
+                <div className="rounded-lg border border-s112-line bg-s112-bg px-3 py-2">
+                  <p className="text-[11px] text-s112-text-2 mb-1">Die Originalnachricht von <b className="text-s112-text">{antwortAuf.von}</b> wird unter deiner Antwort mitgeschickt (Vorschau):</p>
+                  <pre className="text-[11px] text-s112-text-2 whitespace-pre-wrap max-h-32 overflow-y-auto font-sans">{antwortAuf.zitat.slice(0, 1500)}{antwortAuf.zitat.length > 1500 ? '\n…' : ''}</pre>
+                </div>
+              )}
               {sendResult && <p className={`text-sm font-medium ${sendResult.startsWith('Fehler') ? 'text-s112-err-fg' : 'text-s112-ok-fg'}`}>{sendResult}</p>}
               <div className="flex gap-2">
                 <button type="submit" disabled={sending}
                   className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
                   {sending ? 'Senden…' : 'Senden'}
                 </button>
-                <button type="button" onClick={() => setCompose(false)}
+                <button type="button" onClick={() => { setCompose(false); setAntwortAuf(null); setCc('') }}
                   className="text-sm px-4 py-2 rounded-xl border border-s112-border text-s112-text-2 hover:bg-s112-bg">
                   Abbrechen
                 </button>

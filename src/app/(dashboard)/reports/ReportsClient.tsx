@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { exportCSV } from '@/lib/utils/csv'
 import { BarChart3, Calculator, FileText, Droplet, Sprout } from 'lucide-react'
 import { formatRebsorteMitKuerzel, getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'

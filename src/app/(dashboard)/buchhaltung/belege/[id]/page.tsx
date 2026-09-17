@@ -1,5 +1,5 @@
 import { redirect, notFound } from 'next/navigation'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { verwerfeBeleg } from '../../actions'

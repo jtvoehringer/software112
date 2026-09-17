@@ -1,7 +1,7 @@
 import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import NeuerJahrgangForm from './NeuerJahrgangForm'
 
 export const metadata: Metadata = { title: 'Neuer Jahrgang – software:112' }

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { redirect } from 'next/navigation'
 import { TrendingUp, TrendingDown, Wallet, Landmark, ReceiptText, FileCheck2, Send, ArrowRight } from 'lucide-react'
 import { DashHeader, Tile, Card, Badge, Note, BarRow, Th, Td, fmtEur, fmtDate } from '@/app/(dashboard)/dashboard/_shared/ui'

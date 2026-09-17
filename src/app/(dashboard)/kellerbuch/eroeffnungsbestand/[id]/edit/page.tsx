@@ -3,7 +3,7 @@ import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { updateEroeffnungsbestand } from '../../../gebinde-actions'
 import type { Metadata } from 'next'
 

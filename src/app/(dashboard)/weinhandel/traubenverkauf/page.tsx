@@ -2,7 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import TraubenverkaufClient from './TraubenverkaufClient'
 
 export const metadata: Metadata = { title: 'Traubenverkauf – software:112' }

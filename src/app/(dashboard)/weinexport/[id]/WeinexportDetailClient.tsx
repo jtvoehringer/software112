@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import EmcsPanel from './EmcsPanel'
 import { fmtNum } from '@/lib/format'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any

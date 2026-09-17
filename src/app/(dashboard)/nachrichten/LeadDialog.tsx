@@ -9,7 +9,7 @@
 // Betrieb über getCurrentMembership, siehe crm/actions.ts).
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { X, Sparkles, UserPlus, Building2 } from 'lucide-react'
 import { SEGMENTE, LAENDER } from '@/lib/crm/types'
 import type { LeadVorbelegung } from '@/lib/crm/leadEmail'

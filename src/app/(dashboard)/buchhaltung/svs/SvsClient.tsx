@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import Link from 'next/link'
+import Link from '@/components/ui/Link'
 import { AlertTriangle, CheckCircle2, Calculator, Table2, Upload, Settings2 } from 'lucide-react'
 import { vergleiche, ZURECHNUNG_LABEL, type SvsParameter, type Zurechnung } from '@/lib/svs/berechnung'
 import { speichereEinheitswerte, importiereEinheitswerte, speichereSvsOption, speichereSvsParameter } from './actions'
