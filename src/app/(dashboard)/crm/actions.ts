@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { absenderIndexVerwerfen } from '@/lib/crm/absender'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -83,6 +84,7 @@ export async function createKontakt(formData: FormData): Promise<{ error?: strin
     payload.accountnummer = await generateAccountnummer(tenantId)
     const { error } = await (supabase.from('kontakte') as any).insert(payload).eq('tenant_id', tenantId)
     if (error) return { error: (error as AR).message }
+    absenderIndexVerwerfen(tenantId)
     revalidatePath('/crm/kontakte')
     return {}
   } catch (err) {
@@ -121,6 +123,7 @@ export async function updateKontakt(id: string, formData: FormData): Promise<{ e
     }
     const { error } = await (supabase.from('kontakte') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
     if (error) return { error: (error as AR).message }
+    absenderIndexVerwerfen(tenantId)
     revalidatePath('/crm/kontakte')
     revalidatePath('/crm/kontakte/[id]', 'page')
     return {}
@@ -282,6 +285,7 @@ export async function createFirma(formData: FormData): Promise<{ error?: string;
       .insert(payload).eq('tenant_id', tenantId)
       .select('id').single()
     if (error) return { error: (error as AR).message }
+    absenderIndexVerwerfen(tenantId)
     revalidatePath('/crm/firmen')
     return { id: (data as AR)?.id as string | undefined }
   } catch (err) {
@@ -324,6 +328,7 @@ export async function updateFirma(id: string, formData: FormData): Promise<{ err
     }
     const { error } = await (supabase.from('firmen') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
     if (error) return { error: (error as AR).message }
+    absenderIndexVerwerfen(tenantId)
     revalidatePath('/crm/firmen')
     revalidatePath('/crm/firmen/[id]', 'page')
     return {}
@@ -665,6 +670,7 @@ export async function createLeadAusEmail(d: LeadAusEmailDaten): Promise<{ kontak
     if (ke) return { error: (ke as AR).message }
     const kontaktId = (k as AR | null)?.id as string | undefined
     if (!kontaktId) return { error: 'Kontakt konnte nicht gespeichert werden' }
+    absenderIndexVerwerfen(tenantId)
 
     // Auslösende E-Mail als Aktivität an den Kontakt hängen (wie /api/nachrichten/message bei bekannten Absendern)
     if (d.mail?.id) {
@@ -701,6 +707,7 @@ export async function ignoriereAbsender(email: string, grund?: string | null): P
     const { error } = await (supabase.from('email_lead_ignoriert') as any)
       .upsert({ tenant_id: tenantId, email: e, grund: grund?.trim() || null, erstellt_von: user?.id ?? null }, { onConflict: 'tenant_id,email' })
     if (error) return { error: (error as AR).message }
+    absenderIndexVerwerfen(tenantId)
     return {}
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
@@ -774,6 +781,7 @@ export async function emailHinzufuegen(typ: 'kontakt' | 'firma', id: string, ema
     const patch: AR = std ? { email_weitere: [...weitere, e] } : { email: e }
     const { error } = await (supabase.from(tabelle) as any).update(patch).eq('tenant_id', tenantId).eq('id', id)
     if (error) return { error: (error as AR).message }
+    absenderIndexVerwerfen(tenantId)
     revalidatePath(typ === 'firma' ? `/crm/firmen/${id}` : `/crm/kontakte/${id}`)
     return { alsStandard: !std }
   } catch (err) {

@@ -1,6 +1,7 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { graphGet, getValidAccessToken } from '@/lib/m365/graph'
+import { alle } from '@/lib/supabase/alle'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -24,8 +25,8 @@ export async function POST(req: NextRequest) {
       // Kontakte + Firmen laden für Matching
       // Standard- und weitere Adressen (Migration 211)
       const [{ data: kRaw }, { data: fRaw }] = await Promise.all([
-        (admin.from('kontakte') as any).select('id, email, email_weitere').eq('aktiv', true).eq('tenant_id', tenantId),
-        (admin.from('firmen') as any).select('id, email, email_weitere').eq('aktiv', true).eq('tenant_id', tenantId),
+        alle((admin.from('kontakte') as any).select('id, email, email_weitere').eq('aktiv', true).eq('tenant_id', tenantId).order('id')),
+        alle((admin.from('firmen') as any).select('id, email, email_weitere').eq('aktiv', true).eq('tenant_id', tenantId).order('id')),
       ])
       const emailMap: Record<string, { kontakt_id?: string; firma_id?: string }> = {}
       ;(fRaw ?? []).forEach((f: R) => { for (const e of [f.email, ...(f.email_weitere ?? [])]) if (e) emailMap[String(e).toLowerCase()] = { firma_id: f.id } })

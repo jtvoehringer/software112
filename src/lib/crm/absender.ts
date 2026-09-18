@@ -9,6 +9,8 @@
 // Lead-Vorschlag. Wird vom Nachrichten-Endpoint (Einzelmail) und von der
 // Nachrichtenliste (Markierung „neu“) gemeinsam genutzt.
 
+import { alle } from '@/lib/supabase/alle'
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
@@ -84,13 +86,31 @@ export function normName(name: string | null | undefined): string {
  * Index über alle Kontakte/Firmen des Betriebs aufbauen (drei kleine Abfragen).
  * `eigeneAdressen`: verbundenes Postfach, geteilte Mailbox usw.
  */
+// Rohdaten je Betrieb kurz zwischenspeichern (18.9.2026): der Index wird bei
+// jeder Nachrichtenliste und jedem Öffnen einer Mail gebaut; mit 8.300 Kontakten
+// sind das neun 1.000er-Blöcke. 60 s Cache je Serverinstanz reichen, damit das
+// Blättern im Postfach nicht jedes Mal den ganzen Bestand lädt.
+const rohCache = new Map<string, { stamp: number; kRaw: R[]; fRaw: R[]; iRaw: R[] }>()
+const ROH_CACHE_MS = 60 * 1000
+export function absenderIndexVerwerfen(tenantId?: string) { if (tenantId) rohCache.delete(tenantId); else rohCache.clear() }
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ladeAbsenderIndex(client: any, tenantId: string, eigeneAdressen: (string | null | undefined)[] = []): Promise<AbsenderIndex> {
-  const [{ data: kRaw }, { data: fRaw }, { data: iRaw }] = await Promise.all([
-    (client.from('kontakte') as any).select('id, vorname, nachname, email, email_weitere, accountnummer, is_lead, firma_id').eq('tenant_id', tenantId).eq('aktiv', true),
-    (client.from('firmen') as any).select('id, name, email, email_weitere, website, accountnummer, is_lead').eq('tenant_id', tenantId).eq('aktiv', true),
-    (client.from('email_lead_ignoriert') as any).select('email').eq('tenant_id', tenantId),
-  ])
+  // WICHTIG: alle() statt direktem await - PostgREST liefert höchstens 1.000
+  // Zeilen. Fehlerbild 18.9.2026: Kontakt AN-15538 (judi_liu@hotmail.com) war im
+  // CRM, die Erkennung fand ihn nicht, weil er jenseits der ersten 1.000 Zeilen
+  // lag - jede Mail von ihm wurde erneut als Lead vorgeschlagen.
+  let roh = rohCache.get(tenantId)
+  if (!roh || Date.now() - roh.stamp > ROH_CACHE_MS) {
+    const [{ data: kRaw }, { data: fRaw }, { data: iRaw }] = await Promise.all([
+      alle((client.from('kontakte') as any).select('id, vorname, nachname, email, email_weitere, accountnummer, is_lead, firma_id').eq('tenant_id', tenantId).eq('aktiv', true).order('id')),
+      alle((client.from('firmen') as any).select('id, name, email, email_weitere, website, accountnummer, is_lead').eq('tenant_id', tenantId).eq('aktiv', true).order('id')),
+      alle((client.from('email_lead_ignoriert') as any).select('email').eq('tenant_id', tenantId).order('email')),
+    ])
+    roh = { stamp: Date.now(), kRaw: (kRaw ?? []) as R[], fRaw: (fRaw ?? []) as R[], iRaw: (iRaw ?? []) as R[] }
+    rohCache.set(tenantId, roh)
+  }
+  const { kRaw, fRaw, iRaw } = roh
   const idx: AbsenderIndex = { kontakte: new Map(), firmen: new Map(), firmenDomains: new Map(), ignoriert: new Set(), eigene: new Set(), eigeneDomains: new Set(), namen: new Map() }
   const merkeName = (name: string, t: AbsenderTreffer, email: string | null) => {
     const n = normName(name); if (!n) return
