@@ -58,13 +58,16 @@ export default function AppShell({
       <TabNav groups={groups} />
 
       <div className="flex-1 min-h-0 flex overflow-hidden">
+        {/* Inhaltsbreite: 1280 px, auf großen Bildschirmen (≥ 1536 px, Tailwind 2xl)
+            1600 px - Rückmeldung 18.9.2026: auf 19–21"-Monitoren bei 100 % blieb
+            links und rechts ein Drittel leer. Kopfzeile und Navigation ziehen mit. */}
         <main className="flex-1 min-w-0 overflow-y-auto">
-          <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+          <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8">
             {children}
           </div>
 
           {/* Fußzeile: Dachmarke hohenstein + Auftragnehmer ICP Solutions */}
-          <footer className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-6 pt-2">
+          <footer className="max-w-7xl 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-6 pt-2">
             <div className="border-t border-s112-line pt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
               <div className="flex items-center gap-4">
                 <Image src="/logos/hohenstein-logo.png" alt="hohenstein consulting solutions" width={480} height={165}

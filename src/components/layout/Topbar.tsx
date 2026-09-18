@@ -88,7 +88,7 @@ export default function Topbar({
 
   return (
     <header className="bg-s112-text text-white shrink-0 z-40 shadow-[0_1px_4px_rgba(34,37,43,.25)]">
-      <div className="h-14 max-w-[1280px] mx-auto px-4 lg:px-6 flex items-center gap-3 lg:gap-5">
+      <div className="h-14 max-w-[1280px] 2xl:max-w-[1600px] mx-auto px-4 lg:px-6 flex items-center gap-3 lg:gap-5">
 
         {/* Wortmarke software:112 */}
         <Link href="/dashboard" className="shrink-0 font-display text-[21px] font-light tracking-[.04em] whitespace-nowrap leading-none hover:opacity-90 transition-opacity">
