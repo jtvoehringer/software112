@@ -37,6 +37,19 @@ function parseZahlungszielTage(formData: FormData): number {
 
 // ── Kontakte ──────────────────────────────────────────────────────────────────
 
+// Migration 211: weitere E-Mail-Adressen, im Formular kommagetrennt/zeilenweise
+function parseEmailWeitere(formData: FormData): string[] {
+  const roh = (formData.get('email_weitere') as string) || ''
+  const std = ((formData.get('email') as string) || '').trim().toLowerCase()
+  const out: string[] = []
+  for (const t of roh.split(/[,;\s]+/)) {
+    const e = t.trim().toLowerCase()
+    if (!e || !e.includes('@') || e === std || out.includes(e)) continue
+    out.push(e)
+  }
+  return out
+}
+
 export async function createKontakt(formData: FormData): Promise<{ error?: string }> {
   try {
     const supabase = await createSupabaseServerClient()
@@ -48,6 +61,7 @@ export async function createKontakt(formData: FormData): Promise<{ error?: strin
       segment:     formData.get('segment') as string,
       firma_id:    (formData.get('firma_id') as string) || null,
       email:       (formData.get('email') as string) || null,
+      email_weitere: parseEmailWeitere(formData),
       telefon:          (formData.get('telefon')          as string) || null,
       telefon_vorwahl:  (formData.get('telefon_vorwahl') as string) || '+43',
       mobil:            (formData.get('mobil')            as string) || null,
@@ -86,6 +100,7 @@ export async function updateKontakt(id: string, formData: FormData): Promise<{ e
       segment:    formData.get('segment') as string,
       firma_id:   (formData.get('firma_id') as string) || null,
       email:      (formData.get('email') as string) || null,
+      email_weitere: parseEmailWeitere(formData),
       telefon:          (formData.get('telefon')          as string) || null,
       telefon_vorwahl:  (formData.get('telefon_vorwahl') as string) || '+43',
       mobil:            (formData.get('mobil')            as string) || null,
@@ -243,6 +258,7 @@ export async function createFirma(formData: FormData): Promise<{ error?: string;
       mobil:              (formData.get('mobil')          as string) || null,
       mobil_vorwahl:      (formData.get('mobil_vorwahl') as string) || '+43',
       email:              (formData.get('email') as string) || null,
+      email_weitere:      parseEmailWeitere(formData),
       website:            (formData.get('website') as string) || null,
       uid_nummer:         (formData.get('uid_nummer') as string) || null,
       betrieb_nr:         (formData.get('betrieb_nr') as string) || null,
@@ -289,6 +305,7 @@ export async function updateFirma(id: string, formData: FormData): Promise<{ err
       mobil:              (formData.get('mobil')          as string) || null,
       mobil_vorwahl:      (formData.get('mobil_vorwahl') as string) || '+43',
       email:              (formData.get('email') as string) || null,
+      email_weitere:      parseEmailWeitere(formData),
       website:            (formData.get('website') as string) || null,
       uid_nummer:         (formData.get('uid_nummer') as string) || null,
       betrieb_nr:         (formData.get('betrieb_nr') as string) || null,
@@ -727,4 +744,31 @@ export async function pruefeFirmaDublette(d: { name: string; strasse: string; pl
     }
     return out
   } catch { return {} }
+}
+
+// E-Mail-Adresse einem bestehenden Kontakt/einer Firma hinzufügen (Rückmeldung
+// 18.9.2026: Absender ist unter anderer Adresse bereits im CRM). Ohne
+// Standardadresse wird sie zur Standardadresse, sonst zu den weiteren
+// (Migration 211). Danach gilt der Absender als bekannt.
+export async function emailHinzufuegen(typ: 'kontakt' | 'firma', id: string, email: string): Promise<{ error?: string; alsStandard?: boolean }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const tenantId = await getTenantId()
+    const e = (email ?? '').trim().toLowerCase()
+    if (!e.includes('@')) return { error: 'Keine gültige Adresse' }
+    const tabelle = typ === 'firma' ? 'firmen' : 'kontakte'
+    const { data: row, error: e1 } = await (supabase.from(tabelle) as any).select('id, email, email_weitere').eq('tenant_id', tenantId).eq('id', id).maybeSingle()
+    if (e1) return { error: (e1 as AR).message }
+    if (!row) return { error: 'Datensatz nicht gefunden' }
+    const std = String((row as AR).email ?? '').trim().toLowerCase()
+    const weitere: string[] = ((row as AR).email_weitere ?? []) as string[]
+    if (std === e || weitere.includes(e)) return {}
+    const patch: AR = std ? { email_weitere: [...weitere, e] } : { email: e }
+    const { error } = await (supabase.from(tabelle) as any).update(patch).eq('tenant_id', tenantId).eq('id', id)
+    if (error) return { error: (error as AR).message }
+    revalidatePath(typ === 'firma' ? `/crm/firmen/${id}` : `/crm/kontakte/${id}`)
+    return { alsStandard: !std }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
+  }
 }

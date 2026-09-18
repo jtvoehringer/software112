@@ -86,7 +86,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
   const firma: FirmaRow = {
     id: f.id, accountnummer: f.accountnummer ?? null, name: f.name, segment: f.segment,
     strasse: f.strasse ?? null, plz: f.plz ?? null, ort: f.ort ?? null, land: f.land ?? null,
-    email: f.email ?? null, telefon: f.telefon ?? null, telefon_vorwahl: (f.telefon_vorwahl as string | null) ?? '+43',
+    email: f.email ?? null, email_weitere: (f.email_weitere as string[] | null) ?? [], telefon: f.telefon ?? null, telefon_vorwahl: (f.telefon_vorwahl as string | null) ?? '+43',
     mobil: f.mobil ?? null, mobil_vorwahl: (f.mobil_vorwahl as string | null) ?? '+43', website: f.website ?? null,
     uid_nummer: f.uid_nummer ?? null, betrieb_nr: f.betrieb_nr ?? null, debitor_nr: f.debitor_nr ?? null, kreditlimit: f.kreditlimit ?? null,
     zahlungsziel_tage: f.zahlungsziel_tage ?? 30, skonto_pct: f.skonto_pct ?? 0, skonto_tage: f.skonto_tage ?? 10,

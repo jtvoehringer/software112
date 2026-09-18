@@ -17,10 +17,11 @@ type R = Record<string, any>
 export type SpiegelErgebnis = { postfaecher: number; nachrichten: number; angelegt: number; fehler: string[]; dauerMs: number }
 
 const ERSTER_LAUF_TAGE = 90
-const MAX_JE_ORDNER = 500
+const MAX_JE_ORDNER = 300
 
-export async function spiegleMailboxen(zeitbudgetMs = 40000, nurTenantId?: string): Promise<SpiegelErgebnis> {
+export async function spiegleMailboxen(zeitbudgetMs = 40000, nurTenantId?: string, nurUserId?: string): Promise<SpiegelErgebnis> {
   const start = Date.now()
+  const deadline = start + zeitbudgetMs
   const admin = createSupabaseAdminClient()
   const erg: SpiegelErgebnis = { postfaecher: 0, nachrichten: 0, angelegt: 0, fehler: [], dauerMs: 0 }
 
@@ -29,6 +30,7 @@ export async function spiegleMailboxen(zeitbudgetMs = 40000, nurTenantId?: strin
     .select('tenant_id, user_id, email_address, monitored_email, m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, email_spiegel_stand')
     .eq('m365_aktiv', true).not('m365_access_token_enc', 'is', null)
   if (nurTenantId) q = q.eq('tenant_id', nurTenantId)
+  if (nurUserId) q = q.eq('user_id', nurUserId)
   const { data: verbindungen, error } = await q
   if (error) { erg.fehler.push(error.message); erg.dauerMs = Date.now() - start; return erg }
 
@@ -52,17 +54,28 @@ export async function spiegleMailboxen(zeitbudgetMs = 40000, nurTenantId?: strin
       const laufStart = new Date()
       const mailboxen: ('own' | 'shared')[] = uc.monitored_email ? ['own', 'shared'] : ['own']
       let anzahl = 0, angelegt = 0
+      // Zeitbudget auch INNERHALB eines Postfachs (18.9.2026): wird abgebrochen,
+      // rückt der Stand nur bis zur ältesten verarbeiteten Nachricht vor (die
+      // Ordner werden absteigend gelesen) - der Rest kommt beim nächsten Lauf.
+      let abgebrochen = false
+      let neuerStand = laufStart
       for (const mb of mailboxen) {
         const base = getMailboxBase(uc, mb)
         for (const ordner of ['inbox', 'sentItems'] as const) {
-          const r = await spiegleOrdner(admin, token, base, ordner, seit, tenantId, idx, uc.user_id)
+          const r = await spiegleOrdner(admin, token, base, ordner, seit, tenantId, idx, uc.user_id, deadline)
           anzahl += r.anzahl; angelegt += r.angelegt
           if (r.fehler) erg.fehler.push(`${uc.email_address ?? uc.user_id} (${mb}/${ordner}): ${r.fehler}`)
+          if (r.abgebrochen) {
+            abgebrochen = true
+            const aelteste = r.aeltesteVerarbeitet ? new Date(r.aeltesteVerarbeitet) : seit
+            if (aelteste < neuerStand) neuerStand = aelteste
+          }
         }
       }
       erg.postfaecher++; erg.nachrichten += anzahl; erg.angelegt += angelegt
+      if (abgebrochen) erg.fehler.push(`${uc.email_address ?? uc.monitored_email ?? uc.user_id}: Zeitbudget erschöpft, Rest beim nächsten Lauf`)
       await (admin.from('user_email_connections') as any)
-        .update({ email_spiegel_stand: laufStart.toISOString(), email_spiegel_info: `${laufStart.toISOString().slice(0, 16)} · ${anzahl} geprüft · ${angelegt} neu` })
+        .update({ email_spiegel_stand: neuerStand.toISOString(), email_spiegel_info: `${laufStart.toISOString().slice(0, 16)} · ${anzahl} geprüft · ${angelegt} neu${abgebrochen ? ' · unvollständig' : ''}` })
         .eq('tenant_id', tenantId).eq('user_id', uc.user_id)
     } catch (e) {
       erg.fehler.push(`${uc.email_address ?? uc.user_id}: ${(e as Error).message}`)
@@ -74,18 +87,22 @@ export async function spiegleMailboxen(zeitbudgetMs = 40000, nurTenantId?: strin
 
 async function spiegleOrdner(
   admin: R, token: string, base: string, ordner: 'inbox' | 'sentItems', seit: Date,
-  tenantId: string, idx: AbsenderIndex, userId: string,
-): Promise<{ anzahl: number; angelegt: number; fehler: string | null }> {
+  tenantId: string, idx: AbsenderIndex, userId: string, deadline: number,
+): Promise<{ anzahl: number; angelegt: number; fehler: string | null; abgebrochen: boolean; aeltesteVerarbeitet: string | null }> {
   const zeitfeld = ordner === 'sentItems' ? 'sentDateTime' : 'receivedDateTime'
   let url: string | null = `${base}/mailFolders/${ordner}/messages?$select=id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,body,bodyPreview,conversationId&$filter=${zeitfeld} ge ${seit.toISOString()}&$orderby=${zeitfeld} desc&$top=100`
   let anzahl = 0, angelegt = 0
+  let abgebrochen = false
+  let aeltesteVerarbeitet: string | null = null
   const zeilen: R[] = []
   while (url && anzahl < MAX_JE_ORDNER) {
+    if (Date.now() > deadline) { abgebrochen = true; break }
     const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
     const data = await res.json() as R
-    if (!res.ok || data.error) return { anzahl, angelegt, fehler: `Graph ${res.status}: ${data?.error?.message ?? res.statusText}` }
+    if (!res.ok || data.error) return { anzahl, angelegt, fehler: `Graph ${res.status}: ${data?.error?.message ?? res.statusText}`, abgebrochen: true, aeltesteVerarbeitet }
     for (const m of (data.value ?? []) as R[]) {
       anzahl++
+      aeltesteVerarbeitet = String(m[zeitfeld] ?? m.receivedDateTime ?? m.sentDateTime ?? aeltesteVerarbeitet ?? '') || aeltesteVerarbeitet
       const partner = ordner === 'sentItems'
         ? [...(m.toRecipients ?? []), ...(m.ccRecipients ?? [])].map((r: R) => r.emailAddress?.address as string | undefined)
         : [m.from?.emailAddress?.address as string | undefined]
@@ -110,6 +127,7 @@ async function spiegleOrdner(
       })
     }
     url = (data['@odata.nextLink'] as string | undefined) ?? null
+    if (url && anzahl >= MAX_JE_ORDNER) abgebrochen = true   // Rest beim nächsten Lauf
   }
   // Vorhandene email_ids überspringen (Upsert mit ignoreDuplicates zählt nicht, was neu ist)
   if (zeilen.length) {
@@ -122,9 +140,31 @@ async function spiegleOrdner(
     const neu = zeilen.filter(z => !vorhanden.has(z.email_id))
     for (let i = 0; i < neu.length; i += 100) {
       const { error } = await (admin.from('aktivitaeten') as any).upsert(neu.slice(i, i + 100), { onConflict: 'tenant_id,email_id', ignoreDuplicates: true })
-      if (error) return { anzahl, angelegt, fehler: error.message }
+      if (error) return { anzahl, angelegt, fehler: error.message, abgebrochen: true, aeltesteVerarbeitet }
       angelegt += Math.min(100, neu.length - i)
     }
   }
-  return { anzahl, angelegt, fehler: null }
+  return { anzahl, angelegt, fehler: null, abgebrochen, aeltesteVerarbeitet }
+}
+
+/**
+ * Inkrementelle Spiegelung „nebenbei“ (18.9.2026): wird beim Öffnen der
+ * Nachrichten für das eigene Postfach angestoßen, wenn der letzte Stand älter
+ * als 15 Minuten ist - so landen neue Mails bekannter Kontakte zeitnah als
+ * Aktivität, nicht erst beim Tageslauf. Läuft nach der Antwort (next/server
+ * after()), kurzes Budget, Fehler nur im Protokoll.
+ */
+export async function spiegleNebenbei(tenantId: string, userId: string, budgetMs = 12000): Promise<void> {
+  try {
+    const admin = createSupabaseAdminClient()
+    const { data } = await (admin.from('user_email_connections') as any)
+      .select('email_spiegel_stand, m365_aktiv').eq('tenant_id', tenantId).eq('user_id', userId).maybeSingle()
+    const uc = data as R | null
+    if (!uc?.m365_aktiv) return
+    if (uc.email_spiegel_stand && Date.now() - new Date(uc.email_spiegel_stand).getTime() < 15 * 60000) return
+    const erg = await spiegleMailboxen(budgetMs, tenantId, userId)
+    if (erg.fehler.length) console.warn('[email-spiegel nebenbei]', erg.fehler.join(' | '))
+  } catch (e) {
+    console.error('[email-spiegel nebenbei]', e)
+  }
 }

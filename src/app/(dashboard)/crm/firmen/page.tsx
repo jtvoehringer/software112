@@ -39,7 +39,7 @@ export default async function FirmenPage({ searchParams }: { searchParams: Promi
   const firmen: FirmaRow[] = ((fRaw ?? []) as R[]).map(f => ({
     id: f.id, accountnummer: f.accountnummer ?? null, name: f.name, segment: f.segment,
     strasse: f.strasse ?? null, plz: f.plz ?? null, ort: f.ort ?? null, land: f.land ?? null,
-    telefon: f.telefon ?? null, email: f.email ?? null, website: f.website ?? null,
+    telefon: f.telefon ?? null, email: f.email ?? null, email_weitere: (f.email_weitere as string[] | null) ?? [], website: f.website ?? null,
     uid_nummer: f.uid_nummer ?? null, betrieb_nr: f.betrieb_nr ?? null, debitor_nr: f.debitor_nr ?? null, kreditlimit: f.kreditlimit ?? null,
     mobil: f.mobil ?? null, mobil_vorwahl: (f.mobil_vorwahl as string | null) ?? '+43',
     zahlungsziel_tage: f.zahlungsziel_tage ?? 30, waehrung: f.waehrung ?? null,

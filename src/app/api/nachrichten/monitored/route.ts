@@ -17,10 +17,11 @@ export async function GET() {
     const { data: { user } } = await supabase.auth.getUser()
 
     const { data } = await (supabase.from('user_email_connections') as any)
-      .select('monitored_email')
+      .select('monitored_email, email_spiegel_stand, email_spiegel_info')
       .eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle()
 
-    return NextResponse.json({ monitored_email: (data as R | null)?.monitored_email ?? null })
+    const d = data as R | null
+    return NextResponse.json({ monitored_email: d?.monitored_email ?? null, spiegel_stand: d?.email_spiegel_stand ?? null, spiegel_info: d?.email_spiegel_info ?? null })
   } catch (err) { return NextResponse.json({ fehler: String(err) }, { status: 500 }) }
 }
 

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from '@/components/ui/Link'
 import { Mail, Inbox, Send, Trash2, FileText, Folder, X, UserPlus, Paperclip } from 'lucide-react'
 import LeadDialog from './LeadDialog'
-import { ignoriereAbsender } from '../crm/actions'
+import { ignoriereAbsender, emailHinzufuegen } from '../crm/actions'
 
 // absender: Status aus der Absender-Erkennung (lib/crm/absender.ts) - 'lead'
 // und 'unbekannt' werden in der Liste markiert, 'unbekannt' löst beim Öffnen
@@ -20,6 +20,8 @@ type MsgDetail = Msg & {
   conversationId: string | null
   kontaktInfo: { typ: string; id: string; name: string; accountnummer: string | null; istLead?: boolean; ueber?: 'email' | 'domain' } | null
   leadVorschlag?: boolean
+  // Unbekannte Adresse, aber Name passt zu bestehendem Kontakt/Firma (18.9.2026)
+  namensTreffer?: { typ: 'kontakt' | 'firma'; id: string; name: string; accountnummer: string | null; email: string | null; istLead: boolean }[]
   cc?: string
   // Echte Anhänge (17.9.2026) - eingebettete Bilder stecken bereits im bodyHtml
   anhaenge?: { id: string; name: string; groesse: number; typ: string }[]
@@ -97,8 +99,11 @@ export default function NachrichtenClient() {
   // E-Mail → Lead: Frage-Leiste je geöffneter Mail, Dialog, „Jetzt nicht“ merkt sich Absender für diese Sitzung
   const [leadDialog, setLeadDialog] = useState(false)
   const [leadSpaeter, setLeadSpaeter] = useState<Set<string>>(new Set())
+  const [emailHinzu, setEmailHinzu] = useState(false)
   const [leadIgnoriere, setLeadIgnoriere] = useState(false)
   const [showSettings, setShowSettings]       = useState(false)
+  const [spiegelInfo, setSpiegelInfo]         = useState<string | null>(null)
+  const [spiegelLaeuft, setSpiegelLaeuft]     = useState(false)
   const [deleteConfirm, setDeleteConfirm]       = useState(false)
   const [moveMode, setMoveMode]                 = useState(false)
   const [moveTarget, setMoveTarget]             = useState('')
@@ -162,6 +167,7 @@ export default function NachrichtenClient() {
     // GET-Endpunkt, der State startete daher nach jedem Reload wieder leer.
     fetch('/api/nachrichten/monitored').then(r => r.json()).then(d => {
       if (d.monitored_email) setMonitoredEmail(d.monitored_email)
+      if (d.spiegel_info) setSpiegelInfo(d.spiegel_info)
     }).catch(() => {})
     // Verbindungsstatus prüfen
     fetch('/api/nachrichten/list?folder=inbox').then(async r => {
@@ -418,6 +424,23 @@ export default function NachrichtenClient() {
                   Trennen &amp; neu verbinden
                 </button>
               </div>
+              {/* CRM-Spiegelung: Stand + manueller Lauf (18.9.2026) */}
+              <div className="space-y-1">
+                <p className="text-[10px] text-s112-muted font-medium uppercase tracking-wide">CRM-Spiegelung</p>
+                <p className="text-[10px] text-s112-muted">E-Mails bekannter Kontakte/Firmen als Aktivität. {spiegelInfo ? `Stand: ${spiegelInfo}` : 'Noch nicht gelaufen.'}</p>
+                <button disabled={spiegelLaeuft} onClick={async () => {
+                  setSpiegelLaeuft(true)
+                  try {
+                    const r = await fetch('/api/nachrichten/spiegeln', { method: 'POST' })
+                    const d = await r.json()
+                    if (d.fehler) setFehler(String(d.fehler))
+                    else setSpiegelInfo(`${new Date().toISOString().slice(0, 16)} · ${d.nachrichten ?? 0} geprüft · ${d.angelegt ?? 0} neu${d.fehler?.length ? ' · ' + d.fehler[0] : ''}`)
+                  } catch (e) { setFehler(String(e)) }
+                  setSpiegelLaeuft(false)
+                }} className="w-full text-[10px] border border-s112-border text-s112-text-2 px-2 py-1 rounded hover:bg-s112-bg disabled:opacity-50">
+                  {spiegelLaeuft ? 'Läuft …' : 'Jetzt spiegeln'}
+                </button>
+              </div>
               <p className="text-[10px] text-s112-muted font-medium uppercase tracking-wide">Weitere Mailbox</p>
               <p className="text-[10px] text-s112-muted">z.B. office@weingut.at – Vollzugriff in Exchange nötig</p>
               <div className="space-y-1">
@@ -530,7 +553,37 @@ export default function NachrichtenClient() {
                 {selected.an && <p><span className="font-medium text-s112-text-1">An:</span> {selected.an}</p>}
                 <p><span className="font-medium text-s112-text-1">Datum:</span> {new Date(selected.datum).toLocaleString('de-AT')}</p>
               </div>
-              {selected.leadVorschlag && !selected.kontaktInfo && !leadSpaeter.has(selected.von.toLowerCase()) && (
+              {/* Namensgleicher Kontakt/Firma unter anderer Adresse → Adresse hinzufügen statt Lead anlegen */}
+              {selected.leadVorschlag && !selected.kontaktInfo && (selected.namensTreffer?.length ?? 0) > 0 && !leadSpaeter.has(selected.von.toLowerCase()) && (
+                <div className="mt-3 rounded-lg border border-s112-warn/40 bg-s112-warn-bg px-3.5 py-2.5 space-y-1.5">
+                  <div className="flex items-start gap-2">
+                    <UserPlus className="w-4 h-4 text-s112-warn-fg shrink-0 mt-0.5" />
+                    <span className="text-xs text-s112-text">
+                      <b>{selected.vonName || selected.von}</b> schreibt von <span className="font-mono">{selected.von}</span> – im CRM gibt es bereits
+                      {selected.namensTreffer!.length === 1 ? ' einen Eintrag' : ' Einträge'} mit diesem Namen{selected.namensTreffer!.some(t => t.email) ? ' unter anderer Adresse' : ' (noch ohne E-Mail)'}. Diese Adresse dort hinzufügen?
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 pl-6">
+                    {selected.namensTreffer!.map(t => (
+                      <button key={t.id} disabled={emailHinzu} onClick={async () => {
+                        setEmailHinzu(true)
+                        const r = await emailHinzufuegen(t.typ, t.id, selected.von)
+                        setEmailHinzu(false)
+                        if (r.error) { setFehler('Adresse konnte nicht hinzugefügt werden: ' + r.error); return }
+                        const info = { typ: t.typ, id: t.id, name: t.name, accountnummer: t.accountnummer, istLead: t.istLead, ueber: 'email' as const }
+                        setSelected(prev => prev ? { ...prev, leadVorschlag: false, namensTreffer: [], kontaktInfo: info } : prev)
+                        setMessages(prev => prev.map(m => m.von.toLowerCase() === selected.von.toLowerCase() ? { ...m, absender: t.istLead ? 'lead' : t.typ } : m))
+                      }} className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-opacity-90 disabled:opacity-50"
+                        title={t.email ? `bisher: ${t.email}` : 'bisher ohne E-Mail-Adresse'}>
+                        Ja, zu {t.name}{t.accountnummer ? ` (${t.accountnummer})` : ''}{t.typ === 'firma' ? ' · Firma' : ''} hinzufügen
+                      </button>
+                    ))}
+                    <button onClick={() => setLeadDialog(true)} className="text-xs border border-s112-line-str text-s112-text-2 px-3 py-1.5 rounded-lg hover:bg-white">Nein, neuer Lead</button>
+                    <button onClick={() => setLeadSpaeter(prev => new Set(prev).add(selected.von.toLowerCase()))} className="text-xs text-s112-text-2 px-2 py-1.5 rounded-lg hover:bg-white">Jetzt nicht</button>
+                  </div>
+                </div>
+              )}
+              {selected.leadVorschlag && !selected.kontaktInfo && !(selected.namensTreffer?.length) && !leadSpaeter.has(selected.von.toLowerCase()) && (
                 <div className="mt-3 rounded-lg border border-s112-teal/40 bg-s112-blue-50 px-3.5 py-2.5 flex flex-wrap items-center gap-2">
                   <UserPlus className="w-4 h-4 text-s112-teal shrink-0" />
                   <span className="text-xs text-s112-text flex-1 min-w-[12rem]"><b>{selected.vonName || selected.von}</b> ist weder Kunde noch Lead. Soll ein Lead angelegt werden?</span>

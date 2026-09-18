@@ -526,6 +526,11 @@ export default function FirmaDetailClient({
                   <Mail size={14} /> {firma.email}
                 </a>
               )}
+              {(firma.email_weitere ?? []).map(e => (
+                <a key={e} href={`mailto:${e}`} title="weitere E-Mail-Adresse" className="text-sm text-s112-text-1 hover:text-s112-blue-700 hover:underline flex items-center gap-1">
+                  <Mail size={14} className="text-s112-tertiary" /> {e}
+                </a>
+              ))}
               {firma.telefon && (
                 <a href={`tel:${firma.telefon_vorwahl ?? '+43'}${firma.telefon?.replace(/\s/g, '')}`}
                   onClick={e => handlePhoneClick(e, `${firma.telefon_vorwahl ?? '+43'} ${firma.telefon}`)}

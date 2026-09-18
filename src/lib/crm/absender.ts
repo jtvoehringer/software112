@@ -63,12 +63,21 @@ export function istSystemAbsender(email: string | null | undefined, name?: strin
 }
 
 export type AbsenderIndex = {
-  kontakte: Map<string, AbsenderTreffer>          // email → Kontakt
+  kontakte: Map<string, AbsenderTreffer>          // email (Standard + weitere, Migration 211) → Kontakt
   firmen: Map<string, AbsenderTreffer>            // email → Firma
   firmenDomains: Map<string, AbsenderTreffer>     // domain → Firma
   ignoriert: Set<string>                          // email
   eigene: Set<string>                             // eigene Postfächer (email)
   eigeneDomains: Set<string>
+  namen: Map<string, (AbsenderTreffer & { email: string | null })[]>  // normalisierter Name → Kontakte/Firmen (Hinweis „bereits unter anderer Adresse“)
+}
+
+/** Name für den Vergleich: klein, ohne Akzente/Satzzeichen, Wörter sortiert („Vöhringer Jörgen“ = „jörgen vöhringer“) */
+export function normName(name: string | null | undefined): string {
+  return (name ?? '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9 ]+/g, ' ')
+    .split(/\s+/).filter(w => w.length > 1).sort().join(' ')
 }
 
 /**
@@ -78,11 +87,15 @@ export type AbsenderIndex = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ladeAbsenderIndex(client: any, tenantId: string, eigeneAdressen: (string | null | undefined)[] = []): Promise<AbsenderIndex> {
   const [{ data: kRaw }, { data: fRaw }, { data: iRaw }] = await Promise.all([
-    (client.from('kontakte') as any).select('id, vorname, nachname, email, accountnummer, is_lead, firma_id').eq('tenant_id', tenantId).not('email', 'is', null),
-    (client.from('firmen') as any).select('id, name, email, website, accountnummer, is_lead').eq('tenant_id', tenantId),
+    (client.from('kontakte') as any).select('id, vorname, nachname, email, email_weitere, accountnummer, is_lead, firma_id').eq('tenant_id', tenantId).eq('aktiv', true),
+    (client.from('firmen') as any).select('id, name, email, email_weitere, website, accountnummer, is_lead').eq('tenant_id', tenantId).eq('aktiv', true),
     (client.from('email_lead_ignoriert') as any).select('email').eq('tenant_id', tenantId),
   ])
-  const idx: AbsenderIndex = { kontakte: new Map(), firmen: new Map(), firmenDomains: new Map(), ignoriert: new Set(), eigene: new Set(), eigeneDomains: new Set() }
+  const idx: AbsenderIndex = { kontakte: new Map(), firmen: new Map(), firmenDomains: new Map(), ignoriert: new Set(), eigene: new Set(), eigeneDomains: new Set(), namen: new Map() }
+  const merkeName = (name: string, t: AbsenderTreffer, email: string | null) => {
+    const n = normName(name); if (!n) return
+    const l = idx.namen.get(n) ?? []; l.push({ ...t, email }); idx.namen.set(n, l)
+  }
 
   const firmenById = new Map<string, AbsenderTreffer>()
   for (const f of (fRaw ?? []) as R[]) {
@@ -90,19 +103,25 @@ export async function ladeAbsenderIndex(client: any, tenantId: string, eigeneAdr
     firmenById.set(f.id, t)
     const e = normEmail(f.email)
     if (e) idx.firmen.set(e, t)
+    for (const w of ((f.email_weitere ?? []) as string[])) { const we = normEmail(w); if (we && !idx.firmen.has(we)) idx.firmen.set(we, t) }
+    merkeName(f.name, t, e || null)
     for (const d of [domainVon(f.email), domainAusWebsite(f.website)]) {
       if (d && !FREEMAIL_DOMAINS.has(d) && !idx.firmenDomains.has(d)) idx.firmenDomains.set(d, { ...t, ueber: 'domain' })
     }
   }
   for (const k of (kRaw ?? []) as R[]) {
+    const t: AbsenderTreffer = { typ: 'kontakt', id: k.id, name: [k.vorname, k.nachname].filter(Boolean).join(' ') || '(ohne Namen)', accountnummer: k.accountnummer ?? null, istLead: !!k.is_lead, ueber: 'email' }
     const e = normEmail(k.email)
-    if (!e) continue
-    idx.kontakte.set(e, { typ: 'kontakt', id: k.id, name: [k.vorname, k.nachname].filter(Boolean).join(' ') || '(ohne Namen)', accountnummer: k.accountnummer ?? null, istLead: !!k.is_lead, ueber: 'email' })
-    // Ansprechperson einer Firma: deren Domain zählt für die Firma
-    const d = domainVon(e)
-    if (k.firma_id && d && !FREEMAIL_DOMAINS.has(d) && !idx.firmenDomains.has(d)) {
-      const f = firmenById.get(k.firma_id)
-      if (f) idx.firmenDomains.set(d, { ...f, ueber: 'domain' })
+    merkeName(t.name, t, e || null)
+    const adressen = [e, ...((k.email_weitere ?? []) as string[]).map(normEmail)].filter(Boolean)
+    for (const a of adressen) {
+      if (!idx.kontakte.has(a)) idx.kontakte.set(a, t)
+      // Ansprechperson einer Firma: deren Domain zählt für die Firma
+      const d = domainVon(a)
+      if (k.firma_id && d && !FREEMAIL_DOMAINS.has(d) && !idx.firmenDomains.has(d)) {
+        const f = firmenById.get(k.firma_id)
+        if (f) idx.firmenDomains.set(d, { ...f, ueber: 'domain' })
+      }
     }
   }
   for (const i of (iRaw ?? []) as R[]) { const e = normEmail(i.email); if (e) idx.ignoriert.add(e) }
@@ -137,4 +156,16 @@ export function absenderStatus(idx: AbsenderIndex, email: string | null | undefi
   if (idx.ignoriert.has(e)) return { status: 'ignoriert', treffer: null }
   if (istSystemAbsender(e, name)) return { status: 'system', treffer: null }
   return { status: 'unbekannt', treffer: null }
+}
+
+/**
+ * Unbekannte Adresse, aber der Anzeigename passt zu einem bestehenden Kontakt
+ * oder einer Firma (Rückmeldung 18.9.2026: „wenn ein bestehender Lead/Kunde mit
+ * einer anderen E-Mail hereinkommt, darauf hinweisen“). Liefert die Treffer,
+ * damit die Oberfläche das Hinzufügen der Adresse anbieten kann.
+ */
+export function findeNamensgleiche(idx: AbsenderIndex, name: string | null | undefined): (AbsenderTreffer & { email: string | null })[] {
+  const n = normName(name)
+  if (!n || n.split(' ').length < 2) return []   // ein einzelnes Wort ist zu unspezifisch
+  return idx.namen.get(n) ?? []
 }

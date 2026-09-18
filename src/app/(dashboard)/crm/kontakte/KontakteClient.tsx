@@ -161,8 +161,12 @@ export function KontaktForm({
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-s112-text-2 mb-1">E-Mail</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">E-Mail <span className="text-s112-muted font-normal">(Standard: Newsletter, Rechnung)</span></label>
           <input name="email" type="email" defaultValue={v('email')} className={inputCls()} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Weitere E-Mail-Adressen <span className="text-s112-muted font-normal">(mit Komma trennen)</span></label>
+          <input name="email_weitere" defaultValue={(initial?.email_weitere ?? []).join(', ')} placeholder="privat@…, buero@…" className={inputCls()} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Telefon</label>

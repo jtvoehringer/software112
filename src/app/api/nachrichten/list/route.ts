@@ -1,13 +1,16 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { getValidUserAccessToken, getMailboxBase } from '@/lib/m365/graph'
 import { ImapFlow } from 'imapflow'
 import { decryptPass } from '@/lib/email/crypto'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { ladeAbsenderIndex, absenderStatus } from '@/lib/crm/absender'
+import { spiegleNebenbei } from '@/lib/email/spiegel'
 
 export const dynamic = 'force-dynamic'
+// after()-Spiegelung (bis 12 s) muss in die Laufzeit passen
+export const maxDuration = 30
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export async function GET(req: NextRequest) {
@@ -72,6 +75,10 @@ export async function GET(req: NextRequest) {
         quelle: 'm365',
         absender: idx ? absenderStatus(idx, m.from?.emailAddress?.address, m.from?.emailAddress?.name).status : null,
       }))
+      // Beim Öffnen des Posteingangs (erste Seite) die CRM-Spiegelung nebenbei
+      // nachziehen (höchstens alle 15 Minuten, läuft nach der Antwort) - damit
+      // E-Mails bekannter Kontakte zeitnah als Aktivität am Account stehen (18.9.2026).
+      if (skip === 0 && user?.id) after(() => spiegleNebenbei(tenantId, user.id))
       return NextResponse.json({ messages, quelle: 'm365', skip, hatMehr: !!data['@odata.nextLink'] || messages.length === SEITE, naechsteSeite: skip + messages.length })
     }
 

@@ -22,13 +22,14 @@ export async function POST(req: NextRequest) {
       if (!cfg) continue
 
       // Kontakte + Firmen laden für Matching
+      // Standard- und weitere Adressen (Migration 211)
       const [{ data: kRaw }, { data: fRaw }] = await Promise.all([
-        (admin.from('kontakte') as any).select('id, email').eq('aktiv', true).eq('tenant_id', tenantId).not('email', 'is', null),
-        (admin.from('firmen') as any).select('id, email').eq('aktiv', true).eq('tenant_id', tenantId).not('email', 'is', null),
+        (admin.from('kontakte') as any).select('id, email, email_weitere').eq('aktiv', true).eq('tenant_id', tenantId),
+        (admin.from('firmen') as any).select('id, email, email_weitere').eq('aktiv', true).eq('tenant_id', tenantId),
       ])
       const emailMap: Record<string, { kontakt_id?: string; firma_id?: string }> = {}
-      ;(kRaw ?? []).forEach((k: R) => { if (k.email) emailMap[k.email.toLowerCase()] = { kontakt_id: k.id } })
-      ;(fRaw ?? []).forEach((f: R) => { if (f.email) emailMap[f.email.toLowerCase()] = { firma_id: f.id } })
+      ;(fRaw ?? []).forEach((f: R) => { for (const e of [f.email, ...(f.email_weitere ?? [])]) if (e) emailMap[String(e).toLowerCase()] = { firma_id: f.id } })
+      ;(kRaw ?? []).forEach((k: R) => { for (const e of [k.email, ...(k.email_weitere ?? [])]) if (e) emailMap[String(e).toLowerCase()] = { kontakt_id: k.id } })
 
       // Mail via Graph laden
       const msgId = notification.resourceData?.id

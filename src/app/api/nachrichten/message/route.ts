@@ -3,7 +3,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { getValidUserAccessToken, getMailboxBase } from '@/lib/m365/graph'
 import { getCurrentMembership } from '@/lib/auth/roles'
-import { ladeAbsenderIndex, absenderStatus, type AbsenderStatus } from '@/lib/crm/absender'
+import { ladeAbsenderIndex, absenderStatus, findeNamensgleiche, type AbsenderStatus } from '@/lib/crm/absender'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -82,11 +82,18 @@ export async function GET(req: NextRequest) {
       const fromEmail = msg.from?.emailAddress?.address?.toLowerCase() ?? ''
       let kontaktInfo: KontaktInfo = null
       let absender: AbsenderStatus = 'system'
+      // Unbekannte Adresse, aber Name passt zu bestehendem Kontakt/Firma (18.9.2026):
+      // die Oberfläche bietet dann „Adresse hinzufügen“ statt „Lead anlegen“ an.
+      let namensTreffer: { typ: 'kontakt' | 'firma'; id: string; name: string; accountnummer: string | null; email: string | null; istLead: boolean }[] = []
       if (fromEmail) {
         const idx = await ladeAbsenderIndex(supabase, tenantId, [c.email_address, c.monitored_email, user?.email])
         const s = absenderStatus(idx, fromEmail, msg.from?.emailAddress?.name)
         absender = s.status
         if (s.treffer) kontaktInfo = { typ: s.treffer.typ, id: s.treffer.id, name: s.treffer.name, accountnummer: s.treffer.accountnummer, istLead: s.treffer.istLead, ueber: s.treffer.ueber }
+        if (absender === 'unbekannt') {
+          namensTreffer = findeNamensgleiche(idx, msg.from?.emailAddress?.name).slice(0, 3)
+            .map(t => ({ typ: t.typ, id: t.id, name: t.name, accountnummer: t.accountnummer, email: t.email, istLead: t.istLead }))
+        }
 
         // Eingehende Email als Aktivität speichern (fire-and-forget)
         if (kontaktInfo && msg.id && tenantId) {
@@ -144,6 +151,7 @@ export async function GET(req: NextRequest) {
         absender,
         // Lead-Vorschlag nur für unbekannte Absender (eigene Postfächer → 'eigen')
         leadVorschlag: absender === 'unbekannt',
+        namensTreffer,
       })
     }
     return NextResponse.json({ fehler: 'Mailbox nicht verbunden' }, { status: 400 })

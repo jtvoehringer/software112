@@ -687,6 +687,14 @@ export default function KontaktDetailClient({
                 )}
               </div>
             )}
+            {/* Weitere E-Mail-Adressen (Migration 211) - Standard bleibt kontakt.email */}
+            {(kontakt.email_weitere ?? []).map(e => (
+              <div key={e} className="flex items-center gap-2 text-sm">
+                <Mail size={16} className="text-s112-tertiary" />
+                <a href={`mailto:${e}`} className="text-s112-text-1 hover:text-s112-blue-700 hover:underline">{e}</a>
+                <span className="text-[10px] text-s112-muted">weitere</span>
+              </div>
+            ))}
             {kontakt.telefon && (
               <div className="flex items-center gap-2 text-sm">
                 <Phone size={16} className="text-s112-text-2" />

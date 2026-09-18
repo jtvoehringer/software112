@@ -37,13 +37,18 @@ async function handle(req: NextRequest) {
   const da = (Array.isArray(daRaw) ? daRaw[0] : daRaw) as R | null
   const dauerauftraege = daErr ? { fehler: daErr.message } : { verarbeitet: da?.verarbeitet ?? 0, erstellt: da?.erstellt ?? 0, uebersprungen: da?.uebersprungen ?? 0, fehler: da?.fehler ?? 0 }
 
-  // 2. Morgenberichte (bis zu 60 % des restlichen Zeitbudgets)
-  const rest = (maxDuration - 8) * 1000 - (Date.now() - start)
-  const morgenbericht = await laufMorgenberichte(Math.max(5000, Math.floor(rest * 0.6)))
+  // 2. E-Mail-Spiegelung ins CRM (Posteingang/Gesendet aller verbundenen Postfächer,
+  //    inkrementell) - VOR den Morgenberichten (18.9.2026): der Lauf lief seit dem
+  //    11.9. regelmäßig in den 60-s-Timeout (Vercel Runtime Timeout), weil die
+  //    Morgenberichte das Budget nur zwischen den Betrieben prüfen; die Spiegelung
+  //    kam so nie an die Reihe (email_spiegel_stand blieb überall leer). Jetzt hat
+  //    sie ein festes Budget von 22 s und läuft zuerst; ihre Schreibvorgänge bleiben
+  //    auch dann erhalten, wenn der Morgenbericht danach das Zeitlimit reißt.
+  const emailSpiegel = await spiegleMailboxen(22000)
 
-  // 3. E-Mail-Spiegelung ins CRM (Posteingang/Gesendet aller verbundenen Postfächer, inkrementell)
-  const rest2 = (maxDuration - 6) * 1000 - (Date.now() - start)
-  const emailSpiegel = rest2 > 5000 ? await spiegleMailboxen(rest2) : { uebersprungen: 'kein Zeitbudget' }
+  // 3. Morgenberichte (restliches Zeitbudget, mindestens 5 s)
+  const rest = (maxDuration - 6) * 1000 - (Date.now() - start)
+  const morgenbericht = await laufMorgenberichte(Math.max(5000, rest))
 
-  return NextResponse.json({ dauerMs: Date.now() - start, dauerauftraege, morgenbericht, emailSpiegel })
+  return NextResponse.json({ dauerMs: Date.now() - start, dauerauftraege, emailSpiegel, morgenbericht })
 }

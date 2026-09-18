@@ -80,6 +80,7 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
     firma_id:              k.firma_id ?? null,
     firma_name:            (k.firmen as R | null)?.name ?? null,
     email:                 k.email ?? null,
+    email_weitere:         (k.email_weitere as string[] | null) ?? [],
     telefon:               k.telefon ?? null,
     mobil:                 k.mobil ?? null,
     ort:                   k.ort ?? null,

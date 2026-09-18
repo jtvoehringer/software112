@@ -210,6 +210,7 @@ export type KontaktRow = {
   firma_id: string | null
   firma_name?: string | null
   email: string | null
+  email_weitere?: string[]  // Migration 211: weitere Adressen (Standard bleibt email)
   telefon: string | null
   mobil: string | null
   strasse: string | null
@@ -247,6 +248,7 @@ export type FirmaRow = {
   ort: string | null
   land: string | null
   email: string | null
+  email_weitere?: string[]  // Migration 211: weitere Adressen (Standard bleibt email)
   telefon: string | null
   website: string | null
   uid_nummer: string | null
