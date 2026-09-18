@@ -930,7 +930,7 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
               </div>
             </li>
             <li>Zertifikate & Geheimnisse → Neuer geheimer Clientschlüssel</li>
-            <li>API-Berechtigungen → Microsoft Graph → delegiert: Mail.ReadWrite, Mail.Send, Calendars.Read, offline_access – danach „Administratorzustimmung erteilen"</li>
+            <li>API-Berechtigungen → Microsoft Graph → delegiert: Mail.ReadWrite, Mail.ReadWrite.Shared, Mail.Send, Mail.Send.Shared, Calendars.Read, offline_access – danach „Administratorzustimmung erteilen". Die .Shared-Berechtigungen braucht Graph für geteilte Mailboxen (sonst 403 trotz Vollzugriff); nach dem Ergänzen müssen sich die Benutzer unter Nachrichten › Einstellungen einmal „Trennen &amp; neu verbinden".</li>
           </ol>
         </div>
 

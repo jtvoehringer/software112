@@ -5,12 +5,19 @@ type R = Record<string, any>
 
 const GRAPH_BASE = 'https://graph.microsoft.com/v1.0'
 
+// Delegierte Berechtigungen (18.9.2026: geteilte Mailbox lieferte 403
+// ErrorAccessDenied trotz Vollzugriff): für /users/<geteilte Mailbox>/… braucht
+// Graph zusätzlich die *.Shared-Scopes - Mail.ReadWrite allein gilt nur für
+// das eigene Postfach (/me). Die App-Registrierung in Entra muss diese
+// Berechtigungen ebenfalls führen, danach „Trennen & neu verbinden“.
+export const M365_SCOPE = 'offline_access Mail.ReadWrite Mail.ReadWrite.Shared Mail.Send Mail.Send.Shared Calendars.Read'
+
 export function m365AuthUrl(tenantId: string, clientId: string, redirectUri: string, state: string): string {
   const params = new URLSearchParams({
     client_id:     clientId,
     response_type: 'code',
     redirect_uri:  redirectUri,
-    scope:         'offline_access Mail.ReadWrite Mail.Send Calendars.Read',
+    scope:         M365_SCOPE,
     state,
     response_mode: 'query',
   })
@@ -27,7 +34,7 @@ export async function exchangeCodeForTokens(
     body: new URLSearchParams({
       client_id: clientId, client_secret: clientSecret,
       code, redirect_uri: redirectUri, grant_type: 'authorization_code',
-      scope: 'offline_access Mail.ReadWrite Mail.Send Calendars.Read',
+      scope: M365_SCOPE,
     }),
   })
   if (!res.ok) throw new Error(`Token-Austausch fehlgeschlagen: ${await res.text()}`)
@@ -43,7 +50,7 @@ export async function refreshAccessToken(
     body: new URLSearchParams({
       client_id: clientId, client_secret: clientSecret,
       refresh_token: refreshToken, grant_type: 'refresh_token',
-      scope: 'offline_access Mail.ReadWrite Mail.Send Calendars.Read',
+      scope: M365_SCOPE,
     }),
   })
   if (!res.ok) throw new Error(`Token-Refresh fehlgeschlagen: ${await res.text()}`)
