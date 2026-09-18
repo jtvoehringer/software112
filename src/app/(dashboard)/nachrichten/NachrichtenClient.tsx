@@ -5,6 +5,7 @@ import Link from '@/components/ui/Link'
 import { Mail, Inbox, Send, Trash2, FileText, Folder, X, UserPlus, Paperclip } from 'lucide-react'
 import LeadDialog from './LeadDialog'
 import { ignoriereAbsender, emailHinzufuegen } from '../crm/actions'
+import EmailEingabe from '@/components/crm/EmailEingabe'
 
 // absender: Status aus der Absender-Erkennung (lib/crm/absender.ts) - 'lead'
 // und 'unbekannt' werden in der Liste markiert, 'unbekannt' löst beim Öffnen
@@ -99,6 +100,14 @@ export default function NachrichtenClient() {
   // E-Mail → Lead: Frage-Leiste je geöffneter Mail, Dialog, „Jetzt nicht“ merkt sich Absender für diese Sitzung
   const [leadDialog, setLeadDialog] = useState(false)
   const [leadSpaeter, setLeadSpaeter] = useState<Set<string>>(new Set())
+  const composeRef = useRef(false)
+  useEffect(() => { composeRef.current = compose }, [compose])
+  const autoOeffnen = useRef<Msg | null>(null)
+  useEffect(() => {
+    const m = autoOeffnen.current
+    if (m && messages.some(x => x.id === m.id)) { autoOeffnen.current = null; void openMessage(m) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages])
   const [emailHinzu, setEmailHinzu] = useState(false)
   const [leadIgnoriere, setLeadIgnoriere] = useState(false)
   const [showSettings, setShowSettings]       = useState(false)
@@ -231,6 +240,9 @@ export default function NachrichtenClient() {
       if (!res.ok || data.fehler) { setFehler(data.fehler ?? 'Fehler'); return }
       setMessages(data.messages ?? [])
       setHatMehr(!!data.hatMehr); setNaechsteSeite(data.naechsteSeite ?? (data.messages?.length ?? 0))
+      // Oberste Nachricht direkt öffnen (Rückmeldung 18.9.2026) - außer im Verfassen-Modus
+      const erste = (data.messages ?? [])[0] as Msg | undefined
+      if (erste && !composeRef.current) autoOeffnen.current = erste
     } catch (e) { if (gen === loadGenRef.current) setFehler(String(e)) }
     finally { if (gen === loadGenRef.current) setLaden(false) }
   }, [folder, folderId, activeMailbox])
@@ -282,6 +294,27 @@ export default function NachrichtenClient() {
     setFolderId(null); setFolder('inbox'); setSelected(null)
     ladeFolders(activeMailbox)
   }, [activeMailbox, ladeFolders])
+
+  // Löschen mit Sprung zur nächsten Nachricht (18.9.2026): aus der Liste
+  // (Hover-Papierkorb) und aus dem Detail; die nächste Mail in der Liste (oder
+  // die vorige, wenn die letzte gelöscht wurde) wird direkt geöffnet.
+  async function loescheNachricht(id: string) {
+    const idx = messages.findIndex(m => m.id === id)
+    const rest = messages.filter(m => m.id !== id)
+    const naechste = idx >= 0 ? (rest[idx] ?? rest[idx - 1] ?? null) : null
+    setDeleteConfirm(false)
+    loadGenRef.current++  // in-flight ladeMessages ignorieren
+    setMessages(rest)
+    if (!selected || selected.id === id) {
+      if (naechste) void openMessage(naechste)
+      else setSelected(null)
+    }
+    const r = await fetch(`/api/nachrichten/delete?id=${id}&mailbox=${activeMailbox}`, { method: 'DELETE' })
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}))
+      setFehler('Löschen fehlgeschlagen: ' + (d.fehler ?? r.status))
+    }
+  }
 
   async function openMessage(msg: Msg) {
     setDeleteConfirm(false)
@@ -502,10 +535,17 @@ export default function NachrichtenClient() {
         {fehler && <p className="text-xs text-s112-err px-4 py-2">{fehler}</p>}
         <div className="flex-1 overflow-y-auto divide-y divide-s112-border/40">
           {messages.map(msg => (
-            <button key={msg.id} onClick={() => openMessage(msg)}
-              className={`w-full text-left px-4 py-3 hover:bg-s112-bg/50 transition-colors
+            <div key={msg.id} onClick={() => openMessage(msg)} role="button" tabIndex={0}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openMessage(msg) } }}
+              className={`group relative w-full text-left px-4 py-3 hover:bg-s112-bg/50 transition-colors cursor-pointer
                 ${selected?.id === msg.id ? 'bg-s112-teal/5 border-l-2 border-s112-teal' : ''}
                 ${!msg.gelesen ? 'bg-s112-blue-50/30' : ''}`}>
+              {/* Papierkorb bei Hover: löschen und zur nächsten Nachricht springen */}
+              <button type="button" onClick={e => { e.stopPropagation(); void loescheNachricht(msg.id) }}
+                title="In Gelöschte Elemente verschieben"
+                className="absolute right-2 bottom-2 hidden group-hover:inline-flex items-center justify-center w-6 h-6 rounded-md bg-white border border-s112-border text-s112-muted hover:text-s112-err hover:border-s112-err/40 shadow-sm">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
               <div className="flex items-start justify-between gap-2 mb-1">
                 <p className={`text-xs truncate ${!msg.gelesen ? 'font-semibold text-s112-text' : 'font-medium text-s112-text-1'}`}>
                   {folder === 'sent' ? msg.an : (msg.vonName || msg.von)}
@@ -515,8 +555,8 @@ export default function NachrichtenClient() {
                 <p className="text-[10px] text-s112-muted flex-shrink-0">{fmtDate(msg.datum)}</p>
               </div>
               <p className={`text-xs truncate ${!msg.gelesen ? 'font-semibold text-s112-text' : 'text-s112-text-1'}`}>{msg.betreff}</p>
-              {msg.vorschau && <p className="text-[11px] text-s112-muted truncate mt-0.5">{msg.vorschau}</p>}
-            </button>
+              {msg.vorschau && <p className="text-[11px] text-s112-muted truncate mt-0.5 group-hover:pr-7">{msg.vorschau}</p>}
+            </div>
           ))}
           {!laden && messages.length === 0 && !fehler && (
             <p className="text-center text-s112-muted text-xs py-8">Keine Nachrichten</p>
@@ -696,18 +736,7 @@ export default function NachrichtenClient() {
                   ) : (
                     <span className="flex items-center gap-1">
                       <span className="text-xs text-s112-err">Löschen?</span>
-                      <button onClick={async () => {
-                        const delId = selected.id
-                        setDeleteConfirm(false)
-                        loadGenRef.current++  // in-flight ladeMessages ignorieren
-                        setMessages(prev => prev.filter(m => m.id !== delId))
-                        setSelected(null)
-                        const r = await fetch(`/api/nachrichten/delete?id=${delId}&mailbox=${activeMailbox}`, { method: 'DELETE' })
-                        if (!r.ok) {
-                          const d = await r.json().catch(() => ({}))
-                          setFehler('Löschen fehlgeschlagen: ' + (d.fehler ?? r.status))
-                        }
-                      }} className="text-xs bg-s112-err text-white px-2 py-1 rounded hover:bg-s112-err-fg">Ja</button>
+                      <button onClick={() => loescheNachricht(selected.id)} className="text-xs bg-s112-err text-white px-2 py-1 rounded hover:bg-s112-err-fg">Ja</button>
                       <button onClick={() => setDeleteConfirm(false)}
                         className="text-xs border border-s112-line-str text-s112-text-2 px-2 py-1 rounded hover:bg-s112-bg">Nein</button>
                     </span>
@@ -772,13 +801,16 @@ export default function NachrichtenClient() {
 
         {/* ── Verfassen ── */}
         {compose && (
-          <div className="flex-1 flex flex-col p-6">
+          <div className="flex-1 min-h-0 flex flex-col p-6 overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-semibold text-s112-text flex items-center gap-2"><Mail className="w-4 h-4" /> {antwortAuf ? (antwortAuf.modus === 'replyAll' ? 'Allen antworten' : 'Antworten') : 'Neue E-Mail verfassen'}</h2>
               <button onClick={() => { setCompose(false); setSendResult(null); setAntwortAuf(null); setCc('') }}
                 className="text-s112-muted hover:text-s112-text-1"><X className="w-4 h-4" /></button>
             </div>
-            <form onSubmit={sendEmail} className="flex-1 flex flex-col gap-3">
+            {/* min-h-0 + scrollbarer Rahmen (18.9.2026): bei 100 % Zoom auf kleineren
+                Bildschirmen lagen Senden/Abbrechen unter dem Rand, weil die Textarea
+                über rows eine feste Mindesthöhe erzwang */}
+            <form onSubmit={sendEmail} className="flex-1 min-h-0 flex flex-col gap-3">
               {monitoredEmail && (
                 <div>
                   <label className="block text-xs font-medium text-s112-text-2 mb-1">Von</label>
@@ -796,13 +828,13 @@ export default function NachrichtenClient() {
               )}
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">An * <span className="font-normal text-s112-muted">(mehrere mit Komma trennen)</span></label>
-                <input value={an} onChange={e => setAn(e.target.value)} required
-                  placeholder="empfaenger@email.at, zweiter@email.at"
+                <EmailEingabe value={an} onChange={setAn} required
+                  placeholder="Name oder Adresse tippen – Vorschläge aus dem CRM"
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">CC <span className="font-normal text-s112-muted">(optional, mehrere mit Komma trennen)</span></label>
-                <input value={cc} onChange={e => setCc(e.target.value)}
+                <EmailEingabe value={cc} onChange={setCc}
                   placeholder="kopie@email.at"
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
@@ -811,10 +843,10 @@ export default function NachrichtenClient() {
                 <input value={betreff} onChange={e => setBetreff(e.target.value)} required
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
-              <div className="flex-1 flex flex-col">
+              <div className="flex-1 min-h-0 flex flex-col">
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Nachricht</label>
-                <textarea value={text} onChange={e => setText(e.target.value)} rows={antwortAuf ? 8 : 12} autoFocus={!!antwortAuf}
-                  className="flex-1 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
+                <textarea value={text} onChange={e => setText(e.target.value)} rows={4} autoFocus={!!antwortAuf}
+                  className="flex-1 min-h-[120px] border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
               </div>
               {antwortAuf && (
                 <div className="rounded-lg border border-s112-line bg-s112-bg px-3 py-2">
@@ -823,7 +855,7 @@ export default function NachrichtenClient() {
                 </div>
               )}
               {sendResult && <p className={`text-sm font-medium ${sendResult.startsWith('Fehler') ? 'text-s112-err-fg' : 'text-s112-ok-fg'}`}>{sendResult}</p>}
-              <div className="flex gap-2">
+              <div className="flex gap-2 shrink-0 pt-1">
                 <button type="submit" disabled={sending}
                   className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
                   {sending ? 'Senden…' : 'Senden'}

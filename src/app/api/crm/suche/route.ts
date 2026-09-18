@@ -10,6 +10,8 @@ import type { PartnerTreffer } from '@/components/crm/PartnerSuche'
 //     lieferant        → Kontakte + Firmen mit ist_lieferant, id wie bei kunde
 //   &firma_id=<id>     → (art=kontakt) nur Ansprechpersonen dieser Firma; gibt es
 //                        keine, alle Kontakte (Antwort alle:true → Hinweis im Formular)
+//     email            → E-Mail-Adressen (Standard + weitere) von Kontakten und Firmen
+//                        für die Empfänger-Vervollständigung im Mailfenster (18.9.2026)
 //   &ids=a,b           → Datensätze zu bekannten IDs (Vorbelegung), Format wie oben
 // Liefert höchstens 30 Treffer { id, label, sub, daten } - daten enthält die
 // Verkaufskonditionen (Rabattgruppe, Sonderrabatt, Skonto, firma_id), damit das
@@ -59,8 +61,8 @@ function firmaTreffer(f: R, praefix = ''): SucheTreffer {
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams
   const artParam = sp.get('art')
-  const art: 'kontakt' | 'firma' | 'kunde' | 'lieferant' =
-    artParam === 'firma' || artParam === 'kunde' || artParam === 'lieferant' ? artParam : 'kontakt'
+  const art: 'kontakt' | 'firma' | 'kunde' | 'lieferant' | 'email' =
+    artParam === 'firma' || artParam === 'kunde' || artParam === 'lieferant' || artParam === 'email' ? artParam : 'kontakt'
   const q = ilikeSicher(sp.get('q') ?? '')
   const idsRoh = (sp.get('ids') ?? '').split(',').filter(Boolean).slice(0, 50)
   const firmaId = sp.get('firma_id') || null
@@ -68,6 +70,37 @@ export async function GET(req: NextRequest) {
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ treffer: [] })
   const supabase = await createSupabaseServerClient()
+
+  if (art === 'email') {
+    // Empfänger-Vervollständigung: Name ODER Adresse enthält den Suchtext;
+    // je Adresse (Standard + weitere) ein Eintrag { id: email, label: Name, sub: email }
+    if (q.length < 2) return NextResponse.json({ treffer: [] })
+    const [{ data: kRaw }, { data: fRaw }] = await Promise.all([
+      (supabase.from('kontakte') as any).select('id, vorname, nachname, email, email_weitere').eq('tenant_id', tenantId).eq('aktiv', true)
+        .or(`nachname.ilike.%${q}%,vorname.ilike.%${q}%,email.ilike.%${q}%`).limit(20),
+      (supabase.from('firmen') as any).select('id, name, email, email_weitere').eq('tenant_id', tenantId).eq('aktiv', true)
+        .or(`name.ilike.%${q}%,email.ilike.%${q}%`).limit(20),
+    ])
+    const out: SucheTreffer[] = []
+    const gesehen = new Set<string>()
+    const push = (label: string, email: string | null, weitere: boolean) => {
+      const e = (email ?? '').trim().toLowerCase()
+      if (!e || !e.includes('@') || gesehen.has(e)) return
+      gesehen.add(e)
+      out.push({ id: e, label, sub: weitere ? `${e} · weitere` : e })
+    }
+    for (const k of (kRaw ?? []) as R[]) {
+      const name = [k.vorname, k.nachname].filter(Boolean).join(' ')
+      push(name, k.email, false)
+      for (const w of ((k.email_weitere ?? []) as string[])) push(name, w, true)
+    }
+    for (const f of (fRaw ?? []) as R[]) {
+      push(f.name, f.email, false)
+      for (const w of ((f.email_weitere ?? []) as string[])) push(f.name, w, true)
+    }
+    out.sort((a, b) => a.label.localeCompare(b.label, 'de'))
+    return NextResponse.json({ treffer: out.slice(0, 15) })
+  }
 
   const kontakteAbfrage = (ids: string[], nurFirma: string | null) => {
     let query = (supabase.from('kontakte') as any).select(K_SPALTEN).eq('tenant_id', tenantId).eq('aktiv', true)
