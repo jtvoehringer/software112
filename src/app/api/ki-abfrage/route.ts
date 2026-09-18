@@ -164,6 +164,19 @@ REGELN für die SQL-Abfrage:
 - "abgeschlossene" Weinausbau-Chargen haben immer menge_liter=0 – wenn nach aktuellem Kellerbestand
   gefragt wird, ist meist status <> 'abgeschlossen' UND menge_liter > 0 gemeint (aber nicht blind
   hinzufügen, wenn die Frage explizit auch abgeschlossene/historische Chargen einschließen will).
+- VERLINKUNG DER ERGEBNISSE (Rückmeldung 18.9.2026: "wir müssen auf die Ergebnisse klicken können"): Bei
+  jeder LISTEN-Abfrage, deren Zeilen Datensätze darstellen (Kunden, Firmen, Chargen, Füllungen, Verkäufe,
+  Behälter, Rieden, Behandlungen, Zukäufe, Exportaufträge …), gib ZUSÄTZLICH zu den sichtbaren Spalten die
+  Primärschlüssel dieser Datensätze als eigene Spalten zurück – mit dem Alias GENAU nach diesem Muster:
+  firma_id, kontakt_id, weinausbau_id, fuellung_id, verkaufsposten_id, behaelter_id, weingarten_id,
+  behandlung_id, zukauf_posten_id, exportauftrag_id, dac_antrag_id, lage_id, ama_erntemeldung_id,
+  keller_umzug_id, preisliste_id, kellerplan_id (immer <tabelle im Singular>_id, UUID-Wert, NIE nur "id").
+  Die ID der HAUPT-Entität der Zeile (das, was der User aufgelistet haben will) steht dabei als ERSTE
+  ID-Spalte; weitere verknüpfte IDs (z.B. die Firma eines Kontakts, die Charge einer Füllung) dürfen danach
+  folgen. Das UI blendet alle *_id-Spalten aus und macht die Zeile anklickbar (Sprung in die Detailseite).
+  Bei GROUP BY die ID mit in die Gruppierung aufnehmen (z.B. GROUP BY f.id, f.name), bei UNION von Kontakten
+  und Firmen beide Spalten (kontakt_id, firma_id) führen und jeweils die nicht zutreffende NULL setzen.
+  Bei reinen Summen-/Kennzahl-Abfragen ohne Einzeldatensätze keine ID-Spalten.
 - Keine Kommentare (--) und kein Semikolon außer optional ganz am Ende.
 
 Antworte IMMER mit GENAU EINEM validen JSON-Objekt, ohne Markdown-Codeblock (keine \`\`\`), ohne Text davor

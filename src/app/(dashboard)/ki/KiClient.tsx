@@ -1,7 +1,8 @@
 'use client'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
-import { Bot } from 'lucide-react'
+import { Bot, ExternalLink } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -33,9 +34,49 @@ function formatWert(val: unknown): string {
   return String(val)
 }
 
+// ── Verlinkung der Ergebnisse (Rückmeldung 18.9.2026) ────────────────────────
+// Die KI liefert laut Prompt zu jeder Listen-Zeile die IDs der Datensätze als
+// Spalten "<tabelle>_id" (Haupt-Entität zuerst). Diese Spalten werden nicht
+// angezeigt, sondern in Links übersetzt: die erste bekannte ID macht die ganze
+// Zeile anklickbar, weitere erscheinen als kleine Chips am Zeilenende.
+const LINK_ZIELE: { spalte: string; label: string; pfad: (id: string) => string }[] = [
+  { spalte: 'kontakt_id',          label: 'Kontakt',        pfad: id => `/crm/kontakte/${id}` },
+  { spalte: 'firma_id',            label: 'Firma',          pfad: id => `/crm/firmen/${id}` },
+  { spalte: 'weinausbau_id',       label: 'Charge',         pfad: id => `/kellerbuch/weinausbau/${id}` },
+  { spalte: 'fuellung_id',         label: 'Füllung',        pfad: id => `/weinhandel/fuellungen/${id}/edit` },
+  { spalte: 'verkaufsposten_id',   label: 'Verkauf',        pfad: id => `/weinhandel/verkauf/${id}` },
+  { spalte: 'verkauf_id',          label: 'Verkauf',        pfad: id => `/weinhandel/verkauf/${id}` },
+  { spalte: 'behaelter_id',        label: 'Behälter',       pfad: id => `/kellerbuch/behaelter/${id}` },
+  { spalte: 'weingarten_id',       label: 'Ried',           pfad: id => `/weingarten/${id}` },
+  { spalte: 'behandlung_id',       label: 'Behandlung',     pfad: id => `/behandlungen/${id}/edit` },
+  { spalte: 'zukauf_posten_id',    label: 'Zukauf',         pfad: id => `/weinhandel/zukauf/${id}/edit` },
+  { spalte: 'zukauf_id',           label: 'Zukauf',         pfad: id => `/weinhandel/zukauf/${id}/edit` },
+  { spalte: 'exportauftrag_id',    label: 'Exportauftrag',  pfad: id => `/weinexport/${id}` },
+  { spalte: 'dac_antrag_id',       label: 'DAC-Antrag',     pfad: id => `/dac/${id}` },
+  { spalte: 'lage_id',             label: 'Lage',           pfad: id => `/lagen/${id}` },
+  { spalte: 'ama_erntemeldung_id', label: 'Erntemeldung',   pfad: id => `/erntemeldung/${id}` },
+  { spalte: 'keller_umzug_id',     label: 'Umzug',          pfad: id => `/kellerbuch/umzug/${id}/edit` },
+  { spalte: 'preisliste_id',       label: 'Preisliste',     pfad: id => `/weinhandel/preisliste/${id}` },
+  { spalte: 'kellerplan_id',       label: 'Kellerplan',     pfad: id => `/kellerbuch/kellerplan/${id}` },
+]
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const istIdSpalte = (c: string) => c === 'id' || c === 'tenant_id' || /_id$/i.test(c)
+
+/** Sprungziele einer Zeile in der Reihenfolge der Spalten (erste = Hauptziel). */
+function zeilenZiele(row: R, cols: string[]) {
+  const ziele: { label: string; href: string }[] = []
+  for (const c of cols) {
+    const z = LINK_ZIELE.find(l => l.spalte === c.toLowerCase())
+    const v = row[c]
+    if (z && typeof v === 'string' && UUID.test(v)) ziele.push({ label: z.label, href: z.pfad(v) })
+  }
+  return ziele
+}
+
 interface Props { aktiv: boolean; paket: string; verbraucht: number }
 
 export default function KiClient({ aktiv, paket, verbraucht }: Props) {
+  const router = useRouter()
   const [frage, setFrage]       = useState('')
   const [laden, setLaden]       = useState(false)
   const [ergebnis, setErgebnis] = useState<R | null>(null)
@@ -75,10 +116,13 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
   // Tabellenspalte wirken sie irreführend (sehen aus wie ein Pro-Zeile-Wert). Sie werden daher
   // aus der Zeilen-Tabelle herausgefiltert und stattdessen einmalig als Gesamt-Zusammenfassung
   // angezeigt.
+  // *_id-Spalten (Verlinkung, siehe LINK_ZIELE) werden ebenfalls nicht als Spalte
+  // gezeigt, sondern machen die Zeile anklickbar.
   const alleCols   = (ergebnis?.ergebnisse?.length ?? 0) > 0 ? Object.keys(ergebnis!.ergebnisse[0]) : []
   const gesamtCols = alleCols.filter((c: string) => /^gesamt_/i.test(c))
-  const cols       = alleCols.filter((c: string) => !gesamtCols.includes(c))
+  const cols       = alleCols.filter((c: string) => !gesamtCols.includes(c) && !istIdSpalte(c))
   const hatZeilen  = (ergebnis?.ergebnisse?.length ?? 0) > 0
+  const hatLinks   = hatZeilen && ergebnis!.ergebnisse.some((r: R) => zeilenZiele(r, alleCols).length > 0)
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -197,18 +241,40 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
                         {col.replace(/_/g, ' ')}
                       </th>
                     ))}
+                    {hatLinks && <th className="px-4 py-3 text-right whitespace-nowrap">Öffnen</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-s112-border/40">
-                  {ergebnis.ergebnisse.map((row: R, i: number) => (
-                    <tr key={i} className="hover:bg-s112-bg/30">
-                      {cols.map((col: string) => (
-                        <td key={col} className="px-4 py-2.5 text-s112-text-1 whitespace-nowrap">
-                          {formatWert(row[col])}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
+                  {ergebnis.ergebnisse.map((row: R, i: number) => {
+                    const ziele = zeilenZiele(row, alleCols)
+                    const haupt = ziele[0]
+                    return (
+                      <tr key={i}
+                        className={haupt ? 'hover:bg-s112-blue-50/60 cursor-pointer' : 'hover:bg-s112-bg/30'}
+                        title={haupt ? `${haupt.label} öffnen` : undefined}
+                        onClick={haupt ? () => router.push(haupt.href) : undefined}>
+                        {cols.map((col: string, ci: number) => (
+                          <td key={col} className={`px-4 py-2.5 whitespace-nowrap ${ci === 0 && haupt ? 'text-s112-blue-700 font-medium' : 'text-s112-text-1'}`}>
+                            {ci === 0 && haupt
+                              ? <Link href={haupt.href} onClick={e => e.stopPropagation()} className="hover:underline">{formatWert(row[col])}</Link>
+                              : formatWert(row[col])}
+                          </td>
+                        ))}
+                        {hatLinks && (
+                          <td className="px-4 py-2.5 whitespace-nowrap text-right">
+                            <span className="inline-flex gap-1 justify-end">
+                              {ziele.map((z, zi) => (
+                                <Link key={zi} href={z.href} onClick={e => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border border-s112-border text-s112-text-2 hover:border-s112-blue-700 hover:text-s112-blue-700">
+                                  <ExternalLink className="w-3 h-3" />{z.label}
+                                </Link>
+                              ))}
+                            </span>
+                          </td>
+                        )}
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -220,7 +286,7 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
 
           <button onClick={() => {
             if (!ergebnis?.ergebnisse?.length) return
-            const hdrs = Object.keys(ergebnis.ergebnisse[0]).filter((k: string) => !['id','tenant_id'].includes(k))
+            const hdrs = Object.keys(ergebnis.ergebnisse[0]).filter((k: string) => !istIdSpalte(k))
             const rows = ergebnis.ergebnisse.map((r: Record<string,unknown>) =>
               hdrs.map((h: string) => {
                 const v = r[h]; if (v == null) return ''
