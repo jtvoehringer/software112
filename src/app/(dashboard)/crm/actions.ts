@@ -788,3 +788,42 @@ export async function emailHinzufuegen(typ: 'kontakt' | 'firma', id: string, ema
     return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
   }
 }
+
+// ── Dubletten (Migration 213) ─────────────────────────────────────────────────
+
+// Zusammenführen über RPC kontakte_zusammenfuehren: Verweise umhängen, leere
+// Felder ergänzen, E-Mails sammeln, zusammengeführte Kontakte deaktivieren.
+export async function kontakteZusammenfuehren(behalten: string, weg: string[]): Promise<{ error?: string; ergebnis?: { behalten: string; zusammengefuehrt: number; konflikte_entfernt: number; email_weitere: string[] } }> {
+  try {
+    if (!behalten || !weg.length) return { error: 'Behaltener Kontakt und mindestens ein zusammenzuführender Kontakt nötig' }
+    const supabase = await createSupabaseServerClient()
+    const tenantId = await getTenantId()
+    const { data, error } = await (supabase.rpc as any)('kontakte_zusammenfuehren', { p_tenant_id: tenantId, p_behalten: behalten, p_weg: weg })
+    if (error) return { error: error.message }
+    absenderIndexVerwerfen(tenantId)
+    revalidatePath('/crm/dubletten')
+    revalidatePath('/crm/kontakte')
+    revalidatePath(`/crm/kontakte/${behalten}`)
+    for (const id of weg) revalidatePath(`/crm/kontakte/${id}`)
+    return { ergebnis: data as { behalten: string; zusammengefuehrt: number; konflikte_entfernt: number; email_weitere: string[] } }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+// Gruppe als "keine Dublette" markieren: erscheint weder in der Liste noch im Morgenbericht
+export async function dubletteIgnorieren(schluessel: string): Promise<{ error?: string }> {
+  try {
+    if (!schluessel) return { error: 'Kein Schlüssel' }
+    const supabase = await createSupabaseServerClient()
+    const tenantId = await getTenantId()
+    const { data: { user } } = await supabase.auth.getUser()
+    const { error } = await (supabase.from('crm_dubletten_ignoriert') as any)
+      .upsert({ tenant_id: tenantId, schluessel, erstellt_von: user?.id ?? null }, { onConflict: 'tenant_id,schluessel' })
+    if (error) return { error: error.message }
+    revalidatePath('/crm/dubletten')
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) }
+  }
+}

@@ -20,7 +20,7 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
   const seit7 = new Date(heute.getTime() - 7 * 86400000).toISOString().slice(0, 10)
   const seit365 = new Date(heute.getTime() - 365 * 86400000).toISOString().slice(0, 10)
 
-  const [fristen, keller, { data: offeneVp }, { data: ohneKat }, { count: belegeErkannt }, { data: txJahr }, { data: fuellNeg }, { data: chargenNeg }, { data: kontakte }, { data: tenant }, { data: wartefristen }, { data: pressungen }] = await Promise.all([
+  const [fristen, keller, { data: offeneVp }, { data: ohneKat }, { count: belegeErkannt }, { data: txJahr }, { data: fuellNeg }, { data: chargenNeg }, { data: dublettenRaw }, { data: tenant }, { data: wartefristen }, { data: pressungen }] = await Promise.all([
     ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum, vorwarnungTage: einst.vorwarnungTage, betriebsbeginn: einst.betriebsbeginn, doppik: einst.doppik }),
     ladeKeller(ctx, einst.messintervallTage),
     ctx.tf(ctx.q('verkaufsposten').select('id, rechnungsnummer, datum, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
@@ -30,7 +30,8 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
     einst.modulEa ? ctx.tf(ctx.q('ea_transaktionen').select('id, datum, beschreibung, betrag_netto, kategorie_id, typ').gte('datum', seit365).is('anlage_id', null).limit(5000)) : Promise.resolve({ data: [] }),
     ctx.tf(ctx.q('fuellungen').select('id, name, jahrgang, bestand_flaschen').eq('aktiv', true).lt('bestand_flaschen', 0).limit(20)),
     ctx.tf(ctx.q('weinausbau').select('id, name, jahrgang, menge_liter').eq('aktiv', true).lt('menge_liter', 0).limit(20)),
-    ctx.tf(ctx.q('kontakte').select('id, vorname, nachname, email').eq('aktiv', true).limit(5000)),
+    // Dubletten serverseitig (Migration 213): alle aktiven Kontakte, gleiche E-Mail (Standard + weitere) oder gleicher Name, ohne "keine Dublette"-Markierungen
+    ctx.supabase.rpc('crm_dubletten', { p_tenant_id: ctx.tenantId }),
     // tenant-isolation-ignore: tenants hat keine tenant_id-Spalte, Filter über die eigene id
     ctx.q('tenants').select('stripe_status, stripe_trial_ends_at, stripe_plan').eq('id', ctx.tenantId).maybeSingle(),
     ctx.tf(ctx.q('behandlungen').select('id, weingarten_id, datum, ernte_fruehesteins, weingarten:weingarten!weingarten_id(name, ried)').gte('ernte_fruehesteins', new Date(heute.getTime() - 60 * 86400000).toISOString().slice(0, 10)).limit(500)),
@@ -102,15 +103,12 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
     href: '/behandlungen',
   })
 
-  // 8. Doppelte Kontakte (gleiche E-Mail oder gleicher Name)
-  const kt = (kontakte ?? []) as R[]
-  const gesehen = new Map<string, number>()
-  for (const k of kt) {
-    const keys = [k.email ? `m:${String(k.email).trim().toLowerCase()}` : null, k.vorname && k.nachname ? `n:${String(k.vorname).trim().toLowerCase()}|${String(k.nachname).trim().toLowerCase()}` : null].filter(Boolean) as string[]
-    for (const key of keys) gesehen.set(key, (gesehen.get(key) ?? 0) + 1)
+  // 8. Doppelte Kontakte (gleiche E-Mail oder gleicher Name) – Liste und Zusammenführen unter CRM › Dubletten
+  const dubletten = (dublettenRaw ?? []) as R[]
+  if (dubletten.length) {
+    const titelVon = (g: R) => g.art === 'email' ? String(g.schluessel).slice(2) : [g.kontakte?.[0]?.vorname, g.kontakte?.[0]?.nachname].filter(Boolean).join(' ') || String(g.schluessel).slice(2).replace('|', ' ')
+    befunde.push({ key: 'crm:dubletten', bereich: 'CRM', stufe: 'info', titel: `${dubletten.length} mögliche ${dubletten.length === 1 ? 'Kontakt-Dublette' : 'Kontakt-Dubletten'}`, detail: dubletten.slice(0, 3).map(titelVon).join(', ') + (dubletten.length > 3 ? ' …' : '') + ' – unter CRM › Dubletten prüfen und zusammenführen', href: '/crm/dubletten' })
   }
-  const dubletten = [...gesehen.entries()].filter(([, n]) => n > 1)
-  if (dubletten.length) befunde.push({ key: 'crm:dubletten', bereich: 'CRM', stufe: 'info', titel: `${dubletten.length} mögliche ${dubletten.length === 1 ? 'Kontakt-Dublette' : 'Kontakt-Dubletten'}`, detail: dubletten.slice(0, 3).map(([k]) => k.slice(2).replace('|', ' ')).join(', ') + (dubletten.length > 3 ? ' …' : ''), href: '/crm/kontakte' })
 
   // 9. Abo
   const t = (tenant ?? {}) as R

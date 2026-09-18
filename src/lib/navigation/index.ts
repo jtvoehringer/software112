@@ -104,6 +104,7 @@ const NAV: NavGroup[] = [
       { href: '/crm',                     label: 'Kalender', keywords: 'termine aktivitäten' },
       { href: '/crm/kontakte',            label: 'Kontakte', keywords: 'kunden personen' },
       { href: '/crm/kontakte/visitkarte', label: 'Visitenkarte scannen', child: true, keywords: 'ocr' },
+      { href: '/crm/dubletten',           label: 'Dubletten', child: true, keywords: 'doppelte kontakte zusammenführen' },
       { href: '/crm/firmen',              label: 'Firmen',   keywords: 'kunden unternehmen' },
       { href: '/crm/pipeline',            label: 'Pipeline', keywords: 'leads chancen' },
     ],
