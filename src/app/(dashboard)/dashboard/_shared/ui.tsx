@@ -29,12 +29,14 @@ export function tageBis(d: string | Date) {
 }
 
 /** Seitenkopf einer Dashboard-Sicht */
-export function DashHeader({ title, sub, right }: { title: ReactNode; sub?: ReactNode; right?: ReactNode }) {
+// einzeilig: auf großen Bildschirmen (2xl) Titel und Untertitel in einer Zeile,
+// damit die Übersicht ohne Scrollen auf den Bildschirm passt (18.9.2026)
+export function DashHeader({ title, sub, right, einzeilig = false }: { title: ReactNode; sub?: ReactNode; right?: ReactNode; einzeilig?: boolean }) {
   return (
     <div className="flex items-start justify-between gap-4 flex-wrap">
-      <div>
-        <h1 className="font-display text-2xl font-semibold text-s112-text tracking-[-.01em]">{title}</h1>
-        {sub && <p className="text-s112-text-2 text-[13.5px] mt-1 max-w-[72ch]">{sub}</p>}
+      <div className={einzeilig ? '2xl:flex 2xl:items-baseline 2xl:gap-5 2xl:min-w-0' : ''}>
+        <h1 className="font-display text-2xl font-semibold text-s112-text tracking-[-.01em] 2xl:whitespace-nowrap">{title}</h1>
+        {sub && <p className={`text-s112-text-2 text-[13.5px] mt-1 max-w-[72ch] ${einzeilig ? '2xl:mt-0 2xl:max-w-none 2xl:truncate' : ''}`}>{sub}</p>}
       </div>
       {right}
     </div>

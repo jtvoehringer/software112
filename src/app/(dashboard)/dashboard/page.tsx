@@ -82,8 +82,8 @@ export default async function UebersichtPage() {
   schritte.sort((a, b) => a.rang - b.rang)
 
   return (
-    <div className="space-y-6">
-      <DashHeader
+    <div className="space-y-6 2xl:space-y-4">
+      <DashHeader einzeilig
         title={`${gruss}${vorname ? `, ${vorname}` : ''} 👋`}
         sub={<>Kellerbuch, Weingarten, Verkauf und Meldungen an einem Ort – alles, was heute ansteht, auf einen Blick. {ctx.tenantName && <span className="text-s112-tertiary">{ctx.tenantName} · </span>}<span className="text-s112-tertiary">Stand {fmtDate(ctx.heute, { weekday: 'long', day: '2-digit', month: 'long' })}</span></>}
       />
@@ -137,7 +137,7 @@ export default async function UebersichtPage() {
       {/* Auf großen Bildschirmen (2xl) wandert der Schnellzugriff als schmale
           Spalte nach rechts, damit die Übersicht ohne Scrollen auf den Bildschirm
           passt (Idee 18.9.2026); darunter bleibt die Zeile unter den Karten. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_230px] gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_230px] gap-5 2xl:gap-4">
         {/* ── Nächste Schritte ───────────────────────────────────────────── */}
         <Card title="Nächste Schritte" right={<Link href="/dashboard/fristen" className="text-[11.5px] text-s112-blue-700 hover:underline">alle Fristen →</Link>}>
           {schritte.length === 0 ? (
