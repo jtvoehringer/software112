@@ -637,13 +637,21 @@ export async function createLeadAusEmail(d: LeadAusEmailDaten): Promise<{ kontak
 
     // Kontakt als Lead
     const notizenTeile = [d.position ? `Position: ${d.position}` : null, d.notizen?.trim() || null].filter(Boolean)
+    // Absenderadresse IMMER mitspeichern (18.9.2026): die KI belegt "E-Mail" aus
+    // der Signatur vor - weicht die vom tatsächlichen Absender ab (z.B. Signatur
+    // judi_liu@hotmail.com, gesendet von einer anderen Adresse), wurde der Lead
+    // beim nächsten Öffnen derselben Mail nicht erkannt und erneut vorgeschlagen.
+    const emailStd = d.email?.trim().toLowerCase() || null
+    const absender = (d.mail?.von ?? '').trim().toLowerCase()
+    const emailWeitere = absender && absender.includes('@') && absender !== emailStd ? [absender] : []
     const payload: AR = {
       tenant_id: tenantId,
       vorname: d.vorname?.trim() || null,
       nachname,
       segment: d.segment || 'privat',
       firma_id: firmaId,
-      email: d.email?.trim().toLowerCase() || null,
+      email: emailStd ?? (absender || null),
+      email_weitere: emailStd ? emailWeitere : [],
       telefon: d.telefon?.trim() || null,
       mobil: d.mobil?.trim() || null,
       strasse: d.strasse?.trim() || null, plz: d.plz?.trim() || null, ort: d.ort?.trim() || null, land,
