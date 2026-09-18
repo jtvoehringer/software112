@@ -99,7 +99,11 @@ async function spiegleOrdner(
     if (Date.now() > deadline) { abgebrochen = true; break }
     const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
     const data = await res.json() as R
-    if (!res.ok || data.error) return { anzahl, angelegt, fehler: `Graph ${res.status}: ${data?.error?.message ?? res.statusText}`, abgebrochen: true, aeltesteVerarbeitet }
+    // Graph-Fehler (z.B. 403 bei einer geteilten Mailbox, die noch auf einem
+    // lokalen Exchange liegt): Ordner ist nicht lesbar - melden, aber NICHT als
+    // „abgebrochen“ werten, sonst würde der Stand jedes Mal auf 90 Tage
+    // zurückgesetzt und die lesbaren Ordner immer wieder komplett neu gelesen.
+    if (!res.ok || data.error) return { anzahl, angelegt, fehler: `Graph ${res.status}: ${data?.error?.message ?? res.statusText}`, abgebrochen: false, aeltesteVerarbeitet }
     for (const m of (data.value ?? []) as R[]) {
       anzahl++
       aeltesteVerarbeitet = String(m[zeitfeld] ?? m.receivedDateTime ?? m.sentDateTime ?? aeltesteVerarbeitet ?? '') || aeltesteVerarbeitet
