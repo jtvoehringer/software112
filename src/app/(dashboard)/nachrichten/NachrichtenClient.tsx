@@ -102,6 +102,29 @@ export default function NachrichtenClient() {
   const [emailHinzu, setEmailHinzu] = useState(false)
   const [leadIgnoriere, setLeadIgnoriere] = useState(false)
   const [showSettings, setShowSettings]       = useState(false)
+  // Höhe des Nachrichten-Rahmens exakt an den sichtbaren Bereich anpassen
+  // (Rückmeldung 18.9.2026: auf einem MacBook Air 13" mit Firefox lag der Knopf
+  // „Ältere Nachrichten laden“ unterhalb des Fensters - die bisherige feste
+  // Rechnung 100vh − 120 px unterschätzte Kopfzeile, Navigation und Seitenrand,
+  // sodass die Seite selbst scrollen musste, was auf dem Mac ohne sichtbare
+  // Scrollleiste nicht auffiel). Gemessen wird der Abstand des Rahmens zum
+  // oberen Fensterrand; Rest bis zum unteren Rand abzüglich 24 px Rand.
+  const rahmenRef = useRef<HTMLDivElement>(null)
+  const [rahmenHoehe, setRahmenHoehe] = useState<number | null>(null)
+  useEffect(() => {
+    function messen() {
+      const el = rahmenRef.current
+      if (!el) return
+      const main = el.closest('main')
+      const scrollTop = main ? main.scrollTop : 0
+      const top = el.getBoundingClientRect().top + scrollTop
+      setRahmenHoehe(Math.max(420, Math.floor(window.innerHeight - top - 24)))
+    }
+    messen()
+    const t = setTimeout(messen, 300)   // nach Schriften/Layout
+    window.addEventListener('resize', messen)
+    return () => { clearTimeout(t); window.removeEventListener('resize', messen) }
+  }, [])
   const [spiegelInfo, setSpiegelInfo]         = useState<string | null>(null)
   const [spiegelLaeuft, setSpiegelLaeuft]     = useState(false)
   const [deleteConfirm, setDeleteConfirm]       = useState(false)
@@ -354,7 +377,8 @@ export default function NachrichtenClient() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-120px)] gap-0 border border-s112-border rounded-xl overflow-hidden">
+    <div ref={rahmenRef} style={{ height: rahmenHoehe ? `${rahmenHoehe}px` : undefined }}
+      className="flex h-[calc(100vh-190px)] min-h-[420px] gap-0 border border-s112-border rounded-xl overflow-hidden">
 
       {/* ── Ordner-Sidebar ── */}
       <div className="w-44 flex-shrink-0 bg-s112-bg border-r border-s112-border flex flex-col">
