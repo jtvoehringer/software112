@@ -136,6 +136,20 @@ export default function NachrichtenClient() {
   }, [])
   const [spiegelInfo, setSpiegelInfo]         = useState<string | null>(null)
   const [spiegelLaeuft, setSpiegelLaeuft]     = useState(false)
+  async function spiegeln(voll: boolean) {
+    setSpiegelLaeuft(true)
+    try {
+      const r = await fetch(`/api/nachrichten/spiegeln${voll ? '?voll=1' : ''}`, { method: 'POST' })
+      const d = await r.json()
+      if (typeof d.fehler === 'string') { setFehler(d.fehler); return }
+      const probleme: string[] = Array.isArray(d.fehler) ? d.fehler : []
+      const teile = [`${new Date().toISOString().slice(0, 16)}`, `${d.nachrichten ?? 0} geprüft`, `${d.angelegt ?? 0} neu`]
+      if ((d.postfaecher ?? 0) === 0) teile.push('kein verbundenes Postfach')
+      if (probleme.length) teile.push(probleme[0])
+      setSpiegelInfo(teile.join(' · '))
+    } catch (e) { setFehler(String(e)) }
+    finally { setSpiegelLaeuft(false) }
+  }
   const [deleteConfirm, setDeleteConfirm]       = useState(false)
   const [moveMode, setMoveMode]                 = useState(false)
   const [moveTarget, setMoveTarget]             = useState('')
@@ -485,17 +499,15 @@ export default function NachrichtenClient() {
               <div className="space-y-1">
                 <p className="text-[10px] text-s112-muted font-medium uppercase tracking-wide">CRM-Spiegelung</p>
                 <p className="text-[10px] text-s112-muted">E-Mails bekannter Kontakte/Firmen als Aktivität. {spiegelInfo ? `Stand: ${spiegelInfo}` : 'Noch nicht gelaufen.'}</p>
-                <button disabled={spiegelLaeuft} onClick={async () => {
-                  setSpiegelLaeuft(true)
-                  try {
-                    const r = await fetch('/api/nachrichten/spiegeln', { method: 'POST' })
-                    const d = await r.json()
-                    if (d.fehler) setFehler(String(d.fehler))
-                    else setSpiegelInfo(`${new Date().toISOString().slice(0, 16)} · ${d.nachrichten ?? 0} geprüft · ${d.angelegt ?? 0} neu${d.fehler?.length ? ' · ' + d.fehler[0] : ''}`)
-                  } catch (e) { setFehler(String(e)) }
-                  setSpiegelLaeuft(false)
-                }} className="w-full text-[10px] border border-s112-border text-s112-text-2 px-2 py-1 rounded hover:bg-s112-bg disabled:opacity-50">
+                {/* Antwort: { postfaecher, nachrichten, angelegt, fehler: string[] } - fehler ist
+                    ein Array (auch leer), ein String nur bei 401/500 */}
+                <button disabled={spiegelLaeuft} onClick={() => spiegeln(false)}
+                  className="w-full text-[10px] border border-s112-border text-s112-text-2 px-2 py-1 rounded hover:bg-s112-bg disabled:opacity-50">
                   {spiegelLaeuft ? 'Läuft …' : 'Jetzt spiegeln'}
+                </button>
+                <button disabled={spiegelLaeuft} onClick={() => spiegeln(true)} title="Stand zurücksetzen und die letzten 90 Tage komplett neu prüfen - z.B. nachdem eine geteilte Mailbox erst nachträglich lesbar wurde"
+                  className="w-full text-[10px] text-s112-muted hover:text-s112-blue-700 disabled:opacity-50">
+                  Letzte 90 Tage erneut prüfen
                 </button>
               </div>
               <p className="text-[10px] text-s112-muted font-medium uppercase tracking-wide">Weitere Mailbox</p>
