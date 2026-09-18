@@ -827,3 +827,21 @@ export async function dubletteIgnorieren(schluessel: string): Promise<{ error?: 
     return { error: e instanceof Error ? e.message : String(e) }
   }
 }
+
+// Mehrere Gruppen auf einmal (Stufe "unwahrscheinlich") als keine Dublette markieren
+export async function dublettenIgnorierenViele(schluessel: string[]): Promise<{ error?: string; anzahl?: number }> {
+  try {
+    const liste = [...new Set(schluessel.filter(Boolean))]
+    if (!liste.length) return { error: 'Keine Gruppen' }
+    const supabase = await createSupabaseServerClient()
+    const tenantId = await getTenantId()
+    const { data: { user } } = await supabase.auth.getUser()
+    const { error } = await (supabase.from('crm_dubletten_ignoriert') as any)
+      .upsert(liste.map(k => ({ tenant_id: tenantId, schluessel: k, erstellt_von: user?.id ?? null })), { onConflict: 'tenant_id,schluessel' })
+    if (error) return { error: error.message }
+    revalidatePath('/crm/dubletten')
+    return { anzahl: liste.length }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) }
+  }
+}

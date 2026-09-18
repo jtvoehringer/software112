@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { Mail, User, Merge, EyeOff, Search, CheckCircle2, AlertTriangle } from 'lucide-react'
-import { kontakteZusammenfuehren, dubletteIgnorieren } from '../actions'
+import { kontakteZusammenfuehren, dubletteIgnorieren, dublettenIgnorierenViele } from '../actions'
 
 export type DublettenKontakt = {
   id: string
@@ -23,14 +23,25 @@ export type DublettenKontakt = {
   anz_verkaeufe: number
 }
 
+export type DublettenStufe = 'sicher' | 'pruefen' | 'unwahrscheinlich'
+
 export type DublettenGruppe = {
   art: 'email' | 'name'
   schluessel: string
   anzahl: number
+  stufe: DublettenStufe
   kontakte: DublettenKontakt[]
 }
 
 type Filter = 'alle' | 'email' | 'name'
+type StufenFilter = 'alle' | DublettenStufe
+
+const STUFEN: { key: DublettenStufe; label: string; cls: string; hinweis: string }[] = [
+  { key: 'sicher', label: 'sicher', cls: 'bg-s112-ok-bg text-s112-ok-fg', hinweis: 'Gleiche E-Mail und gleicher Name (auch Schreibvariante, Initiale, vertauschte Reihenfolge) bzw. gleicher Name mit gleicher Adresse, Telefonnummer oder E-Mail-Domain' },
+  { key: 'pruefen', label: 'prüfen', cls: 'bg-s112-warn-bg text-s112-warn-fg', hinweis: 'Gleiche E-Mail und gleicher Nachname (Familie oder Betrieb?) bzw. gleicher Name mit anderer oder fehlender E-Mail' },
+  { key: 'unwahrscheinlich', label: 'unwahrscheinlich', cls: 'bg-s112-bg text-s112-muted border border-s112-line', hinweis: 'Gleiche E-Mail, aber zwei klar verschiedene Namen – meist eine gemeinsame Adresse (office@, Ehepaar)' },
+]
+const stufeInfo = (s: DublettenStufe) => STUFEN.find(x => x.key === s) ?? STUFEN[1]
 
 const datumDe = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('de-AT') : '–'
 const nameVon = (k: DublettenKontakt) => [k.vorname, k.nachname].filter(Boolean).join(' ') || '(ohne Namen)'
@@ -46,8 +57,10 @@ export default function DublettenClient({ gruppen: gruppenProp, writeOk }: { gru
   const router = useRouter()
   const [gruppen, setGruppen] = useState(gruppenProp)
   const [filter, setFilter] = useState<Filter>('alle')
+  const [stufenFilter, setStufenFilter] = useState<StufenFilter>('alle')
   const [suche, setSuche] = useState('')
   const [meldung, setMeldung] = useState<{ art: 'ok' | 'fehler'; text: string } | null>(null)
+  const [bulkPending, startBulk] = useTransition()
 
   // Nach router.refresh() kommen neue Props (z.B. weil ein zusammengeführter Kontakt
   // auch in einer anderen Gruppe stand) – lokalen Stand übernehmen
@@ -57,17 +70,36 @@ export default function DublettenClient({ gruppen: gruppenProp, writeOk }: { gru
     const s = suche.trim().toLowerCase()
     return gruppen.filter(g => {
       if (filter !== 'alle' && g.art !== filter) return false
+      if (stufenFilter !== 'alle' && g.stufe !== stufenFilter) return false
       if (!s) return true
       return g.schluessel.toLowerCase().includes(s) || g.kontakte.some(k =>
         nameVon(k).toLowerCase().includes(s) || (k.email ?? '').toLowerCase().includes(s) || (k.accountnummer ?? '').toLowerCase().includes(s) || (k.ort ?? '').toLowerCase().includes(s))
     })
-  }, [gruppen, filter, suche])
+  }, [gruppen, filter, stufenFilter, suche])
 
   const anzEmail = gruppen.filter(g => g.art === 'email').length
   const anzName = gruppen.length - anzEmail
+  const anzStufe = (s: DublettenStufe) => gruppen.filter(g => g.stufe === s).length
+  const unwahrscheinliche = gruppen.filter(g => g.stufe === 'unwahrscheinlich')
 
   function entfernen(schluessel: string) {
     setGruppen(g => g.filter(x => x.schluessel !== schluessel))
+  }
+
+  // Alle "unwahrscheinlich" auf einmal als keine Dublette markieren
+  function alleUnwahrscheinlichenIgnorieren() {
+    if (!unwahrscheinliche.length) return
+    if (!confirm(`${unwahrscheinliche.length} unwahrscheinliche ${unwahrscheinliche.length === 1 ? 'Gruppe' : 'Gruppen'} (gleiche E-Mail, verschiedene Namen) als „keine Dublette“ markieren?\n\nSie erscheinen dann weder hier noch im Morgenbericht. Die Kontakte selbst bleiben unverändert.`)) return
+    startBulk(async () => {
+      const res = await dublettenIgnorierenViele(unwahrscheinliche.map(g => g.schluessel))
+      if (res.error) setMeldung({ art: 'fehler', text: `Markieren fehlgeschlagen: ${res.error}` })
+      else {
+        setMeldung({ art: 'ok', text: `${res.anzahl ?? unwahrscheinliche.length} Gruppen als keine Dublette markiert.` })
+        setGruppen(g => g.filter(x => x.stufe !== 'unwahrscheinlich'))
+        if (stufenFilter === 'unwahrscheinlich') setStufenFilter('alle')
+        router.refresh()
+      }
+    })
   }
 
   if (gruppen.length === 0) {
@@ -87,11 +119,22 @@ export default function DublettenClient({ gruppen: gruppenProp, writeOk }: { gru
         <p><strong>So funktioniert das Zusammenführen:</strong> Der Kontakt mit dem Punkt „behalten“ bleibt bestehen. Alle angehakten Kontakte werden in ihn überführt:
           Aktivitäten, Verkäufe, Bestellungen, Pipeline-Einträge und weitere Verknüpfungen werden umgehängt, leere Felder ergänzt, alle E-Mail-Adressen als „weitere Adressen“ gesammelt.
           Die zusammengeführten Kontakte werden deaktiviert (nichts wird gelöscht) und bekommen einen Vermerk in den Notizen. Vorgeschlagen ist jeweils der Kontakt mit den meisten Verkäufen bzw. Aktivitäten.</p>
+        <p className="mt-2"><strong>Einstufung:</strong> {STUFEN.map((s, i) => (
+          <span key={s.key}>{i > 0 && ' · '}<span className={`px-1.5 py-0.5 rounded-full text-xs font-semibold ${s.cls}`}>{s.label}</span> {s.hinweis}</span>
+        ))}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex rounded-lg border border-s112-border overflow-hidden text-sm">
-          {([['alle', `Alle (${gruppen.length})`], ['email', `E-Mail (${anzEmail})`], ['name', `Name (${anzName})`]] as [Filter, string][]).map(([f, label]) => (
+          {([['alle', `Alle (${gruppen.length})`], ...STUFEN.map(s => [s.key, `${s.label[0].toUpperCase()}${s.label.slice(1)} (${anzStufe(s.key)})`])] as [StufenFilter, string][]).map(([f, label]) => (
+            <button key={f} type="button" onClick={() => setStufenFilter(f)}
+              className={`px-3 py-1.5 ${stufenFilter === f ? 'bg-s112-teal text-white' : 'bg-white text-s112-text-1 hover:bg-s112-bg'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="flex rounded-lg border border-s112-border overflow-hidden text-sm">
+          {([['alle', 'Alle Arten'], ['email', `E-Mail (${anzEmail})`], ['name', `Name (${anzName})`]] as [Filter, string][]).map(([f, label]) => (
             <button key={f} type="button" onClick={() => setFilter(f)}
               className={`px-3 py-1.5 ${filter === f ? 'bg-s112-teal text-white' : 'bg-white text-s112-text-1 hover:bg-s112-bg'}`}>
               {label}
@@ -103,10 +146,17 @@ export default function DublettenClient({ gruppen: gruppenProp, writeOk }: { gru
           <input value={suche} onChange={e => setSuche(e.target.value)} placeholder="Name, E-Mail, AN-Nr., Ort …"
             className="border border-s112-border rounded-lg pl-8 pr-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
-        {meldung && (
-          <span className={`text-sm ml-auto px-3 py-1.5 rounded-lg ${meldung.art === 'ok' ? 'bg-s112-ok-bg text-s112-ok-fg' : 'bg-s112-err-bg text-s112-err-fg'}`}>{meldung.text}</span>
+        {writeOk && unwahrscheinliche.length > 0 && (
+          <button type="button" onClick={alleUnwahrscheinlichenIgnorieren} disabled={bulkPending}
+            className="inline-flex items-center gap-1.5 border border-s112-border text-s112-text-1 px-3 py-1.5 rounded-lg text-sm hover:bg-s112-bg disabled:opacity-40"
+            title="Alle Gruppen der Stufe „unwahrscheinlich“ dauerhaft ausblenden">
+            <EyeOff className="w-4 h-4" /> {bulkPending ? 'Wird markiert …' : `${unwahrscheinliche.length} unwahrscheinliche als keine Dublette markieren`}
+          </button>
         )}
       </div>
+      {meldung && (
+        <div className={`text-sm px-3 py-2 rounded-lg ${meldung.art === 'ok' ? 'bg-s112-ok-bg text-s112-ok-fg' : 'bg-s112-err-bg text-s112-err-fg'}`}>{meldung.text}</div>
+      )}
 
       {sichtbar.length === 0 && <p className="text-sm text-s112-muted py-6 text-center">Keine Gruppe passt zum Filter.</p>}
 
@@ -164,6 +214,7 @@ function Gruppe({ gruppe: g, writeOk, onFertig }: { gruppe: DublettenGruppe; wri
           {g.art === 'email' ? 'gleiche E-Mail' : 'gleicher Name'}
         </span>
         <span className="font-medium text-s112-text">{gruppenTitel(g)}</span>
+        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${stufeInfo(g.stufe).cls}`} title={stufeInfo(g.stufe).hinweis}>{stufeInfo(g.stufe).label}</span>
         <span className="text-xs text-s112-muted">{g.anzahl} Kontakte</span>
         {writeOk && (
           <div className="ml-auto flex items-center gap-2">

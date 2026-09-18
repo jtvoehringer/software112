@@ -29,6 +29,7 @@ export default async function DublettenPage() {
       art: g.art === 'email' ? 'email' : 'name',
       schluessel: String(g.schluessel),
       anzahl: Number(g.anzahl ?? 0),
+      stufe: g.stufe === 'sicher' || g.stufe === 'unwahrscheinlich' ? g.stufe : 'pruefen',
       kontakte: ((g.kontakte ?? []) as R[]).map(k => ({
         id: String(k.id),
         accountnummer: k.accountnummer ?? null,
@@ -62,7 +63,10 @@ export default async function DublettenPage() {
           <h1 className="text-2xl font-semibold text-s112-text">Mögliche Kontakt-Dubletten</h1>
           <p className="text-sm text-s112-muted mt-0.5">Gleiche E-Mail-Adresse oder gleicher Name · prüfen, zusammenführen oder als „keine Dublette“ markieren</p>
         </div>
-        <span className="text-sm text-s112-muted">{gruppen.length} {gruppen.length === 1 ? 'Gruppe' : 'Gruppen'}</span>
+        <span className="text-sm text-s112-muted">
+          {gruppen.length} {gruppen.length === 1 ? 'Gruppe' : 'Gruppen'}
+          {gruppen.length > 0 && ` · ${gruppen.filter(g => g.stufe === 'sicher').length} sicher · ${gruppen.filter(g => g.stufe === 'pruefen').length} prüfen · ${gruppen.filter(g => g.stufe === 'unwahrscheinlich').length} unwahrscheinlich`}
+        </span>
       </div>
 
       {fehler && (

@@ -103,11 +103,18 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
     href: '/behandlungen',
   })
 
-  // 8. Doppelte Kontakte (gleiche E-Mail oder gleicher Name) – Liste und Zusammenführen unter CRM › Dubletten
-  const dubletten = (dublettenRaw ?? []) as R[]
+  // 8. Doppelte Kontakte (gleiche E-Mail oder gleicher Name) – Liste und Zusammenführen unter CRM › Dubletten.
+  // Migration 214 stuft ein: sicher / pruefen / unwahrscheinlich – gemeldet werden nur sicher + pruefen
+  const dubletten = ((dublettenRaw ?? []) as R[]).filter(g => g.stufe !== 'unwahrscheinlich')
   if (dubletten.length) {
+    const sicher = dubletten.filter(g => g.stufe === 'sicher').length
     const titelVon = (g: R) => g.art === 'email' ? String(g.schluessel).slice(2) : [g.kontakte?.[0]?.vorname, g.kontakte?.[0]?.nachname].filter(Boolean).join(' ') || String(g.schluessel).slice(2).replace('|', ' ')
-    befunde.push({ key: 'crm:dubletten', bereich: 'CRM', stufe: 'info', titel: `${dubletten.length} mögliche ${dubletten.length === 1 ? 'Kontakt-Dublette' : 'Kontakt-Dubletten'}`, detail: dubletten.slice(0, 3).map(titelVon).join(', ') + (dubletten.length > 3 ? ' …' : '') + ' – unter CRM › Dubletten prüfen und zusammenführen', href: '/crm/dubletten' })
+    befunde.push({
+      key: 'crm:dubletten', bereich: 'CRM', stufe: 'info',
+      titel: `${dubletten.length} mögliche ${dubletten.length === 1 ? 'Kontakt-Dublette' : 'Kontakt-Dubletten'}${sicher ? ` (${sicher} sicher)` : ''}`,
+      detail: dubletten.slice(0, 3).map(titelVon).join(', ') + (dubletten.length > 3 ? ' …' : '') + ' – unter CRM › Dubletten prüfen und zusammenführen',
+      href: '/crm/dubletten',
+    })
   }
 
   // 9. Abo

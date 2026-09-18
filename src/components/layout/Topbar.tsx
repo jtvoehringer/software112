@@ -101,8 +101,11 @@ export default function Topbar({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={branding.logo_url} alt={branding.anzeigename} className="h-7 w-auto max-w-[140px] object-contain bg-white/90 rounded px-1 py-0.5 shrink-0" />
           )}
-          <span className="hidden md:inline font-mono text-[10.5px] tracking-[.08em] uppercase text-white/45 shrink-0">Betrieb</span>
-          <span className="truncate text-[13.5px] text-white/85">{branding.anzeigename}</span>
+          {/* Label und Name auf einer Grundlinie (Mono-Schrift sitzt sonst optisch zu hoch) */}
+          <div className="min-w-0 flex items-baseline gap-2.5 leading-none">
+            <span className="hidden md:inline font-mono text-[10.5px] tracking-[.08em] uppercase text-white/45 shrink-0">Betrieb</span>
+            <span className="min-w-0 truncate text-[13.5px] text-white/85">{branding.anzeigename}</span>
+          </div>
         </div>
 
         <div className="ml-auto flex items-center gap-1.5 lg:gap-2.5 shrink-0">
