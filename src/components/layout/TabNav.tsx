@@ -17,7 +17,7 @@ export default function TabNav({ groups }: { groups: NavGroup[] }) {
   return (
     <nav className="bg-s112-surface border-b border-s112-line shrink-0 z-30" aria-label="Hauptnavigation">
       {/* Zeile 1: Bereiche */}
-      <div className="max-w-[1280px] 2xl:max-w-none mx-auto px-2 lg:px-3 flex gap-0.5 overflow-x-auto [scrollbar-width:none]">
+      <div className="max-w-[1280px] 2xl:max-w-[1600px] mx-auto px-2 lg:px-3 flex gap-0.5 overflow-x-auto [scrollbar-width:none]">
         {groups.map(g => {
           const active = g.key === aktiv?.key
           return (
@@ -41,7 +41,7 @@ export default function TabNav({ groups }: { groups: NavGroup[] }) {
       {/* Zeile 2: Seiten des aktiven Bereichs */}
       {aktiv && (
         <div className="border-t border-s112-line bg-s112-bg/70">
-          <div className="max-w-[1280px] 2xl:max-w-none mx-auto px-3 lg:px-4 py-1.5 flex gap-1 overflow-x-auto [scrollbar-width:none]">
+          <div className="max-w-[1280px] 2xl:max-w-[1600px] mx-auto px-3 lg:px-4 py-1.5 flex gap-1 overflow-x-auto [scrollbar-width:none]">
             {aktiv.items.map(item => {
               const active = isActivePath(item.href, pathname)
                 // Bei mehreren passenden Items (z.B. /kellerbuch vs. /kellerbuch/kellerplan)

@@ -134,7 +134,10 @@ export default async function UebersichtPage() {
         )
       })()}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {/* Auf großen Bildschirmen (2xl) wandert der Schnellzugriff als schmale
+          Spalte nach rechts, damit die Übersicht ohne Scrollen auf den Bildschirm
+          passt (Idee 18.9.2026); darunter bleibt die Zeile unter den Karten. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_230px] gap-5">
         {/* ── Nächste Schritte ───────────────────────────────────────────── */}
         <Card title="Nächste Schritte" right={<Link href="/dashboard/fristen" className="text-[11.5px] text-s112-blue-700 hover:underline">alle Fristen →</Link>}>
           {schritte.length === 0 ? (
@@ -161,12 +164,11 @@ export default async function UebersichtPage() {
 
         {/* ── Morgenbericht (ersetzt seit 10.9.2026 „Datenfluss statt Zettelwirtschaft“) ── */}
         <MorgenberichtKarte bericht={morgenbericht} darfSchreiben={canWrite(ctx.role)} wetterHinweis={!einst.wetterAktiv || !einst.modulWeingarten ? 'Wetter & Empfehlungen sind für diesen Betrieb deaktiviert (Mein Betrieb → Branding & Regeln).' : null} />
-      </div>
 
       {/* ── Schnellzugriff ─────────────────────────────────────────────────── */}
-      <div>
+      <div className="lg:col-span-2 2xl:col-span-1">
         <h2 className="text-xs font-semibold text-s112-muted uppercase tracking-wider mb-3">Schnellzugriff</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 2xl:grid-cols-1 gap-3">
           {[
             { href: '/weinhandel/verkauf/neu',    icon: ShoppingCart, label: 'Neuer Verkauf' },
             { href: '/crm',                        icon: Calendar,     label: 'Aktivität' },
@@ -181,8 +183,9 @@ export default async function UebersichtPage() {
             </Link>
           ))}
         </div>
+        <p className="mt-3 text-[11px] text-s112-tertiary flex items-center gap-1"><Grape size={12} strokeWidth={1.5} /> Tipp: Strg K öffnet Seiten, Aktionen und die Suche von überall.</p>
       </div>
-      <p className="text-[11px] text-s112-tertiary flex items-center gap-1"><Grape size={12} strokeWidth={1.5} /> Tipp: Strg K öffnet Seiten, Aktionen und die Suche von überall.</p>
+      </div>
     </div>
   )
 }
