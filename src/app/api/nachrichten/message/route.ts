@@ -110,11 +110,13 @@ export async function GET(req: NextRequest) {
                 beschreibung: bodyText.slice(0, 500),
               }
               // Bestehenden Eintrag (email_id=null) aktualisieren
-              const { count } = await (supabase.from('aktivitaeten') as any)
+              // .eq(spalte, null) schickt "eq.null" und scheitert an der uuid-Spalte – null braucht .is()
+              let upd = (supabase.from('aktivitaeten') as any)
                 .update(emailData)
                 .eq('tenant_id', tenantId)
-                .eq('kontakt_id', kontaktInfo.typ === 'kontakt' ? kontaktInfo.id : null)
-                .eq('firma_id',   kontaktInfo.typ === 'firma'   ? kontaktInfo.id : null)
+              upd = kontaktInfo.typ === 'kontakt' ? upd.eq('kontakt_id', kontaktInfo.id) : upd.is('kontakt_id', null)
+              upd = kontaktInfo.typ === 'firma'   ? upd.eq('firma_id', kontaktInfo.id)   : upd.is('firma_id', null)
+              const { count } = await upd
                 .eq('art', 'email').eq('betreff', msg.subject ?? '').is('email_id', null)
                 .select('*', { count: 'exact', head: true })
               // Wenn nichts aktualisiert → neu anlegen
