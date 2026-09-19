@@ -45,7 +45,7 @@ export default async function ErnteDetailPage({ params }: Props) {
   const { id } = await params
   const supabase = await createSupabaseServerClient()
   const role = await getCurrentUserRole()
-  const writeOk = canWrite(role)
+  const writeOk = canWrite(role, 'rieden')
   const adminOk = canAdmin(role)
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null

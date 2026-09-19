@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership, canSeeAuswertungen } from '@/lib/auth/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -204,6 +204,7 @@ export async function POST(req: NextRequest) {
     const membership = await getCurrentMembership()
     const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb gefunden' }, { status: 401 })
+    if (!canSeeAuswertungen(membership)) return NextResponse.json({ fehler: 'Keine Berechtigung für Frag dein Weingut' }, { status: 403 })
 
     if (!process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ fehler: 'ANTHROPIC_API_KEY nicht gesetzt – bitte in Vercel Environment Variables eintragen.' }, { status: 500 })

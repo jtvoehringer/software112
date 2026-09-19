@@ -24,7 +24,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
   const { id } = await params
   const supabase = await createSupabaseServerClient()
   const role    = await getCurrentUserRole()
-  const writeOk = canWrite(role)
+  const writeOk = canWrite(role, 'crm')
   const { data: { user } } = await supabase.auth.getUser()
   const currentUserId = user?.id ?? null
   const membership = await getCurrentMembership()

@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     const membership = await getCurrentMembership()
     const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Nicht autorisiert' }, { status: 401 })
-    if (membership?.role === 'leser')
+    if (!canWrite(membership, 'warenwirtschaft'))   // Admin-Client umgeht RLS → Modulrecht hier prüfen
       return NextResponse.json({ fehler: 'Keine Berechtigung' }, { status: 403 })
 
     // Referenznummer generieren

@@ -18,7 +18,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
   const supabase = await createSupabaseServerClient()
   const role = await getCurrentUserRole()
 
-  if (!canWrite(role)) redirect('/behandlungen')
+  if (!canWrite(role, 'rieden')) redirect('/behandlungen')
 
   // Tenant + Bio-Status (steuert Warn-/Sperrlogik bei der Mittelwahl, siehe Neu-Formular)
   // Aktiv gewählten Betrieb respektieren (Cookie-basiert) statt einer beliebigen

@@ -49,6 +49,8 @@ export type NavGroup = {
   modulKey?: ModulKey
   /** Strenger als adminOnly: nur system_admin (bzw. Sandbox-Sonderfreigabe) */
   systemAdminOnly?: boolean
+  /** Controlling / Frag dein Weingut: Mitarbeiter nur mit Modul „auswertungen“ (Migration 218) */
+  auswertungen?: boolean
 }
 
 // Bereiche (Zeile 1) mit ihren Seiten (Zeile 2). Der Bereich "Übersicht" trägt
@@ -133,7 +135,7 @@ const NAV: NavGroup[] = [
   // die Kosten-Auswertung (vorher nur aus /reports verlinkt) sind hier
   // eingehängt. Die Routen selbst sichern Layout-Guards ab (lib/auth/modul.ts).
   {
-    key: 'controlling', label: 'Controlling', icon: Calculator, modulKey: 'modul_controlling',
+    key: 'controlling', label: 'Controlling', icon: Calculator, modulKey: 'modul_controlling', auswertungen: true,
     items: [
       { href: '/reports',                     label: 'Auswertungen',      keywords: 'reports berichte weinbuch protokoll umsatz lager' },
       { href: '/controlling/kostenrechnung',  label: 'Kostenrechnung',    keywords: 'kostenstellen kostenarten' },
@@ -142,7 +144,7 @@ const NAV: NavGroup[] = [
     ],
   },
   {
-    key: 'ki', label: 'Frag dein Weingut', icon: Sparkles,
+    key: 'ki', label: 'Frag dein Weingut', icon: Sparkles, auswertungen: true,
     items: [
       { href: '/ki', label: 'Frag dein Weingut', keywords: 'ki abfrage smart query' },
     ],
@@ -162,7 +164,7 @@ const NAV: NavGroup[] = [
       { href: '/admin/kellergemeinschaft', label: 'Kellergemeinschaft', adminOnly: true, keywords: 'administration gebinde freigabe partner keller' },
       { href: '/admin/release-notes',  label: 'Release Notes',     adminOnly: true, keywords: 'administration' },
       { href: '/admin/import',         label: 'Datenimport',       adminOnly: true, keywords: 'administration csv' },
-      { href: '/admin/benutzer',       label: 'System-Admin',      adminOnly: true, keywords: 'administration benutzer' },
+      { href: '/admin/benutzer',       label: 'Super-Admin',      adminOnly: true, keywords: 'administration benutzer' },
       { href: '/admin/onboarding',     label: 'Onboarding Guide',  adminOnly: true, keywords: 'administration' },
       { href: '/admin/zeiterfassung',  label: 'Zeiterfassung',     adminOnly: true, sandboxOnly: true },
     ],
@@ -185,6 +187,8 @@ export type NavContext = {
   sandboxAdminUnlock: boolean
   /** Migration 197: doppelte Buchhaltung beim Steuerberater (BMD) statt E&A in software:112 */
   doppik?: boolean
+  /** canSeeAuswertungen(role) – serverseitig ermittelt; false blendet Controlling + Frag dein Weingut aus */
+  auswertungenSichtbar?: boolean
 }
 
 const ADMIN_PREFIX = '/admin/'
@@ -208,6 +212,7 @@ export function buildNav(ctx: NavContext): NavGroup[] {
     if (g.systemAdminOnly && !isSysAdmin && !ctx.sandboxAdminUnlock) continue
     if (g.adminOnly && !isAdmin) continue
     if (g.modulKey && !ctx.branding[g.modulKey]) continue
+    if (g.auswertungen && ctx.auswertungenSichtbar === false) continue
 
     const items = g.items.filter(it => {
       if (it.href.startsWith(ADMIN_PREFIX)) {

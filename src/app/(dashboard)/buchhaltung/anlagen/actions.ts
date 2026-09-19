@@ -32,7 +32,7 @@ export type AnlageEingabe = {
 async function ctx() {
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) throw new Error('Kein Mandant')
-  if (!canWrite(membership.role)) throw new Error('Keine Berechtigung')
+  if (!canWrite(membership.role, 'ea')) throw new Error('Keine Berechtigung')
   const supabase = await createSupabaseServerClient()
   return { supabase, tenantId: membership.tenantId }
 }

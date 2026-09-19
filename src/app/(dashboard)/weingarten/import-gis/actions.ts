@@ -29,7 +29,7 @@ async function kontext() {
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) throw new Error('Nicht angemeldet')
-  if (!canWrite(membership.role)) throw new Error('Keine Berechtigung')
+  if (!canWrite(membership.role, 'rieden')) throw new Error('Keine Berechtigung')
   return { supabase, tenantId: membership.tenantId }
 }
 

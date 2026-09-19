@@ -5,7 +5,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import SystemAdminClient from './SystemAdminClient'
 
-export const metadata: Metadata = { title: 'System-Admin – software:112' }
+export const metadata: Metadata = { title: 'Super-Admin – software:112' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -74,11 +74,11 @@ export default async function SystemAdminPage() {
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-4">
         <span>Administration</span>
         <span>/</span>
-        <span className="text-s112-text-1 font-medium">System-Admin</span>
+        <span className="text-s112-text-1 font-medium">Super-Admin</span>
       </div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-s112-text">System-Admin</h1>
+          <h1 className="text-2xl font-semibold text-s112-text">Super-Admin</h1>
           <p className="text-sm text-s112-muted mt-0.5">Globale Administratoren dieser Instanz</p>
         </div>
         <span className="text-sm text-s112-muted">{admins.length} Admin{admins.length !== 1 ? 's' : ''}</span>

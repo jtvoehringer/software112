@@ -40,7 +40,7 @@ export default async function AnlagenPage({ searchParams }: { searchParams: Prom
   const spiegel = anlagenspiegel(anlagen, jahr)
   const afaStatus = afaBuchungsStatus(anlagen, jahr, afaBuchungen)
   const dezemberGesperrt = !!(dezRaw as R | null)?.id
-  const darfSchreiben = canWrite(ctx.role)
+  const darfSchreiben = canWrite(ctx.role, 'ea')
 
   const zeilen = anlagen
     .filter(a => Number(a.anschaffung_am.slice(0, 4)) <= jahr)

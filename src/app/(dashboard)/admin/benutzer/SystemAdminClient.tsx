@@ -28,7 +28,7 @@ export default function SystemAdminClient({ admins, canInvite = true }: { admins
   }
 
   function handleRemove(m: SystemAdminUser) {
-    if (!confirm(`System-Admin "${m.email}" wirklich entfernen?`)) return
+    if (!confirm(`Super-Admin "${m.email}" wirklich entfernen?`)) return
     setError(null)
     startTransition(async () => {
       const result = await removeSystemAdmin(m.membershipId)
@@ -76,11 +76,11 @@ export default function SystemAdminClient({ admins, canInvite = true }: { admins
       {canInvite && (!showInvite ? (
         <button onClick={() => setShowInvite(true)}
           className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
-          <span>＋</span> System-Admin einladen
+          <span>＋</span> Super-Admin einladen
         </button>
       ) : (
         <form onSubmit={handleInvite} className="bg-s112-bg border border-s112-border rounded-xl p-5 space-y-3">
-          <h3 className="text-sm font-semibold text-s112-text">Neuen System-Admin einladen</h3>
+          <h3 className="text-sm font-semibold text-s112-text">Neuen Super-Admin einladen</h3>
           <p className="text-xs text-s112-muted">Der Benutzer erhält eine Einladungs-E-Mail von Supabase.</p>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">E-Mail-Adresse *</label>
@@ -104,8 +104,8 @@ export default function SystemAdminClient({ admins, canInvite = true }: { admins
 
       <p className="text-xs text-s112-muted">
         {canInvite
-          ? 'System-Admins haben Zugriff auf alle Mandanten und diese Verwaltungsseite. Mindestens ein System-Admin muss immer vorhanden sein.'
-          : 'Nur lesbar: diese Ansicht zeigt in der Sandbox ausschließlich etwaige System-Admins des Sandbox-Mandanten selbst.'}
+          ? 'Super-Admins haben Zugriff auf alle Mandanten und diese Verwaltungsseite. Mindestens ein Super-Admin muss immer vorhanden sein.'
+          : 'Nur lesbar: diese Ansicht zeigt in der Sandbox ausschließlich etwaige Super-Admins des Sandbox-Mandanten selbst.'}
       </p>
     </div>
   )

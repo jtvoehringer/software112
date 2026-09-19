@@ -102,7 +102,7 @@ export default async function WeingartenSichtPage() {
 
         <div className="space-y-5">
           <Card title={`Lesevorbereitung ${jahr}`}>
-            <LeseCheckliste listeId={liste?.id ?? null} jahr={jahr} punkte={punkte} darfSchreiben={canWrite(ctx.role)} />
+            <LeseCheckliste listeId={liste?.id ?? null} jahr={jahr} punkte={punkte} darfSchreiben={canWrite(ctx.role, 'rieden')} />
             <Note className="mt-3">Die Checkliste startet aus einer Vorlage – abhaken statt Zettel suchen. Punkte lassen sich je Betrieb ergänzen.</Note>
           </Card>
 

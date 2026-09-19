@@ -1,18 +1,22 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { updateMemberRole, removeMember, toggleMemberAktiv, resendInvite, inviteMember } from './actions'
+import { updateMemberRole, updateMemberModule, removeMember, toggleMemberAktiv, resendInvite, inviteMember } from './actions'
 import type { MemberWithEmail } from './actions'
-import { Users } from 'lucide-react'
+import { MODULE, MODUL_VORLAGEN, type Modul } from '@/lib/auth/roles'
+import { Users, Info } from 'lucide-react'
 
 function inputCls() {
   return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
 }
 
+// Benutzerkonzept (Beschluss Mgmt-Team 19.9.2026, Migration 218): drei vergebbare
+// Rollen, Mitarbeiter mit Modulmatrix. Technische Schlüssel bleiben (tenant_admin,
+// winzer, leser), nur die Anzeige ändert sich.
 const ROLLEN = [
-  { value: 'tenant_admin', label: 'Betriebsleiter' },
-  { value: 'winzer',       label: 'Winzer/Kellermeister' },
-  { value: 'leser',        label: 'Nur-Lesen' },
+  { value: 'tenant_admin', label: 'Betriebs-Manager', hinweis: 'sieht alles, bearbeitet alles, verwaltet Benutzer und Einstellungen' },
+  { value: 'winzer',       label: 'Mitarbeiter',      hinweis: 'sieht alles außer System-Administration, bearbeitet nur in den freigegebenen Modulen' },
+  { value: 'leser',        label: 'Leser',            hinweis: 'sieht alles, bearbeitet nichts' },
 ]
 
 const ROLE_COLORS: Record<string, string> = {
@@ -23,10 +27,50 @@ const ROLE_COLORS: Record<string, string> = {
 }
 
 const ROLE_LABELS: Record<string, string> = {
-  system_admin: 'System-Admin',
-  tenant_admin: 'Betriebsleiter',
-  winzer:       'Winzer/Kellermeister',
-  leser:        'Nur-Lesen',
+  system_admin: 'Super-Admin',
+  tenant_admin: 'Betriebs-Manager',
+  winzer:       'Mitarbeiter',
+  leser:        'Leser',
+}
+
+const MODUL_KURZ: Record<Modul, string> = {
+  rieden: 'Rieden', kellerbuch: 'Kellerbuch', warenwirtschaft: 'Warenwirtschaft', crm: 'CRM', ea: 'E&A', auswertungen: 'Controlling/KI',
+}
+
+const gleich = (a: Modul[], b: Modul[]) => a.length === b.length && a.every(x => b.includes(x))
+
+/** Modulmatrix mit Vorlagen – für Einladung und Bearbeitung */
+function ModulMatrix({ module, onChange, disabled }: { module: Modul[]; onChange: (m: Modul[]) => void; disabled?: boolean }) {
+  const toggle = (m: Modul) => onChange(module.includes(m) ? module.filter(x => x !== m) : [...module, m])
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-1.5 text-xs">
+        <span className="text-s112-muted mr-1">Vorlage:</span>
+        {MODUL_VORLAGEN.map(v => {
+          const aktiv = gleich(module, v.module)
+          return (
+            <button key={v.key} type="button" disabled={disabled} onClick={() => onChange([...v.module])} title={v.hinweis}
+              className={`px-2.5 py-1 rounded-full border font-medium transition-colors disabled:opacity-50 ${aktiv ? 'bg-s112-teal text-white border-s112-teal' : 'bg-white text-s112-text-1 border-s112-border hover:bg-s112-bg'}`}>
+              {v.label}
+            </button>
+          )
+        })}
+      </div>
+      <div className="grid sm:grid-cols-2 gap-x-4 gap-y-1.5">
+        {MODULE.map(m => (
+          <label key={m.key} className={`flex items-start gap-2 text-sm cursor-pointer ${disabled ? 'opacity-60' : ''}`} title={m.hinweis}>
+            <input type="checkbox" checked={module.includes(m.key)} onChange={() => toggle(m.key)} disabled={disabled} className="mt-0.5 rounded" />
+            <span>
+              <span className="font-medium text-s112-text">{m.label}</span>
+              {m.key === 'ea' && <span className="ml-1.5 text-[11px] text-s112-warn-fg font-medium">Finanzdaten</span>}
+              <span className="block text-[11.5px] text-s112-muted leading-snug">{m.hinweis}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {module.length === 0 && <p className="text-xs text-s112-warn-fg">Ohne Modul kann der Mitarbeiter nur lesen (wie ein Leser).</p>}
+    </div>
+  )
 }
 
 interface Props {
@@ -40,6 +84,7 @@ interface Props {
 export default function BenutzerClient({ members, limit }: Props) {
   const [editingId, setEditingId]         = useState<string | null>(null)
   const [selectedRole, setSelectedRole]   = useState<string>('')
+  const [selectedModule, setSelectedModule] = useState<Modul[]>([])
   const [error, setError]                 = useState<string | null>(null)
   const [success, setSuccess]             = useState<string | null>(null)
   const [isPending, startTransition]      = useTransition()
@@ -49,16 +94,17 @@ export default function BenutzerClient({ members, limit }: Props) {
   const [inviteName, setInviteName]   = useState('')
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole]   = useState('winzer')
+  const [inviteModule, setInviteModule] = useState<Modul[]>([...MODUL_VORLAGEN[0].module])
 
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault()
     setError(null); setSuccess(null)
     startTransition(async () => {
-      const result = await inviteMember(inviteEmail, inviteRole, inviteName)
+      const result = await inviteMember(inviteEmail, inviteRole, inviteName, inviteRole === 'winzer' ? inviteModule : [])
       if (result?.error) setError(result.error)
       else {
         setSuccess(`Einladung an ${inviteEmail} versandt.`)
-        setInviteName(''); setInviteEmail(''); setInviteRole('winzer'); setShowInvite(false)
+        setInviteName(''); setInviteEmail(''); setInviteRole('winzer'); setInviteModule([...MODUL_VORLAGEN[0].module]); setShowInvite(false)
       }
     })
   }
@@ -66,13 +112,16 @@ export default function BenutzerClient({ members, limit }: Props) {
   const handleEditRole = (m: MemberWithEmail) => {
     setEditingId(m.id)
     setSelectedRole(m.role)
-    setError(null)
+    setSelectedModule(m.role === 'winzer' ? [...m.schreibmodule] : [...MODUL_VORLAGEN[0].module])
+    setError(null); setSuccess(null)
   }
 
-  const handleSaveRole = (membershipId: string) => {
+  const handleSaveRole = (m: MemberWithEmail) => {
     setError(null)
     startTransition(async () => {
-      const result = await updateMemberRole(membershipId, selectedRole)
+      const result = selectedRole === m.role && m.role === 'winzer'
+        ? await updateMemberModule(m.id, selectedModule)
+        : await updateMemberRole(m.id, selectedRole, selectedRole === 'winzer' ? selectedModule : undefined)
       if (result?.error) setError(result.error)
       else setEditingId(null)
     })
@@ -117,10 +166,23 @@ export default function BenutzerClient({ members, limit }: Props) {
         </div>
       )}
 
+      {/* ── Rollen erklärt ── */}
+      <div className="mb-4 bg-s112-blue-50 border border-s112-blue-100 rounded-xl px-4 py-3 text-sm text-s112-text-1 flex gap-2.5">
+        <Info className="w-4 h-4 mt-0.5 shrink-0 text-s112-blue-700" />
+        <div>
+          {ROLLEN.map((r, i) => (
+            <span key={r.value}>{i > 0 && ' · '}<strong className="text-s112-text">{r.label}</strong> {r.hinweis}</span>
+          ))}
+          <span className="block mt-1 text-xs text-s112-muted">
+            Mitarbeiter: Häkchen je Modul, Vorlagen „Rieden &amp; Keller“ und „Vertrieb“ zum schnellen Anlegen. Verkäufe verändern den Flaschenbestand auch ohne Kellerbuch-Recht; E&amp;A-Rechnung gibt Zugriff auf Bank, Belege und AfA – bewusst freigeben.
+          </span>
+        </div>
+      </div>
+
       {/* ── Aktive Mitglieder ── */}
       <div className="card p-0 overflow-hidden mb-6">
         <div className="px-4 py-3 border-b border-s112-border flex items-center justify-between">
-          <h2 className="font-semibold text-s112-text">Aktive Mitglieder</h2>
+          <h2 className="font-semibold text-s112-text">Mitglieder</h2>
           <span className="text-xs text-s112-muted">{members.length} Mitglied{members.length !== 1 ? 'er' : ''}</span>
         </div>
 
@@ -134,7 +196,7 @@ export default function BenutzerClient({ members, limit }: Props) {
             <thead>
               <tr className="bg-s112-bg border-b border-s112-border">
                 <th className="text-left px-4 py-3 font-semibold text-s112-text-1">E-Mail</th>
-                <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Rolle</th>
+                <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Rolle · Module</th>
                 <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Status</th>
                 <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Dabei seit</th>
                 <th className="text-right px-4 py-3 font-semibold text-s112-text-1">Aktionen</th>
@@ -142,7 +204,7 @@ export default function BenutzerClient({ members, limit }: Props) {
             </thead>
             <tbody>
               {members.map((m, i) => (
-                <tr key={m.id} className={`border-b border-s112-border last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/50' : ''}`}>
+                <tr key={m.id} className={`border-b border-s112-border last:border-0 align-top ${i % 2 === 1 ? 'bg-s112-bg/50' : ''}`}>
                   <td className="px-4 py-3 font-medium text-s112-text">
                     {m.email}
                     {!m.confirmed && (
@@ -154,27 +216,43 @@ export default function BenutzerClient({ members, limit }: Props) {
                   </td>
                   <td className="px-4 py-3">
                     {editingId === m.id ? (
-                      <select
-                        value={selectedRole}
-                        onChange={e => setSelectedRole(e.target.value)}
-                        className="border border-s112-border rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-s112-teal"
-                        disabled={isPending}
-                      >
-                        {ROLLEN.map(r => (
-                          <option key={r.value} value={r.value}>{r.label}</option>
-                        ))}
-                      </select>
+                      <div className="space-y-2 min-w-[320px]">
+                        <select
+                          value={selectedRole}
+                          onChange={e => setSelectedRole(e.target.value)}
+                          className="border border-s112-border rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-s112-teal"
+                          disabled={isPending}
+                        >
+                          {ROLLEN.map(r => (
+                            <option key={r.value} value={r.value}>{r.label}</option>
+                          ))}
+                        </select>
+                        {selectedRole === 'winzer' && (
+                          <div className="bg-white border border-s112-border rounded-lg p-3">
+                            <ModulMatrix module={selectedModule} onChange={setSelectedModule} disabled={isPending} />
+                          </div>
+                        )}
+                      </div>
                     ) : (
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_COLORS[m.role] ?? 'bg-[#F2F3F5] text-s112-text-2'}`}>
-                        {ROLE_LABELS[m.role] ?? m.role}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_COLORS[m.role] ?? 'bg-[#F2F3F5] text-s112-text-2'}`}>
+                          {ROLE_LABELS[m.role] ?? m.role}
+                        </span>
+                        {m.role === 'winzer' && (
+                          m.schreibmodule.length === 0
+                            ? <span className="text-[11px] text-s112-warn-fg">keine Module – nur lesen</span>
+                            : (MODULE.filter(x => m.schreibmodule.includes(x.key)).map(x => (
+                                <span key={x.key} className="inline-block px-1.5 py-0.5 rounded text-[11px] bg-white border border-s112-border text-s112-text-1" title={x.hinweis}>{MODUL_KURZ[x.key]}</span>
+                              )))
+                        )}
+                      </div>
                     )}
                   </td>
                   <td className="px-4 py-3">
                     {/* Mitgliedschaft de-/aktivieren (Migration 159) - bewusst für ALLE
                         Rollen inkl. system_admin sichtbar/bedienbar (im Unterschied zu
-                        "Rolle ändern"/"Entfernen" unten), damit der Betriebsleiter z.B.
-                        einen System-Admin-Zugriff für seinen Betrieb sperren kann. Die
+                        "Rolle ändern"/"Entfernen" unten), damit der Betriebs-Manager z.B.
+                        einen Super-Admin-Zugriff für seinen Betrieb sperren kann. Die
                         eigene Mitgliedschaft ist serverseitig geschützt (siehe actions.ts). */}
                     <button
                       type="button"
@@ -201,7 +279,7 @@ export default function BenutzerClient({ members, limit }: Props) {
                     <div className="flex items-center justify-end gap-3">
                       {editingId === m.id ? (
                         <>
-                          <button onClick={() => handleSaveRole(m.id)} disabled={isPending}
+                          <button onClick={() => handleSaveRole(m)} disabled={isPending}
                             className="text-s112-blue-700 hover:underline text-xs font-semibold disabled:opacity-50">
                             Speichern
                           </button>
@@ -222,7 +300,7 @@ export default function BenutzerClient({ members, limit }: Props) {
                             <>
                               <button onClick={() => handleEditRole(m)}
                                 className="text-s112-blue-700 hover:underline text-xs font-medium">
-                                Rolle ändern
+                                {m.role === 'winzer' ? 'Rolle / Module ändern' : 'Rolle ändern'}
                               </button>
                               <button onClick={() => handleRemove(m.id, m.email)} disabled={isPending}
                                 className="text-s112-err hover:text-s112-err-fg text-xs disabled:opacity-50">
@@ -259,8 +337,8 @@ export default function BenutzerClient({ members, limit }: Props) {
         <form onSubmit={handleInvite} className="bg-s112-bg border border-s112-border rounded-xl p-5 space-y-3">
           <h3 className="text-sm font-semibold text-s112-text">Benutzer hinzufügen</h3>
           <p className="text-xs text-s112-muted">
-            Neuer Benutzer: erhält Einladungs-E-Mail von Supabase zum Passwort setzen.<br />
-            Bestehender Supabase-User: wird direkt zugewiesen.
+            Neuer Benutzer: erhält eine Einladungs-E-Mail zum Setzen des Passworts.<br />
+            Bestehender Benutzer (anderer Betrieb): wird direkt zugewiesen.
           </p>
           <div className="grid grid-cols-3 gap-3">
             <div>
@@ -279,8 +357,15 @@ export default function BenutzerClient({ members, limit }: Props) {
                 className={inputCls()} disabled={isPending}>
                 {ROLLEN.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
+              <p className="text-[11px] text-s112-muted mt-1">{ROLLEN.find(r => r.value === inviteRole)?.hinweis}</p>
             </div>
           </div>
+          {inviteRole === 'winzer' && (
+            <div className="bg-white border border-s112-border rounded-lg p-3">
+              <p className="text-xs font-medium text-s112-text-2 mb-2">Module, in denen der Mitarbeiter bearbeiten darf</p>
+              <ModulMatrix module={inviteModule} onChange={setInviteModule} disabled={isPending} />
+            </div>
+          )}
           <div className="flex gap-2">
             <button type="submit" disabled={isPending}
               className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
@@ -295,7 +380,7 @@ export default function BenutzerClient({ members, limit }: Props) {
       )}
 
       <p className="text-xs text-s112-muted mt-4">
-        System-Admins können über diese Seite nicht in der Rolle geändert oder entfernt
+        Super-Admins können über diese Seite nicht in der Rolle geändert oder entfernt
         werden - der Zugriff lässt sich aber über den Status (Aktiv/Inaktiv) sperren.
         Die eigene Mitgliedschaft ist durch RLS geschützt.
       </p>

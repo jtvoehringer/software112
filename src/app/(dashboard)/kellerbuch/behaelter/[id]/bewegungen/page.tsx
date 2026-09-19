@@ -28,7 +28,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
   const { id } = await params
   const supabase   = await createSupabaseServerClient()
   const role       = await getCurrentUserRole()
-  const writeOk    = canWrite(role)
+  const writeOk    = canWrite(role, 'kellerbuch')
   const membership = await getCurrentMembership()
   const tenantId   = membership?.tenantId ?? null
   // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft

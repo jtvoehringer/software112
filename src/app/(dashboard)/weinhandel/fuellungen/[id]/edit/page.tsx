@@ -54,7 +54,7 @@ export default async function EditFuellungPage({
   params: Promise<{ id: string }>
 }) {
   const role = await getCurrentUserRole()
-  if (!canWrite(role)) redirect('/weinhandel')
+  if (!canWrite(role, 'warenwirtschaft')) redirect('/weinhandel')
 
   const { id } = await params
   const supabase = await createSupabaseServerClient()

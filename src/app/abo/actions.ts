@@ -24,7 +24,7 @@ export async function createOwnStripePortalSession() {
   const membership = await getCurrentMembership()
   if (!membership) return { error: 'Kein Betrieb gefunden' }
   if (!canAdmin(membership.role)) {
-    return { error: 'Nur der Betriebsleiter bzw. System-Admin kann die Zahlungsdaten verwalten.' }
+    return { error: 'Nur der Betriebs-Manager bzw. Super-Admin kann die Zahlungsdaten verwalten.' }
   }
 
   const supabase = await createSupabaseServerClient()
@@ -64,7 +64,7 @@ export async function starteZahlungAction(paketWunsch?: string, buchhaltungsart?
   const membership = await getCurrentMembership()
   if (!membership) return { error: 'Kein Betrieb gefunden' }
   if (!canAdmin(membership.role)) {
-    return { error: 'Nur der Betriebsleiter bzw. System-Admin kann die Zahlungsdaten hinterlegen.' }
+    return { error: 'Nur der Betriebs-Manager bzw. Super-Admin kann die Zahlungsdaten hinterlegen.' }
   }
 
   const supabase = await createSupabaseServerClient()
@@ -145,7 +145,7 @@ export async function wechslePaketAction(paketWunsch: string, buchhaltungsart?: 
   const membership = await getCurrentMembership()
   if (!membership) return { error: 'Kein Betrieb gefunden' }
   if (!canAdmin(membership.role)) {
-    return { error: 'Nur der Betriebsleiter bzw. System-Admin kann das Paket wechseln.' }
+    return { error: 'Nur der Betriebs-Manager bzw. Super-Admin kann das Paket wechseln.' }
   }
   if (!istPaketKey(paketWunsch)) return { error: 'Unbekanntes Paket.' }
   const paket = paketWunsch
@@ -215,7 +215,7 @@ async function speichereBuchhaltungsart(admin: R, tenantId: string, art: Buchhal
 export async function setzeBuchhaltungsartAction(art: string) {
   const membership = await getCurrentMembership()
   if (!membership) return { error: 'Kein Betrieb gefunden' }
-  if (!canAdmin(membership.role)) return { error: 'Nur der Betriebsleiter bzw. System-Admin kann die Buchhaltungsart ändern.' }
+  if (!canAdmin(membership.role)) return { error: 'Nur der Betriebs-Manager bzw. Super-Admin kann die Buchhaltungsart ändern.' }
   if (!istBuchhaltungsart(art)) return { error: 'Ungültige Buchhaltungsart.' }
   const fehler = await speichereBuchhaltungsart(createSupabaseAdminClient(), membership.tenantId, art)
   if (fehler) return { error: fehler }

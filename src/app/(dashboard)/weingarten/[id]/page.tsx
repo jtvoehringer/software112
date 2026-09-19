@@ -34,7 +34,7 @@ export default async function WeingartenEditPage({ params }: Props) {
   const supabase = await createSupabaseServerClient()
   const role = await getCurrentUserRole()
   const membership = await getCurrentMembership()
-  const writeOk = canWrite(role)
+  const writeOk = canWrite(role, 'rieden')
   const adminOk = canAdmin(role)
 
   // Weingarten

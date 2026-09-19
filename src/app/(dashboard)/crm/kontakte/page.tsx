@@ -19,7 +19,7 @@ export default async function KontaktePage({ searchParams }: { searchParams: Pro
   const filter = filterAusParams(sp, 'kontakt')
   const supabase = await createSupabaseServerClient()
   const role    = await getCurrentUserRole()
-  const writeOk = canWrite(role)
+  const writeOk = canWrite(role, 'crm')
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

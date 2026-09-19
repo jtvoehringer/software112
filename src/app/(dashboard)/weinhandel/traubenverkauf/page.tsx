@@ -15,7 +15,7 @@ export default async function TraubenverkaufPage() {
   const supabase   = await createSupabaseServerClient()
   const role       = await getCurrentUserRole()
   const membership = await getCurrentMembership()
-  const writeOk    = canWrite(role)
+  const writeOk    = canWrite(role, 'warenwirtschaft')
 
   if (!membership) {
     return <div className="card p-10 text-center text-s112-muted text-sm">Nicht angemeldet.</div>

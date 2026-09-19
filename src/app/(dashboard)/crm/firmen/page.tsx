@@ -17,7 +17,7 @@ export default async function FirmenPage({ searchParams }: { searchParams: Promi
   const filter = filterAusParams(sp, 'firma')
   const supabase = await createSupabaseServerClient()
   const role    = await getCurrentUserRole()
-  const writeOk = canWrite(role)
+  const writeOk = canWrite(role, 'crm')
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

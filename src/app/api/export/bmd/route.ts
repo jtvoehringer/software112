@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
   const von = sp.get('von') ?? ''
   const bis = sp.get('bis') ?? ''
   const nurNeue = sp.get('nurNeue') === '1'
-  const protokollieren = sp.get('protokollieren') === '1' && canWrite(membership.role)
+  const protokollieren = sp.get('protokollieren') === '1' && canWrite(membership.role, 'ea')
 
   if (!['ausgangsrechnungen', 'eingangsbelege', 'stammdaten'].includes(art)) {
     return NextResponse.json({ fehler: 'Unbekannte Übergabeart' }, { status: 400 })

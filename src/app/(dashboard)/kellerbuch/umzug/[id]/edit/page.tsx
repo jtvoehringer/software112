@@ -17,7 +17,7 @@ type R = Record<string, any>
 export default async function UmzugEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const role = await getCurrentUserRole()
-  if (!canWrite(role)) redirect('/kellerbuch/gebinde?tab=umziehen')
+  if (!canWrite(role, 'kellerbuch')) redirect('/kellerbuch/gebinde?tab=umziehen')
 
   const supabase = await createSupabaseServerClient()
 

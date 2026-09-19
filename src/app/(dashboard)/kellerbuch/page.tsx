@@ -31,7 +31,7 @@ const WEINART_BADGE: Record<string, { label: string; color: string }> = {
 export default async function KellerbuchPage() {
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
-  const writeOk  = canWrite(role)
+  const writeOk  = canWrite(role, 'kellerbuch')
 
   // Aktiv gewählten Betrieb respektieren (Cookie-basiert, s. lib/auth/roles.ts) statt einer
   // beliebigen/ersten tenant_memberships-Zeile – sonst können bei Mehrfach-Mitgliedschaft

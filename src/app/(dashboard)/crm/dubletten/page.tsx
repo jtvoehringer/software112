@@ -17,7 +17,7 @@ export default async function DublettenPage() {
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
-  const writeOk = canWrite(membership?.role ?? null)
+  const writeOk = canWrite(membership?.role ?? null, 'crm')
 
   let gruppen: DublettenGruppe[] = []
   let fehler: string | null = null

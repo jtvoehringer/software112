@@ -193,7 +193,7 @@ function BeitraegeTab({ v, p, jahr, opt, setOpt, einkuenfteVorjahr, einkuenfte, 
             <button onClick={speichern} disabled={pending} className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-[13px] font-semibold hover:bg-s112-blue-700 disabled:opacity-40">{pending ? 'Speichert…' : 'Speichern'}</button>
             {meldung && <span className={`text-sm ${meldung.ok ? 'text-s112-ok-fg' : 'text-s112-err-fg'}`}>{meldung.text}</span>}
           </div>
-        ) : <p className="text-xs text-s112-muted">Die Wahl trifft der Betriebsleiter.</p>}
+        ) : <p className="text-xs text-s112-muted">Die Wahl trifft der Betriebs-Manager.</p>}
         <p className="text-xs text-s112-warn-fg inline-flex items-start gap-1.5"><AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
           Orientierungsrechnung mit den SVS-Sätzen {p.jahr}{p.hinweis ? ` – ${p.hinweis}` : ''}. Verbindlich ist der Beitragsbescheid der SVS; Entscheidung zur Option bitte mit SVS oder Steuerberater abstimmen.
         </p>

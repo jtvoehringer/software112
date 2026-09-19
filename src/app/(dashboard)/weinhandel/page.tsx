@@ -31,7 +31,7 @@ const ART_LABEL: Record<string, string> = { wein: 'Wein', trauben: 'Trauben', mo
 export default async function WeinhandelPage() {
   const supabase   = await createSupabaseServerClient()
   const role       = await getCurrentUserRole()
-  const writeOk    = canWrite(role)
+  const writeOk    = canWrite(role, 'warenwirtschaft')
   const membership = await getCurrentMembership()
   const tenantId   = membership?.tenantId ?? null
 

@@ -18,7 +18,7 @@ export default async function LagenPage() {
   const supabase = await createSupabaseServerClient()
   const role = await getCurrentUserRole()
   const membership = await getCurrentMembership()
-  const writeOk = canWrite(role)
+  const writeOk = canWrite(role, 'rieden')
   const adminOk = canAdmin(role)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

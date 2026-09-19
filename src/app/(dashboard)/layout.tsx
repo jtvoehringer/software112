@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, getCurrentMembership, roleLabel, canWrite, isSandboxAdminUnlock } from '@/lib/auth/roles'
+import { getCurrentUserRole, getCurrentMembership, roleLabel, canWrite, canSeeAuswertungen, isSandboxAdminUnlock } from '@/lib/auth/roles'
 import { STRIPE_BLOCKED_STATUSES, istTrialAbgelaufen } from '@/lib/stripe/client'
 import AppShell from '@/components/layout/AppShell'
 import ReleaseNotesModal from '@/components/ReleaseNotesModal'
@@ -141,6 +141,7 @@ export default async function DashboardLayout({
         isSandbox={isSandbox}
         sandboxAdminUnlock={isSandboxAdminUnlock(user.email, isSandbox)}
         darfSchreiben={canWrite(role)}
+        auswertungenSichtbar={canSeeAuswertungen(role)}
       >
         {billingWarnung && (
           <div className="mb-4 px-4 py-2.5 rounded-lg bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg text-sm flex items-center justify-between gap-3 flex-wrap">
@@ -150,7 +151,7 @@ export default async function DashboardLayout({
         )}
         {children}
       </AppShell>
-      {assistentAktiv && canWrite(role) && <AssistentWidget />}
+      {assistentAktiv && canWrite(role, 'kellerbuch') && <AssistentWidget />}
     </>
   )
 }

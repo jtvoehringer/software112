@@ -14,7 +14,7 @@ export default async function WeingartenPage() {
   const role = await getCurrentUserRole()
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
-  const writeOk = canWrite(role)
+  const writeOk = canWrite(role, 'rieden')
   const adminOk = canAdmin(role)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

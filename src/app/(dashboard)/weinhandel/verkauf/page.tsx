@@ -15,7 +15,7 @@ type R = Record<string, any>
 export default async function VerkaufPage() {
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
-  const writeOk  = canWrite(role)
+  const writeOk  = canWrite(role, 'warenwirtschaft')
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
 

@@ -18,7 +18,7 @@ const ONBOARDING_SCHRITTE: Gruppe[] = [
     gruppe: 'Mandant anlegen',
     schritte: [
       { id: 's1', pflicht: true, titel: 'Tenant in Supabase anlegen', beschreibung: 'Im Supabase SQL-Editor: INSERT INTO tenants (name, slug) VALUES (\'Weingut Name\', \'weingut-slug\'). Tenant-ID aus der Rückgabe notieren.', },
-      { id: 's2', pflicht: true, titel: 'Ersten Benutzer einladen', beschreibung: 'Admin > Benutzer > "System-Admin einladen". Nach Registrierung in Admin > Mandant > Benutzer als tenant_admin setzen.', link: '/admin/mandanten', linkLabel: 'Admin öffnen' },
+      { id: 's2', pflicht: true, titel: 'Ersten Benutzer einladen', beschreibung: 'Admin > Benutzer > "Super-Admin einladen". Nach Registrierung in Admin > Mandant > Benutzer als tenant_admin setzen.', link: '/admin/mandanten', linkLabel: 'Admin öffnen' },
       { id: 's3', pflicht: true, titel: 'Tenant-Mitgliedschaft prüfen', beschreibung: 'SQL: SELECT * FROM tenant_memberships WHERE tenant_id = \'TENANT_ID\'. Muss mindestens einen Eintrag mit role = tenant_admin zeigen.' },
     ],
   },

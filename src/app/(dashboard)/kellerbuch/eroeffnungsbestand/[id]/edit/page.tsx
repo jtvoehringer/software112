@@ -35,7 +35,7 @@ const QUALITAETEN = [
 export default async function EroeffnungsbestandEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const role = await getCurrentUserRole()
-  if (!canWrite(role)) redirect('/kellerbuch/gebinde?tab=eroeffnungsbestand')
+  if (!canWrite(role, 'kellerbuch')) redirect('/kellerbuch/gebinde?tab=eroeffnungsbestand')
 
   const supabase   = await createSupabaseServerClient()
   const membership = await getCurrentMembership()

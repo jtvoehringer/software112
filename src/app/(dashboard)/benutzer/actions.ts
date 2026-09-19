@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
-import { getCurrentMembership, canManageUsers } from '@/lib/auth/roles'
+import { getCurrentMembership, canManageUsers, isModul, type Modul } from '@/lib/auth/roles'
 import { pruefeBenutzerlimit, benutzerlimitFehler } from '@/lib/pakete-server'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -17,6 +17,13 @@ export type MemberWithEmail = {
   email: string
   aktiv: boolean
   confirmed: boolean
+  /** Modulmatrix (Migration 218) – nur für Rolle winzer (Mitarbeiter) relevant */
+  schreibmodule: Modul[]
+}
+
+// Modulliste aus dem Client bereinigen: nur bekannte Module, ohne Duplikate
+function moduleBereinigen(module: unknown): Modul[] {
+  return Array.isArray(module) ? [...new Set(module.filter(isModul))] as Modul[] : []
 }
 
 /** Mitglieder des Tenants + Email aus auth.users */
@@ -31,7 +38,7 @@ export async function getTenantMembers(): Promise<MemberWithEmail[]> {
   // um sie ggf. wieder zu aktivieren, siehe toggleMemberAktiv unten)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: memberships } = await (supabase.from('tenant_memberships') as any)
-    .select('id, user_id, role, created_at, aktiv')
+    .select('id, user_id, role, created_at, aktiv, schreibmodule')
     .eq('tenant_id', membership.tenantId)
     .order('created_at')
 
@@ -54,6 +61,7 @@ export async function getTenantMembers(): Promise<MemberWithEmail[]> {
     email:      emailMap[m.user_id] ?? m.user_id,
     aktiv:      m.aktiv ?? true,
     confirmed:  confirmedMap[m.user_id] ?? false,
+    schreibmodule: moduleBereinigen(m.schreibmodule),
   }))
 }
 
@@ -69,7 +77,7 @@ const VERGEBBARE_ROLLEN = ['tenant_admin', 'winzer', 'leser']
  *  inviteUserToTenant() dort, aber der Ziel-Betrieb kommt AUSSCHLIESSLICH aus
  *  der aktiven Mitgliedschaft (serverseitig) statt von einem Client-Parameter -
  *  ein Betriebsleiter kann so technisch nie einen fremden Betrieb bestücken. */
-export async function inviteMember(email: string, role: string, fullName: string) {
+export async function inviteMember(email: string, role: string, fullName: string, module: Modul[] = []) {
   const membership = await getCurrentMembership()
   if (!membership || !canManageUsers(membership.role)) {
     return { error: 'Keine Berechtigung' }
@@ -109,8 +117,9 @@ export async function inviteMember(email: string, role: string, fullName: string
     .select('id').eq('user_id', userId).eq('tenant_id', membership.tenantId).maybeSingle()
   if (existing) return { error: 'Benutzer ist bereits Mitglied dieses Betriebs.' }
 
+  // Modulmatrix (Migration 218): nur Mitarbeiter (winzer) tragen sie, Admins haben alles, Leser nichts
   const { error: memberError } = await (admin.from('tenant_memberships') as any)
-    .insert({ tenant_id: membership.tenantId, user_id: userId, role })
+    .insert({ tenant_id: membership.tenantId, user_id: userId, role, schreibmodule: role === 'winzer' ? moduleBereinigen(module) : null })
   if (memberError) return { error: (memberError as R).message }
 
   const { error: profileError } = await (admin.from('profiles') as any)
@@ -159,22 +168,48 @@ export async function resendInvite(userId: string) {
 }
 
 /** Rollenänderung */
-export async function updateMemberRole(membershipId: string, newRole: string) {
+export async function updateMemberRole(membershipId: string, newRole: string, module?: Modul[]) {
   const membership = await getCurrentMembership()
   if (!membership || !canManageUsers(membership.role)) {
     return { error: 'Keine Berechtigung' }
   }
+  if (!VERGEBBARE_ROLLEN.includes(newRole)) return { error: 'Ungültige Rolle' }
 
   // Admin-Client verwenden, damit RLS das Update nicht blockiert
   const admin = createSupabaseAdminClient()
+  // Modulmatrix (Migration 218): Wechsel auf Mitarbeiter ohne Angabe → alle Module
+  // (Verhalten wie bisher), andere Rollen tragen keine Matrix
+  const patch: R = { role: newRole }
+  if (newRole === 'winzer') patch.schreibmodule = module ? moduleBereinigen(module) : ['rieden', 'kellerbuch', 'warenwirtschaft', 'crm', 'ea', 'auswertungen']
+  else patch.schreibmodule = null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error, count } = await (admin.from('tenant_memberships') as any)
-    .update({ role: newRole }, { count: 'exact' })
+    .update(patch, { count: 'exact' })
     .eq('id', membershipId)
     .eq('tenant_id', membership.tenantId)
+    .neq('role', 'system_admin')   // Super-Admins werden hier nicht verändert (siehe BenutzerClient)
 
   if (error) return { error: error.message }
   if (count === 0) return { error: 'Eintrag nicht gefunden oder keine Änderung möglich.' }
+  revalidatePath('/benutzer')
+  return { success: true }
+}
+
+/** Modulmatrix eines Mitarbeiters setzen (Migration 218) */
+export async function updateMemberModule(membershipId: string, module: Modul[]) {
+  const membership = await getCurrentMembership()
+  if (!membership || !canManageUsers(membership.role)) {
+    return { error: 'Keine Berechtigung' }
+  }
+  const admin = createSupabaseAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error, count } = await (admin.from('tenant_memberships') as any)
+    .update({ schreibmodule: moduleBereinigen(module) }, { count: 'exact' })
+    .eq('id', membershipId)
+    .eq('tenant_id', membership.tenantId)
+    .eq('role', 'winzer')
+  if (error) return { error: error.message }
+  if (count === 0) return { error: 'Nur bei Mitarbeitern lässt sich die Modulmatrix ändern.' }
   revalidatePath('/benutzer')
   return { success: true }
 }

@@ -248,7 +248,7 @@ export default function AboClient({
             )
           ) : (
             <p className="text-sm text-s112-muted">
-              Nur der Betriebsleiter kann die Zahlungsdaten verwalten. Bitte wenden Sie sich an Ihren Betriebsleiter.
+              Nur der Betriebs-Manager kann die Zahlungsdaten verwalten. Bitte wenden Sie sich an Ihren Betriebs-Manager.
             </p>
           )}
 

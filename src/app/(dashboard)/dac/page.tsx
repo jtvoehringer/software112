@@ -29,7 +29,7 @@ const DAC_REGIONEN: Record<string, string> = {
 export default async function DacPage() {
   const supabase = await createSupabaseServerClient()
   const role = await getCurrentUserRole()
-  const writeOk = canWrite(role)
+  const writeOk = canWrite(role, 'kellerbuch')
   // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
   // des Nutzers, nicht nur dem aktiv gewählten Betrieb.
   const membership = await getCurrentMembership()

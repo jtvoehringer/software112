@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
 
     const membership = await getCurrentMembership()
     if (!membership) return NextResponse.json({ fehler: 'Kein Betrieb gefunden' }, { status: 401 })
-    if (!canWrite(membership.role)) {
+    if (!canWrite(membership.role, 'kellerbuch')) {
       return NextResponse.json({ fehler: 'Keine Berechtigung für den Assistenten' }, { status: 403 })
     }
 

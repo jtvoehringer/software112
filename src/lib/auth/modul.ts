@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership, canSeeAuswertungen } from '@/lib/auth/roles'
 
 // Zuschaltbare Module (boolean-Flags auf tenant_einstellungen, Toggle in
 // Administration → Mandanten). Die Sidebar blendet die Menüpunkte aus, diese
@@ -22,4 +22,11 @@ export async function hatModul(flag: ModulFlag): Promise<boolean> {
 // aktiven Mandanten nicht freigeschaltet ist.
 export async function requireModul(flag: ModulFlag): Promise<void> {
   if (!(await hatModul(flag))) redirect('/dashboard')
+}
+
+// Benutzerkonzept (Migration 218): Controlling und Frag dein Weingut sehen nur
+// Betriebs-Manager, Leser und Mitarbeiter mit Modul „auswertungen“ in der Matrix.
+export async function requireAuswertungen(): Promise<void> {
+  const membership = await getCurrentMembership()
+  if (!canSeeAuswertungen(membership)) redirect('/dashboard')
 }

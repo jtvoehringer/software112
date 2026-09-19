@@ -22,8 +22,8 @@ type AnyRecord = Record<string, any>
 async function requireWrite(): Promise<{ tenantId: string }> {
   const membership = await getCurrentMembership()
   if (!membership) throw new Error('Kein Betrieb gefunden')
-  if (!canWrite(membership.role)) {
-    throw new Error('Keine Berechtigung: Diese Aktion ist Betriebsleiter, System-Admin oder Winzer/Kellermeister vorbehalten.')
+  if (!canWrite(membership.role, 'rieden')) {
+    throw new Error('Keine Berechtigung: Diese Aktion ist Betriebs-Manager, Super-Admin oder Mitarbeiter mit Modulrecht vorbehalten.')
   }
   return { tenantId: membership.tenantId }
 }
@@ -32,7 +32,7 @@ async function requireAdmin(): Promise<{ tenantId: string }> {
   const membership = await getCurrentMembership()
   if (!membership) throw new Error('Kein Betrieb gefunden')
   if (!canAdmin(membership.role)) {
-    throw new Error('Keine Berechtigung: Löschen (und Deaktivieren) ist nur dem Betriebsleiter bzw. System-Admin vorbehalten.')
+    throw new Error('Keine Berechtigung: Löschen (und Deaktivieren) ist nur dem Betriebs-Manager bzw. Super-Admin vorbehalten.')
   }
   return { tenantId: membership.tenantId }
 }

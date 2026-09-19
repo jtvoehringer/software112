@@ -4,6 +4,32 @@ import { getActiveTenantCookie } from '@/lib/auth/activeTenant'
 
 export type UserRole = 'system_admin' | 'tenant_admin' | 'winzer' | 'leser' | null
 
+// ── Benutzerkonzept (Beschluss Mgmt-Team 19.9.2026, Migration 218) ────────────
+// system_admin = Super-Admin, tenant_admin = Betriebs-Manager, winzer = Mitarbeiter
+// (bearbeitet nur in freigegebenen Modulen, Matrix je Person), leser = Leser.
+// Die technischen Schlüssel bleiben (96 RLS-Policies, Migrationen), nur die
+// Anzeige ändert sich. Die Datenbank prüft die Matrix selbst (s112_darf_schreiben,
+// restriktive Policies) - canWrite() hier steuert nur, was die Oberfläche anbietet.
+
+export type { Modul } from './module'
+export { MODULE, ALLE_MODULE, isModul, MODUL_VORLAGEN } from './module'
+import { ALLE_MODULE, isModul, type Modul } from './module'
+
+export type Membership = { tenantId: string; role: UserRole; schreibmodule: Modul[] }
+
+/** Module aus der Mitgliedschaft: Admins immer alle, Leser keine, Mitarbeiter laut Matrix */
+export function moduleAusMembership(role: UserRole, roh: unknown): Modul[] {
+  if (role === 'system_admin' || role === 'tenant_admin') return ALLE_MODULE
+  if (role !== 'winzer') return []
+  return Array.isArray(roh) ? (roh.filter(isModul) as Modul[]) : []
+}
+
+// Je Request gemerkte Modulrechte der aktiven Mitgliedschaft, damit canWrite(role, modul)
+// an den ~100 bestehenden Aufrufstellen ohne Signaturwechsel modulgenau prüfen kann.
+// getCurrentMembership() befüllt den Speicher; ohne Befüllung (z.B. Client) gilt
+// die bisherige Regel (Mitarbeiter darf).
+const rechteSpeicher = cache(() => ({ schreibmodule: null as Modul[] | null }))
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
@@ -18,7 +44,7 @@ export async function getCurrentUserRole(): Promise<UserRole> {
 /** Gibt Tenant-ID + Rolle zurück – liest aktiven Tenant aus Cookie.
  *  Per Request dedupliziert (React cache, 17.9.2026): Layout und Seite rufen
  *  das mehrfach - vorher je Aufruf ein Auth-Roundtrip + Membership-Abfrage. */
-export const getCurrentMembership = cache(async function getCurrentMembership(): Promise<{ tenantId: string; role: UserRole } | null> {
+export const getCurrentMembership = cache(async function getCurrentMembership(): Promise<Membership | null> {
   const supabase = await createSupabaseServerClient()
   const activeTenantId = await getActiveTenantCookie()
   const { data: { user } } = await supabase.auth.getUser()
@@ -35,13 +61,13 @@ export const getCurrentMembership = cache(async function getCurrentMembership():
     // statt der eigenen 'system_admin'-Rolle), abhängig von einer nicht garantierten
     // Zeilenreihenfolge ohne ORDER BY.
     const { data } = await (supabase.from('tenant_memberships') as any)
-      .select('tenant_id, role')
+      .select('tenant_id, role, schreibmodule')
       .eq('tenant_id', activeTenantId)
       .eq('user_id', user.id)
       .eq('aktiv', true)   // deaktivierte Mitgliedschaft (Migration 159) zählt nicht - wie in RLS
       .limit(1)
       .maybeSingle()
-    if (data) return { tenantId: (data as R).tenant_id, role: (data as R).role as UserRole }
+    if (data) return membershipAus(data as R)
   }
 
   // Fallback: erste Membership (kein Cookie gesetzt oder Cookie veraltet). Das IST hier
@@ -52,20 +78,48 @@ export const getCurrentMembership = cache(async function getCurrentMembership():
   // fremden Mitgliedschaftszeile, nur diesmal sogar potenziell eines FREMDEN Mandanten.
   // tenant-isolation-ignore: kanonischer Fallback ohne aktiven Tenant-Cookie, siehe Kommentar oben
   const { data } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id, role')
+    .select('tenant_id, role, schreibmodule')
     .eq('user_id', user.id)
     .eq('aktiv', true)
     .limit(1)
     .maybeSingle()
   if (!data) return null
-  return { tenantId: (data as R).tenant_id, role: (data as R).role as UserRole }
+  return membershipAus(data as R)
 })
+
+function membershipAus(d: R): Membership {
+  const role = d.role as UserRole
+  const m: Membership = { tenantId: d.tenant_id, role, schreibmodule: moduleAusMembership(role, d.schreibmodule) }
+  try { rechteSpeicher().schreibmodule = m.schreibmodule } catch { /* außerhalb eines Requests */ }
+  return m
+}
 
 // ── Berechtigungsprüfungen ─────────────────────────────────────────────────
 
-/** Darf anlegen + bearbeiten (alle außer leser) */
-export function canWrite(role: UserRole): boolean {
-  return role === 'system_admin' || role === 'tenant_admin' || role === 'winzer'
+/** Darf anlegen + bearbeiten. Mit Modul: Mitarbeiter nur, wenn das Modul in
+ *  seiner Matrix freigegeben ist; ohne Modul: irgendwo schreiben dürfen.
+ *  Statt der Rolle kann auch die Mitgliedschaft übergeben werden (Actions). */
+export function canWrite(rolle: UserRole | Membership, modul?: Modul | 'betrieb'): boolean {
+  const role = typeof rolle === 'object' && rolle ? rolle.role : rolle
+  if (role === 'system_admin' || role === 'tenant_admin') return true
+  if (role !== 'winzer') return false
+  const mods = typeof rolle === 'object' && rolle ? rolle.schreibmodule : rechteSpeicherLesen()
+  if (!mods) return true
+  if (modul === 'betrieb') return true   // betriebsweite Kleinigkeiten (Fristen, Checklisten, Morgenbericht): jeder Mitarbeiter
+  return modul ? mods.includes(modul) : mods.length > 0
+}
+
+function rechteSpeicherLesen(): Modul[] | null {
+  try { return rechteSpeicher().schreibmodule } catch { return null }
+}
+
+/** Controlling + Frag dein Weingut sehen: Admins und Leser immer, Mitarbeiter mit Modul „auswertungen“ */
+export function canSeeAuswertungen(rolle: UserRole | Membership): boolean {
+  const role = typeof rolle === 'object' && rolle ? rolle.role : rolle
+  if (role === 'system_admin' || role === 'tenant_admin' || role === 'leser') return true
+  if (role !== 'winzer') return false
+  const mods = typeof rolle === 'object' && rolle ? rolle.schreibmodule : rechteSpeicherLesen()
+  return mods ? mods.includes('auswertungen') : true
 }
 
 /** Darf löschen + deaktivieren (nur Admins) */
@@ -86,10 +140,10 @@ export function isSystemAdmin(role: UserRole): boolean {
 /** Lesbare Rollenbezeichnung auf Deutsch */
 export function roleLabel(role: UserRole): string {
   const labels: Record<string, string> = {
-    system_admin: 'System-Admin',
-    tenant_admin: 'Betriebsleiter',
-    winzer:       'Winzer/Kellermeister',
-    leser:        'Nur-Lesen',
+    system_admin: 'Super-Admin',
+    tenant_admin: 'Betriebs-Manager',
+    winzer:       'Mitarbeiter',
+    leser:        'Leser',
   }
   return role ? (labels[role] ?? role) : '–'
 }

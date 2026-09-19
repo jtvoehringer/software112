@@ -9,10 +9,10 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 const ROLE_LABEL: Record<string, string> = {
-  tenant_admin: 'Betriebsleiter',
-  winzer:       'Winzer/Kellermeister',
-  leser:        'Nur-Lesen',
-  system_admin: 'System-Admin',
+  tenant_admin: 'Betriebs-Manager',
+  winzer:       'Mitarbeiter',
+  leser:        'Leser',
+  system_admin: 'Super-Admin',
 }
 
 export default async function BetriebWaehlenPage() {

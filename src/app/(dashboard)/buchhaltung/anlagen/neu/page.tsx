@@ -16,7 +16,7 @@ export default async function NeueAnlagePage({ searchParams }: { searchParams: P
   if (!ctx.tenantId) redirect('/login')
   const einst = await ladeEinstellungen(ctx)
   if (!einst.modulEa) redirect('/dashboard')
-  if (!canWrite(ctx.role)) redirect('/buchhaltung/anlagen')
+  if (!canWrite(ctx.role, 'ea')) redirect('/buchhaltung/anlagen')
 
   const { buchung } = await searchParams
   const kandidaten = await ladeKandidaten(ctx)

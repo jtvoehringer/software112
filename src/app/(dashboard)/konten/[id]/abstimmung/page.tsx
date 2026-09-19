@@ -30,7 +30,7 @@ export default async function AbstimmungPage({
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) redirect('/login')
   const tenantId = membership.tenantId
-  const writeOk  = canWrite(membership.role)
+  const writeOk  = canWrite(membership.role, 'ea')
   const { id: kontoId } = await params
 
   const { data: einst } = await (supabase.from('tenant_einstellungen') as any)

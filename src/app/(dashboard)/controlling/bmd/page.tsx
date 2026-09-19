@@ -47,7 +47,7 @@ export default async function BmdPage() {
       offeneRechnungen={offeneRechnungen ?? 0}
       offeneAusgaben={offeneAusgaben ?? 0}
       darfMappingAendern={canAdmin(membership.role)}
-      darfUebergeben={canWrite(membership.role)}
+      darfUebergeben={canWrite(membership.role, 'ea')}
     />
   )
 }

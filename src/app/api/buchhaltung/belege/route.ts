@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 403 })
-  if (!canWrite(membership.role)) return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 })
+  if (!canWrite(membership.role, 'ea')) return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 })
 
   const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
     .select('modul_ea').eq('tenant_id', tenantId).maybeSingle()

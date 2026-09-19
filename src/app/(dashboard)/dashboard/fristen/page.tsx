@@ -30,7 +30,7 @@ export default async function FristenSichtPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-5">
         <Card title="Überwachte Fristen">
-          <FristenClient fristen={fristen} darfSchreiben={canWrite(ctx.role)} vorwarnungTage={einst.vorwarnungTage} />
+          <FristenClient fristen={fristen} darfSchreiben={canWrite(ctx.role, 'betrieb')} vorwarnungTage={einst.vorwarnungTage} />
         </Card>
 
         <div className="space-y-5">

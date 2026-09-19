@@ -163,7 +163,7 @@ export default async function UebersichtPage() {
         </Card>
 
         {/* ── Morgenbericht (ersetzt seit 10.9.2026 „Datenfluss statt Zettelwirtschaft“) ── */}
-        <MorgenberichtKarte bericht={morgenbericht} darfSchreiben={canWrite(ctx.role)} wetterHinweis={!einst.wetterAktiv || !einst.modulWeingarten ? 'Wetter & Empfehlungen sind für diesen Betrieb deaktiviert (Mein Betrieb → Branding & Regeln).' : null} />
+        <MorgenberichtKarte bericht={morgenbericht} darfSchreiben={canWrite(ctx.role, 'betrieb')} wetterHinweis={!einst.wetterAktiv || !einst.modulWeingarten ? 'Wetter & Empfehlungen sind für diesen Betrieb deaktiviert (Mein Betrieb → Branding & Regeln).' : null} />
 
       {/* ── Schnellzugriff ─────────────────────────────────────────────────── */}
       <div className="lg:col-span-2 2xl:col-span-1">

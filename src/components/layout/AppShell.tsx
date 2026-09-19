@@ -32,6 +32,8 @@ interface Props {
   // schaltet ausschließlich die Administrations-Seiten frei, unabhängig von
   // der Rolle. Bereits serverseitig in layout.tsx geprüft.
   sandboxAdminUnlock?: boolean
+  /** canSeeAuswertungen(role) – serverseitig ermittelt (Migration 218) */
+  auswertungenSichtbar?: boolean
   /** canWrite(role) – serverseitig ermittelt, steuert die Aktionen der Befehlspalette */
   darfSchreiben?: boolean
 }
@@ -39,7 +41,7 @@ interface Props {
 export const APP_VERSION = 'v2.3.0 · August 2026'
 
 export default function AppShell({
-  children, userEmail, userName, role, roleLabel, branding, betriebCount = 1, isSandbox = false, sandboxAdminUnlock = false, darfSchreiben = false,
+  children, userEmail, userName, role, roleLabel, branding, betriebCount = 1, isSandbox = false, sandboxAdminUnlock = false, darfSchreiben = false, auswertungenSichtbar = true,
 }: Props) {
   const groups = useMemo(() => buildNav({
     role,
@@ -47,7 +49,8 @@ export default function AppShell({
     isSandbox,
     sandboxAdminUnlock,
     doppik: branding.buchhaltungsart === 'doppik',
-  }), [role, branding.modul_ea, branding.modul_sumup, branding.modul_export, branding.modul_controlling, branding.buchhaltungsart, isSandbox, sandboxAdminUnlock])
+    auswertungenSichtbar,
+  }), [role, branding.modul_ea, branding.modul_sumup, branding.modul_export, branding.modul_controlling, branding.buchhaltungsart, isSandbox, sandboxAdminUnlock, auswertungenSichtbar])
 
   const buildSha = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA
 

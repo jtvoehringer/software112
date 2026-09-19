@@ -35,9 +35,9 @@ import { bundeslandAusKundennummer } from '@/lib/tenant/kundennummer'
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────
 
 const ROLLEN = [
-  { value: 'tenant_admin', label: 'Betriebsleiter' },
-  { value: 'winzer',       label: 'Winzer/Kellermeister' },
-  { value: 'leser',        label: 'Nur-Lesen' },
+  { value: 'tenant_admin', label: 'Betriebs-Manager' },
+  { value: 'winzer',       label: 'Mitarbeiter' },
+  { value: 'leser',        label: 'Leser' },
 ]
 
 const ROLE_COLORS: Record<string, string> = {
@@ -47,10 +47,10 @@ const ROLE_COLORS: Record<string, string> = {
   leser:        'bg-[#F2F3F5] text-s112-text-2',
 }
 const ROLE_LABELS: Record<string, string> = {
-  system_admin: 'System-Admin',
-  tenant_admin: 'Betriebsleiter',
-  winzer:       'Winzer/Kellermeister',
-  leser:        'Nur-Lesen',
+  system_admin: 'Super-Admin',
+  tenant_admin: 'Betriebs-Manager',
+  winzer:       'Mitarbeiter',
+  leser:        'Leser',
 }
 
 const BIO_STATUS_OPTS = [

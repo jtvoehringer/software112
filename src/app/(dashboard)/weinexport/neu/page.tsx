@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import WeinexportFormClient from './WeinexportFormClient'
 export const metadata: Metadata = { title: 'Neuer Exportauftrag – software:112' }
@@ -14,8 +14,7 @@ export default async function NeuPage() {
   // also garantiert vorhanden, tenantId also garantiert ein string (kein null-Fall mehr für
   // WeinexportFormClient, das eine verpflichtende tenantId erwartet).
   const membership = await getCurrentMembership()
-  const rolle = membership?.role ?? 'leser'
-  if (rolle === 'leser' || !membership) {
+  if (!membership || !canWrite(membership, 'warenwirtschaft')) {
     const { redirect } = await import('next/navigation')
     redirect('/weinexport')
     return null

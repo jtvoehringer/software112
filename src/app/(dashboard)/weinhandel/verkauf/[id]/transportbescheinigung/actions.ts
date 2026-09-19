@@ -1,7 +1,7 @@
 'use server'
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -15,6 +15,7 @@ export async function saveTB(verkaufspostenId: string, daten: R): Promise<{ id: 
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId
   if (!tenantId) throw new Error('Kein Tenant')
+  if (!canWrite(membership, 'warenwirtschaft')) throw new Error('Keine Berechtigung')   // Admin-Client umgeht RLS → Modulrecht hier prüfen
 
   // Bestehendes Dokument suchen
   const { data: existing } = await (admin.from('transportbescheinigungen') as any)

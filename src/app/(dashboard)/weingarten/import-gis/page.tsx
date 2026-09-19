@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 // ── eAMA-GIS-Import (Stufe 2 Rieden-Koordinaten, 27.8.2026) ─────────────────
 export default async function ImportGisPage() {
   const role = await getCurrentUserRole()
-  if (!canWrite(role)) redirect('/weingarten')
+  if (!canWrite(role, 'rieden')) redirect('/weingarten')
   return (
     <div>
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-6">

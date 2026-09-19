@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: 'Neue Ried – software:112' }
 
 export default async function NeueLagePage() {
   const role = await getCurrentUserRole()
-  if (!canWrite(role)) redirect('/lagen')
+  if (!canWrite(role, 'rieden')) redirect('/lagen')
 
   async function handleSubmit(formData: FormData) {
     'use server'

@@ -19,7 +19,7 @@ export default async function NeueFuellungPage({
   searchParams: Promise<{ charge?: string }>
 }) {
   const role = await getCurrentUserRole()
-  if (!canWrite(role)) redirect('/weinhandel')
+  if (!canWrite(role, 'warenwirtschaft')) redirect('/weinhandel')
 
   const { charge: chargeId } = await searchParams
   const supabase = await createSupabaseServerClient()

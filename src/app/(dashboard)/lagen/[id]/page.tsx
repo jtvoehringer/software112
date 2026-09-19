@@ -14,7 +14,7 @@ interface Props { params: Promise<{ id: string }> }
 export default async function EditLagePage({ params }: Props) {
   const { id } = await params
   const role = await getCurrentUserRole()
-  if (!canWrite(role)) redirect('/lagen')
+  if (!canWrite(role, 'rieden')) redirect('/lagen')
 
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()

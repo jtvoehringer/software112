@@ -32,7 +32,7 @@ export type Behandlung = {
 export default async function BehandlungenPage() {
   const supabase = await createSupabaseServerClient()
   const role = await getCurrentUserRole()
-  const writeOk = canWrite(role)
+  const writeOk = canWrite(role, 'rieden')
   const adminOk = canAdmin(role)
   // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
   // des Nutzers, nicht nur dem aktiv gewählten Betrieb.

@@ -11,7 +11,7 @@ type R = Record<string, any>
 export async function aktualisiereMorgenbericht(): Promise<{ ok: boolean; fehler?: string; befunde?: number }> {
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) return { ok: false, fehler: 'Kein Mandant' }
-  if (!canWrite(membership.role)) return { ok: false, fehler: 'Nur Betriebsleiter und Winzer können den Bericht neu erstellen.' }
+  if (!canWrite(membership.role, 'betrieb')) return { ok: false, fehler: 'Nur Betriebs-Manager und Mitarbeiter können den Bericht neu erstellen.' }
   const admin = createSupabaseAdminClient()
   // tenant-isolation-ignore: tenants hat keine tenant_id-Spalte, Filter über die eigene id
   const { data: t } = await (admin.from('tenants') as any).select('id, name, stripe_plan').eq('id', membership.tenantId).maybeSingle()

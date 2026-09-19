@@ -22,7 +22,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 export default async function WeinausbauListePage() {
   const supabase   = await createSupabaseServerClient()
   const role       = await getCurrentUserRole()
-  const writeOk    = canWrite(role)
+  const writeOk    = canWrite(role, 'kellerbuch')
   const membership = await getCurrentMembership()
   const tenantId   = membership?.tenantId ?? null
 

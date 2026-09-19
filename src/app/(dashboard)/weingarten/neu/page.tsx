@@ -17,7 +17,7 @@ export default async function NeuePage() {
   // Nur-Lesen-Nutzer sähe aber erst nach dem Ausfüllen und Absenden eine
   // Fehlermeldung - hier stattdessen gleich zurück zur Übersicht leiten.
   const role = await getCurrentUserRole()
-  if (!canWrite(role)) redirect('/weingarten')
+  if (!canWrite(role, 'rieden')) redirect('/weingarten')
 
   return (
     <div className="max-w-2xl">

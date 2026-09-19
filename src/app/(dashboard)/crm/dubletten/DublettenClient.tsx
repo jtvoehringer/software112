@@ -288,7 +288,7 @@ function Gruppe({ gruppe: g, writeOk, onFertig }: { gruppe: DublettenGruppe; wri
       </div>
       {!writeOk && (
         <div className="px-5 py-2 text-xs text-s112-muted border-t border-s112-line flex items-center gap-1.5">
-          <AlertTriangle className="w-3.5 h-3.5" /> Zusammenführen ist Betriebsleitern und Winzern vorbehalten.
+          <AlertTriangle className="w-3.5 h-3.5" /> Zusammenführen ist Betriebs-Managern und Mitarbeitern vorbehalten.
         </div>
       )}
     </div>

@@ -32,7 +32,7 @@ export default async function ZukaufPage({
 }) {
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
-  const writeOk  = canWrite(role)
+  const writeOk  = canWrite(role, 'warenwirtschaft')
   const membership = await getCurrentMembership()
 
   const sp    = await searchParams

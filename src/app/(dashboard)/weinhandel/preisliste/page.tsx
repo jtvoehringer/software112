@@ -13,7 +13,7 @@ type R = Record<string, any>
 export default async function PreislistePage() {
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
-  const writeOk  = canWrite(role)
+  const writeOk  = canWrite(role, 'warenwirtschaft')
   const membership = await getCurrentMembership()
 
   const { data: listenRaw } = await (supabase.from('preislisten') as any)

@@ -40,7 +40,7 @@ export default async function AnlagePage({ params }: { params: Promise<{ id: str
       <p className="text-[11.5px] text-s112-tertiary -mt-3">
         <Link href="/buchhaltung" className="hover:text-s112-blue-700">{einst.doppik ? 'Belege & BMD' : 'E&A-Rechnung'}</Link> · <Link href="/buchhaltung/anlagen" className="hover:text-s112-blue-700">Anlagen & AfA</Link> · {a.name}
       </p>
-      <AnlageForm initial={initial} buchungen={kandidaten} darfSchreiben={canWrite(ctx.role)} />
+      <AnlageForm initial={initial} buchungen={kandidaten} darfSchreiben={canWrite(ctx.role, 'ea')} />
     </div>
   )
 }

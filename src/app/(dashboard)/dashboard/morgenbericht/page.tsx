@@ -33,7 +33,7 @@ export default async function MorgenberichtPage() {
     // tenant-isolation-ignore: tenants hat keine tenant_id-Spalte, Filter über die eigene id
     ctx.q('tenants').select('stripe_plan').eq('id', ctx.tenantId).maybeSingle(),
   ])
-  const darfSchreiben = canWrite(ctx.role)
+  const darfSchreiben = canWrite(ctx.role, 'betrieb')
   const we = wetterErlaubt(einst, (tenant as { stripe_plan?: string | null } | null)?.stripe_plan)
   const gruppen: { stufe: Befund['stufe']; titel: string }[] = [{ stufe: 'hoch', titel: 'Dringend' }, { stufe: 'mittel', titel: 'Zu erledigen' }, { stufe: 'info', titel: 'Hinweise' }]
 

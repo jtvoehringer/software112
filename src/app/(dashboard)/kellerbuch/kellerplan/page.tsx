@@ -18,7 +18,7 @@ const lCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 export default async function KellerplanListPage() {
   const supabase   = await createSupabaseServerClient()
   const role       = await getCurrentUserRole()
-  const writeOk    = canWrite(role)
+  const writeOk    = canWrite(role, 'kellerbuch')
   const membership = await getCurrentMembership()
   const tenantId   = membership?.tenantId ?? null
 

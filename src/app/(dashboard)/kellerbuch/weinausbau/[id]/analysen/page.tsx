@@ -42,7 +42,7 @@ export default async function AnalysenPage({ params }: { params: Promise<{ id: s
   const { id } = await params
   const supabase   = await createSupabaseServerClient()
   const role       = await getCurrentUserRole()
-  const writeOk    = canWrite(role)
+  const writeOk    = canWrite(role, 'kellerbuch')
   const membership = await getCurrentMembership()
   const tenantId   = membership?.tenantId ?? null
   // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft

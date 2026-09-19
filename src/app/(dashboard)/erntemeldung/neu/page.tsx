@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: 'Neuer Jahrgang – software:112' }
 
 export default async function NeuerJahrgangPage() {
   const role = await getCurrentUserRole()
-  if (!canWrite(role)) redirect('/erntemeldung')
+  if (!canWrite(role, 'rieden')) redirect('/erntemeldung')
 
   const aktuellesJahr = new Date().getFullYear()
 

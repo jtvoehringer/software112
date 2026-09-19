@@ -13,7 +13,7 @@ const ZURECHNUNGEN: Zurechnung[] = ['eigen', 'pacht_fremd', 'pacht_angehoerige',
 async function ctx(schreiben = true) {
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) throw new Error('Kein Mandant')
-  if (schreiben && !canWrite(membership.role)) throw new Error('Keine Berechtigung')
+  if (schreiben && !canWrite(membership.role, 'ea')) throw new Error('Keine Berechtigung')
   const supabase = await createSupabaseServerClient()
   return { supabase, tenantId: membership.tenantId, role: membership.role }
 }
@@ -93,7 +93,7 @@ function isoDatum(s: string): string | null {
 /** Wahl Pauschalsystem / Beitragsgrundlagenoption + manuelle Einkünfte + KV-Zusatz Angehörige */
 export async function speichereSvsOption(werte: { svs_option: 'pauschal' | 'option'; svs_einkuenfte_manuell: number | null; svs_kv_angehoerige: boolean; svs_option_seit?: string | null }) {
   const { supabase, tenantId, role } = await ctx()
-  if (!canAdmin(role)) return { ok: false, fehler: 'Die SVS-Option legt der Betriebsleiter fest.' }
+  if (!canAdmin(role)) return { ok: false, fehler: 'Die SVS-Option legt der Betriebs-Manager fest.' }
   if (werte.svs_option !== 'pauschal' && werte.svs_option !== 'option') return { ok: false, fehler: 'Ungültige Option' }
   const { error } = await (supabase.from('tenant_einstellungen') as any)
     .update({

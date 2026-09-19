@@ -44,7 +44,7 @@ export default async function GebindePage({
   const { tab = 'gebinde', err } = await searchParams
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
-  const writeOk  = canWrite(role)
+  const writeOk  = canWrite(role, 'kellerbuch')
   const adminOk  = canAdmin(role)
 
   // Aktiv gewählten Betrieb respektieren (Cookie-basiert, s. lib/auth/roles.ts) statt einer

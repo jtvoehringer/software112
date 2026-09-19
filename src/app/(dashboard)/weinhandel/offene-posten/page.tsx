@@ -21,7 +21,7 @@ const ZAHLUNGSZIEL_TAGE = 30
 export default async function OffenePostenPage() {
   const supabase   = await createSupabaseServerClient()
   const role       = await getCurrentUserRole()
-  const writeOk    = canWrite(role)
+  const writeOk    = canWrite(role, 'warenwirtschaft')
   const membership = await getCurrentMembership()
   const tenantId   = membership?.tenantId ?? null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -34,7 +34,7 @@ export type SatzOption = { id: string; art: string; bezeichnung: string; satz_pr
 
 export default async function NeueBehandlungPage() {
   const role = await getCurrentUserRole()
-  if (!canWrite(role)) redirect('/behandlungen')
+  if (!canWrite(role, 'rieden')) redirect('/behandlungen')
 
   const supabase = await createSupabaseServerClient()
 

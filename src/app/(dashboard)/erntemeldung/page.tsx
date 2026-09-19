@@ -20,7 +20,7 @@ type AR = Record<string, any>
 export default async function ErntemeldungPage() {
   const supabase = await createSupabaseServerClient()
   const role = await getCurrentUserRole()
-  const writeOk = canWrite(role)
+  const writeOk = canWrite(role, 'rieden')
   const adminOk = canAdmin(role)
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
