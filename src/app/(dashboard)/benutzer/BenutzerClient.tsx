@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { updateMemberRole, updateMemberModule, removeMember, toggleMemberAktiv, resendInvite, inviteMember } from './actions'
 import type { MemberWithEmail } from './actions'
-import { MODULE, MODUL_VORLAGEN, type Modul } from '@/lib/auth/roles'
+import { MODULE, MODUL_VORLAGEN, type Modul } from '@/lib/auth/module'
 import { Users, Info } from 'lucide-react'
 
 function inputCls() {
