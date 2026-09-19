@@ -9,6 +9,7 @@ const FAQS: FAQ[] = [
   // Allgemein
   { kategorie: 'Allgemein', frage: 'Wie logge ich mich ein?', antwort: 'Rufe https://software112.icp-consultants.at auf und melde dich mit deiner E-Mail-Adresse und deinem Passwort an. Alternativ funktioniert der Login auch mit Microsoft 365. Falls du dein Passwort vergessen hast, nutze „Passwort vergessen“ auf der Login-Seite – du bekommst einen Link per E-Mail.' },
   { kategorie: 'Allgemein', frage: 'Wie ändere ich mein Passwort?', antwort: 'Oben rechts im Benutzermenü auf „Mein Profil“ – dort unter „Passwort ändern“ das aktuelle und zweimal das neue Passwort eingeben (mindestens 8 Zeichen). Wer sich mit Microsoft 365 anmeldet, verwaltet sein Passwort bei Microsoft.' },
+  { kategorie: 'Allgemein', frage: 'Ich habe das Fenster mit den Neuerungen weggeklickt – wo finde ich es wieder?', antwort: 'Unter System > Neuerungen stehen alle Release Notes zum Nachlesen, neueste zuerst. Das Fenster nach dem Einstieg erscheint pro Benutzer nur einmal je Version.' },
   { kategorie: 'Allgemein', frage: 'Welche Browser werden unterstützt?', antwort: 'software:112 funktioniert mit allen modernen Browsern (Chrome, Firefox, Edge, Safari). Für mobilen Einsatz empfehlen wir Chrome auf Android oder Safari auf iOS.' },
   { kategorie: 'Allgemein', frage: 'Kann ich die App am Handy verwenden?', antwort: 'Ja! Die Oberfläche ist für Tablets und Smartphones optimiert. Telefonnummern können direkt angetippt werden um einen Anruf zu starten.' },
 

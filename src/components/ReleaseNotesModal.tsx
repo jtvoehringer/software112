@@ -92,6 +92,7 @@ export default function ReleaseNotesModal() {
             className="w-full bg-s112-teal text-white py-2.5 rounded-xl font-semibold hover:bg-opacity-90 text-sm">
             Verstanden – Los geht's!
           </button>
+          <p className="text-center text-xs text-s112-muted">Jederzeit nachlesen unter <a href="/hilfe/neuerungen" onClick={schliessen} className="text-s112-blue-700 hover:underline">System › Neuerungen</a></p>
         </div>
       </div>
     </div>
