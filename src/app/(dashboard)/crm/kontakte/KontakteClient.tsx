@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef, useTransition } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { paramsAusFilter, LISTE_SCHRITT, type ListenFilter, type Zaehler } from '@/lib/crm/liste'
+import { useListenSuche } from '@/lib/crm/listenSuche'
 import Link from '@/components/ui/Link'
 import { createKontakt, updateKontakt, pruefeKontaktDublette, deleteKontakt, createAktivitaet, createPipelineEintrag } from '../actions'
 import { SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN, LAENDER, DIAL_CODES, segmentLabel, segmentFarbe } from '@/lib/crm/types'
@@ -628,19 +629,13 @@ export default function KontakteClient({
   const [showForm, setShowForm] = useState(false)
   // Serverseitige Filter (17.9.2026): jede Änderung schreibt die URL, die Seite
   // lädt nur die passenden Zeilen. Suche mit 300 ms Verzögerung.
-  const [suche, setSuche] = useState(filter.q)
-  const sucheTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(() => { setSuche(filter.q) }, [filter.q])
   const setzeFilter = (aenderung: Partial<ListenFilter>) => {
     const neu = { ...filter, ...aenderung }
     if (!('n' in aenderung)) neu.n = LISTE_SCHRITT   // Filterwechsel: wieder von vorne
     startTransition(() => router.replace(`${pathname}${paramsAusFilter(neu)}`, { scroll: false }))
   }
-  const sucheEingabe = (v: string) => {
-    setSuche(v)
-    if (sucheTimer.current) clearTimeout(sucheTimer.current)
-    sucheTimer.current = setTimeout(() => setzeFilter({ q: v.trim() }), 300)
-  }
+  // Suchfeld überlebt den Neuaufbau der Seite bei URL-Änderung (lib/crm/listenSuche.ts)
+  const sucheFeld = useListenSuche('kontakte', filter.q, q => setzeFilter({ q }))
   const segment = filter.segment
   const filterLead = filter.lead
   const buchstabe = filter.buchstabe
@@ -667,7 +662,7 @@ export default function KontakteClient({
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="search" placeholder="Name, Accountnummer, E-Mail, Telefon…"
-          value={suche} onChange={e => sucheEingabe(e.target.value)}
+          ref={sucheFeld.ref} value={sucheFeld.suche} onChange={sucheFeld.onChange} onKeyDown={sucheFeld.onKeyDown} autoComplete="off"
           className="border border-s112-border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
         />
         <div className="flex gap-1">
