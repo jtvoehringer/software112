@@ -31,18 +31,20 @@ function formatDate(d: string | null) {
 
 function SatzForm({ satz, onDone }: { satz?: SatzEintrag; onDone: () => void }) {
   const [pending, startTransition] = useTransition()
+  const [fehler, setFehler] = useState<string | null>(null)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
     startTransition(async () => {
-      await upsertSatzMassnahme(fd)
-      onDone()
+      try { await upsertSatzMassnahme(fd); setFehler(null); onDone() }
+      catch (e) { setFehler(e instanceof Error ? e.message : String(e)) }
     })
   }
 
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-3">
+      {fehler && <div className="p-2.5 bg-s112-err-bg border border-s112-err/30 rounded-lg text-sm text-s112-err-fg">{fehler}</div>}
       <h3 className="text-sm font-semibold text-s112-text">
         {satz ? 'Satz bearbeiten' : 'Neuen Satz anlegen'}
       </h3>

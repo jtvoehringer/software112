@@ -27,6 +27,7 @@ const KAT_COLOR: Record<string, string> = {
 
 function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
   const [pending, startTransition] = useTransition()
+  const [fehler, setFehler] = useState<string | null>(null)
   // Bug (gemeldet): beim Ändern eines anderen Felds "verlor" das Formular das
   // Häkchen bei "Bio/Öko zugelassen", auch ohne es angefasst zu haben. Ursache:
   // das hidden+checkbox-Paar (Standard-Trick, damit eine NICHT angehakte Box
@@ -46,13 +47,14 @@ function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
     startTransition(async () => {
-      await upsertPSM(fd)
-      onDone()
+      try { await upsertPSM(fd); setFehler(null); onDone() }
+      catch (e) { setFehler(e instanceof Error ? e.message : String(e)) }
     })
   }
 
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-3">
+      {fehler && <div className="p-2.5 bg-s112-err-bg border border-s112-err/30 rounded-lg text-sm text-s112-err-fg">{fehler}</div>}
       <h3 className="text-sm font-semibold text-s112-text">
         {psm ? 'Mittel bearbeiten' : 'Neues Mittel anlegen'}
       </h3>

@@ -40,6 +40,7 @@ function BuchungsForm({
   edit?: DuengerLager['bewegungen'][0] & { duengemittel_id: string }
 }) {
   const [pending, startTransition] = useTransition()
+  const [fehler, setFehler] = useState<string | null>(null)
   const [typ, setTyp] = useState<string>(edit?.typ ?? 'einkauf')
   const isKorrektur = typ === 'korrektur'
   const [richtung, setRichtung] = useState<'eingang' | 'ausgang'>(
@@ -51,13 +52,14 @@ function BuchungsForm({
     const fd = new FormData(e.currentTarget)
     fd.set('richtung', richtung)
     startTransition(async () => {
-      await upsertDuengerBewegung(fd)
-      onDone()
+      try { await upsertDuengerBewegung(fd); setFehler(null); onDone() }
+      catch (e) { setFehler(e instanceof Error ? e.message : String(e)) }
     })
   }
 
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-3">
+      {fehler && <div className="p-2.5 bg-s112-err-bg border border-s112-err/30 rounded-lg text-sm text-s112-err-fg">{fehler}</div>}
       <h3 className="text-sm font-semibold text-s112-text">
         {edit ? 'Buchung bearbeiten' : 'Neue Buchung'}
       </h3>

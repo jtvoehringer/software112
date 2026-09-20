@@ -61,9 +61,12 @@ export async function GET() {
         .order('erstellt_am', { ascending: false }),
       // Pressung-Direktbefüllungen (noch keiner Kellerbuch-Charge zugeordnet)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // pressung_behaelter hat keine tenant_id - Filter über die Pressung (!inner); die
+      // frühere .eq('tenant_id') brach die Abfrage (Postgres-Log 20.9.2026)
+      // tenant-isolation-ignore: Filter über pressung.tenant_id
       (supabase.from('pressung_behaelter') as any)
-        .select('id, menge_liter, behaelter:behaelter_id(name), pressung:pressung_id(datum, weinbezeichnung)')
-        .eq('tenant_id', tenantId).is('weinausbau_id', null).gt('menge_liter', 0)
+        .select('id, menge_liter, behaelter:behaelter_id(name), pressung:pressung_id!inner(datum, weinbezeichnung, tenant_id)')
+        .eq('pressung.tenant_id', tenantId).is('weinausbau_id', null).gt('menge_liter', 0)
         .order('menge_liter', { ascending: false }),
       // Weingärten für Traubenverkauf (mit Ried-Name)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -85,14 +88,16 @@ export async function GET() {
         .order('gst_nr'),
       // Verfügbare kg: Lesemeldungen − Pressungen − bereits verkaufte Trauben
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // tenant-isolation-ignore: ernte_parzellen ohne tenant_id, Filter über den Jahrgang
       (supabase.from('ernte_parzellen') as any)
-        .select('weingarten_id, grundstueck_id, menge_kg, klosterneuburger, qualitaetsstufe, ernte_datum, jahrgang_id')
-        .eq('tenant_id', tenantId)
+        .select('weingarten_id, grundstueck_id, menge_kg, klosterneuburger, qualitaetsstufe, ernte_datum, jahrgang_id, jahrgang:jahrgang_id!inner(tenant_id)')
+        .eq('jahrgang.tenant_id', tenantId)
         .order('ernte_datum', { ascending: false }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // tenant-isolation-ignore: pressung_weingaerten ohne tenant_id, Filter über die Pressung
       (supabase.from('pressung_weingaerten') as any)
-        .select('weingarten_id, grundstueck_id, trauben_kg')
-        .eq('tenant_id', tenantId),
+        .select('weingarten_id, grundstueck_id, trauben_kg, pressung:pressung_id!inner(tenant_id)')
+        .eq('pressung.tenant_id', tenantId),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('traubenverkauf') as any)
         .select('weingarten_id, grundstueck_id, menge_kg')

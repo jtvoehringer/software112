@@ -54,10 +54,11 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
       gesamtHl = (amaMeldung as R).gesamtmenge_hl ?? positionen.reduce((s: number, p: R) => s + (p.menge_hl ?? 0), 0)
     } else {
       // Fallback: ernte_parzellen direkt (gruppiert nach Rebsorte)
-      const { data: parz } = await tf((supabase.from('ernte_parzellen') as any)
+      // tenant-isolation-ignore: ernte_parzellen ohne tenant_id - der Jahrgang ist bereits mandantengefiltert
+      const { data: parz } = await (supabase.from('ernte_parzellen') as any)
         .select('menge_kg, menge_hl, klosterneuburger, qualitaetsstufe, weingarten:weingarten_id(name, rebsorte, flaeche_ha)')
         .eq('jahrgang_id', aktJahrgang.id)
-        .order('id'))
+        .order('id')
       const rawParz = (parz ?? []) as R[]
       // Aggregieren nach Rebsorte
       const byRebsorte = new Map<string, R>()
