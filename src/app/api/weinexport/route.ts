@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import { ereignisMelden } from '@/lib/system/ereignis'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -61,14 +62,14 @@ export async function POST(req: NextRequest) {
         sort_order:    i,
       }))
       { const { error: e } = await (supabase.from('exportauftrag_positionen') as any).insert(posen)
-        if (e) console.error('[weinexport] exportauftrag_positionen:', e.message) }
+        if (e) void ereignisMelden({ art: 'db', quelle: 'weinexport/exportauftrag_positionen', meldung: e.message }) }
     }
 
     // Standard-Dokumente anlegen
     { const { error: e } = await (supabase.from('export_dokumente') as any).insert(
       STANDARD_DOKUMENTE.map(art => ({ exportauftrag_id: id, dokument_art: art, status: 'ausstehend' }))
     )
-      if (e) console.error('[weinexport] export_dokumente:', e.message) }
+      if (e) void ereignisMelden({ art: 'db', quelle: 'weinexport/export_dokumente', meldung: e.message }) }
 
     return NextResponse.json({ ok: true, id })
   } catch (err) {

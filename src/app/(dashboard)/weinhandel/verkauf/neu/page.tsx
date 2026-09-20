@@ -8,6 +8,7 @@ import { Check } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtEur, fmtNum } from '@/lib/format'
 import PartnerSuche from '@/components/crm/PartnerSuche'
+import { fehlerText } from '@/lib/fehler'
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
 
@@ -413,7 +414,7 @@ export default function NeuerVerkaufPage() {
         router.push('/weinhandel/verkauf')
         router.refresh()
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Fehler beim Speichern')
+        setError(fehlerText(err, 'Fehler beim Speichern'))
       }
     })
   }

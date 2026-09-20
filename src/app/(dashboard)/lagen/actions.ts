@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -12,7 +13,7 @@ type AR = Record<string, any>
 // Daten eines anderen Betriebs als des gerade ausgewählten angezeigt/verändert werden.
 async function getTenantId(): Promise<string> {
   const membership = await getCurrentMembership()
-  if (!membership) throw new Error('Kein aktiver Mandant gefunden')
+  if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   return membership.tenantId
 }
 
@@ -28,7 +29,7 @@ export async function createLage(formData: FormData) {
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('lagen') as any).insert(payload)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/lagen')
   revalidatePath('/weingarten')
 }
@@ -45,7 +46,7 @@ export async function updateLage(id: string, formData: FormData) {
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('lagen') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
 
   // Rückmeldung 24.8.2026: das denormalisierte Textfeld weingarten.ried (nach
   // dem die Rieden-Übersicht gruppiert, siehe WeingartenBaum.tsx) muss beim
@@ -56,7 +57,7 @@ export async function updateLage(id: string, formData: FormData) {
   { const { error: e } = await (supabase.from('weingarten') as any)
     .update({ ried: name })
     .eq('lage_id', id).eq('tenant_id', tenantId)
-    if (e) throw new Error(`Speichern fehlgeschlagen (weingarten): ${e.message}`) }
+    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weingarten): ${e.message}`) }
 
   revalidatePath('/lagen')
   revalidatePath('/weingarten')
@@ -101,7 +102,7 @@ export async function assignWeingartenToLage(weingartenId: string, lageId: strin
     .update({ lage_id: lageId, ried: riedName })
     .eq('id', weingartenId)
     .eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/lagen')
   revalidatePath('/weingarten')
 }

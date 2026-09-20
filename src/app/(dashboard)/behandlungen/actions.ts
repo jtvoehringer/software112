@@ -3,13 +3,14 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
 async function getTenantId(): Promise<string> {
   const membership = await getCurrentMembership()
-  if (!membership) throw new Error('Kein aktiver Mandant gefunden')
+  if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   return membership.tenantId
 }
 
@@ -77,7 +78,7 @@ async function ggfKostenEintragAnlegen(
         }
       })
       { const { error: e } = await (supabase.from('kosteneintrag_weingaerten') as any).insert(splitRows)
-        if (e) throw new Error(`Speichern fehlgeschlagen (kosteneintrag_weingaerten): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (kosteneintrag_weingaerten): ${e.message}`) }
     }
 
     revalidatePath('/controlling/kostenrechnung')
@@ -112,7 +113,7 @@ async function ggfKostenEintragAktualisieren(
     if (bestehendId) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       { const { error: e } = await (supabase.from('kosteneintraege') as any).delete().eq('id', bestehendId).eq('tenant_id', tenantId)
-        if (e) throw new Error(`Speichern fehlgeschlagen (kosteneintraege): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (kosteneintraege): ${e.message}`) }
       revalidatePath('/controlling/kostenrechnung')
     }
     return
@@ -154,7 +155,7 @@ async function ggfKostenEintragAktualisieren(
       // Weingarten-Splits neu berechnen (bestehende ersetzen)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       { const { error: e } = await (supabase.from('kosteneintrag_weingaerten') as any).delete().eq('kosteneintrag_id', eintragId)
-        if (e) throw new Error(`Speichern fehlgeschlagen (kosteneintrag_weingaerten): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (kosteneintrag_weingaerten): ${e.message}`) }
     } else {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: transaktionsNr } = await (supabase.rpc as any)('get_next_transaktionsnr', {
@@ -195,7 +196,7 @@ async function ggfKostenEintragAktualisieren(
       })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       { const { error: e } = await (supabase.from('kosteneintrag_weingaerten') as any).insert(splitRows)
-        if (e) throw new Error(`Speichern fehlgeschlagen (kosteneintrag_weingaerten): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (kosteneintrag_weingaerten): ${e.message}`) }
     }
 
     revalidatePath('/controlling/kostenrechnung')
@@ -212,7 +213,7 @@ export async function createBehandlung(formData: FormData) {
   const weingartenIds = formData.getAll('weingarten_ids') as string[]
   const grundstueckIds = formData.getAll('grundstueck_ids') as string[]
   if (weingartenIds.length === 0 && grundstueckIds.length === 0) {
-    throw new Error('Mindestens eine Ried oder ein Grundstück auswählen')
+    throw new AktionsFehler('Mindestens eine Ried oder ein Grundstück auswählen')
   }
 
   const datum           = formData.get('datum') as string
@@ -255,7 +256,7 @@ export async function createBehandlung(formData: FormData) {
     const bioStatus = (tenantRow as AR | null)?.bio_status ?? 'konventionell'
     const mittelOeko = (mittelRow as AR | null)?.oeko_zugelassen ?? false
     if (['bio_eu', 'biodynamisch'].includes(bioStatus) && !mittelOeko) {
-      throw new Error('Dieses Mittel ist nicht öko-zugelassen und passt nicht zum Bio-Status des Betriebs.')
+      throw new AktionsFehler('Dieses Mittel ist nicht öko-zugelassen und passt nicht zum Bio-Status des Betriebs.')
     }
   }
 
@@ -299,7 +300,7 @@ export async function createBehandlung(formData: FormData) {
     .select('id')
     .single()
 
-  if (behErr) throw new Error((behErr as AR).message)
+  if (behErr) throw new AktionsFehler((behErr as AR).message)
   const behandlungId = (beh as AR).id
 
   // 2. Betroffene Grundstücke ermitteln:
@@ -315,7 +316,7 @@ export async function createBehandlung(formData: FormData) {
       .in('weingarten_id', weingartenIds)
       .eq('nutzart', 'WI')
       .eq('tenant_id', tenantId)
-    if (gErr) throw new Error((gErr as AR).message)
+    if (gErr) throw new AktionsFehler((gErr as AR).message)
     for (const g of ((gVonRieden ?? []) as AR[])) {
       grundstueckeById.set(g.id, { id: g.id, weingarten_id: g.weingarten_id, flaeche_ha: g.flaeche_ha ?? null })
     }
@@ -328,7 +329,7 @@ export async function createBehandlung(formData: FormData) {
       .in('id', grundstueckIds)
       .eq('nutzart', 'WI')
       .eq('tenant_id', tenantId)
-    if (gErr2) throw new Error((gErr2 as AR).message)
+    if (gErr2) throw new AktionsFehler((gErr2 as AR).message)
     for (const g of ((gEinzeln ?? []) as AR[])) {
       grundstueckeById.set(g.id, { id: g.id, weingarten_id: g.weingarten_id, flaeche_ha: g.flaeche_ha ?? null })
     }
@@ -343,7 +344,7 @@ export async function createBehandlung(formData: FormData) {
     }))
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: jErr } = await (supabase.from('behandlung_grundstuecke') as any).insert(junctionRows)
-    if (jErr) throw new Error((jErr as AR).message)
+    if (jErr) throw new AktionsFehler((jErr as AR).message)
   }
 
   // 4. Kosten-Vorschlagsfunktion (optional, best effort): Fläche je Weingarten aggregieren
@@ -409,7 +410,7 @@ export async function updateBehandlung(id: string, formData: FormData) {
     })
     .eq('id', id)
     .eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
 
   await ggfKostenEintragAktualisieren(supabase, tenantId, formData, datum, id)
 
@@ -423,6 +424,6 @@ export async function deleteBehandlung(id: string) {
   // CASCADE löscht behandlung_grundstuecke automatisch mit
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('behandlungen') as any).delete().eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/behandlungen')
 }

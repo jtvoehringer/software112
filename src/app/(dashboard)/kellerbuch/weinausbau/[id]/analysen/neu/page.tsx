@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { createAnalyse } from '@/app/(dashboard)/kellerbuch/actions'
+import { fehlerText } from '@/lib/fehler'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -57,7 +58,7 @@ export default function AnalyseNeuPage({ params }: Props) {
       router.push(`/kellerbuch/weinausbau/${weinausbauId}/analysen`)
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unbekannter Fehler')
+      setError(fehlerText(err, 'Unbekannter Fehler'))
       setSaving(false)
     }
   }

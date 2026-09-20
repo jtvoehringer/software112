@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { sendEmail, upsertContact } from '@/lib/brevo/api'
 import { getListIds } from '@/lib/brevo/listen'
 import crypto from 'crypto'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -81,7 +82,7 @@ export async function newsletterAnmelden(formData: FormData): Promise<AnmeldeRes
     quelle:      'website_formular',
     erstellt_am: now,
   })
-    if (e) throw new Error(`Speichern fehlgeschlagen (datenschutz_consents): ${e.message}`) }
+    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (datenschutz_consents): ${e.message}`) }
 
   // Bestätigungs-E-Mail senden
   const confirmUrl = `${baseUrl()}/newsletter/bestaetigt?token=${token}`
@@ -167,7 +168,7 @@ export async function newsletterBestaetigen(token: string): Promise<Bestaetigung
     quelle:      'website_formular',
     erstellt_am: now,
   })
-    if (e) throw new Error(`Speichern fehlgeschlagen (datenschutz_consents): ${e.message}`) }
+    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (datenschutz_consents): ${e.message}`) }
 
   // In Brevo eintragen
   const listIds = getListIds(kontakt.segment)

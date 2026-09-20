@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { upsertDuengemittel, deactivateDuengemittel } from './actions'
 import type { DuengemittelEintrag } from './page'
+import { fehlerText } from '@/lib/fehler'
 
 const TYP_OPTS = [
   { value: 'organisch',  label: 'Organisch' },
@@ -35,7 +36,7 @@ function DuengemittelForm({ duengemittel, onDone }: { duengemittel?: Duengemitte
     const fd = new FormData(e.currentTarget)
     startTransition(async () => {
       try { await upsertDuengemittel(fd); setFehler(null); onDone() }
-      catch (e) { setFehler(e instanceof Error ? e.message : String(e)) }
+      catch (e) { setFehler(fehlerText(e)) }
     })
   }
 

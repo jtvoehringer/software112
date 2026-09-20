@@ -5,6 +5,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { upsertTraubenverkauf, deleteTraubenverkauf } from './actions'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
+import { fehlerText } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -202,7 +203,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
         await upsertTraubenverkauf(fd)
         setShowForm(false); setEditRow(null)
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unbekannter Fehler')
+        setError(fehlerText(err, 'Unbekannter Fehler'))
       }
     })
   }
@@ -210,7 +211,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
   function handleDelete(id: string) {
     startTransition(async () => {
       try { await deleteTraubenverkauf(id); setDeleteConfirm(null) }
-      catch (err) { setError(err instanceof Error ? err.message : 'Fehler beim Löschen') }
+      catch (err) { setError(fehlerText(err, 'Fehler beim Löschen')) }
     })
   }
 

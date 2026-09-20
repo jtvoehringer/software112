@@ -7,6 +7,7 @@
 import { ladeFristen, ladeKeller, ZAHLUNGSZIEL_TAGE, posSum, type Ctx, type R } from '@/app/(dashboard)/dashboard/_shared/data'
 import type { Befund } from '@/lib/wetter/regeln'
 import { alle } from '@/lib/supabase/alle'
+import { ereignisseLaden } from '@/lib/system/ereignis'
 
 export type { Befund }
 export type Einstellungen = Awaited<ReturnType<typeof import('@/app/(dashboard)/dashboard/_shared/data').ladeEinstellungen>>
@@ -34,7 +35,7 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
     // Dubletten serverseitig (Migration 213): alle aktiven Kontakte, gleiche E-Mail (Standard + weitere) oder gleicher Name, ohne "keine Dublette"-Markierungen
     ctx.supabase.rpc('crm_dubletten', { p_tenant_id: ctx.tenantId }),
     // tenant-isolation-ignore: tenants hat keine tenant_id-Spalte, Filter über die eigene id
-    ctx.q('tenants').select('stripe_status, stripe_trial_ends_at, stripe_plan').eq('id', ctx.tenantId).maybeSingle(),
+    ctx.q('tenants').select('stripe_status, stripe_trial_ends_at, stripe_plan, slug').eq('id', ctx.tenantId).maybeSingle(),
     ctx.tf(ctx.q('behandlungen').select('id, weingarten_id, datum, ernte_fruehesteins, weingarten:weingarten!weingarten_id(name, ried)').gte('ernte_fruehesteins', new Date(heute.getTime() - 60 * 86400000).toISOString().slice(0, 10)).limit(500)),
     ctx.tf(ctx.q('pressungen').select('id, datum, weinbezeichnung').gte('datum', `${heute.getFullYear()}-01-01`).limit(500)),
   ])
@@ -124,6 +125,19 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
   if (t.stripe_trial_ends_at) {
     const tage = Math.round((new Date(t.stripe_trial_ends_at).getTime() - heute.getTime()) / 86400000)
     if (tage >= 0 && tage <= 7 && !t.stripe_plan) befunde.push({ key: 'abo:trial', bereich: 'Abo', stufe: 'mittel', titel: `Testphase endet in ${tage} ${tage === 1 ? 'Tag' : 'Tagen'}`, detail: 'Paket wählen, damit der Zugang bestehen bleibt', href: '/abo' })
+  }
+  // 10. Systembericht (nur Sandbox = Betrieb der Super-Admins): Server-/Browser-Fehler
+  //     aller Betriebe der letzten 24 h aus system_ereignisse (Migration 222)
+  if (t.slug === 'sandbox') {
+    try {
+      const ereignisse = (await ereignisseLaden(new Date(heute.getTime() - 86400000))).filter(e => e.art !== 'cron')
+      if (ereignisse.length) {
+        const quellen = new Map<string, number>()
+        for (const e of ereignisse) quellen.set(e.quelle, (quellen.get(e.quelle) ?? 0) + 1)
+        const top = [...quellen.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([q, n]) => `${q} (${n})`).join(', ')
+        befunde.push({ key: 'system:fehler', bereich: 'System', stufe: ereignisse.length >= 10 ? 'hoch' : 'mittel', titel: `${ereignisse.length} Fehler in den letzten 24 Stunden (alle Betriebe)`, detail: top, href: '/admin/system' })
+      }
+    } catch { /* Systembericht ist Zusatznutzen */ }
   }
   void paket
   return befunde

@@ -2,6 +2,7 @@ import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
+import { ereignisMelden } from '@/lib/system/ereignis'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -13,7 +14,7 @@ async function getTId(): Promise<string | null> {
 async function saveWgSplit(s: any, eintragsId: string, wgSplit: R[], betrag: number) { // eslint-disable-line @typescript-eslint/no-explicit-any
   // Alte Splits löschen
   { const { error: e } = await (s.from('kosteneintrag_weingaerten') as any).delete().eq('kosteneintrag_id', eintragsId)
-    if (e) console.error('[kostenrechnung] kosteneintrag_weingaerten:', e.message) }
+    if (e) void ereignisMelden({ art: 'db', quelle: 'kostenrechnung/kosteneintrag_weingaerten', meldung: e.message }) }
   if (!wgSplit || wgSplit.length === 0) return
   // Neue Splits einfügen
   const gleichmaessig = wgSplit.every((w: R) => !w.anteil_pct)
@@ -27,7 +28,7 @@ async function saveWgSplit(s: any, eintragsId: string, wgSplit: R[], betrag: num
     }
   })
   { const { error: e } = await (s.from('kosteneintrag_weingaerten') as any).insert(records)
-    if (e) console.error('[kostenrechnung] kosteneintrag_weingaerten:', e.message) }
+    if (e) void ereignisMelden({ art: 'db', quelle: 'kostenrechnung/kosteneintrag_weingaerten', meldung: e.message }) }
 }
 
 export async function GET(req: NextRequest) {
@@ -118,39 +119,39 @@ export async function POST(req: NextRequest) {
   }
   if (b.action === 'loeschen') {
     { const { error: e } = await (s.from('kosteneintraege') as any).delete().eq('id', b.id).eq('tenant_id', t)
-      if (e) console.error('[kostenrechnung] kosteneintraege:', e.message) }
+      if (e) void ereignisMelden({ art: 'db', quelle: 'kostenrechnung/kosteneintraege', meldung: e.message }) }
     return NextResponse.json({ ok: true })
   }
   // Kostenstelle anlegen/bearbeiten/löschen
   if (b.action === 'ks_save') {
     if (b.id) {
       { const { error: e } = await (s.from('kostenstellen') as any).update({ name: b.name, kuerzel: b.kuerzel||null, beschreibung: b.beschreibung||null }).eq('id', b.id).eq('tenant_id', t)
-        if (e) console.error('[kostenrechnung] kostenstellen:', e.message) }
+        if (e) void ereignisMelden({ art: 'db', quelle: 'kostenrechnung/kostenstellen', meldung: e.message }) }
     } else {
       { const { error: e } = await (s.from('kostenstellen') as any).insert({ tenant_id: t, name: b.name, kuerzel: b.kuerzel||null, beschreibung: b.beschreibung||null })
-        if (e) console.error('[kostenrechnung] kostenstellen:', e.message) }
+        if (e) void ereignisMelden({ art: 'db', quelle: 'kostenrechnung/kostenstellen', meldung: e.message }) }
     }
     return NextResponse.json({ ok: true })
   }
   if (b.action === 'ks_delete') {
     { const { error: e } = await (s.from('kostenstellen') as any).update({ aktiv: false }).eq('id', b.id).eq('tenant_id', t)
-      if (e) console.error('[kostenrechnung] kostenstellen:', e.message) }
+      if (e) void ereignisMelden({ art: 'db', quelle: 'kostenrechnung/kostenstellen', meldung: e.message }) }
     return NextResponse.json({ ok: true })
   }
   // Kostenart anlegen/bearbeiten/löschen
   if (b.action === 'ka_save') {
     if (b.id) {
       { const { error: e } = await (s.from('kostenarten') as any).update({ name: b.name, kuerzel: b.kuerzel||null, kategorie: b.kategorie||null }).eq('id', b.id).eq('tenant_id', t)
-        if (e) console.error('[kostenrechnung] kostenarten:', e.message) }
+        if (e) void ereignisMelden({ art: 'db', quelle: 'kostenrechnung/kostenarten', meldung: e.message }) }
     } else {
       { const { error: e } = await (s.from('kostenarten') as any).insert({ tenant_id: t, name: b.name, kuerzel: b.kuerzel||null, kategorie: b.kategorie||null })
-        if (e) console.error('[kostenrechnung] kostenarten:', e.message) }
+        if (e) void ereignisMelden({ art: 'db', quelle: 'kostenrechnung/kostenarten', meldung: e.message }) }
     }
     return NextResponse.json({ ok: true })
   }
   if (b.action === 'ka_delete') {
     { const { error: e } = await (s.from('kostenarten') as any).update({ aktiv: false }).eq('id', b.id).eq('tenant_id', t)
-      if (e) console.error('[kostenrechnung] kostenarten:', e.message) }
+      if (e) void ereignisMelden({ art: 'db', quelle: 'kostenrechnung/kostenarten', meldung: e.message }) }
     return NextResponse.json({ ok: true })
   }
   return NextResponse.json({ fehler: 'Unbekannte Aktion' }, { status: 400 })

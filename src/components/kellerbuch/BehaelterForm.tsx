@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { fehlerText } from '@/lib/fehler'
 
 type BehaelterRow = {
   id: string; name: string; typ: string | null
@@ -30,7 +31,7 @@ export default function BehaelterForm({ behaelter, action, partner = null }: Pro
       router.push('/kellerbuch')
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Fehler beim Speichern')
+      setError(fehlerText(err, 'Fehler beim Speichern'))
       setSaving(false)
     }
   }

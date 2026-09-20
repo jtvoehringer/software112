@@ -18,6 +18,7 @@ import { setActiveTenantCookie } from '@/lib/auth/activeTenant'
 import { getStripe, TRIAL_TAGE } from '@/lib/stripe/client'
 import { istPaketKey, paketPriceId, PAKETE } from '@/lib/pakete'
 import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -75,7 +76,7 @@ export async function registrierenAction(formData: FormData): Promise<Ergebnis> 
   })
   if (userError || !userData.user) {
     { const { error: e } = await (admin.from('tenants') as R).delete().eq('id', tenantId)
-      if (e) throw new Error(`Speichern fehlgeschlagen (tenants): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (tenants): ${e.message}`) }
     return { ok: false, fehler: userError?.message ?? 'Konto konnte nicht angelegt werden.' }
   }
   const userId = userData.user.id
@@ -85,7 +86,7 @@ export async function registrierenAction(formData: FormData): Promise<Ergebnis> 
   if (memberError) {
     await admin.auth.admin.deleteUser(userId)
     { const { error: e } = await (admin.from('tenants') as R).delete().eq('id', tenantId)
-      if (e) throw new Error(`Speichern fehlgeschlagen (tenants): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (tenants): ${e.message}`) }
     return { ok: false, fehler: (memberError as R).message }
   }
 
@@ -106,7 +107,7 @@ export async function registrierenAction(formData: FormData): Promise<Ergebnis> 
     return { ok: false, fehler: `Konto wurde angelegt, Stripe-Fehler: ${(err as Error).message}. Sie können sich einloggen und die Zahlungsdaten unter /abo nachtragen.` }
   }
   { const { error: e } = await (admin.from('tenants') as R).update({ stripe_customer_id: customer.id }).eq('id', tenantId)
-    if (e) throw new Error(`Speichern fehlgeschlagen (tenants): ${e.message}`) }
+    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (tenants): ${e.message}`) }
   await stripeKundennummerSync(tenantId)
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://software112.icp-consultants.at'

@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin, canWrite } from '@/lib/auth/roles'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -9,7 +10,7 @@ type R = Record<string, any>
 async function getCtx() {
   const supabase   = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
-  if (!membership?.tenantId) throw new Error('Kein Mandant')
+  if (!membership?.tenantId) throw new AktionsFehler('Kein Mandant')
   return { supabase, tenantId: membership.tenantId, role: membership.role }
 }
 

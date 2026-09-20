@@ -2,6 +2,7 @@
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -14,8 +15,8 @@ export async function saveTB(verkaufspostenId: string, daten: R): Promise<{ id: 
   // Mandanten geschrieben werden.
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId
-  if (!tenantId) throw new Error('Kein Tenant')
-  if (!canWrite(membership, 'warenwirtschaft')) throw new Error('Keine Berechtigung')   // Admin-Client umgeht RLS → Modulrecht hier prüfen
+  if (!tenantId) throw new AktionsFehler('Kein Tenant')
+  if (!canWrite(membership, 'warenwirtschaft')) throw new AktionsFehler('Keine Berechtigung')   // Admin-Client umgeht RLS → Modulrecht hier prüfen
 
   // Bestehendes Dokument suchen
   const { data: existing } = await (admin.from('transportbescheinigungen') as any)
@@ -29,7 +30,7 @@ export async function saveTB(verkaufspostenId: string, daten: R): Promise<{ id: 
       .update({ formular_daten: daten, aktualisiert_am: new Date().toISOString() })
       .eq('id', existing.id)
       .eq('tenant_id', tenantId)
-      if (e) throw new Error(`Speichern fehlgeschlagen (transportbescheinigungen): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (transportbescheinigungen): ${e.message}`) }
     return { id: existing.id }
   }
 

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createCustomWeinbaugebiet, type CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
+import { fehlerText } from '@/lib/fehler'
 
 type Option = { value: string; label: string }
 
@@ -78,7 +79,7 @@ export default function HerkunftCodeSelect({
         onNeuAngelegt?.(neu)
       }
     } catch (e) {
-      setFehler(e instanceof Error ? e.message : 'Fehler beim Speichern')
+      setFehler(fehlerText(e, 'Fehler beim Speichern'))
     } finally {
       setSpeichert(false)
     }

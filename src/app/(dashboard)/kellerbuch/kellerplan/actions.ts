@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -14,7 +15,7 @@ type AR = Record<string, any>
 async function getTenantId(): Promise<string> {
   const membership = await getCurrentMembership()
   const id = membership?.tenantId
-  if (!id) throw new Error('Kein Betrieb gefunden')
+  if (!id) throw new AktionsFehler('Kein Betrieb gefunden')
   return id
 }
 
@@ -32,7 +33,7 @@ export async function createKellerplan(formData: FormData) {
     notizen:   (formData.get('notizen') as string) || null,
   }).select('id').single()
 
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/kellerbuch/kellerplan')
   redirect(`/kellerbuch/kellerplan/${(data as AR).id}`)
 }
@@ -49,7 +50,7 @@ export async function updateKellerplan(id: string, formData: FormData) {
     notizen:  (formData.get('notizen') as string) || null,
     aktualisiert_am: new Date().toISOString(),
   }).eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/kellerbuch/kellerplan')
   revalidatePath(`/kellerbuch/kellerplan/${id}`)
 }
@@ -80,7 +81,7 @@ export async function upsertKellerplanPosition(
       aktualisiert_am: new Date().toISOString(),
     }, { onConflict: 'behaelter_id' })
 
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath(`/kellerbuch/kellerplan/${kellerplanId}`)
   if (alterPlanId && alterPlanId !== kellerplanId) {
     revalidatePath(`/kellerbuch/kellerplan/${alterPlanId}`)
@@ -97,7 +98,7 @@ export async function deleteKellerplanPosition(kellerplanId: string, behaelterId
     .eq('kellerplan_id', kellerplanId)
     .eq('behaelter_id', behaelterId)
     .eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath(`/kellerbuch/kellerplan/${kellerplanId}`)
 }
 
@@ -107,7 +108,7 @@ export async function deleteKellerplan(id: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
   const { error } = await (supabase.from('kellerplaene') as any).delete().eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/kellerbuch/kellerplan')
   redirect('/kellerbuch/kellerplan')
 }

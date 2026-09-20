@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -10,7 +11,7 @@ type R = Record<string, any>
 async function getCtx() {
   const supabase   = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
-  if (!membership?.tenantId) throw new Error('Kein Mandant')
+  if (!membership?.tenantId) throw new AktionsFehler('Kein Mandant')
   return { supabase, tenantId: membership.tenantId }
 }
 
@@ -252,7 +253,7 @@ export async function syncEaEinnahmeFuerVerkauf(
       .delete()
       .in('id', bestehende.map((b: R) => b.id))
       .eq('tenant_id', tenantId)
-      if (e) throw new Error(`Speichern fehlgeschlagen (ea_transaktionen): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (ea_transaktionen): ${e.message}`) }
   }
 
   if (posten.storniert) {
@@ -476,7 +477,7 @@ export async function verwerfeBeleg(belegId: string): Promise<void> {
   if (beleg && beleg.status !== 'verbucht') {
     { const { error: e } = await (supabase.from('ea_belege') as any)
       .delete().eq('id', belegId).eq('tenant_id', tenantId)
-      if (e) throw new Error(`Speichern fehlgeschlagen (ea_belege): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (ea_belege): ${e.message}`) }
     await supabase.storage.from('ea-belege').remove([beleg.storage_pfad])
   }
 

@@ -6,6 +6,7 @@
 import { useState, useTransition } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { checklisteAnlegen, punktUmschalten, punktHinzufuegen, punktLoeschen } from './actions'
+import { fehlerText } from '@/lib/fehler'
 
 export type Punkt = { id: string; text: string; zustaendig: string | null; faellig_am: string | null; faellig_hinweis: string | null; erledigt: boolean }
 
@@ -17,7 +18,7 @@ export default function LeseCheckliste({ listeId, jahr, punkte, darfSchreiben }:
 
   const run = (fn: () => Promise<void>) => start(async () => {
     setFehler(null)
-    try { await fn() } catch (e) { setFehler(e instanceof Error ? e.message : String(e)) }
+    try { await fn() } catch (e) { setFehler(fehlerText(e)) }
   })
 
   const done = punkte.filter(p => p.erledigt).length

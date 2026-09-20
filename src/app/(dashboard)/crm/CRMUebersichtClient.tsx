@@ -6,6 +6,7 @@ import { createAktivitaet, moveAktivitaet, updateAktivitaet, updatePipelineEintr
 import { AKTIVITAET_ARTEN } from '@/lib/crm/types'
 import Link from '@/components/ui/Link'
 import { X, Lock, Pencil, Calendar, Check, Trash2 } from 'lucide-react'
+import { fehlerText } from '@/lib/fehler'
 
 // ── Typeahead-Suche ───────────────────────────────────────────────────────────
 interface SucheItem { id: string; label: string; sub?: string }
@@ -471,7 +472,7 @@ function ZeitachseView({
         setNewAktFirmaId('')
         router.refresh()
       } catch (err) {
-        setSaveErr(err instanceof Error ? err.message : 'Fehler beim Speichern')
+        setSaveErr(fehlerText(err, 'Fehler beim Speichern'))
       }
     })
   }
@@ -866,7 +867,7 @@ function ZeitachseView({
                         setViewAkt(null)
                         router.refresh()
                       } catch (err) {
-                        setSaveErr(err instanceof Error ? err.message : 'Fehler beim Löschen')
+                        setSaveErr(fehlerText(err, 'Fehler beim Löschen'))
                       }
                     })
                   }} disabled={pending}
@@ -900,7 +901,7 @@ function ZeitachseView({
                     setEditAktMode(false)
                     router.refresh()
                   } catch (err) {
-                    setSaveErr(err instanceof Error ? err.message : 'Fehler beim Speichern')
+                    setSaveErr(fehlerText(err, 'Fehler beim Speichern'))
                   }
                 })
               }} className="space-y-3">
@@ -959,7 +960,7 @@ function ZeitachseView({
                     setViewAkt(null); setEditPipeMode(false)
                     router.refresh()
                   } catch (err) {
-                    setSaveErr(err instanceof Error ? err.message : 'Fehler beim Speichern')
+                    setSaveErr(fehlerText(err, 'Fehler beim Speichern'))
                   }
                 })
               }} className="space-y-3">

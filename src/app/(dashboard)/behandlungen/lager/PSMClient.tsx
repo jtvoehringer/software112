@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { upsertPSM, deactivatePSM } from './actions'
 import type { PSMEintrag } from './page'
+import { fehlerText } from '@/lib/fehler'
 
 const KATEGORIE_OPTS = [
   { value: 'fungizid',         label: 'Fungizid' },
@@ -48,7 +49,7 @@ function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
     const fd = new FormData(e.currentTarget)
     startTransition(async () => {
       try { await upsertPSM(fd); setFehler(null); onDone() }
-      catch (e) { setFehler(e instanceof Error ? e.message : String(e)) }
+      catch (e) { setFehler(fehlerText(e)) }
     })
   }
 

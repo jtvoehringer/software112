@@ -3,6 +3,7 @@ import { useState, useRef } from 'react'
 import { Upload } from 'lucide-react'
 import { createEroeffnungsbestandVonImport } from '@/app/(dashboard)/kellerbuch/gebinde-actions'
 import { exportCSV } from '@/lib/utils/csv'
+import { fehlerText } from '@/lib/fehler'
 
 type ImportTyp = 'kontakte' | 'firmen' | 'fuellungen' | 'rieden_details' | 'grundstuecke' | 'gebinde'
 
@@ -272,7 +273,7 @@ export default function ImportClient({
         setResult({ ...summe, details: [...summe.details], duplikate: [...summe.duplikate] })
       }
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : String(err))
+      setErrorMsg(fehlerText(err))
     } finally {
       setImporting(false)
       setFortschritt(null)

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
+import { fehlerText } from '@/lib/fehler'
 
 interface Props {
   action: () => Promise<void | { error?: string }>
@@ -22,7 +23,7 @@ export default function LoeschenButton({ action, bestaetigung = 'Eintrag wirklic
         setError(result.error)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Löschen fehlgeschlagen')
+      setError(fehlerText(err, 'Löschen fehlgeschlagen'))
     } finally {
       setPending(false)
     }

@@ -3,13 +3,14 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
 async function getTenantId(): Promise<string> {
   const membership = await getCurrentMembership()
-  if (!membership) throw new Error('Kein aktiver Mandant gefunden')
+  if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   return membership.tenantId
 }
 
@@ -22,17 +23,17 @@ export async function upsertSonstigesArtikel(formData: FormData) {
   const einheit      = (formData.get('einheit')      as string).trim() || 'Stk'
   const defaultPreis = parseFloat(formData.get('default_preis') as string) || null
 
-  if (!name) throw new Error('Name darf nicht leer sein')
+  if (!name) throw new AktionsFehler('Name darf nicht leer sein')
 
   if (id) {
     const { error } = await (supabase.from('sonstige_artikel') as any)
       .update({ name, einheit, default_preis: defaultPreis })
       .eq('id', id).eq('tenant_id', tenantId)
-    if (error) throw new Error((error as AR).message)
+    if (error) throw new AktionsFehler((error as AR).message)
   } else {
     const { error } = await (supabase.from('sonstige_artikel') as any)
       .insert({ tenant_id: tenantId, name, einheit, default_preis: defaultPreis })
-    if (error) throw new Error((error as AR).message)
+    if (error) throw new AktionsFehler((error as AR).message)
   }
 
   revalidatePath('/weinhandel/sonstige-artikel')
@@ -44,7 +45,7 @@ export async function toggleAktivSonstigesArtikel(id: string, aktiv: boolean) {
   const { error } = await (supabase.from('sonstige_artikel') as any)
     .update({ aktiv })
     .eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/weinhandel/sonstige-artikel')
 }
 

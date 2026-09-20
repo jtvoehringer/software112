@@ -8,13 +8,14 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
 async function assertSystemAdmin() {
   const role = await getCurrentUserRole()
-  if (role !== 'system_admin') throw new Error('Nur system_admin erlaubt')
+  if (role !== 'system_admin') throw new AktionsFehler('Nur system_admin erlaubt')
 }
 
 export async function createFreigabe(formData: FormData): Promise<{ error?: string }> {

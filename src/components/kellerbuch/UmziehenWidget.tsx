@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
+import { fehlerText } from '@/lib/fehler'
 
 type Gebinde = { id: string; name: string; volumen_liter?: number | null }
 type Charge  = { id: string; name: string; menge_liter: number | null; behaelter_id?: string | null; rebsorte?: string | null }
@@ -117,7 +118,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
           router.refresh()
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Fehler beim Umziehen')
+        setError(fehlerText(err, 'Fehler beim Umziehen'))
       }
     })
   }

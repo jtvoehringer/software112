@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { graphPost, getValidAccessToken } from '@/lib/m365/graph'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { ereignisMelden } from '@/lib/system/ereignis'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
       art: 'email', betreff, beschreibung: text?.slice(0, 200) ?? null,
       datum: new Date().toISOString().split('T')[0], erledigt: true, ganztags: true,
     })
-      if (e) console.error('[send] aktivitaeten:', e.message) }
+      if (e) void ereignisMelden({ art: 'db', quelle: 'send/aktivitaeten', meldung: e.message }) }
 
     return NextResponse.json({ ok: true })
   } catch (err) {

@@ -7,6 +7,7 @@ import { umziehen, deleteUmzug, updateUmzug } from './actions'
 import { ArrowLeftRight, Filter, X, AlertTriangle, CheckCircle2, Pencil, Trash2 } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
+import { fehlerText } from '@/lib/fehler'
 
 type BehaelterMitCharge = {
   behaelter_id:   string
@@ -232,7 +233,7 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
         setSuccess(true)
         setTimeout(() => router.push('/kellerbuch'), 1200)
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Fehler')
+        setError(fehlerText(err, 'Fehler'))
       }
     })
   }
@@ -363,7 +364,7 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
         setEditing(false)
         router.refresh()   // Server-Daten neu laden
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Fehler beim Speichern')
+        setError(fehlerText(err, 'Fehler beim Speichern'))
       }
     })
   }
@@ -375,7 +376,7 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
         await deleteUmzug(u.id)
         router.refresh()   // Protokoll-Liste aktualisieren
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Fehler beim Löschen')
+        setError(fehlerText(err, 'Fehler beim Löschen'))
         setConfirming(false)
       }
     })

@@ -22,6 +22,7 @@ import { KELLERBEHANDLUNG_TOOL, KELLERBEHANDLUNG_FELD_MATRIX_TEXT, fuehreKellerb
 import { KORREKTUR_TOOL, KORREKTUR_FELD_MATRIX_TEXT, fuehreKorrekturMerkenAus } from '@/lib/assistent/tools/korrektur'
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { ereignisMelden } from '@/lib/system/ereignis'
 
 export const dynamic = 'force-dynamic'
 
@@ -190,7 +191,7 @@ export async function POST(req: NextRequest) {
     { const { error: e } = await (supabase.from('assistent_nachrichten') as any).insert({
       unterhaltung_id: unterhaltungId, rolle: 'user', inhalt: nachricht,
     })
-      if (e) console.error('[chat] assistent_nachrichten:', e.message) }
+      if (e) void ereignisMelden({ art: 'db', quelle: 'chat/assistent_nachrichten', meldung: e.message }) }
 
     // ── Bisherigen (reinen Text-)Verlauf laden ──────────────────────────────
     // Bewusst nur die reinen User/Assistant-Textnachrichten (tool_name IS
@@ -274,7 +275,7 @@ export async function POST(req: NextRequest) {
         unterhaltung_id: unterhaltungId, rolle: 'assistant',
         inhalt: textBlocks || null, tool_name: toolUse.name, tool_input: toolUse.input,
       })
-        if (e) console.error('[chat] assistent_nachrichten:', e.message) }
+        if (e) void ereignisMelden({ art: 'db', quelle: 'chat/assistent_nachrichten', meldung: e.message }) }
 
       // Dispatch je nach Tool-Name auf den passenden Handler.
       let ergebnis: R
@@ -303,7 +304,7 @@ export async function POST(req: NextRequest) {
         unterhaltung_id: unterhaltungId, rolle: 'tool',
         tool_name: toolUse.name, tool_result: ergebnis,
       })
-        if (e) console.error('[chat] assistent_nachrichten:', e.message) }
+        if (e) void ereignisMelden({ art: 'db', quelle: 'chat/assistent_nachrichten', meldung: e.message }) }
 
       // Erfolgreich angelegte Datensätze im Aktions-Protokoll festhalten
       if (ergebnis?.erfolg && toolUse.name === 'massnahme_dokumentieren' && ergebnis?.behandlung_id) {
@@ -314,7 +315,7 @@ export async function POST(req: NextRequest) {
           ziel_id: ergebnis.behandlung_id,
           erstellt_von: user.id,
         })
-          if (e) console.error('[chat] assistent_aktionen:', e.message) }
+          if (e) void ereignisMelden({ art: 'db', quelle: 'chat/assistent_aktionen', meldung: e.message }) }
       } else if (ergebnis?.erfolg && toolUse.name === 'verkauf_anlegen' && ergebnis?.verkaufsposten_id) {
         { const { error: e } = await (supabase.from('assistent_aktionen') as any).insert({
           unterhaltung_id: unterhaltungId,
@@ -323,7 +324,7 @@ export async function POST(req: NextRequest) {
           ziel_id: ergebnis.verkaufsposten_id,
           erstellt_von: user.id,
         })
-          if (e) console.error('[chat] assistent_aktionen:', e.message) }
+          if (e) void ereignisMelden({ art: 'db', quelle: 'chat/assistent_aktionen', meldung: e.message }) }
       } else if (ergebnis?.erfolg && toolUse.name === 'ernte_erfassen' && ergebnis?.jahrgang_id) {
         { const { error: e } = await (supabase.from('assistent_aktionen') as any).insert({
           unterhaltung_id: unterhaltungId,
@@ -332,7 +333,7 @@ export async function POST(req: NextRequest) {
           ziel_id: ergebnis.jahrgang_id,
           erstellt_von: user.id,
         })
-          if (e) console.error('[chat] assistent_aktionen:', e.message) }
+          if (e) void ereignisMelden({ art: 'db', quelle: 'chat/assistent_aktionen', meldung: e.message }) }
       } else if (ergebnis?.erfolg && toolUse.name === 'abfuellen' && ergebnis?.fuellung_id) {
         { const { error: e } = await (supabase.from('assistent_aktionen') as any).insert({
           unterhaltung_id: unterhaltungId,
@@ -341,7 +342,7 @@ export async function POST(req: NextRequest) {
           ziel_id: ergebnis.fuellung_id,
           erstellt_von: user.id,
         })
-          if (e) console.error('[chat] assistent_aktionen:', e.message) }
+          if (e) void ereignisMelden({ art: 'db', quelle: 'chat/assistent_aktionen', meldung: e.message }) }
       } else if (ergebnis?.erfolg && toolUse.name === 'verschneiden' && ergebnis?.ziel_weinausbau_id) {
         { const { error: e } = await (supabase.from('assistent_aktionen') as any).insert({
           unterhaltung_id: unterhaltungId,
@@ -350,7 +351,7 @@ export async function POST(req: NextRequest) {
           ziel_id: ergebnis.ziel_weinausbau_id,
           erstellt_von: user.id,
         })
-          if (e) console.error('[chat] assistent_aktionen:', e.message) }
+          if (e) void ereignisMelden({ art: 'db', quelle: 'chat/assistent_aktionen', meldung: e.message }) }
       } else if (ergebnis?.erfolg && toolUse.name === 'umziehen' && (toolUse.input as R)?.weinausbau_id) {
         // umziehen() liefert keine eigene neue ID zurück (nur optionale Folgeeffekt-Hinweise) –
         // als ziel_id daher die Quell-Charge aus dem Tool-Aufruf selbst verwenden.
@@ -361,7 +362,7 @@ export async function POST(req: NextRequest) {
           ziel_id: String((toolUse.input as R).weinausbau_id),
           erstellt_von: user.id,
         })
-          if (e) console.error('[chat] assistent_aktionen:', e.message) }
+          if (e) void ereignisMelden({ art: 'db', quelle: 'chat/assistent_aktionen', meldung: e.message }) }
       } else if (ergebnis?.erfolg && toolUse.name === 'kellerbehandlung_erfassen' && ergebnis?.behandlung_id) {
         { const { error: e } = await (supabase.from('assistent_aktionen') as any).insert({
           unterhaltung_id: unterhaltungId,
@@ -370,7 +371,7 @@ export async function POST(req: NextRequest) {
           ziel_id: ergebnis.behandlung_id,
           erstellt_von: user.id,
         })
-          if (e) console.error('[chat] assistent_aktionen:', e.message) }
+          if (e) void ereignisMelden({ art: 'db', quelle: 'chat/assistent_aktionen', meldung: e.message }) }
       } else if (ergebnis?.erfolg && toolUse.name === 'korrektur_merken' && ergebnis?.korrektur_id) {
         { const { error: e } = await (supabase.from('assistent_aktionen') as any).insert({
           unterhaltung_id: unterhaltungId,
@@ -379,7 +380,7 @@ export async function POST(req: NextRequest) {
           ziel_id: ergebnis.korrektur_id,
           erstellt_von: user.id,
         })
-          if (e) console.error('[chat] assistent_aktionen:', e.message) }
+          if (e) void ereignisMelden({ art: 'db', quelle: 'chat/assistent_aktionen', meldung: e.message }) }
       }
 
       workingMessages.push({ role: 'assistant', content: msg.content })
@@ -399,7 +400,7 @@ export async function POST(req: NextRequest) {
     { const { error: e } = await (supabase.from('assistent_nachrichten') as any).insert({
       unterhaltung_id: unterhaltungId, rolle: 'assistant', inhalt: finalText,
     })
-      if (e) console.error('[chat] assistent_nachrichten:', e.message) }
+      if (e) void ereignisMelden({ art: 'db', quelle: 'chat/assistent_nachrichten', meldung: e.message }) }
 
     return NextResponse.json({ unterhaltungId, antwort: finalText })
   } catch (err) {

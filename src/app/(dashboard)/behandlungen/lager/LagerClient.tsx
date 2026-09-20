@@ -5,6 +5,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { upsertLagerBewegung, deleteLagerBewegung } from './actions'
 import type { PSMLager, PSMOption } from './page'
 import { fmtNum } from '@/lib/format'
+import { fehlerText } from '@/lib/fehler'
 
 const TYP_LABEL: Record<string, string> = {
   anfangsbestand: 'Anfangsbestand',
@@ -49,7 +50,7 @@ function BuchungsForm({
     fd.set('richtung', richtung)
     startTransition(async () => {
       try { await upsertLagerBewegung(fd); setFehler(null); onDone() }
-      catch (e) { setFehler(e instanceof Error ? e.message : String(e)) }
+      catch (e) { setFehler(fehlerText(e)) }
     })
   }
 

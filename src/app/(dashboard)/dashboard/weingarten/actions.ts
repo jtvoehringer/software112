@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { LESE_VORLAGE } from './vorlage'
+import { AktionsFehler } from '@/lib/fehler'
 
 const PFAD = '/dashboard/weingarten'
 
@@ -14,8 +15,8 @@ async function kontext() {
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!membership?.tenantId || !user) throw new Error('Nicht angemeldet')
-  if (!canWrite(membership.role, 'rieden')) throw new Error('Keine Berechtigung')
+  if (!membership?.tenantId || !user) throw new AktionsFehler('Nicht angemeldet')
+  if (!canWrite(membership.role, 'rieden')) throw new AktionsFehler('Keine Berechtigung')
   return { supabase, tenantId: membership.tenantId, userId: user.id }
 }
 
@@ -24,12 +25,12 @@ export async function checklisteAnlegen(jahr: number) {
   const { data: liste, error } = await (supabase.from('checklisten') as any)
     .insert({ tenant_id: tenantId, typ: 'lese', name: `Lesevorbereitung ${jahr}`, jahr, erstellt_von: userId })
     .select('id').single()
-  if (error) throw new Error(error.message)
+  if (error) throw new AktionsFehler(error.message)
   const punkte = LESE_VORLAGE.map((p, i) => ({
     tenant_id: tenantId, checkliste_id: liste.id, text: p.text, zustaendig: p.zustaendig, faellig_hinweis: p.hinweis, sortierung: (i + 1) * 10,
   }))
   const { error: e2 } = await (supabase.from('checklisten_punkte') as any).insert(punkte)
-  if (e2) throw new Error(e2.message)
+  if (e2) throw new AktionsFehler(e2.message)
   revalidatePath(PFAD); revalidatePath('/dashboard')
 }
 
@@ -38,7 +39,7 @@ export async function punktUmschalten(id: string, erledigt: boolean) {
   const { error } = await (supabase.from('checklisten_punkte') as any)
     .update({ erledigt, erledigt_am: erledigt ? new Date().toISOString() : null, erledigt_von: erledigt ? userId : null })
     .eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error(error.message)
+  if (error) throw new AktionsFehler(error.message)
   revalidatePath(PFAD); revalidatePath('/dashboard')
 }
 
@@ -52,13 +53,13 @@ export async function punktHinzufuegen(checklisteId: string, text: string, zusta
     tenant_id: tenantId, checkliste_id: checklisteId, text: t, zustaendig: zustaendig.trim() || null, faellig_hinweis: hinweis.trim() || null,
     sortierung: ((max as { sortierung?: number } | null)?.sortierung ?? 0) + 10,
   })
-  if (error) throw new Error(error.message)
+  if (error) throw new AktionsFehler(error.message)
   revalidatePath(PFAD); revalidatePath('/dashboard')
 }
 
 export async function punktLoeschen(id: string) {
   const { supabase, tenantId } = await kontext()
   const { error } = await (supabase.from('checklisten_punkte') as any).delete().eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error(error.message)
+  if (error) throw new AktionsFehler(error.message)
   revalidatePath(PFAD); revalidatePath('/dashboard')
 }

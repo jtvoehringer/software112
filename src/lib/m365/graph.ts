@@ -1,4 +1,5 @@
 import { decryptPass, encryptPass } from '@/lib/email/crypto'
+import { ereignisMelden } from '@/lib/system/ereignis'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -96,7 +97,7 @@ export async function getValidAccessToken(cfg: R, admin: R): Promise<string> {
     ...(tokens.refresh_token ? { m365_refresh_token_enc: encryptPass(tokens.refresh_token) } : {}),
     m365_token_expires_at:  new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
   }).eq('tenant_id', cfg.tenant_id)
-    if (e) console.error('[m365] tenant_einstellungen:', e.message) }
+    if (e) void ereignisMelden({ art: 'db', quelle: 'm365/tenant_einstellungen', meldung: e.message }) }
 
   return tokens.access_token
 }
@@ -139,7 +140,7 @@ export async function getValidUserAccessToken(
     m365_token_expires_at:  new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
     aktualisiert_am:        new Date().toISOString(),
   }).eq('tenant_id', tenantId).eq('user_id', userId)
-    if (e) console.error('[m365] user_email_connections:', e.message) }
+    if (e) void ereignisMelden({ art: 'db', quelle: 'm365/user_email_connections', meldung: e.message }) }
 
   return tokens.access_token
 }

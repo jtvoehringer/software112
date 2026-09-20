@@ -9,13 +9,14 @@ import { randomUUID } from 'crypto'
 import { syncEaEinnahmeFuerVerkauf } from '@/app/(dashboard)/buchhaltung/actions'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtEur, fmtNum } from '@/lib/format'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
 async function getTenantId(): Promise<string> {
   const membership = await getCurrentMembership()
-  if (!membership) throw new Error('Kein aktiver Mandant gefunden')
+  if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   return membership.tenantId
 }
 
@@ -81,11 +82,11 @@ export async function createVerkauf(formData: FormData) {
   try {
     positionen = JSON.parse(posJson || '[]')
   } catch {
-    throw new Error('Ungültige Positions-Daten')
+    throw new AktionsFehler('Ungültige Positions-Daten')
   }
 
   if (positionen.length === 0) {
-    throw new Error('Mindestens eine Position erforderlich')
+    throw new AktionsFehler('Mindestens eine Position erforderlich')
   }
 
   // ── Bestandspruefung VOR dem Anlegen ─────────────────────────────────────────
@@ -102,7 +103,7 @@ export async function createVerkauf(formData: FormData) {
         .select('name, bestand_flaschen').eq('id', p.fuellung_id).eq('tenant_id', tenantId).single()
       const verfuegbar = (f as AR | null)?.bestand_flaschen ?? 0
       if (Math.round(p.menge) > verfuegbar) {
-        throw new Error(
+        throw new AktionsFehler(
           `„${(f as AR | null)?.name ?? 'Abfüllung'}": nur noch ${verfuegbar} Flaschen verfügbar, ${Math.round(p.menge)} angefragt.`
         )
       }
@@ -111,7 +112,7 @@ export async function createVerkauf(formData: FormData) {
         .select('name, menge_liter').eq('id', p.weinausbau_id).eq('tenant_id', tenantId).single()
       const verfuegbar = parseFloat((w as AR | null)?.menge_liter ?? '0') || 0
       if (p.menge > verfuegbar + 0.01) {
-        throw new Error(
+        throw new AktionsFehler(
           `„${(w as AR | null)?.name ?? 'Charge'}": Menge (${fmtNum(p.menge)} L) überschreitet verfügbaren Bestand (${fmtNum(verfuegbar)} L).`
         )
       }
@@ -120,7 +121,7 @@ export async function createVerkauf(formData: FormData) {
         .select('rebsorte, menge').eq('id', p.zukauf_id).eq('tenant_id', tenantId).single()
       const verfuegbar = parseFloat((zk as AR | null)?.menge ?? '0') || 0
       if (p.menge > verfuegbar + 0.01) {
-        throw new Error(
+        throw new AktionsFehler(
           `„${(zk as AR | null)?.rebsorte ? formatRebsorteMitKuerzel((zk as AR).rebsorte) : 'Zukauf'}": Menge (${fmtNum(p.menge)} L) überschreitet verfügbaren Zukauf-Bestand (${fmtNum(verfuegbar)} L).`
         )
       }
@@ -129,7 +130,7 @@ export async function createVerkauf(formData: FormData) {
         .select('menge_liter').eq('id', p.pressung_behaelter_id).single()
       const verfuegbar = parseFloat((pb as AR | null)?.menge_liter ?? '0') || 0
       if (p.menge > verfuegbar + 0.01) {
-        throw new Error(
+        throw new AktionsFehler(
           `Pressung: Menge (${fmtNum(p.menge)} L) überschreitet verfügbaren Bestand (${fmtNum(verfuegbar)} L).`
         )
       }
@@ -156,7 +157,7 @@ export async function createVerkauf(formData: FormData) {
     skonto_aktiv:    skontoAktiv,
   })
 
-  if (postenErr) throw new Error((postenErr as AR).message)
+  if (postenErr) throw new AktionsFehler((postenErr as AR).message)
 
   // 2. Positionen anlegen (bei Trauben: vorher BKI-Record anlegen)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -189,7 +190,7 @@ export async function createVerkauf(formData: FormData) {
         })
         .select('id')
         .single()
-      if (tvErr) throw new Error((tvErr as AR).message)
+      if (tvErr) throw new AktionsFehler((tvErr as AR).message)
       traubenverkaufId = (tv as AR).id as string
     }
 
@@ -214,7 +215,7 @@ export async function createVerkauf(formData: FormData) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error: posErr } = await (supabase.from('verkauf_positionen') as any).insert(posInserts)
-  if (posErr) throw new Error((posErr as AR).message)
+  if (posErr) throw new AktionsFehler((posErr as AR).message)
 
   // 3. Bestand reduzieren
   for (const p of positionen) {
@@ -231,7 +232,7 @@ export async function createVerkauf(formData: FormData) {
         .update({ bestand_flaschen: neu, aktualisiert_am: new Date().toISOString() })
         .eq('id', p.fuellung_id)
         .eq('tenant_id', tenantId)
-        if (e) throw new Error(`Speichern fehlgeschlagen (fuellungen): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (fuellungen): ${e.message}`) }
     } else if (p.typ === 'tank' && p.weinausbau_id) {
       // menge_liter in Kellerbuch-Charge dekrementieren
       const { data: wein } = await (supabase.from('weinausbau') as any)
@@ -245,7 +246,7 @@ export async function createVerkauf(formData: FormData) {
         .update({ menge_liter: neu })
         .eq('id', p.weinausbau_id)
         .eq('tenant_id', tenantId)
-        if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
     } else if (p.typ === 'tank' && p.zukauf_id) {
       // menge in Zukauf-Posten dekrementieren
       const { data: zk } = await (supabase.from('zukauf_posten') as any)
@@ -259,7 +260,7 @@ export async function createVerkauf(formData: FormData) {
         .update({ menge: neu })
         .eq('id', p.zukauf_id)
         .eq('tenant_id', tenantId)
-        if (e) throw new Error(`Speichern fehlgeschlagen (zukauf_posten): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (zukauf_posten): ${e.message}`) }
     } else if (p.typ === 'tank' && p.pressung_behaelter_id) {
       const { data: pb } = await (supabase.from('pressung_behaelter') as any)
         .select('menge_liter').eq('id', p.pressung_behaelter_id).single()
@@ -267,7 +268,7 @@ export async function createVerkauf(formData: FormData) {
       const neu = Math.max(0, aktuell - p.menge)
       { const { error: e } = await (supabase.from('pressung_behaelter') as any)
         .update({ menge_liter: neu }).eq('id', p.pressung_behaelter_id)
-        if (e) throw new Error(`Speichern fehlgeschlagen (pressung_behaelter): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (pressung_behaelter): ${e.message}`) }
     }
   }
 
@@ -299,7 +300,7 @@ export async function createVerkauf(formData: FormData) {
         erledigt:     true,
         erstellt_von: user?.id ?? null,
       })
-        if (e) throw new Error(`Speichern fehlgeschlagen (aktivitaeten): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (aktivitaeten): ${e.message}`) }
     } catch {
       // CRM-Fehler nicht auf Verkauf durchschlagen
     }
@@ -312,7 +313,7 @@ export async function createVerkauf(formData: FormData) {
       .eq('id', kontaktId)
       .eq('tenant_id', tenantId)
       .eq('is_lead', true)  // nur wenn noch Lead
-      if (e) throw new Error(`Speichern fehlgeschlagen (kontakte): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (kontakte): ${e.message}`) }
   }
   if (firmaId) {
     { const { error: e } = await (supabase.from('firmen') as any)
@@ -320,7 +321,7 @@ export async function createVerkauf(formData: FormData) {
       .eq('id', firmaId)
       .eq('tenant_id', tenantId)
       .eq('is_lead', true)
-      if (e) throw new Error(`Speichern fehlgeschlagen (firmen): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (firmen): ${e.message}`) }
   }
 
   revalidatePath('/weinhandel/verkauf')
@@ -338,7 +339,7 @@ export async function deactivateVerkauf(id: string) {
     .update({ aktiv: false, aktualisiert_am: new Date().toISOString() })
     .eq('id', id)
     .eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
 
   // Verknüpfte, nicht gesperrte E&A-Einnahmebuchungen entfernen
   { const { error: e } = await (supabase.from('ea_transaktionen') as any)
@@ -346,7 +347,7 @@ export async function deactivateVerkauf(id: string) {
     .eq('verkaufsposten_id', id)
     .eq('is_locked', false)
     .eq('tenant_id', tenantId)
-    if (e) throw new Error(`Speichern fehlgeschlagen (ea_transaktionen): ${e.message}`) }
+    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (ea_transaktionen): ${e.message}`) }
 
   revalidatePath('/weinhandel/verkauf')
   revalidatePath('/buchhaltung')
@@ -377,7 +378,7 @@ export async function stornoVerkauf(id: string) {
         .update({ bestand_flaschen: aktuell + Math.round(p.menge), aktualisiert_am: new Date().toISOString() })
         .eq('id', p.fuellung_id)
         .eq('tenant_id', tenantId)
-        if (e) throw new Error(`Speichern fehlgeschlagen (fuellungen): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (fuellungen): ${e.message}`) }
     } else if (p.typ === 'tank' && p.weinausbau_id) {
       const { data: w } = await (supabase.from('weinausbau') as any)
         .select('menge_liter').eq('id', p.weinausbau_id).eq('tenant_id', tenantId).single()
@@ -386,7 +387,7 @@ export async function stornoVerkauf(id: string) {
         .update({ menge_liter: aktuell + p.menge })
         .eq('id', p.weinausbau_id)
         .eq('tenant_id', tenantId)
-        if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
     } else if (p.typ === 'tank' && p.zukauf_id) {
       const { data: zk } = await (supabase.from('zukauf_posten') as any)
         .select('menge').eq('id', p.zukauf_id).eq('tenant_id', tenantId).single()
@@ -395,14 +396,14 @@ export async function stornoVerkauf(id: string) {
         .update({ menge: aktuell + p.menge })
         .eq('id', p.zukauf_id)
         .eq('tenant_id', tenantId)
-        if (e) throw new Error(`Speichern fehlgeschlagen (zukauf_posten): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (zukauf_posten): ${e.message}`) }
     } else if (p.typ === 'tank' && p.pressung_behaelter_id) {
       const { data: pb } = await (supabase.from('pressung_behaelter') as any)
         .select('menge_liter').eq('id', p.pressung_behaelter_id).single()
       const aktuell = parseFloat((pb as AR | null)?.menge_liter ?? '0') || 0
       { const { error: e } = await (supabase.from('pressung_behaelter') as any)
         .update({ menge_liter: aktuell + p.menge }).eq('id', p.pressung_behaelter_id)
-        if (e) throw new Error(`Speichern fehlgeschlagen (pressung_behaelter): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (pressung_behaelter): ${e.message}`) }
     }
   }
 
@@ -414,7 +415,7 @@ export async function stornoVerkauf(id: string) {
         .delete()
         .eq('id', p.traubenverkauf_id)
         .eq('tenant_id', tenantId)
-        if (e) throw new Error(`Speichern fehlgeschlagen (traubenverkauf): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (traubenverkauf): ${e.message}`) }
     }
   }
 
@@ -427,7 +428,7 @@ export async function stornoVerkauf(id: string) {
     .update({ storniert: true, storniert_am: new Date().toISOString() })
     .eq('id', id)
     .eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
 
   // Verknüpfte, nicht gesperrte E&A-Einnahmebuchungen entfernen – ein Storno
   // macht den zugehörigen Zahlungseingang ungültig.
@@ -436,7 +437,7 @@ export async function stornoVerkauf(id: string) {
     .eq('verkaufsposten_id', id)
     .eq('is_locked', false)
     .eq('tenant_id', tenantId)
-    if (e) throw new Error(`Speichern fehlgeschlagen (ea_transaktionen): ${e.message}`) }
+    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (ea_transaktionen): ${e.message}`) }
 
   // CRM-Aktivität auf STORNIERT setzen
   try {
@@ -445,7 +446,7 @@ export async function stornoVerkauf(id: string) {
       .update({ betreff: `Verkauf ${re ?? ''} · STORNIERT` })
       .eq('beschreibung', `Verkaufsposten: ${id}`)
       .eq('tenant_id', tenantId)
-      if (e) throw new Error(`Speichern fehlgeschlagen (aktivitaeten): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (aktivitaeten): ${e.message}`) }
   } catch { /* nicht kritisch */ }
 
   revalidatePath('/weinhandel/verkauf')
@@ -499,7 +500,7 @@ export async function markiereAlsBezahlt(id: string) {
       datum: new Date().toISOString().slice(0, 10),
       notizen: 'Als bezahlt markiert',
     })
-    if (error) throw new Error((error as AR).message)
+    if (error) throw new AktionsFehler((error as AR).message)
   }
 
   // CRM-Aktivität aktualisieren
@@ -509,7 +510,7 @@ export async function markiereAlsBezahlt(id: string) {
       .update({ betreff: `Verkauf ${re ?? ''} · Bezahlt` })
       .eq('beschreibung', `Verkaufsposten: ${id}`)
       .eq('tenant_id', tenantId)
-      if (e) throw new Error(`Speichern fehlgeschlagen (aktivitaeten): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (aktivitaeten): ${e.message}`) }
   } catch { /* nicht kritisch */ }
 
   await syncEaEinnahmeFuerVerkauf(id)
@@ -544,7 +545,7 @@ export async function createSonstigesArtikel(
     .select('id, name, einheit, default_preis')
     .single()
 
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   return data as SonstigesArtikelData
 }
 
@@ -561,7 +562,7 @@ export async function createZahlung(
   const datum    = formData.get('datum') as string
   const notizen  = (formData.get('notizen') as string) || null
   const konto_id = (formData.get('konto_id') as string) || null
-  if (isNaN(betrag) || betrag <= 0) throw new Error('Ungültiger Betrag')
+  if (isNaN(betrag) || betrag <= 0) throw new AktionsFehler('Ungültiger Betrag')
   const { error } = await (supabase.from('zahlungen') as any).insert({
     tenant_id: tenantId,
     verkaufsposten_id: verkaufspostenId,
@@ -570,7 +571,7 @@ export async function createZahlung(
     datum: datum || new Date().toISOString().slice(0, 10),
     notizen, konto_id,
   })
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
 
   await syncEaEinnahmeFuerVerkauf(verkaufspostenId)
 
@@ -587,7 +588,7 @@ export async function deleteZahlung(
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   const { error } = await (supabase.from('zahlungen') as any).delete().eq('id', zahlungId).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
 
   await syncEaEinnahmeFuerVerkauf(verkaufspostenId)
 

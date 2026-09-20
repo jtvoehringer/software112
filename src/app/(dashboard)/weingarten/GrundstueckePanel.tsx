@@ -9,6 +9,7 @@ import { HERKUNFT_ORDER, HERKUNFT_LABEL } from '@/lib/herkunft'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import type { CustomWeinbaugebiet } from '../weinbaugebiete/actions'
 import { NUTZART_OPTIONS, NutzungBadge } from '@/lib/wein/grundstueckStatus'
+import { fehlerText } from '@/lib/fehler'
 
 const HERKUNFT_OPTIONS = HERKUNFT_ORDER.map(code => ({ value: code, label: HERKUNFT_LABEL[code] }))
 
@@ -184,7 +185,7 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
         // DB-Constraint-Fehler) die ganze Seite ab ("This page couldn't
         // load" statt einer Fehlermeldung im Formular) - siehe Rückmeldung
         // 24.8.2026 zum Speichern-Fehler bei Rechtsverhältnis "Nutzung".
-        setError(err instanceof Error ? err.message : 'Unbekannter Fehler beim Speichern')
+        setError(fehlerText(err, 'Unbekannter Fehler beim Speichern'))
       }
     })
   }

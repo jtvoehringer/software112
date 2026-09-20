@@ -1,6 +1,7 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { exchangeCodeForTokens, encryptPass } from '@/lib/m365/graph'
+import { ereignisMelden } from '@/lib/system/ereignis'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest) {
       m365_token_expires_at:  new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
       aktualisiert_am:        new Date().toISOString(),
     }, { onConflict: 'tenant_id,user_id' })
-      if (e) console.error('[callback] user_email_connections:', e.message) }
+      if (e) void ereignisMelden({ art: 'db', quelle: 'callback/user_email_connections', meldung: e.message }) }
 
     return NextResponse.redirect(new URL('/nachrichten?verbunden=1', req.url))
   } catch (err) {

@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { ereignisMelden } from '@/lib/system/ereignis'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -31,6 +32,6 @@ export async function POST(req: NextRequest) {
     { user_id: user.id, release_note_id },
     { onConflict: 'user_id,release_note_id' }
   )
-    if (e) console.error('[release-notes] release_notes_gesehen:', e.message) }
+    if (e) void ereignisMelden({ art: 'db', quelle: 'release-notes/release_notes_gesehen', meldung: e.message }) }
   return NextResponse.json({ ok: true })
 }

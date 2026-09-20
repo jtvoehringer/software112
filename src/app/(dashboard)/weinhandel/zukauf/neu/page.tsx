@@ -8,6 +8,7 @@ import { AlertTriangle } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
 import PartnerSuche from '@/components/crm/PartnerSuche'
+import { fehlerText } from '@/lib/fehler'
 
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
 
@@ -140,7 +141,7 @@ export default function ZukaufNeuPage() {
     fd.set('notizen',                 notizen)
     startTransition(async () => {
       try { await createZukauf(fd) }
-      catch (err) { setError(err instanceof Error ? err.message : 'Fehler beim Speichern') }
+      catch (err) { setError(fehlerText(err, 'Fehler beim Speichern')) }
     })
   }
 

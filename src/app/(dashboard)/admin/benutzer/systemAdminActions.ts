@@ -3,13 +3,14 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUserRole } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
 async function assertSystemAdmin() {
   const role = await getCurrentUserRole()
-  if (role !== 'system_admin') throw new Error('Nur system_admin erlaubt')
+  if (role !== 'system_admin') throw new AktionsFehler('Nur system_admin erlaubt')
 }
 
 export async function inviteSystemAdmin(email: string) {
@@ -44,7 +45,7 @@ export async function inviteSystemAdmin(email: string) {
     { const { error: e } = await (admin.from('tenant_memberships') as any)
       .update({ role: 'system_admin' })
       .eq('user_id', userId).eq('tenant_id', tenantId)
-      if (e) console.error('[benutzer] tenant_memberships:', e.message) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (tenant_memberships): ${e.message}`) }
   } else {
     const { error: memberError } = await (admin.from('tenant_memberships') as any)
       .insert({ tenant_id: tenantId, user_id: userId, role: 'system_admin' })

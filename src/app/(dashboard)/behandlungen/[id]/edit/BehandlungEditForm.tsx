@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { updateBehandlung } from '../../actions'
 import type { KostenartOption } from '../../neu/page'
 import { SprayCan, Sprout, Layers, Scissors, Leaf, MoreHorizontal, Hourglass, Ban, AlertTriangle } from 'lucide-react'
+import { fehlerText } from '@/lib/fehler'
 
 const BBCH_OPTIONS = [
   { value: '09', label: '09 – Knospenaufbruch' },
@@ -230,7 +231,7 @@ export default function BehandlungEditForm({
         router.push('/behandlungen')
         router.refresh()
       } catch (err) {
-        setError((err as Error).message)
+        setError(fehlerText(err))
       }
     })
   }

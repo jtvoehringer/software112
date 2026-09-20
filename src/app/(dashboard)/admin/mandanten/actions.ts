@@ -5,13 +5,14 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole } from '@/lib/auth/roles'
 import { setActiveTenantCookie } from '@/lib/auth/activeTenant'
 import { revalidatePath } from 'next/cache'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
 async function assertSystemAdmin() {
   const role = await getCurrentUserRole()
-  if (role !== 'system_admin') throw new Error('Nur system_admin erlaubt')
+  if (role !== 'system_admin') throw new AktionsFehler('Nur system_admin erlaubt')
 }
 
 export async function createMandant(formData: FormData) {
@@ -33,7 +34,7 @@ export async function createMandant(formData: FormData) {
     .insert({ name, slug })
     .select('id')
     .single()
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
 
   // Den anlegenden System-Admin sofort als aktives Mitglied eintragen - sonst
   // ist der neue (noch leere) Mandant für niemanden sichtbar: die Mandanten-Liste
@@ -44,7 +45,7 @@ export async function createMandant(formData: FormData) {
   if (user) {
     const { error: membershipError } = await (supabase.from('tenant_memberships') as any)
       .insert({ tenant_id: (tenant as AR).id, user_id: user.id, role: 'system_admin', aktiv: true })
-    if (membershipError) throw new Error((membershipError as AR).message)
+    if (membershipError) throw new AktionsFehler((membershipError as AR).message)
 
     // Aktiven Betrieb sofort auf den neu angelegten Mandanten umschalten - sonst bleibt
     // der Ersteller (server- wie clientseitig) auf dem vorher aktiven Betrieb "hängen":
@@ -63,7 +64,7 @@ export async function renameMandant(id: string, name: string) {
   await assertSystemAdmin()
   const supabase = createSupabaseAdminClient()
   const { error } = await (supabase.from('tenants') as any).update({ name }).eq('id', id)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/admin/mandanten')
 }
 
@@ -84,6 +85,6 @@ export async function saveBranding(tenantId: string, formData: FormData) {
   const { error } = await (supabase.from('tenant_einstellungen') as any)
     .upsert(payload, { onConflict: 'tenant_id' })
 
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/admin/mandanten')
 }

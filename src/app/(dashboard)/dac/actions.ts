@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -11,7 +12,7 @@ export async function createDacAntrag(formData: FormData) {
   const supabase  = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   const tenantId  = membership?.tenantId ?? null
-  if (!tenantId) throw new Error('Kein Betrieb gefunden')
+  if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
 
   const payload: R = {
     tenant_id:       tenantId,
@@ -30,7 +31,7 @@ export async function createDacAntrag(formData: FormData) {
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('dac_antrag') as any).insert(payload)
-  if (error) throw new Error((error as R).message)
+  if (error) throw new AktionsFehler((error as R).message)
   revalidatePath('/dac')
 }
 
@@ -38,7 +39,7 @@ export async function updateDacAntrag(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   const tenantId  = membership?.tenantId ?? null
-  if (!tenantId) throw new Error('Kein Betrieb gefunden')
+  if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
   const payload: R = {
     weinausbau_id:   (formData.get('weinausbau_id') as string) || null,
     bezeichnung:     formData.get('bezeichnung') as string,
@@ -56,6 +57,6 @@ export async function updateDacAntrag(id: string, formData: FormData) {
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('dac_antrag') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as R).message)
+  if (error) throw new AktionsFehler((error as R).message)
   revalidatePath('/dac')
 }

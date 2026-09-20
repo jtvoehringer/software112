@@ -6,6 +6,7 @@ import { Info, AlertTriangle } from 'lucide-react'
 import { QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
+import { fehlerText } from '@/lib/fehler'
 
 const REBSORTEN = [
   'Grüner Veltliner','Riesling','Welschriesling','Müller-Thurgau',
@@ -74,7 +75,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
       router.push('/kellerbuch')
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Fehler beim Speichern')
+      setError(fehlerText(err, 'Fehler beim Speichern'))
       setSaving(false)
     }
   }

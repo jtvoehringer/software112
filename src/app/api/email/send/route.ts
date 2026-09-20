@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 import { decryptPass } from '@/lib/email/crypto'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { ereignisMelden } from '@/lib/system/ereignis'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
       erledigt:     true,
       ganztags:     true,
     })
-      if (e) console.error('[send] aktivitaeten:', e.message) }
+      if (e) void ereignisMelden({ art: 'db', quelle: 'send/aktivitaeten', meldung: e.message }) }
 
     return NextResponse.json({ ok: true })
   } catch (err) {

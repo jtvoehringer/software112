@@ -8,6 +8,7 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { alle } from '@/lib/supabase/alle'
 import { holePrognose, holeRueckblick, type WetterStunde } from './geosphere'
+import { ereignisMelden } from '@/lib/system/ereignis'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -73,7 +74,7 @@ export async function aktualisiereWetter(tenantId: string, punkte: WetterPunkt[]
         const { stunden } = await holePrognose(p.lat, p.lon)
         if (stunden.length > 0) {
           { const { error: e } = await (admin.from('wetter_stunden') as any).delete().eq('tenant_id', tenantId).eq('lat', p.lat).eq('lon', p.lon).eq('quelle', 'nwp')
-            if (e) console.error('[wetter] wetter_stunden:', e.message) }
+            if (e) void ereignisMelden({ art: 'db', quelle: 'wetter/wetter_stunden', meldung: e.message }) }
           const zeilen = stunden.map(w => ({
             tenant_id: tenantId, lat: p.lat, lon: p.lon, quelle: 'nwp', zeit: w.zeit, rr: w.rr, t2m: w.t2m, rh2m: w.rh2m, wind_ms: w.wind_ms, boe_ms: w.boe_ms, abgerufen_am: jetzt.toISOString(),
           }))
@@ -88,7 +89,7 @@ export async function aktualisiereWetter(tenantId: string, punkte: WetterPunkt[]
   }
   // Alte Rückblick-Zeilen ausdünnen (älter als 35 Tage)
   { const { error: e } = await (admin.from('wetter_stunden') as any).delete().eq('tenant_id', tenantId).eq('quelle', 'inca').lt('zeit', new Date(jetzt.getTime() - (RUECKBLICK_TAGE + 2) * 86400000).toISOString())
-    if (e) console.error('[wetter] wetter_stunden:', e.message) }
+    if (e) void ereignisMelden({ art: 'db', quelle: 'wetter/wetter_stunden', meldung: e.message }) }
   return { aktualisiert, fehler }
 }
 

@@ -6,13 +6,14 @@ import { redirect } from 'next/navigation'
 import { istNiedrigerAls, QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
 async function getTenantId(): Promise<string> {
   const membership = await getCurrentMembership()
-  if (!membership) throw new Error('Kein aktiver Mandant gefunden')
+  if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   return membership.tenantId
 }
 
@@ -45,19 +46,19 @@ export async function createFuellung(formData: FormData) {
     const verfuegbar = parseFloat((wa as AR | null)?.menge_liter ?? '0') || 0
     // Toleranz = eine Flaschengröße (Rundung beim Abfüllen)
     if (mengeGefuellt > verfuegbar + (flGroesseML / 1000)) {
-      throw new Error(`Abfüllmenge (${mengeGefuellt} L) übersteigt verfügbaren Bestand (${verfuegbar} L)`)
+      throw new AktionsFehler(`Abfüllmenge (${mengeGefuellt} L) übersteigt verfügbaren Bestand (${verfuegbar} L)`)
     }
 
     const chargeQualitaet = (wa as AR | null)?.qualitaetsstufe as string | null ?? null
     const chargeHerkunft  = (wa as AR | null)?.herkunft_code as string | null ?? null
 
     if (qualitaetInput && chargeQualitaet && istNiedrigerAls(chargeQualitaet, qualitaetInput)) {
-      throw new Error(
+      throw new AktionsFehler(
         `Qualitätswein kann nicht von ${QUALITAET_LABEL[chargeQualitaet] ?? chargeQualitaet} auf ${QUALITAET_LABEL[qualitaetInput] ?? qualitaetInput} AUFgestuft werden. Nur Abstufungen sind zulässig.`
       )
     }
     if (herkunftCodeInput && chargeHerkunft && herkunftIstNiedrigerAls(chargeHerkunft, herkunftCodeInput)) {
-      throw new Error(
+      throw new AktionsFehler(
         `Herkunft-Code (BKI) kann nicht von ${HERKUNFT_LABEL[chargeHerkunft] ?? chargeHerkunft} auf ${HERKUNFT_LABEL[herkunftCodeInput] ?? herkunftCodeInput} AUFgestuft werden. Nur Abstufungen sind zulässig.`
       )
     }
@@ -103,7 +104,7 @@ export async function createFuellung(formData: FormData) {
 
   const { error, data: fuellungData } = await (supabase.from('fuellungen') as any)
     .insert(payload).select('id').single()
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
 
   // fuellung_chargen: Charge-Verknüpfung anlegen
   if (weinausbauId && fuellungData?.id) {
@@ -113,7 +114,7 @@ export async function createFuellung(formData: FormData) {
       weinausbau_id: weinausbauId,
       anteil_liter:  mengeGefuellt,
     })
-      if (e) throw new Error(`Speichern fehlgeschlagen (fuellung_chargen): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (fuellung_chargen): ${e.message}`) }
   }
 
   // Weinausbau: Liter abziehen + Status aktualisieren
@@ -151,7 +152,7 @@ export async function createFuellung(formData: FormData) {
         umzug_typ:         'schwund',
         notizen:           'Schwund bei Abfüllung',
       })
-        if (e) throw new Error(`Speichern fehlgeschlagen (keller_umzuege): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (keller_umzuege): ${e.message}`) }
     }
   }
 
@@ -184,12 +185,12 @@ export async function updateFuellung(id: string, formData: FormData) {
     const chargeHerkunft  = (wa as AR | null)?.herkunft_code as string | null ?? null
 
     if (qualitaetInput && chargeQualitaet && istNiedrigerAls(chargeQualitaet, qualitaetInput)) {
-      throw new Error(
+      throw new AktionsFehler(
         `Qualitätswein kann nicht von ${QUALITAET_LABEL[chargeQualitaet] ?? chargeQualitaet} auf ${QUALITAET_LABEL[qualitaetInput] ?? qualitaetInput} AUFgestuft werden. Nur Abstufungen sind zulässig.`
       )
     }
     if (herkunftCodeInput && chargeHerkunft && herkunftIstNiedrigerAls(chargeHerkunft, herkunftCodeInput)) {
-      throw new Error(
+      throw new AktionsFehler(
         `Herkunft-Code (BKI) kann nicht von ${HERKUNFT_LABEL[chargeHerkunft] ?? chargeHerkunft} auf ${HERKUNFT_LABEL[herkunftCodeInput] ?? herkunftCodeInput} AUFgestuft werden. Nur Abstufungen sind zulässig.`
       )
     }
@@ -226,7 +227,7 @@ export async function updateFuellung(id: string, formData: FormData) {
   }
 
   const { error } = await (supabase.from('fuellungen') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/weinhandel')
   redirect('/weinhandel')
 }
@@ -240,7 +241,7 @@ export async function updateFuellungBestand(id: string, bestand: number) {
     .update({ bestand_flaschen: bestand, aktualisiert_am: new Date().toISOString() })
     .eq('id', id)
     .eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/weinhandel')
 }
 
@@ -253,13 +254,13 @@ export async function schwundAusbuchen(fuellungId: string) {
   const { data: f } = await (supabase.from('fuellungen') as any)
     .select('weinausbau_id').eq('id', fuellungId).eq('tenant_id', tenantId).single()
   const weinausbauId = (f as AR | null)?.weinausbau_id
-  if (!weinausbauId) throw new Error('Keine Charge verknüpft')
+  if (!weinausbauId) throw new AktionsFehler('Keine Charge verknüpft')
 
   const { error } = await (supabase.from('weinausbau') as any)
     .update({ menge_liter: 0, status: 'abgeschlossen', aktiv: false })
     .eq('id', weinausbauId)
     .eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
 
   revalidatePath('/weinhandel')
   revalidatePath('/kellerbuch')
@@ -282,7 +283,7 @@ export async function deactivateFuellung(id: string) {
     .update({ aktiv: false, aktualisiert_am: new Date().toISOString() })
     .eq('id', id)
     .eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
 
   // Weinausbau-Bestand wiederherstellen
   if (weinausbauId && menge > 0) {
@@ -293,7 +294,7 @@ export async function deactivateFuellung(id: string) {
       .update({ menge_liter: aktuell + menge })
       .eq('id', weinausbauId)
       .eq('tenant_id', tenantId)
-      if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
   }
 
   revalidatePath('/weinhandel')

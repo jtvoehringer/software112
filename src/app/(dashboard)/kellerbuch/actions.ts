@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { minQualitaet, maxQualitaet, istNiedrigerAls, QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { minHerkunft, maxHerkunft, istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -21,7 +22,7 @@ async function getTenantId(): Promise<string | null> {
 export async function createBehaelter(formData: FormData) {
   const supabase  = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
-  if (!tenantId) throw new Error('Kein Betrieb gefunden')
+  if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
 
   const payload: R = {
     tenant_id:     tenantId,
@@ -38,7 +39,7 @@ export async function createBehaelter(formData: FormData) {
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('behaelter') as any).insert(payload)
-  if (error) throw new Error((error as R).message)
+  if (error) throw new AktionsFehler((error as R).message)
   revalidatePath('/kellerbuch')
 }
 
@@ -95,7 +96,7 @@ async function protokolliereGebindeUmbenennung(
 export async function updateBehaelter(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
-  if (!tenantId) throw new Error('Kein Betrieb gefunden')
+  if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
 
   const neuerName = formData.get('name') as string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -115,7 +116,7 @@ export async function updateBehaelter(id: string, formData: FormData) {
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('behaelter') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as R).message)
+  if (error) throw new AktionsFehler((error as R).message)
 
   if (alterName && neuerName && alterName.trim() !== neuerName.trim()) {
     await protokolliereGebindeUmbenennung(supabase, tenantId, id, alterName, neuerName)
@@ -156,7 +157,7 @@ export async function deleteBehaelter(id: string): Promise<{ error?: string }> {
 export async function createWeinausbau(formData: FormData) {
   const supabase  = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
-  if (!tenantId) throw new Error('Kein Betrieb gefunden')
+  if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
 
   const wgIds = formData.getAll('weingarten_ids').map(v => v.toString()).filter(Boolean)
   const payload: R = {
@@ -178,7 +179,7 @@ export async function createWeinausbau(formData: FormData) {
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: newWA, error } = await (supabase.from('weinausbau') as any).insert(payload).select('id').single()
-  if (error) throw new Error((error as R).message)
+  if (error) throw new AktionsFehler((error as R).message)
   // Junction-Tabelle: Rieden/Weingärten verknüpfen
   if (wgIds.length > 0 && (newWA as R)?.id) {
     const waId = (newWA as R).id as string
@@ -186,7 +187,7 @@ export async function createWeinausbau(formData: FormData) {
     { const { error: e } = await (supabase.from('weinausbau_weingaerten') as any).insert(
       wgIds.map(wgId => ({ tenant_id: tenantId, weinausbau_id: waId, weingarten_id: wgId }))
     )
-      if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau_weingaerten): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau_weingaerten): ${e.message}`) }
   }
   revalidatePath('/kellerbuch')
 }
@@ -194,7 +195,7 @@ export async function createWeinausbau(formData: FormData) {
 export async function updateWeinausbau(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
-  if (!tenantId) throw new Error('Kein Betrieb gefunden')
+  if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
 
   const wgIds = formData.getAll('weingarten_ids').map(v => v.toString()).filter(Boolean)
   const neueMenge = formData.get('menge_liter')
@@ -218,18 +219,18 @@ export async function updateWeinausbau(id: string, formData: FormData) {
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('weinausbau') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as R).message)
+  if (error) throw new AktionsFehler((error as R).message)
 
   // Junction-Tabelle: Rieden/Weingärten neu setzen (delete + insert)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   { const { error: e } = await (supabase.from('weinausbau_weingaerten') as any).delete().eq('weinausbau_id', id).eq('tenant_id', tenantId)
-    if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau_weingaerten): ${e.message}`) }
+    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau_weingaerten): ${e.message}`) }
   if (wgIds.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     { const { error: e } = await (supabase.from('weinausbau_weingaerten') as any).insert(
       wgIds.map(wgId => ({ tenant_id: tenantId, weinausbau_id: id, weingarten_id: wgId }))
     )
-      if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau_weingaerten): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau_weingaerten): ${e.message}`) }
   }
 
   // KEIN Sync auf pressung_behaelter.menge_liter – das ist der historische Pressbetrag
@@ -243,10 +244,10 @@ export async function updateWeinausbau(id: string, formData: FormData) {
 export async function createAnalyse(formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
-  if (!tenantId) throw new Error('Kein Betrieb gefunden')
+  if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
 
   const weinausbauId = formData.get('weinausbau_id') as string
-  if (!weinausbauId) throw new Error('Keine Charge angegeben')
+  if (!weinausbauId) throw new AktionsFehler('Keine Charge angegeben')
 
   function numOrNull(key: string): number | null {
     const v = (formData.get(key) as string)?.replace(',', '.').trim()
@@ -275,7 +276,7 @@ export async function createAnalyse(formData: FormData) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('weinanalysen') as any).insert(payload)
-  if (error) throw new Error((error as R).message)
+  if (error) throw new AktionsFehler((error as R).message)
 
   revalidatePath(`/kellerbuch/weinausbau/${weinausbauId}/analysen`)
   revalidatePath(`/kellerbuch/weinausbau/${weinausbauId}/buch`)
@@ -285,7 +286,7 @@ export async function createAnalyse(formData: FormData) {
 export async function createVerschneidung(formData: FormData): Promise<{ qualitaetAbgestuft: { von: string; nach: string } | null; herkunftAbgestuft: { von: string; nach: string } | null }> {
   const supabase  = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
-  if (!tenantId) throw new Error('Kein Betrieb gefunden')
+  if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
 
   const datum        = formData.get('datum') as string
   const zielId       = formData.get('ziel_weinausbau_id') as string
@@ -293,7 +294,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   const quellenJson  = formData.get('quellen_json') as string
   const quellen: { weinausbau_id: string; menge_liter: number }[] = JSON.parse(quellenJson || '[]')
 
-  if (!datum || !zielId || quellen.length === 0) throw new Error('Pflichtfelder fehlen')
+  if (!datum || !zielId || quellen.length === 0) throw new AktionsFehler('Pflichtfelder fehlen')
 
   // Qualitätsstufe + Herkunft-Code der Ziel-Charge vor Verschneidung sichern
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -307,7 +308,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   const { data: neu, error: ve } = await (supabase.from('verschneidungen') as any)
     .insert({ tenant_id: tenantId, datum, ziel_weinausbau_id: zielId, notizen, ziel_qualitaet_vorher: zielQualitaetVorher, ziel_herkunft_code_vorher: zielHerkunftVorher })
     .select('id').single()
-  if (ve) throw new Error((ve as R).message)
+  if (ve) throw new AktionsFehler((ve as R).message)
   const vId = (neu as R).id as string
 
   // Quellen anlegen + anteil_pct berechnen
@@ -321,7 +322,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
       anteil_pct:          gesamtLiter > 0 ? Math.round((q.menge_liter / gesamtLiter) * 1000) / 10 : null,
     }))
   )
-    if (e) throw new Error(`Speichern fehlgeschlagen (verschneidung_quellen): ${e.message}`) }
+    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (verschneidung_quellen): ${e.message}`) }
 
   // Qualitaetsstufen + Rebsorten + Weinart der Quell-Chargen laden
   const { data: quellenData } = await (supabase.from('weinausbau') as any)
@@ -339,7 +340,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
     if (!qwa || !zielWeinart || qwa === 'unbekannt' || zielWeinart === 'unbekannt') return false
     return (zielWeinart === 'rot' && qwa === 'weiss') || (zielWeinart === 'weiss' && qwa === 'rot')
   })
-  if (quelleKonflikt) throw new Error('Rotwein und Weißwein dürfen gemäß Weingesetz nicht miteinander verschnitten werden.')
+  if (quelleKonflikt) throw new AktionsFehler('Rotwein und Weißwein dürfen gemäß Weingesetz nicht miteinander verschnitten werden.')
   // Niedrigste Qualitaetsstufe aus Quellen + Ziel bestimmen
   const alleQualitaeten = [zielQualitaetVorher, ...quellenRows.map((q: R) => q.qualitaetsstufe as string | null)]
   const neueQualitaet = minQualitaet(alleQualitaeten)
@@ -379,7 +380,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
     })
     .eq('id', zielId)
     .eq('tenant_id', tenantId)
-  if (zielUpdateErr) throw new Error(`Ziel-Charge konnte nicht aktualisiert werden: ${zielUpdateErr.message}`)
+  if (zielUpdateErr) throw new AktionsFehler(`Ziel-Charge konnte nicht aktualisiert werden: ${zielUpdateErr.message}`)
 
   // Quell-Chargen: Bestand reduzieren
   for (const q of quellen) {
@@ -395,7 +396,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
         : { menge_liter: neueLiter })
       .eq('id', q.weinausbau_id)
       .eq('tenant_id', tenantId)
-      if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
   }
 
   // Qualitäts-Abstufung: Vergleich gegen HÖCHSTE Qualität aller Beteiligten (Ziel + Quellen).
@@ -434,7 +435,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
       .update({ notizen: neueNotizen })
       .eq('id', vId)
       .eq('tenant_id', tenantId)
-      if (e) throw new Error(`Speichern fehlgeschlagen (verschneidungen): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (verschneidungen): ${e.message}`) }
   }
 
   revalidatePath('/kellerbuch')
@@ -449,7 +450,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
 export async function deleteVerschneidung(verschneidungId: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
-  if (!tenantId) throw new Error('Kein Betrieb gefunden')
+  if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
 
   // Quellen + Mengen laden bevor gelöscht wird
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -458,7 +459,7 @@ export async function deleteVerschneidung(verschneidungId: string) {
     .eq('id', verschneidungId)
     .eq('tenant_id', tenantId)
     .single()
-  if (!vRaw) throw new Error('Verschneidung nicht gefunden')
+  if (!vRaw) throw new AktionsFehler('Verschneidung nicht gefunden')
   const v = vRaw as R
 
   const zielId = v.ziel_weinausbau_id as string
@@ -475,7 +476,7 @@ export async function deleteVerschneidung(verschneidungId: string) {
     .update({ menge_liter: Math.max(0, zielAkt - gesamtLiter) })
     .eq('id', zielId)
     .eq('tenant_id', tenantId)
-    if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
+    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
 
   // Quell-Chargen: Menge wieder gutschreiben
   for (const q of quellen) {
@@ -488,7 +489,7 @@ export async function deleteVerschneidung(verschneidungId: string) {
       .update({ menge_liter: srcAkt + (parseFloat(q.menge_liter) || 0) })
       .eq('id', q.quell_weinausbau_id)
       .eq('tenant_id', tenantId)
-      if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
   }
 
   // Qualitätsstufe + Herkunft-Code wiederherstellen falls gespeichert
@@ -503,14 +504,14 @@ export async function deleteVerschneidung(verschneidungId: string) {
       .update(restorePayload)
       .eq('id', zielId)
       .eq('tenant_id', tenantId)
-      if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
   }
 
   // Datensatz löschen (CASCADE löscht verschneidung_quellen automatisch)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('verschneidungen') as any)
     .delete().eq('id', verschneidungId).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as R).message)
+  if (error) throw new AktionsFehler((error as R).message)
 
   revalidatePath('/kellerbuch')
   quellen.forEach((q: R) => revalidatePath(`/kellerbuch/weinausbau/${q.quell_weinausbau_id}`))
@@ -526,7 +527,7 @@ export async function deleteVerschneidung(verschneidungId: string) {
 export async function manuellSchwundBuchen(formData: FormData) {
   const supabase     = await createSupabaseServerClient()
   const tenantId     = await getTenantId()
-  if (!tenantId) throw new Error('Kein Betrieb gefunden')
+  if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
 
   const behaelterId  = formData.get('behaelter_id')  as string
   const weinausbauId = formData.get('weinausbau_id') as string
@@ -534,7 +535,7 @@ export async function manuellSchwundBuchen(formData: FormData) {
   const datum        = formData.get('datum') as string
 
   if (!behaelterId || !weinausbauId || menge <= 0 || !datum) {
-    throw new Error('Ungültige Eingabe: alle Felder sind erforderlich')
+    throw new AktionsFehler('Ungültige Eingabe: alle Felder sind erforderlich')
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -550,7 +551,7 @@ export async function manuellSchwundBuchen(formData: FormData) {
     notizen:           'Manueller Schwund',
   })
 
-  if (error) throw new Error((error as R).message)
+  if (error) throw new AktionsFehler((error as R).message)
 
   revalidatePath(`/kellerbuch/behaelter/${behaelterId}/bewegungen`)
   revalidatePath('/kellerbuch')
@@ -568,19 +569,19 @@ export async function manuellSchwundBuchen(formData: FormData) {
 export async function createKellerbehandlung(formData: FormData): Promise<{ id: string }> {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
-  if (!tenantId) throw new Error('Kein Betrieb gefunden')
+  if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
 
   const behaelterId = formData.get('behaelter_id') as string
-  if (!behaelterId) throw new Error('Kein Behälter angegeben')
+  if (!behaelterId) throw new AktionsFehler('Kein Behälter angegeben')
   const datum = formData.get('datum') as string
-  if (!datum) throw new Error('Kein Datum angegeben')
+  if (!datum) throw new AktionsFehler('Kein Datum angegeben')
   const typId = formData.get('typ_id') as string
-  if (!typId) throw new Error('Kein Behandlungstyp angegeben')
+  if (!typId) throw new AktionsFehler('Kein Behandlungstyp angegeben')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: typRaw } = await (supabase.from('keller_behandlungstypen') as any)
     .select('id, name, einheit_standard').eq('id', typId).eq('tenant_id', tenantId).maybeSingle()
-  if (!typRaw) throw new Error('Behandlungstyp nicht gefunden')
+  if (!typRaw) throw new AktionsFehler('Behandlungstyp nicht gefunden')
   const typ = typRaw as R
 
   const menge   = formData.get('menge') ? parseFloat((formData.get('menge') as string).replace(',', '.')) : null
@@ -618,7 +619,7 @@ export async function createKellerbehandlung(formData: FormData): Promise<{ id: 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.from('keller_behandlungen') as any)
     .insert(payload).select('id').single()
-  if (error) throw new Error((error as R).message)
+  if (error) throw new AktionsFehler((error as R).message)
 
   revalidatePath(`/kellerbuch/behaelter/${behaelterId}/behandlungen`)
   revalidatePath('/kellerbuch')

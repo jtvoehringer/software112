@@ -10,6 +10,7 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getValidUserAccessToken, getMailboxBase } from '@/lib/m365/graph'
 import { ladeAbsenderIndex, findeAbsender, type AbsenderIndex } from '@/lib/crm/absender'
+import { ereignisMelden } from '@/lib/system/ereignis'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -77,7 +78,7 @@ export async function spiegleMailboxen(zeitbudgetMs = 40000, nurTenantId?: strin
       { const { error: e } = await (admin.from('user_email_connections') as any)
         .update({ email_spiegel_stand: neuerStand.toISOString(), email_spiegel_info: `${laufStart.toISOString().slice(0, 16)} · ${anzahl} geprüft · ${angelegt} neu${abgebrochen ? ' · unvollständig' : ''}` })
         .eq('tenant_id', tenantId).eq('user_id', uc.user_id)
-        if (e) console.error('[email] user_email_connections:', e.message) }
+        if (e) void ereignisMelden({ art: 'db', quelle: 'email/user_email_connections', meldung: e.message }) }
     } catch (e) {
       erg.fehler.push(`${uc.email_address ?? uc.user_id}: ${(e as Error).message}`)
     }

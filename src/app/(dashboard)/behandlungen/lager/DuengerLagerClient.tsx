@@ -5,6 +5,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { upsertDuengerBewegung, deleteDuengerBewegung } from './actions'
 import type { DuengerLager, DuengerOption } from './page'
 import { fmtNum } from '@/lib/format'
+import { fehlerText } from '@/lib/fehler'
 
 // Analog LagerClient.tsx (PSM) – volle Lagerbewegungs-Erfassung für Düngemittel
 // (Migration 142): Anfangsbestand, Einkauf, Inventurkorrektur, berechneter
@@ -53,7 +54,7 @@ function BuchungsForm({
     fd.set('richtung', richtung)
     startTransition(async () => {
       try { await upsertDuengerBewegung(fd); setFehler(null); onDone() }
-      catch (e) { setFehler(e instanceof Error ? e.message : String(e)) }
+      catch (e) { setFehler(fehlerText(e)) }
     })
   }
 

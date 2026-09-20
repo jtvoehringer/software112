@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -13,8 +14,8 @@ export async function savePNA(dacAntragId: string, daten: R): Promise<{ id: stri
 
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId
-  if (!tenantId) throw new Error('Kein Tenant')
-  if (!canWrite(membership, 'kellerbuch')) throw new Error('Keine Berechtigung')   // Admin-Client umgeht RLS → Modulrecht hier prüfen
+  if (!tenantId) throw new AktionsFehler('Kein Tenant')
+  if (!canWrite(membership, 'kellerbuch')) throw new AktionsFehler('Keine Berechtigung')   // Admin-Client umgeht RLS → Modulrecht hier prüfen
 
   const { data: existing } = await (supabase.from('pruefnummernantraege') as any)
     .select('id')
@@ -27,7 +28,7 @@ export async function savePNA(dacAntragId: string, daten: R): Promise<{ id: stri
       .update({ formular_daten: daten, aktualisiert_am: new Date().toISOString() })
       .eq('id', existing.id)
       .eq('tenant_id', tenantId)
-      if (e) throw new Error(`Speichern fehlgeschlagen (pruefnummernantraege): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (pruefnummernantraege): ${e.message}`) }
     return { id: existing.id }
   }
 

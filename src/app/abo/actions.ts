@@ -16,6 +16,7 @@ import { wendePaketAn } from '@/lib/pakete-server'
 import { revalidatePath } from 'next/cache'
 import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -101,7 +102,7 @@ export async function starteZahlungAction(paketWunsch?: string, buchhaltungsart?
       })
       customerId = customer.id
       { const { error: e } = await (admin.from('tenants') as R).update({ stripe_customer_id: customerId }).eq('id', membership.tenantId)
-        if (e) throw new Error(`Speichern fehlgeschlagen (tenants): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (tenants): ${e.message}`) }
       await stripeKundennummerSync(membership.tenantId)
     } catch (err) {
       return { error: `Stripe-Fehler: ${(err as Error).message}` }

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
 import { decryptPass } from '@/lib/email/crypto'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { ereignisMelden } from '@/lib/system/ereignis'
 
 export const dynamic = 'force-dynamic'
 
@@ -106,7 +107,7 @@ export async function POST(req: NextRequest) {
     { const { error: e } = await (admin.from('tenant_einstellungen') as any)
       .update({ email_last_poll: new Date().toISOString() })
       .eq('tenant_id', tenantId)
-      if (e) console.error('[poll] tenant_einstellungen:', e.message) }
+      if (e) void ereignisMelden({ art: 'db', quelle: 'poll/tenant_einstellungen', meldung: e.message }) }
 
     return NextResponse.json({ ok: true, neu: neuAktivitaeten })
   } catch (err) {

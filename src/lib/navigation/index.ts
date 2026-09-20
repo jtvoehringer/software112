@@ -164,6 +164,7 @@ const NAV: NavGroup[] = [
       { href: '/admin/mandanten',      label: 'Mandanten',         adminOnly: true, keywords: 'administration tenants' },
       { href: '/admin/kellergemeinschaft', label: 'Kellergemeinschaft', adminOnly: true, keywords: 'administration gebinde freigabe partner keller' },
       { href: '/admin/release-notes',  label: 'Release Notes',     adminOnly: true, keywords: 'administration' },
+      { href: '/admin/system',         label: 'Systembericht',     adminOnly: true, keywords: 'administration fehler protokoll log' },
       { href: '/admin/import',         label: 'Datenimport',       adminOnly: true, keywords: 'administration csv' },
       { href: '/admin/benutzer',       label: 'Super-Admin',      adminOnly: true, keywords: 'administration benutzer' },
       { href: '/admin/onboarding',     label: 'Onboarding Guide',  adminOnly: true, keywords: 'administration' },

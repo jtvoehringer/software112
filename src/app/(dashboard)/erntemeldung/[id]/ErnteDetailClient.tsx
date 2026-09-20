@@ -10,6 +10,7 @@ import type { Pressung, WGOption, BehOption, WAOption, ZukaufTraubenOpt } from '
 import { fmtHa, fmtZahl, fmtProzent, fmtNum } from '@/lib/format'
 import { Pencil, Trash2, AlertTriangle, Plus } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { fehlerText } from '@/lib/fehler'
 
 // QUALITAET_OPTS: aus lib/wein/qualitaet importiert (s.u. import qualitaetLabel)
 const LESEMETHODE_OPTS = [
@@ -101,7 +102,7 @@ function NeueParzellenForm({
     ))
     startTransition(async () => {
       try { await createMultipleErnteParzellen(jahrgangId, fd); onDone() }
-      catch (err) { setError((err as Error).message) }
+      catch (err) { setError(fehlerText(err)) }
     })
   }
 

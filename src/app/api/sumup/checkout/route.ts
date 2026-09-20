@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { ereignisMelden } from '@/lib/system/ereignis'
 
 // POST /api/sumup/checkout
 // Erstellt einen SumUp Checkout für einen Verkaufsposten.
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest) {
         .update({ sumup_checkout_id: checkoutRef })
         .eq('id', (localCheckout as R).id)
         .eq('tenant_id', tenantId)
-        if (e) console.error('[checkout] sumup_checkouts:', e.message) }
+        if (e) void ereignisMelden({ art: 'db', quelle: 'checkout/sumup_checkouts', meldung: e.message }) }
     } else {
       const errData: R = await sumupRes.json().catch(() => ({}))
       console.error('[SumUp Checkout] API-Fehler:', errData)

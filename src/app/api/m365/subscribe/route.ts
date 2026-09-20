@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { graphPost, getValidAccessToken } from '@/lib/m365/graph'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { ereignisMelden } from '@/lib/system/ereignis'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
               })
               if (patchRes.ok) {
                 { const { error: e } = await (admin.from('tenant_einstellungen') as any).update({ m365_webhook_expires: expiresAt }).eq('tenant_id', cfg.tenant_id)
-                  if (e) console.error('[subscribe] tenant_einstellungen:', e.message) }
+                  if (e) void ereignisMelden({ art: 'db', quelle: 'subscribe/tenant_einstellungen', meldung: e.message }) }
                 patched = true
               }
             } catch { /* Subscription abgelaufen → neu erstellen */ }
@@ -116,7 +117,7 @@ export async function POST(req: NextRequest) {
         })
         { const { error: e } = await (admin.from('tenant_einstellungen') as any)
           .update({ m365_webhook_expires: expiresAt }).eq('tenant_id', tenantId)
-          if (e) console.error('[subscribe] tenant_einstellungen:', e.message) }
+          if (e) void ereignisMelden({ art: 'db', quelle: 'subscribe/tenant_einstellungen', meldung: e.message }) }
         return NextResponse.json({ ok: true, aktion: 'erneuert', expires: expiresAt })
       } catch {
         // Subscription abgelaufen → neu erstellen

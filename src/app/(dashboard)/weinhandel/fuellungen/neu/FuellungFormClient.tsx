@@ -10,6 +10,7 @@ import { AlertTriangle, CheckCircle2, Droplet } from 'lucide-react'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import type { CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
 import { fmtNum } from '@/lib/format'
+import { fehlerText } from '@/lib/fehler'
 
 type Charge = {
   id: string
@@ -177,7 +178,7 @@ export default function FuellungFormClient({
         await action(fd)
         router.push('/weinhandel')
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Fehler beim Speichern')
+        setError(fehlerText(err, 'Fehler beim Speichern'))
       }
     })
   }

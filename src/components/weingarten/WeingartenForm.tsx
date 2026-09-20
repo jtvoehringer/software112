@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { fehlerText } from '@/lib/fehler'
 
 type WeingartenRow = {
   id: string
@@ -40,7 +41,7 @@ export default function WeingartenForm({ weingarten, action, readOnly = false }:
       router.push('/weingarten')
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unbekannter Fehler')
+      setError(fehlerText(err, 'Unbekannter Fehler'))
       setSaving(false)
     }
   }

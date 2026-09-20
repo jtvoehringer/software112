@@ -6,6 +6,7 @@ import { ArrowLeftRight, FlaskConical, Wine } from 'lucide-react'
 import { upsertKellerplanPosition, deleteKellerplanPosition } from '../actions'
 import { getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
+import { fehlerText } from '@/lib/fehler'
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
 
@@ -122,7 +123,7 @@ export default function KellerplanEditor({
       try {
         await upsertKellerplanPosition(plan.id, behaelterId, pos)
       } catch (err) {
-        setSaveError(err instanceof Error ? err.message : 'Speichern fehlgeschlagen')
+        setSaveError(fehlerText(err, 'Speichern fehlgeschlagen'))
       } finally {
         setSaving(false)
       }

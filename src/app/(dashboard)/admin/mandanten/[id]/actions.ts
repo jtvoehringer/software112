@@ -10,6 +10,7 @@ import { pruefeBenutzerlimit, benutzerlimitFehler, wendePaketAn, ladePaket } fro
 import { istPaketKey, PAKETE } from '@/lib/pakete'
 import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -32,7 +33,7 @@ async function assertSystemAdmin(tenantId: string) {
   const isSandboxTarget = (sandboxTenantRow as R | null)?.id === tenantId
   if (isSandboxAdminUnlock(user?.email, isSandboxTarget)) return
 
-  throw new Error('Nur system_admin erlaubt')
+  throw new AktionsFehler('Nur system_admin erlaubt')
 }
 
 // ── Branding + Module + Brevo speichern ───────────────────────────────────────
@@ -80,7 +81,7 @@ export async function saveTenantSettings(tenantId: string, formData: FormData) {
   const { error } = await (admin.from('tenant_einstellungen') as any)
     .upsert(payload, { onConflict: 'tenant_id' })
 
-  if (error) throw new Error((error as R).message)
+  if (error) throw new AktionsFehler((error as R).message)
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   revalidatePath('/admin/mandanten')
@@ -288,7 +289,7 @@ export async function saveBetriebEinstellungen(tenantId: string, formData: FormD
       aktualisiert_am:           new Date().toISOString(),
     }, { onConflict: 'tenant_id' })
 
-  if (error) throw new Error((error as R).message)
+  if (error) throw new AktionsFehler((error as R).message)
 
   // Bio-Status liegt auf der tenants-Tabelle (nicht tenant_einstellungen) –
   // steuert die Warn-/Sperrlogik bei der Mittelwahl im Maßnahmenformular (Migration 133).
@@ -296,7 +297,7 @@ export async function saveBetriebEinstellungen(tenantId: string, formData: FormD
   const { error: bioError } = await (admin.from('tenants') as any)
     .update({ bio_status: bioStatus })
     .eq('id', tenantId)
-  if (bioError) throw new Error((bioError as R).message)
+  if (bioError) throw new AktionsFehler((bioError as R).message)
 
   await stripeKundennummerSync(tenantId) // PLZ gespeichert → Kundennummer ggf. neu vergeben
   tenantKopfInvalidieren(tenantId)
@@ -332,7 +333,7 @@ export async function saveVerkaufEinstellungen(tenantId: string, formData: FormD
       aktualisiert_am:   new Date().toISOString(),
     }, { onConflict: 'tenant_id' })
 
-  if (error) throw new Error((error as R).message)
+  if (error) throw new AktionsFehler((error as R).message)
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
 }
@@ -357,7 +358,7 @@ export async function saveM365Einstellungen(tenantId: string, formData: FormData
   }
   const { error } = await (admin.from('tenant_einstellungen') as any)
     .upsert({ tenant_id: tenantId, ...payload }, { onConflict: 'tenant_id' })
-  if (error) throw new Error((error as Record<string,string>).message)
+  if (error) throw new AktionsFehler((error as Record<string,string>).message)
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
 }
@@ -393,7 +394,7 @@ export async function saveEmailEinstellungen(tenantId: string, formData: FormDat
 
   const { error } = await (admin.from('tenant_einstellungen') as any)
     .upsert({ tenant_id: tenantId, ...payload }, { onConflict: 'tenant_id' })
-  if (error) throw new Error((error as Record<string,string>).message)
+  if (error) throw new AktionsFehler((error as Record<string,string>).message)
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
 }
@@ -416,7 +417,7 @@ export async function resetRechnungsZaehler(tenantId: string, auf: number) {
       aktualisiert_am:   new Date().toISOString(),
     }, { onConflict: 'tenant_id' })
 
-  if (error) throw new Error((error as R).message)
+  if (error) throw new AktionsFehler((error as R).message)
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
 }
@@ -434,7 +435,7 @@ export async function resetKundenZaehler(tenantId: string, auf: number) {
       aktualisiert_am: new Date().toISOString(),
     }, { onConflict: 'tenant_id' })
 
-  if (error) throw new Error((error as R).message)
+  if (error) throw new AktionsFehler((error as R).message)
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
 }
@@ -448,7 +449,7 @@ export async function renameTenantAdmin(tenantId: string, name: string) {
   const { error } = await (admin.from('tenants') as any)
     .update({ name }).eq('id', tenantId)
 
-  if (error) throw new Error((error as R).message)
+  if (error) throw new AktionsFehler((error as R).message)
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   revalidatePath('/admin/mandanten')
@@ -594,7 +595,7 @@ export async function cancelStripeSubscription(tenantId: string, subscriptionId:
     stripe_plan:              null,
     stripe_current_period_end: null,
   }).eq('id', tenantId)
-    if (e) throw new Error(`Speichern fehlgeschlagen (tenants): ${e.message}`) }
+    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (tenants): ${e.message}`) }
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   return { success: true }
@@ -618,7 +619,7 @@ export async function wendePaketVorgabenAn(tenantId: string, paketWunsch?: strin
   }
   if (istPaketKey(paketWunsch)) {
     { const { error: e } = await (admin.from('tenants') as any).update({ stripe_plan: paket }).eq('id', tenantId)
-      if (e) throw new Error(`Speichern fehlgeschlagen (tenants): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (tenants): ${e.message}`) }
   }
   const fehler = await wendePaketAn(admin, tenantId, paket)
   if (fehler) return { error: fehler }

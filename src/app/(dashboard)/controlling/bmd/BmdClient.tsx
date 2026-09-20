@@ -6,6 +6,7 @@ import { AlertTriangle, Download, FileText, History, Settings2, CheckCircle2, Ro
 import { MAPPING_FELDER, MAPPING_GRUPPEN, mappingAufloesen } from '@/lib/buchhaltung/bmd'
 import { speichereKontenmapping, setzeKontenmappingZurueck } from './actions'
 import { fmtEur } from '@/lib/format'
+import { fehlerText } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -108,7 +109,7 @@ function UebergabeTab({ offeneRechnungen, offeneAusgaben, darfUebergeben }: { of
           : `${anzahl} Belege (${eur(summe)} brutto) in ${dateiname} übergeben${protokollieren ? ' und im Protokoll vermerkt' : ''}.`,
       })
     } catch (e) {
-      setMeldung({ typ: 'fehler', text: e instanceof Error ? e.message : 'Fehler bei der Übergabe' })
+      setMeldung({ typ: 'fehler', text: fehlerText(e, 'Fehler bei der Übergabe') })
     } finally {
       setLaden(false)
     }

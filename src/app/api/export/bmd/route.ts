@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { hatModul } from '@/lib/auth/modul'
 import { alle } from '@/lib/supabase/alle'
+import { ereignisMelden } from '@/lib/system/ereignis'
 import {
   mappingAufloesen, steuerfall, erloesSchluessel, steuercodeFuer,
   bmdDatum, datumPlusTage, bmdCsv, bmdText, personenkontenCsv,
@@ -112,11 +113,11 @@ export async function GET(req: NextRequest) {
       const admin = createSupabaseAdminClient()
       for (const block of bloecke(belegIds.verkaufsposten)) {
         { const { error: e } = await admin.from('verkaufsposten').update({ bmd_export_id: protId }).eq('tenant_id', tenantId).in('id', block)
-          if (e) console.error('[bmd] verkaufsposten:', e.message) }
+          if (e) void ereignisMelden({ art: 'db', quelle: 'bmd/verkaufsposten', meldung: e.message }) }
       }
       for (const block of bloecke(belegIds.ea)) {
         { const { error: e } = await admin.from('ea_transaktionen').update({ bmd_export_id: protId }).eq('tenant_id', tenantId).in('id', block)
-          if (e) console.error('[bmd] ea_transaktionen:', e.message) }
+          if (e) void ereignisMelden({ art: 'db', quelle: 'bmd/ea_transaktionen', meldung: e.message }) }
       }
     }
   }

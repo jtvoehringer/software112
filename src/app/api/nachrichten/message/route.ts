@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getValidUserAccessToken, getMailboxBase } from '@/lib/m365/graph'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { ladeAbsenderIndex, absenderStatus, findeNamensgleiche, type AbsenderStatus } from '@/lib/crm/absender'
+import { ereignisMelden } from '@/lib/system/ereignis'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -130,7 +131,7 @@ export async function GET(req: NextRequest) {
                   datum: (msg.receivedDateTime ?? msg.sentDateTime ?? '').split('T')[0],
                   ...emailData,
                 }, { onConflict: 'tenant_id,email_id', ignoreDuplicates: true })
-                  if (e) console.error('[message] aktivitaeten:', e.message) }
+                  if (e) void ereignisMelden({ art: 'db', quelle: 'message/aktivitaeten', meldung: e.message }) }
               }
             } catch { /* ignore */ }
           })()

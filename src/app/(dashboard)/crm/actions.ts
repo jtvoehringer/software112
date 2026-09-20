@@ -4,13 +4,14 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { absenderIndexVerwerfen } from '@/lib/crm/absender'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
 async function getTenantId(): Promise<string> {
   const membership = await getCurrentMembership()
-  if (!membership) throw new Error('Kein aktiver Mandant gefunden')
+  if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   return membership.tenantId
 }
 
@@ -31,7 +32,7 @@ async function generateAccountnummer(tenantId: string): Promise<string | null> {
 function parseZahlungszielTage(formData: FormData): number {
   const n = parseInt(formData.get('zahlungsziel_tage') as string, 10)
   if (isNaN(n) || n < 0) {
-    throw new Error('Zahlungsziel (Tage) ist ein Pflichtfeld und muss 0 oder größer sein.')
+    throw new AktionsFehler('Zahlungsziel (Tage) ist ein Pflichtfeld und muss 0 oder größer sein.')
   }
   return n
 }
@@ -136,7 +137,7 @@ export async function deleteKontakt(id: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   const { error } = await (supabase.from('kontakte') as any).delete().eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/crm/kontakte')
 }
 
@@ -341,7 +342,7 @@ export async function deleteFirma(id: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   const { error } = await (supabase.from('firmen') as any).delete().eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/crm/firmen')
 }
 
@@ -353,7 +354,7 @@ export async function moveAktivitaet(id: string, datum: string, uhrzeit_von: str
   const { error } = await (supabase.from('aktivitaeten') as any)
     .update({ datum, ganztags: !uhrzeit_von && !uhrzeit_bis, uhrzeit_von: uhrzeit_von || null, uhrzeit_bis: uhrzeit_bis || null })
     .eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/crm')
   revalidatePath('/crm/kontakte/[id]', 'page')
   revalidatePath('/crm/firmen/[id]', 'page')
@@ -384,7 +385,7 @@ export async function createAktivitaet(formData: FormData) {
   const { error } = await (supabase.from('aktivitaeten') as any).insert(payload).eq('tenant_id', tenantId)
   if (error) {
     console.error('[createAktivitaet] DB-Fehler:', error.message, error.details, error.hint)
-    throw new Error(`Aktivität konnte nicht gespeichert werden: ${error.message}`)
+    throw new AktionsFehler(`Aktivität konnte nicht gespeichert werden: ${error.message}`)
   }
   revalidatePath('/crm')
   revalidatePath('/crm/kontakte')
@@ -409,7 +410,7 @@ export async function updateAktivitaet(id: string, formData: FormData) {
     uhrzeit_bis:  ganztags ? null : ((formData.get('uhrzeit_bis') as string) || null),
   }
   const { error } = await (supabase.from('aktivitaeten') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/crm')
   revalidatePath('/crm/kontakte/[id]', 'page')
   revalidatePath('/crm/firmen/[id]', 'page')
@@ -419,7 +420,7 @@ export async function deleteAktivitaet(id: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   const { error } = await (supabase.from('aktivitaeten') as any).delete().eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/crm')
   revalidatePath('/crm/kontakte/[id]', 'page')
   revalidatePath('/crm/firmen/[id]', 'page')
@@ -431,7 +432,7 @@ export async function toggleAktivitaetErledigt(id: string, erledigt: boolean) {
   const { error } = await (supabase.from('aktivitaeten') as any)
     .update({ erledigt })
     .eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/crm')
   revalidatePath('/crm/kontakte/[id]', 'page')
   revalidatePath('/crm/firmen/[id]', 'page')
@@ -460,7 +461,7 @@ export async function createPipelineEintrag(formData: FormData) {
     aktualisiert_am:     new Date().toISOString(),
   }
   const { error } = await (supabase.from('pipeline_eintraege') as any).insert(payload).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/crm/pipeline')
 }
 
@@ -481,7 +482,7 @@ export async function updatePipelineEintrag(id: string, formData: FormData) {
     aktualisiert_am:     new Date().toISOString(),
   }
   const { error } = await (supabase.from('pipeline_eintraege') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/crm/pipeline')
 }
 
@@ -492,7 +493,7 @@ export async function updatePipelineStufe(id: string, stufe: string) {
   const { error } = await (supabase.from('pipeline_eintraege') as any)
     .update({ stufe, aktualisiert_am: new Date().toISOString() })
     .eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/crm/pipeline')
 }
 
@@ -506,7 +507,7 @@ export async function togglePipelineErledigt(id: string, erledigt: boolean) {
       aktualisiert_am: new Date().toISOString(),
     })
     .eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/crm/pipeline')
 }
 
@@ -514,7 +515,7 @@ export async function deletePipelineEintrag(id: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   const { error } = await (supabase.from('pipeline_eintraege') as any).delete().eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/crm/pipeline')
 }
 
@@ -686,7 +687,7 @@ export async function createLeadAusEmail(d: LeadAusEmailDaten): Promise<{ kontak
         beschreibung: bodyText.slice(0, 500),
         erstellt_von: user?.id ?? null,
       }, { onConflict: 'tenant_id,email_id', ignoreDuplicates: true })
-        if (e) throw new Error(`Speichern fehlgeschlagen (aktivitaeten): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (aktivitaeten): ${e.message}`) }
     }
 
     revalidatePath('/crm/kontakte')

@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, isSystemAdmin } from '@/lib/auth/roles'
 import { laufMorgenberichte } from '@/lib/morgenbericht/lauf'
 import { spiegleMailboxen } from '@/lib/email/spiegel'
+import { ereignisMelden, ereignisseBereinigen } from '@/lib/system/ereignis'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -49,6 +50,17 @@ async function handle(req: NextRequest) {
   // 3. Morgenberichte (restliches Zeitbudget, mindestens 5 s)
   const rest = (maxDuration - 6) * 1000 - (Date.now() - start)
   const morgenbericht = await laufMorgenberichte(Math.max(5000, rest))
+
+  // 4. Systemprotokoll (Migration 222): Ergebnis des Laufs festhalten, alte Ereignisse bereinigen
+  const mbFehler = morgenbericht.ergebnis.filter(e => e.fehler)
+  const mbUebersprungen = morgenbericht.ergebnis.filter(e => e.uebersprungen)
+  const fehlerAnzahl = (daErr ? 1 : 0) + Number(da?.fehler ?? 0) + emailSpiegel.fehler.length + mbFehler.length
+  const bereinigt = await ereignisseBereinigen()
+  await ereignisMelden({
+    art: 'cron', quelle: '/api/cron/taeglich',
+    meldung: `Täglicher Lauf: ${daErr ? 'Daueraufträge FEHLER' : `${da?.erstellt ?? 0} Daueraufträge`}, ${emailSpiegel.angelegt} E-Mails gespiegelt, ${morgenbericht.betriebe - mbUebersprungen.length} Morgenberichte${mbUebersprungen.length ? ` (${mbUebersprungen.length} übersprungen)` : ''}, ${fehlerAnzahl} Fehler, ${Math.round((Date.now() - start) / 1000)} s`,
+    details: { fehler: fehlerAnzahl, dauerauftraege, emailSpiegel: { ...emailSpiegel, fehler: emailSpiegel.fehler.slice(0, 20) }, morgenbericht: { ...morgenbericht, ergebnis: morgenbericht.ergebnis.filter(e => e.fehler || e.uebersprungen) }, bereinigt },
+  })
 
   return NextResponse.json({ dauerMs: Date.now() - start, dauerauftraege, emailSpiegel, morgenbericht })
 }

@@ -4,13 +4,14 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
 async function getTenantId(): Promise<string> {
   const membership = await getCurrentMembership()
-  if (!membership) throw new Error('Kein aktiver Mandant gefunden')
+  if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   return membership.tenantId
 }
 
@@ -43,7 +44,7 @@ async function createZukaufCharge(
     })
     .select('id')
     .single()
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   return (neu as AR).id
 }
 
@@ -65,7 +66,7 @@ async function bereinigCharge(supabase: any, weinausbauId: string, tenantId: str
     .update({ menge_liter: 0, status: 'abgeschlossen', aktiv: false })
     .eq('id', weinausbauId)
     .eq('tenant_id', tenantId)
-    if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
+    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
 }
 
 // Prüft, ob gegen eine Weinausbau-Charge bereits irgendeine Bewegung gebucht wurde (abgefüllt,
@@ -161,7 +162,7 @@ export async function createZukauf(formData: FormData) {
   const tenantId = await getTenantId()
   const f = parseZukaufFormData(formData)
 
-  if (f.menge <= 0) throw new Error('Menge muss größer als 0 sein')
+  if (f.menge <= 0) throw new AktionsFehler('Menge muss größer als 0 sein')
 
   let zielWeinausbauId: string | null = null
   if ((f.art === 'wein' || f.art === 'most') && f.zielBehaelterId) {
@@ -200,7 +201,7 @@ export async function createZukauf(formData: FormData) {
       ziel_weinausbau_id:       zielWeinausbauId,
     })
 
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
 
   revalidatePath('/weinhandel/zukauf')
   revalidatePath('/weinhandel')
@@ -249,7 +250,7 @@ export async function updateZukauf(id: string, formData: FormData) {
   const tenantId = await getTenantId()
   const f = parseZukaufFormData(formData)
 
-  if (f.menge <= 0) throw new Error('Menge muss größer als 0 sein')
+  if (f.menge <= 0) throw new AktionsFehler('Menge muss größer als 0 sein')
 
   const { data: alt } = await (supabase.from('zukauf_posten') as any)
     .select('ziel_weinausbau_id, menge')
@@ -278,7 +279,7 @@ export async function updateZukauf(id: string, formData: FormData) {
         .single()
       const alterBehaelterId = (alteCharge as AR | null)?.behaelter_id ?? null
       if (alterBehaelterId && alterBehaelterId !== f.zielBehaelterId) {
-        throw new Error(
+        throw new AktionsFehler(
           'Diese Charge wurde bereits abgefüllt, umgezogen, verkauft oder verschnitten – der Ziel-Behälter kann nachträglich nicht mehr geändert werden. Bitte den Behälter unverändert lassen und stattdessen "Umziehen" im Kellerbuch verwenden.'
         )
       }
@@ -297,7 +298,7 @@ export async function updateZukauf(id: string, formData: FormData) {
         })
         .eq('id', altWeinausbauId)
         .eq('tenant_id', tenantId)
-      if (updChargeErr) throw new Error((updChargeErr as AR).message)
+      if (updChargeErr) throw new AktionsFehler((updChargeErr as AR).message)
       zielWeinausbauId = altWeinausbauId
     } else {
       // Noch keine Bewegungen gegen die bisherige Charge gebucht – bisheriges Verhalten
@@ -339,7 +340,7 @@ export async function updateZukauf(id: string, formData: FormData) {
     ziel_weinausbau_id:       zielWeinausbauId,
   }).eq('id', id).eq('tenant_id', tenantId)
 
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
 
   revalidatePath('/weinhandel/zukauf')
   revalidatePath('/weinhandel')
@@ -362,7 +363,7 @@ export async function deleteZukauf(id: string) {
     .update({ aktiv: false })
     .eq('id', id)
     .eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
 
   if (weinausbauId) await bereinigCharge(supabase, weinausbauId, tenantId)
 

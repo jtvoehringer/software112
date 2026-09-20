@@ -8,6 +8,7 @@ import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { deleteUmzug as _deleteUmzug } from '../gebinde-actions'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { fmtNum } from '@/lib/format'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -24,7 +25,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
   const datum     = (fd.get('datum')     as string) || new Date().toISOString().split('T')[0]
   const umzugTyp  = (fd.get('umzug_typ') as string) || 'normal'
 
-  if (quellen.length === 0 || ziele.length === 0) throw new Error('Mindestens eine Quelle und ein Ziel erforderlich')
+  if (quellen.length === 0 || ziele.length === 0) throw new AktionsFehler('Mindestens eine Quelle und ein Ziel erforderlich')
 
   const totalVon  = quellen.reduce((s, q) => s + q.menge, 0)
   const totalNach = ziele.reduce((s, z) => s + z.menge, 0)
@@ -35,15 +36,15 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
   // Betriebs gelesen/verändert werden.
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId
-  if (!tenantId) throw new Error('Kein aktiver Mandant gefunden')
+  if (!tenantId) throw new AktionsFehler('Kein aktiver Mandant gefunden')
 
   // Ziele vorab prüfen (Kellergemeinschaft, Migration 203): eigenes oder freigegebenes,
   // aktives Gebinde, nicht durch einen anderen Betrieb belegt - bevor Quellen reduziert werden.
   const zielGebinde = await ladeBehaelter(supabase, tenantId, { nurAktiv: true })
   for (const z of ziele) {
     const g = zielGebinde.find(b => b.id === z.behaelter_id)
-    if (!g) throw new Error('Ziel-Gebinde nicht gefunden oder nicht freigegeben.')
-    if (g.gesperrt) throw new Error(`Gebinde „${g.name}“ ist durch ${g.fremd_betrieb ?? 'einen anderen Betrieb'} belegt – Umziehen dorthin ist nicht möglich.`)
+    if (!g) throw new AktionsFehler('Ziel-Gebinde nicht gefunden oder nicht freigegeben.')
+    if (g.gesperrt) throw new AktionsFehler(`Gebinde „${g.name}“ ist durch ${g.fremd_betrieb ?? 'einen anderen Betrieb'} belegt – Umziehen dorthin ist nicht möglich.`)
   }
 
   const batchId = crypto.randomUUID()
@@ -60,11 +61,11 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
     const { data: vonRaw } = await (supabase.from('weinausbau') as any)
       .select('*').eq('id', q.weinausbau_id).eq('tenant_id', tenantId).single()
     const von = vonRaw as R
-    if (!von) throw new Error('Charge nicht gefunden')
+    if (!von) throw new AktionsFehler('Charge nicht gefunden')
 
     const verfuegbar = parseFloat(von.menge_liter) || 0
     if (q.menge > verfuegbar + 0.01) {
-      throw new Error(
+      throw new AktionsFehler(
         `„${von.name}": Menge (${fmtNum(q.menge)} L) überschreitet verfügbaren Bestand (${fmtNum(verfuegbar)} L)`
       )
     }
@@ -79,13 +80,13 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
         .update({ menge_liter: 0, aktiv: false, status: 'abgeschlossen' })
         .eq('id', q.weinausbau_id)
         .eq('tenant_id', tenantId)
-        if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
     } else {
       { const { error: e } = await (supabase.from('weinausbau') as any)
         .update({ menge_liter: restmenge })
         .eq('id', q.weinausbau_id)
         .eq('tenant_id', tenantId)
-        if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
     }
 
     // Quelle-Record (zeilen_typ = 'quelle') – ein Eintrag pro Quell-Charge
@@ -105,7 +106,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
       umzug_batch_id:    batchId,
       zeilen_typ:        'quelle',
     })
-    if (qErr) throw new Error((qErr as R).message)
+    if (qErr) throw new AktionsFehler((qErr as R).message)
   }
 
   // ── Phase 2: Ziele befüllen, Ziel-Records anlegen ────────────────────────────
@@ -177,7 +178,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
           .update({ notizen: neueNotizen })
           .eq('id', vorhanden.id)
           .eq('tenant_id', tenantId)
-          if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
+          if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
       }
 
       await (supabase.from('weinausbau') as any)
@@ -210,7 +211,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
         notizen:              `Umzug aus „${von0?.name ?? ''}"`,
         aktiv:                true,
       }).select('id')
-      if (neuErr) throw new Error(gebindeFehlerText((neuErr as R).message))
+      if (neuErr) throw new AktionsFehler(gebindeFehlerText((neuErr as R).message))
       nachWeinausbauId = ((newChargeData as R[])?.[0] as R | undefined)?.id ?? null
       if (nachWeinausbauId) {
         verschneidungNeeded = { existingChargeId: vorhanden.id, newChargeId: nachWeinausbauId, menge: z.menge }
@@ -236,7 +237,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
           : `Umzug aus „${von0?.name ?? ''}"`,
         aktiv:                true,
       }).select('id')
-      if (neuErr) throw new Error(gebindeFehlerText((neuErr as R).message))
+      if (neuErr) throw new AktionsFehler(gebindeFehlerText((neuErr as R).message))
       nachWeinausbauId = ((newChargeData as R[])?.[0] as R | undefined)?.id ?? null
     }
 
@@ -257,7 +258,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
       umzug_batch_id:     batchId,
       zeilen_typ:         'ziel',
     })
-    if (zErr) throw new Error((zErr as R).message)
+    if (zErr) throw new AktionsFehler((zErr as R).message)
   }
 
   revalidatePath('/kellerbuch')
@@ -277,12 +278,12 @@ export async function deleteUmzug(id: string) {
 export async function updateUmzug(umzugId: string, datum: string, notizen: string | null) {
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
-  if (!membership) throw new Error('Kein aktiver Mandant gefunden')
+  if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   { const { error: e } = await (supabase.from('keller_umzuege') as any)
     .update({ datum, notizen: notizen || null })
     .eq('id', umzugId)
     .eq('tenant_id', membership.tenantId)
-    if (e) throw new Error(`Speichern fehlgeschlagen (keller_umzuege): ${e.message}`) }
+    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (keller_umzuege): ${e.message}`) }
   revalidatePath('/kellerbuch')
   revalidatePath('/kellerbuch/umziehen')
   revalidatePath('/kellerbuch/behaelter', 'layout')

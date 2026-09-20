@@ -6,6 +6,7 @@ import { createBehandlung } from '../actions'
 import type { PSM, DuengemittelOption, WeingartenOption, GSTOption, KostenartOption, SatzOption } from './page'
 import { SprayCan, Sprout, Layers, Scissors, Leaf, MoreHorizontal, Hourglass, Info, Ban, AlertTriangle } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
+import { fehlerText } from '@/lib/fehler'
 
 const BBCH_OPTIONS = [
   { value: '09', label: '09 – Knospenaufbruch' },
@@ -363,7 +364,7 @@ export default function NeueBehandlungForm({
         router.push('/behandlungen')
         router.refresh()
       } catch (err) {
-        setError((err as Error).message)
+        setError(fehlerText(err))
       }
     })
   }

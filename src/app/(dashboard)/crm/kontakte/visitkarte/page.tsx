@@ -3,6 +3,7 @@ import { useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Camera, X } from 'lucide-react'
 import { createLeadFromVisitkarte } from '../../actions'
+import { fehlerText } from '@/lib/fehler'
 
 type Kontakt = {
   vorname: string|null; nachname: string|null; firma: string|null
@@ -60,7 +61,7 @@ export default function VisitkartenScannerPage() {
       }, 200)
 
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const msg = fehlerText(err)
       setFehler('Kamera konnte nicht geöffnet werden: ' + msg)
     }
   }

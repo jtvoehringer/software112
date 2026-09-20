@@ -12,6 +12,7 @@ import Link from '@/components/ui/Link'
 import { Upload, CheckCircle2, AlertTriangle, MapPin } from 'lucide-react'
 import { PROJ_MGI_AUSTRIA_LAMBERT, feldstueckAusFeature, schlagAusFeature, flaecheHa, type EamaFeldstueck, type EamaSchlag } from '@/lib/geo/eama'
 import { vorschauEamaGis, uebernehmeEamaGis, type Vorschau } from './actions'
+import { fehlerText } from '@/lib/fehler'
 
 type Feature = { properties: Record<string, unknown>; geometry: unknown }
 
@@ -59,7 +60,7 @@ export default function ImportGisClient() {
         setSchlaege(sl)
       }
     } catch (e) {
-      setFehler(e instanceof Error ? e.message : String(e))
+      setFehler(fehlerText(e))
     } finally { setLaden(null) }
   }
 
@@ -67,7 +68,7 @@ export default function ImportGisClient() {
     if (!feldstuecke) return
     setFehler(null)
     try { setVorschau(await vorschauEamaGis(feldstuecke, schlaege)) }
-    catch (e) { setFehler(e instanceof Error ? e.message : String(e)) }
+    catch (e) { setFehler(fehlerText(e)) }
   })
   const uebernehmen = () => start(async () => {
     if (!feldstuecke) return

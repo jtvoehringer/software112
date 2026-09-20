@@ -5,6 +5,7 @@ import { X, Pencil, Trash2 } from 'lucide-react'
 import type { Zeiteintrag } from './page'
 import { createZeiteintrag, updateZeiteintrag, deleteZeiteintrag } from './actions'
 import { fmtNum } from '@/lib/format'
+import { fehlerText } from '@/lib/fehler'
 
 // ── Phasen ────────────────────────────────────────────────────────────────────
 
@@ -58,7 +59,7 @@ function ZeitForm({
     const fd = new FormData(e.currentTarget)
     startTransition(async () => {
       try { await onSave(fd) }
-      catch (ex) { setErr(ex instanceof Error ? ex.message : 'Fehler') }
+      catch (ex) { setErr(fehlerText(ex, 'Fehler')) }
     })
   }
 

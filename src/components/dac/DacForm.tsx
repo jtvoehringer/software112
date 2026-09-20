@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { fehlerText } from '@/lib/fehler'
 
 const DAC_REGIONEN = [
   { value: 'weinviertel',           label: 'Weinviertel DAC' },
@@ -74,7 +75,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
       router.push('/dac')
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Fehler beim Speichern')
+      setError(fehlerText(err, 'Fehler beim Speichern'))
       setSaving(false)
     }
   }

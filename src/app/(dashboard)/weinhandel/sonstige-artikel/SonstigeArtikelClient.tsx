@@ -5,6 +5,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { upsertSonstigesArtikel, toggleAktivSonstigesArtikel, deleteSonstigesArtikel } from './actions'
 import { useRouter } from 'next/navigation'
 import { fmtEur } from '@/lib/format'
+import { fehlerText } from '@/lib/fehler'
 
 interface Artikel {
   id: string
@@ -38,7 +39,7 @@ function ArtikelRow({ artikel, onRefresh }: { artikel: Artikel; onRefresh: () =>
         setEditing(false)
         onRefresh()
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Fehler')
+        setError(fehlerText(e, 'Fehler'))
       }
     })
   }
@@ -156,7 +157,7 @@ function NeuerArtikelRow({ onRefresh, onCancel }: { onRefresh: () => void; onCan
         onRefresh()
         onCancel()
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Fehler')
+        setError(fehlerText(e, 'Fehler'))
       }
     })
   }

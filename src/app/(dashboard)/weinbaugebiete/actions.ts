@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -13,7 +14,7 @@ export type CustomWeinbaugebiet = { id: string; name: string }
 // Daten eines anderen Betriebs als des gerade ausgewählten angezeigt/verändert werden.
 async function getTenantId(): Promise<string> {
   const membership = await getCurrentMembership()
-  if (!membership) throw new Error('Kein aktiver Mandant gefunden')
+  if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   return membership.tenantId
 }
 
@@ -51,7 +52,7 @@ export async function createCustomWeinbaugebiet(name: string): Promise<CustomWei
     const b = bestehend as AR
     if (!b.aktiv) {
       { const { error: e } = await (supabase.from('weinbaugebiete_custom') as any).update({ aktiv: true }).eq('id', b.id).eq('tenant_id', tenantId)
-        if (e) throw new Error(`Speichern fehlgeschlagen (weinbaugebiete_custom): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinbaugebiete_custom): ${e.message}`) }
     }
     return { id: b.id, name: b.name }
   }
@@ -61,7 +62,7 @@ export async function createCustomWeinbaugebiet(name: string): Promise<CustomWei
     .select('id, name')
     .single()
 
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   return data as CustomWeinbaugebiet
 }
 
@@ -74,5 +75,5 @@ export async function deaktiviereCustomWeinbaugebiet(id: string): Promise<void> 
   const { error } = await (supabase.from('weinbaugebiete_custom') as any)
     .update({ aktiv: false })
     .eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
 }

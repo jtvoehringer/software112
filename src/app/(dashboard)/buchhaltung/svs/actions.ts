@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canWrite, canAdmin, isSystemAdmin } from '@/lib/auth/roles'
 import type { Zurechnung } from '@/lib/svs/berechnung'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -12,8 +13,8 @@ const ZURECHNUNGEN: Zurechnung[] = ['eigen', 'pacht_fremd', 'pacht_angehoerige',
 
 async function ctx(schreiben = true) {
   const membership = await getCurrentMembership()
-  if (!membership?.tenantId) throw new Error('Kein Mandant')
-  if (schreiben && !canWrite(membership.role, 'ea')) throw new Error('Keine Berechtigung')
+  if (!membership?.tenantId) throw new AktionsFehler('Kein Mandant')
+  if (schreiben && !canWrite(membership.role, 'ea')) throw new AktionsFehler('Keine Berechtigung')
   const supabase = await createSupabaseServerClient()
   return { supabase, tenantId: membership.tenantId, role: membership.role }
 }

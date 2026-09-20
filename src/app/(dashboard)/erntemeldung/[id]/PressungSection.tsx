@@ -7,6 +7,7 @@ import { fmtProzent, fmtNum } from '@/lib/format'
 import { kmwZuQualitaet, QUALITAET_LABEL, QUALITAET_ORDER } from '@/lib/weinqualitaet'
 import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { fehlerText } from '@/lib/fehler'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -274,7 +275,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
         onDone()
       } catch (err) {
         console.error('Pressung Fehler:', err)
-        alert('Fehler beim Speichern: ' + (err instanceof Error ? err.message : 'Unbekannter Fehler'))
+        alert('Fehler beim Speichern: ' + (fehlerText(err, 'Unbekannter Fehler')))
       }
     })
   }

@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>
@@ -21,18 +22,18 @@ type AnyRecord = Record<string, any>
 // umschlossenen Actions als geworfener Fehler an den Aufrufer.
 async function requireWrite(): Promise<{ tenantId: string }> {
   const membership = await getCurrentMembership()
-  if (!membership) throw new Error('Kein Betrieb gefunden')
+  if (!membership) throw new AktionsFehler('Kein Betrieb gefunden')
   if (!canWrite(membership.role, 'rieden')) {
-    throw new Error('Keine Berechtigung: Diese Aktion ist Betriebs-Manager, Super-Admin oder Mitarbeiter mit Modulrecht vorbehalten.')
+    throw new AktionsFehler('Keine Berechtigung: Diese Aktion ist Betriebs-Manager, Super-Admin oder Mitarbeiter mit Modulrecht vorbehalten.')
   }
   return { tenantId: membership.tenantId }
 }
 
 async function requireAdmin(): Promise<{ tenantId: string }> {
   const membership = await getCurrentMembership()
-  if (!membership) throw new Error('Kein Betrieb gefunden')
+  if (!membership) throw new AktionsFehler('Kein Betrieb gefunden')
   if (!canAdmin(membership.role)) {
-    throw new Error('Keine Berechtigung: Löschen (und Deaktivieren) ist nur dem Betriebs-Manager bzw. Super-Admin vorbehalten.')
+    throw new AktionsFehler('Keine Berechtigung: Löschen (und Deaktivieren) ist nur dem Betriebs-Manager bzw. Super-Admin vorbehalten.')
   }
   return { tenantId: membership.tenantId }
 }
@@ -59,7 +60,7 @@ export async function createWeingarten(formData: FormData) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('weingarten') as any).insert(payload)
-  if (error) throw new Error((error as AnyRecord).message)
+  if (error) throw new AktionsFehler((error as AnyRecord).message)
   revalidatePath('/weingarten')
 }
 
@@ -101,19 +102,19 @@ export async function updateWeingarten(id: string, formData: FormData) {
     { const { error: e } = await (supabase.from('lagen') as any)
       .update({ name })
       .eq('id', existing.lage_id).eq('tenant_id', tenantId)
-      if (e) throw new Error(`Speichern fehlgeschlagen (lagen): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (lagen): ${e.message}`) }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     { const { error: e } = await (supabase.from('weingarten') as any)
       .update({ ried: name })
       .eq('lage_id', existing.lage_id).eq('tenant_id', tenantId)
-      if (e) throw new Error(`Speichern fehlgeschlagen (weingarten): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weingarten): ${e.message}`) }
   } else {
     payload.ried = name || null
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('weingarten') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AnyRecord).message)
+  if (error) throw new AktionsFehler((error as AnyRecord).message)
   revalidatePath('/weingarten')
   revalidatePath('/lagen')
 }
@@ -123,7 +124,7 @@ export async function deactivateWeingarten(id: string) {
   const { tenantId } = await requireAdmin()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('weingarten') as any).update({ aktiv: false }).eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AnyRecord).message)
+  if (error) throw new AktionsFehler((error as AnyRecord).message)
   revalidatePath('/weingarten')
 }
 
@@ -203,7 +204,7 @@ export async function createGrundstueck(weingartenId: string, formData: FormData
   // nutzart==='WI' ab (vorher status==='aktiv') - steuert Ernte-Meldung,
   // Behandlungsplanung, KI-Assistent-Validierung und Zukauf-Flächensumme.
   const nutzart = formData.get('nutzart') as string
-  if (!nutzart) throw new Error('Nutzart ist ein Pflichtfeld')
+  if (!nutzart) throw new AktionsFehler('Nutzart ist ein Pflichtfeld')
   const payload: AnyRecord = {
     tenant_id:             tenantId,
     weingarten_id:         weingartenId,
@@ -233,7 +234,7 @@ export async function createGrundstueck(weingartenId: string, formData: FormData
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('grundstuecke') as any).insert(payload)
-  if (error) throw new Error((error as AnyRecord).message)
+  if (error) throw new AktionsFehler((error as AnyRecord).message)
   revalidatePath('/weingarten')
 }
 
@@ -243,7 +244,7 @@ export async function updateGrundstueck(id: string, weingartenId: string, formDa
   // Rückmeldung 24.8.2026: "status" wird nicht mehr gepflegt, siehe
   // createGrundstueck weiter oben.
   const nutzart = formData.get('nutzart') as string
-  if (!nutzart) throw new Error('Nutzart ist ein Pflichtfeld')
+  if (!nutzart) throw new AktionsFehler('Nutzart ist ein Pflichtfeld')
   const payload: AnyRecord = {
     gst_nr:                formData.get('gst_nr') as string,
     katastralgemeinde:     (formData.get('katastralgemeinde') as string) || null,
@@ -268,7 +269,7 @@ export async function updateGrundstueck(id: string, weingartenId: string, formDa
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('grundstuecke') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AnyRecord).message)
+  if (error) throw new AktionsFehler((error as AnyRecord).message)
   revalidatePath('/weingarten')
   revalidatePath(`/weingarten/${weingartenId}`)
 }
@@ -278,7 +279,7 @@ export async function deleteGrundstueck(id: string, weingartenId: string) {
   const { tenantId } = await requireAdmin()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('grundstuecke') as any).delete().eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AnyRecord).message)
+  if (error) throw new AktionsFehler((error as AnyRecord).message)
   revalidatePath('/weingarten')
   revalidatePath(`/weingarten/${weingartenId}`)
 }

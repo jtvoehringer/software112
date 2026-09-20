@@ -7,6 +7,7 @@ import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { AlertTriangle } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
+import { fehlerText } from '@/lib/fehler'
 
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
 
@@ -178,7 +179,7 @@ export default function ZukaufEditForm({
 
     startTransition(async () => {
       try { await updateZukauf(id, fd) }
-      catch (err) { setError(err instanceof Error ? err.message : 'Fehler beim Speichern') }
+      catch (err) { setError(fehlerText(err, 'Fehler beim Speichern')) }
     })
   }
 

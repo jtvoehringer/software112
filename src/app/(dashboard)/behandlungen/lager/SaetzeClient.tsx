@@ -5,6 +5,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { upsertSatzMassnahme, deactivateSatzMassnahme } from './actions'
 import type { SatzEintrag } from './page'
 import { fmtNum } from '@/lib/format'
+import { fehlerText } from '@/lib/fehler'
 
 const ART_OPTS = [
   { value: 'spritzung',        label: 'Spritzung' },
@@ -38,7 +39,7 @@ function SatzForm({ satz, onDone }: { satz?: SatzEintrag; onDone: () => void }) 
     const fd = new FormData(e.currentTarget)
     startTransition(async () => {
       try { await upsertSatzMassnahme(fd); setFehler(null); onDone() }
-      catch (e) { setFehler(e instanceof Error ? e.message : String(e)) }
+      catch (e) { setFehler(fehlerText(e)) }
     })
   }
 

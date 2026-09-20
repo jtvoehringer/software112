@@ -15,6 +15,7 @@ import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { decryptPass } from '@/lib/email/crypto'
 import { getValidUserAccessToken } from '@/lib/m365/graph'
 import { renderVerkaufRechnungPdf } from '@/lib/pdf/verkaufRechnungPdf'
+import { ereignisMelden } from '@/lib/system/ereignis'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -274,7 +275,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   { const { error: e } = await (supabase.from('verkaufsposten') as any)
     .update({ rechnung_versendet_am: sentAt, rechnung_versendet_an: recipient })
     .eq('id', id).eq('tenant_id', tenantId)
-    if (e) console.error('[send] verkaufsposten:', e.message) }
+    if (e) void ereignisMelden({ art: 'db', quelle: 'send/verkaufsposten', meldung: e.message }) }
 
   await (admin.from('aktivitaeten') as any).insert({
     tenant_id: tenantId,

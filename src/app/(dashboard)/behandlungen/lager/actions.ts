@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
+import { AktionsFehler } from '@/lib/fehler'
 
 // Fehler der Datenbank (z.B. RLS) werden seit 20.9.2026 geworfen statt verschluckt -
 // vorher verschwanden abgelehnte Buchungen ohne Hinweis (PSM-Anfangsbestände Gebeshuber).
@@ -12,7 +13,7 @@ import { revalidatePath } from 'next/cache'
 // Daten eines anderen Betriebs als des gerade ausgewählten angezeigt/verändert werden.
 async function getTenantId(): Promise<string> {
   const membership = await getCurrentMembership()
-  if (!membership) throw new Error('Kein aktiver Mandant gefunden')
+  if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   return membership.tenantId
 }
 
@@ -21,7 +22,7 @@ export async function upsertLagerBewegung(fd: FormData) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: { user } } = await (supabase.auth as any).getUser()
-  if (!user) throw new Error('Nicht angemeldet')
+  if (!user) throw new AktionsFehler('Nicht angemeldet')
 
   const tenantId = await getTenantId()
 
@@ -44,11 +45,11 @@ export async function upsertLagerBewegung(fd: FormData) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('psm_lager_bewegungen') as any)
       .update(payload).eq('id', existingId).eq('tenant_id', tenantId)
-    if (error) throw new Error(`Speichern fehlgeschlagen: ${error.message}`)
+    if (error) throw new AktionsFehler(`Speichern fehlgeschlagen: ${error.message}`)
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('psm_lager_bewegungen') as any).insert(payload)
-    if (error) throw new Error(`Speichern fehlgeschlagen: ${error.message}`)
+    if (error) throw new AktionsFehler(`Speichern fehlgeschlagen: ${error.message}`)
   }
 
   revalidatePath('/behandlungen/lager')
@@ -59,7 +60,7 @@ export async function deleteLagerBewegung(id: string) {
   const tenantId = await getTenantId()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('psm_lager_bewegungen') as any).delete().eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error(`Löschen fehlgeschlagen: ${error.message}`)
+  if (error) throw new AktionsFehler(`Löschen fehlgeschlagen: ${error.message}`)
   revalidatePath('/behandlungen/lager')
 }
 
@@ -70,7 +71,7 @@ export async function upsertDuengerBewegung(fd: FormData) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: { user } } = await (supabase.auth as any).getUser()
-  if (!user) throw new Error('Nicht angemeldet')
+  if (!user) throw new AktionsFehler('Nicht angemeldet')
 
   const tenantId = await getTenantId()
 
@@ -93,11 +94,11 @@ export async function upsertDuengerBewegung(fd: FormData) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('duengemittel_lager_bewegungen') as any)
       .update(payload).eq('id', existingId).eq('tenant_id', tenantId)
-    if (error) throw new Error(`Speichern fehlgeschlagen: ${error.message}`)
+    if (error) throw new AktionsFehler(`Speichern fehlgeschlagen: ${error.message}`)
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('duengemittel_lager_bewegungen') as any).insert(payload)
-    if (error) throw new Error(`Speichern fehlgeschlagen: ${error.message}`)
+    if (error) throw new AktionsFehler(`Speichern fehlgeschlagen: ${error.message}`)
   }
 
   revalidatePath('/behandlungen/lager')
@@ -108,7 +109,7 @@ export async function deleteDuengerBewegung(id: string) {
   const tenantId = await getTenantId()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('duengemittel_lager_bewegungen') as any).delete().eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error(`Löschen fehlgeschlagen: ${error.message}`)
+  if (error) throw new AktionsFehler(`Löschen fehlgeschlagen: ${error.message}`)
   revalidatePath('/behandlungen/lager')
 }
 
@@ -119,7 +120,7 @@ export async function upsertPSM(fd: FormData) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: { user } } = await (supabase.auth as any).getUser()
-  if (!user) throw new Error('Nicht angemeldet')
+  if (!user) throw new AktionsFehler('Nicht angemeldet')
 
   const tenantId = await getTenantId()
 
@@ -145,11 +146,11 @@ export async function upsertPSM(fd: FormData) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('pflanzenschutzmittel') as any)
       .update(payload).eq('id', existingId).eq('tenant_id', tenantId)
-    if (error) throw new Error(`Speichern fehlgeschlagen: ${error.message}`)
+    if (error) throw new AktionsFehler(`Speichern fehlgeschlagen: ${error.message}`)
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('pflanzenschutzmittel') as any).insert(payload)
-    if (error) throw new Error(`Speichern fehlgeschlagen: ${error.message}`)
+    if (error) throw new AktionsFehler(`Speichern fehlgeschlagen: ${error.message}`)
   }
 
   revalidatePath('/behandlungen/lager')
@@ -163,7 +164,7 @@ export async function deactivatePSM(id: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('pflanzenschutzmittel') as any)
     .update({ aktiv: false }).eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error(`Deaktivieren fehlgeschlagen: ${error.message}`)
+  if (error) throw new AktionsFehler(`Deaktivieren fehlgeschlagen: ${error.message}`)
   revalidatePath('/behandlungen/lager')
 }
 
@@ -174,7 +175,7 @@ export async function upsertDuengemittel(fd: FormData) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: { user } } = await (supabase.auth as any).getUser()
-  if (!user) throw new Error('Nicht angemeldet')
+  if (!user) throw new AktionsFehler('Nicht angemeldet')
 
   const tenantId = await getTenantId()
 
@@ -201,11 +202,11 @@ export async function upsertDuengemittel(fd: FormData) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('duengemittel') as any)
       .update(payload).eq('id', existingId).eq('tenant_id', tenantId)
-    if (error) throw new Error(`Speichern fehlgeschlagen: ${error.message}`)
+    if (error) throw new AktionsFehler(`Speichern fehlgeschlagen: ${error.message}`)
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('duengemittel') as any).insert(payload)
-    if (error) throw new Error(`Speichern fehlgeschlagen: ${error.message}`)
+    if (error) throw new AktionsFehler(`Speichern fehlgeschlagen: ${error.message}`)
   }
 
   revalidatePath('/behandlungen/lager')
@@ -218,7 +219,7 @@ export async function deactivateDuengemittel(id: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('duengemittel') as any)
     .update({ aktiv: false }).eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error(`Deaktivieren fehlgeschlagen: ${error.message}`)
+  if (error) throw new AktionsFehler(`Deaktivieren fehlgeschlagen: ${error.message}`)
   revalidatePath('/behandlungen/lager')
 }
 
@@ -229,7 +230,7 @@ export async function upsertSatzMassnahme(fd: FormData) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: { user } } = await (supabase.auth as any).getUser()
-  if (!user) throw new Error('Nicht angemeldet')
+  if (!user) throw new AktionsFehler('Nicht angemeldet')
 
   const tenantId = await getTenantId()
 
@@ -249,11 +250,11 @@ export async function upsertSatzMassnahme(fd: FormData) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('saetze_massnahmen') as any)
       .update(payload).eq('id', existingId).eq('tenant_id', tenantId)
-    if (error) throw new Error(`Speichern fehlgeschlagen: ${error.message}`)
+    if (error) throw new AktionsFehler(`Speichern fehlgeschlagen: ${error.message}`)
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('saetze_massnahmen') as any).insert(payload)
-    if (error) throw new Error(`Speichern fehlgeschlagen: ${error.message}`)
+    if (error) throw new AktionsFehler(`Speichern fehlgeschlagen: ${error.message}`)
   }
 
   revalidatePath('/behandlungen/lager')
@@ -266,6 +267,6 @@ export async function deactivateSatzMassnahme(id: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('saetze_massnahmen') as any)
     .update({ aktiv: false }).eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new Error(`Deaktivieren fehlgeschlagen: ${error.message}`)
+  if (error) throw new AktionsFehler(`Deaktivieren fehlgeschlagen: ${error.message}`)
   revalidatePath('/behandlungen/lager')
 }

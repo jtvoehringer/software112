@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 import { decryptPass } from '@/lib/email/crypto'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { ereignisMelden } from '@/lib/system/ereignis'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -117,7 +118,7 @@ export async function POST(req: NextRequest) {
         email_body: text ?? null,
         email_body_html: null,
       })
-        if (e) console.error('[unified] aktivitaeten:', e.message) }
+        if (e) void ereignisMelden({ art: 'db', quelle: 'unified/aktivitaeten', meldung: e.message }) }
       return NextResponse.json({ ok: true, via: 'm365' })
     }
 
@@ -139,7 +140,7 @@ export async function POST(req: NextRequest) {
         art: 'email', betreff, beschreibung: text?.slice(0, 200) ?? null,
         datum: new Date().toISOString().split('T')[0], erledigt: false, ganztags: true,
       })
-        if (e) console.error('[unified] aktivitaeten:', e.message) }
+        if (e) void ereignisMelden({ art: 'db', quelle: 'unified/aktivitaeten', meldung: e.message }) }
       return NextResponse.json({ ok: true, via: 'smtp' })
     }
 

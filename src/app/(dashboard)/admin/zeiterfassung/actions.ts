@@ -2,18 +2,19 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
+import { AktionsFehler } from '@/lib/fehler'
 
 type AR = Record<string, any>
 
 async function getTenantAdmin() {
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Nicht angemeldet')
+  if (!user) throw new AktionsFehler('Nicht angemeldet')
   // Aktiv gewählten Betrieb respektieren (wie im Rest der App) statt einer unsortierten
   // Rollenabfrage, die bei mehreren Admin-Mitgliedschaften zudem mit .single() fehlschlagen würde.
   const membership = await getCurrentMembership()
   if (!membership || !['tenant_admin', 'system_admin'].includes(membership.role ?? '')) {
-    throw new Error('Keine Berechtigung')
+    throw new AktionsFehler('Keine Berechtigung')
   }
   return { supabase, tenantId: membership.tenantId }
 }
@@ -41,7 +42,7 @@ export async function createZeiteintrag(formData: FormData) {
   const { supabase, tenantId } = await getTenantAdmin()
   const { error } = await (supabase.from('zeiterfassung') as any)
     .insert({ ...parseForm(formData), tenant_id: tenantId })
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/admin/zeiterfassung')
 }
 
@@ -51,7 +52,7 @@ export async function updateZeiteintrag(id: string, formData: FormData) {
     .update({ ...parseForm(formData), aktualisiert_am: new Date().toISOString() })
     .eq('id', id)
     .eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/admin/zeiterfassung')
 }
 
@@ -60,6 +61,6 @@ export async function deleteZeiteintrag(id: string) {
   const { error } = await (supabase.from('zeiterfassung') as any)
     .delete().eq('id', id)
     .eq('tenant_id', tenantId)
-  if (error) throw new Error((error as AR).message)
+  if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/admin/zeiterfassung')
 }

@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { fmtNum } from '@/lib/format'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -15,7 +16,7 @@ type R = Record<string, any>
 // Betriebs gelesen/verändert werden.
 async function getTenantId(): Promise<string> {
   const membership = await getCurrentMembership()
-  if (!membership) throw new Error('Kein aktiver Mandant gefunden')
+  if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   return membership.tenantId
 }
 
@@ -117,7 +118,7 @@ export async function deleteEroeffnungsbestand(id: string) {
     .eq('id', id)
     .eq('ist_eroeffnungsbestand', true)
     .eq('tenant_id', tenantId)
-  if (error) throw new Error((error as R).message)
+  if (error) throw new AktionsFehler((error as R).message)
   revalidatePath('/kellerbuch/gebinde')
 }
 
@@ -139,7 +140,7 @@ export async function createUmzug(formData: FormData) {
   const ziele   = zieleRaw.filter(z => z.behaelter_id && z.menge_netto > 0)
 
   if (quellen.length === 0 || ziele.length === 0) {
-    throw new Error('Bitte mindestens eine Quelle und ein Ziel angeben.')
+    throw new AktionsFehler('Bitte mindestens eine Quelle und ein Ziel angeben.')
   }
 
   // Ziele vorab prüfen (Kellergemeinschaft, Migration 203): eigenes oder freigegebenes,
@@ -148,8 +149,8 @@ export async function createUmzug(formData: FormData) {
   const zielGebinde = await ladeBehaelter(supabase, tenantId, { nurAktiv: true })
   for (const z of ziele) {
     const g = zielGebinde.find(b => b.id === z.behaelter_id)
-    if (!g) throw new Error('Ziel-Gebinde nicht gefunden oder nicht freigegeben.')
-    if (g.gesperrt) throw new Error(`Gebinde „${g.name}“ ist durch ${g.fremd_betrieb ?? 'einen anderen Betrieb'} belegt – Umziehen dorthin ist nicht möglich.`)
+    if (!g) throw new AktionsFehler('Ziel-Gebinde nicht gefunden oder nicht freigegeben.')
+    if (g.gesperrt) throw new AktionsFehler(`Gebinde „${g.name}“ ist durch ${g.fremd_betrieb ?? 'einen anderen Betrieb'} belegt – Umziehen dorthin ist nicht möglich.`)
   }
 
   const batchId = crypto.randomUUID()
@@ -168,7 +169,7 @@ export async function createUmzug(formData: FormData) {
     const verfuegbar = parseFloat(wa?.menge_liter ?? '0') || 0
 
     if (q.brutto > verfuegbar + 0.01) {
-      throw new Error(
+      throw new AktionsFehler(
         `Brutto (${fmtNum(q.brutto, { max: 2 })} L) für Charge "${wa?.name}" übersteigt Bestand (${fmtNum(verfuegbar, { max: 2 })} L)`
       )
     }
@@ -179,7 +180,7 @@ export async function createUmzug(formData: FormData) {
       .update({ menge_liter: Math.max(0, verfuegbar - q.brutto) })
       .eq('id', q.weinausbau_id)
       .eq('tenant_id', tenantId)
-      if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
 
     // Quelle-Record anlegen
     const { error: qErr } = await (supabase.from('keller_umzuege') as any).insert({
@@ -195,7 +196,7 @@ export async function createUmzug(formData: FormData) {
       umzug_batch_id:    batchId,
       zeilen_typ:        'quelle',
     })
-    if (qErr) throw new Error((qErr as R).message)
+    if (qErr) throw new AktionsFehler((qErr as R).message)
   }
 
   // --- Ziele verarbeiten ---
@@ -233,7 +234,7 @@ export async function createUmzug(formData: FormData) {
         .update({ menge_liter: altMenge + z.menge_netto })
         .eq('id', existing.id)
         .eq('tenant_id', tenantId)
-        if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
       nachWeinausbauId = existing.id
     } else {
       const { data: neu, error: neuErr } = await (supabase.from('weinausbau') as any)
@@ -251,7 +252,7 @@ export async function createUmzug(formData: FormData) {
           aktiv:                true,
         })
         .select('id').single()
-      if (neuErr) throw new Error(gebindeFehlerText((neuErr as R).message))
+      if (neuErr) throw new AktionsFehler(gebindeFehlerText((neuErr as R).message))
       nachWeinausbauId = (neu as R | null)?.id ?? null
     }
 
@@ -268,7 +269,7 @@ export async function createUmzug(formData: FormData) {
       umzug_batch_id:     batchId,
       zeilen_typ:         'ziel',
     })
-    if (zErr) throw new Error((zErr as R).message)
+    if (zErr) throw new AktionsFehler((zErr as R).message)
   }
 
   revalidatePath('/kellerbuch')
@@ -318,7 +319,7 @@ export async function deleteUmzug(id: string) {
       const aktuell = parseFloat((wa as R | null)?.menge_liter ?? '0') || 0
       { const { error: e } = await (supabase.from('weinausbau') as any)
         .update({ menge_liter: aktuell + brutto }).eq('id', r.von_weinausbau_id).eq('tenant_id', tenantId)
-        if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
     }
     for (const r of batchRecs.filter((r: R) => r.zeilen_typ === 'ziel')) {
       if (!r.nach_weinausbau_id) continue
@@ -329,7 +330,7 @@ export async function deleteUmzug(id: string) {
       const aktuell = parseFloat((wa as R | null)?.menge_liter ?? '0') || 0
       { const { error: e } = await (supabase.from('weinausbau') as any)
         .update({ menge_liter: Math.max(0, aktuell - netto) }).eq('id', r.nach_weinausbau_id).eq('tenant_id', tenantId)
-        if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
     }
   } else {
     // Altes Format (transfer): Quell-Charge wiederherstellen
@@ -345,7 +346,7 @@ export async function deleteUmzug(id: string) {
         const aktuell = parseFloat((wa as R | null)?.menge_liter ?? '0') || 0
         { const { error: e } = await (supabase.from('weinausbau') as any)
           .update({ menge_liter: aktuell + bruttoZurueck }).eq('id', vonId).eq('tenant_id', tenantId)
-          if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
+          if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
       }
     }
   }
@@ -354,11 +355,11 @@ export async function deleteUmzug(id: string) {
   if (batchId) {
     const { error } = await (supabase.from('keller_umzuege') as any)
       .delete().eq('umzug_batch_id', batchId).eq('tenant_id', tenantId)
-    if (error) throw new Error((error as R).message)
+    if (error) throw new AktionsFehler((error as R).message)
   } else {
     const { error } = await (supabase.from('keller_umzuege') as any)
       .delete().eq('id', id).eq('tenant_id', tenantId)
-    if (error) throw new Error((error as R).message)
+    if (error) throw new AktionsFehler((error as R).message)
   }
 
   revalidatePath('/kellerbuch')
