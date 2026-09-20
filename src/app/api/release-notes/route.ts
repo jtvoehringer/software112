@@ -27,9 +27,10 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await s.auth.getUser()
   if (!user) return NextResponse.json({ ok: false })
   const { release_note_id } = await req.json() as R
-  await (s.from('release_notes_gesehen') as any).upsert(
+  { const { error: e } = await (s.from('release_notes_gesehen') as any).upsert(
     { user_id: user.id, release_note_id },
     { onConflict: 'user_id,release_note_id' }
   )
+    if (e) console.error('[release-notes] release_notes_gesehen:', e.message) }
   return NextResponse.json({ ok: true })
 }

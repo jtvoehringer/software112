@@ -227,10 +227,11 @@ export async function createVerkauf(formData: FormData) {
         .single()
       const aktuell = (fuellung as AR | null)?.bestand_flaschen ?? 0
       const neu = Math.max(0, aktuell - Math.round(p.menge))
-      await (supabase.from('fuellungen') as any)
+      { const { error: e } = await (supabase.from('fuellungen') as any)
         .update({ bestand_flaschen: neu, aktualisiert_am: new Date().toISOString() })
         .eq('id', p.fuellung_id)
         .eq('tenant_id', tenantId)
+        if (e) throw new Error(`Speichern fehlgeschlagen (fuellungen): ${e.message}`) }
     } else if (p.typ === 'tank' && p.weinausbau_id) {
       // menge_liter in Kellerbuch-Charge dekrementieren
       const { data: wein } = await (supabase.from('weinausbau') as any)
@@ -240,10 +241,11 @@ export async function createVerkauf(formData: FormData) {
         .single()
       const aktuell = parseFloat((wein as AR | null)?.menge_liter ?? '0') || 0
       const neu = Math.max(0, aktuell - p.menge)
-      await (supabase.from('weinausbau') as any)
+      { const { error: e } = await (supabase.from('weinausbau') as any)
         .update({ menge_liter: neu })
         .eq('id', p.weinausbau_id)
         .eq('tenant_id', tenantId)
+        if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
     } else if (p.typ === 'tank' && p.zukauf_id) {
       // menge in Zukauf-Posten dekrementieren
       const { data: zk } = await (supabase.from('zukauf_posten') as any)
@@ -253,17 +255,19 @@ export async function createVerkauf(formData: FormData) {
         .single()
       const aktuell = parseFloat((zk as AR | null)?.menge ?? '0') || 0
       const neu = Math.max(0, aktuell - p.menge)
-      await (supabase.from('zukauf_posten') as any)
+      { const { error: e } = await (supabase.from('zukauf_posten') as any)
         .update({ menge: neu })
         .eq('id', p.zukauf_id)
         .eq('tenant_id', tenantId)
+        if (e) throw new Error(`Speichern fehlgeschlagen (zukauf_posten): ${e.message}`) }
     } else if (p.typ === 'tank' && p.pressung_behaelter_id) {
       const { data: pb } = await (supabase.from('pressung_behaelter') as any)
         .select('menge_liter').eq('id', p.pressung_behaelter_id).single()
       const aktuell = parseFloat((pb as AR | null)?.menge_liter ?? '0') || 0
       const neu = Math.max(0, aktuell - p.menge)
-      await (supabase.from('pressung_behaelter') as any)
+      { const { error: e } = await (supabase.from('pressung_behaelter') as any)
         .update({ menge_liter: neu }).eq('id', p.pressung_behaelter_id)
+        if (e) throw new Error(`Speichern fehlgeschlagen (pressung_behaelter): ${e.message}`) }
     }
   }
 
@@ -284,7 +288,7 @@ export async function createVerkauf(formData: FormData) {
       ].filter(Boolean).join(' · ')
 
       const { data: { user } } = await supabase.auth.getUser()
-      await (supabase.from('aktivitaeten') as any).insert({
+      { const { error: e } = await (supabase.from('aktivitaeten') as any).insert({
         tenant_id:    tenantId,
         kontakt_id:   kontaktId  || null,
         firma_id:     firmaId    || null,
@@ -295,6 +299,7 @@ export async function createVerkauf(formData: FormData) {
         erledigt:     true,
         erstellt_von: user?.id ?? null,
       })
+        if (e) throw new Error(`Speichern fehlgeschlagen (aktivitaeten): ${e.message}`) }
     } catch {
       // CRM-Fehler nicht auf Verkauf durchschlagen
     }
@@ -302,18 +307,20 @@ export async function createVerkauf(formData: FormData) {
 
   // Lead → Kunde automatisch umstellen nach erstem Verkauf
   if (kontaktId) {
-    await (supabase.from('kontakte') as any)
+    { const { error: e } = await (supabase.from('kontakte') as any)
       .update({ is_lead: false })
       .eq('id', kontaktId)
       .eq('tenant_id', tenantId)
       .eq('is_lead', true)  // nur wenn noch Lead
+      if (e) throw new Error(`Speichern fehlgeschlagen (kontakte): ${e.message}`) }
   }
   if (firmaId) {
-    await (supabase.from('firmen') as any)
+    { const { error: e } = await (supabase.from('firmen') as any)
       .update({ is_lead: false })
       .eq('id', firmaId)
       .eq('tenant_id', tenantId)
       .eq('is_lead', true)
+      if (e) throw new Error(`Speichern fehlgeschlagen (firmen): ${e.message}`) }
   }
 
   revalidatePath('/weinhandel/verkauf')
@@ -334,11 +341,12 @@ export async function deactivateVerkauf(id: string) {
   if (error) throw new Error((error as AR).message)
 
   // Verknüpfte, nicht gesperrte E&A-Einnahmebuchungen entfernen
-  await (supabase.from('ea_transaktionen') as any)
+  { const { error: e } = await (supabase.from('ea_transaktionen') as any)
     .delete()
     .eq('verkaufsposten_id', id)
     .eq('is_locked', false)
     .eq('tenant_id', tenantId)
+    if (e) throw new Error(`Speichern fehlgeschlagen (ea_transaktionen): ${e.message}`) }
 
   revalidatePath('/weinhandel/verkauf')
   revalidatePath('/buchhaltung')
@@ -365,32 +373,36 @@ export async function stornoVerkauf(id: string) {
       const { data: f } = await (supabase.from('fuellungen') as any)
         .select('bestand_flaschen').eq('id', p.fuellung_id).eq('tenant_id', tenantId).single()
       const aktuell = (f as AR | null)?.bestand_flaschen ?? 0
-      await (supabase.from('fuellungen') as any)
+      { const { error: e } = await (supabase.from('fuellungen') as any)
         .update({ bestand_flaschen: aktuell + Math.round(p.menge), aktualisiert_am: new Date().toISOString() })
         .eq('id', p.fuellung_id)
         .eq('tenant_id', tenantId)
+        if (e) throw new Error(`Speichern fehlgeschlagen (fuellungen): ${e.message}`) }
     } else if (p.typ === 'tank' && p.weinausbau_id) {
       const { data: w } = await (supabase.from('weinausbau') as any)
         .select('menge_liter').eq('id', p.weinausbau_id).eq('tenant_id', tenantId).single()
       const aktuell = parseFloat((w as AR | null)?.menge_liter ?? '0') || 0
-      await (supabase.from('weinausbau') as any)
+      { const { error: e } = await (supabase.from('weinausbau') as any)
         .update({ menge_liter: aktuell + p.menge })
         .eq('id', p.weinausbau_id)
         .eq('tenant_id', tenantId)
+        if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
     } else if (p.typ === 'tank' && p.zukauf_id) {
       const { data: zk } = await (supabase.from('zukauf_posten') as any)
         .select('menge').eq('id', p.zukauf_id).eq('tenant_id', tenantId).single()
       const aktuell = parseFloat((zk as AR | null)?.menge ?? '0') || 0
-      await (supabase.from('zukauf_posten') as any)
+      { const { error: e } = await (supabase.from('zukauf_posten') as any)
         .update({ menge: aktuell + p.menge })
         .eq('id', p.zukauf_id)
         .eq('tenant_id', tenantId)
+        if (e) throw new Error(`Speichern fehlgeschlagen (zukauf_posten): ${e.message}`) }
     } else if (p.typ === 'tank' && p.pressung_behaelter_id) {
       const { data: pb } = await (supabase.from('pressung_behaelter') as any)
         .select('menge_liter').eq('id', p.pressung_behaelter_id).single()
       const aktuell = parseFloat((pb as AR | null)?.menge_liter ?? '0') || 0
-      await (supabase.from('pressung_behaelter') as any)
+      { const { error: e } = await (supabase.from('pressung_behaelter') as any)
         .update({ menge_liter: aktuell + p.menge }).eq('id', p.pressung_behaelter_id)
+        if (e) throw new Error(`Speichern fehlgeschlagen (pressung_behaelter): ${e.message}`) }
     }
   }
 
@@ -398,10 +410,11 @@ export async function stornoVerkauf(id: string) {
   for (const p of positionen) {
     if (p.typ === 'trauben' && p.traubenverkauf_id) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('traubenverkauf') as any)
+      { const { error: e } = await (supabase.from('traubenverkauf') as any)
         .delete()
         .eq('id', p.traubenverkauf_id)
         .eq('tenant_id', tenantId)
+        if (e) throw new Error(`Speichern fehlgeschlagen (traubenverkauf): ${e.message}`) }
     }
   }
 
@@ -418,19 +431,21 @@ export async function stornoVerkauf(id: string) {
 
   // Verknüpfte, nicht gesperrte E&A-Einnahmebuchungen entfernen – ein Storno
   // macht den zugehörigen Zahlungseingang ungültig.
-  await (supabase.from('ea_transaktionen') as any)
+  { const { error: e } = await (supabase.from('ea_transaktionen') as any)
     .delete()
     .eq('verkaufsposten_id', id)
     .eq('is_locked', false)
     .eq('tenant_id', tenantId)
+    if (e) throw new Error(`Speichern fehlgeschlagen (ea_transaktionen): ${e.message}`) }
 
   // CRM-Aktivität auf STORNIERT setzen
   try {
     const re = (vorabStorno as AR | null)?.rechnungsnummer
-    await (supabase.from('aktivitaeten') as any)
+    { const { error: e } = await (supabase.from('aktivitaeten') as any)
       .update({ betreff: `Verkauf ${re ?? ''} · STORNIERT` })
       .eq('beschreibung', `Verkaufsposten: ${id}`)
       .eq('tenant_id', tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (aktivitaeten): ${e.message}`) }
   } catch { /* nicht kritisch */ }
 
   revalidatePath('/weinhandel/verkauf')
@@ -490,10 +505,11 @@ export async function markiereAlsBezahlt(id: string) {
   // CRM-Aktivität aktualisieren
   try {
     const re = posten?.rechnungsnummer
-    await (supabase.from('aktivitaeten') as any)
+    { const { error: e } = await (supabase.from('aktivitaeten') as any)
       .update({ betreff: `Verkauf ${re ?? ''} · Bezahlt` })
       .eq('beschreibung', `Verkaufsposten: ${id}`)
       .eq('tenant_id', tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (aktivitaeten): ${e.message}`) }
   } catch { /* nicht kritisch */ }
 
   await syncEaEinnahmeFuerVerkauf(id)

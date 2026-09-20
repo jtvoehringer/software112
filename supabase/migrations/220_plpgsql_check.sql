@@ -1,0 +1,22 @@
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Migration 220: plpgsql_check (statische Prüfung aller PL/pgSQL-Funktionen)
+--
+-- Teil des Code-Sweeps vom 20.9.2026. Die Erweiterung findet in Funktionen
+-- Spalten und Tabellen, die es nicht (mehr) gibt – genau der Fehler, der den
+-- nächtlichen Demo-Reset seit Migration 187 still scheitern ließ
+-- (kunden_zaehler → account_zaehler, Migrationen 215–217).
+--
+-- Prüflauf (nach jeder Migration, die Spalten umbenennt oder entfernt):
+--
+--   select p.proname, c.*
+--   from pg_proc p join pg_namespace n on n.oid = p.pronamespace,
+--        lateral plpgsql_check_function(p.oid) c
+--   where n.nspname = 'public' and p.prolang = (select oid from pg_language where lanname = 'plpgsql')
+--     and c not like 'warning%'
+--   order by 1;
+--
+-- Stand 20.9.: keine Fehler; einzige Meldung "record z is not assigned yet"
+-- in kontakte_zusammenfuehren ist ein Fehlalarm (dynamische FOR-Schleife).
+-- ─────────────────────────────────────────────────────────────────────────────
+
+create extension if not exists plpgsql_check with schema extensions;

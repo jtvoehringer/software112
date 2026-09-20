@@ -91,11 +91,12 @@ export async function getValidAccessToken(cfg: R, admin: R): Promise<string> {
   const tokens = await refreshAccessToken(cfg.m365_tenant_id, cfg.m365_client_id, clientSecret, refreshToken)
 
   // In DB speichern
-  await (admin.from('tenant_einstellungen') as any).update({
+  { const { error: e } = await (admin.from('tenant_einstellungen') as any).update({
     m365_access_token_enc:  encryptPass(tokens.access_token),
     ...(tokens.refresh_token ? { m365_refresh_token_enc: encryptPass(tokens.refresh_token) } : {}),
     m365_token_expires_at:  new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
   }).eq('tenant_id', cfg.tenant_id)
+    if (e) console.error('[m365] tenant_einstellungen:', e.message) }
 
   return tokens.access_token
 }
@@ -132,12 +133,13 @@ export async function getValidUserAccessToken(
 
   // Neuen Token in user_email_connections speichern - eindeutig über (tenant_id, user_id)
   // identifiziert (der Primärschlüssel 'id' steht hier wie erläutert nicht zur Verfügung).
-  await (supabase.from('user_email_connections') as any).update({
+  { const { error: e } = await (supabase.from('user_email_connections') as any).update({
     m365_access_token_enc:  encryptPass(tokens.access_token),
     ...(tokens.refresh_token ? { m365_refresh_token_enc: encryptPass(tokens.refresh_token) } : {}),
     m365_token_expires_at:  new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
     aktualisiert_am:        new Date().toISOString(),
   }).eq('tenant_id', tenantId).eq('user_id', userId)
+    if (e) console.error('[m365] user_email_connections:', e.message) }
 
   return tokens.access_token
 }

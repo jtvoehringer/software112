@@ -56,7 +56,6 @@ const LINK_ZIELE: { spalte: string; label: string; pfad: (id: string) => string 
   { spalte: 'lage_id',             label: 'Lage',           pfad: id => `/lagen/${id}` },
   { spalte: 'ama_erntemeldung_id', label: 'Erntemeldung',   pfad: id => `/erntemeldung/${id}` },
   { spalte: 'keller_umzug_id',     label: 'Umzug',          pfad: id => `/kellerbuch/umzug/${id}/edit` },
-  { spalte: 'preisliste_id',       label: 'Preisliste',     pfad: id => `/weinhandel/preisliste/${id}` },
   { spalte: 'kellerplan_id',       label: 'Kellerplan',     pfad: id => `/kellerbuch/kellerplan/${id}` },
 ]
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

@@ -121,7 +121,7 @@ export async function GET(req: NextRequest) {
                 .select('*', { count: 'exact', head: true })
               // Wenn nichts aktualisiert → neu anlegen
               if (!count || count === 0) {
-                await (supabase.from('aktivitaeten') as any).upsert({
+                { const { error: e } = await (supabase.from('aktivitaeten') as any).upsert({
                   tenant_id: tenantId,
                   kontakt_id: kontaktInfo.typ === 'kontakt' ? kontaktInfo.id : null,
                   firma_id:   kontaktInfo.typ === 'firma'   ? kontaktInfo.id : null,
@@ -130,6 +130,7 @@ export async function GET(req: NextRequest) {
                   datum: (msg.receivedDateTime ?? msg.sentDateTime ?? '').split('T')[0],
                   ...emailData,
                 }, { onConflict: 'tenant_id,email_id', ignoreDuplicates: true })
+                  if (e) console.error('[message] aktivitaeten:', e.message) }
               }
             } catch { /* ignore */ }
           })()

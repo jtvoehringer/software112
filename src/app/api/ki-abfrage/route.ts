@@ -42,7 +42,7 @@ const ERLAUBTE_TABELLEN = [
   'kontakte', 'firmen', 'kontakt_firmen', 'kontakt_praeferenzen', 'aktivitaeten',
   'aktivitaet_dokumente', 'pipeline_eintraege', 'pipeline_verlauf', 'rabattgruppen',
   // Verkauf
-  'verkaufsposten', 'verkauf_positionen', 'sonstige_artikel', 'preislisten', 'preislisten_positionen',
+  'verkaufsposten', 'verkauf_positionen', 'sonstige_artikel',
   'bestellungen', 'bestellung_positionen',
   // Einkauf
   'zukauf_posten', 'traubenverkauf',
@@ -170,7 +170,7 @@ REGELN für die SQL-Abfrage:
   Primärschlüssel dieser Datensätze als eigene Spalten zurück – mit dem Alias GENAU nach diesem Muster:
   firma_id, kontakt_id, weinausbau_id, fuellung_id, verkaufsposten_id, behaelter_id, weingarten_id,
   behandlung_id, zukauf_posten_id, exportauftrag_id, dac_antrag_id, lage_id, ama_erntemeldung_id,
-  keller_umzug_id, preisliste_id, kellerplan_id (immer <tabelle im Singular>_id, UUID-Wert, NIE nur "id").
+  keller_umzug_id, kellerplan_id (immer <tabelle im Singular>_id, UUID-Wert, NIE nur "id").
   Die ID der HAUPT-Entität der Zeile (das, was der User aufgelistet haben will) steht dabei als ERSTE
   ID-Spalte; weitere verknüpfte IDs (z.B. die Firma eines Kontakts, die Charge einer Füllung) dürfen danach
   folgen. Das UI blendet alle *_id-Spalten aus und macht die Zeile anklickbar (Sprung in die Detailseite).

@@ -107,12 +107,13 @@ export async function createFuellung(formData: FormData) {
 
   // fuellung_chargen: Charge-Verknüpfung anlegen
   if (weinausbauId && fuellungData?.id) {
-    await (supabase.from('fuellung_chargen') as any).insert({
+    { const { error: e } = await (supabase.from('fuellung_chargen') as any).insert({
       tenant_id:     tenantId,
       fuellung_id:   fuellungData.id,
       weinausbau_id: weinausbauId,
       anteil_liter:  mengeGefuellt,
     })
+      if (e) throw new Error(`Speichern fehlgeschlagen (fuellung_chargen): ${e.message}`) }
   }
 
   // Weinausbau: Liter abziehen + Status aktualisieren
@@ -139,7 +140,7 @@ export async function createFuellung(formData: FormData) {
 
     // Schwund automatisch ausbuchen wenn Charge abgeschlossen und Restmenge > 0
     if (wirdAbgeschlossen && neuMenge > 0.01 && behaelterId) {
-      await (supabase.from('keller_umzuege') as any).insert({
+      { const { error: e } = await (supabase.from('keller_umzuege') as any).insert({
         tenant_id:         tenantId,
         von_weinausbau_id: weinausbauId,
         nach_behaelter_id: behaelterId,
@@ -150,6 +151,7 @@ export async function createFuellung(formData: FormData) {
         umzug_typ:         'schwund',
         notizen:           'Schwund bei Abfüllung',
       })
+        if (e) throw new Error(`Speichern fehlgeschlagen (keller_umzuege): ${e.message}`) }
     }
   }
 
@@ -287,10 +289,11 @@ export async function deactivateFuellung(id: string) {
     const { data: wa } = await (supabase.from('weinausbau') as any)
       .select('menge_liter').eq('id', weinausbauId).eq('tenant_id', tenantId).single()
     const aktuell = parseFloat((wa as AR | null)?.menge_liter ?? '0') || 0
-    await (supabase.from('weinausbau') as any)
+    { const { error: e } = await (supabase.from('weinausbau') as any)
       .update({ menge_liter: aktuell + menge })
       .eq('id', weinausbauId)
       .eq('tenant_id', tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
   }
 
   revalidatePath('/weinhandel')

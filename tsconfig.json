@@ -37,6 +37,7 @@
   ],
   "exclude": [
     "node_modules",
+    "_xyz",
     "_to_delete"
   ]
 }

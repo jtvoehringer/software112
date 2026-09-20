@@ -45,10 +45,11 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
 
     if (amaMeldung) {
       // Positionen aus ama_meldepositionen (aggregiert je Rebsorte)
-      const { data: pos } = await tf((supabase.from('ama_meldepositionen') as any)
+      // tenant-isolation-ignore: ama_meldepositionen ohne tenant_id, die Meldung ist mandantengefiltert
+      const { data: pos } = await (supabase.from('ama_meldepositionen') as any)
         .select('rebsorte_name, flaeche_ha, menge_kg, menge_hl, qualitaetsstufe, oechsle')
         .eq('meldung_id', (amaMeldung as R).id)
-        .order('rebsorte_name'))
+        .order('rebsorte_name')
       positionen = (pos ?? []) as R[]
       gesamtKg = (amaMeldung as R).gesamtmenge_kg ?? positionen.reduce((s: number, p: R) => s + (p.menge_kg ?? 0), 0)
       gesamtHl = (amaMeldung as R).gesamtmenge_hl ?? positionen.reduce((s: number, p: R) => s + (p.menge_hl ?? 0), 0)

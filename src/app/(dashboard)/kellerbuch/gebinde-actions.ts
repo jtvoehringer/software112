@@ -175,10 +175,11 @@ export async function createUmzug(formData: FormData) {
     quelleData.push(wa)
 
     // Bestand reduzieren
-    await (supabase.from('weinausbau') as any)
+    { const { error: e } = await (supabase.from('weinausbau') as any)
       .update({ menge_liter: Math.max(0, verfuegbar - q.brutto) })
       .eq('id', q.weinausbau_id)
       .eq('tenant_id', tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
 
     // Quelle-Record anlegen
     const { error: qErr } = await (supabase.from('keller_umzuege') as any).insert({
@@ -228,10 +229,11 @@ export async function createUmzug(formData: FormData) {
 
     if (existing) {
       const altMenge = parseFloat(existing.menge_liter) || 0
-      await (supabase.from('weinausbau') as any)
+      { const { error: e } = await (supabase.from('weinausbau') as any)
         .update({ menge_liter: altMenge + z.menge_netto })
         .eq('id', existing.id)
         .eq('tenant_id', tenantId)
+        if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
       nachWeinausbauId = existing.id
     } else {
       const { data: neu, error: neuErr } = await (supabase.from('weinausbau') as any)
@@ -314,8 +316,9 @@ export async function deleteUmzug(id: string) {
       const { data: wa } = await (supabase.from('weinausbau') as any)
         .select('menge_liter').eq('id', r.von_weinausbau_id).eq('tenant_id', tenantId).single()
       const aktuell = parseFloat((wa as R | null)?.menge_liter ?? '0') || 0
-      await (supabase.from('weinausbau') as any)
+      { const { error: e } = await (supabase.from('weinausbau') as any)
         .update({ menge_liter: aktuell + brutto }).eq('id', r.von_weinausbau_id).eq('tenant_id', tenantId)
+        if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
     }
     for (const r of batchRecs.filter((r: R) => r.zeilen_typ === 'ziel')) {
       if (!r.nach_weinausbau_id) continue
@@ -324,8 +327,9 @@ export async function deleteUmzug(id: string) {
       const { data: wa } = await (supabase.from('weinausbau') as any)
         .select('menge_liter').eq('id', r.nach_weinausbau_id).eq('tenant_id', tenantId).single()
       const aktuell = parseFloat((wa as R | null)?.menge_liter ?? '0') || 0
-      await (supabase.from('weinausbau') as any)
+      { const { error: e } = await (supabase.from('weinausbau') as any)
         .update({ menge_liter: Math.max(0, aktuell - netto) }).eq('id', r.nach_weinausbau_id).eq('tenant_id', tenantId)
+        if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
     }
   } else {
     // Altes Format (transfer): Quell-Charge wiederherstellen
@@ -339,8 +343,9 @@ export async function deleteUmzug(id: string) {
         const { data: wa } = await (supabase.from('weinausbau') as any)
           .select('menge_liter').eq('id', vonId).eq('tenant_id', tenantId).single()
         const aktuell = parseFloat((wa as R | null)?.menge_liter ?? '0') || 0
-        await (supabase.from('weinausbau') as any)
+        { const { error: e } = await (supabase.from('weinausbau') as any)
           .update({ menge_liter: aktuell + bruttoZurueck }).eq('id', vonId).eq('tenant_id', tenantId)
+          if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
       }
     }
   }

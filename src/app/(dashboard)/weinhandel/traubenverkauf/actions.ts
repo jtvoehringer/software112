@@ -110,10 +110,11 @@ async function updateVerkaufspostenFuerTrauben(
   }
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('verkaufsposten') as any)
+  { const { error: e } = await (supabase.from('verkaufsposten') as any)
     .update({ datum: opts.datum, kontakt_id: opts.kontaktId, firma_id: opts.firmaId })
     .eq('id', postenId)
     .eq('tenant_id', tenantId)
+    if (e) throw new Error(`Speichern fehlgeschlagen (verkaufsposten): ${e.message}`) }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: pos } = await (supabase.from('verkauf_positionen') as any)
@@ -125,7 +126,7 @@ async function updateVerkaufspostenFuerTrauben(
   const posId = (pos as AR | null)?.id as string | null
   if (posId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('verkauf_positionen') as any)
+    { const { error: e } = await (supabase.from('verkauf_positionen') as any)
       .update({
         name:         `Weintrauben – ${opts.weingartenName}`,
         menge:        opts.mengeKg,
@@ -133,6 +134,7 @@ async function updateVerkaufspostenFuerTrauben(
       })
       .eq('id', posId)
       .eq('tenant_id', tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (verkauf_positionen): ${e.message}`) }
   }
 }
 
@@ -207,10 +209,11 @@ export async function upsertTraubenverkauf(formData: FormData) {
     } else {
       const postenId = await createVerkaufspostenFuerTrauben(supabase, tenantId, verkaufsOpts)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('traubenverkauf') as any)
+      { const { error: e } = await (supabase.from('traubenverkauf') as any)
         .update({ verkaufsposten_id: postenId })
         .eq('id', existing_id)
         .eq('tenant_id', tenantId)
+        if (e) throw new Error(`Speichern fehlgeschlagen (traubenverkauf): ${e.message}`) }
     }
   } else {
     // Liefernummer bei Neuanlage auto-generieren
@@ -228,10 +231,11 @@ export async function upsertTraubenverkauf(formData: FormData) {
     const newId    = (inserted as AR).id as string
     const postenId = await createVerkaufspostenFuerTrauben(supabase, tenantId, verkaufsOpts)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('traubenverkauf') as any)
+    { const { error: e } = await (supabase.from('traubenverkauf') as any)
       .update({ verkaufsposten_id: postenId })
       .eq('id', newId)
       .eq('tenant_id', tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (traubenverkauf): ${e.message}`) }
   }
 
   revalidatePath('/weinhandel/traubenverkauf')
@@ -263,15 +267,17 @@ export async function deleteTraubenverkauf(id: string) {
 
   if (postenId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('verkauf_positionen') as any)
+    { const { error: e } = await (supabase.from('verkauf_positionen') as any)
       .delete()
       .eq('verkaufsposten_id', postenId)
       .eq('tenant_id', membership.tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (verkauf_positionen): ${e.message}`) }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('verkaufsposten') as any)
+    { const { error: e } = await (supabase.from('verkaufsposten') as any)
       .delete()
       .eq('id', postenId)
       .eq('tenant_id', membership.tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (verkaufsposten): ${e.message}`) }
   }
 
   revalidatePath('/weinhandel/traubenverkauf')

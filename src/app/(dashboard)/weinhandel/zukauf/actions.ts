@@ -61,10 +61,11 @@ async function createZukaufCharge(
 async function bereinigCharge(supabase: any, weinausbauId: string, tenantId: string): Promise<void> {
   const hatBewegungen = await chargeHatBewegungen(supabase, weinausbauId, tenantId)
   if (hatBewegungen) return
-  await (supabase.from('weinausbau') as any)
+  { const { error: e } = await (supabase.from('weinausbau') as any)
     .update({ menge_liter: 0, status: 'abgeschlossen', aktiv: false })
     .eq('id', weinausbauId)
     .eq('tenant_id', tenantId)
+    if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
 }
 
 // Prüft, ob gegen eine Weinausbau-Charge bereits irgendeine Bewegung gebucht wurde (abgefüllt,

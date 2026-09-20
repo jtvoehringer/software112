@@ -284,10 +284,12 @@ export async function createOrUpdateAMAMeldung(jahrgangId: string) {
   if (existing) {
     meldungId = (existing as AR).id
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('ama_erntemeldungen') as any).update(meldungPayload).eq('id', meldungId).eq('tenant_id', tenantId)
+    { const { error: e } = await (supabase.from('ama_erntemeldungen') as any).update(meldungPayload).eq('id', meldungId).eq('tenant_id', tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (ama_erntemeldungen): ${e.message}`) }
     // Positionen löschen und neu aufbauen
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('ama_meldepositionen') as any).delete().eq('meldung_id', meldungId)
+    { const { error: e } = await (supabase.from('ama_meldepositionen') as any).delete().eq('meldung_id', meldungId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (ama_meldepositionen): ${e.message}`) }
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: neu } = await (supabase.from('ama_erntemeldungen') as any)
@@ -320,7 +322,8 @@ export async function createOrUpdateAMAMeldung(jahrgangId: string) {
 
   if (positionen.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('ama_meldepositionen') as any).insert(positionen)
+    { const { error: e } = await (supabase.from('ama_meldepositionen') as any).insert(positionen)
+      if (e) throw new Error(`Speichern fehlgeschlagen (ama_meldepositionen): ${e.message}`) }
   }
 
   revalidatePath(`/erntemeldung/${jahrgangId}`)
@@ -353,17 +356,22 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
   if (existingId) {
     pressId = existingId
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('pressungen') as any).update({ datum, most_liter_gesamt: mostLiter, weinbezeichnung, kmw_grad: kmwGrad, notizen }).eq('id', existingId).eq('tenant_id', tenantId)
+    { const { error: e } = await (supabase.from('pressungen') as any).update({ datum, most_liter_gesamt: mostLiter, weinbezeichnung, kmw_grad: kmwGrad, notizen }).eq('id', existingId).eq('tenant_id', tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (pressungen): ${e.message}`) }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('pressung_weingaerten') as any).delete().eq('pressung_id', existingId)
+    { const { error: e } = await (supabase.from('pressung_weingaerten') as any).delete().eq('pressung_id', existingId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (pressung_weingaerten): ${e.message}`) }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('pressung_behaelter') as any).delete().eq('pressung_id', existingId)
+    { const { error: e } = await (supabase.from('pressung_behaelter') as any).delete().eq('pressung_id', existingId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (pressung_behaelter): ${e.message}`) }
     if (weingaerten.length > 0)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('pressung_weingaerten') as any).insert(weingaerten.map(w => ({ pressung_id: existingId, ...w })))
+      { const { error: e } = await (supabase.from('pressung_weingaerten') as any).insert(weingaerten.map(w => ({ pressung_id: existingId, ...w })))
+        if (e) throw new Error(`Speichern fehlgeschlagen (pressung_weingaerten): ${e.message}`) }
     if (behaelter.length > 0)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('pressung_behaelter') as any).insert(behaelter.map(b => ({ pressung_id: existingId, ...b, behaelter_id: b.behaelter_id || null, weinausbau_id: b.weinausbau_id || null })))
+      { const { error: e } = await (supabase.from('pressung_behaelter') as any).insert(behaelter.map(b => ({ pressung_id: existingId, ...b, behaelter_id: b.behaelter_id || null, weinausbau_id: b.weinausbau_id || null })))
+        if (e) throw new Error(`Speichern fehlgeschlagen (pressung_behaelter): ${e.message}`) }
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: neu } = await (supabase.from('pressungen') as any)
@@ -373,10 +381,12 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
     pressId = (neu as AR).id
     if (weingaerten.length > 0)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('pressung_weingaerten') as any).insert(weingaerten.map(w => ({ pressung_id: pressId, ...w })))
+      { const { error: e } = await (supabase.from('pressung_weingaerten') as any).insert(weingaerten.map(w => ({ pressung_id: pressId, ...w })))
+        if (e) throw new Error(`Speichern fehlgeschlagen (pressung_weingaerten): ${e.message}`) }
     if (behaelter.length > 0)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('pressung_behaelter') as any).insert(behaelter.map(b => ({ pressung_id: pressId, ...b, behaelter_id: b.behaelter_id || null, weinausbau_id: b.weinausbau_id || null })))
+      { const { error: e } = await (supabase.from('pressung_behaelter') as any).insert(behaelter.map(b => ({ pressung_id: pressId, ...b, behaelter_id: b.behaelter_id || null, weinausbau_id: b.weinausbau_id || null })))
+        if (e) throw new Error(`Speichern fehlgeschlagen (pressung_behaelter): ${e.message}`) }
   }
 
   // ── Lesedaten sync: kg aus Pressung in ernte_parzellen übertragen ───────────
@@ -467,7 +477,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
     if (beh.weinausbau_id) {
       // Bestehende Charge aktualisieren – auch rebsorte + qualitaetsstufe mitschreiben
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('weinausbau') as any)
+      { const { error: e } = await (supabase.from('weinausbau') as any)
         .update({
           name:            autoName,
           menge_liter:     beh.menge_liter ?? null,
@@ -478,6 +488,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
         })
         .eq('id', beh.weinausbau_id)
         .eq('tenant_id', tenantId)
+        if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
     } else {
       // Neue Charge für diesen Behälter anlegen
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -503,10 +514,11 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
         const newId = (neuWA as AR).id as string
         // Rückverknüpfung: pressung_behaelter.weinausbau_id setzen
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase.from('pressung_behaelter') as any)
+        { const { error: e } = await (supabase.from('pressung_behaelter') as any)
           .update({ weinausbau_id: newId })
           .eq('pressung_id', pressId)
           .eq('behaelter_id', beh.behaelter_id)
+          if (e) throw new Error(`Speichern fehlgeschlagen (pressung_behaelter): ${e.message}`) }
         neuChargen.push({ behaelter_id: beh.behaelter_id, weinausbau_id: newId, name: autoName, menge_liter: beh.menge_liter ?? null, qualitaetsstufe: autoQualitaet, herkunft_code: autoHerkunft })
       }
     }
@@ -528,7 +540,8 @@ export async function deletePressung(id: string, jahrgangId: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (waIds.length > 0) await (supabase.from('weinausbau') as any).delete().in('id', waIds).eq('tenant_id', tenantId)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('pressungen') as any).delete().eq('id', id).eq('tenant_id', tenantId)
+  { const { error: e } = await (supabase.from('pressungen') as any).delete().eq('id', id).eq('tenant_id', tenantId)
+    if (e) throw new Error(`Speichern fehlgeschlagen (pressungen): ${e.message}`) }
   revalidatePath(`/erntemeldung/${jahrgangId}`)
   revalidatePath('/kellerbuch')
 }
@@ -541,22 +554,28 @@ export async function deleteJahrgang(id: string) {
   const { data: pressIds } = await (supabase.from('pressungen') as any).select('id').eq('jahrgang_id', id).eq('tenant_id', tenantId)
   for (const p of ((pressIds ?? []) as AR[])) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('pressung_weingaerten') as any).delete().eq('pressung_id', p.id)
+    { const { error: e } = await (supabase.from('pressung_weingaerten') as any).delete().eq('pressung_id', p.id)
+      if (e) throw new Error(`Speichern fehlgeschlagen (pressung_weingaerten): ${e.message}`) }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('pressung_behaelter') as any).delete().eq('pressung_id', p.id)
+    { const { error: e } = await (supabase.from('pressung_behaelter') as any).delete().eq('pressung_id', p.id)
+      if (e) throw new Error(`Speichern fehlgeschlagen (pressung_behaelter): ${e.message}`) }
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('pressungen') as any).delete().eq('jahrgang_id', id).eq('tenant_id', tenantId)
+  { const { error: e } = await (supabase.from('pressungen') as any).delete().eq('jahrgang_id', id).eq('tenant_id', tenantId)
+    if (e) throw new Error(`Speichern fehlgeschlagen (pressungen): ${e.message}`) }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: ama } = await (supabase.from('ama_erntemeldungen') as any).select('id').eq('jahrgang_id', id).eq('tenant_id', tenantId)
   for (const a of ((ama ?? []) as AR[])) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('ama_meldepositionen') as any).delete().eq('meldung_id', a.id)
+    { const { error: e } = await (supabase.from('ama_meldepositionen') as any).delete().eq('meldung_id', a.id)
+      if (e) throw new Error(`Speichern fehlgeschlagen (ama_meldepositionen): ${e.message}`) }
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('ama_erntemeldungen') as any).delete().eq('jahrgang_id', id).eq('tenant_id', tenantId)
+  { const { error: e } = await (supabase.from('ama_erntemeldungen') as any).delete().eq('jahrgang_id', id).eq('tenant_id', tenantId)
+    if (e) throw new Error(`Speichern fehlgeschlagen (ama_erntemeldungen): ${e.message}`) }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('ernte_parzellen') as any).delete().eq('jahrgang_id', id)
+  { const { error: e } = await (supabase.from('ernte_parzellen') as any).delete().eq('jahrgang_id', id)
+    if (e) throw new Error(`Speichern fehlgeschlagen (ernte_parzellen): ${e.message}`) }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('weinjahrgaenge') as any).delete().eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new Error((error as AR).message)
@@ -614,7 +633,8 @@ export async function createTraubenverkauf(fd: FormData) {
     datum, kontaktId, firmaId, weingartenName, mengeKg, preisPerKg,
   })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('traubenverkauf') as any).update({ verkaufsposten_id: postenId }).eq('id', (inserted as AR).id).eq('tenant_id', tenantId)
+  { const { error: e } = await (supabase.from('traubenverkauf') as any).update({ verkaufsposten_id: postenId }).eq('id', (inserted as AR).id).eq('tenant_id', tenantId)
+    if (e) throw new Error(`Speichern fehlgeschlagen (traubenverkauf): ${e.message}`) }
 
   if (jahrgangId) revalidatePath(`/erntemeldung/${jahrgangId}`)
   revalidatePath('/erntemeldung')
@@ -664,7 +684,8 @@ export async function updateTraubenverkauf(id: string, fd: FormData) {
     // Bisher noch kein Verkaufsposten verknüpft (z.B. vor diesem Fix angelegte Zeile) -> jetzt nachziehen
     const postenId = await createVerkaufspostenFuerTrauben(supabase, tenantId, verkaufsOpts)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('traubenverkauf') as any).update({ verkaufsposten_id: postenId }).eq('id', id).eq('tenant_id', tenantId)
+    { const { error: e } = await (supabase.from('traubenverkauf') as any).update({ verkaufsposten_id: postenId }).eq('id', id).eq('tenant_id', tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (traubenverkauf): ${e.message}`) }
   }
 
   if (jahrgangId) revalidatePath(`/erntemeldung/${jahrgangId}`)

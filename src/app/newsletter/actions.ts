@@ -74,13 +74,14 @@ export async function newsletterAnmelden(formData: FormData): Promise<AnmeldeRes
   }
 
   // Consent-Log (DSGVO)
-  await (supabase.from('datenschutz_consents') as any).insert({
+  { const { error: e } = await (supabase.from('datenschutz_consents') as any).insert({
     tenant_id:   tenantId,
     email,
     aktion:      'opt_in_angefragt',
     quelle:      'website_formular',
     erstellt_am: now,
   })
+    if (e) throw new Error(`Speichern fehlgeschlagen (datenschutz_consents): ${e.message}`) }
 
   // Bestätigungs-E-Mail senden
   const confirmUrl = `${baseUrl()}/newsletter/bestaetigt?token=${token}`
@@ -158,7 +159,7 @@ export async function newsletterBestaetigen(token: string): Promise<Bestaetigung
   if (updErr) return { ok: false, error: 'Bestätigung derzeit nicht möglich. Bitte später erneut versuchen.' }
 
   // Consent-Log
-  await (supabase.from('datenschutz_consents') as any).insert({
+  { const { error: e } = await (supabase.from('datenschutz_consents') as any).insert({
     tenant_id:   tenantId,
     kontakt_id:  kontakt.id,
     email:       kontakt.email,
@@ -166,6 +167,7 @@ export async function newsletterBestaetigen(token: string): Promise<Bestaetigung
     quelle:      'website_formular',
     erstellt_am: now,
   })
+    if (e) throw new Error(`Speichern fehlgeschlagen (datenschutz_consents): ${e.message}`) }
 
   // In Brevo eintragen
   const listIds = getListIds(kontakt.segment)

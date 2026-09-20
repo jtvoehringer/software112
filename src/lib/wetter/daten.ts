@@ -72,7 +72,8 @@ export async function aktualisiereWetter(tenantId: string, punkte: WetterPunkt[]
       if (opts.erzwingen || progAlterMin >= 180) {
         const { stunden } = await holePrognose(p.lat, p.lon)
         if (stunden.length > 0) {
-          await (admin.from('wetter_stunden') as any).delete().eq('tenant_id', tenantId).eq('lat', p.lat).eq('lon', p.lon).eq('quelle', 'nwp')
+          { const { error: e } = await (admin.from('wetter_stunden') as any).delete().eq('tenant_id', tenantId).eq('lat', p.lat).eq('lon', p.lon).eq('quelle', 'nwp')
+            if (e) console.error('[wetter] wetter_stunden:', e.message) }
           const zeilen = stunden.map(w => ({
             tenant_id: tenantId, lat: p.lat, lon: p.lon, quelle: 'nwp', zeit: w.zeit, rr: w.rr, t2m: w.t2m, rh2m: w.rh2m, wind_ms: w.wind_ms, boe_ms: w.boe_ms, abgerufen_am: jetzt.toISOString(),
           }))
@@ -86,7 +87,8 @@ export async function aktualisiereWetter(tenantId: string, punkte: WetterPunkt[]
     }
   }
   // Alte Rückblick-Zeilen ausdünnen (älter als 35 Tage)
-  await (admin.from('wetter_stunden') as any).delete().eq('tenant_id', tenantId).eq('quelle', 'inca').lt('zeit', new Date(jetzt.getTime() - (RUECKBLICK_TAGE + 2) * 86400000).toISOString())
+  { const { error: e } = await (admin.from('wetter_stunden') as any).delete().eq('tenant_id', tenantId).eq('quelle', 'inca').lt('zeit', new Date(jetzt.getTime() - (RUECKBLICK_TAGE + 2) * 86400000).toISOString())
+    if (e) console.error('[wetter] wetter_stunden:', e.message) }
   return { aktualisiert, fehler }
 }
 

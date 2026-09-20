@@ -35,11 +35,12 @@ export async function POST(req: NextRequest) {
     })
 
     // Aktivität anlegen
-    await (admin.from('aktivitaeten') as any).insert({
+    { const { error: e } = await (admin.from('aktivitaeten') as any).insert({
       tenant_id: tenantId, kontakt_id: kontakt_id ?? null, firma_id: firma_id ?? null,
       art: 'email', betreff, beschreibung: text?.slice(0, 200) ?? null,
       datum: new Date().toISOString().split('T')[0], erledigt: true, ganztags: true,
     })
+      if (e) console.error('[send] aktivitaeten:', e.message) }
 
     return NextResponse.json({ ok: true })
   } catch (err) {

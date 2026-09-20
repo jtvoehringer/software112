@@ -25,10 +25,11 @@ export async function saveTB(verkaufspostenId: string, daten: R): Promise<{ id: 
     .maybeSingle()
 
   if (existing?.id) {
-    await (admin.from('transportbescheinigungen') as any)
+    { const { error: e } = await (admin.from('transportbescheinigungen') as any)
       .update({ formular_daten: daten, aktualisiert_am: new Date().toISOString() })
       .eq('id', existing.id)
       .eq('tenant_id', tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (transportbescheinigungen): ${e.message}`) }
     return { id: existing.id }
   }
 

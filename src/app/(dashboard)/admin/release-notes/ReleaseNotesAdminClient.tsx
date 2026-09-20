@@ -42,11 +42,12 @@ export default function ReleaseNotesAdminClient({ readOnly = false }: { readOnly
     e.preventDefault()
     if (readOnly) return
     setSaving(true)
-    await (s.from('release_notes') as any).insert({
+    { const { error: e } = await (s.from('release_notes') as any).insert({
       version, titel,
       features: features.split('\n').map((l:string)=>l.trim()).filter(Boolean),
       fixes: fixes.split('\n').map((l:string)=>l.trim()).filter(Boolean),
     })
+      if (e) console.error('[release-notes] release_notes:', e.message) }
     setVersion(''); setTitel(''); setFeatures(''); setFixes('')
     setErfolg(true); setSaving(false); laden()
     setTimeout(() => setErfolg(false), 3000)

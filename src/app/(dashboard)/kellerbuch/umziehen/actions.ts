@@ -75,15 +75,17 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
     // Bestand reduzieren / Charge abschließen
     const restmenge = Math.max(0, +(verfuegbar - q.menge).toFixed(3))
     if (restmenge <= 0.01) {
-      await (supabase.from('weinausbau') as any)
+      { const { error: e } = await (supabase.from('weinausbau') as any)
         .update({ menge_liter: 0, aktiv: false, status: 'abgeschlossen' })
         .eq('id', q.weinausbau_id)
         .eq('tenant_id', tenantId)
+        if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
     } else {
-      await (supabase.from('weinausbau') as any)
+      { const { error: e } = await (supabase.from('weinausbau') as any)
         .update({ menge_liter: restmenge })
         .eq('id', q.weinausbau_id)
         .eq('tenant_id', tenantId)
+        if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
     }
 
     // Quelle-Record (zeilen_typ = 'quelle') – ein Eintrag pro Quell-Charge
@@ -171,10 +173,11 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
         // Notiz an weinausbau hängen (sichtbar in Charge bearbeiten)
         const bestehend = (vorhanden.notizen as string | null) ?? ''
         const neueNotizen = bestehend ? `${bestehend}\n${abstufungsText}` : abstufungsText
-        await (supabase.from('weinausbau') as any)
+        { const { error: e } = await (supabase.from('weinausbau') as any)
           .update({ notizen: neueNotizen })
           .eq('id', vorhanden.id)
           .eq('tenant_id', tenantId)
+          if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
       }
 
       await (supabase.from('weinausbau') as any)
@@ -275,10 +278,11 @@ export async function updateUmzug(umzugId: string, datum: string, notizen: strin
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   if (!membership) throw new Error('Kein aktiver Mandant gefunden')
-  await (supabase.from('keller_umzuege') as any)
+  { const { error: e } = await (supabase.from('keller_umzuege') as any)
     .update({ datum, notizen: notizen || null })
     .eq('id', umzugId)
     .eq('tenant_id', membership.tenantId)
+    if (e) throw new Error(`Speichern fehlgeschlagen (keller_umzuege): ${e.message}`) }
   revalidatePath('/kellerbuch')
   revalidatePath('/kellerbuch/umziehen')
   revalidatePath('/kellerbuch/behaelter', 'layout')

@@ -69,12 +69,13 @@ export async function POST(req: NextRequest) {
         const datum   = (msg.envelope?.date ?? new Date()).toISOString().split('T')[0]
         const msgId   = msg.envelope?.messageId ?? null
 
-        // Duplikat-Check via notizen (message-id)
+        // Duplikat-Check über email_id (Sweep 20.9.2026: vorher .ilike('notizen') – Spalte gibt es
+        // auf aktivitaeten nicht, die Prüfung scheiterte still und jede Abfrage legte die Mail neu an)
         if (msgId) {
           const { count } = await (admin.from('aktivitaeten') as any)
             .select('*', { count: 'exact', head: true })
             .eq('tenant_id', tenantId)
-            .ilike('notizen', `%${msgId}%`)
+            .eq('email_id', msgId)
           if ((count ?? 0) > 0) continue
         }
 
@@ -83,6 +84,7 @@ export async function POST(req: NextRequest) {
           kontakt_id:   match.kontakt_id ?? null,
           firma_id:     match.firma_id   ?? null,
           art:          'email',
+          email_id:     msgId,
           betreff,
           beschreibung: `Eingehende E-Mail von ${from}`,
           datum,
@@ -101,9 +103,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Letzten Poll-Zeitstempel aktualisieren
-    await (admin.from('tenant_einstellungen') as any)
+    { const { error: e } = await (admin.from('tenant_einstellungen') as any)
       .update({ email_last_poll: new Date().toISOString() })
       .eq('tenant_id', tenantId)
+      if (e) console.error('[poll] tenant_einstellungen:', e.message) }
 
     return NextResponse.json({ ok: true, neu: neuAktivitaeten })
   } catch (err) {

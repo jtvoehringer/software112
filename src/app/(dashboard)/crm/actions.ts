@@ -675,7 +675,7 @@ export async function createLeadAusEmail(d: LeadAusEmailDaten): Promise<{ kontak
     // Auslösende E-Mail als Aktivität an den Kontakt hängen (wie /api/nachrichten/message bei bekannten Absendern)
     if (d.mail?.id) {
       const bodyText = (d.mail.bodyText ?? '').replace(/<[^>]*>/g, '').trim()
-      await (supabase.from('aktivitaeten') as any).upsert({
+      { const { error: e } = await (supabase.from('aktivitaeten') as any).upsert({
         tenant_id: tenantId, kontakt_id: kontaktId, firma_id: null,
         art: 'email', erledigt: false, ganztags: true,
         betreff: d.mail.betreff || '(kein Betreff)',
@@ -686,6 +686,7 @@ export async function createLeadAusEmail(d: LeadAusEmailDaten): Promise<{ kontak
         beschreibung: bodyText.slice(0, 500),
         erstellt_von: user?.id ?? null,
       }, { onConflict: 'tenant_id,email_id', ignoreDuplicates: true })
+        if (e) throw new Error(`Speichern fehlgeschlagen (aktivitaeten): ${e.message}`) }
     }
 
     revalidatePath('/crm/kontakte')

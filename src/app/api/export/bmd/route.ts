@@ -111,10 +111,12 @@ export async function GET(req: NextRequest) {
       // muss trotzdem gesetzt werden, sie ändert den Beleg inhaltlich nicht.
       const admin = createSupabaseAdminClient()
       for (const block of bloecke(belegIds.verkaufsposten)) {
-        await admin.from('verkaufsposten').update({ bmd_export_id: protId }).eq('tenant_id', tenantId).in('id', block)
+        { const { error: e } = await admin.from('verkaufsposten').update({ bmd_export_id: protId }).eq('tenant_id', tenantId).in('id', block)
+          if (e) console.error('[bmd] verkaufsposten:', e.message) }
       }
       for (const block of bloecke(belegIds.ea)) {
-        await admin.from('ea_transaktionen').update({ bmd_export_id: protId }).eq('tenant_id', tenantId).in('id', block)
+        { const { error: e } = await admin.from('ea_transaktionen').update({ bmd_export_id: protId }).eq('tenant_id', tenantId).in('id', block)
+          if (e) console.error('[bmd] ea_transaktionen:', e.message) }
       }
     }
   }

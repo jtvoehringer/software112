@@ -59,7 +59,7 @@ export async function GET(
     (supabase.from('exportauftrag_positionen') as any)
       .select('*, fuellungen(bezeichnung,flaschengroesse_ml)').eq('exportauftrag_id', auftragId).order('sort_order'),
     (admin.from('tenant_einstellungen') as any)
-      .select('betrieb_name,betrieb_strasse,betrieb_plz,betrieb_ort,betrieb_land,betrieb_uid,rechnung_bank_iban')
+      .select('betrieb_name,betrieb_strasse,betrieb_plz,betrieb_ort,betrieb_uid,rechnung_iban,rechnung_bic')   // Sweep 20.9.2026: betrieb_land/rechnung_bank_iban gab es nicht – Abfrage brach
       .eq('tenant_id', tenantId).maybeSingle(),
   ])
 
@@ -384,7 +384,7 @@ export async function GET(
           Währung / Currency: EUR · 
           Versicherungswert / Insurance Value: EUR ${a.versicherungswert ? parseFloat(a.versicherungswert).toFixed(2) : gesamtEUR.toFixed(2)}
         </div>
-        ${b.rechnung_bank_iban ? `<div class="box" style="font-size:9pt"><strong>Bankverbindung / Bank Details:</strong> IBAN: ${b.rechnung_bank_iban}</div>` : ''}
+        ${b.rechnung_iban ? `<div class="box" style="font-size:9pt"><strong>Bankverbindung / Bank Details:</strong> IBAN: ${b.rechnung_iban}${b.rechnung_bic ? ` · BIC: ${b.rechnung_bic}` : ''}</div>` : ''}
         <div class="sign" style="margin-top:12mm">
           <div class="sign-box">Ort, Datum / Place, Date</div>
           <div class="sign-box">Aussteller / Issuer</div>

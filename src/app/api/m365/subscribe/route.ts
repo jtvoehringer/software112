@@ -72,7 +72,8 @@ export async function POST(req: NextRequest) {
                 body: JSON.stringify({ expirationDateTime: expiresAt }),
               })
               if (patchRes.ok) {
-                await (admin.from('tenant_einstellungen') as any).update({ m365_webhook_expires: expiresAt }).eq('tenant_id', cfg.tenant_id)
+                { const { error: e } = await (admin.from('tenant_einstellungen') as any).update({ m365_webhook_expires: expiresAt }).eq('tenant_id', cfg.tenant_id)
+                  if (e) console.error('[subscribe] tenant_einstellungen:', e.message) }
                 patched = true
               }
             } catch { /* Subscription abgelaufen → neu erstellen */ }
@@ -113,8 +114,9 @@ export async function POST(req: NextRequest) {
         await graphPost(accessToken, `/subscriptions/${c.m365_webhook_sub_id}`, {
           expirationDateTime: expiresAt,
         })
-        await (admin.from('tenant_einstellungen') as any)
+        { const { error: e } = await (admin.from('tenant_einstellungen') as any)
           .update({ m365_webhook_expires: expiresAt }).eq('tenant_id', tenantId)
+          if (e) console.error('[subscribe] tenant_einstellungen:', e.message) }
         return NextResponse.json({ ok: true, aktion: 'erneuert', expires: expiresAt })
       } catch {
         // Subscription abgelaufen → neu erstellen

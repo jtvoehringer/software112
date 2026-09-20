@@ -183,9 +183,10 @@ export async function createWeinausbau(formData: FormData) {
   if (wgIds.length > 0 && (newWA as R)?.id) {
     const waId = (newWA as R).id as string
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('weinausbau_weingaerten') as any).insert(
+    { const { error: e } = await (supabase.from('weinausbau_weingaerten') as any).insert(
       wgIds.map(wgId => ({ tenant_id: tenantId, weinausbau_id: waId, weingarten_id: wgId }))
     )
+      if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau_weingaerten): ${e.message}`) }
   }
   revalidatePath('/kellerbuch')
 }
@@ -221,12 +222,14 @@ export async function updateWeinausbau(id: string, formData: FormData) {
 
   // Junction-Tabelle: Rieden/Weingärten neu setzen (delete + insert)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('weinausbau_weingaerten') as any).delete().eq('weinausbau_id', id).eq('tenant_id', tenantId)
+  { const { error: e } = await (supabase.from('weinausbau_weingaerten') as any).delete().eq('weinausbau_id', id).eq('tenant_id', tenantId)
+    if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau_weingaerten): ${e.message}`) }
   if (wgIds.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('weinausbau_weingaerten') as any).insert(
+    { const { error: e } = await (supabase.from('weinausbau_weingaerten') as any).insert(
       wgIds.map(wgId => ({ tenant_id: tenantId, weinausbau_id: id, weingarten_id: wgId }))
     )
+      if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau_weingaerten): ${e.message}`) }
   }
 
   // KEIN Sync auf pressung_behaelter.menge_liter – das ist der historische Pressbetrag
@@ -310,7 +313,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   // Quellen anlegen + anteil_pct berechnen
   const gesamtLiter = quellen.reduce((s, q) => s + q.menge_liter, 0)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('verschneidung_quellen') as any).insert(
+  { const { error: e } = await (supabase.from('verschneidung_quellen') as any).insert(
     quellen.map(q => ({
       verschneidung_id:    vId,
       quell_weinausbau_id: q.weinausbau_id,
@@ -318,6 +321,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
       anteil_pct:          gesamtLiter > 0 ? Math.round((q.menge_liter / gesamtLiter) * 1000) / 10 : null,
     }))
   )
+    if (e) throw new Error(`Speichern fehlgeschlagen (verschneidung_quellen): ${e.message}`) }
 
   // Qualitaetsstufen + Rebsorten + Weinart der Quell-Chargen laden
   const { data: quellenData } = await (supabase.from('weinausbau') as any)
@@ -385,12 +389,13 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
     const srcLiter = parseFloat((src as R)?.menge_liter ?? '0') || 0
     const neueLiter = Math.max(0, srcLiter - q.menge_liter)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('weinausbau') as any)
+    { const { error: e } = await (supabase.from('weinausbau') as any)
       .update(neueLiter <= 0
         ? { menge_liter: 0, aktiv: false, status: 'abgeschlossen' }
         : { menge_liter: neueLiter })
       .eq('id', q.weinausbau_id)
       .eq('tenant_id', tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
   }
 
   // Qualitäts-Abstufung: Vergleich gegen HÖCHSTE Qualität aller Beteiligten (Ziel + Quellen).
@@ -425,10 +430,11 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   if (abstufTexte.length > 0) {
     const neueNotizen = notizen ? `${notizen}\n${abstufTexte.join('\n')}` : abstufTexte.join('\n')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('verschneidungen') as any)
+    { const { error: e } = await (supabase.from('verschneidungen') as any)
       .update({ notizen: neueNotizen })
       .eq('id', vId)
       .eq('tenant_id', tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (verschneidungen): ${e.message}`) }
   }
 
   revalidatePath('/kellerbuch')
@@ -465,10 +471,11 @@ export async function deleteVerschneidung(verschneidungId: string) {
     .select('menge_liter').eq('id', zielId).eq('tenant_id', tenantId).single()
   const zielAkt = parseFloat((ziel as R)?.menge_liter ?? '0') || 0
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('weinausbau') as any)
+  { const { error: e } = await (supabase.from('weinausbau') as any)
     .update({ menge_liter: Math.max(0, zielAkt - gesamtLiter) })
     .eq('id', zielId)
     .eq('tenant_id', tenantId)
+    if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
 
   // Quell-Chargen: Menge wieder gutschreiben
   for (const q of quellen) {
@@ -477,10 +484,11 @@ export async function deleteVerschneidung(verschneidungId: string) {
       .select('menge_liter').eq('id', q.quell_weinausbau_id).eq('tenant_id', tenantId).single()
     const srcAkt = parseFloat((src as R)?.menge_liter ?? '0') || 0
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('weinausbau') as any)
+    { const { error: e } = await (supabase.from('weinausbau') as any)
       .update({ menge_liter: srcAkt + (parseFloat(q.menge_liter) || 0) })
       .eq('id', q.quell_weinausbau_id)
       .eq('tenant_id', tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
   }
 
   // Qualitätsstufe + Herkunft-Code wiederherstellen falls gespeichert
@@ -491,10 +499,11 @@ export async function deleteVerschneidung(verschneidungId: string) {
     if (zielQualitaetVorher) restorePayload.qualitaetsstufe = zielQualitaetVorher
     if (zielHerkunftVorher)  restorePayload.herkunft_code   = zielHerkunftVorher
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('weinausbau') as any)
+    { const { error: e } = await (supabase.from('weinausbau') as any)
       .update(restorePayload)
       .eq('id', zielId)
       .eq('tenant_id', tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
   }
 
   // Datensatz löschen (CASCADE löscht verschneidung_quellen automatisch)

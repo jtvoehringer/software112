@@ -271,9 +271,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const sentAt = new Date().toISOString()
-  await (supabase.from('verkaufsposten') as any)
+  { const { error: e } = await (supabase.from('verkaufsposten') as any)
     .update({ rechnung_versendet_am: sentAt, rechnung_versendet_an: recipient })
     .eq('id', id).eq('tenant_id', tenantId)
+    if (e) console.error('[send] verkaufsposten:', e.message) }
 
   await (admin.from('aktivitaeten') as any).insert({
     tenant_id: tenantId,

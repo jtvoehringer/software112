@@ -60,13 +60,15 @@ export async function POST(req: NextRequest) {
         taric_code:    p.taric_code ?? '2204.21',
         sort_order:    i,
       }))
-      await (supabase.from('exportauftrag_positionen') as any).insert(posen)
+      { const { error: e } = await (supabase.from('exportauftrag_positionen') as any).insert(posen)
+        if (e) console.error('[weinexport] exportauftrag_positionen:', e.message) }
     }
 
     // Standard-Dokumente anlegen
-    await (supabase.from('export_dokumente') as any).insert(
+    { const { error: e } = await (supabase.from('export_dokumente') as any).insert(
       STANDARD_DOKUMENTE.map(art => ({ exportauftrag_id: id, dokument_art: art, status: 'ausstehend' }))
     )
+      if (e) console.error('[weinexport] export_dokumente:', e.message) }
 
     return NextResponse.json({ ok: true, id })
   } catch (err) {

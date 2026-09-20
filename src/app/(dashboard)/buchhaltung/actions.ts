@@ -248,10 +248,11 @@ export async function syncEaEinnahmeFuerVerkauf(
   }
 
   if (bestehende.length > 0) {
-    await (supabase.from('ea_transaktionen') as any)
+    { const { error: e } = await (supabase.from('ea_transaktionen') as any)
       .delete()
       .in('id', bestehende.map((b: R) => b.id))
       .eq('tenant_id', tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (ea_transaktionen): ${e.message}`) }
   }
 
   if (posten.storniert) {
@@ -473,8 +474,9 @@ export async function verwerfeBeleg(belegId: string): Promise<void> {
   const beleg = belegRaw as R | null
 
   if (beleg && beleg.status !== 'verbucht') {
-    await (supabase.from('ea_belege') as any)
+    { const { error: e } = await (supabase.from('ea_belege') as any)
       .delete().eq('id', belegId).eq('tenant_id', tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (ea_belege): ${e.message}`) }
     await supabase.storage.from('ea-belege').remove([beleg.storage_pfad])
   }
 

@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     const anzeigename  = me.displayName ?? emailAddress
 
     // Per-User Verbindung speichern (UPSERT)
-    await (admin.from('user_email_connections') as any).upsert({
+    { const { error: e } = await (admin.from('user_email_connections') as any).upsert({
       tenant_id:              tenantId,
       user_id:                userId,
       email_address:          emailAddress,
@@ -57,6 +57,7 @@ export async function GET(req: NextRequest) {
       m365_token_expires_at:  new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
       aktualisiert_am:        new Date().toISOString(),
     }, { onConflict: 'tenant_id,user_id' })
+      if (e) console.error('[callback] user_email_connections:', e.message) }
 
     return NextResponse.redirect(new URL('/nachrichten?verbunden=1', req.url))
   } catch (err) {

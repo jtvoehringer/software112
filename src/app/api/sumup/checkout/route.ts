@@ -84,10 +84,11 @@ export async function POST(req: NextRequest) {
       sumupCheckoutUrl = sumupData.hosted_checkout_url ?? null
 
       // SumUp Checkout-ID in lokaler DB speichern
-      await (supabase.from('sumup_checkouts') as any)
+      { const { error: e } = await (supabase.from('sumup_checkouts') as any)
         .update({ sumup_checkout_id: checkoutRef })
         .eq('id', (localCheckout as R).id)
         .eq('tenant_id', tenantId)
+        if (e) console.error('[checkout] sumup_checkouts:', e.message) }
     } else {
       const errData: R = await sumupRes.json().catch(() => ({}))
       console.error('[SumUp Checkout] API-Fehler:', errData)

@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     })
 
     // Aktivität anlegen
-    await (supabase.from('aktivitaeten') as any).insert({
+    { const { error: e } = await (supabase.from('aktivitaeten') as any).insert({
       tenant_id:    tenantId,
       kontakt_id:   kontakt_id ?? null,
       firma_id:     firma_id   ?? null,
@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
       erledigt:     true,
       ganztags:     true,
     })
+      if (e) console.error('[send] aktivitaeten:', e.message) }
 
     return NextResponse.json({ ok: true })
   } catch (err) {

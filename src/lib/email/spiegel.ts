@@ -74,9 +74,10 @@ export async function spiegleMailboxen(zeitbudgetMs = 40000, nurTenantId?: strin
       }
       erg.postfaecher++; erg.nachrichten += anzahl; erg.angelegt += angelegt
       if (abgebrochen) erg.fehler.push(`${uc.email_address ?? uc.monitored_email ?? uc.user_id}: Zeitbudget erschöpft, Rest beim nächsten Lauf`)
-      await (admin.from('user_email_connections') as any)
+      { const { error: e } = await (admin.from('user_email_connections') as any)
         .update({ email_spiegel_stand: neuerStand.toISOString(), email_spiegel_info: `${laufStart.toISOString().slice(0, 16)} · ${anzahl} geprüft · ${angelegt} neu${abgebrochen ? ' · unvollständig' : ''}` })
         .eq('tenant_id', tenantId).eq('user_id', uc.user_id)
+        if (e) console.error('[email] user_email_connections:', e.message) }
     } catch (e) {
       erg.fehler.push(`${uc.email_address ?? uc.user_id}: ${(e as Error).message}`)
     }

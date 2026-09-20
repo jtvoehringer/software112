@@ -27,11 +27,15 @@ export default async function WeinexportDetailPage({ params }: { params: Promise
     (supabase.from('exportauftraege') as any)
       .select('*, kontakte(vorname,nachname,email,telefon), firmen(name,email,telefon)')
       .eq('id', id).eq('tenant_id', tenantId).single(),
+    // Kindtabellen ohne tenant_id (Sweep 20.9.2026: .eq('tenant_id') brach die Abfrage) – der
+    // Auftrag ist mandantengefiltert, die Positionen hängen an seiner id (RLS über den Auftrag)
+    // tenant-isolation-ignore: exportauftrag_positionen ohne tenant_id
     (supabase.from('exportauftrag_positionen') as any)
       .select('*, fuellungen(bezeichnung,flaschengroesse_ml)')
-      .eq('exportauftrag_id', id).eq('tenant_id', tenantId).order('sort_order'),
+      .eq('exportauftrag_id', id).order('sort_order'),
+    // tenant-isolation-ignore: export_dokumente ohne tenant_id
     (supabase.from('export_dokumente') as any)
-      .select('*').eq('exportauftrag_id', id).eq('tenant_id', tenantId).order('dokument_art'),
+      .select('*').eq('exportauftrag_id', id).order('dokument_art'),
   ])
 
   if (!auftrag) return (

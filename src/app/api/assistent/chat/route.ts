@@ -187,9 +187,10 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Nutzer-Nachricht speichern ───────────────────────────────────────────
-    await (supabase.from('assistent_nachrichten') as any).insert({
+    { const { error: e } = await (supabase.from('assistent_nachrichten') as any).insert({
       unterhaltung_id: unterhaltungId, rolle: 'user', inhalt: nachricht,
     })
+      if (e) console.error('[chat] assistent_nachrichten:', e.message) }
 
     // ── Bisherigen (reinen Text-)Verlauf laden ──────────────────────────────
     // Bewusst nur die reinen User/Assistant-Textnachrichten (tool_name IS
@@ -269,10 +270,11 @@ export async function POST(req: NextRequest) {
       const toolUse = toolUseBlocks[0]
 
       // Audit: Assistant-Nachricht mit Tool-Aufruf protokollieren (nicht Teil des Replay-Verlaufs)
-      await (supabase.from('assistent_nachrichten') as any).insert({
+      { const { error: e } = await (supabase.from('assistent_nachrichten') as any).insert({
         unterhaltung_id: unterhaltungId, rolle: 'assistant',
         inhalt: textBlocks || null, tool_name: toolUse.name, tool_input: toolUse.input,
       })
+        if (e) console.error('[chat] assistent_nachrichten:', e.message) }
 
       // Dispatch je nach Tool-Name auf den passenden Handler.
       let ergebnis: R
@@ -297,78 +299,87 @@ export async function POST(req: NextRequest) {
       }
 
       // Audit: Tool-Ergebnis protokollieren
-      await (supabase.from('assistent_nachrichten') as any).insert({
+      { const { error: e } = await (supabase.from('assistent_nachrichten') as any).insert({
         unterhaltung_id: unterhaltungId, rolle: 'tool',
         tool_name: toolUse.name, tool_result: ergebnis,
       })
+        if (e) console.error('[chat] assistent_nachrichten:', e.message) }
 
       // Erfolgreich angelegte Datensätze im Aktions-Protokoll festhalten
       if (ergebnis?.erfolg && toolUse.name === 'massnahme_dokumentieren' && ergebnis?.behandlung_id) {
-        await (supabase.from('assistent_aktionen') as any).insert({
+        { const { error: e } = await (supabase.from('assistent_aktionen') as any).insert({
           unterhaltung_id: unterhaltungId,
           prozess: 'massnahme_dokumentieren',
           ziel_tabelle: 'behandlungen',
           ziel_id: ergebnis.behandlung_id,
           erstellt_von: user.id,
         })
+          if (e) console.error('[chat] assistent_aktionen:', e.message) }
       } else if (ergebnis?.erfolg && toolUse.name === 'verkauf_anlegen' && ergebnis?.verkaufsposten_id) {
-        await (supabase.from('assistent_aktionen') as any).insert({
+        { const { error: e } = await (supabase.from('assistent_aktionen') as any).insert({
           unterhaltung_id: unterhaltungId,
           prozess: 'verkauf_anlegen',
           ziel_tabelle: 'verkaufsposten',
           ziel_id: ergebnis.verkaufsposten_id,
           erstellt_von: user.id,
         })
+          if (e) console.error('[chat] assistent_aktionen:', e.message) }
       } else if (ergebnis?.erfolg && toolUse.name === 'ernte_erfassen' && ergebnis?.jahrgang_id) {
-        await (supabase.from('assistent_aktionen') as any).insert({
+        { const { error: e } = await (supabase.from('assistent_aktionen') as any).insert({
           unterhaltung_id: unterhaltungId,
           prozess: 'ernte_erfassen',
           ziel_tabelle: 'ernte_parzellen',
           ziel_id: ergebnis.jahrgang_id,
           erstellt_von: user.id,
         })
+          if (e) console.error('[chat] assistent_aktionen:', e.message) }
       } else if (ergebnis?.erfolg && toolUse.name === 'abfuellen' && ergebnis?.fuellung_id) {
-        await (supabase.from('assistent_aktionen') as any).insert({
+        { const { error: e } = await (supabase.from('assistent_aktionen') as any).insert({
           unterhaltung_id: unterhaltungId,
           prozess: 'abfuellen',
           ziel_tabelle: 'fuellungen',
           ziel_id: ergebnis.fuellung_id,
           erstellt_von: user.id,
         })
+          if (e) console.error('[chat] assistent_aktionen:', e.message) }
       } else if (ergebnis?.erfolg && toolUse.name === 'verschneiden' && ergebnis?.ziel_weinausbau_id) {
-        await (supabase.from('assistent_aktionen') as any).insert({
+        { const { error: e } = await (supabase.from('assistent_aktionen') as any).insert({
           unterhaltung_id: unterhaltungId,
           prozess: 'verschneiden',
           ziel_tabelle: 'weinausbau',
           ziel_id: ergebnis.ziel_weinausbau_id,
           erstellt_von: user.id,
         })
+          if (e) console.error('[chat] assistent_aktionen:', e.message) }
       } else if (ergebnis?.erfolg && toolUse.name === 'umziehen' && (toolUse.input as R)?.weinausbau_id) {
         // umziehen() liefert keine eigene neue ID zurück (nur optionale Folgeeffekt-Hinweise) –
         // als ziel_id daher die Quell-Charge aus dem Tool-Aufruf selbst verwenden.
-        await (supabase.from('assistent_aktionen') as any).insert({
+        { const { error: e } = await (supabase.from('assistent_aktionen') as any).insert({
           unterhaltung_id: unterhaltungId,
           prozess: 'umziehen',
           ziel_tabelle: 'keller_umzuege',
           ziel_id: String((toolUse.input as R).weinausbau_id),
           erstellt_von: user.id,
         })
+          if (e) console.error('[chat] assistent_aktionen:', e.message) }
       } else if (ergebnis?.erfolg && toolUse.name === 'kellerbehandlung_erfassen' && ergebnis?.behandlung_id) {
-        await (supabase.from('assistent_aktionen') as any).insert({
+        { const { error: e } = await (supabase.from('assistent_aktionen') as any).insert({
           unterhaltung_id: unterhaltungId,
           prozess: 'kellerbehandlung_erfassen',
           ziel_tabelle: 'keller_behandlungen',
           ziel_id: ergebnis.behandlung_id,
           erstellt_von: user.id,
         })
+          if (e) console.error('[chat] assistent_aktionen:', e.message) }
       } else if (ergebnis?.erfolg && toolUse.name === 'korrektur_merken' && ergebnis?.korrektur_id) {
-        await (supabase.from('assistent_aktionen') as any).insert({
+        { const { error: e } = await (supabase.from('assistent_aktionen') as any).insert({
           unterhaltung_id: unterhaltungId,
           prozess: 'korrektur_merken',
           ziel_tabelle: 'assistent_korrekturen',
           ziel_id: ergebnis.korrektur_id,
           erstellt_von: user.id,
         })
+          if (e) console.error('[chat] assistent_aktionen:', e.message) }
       }
 
       workingMessages.push({ role: 'assistant', content: msg.content })
@@ -385,9 +396,10 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Finale Antwort speichern (Teil des Replay-Verlaufs) ──────────────────
-    await (supabase.from('assistent_nachrichten') as any).insert({
+    { const { error: e } = await (supabase.from('assistent_nachrichten') as any).insert({
       unterhaltung_id: unterhaltungId, rolle: 'assistant', inhalt: finalText,
     })
+      if (e) console.error('[chat] assistent_nachrichten:', e.message) }
 
     return NextResponse.json({ unterhaltungId, antwort: finalText })
   } catch (err) {

@@ -50,7 +50,8 @@ export async function createCustomWeinbaugebiet(name: string): Promise<CustomWei
   if (bestehend) {
     const b = bestehend as AR
     if (!b.aktiv) {
-      await (supabase.from('weinbaugebiete_custom') as any).update({ aktiv: true }).eq('id', b.id).eq('tenant_id', tenantId)
+      { const { error: e } = await (supabase.from('weinbaugebiete_custom') as any).update({ aktiv: true }).eq('id', b.id).eq('tenant_id', tenantId)
+        if (e) throw new Error(`Speichern fehlgeschlagen (weinbaugebiete_custom): ${e.message}`) }
     }
     return { id: b.id, name: b.name }
   }

@@ -98,13 +98,15 @@ export async function updateWeingarten(id: string, formData: FormData) {
 
   if (existing?.lage_id) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('lagen') as any)
+    { const { error: e } = await (supabase.from('lagen') as any)
       .update({ name })
       .eq('id', existing.lage_id).eq('tenant_id', tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (lagen): ${e.message}`) }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('weingarten') as any)
+    { const { error: e } = await (supabase.from('weingarten') as any)
       .update({ ried: name })
       .eq('lage_id', existing.lage_id).eq('tenant_id', tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (weingarten): ${e.message}`) }
   } else {
     payload.ried = name || null
   }

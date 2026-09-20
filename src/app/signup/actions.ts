@@ -74,7 +74,8 @@ export async function registrierenAction(formData: FormData): Promise<Ergebnis> 
     user_metadata: { display_name: name },
   })
   if (userError || !userData.user) {
-    await (admin.from('tenants') as R).delete().eq('id', tenantId)
+    { const { error: e } = await (admin.from('tenants') as R).delete().eq('id', tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (tenants): ${e.message}`) }
     return { ok: false, fehler: userError?.message ?? 'Konto konnte nicht angelegt werden.' }
   }
   const userId = userData.user.id
@@ -83,7 +84,8 @@ export async function registrierenAction(formData: FormData): Promise<Ergebnis> 
     .insert({ tenant_id: tenantId, user_id: userId, role: 'tenant_admin', aktiv: true })
   if (memberError) {
     await admin.auth.admin.deleteUser(userId)
-    await (admin.from('tenants') as R).delete().eq('id', tenantId)
+    { const { error: e } = await (admin.from('tenants') as R).delete().eq('id', tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (tenants): ${e.message}`) }
     return { ok: false, fehler: (memberError as R).message }
   }
 
@@ -103,7 +105,8 @@ export async function registrierenAction(formData: FormData): Promise<Ergebnis> 
   } catch (err) {
     return { ok: false, fehler: `Konto wurde angelegt, Stripe-Fehler: ${(err as Error).message}. Sie können sich einloggen und die Zahlungsdaten unter /abo nachtragen.` }
   }
-  await (admin.from('tenants') as R).update({ stripe_customer_id: customer.id }).eq('id', tenantId)
+  { const { error: e } = await (admin.from('tenants') as R).update({ stripe_customer_id: customer.id }).eq('id', tenantId)
+    if (e) throw new Error(`Speichern fehlgeschlagen (tenants): ${e.message}`) }
   await stripeKundennummerSync(tenantId)
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://software112.icp-consultants.at'

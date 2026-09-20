@@ -588,12 +588,13 @@ export async function cancelStripeSubscription(tenantId: string, subscriptionId:
   }
 
   const admin = createSupabaseAdminClient()
-  await (admin.from('tenants') as any).update({
+  { const { error: e } = await (admin.from('tenants') as any).update({
     stripe_status:            'cancelled',
     stripe_subscription_id:   null,
     stripe_plan:              null,
     stripe_current_period_end: null,
   }).eq('id', tenantId)
+    if (e) throw new Error(`Speichern fehlgeschlagen (tenants): ${e.message}`) }
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   return { success: true }
@@ -616,7 +617,8 @@ export async function wendePaketVorgabenAn(tenantId: string, paketWunsch?: strin
     return { error: `Das Paket ${PAKETE[paket].label} enthält die E&A-Rechnung - bitte zuerst wählen, ob der Betrieb die E&A-Rechnung in software:112 führt oder die doppelte Buchhaltung beim Steuerberater (BMD).` }
   }
   if (istPaketKey(paketWunsch)) {
-    await (admin.from('tenants') as any).update({ stripe_plan: paket }).eq('id', tenantId)
+    { const { error: e } = await (admin.from('tenants') as any).update({ stripe_plan: paket }).eq('id', tenantId)
+      if (e) throw new Error(`Speichern fehlgeschlagen (tenants): ${e.message}`) }
   }
   const fehler = await wendePaketAn(admin, tenantId, paket)
   if (fehler) return { error: fehler }

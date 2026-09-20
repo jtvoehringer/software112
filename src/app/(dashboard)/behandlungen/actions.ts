@@ -76,7 +76,8 @@ async function ggfKostenEintragAnlegen(
           betrag_anteil:    Math.round(betrag * pct / 100 * 100) / 100,
         }
       })
-      await (supabase.from('kosteneintrag_weingaerten') as any).insert(splitRows)
+      { const { error: e } = await (supabase.from('kosteneintrag_weingaerten') as any).insert(splitRows)
+        if (e) throw new Error(`Speichern fehlgeschlagen (kosteneintrag_weingaerten): ${e.message}`) }
     }
 
     revalidatePath('/controlling/kostenrechnung')
@@ -110,7 +111,8 @@ async function ggfKostenEintragAktualisieren(
   if (!kostenAktiv) {
     if (bestehendId) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('kosteneintraege') as any).delete().eq('id', bestehendId).eq('tenant_id', tenantId)
+      { const { error: e } = await (supabase.from('kosteneintraege') as any).delete().eq('id', bestehendId).eq('tenant_id', tenantId)
+        if (e) throw new Error(`Speichern fehlgeschlagen (kosteneintraege): ${e.message}`) }
       revalidatePath('/controlling/kostenrechnung')
     }
     return
@@ -151,7 +153,8 @@ async function ggfKostenEintragAktualisieren(
       if (updErr) throw updErr
       // Weingarten-Splits neu berechnen (bestehende ersetzen)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('kosteneintrag_weingaerten') as any).delete().eq('kosteneintrag_id', eintragId)
+      { const { error: e } = await (supabase.from('kosteneintrag_weingaerten') as any).delete().eq('kosteneintrag_id', eintragId)
+        if (e) throw new Error(`Speichern fehlgeschlagen (kosteneintrag_weingaerten): ${e.message}`) }
     } else {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: transaktionsNr } = await (supabase.rpc as any)('get_next_transaktionsnr', {
@@ -191,7 +194,8 @@ async function ggfKostenEintragAktualisieren(
         }
       })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('kosteneintrag_weingaerten') as any).insert(splitRows)
+      { const { error: e } = await (supabase.from('kosteneintrag_weingaerten') as any).insert(splitRows)
+        if (e) throw new Error(`Speichern fehlgeschlagen (kosteneintrag_weingaerten): ${e.message}`) }
     }
 
     revalidatePath('/controlling/kostenrechnung')

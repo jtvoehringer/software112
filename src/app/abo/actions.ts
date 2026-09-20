@@ -100,7 +100,8 @@ export async function starteZahlungAction(paketWunsch?: string, buchhaltungsart?
         name: t.name, email: user?.email ?? undefined, metadata: { tenant_id: membership.tenantId },
       })
       customerId = customer.id
-      await (admin.from('tenants') as R).update({ stripe_customer_id: customerId }).eq('id', membership.tenantId)
+      { const { error: e } = await (admin.from('tenants') as R).update({ stripe_customer_id: customerId }).eq('id', membership.tenantId)
+        if (e) throw new Error(`Speichern fehlgeschlagen (tenants): ${e.message}`) }
       await stripeKundennummerSync(membership.tenantId)
     } catch (err) {
       return { error: `Stripe-Fehler: ${(err as Error).message}` }

@@ -198,8 +198,9 @@ export default function KellerbehandlungenPage() {
           setFormError('Aktiver Betrieb konnte nicht ermittelt werden. Bitte Seite neu laden.')
           return
         }
-        await (supabase.from('keller_behandlungen') as any)
+        { const { error: e } = await (supabase.from('keller_behandlungen') as any)
           .insert({ ...payload, tenant_id: tenantId })
+          if (e) console.error('[behandlungen] keller_behandlungen:', e.message) }
       }
       setShowForm(false)
       loadData()

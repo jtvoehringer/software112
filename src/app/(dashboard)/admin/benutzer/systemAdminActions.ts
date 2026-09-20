@@ -41,9 +41,10 @@ export async function inviteSystemAdmin(email: string) {
 
   if (existing) {
     // Rolle auf system_admin hochstufen
-    await (admin.from('tenant_memberships') as any)
+    { const { error: e } = await (admin.from('tenant_memberships') as any)
       .update({ role: 'system_admin' })
       .eq('user_id', userId).eq('tenant_id', tenantId)
+      if (e) console.error('[benutzer] tenant_memberships:', e.message) }
   } else {
     const { error: memberError } = await (admin.from('tenant_memberships') as any)
       .insert({ tenant_id: tenantId, user_id: userId, role: 'system_admin' })

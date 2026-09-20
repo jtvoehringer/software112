@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
       }
       // Empfänger-Liste für Speicherung
       const anStr = [...empfaenger, ...ccListe.map((e: string) => `CC: ${e}`)].join(', ')
-      await (admin.from('aktivitaeten') as any).insert({
+      { const { error: e } = await (admin.from('aktivitaeten') as any).insert({
         tenant_id: tenantId, kontakt_id: kId, firma_id: fId,
         art: 'email', betreff,
         beschreibung: (text ?? '').slice(0, 500) || null,
@@ -117,6 +117,7 @@ export async function POST(req: NextRequest) {
         email_body: text ?? null,
         email_body_html: null,
       })
+        if (e) console.error('[unified] aktivitaeten:', e.message) }
       return NextResponse.json({ ok: true, via: 'm365' })
     }
 
@@ -133,11 +134,12 @@ export async function POST(req: NextRequest) {
         to: an, cc: ccListe.length ? ccListe.join(', ') : undefined, subject: betreff,
         text: antwort && typeof zitat === 'string' && zitat ? `${text ?? ''}\n\n${zitat}` : text,
       })
-      await (admin.from('aktivitaeten') as any).insert({
+      { const { error: e } = await (admin.from('aktivitaeten') as any).insert({
         tenant_id: tenantId, kontakt_id: kontakt_id ?? null, firma_id: firma_id ?? null,
         art: 'email', betreff, beschreibung: text?.slice(0, 200) ?? null,
         datum: new Date().toISOString().split('T')[0], erledigt: false, ganztags: true,
       })
+        if (e) console.error('[unified] aktivitaeten:', e.message) }
       return NextResponse.json({ ok: true, via: 'smtp' })
     }
 

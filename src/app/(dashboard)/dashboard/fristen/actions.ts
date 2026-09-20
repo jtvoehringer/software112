@@ -66,10 +66,11 @@ export async function fristErledigen(id: string) {
   if (error) throw new Error(error.message)
   if (f.wiederholung === 'jaehrlich') {
     const d = new Date(f.faellig_am); d.setFullYear(d.getFullYear() + 1)
-    await (supabase.from('fristen') as any).insert({
+    { const { error: e } = await (supabase.from('fristen') as any).insert({
       tenant_id: tenantId, bezeichnung: f.bezeichnung, beschreibung: f.beschreibung, kategorie: f.kategorie,
       faellig_am: d.toISOString().split('T')[0], wiederholung: 'jaehrlich', href: f.href,
     })
+      if (e) throw new Error(`Speichern fehlgeschlagen (fristen): ${e.message}`) }
   }
   revalidate()
 }
