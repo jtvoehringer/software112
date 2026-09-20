@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { absenderIndexVerwerfen } from '@/lib/crm/absender'
 import { AktionsFehler } from '@/lib/fehler'
+import { pruefeEmailFelder, einzelneEmail } from '@/lib/crm/email'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -39,31 +40,26 @@ function parseZahlungszielTage(formData: FormData): number {
 
 // ── Kontakte ──────────────────────────────────────────────────────────────────
 
-// Migration 211: weitere E-Mail-Adressen, im Formular kommagetrennt/zeilenweise
-function parseEmailWeitere(formData: FormData): string[] {
-  const roh = (formData.get('email_weitere') as string) || ''
-  const std = ((formData.get('email') as string) || '').trim().toLowerCase()
-  const out: string[] = []
-  for (const t of roh.split(/[,;\s]+/)) {
-    const e = t.trim().toLowerCase()
-    if (!e || !e.includes('@') || e === std || out.includes(e)) continue
-    out.push(e)
-  }
-  return out
+// E-Mail-Felder: Prüfung/Bereinigung in lib/crm/email.ts (20.9.2026) – Anzeigenamen,
+// Mehrfachadressen im Standardfeld und ungültige Eingaben werden dort behandelt.
+function emailFelder(formData: FormData) {
+  return pruefeEmailFelder(formData.get('email') as string | null, formData.get('email_weitere') as string | null)
 }
 
 export async function createKontakt(formData: FormData): Promise<{ error?: string }> {
   try {
     const supabase = await createSupabaseServerClient()
     const tenantId = await getTenantId()
+    const em = emailFelder(formData)
+    if (em.fehler) return { error: em.fehler }
     const payload: AR = {
       tenant_id:   tenantId,
       vorname:     (formData.get('vorname') as string) || null,
       nachname:    formData.get('nachname') as string,
       segment:     formData.get('segment') as string,
       firma_id:    (formData.get('firma_id') as string) || null,
-      email:       (formData.get('email') as string) || null,
-      email_weitere: parseEmailWeitere(formData),
+      email:       em.email,
+      email_weitere: em.email_weitere,
       telefon:          (formData.get('telefon')          as string) || null,
       telefon_vorwahl:  (formData.get('telefon_vorwahl') as string) || '+43',
       mobil:            (formData.get('mobil')            as string) || null,
@@ -97,13 +93,15 @@ export async function updateKontakt(id: string, formData: FormData): Promise<{ e
   try {
     const supabase = await createSupabaseServerClient()
     const tenantId = await getTenantId()
+    const em = emailFelder(formData)
+    if (em.fehler) return { error: em.fehler }
     const payload: AR = {
       vorname:    (formData.get('vorname') as string) || null,
       nachname:   formData.get('nachname') as string,
       segment:    formData.get('segment') as string,
       firma_id:   (formData.get('firma_id') as string) || null,
-      email:      (formData.get('email') as string) || null,
-      email_weitere: parseEmailWeitere(formData),
+      email:      em.email,
+      email_weitere: em.email_weitere,
       telefon:          (formData.get('telefon')          as string) || null,
       telefon_vorwahl:  (formData.get('telefon_vorwahl') as string) || '+43',
       mobil:            (formData.get('mobil')            as string) || null,
@@ -249,6 +247,8 @@ export async function createFirma(formData: FormData): Promise<{ error?: string;
   try {
     const supabase = await createSupabaseServerClient()
     const tenantId = await getTenantId()
+    const em = emailFelder(formData)
+    if (em.fehler) return { error: em.fehler }
     const payload: AR = {
       tenant_id:          tenantId,
       name:               formData.get('name') as string,
@@ -261,8 +261,8 @@ export async function createFirma(formData: FormData): Promise<{ error?: string;
       telefon_vorwahl:    (formData.get('telefon_vorwahl') as string) || '+43',
       mobil:              (formData.get('mobil')          as string) || null,
       mobil_vorwahl:      (formData.get('mobil_vorwahl') as string) || '+43',
-      email:              (formData.get('email') as string) || null,
-      email_weitere:      parseEmailWeitere(formData),
+      email:              em.email,
+      email_weitere:      em.email_weitere,
       website:            (formData.get('website') as string) || null,
       uid_nummer:         (formData.get('uid_nummer') as string) || null,
       betrieb_nr:         (formData.get('betrieb_nr') as string) || null,
@@ -298,6 +298,8 @@ export async function updateFirma(id: string, formData: FormData): Promise<{ err
   try {
     const supabase = await createSupabaseServerClient()
     const tenantId = await getTenantId()
+    const em = emailFelder(formData)
+    if (em.fehler) return { error: em.fehler }
     const payload: AR = {
       name:               formData.get('name') as string,
       segment:            formData.get('segment') as string,
@@ -309,8 +311,8 @@ export async function updateFirma(id: string, formData: FormData): Promise<{ err
       telefon_vorwahl:    (formData.get('telefon_vorwahl') as string) || '+43',
       mobil:              (formData.get('mobil')          as string) || null,
       mobil_vorwahl:      (formData.get('mobil_vorwahl') as string) || '+43',
-      email:              (formData.get('email') as string) || null,
-      email_weitere:      parseEmailWeitere(formData),
+      email:              em.email,
+      email_weitere:      em.email_weitere,
       website:            (formData.get('website') as string) || null,
       uid_nummer:         (formData.get('uid_nummer') as string) || null,
       betrieb_nr:         (formData.get('betrieb_nr') as string) || null,
@@ -647,9 +649,9 @@ export async function createLeadAusEmail(d: LeadAusEmailDaten): Promise<{ kontak
     // der Signatur vor - weicht die vom tatsächlichen Absender ab (z.B. Signatur
     // judi_liu@hotmail.com, gesendet von einer anderen Adresse), wurde der Lead
     // beim nächsten Öffnen derselben Mail nicht erkannt und erneut vorgeschlagen.
-    const emailStd = d.email?.trim().toLowerCase() || null
-    const absender = (d.mail?.von ?? '').trim().toLowerCase()
-    const emailWeitere = absender && absender.includes('@') && absender !== emailStd ? [absender] : []
+    const emailStd = einzelneEmail(d.email)
+    const absender = einzelneEmail(d.mail?.von) ?? ''
+    const emailWeitere = absender && absender !== emailStd ? [absender] : []
     const payload: AR = {
       tenant_id: tenantId,
       vorname: d.vorname?.trim() || null,
@@ -771,8 +773,8 @@ export async function emailHinzufuegen(typ: 'kontakt' | 'firma', id: string, ema
   try {
     const supabase = await createSupabaseServerClient()
     const tenantId = await getTenantId()
-    const e = (email ?? '').trim().toLowerCase()
-    if (!e.includes('@')) return { error: 'Keine gültige Adresse' }
+    const e = einzelneEmail(email)
+    if (!e) return { error: `„${(email ?? '').trim()}“ ist keine gültige E-Mail-Adresse.` }
     const tabelle = typ === 'firma' ? 'firmen' : 'kontakte'
     const { data: row, error: e1 } = await (supabase.from(tabelle) as any).select('id, email, email_weitere').eq('tenant_id', tenantId).eq('id', id).maybeSingle()
     if (e1) return { error: (e1 as AR).message }

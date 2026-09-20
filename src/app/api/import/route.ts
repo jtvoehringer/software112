@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
 import { zerlegeTelefon } from '@/lib/crm/telefon'
+import { pruefeEmailFelder } from '@/lib/crm/email'
 export const dynamic = 'force-dynamic'
 // Große Importe (Dynamics-Leads 3.9.2026: 4.200 Firmen / 7.900 Kontakte) kommen
 // vom Client in Blöcken (siehe ImportClient.tsx, IMPORT_BLOCKGROESSE) - ein
@@ -263,7 +264,10 @@ export async function POST(req: NextRequest) {
           const vorname = mapVal(row, mapping.vorname) as string | null | undefined
           const nachname = mapVal(row, mapping.nachname)
           if (!nachname) { details.push(`Zeile ${i+zeilenBasis}: Nachname fehlt – übersprungen`); continue }
-          const email = ((mapVal(row, mapping.email) as string | null | undefined) ?? null)
+          // E-Mail bereinigen (lib/crm/email.ts): Anzeigename weg, Mehrfachadressen aufteilen, Unbrauchbares in die Notiz
+          const emailRoh = ((mapVal(row, mapping.email) as string | null | undefined) ?? null)
+          const emK = pruefeEmailFelder(emailRoh, null)
+          const email = emK.email
           const vollname = [vorname, nachname].filter(Boolean).join(' ')
           if (leadImport) {
             const emailKey = email ? normName(email) : null
@@ -278,6 +282,7 @@ export async function POST(req: NextRequest) {
           const firmaName = (mapVal(row, mapping.firma) as string | null | undefined)?.trim() || null
           const firmaId = firmaName ? await findFirmaId(firmaName) : null
           let notizKontakt = (mapVal(row, mapping.notizen) as string | null | undefined) ?? null
+          if (emK.fehler) notizKontakt = [notizKontakt, `Import: E-Mail-Feld unbrauchbar: „${emailRoh}“`].filter(Boolean).join('\n')
           if (firmaName && !firmaId) {
             const vermerk = `Firma lt. Import: ${firmaName} (nicht zugeordnet)`
             notizKontakt = notizKontakt ? `${vermerk}\n${notizKontakt}` : vermerk
@@ -295,6 +300,7 @@ export async function POST(req: NextRequest) {
             nachname,
             firma_id:  firmaId,
             email,
+            email_weitere: emK.email_weitere,
             telefon:   telK.nummer,
             telefon_vorwahl: telK.vorwahl,
             mobil:     mobK.nummer,
@@ -314,7 +320,9 @@ export async function POST(req: NextRequest) {
         } else if (typ === 'firmen') {
           const name = mapVal(row, mapping.name)
           if (!name) { details.push(`Zeile ${i+zeilenBasis}: Name fehlt – übersprungen`); continue }
-          const email = ((mapVal(row, mapping.email) as string | null | undefined) ?? null)
+          const emailRoh = ((mapVal(row, mapping.email) as string | null | undefined) ?? null)
+          const emF = pruefeEmailFelder(emailRoh, null)
+          const email = emF.email
           if (leadImport) {
             const emailKey = email ? normName(email) : null
             if ((emailKey && kundenEmailSet.has(emailKey)) || kundenNameSet.has(normName(name as string))) {
@@ -331,6 +339,7 @@ export async function POST(req: NextRequest) {
             accountnummer: await generateAccountnummer(supabase, tenantId),
             name,
             email,
+            email_weitere:      emF.email_weitere,
             telefon:            telF.nummer,
             telefon_vorwahl:    telF.vorwahl,
             mobil:              mobF.nummer,
@@ -350,7 +359,7 @@ export async function POST(req: NextRequest) {
             // fallen statt auf null (Rückmeldung 1.9.2026: alle 6 Zeilen fehlgeschlagen,
             // obwohl "Zahlungsziel" bewusst nicht zugeordnet war).
             zahlungsziel_tage:  mapVal(row, mapping.zahlungsziel_tage, v => parseDeInt(v) || 30) ?? 30,
-            notizen:            mitHerkunft(mapVal(row, mapping.notizen)),
+            notizen:            mitHerkunft([mapVal(row, mapping.notizen), emF.fehler ? `Import: E-Mail-Feld unbrauchbar: „${emailRoh}“` : null].filter(Boolean).join('\n') || null),
             ...herkunftFelder,
             aktiv: true, is_lead: leadImport,
           })
