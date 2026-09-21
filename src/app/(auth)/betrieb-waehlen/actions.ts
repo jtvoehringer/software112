@@ -13,8 +13,10 @@ export async function selectBetriebAction(formData: FormData) {
 
   // Sicherheit: validieren dass der User wirklich Mitglied dieses Tenants ist
   const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
   const { data } = await (supabase.from('tenant_memberships') as any)
-    .select('tenant_id').eq('tenant_id', tenantId).limit(1).maybeSingle()
+    .select('tenant_id').eq('tenant_id', tenantId).eq('user_id', user.id).eq('aktiv', true).limit(1).maybeSingle()
 
   if (!(data as R | null)?.tenant_id) return // Kein Zugriff
 

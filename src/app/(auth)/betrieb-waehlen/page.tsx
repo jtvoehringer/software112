@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { selectBetriebAction } from './actions'
-import BetriebCard from './BetriebCard'
+import { alle } from '@/lib/supabase/alle'
+import BetriebListe, { type BetriebEintrag } from './BetriebListe'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,11 +30,12 @@ export default async function BetriebWaehlenPage() {
   // Zugriff auf "Sandbox"), statt eine Karte pro eigenem Mandanten.
   // .eq('aktiv', true) blendet zusätzlich gesperrte Mitgliedschaften aus,
   // konsistent mit dem Mitgliedschaft-Aktiv-Toggle (Migration 159).
-  const { data: memberships } = await (supabase.from('tenant_memberships') as any)
+  // alle(): auch bei mehreren hundert Betrieben vollständig (PostgREST kappt bei 1.000)
+  const { data: memberships } = await alle((supabase.from('tenant_memberships') as any)
     .select('tenant_id, role, tenants(name, slug)')
     .eq('user_id', user.id)
     .eq('aktiv', true)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: true }).order('tenant_id'))
 
   if (!memberships || memberships.length === 0) redirect('/login')
 
@@ -46,20 +47,31 @@ export default async function BetriebWaehlenPage() {
 
   // Anzeigenamen aus tenant_einstellungen laden
   const tenantIds = (memberships as R[]).map(m => m.tenant_id)
-  // Bewusst mandantenübergreifend - .in('tenant_id', tenantIds) ist bereits auf die eigenen,
-  // oben per .eq('user_id', user.id).eq('aktiv', true) geprüften Mitgliedschaften
-  // eingeschränkt. Diese Seite existiert genau dafür, ALLE eigenen Betriebe zur Auswahl
-  // anzuzeigen (bevor überhaupt ein "aktiver" Tenant gewählt wurde) - ein Filter auf einen
-  // einzelnen tenant_id würde den Zweck der Seite zerstören.
+  // Bewusst mandantenübergreifend: diese Seite existiert genau dafür, ALLE eigenen Betriebe
+  // zur Auswahl anzuzeigen (bevor ein „aktiver“ Tenant gewählt wurde).
+  // Ohne .in(): bei mehreren hundert Betrieben würde die URL zu lang; RLS liefert ohnehin
+  // nur die Einstellungen der eigenen Betriebe, gefiltert wird zusätzlich über tenantIds.
   // tenant-isolation-ignore: mandantenübergreifende Auswahlseite, siehe Kommentar oben
-  const { data: einstellungen } = await (supabase.from('tenant_einstellungen') as any)
-    .select('tenant_id, anzeigename, logo_url, primary_color')
-    .in('tenant_id', tenantIds)
+  const { data: einstellungen } = await alle((supabase.from('tenant_einstellungen') as any)
+    .select('tenant_id, anzeigename, logo_url, primary_color').order('tenant_id'))
 
+  const eigene = new Set(tenantIds)
   const anzeigeMap: Record<string, { anzeigename: string | null; logo_url: string | null; primary_color: string | null }> = {}
   for (const e of (einstellungen ?? []) as R[]) {
-    anzeigeMap[e.tenant_id] = { anzeigename: e.anzeigename, logo_url: e.logo_url, primary_color: e.primary_color ?? null }
+    if (eigene.has(e.tenant_id)) anzeigeMap[e.tenant_id] = { anzeigename: e.anzeigename, logo_url: e.logo_url, primary_color: e.primary_color ?? null }
   }
+
+  const betriebe: BetriebEintrag[] = (memberships as R[]).map(m => {
+    const tenant = m.tenants as R
+    const eins = anzeigeMap[m.tenant_id]
+    return {
+      tenantId: m.tenant_id,
+      displayName: eins?.anzeigename || tenant?.name || m.tenant_id,
+      slug: tenant?.slug ?? '',
+      roleLabel: ROLE_LABEL[m.role] ?? m.role,
+      accentColor: eins?.primary_color ?? null,
+    }
+  })
 
   return (
     <div className="min-h-screen bg-s112-bg flex items-center justify-center p-4">
@@ -72,24 +84,8 @@ export default async function BetriebWaehlenPage() {
           <p className="text-s112-muted text-sm mt-1">Welchen Betrieb möchtest du öffnen?</p>
         </div>
 
-        {/* Betrieb-Karten */}
-        <div className="space-y-3">
-          {(memberships as R[]).map(m => {
-            const tenant = m.tenants as R
-            const eins = anzeigeMap[m.tenant_id]
-            const displayName = eins?.anzeigename || tenant?.name || m.tenant_id
-            return (
-              <form key={m.tenant_id} action={selectBetriebAction}>
-                <input type="hidden" name="tenant_id" value={m.tenant_id} />
-                <BetriebCard
-                  displayName={displayName}
-                  roleLabel={ROLE_LABEL[m.role] ?? m.role}
-                  accentColor={eins?.primary_color}
-                />
-              </form>
-            )
-          })}
-        </div>
+        {/* Betrieb-Karten – ab 8 Betrieben mit Suchfeld und „zuletzt geöffnet“ */}
+        <BetriebListe betriebe={betriebe} />
 
         <p className="text-center text-xs text-s112-muted mt-6">
           Angemeldet als {user.email}
