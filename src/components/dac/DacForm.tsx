@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { fehlerText } from '@/lib/fehler'
+import { dezimal } from '@/lib/format'
 
 const DAC_REGIONEN = [
   { value: 'weinviertel',           label: 'Weinviertel DAC' },
@@ -65,7 +66,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
     const normalized = new FormData()
     raw.forEach((value, key) => {
       if (['menge_liter', 'alkohol_prozent'].includes(key) && typeof value === 'string') {
-        normalized.append(key, value.replace(',', '.'))
+        normalized.append(key, dezimal(value))
       } else {
         normalized.append(key, value)
       }

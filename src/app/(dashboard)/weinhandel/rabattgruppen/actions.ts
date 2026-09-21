@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import { AktionsFehler } from '@/lib/fehler'
+import { dezimal } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -23,7 +24,7 @@ export async function createRabattgruppe(formData: FormData) {
   const { error } = await (supabase.from('rabattgruppen') as any).insert({
     tenant_id:  tenantId,
     name:       formData.get('name') as string,
-    rabatt_pct: parseFloat(formData.get('rabatt_pct') as string) || 0,
+    rabatt_pct: parseFloat(dezimal(formData.get('rabatt_pct') as string)) || 0,
     notizen:    (formData.get('notizen') as string) || null,
   })
   if (error) throw new AktionsFehler((error as AR).message)
@@ -36,7 +37,7 @@ export async function updateRabattgruppe(id: string, formData: FormData) {
   const { error } = await (supabase.from('rabattgruppen') as any)
     .update({
       name:       formData.get('name') as string,
-      rabatt_pct: parseFloat(formData.get('rabatt_pct') as string) || 0,
+      rabatt_pct: parseFloat(dezimal(formData.get('rabatt_pct') as string)) || 0,
       notizen:    (formData.get('notizen') as string) || null,
     })
     .eq('id', id)

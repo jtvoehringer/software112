@@ -7,6 +7,7 @@ import { findePassendeHerkunftsstufe, HERKUNFT_LABEL, minHerkunft } from '@/lib/
 import { createVerkaufspostenFuerTrauben, ermittleQuellenName } from '@/app/(dashboard)/weinhandel/traubenverkauf/actions'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { AktionsFehler } from '@/lib/fehler'
+import { dezimal } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -23,7 +24,7 @@ async function getTenantId(): Promise<string> {
 export async function createJahrgang(formData: FormData): Promise<{ error?: string }> {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
-  const jahrgang = Number(formData.get('jahrgang'))
+  const jahrgang = Number(dezimal(formData.get('jahrgang')))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('weinjahrgaenge') as any).insert({
     tenant_id:   tenantId,
@@ -67,7 +68,7 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
   const weingartenId = formData.get('weingarten_id') as string
   // .replace(',', '.') ist nötig, da die Felder °KMW-typisch mit Komma-Dezimaltrennzeichen
   // erfasst werden (de-AT) - ohne die Ersetzung liefert Number() bei "9,5" NaN.
-  const mengeKg = formData.get('menge_kg') ? Number((formData.get('menge_kg') as string).replace(',', '.')) : null
+  const mengeKg = formData.get('menge_kg') ? Number(dezimal((formData.get('menge_kg') as string))) : null
   const mengeHl = mengeKg ? mengeKg / 130 : null  // 1 hl ≈ 130 kg
   const grundstueckId = (formData.get('grundstueck_id') as string) || null
 
@@ -96,8 +97,8 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
     ernte_datum:      (formData.get('ernte_datum') as string) || null,
     menge_kg:         mengeKg,
     menge_hl:         mengeHl,
-    oechsle:          formData.get('oechsle') ? Number((formData.get('oechsle') as string).replace(',', '.')) : null,
-    klosterneuburger: formData.get('klosterneuburger') ? Number((formData.get('klosterneuburger') as string).replace(',', '.')) : null,
+    oechsle:          formData.get('oechsle') ? Number(dezimal((formData.get('oechsle') as string))) : null,
+    klosterneuburger: formData.get('klosterneuburger') ? Number(dezimal((formData.get('klosterneuburger') as string))) : null,
     qualitaetsstufe:  (formData.get('qualitaetsstufe') as string) || null,
     herkunft_code:    herkunftCode,
     lesemethode:      (formData.get('lesemethode') as string) || null,
@@ -135,13 +136,13 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   const ernteDatum  = (formData.get('ernte_datum') as string) || null
   const lesemethode = (formData.get('lesemethode') as string) || null
   // .replace(',', '.') nötig für de-AT-Komma-Eingabe (z.B. "9,5") - siehe upsertErnteParzelle.
-  const kmw         = formData.get('klosterneuburger') ? Number((formData.get('klosterneuburger') as string).replace(',', '.')) : null
+  const kmw         = formData.get('klosterneuburger') ? Number(dezimal((formData.get('klosterneuburger') as string))) : null
   // Qualitätsstufe wird ausschließlich aus den °KMW abgeleitet (kein manuelles Formularfeld
   // mehr) - Fallback 'qualitaetswein', wenn kein KMW erfasst wurde.
   const qualitaet   = kmw != null ? kmwZuQualitaet(kmw) : 'qualitaetswein'
   const notizen     = (formData.get('notizen') as string) || null
   const mengeKgRaw  = formData.get('menge_kg') as string | null
-  const mengeKg     = mengeKgRaw ? Number(mengeKgRaw.replace(',', '.')) : null
+  const mengeKg     = mengeKgRaw ? Number(dezimal(mengeKgRaw)) : null
 
   // Proportionale Aufteilung nach Fläche (ha); Fallback: gleichmäßig
   function splitKg(total: number | null, areas: (number | null)[]): (number | null)[] {
@@ -341,9 +342,9 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: { behaelter_i
   const jahrgangId  = fd.get('jahrgang_id') as string
   const existingId  = (fd.get('existing_id') as string) || null
   const datum            = fd.get('datum') as string
-  const mostLiter        = fd.get('most_liter_gesamt') ? parseFloat((fd.get('most_liter_gesamt') as string).replace(',', '.')) : null
+  const mostLiter        = fd.get('most_liter_gesamt') ? parseFloat(dezimal((fd.get('most_liter_gesamt') as string))) : null
   const weinbezeichnung  = (fd.get('weinbezeichnung') as string) || null
-  const kmwRaw           = (fd.get('kmw_grad') as string || '').replace(',', '.')
+  const kmwRaw           = dezimal((fd.get('kmw_grad') as string || ''))
   const kmwGrad          = kmwRaw ? parseFloat(kmwRaw) : null
   const notizen          = (fd.get('notizen') as string) || null
   const qualitaetsstufeInput = (fd.get('qualitaetsstufe') as string) || null
@@ -598,8 +599,8 @@ export async function createTraubenverkauf(fd: FormData) {
   const weingartenId = (fd.get('weingarten_id') as string) || null
   const zukaufPostenId = (fd.get('zukauf_posten_id') as string) || null
   const grundstueckId = (fd.get('grundstueck_id') as string) || null
-  const mengeKg      = parseFloat((fd.get('menge_kg') as string).replace(',', '.'))
-  const preisPerKg   = fd.get('preis_per_kg') ? parseFloat((fd.get('preis_per_kg') as string).replace(',', '.')) : null
+  const mengeKg      = parseFloat(dezimal((fd.get('menge_kg') as string)))
+  const preisPerKg   = fd.get('preis_per_kg') ? parseFloat(dezimal((fd.get('preis_per_kg') as string))) : null
   const kontaktId    = (fd.get('kontakt_id') as string) || null
   const firmaId      = (fd.get('firma_id') as string) || null
   const datum        = fd.get('datum') as string
@@ -617,7 +618,7 @@ export async function createTraubenverkauf(fd: FormData) {
     datum,
     menge_kg:        mengeKg,
     preis_per_kg:    preisPerKg,
-    kmw_grad:        fd.get('kmw_grad') ? parseFloat((fd.get('kmw_grad') as string).replace(',', '.')) : null,
+    kmw_grad:        fd.get('kmw_grad') ? parseFloat(dezimal((fd.get('kmw_grad') as string))) : null,
     qualitaetsstufe: (fd.get('qualitaetsstufe') as string) || null,
     gesundheit:      (fd.get('gesundheit') as string) || 'G',
     herkunft_code:   (fd.get('herkunft_code') as string) || null,
@@ -649,8 +650,8 @@ export async function updateTraubenverkauf(id: string, fd: FormData) {
   const weingartenId  = (fd.get('weingarten_id') as string) || null
   const zukaufPostenId = (fd.get('zukauf_posten_id') as string) || null
   const grundstueckId = (fd.get('grundstueck_id') as string) || null
-  const mengeKg       = parseFloat((fd.get('menge_kg') as string).replace(',', '.'))
-  const preisPerKg    = fd.get('preis_per_kg') ? parseFloat((fd.get('preis_per_kg') as string).replace(',', '.')) : null
+  const mengeKg       = parseFloat(dezimal((fd.get('menge_kg') as string)))
+  const preisPerKg    = fd.get('preis_per_kg') ? parseFloat(dezimal((fd.get('preis_per_kg') as string))) : null
   const kontaktId     = (fd.get('kontakt_id') as string) || null
   const firmaId       = (fd.get('firma_id') as string) || null
   const datum         = fd.get('datum') as string
@@ -664,7 +665,7 @@ export async function updateTraubenverkauf(id: string, fd: FormData) {
     datum,
     menge_kg:        mengeKg,
     preis_per_kg:    preisPerKg,
-    kmw_grad:        fd.get('kmw_grad') ? parseFloat((fd.get('kmw_grad') as string).replace(',', '.')) : null,
+    kmw_grad:        fd.get('kmw_grad') ? parseFloat(dezimal((fd.get('kmw_grad') as string))) : null,
     qualitaetsstufe: (fd.get('qualitaetsstufe') as string) || null,
     gesundheit:      (fd.get('gesundheit') as string) || 'G',
     herkunft_code:   (fd.get('herkunft_code') as string) || null,

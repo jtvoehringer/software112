@@ -11,6 +11,7 @@ import { istPaketKey, PAKETE } from '@/lib/pakete'
 import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
 import { AktionsFehler } from '@/lib/fehler'
+import { dezimal } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -329,7 +330,7 @@ export async function saveVerkaufEinstellungen(tenantId: string, formData: FormD
       rechnung_suffix:  rSuffix,
       account_prefix:    kPrefix,
       account_stellen:    kStellen,
-      ust_satz_standard: parseFloat(formData.get('ust_satz_standard') as string) || 13,
+      ust_satz_standard: parseFloat(dezimal(formData.get('ust_satz_standard') as string)) || 13,
       aktualisiert_am:   new Date().toISOString(),
     }, { onConflict: 'tenant_id' })
 

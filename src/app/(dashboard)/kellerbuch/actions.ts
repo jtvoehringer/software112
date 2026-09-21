@@ -7,6 +7,7 @@ import { minHerkunft, maxHerkunft, istNiedrigerAls as herkunftIstNiedrigerAls, H
 import { weinartKonflikt, weinartBekannt, weinartAusFarbe, WEINART_LABEL } from '@/lib/keller/weinart'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { AktionsFehler } from '@/lib/fehler'
+import { dezimal } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -29,7 +30,7 @@ export async function createBehaelter(formData: FormData) {
     tenant_id:     tenantId,
     name:          formData.get('name') as string,
     typ:           (formData.get('typ') as string) || null,
-    volumen_liter: formData.get('volumen_liter') ? Number((formData.get('volumen_liter') as string).replace(',', '.')) : null,
+    volumen_liter: formData.get('volumen_liter') ? Number(dezimal((formData.get('volumen_liter') as string))) : null,
     standort:      (formData.get('standort') as string) || null,
     notizen:       (formData.get('notizen') as string)?.trim() || null,
     stapler:       formData.get('stapler') === 'true',
@@ -108,7 +109,7 @@ export async function updateBehaelter(id: string, formData: FormData) {
   const payload: R = {
     name:          neuerName,
     typ:           (formData.get('typ') as string) || null,
-    volumen_liter: formData.get('volumen_liter') ? Number((formData.get('volumen_liter') as string).replace(',', '.')) : null,
+    volumen_liter: formData.get('volumen_liter') ? Number(dezimal((formData.get('volumen_liter') as string))) : null,
     standort:      (formData.get('standort') as string) || null,
     notizen:       (formData.get('notizen') as string)?.trim() || null,
     stapler:       formData.get('stapler') === 'true',
@@ -164,17 +165,17 @@ export async function createWeinausbau(formData: FormData) {
   const payload: R = {
     tenant_id:       tenantId,
     name:            formData.get('name') as string,
-    jahrgang:        formData.get('jahrgang') ? Number(formData.get('jahrgang')) : null,
+    jahrgang:        formData.get('jahrgang') ? Number(dezimal(formData.get('jahrgang'))) : null,
     rebsorte:        (formData.get('rebsorte') as string) || null,
     weingarten_id:   wgIds[0] ?? null,
     behaelter_id:    (formData.get('behaelter_id') as string) || null,
-    menge_liter:          formData.get('menge_liter') ? Number((formData.get('menge_liter') as string).replace(',', '.')) : null,
-    anfangsbestand_liter: formData.get('menge_liter') ? Number((formData.get('menge_liter') as string).replace(',', '.')) : null,
+    menge_liter:          formData.get('menge_liter') ? Number(dezimal((formData.get('menge_liter') as string))) : null,
+    anfangsbestand_liter: formData.get('menge_liter') ? Number(dezimal((formData.get('menge_liter') as string))) : null,
     qualitaetsstufe:      (formData.get('qualitaetsstufe') as string) || null,
     status:               (formData.get('status') as string) || 'ernte',
     notizen:              (formData.get('notizen') as string) || null,
     einstandspreis_pro_liter: formData.get('einstandspreis_pro_liter')
-      ? Number((formData.get('einstandspreis_pro_liter') as string).replace(',', '.'))
+      ? Number(dezimal((formData.get('einstandspreis_pro_liter') as string)))
       : null,
     aktiv:           true,
   }
@@ -200,11 +201,11 @@ export async function updateWeinausbau(id: string, formData: FormData) {
 
   const wgIds = formData.getAll('weingarten_ids').map(v => v.toString()).filter(Boolean)
   const neueMenge = formData.get('menge_liter')
-    ? Number((formData.get('menge_liter') as string).replace(',', '.'))
+    ? Number(dezimal((formData.get('menge_liter') as string)))
     : null
   const payload: R = {
     name:            formData.get('name') as string,
-    jahrgang:        formData.get('jahrgang') ? Number(formData.get('jahrgang')) : null,
+    jahrgang:        formData.get('jahrgang') ? Number(dezimal(formData.get('jahrgang'))) : null,
     rebsorte:        (formData.get('rebsorte') as string) || null,
     weingarten_id:   wgIds[0] ?? null,
     behaelter_id:    (formData.get('behaelter_id') as string) || null,
@@ -214,7 +215,7 @@ export async function updateWeinausbau(id: string, formData: FormData) {
     status:               formData.get('status') as string,
     notizen:              (formData.get('notizen') as string) || null,
     einstandspreis_pro_liter: formData.get('einstandspreis_pro_liter')
-      ? Number((formData.get('einstandspreis_pro_liter') as string).replace(',', '.'))
+      ? Number(dezimal((formData.get('einstandspreis_pro_liter') as string)))
       : null,
     aktiv:           formData.get('aktiv') === 'true',
   }
@@ -251,7 +252,7 @@ export async function createAnalyse(formData: FormData) {
   if (!weinausbauId) throw new AktionsFehler('Keine Charge angegeben')
 
   function numOrNull(key: string): number | null {
-    const v = (formData.get(key) as string)?.replace(',', '.').trim()
+    const v = dezimal(formData.get(key) as string).trim()
     if (!v) return null
     const n = parseFloat(v)
     return isNaN(n) ? null : n
@@ -537,7 +538,7 @@ export async function manuellSchwundBuchen(formData: FormData) {
 
   const behaelterId  = formData.get('behaelter_id')  as string
   const weinausbauId = formData.get('weinausbau_id') as string
-  const menge        = parseFloat((formData.get('menge') as string)?.replace(',', '.') || '0')
+  const menge        = parseFloat(dezimal(formData.get('menge') as string) || '0')
   const datum        = formData.get('datum') as string
 
   if (!behaelterId || !weinausbauId || menge <= 0 || !datum) {
@@ -590,13 +591,13 @@ export async function createKellerbehandlung(formData: FormData): Promise<{ id: 
   if (!typRaw) throw new AktionsFehler('Behandlungstyp nicht gefunden')
   const typ = typRaw as R
 
-  const menge   = formData.get('menge') ? parseFloat((formData.get('menge') as string).replace(',', '.')) : null
+  const menge   = formData.get('menge') ? parseFloat(dezimal((formData.get('menge') as string))) : null
   const einheit = (formData.get('einheit') as string) || (typ.einheit_standard as string | null) || null
 
   // Volumen Ist: falls nicht angegeben, aktuellen Gesamtinhalt des Behälters (Summe aktiver
   // Chargen) als sinnvollen Default nachladen – wie in der bestehenden Seite vorbelegt.
   let volumenLiterIst = formData.get('volumen_liter_ist')
-    ? parseFloat((formData.get('volumen_liter_ist') as string).replace(',', '.'))
+    ? parseFloat(dezimal((formData.get('volumen_liter_ist') as string)))
     : null
   if (volumenLiterIst == null) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

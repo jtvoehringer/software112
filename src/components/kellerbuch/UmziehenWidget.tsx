@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
 import { weinartKonflikt, WEINART_LABEL } from '@/lib/keller/weinart'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
-import { fmtNum } from '@/lib/format'
+import { fmtNum, dezimal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 
 type Gebinde = { id: string; name: string; volumen_liter?: number | null }
@@ -68,8 +68,8 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
     ? alleChargen.find(c => c.behaelter_id === zielId && c.id !== chargeId && weinartKonflikt(quelleWeinart, c.weinart)) ?? null
     : null
 
-  const bruttoVal = parseFloat(brutto.replace(',', '.')) || 0
-  const nettoVal  = parseFloat(netto.replace(',', '.'))  || 0
+  const bruttoVal = parseFloat(dezimal(brutto)) || 0
+  const nettoVal  = parseFloat(dezimal(netto))  || 0
   const schwund   = bruttoVal - nettoVal
 
   const selectedGebinde = gebinde.find(g => g.id === zielId)

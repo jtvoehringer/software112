@@ -6,6 +6,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { absenderIndexVerwerfen } from '@/lib/crm/absender'
 import { AktionsFehler } from '@/lib/fehler'
 import { pruefeEmailFelder, einzelneEmail } from '@/lib/crm/email'
+import { dezimal } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -72,8 +73,8 @@ export async function createKontakt(formData: FormData): Promise<{ error?: strin
       stammkunde:  formData.get('stammkunde') === 'true',
       notizen:         (formData.get('notizen')         as string) || null,
       ...(formData.get('rabattgruppe_id') ? { rabattgruppe_id: formData.get('rabattgruppe_id') as string } : {}),
-      sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
-      skonto_pct:       parseFloat(formData.get('skonto_pct') as string) || 0,
+      sonderrabatt_pct: parseFloat(dezimal(formData.get('sonderrabatt_pct') as string)) || 0,
+      skonto_pct:       parseFloat(dezimal(formData.get('skonto_pct') as string)) || 0,
       skonto_tage:      parseInt(formData.get('skonto_tage') as string) || 10,
       zahlungsziel_tage: parseZahlungszielTage(formData),
       is_lead: formData.get('is_lead') === 'true',
@@ -113,8 +114,8 @@ export async function updateKontakt(id: string, formData: FormData): Promise<{ e
       stammkunde: formData.get('stammkunde') === 'true',
       notizen:         (formData.get('notizen')         as string) || null,
       ...(formData.get('rabattgruppe_id') !== undefined ? { rabattgruppe_id: (formData.get('rabattgruppe_id') as string) || null } : {}),
-      sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
-      skonto_pct:       parseFloat(formData.get('skonto_pct') as string) || 0,
+      sonderrabatt_pct: parseFloat(dezimal(formData.get('sonderrabatt_pct') as string)) || 0,
+      skonto_pct:       parseFloat(dezimal(formData.get('skonto_pct') as string)) || 0,
       skonto_tage:      parseInt(formData.get('skonto_tage') as string) || 10,
       zahlungsziel_tage: parseZahlungszielTage(formData),
       is_lead: formData.get('is_lead') === 'true',
@@ -271,8 +272,8 @@ export async function createFirma(formData: FormData): Promise<{ error?: string;
       waehrung:           (formData.get('waehrung') as string) || 'EUR',
       notizen:            (formData.get('notizen')         as string) || null,
       ...(formData.get('rabattgruppe_id') ? { rabattgruppe_id: formData.get('rabattgruppe_id') as string } : {}),
-      sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
-      skonto_pct:       parseFloat(formData.get('skonto_pct') as string) || 0,
+      sonderrabatt_pct: parseFloat(dezimal(formData.get('sonderrabatt_pct') as string)) || 0,
+      skonto_pct:       parseFloat(dezimal(formData.get('skonto_pct') as string)) || 0,
       skonto_tage:      parseInt(formData.get('skonto_tage') as string) || 10,
       is_lead: formData.get('is_lead') === 'true',
       // Migration 167 - Default ist_kunde=true/ist_lieferant=false, außer das
@@ -321,8 +322,8 @@ export async function updateFirma(id: string, formData: FormData): Promise<{ err
       waehrung:           (formData.get('waehrung') as string) || 'EUR',
       notizen:            (formData.get('notizen')         as string) || null,
       ...(formData.get('rabattgruppe_id') !== undefined ? { rabattgruppe_id: (formData.get('rabattgruppe_id') as string) || null } : {}),
-      sonderrabatt_pct: parseFloat(formData.get('sonderrabatt_pct') as string) || 0,
-      skonto_pct:       parseFloat(formData.get('skonto_pct') as string) || 0,
+      sonderrabatt_pct: parseFloat(dezimal(formData.get('sonderrabatt_pct') as string)) || 0,
+      skonto_pct:       parseFloat(dezimal(formData.get('skonto_pct') as string)) || 0,
       skonto_tage:      parseInt(formData.get('skonto_tage') as string) || 10,
       is_lead: formData.get('is_lead') === 'true',
       ist_kunde:     formData.get('ist_kunde')     !== 'false',
@@ -453,7 +454,7 @@ export async function createPipelineEintrag(formData: FormData) {
     kontakt_id:          (formData.get('kontakt_id') as string) || null,
     firma_id:            (formData.get('firma_id') as string) || null,
     kategorie:           (formData.get('kategorie') as string) || null,
-    wert_euro:           parseFloat(formData.get('wert_euro') as string) || null,
+    wert_euro:           parseFloat(dezimal(formData.get('wert_euro') as string)) || null,
     wahrscheinlichkeit:  parseInt(formData.get('wahrscheinlichkeit') as string) || null,
     erwartetes_datum:    (formData.get('erwartetes_datum') as string) || null,
     notizen:             (formData.get('notizen') as string) || null,
@@ -474,7 +475,7 @@ export async function updatePipelineEintrag(id: string, formData: FormData) {
   const titel = (formData.get('titel') as string)?.trim()
   const payload: AR = {
     ...(titel ? { titel } : {}),
-    wert_euro:           parseFloat(formData.get('wert_euro') as string) || null,
+    wert_euro:           parseFloat(dezimal(formData.get('wert_euro') as string)) || null,
     wahrscheinlichkeit:  parseInt(formData.get('wahrscheinlichkeit') as string) || null,
     erwartetes_datum:    (formData.get('erwartetes_datum') as string) || null,
     notizen:             (formData.get('notizen') as string) || null,

@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import { AktionsFehler } from '@/lib/fehler'
+import { dezimal } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>
@@ -217,18 +218,18 @@ export async function createGrundstueck(weingartenId: string, formData: FormData
     rechtsverhaeltnis:     (formData.get('rechtsverhaeltnis') as string) || null,
     unterlagsrebe:         (formData.get('unterlagsrebe') as string) || null,
     rebsorte:              (formData.get('rebsorte') as string) || null,
-    pflanzjahr:            formData.get('pflanzjahr') ? Number(formData.get('pflanzjahr')) : null,
+    pflanzjahr:            formData.get('pflanzjahr') ? Number(dezimal(formData.get('pflanzjahr'))) : null,
     weinart:               (formData.get('weinart') as string) || null,
     bewirtschaftung:       (formData.get('bewirtschaftung') as string) || null,
     bewirtschaftung_seit:  (formData.get('bewirtschaftung_seit') as string) || null,
-    flaeche_ha:            formData.get('flaeche_ha') ? Number(formData.get('flaeche_ha')) : null,
-    flaeche_ha_kataster:   formData.get('flaeche_ha_kataster') ? Number(formData.get('flaeche_ha_kataster')) : null,
+    flaeche_ha:            formData.get('flaeche_ha') ? Number(dezimal(formData.get('flaeche_ha'))) : null,
+    flaeche_ha_kataster:   formData.get('flaeche_ha_kataster') ? Number(dezimal(formData.get('flaeche_ha_kataster'))) : null,
     trauben_herkunft_code: (formData.get('trauben_herkunft_code') as string) || null,
     nutzart,
     // Stückzahl (Bäume/Büsche) gehört nur zu Nutzart "LSE" - bewusst nur dann
     // aus formData übernehmen, sonst null (auch wenn das Feld aus einer alten
     // Eingabe technisch noch im FormData-Objekt hängen würde).
-    lse_stueckzahl:        nutzart === 'LSE' && formData.get('lse_stueckzahl') ? Number(formData.get('lse_stueckzahl')) : null,
+    lse_stueckzahl:        nutzart === 'LSE' && formData.get('lse_stueckzahl') ? Number(dezimal(formData.get('lse_stueckzahl'))) : null,
     spritzbar:             nutzart === 'WI',
     notizen:               (formData.get('notizen') as string) || null,
   }
@@ -255,15 +256,15 @@ export async function updateGrundstueck(id: string, weingartenId: string, formDa
     rechtsverhaeltnis:     (formData.get('rechtsverhaeltnis') as string) || null,
     unterlagsrebe:         (formData.get('unterlagsrebe') as string) || null,
     rebsorte:              (formData.get('rebsorte') as string) || null,
-    pflanzjahr:            formData.get('pflanzjahr') ? Number(formData.get('pflanzjahr')) : null,
+    pflanzjahr:            formData.get('pflanzjahr') ? Number(dezimal(formData.get('pflanzjahr'))) : null,
     weinart:               (formData.get('weinart') as string) || null,
     bewirtschaftung:       (formData.get('bewirtschaftung') as string) || null,
     bewirtschaftung_seit:  (formData.get('bewirtschaftung_seit') as string) || null,
-    flaeche_ha:            formData.get('flaeche_ha') ? Number(formData.get('flaeche_ha')) : null,
-    flaeche_ha_kataster:   formData.get('flaeche_ha_kataster') ? Number(formData.get('flaeche_ha_kataster')) : null,
+    flaeche_ha:            formData.get('flaeche_ha') ? Number(dezimal(formData.get('flaeche_ha'))) : null,
+    flaeche_ha_kataster:   formData.get('flaeche_ha_kataster') ? Number(dezimal(formData.get('flaeche_ha_kataster'))) : null,
     trauben_herkunft_code: (formData.get('trauben_herkunft_code') as string) || null,
     nutzart,
-    lse_stueckzahl:        nutzart === 'LSE' && formData.get('lse_stueckzahl') ? Number(formData.get('lse_stueckzahl')) : null,
+    lse_stueckzahl:        nutzart === 'LSE' && formData.get('lse_stueckzahl') ? Number(dezimal(formData.get('lse_stueckzahl'))) : null,
     spritzbar:             nutzart === 'WI',
     notizen:               (formData.get('notizen') as string) || null,
   }

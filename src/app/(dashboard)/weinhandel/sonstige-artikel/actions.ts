@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { AktionsFehler } from '@/lib/fehler'
+import { dezimal } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -21,7 +22,7 @@ export async function upsertSonstigesArtikel(formData: FormData) {
   const id           = (formData.get('id')           as string).trim() || null
   const name         = (formData.get('name')         as string).trim()
   const einheit      = (formData.get('einheit')      as string).trim() || 'Stk'
-  const defaultPreis = parseFloat(formData.get('default_preis') as string) || null
+  const defaultPreis = parseFloat(dezimal(formData.get('default_preis') as string)) || null
 
   if (!name) throw new AktionsFehler('Name darf nicht leer sein')
 

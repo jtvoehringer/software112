@@ -11,6 +11,8 @@
 // daneben. Deshalb wird beim Parsen explizit diese Definition verwendet.
 // Zuordnung: weingarten.ama_feldnummer = FSNR (Ried), grundstuecke.ama_feldnummer = SLNR (Schlag).
 
+import { dezimal } from '@/lib/format'
+
 export const PROJ_MGI_AUSTRIA_LAMBERT =
   '+proj=lcc +lat_1=49 +lat_2=46 +lat_0=47.5 +lon_0=13.33333333333333 +x_0=400000 +y_0=400000 ' +
   '+ellps=bessel +towgs84=577.326,90.129,463.919,5.137,1.474,5.297,2.4232 +units=m +no_defs'
@@ -35,7 +37,7 @@ export type EamaSchlag = {
 }
 
 type Props = Record<string, unknown>
-const num = (v: unknown): number | null => { const n = typeof v === 'string' ? parseFloat(v.replace(',', '.')) : Number(v); return Number.isFinite(n) ? n : null }
+const num = (v: unknown): number | null => { const n = typeof v === 'string' ? parseFloat(dezimal(v)) : Number(v); return Number.isFinite(n) ? n : null }
 const str = (v: unknown): string | null => { const s = v == null ? '' : String(v).trim(); return s ? s : null }
 
 /** Feature-Properties des Feldstück-Shapefiles → EamaFeldstueck (null, wenn unbrauchbar) */

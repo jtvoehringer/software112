@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { AktionsFehler } from '@/lib/fehler'
+import { dezimal } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -44,8 +45,8 @@ export async function createEaTransaktion(formData: FormData) {
   const datum        = formData.get('datum') as string
   const beschreibung = formData.get('beschreibung') as string
   const kategorie_id = (formData.get('kategorie_id') as string) || null
-  const betrag_netto = parseFloat(formData.get('betrag_netto') as string)
-  const ust_satz     = parseFloat(formData.get('ust_satz') as string)
+  const betrag_netto = parseFloat(dezimal(formData.get('betrag_netto') as string))
+  const ust_satz     = parseFloat(dezimal(formData.get('ust_satz') as string))
   const notizen      = (formData.get('notizen') as string) || null
   const konto_id     = (formData.get('konto_id') as string) || null
 
@@ -100,7 +101,7 @@ export async function createEaKategorie(formData: FormData) {
 
   // Migration 168 - Default 100 (voll abzugsfähig), niedriger bei gesetzlich
   // beschränkt abzugsfähigen Ausgaben (z.B. Bewirtung/Repräsentation 50%).
-  const abzugsfaehigRaw = parseFloat(formData.get('abzugsfaehig_pct') as string)
+  const abzugsfaehigRaw = parseFloat(dezimal(formData.get('abzugsfaehig_pct') as string))
   const abzugsfaehig_pct = isNaN(abzugsfaehigRaw) ? 100 : Math.min(100, Math.max(0, abzugsfaehigRaw))
 
   const { error } = await (supabase.from('ea_kategorien') as any).insert({
@@ -108,7 +109,7 @@ export async function createEaKategorie(formData: FormData) {
     typ:          formData.get('typ'),
     name:         formData.get('name'),
     konto_nr:     formData.get('konto_nr') ? parseInt(formData.get('konto_nr') as string) : null,
-    ust_satz_std: parseFloat(formData.get('ust_satz_std') as string) || 20,
+    ust_satz_std: parseFloat(dezimal(formData.get('ust_satz_std') as string)) || 20,
     abzugsfaehig_pct,
   })
 
@@ -127,8 +128,8 @@ export async function createEaDauerauftrag(formData: FormData) {
     typ:                formData.get('typ'),
     beschreibung:       formData.get('beschreibung'),
     kategorie_id:       (formData.get('kategorie_id') as string) || null,
-    betrag_netto:       parseFloat(formData.get('betrag_netto') as string),
-    ust_satz:           parseFloat(formData.get('ust_satz') as string) || 20,
+    betrag_netto:       parseFloat(dezimal(formData.get('betrag_netto') as string)),
+    ust_satz:           parseFloat(dezimal(formData.get('ust_satz') as string)) || 20,
     intervall:          formData.get('intervall'),
     tag_im_monat:       parseInt(formData.get('tag_im_monat') as string) || 1,
     naechste_faelligkeit: formData.get('naechste_faelligkeit'),
@@ -413,8 +414,8 @@ export async function verbucheBeleg(belegId: string, formData: FormData) {
   const datum        = formData.get('datum') as string
   const beschreibung = formData.get('beschreibung') as string
   const kategorie_id = (formData.get('kategorie_id') as string) || null
-  const betrag_netto = parseFloat(formData.get('betrag_netto') as string)
-  const ust_satz     = parseFloat(formData.get('ust_satz') as string)
+  const betrag_netto = parseFloat(dezimal(formData.get('betrag_netto') as string))
+  const ust_satz     = parseFloat(dezimal(formData.get('ust_satz') as string))
   const notizen      = (formData.get('notizen') as string) || null
   const konto_id     = (formData.get('konto_id') as string) || null
   // Migration 167 - optionaler Lieferant (aus Belege-OCR erkannt/bestätigt

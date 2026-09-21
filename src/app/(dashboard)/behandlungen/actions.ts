@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import { AktionsFehler } from '@/lib/fehler'
+import { dezimal } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -17,7 +18,7 @@ async function getTenantId(): Promise<string> {
 
 function parseDecimal(val: FormDataEntryValue | null): number | null {
   if (!val) return null
-  const s = (val as string).replace(',', '.')
+  const s = dezimal((val as string))
   const n = Number(s)
   return isNaN(n) ? null : n
 }
@@ -221,19 +222,19 @@ export async function createBehandlung(formData: FormData) {
   const art             = (formData.get('art') as string) || 'spritzung'
   const psmId           = (formData.get('psm_id') as string) || null
   const duengemittelId  = (formData.get('duengemittel_id') as string) || null
-  const wartezeit       = formData.get('wartezeit_tage') ? Number(formData.get('wartezeit_tage')) : null
-  const aufwandmenge    = formData.get('aufwandmenge') ? Number(formData.get('aufwandmenge')) : null
+  const wartezeit       = formData.get('wartezeit_tage') ? Number(dezimal(formData.get('wartezeit_tage'))) : null
+  const aufwandmenge    = formData.get('aufwandmenge') ? Number(dezimal(formData.get('aufwandmenge'))) : null
   const aufwandEinheit  = (formData.get('aufwandmenge_einheit') as string) || null
-  const mengeGesamt     = formData.get('menge_gesamt') ? Number(formData.get('menge_gesamt')) : null
+  const mengeGesamt     = formData.get('menge_gesamt') ? Number(dezimal(formData.get('menge_gesamt'))) : null
   const mengeEinheit    = (formData.get('menge_einheit') as string) || null
   const konzentration   = parseDecimal(formData.get('konzentration'))
-  const wasseraufwand   = formData.get('wasseraufwand_l_ha') ? Number(formData.get('wasseraufwand_l_ha')) : null
+  const wasseraufwand   = formData.get('wasseraufwand_l_ha') ? Number(dezimal(formData.get('wasseraufwand_l_ha'))) : null
   const bbch            = (formData.get('bbch_stadium') as string) || null
   const schaderreger    = (formData.get('schaderreger') as string) || null
   const witterung       = (formData.get('witterung') as string) || null
-  const temperatur      = formData.get('temperatur_c') ? Number(formData.get('temperatur_c')) : null
+  const temperatur      = formData.get('temperatur_c') ? Number(dezimal(formData.get('temperatur_c'))) : null
   const notizen         = (formData.get('notizen') as string) || null
-  const bearbeitungstiefe = formData.get('bearbeitungstiefe_cm') ? Number(formData.get('bearbeitungstiefe_cm')) : null
+  const bearbeitungstiefe = formData.get('bearbeitungstiefe_cm') ? Number(dezimal(formData.get('bearbeitungstiefe_cm'))) : null
   const bearbeitungsgeraet = (formData.get('bearbeitungsgeraet') as string) || null
   const schnittart      = (formData.get('schnittart') as string) || null
   const laubarbeitArt   = (formData.get('laubarbeit_art') as string) || null
@@ -369,19 +370,19 @@ export async function updateBehandlung(id: string, formData: FormData) {
   const art            = (formData.get('art') as string) || 'spritzung'
   const psmId          = (formData.get('psm_id') as string) || null
   const duengemittelId = (formData.get('duengemittel_id') as string) || null
-  const wartezeit      = formData.get('wartezeit_tage') ? Number(formData.get('wartezeit_tage')) : null
-  const aufwandmenge   = formData.get('aufwandmenge') ? Number(formData.get('aufwandmenge')) : null
+  const wartezeit      = formData.get('wartezeit_tage') ? Number(dezimal(formData.get('wartezeit_tage'))) : null
+  const aufwandmenge   = formData.get('aufwandmenge') ? Number(dezimal(formData.get('aufwandmenge'))) : null
   const aufwandEinheit = (formData.get('aufwandmenge_einheit') as string) || null
-  const mengeGesamt    = formData.get('menge_gesamt') ? Number(formData.get('menge_gesamt')) : null
+  const mengeGesamt    = formData.get('menge_gesamt') ? Number(dezimal(formData.get('menge_gesamt'))) : null
   const mengeEinheit   = (formData.get('menge_einheit') as string) || null
   const konzentration  = parseDecimal(formData.get('konzentration'))
-  const wasseraufwand  = formData.get('wasseraufwand_l_ha') ? Number(formData.get('wasseraufwand_l_ha')) : null
+  const wasseraufwand  = formData.get('wasseraufwand_l_ha') ? Number(dezimal(formData.get('wasseraufwand_l_ha'))) : null
   const bbch           = (formData.get('bbch_stadium') as string) || null
   const schaderreger   = (formData.get('schaderreger') as string) || null
   const witterung      = (formData.get('witterung') as string) || null
-  const temperatur     = formData.get('temperatur_c') ? Number(formData.get('temperatur_c')) : null
+  const temperatur     = formData.get('temperatur_c') ? Number(dezimal(formData.get('temperatur_c'))) : null
   const notizen        = (formData.get('notizen') as string) || null
-  const bearbeitungstiefe = formData.get('bearbeitungstiefe_cm') ? Number(formData.get('bearbeitungstiefe_cm')) : null
+  const bearbeitungstiefe = formData.get('bearbeitungstiefe_cm') ? Number(dezimal(formData.get('bearbeitungstiefe_cm'))) : null
   const bearbeitungsgeraet = (formData.get('bearbeitungsgeraet') as string) || null
   const schnittart      = (formData.get('schnittart') as string) || null
   const laubarbeitArt   = (formData.get('laubarbeit_art') as string) || null

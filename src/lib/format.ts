@@ -76,3 +76,28 @@ export function fmtZahl(n: number | null | undefined, maxDigits = 3): string {
   if (n == null) return '–'
   return n.toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: maxDigits })
 }
+
+// ── Eingaben lesen ────────────────────────────────────────────────────────────
+// Bugreport 21.9.2026 (Offene Posten): der vorbelegte Betrag „36.125,00“ wurde über
+// replace(',', '.') zu „36.125.00“ → parseFloat → 36,13 € statt 36.125,00 €. Dieselbe
+// Zeile stand an 71 Stellen. dezimal() macht aus jeder üblichen Schreibweise eine
+// JS-lesbare Zahl: „36.125,00“ → „36125.00“, „1,5“ → „1.5“, „1.250“ → „1250“,
+// „0.125“ → „0.125“, „1250.5“ → „1250.5“, „€ 48.320,00“ → „48320.00“.
+// Ein Punkt gilt als Tausenderpunkt, wenn genau drei Ziffern folgen und keine
+// weitere Ziffer – außer die Zahl beginnt mit „0.“ (dann Dezimalpunkt).
+const TAUSENDERPUNKT = /\b(?!0\.)(\d+)\.(?=\d{3}(?!\d))/g
+
+/** Zahleneingabe (deutsch oder englisch) → String, den parseFloat/Number korrekt lesen. */
+export function dezimal(s: unknown): string {
+  const t = (s == null ? '' : String(s)).replace(/[\s€]/g, '')
+  if (t.includes(',')) return t.replace(/\./g, '').replace(',', '.')
+  return t.replace(TAUSENDERPUNKT, '$1')
+}
+
+/** Zahleneingabe → number oder null (leer/ungültig). */
+export function zahlAus(s: unknown): number | null {
+  const t = dezimal(s)
+  if (!t) return null
+  const n = Number(t)
+  return Number.isFinite(n) ? n : null
+}

@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { AktionsFehler } from '@/lib/fehler'
+import { dezimal } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -152,7 +153,7 @@ export async function upsertTraubenverkauf(formData: FormData) {
   function getNum(key: string): number | null {
     const val = formData.get(key) as string | null
     if (!val || val.trim() === '') return null
-    return Number(val.replace(',', '.'))
+    return Number(dezimal(val))
   }
 
   const weingartenId  = (formData.get('weingarten_id') as string) || null
@@ -160,7 +161,7 @@ export async function upsertTraubenverkauf(formData: FormData) {
   const kontaktId    = (formData.get('kontakt_id') as string) || null
   const firmaId      = (formData.get('firma_id') as string) || null
   const datum        = formData.get('datum') as string
-  const mengeKg      = Number((formData.get('menge_kg') as string).replace(',', '.'))
+  const mengeKg      = Number(dezimal((formData.get('menge_kg') as string)))
   const preisPerKg   = getNum('preis_per_kg')
 
   // Bezeichnung der Quelle (eigener Weingarten ODER zugekaufter Posten) für die

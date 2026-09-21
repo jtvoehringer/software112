@@ -5,6 +5,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { AktionsFehler } from '@/lib/fehler'
+import { dezimal } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -145,13 +146,13 @@ function parseZukaufFormData(formData: FormData) {
     jahrgang,
     herkunft:            (formData.get('herkunft')                 as string)?.trim() || null,
     anreicherung:        formData.get('anreicherung') === 'true',
-    kmw:                 parseFloat(formData.get('kmw')            as string) || null,
-    alkohol:             parseFloat(formData.get('alkohol_pct')    as string) || null,
+    kmw:                 parseFloat(dezimal(formData.get('kmw')            as string)) || null,
+    alkohol:             parseFloat(dezimal(formData.get('alkohol_pct')    as string)) || null,
     pruefnummer:         (formData.get('staatliche_pruefnummer')   as string)?.trim() || null,
-    menge:               parseFloat(formData.get('menge')          as string) || 0,
+    menge:               parseFloat(dezimal(formData.get('menge')          as string)) || 0,
     einheit:             (formData.get('einheit')                  as string) || 'kg',
-    preisGesamt:         parseFloat(formData.get('preis_gesamt')   as string) || null,
-    einstandspreisLiter: parseFloat(formData.get('einstandspreis_pro_liter') as string) || null,
+    preisGesamt:         parseFloat(dezimal(formData.get('preis_gesamt')   as string)) || null,
+    einstandspreisLiter: parseFloat(dezimal(formData.get('einstandspreis_pro_liter') as string)) || null,
     notizen:             (formData.get('notizen')                  as string)?.trim() || null,
     zielBehaelterId:     (formData.get('ziel_behaelter_id')        as string) || null,
   }

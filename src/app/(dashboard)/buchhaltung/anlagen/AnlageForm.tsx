@@ -6,7 +6,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { afaPlan, type AfaMethode, type Anlage } from '@/lib/ea/anlagen'
-import { fmtEur, fmtNum } from '@/lib/format'
+import { fmtEur, fmtNum, dezimal } from '@/lib/format'
 import { Th, Td, Note } from '@/app/(dashboard)/dashboard/_shared/ui'
 import { speichereAnlage, loescheAnlage } from './actions'
 import type { BuchungsKandidat } from './daten'
@@ -53,7 +53,7 @@ const GRUPPEN: { name: string; konto: string; nd: number }[] = [
 export function parseBetrag(s: string): number | null {
   const t = s.trim().replace(/[€\s]/g, '')
   if (!t) return null
-  const norm = t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t
+  const norm = dezimal(t)
   const n = parseFloat(norm)
   return Number.isNaN(n) ? null : n
 }

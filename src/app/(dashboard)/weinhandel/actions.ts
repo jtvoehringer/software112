@@ -7,6 +7,7 @@ import { istNiedrigerAls, QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { AktionsFehler } from '@/lib/fehler'
+import { dezimal } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -26,7 +27,7 @@ export async function createFuellung(formData: FormData) {
   const weinausbauId    = (formData.get('weinausbau_id') as string) || null
   const anzahl          = parseInt(formData.get('anzahl_flaschen') as string)
   const flGroesseML     = parseInt(formData.get('flaschengroesse_ml') as string) || 750
-  const mengeFormular   = parseFloat(formData.get('menge_liter_gefuellt') as string) || null
+  const mengeFormular   = parseFloat(dezimal(formData.get('menge_liter_gefuellt') as string)) || null
   // Falls kein Literfeld ausgefuellt: aus Flaschenzahl berechnen
   const mengeGefuellt   = mengeFormular ?? (anzahl * flGroesseML / 1000)
 
@@ -96,8 +97,8 @@ export async function createFuellung(formData: FormData) {
       const { data } = await (supabase.rpc as any)('get_next_chargennummer', { p_tenant_id: tenantId })
       return (data as string) ?? null
     })(),
-    vk_preis_brutto:      parseFloat(formData.get('vk_preis_brutto') as string) || null,
-    einstandspreis:       parseFloat(formData.get('einstandspreis') as string) || null,
+    vk_preis_brutto:      parseFloat(dezimal(formData.get('vk_preis_brutto') as string)) || null,
+    einstandspreis:       parseFloat(dezimal(formData.get('einstandspreis') as string)) || null,
     zolltarifnummer:      (formData.get('zolltarifnummer') as string) || null,
     notizen:              notizen,
   }
@@ -217,10 +218,10 @@ export async function updateFuellung(id: string, formData: FormData) {
     flaschengroesse_ml:   parseInt(formData.get('flaschengroesse_ml') as string) || 750,
     anzahl_flaschen:      anzahl,
     bestand_flaschen:     parseInt(formData.get('bestand_flaschen') as string) || anzahl,
-    menge_liter_gefuellt: parseFloat(formData.get('menge_liter_gefuellt') as string) || null,
-    vk_preis_brutto:      parseFloat(formData.get('vk_preis_brutto') as string) || null,
+    menge_liter_gefuellt: parseFloat(dezimal(formData.get('menge_liter_gefuellt') as string)) || null,
+    vk_preis_brutto:      parseFloat(dezimal(formData.get('vk_preis_brutto') as string)) || null,
     weinausbau_id:        weinausbauId,
-    einstandspreis:       parseFloat(formData.get('einstandspreis') as string) || null,
+    einstandspreis:       parseFloat(dezimal(formData.get('einstandspreis') as string)) || null,
     zolltarifnummer:      (formData.get('zolltarifnummer') as string) || null,
     notizen:              notizen,
     aktualisiert_am:      new Date().toISOString(),

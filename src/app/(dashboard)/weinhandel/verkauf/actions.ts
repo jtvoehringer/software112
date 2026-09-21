@@ -8,7 +8,7 @@ import { redirect } from 'next/navigation'
 import { randomUUID } from 'crypto'
 import { syncEaEinnahmeFuerVerkauf } from '@/app/(dashboard)/buchhaltung/actions'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
-import { fmtEur, fmtNum } from '@/lib/format'
+import { fmtEur, fmtNum, dezimal } from '@/lib/format'
 import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -72,7 +72,7 @@ export async function createVerkauf(formData: FormData) {
   const firmaId        = (formData.get('firma_id') as string) || null
   const zhKontaktId    = (formData.get('zh_kontakt_id') as string) || null
   const notizen        = (formData.get('notizen') as string) || null
-  const skontoPct      = parseFloat(formData.get('skonto_pct') as string) || 0
+  const skontoPct      = parseFloat(dezimal(formData.get('skonto_pct') as string)) || 0
   const skontoTage     = parseInt(formData.get('skonto_tage') as string) || 0
   const skontoAktiv    = formData.get('skonto_aktiv') === 'true'
 
@@ -557,7 +557,7 @@ export async function createZahlung(
   'use server'
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
-  const betrag   = parseFloat((formData.get('betrag') as string || '').replace(',', '.'))
+  const betrag   = parseFloat(dezimal((formData.get('betrag') as string || '')))
   const art      = formData.get('art') as string
   const datum    = formData.get('datum') as string
   const notizen  = (formData.get('notizen') as string) || null

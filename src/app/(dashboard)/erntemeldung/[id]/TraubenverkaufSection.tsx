@@ -5,7 +5,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { createTraubenverkauf, updateTraubenverkauf, deleteTraubenverkauf } from '../actions'
 import type { ZukaufTraubenOpt } from './PressungSection'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
-import { fmtNum } from '@/lib/format'
+import { fmtNum, dezimal } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -132,7 +132,7 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
   }
 
   const gesamtWert = mengeKg && preis
-    ? parseFloat(mengeKg.replace(',', '.')) * parseFloat(preis.replace(',', '.'))
+    ? parseFloat(dezimal(mengeKg)) * parseFloat(dezimal(preis))
     : null
 
   function handleSubmit(e: React.FormEvent) {

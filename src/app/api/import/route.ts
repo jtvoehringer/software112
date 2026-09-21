@@ -4,6 +4,7 @@ import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
 import { zerlegeTelefon } from '@/lib/crm/telefon'
 import { pruefeEmailFelder } from '@/lib/crm/email'
+import { dezimal } from '@/lib/format'
 export const dynamic = 'force-dynamic'
 // Große Importe (Dynamics-Leads 3.9.2026: 4.200 Firmen / 7.900 Kontakte) kommen
 // vom Client in Blöcken (siehe ImportClient.tsx, IMPORT_BLOCKGROESSE) - ein
@@ -56,7 +57,7 @@ function mapVal(row: R, csvKey: string | undefined, transform?: (v: string) => u
 // und das Komma selbst zum Dezimalpunkt.
 function parseDeZahl(v: string): number | null {
   let s = v.trim().replace(/[\s ]/g, '')
-  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.')
+  if (s.includes(',')) s = dezimal(s)
   const n = parseFloat(s)
   return Number.isFinite(n) ? n : null
 }

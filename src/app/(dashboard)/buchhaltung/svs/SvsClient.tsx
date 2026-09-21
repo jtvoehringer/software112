@@ -5,7 +5,7 @@ import Link from '@/components/ui/Link'
 import { AlertTriangle, CheckCircle2, Calculator, Table2, Upload, Settings2 } from 'lucide-react'
 import { vergleiche, ZURECHNUNG_LABEL, type SvsParameter, type Zurechnung } from '@/lib/svs/berechnung'
 import { speichereEinheitswerte, importiereEinheitswerte, speichereSvsOption, speichereSvsParameter } from './actions'
-import { fmtNum } from '@/lib/format'
+import { fmtNum, dezimal } from '@/lib/format'
 
 type Gst = {
   id: string; gst_nr: string; katastralgemeinde: string; kg_bezeichnung: string; einlagezahl: string
@@ -85,7 +85,7 @@ function BeitraegeTab({ v, p, jahr, opt, setOpt, einkuenfteVorjahr, einkuenfte, 
 
   function speichern() {
     setMeldung(null)
-    const m = manuell.trim() === '' ? null : parseFloat(manuell.replace(/\./g, '').replace(',', '.'))
+    const m = manuell.trim() === '' ? null : parseFloat(dezimal(manuell))
     start(async () => {
       const r = await speichereSvsOption({ svs_option: wahl, svs_einkuenfte_manuell: m, svs_kv_angehoerige: kvAng, svs_option_seit: opt.svs_option_seit })
       if (r.ok) { setOpt({ ...opt, svs_option: wahl, svs_einkuenfte_manuell: m, svs_kv_angehoerige: kvAng }); setMeldung({ ok: true, text: 'Gespeichert.' }) }
@@ -365,7 +365,7 @@ function ParameterTab({ parameter, jahr }: { parameter: SvsParameter[]; jahr: nu
   })
   const [pending, start] = useTransition()
   const [meldung, setMeldung] = useState<{ ok: boolean; text: string } | null>(null)
-  const num = (s: string) => parseFloat(s.replace(',', '.'))
+  const num = (s: string) => parseFloat(dezimal(s))
   function speichern() {
     setMeldung(null)
     let staffel: { bis: number | null; prozent: number }[]

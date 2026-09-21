@@ -5,7 +5,7 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import Link from '@/components/ui/Link'
 import { useParams } from 'next/navigation'
 import { FlaskConical, BarChart3, ArrowLeftRight, Pencil, Trash2 } from 'lucide-react'
-import { fmtNum } from '@/lib/format'
+import { fmtNum, dezimal } from '@/lib/format'
 
 type R = Record<string, any>
 
@@ -175,9 +175,9 @@ export default function KellerbehandlungenPage() {
       datum:             formDatum,
       typ_id:            formTypId,
       typ_name_snapshot: typ?.name ?? '',
-      menge:             formMenge ? parseFloat(formMenge.replace(',', '.')) : null,
+      menge:             formMenge ? parseFloat(dezimal(formMenge)) : null,
       einheit:           formEinheit || null,
-      volumen_liter_ist: formVolumen ? parseFloat(formVolumen.replace(',', '.')) : null,
+      volumen_liter_ist: formVolumen ? parseFloat(dezimal(formVolumen)) : null,
       notizen:           formNotizen || null,
       weinausbau_id:     formWeinausbauId || null,
     }
@@ -216,7 +216,7 @@ export default function KellerbehandlungenPage() {
   }
 
   const gHl = formMenge && formVolumen && formEinheit !== '-'
-    ? calcGProHl(parseFloat(formMenge.replace(',', '.')), formEinheit, parseFloat(formVolumen.replace(',', '.')))
+    ? calcGProHl(parseFloat(dezimal(formMenge)), formEinheit, parseFloat(dezimal(formVolumen)))
     : null
 
   if (loading) return <div className="p-6 text-s112-muted text-sm">Lade…</div>

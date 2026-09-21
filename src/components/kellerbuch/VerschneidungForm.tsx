@@ -6,7 +6,7 @@ import { QUALITAET_LABEL, QUALITAET_ORDER, istNiedrigerAls, minQualitaet } from 
 import { HERKUNFT_LABEL, istNiedrigerAls as herkunftIstNiedrigerAls, minHerkunft } from '@/lib/herkunft'
 import { GitMerge, AlertTriangle, Ban, CheckCircle2, Info, X } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
-import { fmtNum } from '@/lib/format'
+import { fmtNum, dezimal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 
 type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
@@ -46,7 +46,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
   }
 
   const gesamtLiter = quellen.reduce((s, q) => {
-    const n = parseFloat(q.menge.replace(',', '.'))
+    const n = parseFloat(dezimal(q.menge))
     return s + (isNaN(n) ? 0 : n)
   }, 0)
 
@@ -69,7 +69,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
     }
     for (const q of quellen) {
       const src = verfuegbar.find(c => c.id === q.weinausbau_id)
-      const menge = parseFloat(q.menge.replace(',', '.'))
+      const menge = parseFloat(dezimal(q.menge))
       if (!src || isNaN(menge) || menge <= 0) continue
       // Rebsorte der Quelle – fehlt sie, Charge-Name als Näherungswert verwenden
       // (Chargen aus Pressung tragen oft den Rebsortennamen als Bezeichnung)
@@ -136,7 +136,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
     e.preventDefault()
     setError(null)
     const parsed = quellen
-      .map(q => ({ weinausbau_id: q.weinausbau_id, menge_liter: parseFloat(q.menge.replace(',', '.')) }))
+      .map(q => ({ weinausbau_id: q.weinausbau_id, menge_liter: parseFloat(dezimal(q.menge)) }))
       .filter(q => q.weinausbau_id && !isNaN(q.menge_liter) && q.menge_liter > 0)
     if (parsed.length === 0) { setError('Mindestens eine Quell-Charge mit Menge angeben.'); return }
     const fd = new FormData(e.currentTarget)
@@ -222,7 +222,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
         <label className="block text-xs font-medium text-s112-text-2">Quell-Chargen</label>
         {quellen.map((q, i) => {
           const src = verfuegbar.find(c => c.id === q.weinausbau_id)
-          const menge = parseFloat(q.menge.replace(',', '.'))
+          const menge = parseFloat(dezimal(q.menge))
           const anteil = gesamtLiter > 0 && !isNaN(menge) ? Math.round(menge / gesamtLiter * 1000) / 10 : null
           const srcQIdx = src?.qualitaetsstufe ? QUALITAET_ORDER.indexOf(src.qualitaetsstufe as typeof QUALITAET_ORDER[number]) : -1
           const zielQIdx = zielCharge.qualitaetsstufe ? QUALITAET_ORDER.indexOf(zielCharge.qualitaetsstufe as typeof QUALITAET_ORDER[number]) : -1
@@ -338,7 +338,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
         // Quell-Chargen aus DEMSELBEN Gebinde werden nur zusammengeführt – kein neues Volumen.
         const neuZufluss = quellen.reduce((s, q) => {
           const src = verfuegbar.find(c => c.id === q.weinausbau_id)
-          const m   = parseFloat(q.menge.replace(',', '.'))
+          const m   = parseFloat(dezimal(q.menge))
           if (!src || isNaN(m) || m <= 0) return s
           if (src.behaelter_id != null && src.behaelter_id === zielCharge.behaelter_id) return s
           return s + m

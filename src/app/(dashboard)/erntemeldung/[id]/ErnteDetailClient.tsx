@@ -7,7 +7,7 @@ import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import type { ErnteParzelle, WeingartenOpt, GSTOpt, AMAMeldung, HektarhoechstertragStatus } from './page'
 import PressungSection from './PressungSection'
 import type { Pressung, WGOption, BehOption, WAOption, ZukaufTraubenOpt } from './PressungSection'
-import { fmtHa, fmtZahl, fmtProzent, fmtNum } from '@/lib/format'
+import { fmtHa, fmtZahl, fmtProzent, fmtNum, dezimal } from '@/lib/format'
 import { Pencil, Trash2, AlertTriangle, Plus } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fehlerText } from '@/lib/fehler'
@@ -93,8 +93,8 @@ function NeueParzellenForm({
         const data = gstData.get(gst_id)
         return {
           gst_id, weingarten_id, flaeche_ha: gst?.flaeche_ha ?? null,
-          menge_kg: data?.menge_kg ? parseFloat(data.menge_kg.replace(',', '.')) : null,
-          kmw: data?.kmw ? parseFloat(data.kmw.replace(',', '.')) : null,
+          menge_kg: data?.menge_kg ? parseFloat(dezimal(data.menge_kg)) : null,
+          kmw: data?.kmw ? parseFloat(dezimal(data.kmw)) : null,
           lesemethode: data?.lesemethode || null,
           notizen: data?.notizen || null,
         }
@@ -264,7 +264,7 @@ function NeueParzellenForm({
               <label className="block text-xs font-medium text-s112-text-2 mb-1">°KMW & Qualitätsstufe</label>
               <div className="flex items-center gap-2">
                 <input name="klosterneuburger" type="text" inputMode="decimal" placeholder="–"
-                  onChange={e => setKmwNeu(e.target.value ? parseFloat(e.target.value.replace(',', '.')) : null)}
+                  onChange={e => setKmwNeu(e.target.value ? parseFloat(dezimal(e.target.value)) : null)}
                   className={`flex-1 ${inputCls}`} />
                 <span className="shrink-0 text-xs font-semibold px-2 py-1.5 rounded-full bg-s112-warn-bg text-s112-warn-fg whitespace-nowrap">
                   {qualitaetLabel(derivedQualitaetNeu)}
@@ -399,7 +399,7 @@ function ParzellForm({
           <label className="block text-xs font-medium text-s112-text-2 mb-1">°KMW</label>
           <input name="klosterneuburger" type="text" inputMode="decimal"
             defaultValue={parzelle?.klosterneuburger ?? ''}
-            onChange={e => { setKmwEdit(e.target.value ? parseFloat(e.target.value.replace(',', '.')) : null); setQualitaetEdit(null) }}
+            onChange={e => { setKmwEdit(e.target.value ? parseFloat(dezimal(e.target.value)) : null); setQualitaetEdit(null) }}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>

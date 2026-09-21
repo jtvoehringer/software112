@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Info, AlertTriangle } from 'lucide-react'
 import { QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
-import { fmtNum } from '@/lib/format'
+import { fmtNum, dezimal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 
 const REBSORTEN = [
@@ -65,7 +65,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
     const normalized = new FormData()
     raw.forEach((value, key) => {
       if ((key === 'menge_liter' || key === 'einstandspreis_pro_liter') && typeof value === 'string') {
-        normalized.append(key, value.replace(',', '.'))
+        normalized.append(key, dezimal(value))
       } else {
         normalized.append(key, value)
       }

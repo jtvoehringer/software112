@@ -5,7 +5,7 @@ import { ladeBehaelter, gebindeFehlerText } from '@/lib/keller/behaelter'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getCurrentMembership } from '@/lib/auth/roles'
-import { fmtNum } from '@/lib/format'
+import { fmtNum, dezimal } from '@/lib/format'
 import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,10 +29,10 @@ async function getTenantId(): Promise<string> {
 async function insertEroeffnungsbestand(formData: FormData): Promise<string | null> {
   const supabase  = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
-  const menge     = parseFloat(formData.get('menge_liter') as string)
+  const menge     = parseFloat(dezimal(formData.get('menge_liter') as string))
   const jahr      = new Date().getFullYear()
 
-  const epRaw = (formData.get('einstandspreis_pro_liter') as string)?.replace(',', '.') ?? ''
+  const epRaw = dezimal(formData.get('einstandspreis_pro_liter') as string) ?? ''
   // Transaktionsnummer vergeben
   const { data: txnEb } = await (supabase.rpc as any)('get_next_transaktionsnr', { p_tenant_id: tenantId, p_typ: 'eroeffnung' })
 
@@ -40,7 +40,7 @@ async function insertEroeffnungsbestand(formData: FormData): Promise<string | nu
     tenant_id:            tenantId,
     name:                 formData.get('name') as string,
     jahrgang:             parseInt(formData.get('jahrgang') as string) || null,
-    kmw:                  parseFloat(formData.get('kmw') as string) || null,
+    kmw:                  parseFloat(dezimal(formData.get('kmw') as string)) || null,
     menge_liter:          menge,
     anfangsbestand_liter: menge,
     qualitaetsstufe:      (formData.get('qualitaetsstufe') as string) || null,
@@ -86,13 +86,13 @@ export async function createEroeffnungsbestandVonImport(formData: FormData) {
 export async function updateEroeffnungsbestand(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
-  const menge    = parseFloat(formData.get('menge_liter') as string)
+  const menge    = parseFloat(dezimal(formData.get('menge_liter') as string))
 
-  const epRaw2 = (formData.get('einstandspreis_pro_liter') as string)?.replace(',', '.') ?? ''
+  const epRaw2 = dezimal(formData.get('einstandspreis_pro_liter') as string) ?? ''
   const payload: R = {
     name:            formData.get('name') as string,
     jahrgang:        parseInt(formData.get('jahrgang') as string) || null,
-    kmw:             parseFloat(formData.get('kmw') as string) || null,
+    kmw:             parseFloat(dezimal(formData.get('kmw') as string)) || null,
     menge_liter:     menge,
     qualitaetsstufe: (formData.get('qualitaetsstufe') as string) || null,
     behaelter_id:    (formData.get('behaelter_id') as string) || null,

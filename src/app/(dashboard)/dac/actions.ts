@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import { AktionsFehler } from '@/lib/fehler'
+import { dezimal } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -19,10 +20,10 @@ export async function createDacAntrag(formData: FormData) {
     weinausbau_id:   (formData.get('weinausbau_id') as string) || null,
     bezeichnung:     formData.get('bezeichnung') as string,
     dac_region:      formData.get('dac_region') as string,
-    jahrgang:        formData.get('jahrgang') ? Number(formData.get('jahrgang')) : null,
+    jahrgang:        formData.get('jahrgang') ? Number(dezimal(formData.get('jahrgang'))) : null,
     rebsorte:        (formData.get('rebsorte') as string) || null,
-    menge_liter:     formData.get('menge_liter') ? Number((formData.get('menge_liter') as string).replace(',', '.')) : null,
-    alkohol_prozent: formData.get('alkohol_prozent') ? Number((formData.get('alkohol_prozent') as string).replace(',', '.')) : null,
+    menge_liter:     formData.get('menge_liter') ? Number(dezimal((formData.get('menge_liter') as string))) : null,
+    alkohol_prozent: formData.get('alkohol_prozent') ? Number(dezimal((formData.get('alkohol_prozent') as string))) : null,
     status:          (formData.get('status') as string) || 'entwurf',
     pruefnummer:     (formData.get('pruefnummer') as string) || null,
     eingereicht_am:  (formData.get('eingereicht_am') as string) || null,
@@ -44,10 +45,10 @@ export async function updateDacAntrag(id: string, formData: FormData) {
     weinausbau_id:   (formData.get('weinausbau_id') as string) || null,
     bezeichnung:     formData.get('bezeichnung') as string,
     dac_region:      formData.get('dac_region') as string,
-    jahrgang:        formData.get('jahrgang') ? Number(formData.get('jahrgang')) : null,
+    jahrgang:        formData.get('jahrgang') ? Number(dezimal(formData.get('jahrgang'))) : null,
     rebsorte:        (formData.get('rebsorte') as string) || null,
-    menge_liter:     formData.get('menge_liter') ? Number((formData.get('menge_liter') as string).replace(',', '.')) : null,
-    alkohol_prozent: formData.get('alkohol_prozent') ? Number((formData.get('alkohol_prozent') as string).replace(',', '.')) : null,
+    menge_liter:     formData.get('menge_liter') ? Number(dezimal((formData.get('menge_liter') as string))) : null,
+    alkohol_prozent: formData.get('alkohol_prozent') ? Number(dezimal((formData.get('alkohol_prozent') as string))) : null,
     status:          formData.get('status') as string,
     pruefnummer:     (formData.get('pruefnummer') as string) || null,
     eingereicht_am:  (formData.get('eingereicht_am') as string) || null,

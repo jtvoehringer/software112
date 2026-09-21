@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import { AktionsFehler } from '@/lib/fehler'
+import { dezimal } from '@/lib/format'
 
 type AR = Record<string, any>
 
@@ -20,8 +21,8 @@ async function getTenantAdmin() {
 }
 
 function parseForm(formData: FormData): AR {
-  const stunden       = parseFloat(formData.get('stunden') as string) || 0
-  const stundensatz   = parseFloat(formData.get('stundensatz') as string) || 50
+  const stunden       = parseFloat(dezimal(formData.get('stunden') as string)) || 0
+  const stundensatz   = parseFloat(dezimal(formData.get('stundensatz') as string)) || 50
   const tokensInput   = formData.get('tokens_input')  as string
   const tokensOutput  = formData.get('tokens_output') as string
   const tokenKosten   = formData.get('token_kosten_euro') as string

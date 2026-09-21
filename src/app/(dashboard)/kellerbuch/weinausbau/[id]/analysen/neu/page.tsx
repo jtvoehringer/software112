@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { createAnalyse } from '@/app/(dashboard)/kellerbuch/actions'
 import { fehlerText } from '@/lib/fehler'
+import { dezimal } from '@/lib/format'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -49,7 +50,7 @@ export default function AnalyseNeuPage({ params }: Props) {
     // Dezimalkomma normalisieren
     const fd = new FormData()
     raw.forEach((value, key) => {
-      fd.append(key, typeof value === 'string' ? value.replace(',', '.') : value)
+      fd.append(key, typeof value === 'string' ? dezimal(value) : value)
     })
     fd.append('weinausbau_id', weinausbauId)
 

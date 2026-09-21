@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canWrite, canAdmin, isSystemAdmin } from '@/lib/auth/roles'
 import type { Zurechnung } from '@/lib/svs/berechnung'
 import { AktionsFehler } from '@/lib/fehler'
+import { dezimal } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -60,7 +61,7 @@ export async function importiereEinheitswerte(text: string, bescheidDatum?: stri
     .select('id, gst_nr, katastralgemeinde, kg_bezeichnung').eq('tenant_id', tenantId)
   const gst = (gstRaw ?? []) as R[]
   const norm = (s: unknown) => String(s ?? '').trim().toLowerCase().replace(/\s+/g, '').replace(/^0+(?=\d)/, '')
-  const parseBetrag = (s: string) => { const t = s.replace(/[€\s.]/g, '').replace(',', '.'); const n = parseFloat(t); return Number.isNaN(n) ? null : n }
+  const parseBetrag = (s: string) => { const t = dezimal(s.replace(/[€\s.]/g, '')); const n = parseFloat(t); return Number.isNaN(n) ? null : n }
   const zurMap: Record<string, Zurechnung> = { eigen: 'eigen', eigentum: 'eigen', voll: 'eigen', pacht: 'pacht_fremd', pacht_fremd: 'pacht_fremd', fremd: 'pacht_fremd', angehoerige: 'pacht_angehoerige', angehörige: 'pacht_angehoerige', pacht_angehoerige: 'pacht_angehoerige', verpachtet: 'verpachtet', keine: 'keine' }
 
   let uebernommen = 0

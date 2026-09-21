@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Pencil, Trash2, X, ChevronDown, Plus } from 'lucide-react'
 import { upsertPressung, deletePressung } from '../actions'
-import { fmtProzent, fmtNum } from '@/lib/format'
+import { fmtProzent, fmtNum, dezimal } from '@/lib/format'
 import { kmwZuQualitaet, QUALITAET_LABEL, QUALITAET_ORDER } from '@/lib/weinqualitaet'
 import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
@@ -126,7 +126,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
   const kmwFromWgRows = (() => {
     let sumKg = 0, sumKmw = 0
     for (const row of wgRows) {
-      const kg = parseFloat(row.trauben_kg.replace(',', '.')) || 0
+      const kg = parseFloat(dezimal(row.trauben_kg)) || 0
       if (kg <= 0) continue
       if (row.zukauf_posten_id) {
         const zukauf = zukaufTrauben.find(z => z.id === row.zukauf_posten_id)
@@ -149,7 +149,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     return Math.round((sumKmw / sumKg) * 10) / 10
   })()
   const kmwGrad      = kmwFromWgRows?.toString().replace('.', ',') ?? ''
-  const kmwNum       = parseFloat(kmwGrad.replace(',', '.'))
+  const kmwNum       = parseFloat(dezimal(kmwGrad))
   const kmwQualitaet = !isNaN(kmwNum) && kmwNum > 0 ? kmwZuQualitaet(kmwNum) : null
   const [pending, startTransition] = useTransition()
 
@@ -160,8 +160,8 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
   const [verschneidung, setVerschneidung]         = useState<VerschneidungData | null>(null)
   const [verschneidungOpen, setVerschneidungOpen] = useState(false)
 
-  const gesamtKg = wgRows.reduce((s, r) => s + (parseFloat(r.trauben_kg.replace(',', '.')) || 0), 0)
-  const mostL    = parseFloat(mostLiter.replace(',', '.')) || 0
+  const gesamtKg = wgRows.reduce((s, r) => s + (parseFloat(dezimal(r.trauben_kg)) || 0), 0)
+  const mostL    = parseFloat(dezimal(mostLiter)) || 0
   const ausbeute = gesamtKg > 0 && mostL > 0 ? (mostL / gesamtKg) * 100 : null
 
   // GST-/Ried-Optionen aus Erntedaten: eine Option pro Parzelle
@@ -241,7 +241,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
         weingarten_id: r.weingarten_id || undefined,
         grundstueck_id: r.grundstueck_id || undefined,
         zukauf_posten_id: r.zukauf_posten_id || undefined,
-        trauben_kg: parseFloat(r.trauben_kg.replace(',', '.')),
+        trauben_kg: parseFloat(dezimal(r.trauben_kg)),
         rebsorte: r.rebsorte || undefined,
         notizen: r.notizen || undefined,
       }))
@@ -250,7 +250,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
       behRows.filter(r => r.behaelter_id || r.weinausbau_id).map(r => ({
         behaelter_id: r.behaelter_id || undefined,
         weinausbau_id: r.weinausbau_id || undefined,
-        menge_liter: r.menge_liter ? parseFloat(r.menge_liter.replace(',', '.')) : undefined,
+        menge_liter: r.menge_liter ? parseFloat(dezimal(r.menge_liter)) : undefined,
         notizen: r.notizen || undefined,
       }))
     ))
@@ -499,7 +499,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
                   const vol = beh?.volumen_liter ?? null
                   const existing = behaelterMitCharge?.[row.behaelter_id] ?? []
                   const inhaltJetzt = existing.reduce((s, c) => s + (parseFloat(String(c.menge_liter ?? 0)) || 0), 0)
-                  const eingabe = parseFloat(row.menge_liter.replace(',', '.')) || 0
+                  const eingabe = parseFloat(dezimal(row.menge_liter)) || 0
                   const restNach = vol != null ? vol - inhaltJetzt - eingabe : null
                   const ueber = restNach != null && restNach < -0.01
 

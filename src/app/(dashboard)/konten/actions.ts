@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin, canWrite } from '@/lib/auth/roles'
 import { AktionsFehler } from '@/lib/fehler'
+import { dezimal } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -24,7 +25,7 @@ export async function createKonto(formData: FormData) {
   const typ              = formData.get('typ') as string
   const iban             = (formData.get('iban') as string) || null
   const eroeffnungsdatum = formData.get('eroeffnungsdatum') as string
-  const eroeffnungssaldo = parseFloat((formData.get('eroeffnungssaldo') as string || '0').replace(',', '.')) || 0
+  const eroeffnungssaldo = parseFloat(dezimal((formData.get('eroeffnungssaldo') as string || '0'))) || 0
 
   if (!name || !eroeffnungsdatum) return { error: 'Pflichtfelder fehlen' }
 
@@ -61,7 +62,7 @@ export async function createUmbuchung(formData: FormData) {
 
   const vonKontoId  = formData.get('von_konto_id') as string
   const nachKontoId = formData.get('nach_konto_id') as string
-  const betrag      = parseFloat((formData.get('betrag') as string || '').replace(',', '.'))
+  const betrag      = parseFloat(dezimal((formData.get('betrag') as string || '')))
   const datum       = (formData.get('datum') as string) || new Date().toISOString().slice(0, 10)
   const beschreibung = (formData.get('beschreibung') as string) || null
 

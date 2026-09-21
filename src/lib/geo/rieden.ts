@@ -2,6 +2,8 @@
 // Koordinaten immer WGS84 (lat/lon in Dezimalgrad), wie sie Google Maps, GPS-
 // Geräte und eAMA (nach Umrechnung) verwenden.
 
+import { dezimal } from '@/lib/format'
+
 export type RiedPunkt = {
   id: string
   name: string
@@ -37,8 +39,8 @@ export function parseKoordinaten(text: string): { lat: number; lon: number } | n
   const m = t.match(/^(-?\d{1,2}(?:[.,]\d+)?)\s*[,; ]\s*(-?\d{1,3}(?:[.,]\d+)?)$/)
   if (!m) return null
   // Bei Komma als Dezimaltrennzeichen: "48,12345, 16,54321" → erst Trennzeichen erkennen
-  const lat = parseFloat(m[1].replace(',', '.'))
-  const lon = parseFloat(m[2].replace(',', '.'))
+  const lat = parseFloat(dezimal(m[1]))
+  const lon = parseFloat(dezimal(m[2]))
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null
   if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return null
   return { lat, lon }

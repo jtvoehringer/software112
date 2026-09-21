@@ -5,6 +5,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { AktionsFehler } from '@/lib/fehler'
+import { dezimal } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -28,8 +29,8 @@ export async function createKellerplan(formData: FormData) {
   const { data, error } = await (supabase.from('kellerplaene') as any).insert({
     tenant_id: tenantId,
     name:      formData.get('name') as string,
-    breite_m:  parseFloat(formData.get('breite_m') as string) || 20,
-    laenge_m:  parseFloat(formData.get('laenge_m') as string) || 10,
+    breite_m:  parseFloat(dezimal(formData.get('breite_m') as string)) || 20,
+    laenge_m:  parseFloat(dezimal(formData.get('laenge_m') as string)) || 10,
     notizen:   (formData.get('notizen') as string) || null,
   }).select('id').single()
 
@@ -45,8 +46,8 @@ export async function updateKellerplan(id: string, formData: FormData) {
   const tenantId  = await getTenantId()
   const { error } = await (supabase.from('kellerplaene') as any).update({
     name:     formData.get('name') as string,
-    breite_m: parseFloat(formData.get('breite_m') as string) || 20,
-    laenge_m: parseFloat(formData.get('laenge_m') as string) || 10,
+    breite_m: parseFloat(dezimal(formData.get('breite_m') as string)) || 20,
+    laenge_m: parseFloat(dezimal(formData.get('laenge_m') as string)) || 10,
     notizen:  (formData.get('notizen') as string) || null,
     aktualisiert_am: new Date().toISOString(),
   }).eq('id', id).eq('tenant_id', tenantId)
