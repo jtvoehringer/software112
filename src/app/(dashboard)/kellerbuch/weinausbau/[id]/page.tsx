@@ -563,6 +563,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
           action={umziehen}
           initialOpen={openForm === 'umziehen'}
           quelleRebsorte={weinausbau.rebsorte ?? null}
+          quelleWeinart={weinausbau.weinart ?? null}
         />
       )}
 

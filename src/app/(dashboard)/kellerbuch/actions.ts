@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { minQualitaet, maxQualitaet, istNiedrigerAls, QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { minHerkunft, maxHerkunft, istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
+import { weinartKonflikt, weinartBekannt, weinartAusFarbe, WEINART_LABEL } from '@/lib/keller/weinart'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { AktionsFehler } from '@/lib/fehler'
 
@@ -331,16 +332,21 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
     .eq('tenant_id', tenantId)
   const quellenRows = (quellenData ?? []) as R[]
 
-  // Guard: Rotwein + Weißwein darf nicht verschnitten werden
+  // Guard: Rotwein + Weißwein darf nicht verschnitten werden (lib/keller/weinart.ts; Chargen
+  // ohne Weinart werden über die Rebsortenfarbe eingeordnet, 21.9.2026)
   const { data: zielWeinartRow } = await (supabase.from('weinausbau') as any)
-    .select('weinart').eq('id', zielId).eq('tenant_id', tenantId).single()
-  const zielWeinart = (zielWeinartRow as R | null)?.weinart as string | null ?? null
-  const quelleKonflikt = quellenRows.find((q: R) => {
-    const qwa = q.weinart as string | null
-    if (!qwa || !zielWeinart || qwa === 'unbekannt' || zielWeinart === 'unbekannt') return false
-    return (zielWeinart === 'rot' && qwa === 'weiss') || (zielWeinart === 'weiss' && qwa === 'rot')
-  })
-  if (quelleKonflikt) throw new AktionsFehler('Rotwein und Weißwein dürfen gemäß Weingesetz nicht miteinander verschnitten werden.')
+    .select('weinart, rebsorte').eq('id', zielId).eq('tenant_id', tenantId).single()
+  const farbe = new Map<string, string>()
+  {
+    const sorten = [...new Set([...quellenRows, zielWeinartRow ?? {}].map((r: R) => r.rebsorte).filter(Boolean))] as string[]
+    // tenant-isolation-ignore: rebsorten ist eine globale Stammtabelle ohne tenant_id
+    const { data: rs } = sorten.length ? await (supabase.from('rebsorten') as any).select('name_de, farbe').in('name_de', sorten) : { data: [] }
+    for (const r of (rs ?? []) as R[]) farbe.set(r.name_de, r.farbe)
+  }
+  const artVon = (r: R | null): string => r ? (weinartBekannt(r.weinart) ? r.weinart : weinartAusFarbe(farbe.get(r.rebsorte))) : 'unbekannt'
+  const zielWeinart = artVon(zielWeinartRow as R | null)
+  const quelleKonflikt = quellenRows.find((q: R) => weinartKonflikt(artVon(q), zielWeinart))
+  if (quelleKonflikt) throw new AktionsFehler(`Rot- und Weißwein dürfen laut Weingesetz nicht verschnitten werden (${WEINART_LABEL[artVon(quelleKonflikt)]} in ${WEINART_LABEL[zielWeinart]}).`)
   // Niedrigste Qualitaetsstufe aus Quellen + Ziel bestimmen
   const alleQualitaeten = [zielQualitaetVorher, ...quellenRows.map((q: R) => q.qualitaetsstufe as string | null)]
   const neueQualitaet = minQualitaet(alleQualitaeten)

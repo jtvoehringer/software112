@@ -4,11 +4,13 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { ladeBehaelter, gebindeFehlerText } from '@/lib/keller/behaelter'
 import { revalidatePath } from 'next/cache'
 import { minQualitaet } from '@/lib/wein/qualitaet'
+import { minHerkunft } from '@/lib/herkunft'
 import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { deleteUmzug as _deleteUmzug } from '../gebinde-actions'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { fmtNum } from '@/lib/format'
 import { AktionsFehler } from '@/lib/fehler'
+import { weinartKonflikt, weinartKonfliktText, weinartAusFarbe, weinartBekannt } from '@/lib/keller/weinart'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -45,6 +47,39 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
     const g = zielGebinde.find(b => b.id === z.behaelter_id)
     if (!g) throw new AktionsFehler('Ziel-Gebinde nicht gefunden oder nicht freigegeben.')
     if (g.gesperrt) throw new AktionsFehler(`Gebinde „${g.name}“ ist durch ${g.fremd_betrieb ?? 'einen anderen Betrieb'} belegt – Umziehen dorthin ist nicht möglich.`)
+  }
+
+  // Weinart-Sperre (21.9.2026), VOR der ersten Buchung: Rot- und Weißwein dürfen weder
+  // untereinander (Zusammenführung mehrerer Quellen) noch mit dem Inhalt eines Ziel-
+  // Gebindes vermischt werden. Bisher griff diese Regel erst im Verschneiden-Schritt –
+  // da war der Umzug schon gebucht (Musterhof: Zweigelt Reserve im Veltliner-Tank).
+  // Chargen ohne Weinart werden über die Rebsortenfarbe (rebsorten.farbe) eingeordnet.
+  {
+    const { data: qRows } = await (supabase.from('weinausbau') as any)
+      .select('id, name, weinart, rebsorte').in('id', quellen.map(q => q.weinausbau_id)).eq('tenant_id', tenantId)
+    const { data: zRows } = await (supabase.from('weinausbau') as any)
+      .select('id, name, weinart, rebsorte, behaelter_id').in('behaelter_id', ziele.map(z => z.behaelter_id))
+      .eq('aktiv', true).neq('status', 'abgeschlossen').eq('tenant_id', tenantId)
+    const sorten = [...new Set([...(qRows ?? []), ...(zRows ?? [])].map((r: R) => r.rebsorte).filter(Boolean))] as string[]
+    const farbe = new Map<string, string>()
+    if (sorten.length) {
+      // tenant-isolation-ignore: rebsorten ist eine globale Stammtabelle ohne tenant_id
+      const { data: rs } = await (supabase.from('rebsorten') as any).select('name_de, farbe').in('name_de', sorten)
+      for (const r of (rs ?? []) as R[]) farbe.set(r.name_de, r.farbe)
+    }
+    const artVon = (r: R): string => weinartBekannt(r.weinart) ? r.weinart : weinartAusFarbe(farbe.get(r.rebsorte))
+    const qs = (qRows ?? []) as R[]
+    for (let i = 1; i < qs.length; i++) {
+      if (weinartKonflikt(artVon(qs[0]), artVon(qs[i]))) throw new AktionsFehler(`Rot- und Weißwein dürfen laut Weingesetz nicht vermischt werden: „${qs[0].name}“ und „${qs[i].name}“ können nicht zusammengeführt werden.`)
+    }
+    for (const z of ziele) {
+      const g = zielGebinde.find(b => b.id === z.behaelter_id)
+      for (const v of ((zRows ?? []) as R[]).filter(r => r.behaelter_id === z.behaelter_id)) {
+        for (const q of qs) {
+          if (weinartKonflikt(artVon(q), artVon(v))) throw new AktionsFehler(weinartKonfliktText(q.name, artVon(q), g?.name ?? 'das Ziel-Gebinde', v.name, artVon(v)))
+        }
+      }
+    }
   }
 
   const batchId = crypto.randomUUID()
@@ -197,6 +232,8 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
         name:                 von0?.name ?? 'Umzug',
         jahrgang:             von0?.jahrgang ?? null,
         rebsorte:             von0?.rebsorte ?? null,
+        weinart:              von0?.weinart ?? 'unbekannt',
+        herkunft_code:        von0?.herkunft_code ?? null,
         weingarten_id:        von0?.weingarten_id ?? null,
         behaelter_id:         z.behaelter_id,
         menge_liter:          z.menge,
@@ -223,6 +260,8 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
         name:                 quellenDaten.length > 1 ? 'Zusammenführung' : (von0?.name ?? 'Umzug'),
         jahrgang:             von0?.jahrgang ?? null,
         rebsorte:             von0?.rebsorte ?? null,
+        weinart:              von0?.weinart ?? 'unbekannt',
+        herkunft_code:        minHerkunft(quellenDaten.map(q => q.herkunft_code as string | null)),
         weingarten_id:        von0?.weingarten_id ?? null,
         behaelter_id:         z.behaelter_id,
         menge_liter:          z.menge,

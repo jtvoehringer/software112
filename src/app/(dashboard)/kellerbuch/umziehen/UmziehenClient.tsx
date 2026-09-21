@@ -8,6 +8,7 @@ import { ArrowLeftRight, Filter, X, AlertTriangle, CheckCircle2, Pencil, Trash2 
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import { weinartKonflikt, WEINART_LABEL } from '@/lib/keller/weinart'
 
 type BehaelterMitCharge = {
   behaelter_id:   string
@@ -16,6 +17,7 @@ type BehaelterMitCharge = {
   charge_name:    string
   jahrgang:       number | null
   rebsorte:       string | null
+  weinart:        string | null
   menge_liter:    number
 }
 type Behaelter = { id: string; name: string; kapazitaet_liter: number | null }
@@ -194,9 +196,24 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
     : []
   const hatRebsortenmix = andereRebsorten.length > 0
 
+  // Weinart-Sperre (21.9.2026): Rot + Weiß dürfen nicht in ein Gebinde – weder Quellen
+  // untereinander noch Quelle gegen Inhalt eines Ziel-Gebindes. Der Server prüft dasselbe
+  // (inkl. Rebsortenfarbe bei fehlender Weinart) und lehnt den Umzug ab.
+  const quellChargen = quellenState.map(q => quellen.find(x => x.behaelter_id === q.behId)).filter((x): x is BehaelterMitCharge => !!x)
+  const zielChargen = ziele.flatMap(z => quellen.filter(c => c.behaelter_id === z.behId && !quellChargen.some(q => q.charge_id === c.charge_id)))
+  let weinartSperre: string | null = null
+  for (let i = 1; i < quellChargen.length && !weinartSperre; i++) {
+    if (weinartKonflikt(quellChargen[0].weinart, quellChargen[i].weinart)) weinartSperre = `„${quellChargen[0].charge_name}“ (${WEINART_LABEL[quellChargen[0].weinart!]}) und „${quellChargen[i].charge_name}“ (${WEINART_LABEL[quellChargen[i].weinart!]}) können nicht zusammengeführt werden.`
+  }
+  for (const q of quellChargen) for (const z of zielChargen) {
+    if (weinartSperre) break
+    if (weinartKonflikt(q.weinart, z.weinart)) weinartSperre = `„${q.charge_name}“ (${WEINART_LABEL[q.weinart!]}) kann nicht nach ${z.behaelter_name} umgezogen werden – dort liegt „${z.charge_name}“ (${WEINART_LABEL[z.weinart!]}).`
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    if (weinartSperre) { setError(`Rot- und Weißwein dürfen laut Weingesetz nicht vermischt werden: ${weinartSperre}`); return }
     if (quellenState.some(q => !q.behId || !q.menge)) { setError('Alle Quell-Zeilen ausfüllen.'); return }
     if (ziele.some(z => !z.behId || !z.menge))         { setError('Alle Ziel-Zeilen ausfüllen.'); return }
     if (schwund < 0)                                    { setError('Ziel-Menge größer als Quell-Menge.'); return }
@@ -306,7 +323,13 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
         <div className="text-xs text-s112-muted text-right tabular-nums">
           Gesamt: <span className="font-semibold text-s112-text-1">{fmt(totalNach)}</span>
         </div>
-        {hatRebsortenmix && (
+        {weinartSperre && (
+          <div className="bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2 text-xs text-s112-err-fg flex items-start gap-1.5">
+            <AlertTriangle size={14} strokeWidth={2} className="mt-0.5 shrink-0" />
+            <span><span className="font-semibold">Rot- und Weißwein dürfen laut Weingesetz nicht vermischt werden:</span> {weinartSperre}</span>
+          </div>
+        )}
+        {hatRebsortenmix && !weinartSperre && (
           <div className="bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2 text-xs text-s112-warn-fg flex items-start gap-1.5">
             <AlertTriangle size={14} strokeWidth={2} className="mt-0.5 shrink-0" />
             <span>

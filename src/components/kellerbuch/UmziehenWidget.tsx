@@ -3,12 +3,13 @@
 import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
+import { weinartKonflikt, WEINART_LABEL } from '@/lib/keller/weinart'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 
 type Gebinde = { id: string; name: string; volumen_liter?: number | null }
-type Charge  = { id: string; name: string; menge_liter: number | null; behaelter_id?: string | null; rebsorte?: string | null }
+type Charge  = { id: string; name: string; menge_liter: number | null; behaelter_id?: string | null; rebsorte?: string | null; weinart?: string | null }
 
 interface Props {
   chargeId:        string
@@ -19,9 +20,10 @@ interface Props {
   action:          (fd: FormData) => Promise<{ verschneidungNeeded?: { existingChargeId: string; newChargeId: string; menge: number }; abstufung?: { von: string; nach: string; vonLabel: string; nachLabel: string } } | void>
   initialOpen?:    boolean
   quelleRebsorte?: string | null
+  quelleWeinart?:  string | null
 }
 
-export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, gebinde, alleChargen, action, initialOpen = false, quelleRebsorte = null }: Props) {
+export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, gebinde, alleChargen, action, initialOpen = false, quelleRebsorte = null, quelleWeinart = null }: Props) {
   const router  = useRouter()
   const [open,  setOpen]  = useState(initialOpen)
   useEffect(() => { setOpen(initialOpen) }, [initialOpen])
@@ -61,13 +63,18 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
     : []
   const hatRebsortenmix = andereRebsorten.length > 0
 
+  // Weinart-Sperre (21.9.2026): Rot + Weiß nicht in ein Gebinde – Server prüft dasselbe
+  const weinartKonfliktCharge = zielId
+    ? alleChargen.find(c => c.behaelter_id === zielId && c.id !== chargeId && weinartKonflikt(quelleWeinart, c.weinart)) ?? null
+    : null
+
   const bruttoVal = parseFloat(brutto.replace(',', '.')) || 0
   const nettoVal  = parseFloat(netto.replace(',', '.'))  || 0
   const schwund   = bruttoVal - nettoVal
 
   const selectedGebinde = gebinde.find(g => g.id === zielId)
   const restKapGebinde   = selectedGebinde ? frei(selectedGebinde) : null
-  const canSubmit = bruttoVal > 0 && nettoVal > 0
+  const canSubmit = bruttoVal > 0 && nettoVal > 0 && !weinartKonfliktCharge
     && nettoVal <= bruttoVal + 0.01
     && bruttoVal <= verfuegbarLiter + 0.01
     && (restKapGebinde == null || nettoVal <= restKapGebinde + 0.01)
@@ -246,7 +253,16 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
                 <p className="text-xs text-s112-err-fg mt-1">Netto überschreitet Restkapazität des Gebindes</p>
               ) : null
             })()}
-            {hatRebsortenmix && (
+            {weinartKonfliktCharge && (
+              <div className="mt-2 bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2 text-xs text-s112-err-fg flex items-start gap-1.5">
+                <AlertTriangle size={14} strokeWidth={2} className="mt-0.5 shrink-0" />
+                <span>
+                  <span className="font-semibold">Rot- und Weißwein dürfen laut Weingesetz nicht vermischt werden:</span>{' '}
+                  „{chargeName}“ ({WEINART_LABEL[quelleWeinart ?? 'unbekannt']}) kann nicht in dieses Gebinde – dort liegt „{weinartKonfliktCharge.name}“ ({WEINART_LABEL[weinartKonfliktCharge.weinart ?? 'unbekannt']}).
+                </span>
+              </div>
+            )}
+            {hatRebsortenmix && !weinartKonfliktCharge && (
               <div className="mt-2 bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2 text-xs text-s112-warn-fg flex items-start gap-1.5">
                 <AlertTriangle size={14} strokeWidth={2} className="mt-0.5 shrink-0" />
                 <span>

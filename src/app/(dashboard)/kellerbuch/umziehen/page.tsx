@@ -32,7 +32,7 @@ export default async function UmziehenPage({ searchParams }: { searchParams: Pro
   ] = await Promise.all([
     // Aktive Chargen mit Behälter-Info (für Quellen-Auflösung)
     tf((supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, rebsorte, menge_liter, qualitaetsstufe, status, behaelter_id, behaelter:behaelter_id(id, name, volumen_liter)')
+      .select('id, name, jahrgang, rebsorte, weinart, menge_liter, qualitaetsstufe, status, behaelter_id, behaelter:behaelter_id(id, name, volumen_liter)')
       .eq('aktiv', true)
       .neq('status', 'abgeschlossen')
       .not('behaelter_id', 'is', null)
@@ -60,6 +60,7 @@ export default async function UmziehenPage({ searchParams }: { searchParams: Pro
     charge_name: string
     jahrgang: number | null
     rebsorte: string | null
+    weinart: string | null
     menge_liter: number
   }[] = ((waRaw ?? []) as R[]).map(w => ({
     behaelter_id:   (w.behaelter as R | null)?.id ?? w.behaelter_id,
@@ -68,6 +69,7 @@ export default async function UmziehenPage({ searchParams }: { searchParams: Pro
     charge_name:    w.name,
     jahrgang:       w.jahrgang ?? null,
     rebsorte:       w.rebsorte ?? null,
+    weinart:        w.weinart ?? null,
     menge_liter:    parseFloat(w.menge_liter) || 0,
   }))
 
