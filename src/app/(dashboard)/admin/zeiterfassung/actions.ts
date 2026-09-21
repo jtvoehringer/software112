@@ -28,7 +28,7 @@ function parseForm(formData: FormData): AR {
   const tokenKosten   = formData.get('token_kosten_euro') as string
   return {
     datum:              formData.get('datum') as string,
-    phase:              parseInt(formData.get('phase') as string) || 0,
+    phase:              parseInt(dezimal(formData.get('phase') as string)) || 0,
     beschreibung:       ((formData.get('beschreibung') as string) ?? '').trim(),
     stunden,
     stundensatz,

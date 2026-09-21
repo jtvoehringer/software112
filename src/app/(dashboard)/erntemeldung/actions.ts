@@ -66,7 +66,7 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   const weingartenId = formData.get('weingarten_id') as string
-  // .replace(',', '.') ist nötig, da die Felder °KMW-typisch mit Komma-Dezimaltrennzeichen
+  // dezimal() ist nötig, da die Felder °KMW-typisch mit Komma-Dezimaltrennzeichen
   // erfasst werden (de-AT) - ohne die Ersetzung liefert Number() bei "9,5" NaN.
   const mengeKg = formData.get('menge_kg') ? Number(dezimal((formData.get('menge_kg') as string))) : null
   const mengeHl = mengeKg ? mengeKg / 130 : null  // 1 hl ≈ 130 kg
@@ -135,7 +135,7 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
 
   const ernteDatum  = (formData.get('ernte_datum') as string) || null
   const lesemethode = (formData.get('lesemethode') as string) || null
-  // .replace(',', '.') nötig für de-AT-Komma-Eingabe (z.B. "9,5") - siehe upsertErnteParzelle.
+  // dezimal() nötig für de-AT-Komma-Eingabe (z.B. "9,5") - siehe upsertErnteParzelle.
   const kmw         = formData.get('klosterneuburger') ? Number(dezimal((formData.get('klosterneuburger') as string))) : null
   // Qualitätsstufe wird ausschließlich aus den °KMW abgeleitet (kein manuelles Formularfeld
   // mehr) - Fallback 'qualitaetswein', wenn kein KMW erfasst wurde.

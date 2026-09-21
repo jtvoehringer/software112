@@ -39,7 +39,7 @@ async function insertEroeffnungsbestand(formData: FormData): Promise<string | nu
   const payload: R = {
     tenant_id:            tenantId,
     name:                 formData.get('name') as string,
-    jahrgang:             parseInt(formData.get('jahrgang') as string) || null,
+    jahrgang:             parseInt(dezimal(formData.get('jahrgang') as string)) || null,
     kmw:                  parseFloat(dezimal(formData.get('kmw') as string)) || null,
     menge_liter:          menge,
     anfangsbestand_liter: menge,
@@ -91,7 +91,7 @@ export async function updateEroeffnungsbestand(id: string, formData: FormData) {
   const epRaw2 = dezimal(formData.get('einstandspreis_pro_liter') as string) ?? ''
   const payload: R = {
     name:            formData.get('name') as string,
-    jahrgang:        parseInt(formData.get('jahrgang') as string) || null,
+    jahrgang:        parseInt(dezimal(formData.get('jahrgang') as string)) || null,
     kmw:             parseFloat(dezimal(formData.get('kmw') as string)) || null,
     menge_liter:     menge,
     qualitaetsstufe: (formData.get('qualitaetsstufe') as string) || null,

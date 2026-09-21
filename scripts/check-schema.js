@@ -14,6 +14,10 @@
 //  5. Schreibaufrufe (insert/update/upsert/delete), deren Ergebnis niemand liest:
 //     `await (supabase.from(...)...)` als Anweisung ohne const/return/if – der
 //     Fehler geht verloren (PSM-Anfangsbestände 20.9.).
+//  6. Zahleneingaben (21.9.): `.replace(',', '.')` und nacktes
+//     parseFloat/Number(formData.get(…)) lesen „36.125,00“ als 36,125 bzw. „1,5“ als 1
+//     (Offene Posten: 36,13 € statt 36.125,00 € gebucht) – dezimal()/zahlAus() aus
+//     lib/format.ts verwenden.
 //
 // Aufruf: node scripts/check-schema.js            (Fehler → Exit 1, läuft im prebuild)
 //         node scripts/check-schema.js --warn     (nur Bericht)
@@ -128,6 +132,19 @@ for (const datei of dateien) {
         }
       }
     }
+  }
+
+  // 6: Zahleneingaben ohne dezimal()
+  const zahlRe = /\.replace\(',', '\.'\)|\b(?:parseFloat|Number|parseInt)\(\(?(?:formData|fd|form)\.get\(/g
+  while ((m = zahlRe.exec(quelle))) {
+    const z = zeileVon(m.index)
+    if (ignoriert(zeilen, z - 1)) continue
+    if (/^\s*(\/\/|\*)/.test(zeilen[z - 1])) continue   // Kommentarzeile
+    if (rel.replace(/\\/g, '/').endsWith('src/lib/format.ts')) continue
+    const zeile = zeilen[z - 1]
+    if (/dezimal\(|zahlAus\(/.test(zeile) && m[0].startsWith('.replace') === false) continue
+    if (m[0].startsWith('.replace') && /dezimal\(/.test(zeile) && zeile.includes("replace(/\\./g, '')")) continue
+    funde.push({ datei: rel, zeile: z, art: 'zahl', text: `${m[0]}… – Zahleneingabe ohne dezimal()/zahlAus() (lib/format): „36.125,00“ würde als 36,125 gelesen` })
   }
 
   // 5: Schreibaufruf ohne Auswertung

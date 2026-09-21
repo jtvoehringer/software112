@@ -5,7 +5,7 @@ import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { berechneUndSpeichereUva, markiereUvaAlsUebermittelt } from '../actions'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import { Lock } from 'lucide-react'
-import { fmtNum } from '@/lib/format'
+import { fmtNum, dezimal } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
 
@@ -80,7 +80,7 @@ export default async function UvaPage({
 
   async function handleBerechnen(formData: FormData) {
     'use server'
-    const j = parseInt(formData.get('jahr') as string)
+    const j = parseInt(dezimal(formData.get('jahr') as string))
     const z = formData.get('zeitraum') as string
     await berechneUndSpeichereUva(j, z)
   }

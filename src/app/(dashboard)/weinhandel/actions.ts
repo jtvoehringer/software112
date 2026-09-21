@@ -25,8 +25,8 @@ export async function createFuellung(formData: FormData) {
   const tenantId  = await getTenantId()
 
   const weinausbauId    = (formData.get('weinausbau_id') as string) || null
-  const anzahl          = parseInt(formData.get('anzahl_flaschen') as string)
-  const flGroesseML     = parseInt(formData.get('flaschengroesse_ml') as string) || 750
+  const anzahl          = parseInt(dezimal(formData.get('anzahl_flaschen') as string))
+  const flGroesseML     = parseInt(dezimal(formData.get('flaschengroesse_ml') as string)) || 750
   const mengeFormular   = parseFloat(dezimal(formData.get('menge_liter_gefuellt') as string)) || null
   // Falls kein Literfeld ausgefuellt: aus Flaschenzahl berechnen
   const mengeGefuellt   = mengeFormular ?? (anzahl * flGroesseML / 1000)
@@ -78,7 +78,7 @@ export async function createFuellung(formData: FormData) {
     tenant_id:            tenantId,
     weinausbau_id:        weinausbauId,
     name:                 formData.get('name') as string,
-    jahrgang:             parseInt(formData.get('jahrgang') as string) || null,
+    jahrgang:             parseInt(dezimal(formData.get('jahrgang') as string)) || null,
     rebsorte:             (formData.get('rebsorte') as string) || null,
     qualitaet:            formData.get('qualitaet') as string,
     herkunft_code:        herkunftCodeInput,
@@ -168,7 +168,7 @@ export async function updateFuellung(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
 
-  const anzahl = parseInt(formData.get('anzahl_flaschen') as string)
+  const anzahl = parseInt(dezimal(formData.get('anzahl_flaschen') as string))
   const weinausbauId     = (formData.get('weinausbau_id') as string) || null
   const qualitaetInput    = (formData.get('qualitaet') as string) || null
   const herkunftCodeInput = (formData.get('herkunft_code') as string) || null
@@ -208,16 +208,16 @@ export async function updateFuellung(id: string, formData: FormData) {
 
   const payload: AR = {
     name:                 formData.get('name') as string,
-    jahrgang:             parseInt(formData.get('jahrgang') as string) || null,
+    jahrgang:             parseInt(dezimal(formData.get('jahrgang') as string)) || null,
     rebsorte:             (formData.get('rebsorte') as string) || null,
     qualitaet:            formData.get('qualitaet') as string,
     herkunft_code:        herkunftCodeInput,
     anbaugebiet:          (formData.get('anbaugebiet') as string) || null,
     bezeichnung:          (formData.get('bezeichnung') as string) || null,
     datum:                formData.get('datum') as string,
-    flaschengroesse_ml:   parseInt(formData.get('flaschengroesse_ml') as string) || 750,
+    flaschengroesse_ml:   parseInt(dezimal(formData.get('flaschengroesse_ml') as string)) || 750,
     anzahl_flaschen:      anzahl,
-    bestand_flaschen:     parseInt(formData.get('bestand_flaschen') as string) || anzahl,
+    bestand_flaschen:     parseInt(dezimal(formData.get('bestand_flaschen') as string)) || anzahl,
     menge_liter_gefuellt: parseFloat(dezimal(formData.get('menge_liter_gefuellt') as string)) || null,
     vk_preis_brutto:      parseFloat(dezimal(formData.get('vk_preis_brutto') as string)) || null,
     weinausbau_id:        weinausbauId,

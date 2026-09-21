@@ -73,7 +73,7 @@ export async function createVerkauf(formData: FormData) {
   const zhKontaktId    = (formData.get('zh_kontakt_id') as string) || null
   const notizen        = (formData.get('notizen') as string) || null
   const skontoPct      = parseFloat(dezimal(formData.get('skonto_pct') as string)) || 0
-  const skontoTage     = parseInt(formData.get('skonto_tage') as string) || 0
+  const skontoTage     = parseInt(dezimal(formData.get('skonto_tage') as string)) || 0
   const skontoAktiv    = formData.get('skonto_aktiv') === 'true'
 
   // Positionen als JSON aus hidden input

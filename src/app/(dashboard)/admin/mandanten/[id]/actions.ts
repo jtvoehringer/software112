@@ -312,7 +312,7 @@ export async function saveVerkaufEinstellungen(tenantId: string, formData: FormD
   const admin = createSupabaseAdminClient()
 
   const rPrefix  = (formData.get('rechnung_prefix') as string)?.trim() || 'RE'
-  const rStellen = Math.max(1, Math.min(8, parseInt(formData.get('rechnung_stellen') as string) || 4))
+  const rStellen = Math.max(1, Math.min(8, parseInt(dezimal(formData.get('rechnung_stellen') as string)) || 4))
   // Migration 189: Suffix mit {JJ}/{JJJJ}-Platzhalter gehört zur Rechnungsnummer
   // (nicht zur Accountnummer, siehe Rückmeldung 1.9.2026) - steuert den
   // automatischen Jahreswechsel-Reset in get_next_rechnungsnummer(). Kein
@@ -320,7 +320,7 @@ export async function saveVerkaufEinstellungen(tenantId: string, formData: FormD
   // nur bekannte Tokens und lässt alles andere unverändert im Suffix stehen.
   const rSuffix  = ((formData.get('rechnung_suffix') as string) ?? '').trim().slice(0, 16)
   const kPrefix  = (formData.get('account_prefix') as string)?.trim() || 'K'
-  const kStellen = Math.max(1, Math.min(8, parseInt(formData.get('account_stellen') as string) || 4))
+  const kStellen = Math.max(1, Math.min(8, parseInt(dezimal(formData.get('account_stellen') as string)) || 4))
 
   const { error } = await (admin.from('tenant_einstellungen') as any)
     .upsert({
@@ -382,12 +382,12 @@ export async function saveEmailEinstellungen(tenantId: string, formData: FormDat
   const payload: Record<string, unknown> = {
     email_modul_aktiv:    formData.get('email_modul_aktiv') === 'true',
     email_smtp_host:      (formData.get('email_smtp_host') as string) || null,
-    email_smtp_port:      parseInt(formData.get('email_smtp_port') as string) || 587,
+    email_smtp_port:      parseInt(dezimal(formData.get('email_smtp_port') as string)) || 587,
     email_smtp_user:      (formData.get('email_smtp_user') as string) || null,
     email_smtp_from_name: (formData.get('email_smtp_from_name') as string) || null,
     email_smtp_pass_enc:  smtpPass ? encryptPass(smtpPass) : (existingR?.email_smtp_pass_enc ?? null),
     email_imap_host:      (formData.get('email_imap_host') as string) || null,
-    email_imap_port:      parseInt(formData.get('email_imap_port') as string) || 993,
+    email_imap_port:      parseInt(dezimal(formData.get('email_imap_port') as string)) || 993,
     email_imap_user:      (formData.get('email_imap_user') as string) || null,
     email_imap_pass_enc:  imapPass ? encryptPass(imapPass) : (existingR?.email_imap_pass_enc ?? null),
     aktualisiert_am:      new Date().toISOString(),

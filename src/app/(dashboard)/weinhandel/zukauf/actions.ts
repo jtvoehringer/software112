@@ -125,7 +125,7 @@ function parseZukaufFormData(formData: FormData) {
   // gegen weinjahrgaenge.jahrgang) – bleibt das Feld leer, auf das Kalenderjahr
   // des Liefer-/Kaufdatums zurückfallen, statt NULL zu speichern und den Posten
   // dadurch unsichtbar für diese Zuordnung zu machen.
-  const jahrgangEingabe = parseInt(formData.get('jahrgang') as string)
+  const jahrgangEingabe = parseInt(dezimal(formData.get('jahrgang') as string))
   const jahrgang = !isNaN(jahrgangEingabe) ? jahrgangEingabe : (parseInt(datum.slice(0, 4)) || null)
   return {
     datum,

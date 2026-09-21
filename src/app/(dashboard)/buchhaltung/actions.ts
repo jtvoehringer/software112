@@ -108,7 +108,7 @@ export async function createEaKategorie(formData: FormData) {
     tenant_id:    tenantId,
     typ:          formData.get('typ'),
     name:         formData.get('name'),
-    konto_nr:     formData.get('konto_nr') ? parseInt(formData.get('konto_nr') as string) : null,
+    konto_nr:     formData.get('konto_nr') ? parseInt(dezimal(formData.get('konto_nr') as string)) : null,
     ust_satz_std: parseFloat(dezimal(formData.get('ust_satz_std') as string)) || 20,
     abzugsfaehig_pct,
   })
@@ -131,7 +131,7 @@ export async function createEaDauerauftrag(formData: FormData) {
     betrag_netto:       parseFloat(dezimal(formData.get('betrag_netto') as string)),
     ust_satz:           parseFloat(dezimal(formData.get('ust_satz') as string)) || 20,
     intervall:          formData.get('intervall'),
-    tag_im_monat:       parseInt(formData.get('tag_im_monat') as string) || 1,
+    tag_im_monat:       parseInt(dezimal(formData.get('tag_im_monat') as string)) || 1,
     naechste_faelligkeit: formData.get('naechste_faelligkeit'),
     konto_id:           (formData.get('konto_id') as string) || null,
   })
