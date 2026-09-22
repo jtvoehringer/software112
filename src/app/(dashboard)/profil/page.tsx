@@ -8,6 +8,7 @@ export default function ProfilPage() {
   const router = useRouter()
   const [fullName, setFullName] = useState('')
   const [telefon, setTelefon]   = useState('')
+  const [mailBenachr, setMailBenachr] = useState(true)
   const [email, setEmail]       = useState('')
   const [saving, setSaving]     = useState(false)
   const [erfolg, setErfolg]     = useState(false)
@@ -18,6 +19,7 @@ export default function ProfilPage() {
     fetch('/api/profil').then(r => r.json()).then(d => {
       setFullName(d.profil?.full_name ?? '')
       setTelefon(d.profil?.telefon   ?? '')
+      setMailBenachr(d.profil?.benachrichtigung_email !== false)
       // Email aus Supabase Auth
       fetch('/api/auth/me').then(r => r.json()).then(u => setEmail(u.email ?? '')).catch(() => {})
       setLaden(false)
@@ -34,7 +36,7 @@ export default function ProfilPage() {
       // mehr selbst hier - siehe /api/profil (POST ignoriert full_name ohnehin).
       const res = await fetch('/api/profil', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ telefon }),
+        body: JSON.stringify({ telefon, benachrichtigung_email: mailBenachr }),
       })
       const json = await res.json()
       if (!res.ok || json.fehler) {
@@ -111,6 +113,13 @@ export default function ProfilPage() {
             <input value={telefon} onChange={e => setTelefon(e.target.value)} placeholder="+43 664 …"
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" checked={mailBenachr} onChange={e => setMailBenachr(e.target.checked)} className="accent-s112-teal mt-0.5" />
+            <span className="text-sm text-s112-text-1">
+              E-Mail-Benachrichtigungen
+              <span className="block text-[11px] text-s112-tertiary">Wenn mir eine Aufgabe oder ein Termin zugewiesen wird, etwas für alle gilt oder ich mit @Name erwähnt werde. Die Glocke in der Kopfleiste zeigt es in jedem Fall.</span>
+            </span>
+          </label>
           <div className="flex items-center gap-3 pt-2">
             <button type="submit" disabled={saving}
               className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">

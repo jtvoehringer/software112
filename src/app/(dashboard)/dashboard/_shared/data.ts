@@ -9,6 +9,7 @@ import { getCurrentMembership, type UserRole } from '@/lib/auth/roles'
 import type { Charge, Frist, FristStatus } from './types'
 import { periodeVorBeginn } from '@/lib/ea/betriebsbeginn'
 import { afaBuchungsStatus } from '@/lib/ea/anlagen'
+import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
 
 const fmtEurKurz = (n: number) => `€ ${n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 export { STATUS_LABEL } from './types'
@@ -441,6 +442,47 @@ export async function ladeNaechsteTermine(ctx: Ctx, limit = 5) {
     id: a.id as string, betreff: (a.betreff || a.art) as string, datum: a.datum as string,
     wer: a.kontakt ? [a.kontakt.vorname, a.kontakt.nachname].filter(Boolean).join(' ') : (a.firma?.name ?? '') as string,
   }))
+}
+
+// ── Aufgaben & Termine: „Meine“ (mir zugewiesen oder für alle) vs. „Betrieb“ ─
+// Migration 224 (Aufgabenzuordnung, 22.9.2026). Offene Aktivitäten (Aufgabe,
+// Besuch, Telefonat …) ab überfällig bis in `tage` Tagen; private Einträge
+// anderer Nutzer bleiben außen vor.
+
+export type AufgabeTermin = {
+  id: string; betreff: string; datum: string; art: string; istAufgabe: boolean
+  wer: string; verantwortlich: string; verantwortlichId: string | null; fuerAlle: boolean; ueberfaellig: boolean; ganztags: boolean; uhrzeit: string | null
+}
+
+export async function ladeAufgabenTermine(ctx: Ctx, tage = 30, limit = 60): Promise<{ meine: AufgabeTermin[]; betrieb: AufgabeTermin[] }> {
+  if (!ctx.tenantId) return { meine: [], betrieb: [] }
+  const bis = new Date(ctx.heute); bis.setDate(bis.getDate() + tage)
+  const bisStr = bis.toISOString().slice(0, 10)
+  const [{ data }, mitglieder] = await Promise.all([
+    ctx.tf(ctx.q('aktivitaeten')
+      .select('id, art, betreff, datum, ganztags, uhrzeit_von, verantwortlich_id, fuer_alle, ist_privat, erstellt_von, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name)')
+      .eq('erledigt', false).not('datum', 'is', null).lte('datum', bisStr)
+      .not('art', 'in', '(verkauf,notiz,email)')
+      .order('datum', { ascending: true }).limit(limit * 3)),
+    ladeMandantMitglieder(ctx.tenantId),
+  ])
+  const namen = new Map(mitglieder.map(m => [m.id, m.name]))
+  const alle = ((data ?? []) as R[])
+    .filter(a => !a.ist_privat || a.erstellt_von === ctx.userId)
+    // Vergangene Termine (kein Aufgabe-Typ) sind vorbei – nur Aufgaben bleiben als überfällig stehen
+    .filter(a => a.art === 'aufgabe' || (a.datum as string) >= ctx.heuteStr)
+    .map<AufgabeTermin>(a => ({
+      id: a.id, betreff: (a.betreff || a.art) as string, datum: a.datum as string, art: a.art as string, istAufgabe: a.art === 'aufgabe',
+      wer: a.kontakt ? [a.kontakt.vorname, a.kontakt.nachname].filter(Boolean).join(' ') : ((a.firma?.name ?? '') as string),
+      verantwortlich: a.fuer_alle ? 'Alle' : a.verantwortlich_id ? (namen.get(a.verantwortlich_id) ?? 'Unbekannt') : 'Betrieb',
+      verantwortlichId: (a.verantwortlich_id as string | null) ?? null,
+      fuerAlle: !!a.fuer_alle, ueberfaellig: (a.datum as string) < ctx.heuteStr,
+      ganztags: (a.ganztags as boolean) ?? true, uhrzeit: a.uhrzeit_von ? String(a.uhrzeit_von).slice(0, 5) : null,
+    }))
+  const meine = alle.filter(a => a.fuerAlle || (!!ctx.userId && a.verantwortlichId === ctx.userId)).slice(0, limit)
+  const meineIds = new Set(meine.map(m => m.id))
+  const betrieb = alle.filter(a => !meineIds.has(a.id)).slice(0, limit)
+  return { meine, betrieb }
 }
 
 // ── Tenant-Einstellungen, die die Sichten brauchen ───────────────────────────

@@ -28,14 +28,15 @@ export async function POST(req: NextRequest) {
   const { data: existing } = await (s.from('profiles') as any)
     .select('id').eq('id', user.id).maybeSingle()
 
+  // benachrichtigung_email (Migration 224): E-Mail bei Aufgabenzuweisung/@Erwähnung – nur übernehmen, wenn mitgeschickt
+  const werte: R = { telefon: body.telefon || null, updated_at: now }
+  if (typeof body.benachrichtigung_email === 'boolean') werte.benachrichtigung_email = body.benachrichtigung_email
+
   let error: any
   if (existing) {
-    ;({ error } = await (s.from('profiles') as any)
-      .update({ telefon: body.telefon || null, updated_at: now })
-      .eq('id', user.id))
+    ;({ error } = await (s.from('profiles') as any).update(werte).eq('id', user.id))
   } else {
-    ;({ error } = await (s.from('profiles') as any)
-      .insert({ id: user.id, telefon: body.telefon || null, updated_at: now }))
+    ;({ error } = await (s.from('profiles') as any).insert({ id: user.id, ...werte }))
   }
   if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })

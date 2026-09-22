@@ -3,13 +3,15 @@ import CRMUebersichtClient from './CRMUebersichtClient'
 import type { KalenderEintrag } from './CRMUebersichtClient'
 import { AKTIVITAET_ARTEN } from '@/lib/crm/types'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
 
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
-export default async function CRMUebersichtPage() {
+export default async function CRMUebersichtPage({ searchParams }: { searchParams: Promise<{ aktivitaet?: string }> }) {
+  const { aktivitaet: oeffneId } = await searchParams
   const supabase = await createSupabaseServerClient()
   const heute = new Date().toISOString().split('T')[0]
   const { data: { user } } = await supabase.auth.getUser()
@@ -21,7 +23,7 @@ export default async function CRMUebersichtPage() {
 
   // Alle Aktivitäten mit Datum
   const { data: aktivRawAll } = await tf((supabase.from('aktivitaeten') as any)
-    .select('id, art, betreff, datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, kontakt_id, firma_id, ist_privat, erstellt_von, bis_datum')
+    .select('id, art, betreff, datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, kontakt_id, firma_id, ist_privat, erstellt_von, bis_datum, verantwortlich_id, fuer_alle, beschreibung')
     .not('datum', 'is', null)
     // Verkauf/Notiz/E-Mail erscheinen nicht im Kalender - gar nicht erst laden
     // (E-Mail-Aktivitäten wachsen mit jeder geöffneten Nachricht, 17.9.2026)
@@ -119,10 +121,18 @@ export default async function CRMUebersichtPage() {
         ist_privat:   (a.ist_privat as boolean | null) ?? null,
         erstellt_von: (a.erstellt_von as string | null) ?? null,
         bis_datum:    (a.bis_datum as string | null) ?? null,
+        verantwortlich_id: (a.verantwortlich_id as string | null) ?? null,
+        fuer_alle:    !!(a.fuer_alle as boolean),
+        beschreibung: (a.beschreibung as string | null) ?? null,
       }
     }),
 
   ].sort((a, b) => a.datum.localeCompare(b.datum))
 
-  return <CRMUebersichtClient eintraege={eintraege} heute={heute} userProfiles={userProfiles} />
+  // Mitglieder des Betriebs für die Verantwortlich-Auswahl (Aufgabenzuordnung, 22.9.2026)
+  const mitglieder = tenantId ? await ladeMandantMitglieder(tenantId) : []
+  mitglieder.forEach(m => { if (!userProfiles[m.id]) userProfiles[m.id] = m.name })
+
+  return <CRMUebersichtClient eintraege={eintraege} heute={heute} userProfiles={userProfiles}
+    mitglieder={mitglieder.map(m => ({ id: m.id, name: m.name }))} userId={currentUserId} oeffneId={oeffneId ?? null} />
 }

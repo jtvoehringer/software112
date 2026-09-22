@@ -15,7 +15,7 @@ import Link from '@/components/ui/Link'
 import { Search, Bell, LogOut, ArrowLeftRight, User, ChevronDown } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import type { TenantBranding } from '@/app/(dashboard)/layout'
-import type { Hinweis } from '@/app/api/dashboard/hinweise/route'
+import type { Hinweis, Benachrichtigung } from '@/app/api/dashboard/hinweise/route'
 
 const HINWEISE_INTERVALL_MS = 5 * 60 * 1000
 
@@ -46,6 +46,7 @@ export default function Topbar({
   const notifRef = useRef<HTMLDivElement>(null)
   const displayName = userName || userEmail
   const [hinweise, setHinweise] = useState<Hinweis[] | null>(null) // null = noch nicht geladen
+  const [benachr, setBenachr]   = useState<Benachrichtigung[]>([])  // persönliche, ungelesene (Migration 224)
 
   // Fristenzähler laden – beim Start und danach alle 5 Minuten (Topbar lebt im
   // Layout und bleibt bei Client-Navigation erhalten, daher kein Reload je Seite).
@@ -56,7 +57,10 @@ export default function Topbar({
         const res = await fetch('/api/dashboard/hinweise', { cache: 'no-store' })
         if (!res.ok) return
         const json = await res.json()
-        if (aktiv) setHinweise(Array.isArray(json.hinweise) ? json.hinweise : [])
+        if (aktiv) {
+          setHinweise(Array.isArray(json.hinweise) ? json.hinweise : [])
+          setBenachr(Array.isArray(json.benachrichtigungen) ? json.benachrichtigungen : [])
+        }
       } catch { /* Netzfehler: alten Stand behalten */ }
     }
     void laden()
@@ -65,8 +69,24 @@ export default function Topbar({
     window.addEventListener(HINWEISE_EVENT, laden)
     return () => { aktiv = false; clearInterval(t); window.removeEventListener(HINWEISE_EVENT, laden) }
   }, [])
-  const anzahl = hinweise?.length ?? 0
+  const anzahl = (hinweise?.length ?? 0) + benachr.length
   const anzahlErr = hinweise?.filter(h => h.tone === 'err').length ?? 0
+
+  // Benachrichtigung(en) als gelesen markieren – sofort aus der Liste nehmen, Server im Hintergrund
+  const gelesen = (ids: string[] | 'alle') => {
+    setBenachr(b => ids === 'alle' ? [] : b.filter(x => !ids.includes(x.id)))
+    void fetch('/api/benachrichtigungen', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(ids === 'alle' ? { alle: true } : { ids }),
+    }).catch(() => { /* beim nächsten Laden erneut sichtbar */ })
+  }
+  const artText = (a: string) => a === 'aufgabe_zugewiesen' ? 'Zugewiesen' : a === 'aufgabe_alle' ? 'Für alle' : a === 'erwaehnung' ? 'Erwähnung' : 'System'
+  const wannText = (iso: string) => {
+    const d = new Date(iso), diff = (Date.now() - d.getTime()) / 60000
+    if (diff < 60) return `vor ${Math.max(1, Math.round(diff))} Min.`
+    if (diff < 60 * 24) return `vor ${Math.round(diff / 60)} Std.`
+    return d.toLocaleDateString('de-AT', { day: 'numeric', month: 'short' })
+  }
 
   // Dropdowns bei Außenklick schließen
   useEffect(() => {
@@ -128,17 +148,41 @@ export default function Topbar({
               onClick={() => setNotifOpen(o => !o)}
               className="relative w-8 h-8 flex items-center justify-center rounded-md text-white/80 hover:bg-white/10 hover:text-white transition-colors"
               aria-label={anzahl ? `${anzahl} Hinweise` : 'Benachrichtigungen'}
-              title={anzahl ? `${anzahl} offene Hinweise (Fristen, Gärkontrollen)` : 'Benachrichtigungen'}
+              title={anzahl ? `${anzahl} offene Hinweise (Aufgaben, Fristen, Gärkontrollen)` : 'Benachrichtigungen'}
             >
               <Bell size={17} strokeWidth={1.5} />
               {anzahl > 0 && (
-                <span className={`absolute -top-0.5 -right-0.5 min-w-[17px] h-[17px] px-1 rounded-full font-mono text-[10px] font-semibold leading-[17px] text-center text-white ${anzahlErr > 0 ? 'bg-s112-err' : 'bg-s112-warn'}`}>
+                <span className={`absolute -top-0.5 -right-0.5 min-w-[17px] h-[17px] px-1 rounded-full font-mono text-[10px] font-semibold leading-[17px] text-center text-white ${anzahlErr > 0 ? 'bg-s112-err' : benachr.length > 0 && !hinweise?.length ? 'bg-s112-blue-700' : 'bg-s112-warn'}`}>
                   {anzahl > 99 ? '99+' : anzahl}
                 </span>
               )}
             </button>
             {notifOpen && (
               <div className="absolute right-0 top-10 z-50 w-80 bg-white rounded-xl border border-s112-line shadow-lg text-s112-text overflow-hidden">
+                {/* Persönliche Benachrichtigungen (Aufgabe zugewiesen, für alle, @Erwähnung) */}
+                {benachr.length > 0 && (
+                  <>
+                    <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-s112-line bg-s112-bg/60">
+                      <p className="text-xs font-semibold">Für mich <span className="font-normal text-s112-tertiary">({benachr.length})</span></p>
+                      <button type="button" onClick={() => gelesen('alle')} className="text-[11.5px] text-s112-blue-700 hover:underline">alle gelesen</button>
+                    </div>
+                    <ul className="max-h-[40vh] overflow-y-auto py-1 border-b border-s112-line">
+                      {benachr.map(b => (
+                        <li key={b.id} className="flex items-start gap-2 px-3.5 py-2 hover:bg-s112-bg">
+                          <Link href={b.href ?? '/crm'} onClick={() => { gelesen([b.id]); setNotifOpen(false) }} className="flex items-start gap-2.5 min-w-0 flex-1">
+                            <span className="mt-1.5 w-2 h-2 rounded-full shrink-0 bg-s112-blue-700" />
+                            <span className="min-w-0">
+                              <span className="block text-[12.5px] font-medium truncate">{b.titel}</span>
+                              <span className="block text-[11px] text-s112-text-2 truncate">{artText(b.art)} · {wannText(b.erstellt_am)}{b.text ? ` · ${b.text}` : ''}</span>
+                            </span>
+                          </Link>
+                          <button type="button" onClick={() => gelesen([b.id])} title="Als gelesen markieren"
+                            className="shrink-0 text-s112-tertiary hover:text-s112-text-1 text-[11px] leading-5 px-1">✓</button>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
                 <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-s112-line">
                   <p className="text-xs font-semibold">Hinweise</p>
                   <Link href="/dashboard/fristen" onClick={() => setNotifOpen(false)} className="text-[11.5px] text-s112-blue-700 hover:underline">alle Fristen →</Link>

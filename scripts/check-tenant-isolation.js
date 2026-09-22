@@ -51,7 +51,7 @@ const SRC_DIR = path.join(ROOT, 'src')
 // (wird per user_id gesucht) und wird unten separat behandelt.
 const PROTECTED_TABLES = [
   'aktivitaet_dokumente', 'aktivitaeten', 'ama_erntemeldungen', 'assistent_korrekturen',
-  'assistent_unterhaltungen', 'behaelter', 'behandlungen', 'bestellungen', 'dac_antrag',
+  'assistent_unterhaltungen', 'behaelter', 'benachrichtigungen', 'behandlungen', 'bestellungen', 'dac_antrag',
   'datenschutz_consents', 'duengemittel', 'duengemittel_lager_bewegungen', 'ea_belege', 'ea_dauerauftraege',
   'ea_dauerauftrag_log', 'ea_kategorien', 'ea_monatsabschluss', 'ea_transaktionen', 'ea_uva',
   'exportauftraege', 'fibu_buchungssaetze',

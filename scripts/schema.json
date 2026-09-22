@@ -34,7 +34,9 @@
 "email_conversation_id",
 "ist_privat",
 "bis_datum",
-"erstellt_von"
+"erstellt_von",
+"verantwortlich_id",
+"fuer_alle"
 ],
 "ama_erntemeldungen": [
 "id",
@@ -159,6 +161,21 @@
 "einarbeitung",
 "einarbeitung_zeitpunkt",
 "reinkupfer_kg_ha"
+],
+"benachrichtigungen": [
+"id",
+"tenant_id",
+"empfaenger_id",
+"ausgeloest_von",
+"art",
+"titel",
+"text",
+"href",
+"quelle_typ",
+"quelle_id",
+"gelesen_am",
+"email_gesendet_am",
+"erstellt_am"
 ],
 "bestellung_positionen": [
 "id",
@@ -963,7 +980,8 @@
 "created_at",
 "updated_at",
 "user_id",
-"full_name"
+"full_name",
+"benachrichtigung_email"
 ],
 "pruefnummernantraege": [
 "id",

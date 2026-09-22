@@ -7,6 +7,8 @@ import { absenderIndexVerwerfen } from '@/lib/crm/absender'
 import { AktionsFehler } from '@/lib/fehler'
 import { pruefeEmailFelder, einzelneEmail } from '@/lib/crm/email'
 import { dezimal } from '@/lib/format'
+import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
+import { benachrichtigeAktivitaet } from '@/lib/benachrichtigungen/server'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -384,11 +386,20 @@ export async function createAktivitaet(formData: FormData) {
     uhrzeit_bis:  ganztags ? null : ((formData.get('uhrzeit_bis') as string) || null),
     ist_privat:   formData.get('ist_privat') === 'true',
     erstellt_von: user?.id ?? null,
+    // Ohne Auswahlfeld (Detailseiten) gehört die Aktivität dem Ersteller; „Betrieb“ nur bei bewusster Wahl
+    ...(formData.has('verantwortlich') ? zuweisung(formData) : { verantwortlich_id: user?.id ?? null, fuer_alle: false }),
   }
-  const { error } = await (supabase.from('aktivitaeten') as any).insert(payload).eq('tenant_id', tenantId)
+  const { data: neu, error } = await (supabase.from('aktivitaeten') as any).insert(payload).eq('tenant_id', tenantId).select('id').single()
   if (error) {
     console.error('[createAktivitaet] DB-Fehler:', error.message, error.details, error.hint)
     throw new AktionsFehler(`Aktivität konnte nicht gespeichert werden: ${error.message}`)
+  }
+  if (user && neu?.id) {
+    await benachrichtigeAktivitaet({
+      tenantId, userId: user.id, id: neu.id as string, betreff: payload.betreff ?? payload.art, art: payload.art, datum: payload.datum,
+      beschreibung: payload.beschreibung, verantwortlichId: payload.verantwortlich_id, fuerAlle: payload.fuer_alle,
+      vorher: null, mitglieder: await ladeMandantMitglieder(tenantId),
+    })
   }
   revalidatePath('/crm')
   revalidatePath('/crm/kontakte')
@@ -404,7 +415,6 @@ export async function updateAktivitaet(id: string, formData: FormData) {
   const payload: AR = {
     art:          formData.get('art') as string,
     betreff:      (formData.get('betreff') as string) || null,
-    beschreibung: (formData.get('beschreibung') as string) || null,
     datum:        formData.get('datum') as string,
     bis_datum:    (formData.get('bis_datum') as string) || null,
     erledigt:     formData.get('erledigt') === 'true',
@@ -412,11 +422,35 @@ export async function updateAktivitaet(id: string, formData: FormData) {
     uhrzeit_von:  ganztags ? null : ((formData.get('uhrzeit_von') as string) || null),
     uhrzeit_bis:  ganztags ? null : ((formData.get('uhrzeit_bis') as string) || null),
   }
+  // Beschreibung nur übernehmen, wenn das Formular das Feld mitschickt (sonst würde sie gelöscht)
+  if (formData.has('beschreibung')) payload.beschreibung = (formData.get('beschreibung') as string) || null
+  // Zuweisung nur übernehmen, wenn das Formular sie mitschickt (Detailseiten-Formulare kennen sie nicht)
+  if (formData.has('verantwortlich')) Object.assign(payload, zuweisung(formData))
+  const { data: vorher } = await (supabase.from('aktivitaeten') as any)
+    .select('verantwortlich_id, fuer_alle, beschreibung').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
   const { error } = await (supabase.from('aktivitaeten') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new AktionsFehler((error as AR).message)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user && vorher) {
+    await benachrichtigeAktivitaet({
+      tenantId, userId: user.id, id, betreff: payload.betreff ?? payload.art, art: payload.art, datum: payload.datum,
+      beschreibung: 'beschreibung' in payload ? payload.beschreibung : (vorher.beschreibung ?? null),
+      verantwortlichId: 'verantwortlich_id' in payload ? payload.verantwortlich_id : (vorher.verantwortlich_id ?? null),
+      fuerAlle: 'fuer_alle' in payload ? payload.fuer_alle : !!vorher.fuer_alle,
+      vorher: { verantwortlich_id: vorher.verantwortlich_id ?? null, fuer_alle: !!vorher.fuer_alle, beschreibung: vorher.beschreibung ?? null },
+      mitglieder: await ladeMandantMitglieder(tenantId),
+    })
+  }
   revalidatePath('/crm')
   revalidatePath('/crm/kontakte/[id]', 'page')
   revalidatePath('/crm/firmen/[id]', 'page')
+}
+
+/** Formularfeld „verantwortlich“: '' = Betrieb (niemand), 'alle' = für alle, sonst user_id */
+function zuweisung(formData: FormData): { verantwortlich_id: string | null; fuer_alle: boolean } {
+  const v = ((formData.get('verantwortlich') as string) || '').trim()
+  if (v === 'alle') return { verantwortlich_id: null, fuer_alle: true }
+  return { verantwortlich_id: v || null, fuer_alle: false }
 }
 
 export async function deleteAktivitaet(id: string) {

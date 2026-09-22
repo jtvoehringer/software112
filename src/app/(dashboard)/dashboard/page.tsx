@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { Wine, Package, ReceiptText, ListChecks, ShoppingCart, Calendar, Wallet, FlaskConical, Grape } from 'lucide-react'
 import { DashHeader, Tile, Card, Badge, Empty, fmtEur, fmtNum, fmtDate, tageBis, type BadgeTone } from './_shared/ui'
-import { getCtx, ladeKeller, ladeFlaschenlager, ladeOffenePosten, ladeFristen, ladeEinstellungen, ladeNaechsteTermine, ladeWeingarten, type R } from './_shared/data'
+import { getCtx, ladeKeller, ladeFlaschenlager, ladeOffenePosten, ladeFristen, ladeEinstellungen, ladeAufgabenTermine, ladeWeingarten, type R, type AufgabeTermin } from './_shared/data'
 import { ladeFinanzen } from '@/lib/finanzen/uebersicht'
 import { ladeMorgenbericht } from '@/lib/morgenbericht/erstellen'
 import { canWrite } from '@/lib/auth/roles'
@@ -25,12 +25,12 @@ export default async function UebersichtPage() {
   const einst = await ladeEinstellungen(ctx)
   const jahr = ctx.heute.getFullYear()
 
-  const [keller, flaschen, offen, fristen, termine, weingarten, { data: profil }, { count: checklistOffen }, finanzen, morgenbericht] = await Promise.all([
+  const [keller, flaschen, offen, fristen, aufgabenTermine, weingarten, { data: profil }, { count: checklistOffen }, finanzen, morgenbericht] = await Promise.all([
     ladeKeller(ctx, einst.messintervallTage),
     ladeFlaschenlager(ctx),
     ladeOffenePosten(ctx),
     ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum, vorwarnungTage: einst.vorwarnungTage, betriebsbeginn: einst.betriebsbeginn, doppik: einst.doppik }),
-    ladeNaechsteTermine(ctx, 3),
+    ladeAufgabenTermine(ctx),
     ladeWeingarten(ctx),
     ctx.userId ? ctx.q('profiles').select('full_name').eq('id', ctx.userId).maybeSingle() : Promise.resolve({ data: null }),
     ctx.tf(ctx.q('checklisten_punkte').select('id, checkliste:checkliste_id!inner(jahr, typ)', { count: 'exact', head: true }).eq('erledigt', false).eq('checkliste.jahr', jahr)),
@@ -73,12 +73,7 @@ export default async function UebersichtPage() {
       wann: fmtDate(w.freiAb, { day: '2-digit', month: '2-digit' }), badge: 'WARTEFRIST', tone: 'gray', href: '/behandlungen', rang: 4,
     })
   }
-  for (const t of termine) {
-    schritte.push({
-      key: `t:${t.id}`, titel: t.betreff, hinweis: t.wer || 'Termin', wann: fmtDate(t.datum, { weekday: 'short', day: '2-digit', month: '2-digit' }),
-      badge: 'TERMIN', tone: 'info', href: '/crm', rang: 5,
-    })
-  }
+  // Termine/Aufgaben stehen seit 22.9.2026 in der eigenen Karte „Aufgaben & Termine“ (Meine / Betrieb)
   schritte.sort((a, b) => a.rang - b.rang)
 
   return (
@@ -141,7 +136,7 @@ export default async function UebersichtPage() {
         {/* ── Nächste Schritte ───────────────────────────────────────────── */}
         <Card title="Nächste Schritte" right={<Link href="/dashboard/fristen" className="text-[11.5px] text-s112-blue-700 hover:underline">alle Fristen →</Link>}>
           {schritte.length === 0 ? (
-            <Empty>Nichts Dringendes – keine fälligen Messungen, Fristen oder Termine.</Empty>
+            <Empty>Nichts Dringendes – keine fälligen Messungen oder Fristen.</Empty>
           ) : (
             <table className="w-full">
               <tbody>
@@ -164,6 +159,17 @@ export default async function UebersichtPage() {
 
         {/* ── Morgenbericht (ersetzt seit 10.9.2026 „Datenfluss statt Zettelwirtschaft“) ── */}
         <MorgenberichtKarte bericht={morgenbericht} darfSchreiben={canWrite(ctx.role, 'betrieb')} wetterHinweis={!einst.wetterAktiv || !einst.modulWeingarten ? 'Wetter & Empfehlungen sind für diesen Betrieb deaktiviert (Mein Betrieb → Branding & Regeln).' : null} />
+
+        {/* ── Aufgaben & Termine: mir zugewiesen / für alle vs. Betrieb (Migration 224, 22.9.2026) ── */}
+        <Card title="Aufgaben & Termine" className="lg:col-span-2 2xl:col-span-2 2xl:order-last"
+          right={<Link href="/crm" className="text-[11.5px] text-s112-blue-700 hover:underline">Kalender →</Link>}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+            <AufgabenSpalte titel="Meine" hinweis="mir zugewiesen oder für alle" eintraege={aufgabenTermine.meine} heute={ctx.heuteStr}
+              leer="Nichts für mich – keine zugewiesenen Aufgaben oder Termine." meine />
+            <AufgabenSpalte titel="Betrieb" hinweis="anderen zugewiesen oder niemandem" eintraege={aufgabenTermine.betrieb} heute={ctx.heuteStr}
+              leer="Keine weiteren offenen Aufgaben oder Termine im Betrieb." />
+          </div>
+        </Card>
 
       {/* ── Schnellzugriff ─────────────────────────────────────────────────── */}
       <div className="lg:col-span-2 2xl:col-span-1">
@@ -190,3 +196,44 @@ export default async function UebersichtPage() {
   )
 }
 
+// ── Spalte „Meine“ / „Betrieb“ der Karte Aufgaben & Termine ──────────────────
+function AufgabenSpalte({ titel, hinweis, eintraege, heute, leer, meine = false }: {
+  titel: string; hinweis: string; eintraege: AufgabeTermin[]; heute: string; leer: string; meine?: boolean
+}) {
+  const offen = eintraege.length
+  return (
+    <div className="min-w-0">
+      <div className="flex items-baseline justify-between mb-1.5">
+        <h3 className="text-[12.5px] font-semibold text-s112-text">{titel} <span className="font-mono font-normal text-s112-tertiary">({offen})</span></h3>
+        <span className="text-[11px] text-s112-tertiary">{hinweis}</span>
+      </div>
+      {offen === 0 ? (
+        <p className="text-[12px] text-s112-tertiary py-2">{leer}</p>
+      ) : (
+        <table className="w-full">
+          <tbody>
+            {eintraege.slice(0, 6).map(a => (
+              <tr key={a.id} className="border-b border-s112-line last:border-0 hover:bg-[#F7F8FA]">
+                <td className="py-2 pr-2 min-w-0">
+                  <Link href={`/crm?aktivitaet=${a.id}`} className="block min-w-0">
+                    <span className="block text-[13px] font-semibold text-s112-text truncate">{a.betreff}</span>
+                    <span className="block text-[11.5px] text-s112-text-2 truncate">
+                      {a.wer || (a.istAufgabe ? 'Aufgabe' : 'Termin')}{!meine && <> · <span className="text-s112-tertiary">{a.verantwortlich}</span></>}{meine && a.fuerAlle && <> · <span className="text-s112-tertiary">für alle</span></>}
+                    </span>
+                  </Link>
+                </td>
+                <td className={`py-2 px-2 font-mono text-[12px] whitespace-nowrap text-right ${a.ueberfaellig ? 'text-s112-err-fg' : 'text-s112-text-2'}`}>
+                  {a.datum === heute ? 'heute' : fmtDate(a.datum, { weekday: 'short', day: '2-digit', month: '2-digit' })}{a.uhrzeit ? ` ${a.uhrzeit}` : ''}
+                </td>
+                <td className="py-2 pl-2 text-right"><Badge tone={a.ueberfaellig ? 'err' : a.istAufgabe ? 'warn' : 'info'}>{a.ueberfaellig ? 'ÜBERFÄLLIG' : a.istAufgabe ? 'AUFGABE' : 'TERMIN'}</Badge></td>
+              </tr>
+            ))}
+            {offen > 6 && (
+              <tr><td colSpan={3} className="pt-1.5 text-[11.5px]"><Link href="/crm" className="text-s112-blue-700 hover:underline">{offen - 6} weitere im Kalender →</Link></td></tr>
+            )}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
+}

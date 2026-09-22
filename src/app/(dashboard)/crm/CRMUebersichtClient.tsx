@@ -80,11 +80,47 @@ function KundenSuche({ items = [], art, value, onChange, placeholder }: {
   )
 }
 
+// ── Verantwortlich-Auswahl (Aufgabenzuordnung, 22.9.2026) ────────────────────
+
+export type MitgliedOption = { id: string; name: string }
+
+/** Wert des Feldes „verantwortlich“: '' = Betrieb, 'alle' = für alle, sonst user_id */
+function verantwortlichWert(e: { verantwortlich_id?: string | null; fuer_alle?: boolean } | null | undefined): string {
+  if (e?.fuer_alle) return 'alle'
+  return e?.verantwortlich_id ?? ''
+}
+
+function verantwortlichText(e: { verantwortlich_id?: string | null; fuer_alle?: boolean }, userProfiles: Record<string, string>, userId?: string | null): string {
+  if (e.fuer_alle) return 'Alle im Betrieb'
+  if (!e.verantwortlich_id) return 'Betrieb (niemand zugeordnet)'
+  const name = userProfiles[e.verantwortlich_id] ?? 'Unbekannt'
+  return e.verantwortlich_id === userId ? `${name} (ich)` : name
+}
+
+function VerantwortlichSelect({ mitglieder, userId, defaultValue, className }: {
+  mitglieder: MitgliedOption[]; userId?: string | null; defaultValue: string; className: string
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-s112-text-2 mb-1">Verantwortlich</label>
+      <select name="verantwortlich" defaultValue={defaultValue} className={className}>
+        {mitglieder.filter(m => m.id === userId).map(m => <option key={m.id} value={m.id}>{m.name} (ich)</option>)}
+        <option value="alle">Alle im Betrieb</option>
+        <option value="">Betrieb (niemand)</option>
+        {mitglieder.filter(m => m.id !== userId).map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+      </select>
+    </div>
+  )
+}
+
 // ── Typen ─────────────────────────────────────────────────────────────────────
 
 export type KalenderEintrag = {
   ist_privat?: boolean | null
   erstellt_von?: string | null
+  verantwortlich_id?: string | null   // zugewiesener Benutzer; null = Betrieb
+  fuer_alle?: boolean                 // gilt für alle Mitglieder
+  beschreibung?: string | null
   id: string
   datum: string          // YYYY-MM-DD
   titel: string
@@ -260,12 +296,15 @@ function WochenView({ eintraege, current, heute }: { eintraege: KalenderEintrag[
 const HOUR_H = 64  // px per hour
 
 function ZeitachseView({
-  eintraege, current, heute, userProfiles = {},
+  eintraege, current, heute, userProfiles = {}, mitglieder = [], userId = null, oeffneId = null,
 }: {
   eintraege: KalenderEintrag[]
   current: Date
   heute: string
   userProfiles?: Record<string, string>
+  mitglieder?: MitgliedOption[]
+  userId?: string | null
+  oeffneId?: string | null
 }) {
   const router    = useRouter()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -301,6 +340,12 @@ function ZeitachseView({
 
   // Aktivität-Detail anzeigen
   const [viewAkt,    setViewAkt]    = useState<KalenderEintrag | null>(null)
+  useEffect(() => {
+    if (!oeffneId) return
+    const e = eintraege.find(x => x.id === `a_${oeffneId}`)
+    if (e) setViewAkt(e)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [oeffneId])
   const [editAktMode,  setEditAktMode]  = useState(false)
   const [editPipeMode, setEditPipeMode] = useState(false)
 
@@ -793,6 +838,10 @@ function ZeitachseView({
                       : <span className="text-s112-tertiary">unbekannt (Alt-/Importdaten)</span>}
                   </p>
                 )}
+                {viewAkt.typ === 'aktivitaet' && (
+                  <p><span className="font-medium text-s112-text-1">Verantwortlich:</span> {verantwortlichText(viewAkt, userProfiles, userId)}</p>
+                )}
+                {viewAkt.beschreibung && <p className="whitespace-pre-wrap text-s112-text-2 border-l-2 border-s112-border pl-2">{viewAkt.beschreibung}</p>}
                 {viewAkt.ist_privat  && <p className="text-s112-tertiary text-xs inline-flex items-center gap-1"><Lock size={11} />Privater Termin</p>}
               </div>
               {saveErr && (
@@ -927,6 +976,12 @@ function ZeitachseView({
                     <label className="block text-xs font-medium text-s112-text-2 mb-1">Bis (mehrtägig)</label>
                     <input type="date" name="bis_datum" defaultValue={viewAkt.bis_datum ?? ''} className={inputCls} />
                   </div>
+                </div>
+                <VerantwortlichSelect mitglieder={mitglieder} userId={userId} defaultValue={verantwortlichWert(viewAkt)} className={inputCls} />
+                <div>
+                  <label className="block text-xs font-medium text-s112-text-2 mb-1">Bericht</label>
+                  <textarea name="beschreibung" rows={3} defaultValue={viewAkt.beschreibung ?? ''} placeholder="Optional … (@Name benachrichtigt Kolleginnen/Kollegen)"
+                    className={inputCls + ' resize-none'} />
                 </div>
                 {saveErr && <p className="text-xs text-s112-err-fg">{saveErr}</p>}
                 <div className="flex gap-2 pt-1">
@@ -1089,10 +1144,13 @@ function ZeitachseView({
               </div>
             )}
 
+            {/* Verantwortlich */}
+            <VerantwortlichSelect mitglieder={mitglieder} userId={userId} defaultValue={userId ?? ''} className={inputCls} />
+
             {/* Bericht */}
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Bericht</label>
-              <textarea name="beschreibung" rows={2} placeholder="Optional …"
+              <textarea name="beschreibung" rows={2} placeholder="Optional … (@Name benachrichtigt Kolleginnen/Kollegen)"
                 className={inputCls + ' resize-none'} />
             </div>
 
@@ -1299,11 +1357,18 @@ interface Props {
   eintraege: KalenderEintrag[]
   heute: string
   userProfiles?: Record<string, string>
+  mitglieder?: MitgliedOption[]
+  userId?: string | null
+  /** Aktivitäts-ID aus /crm?aktivitaet=… (Link aus Benachrichtigung): Woche wechseln + Detail öffnen */
+  oeffneId?: string | null
 }
 
-export default function CRMUebersichtClient({ eintraege, heute, userProfiles = {} }: Props) {
+export default function CRMUebersichtClient({ eintraege, heute, userProfiles = {}, mitglieder = [], userId = null, oeffneId = null }: Props) {
   const [view, setView]       = useState<ViewMode>('zeitachse')
-  const [current, setCurrent] = useState<Date>(() => new Date())
+  const [current, setCurrent] = useState<Date>(() => {
+    const e = oeffneId ? eintraege.find(x => x.id === `a_${oeffneId}`) : null
+    return e ? new Date(e.datum + 'T12:00:00') : new Date()
+  })
 
   // ── Outlook-Kalender des angemeldeten Users spiegeln ──────────────────────
   // Läd die Termine aus dem verbundenen Outlook-Konto (falls vorhanden) für
@@ -1439,7 +1504,7 @@ export default function CRMUebersichtClient({ eintraege, heute, userProfiles = {
       </div>
 
       {/* ── Kalender ── */}
-      {view === 'zeitachse' && <ZeitachseView eintraege={alleEintraege} current={current} heute={heute} userProfiles={userProfiles} />}
+      {view === 'zeitachse' && <ZeitachseView eintraege={alleEintraege} current={current} heute={heute} userProfiles={userProfiles} mitglieder={mitglieder} userId={userId} oeffneId={oeffneId} />}
       {view === 'monat'     && <MonatView     eintraege={alleEintraege} current={current} heute={heute} />}
       {view === 'jahr'      && <JahrView      eintraege={alleEintraege} current={current} heute={heute} />}
 

@@ -13,16 +13,27 @@ export const dynamic = 'force-dynamic'
 
 export type Hinweis = { key: string; titel: string; detail: string; tone: 'err' | 'warn'; href: string }
 
+// Persönliche Benachrichtigungen (Migration 224): Aufgabe zugewiesen, für alle, @Erwähnung
+export type Benachrichtigung = { id: string; art: string; titel: string; text: string | null; href: string | null; erstellt_am: string }
+
 export async function GET() {
   const ctx = await getCtx()
-  if (!ctx.tenantId) return NextResponse.json({ hinweise: [] })
+  if (!ctx.tenantId) return NextResponse.json({ hinweise: [], benachrichtigungen: [] })
 
   const einst = await ladeEinstellungen(ctx)
-  const [fristen, keller, bericht] = await Promise.all([
+  const [fristen, keller, bericht, benachr] = await Promise.all([
     ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum, vorwarnungTage: einst.vorwarnungTage, betriebsbeginn: einst.betriebsbeginn, doppik: einst.doppik }),
     ladeKeller(ctx, einst.messintervallTage),
     ladeMorgenbericht(ctx.supabase, ctx.tenantId),
+    ctx.userId
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? (ctx.supabase.from('benachrichtigungen') as any)
+          .select('id, art, titel, text, href, erstellt_am')
+          .eq('tenant_id', ctx.tenantId).eq('empfaenger_id', ctx.userId).is('gelesen_am', null)
+          .order('erstellt_am', { ascending: false }).limit(30)
+      : Promise.resolve({ data: [] }),
   ])
+  const benachrichtigungen = ((benachr.data ?? []) as Benachrichtigung[])
 
   const hinweise: Hinweis[] = []
   for (const f of fristen.filter(f => f.status === 'ueberfaellig' || f.status === 'faellig')) {
@@ -46,5 +57,5 @@ export async function GET() {
       hinweise.push({ key: `mb:${b.key}`, titel: b.titel, detail: b.detail, tone: 'err', href: b.href && !b.href.startsWith('http') ? b.href : '/dashboard/morgenbericht' })
     }
   }
-  return NextResponse.json({ hinweise })
+  return NextResponse.json({ hinweise, benachrichtigungen })
 }

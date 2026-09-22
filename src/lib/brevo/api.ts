@@ -16,18 +16,20 @@ function headers() {
 // ── Transaktions-E-Mail senden ────────────────────────────────────────────────
 
 export async function sendEmail({
-  to, subject, htmlContent, textContent,
+  to, subject, htmlContent, textContent, senderName,
 }: {
   to: { email: string; name?: string }
   subject: string
   htmlContent: string
   textContent?: string
+  /** Absendername; Standard: Weingut Gebeshuber (Newsletter). System-Mails: 'software:112' */
+  senderName?: string
 }) {
   const res = await fetch(`${BREVO_BASE}/smtp/email`, {
     method: 'POST',
     headers: headers(),
     body: JSON.stringify({
-      sender:      { name: 'Weingut Gebeshuber', email: process.env.BREVO_SENDER_EMAIL ?? 'noreply@weingut-gebeshuber.at' },
+      sender:      { name: senderName ?? 'Weingut Gebeshuber', email: process.env.BREVO_SENDER_EMAIL ?? 'noreply@weingut-gebeshuber.at' },
       to:          [to],
       subject,
       htmlContent,
