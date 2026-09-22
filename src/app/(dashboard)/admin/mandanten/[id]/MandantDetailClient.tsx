@@ -931,6 +931,7 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
             </li>
             <li>Zertifikate & Geheimnisse → Neuer geheimer Clientschlüssel</li>
             <li>API-Berechtigungen → Microsoft Graph → delegiert: Mail.ReadWrite, Mail.ReadWrite.Shared, Mail.Send, Mail.Send.Shared, Calendars.Read, offline_access – danach „Administratorzustimmung erteilen". Die .Shared-Berechtigungen braucht Graph für geteilte Mailboxen (sonst 403 trotz Vollzugriff); nach dem Ergänzen müssen sich die Benutzer unter Nachrichten › Einstellungen einmal „Trennen &amp; neu verbinden".</li>
+            <li>Optional für „Termine in Outlook anlegen" (Einladung an Kollegen aus dem CRM-Kalender): zusätzlich <b>Calendars.ReadWrite</b> delegiert + Administratorzustimmung, dann unten den Schalter setzen. Erst danach fordert die Verbindung das Schreibrecht an – vorher würde die Anmeldung aller Benutzer scheitern. Frei/Belegt der Kollegen funktioniert schon mit Calendars.Read.</li>
           </ol>
         </div>
 
@@ -947,6 +948,13 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Geheimer Clientschlüssel</label>
             <input name="m365_client_secret" type="password" placeholder="Neu setzen (leer = unverändert)" className={inputCls()} />
           </div>
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" name="m365_kalender_schreiben" value="true" defaultChecked={!!settings.m365_kalender_schreiben} className="accent-s112-teal mt-0.5" />
+            <span className="text-xs text-s112-text-1">
+              Termine in Outlook anlegen (Calendars.ReadWrite ist in Entra freigegeben)
+              <span className="block text-[11px] text-s112-tertiary">Benutzer müssen sich danach unter Nachrichten einmal trennen und neu verbinden, damit ihre Verbindung das Schreibrecht erhält.</span>
+            </span>
+          </label>
         </div>
 
         <div className="flex items-center gap-3">

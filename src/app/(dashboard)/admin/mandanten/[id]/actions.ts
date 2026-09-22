@@ -352,6 +352,8 @@ export async function saveM365Einstellungen(tenantId: string, formData: FormData
   const payload: Record<string, unknown> = {
     m365_tenant_id: (formData.get('m365_tenant_id') as string) || null,
     m365_client_id: (formData.get('m365_client_id') as string) || null,
+    // Migration 225: Kalender-Schreibrecht nur anfordern, wenn Entra es führt
+    m365_kalender_schreiben: formData.get('m365_kalender_schreiben') === 'true',
     m365_client_secret_enc: clientSecret
       ? encryptPass(clientSecret)
       : ((existing as Record<string,string>|null)?.m365_client_secret_enc ?? null),

@@ -1,6 +1,6 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
-import { exchangeCodeForTokens, encryptPass } from '@/lib/m365/graph'
+import { exchangeCodeForTokens, encryptPass, m365ScopeFuer } from '@/lib/m365/graph'
 import { ereignisMelden } from '@/lib/system/ereignis'
 
 export const dynamic = 'force-dynamic'
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   const admin = createSupabaseAdminClient()
 
   const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
-    .select('m365_tenant_id, m365_client_id, m365_client_secret_enc')
+    .select('m365_tenant_id, m365_client_id, m365_client_secret_enc, m365_kalender_schreiben')
     .eq('tenant_id', tenantId).maybeSingle()
   const c = cfg as R | null
   if (!c) return NextResponse.redirect(new URL('/nachrichten?fehler=tenant_not_found', req.url))
@@ -36,7 +36,8 @@ export async function GET(req: NextRequest) {
     const proto = req.headers.get('x-forwarded-proto') ?? 'https'
     const redirectUri = `${proto}://${host}/api/auth/m365/user/callback`
 
-    const tokens = await exchangeCodeForTokens('common', c.m365_client_id, clientSecret, code, redirectUri)
+    const scope  = m365ScopeFuer(c)
+    const tokens = await exchangeCodeForTokens('common', c.m365_client_id, clientSecret, code, redirectUri, scope)
 
     // Mailbox-E-Mail ermitteln
     const meRes = await fetch('https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName,displayName', {
@@ -56,6 +57,8 @@ export async function GET(req: NextRequest) {
       m365_access_token_enc:  encryptPass(tokens.access_token),
       m365_refresh_token_enc: encryptPass(tokens.refresh_token),
       m365_token_expires_at:  new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+      // tatsächlich erteilter Scope (Microsoft liefert ihn zurück; sonst der angeforderte)
+      m365_scope:             (tokens.scope as string | undefined) || scope,
       aktualisiert_am:        new Date().toISOString(),
     }, { onConflict: 'tenant_id,user_id' })
       if (e) void ereignisMelden({ art: 'db', quelle: 'callback/user_email_connections', meldung: e.message }) }

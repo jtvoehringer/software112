@@ -4,6 +4,7 @@ import type { KalenderEintrag } from './CRMUebersichtClient'
 import { AKTIVITAET_ARTEN } from '@/lib/crm/types'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
+import { ladeOutlookStatus } from '@/lib/m365/benutzer'
 
 export const dynamic = 'force-dynamic'
 
@@ -130,9 +131,13 @@ export default async function CRMUebersichtPage({ searchParams }: { searchParams
   ].sort((a, b) => a.datum.localeCompare(b.datum))
 
   // Mitglieder des Betriebs für die Verantwortlich-Auswahl (Aufgabenzuordnung, 22.9.2026)
-  const mitglieder = tenantId ? await ladeMandantMitglieder(tenantId) : []
+  const [mitglieder, outlook] = await Promise.all([
+    tenantId ? ladeMandantMitglieder(tenantId) : Promise.resolve([]),
+    // Outlook-Status für den Termin-Dialog (Einladung an Kollegen, Frei/Belegt – Migration 225)
+    tenantId && currentUserId ? ladeOutlookStatus(tenantId, currentUserId) : Promise.resolve(null),
+  ])
   mitglieder.forEach(m => { if (!userProfiles[m.id]) userProfiles[m.id] = m.name })
 
   return <CRMUebersichtClient eintraege={eintraege} heute={heute} userProfiles={userProfiles}
-    mitglieder={mitglieder.map(m => ({ id: m.id, name: m.name }))} userId={currentUserId} oeffneId={oeffneId ?? null} />
+    mitglieder={mitglieder.map(m => ({ id: m.id, name: m.name }))} userId={currentUserId} oeffneId={oeffneId ?? null} outlook={outlook} />
 }

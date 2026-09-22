@@ -78,6 +78,7 @@ export type TenantSettings = {
   // Migration 039 – M365
   m365_modul_aktiv:    boolean
   m365_tenant_id:      string | null
+  m365_kalender_schreiben?: boolean
   m365_client_id:      string | null
   m365_user_email:     string | null
   m365_token_expires_at: string | null
@@ -232,6 +233,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     email_last_poll:      s?.email_last_poll ?? null,
     m365_modul_aktiv:     !!(s?.m365_modul_aktiv),
     m365_tenant_id:       s?.m365_tenant_id ?? null,
+    m365_kalender_schreiben: !!s?.m365_kalender_schreiben,
     m365_client_id:       s?.m365_client_id ?? null,
     m365_user_email:      s?.m365_user_email ?? null,
     m365_token_expires_at: s?.m365_token_expires_at ?? null,

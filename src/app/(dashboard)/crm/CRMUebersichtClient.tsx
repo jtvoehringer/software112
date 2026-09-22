@@ -113,6 +113,65 @@ function VerantwortlichSelect({ mitglieder, userId, defaultValue, className }: {
   )
 }
 
+// ── Outlook-Termin (Einladung an Kollegen, Frei/Belegt) – Migration 225 ─────────
+
+export type OutlookStatus = { verbunden: boolean; schreiben: boolean; schreibenAktiv: boolean; kollegen: { id: string; name: string }[] }
+type FreiBelegtInfo = { id: string; name: string; verfuegbar: boolean; belegt: { von: string; bis: string; status: string; betreff?: string | null }[]; fehler?: string | null }
+
+/** Block im Termin-Dialog: „In Outlook anlegen“ + Teilnehmer mit Frei/Belegt am gewählten Tag */
+function OutlookBlock({ outlook, datum, aktiv, setAktiv, teilnehmer, setTeilnehmer }: {
+  outlook: OutlookStatus; datum: string; aktiv: boolean; setAktiv: (v: boolean) => void
+  teilnehmer: string[]; setTeilnehmer: (v: string[]) => void
+}) {
+  const [frei, setFrei] = useState<FreiBelegtInfo[] | null>(null)
+  useEffect(() => {
+    if (outlook.kollegen.length === 0) return
+    let cancelled = false
+    setFrei(null)
+    fetch(`/api/crm/outlook-frei?datum=${datum}`).then(r => r.json()).then(j => { if (!cancelled) setFrei(j.ok ? j.kollegen : []) }).catch(() => { if (!cancelled) setFrei([]) })
+    return () => { cancelled = true }
+  }, [datum, outlook.kollegen.length])
+  const darf = outlook.schreiben
+  const toggle = (id: string) => setTeilnehmer(teilnehmer.includes(id) ? teilnehmer.filter(x => x !== id) : [...teilnehmer, id])
+  return (
+    <div className="rounded-lg border border-s112-border bg-s112-bg/40 px-3 py-2 space-y-1.5">
+      <label className={`flex items-center gap-2 ${darf ? 'cursor-pointer' : 'opacity-60'}`}>
+        <input type="checkbox" checked={aktiv && darf} disabled={!darf} onChange={e => setAktiv(e.target.checked)} className="accent-s112-teal" />
+        <span className="text-xs font-medium text-s112-text-1">In Outlook anlegen{teilnehmer.length > 0 && aktiv && darf ? ` und ${teilnehmer.length} einladen` : ''}</span>
+      </label>
+      {!darf && (
+        <p className="text-[11px] text-s112-tertiary">
+          {outlook.schreibenAktiv
+            ? 'Ihre Outlook-Verbindung hat noch kein Schreibrecht auf den Kalender – unter Nachrichten einmal trennen und neu verbinden.'
+            : 'Termine in Outlook anlegen ist für diesen Betrieb noch nicht freigeschaltet (Berechtigung Calendars.ReadWrite in Entra). Frei/Belegt der Kollegen sehen Sie trotzdem.'}
+        </p>
+      )}
+      {outlook.kollegen.length > 0 && (
+        <ul className="space-y-1">
+          {outlook.kollegen.map(k => {
+            const f = frei?.find(x => x.id === k.id)
+            return (
+              <li key={k.id} className="flex items-start gap-2">
+                <input type="checkbox" checked={teilnehmer.includes(k.id)} disabled={!darf} onChange={() => toggle(k.id)} className="accent-s112-teal mt-0.5" />
+                <span className="min-w-0">
+                  <span className="text-xs text-s112-text-1">{k.name}</span>
+                  <span className="block text-[11px] text-s112-tertiary">
+                    {frei === null ? 'Frei/Belegt wird geladen …'
+                      : !f || !f.verfuegbar ? 'Frei/Belegt nicht abrufbar'
+                      : f.belegt.length === 0 ? 'ganztägig frei'
+                      : 'belegt ' + f.belegt.map(b => `${b.von}–${b.bis}${b.betreff ? ` (${b.betreff})` : ''}`).join(', ')}
+                  </span>
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      {outlook.kollegen.length === 0 && <p className="text-[11px] text-s112-tertiary">Keine Kollegin/kein Kollege hat bisher ein Outlook-Konto verbunden.</p>}
+    </div>
+  )
+}
+
 // ── Typen ─────────────────────────────────────────────────────────────────────
 
 export type KalenderEintrag = {
@@ -296,7 +355,7 @@ function WochenView({ eintraege, current, heute }: { eintraege: KalenderEintrag[
 const HOUR_H = 64  // px per hour
 
 function ZeitachseView({
-  eintraege, current, heute, userProfiles = {}, mitglieder = [], userId = null, oeffneId = null,
+  eintraege, current, heute, userProfiles = {}, mitglieder = [], userId = null, oeffneId = null, outlook = null,
 }: {
   eintraege: KalenderEintrag[]
   current: Date
@@ -305,6 +364,7 @@ function ZeitachseView({
   mitglieder?: MitgliedOption[]
   userId?: string | null
   oeffneId?: string | null
+  outlook?: OutlookStatus | null
 }) {
   const router    = useRouter()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -353,6 +413,11 @@ function ZeitachseView({
   const [newAkt,         setNewAkt]         = useState<{ datum: string; von: string; bis: string; ganztags: boolean } | null>(null)
   const [newAktKontaktId, setNewAktKontaktId] = useState('')
   const [newAktFirmaId,   setNewAktFirmaId]   = useState('')
+  // Outlook: Termin auch im eigenen Outlook anlegen und Kollegen einladen (Migration 225)
+  const [outlookAktiv, setOutlookAktiv]       = useState(false)
+  const [outlookTeilnehmer, setOutlookTeilnehmer] = useState<string[]>([])
+  const [hinweis, setHinweis]                 = useState<string | null>(null)
+  useEffect(() => { if (!hinweis) return; const t = setTimeout(() => setHinweis(null), 8000); return () => clearTimeout(t) }, [hinweis])
   const [saveErr,   setSaveErr]   = useState<string | null>(null)
   // drag & drop
   const [dragInfo,   setDragInfo]   = useState<{ id: string; duration: number; ganztags?: boolean } | null>(null)
@@ -509,13 +574,29 @@ function ZeitachseView({
     fd.set('ganztags', newAkt?.ganztags ? 'true' : 'false')
     if (newAktKontaktId) fd.set('kontakt_id', newAktKontaktId)
     if (newAktFirmaId)   fd.set('firma_id',   newAktFirmaId)
+    const outlookDaten = outlookAktiv && outlook?.schreiben ? {
+      betreff: String(fd.get('betreff') || ''), datum: String(fd.get('datum') || ''), bis_datum: String(fd.get('bis_datum') || '') || null,
+      ganztags: !!newAkt?.ganztags, von: String(fd.get('uhrzeit_von') || '') || null, bis: String(fd.get('uhrzeit_bis') || '') || null,
+      beschreibung: String(fd.get('beschreibung') || '') || null, teilnehmer: outlookTeilnehmer,
+    } : null
     startTransition(async () => {
       try {
         await createAktivitaet(fd)
         setNewAkt(null)
         setNewAktKontaktId('')
         setNewAktFirmaId('')
+        setOutlookAktiv(false)
+        setOutlookTeilnehmer([])
         router.refresh()
+        if (outlookDaten) {
+          // Aktivität ist gespeichert – Outlook ist „best effort“ und meldet sich nur mit einem Hinweis
+          try {
+            const j = await fetch('/api/crm/outlook-termin', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(outlookDaten) }).then(r => r.json())
+            setHinweis(j.ok
+              ? `In Outlook angelegt${j.eingeladen ? `, ${j.eingeladen} Einladung${j.eingeladen === 1 ? '' : 'en'} verschickt` : ''}.`
+              : `Aktivität gespeichert, aber nicht in Outlook angelegt: ${j.meldung ?? j.grund ?? 'unbekannter Fehler'}`)
+          } catch { setHinweis('Aktivität gespeichert, aber Outlook war nicht erreichbar.') }
+        }
       } catch (err) {
         setSaveErr(fehlerText(err, 'Fehler beim Speichern'))
       }
@@ -553,6 +634,12 @@ function ZeitachseView({
 
   return (
     <>
+    {hinweis && (
+      <div className="mb-2 flex items-start justify-between gap-3 rounded-lg border border-s112-border bg-s112-blue-50 px-3 py-2 text-xs text-s112-blue-700 print:hidden">
+        <span>{hinweis}</span>
+        <button type="button" onClick={() => setHinweis(null)} className="shrink-0 text-s112-blue-700 hover:underline">schließen</button>
+      </div>
+    )}
     {/* User-Filter */}
     {uniqueUsers.length > 1 && (
       <div className="flex items-center gap-2 mb-2 print:hidden">
@@ -1154,6 +1241,12 @@ function ZeitachseView({
                 className={inputCls + ' resize-none'} />
             </div>
 
+            {/* Outlook: anlegen + Kollegen einladen, Frei/Belegt */}
+            {outlook?.verbunden && (
+              <OutlookBlock outlook={outlook} datum={newAkt.datum} aktiv={outlookAktiv} setAktiv={setOutlookAktiv}
+                teilnehmer={outlookTeilnehmer} setTeilnehmer={setOutlookTeilnehmer} />
+            )}
+
             {/* Privat */}
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" name="ist_privat" value="true"
@@ -1361,9 +1454,10 @@ interface Props {
   userId?: string | null
   /** Aktivitäts-ID aus /crm?aktivitaet=… (Link aus Benachrichtigung): Woche wechseln + Detail öffnen */
   oeffneId?: string | null
+  outlook?: OutlookStatus | null
 }
 
-export default function CRMUebersichtClient({ eintraege, heute, userProfiles = {}, mitglieder = [], userId = null, oeffneId = null }: Props) {
+export default function CRMUebersichtClient({ eintraege, heute, userProfiles = {}, mitglieder = [], userId = null, oeffneId = null, outlook = null }: Props) {
   const [view, setView]       = useState<ViewMode>('zeitachse')
   const [current, setCurrent] = useState<Date>(() => {
     const e = oeffneId ? eintraege.find(x => x.id === `a_${oeffneId}`) : null
@@ -1504,7 +1598,7 @@ export default function CRMUebersichtClient({ eintraege, heute, userProfiles = {
       </div>
 
       {/* ── Kalender ── */}
-      {view === 'zeitachse' && <ZeitachseView eintraege={alleEintraege} current={current} heute={heute} userProfiles={userProfiles} mitglieder={mitglieder} userId={userId} oeffneId={oeffneId} />}
+      {view === 'zeitachse' && <ZeitachseView eintraege={alleEintraege} current={current} heute={heute} userProfiles={userProfiles} mitglieder={mitglieder} userId={userId} oeffneId={oeffneId} outlook={outlook} />}
       {view === 'monat'     && <MonatView     eintraege={alleEintraege} current={current} heute={heute} />}
       {view === 'jahr'      && <JahrView      eintraege={alleEintraege} current={current} heute={heute} />}
 

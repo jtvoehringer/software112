@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
-import { m365AuthUrl } from '@/lib/m365/graph'
+import { m365AuthUrl, m365ScopeFuer } from '@/lib/m365/graph'
 import { getCurrentMembership } from '@/lib/auth/roles'
 
 export const dynamic = 'force-dynamic'
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
   // Azure-App-Credentials aus tenant_einstellungen (geteilt von allen Usern des Mandanten)
   const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
-    .select('m365_tenant_id, m365_client_id').eq('tenant_id', tenantId).maybeSingle()
+    .select('m365_tenant_id, m365_client_id, m365_kalender_schreiben').eq('tenant_id', tenantId).maybeSingle()
   const c = cfg as R | null
   if (!c?.m365_tenant_id || !c?.m365_client_id)
     return NextResponse.redirect(new URL('/nachrichten?fehler=m365_not_configured', req.url))
@@ -31,5 +31,6 @@ export async function GET(req: NextRequest) {
   const state = `${tenantId}:${user.id}`
 
   // 'common' erlaubt Login aus JEDEM Microsoft-Tenant (multi-tenant App)
-  return NextResponse.redirect(m365AuthUrl('common', c.m365_client_id, redirectUri, state))
+  // Kalender-Schreibrecht nur anfordern, wenn der Betrieb es in Entra freigegeben hat (Migration 225)
+  return NextResponse.redirect(m365AuthUrl('common', c.m365_client_id, redirectUri, state, m365ScopeFuer(c)))
 }

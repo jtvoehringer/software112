@@ -1243,7 +1243,8 @@
 "morgenbericht_aktiv",
 "wetter_aktiv",
 "wetter_abwasch_mm",
-"wetter_intervall_tage"
+"wetter_intervall_tage",
+"m365_kalender_schreiben"
 ],
 "tenant_memberships": [
 "id",
@@ -1335,7 +1336,8 @@
 "aktualisiert_am",
 "monitored_email",
 "email_spiegel_stand",
-"email_spiegel_info"
+"email_spiegel_info",
+"m365_scope"
 ],
 "v_behaelter_fuellstand": [
 "behaelter_id",
