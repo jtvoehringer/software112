@@ -56,3 +56,7 @@ import-daten/
 *SECRET*.docx
 *secret*.txt
 .env*.local
+
+# Ablage für Aufräumen/Altstände – nie ins Repo (23.9.2026: Dependabot fand dort ein altes package.json)
+/_to_delete/
+/_xyz/
