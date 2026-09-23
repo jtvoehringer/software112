@@ -82,6 +82,7 @@ export default function AppShell({
                   powered by
                   <Image src="/icp-logo.png" alt="ICP Solutions" width={2000} height={432} className="h-[22px] w-auto object-contain" />
                 </span>
+                <a href="/barrierefreiheit" className="font-sans hover:underline">Barrierefreiheit</a>
                 <span className="text-s112-line-str">·</span>
                 <span title={buildSha ? `Build ${buildSha}` : undefined}>
                   {APP_VERSION}{buildSha ? ` · ${buildSha.slice(0, 7)}` : ''}

@@ -95,7 +95,7 @@ export default function AnalyseNeuPage({ params }: Props) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="form-label">Datum *</label>
-              <input
+              <input aria-label="Datum"
                 name="analyse_datum"
                 type="date"
                 required
@@ -105,7 +105,7 @@ export default function AnalyseNeuPage({ params }: Props) {
             </div>
             <div>
               <label className="form-label">Labor</label>
-              <input
+              <input aria-label="Labor"
                 name="labor"
                 type="text"
                 list="labor-list"
@@ -121,7 +121,7 @@ export default function AnalyseNeuPage({ params }: Props) {
             </div>
             <div>
               <label className="form-label">Probe-Nr.</label>
-              <input name="probe_nr" type="text" className="form-input" placeholder="Interne Probennummer" />
+              <input aria-label="Probe-Nr." name="probe_nr" type="text" className="form-input" placeholder="Interne Probennummer" />
             </div>
           </div>
         </div>
@@ -146,12 +146,12 @@ export default function AnalyseNeuPage({ params }: Props) {
           <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Bewertung & Notizen</h2>
           <div>
             <label className="form-label">Bewertung</label>
-            <textarea name="bewertung" rows={2} className="form-input resize-none"
+            <textarea aria-label="Bewertung" name="bewertung" rows={2} className="form-input resize-none"
               placeholder="Kommentar zur Analyse …" />
           </div>
           <div>
             <label className="form-label">Notizen</label>
-            <textarea name="notizen" rows={2} className="form-input resize-none"
+            <textarea aria-label="Notizen" name="notizen" rows={2} className="form-input resize-none"
               placeholder="Interne Notizen …" />
           </div>
         </div>

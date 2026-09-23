@@ -343,17 +343,17 @@ export default function BenutzerClient({ members, limit }: Props) {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Name *</label>
-              <input value={inviteName} onChange={e => setInviteName(e.target.value)}
+              <input aria-label="Name" value={inviteName} onChange={e => setInviteName(e.target.value)}
                 required className={inputCls()} placeholder="Vorname Nachname" disabled={isPending} autoFocus />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">E-Mail *</label>
-              <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
+              <input aria-label="E-Mail" type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
                 required className={inputCls()} placeholder="benutzer@weingut.at" disabled={isPending} />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Rolle *</label>
-              <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}
+              <select aria-label="Rolle" value={inviteRole} onChange={e => setInviteRole(e.target.value)}
                 className={inputCls()} disabled={isPending}>
                 {ROLLEN.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>

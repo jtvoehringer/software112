@@ -392,9 +392,9 @@ export default async function DashboardPage() {
                   <div key={a.id} className="flex items-start gap-2 py-1.5 border-b border-s112-border/30 last:border-0">
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-s112-text truncate">{a.betreff}</p>
-                      {who && <p className="text-[10px] text-s112-muted truncate">{who}</p>}
+                      {who && <p className="text-[11px] text-s112-muted truncate">{who}</p>}
                     </div>
-                    <span className="text-[10px] text-s112-muted flex-shrink-0">{new Date(a.datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit' })}</span>
+                    <span className="text-[11px] text-s112-muted flex-shrink-0">{new Date(a.datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit' })}</span>
                   </div>
                 )
               })}

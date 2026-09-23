@@ -64,19 +64,19 @@ function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Name *</label>
-          <input name="name" required defaultValue={psm?.name ?? ''}
+          <input aria-label="Name" name="name" required defaultValue={psm?.name ?? ''}
             placeholder="z.B. Cuprozin progress"
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Handelsname</label>
-          <input name="handelsname" defaultValue={psm?.handelsname ?? ''}
+          <input aria-label="Handelsname" name="handelsname" defaultValue={psm?.handelsname ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Kategorie</label>
-          <select name="kategorie" defaultValue={psm?.kategorie ?? ''}
+          <select aria-label="Kategorie" name="kategorie" defaultValue={psm?.kategorie ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             <option value="">– keine –</option>
             {KATEGORIE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -84,20 +84,20 @@ function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Wirkstoff</label>
-          <input name="wirkstoff" defaultValue={psm?.wirkstoff ?? ''}
+          <input aria-label="Wirkstoff" name="wirkstoff" defaultValue={psm?.wirkstoff ?? ''}
             placeholder="z.B. Kupferhydroxid"
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Wirkstoffgehalt (%)</label>
-          <input name="wirkstoffgehalt_pct" type="number" step="0.01" min="0" max="100"
+          <input aria-label="Wirkstoffgehalt (%)" name="wirkstoffgehalt_pct" type="number" step="0.01" min="0" max="100"
             defaultValue={psm?.wirkstoffgehalt_pct ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Cu-Gehalt (%)</label>
-          <input name="cu_gehalt_pct" type="number" step="0.01" min="0" max="100"
+          <input aria-label="Cu-Gehalt (%)" name="cu_gehalt_pct" type="number" step="0.01" min="0" max="100"
             defaultValue={psm?.cu_gehalt_pct ?? ''}
             placeholder="nur bei Kupfermitteln"
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
@@ -105,20 +105,20 @@ function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Max. Aufwand (kg/ha)</label>
-          <input name="max_aufwand_kg_ha" type="number" step="0.001" min="0"
+          <input aria-label="Max. Aufwand (kg/ha)" name="max_aufwand_kg_ha" type="number" step="0.001" min="0"
             defaultValue={psm?.max_aufwand_kg_ha ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Max. Anwendungen</label>
-          <input name="max_anwendungen" type="number" min="0"
+          <input aria-label="Max. Anwendungen" name="max_anwendungen" type="number" min="0"
             defaultValue={psm?.max_anwendungen ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Wartezeit (Tage)</label>
-          <input name="wartezeit_tage" type="number" min="0"
+          <input aria-label="Wartezeit (Tage)" name="wartezeit_tage" type="number" min="0"
             defaultValue={psm?.wartezeit_tage ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
@@ -135,7 +135,7 @@ function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
 
         <div className="col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
-          <input name="notizen" defaultValue={psm?.notizen ?? ''}
+          <input aria-label="Notizen" name="notizen" defaultValue={psm?.notizen ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
       </div>

@@ -220,7 +220,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Art</label>
-              <select name="art" defaultValue={a.art} className={inputCls()}>
+              <select aria-label="Art" name="art" defaultValue={a.art} className={inputCls()}>
                 {a.art === 'email' && <input type="hidden" name="art" value="email" />}
                 {AKTIVITAET_ARTEN.filter(x => !('nurAnzeige' in x) || x.value === a.art).map(x => (
                   <option key={x.value} value={x.value} disabled={'nurAnzeige' in x}>{x.label}{('nurAnzeige' in x) ? ' (automatisch)' : ''}</option>
@@ -229,16 +229,16 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum</label>
-              <input type="date" name="datum" defaultValue={a.datum ?? ''} required className={inputCls()} />
+              <input aria-label="Datum" type="date" name="datum" defaultValue={a.datum ?? ''} required className={inputCls()} />
             </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Betreff</label>
-            <input type="text" name="betreff" defaultValue={a.betreff ?? ''} className={inputCls()} />
+            <input aria-label="Betreff" type="text" name="betreff" defaultValue={a.betreff ?? ''} className={inputCls()} />
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Bericht</label>
-            <textarea name="beschreibung" defaultValue={a.beschreibung ?? ''} rows={2} className={inputCls()} />
+            <textarea aria-label="Bericht" name="beschreibung" defaultValue={a.beschreibung ?? ''} rows={2} className={inputCls()} />
           </div>
           <div className="flex items-center gap-4 flex-wrap text-xs">
             <label className="flex items-center gap-1.5 cursor-pointer">
@@ -324,7 +324,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
         )}
         {a.art === 'email' && emailOpen && (
           <div className="mt-2 border border-s112-border rounded-lg overflow-hidden">
-            <div className="bg-s112-bg px-3 py-1.5 text-[10px] text-s112-muted space-y-0.5 border-b border-s112-border">
+            <div className="bg-s112-bg px-3 py-1.5 text-[11px] text-s112-muted space-y-0.5 border-b border-s112-border">
               {a.email_von && <div><span className="font-medium">Von:</span> {a.email_von_name ? `${a.email_von_name} <${a.email_von}>` : a.email_von}</div>}
               {a.email_an  && <div><span className="font-medium">An:</span> {a.email_an}</div>}
               {a.datum     && <div><span className="font-medium">Datum:</span> {new Date(a.datum).toLocaleDateString('de-AT')}</div>}
@@ -851,16 +851,16 @@ export default function FirmaDetailClient({
             <form onSubmit={sendEmail} className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">An</label>
-                <input value={firma.email} readOnly className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm bg-s112-bg" />
+                <input aria-label="An" value={firma.email} readOnly className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm bg-s112-bg" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Betreff *</label>
-                <input value={emailBetreff} onChange={e => setEmailBetreff(e.target.value)} required autoFocus
+                <input aria-label="Betreff" value={emailBetreff} onChange={e => setEmailBetreff(e.target.value)} required autoFocus
                   className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Nachricht</label>
-                <textarea value={emailText} onChange={e => setEmailText(e.target.value)} rows={5}
+                <textarea aria-label="Nachricht" value={emailText} onChange={e => setEmailText(e.target.value)} rows={5}
                   className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
               </div>
               {emailResult && (

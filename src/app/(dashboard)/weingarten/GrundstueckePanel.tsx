@@ -205,11 +205,11 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
         {/* Identifikation */}
         <div>
           <label className={labelCls}>GST-Nummer <span className="text-s112-err">*</span></label>
-          <input name="gst_nr" required defaultValue={gst?.gst_nr ?? ''} placeholder="z.B. 1411/1" className={inputCls} />
+          <input aria-label="GST-Nummer" name="gst_nr" required defaultValue={gst?.gst_nr ?? ''} placeholder="z.B. 1411/1" className={inputCls} />
         </div>
         <div>
           <label className={labelCls}>Nutzart <span className="text-s112-err">*</span></label>
-          <select name="nutzart" required value={nutzart} onChange={e => setNutzart(e.target.value)} className={inputCls}>
+          <select aria-label="Nutzart" name="nutzart" required value={nutzart} onChange={e => setNutzart(e.target.value)} className={inputCls}>
             <option value="" disabled>– bitte wählen –</option>
             {NUTZART_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.value} – {o.label}</option>)}
           </select>
@@ -217,7 +217,7 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
         {nutzart === 'LSE' && (
           <div>
             <label className={labelCls}>Stückzahl</label>
-            <input
+            <input aria-label="Stückzahl"
               name="lse_stueckzahl"
               type="number" min="0" step="1"
               value={lseStueck}
@@ -230,7 +230,7 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
         )}
         <div>
           <label className={labelCls}>KGNr.</label>
-          <input
+          <input aria-label="KGNr."
             name="katastralgemeinde"
             value={kgnr}
             onChange={handleKgnrChange}
@@ -250,11 +250,11 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
         {/* Rebsorte & Weinart */}
         <div>
           <label className={labelCls}>Rebsorte</label>
-          <input name="rebsorte" defaultValue={gst?.rebsorte ?? ''} placeholder="z.B. Grüner Veltliner" className={inputCls} />
+          <input aria-label="Rebsorte" name="rebsorte" defaultValue={gst?.rebsorte ?? ''} placeholder="z.B. Grüner Veltliner" className={inputCls} />
         </div>
         <div>
           <label className={labelCls}>Weinart</label>
-          <select name="weinart" value={weinart} onChange={e => setWeinart(e.target.value)} className={inputCls}>
+          <select aria-label="Weinart" name="weinart" value={weinart} onChange={e => setWeinart(e.target.value)} className={inputCls}>
             <option value="weiss">Weißwein</option>
             <option value="rot">Rotwein</option>
             <option value="unbekannt">– unbekannt –</option>
@@ -264,11 +264,11 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
         {/* Pflanzjahr & Bewirtschaftung */}
         <div>
           <label className={labelCls}>Pflanzjahr</label>
-          <input name="pflanzjahr" type="number" min="1900" max="2100" defaultValue={gst?.pflanzjahr ?? ''} className={inputCls} />
+          <input aria-label="Pflanzjahr" name="pflanzjahr" type="number" min="1900" max="2100" defaultValue={gst?.pflanzjahr ?? ''} className={inputCls} />
         </div>
         <div>
           <label className={labelCls}>Bewirtschaftung</label>
-          <select name="bewirtschaftung" value={bewirtschaftung} onChange={e => setBewirtschaftung(e.target.value)} className={inputCls}>
+          <select aria-label="Bewirtschaftung" name="bewirtschaftung" value={bewirtschaftung} onChange={e => setBewirtschaftung(e.target.value)} className={inputCls}>
             <option value="">– bitte wählen –</option>
             {BEWIRTSCHAFTUNG_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
@@ -276,14 +276,14 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
         {bewirtschaftung === 'in_umstellung' && (
           <div className="col-span-2">
             <label className={labelCls}>In Umstellung seit</label>
-            <input name="bewirtschaftung_seit" type="date" defaultValue={gst?.bewirtschaftung_seit ?? ''} className={inputCls} />
+            <input aria-label="In Umstellung seit" name="bewirtschaftung_seit" type="date" defaultValue={gst?.bewirtschaftung_seit ?? ''} className={inputCls} />
           </div>
         )}
 
         {/* Flächen */}
         <div>
           <label className={labelCls}>GST-Fläche lt. AMA (ha)</label>
-          <input name="flaeche_ha" type="number" step="0.0001" min="0" defaultValue={gst?.flaeche_ha ?? ''} className={inputCls} />
+          <input aria-label="GST-Fläche lt. AMA (ha)" name="flaeche_ha" type="number" step="0.0001" min="0" defaultValue={gst?.flaeche_ha ?? ''} className={inputCls} />
         </div>
         <div>
           <label className={labelCls}>
@@ -363,14 +363,14 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
             wurden in der Rieden-Übersicht in derselben Spalte angezeigt) */}
         <div>
           <label className={labelCls}>AMA-Schlagnr.</label>
-          <input name="ama_feldnummer" maxLength={3} pattern="[0-9]{1,3}" defaultValue={gst?.ama_feldnummer ?? ''} placeholder="z.B. 12" className={inputCls} />
+          <input aria-label="AMA-Schlagnr." name="ama_feldnummer" maxLength={3} pattern="[0-9]{1,3}" defaultValue={gst?.ama_feldnummer ?? ''} placeholder="z.B. 12" className={inputCls} />
           <p className="text-xs text-s112-muted mt-1">Max. 3-stellig numerisch</p>
         </div>
 
         {/* Rechtsverhältnis */}
         <div>
           <label className={labelCls}>Rechtsverhältnis</label>
-          <select name="rechtsverhaeltnis" defaultValue={gst?.rechtsverhaeltnis ?? ''} className={inputCls}>
+          <select aria-label="Rechtsverhältnis" name="rechtsverhaeltnis" defaultValue={gst?.rechtsverhaeltnis ?? ''} className={inputCls}>
             <option value="">– bitte wählen –</option>
             <option value="eigentum">Eigentum</option>
             <option value="pacht">Pacht</option>
@@ -381,19 +381,19 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
         {/* Unterlagsrebe */}
         <div>
           <label className={labelCls}>Unterlagsrebe</label>
-          <input name="unterlagsrebe" defaultValue={gst?.unterlagsrebe ?? ''} placeholder="z.B. SO4, Kober 5BB" className={inputCls} />
+          <input aria-label="Unterlagsrebe" name="unterlagsrebe" defaultValue={gst?.unterlagsrebe ?? ''} placeholder="z.B. SO4, Kober 5BB" className={inputCls} />
         </div>
 
         {/* Boden */}
         <div>
           <label className={labelCls}>Boden</label>
-          <input name="boden" defaultValue={gst?.boden ?? ''} placeholder="z.B. Löss, Schotter, Gneis" className={inputCls} />
+          <input aria-label="Boden" name="boden" defaultValue={gst?.boden ?? ''} placeholder="z.B. Löss, Schotter, Gneis" className={inputCls} />
         </div>
 
         {/* Notizen */}
         <div className="col-span-2">
           <label className={labelCls}>Notizen</label>
-          <input name="notizen" defaultValue={gst?.notizen ?? ''} className={inputCls} />
+          <input aria-label="Notizen" name="notizen" defaultValue={gst?.notizen ?? ''} className={inputCls} />
         </div>
       </div>
 

@@ -114,7 +114,9 @@ export default function LoginPage() {
       <p className="text-center text-xs text-s112-muted mt-6">
         software:112 · IC&P Consultants e.U.
       </p>
-      <p className="text-center text-[10px] text-s112-tertiary mt-1">v2.1.0 · Juni 2026</p>
+      <p className="text-center text-[11px] text-s112-tertiary mt-1">
+        v2.1.0 · Juni 2026 · <a href="/barrierefreiheit" className="hover:underline">Barrierefreiheit</a>
+      </p>
     </div>
   )
 }

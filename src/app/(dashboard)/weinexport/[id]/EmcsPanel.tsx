@@ -13,11 +13,11 @@ export default function EmcsPanel({ auftragId, initialArc, initialStatus }: Prop
       <h2 className="font-semibold text-s112-text mb-3">EMCS</h2>
       <div className="space-y-2">
         <label className="block text-xs text-s112-muted">ARC-Nummer</label>
-        <input value={arc} onChange={e => setArc(e.target.value)}
+        <input aria-label="ARC-Nummer" value={arc} onChange={e => setArc(e.target.value)}
           placeholder="AT123456789012345"
           className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none" />
         <label className="block text-xs text-s112-muted mt-1">Status</label>
-        <select value={status} onChange={e => setStatus(e.target.value)}
+        <select aria-label="Status" value={status} onChange={e => setStatus(e.target.value)}
           className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
           <option value="">nicht eingereicht</option>
           <option value="draft">Entwurf</option>

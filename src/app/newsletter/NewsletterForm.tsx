@@ -36,7 +36,7 @@ export default function NewsletterForm() {
   // Erfolgsstatus
   if (result?.ok) {
     return (
-      <div className="text-center py-4">
+      <div role="status" className="text-center py-4">
         <div className="mb-3 flex justify-center">
           <Mail className="w-9 h-9 text-s112-blue-700" aria-hidden="true" />
         </div>
@@ -56,23 +56,23 @@ export default function NewsletterForm() {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Vorname</label>
-          <input name="vorname" className={inputCls()} placeholder="Maria" />
+          <input aria-label="Vorname" name="vorname" className={inputCls()} placeholder="Maria" />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Nachname</label>
-          <input name="nachname" className={inputCls()} placeholder="Muster" />
+          <input aria-label="Nachname" name="nachname" className={inputCls()} placeholder="Muster" />
         </div>
       </div>
 
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">E-Mail-Adresse *</label>
-        <input name="email" type="email" required className={inputCls(!!result?.error)}
+        <input aria-label="E-Mail-Adresse" name="email" type="email" required className={inputCls(!!result?.error)}
           placeholder="maria.muster@beispiel.at" />
       </div>
 
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Ich bin…</label>
-        <select name="segment" defaultValue="privat"
+        <select aria-label="Ich bin…" name="segment" defaultValue="privat"
           className={inputCls()}>
           {SEGMENTE.map(s => (
             <option key={s.value} value={s.value}>{s.label}</option>
@@ -82,7 +82,7 @@ export default function NewsletterForm() {
 
       {/* Fehlermeldung */}
       {result?.error && (
-        <div className="bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2 text-sm text-s112-err-fg">
+        <div role="alert" className="bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2 text-sm text-s112-err-fg">
           {result.error}
         </div>
       )}

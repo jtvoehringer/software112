@@ -27,22 +27,22 @@ export default async function NeueLagePage() {
             <label className="block text-sm font-medium text-s112-text-1 mb-1">
               Name <span className="text-s112-err">*</span>
             </label>
-            <input name="name" required placeholder="z.B. Wiege, Perchtoldsdorf"
+            <input aria-label="Name" name="name" required placeholder="z.B. Wiege, Perchtoldsdorf"
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div>
             <label className="block text-sm font-medium text-s112-text-1 mb-1">Gemeinde</label>
-            <input name="gemeinde" placeholder="z.B. Gumpoldskirchen"
+            <input aria-label="Gemeinde" name="gemeinde" placeholder="z.B. Gumpoldskirchen"
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div>
             <label className="block text-sm font-medium text-s112-text-1 mb-1">Weinbaugebiet</label>
-            <input name="weinbaugebiet" placeholder="z.B. Thermenregion"
+            <input aria-label="Weinbaugebiet" name="weinbaugebiet" placeholder="z.B. Thermenregion"
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div>
             <label className="block text-sm font-medium text-s112-text-1 mb-1">Notizen</label>
-            <textarea name="notizen" rows={3}
+            <textarea aria-label="Notizen" name="notizen" rows={3}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div className="flex gap-3 pt-2">

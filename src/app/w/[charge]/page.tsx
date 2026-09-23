@@ -90,7 +90,7 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
 
         {/* Header */}
         <div className="bg-[#4F86D6] px-6 py-5 text-white text-center">
-          <p className="text-[10px] uppercase tracking-widest text-white/80 font-semibold mb-1">Weinpass</p>
+          <p className="text-[11px] uppercase tracking-widest text-white/80 font-semibold mb-1">Weinpass</p>
           <h1 className="text-xl font-semibold">{f.name}</h1>
           {f.bezeichnung && <p className="text-sm text-white/85 mt-0.5">{f.bezeichnung}</p>}
           <p className="text-sm text-white/70 mt-2">{f.anbaugebiet}</p>
@@ -163,7 +163,7 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
         )}
 
         <div className="px-6 pb-6 text-center">
-          <p className="text-[10px] text-s112-tertiary">Powered by software:112</p>
+          <p className="text-[11px] text-s112-tertiary">Powered by software:112</p>
         </div>
       </div>
     </div>

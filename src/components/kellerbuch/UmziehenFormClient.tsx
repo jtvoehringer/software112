@@ -75,13 +75,13 @@ export default function UmziehenFormClient({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className={labelCls}>Datum *</label>
-          <input name="datum" type="date" required
+          <input aria-label="Datum" name="datum" type="date" required
             defaultValue={defaultDatum ?? new Date().toISOString().split('T')[0]}
             className={inputCls} />
         </div>
         <div>
           <label className={labelCls}>Notizen</label>
-          <input name="notizen" defaultValue={defaultNotizen ?? ''} placeholder="z.B. Abstich nach Gärung …" className={inputCls} />
+          <input aria-label="Notizen" name="notizen" defaultValue={defaultNotizen ?? ''} placeholder="z.B. Abstich nach Gärung …" className={inputCls} />
         </div>
       </div>
 

@@ -215,7 +215,7 @@ export default async function KellerbuchPage() {
                             {w.rebsorte && <span className="text-xs text-s112-muted ml-1">· {formatRebsorteMitKuerzel(w.rebsorte)}</span>}
                             {istEB && <span className="text-xs text-s112-muted ml-1 italic">(Eröffnungsbestand)</span>}
                             {(w.weinart && w.weinart !== 'unbekannt') && (
-                              <span className={`inline-block ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${wa.color}`}>{wa.label}</span>
+                              <span className={`inline-block ml-2 px-1.5 py-0.5 rounded text-[11px] font-medium ${wa.color}`}>{wa.label}</span>
                             )}
                           </td>
                           <td className="px-4 py-2.5 text-s112-muted text-xs">{w.jahrgang ?? '–'}</td>
@@ -259,17 +259,17 @@ export default async function KellerbuchPage() {
         <Link href="/kellerbuch/gebinde" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-3xl font-semibold text-s112-blue-700">{behaelter.filter(b => b.aktiv).length}</p>
           <p className="text-xs text-s112-muted mt-1">Aktive Behälter</p>
-          <p className="text-[10px] text-s112-blue-700/60 mt-1">→ Gebinde verwalten</p>
+          <p className="text-[11px] text-s112-blue-700/60 mt-1">→ Gebinde verwalten</p>
         </Link>
         <Link href="/kellerbuch/weinausbau" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-3xl font-semibold text-s112-blue-700">{aktiveChargen.length}</p>
           <p className="text-xs text-s112-muted mt-1">Laufende Chargen</p>
-          <p className="text-[10px] text-s112-blue-700/60 mt-1">→ Weinausbau</p>
+          <p className="text-[11px] text-s112-blue-700/60 mt-1">→ Weinausbau</p>
         </Link>
         <Link href="/kellerbuch/rueckverfolgung" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-3xl font-semibold text-s112-blue-700">{fmtLiter(gesamtLiter)}</p>
           <p className="text-xs text-s112-muted mt-1">Liter in Ausbau</p>
-          <p className="text-[10px] text-s112-blue-700/60 mt-1">→ Rückverfolgung</p>
+          <p className="text-[11px] text-s112-blue-700/60 mt-1">→ Rückverfolgung</p>
         </Link>
       </div>
 

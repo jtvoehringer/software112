@@ -36,7 +36,7 @@ export default function LoeschenButton({ action, bestaetigung = 'Eintrag wirklic
         className="text-s112-err hover:text-s112-err-fg disabled:opacity-50">
         {pending ? '…' : <Trash2 className="w-4 h-4" />}
       </button>
-      {error && <span className="text-[10px] text-s112-err-fg max-w-[180px] text-right">{error}</span>}
+      {error && <span className="text-[11px] text-s112-err-fg max-w-[180px] text-right">{error}</span>}
     </span>
   )
 }

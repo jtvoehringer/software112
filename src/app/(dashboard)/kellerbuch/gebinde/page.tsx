@@ -208,11 +208,11 @@ export default async function GebindePage({
               <form action={createBehaelter} className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Bezeichnung *</label>
-                  <input name="name" required placeholder="z.B. Tanknummer" className={inputCls} />
+                  <input aria-label="Bezeichnung" name="name" required placeholder="z.B. Tanknummer" className={inputCls} />
                 </div>
                 <div>
                   <label className={labelCls}>Typ</label>
-                  <select name="typ" className={inputCls}>
+                  <select aria-label="Typ" name="typ" className={inputCls}>
                     <option value="">– kein –</option>
                     <option value="amphore">Amphore</option>
                     <option value="barrique">Barrique</option>
@@ -231,15 +231,15 @@ export default async function GebindePage({
                 </div>
                 <div>
                   <label className={labelCls}>Fassungsvermögen (Liter)</label>
-                  <input name="volumen_liter" type="number" step="0.01" min={0} placeholder="z.B. 5000" className={inputCls} />
+                  <input aria-label="Fassungsvermögen (Liter)" name="volumen_liter" type="number" step="0.01" min={0} placeholder="z.B. 5000" className={inputCls} />
                 </div>
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Standort</label>
-                  <input name="standort" placeholder="z.B. Keller 1, Reihe A" className={inputCls} />
+                  <input aria-label="Standort" name="standort" placeholder="z.B. Keller 1, Reihe A" className={inputCls} />
                 </div>
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Notizen</label>
-                  <input name="notizen" placeholder="z.B. geliehen, Besonderheiten" className={inputCls} />
+                  <input aria-label="Notizen" name="notizen" placeholder="z.B. geliehen, Besonderheiten" className={inputCls} />
                 </div>
                 <div className="sm:col-span-2 flex flex-wrap gap-5 text-sm text-s112-text">
                   <label className="inline-flex items-center gap-2 cursor-pointer"><input type="checkbox" name="stapler" value="true" className="accent-[var(--s112-teal)]" /> mit Stapler versetzbar</label>
@@ -371,11 +371,11 @@ export default async function GebindePage({
               <form action={createEroeffnungsbestand} className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Weinbezeichnung *</label>
-                  <input name="name" required placeholder="z.B. Grüner Veltliner Ried Hohenberg" className={inputCls} />
+                  <input aria-label="Weinbezeichnung" name="name" required placeholder="z.B. Grüner Veltliner Ried Hohenberg" className={inputCls} />
                 </div>
                 <div>
                   <label className={labelCls}>Gebinde</label>
-                  <select name="behaelter_id" className={inputCls}>
+                  <select aria-label="Gebinde" name="behaelter_id" className={inputCls}>
                     <option value="">– kein –</option>
                     {gebinde.filter(g => g.aktiv && !g.gesperrt).map(g => (
                       <option key={g.id} value={g.id}>{g.anzeigeName}</option>
@@ -384,27 +384,27 @@ export default async function GebindePage({
                 </div>
                 <div>
                   <label className={labelCls}>Jahrgang</label>
-                  <input name="jahrgang" type="number" min={1900} max={2100}
+                  <input aria-label="Jahrgang" name="jahrgang" type="number" min={1900} max={2100}
                     defaultValue={new Date().getFullYear() - 1} className={inputCls} />
                 </div>
                 <div>
                   <label className={labelCls}>KMW (°KMW)</label>
-                  <input name="kmw" type="number" step="0.1" min={0} max={50}
+                  <input aria-label="KMW (°KMW)" name="kmw" type="number" step="0.1" min={0} max={50}
                     placeholder="z.B. 17.5" className={inputCls} />
                 </div>
                 <div>
                   <label className={labelCls}>Menge (Liter) *</label>
-                  <input name="menge_liter" type="number" step="0.01" min={0}
+                  <input aria-label="Menge (Liter)" name="menge_liter" type="number" step="0.01" min={0}
                     required placeholder="z.B. 3000" className={inputCls} />
                 </div>
                 <div>
                   <label className={labelCls}>Einstandspreis pro Liter (€)</label>
-                  <input name="einstandspreis_pro_liter" type="text" inputMode="decimal"
+                  <input aria-label="Einstandspreis pro Liter (€)" name="einstandspreis_pro_liter" type="text" inputMode="decimal"
                     placeholder="z.B. 1,50" className={inputCls} />
                 </div>
                 <div>
                   <label className={labelCls}>Qualitätsstufe</label>
-                  <select name="qualitaetsstufe" className={inputCls}>
+                  <select aria-label="Qualitätsstufe" name="qualitaetsstufe" className={inputCls}>
                     <option value="">– keine –</option>
                     {QUALITAETEN.map(q => (
                       <option key={q.value} value={q.value}>{q.label}</option>
@@ -413,11 +413,11 @@ export default async function GebindePage({
                 </div>
                 <div>
                   <label className={labelCls}>Referenz Altsystem</label>
-                  <input name="referenz_altsystem" placeholder="z.B. Chargen-Nr. Altsystem" className={inputCls} />
+                  <input aria-label="Referenz Altsystem" name="referenz_altsystem" placeholder="z.B. Chargen-Nr. Altsystem" className={inputCls} />
                 </div>
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Notizen</label>
-                  <input name="notizen" placeholder="z.B. Herkunft Altsystem …" className={inputCls} />
+                  <input aria-label="Notizen" name="notizen" placeholder="z.B. Herkunft Altsystem …" className={inputCls} />
                 </div>
                 <div className="sm:col-span-2">
                   <button type="submit" className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">

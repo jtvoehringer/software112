@@ -188,7 +188,7 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
         {quelle === 'zukauf' ? (
           <div className="col-span-2">
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Zukauf-Posten *</label>
-            <select value={zukaufId} onChange={e => handleZukaufChange(e.target.value)} required className={inp}>
+            <select aria-label="Zukauf-Posten" value={zukaufId} onChange={e => handleZukaufChange(e.target.value)} required className={inp}>
               <option value="">– Zukauf wählen –</option>
               {zukaufOptions.map(z => (
                 <option key={z.id} value={z.id}>
@@ -209,7 +209,7 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
         ) : (
           <div className="col-span-2">
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Ried / GST *</label>
-            <select value={quelleId} onChange={e => handleQuelleChange(e.target.value)} required className={inp}>
+            <select aria-label="Ried / GST" value={quelleId} onChange={e => handleQuelleChange(e.target.value)} required className={inp}>
               <option value="">– Ried/GST wählen –</option>
               {quelleOptions.map(o => (
                 <option key={o.compositeId} value={o.compositeId}>
@@ -232,34 +232,34 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
         {/* Datum */}
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
-          <input type="date" value={datum} onChange={e => setDatum(e.target.value)} required className={inp} />
+          <input aria-label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)} required className={inp} />
         </div>
 
         {/* Menge kg */}
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge (kg) *</label>
-          <input type="text" inputMode="decimal" value={mengeKg} onChange={e => setMengeKg(e.target.value)}
+          <input aria-label="Menge (kg)" type="text" inputMode="decimal" value={mengeKg} onChange={e => setMengeKg(e.target.value)}
             placeholder="z.B. 1.250" required className={inp} />
         </div>
 
         {/* Preis/kg */}
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Preis (€/kg)</label>
-          <input type="text" inputMode="decimal" value={preis} onChange={e => setPreis(e.target.value)}
+          <input aria-label="Preis (€/kg)" type="text" inputMode="decimal" value={preis} onChange={e => setPreis(e.target.value)}
             placeholder="z.B. 0,65" className={inp} />
         </div>
 
         {/* KMW */}
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">KMW°</label>
-          <input type="text" inputMode="decimal" value={kmw} onChange={e => setKmw(e.target.value)}
+          <input aria-label="KMW°" type="text" inputMode="decimal" value={kmw} onChange={e => setKmw(e.target.value)}
             placeholder="z.B. 17,5" className={inp} />
         </div>
 
         {/* Qualitätsstufe */}
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Qualitätsstufe</label>
-          <select value={qualitaet} onChange={e => setQualitaet(e.target.value)} className={inp}>
+          <select aria-label="Qualitätsstufe" value={qualitaet} onChange={e => setQualitaet(e.target.value)} className={inp}>
             <option value="">– keine –</option>
             {QUALITAETEN.map(q => <option key={q.value} value={q.value}>{q.label}</option>)}
           </select>
@@ -268,7 +268,7 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
         {/* Gesundheit */}
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Gesundheit</label>
-          <select value={gesundheit} onChange={e => setGesundheit(e.target.value)} className={inp}>
+          <select aria-label="Gesundheit" value={gesundheit} onChange={e => setGesundheit(e.target.value)} className={inp}>
             <option value="G">G – Gut</option>
             <option value="K">K – Krank/beschädigt</option>
           </select>
@@ -329,7 +329,7 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
       {/* Notizen */}
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
-        <input type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
+        <input aria-label="Notizen" type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
           placeholder="z.B. Abholung durch Genossenschaft …" className={inp} />
       </div>
 

@@ -365,7 +365,7 @@ export default function KellerplanEditor({
                   {/* Entfernen-Button */}
                   {writeOk && (
                     <button
-                      className="no-print absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-s112-grey hover:bg-s112-err text-white text-[9px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="no-print absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-s112-grey hover:bg-s112-err text-white text-[10px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={e => { e.stopPropagation(); handleRemove(behaelterId) }}
                       onPointerDown={e => e.stopPropagation()}
                       title="Vom Plan entfernen"
@@ -453,13 +453,13 @@ export default function KellerplanEditor({
             {Object.entries(TYP).map(([key, t]) => (
               <span
                 key={key}
-                className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border"
+                className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border"
                 style={{ backgroundColor: t.bg, borderColor: t.border, color: '#22252B' }}
               >
                 {t.label}
                   </span>
             ))}
-            <span className="text-[10px] text-s112-tertiary mx-1">|</span>
+            <span className="text-[11px] text-s112-tertiary mx-1">|</span>
             {[
               { color: '#3E9B79', label: '< 70 %' },
               { color: '#E9CB86', label: '70–90 %' },
@@ -468,7 +468,7 @@ export default function KellerplanEditor({
             ].map(({ color, label }) => (
               <span
                 key={label}
-                className="inline-flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full border border-s112-line"
+                className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full border border-s112-line"
                 style={{ color: '#22252B' }}
               >
                 <span
@@ -508,7 +508,7 @@ export default function KellerplanEditor({
                     >
                       <div className="min-w-0 flex-1">
                         <p className="truncate">{b.name}</p>
-                        <p className="text-[10px] text-s112-text-2">
+                        <p className="text-[11px] text-s112-text-2">
                           {typ.label}{b.volumen_liter ? ` · ${fmtNum(b.volumen_liter)} L` : ''}
                         </p>
                       </div>
@@ -518,7 +518,7 @@ export default function KellerplanEditor({
               </div>
             )}
 
-            <div className="mt-4 space-y-1 text-[10px] text-s112-muted">
+            <div className="mt-4 space-y-1 text-[11px] text-s112-muted">
               <p>↖ Ziehen zum Platzieren</p>
               <p>Klick → Umziehen / Behandlungen / Abfüllen</p>
               <p>↔ Auf Plan verschieben</p>

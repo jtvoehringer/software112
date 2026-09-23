@@ -284,7 +284,7 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
-          <input type="date" value={datum} onChange={e => setDatum(e.target.value)} required
+          <input aria-label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)} required
             className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-full" />
         </div>
       </div>
@@ -349,7 +349,7 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
 
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
-        <input type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
+        <input aria-label="Notizen" type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
           className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-full"
           placeholder="Optional" />
       </div>

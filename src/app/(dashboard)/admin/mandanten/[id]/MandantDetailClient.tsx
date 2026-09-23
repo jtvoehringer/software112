@@ -127,7 +127,7 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
     <form onSubmit={handleSubmit} className="space-y-5 max-w-lg">
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Anzeigename</label>
-        <input name="anzeigename" defaultValue={settings.anzeigename ?? tenant.name}
+        <input aria-label="Anzeigename" name="anzeigename" defaultValue={settings.anzeigename ?? tenant.name}
           placeholder={tenant.name} className={inputCls()} />
         <p className="text-xs text-s112-muted mt-1">Wird in der Sidebar unter dem Logo angezeigt.</p>
       </div>
@@ -135,7 +135,7 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Logo</label>
 
-        <input
+        <input aria-label="Logo"
           ref={logoInputRef}
           type="file"
           accept="image/png,image/jpeg,image/webp,image/svg+xml"
@@ -199,7 +199,7 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
         <label className="block text-xs font-medium text-s112-text-2 mb-1">
           Session Timeout (Minuten)
         </label>
-        <input name="session_timeout_minuten" type="number" min="5" max="480"
+        <input aria-label="Session Timeout (Minuten)" name="session_timeout_minuten" type="number" min="5" max="480"
           defaultValue={settings.session_timeout_minuten ?? ''}
           placeholder="Leer = kein Timeout" className={inputCls()} style={{ maxWidth: '180px' }} />
         <p className="text-xs text-s112-muted mt-1">
@@ -409,17 +409,17 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Name *</label>
-              <input value={inviteName} onChange={e => setInviteName(e.target.value)}
+              <input aria-label="Name" value={inviteName} onChange={e => setInviteName(e.target.value)}
                 required className={inputCls()} placeholder="Vorname Nachname" autoFocus />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">E-Mail *</label>
-              <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
+              <input aria-label="E-Mail" type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
                 required className={inputCls()} placeholder="benutzer@weingut.at" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Rolle *</label>
-              <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}
+              <select aria-label="Rolle" value={inviteRole} onChange={e => setInviteRole(e.target.value)}
                 className={inputCls()}>
                 {ROLLEN.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
@@ -493,17 +493,17 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">API-Key</label>
-          <input name="brevo_api_key" defaultValue={settings.brevo_api_key ?? ''}
+          <input aria-label="API-Key" name="brevo_api_key" defaultValue={settings.brevo_api_key ?? ''}
             placeholder="xkeysib-…" className={inputCls()} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Absender E-Mail</label>
-          <input name="brevo_sender_mail" defaultValue={settings.brevo_sender_mail ?? ''}
+          <input aria-label="Absender E-Mail" name="brevo_sender_mail" defaultValue={settings.brevo_sender_mail ?? ''}
             placeholder="info@weingut.at" className={inputCls()} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Absender Name</label>
-          <input name="brevo_sender_name" defaultValue={settings.brevo_sender_name ?? ''}
+          <input aria-label="Absender Name" name="brevo_sender_name" defaultValue={settings.brevo_sender_name ?? ''}
             placeholder="Weingut Mustermann" className={inputCls()} />
         </div>
       </div>
@@ -736,45 +736,45 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
         <div className="grid grid-cols-1 gap-3">
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Betriebsname *</label>
-            <input name="betrieb_name" defaultValue={settings.betrieb_name ?? ''} required className={inputCls()} placeholder="Weingut Gebeshuber" />
+            <input aria-label="Betriebsname" name="betrieb_name" defaultValue={settings.betrieb_name ?? ''} required className={inputCls()} placeholder="Weingut Gebeshuber" />
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div className="col-span-2">
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Straße + Nr.</label>
-              <input name="betrieb_strasse" defaultValue={settings.betrieb_strasse ?? ''} className={inputCls()} placeholder="Hauptstraße 1" />
+              <input aria-label="Straße + Nr." name="betrieb_strasse" defaultValue={settings.betrieb_strasse ?? ''} className={inputCls()} placeholder="Hauptstraße 1" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">PLZ</label>
-              <input name="betrieb_plz" defaultValue={settings.betrieb_plz ?? ''} className={inputCls()} placeholder="3421" />
+              <input aria-label="PLZ" name="betrieb_plz" defaultValue={settings.betrieb_plz ?? ''} className={inputCls()} placeholder="3421" />
             </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Ort</label>
-            <input name="betrieb_ort" defaultValue={settings.betrieb_ort ?? ''} className={inputCls()} placeholder="Krems an der Donau" />
+            <input aria-label="Ort" name="betrieb_ort" defaultValue={settings.betrieb_ort ?? ''} className={inputCls()} placeholder="Krems an der Donau" />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Telefon</label>
-              <input name="betrieb_telefon" defaultValue={settings.betrieb_telefon ?? ''} className={inputCls()} placeholder="+43 2732 12345" />
+              <input aria-label="Telefon" name="betrieb_telefon" defaultValue={settings.betrieb_telefon ?? ''} className={inputCls()} placeholder="+43 2732 12345" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">E-Mail</label>
-              <input name="betrieb_email" type="email" defaultValue={settings.betrieb_email ?? ''} className={inputCls()} placeholder="office@weingut.at" />
+              <input aria-label="E-Mail" name="betrieb_email" type="email" defaultValue={settings.betrieb_email ?? ''} className={inputCls()} placeholder="office@weingut.at" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Website</label>
-              <input name="betrieb_website" defaultValue={settings.betrieb_website ?? ''} className={inputCls()} placeholder="www.weingut.at" />
+              <input aria-label="Website" name="betrieb_website" defaultValue={settings.betrieb_website ?? ''} className={inputCls()} placeholder="www.weingut.at" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">UID-Nummer</label>
-              <input name="betrieb_uid" defaultValue={settings.betrieb_uid ?? ''} className={inputCls()} placeholder="ATU12345678" />
+              <input aria-label="UID-Nummer" name="betrieb_uid" defaultValue={settings.betrieb_uid ?? ''} className={inputCls()} placeholder="ATU12345678" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Weinbau-Betriebsnummer</label>
-              <input name="betrieb_betriebsnummer" defaultValue={settings.betrieb_betriebsnummer ?? ''} className={inputCls()} placeholder="z.B. 4489781" />
-              <p className="text-[10px] text-s112-tertiary mt-0.5">Für Transportbescheinigung &amp; Prüfnummernantrag</p>
+              <input aria-label="Weinbau-Betriebsnummer" name="betrieb_betriebsnummer" defaultValue={settings.betrieb_betriebsnummer ?? ''} className={inputCls()} placeholder="z.B. 4489781" />
+              <p className="text-[11px] text-s112-tertiary mt-0.5">Für Transportbescheinigung &amp; Prüfnummernantrag</p>
             </div>
           </div>
         </div>
@@ -784,10 +784,10 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
         <p className="text-xs font-semibold text-s112-text-1 uppercase tracking-wide mb-3">Bewirtschaftung</p>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Status</label>
-          <select name="bio_status" defaultValue={tenant.bio_status} className={inputCls()} style={{ maxWidth: '320px' }}>
+          <select aria-label="Status" name="bio_status" defaultValue={tenant.bio_status} className={inputCls()} style={{ maxWidth: '320px' }}>
             {BIO_STATUS_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
-          <p className="text-[10px] text-s112-tertiary mt-0.5">
+          <p className="text-[11px] text-s112-tertiary mt-0.5">
             Steuert die Warn-/Sperrlogik bei der Mittelwahl im Maßnahmenformular: bei Bio-EU/biodynamisch
             wird ein nicht öko-zugelassenes Mittel gesperrt, bei KIP/nachhaltig nur als Warnung angezeigt.
           </p>
@@ -799,11 +799,11 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
         <div className="grid grid-cols-1 gap-3">
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">IBAN</label>
-            <input name="rechnung_iban" defaultValue={settings.rechnung_iban ?? ''} className={inputCls()} placeholder="AT12 3456 7890 1234 5678" />
+            <input aria-label="IBAN" name="rechnung_iban" defaultValue={settings.rechnung_iban ?? ''} className={inputCls()} placeholder="AT12 3456 7890 1234 5678" />
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">BIC</label>
-            <input name="rechnung_bic" defaultValue={settings.rechnung_bic ?? ''} className={inputCls()} placeholder="RLNWATWWXXX" style={{ maxWidth: '320px' }} />
+            <input aria-label="BIC" name="rechnung_bic" defaultValue={settings.rechnung_bic ?? ''} className={inputCls()} placeholder="RLNWATWWXXX" style={{ maxWidth: '320px' }} />
           </div>
           {/* Zahlungsziel wurde vom Betrieb zum Kunden verschoben (6.8.2026) -
               siehe zahlungsziel_tage auf Kontakt/Firma. */}
@@ -940,15 +940,15 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
         <div className="grid grid-cols-1 gap-3">
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Azure AD Verzeichnis-ID (Tenant ID)</label>
-            <input name="m365_tenant_id" defaultValue={settings.m365_tenant_id ?? ''} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" className={inputCls()} />
+            <input aria-label="Azure AD Verzeichnis-ID (Tenant ID)" name="m365_tenant_id" defaultValue={settings.m365_tenant_id ?? ''} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" className={inputCls()} />
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Anwendungs-ID (Client ID)</label>
-            <input name="m365_client_id" defaultValue={settings.m365_client_id ?? ''} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" className={inputCls()} />
+            <input aria-label="Anwendungs-ID (Client ID)" name="m365_client_id" defaultValue={settings.m365_client_id ?? ''} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" className={inputCls()} />
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Geheimer Clientschlüssel</label>
-            <input name="m365_client_secret" type="password" placeholder="Neu setzen (leer = unverändert)" className={inputCls()} />
+            <input aria-label="Geheimer Clientschlüssel" name="m365_client_secret" type="password" placeholder="Neu setzen (leer = unverändert)" className={inputCls()} />
           </div>
           <label className="flex items-start gap-2 cursor-pointer">
             <input type="checkbox" name="m365_kalender_schreiben" value="true" defaultChecked={!!settings.m365_kalender_schreiben} className="accent-s112-teal mt-0.5" />
@@ -1044,23 +1044,23 @@ function EmailTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">SMTP-Host</label>
-              <input name="email_smtp_host" defaultValue={settings.email_smtp_host ?? ''} placeholder="smtp.gmail.com" className={inputCls()} />
+              <input aria-label="SMTP-Host" name="email_smtp_host" defaultValue={settings.email_smtp_host ?? ''} placeholder="smtp.gmail.com" className={inputCls()} />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Port</label>
-              <input name="email_smtp_port" type="number" defaultValue={settings.email_smtp_port} className={inputCls()} />
+              <input aria-label="Port" name="email_smtp_port" type="number" defaultValue={settings.email_smtp_port} className={inputCls()} />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Benutzername / E-Mail</label>
-              <input name="email_smtp_user" defaultValue={settings.email_smtp_user ?? ''} placeholder="name@domain.at" className={inputCls()} />
+              <input aria-label="Benutzername / E-Mail" name="email_smtp_user" defaultValue={settings.email_smtp_user ?? ''} placeholder="name@domain.at" className={inputCls()} />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Passwort / App-Passwort</label>
-              <input name="email_smtp_pass" type="password" placeholder="Neu setzen (leer = unverändert)" className={inputCls()} />
+              <input aria-label="Passwort / App-Passwort" name="email_smtp_pass" type="password" placeholder="Neu setzen (leer = unverändert)" className={inputCls()} />
             </div>
             <div className="col-span-2">
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Absendername</label>
-              <input name="email_smtp_from_name" defaultValue={settings.email_smtp_from_name ?? ''} placeholder="Weingut Gebeshuber" className={inputCls()} />
+              <input aria-label="Absendername" name="email_smtp_from_name" defaultValue={settings.email_smtp_from_name ?? ''} placeholder="Weingut Gebeshuber" className={inputCls()} />
             </div>
           </div>
         </div>
@@ -1071,19 +1071,19 @@ function EmailTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">IMAP-Host</label>
-              <input name="email_imap_host" defaultValue={settings.email_imap_host ?? ''} placeholder="imap.gmail.com" className={inputCls()} />
+              <input aria-label="IMAP-Host" name="email_imap_host" defaultValue={settings.email_imap_host ?? ''} placeholder="imap.gmail.com" className={inputCls()} />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Port</label>
-              <input name="email_imap_port" type="number" defaultValue={settings.email_imap_port} className={inputCls()} />
+              <input aria-label="Port" name="email_imap_port" type="number" defaultValue={settings.email_imap_port} className={inputCls()} />
             </div>
             <div className="col-span-2">
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Benutzername / E-Mail</label>
-              <input name="email_imap_user" defaultValue={settings.email_imap_user ?? ''} className={inputCls()} />
+              <input aria-label="Benutzername / E-Mail" name="email_imap_user" defaultValue={settings.email_imap_user ?? ''} className={inputCls()} />
             </div>
             <div className="col-span-2">
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Passwort / App-Passwort</label>
-              <input name="email_imap_pass" type="password" placeholder="Neu setzen (leer = unverändert)" className={inputCls()} />
+              <input aria-label="Passwort / App-Passwort" name="email_imap_pass" type="password" placeholder="Neu setzen (leer = unverändert)" className={inputCls()} />
             </div>
           </div>
           {settings.email_last_poll && (
@@ -1209,7 +1209,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
         <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Präfix</label>
-            <input
+            <input aria-label="Präfix"
               name="rechnung_prefix"
               value={prefix}
               onChange={e => setPrefix(e.target.value.toUpperCase())}
@@ -1220,7 +1220,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Stellen</label>
-            <input
+            <input aria-label="Stellen"
               name="rechnung_stellen"
               type="number"
               value={stellen}
@@ -1231,7 +1231,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Suffix</label>
-            <input
+            <input aria-label="Suffix"
               name="rechnung_suffix"
               value={suffix}
               onChange={e => setSuffix(e.target.value)}
@@ -1264,7 +1264,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Präfix</label>
-            <input
+            <input aria-label="Präfix"
               name="account_prefix"
               value={kPrefix}
               onChange={e => setKPrefix(e.target.value.toUpperCase())}
@@ -1275,7 +1275,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Stellen</label>
-            <input
+            <input aria-label="Stellen"
               name="account_stellen"
               type="number"
               value={kStellen}
@@ -1512,7 +1512,7 @@ function BawbTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Kennung (Betriebsnummer)</label>
-            <input
+            <input aria-label="Kennung (Betriebsnummer)"
               type="text"
               value={kennung}
               onChange={e => { setKennung(e.target.value); setStatus('idle') }}
@@ -1611,14 +1611,14 @@ function SumUpTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
       <form onSubmit={handleSave} className="space-y-4">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">SumUp API Key</label>
-          <input value={apiKey} onChange={e => setApiKey(e.target.value)}
+          <input aria-label="SumUp API Key" value={apiKey} onChange={e => setApiKey(e.target.value)}
             placeholder="sup_sk_…"
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           <p className="text-xs text-s112-muted mt-1">Persönlicher Access-Token aus dem SumUp-Dashboard → API Keys</p>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Merchant Code</label>
-          <input value={merchantCode} onChange={e => setMerchantCode(e.target.value)}
+          <input aria-label="Merchant Code" value={merchantCode} onChange={e => setMerchantCode(e.target.value)}
             placeholder="M…"
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           <p className="text-xs text-s112-muted mt-1">Zu finden unter SumUp-Profil → Unternehmensinformationen</p>

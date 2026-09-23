@@ -31,25 +31,25 @@ export default function NeuerJahrgangForm({ aktuellesJahr }: { aktuellesJahr: nu
         <label className="block text-sm font-medium text-s112-text-1 mb-1">
           Jahrgang <span className="text-s112-err">*</span>
         </label>
-        <input name="jahrgang" type="number" required
+        <input aria-label="Jahrgang" name="jahrgang" type="number" required
           min="1900" max="2100" defaultValue={aktuellesJahr}
           className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-medium text-s112-text-1 mb-1">Ernte Beginn</label>
-          <input name="ernte_beginn" type="date"
+          <input aria-label="Ernte Beginn" name="ernte_beginn" type="date"
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
           <label className="block text-sm font-medium text-s112-text-1 mb-1">Ernte Ende</label>
-          <input name="ernte_ende" type="date"
+          <input aria-label="Ernte Ende" name="ernte_ende" type="date"
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
       </div>
       <div>
         <label className="block text-sm font-medium text-s112-text-1 mb-1">Notizen</label>
-        <textarea name="notizen" rows={3}
+        <textarea aria-label="Notizen" name="notizen" rows={3}
           className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
       </div>
       <div className="flex gap-3 pt-2">

@@ -60,7 +60,7 @@ export default function WeingartenForm({ weingarten, action, readOnly = false }:
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="form-label">Riedname *</label>
-            <input
+            <input aria-label="Riedname"
               name="name"
               type="text"
               required
@@ -72,7 +72,7 @@ export default function WeingartenForm({ weingarten, action, readOnly = false }:
           </div>
           <div>
             <label className="form-label">Interne Bezeichnung (optional)</label>
-            <input
+            <input aria-label="Interne Bezeichnung (optional)"
               name="interne_bezeichnung"
               type="text"
               disabled={readOnly}
@@ -85,7 +85,7 @@ export default function WeingartenForm({ weingarten, action, readOnly = false }:
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="form-label">AMA-Feldstücknr.</label>
-            <input
+            <input aria-label="AMA-Feldstücknr."
               name="ama_feldnummer"
               type="text"
               maxLength={3}
@@ -98,7 +98,7 @@ export default function WeingartenForm({ weingarten, action, readOnly = false }:
           </div>
           <div>
             <label className="form-label">Codes</label>
-            <input
+            <input aria-label="Codes"
               name="codes"
               type="text"
               disabled={readOnly}

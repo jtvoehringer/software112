@@ -144,11 +144,11 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="form-label">Datum *</label>
-              <input type="date" value={datum} onChange={e => setDatum(e.target.value)} className="form-input" required />
+              <input aria-label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)} className="form-input" required />
             </div>
             <div>
               <label className="form-label">Notizen</label>
-              <input type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
+              <input aria-label="Notizen" type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
                 placeholder="z.B. Abstich nach Gärung …" className="form-input" />
             </div>
           </div>
@@ -167,7 +167,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="form-label">Brutto (Liter) *</label>
-              <input type="text" inputMode="decimal" value={brutto}
+              <input aria-label="Brutto (Liter)" type="text" inputMode="decimal" value={brutto}
                 onChange={e => setBrutto(e.target.value)} placeholder="z.B. 1.200" className="form-input" />
               {bruttoVal > verfuegbarLiter + 0.01 && (
                 <p className="text-xs text-s112-err-fg mt-1">Überschreitet verfügbaren Bestand</p>
@@ -175,7 +175,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
             </div>
             <div>
               <label className="form-label">Netto (Liter) *</label>
-              <input type="text" inputMode="decimal" value={netto}
+              <input aria-label="Netto (Liter)" type="text" inputMode="decimal" value={netto}
                 onChange={e => setNetto(e.target.value)} placeholder="z.B. 1.190" className="form-input" />
               {nettoVal > bruttoVal + 0.01 && (
                 <p className="text-xs text-s112-err-fg mt-1">Netto &gt; Brutto nicht erlaubt</p>
@@ -196,7 +196,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
           {/* Ziel-Gebinde */}
           <div>
             <label className="form-label">Ziel-Gebinde *</label>
-            <select value={zielId} onChange={e => setZielId(e.target.value)} className="form-input">
+            <select aria-label="Ziel-Gebinde" value={zielId} onChange={e => setZielId(e.target.value)} className="form-input">
               <option value="">– Gebinde wählen –</option>
               {gebinde.map(g => {
                 const inh = inhalt[g.id] ?? 0

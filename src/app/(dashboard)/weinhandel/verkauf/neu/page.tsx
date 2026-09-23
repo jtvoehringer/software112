@@ -443,12 +443,12 @@ export default function NeuerVerkaufPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Datum *</label>
-              <input type="date" value={datum} onChange={e => setDatum(e.target.value)}
+              <input aria-label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)}
                 required className={inputCls + ' w-full'} />
             </div>
             <div>
               <label className={labelCls}>Rechnungsnummer</label>
-              <input type="text" value="" readOnly disabled
+              <input aria-label="Rechnungsnummer" type="text" value="" readOnly disabled
                 placeholder="Wird automatisch vergeben"
                 className={inputCls + ' w-full bg-s112-bg text-s112-muted cursor-not-allowed'} />
               <p className="text-xs text-s112-muted mt-1">Automatisch generiert beim Speichern</p>
@@ -513,7 +513,7 @@ export default function NeuerVerkaufPage() {
             )}
             <div className="col-span-2">
               <label className={labelCls}>Notizen</label>
-              <input type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
+              <input aria-label="Notizen" type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
                 placeholder="Interne Notizen zum Vorgang"
                 className={inputCls + ' w-full'} />
             </div>
@@ -598,7 +598,7 @@ export default function NeuerVerkaufPage() {
                 {pos.typ === 'flasche' && (
                   <div className="col-span-2">
                     <label className={labelCls}>Füllung (Lager)</label>
-                    <select value={pos.fuellung_id}
+                    <select aria-label="Füllung (Lager)" value={pos.fuellung_id}
                       onChange={e => updatePos(idx, { fuellung_id: e.target.value })}
                       className={inputCls + ' w-full'} disabled={loading}>
                       <option value="">– manuell –</option>
@@ -616,7 +616,7 @@ export default function NeuerVerkaufPage() {
                 {pos.typ === 'tank' && (
                   <div className="col-span-2">
                     <label className={labelCls}>Kellerbuch / Zukauf</label>
-                    <select
+                    <select aria-label="Kellerbuch / Zukauf"
                       value={
                         pos.weinausbau_id
                           ? pos.weinausbau_id
@@ -677,7 +677,7 @@ export default function NeuerVerkaufPage() {
                   <div className="col-span-4 grid grid-cols-2 sm:grid-cols-3 gap-3 mb-1 p-3 bg-s112-ok-bg rounded-lg border border-s112-ok/30">
                     <div>
                       <label className={labelCls}>Ried *</label>
-                      <select value={pos.trauben_weingarten_id}
+                      <select aria-label="Ried" value={pos.trauben_weingarten_id}
                         onChange={e => {
                           const wg = weingaerten.find(w => w.id === e.target.value)
                           updatePos(idx, {
@@ -702,7 +702,7 @@ export default function NeuerVerkaufPage() {
                     </div>
                     <div>
                       <label className={labelCls}>Grundstück</label>
-                      <select value={pos.trauben_grundstueck_id}
+                      <select aria-label="Grundstück" value={pos.trauben_grundstueck_id}
                         onChange={e => {
                           const gst = grundstuecke.find(g => g.id === e.target.value)
                           updatePos(idx, {
@@ -725,7 +725,7 @@ export default function NeuerVerkaufPage() {
                     </div>
                     <div>
                       <label className={labelCls}>Jahrgang</label>
-                      <select value={pos.trauben_jahrgang_id}
+                      <select aria-label="Jahrgang" value={pos.trauben_jahrgang_id}
                         onChange={e => updatePos(idx, { trauben_jahrgang_id: e.target.value })}
                         className={inputCls + ' w-full'} disabled={loading}>
                         <option value="">–</option>
@@ -736,14 +736,14 @@ export default function NeuerVerkaufPage() {
                     </div>
                     <div>
                       <label className={labelCls}>KMW (°Kl.)</label>
-                      <input type="number" value={pos.trauben_kmw_grad}
+                      <input aria-label="KMW (°Kl.)" type="number" value={pos.trauben_kmw_grad}
                         onChange={e => updatePos(idx, { trauben_kmw_grad: e.target.value })}
                         step="0.1" min={0} placeholder="z.B. 17.5"
                         className={inputCls + ' w-full'} />
                     </div>
                     <div>
                       <label className={labelCls}>Qualitätsstufe</label>
-                      <select value={pos.trauben_qualitaetsstufe}
+                      <select aria-label="Qualitätsstufe" value={pos.trauben_qualitaetsstufe}
                         onChange={e => updatePos(idx, { trauben_qualitaetsstufe: e.target.value })}
                         className={inputCls + ' w-full'}>
                         <option value="">–</option>
@@ -761,7 +761,7 @@ export default function NeuerVerkaufPage() {
                     </div>
                     <div>
                       <label className={labelCls}>Gesundheit</label>
-                      <select value={pos.trauben_gesundheit}
+                      <select aria-label="Gesundheit" value={pos.trauben_gesundheit}
                         onChange={e => updatePos(idx, { trauben_gesundheit: e.target.value as 'G' | 'K' })}
                         className={inputCls + ' w-full'}>
                         <option value="G">G – Gesund</option>
@@ -807,7 +807,7 @@ export default function NeuerVerkaufPage() {
                 {/* Menge */}
                 <div>
                   <label className={labelCls}>Menge *</label>
-                  <input type="number" value={pos.menge}
+                  <input aria-label="Menge" type="number" value={pos.menge}
                     onChange={e => updatePos(idx, { menge: e.target.value })}
                     required
                     min={pos.typ === 'tank' || pos.typ === 'trauben' ? 0.01 : 1}
@@ -836,7 +836,7 @@ export default function NeuerVerkaufPage() {
                 {/* Preis */}
                 <div>
                   <label className={labelCls}>Preis/Einheit (€, brutto)</label>
-                  <input type="number" value={pos.preis_brutto}
+                  <input aria-label="Preis/Einheit (€, brutto)" type="number" value={pos.preis_brutto}
                     onChange={e => updatePos(idx, { preis_brutto: e.target.value })}
                     step="0.01" min={0} placeholder="0.00"
                     className={inputCls + ' w-full'} />
@@ -928,7 +928,7 @@ export default function NeuerVerkaufPage() {
         {/* ── Notizen ── */}
         <div className="card p-5">
           <label className={labelCls}>Notizen</label>
-          <textarea value={notizen} onChange={e => setNotizen(e.target.value)}
+          <textarea aria-label="Notizen" value={notizen} onChange={e => setNotizen(e.target.value)}
             rows={3} placeholder="Anmerkungen zur Bestellung…"
             className={inputCls + ' w-full resize-none'} />
         </div>

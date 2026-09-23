@@ -36,19 +36,19 @@ function RabattForm({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung *</label>
-          <input name="name" defaultValue={initial?.name ?? ''} required
+          <input aria-label="Bezeichnung" name="name" defaultValue={initial?.name ?? ''} required
             placeholder="z.B. Stammkunde, Großhändler" className={inputCls()} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Rabatt %</label>
-          <input name="rabatt_pct" type="number" step="0.5" min="0" max="100"
+          <input aria-label="Rabatt %" name="rabatt_pct" type="number" step="0.5" min="0" max="100"
             defaultValue={initial?.rabatt_pct ?? 0}
             placeholder="z.B. 10" className={inputCls()} />
         </div>
       </div>
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
-        <input name="notizen" defaultValue={initial?.notizen ?? ''}
+        <input aria-label="Notizen" name="notizen" defaultValue={initial?.notizen ?? ''}
           placeholder="Optional" className={inputCls()} />
       </div>
       <div className="flex gap-2">

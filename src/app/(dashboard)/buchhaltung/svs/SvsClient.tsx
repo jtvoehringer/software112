@@ -295,7 +295,7 @@ function EinheitswerteTab({ gst, setGst, darfSchreiben }: { gst: Gst[]; setGst: 
                 <td className="px-3 py-1.5">
                   <input type="date" value={g.einheitswert_bescheid ?? ''} disabled={!darfSchreiben} onChange={e => aendere(g.id, { einheitswert_bescheid: e.target.value || null })}
                     className="border border-s112-border rounded-lg px-2 py-1 text-xs focus:outline-none disabled:bg-s112-bg" />
-                  {g.einheitswert_quelle === 'import' && <span className="ml-1 text-[10px] text-s112-muted">Import</span>}
+                  {g.einheitswert_quelle === 'import' && <span className="ml-1 text-[11px] text-s112-muted">Import</span>}
                 </td>
               </tr>
             ))}
@@ -391,11 +391,11 @@ function ParameterTab({ parameter, jahr }: { parameter: SvsParameter[]; jahr: nu
       </div>
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Staffel Versicherungswert (JSON: bis = obere Einheitswertgrenze, prozent = Einkommensfaktor; letzte Stufe bis null)</label>
-        <textarea value={form.staffel} onChange={e => setForm({ ...form, staffel: e.target.value })} rows={4} className="w-full border border-s112-border rounded-lg px-3 py-2 text-xs font-mono focus:outline-none" />
+        <textarea aria-label="Staffel Versicherungswert (JSON: bis = obere Einheitswertgrenze, prozent = Einkommensfaktor; letzte Stufe bis null)" value={form.staffel} onChange={e => setForm({ ...form, staffel: e.target.value })} rows={4} className="w-full border border-s112-border rounded-lg px-3 py-2 text-xs font-mono focus:outline-none" />
       </div>
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Hinweis (Quelle)</label>
-        <input value={form.hinweis} onChange={e => setForm({ ...form, hinweis: e.target.value })} className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none" />
+        <input aria-label="Hinweis (Quelle)" value={form.hinweis} onChange={e => setForm({ ...form, hinweis: e.target.value })} className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none" />
       </div>
       <div className="flex items-center gap-3">
         <button onClick={speichern} disabled={pending} className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-[13px] font-semibold hover:bg-s112-blue-700 disabled:opacity-40">{pending ? 'Speichert…' : 'Parameter speichern'}</button>

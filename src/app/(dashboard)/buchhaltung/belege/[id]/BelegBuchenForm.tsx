@@ -198,13 +198,13 @@ export default function BelegBuchenForm({
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
-            <input type="date" name="datum" required
+            <input aria-label="Datum" type="date" name="datum" required
               defaultValue={e.datum ?? new Date().toISOString().split('T')[0]}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">USt-Satz *</label>
-            <select name="ust_satz" defaultValue={e.ust_satz ?? ustStandard}
+            <select aria-label="USt-Satz" name="ust_satz" defaultValue={e.ust_satz ?? ustStandard}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               {UST_SAETZE.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
             </select>
@@ -213,14 +213,14 @@ export default function BelegBuchenForm({
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung *</label>
-          <input name="beschreibung" required defaultValue={e.beschreibung ?? ''}
+          <input aria-label="Bezeichnung" name="beschreibung" required defaultValue={e.beschreibung ?? ''}
             placeholder="z.B. Diesel Tankstelle Müller"
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Betrag Netto (€) *</label>
-          <input type="number" name="betrag_netto" step="0.01" min="0" required
+          <input aria-label="Betrag Netto (€)" type="number" name="betrag_netto" step="0.01" min="0" required
             defaultValue={e.betrag_netto ?? ''} placeholder="0.00"
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           {e.betrag_brutto != null && (
@@ -232,7 +232,7 @@ export default function BelegBuchenForm({
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Kategorie</label>
-          <select name="kategorie_id" value={kategorieId} onChange={ev => setKategorieId(ev.target.value)}
+          <select aria-label="Kategorie" name="kategorie_id" value={kategorieId} onChange={ev => setKategorieId(ev.target.value)}
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             <option value="">– keine –</option>
             <optgroup label="Einnahmen">
@@ -252,7 +252,7 @@ export default function BelegBuchenForm({
         {konten.length > 0 && (
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Konto</label>
-            <select name="konto_id" defaultValue=""
+            <select aria-label="Konto" name="konto_id" defaultValue=""
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– keines –</option>
               {konten.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
@@ -263,7 +263,7 @@ export default function BelegBuchenForm({
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
-          <textarea name="notizen" rows={2} defaultValue={`Beleg: ${dateiname}`}
+          <textarea aria-label="Notizen" name="notizen" rows={2} defaultValue={`Beleg: ${dateiname}`}
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
         </div>
 

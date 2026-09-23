@@ -156,15 +156,15 @@ export default function AbstimmungClient({
                 </div>
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Datum</label>
-                  <input name="datum" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="form-input text-sm w-full" />
+                  <input aria-label="Datum" name="datum" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="form-input text-sm w-full" />
                 </div>
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Betrag (€)</label>
-                  <input name="betrag" type="text" inputMode="decimal" required placeholder="0,00" className="form-input text-sm w-full" />
+                  <input aria-label="Betrag (€)" name="betrag" type="text" inputMode="decimal" required placeholder="0,00" className="form-input text-sm w-full" />
                 </div>
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Notiz</label>
-                  <input name="beschreibung" type="text" placeholder="Optional…" className="form-input text-sm w-full" />
+                  <input aria-label="Notiz" name="beschreibung" type="text" placeholder="Optional…" className="form-input text-sm w-full" />
                 </div>
               </div>
               <div className="flex justify-end gap-2">

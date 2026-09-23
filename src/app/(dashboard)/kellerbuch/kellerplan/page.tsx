@@ -98,24 +98,24 @@ export default async function KellerplanListPage() {
           <form action={createKellerplan} className="space-y-4">
             <div>
               <label className={lCls}>Name der Lagerstätte *</label>
-              <input name="name" placeholder="z.B. Hauptkeller, Fassraum, Außenlager"
+              <input aria-label="Name der Lagerstätte" name="name" placeholder="z.B. Hauptkeller, Fassraum, Außenlager"
                 required className={iCls} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={lCls}>Breite (m) *</label>
-                <input name="breite_m" type="number" step="0.5" min="1"
+                <input aria-label="Breite (m)" name="breite_m" type="number" step="0.5" min="1"
                   defaultValue="20" required className={iCls} />
               </div>
               <div>
                 <label className={lCls}>Länge / Tiefe (m) *</label>
-                <input name="laenge_m" type="number" step="0.5" min="1"
+                <input aria-label="Länge / Tiefe (m)" name="laenge_m" type="number" step="0.5" min="1"
                   defaultValue="10" required className={iCls} />
               </div>
             </div>
             <div>
               <label className={lCls}>Notizen (optional)</label>
-              <input name="notizen" placeholder="z.B. Erdgeschoss Nordbau" className={iCls} />
+              <input aria-label="Notizen (optional)" name="notizen" placeholder="z.B. Erdgeschoss Nordbau" className={iCls} />
             </div>
             <button type="submit"
               className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">

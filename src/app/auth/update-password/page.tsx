@@ -37,13 +37,13 @@ export default function UpdatePasswordPage() {
         <form onSubmit={handleUpdate} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-s112-text-1 mb-1">Neues Passwort</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+            <input aria-label="Neues Passwort" type="password" value={password} onChange={e => setPassword(e.target.value)}
               required autoComplete="new-password" minLength={8} placeholder="Min. 8 Zeichen"
               className="input w-full" />
           </div>
           <div>
             <label className="block text-sm font-medium text-s112-text-1 mb-1">Bestätigen</label>
-            <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)}
+            <input aria-label="Bestätigen" type="password" value={confirm} onChange={e => setConfirm(e.target.value)}
               required autoComplete="new-password" placeholder="Passwort wiederholen"
               className="input w-full" />
           </div>

@@ -350,11 +350,11 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
-          <input type="date" value={datum} onChange={e => setDatum(e.target.value)} required className={inp} />
+          <input aria-label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)} required className={inp} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Mostausbeute gesamt (L) *</label>
-          <input type="text" inputMode="decimal" required value={mostLiter} onChange={e => setMostLiter(e.target.value)}
+          <input aria-label="Mostausbeute gesamt (L)" type="text" inputMode="decimal" required value={mostLiter} onChange={e => setMostLiter(e.target.value)}
             placeholder="z.B. 1.050" className={inp} />
         </div>
         <div className="col-span-2">
@@ -375,7 +375,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
           <label className="block text-xs font-medium text-s112-text-2 mb-1">
             Bezeichnung <span className="text-s112-muted font-normal">(z.B. Gemischter Satz – optional)</span>
           </label>
-          <input type="text" value={weinbezeichnung} onChange={e => setWeinbez(e.target.value)}
+          <input aria-label="Bezeichnung (z.B. Gemischter Satz – optional)" type="text" value={weinbezeichnung} onChange={e => setWeinbez(e.target.value)}
             placeholder="Leer lassen für reinsortige Weine" className={inp} />
           {(() => {
             const rebsorten = wgRows.map(r => r.rebsorte).filter(Boolean)
@@ -576,7 +576,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
       {/* Notizen */}
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
-        <input type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
+        <input aria-label="Notizen" type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
           placeholder="z.B. Nachtlese, Botrytis teilweise …" className={inp} />
       </div>
 

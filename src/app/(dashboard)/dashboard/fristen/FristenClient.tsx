@@ -62,7 +62,7 @@ export default function FristenClient({ fristen, darfSchreiben, vorwarnungTage }
                         <button type="button" title="Löschen" disabled={pending} onClick={() => run(() => fristLoeschen(f.id!))} className="p-1 rounded text-s112-tertiary hover:text-s112-err-fg hover:bg-s112-err-bg"><Trash2 size={14} strokeWidth={1.75} /></button>
                       </span>
                     )}
-                    {f.quelle === 'system' && <span className="font-mono text-[10px] text-s112-tertiary">automatisch</span>}
+                    {f.quelle === 'system' && <span className="font-mono text-[11px] text-s112-tertiary">automatisch</span>}
                   </Td>
                 )}
               </tr>

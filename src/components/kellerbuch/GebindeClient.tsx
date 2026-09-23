@@ -45,11 +45,11 @@ export default function GebindeClient({ gebinde, action, inputCls, labelCls, par
             <form action={handleSubmit} className="space-y-3">
               <div>
                 <label className={labelCls}>Bezeichnung *</label>
-                <input name="name" required defaultValue={gebinde.name} className={inputCls} />
+                <input aria-label="Bezeichnung" name="name" required defaultValue={gebinde.name} className={inputCls} />
               </div>
               <div>
                 <label className={labelCls}>Typ</label>
-                <select name="typ" defaultValue={gebinde.typ ?? ''} className={inputCls}>
+                <select aria-label="Typ" name="typ" defaultValue={gebinde.typ ?? ''} className={inputCls}>
                   <option value="">– kein –</option>
                   <option value="amphore">Amphore</option>
                   <option value="barrique">Barrique</option>
@@ -68,16 +68,16 @@ export default function GebindeClient({ gebinde, action, inputCls, labelCls, par
               </div>
               <div>
                 <label className={labelCls}>Fassungsvermögen (Liter)</label>
-                <input name="volumen_liter" type="number" step="0.01" min={0}
+                <input aria-label="Fassungsvermögen (Liter)" name="volumen_liter" type="number" step="0.01" min={0}
                   defaultValue={gebinde.volumen_liter ?? ''} className={inputCls} />
               </div>
               <div>
                 <label className={labelCls}>Standort</label>
-                <input name="standort" defaultValue={gebinde.standort ?? ''} className={inputCls} />
+                <input aria-label="Standort" name="standort" defaultValue={gebinde.standort ?? ''} className={inputCls} />
               </div>
               <div>
                 <label className={labelCls}>Notizen</label>
-                <input name="notizen" defaultValue={gebinde.notizen ?? ''} className={inputCls} />
+                <input aria-label="Notizen" name="notizen" defaultValue={gebinde.notizen ?? ''} className={inputCls} />
               </div>
               <div className="flex flex-wrap gap-4 text-sm text-s112-text">
                 <label className="inline-flex items-center gap-2 cursor-pointer"><input type="checkbox" name="stapler" value="true" defaultChecked={!!gebinde.stapler} className="accent-[var(--s112-teal)]" /> mit Stapler versetzbar</label>
@@ -87,7 +87,7 @@ export default function GebindeClient({ gebinde, action, inputCls, labelCls, par
               </div>
               <div>
                 <label className={labelCls}>Status</label>
-                <select name="aktiv" defaultValue={String(gebinde.aktiv)} className={inputCls}>
+                <select aria-label="Status" name="aktiv" defaultValue={String(gebinde.aktiv)} className={inputCls}>
                   <option value="true">Aktiv</option>
                   <option value="false">Inaktiv</option>
                 </select>

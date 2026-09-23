@@ -67,7 +67,7 @@ export default async function DauerauftraegePage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Typ *</label>
-              <select name="typ" required
+              <select aria-label="Typ" name="typ" required
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
                 <option value="einnahme">Einnahme</option>
                 <option value="ausgabe">Ausgabe</option>
@@ -75,7 +75,7 @@ export default async function DauerauftraegePage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Intervall *</label>
-              <select name="intervall" required
+              <select aria-label="Intervall" name="intervall" required
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
                 {INTERVALLE.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
               </select>
@@ -83,18 +83,18 @@ export default async function DauerauftraegePage() {
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung *</label>
-            <input name="beschreibung" required placeholder="z.B. Miete Lagerhalle"
+            <input aria-label="Bezeichnung" name="beschreibung" required placeholder="z.B. Miete Lagerhalle"
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" />
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Betrag Netto (€) *</label>
-              <input type="number" name="betrag_netto" step="0.01" min="0.01" required
+              <input aria-label="Betrag Netto (€)" type="number" name="betrag_netto" step="0.01" min="0.01" required
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">USt-Satz</label>
-              <select name="ust_satz" defaultValue="20"
+              <select aria-label="USt-Satz" name="ust_satz" defaultValue="20"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
                 <option value="0">0%</option><option value="10">10%</option>
                 <option value="13">13%</option><option value="20">20%</option>
@@ -102,20 +102,20 @@ export default async function DauerauftraegePage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Tag im Monat</label>
-              <input type="number" name="tag_im_monat" min="1" max="28" defaultValue="1"
+              <input aria-label="Tag im Monat" type="number" name="tag_im_monat" min="1" max="28" defaultValue="1"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Nächste Fälligkeit *</label>
-              <input type="date" name="naechste_faelligkeit" required
+              <input aria-label="Nächste Fälligkeit" type="date" name="naechste_faelligkeit" required
                 defaultValue={new Date().toISOString().split('T')[0]}
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Kategorie</label>
-              <select name="kategorie_id"
+              <select aria-label="Kategorie" name="kategorie_id"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
                 <option value="">– keine –</option>
                 {(kategorien as R[])?.map((k: R) => (
@@ -127,7 +127,7 @@ export default async function DauerauftraegePage() {
           {konten && (konten as R[]).length > 0 && (
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Konto</label>
-              <select name="konto_id" defaultValue=""
+              <select aria-label="Konto" name="konto_id" defaultValue=""
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
                 <option value="">– keines –</option>
                 {(konten as R[]).map(k => <option key={k.id} value={k.id}>{k.name}</option>)}

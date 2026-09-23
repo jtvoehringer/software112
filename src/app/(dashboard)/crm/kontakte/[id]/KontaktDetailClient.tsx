@@ -208,7 +208,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Art</label>
-              <select name="art" defaultValue={a.art} className={inputCls()}>
+              <select aria-label="Art" name="art" defaultValue={a.art} className={inputCls()}>
                 {a.art === 'email' && <input type="hidden" name="art" value="email" />}
                 {AKTIVITAET_ARTEN.filter(x => !('nurAnzeige' in x) || x.value === a.art).map(x => (
                   <option key={x.value} value={x.value} disabled={'nurAnzeige' in x}>{x.label}{('nurAnzeige' in x) ? ' (automatisch)' : ''}</option>
@@ -217,16 +217,16 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum</label>
-              <input type="date" name="datum" defaultValue={a.datum ?? ''} required className={inputCls()} />
+              <input aria-label="Datum" type="date" name="datum" defaultValue={a.datum ?? ''} required className={inputCls()} />
             </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Betreff</label>
-            <input type="text" name="betreff" defaultValue={a.betreff ?? ''} className={inputCls()} />
+            <input aria-label="Betreff" type="text" name="betreff" defaultValue={a.betreff ?? ''} className={inputCls()} />
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Bericht</label>
-            <textarea name="beschreibung" defaultValue={a.beschreibung ?? ''} rows={2} className={inputCls()} />
+            <textarea aria-label="Bericht" name="beschreibung" defaultValue={a.beschreibung ?? ''} rows={2} className={inputCls()} />
           </div>
           <div className="flex items-center gap-4 flex-wrap text-xs">
             <label className="flex items-center gap-1.5 cursor-pointer">
@@ -312,7 +312,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
         )}
         {a.art === 'email' && emailOpen && (
           <div className="mt-2 border border-s112-border rounded-lg overflow-hidden">
-            <div className="bg-s112-bg px-3 py-1.5 text-[10px] text-s112-muted space-y-0.5 border-b border-s112-border">
+            <div className="bg-s112-bg px-3 py-1.5 text-[11px] text-s112-muted space-y-0.5 border-b border-s112-border">
               {a.email_von && <div><span className="font-medium">Von:</span> {a.email_von_name ? `${a.email_von_name} <${a.email_von}>` : a.email_von}</div>}
               {a.email_an  && <div><span className="font-medium">An:</span> {a.email_an}</div>}
               {a.datum     && <div><span className="font-medium">Datum:</span> {new Date(a.datum).toLocaleDateString('de-AT')}</div>}
@@ -534,7 +534,7 @@ export default function KontaktDetailClient({
       ) : (
         <div className="flex items-start gap-4">
           <div className="flex flex-col items-center justify-center bg-s112-bg border border-s112-border rounded-xl px-3 py-2 flex-shrink-0 min-w-[72px]">
-            <span className="text-[10px] text-s112-muted font-medium uppercase tracking-wide">Kd.-Nr.</span>
+            <span className="text-[11px] text-s112-muted font-medium uppercase tracking-wide">Kd.-Nr.</span>
             <span className="text-sm font-semibold text-s112-blue-700 tabular-nums">{kontakt.accountnummer ?? '–'}</span>
           </div>
           <div className="flex-1 min-w-0">
@@ -695,7 +695,7 @@ export default function KontaktDetailClient({
               <div key={e} className="flex items-center gap-2 text-sm">
                 <Mail size={16} className="text-s112-tertiary" />
                 <a href={`mailto:${e}`} className="text-s112-text-1 hover:text-s112-blue-700 hover:underline">{e}</a>
-                <span className="text-[10px] text-s112-muted">weitere</span>
+                <span className="text-[11px] text-s112-muted">weitere</span>
               </div>
             ))}
             {kontakt.telefon && (
@@ -775,7 +775,7 @@ export default function KontaktDetailClient({
                     <div className="flex-1 flex gap-1 items-center">
                       <input value={notizEditText} onChange={e => setNotizEditText(e.target.value)}
                         className="flex-1 border border-s112-border rounded px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40" />
-                      <button type="button" onClick={async () => {
+                      <button type="button" aria-label="Notiz speichern" onClick={async () => {
                         const fd = new FormData(); fd.set('betreff', notizEditText)
                         await updateAktivitaet(n.id, fd); setNotizEditId(null)
                       }} className="text-xs text-s112-blue-700 font-medium"><Check size={13} /></button>
@@ -785,9 +785,9 @@ export default function KontaktDetailClient({
                     <div className="flex-1 min-w-0 flex items-start justify-between gap-1">
                       <div className="min-w-0">
                         <p className={`text-xs ${n.erledigt ? 'text-s112-tertiary' : 'text-s112-text-1'}`}>{n.betreff}</p>
-                        <p className="text-[10px] text-s112-muted">{new Date(n.datum).toLocaleDateString('de-AT')}</p>
+                        <p className="text-[11px] text-s112-muted">{new Date(n.datum).toLocaleDateString('de-AT')}</p>
                       </div>
-                      <button type="button" onClick={() => { setNotizEditId(n.id); setNotizEditText(n.betreff ?? '') }}
+                      <button type="button" aria-label="Notiz bearbeiten" onClick={() => { setNotizEditId(n.id); setNotizEditText(n.betreff ?? '') }}
                         className="text-s112-tertiary hover:text-s112-blue-700 flex-shrink-0 mt-0.5"><Pencil size={11} /></button>
                     </div>
                   )}
@@ -892,16 +892,16 @@ export default function KontaktDetailClient({
             <form onSubmit={sendEmail} className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">An</label>
-                <input value={kontakt.email} readOnly className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm bg-s112-bg" />
+                <input aria-label="An" value={kontakt.email} readOnly className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm bg-s112-bg" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Betreff *</label>
-                <input value={emailBetreff} onChange={e => setEmailBetreff(e.target.value)} required autoFocus
+                <input aria-label="Betreff" value={emailBetreff} onChange={e => setEmailBetreff(e.target.value)} required autoFocus
                   className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Nachricht</label>
-                <textarea value={emailText} onChange={e => setEmailText(e.target.value)} rows={5}
+                <textarea aria-label="Nachricht" value={emailText} onChange={e => setEmailText(e.target.value)} rows={5}
                   className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
               </div>
               {emailResult && (
@@ -941,13 +941,13 @@ export default function KontaktDetailClient({
             <form onSubmit={handleUmwandeln} className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Firmenname *</label>
-                <input value={umwName} onChange={e => setUmwName(e.target.value)} required autoFocus
+                <input aria-label="Firmenname" value={umwName} onChange={e => setUmwName(e.target.value)} required autoFocus
                   placeholder="z. B. Gasthaus Musterwirt"
                   className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Segment</label>
-                <select value={umwSegment} onChange={e => setUmwSegment(e.target.value)}
+                <select aria-label="Segment" value={umwSegment} onChange={e => setUmwSegment(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   {SEGMENTE.map(sg => <option key={sg.value} value={sg.value}>{sg.label}</option>)}
                 </select>

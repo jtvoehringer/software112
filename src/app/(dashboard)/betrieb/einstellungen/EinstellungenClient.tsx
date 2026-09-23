@@ -177,14 +177,14 @@ function BrandingTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
     <form onSubmit={handleSubmit} className="space-y-5 max-w-lg">
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Anzeigename</label>
-        <input name="anzeigename" defaultValue={daten.anzeigename ?? daten.tenantName}
+        <input aria-label="Anzeigename" name="anzeigename" defaultValue={daten.anzeigename ?? daten.tenantName}
           placeholder={daten.tenantName} className={inputCls()} />
         <p className="text-xs text-s112-muted mt-1">Wird in der Sidebar unter dem Logo angezeigt.</p>
       </div>
 
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Logo</label>
-        <input
+        <input aria-label="Logo"
           ref={logoInputRef}
           type="file"
           accept="image/png,image/jpeg,image/webp,image/svg+xml"
@@ -243,7 +243,7 @@ function BrandingTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
 
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Session Timeout (Minuten)</label>
-        <input name="session_timeout_minuten" type="number" min="5" max="480"
+        <input aria-label="Session Timeout (Minuten)" name="session_timeout_minuten" type="number" min="5" max="480"
           defaultValue={daten.session_timeout_minuten ?? ''}
           placeholder="Leer = kein Timeout" className={inputCls()} style={{ maxWidth: '180px' }} />
         <p className="text-xs text-s112-muted mt-1">
@@ -258,13 +258,13 @@ function BrandingTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Gärkontrolle fällig nach (Tage)</label>
-            <input name="gaerung_messintervall_tage" type="number" min="1" max="60" required
+            <input aria-label="Gärkontrolle fällig nach (Tage)" name="gaerung_messintervall_tage" type="number" min="1" max="60" required
               defaultValue={daten.gaerung_messintervall_tage} className={inputCls()} style={{ maxWidth: '180px' }} />
             <p className="text-xs text-s112-muted mt-1">Charge in Gärung ohne Weinanalyse seit so vielen Tagen gilt als „Messung fällig“ (Kellerbuch-Kanban, Übersicht, Glocke).</p>
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Fristen-Vorwarnung (Tage)</label>
-            <input name="fristen_vorwarnung_tage" type="number" min="1" max="365" required
+            <input aria-label="Fristen-Vorwarnung (Tage)" name="fristen_vorwarnung_tage" type="number" min="1" max="365" required
               defaultValue={daten.fristen_vorwarnung_tage} className={inputCls()} style={{ maxWidth: '180px' }} />
             <p className="text-xs text-s112-muted mt-1">So viele Tage vor dem Termin springt eine Frist von „offen“ auf „fällig“ (Ampel, Glocke, Offene Aufgaben).</p>
           </div>
@@ -285,12 +285,12 @@ function BrandingTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
           </label>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Belag abgewaschen ab (mm Regen seit Behandlung)</label>
-            <input name="wetter_abwasch_mm" type="number" min="5" max="100" required defaultValue={daten.wetter_abwasch_mm} className={inputCls()} style={{ maxWidth: '180px' }} />
+            <input aria-label="Belag abgewaschen ab (mm Regen seit Behandlung)" name="wetter_abwasch_mm" type="number" min="5" max="100" required defaultValue={daten.wetter_abwasch_mm} className={inputCls()} style={{ maxWidth: '180px' }} />
             <p className="text-xs text-s112-muted mt-1">Faustregel 20–30 mm; ab 60 % davon gilt der Belag als nachlassend.</p>
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Spritzintervall (Tage, Mai–August)</label>
-            <input name="wetter_intervall_tage" type="number" min="5" max="60" required defaultValue={daten.wetter_intervall_tage} className={inputCls()} style={{ maxWidth: '180px' }} />
+            <input aria-label="Spritzintervall (Tage, Mai–August)" name="wetter_intervall_tage" type="number" min="5" max="60" required defaultValue={daten.wetter_intervall_tage} className={inputCls()} style={{ maxWidth: '180px' }} />
             <p className="text-xs text-s112-muted mt-1">Länger ohne Behandlung → Hinweis „Spritzintervall abgelaufen“ im Morgenbericht.</p>
           </div>
         </div>
@@ -330,51 +330,51 @@ function BetriebTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
         <div className="grid grid-cols-1 gap-3">
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Betriebsname *</label>
-            <input name="betrieb_name" defaultValue={daten.betrieb_name ?? ''} required className={inputCls()} placeholder="Weingut Gebeshuber" />
+            <input aria-label="Betriebsname" name="betrieb_name" defaultValue={daten.betrieb_name ?? ''} required className={inputCls()} placeholder="Weingut Gebeshuber" />
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div className="col-span-2">
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Straße + Nr.</label>
-              <input name="betrieb_strasse" defaultValue={daten.betrieb_strasse ?? ''} className={inputCls()} placeholder="Hauptstraße 1" />
+              <input aria-label="Straße + Nr." name="betrieb_strasse" defaultValue={daten.betrieb_strasse ?? ''} className={inputCls()} placeholder="Hauptstraße 1" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">PLZ</label>
-              <input name="betrieb_plz" defaultValue={daten.betrieb_plz ?? ''} className={inputCls()} placeholder="3421" />
+              <input aria-label="PLZ" name="betrieb_plz" defaultValue={daten.betrieb_plz ?? ''} className={inputCls()} placeholder="3421" />
             </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Ort</label>
-            <input name="betrieb_ort" defaultValue={daten.betrieb_ort ?? ''} className={inputCls()} placeholder="Krems an der Donau" />
+            <input aria-label="Ort" name="betrieb_ort" defaultValue={daten.betrieb_ort ?? ''} className={inputCls()} placeholder="Krems an der Donau" />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Telefon</label>
-              <input name="betrieb_telefon" defaultValue={daten.betrieb_telefon ?? ''} className={inputCls()} placeholder="+43 2732 12345" />
+              <input aria-label="Telefon" name="betrieb_telefon" defaultValue={daten.betrieb_telefon ?? ''} className={inputCls()} placeholder="+43 2732 12345" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">E-Mail</label>
-              <input name="betrieb_email" type="email" defaultValue={daten.betrieb_email ?? ''} className={inputCls()} placeholder="office@weingut.at" />
+              <input aria-label="E-Mail" name="betrieb_email" type="email" defaultValue={daten.betrieb_email ?? ''} className={inputCls()} placeholder="office@weingut.at" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Website</label>
-              <input name="betrieb_website" defaultValue={daten.betrieb_website ?? ''} className={inputCls()} placeholder="www.weingut.at" />
+              <input aria-label="Website" name="betrieb_website" defaultValue={daten.betrieb_website ?? ''} className={inputCls()} placeholder="www.weingut.at" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">UID-Nummer</label>
-              <input name="betrieb_uid" defaultValue={daten.betrieb_uid ?? ''} className={inputCls()} placeholder="ATU12345678" />
+              <input aria-label="UID-Nummer" name="betrieb_uid" defaultValue={daten.betrieb_uid ?? ''} className={inputCls()} placeholder="ATU12345678" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Weinbau-Betriebsnummer</label>
-              <input name="betrieb_betriebsnummer" defaultValue={daten.betrieb_betriebsnummer ?? ''} className={inputCls()} placeholder="z.B. 4489781" />
-              <p className="text-[10px] text-s112-tertiary mt-0.5">Für Transportbescheinigung &amp; Prüfnummernantrag</p>
+              <input aria-label="Weinbau-Betriebsnummer" name="betrieb_betriebsnummer" defaultValue={daten.betrieb_betriebsnummer ?? ''} className={inputCls()} placeholder="z.B. 4489781" />
+              <p className="text-[11px] text-s112-tertiary mt-0.5">Für Transportbescheinigung &amp; Prüfnummernantrag</p>
             </div>
             {/* Betriebsbeginn / Systemstart der E&A-Rechnung (Migration 180) */}
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Betriebsbeginn E&amp;A-Rechnung</label>
-              <input name="ea_betriebsbeginn" type="date" defaultValue={daten.ea_betriebsbeginn ?? ''} className={inputCls()} />
-              <p className="text-[10px] text-s112-tertiary mt-0.5">Systemstart: Monate davor gelten nicht als offen (Monatsabschluss, UVA, Dashboard). Leer = keine Einschränkung.</p>
+              <input aria-label="Betriebsbeginn E&A-Rechnung" name="ea_betriebsbeginn" type="date" defaultValue={daten.ea_betriebsbeginn ?? ''} className={inputCls()} />
+              <p className="text-[11px] text-s112-tertiary mt-0.5">Systemstart: Monate davor gelten nicht als offen (Monatsabschluss, UVA, Dashboard). Leer = keine Einschränkung.</p>
             </div>
           </div>
         </div>
@@ -384,10 +384,10 @@ function BetriebTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
         <p className="text-xs font-semibold text-s112-text-1 uppercase tracking-wide mb-3">Bewirtschaftung</p>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Status</label>
-          <select name="bio_status" defaultValue={daten.bio_status} className={inputCls()} style={{ maxWidth: '320px' }}>
+          <select aria-label="Status" name="bio_status" defaultValue={daten.bio_status} className={inputCls()} style={{ maxWidth: '320px' }}>
             {BIO_STATUS_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
-          <p className="text-[10px] text-s112-tertiary mt-0.5">
+          <p className="text-[11px] text-s112-tertiary mt-0.5">
             Steuert die Warn-/Sperrlogik bei der Mittelwahl im Maßnahmenformular: bei Bio-EU/biodynamisch
             wird ein nicht öko-zugelassenes Mittel gesperrt, bei KIP/nachhaltig nur als Warnung angezeigt.
           </p>
@@ -399,11 +399,11 @@ function BetriebTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
         <div className="grid grid-cols-1 gap-3">
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">IBAN</label>
-            <input name="rechnung_iban" defaultValue={daten.rechnung_iban ?? ''} className={inputCls()} placeholder="AT12 3456 7890 1234 5678" />
+            <input aria-label="IBAN" name="rechnung_iban" defaultValue={daten.rechnung_iban ?? ''} className={inputCls()} placeholder="AT12 3456 7890 1234 5678" />
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">BIC</label>
-            <input name="rechnung_bic" defaultValue={daten.rechnung_bic ?? ''} className={inputCls()} placeholder="RLNWATWWXXX" style={{ maxWidth: '320px' }} />
+            <input aria-label="BIC" name="rechnung_bic" defaultValue={daten.rechnung_bic ?? ''} className={inputCls()} placeholder="RLNWATWWXXX" style={{ maxWidth: '320px' }} />
           </div>
         </div>
       </div>
@@ -481,7 +481,7 @@ function BawbTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Kennung (Betriebsnummer)</label>
-            <input
+            <input aria-label="Kennung (Betriebsnummer)"
               type="text"
               value={kennung}
               onChange={e => { setKennung(e.target.value); setStatus('idle') }}

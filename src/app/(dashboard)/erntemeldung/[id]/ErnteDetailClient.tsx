@@ -188,21 +188,21 @@ function NeueParzellenForm({
                                     <div className="grid grid-cols-4 gap-2">
                                       <div>
                                         <label className="block text-xs text-s112-text-2 mb-0.5">Menge kg</label>
-                                        <input type="text" inputMode="decimal" placeholder="–"
+                                        <input aria-label="Menge kg" type="text" inputMode="decimal" placeholder="–"
                                           value={gstData.get(g.id)?.menge_kg ?? ''}
                                           onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', lesemethode: '', notizen: '' }; n.set(g.id, { ...d, menge_kg: e.target.value }); return n })}
                                           className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white" />
                                       </div>
                                       <div>
                                         <label className="block text-xs text-s112-text-2 mb-0.5">°KMW</label>
-                                        <input type="text" inputMode="decimal" placeholder="–"
+                                        <input aria-label="°KMW" type="text" inputMode="decimal" placeholder="–"
                                           value={gstData.get(g.id)?.kmw ?? ''}
                                           onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', lesemethode: '', notizen: '' }; n.set(g.id, { ...d, kmw: e.target.value }); return n })}
                                           className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white" />
                                       </div>
                                       <div>
                                         <label className="block text-xs text-s112-text-2 mb-0.5">Lesemethode</label>
-                                        <select
+                                        <select aria-label="Lesemethode"
                                           value={gstData.get(g.id)?.lesemethode ?? ''}
                                           onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', lesemethode: '', notizen: '' }; n.set(g.id, { ...d, lesemethode: e.target.value }); return n })}
                                           className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white">
@@ -212,7 +212,7 @@ function NeueParzellenForm({
                                       </div>
                                       <div>
                                         <label className="block text-xs text-s112-text-2 mb-0.5">Notizen</label>
-                                        <input type="text" placeholder="–"
+                                        <input aria-label="Notizen" type="text" placeholder="–"
                                           value={gstData.get(g.id)?.notizen ?? ''}
                                           onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', lesemethode: '', notizen: '' }; n.set(g.id, { ...d, notizen: e.target.value }); return n })}
                                           className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white" />
@@ -237,7 +237,7 @@ function NeueParzellenForm({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Ernte-Datum</label>
-          <input name="ernte_datum" type="date" defaultValue={new Date().toISOString().split('T')[0]} className={inputCls} />
+          <input aria-label="Ernte-Datum" name="ernte_datum" type="date" defaultValue={new Date().toISOString().split('T')[0]} className={inputCls} />
         </div>
 
         {/* Die "zweite Möglichkeit" (Menge/°KMW/Lesemethode formularweit erfassen) entfällt,
@@ -249,7 +249,7 @@ function NeueParzellenForm({
           <>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Lesemethode</label>
-              <select name="lesemethode" className={inputCls}>
+              <select aria-label="Lesemethode" name="lesemethode" className={inputCls}>
                 <option value="">–</option>
                 {LESEMETHODE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
@@ -258,7 +258,7 @@ function NeueParzellenForm({
               <label className="block text-xs font-medium text-s112-text-2 mb-1">
                 Menge kg <span className="text-s112-muted font-normal">(anteilsmäßig auf GST aufgeteilt)</span>
               </label>
-              <input name="menge_kg" type="text" inputMode="decimal" className={inputCls} placeholder="–" />
+              <input aria-label="Menge kg (anteilsmäßig auf GST aufgeteilt)" name="menge_kg" type="text" inputMode="decimal" className={inputCls} placeholder="–" />
             </div>
             <div className="col-span-2">
               <label className="block text-xs font-medium text-s112-text-2 mb-1">°KMW & Qualitätsstufe</label>
@@ -283,7 +283,7 @@ function NeueParzellenForm({
 
         <div className="col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
-          <input name="notizen" className={inputCls} placeholder="optional" />
+          <input aria-label="Notizen" name="notizen" className={inputCls} placeholder="optional" />
         </div>
       </div>
 
@@ -347,7 +347,7 @@ function ParzellForm({
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Weingarten <span className="text-s112-err">*</span></label>
-          <select name="weingarten_id" required value={selWgId}
+          <select aria-label="Weingarten" name="weingarten_id" required value={selWgId}
             onChange={e => { setSelWgId(e.target.value); setSelGstId('') }}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             <option value="">– Auswählen –</option>
@@ -377,12 +377,12 @@ function ParzellForm({
         )}
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Ernte-Datum</label>
-          <input name="ernte_datum" type="date" defaultValue={parzelle?.ernte_datum ?? ''}
+          <input aria-label="Ernte-Datum" name="ernte_datum" type="date" defaultValue={parzelle?.ernte_datum ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Lesemethode</label>
-          <select name="lesemethode" defaultValue={parzelle?.lesemethode ?? ''}
+          <select aria-label="Lesemethode" name="lesemethode" defaultValue={parzelle?.lesemethode ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             <option value="">–</option>
             {LESEMETHODE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -390,21 +390,21 @@ function ParzellForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge (kg)</label>
-          <input name="menge_kg" type="text" inputMode="decimal"
+          <input aria-label="Menge (kg)" name="menge_kg" type="text" inputMode="decimal"
             defaultValue={parzelle?.menge_kg ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <input type="hidden" name="oechsle" value="" />
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">°KMW</label>
-          <input name="klosterneuburger" type="text" inputMode="decimal"
+          <input aria-label="°KMW" name="klosterneuburger" type="text" inputMode="decimal"
             defaultValue={parzelle?.klosterneuburger ?? ''}
             onChange={e => { setKmwEdit(e.target.value ? parseFloat(dezimal(e.target.value)) : null); setQualitaetEdit(null) }}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Qualitätsstufe</label>
-          <select name="qualitaetsstufe" value={effectiveQualitaetEdit}
+          <select aria-label="Qualitätsstufe" name="qualitaetsstufe" value={effectiveQualitaetEdit}
             onChange={e => setQualitaetEdit(e.target.value)}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             {QUALITAET_OPTS.map(o => (
@@ -417,7 +417,7 @@ function ParzellForm({
         </div>
         <div className="col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
-          <input name="notizen" defaultValue={parzelle?.notizen ?? ''}
+          <input aria-label="Notizen" name="notizen" defaultValue={parzelle?.notizen ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
       </div>

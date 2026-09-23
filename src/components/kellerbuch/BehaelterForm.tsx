@@ -46,11 +46,11 @@ export default function BehaelterForm({ behaelter, action, partner = null }: Pro
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="form-label">Name *</label>
-            <input name="name" type="text" required defaultValue={behaelter?.name ?? ''} className="form-input" placeholder="z.B. Tank 01" />
+            <input aria-label="Name" name="name" type="text" required defaultValue={behaelter?.name ?? ''} className="form-input" placeholder="z.B. Tank 01" />
           </div>
           <div>
             <label className="form-label">Typ</label>
-            <select name="typ" defaultValue={behaelter?.typ ?? ''} className="form-input">
+            <select aria-label="Typ" name="typ" defaultValue={behaelter?.typ ?? ''} className="form-input">
               <option value="">– bitte wählen –</option>
               <option value="amphore">Amphore</option>
               <option value="barrique">Barrique</option>
@@ -72,17 +72,17 @@ export default function BehaelterForm({ behaelter, action, partner = null }: Pro
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="form-label">Volumen (Liter)</label>
-            <input name="volumen_liter" type="text" inputMode="decimal"
+            <input aria-label="Volumen (Liter)" name="volumen_liter" type="text" inputMode="decimal"
               defaultValue={behaelter?.volumen_liter?.toString().replace('.', ',') ?? ''}
               className="form-input" placeholder="z.B. 5.000" />
           </div>
           <div>
             <label className="form-label">Standort</label>
-            <input name="standort" type="text" defaultValue={behaelter?.standort ?? ''} className="form-input" placeholder="z.B. Keller Süd" />
+            <input aria-label="Standort" name="standort" type="text" defaultValue={behaelter?.standort ?? ''} className="form-input" placeholder="z.B. Keller Süd" />
           </div>
           <div className="sm:col-span-2">
             <label className="form-label">Notizen</label>
-            <input name="notizen" type="text" defaultValue={behaelter?.notizen ?? ''} className="form-input" placeholder="z.B. geliehen, Besonderheiten" />
+            <input aria-label="Notizen" name="notizen" type="text" defaultValue={behaelter?.notizen ?? ''} className="form-input" placeholder="z.B. geliehen, Besonderheiten" />
           </div>
           <div className="sm:col-span-2 flex flex-wrap gap-5">
             <label className="flex items-center gap-2 cursor-pointer">

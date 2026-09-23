@@ -115,7 +115,7 @@ export default async function WeinhandelPage() {
         <Link href="/weinhandel" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-3xl font-semibold text-s112-blue-700">{fmtNum(gesamtFlaschen)}</p>
           <p className="text-xs text-s112-muted mt-1">Flaschen auf Lager</p>
-          <p className="text-[10px] text-s112-blue-700/60 mt-1">→ Warenlager</p>
+          <p className="text-[11px] text-s112-blue-700/60 mt-1">→ Warenlager</p>
         </Link>
         <Link href="/weinhandel/verkauf" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-3xl font-semibold text-s112-blue-700">
@@ -124,14 +124,14 @@ export default async function WeinhandelPage() {
               : '–'}
           </p>
           <p className="text-xs text-s112-muted mt-1">Lagerwert gesamt (Einstandspreis)</p>
-          <p className="text-[10px] text-s112-blue-700/60 mt-1">→ Verkauf</p>
+          <p className="text-[11px] text-s112-blue-700/60 mt-1">→ Verkauf</p>
         </Link>
         <Link href="/weinhandel" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-3xl font-semibold text-s112-blue-700">
             {gesamtLiterTank > 0 ? `${fmtNum(gesamtLiterTank)} L` : '–'}
           </p>
           <p className="text-xs text-s112-muted mt-1">Liter im Tank (Direktverkauf)</p>
-          <p className="text-[10px] text-s112-blue-700/60 mt-1">→ Warenlager</p>
+          <p className="text-[11px] text-s112-blue-700/60 mt-1">→ Warenlager</p>
         </Link>
       </div>
 

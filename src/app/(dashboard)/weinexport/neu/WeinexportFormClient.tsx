@@ -113,12 +113,12 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
           <div className="grid grid-cols-2 gap-4 mt-4">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">EORI-Nummer Importeur</label>
-              <input value={eori} onChange={e => setEori(e.target.value)} placeholder="z.B. AT1234567890"
+              <input aria-label="EORI-Nummer Importeur" value={eori} onChange={e => setEori(e.target.value)} placeholder="z.B. AT1234567890"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Versicherungswert (EUR)</label>
-              <input type="number" value={versicherung} onChange={e => setVersicherung(e.target.value)} placeholder="0.00"
+              <input aria-label="Versicherungswert (EUR)" type="number" value={versicherung} onChange={e => setVersicherung(e.target.value)} placeholder="0.00"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
           </div>
@@ -130,31 +130,31 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Auftragsdatum</label>
-              <input type="date" value={datum} onChange={e => setDatum(e.target.value)} required
+              <input aria-label="Auftragsdatum" type="date" value={datum} onChange={e => setDatum(e.target.value)} required
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Lieferdatum (geplant)</label>
-              <input type="date" value={lieferdatum} onChange={e => setLieferdatum(e.target.value)}
+              <input aria-label="Lieferdatum (geplant)" type="date" value={lieferdatum} onChange={e => setLieferdatum(e.target.value)}
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Incoterms</label>
-              <select value={incoterms} onChange={e => setIncoterms(e.target.value)}
+              <select aria-label="Incoterms" value={incoterms} onChange={e => setIncoterms(e.target.value)}
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                 {INCOTERMS.map(t => <option key={t}>{t}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Transportart</label>
-              <select value={transportArt} onChange={e => setTransportArt(e.target.value)}
+              <select aria-label="Transportart" value={transportArt} onChange={e => setTransportArt(e.target.value)}
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                 {TRANSPORT.map(t => <option key={t}>{t}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Destination Land *</label>
-              <select value={destLand} onChange={e => setDestLand(e.target.value)} required
+              <select aria-label="Destination Land" value={destLand} onChange={e => setDestLand(e.target.value)} required
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                 <option value="">– Land wählen –</option>
                 {LAENDER.map(l => <option key={l}>{l}</option>)}
@@ -162,7 +162,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Destination Stadt</label>
-              <input value={destStadt} onChange={e => setDestStadt(e.target.value)} placeholder="z.B. München"
+              <input aria-label="Destination Stadt" value={destStadt} onChange={e => setDestStadt(e.target.value)} placeholder="z.B. München"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
           </div>
@@ -230,7 +230,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
         {/* Notizen */}
         <div className="bg-white rounded-xl border border-s112-border p-6">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen / Besonderheiten</label>
-          <textarea value={notizen} onChange={e => setNotizen(e.target.value)} rows={3}
+          <textarea aria-label="Notizen / Besonderheiten" value={notizen} onChange={e => setNotizen(e.target.value)} rows={3}
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
         </div>
 

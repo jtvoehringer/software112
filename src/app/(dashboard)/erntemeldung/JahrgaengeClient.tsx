@@ -81,17 +81,17 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Ernte Beginn</label>
-              <input name="ernte_beginn" type="date" defaultValue={j.ernte_beginn ?? ''}
+              <input aria-label="Ernte Beginn" name="ernte_beginn" type="date" defaultValue={j.ernte_beginn ?? ''}
                 className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Ernte Ende</label>
-              <input name="ernte_ende" type="date" defaultValue={j.ernte_ende ?? ''}
+              <input aria-label="Ernte Ende" name="ernte_ende" type="date" defaultValue={j.ernte_ende ?? ''}
                 className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
             <div className="col-span-2">
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Qualität</label>
-              <select name="qualitaet_gesamt" defaultValue={j.qualitaet_gesamt ?? ''}
+              <select aria-label="Qualität" name="qualitaet_gesamt" defaultValue={j.qualitaet_gesamt ?? ''}
                 className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                 <option value="">– keine Bewertung –</option>
                 {Object.entries(QUALITAET_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -99,7 +99,7 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
             </div>
             <div className="col-span-2">
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
-              <input name="notizen" defaultValue={j.notizen ?? ''}
+              <input aria-label="Notizen" name="notizen" defaultValue={j.notizen ?? ''}
                 className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
           </div>

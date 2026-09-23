@@ -398,13 +398,13 @@ export default function NeueBehandlungForm({
             <label className="block text-sm font-medium text-s112-text-1 mb-1">
               Datum von <span className="text-s112-err">*</span>
             </label>
-            <input name="datum" type="date" required
+            <input aria-label="Datum von" name="datum" type="date" required
               defaultValue={new Date().toISOString().split('T')[0]}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div>
             <label className="block text-sm font-medium text-s112-text-1 mb-1">Datum bis</label>
-            <input name="datum_bis" type="date"
+            <input aria-label="Datum bis" name="datum_bis" type="date"
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
         </div>
@@ -548,7 +548,7 @@ export default function NeueBehandlungForm({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-s112-text-1 mb-1">Einheit</label>
-                  <select name="aufwandmenge_einheit" value={aufwandmengeEinheit}
+                  <select aria-label="Einheit" name="aufwandmenge_einheit" value={aufwandmengeEinheit}
                     onChange={e => setAufwandmengeEinheit(e.target.value)}
                     className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                     {EINHEITEN_AUFWAND.map(e => <option key={e} value={e}>{EINHEITEN_LABEL[e]}</option>)}
@@ -559,7 +559,7 @@ export default function NeueBehandlungForm({
             {felder.konzentration !== 'hidden' && (
               <div>
                 <label className="block text-sm font-medium text-s112-text-1 mb-1">Konzentration (%)</label>
-                <input name="konzentration" type="number" step="0.01" min="0" max="100"
+                <input aria-label="Konzentration (%)" name="konzentration" type="number" step="0.01" min="0" max="100"
                   placeholder="z.B. 0.5"
                   value={konzentrationGesperrt ? (konzentrationBerechnet != null ? konzentrationBerechnet.toFixed(3) : '') : konzentration}
                   disabled={konzentrationGesperrt}
@@ -592,7 +592,7 @@ export default function NeueBehandlungForm({
             {felder.wasseraufwand !== 'hidden' && (
               <div>
                 <label className="block text-sm font-medium text-s112-text-1 mb-1">Spritzbrühe (l/ha)</label>
-                <input name="wasseraufwand_l_ha" type="number" step="1" min="0" placeholder="z.B. 500"
+                <input aria-label="Spritzbrühe (l/ha)" name="wasseraufwand_l_ha" type="number" step="1" min="0" placeholder="z.B. 500"
                   value={wasserGesperrt ? (wasserBerechnet != null ? wasserBerechnet.toFixed(1) : '') : wasseraufwand}
                   disabled={wasserGesperrt}
                   onChange={e => { setWasseraufwand(e.target.value); setMengeQuelle(e.target.value === '' ? null : 'wasser') }}
@@ -635,7 +635,7 @@ export default function NeueBehandlungForm({
             </label>
             <div>
               <label className="block text-sm font-medium text-s112-text-1 mb-1">Zeitpunkt Einarbeitung</label>
-              <input name="einarbeitung_zeitpunkt" type="date"
+              <input aria-label="Zeitpunkt Einarbeitung" name="einarbeitung_zeitpunkt" type="date"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
           </div>
@@ -698,7 +698,7 @@ export default function NeueBehandlungForm({
             {felder.witterung !== 'hidden' && (
               <div>
                 <label className="block text-sm font-medium text-s112-text-1 mb-1">Witterung</label>
-                <select name="witterung"
+                <select aria-label="Witterung" name="witterung"
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">–</option>
                   {WITTERUNG.map(w => <option key={w} value={w}>{w.charAt(0).toUpperCase() + w.slice(1)}</option>)}
@@ -708,7 +708,7 @@ export default function NeueBehandlungForm({
             {felder.temperatur !== 'hidden' && (
               <div>
                 <label className="block text-sm font-medium text-s112-text-1 mb-1">Temperatur (°C)</label>
-                <input name="temperatur_c" type="number" step="0.1" placeholder="z.B. 18.5"
+                <input aria-label="Temperatur (°C)" name="temperatur_c" type="number" step="0.1" placeholder="z.B. 18.5"
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
             )}
@@ -717,7 +717,7 @@ export default function NeueBehandlungForm({
 
         <div>
           <label className="block text-sm font-medium text-s112-text-1 mb-1">Notizen</label>
-          <textarea name="notizen" rows={2}
+          <textarea aria-label="Notizen" name="notizen" rows={2}
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
       </div>
@@ -906,7 +906,7 @@ export default function NeueBehandlungForm({
             {passendeSaetze.length > 0 && (
               <div>
                 <label className="block text-sm font-medium text-s112-text-1 mb-1">Hektarsatz</label>
-                <select value={selectedSatzId || passendeSaetze[0].id}
+                <select aria-label="Hektarsatz" value={selectedSatzId || passendeSaetze[0].id}
                   onChange={e => { setSelectedSatzId(e.target.value); betragManuellGeaendert.current = false }}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   {passendeSaetze.map(s => (
@@ -924,7 +924,7 @@ export default function NeueBehandlungForm({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-s112-text-1 mb-1">Kostenart</label>
-                <select name="kosten_kostenart_id" value={kostenKostenartId}
+                <select aria-label="Kostenart" name="kosten_kostenart_id" value={kostenKostenartId}
                   onChange={e => setKostenKostenartId(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">– Auswählen –</option>
@@ -933,7 +933,7 @@ export default function NeueBehandlungForm({
               </div>
               <div>
                 <label className="block text-sm font-medium text-s112-text-1 mb-1">Betrag (€)</label>
-                <input name="kosten_betrag" type="number" step="0.01" min="0"
+                <input aria-label="Betrag (€)" name="kosten_betrag" type="number" step="0.01" min="0"
                   value={kostenBetrag}
                   onChange={e => { setKostenBetrag(e.target.value); betragManuellGeaendert.current = true }}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
@@ -942,7 +942,7 @@ export default function NeueBehandlungForm({
 
             <div>
               <label className="block text-sm font-medium text-s112-text-1 mb-1">Beschreibung</label>
-              <input name="kosten_beschreibung" type="text" value={kostenBeschreibung}
+              <input aria-label="Beschreibung" name="kosten_beschreibung" type="text" value={kostenBeschreibung}
                 onChange={e => setKostenBeschreibung(e.target.value)}
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>

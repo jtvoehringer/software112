@@ -41,13 +41,13 @@ export default async function KontoNeuPage() {
       <form action={handleSubmit} className="bg-white rounded-xl border border-s112-border p-6 space-y-5">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung *</label>
-          <input name="name" required placeholder="z.B. Raiffeisen Girokonto"
+          <input aria-label="Bezeichnung" name="name" required placeholder="z.B. Raiffeisen Girokonto"
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Typ</label>
-          <select name="typ" defaultValue="giro"
+          <select aria-label="Typ" name="typ" defaultValue="giro"
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             {TYPEN.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
@@ -55,21 +55,21 @@ export default async function KontoNeuPage() {
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">IBAN</label>
-          <input name="iban" placeholder="Optional"
+          <input aria-label="IBAN" name="iban" placeholder="Optional"
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Eröffnungsdatum *</label>
-            <input type="date" name="eroeffnungsdatum" required
+            <input aria-label="Eröffnungsdatum" type="date" name="eroeffnungsdatum" required
               defaultValue={new Date().toISOString().slice(0, 10)}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             <p className="text-xs text-s112-muted mt-1">Datum des letzten Kontoauszugs, ab dem hier weitergeführt wird.</p>
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Eröffnungssaldo (€) *</label>
-            <input type="number" name="eroeffnungssaldo" step="0.01" required defaultValue="0.00"
+            <input aria-label="Eröffnungssaldo (€)" type="number" name="eroeffnungssaldo" step="0.01" required defaultValue="0.00"
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
         </div>

@@ -75,11 +75,11 @@ export default async function EroeffnungsbestandEditPage({ params }: { params: P
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
             <label className={labelCls}>Weinbezeichnung *</label>
-            <input name="name" required defaultValue={eintrag.name} className={inputCls} />
+            <input aria-label="Weinbezeichnung" name="name" required defaultValue={eintrag.name} className={inputCls} />
           </div>
           <div>
             <label className={labelCls}>Gebinde</label>
-            <select name="behaelter_id" defaultValue={eintrag.behaelter_id ?? ''} className={inputCls}>
+            <select aria-label="Gebinde" name="behaelter_id" defaultValue={eintrag.behaelter_id ?? ''} className={inputCls}>
               <option value="">– kein –</option>
               {gebinde.map((g: R) => (
                 <option key={g.id} value={g.id}>{g.name}</option>
@@ -88,29 +88,29 @@ export default async function EroeffnungsbestandEditPage({ params }: { params: P
           </div>
           <div>
             <label className={labelCls}>Jahrgang</label>
-            <input name="jahrgang" type="number" min={1900} max={2100}
+            <input aria-label="Jahrgang" name="jahrgang" type="number" min={1900} max={2100}
               defaultValue={eintrag.jahrgang ?? ''} className={inputCls} />
           </div>
           <div>
             <label className={labelCls}>KMW (°KMW)</label>
-            <input name="kmw" type="number" step="0.1" min={0} max={50}
+            <input aria-label="KMW (°KMW)" name="kmw" type="number" step="0.1" min={0} max={50}
               defaultValue={eintrag.kmw ?? ''} className={inputCls} />
           </div>
           <div>
             <label className={labelCls}>Menge (Liter) *</label>
-            <input name="menge_liter" type="number" step="0.01" min={0}
+            <input aria-label="Menge (Liter)" name="menge_liter" type="number" step="0.01" min={0}
               required defaultValue={eintrag.menge_liter ?? ''} className={inputCls} />
           </div>
           <div>
             <label className={labelCls}>Einstandspreis pro Liter (€)</label>
-            <input name="einstandspreis_pro_liter" type="text" inputMode="decimal"
+            <input aria-label="Einstandspreis pro Liter (€)" name="einstandspreis_pro_liter" type="text" inputMode="decimal"
               defaultValue={eintrag.einstandspreis_pro_liter != null
                 ? String(eintrag.einstandspreis_pro_liter).replace('.', ',') : ''}
               placeholder="z.B. 1,50" className={inputCls} />
           </div>
           <div>
             <label className={labelCls}>Qualitätsstufe</label>
-            <select name="qualitaetsstufe" defaultValue={eintrag.qualitaetsstufe ?? ''} className={inputCls}>
+            <select aria-label="Qualitätsstufe" name="qualitaetsstufe" defaultValue={eintrag.qualitaetsstufe ?? ''} className={inputCls}>
               <option value="">– keine –</option>
               {QUALITAETEN.map(q => (
                 <option key={q.value} value={q.value}>{q.label}</option>
@@ -119,11 +119,11 @@ export default async function EroeffnungsbestandEditPage({ params }: { params: P
           </div>
           <div>
             <label className={labelCls}>Referenz Altsystem</label>
-            <input name="referenz_altsystem" defaultValue={eintrag.referenz_altsystem ?? ''} className={inputCls} />
+            <input aria-label="Referenz Altsystem" name="referenz_altsystem" defaultValue={eintrag.referenz_altsystem ?? ''} className={inputCls} />
           </div>
           <div className="sm:col-span-2">
             <label className={labelCls}>Notizen</label>
-            <input name="notizen" defaultValue={eintrag.notizen ?? ''} className={inputCls} />
+            <input aria-label="Notizen" name="notizen" defaultValue={eintrag.notizen ?? ''} className={inputCls} />
           </div>
         </div>
         <div className="flex gap-3 pt-2">

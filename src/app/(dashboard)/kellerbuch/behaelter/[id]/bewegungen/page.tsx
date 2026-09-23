@@ -539,7 +539,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
             <input type="hidden" name="behaelter_id" value={id} />
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Charge</label>
-              <select name="weinausbau_id" required className={inputCls}>
+              <select aria-label="Charge" name="weinausbau_id" required className={inputCls}>
                 {((chargenRaw ?? []) as R[]).map((c: R) => (
                   <option key={c.id} value={c.id}>
                     {c.name}{c.jahrgang ? ` (${c.jahrgang})` : ''}{!c.aktiv ? ' abgeschlossen' : ''}
@@ -549,7 +549,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge (L)</label>
-              <input
+              <input aria-label="Menge (L)"
                 name="menge"
                 type="number"
                 step="0.01"
@@ -561,7 +561,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum</label>
-              <input
+              <input aria-label="Datum"
                 name="datum"
                 type="date"
                 defaultValue={new Date().toISOString().split('T')[0]}
@@ -620,7 +620,7 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
                               {writeOk && bew.fuellung_id && (
                                 <Link
                                   href={`/weinhandel/fuellungen/${bew.fuellung_id}/edit`}
-                                  className="text-[10px] text-s112-blue-700 hover:underline shrink-0"
+                                  className="text-[11px] text-s112-blue-700 hover:underline shrink-0"
                                 >
                                   Bearbeiten
                                 </Link>

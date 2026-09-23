@@ -149,12 +149,12 @@ export default function LeadDialog({ mail, onClose, onAngelegt }: Props) {
               {fehler && <div className="bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2 text-xs text-s112-err-fg">{fehler}</div>}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div><label className={labelCls}>Vorname</label><input value={vorname} onChange={e => setVorname(e.target.value)} className={inputCls} /></div>
-                <div><label className={labelCls}>Nachname *</label><input value={nachname} onChange={e => setNachname(e.target.value)} className={inputCls} required /></div>
-                <div><label className={labelCls}>E-Mail</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} className={inputCls} /></div>
-                <div><label className={labelCls}>Position</label><input value={position} onChange={e => setPosition(e.target.value)} className={inputCls} placeholder="z. B. Einkauf, Sommelier" /></div>
-                <div><label className={labelCls}>Telefon</label><input value={telefon} onChange={e => setTelefon(e.target.value)} className={inputCls} placeholder="+43 …" /></div>
-                <div><label className={labelCls}>Mobil</label><input value={mobil} onChange={e => setMobil(e.target.value)} className={inputCls} placeholder="+43 …" /></div>
+                <div><label className={labelCls}>Vorname</label><input aria-label="Vorname" value={vorname} onChange={e => setVorname(e.target.value)} className={inputCls} /></div>
+                <div><label className={labelCls}>Nachname *</label><input aria-label="Nachname" value={nachname} onChange={e => setNachname(e.target.value)} className={inputCls} required /></div>
+                <div><label className={labelCls}>E-Mail</label><input aria-label="E-Mail" type="email" value={email} onChange={e => setEmail(e.target.value)} className={inputCls} /></div>
+                <div><label className={labelCls}>Position</label><input aria-label="Position" value={position} onChange={e => setPosition(e.target.value)} className={inputCls} placeholder="z. B. Einkauf, Sommelier" /></div>
+                <div><label className={labelCls}>Telefon</label><input aria-label="Telefon" value={telefon} onChange={e => setTelefon(e.target.value)} className={inputCls} placeholder="+43 …" /></div>
+                <div><label className={labelCls}>Mobil</label><input aria-label="Mobil" value={mobil} onChange={e => setMobil(e.target.value)} className={inputCls} placeholder="+43 …" /></div>
               </div>
 
               <div className="rounded-lg border border-s112-line bg-s112-bg p-3 space-y-2">
@@ -168,8 +168,8 @@ export default function LeadDialog({ mail, onClose, onAngelegt }: Props) {
                 </div>
                 {firmaModus === 'neu' && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div><label className={labelCls}>Firmenname *</label><input value={firmaName} onChange={e => setFirmaName(e.target.value)} className={inputCls} /></div>
-                    <div><label className={labelCls}>Website</label><input value={firmaWebsite} onChange={e => setFirmaWebsite(e.target.value)} className={inputCls} placeholder="weingut-beispiel.at" /></div>
+                    <div><label className={labelCls}>Firmenname *</label><input aria-label="Firmenname" value={firmaName} onChange={e => setFirmaName(e.target.value)} className={inputCls} /></div>
+                    <div><label className={labelCls}>Website</label><input aria-label="Website" value={firmaWebsite} onChange={e => setFirmaWebsite(e.target.value)} className={inputCls} placeholder="weingut-beispiel.at" /></div>
                   </div>
                 )}
                 {firmaModus === 'bestehend' && (
@@ -185,25 +185,25 @@ export default function LeadDialog({ mail, onClose, onAngelegt }: Props) {
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="col-span-2"><label className={labelCls}>Straße</label><input value={strasse} onChange={e => setStrasse(e.target.value)} className={inputCls} /></div>
-                <div><label className={labelCls}>PLZ</label><input value={plz} onChange={e => setPlz(e.target.value)} className={inputCls} /></div>
-                <div><label className={labelCls}>Ort</label><input value={ort} onChange={e => setOrt(e.target.value)} className={inputCls} /></div>
+                <div className="col-span-2"><label className={labelCls}>Straße</label><input aria-label="Straße" value={strasse} onChange={e => setStrasse(e.target.value)} className={inputCls} /></div>
+                <div><label className={labelCls}>PLZ</label><input aria-label="PLZ" value={plz} onChange={e => setPlz(e.target.value)} className={inputCls} /></div>
+                <div><label className={labelCls}>Ort</label><input aria-label="Ort" value={ort} onChange={e => setOrt(e.target.value)} className={inputCls} /></div>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div><label className={labelCls}>Land</label>
-                  <select value={land} onChange={e => setLand(e.target.value)} className={inputCls}>{LAENDER.map(l => <option key={l} value={l}>{l}</option>)}</select></div>
+                  <select aria-label="Land" value={land} onChange={e => setLand(e.target.value)} className={inputCls}>{LAENDER.map(l => <option key={l} value={l}>{l}</option>)}</select></div>
                 <div><label className={labelCls}>Segment *</label>
-                  <select value={segment} onChange={e => setSegment(e.target.value)} className={inputCls}>{SEGMENTE.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
+                  <select aria-label="Segment" value={segment} onChange={e => setSegment(e.target.value)} className={inputCls}>{SEGMENTE.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
                 <div><label className={labelCls}>Rabattgruppe</label>
-                  <select value={rabattgruppeId} onChange={e => setRabattgruppeId(e.target.value)} className={inputCls}>
+                  <select aria-label="Rabattgruppe" value={rabattgruppeId} onChange={e => setRabattgruppeId(e.target.value)} className={inputCls}>
                     <option value="">– keine –</option>
                     {rabattgruppen.map(r => <option key={r.id} value={r.id}>{r.name} ({r.rabatt_pct} %)</option>)}
                   </select></div>
-                <div><label className={labelCls}>Zahlungsziel (Tage)</label><input type="number" min={0} value={zahlungsziel} onChange={e => setZahlungsziel(e.target.value)} className={inputCls} /></div>
+                <div><label className={labelCls}>Zahlungsziel (Tage)</label><input aria-label="Zahlungsziel (Tage)" type="number" min={0} value={zahlungsziel} onChange={e => setZahlungsziel(e.target.value)} className={inputCls} /></div>
               </div>
 
-              <div><label className={labelCls}>Notizen</label><textarea value={notizen} onChange={e => setNotizen(e.target.value)} rows={3} className={inputCls} /></div>
+              <div><label className={labelCls}>Notizen</label><textarea aria-label="Notizen" value={notizen} onChange={e => setNotizen(e.target.value)} rows={3} className={inputCls} /></div>
             </div>
             <div className="px-5 py-3 border-t border-s112-line flex items-center justify-between gap-3">
               <p className="text-[11px] text-s112-tertiary">Die E-Mail wird als Aktivität am neuen Lead abgelegt.</p>

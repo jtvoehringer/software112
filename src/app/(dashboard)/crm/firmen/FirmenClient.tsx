@@ -125,7 +125,7 @@ export function FirmaForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Firmenname *</label>
-          <input name="name" defaultValue={v('name') || prefillName || ''} required className={inputCls()} />
+          <input aria-label="Firmenname" name="name" defaultValue={v('name') || prefillName || ''} required className={inputCls()} />
         </div>
         {/* Kunde / Lieferant - Migration 167 */}
         <div className="sm:col-span-2 flex items-center gap-5 bg-white border border-s112-border rounded-xl px-4 py-2.5">
@@ -141,7 +141,7 @@ export function FirmaForm({
               className="accent-s112-teal w-4 h-4" />
             Lieferant
           </label>
-          <p className="text-[10px] text-s112-tertiary ml-auto">Eine Firma kann Kunde, Lieferant oder beides sein.</p>
+          <p className="text-[11px] text-s112-tertiary ml-auto">Eine Firma kann Kunde, Lieferant oder beides sein.</p>
         </div>
         {/* Lead / Kunde Toggle */}
         <div className="sm:col-span-2 flex items-center justify-between bg-white border border-s112-border rounded-xl px-4 py-2.5">
@@ -166,7 +166,7 @@ export function FirmaForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Segment *</label>
-          <select name="segment" value={segmentVal} onChange={e => setSegmentVal(e.target.value)} required className={inputCls()}>
+          <select aria-label="Segment" name="segment" value={segmentVal} onChange={e => setSegmentVal(e.target.value)} required className={inputCls()}>
             {SEGMENTE.filter(s => s.value !== 'privat').map(s =>
               <option key={s.value} value={s.value}>{s.label}</option>
             )}
@@ -174,35 +174,35 @@ export function FirmaForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">UID-Nummer</label>
-          <input name="uid_nummer" defaultValue={v('uid_nummer')} placeholder="ATU…" className={inputCls()} />
+          <input aria-label="UID-Nummer" name="uid_nummer" defaultValue={v('uid_nummer')} placeholder="ATU…" className={inputCls()} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">BKI-Betriebsnummer</label>
-          <input name="betrieb_nr" defaultValue={v('betrieb_nr' as keyof FirmaRow)} placeholder="z.B. 905721" className={inputCls()} />
-          <p className="text-[10px] text-s112-tertiary mt-0.5">Betriebsnummer des Abnehmers für BKI-Transportliste</p>
+          <input aria-label="BKI-Betriebsnummer" name="betrieb_nr" defaultValue={v('betrieb_nr' as keyof FirmaRow)} placeholder="z.B. 905721" className={inputCls()} />
+          <p className="text-[11px] text-s112-tertiary mt-0.5">Betriebsnummer des Abnehmers für BKI-Transportliste</p>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">DebitorNr.</label>
-          <input name="debitor_nr" defaultValue={v('debitor_nr' as keyof FirmaRow)} placeholder="z.B. 227002" className={inputCls()} />
-          <p className="text-[10px] text-s112-tertiary mt-0.5">Kontonummer im BMD-Kontenplan (Buchhaltung), falls dort bereits angelegt</p>
+          <input aria-label="DebitorNr." name="debitor_nr" defaultValue={v('debitor_nr' as keyof FirmaRow)} placeholder="z.B. 227002" className={inputCls()} />
+          <p className="text-[11px] text-s112-tertiary mt-0.5">Kontonummer im BMD-Kontenplan (Buchhaltung), falls dort bereits angelegt</p>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Straße</label>
-          <input name="strasse" defaultValue={v('strasse')} className={inputCls()} />
+          <input aria-label="Straße" name="strasse" defaultValue={v('strasse')} className={inputCls()} />
         </div>
         <div className="grid grid-cols-3 gap-2">
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">PLZ</label>
-            <input name="plz" defaultValue={v('plz')} className={inputCls()} />
+            <input aria-label="PLZ" name="plz" defaultValue={v('plz')} className={inputCls()} />
           </div>
           <div className="col-span-2">
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Ort</label>
-            <input name="ort" defaultValue={v('ort')} className={inputCls()} />
+            <input aria-label="Ort" name="ort" defaultValue={v('ort')} className={inputCls()} />
           </div>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Land</label>
-          <select name="land" value={landVal} onChange={e => setLandVal(e.target.value)} className={inputCls()}>
+          <select aria-label="Land" name="land" value={landVal} onChange={e => setLandVal(e.target.value)} className={inputCls()}>
             {LAENDER.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
         </div>
@@ -242,34 +242,34 @@ export function FirmaForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">E-Mail <span className="text-s112-muted font-normal">(Standard: Newsletter, Rechnung)</span></label>
-          <input name="email" type="email" defaultValue={v('email')} className={inputCls()} />
+          <input aria-label="E-Mail (Standard: Newsletter, Rechnung)" name="email" type="email" defaultValue={v('email')} className={inputCls()} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Weitere E-Mail-Adressen <span className="text-s112-muted font-normal">(mit Komma trennen)</span></label>
-          <input name="email_weitere" defaultValue={(initial?.email_weitere ?? []).join(', ')} placeholder="bestellung@…, buchhaltung@…" className={inputCls()} />
+          <input aria-label="Weitere E-Mail-Adressen (mit Komma trennen)" name="email_weitere" defaultValue={(initial?.email_weitere ?? []).join(', ')} placeholder="bestellung@…, buchhaltung@…" className={inputCls()} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Website</label>
-          <input name="website" defaultValue={v('website')} placeholder="https://…" className={inputCls()} />
+          <input aria-label="Website" name="website" defaultValue={v('website')} placeholder="https://…" className={inputCls()} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Zahlungsziel (Tage) *</label>
           {/* Bewusst NICHT ueber den v()-Helfer (initial?.[field] ?? '') || '30' -
               das wuerde eine eingetragene 0 stillschweigend durch 30 ersetzen,
               0 ist hier aber ein gueltiger, bewusster Wert ("bei Erhalt"). */}
-          <input name="zahlungsziel_tage" type="number" required defaultValue={initial?.zahlungsziel_tage ?? 30}
+          <input aria-label="Zahlungsziel (Tage)" name="zahlungsziel_tage" type="number" required defaultValue={initial?.zahlungsziel_tage ?? 30}
             min="0" max="365" className={inputCls()} />
-          <p className="text-[10px] text-s112-tertiary mt-0.5">0 = Rechnung wird mit "bei Erhalt" statt Fälligkeitsdatum gedruckt</p>
+          <p className="text-[11px] text-s112-tertiary mt-0.5">0 = Rechnung wird mit "bei Erhalt" statt Fälligkeitsdatum gedruckt</p>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Währung</label>
-          <select name="waehrung" defaultValue={v('waehrung') || 'EUR'} className={inputCls()}>
+          <select aria-label="Währung" name="waehrung" defaultValue={v('waehrung') || 'EUR'} className={inputCls()}>
             {WAEHRUNGEN.map(w => <option key={w} value={w}>{w}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Rabattgruppe</label>
-          <select name="rabattgruppe_id" defaultValue={initial?.rabattgruppe_id ?? ''} className={inputCls()}>
+          <select aria-label="Rabattgruppe" name="rabattgruppe_id" defaultValue={initial?.rabattgruppe_id ?? ''} className={inputCls()}>
             <option value="">– kein Rabatt –</option>
             {rabattgruppen.map(r => (
               <option key={r.id} value={r.id}>{r.name} ({r.rabatt_pct}%)</option>
@@ -278,7 +278,7 @@ export function FirmaForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Sonderrabatt %</label>
-          <input
+          <input aria-label="Sonderrabatt %"
             name="sonderrabatt_pct"
             type="number"
             min="0" max="100" step="0.5"
@@ -292,7 +292,7 @@ export function FirmaForm({
       <div className="flex gap-2">
         <div className="flex-1">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Skonto %</label>
-          <input
+          <input aria-label="Skonto %"
             name="skonto_pct"
             type="number"
             min="0" max="20" step="0.5"
@@ -303,7 +303,7 @@ export function FirmaForm({
         </div>
         <div className="flex-1">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Skonto-Frist (Tage)</label>
-          <input
+          <input aria-label="Skonto-Frist (Tage)"
             name="skonto_tage"
             type="number"
             min="0" max="60" step="1"
@@ -316,7 +316,7 @@ export function FirmaForm({
 
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
-        <textarea name="notizen" defaultValue={v('notizen')} rows={2}
+        <textarea aria-label="Notizen" name="notizen" defaultValue={v('notizen')} rows={2}
           className={inputCls() + ' resize-none'} />
       </div>
 

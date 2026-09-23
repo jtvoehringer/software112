@@ -159,8 +159,8 @@ export default function KostenAuswertungPage() {
                 <div className="w-full bg-s112-bg rounded h-24 flex items-end">
                   <div className="w-full bg-s112-teal rounded transition-all" style={{height:`${pct}%`}} title={eur(sum)} />
                 </div>
-                <span className="text-[10px] text-s112-muted">{monate[i]}</span>
-                {sum > 0 && <span className="text-[10px] font-medium text-s112-text-1">{sum >= 1000 ? `${(sum/1000).toFixed(1)}k` : Math.round(sum)}</span>}
+                <span className="text-[11px] text-s112-muted">{monate[i]}</span>
+                {sum > 0 && <span className="text-[11px] font-medium text-s112-text-1">{sum >= 1000 ? `${(sum/1000).toFixed(1)}k` : Math.round(sum)}</span>}
               </div>
             )
           })}

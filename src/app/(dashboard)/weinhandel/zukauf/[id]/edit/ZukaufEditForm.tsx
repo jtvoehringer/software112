@@ -207,7 +207,7 @@ export default function ZukaufEditForm({
 
       <div className="card p-5">
         <label className={labelCls}>Eingangs-Rechnungsnummer</label>
-        <input type="text" value={eingangsrechnungsnummer} onChange={e => setEingangsrechnungsnummer(e.target.value)}
+        <input aria-label="Eingangs-Rechnungsnummer" type="text" value={eingangsrechnungsnummer} onChange={e => setEingangsrechnungsnummer(e.target.value)}
           placeholder="Belegnr. lt. Rechnung des Lieferanten"
           className={inputCls + ' w-full max-w-sm'} />
       </div>
@@ -224,12 +224,12 @@ export default function ZukaufEditForm({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Datum *</label>
-              <input type="date" value={datum} onChange={e => setDatum(e.target.value)}
+              <input aria-label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)}
                 required className={inputCls + ' w-full'} />
             </div>
             <div>
               <label className={labelCls}>Uhrzeit</label>
-              <input type="time" value={uhrzeit} onChange={e => setUhrzeit(e.target.value)}
+              <input aria-label="Uhrzeit" type="time" value={uhrzeit} onChange={e => setUhrzeit(e.target.value)}
                 className={inputCls + ' w-full'} />
             </div>
           </div>
@@ -253,17 +253,17 @@ export default function ZukaufEditForm({
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className={labelCls}>Zugmaschine (Kennzeichen)</label>
-              <input type="text" value={zugmaschine} onChange={e => setZugmaschine(e.target.value)}
+              <input aria-label="Zugmaschine (Kennzeichen)" type="text" value={zugmaschine} onChange={e => setZugmaschine(e.target.value)}
                 placeholder="z.B. W-123AB" className={inputCls + ' w-full'} />
             </div>
             <div>
               <label className={labelCls}>1. Anhänger</label>
-              <input type="text" value={anhaenger1} onChange={e => setAnhaenger1(e.target.value)}
+              <input aria-label="1. Anhänger" type="text" value={anhaenger1} onChange={e => setAnhaenger1(e.target.value)}
                 placeholder="Kennzeichen" className={inputCls + ' w-full'} />
             </div>
             <div>
               <label className={labelCls}>2. Anhänger</label>
-              <input type="text" value={anhaenger2} onChange={e => setAnhaenger2(e.target.value)}
+              <input aria-label="2. Anhänger" type="text" value={anhaenger2} onChange={e => setAnhaenger2(e.target.value)}
                 placeholder="Kennzeichen" className={inputCls + ' w-full'} />
             </div>
           </div>
@@ -288,7 +288,7 @@ export default function ZukaufEditForm({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Rebsorte(n)</label>
-              <input type="text" value={rebsorte} onChange={e => setRebsorte(e.target.value)}
+              <input aria-label="Rebsorte(n)" type="text" value={rebsorte} onChange={e => setRebsorte(e.target.value)}
                 placeholder="z.B. Grüner Veltliner" className={inputCls + ' w-full'} />
             </div>
             <div>
@@ -306,7 +306,7 @@ export default function ZukaufEditForm({
             {(art === 'wein' || art === 'most') && (
               <div>
                 <label className={labelCls}>Qualitätsstufe</label>
-                <select value={qualitaet} onChange={e => setQualitaet(e.target.value)}
+                <select aria-label="Qualitätsstufe" value={qualitaet} onChange={e => setQualitaet(e.target.value)}
                   className={inputCls + ' w-full'}>
                   <option value="">– nicht angegeben –</option>
                   {ZUKAUF_QUALITAETEN.map(q => (
@@ -317,27 +317,27 @@ export default function ZukaufEditForm({
             )}
             <div>
               <label className={labelCls}>Herkunft</label>
-              <input type="text" value={herkunft} onChange={e => setHerkunft(e.target.value)}
+              <input aria-label="Herkunft" type="text" value={herkunft} onChange={e => setHerkunft(e.target.value)}
                 placeholder="z.B. Kamptal, Wachau" className={inputCls + ' w-full'} />
             </div>
             {(art === 'trauben' || art === 'most') && (
               <div>
                 <label className={labelCls}>°KMW</label>
-                <input type="number" value={kmw} onChange={e => setKmw(e.target.value)}
+                <input aria-label="°KMW" type="number" value={kmw} onChange={e => setKmw(e.target.value)}
                   step="0.1" min="0" max="50" placeholder="z.B. 19.5" className={inputCls + ' w-full'} />
               </div>
             )}
             {art === 'wein' && (
               <div>
                 <label className={labelCls}>Alkoholgehalt (%vol)</label>
-                <input type="number" value={alkohol} onChange={e => setAlkohol(e.target.value)}
+                <input aria-label="Alkoholgehalt (%vol)" type="number" value={alkohol} onChange={e => setAlkohol(e.target.value)}
                   step="0.1" min="0" max="25" placeholder="z.B. 12.5" className={inputCls + ' w-full'} />
               </div>
             )}
             {art === 'wein' && (
               <div>
                 <label className={labelCls}>Staatl. Prüfnummer</label>
-                <input type="text" value={pruefnummer} onChange={e => setPruefnummer(e.target.value)}
+                <input aria-label="Staatl. Prüfnummer" type="text" value={pruefnummer} onChange={e => setPruefnummer(e.target.value)}
                   placeholder="z.B. 1234/26" className={inputCls + ' w-full'} />
               </div>
             )}
@@ -357,12 +357,12 @@ export default function ZukaufEditForm({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
               <label className={labelCls}>Menge *</label>
-              <input type="number" value={menge} onChange={e => setMenge(e.target.value)}
+              <input aria-label="Menge" type="number" value={menge} onChange={e => setMenge(e.target.value)}
                 required min="0.001" step="0.001" placeholder="0" className={inputCls + ' w-full'} />
             </div>
             <div>
               <label className={labelCls}>Einheit</label>
-              <select value={einheit} onChange={e => setEinheit(e.target.value)}
+              <select aria-label="Einheit" value={einheit} onChange={e => setEinheit(e.target.value)}
                 className={inputCls + ' w-full'}>
                 <option value="kg">kg</option>
                 <option value="L">L</option>
@@ -372,7 +372,7 @@ export default function ZukaufEditForm({
             </div>
             <div>
               <label className={labelCls}>Gesamtpreis (€)</label>
-              <input type="number" value={preisGesamt} onChange={e => setPreisGesamt(e.target.value)}
+              <input aria-label="Gesamtpreis (€)" type="number" value={preisGesamt} onChange={e => setPreisGesamt(e.target.value)}
                 step="0.01" min="0" placeholder="0.00" className={inputCls + ' w-full'} />
             </div>
             <div>
@@ -410,7 +410,7 @@ export default function ZukaufEditForm({
             <h2 className="font-semibold text-s112-text-1 text-sm uppercase tracking-wide">In Gebinde füllen</h2>
             <div>
               <label className={labelCls}>Gebinde (optional)</label>
-              <select value={zielBehaelter} onChange={e => setZielBehaelter(e.target.value)}
+              <select aria-label="Gebinde (optional)" value={zielBehaelter} onChange={e => setZielBehaelter(e.target.value)}
                 className={inputCls + ' w-full'}>
                 <option value="">– keines –</option>
                 {behaelter.map(b => {
@@ -506,7 +506,7 @@ export default function ZukaufEditForm({
         {/* ── 6. Notizen ────────────────────────────────────────────────── */}
         <div className="card p-5">
           <label className={labelCls}>Notizen</label>
-          <textarea value={notizen} onChange={e => setNotizen(e.target.value)}
+          <textarea aria-label="Notizen" value={notizen} onChange={e => setNotizen(e.target.value)}
             rows={3} placeholder="Qualitätsmerkmale, Bedingungen, sonstige Anmerkungen…"
             className={inputCls + ' w-full resize-none'} />
         </div>

@@ -457,12 +457,12 @@ export default function ReportsClient({
               <div className="flex items-end gap-1.5">
                 <div>
                   <label className="block text-[11px] text-s112-muted mb-0.5">Von</label>
-                  <input type="month" value={vonMonat} onChange={e => setVonMonat(e.target.value)}
+                  <input aria-label="Von" type="month" value={vonMonat} onChange={e => setVonMonat(e.target.value)}
                     className="border border-s112-border rounded-lg px-2 py-1.5 text-xs" />
                 </div>
                 <div>
                   <label className="block text-[11px] text-s112-muted mb-0.5">Bis</label>
-                  <input type="month" value={bisMonat} onChange={e => setBisMonat(e.target.value)}
+                  <input aria-label="Bis" type="month" value={bisMonat} onChange={e => setBisMonat(e.target.value)}
                     className="border border-s112-border rounded-lg px-2 py-1.5 text-xs" />
                 </div>
                 <button
@@ -479,12 +479,12 @@ export default function ReportsClient({
               <div className="flex items-end gap-1.5">
                 <div>
                   <label className="block text-[11px] text-s112-muted mb-0.5">Monat A</label>
-                  <input type="month" value={vergleichA} onChange={e => setVergleichA(e.target.value)}
+                  <input aria-label="Monat A" type="month" value={vergleichA} onChange={e => setVergleichA(e.target.value)}
                     className="border border-s112-border rounded-lg px-2 py-1.5 text-xs" />
                 </div>
                 <div>
                   <label className="block text-[11px] text-s112-muted mb-0.5">Monat B</label>
-                  <input type="month" value={vergleichB} onChange={e => setVergleichB(e.target.value)}
+                  <input aria-label="Monat B" type="month" value={vergleichB} onChange={e => setVergleichB(e.target.value)}
                     className="border border-s112-border rounded-lg px-2 py-1.5 text-xs" />
                 </div>
                 <button
@@ -893,12 +893,12 @@ export default function ReportsClient({
             <form onSubmit={ladeBesuch} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Region / Ort</label>
-                <input value={bOrt} onChange={e => setBOrt(e.target.value)} placeholder="z.B. Salzburg, Wien…"
+                <input aria-label="Region / Ort" value={bOrt} onChange={e => setBOrt(e.target.value)} placeholder="z.B. Salzburg, Wien…"
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Segment</label>
-                <select value={bSegment} onChange={e => setBSegment(e.target.value)}
+                <select aria-label="Segment" value={bSegment} onChange={e => setBSegment(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle Segmente</option>
                   {SEGMENTE.map(s => (
@@ -959,7 +959,7 @@ export default function ReportsClient({
                             </p>
                           </div>
                           <div className="text-right flex-shrink-0 ml-4">
-                            <p className="text-[9px] text-s112-muted uppercase tracking-wide mb-0.5">Letzter Kontakt</p>
+                            <p className="text-[10px] text-s112-muted uppercase tracking-wide mb-0.5">Letzter Kontakt</p>
                             {k.tage_seit_kontakt !== null ? (
                               <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${k.tage_seit_kontakt > 180 ? 'bg-s112-err-bg text-s112-err-fg' : k.tage_seit_kontakt > 90 ? 'bg-s112-warn-bg text-s112-warn-fg' : 'bg-s112-ok-bg text-s112-ok-fg'}`}>
                                 {k.tage_seit_kontakt} Tage
@@ -1010,7 +1010,7 @@ export default function ReportsClient({
             <form onSubmit={ladeVerkaufsstatistik} className="grid grid-cols-1 sm:grid-cols-4 gap-3 print:hidden">
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Jahrgang</label>
-                <select value={vsJahrgang} onChange={e => setVsJahrgang(e.target.value)}
+                <select aria-label="Jahrgang" value={vsJahrgang} onChange={e => setVsJahrgang(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
                   {vsJahrgaenge.map(j => <option key={j} value={j}>{j}</option>)}
@@ -1018,7 +1018,7 @@ export default function ReportsClient({
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Sorte</label>
-                <select value={vsSorte} onChange={e => setVsSorte(e.target.value)}
+                <select aria-label="Sorte" value={vsSorte} onChange={e => setVsSorte(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
                   {vsSorten.map(s => <option key={s} value={s}>{s}</option>)}
@@ -1026,7 +1026,7 @@ export default function ReportsClient({
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung</label>
-                <select value={vsBezeichnung} onChange={e => setVsBezeichnung(e.target.value)}
+                <select aria-label="Bezeichnung" value={vsBezeichnung} onChange={e => setVsBezeichnung(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
                   {vsBezeichnungen.map(b => <option key={b} value={b}>{b}</option>)}
@@ -1039,17 +1039,17 @@ export default function ReportsClient({
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">PLZ von</label>
-                <input value={vsPlzVon} onChange={e => setVsPlzVon(e.target.value)} placeholder="z.B. 1000"
+                <input aria-label="PLZ von" value={vsPlzVon} onChange={e => setVsPlzVon(e.target.value)} placeholder="z.B. 1000"
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">PLZ bis</label>
-                <input value={vsPlzBis} onChange={e => setVsPlzBis(e.target.value)} placeholder="z.B. 3500"
+                <input aria-label="PLZ bis" value={vsPlzBis} onChange={e => setVsPlzBis(e.target.value)} placeholder="z.B. 3500"
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Ort</label>
-                <select value={vsOrt} onChange={e => setVsOrt(e.target.value)}
+                <select aria-label="Ort" value={vsOrt} onChange={e => setVsOrt(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
                   {vsOrte.map(o => <option key={o} value={o}>{o}</option>)}
@@ -1057,7 +1057,7 @@ export default function ReportsClient({
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Land</label>
-                <select value={vsLand} onChange={e => setVsLand(e.target.value)}
+                <select aria-label="Land" value={vsLand} onChange={e => setVsLand(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
                   {vsLaender.map(l => <option key={l} value={l}>{l}</option>)}
@@ -1146,7 +1146,7 @@ export default function ReportsClient({
             <form onSubmit={ladeWeinbuecher} className="grid grid-cols-1 sm:grid-cols-3 gap-3 print:hidden">
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Jahrgang</label>
-                <select value={wbJahrgang} onChange={e => setWbJahrgang(e.target.value)}
+                <select aria-label="Jahrgang" value={wbJahrgang} onChange={e => setWbJahrgang(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
                   {wbJahrgaenge.map(j => <option key={j} value={j}>{j}</option>)}
@@ -1154,7 +1154,7 @@ export default function ReportsClient({
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Sorte</label>
-                <select value={wbSorte} onChange={e => setWbSorte(e.target.value)}
+                <select aria-label="Sorte" value={wbSorte} onChange={e => setWbSorte(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
                   {wbSorten.map(s => <option key={s} value={s}>{s}</option>)}
@@ -1162,7 +1162,7 @@ export default function ReportsClient({
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung</label>
-                <select value={wbBezeichnung} onChange={e => setWbBezeichnung(e.target.value)}
+                <select aria-label="Bezeichnung" value={wbBezeichnung} onChange={e => setWbBezeichnung(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
                   {wbBezeichnungen.map(b => <option key={b} value={b}>{b}</option>)}

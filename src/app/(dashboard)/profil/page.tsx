@@ -100,17 +100,17 @@ export default function ProfilPage() {
         <form onSubmit={speichern} className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">E-Mail (nicht änderbar)</label>
-            <input value={email} disabled className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm bg-s112-bg text-s112-muted" />
+            <input aria-label="E-Mail (nicht änderbar)" value={email} disabled className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm bg-s112-bg text-s112-muted" />
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Vollständiger Name (nicht änderbar)</label>
-            <input value={fullName || '–'} disabled
+            <input aria-label="Vollständiger Name (nicht änderbar)" value={fullName || '–'} disabled
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm bg-s112-bg text-s112-muted" />
-            <p className="text-[10px] text-s112-tertiary mt-0.5">Wird vom Administrator verwaltet (Admin &gt; Mandant &gt; Benutzer).</p>
+            <p className="text-[11px] text-s112-tertiary mt-0.5">Wird vom Administrator verwaltet (Admin &gt; Mandant &gt; Benutzer).</p>
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Telefon</label>
-            <input value={telefon} onChange={e => setTelefon(e.target.value)} placeholder="+43 664 …"
+            <input aria-label="Telefon" value={telefon} onChange={e => setTelefon(e.target.value)} placeholder="+43 664 …"
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <label className="flex items-start gap-2 cursor-pointer">
@@ -145,18 +145,18 @@ export default function ProfilPage() {
         <form onSubmit={passwortAendern} className="space-y-4" autoComplete="off">
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Aktuelles Passwort</label>
-            <input type="password" value={pwAlt} onChange={e => setPwAlt(e.target.value)} required autoComplete="current-password"
+            <input aria-label="Aktuelles Passwort" type="password" value={pwAlt} onChange={e => setPwAlt(e.target.value)} required autoComplete="current-password"
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Neues Passwort</label>
-              <input type="password" value={pwNeu} onChange={e => setPwNeu(e.target.value)} required minLength={8} autoComplete="new-password" placeholder="Min. 8 Zeichen"
+              <input aria-label="Neues Passwort" type="password" value={pwNeu} onChange={e => setPwNeu(e.target.value)} required minLength={8} autoComplete="new-password" placeholder="Min. 8 Zeichen"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Neues Passwort wiederholen</label>
-              <input type="password" value={pwNeu2} onChange={e => setPwNeu2(e.target.value)} required minLength={8} autoComplete="new-password"
+              <input aria-label="Neues Passwort wiederholen" type="password" value={pwNeu2} onChange={e => setPwNeu2(e.target.value)} required minLength={8} autoComplete="new-password"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
           </div>

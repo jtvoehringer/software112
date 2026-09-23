@@ -142,32 +142,32 @@ export function KontaktForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Vorname</label>
-          <input name="vorname" defaultValue={v('vorname')} className={inputCls()} />
+          <input aria-label="Vorname" name="vorname" defaultValue={v('vorname')} className={inputCls()} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Nachname *</label>
-          <input name="nachname" defaultValue={v('nachname')} required className={inputCls()} />
+          <input aria-label="Nachname" name="nachname" defaultValue={v('nachname')} required className={inputCls()} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Segment *</label>
-          <select name="segment" value={segmentVal} onChange={e => setSegmentVal(e.target.value)} required className={inputCls()}>
+          <select aria-label="Segment" name="segment" value={segmentVal} onChange={e => setSegmentVal(e.target.value)} required className={inputCls()}>
             {SEGMENTE.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Firma</label>
-          <select name="firma_id" defaultValue={v('firma_id')} className={inputCls()}>
+          <select aria-label="Firma" name="firma_id" defaultValue={v('firma_id')} className={inputCls()}>
             <option value="">– keine –</option>
             {firmen.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">E-Mail <span className="text-s112-muted font-normal">(Standard: Newsletter, Rechnung)</span></label>
-          <input name="email" type="email" defaultValue={v('email')} className={inputCls()} />
+          <input aria-label="E-Mail (Standard: Newsletter, Rechnung)" name="email" type="email" defaultValue={v('email')} className={inputCls()} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Weitere E-Mail-Adressen <span className="text-s112-muted font-normal">(mit Komma trennen)</span></label>
-          <input name="email_weitere" defaultValue={(initial?.email_weitere ?? []).join(', ')} placeholder="privat@…, buero@…" className={inputCls()} />
+          <input aria-label="Weitere E-Mail-Adressen (mit Komma trennen)" name="email_weitere" defaultValue={(initial?.email_weitere ?? []).join(', ')} placeholder="privat@…, buero@…" className={inputCls()} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Telefon</label>
@@ -209,28 +209,28 @@ export function KontaktForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Straße</label>
-          <input name="strasse" defaultValue={v('strasse')} className={inputCls()} />
+          <input aria-label="Straße" name="strasse" defaultValue={v('strasse')} className={inputCls()} />
         </div>
         <div className="flex gap-2">
           <div className="w-28 flex-shrink-0">
             <label className="block text-xs font-medium text-s112-text-2 mb-1">PLZ</label>
-            <input name="plz" defaultValue={v('plz')} className={inputCls()} />
+            <input aria-label="PLZ" name="plz" defaultValue={v('plz')} className={inputCls()} />
           </div>
           <div className="flex-1">
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Ort</label>
-            <input name="ort" defaultValue={v('ort')} className={inputCls()} />
+            <input aria-label="Ort" name="ort" defaultValue={v('ort')} className={inputCls()} />
           </div>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Land</label>
-          <select name="land" value={landVal} onChange={e => setLandVal(e.target.value)} className={inputCls()}>
+          <select aria-label="Land" name="land" value={landVal} onChange={e => setLandVal(e.target.value)} className={inputCls()}>
             {LAENDER.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">BKI-Betriebsnummer</label>
-          <input name="betrieb_nr" defaultValue={v('betrieb_nr' as keyof typeof initial)} placeholder="z.B. 4285221" className={inputCls()} />
-          <p className="text-[10px] text-s112-tertiary mt-0.5">Betriebsnummer des Abnehmers für BKI-Transportliste</p>
+          <input aria-label="BKI-Betriebsnummer" name="betrieb_nr" defaultValue={v('betrieb_nr' as keyof typeof initial)} placeholder="z.B. 4285221" className={inputCls()} />
+          <p className="text-[11px] text-s112-tertiary mt-0.5">Betriebsnummer des Abnehmers für BKI-Transportliste</p>
         </div>
         <div className="flex items-center gap-2 pt-5">
           <input type="checkbox" id="stammkunde" checked={stammkunde}
@@ -240,7 +240,7 @@ export function KontaktForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Rabattgruppe</label>
-          <select name="rabattgruppe_id" defaultValue={initial?.rabattgruppe_id ?? ''} className={inputCls()}>
+          <select aria-label="Rabattgruppe" name="rabattgruppe_id" defaultValue={initial?.rabattgruppe_id ?? ''} className={inputCls()}>
             <option value="">– kein Rabatt –</option>
             {rabattgruppen.map(r => (
               <option key={r.id} value={r.id}>{r.name} ({r.rabatt_pct}%)</option>
@@ -249,7 +249,7 @@ export function KontaktForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Sonderrabatt %</label>
-          <input
+          <input aria-label="Sonderrabatt %"
             name="sonderrabatt_pct"
             type="number"
             min="0" max="100" step="0.5"
@@ -261,26 +261,26 @@ export function KontaktForm({
         <div className="flex gap-2">
           <div className="flex-1">
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Skonto %</label>
-            <input name="skonto_pct" type="number" min="0" max="20" step="0.5"
+            <input aria-label="Skonto %" name="skonto_pct" type="number" min="0" max="20" step="0.5"
               defaultValue={initial?.skonto_pct ?? 0} placeholder="0" className={inputCls()} />
           </div>
           <div className="flex-1">
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Skonto-Frist (Tage)</label>
-            <input name="skonto_tage" type="number" min="0" max="60" step="1"
+            <input aria-label="Skonto-Frist (Tage)" name="skonto_tage" type="number" min="0" max="60" step="1"
               defaultValue={initial?.skonto_tage ?? 10} placeholder="10" className={inputCls()} />
           </div>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Zahlungsziel (Tage) *</label>
-          <input name="zahlungsziel_tage" type="number" min="0" max="365" step="1" required
+          <input aria-label="Zahlungsziel (Tage)" name="zahlungsziel_tage" type="number" min="0" max="365" step="1" required
             defaultValue={initial?.zahlungsziel_tage ?? 14} placeholder="14" className={inputCls()} />
-          <p className="text-[10px] text-s112-tertiary mt-0.5">0 = Rechnung wird mit "bei Erhalt" statt Fälligkeitsdatum gedruckt</p>
+          <p className="text-[11px] text-s112-tertiary mt-0.5">0 = Rechnung wird mit "bei Erhalt" statt Fälligkeitsdatum gedruckt</p>
         </div>
       </div>
 
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
-        <textarea name="notizen" defaultValue={v('notizen')} rows={2}
+        <textarea aria-label="Notizen" name="notizen" defaultValue={v('notizen')} rows={2}
           className={inputCls() + ' resize-none'} />
       </div>
 
@@ -568,7 +568,7 @@ function KontaktKarte({
               const stufeDef = PIPELINE_STUFEN.find(s => s.value === p.stufe)
               return (
                 <div key={p.id} className="flex gap-2 text-xs py-1 border-b border-s112-border/40 last:border-0">
-                  <span className={`px-1.5 py-0.5 rounded-full font-medium text-[10px] flex-shrink-0 self-start mt-0.5 ${stufeDef?.farbe ?? 'bg-[#F2F3F5] text-s112-text-1'}`}>
+                  <span className={`px-1.5 py-0.5 rounded-full font-medium text-[11px] flex-shrink-0 self-start mt-0.5 ${stufeDef?.farbe ?? 'bg-[#F2F3F5] text-s112-text-1'}`}>
                     {stufeDef?.label ?? p.stufe}
                   </span>
                   <div className="flex-1 min-w-0">

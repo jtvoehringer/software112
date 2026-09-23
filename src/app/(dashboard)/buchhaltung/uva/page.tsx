@@ -117,7 +117,7 @@ export default async function UvaPage({
       <form method="GET" className="flex gap-3 mb-6 items-end">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Geschäftsjahr</label>
-          <select name="jahr" defaultValue={String(jahr)}
+          <select aria-label="Geschäftsjahr" name="jahr" defaultValue={String(jahr)}
             className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
             {jahre.map(j => <option key={j} value={j}>{j}</option>)}
           </select>
@@ -134,7 +134,7 @@ export default async function UvaPage({
               <input type="hidden" name="jahr" value={jahr} />
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Zeitraum *</label>
-                <select name="zeitraum" required
+                <select aria-label="Zeitraum" name="zeitraum" required
                   className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
                   {zeitraeume.map(z => <option key={z} value={z}>{zeitraumLabel(z)}</option>)}
                 </select>

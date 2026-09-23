@@ -98,7 +98,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="form-label">Bezeichnung *</label>
-            <input name="name" type="text" required defaultValue={weinausbau?.name ?? ''} className="form-input" placeholder="z.B. GV Kremser Schmidt 2025" />
+            <input aria-label="Bezeichnung" name="name" type="text" required defaultValue={weinausbau?.name ?? ''} className="form-input" placeholder="z.B. GV Kremser Schmidt 2025" />
           </div>
           <div>
             <label className="form-label">Jahrgang</label>
@@ -187,7 +187,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
           </div>
           <div>
             <label className="form-label">Status</label>
-            <select name="status" defaultValue={weinausbau?.status ?? 'ernte'} className="form-input">
+            <select aria-label="Status" name="status" defaultValue={weinausbau?.status ?? 'ernte'} className="form-input">
               <option value="ernte">Ernte</option>
               <option value="gaerung">Gärung</option>
               <option value="ausbau">Ausbau</option>
@@ -300,7 +300,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
         <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Lagerwert</h2>
         <div>
           <label className="form-label">Einstandspreis pro Liter (€)</label>
-          <input name="einstandspreis_pro_liter" type="text" inputMode="decimal"
+          <input aria-label="Einstandspreis pro Liter (€)" name="einstandspreis_pro_liter" type="text" inputMode="decimal"
             defaultValue={weinausbau?.einstandspreis_pro_liter?.toString().replace('.', ',') ?? ''}
             className="form-input" placeholder="z.B. 1,50" />
           <p className="text-xs text-s112-muted mt-1">Basis für die Lagerwert-Berechnung bei Tankware</p>

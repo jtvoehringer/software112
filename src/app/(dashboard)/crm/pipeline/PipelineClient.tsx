@@ -64,49 +64,49 @@ function PipelineForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Titel *</label>
-          <input name="titel" defaultValue={v('titel')} required
+          <input aria-label="Titel" name="titel" defaultValue={v('titel')} required
             placeholder="z.B. Weinsortiment 2024 – Restaurant Zum Raben" className={inputCls()} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Stufe *</label>
-          <select name="stufe" defaultValue={v('stufe') || 'interessent'} required className={inputCls()}>
+          <select aria-label="Stufe" name="stufe" defaultValue={v('stufe') || 'interessent'} required className={inputCls()}>
             {PIPELINE_STUFEN.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Kategorie</label>
-          <select name="kategorie" defaultValue={v('kategorie')} className={inputCls()}>
+          <select aria-label="Kategorie" name="kategorie" defaultValue={v('kategorie')} className={inputCls()}>
             <option value="">– keine –</option>
             {PIPELINE_KATEGORIEN.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Wert (€)</label>
-          <input name="wert_euro" type="number" defaultValue={v('wert_euro')} min="0" step="0.01"
+          <input aria-label="Wert (€)" name="wert_euro" type="number" defaultValue={v('wert_euro')} min="0" step="0.01"
             placeholder="z.B. 2400" className={inputCls()} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Kontakt</label>
-          <select name="kontakt_id" defaultValue={v('kontakt_id')} className={inputCls()}>
+          <select aria-label="Kontakt" name="kontakt_id" defaultValue={v('kontakt_id')} className={inputCls()}>
             <option value="">– kein –</option>
             {kontakte.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Firma</label>
-          <select name="firma_id" defaultValue={v('firma_id')} className={inputCls()}>
+          <select aria-label="Firma" name="firma_id" defaultValue={v('firma_id')} className={inputCls()}>
             <option value="">– keine –</option>
             {firmen.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Wahrscheinlichkeit (%)</label>
-          <input name="wahrscheinlichkeit" type="number" defaultValue={v('wahrscheinlichkeit')}
+          <input aria-label="Wahrscheinlichkeit (%)" name="wahrscheinlichkeit" type="number" defaultValue={v('wahrscheinlichkeit')}
             min="0" max="100" placeholder="z.B. 60" className={inputCls()} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Erwarteter Abschluss</label>
-          <input name="erwartetes_datum" type="date" defaultValue={v('erwartetes_datum')} className={inputCls()} />
+          <input aria-label="Erwarteter Abschluss" name="erwartetes_datum" type="date" defaultValue={v('erwartetes_datum')} className={inputCls()} />
         </div>
         <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Uhrzeit</label>
@@ -131,7 +131,7 @@ function PipelineForm({
 
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
-        <textarea name="notizen" defaultValue={v('notizen')} rows={2}
+        <textarea aria-label="Notizen" name="notizen" defaultValue={v('notizen')} rows={2}
           className={inputCls() + ' resize-none'} />
       </div>
 

@@ -206,7 +206,7 @@ export default async function EditFuellungPage({
           )}
           <div>
             <label className={labelCls}>Weinausbau-Charge</label>
-            <select name="weinausbau_id" defaultValue={f.weinausbau_id ?? ''} className={inputCls}>
+            <select aria-label="Weinausbau-Charge" name="weinausbau_id" defaultValue={f.weinausbau_id ?? ''} className={inputCls}>
               <option value="">– keine Verknüpfung –</option>
               {chargenListe.map((c: R) => (
                 <option key={c.id} value={c.id}>
@@ -248,19 +248,19 @@ export default async function EditFuellungPage({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <label className={labelCls}>Produktname *</label>
-              <input name="name" defaultValue={f.name} required className={inputCls} />
+              <input aria-label="Produktname" name="name" defaultValue={f.name} required className={inputCls} />
             </div>
             <div>
               <label className={labelCls}>Jahrgang</label>
-              <input name="jahrgang" type="number" min={1900} max={2100} defaultValue={f.jahrgang ?? ''} className={inputCls} />
+              <input aria-label="Jahrgang" name="jahrgang" type="number" min={1900} max={2100} defaultValue={f.jahrgang ?? ''} className={inputCls} />
             </div>
             <div>
               <label className={labelCls}>Rebsorte</label>
-              <input name="rebsorte" defaultValue={f.rebsorte ?? ''} placeholder="z.B. Grüner Veltliner" className={inputCls} />
+              <input aria-label="Rebsorte" name="rebsorte" defaultValue={f.rebsorte ?? ''} placeholder="z.B. Grüner Veltliner" className={inputCls} />
             </div>
             <div>
               <label className={labelCls}>Qualitätsbezeichnung *</label>
-              <select name="qualitaet" defaultValue={f.qualitaet} required className={inputCls}>
+              <select aria-label="Qualitätsbezeichnung" name="qualitaet" defaultValue={f.qualitaet} required className={inputCls}>
                 {qualitaetOptionsEdit.map(q => (
                   <option key={q.value} value={q.value}>{q.label}</option>
                 ))}
@@ -288,11 +288,11 @@ export default async function EditFuellungPage({
             </div>
             <div>
               <label className={labelCls}>Anbaugebiet</label>
-              <input name="anbaugebiet" defaultValue={f.anbaugebiet ?? ''} placeholder="z.B. Traisental …" className={inputCls} />
+              <input aria-label="Anbaugebiet" name="anbaugebiet" defaultValue={f.anbaugebiet ?? ''} placeholder="z.B. Traisental …" className={inputCls} />
             </div>
             <div className="sm:col-span-2">
               <label className={labelCls}>Subbezeichnung / Ried (optional)</label>
-              <input name="bezeichnung" defaultValue={f.bezeichnung ?? ''} placeholder="z.B. Ried Hohenberg · Reserve" className={inputCls} />
+              <input aria-label="Subbezeichnung / Ried (optional)" name="bezeichnung" defaultValue={f.bezeichnung ?? ''} placeholder="z.B. Ried Hohenberg · Reserve" className={inputCls} />
             </div>
           </div>
         </div>
@@ -304,7 +304,7 @@ export default async function EditFuellungPage({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Abfülldatum *</label>
-              <input
+              <input aria-label="Abfülldatum"
                 name="datum"
                 type="date"
                 defaultValue={f.datum ? f.datum.split('T')[0] : ''}
@@ -314,7 +314,7 @@ export default async function EditFuellungPage({
             </div>
             <div>
               <label className={labelCls}>Flaschengrösse *</label>
-              <select name="flaschengroesse_ml" defaultValue={f.flaschengroesse_ml} required className={inputCls}>
+              <select aria-label="Flaschengrösse" name="flaschengroesse_ml" defaultValue={f.flaschengroesse_ml} required className={inputCls}>
                 {FLASCHENGROESSEN.map(fl => (
                   <option key={fl.value} value={fl.value}>{fl.label}</option>
                 ))}
@@ -322,16 +322,16 @@ export default async function EditFuellungPage({
             </div>
             <div>
               <label className={labelCls}>Anzahl abgefüllt (gesamt)</label>
-              <input name="anzahl_flaschen" type="number" min={1} defaultValue={f.anzahl_flaschen} required className={inputCls} />
+              <input aria-label="Anzahl abgefüllt (gesamt)" name="anzahl_flaschen" type="number" min={1} defaultValue={f.anzahl_flaschen} required className={inputCls} />
             </div>
             <div>
               <label className={labelCls}>Aktueller Lagerbestand *</label>
-              <input name="bestand_flaschen" type="number" min={0} defaultValue={f.bestand_flaschen} required className={inputCls} />
+              <input aria-label="Aktueller Lagerbestand" name="bestand_flaschen" type="number" min={0} defaultValue={f.bestand_flaschen} required className={inputCls} />
               <p className="text-xs text-s112-muted mt-1">Anzahl Flaschen, die aktuell auf Lager sind</p>
             </div>
             <div>
               <label className={labelCls}>Tatsächlich gefüllt (Liter)</label>
-              <input name="menge_liter_gefuellt" type="number" step="0.01" defaultValue={f.menge_liter_gefuellt ?? ''} className={inputCls} />
+              <input aria-label="Tatsächlich gefüllt (Liter)" name="menge_liter_gefuellt" type="number" step="0.01" defaultValue={f.menge_liter_gefuellt ?? ''} className={inputCls} />
             </div>
           </div>
         </div>
@@ -342,7 +342,7 @@ export default async function EditFuellungPage({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>VK-Preis brutto pro Flasche (€)</label>
-              <input
+              <input aria-label="VK-Preis brutto pro Flasche (€)"
                 name="vk_preis_brutto"
                 type="number"
                 step="0.01"
@@ -355,7 +355,7 @@ export default async function EditFuellungPage({
             </div>
             <div>
               <label className={labelCls}>Einstandspreis pro Flasche (€)</label>
-              <input
+              <input aria-label="Einstandspreis pro Flasche (€)"
                 name="einstandspreis"
                 type="number"
                 step="0.01"
@@ -393,7 +393,7 @@ export default async function EditFuellungPage({
         {/* ── Notizen ── */}
         <div className="card p-5">
           <label className={labelCls}>Notizen</label>
-          <textarea
+          <textarea aria-label="Notizen"
             name="notizen"
             rows={3}
             defaultValue={f.notizen ?? ''}

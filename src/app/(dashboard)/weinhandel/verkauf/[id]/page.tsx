@@ -599,11 +599,11 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Datum</label>
-                  <input name="datum" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="form-input text-sm w-full" />
+                  <input aria-label="Datum" name="datum" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="form-input text-sm w-full" />
                 </div>
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Art</label>
-                  <select name="art" className="form-input text-sm w-full">
+                  <select aria-label="Art" name="art" className="form-input text-sm w-full">
                     <option value="bar">Bar</option>
                     <option value="karte">Karte</option>
                     <option value="bank">Bank</option>
@@ -613,11 +613,11 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                 </div>
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Betrag (€)</label>
-                  <input name="betrag" type="text" inputMode="decimal" required placeholder="0,00" className="form-input text-sm w-full" />
+                  <input aria-label="Betrag (€)" name="betrag" type="text" inputMode="decimal" required placeholder="0,00" className="form-input text-sm w-full" />
                 </div>
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Notiz</label>
-                  <input name="notizen" type="text" placeholder="Optional…" className="form-input text-sm w-full" />
+                  <input aria-label="Notiz" name="notizen" type="text" placeholder="Optional…" className="form-input text-sm w-full" />
                 </div>
               </div>
               <div className="flex justify-end">

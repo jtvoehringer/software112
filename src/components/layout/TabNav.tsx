@@ -51,7 +51,7 @@ export default function TabNav({ groups }: { groups: NavGroup[] }) {
               if (disabled) {
                 return (
                   <span key={item.href} className="inline-flex items-center px-2.5 py-[5px] rounded-md text-[13px] whitespace-nowrap opacity-40 cursor-not-allowed">
-                    {item.label} <span className="ml-1 text-[10px]">P2</span>
+                    {item.label} <span className="ml-1 text-[11px]">P2</span>
                   </span>
                 )
               }

@@ -388,11 +388,11 @@ export default function ImportClient({
             <form action={createEroeffnungsbestandVonImport} className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2">
                 <label className={ebLabelCls}>Weinbezeichnung *</label>
-                <input name="name" required placeholder="z.B. Grüner Veltliner Ried Hohenberg" className={ebInputCls} />
+                <input aria-label="Weinbezeichnung" name="name" required placeholder="z.B. Grüner Veltliner Ried Hohenberg" className={ebInputCls} />
               </div>
               <div>
                 <label className={ebLabelCls}>Gebinde</label>
-                <select name="behaelter_id" className={ebInputCls}>
+                <select aria-label="Gebinde" name="behaelter_id" className={ebInputCls}>
                   <option value="">– kein –</option>
                   {gebinde.map((g: R) => (
                     <option key={g.id} value={g.id}>{g.name}</option>
@@ -401,27 +401,27 @@ export default function ImportClient({
               </div>
               <div>
                 <label className={ebLabelCls}>Jahrgang</label>
-                <input name="jahrgang" type="number" min={1900} max={2100}
+                <input aria-label="Jahrgang" name="jahrgang" type="number" min={1900} max={2100}
                   defaultValue={new Date().getFullYear() - 1} className={ebInputCls} />
               </div>
               <div>
                 <label className={ebLabelCls}>KMW (°KMW)</label>
-                <input name="kmw" type="number" step="0.1" min={0} max={50}
+                <input aria-label="KMW (°KMW)" name="kmw" type="number" step="0.1" min={0} max={50}
                   placeholder="z.B. 17.5" className={ebInputCls} />
               </div>
               <div>
                 <label className={ebLabelCls}>Menge (Liter) *</label>
-                <input name="menge_liter" type="number" step="0.01" min={0}
+                <input aria-label="Menge (Liter)" name="menge_liter" type="number" step="0.01" min={0}
                   required placeholder="z.B. 3000" className={ebInputCls} />
               </div>
               <div>
                 <label className={ebLabelCls}>Einstandspreis pro Liter (€)</label>
-                <input name="einstandspreis_pro_liter" type="text" inputMode="decimal"
+                <input aria-label="Einstandspreis pro Liter (€)" name="einstandspreis_pro_liter" type="text" inputMode="decimal"
                   placeholder="z.B. 1,50" className={ebInputCls} />
               </div>
               <div>
                 <label className={ebLabelCls}>Qualitätsstufe</label>
-                <select name="qualitaetsstufe" className={ebInputCls}>
+                <select aria-label="Qualitätsstufe" name="qualitaetsstufe" className={ebInputCls}>
                   <option value="">– keine –</option>
                   {QUALITAETEN.map(q => (
                     <option key={q.value} value={q.value}>{q.label}</option>
@@ -430,11 +430,11 @@ export default function ImportClient({
               </div>
               <div>
                 <label className={ebLabelCls}>Referenz Altsystem</label>
-                <input name="referenz_altsystem" placeholder="z.B. Chargen-Nr. Altsystem" className={ebInputCls} />
+                <input aria-label="Referenz Altsystem" name="referenz_altsystem" placeholder="z.B. Chargen-Nr. Altsystem" className={ebInputCls} />
               </div>
               <div className="sm:col-span-2">
                 <label className={ebLabelCls}>Notizen</label>
-                <input name="notizen" placeholder="z.B. Herkunft Altsystem …" className={ebInputCls} />
+                <input aria-label="Notizen" name="notizen" placeholder="z.B. Herkunft Altsystem …" className={ebInputCls} />
               </div>
               <div className="sm:col-span-2">
                 <button type="submit" className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
@@ -494,7 +494,7 @@ export default function ImportClient({
                   {f.pflicht && <span className="text-s112-err">*</span>}
                   {f.hinweis && (
                     <span title={f.hinweis} aria-label={f.hinweis}
-                      className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-s112-border text-[10px] text-s112-muted cursor-help flex-shrink-0">
+                      className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-s112-border text-[11px] text-s112-muted cursor-help flex-shrink-0">
                       i
                     </span>
                   )}

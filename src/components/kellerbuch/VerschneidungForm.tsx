@@ -212,7 +212,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
 
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum</label>
-        <input name="datum" type="date" required
+        <input aria-label="Datum" name="datum" type="date" required
           defaultValue={new Date().toISOString().split('T')[0]}
           className={`${inputCls} w-48`} />
       </div>
@@ -417,7 +417,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
 
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
-        <input name="notizen" className={`${inputCls} w-full`} placeholder="optional" />
+        <input aria-label="Notizen" name="notizen" className={`${inputCls} w-full`} placeholder="optional" />
       </div>
 
       {/* Weinart-Fehler: Rot+Weiß nicht zulässig */}

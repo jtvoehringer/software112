@@ -53,7 +53,7 @@ function KundenSuche({ items = [], art, value, onChange, placeholder }: {
       {selected ? (
         <div className="flex items-center gap-1 border border-s112-border rounded-lg px-2 py-1.5 bg-s112-bg">
           <span className="text-sm flex-1 truncate">{selected.label}</span>
-          <button type="button" onClick={() => { onChange(''); setQuery('') }}
+          <button type="button" aria-label="Auswahl leeren" onClick={() => { onChange(''); setQuery('') }}
             className="text-s112-tertiary hover:text-s112-text-2 flex-shrink-0 leading-none"><X size={13} /></button>
         </div>
       ) : (
@@ -104,7 +104,7 @@ function VerantwortlichSelect({ mitglieder, userId, defaultValue, className }: {
   return (
     <div>
       <label className="block text-xs font-medium text-s112-text-2 mb-1">Verantwortlich</label>
-      <select name="verantwortlich" defaultValue={defaultValue} className={className}>
+      <select aria-label="Verantwortlich" name="verantwortlich" defaultValue={defaultValue} className={className}>
         {mitglieder.filter(m => m.id === userId).map(m => <option key={m.id} value={m.id}>{m.name} (ich)</option>)}
         <option value="alle">Alle im Betrieb</option>
         <option value="">Betrieb (niemand)</option>
@@ -276,7 +276,7 @@ function EintragChip({ e, compact = false, onViewAkt }: { e: KalenderEintrag; co
     <div role="button" tabIndex={0} onClick={() => onViewAkt?.(e)} onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onViewAkt?.(e) } }} title={`${e.titel}${e.kontaktName ? ` – ${e.kontaktName}` : ''}${e.firmaName ? ` (${e.firmaName})` : ''}`} className="cursor-pointer">
       <div
         className={`border rounded truncate leading-snug transition-opacity hover:opacity-75
-          ${compact ? 'text-[9px] px-1 py-px' : 'text-xs px-2 py-1'}
+          ${compact ? 'text-[10px] px-1 py-px' : 'text-xs px-2 py-1'}
           ${farbe}`}
         style={overdueInline}>
         {zeitLabel && !compact && (
@@ -287,7 +287,7 @@ function EintragChip({ e, compact = false, onViewAkt }: { e: KalenderEintrag; co
         )}
         <span className="font-medium">{e.titel}</span>
         {!compact && (e.kontaktName || e.firmaName) && (
-          <span className="block text-[9px] opacity-60 truncate mt-px">
+          <span className="block text-[10px] opacity-60 truncate mt-px">
             {e.kontaktName ?? e.firmaName}
           </span>
         )}
@@ -323,7 +323,7 @@ function WochenView({ eintraege, current, heute }: { eintraege: KalenderEintrag[
               <div className={`text-xl font-semibold leading-tight ${isToday ? 'text-white' : 'text-s112-text'}`}>
                 {d.getDate()}
               </div>
-              <div className={`text-[10px] ${isToday ? 'text-white/70' : 'text-s112-tertiary'}`}>
+              <div className={`text-[11px] ${isToday ? 'text-white/70' : 'text-s112-tertiary'}`}>
                 {MONATE_KURZ[d.getMonth()]}
               </div>
             </div>
@@ -339,7 +339,7 @@ function WochenView({ eintraege, current, heute }: { eintraege: KalenderEintrag[
           return (
             <div key={i} className={`min-h-[140px] p-2 space-y-1 ${isToday ? 'ring-1 ring-inset ring-s112-teal/40' : ''}`}>
               {items.length === 0 ? (
-                <div className="text-[10px] text-s112-tertiary text-center pt-8 select-none">–</div>
+                <div className="text-[11px] text-s112-tertiary text-center pt-8 select-none">–</div>
               ) : (
                 items.map(e => <EintragChip key={e.id} e={e} />)
               )}
@@ -666,7 +666,7 @@ function ZeitachseView({
             return (
               <div key={i} className={`px-2 py-2 text-center border-l border-s112-border
                 ${isToday ? 'bg-s112-teal text-white' : 'bg-s112-bg'}`}>
-                <div className={`text-[10px] font-medium ${isToday ? 'text-white/80' : 'text-s112-text-2'}`}>
+                <div className={`text-[11px] font-medium ${isToday ? 'text-white/80' : 'text-s112-text-2'}`}>
                   {WOCHENTAGE[i]}
                 </div>
                 <div className={`text-lg font-semibold leading-tight ${isToday ? 'text-white' : 'text-s112-text'}`}>
@@ -686,7 +686,7 @@ function ZeitachseView({
             <div className="relative border-b border-s112-border/60" style={{ height: `${totalH}px` }}>
               {/* Label links */}
               <div className="absolute left-0 top-0 h-full w-[52px] bg-s112-bg border-r border-s112-border z-10 flex items-end justify-end pb-1 pr-1">
-                <span className="text-[9px] text-s112-tertiary leading-none">urlaub</span>
+                <span className="text-[10px] text-s112-tertiary leading-none">urlaub</span>
               </div>
               {/* Spalten-Trennlinien */}
               {days.map((_, i) => (
@@ -710,7 +710,7 @@ function ZeitachseView({
                   <div key={e.id}
                     onClick={() => setViewAkt(e)}
                     title={`${isUrlaub ? 'Urlaub' : 'Abwesenheit'}${e.titel ? `: ${e.titel}` : ''}`}
-                    className="absolute flex items-center gap-1 px-2 overflow-hidden cursor-pointer hover:opacity-80 z-20 text-white text-[9px] font-semibold select-none"
+                    className="absolute flex items-center gap-1 px-2 overflow-hidden cursor-pointer hover:opacity-80 z-20 text-white text-[10px] font-semibold select-none"
                     style={{
                       top:             `${2 + barIdx * barH}px`,
                       height:          `${barH - 2}px`,
@@ -733,7 +733,7 @@ function ZeitachseView({
         {/* ── Ganztags-Zeile (eintägige Events) ── */}
         <div className="grid border-b border-s112-border/60" style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}>
           <div className="bg-s112-bg border-r border-s112-border flex items-center justify-end px-1">
-            <span className="text-[9px] text-s112-tertiary leading-none">ganztags</span>
+            <span className="text-[10px] text-s112-tertiary leading-none">ganztags</span>
           </div>
           {days.map((d, i) => {
             const dateStr  = toDateStr(d)
@@ -782,7 +782,7 @@ function ZeitachseView({
               {Array.from({ length: 24 }, (_, h) => (
                 <div key={h} className="absolute w-full flex justify-end pr-2"
                   style={{ top: `${h * HOUR_H}px`, height: `${HOUR_H}px` }}>
-                  <span className="text-[10px] text-s112-tertiary tabular-nums mt-1">
+                  <span className="text-[11px] text-s112-tertiary tabular-nums mt-1">
                     {String(h).padStart(2, '0')}:00
                   </span>
                 </div>
@@ -859,14 +859,14 @@ function ZeitachseView({
                           zIndex: 10 + col,
                         }}>
                         <div className="px-1.5 py-0.5">
-                          <div className="text-[10px] font-semibold tabular-nums leading-tight">
+                          <div className="text-[11px] font-semibold tabular-nums leading-tight">
                             {fmtT(e.uhrzeit_von)}{e.uhrzeit_bis ? `–${fmtT(e.uhrzeit_bis)}` : ''}
                           </div>
-                          <div className={`text-[10px] font-medium truncate leading-tight`}>
+                          <div className={`text-[11px] font-medium truncate leading-tight`}>
                             {e.titel}
                           </div>
                           {h > 50 && (e.kontaktName || e.firmaName) && (
-                            <div className="text-[9px] opacity-60 truncate">
+                            <div className="text-[10px] opacity-60 truncate">
                               {e.kontaktName ?? e.firmaName}
                             </div>
                           )}
@@ -907,7 +907,7 @@ function ZeitachseView({
                 <div>
                   <span className="font-semibold text-s112-text">{viewAkt.titel}</span>
                 </div>
-                <button onClick={() => { setViewAkt(null); setEditAktMode(false); setEditPipeMode(false) }} className="text-s112-muted hover:text-s112-text-1"><X size={18} /></button>
+                <button aria-label="Schließen" onClick={() => { setViewAkt(null); setEditAktMode(false); setEditPipeMode(false) }} className="text-s112-muted hover:text-s112-text-1"><X size={18} /></button>
               </div>
               <div className="space-y-1.5 text-sm text-s112-text-2 mb-4">
                 {viewAkt.bis_datum && viewAkt.bis_datum !== viewAkt.datum ? (
@@ -1047,7 +1047,7 @@ function ZeitachseView({
                 <input type="hidden" name="erledigt" value={viewAkt.erledigt ? 'true' : 'false'} />
                 <div>
                   <label className="block text-xs font-medium text-s112-text-2 mb-1">Art</label>
-                  <select name="art" defaultValue={viewAkt.art ?? 'notiz'} className={inputCls}>
+                  <select aria-label="Art" name="art" defaultValue={viewAkt.art ?? 'notiz'} className={inputCls}>
                     {AKTIVITAET_ARTEN.filter(a => !('nurAnzeige' in a)).map(a => (
                       <option key={a.value} value={a.value}>{a.label}</option>
                     ))}
@@ -1055,22 +1055,22 @@ function ZeitachseView({
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-s112-text-2 mb-1">Betreff</label>
-                  <input name="betreff" defaultValue={viewAkt.titel} required className={inputCls} />
+                  <input aria-label="Betreff" name="betreff" defaultValue={viewAkt.titel} required className={inputCls} />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-xs font-medium text-s112-text-2 mb-1">Von</label>
-                    <input type="date" name="datum" defaultValue={viewAkt.datum} required className={inputCls} />
+                    <input aria-label="Von" type="date" name="datum" defaultValue={viewAkt.datum} required className={inputCls} />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-s112-text-2 mb-1">Bis (mehrtägig)</label>
-                    <input type="date" name="bis_datum" defaultValue={viewAkt.bis_datum ?? ''} className={inputCls} />
+                    <input aria-label="Bis (mehrtägig)" type="date" name="bis_datum" defaultValue={viewAkt.bis_datum ?? ''} className={inputCls} />
                   </div>
                 </div>
                 <VerantwortlichSelect mitglieder={mitglieder} userId={userId} defaultValue={verantwortlichWert(viewAkt)} className={inputCls} />
                 <div>
                   <label className="block text-xs font-medium text-s112-text-2 mb-1">Bericht</label>
-                  <textarea name="beschreibung" rows={3} defaultValue={viewAkt.beschreibung ?? ''} placeholder="Optional … (@Name benachrichtigt Kolleginnen/Kollegen)"
+                  <textarea aria-label="Bericht" name="beschreibung" rows={3} defaultValue={viewAkt.beschreibung ?? ''} placeholder="Optional … (@Name benachrichtigt Kolleginnen/Kollegen)"
                     className={inputCls + ' resize-none'} />
                 </div>
                 {saveErr && <p className="text-xs text-s112-err-fg">{saveErr}</p>}
@@ -1111,11 +1111,11 @@ function ZeitachseView({
               }} className="space-y-3">
                 <div>
                   <label className="block text-xs font-medium text-s112-text-2 mb-1">Titel</label>
-                  <input name="titel" defaultValue={viewAkt?.titel ?? ''} required className={inputCls} />
+                  <input aria-label="Titel" name="titel" defaultValue={viewAkt?.titel ?? ''} required className={inputCls} />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-s112-text-2 mb-1">Termin</label>
-                  <input type="date" name="erwartetes_datum" defaultValue={viewAkt?.datum ?? ''} className={inputCls} />
+                  <input aria-label="Termin" type="date" name="erwartetes_datum" defaultValue={viewAkt?.datum ?? ''} className={inputCls} />
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
                   <label className="flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer">
@@ -1176,7 +1176,7 @@ function ZeitachseView({
             <div className={`gap-2 ${newAkt?.ganztags ? '' : 'grid grid-cols-2'}`}>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Art</label>
-                <select name="art" defaultValue="notiz" className={inputCls}>
+                <select aria-label="Art" name="art" defaultValue="notiz" className={inputCls}>
                   {AKTIVITAET_ARTEN.filter(a => !('nurAnzeige' in a)).map(a => (
                     <option key={a.value} value={a.value}>{a.label}</option>
                   ))}
@@ -1199,7 +1199,7 @@ function ZeitachseView({
             {/* Betreff */}
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Betreff *</label>
-              <input name="betreff" required autoFocus placeholder="z.B. Weinverkostung, Rückruf …"
+              <input aria-label="Betreff" name="betreff" required autoFocus placeholder="z.B. Weinverkostung, Rückruf …"
                 className={inputCls} />
             </div>
 
@@ -1229,7 +1229,7 @@ function ZeitachseView({
             {newAkt?.ganztags && (
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Bis-Datum (leer = eintägig)</label>
-                <input type="date" name="bis_datum" min={newAkt.datum}
+                <input aria-label="Bis-Datum (leer = eintägig)" type="date" name="bis_datum" min={newAkt.datum}
                   className={inputCls} />
               </div>
             )}
@@ -1240,7 +1240,7 @@ function ZeitachseView({
             {/* Bericht */}
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Bericht</label>
-              <textarea name="beschreibung" rows={2} placeholder="Optional … (@Name benachrichtigt Kolleginnen/Kollegen)"
+              <textarea aria-label="Bericht" name="beschreibung" rows={2} placeholder="Optional … (@Name benachrichtigt Kolleginnen/Kollegen)"
                 className={inputCls + ' resize-none'} />
             </div>
 
@@ -1349,7 +1349,7 @@ function MonatView({ eintraege, current, heute }: { eintraege: KalenderEintrag[]
                       <EintragChip key={e.id} e={e} compact />
                     ))}
                     {extra > 0 && (
-                      <div className="text-[9px] text-s112-tertiary pl-0.5">+{extra} weitere</div>
+                      <div className="text-[10px] text-s112-tertiary pl-0.5">+{extra} weitere</div>
                     )}
                   </div>
                 </div>
@@ -1407,7 +1407,7 @@ function MiniMonat({
 
             return (
               <div key={`${wi}-${di}`} className="flex items-center justify-center py-px">
-                <div className={`w-[18px] h-[18px] flex items-center justify-center rounded-full text-[9px] font-medium
+                <div className={`w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-medium
                   ${!isThisMonth ? 'opacity-20' : ''}
                   ${isToday
                     ? 'bg-s112-teal text-white'

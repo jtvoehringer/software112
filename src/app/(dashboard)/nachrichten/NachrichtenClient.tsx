@@ -437,7 +437,7 @@ export default function NachrichtenClient() {
         </div>
         {monitoredEmail && (
           <div className="px-3 pb-2 flex flex-col gap-1">
-            <p className="text-[10px] text-s112-muted font-medium uppercase tracking-wide">Mailbox</p>
+            <p className="text-[11px] text-s112-muted font-medium uppercase tracking-wide">Mailbox</p>
             <button onClick={() => setActiveMailbox('own')}
               className={`w-full text-left text-xs px-2 py-1.5 rounded-lg border transition-colors truncate
                 ${activeMailbox === 'own' ? 'bg-s112-teal text-white border-s112-teal font-medium' : 'border-s112-border text-s112-text-2 hover:bg-white'}`}
@@ -487,35 +487,35 @@ export default function NachrichtenClient() {
           {showSettings && (
             <div className="mt-2 pt-2 border-t border-s112-border space-y-2">
               <div className="space-y-1">
-                <p className="text-[10px] text-s112-muted font-medium uppercase tracking-wide">Verbindung</p>
+                <p className="text-[11px] text-s112-muted font-medium uppercase tracking-wide">Verbindung</p>
                 <button onClick={async () => {
                   await fetch('/api/nachrichten/disconnect', { method: 'POST' })
                   window.location.reload()
-                }} className="w-full text-[10px] border border-s112-err/30 text-s112-err px-2 py-1 rounded hover:bg-s112-err-bg">
+                }} className="w-full text-[11px] border border-s112-err/30 text-s112-err px-2 py-1 rounded hover:bg-s112-err-bg">
                   Trennen &amp; neu verbinden
                 </button>
               </div>
               {/* CRM-Spiegelung: Stand + manueller Lauf (18.9.2026) */}
               <div className="space-y-1">
-                <p className="text-[10px] text-s112-muted font-medium uppercase tracking-wide">CRM-Spiegelung</p>
-                <p className="text-[10px] text-s112-muted">E-Mails bekannter Kontakte/Firmen als Aktivität. {spiegelInfo ? `Stand: ${spiegelInfo}` : 'Noch nicht gelaufen.'}</p>
+                <p className="text-[11px] text-s112-muted font-medium uppercase tracking-wide">CRM-Spiegelung</p>
+                <p className="text-[11px] text-s112-muted">E-Mails bekannter Kontakte/Firmen als Aktivität. {spiegelInfo ? `Stand: ${spiegelInfo}` : 'Noch nicht gelaufen.'}</p>
                 {/* Antwort: { postfaecher, nachrichten, angelegt, fehler: string[] } - fehler ist
                     ein Array (auch leer), ein String nur bei 401/500 */}
                 <button disabled={spiegelLaeuft} onClick={() => spiegeln(false)}
-                  className="w-full text-[10px] border border-s112-border text-s112-text-2 px-2 py-1 rounded hover:bg-s112-bg disabled:opacity-50">
+                  className="w-full text-[11px] border border-s112-border text-s112-text-2 px-2 py-1 rounded hover:bg-s112-bg disabled:opacity-50">
                   {spiegelLaeuft ? 'Läuft …' : 'Jetzt spiegeln'}
                 </button>
                 <button disabled={spiegelLaeuft} onClick={() => spiegeln(true)} title="Stand zurücksetzen und die letzten 90 Tage komplett neu prüfen - z.B. nachdem eine geteilte Mailbox erst nachträglich lesbar wurde"
-                  className="w-full text-[10px] text-s112-muted hover:text-s112-blue-700 disabled:opacity-50">
+                  className="w-full text-[11px] text-s112-muted hover:text-s112-blue-700 disabled:opacity-50">
                   Letzte 90 Tage erneut prüfen
                 </button>
               </div>
-              <p className="text-[10px] text-s112-muted font-medium uppercase tracking-wide">Weitere Mailbox</p>
-              <p className="text-[10px] text-s112-muted">z.B. office@weingut.at – Vollzugriff in Exchange nötig</p>
+              <p className="text-[11px] text-s112-muted font-medium uppercase tracking-wide">Weitere Mailbox</p>
+              <p className="text-[11px] text-s112-muted">z.B. office@weingut.at – Vollzugriff in Exchange nötig</p>
               <div className="space-y-1">
                 <input value={monitoredEmail} onChange={e => setMonitoredEmail(e.target.value)}
                   placeholder="office@weingut.at"
-                  className="w-full border border-s112-border rounded px-2 py-1 text-[10px] focus:outline-none" />
+                  className="w-full border border-s112-border rounded px-2 py-1 text-[11px] focus:outline-none" />
                 <button onClick={async () => {
                   setMonitoredSaving(true)
                   await fetch('/api/nachrichten/monitored', {
@@ -525,7 +525,7 @@ export default function NachrichtenClient() {
                   setMonitoredSaving(false); setShowSettings(false)
                   window.location.reload()
                 }} disabled={monitoredSaving}
-                  className="w-full text-[10px] bg-s112-teal text-white px-2 py-1 rounded hover:bg-opacity-90 disabled:opacity-40">
+                  className="w-full text-[11px] bg-s112-teal text-white px-2 py-1 rounded hover:bg-opacity-90 disabled:opacity-40">
                   {monitoredSaving ? '…' : monitoredEmail ? 'Speichern' : 'Eigene Mailbox'}
                 </button>
               </div>
@@ -564,7 +564,7 @@ export default function NachrichtenClient() {
                   {folder !== 'sent' && msg.absender === 'unbekannt' && <span title="Absender nicht im CRM – Lead anlegen?" className="ml-1.5 align-middle inline-block text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded bg-s112-warn-bg text-s112-warn-fg">neu</span>}
                   {folder !== 'sent' && msg.absender === 'lead' && <span title="Lead im CRM" className="ml-1.5 align-middle inline-block text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded bg-s112-blue-50 text-s112-blue-700">lead</span>}
                 </p>
-                <p className="text-[10px] text-s112-muted flex-shrink-0">{fmtDate(msg.datum)}</p>
+                <p className="text-[11px] text-s112-muted flex-shrink-0">{fmtDate(msg.datum)}</p>
               </div>
               <p className={`text-xs truncate ${!msg.gelesen ? 'font-semibold text-s112-text' : 'text-s112-text-1'}`}>{msg.betreff}</p>
               {msg.vorschau && <p className="text-[11px] text-s112-muted truncate mt-0.5 group-hover:pr-7">{msg.vorschau}</p>}
@@ -768,13 +768,13 @@ export default function NachrichtenClient() {
                         onClick={() => openMessage(tm)}>
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-xs font-semibold text-s112-text">{tm.vonName || tm.von}</span>
-                          <span className="text-[10px] text-s112-muted">{fmtDate(tm.datum)}</span>
+                          <span className="text-[11px] text-s112-muted">{fmtDate(tm.datum)}</span>
                         </div>
                         <p className="text-xs text-s112-text-1 truncate">{tm.betreff}</p>
                         {tm.vorschau && <p className="text-[11px] text-s112-muted mt-1 line-clamp-2">{tm.vorschau}</p>}
                         <div className="flex gap-2 mt-2">
                           <button onClick={e => { e.stopPropagation(); antworten(tm, 'reply') }}
-                            className="text-[10px] text-s112-blue-700 border border-s112-teal/30 px-2 py-0.5 rounded hover:bg-s112-teal/5">
+                            className="text-[11px] text-s112-blue-700 border border-s112-teal/30 px-2 py-0.5 rounded hover:bg-s112-teal/5">
                             Antworten
                           </button>
                         </div>
@@ -816,7 +816,7 @@ export default function NachrichtenClient() {
           <div className="flex-1 min-h-0 flex flex-col p-6 overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-semibold text-s112-text flex items-center gap-2"><Mail className="w-4 h-4" /> {antwortAuf ? (antwortAuf.modus === 'replyAll' ? 'Allen antworten' : 'Antworten') : 'Neue E-Mail verfassen'}</h2>
-              <button onClick={() => { setCompose(false); setSendResult(null); setAntwortAuf(null); setCc('') }}
+              <button aria-label="Verfassen schließen" onClick={() => { setCompose(false); setSendResult(null); setAntwortAuf(null); setCc('') }}
                 className="text-s112-muted hover:text-s112-text-1"><X className="w-4 h-4" /></button>
             </div>
             {/* min-h-0 + scrollbarer Rahmen (18.9.2026): bei 100 % Zoom auf kleineren
@@ -852,12 +852,12 @@ export default function NachrichtenClient() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Betreff *</label>
-                <input value={betreff} onChange={e => setBetreff(e.target.value)} required
+                <input aria-label="Betreff" value={betreff} onChange={e => setBetreff(e.target.value)} required
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div className="flex-1 min-h-0 flex flex-col">
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Nachricht</label>
-                <textarea value={text} onChange={e => setText(e.target.value)} rows={4} autoFocus={!!antwortAuf}
+                <textarea aria-label="Nachricht" value={text} onChange={e => setText(e.target.value)} rows={4} autoFocus={!!antwortAuf}
                   className="flex-1 min-h-[120px] border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
               </div>
               {antwortAuf && (

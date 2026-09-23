@@ -43,23 +43,23 @@ export default function KellerplanEditModal({ plan, action, inputCls, labelCls }
             <form action={handleSubmit} className="space-y-3">
               <div>
                 <label className={labelCls}>Name *</label>
-                <input name="name" required defaultValue={plan.name} className={inputCls} />
+                <input aria-label="Name" name="name" required defaultValue={plan.name} className={inputCls} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls}>Breite (m)</label>
-                  <input name="breite_m" type="number" step="0.5" min="1"
+                  <input aria-label="Breite (m)" name="breite_m" type="number" step="0.5" min="1"
                     defaultValue={plan.breite_m} className={inputCls} />
                 </div>
                 <div>
                   <label className={labelCls}>Länge (m)</label>
-                  <input name="laenge_m" type="number" step="0.5" min="1"
+                  <input aria-label="Länge (m)" name="laenge_m" type="number" step="0.5" min="1"
                     defaultValue={plan.laenge_m} className={inputCls} />
                 </div>
               </div>
               <div>
                 <label className={labelCls}>Notizen</label>
-                <input name="notizen" defaultValue={plan.notizen ?? ''} className={inputCls} />
+                <input aria-label="Notizen" name="notizen" defaultValue={plan.notizen ?? ''} className={inputCls} />
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="submit"

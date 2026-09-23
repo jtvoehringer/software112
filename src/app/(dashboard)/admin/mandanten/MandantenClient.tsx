@@ -20,7 +20,7 @@ function NeuMandantForm({ onDone }: { onDone: () => void }) {
       <h3 className="text-sm font-semibold text-s112-text">Neuer Mandant</h3>
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Name des Betriebs *</label>
-        <input name="name" required placeholder="z.B. Weingut Mustermann"
+        <input aria-label="Name des Betriebs" name="name" required placeholder="z.B. Weingut Mustermann"
           className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
           autoFocus />
       </div>

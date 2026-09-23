@@ -275,17 +275,17 @@ export default function KostenrechnungPage() {
         </div>
         <form onSubmit={buchen} className="grid grid-cols-2 gap-3">
           <div><label className="block text-xs font-medium text-s112-text-2 mb-1">Datum</label>
-            <input type="date" value={datum} onChange={e=>setDatum(e.target.value)} required className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" /></div>
+            <input aria-label="Datum" type="date" value={datum} onChange={e=>setDatum(e.target.value)} required className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" /></div>
           <div><label className="block text-xs font-medium text-s112-text-2 mb-1">Betrag (€)</label>
-            <input type="number" step="0.01" value={betrag} onChange={e=>setBetrag(e.target.value)} required placeholder="0,00" className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" /></div>
+            <input aria-label="Betrag (€)" type="number" step="0.01" value={betrag} onChange={e=>setBetrag(e.target.value)} required placeholder="0,00" className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" /></div>
           <div><label className="block text-xs font-medium text-s112-text-2 mb-1">Kostenstelle</label>
-            <select value={ksId} onChange={e=>setKsId(e.target.value)} className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            <select aria-label="Kostenstelle" value={ksId} onChange={e=>setKsId(e.target.value)} className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– Kostenstelle –</option>{ks.map(k=><option key={k.id} value={k.id}>{k.name}</option>)}</select></div>
           <div><label className="block text-xs font-medium text-s112-text-2 mb-1">Kostenart</label>
-            <select value={kaId} onChange={e=>setKaId(e.target.value)} className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            <select aria-label="Kostenart" value={kaId} onChange={e=>setKaId(e.target.value)} className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– Kostenart –</option>{ka.map(k=><option key={k.id} value={k.id}>{k.name}</option>)}</select></div>
           <div><label className="block text-xs font-medium text-s112-text-2 mb-1">Zuordnung</label>
-            <select value={objektTyp} onChange={e=>{setObjektTyp(e.target.value);setSelWgs([]);setSelBhs([])}} className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            <select aria-label="Zuordnung" value={objektTyp} onChange={e=>{setObjektTyp(e.target.value);setSelWgs([]);setSelBhs([])}} className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– keine –</option><option value="weingarten">Ried</option><option value="keller">Keller / Behälter</option></select></div>
           <div />
           {objektTyp === 'weingarten' && (
@@ -299,7 +299,7 @@ export default function KostenrechnungPage() {
               betrag={parseFloat(betrag)||0} label="Behälter auswählen" />
           )}
           <div className="col-span-2"><label className="block text-xs font-medium text-s112-text-2 mb-1">Beschreibung</label>
-            <input value={beschreibung} onChange={e=>setBeschreibung(e.target.value)} placeholder="z.B. Traktor-Service, Spritzarbeit…" className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" /></div>
+            <input aria-label="Beschreibung" value={beschreibung} onChange={e=>setBeschreibung(e.target.value)} placeholder="z.B. Traktor-Service, Spritzarbeit…" className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" /></div>
           <div className="col-span-2 flex items-center gap-3">
             <button type="submit" disabled={saving} className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
               {saving ? 'Speichern…' : editId ? 'Aktualisieren' : 'Buchen'}</button>
@@ -332,8 +332,8 @@ export default function KostenrechnungPage() {
                   <td className="px-4 py-2.5 text-s112-text-2"><div>{e.kostenstelle?.name??'–'}</div><div className="text-xs text-s112-muted">{e.kostenart?.name??''}</div></td>
                   <td className="px-4 py-2.5 text-s112-text-2">
                     <div className="text-xs">{splitLabel(e)}</div>
-                    {(e.wg_splits?.length??0) > 1 && <div className="text-[10px] text-s112-muted">{e.wg_splits!.map(s=>`${s.wg?.name}: ${eur(s.betrag_anteil??0)}`).join(' · ')}</div>}
-                    {(e.bh_splits?.length??0) > 1 && <div className="text-[10px] text-s112-muted">{e.bh_splits!.map(s=>`${s.bh?.name}: ${eur(s.betrag_anteil??0)}`).join(' · ')}</div>}
+                    {(e.wg_splits?.length??0) > 1 && <div className="text-[11px] text-s112-muted">{e.wg_splits!.map(s=>`${s.wg?.name}: ${eur(s.betrag_anteil??0)}`).join(' · ')}</div>}
+                    {(e.bh_splits?.length??0) > 1 && <div className="text-[11px] text-s112-muted">{e.bh_splits!.map(s=>`${s.bh?.name}: ${eur(s.betrag_anteil??0)}`).join(' · ')}</div>}
                   </td>
                   <td className="px-4 py-2.5 text-right font-medium tabular-nums">{eur(e.betrag)}</td>
                   <td className="px-4 py-2.5"><div className="flex gap-2">

@@ -191,7 +191,7 @@ export default function FuellungFormClient({
         <h2 className="font-semibold text-s112-text text-sm">Kellerbuch-Charge</h2>
         <div>
           <label className={labelCls}>Weinausbau-Charge</label>
-          <select
+          <select aria-label="Weinausbau-Charge"
             name="weinausbau_id"
             value={selectedChargeId}
             onChange={e => handleChargeChange(e.target.value)}
@@ -218,7 +218,7 @@ export default function FuellungFormClient({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
             <label className={labelCls}>Produktname *</label>
-            <input
+            <input aria-label="Produktname"
               name="name"
               value={nameVal}
               onChange={e => setNameVal(e.target.value)}
@@ -229,7 +229,7 @@ export default function FuellungFormClient({
           </div>
           <div>
             <label className={labelCls}>Jahrgang</label>
-            <input
+            <input aria-label="Jahrgang"
               name="jahrgang"
               type="number"
               min={1900} max={2100}
@@ -240,7 +240,7 @@ export default function FuellungFormClient({
           </div>
           <div>
             <label className={labelCls}>Rebsorte</label>
-            <input
+            <input aria-label="Rebsorte"
               name="rebsorte"
               value={rebsorteVal}
               onChange={e => setRebsorteVal(e.target.value)}
@@ -250,7 +250,7 @@ export default function FuellungFormClient({
           </div>
           <div>
             <label className={labelCls}>Qualitätsbezeichnung *</label>
-            <select name="qualitaet" value={qualitaetVal} onChange={e => setQualitaetVal(e.target.value)} required className={inputCls}>
+            <select aria-label="Qualitätsbezeichnung" name="qualitaet" value={qualitaetVal} onChange={e => setQualitaetVal(e.target.value)} required className={inputCls}>
               {qualitaetOptions.map(q => (
                 <option key={q.value} value={q.value}>{q.label}</option>
               ))}
@@ -279,7 +279,7 @@ export default function FuellungFormClient({
           </div>
           <div>
             <label className={labelCls}>Anbaugebiet</label>
-            <input
+            <input aria-label="Anbaugebiet"
               name="anbaugebiet"
               placeholder="z.B. Traisental, Wachau, Kamptal …"
               className={inputCls}
@@ -287,7 +287,7 @@ export default function FuellungFormClient({
           </div>
           <div className="sm:col-span-2">
             <label className={labelCls}>Subbezeichnung / Ried (optional)</label>
-            <input
+            <input aria-label="Subbezeichnung / Ried (optional)"
               name="bezeichnung"
               placeholder="z.B. Ried Hohenberg · Reserve · Alte Reben"
               className={inputCls}
@@ -329,7 +329,7 @@ export default function FuellungFormClient({
           </div>
           <div>
             <label className={labelCls}>Chargennummer</label>
-            <input
+            <input aria-label="Chargennummer"
               name="chargennummer"
               placeholder="Leer lassen = wird automatisch vergeben"
               className={inputCls}
@@ -338,7 +338,7 @@ export default function FuellungFormClient({
           </div>
           <div>
             <label className={labelCls}>Abfülldatum *</label>
-            <input
+            <input aria-label="Abfülldatum"
               name="datum"
               type="date"
               defaultValue={new Date().toISOString().split('T')[0]}
@@ -348,7 +348,7 @@ export default function FuellungFormClient({
           </div>
           <div>
             <label className={labelCls}>Flaschengröße *</label>
-            <select
+            <select aria-label="Flaschengröße"
               name="flaschengroesse_ml"
               value={groesse}
               onChange={e => setGroesse(e.target.value)}
@@ -362,7 +362,7 @@ export default function FuellungFormClient({
           </div>
           <div>
             <label className={labelCls}>Anzahl Flaschen *</label>
-            <input
+            <input aria-label="Anzahl Flaschen"
               name="anzahl_flaschen"
               type="number"
               min={1}
@@ -472,7 +472,7 @@ export default function FuellungFormClient({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={labelCls}>VK-Preis brutto pro Flasche (€)</label>
-            <input
+            <input aria-label="VK-Preis brutto pro Flasche (€)"
               name="vk_preis_brutto"
               type="number"
               step="0.01"
@@ -484,7 +484,7 @@ export default function FuellungFormClient({
           </div>
           <div>
             <label className={labelCls}>Einstandspreis pro Flasche (€)</label>
-            <input
+            <input aria-label="Einstandspreis pro Flasche (€)"
               name="einstandspreis"
               type="number"
               step="0.01"
@@ -521,7 +521,7 @@ export default function FuellungFormClient({
       {/* Notizen */}
       <div className="card p-5">
         <label className={labelCls}>Notizen (optional)</label>
-        <textarea
+        <textarea aria-label="Notizen (optional)"
           name="notizen"
           rows={3}
           placeholder="Abfüllungsprotokoll, Besonderheiten …"

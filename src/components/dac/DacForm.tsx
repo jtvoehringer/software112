@@ -91,7 +91,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
             <label className="form-label">Bezeichnung *</label>
-            <input name="bezeichnung" type="text" required defaultValue={dac?.bezeichnung ?? ''} className="form-input" placeholder="z.B. Grüner Veltliner Kremser Schmidt 2025" />
+            <input aria-label="Bezeichnung" name="bezeichnung" type="text" required defaultValue={dac?.bezeichnung ?? ''} className="form-input" placeholder="z.B. Grüner Veltliner Kremser Schmidt 2025" />
           </div>
           <div className="sm:col-span-2">
             <label className="flex items-center gap-2.5 cursor-pointer select-none">
@@ -105,7 +105,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
           {isDac && (
             <div>
               <label className="form-label">DAC-Region *</label>
-              <select name="dac_region" required={isDac} defaultValue={dac?.dac_region ?? ''} className="form-input">
+              <select aria-label="DAC-Region" name="dac_region" required={isDac} defaultValue={dac?.dac_region ?? ''} className="form-input">
                 <option value="">– bitte wählen –</option>
                 {DAC_REGIONEN.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
@@ -114,7 +114,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
           {!isDac && <input type="hidden" name="dac_region" value="sonstiges" />}
           <div>
             <label className="form-label">Weinausbau-Charge</label>
-            <select name="weinausbau_id" defaultValue={dac?.weinausbau_id ?? preChargeId ?? ''} className="form-input">
+            <select aria-label="Weinausbau-Charge" name="weinausbau_id" defaultValue={dac?.weinausbau_id ?? preChargeId ?? ''} className="form-input">
               <option value="">– keine Verknüpfung –</option>
               {weinausbau.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
@@ -123,16 +123,16 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div>
             <label className="form-label">Jahrgang</label>
-            <input name="jahrgang" type="number" min="1900" max="2100" defaultValue={dac?.jahrgang ?? new Date().getFullYear()} className="form-input" />
+            <input aria-label="Jahrgang" name="jahrgang" type="number" min="1900" max="2100" defaultValue={dac?.jahrgang ?? new Date().getFullYear()} className="form-input" />
           </div>
           <div>
             <label className="form-label">Rebsorte</label>
-            <input name="rebsorte" type="text" list="rebsorten-dac" defaultValue={dac?.rebsorte ?? ''} className="form-input" />
+            <input aria-label="Rebsorte" name="rebsorte" type="text" list="rebsorten-dac" defaultValue={dac?.rebsorte ?? ''} className="form-input" />
             <datalist id="rebsorten-dac">{REBSORTEN.map(r => <option key={r} value={r} />)}</datalist>
           </div>
           <div>
             <label className="form-label">Menge (Liter)</label>
-            <input name="menge_liter" type="text" inputMode="decimal" defaultValue={dac?.menge_liter?.toString().replace('.', ',') ?? ''} className="form-input" placeholder="z.B. 1.500" />
+            <input aria-label="Menge (Liter)" name="menge_liter" type="text" inputMode="decimal" defaultValue={dac?.menge_liter?.toString().replace('.', ',') ?? ''} className="form-input" placeholder="z.B. 1.500" />
           </div>
           <div>
             <label className="form-label">Alkohol (% vol)</label>
@@ -177,7 +177,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="form-label">Status</label>
-            <select name="status" defaultValue={dac?.status ?? 'entwurf'} className="form-input">
+            <select aria-label="Status" name="status" defaultValue={dac?.status ?? 'entwurf'} className="form-input">
               <option value="entwurf">Entwurf</option>
               <option value="eingereicht">Eingereicht</option>
               <option value="in_pruefung">In Prüfung</option>
@@ -187,17 +187,17 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
           </div>
           <div>
             <label className="form-label">Prüfnummer</label>
-            <input name="pruefnummer" type="text" defaultValue={dac?.pruefnummer ?? ''} className="form-input font-mono" placeholder="nach Genehmigung eintragen" />
+            <input aria-label="Prüfnummer" name="pruefnummer" type="text" defaultValue={dac?.pruefnummer ?? ''} className="form-input font-mono" placeholder="nach Genehmigung eintragen" />
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="form-label">Eingereicht am</label>
-            <input name="eingereicht_am" type="date" defaultValue={dac?.eingereicht_am ?? ''} className="form-input" />
+            <input aria-label="Eingereicht am" name="eingereicht_am" type="date" defaultValue={dac?.eingereicht_am ?? ''} className="form-input" />
           </div>
           <div>
             <label className="form-label">Bescheid am</label>
-            <input name="bescheid_am" type="date" defaultValue={dac?.bescheid_am ?? ''} className="form-input" />
+            <input aria-label="Bescheid am" name="bescheid_am" type="date" defaultValue={dac?.bescheid_am ?? ''} className="form-input" />
           </div>
         </div>
       </div>

@@ -269,7 +269,7 @@ export default function KellerbehandlungenPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
-                <input type="date" value={formDatum} onChange={e => setFormDatum(e.target.value)}
+                <input aria-label="Datum" type="date" value={formDatum} onChange={e => setFormDatum(e.target.value)}
                   className="input w-full" required />
               </div>
               <div>
@@ -310,12 +310,12 @@ export default function KellerbehandlungenPage() {
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge</label>
-                <input type="text" value={formMenge} onChange={e => setFormMenge(e.target.value)}
+                <input aria-label="Menge" type="text" value={formMenge} onChange={e => setFormMenge(e.target.value)}
                   placeholder="0,00" className="input w-full" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Einheit</label>
-                <select value={formEinheit} onChange={e => setFormEinheit(e.target.value)} className="input w-full">
+                <select aria-label="Einheit" value={formEinheit} onChange={e => setFormEinheit(e.target.value)} className="input w-full">
                   {EINHEITEN.map(e => <option key={e} value={e}>{e}</option>)}
                 </select>
               </div>
@@ -335,7 +335,7 @@ export default function KellerbehandlungenPage() {
             {chargenImBehaelter.length > 0 && (
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Kellerbuch-Charge</label>
-                <select value={formWeinausbauId} onChange={e => setFormWeinausbauId(e.target.value)}
+                <select aria-label="Kellerbuch-Charge" value={formWeinausbauId} onChange={e => setFormWeinausbauId(e.target.value)}
                   className="input w-full">
                   <option value="">– keine Zuordnung –</option>
                   {chargenImBehaelter.map((c: R) => (
@@ -347,7 +347,7 @@ export default function KellerbehandlungenPage() {
             )}
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
-              <textarea value={formNotizen} onChange={e => setFormNotizen(e.target.value)}
+              <textarea aria-label="Notizen" value={formNotizen} onChange={e => setFormNotizen(e.target.value)}
                 rows={2} className="input w-full resize-none" placeholder="Optionale Anmerkungen…" />
             </div>
 

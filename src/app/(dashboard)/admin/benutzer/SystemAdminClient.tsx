@@ -84,7 +84,7 @@ export default function SystemAdminClient({ admins, canInvite = true }: { admins
           <p className="text-xs text-s112-muted">Der Benutzer erhält eine Einladungs-E-Mail von Supabase.</p>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">E-Mail-Adresse *</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+            <input aria-label="E-Mail-Adresse" type="email" value={email} onChange={e => setEmail(e.target.value)}
               required placeholder="admin@example.com"
               className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
               autoFocus />

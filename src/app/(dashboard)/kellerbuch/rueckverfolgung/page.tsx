@@ -637,7 +637,7 @@ export default async function RueckverfolgungPage({
         <form method="get" className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label className={labelCls}>Jahrgang</label>
-            <select name="jahrgang" defaultValue={jahrgang ?? ''} className={inputCls}>
+            <select aria-label="Jahrgang" name="jahrgang" defaultValue={jahrgang ?? ''} className={inputCls}>
               <option value="">– alle –</option>
               {jahrgangOptionen.map(j => (
                 <option key={j} value={j}>{j}</option>
@@ -646,7 +646,7 @@ export default async function RueckverfolgungPage({
           </div>
           <div>
             <label className={labelCls}>Sorte</label>
-            <select name="sorte" defaultValue={sorte ?? ''} className={inputCls}>
+            <select aria-label="Sorte" name="sorte" defaultValue={sorte ?? ''} className={inputCls}>
               <option value="">– alle –</option>
               {sorteOptionen.map(s => (
                 <option key={s} value={s}>{s}</option>
@@ -655,7 +655,7 @@ export default async function RueckverfolgungPage({
           </div>
           <div>
             <label className={labelCls}>Bezeichnung</label>
-            <select name="bezeichnung" defaultValue={bezeichnung ?? ''} className={inputCls}>
+            <select aria-label="Bezeichnung" name="bezeichnung" defaultValue={bezeichnung ?? ''} className={inputCls}>
               <option value="">– alle –</option>
               {bezeichnungOptionen.map(b => (
                 <option key={b} value={b}>{b}</option>

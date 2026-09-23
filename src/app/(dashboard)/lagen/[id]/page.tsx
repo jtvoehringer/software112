@@ -39,22 +39,22 @@ export default async function EditLagePage({ params }: Props) {
             <label className="block text-sm font-medium text-s112-text-1 mb-1">
               Name <span className="text-s112-err">*</span>
             </label>
-            <input name="name" required defaultValue={lage.name}
+            <input aria-label="Name" name="name" required defaultValue={lage.name}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div>
             <label className="block text-sm font-medium text-s112-text-1 mb-1">Gemeinde</label>
-            <input name="gemeinde" defaultValue={lage.gemeinde ?? ''}
+            <input aria-label="Gemeinde" name="gemeinde" defaultValue={lage.gemeinde ?? ''}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div>
             <label className="block text-sm font-medium text-s112-text-1 mb-1">Weinbaugebiet</label>
-            <input name="weinbaugebiet" defaultValue={lage.weinbaugebiet ?? ''}
+            <input aria-label="Weinbaugebiet" name="weinbaugebiet" defaultValue={lage.weinbaugebiet ?? ''}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div>
             <label className="block text-sm font-medium text-s112-text-1 mb-1">Notizen</label>
-            <textarea name="notizen" rows={3} defaultValue={lage.notizen ?? ''}
+            <textarea aria-label="Notizen" name="notizen" rows={3} defaultValue={lage.notizen ?? ''}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div className="flex gap-3 pt-2">

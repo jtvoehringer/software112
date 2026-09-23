@@ -50,7 +50,7 @@ export default async function KategorienPage() {
         <form action={async (fd: FormData) => { 'use server'; await createEaKategorie(fd) }} className="grid grid-cols-5 gap-3 items-end">
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Typ *</label>
-            <select name="typ" required
+            <select aria-label="Typ" name="typ" required
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
               <option value="einnahme">Einnahme</option>
               <option value="ausgabe">Ausgabe</option>
@@ -59,17 +59,17 @@ export default async function KategorienPage() {
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Name *</label>
-            <input name="name" required placeholder="z.B. Hofverkauf"
+            <input aria-label="Name" name="name" required placeholder="z.B. Hofverkauf"
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" />
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Konto-Nr. (EKR)</label>
-            <input name="konto_nr" type="number" placeholder="z.B. 4000"
+            <input aria-label="Konto-Nr. (EKR)" name="konto_nr" type="number" placeholder="z.B. 4000"
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" />
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">USt-Satz</label>
-            <select name="ust_satz_std" defaultValue="20"
+            <select aria-label="USt-Satz" name="ust_satz_std" defaultValue="20"
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
               <option value="0">0%</option>
               <option value="10">10%</option>
@@ -79,9 +79,9 @@ export default async function KategorienPage() {
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Abzugsfähig %</label>
-            <input name="abzugsfaehig_pct" type="number" min="0" max="100" step="1" defaultValue={100}
+            <input aria-label="Abzugsfähig %" name="abzugsfaehig_pct" type="number" min="0" max="100" step="1" defaultValue={100}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" />
-            <p className="text-[10px] text-s112-tertiary mt-0.5">z.B. 50 bei Bewirtung/Repräsentation (§ 20 EStG)</p>
+            <p className="text-[11px] text-s112-tertiary mt-0.5">z.B. 50 bei Bewirtung/Repräsentation (§ 20 EStG)</p>
           </div>
           <div className="col-span-5 flex justify-end">
             <button type="submit"

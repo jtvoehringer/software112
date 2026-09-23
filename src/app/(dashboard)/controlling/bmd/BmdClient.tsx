@@ -142,12 +142,12 @@ function UebergabeTab({ offeneRechnungen, offeneAusgaben, darfUebergeben }: { of
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Belegdatum von</label>
-              <input type="date" value={von} onChange={e => setVon(e.target.value)}
+              <input aria-label="Belegdatum von" type="date" value={von} onChange={e => setVon(e.target.value)}
                 className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">bis</label>
-              <input type="date" value={bis} onChange={e => setBis(e.target.value)}
+              <input aria-label="bis" type="date" value={bis} onChange={e => setBis(e.target.value)}
                 className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none" />
             </div>
           </div>

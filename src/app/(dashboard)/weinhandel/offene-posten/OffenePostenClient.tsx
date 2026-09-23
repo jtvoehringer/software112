@@ -66,7 +66,7 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
         <td className="px-4 py-3 text-right font-semibold text-s112-blue-700 tabular-nums">
           {fmt(p.gesamt)}
           {!p.bezahlt && p.bereitsBezahlt > 0 && (
-            <p className="text-[10px] font-normal text-s112-muted mt-0.5">
+            <p className="text-[11px] font-normal text-s112-muted mt-0.5">
               {fmt(p.bereitsBezahlt)} bereits erhalten
             </p>
           )}
@@ -76,7 +76,7 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
             <div>
               <span className="text-xs px-2 py-0.5 rounded-full bg-s112-ok-bg text-s112-ok-fg font-medium">Bezahlt</span>
               {p.bezahlt_am && (
-                <p className="text-[10px] text-s112-muted mt-0.5">
+                <p className="text-[11px] text-s112-muted mt-0.5">
                   {new Date(p.bezahlt_am).toLocaleDateString('de-AT')}
                 </p>
               )}
@@ -84,7 +84,7 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
           ) : (
             <div className="flex flex-col items-center gap-1">
               {p.ueberfaellig && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-s112-err-bg text-s112-err-fg font-semibold whitespace-nowrap">
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-s112-err-bg text-s112-err-fg font-semibold whitespace-nowrap">
                   {p.tageUeberfaellig} Tage überfällig
                 </span>
               )}
@@ -116,11 +116,11 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Datum</label>
-                  <input name="datum" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="form-input text-sm w-full" />
+                  <input aria-label="Datum" name="datum" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="form-input text-sm w-full" />
                 </div>
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Art</label>
-                  <select name="art" className="form-input text-sm w-full">
+                  <select aria-label="Art" name="art" className="form-input text-sm w-full">
                     <option value="bar">Bar</option>
                     <option value="karte">Karte</option>
                     <option value="bank">Bank</option>
@@ -130,7 +130,7 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
                 </div>
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Betrag (€)</label>
-                  <input
+                  <input aria-label="Betrag (€)"
                     name="betrag"
                     type="text"
                     inputMode="decimal"
@@ -142,13 +142,13 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
                 </div>
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Notiz</label>
-                  <input name="notizen" type="text" placeholder="Optional…" className="form-input text-sm w-full" />
+                  <input aria-label="Notiz" name="notizen" type="text" placeholder="Optional…" className="form-input text-sm w-full" />
                 </div>
               </div>
               {konten.length > 0 && (
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Bezahlt über Konto</label>
-                  <select name="konto_id" required className="form-input text-sm w-full max-w-xs">
+                  <select aria-label="Bezahlt über Konto" name="konto_id" required className="form-input text-sm w-full max-w-xs">
                     {konten.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
                   </select>
                 </div>

@@ -63,12 +63,12 @@ export default function RechnungVersandPanel({
           <p className="text-sm font-semibold text-s112-text">Rechnung per E-Mail senden</p>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Empfänger-E-Mail-Adresse</label>
-            <input type="email" value={to} onChange={e => setTo(e.target.value)}
+            <input aria-label="Empfänger-E-Mail-Adresse" type="email" value={to} onChange={e => setTo(e.target.value)}
               placeholder="kunde@beispiel.at" className="form-input text-sm w-full" />
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Nachricht (optional)</label>
-            <textarea rows={2} value={message} onChange={e => setMessage(e.target.value)}
+            <textarea aria-label="Nachricht (optional)" rows={2} value={message} onChange={e => setMessage(e.target.value)}
               placeholder="z.B. anbei erhalten Sie die Rechnung wie besprochen."
               className="form-input text-sm w-full resize-none" />
           </div>

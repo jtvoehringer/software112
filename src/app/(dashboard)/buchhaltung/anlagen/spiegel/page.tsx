@@ -53,7 +53,7 @@ export default async function AnlagenspiegelPage({ searchParams }: { searchParam
   const tdNum = td + ' font-mono text-right whitespace-nowrap tabular-nums'
   const tdSum = 'px-2 py-2 text-[12.5px] font-semibold text-s112-text border-t border-s112-text print:text-[9.5px] print:px-1.5'
   const tdSumNum = tdSum + ' font-mono text-right whitespace-nowrap tabular-nums'
-  const tdZw = 'px-2 py-1.5 text-[11.5px] font-semibold text-s112-text-1 bg-s112-bg border-b border-s112-line-str print:text-[9px] print:px-1.5'
+  const tdZw = 'px-2 py-1.5 text-[11.5px] font-semibold text-s112-text-1 bg-s112-bg border-b border-s112-line-str print:text-[10px] print:px-1.5'
 
   return (
     <div className="space-y-6 print:space-y-3">
@@ -75,7 +75,7 @@ export default async function AnlagenspiegelPage({ searchParams }: { searchParam
       {/* Kopf im Druck */}
       <div className="hidden print:block">
         <h1 className="font-display text-[18px] font-semibold text-s112-text">Anlagenspiegel {jahr}</h1>
-        <div className="flex items-baseline justify-between text-[10px] text-s112-text-2 mt-1">
+        <div className="flex items-baseline justify-between text-[11px] text-s112-text-2 mt-1">
           <span>{ctx.tenantName}{betrieb.betrieb_uid ? ` · UID ${betrieb.betrieb_uid}` : ''}{betrieb.betrieb_betriebsnummer ? ` · Betriebsnummer ${betrieb.betrieb_betriebsnummer}` : ''} · Stichtag 31.12.{jahr}</span>
           <span>erstellt am {erstellt} · software:112</span>
         </div>

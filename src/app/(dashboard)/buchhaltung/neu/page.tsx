@@ -82,13 +82,13 @@ export default async function BuchhaltungNeuPage() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
-            <input type="date" name="datum" required
+            <input aria-label="Datum" type="date" name="datum" required
               defaultValue={new Date().toISOString().split('T')[0]}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">USt-Satz *</label>
-            <select name="ust_satz" defaultValue={ustStandard}
+            <select aria-label="USt-Satz" name="ust_satz" defaultValue={ustStandard}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               {UST_SAETZE.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
             </select>
@@ -97,14 +97,14 @@ export default async function BuchhaltungNeuPage() {
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung *</label>
-          <input name="beschreibung" required placeholder="z.B. Weinverkauf Mayer, Rechnung Nr. 2026-042"
+          <input aria-label="Bezeichnung" name="beschreibung" required placeholder="z.B. Weinverkauf Mayer, Rechnung Nr. 2026-042"
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         {/* Betrag */}
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Betrag Netto (€) *</label>
-          <input type="number" name="betrag_netto" step="0.01" min="0" required placeholder="0.00"
+          <input aria-label="Betrag Netto (€)" type="number" name="betrag_netto" step="0.01" min="0" required placeholder="0.00"
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           <p className="text-xs text-s112-muted mt-1">USt wird automatisch aufgeschlagen. Bruttobetrag erscheint nach dem Speichern.</p>
         </div>
@@ -112,7 +112,7 @@ export default async function BuchhaltungNeuPage() {
         {/* Kategorie (JS-unabhängige Auswahl – beide Listen immer vorhanden, Nutzer wählt passendes) */}
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Kategorie</label>
-          <select name="kategorie_id"
+          <select aria-label="Kategorie" name="kategorie_id"
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             <option value="">– keine –</option>
             <optgroup label="Einnahmen">
@@ -129,7 +129,7 @@ export default async function BuchhaltungNeuPage() {
         {konten && (konten as R[]).length > 0 && (
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Konto</label>
-            <select name="konto_id" defaultValue=""
+            <select aria-label="Konto" name="konto_id" defaultValue=""
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– keines –</option>
               {(konten as R[]).map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
@@ -141,7 +141,7 @@ export default async function BuchhaltungNeuPage() {
         {/* Notizen */}
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen / Belegnummer</label>
-          <textarea name="notizen" rows={2} placeholder="z.B. Rechnung 2026-042 liegt in Ablage"
+          <textarea aria-label="Notizen / Belegnummer" name="notizen" rows={2} placeholder="z.B. Rechnung 2026-042 liegt in Ablage"
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
         </div>
 

@@ -69,11 +69,11 @@ function ZeitForm({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
-          <input type="date" name="datum" required defaultValue={initial?.datum ?? today} className={inputCls} />
+          <input aria-label="Datum" type="date" name="datum" required defaultValue={initial?.datum ?? today} className={inputCls} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Phase *</label>
-          <select name="phase" defaultValue={initial?.phase ?? 0} className={inputCls}>
+          <select aria-label="Phase" name="phase" defaultValue={initial?.phase ?? 0} className={inputCls}>
             {PHASEN.map(p => (
               <option key={p.nr} value={p.nr}>{p.label}</option>
             ))}
@@ -83,7 +83,7 @@ function ZeitForm({
 
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Beschreibung *</label>
-        <textarea name="beschreibung" required rows={3}
+        <textarea aria-label="Beschreibung" name="beschreibung" required rows={3}
           defaultValue={initial?.beschreibung ?? ''}
           className={inputCls + ' resize-none'} />
       </div>
@@ -91,12 +91,12 @@ function ZeitForm({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Stunden *</label>
-          <input type="number" name="stunden" required step="0.25" min="0"
+          <input aria-label="Stunden" type="number" name="stunden" required step="0.25" min="0"
             defaultValue={initial?.stunden ?? ''} className={inputCls} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Stundensatz (€)</label>
-          <input type="number" name="stundensatz" step="1" min="0"
+          <input aria-label="Stundensatz (€)" type="number" name="stundensatz" step="1" min="0"
             defaultValue={initial?.stundensatz ?? 50} className={inputCls} />
         </div>
       </div>
@@ -106,17 +106,17 @@ function ZeitForm({
         <div className="grid grid-cols-3 gap-2">
           <div>
             <label className="block text-xs text-s112-text-2 mb-1">Input Tokens</label>
-            <input type="number" name="tokens_input" min="0"
+            <input aria-label="Input Tokens" type="number" name="tokens_input" min="0"
               defaultValue={initial?.tokens_input ?? ''} className={inputCls} />
           </div>
           <div>
             <label className="block text-xs text-s112-text-2 mb-1">Output Tokens</label>
-            <input type="number" name="tokens_output" min="0"
+            <input aria-label="Output Tokens" type="number" name="tokens_output" min="0"
               defaultValue={initial?.tokens_output ?? ''} className={inputCls} />
           </div>
           <div>
             <label className="block text-xs text-s112-text-2 mb-1">Kosten (€)</label>
-            <input type="number" name="token_kosten_euro" step="0.0001" min="0"
+            <input aria-label="Kosten (€)" type="number" name="token_kosten_euro" step="0.0001" min="0"
               defaultValue={initial?.token_kosten_euro ?? ''} className={inputCls} />
           </div>
         </div>

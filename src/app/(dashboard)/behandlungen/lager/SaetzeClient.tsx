@@ -54,7 +54,7 @@ function SatzForm({ satz, onDone }: { satz?: SatzEintrag; onDone: () => void }) 
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Art *</label>
-          <select name="art" required defaultValue={satz?.art ?? ''}
+          <select aria-label="Art" name="art" required defaultValue={satz?.art ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             <option value="">– Auswählen –</option>
             {ART_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -62,27 +62,27 @@ function SatzForm({ satz, onDone }: { satz?: SatzEintrag; onDone: () => void }) 
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung *</label>
-          <input name="bezeichnung" required defaultValue={satz?.bezeichnung ?? ''}
+          <input aria-label="Bezeichnung" name="bezeichnung" required defaultValue={satz?.bezeichnung ?? ''}
             placeholder="z.B. Handlese, Laubschnitt maschinell"
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Satz pro ha (€) *</label>
-          <input name="satz_pro_ha" type="number" step="0.01" min="0" required
+          <input aria-label="Satz pro ha (€)" name="satz_pro_ha" type="number" step="0.01" min="0" required
             defaultValue={satz?.satz_pro_ha ?? ''}
             placeholder="z.B. 350"
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Gültig ab</label>
-          <input name="gueltig_ab" type="date" defaultValue={satz?.gueltig_ab ?? new Date().toISOString().split('T')[0]}
+          <input aria-label="Gültig ab" name="gueltig_ab" type="date" defaultValue={satz?.gueltig_ab ?? new Date().toISOString().split('T')[0]}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div className="col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
-          <input name="notizen" defaultValue={satz?.notizen ?? ''}
+          <input aria-label="Notizen" name="notizen" defaultValue={satz?.notizen ?? ''}
             placeholder="z.B. Quelle: LK Niederösterreich, IDB 2026"
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>

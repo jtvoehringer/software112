@@ -270,11 +270,11 @@ export default function BehandlungEditForm({
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className={labelCls}>Datum von <span className="text-s112-err">*</span></label>
-            <input name="datum" type="date" required defaultValue={behandlung.datum} className={inputCls} />
+            <input aria-label="Datum von" name="datum" type="date" required defaultValue={behandlung.datum} className={inputCls} />
           </div>
           <div>
             <label className={labelCls}>Datum bis</label>
-            <input name="datum_bis" type="date" defaultValue={behandlung.datum_bis ?? ''} className={inputCls} />
+            <input aria-label="Datum bis" name="datum_bis" type="date" defaultValue={behandlung.datum_bis ?? ''} className={inputCls} />
           </div>
         </div>
 
@@ -282,7 +282,7 @@ export default function BehandlungEditForm({
         {(art === 'spritzung' || art === 'sonstiges') && (
           <div>
             <label className={labelCls}>Spritzmittel / Mittel (PSM)</label>
-            <select name="psm_id" value={selectedPsmId}
+            <select aria-label="Spritzmittel / Mittel (PSM)" name="psm_id" value={selectedPsmId}
               onChange={e => setSelectedPsmId(e.target.value)}
               className={inputCls}>
               <option value="">– keines –</option>
@@ -306,7 +306,7 @@ export default function BehandlungEditForm({
         {art === 'duengung' && (
           <div>
             <label className={labelCls}>Düngemittel</label>
-            <select name="duengemittel_id" value={selectedDuengemittelId}
+            <select aria-label="Düngemittel" name="duengemittel_id" value={selectedDuengemittelId}
               onChange={e => setSelectedDuengemittelId(e.target.value)}
               className={inputCls}>
               <option value="">– keines –</option>
@@ -363,7 +363,7 @@ export default function BehandlungEditForm({
             {felder.konzentration !== 'hidden' && (
               <div>
                 <label className={labelCls}>Konzentration (%)</label>
-                <input name="konzentration" type="number" step="0.01" min="0" max="100"
+                <input aria-label="Konzentration (%)" name="konzentration" type="number" step="0.01" min="0" max="100"
                   value={konzentrationGesperrt ? (konzentrationBerechnet != null ? konzentrationBerechnet.toFixed(3) : '') : konzentration}
                   disabled={konzentrationGesperrt}
                   onChange={e => { setKonzentration(e.target.value); setAufwandQuelle(e.target.value === '' ? null : 'konzentration') }}
@@ -395,7 +395,7 @@ export default function BehandlungEditForm({
                 </div>
                 <div>
                   <label className={labelCls}>Einheit</label>
-                  <select name="aufwandmenge_einheit" value={aufwandmengeEinheit}
+                  <select aria-label="Einheit" name="aufwandmenge_einheit" value={aufwandmengeEinheit}
                     onChange={e => setAufwandmengeEinheit(e.target.value)}
                     className={inputCls}>
                     {EINHEITEN_AUFWAND.map(e => <option key={e} value={e}>{EINHEITEN_LABEL[e]}</option>)}
@@ -406,7 +406,7 @@ export default function BehandlungEditForm({
             {felder.wasseraufwand !== 'hidden' && (
               <div>
                 <label className={labelCls}>Spritzbrühe (l/ha)</label>
-                <input name="wasseraufwand_l_ha" type="number" step="1" min="0"
+                <input aria-label="Spritzbrühe (l/ha)" name="wasseraufwand_l_ha" type="number" step="1" min="0"
                   value={wasseraufwand}
                   onChange={e => setWasseraufwand(e.target.value)}
                   className={inputCls} />
@@ -419,14 +419,14 @@ export default function BehandlungEditForm({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>BBCH-Stadium</label>
-              <select name="bbch_stadium" defaultValue={behandlung.bbch_stadium ?? ''} className={inputCls}>
+              <select aria-label="BBCH-Stadium" name="bbch_stadium" defaultValue={behandlung.bbch_stadium ?? ''} className={inputCls}>
                 <option value="">– Auswählen –</option>
                 {BBCH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
             <div>
               <label className={labelCls}>Schaderreger</label>
-              <input name="schaderreger" type="text"
+              <input aria-label="Schaderreger" name="schaderreger" type="text"
                 defaultValue={behandlung.schaderreger ?? ''} className={inputCls}
                 placeholder="z.B. Peronospora" list="schaderreger-kb" />
               <datalist id="schaderreger-kb">
@@ -446,7 +446,7 @@ export default function BehandlungEditForm({
             </label>
             <div>
               <label className={labelCls}>Zeitpunkt Einarbeitung</label>
-              <input name="einarbeitung_zeitpunkt" type="date"
+              <input aria-label="Zeitpunkt Einarbeitung" name="einarbeitung_zeitpunkt" type="date"
                 defaultValue={behandlung.einarbeitung_zeitpunkt ?? ''} className={inputCls} />
             </div>
           </div>
@@ -457,12 +457,12 @@ export default function BehandlungEditForm({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Bearbeitungstiefe (cm)</label>
-              <input name="bearbeitungstiefe_cm" type="number" step="1" min="0"
+              <input aria-label="Bearbeitungstiefe (cm)" name="bearbeitungstiefe_cm" type="number" step="1" min="0"
                 defaultValue={behandlung.bearbeitungstiefe_cm ?? ''} className={inputCls} />
             </div>
             <div>
               <label className={labelCls}>Gerät</label>
-              <input name="bearbeitungsgeraet" type="text"
+              <input aria-label="Gerät" name="bearbeitungsgeraet" type="text"
                 defaultValue={behandlung.bearbeitungsgeraet ?? ''} className={inputCls} placeholder="z.B. Grubber" />
             </div>
           </div>
@@ -472,7 +472,7 @@ export default function BehandlungEditForm({
         {art === 'schnitt' && (
           <div>
             <label className={labelCls}>Schnittart</label>
-            <input name="schnittart" type="text"
+            <input aria-label="Schnittart" name="schnittart" type="text"
               defaultValue={behandlung.schnittart ?? ''} className={inputCls} placeholder="z.B. Guyot, Kordon" />
           </div>
         )}
@@ -481,7 +481,7 @@ export default function BehandlungEditForm({
         {art === 'laubarbeit' && (
           <div>
             <label className={labelCls}>Art der Laubarbeit</label>
-            <select name="laubarbeit_art" defaultValue={behandlung.laubarbeit_art ?? ''} className={inputCls}>
+            <select aria-label="Art der Laubarbeit" name="laubarbeit_art" defaultValue={behandlung.laubarbeit_art ?? ''} className={inputCls}>
               <option value="">– Auswählen –</option>
               {LAUBARBEIT_OPTIONEN.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
@@ -491,21 +491,21 @@ export default function BehandlungEditForm({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelCls}>Witterung</label>
-            <select name="witterung" defaultValue={behandlung.witterung ?? ''} className={inputCls}>
+            <select aria-label="Witterung" name="witterung" defaultValue={behandlung.witterung ?? ''} className={inputCls}>
               <option value="">–</option>
               {WITTERUNG.map(w => <option key={w} value={w}>{w.charAt(0).toUpperCase() + w.slice(1)}</option>)}
             </select>
           </div>
           <div>
             <label className={labelCls}>Temperatur (°C)</label>
-            <input name="temperatur_c" type="number" step="0.1"
+            <input aria-label="Temperatur (°C)" name="temperatur_c" type="number" step="0.1"
               defaultValue={behandlung.temperatur_c ?? ''} className={inputCls} />
           </div>
         </div>
 
         <div>
           <label className={labelCls}>Notizen</label>
-          <textarea name="notizen" rows={2} defaultValue={behandlung.notizen ?? ''}
+          <textarea aria-label="Notizen" name="notizen" rows={2} defaultValue={behandlung.notizen ?? ''}
             className={inputCls.replace('w-full', 'w-full')} />
         </div>
       </div>
@@ -529,7 +529,7 @@ export default function BehandlungEditForm({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Kostenart</label>
-                <select name="kosten_kostenart_id" value={kostenKostenartId}
+                <select aria-label="Kostenart" name="kosten_kostenart_id" value={kostenKostenartId}
                   onChange={e => setKostenKostenartId(e.target.value)}
                   className={inputCls}>
                   <option value="">– Auswählen –</option>
@@ -538,7 +538,7 @@ export default function BehandlungEditForm({
               </div>
               <div>
                 <label className={labelCls}>Betrag (€)</label>
-                <input name="kosten_betrag" type="number" step="0.01" min="0"
+                <input aria-label="Betrag (€)" name="kosten_betrag" type="number" step="0.01" min="0"
                   value={kostenBetrag}
                   onChange={e => setKostenBetrag(e.target.value)}
                   className={inputCls} />
@@ -546,7 +546,7 @@ export default function BehandlungEditForm({
             </div>
             <div>
               <label className={labelCls}>Beschreibung</label>
-              <input name="kosten_beschreibung" type="text" value={kostenBeschreibung}
+              <input aria-label="Beschreibung" name="kosten_beschreibung" type="text" value={kostenBeschreibung}
                 onChange={e => setKostenBeschreibung(e.target.value)}
                 className={inputCls} />
             </div>

@@ -93,24 +93,24 @@ export async function newsletterAnmelden(formData: FormData): Promise<AnmeldeRes
     subject: 'Bitte bestätigen Sie Ihre Newsletter-Anmeldung',
     htmlContent: `
       <div style="font-family:Arial,sans-serif;max-width:540px;margin:0 auto;color:#333">
-        <h2 style="color:#4F86D6">Weingut Gebeshuber – Newsletter</h2>
+        <h2 style="color:#2F63AC">Weingut Gebeshuber – Newsletter</h2>
         <p>Hallo ${vorname ? vorname : 'Weinfreund/in'},</p>
         <p>vielen Dank für Ihre Anmeldung zu unserem Newsletter!</p>
         <p>Bitte bestätigen Sie Ihre E-Mail-Adresse durch einen Klick auf den folgenden Button:</p>
         <p style="margin:24px 0">
           <a href="${confirmUrl}"
-             style="background:#4F86D6;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">
+             style="background:#2F63AC;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">
             Anmeldung bestätigen
           </a>
         </p>
-        <p style="color:#888;font-size:12px">
+        <p style="color:#5A5D66;font-size:12px">
           Falls Sie sich nicht angemeldet haben, können Sie diese E-Mail ignorieren.<br>
           Dieser Link ist 72 Stunden gültig.
         </p>
         <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
-        <p style="color:#888;font-size:11px">
+        <p style="color:#5A5D66;font-size:11px">
           Weingut Gebeshuber · Datenschutz gemäß DSGVO ·
-          <a href="${baseUrl()}/newsletter/abmelden?email=${encodeURIComponent(email)}" style="color:#888">Abmelden</a>
+          <a href="${baseUrl()}/newsletter/abmelden?email=${encodeURIComponent(email)}" style="color:#5A5D66">Abmelden</a>
         </p>
       </div>
     `,

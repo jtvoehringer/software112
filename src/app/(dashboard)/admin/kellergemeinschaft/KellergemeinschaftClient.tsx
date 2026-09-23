@@ -35,21 +35,21 @@ export default function KellergemeinschaftClient({ rows, tenants }: { rows: Frei
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label className={labelCls}>Eigentümer der Gebinde *</label>
-            <select name="eigentuemer_tenant_id" value={eigentuemer} onChange={e => setEigentuemer(e.target.value)} required className={inputCls}>
+            <select aria-label="Eigentümer der Gebinde" name="eigentuemer_tenant_id" value={eigentuemer} onChange={e => setEigentuemer(e.target.value)} required className={inputCls}>
               <option value="">– Betrieb –</option>
               {tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
           <div>
             <label className={labelCls}>Partnerbetrieb (darf nutzen) *</label>
-            <select name="nutzer_tenant_id" value={nutzer} onChange={e => setNutzer(e.target.value)} required className={inputCls}>
+            <select aria-label="Partnerbetrieb (darf nutzen)" name="nutzer_tenant_id" value={nutzer} onChange={e => setNutzer(e.target.value)} required className={inputCls}>
               <option value="">– Betrieb –</option>
               {tenants.filter(t => t.id !== eigentuemer).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
           <div>
             <label className={labelCls}>Notiz</label>
-            <input name="notizen" placeholder="z.B. Lohnverarbeitung ab 2026" className={inputCls} />
+            <input aria-label="Notiz" name="notizen" placeholder="z.B. Lohnverarbeitung ab 2026" className={inputCls} />
           </div>
         </div>
         {fehler && <p className="text-xs text-s112-err-fg">{fehler}</p>}

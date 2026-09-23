@@ -111,14 +111,14 @@ export default async function BuchhaltungPage({
       <form method="GET" className="bg-white rounded-xl border border-s112-border p-4 mb-4 flex gap-3 items-end">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Jahr</label>
-          <select name="jahr" defaultValue={String(jahr)}
+          <select aria-label="Jahr" name="jahr" defaultValue={String(jahr)}
             className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
             {jahre.map(j => <option key={j} value={j}>{j}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Typ</label>
-          <select name="typ" defaultValue={typFilter}
+          <select aria-label="Typ" name="typ" defaultValue={typFilter}
             className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
             <option value="">Alle</option>
             <option value="einnahme">Einnahmen</option>
@@ -127,7 +127,7 @@ export default async function BuchhaltungPage({
         </div>
         <div className="flex-1">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Suche</label>
-          <input name="q" defaultValue={q} placeholder="Bezeichnung…"
+          <input aria-label="Suche" name="q" defaultValue={q} placeholder="Bezeichnung…"
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none" />
         </div>
         <button type="submit"
@@ -194,17 +194,17 @@ export default async function BuchhaltungPage({
                 <td className="px-4 py-3 text-s112-text-2 text-xs">
                   {b.ea_kategorien?.name ?? '–'}
                   {b.anlage_id && (
-                    <Link href={`/buchhaltung/anlagen/${b.anlage_id}`} className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-s112-blue-50 text-s112-blue-700 hover:underline" title="AfA-Buchung aus dem Anlagenverzeichnis – zurücknehmen unter Anlagen & AfA">
+                    <Link href={`/buchhaltung/anlagen/${b.anlage_id}`} className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-s112-blue-50 text-s112-blue-700 hover:underline" title="AfA-Buchung aus dem Anlagenverzeichnis – zurücknehmen unter Anlagen & AfA">
                       AfA
                     </Link>
                   )}
                   {!b.anlage_id && b.typ === 'ausgabe' && b.ea_kategorien?.konto_nr != null && Number(b.ea_kategorien.konto_nr) < 1000 && (
                     anlageZuBuchung.has(b.id)
-                      ? <Link href={`/buchhaltung/anlagen/${anlageZuBuchung.get(b.id)}`} className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-[#F2F3F5] text-s112-text-1 hover:underline" title="Als Anlage erfasst">Anlage</Link>
-                      : <Link href={`/buchhaltung/anlagen/neu?buchung=${b.id}`} className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-s112-warn-bg text-s112-warn-fg hover:underline" title="Anschaffung noch nicht im Anlagenverzeichnis">Anlage anlegen</Link>
+                      ? <Link href={`/buchhaltung/anlagen/${anlageZuBuchung.get(b.id)}`} className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-[#F2F3F5] text-s112-text-1 hover:underline" title="Als Anlage erfasst">Anlage</Link>
+                      : <Link href={`/buchhaltung/anlagen/neu?buchung=${b.id}`} className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-s112-warn-bg text-s112-warn-fg hover:underline" title="Anschaffung noch nicht im Anlagenverzeichnis">Anlage anlegen</Link>
                   )}
                   {Number(b.abzugsfaehig_pct ?? 100) < 100 && (
-                    <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-s112-warn-bg text-s112-warn-fg"
+                    <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-s112-warn-bg text-s112-warn-fg"
                       title="Eingeschränkt abzugsfähig">
                       {b.abzugsfaehig_pct}%
                     </span>

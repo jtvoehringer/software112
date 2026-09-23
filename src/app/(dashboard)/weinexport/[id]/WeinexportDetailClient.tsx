@@ -159,7 +159,7 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
               <h2 className="font-semibold text-s112-text">Dokumente</h2>
               <span className="text-xs text-s112-muted">{ausgestellt}/{gesamt}</span>
             </div>
-            <p className="text-[10px] text-s112-muted mt-1">Nur 'Ausgestellt' zählt zum Fortschritt</p>
+            <p className="text-[11px] text-s112-muted mt-1">Nur 'Ausgestellt' zählt zum Fortschritt</p>
             {/* Progress Bar */}
             <div className="w-full bg-[#F2F3F5] rounded-full h-1.5 mb-4">
               <div className="bg-s112-teal h-1.5 rounded-full transition-all"
@@ -175,7 +175,7 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
                     </p>
                     <select value={dok.status}
                       onChange={e => updateDokStatus(dok.id, e.target.value)}
-                      className="mt-1 w-full border border-s112-border rounded px-1.5 py-1 text-[10px] focus:outline-none">
+                      className="mt-1 w-full border border-s112-border rounded px-1.5 py-1 text-[11px] focus:outline-none">
                       {Object.entries(DOK_STATUS_LABEL).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
                     </select>
                   </div>
@@ -184,7 +184,7 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
                     dok.dokument_art === 'rechnung' || dok.dokument_art === 'certificate_of_origin') && (
                     <a href={`/api/weinexport/${auftrag.id}/dokument/${dok.dokument_art}`}
                       target="_blank" rel="noopener noreferrer"
-                      className="mt-5 text-[10px] text-s112-blue-700 border border-s112-teal/30 px-2 py-1 rounded hover:bg-s112-teal/5 flex-shrink-0">
+                      className="mt-5 text-[11px] text-s112-blue-700 border border-s112-teal/30 px-2 py-1 rounded hover:bg-s112-teal/5 flex-shrink-0">
                       PDF
                     </a>
                   )}
@@ -194,9 +194,9 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
 
             {/* Fehlende Dokumente hinzufügen */}
             <div className="mt-4 pt-4 border-t border-s112-border">
-              <p className="text-[10px] text-s112-muted mb-2">Weiteres Dokument</p>
+              <p className="text-[11px] text-s112-muted mb-2">Weiteres Dokument</p>
               <div className="flex gap-1">
-                <select id="add-dok-select" className="flex-1 border border-s112-border rounded px-1.5 py-1 text-[10px] focus:outline-none">
+                <select id="add-dok-select" className="flex-1 border border-s112-border rounded px-1.5 py-1 text-[11px] focus:outline-none">
                   {Object.entries(DOK_LABEL)
                     .filter(([v]) => !dokumente.some(d => d.dokument_art === v))
                     .map(([v,l]) => <option key={v} value={v}>{l}</option>)}
@@ -211,7 +211,7 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
                   })
                   const d = await r.json()
                   if (d.id) setDokumente(prev => [...prev, { id: d.id, dokument_art: sel, status: 'ausstehend' }])
-                }} className="text-[10px] bg-s112-teal text-white px-2 py-1 rounded hover:bg-opacity-90">+</button>
+                }} className="text-[11px] bg-s112-teal text-white px-2 py-1 rounded hover:bg-opacity-90">+</button>
               </div>
             </div>
           </div>

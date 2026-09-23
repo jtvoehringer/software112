@@ -311,7 +311,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
             {quelle === 'zukauf' ? (
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Zukauf-Posten *</label>
-                <select value={zukaufId} onChange={e => handleZukaufChange(e.target.value)} required className={inp}>
+                <select aria-label="Zukauf-Posten" value={zukaufId} onChange={e => handleZukaufChange(e.target.value)} required className={inp}>
                   <option value="">– Zukauf wählen –</option>
                   {zukaufOptions.map(z => (
                     <option key={z.id} value={z.id}>
@@ -335,7 +335,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
               {/* Ried */}
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Ried *</label>
-                <select value={wgId} onChange={e => handleWgChange(e.target.value)} required className={inp}>
+                <select aria-label="Ried" value={wgId} onChange={e => handleWgChange(e.target.value)} required className={inp}>
                   <option value="">– Ried wählen –</option>
                   {wgList.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
@@ -352,7 +352,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
               {/* GST */}
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Grundstück (GST)</label>
-                <select value={gstId} onChange={e => handleGstChange(e.target.value)} disabled={!wgId || gstList.length === 0} className={inp}>
+                <select aria-label="Grundstück (GST)" value={gstId} onChange={e => handleGstChange(e.target.value)} disabled={!wgId || gstList.length === 0} className={inp}>
                   <option value="">– gesamt (alle GST) –</option>
                   {gstList.map(g => (
                     <option key={g.id} value={g.id}>
@@ -381,7 +381,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
               {/* Lieferdatum */}
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Lieferdatum *</label>
-                <input name="datum" type="date" required
+                <input aria-label="Lieferdatum" name="datum" type="date" required
                   defaultValue={editRow?.datum ?? new Date().toISOString().split('T')[0]}
                   className={inp} />
               </div>
@@ -389,21 +389,21 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
               {/* Menge */}
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge (kg) *</label>
-                <input name="menge_kg" type="text" inputMode="decimal" required
+                <input aria-label="Menge (kg)" name="menge_kg" type="text" inputMode="decimal" required
                   defaultValue={editRow?.menge_kg ?? ''} placeholder="z.B. 1.250" className={inp} />
               </div>
 
               {/* Preis */}
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Preis (EUR/kg)</label>
-                <input name="preis_per_kg" type="text" inputMode="decimal"
+                <input aria-label="Preis (EUR/kg)" name="preis_per_kg" type="text" inputMode="decimal"
                   defaultValue={editRow?.preis_per_kg ?? ''} placeholder="z.B. 0,65" className={inp} />
               </div>
 
               {/* KMW */}
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">KMW Grad</label>
-                <input name="klosterneuburger" type="text" inputMode="decimal"
+                <input aria-label="KMW Grad" name="klosterneuburger" type="text" inputMode="decimal"
                   value={kmw} onChange={e => setKmw(e.target.value)}
                   placeholder="z.B. 17,5" className={inp} />
               </div>
@@ -411,7 +411,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
               {/* Qualität */}
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Qualitätsstufe</label>
-                <select name="qualitaetsstufe" value={qualitaet} onChange={e => setQualitaet(e.target.value)} className={inp}>
+                <select aria-label="Qualitätsstufe" name="qualitaetsstufe" value={qualitaet} onChange={e => setQualitaet(e.target.value)} className={inp}>
                   <option value="">– keine –</option>
                   {QUALITAETEN.map(q => <option key={q.value} value={q.value}>{q.label}</option>)}
                 </select>
@@ -420,7 +420,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
               {/* Gesundheit */}
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Traubengesundheit</label>
-                <select name="gesundheit" defaultValue={editRow?.gesundheit ?? 'G'} className={inp}>
+                <select aria-label="Traubengesundheit" name="gesundheit" defaultValue={editRow?.gesundheit ?? 'G'} className={inp}>
                   <option value="G">G – Gut (Standard)</option>
                   <option value="K">K – Krank / beschädigt</option>
                 </select>
@@ -471,7 +471,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
             {/* Notizen */}
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
-              <input name="notizen" type="text" defaultValue={editRow?.notizen ?? ''} placeholder="optional" className={inp} />
+              <input aria-label="Notizen" name="notizen" type="text" defaultValue={editRow?.notizen ?? ''} placeholder="optional" className={inp} />
             </div>
 
             <div className="flex gap-2 pt-1">
