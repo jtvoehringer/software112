@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { PASSWORT_MIN, pruefePasswort, passwortFehlerText } from '@/lib/auth/passwort'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 export default function UpdatePasswordPage() {
@@ -16,10 +17,10 @@ export default function UpdatePasswordPage() {
   async function handleUpdate(e: React.FormEvent) {
     e.preventDefault()
     if (password !== confirm) { setError('Passwörter stimmen nicht überein.'); return }
-    if (password.length < 8)  { setError('Mindestens 8 Zeichen erforderlich.'); return }
+    { const f = pruefePasswort(password); if (f) { setError(f); return } }
     setLoading(true); setError(null)
     const { error } = await supabase.auth.updateUser({ password })
-    if (error) { setError(error.message); setLoading(false) }
+    if (error) { setError(passwortFehlerText(error)); setLoading(false) }
     else { router.push('/dashboard'); router.refresh() }
   }
 
@@ -38,7 +39,7 @@ export default function UpdatePasswordPage() {
           <div>
             <label className="block text-sm font-medium text-s112-text-1 mb-1">Neues Passwort</label>
             <input aria-label="Neues Passwort" type="password" value={password} onChange={e => setPassword(e.target.value)}
-              required autoComplete="new-password" minLength={8} placeholder="Min. 8 Zeichen"
+              required autoComplete="new-password" minLength={PASSWORT_MIN} placeholder={`Min. ${PASSWORT_MIN} Zeichen, Buchstaben und Ziffern`}
               className="input w-full" />
           </div>
           <div>

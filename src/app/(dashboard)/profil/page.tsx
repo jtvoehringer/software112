@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { PASSWORT_MIN, pruefePasswort, passwortFehlerText } from '@/lib/auth/passwort'
 import { Check, X, KeyRound } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
@@ -66,7 +67,7 @@ export default function ProfilPage() {
   async function passwortAendern(e: React.FormEvent) {
     e.preventDefault()
     setPwFehler(''); setPwErfolg(false)
-    if (pwNeu.length < 8)  { setPwFehler('Das neue Passwort braucht mindestens 8 Zeichen.'); return }
+    { const f = pruefePasswort(pwNeu); if (f) { setPwFehler(f); return } }
     if (pwNeu !== pwNeu2)  { setPwFehler('Die Wiederholung stimmt nicht mit dem neuen Passwort überein.'); return }
     if (pwNeu === pwAlt)   { setPwFehler('Das neue Passwort muss sich vom aktuellen unterscheiden.'); return }
     setPwSaving(true)
@@ -80,7 +81,7 @@ export default function ProfilPage() {
         return
       }
       const { error } = await supabase.auth.updateUser({ password: pwNeu })
-      if (error) { setPwFehler(error.message); return }
+      if (error) { setPwFehler(passwortFehlerText(error)); return }
       setPwAlt(''); setPwNeu(''); setPwNeu2('')
       setPwErfolg(true)
       setTimeout(() => setPwErfolg(false), 4000)
@@ -140,7 +141,7 @@ export default function ProfilPage() {
       <div className="bg-white rounded-xl border border-s112-border p-6 mt-6">
         <h2 className="font-semibold text-s112-text mb-1 inline-flex items-center gap-2"><KeyRound size={16} strokeWidth={1.75} />Passwort ändern</h2>
         <p className="text-xs text-s112-muted mb-4">
-          Mindestens 8 Zeichen. Wenn du dich mit Microsoft 365 anmeldest, hast du hier kein Passwort – dann verwaltest du es bei Microsoft.
+          Mindestens 12 Zeichen mit Buchstaben und Ziffern; aus Datenlecks bekannte Passwörter werden abgelehnt. Wenn du dich mit Microsoft 365 anmeldest, hast du hier kein Passwort – dann verwaltest du es bei Microsoft.
         </p>
         <form onSubmit={passwortAendern} className="space-y-4" autoComplete="off">
           <div>
@@ -151,12 +152,12 @@ export default function ProfilPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Neues Passwort</label>
-              <input aria-label="Neues Passwort" type="password" value={pwNeu} onChange={e => setPwNeu(e.target.value)} required minLength={8} autoComplete="new-password" placeholder="Min. 8 Zeichen"
+              <input aria-label="Neues Passwort" type="password" value={pwNeu} onChange={e => setPwNeu(e.target.value)} required minLength={PASSWORT_MIN} autoComplete="new-password" placeholder={`Min. ${PASSWORT_MIN} Zeichen, Buchstaben und Ziffern`}
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Neues Passwort wiederholen</label>
-              <input aria-label="Neues Passwort wiederholen" type="password" value={pwNeu2} onChange={e => setPwNeu2(e.target.value)} required minLength={8} autoComplete="new-password"
+              <input aria-label="Neues Passwort wiederholen" type="password" value={pwNeu2} onChange={e => setPwNeu2(e.target.value)} required minLength={PASSWORT_MIN} autoComplete="new-password"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
           </div>

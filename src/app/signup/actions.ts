@@ -1,5 +1,6 @@
 'use server'
 
+import { pruefePasswort, istPasswortGeleakt, passwortFehlerText } from '@/lib/auth/passwort'
 // ── Self-Service-Signup: neuer Betrieb + Admin-User + Stripe-Checkout ────────
 // Rückmeldung 31.8.2026 ("Self-Service-Signup ... voller öffentlicher Signup
 // für Ziel 200 Mandanten"): öffentlich erreichbar (kein Login nötig), legt
@@ -45,7 +46,8 @@ export async function registrierenAction(formData: FormData): Promise<Ergebnis> 
   if (!betrieb)  return { ok: false, fehler: 'Bitte den Namen Ihres Betriebs angeben.' }
   if (!name)     return { ok: false, fehler: 'Bitte Ihren Namen angeben.' }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, fehler: 'Bitte eine gültige E-Mail-Adresse angeben.' }
-  if (passwort.length < 8) return { ok: false, fehler: 'Das Passwort muss mindestens 8 Zeichen haben.' }
+  { const f = pruefePasswort(passwort); if (f) return { ok: false, fehler: f } }
+  if (await istPasswortGeleakt(passwort)) return { ok: false, fehler: 'Dieses Passwort ist aus bekannt gewordenen Datenlecks bekannt. Bitte ein anderes wählen.' }
   if (!istPaketKey(paket)) return { ok: false, fehler: 'Bitte ein Paket auswählen.' }
   const priceId = paketPriceId(paket)
   if (!priceId)  return { ok: false, fehler: `Für das Paket ${PAKETE[paket].label} ist noch kein Stripe-Preis hinterlegt. Bitte den Support kontaktieren.` }
@@ -77,7 +79,7 @@ export async function registrierenAction(formData: FormData): Promise<Ergebnis> 
   if (userError || !userData.user) {
     { const { error: e } = await (admin.from('tenants') as R).delete().eq('id', tenantId)
       if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (tenants): ${e.message}`) }
-    return { ok: false, fehler: userError?.message ?? 'Konto konnte nicht angelegt werden.' }
+    return { ok: false, fehler: userError ? passwortFehlerText(userError) : 'Konto konnte nicht angelegt werden.' }
   }
   const userId = userData.user.id
 

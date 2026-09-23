@@ -1,5 +1,6 @@
 'use client'
 
+import { PASSWORT_MIN, pruefePasswort } from '@/lib/auth/passwort'
 // ── Self-Service-Signup: öffentliches Formular ────────────────────────────────
 // Rückmeldung 31.8.2026: Betriebsname, Ansprechperson, Zugangsdaten + Plan-Wahl
 // in einem Schritt, danach direkt weiter zum Stripe-Checkout (Karte + 14 Tage
@@ -32,6 +33,7 @@ export default function SignupClient() {
     setError(null)
 
     if (passwort !== passwort2) { setError('Die Passwörter stimmen nicht überein.'); return }
+    { const f = pruefePasswort(passwort); if (f) { setError(f); return } }
     if (!zustimmung) { setError('Bitte AGB und Datenschutzerklärung bestätigen.'); return }
     if (!paket) { setError('Bitte ein Paket auswählen.'); return }
 
@@ -86,12 +88,12 @@ export default function SignupClient() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="passwort" className="block text-sm font-medium text-s112-text-1 mb-1">Passwort</label>
-                <input id="passwort" type="password" required minLength={8} autoComplete="new-password" className="input" placeholder="mind. 8 Zeichen"
+                <input id="passwort" type="password" required minLength={PASSWORT_MIN} autoComplete="new-password" className="input" placeholder={`mind. ${PASSWORT_MIN} Zeichen, Buchstaben und Ziffern`}
                   value={passwort} onChange={e => setPasswort(e.target.value)} />
               </div>
               <div>
                 <label htmlFor="passwort2" className="block text-sm font-medium text-s112-text-1 mb-1">Passwort wiederholen</label>
-                <input id="passwort2" type="password" required autoComplete="new-password" className="input" placeholder="mind. 8 Zeichen"
+                <input id="passwort2" type="password" required autoComplete="new-password" className="input" placeholder="wiederholen"
                   value={passwort2} onChange={e => setPasswort2(e.target.value)} />
               </div>
             </div>
