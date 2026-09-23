@@ -28,7 +28,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "shpjs": "^6.2.0",
-    "stripe": "^17.7.0"
+    "stripe": "^22.6.2"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.12",
