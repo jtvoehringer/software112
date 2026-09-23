@@ -5,8 +5,8 @@ Zettelwirtschaft“. Konzept: Software112_Entwicklungspfad.md (Ideen → beschlo
 
 ## Ablauf
 
-1. **Cron** `/api/cron/taeglich`, täglich 05:00 UTC (= 07:00 MESZ, vercel.json; Vercel Hobby erlaubt zwei
-   Cron-Jobs, daher ein Sammel-Cron: erst Daueraufträge, dann Morgenbericht; `/api/cron/morgenbericht` nur manuell),
+1. **Cron** `/api/cron/taeglich`, täglich 05:00 UTC (= 07:00 MESZ, vercel.json; unter Vercel Hobby waren nur zwei
+   Cron-Jobs erlaubt – seit dem Wechsel auf Pro (23.9.2026) entfällt die Grenze, der Sammel-Cron bleibt trotzdem: erst Daueraufträge, dann Morgenbericht; `/api/cron/morgenbericht` nur manuell),
    Auth über `CRON_SECRET` (System-Admin kann manuell per POST auslösen). Je aktivem
    Betrieb mit `morgenbericht_aktiv`: Wetter auffrischen → Prüfungen → KI-Zusammenfassung
    → Upsert `morgenberichte (tenant_id, datum)`. Zeitbudget 60 s, Betriebe nacheinander.

@@ -1,6 +1,7 @@
 'use server'
 
 import { pruefePasswort, istPasswortGeleakt, passwortFehlerText } from '@/lib/auth/passwort'
+import { clientIp, drossel } from '@/lib/sicherheit/drossel'
 // ── Self-Service-Signup: neuer Betrieb + Admin-User + Stripe-Checkout ────────
 // Rückmeldung 31.8.2026 ("Self-Service-Signup ... voller öffentlicher Signup
 // für Ziel 200 Mandanten"): öffentlich erreichbar (kein Login nötig), legt
@@ -43,6 +44,8 @@ export async function registrierenAction(formData: FormData): Promise<Ergebnis> 
   // niemand eine fremde/alte Preis-ID unterschieben.
   const paket    = ((formData.get('paket')    as string) || '').trim()
 
+  // Öffentliche Registrierung (23.9.2026): je IP höchstens 5 Versuche pro Stunde
+  if (!drossel(`signup:${await clientIp()}`, 5, 60 * 60 * 1000)) return { ok: false, fehler: 'Zu viele Registrierungsversuche. Bitte später erneut versuchen oder uns kontaktieren.' }
   if (!betrieb)  return { ok: false, fehler: 'Bitte den Namen Ihres Betriebs angeben.' }
   if (!name)     return { ok: false, fehler: 'Bitte Ihren Namen angeben.' }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, fehler: 'Bitte eine gültige E-Mail-Adresse angeben.' }

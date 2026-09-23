@@ -54,7 +54,7 @@ Weitere Stellen, die noch ganze Listen laden (unkritisch, kleine Mengen oder Exp
 
 ## Empfehlungen (offen)
 
-1. **Vercel Pro** prüfen, sobald mehrere Betriebe produktiv sind: Hobby hat 10 s Funktionslaufzeit im Standard, keine Fluid-Compute-Warmhaltung und nur zwei Cron-Jobs – die Kaltstarts (erste Anfrage nach Pause ~1–2 s) sind damit nicht wegzubekommen. Entscheidung des Betreibers, kein Code nötig.
+1. ✅ **Erledigt 23.9.2026:** Vercel Pro aktiv. Korrektur: Fluid Compute war schon unter Hobby aktiv (Standard für Projekte ab 23.4.2025), jetzt zusätzlich fest in vercel.json (`"fluid": true`). Messung 23.9. vom Arbeitsplatz: statische Datei ~145 ms, öffentliche Seiten über den Proxy 170–240 ms (davon ~110 ms Verbindungsaufbau/TLS), erster Aufruf nach Pause einmalig 450–700 ms. Ursprüngliche Empfehlung: **Vercel Pro** prüfen, sobald mehrere Betriebe produktiv sind: Hobby hat 10 s Funktionslaufzeit im Standard, keine Fluid-Compute-Warmhaltung und nur zwei Cron-Jobs – die Kaltstarts (erste Anfrage nach Pause ~1–2 s) sind damit nicht wegzubekommen. Entscheidung des Betreibers, kein Code nötig.
 2. **Supabase Compute:** Projekt läuft auf der kleinsten Instanz; bei > 3 aktiven Betrieben auf „Small“ wechseln (mehr RAM für Index-Caches). Vorher den `pg_stat_statements`-Report ziehen (Dashboard › Reports › Query Performance), um langsame Abfragen zu sehen.
 
 ## Hinweis zur Umstellung der Policies

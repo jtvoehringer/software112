@@ -53,6 +53,10 @@ export default function NewsletterForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Falle für Bots (23.9.2026): für Menschen unsichtbar, nicht per Tab erreichbar */}
+      <div aria-hidden="true" className="absolute -left-[9999px] w-px h-px overflow-hidden">
+        <input type="text" name="webseite" tabIndex={-1} autoComplete="off" defaultValue="" />
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Vorname</label>

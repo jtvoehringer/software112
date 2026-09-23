@@ -2,7 +2,9 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 // Routen die OHNE Login zugänglich sind
-const PUBLIC_ROUTES = ['/.well-known/', '/barrierefreiheit', '/login', '/register', '/auth/callback', '/auth/invite', '/auth/update-password', '/api/email/', '/api/ki-abfrage', '/api/besuchsplanung', '/api/export/', '/api/verkauf-stammdaten']
+// Öffentlich ohne Anmeldung. /signup und /newsletter fehlten bis 23.9.2026 – Registrierung und
+// Newsletter-Anmeldung/-Bestätigung/-Abmeldung leiteten Besucher auf /login um.
+const PUBLIC_ROUTES = ['/.well-known/', '/barrierefreiheit', '/signup', '/newsletter', '/login', '/register', '/auth/callback', '/auth/invite', '/auth/update-password', '/api/email/', '/api/ki-abfrage', '/api/besuchsplanung', '/api/export/', '/api/verkauf-stammdaten']
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })

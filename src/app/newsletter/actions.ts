@@ -5,6 +5,10 @@ import { sendEmail, upsertContact } from '@/lib/brevo/api'
 import { getListIds } from '@/lib/brevo/listen'
 import crypto from 'crypto'
 import { AktionsFehler } from '@/lib/fehler'
+import { clientIp, drossel } from '@/lib/sicherheit/drossel'
+
+const SEGMENTE = new Set(['privat', 'gastronomie', 'handel', 'export', 'grosshandel'])
+const ERNEUT_NACH_MS = 10 * 60 * 1000  // Bestätigungsmail an dieselbe Adresse höchstens alle 10 Minuten
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -20,12 +24,20 @@ export type AnmeldeResult =
   | { ok: false; error: string }
 
 export async function newsletterAnmelden(formData: FormData): Promise<AnmeldeResult> {
-  const email    = (formData.get('email') as string).trim().toLowerCase()
-  const vorname  = (formData.get('vorname') as string).trim() || null
-  const nachname = (formData.get('nachname') as string).trim() || null
-  const segment  = (formData.get('segment') as string) || 'privat'
+  const email    = ((formData.get('email') as string) || '').trim().toLowerCase().slice(0, 254)
+  const vorname  = ((formData.get('vorname') as string) || '').trim().slice(0, 100) || null
+  const nachname = ((formData.get('nachname') as string) || '').trim().slice(0, 100) || null
+  const segRoh   = (formData.get('segment') as string) || 'privat'
+  const segment  = SEGMENTE.has(segRoh) ? segRoh : 'privat'
 
-  if (!email || !email.includes('@')) {
+  // Schutz des öffentlichen Formulars (23.9.2026): unsichtbares Feld „webseite“ füllen nur Bots –
+  // sie bekommen scheinbar Erfolg, es passiert nichts. Je IP höchstens 5 Anmeldungen in 10 Minuten.
+  if (((formData.get('webseite') as string) || '').trim()) return { ok: true }
+  if (!drossel(`newsletter:${await clientIp()}`, 5, 10 * 60 * 1000)) {
+    return { ok: false, error: 'Zu viele Anmeldungen in kurzer Zeit. Bitte in ein paar Minuten erneut versuchen.' }
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, error: 'Bitte eine gültige E-Mail-Adresse eingeben.' }
   }
 
@@ -38,7 +50,7 @@ export async function newsletterAnmelden(formData: FormData): Promise<AnmeldeRes
 
   // Prüfen ob schon bestätigt
   const { data: existing, error: selectErr } = await (supabase.from('kontakte') as any)
-    .select('id, newsletter_bestaetigt')
+    .select('id, newsletter_bestaetigt, newsletter_opt_in_am')
     .eq('tenant_id', tenantId)
     .eq('email', email)
     .maybeSingle()
@@ -47,6 +59,9 @@ export async function newsletterAnmelden(formData: FormData): Promise<AnmeldeRes
   if ((existing as AR | null)?.newsletter_bestaetigt) {
     return { ok: false, error: 'Diese E-Mail-Adresse ist bereits angemeldet.' }
   }
+  // Dieselbe Adresse nicht mit Bestätigungsmails fluten: innerhalb von 10 Minuten keine zweite
+  const letzte = (existing as AR | null)?.newsletter_opt_in_am
+  if (letzte && Date.now() - new Date(letzte).getTime() < ERNEUT_NACH_MS) return { ok: true }
 
   // Token generieren
   const token = crypto.randomBytes(32).toString('hex')
