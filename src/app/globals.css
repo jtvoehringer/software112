@@ -4,7 +4,7 @@
 
 :root {
   /* software:112 Brand Tokens — Design-System 2026-08 (siehe project_design_relaunch.md) */
-  --s112-teal:   #4F86D6; /* Aktion, per Tenant überschreibbar (primary_color) */
+  --s112-teal:   #4677BE; /* Aktion, per Tenant überschreibbar (primary_color); AA-konforme Variante von #4F86D6 */
   --s112-navy:   #22252B; /* Alt-Token, jetzt Anthrazit (CD: kein Navy) */
   --s112-green:  #3E9B79; /* Alt-Token → Signal OK */
   --s112-blue:   #77A6E7; /* Alt-Token → Markenblau */
@@ -150,5 +150,33 @@
   @page {
     margin: 1.5cm;
     size: A4;
+  }
+}
+
+/* ── Barrierefreiheit (B5, B7 – 23.9.2026) ─────────────────────────────────
+   Sichtbarer Fokus für Tastaturbedienung (WCAG 2.4.7): gilt auch dort, wo
+   Komponenten den Rahmen mit focus:outline-none entfernen. Eingabefelder mit
+   eigenem focus:ring behalten nur ihren Ring. */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="menuitem"]:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible,
+input:focus-visible:not([class*="focus:ring"]),
+select:focus-visible:not([class*="focus:ring"]),
+textarea:focus-visible:not([class*="focus:ring"]) {
+  outline: 2px solid #2F63AC !important;
+  outline-offset: 2px !important;
+}
+
+/* Weniger Bewegung, wenn im Betriebssystem eingestellt (WCAG 2.3.3) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

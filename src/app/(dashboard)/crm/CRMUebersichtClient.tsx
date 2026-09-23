@@ -7,6 +7,7 @@ import { AKTIVITAET_ARTEN } from '@/lib/crm/types'
 import Link from '@/components/ui/Link'
 import { X, Lock, Pencil, Calendar, Check, Trash2 } from 'lucide-react'
 import { fehlerText } from '@/lib/fehler'
+import { useDialog } from '@/components/ui/useDialog'
 
 // ── Typeahead-Suche ───────────────────────────────────────────────────────────
 interface SucheItem { id: string; label: string; sub?: string }
@@ -272,7 +273,7 @@ function EintragChip({ e, compact = false, onViewAkt }: { e: KalenderEintrag; co
   const zeitLabel = von ? (bis ? `${von}–${bis}` : von) : null
 
   return (
-    <div onClick={() => onViewAkt?.(e)} title={`${e.titel}${e.kontaktName ? ` – ${e.kontaktName}` : ''}${e.firmaName ? ` (${e.firmaName})` : ''}`} className="cursor-pointer">
+    <div role="button" tabIndex={0} onClick={() => onViewAkt?.(e)} onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onViewAkt?.(e) } }} title={`${e.titel}${e.kontaktName ? ` – ${e.kontaktName}` : ''}${e.firmaName ? ` (${e.firmaName})` : ''}`} className="cursor-pointer">
       <div
         className={`border rounded truncate leading-snug transition-opacity hover:opacity-75
           ${compact ? 'text-[9px] px-1 py-px' : 'text-xs px-2 py-1'}
@@ -413,6 +414,8 @@ function ZeitachseView({
   const [newAkt,         setNewAkt]         = useState<{ datum: string; von: string; bis: string; ganztags: boolean } | null>(null)
   const [newAktKontaktId, setNewAktKontaktId] = useState('')
   const [newAktFirmaId,   setNewAktFirmaId]   = useState('')
+  const dlgView = useDialog(!!viewAkt, () => { setViewAkt(null); setEditAktMode(false); setEditPipeMode(false) }, 'Aktivität')
+  const dlgNeu  = useDialog(!!newAkt, () => { setNewAkt(null); setNewAktKontaktId(''); setNewAktFirmaId('') }, 'Neue Aktivität')
   // Outlook: Termin auch im eigenen Outlook anlegen und Kollegen einladen (Migration 225)
   const [outlookAktiv, setOutlookAktiv]       = useState(false)
   const [outlookTeilnehmer, setOutlookTeilnehmer] = useState<string[]>([])
@@ -894,7 +897,7 @@ function ZeitachseView({
     {viewAkt && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
         onClick={() => { setViewAkt(null); setEditAktMode(false); setEditPipeMode(false) }}>
-        <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
+        <div {...dlgView} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
           onClick={e => e.stopPropagation()}>
 
           {!editAktMode && !editPipeMode ? (
@@ -1022,7 +1025,7 @@ function ZeitachseView({
               {/* ── Bearbeiten-Formular ── */}
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-s112-text text-base">Aktivität bearbeiten</h3>
-                <button onClick={() => setEditAktMode(false)} className="text-s112-muted hover:text-s112-text-1"><X size={18} /></button>
+                <button aria-label="Schließen" onClick={() => setEditAktMode(false)} className="text-s112-muted hover:text-s112-text-1"><X size={18} /></button>
               </div>
               <form onSubmit={async e => {
                 e.preventDefault()
@@ -1088,7 +1091,7 @@ function ZeitachseView({
               {/* ── Pipeline-Eintrag bearbeiten ── */}
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-s112-text text-base">Pipeline-Eintrag bearbeiten</h3>
-                <button onClick={() => setEditPipeMode(false)} className="text-s112-muted hover:text-s112-text-1"><X size={18} /></button>
+                <button aria-label="Schließen" onClick={() => setEditPipeMode(false)} className="text-s112-muted hover:text-s112-text-1"><X size={18} /></button>
               </div>
               <form onSubmit={async e => {
                 e.preventDefault()
@@ -1158,7 +1161,7 @@ function ZeitachseView({
     {newAkt && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
         onClick={() => { setNewAkt(null); setNewAktKontaktId(''); setNewAktFirmaId('') }}>
-        <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
+        <div {...dlgNeu} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
           onClick={e => e.stopPropagation()}>
           <h3 className="text-base font-semibold text-s112-text mb-1">
             {newAkt?.ganztags ? <span className="inline-flex items-center gap-1.5"><Calendar size={16} />Ganztags-Aktivität</span> : 'Neue Aktivität'}

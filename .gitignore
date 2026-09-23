@@ -50,3 +50,9 @@ Software112 Design-Überarbeitung.zip
 
 # Kundendaten für den Datenimport (personenbezogen) – nie ins Repo
 import-daten/
+
+# Geheimnisse nie ins Repository (23.9.2026)
+/Schl*ssel*
+*SECRET*.docx
+*secret*.txt
+.env*.local

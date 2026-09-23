@@ -9,6 +9,7 @@ import type { BenutzerlimitStatus } from '@/lib/pakete-server'
 import type { MemberWithEmail } from '../../benutzer/actions'
 import { PAKETE, preisText, istPaketKey } from '@/lib/pakete'
 import { bundeslandAusKundennummer } from '@/lib/tenant/kundennummer'
+import KontrastHinweis from '@/components/ui/KontrastHinweis'
 
 const BIO_STATUS_OPTS = [
   { value: 'konventionell', label: 'Konventionell' },
@@ -238,6 +239,7 @@ function BrandingTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
           </div>
         </div>
       </div>
+      <KontrastHinweis primary={primary} secondary={secondary} onUebernehmen={setPrimary} />
 
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Session Timeout (Minuten)</label>

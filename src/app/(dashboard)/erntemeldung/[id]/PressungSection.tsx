@@ -456,7 +456,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
                 </div>
                 <div className="col-span-2 flex justify-end">
                   {wgRows.length > 1 && (
-                    <button type="button" onClick={() => setWgRows(r => r.filter((_, j) => j !== i))}
+                    <button aria-label="Zeile entfernen" type="button" onClick={() => setWgRows(r => r.filter((_, j) => j !== i))}
                       className="text-xs text-s112-err hover:text-s112-err-fg px-1"><X size={14} /></button>
                   )}
                 </div>
@@ -564,7 +564,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
               </div>
               <div className="col-span-2 flex justify-end">
                 {behRows.length > 1 && (
-                  <button type="button" onClick={() => setBehRows(r => r.filter((_, j) => j !== i))}
+                  <button aria-label="Zeile entfernen" type="button" onClick={() => setBehRows(r => r.filter((_, j) => j !== i))}
                     className="text-xs text-s112-err hover:text-s112-err-fg px-1"><X size={14} /></button>
                 )}
               </div>
@@ -758,7 +758,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                             <span key={b.id} className="inline-flex items-center gap-1 bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg text-xs px-2 py-0.5 rounded-full">
                               {b.behaelter_name ?? '–'}
                               {b.menge_liter && <span className="font-medium">· {fmt(b.menge_liter)} L</span>}
-                              <span className="text-s112-warn ml-0.5">keine Charge</span>
+                              <span className="text-s112-warn-fg ml-0.5">keine Charge</span>
                             </span>
                           )
                         ))}

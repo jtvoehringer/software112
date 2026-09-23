@@ -44,7 +44,7 @@ export default async function BestaetigtPage({
           ) : (
             <>
               <div className="mb-4 flex justify-center">
-                <AlertTriangle className="w-12 h-12 text-s112-warn" aria-hidden="true" />
+                <AlertTriangle className="w-12 h-12 text-s112-warn-fg" aria-hidden="true" />
               </div>
               <h2 className="text-xl font-semibold text-s112-text mb-2">Link ungültig</h2>
               <p className="text-sm text-s112-muted mb-6">{result.error}</p>

@@ -64,7 +64,7 @@ export default function AppShell({
         {/* Inhaltsbreite: 1280 px, auf großen Bildschirmen (≥ 1536 px, Tailwind 2xl)
             1600 px (Vergleich mit voller Breite am 18.9.2026: "erschlägt einen"): auf 19–21"-Monitoren bei 100 % blieb
             links und rechts ein Drittel leer. Kopfzeile und Navigation ziehen mit. */}
-        <main className="flex-1 min-w-0 overflow-y-auto">
+        <main id="inhalt" tabIndex={-1} className="flex-1 min-w-0 overflow-y-auto focus:outline-none">
           <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 2xl:py-5">
             {children}
           </div>

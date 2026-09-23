@@ -236,7 +236,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
               message="Verkauf stornieren? Der Lagerbestand wird zurückgebucht."
               label={<Undo2 size={16} />}
               title="Stornieren"
-              className="text-s112-warn hover:text-s112-warn-fg"
+              className="text-s112-warn-fg hover:text-s112-warn-fg"
             />
           )}
           {writeOk && (

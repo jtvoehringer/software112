@@ -14,6 +14,7 @@ import { X, Sparkles, UserPlus, Building2 } from 'lucide-react'
 import { SEGMENTE, LAENDER } from '@/lib/crm/types'
 import type { LeadVorbelegung } from '@/lib/crm/leadEmail'
 import { createLeadAusEmail, type LeadAusEmailDaten } from '../crm/actions'
+import { useDialog } from '@/components/ui/useDialog'
 
 export type LeadMail = {
   id: string; conversationId: string | null; betreff: string; von: string; vonName: string; an: string; datum: string
@@ -32,6 +33,7 @@ const inputCls = 'w-full border border-s112-line-str rounded-lg px-3 py-2 text-s
 const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
 export default function LeadDialog({ mail, onClose, onAngelegt }: Props) {
+  const dialog = useDialog(true, onClose, 'Lead aus E-Mail anlegen')
   const [phase, setPhase] = useState<'analyse' | 'form' | 'speichern' | 'fertig'>('analyse')
   const [fehler, setFehler] = useState<string | null>(null)
   const [kiModell, setKiModell] = useState<string | null>(null)
@@ -124,7 +126,7 @@ export default function LeadDialog({ mail, onClose, onAngelegt }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-s112-text/40 p-4" onClick={phase === 'fertig' ? onClose : undefined}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
+      <div {...dialog} className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-3 border-b border-s112-line">
           <h2 className="text-base font-semibold text-s112-text inline-flex items-center gap-2"><UserPlus className="w-4 h-4 text-s112-teal" /> Lead aus E-Mail anlegen</h2>
           <button onClick={onClose} className="text-s112-tertiary hover:text-s112-text" aria-label="Schließen"><X className="w-4 h-4" /></button>

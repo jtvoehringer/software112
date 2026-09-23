@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { CheckCircle2, TrendingUp } from 'lucide-react'
+import { useDialog } from '@/components/ui/useDialog'
 
 type ReleaseNote = {
   id: string; version: string; titel: string
@@ -27,11 +28,12 @@ export default function ReleaseNotesModal() {
     })
   }
 
+  const dialog = useDialog(open && !!note, () => { void schliessen() }, 'Neuerungen')
   if (!open || !note) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto">
+      <div {...dialog} className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto">
         {/* Header */}
         <div className="bg-s112-teal rounded-t-2xl px-6 py-5">
           <p className="text-s112-yellow text-xs font-medium mb-1">software:112 · Version {note.version}</p>

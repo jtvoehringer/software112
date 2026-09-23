@@ -164,7 +164,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
     return (
       <div className="bg-s112-warn-bg border border-s112-warn/30 rounded-xl p-5 space-y-3">
         <div className="flex items-start gap-3">
-          <AlertTriangle size={22} strokeWidth={1.75} className="text-s112-warn shrink-0" />
+          <AlertTriangle size={22} strokeWidth={1.75} className="text-s112-warn-fg shrink-0" />
           <div className="space-y-1">
             <p className="font-semibold text-s112-warn-fg text-sm">Verschneidung gespeichert – Abstufung erfolgt</p>
             {qualitaetAbgestufInfo && (
@@ -256,7 +256,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
                 {src && <span className="text-xs text-s112-muted w-10 tabular-nums">max {(src.menge_liter == null ? undefined : fmtNum(src.menge_liter))}</span>}
               </div>
               {quellen.length > 1 && (
-                <button type="button" onClick={() => removeQuelle(i)}
+                <button aria-label="Quelle entfernen" type="button" onClick={() => removeQuelle(i)}
                   className="text-s112-err hover:text-s112-err-fg px-1"><X size={15} strokeWidth={2} /></button>
               )}
             </div>
@@ -271,7 +271,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
       {/* Qualitäts-Abstufungs-Warnung */}
       {hatAbstufung && abstufungsZiel && (
         <div className="flex items-start gap-2 bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2.5 text-sm">
-          <AlertTriangle size={15} strokeWidth={1.75} className="text-s112-warn mt-0.5 shrink-0" />
+          <AlertTriangle size={15} strokeWidth={1.75} className="text-s112-warn-fg mt-0.5 shrink-0" />
           <div>
             <p className="font-medium text-s112-warn-fg">Qualitätsabstufung auf {QUALITAET_LABEL[abstufungsZiel] ?? abstufungsZiel}</p>
             <p className="text-xs text-s112-warn-fg mt-0.5">
@@ -287,7 +287,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
       {/* Herkunft-Code-Abstufungs-Warnung */}
       {hatHerkunftAbstufung && herkunftAbstufungsZiel && (
         <div className="flex items-start gap-2 bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2.5 text-sm">
-          <AlertTriangle size={15} strokeWidth={1.75} className="text-s112-warn mt-0.5 shrink-0" />
+          <AlertTriangle size={15} strokeWidth={1.75} className="text-s112-warn-fg mt-0.5 shrink-0" />
           <div>
             <p className="font-medium text-s112-warn-fg">Herkunft-Code-Abstufung auf {HERKUNFT_LABEL[herkunftAbstufungsZiel] ?? herkunftAbstufungsZiel}</p>
             <p className="text-xs text-s112-warn-fg mt-0.5">
@@ -309,7 +309,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
         if (quellenMitAndererRebsorte.length === 0) return null
         return (
           <div className="flex items-start gap-2 bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2.5 text-sm">
-            <AlertTriangle size={15} strokeWidth={1.75} className="text-s112-warn mt-0.5 shrink-0" />
+            <AlertTriangle size={15} strokeWidth={1.75} className="text-s112-warn-fg mt-0.5 shrink-0" />
             <div>
               <p className="font-medium text-s112-warn-fg">Rebsortenverschnitt</p>
               <p className="text-xs text-s112-warn-fg mt-0.5">
@@ -391,7 +391,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
               ? <CheckCircle2 size={16} strokeWidth={1.75} className="text-s112-ok-fg" />
               : rebsortenPreview.typ === 'bezeichnungsunschaedlich'
               ? <Info size={16} strokeWidth={1.75} className="text-s112-blue-700" />
-              : <AlertTriangle size={16} strokeWidth={1.75} className="text-s112-warn" />}
+              : <AlertTriangle size={16} strokeWidth={1.75} className="text-s112-warn-fg" />}
           </span>
           <div>
             {rebsortenPreview.typ === 'unveraendert' && (

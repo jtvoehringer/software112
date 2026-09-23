@@ -95,10 +95,10 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
           </div>
           <div className="sm:col-span-2">
             <label className="flex items-center gap-2.5 cursor-pointer select-none">
-              <div onClick={() => setIsDac(v => !v)}
+              <button type="button" role="switch" aria-checked={isDac} onClick={() => setIsDac(v => !v)}
                 className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${isDac ? 'bg-s112-teal' : 'bg-s112-line-str'}`}>
-                <div className={`w-4 h-4 bg-white rounded-full shadow mt-0.5 transition-transform ${isDac ? 'translate-x-4' : 'translate-x-0.5'}`} />
-              </div>
+                <span className={`block w-4 h-4 bg-white rounded-full shadow mt-0.5 transition-transform ${isDac ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              </button>
               <span className="text-sm font-medium text-s112-text-1">DAC-Antrag (mit Lagenbezeichnung)</span>
             </label>
           </div>

@@ -6,6 +6,7 @@ import type { Zeiteintrag } from './page'
 import { createZeiteintrag, updateZeiteintrag, deleteZeiteintrag } from './actions'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import { useDialog } from '@/components/ui/useDialog'
 
 // ── Phasen ────────────────────────────────────────────────────────────────────
 
@@ -140,14 +141,15 @@ function ZeitForm({
 // ── Modal ─────────────────────────────────────────────────────────────────────
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  const dialog = useDialog(true, onClose, title)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto"
+      <div {...dialog} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-s112-text text-base">{title}</h3>
-          <button onClick={onClose} className="text-s112-muted hover:text-s112-text-1"><X className="w-5 h-5" /></button>
+          <button aria-label="Schließen" onClick={onClose} className="text-s112-muted hover:text-s112-text-1"><X className="w-5 h-5" /></button>
         </div>
         {children}
       </div>

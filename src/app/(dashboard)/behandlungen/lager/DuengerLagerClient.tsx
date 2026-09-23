@@ -171,7 +171,7 @@ function DuengerKarte({
   const bestand = zugang - abgang - duenger.verbrauch_gesamt
   const einheit = duenger.bewegungen[0]?.einheit ?? duenger.einheit_behandlung ?? 'kg'
 
-  const bestandColor = bestand < 0 ? 'text-s112-err-fg' : bestand < 1 ? 'text-s112-warn' : 'text-s112-blue-700'
+  const bestandColor = bestand < 0 ? 'text-s112-err-fg' : bestand < 1 ? 'text-s112-warn-fg' : 'text-s112-blue-700'
 
   function handleDelete(id: string) {
     if (!confirm('Buchung löschen?')) return

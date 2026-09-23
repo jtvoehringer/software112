@@ -15,7 +15,7 @@ const config: Config = {
         // Restliche Töne (Blauskala, Grau, Text-/Linienabstufungen, Status) sind global fix —
         // rudimentäres Kunden-CD wirkt nur auf primary_color/secondary_color, nicht auf diese.
         's112': {
-          teal:      'var(--s112-teal, #4F86D6)',    // Aktion → tenant primary_color
+          teal:      'var(--s112-teal, #4677BE)',    // Aktion → tenant primary_color
           yellow:    'var(--s112-yellow, #FFFFFF)',  // Text auf teal → tenant secondary_color
           navy:      '#0E3C62',  // Alt: Sekundär/Dark (unverändert, wird noch vereinzelt verwendet)
           green:     '#98C780',  // Alt: Akzent Grün (unverändert)
@@ -35,13 +35,13 @@ const config: Config = {
           'text-1':  '#5A5D66',  // sekundärer Text, inaktive Nav-Labels
           'text-2':  '#6E717A',  // Labels, inaktive Icons
           text:      '#22252B',  // Fließtext, Überschriften, Zahlen
-          tertiary:  '#A0A3AB',  // Meta-Text, dekorative Icons, Platzhalter
+          tertiary:  '#707277',  // Meta-Text, Platzhalter – seit 23.9.2026 AA-konform (4,8:1; vorher #A0A3AB = 2,5:1)
 
           border:    '#EDEEF1',  // Alias von line, für Bestandscode (border-s112-border)
 
-          ok:        '#3E9B79', 'ok-bg':   '#EAF5F0', 'ok-fg':   '#2C6B55',
-          warn:      '#D9A441', 'warn-bg': '#FBF3E3', 'warn-fg': '#8A6415',
-          err:       '#C9564E', 'err-bg':  '#FBEEED', 'err-fg':  '#8E3A34',
+          ok:        '#327F63',  /* 4,8:1 für weiße Schrift auf Grün (vorher 3,4:1) */ 'ok-bg':   '#EAF5F0', 'ok-fg':   '#2C6B55',
+          warn:      '#B48835',  /* 3,2:1 für Punkte/Rahmen (vorher #D9A441 = 2,3:1); Text immer warn-fg */ 'warn-bg': '#FBF3E3', 'warn-fg': '#8A6415',
+          err:       '#BC5049',  /* 4,8:1 (vorher 4,3:1) */ 'err-bg':  '#FBEEED', 'err-fg':  '#8E3A34',
         },
       },
       fontFamily: {

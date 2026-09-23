@@ -40,7 +40,7 @@ export default async function AbmeldenPage({
           ) : (
             <>
               <div className="mb-3 flex justify-center">
-                <AlertTriangle className="w-9 h-9 text-s112-warn" aria-hidden="true" />
+                <AlertTriangle className="w-9 h-9 text-s112-warn-fg" aria-hidden="true" />
               </div>
               <h2 className="text-lg font-semibold text-s112-text mb-2">Ungültiger Link</h2>
               <p className="text-sm text-s112-muted">

@@ -12,6 +12,7 @@ import AssistentWidget from '@/components/assistent/AssistentWidget'
 import Link from '@/components/ui/Link'
 import { ladeTenantKopf } from '@/lib/tenant/kopf'
 import { ladeMfaStand, MFA_PFLICHT_AB } from '@/lib/auth/mfa'
+import { barrierefreieAktionsfarbe } from '@/lib/farbe'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -128,10 +129,12 @@ export default async function DashboardLayout({
       {/* CSS-Variablen pro Tenant — überschreiben die Tailwind-Defaults */}
       <style>{`
         :root {
-          --s112-teal:   ${branding.primary_color};
+          --s112-teal:   ${barrierefreieAktionsfarbe(branding.primary_color, branding.secondary_color)};
           --s112-yellow: ${branding.secondary_color};
         }
       `}</style>
+      {/* Sprunglink für Tastatur und Vorleseprogramme (Barrierefreiheit B7) */}
+      <a href="#inhalt" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:bg-white focus:text-s112-blue-700 focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg focus:font-semibold">Zum Inhalt springen</a>
       <ReleaseNotesModal />
       <SessionTimeout timeoutMinuten={(branding as any).session_timeout} />
       <AutoRefresh />

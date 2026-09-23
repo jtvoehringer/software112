@@ -287,7 +287,7 @@ export default async function WeinhandelPage() {
                       <td className="px-4 py-3 text-right tabular-nums text-s112-muted text-sm">
                         {t.einstandspreis_pro_liter != null
                           ? fmtEur(Number(t.einstandspreis_pro_liter), { min: 2, max: 4 })
-                          : <span className="text-xs text-s112-warn">nicht gesetzt</span>}
+                          : <span className="text-xs text-s112-warn-fg">nicht gesetzt</span>}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums font-semibold text-s112-blue-700">
                         {t.einstandspreis_pro_liter != null && t.menge_liter

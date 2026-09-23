@@ -17,6 +17,7 @@ import {
   ShoppingCart, MoreHorizontal, Palmtree, UserX, StickyNote, ArrowRightLeft,
 } from 'lucide-react'
 import { fmtEur } from '@/lib/format'
+import { useDialog } from '@/components/ui/useDialog'
 
 // Aktivitäts-Art -> Lucide-Icon (Timeline-Avatar). Gleiches Vokabular wie
 // FirmaDetailClient.tsx / CRM-Kalender.
@@ -432,6 +433,8 @@ export default function KontaktDetailClient({
   }
 
   const [showEmailModal, setShowEmailModal] = useState(false)
+  const dlgEmail = useDialog(showEmailModal, () => setShowEmailModal(false), 'E-Mail senden')
+  const dlgUmw = useDialog(showUmwandeln, () => { if (!umwPending) setShowUmwandeln(false) }, 'Kontakt in Firma umwandeln')
   const [emailBetreff, setEmailBetreff]   = useState('')
   const [emailText, setEmailText]         = useState('')
   const [emailSending, setEmailSending]   = useState(false)
@@ -776,7 +779,7 @@ export default function KontaktDetailClient({
                         const fd = new FormData(); fd.set('betreff', notizEditText)
                         await updateAktivitaet(n.id, fd); setNotizEditId(null)
                       }} className="text-xs text-s112-blue-700 font-medium"><Check size={13} /></button>
-                      <button type="button" onClick={() => setNotizEditId(null)} className="text-xs text-s112-muted"><X size={13} /></button>
+                      <button aria-label="Bearbeiten abbrechen" type="button" onClick={() => setNotizEditId(null)} className="text-xs text-s112-muted"><X size={13} /></button>
                     </div>
                   ) : (
                     <div className="flex-1 min-w-0 flex items-start justify-between gap-1">
@@ -883,7 +886,7 @@ export default function KontaktDetailClient({
       {showEmailModal && kontakt.email && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
           onClick={() => setShowEmailModal(false)}>
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
+          <div {...dlgEmail} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
             onClick={e => e.stopPropagation()}>
             <h3 className="text-base font-semibold text-s112-text mb-4 inline-flex items-center gap-1.5"><Mail size={16} />E-Mail senden</h3>
             <form onSubmit={sendEmail} className="space-y-3">
@@ -926,7 +929,7 @@ export default function KontaktDetailClient({
       {showUmwandeln && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
           onClick={() => !umwPending && setShowUmwandeln(false)}>
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
+          <div {...dlgUmw} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
             onClick={e => e.stopPropagation()}>
             <h3 className="text-base font-semibold text-s112-text mb-1 inline-flex items-center gap-1.5"><ArrowRightLeft size={16} />In Firma umwandeln</h3>
             <p className="text-xs text-s112-muted mb-4">

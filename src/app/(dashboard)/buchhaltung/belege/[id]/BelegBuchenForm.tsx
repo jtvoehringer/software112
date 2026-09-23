@@ -139,7 +139,7 @@ export default function BelegBuchenForm({
         <div className="border border-s112-border rounded-xl p-3 space-y-2">
           <div className="flex items-center justify-between">
             <label className="block text-xs font-medium text-s112-text-2">Lieferant suchen</label>
-            <button type="button" onClick={() => setZeigeManuelleSuche(false)} className="text-s112-muted hover:text-s112-text-1">
+            <button aria-label="Suche schließen" type="button" onClick={() => setZeigeManuelleSuche(false)} className="text-s112-muted hover:text-s112-text-1">
               <X className="w-3.5 h-3.5" />
             </button>
           </div>

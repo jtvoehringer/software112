@@ -160,7 +160,7 @@ export default async function BehandlungenPage() {
           <p className="text-xs text-s112-muted mt-1">Letzte 30 Tage</p>
         </div>
         <div className="card text-center">
-          <p className={`text-3xl font-semibold ${offeneWartezeiten > 0 ? 'text-s112-warn' : 'text-s112-blue-700'}`}>
+          <p className={`text-3xl font-semibold ${offeneWartezeiten > 0 ? 'text-s112-warn-fg' : 'text-s112-blue-700'}`}>
             {offeneWartezeiten}
           </p>
           <p className="text-xs text-s112-muted mt-1">Offene Wartezeiten</p>

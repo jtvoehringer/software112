@@ -152,7 +152,7 @@ export default function Topbar({
             >
               <Bell size={17} strokeWidth={1.5} />
               {anzahl > 0 && (
-                <span className={`absolute -top-0.5 -right-0.5 min-w-[17px] h-[17px] px-1 rounded-full font-mono text-[10px] font-semibold leading-[17px] text-center text-white ${anzahlErr > 0 ? 'bg-s112-err' : benachr.length > 0 && !hinweise?.length ? 'bg-s112-blue-700' : 'bg-s112-warn'}`}>
+                <span className={`absolute -top-0.5 -right-0.5 min-w-[17px] h-[17px] px-1 rounded-full font-mono text-[10px] font-semibold leading-[17px] text-center text-white ${anzahlErr > 0 ? 'bg-s112-err' : benachr.length > 0 && !hinweise?.length ? 'bg-s112-blue-700' : 'bg-s112-warn-fg'}`}>
                   {anzahl > 99 ? '99+' : anzahl}
                 </span>
               )}

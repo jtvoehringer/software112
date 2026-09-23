@@ -7,6 +7,7 @@ import { upsertKellerplanPosition, deleteKellerplanPosition } from '../actions'
 import { getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import { useDialog } from '@/components/ui/useDialog'
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
 
@@ -258,6 +259,7 @@ export default function KellerplanEditor({
   // ── Gebinde-Dialog: Behälter + ggf. aktuelle Charge für die Sprung-Links ────
   const dialogBehaelter = dialogBehaelterId ? behaelterMap[dialogBehaelterId] : null
   const dialogWein       = dialogBehaelterId ? weinMap[dialogBehaelterId] ?? null : null
+  const dlgBehaelter = useDialog(!!dialogBehaelter, () => setDialogBehaelterId(null), 'Gebinde')
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -531,7 +533,7 @@ export default function KellerplanEditor({
       {dialogBehaelter && (
         <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/30"
           onClick={() => setDialogBehaelterId(null)}>
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm"
+          <div {...dlgBehaelter} className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm"
             onClick={e => e.stopPropagation()}>
             <h3 className="font-semibold text-s112-text">{dialogBehaelter.name}</h3>
             <p className="text-xs text-s112-muted mt-0.5 mb-4">

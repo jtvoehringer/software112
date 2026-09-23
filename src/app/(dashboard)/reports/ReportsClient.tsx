@@ -598,7 +598,7 @@ export default function ReportsClient({
                                     <td className="px-3 py-1.5 text-center">
                                       {p.storniert ? <span className="text-s112-err">Storno</span>
                                         : p.bezahlt ? <span className="text-s112-ok-fg">Bezahlt</span>
-                                        : <span className="text-s112-warn">Offen</span>}
+                                        : <span className="text-s112-warn-fg">Offen</span>}
                                     </td>
                                   </tr>
                                 ))}

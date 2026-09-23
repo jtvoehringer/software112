@@ -130,7 +130,7 @@ function StammdatenTab({ items, onSave, onDelete, fields }: {
             {item.kuerzel && <span className="font-mono text-xs text-s112-muted w-12">{item.kuerzel}</span>}
             {item.kategorie && <span className="text-xs bg-s112-bg px-2 py-0.5 rounded text-s112-muted">{item.kategorie}</span>}
             <span className="text-sm flex-1">{item.name}</span>
-            <button onClick={() => startEdit(item)} className="text-xs text-s112-muted hover:text-s112-blue-700"><Pencil size={13} /></button>
+            <button aria-label="Bearbeiten" onClick={() => startEdit(item)} className="text-xs text-s112-muted hover:text-s112-blue-700"><Pencil size={13} /></button>
             <button onClick={() => { if(confirm(`"${item.name}" deaktivieren?`)) onDelete(item.id ?? '') }} className="text-xs text-s112-muted hover:text-s112-err"><Trash2 size={13} /></button>
           </div>
         ))}
@@ -337,7 +337,7 @@ export default function KostenrechnungPage() {
                   </td>
                   <td className="px-4 py-2.5 text-right font-medium tabular-nums">{eur(e.betrag)}</td>
                   <td className="px-4 py-2.5"><div className="flex gap-2">
-                    <button onClick={()=>startEdit(e)} className="text-s112-muted hover:text-s112-blue-700 text-xs"><Pencil size={13} /></button>
+                    <button aria-label="Bearbeiten" onClick={()=>startEdit(e)} className="text-s112-muted hover:text-s112-blue-700 text-xs"><Pencil size={13} /></button>
                     <button onClick={()=>{if(confirm('Löschen?'))api({action:'loeschen',id:e.id}).then(ladeDaten)}} className="text-s112-muted hover:text-s112-err text-xs"><Trash2 size={13} /></button>
                   </div></td>
                 </tr>

@@ -131,10 +131,10 @@ export function KontaktForm({
           </div>
           <label className="flex items-center gap-2.5 cursor-pointer select-none">
             <input type="hidden" name="is_lead" value={String(isLead)} />
-            <div onClick={() => setIsLead(v => !v)}
+            <button type="button" role="switch" aria-checked={!isLead} aria-label="Kunde (aus) oder Lead" onClick={() => setIsLead(v => !v)}
               className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${isLead ? 'bg-s112-grey' : 'bg-s112-teal'}`}>
-              <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${isLead ? 'translate-x-0' : 'translate-x-5'}`} />
-            </div>
+              <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform ${isLead ? 'translate-x-0' : 'translate-x-5'}`} />
+            </button>
             <span className={`text-sm font-semibold min-w-[48px] ${isLead ? 'text-s112-warn-fg' : 'text-s112-blue-700'}`}>
               {isLead ? 'Lead' : 'Aktiv'}
             </span>

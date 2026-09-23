@@ -31,6 +31,7 @@ import { PAKETE, PAKET_REIHENFOLGE, paketAusPlan, paketPriceId, preisText, type 
 import { STRIPE_STATUS_META, STRIPE_PLAN_LABELS } from '@/lib/stripe/client'
 import type { TenantDetail, TenantSettings, TenantMember } from './page'
 import { bundeslandAusKundennummer } from '@/lib/tenant/kundennummer'
+import KontrastHinweis from '@/components/ui/KontrastHinweis'
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────
 
@@ -68,10 +69,10 @@ function inputCls() {
 function Toggle({ on, onToggle, label }: { on: boolean; onToggle: () => void; label: string }) {
   return (
     <label className="flex items-center gap-3 cursor-pointer">
-      <div onClick={onToggle}
+      <button type="button" role="switch" aria-checked={on} onClick={onToggle}
         className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${on ? 'bg-s112-teal' : 'bg-s112-line-str'}`}>
-        <div className={`w-4 h-4 bg-white rounded-full shadow mt-0.5 transition-transform ${on ? 'translate-x-4' : 'translate-x-0.5'}`} />
-      </div>
+        <span className={`block w-4 h-4 bg-white rounded-full shadow mt-0.5 transition-transform ${on ? 'translate-x-4' : 'translate-x-0.5'}`} />
+      </button>
       <span className="text-sm text-s112-text-1">{label}</span>
     </label>
   )
@@ -192,6 +193,7 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
           </div>
         </div>
       </div>
+      <KontrastHinweis primary={primary} secondary={secondary} onUebernehmen={setPrimary} />
 
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">
@@ -1025,10 +1027,10 @@ function EmailTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
     <div className="space-y-6 max-w-lg">
       <div className="flex items-center gap-3">
         <label className="flex items-center gap-2.5 cursor-pointer select-none">
-          <div onClick={() => setAktiv(v => !v)}
+          <button type="button" role="switch" aria-checked={aktiv} aria-label="Aktiv" onClick={() => setAktiv(v => !v)}
             className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${aktiv ? 'bg-s112-teal' : 'bg-s112-line-str'}`}>
-            <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${aktiv ? 'translate-x-5' : 'translate-x-0'}`} />
-          </div>
+            <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform ${aktiv ? 'translate-x-5' : 'translate-x-0'}`} />
+          </button>
         </label>
         <span className={`text-sm font-semibold ${aktiv ? 'text-s112-blue-700' : 'text-s112-text-2'}`}>
           E-Mail-Modul {aktiv ? 'aktiv' : 'inaktiv'}
@@ -1831,7 +1833,7 @@ export default function MandantDetailClient({ tenant, settings, members }: {
           ) : (
             <div className="flex items-center gap-2 mt-1">
               <h1 className="text-2xl font-semibold text-s112-text">{tenant.name}</h1>
-              <button onClick={() => setEditName(true)}
+              <button aria-label="Bearbeiten" onClick={() => setEditName(true)}
                 className="text-s112-muted hover:text-s112-blue-700 mt-0.5">
                 <Pencil className="w-4 h-4" />
               </button>

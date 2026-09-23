@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Pencil } from 'lucide-react'
+import { useDialog } from '@/components/ui/useDialog'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -16,6 +17,7 @@ interface Props {
 
 export default function KellerplanEditModal({ plan, action, inputCls, labelCls }: Props) {
   const [open, setOpen] = useState(false)
+  const dialog = useDialog(open, () => setOpen(false), 'Kellerplan bearbeiten')
   const router = useRouter()
 
   async function handleSubmit(formData: FormData) {
@@ -35,7 +37,7 @@ export default function KellerplanEditModal({ plan, action, inputCls, labelCls }
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
           onClick={() => setOpen(false)}>
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm"
+          <div {...dialog} className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm"
             onClick={e => e.stopPropagation()}>
             <h3 className="font-semibold text-s112-text mb-4">Kellerplan bearbeiten</h3>
             <form action={handleSubmit} className="space-y-3">

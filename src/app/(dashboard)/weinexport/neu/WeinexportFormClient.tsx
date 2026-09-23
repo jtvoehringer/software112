@@ -214,7 +214,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
                   placeholder="€/Einheit" className="w-full border border-s112-border rounded px-2 py-1.5 text-xs focus:outline-none" />
               </div>
               <div className="col-span-1 flex justify-center pt-1">
-                <button type="button" onClick={() => removePos(i)} className="text-s112-err hover:text-s112-err-fg text-xs">
+                <button aria-label="Entfernen" type="button" onClick={() => removePos(i)} className="text-s112-err hover:text-s112-err-fg text-xs">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>

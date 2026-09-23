@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { Bell } from 'lucide-react'
+import { useDialog } from '@/components/ui/useDialog'
 
 interface Props { timeoutMinuten?: number | null }
 
@@ -41,12 +42,13 @@ export default function SessionTimeout({ timeoutMinuten }: Props) {
     }
   }, [reset, timeoutMinuten])
 
+  const dialog = useDialog(!!timeoutMinuten && warnung, reset, 'Sitzung läuft ab')
   if (!timeoutMinuten || !warnung) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4 text-center space-y-4">
-        <Bell className="w-9 h-9 mx-auto text-s112-warn" strokeWidth={1.75} />
+      <div {...dialog} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4 text-center space-y-4">
+        <Bell className="w-9 h-9 mx-auto text-s112-warn-fg" strokeWidth={1.75} />
         <h2 className="text-lg font-semibold text-s112-text">Sitzung läuft ab</h2>
         <p className="text-sm text-s112-muted">
           Du wirst in 2 Minuten automatisch abgemeldet.

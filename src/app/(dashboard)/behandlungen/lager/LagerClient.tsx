@@ -167,7 +167,7 @@ function PsmKarte({
   const bestand = zugang - abgang - psm.verbrauch_gesamt
   const einheit = psm.bewegungen[0]?.einheit ?? psm.einheit_behandlung ?? 'kg'
 
-  const bestandColor = bestand < 0 ? 'text-s112-err-fg' : bestand < 1 ? 'text-s112-warn' : 'text-s112-blue-700'
+  const bestandColor = bestand < 0 ? 'text-s112-err-fg' : bestand < 1 ? 'text-s112-warn-fg' : 'text-s112-blue-700'
 
   function handleDelete(id: string) {
     if (!confirm('Buchung löschen?')) return

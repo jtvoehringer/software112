@@ -11,6 +11,7 @@ import Link from '@/components/ui/Link'
 import { X, Sparkles } from 'lucide-react'
 import { Badge, fmtNum, fmtDate } from '../_shared/ui'
 import { STATUS_LABEL, type Charge } from '../_shared/types'
+import { useDialog } from '@/components/ui/useDialog'
 
 export const ASSISTENT_EVENT = 's112:assistent'
 
@@ -23,6 +24,7 @@ const PHASEN: { status: string; label: string; hinweis: string }[] = [
 
 export default function ChargenKanban({ chargen, assistentAktiv }: { chargen: Charge[]; assistentAktiv: boolean }) {
   const [aktiv, setAktiv] = useState<Charge | null>(null)
+  const dlgCharge = useDialog(!!aktiv, () => setAktiv(null), 'Charge')
 
   useEffect(() => {
     if (!aktiv) return
@@ -64,7 +66,7 @@ export default function ChargenKanban({ chargen, assistentAktiv }: { chargen: Ch
 
       {aktiv && (
         <div className="fixed inset-0 z-[90] bg-[rgba(10,26,42,.5)] px-4 py-[4vh] overflow-y-auto" onMouseDown={e => { if (e.target === e.currentTarget) setAktiv(null) }}>
-          <div role="dialog" aria-modal="true" className="max-w-[720px] mx-auto bg-white rounded-xl border border-s112-line p-6 relative">
+          <div {...dlgCharge} className="max-w-[720px] mx-auto bg-white rounded-xl border border-s112-line p-6 relative">
             <button type="button" onClick={() => setAktiv(null)} aria-label="Schließen"
               className="absolute top-3.5 right-3.5 w-8 h-8 rounded-md bg-[#F2F3F5] text-s112-text-2 hover:bg-s112-line flex items-center justify-center">
               <X size={15} strokeWidth={1.75} />

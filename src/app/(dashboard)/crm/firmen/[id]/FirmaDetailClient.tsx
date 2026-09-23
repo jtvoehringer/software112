@@ -17,6 +17,7 @@ import {
   MoreHorizontal, Palmtree, UserX, StickyNote,
 } from 'lucide-react'
 import { fmtEur } from '@/lib/format'
+import { useDialog } from '@/components/ui/useDialog'
 
 // Aktivitäts-Art -> Lucide-Icon (Timeline-Avatar). Gleiches Vokabular wie im
 // CRM-Kalender (CRMUebersichtClient.tsx); dort werden Icons in Status-Chips
@@ -441,6 +442,7 @@ export default function FirmaDetailClient({
   const [tab, setTab] = useState<Tab>('kontakte')
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set())
   const [showEmailModal, setShowEmailModal] = useState(false)
+  const dlgEmail = useDialog(showEmailModal, () => setShowEmailModal(false), 'E-Mail senden')
   const [emailBetreff, setEmailBetreff]   = useState('')
   const [emailText, setEmailText]         = useState('')
   const [emailSending, setEmailSending]   = useState(false)
@@ -843,7 +845,7 @@ export default function FirmaDetailClient({
       {showEmailModal && firma.email && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
           onClick={() => setShowEmailModal(false)}>
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
+          <div {...dlgEmail} className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
             onClick={e => e.stopPropagation()}>
             <h3 className="text-base font-semibold text-s112-text mb-4 inline-flex items-center gap-1.5"><Mail size={16} />E-Mail senden</h3>
             <form onSubmit={sendEmail} className="space-y-3">
