@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { graphPost, getValidAccessToken } from '@/lib/m365/graph'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { ereignisMelden } from '@/lib/system/ereignis'
+import { erzeugeClientState } from '@/lib/m365/clientState'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
             // Neu erstellen (entweder kein sub_id oder PATCH fehlgeschlagen)
             const res = await fetch('https://graph.microsoft.com/v1.0/subscriptions', {
               method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ changeType: 'created', notificationUrl, resource: "me/mailFolders('inbox')/messages", expirationDateTime: expiresAt, clientState: cfg.tenant_id }),
+              body: JSON.stringify({ changeType: 'created', notificationUrl, resource: "me/mailFolders('inbox')/messages", expirationDateTime: expiresAt, clientState: erzeugeClientState(cfg.tenant_id) }),
             })
             const sub = await res.json() as R
             if (sub.id) await (admin.from('tenant_einstellungen') as any).update({ m365_webhook_sub_id: sub.id, m365_webhook_expires: expiresAt }).eq('tenant_id', cfg.tenant_id)
@@ -130,7 +131,7 @@ export async function POST(req: NextRequest) {
       notificationUrl,
       resource:             'me/mailFolders(\'inbox\')/messages',
       expirationDateTime:   expiresAt,
-      clientState:          tenantId,  // zur Identifikation im Webhook
+      clientState:          erzeugeClientState(c.tenant_id as string),  // S8: tenant_id + HMAC, im Webhook geprüft
     })
 
     await (admin.from('tenant_einstellungen') as any).update({

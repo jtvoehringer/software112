@@ -31,6 +31,10 @@ const SICHERHEITS_HEADER = [
   { key: 'Content-Security-Policy-Report-Only', value: CSP },
 ]
 
+const SUPABASE_HOST = (() => {
+  try { return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').hostname } catch { return 'zwcsgnemijkpyxrqykul.supabase.co' }
+})()
+
 const nextConfig: NextConfig = {
   // Künftig: experimental.ppr für partial pre-rendering aktivieren
   // @react-pdf/renderer muss als "externes" Server-Paket behandelt werden,
@@ -50,11 +54,12 @@ const nextConfig: NextConfig = {
     staleTimes: { dynamic: 0, static: 30 },
   },
   images: {
+    // Sicherheit S7 (23.9.2026): vorher hostname '**' – die Bildoptimierung konnte als offener
+    // Proxy für beliebige Adressen missbraucht werden. Betriebslogos (auch fremd verlinkte)
+    // laufen jetzt mit <Image unoptimized>, optimiert wird nur noch aus dem eigenen Speicher.
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**',  // Multi-Tenant: beliebige externe Logo-URLs erlauben
-      },
+      { protocol: 'https', hostname: SUPABASE_HOST, pathname: '/storage/v1/object/public/**' },
+      { protocol: 'https', hostname: 'software112.icp-consultants.at' },
     ],
   },
 }

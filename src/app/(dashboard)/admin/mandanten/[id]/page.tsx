@@ -4,6 +4,7 @@ import { getCurrentUserRole, isSandboxAdminUnlock } from '@/lib/auth/roles'
 import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import MandantDetailClient from './MandantDetailClient'
+import { geheimLesen, geheimMaskiert } from '@/lib/email/geheimnis'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,7 +32,10 @@ export type TenantSettings = {
   modul_crm:        boolean
   modul_kellerbuch: boolean
   modul_weingarten: boolean
-  brevo_api_key:     string | null
+  brevo_api_key:     string | null   // S11: nur Maske, nie der Schlüssel
+  newsletter_kurzname:        string | null
+  newsletter_datenschutz_url: string | null
+  newsletter_einleitung:      string | null
   brevo_sender_mail: string | null
   brevo_sender_name: string | null
   brevo_list_privat: number | null
@@ -193,7 +197,10 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     modul_crm:        s?.modul_crm ?? true,
     modul_kellerbuch: s?.modul_kellerbuch ?? true,
     modul_weingarten: s?.modul_weingarten ?? true,
-    brevo_api_key:     s?.brevo_api_key ?? null,
+    brevo_api_key:     geheimMaskiert(s?.brevo_api_key),
+    newsletter_kurzname:        s?.newsletter_kurzname ?? null,
+    newsletter_datenschutz_url: s?.newsletter_datenschutz_url ?? null,
+    newsletter_einleitung:      s?.newsletter_einleitung ?? null,
     brevo_sender_mail: s?.brevo_sender_mail ?? null,
     brevo_sender_name: s?.brevo_sender_name ?? null,
     brevo_list_privat: s?.brevo_list_privat ?? null,
@@ -248,10 +255,10 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     ea_buchung_modus:    s?.ea_buchung_modus ?? 'brutto',
     ea_kleinunternehmer: !!(s?.ea_kleinunternehmer),
     ea_uva_zeitraum:     s?.ea_uva_zeitraum ?? 'quartalsweise',
-    sumup_api_key:       s?.sumup_api_key ?? null,
+    sumup_api_key:       geheimMaskiert(s?.sumup_api_key),
     sumup_merchant_code: s?.sumup_merchant_code ?? null,
     bawb_kennung:        s?.bawb_kennung ?? null,
-    bawb_passwort:       s?.bawb_passwort ?? null,
+    bawb_passwort:       (() => { try { return geheimLesen(s?.bawb_passwort) } catch { return null } })(),
     assistent_aktiv:     !!(s?.assistent_aktiv),
   }
 

@@ -447,6 +447,8 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
   const router                     = useRouter()
   const [pending, startTransition] = useTransition()
   const [saved, setSaved]          = useState(false)
+  const [fehler, setFehler]        = useState<string | null>(null)
+  const [kurzname, setKurzname]    = useState(settings.newsletter_kurzname ?? '')
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -465,10 +467,19 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
     fd.set('modul_export',     settings.modul_export      ? 'true' : 'false')
     fd.set('modul_controlling', settings.modul_controlling ? 'true' : 'false')
     fd.set('assistent_aktiv',  settings.assistent_aktiv   ? 'true' : 'false')
+    // S11: Schlüssel wird nie angezeigt – leer gelassen = hinterlegten behalten (Maske)
+    const neuerKey = String(fd.get('brevo_api_key_neu') ?? '').trim()
+    fd.delete('brevo_api_key_neu')
+    fd.set('brevo_api_key', neuerKey || (settings.brevo_api_key ?? ''))
+    setFehler(null)
     startTransition(async () => {
-      await saveTenantSettings(tenant.id, fd)
-      setSaved(true)
-      setTimeout(() => router.push('/admin/mandanten'), 800)
+      try {
+        await saveTenantSettings(tenant.id, fd)
+        setSaved(true)
+        router.refresh()
+      } catch (err) {
+        setFehler(err instanceof Error ? err.message : String(err))
+      }
     })
   }
 
@@ -493,8 +504,8 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">API-Key</label>
-          <input aria-label="API-Key" name="brevo_api_key" defaultValue={settings.brevo_api_key ?? ''}
-            placeholder="xkeysib-…" className={inputCls()} />
+          <input aria-label="API-Key" name="brevo_api_key_neu" type="password" autoComplete="off" defaultValue=""
+            placeholder={settings.brevo_api_key ? 'hinterlegt (verschlüsselt) – zum Ändern neu eingeben' : 'xkeysib-…'} className={inputCls()} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Absender E-Mail</label>
@@ -528,12 +539,39 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
         </div>
       </div>
 
+      <div className="space-y-3 pt-2 border-t border-s112-line">
+        <p className="text-xs font-semibold text-s112-text-1 uppercase tracking-wide pt-3">Öffentliche Anmeldeseite</p>
+        <div>
+          <label htmlFor="nl-kurzname" className="block text-xs font-medium text-s112-text-2 mb-1">Kurzname (Adresse)</label>
+          <input id="nl-kurzname" name="newsletter_kurzname" value={kurzname}
+            onChange={e => setKurzname(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+            placeholder="z. B. gebeshuber" maxLength={40} className={inputCls()} />
+          <p className="text-xs text-s112-muted mt-1">
+            {kurzname
+              ? <>Seite: <span className="font-mono">/newsletter/{kurzname}</span>{settings.newsletter_kurzname === kurzname && settings.brevo_api_key && settings.brevo_sender_mail && <> · <a href={`/newsletter/${kurzname}`} target="_blank" rel="noreferrer" className="underline">öffnen</a></>}</>
+              : 'Ohne Kurzname gibt es keine öffentliche Anmeldeseite.'}
+          </p>
+        </div>
+        <div>
+          <label htmlFor="nl-datenschutz" className="block text-xs font-medium text-s112-text-2 mb-1">Link zur Datenschutzerklärung des Betriebs</label>
+          <input id="nl-datenschutz" name="newsletter_datenschutz_url" type="url" defaultValue={settings.newsletter_datenschutz_url ?? ''}
+            placeholder="https://www.weingut.at/datenschutz" className={inputCls()} />
+        </div>
+        <div>
+          <label htmlFor="nl-einleitung" className="block text-xs font-medium text-s112-text-2 mb-1">Einleitungstext (optional)</label>
+          <textarea id="nl-einleitung" name="newsletter_einleitung" rows={3} maxLength={600} defaultValue={settings.newsletter_einleitung ?? ''}
+            placeholder="Neuigkeiten zu unseren Weinen, Jahrgängen und Verkostungsterminen – direkt in Ihr Postfach."
+            className={inputCls()} />
+        </div>
+      </div>
+
+      {fehler && <p role="alert" className="text-sm text-s112-err-fg">{fehler}</p>}
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending}
           className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
-        {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
+        {saved && <span role="status" className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
       </div>
     </form>
   )
@@ -1576,7 +1614,8 @@ function BawbTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
 // ── Tab: SumUp ───────────────────────────────────────────────────────────────
 
 function SumUpTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
-  const [apiKey, setApiKey]         = useState((settings as any).sumup_api_key ?? '')
+  // S11: Schlüssel wird nie angezeigt; leer lassen = hinterlegten behalten
+  const [apiKey, setApiKey]         = useState('')
   const [merchantCode, setMerchantCode] = useState((settings as any).sumup_merchant_code ?? '')
   const [saving, setSaving]         = useState(false)
   const [msg, setMsg]               = useState<string | null>(null)
@@ -1594,7 +1633,7 @@ function SumUpTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
     e.preventDefault()
     setSaving(true); setMsg(null)
     const fd = new FormData()
-    fd.set('sumup_api_key',       apiKey)
+    fd.set('sumup_api_key',       apiKey.trim() || ((settings as any).sumup_api_key ?? ''))
     fd.set('sumup_merchant_code', merchantCode)
     const res = await saveSumUpConfig(tenant.id, fd)
     setMsgIsError(!!res?.error)
@@ -1605,14 +1644,13 @@ function SumUpTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
   return (
     <div className="max-w-lg space-y-5">
       <div className="bg-s112-warn-bg border border-s112-warn/30 rounded-xl p-4 text-sm text-s112-warn-fg">
-        <strong>Hinweis:</strong> API-Key und Merchant-Code werden in der Datenbank gespeichert.
-        Für Produktionseinsatz empfiehlt sich Supabase Vault.
+        <strong>Hinweis:</strong> Der API-Key wird verschlüsselt gespeichert und nicht mehr angezeigt.
       </div>
       <form onSubmit={handleSave} className="space-y-4">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">SumUp API Key</label>
-          <input aria-label="SumUp API Key" value={apiKey} onChange={e => setApiKey(e.target.value)}
-            placeholder="sup_sk_…"
+          <input aria-label="SumUp API Key" type="password" autoComplete="off" value={apiKey} onChange={e => setApiKey(e.target.value)}
+            placeholder={(settings as any).sumup_api_key ? 'hinterlegt (verschlüsselt) – zum Ändern neu eingeben' : 'sup_sk_…'}
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           <p className="text-xs text-s112-muted mt-1">Persönlicher Access-Token aus dem SumUp-Dashboard → API Keys</p>
         </div>

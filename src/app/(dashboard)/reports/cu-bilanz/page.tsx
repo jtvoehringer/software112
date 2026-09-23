@@ -81,7 +81,7 @@ export default async function CuBilanzPage({ searchParams }: { searchParams: Pro
       <div className="card p-8 print:border-0 print:shadow-none print:p-0">
         <div className="flex items-start justify-between border-b-2 border-s112-text pb-4 mb-6">
           <div>
-            {s.logo_url && <Image src={s.logo_url} alt="" width={150} height={40} className="object-contain object-left max-h-10 mb-2" />}
+            {s.logo_url && <Image unoptimized src={s.logo_url} alt="" width={150} height={40} className="object-contain object-left max-h-10 mb-2" />}
             <p className="font-semibold text-s112-text">{s.betrieb_name ?? ''}</p>
             <p className="text-sm text-s112-text-2">{[s.betrieb_strasse, [s.betrieb_plz, s.betrieb_ort].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</p>
           </div>

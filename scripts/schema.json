@@ -1244,7 +1244,10 @@
 "wetter_aktiv",
 "wetter_abwasch_mm",
 "wetter_intervall_tage",
-"m365_kalender_schreiben"
+"m365_kalender_schreiben",
+"newsletter_kurzname",
+"newsletter_datenschutz_url",
+"newsletter_einleitung"
 ],
 "tenant_memberships": [
 "id",

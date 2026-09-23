@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { geheimLesen } from '@/lib/email/geheimnis'
 import { createClient } from '@supabase/supabase-js'
 
 // SumUp Webhook: POST /api/sumup/webhook
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
   // Signatur prüfen (optional: wenn kein Secret konfiguriert, akzeptieren wir trotzdem)
   const signature = req.headers.get('x-sumup-signature') ?? ''
   if (einst.sumup_api_key && signature) {
-    const valid = await verifySignature(rawBody, signature, einst.sumup_api_key)
+    const valid = await verifySignature(rawBody, signature, geheimLesen(einst.sumup_api_key) ?? '')
     if (!valid) {
       return NextResponse.json({ error: 'Ungültige Signatur' }, { status: 401 })
     }

@@ -2,6 +2,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { graphGet, getValidAccessToken } from '@/lib/m365/graph'
 import { alle } from '@/lib/supabase/alle'
+import { pruefeClientState } from '@/lib/m365/clientState'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -16,11 +17,17 @@ export async function POST(req: NextRequest) {
     const admin = createSupabaseAdminClient()
 
     for (const notification of (body.value ?? []) as R[]) {
-      const tenantId = notification.clientState  // wir speichern tenant_id als clientState
+      // S8: Prüfwert verifizieren (HMAC), altes Format nur mit passender subscriptionId
+      const cs = pruefeClientState(notification.clientState)
+      if (!cs) { console.warn('M365 Webhook: ungültiger clientState verworfen'); continue }
+      const tenantId = cs.tenantId
 
       const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
         .select('*').eq('tenant_id', tenantId).maybeSingle()
       if (!cfg) continue
+      if (!notification.subscriptionId || notification.subscriptionId !== (cfg as R).m365_webhook_sub_id) {
+        console.warn('M365 Webhook: unbekannte subscriptionId verworfen'); continue
+      }
 
       // Kontakte + Firmen laden für Matching
       // Standard- und weitere Adressen (Migration 211)

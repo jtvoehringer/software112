@@ -15,6 +15,7 @@
 // übernommen, und es werden ausschließlich Branding-/Betriebsdaten-/bawb.at-
 // Spalten gelesen und geschrieben.
 
+import { geheimSpeichern } from '@/lib/email/geheimnis'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
@@ -159,7 +160,7 @@ export async function saveBawbOwn(formData: FormData) {
   const { error } = await (admin.from('tenant_einstellungen') as any).upsert({
     tenant_id:       auth.tenantId,
     bawb_kennung:    (formData.get('bawb_kennung')  as string) || null,
-    bawb_passwort:   (formData.get('bawb_passwort') as string) || null,
+    bawb_passwort:   geheimSpeichern(formData.get('bawb_passwort')) ?? null,  // S11: verschlüsselt
     aktualisiert_am: new Date().toISOString(),
   }, { onConflict: 'tenant_id' })
 

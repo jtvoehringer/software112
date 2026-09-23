@@ -18,7 +18,9 @@ function inputCls(error?: boolean) {
   }`
 }
 
-export default function NewsletterForm() {
+export default function NewsletterForm({ kurzname, farbe, betriebName, datenschutzUrl }: {
+  kurzname: string; farbe: string; betriebName: string; datenschutzUrl: string | null
+}) {
   const [pending, startTransition] = useTransition()
   const [result, setResult]   = useState<{ ok: boolean; error?: string } | null>(null)
   const [datenschutz, setDatenschutz] = useState(false)
@@ -53,6 +55,7 @@ export default function NewsletterForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <input type="hidden" name="kurzname" value={kurzname} />
       {/* Falle für Bots (23.9.2026): für Menschen unsichtbar, nicht per Tab erreichbar */}
       <div aria-hidden="true" className="absolute -left-[9999px] w-px h-px overflow-hidden">
         <input type="text" name="webseite" tabIndex={-1} autoComplete="off" defaultValue="" />
@@ -96,15 +99,17 @@ export default function NewsletterForm() {
         <input type="checkbox" checked={datenschutz} onChange={e => setDatenschutz(e.target.checked)}
           className="accent-s112-teal w-4 h-4 mt-0.5 flex-shrink-0" />
         <span className="text-xs text-s112-text-2">
-          Ich stimme zu, dass meine Daten zur Zusendung des Newsletters verarbeitet werden.
+          Ich stimme zu, dass {betriebName} meine Daten zur Zusendung des Newsletters verarbeitet.
           Die Einwilligung kann ich jederzeit widerrufen.
+          {datenschutzUrl && (<> Details in der <a href={datenschutzUrl} target="_blank" rel="noreferrer" className="underline">Datenschutzerklärung</a>.</>)}
         </span>
       </label>
 
       <button
         type="submit"
         disabled={pending || !datenschutz}
-        className="w-full bg-s112-teal text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-40"
+        style={{ backgroundColor: farbe }}
+        className="w-full text-white py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40"
       >
         {pending ? 'Wird gesendet…' : 'Anmelden & Bestätigung erhalten'}
       </button>

@@ -76,6 +76,7 @@ export default async function BlendProtokollPage({ params }: { params: Promise<{
           <div>
             {s.logo_url && (
               <Image
+                unoptimized  /* S7: Logos ohne Bildoptimierung (kein Proxy für fremde Adressen) */
                 src={s.logo_url}
                 alt={s.betrieb_name ?? 'Weingut'}
                 width={160} height={50}

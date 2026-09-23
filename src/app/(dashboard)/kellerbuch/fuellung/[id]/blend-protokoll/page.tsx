@@ -78,6 +78,7 @@ export default async function BlendProtokollFuellungPage({ params }: { params: P
           <div>
             {s.logo_url && (
               <Image
+                unoptimized  /* S7: Logos ohne Bildoptimierung (kein Proxy für fremde Adressen) */
                 src={s.logo_url}
                 alt={s.betrieb_name ?? 'Weingut'}
                 width={160} height={50}

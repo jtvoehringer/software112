@@ -13,9 +13,12 @@ import { decryptPass, encryptPass, istV2, v2Aktiv } from '@/lib/email/crypto'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-const TABELLEN: { tabelle: string; schluessel: string; spalten: string[] }[] = [
+// klartext: true = Spalte war bis 23.9.2026 unverschlüsselt (S11: Brevo, SumUp, bawb) –
+// Altwerte werden direkt verschlüsselt statt mit dem alten Schlüssel entschlüsselt.
+const TABELLEN: { tabelle: string; schluessel: string; spalten: string[]; klartext?: boolean }[] = [
   { tabelle: 'tenant_einstellungen',   schluessel: 'tenant_id', spalten: ['email_smtp_pass_enc', 'email_imap_pass_enc', 'm365_client_secret_enc', 'm365_access_token_enc', 'm365_refresh_token_enc'] },
   { tabelle: 'user_email_connections', schluessel: 'id',        spalten: ['m365_access_token_enc', 'm365_refresh_token_enc', 'imap_pass_enc', 'smtp_pass_enc'] },
+  { tabelle: 'tenant_einstellungen',   schluessel: 'tenant_id', spalten: ['brevo_api_key', 'sumup_api_key', 'bawb_passwort'], klartext: true },
 ]
 
 export type SchluesselStatus = { v2Aktiv: boolean; alt: number; neu: number; je: { tabelle: string; spalte: string; alt: number; neu: number }[] }
@@ -58,7 +61,7 @@ export async function schluesselTauschen(): Promise<{ umgestellt: number; fehler
       for (const s of t.spalten) {
         const v = z[s]
         if (typeof v !== 'string' || !v || istV2(v)) continue
-        try { neu[s] = encryptPass(decryptPass(v)) }
+        try { neu[s] = encryptPass(t.klartext ? v : decryptPass(v)) }
         catch (e) { fehler.push(`${t.tabelle}.${s} (${String(z[t.schluessel]).slice(0, 8)}…): ${e instanceof Error ? e.message : String(e)}`) }
       }
       if (Object.keys(neu).length === 0) continue

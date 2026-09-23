@@ -3,8 +3,11 @@
 
 const BREVO_BASE = 'https://api.brevo.com/v3'
 
-function headers() {
-  const key = process.env.BREVO_API_KEY
+/** Brevo-Zugang eines Betriebs (Newsletter je Betrieb, 23.9.2026). Ohne Angabe: Systemkonto aus der Umgebung. */
+export type BrevoZugang = { apiKey: string; senderMail: string; senderName: string }
+
+function headers(zugang?: BrevoZugang) {
+  const key = zugang?.apiKey ?? process.env.BREVO_API_KEY
   if (!key) throw new Error('BREVO_API_KEY nicht konfiguriert')
   return {
     'accept':       'application/json',
@@ -16,7 +19,7 @@ function headers() {
 // ── Transaktions-E-Mail senden ────────────────────────────────────────────────
 
 export async function sendEmail({
-  to, subject, htmlContent, textContent, senderName,
+  to, subject, htmlContent, textContent, senderName, zugang,
 }: {
   to: { email: string; name?: string }
   subject: string
@@ -24,12 +27,15 @@ export async function sendEmail({
   textContent?: string
   /** Absendername; Standard: Weingut Gebeshuber (Newsletter). System-Mails: 'software:112' */
   senderName?: string
+  zugang?: BrevoZugang
 }) {
   const res = await fetch(`${BREVO_BASE}/smtp/email`, {
     method: 'POST',
-    headers: headers(),
+    headers: headers(zugang),
     body: JSON.stringify({
-      sender:      { name: senderName ?? 'Weingut Gebeshuber', email: process.env.BREVO_SENDER_EMAIL ?? 'noreply@weingut-gebeshuber.at' },
+      sender:      zugang
+        ? { name: senderName ?? zugang.senderName, email: zugang.senderMail }
+        : { name: senderName ?? 'Weingut Gebeshuber', email: process.env.BREVO_SENDER_EMAIL ?? 'noreply@weingut-gebeshuber.at' },
       to:          [to],
       subject,
       htmlContent,
@@ -46,17 +52,18 @@ export async function sendEmail({
 // ── Kontakt in Brevo anlegen / aktualisieren ──────────────────────────────────
 
 export async function upsertContact({
-  email, vorname, nachname, listIds, attributes,
+  email, vorname, nachname, listIds, attributes, zugang,
 }: {
   email: string
   vorname?: string | null
   nachname?: string | null
   listIds?: number[]
   attributes?: Record<string, string | boolean | number>
+  zugang?: BrevoZugang
 }) {
   const res = await fetch(`${BREVO_BASE}/contacts`, {
     method: 'POST',
-    headers: headers(),
+    headers: headers(zugang),
     body: JSON.stringify({
       email,
       updateEnabled: true,
@@ -77,10 +84,10 @@ export async function upsertContact({
 
 // ── Kontakt aus Liste entfernen (Opt-out) ─────────────────────────────────────
 
-export async function removeFromList(email: string, listId: number) {
+export async function removeFromList(email: string, listId: number, zugang?: BrevoZugang) {
   const res = await fetch(`${BREVO_BASE}/contacts/lists/${listId}/contacts/remove`, {
     method: 'POST',
-    headers: headers(),
+    headers: headers(zugang),
     body: JSON.stringify({ emails: [email] }),
   })
   if (!res.ok) {

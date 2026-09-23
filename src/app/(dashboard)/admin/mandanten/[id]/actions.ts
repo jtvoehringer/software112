@@ -3,6 +3,7 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { encryptPass } from '@/lib/email/crypto'
+import { geheimSpeichern } from '@/lib/email/geheimnis'
 import { getCurrentUserRole, isSandboxAdminUnlock } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import { getStripe } from '@/lib/stripe/client'
@@ -49,6 +50,14 @@ export async function saveTenantSettings(tenantId: string, formData: FormData) {
     return isNaN(n) ? null : n
   }
 
+  // S11: API-Key verschlüsselt; Maske (unverändert) → Feld nicht schreiben
+  const brevoKey = geheimSpeichern(formData.get('brevo_api_key'))
+  // Newsletter je Betrieb (Migration 227) – nur, wenn der Brevo-Tab die Felder mitschickt
+  const kurzRoh = formData.has('newsletter_kurzname') ? String(formData.get('newsletter_kurzname') ?? '').trim().toLowerCase() : null
+  if (kurzRoh && !/^[a-z0-9][a-z0-9-]{1,39}$/.test(kurzRoh)) throw new AktionsFehler('Kurzname: 2–40 Zeichen, nur a–z, 0–9 und Bindestrich.')
+  const dsRoh = formData.has('newsletter_datenschutz_url') ? String(formData.get('newsletter_datenschutz_url') ?? '').trim() : null
+  if (dsRoh && !/^https:\/\//.test(dsRoh)) throw new AktionsFehler('Datenschutz-Link muss mit https:// beginnen.')
+
   const payload = {
     tenant_id:          tenantId,
     anzeigename:        (formData.get('anzeigename') as string) || null,
@@ -67,7 +76,10 @@ export async function saveTenantSettings(tenantId: string, formData: FormData) {
     // die anderen Tabs (Branding, Brevo) lassen die Buchhaltungsart unverändert.
     ...(formData.has('buchhaltungsart') ? { buchhaltungsart: formData.get('buchhaltungsart') === 'doppik' ? 'doppik' : 'ea' } : {}),
     assistent_aktiv:    formData.get('assistent_aktiv')    === 'true',
-    brevo_api_key:      (formData.get('brevo_api_key') as string) || null,
+    ...(brevoKey !== undefined ? { brevo_api_key: brevoKey } : {}),
+    ...(kurzRoh !== null ? { newsletter_kurzname: kurzRoh || null } : {}),
+    ...(dsRoh !== null ? { newsletter_datenschutz_url: dsRoh || null } : {}),
+    ...(formData.has('newsletter_einleitung') ? { newsletter_einleitung: String(formData.get('newsletter_einleitung') ?? '').trim().slice(0, 600) || null } : {}),
     brevo_sender_mail:  (formData.get('brevo_sender_mail') as string) || null,
     brevo_sender_name:  (formData.get('brevo_sender_name') as string) || null,
     brevo_list_privat:  num('brevo_list_privat'),
@@ -82,7 +94,10 @@ export async function saveTenantSettings(tenantId: string, formData: FormData) {
   const { error } = await (admin.from('tenant_einstellungen') as any)
     .upsert(payload, { onConflict: 'tenant_id' })
 
-  if (error) throw new AktionsFehler((error as R).message)
+  if (error) {
+    if (/newsletter_kurzname_uidx|duplicate key/i.test((error as R).message)) throw new AktionsFehler('Dieser Kurzname ist schon vergeben.')
+    throw new AktionsFehler((error as R).message)
+  }
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   revalidatePath('/admin/mandanten')
@@ -465,9 +480,10 @@ export async function saveSumUpConfig(tenantId: string, formData: FormData) {
   await assertSystemAdmin(tenantId)
   const admin = createSupabaseAdminClient()
 
+  const sumupKey = geheimSpeichern(formData.get('sumup_api_key'))  // S11: verschlüsselt
   const { error } = await (admin.from('tenant_einstellungen') as any).upsert({
     tenant_id:           tenantId,
-    sumup_api_key:       (formData.get('sumup_api_key') as string) || null,
+    ...(sumupKey !== undefined ? { sumup_api_key: sumupKey } : {}),
     sumup_merchant_code: (formData.get('sumup_merchant_code') as string) || null,
     aktualisiert_am:     new Date().toISOString(),
   }, { onConflict: 'tenant_id' })
@@ -489,7 +505,7 @@ export async function saveBawbZugangsdaten(tenantId: string, formData: FormData)
   const { error } = await (admin.from('tenant_einstellungen') as any).upsert({
     tenant_id:    tenantId,
     bawb_kennung:  (formData.get('bawb_kennung')  as string) || null,
-    bawb_passwort: (formData.get('bawb_passwort') as string) || null,
+    bawb_passwort: geheimSpeichern(formData.get('bawb_passwort')) ?? null,  // S11: verschlüsselt
     aktualisiert_am: new Date().toISOString(),
   }, { onConflict: 'tenant_id' })
 

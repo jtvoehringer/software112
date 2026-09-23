@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { geheimLesen } from '@/lib/email/geheimnis'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { ereignisMelden } from '@/lib/system/ereignis'
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
     const sumupRes = await fetch('https://api.sumup.com/v0.1/checkouts', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${einst.sumup_api_key}`,
+        'Authorization': `Bearer ${geheimLesen(einst.sumup_api_key)}`,
         'Content-Type':  'application/json',
       },
       body: JSON.stringify(sumupPayload),
