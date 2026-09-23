@@ -1,0 +1,21 @@
+# Sicherheits-Welle 1 (23.9.2026, Befund S4): wöchentliche Prüfung der Abhängigkeiten.
+# Vertrag V2, Anlage 3 Abschnitt 9: Sicherheitsupdates binnen 14 Tagen – Dependabot
+# öffnet dafür automatisch Pull Requests; Sicherheitswarnungen zusätzlich im
+# GitHub-Repository unter Settings → Code security → Dependabot alerts aktivieren.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Vienna
+    open-pull-requests-limit: 5
+    groups:
+      kleinere-updates:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

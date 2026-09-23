@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { m365AuthUrl, m365ScopeFuer } from '@/lib/m365/graph'
+import { erzeugeStateWert, setzeNonceCookie } from '@/lib/m365/state'
 import { getCurrentMembership } from '@/lib/auth/roles'
 
 export const dynamic = 'force-dynamic'
@@ -27,10 +28,10 @@ export async function GET(req: NextRequest) {
   const host  = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? 'software112.icp-consultants.at'
   const proto = req.headers.get('x-forwarded-proto') ?? 'https'
   const redirectUri = `${proto}://${host}/api/auth/m365/user/callback`
-  // Einfacher State: tenantId:userId (CSRF-Schutz durch kurzes Gültigkeitsfenster des Auth-Codes)
-  const state = `${tenantId}:${user.id}`
+  // Signierter State + Einmal-Wert im Cookie (Sicherheits-Welle 1, Befund S1)
+  const { state, nonce } = erzeugeStateWert({ tenantId, userId: user.id, zweck: 'benutzer' })
 
   // 'common' erlaubt Login aus JEDEM Microsoft-Tenant (multi-tenant App)
   // Kalender-Schreibrecht nur anfordern, wenn der Betrieb es in Entra freigegeben hat (Migration 225)
-  return NextResponse.redirect(m365AuthUrl('common', c.m365_client_id, redirectUri, state, m365ScopeFuer(c)))
+  return setzeNonceCookie(NextResponse.redirect(m365AuthUrl('common', c.m365_client_id, redirectUri, state, m365ScopeFuer(c))), nonce)
 }

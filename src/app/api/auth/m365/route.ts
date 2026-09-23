@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { m365AuthUrl } from '@/lib/m365/graph'
+import { erzeugeStateWert, setzeNonceCookie } from '@/lib/m365/state'
 import { getCurrentMembership } from '@/lib/auth/roles'
 
 export const dynamic = 'force-dynamic'
@@ -16,6 +17,9 @@ export async function GET(req: NextRequest) {
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
+  // Die Betriebs-Mailbox darf nur ein Admin verbinden
+  if (membership?.role !== 'system_admin' && membership?.role !== 'tenant_admin')
+    return NextResponse.json({ fehler: 'Nur Administratoren' }, { status: 403 })
 
   const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
     .select('m365_tenant_id, m365_client_id').eq('tenant_id', tenantId).maybeSingle()
@@ -27,8 +31,9 @@ export async function GET(req: NextRequest) {
   const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? 'software112.icp-consultants.at'
   const proto = req.headers.get('x-forwarded-proto') ?? 'https'
   const redirectUri = `${proto}://${host}/api/auth/m365/callback`
-  const state = `${tenantId}:${user.id}`
+  // Signierter State + Einmal-Wert im Cookie (Sicherheits-Welle 1, Befund S1)
+  const { state, nonce } = erzeugeStateWert({ tenantId, userId: user.id, zweck: 'betrieb' })
   const authUrl = m365AuthUrl(c.m365_tenant_id, c.m365_client_id, redirectUri, state)
 
-  return NextResponse.redirect(authUrl)
+  return setzeNonceCookie(NextResponse.redirect(authUrl), nonce)
 }

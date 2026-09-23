@@ -2,6 +2,8 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { exchangeCodeForTokens, encryptPass, m365ScopeFuer } from '@/lib/m365/graph'
 import { ereignisMelden } from '@/lib/system/ereignis'
+import { pruefeState, loescheNonceCookie, NONCE_COOKIE } from '@/lib/m365/state'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -12,15 +14,21 @@ export async function GET(req: NextRequest) {
   const state = searchParams.get('state') ?? ''
   const error = searchParams.get('error')
 
-  if (error) return NextResponse.redirect(new URL(`/nachrichten?fehler=${error}`, req.url))
-  if (!code) return NextResponse.redirect(new URL('/nachrichten?fehler=no_code', req.url))
-
-  // State parsen: Format tenantId:userId
-  const [tenantId, userId] = state.split(':')
-  if (!tenantId || !userId) {
-    console.error('[m365/user/callback] Ungültiger State:', state)
-    return NextResponse.redirect(new URL('/nachrichten?fehler=invalid_state', req.url))
+  // State prüfen (Signatur, Ablauf, Einmal-Wert aus dem Cookie) und mit der angemeldeten
+  // Sitzung abgleichen – sonst könnte ein fremdes Postfach einem Konto untergeschoben
+  // werden (Sicherheits-Welle 1, Befund S1)
+  const geprueft = pruefeState(state, req.cookies.get(NONCE_COOKIE)?.value, 'benutzer')
+  if (!geprueft) {
+    console.error('[m365/user/callback] Ungültiger oder abgelaufener State')
+    return loescheNonceCookie(NextResponse.redirect(new URL('/nachrichten?fehler=invalid_state', req.url)))
   }
+  const { tenantId, userId } = geprueft
+  const { data: { user: sitzung } } = await (await createSupabaseServerClient()).auth.getUser()
+  if (!sitzung || sitzung.id !== userId)
+    return loescheNonceCookie(NextResponse.redirect(new URL('/nachrichten?fehler=session_mismatch', req.url)))
+
+  if (error) return loescheNonceCookie(NextResponse.redirect(new URL(`/nachrichten?fehler=${encodeURIComponent(error)}`, req.url)))
+  if (!code) return loescheNonceCookie(NextResponse.redirect(new URL('/nachrichten?fehler=no_code', req.url)))
   const admin = createSupabaseAdminClient()
 
   const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
@@ -63,9 +71,9 @@ export async function GET(req: NextRequest) {
     }, { onConflict: 'tenant_id,user_id' })
       if (e) void ereignisMelden({ art: 'db', quelle: 'callback/user_email_connections', meldung: e.message }) }
 
-    return NextResponse.redirect(new URL('/nachrichten?verbunden=1', req.url))
+    return loescheNonceCookie(NextResponse.redirect(new URL('/nachrichten?verbunden=1', req.url)))
   } catch (err) {
     console.error('[m365/user/callback] Fehler:', String(err))
-    return NextResponse.redirect(new URL(`/nachrichten?fehler=${encodeURIComponent(String(err))}`, req.url))
+    return loescheNonceCookie(NextResponse.redirect(new URL(`/nachrichten?fehler=${encodeURIComponent(String(err))}`, req.url)))
   }
 }

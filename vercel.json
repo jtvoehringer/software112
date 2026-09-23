@@ -1,15 +1,4 @@
 {
-  "headers": [
-    {
-      "source": "/api/email/poll",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        }
-      ]
-    }
-  ],
   "crons": [
     {
       "path": "/api/m365/subscribe",

@@ -22,3 +22,15 @@ jobs:
         run: npm install --no-save typescript
       - name: Tenant-Isolation-Guard ausführen
         run: node scripts/check-tenant-isolation.js
+
+  abhaengigkeiten:
+    # Sicherheits-Welle 1 (23.9.2026): bekannte Schwachstellen ab Stufe „hoch“ in
+    # Produktions-Abhängigkeiten lassen den Lauf rot werden (Vertrag: Updates binnen 14 Tagen)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: npm audit (Produktion, ab Stufe hoch)
+        run: npm audit --omit=dev --audit-level=high

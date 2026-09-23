@@ -1,6 +1,8 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { exchangeCodeForTokens, encryptPass } from '@/lib/m365/graph'
+import { pruefeState, loescheNonceCookie, NONCE_COOKIE } from '@/lib/m365/state'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -11,14 +13,18 @@ export async function GET(req: NextRequest) {
   const state = searchParams.get('state') ?? ''
   const error = searchParams.get('error')
 
-  // tenantId zuerst aus dem state parsen, damit JEDE Rückleitung (Erfolg wie
-  // Fehler) auf die konkrete Mandanten-Detailseite geht statt auf die
-  // allgemeine Liste, die m365_ok/m365_error ohnehin nicht auswertet.
-  const [tenantId] = state.split(':')
-  const zurueck = tenantId ? `/admin/mandanten/${tenantId}` : '/admin/mandanten'
+  // State prüfen (Signatur, Ablauf, Einmal-Wert aus dem Cookie) und mit der angemeldeten
+  // Sitzung abgleichen – sonst könnte ein fremdes Postfach untergeschoben werden (Befund S1)
+  const geprueft = pruefeState(state, req.cookies.get(NONCE_COOKIE)?.value, 'betrieb')
+  if (!geprueft) return loescheNonceCookie(NextResponse.redirect(new URL('/admin/mandanten?m365_error=invalid_state', req.url)))
+  const tenantId = geprueft.tenantId
+  const zurueck = `/admin/mandanten/${tenantId}`
+  const { data: { user: sitzung } } = await (await createSupabaseServerClient()).auth.getUser()
+  if (!sitzung || sitzung.id !== geprueft.userId)
+    return loescheNonceCookie(NextResponse.redirect(new URL(`${zurueck}?m365_error=session_mismatch`, req.url)))
 
-  if (error) return NextResponse.redirect(new URL(`${zurueck}?m365_error=${error}`, req.url))
-  if (!code) return NextResponse.redirect(new URL(`${zurueck}?m365_error=no_code`, req.url))
+  if (error) return loescheNonceCookie(NextResponse.redirect(new URL(`${zurueck}?m365_error=${encodeURIComponent(error)}`, req.url)))
+  if (!code) return loescheNonceCookie(NextResponse.redirect(new URL(`${zurueck}?m365_error=no_code`, req.url)))
 
   const admin = createSupabaseAdminClient()
 
@@ -49,8 +55,8 @@ export async function GET(req: NextRequest) {
       m365_user_email:        userEmail,
     }).eq('tenant_id', tenantId)
 
-    return NextResponse.redirect(new URL(`${zurueck}?m365_ok=1`, req.url))
+    return loescheNonceCookie(NextResponse.redirect(new URL(`${zurueck}?m365_ok=1`, req.url)))
   } catch (err) {
-    return NextResponse.redirect(new URL(`${zurueck}?m365_error=${encodeURIComponent(String(err))}`, req.url))
+    return loescheNonceCookie(NextResponse.redirect(new URL(`${zurueck}?m365_error=${encodeURIComponent(String(err))}`, req.url)))
   }
 }
