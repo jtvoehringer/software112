@@ -11,6 +11,7 @@ import { Suspense } from 'react'
 import AssistentWidget from '@/components/assistent/AssistentWidget'
 import Link from '@/components/ui/Link'
 import { ladeTenantKopf } from '@/lib/tenant/kopf'
+import { ladeMfaStand, MFA_PFLICHT_AB } from '@/lib/auth/mfa'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -59,6 +60,11 @@ export default async function DashboardLayout({
 
   const role       = await getCurrentUserRole()
   const membership = await getCurrentMembership()
+
+  // Zwei-Faktor-Pflicht für Super-Admin und Betriebs-Manager (Sicherheits-Welle 2, S3)
+  const mfa = await ladeMfaStand(supabase, role)
+  if (mfa.pflichtAktiv && !mfa.hatFaktor) redirect('/zwei-faktor?pflicht=1')
+  const mfaHinweis = mfa.pflicht && !mfa.hatFaktor
 
   // Anzahl Betriebe des Users (Betrieb-Wechsel-Button) und Profilname parallel
   const [{ count: betriebCount }, { data: profil }] = await Promise.all([
@@ -143,6 +149,12 @@ export default async function DashboardLayout({
         darfSchreiben={canWrite(role)}
         auswertungenSichtbar={canSeeAuswertungen(role)}
       >
+        {mfaHinweis && (
+          <div className="mb-4 px-4 py-2.5 rounded-lg bg-s112-blue-50 border border-s112-blue-100 text-s112-blue-700 text-sm flex items-center justify-between gap-3 flex-wrap">
+            <span>Für Administratoren wird die Zwei-Faktor-Anmeldung ab {new Date(MFA_PFLICHT_AB + 'T00:00:00').toLocaleDateString('de-AT')} Pflicht. Richte sie jetzt in zwei Minuten ein.</span>
+            <Link href="/zwei-faktor" className="font-semibold underline whitespace-nowrap">Jetzt einrichten →</Link>
+          </div>
+        )}
         {billingWarnung && (
           <div className="mb-4 px-4 py-2.5 rounded-lg bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg text-sm flex items-center justify-between gap-3 flex-wrap">
             <span>Es gibt ein Problem mit der letzten Zahlung für Ihr Abo. Bitte aktualisieren Sie Ihre Zahlungsdaten, um eine Sperre zu vermeiden.</span>

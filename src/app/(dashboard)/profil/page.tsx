@@ -132,6 +132,12 @@ export default function ProfilPage() {
       </div>
 
       <div className="bg-white rounded-xl border border-s112-border p-6 mt-6">
+        <h2 className="text-base font-semibold text-s112-text mb-1">Zwei-Faktor-Anmeldung</h2>
+        <p className="text-sm text-s112-text-2 mb-3">Zusätzlich zum Passwort ein Code aus einer Authenticator-App auf dem Handy. Für Administratoren Pflicht, für alle anderen empfohlen.</p>
+        <a href="/zwei-faktor" className="inline-block bg-s112-teal text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90">Einrichten oder verwalten</a>
+      </div>
+
+      <div className="bg-white rounded-xl border border-s112-border p-6 mt-6">
         <h2 className="font-semibold text-s112-text mb-1 inline-flex items-center gap-2"><KeyRound size={16} strokeWidth={1.75} />Passwort ändern</h2>
         <p className="text-xs text-s112-muted mb-4">
           Mindestens 8 Zeichen. Wenn du dich mit Microsoft 365 anmeldest, hast du hier kein Passwort – dann verwaltest du es bei Microsoft.

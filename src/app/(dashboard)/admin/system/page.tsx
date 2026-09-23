@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { ereignisseLaden, type EreignisZeile } from '@/lib/system/ereignis'
 import Link from '@/components/ui/Link'
 import SmokeTestClient from './SmokeTestClient'
+import SchluesselClient from './SchluesselClient'
 
 export const metadata: Metadata = { title: 'Systembericht – software:112' }
 export const dynamic = 'force-dynamic'
@@ -96,6 +97,7 @@ export default async function SystemberichtPage({ searchParams }: { searchParams
       </div>
 
       <SmokeTestClient />
+      <SchluesselClient />
 
       {zeilen.length === 0 && (
         <div className="bg-white border border-s112-border rounded-xl px-4 py-6 text-sm text-s112-muted text-center">

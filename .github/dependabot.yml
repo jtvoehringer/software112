@@ -12,6 +12,12 @@ updates:
       time: "06:00"
       timezone: Europe/Vienna
     open-pull-requests-limit: 5
+    # Große Versionssprünge (z. B. Stripe 17→22, Tailwind 3→4) brauchen eine bewusste
+    # Umstellung und kommen nicht automatisch. Sicherheitsupdates sind davon NICHT betroffen:
+    # Regeln mit update-types gelten nur für normale Versions-Updates.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       kleinere-updates:
         update-types: [minor, patch]

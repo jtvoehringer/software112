@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 // Routen die OHNE Login zugänglich sind
-const PUBLIC_ROUTES = ['/login', '/register', '/auth/callback', '/auth/invite', '/auth/update-password', '/api/email/', '/api/ki-abfrage', '/api/besuchsplanung', '/api/export/', '/api/verkauf-stammdaten']
+const PUBLIC_ROUTES = ['/.well-known/', '/login', '/register', '/auth/callback', '/auth/invite', '/auth/update-password', '/api/email/', '/api/ki-abfrage', '/api/besuchsplanung', '/api/export/', '/api/verkauf-stammdaten']
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -39,6 +39,19 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
+  }
+
+  // Zwei-Faktor (Sicherheits-Welle 2, S3): Wer einen Authenticator eingerichtet hat, muss
+  // nach der Passwort-Anmeldung erst den Code eingeben (Stufe aal2), bevor irgendeine
+  // Seite erreichbar ist. Die Prüfung liest nur das Sitzungs-Token (kein Netzwerkaufruf).
+  if (user && pathname !== '/zwei-faktor' && !pathname.startsWith('/auth/') && !pathname.startsWith('/.well-known/') && pathname !== '/login') {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+    if (aal && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/zwei-faktor'
+      url.search = ''
+      return NextResponse.redirect(url)
+    }
   }
 
   // Eingeloggt + Login-Seite → zum Dashboard

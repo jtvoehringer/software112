@@ -1,0 +1,6 @@
+# Sicherheitslücke in software:112 gefunden? Bitte vertraulich melden.
+# Please report security vulnerabilities in software:112 confidentially.
+Contact: mailto:security@icp-consultants.at
+Expires: 2027-09-30T00:00:00.000Z
+Preferred-Languages: de, en
+Canonical: https://software112.icp-consultants.at/.well-known/security.txt
