@@ -40,9 +40,11 @@ interface Props {
   maxQualitaetsstufe?: string | null
   /** Felder die aus der Pressung abgeleitet werden → gesperrt */
   vonPressung?: boolean
+  /** KAN-35: Grund, warum das Gebinde nicht mehr direkt geändert werden kann (Folgebuchungen) → nur per Umzug */
+  gebindeSperre?: string | null
 }
 
-export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, selectedWeingaertenIds = [], action, maxQualitaetsstufe, vonPressung = false }: Props) {
+export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, selectedWeingaertenIds = [], action, maxQualitaetsstufe, vonPressung = false, gebindeSperre = null }: Props) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -64,7 +66,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
     const raw = new FormData(e.currentTarget)
     const normalized = new FormData()
     raw.forEach((value, key) => {
-      if ((key === 'menge_liter' || key === 'einstandspreis_pro_liter') && typeof value === 'string') {
+      if (key === 'einstandspreis_pro_liter' && typeof value === 'string') {
         normalized.append(key, dezimal(value))
       } else {
         normalized.append(key, value)
@@ -129,21 +131,14 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
           </div>
           <div>
             <label className="form-label">Menge (Liter)</label>
-            {vonPressung ? (
-              <>
-                <input type="hidden" name="menge_liter" value={weinausbau?.menge_liter?.toString().replace('.', ',') ?? ''} />
-                <div className={rdOnly}>
-                  {weinausbau?.menge_liter != null
-                    ? fmtNum(weinausbau.menge_liter, { max: 1 })
-                    : '–'}
-                </div>
-                <p className="text-xs text-s112-muted mt-1">Wird automatisch aus dem Bewegungsbuch berechnet</p>
-              </>
-            ) : (
-              <input name="menge_liter" type="text" inputMode="decimal"
-                defaultValue={weinausbau?.menge_liter?.toString().replace('.', ',') ?? ''}
-                className="form-input" placeholder="z.B. 1.500" />
-            )}
+            {/* KAN-35: Bestand nur anzeigen – geändert wird er ausschließlich über datierte
+                Buchungen (Schwund buchen, Umzug, Füllung, Verkauf); das Formular sendet keine Menge. */}
+            <div className={rdOnly}>
+              {weinausbau?.menge_liter != null
+                ? fmtNum(Number(weinausbau.menge_liter), { max: 2 })
+                : '–'}
+            </div>
+            <p className="text-xs text-s112-muted mt-1">Korrektur über „Schwund buchen“ (datierte Buchung)</p>
           </div>
         </div>
 
@@ -279,12 +274,15 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
           </div>
           <div>
             <label className="form-label">Behälter</label>
-            {vonPressung ? (
+            {vonPressung || gebindeSperre ? (
               <>
                 <input type="hidden" name="behaelter_id" value={weinausbau?.behaelter_id ?? ''} />
                 <div className={rdOnly}>
                   {behaelter.find(b => b.id === weinausbau?.behaelter_id)?.name ?? '–'}
                 </div>
+                {gebindeSperre && !vonPressung && (
+                  <p className="text-xs text-s112-muted mt-1">{gebindeSperre}</p>
+                )}
               </>
             ) : (
               <select name="behaelter_id" defaultValue={weinausbau?.behaelter_id ?? ''} className="form-input">
@@ -318,6 +316,12 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
             <input type="checkbox" name="aktiv" value="true" defaultChecked={weinausbau.aktiv} className="w-4 h-4 accent-s112-teal" />
             <span className="text-sm font-medium text-s112-text-1">Charge aktiv</span>
           </label>
+          {weinausbau.aktiv && Number(weinausbau.menge_liter ?? 0) > 0.01 && (
+            <p className="text-xs text-s112-muted mt-1.5">
+              Deaktivieren bzw. „Abgeschlossen“ ist erst bei leerer Charge möglich – den Wein zuerst abfüllen,
+              umziehen, verkaufen oder als Schwund buchen (bei 0 L wird die Charge automatisch abgeschlossen).
+            </p>
+          )}
         </div>
       )}
 

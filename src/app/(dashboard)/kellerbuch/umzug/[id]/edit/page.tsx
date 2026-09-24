@@ -6,6 +6,9 @@ import { notFound } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import UmziehenFormClient from '@/components/kellerbuch/UmziehenFormClient'
 import { updateUmzugBatch } from '../../../gebinde-actions'
+import { ladeUmzugZeilen, planeUmzugStorno, umzugAlsEingabe, umzugSperrMeldung, nurNotizenAenderbar } from '@/lib/kellerbuch/storno'
+import AktionsFormular from '@/components/ui/AktionsFormular'
+import { Info } from 'lucide-react'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Umzug bearbeiten – software:112' }
@@ -26,26 +29,67 @@ export default async function UmzugEditPage({ params }: { params: Promise<{ id: 
   // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt/bearbeitet werden.
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
-  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
+  if (!tenantId) notFound()
+  const tf = (query: any) => query.eq('tenant_id', tenantId)
 
-  // Datensatz laden (um batch_id zu ermitteln)
-  const { data: rowRaw } = await tf((supabase.from('keller_umzuege') as any)
-    .select('id, umzug_batch_id, datum, notizen, zeilen_typ, von_weinausbau_id, von_behaelter_id, nach_behaelter_id, menge_liter, brutto_liter, schwund_liter')
-    .eq('id', id)).single()
-  const umzug = rowRaw as R | null
-  if (!umzug) notFound()
+  // Alle Zeilen der Buchung (Batch) laden
+  const zeilen = await ladeUmzugZeilen(supabase, tenantId, id)
+  if (!zeilen) notFound()
 
-  const batchId = umzug.umzug_batch_id
+  // Defaults aus den Batch-Zeilen (dieselbe Umrechnung prüft updateUmzugBatch beim Speichern)
+  const eingabe = umzugAlsEingabe(zeilen)
 
-  // Alle Batch-Zeilen laden
-  let batchRecs: R[] = []
-  if (batchId) {
-    const { data: batchData } = await tf((supabase.from('keller_umzuege') as any)
-      .select('id, zeilen_typ, von_weinausbau_id, von_behaelter_id, nach_behaelter_id, menge_liter, brutto_liter, schwund_liter, datum, notizen')
-      .eq('umzug_batch_id', batchId))
-    batchRecs = (batchData ?? []) as R[]
-  } else {
-    batchRecs = [umzug]
+  // KAN-35: Mengen, Gebinde und Datum nur änderbar, solange die Buchung stornierbar ist
+  // (Ziel-Charge seither nicht weiterbewegt, Rückbuchung vollständig möglich). Bei einer
+  // Schwundbuchung nie – nur die Notizen (falsch erfasst: stornieren und neu erfassen).
+  const plan = await planeUmzugStorno(supabase, tenantId, zeilen)
+
+  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
+
+  const kopf = (
+    <div className="flex items-center gap-2 text-sm text-s112-muted">
+      <Link href="/kellerbuch/gebinde?tab=umziehen" className="hover:text-s112-blue-700 transition-colors">
+        Umziehen
+      </Link>
+      <span>/</span>
+      <span className="text-s112-text-1 font-medium">Bearbeiten</span>
+    </div>
+  )
+
+  if (nurNotizenAenderbar(plan)) {
+    return (
+      <div className="max-w-2xl space-y-6">
+        {kopf}
+        <h1 className="text-2xl font-semibold text-s112-text">{plan.istSchwund ? 'Schwundbuchung bearbeiten' : 'Umzug bearbeiten'}</h1>
+
+        <div className="flex items-start gap-2 rounded-lg border border-s112-warn/30 bg-s112-warn-bg px-4 py-3 text-sm text-s112-warn-fg">
+          <Info size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" />
+          <span>{umzugSperrMeldung(plan, 'aendern')}</span>
+        </div>
+
+        {/* Nur Notizen: Quellen, Ziele und Datum gehen unverändert mit, updateUmzugBatch erkennt
+            daran, dass sich höchstens die Notizen ändern */}
+        <AktionsFormular action={updateUmzugBatch.bind(null, eingabe.ersteId)} className="card p-6 space-y-4">
+          <input type="hidden" name="quellen_json" value={JSON.stringify(eingabe.quellen)} />
+          <input type="hidden" name="ziele_json" value={JSON.stringify(eingabe.ziele)} />
+          <input type="hidden" name="datum" value={eingabe.datum} />
+          <div>
+            <label htmlFor="umzug-notizen" className={labelCls}>Notizen</label>
+            <input id="umzug-notizen" name="notizen" defaultValue={eingabe.notizen} className={inputCls} />
+          </div>
+          <button type="submit"
+            className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+            Notizen speichern
+          </button>
+        </AktionsFormular>
+
+        <Link href="/kellerbuch/gebinde?tab=umziehen"
+          className="inline-block text-sm text-s112-text-2 hover:text-s112-text-1 transition-colors">
+          ← Abbrechen
+        </Link>
+      </div>
+    )
   }
 
   // Gebinde + Chargen laden
@@ -60,69 +104,29 @@ export default async function UmzugEditPage({ params }: { params: Promise<{ id: 
   const gebinde = gebindeRows.map(b => ({ id: b.id, name: b.anzeigeName, aktiv: b.aktiv, volumen_liter: b.volumen_liter })) as R[]
   const chargen = (chargenRaw ?? []) as R[]
 
-  // Defaults aus Batch-Zeilen extrahieren
-  type Quelle = { weinausbau_id: string; brutto: number }
-  type Ziel   = { behaelter_id: string; menge_netto: number }
-
-  const isNewFormat = batchRecs.some(r => r.zeilen_typ === 'quelle' || r.zeilen_typ === 'ziel')
-
-  let defaultQuellen: Quelle[]
-  let defaultZiele: Ziel[]
-  let defaultDatum: string
-  let defaultNotizen: string
-  let ersteId: string
-
-  if (isNewFormat) {
-    const quelleRecs = batchRecs.filter(r => r.zeilen_typ === 'quelle')
-    const zielRecs   = batchRecs.filter(r => r.zeilen_typ === 'ziel')
-    defaultQuellen   = quelleRecs.map(r => ({ weinausbau_id: r.von_weinausbau_id ?? '', brutto: parseFloat(r.brutto_liter) || 0 }))
-    defaultZiele     = zielRecs.map(r => ({ behaelter_id: r.nach_behaelter_id ?? '', menge_netto: parseFloat(r.menge_liter) || 0 }))
-    defaultDatum     = quelleRecs[0]?.datum ?? umzug.datum
-    defaultNotizen   = quelleRecs[0]?.notizen ?? ''
-    ersteId          = quelleRecs[0]?.id ?? umzug.id
-  } else {
-    // Altes Format: alle Zeilen teilen dieselbe Quelle, jede Zeile hat ein Ziel
-    const hauptRec = batchRecs.find(r => r.brutto_liter != null) ?? batchRecs[0]
-    const brutto = parseFloat(hauptRec?.brutto_liter ?? '0') ||
-      batchRecs.reduce((s: number, r: R) =>
-        s + (parseFloat(r.menge_liter) || 0) + (parseFloat(r.schwund_liter) || 0), 0)
-    defaultQuellen   = [{ weinausbau_id: hauptRec?.von_weinausbau_id ?? '', brutto }]
-    defaultZiele     = batchRecs.map(r => ({ behaelter_id: r.nach_behaelter_id ?? '', menge_netto: parseFloat(r.menge_liter) || 0 }))
-    defaultDatum     = umzug.datum
-    defaultNotizen   = hauptRec?.notizen ?? ''
-    ersteId          = batchRecs[0]?.id ?? umzug.id
-  }
-
-  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
-  const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
-
   return (
     <div className="max-w-2xl space-y-6">
-      <div className="flex items-center gap-2 text-sm text-s112-muted">
-        <Link href="/kellerbuch/gebinde?tab=umziehen" className="hover:text-s112-blue-700 transition-colors">
-          Umziehen
-        </Link>
-        <span>/</span>
-        <span className="text-s112-text-1 font-medium">Bearbeiten</span>
-      </div>
+      {kopf}
 
       <h1 className="text-2xl font-semibold text-s112-text">Umzug bearbeiten</h1>
 
       <p className="text-sm text-s112-muted">
-        Beim Speichern wird die bestehende Buchung storniert und neu angelegt. Die Bestände werden entsprechend angepasst.
+        Ändern sich Mengen, Gebinde oder Datum, wird die bestehende Buchung storniert und neu angelegt – die
+        Bestände werden entsprechend angepasst. Das ist nur möglich, solange die Ziel-Charge seither nicht
+        weiterbewegt wurde. Ändern sich nur die Notizen, bleibt die Buchung bestehen.
       </p>
 
       <div className="card p-6">
         <UmziehenFormClient
           gebinde={gebinde}
           chargen={chargen}
-          action={updateUmzugBatch.bind(null, ersteId)}
+          action={updateUmzugBatch.bind(null, eingabe.ersteId)}
           inputCls={inputCls}
           labelCls={labelCls}
-          defaultQuellen={defaultQuellen}
-          defaultZiele={defaultZiele}
-          defaultDatum={defaultDatum}
-          defaultNotizen={defaultNotizen}
+          defaultQuellen={eingabe.quellen}
+          defaultZiele={eingabe.ziele}
+          defaultDatum={eingabe.datum}
+          defaultNotizen={eingabe.notizen}
           submitLabel="Speichern"
         />
       </div>

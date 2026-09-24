@@ -6,6 +6,7 @@ import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { notFound } from 'next/navigation'
 import { manuellSchwundBuchen } from '../../../actions'
+import AktionsFormular from '@/components/ui/AktionsFormular'
 import { Boxes, Droplet } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
@@ -431,6 +432,14 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
   const aktuellDB = aktiveChargen.reduce((s: number, c: R) => s + (parseFloat(c.menge_liter) || 0), 0)
   const aktuell = finalSaldo > 0 ? finalSaldo : aktuellDB
 
+  // KAN-35: „Schwund ausbuchen“ ist eine reine Nachbuchung ins Bewegungsbuch (schwund_buchen mit
+  // p_bestand_mindern = false) – der Bestand der Charge ändert sich dabei nicht. Angeboten wird
+  // sie nur, wenn das Bewegungsbuch MEHR zeigt als die gebuchten Bestände aller Chargen dieses
+  // Gebindes (auch abgeschlossener), vorbelegt mit genau dieser Differenz. Echter Schwund einer
+  // Charge (Bestand mindern) läuft über „Schwund buchen“ auf der Chargen-Seite.
+  const gebuchterBestand = ((chargenRaw ?? []) as R[]).reduce((s: number, c: R) => s + (parseFloat(c.menge_liter) || 0), 0)
+  const nichtVerbuchterSchwund = Math.round((finalSaldo - gebuchterBestand) * 100) / 100
+
   const kapazitaet = bh.volumen_liter ? parseFloat(bh.volumen_liter) : null
   const auslastung = kapazitaet && kapazitaet > 0 ? Math.min(100, (aktuell / kapazitaet) * 100) : null
   const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
@@ -522,20 +531,23 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
         </section>
       )}
 
-      {writeOk && finalSaldo > 0.01 && (chargenRaw ?? []).length > 0 && (
+      {writeOk && nichtVerbuchterSchwund >= 0.01 && (chargenRaw ?? []).length > 0 && (
         <section className="card p-5 border-s112-warn/30 bg-s112-warn-bg space-y-3">
           <div className="flex items-start gap-2">
             <Droplet className="w-5 h-5 text-s112-warn-fg shrink-0" />
             <div>
-              <p className="text-sm font-semibold text-s112-warn-fg">Schwund ausbuchen</p>
+              <p className="text-sm font-semibold text-s112-warn-fg">Schwund ausbuchen (Nachbuchung)</p>
               <p className="text-xs text-s112-warn-fg mt-0.5">
-                Laut Bewegungsbuch sind noch{' '}
-                <strong>{fmtLiter(finalSaldo)}</strong>{' '}
-                nicht verbuchter Schwund vorhanden. Hier kann der Differenzbetrag manuell gebucht werden.
+                Laut Bewegungsbuch sind noch <strong>{fmtLiter(finalSaldo)}</strong> im Gebinde, gebucht
+                sind <strong>{fmtLiter(gebuchterBestand)}</strong> – also{' '}
+                <strong>{fmtLiter(nichtVerbuchterSchwund)}</strong> nicht verbuchter Schwund. Hier kann die
+                Differenz als datierte Schwundzeile nachgebucht werden; der Bestand der Charge ändert sich
+                dabei nicht. Echten Schwund einer Charge bitte über „Schwund buchen“ auf der Chargen-Seite erfassen.
               </p>
             </div>
           </div>
-          <form action={manuellSchwundBuchen} className="flex flex-wrap gap-3 items-end">
+          <AktionsFormular action={manuellSchwundBuchen} className="flex flex-wrap gap-3 items-end"
+            erfolgsMeldung="Schwund nachgebucht." fehlerErsatz="Schwund konnte nicht gebucht werden">
             <input type="hidden" name="behaelter_id" value={id} />
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Charge</label>
@@ -554,7 +566,8 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
                 type="number"
                 step="0.01"
                 min="0.01"
-                defaultValue={finalSaldo.toFixed(2)}
+                max={nichtVerbuchterSchwund.toFixed(2)}
+                defaultValue={nichtVerbuchterSchwund.toFixed(2)}
                 required
                 className={`w-28 ${inputCls}`}
               />
@@ -573,9 +586,9 @@ export default async function BehaelterBewegungsPage({ params }: { params: Promi
               type="submit"
               className="bg-s112-warn-fg text-white px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-colors"
             >
-              Schwund buchen
+              Schwund nachbuchen
             </button>
-          </form>
+          </AktionsFormular>
         </section>
       )}
 

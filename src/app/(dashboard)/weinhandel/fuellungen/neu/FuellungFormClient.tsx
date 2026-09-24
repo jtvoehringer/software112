@@ -11,6 +11,7 @@ import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import type { CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
 
 type Charge = {
   id: string
@@ -78,11 +79,11 @@ export default function FuellungFormClient({
   chargen: Charge[]
   dacAntraege: DacAntrag[]
   customWeinbaugebiete: CustomWeinbaugebiet[]
-  action: (fd: FormData) => Promise<{ id: string }>
+  action: (fd: FormData) => Promise<{ id: string; hinweis?: string }>
   defaultChargeId?: string
 }) {
   const router = useRouter()
-  const [, startTransition] = useTransition()
+  const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const defaultCharge = chargen.find(c => c.id === defaultChargeId) ?? null
 
@@ -137,13 +138,14 @@ export default function FuellungFormClient({
     return null
   }, [anzahl, groesse])
 
-  const schwund = berechneteLiter !== null && verfuegbar > 0
+  const schwund = berechneteLiter !== null && selectedCharge
     ? verfuegbar - berechneteLiter
     : null
 
-  // Toleranz = eine Flaschengröße (Rundungstoleranz beim Abfüllen)
-  const bottleL = parseInt(groesse) / 1000
-  const schwundWarning = schwund !== null && (schwund < -bottleL || schwund > verfuegbar * 0.2)
+  // KAN-35: keine Toleranz mehr (bisher eine Flaschengröße, danach wurde die Charge still
+  // auf 0 gekappt) – der Server lehnt jede Überabfüllung über die Rundung hinaus ab.
+  const ueberabfuellung = schwund !== null && schwund < -0.005
+  const schwundWarning = schwund !== null && (ueberabfuellung || schwund > verfuegbar * 0.2)
 
   const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
   const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
@@ -175,7 +177,14 @@ export default function FuellungFormClient({
     const fd = new FormData(e.currentTarget)
     startTransition(async () => {
       try {
-        await action(fd)
+        const r = await action(fd)
+        if (r?.hinweis) {
+          // Füllung ist angelegt, ein Folgeschritt (z. B. Schwundbuchung) fehlte – nicht erneut
+          // absenden (sonst doppelte Füllung), sondern in der Bearbeitung nachholen
+          window.alert(r.hinweis)
+          router.push(`/weinhandel/fuellungen/${r.id}/edit`)
+          return
+        }
         router.push('/weinhandel')
       } catch (err) {
         setError(fehlerText(err, 'Fehler beim Speichern'))
@@ -394,15 +403,15 @@ export default function FuellungFormClient({
         {/* Schwund-Box */}
         {schwund !== null && berechneteLiter !== null && (
           <div className={`rounded-lg px-4 py-3 text-sm ${
-            schwund < -bottleL
+            ueberabfuellung
               ? 'bg-s112-err-bg border border-s112-err/30 text-s112-err-fg'
               : schwundWarning
               ? 'bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg'
               : 'bg-s112-ok-bg border border-s112-ok/30 text-s112-ok-fg'
           }`}>
-            {schwund < -bottleL ? (
-              <span className="inline-flex items-start gap-1.5"><AlertTriangle size={15} strokeWidth={1.75} className="mt-0.5 shrink-0" /><span><strong>Überabfüllung:</strong> Abgefüllte Menge ({fmtL(berechneteLiter)}) übersteigt verfügbaren Bestand ({fmtL(verfuegbar)}) um {fmtL(Math.abs(schwund))}.</span></span>
-            ) : schwund < bottleL ? (
+            {ueberabfuellung ? (
+              <span className="inline-flex items-start gap-1.5"><AlertTriangle size={15} strokeWidth={1.75} className="mt-0.5 shrink-0" /><span><strong>Überabfüllung:</strong> Abgefüllte Menge ({fmtL(berechneteLiter)}) übersteigt den Bestand der Charge ({fmtL(verfuegbar)}) um {fmtL(Math.abs(schwund))}. So kann die Füllung nicht gespeichert werden – bitte die Flaschenzahl prüfen. Ist tatsächlich mehr Wein vorhanden: {KORREKTUR_NACH_OBEN_HINWEIS}</span></span>
+            ) : schwund < 0.01 ? (
               <span className="inline-flex items-center gap-1.5"><CheckCircle2 size={15} strokeWidth={1.75} />Charge wird vollständig abgefüllt. Kein/minimaler Schwund.</span>
             ) : (
               <span className="inline-flex items-start gap-1.5"><Droplet size={15} strokeWidth={1.75} className="mt-0.5 shrink-0" /><span><strong>Restwein / Schwund:</strong> {fmtL(schwund)} verbleiben nach der Abfüllung im Tank.</span></span>
@@ -414,7 +423,7 @@ export default function FuellungFormClient({
             vorbelegten Häkchens, damit nicht versehentlich hohe Restmengen als Schwund
             ausgebucht werden. Das Häkchen bleibt zusätzlich als schnelle Vorauswahl für
             geübtere User erhalten - beide Bedienelemente steuern denselben Zustand. */}
-        {schwund !== null && schwund > 0.01 && (
+        {schwund !== null && schwund >= 0.01 && (
           <div className="rounded-lg border border-s112-warn/30 bg-s112-warn-bg px-4 py-3 space-y-3">
             <p className="text-sm text-s112-warn-fg inline-flex items-start gap-1.5">
               <AlertTriangle size={15} strokeWidth={1.75} className="mt-0.5 shrink-0" />
@@ -536,8 +545,9 @@ export default function FuellungFormClient({
       <div className="flex gap-3">
         <button
           type="submit"
-          className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
-          Füllung anlegen
+          disabled={isPending || ueberabfuellung}
+          className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
+          {isPending ? 'Wird angelegt …' : 'Füllung anlegen'}
         </button>
         <Link href="/weinhandel" className="px-6 py-2 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text transition-colors">
           Abbrechen

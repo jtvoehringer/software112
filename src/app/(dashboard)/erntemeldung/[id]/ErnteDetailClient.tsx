@@ -320,13 +320,20 @@ function ParzellForm({
   const [qualitaetEdit, setQualitaetEdit] = useState<string | null>(parzelle?.qualitaetsstufe ?? null)
   const effectiveQualitaetEdit = qualitaetEdit ?? derivedQualitaetEdit
   const verfuegbareGSTs = selWgId ? (gstByWeingarten[selWgId] ?? []) : []
+  const [error, setError] = useState<string | null>(null)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
+    setError(null)
     startTransition(async () => {
-      await upsertErnteParzelle(jahrgangId, fd)
-      onDone()
+      try {
+        await upsertErnteParzelle(jahrgangId, fd)
+        onDone()
+      } catch (err) {
+        // z. B. KAN-35-Sperre: Lesemenge schon verpresst/verkauft
+        setError(fehlerText(err))
+      }
     })
   }
 
@@ -421,6 +428,7 @@ function ParzellForm({
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
       </div>
+      {error && <p role="alert" className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{error}</p>}
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending}
           className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
@@ -451,17 +459,34 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+  const [leseFehler, setLeseFehler] = useState<string | null>(null)
+  const [amaFehler, setAmaFehler]   = useState<string | null>(null)
 
   const gesamtKg = parzellen.reduce((s, p) => s + (p.menge_kg ?? 0), 0)
 
   function handleDelete(id: string) {
     if (!confirm('Lesedaten löschen?')) return
-    startTransition(() => deleteErnteParzelle(id, jahrgang.id))
+    setLeseFehler(null)
+    startTransition(async () => {
+      try {
+        await deleteErnteParzelle(id, jahrgang.id)
+      } catch (err) {
+        // z. B. KAN-35-Sperre: Lesemenge schon verpresst/verkauft
+        setLeseFehler(fehlerText(err, 'Die Lesedaten konnten nicht gelöscht werden.'))
+      }
+    })
   }
 
   function handleAMA() {
     if (!confirm('AMA-Meldung aus aktuellen Lesedaten aufbauen?')) return
-    startTransition(() => createOrUpdateAMAMeldung(jahrgang.id))
+    setAmaFehler(null)
+    startTransition(async () => {
+      try {
+        await createOrUpdateAMAMeldung(jahrgang.id)
+      } catch (err) {
+        setAmaFehler(fehlerText(err, 'Die AMA-Meldung konnte nicht aufgebaut werden.'))
+      }
+    })
   }
 
   const heute = new Date().toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -499,6 +524,13 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
             </button>
           </div>
         </div>
+
+        {leseFehler && (
+          <div role="alert" className="mb-4 flex items-start gap-2 text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2" data-print="hide">
+            <span className="flex-1">{leseFehler}</span>
+            <button type="button" onClick={() => setLeseFehler(null)} aria-label="Meldung schließen" className="shrink-0 font-semibold hover:opacity-70">×</button>
+          </div>
+        )}
 
         {showForm && !editId && (
           <div className="mb-4" data-print="hide">
@@ -697,6 +729,12 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
                 </table>
               )}
 
+              {amaFehler && (
+                <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-3 py-2 text-xs mb-3" data-print="hide">
+                  {amaFehler}
+                </div>
+              )}
+
               {amaMeldung.n8n_fehler && (
                 <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-3 py-2 text-xs mb-3">
                   Fehler: {amaMeldung.n8n_fehler}
@@ -715,6 +753,11 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
               <p className="text-sm text-s112-muted mb-4" data-print="hide">
                 Lesedaten aus {parzellen.length} Parzellen zu AMA-Meldung aggregieren.
               </p>
+              {amaFehler && (
+                <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-3 py-2 text-xs mb-3" data-print="hide">
+                  {amaFehler}
+                </div>
+              )}
               <button onClick={handleAMA} disabled={parzellen.length === 0}
                 data-print="hide"
                 className="bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">

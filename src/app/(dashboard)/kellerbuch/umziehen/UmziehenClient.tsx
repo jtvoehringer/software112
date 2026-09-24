@@ -370,7 +370,11 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
 
 // ── Protokoll-Zeile mit Edit / Delete ─────────────────────────────────────────
 
-function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
+function UmzugZeile({ u, writeOk, adminOk }: { u: UmzugRow; writeOk: boolean; adminOk: boolean }) {
+  // KAN-35: Bei Schwundbuchungen sind Datum/Menge nie änderbar (nur Notizen); stornieren dürfen
+  // sie nur Betriebs-Manager. Umzüge sind nur stornierbar bzw. im Datum änderbar, solange die
+  // Ziel-Charge nicht weiterbewegt wurde – der Server meldet sonst den Grund.
+  const istSchwund = u.umzug_typ === 'schwund'
   const [editing, setEditing]       = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [datum, setDatum]           = useState(u.datum)
@@ -399,7 +403,7 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
         await deleteUmzug(u.id)
         router.refresh()   // Protokoll-Liste aktualisieren
       } catch (err) {
-        setError(fehlerText(err, 'Fehler beim Löschen'))
+        setError(fehlerText(err, 'Storno fehlgeschlagen'))
         setConfirming(false)
       }
     })
@@ -409,8 +413,13 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
     return (
       <tr className="bg-s112-blue-50/50 border-b border-s112-border">
         <td className="px-3 py-2">
-          <input type="date" value={datum} onChange={e => setDatum(e.target.value)}
-            className="border border-s112-border rounded px-2 py-1 text-xs w-32" />
+          {istSchwund ? (
+            <span className="text-xs text-s112-muted tabular-nums">{new Date(u.datum).toLocaleDateString('de-AT')}</span>
+          ) : (
+            <input type="date" value={datum} onChange={e => setDatum(e.target.value)}
+              title="Ein neues Datum gilt für den ganzen Umzug (Quell- und Zielzeilen)"
+              className="border border-s112-border rounded px-2 py-1 text-xs w-32" />
+          )}
         </td>
         <td className="px-3 py-2 text-xs text-s112-text-2">{u.von_name}</td>
         <td className="px-3 py-2 text-xs text-s112-text-2">{u.nach_name}</td>
@@ -419,7 +428,7 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
           <input type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
             placeholder="Notizen…"
             className="border border-s112-border rounded px-2 py-1 text-xs w-full min-w-[120px]" />
-          {error && <p className="text-xs text-s112-err-fg mt-0.5">{error}</p>}
+          {error && <p role="alert" className="text-xs text-s112-err-fg mt-0.5 whitespace-normal break-words">{error}</p>}
         </td>
         <td className="px-3 py-2 text-right whitespace-nowrap">
           <button onClick={handleSave} disabled={pending}
@@ -443,6 +452,9 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
         {u.umzug_typ === 'filtration' && (
           <span className="ml-1.5 text-xs bg-s112-blue-100 text-s112-blue-700 px-1.5 py-0.5 rounded-full">Filtration</span>
         )}
+        {istSchwund && (
+          <span className="ml-1.5 text-xs bg-s112-warn-bg text-s112-warn-fg px-1.5 py-0.5 rounded-full">Schwund</span>
+        )}
       </td>
       <td className="px-4 py-2.5 text-s112-text-2 text-sm">{u.nach_name}</td>
       <td className="px-4 py-2.5 text-right tabular-nums text-s112-blue-700 font-semibold text-sm">{fmt(u.menge_liter)}</td>
@@ -454,7 +466,7 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
         <td className="px-4 py-2.5 text-right whitespace-nowrap">
           {confirming ? (
             <span className="inline-flex items-center gap-1">
-              <span className="text-xs text-s112-err-fg">Wirklich löschen?</span>
+              <span className="text-xs text-s112-err-fg whitespace-normal">{istSchwund ? 'Schwundbuchung stornieren? Die Menge wird auf die Charge zurückgebucht.' : 'Umzug stornieren? Die Bestände werden zurückgebucht.'}</span>
               <button onClick={handleDelete} disabled={pending}
                 className="text-xs text-white bg-s112-err hover:bg-s112-err-fg px-2 py-0.5 rounded disabled:opacity-40">
                 {pending ? '…' : 'Ja'}
@@ -465,14 +477,18 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
           ) : (
             <span className="inline-flex items-center gap-2">
               <button onClick={() => setEditing(true)}
-                title="Bearbeiten" aria-label="Bearbeiten"
+                title={istSchwund ? 'Notizen bearbeiten' : 'Bearbeiten'} aria-label="Bearbeiten"
                 className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={15} strokeWidth={1.75} /></button>
-              <button onClick={() => setConfirming(true)}
-                title="Löschen" aria-label="Löschen"
-                className="text-s112-err hover:text-s112-err-fg"><Trash2 size={15} strokeWidth={1.75} /></button>
+              {(!istSchwund || adminOk) && (
+                <button onClick={() => setConfirming(true)}
+                  title={istSchwund ? 'Stornieren (nur wenn an der Charge seither nichts gebucht wurde)' : 'Stornieren (nur solange die Ziel-Charge nicht weiterbewegt wurde)'} aria-label="Stornieren"
+                  className="text-s112-err hover:text-s112-err-fg"><Trash2 size={15} strokeWidth={1.75} /></button>
+              )}
             </span>
           )}
-          {error && <p className="text-xs text-s112-err-fg mt-0.5">{error}</p>}
+          {error && (
+            <p role="alert" className="text-xs text-s112-err-fg mt-0.5 ml-auto w-[260px] max-w-[70vw] text-left whitespace-normal break-words">{error}</p>
+          )}
         </td>
       )}
     </tr>
@@ -482,12 +498,13 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 
 export default function UmziehenClient({
-  behaelterMitChargen, behaelter, umzuege, writeOk, initialShowForm = false,
+  behaelterMitChargen, behaelter, umzuege, writeOk, adminOk = false, initialShowForm = false,
 }: {
   behaelterMitChargen: BehaelterMitCharge[]
   behaelter:           Behaelter[]
   umzuege:             UmzugRow[]
   writeOk:             boolean
+  adminOk?:            boolean
   initialShowForm?:    boolean
 }) {
   const [showForm, setShowForm] = useState(initialShowForm)
@@ -536,7 +553,7 @@ export default function UmziehenClient({
               </thead>
               <tbody>
                 {umzuege.map(u => (
-                  <UmzugZeile key={u.id} u={u} writeOk={writeOk} />
+                  <UmzugZeile key={u.id} u={u} writeOk={writeOk} adminOk={adminOk} />
                 ))}
               </tbody>
             </table>

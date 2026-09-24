@@ -1,18 +1,40 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { AktionsFehler } from '@/lib/fehler'
-import { dezimal } from '@/lib/format'
+import { AktionsFehler, dbFehlerText, fehlerText } from '@/lib/fehler'
+import { dezimal, fmtNum } from '@/lib/format'
+import {
+  folgebuchungenDerZielcharge, zielchargeText, zukaufVerweise, traubenGebundenText, loeschSperreText,
+} from './sperren'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
-async function getTenantId(): Promise<string> {
+// ── KAN-35 (24.09.2026): Zukauf = Beleg und Zugang ─────────────────────────────
+// zukauf_posten.menge ist die Belegmenge (Transportbescheinigung/Eingangsrechnung) und
+// – bei Wein/Most mit Gebinde – der Zugang der Zielcharge (View v_behaelter_fuellstand,
+// Bewegungsbuch der Charge). Deshalb:
+//  - Menge, Einheit, Gebinde und Art nur ändern, solange an der Zielcharge keine
+//    Folgebuchungen hängen (lib/kellerbuch/folgebuchungen.ts, siehe sperren.ts);
+//  - Trauben: Menge nie unter die bereits verpressten bzw. verkauften kg, Art nicht mehr wechseln;
+//  - Löschen (Soft-Delete) nur ohne Folgebuchungen und ohne Pressung/Traubenverkauf;
+//  - keine stillen Mengenkorrekturen (kein Math.max(0, …)) – vorher prüfen und ablehnen.
+
+// Mengenvergleich (Formular: Schrittweite 0,001)
+const TOLERANZ = 0.0005
+const runde = (v: number) => Math.round(v * 10000) / 10000
+
+/** Aktiver Mandant + Schreibrecht Warenwirtschaft. RLS prüft zusätzlich – hier für eine
+ *  klare Meldung statt eines still weggefilterten Updates. */
+async function schreibKontext(): Promise<string> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
+  if (!canWrite(membership, 'warenwirtschaft')) {
+    throw new AktionsFehler('Keine Berechtigung: Zukäufe erfassen, ändern und löschen dürfen nur Betriebs-Manager und Mitarbeiter mit Freigabe für die Warenwirtschaft.')
+  }
   return membership.tenantId
 }
 
@@ -45,77 +67,48 @@ async function createZukaufCharge(
     })
     .select('id')
     .single()
-  if (error) throw new AktionsFehler((error as AR).message)
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Charge für den Zukauf konnte nicht angelegt werden'))
   return (neu as AR).id
 }
 
-// Bugfix 7.8.2026: bereinigCharge() prüfte bisher NUR Umzüge/Füllungen und übersah dabei
-// Tank-Verkäufe und Verschneidungen (siehe chargeHatBewegungen() oben, die genau deshalb
-// bereits erweitert wurde – aber bereinigCharge() wurde dabei nicht mitgezogen). Wurde ein
-// Zukauf gelöscht/bearbeitet, dessen Charge zwischenzeitlich per Tankverkauf oder Verschnitt
-// TEILWEISE reduziert wurde (aber nie umgezogen/abgefüllt), landete die Charge fälschlich auf
-// "Abgeschlossen", OHNE dass die reale Restmenge auf 0 gesetzt wurde – das Kellerbuch zeigte
-// dann eine "abgeschlossene" Charge mit noch vorhandenem Bestand (siehe Klärung 7.8.2026).
-// Jetzt: dieselbe vollständige Bewegungsprüfung wie chargeHatBewegungen(). Wurde die Charge
-// bereits IRGENDWIE bewegt, bleibt sie unangetastet (der reale Bestand darf hier nicht blind
-// genullt werden) – nur eine Charge OHNE jede Bewegung ist eine echte Karteileiche und darf
-// sicher geschlossen + auf 0 gesetzt werden.
-async function bereinigCharge(supabase: any, weinausbauId: string, tenantId: string): Promise<void> {
-  const hatBewegungen = await chargeHatBewegungen(supabase, weinausbauId, tenantId)
-  if (hatBewegungen) return
-  { const { error: e } = await (supabase.from('weinausbau') as any)
-    .update({ menge_liter: 0, status: 'abgeschlossen', aktiv: false })
+/** Charge des Zukaufs ändern – Fehler und „keine Zeile geändert“ (RLS, z. B. ohne
+ *  Schreibfreigabe Kellerbuch) werden gemeldet, nie still übergangen. */
+async function chargeAendern(supabase: any, weinausbauId: string, tenantId: string, werte: AR): Promise<void> {
+  const { data, error } = await (supabase.from('weinausbau') as any)
+    .update(werte)
     .eq('id', weinausbauId)
     .eq('tenant_id', tenantId)
-    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
+    .select('id')
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen (weinausbau)'))
+  if (!(data as AR[] | null)?.length) {
+    throw new AktionsFehler('Die Charge des Zukaufs konnte nicht geändert werden – fehlt die Schreibfreigabe für das Kellerbuch?')
+  }
 }
 
-// Prüft, ob gegen eine Weinausbau-Charge bereits irgendeine Bewegung gebucht wurde (abgefüllt,
-// umgezogen, verkauft ab Tank oder verschnitten). Wichtig für updateZukauf (siehe dort) – im
-// Unterschied zu bereinigCharge() zählen hier zusätzlich Tank-Verkäufe und Verschneidungen mit,
-// weil eine bereits "bewegte" Charge beim Bearbeiten des zugehörigen Zukaufs NICHT mehr blind
-// deaktiviert/neu angelegt werden darf (das würde den physisch noch vorhandenen Restbestand aus
-// allen Übersichten verschwinden lassen, siehe Bugreport 5.8.2026 – Kellerbuch zeigte "Kein Wein
-// in diesem Behälter", obwohl laut Bewegungsbuch/View noch mehrere tausend Liter vorhanden waren).
-async function chargeHatBewegungen(supabase: any, weinausbauId: string, tenantId: string): Promise<boolean> {
-  const [
-    { count: umzugCount },
-    { count: fuellungCount },
-    { count: verkaufCount },
-    { count: verschnQuelleCount },
-    { count: verschnZielCount },
-  ] = await Promise.all([
-    (supabase.from('keller_umzuege') as any)
-      .select('id', { count: 'exact', head: true })
-      .or(`von_weinausbau_id.eq.${weinausbauId},nach_weinausbau_id.eq.${weinausbauId}`)
-      .eq('tenant_id', tenantId),
-    (supabase.from('fuellungen') as any)
-      .select('id', { count: 'exact', head: true })
-      .eq('weinausbau_id', weinausbauId)
-      .eq('tenant_id', tenantId),
-    (supabase.from('verkauf_positionen') as any)
-      .select('id', { count: 'exact', head: true })
-      .eq('weinausbau_id', weinausbauId)
-      .eq('tenant_id', tenantId),
-    (supabase.from('verschneidung_quellen') as any)
-      .select('id', { count: 'exact', head: true })
-      .eq('quell_weinausbau_id', weinausbauId),
-    (supabase.from('verschneidungen') as any)
-      .select('id', { count: 'exact', head: true })
-      .eq('ziel_weinausbau_id', weinausbauId)
-      .eq('tenant_id', tenantId),
-  ])
-  return (umzugCount ?? 0) > 0 || (fuellungCount ?? 0) > 0 || (verkaufCount ?? 0) > 0
-    || (verschnQuelleCount ?? 0) > 0 || (verschnZielCount ?? 0) > 0
+// Schließt die Zielcharge eines Zukaufs ab (0 L, abgeschlossen, inaktiv).
+// KAN-35: NUR aufrufen, nachdem folgebuchungenDerZielcharge() keine Folgebuchungen gemeldet
+// hat – dann war dieser Zukauf der einzige Zugang und nichts ist abgegangen, 0 L ist also
+// exakt. Bis 24.09.2026 prüfte die Funktion selbst und blieb bei Bewegungen still stehen,
+// der Zukauf wurde trotzdem gelöscht bzw. abgekoppelt und der Zugang verschwand rückwirkend
+// (Sandbox: Charge „Weisser Riesling“ auf −10.100 L). Jetzt sperren die Aufrufer vorher.
+async function bereinigCharge(supabase: any, weinausbauId: string, tenantId: string): Promise<void> {
+  await chargeAendern(supabase, weinausbauId, tenantId, { menge_liter: 0, status: 'abgeschlossen', aktiv: false })
 }
 
-// Öffentlicher Wrapper für die Zukauf-Bearbeiten-Seite (page.tsx): baut sich
-// seinen eigenen Supabase-Client, damit die Signatur (nur ein serialisierbarer
-// String-Parameter) sauber als Server-Action-Export bleibt.
-export async function pruefeChargeHatBewegungen(weinausbauId: string): Promise<boolean> {
-  const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-  return chargeHatBewegungen(supabase, weinausbauId, tenantId)
+/** Nach einem Fehler: Rückbau versuchen (PostgREST kennt keine Transaktion über mehrere
+ *  Aufrufe) und den ursprünglichen Fehler weiterwerfen. Scheitert auch der Rückbau, steht
+ *  das in der Meldung. */
+async function mitRueckbau(fehler: unknown, rueckbau: (() => Promise<void>) | null): Promise<never> {
+  if (rueckbau) {
+    try {
+      await rueckbau()
+    } catch (e) {
+      throw new AktionsFehler(
+        `${fehlerText(fehler, 'Speichern fehlgeschlagen')} – zusätzlich konnte die Charge nicht zurückgesetzt werden (${fehlerText(e, 'unbekannter Fehler')}). Bitte die Charge im Kellerbuch prüfen.`,
+      )
+    }
+  }
+  throw fehler
 }
 
 function parseZukaufFormData(formData: FormData) {
@@ -158,9 +151,22 @@ function parseZukaufFormData(formData: FormData) {
   }
 }
 
+type ZukaufFormular = ReturnType<typeof parseZukaufFormData>
+
+/** Stammdaten, die die Zielcharge vom Zukauf übernimmt (ohne Menge und Gebinde) */
+function chargeStammdaten(f: ZukaufFormular): AR {
+  return {
+    rebsorte:                 f.rebsorte ?? null,
+    jahrgang:                 f.jahrgang,
+    einstandspreis_pro_liter: f.einstandspreisLiter ?? null,
+    weinart:                  f.weinart ?? 'unbekannt',
+    qualitaetsstufe:          f.qualitaetsstufe ?? null,
+  }
+}
+
 export async function createZukauf(formData: FormData) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
+  const tenantId = await schreibKontext()
   const f = parseZukaufFormData(formData)
 
   if (f.menge <= 0) throw new AktionsFehler('Menge muss größer als 0 sein')
@@ -171,6 +177,9 @@ export async function createZukauf(formData: FormData) {
       supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaetsstufe,
     )
   }
+  // Scheitert der Beleg, die eben angelegte Charge wieder schließen (sonst Bestand ohne Zugang)
+  const neueCharge = zielWeinausbauId
+  const rueckbau = neueCharge ? () => bereinigCharge(supabase, neueCharge, tenantId) : null
 
   const { error } = await (supabase.from('zukauf_posten') as any)
     .insert({
@@ -202,7 +211,7 @@ export async function createZukauf(formData: FormData) {
       ziel_weinausbau_id:       zielWeinausbauId,
     })
 
-  if (error) throw new AktionsFehler((error as AR).message)
+  if (error) await mitRueckbau(new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen (zukauf_posten)')), rueckbau)
 
   revalidatePath('/weinhandel/zukauf')
   revalidatePath('/weinhandel')
@@ -248,100 +257,174 @@ export async function createZukauf(formData: FormData) {
 
 export async function updateZukauf(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
+  const tenantId = await schreibKontext()
   const f = parseZukaufFormData(formData)
 
   if (f.menge <= 0) throw new AktionsFehler('Menge muss größer als 0 sein')
 
-  const { data: alt } = await (supabase.from('zukauf_posten') as any)
-    .select('ziel_weinausbau_id, menge')
+  const { data: alt, error: altErr } = await (supabase.from('zukauf_posten') as any)
+    .select('ziel_weinausbau_id, menge, einheit, art')
     .eq('id', id)
     .eq('tenant_id', tenantId)
-    .single()
-  const altWeinausbauId: string | null = (alt as AR | null)?.ziel_weinausbau_id ?? null
-  const alteZukaufMenge: number = parseFloat((alt as AR | null)?.menge ?? '0') || 0
+    .eq('aktiv', true)
+    .maybeSingle()
+  if (altErr) throw new AktionsFehler(dbFehlerText(altErr, 'Zukauf konnte nicht gelesen werden'))
+  if (!alt) throw new AktionsFehler('Zukauf nicht gefunden – er wurde inzwischen gelöscht.')
+  const a = alt as AR
+  const altWeinausbauId: string | null = a.ziel_weinausbau_id ?? null
+  const alteMenge        = Number(a.menge) || 0
+  const mengeGeaendert   = Math.abs(f.menge - alteMenge) > TOLERANZ
+  const einheitGeaendert = a.einheit != null && f.einheit !== a.einheit
+  const artGeaendert     = f.art !== a.art
+  const istWeinMost      = f.art === 'wein' || f.art === 'most'
 
-  let zielWeinausbauId: string | null = altWeinausbauId
-
-  if ((f.art === 'wein' || f.art === 'most') && f.zielBehaelterId) {
-    const hatBewegungen = altWeinausbauId ? await chargeHatBewegungen(supabase, altWeinausbauId, tenantId) : false
-
-    if (altWeinausbauId && hatBewegungen) {
-      // Die bisherige Charge wurde bereits abgefüllt/umgezogen/verkauft/verschnitten – NICHT
-      // deaktivieren+neu anlegen (das würde den physisch noch vorhandenen Restbestand aus dem
-      // Kellerbuch verschwinden lassen), sondern in-place aktualisieren. Nur die DIFFERENZ
-      // zwischen alter und neuer deklarierter Zukaufsmenge wird auf den aktuellen Bestand
-      // verrechnet (z.B. Tippfehler-Korrektur der Menge), damit bereits verbrauchte Mengen
-      // erhalten bleiben.
-      const { data: alteCharge } = await (supabase.from('weinausbau') as any)
-        .select('behaelter_id, menge_liter')
-        .eq('id', altWeinausbauId)
-        .eq('tenant_id', tenantId)
-        .single()
-      const alterBehaelterId = (alteCharge as AR | null)?.behaelter_id ?? null
-      if (alterBehaelterId && alterBehaelterId !== f.zielBehaelterId) {
-        throw new AktionsFehler(
-          'Diese Charge wurde bereits abgefüllt, umgezogen, verkauft oder verschnitten – der Ziel-Behälter kann nachträglich nicht mehr geändert werden. Bitte den Behälter unverändert lassen und stattdessen "Umziehen" im Kellerbuch verwenden.'
-        )
-      }
-      const bisherigerBestand = parseFloat((alteCharge as AR | null)?.menge_liter ?? '0') || 0
-      const mengenDelta = f.menge - alteZukaufMenge
-      const neuerBestand = Math.max(0, bisherigerBestand + mengenDelta)
-
-      const { error: updChargeErr } = await (supabase.from('weinausbau') as any)
-        .update({
-          menge_liter:              neuerBestand,
-          rebsorte:                 f.rebsorte ?? null,
-          jahrgang:                 f.jahrgang,
-          einstandspreis_pro_liter: f.einstandspreisLiter ?? null,
-          weinart:                  f.weinart ?? 'unbekannt',
-          qualitaetsstufe:          f.qualitaetsstufe ?? null,
-        })
-        .eq('id', altWeinausbauId)
-        .eq('tenant_id', tenantId)
-      if (updChargeErr) throw new AktionsFehler((updChargeErr as AR).message)
-      zielWeinausbauId = altWeinausbauId
-    } else {
-      // Noch keine Bewegungen gegen die bisherige Charge gebucht – bisheriges Verhalten
-      // (deaktivieren + frisch anlegen) ist hier unbedenklich, da noch nichts verbraucht wurde.
-      if (altWeinausbauId) await bereinigCharge(supabase, altWeinausbauId, tenantId)
-      zielWeinausbauId = await createZukaufCharge(
-        supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaetsstufe,
-      )
+  // ── Trauben: Belegmenge nicht unter die verpressten/verkauften kg, Art nicht mehr wechseln ──
+  // zukauf_posten.menge gilt dabei – wie in Erntemeldung und Traubenverkauf – als kg.
+  if (mengeGeaendert || artGeaendert) {
+    const v = await zukaufVerweise(supabase, id, tenantId)
+    const gebunden = traubenGebundenText(v)
+    if (gebunden && artGeaendert) {
+      throw new AktionsFehler(`Ändern der Art ist nicht möglich: Aus diesem Zukauf sind bereits ${gebunden}. Bitte zuerst die Pressung in der Erntemeldung bzw. den Traubenverkauf ändern.`)
     }
-  } else if (!(f.art === 'wein' || f.art === 'most')) {
-    if (altWeinausbauId) await bereinigCharge(supabase, altWeinausbauId, tenantId)
-    zielWeinausbauId = null
+    const gebundenKg = v.verpresstKg + v.verkauftKg
+    if (gebunden && f.menge < alteMenge - TOLERANZ && f.menge < gebundenKg - TOLERANZ) {
+      throw new AktionsFehler(`Die Zukaufsmenge kann nicht auf ${fmtNum(f.menge)} kg gesenkt werden: Aus diesem Zukauf sind bereits ${gebunden}, zusammen ${fmtNum(gebundenKg)} kg. Bitte zuerst die Pressung in der Erntemeldung bzw. den Traubenverkauf ändern.`)
+    }
   }
 
-  const { error } = await (supabase.from('zukauf_posten') as any).update({
-    datum:                    f.datum,
-    lieferung_uhrzeit:        f.lieferungUhrzeit,
-    art:                      f.art,
-    lieferant_kontakt_id:     f.lieferantKontaktId || null,
-    lieferant_firma_id:       f.lieferantFirmaId   || null,
-    eingangsrechnungsnummer: f.eingangsrechnungsnummer,
-    transport_zugmaschine:    f.zugmaschine,
-    transport_anhaenger1:     f.anhaenger1,
-    transport_anhaenger2:     f.anhaenger2,
-    weinart:                  f.weinart,
-    rebsorte:                 f.rebsorte,
-    qualitaetsstufe:          f.qualitaetsstufe,
-    jahrgang:                 f.jahrgang,
-    herkunft:                 f.herkunft,
-    anreicherung:             f.anreicherung,
-    kmw:                      f.kmw,
-    alkohol_pct:              f.alkohol,
-    staatliche_pruefnummer:   f.pruefnummer,
-    menge:                    f.menge,
-    einheit:                  f.einheit,
-    preis_gesamt:             f.preisGesamt ?? null,
-    einstandspreis_pro_liter: f.einstandspreisLiter ?? null,
-    notizen:                  f.notizen,
-    ziel_weinausbau_id:       zielWeinausbauId,
-  }).eq('id', id).eq('tenant_id', tenantId)
+  // ── Zielcharge ────────────────────────────────────────────────────────────────
+  let zielWeinausbauId: string | null = altWeinausbauId
+  // Rückbau der Chargen-Änderung, falls danach das Speichern des Zukaufs scheitert
+  let rueckbau: (() => Promise<void>) | null = null
 
-  if (error) throw new AktionsFehler((error as AR).message)
+  if (altWeinausbauId) {
+    const chargeId = altWeinausbauId
+    const folge = await folgebuchungenDerZielcharge(supabase, chargeId)
+    const { data: charge, error: chErr } = await (supabase.from('weinausbau') as any)
+      .select('behaelter_id, menge_liter, aktiv, status, rebsorte, jahrgang, einstandspreis_pro_liter, weinart, qualitaetsstufe')
+      .eq('id', chargeId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (chErr) throw new AktionsFehler(dbFehlerText(chErr, 'Charge des Zukaufs konnte nicht gelesen werden'))
+    if (!charge) throw new AktionsFehler('Die Charge dieses Zukaufs wurde nicht gefunden.')
+    const c = charge as AR
+    const gebindeUnveraendert = (f.zielBehaelterId || null) === (c.behaelter_id ?? null)
+    // Stand vor dem Speichern – für den Rückbau, falls danach der Zukauf nicht gespeichert werden kann
+    const vorherStammdaten: AR = {
+      rebsorte: c.rebsorte, jahrgang: c.jahrgang, einstandspreis_pro_liter: c.einstandspreis_pro_liter,
+      weinart: c.weinart, qualitaetsstufe: c.qualitaetsstufe,
+    }
+    const vorherBestand: AR = { menge_liter: c.menge_liter, status: c.status, aktiv: c.aktiv }
+
+    if (folge.length > 0) {
+      // Folgebuchungen: Beleg (Menge, Einheit), Gebinde und Art bleiben gesperrt. Die Stammdaten
+      // der Charge (Rebsorte, Jahrgang, Weinart, Qualitätsstufe) werden NICHT mehr mitgezogen –
+      // ein Verschnitt oder eine Zusammenführung kann sie inzwischen geändert (abgestuft) haben,
+      // ein Überschreiben würde das still aufheben. Die Charge pflegt man im Kellerbuch.
+      const text = zielchargeText(folge)
+      if (!istWeinMost) {
+        throw new AktionsFehler(`Ändern der Art ist nicht möglich: ${text}. Der Zukauf bleibt der Zugang dieser Charge.`)
+      }
+      if (!gebindeUnveraendert) {
+        throw new AktionsFehler(`${f.zielBehaelterId ? 'Ändern' : 'Entfernen'} des Gebindes ist nicht möglich: ${text}. Den Wein bitte im Kellerbuch über „Umziehen“ in ein anderes Gebinde bringen.`)
+      }
+      if (mengeGeaendert) {
+        const hinweis = f.menge > alteMenge
+          ? 'eine Mehrmenge bitte als eigenen Zukauf über die Differenz erfassen'
+          : 'eine Mindermenge bitte in der Charge über „Schwund buchen“ erfassen'
+        throw new AktionsFehler(`Ändern der Zukaufsmenge ist nicht möglich: ${text}. Die Belegmenge bleibt als Zugang der Charge erhalten – ${hinweis}.`)
+      }
+      if (einheitGeaendert) {
+        throw new AktionsFehler(`Ändern der Einheit ist nicht möglich: ${text}. Die Belegmenge bleibt als Zugang der Charge erhalten.`)
+      }
+      // nur der Beleg wird gespeichert (unten) – die Charge bleibt unverändert
+    } else if (istWeinMost && c.aktiv === false) {
+      // Charge nicht mehr aktiv, aber ohne Folgebuchungen (z. B. vor KAN-35 im Chargenformular
+      // auf 0 L gesetzt, weil die Ware retourniert wurde): KEINE neue Charge mit der vollen
+      // Belegmenge anlegen – das wären Liter ohne Wein. Nur der Beleg wird gespeichert.
+      if (mengeGeaendert || einheitGeaendert || !gebindeUnveraendert) {
+        throw new AktionsFehler(
+          `${mengeGeaendert || einheitGeaendert ? 'Ändern der Zukaufsmenge' : 'Ändern des Gebindes'} ist nicht möglich: Die Charge dieses Zukaufs ist nicht mehr aktiv ` +
+          `(Bestand ${fmtNum(Number(c.menge_liter) || 0)} L). Bitte zuerst Charge und Bestand im Kellerbuch prüfen – ` +
+          'die übrigen Angaben des Zukaufs (z. B. Rechnungsnummer, Notizen) lassen sich ohne diese Änderung speichern.'
+        )
+      }
+      // nur der Beleg wird gespeichert (unten) – die Charge bleibt unverändert
+    } else if (istWeinMost && gebindeUnveraendert) {
+      // Keine Folgebuchungen, Gebinde unverändert: Charge bleibt, Belegänderung per Delta
+      const bisher = Number(c.menge_liter) || 0
+      const neu = runde(bisher + (f.menge - alteMenge))
+      if (neu < 0) {
+        throw new AktionsFehler(`Die Zukaufsmenge kann nicht auf ${fmtNum(f.menge)} ${f.einheit} gesenkt werden: Die Charge enthält nur noch ${fmtNum(bisher)} L, die Differenz von ${fmtNum(runde(alteMenge - f.menge))} L ist größer als dieser Bestand. Bitte den Bestand der Charge prüfen.`)
+      }
+      await chargeAendern(supabase, chargeId, tenantId, { ...chargeStammdaten(f), menge_liter: neu })
+      rueckbau = () => chargeAendern(supabase, chargeId, tenantId, { ...vorherStammdaten, menge_liter: vorherBestand.menge_liter })
+    } else {
+      // Keine Folgebuchungen, aktive Charge, aber Gebinde gewechselt/entfernt oder Art jetzt
+      // Trauben: bisherige Charge schließen (dieser Zukauf war ihr einziger Zugang, es ist nichts
+      // abgegangen) und bei Wein/Most mit Gebinde eine neue Charge mit der vollen Belegmenge anlegen.
+      const alteChargeZurueck = () => chargeAendern(supabase, chargeId, tenantId, vorherBestand)
+      await bereinigCharge(supabase, chargeId, tenantId)
+      zielWeinausbauId = null
+      rueckbau = alteChargeZurueck
+      if (istWeinMost && f.zielBehaelterId) {
+        let neueId = ''
+        try {
+          neueId = await createZukaufCharge(
+            supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaetsstufe,
+          )
+        } catch (e) {
+          await mitRueckbau(e, alteChargeZurueck)
+        }
+        zielWeinausbauId = neueId
+        rueckbau = async () => {
+          await bereinigCharge(supabase, neueId, tenantId)
+          await alteChargeZurueck()
+        }
+      }
+    }
+  } else if (istWeinMost && f.zielBehaelterId) {
+    // Nachträglich einem Gebinde zugeordnet: neue Charge mit der vollen Belegmenge
+    // (Tankverkäufe direkt aus dem Zukauf gibt es nicht mehr – es ist nichts abzuziehen)
+    const neueId = await createZukaufCharge(
+      supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaetsstufe,
+    )
+    zielWeinausbauId = neueId
+    rueckbau = () => bereinigCharge(supabase, neueId, tenantId)
+  }
+
+  try {
+    const { data: upd, error } = await (supabase.from('zukauf_posten') as any).update({
+      datum:                    f.datum,
+      lieferung_uhrzeit:        f.lieferungUhrzeit,
+      art:                      f.art,
+      lieferant_kontakt_id:     f.lieferantKontaktId || null,
+      lieferant_firma_id:       f.lieferantFirmaId   || null,
+      eingangsrechnungsnummer: f.eingangsrechnungsnummer,
+      transport_zugmaschine:    f.zugmaschine,
+      transport_anhaenger1:     f.anhaenger1,
+      transport_anhaenger2:     f.anhaenger2,
+      weinart:                  f.weinart,
+      rebsorte:                 f.rebsorte,
+      qualitaetsstufe:          f.qualitaetsstufe,
+      jahrgang:                 f.jahrgang,
+      herkunft:                 f.herkunft,
+      anreicherung:             f.anreicherung,
+      kmw:                      f.kmw,
+      alkohol_pct:              f.alkohol,
+      staatliche_pruefnummer:   f.pruefnummer,
+      menge:                    f.menge,
+      einheit:                  f.einheit,
+      preis_gesamt:             f.preisGesamt ?? null,
+      einstandspreis_pro_liter: f.einstandspreisLiter ?? null,
+      notizen:                  f.notizen,
+      ziel_weinausbau_id:       zielWeinausbauId,
+    }).eq('id', id).eq('tenant_id', tenantId).select('id')
+    if (error) throw new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen (zukauf_posten)'))
+    if (!(upd as AR[] | null)?.length) throw new AktionsFehler('Der Zukauf konnte nicht gespeichert werden – Berechtigung prüfen.')
+  } catch (e) {
+    await mitRueckbau(e, rueckbau)
+  }
 
   revalidatePath('/weinhandel/zukauf')
   revalidatePath('/weinhandel')
@@ -349,24 +432,43 @@ export async function updateZukauf(id: string, formData: FormData) {
   redirect('/weinhandel/zukauf')
 }
 
+// Soft-Delete (aktiv = false). KAN-35: nur ohne Folgebuchungen an der Zielcharge und ohne
+// Pressung/Traubenverkauf/Tankverkauf aus dem Zukauf – sonst verschwände ein Zugang
+// rückwirkend, obwohl davon schon etwas abgegangen ist. Die Zielcharge wird vorher auf
+// 0 L/abgeschlossen gesetzt (einziger Zugang war dieser Zukauf); scheitert danach das
+// Deaktivieren, ist ein erneuter Versuch gefahrlos (Charge bleibt 0 L, keine Folgebuchungen).
 export async function deleteZukauf(id: string) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
+  const tenantId = await schreibKontext()
 
-  const { data: zukauf } = await (supabase.from('zukauf_posten') as any)
-    .select('ziel_weinausbau_id')
+  const { data: zukauf, error: zErr } = await (supabase.from('zukauf_posten') as any)
+    .select('id, ziel_weinausbau_id')
     .eq('id', id)
     .eq('tenant_id', tenantId)
-    .single()
-  const weinausbauId: string | null = (zukauf as AR | null)?.ziel_weinausbau_id ?? null
+    .eq('aktiv', true)
+    .maybeSingle()
+  if (zErr) throw new AktionsFehler(dbFehlerText(zErr, 'Zukauf konnte nicht gelesen werden'))
+  if (!zukauf) throw new AktionsFehler('Zukauf nicht gefunden – er wurde bereits gelöscht.')
+  const weinausbauId: string | null = (zukauf as AR).ziel_weinausbau_id ?? null
 
-  const { error } = await (supabase.from('zukauf_posten') as any)
+  const sperre = loeschSperreText(await zukaufVerweise(supabase, id, tenantId))
+  if (sperre) throw new AktionsFehler(sperre)
+
+  if (weinausbauId) {
+    const folge = await folgebuchungenDerZielcharge(supabase, weinausbauId)
+    if (folge.length > 0) {
+      throw new AktionsFehler(`Löschen des Zukaufs ist nicht möglich: ${zielchargeText(folge)}. Der Zukauf ist der Zugang dieser Charge und bleibt als Beleg erhalten – Korrekturen bitte in der Charge als eigene, datierte Buchung erfassen (z. B. „Schwund buchen“).`)
+    }
+    await bereinigCharge(supabase, weinausbauId, tenantId)
+  }
+
+  const { data: upd, error } = await (supabase.from('zukauf_posten') as any)
     .update({ aktiv: false })
     .eq('id', id)
     .eq('tenant_id', tenantId)
-  if (error) throw new AktionsFehler((error as AR).message)
-
-  if (weinausbauId) await bereinigCharge(supabase, weinausbauId, tenantId)
+    .select('id')
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Löschen fehlgeschlagen (zukauf_posten)'))
+  if (!(upd as AR[] | null)?.length) throw new AktionsFehler('Der Zukauf konnte nicht gelöscht werden – Berechtigung prüfen.')
 
   revalidatePath('/weinhandel/zukauf')
   revalidatePath('/weinhandel')

@@ -177,6 +177,19 @@
 "email_gesendet_am",
 "erstellt_am"
 ],
+"bestandsprotokoll": [
+"id",
+"tenant_id",
+"tabelle",
+"datensatz_id",
+"aktion",
+"alt",
+"neu",
+"geaenderte_spalten",
+"db_rolle",
+"benutzer_id",
+"erstellt_am"
+],
 "bestellung_positionen": [
 "id",
 "bestellung_id",
@@ -564,6 +577,19 @@
 "notizen",
 "erstellt_am",
 "aktualisiert_am"
+],
+"fuellung_bewegungen": [
+"id",
+"tenant_id",
+"fuellung_id",
+"datum",
+"art",
+"menge_stk",
+"bestand_vorher",
+"bestand_nachher",
+"grund",
+"erstellt_von",
+"erstellt_am"
 ],
 "fuellung_chargen": [
 "id",
@@ -1606,6 +1632,7 @@
 "kmw",
 "qualitaetsstufe",
 "staatliche_pruefnummer",
-"eingangsrechnungsnummer"
+"eingangsrechnungsnummer",
+"zh_kontakt_id"
 ]
 }

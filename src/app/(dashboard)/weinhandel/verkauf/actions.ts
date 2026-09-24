@@ -1,23 +1,32 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { createSupabaseAdminClient } from '@/lib/supabase/admin'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership, type Membership } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { randomUUID } from 'crypto'
 import { syncEaEinnahmeFuerVerkauf } from '@/app/(dashboard)/buchhaltung/actions'
-import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtEur, fmtNum, dezimal } from '@/lib/format'
-import { AktionsFehler } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, fehlerText } from '@/lib/fehler'
+import {
+  bestandBuchenAllesOderNichts,
+  bestandsBuchungenZuruecknehmen,
+  pruefeVerkaufsRechte,
+  verkaufspostenStornieren,
+  LITER_TOLERANZ,
+  type BestandsBuchung,
+} from '@/lib/verkauf/bestand'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
-async function getTenantId(): Promise<string> {
+async function getMembership(): Promise<Membership> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
-  return membership.tenantId
+  return membership
+}
+
+async function getTenantId(): Promise<string> {
+  return (await getMembership()).tenantId
 }
 
 // Atomisch: Rechnungsnummer generieren (Zähler +1 in einer DB-Transaktion)
@@ -34,12 +43,15 @@ async function generateRechnungsnummer(tenantId: string): Promise<string | null>
 }
 
 // Positions-Typ aus der Form
+const POSITIONS_TYPEN = ['flasche', 'tank', 'sonstiges', 'trauben'] as const
 interface PositionInput {
-  typ:               'flasche' | 'tank' | 'sonstiges' | 'trauben'
+  typ:               typeof POSITIONS_TYPEN[number]
   fuellung_id:       string | null
   weinausbau_id:     string | null
-  zukauf_id:             string | null
-  pressung_behaelter_id: string | null
+  // KAN-35: Tankverkauf nur noch aus Kellerbuch-Chargen – gesetzte Werte werden abgelehnt
+  // (Felder bleiben nur, damit ältere Formulare/Aufrufer eine klare Meldung bekommen)
+  zukauf_id?:             string | null
+  pressung_behaelter_id?: string | null
   name:                  string
   menge:             number
   einheit:           string
@@ -57,17 +69,116 @@ interface PositionInput {
   trauben_gesundheit?:      'G' | 'K'
 }
 
+const NUR_CHARGE_HINWEIS =
+  'Offener Wein (Tank) kann nur aus einer Kellerbuch-Charge verkauft werden. ' +
+  'Zukäufe bitte zuerst über „Zukauf bearbeiten“ einem Gebinde zuordnen – dabei entsteht die Charge –, dann die Charge verkaufen.'
+
+// ── Prüfung aller Positionen VOR dem ersten Schreibzugriff (KAN-35) ───────────
+// Bugreport 6.8.2026: eine Kellerbuch-Charge mit bereits 0 L Bestand liess sich
+// trotzdem "verkaufen" – der Bestand wurde nachträglich bei 0 gekappt (Math.max(0, …)).
+// Seit KAN-35 wird VOR dem Anlegen von Rechnungsnummer, Verkaufsposten und Positionen
+// geprüft und abgelehnt: Schreibrechte (Tank braucht zusätzlich Kellerbuch/Rieden),
+// Menge > 0, Tank nur aus Charge, Verfügbarkeit je Charge bzw. Füllung – über ALLE
+// Positionen summiert (zwei Positionen derselben Charge zählen zusammen). Die Abbuchung
+// selbst kappt nicht mehr; die DB-CHECKs sind das Sicherheitsnetz.
+
+async function pruefePositionen(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  membership: Membership,
+  positionen: PositionInput[],
+): Promise<{ literJeCharge: Map<string, number>; stueckJeFuellung: Map<string, number> }> {
+  const tenantId = membership.tenantId
+  const literJeCharge   = new Map<string, number>()
+  const stueckJeFuellung = new Map<string, number>()
+
+  positionen.forEach((p, i) => {
+    const nr = `Position ${i + 1}${p?.name ? ` („${String(p.name).trim()}“)` : ''}`
+    if (!p || !POSITIONS_TYPEN.includes(p.typ)) throw new AktionsFehler(`${nr}: unbekannter Positionstyp`)
+    if (!String(p.name ?? '').trim()) throw new AktionsFehler(`${nr}: Bitte eine Bezeichnung angeben.`)
+    const menge = Number(p.menge)
+    if (!Number.isFinite(menge)) throw new AktionsFehler(`${nr}: ungültige Menge`)
+    if (p.typ !== 'sonstiges' && !(menge > 0)) {
+      throw new AktionsFehler(`${nr}: Die Menge muss größer als 0 sein. Rücknahmen bitte als Storno des Verkaufs buchen.`)
+    }
+    if (p.zukauf_id || p.pressung_behaelter_id) throw new AktionsFehler(`${nr}: ${NUR_CHARGE_HINWEIS}`)
+
+    if (p.typ === 'tank') {
+      if (!p.weinausbau_id) throw new AktionsFehler(`${nr}: Bitte eine Kellerbuch-Charge auswählen. ${NUR_CHARGE_HINWEIS}`)
+      literJeCharge.set(p.weinausbau_id, (literJeCharge.get(p.weinausbau_id) ?? 0) + menge)
+    } else if (p.typ === 'flasche' && p.fuellung_id) {
+      if (!Number.isInteger(menge)) throw new AktionsFehler(`${nr}: Flaschen bitte in ganzen Stück angeben.`)
+      stueckJeFuellung.set(p.fuellung_id, (stueckJeFuellung.get(p.fuellung_id) ?? 0) + menge)
+    } else if (p.typ === 'trauben' && !p.trauben_weingarten_id) {
+      throw new AktionsFehler(`${nr}: Bitte den Weingarten (Ried) für den Traubenverkauf auswählen.`)
+    }
+  })
+
+  // Rechte wie RLS (Migration 218) – vorab, sonst bliebe ein Beleg ohne Abbuchung zurück
+  pruefeVerkaufsRechte(membership, {
+    tank: literJeCharge.size > 0,
+    flasche: stueckJeFuellung.size > 0,
+    vorgang: 'verkauf',
+  })
+
+  if (literJeCharge.size > 0) {
+    const ids = [...literJeCharge.keys()]
+    const { data, error } = await (supabase.from('weinausbau') as any)
+      .select('id, name, menge_liter')
+      .in('id', ids)
+      .eq('tenant_id', tenantId)
+    if (error) throw new AktionsFehler(dbFehlerText(error, 'Bestand der Chargen konnte nicht geprüft werden'))
+    const chargen = new Map(((data ?? []) as AR[]).map(w => [w.id as string, w]))
+    for (const [id, bedarf] of literJeCharge) {
+      const w = chargen.get(id)
+      if (!w) throw new AktionsFehler('Eine ausgewählte Kellerbuch-Charge wurde nicht gefunden – bitte Seite neu laden.')
+      const verfuegbar = Number(w.menge_liter ?? 0) || 0
+      if (bedarf - verfuegbar >= LITER_TOLERANZ) {
+        throw new AktionsFehler(
+          `„${w.name}“: Menge (${fmtNum(bedarf)} L) überschreitet den verfügbaren Bestand (${fmtNum(verfuegbar)} L).`,
+        )
+      }
+    }
+  }
+
+  if (stueckJeFuellung.size > 0) {
+    const ids = [...stueckJeFuellung.keys()]
+    const { data, error } = await (supabase.from('fuellungen') as any)
+      .select('id, name, bestand_flaschen')
+      .in('id', ids)
+      .eq('tenant_id', tenantId)
+    if (error) throw new AktionsFehler(dbFehlerText(error, 'Flaschenbestand konnte nicht geprüft werden'))
+    const fuellungen = new Map(((data ?? []) as AR[]).map(f => [f.id as string, f]))
+    for (const [id, bedarf] of stueckJeFuellung) {
+      const f = fuellungen.get(id)
+      if (!f) throw new AktionsFehler('Eine ausgewählte Füllung wurde nicht gefunden – bitte Seite neu laden.')
+      const verfuegbar = Number(f.bestand_flaschen ?? 0) || 0
+      if (bedarf > verfuegbar) {
+        throw new AktionsFehler(`„${f.name ?? 'Abfüllung'}“: nur noch ${fmtNum(verfuegbar)} Flaschen verfügbar, ${fmtNum(bedarf)} angefragt.`)
+      }
+    }
+  }
+  return { literJeCharge, stueckJeFuellung }
+}
+
+/** Abgänge als negative Deltas (für bestandBuchenAllesOderNichts) */
+function alsAbgang(m: Map<string, number>): Map<string, number> {
+  return new Map([...m].map(([k, v]) => [k, -v]))
+}
+
 // ── Verkauf anlegen ───────────────────────────────────────────────────────────
 
+// Reihenfolge (KAN-35): prüfen → Bestand abbuchen (alles oder nichts) → Rechnungsnummer →
+// Posten → Positionen. Scheitert ein Schritt nach der Abbuchung, wird sie zurückgenommen;
+// ein bereits angelegter Posten (Rechnungsnummer vergeben) wird sofort storniert. So bleibt
+// weder ein Beleg ohne Abbuchung noch eine Abbuchung ohne Beleg zurück.
 export async function createVerkauf(formData: FormData) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
+  const membership = await getMembership()
+  const tenantId = membership.tenantId
 
   // Kopfdaten
   const datum               = (formData.get('datum') as string) || new Date().toISOString().split('T')[0]
-  const rechnungsnummerInput = (formData.get('rechnungsnummer') as string).trim()
-  // Wenn keine Nummer eingetragen → automatisch generieren
-  const rechnungsnummer = rechnungsnummerInput || await generateRechnungsnummer(tenantId)
+  const rechnungsnummerInput = ((formData.get('rechnungsnummer') as string | null) ?? '').trim()
   const kontaktId      = (formData.get('kontakt_id') as string) || null
   const firmaId        = (formData.get('firma_id') as string) || null
   const zhKontaktId    = (formData.get('zh_kontakt_id') as string) || null
@@ -85,62 +196,48 @@ export async function createVerkauf(formData: FormData) {
     throw new AktionsFehler('Ungültige Positions-Daten')
   }
 
-  if (positionen.length === 0) {
+  if (!Array.isArray(positionen) || positionen.length === 0) {
     throw new AktionsFehler('Mindestens eine Position erforderlich')
   }
 
-  // ── Bestandspruefung VOR dem Anlegen ─────────────────────────────────────────
-  // Bugreport 6.8.2026: eine Kellerbuch-Charge mit bereits 0 L Bestand liess sich
-  // trotzdem "verkaufen" - der Bestand fiel dabei unbemerkt ins Negative, weil
-  // Schritt 3 (Bestand reduzieren) das Ergebnis nur nachtraeglich bei 0 kappt
-  // (Math.max(0, ...)), statt die Buchung vorher abzulehnen. Bricht die gesamte
-  // Buchung jetzt VOR dem Anlegen von Verkaufsposten/Positionen ab, wenn eine
-  // Position mehr verkauft als tatsaechlich verfuegbar ist (gleiche
-  // Toleranz/Logik wie beim Umziehen, siehe kellerbuch/umziehen/actions.ts).
-  for (const p of positionen) {
-    if (p.typ === 'flasche' && p.fuellung_id) {
-      const { data: f } = await (supabase.from('fuellungen') as any)
-        .select('name, bestand_flaschen').eq('id', p.fuellung_id).eq('tenant_id', tenantId).single()
-      const verfuegbar = (f as AR | null)?.bestand_flaschen ?? 0
-      if (Math.round(p.menge) > verfuegbar) {
-        throw new AktionsFehler(
-          `„${(f as AR | null)?.name ?? 'Abfüllung'}": nur noch ${verfuegbar} Flaschen verfügbar, ${Math.round(p.menge)} angefragt.`
-        )
-      }
-    } else if (p.typ === 'tank' && p.weinausbau_id) {
-      const { data: w } = await (supabase.from('weinausbau') as any)
-        .select('name, menge_liter').eq('id', p.weinausbau_id).eq('tenant_id', tenantId).single()
-      const verfuegbar = parseFloat((w as AR | null)?.menge_liter ?? '0') || 0
-      if (p.menge > verfuegbar + 0.01) {
-        throw new AktionsFehler(
-          `„${(w as AR | null)?.name ?? 'Charge'}": Menge (${fmtNum(p.menge)} L) überschreitet verfügbaren Bestand (${fmtNum(verfuegbar)} L).`
-        )
-      }
-    } else if (p.typ === 'tank' && p.zukauf_id) {
-      const { data: zk } = await (supabase.from('zukauf_posten') as any)
-        .select('rebsorte, menge').eq('id', p.zukauf_id).eq('tenant_id', tenantId).single()
-      const verfuegbar = parseFloat((zk as AR | null)?.menge ?? '0') || 0
-      if (p.menge > verfuegbar + 0.01) {
-        throw new AktionsFehler(
-          `„${(zk as AR | null)?.rebsorte ? formatRebsorteMitKuerzel((zk as AR).rebsorte) : 'Zukauf'}": Menge (${fmtNum(p.menge)} L) überschreitet verfügbaren Zukauf-Bestand (${fmtNum(verfuegbar)} L).`
-        )
-      }
-    } else if (p.typ === 'tank' && p.pressung_behaelter_id) {
-      const { data: pb } = await (supabase.from('pressung_behaelter') as any)
-        .select('menge_liter').eq('id', p.pressung_behaelter_id).single()
-      const verfuegbar = parseFloat((pb as AR | null)?.menge_liter ?? '0') || 0
-      if (p.menge > verfuegbar + 0.01) {
-        throw new AktionsFehler(
-          `Pressung: Menge (${fmtNum(p.menge)} L) überschreitet verfügbaren Bestand (${fmtNum(verfuegbar)} L).`
-        )
+  // ── Prüfung VOR dem ersten Schreibzugriff (auch vor der Rechnungsnummer –
+  //    eine Ablehnung hinterlässt so keine Lücke im Nummernkreis)
+  const { literJeCharge, stueckJeFuellung } = await pruefePositionen(supabase, membership, positionen)
+
+  // ── 1. Bestand abbuchen – alles oder nichts (vor Rechnungsnummer und Beleg; eine
+  //    gleichzeitige Buchung wird per Vergleichen und Setzen erkannt, dann nichts geändert)
+  let abbuchungen: BestandsBuchung[]
+  try {
+    abbuchungen = await bestandBuchenAllesOderNichts(supabase, tenantId, alsAbgang(literJeCharge), alsAbgang(stueckJeFuellung))
+  } catch (e) {
+    throw new AktionsFehler(`Der Verkauf wurde nicht gespeichert: ${fehlerText(e).replace(/[.\s]+$/, '')}.`)
+  }
+
+  // Wenn keine Nummer eingetragen → automatisch generieren
+  const rechnungsnummer = rechnungsnummerInput || await generateRechnungsnummer(tenantId)
+
+  /** Abbuchung zurücknehmen und mit Hinweis werfen (Beleg konnte nicht angelegt werden) */
+  const abbruch = async (meldung: string, postenStornieren: string | null): Promise<never> => {
+    const teile: string[] = [meldung.replace(/[.\s]+$/, '')]
+    if (postenStornieren) {
+      try {
+        await verkaufspostenStornieren(supabase, tenantId, postenStornieren)
+        teile.push(`Der angelegte Beleg${rechnungsnummer ? ` ${rechnungsnummer}` : ''} wurde sofort storniert`)
+      } catch (e) {
+        teile.push(`Achtung: Der angelegte Beleg${rechnungsnummer ? ` ${rechnungsnummer}` : ''} konnte nicht storniert werden (${fehlerText(e).replace(/[.\s]+$/, '')}) – bitte unter Verkauf stornieren`)
       }
     }
+    const rueckFehler = await bestandsBuchungenZuruecknehmen(supabase, tenantId, abbuchungen)
+    teile.push(rueckFehler.length
+      ? `Achtung: Der bereits abgebuchte Bestand konnte nicht zurückgesetzt werden (${rueckFehler.join(' · ')}) – bitte Bestand prüfen und Support kontaktieren`
+      : 'Der Bestand ist unverändert')
+    throw new AktionsFehler(`${teile.join('. ')}.`)
   }
 
   // Transaktionsnummer vergeben
   const { data: txnVk } = await (supabase.rpc as any)('get_next_transaktionsnr', { p_tenant_id: tenantId, p_typ: 'verkauf' })
 
-  // 1. Verkaufsposten anlegen (UUID selbst generieren)
+  // 2. Verkaufsposten anlegen (UUID selbst generieren)
   const postenId = randomUUID()
   const { error: postenErr } = await (supabase.from('verkaufsposten') as any).insert({
     id:              postenId,
@@ -157,9 +254,9 @@ export async function createVerkauf(formData: FormData) {
     skonto_aktiv:    skontoAktiv,
   })
 
-  if (postenErr) throw new AktionsFehler((postenErr as AR).message)
+  if (postenErr) await abbruch(dbFehlerText(postenErr, 'Speichern fehlgeschlagen (verkaufsposten)'), null)
 
-  // 2. Positionen anlegen (bei Trauben: vorher BKI-Record anlegen)
+  // 3. Positionen anlegen (bei Trauben: vorher BKI-Record anlegen)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const posInserts: any[] = []
   for (const p of positionen) {
@@ -190,18 +287,20 @@ export async function createVerkauf(formData: FormData) {
         })
         .select('id')
         .single()
-      if (tvErr) throw new AktionsFehler((tvErr as AR).message)
+      if (tvErr || !(tv as AR | null)?.id) {
+        await abbruch(dbFehlerText(tvErr, 'Speichern fehlgeschlagen (traubenverkauf)'), postenId)
+      }
       traubenverkaufId = (tv as AR).id as string
     }
 
+    // Bezug je Typ: Flasche → Füllung, Tank → Charge. zukauf_id/pressung_behaelter_id
+    // werden nicht mehr geschrieben (KAN-35, Tankverkauf nur aus Chargen).
     posInserts.push({
       tenant_id:             tenantId,
       verkaufsposten_id:     postenId,
       typ:                   p.typ,
-      fuellung_id:           p.fuellung_id            || null,
-      weinausbau_id:         p.weinausbau_id          || null,
-      zukauf_id:             p.zukauf_id              || null,
-      pressung_behaelter_id: p.pressung_behaelter_id  || null,
+      fuellung_id:           p.typ === 'flasche' ? (p.fuellung_id   || null) : null,
+      weinausbau_id:         p.typ === 'tank'    ? (p.weinausbau_id || null) : null,
       traubenverkauf_id:     traubenverkaufId,
       name:                  p.name,
       menge:                 p.menge,
@@ -215,62 +314,11 @@ export async function createVerkauf(formData: FormData) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error: posErr } = await (supabase.from('verkauf_positionen') as any).insert(posInserts)
-  if (posErr) throw new AktionsFehler((posErr as AR).message)
+  // Insert mehrerer Zeilen ist eine Anweisung: entweder alle Positionen oder keine
+  if (posErr) await abbruch(dbFehlerText(posErr, 'Speichern fehlgeschlagen (verkauf_positionen)'), postenId)
 
-  // 3. Bestand reduzieren
-  for (const p of positionen) {
-    if (p.typ === 'flasche' && p.fuellung_id) {
-      // bestand_flaschen dekrementieren
-      const { data: fuellung } = await (supabase.from('fuellungen') as any)
-        .select('bestand_flaschen')
-        .eq('id', p.fuellung_id)
-        .eq('tenant_id', tenantId)
-        .single()
-      const aktuell = (fuellung as AR | null)?.bestand_flaschen ?? 0
-      const neu = Math.max(0, aktuell - Math.round(p.menge))
-      { const { error: e } = await (supabase.from('fuellungen') as any)
-        .update({ bestand_flaschen: neu, aktualisiert_am: new Date().toISOString() })
-        .eq('id', p.fuellung_id)
-        .eq('tenant_id', tenantId)
-        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (fuellungen): ${e.message}`) }
-    } else if (p.typ === 'tank' && p.weinausbau_id) {
-      // menge_liter in Kellerbuch-Charge dekrementieren
-      const { data: wein } = await (supabase.from('weinausbau') as any)
-        .select('menge_liter')
-        .eq('id', p.weinausbau_id)
-        .eq('tenant_id', tenantId)
-        .single()
-      const aktuell = parseFloat((wein as AR | null)?.menge_liter ?? '0') || 0
-      const neu = Math.max(0, aktuell - p.menge)
-      { const { error: e } = await (supabase.from('weinausbau') as any)
-        .update({ menge_liter: neu })
-        .eq('id', p.weinausbau_id)
-        .eq('tenant_id', tenantId)
-        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
-    } else if (p.typ === 'tank' && p.zukauf_id) {
-      // menge in Zukauf-Posten dekrementieren
-      const { data: zk } = await (supabase.from('zukauf_posten') as any)
-        .select('menge')
-        .eq('id', p.zukauf_id)
-        .eq('tenant_id', tenantId)
-        .single()
-      const aktuell = parseFloat((zk as AR | null)?.menge ?? '0') || 0
-      const neu = Math.max(0, aktuell - p.menge)
-      { const { error: e } = await (supabase.from('zukauf_posten') as any)
-        .update({ menge: neu })
-        .eq('id', p.zukauf_id)
-        .eq('tenant_id', tenantId)
-        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (zukauf_posten): ${e.message}`) }
-    } else if (p.typ === 'tank' && p.pressung_behaelter_id) {
-      const { data: pb } = await (supabase.from('pressung_behaelter') as any)
-        .select('menge_liter').eq('id', p.pressung_behaelter_id).single()
-      const aktuell = parseFloat((pb as AR | null)?.menge_liter ?? '0') || 0
-      const neu = Math.max(0, aktuell - p.menge)
-      { const { error: e } = await (supabase.from('pressung_behaelter') as any)
-        .update({ menge_liter: neu }).eq('id', p.pressung_behaelter_id)
-        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (pressung_behaelter): ${e.message}`) }
-    }
-  }
+  // Ab hier ist der Verkauf vollständig gebucht – Folgeschritte (CRM, Lead-Status) dürfen
+  // nicht mehr als Fehler zurückkommen, sonst speichert ein erneutes Absenden doppelt.
 
   // 4. CRM Aktivität auto-loggen (wenn Kontakt oder Firma angegeben)
   if (kontaktId || firmaId) {
@@ -306,14 +354,15 @@ export async function createVerkauf(formData: FormData) {
     }
   }
 
-  // Lead → Kunde automatisch umstellen nach erstem Verkauf
+  // Lead → Kunde automatisch umstellen nach erstem Verkauf (nicht kritisch: der Verkauf
+  // ist gespeichert; ohne CRM-Freigabe filtert RLS das Update ohnehin still)
   if (kontaktId) {
     { const { error: e } = await (supabase.from('kontakte') as any)
       .update({ is_lead: false })
       .eq('id', kontaktId)
       .eq('tenant_id', tenantId)
       .eq('is_lead', true)  // nur wenn noch Lead
-      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (kontakte): ${e.message}`) }
+      if (e) console.error('createVerkauf – Lead-Status (kontakte):', dbFehlerText(e)) }
   }
   if (firmaId) {
     { const { error: e } = await (supabase.from('firmen') as any)
@@ -321,140 +370,54 @@ export async function createVerkauf(formData: FormData) {
       .eq('id', firmaId)
       .eq('tenant_id', tenantId)
       .eq('is_lead', true)
-      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (firmen): ${e.message}`) }
+      if (e) console.error('createVerkauf – Lead-Status (firmen):', dbFehlerText(e)) }
   }
 
   revalidatePath('/weinhandel/verkauf')
+  revalidatePath('/weinhandel')
+  revalidatePath('/kellerbuch')
   revalidatePath('/crm/kontakte')
   revalidatePath('/crm/firmen')
+
   return { id: postenId }
 }
 
-// ── Verkauf deaktivieren ──────────────────────────────────────────────────────
+// ── Verkauf deaktivieren – abgeschafft (KAN-35) ───────────────────────────────
+// „Löschen ohne Bestandskorrektur“ ließ die Ware als abgegangen stehen, während der
+// Beleg aus allen Listen, Umsätzen und der E&A verschwand. Verkäufe werden seit
+// KAN-35 nur noch storniert (stornoVerkauf: Bestand zurück, Beleg bleibt als storniert
+// sichtbar). Die Action bleibt als harte Ablehnung bestehen, damit ältere, noch
+// geöffnete Seiten eine verständliche Meldung statt „Server Action not found“ bekommen.
 
-export async function deactivateVerkauf(id: string) {
-  const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-  const { error } = await (supabase.from('verkaufsposten') as any)
-    .update({ aktiv: false, aktualisiert_am: new Date().toISOString() })
-    .eq('id', id)
-    .eq('tenant_id', tenantId)
-  if (error) throw new AktionsFehler((error as AR).message)
-
-  // Verknüpfte, nicht gesperrte E&A-Einnahmebuchungen entfernen
-  { const { error: e } = await (supabase.from('ea_transaktionen') as any)
-    .delete()
-    .eq('verkaufsposten_id', id)
-    .eq('is_locked', false)
-    .eq('tenant_id', tenantId)
-    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (ea_transaktionen): ${e.message}`) }
-
-  revalidatePath('/weinhandel/verkauf')
-  revalidatePath('/buchhaltung')
-  redirect('/weinhandel/verkauf')
+export async function deactivateVerkauf(id: string): Promise<never> {
+  void id
+  throw new AktionsFehler(
+    'Verkäufe werden storniert, nicht gelöscht: Bitte „Stornieren“ verwenden – der Bestand wird dabei zurückgebucht und der Beleg bleibt als storniert erhalten.',
+  )
 }
 
 // ── Verkauf stornieren (mit Bestandsrückbuchung) ──────────────────────────────
+// Logik in lib/verkauf/bestand.ts (auch vom Traubenverkauf genutzt): Rechte vorab
+// (Tank braucht Kellerbuch/Rieden), zuerst Rückbuchung (alles oder nichts, abgeschlossene
+// Chargen werden wieder aktiv), dann Kennzeichen nur bei storniert = false (sonst wird die
+// Rückbuchung zurückgenommen). Zukauf-/Pressungsmengen bleiben unverändert.
 
 export async function stornoVerkauf(id: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
 
-  // Positionen laden für Rückbuchung
-  const { data: posRaw } = await (supabase.from('verkauf_positionen') as any)
-    .select('typ, fuellung_id, weinausbau_id, zukauf_id, pressung_behaelter_id, menge, traubenverkauf_id')
-    .eq('verkaufsposten_id', id)
-    .eq('tenant_id', tenantId)
-
-  const positionen = (posRaw ?? []) as AR[]
-
-  // Bestand zurückbuchen
-  for (const p of positionen) {
-    if (p.typ === 'flasche' && p.fuellung_id) {
-      const { data: f } = await (supabase.from('fuellungen') as any)
-        .select('bestand_flaschen').eq('id', p.fuellung_id).eq('tenant_id', tenantId).single()
-      const aktuell = (f as AR | null)?.bestand_flaschen ?? 0
-      { const { error: e } = await (supabase.from('fuellungen') as any)
-        .update({ bestand_flaschen: aktuell + Math.round(p.menge), aktualisiert_am: new Date().toISOString() })
-        .eq('id', p.fuellung_id)
-        .eq('tenant_id', tenantId)
-        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (fuellungen): ${e.message}`) }
-    } else if (p.typ === 'tank' && p.weinausbau_id) {
-      const { data: w } = await (supabase.from('weinausbau') as any)
-        .select('menge_liter').eq('id', p.weinausbau_id).eq('tenant_id', tenantId).single()
-      const aktuell = parseFloat((w as AR | null)?.menge_liter ?? '0') || 0
-      { const { error: e } = await (supabase.from('weinausbau') as any)
-        .update({ menge_liter: aktuell + p.menge })
-        .eq('id', p.weinausbau_id)
-        .eq('tenant_id', tenantId)
-        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
-    } else if (p.typ === 'tank' && p.zukauf_id) {
-      const { data: zk } = await (supabase.from('zukauf_posten') as any)
-        .select('menge').eq('id', p.zukauf_id).eq('tenant_id', tenantId).single()
-      const aktuell = parseFloat((zk as AR | null)?.menge ?? '0') || 0
-      { const { error: e } = await (supabase.from('zukauf_posten') as any)
-        .update({ menge: aktuell + p.menge })
-        .eq('id', p.zukauf_id)
-        .eq('tenant_id', tenantId)
-        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (zukauf_posten): ${e.message}`) }
-    } else if (p.typ === 'tank' && p.pressung_behaelter_id) {
-      const { data: pb } = await (supabase.from('pressung_behaelter') as any)
-        .select('menge_liter').eq('id', p.pressung_behaelter_id).single()
-      const aktuell = parseFloat((pb as AR | null)?.menge_liter ?? '0') || 0
-      { const { error: e } = await (supabase.from('pressung_behaelter') as any)
-        .update({ menge_liter: aktuell + p.menge }).eq('id', p.pressung_behaelter_id)
-        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (pressung_behaelter): ${e.message}`) }
-    }
-  }
-
-  // Traubenverkauf-Einträge löschen → gibt verfügbare kg wieder frei
-  for (const p of positionen) {
-    if (p.typ === 'trauben' && p.traubenverkauf_id) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      { const { error: e } = await (supabase.from('traubenverkauf') as any)
-        .delete()
-        .eq('id', p.traubenverkauf_id)
-        .eq('tenant_id', tenantId)
-        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (traubenverkauf): ${e.message}`) }
-    }
-  }
-
-  // Rechnungsnummer vorab lesen
-  const { data: vorabStorno } = await (supabase.from('verkaufsposten') as any)
-    .select('rechnungsnummer').eq('id', id).eq('tenant_id', tenantId).single()
-
-  // Posten als storniert markieren
-  const { error } = await (supabase.from('verkaufsposten') as any)
-    .update({ storniert: true, storniert_am: new Date().toISOString() })
-    .eq('id', id)
-    .eq('tenant_id', tenantId)
-  if (error) throw new AktionsFehler((error as AR).message)
-
-  // Verknüpfte, nicht gesperrte E&A-Einnahmebuchungen entfernen – ein Storno
-  // macht den zugehörigen Zahlungseingang ungültig.
-  { const { error: e } = await (supabase.from('ea_transaktionen') as any)
-    .delete()
-    .eq('verkaufsposten_id', id)
-    .eq('is_locked', false)
-    .eq('tenant_id', tenantId)
-    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (ea_transaktionen): ${e.message}`) }
-
-  // CRM-Aktivität auf STORNIERT setzen
   try {
-    const re = (vorabStorno as AR | null)?.rechnungsnummer
-    { const { error: e } = await (supabase.from('aktivitaeten') as any)
-      .update({ betreff: `Verkauf ${re ?? ''} · STORNIERT` })
-      .eq('beschreibung', `Verkaufsposten: ${id}`)
-      .eq('tenant_id', tenantId)
-      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (aktivitaeten): ${e.message}`) }
-  } catch { /* nicht kritisch */ }
-
-  revalidatePath('/weinhandel/verkauf')
-  revalidatePath(`/weinhandel/verkauf/${id}`)
-  revalidatePath('/buchhaltung')
-  revalidatePath('/crm')
-  revalidatePath('/crm/kontakte/[id]', 'page')
-  revalidatePath('/crm/firmen/[id]', 'page')
+    await verkaufspostenStornieren(supabase, tenantId, id)
+  } finally {
+    revalidatePath('/weinhandel/verkauf')
+    revalidatePath(`/weinhandel/verkauf/${id}`)
+    revalidatePath('/weinhandel')
+    revalidatePath('/weinhandel/traubenverkauf')
+    revalidatePath('/buchhaltung')
+    revalidatePath('/crm')
+    revalidatePath('/crm/kontakte/[id]', 'page')
+    revalidatePath('/crm/firmen/[id]', 'page')
+  }
 }
 
 // ── Verkauf als bezahlt markieren ─────────────────────────────────────────────
@@ -500,7 +463,7 @@ export async function markiereAlsBezahlt(id: string) {
       datum: new Date().toISOString().slice(0, 10),
       notizen: 'Als bezahlt markiert',
     })
-    if (error) throw new AktionsFehler((error as AR).message)
+    if (error) throw new AktionsFehler(dbFehlerText(error))
   }
 
   // CRM-Aktivität aktualisieren
@@ -545,7 +508,7 @@ export async function createSonstigesArtikel(
     .select('id, name, einheit, default_preis')
     .single()
 
-  if (error) throw new AktionsFehler((error as AR).message)
+  if (error) throw new AktionsFehler(dbFehlerText(error))
   return data as SonstigesArtikelData
 }
 
@@ -571,7 +534,7 @@ export async function createZahlung(
     datum: datum || new Date().toISOString().slice(0, 10),
     notizen, konto_id,
   })
-  if (error) throw new AktionsFehler((error as AR).message)
+  if (error) throw new AktionsFehler(dbFehlerText(error))
 
   await syncEaEinnahmeFuerVerkauf(verkaufspostenId)
 
@@ -588,7 +551,7 @@ export async function deleteZahlung(
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   const { error } = await (supabase.from('zahlungen') as any).delete().eq('id', zahlungId).eq('tenant_id', tenantId)
-  if (error) throw new AktionsFehler((error as AR).message)
+  if (error) throw new AktionsFehler(dbFehlerText(error))
 
   await syncEaEinnahmeFuerVerkauf(verkaufspostenId)
 

@@ -101,10 +101,10 @@ export default async function ErnteDetailPage({ params }: Props) {
     tf((supabase.from('grundstuecke') as any)
       .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha').eq('nutzart', 'WI').order('gst_nr')),
 
-    // Traubenverkäufe dieses Jahrgangs
+    // Traubenverkäufe dieses Jahrgangs (mit Rechnung: Löschen storniert sie, KAN-35)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('traubenverkauf') as any)
-      .select('id, weingarten_id, grundstueck_id, zukauf_posten_id, kontakt_id, firma_id, datum, menge_kg, preis_per_kg, kmw_grad, qualitaetsstufe, gesundheit, herkunft_code, notizen, liefernummer, weingarten:weingarten_id(name), kontakt:kontakt_id(vorname, nachname), firma:firma_id(name)')
+      .select('id, weingarten_id, grundstueck_id, zukauf_posten_id, kontakt_id, firma_id, datum, menge_kg, preis_per_kg, kmw_grad, qualitaetsstufe, gesundheit, herkunft_code, notizen, liefernummer, verkaufsposten_id, weingarten:weingarten_id(name), kontakt:kontakt_id(vorname, nachname), firma:firma_id(name), verkaufsposten:verkaufsposten_id(rechnungsnummer, storniert)')
       .eq('jahrgang_id', id).order('datum', { ascending: false })),
 
     // Kontakte + Firmen für Abnehmer-Dropdown
@@ -307,6 +307,8 @@ export default async function ErnteDetailPage({ params }: Props) {
     herkunft_code: v.herkunft_code ?? null,
     notizen: v.notizen ?? null,
     liefernummer: v.liefernummer ?? null,
+    rechnungsnummer: (v.verkaufsposten as AR | null)?.rechnungsnummer ?? null,
+    rechnung_storniert: !!(v.verkaufsposten as AR | null)?.storniert,
     }
   })
   // WG-Optionen für Traubenverkauf: alle WGs die in diesem Jahrgang geerntet wurden

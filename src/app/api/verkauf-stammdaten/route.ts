@@ -20,8 +20,6 @@ export async function GET() {
       { data: fuellungen },
       { data: weinausbau },
       { data: sonstigeArtikel },
-      { data: zukaufPosten },
-      { data: pressungDirektRaw },
       { data: weingaertenRaw },
       { data: jahrgaenge },
       { data: grundstuecke },
@@ -33,6 +31,11 @@ export async function GET() {
       (supabase.from('fuellungen') as any)
         .select('id, name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto')
         .eq('tenant_id', tenantId).eq('aktiv', true).gt('bestand_flaschen', 0).order('name'),
+      // Offener Wein (Tank) wird seit KAN-35 (24.09.2026) NUR aus Kellerbuch-Chargen
+      // verkauft. Zukäufe ohne Gebinde und Pressungs-Direktbefüllungen werden hier
+      // nicht mehr angeboten: ein Verkauf über sie setzte die Beleg- bzw. Zugangsmenge
+      // (zukauf_posten.menge, pressung_behaelter.menge_liter) herab. Zukäufe erst über
+      // „Zukauf bearbeiten“ einem Gebinde zuordnen – dann erscheint die Charge hier.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('weinausbau') as any)
         .select('id, name, menge_liter')
@@ -43,31 +46,6 @@ export async function GET() {
       (supabase.from('sonstige_artikel') as any)
         .select('id, name, einheit, default_preis')
         .eq('tenant_id', tenantId).eq('aktiv', true).order('name'),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      // Nur Zukäufe, die noch KEINEM Gebinde zugeordnet sind (ziel_weinausbau_id
-      // IS NULL), dürfen hier als eigenständige "Zukauf"-Verkaufsoption erscheinen.
-      // Ist ein Zukauf bereits abgefüllt, läuft sein Bestand ab dann ausschließlich
-      // über die zugehörige Kellerbuch-Charge (weinausbau.menge_liter) - ohne
-      // diesen Filter würde derselbe physische Bestand doppelt zum Verkauf
-      // angeboten (einmal als Zukauf, einmal als Kellerbuch-Charge). Ein Verkauf
-      // über den Zukauf-Pfad hätte dann zukauf_posten.menge dekrementiert, ohne
-      // die tatsächlich befüllte weinausbau-Charge zu berühren - das brachte u.a.
-      // den ursprünglichen Einstandspreis/L (Gesamtpreis ÷ Menge) durcheinander,
-      // weil zukauf_posten.menge nach dem Abfüllen als unveränderlich gilt (siehe
-      // gleiche Filterung + Begründung in weinhandel/page.tsx, KPI "Zukäufe").
-      (supabase.from('zukauf_posten') as any)
-        .select('id, art, menge, einheit, rebsorte, jahrgang, notizen')
-        .eq('tenant_id', tenantId).eq('aktiv', true).gt('menge', 0).is('ziel_weinausbau_id', null)
-        .order('erstellt_am', { ascending: false }),
-      // Pressung-Direktbefüllungen (noch keiner Kellerbuch-Charge zugeordnet)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      // pressung_behaelter hat keine tenant_id - Filter über die Pressung (!inner); die
-      // frühere .eq('tenant_id') brach die Abfrage (Postgres-Log 20.9.2026)
-      // tenant-isolation-ignore: Filter über pressung.tenant_id
-      (supabase.from('pressung_behaelter') as any)
-        .select('id, menge_liter, behaelter:behaelter_id(name), pressung:pressung_id!inner(datum, weinbezeichnung, tenant_id)')
-        .eq('pressung.tenant_id', tenantId).is('weinausbau_id', null).gt('menge_liter', 0)
-        .order('menge_liter', { ascending: false }),
       // Weingärten für Traubenverkauf (mit Ried-Name)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('weingarten') as any)
@@ -207,14 +185,6 @@ export async function GET() {
       fuellungen:       fuellungen    ?? [],
       weinausbau:       weinausbau    ?? [],
       sonstige_artikel: sonstigeArtikel ?? [],
-      zukauf_posten:    zukaufPosten  ?? [],
-      pressung_direkt:  ((pressungDirektRaw ?? []) as any[]).map((pb: any) => ({
-        id:                   pb.id,
-        menge_liter:          pb.menge_liter,
-        behaelter_name:       (pb.behaelter as any)?.name ?? null,
-        pressung_datum:       (pb.pressung as any)?.datum ?? null,
-        pressung_bezeichnung: (pb.pressung as any)?.weinbezeichnung ?? null,
-      })),
       ust_satz_standard: ustStandard,
       weingaerten: weingaertenMitKg,
       jahrgaenge:  (jahrgaenge ?? []) as any[],

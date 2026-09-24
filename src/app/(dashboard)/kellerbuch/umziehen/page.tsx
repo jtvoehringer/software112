@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
-import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import UmziehenClient from './UmziehenClient'
 
@@ -16,6 +16,7 @@ export default async function UmziehenPage({ searchParams }: { searchParams: Pro
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
   const writeOk  = canWrite(role, 'kellerbuch')
+  const adminOk  = canAdmin(role)   // Schwundbuchungen stornieren nur Betriebs-Manager (KAN-35)
 
   // Aktiv gewählten Betrieb respektieren (Cookie-basiert, s. lib/auth/roles.ts) statt einer
   // beliebigen/ersten tenant_memberships-Zeile – sonst können bei Mehrfach-Mitgliedschaft
@@ -104,6 +105,7 @@ export default async function UmziehenPage({ searchParams }: { searchParams: Pro
         behaelter={behaelter}
         umzuege={umzuege}
         writeOk={writeOk}
+        adminOk={adminOk}
         initialShowForm={initialShowForm}
       />
     </div>

@@ -76,7 +76,7 @@ export default async function GebindePage({
       .eq('aktiv', true)
       .order('jahrgang', { ascending: false })),
     tf((supabase.from('keller_umzuege') as any)
-      .select('id, datum, menge_liter, schwund_liter, brutto_liter, umzug_batch_id, zeilen_typ, notizen, transaktions_nr, von_weinausbau:von_weinausbau_id(name, jahrgang), von_behaelter:von_behaelter_id(name), nach_behaelter:nach_behaelter_id(name)')
+      .select('id, datum, menge_liter, schwund_liter, brutto_liter, umzug_batch_id, zeilen_typ, umzug_typ, notizen, transaktions_nr, von_weinausbau:von_weinausbau_id(name, jahrgang), von_behaelter:von_behaelter_id(name), nach_behaelter:nach_behaelter_id(name)')
       .order('datum', { ascending: false })
       .limit(200)),
   ])
@@ -98,6 +98,8 @@ export default async function GebindePage({
     notizen: string | null
     transaktions_nr: string | null
     ersteId: string
+    /** Schwundbuchung (umzug_typ 'schwund') – nicht stornierbar (KAN-35) */
+    istSchwund?: boolean
   }
   const umzuege: UmzugGruppe[] = []
   const seenBatches = new Set<string>()
@@ -158,6 +160,7 @@ export default async function GebindePage({
         notizen:      u.notizen ?? null,
         transaktions_nr: u.transaktions_nr ?? null,
         ersteId:      u.id,
+        istSchwund:   u.umzug_typ === 'schwund',
       })
     }
   }
@@ -394,7 +397,7 @@ export default async function GebindePage({
                 </div>
                 <div>
                   <label className={labelCls}>Menge (Liter) *</label>
-                  <input aria-label="Menge (Liter)" name="menge_liter" type="number" step="0.01" min={0}
+                  <input aria-label="Menge (Liter)" name="menge_liter" type="number" step="0.01" min={0.01}
                     required placeholder="z.B. 3000" className={inputCls} />
                 </div>
                 <div>
@@ -476,8 +479,9 @@ export default async function GebindePage({
                           title="Bearbeiten" aria-label="Bearbeiten"
                           className="text-s112-blue-700 hover:text-s112-blue-700/70 mr-3 inline-flex"><Pencil className="w-4 h-4" /></Link>
                         <LoeschenButton
+                          label="Eröffnungsbestand löschen"
                           action={deleteEroeffnungsbestand.bind(null, e.id)}
-                          bestaetigung="Eröffnungsbestand wirklich löschen?" />
+                          bestaetigung="Eröffnungsbestand wirklich löschen? Anfangsbestand und Bestand werden auf 0 gesetzt – nur möglich, solange an der Charge keine Folgebuchungen hängen." />
                       </td>
                     )}
                   </tr>
@@ -521,6 +525,9 @@ export default async function GebindePage({
                     </td>
                     <td className="px-4 py-2.5 text-s112-text">
                       {u.quellenNames.join(' · ')}
+                      {u.istSchwund && (
+                        <span className="ml-1.5 text-xs bg-s112-warn-bg text-s112-warn-fg px-1.5 py-0.5 rounded-full">Schwund</span>
+                      )}
                     </td>
                     <td className="px-4 py-2.5 text-s112-text-2">
                       {u.ziele.map((z, zi) => (
@@ -543,12 +550,19 @@ export default async function GebindePage({
                     <td className="px-4 py-2.5 text-s112-text-2 text-xs">{u.notizen ?? '–'}</td>
                     {writeOk && (
                       <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                        {/* KAN-35: Umzüge nur stornierbar, solange die Ziel-Charge nicht weiterbewegt
+                            wurde; Schwundbuchungen nur durch Betriebs-Manager (Menge/Datum nie änderbar) */}
                         <Link href={`/kellerbuch/umzug/${u.ersteId}/edit`}
-                          title="Bearbeiten" aria-label="Bearbeiten"
+                          title={u.istSchwund ? 'Notizen bearbeiten' : 'Bearbeiten'} aria-label="Bearbeiten"
                           className="text-s112-blue-700 hover:text-s112-blue-700/70 mr-3 inline-flex"><Pencil className="w-4 h-4" /></Link>
-                        <LoeschenButton
-                          action={deleteUmzug.bind(null, u.ersteId)}
-                          bestaetigung="Umzug wirklich löschen? Der Quell-Bestand wird wiederhergestellt." />
+                        {(!u.istSchwund || adminOk) && (
+                          <LoeschenButton
+                            label="Stornieren"
+                            action={deleteUmzug.bind(null, u.ersteId)}
+                            bestaetigung={u.istSchwund
+                              ? 'Schwundbuchung stornieren? Die Menge wird auf die Charge zurückgebucht und die Buchung gelöscht – nur möglich, wenn sie den Bestand gemindert hat und an der Charge seither nichts gebucht wurde.'
+                              : 'Umzug stornieren? Quelle und Ziel werden zurückgebucht und die Buchung gelöscht – nur möglich, solange die Ziel-Charge seither nicht weiterbewegt wurde.'} />
+                        )}
                       </td>
                     )}
                   </tr>

@@ -6,6 +6,8 @@ import Link from '@/components/ui/Link'
 import { useParams } from 'next/navigation'
 import { FlaskConical, BarChart3, ArrowLeftRight, Pencil, Trash2 } from 'lucide-react'
 import { fmtNum, dezimal } from '@/lib/format'
+import { dbFehlerText, fehlerText } from '@/lib/fehler'
+import { deleteKellerbehandlung } from '../../../actions'
 
 type R = Record<string, any>
 
@@ -51,7 +53,10 @@ export default function KellerbehandlungenPage() {
   const [formVolumen, setFormVolumen]     = useState('')
   const [formNotizen, setFormNotizen]     = useState('')
   const [formWeinausbauId, setFormWeinausbauId] = useState<string>('')
+  // Name der beim Bearbeiten verknüpften Charge, falls sie nicht (mehr) aktiv im Behälter liegt
+  const [formWeinausbauName, setFormWeinausbauName] = useState<string | null>(null)
   const [formError, setFormError]         = useState('')
+  const [listeFehler, setListeFehler]     = useState('')
 
   // Neuer Typ inline
   const [showNeuerTyp, setShowNeuerTyp]   = useState(false)
@@ -75,8 +80,9 @@ export default function KellerbehandlungenPage() {
       ? (supabase.rpc as any)('lade_behaelter', { p_tenant_id: activeTenantId }).then((r: R) => ({ data: ((r.data ?? []) as R[]).find(b => b.id === behaelterId) ?? null }))
       : Promise.resolve({ data: null })
     let weinausbauQuery = (supabase.from('weinausbau') as any).select('id, name, menge_liter, aktiv').eq('behaelter_id', behaelterId).eq('aktiv', true)
+    // weinausbau_id mitladen: ohne sie setzte „Bearbeiten“ die Chargen-Zuordnung auf NULL (KAN-35)
     let behandlungenQuery = (supabase.from('keller_behandlungen') as any)
-      .select('id, datum, typ_id, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, typ:typ_id(name)')
+      .select('id, datum, typ_id, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, weinausbau_id, typ:typ_id(name), weinausbau:weinausbau_id(name)')
       .eq('behaelter_id', behaelterId)
       .order('datum', { ascending: false })
     let typenQuery = (supabase.from('keller_behandlungstypen') as any).select('id, name, einheit_standard').order('sort_order').order('name')
@@ -120,6 +126,7 @@ export default function KellerbehandlungenPage() {
     setShowNeuerTyp(false)
     // Aktive Charge vorbelegen wenn genau eine im Behälter
     setFormWeinausbauId(chargenImBehaelter.length === 1 ? chargenImBehaelter[0].id : '')
+    setFormWeinausbauName(null)
     setShowForm(true)
   }
 
@@ -132,6 +139,7 @@ export default function KellerbehandlungenPage() {
     setFormVolumen(b.volumen_liter_ist != null ? String(b.volumen_liter_ist) : '')
     setFormNotizen(b.notizen ?? '')
     setFormWeinausbauId(b.weinausbau_id ?? '')
+    setFormWeinausbauName((b.weinausbau as R | null)?.name ?? null)
     setFormError('')
     setShowNeuerTyp(false)
     setShowForm(true)
@@ -145,14 +153,17 @@ export default function KellerbehandlungenPage() {
 
   async function saveNeuerTyp() {
     if (!neuerTypName.trim()) return
+    // Aktiver Betrieb aus loadData() (/api/me/active-tenant) – nicht „irgendeine“ Mitgliedschaft
+    if (!tenantId) { setFormError('Aktiver Betrieb konnte nicht ermittelt werden. Bitte Seite neu laden.'); return }
     setTypSaving(true)
-    const { data: session } = await (supabase.auth as any).getSession()
-    const userId = session?.session?.user?.id
-    const { data: memberRow } = await (supabase.from('tenant_memberships') as any)
-      .select('tenant_id').eq('user_id', userId).single()
-    const { data: neu } = await (supabase.from('keller_behandlungstypen') as any)
-      .insert({ tenant_id: memberRow.tenant_id, name: neuerTypName.trim(), einheit_standard: neuerTypEinheit || null })
+    const { data: neu, error: typErr } = await (supabase.from('keller_behandlungstypen') as any)
+      .insert({ tenant_id: tenantId, name: neuerTypName.trim(), einheit_standard: neuerTypEinheit || null })
       .select('id, name, einheit_standard').single()
+    if (typErr) {
+      setFormError(dbFehlerText(typErr, 'Behandlungstyp konnte nicht angelegt werden'))
+      setTypSaving(false)
+      return
+    }
     if (neu) {
       setTypen(prev => [...prev, neu])
       setFormTypId(neu.id)
@@ -183,36 +194,47 @@ export default function KellerbehandlungenPage() {
     }
 
     startTransition(async () => {
+      // tenantId kommt aus loadData() (state, siehe /api/me/active-tenant oben) - kein
+      // eigener Fallback-Lookup mehr hier (der frühere ungefilterte tenant_memberships-
+      // Fallback konnte bei Mehrfach-Mitgliedschaft eine BELIEBIGE statt der aktiven
+      // Mitgliedschaft treffen). Ohne bekannten aktiven Mandanten wird bewusst NICHT
+      // geschrieben, statt zu raten.
+      if (!tenantId) {
+        setFormError('Aktiver Betrieb konnte nicht ermittelt werden. Bitte Seite neu laden.')
+        return
+      }
       if (editId) {
-        let updateQuery = (supabase.from('keller_behandlungen') as any)
-          .update({ ...payload, updated_at: new Date().toISOString() }).eq('id', editId)
-        if (tenantId) updateQuery = updateQuery.eq('tenant_id', tenantId)
-        await updateQuery
+        // KAN-35: Ergebnis prüfen – vorher blieb ein Fehler (z. B. fehlende Berechtigung) unbemerkt
+        const { data: geaendert, error: e } = await (supabase.from('keller_behandlungen') as any)
+          .update({ ...payload, updated_at: new Date().toISOString() })
+          .eq('id', editId)
+          .eq('tenant_id', tenantId)
+          .select('id')
+        if (e) { setFormError(dbFehlerText(e, 'Speichern fehlgeschlagen')); return }
+        if (!geaendert || geaendert.length === 0) { setFormError('Speichern fehlgeschlagen: Behandlung nicht gefunden oder keine Berechtigung.'); return }
       } else {
-        // tenantId kommt aus loadData() (state, siehe /api/me/active-tenant oben) - kein
-        // eigener Fallback-Lookup mehr hier (der frühere ungefilterte tenant_memberships-
-        // Fallback konnte bei Mehrfach-Mitgliedschaft eine BELIEBIGE statt der aktiven
-        // Mitgliedschaft treffen). Ohne bekannten aktiven Mandanten wird bewusst NICHT
-        // eingefügt, statt zu raten.
-        if (!tenantId) {
-          setFormError('Aktiver Betrieb konnte nicht ermittelt werden. Bitte Seite neu laden.')
-          return
-        }
-        { const { error: e } = await (supabase.from('keller_behandlungen') as any)
+        const { error: e } = await (supabase.from('keller_behandlungen') as any)
           .insert({ ...payload, tenant_id: tenantId })
-          if (e) console.error('[behandlungen] keller_behandlungen:', e.message) }
+        if (e) { setFormError(dbFehlerText(e, 'Speichern fehlgeschlagen')); return }
       }
       setShowForm(false)
       loadData()
     })
   }
 
-  async function handleDelete(id: string) {
+  // KAN-35: Löschen über die Server Action (Rollen- und Ergebnisprüfung, protokolliert)
+  // statt direkt über den Browser-Client
+  function handleDelete(id: string) {
     if (!confirm('Behandlung löschen?')) return
-    let deleteQuery = (supabase.from('keller_behandlungen') as any).delete().eq('id', id)
-    if (tenantId) deleteQuery = deleteQuery.eq('tenant_id', tenantId)
-    await deleteQuery
-    loadData()
+    setListeFehler('')
+    startTransition(async () => {
+      try {
+        await deleteKellerbehandlung(id)
+        loadData()
+      } catch (err) {
+        setListeFehler(fehlerText(err, 'Löschen fehlgeschlagen'))
+      }
+    })
   }
 
   const gHl = formMenge && formVolumen && formEinheit !== '-'
@@ -332,12 +354,16 @@ export default function KellerbehandlungenPage() {
               </div>
             </div>
 
-            {chargenImBehaelter.length > 0 && (
+            {(chargenImBehaelter.length > 0 || (formWeinausbauId && formWeinausbauName)) && (
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Kellerbuch-Charge</label>
                 <select aria-label="Kellerbuch-Charge" value={formWeinausbauId} onChange={e => setFormWeinausbauId(e.target.value)}
                   className="input w-full">
                   <option value="">– keine Zuordnung –</option>
+                  {/* Bisher zugeordnete Charge, die nicht mehr aktiv im Behälter liegt – bleibt wählbar */}
+                  {formWeinausbauId && !chargenImBehaelter.some((c: R) => c.id === formWeinausbauId) && (
+                    <option value={formWeinausbauId}>{formWeinausbauName ?? 'bisherige Charge'} (nicht mehr im Behälter)</option>
+                  )}
                   {chargenImBehaelter.map((c: R) => (
                     <option key={c.id} value={c.id}>{c.name ?? c.id}</option>
                   ))}
@@ -365,6 +391,10 @@ export default function KellerbehandlungenPage() {
             </div>
           </form>
         </div>
+      )}
+
+      {listeFehler && (
+        <div role="alert" className="rounded-lg border border-s112-err/30 bg-s112-err-bg px-4 py-2 text-sm text-s112-err-fg">{listeFehler}</div>
       )}
 
       {/* Liste */}
@@ -422,9 +452,9 @@ export default function KellerbehandlungenPage() {
                         <button onClick={() => openEdit(b)}
                           title="Bearbeiten" aria-label="Bearbeiten"
                           className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={15} strokeWidth={1.75} /></button>
-                        <button onClick={() => handleDelete(b.id)}
+                        <button onClick={() => handleDelete(b.id)} disabled={isPending}
                           title="Löschen" aria-label="Löschen"
-                          className="text-s112-err hover:text-s112-err-fg"><Trash2 size={15} strokeWidth={1.75} /></button>
+                          className="text-s112-err hover:text-s112-err-fg disabled:opacity-50"><Trash2 size={15} strokeWidth={1.75} /></button>
                       </div>
                     </td>
                   </tr>

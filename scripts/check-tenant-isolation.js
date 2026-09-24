@@ -49,13 +49,16 @@ const SRC_DIR = path.join(ROOT, 'src')
 // (create table ... tenant_id / alter table ... add column tenant_id).
 // tenant_memberships bewusst NICHT hier drin - die hat eigene Semantik
 // (wird per user_id gesucht) und wird unten separat behandelt.
+// KAN-35 (24.09.2026): bestandsprotokoll (nur lesbar, tenant_id NULL-fähig – RLS lässt
+// Betriebsleiter ALLE ihre Betriebe sehen, daher ebenfalls explizit filtern) und
+// fuellung_bewegungen (Schreiben nur per RPC fuellung_bestand_buchen).
 const PROTECTED_TABLES = [
   'aktivitaet_dokumente', 'aktivitaeten', 'ama_erntemeldungen', 'assistent_korrekturen',
-  'assistent_unterhaltungen', 'behaelter', 'benachrichtigungen', 'behandlungen', 'bestellungen', 'dac_antrag',
+  'assistent_unterhaltungen', 'behaelter', 'benachrichtigungen', 'behandlungen', 'bestandsprotokoll', 'bestellungen', 'dac_antrag',
   'datenschutz_consents', 'duengemittel', 'duengemittel_lager_bewegungen', 'ea_belege', 'ea_dauerauftraege',
   'ea_dauerauftrag_log', 'ea_kategorien', 'ea_monatsabschluss', 'ea_transaktionen', 'ea_uva',
   'exportauftraege', 'fibu_buchungssaetze',
-  'fibu_kontenplan', 'fibu_perioden', 'firmen', 'fuellung_chargen', 'fuellungen', 'grundstuecke',
+  'fibu_kontenplan', 'fibu_perioden', 'firmen', 'fuellung_bewegungen', 'fuellung_chargen', 'fuellungen', 'grundstuecke',
   'keller_behandlungen', 'keller_behandlungstypen', 'keller_umzuege', 'kellerplaene',
   'kellerplan_positionen', 'kontakte', 'konten', 'konto_umbuchungen', 'kostenarten', 'kosteneintraege', 'kostenstellen', 'lagen',
   'module_flags', 'pflanzenschutzmittel', 'pipeline_eintraege', 'preislisten',

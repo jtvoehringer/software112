@@ -7,6 +7,36 @@
 --          anfangsbestand_liter = menge_liter (4.500) + |protokoll-Saldo| (16.874,5)
 --                               = 21.374,50 L
 -- Ergebnis: Bewegungsbuch zeigt Anfangssaldo +21.374,50 L → Endsaldo +4.500,00 L ✓
+--
+-- ─── ACHTUNG seit KAN-35 (24.09.2026) ─────────────────────────────────────────
+-- Migration 20260924170709_kan35_datenintegritaet:
+--  • Jede Löschung und bestandsrelevante Änderung an Kellerbuch-, Lese- und
+--    Verkaufstabellen (weinausbau, keller_umzuege, verschneidungen, verschneidung_
+--    quellen, keller_behandlungen, fuellungen, fuellung_chargen, fuellung_bewegungen,
+--    zukauf_posten, pressungen, pressung_behaelter, pressung_weingaerten,
+--    ernte_parzellen, traubenverkauf, verkaufsposten, verkauf_positionen,
+--    ama_erntemeldungen, ama_meldepositionen, weinjahrgaenge) landet per Trigger im
+--    bestandsprotokoll – auch im SQL-Editor und bei FK-Kaskaden. Das ist gewollt.
+--  • TRUNCATE ist auf diesen Tabellen gesperrt – nur zeilenweise mit DELETE löschen.
+--  • Nicht mit SET session_replication_role = 'replica' arbeiten: das schaltet
+--    Protokoll-Trigger, FK-Prüfungen UND FK-Kaskaden ab (ungeprotokollierte
+--    Löschungen, verwaiste Zeilen z. B. in fuellung_bewegungen).
+--  • Löschreihenfolge wegen der FKs ohne ON DELETE (NO ACTION): verschneidungen
+--    (samt verschneidung_quellen), keller_behandlungen, keller_umzuege,
+--    fuellung_chargen und pressung_behaelter VOR weinausbau; weinausbau,
+--    keller_umzuege, keller_behandlungen und pressung_behaelter VOR behaelter;
+--    traubenverkauf VOR weinjahrgaenge.
+--  • Mengenkorrekturen nicht per UPDATE, sondern über die RPCs schwund_buchen(...)
+--    (Liter einer Charge mindern, datierte Schwundzeile) bzw. fuellung_bestand_buchen(...)
+--    (Flaschenbestand ±, datierte Zeile in fuellung_bewegungen) – aus dem SQL-Editor
+--    mit Parameternamen aufrufbar, z. B.
+--      select schwund_buchen(p_tenant_id => '…', p_weinausbau_id => '…', p_liter => 12.5,
+--                            p_datum => current_date, p_notiz => 'Korrektur …');
+--    Ein direktes UPDATE von menge_liter/bestand_flaschen wird zwar protokolliert,
+--    hinterlässt aber keine datierte Bewegung im Bewegungsbuch.
+--  • Historischer Einzel-Fix: INSERTs werden nicht protokolliert (nur DELETE/UPDATE);
+--    der Eröffnungsbestand ist über die Charge selbst nachvollziehbar.
+-- ───────────────────────────────────────────────────────────────────────────────
 
 DO $$
 DECLARE

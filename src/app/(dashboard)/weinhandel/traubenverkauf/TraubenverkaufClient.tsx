@@ -208,10 +208,12 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
     })
   }
 
+  // Löschen: hat der Traubenverkauf eine Rechnung, wird sie storniert (nicht gelöscht) – KAN-35
   function handleDelete(id: string) {
+    setError(null)
     startTransition(async () => {
       try { await deleteTraubenverkauf(id); setDeleteConfirm(null) }
-      catch (err) { setError(fehlerText(err, 'Fehler beim Löschen')) }
+      catch (err) { setDeleteConfirm(null); setError(fehlerText(err, 'Fehler beim Löschen')) }
     })
   }
 
@@ -277,6 +279,14 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
           )}
         </div>
       </div>
+
+      {/* Fehler aus der Liste (z. B. Löschen) – im Formular steht er dort */}
+      {error && !showForm && (
+        <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-3 py-2 text-sm flex items-start justify-between gap-3">
+          <span>{error}</span>
+          <button type="button" onClick={() => setError(null)} className="text-xs underline flex-shrink-0">Schließen</button>
+        </div>
+      )}
 
       {/* Formular */}
       {showForm && writeOk && (
@@ -479,7 +489,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
                 className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
                 {isPending ? 'Speichert…' : 'Speichern'}
               </button>
-              <button type="button" onClick={() => { setShowForm(false); setEditRow(null) }}
+              <button type="button" onClick={() => { setShowForm(false); setEditRow(null); setError(null) }}
                 className="px-4 py-1.5 text-sm text-s112-text-2 hover:text-s112-text">
                 Abbrechen
               </button>
@@ -513,11 +523,18 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
             return (
               <div key={v.id} className="group card">
                 {deleteConfirm === v.id ? (
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-s112-err-fg font-medium">Traubenverkauf wirklich löschen?</p>
-                    <div className="flex gap-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm text-s112-err-fg font-medium">Traubenverkauf wirklich löschen?</p>
+                      {v.verkaufsposten_id && (
+                        <p className="text-xs text-s112-muted mt-0.5">
+                          Die zugehörige Rechnung wird storniert (nicht gelöscht) – der Beleg bleibt als storniert erhalten.
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
                       <button onClick={() => handleDelete(v.id)} className="text-xs bg-s112-err text-white px-3 py-1 rounded-lg hover:bg-s112-err-fg">
-                        Ja, löschen
+                        {v.verkaufsposten_id ? 'Ja, löschen und Rechnung stornieren' : 'Ja, löschen'}
                       </button>
                       <button onClick={() => setDeleteConfirm(null)} className="text-xs text-s112-text-2 px-3 py-1 rounded-lg hover:bg-[#F2F3F5]">
                         Abbrechen

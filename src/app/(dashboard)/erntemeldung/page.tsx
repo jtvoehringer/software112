@@ -12,6 +12,15 @@ export type Jahrgang = {
   abgeschlossen: boolean; notizen: string | null
   parzellen_count: number; gesamtmenge_kg: number; avg_kmw: number | null
   ama_status: string | null
+  // KAN-35: warum der Jahrgang nicht gelöscht werden kann (null = löschbar); dieselben
+  // Regeln prüft deleteJahrgang serverseitig
+  loeschsperre: string | null
+}
+
+const AMA_STATUS_GESPERRT: Record<string, string> = {
+  eingereicht: 'eingereicht',
+  bestaetigt:  'von der AMA bestätigt',
+  abgelehnt:   'von der AMA abgelehnt',
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -32,14 +41,39 @@ export default async function ErntemeldungPage() {
     .eq('tenant_id', tenantId)
     .order('jahrgang', { ascending: false })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawP } = await (supabase.from('ernte_parzellen') as any)
-    .select('jahrgang_id, menge_kg, klosterneuburger')
+  // ernte_parzellen hat keine tenant_id → über die Jahrgänge des aktiven Betriebs eingrenzen
+  // (RLS allein liefert bei mehreren Mitgliedschaften auch fremde Betriebe)
+  const jahrgangIds = ((rawJ ?? []) as AR[]).map(j => j.id as string)
+  const [{ data: rawP }, { data: rawA }, { data: rawPress }, { data: rawTV }] = await Promise.all([
+    jahrgangIds.length > 0
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? (supabase.from('ernte_parzellen') as any)
+          .select('jahrgang_id, menge_kg, klosterneuburger')
+          .in('jahrgang_id', jahrgangIds)
+      : Promise.resolve({ data: [] }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('ama_erntemeldungen') as any)
+      .select('jahrgang_id, status')
+      .eq('tenant_id', tenantId),
+    // Löschsperre: Pressungen und Traubenverkäufe je Jahrgang
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('pressungen') as any)
+      .select('jahrgang_id')
+      .eq('tenant_id', tenantId),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('traubenverkauf') as any)
+      .select('jahrgang_id')
+      .eq('tenant_id', tenantId)
+      .not('jahrgang_id', 'is', null),
+  ])
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawA } = await (supabase.from('ama_erntemeldungen') as any)
-    .select('jahrgang_id, status')
-    .eq('tenant_id', tenantId)
+  const zaehleJe = (zeilen: AR[] | null | undefined) => {
+    const m = new Map<string, number>()
+    for (const z of zeilen ?? []) if (z.jahrgang_id) m.set(z.jahrgang_id, (m.get(z.jahrgang_id) ?? 0) + 1)
+    return m
+  }
+  const pressungenByJG = zaehleJe(rawPress as AR[] | null)
+  const tvByJG = zaehleJe(rawTV as AR[] | null)
 
   const parzellenByJG = new Map<string, { count: number; kg: number; kmwSum: number; kmwCount: number }>()
   for (const p of (rawP ?? []) as AR[]) {
@@ -67,6 +101,20 @@ export default async function ErntemeldungPage() {
     gesamtmenge_kg:   parzellenByJG.get(j.id)?.kg ?? 0,
     avg_kmw:          (() => { const d = parzellenByJG.get(j.id); return d && d.kmwCount > 0 ? d.kmwSum / d.kmwCount : null })(),
     ama_status:       amaByJG.get(j.id) ?? null,
+    loeschsperre:     (() => {
+      const gruende: string[] = []
+      const nP = pressungenByJG.get(j.id) ?? 0
+      const nT = tvByJG.get(j.id) ?? 0
+      const ama = amaByJG.get(j.id)
+      if (nP > 0) gruende.push(`${nP} ${nP === 1 ? 'Pressung ist' : 'Pressungen sind'} erfasst (daraus sind Kellerbuch-Chargen entstanden)`)
+      if (nT > 0) gruende.push(`${nT} ${nT === 1 ? 'Traubenverkauf ist' : 'Traubenverkäufe sind'} erfasst`)
+      if (ama && AMA_STATUS_GESPERRT[ama]) gruende.push(`die AMA-Erntemeldung ist bereits ${AMA_STATUS_GESPERRT[ama]}`)
+      // gleicher Text wie deleteJahrgang (erntemeldung/actions.ts) – inkl. Handlungsanweisung
+      return gruende.length > 0
+        ? `Der Jahrgang ${j.jahrgang} kann nicht gelöscht werden: ${gruende.join('; ')}. Der Jahrgang bleibt als Historie erhalten.`
+          + (nP > 0 || nT > 0 ? ' Pressungen ohne Folgebuchungen und Traubenverkäufe lassen sich vorher einzeln in der Lese löschen.' : '')
+        : null
+    })(),
   }))
 
   return (

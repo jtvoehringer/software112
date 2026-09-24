@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
+import { fehlerText } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -63,12 +64,29 @@ export default function UmziehenFormClient({
   const updateZiel = (i: number, field: keyof Ziel, val: string | number) =>
     setZiele(z => z.map((item, idx) => idx === i ? { ...item, [field]: val } as Ziel : item))
 
+  // KAN-35: Prüf- und Sperrmeldungen der Server Action (z. B. Ziel > Quelle, Brutto > Bestand,
+  // Storno-Sperre) im Formular zeigen statt auf der Fehlerseite – die Eingaben bleiben erhalten
+  const [pending, startTransition] = useTransition()
+  const [fehler, setFehler] = useState<string | null>(null)
+  function absenden(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setFehler(null)
+    const fd = new FormData(e.currentTarget)
+    startTransition(async () => {
+      try {
+        await action(fd)   // leitet bei Erfolg selbst weiter
+      } catch (err) {
+        setFehler(fehlerText(err, 'Speichern fehlgeschlagen'))
+      }
+    })
+  }
+
   const canSubmit = quellen.some(q => q.weinausbau_id && q.brutto > 0)
     && ziele.some(z => z.behaelter_id && z.menge_netto > 0)
     && !ueberschuss
 
   return (
-    <form action={action} className="mt-4 space-y-6">
+    <form onSubmit={absenden} className="mt-4 space-y-6">
       <input type="hidden" name="quellen_json" value={JSON.stringify(quellen)} />
       <input type="hidden" name="ziele_json"   value={JSON.stringify(ziele)} />
 
@@ -218,9 +236,15 @@ export default function UmziehenFormClient({
         </div>
       )}
 
-      <button type="submit" disabled={!canSubmit}
+      {fehler && (
+        <p role="alert" className="text-sm text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-4 py-2">
+          {fehler}
+        </p>
+      )}
+
+      <button type="submit" disabled={!canSubmit || pending}
         className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-        {submitLabel ?? 'Umzug buchen'}
+        {pending ? 'Wird gespeichert …' : (submitLabel ?? 'Umzug buchen')}
       </button>
     </form>
   )

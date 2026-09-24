@@ -3,11 +3,11 @@ import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/r
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
-import { deactivateVerkauf, stornoVerkauf, createZahlung, deleteZahlung } from '../actions'
+import { stornoVerkauf, createZahlung, deleteZahlung } from '../actions'
 import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButton'
-import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
+import StornoKnopf from './StornoKnopf'
 import RechnungVersandPanel from './RechnungVersandPanel'
-import { Trash2, Undo2, Mail, Phone, Info, CreditCard, FileText } from 'lucide-react'
+import { Trash2, Mail, Phone, Info, CreditCard, FileText } from 'lucide-react'
 import { fmtEur, fmtNum } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
@@ -59,7 +59,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
 
-  const [{ data: postenRaw }, settings, { data: zahlungenRaw }] = await Promise.all([
+  const [{ data: postenRaw }, settings, { data: zahlungenRaw }, { count: traubenverkaufAnzahl }] = await Promise.all([
     (supabase.from('verkaufsposten') as any)
       .select(`
         id, datum, rechnungsnummer, notizen, erstellt_am, storniert, storniert_am,
@@ -84,6 +84,11 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       .eq('verkaufsposten_id', id)
       .eq('tenant_id', tenantId ?? '')
       .order('datum', { ascending: true }),
+    // Traubenverkäufe (BKI) zu diesem Beleg – ein Storno entfernt sie (Hinweis im Storno-Dialog)
+    (supabase.from('traubenverkauf') as any)
+      .select('id', { count: 'exact', head: true })
+      .eq('verkaufsposten_id', id)
+      .eq('tenant_id', tenantId ?? ''),
   ])
 
   if (!postenRaw) notFound()
@@ -124,8 +129,12 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
     }
   }
 
-  const deactivateWithId = deactivateVerkauf.bind(null, id)
+  // Verkäufe werden nur storniert, nie gelöscht/deaktiviert (KAN-35)
   const stornoWithId     = stornoVerkauf.bind(null, id)
+  const hatTraubenverkauf = (traubenverkaufAnzahl ?? 0) > 0 || positionen.some((p: R) => p.typ === 'trauben')
+  const stornoMeldung =
+    'Verkauf stornieren? Der Lagerbestand wird zurückgebucht, der Beleg bleibt als storniert erhalten.' +
+    (hatTraubenverkauf ? ' Die zugehörigen Traubenverkäufe (BKI) werden entfernt, die Menge wird wieder frei.' : '')
   const info = kundenInfo(posten)
 
   const FLASCHEN_LABEL: Record<number, string> = {
@@ -231,22 +240,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
           )}
           <PrintButton />
           {writeOk && !posten.storniert && (
-            <ConfirmDeleteForm
-              action={stornoWithId}
-              message="Verkauf stornieren? Der Lagerbestand wird zurückgebucht."
-              label={<Undo2 size={16} />}
-              title="Stornieren"
-              className="text-s112-warn-fg hover:text-s112-warn-fg"
-            />
-          )}
-          {writeOk && (
-            <ConfirmDeleteForm
-              action={deactivateWithId}
-              message="Verkauf wirklich löschen (ohne Bestandskorrektur)?"
-              label={<Trash2 size={16} />}
-              title="Löschen"
-              className="text-s112-err hover:text-s112-err-fg"
-            />
+            <StornoKnopf action={stornoWithId} meldung={stornoMeldung} />
           )}
           <div className="flex items-center border border-s112-border rounded-lg overflow-hidden text-xs">
             <a href={`/weinhandel/verkauf/${id}?mode=lieferschein`}

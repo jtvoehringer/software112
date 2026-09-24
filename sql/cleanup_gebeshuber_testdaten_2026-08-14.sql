@@ -23,12 +23,46 @@
 --   Storage-Browser.
 --
 -- Ausführen im Supabase SQL Editor.
+--
+-- ─── ACHTUNG seit KAN-35 (24.09.2026) ─────────────────────────────────────────
+-- Migration 20260924170709_kan35_datenintegritaet:
+--  • Jede Löschung und bestandsrelevante Änderung an Kellerbuch-, Lese- und
+--    Verkaufstabellen (weinausbau, keller_umzuege, verschneidungen, verschneidung_
+--    quellen, keller_behandlungen, fuellungen, fuellung_chargen, fuellung_bewegungen,
+--    zukauf_posten, pressungen, pressung_behaelter, pressung_weingaerten,
+--    ernte_parzellen, traubenverkauf, verkaufsposten, verkauf_positionen,
+--    ama_erntemeldungen, ama_meldepositionen, weinjahrgaenge) landet per Trigger im
+--    bestandsprotokoll – auch im SQL-Editor und bei FK-Kaskaden. Das ist gewollt.
+--  • TRUNCATE ist auf diesen Tabellen gesperrt – nur zeilenweise mit DELETE löschen.
+--  • Nicht mit SET session_replication_role = 'replica' arbeiten: das schaltet
+--    Protokoll-Trigger, FK-Prüfungen UND FK-Kaskaden ab (ungeprotokollierte
+--    Löschungen, verwaiste Zeilen z. B. in fuellung_bewegungen).
+--  • Löschreihenfolge wegen der FKs ohne ON DELETE (NO ACTION): verschneidungen
+--    (samt verschneidung_quellen), keller_behandlungen, keller_umzuege,
+--    fuellung_chargen und pressung_behaelter VOR weinausbau; weinausbau,
+--    keller_umzuege, keller_behandlungen und pressung_behaelter VOR behaelter;
+--    traubenverkauf VOR weinjahrgaenge.
+--  • Mengenkorrekturen nicht per UPDATE, sondern über die RPCs schwund_buchen(...)
+--    (Liter einer Charge mindern, datierte Schwundzeile) bzw. fuellung_bestand_buchen(...)
+--    (Flaschenbestand ±, datierte Zeile in fuellung_bewegungen) – aus dem SQL-Editor
+--    mit Parameternamen aufrufbar, z. B.
+--      select schwund_buchen(p_tenant_id => '…', p_weinausbau_id => '…', p_liter => 12.5,
+--                            p_datum => current_date, p_notiz => 'Korrektur …');
+--    Ein direktes UPDATE von menge_liter/bestand_flaschen wird zwar protokolliert,
+--    hinterlässt aber keine datierte Bewegung im Bewegungsbuch.
+--  • Dieses Skript lief am 14.8.2026 mit session_replication_role = 'replica'; die
+--    Zeile ist seit KAN-35 auskommentiert. Die Reihenfolge unten ist FK-gerecht.
+--  • Historisches Einmal-Skript: der Mandant ist inzwischen im Echtbetrieb –
+--    vor einer erneuten Ausführung Mandant und Umfang ausdrücklich klären.
+-- ───────────────────────────────────────────────────────────────────────────────
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 -- Trigger/FK-Prüfungen temporär deaktivieren (macht die Löschreihenfolge
 -- unkritisch - die meisten Tabellen haben zwar schon ON DELETE CASCADE, aber
 -- sicher ist sicher, gleiche Technik wie beim Sandbox-Cleanup vom 5.8.)
-SET session_replication_role = 'replica';
+-- KAN-35 (24.09.2026): auskommentiert – 'replica' schaltet Protokoll-Trigger, FK-Prüfungen
+-- und FK-Kaskaden ab (siehe Kopfkommentar). Nicht wieder aktivieren.
+-- SET session_replication_role = 'replica';
 
 DO $$
 DECLARE
@@ -137,7 +171,7 @@ BEGIN
 END $$;
 
 -- Trigger wieder aktivieren
-SET session_replication_role = 'origin';
+-- SET session_replication_role = 'origin';   -- KAN-35: siehe oben
 
 -- ── Kontrolle: Was ist noch da? (sollte überall 0 sein, außer den "bleibt"-Zeilen) ──
 SELECT 'aktivitaeten',        COUNT(*) FROM aktivitaeten        WHERE tenant_id = 'c3d357c5-239e-4eac-85b2-4774476bc435'

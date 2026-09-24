@@ -1,17 +1,23 @@
 'use client'
 
 import { useState } from 'react'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Undo2 } from 'lucide-react'
 import { fehlerText } from '@/lib/fehler'
 
 interface Props {
   action: () => Promise<void | { error?: string }>
   bestaetigung?: string
+  /** Beschriftung für Tooltip/Screenreader, z. B. „Stornieren“ (Standard: „Löschen“) */
+  label?: string
 }
 
-export default function LoeschenButton({ action, bestaetigung = 'Eintrag wirklich löschen?' }: Props) {
+// Seit KAN-35 kommen hier oft längere Sperrmeldungen an („… nicht mehr stornierbar, weil …
+// Bitte …“). Die Meldung bricht deshalb um (die Tabellenzellen stehen auf whitespace-nowrap)
+// und wird Screenreadern angesagt (role="alert").
+export default function LoeschenButton({ action, bestaetigung = 'Eintrag wirklich löschen?', label = 'Löschen' }: Props) {
   const [error, setError]     = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const storno = label.toLowerCase().startsWith('storn')
 
   async function handleClick() {
     if (!window.confirm(bestaetigung)) return
@@ -23,20 +29,24 @@ export default function LoeschenButton({ action, bestaetigung = 'Eintrag wirklic
         setError(result.error)
       }
     } catch (err) {
-      setError(fehlerText(err, 'Löschen fehlgeschlagen'))
+      setError(fehlerText(err, storno ? 'Storno fehlgeschlagen' : 'Löschen fehlgeschlagen'))
     } finally {
       setPending(false)
     }
   }
 
   return (
-    <span className="inline-flex flex-col items-end gap-0.5">
+    <span className="inline-flex flex-col items-end gap-0.5 align-top">
       <button type="button" onClick={handleClick} disabled={pending}
-        title="Löschen" aria-label="Löschen"
+        title={label} aria-label={label}
         className="text-s112-err hover:text-s112-err-fg disabled:opacity-50">
-        {pending ? '…' : <Trash2 className="w-4 h-4" />}
+        {pending ? '…' : storno ? <Undo2 className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
       </button>
-      {error && <span className="text-[11px] text-s112-err-fg max-w-[180px] text-right">{error}</span>}
+      {error && (
+        <span role="alert" className="block text-[11px] leading-snug text-s112-err-fg w-[240px] max-w-[70vw] text-left whitespace-normal break-words">
+          {error}
+        </span>
+      )}
     </span>
   )
 }
