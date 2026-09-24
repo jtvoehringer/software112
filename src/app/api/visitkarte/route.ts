@@ -1,10 +1,13 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export async function POST(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   if (!process.env.ANTHROPIC_API_KEY)
     return NextResponse.json({ fehler: 'ANTHROPIC_API_KEY nicht gesetzt' }, { status: 500 })
 

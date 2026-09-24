@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { ereignisMelden } from '@/lib/system/ereignis'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 export const dynamic = 'force-dynamic'
 
 // Browser-Fehlergrenze ((dashboard)/error.tsx) meldet hierher (20.9.2026).
 // Nur für angemeldete Benutzer, knappe Felder – kein freies Protokoll.
 export async function POST(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ ok: false }, { status: 401 })

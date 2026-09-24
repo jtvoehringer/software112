@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { sumupWebhookUrl } from '@/lib/sumup/webhook'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 // POST /api/sumup/checkout
 // Erstellt einen SumUp Checkout für einen Verkaufsposten.
@@ -13,6 +14,8 @@ import { sumupWebhookUrl } from '@/lib/sumup/webhook'
 type R = Record<string, any>
 
 export async function POST(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   const supabase   = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) {
@@ -116,6 +119,8 @@ export async function POST(req: NextRequest) {
 
 // GET /api/sumup/checkout?id=… – Status eines Checkouts abfragen
 export async function GET(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   const supabase   = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) {

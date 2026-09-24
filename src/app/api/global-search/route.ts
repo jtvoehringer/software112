@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +17,8 @@ export type SearchResult = {
 }
 
 export async function GET(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   const q = req.nextUrl.searchParams.get('q')?.trim()
   if (!q || q.length < 2) {
     return NextResponse.json({ results: [] })

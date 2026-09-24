@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { spiegleMailboxen } from '@/lib/email/spiegel'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 // „Jetzt spiegeln“ (Nachrichten › Einstellungen, 18.9.2026): E-Mails des eigenen
 // Postfachs (und der geteilten Mailbox) seit dem letzten Stand als Aktivitäten
@@ -15,6 +16,8 @@ export const maxDuration = 60
 // z.B. nachdem eine geteilte Mailbox erst nachträglich lesbar wurde (403 →
 // Berechtigung ergänzt), denn der Stand war inzwischen schon vorgerückt.
 export async function POST(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   const membership = await getCurrentMembership()
   if (!membership) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
   const supabase = await createSupabaseServerClient()

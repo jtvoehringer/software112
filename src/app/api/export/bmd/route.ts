@@ -10,6 +10,7 @@ import {
   bmdDatum, datumPlusTage, bmdCsv, bmdText, personenkontenCsv,
   type Mapping, type BmdZeile, type PersonenkontoZeile,
 } from '@/lib/buchhaltung/bmd'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -38,6 +39,8 @@ type R = Record<string, any>
 const STANDARD_ZAHLUNGSZIEL = 14
 
 export async function GET(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ fehler: 'Nicht autorisiert' }, { status: 401 })
@@ -129,6 +132,7 @@ export async function GET(req: NextRequest) {
       'X-BMD-Anzahl': String(anzahl),
       'X-BMD-Summe': String(Math.round(summe * 100) / 100),
       'X-BMD-Dateiname': dateiname,
+      'Cache-Control': 'no-store',
     },
   })
 }

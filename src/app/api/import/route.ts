@@ -5,6 +5,7 @@ import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
 import { zerlegeTelefon } from '@/lib/crm/telefon'
 import { pruefeEmailFelder } from '@/lib/crm/email'
 import { dezimal } from '@/lib/format'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 export const dynamic = 'force-dynamic'
 // Große Importe (Dynamics-Leads 3.9.2026: 4.200 Firmen / 7.900 Kontakte) kommen
 // vom Client in Blöcken (siehe ImportClient.tsx, IMPORT_BLOCKGROESSE) - ein
@@ -123,6 +124,8 @@ async function generateAccountnummer(
 }
 
 export async function POST(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   try {
     const { typ, rows, mapping, istLead, herkunft, zeilenOffset } = await req.json() as {
       typ: 'kontakte' | 'firmen' | 'fuellungen' | 'rieden_details' | 'grundstuecke' | 'gebinde'

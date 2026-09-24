@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -10,6 +11,8 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string; dok_id: string }> }
 ) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   const { dok_id } = await params
   const supabase = await createSupabaseServerClient()
 
@@ -38,6 +41,8 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string; dok_id: string }> }
 ) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   const { dok_id } = await params
   const supabase = await createSupabaseServerClient()
 

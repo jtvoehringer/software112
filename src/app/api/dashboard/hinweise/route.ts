@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getCtx, ladeEinstellungen, ladeFristen, ladeKeller } from '@/app/(dashboard)/dashboard/_shared/data'
 import { ladeMorgenbericht } from '@/lib/morgenbericht/erstellen'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,6 +18,8 @@ export type Hinweis = { key: string; titel: string; detail: string; tone: 'err' 
 export type Benachrichtigung = { id: string; art: string; titel: string; text: string | null; href: string | null; erstellt_am: string }
 
 export async function GET() {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   const ctx = await getCtx()
   if (!ctx.tenantId) return NextResponse.json({ hinweise: [], benachrichtigungen: [] })
 

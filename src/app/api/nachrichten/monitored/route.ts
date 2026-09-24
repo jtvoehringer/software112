@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -9,6 +10,8 @@ type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explic
 // Funktion nach jedem Neuladen der Seite unsichtbar wirkte, obwohl sie
 // serverseitig (list/message/folders/unified-Routen) längst aktiv war.
 export async function GET() {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   try {
     const supabase = await createSupabaseServerClient()
     const membership = await getCurrentMembership()
@@ -26,6 +29,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   try {
     const { monitored_email } = await req.json()
     const supabase = await createSupabaseServerClient()

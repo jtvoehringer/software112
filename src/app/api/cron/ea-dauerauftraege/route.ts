@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, isSystemAdmin } from '@/lib/auth/roles'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -25,6 +26,9 @@ async function handle(req: NextRequest) {
   const hasCronAuth = !!cronSecret && authHeader === `Bearer ${cronSecret}`
 
   if (!hasCronAuth) {
+    // Sitzungszweig (manueller Lauf): Zwei-Faktor wie jede benutzergebundene Route (KAN-54)
+    const zweiFaktor = await pruefeZweiFaktor()
+    if (zweiFaktor) return zweiFaktor
     const membership = await getCurrentMembership()
     if (!membership || !isSystemAdmin(membership.role)) {
       return NextResponse.json({ fehler: 'Unauthorized' }, { status: 401 })

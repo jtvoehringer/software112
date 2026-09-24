@@ -1,12 +1,15 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 // POST /api/crm/aktivitaet/[id]/dokument – Datei hochladen
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   const { id: aktivitaetId } = await params
   const supabase = await createSupabaseServerClient()
 
@@ -64,6 +67,8 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   const { id: aktivitaetId } = await params
   const supabase = await createSupabaseServerClient()
 

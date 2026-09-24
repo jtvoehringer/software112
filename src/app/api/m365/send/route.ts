@@ -4,11 +4,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { graphPost, getValidAccessToken } from '@/lib/m365/graph'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { ereignisMelden } from '@/lib/system/ereignis'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export async function POST(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   try {
     const { an, betreff, text, kontakt_id, firma_id } = await req.json()
     const supabase = await createSupabaseServerClient()

@@ -5,12 +5,15 @@ import { getValidUserAccessToken, getMailboxBase } from '@/lib/m365/graph'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { ladeAbsenderIndex, absenderStatus, findeNamensgleiche, type AbsenderStatus } from '@/lib/crm/absender'
 import { ereignisMelden } from '@/lib/system/ereignis'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 type KontaktInfo = { typ: 'kontakt' | 'firma'; id: string; name: string; accountnummer: string | null; istLead: boolean; ueber: 'email' | 'domain' } | null
 
 export async function GET(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   try {
     const id = req.nextUrl.searchParams.get('id')
     if (!id) return NextResponse.json({ fehler: 'Keine ID' }, { status: 400 })

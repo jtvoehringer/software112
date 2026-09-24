@@ -4,11 +4,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { m365AuthUrl } from '@/lib/m365/graph'
 import { erzeugeStateWert, setzeNonceCookie } from '@/lib/m365/state'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export async function GET(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ fehler: 'Nicht autorisiert' }, { status: 401 })

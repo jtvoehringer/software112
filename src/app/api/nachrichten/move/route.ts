@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { getValidUserAccessToken, getMailboxBase } from '@/lib/m365/graph'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -12,6 +13,8 @@ type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explic
 // in Outlook (Desktop/Web/Mobile) nachgezogen wird, ohne Sonderlogik in
 // software:112.
 export async function POST(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   try {
     const body = await req.json().catch(() => ({})) as R
     const id            = body.id as string | undefined
