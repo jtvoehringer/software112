@@ -187,7 +187,7 @@ export default async function DauerauftraegePage() {
                   <td className="px-4 py-2.5 text-right">
                     {adminOk && (
                       <ConfirmDeleteForm
-                        action={async () => { await deaktiviereEaDauerauftrag(d.id) }}
+                        action={async () => { 'use server'; await deaktiviereEaDauerauftrag(d.id) }}
                         message={`"${d.beschreibung}" deaktivieren? Es werden dann keine weiteren Buchungen mehr automatisch erzeugt.`}
                         title="Deaktivieren"
                         label="Deaktivieren"
