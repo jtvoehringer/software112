@@ -38,18 +38,35 @@ export default function ReleaseNotesAdminClient({ readOnly = false }: { readOnly
   }
   useEffect(() => { laden() }, [])
 
+  // Aktivieren/Deaktivieren: ein von RLS abgelehntes UPDATE liefert keinen Fehler,
+  // sondern trifft nur 0 Zeilen - deshalb .select('id') und leeres Ergebnis als Fehler werten
+  async function aktivUmschalten(n: R) {
+    setMeldung(null)
+    const { data, error } = await (s.from('release_notes') as any).update({ aktiv: !n.aktiv }).eq('id', n.id).select('id')
+    if (error) console.error('[release-notes] release_notes:', error.message)
+    if (error || !data?.length)
+      setMeldung(`Fehler: ${error?.message ?? `Version ${n.version} konnte nicht ${n.aktiv ? 'deaktiviert' : 'aktiviert'} werden (keine Berechtigung).`}`)
+    laden()
+  }
+
   async function speichern(e: React.FormEvent) {
     e.preventDefault()
     if (readOnly) return
-    setSaving(true)
-    { const { error: e } = await (s.from('release_notes') as any).insert({
+    setSaving(true); setErfolg(false); setMeldung(null)
+    const { error } = await (s.from('release_notes') as any).insert({
       version, titel,
       features: features.split('\n').map((l:string)=>l.trim()).filter(Boolean),
       fixes: fixes.split('\n').map((l:string)=>l.trim()).filter(Boolean),
     })
-      if (e) console.error('[release-notes] release_notes:', e.message) }
+    setSaving(false)
+    // Felder nur bei Erfolg leeren - sonst geht die Eingabe verloren
+    if (error) {
+      console.error('[release-notes] release_notes:', error.message)
+      setMeldung(`Fehler: Release Note wurde nicht veröffentlicht – ${error.message}`)
+      return
+    }
     setVersion(''); setTitel(''); setFeatures(''); setFixes('')
-    setErfolg(true); setSaving(false); laden()
+    setErfolg(true); laden()
     setTimeout(() => setErfolg(false), 3000)
   }
 
@@ -94,7 +111,7 @@ export default function ReleaseNotesAdminClient({ readOnly = false }: { readOnly
       )}
       <div className="bg-white rounded-xl border border-s112-border p-5">
         <h2 className="font-semibold text-s112-text mb-3">Bisherige Release Notes</h2>
-        {meldung && <p className="text-sm text-s112-ok-fg mb-2">{meldung}</p>}
+        {meldung && <p className={`text-sm mb-2 ${meldung.startsWith('Fehler') ? 'text-s112-err-fg' : 'text-s112-ok-fg'}`}>{meldung}</p>}
         <p className="text-xs text-s112-muted mb-3">Alle Benutzer können die Notes jederzeit unter System › Neuerungen nachlesen. Wurde ein Text nachträglich ergänzt, „Erneut anzeigen“ – dann kommt das Fenster bei allen noch einmal.</p>
         {notes.map((n:R) => (
           <div key={n.id} className="flex items-center justify-between py-2 border-b border-s112-border/40 last:border-0">
@@ -107,7 +124,7 @@ export default function ReleaseNotesAdminClient({ readOnly = false }: { readOnly
                   <button onClick={() => erneutAnzeigen(n)} disabled={!n.aktiv || !(gesehen[n.id] ?? 0)}
                     title="Gesehen-Vermerke löschen – erscheint bei allen beim nächsten Einstieg wieder"
                     className="text-xs text-s112-blue-700 hover:underline disabled:opacity-40 disabled:no-underline">Erneut anzeigen</button>
-                  <button onClick={async()=>{await (s.from('release_notes') as any).update({aktiv:!n.aktiv}).eq('id',n.id);laden()}}
+                  <button onClick={() => aktivUmschalten(n)}
                     className="text-xs text-s112-muted hover:text-s112-text-1">{n.aktiv?'Deaktivieren':'Aktivieren'}</button>
                 </>
               )}
