@@ -1280,8 +1280,10 @@ function ZeitachseView({
 }
 
 // ── Hilfsfunktion: Privat-Check ──────────────────────────────────────────────
+// Private Einträge ohne Ersteller (Ersteller gelöscht, ON DELETE SET NULL) gelten
+// für alle als fremd (24.9.2026)
 function isPrivatFremder(e: KalenderEintrag, userId?: string) {
-  return e.ist_privat && e.erstellt_von && e.erstellt_von !== userId
+  return !!e.ist_privat && e.erstellt_von !== userId
 }
 
 // ── Monats-Ansicht ────────────────────────────────────────────────────────────

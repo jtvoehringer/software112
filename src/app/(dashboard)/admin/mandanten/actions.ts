@@ -43,8 +43,12 @@ export async function createMandant(formData: FormData) {
   const authClient = await createSupabaseServerClient()
   const { data: { user } } = await authClient.auth.getUser()
   if (user) {
+    // upsert statt insert (24.9.2026): für Plattform-Admins legt der Trigger
+    // tenants_plattform_admins (Migration 198) die Zeile bereits beim Anlegen des
+    // Mandanten an - der zweite Insert scheiterte an UNIQUE (tenant_id, user_id)
     const { error: membershipError } = await (supabase.from('tenant_memberships') as any)
-      .insert({ tenant_id: (tenant as AR).id, user_id: user.id, role: 'system_admin', aktiv: true })
+      .upsert({ tenant_id: (tenant as AR).id, user_id: user.id, role: 'system_admin', aktiv: true },
+        { onConflict: 'tenant_id,user_id', ignoreDuplicates: true })
     if (membershipError) throw new AktionsFehler((membershipError as AR).message)
 
     // Aktiven Betrieb sofort auf den neu angelegten Mandanten umschalten - sonst bleibt

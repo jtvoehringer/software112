@@ -142,8 +142,17 @@ export async function uploadTenantLogo(tenantId: string, formData: FormData): Pr
 
 // ── Benutzer: Einladung ───────────────────────────────────────────────────────
 
+// Rollen, die hier vergeben werden dürfen - wie die Auswahl in MandantDetailClient.
+// system_admin bewusst nicht, und system_admin-Zeilen sind hier weder änder- noch
+// entfernbar (Befund 24.9.2026: die Rolle wurde ungeprüft übernommen und das
+// Rollen-Update wirkte ohne Betriebsbezug - über die Sandbox-Sonderfreigabe ließ
+// sich so Super-Admin-Zugriff verschaffen). Super-Admins ernennt ausschließlich
+// /admin/benutzer (inviteSystemAdmin, pflegt plattform_admins mit).
+const VERGEBBARE_ROLLEN = ['tenant_admin', 'winzer', 'leser']
+
 export async function inviteUserToTenant(tenantId: string, email: string, role: string, fullName: string) {
   await assertSystemAdmin(tenantId)
+  if (!VERGEBBARE_ROLLEN.includes(role)) return { error: 'Ungültige Rolle' }
   const admin = createSupabaseAdminClient()
 
   // Name ist seit 7.8.2026 ein Pflichtfeld: der Klarname wird nicht mehr vom
@@ -154,8 +163,8 @@ export async function inviteUserToTenant(tenantId: string, email: string, role: 
   if (!name) return { error: 'Name ist ein Pflichtfeld.' }
 
   // Benutzerlimit des Pakets (Migration 194). system_admin-Mitgliedschaften
-  // zählen nicht mit - ein Plattform-Admin darf sich immer selbst hinzufügen.
-  if (role !== 'system_admin') {
+  // zählen nicht mit (die Rolle ist oben ohnehin ausgeschlossen).
+  {
     const limit = await pruefeBenutzerlimit(admin, tenantId)
     if (!limit.erlaubt) return { error: benutzerlimitFehler(limit) }
   }
@@ -250,12 +259,17 @@ export async function updateMemberNameAdmin(userId: string, fullName: string, te
 
 export async function updateMemberRoleAdmin(membershipId: string, role: string, tenantId: string) {
   await assertSystemAdmin(tenantId)
+  if (!VERGEBBARE_ROLLEN.includes(role)) return { error: 'Ungültige Rolle' }
   const admin = createSupabaseAdminClient()
 
-  const { error } = await (admin.from('tenant_memberships') as any)
-    .update({ role }).eq('id', membershipId)
+  const { error, count } = await (admin.from('tenant_memberships') as any)
+    .update({ role }, { count: 'exact' })
+    .eq('id', membershipId)
+    .eq('tenant_id', tenantId)
+    .neq('role', 'system_admin')
 
   if (error) return { error: (error as R).message }
+  if (count === 0) return { error: 'Eintrag nicht gefunden oder keine Änderung möglich.' }
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   return { success: true }
@@ -267,10 +281,14 @@ export async function removeMemberAdmin(membershipId: string, tenantId: string) 
   await assertSystemAdmin(tenantId)
   const admin = createSupabaseAdminClient()
 
-  const { error } = await (admin.from('tenant_memberships') as any)
-    .delete().eq('id', membershipId)
+  const { error, count } = await (admin.from('tenant_memberships') as any)
+    .delete({ count: 'exact' })
+    .eq('id', membershipId)
+    .eq('tenant_id', tenantId)
+    .neq('role', 'system_admin')
 
   if (error) return { error: (error as R).message }
+  if (count === 0) return { error: 'Eintrag nicht gefunden oder keine Änderung möglich.' }
   // KEIN revalidatePath – Client entfernt den Eintrag aus dem State
   return { success: true }
 }

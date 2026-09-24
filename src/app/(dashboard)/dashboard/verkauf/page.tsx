@@ -223,12 +223,16 @@ export default async function DashboardPage() {
   // Aktivitäten verschwinden ("eher leer"-Feedback), obwohl sie inhaltlich durchaus dem
   // aktuellen User zuzurechnen waeren. Solche unattribuierten Eintraege daher zusaetzlich
   // mit anzeigen, statt sie stillschweigend auszublenden (gleiche Logik wie im
-  // Kalender-Filter, CRMUebersichtClient.tsx).
+  // Kalender-Filter; den Privat-Filter dort macht crm/page.tsx serverseitig).
+  //
+  // Zusatz 24.9.2026: private Einträge ohne Ersteller (Ersteller gelöscht, FK seit
+  // Migration legacy_nachtrag_025_050_052 ON DELETE SET NULL) bleiben ausgeblendet -
+  // sonst sähe jeder im Betrieb Betreff und Kunde fremder privater Termine.
   const in30 = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   const { data: meineAkts } = currentUser
     ? await tf((supabase.from('aktivitaeten') as any)
         .select('id, art, betreff, datum, erledigt, kontakt_id, firma_id, kontakte(vorname,nachname), firmen(name)')
-        .eq('erledigt', false).or(`erstellt_von.eq.${currentUser.id},erstellt_von.is.null`)
+        .eq('erledigt', false).or(`erstellt_von.eq.${currentUser.id},and(erstellt_von.is.null,ist_privat.not.is.true)`)
         .gte('datum', heuteStr).lte('datum', in30)
         .order('datum', { ascending: true }).limit(10))
     : { data: [] }
