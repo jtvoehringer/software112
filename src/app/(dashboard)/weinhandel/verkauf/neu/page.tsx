@@ -28,23 +28,8 @@ interface Weinausbau {
   menge_liter: number | null
 }
 
-interface ZukaufPosten {
-  id: string
-  art: 'wein' | 'trauben' | 'most'
-  menge: number
-  einheit: string
-  rebsorte: string | null
-  jahrgang: number | null
-  notizen: string | null
-}
-
-interface PressungDirekt {
-  id: string
-  menge_liter: number
-  behaelter_name: string | null
-  pressung_datum: string | null
-  pressung_bezeichnung: string | null
-}
+// Offener Wein (Tank) nur aus Kellerbuch-Chargen (KAN-35, 24.09.2026): Zukauf- und
+// Pressungsquellen werden nicht mehr angeboten, „– manuell –“ gibt es bei Tank nicht mehr.
 
 interface Weingarten {
   id: string
@@ -78,8 +63,6 @@ interface Position {
   typ:           'flasche' | 'tank' | 'sonstiges' | 'trauben'
   fuellung_id:   string
   weinausbau_id:         string
-  zukauf_id:             string
-  pressung_behaelter_id: string
   name:                  string
   menge:         string
   einheit:       string
@@ -209,8 +192,6 @@ export default function NeuerVerkaufPage() {
   // Stammdaten vom Server
   const [fuellungen,      setFuellungen]      = useState<Fuellung[]>([])
   const [weinausbau,      setWeinausbau]      = useState<Weinausbau[]>([])
-  const [zukaufPosten,    setZukaufPosten]    = useState<ZukaufPosten[]>([])
-  const [pressungDirekt,  setPressungDirekt]  = useState<PressungDirekt[]>([])
   const [sonstigeArtikel, setSonstigeArtikel] = useState<SonstigesArtikelData[]>([])
   const [weingaerten,     setWeingaerten]     = useState<Weingarten[]>([])
   const [jahrgaenge,      setJahrgaenge]      = useState<Jahrgang[]>([])
@@ -239,8 +220,6 @@ export default function NeuerVerkaufPage() {
       typ:           'flasche',
       fuellung_id:   '',
       weinausbau_id:         '',
-      zukauf_id:             '',
-      pressung_behaelter_id: '',
       name:                  '',
       menge:         '1',
       einheit:       'Stk',
@@ -268,8 +247,6 @@ export default function NeuerVerkaufPage() {
         const json = await res.json()
         setFuellungen(json.fuellungen ?? [])
         setWeinausbau(json.weinausbau ?? [])
-        setZukaufPosten(json.zukauf_posten ?? [])
-        setPressungDirekt(json.pressung_direkt ?? [])
         setSonstigeArtikel(json.sonstige_artikel ?? [])
         setWeingaerten(json.weingaerten ?? [])
         setJahrgaenge(json.jahrgaenge ?? [])
@@ -307,33 +284,6 @@ export default function NeuerVerkaufPage() {
         if (w) {
           next[idx].name     = w.name
           next[idx].einheit  = 'L'
-          next[idx].zukauf_id = ''
-        }
-      }
-
-      if (patch.zukauf_id) {
-        const z = zukaufPosten.find(x => x.id === patch.zukauf_id)
-        if (z) {
-          const label = [
-            z.rebsorte,
-            z.jahrgang,
-            z.notizen ? `(${z.notizen})` : null,
-          ].filter(Boolean).join(' ')
-          next[idx].name          = label || `Zukauf ${z.art}`
-          next[idx].einheit       = 'L'
-          next[idx].weinausbau_id          = ''
-          next[idx].pressung_behaelter_id  = ''
-        }
-      }
-
-      if (patch.pressung_behaelter_id) {
-        const pb = pressungDirekt.find(x => x.id === patch.pressung_behaelter_id)
-        if (pb) {
-          const label = [pb.pressung_bezeichnung, pb.behaelter_name].filter(Boolean).join(' · ')
-          next[idx].name          = label || (pb.behaelter_name ?? 'Pressung')
-          next[idx].einheit       = 'L'
-          next[idx].weinausbau_id = ''
-          next[idx].zukauf_id     = ''
         }
       }
 
@@ -365,8 +315,6 @@ export default function NeuerVerkaufPage() {
       typ:           p.typ,
       fuellung_id:   p.fuellung_id   || null,
       weinausbau_id: p.weinausbau_id || null,
-      zukauf_id:             p.zukauf_id              || null,
-      pressung_behaelter_id: p.pressung_behaelter_id || null,
       name:          p.name,
       menge:         parseFloat(p.menge) || 0,
       einheit:       p.einheit,
@@ -389,6 +337,10 @@ export default function NeuerVerkaufPage() {
     }
     if (posForServer.some(p => !p.name || p.menge <= 0)) {
       setError('Alle Positionen benötigen einen Namen und eine Menge > 0.')
+      return
+    }
+    if (posForServer.some(p => p.typ === 'tank' && !p.weinausbau_id)) {
+      setError('Bitte für jede Tank-Position eine Kellerbuch-Charge auswählen – offener Wein wird nur aus Chargen verkauft.')
       return
     }
     if (posForServer.some(p => p.typ === 'trauben' && !p.trauben_weingarten_id)) {
@@ -430,7 +382,7 @@ export default function NeuerVerkaufPage() {
       <h1 className="text-xl font-semibold text-s112-text">Neuer Verkauf</h1>
 
       {error && (
-        <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg px-4 py-3 rounded-lg text-sm">
+        <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg px-4 py-3 rounded-lg text-sm">
           {error}
         </div>
       )}
@@ -578,7 +530,6 @@ export default function NeuerVerkaufPage() {
                         typ: t,
                         fuellung_id: '',
                         weinausbau_id: '',
-                        zukauf_id: '',
                         name: '',
                         einheit: t === 'tank' ? 'L' : t === 'trauben' ? 'kg' : 'Stk',
                         ust_satz: t === 'trauben' ? '13' : pos.ust_satz,
@@ -615,60 +566,28 @@ export default function NeuerVerkaufPage() {
 
                 {pos.typ === 'tank' && (
                   <div className="col-span-2">
-                    <label className={labelCls}>Kellerbuch / Zukauf</label>
-                    <select aria-label="Kellerbuch / Zukauf"
-                      value={
-                        pos.weinausbau_id
-                          ? pos.weinausbau_id
-                          : pos.zukauf_id
-                            ? `zk:${pos.zukauf_id}`
-                            : pos.pressung_behaelter_id
-                              ? `pb:${pos.pressung_behaelter_id}`
-                              : ''
-                      }
-                      onChange={e => {
-                        const v = e.target.value
-                        if (v.startsWith('zk:')) {
-                          updatePos(idx, { zukauf_id: v.slice(3), weinausbau_id: '', pressung_behaelter_id: '' })
-                        } else if (v.startsWith('pb:')) {
-                          updatePos(idx, { pressung_behaelter_id: v.slice(3), weinausbau_id: '', zukauf_id: '' })
-                        } else {
-                          updatePos(idx, { weinausbau_id: v, zukauf_id: '', pressung_behaelter_id: '' })
-                        }
-                      }}
+                    <label className={labelCls}>Kellerbuch-Charge *</label>
+                    <select aria-label="Kellerbuch-Charge"
+                      value={pos.weinausbau_id}
+                      onChange={e => updatePos(idx, { weinausbau_id: e.target.value })}
+                      required
                       className={inputCls + ' w-full'} disabled={loading}>
-                      <option value="">– manuell –</option>
-                      {pressungDirekt.length > 0 && (
-                        <optgroup label="Pressung (Direktbefüllung)">
-                          {pressungDirekt.map(pb => (
-                            <option key={pb.id} value={`pb:${pb.id}`}>
-                              {[pb.behaelter_name, pb.pressung_bezeichnung].filter(Boolean).join(' · ')}
-                              {` · ${pb.menge_liter} L`}
-                            </option>
-                          ))}
-                        </optgroup>
-                      )}
-                      {weinausbau.length > 0 && (
-                        <optgroup label="Kellerbuch-Chargen">
-                          {weinausbau.map(w => (
-                            <option key={w.id} value={w.id}>
-                              {w.name}{w.menge_liter != null ? ` · ${w.menge_liter} L` : ''}
-                            </option>
-                          ))}
-                        </optgroup>
-                      )}
-                      {zukaufPosten.length > 0 && (
-                        <optgroup label="Zukauf">
-                          {zukaufPosten.map(z => (
-                            <option key={z.id} value={`zk:${z.id}`}>
-                              {[z.rebsorte ? formatRebsorteMitKuerzel(z.rebsorte) : null, z.jahrgang].filter(Boolean).join(' ')}
-                              {z.notizen ? ` · ${z.notizen}` : ''}
-                              {` · ${z.menge} ${z.einheit}`}
-                            </option>
-                          ))}
-                        </optgroup>
-                      )}
+                      <option value="">– Charge wählen –</option>
+                      {weinausbau.map(w => (
+                        <option key={w.id} value={w.id}>
+                          {w.name}{w.menge_liter != null ? ` · ${fmtNum(Number(w.menge_liter))} L` : ''}
+                        </option>
+                      ))}
                     </select>
+                    {!loading && weinausbau.length === 0 ? (
+                      <p className="text-xs text-s112-warn-fg mt-1">
+                        Keine Kellerbuch-Charge mit Bestand vorhanden. Zukäufe bitte zuerst über „Zukauf bearbeiten“ einem Gebinde zuordnen.
+                      </p>
+                    ) : (
+                      <p className="text-xs text-s112-muted mt-1">
+                        Offener Wein wird nur aus Kellerbuch-Chargen verkauft. Zukäufe ohne Gebinde zuerst über „Zukauf bearbeiten“ einem Gebinde zuordnen.
+                      </p>
+                    )}
                   </div>
                 )}
 

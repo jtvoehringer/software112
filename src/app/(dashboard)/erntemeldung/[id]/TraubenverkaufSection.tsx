@@ -6,6 +6,18 @@ import { createTraubenverkauf, updateTraubenverkauf, deleteTraubenverkauf } from
 import type { ZukaufTraubenOpt } from './PressungSection'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum, dezimal } from '@/lib/format'
+import { fehlerText } from '@/lib/fehler'
+
+function Fehlermeldung({ text, onClose }: { text: string; onClose?: () => void }) {
+  return (
+    <div role="alert" className="flex items-start gap-2 text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">
+      <span className="flex-1">{text}</span>
+      {onClose && (
+        <button type="button" onClick={onClose} aria-label="Meldung schließen" className="shrink-0 font-semibold hover:opacity-70">×</button>
+      )}
+    </div>
+  )
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -25,6 +37,9 @@ export type Traubenverkauf = {
   qualitaetsstufe: string | null; gesundheit: string
   herkunft_code: string | null; notizen: string | null
   liefernummer: string | null
+  // Zugehörige Rechnung (verkaufsposten) – Löschen storniert sie (KAN-35)
+  rechnungsnummer?: string | null
+  rechnung_storniert?: boolean
 }
 export type TVWGOption = { id: string; name: string; herkunft_code: string | null }
 export type TVKontaktOption = { id: string; name: string; betrieb_nr: string | null }
@@ -90,6 +105,7 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
   const [herkunft, setHerkunft] = useState(tv?.herkunft_code ?? '')
   const [notizen, setNotizen]   = useState(tv?.notizen ?? '')
   const [pending, startTransition] = useTransition()
+  const [fehler, setFehler]     = useState<string | null>(null)
 
   // Verfügbare kg je Zukauf-Posten, während einer Bearbeitung um die eigene
   // Zeile bereinigt (analog TraubenverkaufClient.tsx).
@@ -156,10 +172,15 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
     fd.append('gesundheit', gesundheit)
     if (herkunft) fd.append('herkunft_code', herkunft)
     if (notizen) fd.append('notizen', notizen)
+    setFehler(null)
     startTransition(async () => {
-      if (tv) await updateTraubenverkauf(tv.id, fd)
-      else await createTraubenverkauf(fd)
-      onDone()
+      try {
+        if (tv) await updateTraubenverkauf(tv.id, fd)
+        else await createTraubenverkauf(fd)
+        onDone()
+      } catch (err) {
+        setFehler(fehlerText(err))
+      }
     })
   }
 
@@ -333,6 +354,8 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
           placeholder="z.B. Abholung durch Genossenschaft …" className={inp} />
       </div>
 
+      {fehler && <Fehlermeldung text={fehler} onClose={() => setFehler(null)} />}
+
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending}
           className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50">
@@ -362,13 +385,25 @@ export default function TraubenverkaufSection({
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId]     = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+  const [fehler, setFehler]     = useState<string | null>(null)
 
   const gesamtKg = verkauefe.reduce((s, v) => s + v.menge_kg, 0)
   const gesamtWert = verkauefe.reduce((s, v) => s + (v.menge_kg * (v.preis_per_kg ?? 0)), 0)
 
-  function handleDelete(id: string) {
-    if (!confirm('Traubenverkauf löschen?')) return
-    startTransition(() => deleteTraubenverkauf(id, jahrgangId))
+  function handleDelete(v: Traubenverkauf) {
+    // KAN-35: Die Rechnung wird nicht gelöscht, sondern storniert (Beleg bleibt erhalten)
+    const frage = v.rechnungsnummer && !v.rechnung_storniert
+      ? `Traubenverkauf löschen? Die zugehörige Rechnung ${v.rechnungsnummer} wird dabei storniert – sie bleibt als stornierter Beleg erhalten.`
+      : 'Traubenverkauf löschen?'
+    if (!confirm(frage)) return
+    setFehler(null)
+    startTransition(async () => {
+      try {
+        await deleteTraubenverkauf(v.id, jahrgangId)
+      } catch (err) {
+        setFehler(fehlerText(err, 'Der Traubenverkauf konnte nicht gelöscht werden.'))
+      }
+    })
   }
 
   function handleCSV() {
@@ -429,6 +464,8 @@ export default function TraubenverkaufSection({
         </div>
       </div>
 
+      {fehler && <Fehlermeldung text={fehler} onClose={() => setFehler(null)} />}
+
       {showForm && !editId && (
         <TVForm jahrgangId={jahrgangId} quelleOptions={quelleOptions} zukaufOptions={zukaufOptions}
           kontaktOptions={kontaktOptions} firmaOptions={firmaOptions}
@@ -485,7 +522,9 @@ export default function TraubenverkaufSection({
                         <button onClick={() => setEditId(v.id)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={14} /></button>
                       )}
                       {adminOk && (
-                        <button onClick={() => handleDelete(v.id)} title="Löschen" aria-label="Löschen" className="text-s112-err hover:text-s112-err-fg"><Trash2 size={14} /></button>
+                        <button onClick={() => handleDelete(v)}
+                          title={v.rechnungsnummer && !v.rechnung_storniert ? `Löschen (storniert Rechnung ${v.rechnungsnummer})` : 'Löschen'}
+                          aria-label="Löschen" className="text-s112-err hover:text-s112-err-fg"><Trash2 size={14} /></button>
                       )}
                     </div>
                   </div>

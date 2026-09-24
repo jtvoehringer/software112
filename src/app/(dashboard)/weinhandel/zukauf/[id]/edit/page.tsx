@@ -2,7 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import ZukaufEditForm from './ZukaufEditForm'
-import { pruefeChargeHatBewegungen } from '../../actions'
+import { folgebuchungenDerZielcharge, zielchargeText, zukaufVerweise, traubenGebundenText } from '../../sperren'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +13,8 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
   const { id } = await params
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
+  const tenantId = membership?.tenantId
+  if (!tenantId) notFound()
 
   const { data } = await (supabase.from('zukauf_posten') as any)
     .select(`
@@ -26,16 +28,18 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
       ziel_weinausbau:weinausbau!ziel_weinausbau_id(behaelter_id, weinart, menge_liter)
     `)
     .eq('id', id)
-    .eq('tenant_id', membership?.tenantId ?? '')
+    .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .single()
 
   if (!data) notFound()
   const z = data as R
 
-  // Wurde gegen die verknüpfte Kellerbuch-Charge bereits etwas gebucht (Verkauf,
-  // Umzug, Abfüllung, Verschnitt)? WICHTIG: eine Kellerbuch-Charge behält ihre
-  // behaelter_id NIE über einen Umzug hinweg - beim Umziehen wird die
+  // Hängen an der verknüpften Kellerbuch-Charge bereits Folgebuchungen (Umzug, Schwund,
+  // Verschnitt, Füllung, Tankverkauf, Behandlung, Analyse, DAC – KAN-35, siehe sperren.ts)?
+  // Dann sind Menge, Einheit, Gebinde und Art gesperrt (updateZukauf prüft das ebenso).
+  // WICHTIG: eine Kellerbuch-Charge behält ihre behaelter_id NIE über einen
+  // Umzug hinweg - beim Umziehen wird die
   // Ursprungscharge nur reduziert/deaktiviert, der Wein landet in einer ANDEREN
   // weinausbau-Zeile im Zielgebinde (siehe kellerbuch/umziehen/actions.ts). D.h.
   // sobald hatBewegungen true ist, kann diese Seite NICHT mehr zuverlässig
@@ -47,9 +51,11 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
   // einen Hinweis, den aktuellen Bestand im Kellerbuch nachzusehen - siehe
   // ZukaufEditForm.tsx.
   const zielWeinausbauId: string | null = z.ziel_weinausbau_id ?? null
-  const hatBewegungen = zielWeinausbauId
-    ? await pruefeChargeHatBewegungen(zielWeinausbauId)
-    : false
+  const [folge, verweise] = await Promise.all([
+    zielWeinausbauId ? folgebuchungenDerZielcharge(supabase, zielWeinausbauId) : Promise.resolve([]),
+    zukaufVerweise(supabase, z.id, tenantId),
+  ])
+  const hatBewegungen = folge.length > 0
 
   return (
     <ZukaufEditForm
@@ -82,7 +88,12 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
         staatliche_pruefnummer:   z.staatliche_pruefnummer ?? '',
       }}
       hatBewegungen={hatBewegungen}
-      eigeneAktuelleMenge={(z.ziel_weinausbau as R | null)?.menge_liter ?? 0}
+      sperrHinweis={hatBewegungen ? zielchargeText(folge) : null}
+      traubenGebunden={{
+        kg:   verweise.verpresstKg + verweise.verkauftKg,
+        text: traubenGebundenText(verweise),
+      }}
+      eigeneAktuelleMenge={Number((z.ziel_weinausbau as R | null)?.menge_liter ?? 0) || 0}
       lieferantName={
         z.lieferant_kontakt
           ? [z.lieferant_kontakt.vorname, z.lieferant_kontakt.nachname].filter(Boolean).join(' ')

@@ -5,6 +5,7 @@ import Link from '@/components/ui/Link'
 import { Pencil, Trash2 } from 'lucide-react'
 import type { Jahrgang } from './page'
 import { fmtZahl, fmtProzent } from '@/lib/format'
+import { fehlerText } from '@/lib/fehler'
 import { updateJahrgang, deleteJahrgang } from './actions'
 
 const QUALITAET_LABEL: Record<string, string> = {
@@ -56,25 +57,50 @@ export default function JahrgaengeClient({
 function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean; adminOk: boolean }) {
   const [editing, setEditing] = useState(false)
   const [pending, startTransition] = useTransition()
+  const [fehler, setFehler] = useState<string | null>(null)
 
   const amaBadge = j.ama_status ? AMA_STATUS_BADGE[j.ama_status] : null
 
   function handleDelete() {
-    if (!confirm(`Jahrgang ${j.jahrgang} und alle Erntedaten wirklich löschen?`)) return
-    startTransition(() => deleteJahrgang(j.id))
+    // KAN-35: Sperrgrund vorab zeigen (der Server prüft dieselben Regeln noch einmal)
+    if (j.loeschsperre) { setFehler(j.loeschsperre); return }
+    const umfang = [
+      j.parzellen_count > 0 ? `${j.parzellen_count} ${j.parzellen_count === 1 ? 'Lese-Eintrag' : 'Lese-Einträge'}` : null,
+      j.ama_status ? 'die AMA-Erntemeldung (noch nicht eingereicht)' : null,
+    ].filter(Boolean).join(' und ')
+    if (!confirm(`Jahrgang ${j.jahrgang}${umfang ? ` samt ${umfang}` : ''} wirklich löschen?`)) return
+    setFehler(null)
+    startTransition(async () => {
+      try {
+        await deleteJahrgang(j.id)
+      } catch (err) {
+        setFehler(fehlerText(err, 'Der Jahrgang konnte nicht gelöscht werden.'))
+      }
+    })
   }
 
   function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
+    setFehler(null)
     startTransition(async () => {
-      await updateJahrgang(j.id, fd)
-      setEditing(false)
+      try {
+        await updateJahrgang(j.id, fd)
+        setEditing(false)
+      } catch (err) {
+        setFehler(fehlerText(err, 'Der Jahrgang konnte nicht gespeichert werden.'))
+      }
     })
   }
 
   return (
     <div className={`card hover:shadow-sm transition-shadow ${pending ? 'opacity-50 pointer-events-none' : ''}`}>
+      {fehler && (
+        <div role="alert" className="mb-3 flex items-start gap-2 text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">
+          <span className="flex-1">{fehler}</span>
+          <button type="button" onClick={() => setFehler(null)} aria-label="Meldung schließen" className="shrink-0 font-semibold hover:opacity-70">×</button>
+        </div>
+      )}
       {editing ? (
         <form onSubmit={handleSave} className="space-y-3">
           <h3 className="text-sm font-semibold text-s112-text">Jahrgang {j.jahrgang} bearbeiten</h3>
@@ -152,8 +178,9 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
               )}
               {adminOk && (
                 <button onClick={handleDelete}
-                  title="Löschen" aria-label="Löschen"
-                  className="text-s112-err hover:text-s112-err-fg">
+                  title={j.loeschsperre ?? 'Löschen'}
+                  aria-label={j.loeschsperre ? 'Löschen nicht möglich – Grund anzeigen' : 'Löschen'}
+                  className={j.loeschsperre ? 'text-s112-muted opacity-50 hover:opacity-80' : 'text-s112-err hover:text-s112-err-fg'}>
                   <Trash2 size={14} />
                 </button>
               )}

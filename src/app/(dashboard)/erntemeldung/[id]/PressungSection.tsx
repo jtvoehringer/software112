@@ -73,11 +73,25 @@ const fmtDate = (d: string) =>
 
 // ── Pressung-Formular ─────────────────────────────────────────────────────────
 
-type WGRow  = { weingarten_id: string; grundstueck_id: string; zukauf_posten_id: string; trauben_kg: string; rebsorte: string; notizen: string }
-type BehRow = { behaelter_id: string; weinausbau_id: string; menge_liter: string; notizen: string }
+// id = ID der gespeicherten Zeile (pressung_weingaerten/pressung_behaelter), '' für neue Zeilen.
+// KAN-35: Der Server ändert bestehende Zeilen gezielt statt alles neu anzulegen – die IDs
+// müssen deshalb mitgeschickt werden.
+type WGRow  = { id: string; weingarten_id: string; grundstueck_id: string; zukauf_posten_id: string; trauben_kg: string; rebsorte: string; notizen: string }
+type BehRow = { id: string; behaelter_id: string; weinausbau_id: string; weinausbau_name: string; menge_liter: string; notizen: string }
 
-const emptyWG  = (): WGRow  => ({ weingarten_id: '', grundstueck_id: '', zukauf_posten_id: '', trauben_kg: '', rebsorte: '', notizen: '' })
-const emptyBeh = (): BehRow => ({ behaelter_id: '', weinausbau_id: '', menge_liter: '', notizen: '' })
+const emptyWG  = (): WGRow  => ({ id: '', weingarten_id: '', grundstueck_id: '', zukauf_posten_id: '', trauben_kg: '', rebsorte: '', notizen: '' })
+const emptyBeh = (): BehRow => ({ id: '', behaelter_id: '', weinausbau_id: '', weinausbau_name: '', menge_liter: '', notizen: '' })
+
+function Fehlermeldung({ text, onClose }: { text: string; onClose?: () => void }) {
+  return (
+    <div role="alert" className="flex items-start gap-2 text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">
+      <span className="flex-1 whitespace-pre-line">{text}</span>
+      {onClose && (
+        <button type="button" onClick={onClose} aria-label="Meldung schließen" className="shrink-0 hover:opacity-70"><X size={14} /></button>
+      )}
+    </div>
+  )
+}
 
 function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, leseParzellen, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, onDone }: {
   jahrgangId: string; pressung?: Pressung
@@ -99,6 +113,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
 
   const defaultWGRows: WGRow[] = pressung
     ? pressung.weingaerten.map(w => ({
+        id: w.id,
         weingarten_id: w.weingarten_id ?? '', grundstueck_id: w.grundstueck_id ?? '',
         zukauf_posten_id: w.zukauf_posten_id ?? '',
         trauben_kg: w.trauben_kg.toString().replace('.', ','),
@@ -113,10 +128,22 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
   const [wgRows, setWgRows] = useState<WGRow[]>(defaultWGRows)
   const [behRows, setBehRows] = useState<BehRow[]>(
     pressung?.behaelter.map(b => ({
+      id: b.id,
       behaelter_id: b.behaelter_id ?? '', weinausbau_id: b.weinausbau_id ?? '',
+      weinausbau_name: b.weinausbau_name ?? '',
       menge_liter: b.menge_liter?.toString().replace('.', ',') ?? '', notizen: b.notizen ?? '',
     })) ?? [emptyBeh()]
   )
+  const [fehler, setFehler] = useState<string | null>(null)
+
+  function entferneBehRow(i: number) {
+    const row = behRows[i]
+    // Bestehende Zeile mit Kellerbuch-Charge: die Charge wird beim Speichern mitgelöscht
+    // (nur ohne Folgebuchungen möglich – sonst lehnt der Server ab)
+    if (row?.id && row.weinausbau_id
+      && !confirm(`Beim Speichern wird auch die daraus entstandene Kellerbuch-Charge „${row.weinausbau_name || 'ohne Namen'}“ gelöscht. Das geht nur, solange an ihr noch keine Folgebuchungen hängen. Fortfahren?`)) return
+    setBehRows(r => r.filter((_, j) => j !== i))
+  }
 
   // KMW gewichteter Durchschnitt aus den AUSGEWÄHLTEN WG-Zeilen (reaktiv zu wgRows).
   // Berücksichtigt sowohl eigene Lese-Parzellen (klosterneuburger aus leseParzellen) als
@@ -237,7 +264,9 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     // Ein bewusstes manuelles Abstufen bleibt bei der Abfüllung möglich.
     fd.append('notizen', notizen)
     fd.append('weingaerten_json', JSON.stringify(
-      wgRows.filter(r => (r.weingarten_id || r.zukauf_posten_id) && r.trauben_kg).map(r => ({
+      // Gespeicherte Zeilen (mit id) immer mitschicken – entfernt wird nur per „×“
+      wgRows.filter(r => r.id || ((r.weingarten_id || r.zukauf_posten_id) && r.trauben_kg)).map(r => ({
+        id: r.id || undefined,
         weingarten_id: r.weingarten_id || undefined,
         grundstueck_id: r.grundstueck_id || undefined,
         zukauf_posten_id: r.zukauf_posten_id || undefined,
@@ -247,16 +276,21 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
       }))
     ))
     fd.append('behaelter_json', JSON.stringify(
-      behRows.filter(r => r.behaelter_id || r.weinausbau_id).map(r => ({
+      behRows.filter(r => r.id || r.behaelter_id || r.weinausbau_id).map(r => ({
+        id: r.id || undefined,
         behaelter_id: r.behaelter_id || undefined,
         weinausbau_id: r.weinausbau_id || undefined,
         menge_liter: r.menge_liter ? parseFloat(dezimal(r.menge_liter)) : undefined,
         notizen: r.notizen || undefined,
       }))
     ))
+    setFehler(null)
     startTransition(async () => {
       try {
         const result = await upsertPressung(fd)
+        // Teilweise gespeichert (z. B. ein Behälter konnte nicht befüllt werden): Hinweis
+        // zeigen und das Formular schließen, damit die Pressung nicht doppelt angelegt wird
+        if (result.warnung) alert(result.warnung)
         // Prüfen ob neue Charge in Behälter mit bestehenden Chargen gedrückt wurde
         if (!pressung && behaelterMitCharge && result.neu.length > 0) {
           // Verschnitt-Prompt immer wenn Behälter bereits Chargen hat
@@ -275,7 +309,9 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
         onDone()
       } catch (err) {
         console.error('Pressung Fehler:', err)
-        alert('Fehler beim Speichern: ' + (fehlerText(err, 'Unbekannter Fehler')))
+        // Sperrgründe (Folgebuchungen an der Charge usw.) im Formular anzeigen – die
+        // Eingaben bleiben erhalten und können korrigiert werden
+        setFehler('Speichern nicht möglich: ' + fehlerText(err, 'Unbekannter Fehler'))
       }
     })
   }
@@ -473,6 +509,14 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
           <button type="button" onClick={() => setBehRows(r => [...r, emptyBeh()])}
             className="text-xs text-s112-blue-700 hover:underline">Behälter</button>
         </div>
+        {pressung && pressung.behaelter.some(b => b.weinausbau_id) && (
+          <p className="text-xs text-s112-muted mb-1.5">
+            Hängen an einer Charge schon Buchungen im Kellerbuch (Umzug, Schwund, Verschnitt, Füllung, Verkauf),
+            bleiben Mostmenge und Behälter dieser Zeile fest – Korrekturen dann im Kellerbuch als eigene Buchung.
+            Den Behälter sperren zusätzlich Kellerbehandlungen; Weinanalysen und DAC-Anträge sperren ihn nicht.
+            Name, Sorte und Qualität bestehender Chargen werden hier nicht mehr geändert.
+          </p>
+        )}
         <div className="space-y-1.5">
           {behRows.map((row, i) => (
             <div key={i} className="grid grid-cols-12 gap-1.5 items-center">
@@ -564,7 +608,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
               </div>
               <div className="col-span-2 flex justify-end">
                 {behRows.length > 1 && (
-                  <button aria-label="Zeile entfernen" type="button" onClick={() => setBehRows(r => r.filter((_, j) => j !== i))}
+                  <button aria-label="Zeile entfernen" type="button" onClick={() => entferneBehRow(i)}
                     className="text-xs text-s112-err hover:text-s112-err-fg px-1"><X size={14} /></button>
                 )}
               </div>
@@ -579,6 +623,8 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
         <input aria-label="Notizen" type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
           placeholder="z.B. Nachtlese, Botrytis teilweise …" className={inp} />
       </div>
+
+      {fehler && <Fehlermeldung text={fehler} onClose={() => setFehler(null)} />}
 
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending}
@@ -606,6 +652,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
   const [editId, setEditId]        = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const [collapsed, setCollapsed]  = useState(false)
+  const [fehler, setFehler]        = useState<string | null>(null)
 
   const gesamtKg    = pressungen.flatMap(p => p.weingaerten).reduce((s, w) => s + w.trauben_kg, 0)
   const gesamtLiter = pressungen.reduce((s, p) => s + (p.most_liter_gesamt ?? 0), 0)
@@ -613,9 +660,20 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
   const gesamtVerfuegbarKg = Object.values(verfuegbareKgByGST).reduce((s, v) => s + v, 0)
     + zukaufTrauben.reduce((s, z) => s + z.verfuegbar_kg, 0)
 
-  function handleDelete(id: string) {
-    if (!confirm('Pressung löschen?')) return
-    startTransition(() => deletePressung(id, jahrgangId))
+  function handleDelete(p: Pressung) {
+    const chargen = p.behaelter.filter(b => b.weinausbau_id).map(b => `„${b.weinausbau_name ?? 'ohne Namen'}“`)
+    const frage = chargen.length > 0
+      ? `Pressung vom ${fmtDate(p.datum)} löschen? Dabei werden auch die daraus entstandenen Kellerbuch-Chargen ${chargen.join(', ')} gelöscht. Das geht nur, solange an ihnen noch keine Folgebuchungen (Umzug, Füllung, Behandlung …) hängen.`
+      : `Pressung vom ${fmtDate(p.datum)} löschen?`
+    if (!confirm(frage)) return
+    setFehler(null)
+    startTransition(async () => {
+      try {
+        await deletePressung(p.id, jahrgangId)
+      } catch (err) {
+        setFehler(fehlerText(err, 'Die Pressung konnte nicht gelöscht werden.'))
+      }
+    })
   }
 
   return (
@@ -645,6 +703,8 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
           )}
         </div>
       </div>
+
+      {fehler && <Fehlermeldung text={fehler} onClose={() => setFehler(null)} />}
 
       {collapsed ? null : (
       <>
@@ -725,7 +785,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                         )}
                         <span className="flex items-center gap-2">
                           {writeOk && <button onClick={() => setEditId(p.id)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={14} /></button>}
-                          {adminOk && <button onClick={() => handleDelete(p.id)} title="Löschen" aria-label="Löschen" className="text-s112-err hover:text-s112-err-fg"><Trash2 size={14} /></button>}
+                          {adminOk && <button onClick={() => handleDelete(p)} title="Löschen" aria-label="Löschen" className="text-s112-err hover:text-s112-err-fg"><Trash2 size={14} /></button>}
                         </span>
                       </div>
                     </div>

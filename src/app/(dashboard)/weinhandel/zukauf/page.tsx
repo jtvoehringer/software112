@@ -158,6 +158,7 @@ export default async function ZukaufPage({
                 <th className="px-4 py-3 text-xs font-semibold text-s112-text-2 text-right">Menge</th>
                 <th className="px-4 py-3 text-xs font-semibold text-s112-text-2 text-right">Gesamtpreis</th>
                 <th className="px-4 py-3 text-xs font-semibold text-s112-text-2">Gebinde</th>
+                {/* Bearbeiten/Löschen nur für Schreibrollen (Modul Warenwirtschaft); deleteZukauf prüft das serverseitig ebenso */}
                 {writeOk && <th className="px-4 py-3" />}
               </tr>
             </thead>
@@ -198,7 +199,7 @@ export default async function ZukaufPage({
                             className="text-s112-blue-700 hover:text-s112-blue-700/70">
                             <Pencil className="w-4 h-4" />
                           </Link>
-                          <ZukaufLoeschen id={p.id} info={rebInfo} />
+                          <ZukaufLoeschen id={p.id} info={rebInfo} hatCharge={!!p.ziel_weinausbau} />
                         </StopPropagation>
                       </td>
                     )}

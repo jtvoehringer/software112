@@ -5,9 +5,12 @@ import { revalidatePath } from 'next/cache'
 import { minQualitaet, maxQualitaet, istNiedrigerAls, QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { minHerkunft, maxHerkunft, istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
 import { weinartKonflikt, weinartBekannt, weinartAusFarbe, WEINART_LABEL } from '@/lib/keller/weinart'
-import { getCurrentMembership } from '@/lib/auth/roles'
-import { AktionsFehler } from '@/lib/fehler'
-import { dezimal } from '@/lib/format'
+import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { dezimal, zahlAus, fmtNum } from '@/lib/format'
+import { gebindeFehlerText } from '@/lib/keller/behaelter'
+import { sperreBeiFolgebuchungen } from '@/lib/kellerbuch/folgebuchungen'
+import { planeVerschneidungStorno, storniereVerschneidung, GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -19,6 +22,17 @@ async function getTenantId(): Promise<string | null> {
   const membership = await getCurrentMembership()
   return membership?.tenantId ?? null
 }
+
+// Für Aktionen, die mehrere Tabellen zurückbuchen bzw. löschen (Storno, Kellerbehandlung
+// löschen): Schreibrecht im Kellerbuch vorab prüfen, statt halb an RLS zu scheitern.
+async function kellerbuchSchreibrecht(): Promise<string> {
+  const membership = await getCurrentMembership()
+  if (!membership) throw new AktionsFehler('Kein Betrieb gefunden')
+  if (!canWrite(membership, 'kellerbuch')) throw new AktionsFehler('Keine Schreibberechtigung für das Kellerbuch in diesem Betrieb.')
+  return membership.tenantId
+}
+
+const rund2 = (n: number): number => Math.round(n * 100) / 100
 
 // BEHAELTER
 export async function createBehaelter(formData: FormData) {
@@ -132,23 +146,34 @@ export async function deleteBehaelter(id: string): Promise<{ error?: string }> {
   const tenantId  = await getTenantId()
   if (!tenantId) return { error: 'Kein Betrieb gefunden' }
 
-  // Enthält der Behälter noch eine aktive Charge? Dann erst umziehen/abschließen.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: aktiveChargen } = await (supabase.from('weinausbau') as any)
-    .select('id').eq('behaelter_id', id).eq('aktiv', true).eq('tenant_id', tenantId).limit(1)
-  if (aktiveChargen && aktiveChargen.length > 0) {
-    return { error: 'Behälter enthält noch eine aktive Charge und kann nicht gelöscht werden.' }
-  }
+  // KAN-35: Vorprüfung auf ALLE Chargen des Gebindes (auch inaktive/abgeschlossene – bisher
+  // nur aktive, die übrigen wurden per FK still abgekoppelt) und auf Kellerbehandlungen
+  // (bisher per FK-Kaskade still mitgelöscht). Seit Migration kan35_datenintegritaet sperren
+  // beide FKs (NO ACTION) auch in der DB.
+  const SPERRE = 'Gebinde hat Chargen-Historie bzw. Kellerbehandlungen und kann nicht gelöscht werden – bitte über „Bearbeiten“ inaktiv setzen, die Historie bleibt so erhalten.'
+  const [chargenRes, behandlungenRes] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('weinausbau') as any)
+      .select('id', { count: 'exact', head: true }).eq('behaelter_id', id).eq('tenant_id', tenantId),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('keller_behandlungen') as any)
+      .select('id', { count: 'exact', head: true }).eq('behaelter_id', id).eq('tenant_id', tenantId),
+  ])
+  if (chargenRes.error) return { error: dbFehlerText(chargenRes.error, 'Prüfung fehlgeschlagen (weinausbau)') }
+  if (behandlungenRes.error) return { error: dbFehlerText(behandlungenRes.error, 'Prüfung fehlgeschlagen (keller_behandlungen)') }
+  if ((chargenRes.count ?? 0) > 0 || (behandlungenRes.count ?? 0) > 0) return { error: SPERRE }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('behaelter') as any).delete().eq('id', id).eq('tenant_id', tenantId)
+  const { data: geloescht, error } = await (supabase.from('behaelter') as any)
+    .delete().eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) {
-    // 23503 = foreign_key_violation – Behälter wird in Kellerbuch-Historie referenziert
-    // (z.B. Umzug als Ziel, Pressung). Historie bleibt erhalten, Löschen wird verhindert.
-    if ((error as R).code === '23503') {
-      return { error: 'Behälter wird in bestehenden Kellerbuch-Einträgen verwendet (z.B. Umzug, Pressung) und kann nicht gelöscht werden. Stattdessen über „Bearbeiten" auf „Inaktiv" setzen.' }
-    }
-    return { error: (error as R).message }
+    // 23503 = foreign_key_violation (NO ACTION) – u. a. Chargen oder Kellerbehandlungen eines
+    // Partnerbetriebs (Kellergemeinschaft, per RLS unsichtbar), Umzug- oder Pressungszeilen.
+    // dbFehlerText liefert je FK die passende deutsche Meldung („… inaktiv setzen“).
+    return { error: dbFehlerText(error, 'Löschen fehlgeschlagen (behaelter)') }
+  }
+  if (!geloescht || (geloescht as R[]).length === 0) {
+    return { error: 'Gebinde nicht gefunden oder keine Berechtigung zum Löschen.' }
   }
   revalidatePath('/kellerbuch')
   revalidatePath('/kellerbuch/gebinde')
@@ -194,34 +219,82 @@ export async function createWeinausbau(formData: FormData) {
   revalidatePath('/kellerbuch')
 }
 
+// Charge bearbeiten (KAN-35, 24.09.2026)
+// * menge_liter wird hier NICHT mehr geschrieben – Bestandsänderungen nur als datierte
+//   Buchung (Schwund buchen, Umzug, Füllung, Verkauf). Das Formular zeigt die Menge nur an.
+// * Gebindewechsel nur ohne Folgebuchungen (sonst wäre es ein Umzug ohne Bewegungszeile)
+//   und nie bei Pressungs-Chargen (Zielgebinde steht in der Pressung).
+// * Deaktivieren/Abschließen nur bei leerer Charge (≤ 0,01 L) – sonst verschwände Bestand
+//   aus Dashboard und Listen, während die View ihn weiterzählt.
+// * Merkmale (Bezeichnung, Rebsorte, Qualität, Weinart, Rieden, Preis, Notizen) bleiben
+//   änderbar; bestandsrelevante Änderungen protokolliert die DB (bestandsprotokoll).
 export async function updateWeinausbau(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: altRaw, error: altErr } = await (supabase.from('weinausbau') as any)
+    .select('id, behaelter_id, menge_liter, aktiv, status')
+    .eq('id', id)
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+  if (altErr) throw new AktionsFehler(dbFehlerText(altErr, 'Charge konnte nicht geladen werden'))
+  if (!altRaw) throw new AktionsFehler('Charge nicht gefunden')
+  const alt = altRaw as R
+  const bestand = parseFloat(alt.menge_liter) || 0
+
   const wgIds = formData.getAll('weingarten_ids').map(v => v.toString()).filter(Boolean)
-  const neueMenge = formData.get('menge_liter')
-    ? Number(dezimal((formData.get('menge_liter') as string)))
-    : null
+  const neuAktiv  = formData.get('aktiv') === 'true'
+  const neuStatus = (formData.get('status') as string) || (alt.status as string)
   const payload: R = {
     name:            formData.get('name') as string,
     jahrgang:        formData.get('jahrgang') ? Number(dezimal(formData.get('jahrgang'))) : null,
     rebsorte:        (formData.get('rebsorte') as string) || null,
     weingarten_id:   wgIds[0] ?? null,
-    behaelter_id:    (formData.get('behaelter_id') as string) || null,
-    menge_liter:     neueMenge,
     qualitaetsstufe:      (formData.get('qualitaetsstufe') as string) || null,
     weinart:              (formData.get('weinart') as string) || 'unbekannt',
-    status:               formData.get('status') as string,
+    status:               neuStatus,
     notizen:              (formData.get('notizen') as string) || null,
     einstandspreis_pro_liter: formData.get('einstandspreis_pro_liter')
       ? Number(dezimal((formData.get('einstandspreis_pro_liter') as string)))
       : null,
-    aktiv:           formData.get('aktiv') === 'true',
+    aktiv:           neuAktiv,
   }
+
+  // Deaktivieren/Abschließen nur ohne Bestand
+  const wirdDeaktiviert   = alt.aktiv && !neuAktiv
+  const wirdAbgeschlossen = alt.status !== 'abgeschlossen' && neuStatus === 'abgeschlossen'
+  if (bestand > 0.01 && (wirdDeaktiviert || wirdAbgeschlossen)) {
+    throw new AktionsFehler(
+      `Die Charge hat noch ${fmtNum(bestand, 2)} L Bestand und kann deshalb nicht ${wirdDeaktiviert ? 'deaktiviert' : 'abgeschlossen'} werden. Bitte den Wein zuerst abfüllen, umziehen, verkaufen oder als Schwund buchen – bei 0 L wird die Charge automatisch abgeschlossen.`,
+    )
+  }
+
+  // Gebindewechsel nur ohne Folgebuchungen
+  if (formData.has('behaelter_id')) {
+    const neuesGebinde = (formData.get('behaelter_id') as string) || null
+    if (neuesGebinde !== ((alt.behaelter_id as string | null) ?? null)) {
+      // Pressungs-Chargen: das Gebinde steht in pressung_behaelter (Tabelle ohne tenant_id, RLS über pressungen)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { count: pbAnzahl, error: pbErr } = await (supabase.from('pressung_behaelter') as any)
+        .select('id', { count: 'exact', head: true })
+        .eq('weinausbau_id', id)
+      if (pbErr) throw new AktionsFehler(dbFehlerText(pbErr, 'Pressung der Charge konnte nicht geprüft werden'))
+      if ((pbAnzahl ?? 0) > 0) {
+        throw new AktionsFehler('Der Gebindewechsel ist nicht möglich: Die Charge stammt aus einer Pressung. Bitte das Gebinde in der Erntemeldung ändern bzw. den Wechsel als Umzug buchen (Kellerbuch › Umziehen).')
+      }
+      await sperreBeiFolgebuchungen(supabase, id, 'Der Gebindewechsel', {
+        ohne: GEBINDEWECHSEL_OHNE,
+        hinweis: 'Bitte den Wechsel als Umzug buchen (Kellerbuch › Umziehen) – so bleibt das Bewegungsbuch beider Gebinde stimmig.',
+      })
+      payload.behaelter_id = neuesGebinde
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('weinausbau') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new AktionsFehler((error as R).message)
+  if (error) throw new AktionsFehler(gebindeFehlerText(dbFehlerText(error, 'Speichern fehlgeschlagen (weinausbau)')))
 
   // Junction-Tabelle: Rieden/Weingärten neu setzen (delete + insert)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -285,6 +358,11 @@ export async function createAnalyse(formData: FormData) {
 }
 
 // VERSCHNEIDUNG
+// KAN-35 (24.09.2026): Alle Prüfungen laufen serverseitig VOR der ersten Buchung – jede Quelle
+// braucht eine Menge ≥ 0,01 L, gehört zum Betrieb und hat genug Bestand (je Charge summiert);
+// die Weinart-Sperre greift ebenfalls vorher (bisher erst nach dem Anlegen des Verschnitts).
+// Die Quellen werden nicht mehr mit Math.max(0, …) gekappt, sondern bei Rest ≤ 0,01 L
+// abgeschlossen – ein Mehr als der Bestand wird vorher abgelehnt.
 export async function createVerschneidung(formData: FormData): Promise<{ qualitaetAbgestuft: { von: string; nach: string } | null; herkunftAbgestuft: { von: string; nach: string } | null }> {
   const supabase  = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
@@ -294,23 +372,78 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   const zielId       = formData.get('ziel_weinausbau_id') as string
   const notizen      = (formData.get('notizen') as string) || null
   const quellenJson  = formData.get('quellen_json') as string
-  const quellen: { weinausbau_id: string; menge_liter: number }[] = JSON.parse(quellenJson || '[]')
+  let quellenRoh: unknown
+  try {
+    quellenRoh = JSON.parse(quellenJson || '[]')
+  } catch {
+    throw new AktionsFehler('Ungültige Eingabe: Quellen konnten nicht gelesen werden.')
+  }
+  if (!Array.isArray(quellenRoh)) throw new AktionsFehler('Ungültige Eingabe: Quellen fehlen.')
+  // JSON-Zahlen direkt übernehmen (zahlAus würde „1.234“ als Tausenderpunkt lesen)
+  const quellen: { weinausbau_id: string; menge_liter: number }[] = (quellenRoh as R[]).map(q => ({
+    weinausbau_id: typeof q?.weinausbau_id === 'string' ? q.weinausbau_id : '',
+    menge_liter:   typeof q?.menge_liter === 'number' ? q.menge_liter : (zahlAus(q?.menge_liter) ?? NaN),
+  }))
 
   if (!datum || !zielId || quellen.length === 0) throw new AktionsFehler('Pflichtfelder fehlen')
+  for (const q of quellen) {
+    if (!q.weinausbau_id) throw new AktionsFehler('Bei einer Quelle des Verschnitts fehlt die Charge.')
+    if (!Number.isFinite(q.menge_liter) || q.menge_liter < 0.01) {
+      throw new AktionsFehler('Jede Quelle eines Verschnitts braucht eine Menge von mindestens 0,01 L.')
+    }
+    if (q.weinausbau_id === zielId) throw new AktionsFehler('Die Ziel-Charge kann nicht zugleich Quelle des Verschnitts sein.')
+  }
 
-  // Qualitätsstufe + Herkunft-Code der Ziel-Charge vor Verschneidung sichern
+  // Ziel-Charge laden (Mandant) – Qualitätsstufe + Herkunft-Code vor der Verschneidung sichern
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: zielVorher } = await (supabase.from('weinausbau') as any)
-    .select('qualitaetsstufe, herkunft_code').eq('id', zielId).eq('tenant_id', tenantId).single()
-  const zielQualitaetVorher = (zielVorher as R | null)?.qualitaetsstufe ?? null
-  const zielHerkunftVorher  = (zielVorher as R | null)?.herkunft_code ?? null
+  const { data: zielRaw, error: zielErr } = await (supabase.from('weinausbau') as any)
+    .select('id, menge_liter, rebsorte, weinart, qualitaetsstufe, herkunft_code')
+    .eq('id', zielId).eq('tenant_id', tenantId).maybeSingle()
+  if (zielErr) throw new AktionsFehler(dbFehlerText(zielErr, 'Ziel-Charge konnte nicht geladen werden'))
+  if (!zielRaw) throw new AktionsFehler('Ziel-Charge nicht gefunden')
+  const zielVorher = zielRaw as R
+  const zielQualitaetVorher = (zielVorher.qualitaetsstufe as string | null) ?? null
+  const zielHerkunftVorher  = (zielVorher.herkunft_code as string | null) ?? null
+
+  // Quell-Chargen: gehören zum Betrieb, Menge ≤ Bestand (je Charge summiert)
+  const bedarf = new Map<string, number>()
+  for (const q of quellen) bedarf.set(q.weinausbau_id, (bedarf.get(q.weinausbau_id) ?? 0) + q.menge_liter)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: quellenData, error: quellenErr } = await (supabase.from('weinausbau') as any)
+    .select('id, name, menge_liter, qualitaetsstufe, rebsorte, weinart, herkunft_code')
+    .in('id', [...bedarf.keys()])
+    .eq('tenant_id', tenantId)
+  if (quellenErr) throw new AktionsFehler(dbFehlerText(quellenErr, 'Quell-Chargen konnten nicht geladen werden'))
+  const quellenRows = (quellenData ?? []) as R[]
+  for (const [qid, menge] of bedarf) {
+    const row = quellenRows.find(r => r.id === qid)
+    if (!row) throw new AktionsFehler('Quell-Charge nicht gefunden – sie gehört nicht zu diesem Betrieb.')
+    const verfuegbar = parseFloat(row.menge_liter) || 0
+    if (menge > verfuegbar + 0.01) {
+      throw new AktionsFehler(`„${row.name}“: Verschnittmenge (${fmtNum(menge, 2)} L) übersteigt den Bestand der Charge (${fmtNum(verfuegbar, 2)} L).`)
+    }
+  }
+
+  // Guard: Rotwein + Weißwein darf nicht verschnitten werden (lib/keller/weinart.ts; Chargen
+  // ohne Weinart werden über die Rebsortenfarbe eingeordnet, 21.9.2026) – vor der ersten Buchung
+  const farbe = new Map<string, string>()
+  {
+    const sorten = [...new Set([...quellenRows, zielVorher].map((r: R) => r.rebsorte).filter(Boolean))] as string[]
+    // tenant-isolation-ignore: rebsorten ist eine globale Stammtabelle ohne tenant_id
+    const { data: rs } = sorten.length ? await (supabase.from('rebsorten') as any).select('name_de, farbe').in('name_de', sorten) : { data: [] }
+    for (const r of (rs ?? []) as R[]) farbe.set(r.name_de, r.farbe)
+  }
+  const artVon = (r: R | null): string => r ? (weinartBekannt(r.weinart) ? r.weinart : weinartAusFarbe(farbe.get(r.rebsorte))) : 'unbekannt'
+  const zielWeinart = artVon(zielVorher)
+  const quelleKonflikt = quellenRows.find((q: R) => weinartKonflikt(artVon(q), zielWeinart))
+  if (quelleKonflikt) throw new AktionsFehler(`Rot- und Weißwein dürfen laut Weingesetz nicht verschnitten werden (${WEINART_LABEL[artVon(quelleKonflikt)]} in ${WEINART_LABEL[zielWeinart]}).`)
 
   // Verschneidungs-Datensatz anlegen
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: neu, error: ve } = await (supabase.from('verschneidungen') as any)
     .insert({ tenant_id: tenantId, datum, ziel_weinausbau_id: zielId, notizen, ziel_qualitaet_vorher: zielQualitaetVorher, ziel_herkunft_code_vorher: zielHerkunftVorher })
     .select('id').single()
-  if (ve) throw new AktionsFehler((ve as R).message)
+  if (ve) throw new AktionsFehler(dbFehlerText(ve, 'Speichern fehlgeschlagen (verschneidungen)'))
   const vId = (neu as R).id as string
 
   // Quellen anlegen + anteil_pct berechnen
@@ -324,30 +457,8 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
       anteil_pct:          gesamtLiter > 0 ? Math.round((q.menge_liter / gesamtLiter) * 1000) / 10 : null,
     }))
   )
-    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (verschneidung_quellen): ${e.message}`) }
+    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (verschneidung_quellen): ${dbFehlerText(e)}`) }
 
-  // Qualitaetsstufen + Rebsorten + Weinart der Quell-Chargen laden
-  const { data: quellenData } = await (supabase.from('weinausbau') as any)
-    .select('id, qualitaetsstufe, rebsorte, weinart, herkunft_code')
-    .in('id', quellen.map(q => q.weinausbau_id))
-    .eq('tenant_id', tenantId)
-  const quellenRows = (quellenData ?? []) as R[]
-
-  // Guard: Rotwein + Weißwein darf nicht verschnitten werden (lib/keller/weinart.ts; Chargen
-  // ohne Weinart werden über die Rebsortenfarbe eingeordnet, 21.9.2026)
-  const { data: zielWeinartRow } = await (supabase.from('weinausbau') as any)
-    .select('weinart, rebsorte').eq('id', zielId).eq('tenant_id', tenantId).single()
-  const farbe = new Map<string, string>()
-  {
-    const sorten = [...new Set([...quellenRows, zielWeinartRow ?? {}].map((r: R) => r.rebsorte).filter(Boolean))] as string[]
-    // tenant-isolation-ignore: rebsorten ist eine globale Stammtabelle ohne tenant_id
-    const { data: rs } = sorten.length ? await (supabase.from('rebsorten') as any).select('name_de, farbe').in('name_de', sorten) : { data: [] }
-    for (const r of (rs ?? []) as R[]) farbe.set(r.name_de, r.farbe)
-  }
-  const artVon = (r: R | null): string => r ? (weinartBekannt(r.weinart) ? r.weinart : weinartAusFarbe(farbe.get(r.rebsorte))) : 'unbekannt'
-  const zielWeinart = artVon(zielWeinartRow as R | null)
-  const quelleKonflikt = quellenRows.find((q: R) => weinartKonflikt(artVon(q), zielWeinart))
-  if (quelleKonflikt) throw new AktionsFehler(`Rot- und Weißwein dürfen laut Weingesetz nicht verschnitten werden (${WEINART_LABEL[artVon(quelleKonflikt)]} in ${WEINART_LABEL[zielWeinart]}).`)
   // Niedrigste Qualitaetsstufe aus Quellen + Ziel bestimmen
   const alleQualitaeten = [zielQualitaetVorher, ...quellenRows.map((q: R) => q.qualitaetsstufe as string | null)]
   const neueQualitaet = minQualitaet(alleQualitaeten)
@@ -357,11 +468,8 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   const neueHerkunft = minHerkunft(alleHerkuenfte)
 
   // Ziel-Charge: Bestand erhöhen + Rebsorte nach 85%-Regel + Qualität anpassen
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: ziel } = await (supabase.from('weinausbau') as any)
-    .select('menge_liter, rebsorte').eq('id', zielId).eq('tenant_id', tenantId).single()
-  const aktuell = parseFloat((ziel as R)?.menge_liter ?? '0') || 0
-  const zielRebsorteJetzt = (ziel as R)?.rebsorte as string | null ?? null
+  const aktuell = parseFloat(zielVorher.menge_liter ?? '0') || 0
+  const zielRebsorteJetzt = (zielVorher.rebsorte as string | null) ?? null
   // Rebsorten-Anteile über alle beteiligten Mengen berechnen
   const total = aktuell + gesamtLiter
   const anteile: Record<string, number> = {}
@@ -380,30 +488,28 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error: zielUpdateErr } = await (supabase.from('weinausbau') as any)
     .update({
-      menge_liter: aktuell + gesamtLiter,
+      menge_liter: rund2(aktuell + gesamtLiter),
       rebsorte: neueRebsorte,
       qualitaetsstufe: neueQualitaet,
       herkunft_code: neueHerkunft,
     })
     .eq('id', zielId)
     .eq('tenant_id', tenantId)
-  if (zielUpdateErr) throw new AktionsFehler(`Ziel-Charge konnte nicht aktualisiert werden: ${zielUpdateErr.message}`)
+  if (zielUpdateErr) throw new AktionsFehler(`Ziel-Charge konnte nicht aktualisiert werden: ${dbFehlerText(zielUpdateErr)}`)
 
-  // Quell-Chargen: Bestand reduzieren
-  for (const q of quellen) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: src } = await (supabase.from('weinausbau') as any)
-      .select('menge_liter').eq('id', q.weinausbau_id).eq('tenant_id', tenantId).single()
-    const srcLiter = parseFloat((src as R)?.menge_liter ?? '0') || 0
-    const neueLiter = Math.max(0, srcLiter - q.menge_liter)
+  // Quell-Chargen: Bestand reduzieren (je Charge einmal, oben gegen den Bestand geprüft);
+  // Rest ≤ 0,01 L wird mit ausgebucht und die Charge abgeschlossen
+  for (const [qid, menge] of bedarf) {
+    const row = quellenRows.find(r => r.id === qid)!
+    const rest = rund2((parseFloat(row.menge_liter) || 0) - menge)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     { const { error: e } = await (supabase.from('weinausbau') as any)
-      .update(neueLiter <= 0
+      .update(rest <= 0.01
         ? { menge_liter: 0, aktiv: false, status: 'abgeschlossen' }
-        : { menge_liter: neueLiter })
-      .eq('id', q.weinausbau_id)
+        : { menge_liter: rest })
+      .eq('id', qid)
       .eq('tenant_id', tenantId)
-      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${dbFehlerText(e)}`) }
   }
 
   // Qualitäts-Abstufung: Vergleich gegen HÖCHSTE Qualität aller Beteiligten (Ziel + Quellen).
@@ -442,7 +548,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
       .update({ notizen: neueNotizen })
       .eq('id', vId)
       .eq('tenant_id', tenantId)
-      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (verschneidungen): ${e.message}`) }
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (verschneidungen): ${dbFehlerText(e)}`) }
   }
 
   revalidatePath('/kellerbuch')
@@ -453,72 +559,27 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   return { qualitaetAbgestuft, herkunftAbgestuft }
 }
 
-// VERSCHNEIDUNG STORNIEREN
+// VERSCHNEIDUNG STORNIEREN (KAN-35, 24.09.2026)
+// Nur solange die Ziel-Charge seit dem Verschnitt nicht weiterbewegt wurde (keine später
+// erfasste Mengenbewegung – dadurch ist es immer der jüngste Verschnitt auf das Ziel, und der
+// Qualitäts-/Herkunfts-Snapshot stimmt) und die Ziel-Charge die Menge noch vollständig hat
+// (kein Kappen bei 0 mehr). Quellen, die durch den Verschnitt abgeschlossen wurden, werden
+// wieder aktiv. Das Löschen des Verschnitts protokolliert die DB (bestandsprotokoll).
+// Offen (braucht eine Vorher-Spalte): die Rebsorte der Ziel-Charge wird nicht zurückgesetzt.
 export async function deleteVerschneidung(verschneidungId: string) {
   const supabase = await createSupabaseServerClient()
-  const tenantId  = await getTenantId()
-  if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
+  const tenantId  = await kellerbuchSchreibrecht()
 
-  // Quellen + Mengen laden bevor gelöscht wird
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: vRaw } = await (supabase.from('verschneidungen') as any)
-    .select('id, ziel_weinausbau_id, ziel_qualitaet_vorher, ziel_herkunft_code_vorher, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter)')
-    .eq('id', verschneidungId)
-    .eq('tenant_id', tenantId)
-    .single()
-  if (!vRaw) throw new AktionsFehler('Verschneidung nicht gefunden')
-  const v = vRaw as R
-
+  const plan = await planeVerschneidungStorno(supabase, tenantId, verschneidungId)
+  const v = plan.verschneidung
   const zielId = v.ziel_weinausbau_id as string
   const quellen = (v.quellen ?? []) as R[]
-  const gesamtLiter = quellen.reduce((s: number, q: R) => s + (parseFloat(q.menge_liter) || 0), 0)
 
-  // Ziel-Charge: Bestand wieder reduzieren
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: ziel } = await (supabase.from('weinausbau') as any)
-    .select('menge_liter').eq('id', zielId).eq('tenant_id', tenantId).single()
-  const zielAkt = parseFloat((ziel as R)?.menge_liter ?? '0') || 0
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  { const { error: e } = await (supabase.from('weinausbau') as any)
-    .update({ menge_liter: Math.max(0, zielAkt - gesamtLiter) })
-    .eq('id', zielId)
-    .eq('tenant_id', tenantId)
-    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
-
-  // Quell-Chargen: Menge wieder gutschreiben
-  for (const q of quellen) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: src } = await (supabase.from('weinausbau') as any)
-      .select('menge_liter').eq('id', q.quell_weinausbau_id).eq('tenant_id', tenantId).single()
-    const srcAkt = parseFloat((src as R)?.menge_liter ?? '0') || 0
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    { const { error: e } = await (supabase.from('weinausbau') as any)
-      .update({ menge_liter: srcAkt + (parseFloat(q.menge_liter) || 0) })
-      .eq('id', q.quell_weinausbau_id)
-      .eq('tenant_id', tenantId)
-      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
-  }
-
-  // Qualitätsstufe + Herkunft-Code wiederherstellen falls gespeichert
-  const zielQualitaetVorher = (vRaw as R).ziel_qualitaet_vorher as string | null
-  const zielHerkunftVorher  = (vRaw as R).ziel_herkunft_code_vorher as string | null
-  if (zielQualitaetVorher || zielHerkunftVorher) {
-    const restorePayload: R = {}
-    if (zielQualitaetVorher) restorePayload.qualitaetsstufe = zielQualitaetVorher
-    if (zielHerkunftVorher)  restorePayload.herkunft_code   = zielHerkunftVorher
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    { const { error: e } = await (supabase.from('weinausbau') as any)
-      .update(restorePayload)
-      .eq('id', zielId)
-      .eq('tenant_id', tenantId)
-      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
-  }
-
-  // Datensatz löschen (CASCADE löscht verschneidung_quellen automatisch)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('verschneidungen') as any)
-    .delete().eq('id', verschneidungId).eq('tenant_id', tenantId)
-  if (error) throw new AktionsFehler((error as R).message)
+  // Quellen gutschreiben (ggf. wieder aktiv), Ziel reduzieren (ggf. abschließen) samt
+  // Qualitätsstufe/Herkunft-Code aus dem Snapshot, danach den Verschnitt löschen (CASCADE
+  // löscht verschneidung_quellen; beides wird protokolliert). Alles oder nichts: scheitert
+  // ein Schritt, werden die bereits ausgeführten Rückbuchungen zurückgenommen.
+  await storniereVerschneidung(supabase, tenantId, plan)
 
   revalidatePath('/kellerbuch')
   quellen.forEach((q: R) => revalidatePath(`/kellerbuch/weinausbau/${q.quell_weinausbau_id}`))
@@ -526,10 +587,46 @@ export async function deleteVerschneidung(verschneidungId: string) {
   revalidatePath(`/kellerbuch/weinausbau/${zielId}/buch`)
 }
 
-// MANUELLER SCHWUND
-// Bucht einen Schwund-Abgang als keller_umzug mit umzug_typ='schwund'.
-// brutto_liter = Schwundmenge, menge_liter = 0 → kein Nettozugang im Zielbehälter.
-// Erscheint im Bewegungsbuch als Abgang mit Beschreibung "Schwund / Verlust".
+// SCHWUND BUCHEN (Chargen-Seite, KAN-35)
+// Echter Schwund einer Charge (Verdunstung, Verlust beim Ausbau): datierte Zeile im
+// Bewegungsbuch UND Bestand mindern – atomar über die RPC schwund_buchen (p_bestand_mindern).
+// Bleiben ≤ 0,01 L, bucht die RPC den Rest mit aus und schließt die Charge ab.
+// Das ist der Korrekturweg nach unten, seit menge_liter im Formular nicht mehr änderbar ist.
+export async function schwundBuchen(weinausbauId: string, formData: FormData) {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
+
+  const liter = zahlAus(formData.get('menge'))
+  const datum = ((formData.get('datum') as string) || '').trim()
+  const notiz = ((formData.get('notiz') as string) || '').trim() || null
+  if (liter == null || liter < 0.01) throw new AktionsFehler('Bitte eine Schwundmenge von mindestens 0,01 L angeben.')
+  if (!datum) throw new AktionsFehler('Bitte ein Datum für den Schwund angeben.')
+
+  // Mit dem Benutzer-Client und Parameternamen – sonst fehlt der Benutzer im Protokoll
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)('schwund_buchen', {
+    p_tenant_id:       tenantId,
+    p_weinausbau_id:   weinausbauId,
+    p_liter:           rund2(liter),
+    p_datum:           datum,
+    p_notiz:           notiz,
+    p_bestand_mindern: true,
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Schwund konnte nicht gebucht werden'))
+
+  revalidatePath('/kellerbuch')
+  revalidatePath(`/kellerbuch/weinausbau/${weinausbauId}`)
+  revalidatePath('/kellerbuch/behaelter', 'layout')
+}
+
+// MANUELLER SCHWUND (Nachbuchung im Behälter-Bewegungsbuch)
+// Bucht eine Schwund-Zeile (umzug_typ 'schwund') über die RPC schwund_buchen mit
+// p_bestand_mindern = false: nur die datierte Zeile im Bewegungsbuch, menge_liter der Charge
+// bleibt unverändert – für Restmengen, die im Bewegungsbuch stehen, im Bestand der Charge
+// aber schon fehlen (z. B. abgeschlossene 0-L-Chargen). Seit KAN-35 gleicht kein Seitenaufruf
+// den Bestand mehr nachträglich an; echter Schwund läuft über schwundBuchen (Chargen-Seite).
+// Die Zeile landet im aktuellen Gebinde der Charge (nach_behaelter_id).
 
 export async function manuellSchwundBuchen(formData: FormData) {
   const supabase     = await createSupabaseServerClient()
@@ -538,29 +635,27 @@ export async function manuellSchwundBuchen(formData: FormData) {
 
   const behaelterId  = formData.get('behaelter_id')  as string
   const weinausbauId = formData.get('weinausbau_id') as string
-  const menge        = parseFloat(dezimal(formData.get('menge') as string) || '0')
+  const menge        = zahlAus(formData.get('menge')) ?? 0
   const datum        = formData.get('datum') as string
 
-  if (!behaelterId || !weinausbauId || menge <= 0 || !datum) {
-    throw new AktionsFehler('Ungültige Eingabe: alle Felder sind erforderlich')
+  if (!behaelterId || !weinausbauId || menge < 0.01 || !datum) {
+    throw new AktionsFehler('Ungültige Eingabe: alle Felder sind erforderlich, die Menge muss mindestens 0,01 L betragen')
   }
 
+  // Mit dem Benutzer-Client und Parameternamen – sonst fehlt der Benutzer im Protokoll
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('keller_umzuege') as any).insert({
-    tenant_id:         tenantId,
-    von_weinausbau_id: weinausbauId,
-    nach_behaelter_id: behaelterId,  // Pflichtfeld – selber Behälter, menge_liter=0 → kein Zugang
-    menge_liter:       0,
-    brutto_liter:      menge,
-    schwund_liter:     menge,
-    datum,
-    umzug_typ:         'schwund',
-    notizen:           'Manueller Schwund',
+  const { error } = await (supabase.rpc as any)('schwund_buchen', {
+    p_tenant_id:       tenantId,
+    p_weinausbau_id:   weinausbauId,
+    p_liter:           rund2(menge),
+    p_datum:           datum,
+    p_notiz:           'Manueller Schwund (Nachbuchung)',
+    p_bestand_mindern: false,
   })
-
-  if (error) throw new AktionsFehler((error as R).message)
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Schwund konnte nicht gebucht werden'))
 
   revalidatePath(`/kellerbuch/behaelter/${behaelterId}/bewegungen`)
+  revalidatePath(`/kellerbuch/weinausbau/${weinausbauId}`)
   revalidatePath('/kellerbuch')
 }
 
@@ -571,8 +666,8 @@ export async function manuellSchwundBuchen(formData: FormData) {
 // in der Kellerbehandlungen-Seite). Damit der Prozess-Assistent (Bot) denselben
 // Tool-Handler-Ansatz wie bei den übrigen Prozessen nutzen kann, kapselt diese neue Action
 // exakt dieselbe Insert-Logik in einer Server Action (siehe Konzeptdokument Abschnitt 3b).
-// Die bestehende Seite bleibt bewusst unverändert (funktioniert weiterhin über den
-// Browser-Client) – diese Action ist zusätzlich, kein Ersatz.
+// Die Seite legt an und bearbeitet weiterhin über den Browser-Client; gelöscht wird seit
+// KAN-35 nur noch über deleteKellerbehandlung (unten).
 export async function createKellerbehandlung(formData: FormData): Promise<{ id: string }> {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
@@ -631,4 +726,30 @@ export async function createKellerbehandlung(formData: FormData): Promise<{ id: 
   revalidatePath(`/kellerbuch/behaelter/${behaelterId}/behandlungen`)
   revalidatePath('/kellerbuch')
   return { id: (data as R).id as string }
+}
+
+// KELLERBEHANDLUNG LÖSCHEN (KAN-35, 24.09.2026)
+// Bisher löschte die Kellerbehandlungen-Seite direkt über den Browser-Client, ohne Rollen-
+// und Ergebnisprüfung. Jetzt als Server Action: Schreibrecht im Kellerbuch, Mandantenfilter,
+// Prüfung, dass wirklich eine Zeile gelöscht wurde. Das Löschen bleibt erlaubt (Behandlungen
+// bewegen keine Liter) und wird von der DB protokolliert (bestandsprotokoll).
+export async function deleteKellerbehandlung(id: string): Promise<void> {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await kellerbuchSchreibrecht()
+  if (!id) throw new AktionsFehler('Keine Kellerbehandlung angegeben')
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.from('keller_behandlungen') as any)
+    .delete()
+    .eq('id', id)
+    .eq('tenant_id', tenantId)
+    .select('id, behaelter_id, weinausbau_id')
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Löschen fehlgeschlagen (keller_behandlungen)'))
+  const zeile = ((data ?? []) as R[])[0]
+  if (!zeile) throw new AktionsFehler('Kellerbehandlung nicht gefunden oder keine Berechtigung zum Löschen.')
+
+  revalidatePath(`/kellerbuch/behaelter/${zeile.behaelter_id}/behandlungen`)
+  revalidatePath(`/kellerbuch/behaelter/${zeile.behaelter_id}/bewegungen`)
+  if (zeile.weinausbau_id) revalidatePath(`/kellerbuch/weinausbau/${zeile.weinausbau_id}/buch`)
+  revalidatePath('/kellerbuch')
 }

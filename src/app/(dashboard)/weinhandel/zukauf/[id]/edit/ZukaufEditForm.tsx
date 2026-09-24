@@ -63,16 +63,24 @@ export default function ZukaufEditForm({
   id,
   initial,
   hatBewegungen,
+  sperrHinweis,
+  traubenGebunden,
   eigeneAktuelleMenge,
   lieferantName,
 }: {
   id: string
   initial: InitialValues
-  // Wurde gegen die verknüpfte Kellerbuch-Charge (initial.ziel_weinausbau_id)
-  // bereits etwas gebucht (Verkauf/Umzug/Abfüllung/Verschnitt)? Bestimmt, wie
-  // die Gebinde-Vorschau unten die eigene Charge simuliert - siehe
-  // eigenWeinausbauId-Kommentar weiter unten.
+  // Hängen an der verknüpften Kellerbuch-Charge (initial.ziel_weinausbau_id)
+  // bereits Folgebuchungen (Umzug, Schwund, Verschnitt, Füllung, Tankverkauf,
+  // Behandlung, Analyse, DAC)? Dann sind Menge, Einheit, Gebinde und Art gesperrt
+  // (KAN-35, updateZukauf prüft serverseitig ebenso) - bestimmt außerdem, wie
+  // die Gebinde-Vorschau unten die eigene Charge simuliert.
   hatBewegungen: boolean
+  // „An der Charge hängen bereits …“ (nur bei hatBewegungen)
+  sperrHinweis: string | null
+  // Aus diesem Zukauf bereits verpresste + verkaufte Trauben (kg) und als Text –
+  // die Menge darf nicht darunter sinken, die Art nicht mehr wechseln.
+  traubenGebunden: { kg: number; text: string }
   // Aktueller (live) Bestand der verknüpften Kellerbuch-Charge in Liter, wie er
   // JETZT in der DB steht - unabhängig vom unveränderlichen initial.menge.
   eigeneAktuelleMenge: number
@@ -116,20 +124,31 @@ export default function ZukaufEditForm({
   // bewegt wurde (siehe unten).
   const alteZukaufMenge = parseFloat(initial.menge) || 0
 
+  // KAN-35: Sperren (serverseitig in updateZukauf ebenso geprüft)
+  //  - Folgebuchungen an der Charge: Menge, Einheit und Gebinde fix, Art bleibt Wein/Most
+  //  - Trauben bereits verpresst/verkauft: Art fix, Menge nicht unter die gebundene Menge
+  const mengeGesperrt = hatBewegungen
+  const traubenArtGesperrt = initial.art === 'trauben' && traubenGebunden.kg > 0
+  function artGesperrt(value: 'wein' | 'most' | 'trauben'): boolean {
+    if (hatBewegungen && value === 'trauben') return true
+    if (traubenArtGesperrt && value !== 'trauben') return true
+    return false
+  }
+
   // Simuliert den Bestand der EIGENEN Kellerbuch-Charge NACH dem Speichern
   // dieses Formulars, abhängig davon, wie updateZukauf sie behandeln wird:
-  //  - Noch nie einem Gebinde zugeordnet (kein eigenWeinausbauId): die Charge
-  //    entsteht beim Speichern frisch mit der vollen eingetragenen Menge.
-  //  - Zugeordnet, aber noch UNBERÜHRT (keine Bewegungen): updateZukauf ersetzt
-  //    sie beim Speichern vollständig durch die volle eingetragene Menge.
-  //  - Zugeordnet UND bereits bewegt (Verkauf/Umzug/Abfüllung/Verschnitt):
-  //    updateZukauf verrechnet beim Speichern nur die DIFFERENZ zur
-  //    ursprünglichen Zukaufsmenge auf den aktuellen, bereits reduzierten
-  //    Bestand (der verbrauchte Anteil bleibt erhalten) - die Vorschau muss
-  //    daher vom AKTUELLEN Bestand ausgehen statt ihn zu ignorieren.
+  //  - Noch nie einem Gebinde zugeordnet (kein eigenWeinausbauId) oder ein
+  //    anderes Gebinde gewählt (noch ohne Folgebuchungen): die Charge entsteht
+  //    beim Speichern frisch mit der vollen Belegmenge.
+  //  - Zugeordnet, noch ohne Folgebuchungen, Gebinde unverändert: updateZukauf
+  //    verrechnet die DIFFERENZ zur bisherigen Zukaufsmenge auf den aktuellen
+  //    Bestand der Charge.
+  //  - Folgebuchungen vorhanden: Menge gesperrt, der aktuelle Bestand bleibt.
   function eigeneSimulierteMenge(neueMenge: number): number {
-    if (!eigenWeinausbauId || !hatBewegungen) return neueMenge
-    return Math.max(0, eigeneAktuelleMenge + (neueMenge - alteZukaufMenge))
+    if (!eigenWeinausbauId) return neueMenge
+    if (hatBewegungen) return eigeneAktuelleMenge
+    if (zielBehaelter === initial.ziel_behaelter_id) return eigeneAktuelleMenge + (neueMenge - alteZukaufMenge)
+    return neueMenge
   }
 
   useEffect(() => {
@@ -151,6 +170,11 @@ export default function ZukaufEditForm({
     e.preventDefault()
     setError(null)
     if (!menge || parseFloat(menge) <= 0) { setError('Menge muss größer als 0 sein.'); return }
+    const neueMenge = parseFloat(menge)
+    if (art === 'trauben' && traubenGebunden.kg > 0 && neueMenge < alteZukaufMenge && neueMenge < traubenGebunden.kg - 0.0005) {
+      setError(`Die Menge kann nicht unter die bereits gebundene Menge gesenkt werden: Aus diesem Zukauf sind bereits ${traubenGebunden.text}, zusammen ${fmtNum(traubenGebunden.kg)} kg.`)
+      return
+    }
     const fd = new FormData()
     fd.set('datum',                    datum)
     fd.set('lieferung_uhrzeit',        uhrzeit)
@@ -236,13 +260,17 @@ export default function ZukaufEditForm({
           <div>
             <label className={labelCls}>Art *</label>
             <div className="flex gap-4 mt-1.5">
-              {ART_OPTIONS.map(({ value, label }) => (
-                <label key={value} className="flex items-center gap-1.5 cursor-pointer">
-                  <input type="radio" name="art" value={value} checked={art === value}
-                    onChange={() => setArt(value)} className="accent-s112-teal" />
-                  <span className="text-sm text-s112-text-1">{label}</span>
-                </label>
-              ))}
+              {ART_OPTIONS.map(({ value, label }) => {
+                const gesperrt = artGesperrt(value) && art !== value
+                return (
+                  <label key={value} className={`flex items-center gap-1.5 ${gesperrt ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                    <input type="radio" name="art" value={value} checked={art === value}
+                      disabled={gesperrt}
+                      onChange={() => setArt(value)} className="accent-s112-teal" />
+                    <span className="text-sm text-s112-text-1">{label}</span>
+                  </label>
+                )
+              })}
             </div>
           </div>
         </div>
@@ -354,16 +382,40 @@ export default function ZukaufEditForm({
         {/* ── 4. Menge & Preis ──────────────────────────────────────────── */}
         <div className="card p-5 space-y-4">
           <h2 className="font-semibold text-s112-text-1 text-sm uppercase tracking-wide">Menge & Preis</h2>
+          {mengeGesperrt && (
+            <p className="flex items-start gap-1.5 text-xs bg-s112-bg border border-s112-border rounded-lg px-3 py-2 text-s112-text-1">
+              <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+              <span>
+                Menge, Einheit und Gebinde sind gesperrt: {sperrHinweis ?? 'An der Charge hängen bereits Folgebuchungen'}.
+                Die Belegmenge bleibt als Zugang der Charge erhalten – eine Mindermenge bitte in der Charge über „Schwund buchen“,
+                eine Mehrmenge als eigenen Zukauf erfassen; ein Gebindewechsel geht über „Umziehen“ im Kellerbuch.
+                Rebsorte, Jahrgang, Weinart und Qualitätsstufe werden nur am Beleg geändert, nicht mehr an der Charge
+                (sie kann inzwischen verschnitten oder abgestuft sein) – die Charge bitte im Kellerbuch bearbeiten.
+              </span>
+            </p>
+          )}
+          {art === 'trauben' && traubenGebunden.kg > 0 && (
+            <p className="flex items-start gap-1.5 text-xs bg-s112-bg border border-s112-border rounded-lg px-3 py-2 text-s112-text-1">
+              <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+              <span>
+                Aus diesem Zukauf sind bereits {traubenGebunden.text} – die Menge kann nicht unter {fmtNum(traubenGebunden.kg)} kg
+                gesenkt und die Art nicht mehr geändert werden.
+              </span>
+            </p>
+          )}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
               <label className={labelCls}>Menge *</label>
               <input aria-label="Menge" type="number" value={menge} onChange={e => setMenge(e.target.value)}
-                required min="0.001" step="0.001" placeholder="0" className={inputCls + ' w-full'} />
+                required min="0.001" step="0.001" placeholder="0"
+                readOnly={mengeGesperrt} aria-readonly={mengeGesperrt}
+                className={inputCls + ' w-full' + (mengeGesperrt ? ' bg-s112-bg text-s112-muted cursor-not-allowed' : '')} />
             </div>
             <div>
               <label className={labelCls}>Einheit</label>
               <select aria-label="Einheit" value={einheit} onChange={e => setEinheit(e.target.value)}
-                className={inputCls + ' w-full'}>
+                disabled={mengeGesperrt}
+                className={inputCls + ' w-full' + (mengeGesperrt ? ' bg-s112-bg text-s112-muted cursor-not-allowed' : '')}>
                 <option value="kg">kg</option>
                 <option value="L">L</option>
                 <option value="t">t</option>
@@ -411,7 +463,8 @@ export default function ZukaufEditForm({
             <div>
               <label className={labelCls}>Gebinde (optional)</label>
               <select aria-label="Gebinde (optional)" value={zielBehaelter} onChange={e => setZielBehaelter(e.target.value)}
-                className={inputCls + ' w-full'}>
+                disabled={mengeGesperrt}
+                className={inputCls + ' w-full' + (mengeGesperrt ? ' bg-s112-bg text-s112-muted cursor-not-allowed' : '')}>
                 <option value="">– keines –</option>
                 {behaelter.map(b => {
                   const vol = b.volumen_liter

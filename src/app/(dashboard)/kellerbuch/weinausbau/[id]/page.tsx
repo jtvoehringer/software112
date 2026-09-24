@@ -6,9 +6,12 @@ import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { notFound } from 'next/navigation'
 import WeinausbauForm from '@/components/kellerbuch/WeinausbauForm'
-import { updateWeinausbau } from '../../actions'
+import { updateWeinausbau, schwundBuchen } from '../../actions'
 import { kmwZuQualitaet, minQualitaet } from '@/lib/weinqualitaet'
+import { folgebuchungenDerCharge, folgebuchungenText } from '@/lib/kellerbuch/folgebuchungen'
+import { GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
 import VerschneidungWidget from './VerschneidungWidget'
+import SchwundBuchenForm from './SchwundBuchenForm'
 import UmziehenWidget from '@/components/kellerbuch/UmziehenWidget'
 import { umziehen } from '../../umziehen/actions'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
@@ -55,6 +58,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
     { data: alleChargenRaw },
     { data: verschnEinRaw },
     { data: zukaufRaw },
+    { data: verschnAusRaw },
   ] = await Promise.all([
     tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, weingarten_id, behaelter_id, menge_liter, anfangsbestand_liter, ist_eroeffnungsbestand, status, qualitaetsstufe, herkunft_code, weinart, notizen, aktiv, einstandspreis_pro_liter, behaelter:behaelter_id(name)')
@@ -64,8 +68,9 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
     // Das eigene aktuelle Gebinde der Charge wird unten wieder ergänzt (Volumen-Lookup).
     ladeBehaelter(supabase, tenantId, { nurAktiv: true }),
     // Ausgehende Umzüge (von dieser Charge weg) – enthält 'transfer' und 'quelle'-Zeilen
+    // sowie Schwundbuchungen (umzug_typ 'schwund')
     tf((supabase.from('keller_umzuege') as any)
-      .select('id, datum, menge_liter, brutto_liter, schwund_liter, nach_behaelter:nach_behaelter_id(name), notizen, umzug_batch_id, zeilen_typ')
+      .select('id, datum, menge_liter, brutto_liter, schwund_liter, umzug_typ, nach_behaelter:nach_behaelter_id(name), notizen, umzug_batch_id, zeilen_typ')
       .eq('von_weinausbau_id', id)
       .order('datum', { ascending: true })),
     // Eingehende Umzüge (in diese Charge rein) – enthält 'transfer' und 'ziel'-Zeilen
@@ -73,10 +78,12 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       .select('id, datum, menge_liter, von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name)), notizen, umzug_batch_id, zeilen_typ')
       .eq('nach_weinausbau_id', id)
       .order('datum', { ascending: true })),
-    // Abfüllungen
+    // Abfüllungen – nur aktive: das Löschen einer Füllung bucht ihre Liter auf die Charge
+    // zurück (wie im Bewegungsbuch des Gebindes), sie gehört dann nicht mehr in den Saldo
     tf((supabase.from('fuellungen') as any)
       .select('id, datum, name, anzahl_flaschen, menge_liter_gefuellt, flaschengroesse_ml, pruefnummer, chargennummer')
       .eq('weinausbau_id', id)
+      .eq('aktiv', true)
       .order('datum', { ascending: true })),
     // Tank-Verkäufe
     tf((supabase.from('verkauf_positionen') as any)
@@ -119,6 +126,14 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       .eq('aktiv', true)
       .in('art', ['wein', 'most'])
       .order('datum', { ascending: true })),
+
+    // Ausgehende Verschneidungen (diese Charge als Quelle) – fehlten bisher im Saldo, der
+    // Auto-Sync füllte Quell-Chargen eines Verschnitts dadurch beim Öffnen wieder auf (KAN-35).
+    // verschneidung_quellen hat keine tenant_id (RLS über verschneidungen); die Charge selbst
+    // ist oben auf den aktiven Betrieb gefiltert.
+    (supabase.from('verschneidung_quellen') as any)
+      .select('menge_liter, verschneidung:verschneidung_id(datum, notizen, ziel:ziel_weinausbau_id(name))')
+      .eq('quell_weinausbau_id', id),
   ])
 
   const ausRecs = (umzuegeAusRaw ?? []) as R[]
@@ -191,7 +206,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
   type Bewegung = {
     datum: string
-    art: 'zukauf' | 'ernte' | 'umziehen_ein' | 'umziehen_aus' | 'abfuellung' | 'verkauf'
+    art: 'zukauf' | 'ernte' | 'umziehen_ein' | 'umziehen_aus' | 'verschnitt_aus' | 'schwund' | 'abfuellung' | 'verkauf'
     beschreibung: string
     menge: number
     extra?: string
@@ -290,10 +305,39 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
     })
   }
 
+  // Ausgehende Verschneidungen (Abgänge) – diese Charge als Quelle eines Verschnitts
+  for (const vq of ((verschnAusRaw ?? []) as R[])) {
+    const liter = parseFloat(vq.menge_liter) || 0
+    if (liter <= 0) continue
+    const v = vq.verschneidung as R | null
+    const zielName = (v?.ziel as R | null)?.name ?? '?'
+    bewegungen.push({
+      datum: v?.datum ?? '',
+      art: 'verschnitt_aus',
+      beschreibung: `Verschneidung nach ${zielName}`,
+      menge: -liter,
+      extra: v?.notizen ?? undefined,
+    })
+  }
+
   // Ausgehende Umzüge (Abgänge)
   for (const u of ausRecs) {
     // 'ziel'-Zeilen gehören nicht in diese Charge als Abgang
     if (u.zeilen_typ === 'ziel') continue
+
+    // Schwundbuchung (schwund_buchen, Abfüllschwund, Nachbuchung): brutto = schwund = Verlust
+    if (u.umzug_typ === 'schwund') {
+      const verlust = parseFloat(u.brutto_liter) || parseFloat(u.schwund_liter) || 0
+      if (verlust <= 0) continue
+      bewegungen.push({
+        datum: u.datum,
+        art: 'schwund',
+        beschreibung: 'Schwund / Verlust',
+        menge: -verlust,
+        extra: u.notizen ?? undefined,
+      })
+      continue
+    }
 
     let abgangLiter: number
     let beschreibung: string
@@ -364,29 +408,40 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
     return { ...bew, saldo }
   })
 
-  // Berechneter Saldo aus dem Bewegungsbuch = autoritativer Wert
-  // (weinausbau.menge_liter kann durch direkte Bearbeitung ohne Pressung-Sync veraltet sein)
+  // Saldo laut Bewegungsbuch (Kontrollwert). Maßgeblicher Bestand ist seit KAN-35 der
+  // gebuchte Bestand der Charge (weinausbau.menge_liter) – ihn prüfen und ändern alle
+  // Buchungen (Umzug, Verschnitt, Füllung, Verkauf, Schwund).
   const berechneterSaldoRoh = bewegungenMitSaldo.length > 0
     ? bewegungenMitSaldo[bewegungenMitSaldo.length - 1].saldo
     : hatAnfangsbestand ? anfangsbestand : aktuell
 
   // Ein negativer Saldo bedeutet, dass laut Bewegungsbuch mehr aus der Charge
   // entnommen wurde, als je vorhanden war (z.B. ein Tank-Verkauf, der trotz
-  // bereits leerem Bestand durchging, weil es dafuer bislang keine Pruefung
-  // gab - siehe Bugreport 6.8.2026: Charge stand bereits bei 0,00 L, ein
-  // weiterer 100L-Verkauf wurde trotzdem gebucht, der Saldo fiel auf -100 L
-  // und wurde vom Auto-Sync unten anschliessend UNGEPRUEFT in
-  // weinausbau.menge_liter zurueckgeschrieben). Bestand darf nie negativ
-  // angezeigt oder gespeichert werden - stattdessen bei 0 kappen und die
-  // Unstimmigkeit sichtbar machen (siehe Warnhinweis weiter unten).
+  // bereits leerem Bestand durchging, siehe Bugreport 6.8.2026). Der Saldo wird
+  // in der Tabelle bei 0 gekappt angezeigt und die Unstimmigkeit sichtbar gemacht.
   const bestandsUnstimmigkeit = berechneterSaldoRoh < -0.01
   const berechneterSaldo = Math.max(0, berechneterSaldoRoh)
 
-  // Auto-Sync: DB-menge_liter korrigieren wenn Abweichung > 1 L
-  if (Math.abs(berechneterSaldo - aktuell) > 1) {
-    await tf((supabase.from('weinausbau') as any)
-      .update({ menge_liter: berechneterSaldo })
-      .eq('id', id))
+  // KAN-35 (24.09.2026): Der frühere Auto-Sync (menge_liter = Saldo bei Abweichung > 1 L)
+  // ist entfernt – ein Seitenaufruf änderte damit Mengen ohne datierte Zeile und machte
+  // Ausbuchungen bzw. Verschnitt-Abgänge still rückgängig. Stattdessen nur ein Hinweis;
+  // korrigiert wird über „Schwund buchen“ bzw. nach Prüfung des Bestands.
+  const bestandsAbweichung = !bestandsUnstimmigkeit && Math.abs(berechneterSaldoRoh - aktuell) > 1
+  const bewegungsbuchHoeher = berechneterSaldoRoh > aktuell
+
+  // Gebindewechsel im Formular nur ohne Folgebuchungen (Server prüft dasselbe)
+  const vonPressung = ((pressungenRaw ?? []) as R[]).length > 0
+  let gebindeSperre: string | null = null
+  if (writeOk && !vonPressung) {
+    try {
+      const f = await folgebuchungenDerCharge(supabase, id, { ohne: GEBINDEWECHSEL_OHNE })
+      if (f.length > 0) {
+        const einzeln = f.length === 1 && f[0].anzahl === 1
+        gebindeSperre = `An der Charge ${einzeln ? 'hängt' : 'hängen'} bereits ${folgebuchungenText(f)} – einen Gebindewechsel bitte als Umzug buchen.`
+      }
+    } catch {
+      gebindeSperre = 'Folgebuchungen konnten nicht geprüft werden – einen Gebindewechsel bitte als Umzug buchen.'
+    }
   }
 
   const st = STATUS_LABELS[weinausbau.status] ?? { label: weinausbau.status, color: 'bg-[#F2F3F5] text-s112-text-2' }
@@ -403,13 +458,35 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       </div>
 
       {bestandsUnstimmigkeit && (
-        <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg px-4 py-3 rounded-lg text-sm">
+        <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg px-4 py-3 rounded-lg text-sm">
           <p className="font-semibold">Unstimmigkeit im Bewegungsbuch</p>
           <p className="mt-0.5">
             Laut Bewegungsbuch wurde mehr aus dieser Charge entnommen, als je vorhanden war
-            (berechneter Saldo: {fmtLiter(berechneterSaldoRoh)}). Der angezeigte Bestand wurde
-            hier bei 0 L gekappt - bitte die Bewegungen unten (insbesondere Tank-Verkäufe) prüfen.
+            (berechneter Saldo: {fmtLiter(berechneterSaldoRoh)}, gebuchter Bestand: {fmtLiter(aktuell)}).
+            Der Saldo wird unten bei 0 L gekappt angezeigt – bitte die Bewegungen (insbesondere
+            Tank-Verkäufe und Zugänge) prüfen. Fehlt ein Zugang, bitte den Support kontaktieren
+            (Charge, Menge und Grund angeben). Bitte hier KEINEN Schwund buchen – das mindert Bestand
+            und Saldo gleichermaßen und behebt die Abweichung nicht.
           </p>
+        </div>
+      )}
+
+      {bestandsAbweichung && (
+        <div role="status" className="bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg px-4 py-3 rounded-lg text-sm">
+          <p className="font-semibold">Bestand und Bewegungsbuch stimmen nicht überein</p>
+          <p className="mt-0.5">
+            Gebuchter Bestand der Charge: {fmtLiter(aktuell)} · Saldo laut Bewegungsbuch: {fmtLiter(berechneterSaldoRoh)}.{' '}
+            {bewegungsbuchHoeher
+              ? 'Laut Bewegungsbuch ist mehr vorhanden als gebucht – fehlt z. B. eine Schwundbuchung, kann sie im Bewegungsbuch des Gebindes nachgebucht werden (die Nachbuchung ändert den gebuchten Bestand nicht).'
+              : 'Laut Bewegungsbuch ist weniger vorhanden als gebucht – vermutlich fehlt im Bewegungsbuch ein Zugang (z. B. aus der Zeit vor den datierten Buchungen). Bitte die Bewegungen prüfen und ggf. den Support kontaktieren (Charge, Menge und Grund angeben). Bitte hier KEINEN Schwund buchen – das mindert Bestand und Saldo gleichermaßen und behebt die Abweichung nicht.'}
+            {' '}Der Bestand wird nicht mehr automatisch angeglichen.
+          </p>
+          {bewegungsbuchHoeher && writeOk && weinausbau.behaelter_id && (
+            <Link href={`/kellerbuch/behaelter/${weinausbau.behaelter_id}/bewegungen`}
+              className="mt-1.5 inline-block text-xs font-medium underline hover:no-underline">
+              Zum Bewegungsbuch des Gebindes →
+            </Link>
+          )}
         </div>
       )}
 
@@ -424,15 +501,15 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
           </div>
         </div>
         <div className="text-right shrink-0">
-          <p className="text-2xl font-semibold text-s112-blue-700 tabular-nums">{fmtLiter(berechneterSaldo)}</p>
+          <p className="text-2xl font-semibold text-s112-blue-700 tabular-nums">{fmtLiter(aktuell)}</p>
           <p className="text-xs text-s112-muted mt-0.5">verfügbarer Bestand</p>
-          {writeOk && berechneterSaldo > 0.01 && (
+          {writeOk && aktuell > 0.01 && (
             <Link href={`/weinhandel/fuellungen/neu?charge=${weinausbau.id}`}
               className="mt-2 inline-flex items-center gap-1 text-xs bg-s112-teal text-white px-3 py-1 rounded-lg hover:bg-opacity-90 transition-colors">
               <Wine size={13} strokeWidth={1.75} />Abfüllen
             </Link>
           )}
-          {writeOk && berechneterSaldo > 0.01 && (
+          {writeOk && aktuell > 0.01 && (
             <Link href={`/kellerbuch/weinausbau/${weinausbau.id}?form=umziehen`}
               className="mt-1 inline-flex items-center gap-1 text-xs bg-s112-teal text-white px-3 py-1 rounded-lg hover:bg-opacity-90 transition-colors">
               <ArrowLeftRight size={13} strokeWidth={1.75} />Umziehen
@@ -540,24 +617,40 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
               {/* Saldo-Zeile */}
               <tr className="border-t-2 border-s112-teal/30 bg-s112-teal/5">
                 <td colSpan={2} className="px-4 py-2.5 font-semibold text-s112-text-1 text-sm">
-                  Aktueller Bestand
+                  Saldo laut Bewegungsbuch
                 </td>
                 <td className="px-4 py-2.5 text-right" />
                 <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-s112-blue-700 text-base">
                   {fmtLiter(berechneterSaldo)}
                 </td>
               </tr>
+              {(bestandsAbweichung || bestandsUnstimmigkeit) && (
+                <tr className="bg-s112-warn-bg/60">
+                  <td colSpan={2} className="px-4 py-2 text-sm text-s112-warn-fg">
+                    Gebuchter Bestand der Charge (weicht ab)
+                  </td>
+                  <td className="px-4 py-2 text-right" />
+                  <td className="px-4 py-2 text-right tabular-nums font-semibold text-s112-warn-fg">
+                    {fmtLiter(aktuell)}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </section>
 
+      {/* Schwund buchen (datierte Zeile + Bestand mindern) – Korrekturweg nach unten */}
+      {writeOk && aktuell > 0.01 && (
+        <SchwundBuchenForm bestandLiter={aktuell} action={schwundBuchen.bind(null, id)} />
+      )}
+
       {/* Umziehen (wird über Header-Button mit ?form=umziehen geöffnet) */}
-      {writeOk && berechneterSaldo > 0.01 && (
+      {writeOk && aktuell > 0.01 && (
         <UmziehenWidget
           chargeId={weinausbau.id}
           chargeName={weinausbau.name}
-          verfuegbarLiter={berechneterSaldo}
+          verfuegbarLiter={aktuell}
           gebinde={behaelter}
           alleChargen={alleChargen}
           action={umziehen}
@@ -570,7 +663,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       {/* Verschneidung (wird über Header-Button mit ?form=verschneiden geöffnet) */}
       {writeOk && (
         <VerschneidungWidget
-          zielCharge={{ id: weinausbau.id, name: weinausbau.name, menge_liter: berechneterSaldo, qualitaetsstufe: weinausbau.qualitaetsstufe ?? null, herkunft_code: weinausbau.herkunft_code ?? null, rebsorte: weinausbau.rebsorte ?? null, weinart: weinausbau.weinart ?? null, behaelter_id: weinausbau.behaelter_id ?? null, behaelter_volumen_liter: bhRows.find(b => b.id === weinausbau.behaelter_id)?.volumen_liter ?? null }}
+          zielCharge={{ id: weinausbau.id, name: weinausbau.name, menge_liter: aktuell, qualitaetsstufe: weinausbau.qualitaetsstufe ?? null, herkunft_code: weinausbau.herkunft_code ?? null, rebsorte: weinausbau.rebsorte ?? null, weinart: weinausbau.weinart ?? null, behaelter_id: weinausbau.behaelter_id ?? null, behaelter_volumen_liter: bhRows.find(b => b.id === weinausbau.behaelter_id)?.volumen_liter ?? null }}
           alleChargen={alleChargen}
           verschneidungen={verschneidungenEin}
           initialOpen={openForm === 'verschneiden'}
@@ -589,7 +682,8 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
             behaelter={behaelter}
             selectedWeingaertenIds={selectedWeingaertenIds}
             maxQualitaetsstufe={maxQualitaetsstufe}
-            vonPressung={((pressungenRaw ?? []) as R[]).length > 0}
+            vonPressung={vonPressung}
+            gebindeSperre={gebindeSperre}
             action={updateWeinausbau.bind(null, id)}
           />
         </section>

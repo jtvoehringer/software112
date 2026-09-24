@@ -7,10 +7,11 @@ import { minQualitaet } from '@/lib/wein/qualitaet'
 import { minHerkunft } from '@/lib/herkunft'
 import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { deleteUmzug as _deleteUmzug } from '../gebinde-actions'
-import { getCurrentMembership } from '@/lib/auth/roles'
-import { fmtNum } from '@/lib/format'
-import { AktionsFehler } from '@/lib/fehler'
+import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import { fmtNum, zahlAus } from '@/lib/format'
+import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { weinartKonflikt, weinartKonfliktText, weinartAusFarbe, weinartBekannt } from '@/lib/keller/weinart'
+import { ladeUmzugZeilen, planeUmzugStorno, umzugSperrMeldung, nurNotizenAenderbar } from '@/lib/kellerbuch/storno'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -18,20 +19,52 @@ type R = Record<string, any>
 interface QuelleInput { weinausbau_id: string; menge: number }
 interface ZielInput   { behaelter_id: string;  menge: number }
 
+// JSON-Zahlen direkt übernehmen (zahlAus würde „1.234“ als Tausenderpunkt lesen),
+// Texteingaben über zahlAus (deutsches Format)
+const zahl = (v: unknown): number => typeof v === 'number' ? v : (zahlAus(v) ?? NaN)
+
+/** Quellen/Ziele aus dem Formular lesen und prüfen (KAN-35: serverseitig, vor der ersten Buchung) */
+function leseZeilen(fd: FormData): { quellen: QuelleInput[]; ziele: ZielInput[] } {
+  let qRoh: unknown
+  let zRoh: unknown
+  try {
+    qRoh = JSON.parse(fd.get('quellen_json') as string || '[]')
+    zRoh = JSON.parse(fd.get('ziele_json')   as string || '[]')
+  } catch {
+    throw new AktionsFehler('Ungültige Eingabe: Quellen und Ziele konnten nicht gelesen werden.')
+  }
+  if (!Array.isArray(qRoh) || !Array.isArray(zRoh)) throw new AktionsFehler('Ungültige Eingabe: Quellen und Ziele fehlen.')
+  const quellen = (qRoh as R[]).map(q => ({ weinausbau_id: typeof q?.weinausbau_id === 'string' ? q.weinausbau_id : '', menge: zahl(q?.menge) }))
+  const ziele   = (zRoh as R[]).map(z => ({ behaelter_id: typeof z?.behaelter_id === 'string' ? z.behaelter_id : '', menge: zahl(z?.menge) }))
+  for (const q of quellen) {
+    if (!q.weinausbau_id) throw new AktionsFehler('Bitte für jede Quelle eine Charge wählen.')
+    if (!Number.isFinite(q.menge) || q.menge < 0.01) throw new AktionsFehler('Die Menge jeder Quelle muss mindestens 0,01 L betragen.')
+  }
+  for (const z of ziele) {
+    if (!z.behaelter_id) throw new AktionsFehler('Bitte für jedes Ziel ein Gebinde wählen.')
+    if (!Number.isFinite(z.menge) || z.menge < 0.01) throw new AktionsFehler('Die Menge jedes Ziels muss mindestens 0,01 L betragen.')
+  }
+  return { quellen, ziele }
+}
+
 export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { existingChargeId: string; newChargeId: string; menge: number }; abstufung?: { von: string; nach: string; vonLabel: string; nachLabel: string } } | void> {
   const supabase = await createSupabaseServerClient()
 
-  const quellen:    QuelleInput[] = JSON.parse(fd.get('quellen_json') as string || '[]')
-  const ziele:      ZielInput[]   = JSON.parse(fd.get('ziele_json')   as string || '[]')
+  const { quellen, ziele } = leseZeilen(fd)
   const notizen   = (fd.get('notizen')   as string) || null
   const datum     = (fd.get('datum')     as string) || new Date().toISOString().split('T')[0]
-  const umzugTyp  = (fd.get('umzug_typ') as string) || 'normal'
+  // Nur Umzug oder Filtration – 'schwund' ist den Schwundbuchungen (schwund_buchen) vorbehalten
+  const umzugTyp  = fd.get('umzug_typ') === 'filtration' ? 'filtration' : 'normal'
 
   if (quellen.length === 0 || ziele.length === 0) throw new AktionsFehler('Mindestens eine Quelle und ein Ziel erforderlich')
 
   const totalVon  = quellen.reduce((s, q) => s + q.menge, 0)
   const totalNach = ziele.reduce((s, z) => s + z.menge, 0)
-  const schwund   = Math.max(0, +(totalVon - totalNach).toFixed(3))
+  // Kein stilles Kappen (KAN-35): mehr Ziel- als Quellmenge würde Wein erzeugen
+  if (totalNach > totalVon + 0.01) {
+    throw new AktionsFehler(`Die Ziel-Mengen (${fmtNum(totalNach, 2)} L) übersteigen die Quell-Mengen (${fmtNum(totalVon, 2)} L) – ein Umzug kann keinen Wein erzeugen.`)
+  }
+  const schwund   = totalVon - totalNach > 0 ? +(totalVon - totalNach).toFixed(3) : 0
 
   // Aktiv gewählten Betrieb respektieren (Cookie-basiert) statt einer beliebigen/ersten
   // tenant_memberships-Zeile – sonst können bei Mehrfach-Mitgliedschaft Daten des falschen
@@ -82,6 +115,24 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
     }
   }
 
+  // Bestand der Quellen VOR der ersten Buchung prüfen, Menge je Charge summiert (KAN-35) –
+  // bisher wurde erst in der Schleife geprüft, wenn frühere Quellen schon reduziert waren.
+  {
+    const bedarf = new Map<string, number>()
+    for (const q of quellen) bedarf.set(q.weinausbau_id, (bedarf.get(q.weinausbau_id) ?? 0) + q.menge)
+    const { data: bRows, error: bErr } = await (supabase.from('weinausbau') as any)
+      .select('id, name, menge_liter').in('id', [...bedarf.keys()]).eq('tenant_id', tenantId)
+    if (bErr) throw new AktionsFehler(dbFehlerText(bErr, 'Quell-Chargen konnten nicht geladen werden'))
+    for (const [id, menge] of bedarf) {
+      const w = ((bRows ?? []) as R[]).find(r => r.id === id)
+      if (!w) throw new AktionsFehler('Charge nicht gefunden')
+      const verfuegbar = parseFloat(w.menge_liter) || 0
+      if (menge > verfuegbar + 0.01) {
+        throw new AktionsFehler(`„${w.name}": Menge (${fmtNum(menge)} L) überschreitet verfügbaren Bestand (${fmtNum(verfuegbar)} L)`)
+      }
+    }
+  }
+
   const batchId = crypto.randomUUID()
   let verschneidungNeeded: { existingChargeId: string; newChargeId: string; menge: number } | undefined
   let abstufung: { von: string; nach: string; vonLabel: string; nachLabel: string } | undefined
@@ -108,8 +159,9 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
     quellenDaten.push(von)
     minQualStufe = minQualitaet(minQualStufe, von.qualitaetsstufe ?? null)
 
-    // Bestand reduzieren / Charge abschließen
-    const restmenge = Math.max(0, +(verfuegbar - q.menge).toFixed(3))
+    // Bestand reduzieren / Charge abschließen (Rest ≤ 0,01 L wird mit ausgebucht –
+    // die Menge ist oben gegen den Bestand geprüft, hier wird nichts gekappt)
+    const restmenge = +(verfuegbar - q.menge).toFixed(3)
     if (restmenge <= 0.01) {
       { const { error: e } = await (supabase.from('weinausbau') as any)
         .update({ menge_liter: 0, aktiv: false, status: 'abgeschlossen' })
@@ -216,13 +268,14 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
           if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
       }
 
-      await (supabase.from('weinausbau') as any)
+      { const { error: e } = await (supabase.from('weinausbau') as any)
         .update({
-          menge_liter:     +((vorhanden.menge_liter ?? 0) + z.menge).toFixed(3),
+          menge_liter:     +((parseFloat(vorhanden.menge_liter) || 0) + z.menge).toFixed(3),
           qualitaetsstufe: neueQualitaet,
         })
         .eq('id', vorhanden.id)
         .eq('tenant_id', tenantId)
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${dbFehlerText(e)}`) }
       nachWeinausbauId = vorhanden.id
     } else if (vorhanden && istRebsortenmix) {
       // Rebsortenmix: separate neue Charge anlegen, Verschneidung wird danach getriggert
@@ -307,23 +360,51 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
   if (abstufung) return { abstufung }
 }
 
-// ── Umzug löschen ────────────────────────────────────────────────────────────
-// Wrapper um gebinde-actions.deleteUmzug – behandelt beide Formate (alt + neu)
+// ── Umzug stornieren ─────────────────────────────────────────────────────────
+// Wrapper um gebinde-actions.deleteUmzug – nur solange die Ziel-Charge nicht weiterbewegt
+// wurde und die Rückbuchung vollständig möglich ist (KAN-35, lib/kellerbuch/storno.ts)
 export async function deleteUmzug(id: string) {
   return _deleteUmzug(id)
 }
 
 // ── Umzug Datum/Notizen aktualisieren ────────────────────────────────────────
+// KAN-35: Notizen sind immer änderbar (nur diese Zeile). Ein neues Datum gilt für die ganze
+// Buchung (alle Quell- und Zielzeilen – vorher nur für die angeklickte Zeile, Abgang und
+// Zugang fielen dann auf verschiedene Tage) und nur unter denselben Bedingungen wie ein
+// Storno: Ziel-Charge seither nicht weiterbewegt, keine Schwundbuchung, neues Zeilenformat.
 export async function updateUmzug(umzugId: string, datum: string, notizen: string | null) {
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
+  if (!canWrite(membership, 'kellerbuch')) throw new AktionsFehler('Keine Schreibberechtigung für das Kellerbuch in diesem Betrieb.')
+  const tenantId = membership.tenantId
+
+  const zeilen = await ladeUmzugZeilen(supabase, tenantId, umzugId)
+  const zeile = zeilen?.find(z => z.id === umzugId)
+  if (!zeilen || !zeile) throw new AktionsFehler('Umzug nicht gefunden')
+
+  const neuesDatum = (datum ?? '').trim()
+  if (neuesDatum && neuesDatum !== zeile.datum) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(neuesDatum)) throw new AktionsFehler('Bitte ein gültiges Datum angeben.')
+    const plan = await planeUmzugStorno(supabase, tenantId, zeilen)
+    if (nurNotizenAenderbar(plan)) throw new AktionsFehler(umzugSperrMeldung(plan, 'datum'))
+    const ids = zeilen.map(z => z.id as string)
+    const { data, error: e } = await (supabase.from('keller_umzuege') as any)
+      .update({ datum: neuesDatum })
+      .in('id', ids)
+      .eq('tenant_id', tenantId)
+      .select('id')
+    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (keller_umzuege): ${dbFehlerText(e)}`)
+    if (((data ?? []) as R[]).length !== ids.length) throw new AktionsFehler('Das Datum konnte nicht für alle Zeilen des Umzugs geändert werden (keine Berechtigung?).')
+  }
+
   { const { error: e } = await (supabase.from('keller_umzuege') as any)
-    .update({ datum, notizen: notizen || null })
+    .update({ notizen: notizen || null })
     .eq('id', umzugId)
-    .eq('tenant_id', membership.tenantId)
-    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (keller_umzuege): ${e.message}`) }
+    .eq('tenant_id', tenantId)
+    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (keller_umzuege): ${dbFehlerText(e)}`) }
   revalidatePath('/kellerbuch')
   revalidatePath('/kellerbuch/umziehen')
+  revalidatePath('/kellerbuch/gebinde')
   revalidatePath('/kellerbuch/behaelter', 'layout')
 }

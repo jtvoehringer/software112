@@ -38,6 +38,11 @@ vk_preis_brutto/einstandspreis (optional, pro Flasche), notizen (optional), absc
 (optional, boolean – Charge nach dieser Füllung explizit als abgeschlossen markieren, auch
 wenn noch Restwein übrig bleibt; wird ohnehin automatisch gesetzt, wenn kein/kaum Restwein
 übrig bleibt).
+
+ERGEBNIS: Liefert das Tool erfolg=true UND einen "hinweis" (nacharbeit_noetig=true), ist die
+Füllung zwar angelegt, aber ein Folgeschritt fehlgeschlagen (z. B. Restmenge nicht als
+Schwund ausgebucht, Charge noch offen). Dann NICHT einfach "erledigt" melden, sondern den
+Hinweis dem User wörtlich weitergeben und die Füllung NICHT erneut anlegen.
 `.trim()
 
 export const ABFUELLEN_TOOL = {
@@ -138,6 +143,10 @@ export async function fuehreAbfuellenAus(
 
   try {
     const result = await createFuellung(fd)
+    // Teilerfolg (KAN-35): Füllung angelegt, Folgeschritt fehlgeschlagen – dem User zeigen
+    if (result?.hinweis) {
+      return { erfolg: true, fuellung_id: result.id ?? null, nacharbeit_noetig: true, hinweis: result.hinweis }
+    }
     return { erfolg: true, fuellung_id: (result as R | undefined)?.id ?? null }
   } catch (err) {
     return { erfolg: false, fehler: (err as Error).message ?? String(err) }
