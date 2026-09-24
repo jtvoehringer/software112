@@ -33,6 +33,7 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
   const [status, setStatus]       = useState(auftrag.status)
   const [dokumente, setDokumente] = useState(initDok)
   const [saving, setSaving]       = useState(false)
+  const [fehler, setFehler]       = useState<string | null>(null)
 
   const importeur = auftrag.firmen?.name
     ?? [auftrag.kontakte?.vorname, auftrag.kontakte?.nachname].filter(Boolean).join(' ')
@@ -42,13 +43,15 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
     s + (parseFloat(p.menge)||0) * (parseFloat(p.preis_eur)||0), 0)
 
   async function updateStatus(newStatus: string) {
-    setSaving(true)
-    await fetch(`/api/weinexport/${auftrag.id}`, {
+    setSaving(true); setFehler(null)
+    const res = await fetch(`/api/weinexport/${auftrag.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus }),
     })
-    setStatus(newStatus); setSaving(false)
+    if (res.ok) setStatus(newStatus)
+    else setFehler((await res.json().catch(() => null))?.fehler ?? `Fehler (Status ${res.status})`)
+    setSaving(false)
   }
 
   async function updateDokStatus(dokId: string, newStatus: string) {
@@ -86,6 +89,7 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
           <span className={`text-xs px-2 py-1 rounded-full font-medium ${STATUS_COLOR[status]}`}>
             {STATUS_LABEL[status]}
           </span>
+          {fehler && <span role="alert" className="text-xs text-s112-err">{fehler}</span>}
         </div>
       </div>
 
