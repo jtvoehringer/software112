@@ -4,12 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "prebuild": "node scripts/check-tenant-isolation.js && node scripts/check-schema.js && node scripts/check-a11y.js",
+    "prebuild": "node scripts/check-tenant-isolation.js && node scripts/check-api-zwei-faktor.js && node scripts/check-schema.js && node scripts/check-a11y.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "check-tenant-isolation": "node scripts/check-tenant-isolation.js"
+    "check-tenant-isolation": "node scripts/check-tenant-isolation.js",
+    "check-api-zwei-faktor": "node scripts/check-api-zwei-faktor.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",

@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
 import type { PartnerTreffer } from '@/components/crm/PartnerSuche'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 // Serverseitige Namenssuche für Auswahlfelder (17.9.2026):
 //   /api/crm/suche?art=kontakt|firma|kunde|lieferant&q=<text>
@@ -59,6 +60,8 @@ function firmaTreffer(f: R, praefix = ''): SucheTreffer {
 }
 
 export async function GET(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   const sp = req.nextUrl.searchParams
   const artParam = sp.get('art')
   const art: 'kontakt' | 'firma' | 'kunde' | 'lieferant' | 'email' =

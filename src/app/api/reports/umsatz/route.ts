@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 export const dynamic = 'force-dynamic'
 
@@ -69,6 +70,8 @@ async function ladeMonat(supabase: any, ziel: MonatsZiel, tenantId: string): Pro
 //                                  in genau der übergebenen Reihenfolge (für Monatsvergleich)
 // Ohne Parameter: Fallback auf die letzten 12 Monate (gleicher Einstiegspunkt wie bisher).
 export async function GET(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })

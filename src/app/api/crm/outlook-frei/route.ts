@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ladeOutlookVerbindung, ladeOutlookKollegen } from '@/lib/m365/benutzer'
 import { kalenderFreiBelegt } from '@/lib/m365/graph'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,6 +10,8 @@ export const dynamic = 'force-dynamic'
 // braucht nur Calendars.Read, funktioniert also mit jeder bestehenden Verbindung.
 // Ohne `user`: alle Kollegen mit Outlook-Verbindung. Antwort immer HTTP 200.
 export async function GET(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   const datum = req.nextUrl.searchParams.get('datum')
   if (!datum || !/^\d{4}-\d{2}-\d{2}$/.test(datum)) return NextResponse.json({ ok: false, grund: 'eingabe', kollegen: [] })
   const nurIds = (req.nextUrl.searchParams.get('user') ?? '').split(',').filter(Boolean)

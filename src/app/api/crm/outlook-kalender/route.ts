@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { getValidUserAccessToken } from '@/lib/m365/graph'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -12,6 +13,8 @@ type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explic
 // (statt eines Fehlers) zurück, wenn keine aktive M365-Verbindung besteht oder der Abruf
 // fehlschlägt – das Feature soll das CRM nie blockieren, sondern nur optional ergänzen.
 export async function GET(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   try {
     const von = req.nextUrl.searchParams.get('von')
     const bis = req.nextUrl.searchParams.get('bis')

@@ -1,17 +1,28 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { darfDatenexport } from '@/lib/auth/modul'
+import { alle } from '@/lib/supabase/alle'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
+// Verkaufshistorie als CSV (Controlling → Datenexport). Rechte (KAN-54): Datenexport-Recht –
+// Modul Controlling + Auswertungen, wie das Layout von /controlling/export.
 export async function GET() {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
+  if (!(await darfDatenexport(membership)))
+    return NextResponse.json({ fehler: 'Datenexport nicht freigeschaltet (Modul Controlling und Recht „Auswertungen“ nötig)' }, { status: 403 })
 
   const supabase = await createSupabaseServerClient()
-  const { data } = await (supabase.from('verkaufsposten') as any)
+  const { data, error } = await alle((supabase.from('verkaufsposten') as any)
     .select('datum, rechnungsnummer, bezahlt, storniert, kontakt:kontakte!kontakt_id(vorname,nachname,accountnummer), firma:firmen(name,accountnummer,debitor_nr), verkauf_positionen(name,menge,einheit,preis_brutto,rabatt_pct,sonderrabatt_pct,ust_satz)')
-    .eq('tenant_id', tenantId).eq('aktiv', true).order('datum', { ascending: false })
+    .eq('tenant_id', tenantId).eq('aktiv', true).order('datum', { ascending: false }).order('id'))
+  // alle() statt 1.000er-Deckel; bei einem Fehler kein halber Export
+  if (error) return NextResponse.json({ fehler: 'Export fehlgeschlagen' }, { status: 500 })
   const rows = (data ?? []) as R[]
   const esc = (v: unknown) => { if (v==null) return ''; const s=String(v).replace(/"/g,'""'); return s.includes(';')||s.includes('"')||s.includes('\n')?`"${s}"`:s }
   // DebitorNr. (BMD-Konto der Firma, Migration 191) als eigene Spalte neben der
@@ -29,5 +40,5 @@ export async function GET() {
       lines.push([p.datum,p.rechnungsnummer,kdnr,debitorNr,kunde,pos.name,pos.menge,pos.einheit,pos.preis_brutto?.toFixed(2).replace('.',','),pos.rabatt_pct,pos.sonderrabatt_pct,pos.ust_satz,(brutto*r1*r2).toFixed(2).replace('.',','),p.bezahlt?'Ja':'Nein',p.storniert?'Ja':'Nein'].map(esc).join(';'))
     })
   })
-  return new NextResponse('﻿'+lines.join('\r\n'), { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="verkauf_${new Date().toISOString().split('T')[0]}.csv"` } })
+  return new NextResponse('﻿'+lines.join('\r\n'), { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="verkauf_${new Date().toISOString().split('T')[0]}.csv"`, 'Cache-Control': 'no-store' } })
 }

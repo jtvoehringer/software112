@@ -16,6 +16,7 @@ import { decryptPass } from '@/lib/email/crypto'
 import { getValidUserAccessToken } from '@/lib/m365/graph'
 import { renderVerkaufRechnungPdf } from '@/lib/pdf/verkaufRechnungPdf'
 import { ereignisMelden } from '@/lib/system/ereignis'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -29,6 +30,8 @@ const FLASCHEN_LABEL: Record<number, string> = {
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   const { id } = await params
 
   const supabase = await createSupabaseServerClient()

@@ -534,10 +534,13 @@ export default function FirmenClient({
           </button>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <a href="/api/export/firmen" download
-            className="inline-flex items-center gap-1.5 border border-s112-border text-s112-text-2 px-3 py-2 rounded-xl text-sm hover:bg-s112-bg transition-colors">
-            CSV
-          </a>
+          {/* Export nur mit CRM-Schreibrecht – dieselbe Regel prüft /api/export/firmen (KAN-54) */}
+          {writeOk && (
+            <a href="/api/export/firmen" download
+              className="inline-flex items-center gap-1.5 border border-s112-border text-s112-text-2 px-3 py-2 rounded-xl text-sm hover:bg-s112-bg transition-colors">
+              CSV
+            </a>
+          )}
           {writeOk && !showForm && (
             <button onClick={() => setShowForm(true)}
               className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">

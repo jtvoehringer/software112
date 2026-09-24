@@ -23,6 +23,7 @@ import { KORREKTUR_TOOL, KORREKTUR_FELD_MATRIX_TEXT, fuehreKorrekturMerkenAus } 
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { ereignisMelden } from '@/lib/system/ereignis'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 export const dynamic = 'force-dynamic'
 
@@ -139,6 +140,8 @@ ${kontext}`
 }
 
 export async function POST(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   try {
     const body = await req.json().catch(() => null) as R | null
     const nachrichtRaw = body?.nachricht

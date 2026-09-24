@@ -3,10 +3,13 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { getValidUserAccessToken, getMailboxBase } from '@/lib/m365/graph'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export async function GET(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   try {
     const conversationId = req.nextUrl.searchParams.get('id')
     if (!conversationId) return NextResponse.json({ fehler: 'Keine ID' }, { status: 400 })

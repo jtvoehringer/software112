@@ -7,6 +7,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
+// zwei-faktor-ausnahme: OAuth-Rückkehr von Microsoft – signierter State + Einmal-Cookie + Abgleich mit dem Sitzungs-User; den State stellt nur /api/auth/m365 aus, das aal2 prüft
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
   const code  = searchParams.get('code')

@@ -1,7 +1,9 @@
 // ── Zwei-Faktor-Anmeldung (Sicherheits-Welle 2, Befund S3, 23.9.2026) ─────────
 // Authenticator-App (TOTP) über Supabase Auth MFA.
 //  - Wer einen Faktor eingerichtet hat, muss nach dem Passwort den Code eingeben
-//    (Stufe aal2) – erzwungen im Proxy (src/proxy.ts) für alle Seiten.
+//    (Stufe aal2) – erzwungen im Proxy (src/proxy.ts) für alle Seiten und seit
+//    KAN-54 (24.9.2026) per pruefeZweiFaktor() (src/lib/api/zweiFaktor.ts) in den
+//    API-Routen, die der Proxy-Matcher ausschließt.
 //  - Pflicht für Super-Admin und Betriebs-Manager ab MFA_PFLICHT_AB; davor ein Hinweis.
 //  - Für alle anderen Rollen freiwillig (Profil → Zwei-Faktor-Anmeldung).
 // Verlorenes Handy: Super-Admin entfernt den Faktor in Supabase (Authentication →
@@ -25,6 +27,25 @@ export async function ladeMfaStand(supabase: R, role: UserRole): Promise<MfaStan
   ])
   const hatFaktor = ((faktoren?.totp ?? []) as R[]).some(f => f.status === 'verified')
   const pflicht = MFA_PFLICHT_ROLLEN.includes(role)
-  const heute = new Date().toISOString().slice(0, 10)
-  return { hatFaktor, stufe: (aal?.currentLevel ?? null) as MfaStand['stufe'], pflicht, pflichtAktiv: pflicht && heute >= MFA_PFLICHT_AB }
+  return { hatFaktor, stufe: (aal?.currentLevel ?? null) as MfaStand['stufe'], pflicht, pflichtAktiv: mfaPflichtAktiv(role) }
+}
+
+// ── Prüfung für Proxy und API-Routen (KAN-54, 24.9.2026) ─────────────────────
+// Ob ein Faktor eingerichtet ist, NUR aus dem vom Auth-Server geprüften User von
+// supabase.auth.getUser() lesen. getAuthenticatorAssuranceLevel() ohne JWT-Argument
+// leitet nextLevel aus der Faktorenliste im Sitzungs-Cookie ab – die ist nicht
+// signiert: wer das Cookie um die Faktoren kürzt, wäre ohne Code durchgekommen.
+// Die erreichte Stufe (currentLevel) steht dagegen im signierten Zugriffstoken, das
+// getUser() im selben Request beim Auth-Server bestätigt hat.
+
+type MfaUser = { factors?: { status: string }[] | null } | null | undefined
+
+/** Bestätigter Faktor vorhanden? `user` muss aus supabase.auth.getUser() stammen. */
+export function hatBestaetigtenFaktor(user: MfaUser): boolean {
+  return (user?.factors ?? []).some(f => f.status === 'verified')
+}
+
+/** Zwei-Faktor-Pflicht für diese Rolle bereits in Kraft? */
+export function mfaPflichtAktiv(role: UserRole): boolean {
+  return MFA_PFLICHT_ROLLEN.includes(role) && new Date().toISOString().slice(0, 10) >= MFA_PFLICHT_AB
 }

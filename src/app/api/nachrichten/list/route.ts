@@ -7,6 +7,7 @@ import { decryptPass } from '@/lib/email/crypto'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { ladeAbsenderIndex, absenderStatus } from '@/lib/crm/absender'
 import { spiegleNebenbei } from '@/lib/email/spiegel'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 export const dynamic = 'force-dynamic'
 // after()-Spiegelung (bis 12 s) muss in die Laufzeit passen
@@ -14,6 +15,8 @@ export const maxDuration = 30
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export async function GET(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   try {
     const folder   = req.nextUrl.searchParams.get('folder') ?? 'inbox'
     const folderId = req.nextUrl.searchParams.get('folderId')  // echte Ordner-ID aus M365

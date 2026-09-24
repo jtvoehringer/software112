@@ -32,6 +32,7 @@ async function verifySignature(body: string, signature: string, secret: string):
   }
 }
 
+// zwei-faktor-ausnahme: SumUp-Webhook ohne Benutzersitzung (Server zu Server) – HMAC-Prüfung je Mandant, derzeit aber nur wenn der Header mitkommt (eigener Befund, KAN-54)
 export async function POST(req: NextRequest) {
   const tenantId = req.nextUrl.searchParams.get('tenant_id')
   if (!tenantId) {
@@ -130,6 +131,7 @@ export async function POST(req: NextRequest) {
 }
 
 // HEAD/GET für Webhook-Verifikation (SumUp pingt manchmal GET)
+// zwei-faktor-ausnahme: Erreichbarkeits-Ping für SumUp, liefert nur { status: 'ok' } und keine Daten
 export async function GET() {
   return NextResponse.json({ status: 'ok' })
 }
