@@ -223,7 +223,7 @@ export default async function DashboardPage() {
   // Aktivitäten verschwinden ("eher leer"-Feedback), obwohl sie inhaltlich durchaus dem
   // aktuellen User zuzurechnen waeren. Solche unattribuierten Eintraege daher zusaetzlich
   // mit anzeigen, statt sie stillschweigend auszublenden (gleiche Logik wie im
-  // Kalender-Filter, CRMUebersichtClient.tsx).
+  // Kalender-Filter; den Privat-Filter dort macht crm/page.tsx serverseitig).
   //
   // Zusatz 24.9.2026: private Einträge ohne Ersteller (Ersteller gelöscht, FK seit
   // Migration legacy_nachtrag_025_050_052 ON DELETE SET NULL) bleiben ausgeblendet -
