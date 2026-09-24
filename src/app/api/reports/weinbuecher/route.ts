@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -11,6 +12,8 @@ type R = Record<string, any>
 // auf aktiv/status – für eine Prüfung müssen auch abgeschlossene Chargen auffindbar
 // bleiben, "Bezeichnung" entspricht hier dem Chargennamen (weinausbau.name).
 export async function GET(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   try {
     const membership = await getCurrentMembership()
     const tenantId = membership?.tenantId

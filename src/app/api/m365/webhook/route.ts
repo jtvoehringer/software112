@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 // Graph sendet validationToken bei Subscription-Erstellung
+// zwei-faktor-ausnahme: Microsoft-Graph-Benachrichtigung ohne Benutzersitzung – nur mit gültigem clientState (HMAC, S8) und passender subscriptionId
 export async function POST(req: NextRequest) {
   const validationToken = req.nextUrl.searchParams.get('validationToken')
   if (validationToken) return new NextResponse(validationToken, { headers: { 'Content-Type': 'text/plain' } })

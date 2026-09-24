@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +17,8 @@ export const dynamic = 'force-dynamic'
 // eine BELIEBIGE statt der aktiv gewählten Mitgliedschaft treffen konnte - siehe
 // check-tenant-isolation.js ARBITRARY_MEMBERSHIP_LOOKUP.
 export async function GET() {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   const membership = await getCurrentMembership()
   return NextResponse.json({ tenantId: membership?.tenantId ?? null, role: membership?.role ?? null })
 }

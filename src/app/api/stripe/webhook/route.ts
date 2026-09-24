@@ -103,6 +103,7 @@ async function protokolliereZahlung(
   }
 }
 
+// zwei-faktor-ausnahme: Stripe-Webhook ohne Benutzersitzung – echt nur mit gültiger stripe-signature (constructEvent, STRIPE_WEBHOOK_SECRET)
 export async function POST(req: NextRequest) {
   const body      = await req.text()
   const signature = req.headers.get('stripe-signature') ?? ''

@@ -1,10 +1,14 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { hatBestaetigtenFaktor } from '@/lib/auth/mfa'
 
 // Routen die OHNE Login zugänglich sind
 // Öffentlich ohne Anmeldung. /signup und /newsletter fehlten bis 23.9.2026 – Registrierung und
 // Newsletter-Anmeldung/-Bestätigung/-Abmeldung leiteten Besucher auf /login um.
-const PUBLIC_ROUTES = ['/.well-known/', '/barrierefreiheit', '/signup', '/newsletter', '/login', '/register', '/auth/callback', '/auth/invite', '/auth/update-password', '/api/email/', '/api/ki-abfrage', '/api/besuchsplanung', '/api/export/', '/api/verkauf-stammdaten']
+// Die früheren /api/…-Einträge (u. a. '/api/export/') sind entfernt (KAN-54): Der Matcher
+// unten schließt /api ohnehin aus – API-Routen prüfen Anmeldung und Zwei-Faktor-Stufe
+// selbst (pruefeZweiFaktor, src/lib/api/zweiFaktor.ts).
+const PUBLIC_ROUTES = ['/.well-known/', '/barrierefreiheit', '/signup', '/newsletter', '/login', '/register', '/auth/callback', '/auth/invite', '/auth/update-password']
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -45,10 +49,13 @@ export async function proxy(request: NextRequest) {
 
   // Zwei-Faktor (Sicherheits-Welle 2, S3): Wer einen Authenticator eingerichtet hat, muss
   // nach der Passwort-Anmeldung erst den Code eingeben (Stufe aal2), bevor irgendeine
-  // Seite erreichbar ist. Die Prüfung liest nur das Sitzungs-Token (kein Netzwerkaufruf).
+  // Seite erreichbar ist. Die Stufe steht im signierten Zugriffstoken (kein weiterer
+  // Netzwerkaufruf); ob ein Faktor eingerichtet ist, kommt aus dem von getUser() geprüften
+  // User – nicht aus aal.nextLevel, das die unsignierte Faktorenliste im Cookie liest
+  // (KAN-54, siehe lib/auth/mfa.ts). API-Routen: pruefeZweiFaktor(), Matcher schließt /api aus.
   if (user && pathname !== '/zwei-faktor' && !pathname.startsWith('/auth/') && !pathname.startsWith('/.well-known/') && pathname !== '/login') {
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-    if (aal && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+    if (hatBestaetigtenFaktor(user) && aal?.currentLevel !== 'aal2') {
       const url = request.nextUrl.clone()
       url.pathname = '/zwei-faktor'
       url.search = ''

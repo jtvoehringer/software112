@@ -22,6 +22,8 @@ jobs:
         run: npm install --no-save typescript
       - name: Tenant-Isolation-Guard ausführen
         run: node scripts/check-tenant-isolation.js
+      - name: API-Zwei-Faktor-Guard ausführen (KAN-54)
+        run: node scripts/check-api-zwei-faktor.js
 
   abhaengigkeiten:
     # Sicherheits-Welle 1 (23.9.2026): bekannte Schwachstellen ab Stufe „hoch“ in

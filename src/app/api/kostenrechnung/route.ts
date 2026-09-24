@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
 import { ereignisMelden } from '@/lib/system/ereignis'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -32,6 +33,8 @@ async function saveWgSplit(s: any, eintragsId: string, wgSplit: R[], betrag: num
 }
 
 export async function GET(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   const s = await createSupabaseServerClient()
   const t = await getTId()
   if (!t) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
@@ -91,6 +94,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   const s = await createSupabaseServerClient()
   const t = await getTId()
   if (!t) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })

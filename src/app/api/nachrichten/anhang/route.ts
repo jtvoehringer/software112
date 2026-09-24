@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { getValidUserAccessToken, getMailboxBase } from '@/lib/m365/graph'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 // E-Mail-Anhang herunterladen (17.9.2026): /api/nachrichten/anhang?id=<mail>&aid=<anhang>&mailbox=own|shared
 // Holt den Anhang über Graph mit dem Token des angemeldeten Benutzers und
@@ -12,6 +13,8 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export async function GET(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   try {
     const id  = req.nextUrl.searchParams.get('id')
     const aid = req.nextUrl.searchParams.get('aid')

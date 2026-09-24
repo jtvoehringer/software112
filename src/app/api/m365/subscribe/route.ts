@@ -5,6 +5,7 @@ import { graphPost, getValidAccessToken } from '@/lib/m365/graph'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { erzeugeClientState } from '@/lib/m365/clientState'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -35,6 +36,9 @@ export async function POST(req: NextRequest) {
     const admin    = createSupabaseAdminClient()
 
     if (!hasCronAuth) {
+      // Sitzungszweig: Zwei-Faktor wie jede benutzergebundene Route (KAN-54)
+      const zweiFaktor = await pruefeZweiFaktor()
+      if (zweiFaktor) return zweiFaktor
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return NextResponse.json({ fehler: 'Unauthorized' }, { status: 401 })
     }

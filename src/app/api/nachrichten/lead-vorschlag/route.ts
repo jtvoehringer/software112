@@ -13,11 +13,14 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { SEGMENTE } from '@/lib/crm/types'
 import { domainVon, FREEMAIL_DOMAINS, normEmail } from '@/lib/crm/absender'
 import { LEER, mailText, type LeadVorbelegung } from '@/lib/crm/leadEmail'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export async function POST(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   try {
     const supabase = await createSupabaseServerClient()
     const { data: { user } } = await supabase.auth.getUser()

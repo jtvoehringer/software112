@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership, canSeeAuswertungen } from '@/lib/auth/roles'
+import { getCurrentMembership, canSeeAuswertungen, type Membership } from '@/lib/auth/roles'
 import { istPflichtmeldungsRolle } from '@/lib/auth/pflichtmeldung'
 
 // Zuschaltbare Module (boolean-Flags auf tenant_einstellungen, Toggle in
@@ -55,4 +55,13 @@ export async function darfPflichtmeldungen(): Promise<boolean> {
 // In Server-Layouts/-Pages: leitet ohne Pflichtmeldungs-Zugriff auf /dashboard um.
 export async function requirePflichtmeldungen(): Promise<void> {
   if (!(await darfPflichtmeldungen())) redirect('/dashboard')
+}
+
+// Datenexport (Controlling → Datenexport, /api/export/kontakte|firmen|lager|verkauf,
+// KAN-54): dieselbe Hürde wie das Layout von /controlling/export – Modul Controlling
+// freigeschaltet und Auswertungsrecht (Betriebs-Manager, Leser, Mitarbeiter mit Modul
+// „auswertungen“).
+export async function darfDatenexport(membership: Membership | null): Promise<boolean> {
+  if (!membership || !canSeeAuswertungen(membership)) return false
+  return hatModul('modul_controlling')
 }

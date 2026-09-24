@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { getCurrentMembership, canSeeAuswertungen } from '@/lib/auth/roles'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
 export const dynamic = 'force-dynamic'
 
@@ -204,6 +205,8 @@ function extraheJson(rawText: string): R {
 }
 
 export async function POST(req: NextRequest) {
+  const zweiFaktor = await pruefeZweiFaktor()
+  if (zweiFaktor) return zweiFaktor
   try {
     const { frage: frageRaw } = await req.json()
     if (!frageRaw?.trim()) return NextResponse.json({ fehler: 'Keine Frage angegeben' }, { status: 400 })

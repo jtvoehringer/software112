@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, isSystemAdmin } from '@/lib/auth/roles'
+import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { laufMorgenberichte } from '@/lib/morgenbericht/lauf'
 import { spiegleMailboxen } from '@/lib/email/spiegel'
 import { ereignisMelden, ereignisseBereinigen } from '@/lib/system/ereignis'
@@ -26,6 +27,9 @@ async function handle(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
   const hasCronAuth = !!cronSecret && authHeader === `Bearer ${cronSecret}`
   if (!hasCronAuth) {
+    // Sitzungszweig (manueller Lauf): Zwei-Faktor wie jede benutzergebundene Route (KAN-54)
+    const zweiFaktor = await pruefeZweiFaktor()
+    if (zweiFaktor) return zweiFaktor
     const membership = await getCurrentMembership()
     if (!membership || !isSystemAdmin(membership.role)) return NextResponse.json({ fehler: 'Unauthorized' }, { status: 401 })
   }
