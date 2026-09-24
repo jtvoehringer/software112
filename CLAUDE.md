@@ -16,7 +16,7 @@
 **software:112** – Digitales Weingut-Für Winzer in Österreich
 
 - **Tenant-ID Sandbox:** `fa22dc07-eca5-43df-af96-f7b9b09f0471` · Tenant-Name in DB: **„Sandbox"**
-- **Weitere Tenants (Stand 24.09.2026):** „Weingut Johannes Gebeshuber" `097f67ed-381e-4bb3-952e-758aa9d3a501` (seit 14.08.2026) · „Spaetrot Gebeshuber GmbH" `0569d025-576d-4d47-a102-17173835dc5d` (seit 16.09.2026) · „Weingut Musterhof (Demo)" `33333333-3333-4333-8333-333333333333` (Demo-Betrieb, seit 27.08.2026)
+- **Weitere Tenants (Stand 24.09.2026):** „Weingut Johannes Gebeshuber" `097f67ed-381e-4bb3-952e-758aa9d3a501` (**Produktivbetrieb**, seit 14.08.2026) · „Spaetrot Gebeshuber GmbH" `0569d025-576d-4d47-a102-17173835dc5d` (seit 16.09.2026) · „Weingut Musterhof (Demo)" `33333333-3333-4333-8333-333333333333` (Demo-Betrieb, seit 27.08.2026)
 - **Produktions-URL:** https://software112.icp-consultants.at
 - **GitHub:** https://github.com/jtvoehringer/software112
 - **Supabase Projekt:** zwcsgnemijkpyxrqykul.supabase.co (Region: West EU Ireland)
