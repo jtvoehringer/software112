@@ -15,7 +15,8 @@
 
 **software:112** – Digitales Weingut-Für Winzer in Österreich
 
-- **Tenant-ID Sandbox:** `fa22dc07-eca5-43df-af96-f7b9b09f0471` · Tenant-Name in DB: **„Sandbox"** (Produktiv-Tenant „Weinbau Gebeshuber" wird erst nach UAT-Abschluss angelegt)
+- **Tenant-ID Sandbox:** `fa22dc07-eca5-43df-af96-f7b9b09f0471` · Tenant-Name in DB: **„Sandbox"**
+- **Weitere Tenants (Stand 24.09.2026):** „Weingut Johannes Gebeshuber" `097f67ed-381e-4bb3-952e-758aa9d3a501` (seit 14.08.2026) · „Spaetrot Gebeshuber GmbH" `0569d025-576d-4d47-a102-17173835dc5d` (seit 16.09.2026) · „Weingut Musterhof (Demo)" `33333333-3333-4333-8333-333333333333` (Demo-Betrieb, seit 27.08.2026)
 - **Produktions-URL:** https://software112.icp-consultants.at
 - **GitHub:** https://github.com/jtvoehringer/software112
 - **Supabase Projekt:** zwcsgnemijkpyxrqykul.supabase.co (Region: West EU Ireland)
@@ -51,11 +52,22 @@
 
 ## Aktuelle Nutzer
 
-| Name   | E-Mail                          | Rolle          |
-|--------|---------------------------------|----------------|
-| Jörgen | jv@icp-consultants.at           | tenant_admin   |
-| Hannes | jg@hohenstein-partner.at        | leser          |
-| Paul   | pd@hohenstein-partner.at        | leser          |
+Stand 24.09.2026 laut `tenant_memberships` (alle Mitgliedschaften aktiv). Leser gibt es derzeit keine – für Leser-Tests ein eigenes Testkonto anlegen.
+
+| Name          | E-Mail                      | Sandbox      | Musterhof (Demo) | Weingut Johannes Gebeshuber | Spaetrot Gebeshuber GmbH |
+|---------------|-----------------------------|--------------|------------------|-----------------------------|--------------------------|
+| Jörgen        | jv@icp-consultants.at       | system_admin | system_admin     | system_admin                | system_admin             |
+| Johannes      | jg@weingut-gebeshuber.at    | tenant_admin | –                | tenant_admin                | tenant_admin             |
+| Ferdinand     | fg@weingut-gebeshuber.at    | –            | –                | tenant_admin                | tenant_admin             |
+| Paul          | pg@weingut-gebeshuber.at    | –            | –                | tenant_admin                | tenant_admin             |
+| Karin         | kk@weingut-gebeshuber.at    | –            | –                | winzer                      | winzer                   |
+| Paul          | paul.derstroff@outlook.com  | tenant_admin | –                | –                           | –                        |
+| Hannes (Demo) | jg@hohenstein-partner.at    | –            | tenant_admin     | –                           | –                        |
+| Jörgen (Demo) | jv@hohenstein-partner.at    | –            | tenant_admin     | –                           | –                        |
+| Paul (Demo)   | pd@hohenstein-partner.at    | –            | tenant_admin     | –                           | –                        |
+
+- Jörgen ist zusätzlich Plattform-Admin (`plattform_admins`) – als einziger.
+- Karin hat als `winzer` die Standard-Schreibmodule, also alle sechs (rieden, kellerbuch, warenwirtschaft, crm, ea, auswertungen).
 
 ## Migrations-Übersicht
 
