@@ -47,6 +47,9 @@ export async function registrierenAction(formData: FormData): Promise<Ergebnis> 
   // Öffentliche Registrierung (23.9.2026): je IP höchstens 5 Versuche pro Stunde
   if (!drossel(`signup:${await clientIp()}`, 5, 60 * 60 * 1000)) return { ok: false, fehler: 'Zu viele Registrierungsversuche. Bitte später erneut versuchen oder uns kontaktieren.' }
   if (!betrieb)  return { ok: false, fehler: 'Bitte den Namen Ihres Betriebs angeben.' }
+  // Reservierter Name (24.9.2026): Layout und /abo erkennen den Sandbox-Mandanten am
+  // Namen 'Sandbox' und nehmen ihn von der Abo-Sperre aus
+  if (betrieb.toLowerCase() === 'sandbox') return { ok: false, fehler: 'Dieser Betriebsname ist reserviert. Bitte einen anderen Namen wählen.' }
   if (!name)     return { ok: false, fehler: 'Bitte Ihren Namen angeben.' }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, fehler: 'Bitte eine gültige E-Mail-Adresse angeben.' }
   { const f = pruefePasswort(passwort); if (f) return { ok: false, fehler: f } }
