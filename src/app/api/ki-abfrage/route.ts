@@ -21,9 +21,10 @@ type R = Record<string, any>
 // einen Mandanten einschränkt.
 
 // ── Erlaubnisliste: nur diese Tabellen werden der KI im Prompt bekannt gemacht ────────────
-// Muss deckungsgleich mit c_tabellen in ki_readonly_query() sein – die Datenbank lehnt
-// jede Abfrage auf eine andere Tabelle ab (z. B. tenants, tenant_memberships,
-// user_email_connections, bestandsprotokoll), auch wenn die KI diese Liste ignoriert.
+// Muss eine Teilmenge von ki_erlaubte_tabellen() (Datenbank) sein: ki_schema_info liefert
+// nur für diese Tabellen Spalten, und ki_readonly_query lehnt jede Abfrage auf eine andere
+// Tabelle ab (z. B. tenants, tenant_memberships, user_email_connections,
+// bestandsprotokoll), auch wenn die KI diese Liste ignoriert.
 const ERLAUBTE_TABELLEN = [
   // Rieden / Weingärten
   'weingarten', 'grundstuecke', 'rebsorten', 'weingarten_rebsorten', 'lagen', 'weinbaugebiete_custom',
