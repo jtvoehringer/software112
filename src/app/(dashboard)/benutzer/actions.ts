@@ -269,12 +269,15 @@ export async function removeMember(membershipId: string) {
 
   const supabase = await createSupabaseServerClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('tenant_memberships') as any)
-    .delete()
+  // count prüfen: RLS löscht fremde/gesperrte Zeilen (eigene, system_admin) still
+  // nicht - ohne Prüfung meldete die Aktion trotzdem Erfolg (24.9.2026)
+  const { error, count } = await (supabase.from('tenant_memberships') as any)
+    .delete({ count: 'exact' })
     .eq('id', membershipId)
     .eq('tenant_id', membership.tenantId)
 
   if (error) return { error: error.message }
+  if (count === 0) return { error: 'Eintrag nicht gefunden oder keine Änderung möglich.' }
   revalidatePath('/benutzer')
   return { success: true }
 }
