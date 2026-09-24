@@ -7,6 +7,17 @@ type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explic
 
 function fmt(d: string | null) { return d ? d.split('T')[0] : '' }
 
+const XML_ENTITAETEN: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }
+
+/** Wert für einen XML-Elementinhalt: Sonderzeichen escapen und in XML 1.0 verbotene
+ *  Steuerzeichen entfernen – ein Firmenname mit „&“ darf das e-AD nicht ungültig machen
+ *  und Eingaben dürfen keine eigenen Elemente einschleusen. */
+function x(wert: unknown): string {
+  return String(wert ?? '')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .replace(/[&<>"']/g, c => XML_ENTITAETEN[c])
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -39,35 +50,35 @@ export async function GET(
 <!-- Generiert von software:112 | Bitte in EMCS AT importieren -->
 <ieaad:IE801 xmlns:ieaad="urn:publicid:-:EC:DGTAXUD:EMCS:PHASE4:IE801:V3.13">
   <Header>
-    <MessageSender>${betrieb.betrieb_uid ?? 'AT-UID-UNBEKANNT'}</MessageSender>
+    <MessageSender>${x(betrieb.betrieb_uid ?? 'AT-UID-UNBEKANNT')}</MessageSender>
     <MessageRecipient>EMCS-AT</MessageRecipient>
-    <DateOfPreparation>${fmt(auftrag.datum)}</DateOfPreparation>
-    <MessageIdentifier>${auftrag.referenz ?? id.slice(0,8).toUpperCase()}</MessageIdentifier>
+    <DateOfPreparation>${x(fmt(auftrag.datum))}</DateOfPreparation>
+    <MessageIdentifier>${x(auftrag.referenz ?? id.slice(0,8).toUpperCase())}</MessageIdentifier>
   </Header>
   <Body>
     <EAD>
-      <LocalReferenceNumber>${auftrag.referenz ?? ''}</LocalReferenceNumber>
+      <LocalReferenceNumber>${x(auftrag.referenz)}</LocalReferenceNumber>
       <OriginTypeCode>1</OriginTypeCode>
-      <DateOfDispatch>${fmt(auftrag.datum)}</DateOfDispatch>
-      <InvoiceNumber>${auftrag.referenz ?? ''}</InvoiceNumber>
+      <DateOfDispatch>${x(fmt(auftrag.datum))}</DateOfDispatch>
+      <InvoiceNumber>${x(auftrag.referenz)}</InvoiceNumber>
       <TransportArrangement>1</TransportArrangement>
-      <ARCNumber>${(auftrag as R).emcs_arc_nummer ?? 'PENDING'}</ARCNumber>
+      <ARCNumber>${x((auftrag as R).emcs_arc_nummer ?? 'PENDING')}</ARCNumber>
 
       <ConsignorTrader>
-        <TraderExciseNumber>${betrieb.betrieb_uid ?? ''}</TraderExciseNumber>
-        <TraderName>${betrieb.betrieb_name ?? ''}</TraderName>
-        <StreetName>${betrieb.betrieb_strasse ?? ''}</StreetName>
-        <City>${betrieb.betrieb_ort ?? ''}</City>
-        <Postcode>${betrieb.betrieb_plz ?? ''}</Postcode>
+        <TraderExciseNumber>${x(betrieb.betrieb_uid)}</TraderExciseNumber>
+        <TraderName>${x(betrieb.betrieb_name)}</TraderName>
+        <StreetName>${x(betrieb.betrieb_strasse)}</StreetName>
+        <City>${x(betrieb.betrieb_ort)}</City>
+        <Postcode>${x(betrieb.betrieb_plz)}</Postcode>
         <CountryCode>AT</CountryCode>
       </ConsignorTrader>
 
       <ConsigneeTrader>
-        <TraderName>${importeur}</TraderName>
+        <TraderName>${x(importeur)}</TraderName>
         <StreetName></StreetName>
-        <City>${auftrag.destination_stadt ?? ''}</City>
-        <CountryCode>${auftrag.destination_land?.slice(0,2).toUpperCase() ?? ''}</CountryCode>
-        <EoriNumber>${auftrag.eori_kunde ?? ''}</EoriNumber>
+        <City>${x(auftrag.destination_stadt)}</City>
+        <CountryCode>${x(auftrag.destination_land?.slice(0,2).toUpperCase())}</CountryCode>
+        <EoriNumber>${x(auftrag.eori_kunde)}</EoriNumber>
       </ConsigneeTrader>
 
       <TransportDetails>
@@ -77,19 +88,22 @@ export async function GET(
       <BodyEAD>
 ${positionen.map((p: R, i: number) => `        <BodyRecordUniqueReference>${i + 1}</BodyRecordUniqueReference>
         <ExciseProductCode>W200</ExciseProductCode>
-        <CnCode>${p.taric_code?.replace('.','') ?? '22042100'}</CnCode>
-        <Quantity>${p.menge ?? 0}</Quantity>
+        <CnCode>${x(p.taric_code?.replace('.','') ?? '22042100')}</CnCode>
+        <Quantity>${x(p.menge ?? 0)}</Quantity>
         <GrossWeight>${((parseFloat(p.menge)||0) * 1.25).toFixed(2)}</GrossWeight>
-        <Description>${p.beschreibung ?? p.fuellungen?.bezeichnung ?? ''}</Description>`).join('\n')}
+        <Description>${x(p.beschreibung ?? p.fuellungen?.bezeichnung)}</Description>`).join('\n')}
       </BodyEAD>
     </EAD>
   </Body>
 </ieaad:IE801>`
 
+  // Dateiname nur aus sicheren Zeichen – Anführungszeichen/Zeilenumbrüche in der Referenz
+  // würden den Content-Disposition-Header zerlegen
+  const dateiname = String(auftrag.referenz ?? id.slice(0,8)).replace(/[^A-Za-z0-9._-]/g, '_')
   return new NextResponse(xml, {
     headers: {
       'Content-Type': 'application/xml; charset=utf-8',
-      'Content-Disposition': `attachment; filename="emcs-ead-${auftrag.referenz ?? id.slice(0,8)}.xml"`,
+      'Content-Disposition': `attachment; filename="emcs-ead-${dateiname}.xml"`,
     },
   })
 }
