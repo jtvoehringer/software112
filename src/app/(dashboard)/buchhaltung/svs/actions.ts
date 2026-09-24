@@ -97,7 +97,9 @@ export async function speichereSvsOption(werte: { svs_option: 'pauschal' | 'opti
   const { supabase, tenantId, role } = await ctx()
   if (!canAdmin(role)) return { ok: false, fehler: 'Die SVS-Option legt der Betriebs-Manager fest.' }
   if (werte.svs_option !== 'pauschal' && werte.svs_option !== 'option') return { ok: false, fehler: 'Ungültige Option' }
-  const { error } = await (supabase.from('tenant_einstellungen') as any)
+  // Benutzer-Schreibpfad auf tenant_einstellungen: nur .update() mit den svs_*-Feldern
+  // (Trigger a_schutz_plattformfelder, Migration paketfelder_schutz), nie .upsert()
+  const { data, error } = await (supabase.from('tenant_einstellungen') as any)
     .update({
       svs_option: werte.svs_option,
       svs_einkuenfte_manuell: werte.svs_einkuenfte_manuell === null || Number.isNaN(werte.svs_einkuenfte_manuell) ? null : werte.svs_einkuenfte_manuell,
@@ -105,7 +107,9 @@ export async function speichereSvsOption(werte: { svs_option: 'pauschal' | 'opti
       svs_option_seit: werte.svs_option === 'option' ? (werte.svs_option_seit || new Date().toISOString().slice(0, 10)) : null,
     })
     .eq('tenant_id', tenantId)
+    .select('tenant_id')
   if (error) return { ok: false, fehler: (error as R).message }
+  if (!data || (data as R[]).length === 0) return { ok: false, fehler: 'Einstellungen nicht gespeichert – keine Berechtigung oder Betrieb nicht eingerichtet.' }
   revalidatePath('/buchhaltung/svs')
   return { ok: true }
 }
