@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react'
 import Link from '@/components/ui/Link'
 import { fmtEur } from '@/lib/format'
+import { exportCSV as csvExportieren } from '@/lib/utils/csv'
+import { csvDateiname, runden } from '@/lib/csv'
 
 type Eintrag = {
   betrag: number; periode: string | null; objekt_typ: string | null
@@ -17,28 +19,28 @@ function sumBy<T>(arr: T[], key: (t: T) => string, val: (t: T) => number) {
   return Object.entries(m).sort((a, b) => b[1] - a[1])
 }
 
-function csvZelle(v: string) {
-  return `"${v.replace(/"/g, '""')}"`
-}
-
+// CSV im Standard EXCEL_AT über lib/utils/csv (→ lib/csv, 24.09.2026): Semikolon, UTF-8 mit
+// BOM, CRLF, Betrag als Zahl mit Dezimalkomma, Formelschutz für Text. Vorher eigener Serializer.
 function exportCSV(jahr: string, daten: Eintrag[]) {
-  const header = ['Periode', 'Kostenstelle', 'Kostenart', 'Ried', 'Behälter', 'Betrag']
-  const zeilen = daten.map(e => [
-    e.periode ?? '',
-    e.kostenstelle?.name ?? '',
-    e.kostenart?.name ?? '',
-    e.wg?.name ?? '',
-    e.behaelter?.name ?? '',
-    e.betrag.toFixed(2).replace('.', ','),
-  ].map(csvZelle).join(';'))
-  const csv = '\uFEFF' + [header.map(csvZelle).join(';'), ...zeilen].join('\r\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `Kostenauswertung_${jahr}.csv`
-  a.click()
-  URL.revokeObjectURL(url)
+  csvExportieren(
+    daten.map(e => ({
+      periode:      e.periode ?? null,
+      kostenstelle: e.kostenstelle?.name ?? null,
+      kostenart:    e.kostenart?.name ?? null,
+      ried:         e.wg?.name ?? null,
+      behaelter:    e.behaelter?.name ?? null,
+      betrag:       runden(Number(e.betrag), 2),
+    })),
+    [
+      { key: 'periode',      header: 'Periode',      typ: 'text' },
+      { key: 'kostenstelle', header: 'Kostenstelle', typ: 'text' },
+      { key: 'kostenart',    header: 'Kostenart',    typ: 'text' },
+      { key: 'ried',         header: 'Ried',         typ: 'text' },
+      { key: 'behaelter',    header: 'Behälter',     typ: 'text' },
+      { key: 'betrag',       header: 'Betrag (€)',   typ: 'betrag' },
+    ],
+    csvDateiname(['Kostenauswertung', jahr]).utf8,
+  )
 }
 
 export default function KostenAuswertungPage() {

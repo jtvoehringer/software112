@@ -1,76 +1,20 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { savePNA } from './actions'
+// Nur Typen (werden beim Übersetzen entfernt) – Datenmodell samt Vorbelegung und CSV-Abflachung
+// liegt in lib/behoerden/pruefnummernantrag.ts (gemeinsam mit /meldungen/pruefnummernantrag/csv)
+import type { PNADaten, PNAMostcharge as Mostcharge } from '@/lib/behoerden/pruefnummernantrag'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-interface Mostcharge {
-  betriebsnummer: string
-  laufende_nr: string
-  jahr: string
-  teilmenge: string
-}
-
-interface PNADaten {
-  antragsnummer: string
-  untersuchungsnummer: string
-  eingangsdatum: string
-  // Antragsteller
-  betriebsnummer: string
-  name: string
-  vorname: string
-  plz: string
-  ort: string
-  strasse: string
-  hausnr: string
-  telefon: string
-  telefax: string
-  email: string
-  // Bevollmächtigter
-  bevo_name: string
-  bevo_vorname: string
-  // Aufbewahrungsort
-  aufbew_plz: string
-  aufbew_ort: string
-  aufbew_strasse: string
-  aufbew_hausnr: string
-  // Weinangaben
-  farbe: 'Weiß' | 'Rot' | 'Rosé' | 'Gleichgepresst'
-  jahrgangsverschnitt: boolean
-  jahrgang: string
-  lesegradation: string
-  angereichert: boolean
-  gesuesst: boolean
-  einreichmenge: string
-  rebsorte: string
-  abgefuellt: '' | 'Ja' | 'Teilweise'
-  teilmenge_pn: string
-  // Bezeichnung
-  bez_rebsorte: string
-  qualitaetsstufe: string
-  weinbaugebiet: string
-  bez_jahrgang: string
-  reserve: boolean
-  grosse_reserve: boolean
-  premium: boolean
-  barrique: boolean
-  ried: string
-  gemeinde: string
-  schilcher: boolean
-  schilcher_klassik: boolean
-  bio_wein: boolean
-  sonstiges: string
-  // Checkboxen
-  naechste_qualitaet: boolean
-  versiegelungsverzicht: boolean
-  mostchargen: Mostcharge[]
-}
-
 interface Props {
   dacAntragId: string
   initial: PNADaten
+  /** CSV desselben (gespeicherten) Antrags: csvPfad('pruefnummernantrag', …) */
+  csvHref: string
 }
 
 const inputCls = 'border border-s112-line-str px-1.5 py-0.5 text-xs w-full focus:outline-none focus:border-s112-teal bg-white'
@@ -95,15 +39,18 @@ function CB({ checked, onChange, label }: { checked: boolean; onChange: (v: bool
   )
 }
 
-export default function PNAFormular({ dacAntragId, initial }: Props) {
+export default function PNAFormular({ dacAntragId, initial, csvHref }: Props) {
   const [d, setD] = useState<PNADaten>(initial)
   const [gespeichert, setGespeichert] = useState(false)
+  // Ungespeicherte Änderungen: die CSV liest den gespeicherten Stand aus der Datenbank
+  const [geaendert, setGeaendert] = useState(false)
   const [pending, startTransition] = useTransition()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function set<K extends keyof PNADaten>(key: K, value: PNADaten[K]) {
     setD(prev => ({ ...prev, [key]: value }))
     setGespeichert(false)
+    setGeaendert(true)
   }
 
   function setMC(i: number, key: keyof Mostcharge, value: string) {
@@ -113,28 +60,36 @@ export default function PNAFormular({ dacAntragId, initial }: Props) {
       return { ...prev, mostchargen: mc }
     })
     setGespeichert(false)
+    setGeaendert(true)
   }
 
   function handleSave() {
     startTransition(async () => {
       await savePNA(dacAntragId, d as unknown as R)
       setGespeichert(true)
+      setGeaendert(false)
     })
   }
 
   return (
     <div className="space-y-6">
       {/* Toolbar */}
-      <div className="flex items-center gap-3 no-print">
+      <div className="flex flex-wrap items-start gap-3 no-print">
         <button onClick={handleSave} disabled={pending}
           className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
-        {gespeichert && <span className="text-xs text-s112-ok-fg">Gespeichert</span>}
+        {gespeichert && <span className="text-xs text-s112-ok-fg self-center">Gespeichert</span>}
         <button onClick={() => window.print()}
           className="border border-s112-border px-4 py-1.5 rounded-lg text-sm hover:bg-s112-bg">
           Drucken
         </button>
+        <CsvExportKnopf href={csvHref} className="self-center" />
+        {geaendert && (
+          <span className="text-xs text-s112-warn-fg self-center max-w-xs">
+            Ungespeicherte Änderungen – die CSV enthält den zuletzt gespeicherten Stand.
+          </span>
+        )}
       </div>
 
       {/* ── Offizielles Formular ── */}

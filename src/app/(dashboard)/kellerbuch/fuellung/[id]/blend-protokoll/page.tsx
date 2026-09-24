@@ -1,3 +1,4 @@
+// behoerdenmeldung: blend-protokoll
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -5,26 +6,18 @@ import Link from '@/components/ui/Link'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { GitMerge } from 'lucide-react'
-import { resolveBlendKompositionFuellung, type KompositionUrsprung } from '@/lib/wein/blendKomposition'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import PrintButton from './PrintButton'
 import { fmtNum } from '@/lib/format'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
+import { csvPfad } from '@/lib/behoerden/katalog'
+import { herkunftLabel, ladeBlendProtokoll } from '@/lib/behoerden/blend'
 
 export const metadata: Metadata = { title: 'Blend-Protokoll – software:112' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
-
-function herkunftLabel(u: KompositionUrsprung): string {
-  if (u.typ === 'pressung') {
-    const teile = [u.weingarten_name, u.gst_nr ? `GST ${u.gst_nr}` : null].filter(Boolean)
-    return teile.length > 0 ? teile.join(' · ') : 'Pressung (Weingarten unbekannt)'
-  }
-  if (u.typ === 'zukauf') return u.zukauf_von ? `Zukauf – ${u.zukauf_von}` : 'Zukauf'
-  if (u.typ === 'eroeffnungsbestand') return 'Eröffnungsbestand (historisch)'
-  return 'Herkunft unbekannt'
-}
 
 function fmtMenge(liter: number | null): string {
   if (!liter) return '–'
@@ -41,21 +34,23 @@ export default async function BlendProtokollFuellungPage({ params }: { params: P
   // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  const [{ data: fRaw }, { data: settingsRaw }] = await Promise.all([
-    tf((supabase.from('fuellungen') as any)
-      .select('id, name, chargennummer, pruefnummer, jahrgang, rebsorte, datum, anzahl_flaschen, flaschengroesse_ml, menge_liter_gefuellt')
-      .eq('id', id)
-      .maybeSingle()),
+  if (!tenantId) notFound()
+  // Dieselbe Ladefunktion wie die CSV „blend-protokoll“ (lib/behoerden/blend.ts)
+  const [protokoll, { data: settingsRaw }] = await Promise.all([
+    ladeBlendProtokoll(supabase, tenantId, { art: 'fuellung', id }),
     tf((supabase.from('tenant_einstellungen') as any)
       .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, logo_url')
       .limit(1).maybeSingle()),
   ])
 
-  const fuellung = fRaw as R | null
-  if (!fuellung) notFound()
+  if (!protokoll) notFound()
+  const { kopf, komposition } = protokoll
+  const fuellung = {
+    name: kopf.name, pruefnummer: kopf.pruefnummer, chargennummer: kopf.chargennummer, jahrgang: kopf.jahrgang,
+    rebsorte: kopf.rebsorte, datum: kopf.datum, anzahl_flaschen: kopf.anzahlFlaschen,
+    flaschengroesse_ml: kopf.flaschengroesseMl, menge_liter_gefuellt: kopf.bezugLiter,
+  }
   const s = (settingsRaw as R | null) ?? {}
-
-  const komposition = await resolveBlendKompositionFuellung(supabase, id, tenantId)
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -67,7 +62,10 @@ export default async function BlendProtokollFuellungPage({ params }: { params: P
           <span>/</span>
           <span className="text-s112-text-1 font-medium">Blend-Protokoll</span>
         </nav>
-        <PrintButton />
+        <div className="flex items-start gap-2">
+          <PrintButton />
+          <CsvExportKnopf href={csvPfad('blend-protokoll', { fuellung: id })} />
+        </div>
       </div>
 
       {/* ── PROTOKOLL ─────────────────────────────────────────────────────── */}
@@ -118,9 +116,9 @@ export default async function BlendProtokollFuellungPage({ params }: { params: P
           </p>
           <div className="flex items-center justify-center gap-4 text-xs text-s112-tertiary mt-2">
             {fuellung.chargennummer && <span>Charge: {fuellung.chargennummer}</span>}
-            {fuellung.datum && <span>Abgefüllt: {new Date(fuellung.datum).toLocaleDateString('de-AT')}</span>}
+            {fuellung.datum && <span>Abgefüllt: {fuellung.datum.split('-').reverse().join('.')}</span>}
             {fuellung.anzahl_flaschen && fuellung.flaschengroesse_ml && (
-              <span>{fmtNum(parseInt(fuellung.anzahl_flaschen))} × {fuellung.flaschengroesse_ml} ml</span>
+              <span>{fmtNum(fuellung.anzahl_flaschen)} × {fuellung.flaschengroesse_ml} ml</span>
             )}
             {fuellung.menge_liter_gefuellt && <span>{fmtMenge(fuellung.menge_liter_gefuellt)} abgefüllt</span>}
           </div>

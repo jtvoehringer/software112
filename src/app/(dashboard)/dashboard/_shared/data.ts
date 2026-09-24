@@ -375,7 +375,7 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
       const st = statusAus(p.faelligAm, erledigt, ctx.heuteStr, vt)
       const eintrag: Frist = {
         key: `uva:${p.jahr}:${p.zeitraum}`, bezeichnung: `UVA ${p.label}`, kategorie: 'steuer',
-        hinweis: 'Aus E/A-Rechnung · FinanzOnline (CSV-Export)', faelligAm: p.faelligAm, status: st,
+        hinweis: 'Aus E/A-Rechnung · Kennzahlen für FinanzOnline (Druck & CSV)', faelligAm: p.faelligAm, status: st,
         statusText: erledigt ? `übermittelt ${row?.gesperrt_am ? new Date(row.gesperrt_am).toLocaleDateString('de-AT') : ''}`.trim() : `bis ${new Date(p.faelligAm).toLocaleDateString('de-AT')}`,
         href: '/buchhaltung/uva', quelle: 'system',
       }

@@ -3,6 +3,7 @@ import { useState, useRef } from 'react'
 import { Upload } from 'lucide-react'
 import { createEroeffnungsbestandVonImport } from '@/app/(dashboard)/kellerbuch/gebinde-actions'
 import { exportCSV } from '@/lib/utils/csv'
+import { csvDateiname } from '@/lib/csv'
 import { fehlerText } from '@/lib/fehler'
 
 type ImportTyp = 'kontakte' | 'firmen' | 'fuellungen' | 'rieden_details' | 'grundstuecke' | 'gebinde'
@@ -548,14 +549,14 @@ export default function ImportClient({
                     <p className="text-xs font-semibold text-s112-text-1">Übersprungene Duplikate (bereits aktiver Kunde):</p>
                     <button
                       onClick={() => exportCSV(
-                        result.duplikate!.map(d => ({ zeile: d.zeile, name: d.name, email: d.email ?? '', grund: d.grund })),
+                        result.duplikate!.map(d => ({ zeile: d.zeile, name: d.name, email: d.email ?? null, grund: d.grund })),
                         [
-                          { key: 'zeile', header: 'Zeile' },
-                          { key: 'name', header: 'Name' },
-                          { key: 'email', header: 'E-Mail' },
-                          { key: 'grund', header: 'Grund' },
+                          { key: 'zeile', header: 'Zeile', typ: 'ganzzahl' },
+                          { key: 'name', header: 'Name', typ: 'text' },
+                          { key: 'email', header: 'E-Mail', typ: 'text' },
+                          { key: 'grund', header: 'Grund', typ: 'text' },
                         ],
-                        `import_duplikate_${typ}.csv`,
+                        csvDateiname(['Import-Duplikate', typ]).utf8,
                       )}
                       className="text-xs text-s112-blue-700 hover:underline font-medium">
                       Als CSV herunterladen

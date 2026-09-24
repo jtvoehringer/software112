@@ -4,12 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "prebuild": "node scripts/check-tenant-isolation.js && node scripts/check-schema.js && node scripts/check-a11y.js",
+    "prebuild": "node scripts/check-tenant-isolation.js && node scripts/check-schema.js && node scripts/check-a11y.js && node scripts/check-behoerden-csv.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "check-tenant-isolation": "node scripts/check-tenant-isolation.js"
+    "check-tenant-isolation": "node scripts/check-tenant-isolation.js",
+    "check-behoerden-csv": "node scripts/check-behoerden-csv.js",
+    "test:csv": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"scripts/tests/*.test.mjs\""
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",

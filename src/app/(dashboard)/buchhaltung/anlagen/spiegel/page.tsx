@@ -1,13 +1,18 @@
+// behoerdenmeldung: anlagenverzeichnis
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { redirect } from 'next/navigation'
 import { fmtEur, fmtNum } from '@/lib/format'
-import { afaSatzProzent, anlagenspiegelZeilen } from '@/lib/ea/anlagen'
-import { DashHeader, fmtDate } from '@/app/(dashboard)/dashboard/_shared/ui'
+import { wienHeute } from '@/lib/csv'
+import { csvPfad } from '@/lib/behoerden/katalog'
+import { anlagenSummen, anlagenverzeichnis, ladeAnlagenverzeichnis, type AnlagenZeile } from '@/lib/behoerden/anlagen'
+import { datumText, summe } from '@/lib/behoerden/buchhaltung-gemeinsam'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
+import { DashHeader } from '@/app/(dashboard)/dashboard/_shared/ui'
 import { getCtx, ladeEinstellungen, type R } from '@/app/(dashboard)/dashboard/_shared/data'
 import JahrWaehler from '../JahrWaehler'
 import DruckenKnopf from '../DruckenKnopf'
-import { ladeAnlagen, anlagenJahre, kontoText } from '../daten'
+import { anlagenJahre } from '../daten'
 
 export const metadata: Metadata = { title: 'Anlagenspiegel – software:112' }
 export const dynamic = 'force-dynamic'
@@ -16,12 +21,11 @@ export const dynamic = 'force-dynamic'
 // Druckbare Aufstellung je Jahr: Buchwert 1.1., Zugänge, Abgänge, AfA,
 // kumulierte AfA und Buchwert 31.12. je Anlage mit Zwischensummen je Gruppe -
 // Beilage zur E&A-Rechnung bzw. für den Steuerberater (Doppik).
+// Behördenmeldung „anlagenverzeichnis“ (24.09.2026): Zeilen aus ladeAnlagenverzeichnis()
+// (lib/behoerden/anlagen.ts) – dieselbe Ladefunktion liefert die CSV; alle Summen
+// addieren die gerundeten Zeilenwerte (Ausdruck und CSV stimmen überein).
 
-const METHODE: Record<string, string> = { linear: 'linear', degressiv: 'degressiv', gwg: 'GWG' }
 const eur = (n: number) => (n === 0 ? '–' : fmtEur(n))
-type Zeile = ReturnType<typeof anlagenspiegelZeilen>['zeilen'][number]
-type Feld = 'buchwertAnfang' | 'zugang' | 'abgang' | 'afa' | 'kumulierteAfa' | 'buchwertEnde'
-const summiere = (rows: Zeile[], k: Feld) => Math.round(rows.reduce((s, r) => s + r[k], 0) * 100) / 100
 
 export default async function AnlagenspiegelPage({ searchParams }: { searchParams: Promise<{ jahr?: string }> }) {
   const ctx = await getCtx()
@@ -29,23 +33,23 @@ export default async function AnlagenspiegelPage({ searchParams }: { searchParam
   const einst = await ladeEinstellungen(ctx)
   if (!einst.modulEa) redirect('/dashboard')
 
-  const [anlagen, { data: bRaw }] = await Promise.all([
-    ladeAnlagen(ctx),
+  const heute = wienHeute()
+  const aktJahr = Number(heute.slice(0, 4))
+  const { jahr: jahrParam } = await searchParams
+  const gewuenscht = Number(jahrParam)
+  const [verzeichnis, { data: bRaw }] = await Promise.all([
+    ladeAnlagenverzeichnis(ctx.supabase, ctx.tenantId, { jahr: Number.isInteger(gewuenscht) && gewuenscht > 0 ? gewuenscht : aktJahr }),
     ctx.tf(ctx.q('tenant_einstellungen').select('betrieb_uid, betrieb_betriebsnummer')).maybeSingle(),
   ])
   const betrieb = (bRaw ?? {}) as R
-  const aktJahr = ctx.heute.getFullYear()
-  const { jahr: jahrParam } = await searchParams
-  const jahre = anlagenJahre(anlagen, aktJahr)
-  const jahr = jahre.includes(Number(jahrParam)) ? Number(jahrParam) : aktJahr
-  const { zeilen, summe } = anlagenspiegelZeilen(anlagen, jahr)
-  const erstellt = ctx.heute.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Vienna' })
+  const jahre = anlagenJahre(verzeichnis.anlagen, aktJahr)
+  const jahr = jahre.includes(gewuenscht) ? gewuenscht : aktJahr
+  // Jahr außerhalb der Auswahl → wie bisher auf das laufende Jahr zurückfallen (gleiche Rechnung, ohne neue Abfrage)
+  const { zeilen, summen } = jahr === gewuenscht ? verzeichnis : anlagenverzeichnis(verzeichnis.anlagen, jahr)
+  const erstellt = datumText(heute)
 
-  const gruppen = new Map<string, Zeile[]>()
-  for (const z of zeilen) {
-    const g = z.anlage.gruppe?.trim() || 'Ohne Gruppe'
-    gruppen.set(g, [...(gruppen.get(g) ?? []), z])
-  }
+  const gruppen = new Map<string, AnlagenZeile[]>()
+  for (const z of zeilen) gruppen.set(z.gruppe, [...(gruppen.get(z.gruppe) ?? []), z])
 
   const th = 'px-2 py-2 text-left font-mono text-[10.5px] font-semibold tracking-[.06em] uppercase text-s112-tertiary border-b border-s112-line-str whitespace-nowrap print:text-[8.5px] print:px-1.5'
   const thNum = th + ' text-right'
@@ -67,6 +71,7 @@ export default async function AnlagenspiegelPage({ searchParams }: { searchParam
               <Link href={`/buchhaltung/anlagen?jahr=${jahr}`} className="px-3 py-1.5 rounded-lg text-[13px] font-medium text-s112-text-1 border border-s112-line-str bg-white hover:bg-s112-bg">← Zum Verzeichnis</Link>
               <JahrWaehler jahre={jahre} jahr={jahr} basis="/buchhaltung/anlagen/spiegel" />
               <DruckenKnopf />
+              <CsvExportKnopf href={csvPfad('anlagenverzeichnis', { jahr })} />
             </div>
           }
         />
@@ -103,24 +108,24 @@ export default async function AnlagenspiegelPage({ searchParams }: { searchParam
               </tbody>
               <tfoot>
                 <tr>
-                  <td className={tdSum} colSpan={4}>Summe {jahr} · {summe.anzahlAktiv} {summe.anzahlAktiv === 1 ? 'Anlage' : 'Anlagen'} im Bestand</td>
-                  <td className={tdSumNum}>{fmtEur(summe.anschaffungskosten + summe.abgaenge)}</td>
-                  <td className={tdSumNum}>{fmtEur(summiere(zeilen, 'buchwertAnfang'))}</td>
-                  <td className={tdSumNum}>{eur(summe.zugaenge)}</td>
-                  <td className={tdSumNum}>{eur(summe.abgaenge)}</td>
-                  <td className={tdSumNum}>{fmtEur(summe.afaJahr)}</td>
-                  <td className={tdSumNum}>{fmtEur(summiere(zeilen, 'kumulierteAfa'))}</td>
-                  <td className={tdSumNum}>{fmtEur(summe.buchwertEnde)}</td>
+                  <td className={tdSum} colSpan={4}>Summe {jahr} · {summen.anzahlAktiv} {summen.anzahlAktiv === 1 ? 'Anlage' : 'Anlagen'} im Bestand</td>
+                  <td className={tdSumNum}>{fmtEur(summen.akNetto)}</td>
+                  <td className={tdSumNum}>{fmtEur(summen.buchwertAnfang)}</td>
+                  <td className={tdSumNum}>{eur(summen.zugang)}</td>
+                  <td className={tdSumNum}>{eur(summen.abgang)}</td>
+                  <td className={tdSumNum}>{fmtEur(summen.afa)}</td>
+                  <td className={tdSumNum}>{fmtEur(summen.kumulierteAfa)}</td>
+                  <td className={tdSumNum}>{fmtEur(summen.buchwertEnde)}</td>
                 </tr>
               </tfoot>
             </table>
           </div>
 
-          {summe.abgaenge > 0 && (
+          {summen.abgang > 0 && (
             <p className="text-[12px] text-s112-text-2 print:text-[9.5px]">
-              Abgänge {jahr}: Restbuchwert zum Abgang <span className="font-mono">{fmtEur(summe.restbuchwertAbgaenge)}</span>
-              {summe.veraeusserungserloese > 0 && <> · Veräußerungserlöse netto <span className="font-mono">{fmtEur(summe.veraeusserungserloese)}</span></>}
-              {' '}· Buchgewinn/-verlust <span className="font-mono">{fmtEur(Math.round((summe.veraeusserungserloese - summe.restbuchwertAbgaenge) * 100) / 100)}</span>
+              Abgänge {jahr}: Restbuchwert zum Abgang <span className="font-mono">{fmtEur(summen.restbuchwertAbgaenge)}</span>
+              {summen.erloese > 0 && <> · Veräußerungserlöse netto <span className="font-mono">{fmtEur(summen.erloese)}</span></>}
+              {' '}· Buchgewinn/-verlust <span className="font-mono">{fmtEur(summe([summen.erloese, -summen.restbuchwertAbgaenge]))}</span>
             </p>
           )}
 
@@ -137,7 +142,8 @@ export default async function AnlagenspiegelPage({ searchParams }: { searchParam
   )
 }
 
-function GruppenBlock({ gruppe, rows, mehrereGruppen, td, tdNum, tdZw }: { gruppe: string; rows: Zeile[]; mehrereGruppen: boolean; td: string; tdNum: string; tdZw: string }) {
+function GruppenBlock({ gruppe, rows, mehrereGruppen, td, tdNum, tdZw }: { gruppe: string; rows: AnlagenZeile[]; mehrereGruppen: boolean; td: string; tdNum: string; tdZw: string }) {
+  const zw = anlagenSummen(rows)
   return (
     <>
       {mehrereGruppen && <tr><td className={tdZw} colSpan={11}>{gruppe}</td></tr>}
@@ -146,20 +152,20 @@ function GruppenBlock({ gruppe, rows, mehrereGruppen, td, tdNum, tdZw }: { grupp
         return (
           <tr key={a.id} className={z.abgegangen ? 'text-s112-tertiary' : ''}>
             <td className={td}>
-              <span className="font-medium">{a.name}</span>
-              {z.abgegangen && <span className="block text-[11px] text-s112-tertiary">Abgang {fmtDate(a.abgang_am)}{z.erloes > 0 ? ` · Erlös ${fmtEur(z.erloes)}` : ''}</span>}
+              <span className="font-medium">{z.bezeichnung}</span>
+              {z.abgegangen && <span className="block text-[11px] text-s112-tertiary">Abgang {datumText(z.abgangAm)}{(z.erloes ?? 0) > 0 ? ` · Erlös ${fmtEur(z.erloes ?? 0)}` : ''}</span>}
             </td>
-            <td className={td + ' font-mono'}>{kontoText(a.konto_nr)}</td>
-            <td className={td + ' font-mono whitespace-nowrap'}>{fmtDate(a.anschaffung_am)}</td>
+            <td className={td + ' font-mono'}>{z.konto ?? '–'}</td>
+            <td className={td + ' font-mono whitespace-nowrap'}>{datumText(z.anschaffung)}</td>
             <td className={td + ' whitespace-nowrap'}>
-              {a.methode === 'gwg' ? 'GWG' : `${a.nutzungsdauer_jahre} J. · ${METHODE[a.methode]}`}
-              <span className="font-mono text-s112-tertiary"> {fmtNum(afaSatzProzent(a), { max: 2 })} %</span>
+              {z.gwg ? 'GWG' : `${z.nutzungsdauer} J. · ${z.methode}`}
+              <span className="font-mono text-s112-tertiary"> {fmtNum(z.afaSatz, { max: 2 })} %</span>
             </td>
-            <td className={tdNum}>{fmtEur(a.ak_netto)}</td>
+            <td className={tdNum}>{fmtEur(z.akNetto)}</td>
             <td className={tdNum}>{eur(z.buchwertAnfang)}</td>
             <td className={tdNum}>{eur(z.zugang)}</td>
             <td className={tdNum}>{eur(z.abgang)}</td>
-            <td className={tdNum}>{z.afa > 0 ? <>{fmtEur(z.afa)}{z.halb && <span className="text-s112-tertiary" title="Halbjahresregel"> ½</span>}</> : '–'}</td>
+            <td className={tdNum}>{z.afa > 0 ? <>{fmtEur(z.afa)}{z.halbjahr && <span className="text-s112-tertiary" title="Halbjahresregel"> ½</span>}</> : '–'}</td>
             <td className={tdNum}>{fmtEur(z.kumulierteAfa)}</td>
             <td className={tdNum + ' font-semibold'}>{fmtEur(z.buchwertEnde)}</td>
           </tr>
@@ -168,13 +174,13 @@ function GruppenBlock({ gruppe, rows, mehrereGruppen, td, tdNum, tdZw }: { grupp
       {mehrereGruppen && (
         <tr className="bg-s112-bg/60">
           <td className={td + ' text-[11.5px] text-s112-text-2 italic'} colSpan={4}>Zwischensumme {gruppe}</td>
-          <td className={tdNum + ' text-s112-text-2'}>{fmtEur(rows.reduce((s, r) => s + r.anlage.ak_netto, 0))}</td>
-          <td className={tdNum + ' text-s112-text-2'}>{eur(summiere(rows, 'buchwertAnfang'))}</td>
-          <td className={tdNum + ' text-s112-text-2'}>{eur(summiere(rows, 'zugang'))}</td>
-          <td className={tdNum + ' text-s112-text-2'}>{eur(summiere(rows, 'abgang'))}</td>
-          <td className={tdNum + ' text-s112-text-2'}>{eur(summiere(rows, 'afa'))}</td>
-          <td className={tdNum + ' text-s112-text-2'}>{fmtEur(summiere(rows, 'kumulierteAfa'))}</td>
-          <td className={tdNum + ' text-s112-text-2'}>{fmtEur(summiere(rows, 'buchwertEnde'))}</td>
+          <td className={tdNum + ' text-s112-text-2'}>{fmtEur(zw.akNetto)}</td>
+          <td className={tdNum + ' text-s112-text-2'}>{eur(zw.buchwertAnfang)}</td>
+          <td className={tdNum + ' text-s112-text-2'}>{eur(zw.zugang)}</td>
+          <td className={tdNum + ' text-s112-text-2'}>{eur(zw.abgang)}</td>
+          <td className={tdNum + ' text-s112-text-2'}>{eur(zw.afa)}</td>
+          <td className={tdNum + ' text-s112-text-2'}>{fmtEur(zw.kumulierteAfa)}</td>
+          <td className={tdNum + ' text-s112-text-2'}>{fmtEur(zw.buchwertEnde)}</td>
         </tr>
       )}
     </>

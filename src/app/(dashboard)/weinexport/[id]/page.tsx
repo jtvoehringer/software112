@@ -1,12 +1,14 @@
+// behoerdenmeldung: exportauftrag
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import WeinexportDetailClient from './WeinexportDetailClient'
+import { ladeExportauftrag } from '@/lib/behoerden/exportauftrag'
+import { csvPfad } from '@/lib/behoerden/katalog'
 export const metadata: Metadata = { title: 'Exportauftrag – software:112' }
 export const dynamic = 'force-dynamic'
-type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export default async function WeinexportDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createSupabaseServerClient()
@@ -20,25 +22,14 @@ export default async function WeinexportDetailPage({ params }: { params: Promise
   const tenantId = membership?.tenantId
   const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
     .select('modul_export').eq('tenant_id', tenantId).maybeSingle()
-  if (!einst?.modul_export) redirect('/dashboard')
+  if (!einst?.modul_export || !tenantId) redirect('/dashboard')
 
   const { id } = await params
-  const [{ data: auftrag }, { data: positionen }, { data: dokumente }] = await Promise.all([
-    (supabase.from('exportauftraege') as any)
-      .select('*, kontakte(vorname,nachname,email,telefon), firmen(name,email,telefon)')
-      .eq('id', id).eq('tenant_id', tenantId).single(),
-    // Kindtabellen ohne tenant_id (Sweep 20.9.2026: .eq('tenant_id') brach die Abfrage) – der
-    // Auftrag ist mandantengefiltert, die Positionen hängen an seiner id (RLS über den Auftrag)
-    // tenant-isolation-ignore: exportauftrag_positionen ohne tenant_id
-    (supabase.from('exportauftrag_positionen') as any)
-      .select('*, fuellungen(bezeichnung,flaschengroesse_ml)')
-      .eq('exportauftrag_id', id).order('sort_order'),
-    // tenant-isolation-ignore: export_dokumente ohne tenant_id
-    (supabase.from('export_dokumente') as any)
-      .select('*').eq('exportauftrag_id', id).order('dokument_art'),
-  ])
+  // Dieselbe Ladefunktion wie die CSV (/meldungen/exportauftrag/csv): Auftrag, Dokumente und
+  // Positionszeilen mit gerundetem Wert je Position (Summe = Summe der gerundeten Werte)
+  const ergebnis = await ladeExportauftrag(supabase, tenantId, { id })
 
-  if (!auftrag) return (
+  if (!ergebnis) return (
     <div className="p-8">
       <p className="text-s112-err-fg">Exportauftrag nicht gefunden.</p>
       <Link href="/weinexport" className="text-s112-blue-700 text-sm mt-2 inline-block">← Zurück</Link>
@@ -46,8 +37,10 @@ export default async function WeinexportDetailPage({ params }: { params: Promise
   )
 
   return <WeinexportDetailClient
-    auftrag={auftrag as R}
-    positionen={(positionen ?? []) as R[]}
-    dokumente={(dokumente ?? []) as R[]}
+    auftrag={ergebnis.auftrag}
+    zeilen={ergebnis.zeilen}
+    gesamtEur={ergebnis.gesamtEur}
+    dokumente={ergebnis.dokumente}
+    csvHref={csvPfad('exportauftrag', { id, referenz: ergebnis.auftrag.referenz })}
   />
 }

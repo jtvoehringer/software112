@@ -1,3 +1,4 @@
+// behoerdenmeldung: keller-behandlungen
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
@@ -8,6 +9,9 @@ import { FlaskConical, BarChart3, ArrowLeftRight, Pencil, Trash2 } from 'lucide-
 import { fmtNum, dezimal } from '@/lib/format'
 import { dbFehlerText, fehlerText } from '@/lib/fehler'
 import { deleteKellerbehandlung } from '../../../actions'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
+import { csvPfad } from '@/lib/behoerden/katalog'
+import DruckKnopf from '../../../_behoerden/DruckKnopf'
 
 type R = Record<string, any>
 
@@ -57,6 +61,9 @@ export default function KellerbehandlungenPage() {
   const [formWeinausbauName, setFormWeinausbauName] = useState<string | null>(null)
   const [formError, setFormError]         = useState('')
   const [listeFehler, setListeFehler]     = useState('')
+  // Zeitraum für Liste, Ausdruck und CSV (Behördenmeldung „keller-behandlungen“) – leer = alles
+  const [von, setVon]                     = useState('')
+  const [bis, setBis]                     = useState('')
 
   // Neuer Typ inline
   const [showNeuerTyp, setShowNeuerTyp]   = useState(false)
@@ -241,13 +248,17 @@ export default function KellerbehandlungenPage() {
     ? calcGProHl(parseFloat(dezimal(formMenge)), formEinheit, parseFloat(dezimal(formVolumen)))
     : null
 
+  const zeitraumOk = !von || !bis || von <= bis
+  const imZeitraum = (d: string) => (!von || d >= von) && (!bis || d <= bis)
+  const angezeigt = zeitraumOk ? behandlungen.filter((b: R) => imZeitraum(String(b.datum ?? ''))) : behandlungen
+
   if (loading) return <div className="p-6 text-s112-muted text-sm">Lade…</div>
   if (!behaelter) return <div className="p-6 text-s112-err text-sm">Behälter nicht gefunden.</div>
 
   return (
     <div className="max-w-4xl space-y-6">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-s112-muted">
+      <div className="flex items-center gap-2 text-sm text-s112-muted print:hidden">
         <Link href="/kellerbuch" className="hover:text-s112-blue-700 transition-colors">Kellerbuch</Link>
         <span>/</span>
         <span className="text-s112-text-1 font-medium">{behaelter.name}</span>
@@ -261,13 +272,18 @@ export default function KellerbehandlungenPage() {
           <FlaskConical size={20} strokeWidth={1.75} className="text-s112-blue-700" />Kellerbehandlungen – {behaelter.name}
         </h1>
         <button onClick={openNeu}
-          className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg hover:bg-opacity-90 font-medium">
+          className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg hover:bg-opacity-90 font-medium print:hidden">
           + Neue Behandlung
         </button>
       </div>
+      {(von || bis) && (
+        <p className="hidden print:block text-xs text-s112-text-2">
+          Zeitraum: {von ? von.split('-').reverse().join('.') : 'Beginn'} – {bis ? bis.split('-').reverse().join('.') : 'heute'}
+        </p>
+      )}
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-s112-border">
+      <div className="flex gap-1 border-b border-s112-border print:hidden">
         <Link href={`/kellerbuch/behaelter/${behaelterId}/bewegungen`}
           className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-s112-text-1 border-b-2 border-transparent hover:border-s112-line-str -mb-px transition-colors inline-flex items-center gap-1.5">
           <BarChart3 size={14} strokeWidth={1.75} />Bewegungsbuch
@@ -281,9 +297,35 @@ export default function KellerbehandlungenPage() {
         </span>
       </div>
 
+      {/* Aufzeichnung: Zeitraum, Druck und CSV (dieselben Behandlungen, Charge je Behandlung) */}
+      <div className="flex items-end justify-between gap-3 flex-wrap print:hidden">
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="text-xs text-s112-text-2">
+            <span className="block mb-0.5 font-medium">Von</span>
+            <input type="date" value={von} onChange={e => setVon(e.target.value)} aria-label="Zeitraum von"
+              className="border border-s112-border rounded-lg px-2.5 py-1.5 text-sm bg-white" />
+          </label>
+          <label className="text-xs text-s112-text-2">
+            <span className="block mb-0.5 font-medium">Bis</span>
+            <input type="date" value={bis} onChange={e => setBis(e.target.value)} aria-label="Zeitraum bis"
+              className="border border-s112-border rounded-lg px-2.5 py-1.5 text-sm bg-white" />
+          </label>
+          {(von || bis) && (
+            <button type="button" onClick={() => { setVon(''); setBis('') }} className="text-xs text-s112-muted hover:text-s112-blue-700 py-1.5">
+              Gesamter Zeitraum
+            </button>
+          )}
+          {!zeitraumOk && <span role="alert" className="text-xs text-s112-err-fg py-1.5">„Von“ liegt nach „Bis“.</span>}
+        </div>
+        <div className="flex items-start gap-2">
+          <DruckKnopf />
+          {zeitraumOk && <CsvExportKnopf href={csvPfad('keller-behandlungen', { behaelter: behaelterId, von, bis })} />}
+        </div>
+      </div>
+
       {/* Formular */}
       {showForm && (
-        <div className="card p-5 border-s112-teal/30 border-2">
+        <div className="card p-5 border-s112-teal/30 border-2 print:hidden">
           <h2 className="font-semibold text-s112-text mb-4 text-sm">
             {editId ? 'Behandlung bearbeiten' : 'Neue Behandlung'}
           </h2>
@@ -398,14 +440,16 @@ export default function KellerbehandlungenPage() {
       )}
 
       {/* Liste */}
-      {behandlungen.length === 0 ? (
+      {angezeigt.length === 0 ? (
         <div className="card text-center py-10">
           <FlaskConical size={28} strokeWidth={1.5} className="mx-auto mb-2 text-s112-tertiary" />
-          <p className="text-sm text-s112-muted">Noch keine Kellerbehandlungen erfasst</p>
-          <button onClick={openNeu}
-            className="mt-3 text-xs text-s112-blue-700 font-semibold hover:underline">
-            + Erste Behandlung erfassen
-          </button>
+          <p className="text-sm text-s112-muted">{behandlungen.length === 0 ? 'Noch keine Kellerbehandlungen erfasst' : 'Keine Kellerbehandlungen in diesem Zeitraum'}</p>
+          {behandlungen.length === 0 && (
+            <button onClick={openNeu}
+              className="mt-3 text-xs text-s112-blue-700 font-semibold hover:underline print:hidden">
+              + Erste Behandlung erfassen
+            </button>
+          )}
         </div>
       ) : (
         <div className="card p-0 overflow-hidden">
@@ -417,11 +461,11 @@ export default function KellerbehandlungenPage() {
                 <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Menge</th>
                 <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">g/hl</th>
                 <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Volumen Ist</th>
-                <th className="px-4 py-2.5" />
+                <th className="px-4 py-2.5 print:hidden" />
               </tr>
             </thead>
             <tbody>
-              {behandlungen.map((b: R) => {
+              {angezeigt.map((b: R) => {
                 const typName = (b.typ as R | null)?.name ?? b.typ_name_snapshot ?? '–'
                 const menge   = b.menge != null ? parseFloat(b.menge) : null
                 const vol     = b.volumen_liter_ist != null ? parseFloat(b.volumen_liter_ist) : null
@@ -430,10 +474,11 @@ export default function KellerbehandlungenPage() {
                 return (
                   <tr key={b.id} className="border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40">
                     <td className="px-4 py-2.5 text-xs text-s112-text-2 whitespace-nowrap">
-                      {new Date(b.datum).toLocaleDateString('de-AT')}
+                      {String(b.datum ?? '').split('-').reverse().join('.')}
                     </td>
                     <td className="px-4 py-2.5">
                       <p className="font-medium text-s112-text">{typName}</p>
+                      {(b.weinausbau as R | null)?.name && <p className="text-xs text-s112-text-2">Charge: {(b.weinausbau as R).name}</p>}
                       {b.notizen && <p className="text-xs text-s112-muted">{b.notizen}</p>}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-1">
@@ -447,7 +492,7 @@ export default function KellerbehandlungenPage() {
                     <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-2 text-xs">
                       {vol != null ? `${fmtNum(vol)} L` : '–'}
                     </td>
-                    <td className="px-4 py-2.5 text-right">
+                    <td className="px-4 py-2.5 text-right print:hidden">
                       <div className="flex items-center justify-end gap-3">
                         <button onClick={() => openEdit(b)}
                           title="Bearbeiten" aria-label="Bearbeiten"

@@ -3,6 +3,9 @@ import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import AbstimmungClient from './AbstimmungClient'
+import { wienHeute } from '@/lib/csv'
+import { csvPfad } from '@/lib/behoerden/katalog'
+import { standardZeitraum } from '@/lib/behoerden/buchhaltung-gemeinsam'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +22,15 @@ export type Bewegung = {
   gesperrt:     boolean  // is_locked (nur informativ – Abgleich bleibt trotzdem möglich)
   andereKontoId?: string  // bei Umbuchungen: die jeweils andere Kontoseite (für Löschen/Revalidate)
   saldoNachher?: number
+}
+
+/** Kassabuch (Behördenmeldung „kassabuch“): Druckseite und CSV für das laufende Jahr */
+function kassabuchLinks(kontoId: string) {
+  const { von, bis } = standardZeitraum(wienHeute())
+  return {
+    druck: `/buchhaltung/kassabuch?${new URLSearchParams({ konto: kontoId, von, bis }).toString()}`,
+    csv: csvPfad('kassabuch', { konto: kontoId, von, bis }),
+  }
 }
 
 export default async function AbstimmungPage({
@@ -108,6 +120,7 @@ export default async function AbstimmungPage({
       anzahlVorEroeffnung={vorEroeffnung.length}
       aktuellerSaldo={laufend}
       writeOk={writeOk}
+      kassabuch={konto.typ === 'kassa' ? kassabuchLinks(konto.id) : null}
     />
   )
 }

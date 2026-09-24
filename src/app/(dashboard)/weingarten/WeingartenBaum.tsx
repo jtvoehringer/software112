@@ -8,7 +8,7 @@ import { googleMapsUrl } from '@/lib/geo/rieden'
 import { deactivateWeingarten, deleteWeingarten, deleteRied } from './actions'
 import { fmtHa } from '@/lib/format'
 import { NutzungBadge } from '@/lib/wein/grundstueckStatus'
-import { getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
+import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 
 // Auffangkorb-Label für Weingärten ohne eigene Ried-Zuordnung (w.ried === null) -
 // KEIN echter Ried, nur eine technische Sammelgruppe. Wird verwendet, um beim
@@ -92,7 +92,10 @@ export type WRow = {
 export type GSTRow = {
   id: string; weingarten_id: string; gst_nr: string
   rebsorte: string | null; flaeche_ha: number | null; flaeche_ha_kataster: number | null
-  spritzbar: boolean; katastralgemeinde: string | null; status: string
+  spritzbar: boolean; katastralgemeinde: string | null
+  // status ist seit Migration 171 abgelöst (Nutzart) und wird nicht mehr geladen –
+  // die Seite liefert die Zeilen aus lib/behoerden/flaechenverzeichnis (GstStamm)
+  status?: string | null
   nutzart: string | null
   ama_feldnummer: string | null
 }
@@ -133,7 +136,7 @@ function GSTZeile({ gst, verschachtelt = false }: { gst: GSTRow; verschachtelt?:
       <td className="px-3 py-2 text-xs text-s112-muted">{gst.ama_feldnummer ?? '–'}</td>
       <td className="px-3 py-2 text-xs text-s112-muted" />
       <td className="px-3 py-2 text-xs text-s112-muted">{gst.rebsorte ?? '–'}</td>
-      <td className="px-3 py-2 text-xs text-s112-muted font-mono">{getRebsorteKuerzel(gst.rebsorte) || '–'}</td>
+      <td className="px-3 py-2 text-xs text-s112-muted font-mono">{bkiRebsorteKuerzel(gst.rebsorte) ?? '–'}</td>
       <td className="px-3 py-2 text-xs"><NutzungBadge nutzart={gst.nutzart} /></td>
       <td className="px-3 py-2 text-xs text-right tabular-nums text-s112-muted">{gst.flaeche_ha_kataster ? fmtHa(gst.flaeche_ha_kataster) : '–'}</td>
       <td className="px-3 py-2 text-xs text-right tabular-nums text-s112-muted">
@@ -503,7 +506,7 @@ export default function WeingartenBaum({
             </th>
             <th className="text-left px-3 py-3 font-semibold text-s112-text-1">Codes</th>
             <th className="text-left px-3 py-3 font-semibold text-s112-text-1">Rebsorte</th>
-            <th className="text-left px-3 py-3 font-semibold text-s112-text-1">Kürzel</th>
+            <th className="text-left px-3 py-3 font-semibold text-s112-text-1">BKI-Kürzel</th>
             <th className="text-left px-3 py-3 font-semibold text-s112-text-1">Nutzung</th>
             <th className="text-right px-3 py-3 font-semibold text-s112-text-1 leading-tight">GST-Fläche<br />lt. Kataster</th>
             <th className="text-right px-3 py-3 font-semibold text-s112-text-1 leading-tight">GST-Fläche<br />lt. AMA</th>

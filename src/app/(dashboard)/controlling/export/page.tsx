@@ -25,6 +25,8 @@ export default async function ExportPage() {
     tf((supabase.from('verkaufsposten') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true)),
   ])
 
+  // format: tatsächliches Trennzeichen der jeweiligen /api/export-Route (Stand 24.09.2026) –
+  // Kontakte/Firmen mit Komma, Lager/Verkauf mit Semikolon; alle UTF-8 mit BOM, CRLF, Kopfzeile.
   const exports: { title: string; beschreibung: string; anzahl: number; einheit: string; href: string; icon: LucideIcon; format: string }[] = [
     {
       title: 'Kontakte',
@@ -33,7 +35,7 @@ export default async function ExportPage() {
       einheit: 'Kontakte',
       href: '/api/export/kontakte',
       icon: Users,
-      format: 'CSV',
+      format: 'CSV · Komma',
     },
     {
       title: 'Firmen',
@@ -42,7 +44,7 @@ export default async function ExportPage() {
       einheit: 'Firmen',
       href: '/api/export/firmen',
       icon: Building2,
-      format: 'CSV',
+      format: 'CSV · Komma',
     },
     {
       title: 'Lagerbestand',
@@ -51,7 +53,7 @@ export default async function ExportPage() {
       einheit: 'Artikel',
       href: '/api/export/lager',
       icon: Package,
-      format: 'CSV',
+      format: 'CSV · Semikolon',
     },
     {
       title: 'Verkaufshistorie',
@@ -60,7 +62,7 @@ export default async function ExportPage() {
       einheit: 'Vorgänge',
       href: '/api/export/verkauf',
       icon: ShoppingCart,
-      format: 'CSV',
+      format: 'CSV · Semikolon',
     },
   ]
 
@@ -93,8 +95,18 @@ export default async function ExportPage() {
         ))}
       </div>
 
-      <div className="text-xs text-s112-muted">
-        Alle Exporte sind Excel-kompatibel (BOM-kodiert, Semikolon-getrennt) und enthalten eine Kopfzeile.
+      <div className="text-xs text-s112-muted space-y-1">
+        <p>
+          Alle Exporte sind UTF-8 mit BOM (Umlaute stimmen in Excel) und enthalten eine Kopfzeile.
+          Lagerbestand und Verkaufshistorie sind Semikolon-getrennt mit Dezimalkomma bei Beträgen und öffnen in Excel
+          (Region Deutsch/Österreich) per Doppelklick. Kontakte und Firmen sind Komma-getrennt: in Excel über
+          „Daten › Aus Text/CSV“ öffnen und als Trennzeichen „Komma“ wählen.
+        </p>
+        <p>
+          Behördenmeldungen (Erntemeldung, Pflanzenschutz, Kellerbuch, UVA …) exportierst du einheitlich als CSV für Excel
+          (Semikolon, Dezimalkomma, TT.MM.JJJJ) auf ihrer Seite bzw. unter{' '}
+          <Link href="/dashboard/fristen" className="text-s112-blue-700 hover:underline">Übersicht › Meldungen & Fristen</Link>.
+        </p>
       </div>
     </div>
   )

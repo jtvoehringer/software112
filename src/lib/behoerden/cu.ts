@@ -1,0 +1,316 @@
+// ── Kupfer-Bilanz (Behördenmeldungen „cu-bilanz“ und „cu-bilanz-behandlungen“, 24.09.2026) ──
+//
+// Eine Berechnung für Druckseite /reports/cu-bilanz, Tab „Cu-Bilanz“ in /behandlungen/berichte
+// und beide CSV-Dateien. Isomorph (BerichteClient rechnet im Browser mit cuBilanz()).
+//
+// Rechenweg:
+//   • Cu-Gehalt: pflanzenschutzmittel.cu_gehalt_pct; fehlt er bei einem Kupfer-Wirkstoff,
+//     ersatzweise wirkstoffgehalt_pct (Näherung, als Hinweis gemeldet – wie bisher im Berichte-Tab).
+//   • Cu (kg) je Maßnahme = Mittelmenge (kg, mittelmengeKg mit Litern ≈ kg) × Cu-Gehalt / 100.
+//   • Cu (kg/ha) je Maßnahme = Cu (kg) / behandelte Fläche (Σ Grundstücke der Maßnahme).
+//   • Je Weingarten: Cu anteilig nach Grundstücksfläche, geteilt durch die Stammdaten-Fläche
+//     des Weingartens; dazu die gleitenden Summen über 5 Jahre (ÖPUL, 20 kg/ha) und 7 Jahre
+//     (DVO (EU) 2021/1165 Anhang II, 28 kg/ha).
+//   • Betrieb: Σ Cu (kg) / Σ Fläche der aktiven Weingärten – wie bisher auf der Druckseite.
+//     (Der Berichte-Tab teilte bis 24.09.2026 durch die Summe der behandelten Flächen aller
+//     Anwendungen – bei fünf Spritzungen nur ein Fünftel des tatsächlichen Eintrags je ha.)
+//   • Ampel je Jahr gegen 4 kg/ha (EU-Bio-VO 2018/848, bisherige App-Regel; fachlich offen:
+//     28 kg in 7 Jahren) – Warnschwelle ab 80 %.
+
+import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
+import type { LadeErgebnis } from './typen'
+import {
+  behandlungKurz, betriebsflaecheHa, jahrZeitraum, ladeBehandlungen, ladeWeingaerten, liste,
+  mittelmengeKg, riedText, weingartenText, einheitText, STELLEN_MENGE,
+  type PsmBehandlung, type WeingartenStamm,
+} from './psm'
+
+export const CU_GRENZWERT_KG_HA_JAHR = 4
+export const CU_GRENZWERT_KG_HA_5J = 20
+export const CU_GRENZWERT_KG_HA_7J = 28
+export const CU_WARNSCHWELLE = 0.8
+/** Cu-Mengen und -Werte je ha: 4 Nachkommastellen (0,1 g) – wie bisher auf der Druckseite */
+export const STELLEN_CU = 4
+
+export type CuStatus = 'ueber' | 'warnung' | 'ok'
+export const CU_STATUS_LABEL: Record<CuStatus, string> = {
+  ueber: 'über Grenzwert',
+  warnung: 'über 80 % des Grenzwerts',
+  ok: 'im Rahmen',
+}
+
+export function cuStatus(kgHa: number | null, grenzwert = CU_GRENZWERT_KG_HA_JAHR): CuStatus | null {
+  if (kgHa === null) return null
+  if (kgHa > grenzwert) return 'ueber'
+  if (kgHa > grenzwert * CU_WARNSCHWELLE) return 'warnung'
+  return 'ok'
+}
+
+export type CuGehalt = { pct: number; quelle: 'Stammdaten' | 'Wirkstoffgehalt (Näherung)' }
+
+/** Cu-Gehalt des Mittels; null = kein Kupfermittel */
+export function cuGehalt(b: PsmBehandlung): CuGehalt | null {
+  const p = b.psm
+  if (!p) return null
+  if (p.cuGehaltPct !== null && p.cuGehaltPct > 0) return { pct: p.cuGehaltPct, quelle: 'Stammdaten' }
+  if ((p.wirkstoff ?? '').toLowerCase().includes('kupfer') && p.wirkstoffgehaltPct !== null && p.wirkstoffgehaltPct > 0) {
+    return { pct: p.wirkstoffgehaltPct, quelle: 'Wirkstoffgehalt (Näherung)' }
+  }
+  return null
+}
+
+export type CuBehandlungZeile = {
+  behandlungId: string
+  datum: string
+  jahr: number
+  weingarten: string | null
+  ried: string | null
+  mittel: string
+  zulassungsnr: string | null
+  cuGehaltPct: number
+  cuGehaltQuelle: string
+  /** erfasste Menge und Einheit */
+  menge: number | null
+  einheit: string
+  /** Mittelmenge in kg (Grundlage der Cu-Berechnung) */
+  mengeKg: number
+  mengeBasis: string
+  /** behandelte Fläche (ha) */
+  flaecheHa: number | null
+  cuKg: number
+  cuKgHa: number | null
+  /** Anzahl Anwendungen dieses Mittels im selben Jahr (für „Anw. / Max.“) */
+  anwendungenImJahr: number
+  maxAnwendungen: number | null
+}
+
+export type CuWeingartenZeile = {
+  jahr: number
+  weingartenId: string
+  weingarten: string
+  ried: string | null
+  /** Stammdaten-Fläche des Weingartens (ha) */
+  flaecheHa: number | null
+  behandlungen: number
+  cuKg: number
+  cuKgHa: number | null
+  grenzwertKgHa: number
+  /** Anteil am Jahres-Grenzwert in % */
+  auslastungPct: number | null
+  status: string
+  cuKgHa5J: number | null
+  cuKgHa7J: number | null
+}
+
+export type CuJahr = {
+  jahr: number
+  /** Betriebsfläche (aktive Weingärten, ha) */
+  gesamtHa: number
+  /** Σ Cu (kg) der Einzelbehandlungen (gerundete Werte) */
+  cuKg: number
+  cuKgHa: number | null
+  cuKgHa5J: number | null
+  cuKgHa7J: number | null
+  status: CuStatus | null
+  behandlungen: CuBehandlungZeile[]
+  weingaerten: CuWeingartenZeile[]
+}
+
+export type CuBilanz = {
+  gesamtHa: number
+  /** Jahre mit Kupfereinsatz (bzw. das angefragte Jahr), neueste zuerst */
+  jahre: CuJahr[]
+  /** alle Einzelbehandlungen der ausgegebenen Jahre (chronologisch) – CSV „cu-bilanz-behandlungen“ */
+  behandlungsZeilen: CuBehandlungZeile[]
+  /** je Jahr × Weingarten (Jahr aufsteigend, Weingarten) – CSV „cu-bilanz“ */
+  weingartenZeilen: CuWeingartenZeile[]
+  warnungen: string[]
+}
+
+function durch(z: number, n: number | null): number | null {
+  return n !== null && n > 0 ? runden(z / n, STELLEN_CU) : null
+}
+
+/**
+ * Kupfer-Bilanz aus den Maßnahmen (beliebig viele Jahre; für die 5-/7-Jahres-Summen die Vorjahre
+ * mitgeben). `jahre`: auszugebende Jahre – ohne Angabe alle Jahre mit Kupfereinsatz.
+ */
+export function cuBilanz(behandlungen: readonly PsmBehandlung[], weingaerten: readonly WeingartenStamm[], opt: { jahre?: readonly number[] | null } = {}): CuBilanz {
+  const gesamtHa = betriebsflaecheHa(weingaerten)
+  const wgStamm = new Map(weingaerten.map(w => [w.id, w]))
+  const warnungen: string[] = []
+  // Hinweise je Jahr sammeln – ausgegeben werden nur die der ausgegebenen Jahre (Vorjahre zählen nur in die 5-/7-Jahres-Summen)
+  type Hinweis = { jahr: number; text: string }
+  const ohneMenge: Hinweis[] = []
+  const ohneFlaeche: Hinweis[] = []
+  const naeherungCu: Hinweis[] = []
+  const literAngenommen: Hinweis[] = []
+
+  // 1. Einzelbehandlungen
+  const alleZeilen: CuBehandlungZeile[] = []
+  // je Jahr → Weingarten-id → { cu (ungerundet), anzahl, name, ried, fläche aus GST (Ersatz) }
+  const jeWg = new Map<number, Map<string, { cu: number; anzahl: number; name: string; ried: string | null; gstHa: number }>>()
+
+  for (const b of [...behandlungen].sort((a, c) => a.datum.localeCompare(c.datum) || a.id.localeCompare(c.id))) {
+    const gehalt = cuGehalt(b)
+    if (!gehalt) continue
+    const mm = mittelmengeKg(b, { literAlsKg: true })
+    if (!mm) { ohneMenge.push({ jahr: b.jahr, text: `${behandlungKurz(b)} – ${b.psm?.name ?? ''}` }); continue }
+    if (mm.dichteAngenommen) literAngenommen.push({ jahr: b.jahr, text: behandlungKurz(b) })
+    if (gehalt.quelle !== 'Stammdaten') naeherungCu.push({ jahr: b.jahr, text: b.psm?.name ?? '–' })
+    const cuKg = runden(mm.kg * gehalt.pct / 100, STELLEN_CU)
+    if (b.flaecheHa === null) ohneFlaeche.push({ jahr: b.jahr, text: behandlungKurz(b) })
+    alleZeilen.push({
+      behandlungId: b.id, datum: b.datum, jahr: b.jahr,
+      weingarten: weingartenText(b), ried: riedText(b),
+      mittel: b.psm?.name ?? '–', zulassungsnr: b.psm?.zulassungsnr ?? null,
+      cuGehaltPct: gehalt.pct, cuGehaltQuelle: gehalt.quelle,
+      menge: b.mengeGesamt !== null ? runden(b.mengeGesamt, STELLEN_MENGE) : null,
+      einheit: einheitText(b.mengeEinheit),
+      mengeKg: mm.kg, mengeBasis: mm.basis,
+      flaecheHa: b.flaecheHa,
+      cuKg, cuKgHa: durch(cuKg, b.flaecheHa),
+      anwendungenImJahr: 0,
+      maxAnwendungen: b.psm?.maxAnwendungen && b.psm.maxAnwendungen > 0 ? b.psm.maxAnwendungen : null,
+    })
+
+    // Anteile je Weingarten nach Grundstücksfläche (ohne Flächenangaben: gleich verteilt)
+    const orte = b.grundstuecke.filter(g => g.weingartenId)
+    if (orte.length === 0) continue
+    const summeHa = orte.reduce((s, g) => s + (g.flaecheHa ?? 0), 0)
+    const jahrMap: Map<string, { cu: number; anzahl: number; name: string; ried: string | null; gstHa: number }> = jeWg.get(b.jahr) ?? new Map()
+    const gezaehlt = new Set<string>()
+    for (const g of orte) {
+      const anteil = summeHa > 0 ? (g.flaecheHa ?? 0) / summeHa : 1 / orte.length
+      const id = g.weingartenId as string
+      const e = jahrMap.get(id) ?? { cu: 0, anzahl: 0, name: g.weingarten ?? '–', ried: g.ried, gstHa: 0 }
+      e.cu += cuKg * anteil
+      e.gstHa = Math.max(e.gstHa, orte.filter(o => o.weingartenId === id).reduce((s, o) => s + (o.flaecheHa ?? 0), 0))
+      if (!gezaehlt.has(id)) { e.anzahl += 1; gezaehlt.add(id) }
+      jahrMap.set(id, e)
+    }
+    jeWg.set(b.jahr, jahrMap)
+  }
+
+  // Anwendungen je Mittel und Jahr
+  const anw = new Map<string, number>()
+  for (const z of alleZeilen) anw.set(`${z.jahr}|${z.mittel}`, (anw.get(`${z.jahr}|${z.mittel}`) ?? 0) + 1)
+  for (const z of alleZeilen) z.anwendungenImJahr = anw.get(`${z.jahr}|${z.mittel}`) ?? 1
+
+  // 2. Jahre
+  const jahreMitCu = [...new Set(alleZeilen.map(z => z.jahr))]
+  const ausgabe = [...new Set(opt.jahre && opt.jahre.length ? opt.jahre : jahreMitCu)].sort((a, b) => b - a)
+  const cuJahrBetrieb = new Map<number, number>()
+  for (const z of alleZeilen) cuJahrBetrieb.set(z.jahr, (cuJahrBetrieb.get(z.jahr) ?? 0) + z.cuKg)
+  const summeBetrieb = (jahr: number, n: number) => {
+    let s = 0
+    for (let j = jahr - n + 1; j <= jahr; j++) s += cuJahrBetrieb.get(j) ?? 0
+    return s
+  }
+  const wgCuGerundet = (jahr: number, id: string) => runden(jeWg.get(jahr)?.get(id)?.cu ?? 0, STELLEN_CU)
+  const summeWg = (jahr: number, id: string, n: number) => {
+    let s = 0
+    for (let j = jahr - n + 1; j <= jahr; j++) s += wgCuGerundet(j, id)
+    return s
+  }
+
+  const jahre: CuJahr[] = ausgabe.map(jahr => {
+    const behZeilen = alleZeilen.filter(z => z.jahr === jahr)
+    const cuKg = runden(behZeilen.reduce((s, z) => s + z.cuKg, 0), STELLEN_CU)
+    const cuKgHa = durch(cuKg, gesamtHa)
+    const wgZeilen: CuWeingartenZeile[] = [...(jeWg.get(jahr)?.entries() ?? [])].map(([id, e]) => {
+      const stamm = wgStamm.get(id)
+      const flaeche = stamm?.flaecheHa && stamm.flaecheHa > 0 ? stamm.flaecheHa : (e.gstHa > 0 ? runden(e.gstHa, STELLEN.ha) : null)
+      const cu = wgCuGerundet(jahr, id)
+      const kgHa = durch(cu, flaeche)
+      const st = cuStatus(kgHa)
+      return {
+        jahr, weingartenId: id, weingarten: stamm?.name ?? e.name, ried: stamm?.ried ?? e.ried,
+        flaecheHa: flaeche, behandlungen: e.anzahl, cuKg: cu, cuKgHa: kgHa,
+        grenzwertKgHa: CU_GRENZWERT_KG_HA_JAHR,
+        auslastungPct: kgHa !== null ? runden(kgHa / CU_GRENZWERT_KG_HA_JAHR * 100, 1) : null,
+        status: st ? CU_STATUS_LABEL[st] : 'Fläche fehlt',
+        cuKgHa5J: durch(summeWg(jahr, id, 5), flaeche),
+        cuKgHa7J: durch(summeWg(jahr, id, 7), flaeche),
+      }
+    }).sort((a, b) => (a.ried ?? '').localeCompare(b.ried ?? '', 'de') || a.weingarten.localeCompare(b.weingarten, 'de'))
+    return {
+      jahr, gesamtHa, cuKg, cuKgHa,
+      cuKgHa5J: durch(runden(summeBetrieb(jahr, 5), STELLEN_CU), gesamtHa),
+      cuKgHa7J: durch(runden(summeBetrieb(jahr, 7), STELLEN_CU), gesamtHa),
+      status: cuStatus(cuKgHa),
+      behandlungen: behZeilen,
+      weingaerten: wgZeilen,
+    }
+  })
+
+  const ausgabeSet = new Set(ausgabe)
+  const imZeitraum = (h: Hinweis[]) => h.filter(x => ausgabeSet.has(x.jahr)).map(x => x.text)
+  const vorjahre = ohneMenge.filter(x => !ausgabeSet.has(x.jahr) && ausgabe.some(j => x.jahr < j && x.jahr > j - 7)).length
+  const aMenge = imZeitraum(ohneMenge), aFlaeche = imZeitraum(ohneFlaeche), aLiter = imZeitraum(literAngenommen)
+  const aCu = [...new Set(imZeitraum(naeherungCu))]
+  if (aMenge.length > 0) warnungen.push(`${aMenge.length} Kupfer-${aMenge.length === 1 ? 'Anwendung' : 'Anwendungen'} ohne umrechenbare Menge (kg, l, kg/ha oder l/ha) – nicht in der Bilanz: ${liste(aMenge)}`)
+  if (vorjahre > 0) warnungen.push(`${vorjahre} Kupfer-${vorjahre === 1 ? 'Anwendung' : 'Anwendungen'} der Vorjahre ohne umrechenbare Menge – fehlt in den 5-/7-Jahres-Summen.`)
+  if (aFlaeche.length > 0) warnungen.push(`${aFlaeche.length} Kupfer-${aFlaeche.length === 1 ? 'Anwendung' : 'Anwendungen'} ohne behandelte Fläche – Cu (kg/ha) bleibt leer: ${liste(aFlaeche)}`)
+  if (aLiter.length > 0) warnungen.push(`${aLiter.length} Kupfer-${aLiter.length === 1 ? 'Anwendung' : 'Anwendungen'} in Litern erfasst – Dichte 1 kg/l angenommen (wie bisher): ${liste(aLiter)}`)
+  if (aCu.length > 0) warnungen.push(`Cu-Gehalt fehlt in den Mittel-Stammdaten (${liste(aCu)}) – Wirkstoffgehalt als Näherung verwendet; bitte Cu-Gehalt unter Betriebsmittel ergänzen.`)
+  const ohneWgFlaeche = jahre.flatMap(j => j.weingaerten.filter(w => w.flaecheHa === null).map(w => w.weingarten))
+  if (ohneWgFlaeche.length > 0) warnungen.push(`Weingarten ohne Fläche in den Stammdaten – Cu (kg/ha) bleibt leer: ${liste([...new Set(ohneWgFlaeche)])}`)
+  if (gesamtHa <= 0 && alleZeilen.some(z => ausgabeSet.has(z.jahr))) warnungen.push('Keine aktiven Weingärten mit Fläche – Cu je ha des Betriebs nicht berechenbar.')
+
+  return {
+    gesamtHa,
+    jahre,
+    behandlungsZeilen: alleZeilen.filter(z => ausgabeSet.has(z.jahr)),
+    weingartenZeilen: [...jahre].sort((a, b) => a.jahr - b.jahr).flatMap(j => j.weingaerten),
+    warnungen,
+  }
+}
+
+export const SPALTEN_CU_BILANZ: CsvSpalte<CuWeingartenZeile>[] = [
+  { kopf: 'Jahr', typ: 'ganzzahl', wert: z => z.jahr },
+  { kopf: 'Weingarten', typ: 'text', wert: z => z.weingarten },
+  { kopf: 'Ried', typ: 'text', wert: z => z.ried },
+  { kopf: 'Fläche (ha)', typ: 'dezimal', stellen: STELLEN.ha, wert: z => z.flaecheHa },
+  { kopf: 'Kupfer-Anwendungen', typ: 'ganzzahl', wert: z => z.behandlungen },
+  { kopf: 'Cu (kg)', typ: 'dezimal', stellen: STELLEN_CU, wert: z => z.cuKg },
+  { kopf: 'Cu (kg/ha)', typ: 'dezimal', stellen: STELLEN_CU, wert: z => z.cuKgHa },
+  { kopf: 'Grenzwert (kg/ha/Jahr)', typ: 'dezimal', stellen: 2, wert: z => z.grenzwertKgHa },
+  { kopf: 'Auslastung (%)', typ: 'prozent', stellen: 1, wert: z => z.auslastungPct },
+  { kopf: 'Status', typ: 'text', wert: z => z.status },
+  { kopf: 'Cu 5 Jahre (kg/ha)', typ: 'dezimal', stellen: STELLEN_CU, wert: z => z.cuKgHa5J },
+  { kopf: 'Cu 7 Jahre (kg/ha)', typ: 'dezimal', stellen: STELLEN_CU, wert: z => z.cuKgHa7J },
+]
+
+export const SPALTEN_CU_BEHANDLUNGEN: CsvSpalte<CuBehandlungZeile>[] = [
+  { kopf: 'Datum', typ: 'datum', wert: z => z.datum },
+  { kopf: 'Weingarten', typ: 'text', wert: z => z.weingarten },
+  { kopf: 'Ried', typ: 'text', wert: z => z.ried },
+  { kopf: 'Mittel', typ: 'text', wert: z => z.mittel },
+  { kopf: 'Zulassungsnr.', typ: 'code', wert: z => z.zulassungsnr },
+  { kopf: 'Cu-Gehalt (%)', typ: 'prozent', wert: z => z.cuGehaltPct },
+  { kopf: 'Cu-Gehalt Quelle', typ: 'text', wert: z => z.cuGehaltQuelle },
+  { kopf: 'Menge', typ: 'dezimal', stellen: STELLEN_MENGE, wert: z => z.menge },
+  { kopf: 'Einheit', typ: 'text', wert: z => z.einheit },
+  { kopf: 'Mittelmenge (kg)', typ: 'dezimal', stellen: STELLEN_MENGE, wert: z => z.mengeKg },
+  { kopf: 'Mengenbasis', typ: 'text', wert: z => z.mengeBasis },
+  { kopf: 'Behandelte Fläche (ha)', typ: 'dezimal', stellen: STELLEN.ha, wert: z => z.flaecheHa },
+  { kopf: 'Cu (kg)', typ: 'dezimal', stellen: STELLEN_CU, wert: z => z.cuKg },
+  { kopf: 'Cu (kg/ha)', typ: 'dezimal', stellen: STELLEN_CU, wert: z => z.cuKgHa },
+]
+
+export type CuBilanzParameter = { jahr: number | null }
+
+/**
+ * Ladefunktion der Druckseite /reports/cu-bilanz UND beider CSV-Dateien. Lädt für die
+ * 7-Jahres-Summe die sechs Vorjahre mit. zeilen = je Weingarten (CSV „cu-bilanz“).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function ladeCuBilanz(supabase: any, tenantId: string, p: CuBilanzParameter): Promise<LadeErgebnis<CuWeingartenZeile> & CuBilanz & { warnungen: string[] }> {
+  const [{ behandlungen, warnungen }, weingaerten] = await Promise.all([
+    ladeBehandlungen(supabase, tenantId, jahrZeitraum(p.jahr, 6)),
+    ladeWeingaerten(supabase, tenantId),
+  ])
+  const bilanz = cuBilanz(behandlungen, weingaerten, { jahre: p.jahr !== null ? [p.jahr] : null })
+  return { ...bilanz, zeilen: bilanz.weingartenZeilen, warnungen: [...warnungen, ...bilanz.warnungen] }
+}

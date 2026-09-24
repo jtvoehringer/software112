@@ -3,6 +3,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { Bot, ExternalLink } from 'lucide-react'
+import { exportCSV } from '@/lib/utils/csv'
+import { csvDateiname } from '@/lib/csv'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -285,18 +287,18 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
 
           <button onClick={() => {
             if (!ergebnis?.ergebnisse?.length) return
+            // CSV-Standard EXCEL_AT über lib/utils/csv (Semikolon, CRLF, Dezimalkomma, Formelschutz
+            // für den freien KI-Inhalt); Zahl-, Datums- und Ja/Nein-Spalten werden aus den Werten erkannt.
             const hdrs = Object.keys(ergebnis.ergebnisse[0]).filter((k: string) => !istIdSpalte(k))
-            const rows = ergebnis.ergebnisse.map((r: Record<string,unknown>) =>
-              hdrs.map((h: string) => {
-                const v = r[h]; if (v == null) return ''
-                if (typeof v === 'object') return Object.values(v as object).filter(Boolean).join(' ')
-                return String(v)
-              })
-            )
-            const csv = [hdrs.join(';'), ...rows.map((r: string[]) => r.map((cc: string) => `"${cc.replace(/"/g,'""')}"`).join(';'))].join('\n')
-            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
-            a.download = `ki-abfrage-${new Date().toISOString().slice(0,10)}.csv`; a.click()
+            const rows = ergebnis.ergebnisse.map((r: Record<string, unknown>) => {
+              const z: Record<string, unknown> = {}
+              for (const h of hdrs) {
+                const v = r[h]
+                z[h] = v !== null && typeof v === 'object' ? Object.values(v as object).filter(Boolean).join(' ') : v
+              }
+              return z
+            })
+            exportCSV(rows, hdrs.map((h: string) => ({ key: h, header: h })), csvDateiname(['KI-Abfrage']).utf8)
           }} className="text-xs border border-s112-border text-s112-text-2 px-3 py-1.5 rounded-lg hover:bg-s112-bg">
             CSV / Excel
           </button>

@@ -1,10 +1,13 @@
+// behoerdenmeldung: weinbuch
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { notFound } from 'next/navigation'
 import { BookOpen, GitMerge } from 'lucide-react'
-import { buildWeinbuch } from '@/lib/wein/weinbuch'
+import { ladeWeinbuch } from '@/lib/behoerden/weinbuch'
+import { csvPfad } from '@/lib/behoerden/katalog'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { WeinbuchTimeline } from './WeinbuchTimeline'
 import PrintButton from './PrintButton'
@@ -22,9 +25,10 @@ export default async function WeinbuchPage({
   const membership = await getCurrentMembership()
   const tenantId   = membership?.tenantId ?? null
 
-  const weinbuch = await buildWeinbuch(supabase, id, tenantId)
-  if (!weinbuch) notFound()
-  const { wa, events } = weinbuch
+  // Dieselbe Ladefunktion wie die CSV „weinbuch“ (lib/behoerden/weinbuch.ts → buildWeinbuch)
+  const geladen = tenantId ? await ladeWeinbuch(supabase, tenantId, { chargeId: id }) : null
+  if (!geladen) notFound()
+  const { wa, events } = geladen.weinbuch
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -61,8 +65,15 @@ export default async function WeinbuchPage({
             <GitMerge size={15} strokeWidth={1.75} />Blend-Protokoll
           </Link>
           <PrintButton />
+          <CsvExportKnopf href={csvPfad('weinbuch', { charge: id })} />
         </div>
       </div>
+
+      {geladen.warnungen.length > 0 && (
+        <ul className="text-xs text-s112-warn-fg list-disc pl-4 space-y-0.5 print:hidden">
+          {geladen.warnungen.map((w, i) => <li key={i}>{w}</li>)}
+        </ul>
+      )}
 
       <WeinbuchTimeline events={events} />
 

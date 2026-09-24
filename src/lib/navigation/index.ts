@@ -17,6 +17,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import type { UserRole } from '@/lib/auth/roles'
+import { istPflichtmeldungsRolle } from '@/lib/auth/pflichtmeldung'
 
 export type ModulKey = 'modul_ea' | 'modul_sumup' | 'modul_export' | 'modul_controlling'
 
@@ -36,6 +37,9 @@ export type NavItem = {
   requireModul?: ModulKey
   /** Nur im Mandanten "Sandbox" sichtbar (unabhängig von der Rolle) */
   sandboxOnly?: boolean
+  /** Pflichtmeldung unter /reports (Entscheidung 24.9.2026): Betriebsleiter immer,
+   *  sonst nur mit Modul Controlling + Auswertungsrecht (siehe pflichtmeldungenSichtbar) */
+  pflichtmeldung?: boolean
   /** Synonyme für die Befehlspalette */
   keywords?: string
 }
@@ -74,8 +78,13 @@ const NAV: NavGroup[] = [
     items: [
       { href: '/weingarten',         label: 'Rieden',         phase: 1, keywords: 'weingarten grundstücke flächen' },
       { href: '/behandlungen',       label: 'Maßnahmen',      phase: 1, keywords: 'pflanzenschutz spritzung behandlung' },
+      // Pflichtmeldungen (Druck + CSV) – auch ohne Modul Controlling, siehe pflichtmeldungenSichtbar
+      { href: '/reports/behandlungsprotokoll', label: 'Behandlungsprotokoll', child: true, pflichtmeldung: true, keywords: 'pflanzenschutz psm aufzeichnungen spritzprotokoll bio kontrolle behörde meldung druck csv' },
+      { href: '/reports/cu-bilanz',            label: 'Cu-Bilanz',            child: true, pflichtmeldung: true, keywords: 'kupfer bio jahresbericht kg ha behörde meldung druck csv' },
+      { href: '/reports/naehrstoffbilanz',     label: 'Nährstoffbilanz',      child: true, pflichtmeldung: true, keywords: 'düngung düngeaufzeichnungen stickstoff phosphor napv behörde meldung druck csv' },
       { href: '/behandlungen/lager', label: 'Betriebsmittel', phase: 1, keywords: 'psm lager dünger' },
       { href: '/erntemeldung',       label: 'Lese',           phase: 1, keywords: 'ernte jahrgang pressung erntemeldung' },
+      { href: '/reports/ama',        label: 'AMA-Erntemeldung', child: true, pflichtmeldung: true, keywords: 'weinerntemeldung lesedaten weinbestandsmeldung bestandsmeldung stichtag weindatenbank behörde meldung druck csv' },
     ],
   },
   {
@@ -85,6 +94,7 @@ const NAV: NavGroup[] = [
       { href: '/kellerbuch/kellerplan',      label: 'Kellerplan',     phase: 1, keywords: 'grundriss' },
       { href: '/dac',                        label: 'Prüfnummer',     phase: 1, keywords: 'dac antrag staatliche prüfnummer' },
       { href: '/kellerbuch/rueckverfolgung', label: 'Rückverfolgung', phase: 1, keywords: 'herkunft charge grundstück' },
+      { href: '/reports/weinbuecher-sammlung', label: 'Weinbuch-Sammlung', pflichtmeldung: true, keywords: 'weinbuch kellerbuch aufzeichnungen bki prüfung behörde meldung druck pdf csv' },
     ],
   },
   {
@@ -195,6 +205,15 @@ export type NavContext = {
 
 const ADMIN_PREFIX = '/admin/'
 
+// Pflichtmeldungen (Entscheidung 24.9.2026): gleiche Regel wie der Seiten-Guard
+// reports/(pflicht)/layout.tsx bzw. darfPflichtmeldungen() in lib/auth/modul.ts:
+// Betriebsleiter immer, alle anderen nur mit Modul Controlling + Auswertungsrecht.
+// Rollenliste gemeinsam aus lib/auth/pflichtmeldung.ts (isomorph).
+function pflichtmeldungenSichtbar(ctx: NavContext): boolean {
+  if (istPflichtmeldungsRolle(ctx.role)) return true
+  return ctx.branding.modul_controlling && ctx.auswertungenSichtbar !== false
+}
+
 /**
  * Liefert die für den Nutzer sichtbaren Bereiche inkl. gefilterter Seiten.
  * Regeln (unverändert aus Sidebar.tsx übernommen):
@@ -203,6 +222,7 @@ const ADMIN_PREFIX = '/admin/'
  *    nur system_admin ODER Sandbox-Sonderfreigabe – Betriebsleiter sehen sie nicht
  *  - modulKey/requireModul/hideIfModul gegen die Tenant-Modul-Toggles
  *  - sandboxOnly nur im Sandbox-Mandanten
+ *  - pflichtmeldung: Betriebsleiter immer, sonst Modul Controlling + Auswertungsrecht
  *  - Bereiche ohne sichtbare Seiten entfallen
  */
 export function buildNav(ctx: NavContext): NavGroup[] {
@@ -224,6 +244,7 @@ export function buildNav(ctx: NavContext): NavGroup[] {
         return false
       }
       if (it.sandboxOnly && !ctx.isSandbox) return false
+      if (it.pflichtmeldung && !pflichtmeldungenSichtbar(ctx)) return false
       if (it.requireModul && !ctx.branding[it.requireModul]) return false
       if (it.hideIfModul?.some(m => ctx.branding[m])) return false
       return true

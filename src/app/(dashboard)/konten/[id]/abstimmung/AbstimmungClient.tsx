@@ -7,6 +7,7 @@ import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import { AlertTriangle, Lock } from 'lucide-react'
 import type { Bewegung } from './page'
 import { fmtEur } from '@/lib/format'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
 
 type Konto = {
   id: string
@@ -68,7 +69,7 @@ function BewegungsZeile({ b, kontoId, writeOk }: { b: Bewegung; kontoId: string;
 }
 
 export default function AbstimmungClient({
-  konto, andereKonten, bewegungen, anzahlVorEroeffnung, aktuellerSaldo, writeOk,
+  konto, andereKonten, bewegungen, anzahlVorEroeffnung, aktuellerSaldo, writeOk, kassabuch = null,
 }: {
   konto:               Konto
   andereKonten:        { id: string; name: string }[]
@@ -76,6 +77,8 @@ export default function AbstimmungClient({
   anzahlVorEroeffnung: number
   aktuellerSaldo:      number
   writeOk:             boolean
+  /** Kassa-Konten: Kassabuch (Behördenmeldung) – Druckseite und CSV des laufenden Jahres */
+  kassabuch?:          { druck: string; csv: string } | null
 }) {
   const [umbExpanded, setUmbExpanded] = useState(false)
   const [richtung, setRichtung] = useState<'von' | 'nach'>('von')
@@ -103,6 +106,16 @@ export default function AbstimmungClient({
           </p>
         </div>
       </div>
+
+      {kassabuch && (
+        <div className="flex items-start gap-2 flex-wrap">
+          <Link href={kassabuch.druck}
+            className="text-xs bg-[#F2F3F5] hover:bg-s112-line text-s112-text-2 font-medium px-3 py-1.5 rounded-lg transition-colors">
+            Kassabuch drucken
+          </Link>
+          <CsvExportKnopf href={kassabuch.csv} label="Kassabuch als CSV" />
+        </div>
+      )}
 
       {anzahlVorEroeffnung > 0 && (
         <div className="flex items-start gap-2 bg-s112-warn-bg border border-s112-warn/30 rounded-xl px-4 py-3 text-sm text-s112-warn-fg">

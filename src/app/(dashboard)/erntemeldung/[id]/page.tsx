@@ -1,4 +1,6 @@
+// behoerdenmeldung: lesedaten, erntemeldung, bki-traubenverkauf
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
@@ -8,6 +10,9 @@ import ErnteDetailClient from './ErnteDetailClient'
 import type { Pressung, PressungWG, PressungBeh, WGOption, BehOption, WAOption, ZukaufTraubenOpt } from './PressungSection'
 import TraubenverkaufSection, { type Traubenverkauf, type TVWGOption, type TVKontaktOption, type TVFirmaOption, type TVQuelleOption } from './TraubenverkaufSection'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { berechneHektarhoechstertrag, ladeLesedaten, weinbauflaecheHa, type HektarhoechstertragStatus, type LeseZeile } from '@/lib/behoerden/erntemeldung'
+import { KATALOG_ERNTE } from '@/lib/behoerden/katalog/ernte'
+import { betriebUndModuleLaden, zugriffsFehler } from '@/lib/behoerden/zugriff'
 
 export const metadata: Metadata = { title: 'Lese – software:112' }
 export const dynamic = 'force-dynamic'
@@ -31,15 +36,20 @@ export type AMAMeldung = {
   n8n_status: string | null; n8n_fehler: string | null; eingereicht_am: string | null
   positionen: { rebsorte_name: string; flaeche_ha: number | null; menge_kg: number | null }[]
 }
-export type HektarhoechstertragStatus = {
-  gesamtFlaecheHaBetrieb: number
-  gesamtKgQualitaetswein: number
-  maxKg: number
-  ueberschreitungKg: number
-  ueberschritten: boolean
-}
+// Hektarhöchstertrag: Berechnung gemeinsam mit Erntemeldung-Druck und -CSV (lib/behoerden/erntemeldung.ts)
+export type { HektarhoechstertragStatus }
 
-const HEKTARHOECHSTERTRAG_KG_HA = 10000
+/** Lesezeile (gemeinsame Ladefunktion) → Zeile der Lesedaten-Tabelle bzw. des Bearbeiten-Formulars */
+function zuErnteParzelle(z: LeseZeile): ErnteParzelle {
+  return {
+    id: z.id, weingarten_id: z.weingartenId ?? '',
+    weingarten_name: z.ried ?? '–', weingarten_rebsorte: z.weingartenRebsorte,
+    grundstueck_id: z.grundstueckId, grundstueck_nr: z.gstNr, grundstueck_rebsorte: z.grundstueckRebsorte,
+    ernte_datum: z.datum, menge_kg: z.mengeKg, menge_hl: z.mengeHl,
+    oechsle: z.oechsle, klosterneuburger: z.kmw,
+    qualitaetsstufe: z.qualitaetsstufe, lesemethode: z.lesemethode, notizen: z.notizen,
+  }
+}
 
 export default async function ErnteDetailPage({ params }: Props) {
   const { id } = await params
@@ -49,12 +59,13 @@ export default async function ErnteDetailPage({ params }: Props) {
   const adminOk = canAdmin(role)
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
+  if (!membership || !tenantId) notFound()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
+  const tf = (query: any) => query.eq('tenant_id', tenantId)
 
   const [
     { data: jg },
-    { data: rawP },
+    lese,
     { data: rawW },
     { data: rawA },
     { data: rawPressungen },
@@ -64,14 +75,15 @@ export default async function ErnteDetailPage({ params }: Props) {
     { data: rawTV },
     { data: rawTVKontakte },
     { data: rawTVFirmen },
+    { betrieb, module },
   ] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('weinjahrgaenge') as any).select('*').eq('id', id).single()),
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('ernte_parzellen') as any)
-      .select('id, weingarten_id, grundstueck_id, ernte_datum, menge_kg, menge_hl, oechsle, klosterneuburger, qualitaetsstufe, lesemethode, notizen, weingarten:weingarten_id(name, rebsorte), grundstueck:grundstueck_id(gst_nr, rebsorte)')
-      .eq('jahrgang_id', id).order('ernte_datum', { ascending: false }),
+    // Lesedaten: dieselbe Ladefunktion wie die CSV „Lesedaten“ (/meldungen/lesedaten/csv).
+    // ernte_parzellen hat keine tenant_id – der Jahrgang wird oben mandantengefiltert
+    // geladen, ohne ihn endet die Seite unten mit notFound().
+    ladeLesedaten(supabase, id),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('weingarten') as any)
@@ -97,14 +109,17 @@ export default async function ErnteDetailPage({ params }: Props) {
     tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, behaelter_id, rebsorte, menge_liter, qualitaetsstufe, herkunft_code').eq('aktiv', true).neq('status', 'abgeschlossen').order('name')),
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    tf((supabase.from('grundstuecke') as any)
-      .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha').eq('nutzart', 'WI').order('gst_nr')),
+    // Weingartenfläche (GST, Nutzart WI) – auch Bezugsfläche des Hektarhöchstertrags; alle() statt 1.000er-Deckel
+    alle<AR>(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      tf((supabase.from('grundstuecke') as any)
+        .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha').eq('nutzart', 'WI').order('gst_nr').order('id')),
+    ),
 
     // Traubenverkäufe dieses Jahrgangs (mit Rechnung: Löschen storniert sie, KAN-35)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('traubenverkauf') as any)
-      .select('id, weingarten_id, grundstueck_id, zukauf_posten_id, kontakt_id, firma_id, datum, menge_kg, preis_per_kg, kmw_grad, qualitaetsstufe, gesundheit, herkunft_code, notizen, liefernummer, verkaufsposten_id, weingarten:weingarten_id(name), kontakt:kontakt_id(vorname, nachname), firma:firma_id(name), verkaufsposten:verkaufsposten_id(rechnungsnummer, storniert)')
+      .select('id, weingarten_id, grundstueck_id, zukauf_posten_id, kontakt_id, firma_id, datum, menge_kg, preis_per_kg, kmw_grad, qualitaetsstufe, gesundheit, herkunft_code, notizen, liefernummer, verkaufsposten_id, weingarten:weingarten_id(name), grundstueck:grundstueck_id(gst_nr), kontakt:kontakt_id(vorname, nachname), firma:firma_id(name), verkaufsposten:verkaufsposten_id(rechnungsnummer, storniert)')
       .eq('jahrgang_id', id).order('datum', { ascending: false })),
 
     // Kontakte + Firmen für Abnehmer-Dropdown
@@ -112,9 +127,15 @@ export default async function ErnteDetailPage({ params }: Props) {
     tf((supabase.from('kontakte') as any).select('id, vorname, nachname, betrieb_nr').order('nachname')),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('firmen') as any).select('id, name, betrieb_nr').order('name')),
+
+    // Betriebsname (Druckkopf) und Modul-Schalter (CSV-Knöpfe nach derselben Regel wie die CSV-Route)
+    betriebUndModuleLaden(supabase, tenantId),
   ])
 
   if (!jg) notFound()
+  // Pflichtmeldungen (Lesedaten, Erntemeldung, BKI-Datenblatt): Betriebsleiter immer, Leser nur mit Controlling
+  const csvErlaubt = zugriffsFehler(KATALOG_ERNTE.lesedaten, membership, module) === null
+  const bkiErlaubt = zugriffsFehler(KATALOG_ERNTE['bki-traubenverkauf'], membership, module) === null
 
   // Zugekaufte Trauben dieses Jahrgangs (art='trauben') - stehen als zusätzliche
   // Quelle für Pressungs-Vorschlag und Traubenverkauf zur Verfügung.
@@ -130,21 +151,16 @@ export default async function ErnteDetailPage({ params }: Props) {
     .eq('jahrgang', (jg as AR).jahrgang)
     .order('datum', { ascending: false }))
 
-  const parzellen: ErnteParzelle[] = ((rawP ?? []) as AR[]).map(p => ({
-    id: p.id, weingarten_id: p.weingarten_id,
-    weingarten_name: p.weingarten?.name ?? '–', weingarten_rebsorte: p.weingarten?.rebsorte ?? null,
-    grundstueck_id: p.grundstueck_id ?? null, grundstueck_nr: p.grundstueck?.gst_nr ?? null, grundstueck_rebsorte: p.grundstueck?.rebsorte ?? null,
-    ernte_datum: p.ernte_datum, menge_kg: p.menge_kg, menge_hl: p.menge_hl,
-    oechsle: p.oechsle, klosterneuburger: p.klosterneuburger,
-    qualitaetsstufe: p.qualitaetsstufe, lesemethode: p.lesemethode, notizen: p.notizen,
-  }))
+  // Anzeige wie bisher: neueste Lese zuerst (Postgres-DESC: ohne Datum ganz oben)
+  const parzellen: ErnteParzelle[] = lese.zeilen.map(zuErnteParzelle)
+    .sort((a, b) => (a.ernte_datum === b.ernte_datum ? 0 : a.ernte_datum === null ? -1 : b.ernte_datum === null ? 1 : b.ernte_datum.localeCompare(a.ernte_datum)))
 
   const weingaerten: WeingartenOpt[] = ((rawW ?? []) as AR[]).map(w => ({
     id: w.id, name: w.name, rebsorte: w.rebsorte ?? null, lage_name: w.lagen?.name ?? null,
   }))
 
   const gstByWeingarten: Record<string, GSTOpt[]> = {}
-  for (const g of ((rawGST ?? []) as AR[])) {
+  for (const g of rawGST) {
     if (!gstByWeingarten[g.weingarten_id]) gstByWeingarten[g.weingarten_id] = []
     gstByWeingarten[g.weingarten_id].push({ id: g.id, gst_nr: g.gst_nr, rebsorte: g.rebsorte ?? null, flaeche_ha: g.flaeche_ha ?? null })
   }
@@ -153,19 +169,9 @@ export default async function ErnteDetailPage({ params }: Props) {
   // Hinweis vom BKI (18.07.2026): die hl-Höchstmenge für Qualitätswein wird gegen
   // die GST-Fläche lt. AMA berechnet (= flaeche_ha, laut Betrieb keine Abweichung),
   // Erntebetrag darf 10.000 kg/ha nicht überschreiten, betriebsweit gerechnet.
-  // Reine Info-/Warnfunktion – ersetzt keine rechtliche Prüfung.
-  const gesamtFlaecheHaBetrieb = ((rawGST ?? []) as AR[]).reduce((s, g) => s + (g.flaeche_ha ?? 0), 0)
-  const gesamtKgQualitaetswein = parzellen
-    .filter(p => p.qualitaetsstufe === 'qualitaetswein')
-    .reduce((s, p) => s + (p.menge_kg ?? 0), 0)
-  const maxKg = HEKTARHOECHSTERTRAG_KG_HA * gesamtFlaecheHaBetrieb
-  const hektarhoechstertrag: HektarhoechstertragStatus = {
-    gesamtFlaecheHaBetrieb,
-    gesamtKgQualitaetswein,
-    maxKg,
-    ueberschreitungKg: Math.max(0, gesamtKgQualitaetswein - maxKg),
-    ueberschritten: gesamtFlaecheHaBetrieb > 0 && gesamtKgQualitaetswein > maxKg,
-  }
+  // Reine Info-/Warnfunktion – ersetzt keine rechtliche Prüfung. Dieselbe Berechnung
+  // steht in der Erntemeldung (Druck /reports/ama und CSV).
+  const hektarhoechstertrag: HektarhoechstertragStatus = berechneHektarhoechstertrag(lese.zeilen, weinbauflaecheHa(rawGST))
 
   let amaMeldung: AMAMeldung | null = null
   if (rawA) {
@@ -289,6 +295,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     id: v.id,
     weingarten_id: v.weingarten_id ?? null,
     grundstueck_id: v.grundstueck_id ?? null,
+    grundstueck_nr: (v.grundstueck as AR | null)?.gst_nr ?? null,
     zukauf_posten_id: v.zukauf_posten_id ?? null,
     weingarten_name: (v.weingarten as AR | null)?.name
       ?? (zukaufQuelle
@@ -408,12 +415,16 @@ export default async function ErnteDetailPage({ params }: Props) {
         behaelterMitCharge={behaelterMitCharge}
         writeOk={writeOk}
         adminOk={adminOk}
+        betriebName={betrieb.name}
+        csvErlaubt={csvErlaubt}
       />
 
       {(tvQuelleOptions.length > 0 || verkauefe.length > 0 || zukaufTrauben.length > 0) && (
         <div className="mt-6">
           <TraubenverkaufSection
             jahrgangId={id}
+            jahrgang={Number((jg as AR).jahrgang)}
+            bkiErlaubt={bkiErlaubt}
             verkauefe={verkauefe}
             quelleOptions={tvQuelleOptions}
             zukaufOptions={zukaufTrauben}

@@ -116,29 +116,96 @@ export const REBSORTE_KUERZEL: Record<string, string> = {
   'Sortenverschnitt weiß':      'SW',
 }
 
-/** Mapping Qualitätsstufe (DB-Wert) → BKI-Kürzel */
+/**
+ * Mapping Qualitätsstufe (DB-Wert aus lib/wein/qualitaet.ts) → amtliches BKI-Kürzel.
+ *
+ * KAN-36 (24.09.2026): Die vorherige Tabelle enthielt erfundene Kürzel (LW, SPT, AUS,
+ * BA, ESS) und fehlte für 'wein', 'trockenbeerenauslese' und 'strohwein' – unbekannte
+ * Werte wurden still per toUpperCase().slice(0, 4) zu Fantasie-Codes („TROC“,
+ * „AUSB“) und landeten so im BKI-Datenblatt. Jetzt gilt nur noch die amtliche Liste;
+ * alles andere liefert qualitaetBki() leer plus Hinweis (→ X-Warnungen der CSV).
+ */
 export const QUALITAET_BKI: Record<string, string> = {
-  'landwein':       'LW',
-  'qualitaetswein': 'QUW',
-  'kabinett':       'KAB',
-  'spaetlese':      'SPT',
-  'auslese':        'AUS',
-  'beerenauslese':  'BA',
-  'tba':            'TBA',
-  'eiswein':        'ESS',
-  'dac':            'DAC',
+  'wein':                 'WEI',
+  'landwein':             'LDW',
+  'qualitaetswein':       'QUW',
+  'dac':                  'DAC',
+  'kabinett':             'KAB',
+  'spaetlese':            'SPL',
+  'auslese':              'ALW',
+  'beerenauslese':        'BAL',
+  'trockenbeerenauslese': 'TBA',
+  'tba':                  'TBA',
+  'eiswein':              'EIW',
+  'strohwein':            'STW',
 }
 
-/** Bekannte Rotwein-Rebsorten für Farberkennung */
+/** Zusatzbezeichnungen ohne eigenes BKI-Kürzel, die als Qualitätswein gemeldet werden */
+const QUALITAET_GRUNDSTUFE_QUW: Record<string, string> = {
+  'reserve':         'Reserve',
+  'erste_lage':      'Erste Lage (ÖTW)',
+  'grosses_gewachs': 'Großes Gewächs',
+}
+
+/** Werte ohne passende Stufe in der BKI-Kürzelliste – Feld bleibt leer */
+const QUALITAET_OHNE_BKI: Record<string, string> = {
+  'ausbruch':  'Ausbruch',
+  'sekt':      'Sekt b.A.',
+  'perlwein':  'Perlwein',
+  'sonstiges': 'Sonstiges',
+  'tafelwein': 'Tafelwein',
+}
+
+/** Bekannte Rotwein-Rebsorten für Farberkennung (Altbestand – maßgeblich ist jetzt bkiFarbe()) */
 export const ROTE_REBSORTEN = new Set([
   'Zweigelt', 'Blaufränkisch', 'Pinot Noir', 'Blauburgunder',
   'Cabernet Sauvignon', 'Merlot', 'Blauer Portugieser', 'Blauer Wildbacher',
   'Sankt Laurent', 'St. Laurent', 'Syrah', 'Blauburger',
 ])
 
+/** Farbe je amtlichem Sortenkürzel (BKI-Datenblatt: Spalten Weiss/Rot). Rosé-Verschnitt
+ *  stammt aus roten Trauben. DT (Direktträger) und SP (gleichgepresst) sind nicht eindeutig. */
+const ROTE_KUERZEL = new Set(['ZW', 'BF', 'CS', 'CF', 'ME', 'BB', 'BL', 'BP', 'BW', 'SL', 'SH', 'RH', 'RL', 'CJ', 'PI', 'RE', 'SO', 'SR'])
+const WEISSE_KUERZEL = new Set([
+  'GV', 'WR', 'RR', 'CH', 'SB', 'GR', 'WB', 'NB', 'RV', 'FV', 'MO', 'TR', 'MT', 'SA', 'SY', 'MU', 'ZF', 'RG',
+  'BO', 'FU', 'GB', 'GL', 'BM', 'DR', 'DV', 'JU', 'SG', 'MC', 'GW', 'BN', 'CB', 'JO', 'OR', 'SI', 'SW',
+])
+
+function sortenSchluessel(s: string): string {
+  return s.normalize('NFC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('de')
+}
+
+let kuerzelNormalisiert: Map<string, string> | null = null
+
+/**
+ * Amtliches BKI-Kürzel oder null – OHNE Ersatzkürzel. Für Behördenmeldungen (CSV,
+ * BKI-Datenblatt): eine unbekannte Sorte bleibt leer und wird als Warnung gemeldet.
+ * Schreibweisen werden tolerant verglichen (Groß-/Kleinschreibung, Leerzeichen, NFC).
+ */
+export function bkiRebsorteKuerzel(rebsorte: string | null | undefined): string | null {
+  if (!rebsorte || !rebsorte.trim()) return null
+  const direkt = REBSORTE_KUERZEL[rebsorte]
+  if (direkt) return direkt
+  if (!kuerzelNormalisiert) {
+    kuerzelNormalisiert = new Map(Object.entries(REBSORTE_KUERZEL).map(([name, k]) => [sortenSchluessel(name), k]))
+  }
+  return kuerzelNormalisiert.get(sortenSchluessel(rebsorte)) ?? null
+}
+
+/** Farbe der Trauben laut Kürzelliste – null, wenn die Sorte kein Kürzel hat oder nicht eindeutig ist */
+export function bkiFarbe(rebsorte: string | null | undefined): 'weiss' | 'rot' | null {
+  const k = bkiRebsorteKuerzel(rebsorte)
+  if (!k) return null
+  if (ROTE_KUERZEL.has(k)) return 'rot'
+  if (WEISSE_KUERZEL.has(k)) return 'weiss'
+  return null
+}
+
+/** Anzeige-Kürzel: amtlich, sonst (nur für die Oberfläche) die ersten vier Buchstaben.
+ *  Für Behördenmeldungen bkiRebsorteKuerzel() verwenden. */
 export function getRebsorteKuerzel(rebsorte: string | null | undefined): string {
   if (!rebsorte) return ''
-  return REBSORTE_KUERZEL[rebsorte] ?? rebsorte.slice(0, 4).toUpperCase()
+  return bkiRebsorteKuerzel(rebsorte) ?? rebsorte.slice(0, 4).toUpperCase()
 }
 
 /**
@@ -146,19 +213,65 @@ export function getRebsorteKuerzel(rebsorte: string | null | undefined): string 
  * z.B. "Zierfandler (ZF)". Für die systemweite Ausrollung der
  * Kürzel-Anzeige (siehe REBSORTE_KUERZEL) gedacht - einheitliche
  * Stelle statt an jeder UI-Stelle "${name} (${kuerzel})" neu zu bauen.
+ *
+ * KAN-36 (25.09.2026): nur noch mit AMTLICHEM Kürzel – eine Sorte ohne Eintrag in der
+ * BKI-Kürzelliste erscheint ohne Klammer („Uhudler“ statt „Uhudler (UHUD)“). Die Funktion
+ * steckt auch in Behördenmeldungen (Transportbescheinigung „Traubensorte(n)“,
+ * Prüfnummernantrag, Weinbuch, Bewegungsbuch) – dort darf kein Fantasiekürzel stehen.
  */
 export function formatRebsorteMitKuerzel(rebsorte: string | null | undefined): string {
   if (!rebsorte) return '–'
-  const kuerzel = getRebsorteKuerzel(rebsorte)
+  const kuerzel = bkiRebsorteKuerzel(rebsorte)
   return kuerzel ? `${rebsorte} (${kuerzel})` : rebsorte
 }
 
+/**
+ * Hinweise für Behörden-CSVs mit einer Spalte „BKI-Kürzel“: je Rebsorte ohne amtliches
+ * Kürzel ein Eintrag (Spalte bleibt dort leer) – zusammengefasst mit Anzahl der Zeilen.
+ */
+export function fehlendeKuerzelHinweise(
+  sorten: readonly (string | null | undefined)[],
+  opts: { spalte?: string; einheit?: readonly [string, string]; stammdaten?: string } = {},
+): string[] {
+  const spalte = opts.spalte ?? 'BKI-Kürzel'
+  const [eins, mehr] = opts.einheit ?? ['Zeile', 'Zeilen']
+  const fehlend = new Map<string, number>()
+  for (const s of sorten) {
+    const t = typeof s === 'string' ? s.trim() : ''
+    if (!t || bkiRebsorteKuerzel(t)) continue
+    fehlend.set(t, (fehlend.get(t) ?? 0) + 1)
+  }
+  return [...fehlend]
+    .sort(([a], [b]) => a.localeCompare(b, 'de'))
+    .map(([s, n]) => `Rebsorte „${s}“ steht nicht in der BKI-Kürzelliste – Spalte „${spalte}“ leer gelassen (${n} ${n === 1 ? eins : mehr}).${opts.stammdaten ? ` Schreibweise in den Stammdaten (${opts.stammdaten}) prüfen.` : ''}`)
+}
+
+/**
+ * Qualitätsstufe → BKI-Kürzel samt Hinweis für die Warnliste der CSV (KAN-36).
+ *  - amtliche Stufe → Kürzel, kein Hinweis
+ *  - Reserve / Erste Lage / Großes Gewächs → QUW (Grundstufe Qualitätswein) mit Hinweis
+ *  - Ausbruch, Sekt, Perlwein, Sonstiges, unbekannte Werte → leer mit Hinweis
+ *  - leer → leer, kein Hinweis
+ */
+export function qualitaetBki(q: string | null | undefined): { kuerzel: string; hinweis: string | null } {
+  const wert = (q ?? '').trim().toLowerCase()
+  if (!wert) return { kuerzel: '', hinweis: null }
+  const kuerzel = QUALITAET_BKI[wert]
+  if (kuerzel) return { kuerzel, hinweis: null }
+  const zusatz = QUALITAET_GRUNDSTUFE_QUW[wert]
+  if (zusatz) return { kuerzel: 'QUW', hinweis: `„${zusatz}“ hat kein eigenes BKI-Kürzel – als Qualitätswein (QUW) gemeldet` }
+  const ohne = QUALITAET_OHNE_BKI[wert]
+  if (ohne) return { kuerzel: '', hinweis: `„${ohne}“ steht nicht in der BKI-Kürzelliste – Qualitätsstufe leer gelassen` }
+  return { kuerzel: '', hinweis: `Qualitätsstufe „${q}“ ist unbekannt – Qualitätsstufe leer gelassen` }
+}
+
+/** Nur das Kürzel (leer, wenn es keines gibt – kein Ersatzkürzel mehr, KAN-36) */
 export function getQualitaetBki(q: string | null | undefined): string {
-  if (!q) return ''
-  return QUALITAET_BKI[q.toLowerCase()] ?? q.toUpperCase().slice(0, 4)
+  return qualitaetBki(q).kuerzel
 }
 
 export function isRotwein(rebsorte: string | null | undefined): boolean {
   if (!rebsorte) return false
-  return ROTE_REBSORTEN.has(rebsorte)
+  const farbe = bkiFarbe(rebsorte)
+  return farbe ? farbe === 'rot' : ROTE_REBSORTEN.has(rebsorte)
 }

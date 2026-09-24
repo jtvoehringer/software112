@@ -1,20 +1,16 @@
 // Datenzugriff für das Anlagenverzeichnis (Server), Rechenlogik in @/lib/ea/anlagen.
 import type { Ctx, R } from '@/app/(dashboard)/dashboard/_shared/data'
 import type { Anlage, AfaBuchungRoh } from '@/lib/ea/anlagen'
+import { anlageAusZeile } from '@/lib/behoerden/anlagen'
 
 /** Kontonummer der Klasse 0 vierstellig (660 → 0660) */
 export const kontoText = (n: number | null) => n === null ? '–' : String(n).padStart(4, '0')
 
 export type BuchungsKandidat = { id: string; datum: string; beschreibung: string; betrag_netto: number; kategorie: string }
 
+/** ea_anlagen-Zeile → Anlage – dieselbe Umwandlung wie das Anlagenverzeichnis (lib/behoerden/anlagen.ts, CSV) */
 export function zuAnlage(r: R): Anlage {
-  return {
-    id: r.id, name: r.name, gruppe: r.gruppe ?? null, konto_nr: r.konto_nr === null || r.konto_nr === undefined ? null : Number(r.konto_nr),
-    anschaffung_am: String(r.anschaffung_am).slice(0, 10), ak_netto: Number(r.ak_netto), nutzungsdauer_jahre: Number(r.nutzungsdauer_jahre),
-    methode: r.methode, degressiv_satz: r.degressiv_satz === null || r.degressiv_satz === undefined ? null : Number(r.degressiv_satz),
-    restwert: Number(r.restwert ?? 0), abgang_am: r.abgang_am ? String(r.abgang_am).slice(0, 10) : null,
-    veraeusserungserloes: r.veraeusserungserloes === null || r.veraeusserungserloes === undefined ? null : Number(r.veraeusserungserloes),
-  }
+  return anlageAusZeile(r)
 }
 
 export async function ladeAnlagen(ctx: Ctx): Promise<(Anlage & { transaktion_id: string | null; notizen: string | null })[]> {

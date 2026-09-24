@@ -1,0 +1,6 @@
+﻿kontonummer;kontoart;name;strasse;plz;ort;land;uid;email;telefon;zahlungsziel;skontopz;skontotage;extnummer
+200001;D;"Gasthaus ""Zur Linde""";Hauptstraße 12;3500;Krems an der Donau;AT;ATU12345678;office@zurlinde.at;+43 2732 12345;14;2;10;K-0042
+200002;D;"Weinhandel Huber; Filiale Wien";Mariahilfer Straße 101/3;1060;Wien;AT;ATU87654321;einkauf@huber-wein.at;+43 1 5961234;30;2,5;14;
+200003;D;Weingut Müller GmbH;Weinstraße 3;67146;Deidesheim;DE;DE123456789;info@mueller-wein.de;+49 6326 700;30;;;K-0107
+200004;D;März Josef;Kellergasse 7;3491;Straß im Straßertale;AT;;j.maerz@example.at;;;;;
+300001;K;Weinbau Technik GmbH;Industriestraße 5;2000;Stockerau;AT;ATU11223344;;+43 2266 6789;30;3;8;

@@ -6,6 +6,11 @@ import { upsertTraubenverkauf, deleteTraubenverkauf } from './actions'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import { qualitaetLabel } from '@/lib/wein/qualitaet'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
+import { csvDatei, csvDateiname, HINWEIS_BKI_UPLOAD } from '@/lib/csv'
+import { csvPfad } from '@/lib/behoerden/katalog'
+import { SPALTEN_TRAUBENVERKAUF_LISTE, type TraubenverkaufListenZeile } from '@/lib/behoerden/traubenverkauf'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -17,6 +22,8 @@ interface Props {
   kontakte:     R[]
   firmen:       R[]
   writeOk:      boolean
+  /** BKI-Datenblatt (Pflichtmeldung) – gleiche Regel wie die CSV-Route */
+  bkiErlaubt:   boolean
 }
 
 const QUALITAETEN = [
@@ -39,7 +46,7 @@ function fmt(n: number | null | undefined, digits = 2) {
   return fmtNum(n, digits)
 }
 
-export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOptions, kontakte, firmen, writeOk }: Props) {
+export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOptions, kontakte, firmen, writeOk, bkiErlaubt }: Props) {
   const [showForm, setShowForm]      = useState(false)
   const [editRow, setEditRow]        = useState<R | null>(null)
   const [error, setError]            = useState<string | null>(null)
@@ -58,6 +65,8 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
   const [qualitaet, setQualitaet]   = useState('')
   const [herkunft, setHerkunft]     = useState('')
   const [kaeuferTyp, setKaeuferTyp] = useState<'firma' | 'kontakt'>('firma')
+  // Jahrgang des BKI-Datenblatts ('' = alle Jahrgänge)
+  const [bkiJahrgang, setBkiJahrgang] = useState('')
 
   // Verfügbare kg je Zukauf-Posten, während einer Bearbeitung um die eigene
   // Zeile bereinigt (analog verfuegbareKgByWG/GST unten).
@@ -217,32 +226,41 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
     })
   }
 
-  function handleCSV() {
-    const BOM = '﻿'
-    const headers = ['Liefernummer','Datum','Ried','GST','Jahrgang','Menge kg','Preis EUR/kg','KMW Grad','Qualitaet','Gesundheit','Herkunftscode','Kaeufer','Notizen']
-    const rows: string[][] = [headers]
-    for (const v of verkaufe) {
+  // Interne Traubenverkauf-Liste (Excel) über den Baustein lib/csv – Umlaute im Kopf,
+  // Semikolon, BOM, Formelschutz. Das amtliche Format ist das BKI-Datenblatt.
+  function listeErzeugen() {
+    const zahl = (x: unknown) => (x === null || x === undefined || x === '' ? null : Number(x))
+    const zeilen: TraubenverkaufListenZeile[] = verkaufe.map(v => {
       const wg  = v.weingarten as R | null
       const gst = v.grundstueck as R | null
       const jg  = v.jahrgang as R | null
+      const zukaufPosten = v.zukauf_posten_id ? zukaufOptions.find(z => z.id === v.zukauf_posten_id) : null
       const kaeufer = (v.firma as R | null)?.name ??
-        ([(v.kontakt as R | null)?.vorname, (v.kontakt as R | null)?.nachname].filter(Boolean).join(' ') || '')
-      rows.push([
-        v.liefernummer ?? '', fmtDate(v.datum),
-        wg?.name ?? '', gst?.gst_nr ?? '', jg?.jahrgang ?? '',
-        String(v.menge_kg).replace('.', ','),
-        v.preis_per_kg != null ? String(v.preis_per_kg).replace('.', ',') : '',
-        v.kmw_grad != null ? String(v.kmw_grad).replace('.', ',') : '',
-        v.qualitaetsstufe ?? '', v.gesundheit ?? '', v.herkunft_code ?? '', kaeufer, v.notizen ?? '',
-      ])
-    }
-    const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(';')).join('\r\n')
-    const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url; a.download = 'traubenverkauf.csv'; a.click()
-    URL.revokeObjectURL(url)
+        ([(v.kontakt as R | null)?.vorname, (v.kontakt as R | null)?.nachname].filter(Boolean).join(' ') || null)
+      const zukaufText = [zukaufPosten?.rebsorte, zukaufPosten?.lieferant ? `(${zukaufPosten.lieferant})` : null].filter(Boolean).join(' ')
+      return {
+        liefernummer: v.liefernummer ?? null,
+        datum: v.datum ?? null,
+        jahrgang: jg?.jahrgang ?? null,
+        quelle: wg?.name ?? (v.zukauf_posten_id ? (zukaufText ? `Zukauf – ${zukaufText}` : 'Zukauf') : null),
+        gstNr: gst?.gst_nr ?? null,
+        mengeKg: zahl(v.menge_kg),
+        preisProKg: zahl(v.preis_per_kg),
+        kmw: zahl(v.kmw_grad),
+        qualitaet: v.qualitaetsstufe ? qualitaetLabel(v.qualitaetsstufe) : null,
+        gesundheit: v.gesundheit ?? null,
+        herkunftscode: v.herkunft_code ?? null,
+        kaeufer,
+        rechnungsnummer: (v.verkaufsposten as R | null)?.rechnungsnummer ?? null,
+        notizen: v.notizen ?? null,
+      }
+    })
+    const datei = csvDatei(zeilen, SPALTEN_TRAUBENVERKAUF_LISTE)
+    return { text: datei.text, zeilen: datei.zeilen, warnungen: datei.warnungen, dateiname: csvDateiname(['Traubenverkauf-Liste']).utf8 }
   }
+
+  // Jahrgänge mit Traubenverkäufen (Auswahl für das BKI-Datenblatt), neueste zuerst
+  const bkiJahrgaenge = [...new Set(verkaufe.map(v => (v.jahrgang as R | null)?.jahrgang).filter((j): j is number => typeof j === 'number'))].sort((a, b) => b - a)
 
   const sumKg  = verkaufe.reduce((s, v) => s + Number(v.menge_kg ?? 0), 0)
   const sumEur = verkaufe.reduce((s, v) => v.preis_per_kg != null ? s + Number(v.menge_kg) * Number(v.preis_per_kg) : s, 0)
@@ -253,7 +271,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
     <div className={`space-y-6 ${isPending ? 'opacity-60 pointer-events-none' : ''}`}>
 
       {/* Aktions-Leiste */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           {verkaufe.length > 0 && (
             <>
@@ -266,11 +284,19 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
             </>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-start gap-3 flex-wrap justify-end">
           {verkaufe.length > 0 && (
-            <button onClick={handleCSV} className="text-xs bg-[#F2F3F5] hover:bg-s112-line text-s112-text-2 font-medium px-3 py-1.5 rounded-lg transition-colors">
-              CSV exportieren
-            </button>
+            <CsvExportKnopf label="Liste als CSV" erzeugen={listeErzeugen} />
+          )}
+          {bkiErlaubt && verkaufe.length > 0 && (
+            <div className="flex items-start gap-1.5">
+              <select aria-label="Jahrgang für das BKI-Datenblatt" value={bkiJahrgang} onChange={e => setBkiJahrgang(e.target.value)}
+                className="text-xs border border-s112-border rounded-lg px-2 py-1.5 bg-white">
+                <option value="">alle Jahrgänge</option>
+                {bkiJahrgaenge.map(j => <option key={j} value={j}>{j}</option>)}
+              </select>
+              <CsvExportKnopf label="BKI-Datenblatt als CSV" hinweis={HINWEIS_BKI_UPLOAD} href={csvPfad('bki-traubenverkauf', { jahrgang: bkiJahrgang })} />
+            </div>
           )}
           {writeOk && !showForm && (
             <button onClick={openNew} className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors">

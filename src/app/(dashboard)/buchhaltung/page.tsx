@@ -1,11 +1,16 @@
+// behoerdenmeldung: ea-journal
 import { redirect } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { deleteEaTransaktion } from './actions'
-import CsvExportButton from './CsvExportButton'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { Trash2, Link2, Lock } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
+import { wienHeute } from '@/lib/csv'
+import { csvPfad } from '@/lib/behoerden/katalog'
+import { ladeEaJournal } from '@/lib/behoerden/ea-journal'
+import { datumText, summe } from '@/lib/behoerden/buchhaltung-gemeinsam'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,10 +21,14 @@ function fmt(n: number | null | undefined) {
   return fmtNum((n ?? 0), 2)
 }
 
+// Behördenmeldung „ea-journal“ (24.09.2026): Die Buchungsliste kommt aus ladeEaJournal()
+// (lib/behoerden/ea-journal.ts) – dieselbe Ladefunktion liefert die CSV
+// (/meldungen/ea-journal/csv?jahr=&typ=&q=, gleicher Filter wie die Seite, ohne 1.000er-Deckel).
+
 export default async function BuchhaltungPage({
   searchParams,
 }: {
-  searchParams: { jahr?: string; typ?: string; q?: string }
+  searchParams: Promise<{ jahr?: string; typ?: string; q?: string }>
 }) {
   const supabase   = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
@@ -32,41 +41,29 @@ export default async function BuchhaltungPage({
   if (!einst?.modul_ea) redirect('/dashboard')
 
   const sp       = await searchParams
-  const jahr     = parseInt(sp.jahr ?? '') || new Date().getFullYear()
-  const typFilter = sp.typ ?? ''
-  const q        = sp.q ?? ''
+  const aktJahr  = Number(wienHeute().slice(0, 4))
+  const jahr     = parseInt(sp.jahr ?? '') || aktJahr
+  const typFilter = sp.typ === 'einnahme' || sp.typ === 'ausgabe' ? sp.typ : ''
+  const q        = (sp.q ?? '').trim().slice(0, 200)
 
-  // Buchungen laden
-  let query = (supabase.from('ea_transaktionen') as any)
-    .select('*, ea_kategorien(name, konto_nr), verkaufsposten(rechnungsnummer, kontakt:kontakte!kontakt_id(accountnummer), firma:firmen(debitor_nr, accountnummer))')
-    // abzugsfaehig_pct/betrag_abzugsfaehig kommen bereits über '*' mit (Migration 168)
-    .eq('tenant_id', tenantId)
-    .gte('datum', `${jahr}-01-01`)
-    .lte('datum', `${jahr}-12-31`)
-    .order('datum', { ascending: false })
-
-  if (typFilter) query = query.eq('typ', typFilter)
-  if (q)         query = query.ilike('beschreibung', `%${q}%`)
-
-  const { data: buchungen } = await query
+  // Buchungen laden – chronologisch aus der Ladefunktion, hier neueste zuerst
+  const { zeilen } = await ladeEaJournal(supabase, tenantId, { jahr, typ: typFilter || null, q: q || null })
+  const buchungen = [...zeilen].reverse()
   // Anlagenverzeichnis (Migration 200): welche Anschaffungsbuchungen sind schon eine Anlage?
   const { data: anlagenRaw } = await (supabase.from('ea_anlagen') as any).select('id, transaktion_id').eq('tenant_id', tenantId).not('transaktion_id', 'is', null)
   const anlageZuBuchung = new Map<string, string>(((anlagenRaw ?? []) as R[]).map(a => [a.transaktion_id as string, a.id as string]))
 
-  // Summen berechnen
-  const einnahmen = (buchungen as R[])?.filter(b => b.typ === 'einnahme')
-    .reduce((s: number, b: R) => s + (b.betrag_brutto ?? 0), 0) ?? 0
-  const ausgaben = (buchungen as R[])?.filter(b => b.typ === 'ausgabe')
-    .reduce((s: number, b: R) => s + (b.betrag_brutto ?? 0), 0) ?? 0
+  // Summen aus den (gerundeten) Zeilenwerten – wie in der CSV
+  const einnahmen = summe(buchungen.filter(b => b.typ === 'einnahme').map(b => b.brutto))
+  const ausgaben = summe(buchungen.filter(b => b.typ === 'ausgabe').map(b => b.brutto))
 
   // Migration 168 - nicht abzugsfähiger Anteil bei eingeschränkt abzugsfähigen
   // Ausgaben (z.B. 50% Bewirtung/Repräsentation gem. § 20 EStG). Nur ein
   // Info-Wert zur Abstimmung mit dem Steuerberater - ersetzt keine
   // vollständige steuerliche Gewinnermittlung (AfA, GWG, Privatanteile etc.).
-  const nichtAbzugsfaehig = (buchungen as R[])?.filter(b => b.typ === 'ausgabe')
-    .reduce((s: number, b: R) => s + Math.max(0, (b.betrag_netto ?? 0) - (b.betrag_abzugsfaehig ?? b.betrag_netto ?? 0)), 0) ?? 0
+  const nichtAbzugsfaehig = summe(buchungen.map(b => b.nichtAbzugsfaehig))
 
-  const jahre = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
+  const jahre = Array.from({ length: 5 }, (_, i) => aktJahr - i)
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -135,8 +132,8 @@ export default async function BuchhaltungPage({
       </form>
 
       {/* Quick-Links */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex gap-2 text-sm">
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="flex flex-wrap gap-x-2 gap-y-1 text-sm pt-1">
           <Link href="/buchhaltung/belege" className="text-s112-blue-700 hover:underline">Belege</Link>
           <span className="text-s112-tertiary">·</span>
           <Link href="/buchhaltung/uva" className="text-s112-blue-700 hover:underline">UVA-Meldung</Link>
@@ -148,10 +145,12 @@ export default async function BuchhaltungPage({
           <Link href="/buchhaltung/monatsabschluss" className="text-s112-blue-700 hover:underline">Monatsabschluss</Link>
           <span className="text-s112-tertiary">·</span>
           <Link href="/buchhaltung/anlagen" className="text-s112-blue-700 hover:underline">Anlagen & AfA</Link>
+          <span className="text-s112-tertiary">·</span>
+          <Link href="/buchhaltung/rechnungsjournal" className="text-s112-blue-700 hover:underline">Rechnungsjournal</Link>
+          <span className="text-s112-tertiary">·</span>
+          <Link href="/buchhaltung/kassabuch" className="text-s112-blue-700 hover:underline">Kassabuch</Link>
         </div>
-        {buchungen && buchungen.length > 0 && (
-          <CsvExportButton buchungen={buchungen as R[]} jahr={jahr} />
-        )}
+        <CsvExportKnopf href={csvPfad('ea-journal', { jahr, typ: typFilter, q })} />
       </div>
 
       {/* Tabelle */}
@@ -169,7 +168,7 @@ export default async function BuchhaltungPage({
             </tr>
           </thead>
           <tbody>
-            {(!buchungen || buchungen.length === 0) && (
+            {buchungen.length === 0 && (
               <tr>
                 <td colSpan={7} className="text-center py-10 text-s112-muted">
                   Keine Buchungen für {jahr}
@@ -177,54 +176,54 @@ export default async function BuchhaltungPage({
                 </td>
               </tr>
             )}
-            {(buchungen as R[])?.map((b: R) => (
+            {buchungen.map(b => (
               <tr key={b.id} className="border-b border-s112-border/50 hover:bg-s112-bg/50">
                 <td className="px-4 py-3 text-s112-text-2 whitespace-nowrap">
-                  {new Date(b.datum).toLocaleDateString('de-AT')}
+                  {datumText(b.datum)}
                 </td>
                 <td className="px-4 py-3">
                   <span className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${b.typ === 'einnahme' ? 'bg-s112-ok' : 'bg-s112-err'}`} />
-                  {b.beschreibung}
-                  {b.is_locked && (
+                  {b.bezeichnung}
+                  {b.gesperrt && (
                     <span title="Zeitraum gesperrt (Monatsabschluss oder UVA übermittelt)">
                       <Lock className="inline-block w-3 h-3 text-s112-tertiary ml-1.5 -mt-0.5" />
                     </span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-s112-text-2 text-xs">
-                  {b.ea_kategorien?.name ?? '–'}
-                  {b.anlage_id && (
-                    <Link href={`/buchhaltung/anlagen/${b.anlage_id}`} className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-s112-blue-50 text-s112-blue-700 hover:underline" title="AfA-Buchung aus dem Anlagenverzeichnis – zurücknehmen unter Anlagen & AfA">
+                  {b.kategorie ?? '–'}
+                  {b.anlageId && (
+                    <Link href={`/buchhaltung/anlagen/${b.anlageId}`} className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-s112-blue-50 text-s112-blue-700 hover:underline" title="AfA-Buchung aus dem Anlagenverzeichnis – zurücknehmen unter Anlagen & AfA">
                       AfA
                     </Link>
                   )}
-                  {!b.anlage_id && b.typ === 'ausgabe' && b.ea_kategorien?.konto_nr != null && Number(b.ea_kategorien.konto_nr) < 1000 && (
+                  {!b.anlageId && b.typ === 'ausgabe' && b.kategorieKontoNr !== null && b.kategorieKontoNr < 1000 && (
                     anlageZuBuchung.has(b.id)
                       ? <Link href={`/buchhaltung/anlagen/${anlageZuBuchung.get(b.id)}`} className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-[#F2F3F5] text-s112-text-1 hover:underline" title="Als Anlage erfasst">Anlage</Link>
                       : <Link href={`/buchhaltung/anlagen/neu?buchung=${b.id}`} className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-s112-warn-bg text-s112-warn-fg hover:underline" title="Anschaffung noch nicht im Anlagenverzeichnis">Anlage anlegen</Link>
                   )}
-                  {Number(b.abzugsfaehig_pct ?? 100) < 100 && (
+                  {(b.abzugsfaehigPct ?? 100) < 100 && (
                     <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-s112-warn-bg text-s112-warn-fg"
                       title="Eingeschränkt abzugsfähig">
-                      {b.abzugsfaehig_pct}%
+                      {b.abzugsfaehigPct}%
                     </span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-s112-text-2">{b.ust_satz}%</td>
-                <td className="px-4 py-3 text-right font-mono">€ {fmt(b.betrag_netto)}</td>
+                <td className="px-4 py-3 text-s112-text-2">{b.ustSatz === null ? '–' : `${b.ustSatz}%`}</td>
+                <td className="px-4 py-3 text-right font-mono">€ {fmt(b.netto)}</td>
                 <td className={`px-4 py-3 text-right font-mono font-semibold ${b.typ === 'einnahme' ? 'text-s112-ok-fg' : 'text-s112-err'}`}>
-                  € {fmt(b.betrag_brutto)}
+                  € {fmt(b.brutto)}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {b.verkaufsposten_id ? (
+                  {b.verkaufspostenId ? (
                     <Link
-                      href={`/weinhandel/verkauf/${b.verkaufsposten_id}`}
+                      href={`/weinhandel/verkauf/${b.verkaufspostenId}`}
                       className="inline-flex items-center gap-1 text-xs text-s112-tertiary hover:text-s112-blue-700"
-                      title={`Automatisch aus Zahlungseingang${b.verkaufsposten?.rechnungsnummer ? ` (${b.verkaufsposten.rechnungsnummer})` : ''} – zur Löschung Zahlung stornieren`}
+                      title={`Automatisch aus Zahlungseingang${b.rechnungsnummer ? ` (${b.rechnungsnummer})` : ''} – zur Löschung Zahlung stornieren`}
                     >
                       <Link2 className="w-3.5 h-3.5" /> Verkauf
                     </Link>
-                  ) : b.anlage_id ? null : !b.is_locked && (
+                  ) : b.anlageId ? null : !b.gesperrt && (
                     <form action={async () => {
                       'use server'
                       await deleteEaTransaktion(b.id)

@@ -2,65 +2,18 @@
 
 import { useState, useCallback, useTransition } from 'react'
 import { Trash2 } from 'lucide-react'
+import Link from '@/components/ui/Link'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { saveTB } from './actions'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type R = Record<string, any>
-
-interface WeinPosition {
-  menge_liter: string
-  art: string          // Rot/Weiß/Rosé
-  traubensorte: string
-  qualitaetsstufe: string
-  jahrgang: string
-  herkunft: string
-  fremd_sorten_pct: string
-  fremd_jg_pct: string
-  pruefnummer: string
-  anreicherung: string // J/N
-  alkohol_pct: string
-  kmw: string
-}
-
-interface TBDaten {
-  laufende_nr: string
-  jahr: string
-  datum_tag: string
-  datum_monat: string
-  datum_jahr: string
-  uhrzeit: string
-  zugmaschine: string
-  anhaenger1: string
-  anhaenger2: string
-  // Versender
-  v_betriebsnummer: string
-  v_telefon: string
-  v_name: string
-  v_vorname: string
-  v_strasse: string
-  v_hausnr: string
-  v_plz: string
-  v_ort: string
-  v_ort_versendung: string
-  v_plz_versendung: string
-  // Empfänger
-  e_betriebsnummer: string
-  e_telefon: string
-  e_name: string
-  e_vorname: string
-  e_strasse: string
-  e_hausnr: string
-  e_plz: string
-  e_ort: string
-  e_ort_einlagerung: string
-  e_plz_einlagerung: string
-  // Weinpositionen
-  positionen: WeinPosition[]
-}
+// Nur Typen (werden beim Übersetzen entfernt) – Datenmodell samt Vorbelegung und CSV-Abflachung
+// liegt in lib/behoerden/transportbescheinigung.ts (gemeinsam mit /meldungen/transportbescheinigung/csv)
+import type { TBDaten, TBWeinposition as WeinPosition } from '@/lib/behoerden/transportbescheinigung'
 
 interface Props {
   verkaufspostenId: string
   initial: TBDaten
+  /** CSV derselben (gespeicherten) Transportbescheinigung: csvPfad('transportbescheinigung', …) */
+  csvHref: string
 }
 
 const inputCls = 'border border-s112-line-str px-1.5 py-0.5 text-xs w-full focus:outline-none focus:border-s112-teal print:border-s112-line-str bg-white'
@@ -75,14 +28,17 @@ function FeldGruppe({ label, children, className = '' }: { label: string; childr
   )
 }
 
-export default function TBFormular({ verkaufspostenId, initial }: Props) {
+export default function TBFormular({ verkaufspostenId, initial, csvHref }: Props) {
   const [daten, setDaten] = useState<TBDaten>(initial)
   const [gespeichert, setGespeichert] = useState(false)
+  // Ungespeicherte Änderungen: die CSV liest den gespeicherten Stand aus der Datenbank
+  const [geaendert, setGeaendert] = useState(false)
   const [pending, startTransition] = useTransition()
 
   const set = useCallback((key: keyof TBDaten, value: string) => {
     setDaten(prev => ({ ...prev, [key]: value }))
     setGespeichert(false)
+    setGeaendert(true)
   }, [])
 
   const setPos = useCallback((i: number, key: keyof WeinPosition, value: string) => {
@@ -92,35 +48,41 @@ export default function TBFormular({ verkaufspostenId, initial }: Props) {
       return { ...prev, positionen: pos }
     })
     setGespeichert(false)
+    setGeaendert(true)
   }, [])
 
   function addPos() {
     setDaten(prev => ({
       ...prev,
       positionen: [...prev.positionen, {
-        menge_liter: '', art: 'Weiß', traubensorte: '', qualitaetsstufe: '',
+        menge_liter: '', einheit: 'l', art: 'Weiß', traubensorte: '', qualitaetsstufe: '',
         jahrgang: '', herkunft: '', fremd_sorten_pct: '', fremd_jg_pct: '',
         pruefnummer: '', anreicherung: 'N', alkohol_pct: '', kmw: '',
       }],
     }))
+    setGespeichert(false)
+    setGeaendert(true)
   }
 
   function removePos(i: number) {
     setDaten(prev => ({ ...prev, positionen: prev.positionen.filter((_, j) => j !== i) }))
+    setGespeichert(false)
+    setGeaendert(true)
   }
 
   function handleSave() {
     startTransition(async () => {
       await saveTB(verkaufspostenId, daten)
       setGespeichert(true)
+      setGeaendert(false)
     })
   }
 
   return (
     <div className="space-y-6">
       {/* Toolbar */}
-      <div className="flex items-center justify-between no-print">
-        <div className="flex items-center gap-2">
+      <div className="flex items-start justify-between gap-4 no-print">
+        <div className="flex flex-wrap items-start gap-2">
           <button
             onClick={handleSave}
             disabled={pending}
@@ -128,17 +90,28 @@ export default function TBFormular({ verkaufspostenId, initial }: Props) {
           >
             {pending ? 'Speichern…' : 'Speichern'}
           </button>
-          {gespeichert && <span className="text-xs text-s112-ok-fg">Gespeichert</span>}
+          {gespeichert && <span className="text-xs text-s112-ok-fg self-center">Gespeichert</span>}
           <button
             onClick={() => window.print()}
             className="border border-s112-border px-4 py-1.5 rounded-lg text-sm hover:bg-s112-bg"
           >
             Drucken
           </button>
+          <CsvExportKnopf href={csvHref} className="self-center" />
+          {geaendert && (
+            <span className="text-xs text-s112-warn-fg self-center max-w-xs">
+              Ungespeicherte Änderungen – die CSV enthält den zuletzt gespeicherten Stand.
+            </span>
+          )}
         </div>
-        <button onClick={addPos} className="text-xs text-s112-blue-700 hover:underline no-print">
-          + Weinposition hinzufügen
-        </button>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <button onClick={addPos} className="text-xs text-s112-blue-700 hover:underline no-print">
+            + Weinposition hinzufügen
+          </button>
+          <Link href="/weinhandel/transportbescheinigungen" className="text-xs text-s112-blue-700 hover:underline">
+            Alle Transportbescheinigungen eines Zeitraums
+          </Link>
+        </div>
       </div>
 
       {/* ── Offizielles Formular ── */}
@@ -324,7 +297,14 @@ export default function TBFormular({ verkaufspostenId, initial }: Props) {
               {daten.positionen.map((pos, i) => (
                 <tr key={i} className="border border-s112-line-str">
                   <td className="border border-s112-line-str p-0.5">
-                    <input className={inputCls} value={pos.menge_liter} onChange={e => setPos(i, 'menge_liter', e.target.value)} />
+                    <div className="flex gap-0.5">
+                      <input className={inputCls} aria-label={`Menge Position ${i + 1}`} value={pos.menge_liter} onChange={e => setPos(i, 'menge_liter', e.target.value)} />
+                      <select className={`${inputCls} !w-auto`} aria-label={`Einheit Position ${i + 1}`} value={pos.einheit ?? ''} onChange={e => setPos(i, 'einheit', e.target.value)}>
+                        <option value="">–</option>
+                        <option value="l">l</option>
+                        <option value="kg">kg</option>
+                      </select>
+                    </div>
                   </td>
                   <td className="border border-s112-line-str p-0.5">
                     <select className={inputCls} value={pos.art} onChange={e => setPos(i, 'art', e.target.value)}>

@@ -1,9 +1,12 @@
+// behoerdenmeldung: bki-traubenverkauf
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import TraubenverkaufClient from './TraubenverkaufClient'
+import { KATALOG_ERNTE } from '@/lib/behoerden/katalog/ernte'
+import { betriebUndModuleLaden, zugriffsFehler } from '@/lib/behoerden/zugriff'
 
 export const metadata: Metadata = { title: 'Traubenverkauf – software:112' }
 export const dynamic = 'force-dynamic'
@@ -21,8 +24,9 @@ export default async function TraubenverkaufPage() {
     return <div className="card p-10 text-center text-s112-muted text-sm">Nicht angemeldet.</div>
   }
 
-  // Bestehende Verkäufe
-  const { data: verkaufeRaw } = await (supabase.from('traubenverkauf') as any)
+  // Bestehende Verkäufe (alle() statt 1.000er-Deckel)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: verkaufeRaw } = await alle<R>((supabase.from('traubenverkauf') as any)
     .select(`
       id, datum, menge_kg, preis_per_kg, kmw_grad,
       qualitaetsstufe, herkunft_code, gesundheit, liefernummer, notizen, jahrgang_id, grundstueck_id, zukauf_posten_id, verkaufsposten_id,
@@ -30,25 +34,43 @@ export default async function TraubenverkaufPage() {
       grundstueck:grundstueck_id(id, gst_nr, rebsorte, trauben_herkunft_code),
       kontakt:kontakt_id(id, vorname, nachname),
       firma:firma_id(id, name),
-      jahrgang:jahrgang_id(id, jahrgang)
+      jahrgang:jahrgang_id(id, jahrgang),
+      verkaufsposten:verkaufsposten_id(rechnungsnummer)
     `)
     .eq('tenant_id', membership.tenantId)
     .order('datum', { ascending: false })
+    .order('id'))
 
   const verkaufe = (verkaufeRaw ?? []) as R[]
 
+  // Jahrgänge des aktiven Betriebs – ernte_parzellen hat keine tenant_id; ohne diesen
+  // Filter kämen bei Mitgliedschaft in mehreren Betrieben fremde Lesedaten dazu
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: jahrgaengeRaw, error: jgFehler } = await (supabase.from('weinjahrgaenge') as any)
+    .select('id')
+    .eq('tenant_id', membership.tenantId)
+  if (jgFehler) throw new Error(`Jahrgänge konnten nicht geladen werden: ${jgFehler.message}`)
+  const jahrgangIds = ((jahrgaengeRaw ?? []) as R[]).map(j => j.id as string)
+
   // Ernte-Parzellen als Basis für WG/GST-Optionen (alle geernteten)
-  const { data: ernteRaw } = await (supabase.from('ernte_parzellen') as any)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: ernteRaw } = jahrgangIds.length === 0 ? { data: [] as R[] } : await alle<R>((supabase.from('ernte_parzellen') as any)
     .select(`
       id, klosterneuburger, qualitaetsstufe, menge_kg, jahrgang_id,
       weingarten:weingarten_id(id, name, trauben_herkunft_code),
       grundstueck:grundstueck_id(id, gst_nr, rebsorte, trauben_herkunft_code),
       jahrgang:jahrgang_id(id, jahrgang)
     `)
+    .in('jahrgang_id', jahrgangIds)
     .not('menge_kg', 'is', null)
     .order('jahrgang_id', { ascending: false })
+    .order('id'))
 
   const ernteOptions = (ernteRaw ?? []) as R[]
+
+  // BKI-Datenblatt (Pflichtmeldung): gleiche Zugriffsregel wie /meldungen/bki-traubenverkauf/csv
+  const { module } = await betriebUndModuleLaden(supabase, membership.tenantId)
+  const bkiErlaubt = zugriffsFehler(KATALOG_ERNTE['bki-traubenverkauf'], membership, module) === null
 
   // Kontakte + Firmen für Abnehmer-Dropdown
   const { data: kontakteRaw } = await alle((supabase.from('kontakte') as any)
@@ -131,6 +153,7 @@ export default async function TraubenverkaufPage() {
         kontakte={kontakte}
         firmen={firmen}
         writeOk={writeOk}
+        bkiErlaubt={bkiErlaubt}
       />
     </div>
   )

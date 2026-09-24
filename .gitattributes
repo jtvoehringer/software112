@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Golden-Files der CSV-Tests (scripts/tests/csv.test.mjs) byte-genau: CRLF und BOM nicht normalisieren
+scripts/tests/golden/** -text

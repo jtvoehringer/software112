@@ -1,5 +1,6 @@
 import { BookOpen, Leaf, Grape, Filter, ArrowLeftRight, Wind, FlaskConical, Microscope, Award, Wine, GitMerge, type LucideIcon } from 'lucide-react'
 import type { EventTyp, TimelineEvent } from '@/lib/wein/weinbuch'
+import { WEINBUCH_TYP_LABEL } from '@/lib/behoerden/weinbuch'
 
 // Gemeinsame Timeline-Darstellung des Weinbuchs – verwendet sowohl von der
 // Einzelchargen-Seite (buch/page.tsx) als auch von der Weinbuch-Sammlung
@@ -23,18 +24,8 @@ const EVENT_STYLE: Record<EventTyp, { icon: LucideIcon; dot: string; card: strin
   verschneidung:  { icon: GitMerge,       dot: 'bg-s112-grey',  card: 'border-s112-line-str bg-[#F2F3F5]' },
 }
 
-const EVENT_LABEL: Record<EventTyp, string> = {
-  feldbehandlung: 'Feldbehandlung',
-  ernte: 'Ernte / Lese',
-  pressung: 'Pressung',
-  umzug: 'Umzug',
-  kellerbehandlung: 'Kellerbehandlung',
-  analyse: 'Analyse',
-  dac: 'DAC / Prüfnummer',
-  verschneidung: 'Verschneidung',
-  schwund: 'Schwund',
-  fuellung: 'Füllung',
-}
+// Bezeichnungen der Ereignisarten – dieselben wie in der CSV (Spalte „Art“)
+const EVENT_LABEL: Record<EventTyp, string> = WEINBUCH_TYP_LABEL
 
 export function WeinbuchTimeline({ events, zeigeLegende = true }: { events: TimelineEvent[]; zeigeLegende?: boolean }) {
   return (
