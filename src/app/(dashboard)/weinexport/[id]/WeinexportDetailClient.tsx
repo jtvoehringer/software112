@@ -32,6 +32,7 @@ interface Props { auftrag: R; positionen: R[]; dokumente: R[] }
 export default function WeinexportDetailClient({ auftrag, positionen, dokumente: initDok }: Props) {
   const [status, setStatus]       = useState(auftrag.status)
   const [dokumente, setDokumente] = useState(initDok)
+  const [dokFehler, setDokFehler] = useState<string | null>(null)
   const [saving, setSaving]       = useState(false)
 
   const importeur = auftrag.firmen?.name
@@ -52,12 +53,14 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
   }
 
   async function updateDokStatus(dokId: string, newStatus: string) {
-    await fetch(`/api/weinexport/${auftrag.id}/dokument`, {
+    setDokFehler(null)
+    const res = await fetch(`/api/weinexport/${auftrag.id}/dokument`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: dokId, status: newStatus }),
     })
-    setDokumente(d => d.map(dok => dok.id === dokId ? { ...dok, status: newStatus } : dok))
+    if (res.ok) setDokumente(d => d.map(dok => dok.id === dokId ? { ...dok, status: newStatus } : dok))
+    else setDokFehler((await res.json().catch(() => null))?.fehler ?? `Fehler (Status ${res.status})`)
   }
 
   const ausgestellt = dokumente.filter(d => d.status === 'ausgestellt').length
@@ -204,16 +207,19 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
                 <button onClick={async () => {
                   const sel = (document.getElementById('add-dok-select') as HTMLSelectElement)?.value
                   if (!sel) return
+                  setDokFehler(null)
                   const r = await fetch(`/api/weinexport/${auftrag.id}/dokument`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ dokument_art: sel }),
                   })
-                  const d = await r.json()
-                  if (d.id) setDokumente(prev => [...prev, { id: d.id, dokument_art: sel, status: 'ausstehend' }])
+                  const d = await r.json().catch(() => null)
+                  if (r.ok && d?.id) setDokumente(prev => [...prev, { id: d.id, dokument_art: sel, status: 'ausstehend' }])
+                  else setDokFehler(d?.fehler ?? `Fehler (Status ${r.status})`)
                 }} className="text-[11px] bg-s112-teal text-white px-2 py-1 rounded hover:bg-opacity-90">+</button>
               </div>
             </div>
+            {dokFehler && <p role="alert" className="mt-2 text-xs text-s112-err">{dokFehler}</p>}
           </div>
           <EmcsPanel auftragId={auftrag.id} initialArc={auftrag.emcs_arc_nummer ?? ''} initialStatus={auftrag.emcs_status ?? ''} />
         </div>
