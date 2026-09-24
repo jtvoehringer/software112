@@ -39,10 +39,10 @@ Im Supabase Dashboard → **SQL Editor**:
 
 ```sql
 -- Schritt 1: Grundstruktur
--- Datei: supabase/migrations/001_initial_schema.sql  (komplett kopieren & ausführen)
+-- Datei: supabase/migrations_legacy/001_initial_schema.sql  (komplett kopieren & ausführen)
 
 -- Schritt 2: RLS-Policies
--- Datei: supabase/migrations/002_rls_policies.sql  (komplett kopieren & ausführen)
+-- Datei: supabase/migrations_legacy/002_rls_policies.sql  (komplett kopieren & ausführen)
 ```
 
 ### 5. Lokale Entwicklung starten

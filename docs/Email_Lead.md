@@ -35,4 +35,4 @@ Lesen der Ignorier-Liste: alle Mitglieder. Schreiben (`email_lead_ignoriert`, Ko
 
 ## Dateien
 
-`supabase/migrations/202_email_lead_ignoriert.sql`, `src/lib/crm/absender.ts`, `src/lib/crm/leadEmail.ts`, `src/app/api/nachrichten/lead-vorschlag/route.ts`, `src/app/api/nachrichten/{message,list}/route.ts`, `src/app/(dashboard)/nachrichten/{LeadDialog.tsx,NachrichtenClient.tsx}`, `src/app/(dashboard)/crm/actions.ts` (createLeadAusEmail, ignoriereAbsender), Handbuch 2.7 / FAQ.
+`supabase/migrations_legacy/202_email_lead_ignoriert.sql`, `src/lib/crm/absender.ts`, `src/lib/crm/leadEmail.ts`, `src/app/api/nachrichten/lead-vorschlag/route.ts`, `src/app/api/nachrichten/{message,list}/route.ts`, `src/app/(dashboard)/nachrichten/{LeadDialog.tsx,NachrichtenClient.tsx}`, `src/app/(dashboard)/crm/actions.ts` (createLeadAusEmail, ignoriereAbsender), Handbuch 2.7 / FAQ.

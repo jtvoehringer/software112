@@ -7,7 +7,7 @@ Stand: 12.06.2026
 ## Zusammenarbeit Jörgen ↔ Claude
 
 ### Datenbankänderungen (Supabase)
-Claude erstellt SQL-Migrations-Skripte (Dateien unter `supabase/migrations/`). Jörgen führt das SQL zusätzlich manuell im **Supabase SQL Editor** aus, damit die Änderungen sofort in der Sandbox-Datenbank aktiv sind – ohne auf einen Deployment-Zyklus warten zu müssen.
+Claude spielt Migrationen über den Supabase-MCP (`apply_migration`) ein – damit sind sie sofort aktiv und in der Migrations-Historie erfasst – und legt die Datei mit der gemeldeten Version als `supabase/migrations/<version>_<name>.sql` ab (Regel siehe `CLAUDE.md`, ältere Dateien in `supabase/migrations_legacy/`). Nicht zusätzlich im **Supabase SQL Editor** ausführen: der schreibt keine Historie, dann weichen lokal und remote wieder auseinander.
 
 ### Git / Deployments (Vercel)
 Claude liefert die fertigen `git add … && git commit … && git push`-Befehle. Jörgen führt diese im **VS Code Terminal** aus – Jörgen ist immer bereits im Projektverzeichnis, daher **kein `cd`-Befehl** voranstellen. Push auf `main` löst automatisch ein Vercel-Deployment aus.

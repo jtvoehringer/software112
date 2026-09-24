@@ -45,7 +45,7 @@ const ts = require('typescript')
 const ROOT = path.resolve(__dirname, '..')
 const SRC_DIR = path.join(ROOT, 'src')
 
-// Tabellen mit tenant_id-Spalte, extrahiert aus supabase/migrations/*.sql
+// Tabellen mit tenant_id-Spalte, extrahiert aus supabase/migrations_legacy/*.sql und supabase/migrations/*.sql
 // (create table ... tenant_id / alter table ... add column tenant_id).
 // tenant_memberships bewusst NICHT hier drin - die hat eigene Semantik
 // (wird per user_id gesucht) und wird unten separat behandelt.

@@ -37,6 +37,9 @@
 - **Navigation (seit 27.8.2026, Dashboard-Relaunch):** keine Sidebar mehr – Navy-Topbar + zweizeilige Tab-Navigation (`src/components/layout/AppShell.tsx`, `Topbar.tsx`, `TabNav.tsx`), Struktur/Sichtbarkeitsregeln zentral in `src/lib/navigation/index.ts`; Befehlspalette Strg K in `src/components/CommandPalette.tsx`. Dashboard = fünf Sichten unter `src/app/(dashboard)/dashboard/` (Übersicht, kellerbuch, verkauf, weingarten, fristen; gemeinsame Bausteine in `_shared/`). `lib/auth/roles` ist server-only – `canWrite` nie in Client-Komponenten importieren.
 - **Sprache:** In allen deutschen Texten (UI-Labels, Kommentare, Fehlermeldungen) immer Umlaute verwenden: ä/ö/ü/Ä/Ö/Ü – niemals ae/oe/ue als Ersatz
 - **Skript-Sprache:** Python bevorzugt für Datei- und Datenoperationen; Node.js wenn npm-Pakete nötig (z.B. docx); Bash nur für einfache Einzeiler
+- Migrationen: `supabase/migrations/` enthält genau die Remote-Historie als `<version>_<name>.sql` (Version = Zeitstempel aus `supabase_migrations.schema_migrations`), Projekt-Ref `zwcsgnemijkpyxrqykul`. Die älteren, handnummerierten Dateien liegen unverändert in `supabase/migrations_legacy/` (bis 24.09.2026; „Migration 182“ usw. = diese Dateien).
+  Neue Migrationen per Supabase-MCP `apply_migration` mit `<name>` einspielen – nicht im SQL Editor, der schreibt keine Historie –, danach die von `list_migrations` gemeldete Version übernehmen und die Datei exakt als `supabase/migrations/<version>_<name>.sql` speichern; keine eigene Nummer oder Zeitstempel erfinden. Prüfen mit `npx supabase migration list` (lokal = remote).
+  Neuaufbau einer Datenbank: alle Dateien aus `migrations_legacy/` in Reihenfolge, danach nur die Dateien aus `migrations/` mit Version nach `20260923190744`.
 
 ## Aktuelle Nutzer
 
@@ -47,6 +50,9 @@
 | Paul   | pd@hohenstein-partner.at        | leser          |
 
 ## Migrations-Übersicht
+
+Die Nummern beziehen sich auf die handnummerierten Dateien in `supabase/migrations_legacy/` (bis 228, Stand 24.09.2026);
+neue Migrationen nur noch mit Remote-Version in `supabase/migrations/` (siehe Konventionen).
 
 | Migration | Inhalt |
 |-----------|--------|
