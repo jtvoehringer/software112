@@ -1,44 +1,35 @@
 'use client'
 
-import { getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
+import { csvDatei, csvDateiname } from '@/lib/csv'
+import { SPALTEN_RUECKVERFOLGUNG_TREFFER } from '@/lib/behoerden/rueckverfolgung'
+import { fehlendeKuerzelHinweise } from '@/lib/wein/bki_kuerzel'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-export default function RueckverfolgungCsvExportButton({ treffer }: { treffer: R[] }) {
-  function handleCSV() {
-    const BOM = '﻿'
-    const headers = ['Produktname', 'Bezeichnung', 'Jahrgang', 'Sorte', 'Kürzel', 'Qualität', 'Chargennummer', 'Prüfnummer', 'Bestand (Flaschen)']
-    const rows: string[][] = [headers]
-    for (const f of treffer) {
-      rows.push([
-        f.name ?? '',
-        f.bezeichnung ?? '',
-        f.jahrgang != null ? String(f.jahrgang) : '',
-        f.rebsorte ?? '',
-        getRebsorteKuerzel(f.rebsorte),
-        f.qualitaet ?? '',
-        f.chargennummer ?? '',
-        f.pruefnummer ?? '',
-        String(parseInt(f.bestand_flaschen) || 0),
-      ])
-    }
-    const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(';')).join('\r\n')
-    const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'rueckverfolgung_fuellungen.csv'
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
+// Trefferliste der Rückverfolgung als CSV – seit 24.09.2026 über den Baustein lib/csv
+// (Semikolon, BOM, CRLF, Formelschutz, Codes unverändert). Die ganze Kette Füllung →
+// Charge → Pressung → Weingarten liefert die Meldung „rueckverfolgung“ (Server-CSV).
+export default function RueckverfolgungCsvExportButton({
+  treffer,
+  filter,
+}: {
+  treffer: R[]
+  filter: { jahrgang: number | null; sorte: string | null; bezeichnung: string | null }
+}) {
   return (
-    <button
-      onClick={handleCSV}
-      className="text-xs bg-[#F2F3F5] hover:bg-s112-line text-s112-text-2 font-medium px-3 py-1.5 rounded-lg transition-colors"
-    >
-      CSV exportieren
-    </button>
+    <CsvExportKnopf
+      label="Trefferliste als CSV"
+      erzeugen={() => {
+        const datei = csvDatei(treffer, SPALTEN_RUECKVERFOLGUNG_TREFFER)
+        return {
+          text: datei.text,
+          zeilen: datei.zeilen,
+          warnungen: [...datei.warnungen, ...fehlendeKuerzelHinweise(treffer.map(t => t.rebsorte), { einheit: ['Füllung', 'Füllungen'] })],
+          dateiname: csvDateiname(['Rückverfolgung-Füllungen', filter.jahrgang, filter.sorte, filter.bezeichnung]).utf8,
+        }
+      }}
+    />
   )
 }

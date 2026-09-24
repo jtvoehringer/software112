@@ -1,3 +1,4 @@
+// behoerdenmeldung: blend-protokoll
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -5,27 +6,18 @@ import Link from '@/components/ui/Link'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { GitMerge } from 'lucide-react'
-import { qualitaetLabel } from '@/lib/wein/qualitaet'
-import { resolveBlendKomposition, type KompositionUrsprung } from '@/lib/wein/blendKomposition'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import PrintButton from './PrintButton'
 import { fmtNum } from '@/lib/format'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
+import { csvPfad } from '@/lib/behoerden/katalog'
+import { herkunftLabel, ladeBlendProtokoll } from '@/lib/behoerden/blend'
 
 export const metadata: Metadata = { title: 'Blend-Protokoll – software:112' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
-
-function herkunftLabel(u: KompositionUrsprung): string {
-  if (u.typ === 'pressung') {
-    const teile = [u.weingarten_name, u.gst_nr ? `GST ${u.gst_nr}` : null].filter(Boolean)
-    return teile.length > 0 ? teile.join(' · ') : 'Pressung (Weingarten unbekannt)'
-  }
-  if (u.typ === 'zukauf') return u.zukauf_von ? `Zukauf – ${u.zukauf_von}` : 'Zukauf'
-  if (u.typ === 'eroeffnungsbestand') return 'Eröffnungsbestand (historisch)'
-  return 'Herkunft unbekannt'
-}
 
 export default async function BlendProtokollPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -37,21 +29,19 @@ export default async function BlendProtokollPage({ params }: { params: Promise<{
   // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  const [{ data: waRaw }, { data: settingsRaw }] = await Promise.all([
-    tf((supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, rebsorte, qualitaetsstufe, menge_liter')
-      .eq('id', id)
-      .maybeSingle()),
+  if (!tenantId) notFound()
+  // Dieselbe Ladefunktion wie die CSV „blend-protokoll“ (lib/behoerden/blend.ts)
+  const [protokoll, { data: settingsRaw }] = await Promise.all([
+    ladeBlendProtokoll(supabase, tenantId, { art: 'charge', id }),
     tf((supabase.from('tenant_einstellungen') as any)
       .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, logo_url')
       .limit(1).maybeSingle()),
   ])
 
-  const wa = waRaw as R | null
-  if (!wa) notFound()
+  if (!protokoll) notFound()
+  const { kopf, komposition } = protokoll
+  const wa = { name: kopf.name, jahrgang: kopf.jahrgang, rebsorte: kopf.rebsorte, qualitaet: kopf.qualitaet, menge_liter: kopf.bezugLiter }
   const s = (settingsRaw as R | null) ?? {}
-
-  const komposition = await resolveBlendKomposition(supabase, id, tenantId)
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -65,7 +55,10 @@ export default async function BlendProtokollPage({ params }: { params: Promise<{
           <span>/</span>
           <span className="text-s112-text-1 font-medium">Blend-Protokoll</span>
         </nav>
-        <PrintButton />
+        <div className="flex items-start gap-2">
+          <PrintButton />
+          <CsvExportKnopf href={csvPfad('blend-protokoll', { charge: id })} />
+        </div>
       </div>
 
       {/* ── PROTOKOLL ─────────────────────────────────────────────────────── */}
@@ -99,6 +92,9 @@ export default async function BlendProtokollPage({ params }: { params: Promise<{
             <p className="text-xs text-s112-tertiary font-medium uppercase tracking-wide flex items-center justify-end gap-1.5">
               <GitMerge size={13} strokeWidth={1.75} />Blend-Protokoll
             </p>
+            {kopf.pruefnummer && (
+              <p className="text-lg font-semibold text-s112-blue-700 font-mono mt-0.5">{kopf.pruefnummer}</p>
+            )}
             <p className="text-xs text-s112-tertiary mt-0.5">
               Stand: {new Date().toLocaleDateString('de-AT')}
             </p>
@@ -109,11 +105,11 @@ export default async function BlendProtokollPage({ params }: { params: Promise<{
         <div className="text-center py-4 border-b border-s112-border">
           <p className="text-2xl font-semibold text-s112-text tracking-tight">{wa.name}</p>
           <p className="text-sm text-s112-text-2 mt-1">
-            {[wa.jahrgang, wa.rebsorte ? formatRebsorteMitKuerzel(wa.rebsorte) : null, wa.qualitaetsstufe ? qualitaetLabel(wa.qualitaetsstufe) : null].filter(Boolean).join(' · ')}
+            {[wa.jahrgang, wa.rebsorte ? formatRebsorteMitKuerzel(wa.rebsorte) : null, wa.qualitaet].filter(Boolean).join(' · ')}
           </p>
           {wa.menge_liter && (
             <p className="text-xs text-s112-tertiary mt-1">
-              Aktueller Bestand: {fmtNum(parseFloat(wa.menge_liter))} L
+              Aktueller Bestand: {fmtNum(wa.menge_liter)} L
             </p>
           )}
         </div>

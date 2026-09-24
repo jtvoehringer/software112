@@ -80,7 +80,7 @@ const ONBOARDING_SCHRITTE: Gruppe[] = [
     gruppe: 'Abnahme',
     schritte: [
       { id: 's17', pflicht: true, titel: 'Testverkauf durchführen', beschreibung: 'Warenwirtschaft > Verkauf > Neuer Verkauf: Einen kompletten Verkauf anlegen, Rechnung drucken, als bezahlt markieren. Prüfen ob Bestand korrekt reduziert wird.', link: '/weinhandel/verkauf/neu', linkLabel: 'Neuer Verkauf' },
-      { id: 's18', pflicht: true, titel: 'Maßnahme + Bericht testen', beschreibung: 'Maßnahme erfassen, dann Auswertungen > Behörden > Behandlungsprotokoll öffnen und prüfen ob der Eintrag erscheint.', link: '/auswertungen', linkLabel: 'Auswertungen öffnen' },
+      { id: 's18', pflicht: true, titel: 'Maßnahme + Bericht testen', beschreibung: 'Maßnahme erfassen, dann Rieden > Maßnahmen > Behandlungsprotokoll öffnen und prüfen ob der Eintrag erscheint – im Ausdruck und in der CSV („CSV exportieren“).', link: '/reports/behandlungsprotokoll', linkLabel: 'Behandlungsprotokoll öffnen' },
       { id: 's19', pflicht: false, titel: 'Handbuch + FAQ prüfen', beschreibung: 'Unter Hilfe > Handbuch und Hilfe > FAQ prüfen ob die wichtigsten Informationen für den neuen Mandanten vorhanden sind.', link: '/hilfe/handbuch', linkLabel: 'Handbuch öffnen' },
     ],
   },

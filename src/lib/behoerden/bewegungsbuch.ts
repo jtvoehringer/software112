@@ -1,0 +1,641 @@
+// ── Bewegungsbuch je Gebinde (Ein- und Ausgangsbuch) – Seite UND CSV (24.09.2026) ──
+//
+// Die Ereignislogik stand bis 24.09.2026 in kellerbuch/behaelter/[id]/bewegungen/page.tsx
+// und liegt jetzt hier, damit Bildschirm, Ausdruck und CSV („bewegungsbuch“) dieselben
+// Zeilen zeigen. Eine Bewegung je Zu- oder Abgang (Anfangsbestand, Zukauf, Pressung,
+// Umzug/Filtration, Abfüllung, Tankverkauf, Verschnitt, Schwund) bzw. je Kellerbehandlung
+// (Menge 0). Mengen sind auf 2 Stellen gerundet, der Saldo summiert genau diese Werte.
+//
+// Kellergemeinschaft: das Gebinde selbst kommt über lade_behaelter (SECURITY DEFINER,
+// auch Partner-Gebinde), die Bewegungen bleiben auf den eigenen Betrieb beschränkt –
+// Wein eines Partnerbetriebs im selben Gebinde erscheint nur als Hinweis (Menge + Betrieb).
+//
+// belegungszeitraeume() leitet daraus ab, wann welche Charge im Gebinde lag – für
+// Kellerbehandlungen ohne erfasste Charge (keller-behandlungen.ts, Weinbuch-Fallback).
+
+/* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
+import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
+import { alle } from '@/lib/supabase/alle'
+import { ladeBehaelterEinzeln, type BehaelterZeile } from '@/lib/keller/behaelter'
+import { fmtNum } from '@/lib/format'
+import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { imZeitraum, num, tag, text, type R, type Zeitraum } from './kellerbuch-hilfen'
+
+export type BewegungsArt =
+  | 'uebertrag' | 'anfangsbestand' | 'zukauf' | 'pressung' | 'umzug_ein' | 'umzug_aus' | 'filtration_ein'
+  | 'filtration_aus' | 'abfuellung' | 'verkauf' | 'behandlung' | 'verschneidung_ein' | 'verschneidung_aus' | 'schwund'
+
+export const BEWEGUNGSART_LABEL: Record<BewegungsArt, string> = {
+  uebertrag:         'Übertrag',
+  anfangsbestand:    'Anfangsbestand',
+  zukauf:            'Zukauf',
+  pressung:          'Pressung',
+  umzug_ein:         'Umzug (Zugang)',
+  umzug_aus:         'Umzug (Abgang)',
+  filtration_ein:    'Filtration (Zugang)',
+  filtration_aus:    'Filtration (Abgang)',
+  abfuellung:        'Abfüllung',
+  verkauf:           'Tankverkauf',
+  behandlung:        'Kellerbehandlung',
+  verschneidung_ein: 'Verschnitt (Zugang)',
+  verschneidung_aus: 'Verschnitt (Abgang)',
+  schwund:           'Schwund',
+}
+
+export type Bewegung = {
+  /** Kalendertag 'JJJJ-MM-TT' ('' = unbekannt, sortiert vorne) */
+  datum: string
+  art: BewegungsArt
+  beschreibung: string
+  /** Liter, auf 2 Stellen gerundet: + Zugang, − Abgang, 0 = keine Mengenbewegung */
+  menge: number
+  extra?: string
+  fuellung_id?: string
+  chargeId: string | null
+  /** Charge, die sich bewegt (Name) */
+  charge: string | null
+  /** Herkunft bzw. Ziel (Gebinde, Charge, Lieferant, Kunde, Füllung) */
+  gegenstelle: string | null
+  /** Beleg: Transaktionsnummer, Rechnungs-, Prüf- oder Chargennummer */
+  beleg: string | null
+}
+
+export type BewegungMitSaldo = Bewegung & { saldo: number }
+
+/** Rohdaten eines Gebindes (eigener Betrieb) – Grundlage für Bewegungen und Kennzahlen */
+type Roh = {
+  pressungen: R[]
+  umzuegeEin: R[]
+  chargen: R[]
+  umzuegeAus: R[]
+  fuellungen: R[]
+  verkauf: R[]
+  zukauf: R[]
+  behandlungen: R[]
+  verschnAus: R[]
+  verschnEin: R[]
+  quelleByBatch: Record<string, R[]>
+  zielByBatch: Record<string, R[]>
+  chargeNamen: Map<string, string>
+}
+
+function fehler(tabelle: string, e: { message?: string } | null): never {
+  throw new Error(`Bewegungsbuch: ${tabelle} konnte nicht geladen werden (${e?.message ?? 'unbekannter Fehler'})`)
+}
+
+async function liste(query: any, tabelle: string): Promise<R[]> {
+  const { data, error } = await alle<R>(query)
+  if (error) fehler(tabelle, error)
+  return data
+}
+
+/** Alle Rohdaten der Bewegungen eines Gebindes laden (nur eigener Betrieb) */
+async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Promise<Roh> {
+  const [pressungenAlle, umzuegeEin, chargen, umzuegeVon, behandlungen] = await Promise.all([
+    // pressung_behaelter hat keine tenant_id – Mandant über die Pressung (Kellergemeinschaft,
+    // Mehrfach-Mitgliedschaft: fremde Pressungen im selben Gebinde nicht mitzählen)
+    liste((supabase.from('pressung_behaelter') as any)
+      .select('id, menge_liter, weinausbau_id, notizen, pressung:pressung_id(id, datum, notizen, tenant_id)')
+      .eq('behaelter_id', behaelterId)
+      .order('id', { ascending: true }), 'pressung_behaelter'),
+    liste((supabase.from('keller_umzuege') as any)
+      .select('id, datum, menge_liter, brutto_liter, schwund_liter, umzug_typ, nach_weinausbau_id, transaktions_nr, von_behaelter:von_behaelter_id(name), von_weinausbau:von_weinausbau_id(name, jahrgang, behaelter:behaelter_id(name)), notizen, umzug_batch_id, zeilen_typ')
+      .eq('tenant_id', tenantId)
+      .eq('nach_behaelter_id', behaelterId)
+      .order('datum', { ascending: true })
+      .order('id', { ascending: true }), 'keller_umzuege'),
+    liste((supabase.from('weinausbau') as any)
+      .select('id, name, jahrgang, menge_liter, aktiv, ist_eroeffnungsbestand, anfangsbestand_liter, created_at, transaktions_nr')
+      .eq('tenant_id', tenantId)
+      .eq('behaelter_id', behaelterId)
+      .order('id', { ascending: true }), 'weinausbau'),
+    liste((supabase.from('keller_umzuege') as any)
+      .select('id, von_weinausbau_id')
+      .eq('tenant_id', tenantId)
+      .eq('von_behaelter_id', behaelterId)
+      .order('id', { ascending: true }), 'keller_umzuege'),
+    liste((supabase.from('keller_behandlungen') as any)
+      .select('id, datum, menge, einheit, notizen, weinausbau_id, typ_name_snapshot, typ:typ_id(name)')
+      .eq('tenant_id', tenantId)
+      .eq('behaelter_id', behaelterId)
+      .order('datum', { ascending: true })
+      .order('id', { ascending: true }), 'keller_behandlungen'),
+  ])
+  const pressungen = pressungenAlle.filter(p => (p.pressung as R | null)?.tenant_id === tenantId)
+
+  const chargeIds = new Set<string>()
+  for (const c of chargen) chargeIds.add(c.id)
+  for (const u of umzuegeEin) if (u.nach_weinausbau_id) chargeIds.add(u.nach_weinausbau_id)
+  for (const p of pressungen) if (p.weinausbau_id) chargeIds.add(p.weinausbau_id)
+  for (const u of umzuegeVon) if (u.von_weinausbau_id) chargeIds.add(u.von_weinausbau_id)
+  const ids = Array.from(chargeIds)
+
+  let umzuegeAus: R[] = [], fuellungen: R[] = [], verkauf: R[] = [], zukauf: R[] = [], verschnAus: R[] = [], verschnEin: R[] = []
+  if (ids.length > 0) {
+    ;[umzuegeAus, fuellungen, verkauf, zukauf, verschnAus, verschnEin] = await Promise.all([
+      liste((supabase.from('keller_umzuege') as any)
+        .select('id, datum, menge_liter, brutto_liter, schwund_liter, zeilen_typ, umzug_typ, transaktions_nr, nach_behaelter:nach_behaelter_id(name), von_weinausbau_id, von_weinausbau:von_weinausbau_id(name), notizen, umzug_batch_id')
+        .eq('tenant_id', tenantId)
+        .in('von_weinausbau_id', ids)
+        .order('datum', { ascending: true })
+        .order('id', { ascending: true }), 'keller_umzuege'),
+      liste((supabase.from('fuellungen') as any)
+        .select('id, datum, name, anzahl_flaschen, menge_liter_gefuellt, flaschengroesse_ml, pruefnummer, chargennummer, weinausbau_id')
+        .eq('tenant_id', tenantId)
+        .in('weinausbau_id', ids)
+        .eq('aktiv', true)
+        .order('datum', { ascending: true })
+        .order('id', { ascending: true }), 'fuellungen'),
+      liste((supabase.from('verkauf_positionen') as any)
+        .select('id, menge, einheit, weinausbau_id, verkaufsposten:verkaufsposten_id(datum, storniert, rechnungsnummer, kontakt:kontakt_id(vorname, nachname), firma:firma_id(name))')
+        .eq('tenant_id', tenantId)
+        .in('weinausbau_id', ids)
+        .eq('typ', 'tank')
+        .order('id', { ascending: true }), 'verkauf_positionen'),
+      // Zukauf-Eingang (Wein/Most direkt in eine Charge dieses Gebindes) – rechnet
+      // v_behaelter_fuellstand (Migration 127) ebenfalls mit
+      liste((supabase.from('zukauf_posten') as any)
+        .select('id, datum, menge, ziel_weinausbau_id, rebsorte, jahrgang, eingangsrechnungsnummer, staatliche_pruefnummer, lieferant_firma:firmen!lieferant_firma_id(name), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname)')
+        .eq('tenant_id', tenantId)
+        .in('ziel_weinausbau_id', ids)
+        .eq('aktiv', true)
+        .in('art', ['wein', 'most'])
+        .order('datum', { ascending: true })
+        .order('id', { ascending: true }), 'zukauf_posten'),
+      // verschneidung_quellen hat keine tenant_id – Mandant über die Verschneidung
+      liste((supabase.from('verschneidung_quellen') as any)
+        .select('id, menge_liter, quell_weinausbau_id, verschneidung:verschneidung_id(datum, notizen, tenant_id, ziel:ziel_weinausbau_id(name, behaelter:behaelter_id(name)))')
+        .in('quell_weinausbau_id', ids)
+        .order('id', { ascending: true }), 'verschneidung_quellen'),
+      liste((supabase.from('verschneidungen') as any)
+        .select('id, datum, notizen, ziel_weinausbau_id, quellen:verschneidung_quellen(menge_liter, quelle:quell_weinausbau_id(name, behaelter:behaelter_id(name)))')
+        .eq('tenant_id', tenantId)
+        .in('ziel_weinausbau_id', ids)
+        .order('datum', { ascending: true })
+        .order('id', { ascending: true }), 'verschneidungen'),
+    ])
+    verschnAus = verschnAus.filter(v => (v.verschneidung as R | null)?.tenant_id === tenantId)
+  }
+
+  const einZielBatchIds = [...new Set(umzuegeEin.filter(u => u.zeilen_typ === 'ziel' && u.umzug_batch_id).map(u => u.umzug_batch_id as string))]
+  const ausQuelleBatchIds = [...new Set(umzuegeAus.filter(u => u.zeilen_typ === 'quelle' && u.umzug_batch_id).map(u => u.umzug_batch_id as string))]
+  const quelleByBatch: Record<string, R[]> = {}
+  const zielByBatch: Record<string, R[]> = {}
+  const [quelleRows, zielRows] = await Promise.all([
+    einZielBatchIds.length > 0
+      ? liste((supabase.from('keller_umzuege') as any)
+          .select('id, umzug_batch_id, von_behaelter:von_behaelter_id(name), von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name))')
+          .eq('tenant_id', tenantId)
+          .in('umzug_batch_id', einZielBatchIds)
+          .eq('zeilen_typ', 'quelle')
+          .order('id', { ascending: true }), 'keller_umzuege')
+      : Promise.resolve([] as R[]),
+    ausQuelleBatchIds.length > 0
+      ? liste((supabase.from('keller_umzuege') as any)
+          .select('id, umzug_batch_id, nach_behaelter:nach_behaelter_id(name), nach_weinausbau:nach_weinausbau_id(name), menge_liter')
+          .eq('tenant_id', tenantId)
+          .in('umzug_batch_id', ausQuelleBatchIds)
+          .eq('zeilen_typ', 'ziel')
+          .order('id', { ascending: true }), 'keller_umzuege')
+      : Promise.resolve([] as R[]),
+  ])
+  for (const q of quelleRows) (quelleByBatch[q.umzug_batch_id] ??= []).push(q)
+  for (const z of zielRows) (zielByBatch[z.umzug_batch_id] ??= []).push(z)
+
+  // Chargennamen: aus dem Gebinde bzw. den eingebetteten Datensätzen, der Rest per Nachladen
+  const chargeNamen = new Map<string, string>()
+  for (const c of chargen) if (c.name) chargeNamen.set(c.id, c.name)
+  for (const u of umzuegeAus) if (u.von_weinausbau_id && (u.von_weinausbau as R | null)?.name) chargeNamen.set(u.von_weinausbau_id, u.von_weinausbau.name)
+  const fehlend = ids.filter(id => !chargeNamen.has(id))
+  if (fehlend.length > 0) {
+    const namen = await liste((supabase.from('weinausbau') as any)
+      .select('id, name')
+      .eq('tenant_id', tenantId)
+      .in('id', fehlend)
+      .order('id', { ascending: true }), 'weinausbau')
+    for (const n of namen) if (n.name) chargeNamen.set(n.id, n.name)
+  }
+
+  return { pressungen, umzuegeEin, chargen, umzuegeAus, fuellungen, verkauf, zukauf, behandlungen, verschnAus, verschnEin, quelleByBatch, zielByBatch, chargeNamen }
+}
+
+const liter = (n: number) => runden(n, STELLEN.liter)
+
+function personName(k: R | null | undefined): string | null {
+  if (!k) return null
+  return text([k.vorname, k.nachname].filter(Boolean).join(' '))
+}
+
+/** Bewegungen aus den Rohdaten – dieselbe Logik wie bisher auf der Bewegungsbuch-Seite */
+function bewegungenAus(roh: Roh): Bewegung[] {
+  const name = (id: string | null | undefined) => (id ? roh.chargeNamen.get(id) ?? null : null)
+  const bewegungen: Bewegung[] = []
+
+  const eroeffnungsCharge = roh.chargen.find(c => c.ist_eroeffnungsbestand)
+  if (eroeffnungsCharge) {
+    const l = num(eroeffnungsCharge.anfangsbestand_liter) || num(eroeffnungsCharge.menge_liter)
+    if (l > 0) {
+      const jahr = (tag(eroeffnungsCharge.created_at) || tag(new Date())).slice(0, 4)
+      bewegungen.push({
+        datum: `${jahr}-01-01`,
+        art: 'anfangsbestand',
+        beschreibung: `Anfangsbestand${eroeffnungsCharge.jahrgang ? ` ${eroeffnungsCharge.jahrgang}` : ''}`,
+        menge: liter(l),
+        chargeId: eroeffnungsCharge.id,
+        charge: text(eroeffnungsCharge.name),
+        gegenstelle: 'Eröffnungsbestand (Altsystem)',
+        beleg: text(eroeffnungsCharge.transaktions_nr),
+      })
+    }
+  }
+
+  for (const z of roh.zukauf) {
+    const l = num(z.menge)
+    if (l <= 0) continue
+    const sorte = [z.rebsorte ? formatRebsorteMitKuerzel(z.rebsorte) : null, z.jahrgang].filter(Boolean).join(' ')
+    bewegungen.push({
+      datum: tag(z.datum),
+      art: 'zukauf',
+      beschreibung: `Zukauf${sorte ? `: ${sorte}` : ''}`,
+      menge: liter(l),
+      chargeId: z.ziel_weinausbau_id ?? null,
+      charge: name(z.ziel_weinausbau_id),
+      gegenstelle: text((z.lieferant_firma as R | null)?.name) ?? personName(z.lieferant_kontakt as R | null),
+      beleg: text(z.eingangsrechnungsnummer) ?? text(z.staatliche_pruefnummer),
+    })
+  }
+
+  for (const p of roh.pressungen) {
+    const l = num(p.menge_liter)
+    if (l <= 0) continue
+    const press = p.pressung as R | null
+    bewegungen.push({
+      datum: tag(press?.datum),
+      art: 'pressung',
+      beschreibung: `Ernte / Pressung${press?.notizen ? ` – ${press.notizen}` : ''}`,
+      menge: liter(l),
+      extra: p.notizen ?? undefined,
+      chargeId: p.weinausbau_id ?? null,
+      charge: name(p.weinausbau_id),
+      gegenstelle: 'Pressung',
+      beleg: null,
+    })
+  }
+
+  for (const u of roh.umzuegeEin) {
+    const rohmenge = num(u.menge_liter)
+    const schwund = num(u.schwund_liter)
+    const l = u.brutto_liter != null ? rohmenge : Math.max(0, rohmenge - schwund)
+    if (l <= 0) continue
+
+    let von: string
+    if (u.zeilen_typ === 'ziel' && u.umzug_batch_id && roh.quelleByBatch[u.umzug_batch_id]) {
+      von = roh.quelleByBatch[u.umzug_batch_id].map((q: R) => {
+        const wa = q.von_weinausbau as R | null
+        const tank = (wa?.behaelter as R | null)?.name ?? (q.von_behaelter as R | null)?.name ?? null
+        if (tank && wa?.name) return `${tank} (${wa.name})`
+        return tank ?? wa?.name ?? '?'
+      }).join(', ') || '?'
+    } else {
+      const vonCharge = u.von_weinausbau as R | null
+      const vonTank = (vonCharge?.behaelter as R | null)?.name ?? (u.von_behaelter as R | null)?.name ?? null
+      const vonName = vonCharge?.name ?? '?'
+      von = vonTank ? `${vonTank} (${vonName})` : vonName
+    }
+
+    const filtration = u.umzug_typ === 'filtration'
+    bewegungen.push({
+      datum: tag(u.datum),
+      art: filtration ? 'filtration_ein' : 'umzug_ein',
+      beschreibung: filtration ? `Filtration von ${von}` : `Zugang von ${von}`,
+      menge: liter(l),
+      extra: schwund > 0 ? `Schwund: ${fmtNum(schwund)} L${u.notizen ? ` · ${u.notizen}` : ''}` : (u.notizen ?? undefined),
+      chargeId: u.nach_weinausbau_id ?? null,
+      charge: name(u.nach_weinausbau_id),
+      gegenstelle: von,
+      beleg: text(u.transaktions_nr),
+    })
+  }
+
+  for (const u of roh.umzuegeAus) {
+    const netto = num(u.menge_liter)
+    const abgang = u.zeilen_typ === 'quelle' ? netto : (num(u.brutto_liter) || netto)
+    if (abgang <= 0) continue
+
+    let nach: string
+    let schwund = num(u.schwund_liter)
+    if (u.zeilen_typ === 'quelle' && u.umzug_batch_id && roh.zielByBatch[u.umzug_batch_id]) {
+      const ziele = roh.zielByBatch[u.umzug_batch_id]
+      nach = ziele.map((z: R) => (z.nach_behaelter as R | null)?.name ?? (z.nach_weinausbau as R | null)?.name ?? '?').join(', ') || '?'
+      const sumNetto = ziele.reduce((s: number, z: R) => s + num(z.menge_liter), 0)
+      schwund = Math.max(0, abgang - sumNetto)
+    } else {
+      nach = (u.nach_behaelter as R | null)?.name ?? '?'
+    }
+
+    const vonCharge = u.von_weinausbau as R | null
+    const filtration = u.umzug_typ === 'filtration'
+    const istSchwund = u.umzug_typ === 'schwund'
+    const schwundText = schwund > 0.01 ? ` · Schwund: ${fmtNum(schwund)} L` : ''
+    bewegungen.push({
+      datum: tag(u.datum),
+      art: istSchwund ? 'schwund' : filtration ? 'filtration_aus' : 'umzug_aus',
+      beschreibung: istSchwund
+        ? `Schwund / Verlust${vonCharge?.name ? ` (${vonCharge.name})` : ''}`
+        : filtration ? `Filtration nach ${nach}${schwundText}` : `Umzug nach ${nach}${schwundText}`,
+      menge: -liter(abgang),
+      extra: istSchwund
+        ? (u.notizen ?? undefined)
+        : vonCharge?.name ? `aus Charge: ${vonCharge.name}${u.notizen ? ` · ${u.notizen}` : ''}` : (u.notizen ?? undefined),
+      chargeId: u.von_weinausbau_id ?? null,
+      charge: text(vonCharge?.name) ?? name(u.von_weinausbau_id),
+      gegenstelle: istSchwund ? null : nach,
+      beleg: text(u.transaktions_nr),
+    })
+  }
+
+  for (const f of roh.fuellungen) {
+    const l = num(f.menge_liter_gefuellt) || (num(f.anzahl_flaschen) * num(f.flaschengroesse_ml) / 1000)
+    if (!l || l <= 0) continue
+    bewegungen.push({
+      datum: tag(f.datum),
+      art: 'abfuellung',
+      beschreibung: `Abfüllung: ${f.name}${f.pruefnummer ? ` · Prüfnr. ${f.pruefnummer}` : ''}`,
+      menge: -liter(l),
+      extra: num(f.anzahl_flaschen) > 0 ? `${fmtNum(Math.trunc(num(f.anzahl_flaschen)))} Fl. à ${Math.trunc(num(f.flaschengroesse_ml))} ml` : undefined,
+      fuellung_id: f.id,
+      chargeId: f.weinausbau_id ?? null,
+      charge: name(f.weinausbau_id),
+      gegenstelle: text(f.name),
+      beleg: text(f.pruefnummer) ?? text(f.chargennummer),
+    })
+  }
+
+  for (const v of roh.verkauf) {
+    const vp = v.verkaufsposten as R | null
+    if (vp?.storniert) continue
+    const l = num(v.menge)
+    if (l <= 0) continue
+    bewegungen.push({
+      datum: tag(vp?.datum),
+      art: 'verkauf',
+      beschreibung: 'Tank-Verkauf',
+      menge: -liter(l),
+      chargeId: v.weinausbau_id ?? null,
+      charge: name(v.weinausbau_id),
+      gegenstelle: text((vp?.firma as R | null)?.name) ?? personName(vp?.kontakt as R | null),
+      beleg: text(vp?.rechnungsnummer),
+    })
+  }
+
+  for (const b of roh.behandlungen) {
+    if (!b.datum) continue
+    const typName = (b.typ as R | null)?.name ?? b.typ_name_snapshot ?? 'Behandlung'
+    const mengeStr = b.menge && b.einheit ? `${fmtNum(num(b.menge))} ${b.einheit}` : null
+    bewegungen.push({
+      datum: tag(b.datum),
+      art: 'behandlung',
+      beschreibung: typName,
+      menge: 0,
+      extra: [mengeStr, b.notizen].filter(Boolean).join(' · ') || undefined,
+      chargeId: b.weinausbau_id ?? null,
+      charge: name(b.weinausbau_id),
+      gegenstelle: null,
+      beleg: null,
+    })
+  }
+
+  for (const vq of roh.verschnAus) {
+    const l = num(vq.menge_liter)
+    if (l <= 0) continue
+    const v = vq.verschneidung as R | null
+    const ziel = v?.ziel as R | null
+    const zielName = ziel?.name ?? '?'
+    const zielBeh = (ziel?.behaelter as R | null)?.name ?? null
+    bewegungen.push({
+      datum: tag(v?.datum),
+      art: 'verschneidung_aus',
+      beschreibung: `Verschneidung nach ${zielName}`,
+      menge: -liter(l),
+      extra: zielBeh ?? undefined,
+      chargeId: vq.quell_weinausbau_id ?? null,
+      charge: name(vq.quell_weinausbau_id),
+      gegenstelle: zielBeh ? `${zielBeh} (${zielName})` : zielName,
+      beleg: null,
+    })
+  }
+
+  for (const v of roh.verschnEin) {
+    const quellen = (v.quellen as R[]) ?? []
+    const gesamt = quellen.reduce((s: number, q: R) => s + num(q.menge_liter), 0)
+    if (gesamt <= 0) continue
+    const quellenNamen = quellen.map((q: R) => {
+      const beh = ((q.quelle as R | null)?.behaelter as R | null)?.name ?? null
+      const n = (q.quelle as R | null)?.name ?? '?'
+      return beh ? `${beh} (${n})` : n
+    }).join(', ')
+    bewegungen.push({
+      datum: tag(v.datum),
+      art: 'verschneidung_ein',
+      beschreibung: `Verschneidung von ${quellenNamen}`,
+      menge: liter(gesamt),
+      chargeId: v.ziel_weinausbau_id ?? null,
+      charge: name(v.ziel_weinausbau_id),
+      gegenstelle: quellenNamen,
+      beleg: null,
+    })
+  }
+
+  // Stabil nach Datum (innerhalb eines Tages die Reihenfolge oben – wie bisher)
+  bewegungen.sort((a, b) => a.datum.localeCompare(b.datum))
+  return bewegungen
+}
+
+/** Laufenden Saldo anfügen – Summe der gerundeten Mengen */
+export function mitSaldo(bewegungen: readonly Bewegung[]): BewegungMitSaldo[] {
+  let saldo = 0
+  return bewegungen.map(b => {
+    saldo = runden(saldo + b.menge, STELLEN.liter)
+    return { ...b, saldo }
+  })
+}
+
+/** Ausschnitt für einen Zeitraum: Bewegungen vor „von“ werden zur Übertrag-Zeile (Saldo vor dem Zeitraum).
+ *  Bewegungen ohne Datum stecken im laufenden Saldo: mit „von“ im Übertrag, ohne „von“ (nur „bis“)
+ *  am Anfang des Ausschnitts – sonst ginge Σ Zugang − Σ Abgang nicht im ausgewiesenen Saldo auf. */
+export function imZeitraumMitUebertrag(bewegungen: readonly BewegungMitSaldo[], z: Zeitraum): BewegungMitSaldo[] {
+  if (!z.von && !z.bis) return [...bewegungen]
+  const vorher = z.von ? bewegungen.filter(b => !b.datum || b.datum < z.von!) : []
+  const drin = bewegungen.filter(b => (b.datum ? imZeitraum(b.datum, z.von, z.bis) : !z.von))
+  if (!z.von || vorher.length === 0) return drin
+  const saldo = vorher[vorher.length - 1].saldo
+  const [j, m, t] = [z.von.slice(0, 4), z.von.slice(5, 7), z.von.slice(8, 10)]
+  return [{
+    datum: z.von,
+    art: 'uebertrag',
+    beschreibung: `Übertrag – Saldo vor dem ${t}.${m}.${j}`,
+    menge: 0,
+    chargeId: null,
+    charge: null,
+    gegenstelle: null,
+    beleg: null,
+    saldo,
+  }, ...drin]
+}
+
+/** Belegung einer Charge im Gebinde: erster und letzter Tag mit Mengenbewegung (bis = null: liegt noch darin) */
+export type Belegung = { chargeId: string; charge: string | null; von: string; bis: string | null }
+
+/** Wann lag welche Charge im Gebinde? Aus den Mengenbewegungen; aktive Chargen im Gebinde bleiben offen. */
+export function belegungszeitraeume(bewegungen: readonly Bewegung[], chargenImGebinde: readonly R[]): Belegung[] {
+  const offen = new Set(chargenImGebinde.filter(c => c.aktiv).map(c => c.id as string))
+  const m = new Map<string, Belegung>()
+  for (const b of bewegungen) {
+    if (!b.chargeId || !b.datum || b.menge === 0) continue
+    const e = m.get(b.chargeId)
+    if (!e) m.set(b.chargeId, { chargeId: b.chargeId, charge: b.charge, von: b.datum, bis: b.datum })
+    else {
+      if (b.datum < e.von) e.von = b.datum
+      if (e.bis !== null && b.datum > e.bis) e.bis = b.datum
+    }
+  }
+  for (const e of m.values()) if (offen.has(e.chargeId)) e.bis = null
+  return [...m.values()]
+}
+
+/** Charge, die am Tag im Gebinde lag – nur wenn eindeutig, sonst null bzw. 'mehrdeutig' */
+export function chargeAmTag(belegungen: readonly Belegung[], datum: string): Belegung | 'mehrdeutig' | null {
+  if (!datum) return null
+  const treffer = belegungen.filter(b => datum >= b.von && (b.bis === null || datum <= b.bis))
+  if (treffer.length === 1) return treffer[0]
+  return treffer.length > 1 ? 'mehrdeutig' : null
+}
+
+/** Bewegungen und Belegungszeiträume eines Gebindes (ohne Gebinde-Stammdaten) */
+export async function ladeBelegungen(supabase: any, tenantId: string, behaelterId: string): Promise<Belegung[]> {
+  const roh = await ladeRoh(supabase, tenantId, behaelterId)
+  return belegungszeitraeume(bewegungenAus(roh), roh.chargen)
+}
+
+export type Bewegungsbuch = {
+  behaelter: BehaelterZeile
+  /** alle Bewegungen, chronologisch, mit laufendem Saldo */
+  bewegungen: BewegungMitSaldo[]
+  /** Ausschnitt für den Zeitraum (mit Übertrag-Zeile) – Bildschirm und CSV */
+  zeitraum: BewegungMitSaldo[]
+  /** Chargen, die aktuell diesem Gebinde zugeordnet sind (auch abgeschlossene) */
+  chargen: R[]
+  /** Chargen mit Bestand (für „Aktuelle Chargen“) */
+  aktiveChargen: R[]
+  /** Liter je Charge laut Bewegungen (korrigiert veraltetes menge_liter) */
+  literByCharge: Record<string, number>
+  finalSaldo: number
+  gebuchterBestand: number
+  nichtVerbuchterSchwund: number
+  aktuell: number
+  warnungen: string[]
+}
+
+/** Bewegungsbuch eines Gebindes – null, wenn das Gebinde (eigen oder freigegeben) nicht sichtbar ist */
+export async function ladeBewegungsbuch(
+  supabase: any,
+  tenantId: string,
+  p: { behaelterId: string } & Zeitraum,
+): Promise<Bewegungsbuch | null> {
+  const behaelter = await ladeBehaelterEinzeln(supabase, tenantId, p.behaelterId)
+  if (!behaelter) return null
+  const roh = await ladeRoh(supabase, tenantId, p.behaelterId)
+  const bewegungen = mitSaldo(bewegungenAus(roh))
+  const finalSaldo = bewegungen.length > 0 ? bewegungen[bewegungen.length - 1].saldo : 0
+
+  // Liter je Charge aus den Bewegungen (wie bisher auf der Seite)
+  const literByCharge: Record<string, number> = {}
+  const plus = (id: string | null | undefined, l: number) => { if (id) literByCharge[id] = (literByCharge[id] ?? 0) + l }
+  for (const z of roh.zukauf) plus(z.ziel_weinausbau_id, num(z.menge))
+  for (const pb of roh.pressungen) plus(pb.weinausbau_id, num(pb.menge_liter))
+  for (const v of roh.verschnEin) plus(v.ziel_weinausbau_id, ((v.quellen ?? []) as R[]).reduce((s: number, q: R) => s + num(q.menge_liter), 0))
+  for (const vq of roh.verschnAus) plus(vq.quell_weinausbau_id, -num(vq.menge_liter))
+  for (const u of roh.umzuegeEin) {
+    const rohmenge = num(u.menge_liter), schwund = num(u.schwund_liter)
+    plus(u.nach_weinausbau_id, u.brutto_liter != null ? rohmenge : Math.max(0, rohmenge - schwund))
+  }
+  for (const u of roh.umzuegeAus) {
+    plus(u.von_weinausbau_id, -(u.zeilen_typ === 'quelle' ? num(u.menge_liter) : (num(u.brutto_liter) || num(u.menge_liter))))
+  }
+  for (const f of roh.fuellungen) plus(f.weinausbau_id, -(num(f.menge_liter_gefuellt) || (num(f.anzahl_flaschen) * num(f.flaschengroesse_ml) / 1000)))
+  for (const v of roh.verkauf) if (!(v.verkaufsposten as R | null)?.storniert) plus(v.weinausbau_id, -num(v.menge))
+
+  const aktiveChargen = roh.chargen.filter(c => c.aktiv && !c.ist_eroeffnungsbestand && (literByCharge[c.id] ?? num(c.menge_liter)) > 0.001)
+  const aktuellDB = aktiveChargen.reduce((s: number, c: R) => s + num(c.menge_liter), 0)
+  const gebuchterBestand = runden(roh.chargen.reduce((s: number, c: R) => s + num(c.menge_liter), 0), STELLEN.liter)
+
+  const warnungen: string[] = []
+  const ohneDatum = bewegungen.filter(b => !b.datum).length
+  if (ohneDatum > 0) warnungen.push(`${ohneDatum} ${ohneDatum === 1 ? 'Bewegung hat' : 'Bewegungen haben'} kein Datum – ${ohneDatum === 1 ? 'sie steht' : 'sie stehen'} am Anfang bzw. im Übertrag.`)
+  if (behaelter.fremd) {
+    warnungen.push(`Kellergemeinschaft: Das Gebinde gehört ${behaelter.eigentuemer_name || 'einem Partnerbetrieb'} – enthalten sind nur die Bewegungen des eigenen Betriebs.`)
+  }
+  if (behaelter.fremd_liter > 0) {
+    warnungen.push(`Kellergemeinschaft: Im Gebinde liegen zusätzlich ${fmtNum(behaelter.fremd_liter, 2)} L von ${behaelter.fremd_betrieb ?? 'einem Partnerbetrieb'} – deren Bewegungen sind nicht enthalten.`)
+  }
+
+  return {
+    behaelter,
+    bewegungen,
+    zeitraum: imZeitraumMitUebertrag(bewegungen, p),
+    chargen: roh.chargen,
+    aktiveChargen,
+    literByCharge,
+    finalSaldo,
+    gebuchterBestand,
+    nichtVerbuchterSchwund: runden(finalSaldo - gebuchterBestand, 2),
+    aktuell: finalSaldo > 0 ? finalSaldo : aktuellDB,
+    warnungen,
+  }
+}
+
+// ── CSV ─────────────────────────────────────────────────────────────────────
+
+export type BewegungsbuchZeile = {
+  datum: string
+  art: string
+  charge: string | null
+  vorgang: string
+  zugang: number | null
+  abgang: number | null
+  saldo: number
+  gegenstelle: string | null
+  beleg: string | null
+  hinweis: string | null
+  gebinde: string
+}
+
+export function bewegungsbuchZeilen(bb: Pick<Bewegungsbuch, 'behaelter' | 'zeitraum'>): BewegungsbuchZeile[] {
+  return bb.zeitraum.map(b => ({
+    datum: b.datum,
+    art: BEWEGUNGSART_LABEL[b.art],
+    charge: b.charge,
+    vorgang: b.beschreibung,
+    zugang: b.menge > 0 ? b.menge : null,
+    abgang: b.menge < 0 ? -b.menge : null,
+    saldo: b.saldo,
+    gegenstelle: b.gegenstelle,
+    beleg: b.beleg,
+    hinweis: b.extra ?? null,
+    gebinde: bb.behaelter.anzeigeName,
+  }))
+}
+
+export const SPALTEN_BEWEGUNGSBUCH: CsvSpalte<BewegungsbuchZeile>[] = [
+  { kopf: 'Datum', typ: 'datum', wert: z => z.datum },
+  { kopf: 'Gebinde', typ: 'text', wert: z => z.gebinde },
+  { kopf: 'Art', typ: 'text', wert: z => z.art },
+  { kopf: 'Charge', typ: 'text', wert: z => z.charge },
+  { kopf: 'Vorgang', typ: 'text', wert: z => z.vorgang },
+  { kopf: 'Zugang (l)', typ: 'dezimal', stellen: STELLEN.liter, wert: z => z.zugang },
+  { kopf: 'Abgang (l)', typ: 'dezimal', stellen: STELLEN.liter, wert: z => z.abgang },
+  { kopf: 'Saldo (l)', typ: 'dezimal', stellen: STELLEN.liter, wert: z => z.saldo },
+  { kopf: 'Gegenstelle', typ: 'text', wert: z => z.gegenstelle },
+  { kopf: 'Beleg', typ: 'code', wert: z => z.beleg },
+  { kopf: 'Hinweis', typ: 'text', wert: z => z.hinweis },
+]

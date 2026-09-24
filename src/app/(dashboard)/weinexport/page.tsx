@@ -1,17 +1,16 @@
+// behoerdenmeldung: exportauftraege
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { Truck } from 'lucide-react'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
+import { csvPfad } from '@/lib/behoerden/katalog'
+import { ladeExportauftraege } from '@/lib/behoerden/exportauftrag'
 export const metadata: Metadata = { title: 'Weinexport – software:112' }
 export const dynamic = 'force-dynamic'
-type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
-const STATUS_LABEL: Record<string, string> = {
-  entwurf: 'Entwurf', bestaetigt: 'Bestätigt',
-  versendet: 'Versendet', abgeschlossen: 'Abgeschlossen',
-}
 const STATUS_COLOR: Record<string, string> = {
   entwurf: 'bg-[#F2F3F5] text-s112-text-2',
   bestaetigt: 'bg-s112-blue-100 text-s112-blue-700',
@@ -28,18 +27,14 @@ export default async function WeinexportPage() {
   // Admin > Mandant > Module ein-/ausschaltbar, da nicht jeder Betrieb exportiert.
   const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
     .select('modul_export').eq('tenant_id', tenantId).maybeSingle()
-  if (!einst?.modul_export) redirect('/dashboard')
+  if (!einst?.modul_export || !tenantId) redirect('/dashboard')
 
-  const { data: auftraege } = await (supabase.from('exportauftraege') as any)
-    .select(`*, kontakte(vorname, nachname), firmen(name)`)
-    .eq('tenant_id', tenantId).eq('aktiv', true)
-    .order('created_at', { ascending: false })
-
-  const rows = (auftraege ?? []) as R[]
+  // Dieselbe Ladefunktion wie die CSV (/meldungen/exportauftraege/csv)
+  const { zeilen: rows } = await ladeExportauftraege(supabase, tenantId)
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-s112-text flex items-center gap-2">
             <Truck className="w-6 h-6 text-s112-blue-700" />
@@ -47,10 +42,13 @@ export default async function WeinexportPage() {
           </h1>
           <p className="text-sm text-s112-muted mt-1">{rows.length} Exportauftrag{rows.length !== 1 ? 'aufträge' : ''}</p>
         </div>
-        <Link href="/weinexport/neu"
-          className="bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
-          + Neuer Auftrag
-        </Link>
+        <div className="flex items-start gap-2">
+          <CsvExportKnopf href={csvPfad('exportauftraege')} className="self-center" />
+          <Link href="/weinexport/neu"
+            className="bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+            + Neuer Auftrag
+          </Link>
+        </div>
       </div>
 
       {rows.length === 0 ? (
@@ -74,31 +72,28 @@ export default async function WeinexportPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-s112-border/40">
-              {rows.map((a: R) => {
-                const importeur = a.firmen?.name ?? [a.kontakte?.vorname, a.kontakte?.nachname].filter(Boolean).join(' ') ?? '–'
-                return (
-                  <tr key={a.id} className="hover:bg-s112-bg/50 cursor-pointer">
-                    <td className="px-5 py-3 font-medium">
-                      <Link href={`/weinexport/${a.id}`} className="hover:text-s112-blue-700">
-                        {a.referenz ?? '(kein Kz.)'}
-                      </Link>
-                    </td>
-                    <td className="px-5 py-3 text-s112-text-1">{importeur}</td>
-                    <td className="px-5 py-3 text-s112-text-1">
-                      {[a.destination_stadt, a.destination_land].filter(Boolean).join(', ') || '–'}
-                    </td>
-                    <td className="px-5 py-3 text-s112-muted">
-                      {a.datum ? new Date(a.datum).toLocaleDateString('de-AT') : '–'}
-                    </td>
-                    <td className="px-5 py-3 text-s112-text-2">{a.incoterms ?? '–'}</td>
-                    <td className="px-5 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLOR[a.status] ?? 'bg-[#F2F3F5] text-s112-text-2'}`}>
-                        {STATUS_LABEL[a.status] ?? a.status}
-                      </span>
-                    </td>
-                  </tr>
-                )
-              })}
+              {rows.map(a => (
+                <tr key={a.id} className="hover:bg-s112-bg/50 cursor-pointer">
+                  <td className="px-5 py-3 font-medium">
+                    <Link href={`/weinexport/${a.id}`} className="hover:text-s112-blue-700">
+                      {a.referenz ?? '(kein Kz.)'}
+                    </Link>
+                  </td>
+                  <td className="px-5 py-3 text-s112-text-1">{a.importeur ?? '–'}</td>
+                  <td className="px-5 py-3 text-s112-text-1">
+                    {[a.bestimmungsort, a.bestimmungsland].filter(Boolean).join(', ') || '–'}
+                  </td>
+                  <td className="px-5 py-3 text-s112-muted">
+                    {a.datum ? new Date(a.datum).toLocaleDateString('de-AT') : '–'}
+                  </td>
+                  <td className="px-5 py-3 text-s112-text-2">{a.incoterms ?? '–'}</td>
+                  <td className="px-5 py-3">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${(a.status && STATUS_COLOR[a.status]) || 'bg-[#F2F3F5] text-s112-text-2'}`}>
+                      {a.statusLabel ?? a.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

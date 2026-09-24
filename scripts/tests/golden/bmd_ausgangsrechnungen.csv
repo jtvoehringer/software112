@@ -1,0 +1,8 @@
+﻿satzart;konto;gkonto;belegnr;belegdatum;buchdatum;buchsymbol;buchcode;prozent;steuercode;betrag;steuer;text;kost;extbelegnr;nettodatum;skontopz;dokument
+0;200001;4001;RE-2026-0142;03.08.2026;03.08.2026;AR;1;13;1;486,20;55,94;"Gasthaus ""Zur Linde"" RE RE-2026-0142";;;17.08.2026;2;
+0;200002;4000;RE-2026-0143;04.08.2026;04.08.2026;AR;1;20;1;1234,50;205,75;"Weinhandel Huber; Filiale Wien RE RE-2026-0143";;;03.09.2026;2,5;
+0;299999;4001;RE-2026-0144;05.08.2026;05.08.2026;AR;1;13;1;12,35;1,42;Barverkauf RE RE-2026-0144;;;19.08.2026;0;
+0;200003;4011;RE-2026-0145;12.08.2026;12.08.2026;AR;1;0;7;2400,00;0,00;Weingut Müller GmbH RE RE-2026-0145;;;11.09.2026;0;
+0;200005;4010;RE-2026-0146;20.08.2026;20.08.2026;AR;1;0;5;980,40;0,00;Wine & Dine Ltd. RE RE-2026-0146;;;03.09.2026;0;
+0;200001;4001;RE-2026-0147;28.08.2026;28.08.2026;AR;1;13;1;-45,50;-5,22;Gutschrift Bruch RE RE-2026-0147;;;11.09.2026;0;
+0;299999;4800;EA-3F2A9C1B;31.08.2026;31.08.2026;AR;1;20;1;150,00;25,00;Miete Veranstaltungsraum;;;31.08.2026;0;Beleg Miete	August Kopie.pdf

@@ -6,6 +6,7 @@ import { AlertTriangle, CheckCircle2, Calculator, Table2, Upload, Settings2 } fr
 import { vergleiche, ZURECHNUNG_LABEL, type SvsParameter, type Zurechnung } from '@/lib/svs/berechnung'
 import { speichereEinheitswerte, importiereEinheitswerte, speichereSvsOption, speichereSvsParameter } from './actions'
 import { fmtNum, dezimal } from '@/lib/format'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
 
 type Gst = {
   id: string; gst_nr: string; katastralgemeinde: string; kg_bezeichnung: string; einlagezahl: string
@@ -19,10 +20,12 @@ type Tab = 'beitraege' | 'einheitswerte' | 'import' | 'parameter'
 const eur = (n: number, d = 2) => `€ ${n.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d })}` // CD: Tausenderpunkt, zwei Nachkommastellen
 const ZUR: Zurechnung[] = ['eigen', 'pacht_fremd', 'pacht_angehoerige', 'verpachtet', 'keine']
 
-export default function SvsClient({ grundstuecke, parameter, jahr, option, einkuenfteVorjahr, darfSchreiben, darfOption, darfParameter, doppik }: {
+export default function SvsClient({ grundstuecke, parameter, jahr, option, einkuenfteVorjahr, darfSchreiben, darfOption, darfParameter, doppik, csvHref }: {
   grundstuecke: Gst[]; parameter: SvsParameter[]; jahr: number; option: Option
   einkuenfteVorjahr: { jahr: number; betrag: number; buchungen: boolean }
   darfSchreiben: boolean; darfOption: boolean; darfParameter: boolean; doppik: boolean
+  /** Behördenmeldung „svs-einheitswerte“ (CSV, Format wie der Import) */
+  csvHref: string
 }) {
   const [tab, setTab] = useState<Tab>('beitraege')
   const [gst, setGst] = useState<Gst[]>(grundstuecke)
@@ -65,7 +68,7 @@ export default function SvsClient({ grundstuecke, parameter, jahr, option, einku
       {tab === 'beitraege' && param && v && (
         <BeitraegeTab v={v} p={param} jahr={jahr} opt={opt} setOpt={setOpt} einkuenfteVorjahr={einkuenfteVorjahr} einkuenfte={einkuenfte} darfOption={darfOption} doppik={doppik} onZuEinheitswerten={() => setTab('einheitswerte')} />
       )}
-      {tab === 'einheitswerte' && <EinheitswerteTab gst={gst} setGst={setGst} darfSchreiben={darfSchreiben} />}
+      {tab === 'einheitswerte' && <EinheitswerteTab gst={gst} setGst={setGst} darfSchreiben={darfSchreiben} csvHref={csvHref} />}
       {tab === 'import' && <ImportTab darfSchreiben={darfSchreiben} />}
       {tab === 'parameter' && darfParameter && <ParameterTab parameter={parameter} jahr={jahr} />}
     </div>
@@ -228,7 +231,7 @@ function BeitragsZeilen({ b, p }: { b: NonNullable<ReturnType<typeof vergleiche>
 }
 
 // ── Einheitswerte je Grundstück ─────────────────────────────────────────────
-function EinheitswerteTab({ gst, setGst, darfSchreiben }: { gst: Gst[]; setGst: (g: Gst[]) => void; darfSchreiben: boolean }) {
+function EinheitswerteTab({ gst, setGst, darfSchreiben, csvHref }: { gst: Gst[]; setGst: (g: Gst[]) => void; darfSchreiben: boolean; csvHref: string }) {
   const [pending, start] = useTransition()
   const [meldung, setMeldung] = useState<{ ok: boolean; text: string } | null>(null)
   const [dirty, setDirty] = useState<Set<string>>(new Set())
@@ -253,8 +256,9 @@ function EinheitswerteTab({ gst, setGst, darfSchreiben }: { gst: Gst[]; setGst: 
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter: KG, GST-Nr., Ried" className="border border-s112-border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none" />
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex items-center gap-3 text-sm flex-wrap">
           <span className="text-s112-muted">{gst.length} Grundstücke · Summe Einheitswert {eur(summe, 0)}</span>
+          <CsvExportKnopf href={csvHref} label={dirty.size > 0 ? 'CSV (gespeicherter Stand)' : 'CSV exportieren'} />
           {darfSchreiben && <button onClick={speichern} disabled={pending || dirty.size === 0} className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-[13px] font-semibold hover:bg-s112-blue-700 disabled:opacity-40">{pending ? 'Speichert…' : `Speichern (${dirty.size})`}</button>}
           {meldung && <span className={meldung.ok ? 'text-s112-ok-fg' : 'text-s112-err-fg'}>{meldung.text}</span>}
         </div>

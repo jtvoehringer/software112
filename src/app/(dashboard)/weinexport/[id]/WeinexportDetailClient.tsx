@@ -1,47 +1,43 @@
 'use client'
 import { useState } from 'react'
 import Link from '@/components/ui/Link'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
 import EmcsPanel from './EmcsPanel'
 import { fmtNum } from '@/lib/format'
+import {
+  EXPORT_STATUS_LABEL as STATUS_LABEL, EXPORT_DOK_LABEL as DOK_LABEL, EXPORT_DOK_STATUS_LABEL as DOK_STATUS_LABEL,
+  importeurName, type ExportPositionZeile,
+} from '@/lib/behoerden/exportauftrag'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
-const STATUS_LABEL: Record<string,string> = {
-  entwurf:'Entwurf', bestaetigt:'Bestätigt', versendet:'Versendet', abgeschlossen:'Abgeschlossen'
-}
 const STATUS_COLOR: Record<string,string> = {
   entwurf:'bg-[#F2F3F5] text-s112-text-2', bestaetigt:'bg-s112-blue-100 text-s112-blue-700',
   versendet:'bg-s112-warn-bg text-s112-warn-fg', abgeschlossen:'bg-s112-ok-bg text-s112-ok-fg'
-}
-const DOK_LABEL: Record<string,string> = {
-  v1v2:'V1/V2 Begleitdokument', eur1:'EUR.1 Ursprungszeugnis',
-  cmr:'CMR Frachtbrief', certificate_of_origin:'Certificate of Origin',
-  phytosanitaer:'Phytosanitäres Zertifikat', lieferschein:'Lieferschein',
-  rechnung:'Exportrechnung',
-}
-const DOK_STATUS_LABEL: Record<string,string> = {
-  ausstehend:'Ausstehend', beantragt:'Beantragt',
-  ausgestellt:'Ausgestellt', nicht_erforderlich:'Nicht erforderlich',
 }
 const DOK_STATUS_COLOR: Record<string,string> = {
   ausstehend:'bg-[#F2F3F5] text-s112-text-2', beantragt:'bg-s112-warn-bg text-s112-warn-fg',
   ausgestellt:'bg-s112-ok-bg text-s112-ok-fg', nicht_erforderlich:'bg-s112-bg text-s112-tertiary',
 }
 
-interface Props { auftrag: R; positionen: R[]; dokumente: R[] }
+interface Props {
+  auftrag: R
+  /** Positionen aus derselben Ladefunktion wie die CSV (lib/behoerden/exportauftrag.ts) */
+  zeilen: ExportPositionZeile[]
+  /** Summe der gerundeten Positionswerte */
+  gesamtEur: number
+  dokumente: R[]
+  /** CSV der Positionsliste: csvPfad('exportauftrag', …) */
+  csvHref: string
+}
 
-export default function WeinexportDetailClient({ auftrag, positionen, dokumente: initDok }: Props) {
+export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dokumente: initDok, csvHref }: Props) {
   const [status, setStatus]       = useState(auftrag.status)
   const [dokumente, setDokumente] = useState(initDok)
   const [dokFehler, setDokFehler] = useState<string | null>(null)
   const [saving, setSaving]       = useState(false)
   const [fehler, setFehler]       = useState<string | null>(null)
 
-  const importeur = auftrag.firmen?.name
-    ?? [auftrag.kontakte?.vorname, auftrag.kontakte?.nachname].filter(Boolean).join(' ')
-    ?? '–'
-
-  const gesamtEUR = positionen.reduce((s: number, p: R) =>
-    s + (parseFloat(p.menge)||0) * (parseFloat(p.preis_eur)||0), 0)
+  const importeur = importeurName(auftrag) ?? '–'
 
   async function updateStatus(newStatus: string) {
     setSaving(true); setFehler(null)
@@ -122,8 +118,11 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
 
           {/* Positionen */}
           <div className="bg-white rounded-xl border border-s112-border p-5">
-            <h2 className="font-semibold text-s112-text mb-4">Weinpositionen</h2>
-            {positionen.length === 0 ? (
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <h2 className="font-semibold text-s112-text">Weinpositionen</h2>
+              <CsvExportKnopf href={csvHref} label="Positionen als CSV" />
+            </div>
+            {zeilen.length === 0 ? (
               <p className="text-sm text-s112-muted">Keine Positionen erfasst.</p>
             ) : (
               <table className="w-full text-sm">
@@ -137,20 +136,20 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-s112-border/30">
-                  {positionen.map((p: R) => (
-                    <tr key={p.id}>
-                      <td className="py-2">{p.beschreibung ?? p.fuellungen?.bezeichnung ?? '–'}</td>
-                      <td className="py-2 text-right">{p.menge} {p.einheit}</td>
-                      <td className="py-2 text-right">{fmtNum(parseFloat(p.preis_eur), 2)}</td>
+                  {zeilen.map(z => (
+                    <tr key={z.positionId}>
+                      <td className="py-2">{z.bezeichnung ?? '–'}</td>
+                      <td className="py-2 text-right">{z.menge === null ? '–' : fmtNum(z.menge, { max: 2 })} {z.einheit}</td>
+                      <td className="py-2 text-right">{z.preisEur === null ? '–' : fmtNum(z.preisEur, 2)}</td>
                       <td className="py-2 text-right font-medium">
-                        {(parseFloat(p.menge) * parseFloat(p.preis_eur)).toFixed(2)}
+                        {z.wertEur === null ? '–' : fmtNum(z.wertEur, 2)}
                       </td>
-                      <td className="py-2 text-left pl-3 font-mono text-xs text-s112-muted">{p.taric_code}</td>
+                      <td className="py-2 text-left pl-3 font-mono text-xs text-s112-muted">{z.taric}</td>
                     </tr>
                   ))}
                   <tr className="border-t-2 border-s112-border font-semibold">
                     <td colSpan={3} className="pt-2 text-right text-xs uppercase tracking-wide text-s112-muted">Gesamtwert EUR</td>
-                    <td className="pt-2 text-right">{fmtNum(gesamtEUR, 2)}</td>
+                    <td className="pt-2 text-right">{fmtNum(gesamtEur, 2)}</td>
                     <td />
                   </tr>
                 </tbody>
@@ -191,8 +190,9 @@ export default function WeinexportDetailClient({ auftrag, positionen, dokumente:
                     dok.dokument_art === 'rechnung' || dok.dokument_art === 'certificate_of_origin') && (
                     <a href={`/api/weinexport/${auftrag.id}/dokument/${dok.dokument_art}`}
                       target="_blank" rel="noopener noreferrer"
+                      title="Druckansicht öffnen (im Browser drucken oder als PDF speichern)"
                       className="mt-5 text-[11px] text-s112-blue-700 border border-s112-teal/30 px-2 py-1 rounded hover:bg-s112-teal/5 flex-shrink-0">
-                      PDF
+                      Drucken
                     </a>
                   )}
                 </div>

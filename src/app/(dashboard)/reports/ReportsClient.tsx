@@ -3,11 +3,14 @@
 import { useState } from 'react'
 import Link from '@/components/ui/Link'
 import { exportCSV } from '@/lib/utils/csv'
-import { BarChart3, Calculator, FileText, Droplet, Sprout } from 'lucide-react'
-import { formatRebsorteMitKuerzel, getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
+import { csvDateiname, runden } from '@/lib/csv'
+import { BarChart3, Calculator } from 'lucide-react'
+import { bkiRebsorteKuerzel, formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { SEGMENTE } from '@/lib/crm/types'
 import { fmtEur, fmtNum } from '@/lib/format'
 import PartnerSuche from '@/components/crm/PartnerSuche'
+import BehoerdenUebersicht from '@/components/behoerden/BehoerdenUebersicht'
+import type { UebersichtGruppe } from '@/lib/behoerden/uebersicht'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -30,6 +33,8 @@ interface Props {
   wbJahrgaenge: number[]
   wbSorten: string[]
   wbBezeichnungen: string[]
+  /** Tab „Behörden“: Meldungen aus dem Katalog (lib/behoerden/uebersicht.ts), nach Rolle gefiltert */
+  behoerden: UebersichtGruppe[] | null
 }
 
 const TABS = [
@@ -85,7 +90,7 @@ function CsvBtn({ onClick, label = '↓ CSV' }: { onClick: () => void; label?: s
 export default function ReportsClient({
   umsatzMonate, lager, lagerWert, behandlungen, cuKgHa, pipeline, kontaktFrequenz, offene,
   vsJahrgaenge, vsSorten, vsBezeichnungen, vsOrte, vsLaender,
-  wbJahrgaenge, wbSorten, wbBezeichnungen,
+  wbJahrgaenge, wbSorten, wbBezeichnungen, behoerden,
 }: Props) {
   const [tab, setTab] = useState<TabId>('umsatz')
 
@@ -212,60 +217,66 @@ export default function ReportsClient({
   }
 
   // ── CSV-Exports ───────────────────────────────────────────────────────────
+  // Standard EXCEL_AT über lib/utils/csv (→ lib/csv): Semikolon, CRLF, Dezimalkomma mit
+  // festen Stellen je Spalte, Datum TT.MM.JJJJ, Formelschutz; Zahlen daher als number
+  // (nicht als vorformatierter Text), Datum als 'JJJJ-MM-TT'. Dateiname mit Wiener Datum.
   function csvLager() {
     exportCSV(
-      lager.filter(f => f.bestand_flaschen > 0).map(f => ({
-        name:        f.name,
-        jahrgang:    f.jahrgang ?? '',
-        groesse:     ML_LABEL[f.flaschengroesse_ml] ?? `${f.flaschengroesse_ml} ml`,
-        bestand:     f.bestand_flaschen,
-        einstand:    f.einstandspreis ?? '',
-        lagerwert:   f.einstandspreis != null ? f.bestand_flaschen * f.einstandspreis : '',
-        vk_preis:    f.vk_preis_brutto ?? '',
-      })),
+      lager.filter(f => f.bestand_flaschen > 0).map(f => {
+        const einstand = f.einstandspreis != null && f.einstandspreis !== '' ? Number(f.einstandspreis) : null
+        return {
+          name:        f.name,
+          jahrgang:    f.jahrgang ?? null,
+          groesse:     ML_LABEL[f.flaschengroesse_ml] ?? `${f.flaschengroesse_ml} ml`,
+          bestand:     Number(f.bestand_flaschen),
+          einstand,
+          lagerwert:   einstand != null && Number.isFinite(einstand) ? runden(Number(f.bestand_flaschen) * einstand, 2) : null,
+          vk_preis:    f.vk_preis_brutto ?? null,
+        }
+      }),
       [
-        { key: 'name',      header: 'Wein' },
-        { key: 'jahrgang',  header: 'Jahrgang' },
-        { key: 'groesse',   header: 'Größe' },
-        { key: 'bestand',   header: 'Bestand (Fl.)' },
-        { key: 'einstand',  header: 'Einstandspreis (€)' },
-        { key: 'lagerwert', header: 'Lagerwert (€)' },
-        { key: 'vk_preis',  header: 'VK-Preis (€)' },
+        { key: 'name',      header: 'Wein',               typ: 'text' },
+        { key: 'jahrgang',  header: 'Jahrgang',           typ: 'ganzzahl' },
+        { key: 'groesse',   header: 'Größe',              typ: 'text' },
+        { key: 'bestand',   header: 'Bestand (Fl.)',      typ: 'ganzzahl' },
+        { key: 'einstand',  header: 'Einstandspreis (€)', typ: 'betrag' },
+        { key: 'lagerwert', header: 'Lagerwert (€)',      typ: 'betrag' },
+        { key: 'vk_preis',  header: 'VK-Preis (€)',       typ: 'betrag' },
       ],
-      `lagerbestand_${new Date().toISOString().slice(0,10)}.csv`
+      csvDateiname(['Lagerbestand']).utf8,
     )
   }
 
   function csvUmsatz() {
     const quelle = umsatzModus === 'vergleich' ? vergleichData : umsatzData
     exportCSV(
-      quelle.map(m => ({ monat: m.monat, umsatz: m.umsatz.toFixed(2), anzahl: m.anzahl })),
+      quelle.map(m => ({ monat: m.monat, umsatz: runden(m.umsatz, 2), anzahl: m.anzahl })),
       [
-        { key: 'monat',  header: 'Monat' },
-        { key: 'umsatz', header: 'Umsatz (€)' },
-        { key: 'anzahl', header: 'Anzahl Verkäufe' },
+        { key: 'monat',  header: 'Monat',           typ: 'text' },
+        { key: 'umsatz', header: 'Umsatz (€)',      typ: 'betrag' },
+        { key: 'anzahl', header: 'Anzahl Verkäufe', typ: 'ganzzahl' },
       ],
-      `umsatz_monatsübersicht.csv`
+      csvDateiname(['Umsatz-Monatsübersicht']).utf8,
     )
   }
 
   function csvOffene() {
     exportCSV(
       offene.map(p => ({
-        datum:   fmtDate(p.datum),
-        rechnung: p.rechnungsnummer ?? '',
-        kunde:   kundenName(p),
-        betrag:  posSum(p).toFixed(2),
-        tage:    Math.floor((new Date().getTime()-new Date(p.datum).getTime())/86400000),
+        datum:    p.datum ?? null,
+        rechnung: p.rechnungsnummer ?? null,
+        kunde:    kundenName(p),
+        betrag:   runden(posSum(p), 2),
+        tage:     Math.floor((new Date().getTime()-new Date(p.datum).getTime())/86400000),
       })),
       [
-        { key: 'datum',    header: 'Datum' },
-        { key: 'rechnung', header: 'Rechnungsnummer' },
-        { key: 'kunde',    header: 'Kunde' },
-        { key: 'betrag',   header: 'Betrag (€)' },
-        { key: 'tage',     header: 'Tage offen' },
+        { key: 'datum',    header: 'Datum',           typ: 'datum' },
+        { key: 'rechnung', header: 'Rechnungsnummer', typ: 'code' },
+        { key: 'kunde',    header: 'Kunde',           typ: 'text' },
+        { key: 'betrag',   header: 'Betrag (€)',      typ: 'betrag' },
+        { key: 'tage',     header: 'Tage offen',      typ: 'ganzzahl' },
       ],
-      `offene_posten_${new Date().toISOString().slice(0,10)}.csv`
+      csvDateiname(['Offene-Posten']).utf8,
     )
   }
 
@@ -301,36 +312,37 @@ export default function ReportsClient({
     if (!vsResult) return
     exportCSV(
       vsResult.zeilen.map(z => ({
-        datum:       fmtDate(z.datum),
-        rechnung:    z.rechnungsnummer ?? '',
+        datum:       z.datum ?? null,
+        rechnung:    z.rechnungsnummer ?? null,
         kunde:       z.kunde,
-        ort:         z.ort ?? '',
-        plz:         z.plz ?? '',
-        land:        z.land ?? '',
+        ort:         z.ort ?? null,
+        plz:         z.plz ?? null,
+        land:        z.land ?? null,
         produkt:     z.produkt,
-        jahrgang:    z.jahrgang ?? '',
-        sorte:       z.sorte ?? '',
-        kuerzel:     getRebsorteKuerzel(z.sorte),
-        bezeichnung: z.bezeichnung ?? '',
+        jahrgang:    z.jahrgang ?? null,
+        sorte:       z.sorte ?? null,
+        kuerzel:     bkiRebsorteKuerzel(z.sorte),   // nur amtliche Kürzel (KAN-36)
+        bezeichnung: z.bezeichnung ?? null,
         stk:         z.menge,
-        betrag:      z.betrag.toFixed(2),
+        betrag:      runden(z.betrag, 2),
       })),
       [
-        { key: 'datum',       header: 'Datum' },
-        { key: 'rechnung',    header: 'Rechnungsnummer' },
-        { key: 'kunde',       header: 'Kunde' },
-        { key: 'ort',         header: 'Ort' },
-        { key: 'plz',         header: 'PLZ' },
-        { key: 'land',        header: 'Land' },
-        { key: 'produkt',     header: 'Produkt' },
-        { key: 'jahrgang',    header: 'Jahrgang' },
-        { key: 'sorte',       header: 'Sorte' },
-        { key: 'kuerzel',     header: 'Kürzel' },
-        { key: 'bezeichnung', header: 'Bezeichnung' },
+        { key: 'datum',       header: 'Datum',           typ: 'datum' },
+        { key: 'rechnung',    header: 'Rechnungsnummer', typ: 'code' },
+        { key: 'kunde',       header: 'Kunde',           typ: 'text' },
+        { key: 'ort',         header: 'Ort',             typ: 'text' },
+        { key: 'plz',         header: 'PLZ',             typ: 'code' },
+        { key: 'land',        header: 'Land',            typ: 'text' },
+        { key: 'produkt',     header: 'Produkt',         typ: 'text' },
+        { key: 'jahrgang',    header: 'Jahrgang',        typ: 'ganzzahl' },
+        { key: 'sorte',       header: 'Sorte',           typ: 'text' },
+        { key: 'kuerzel',     header: 'Kürzel',          typ: 'code' },
+        { key: 'bezeichnung', header: 'Bezeichnung',     typ: 'text' },
+        // Flaschen ganzzahlig, Tankmengen mit Bruchteilen: Stellen je Spalte aus den Werten
         { key: 'stk',         header: 'Stk' },
-        { key: 'betrag',      header: 'Betrag (€)' },
+        { key: 'betrag',      header: 'Betrag (€)',      typ: 'betrag' },
       ],
-      `verkaufsstatistik_${new Date().toISOString().slice(0,10)}.csv`
+      csvDateiname(['Verkaufsstatistik']).utf8,
     )
   }
 
@@ -981,26 +993,14 @@ export default function ReportsClient({
           </div>
         )}
 
-        {/* ── BEHÖRDEN-DOKUMENTE ───────────────────────────────────────── */}
+        {/* ── BEHÖRDEN-DOKUMENTE (aus dem Katalog lib/behoerden, 24.09.2026) ─ */}
         {tab === 'behoerden' && (
           <div className="space-y-4">
-            <p className="text-sm text-s112-muted">Druckfertige Behördendokumente – automatisch mit Betriebsdaten und Mandantenlogo befüllt.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {[
-                { href: '/reports/ama', icon: FileText, title: 'AMA Erntemeldung', desc: 'Weinerntemeldung je Jahrgang · Druckfertig mit Unterschriftsfeld' },
-                { href: '/reports/behandlungsprotokoll', icon: FileText, title: 'Behandlungsprotokoll', desc: 'Weinbauliches Spritzprotokoll nach Saison · für Bio-Kontrolle und Landwirtschaftskammer' },
-                { href: '/reports/cu-bilanz', icon: Droplet, title: 'Cu-Bilanz Jahresbericht', desc: 'Kupfer-Nachweis gem. EU-Bio-VO 2018/848 · Ampel vs. 4 kg/ha EU-Limit' },
-                { href: '/reports/naehrstoffbilanz', icon: Sprout, title: 'Nährstoffbilanz Jahresbericht', desc: 'Stickstoff/Phosphor aus Düngungen · Ampel vs. Richtwerte (NAPV 2023)' },
-              ].map(doc => (
-                <a key={doc.href} href={doc.href}
-                  className="card p-5 hover:border-s112-teal hover:shadow-sm transition-all group flex flex-col gap-2">
-                  <doc.icon className="w-8 h-8 text-s112-blue-700" strokeWidth={1.75} />
-                  <p className="font-semibold text-s112-text group-hover:text-s112-blue-700">{doc.title}</p>
-                  <p className="text-xs text-s112-text-2 leading-relaxed">{doc.desc}</p>
-                  <p className="text-xs text-s112-blue-700 font-medium mt-auto">Öffnen & Drucken →</p>
-                </a>
-              ))}
-            </div>
+            <p className="text-sm text-s112-muted">
+              Alle Behördenmeldungen des Betriebs – druckfertig mit Betriebsdaten und zusätzlich als CSV für Excel.
+              Dieselbe Liste steht unter Übersicht › Meldungen & Fristen; Pflichtmeldungen erreichen Betriebsleiter dort auch ohne Modul Controlling.
+            </p>
+            <BehoerdenUebersicht gruppen={behoerden} />
           </div>
         )}
 

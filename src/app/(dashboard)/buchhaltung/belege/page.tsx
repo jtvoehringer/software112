@@ -104,11 +104,15 @@ export default async function BelegePage() {
         <span>/</span>
         <span className="text-s112-text-1 font-medium">Belege</span>
       </div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-start justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-s112-text">Belege</h1>
           <p className="text-sm text-s112-muted">Foto oder PDF hochladen – Claude liest Datum, Betrag, USt-Satz und eine passende Kategorie automatisch aus.</p>
         </div>
+        <Link href="/buchhaltung/belege/verzeichnis"
+          className="shrink-0 text-xs bg-[#F2F3F5] hover:bg-s112-line text-s112-text-2 font-medium px-3 py-1.5 rounded-lg transition-colors">
+          Belegverzeichnis (Druck &amp; CSV)
+        </Link>
       </div>
 
       <div className="flex items-start gap-2.5 bg-s112-blue-50 border border-s112-blue-100 rounded-xl p-4 mb-6">

@@ -1,10 +1,13 @@
+// behoerdenmeldung: flaechenverzeichnis
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
-import WeingartenBaum, { type WRow, type GSTRow } from './WeingartenBaum'
-import WeingartenCsvExportButton from './WeingartenCsvExportButton'
+import WeingartenBaum from './WeingartenBaum'
 import RiedenGeoExportButton from './RiedenGeoExportButton'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
+import { csvPfad } from '@/lib/behoerden/katalog'
+import { ladeRiedenStammdaten, type GstStamm, type RiedStamm } from '@/lib/behoerden/flaechenverzeichnis'
 import { fmtHa } from '@/lib/format'
 
 export const metadata: Metadata = { title: 'Rieden – software:112' }
@@ -17,23 +20,12 @@ export default async function WeingartenPage() {
   const writeOk = canWrite(role, 'rieden')
   const adminOk = canAdmin(role)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
-
-  // Weingärten
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawW } = await tf((supabase.from('weingarten') as any)
-    .select('id, name, ried, rebsorte, weinart, flaeche_ha, bewirtschaftung, aktiv, ama_feldnummer, codes, interne_bezeichnung, zentrum_lat, zentrum_lon'))
-    .order('ried', { nullsFirst: false })
-    .order('name')
-  const weingaerten = (rawW ?? []) as WRow[]
-
-  // Grundstücke
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawG } = await tf((supabase.from('grundstuecke') as any)
-    .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha, flaeche_ha_kataster, spritzbar, katastralgemeinde, status, nutzart, ama_feldnummer'))
-    .order('gst_nr')
-  const grundstuecke = (rawG ?? []) as GSTRow[]
+  // Weingärten und Grundstücke – dieselbe Ladefunktion wie die CSV „Flächenverzeichnis“
+  // (/meldungen/flaechenverzeichnis/csv): Mandantenfilter, alle() statt 1.000er-Deckel,
+  // Flächen auf 4 Stellen gerundet. Ohne aktive Mitgliedschaft gibt es nichts anzuzeigen.
+  const { weingaerten, grundstuecke }: { weingaerten: RiedStamm[]; grundstuecke: GstStamm[] } = tenantId
+    ? await ladeRiedenStammdaten(supabase, tenantId)
+    : { weingaerten: [], grundstuecke: [] }
 
   const aktive = weingaerten.filter(w => w.aktiv)
   // Ha-Summe AMA: Grundstücks-Summe falls vorhanden, sonst Weingarten-Fläche
@@ -63,7 +55,8 @@ export default async function WeingartenPage() {
           {weingaerten.length > 0 && (
             <>
               <RiedenGeoExportButton anzahl={aktive.filter(w => w.zentrum_lat != null && w.zentrum_lon != null).length} />
-              <WeingartenCsvExportButton weingaerten={weingaerten} grundstuecke={grundstuecke} />
+              {/* Flächenverzeichnis (Grundlage Mehrfachantrag/Weinbaukataster) serverseitig über den CSV-Baustein */}
+              <CsvExportKnopf href={csvPfad('flaechenverzeichnis')} />
             </>
           )}
           {writeOk && (

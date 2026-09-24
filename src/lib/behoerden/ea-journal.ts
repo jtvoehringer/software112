@@ -1,0 +1,173 @@
+// ── Behördenmeldung „ea-journal“: Einnahmen-Ausgaben-Journal (24.09.2026) ─────────
+//
+// Aufzeichnungen der E&A-Rechnung (§ 4 Abs. 3 EStG, §§ 126, 131 BAO) für Finanzamt bzw.
+// Betriebsprüfung und Steuerberatung. Eine Ladefunktion für die Buchungsliste
+// /buchhaltung UND die CSV (/meldungen/ea-journal/csv) – Zeitraum und Filter wie die
+// Seite (?jahr=&typ=&q=). Ersetzt den früheren Browser-Export (CsvExportButton): Datum
+// mit führenden Nullen, feste 2 Nachkommastellen, fehlender USt-Satz bleibt leer,
+// Formelschutz – und neu die Spalten Zahlungskonto (Bank/Kassa) und Belegverweis.
+// Chronologisch aufsteigend (Datum, Erfassung); die Seite zeigt die Liste umgekehrt.
+
+import { STELLEN, type CsvSpalte } from '@/lib/csv'
+import { alle } from '@/lib/supabase/alle'
+import { betrag, KONTOART_LABEL, sachkonto, text, zahl } from './buchhaltung-gemeinsam'
+import { parameterFehler, type ParameterFehler } from './typen'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type R = Record<string, any>
+
+export type EaJournalParameter = { jahr: number; typ: 'einnahme' | 'ausgabe' | null; q: string | null }
+
+export type EaJournalZeile = {
+  id: string
+  datum: string
+  typ: 'einnahme' | 'ausgabe'
+  bezeichnung: string
+  kategorie: string | null
+  /** Konto der Kategorie (Sachkonto), vierstellig */
+  sachkonto: string | null
+  ustSatz: number | null
+  netto: number | null
+  ust: number | null
+  brutto: number | null
+  abzugsfaehigPct: number | null
+  /** nicht abzugsfähiger Nettoanteil (nur Ausgaben, sonst 0) */
+  nichtAbzugsfaehig: number
+  zahlungskonto: string | null
+  kontoart: string | null
+  rechnungsnummer: string | null
+  bankRef: string | null
+  geschaeftspartner: string | null
+  debitorNr: string | null
+  belegdatei: string | null
+  /** ea_belege.hochgeladen_am (timestamptz) des ersten Belegs */
+  belegErfasstAm: string | null
+  quelle: string
+  gesperrt: boolean
+  notizen: string | null
+  // nur für die Buchungsliste
+  verkaufspostenId: string | null
+  anlageId: string | null
+  /** ea_kategorien.konto_nr als Zahl (Kontenklasse 0 → Anlagenkauf) */
+  kategorieKontoNr: number | null
+}
+
+const QUELLE_LABEL: Record<string, string> = {
+  manuell: 'manuell', verkauf: 'Automatisch (Verkauf)', camt053: 'Bankimport (camt.053)', csv: 'CSV-Import',
+}
+
+export function eaQuelle(r: R): string {
+  if (r.anlage_id) return 'AfA (Anlagenverzeichnis)'
+  if (r.dauerauftrag_id) return 'Dauerauftrag'
+  const q = text(r.import_quelle) ?? 'manuell'
+  return QUELLE_LABEL[q] ?? q
+}
+
+function name(k: R | null | undefined): string | null {
+  if (!k) return null
+  return text([k.vorname, k.nachname].filter(Boolean).join(' '))
+}
+
+/** Rohzeile (ea_transaktionen mit Einbettungen) → Journalzeile, Beträge kaufmännisch auf 2 Stellen */
+export function eaJournalZeile(r: R): EaJournalZeile {
+  const vp = (r.verkaufsposten ?? null) as R | null
+  const belege = ((r.ea_belege ?? []) as R[]).slice().sort((a, b) => String(a.hochgeladen_am ?? '').localeCompare(String(b.hochgeladen_am ?? '')))
+  const typ = r.typ === 'einnahme' ? 'einnahme' : 'ausgabe'
+  const netto = betrag(r.betrag_netto)
+  const abzugsfaehig = betrag(r.betrag_abzugsfaehig)
+  const konto = (r.konto ?? null) as R | null
+  return {
+    id: String(r.id),
+    datum: String(r.datum).slice(0, 10),
+    typ,
+    bezeichnung: text(r.beschreibung) ?? '',
+    kategorie: text(r.kategorie?.name),
+    sachkonto: sachkonto(r.kategorie?.konto_nr),
+    ustSatz: zahl(r.ust_satz),
+    netto,
+    ust: betrag(r.ust_betrag),
+    brutto: betrag(r.betrag_brutto),
+    abzugsfaehigPct: zahl(r.abzugsfaehig_pct),
+    nichtAbzugsfaehig: typ === 'ausgabe' && netto !== null ? Math.max(0, betrag(netto - (abzugsfaehig ?? netto)) ?? 0) : 0,
+    zahlungskonto: text(konto?.name),
+    kontoart: konto?.typ ? (KONTOART_LABEL[konto.typ] ?? String(konto.typ)) : null,
+    rechnungsnummer: text(vp?.rechnungsnummer),
+    bankRef: text(r.bank_ref),
+    geschaeftspartner: text(r.firma?.name) ?? text(vp?.firma?.name) ?? name(vp?.kontakt),
+    // DebitorNr. (BMD-Konto) der Firma, ersatzweise die interne Accountnummer (wie bisher)
+    debitorNr: text(vp?.firma?.debitor_nr) ?? text(vp?.firma?.accountnummer) ?? text(vp?.kontakt?.accountnummer),
+    belegdatei: text(belege.map(b => b.dateiname).filter(Boolean).join(', ')),
+    belegErfasstAm: text(belege[0]?.hochgeladen_am),
+    quelle: eaQuelle(r),
+    gesperrt: !!r.is_locked,
+    notizen: text(r.notizen),
+    verkaufspostenId: text(r.verkaufsposten_id),
+    anlageId: text(r.anlage_id),
+    kategorieKontoNr: zahl(r.kategorie?.konto_nr),
+  }
+}
+
+export const SPALTEN_EA_JOURNAL: CsvSpalte<EaJournalZeile>[] = [
+  { kopf: 'Datum', typ: 'datum', wert: z => z.datum },
+  { kopf: 'Typ', typ: 'text', wert: z => (z.typ === 'einnahme' ? 'Einnahme' : 'Ausgabe') },
+  { kopf: 'Bezeichnung', typ: 'text', wert: z => z.bezeichnung },
+  { kopf: 'Kategorie', typ: 'text', wert: z => z.kategorie },
+  { kopf: 'Sachkonto', typ: 'code', wert: z => z.sachkonto },
+  { kopf: 'USt-Satz (%)', typ: 'prozent', stellen: STELLEN.prozent, wert: z => z.ustSatz },
+  { kopf: 'Netto (€)', typ: 'betrag', stellen: STELLEN.betrag, wert: z => z.netto },
+  { kopf: 'USt (€)', typ: 'betrag', stellen: STELLEN.betrag, wert: z => z.ust },
+  { kopf: 'Brutto (€)', typ: 'betrag', stellen: STELLEN.betrag, wert: z => z.brutto },
+  { kopf: 'Abzugsfähig (%)', typ: 'prozent', stellen: STELLEN.prozent, wert: z => z.abzugsfaehigPct },
+  { kopf: 'Zahlungskonto', typ: 'text', wert: z => z.zahlungskonto },
+  { kopf: 'Kontoart', typ: 'text', wert: z => z.kontoart },
+  { kopf: 'Rechnungsnr. (Verkauf)', typ: 'code', wert: z => z.rechnungsnummer },
+  { kopf: 'Bankreferenz', typ: 'code', wert: z => z.bankRef },
+  { kopf: 'Geschäftspartner', typ: 'text', wert: z => z.geschaeftspartner },
+  { kopf: 'DebitorNr.', typ: 'code', wert: z => z.debitorNr },
+  { kopf: 'Belegdatei', typ: 'text', wert: z => z.belegdatei },
+  { kopf: 'Beleg erfasst am', typ: 'datum', wert: z => z.belegErfasstAm },
+  { kopf: 'Quelle', typ: 'text', wert: z => z.quelle },
+  { kopf: 'Gesperrt', typ: 'janein', wert: z => z.gesperrt },
+  { kopf: 'Notizen', typ: 'text', wert: z => z.notizen },
+]
+
+/** ?typ= (optional: einnahme | ausgabe) und ?q= (Suche in der Bezeichnung) */
+export function eaFilterAus(sp: URLSearchParams): { typ: 'einnahme' | 'ausgabe' | null; q: string | null } | ParameterFehler {
+  const typ = (sp.get('typ') ?? '').trim()
+  if (typ && typ !== 'einnahme' && typ !== 'ausgabe') return parameterFehler('Ungültiger Buchungstyp – erwartet „einnahme“ oder „ausgabe“.')
+  const q = (sp.get('q') ?? '').trim()
+  if (q.length > 200) return parameterFehler('Der Suchbegriff ist zu lang (höchstens 200 Zeichen).')
+  return { typ: typ === 'einnahme' || typ === 'ausgabe' ? typ : null, q: q || null }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function ladeEaJournal(supabase: any, tenantId: string, p: EaJournalParameter): Promise<{ zeilen: EaJournalZeile[]; warnungen: string[] }> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let q = (supabase.from('ea_transaktionen') as any)
+    .select(`id, typ, datum, beschreibung, betrag_netto, ust_satz, ust_betrag, betrag_brutto, abzugsfaehig_pct, betrag_abzugsfaehig,
+      is_locked, import_quelle, bank_ref, notizen, verkaufsposten_id, anlage_id, dauerauftrag_id, erstellt_am,
+      kategorie:ea_kategorien!kategorie_id(name, konto_nr),
+      konto:konten!konto_id(name, typ),
+      firma:firmen!firma_id(name),
+      verkaufsposten(rechnungsnummer, kontakt:kontakte!kontakt_id(vorname, nachname, accountnummer), firma:firmen!firma_id(name, debitor_nr, accountnummer)),
+      ea_belege(dateiname, hochgeladen_am)`)
+    .eq('tenant_id', tenantId)
+    .gte('datum', `${p.jahr}-01-01`)
+    .lte('datum', `${p.jahr}-12-31`)
+  if (p.typ) q = q.eq('typ', p.typ)
+  if (p.q) q = q.ilike('beschreibung', `%${p.q}%`)
+  const { data, error } = await alle<R>(q.order('datum').order('erstellt_am').order('id'))
+  if (error) throw new Error(`Laden fehlgeschlagen (ea_transaktionen): ${error.message}`)
+
+  const zeilen = data.map(eaJournalZeile)
+  const warnungen: string[] = []
+  if (p.typ || p.q) {
+    warnungen.push(`Gefilterter Auszug (${[p.typ ? (p.typ === 'einnahme' ? 'nur Einnahmen' : 'nur Ausgaben') : null, p.q ? `Suche „${p.q}“` : null].filter(Boolean).join(', ')}) – für die vollständigen Aufzeichnungen ohne Filter exportieren.`)
+  }
+  // Nur melden, wenn der Betrieb Zahlungskonten überhaupt nutzt (sonst wäre jede Zeile betroffen)
+  const ohneKonto = zeilen.filter(z => !z.zahlungskonto && !z.anlageId).length
+  if (ohneKonto > 0 && zeilen.some(z => z.zahlungskonto)) {
+    warnungen.push(`${ohneKonto} ${ohneKonto === 1 ? 'Buchung ist' : 'Buchungen sind'} keinem Zahlungskonto (Bank/Kassa) zugeordnet.`)
+  }
+  return { zeilen, warnungen }
+}

@@ -12,6 +12,8 @@ import { dezimal, fmtNum, zahlAus } from '@/lib/format'
 import { folgebuchungenDerCharge, folgebuchungenText, sperreBeiFolgebuchungen } from '@/lib/kellerbuch/folgebuchungen'
 import { GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
 import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
+import { aggregiereJeRebsorte, KG_JE_HL, ladeLesedaten, parzelleFuerMeldung } from '@/lib/behoerden/erntemeldung'
+import { runden, STELLEN } from '@/lib/csv'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -388,15 +390,25 @@ export async function deleteErnteParzelle(id: string, jahrgangId: string) {
 export async function createOrUpdateAMAMeldung(jahrgangId: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
+  // ernte_parzellen hat keine tenant_id – erst den Jahrgang des aktiven Betriebs prüfen
+  await ladeJahrgang(supabase, tenantId, jahrgangId)
 
-  // Ernte-Parzellen laden mit Weingarten+Rebsorte+Grundstück (für korrekte Flächenzuordnung)
+  // Lesedaten über die gemeinsame Ladefunktion (Behördenmeldungen „Erntemeldung“/„Lesedaten“):
+  // Druck, CSV-Vorschau und die hier gespeicherte Meldung rechnen damit gleich.
+  const { zeilen: lese } = await ladeLesedaten(supabase, jahrgangId)
+  // Weinbaugebiet steht nur am Ried – für die Meldung aus den geernteten Rieden ableiten
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: parzellen } = await (supabase.from('ernte_parzellen') as any)
-    .select('menge_kg, menge_hl, grundstueck_id, weingarten:weingarten_id(name, rebsorte, flaeche_ha, weinbaugebiet), grundstueck:grundstueck_id(flaeche_ha)')
+  const { data: parzellen, error: pFehler } = await (supabase.from('ernte_parzellen') as any)
+    .select('id, weingarten:weingarten_id(weinbaugebiet)')
     .eq('jahrgang_id', jahrgangId)
+  if (pFehler) throw new AktionsFehler(dbFehlerText(pFehler, 'Lesedaten konnten nicht geladen werden'))
 
-  const gesamtKg = (parzellen as AR[] ?? []).reduce((s: number, p: AR) => s + (p.menge_kg ?? 0), 0)
-  const gesamtHl = gesamtKg / 130
+  // Je Rebsorte wie Vorschau, Druck und CSV (lib/behoerden/erntemeldung.ts, aggregiereJeRebsorte)
+  const summen = aggregiereJeRebsorte(lese.map(parzelleFuerMeldung))
+  const gesamtKg = lese.reduce((s, p) => s + (p.mengeKg ?? 0), 0)
+  // hl je Sorte: erfasst, sonst (auch bei nur teilweise erfassten hl) kg ÷ 130 – wie die Vorschau
+  const hlJeSorte = (r: (typeof summen)[number]) => (r.hlGeschaetzt ? r.mengeKg / KG_JE_HL : r.mengeHl)
+  const gesamtHl = runden(summen.reduce((s, r) => s + hlJeSorte(r), 0), STELLEN.hl)
 
   // Betriebsnummer liegt auf tenant_einstellungen (nicht auf tenants); Weinbaugebiet gibt es
   // nur auf Ried-/Grundstücksebene – aus den geernteten Rieden ableiten
@@ -443,27 +455,21 @@ export async function createOrUpdateAMAMeldung(jahrgangId: string) {
     meldungId = (neu as AR).id
   }
 
-  // Positionen je Rebsorte aggregieren
-  // WICHTIG: die Fläche der Zeile ist die des jeweiligen Grundstücks (falls gesetzt),
-  // NICHT die volle Ried-Fläche – sonst wird die Fläche bei GST-Aufteilung mehrfach gezählt.
-  const rebsortenMap = new Map<string, AR>()
-  for (const p of (parzellen as AR[] ?? [])) {
-    const wg  = p.weingarten as AR
-    const gst = p.grundstueck as AR | null
-    const key = wg?.rebsorte ?? 'Unbekannt'
-    const zeilenFlaeche = p.grundstueck_id ? (gst?.flaeche_ha ?? 0) : (wg?.flaeche_ha ?? 0)
-    const curr = rebsortenMap.get(key) ?? { rebsorte_name: key, flaeche_ha: 0, menge_kg: 0 }
-    curr.flaeche_ha += zeilenFlaeche
-    curr.menge_kg   += p.menge_kg ?? 0
-    rebsortenMap.set(key, curr)
-  }
-
-  const positionen = Array.from(rebsortenMap.values()).map(r => ({
-    meldung_id:     meldungId,
-    rebsorte_name:  r.rebsorte_name,
-    flaeche_ha:     r.flaeche_ha,
-    menge_kg:       r.menge_kg,
-    qualitaetsstufe: 'qualitaetswein',
+  // Positionen je Rebsorte (lib/behoerden/erntemeldung.ts, aggregiereJeRebsorte):
+  // Rebsorte vom Grundstück, sonst vom Ried; die Fläche ist die des Grundstücks (falls
+  // gesetzt), NICHT die volle Ried-Fläche, und zählt je Grundstück nur einmal – auch bei
+  // mehreren Lesedurchgängen auf demselben Grundstück.
+  // Seit 25.09.2026 (Review): Qualitätsstufe aus den Lesedaten, wenn die Sorte genau eine hat
+  // (sonst leer – die Erntemeldung weist darauf hin), statt fest 'qualitaetswein'; menge_hl
+  // mit den erfassten hl (leer, wenn nicht alle Lesen hl haben → Ausgabe kg ÷ 130). So zeigt
+  // die gespeicherte Meldung dieselben Werte wie die Vorschau aus den Lesedaten.
+  const positionen = summen.map(r => ({
+    meldung_id:      meldungId,
+    rebsorte_name:   r.rebsorte,
+    flaeche_ha:      r.flaecheHa,
+    menge_kg:        r.mengeKg,
+    menge_hl:        r.hlGeschaetzt ? null : runden(r.mengeHl, STELLEN.hl),
+    qualitaetsstufe: r.qualitaetsstufen.length === 1 ? r.qualitaetsstufen[0] : null,
   }))
 
   if (positionen.length > 0) {

@@ -8,6 +8,8 @@
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
+import { ladeBelegungen } from '@/lib/behoerden/bewegungsbuch'
+import { tag } from '@/lib/behoerden/kellerbuch-hilfen'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -47,7 +49,12 @@ export interface WeinbuchCharge {
 export interface Weinbuch {
   wa: WeinbuchCharge
   events: TimelineEvent[]
+  /** Hinweise für Druckseite und CSV (z. B. Kellerbehandlungen ohne eindeutige Charge) */
+  warnungen: string[]
 }
+
+/** Vermerk an Kellerbehandlungen ohne Charge, die keiner Charge eindeutig zuzuordnen sind */
+export const VERMERK_NICHT_EINDEUTIG = 'Zuordnung zur Charge nicht eindeutig (Behandlung ohne Charge erfasst)'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function buildWeinbuch(supabase: any, id: string, tenantId: string | null): Promise<Weinbuch | null> {
@@ -162,13 +169,46 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
   const pressungen    = (prRes.data ?? []) as R[]
   const umzuegeRaw    = (umRes.data ?? []) as R[]
   let kellerBeh     = (kbRes.data ?? []) as R[]
-  // Fallback: alte Einträge ohne weinausbau_id → über behaelter_id suchen
-  if (kellerBeh.length === 0 && wa.behaelter_id) {
-    const { data: kbFallbackRaw } = await tf((supabase.from('keller_behandlungen') as any)
+  const warnungen: string[] = []
+  // Fallback: alte Einträge OHNE Charge (weinausbau_id leer) aus dem Gebinde der Charge.
+  // Seit 24.09.2026 entfallen nur Behandlungen, die laut Belegung (Bewegungsbuch,
+  // lib/behoerden/bewegungsbuch.ts) nachweislich NICHT diese Charge betreffen: Tag in der
+  // Belegung genau einer anderen Charge, mehrere Chargen ohne diese, oder nach dem letzten
+  // Tag dieser Charge im Gebinde. Ist die Zuordnung offen (diese und weitere Chargen im
+  // Gebinde, keine Belegung an dem Tag – z. B. vor dem Eröffnungsbestand –, kein Datum),
+  // bleibt die Behandlung mit Vermerk im Weinbuch: der Ausdruck darf gegenüber früher
+  // (alle Behandlungen des Gebindes) nichts still verlieren (Review 25.09.2026).
+  if (kellerBeh.length === 0 && wa.behaelter_id && tenantId) {
+    const { data: kbFallbackRaw, error: kbFallbackErr } = await (supabase.from('keller_behandlungen') as any)
       .select('datum, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, typ:typ_id(name)')
+      .eq('tenant_id', tenantId)
       .eq('behaelter_id', wa.behaelter_id)
-      .order('datum', { ascending: true }))
-    kellerBeh = (kbFallbackRaw ?? []) as R[]
+      .is('weinausbau_id', null)
+      .order('datum', { ascending: true })
+    if (kbFallbackErr) warnungen.push(`Kellerbehandlungen ohne Charge konnten nicht geladen werden (${kbFallbackErr.message}).`)
+    const kandidaten = (kbFallbackRaw ?? []) as R[]
+    if (kandidaten.length > 0) {
+      const belegungen = await ladeBelegungen(supabase, tenantId, wa.behaelter_id)
+      const eigene = belegungen.find(b => b.chargeId === wa.id) ?? null
+      let unklar = 0
+      kellerBeh = []
+      for (const kb of kandidaten) {
+        const d = tag(kb.datum)
+        const treffer = d ? belegungen.filter(b => d >= b.von && (b.bis === null || d <= b.bis)) : []
+        const diese = treffer.some(b => b.chargeId === wa.id)
+        if (treffer.length === 1) {
+          if (diese) kellerBeh.push(kb)
+          continue                                              // Zeit genau einer anderen Charge
+        }
+        if (treffer.length > 1 && !diese) continue              // nur andere Chargen im Gebinde
+        if (treffer.length === 0 && d && eigene && eigene.bis !== null && d > eigene.bis) continue  // nach dem Auszug
+        unklar++
+        kellerBeh.push({ ...kb, _vermerk: VERMERK_NICHT_EINDEUTIG })
+      }
+      if (unklar > 0) {
+        warnungen.push(`${unklar} ${unklar === 1 ? 'Kellerbehandlung' : 'Kellerbehandlungen'} ohne Charge ${unklar === 1 ? 'ist' : 'sind'} keiner Charge eindeutig zuzuordnen (mehrere eigene Chargen im Gebinde oder keine Belegung an dem Tag) – im Weinbuch mit Vermerk „Zuordnung zur Charge nicht eindeutig“ aufgeführt, bitte prüfen.`)
+      }
+    }
   }
   const analysen      = (anRes.data ?? []) as R[]
   const dacAntraege   = (dacRes.data ?? []) as R[]
@@ -406,6 +446,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
         kb.menge != null && kb.einheit ? `${fmtNum(parseFloat(kb.menge))} ${kb.einheit}` : null,
         kb.volumen_liter_ist ? `Volumen Ist: ${fmtNum(parseFloat(kb.volumen_liter_ist))} L` : null,
         kb.notizen,
+        kb._vermerk ?? null,
       ].filter(Boolean) as string[],
     })
   }
@@ -520,5 +561,5 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
 
   events.sort((a, b) => a.datum.localeCompare(b.datum))
 
-  return { wa, events }
+  return { wa, events, warnungen }
 }

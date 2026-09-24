@@ -1,29 +1,22 @@
+// behoerdenmeldung: dac-antraege
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { Pencil } from 'lucide-react'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
+import { csvPfad } from '@/lib/behoerden/katalog'
+import { ladeDacAntraege, DAC_STATUS_LABEL, type DacAntragZeile } from '@/lib/behoerden/dac'
 
 export const metadata: Metadata = { title: 'DAC & Prüfnummern – software:112' }
 export const dynamic = 'force-dynamic'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type R = Record<string, any>
-
-const STATUS: Record<string, { label: string; color: string }> = {
-  entwurf:      { label: 'Entwurf',       color: 'bg-[#F2F3F5] text-s112-text-2' },
-  eingereicht:  { label: 'Eingereicht',   color: 'bg-s112-blue-100 text-s112-blue-700' },
-  in_pruefung:  { label: 'In Prüfung',    color: 'bg-s112-warn-bg text-s112-warn-fg' },
-  genehmigt:    { label: 'Genehmigt',     color: 'bg-s112-ok-bg text-s112-ok-fg' },
-  abgelehnt:    { label: 'Abgelehnt',     color: 'bg-s112-err-bg text-s112-err-fg' },
-}
-
-const DAC_REGIONEN: Record<string, string> = {
-  weinviertel: 'Weinviertel', kamptal: 'Kamptal', kremstal: 'Kremstal',
-  wachau: 'Wachau', wagram: 'Wagram', traisental: 'Traisental',
-  carnuntum: 'Carnuntum', leithaberg: 'Leithaberg', neusiedlersee: 'Neusiedlersee',
-  mittelburgenland: 'Mittelburgenland', eisenberg: 'Eisenberg', rosalia: 'Rosalia',
-  wiener_gemischter_satz: 'Wiener Gemischter Satz', sonstiges: 'Sonstiges',
+const STATUS_FARBE: Record<string, string> = {
+  entwurf:      'bg-[#F2F3F5] text-s112-text-2',
+  eingereicht:  'bg-s112-blue-100 text-s112-blue-700',
+  in_pruefung:  'bg-s112-warn-bg text-s112-warn-fg',
+  genehmigt:    'bg-s112-ok-bg text-s112-ok-fg',
+  abgelehnt:    'bg-s112-err-bg text-s112-err-fg',
 }
 
 export default async function DacPage() {
@@ -35,31 +28,28 @@ export default async function DacPage() {
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (supabase.from('dac_antrag') as any)
-    .select('id, bezeichnung, dac_region, jahrgang, rebsorte, status, pruefnummer, eingereicht_am, aktiv')
-    .order('created_at', { ascending: false })
-  if (tenantId) query = query.eq('tenant_id', tenantId)
-  const { data: raw } = await query
-
-  const antraege = (raw ?? []) as R[]
-  const genehmigt   = antraege.filter((a: R) => a.status === 'genehmigt').length
-  const offen       = antraege.filter((a: R) => ['eingereicht','in_pruefung'].includes(a.status)).length
-  const entwuerfe   = antraege.filter((a: R) => a.status === 'entwurf').length
+  // Dieselbe Ladefunktion wie die CSV (/meldungen/dac-antraege/csv)
+  const antraege: DacAntragZeile[] = tenantId ? (await ladeDacAntraege(supabase, tenantId)).zeilen : []
+  const genehmigt   = antraege.filter(a => a.status === 'genehmigt').length
+  const offen       = antraege.filter(a => ['eingereicht','in_pruefung'].includes(a.status ?? '')).length
+  const entwuerfe   = antraege.filter(a => a.status === 'entwurf').length
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-s112-text">DAC & Prüfnummern</h1>
           <p className="text-sm text-s112-muted mt-0.5">Anträge nach österreichischem Weinrecht</p>
         </div>
-        {writeOk && (
-          <Link href="/dac/neu"
-            className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
-            Neuer Antrag
-          </Link>
-        )}
+        <div className="flex items-start gap-2">
+          <CsvExportKnopf href={csvPfad('dac-antraege')} className="self-center" />
+          {writeOk && (
+            <Link href="/dac/neu"
+              className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+              Neuer Antrag
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
@@ -93,12 +83,12 @@ export default async function DacPage() {
               </tr>
             </thead>
             <tbody>
-              {antraege.map((a: R, i: number) => {
-                const st = STATUS[a.status] ?? { label: a.status, color: 'bg-[#F2F3F5] text-s112-text-2' }
+              {antraege.map((a, i) => {
+                const st = { label: a.statusLabel ?? (a.status ? (DAC_STATUS_LABEL[a.status] ?? a.status) : ''), color: (a.status && STATUS_FARBE[a.status]) || 'bg-[#F2F3F5] text-s112-text-2' }
                 return (
                   <tr key={a.id} className={`border-b border-s112-border last:border-0 ${!a.aktiv ? 'opacity-40' : ''} ${i%2===1 ? 'bg-s112-bg/50' : ''}`}>
                     <td className="px-4 py-3 font-medium">{a.bezeichnung}</td>
-                    <td className="px-4 py-3 text-s112-muted">{DAC_REGIONEN[a.dac_region] ?? a.dac_region}</td>
+                    <td className="px-4 py-3 text-s112-muted">{a.dacRegionLabel}</td>
                     <td className="px-4 py-3 text-center tabular-nums">{a.jahrgang ?? '–'}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
@@ -109,7 +99,7 @@ export default async function DacPage() {
                       ) : '–'}
                     </td>
                     <td className="px-4 py-3 text-s112-muted text-xs">
-                      {a.eingereicht_am ? new Date(a.eingereicht_am).toLocaleDateString('de-AT') : '–'}
+                      {a.eingereichtAm ? new Date(a.eingereichtAm).toLocaleDateString('de-AT') : '–'}
                     </td>
                     <td className="px-4 py-3 text-right">
                       {writeOk && (

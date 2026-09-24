@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canSeeAuswertungen, type Membership } from '@/lib/auth/roles'
+import { istPflichtmeldungsRolle } from '@/lib/auth/pflichtmeldung'
 
 // Zuschaltbare Module (boolean-Flags auf tenant_einstellungen, Toggle in
 // Administration → Mandanten). Die Sidebar blendet die Menüpunkte aus, diese
@@ -29,6 +30,31 @@ export async function requireModul(flag: ModulFlag): Promise<void> {
 export async function requireAuswertungen(): Promise<void> {
   const membership = await getCurrentMembership()
   if (!canSeeAuswertungen(membership)) redirect('/dashboard')
+}
+
+// Pflichtmeldungen (Entscheidung Jörgen 24.9.2026, „Behördenmeldungen als CSV“):
+// Erntemeldung/Lesedaten, Weinbestandsmeldung, Pflanzenschutz-Aufzeichnungen,
+// Kupfer-Bilanz, Nährstoffbilanz und Weinbuch-Sammlung – samt Druck und CSV –
+// erreichen Betriebsleiter (system_admin, tenant_admin, winzer) auch OHNE Modul
+// „Controlling“ und ohne Auswertungsrecht. Alle anderen Rollen (Leser) nur wie
+// bisher mit Modul Controlling + Auswertungsrecht. Seiten-Guard:
+// reports/(pflicht)/layout.tsx. Dieselbe Regel steht clientseitig (nur
+// Sichtbarkeit) in lib/navigation/index.ts (NavItem.pflichtmeldung) und für die
+// CSV-Route in lib/behoerden/zugriff.ts – die Rollenliste kommt für alle drei aus
+// lib/auth/pflichtmeldung.ts (isomorph).
+export { PFLICHTMELDUNG_ROLLEN } from '@/lib/auth/pflichtmeldung'
+
+/** true, wenn die aktive Mitgliedschaft Pflichtmeldungen (Druck + CSV) sehen darf – ohne Umleitung, z.B. für Route-Handler (403). */
+export async function darfPflichtmeldungen(): Promise<boolean> {
+  const membership = await getCurrentMembership()
+  if (!membership?.tenantId) return false
+  if (istPflichtmeldungsRolle(membership.role)) return true
+  return canSeeAuswertungen(membership) && (await hatModul('modul_controlling'))
+}
+
+// In Server-Layouts/-Pages: leitet ohne Pflichtmeldungs-Zugriff auf /dashboard um.
+export async function requirePflichtmeldungen(): Promise<void> {
+  if (!(await darfPflichtmeldungen())) redirect('/dashboard')
 }
 
 // Datenexport (Controlling → Datenexport, /api/export/kontakte|firmen|lager|verkauf,

@@ -1,3 +1,4 @@
+// behoerdenmeldung: rueckverfolgung
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -8,6 +9,9 @@ import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import RueckverfolgungPrintButton from './PrintButton'
 import RueckverfolgungCsvExportButton from './CsvExportButton'
 import { fmtNum } from '@/lib/format'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
+import { csvPfad } from '@/lib/behoerden/katalog'
+import { ladeFuellungKette, ladeRueckverfolgungTreffer } from '@/lib/behoerden/rueckverfolgung'
 
 export const metadata: Metadata = { title: 'Rückverfolgung – software:112' }
 export const dynamic = 'force-dynamic'
@@ -53,141 +57,6 @@ function herkunftLabel(u: KompositionUrsprung): string {
   if (u.typ === 'zukauf') return u.zukauf_von ? `Zukauf – ${u.zukauf_von}` : 'Zukauf'
   if (u.typ === 'eroeffnungsbestand') return 'Eröffnungsbestand (historisch)'
   return 'Herkunft unbekannt'
-}
-
-// ── Hilfsfunktion: vollständige Kette für eine Weinausbau-Charge laden ───────
-async function ladeChargeKette(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, wId: string, tenantId: string | null) {
-  // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
-  // des Nutzers, nicht nur dem aktiv gewählten Betrieb – ohne diesen Filter könnten bei
-  // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
-  const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
-
-  const [waRes, prRes, anRes, umRes] = await Promise.all([
-    // Weinausbau-Charge
-    tf((supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, rebsorte, status, qualitaetsstufe, behaelter_id, behaelter:behaelter_id(name, typ, volumen_liter)')
-      .eq('id', wId))
-      .single(),
-
-    // Pressungen die in diese Charge geflossen sind
-    (supabase.from('pressung_behaelter') as any)
-      .select(`
-        menge_liter, notizen,
-        pressung:pressung_id(
-          id, datum, most_liter_gesamt, jahrgang:jahrgang_id(jahrgang),
-          pressung_weingaerten(
-            trauben_kg, rebsorte, ernte_datum, kmw,
-            weingarten:weingarten_id(id, name, flaeche_ha),
-            grundstueck:grundstueck_id(gst_nr, katastralgemeinde)
-          )
-        )
-      `)
-      .eq('weinausbau_id', wId),
-
-    // Analysen der Charge (Tabelle heißt weinanalysen, ein Datensatz pro Analyse-Termin)
-    tf((supabase.from('weinanalysen') as any)
-      .select('analyse_datum, labor, probe_nr, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl, bewertung, notizen')
-      .eq('weinausbau_id', wId)
-      .order('analyse_datum', { ascending: true })),
-
-    // Umzüge (Behälter-Verlauf) – 'quelle'-Zeilen des n:n-Formats
-    tf((supabase.from('keller_umzuege') as any)
-      .select(`
-        datum, menge_liter, brutto_liter, schwund_liter, notizen, zeilen_typ, umzug_batch_id,
-        von_behaelter:von_behaelter_id(name),
-        nach_behaelter:nach_behaelter_id(name)
-      `)
-      .eq('von_weinausbau_id', wId)
-      .order('datum', { ascending: true })),
-  ])
-
-  const weinausbau = waRes.data as R | null
-  const pressungen = (prRes.data ?? []) as R[]
-  const analysen = (anRes.data ?? []) as R[]
-  const umzuegeRaw = (umRes.data ?? []) as R[]
-
-  // ── Behandlungen für die Weingärten dieser Charge ────────────────────────
-  // Behandlungen hängen NICHT direkt an der Weinausbau-Charge, sondern über
-  // die Junction-Tabelle behandlung_grundstuecke an einzelnen Grundstücken.
-  // Weg: Weingarten-IDs aus den Pressungen sammeln → zugehörige Grundstücke
-  // laden → darüber behandlung_grundstuecke + behandlungen joinen.
-  const weingartenIds = new Set<string>()
-  for (const pb of pressungen) {
-    const wgListe = ((pb.pressung as R | null)?.pressung_weingaerten ?? []) as R[]
-    for (const wg of wgListe) {
-      const w = wg.weingarten as R | null
-      if (w?.id) weingartenIds.add(w.id)
-    }
-  }
-
-  let behandlungen: R[] = []
-  if (weingartenIds.size > 0) {
-    const { data: grundstueckeRows } = await tf((supabase.from('grundstuecke') as any)
-      .select('id')
-      .in('weingarten_id', Array.from(weingartenIds)))
-    const grundstueckIds = ((grundstueckeRows ?? []) as R[]).map(g => g.id)
-
-    if (grundstueckIds.length > 0) {
-      const { data: bgRows } = await (supabase.from('behandlung_grundstuecke') as any)
-        .select(`
-          flaeche_ha,
-          grundstueck:grundstueck_id(gst_nr, weingarten:weingarten_id(name)),
-          behandlung:behandlung_id(
-            id, datum, art, aufwandmenge, aufwandmenge_einheit, schaderreger, witterung, notizen,
-            psm:psm_id(name, handelsname)
-          )
-        `)
-        .in('grundstueck_id', grundstueckIds)
-
-      // Nach Behandlung dedupliziert gruppieren (eine Behandlung betrifft oft mehrere Grundstücke)
-      const byBehandlung = new Map<string, R>()
-      for (const row of ((bgRows ?? []) as R[])) {
-        const b = row.behandlung as R | null
-        if (!b) continue
-        const g = row.grundstueck as R | null
-        const label = `${(g?.weingarten as R | null)?.name ?? '?'} · GST ${g?.gst_nr ?? '?'}`
-        const existing = byBehandlung.get(b.id)
-        if (existing) {
-          existing.grundstuecke.push(label)
-          existing.flaeche_ha_summe += Number(row.flaeche_ha ?? 0)
-        } else {
-          byBehandlung.set(b.id, { ...b, grundstuecke: [label], flaeche_ha_summe: Number(row.flaeche_ha ?? 0) })
-        }
-      }
-      behandlungen = Array.from(byBehandlung.values())
-        .sort((a, b) => new Date(a.datum).getTime() - new Date(b.datum).getTime())
-    }
-  }
-
-  // Sekundäre Abfrage: für 'quelle'-Zeilen den Ziel-Behälter holen
-  const quelleBatchIds = [...new Set(
-    umzuegeRaw.filter(u => u.zeilen_typ === 'quelle' && u.umzug_batch_id).map(u => u.umzug_batch_id)
-  )] as string[]
-
-  const zielByBatch: Record<string, R> = {}
-  if (quelleBatchIds.length > 0) {
-    const { data: zielRows } = await tf((supabase.from('keller_umzuege') as any)
-      .select('umzug_batch_id, nach_behaelter:nach_behaelter_id(name), nach_weinausbau:nach_weinausbau_id(name), menge_liter')
-      .in('umzug_batch_id', quelleBatchIds)
-      .eq('zeilen_typ', 'ziel'))
-    for (const z of ((zielRows ?? []) as R[])) {
-      if (!zielByBatch[z.umzug_batch_id]) zielByBatch[z.umzug_batch_id] = z
-    }
-  }
-
-  const umzuege = umzuegeRaw.map(u => {
-    if (u.zeilen_typ === 'quelle' && u.umzug_batch_id && zielByBatch[u.umzug_batch_id]) {
-      const z = zielByBatch[u.umzug_batch_id]
-      return {
-        ...u,
-        nach_behaelter: z.nach_behaelter ?? z.nach_weinausbau ?? null,
-        menge_liter: u.brutto_liter ?? u.menge_liter,
-      }
-    }
-    return u
-  })
-
-  return { weinausbau, pressungen, behandlungen, analysen, umzuege }
 }
 
 // ── Sub-Komponente: eine Charge mit allen Kettendaten ────────────────────────
@@ -429,15 +298,10 @@ export default async function RueckverfolgungPage({
     new Set(filterOptionenRows.map(f => f.bezeichnung).filter((s): s is string => !!s))
   ).sort((a, b) => a.localeCompare(b, 'de-AT'))
 
-  let trefferQuery = tf((supabase.from('fuellungen') as any)
-    .select('id, name, bezeichnung, jahrgang, rebsorte, qualitaet, chargennummer, pruefnummer, bestand_flaschen, flaschengroesse_ml, aktiv')
-    .order('jahrgang', { ascending: false })
-    .order('name', { ascending: true }))
-  if (jahrgang)     trefferQuery = trefferQuery.eq('jahrgang', parseInt(jahrgang))
-  if (sorte)        trefferQuery = trefferQuery.eq('rebsorte', sorte)
-  if (bezeichnung)  trefferQuery = trefferQuery.eq('bezeichnung', bezeichnung)
-  const { data: trefferRaw } = await trefferQuery
-  const trefferliste = (trefferRaw ?? []) as R[]
+  // Dieselbe Ladefunktion wie die CSV „rueckverfolgung“ (alle Treffer) – ohne 1.000er-Deckel
+  const jahrgangZahl = jahrgang && /^\d{4}$/.test(jahrgang.trim()) ? Number(jahrgang.trim()) : null
+  const trefferFilter = { jahrgang: jahrgangZahl, sorte: sorte?.trim() || null, bezeichnung: bezeichnung?.trim() || null }
+  const trefferliste: R[] = tenantId ? await ladeRueckverfolgungTreffer(supabase, tenantId, trefferFilter) : []
 
   const oLagerbestandFlaschen = trefferliste.length > 0
     ? trefferliste.reduce((s, f) => s + (parseInt(f.bestand_flaschen) || 0), 0) / trefferliste.length
@@ -475,50 +339,11 @@ export default async function RueckverfolgungPage({
   }
 
   // ── Kettendaten laden (unterstützt Verschnitte via fuellung_chargen) ──────
-  type ChargeEntry = {
-    weinausbauId: string
-    anteilLiter: number | null
-    kette: Awaited<ReturnType<typeof ladeChargeKette>>
-  }
-  let chargeEntries: ChargeEntry[] = []
-
-  if (fuellung) {
-    // 1. fuellung_chargen abfragen
-    const { data: fcRows } = await tf((supabase.from('fuellung_chargen') as any)
-      .select('weinausbau_id, anteil_liter')
-      .eq('fuellung_id', fuellung.id))
-
-    const junctionRows = (fcRows ?? []) as R[]
-
-    // 2. Fallback-Kaskade: Junction → weinausbau_id → Auto-Match per Rebsorte+Jahrgang
-    let weinausbauIds: Array<{ id: string; anteil: number | null }>
-
-    if (junctionRows.length > 0) {
-      weinausbauIds = junctionRows.map(r => ({ id: r.weinausbau_id, anteil: r.anteil_liter ?? null }))
-    } else if (fuellung.weinausbau_id) {
-      weinausbauIds = [{ id: fuellung.weinausbau_id, anteil: null }]
-    } else {
-      // Auto-Match: Rebsorte + Jahrgang abgleichen – nur wenn eindeutig (genau 1 Treffer)
-      const { data: autoRows } = await (supabase.from('weinausbau') as any)
-        .select('id')
-        .eq('tenant_id', fuellung.tenant_id)
-        .ilike('rebsorte', fuellung.rebsorte ?? '%')
-        .eq('jahrgang', fuellung.jahrgang ?? 0)
-      const autoMatches = (autoRows ?? []) as R[]
-      weinausbauIds = autoMatches.length === 1
-        ? [{ id: autoMatches[0].id, anteil: null }]
-        : []
-    }
-
-    // 3. Alle Ketten parallel laden
-    chargeEntries = await Promise.all(
-      weinausbauIds.map(async ({ id, anteil }) => ({
-        weinausbauId: id,
-        anteilLiter: anteil,
-        kette: await ladeChargeKette(supabase, id, tenantId),
-      }))
-    )
-  }
+  // Dieselbe Ladefunktion wie die CSV „rueckverfolgung“ (lib/behoerden/rueckverfolgung.ts):
+  // Junction → weinausbau_id → eindeutiger Treffer über Rebsorte + Jahrgang
+  const chargeEntries = fuellung && tenantId
+    ? (await ladeFuellungKette(supabase, tenantId, fuellung, { details: true })).chargen
+    : []
 
   // ── Blend-Protokoll: vollständige Herkunfts-Zusammensetzung (rekursiv über alle
   // Verschneidungs-Generationen) ────────────────────────────────────────────────
@@ -554,7 +379,11 @@ export default async function RueckverfolgungPage({
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3 print:hidden">
             <p className="text-sm text-s112-muted">Rückverfolgung für <strong className="text-s112-text">{fuellung.name}</strong>{fuellung.chargennummer ? <> · <span className="font-mono text-xs">{fuellung.chargennummer}</span></> : null}</p>
-            <Link href="/kellerbuch/rueckverfolgung" className="text-sm text-s112-blue-700 hover:underline shrink-0">← alle Füllungen</Link>
+            <div className="flex items-start gap-3 shrink-0">
+              <RueckverfolgungPrintButton />
+              <CsvExportKnopf label="Rückverfolgung als CSV" href={csvPfad('rueckverfolgung', { fuellung_id: fuellung.id })} />
+              <Link href="/kellerbuch/rueckverfolgung" className="text-sm text-s112-blue-700 hover:underline py-1">← alle Füllungen</Link>
+            </div>
           </div>
 
           {/* Flasche / Abfüllung */}
@@ -691,9 +520,10 @@ export default async function RueckverfolgungPage({
             </p>
           </div>
           {trefferliste.length > 0 && (
-            <div className="flex items-center gap-2 print:hidden">
+            <div className="flex items-start gap-2 print:hidden">
               <RueckverfolgungPrintButton />
-              <RueckverfolgungCsvExportButton treffer={trefferliste} />
+              <RueckverfolgungCsvExportButton treffer={trefferliste} filter={trefferFilter} />
+              <CsvExportKnopf label="Rückverfolgung aller Treffer als CSV" href={csvPfad('rueckverfolgung', trefferFilter)} />
             </div>
           )}
         </div>

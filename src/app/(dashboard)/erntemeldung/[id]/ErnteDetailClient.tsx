@@ -11,6 +11,9 @@ import { fmtHa, fmtZahl, fmtProzent, fmtNum, dezimal } from '@/lib/format'
 import { Pencil, Trash2, AlertTriangle, Plus } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fehlerText } from '@/lib/fehler'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
+import { csvPfad } from '@/lib/behoerden/katalog'
+import { runden, STELLEN } from '@/lib/csv'
 
 // QUALITAET_OPTS: aus lib/wein/qualitaet importiert (s.u. import qualitaetLabel)
 const LESEMETHODE_OPTS = [
@@ -446,7 +449,7 @@ function ParzellForm({
 
 // ── Hauptkomponente ─────────────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag, pressungen, wgOptions, behOptions, waOptions, verfuegbareKg, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk, adminOk }: {
+export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag, pressungen, wgOptions, behOptions, waOptions, verfuegbareKg, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk, adminOk, betriebName, csvErlaubt }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   jahrgang: Record<string, any>; parzellen: ErnteParzelle[]
   weingaerten: WeingartenOpt[]; gstByWeingarten: Record<string, GSTOpt[]>; amaMeldung: AMAMeldung | null
@@ -455,6 +458,10 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
   verfuegbareKg: Record<string, number>; verfuegbareKgByGST: Record<string, number>
   zukaufTrauben: ZukaufTraubenOpt[]
   behaelterMitCharge: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null }[]>; writeOk: boolean; adminOk: boolean
+  /** Mandantenname für den Druckkopf (tenant_einstellungen.betrieb_name) */
+  betriebName: string | null
+  /** Pflichtmeldungen als CSV (Lesedaten, Erntemeldung) – gleiche Regel wie die CSV-Route */
+  csvErlaubt: boolean
 }) {
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
@@ -496,16 +503,16 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
 
       {/* Print-Header (nur beim Drucken sichtbar) */}
       <div className="hidden print:block mb-4 pb-4 border-b-2 border-s112-line-str">
-        <p className="text-xs text-s112-text-2 font-semibold tracking-widest uppercase">software:112 – Gebeshuber Weinbau</p>
+        <p className="text-xs text-s112-text-2 font-semibold tracking-widest uppercase">{betriebName ? `software:112 – ${betriebName}` : 'software:112'}</p>
         <h1 className="text-2xl font-semibold text-s112-text mt-0.5">Jahrgang {jahrgang.jahrgang}</h1>
         <p className="text-sm text-s112-tertiary mt-1">Erstellt: {heute}</p>
       </div>
 
       {/* Ernte-Übersicht */}
       <div className="card">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
           <h2 className="text-base font-semibold text-s112-text">Lesedaten</h2>
-          <div className="flex items-center gap-3">
+          <div className="flex items-start gap-3 flex-wrap">
             <span className="text-sm text-s112-muted">{parzellen.length} Parzellen · {fmtZahl(gesamtKg/1000, 2)} t</span>
             {writeOk && !showForm && (
               <button onClick={() => { setShowForm(true); setEditId(null) }}
@@ -522,6 +529,9 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
             >
               Drucken / PDF
             </button>
+            {csvErlaubt && (
+              <CsvExportKnopf label="Lesedaten als CSV" href={csvPfad('lesedaten', { jahrgang: jahrgang.jahrgang })} />
+            )}
           </div>
         </div>
 
@@ -566,7 +576,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
                       <td className="px-3 py-2 text-xs text-s112-muted">{formatRebsorteMitKuerzel(p.grundstueck_rebsorte ?? p.weingarten_rebsorte)}</td>
                       <td className="px-3 py-2 text-s112-muted whitespace-nowrap">{formatDate(p.ernte_datum)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{(p.menge_kg == null ? undefined : fmtNum(p.menge_kg)) ?? '–'}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{p.klosterneuburger ?? '–'}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{p.klosterneuburger == null ? '–' : fmtNum(runden(p.klosterneuburger, STELLEN.kmw), { min: 1, max: STELLEN.kmw })}</td>
                       <td className="px-3 py-2 text-xs text-s112-muted whitespace-nowrap">{qualitaetLabel(p.qualitaetsstufe)}</td>
                       {(writeOk || adminOk) && (
                         <td className="px-3 py-2 text-right sticky right-0 bg-white border-l border-s112-border/40" data-print="hide">
@@ -741,11 +751,14 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
                 </div>
               )}
 
-              <div className="flex gap-2" data-print="hide">
+              <div className="flex items-start gap-2 flex-wrap" data-print="hide">
                 <button onClick={handleAMA}
                   className="text-sm bg-s112-bg border border-s112-border hover:border-s112-teal text-s112-text-1 hover:text-s112-blue-700 px-4 py-2 rounded-lg transition-colors">
                   Neu berechnen
                 </button>
+                {csvErlaubt && (
+                  <CsvExportKnopf label="Erntemeldung als CSV" href={csvPfad('erntemeldung', { jahrgang: jahrgang.jahrgang })} />
+                )}
               </div>
             </div>
           ) : (

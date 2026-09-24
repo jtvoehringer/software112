@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, getCurrentMembership, roleLabel, canWrite, canSeeAuswertungen, isSandboxAdminUnlock } from '@/lib/auth/roles'
-import { STRIPE_BLOCKED_STATUSES, istTrialAbgelaufen } from '@/lib/stripe/client'
+import { aboStand } from '@/lib/auth/sperren'
 import AppShell from '@/components/layout/AppShell'
 import ReleaseNotesModal from '@/components/ReleaseNotesModal'
 import SessionTimeout from '@/components/SessionTimeout'
@@ -114,12 +114,10 @@ export default async function DashboardLayout({
     }
     isSandbox = (tenantRow as R | null)?.name === 'Sandbox'
 
-    const stripeStatus  = (tenantRow as R | null)?.stripe_status ?? null
-    const trialEndsAt   = (tenantRow as R | null)?.stripe_trial_ends_at ?? null
-    if (stripeStatus && role !== 'system_admin' && !isSandbox) {
-      if (STRIPE_BLOCKED_STATUSES.includes(stripeStatus) || istTrialAbgelaufen(stripeStatus, trialEndsAt)) billingBlocked = true
-      else if (stripeStatus === 'past_due') billingWarnung = true
-    }
+    // Dieselbe Regel prüft die CSV-Route /meldungen/<id>/csv (lib/auth/sperren.ts)
+    const abo = aboStand(tenantRow as R | null, role)
+    billingBlocked = abo.gesperrt
+    billingWarnung = abo.warnung
   }
 
   if (billingBlocked) redirect('/abo')

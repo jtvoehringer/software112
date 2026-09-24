@@ -18,6 +18,15 @@
 //
 // Diese Datei ist bewusst frei von Server-Imports (Vorbelegung wird auch im
 // Mapping-Screen angezeigt).
+//
+// CSV (24.09.2026, „Behördenmeldungen als CSV“): bmdCsv()/personenkontenCsv() erzeugen
+// den Text über den gemeinsamen Baustein – csvText(…, PROFIL_BMD), byte-identisch zur
+// bisherigen Ausgabe (Golden-Files scripts/tests/golden/bmd_*.csv, `npm run test:csv`).
+// Der Import steht mit Dateiendung, weil scripts/tests/csv.test.mjs diese Datei direkt
+// mit Node (Type-Stripping, ohne Bundler und ohne '@/'-Alias) lädt.
+
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den CSV-Tests ohne Bundler lädt (tsconfig ohne allowImportingTsExtensions)
+import { csvText, PROFIL_BMD, type CsvSpalte } from '../csv/index.ts'
 
 export type MappingGruppe = 'erloese' | 'personenkonten' | 'steuercodes' | 'sonstiges'
 
@@ -159,20 +168,16 @@ export function bmdBetrag(n: number): string {
   return (Math.round(n * 100) / 100).toFixed(2).replace('.', ',')
 }
 
-const esc = (v: string) => {
-  const s = (v ?? '').replace(/"/g, '""').replace(/[\r\n]+/g, ' ')
-  return /[;"]/.test(s) ? `"${s}"` : s
-}
+/** Spalten des Buchungsstapels für csvText(…, PROFIL_BMD): Kopf = BMD-Feldname,
+ *  Betrag/Steuer mit 2 Stellen (Altrundung), Prozent/Skonto roh (String(n) mit Komma). */
+export const BMD_CSV_SPALTEN: CsvSpalte<BmdZeile>[] = BMD_SPALTEN.map((k): CsvSpalte<BmdZeile> =>
+  k === 'prozent' || k === 'skontopz' ? { kopf: k, typ: 'dezimal', stellen: 'roh', wert: z => z[k] }
+    : k === 'betrag' || k === 'steuer' ? { kopf: k, typ: 'betrag', wert: z => z[k] }
+      : { kopf: k, typ: 'text', wert: z => z[k] })
 
 /** Buchungsstapel als CSV-Text (BOM + CRLF, Excel-/BMD-tauglich) */
 export function bmdCsv(zeilen: BmdZeile[]): string {
-  const kopf = BMD_SPALTEN.join(';')
-  const body = zeilen.map(z => BMD_SPALTEN.map(s => {
-    const v = z[s]
-    if (typeof v === 'number') return s === 'prozent' || s === 'skontopz' ? String(v).replace('.', ',') : bmdBetrag(v)
-    return esc(String(v ?? ''))
-  }).join(';'))
-  return '﻿' + [kopf, ...body].join('\r\n') + '\r\n'
+  return csvText(zeilen, BMD_CSV_SPALTEN, PROFIL_BMD)
 }
 
 /** Text auf BMD-taugliche Länge kürzen */
@@ -203,12 +208,12 @@ export const PERSONENKONTO_SPALTEN: (keyof PersonenkontoZeile)[] = [
   'kontonummer', 'kontoart', 'name', 'strasse', 'plz', 'ort', 'land', 'uid', 'email', 'telefon', 'zahlungsziel', 'skontopz', 'skontotage', 'extnummer',
 ]
 
+/** Spalten der Personenkonten für csvText(…, PROFIL_BMD): Zahlen roh (String(n) mit Komma), '' bleibt leer. */
+export const PERSONENKONTO_CSV_SPALTEN: CsvSpalte<PersonenkontoZeile>[] = PERSONENKONTO_SPALTEN.map((k): CsvSpalte<PersonenkontoZeile> =>
+  k === 'zahlungsziel' || k === 'skontotage' ? { kopf: k, typ: 'ganzzahl', stellen: 'roh', wert: z => z[k] }
+    : k === 'skontopz' ? { kopf: k, typ: 'dezimal', stellen: 'roh', wert: z => z[k] }
+      : { kopf: k, typ: 'text', wert: z => z[k] })
+
 export function personenkontenCsv(zeilen: PersonenkontoZeile[]): string {
-  const kopf = PERSONENKONTO_SPALTEN.join(';')
-  const body = zeilen.map(z => PERSONENKONTO_SPALTEN.map(s => {
-    const v = z[s]
-    if (typeof v === 'number') return String(v).replace('.', ',')
-    return esc(String(v ?? ''))
-  }).join(';'))
-  return '﻿' + [kopf, ...body].join('\r\n') + '\r\n'
+  return csvText(zeilen, PERSONENKONTO_CSV_SPALTEN, PROFIL_BMD)
 }

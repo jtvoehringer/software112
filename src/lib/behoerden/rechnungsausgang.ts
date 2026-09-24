@@ -1,0 +1,213 @@
+// ── Behördenmeldung „rechnungsausgangsjournal“ (24.09.2026) ────────────────────
+//
+// Ausgangsrechnungsjournal für die Betriebsprüfung (§ 11 UStG fortlaufende Nummer,
+// § 131 BAO): je Verkaufsbeleg (verkaufsposten) des Zeitraums eine Zeile mit
+// Rechnungsnummer, Datum, Kunde, UID, Netto und USt je Steuersatz, Brutto sowie Storno
+// (storniert am in Wiener Zeit). Stornierte Rechnungen bleiben mit ihren Beträgen im
+// Journal (Lückenlosigkeit) und sind als storniert gekennzeichnet. Lücken und doppelte
+// Rechnungsnummern meldet die Datei als Hinweis (X-Warnungen).
+// Eine Ladefunktion für die Druckseite /buchhaltung/rechnungsjournal UND die CSV
+// (/meldungen/rechnungsausgangsjournal/csv?von=&bis=). Die alte Route /api/export/verkauf
+// bleibt unverändert (KAN-54).
+// Berechnung wie die Rechnung (weinhandel/verkauf/[id]): Positionsbrutto × (1 − Rabatt) ×
+// (1 − Sonderrabatt), Netto je Satz = Σ Brutto / (1 + Satz), USt = Netto × Satz;
+// Positionen ohne Preis zählen nicht, fehlender Satz = 13 %.
+
+import { rundeText, runden, type CsvSpalte } from '@/lib/csv'
+import { alle } from '@/lib/supabase/alle'
+import { text, zahl } from './buchhaltung-gemeinsam'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type R = Record<string, any>
+
+export type RechnungsjournalParameter = { von: string; bis: string }
+
+export const JOURNAL_SAETZE = [20, 13, 10] as const
+
+export type RechnungsjournalZeile = {
+  id: string
+  rechnungsnummer: string | null
+  datum: string
+  kunde: string | null
+  kundennummer: string | null
+  uid: string | null
+  land: string | null
+  netto20: number | null
+  ust20: number | null
+  netto13: number | null
+  ust13: number | null
+  netto10: number | null
+  ust10: number | null
+  /** Netto zu 0 % (steuerfrei, Ausfuhr, ig Lieferung) */
+  netto0: number | null
+  /** Netto/USt zu anderen Sätzen (nur in den Gesamtspalten, Hinweis in X-Warnungen) */
+  nettoSonstige: number | null
+  nettoGesamt: number
+  ustGesamt: number
+  brutto: number
+  storniert: boolean
+  /** verkaufsposten.storniert_am (timestamptz) */
+  storniertAm: string | null
+  bezahlt: boolean
+  /** verkaufsposten.bezahlt_am (timestamptz) */
+  bezahltAm: string | null
+}
+
+export const SPALTEN_RECHNUNGSJOURNAL: CsvSpalte<RechnungsjournalZeile>[] = [
+  { kopf: 'Rechnungsnr.', typ: 'code', wert: z => z.rechnungsnummer },
+  { kopf: 'Rechnungsdatum', typ: 'datum', wert: z => z.datum },
+  { kopf: 'Kunde', typ: 'text', wert: z => z.kunde },
+  { kopf: 'Kundennr.', typ: 'code', wert: z => z.kundennummer },
+  { kopf: 'UID', typ: 'code', wert: z => z.uid },
+  { kopf: 'Land', typ: 'code', wert: z => z.land },
+  { kopf: 'Netto 20 % (€)', typ: 'betrag', wert: z => z.netto20 },
+  { kopf: 'USt 20 % (€)', typ: 'betrag', wert: z => z.ust20 },
+  { kopf: 'Netto 13 % (€)', typ: 'betrag', wert: z => z.netto13 },
+  { kopf: 'USt 13 % (€)', typ: 'betrag', wert: z => z.ust13 },
+  { kopf: 'Netto 10 % (€)', typ: 'betrag', wert: z => z.netto10 },
+  { kopf: 'USt 10 % (€)', typ: 'betrag', wert: z => z.ust10 },
+  { kopf: 'Netto steuerfrei (€)', typ: 'betrag', wert: z => z.netto0 },
+  { kopf: 'Netto gesamt (€)', typ: 'betrag', wert: z => z.nettoGesamt },
+  { kopf: 'USt gesamt (€)', typ: 'betrag', wert: z => z.ustGesamt },
+  { kopf: 'Brutto (€)', typ: 'betrag', wert: z => z.brutto },
+  { kopf: 'Storniert', typ: 'janein', wert: z => z.storniert },
+  { kopf: 'Storniert am', typ: 'datum', wert: z => z.storniertAm },
+  { kopf: 'Bezahlt', typ: 'janein', wert: z => z.bezahlt },
+  { kopf: 'Bezahlt am', typ: 'datum', wert: z => z.bezahltAm },
+]
+
+/** Ein Verkaufsbeleg (mit Positionen, Kontakt/Firma) → Journalzeile; sonstige = abweichende Steuersätze */
+export function rechnungsjournalZeile(p: R): { zeile: RechnungsjournalZeile; sonstigeSaetze: number[] } {
+  const roh = new Map<number, { brutto: number; netto: number }>()
+  for (const pos of (p.verkauf_positionen ?? []) as R[]) {
+    if (pos.preis_brutto === null || pos.preis_brutto === undefined) continue
+    const satz = zahl(pos.ust_satz) ?? 13
+    const effektiv = (zahl(pos.preis_brutto) ?? 0) * (zahl(pos.menge) ?? 0)
+      * (1 - (zahl(pos.rabatt_pct) ?? 0) / 100) * (1 - (zahl(pos.sonderrabatt_pct) ?? 0) / 100)
+    const g = roh.get(satz) ?? { brutto: 0, netto: 0 }
+    g.brutto += effektiv
+    g.netto += effektiv / (1 + satz / 100)
+    roh.set(satz, g)
+  }
+  const netto = (s: number) => (roh.has(s) ? runden(roh.get(s)!.netto, 2) : null)
+  const ust = (s: number) => (roh.has(s) ? runden(roh.get(s)!.netto * s / 100, 2) : null)
+  const sonstigeSaetze = [...roh.keys()].filter(s => s !== 0 && !(JOURNAL_SAETZE as readonly number[]).includes(s)).sort((a, b) => a - b)
+  const nettoSonstige = sonstigeSaetze.length ? runden(sonstigeSaetze.reduce((s, k) => s + roh.get(k)!.netto, 0), 2) : null
+  const ustSonstige = sonstigeSaetze.reduce((s, k) => s + runden(roh.get(k)!.netto * k / 100, 2), 0)
+
+  const teileNetto = [netto(20), netto(13), netto(10), netto(0), nettoSonstige]
+  const teileUst = [ust(20), ust(13), ust(10)]
+  const nettoGesamt = runden(teileNetto.reduce<number>((s, v) => s + (v ?? 0), 0), 2)
+  const ustGesamt = runden(teileUst.reduce<number>((s, v) => s + (v ?? 0), 0) + ustSonstige, 2)
+  const brutto = runden([...roh.values()].reduce((s, g) => s + g.brutto, 0), 2)
+
+  const firma = (p.firma ?? null) as R | null
+  const kontakt = (p.kontakt ?? null) as R | null
+  const kontaktName = kontakt ? text([kontakt.vorname, kontakt.nachname].filter(Boolean).join(' ')) : null
+  return {
+    zeile: {
+      id: String(p.id),
+      rechnungsnummer: text(p.rechnungsnummer),
+      datum: String(p.datum).slice(0, 10),
+      kunde: text(firma?.name) ?? kontaktName,
+      // Kundennummer wie auf der Rechnung (Accountnummer), ersatzweise das BMD-Debitorenkonto
+      kundennummer: text(firma?.accountnummer) ?? text(kontakt?.accountnummer) ?? text(firma?.debitor_nr) ?? text(kontakt?.debitor_nr),
+      uid: text(firma?.uid_nummer),
+      land: text(firma?.land) ?? text(kontakt?.land),
+      netto20: netto(20), ust20: ust(20), netto13: netto(13), ust13: ust(13), netto10: netto(10), ust10: ust(10),
+      netto0: netto(0), nettoSonstige,
+      nettoGesamt, ustGesamt, brutto,
+      storniert: !!p.storniert,
+      storniertAm: p.storniert ? text(p.storniert_am) : null,
+      bezahlt: !!p.bezahlt,
+      bezahltAm: p.bezahlt ? text(p.bezahlt_am) : null,
+    },
+    sonstigeSaetze,
+  }
+}
+
+/** Nummer in Muster (Text vor/nach der letzten Ziffernfolge) und Zähler zerlegen */
+function zerlegen(nr: string): { muster: string; vor: string; nach: string; zahl: number; stellen: number } | null {
+  const m = /^(.*?)(\d+)(\D*)$/.exec(nr)
+  if (!m) return null
+  return { muster: `${m[1]}#${m[3]}`, vor: m[1], nach: m[3], zahl: Number(m[2]), stellen: m[2].length }
+}
+
+/**
+ * Lücken und Doppelte in fortlaufenden Rechnungsnummern (je Nummernmuster, z. B. „RE-2026-####“).
+ * Lücken nur zwischen der kleinsten und größten Nummer des Zeitraums.
+ */
+export function rechnungsnummernPruefen(nummern: readonly (string | null)[]): string[] {
+  const hinweise: string[] = []
+  const gruppen = new Map<string, { vor: string; nach: string; stellen: number; zahlen: number[] }>()
+  const gezaehlt = new Map<string, number>()
+  for (const n of nummern) {
+    if (!n) continue
+    gezaehlt.set(n, (gezaehlt.get(n) ?? 0) + 1)
+    const z = zerlegen(n)
+    if (!z || !Number.isSafeInteger(z.zahl)) continue
+    const g = gruppen.get(z.muster) ?? { vor: z.vor, nach: z.nach, stellen: z.stellen, zahlen: [] }
+    g.stellen = Math.min(g.stellen, z.stellen)
+    g.zahlen.push(z.zahl)
+    gruppen.set(z.muster, g)
+  }
+  for (const [n, anzahl] of gezaehlt) if (anzahl > 1) hinweise.push(`Rechnungsnummer ${n} kommt ${anzahl}-mal vor.`)
+  for (const g of gruppen.values()) {
+    const zahlen = [...new Set(g.zahlen)].sort((a, b) => a - b)
+    const nr = (x: number) => `${g.vor}${String(x).padStart(g.stellen, '0')}${g.nach}`
+    for (let i = 1; i < zahlen.length; i++) {
+      const fehlend = zahlen[i] - zahlen[i - 1] - 1
+      if (fehlend <= 0) continue
+      hinweise.push(fehlend === 1
+        ? `Lücke in den Rechnungsnummern: ${nr(zahlen[i - 1] + 1)} fehlt im Zeitraum.`
+        : `Lücke in den Rechnungsnummern: ${nr(zahlen[i - 1] + 1)} bis ${nr(zahlen[i] - 1)} fehlen im Zeitraum (${fehlend} Nummern).`)
+    }
+  }
+  return hinweise
+}
+
+/** Natürliche Sortierung von Rechnungsnummern ('RE-9' vor 'RE-10') */
+function nummernVergleich(a: string | null, b: string | null): number {
+  if (a === b) return 0
+  if (a === null) return 1
+  if (b === null) return -1
+  return a.localeCompare(b, 'de', { numeric: true })
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function ladeRechnungsjournal(supabase: any, tenantId: string, p: RechnungsjournalParameter): Promise<{ zeilen: RechnungsjournalZeile[]; warnungen: string[] }> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await alle<R>((supabase.from('verkaufsposten') as any)
+    .select(`id, datum, rechnungsnummer, aktiv, storniert, storniert_am, bezahlt, bezahlt_am,
+      kontakt:kontakte!kontakt_id(vorname, nachname, accountnummer, debitor_nr, land),
+      firma:firmen!firma_id(name, uid_nummer, accountnummer, debitor_nr, land),
+      verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz)`)
+    .eq('tenant_id', tenantId)
+    .gte('datum', p.von)
+    .lte('datum', p.bis)
+    .order('datum').order('id'))
+  if (error) throw new Error(`Laden fehlgeschlagen (verkaufsposten): ${error.message}`)
+
+  const warnungen: string[] = []
+  const zeilen: RechnungsjournalZeile[] = []
+  const sonstige = new Set<number>()
+  let deaktiviert = 0
+  for (const posten of data) {
+    const { zeile, sonstigeSaetze } = rechnungsjournalZeile(posten)
+    sonstigeSaetze.forEach(s => sonstige.add(s))
+    if (posten.aktiv === false) deaktiviert++
+    zeilen.push(zeile)
+  }
+  zeilen.sort((a, b) => a.datum.localeCompare(b.datum) || nummernVergleich(a.rechnungsnummer, b.rechnungsnummer) || a.id.localeCompare(b.id))
+
+  warnungen.push(...rechnungsnummernPruefen(zeilen.map(z => z.rechnungsnummer)))
+  const ohneNummer = zeilen.filter(z => !z.rechnungsnummer).length
+  if (ohneNummer > 0) warnungen.push(`${ohneNummer} ${ohneNummer === 1 ? 'Verkaufsbeleg hat' : 'Verkaufsbelege haben'} keine Rechnungsnummer.`)
+  if (sonstige.size > 0) {
+    warnungen.push(`Steuersätze ohne eigene Spalte (${[...sonstige].map(s => `${rundeText(s, 2).replace(/\.?0+$/, '').replace('.', ',')} %`).join(', ')}) – nur in „Netto gesamt“ und „USt gesamt“ enthalten.`)
+  }
+  if (deaktiviert > 0) warnungen.push(`${deaktiviert} deaktivierte ${deaktiviert === 1 ? 'Verkaufsbeleg ist' : 'Verkaufsbelege sind'} der Vollständigkeit halber enthalten.`)
+  const storniert = zeilen.filter(z => z.storniert).length
+  if (storniert > 0) warnungen.push(`${storniert} ${storniert === 1 ? 'Rechnung ist' : 'Rechnungen sind'} storniert und mit ihren ursprünglichen Beträgen aufgeführt (Spalte „Storniert“) – für Summen herausfiltern.`)
+  return { zeilen, warnungen }
+}

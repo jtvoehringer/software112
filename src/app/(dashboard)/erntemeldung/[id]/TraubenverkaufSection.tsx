@@ -7,6 +7,11 @@ import type { ZukaufTraubenOpt } from './PressungSection'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum, dezimal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import { qualitaetLabel } from '@/lib/wein/qualitaet'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
+import { csvDateiname, csvDatei, HINWEIS_BKI_UPLOAD } from '@/lib/csv'
+import { csvPfad } from '@/lib/behoerden/katalog'
+import { SPALTEN_TRAUBENVERKAUF_LISTE, type TraubenverkaufListenZeile } from '@/lib/behoerden/traubenverkauf'
 
 function Fehlermeldung({ text, onClose }: { text: string; onClose?: () => void }) {
   return (
@@ -29,7 +34,7 @@ export type Traubenverkauf = {
   // Quelle gesetzt, wenn die Lese GST-genau erfasst wurde (Bugfix: nötig,
   // damit ein Verkauf die verfügbare Menge im Pressungs-Vorschlag korrekt
   // reduziert, der ebenfalls auf GST-Ebene rechnet).
-  weingarten_id: string | null; grundstueck_id?: string | null; zukauf_posten_id?: string | null; weingarten_name: string
+  weingarten_id: string | null; grundstueck_id?: string | null; grundstueck_nr?: string | null; zukauf_posten_id?: string | null; weingarten_name: string
   kontakt_id: string | null; kontakt_name: string | null
   firma_id: string | null; firma_name: string | null
   datum: string; menge_kg: number
@@ -372,9 +377,13 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
 // ── Hauptexport ───────────────────────────────────────────────────────────────
 
 export default function TraubenverkaufSection({
-  jahrgangId, verkauefe, quelleOptions, zukaufOptions, kontaktOptions, firmaOptions, writeOk, adminOk,
+  jahrgangId, jahrgang, bkiErlaubt, verkauefe, quelleOptions, zukaufOptions, kontaktOptions, firmaOptions, writeOk, adminOk,
 }: {
   jahrgangId: string
+  /** Jahrgang (Jahreszahl) – Parameter des BKI-Datenblatts und Teil des Dateinamens */
+  jahrgang: number
+  /** BKI-Datenblatt (Pflichtmeldung) – gleiche Regel wie die CSV-Route */
+  bkiErlaubt: boolean
   verkauefe: Traubenverkauf[]
   quelleOptions: TVQuelleOption[]
   zukaufOptions: ZukaufTraubenOpt[]
@@ -406,41 +415,37 @@ export default function TraubenverkaufSection({
     })
   }
 
-  function handleCSV() {
-    // CSV-Export als BKI-Transportliste
-    const rows: string[][] = [
-      ['Liefernummer', 'Datum', 'Weingarten', 'Herkunftscode', 'Menge kg', 'Preis €/kg', 'KMW°', 'Qualität', 'Gesundheit', 'Abnehmer'],
-    ]
-    for (const v of verkauefe) {
-      rows.push([
-        v.liefernummer ?? '',
-        fmtDate(v.datum),
-        v.weingarten_name,
-        v.herkunft_code ?? '',
-        v.menge_kg.toString().replace('.', ','),
-        v.preis_per_kg?.toString().replace('.', ',') ?? '',
-        v.kmw_grad?.toString().replace('.', ',') ?? '',
-        v.qualitaetsstufe ?? '',
-        v.gesundheit,
-        v.firma_name ?? v.kontakt_name ?? '',
-      ])
-    }
-    const csv = rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(';')).join('\r\n')
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href = url; a.download = `traubenverkauf_${jahrgangId}.csv`
-    a.click(); URL.revokeObjectURL(url)
+  // Interne Traubenverkauf-Liste dieses Jahrgangs (Excel) – das amtliche Format ist das
+  // BKI-Datenblatt daneben. CSV über den Baustein lib/csv (Semikolon, BOM, Formelschutz).
+  function listeErzeugen() {
+    const zeilen: TraubenverkaufListenZeile[] = verkauefe.map(v => ({
+      liefernummer: v.liefernummer,
+      datum: v.datum,
+      jahrgang,
+      quelle: v.weingarten_name,
+      gstNr: v.grundstueck_nr ?? null,
+      mengeKg: v.menge_kg,
+      preisProKg: v.preis_per_kg,
+      kmw: v.kmw_grad,
+      qualitaet: v.qualitaetsstufe ? qualitaetLabel(v.qualitaetsstufe) : null,
+      gesundheit: v.gesundheit,
+      herkunftscode: v.herkunft_code,
+      kaeufer: v.firma_name ?? v.kontakt_name,
+      rechnungsnummer: v.rechnungsnummer ?? null,
+      notizen: v.notizen,
+    }))
+    const datei = csvDatei(zeilen, SPALTEN_TRAUBENVERKAUF_LISTE)
+    return { text: datei.text, zeilen: datei.zeilen, warnungen: datei.warnungen, dateiname: csvDateiname(['Traubenverkauf-Liste', jahrgang]).utf8 }
   }
 
   return (
     <div className={`card space-y-4 ${pending ? 'opacity-60 pointer-events-none' : ''}`}>
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-base font-semibold text-s112-text">Traubenverkauf</h2>
           <p className="text-xs text-s112-muted">Verkauf von Weintrauben gem. § 3 Weingesetz-Formularverordnung</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-start gap-3 flex-wrap">
           {verkauefe.length > 0 && (
             <span className="text-xs text-s112-muted">
               {fmt(gesamtKg)} kg
@@ -450,10 +455,10 @@ export default function TraubenverkaufSection({
             </span>
           )}
           {verkauefe.length > 0 && (
-            <button onClick={handleCSV}
-              className="text-xs bg-[#F2F3F5] hover:bg-s112-line text-s112-text-2 font-medium px-3 py-1.5 rounded-lg transition-colors">
-              CSV
-            </button>
+            <CsvExportKnopf label="Liste als CSV" erzeugen={listeErzeugen} />
+          )}
+          {bkiErlaubt && verkauefe.length > 0 && (
+            <CsvExportKnopf label="BKI-Datenblatt als CSV" hinweis={HINWEIS_BKI_UPLOAD} href={csvPfad('bki-traubenverkauf', { jahrgang })} />
           )}
           {writeOk && !showForm && (
             <button onClick={() => { setShowForm(true); setEditId(null) }}

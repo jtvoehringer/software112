@@ -1,3 +1,4 @@
+// behoerdenmeldung: gebindeverzeichnis, aenderungsprotokoll
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { fmtLiter, fmtNum } from '@/lib/format'
 import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
@@ -8,8 +9,13 @@ import GebindeClient from '@/components/kellerbuch/GebindeClient'
 import LoeschenButton from '@/components/kellerbuch/LoeschenButton'
 import { createBehaelter, updateBehaelter, deleteBehaelter } from '../actions'
 import { createEroeffnungsbestand, deleteEroeffnungsbestand, deleteUmzug } from '../gebinde-actions'
-import { ladeBehaelter, ladeKellergemeinschaft } from '@/lib/keller/behaelter'
+import { ladeKellergemeinschaft } from '@/lib/keller/behaelter'
 import { Users } from 'lucide-react'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
+import { csvPfad } from '@/lib/behoerden/katalog'
+import { ladeGebindeverzeichnis } from '@/lib/behoerden/gebindeverzeichnis'
+import DruckKnopf from '../_behoerden/DruckKnopf'
+import ZeitraumCsvKnopf from '../_behoerden/ZeitraumCsvKnopf'
 
 export const metadata: Metadata = { title: 'Gebinde – software:112' }
 export const dynamic = 'force-dynamic'
@@ -56,20 +62,17 @@ export default async function GebindePage({
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [
-    gebinde,
+    verzeichnis,
     gemeinschaft,
-    { data: chargenRaw },
     { data: eroeffnungRaw },
     { data: umzuegeRaw },
   ] = await Promise.all([
-    // Eigene + freigegebene Gebinde (Kellergemeinschaft, Migration 203) samt
-    // fremder Belegung - Chargen anderer Betriebe bleiben unsichtbar.
-    ladeBehaelter(supabase, tenantId),
+    // Eigene + freigegebene Gebinde (Kellergemeinschaft, Migration 203) samt fremder
+    // Belegung und den aktiven eigenen Chargen – dieselbe Ladefunktion wie die CSV
+    // „gebindeverzeichnis“ (lib/behoerden/gebindeverzeichnis.ts). Chargen anderer
+    // Betriebe bleiben unsichtbar.
+    tenantId ? ladeGebindeverzeichnis(supabase, tenantId) : Promise.resolve({ eintraege: [], zeilen: [], warnungen: [] }),
     ladeKellergemeinschaft(supabase, tenantId),
-    tf((supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, menge_liter, behaelter_id, aktiv, behaelter:behaelter_id(name)')
-      .eq('aktiv', true)
-      .order('name')),
     tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, kmw, menge_liter, qualitaetsstufe, behaelter_id, behaelter:behaelter_id(name), notizen, einstandspreis_pro_liter, referenz_altsystem, transaktions_nr, aktiv')
       .eq('ist_eroeffnungsbestand', true)
@@ -81,7 +84,7 @@ export default async function GebindePage({
       .limit(200)),
   ])
 
-  const chargen      = (chargenRaw   ?? []) as R[]
+  const gebinde      = verzeichnis.eintraege.map(e => e.gebinde)
   const istEigentuemer = gemeinschaft.alsEigentuemer.length > 0
   const istNutzer      = gemeinschaft.alsNutzer.length > 0
   const eroeffnungen = (eroeffnungRaw ?? []) as R[]
@@ -185,7 +188,7 @@ export default async function GebindePage({
 
       <h1 className="text-2xl font-semibold text-s112-text">Gebinde</h1>
 
-      <div className="flex gap-1 border-b border-s112-border">
+      <div className="flex gap-1 border-b border-s112-border print:hidden">
         {TABS.map(t => (
           <Link
             key={t.key}
@@ -204,7 +207,7 @@ export default async function GebindePage({
       {tab === 'gebinde' && (
         <div className="space-y-6">
           {writeOk && (
-            <details className="card p-5">
+            <details className="card p-5 print:hidden">
               <summary className="cursor-pointer font-semibold text-sm text-s112-text select-none">
                 + Neues Gebinde anlegen
               </summary>
@@ -270,6 +273,13 @@ export default async function GebindePage({
             </div>
           )}
 
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h2 className="font-semibold text-s112-text text-sm">Gebindeverzeichnis</h2>
+            <div className="flex items-start gap-2 print:hidden">
+              <DruckKnopf />
+              <CsvExportKnopf href={csvPfad('gebindeverzeichnis')} />
+            </div>
+          </div>
           <div className="card p-0 overflow-hidden">
             <table className="w-full text-sm">
               <thead>
@@ -280,17 +290,13 @@ export default async function GebindePage({
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Standort</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Inhalt</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Füllstand</th>
-                  {writeOk && <th className="px-4 py-2.5" />}
+                  {writeOk && <th className="px-4 py-2.5 print:hidden" />}
                 </tr>
               </thead>
               <tbody>
-                {gebinde.map((g, i: number) => {
-                  const inhalt = chargen.filter((c: R) => c.behaelter_id === g.id)
-                  const eigenLiter = inhalt.reduce((s: number, c: R) => s + (parseFloat(c.menge_liter) || 0), 0)
+                {verzeichnis.eintraege.map(({ gebinde: g, eigenLiter, fuellPct }, i: number) => {
                   // Füllstand: eigener Wein + fremd belegte Liter (Details des Partners bleiben verborgen)
-                  const inhaltLiter = eigenLiter + g.fremd_liter
                   const volumen = g.volumen_liter
-                  const fuellPct = volumen && volumen > 0 ? (inhaltLiter / volumen) * 100 : null
                   const barColor = fuellPct == null ? ''
                     : fuellPct > 100 ? 'bg-s112-err'
                     : fuellPct > 85  ? 'bg-s112-warn'
@@ -331,7 +337,7 @@ export default async function GebindePage({
                         )}
                       </td>
                       {writeOk && (
-                        <td className="px-4 py-2.5 text-right">
+                        <td className="px-4 py-2.5 text-right print:hidden">
                           {!g.fremd && <GebindeClient gebinde={g} action={updateBehaelter.bind(null, g.id)} inputCls={inputCls} labelCls={labelCls} partner={istEigentuemer ? gemeinschaft.alsEigentuemer.map(p => p.name).join(', ') : null} />}
                           {adminOk && !g.fremd && (
                             <LoeschenButton
@@ -350,6 +356,21 @@ export default async function GebindePage({
               </tbody>
             </table>
           </div>
+
+          {/* KAN-35-Bestandsprotokoll als Aufzeichnung für die Weinaufsicht – lesen dürfen es
+              nur Betriebs-Manager und Super-Admins (RLS), daher nur für sie sichtbar */}
+          {adminOk && (
+            <div className="card p-5 space-y-3 print:hidden">
+              <div>
+                <h2 className="font-semibold text-s112-text text-sm">Änderungs- und Löschprotokoll</h2>
+                <p className="text-xs text-s112-muted mt-0.5">
+                  Nachträgliche Änderungen und Löschungen in Kellerbuch, Lese und Verkauf (seit 24.09.2026 lückenlos
+                  protokolliert) – mit Zeitpunkt, alten und neuen Werten und Benutzer. Nur für Betriebs-Manager.
+                </p>
+              </div>
+              <ZeitraumCsvKnopf meldung="aenderungsprotokoll" label="Protokoll als CSV" />
+            </div>
+          )}
         </div>
       )}
 
