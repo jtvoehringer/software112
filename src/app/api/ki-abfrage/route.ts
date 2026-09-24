@@ -11,18 +11,20 @@ type R = Record<string, any>
 // "Frag dein Weingut" – Claude schreibt eine echte (rein lesende) SQL-Abfrage statt aus
 // einer festen Tabellen-/Filter-Vorlage zu wählen. Damit werden Verknüpfungen (JOINs) und
 // Summenbildung (SUM/COUNT/GROUP BY) möglich, siehe Klärung 7.8.2026 ("KI auf alle Tabellen
-// und Inhalte loslassen"). Ausführung + Sicherheitsdesign: siehe Migration 155
-// (ki_readonly_query – läuft als security invoker, RLS greift automatisch; zusätzliche
-// Sperrliste für interne Tabellen/Schemas; nur ein lesendes Statement; Zeilen-/Zeitlimit).
-// Seit Migration 161 bekommt ki_readonly_query zusätzlich den aktiv gewählten Betrieb
-// (p_tenant_id) mit und setzt damit für die Dauer der Abfrage app.active_tenant_id, was
+// und Inhalte loslassen"). Ausführung + Sicherheitsdesign: ki_readonly_query, seit KAN-52
+// (24.09.2026) gehärtet – SECURITY DEFINER der Rolle ki_abfrage (kein BYPASSRLS, erbt
+// authenticated → RLS greift wie beim Benutzer, Rollenwechsel unmöglich), Prüfung des
+// geparsten Abfragebaums gegen eine Tabellen- und Funktions-Allowlist, Schreibschutz
+// während der Ausführung, Nachkontrolle von role/JWT-Claims. Die Funktion bekommt den
+// aktiv gewählten Betrieb (p_tenant_id) mit und setzt app.active_tenant_id, was
 // get_user_tenant_ids() (und damit jede darauf aufbauende RLS-Policy) auf genau diesen
-// einen Mandanten einschränkt - vorher griff RLS hier (wie ursprünglich überall in der App)
-// über ALLE Mitgliedschaften des Users, nicht nur die aktive.
+// einen Mandanten einschränkt.
 
 // ── Erlaubnisliste: nur diese Tabellen werden der KI im Prompt bekannt gemacht ────────────
-// (zweite Sicherheitsebene in ki_readonly_query() sperrt zusätzlich explizit interne/
-// technische Tabellen, falls die KI diese Liste ignorieren sollte)
+// Muss eine Teilmenge von ki_erlaubte_tabellen() (Datenbank) sein: ki_schema_info liefert
+// nur für diese Tabellen Spalten, und ki_readonly_query lehnt jede Abfrage auf eine andere
+// Tabelle ab (z. B. tenants, tenant_memberships, user_email_connections,
+// bestandsprotokoll), auch wenn die KI diese Liste ignoriert.
 const ERLAUBTE_TABELLEN = [
   // Rieden / Weingärten
   'weingarten', 'grundstuecke', 'rebsorten', 'weingarten_rebsorten', 'lagen', 'weinbaugebiete_custom',
@@ -37,7 +39,7 @@ const ERLAUBTE_TABELLEN = [
   'verschneidungen', 'verschneidung_quellen', 'behaelter', 'kellerplaene', 'kellerplan_positionen',
   'dac_antrag', 'pruefnummernantraege', 'transportbescheinigungen',
   // Füllungen / Lager
-  'fuellungen', 'fuellung_chargen',
+  'fuellungen', 'fuellung_chargen', 'fuellung_bewegungen',
   // CRM
   'kontakte', 'firmen', 'kontakt_firmen', 'kontakt_praeferenzen', 'aktivitaeten',
   'aktivitaet_dokumente', 'pipeline_eintraege', 'pipeline_verlauf', 'rabattgruppen',
@@ -52,7 +54,6 @@ const ERLAUBTE_TABELLEN = [
   'kostenstellen', 'kostenarten', 'kosteneintraege', 'kosteneintrag_behaelter', 'kosteneintrag_weingaerten',
   // Buchhaltung
   'ea_transaktionen', 'ea_kategorien', 'ea_dauerauftraege', 'ea_uva',
-  'fibu_buchungssaetze', 'fibu_buchungszeilen', 'fibu_kontenplan', 'fibu_perioden',
   'zahlungen',
   // Sonstiges
   'zeiterfassung', 'release_notes',
@@ -79,6 +80,10 @@ const TABELLEN_KONTEXT = `
   bezeichnung!); bezeichnung = zusätzliches Prädikat/Zusatzbezeichnung (z.B. "Reserve"), ist bei sehr vielen
   Weinen leer/NULL. bestand_flaschen = aktueller Lagerbestand, flaschengroesse_ml, vk_preis_brutto,
   einstandspreis. fuellung_chargen verknüpft eine Füllung mit ihrer/ihren Ursprungs-Charge(n) aus weinausbau.
+- fuellung_bewegungen: Flaschenbewegungen je Füllung (fuellung_id → fuellungen.id) AUSSERHALB von Verkauf/Storno,
+  art (inventur|bruch|eigenverbrauch|schwund|korrektur|anfangsbestand), datum, menge_stk = Veränderung in Stück
+  (Abgänge wie Bruch/Eigenverbrauch/Schwund negativ), bestand_vorher/bestand_nachher, grund. Verkaufte Flaschen
+  stehen NICHT hier, sondern in verkauf_positionen.
 - kontakte / firmen: Kunden (auch is_lead=true für Leads), segment (privat|gastro|handel|export|grosshandel), stammkunde, plz/ort/land.
 - verkaufsposten (Rechnungskopf) ↔ verkauf_positionen (Zeilen): datum, kontakt_id/firma_id, bezahlt, storniert. verkauf_positionen.typ (flasche|tank|sonstiges|trauben), fuellung_id/weinausbau_id/zukauf_id verknüpfen zur verkauften Sache, menge, preis_brutto, rabatt_pct, sonderrabatt_pct (Netto-Betrag = preis_brutto*menge*(1-rabatt_pct/100)*(1-sonderrabatt_pct/100)).
   WICHTIG bei typ='flasche': menge ist die ANZAHL FLASCHEN (Stück, einheit='Stk'), NICHT Liter! Um die
@@ -89,7 +94,7 @@ const TABELLEN_KONTEXT = `
   (Direktverkauf aus einer Weinausbau-Charge, einheit='L').
 - zukauf_posten: zugekaufte Trauben/Most/Wein von Lieferanten. traubenverkauf: verkaufte (nicht zugekaufte) Trauben.
 - kosteneintraege ↔ kostenstellen/kostenarten, kosteneintrag_weingaerten/kosteneintrag_behaelter: Kostenrechnung, Kosten auf Weingärten/Behälter aufgeteilt.
-- ea_transaktionen ↔ ea_kategorien: einfache Einnahmen-Ausgaben-Rechnung. fibu_buchungssaetze ↔ fibu_buchungszeilen ↔ fibu_kontenplan: doppelte Buchhaltung (FIBU-Export).
+- ea_transaktionen ↔ ea_kategorien: einfache Einnahmen-Ausgaben-Rechnung.
 - zahlungen: eingegangene Zahlungen (z.B. via SumUp), meist mit Bezug zu verkaufsposten.
 `.trim()
 
@@ -129,6 +134,10 @@ ${TABELLEN_KONTEXT}
 REGELN für die SQL-Abfrage:
 - NUR SELECT (ggf. mit WITH/CTE) – niemals INSERT/UPDATE/DELETE/DROP/ALTER/CREATE o.ä.
 - NUR die oben gelisteten Tabellen und Spalten verwenden, keine anderen Tabellen erfinden oder raten.
+- NUR Standardfunktionen verwenden: Aggregate (SUM, COUNT, AVG, MIN, MAX, STRING_AGG …), Fensterfunktionen,
+  Datums- (DATE_TRUNC, EXTRACT, TO_CHAR, AGE …), Text- (LOWER, CONCAT, SPLIT_PART …), Mathe- (ROUND, ABS …),
+  Array- und JSON-Funktionen sowie Typumwandlungen (::numeric, ::date). Keine System- oder
+  Verwaltungsfunktionen (z.B. set_config, current_setting, pg_…), keine XML-Funktionen, keine Views.
 - Wenn die Frage nach einer GESAMTMENGE/SUMME/ANZAHL fragt ("wie viel", "wie viele", "gesamt", "insgesamt"),
   schreibe eine Aggregat-Abfrage (SUM/COUNT/AVG) – gib NICHT nur die Einzelzeilen zurück, die der User dann
   selbst zusammenzählen müsste.
