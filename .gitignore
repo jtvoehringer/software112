@@ -60,3 +60,6 @@ import-daten/
 # Ablage für Aufräumen/Altstände – nie ins Repo (23.9.2026: Dependabot fand dort ein altes package.json)
 /_to_delete/
 /_xyz/
+
+# FUSE-Überbleibsel (gelöschte, noch offene Dateien) – nie ins Repo (24.9.2026)
+.fuse_hidden*
