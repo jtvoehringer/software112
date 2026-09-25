@@ -43,6 +43,6 @@ export const KATALOG_ERNTE = katalogGruppe('ernte', {
     druckPfad: '/weinhandel/traubenverkauf',
     pflicht: true,
     rechtsgrundlage: '§ 3 Weingesetz-Formularverordnung, BGBl. II Nr. 13/2012',
-    beschreibung: 'EDV-Liste zum automatischen Einlesen in die Weindatenbank (Transportbeleg je Traubenlieferung).',
+    beschreibung: 'EDV-Liste zum automatischen Einlesen in die Weindatenbank (eine Zeile je Traubenlieferung).',
   },
 })

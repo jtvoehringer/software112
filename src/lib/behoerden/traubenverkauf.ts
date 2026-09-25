@@ -292,7 +292,7 @@ export const SPALTEN_BKI_TRAUBENVERKAUF: CsvSpalte<BkiZeile>[] = [
   // Ganze kg ohne Komma (wie bisher, Schnittstelle „Menge int“), Bruchteile mit Dezimalkomma:
   // 'roh' = kürzeste Darstellung des bereits auf 2 Stellen gerundeten Werts (1250 → 1250, 1250,5 → "1250,5")
   { kopf: 'Menge_kg', typ: 'dezimal', stellen: 'roh', wert: z => z.mengeKg },
-  { kopf: 'Art', typ: 'code', wert: () => 'TB' },                 // Transportbeleg (BKI-Konvention)
+  { kopf: 'Art', typ: 'code', wert: () => 'TB' },                 // Art laut BKI-Kürzelliste: TB = Trauben
   { kopf: 'Weiss', typ: 'janein', wert: z => z.weiss },
   { kopf: 'Rot', typ: 'janein', wert: z => z.rot },
   { kopf: 'Sorte1', typ: 'code', wert: z => z.sorte1 },

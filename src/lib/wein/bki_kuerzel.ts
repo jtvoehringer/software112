@@ -149,9 +149,18 @@ const QUALITAET_GRUNDSTUFE_QUW: Record<string, string> = {
   'grosses_gewachs': 'Großes Gewächs',
 }
 
+/**
+ * Vorläufige Kürzel für Stufen, die in der BKI-Kürzelliste (Stand 01.10.2024) fehlen – eigener
+ * Vorschlag, kein amtlicher Code; der Hinweis landet in den X-Warnungen der CSV.
+ * Ausbruch → AUB (Vorgabe 25.09.2026, KAN-36): „Ausbruch“ darf ohnehin erst nach der
+ * Prüfnummernvergabe versorgt werden; sobald das BKI ein Kürzel festlegt, hier nachziehen.
+ */
+const QUALITAET_VORSCHLAG: Record<string, { kuerzel: string; name: string }> = {
+  'ausbruch': { kuerzel: 'AUB', name: 'Ausbruch' },
+}
+
 /** Werte ohne passende Stufe in der BKI-Kürzelliste – Feld bleibt leer */
 const QUALITAET_OHNE_BKI: Record<string, string> = {
-  'ausbruch':  'Ausbruch',
   'sekt':      'Sekt b.A.',
   'perlwein':  'Perlwein',
   'sonstiges': 'Sonstiges',
@@ -252,17 +261,20 @@ export function fehlendeKuerzelHinweise(
  * Qualitätsstufe → BKI-Kürzel samt Hinweis für die Warnliste der CSV (KAN-36).
  *  - amtliche Stufe → Kürzel, kein Hinweis
  *  - Reserve / Erste Lage / Großes Gewächs → QUW (Grundstufe Qualitätswein) mit Hinweis
- *  - Ausbruch, Sekt, Perlwein, Sonstiges, unbekannte Werte → leer mit Hinweis
+ *  - Ausbruch → vorläufig AUB (Vorschlag, nicht in der Liste) mit Hinweis
+ *  - Sekt, Perlwein, Sonstiges, Tafelwein, unbekannte Werte → leer mit Hinweis
  *  - leer → leer, kein Hinweis
  */
 export function qualitaetBki(q: string | null | undefined): { kuerzel: string; hinweis: string | null } {
   const wert = (q ?? '').trim().toLowerCase()
   if (!wert) return { kuerzel: '', hinweis: null }
   // Nur eigene Einträge – sonst lieferte z. B. „constructor“ die Funktion des Object-Prototyps
-  const eigen = (tabelle: Record<string, string>): string | undefined =>
+  const eigen = <T,>(tabelle: Record<string, T>): T | undefined =>
     Object.prototype.hasOwnProperty.call(tabelle, wert) ? tabelle[wert] : undefined
   const kuerzel = eigen(QUALITAET_BKI)
   if (kuerzel) return { kuerzel, hinweis: null }
+  const vorschlag = eigen(QUALITAET_VORSCHLAG)
+  if (vorschlag) return { kuerzel: vorschlag.kuerzel, hinweis: `„${vorschlag.name}“ steht nicht in der BKI-Kürzelliste – vorläufig als ${vorschlag.kuerzel} gemeldet (Vorschlag, kein amtliches Kürzel)` }
   const zusatz = eigen(QUALITAET_GRUNDSTUFE_QUW)
   if (zusatz) return { kuerzel: 'QUW', hinweis: `„${zusatz}“ hat kein eigenes BKI-Kürzel – als Qualitätswein (QUW) gemeldet` }
   const ohne = eigen(QUALITAET_OHNE_BKI)
