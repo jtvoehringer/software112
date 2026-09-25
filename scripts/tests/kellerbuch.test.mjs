@@ -408,7 +408,7 @@ describe('rueckverfolgung', () => {
   test('Füllung × Ursprung: Anteile, GST/KG als Code, Maßnahmen je Lese mit Zeitfenster', () => {
     const [kopf, ...z] = zellen(csv.csvText(rueck.rueckverfolgungZeilen(ketten), rueck.SPALTEN_RUECKVERFOLGUNG))
     assert.equal(kopf.length, 27)
-    assert.deepEqual(kopf.slice(22), ['Behandlungen ab', 'Behandlungen bis (Lese)', 'Behandlungen (Anzahl)', 'Behandlungen (Datum Mittel)', 'Hinweis Behandlungen'])
+    assert.deepEqual(kopf.slice(22), ['Behandlungen ab', 'Behandlungen bis', 'Behandlungen (Anzahl)', 'Behandlungen (Datum Mittel)', 'Hinweis Behandlungen'])
     assert.equal(z.length, 4)
     const [a, b, c, d] = z
     assert.deepEqual(a.slice(0, 8), ['Cuvée Rot', 'L-26-02', '04023/26', '01.03.2026', '2024', 'Cuvée', '1000', '750'])

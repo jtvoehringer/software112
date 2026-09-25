@@ -13,11 +13,23 @@
 //
 // Lesezeile = pressung_weingaerten (Weingarten/GST, Lesedatum, Trauben einer Pressung): Die
 // Kette Füllung → Charge → Pressung läuft darüber, nicht über ernte_parzellen (Erntemeldung).
-// Auch die „vorige Lese“ kommt nur aus pressung_weingaerten – ein zusammenfassendes Datum aus
-// der Erntemeldung soll das Fenster nicht still verkürzen.
+// Die „vorige Lese“ kommt nur aus pressung_weingaerten – ein Datum aus der Erntemeldung soll
+// den Fensterbeginn nicht still verkürzen; es dient nur als Ersatz für das Fensterende (s. u.).
 //
 // Zeitfenster je Lesezeile, beide Grenzen inklusive:
-//   bis = Lesedatum; fehlt es, das Pressungsdatum (die Lese war spätestens dann) – mit Hinweis
+//   bis = Lesedatum der Lesezeile (pressung_weingaerten.ernte_datum). Das Pressungsformular
+//         erfasst es NICHT (erntemeldung/actions.ts: pw.ernte_datum wird nie geschrieben) –
+//         gesetzt ist es nur in den Demo-Daten des Musterhofs. Im Echtbetrieb greift daher in
+//         der Regel der Ersatz, jeweils mit Hinweis (Lesedatum je Pressungszeile erfassen:
+//         Folgeticket):
+//         1. Lesedatum laut Erntemeldung (ernte_parzellen): der späteste passende Lese-Eintrag
+//            desselben Jahrgangs bis einschließlich zum Pressungsdatum
+//            (lesedatumLautErntemeldung). Die Pressung wählt ihre GST aus eben diesen
+//            Einträgen; der späteste bis zur Pressung liegt nie vor der Lese der verpressten
+//            Trauben, solange die Erntemeldung sie enthält. Im Musterhof stimmt er bei allen
+//            Lesezeilen mit Erntemeldung mit dem Lesedatum der Lesezeile überein.
+//         2. sonst das Pressungsdatum (die Lese war spätestens dann) – Maßnahmen zwischen Lese
+//            und Pressung können dann mit aufgeführt sein; der Hinweis sagt das.
 //   von = Tag nach der vorigen Lese desselben Grundstücks (GST) im selben Jahrgang,
 //         sonst der 01.01. des Jahrgangs
 //   ANNAHME (offene Frage KAN-38, hier NICHT entschieden): Das Fenster „bis Ernte“ beginnt mit
@@ -27,15 +39,19 @@
 //   die Trauben der späteren Lese auch vor der vorigen Lese am Stock – Maßnahmen davor fallen
 //   mit dieser Annahme aus dem Fenster der späteren Lese (Seite und CSV nennen deshalb den
 //   Fensterbeginn samt vorigem Lesedatum).
-//   - „Vorige Lese“ = eine andere Lesezeile desselben GST mit eigenem Lesedatum, streng vor
-//     diesem Lesedatum und nicht vor dem 01.01. des Jahrgangs (die Lese des Vorjahres zählt
-//     nicht, das Fenster beginnt dann am 01.01.). Lesen am selben Tag (eine Lese auf zwei
-//     Pressungen verteilt) sind keine vorige Lese – sie bekommen dasselbe Fenster.
+//   - „Vorige Lese“ = eine andere Lesezeile desselben GST und desselben Jahrgangs (Jahrgang
+//     der Pressung; ist er unbekannt, entscheidet nur das Datum) mit eigenem Lesedatum, streng
+//     vor diesem Lesedatum und nicht vor dem 01.01. des Jahrgangs (die Lese des Vorjahres
+//     zählt nicht, auch nicht ein Eiswein des Vorjahrgangs im Jänner – das Fenster beginnt
+//     dann am 01.01.). Lesen am selben Tag (eine Lese auf zwei Pressungen verteilt) sind keine
+//     vorige Lese – sie bekommen dasselbe Fenster.
 //   - Jahrgang = weinjahrgaenge.jahrgang der Pressung, sonst das Jahr des Lesedatums. Liegt
 //     das Lesedatum in einem früheren Jahr als der Jahrgang (Datenfehler), gilt der 01.01. des
 //     Lesejahres; ein späteres Lesejahr (Eiswein im Jänner) lässt den 01.01. des Jahrgangs.
 //   - Lesezeile ohne eigenes Lesedatum: keine Verkürzung durch eine vorige Lese (die Lese
-//     könnte am selben Tag wie die vorige gewesen sein) – Fenster ab 01.01.
+//     könnte am selben Tag wie die vorige gewesen sein; der Ersatz aus Erntemeldung bzw.
+//     Pressung ist nur eine obere Grenze) – Fenster ab 01.01. Im Echtbetrieb beginnt das
+//     Fenster deshalb bis zum Folgeticket immer am 01.01. (eher eine Maßnahme zu viel).
 //
 // Zuordnung der Maßnahmen (behandlungen) zu einer Lesezeile:
 //   - Lesezeile mit GST: Maßnahmen mit behandlung_grundstuecke-Zeile für genau dieses GST;
@@ -54,7 +70,7 @@
 //   - Datum: eine Maßnahme zählt, wenn sie am oder vor dem Ende des Fensters beginnt und nicht
 //     vor seinem Beginn endet (datum ≤ bis und datum_bis bzw. datum ≥ von). Mehrtägige
 //     Maßnahmen, die in das Fenster hineinreichen, zählen also mit – lieber eine Maßnahme zu
-//     viel als eine still weggelassene. Keine Maßnahme beginnt nach dem Lesedatum.
+//     viel als eine still weggelassene. Keine Maßnahme beginnt nach dem Fensterende.
 
 export type LeseZeile = {
   /** pressung_weingaerten.id */
@@ -67,10 +83,25 @@ export type LeseZeile = {
   pressungDatum: string | null
   /** weinjahrgaenge.jahrgang der Pressung */
   jahrgang: number | null
+  /** pressungen.jahrgang_id – für das Lesedatum laut Erntemeldung */
+  jahrgangId?: string | null
 }
 
-/** Lesezeilen des Betriebs zu den GST (auch aus anderen Chargen) – nur für „vorige Lese“ */
-export type LeseHistorie = { id: string; grundstueckId: string | null; lesedatum: string | null }
+/**
+ * Lesezeilen des Betriebs zu den GST (auch aus anderen Chargen) – nur für „vorige Lese“.
+ * jahrgang: weinjahrgaenge.jahrgang der Pressung (fehlt er, entscheidet nur das Datum).
+ */
+export type LeseHistorie = { id: string; grundstueckId: string | null; lesedatum: string | null; jahrgang?: number | null }
+
+/** Lese-Eintrag der Erntemeldung (ernte_parzellen) – nur Ersatz für ein fehlendes Lesedatum */
+export type ErnteEintrag = {
+  /** ernte_parzellen.jahrgang_id */
+  jahrgangId: string | null
+  weingartenId: string | null
+  grundstueckId: string | null
+  /** 'JJJJ-MM-TT' oder null */
+  lesedatum: string | null
+}
 
 export type MassnahmeOrt = {
   id: string
@@ -91,7 +122,8 @@ export type Zeitfenster = {
   beginn: 'jahresbeginn' | 'vorige_lese'
   /** Lesedatum der vorigen Lese desselben GST (nur bei beginn = 'vorige_lese') */
   vorigeLese: string | null
-  bisAus: 'lesedatum' | 'pressungsdatum'
+  /** Herkunft des Fensterendes: Lesedatum der Lesezeile, Ersatz aus der Erntemeldung bzw. dem Pressungsdatum */
+  bisAus: 'lesedatum' | 'erntemeldung' | 'pressungsdatum'
 }
 
 export type ZugeordneteMassnahme<M> = {
@@ -136,13 +168,40 @@ function jahrVon(t: string | null): number | null {
 }
 
 /**
+ * Ersatz-Lesedatum aus der Erntemeldung für eine Lesezeile ohne eigenes Lesedatum: der
+ * späteste passende Lese-Eintrag desselben Jahrgangs bis einschließlich zum Pressungsdatum.
+ *   Lesezeile mit GST: Einträge genau dieses GST und Einträge ohne GST am Weingarten der Lesezeile
+ *   Lesezeile ohne GST: alle Einträge des Weingartens
+ * null (→ Pressungsdatum), wenn kein Eintrag passt oder ein passender Eintrag kein Lesedatum
+ * hat – dann ist offen, welche Lese verpresst wurde, und das Fenster soll nicht zu früh enden.
+ */
+export function lesedatumLautErntemeldung(lese: LeseZeile, ernte: readonly ErnteEintrag[]): string | null {
+  const pressung = kalendertag(lese.pressungDatum)
+  if (!pressung || !lese.jahrgangId || (!lese.grundstueckId && !lese.weingartenId)) return null
+  let spaetester: string | null = null
+  for (const e of ernte) {
+    if (e.jahrgangId !== lese.jahrgangId) continue
+    const passt = lese.grundstueckId
+      ? e.grundstueckId === lese.grundstueckId || (!e.grundstueckId && !!lese.weingartenId && e.weingartenId === lese.weingartenId)
+      : e.weingartenId === lese.weingartenId
+    if (!passt) continue
+    const d = kalendertag(e.lesedatum)
+    if (!d) return null
+    if (d <= pressung && (!spaetester || d > spaetester)) spaetester = d
+  }
+  return spaetester
+}
+
+/**
  * Zeitfenster einer Lesezeile (Regeln im Dateikopf). null nur, wenn weder Lese- noch
  * Pressungsdatum bekannt ist (pressungen.datum ist NOT NULL – praktisch nie).
  */
-export function leseFenster(lese: LeseZeile, historie: readonly LeseHistorie[]): Zeitfenster | null {
+export function leseFenster(lese: LeseZeile, historie: readonly LeseHistorie[], ernte: readonly ErnteEintrag[] = []): Zeitfenster | null {
   const lesedatum = kalendertag(lese.lesedatum)
-  const bis = lesedatum ?? kalendertag(lese.pressungDatum)
+  const ausErnte = lesedatum ? null : lesedatumLautErntemeldung(lese, ernte)
+  const bis = lesedatum ?? ausErnte ?? kalendertag(lese.pressungDatum)
   if (!bis) return null
+  const bisAus: Zeitfenster['bisAus'] = lesedatum ? 'lesedatum' : ausErnte ? 'erntemeldung' : 'pressungsdatum'
   const jahrBis = jahrVon(bis) as number
   const jahrgang = lese.jahrgang !== null && Number.isInteger(lese.jahrgang) ? lese.jahrgang : jahrBis
   const jahresbeginn = `${String(Math.min(jahrgang, jahrBis)).padStart(4, '0')}-01-01`
@@ -151,14 +210,16 @@ export function leseFenster(lese: LeseZeile, historie: readonly LeseHistorie[]):
   if (lese.grundstueckId && lesedatum) {
     for (const h of historie) {
       if (h.id === lese.id || h.grundstueckId !== lese.grundstueckId) continue
+      // Lesen eines anderen Jahrgangs zählen nie (z. B. Eiswein des Vorjahrgangs im Jänner)
+      if (h.jahrgang != null && h.jahrgang !== jahrgang) continue
       const d = kalendertag(h.lesedatum)
       if (!d || d >= lesedatum || d < jahresbeginn) continue
       if (!vorige || d > vorige) vorige = d
     }
   }
   return vorige
-    ? { von: tagDanach(vorige), bis, beginn: 'vorige_lese', vorigeLese: vorige, bisAus: lesedatum ? 'lesedatum' : 'pressungsdatum' }
-    : { von: jahresbeginn, bis, beginn: 'jahresbeginn', vorigeLese: null, bisAus: lesedatum ? 'lesedatum' : 'pressungsdatum' }
+    ? { von: tagDanach(vorige), bis, beginn: 'vorige_lese', vorigeLese: vorige, bisAus }
+    : { von: jahresbeginn, bis, beginn: 'jahresbeginn', vorigeLese: null, bisAus }
 }
 
 /** Liegt die Maßnahme (ggf. mehrtägig) im Fenster? Beginn ≤ bis und Ende ≥ von */
@@ -187,7 +248,8 @@ export const HINWEIS_OHNE_FENSTER = 'Weder Lese- noch Pressungsdatum bekannt –
 /**
  * Maßnahmen je Lesezeile im Zeitfenster „bis zur Lese“ (Regeln im Dateikopf).
  * grundstueckeJeWeingarten: alle GST je Weingarten (für Lesen ohne GST);
- * weingartenJeGrundstueck: Weingarten laut grundstuecke (für Maßnahmen nur am Weingarten).
+ * weingartenJeGrundstueck: Weingarten laut grundstuecke (für Maßnahmen nur am Weingarten);
+ * ernte: Lese-Einträge der Erntemeldung (Ersatz für ein fehlendes Lesedatum).
  * Maßnahmen je Lese nach Datum (dann id) sortiert.
  */
 export function ordneMassnahmenZu<M extends MassnahmeOrt>(
@@ -196,6 +258,7 @@ export function ordneMassnahmenZu<M extends MassnahmeOrt>(
   massnahmen: readonly M[],
   grundstueckeJeWeingarten: ReadonlyMap<string, readonly string[]>,
   weingartenJeGrundstueck: ReadonlyMap<string, string>,
+  ernte: readonly ErnteEintrag[] = [],
 ): LeseZuordnung<M>[] {
   const sortiert = [...massnahmen].sort((a, b) => (a.datum < b.datum ? -1 : a.datum > b.datum ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   return lesen.map(lese => {
@@ -206,9 +269,12 @@ export function ordneMassnahmenZu<M extends MassnahmeOrt>(
     if (gst && weingartenJeGrundstueck.get(gst)) weingaerten.add(weingartenJeGrundstueck.get(gst) as string)
 
     // Ohne GST verkürzt leseFenster nie über eine vorige Lese (Beginn 01.01. des Jahrgangs)
-    const fenster = leseFenster(lese, historie)
-    if (fenster && fenster.bisAus === 'pressungsdatum') {
-      hinweise.push(`Lesedatum fehlt – Zeitfenster bis zum Pressungsdatum ${ttmmjjjj(fenster.bis)}.`)
+    const fenster = leseFenster(lese, historie, ernte)
+    if (fenster?.bisAus === 'erntemeldung') {
+      hinweise.push(`Lesedatum an der Pressung nicht erfasst – Zeitfenster bis zum Lesedatum laut Erntemeldung ${ttmmjjjj(fenster.bis)} (spätester Lese-Eintrag bis zur Pressung am ${ttmmjjjj(kalendertag(lese.pressungDatum))}).`)
+    }
+    if (fenster?.bisAus === 'pressungsdatum') {
+      hinweise.push(`Lesedatum weder an der Pressung noch in der Erntemeldung erfasst – Zeitfenster bis zum Pressungsdatum ${ttmmjjjj(fenster.bis)}; Maßnahmen zwischen Lese und Pressung können mit aufgeführt sein.`)
     }
     if (!fenster) hinweise.push(HINWEIS_OHNE_FENSTER)
 
@@ -250,4 +316,29 @@ export function fensterBeginnText(f: Zeitfenster): string {
   return f.beginn === 'vorige_lese'
     ? `ab dem Tag nach der vorigen Lese dieses Grundstücks am ${ttmmjjjj(f.vorigeLese)}`
     : 'ab 01.01. des Jahrgangs'
+}
+
+/**
+ * Sammelwarnungen der Sonderfälle für den CSV-Download (X-Warnungen) – die Einzelheiten
+ * stehen je Zeile in „Hinweis Behandlungen“. Jede Lesezeile nur einmal übergeben.
+ */
+export function leseWarnungen(
+  lesen: readonly { fenster: Zeitfenster | null; hinweise: readonly string[]; massnahmen: readonly { nurWeingarten: boolean }[] }[],
+): string[] {
+  const zaehle = (f: (l: (typeof lesen)[number]) => boolean) => lesen.filter(f).length
+  const mitZahl = (n: number, eins: string, mehr: string) => `${n} ${n === 1 ? eins : mehr}`
+  const warnungen: string[] = []
+  const pressung = zaehle(l => l.fenster?.bisAus === 'pressungsdatum')
+  if (pressung > 0) warnungen.push(`${mitZahl(pressung, 'Lese hat', 'Lesen haben')} weder an der Pressung noch in der Erntemeldung ein Lesedatum – Zeitfenster bis zum Pressungsdatum, Maßnahmen zwischen Lese und Pressung können mit aufgeführt sein.`)
+  const ernte = zaehle(l => l.fenster?.bisAus === 'erntemeldung')
+  if (ernte > 0) warnungen.push(`${mitZahl(ernte, 'Lese hat', 'Lesen haben')} kein Lesedatum an der Pressung – Zeitfenster bis zum Lesedatum laut Erntemeldung.`)
+  const ohneFenster = zaehle(l => l.hinweise.includes(HINWEIS_OHNE_FENSTER))
+  if (ohneFenster > 0) warnungen.push(`${mitZahl(ohneFenster, 'Lese hat', 'Lesen haben')} weder Lese- noch Pressungsdatum – alle Maßnahmen des Grundstücks aufgeführt.`)
+  const ohneGst = zaehle(l => l.hinweise.includes(HINWEIS_OHNE_GST))
+  if (ohneGst > 0) warnungen.push(`${mitZahl(ohneGst, 'Lese ist', 'Lesen sind')} ohne Grundstück erfasst – Maßnahmen aller Grundstücke des Weingartens ab 01.01. des Jahrgangs aufgeführt.`)
+  const ohneOrt = zaehle(l => l.hinweise.includes(HINWEIS_OHNE_ORT))
+  if (ohneOrt > 0) warnungen.push(`${mitZahl(ohneOrt, 'Lesezeile hat', 'Lesezeilen haben')} weder Weingarten noch Grundstück (z. B. Traubenzukauf) – keine Maßnahmen zuordenbar.`)
+  const nurWg = zaehle(l => l.massnahmen.some(m => m.nurWeingarten))
+  if (nurWg > 0) warnungen.push(`Bei ${mitZahl(nurWg, 'Lese sind', 'Lesen sind')} Maßnahmen mit aufgeführt, die nur am Weingarten erfasst sind (ohne Grundstück).`)
+  return warnungen
 }

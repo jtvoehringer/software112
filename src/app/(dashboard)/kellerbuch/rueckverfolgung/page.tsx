@@ -238,7 +238,8 @@ function ChargeKette({
                     {w?.name ?? 'Weingarten unbekannt'}{g?.gst_nr ? ` · GST ${g.gst_nr}` : ''}
                   </span>
                   <span className="text-xs text-s112-muted tabular-nums">
-                    Lese {l.lese.ernte_datum ? ttmmjjjj(String(l.lese.ernte_datum).slice(0, 10)) : '–'}
+                    Lese {l.lese.ernte_datum ? ttmmjjjj(String(l.lese.ernte_datum).slice(0, 10))
+                      : l.fenster?.bisAus === 'erntemeldung' ? `${ttmmjjjj(l.fenster.bis)} (laut Erntemeldung)` : '–'}
                   </span>
                   <span className="text-xs text-s112-muted ml-auto">
                     {l.massnahmen.length} {l.massnahmen.length === 1 ? 'Maßnahme' : 'Maßnahmen'}
