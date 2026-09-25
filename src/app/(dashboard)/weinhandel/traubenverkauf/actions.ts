@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { randomUUID } from 'crypto'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
@@ -185,6 +186,7 @@ export async function upsertTraubenverkauf(formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Nicht angemeldet')
+  await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
 
   const existing_id = formData.get('existing_id') as string | null
   const tenantId    = membership.tenantId
@@ -316,6 +318,7 @@ export async function deleteTraubenverkauf(id: string) {
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Nicht angemeldet')
+  await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   const tenantId = membership.tenantId
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

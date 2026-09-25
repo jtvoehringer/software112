@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
+import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { revalidatePath } from 'next/cache'
 import { AktionsFehler } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
@@ -24,6 +25,7 @@ type AnyRecord = Record<string, any>
 async function requireWrite(): Promise<{ tenantId: string }> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein Betrieb gefunden')
+  await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   if (!canWrite(membership.role, 'rieden')) {
     throw new AktionsFehler('Keine Berechtigung: Diese Aktion ist Betriebs-Manager, Super-Admin oder Mitarbeiter mit Modulrecht vorbehalten.')
   }
@@ -33,6 +35,7 @@ async function requireWrite(): Promise<{ tenantId: string }> {
 async function requireAdmin(): Promise<{ tenantId: string }> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein Betrieb gefunden')
+  await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   if (!canAdmin(membership.role)) {
     throw new AktionsFehler('Keine Berechtigung: Löschen (und Deaktivieren) ist nur dem Betriebs-Manager bzw. Super-Admin vorbehalten.')
   }

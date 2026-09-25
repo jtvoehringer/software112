@@ -6,6 +6,7 @@ import { zerlegeTelefon } from '@/lib/crm/telefon'
 import { pruefeEmailFelder } from '@/lib/crm/email'
 import { dezimal } from '@/lib/format'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 export const dynamic = 'force-dynamic'
 // Große Importe (Dynamics-Leads 3.9.2026: 4.200 Firmen / 7.900 Kontakte) kommen
 // vom Client in Blöcken (siehe ImportClient.tsx, IMPORT_BLOCKGROESSE) - ein
@@ -166,6 +167,9 @@ export async function POST(req: NextRequest) {
     const activeMembership = await getCurrentMembership()
     const tenantId = activeMembership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Nicht autorisiert' }, { status: 401 })
+    // KAN-30: Import aus einem veralteten Tab (anderer Betrieb)? Sonst landen die Daten im neuen Betrieb
+    const konflikt = await seitenBetriebKonflikt(tenantId)
+    if (konflikt) return konflikt
 
     // Nur Rollen mit Schreibrecht dürfen importieren (system_admin/tenant_admin/winzer,
     // nicht leser) - einheitlich über canWrite() statt einer eigenen, unvollständigen

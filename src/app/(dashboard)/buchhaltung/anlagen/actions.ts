@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import type { AfaMethode } from '@/lib/ea/anlagen'
 import { AktionsFehler } from '@/lib/fehler'
 
@@ -33,6 +34,7 @@ export type AnlageEingabe = {
 async function ctx() {
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) throw new AktionsFehler('Kein Mandant')
+  await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb? (AfA → E&A-Journal)
   if (!canWrite(membership.role, 'ea')) throw new AktionsFehler('Keine Berechtigung')
   const supabase = await createSupabaseServerClient()
   return { supabase, tenantId: membership.tenantId }

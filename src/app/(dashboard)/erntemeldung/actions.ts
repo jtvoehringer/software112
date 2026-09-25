@@ -7,6 +7,7 @@ import { findePassendeHerkunftsstufe, HERKUNFT_LABEL, minHerkunft } from '@/lib/
 import { createVerkaufspostenFuerTrauben, ermittleQuellenName, upsertTraubenverkauf } from '@/app/(dashboard)/weinhandel/traubenverkauf/actions'
 import { stornoVerkauf } from '@/app/(dashboard)/weinhandel/verkauf/actions'
 import { getCurrentMembership, canAdmin, type Membership } from '@/lib/auth/roles'
+import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { dezimal, fmtNum, zahlAus } from '@/lib/format'
 import { folgebuchungenDerCharge, folgebuchungenText, sperreBeiFolgebuchungen } from '@/lib/kellerbuch/folgebuchungen'
@@ -21,6 +22,7 @@ type AR = Record<string, any>
 async function getMembership(): Promise<Membership> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
+  await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   return membership
 }
 

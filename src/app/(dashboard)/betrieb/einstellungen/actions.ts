@@ -18,6 +18,7 @@
 import { geheimSpeichern } from '@/lib/email/geheimnis'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
+import { seitenBetriebFehler } from '@/lib/auth/seitenBetrieb'
 import { revalidatePath } from 'next/cache'
 import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
@@ -27,6 +28,9 @@ type R = Record<string, any>
 
 async function requireOwnTenant(): Promise<{ tenantId: string } | { error: string }> {
   const membership = await getCurrentMembership()
+  // KAN-30: Seite aus einem anderen Betrieb? (vor den Rechten, sonst gelten die des neuen Betriebs)
+  const betriebGewechselt = await seitenBetriebFehler(membership?.tenantId)
+  if (betriebGewechselt) return { error: betriebGewechselt }
   if (!membership || !canAdmin(membership.role)) return { error: 'Keine Berechtigung' }
   return { tenantId: membership.tenantId }
 }

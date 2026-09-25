@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -25,6 +26,10 @@ export async function POST(req: NextRequest) {
     const membership = await getCurrentMembership()
     const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Nicht autorisiert' }, { status: 401 })
+    // KAN-30: Formular aus einem veralteten Tab (anderer Betrieb)? Sonst Exportnummer aus dem
+    // Nummernkreis des neuen Betriebs mit Kontakten/Füllungen des alten
+    const konflikt = await seitenBetriebKonflikt(tenantId)
+    if (konflikt) return konflikt
     if (!canWrite(membership, 'warenwirtschaft'))   // Admin-Client umgeht RLS → Modulrecht hier prüfen
       return NextResponse.json({ fehler: 'Keine Berechtigung' }, { status: 403 })
 

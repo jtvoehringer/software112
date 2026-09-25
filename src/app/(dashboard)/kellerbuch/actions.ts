@@ -6,6 +6,7 @@ import { minQualitaet, maxQualitaet, istNiedrigerAls, QUALITAET_LABEL } from '@/
 import { minHerkunft, maxHerkunft, istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
 import { weinartKonflikt, weinartBekannt, weinartAusFarbe, WEINART_LABEL } from '@/lib/keller/weinart'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { dezimal, zahlAus, fmtNum } from '@/lib/format'
 import { gebindeFehlerText } from '@/lib/keller/behaelter'
@@ -20,6 +21,7 @@ type R = Record<string, any>
 // Betriebs gelesen/verändert werden.
 async function getTenantId(): Promise<string | null> {
   const membership = await getCurrentMembership()
+  await pruefeSeitenBetrieb(membership?.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   return membership?.tenantId ?? null
 }
 
@@ -28,6 +30,7 @@ async function getTenantId(): Promise<string | null> {
 async function kellerbuchSchreibrecht(): Promise<string> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein Betrieb gefunden')
+  await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: vor den Rechten – sonst meldet ein veralteter Tab die Rechte des neuen Betriebs
   if (!canWrite(membership, 'kellerbuch')) throw new AktionsFehler('Keine Schreibberechtigung für das Kellerbuch in diesem Betrieb.')
   return membership.tenantId
 }

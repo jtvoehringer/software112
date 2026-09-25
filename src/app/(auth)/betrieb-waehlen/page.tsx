@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
 import BetriebListe, { type BetriebEintrag } from './BetriebListe'
+import { BetriebsPruefMelder } from '@/components/BetriebsWaechter'
 
 export const dynamic = 'force-dynamic'
 
@@ -91,6 +92,8 @@ export default async function BetriebWaehlenPage() {
           Angemeldet als {user.email}
         </p>
       </div>
+      {/* KAN-30: Wechselwege, die hier landen (z. B. /auth/betrieb?weiter=/betrieb-waehlen), den anderen Tabs melden */}
+      <BetriebsPruefMelder />
     </div>
   )
 }

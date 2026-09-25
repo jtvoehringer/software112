@@ -5,6 +5,7 @@ import { ladeBehaelter, gebindeFehlerText } from '@/lib/keller/behaelter'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
+import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { fmtNum, dezimal, zahlAus } from '@/lib/format'
 import { AktionsFehler, dbFehlerText, fehlerText } from '@/lib/fehler'
 import { sperreBeiFolgebuchungen } from '@/lib/kellerbuch/folgebuchungen'
@@ -23,6 +24,7 @@ type R = Record<string, any>
 async function getTenantId(): Promise<string> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
+  await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   return membership.tenantId
 }
 
@@ -32,6 +34,7 @@ async function getTenantId(): Promise<string> {
 async function kellerbuchSchreibrecht(): Promise<string> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
+  await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: vor den Rechten – sonst meldet ein veralteter Tab die Rechte des neuen Betriebs
   if (!canWrite(membership, 'kellerbuch')) throw new AktionsFehler('Keine Schreibberechtigung für das Kellerbuch in diesem Betrieb.')
   return membership.tenantId
 }

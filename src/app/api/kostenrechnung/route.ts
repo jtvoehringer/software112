@@ -4,6 +4,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -99,6 +100,8 @@ export async function POST(req: NextRequest) {
   const s = await createSupabaseServerClient()
   const t = await getTId()
   if (!t) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
+  const konflikt = await seitenBetriebKonflikt(t)   // KAN-30: Seite aus einem anderen Betrieb? (Transaktionsnummer)
+  if (konflikt) return konflikt
   const b = await req.json() as R
 
   const fields = {

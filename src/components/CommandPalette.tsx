@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { PALETTE_EVENT } from '@/components/layout/Topbar'
+import { SPERRE_EREIGNIS, istTabGesperrt } from '@/lib/tenant/waechter'
 import type { NavGroup } from '@/lib/navigation'
 import type { SearchResult } from '@/app/api/global-search/route'
 import type { TenantBranding } from '@/app/(dashboard)/layout'
@@ -107,17 +108,26 @@ export default function CommandPalette({
   }, [groups, darfSchreiben, branding.modul_ea, betriebCount])
 
   // ── Öffnen/Schließen: Strg+K, ⌘K, Kopfleisten-Knopf ──────────────────────
+  // Betriebs-Wächter (KAN-30): Solange der Tab wegen eines Betriebswechsels gesperrt ist, bleibt
+  // die Palette zu – inert sperrt nur Klicks und Fokus, nicht die Tasten-Listener am window.
   useEffect(() => {
-    const oeffnen = () => { setQ(''); setAuswahl(0); setOffen(true) }
+    const oeffnen = () => { if (istTabGesperrt()) return; setQ(''); setAuswahl(0); setOffen(true) }
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        if (istTabGesperrt()) return
         e.preventDefault()
         setOffen(o => { if (o) return false; setQ(''); setAuswahl(0); return true })
       }
     }
+    const gesperrt = () => setOffen(false)
     window.addEventListener('keydown', onKey)
     window.addEventListener(PALETTE_EVENT, oeffnen)
-    return () => { window.removeEventListener('keydown', onKey); window.removeEventListener(PALETTE_EVENT, oeffnen) }
+    window.addEventListener(SPERRE_EREIGNIS, gesperrt)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener(PALETTE_EVENT, oeffnen)
+      window.removeEventListener(SPERRE_EREIGNIS, gesperrt)
+    }
   }, [])
 
   useEffect(() => {
@@ -181,6 +191,7 @@ export default function CommandPalette({
   useEffect(() => {
     if (!offen) return
     const onKey = (e: KeyboardEvent) => {
+      if (istTabGesperrt())           { setOffen(false); return }   // Tasten gehören dann dem Sperrdialog
       if (e.key === 'Escape')         { e.preventDefault(); setOffen(false) }
       else if (e.key === 'ArrowDown') { e.preventDefault(); setAuswahl(i => Math.min(flach.length - 1, i + 1)) }
       else if (e.key === 'ArrowUp')   { e.preventDefault(); setAuswahl(i => Math.max(0, i - 1)) }

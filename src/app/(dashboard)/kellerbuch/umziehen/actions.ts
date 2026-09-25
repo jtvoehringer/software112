@@ -8,6 +8,7 @@ import { minHerkunft } from '@/lib/herkunft'
 import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { deleteUmzug as _deleteUmzug } from '../gebinde-actions'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { fmtNum, zahlAus } from '@/lib/format'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { weinartKonflikt, weinartKonfliktText, weinartAusFarbe, weinartBekannt } from '@/lib/keller/weinart'
@@ -72,6 +73,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId
   if (!tenantId) throw new AktionsFehler('Kein aktiver Mandant gefunden')
+  await pruefeSeitenBetrieb(tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
 
   // Ziele vorab prüfen (Kellergemeinschaft, Migration 203): eigenes oder freigegebenes,
   // aktives Gebinde, nicht durch einen anderen Betrieb belegt - bevor Quellen reduziert werden.
@@ -376,6 +378,7 @@ export async function updateUmzug(umzugId: string, datum: string, notizen: strin
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
+  await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: vor den Rechten – sonst meldet ein veralteter Tab die Rechte des neuen Betriebs
   if (!canWrite(membership, 'kellerbuch')) throw new AktionsFehler('Keine Schreibberechtigung für das Kellerbuch in diesem Betrieb.')
   const tenantId = membership.tenantId
 

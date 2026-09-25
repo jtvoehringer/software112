@@ -1,6 +1,7 @@
 'use server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { revalidatePath } from 'next/cache'
 import { AktionsFehler } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
@@ -14,6 +15,7 @@ async function getTenantAdmin() {
   // Aktiv gewählten Betrieb respektieren (wie im Rest der App) statt einer unsortierten
   // Rollenabfrage, die bei mehreren Admin-Mitgliedschaften zudem mit .single() fehlschlagen würde.
   const membership = await getCurrentMembership()
+  await pruefeSeitenBetrieb(membership?.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   if (!membership || !['tenant_admin', 'system_admin'].includes(membership.role ?? '')) {
     throw new AktionsFehler('Keine Berechtigung')
   }

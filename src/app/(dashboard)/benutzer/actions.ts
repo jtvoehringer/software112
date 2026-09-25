@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canManageUsers, isModul, type Modul } from '@/lib/auth/roles'
+import { seitenBetriebFehler } from '@/lib/auth/seitenBetrieb'
 import { pruefeBenutzerlimit, benutzerlimitFehler } from '@/lib/pakete-server'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -79,6 +80,8 @@ const VERGEBBARE_ROLLEN = ['tenant_admin', 'winzer', 'leser']
  *  ein Betriebsleiter kann so technisch nie einen fremden Betrieb bestücken. */
 export async function inviteMember(email: string, role: string, fullName: string, module: Modul[] = []) {
   const membership = await getCurrentMembership()
+  const betriebGewechselt = await seitenBetriebFehler(membership?.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  if (betriebGewechselt) return { error: betriebGewechselt }
   if (!membership || !canManageUsers(membership.role)) {
     return { error: 'Keine Berechtigung' }
   }
@@ -138,6 +141,8 @@ export async function inviteMember(email: string, role: string, fullName: string
  *  Einladung für eine fremde user_id/einen fremden Betrieb auslösen). */
 export async function resendInvite(userId: string) {
   const membership = await getCurrentMembership()
+  const betriebGewechselt = await seitenBetriebFehler(membership?.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  if (betriebGewechselt) return { error: betriebGewechselt }
   if (!membership || !canManageUsers(membership.role)) {
     return { error: 'Keine Berechtigung' }
   }
@@ -170,6 +175,8 @@ export async function resendInvite(userId: string) {
 /** Rollenänderung */
 export async function updateMemberRole(membershipId: string, newRole: string, module?: Modul[]) {
   const membership = await getCurrentMembership()
+  const betriebGewechselt = await seitenBetriebFehler(membership?.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  if (betriebGewechselt) return { error: betriebGewechselt }
   if (!membership || !canManageUsers(membership.role)) {
     return { error: 'Keine Berechtigung' }
   }
@@ -198,6 +205,8 @@ export async function updateMemberRole(membershipId: string, newRole: string, mo
 /** Modulmatrix eines Mitarbeiters setzen (Migration 218) */
 export async function updateMemberModule(membershipId: string, module: Modul[]) {
   const membership = await getCurrentMembership()
+  const betriebGewechselt = await seitenBetriebFehler(membership?.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  if (betriebGewechselt) return { error: betriebGewechselt }
   if (!membership || !canManageUsers(membership.role)) {
     return { error: 'Keine Berechtigung' }
   }
@@ -222,6 +231,8 @@ export async function updateMemberModule(membershipId: string, module: Modul[]) 
  *  system_admin-Zeilen erlaubt - siehe BenutzerClient.tsx. */
 export async function toggleMemberAktiv(membershipId: string, aktiv: boolean) {
   const membership = await getCurrentMembership()
+  const betriebGewechselt = await seitenBetriebFehler(membership?.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  if (betriebGewechselt) return { error: betriebGewechselt }
   if (!membership || !canManageUsers(membership.role)) {
     return { error: 'Keine Berechtigung' }
   }
@@ -263,6 +274,8 @@ export async function toggleMemberAktiv(membershipId: string, aktiv: boolean) {
 /** Mitglied entfernen */
 export async function removeMember(membershipId: string) {
   const membership = await getCurrentMembership()
+  const betriebGewechselt = await seitenBetriebFehler(membership?.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  if (betriebGewechselt) return { error: betriebGewechselt }
   if (!membership || !canManageUsers(membership.role)) {
     return { error: 'Keine Berechtigung' }
   }
