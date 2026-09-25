@@ -1,8 +1,8 @@
 ﻿EDV-Liste zum automatischen Einlesen in die Weindatenbank
 
 Betriebsnr_Empf;Name_Empf;Vorname_Empf;Strasse_Empf;Hausnr_Empf;PLZ_Empf;Ort_Empf;Betriebsnr_Vers;Name_Vers;Vorname_Vers;Strasse_Vers;Hausnr_Vers;PLZ_Vers;Ort_Vers;Datum_Lieferung;Menge_kg;Art;Weiss;Rot;Sorte1;Sorte2;Sorte3;Qualitaetsstufe;Jahrgang;Herkunft;KMW_Grad;Oechsle
-7654321;"Weingut Huber, Stiftung";;Hauptstraße;3a;2170;Poysdorf;9988776;Weingut Muster;;Rebenweg;1;3500;Krems;05.09.2026;1250;TB;J;;GV;;;QUW;2026;NÖ;"17,4";
-7654321;"Weingut Huber, Stiftung";;Hauptstraße;3a;2170;Poysdorf;9988776;Weingut Muster;;Rebenweg;1;3500;Krems;06.09.2026;"980,5";TB;J;;GV;;;LDW;2026;KB;"18,0";
+7654321;"Weingut Huber, Stiftung";;Hauptstraße;3a;2170;Poysdorf;9988776;Weingut Muster;;Rebenweg;1;3500;Krems;05.09.2026;1250;TB;J;;GV;;;QUW;2026;WLNO;"17,4";
+7654321;"Weingut Huber, Stiftung";;Hauptstraße;3a;2170;Poysdorf;9988776;Weingut Muster;;Rebenweg;1;3500;Krems;06.09.2026;"980,5";TB;J;;GV;;;QUW;2026;WLTH;"18,0";
 7654321;"Weingut Huber, Stiftung";;Hauptstraße;3a;2170;Poysdorf;9988776;Weingut Muster;;Rebenweg;1;3500;Krems;07.09.2026;500;TB;;J;ZW;;;KAB;2026;;"19,2";
 7654321;"Weingut Huber, Stiftung";;Hauptstraße;3a;2170;Poysdorf;9988776;Weingut Muster;;Rebenweg;1;3500;Krems;08.09.2026;300;TB;;;RM;;;SPL;2026;;"20,2";
-7654321;"Weingut Huber, Stiftung";;Hauptstraße;3a;2170;Poysdorf;9988776;Weingut Muster;;Rebenweg;1;3500;Krems;09.09.2026;"120,25";TB;;;;;;QUW;2026;Südburgenland;;
+7654321;"Weingut Huber, Stiftung";;Hauptstraße;3a;2170;Poysdorf;9988776;Weingut Muster;;Rebenweg;1;3500;Krems;09.09.2026;"120,25";TB;;;;;;QUW;2026;;;

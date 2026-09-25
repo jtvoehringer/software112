@@ -8,8 +8,11 @@
 //   • alle() statt 1.000er-Deckel, Datum stringbasiert TT.MM.JJJJ (vorher toLocaleDateString
 //     in UTC), Menge_kg: ganze kg wie bisher ohne Nachkommastellen (Schnittstelle „Menge int“),
 //     nur echte Bruchteile mit Dezimalkomma statt Punkt – samt Hinweis (Review 25.09.2026)
-//   • Rebsorte vom Grundstück, sonst vom Ried, sonst vom Zukauf-Posten (KAN-36); Kürzel
-//     und Qualitätsstufe nur noch amtlich – Unbekanntes bleibt leer und steht in X-Warnungen
+//   • Rebsorte vom Grundstück, sonst vom Ried, sonst vom Zukauf-Posten (KAN-36); Kürzel,
+//     Qualitätsstufe und Herkunft nur noch amtlich – Unbekanntes bleibt leer und steht in
+//     X-Warnungen (Herkunft: interne Stufe „wlnoe“ → WLNO, Freitext nur als Bezeichnung
+//     der Kürzelliste; ein nicht abbildbarer genauerer Wert wird nie durch eine gröbere
+//     Quelle ersetzt, herkunftDerLieferung)
 //   • Weiss/Rot aus dem Sortenkürzel (vorher feste Liste von 12 roten Sorten)
 // Die Spaltenköpfe sind das Format der Weindatenbank und bleiben ohne Umlaute.
 //
@@ -19,7 +22,8 @@
 
 import { STELLEN, runden, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
-import { bkiFarbe, bkiRebsorteKuerzel, qualitaetBki } from '@/lib/wein/bki_kuerzel'
+import { bkiFarbe, bkiRebsorteKuerzel, herkunftPruefen, qualitaetBki } from '@/lib/wein/bki_kuerzel'
+import { HERKUNFT_LABEL } from '@/lib/herkunft'
 import { MeldungsFehler } from './typen'
 import { Hinweise, datumAT, textOderNull, zahlOderNull } from './ernte_hilfen'
 
@@ -55,6 +59,7 @@ export type BkiZeile = {
   sorte1: string | null
   qualitaet: string | null
   jahrgang: number | null
+  /** amtliches BKI-Herkunftskürzel (herkunftDerLieferung) */
   herkunft: string | null
   kmw: number | null
 }
@@ -79,14 +84,66 @@ export function rebsorteDerLieferung(v: R): string | null {
   return textOderNull(v.grundstueck?.rebsorte) ?? textOderNull(v.weingarten?.rebsorte) ?? textOderNull(v.zukauf?.rebsorte)
 }
 
-/** Herkunft: am Verkauf erfasst → Grundstück → Ried → erstes Grundstück des Rieds → Zukauf */
-function herkunftDerLieferung(v: R): string | null {
-  const gstDesRieds = ((v.weingarten?.grundstuecke ?? []) as R[]).find(g => textOderNull(g.trauben_herkunft_code))?.trauben_herkunft_code
-  return textOderNull(v.herkunft_code)
-    ?? textOderNull(v.grundstueck?.trauben_herkunft_code)
-    ?? textOderNull(v.weingarten?.trauben_herkunft_code)
-    ?? textOderNull(gstDesRieds)
-    ?? textOderNull(v.zukauf?.herkunft)
+type HerkunftQuelle = { quelle: string; kuerzel: string; grund: string | null }
+
+/** Anzeige einer Herkunftsstufe („wein“ → „Wein / Landwein“); ohne Prototyp-Treffer („constructor“) */
+function herkunftAnzeige(wert: string): string {
+  return Object.prototype.hasOwnProperty.call(HERKUNFT_LABEL, wert) ? HERKUNFT_LABEL[wert] : wert
+}
+
+/** Grundstücke des Rieds als eine Quelle: nur ein einheitliches Kürzel zählt. Uneinheitlich ist
+ *  auch ein nicht abbildbarer Wert („wein“, Freitext) neben einem gültigen – sonst würde ein
+ *  abgestuftes Grundstück über die übrigen aufgestuft (lib/herkunft.ts: Aufstufungen nie).
+ *  Unabhängig von der (ungeordneten) Reihenfolge der eingebetteten Grundstücke. */
+function herkunftDerRiedGrundstuecke(v: R): HerkunftQuelle | null {
+  const quelle = 'Grundstücke des Rieds'
+  const werte = [...new Set(((v.weingarten?.grundstuecke ?? []) as R[])
+    .map(g => textOderNull(g?.trauben_herkunft_code))
+    .filter((w): w is string => w !== null))]
+    .sort((a, b) => a.localeCompare(b, 'de'))
+  if (werte.length === 0) return null
+  const geprueft = werte.map(wert => ({ wert, ...herkunftPruefen(wert, quelle) }))
+  const kuerzel = [...new Set(geprueft.map(p => p.kuerzel).filter(Boolean))].sort()
+  const ungueltig = geprueft.filter(p => !p.kuerzel)
+  if (ungueltig.length === 0 && kuerzel.length === 1) return { quelle, kuerzel: kuerzel[0], grund: null }
+  if (kuerzel.length === 0 && ungueltig.length === 1) return { quelle, kuerzel: '', grund: ungueltig[0].grund }
+  const teile = [...kuerzel, ...ungueltig.map(p => `„${herkunftAnzeige(p.wert)}“`)]
+  return { quelle, kuerzel: '', grund: `Die Grundstücke des Rieds haben unterschiedliche Herkunft (${teile.join(', ')})` }
+}
+
+/**
+ * Herkunft einer Lieferung als amtliches BKI-Kürzel (KAN-36): am Verkauf erfasst → Grundstück
+ * → Ried → Grundstücke des Rieds → Zukauf. Es zählt die erste Quelle mit einem Wert; nur über
+ * LEERE Quellen wird weitergeschaltet. Ist der erste erfasste Wert nicht abbildbar (Freitext,
+ * eigenes Weinbaugebiet, „wein“/„sonstiges“), bleibt die Spalte leer – kein Ersatz aus einer
+ * gröberen Quelle, denn der genauere Wert kann eine bewusste Abstufung sein (traubenverkauf.
+ * herkunft_code ist die Kopie zum Erfassungszeitpunkt; lib/herkunft.ts: Aufstufungen nie).
+ * Höchstens ein Hinweis je Lieferung: keine Herkunft erfasst bzw. keine gültige (Spalte leer).
+ */
+export function herkunftDerLieferung(v: R): { kuerzel: string | null; hinweis: string | null } {
+  const einzeln = (quelle: string, wert: unknown): HerkunftQuelle | null => {
+    const w = textOderNull(wert)
+    return w === null ? null : { quelle, ...herkunftPruefen(w, quelle) }
+  }
+  const quellen = [
+    einzeln('Traubenverkauf', v.herkunft_code),
+    einzeln('Grundstück', v.grundstueck?.trauben_herkunft_code),
+    einzeln('Ried', v.weingarten?.trauben_herkunft_code),
+    herkunftDerRiedGrundstuecke(v),
+    einzeln('Zukauf', v.zukauf?.herkunft),
+  ].filter((q): q is HerkunftQuelle => q !== null)
+
+  const erster = quellen[0]
+  if (!erster) return { kuerzel: null, hinweis: 'Keine Herkunft (weder Traubenverkauf noch Grundstück, Ried bzw. Zukauf) – Spalte leer gelassen.' }
+  if (erster.kuerzel) return { kuerzel: erster.kuerzel, hinweis: null }
+  // Eine spätere Quelle mit Kürzel wird nur genannt, damit klar ist, woher der Unterschied kommt
+  const spaeter = quellen.find(q => q.kuerzel)
+  return {
+    kuerzel: null,
+    hinweis: spaeter
+      ? `${erster.grund} – Spalte leer gelassen, nicht ersatzweise ${spaeter.kuerzel} (${spaeter.quelle}) gemeldet, bitte prüfen.`
+      : `${erster.grund} – Spalte leer gelassen.`,
+  }
 }
 
 /** Rechnung (Verkaufsposten) des Traubenverkaufs ist storniert? */
@@ -150,6 +207,9 @@ export function bkiZeilen(alleVerkaeufe: readonly R[], betrieb: R | null): { zei
     const q = qualitaetBki(textOderNull(v.qualitaetsstufe))
     if (q.hinweis) hinweise.add(q.hinweis, bezug)
 
+    const herkunft = herkunftDerLieferung(v)
+    if (herkunft.hinweis) hinweise.add(herkunft.hinweis, bezug)
+
     return {
       empf,
       vers,
@@ -160,7 +220,7 @@ export function bkiZeilen(alleVerkaeufe: readonly R[], betrieb: R | null): { zei
       sorte1,
       qualitaet: q.kuerzel || null,
       jahrgang: zahlOderNull((v.jahrgang as R | null)?.jahrgang),
-      herkunft: herkunftDerLieferung(v),
+      herkunft: herkunft.kuerzel,
       kmw: zahlOderNull(v.kmw_grad),
     }
   })

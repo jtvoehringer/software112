@@ -1,3 +1,5 @@
+import { HERKUNFT_LABEL } from '@/lib/herkunft'
+
 /**
  * Mapping Rebsorten-Freitext → offizielles BKI-Kürzel.
  *
@@ -268,6 +270,107 @@ export function qualitaetBki(q: string | null | undefined): { kuerzel: string; h
 /** Nur das Kürzel (leer, wenn es keines gibt – kein Ersatzkürzel mehr, KAN-36) */
 export function getQualitaetBki(q: string | null | undefined): string {
   return qualitaetBki(q).kuerzel
+}
+
+/**
+ * Herkunft → amtliches BKI-Kürzel (KAN-36, 25.09.2026): Bezeichnung → Kürzel.
+ *
+ * Quelle: dieselbe amtliche „Kürzelliste für Weinformulare“ (Stand 01.10.2024, siehe oben),
+ * Abschnitt „Herkunft“ – vollständig und in der Reihenfolge der Liste. Vorher ging der
+ * gespeicherte Wert ungeprüft in die Spalte „Herkunft“ des BKI-Datenblatts: interne
+ * Herkunftsstufen („wlnoe“), eigene Weinbaugebiete und der Freitext des Zukaufs.
+ */
+export const HERKUNFT_BKI: Record<string, string> = {
+  'Ausland':               'AUSL',
+  'Bergland':              'BLXX',
+  'Burgenland':            'WLBL',
+  'Carnuntum':             'WLCA',
+  'Eisenberg':             'WLEB',
+  'Kamptal':               'WLKA',
+  'Kärnten':               'BLKA',
+  'Kremstal':              'WLKT',
+  'Leithaberg':            'WLLB',
+  'Mittelburgenland':      'WLMB',
+  'Neusiedlersee':         'WLNS',
+  'Niederösterreich':      'WLNO',
+  'Oberösterreich':        'BLOO',
+  'Österreich':            'OEST',
+  'Rosalia':               'WLRO',
+  'Ruster Ausbruch':       'WLRU',
+  'Salzburg':              'BLSB',
+  'Steiermark':            'SLST',
+  'Steirerland':           'SLXX',
+  'Südsteiermark':         'SLSS',
+  'Thermenregion':         'WLTH',
+  'Tirol':                 'BLTI',
+  'Traisental':            'WLTT',
+  'Verschnitt von mehreren Weinen der EU': 'EUXX',
+  'Vorarlberg':            'BLVO',
+  'Vulkanland Steiermark': 'SLVL',
+  'Wachau':                'WLWA',
+  'Wagram':                'WLWG',
+  'Weinland':              'WLXX',
+  'Weinviertel':           'WLWV',
+  'Weststeiermark':        'SLWS',
+  'Wien':                  'WIEN',
+}
+
+/**
+ * Herkunftsstufen aus lib/herkunft.ts (Migration 132; gespeichert in grundstuecke, ernte_parzellen,
+ * weinausbau, fuellungen und als Kopie in traubenverkauf.herkunft_code) sind KEINE BKI-Kürzel.
+ * Abgebildet nur, wo das Weinbaugebiet eindeutig ist – HERKUNFT_REGION in lib/herkunft.ts, ebenso
+ * der DKB-Import vom 16.09.2026 (docs/Kellergemeinschaft.md: WLNO → wlnoe, WLTH → thermenregion_*).
+ * „wein“ (Wein / Landwein) ist offen – Österreich (OEST) oder eine Landweinregion (…XX) –,
+ * „sonstiges“ ebenso; beide bleiben leer.
+ */
+export const HERKUNFT_STUFE_BKI: Record<string, string> = {
+  'wlnoe':                     'WLNO',
+  'thermenregion_gebietswein': 'WLTH',
+  'thermenregion_ortswein':    'WLTH',
+  'thermenregion_riedenwein':  'WLTH',
+}
+
+// Maps statt Objekt-Lookup: Freitext wie „constructor“ darf keinen Prototyp-Eintrag treffen
+const HERKUNFT_KUERZEL = new Set(Object.values(HERKUNFT_BKI))
+const HERKUNFT_STUFE = new Map(Object.entries(HERKUNFT_STUFE_BKI))
+const HERKUNFT_ANZEIGE = new Map(Object.entries(HERKUNFT_LABEL))
+let herkunftNachName: Map<string, string> | null = null
+
+/**
+ * Herkunftswert → amtliches Kürzel; sonst leer und der Grund als Satzteil für Hinweise.
+ *  - amtliches Kürzel (Groß-/Kleinschreibung egal) → unverändert
+ *  - Herkunftsstufe mit eindeutigem Weinbaugebiet (HERKUNFT_STUFE_BKI) → dessen Kürzel
+ *  - Bezeichnung laut Kürzelliste („Weinviertel“, „Kamptal“) → Kürzel (tolerant wie die Rebsorten)
+ *  - alles andere – Freitext, eigene Weinbaugebiete wie „Kremstal DAC“, „wein“, „sonstiges“ → leer
+ *  - leer → leer, kein Grund
+ * `quelle` (z. B. „Grundstück“) erscheint im Grund hinter dem Wert.
+ */
+export function herkunftPruefen(wert: string | null | undefined, quelle?: string): { kuerzel: string; grund: string | null } {
+  const roh = typeof wert === 'string' ? wert.trim() : ''
+  if (!roh) return { kuerzel: '', grund: null }
+  const gross = roh.toUpperCase()
+  if (HERKUNFT_KUERZEL.has(gross)) return { kuerzel: gross, grund: null }
+  const stufe = HERKUNFT_STUFE.get(roh.toLowerCase())
+  if (stufe) return { kuerzel: stufe, grund: null }
+  if (!herkunftNachName) {
+    herkunftNachName = new Map(Object.entries(HERKUNFT_BKI).map(([name, k]) => [sortenSchluessel(name), k]))
+  }
+  const nachName = herkunftNachName.get(sortenSchluessel(roh))
+  if (nachName) return { kuerzel: nachName, grund: null }
+  const bezug = `Herkunft „${HERKUNFT_ANZEIGE.get(roh) ?? roh}“${quelle ? ` (${quelle})` : ''}`
+  if (roh === 'wein') {
+    return { kuerzel: '', grund: `${bezug} ist keinem BKI-Herkunftskürzel eindeutig zuzuordnen (Österreich OEST oder eine Landweinregion wie Weinland WLXX)` }
+  }
+  return { kuerzel: '', grund: `${bezug} ist kein BKI-Herkunftskürzel` }
+}
+
+/**
+ * Herkunft → BKI-Kürzel samt Hinweis für die Warnliste der CSV (KAN-36, analog qualitaetBki):
+ * gültig → Kürzel ohne Hinweis; Freitext/unbekannt → leer mit Hinweis; leer → leer ohne Hinweis.
+ */
+export function herkunftBki(wert: string | null | undefined): { kuerzel: string; hinweis: string | null } {
+  const p = herkunftPruefen(wert)
+  return { kuerzel: p.kuerzel, hinweis: p.grund ? `${p.grund} – Spalte leer gelassen` : null }
 }
 
 export function isRotwein(rebsorte: string | null | undefined): boolean {
