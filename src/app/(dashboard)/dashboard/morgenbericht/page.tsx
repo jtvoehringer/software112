@@ -52,7 +52,7 @@ export default async function MorgenberichtPage() {
           <Card title={`Zusammenfassung · ${new Date(bericht.datum + 'T00:00:00').toLocaleDateString('de-AT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`}
             right={<div className="flex items-center gap-2">{bericht.anzahl.hoch > 0 && <Badge tone="err">{bericht.anzahl.hoch} dringend</Badge>}{bericht.anzahl.mittel > 0 && <Badge tone="warn">{bericht.anzahl.mittel} zu erledigen</Badge>}{bericht.anzahl.info > 0 && <Badge tone="info">{bericht.anzahl.info} Hinweise</Badge>}{bericht.befunde.length === 0 && <Badge tone="ok">keine Befunde</Badge>}</div>}>
             <p className="text-[14px] text-s112-text leading-relaxed max-w-[80ch]">{bericht.zusammenfassung}</p>
-            {bericht.kiModell ? <p className="mt-2 text-[11px] text-s112-tertiary">Zusammenfassung mit KI ({bericht.kiModell}) aus den geprüften Befunden – zählt als eine Abfrage im KI-Kontingent.</p> : <p className="mt-2 text-[11px] text-s112-tertiary">Ohne KI-Zusammenfassung (Kontingent, Schlüssel oder KI-Modul) – die Befunde unten gelten unverändert.</p>}
+            {bericht.kiModell ? <p className="mt-2 text-[11px] text-s112-tertiary">Zusammenfassung mit KI ({bericht.kiModell}) aus den geprüften Befunden – zählt als eine Abfrage im KI-Kontingent.</p> : <p className="mt-2 text-[11px] text-s112-tertiary">Ohne KI-Zusammenfassung (Kontingent, Schlüssel, KI-Modul, Zeitgrenze oder Fehler beim Aufruf) – die Befunde unten gelten unverändert.</p>}
           </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

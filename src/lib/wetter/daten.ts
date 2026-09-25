@@ -7,6 +7,7 @@
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { alle } from '@/lib/supabase/alle'
+import { mitHoechstens } from '@/lib/utils/parallel'
 import { holePrognose, holeRueckblick, type WetterStunde } from './geosphere'
 import { ereignisMelden } from '@/lib/system/ereignis'
 
@@ -36,15 +37,31 @@ export function wetterPunkte(rieden: WetterRied[]): WetterPunkt[] {
 
 export type WetterDaten = { punkt: WetterPunkt; rueckblick: WetterStunde[]; prognose: WetterStunde[]; stand: string | null; prognoseStand: string | null }
 
-/** Cache auffrischen (Service-Role). Fehler je Punkt werden gesammelt, nicht geworfen. */
-export async function aktualisiereWetter(tenantId: string, punkte: WetterPunkt[], opts: { erzwingen?: boolean } = {}): Promise<{ aktualisiert: number; fehler: string[] }> {
-  if (punkte.length === 0) return { aktualisiert: 0, fehler: [] }
+// KAN-123: höchstens 3 Punkte gleichzeitig (vorher nacheinander, je Abruf bis 25 s) – mit
+// 2 Betrieben gleichzeitig im Morgenbericht-Lauf höchstens 6 Abrufe parallel; der Start-Takt
+// in geosphere.ts hält das Sekundenlimit des Data Hub ein (5 Anfragen/s; Stundenlimit und
+// Quelle dort). Gilt auch für „Jetzt aktualisieren“ (ohne Zeitgrenze).
+const PUNKTE_PARALLEL = 3
+
+/**
+ * Cache auffrischen (Service-Role). Fehler je Punkt werden gesammelt, nicht geworfen.
+ * KAN-123: Mit `deadline` (ms) beginnt nach Ablauf kein weiterer Punkt, laufende Abrufe werden
+ * abgebrochen; schon geschriebene Werte bleiben im Cache (best effort). `zeitAusgelassen` zählt
+ * die Punkte, die deshalb nicht (vollständig) aufgefrischt wurden, `abrufFehler` die übrigen
+ * gescheiterten Punkte (Zeitlimit je Abruf, HTTP-Fehler, Datenbank) – für das Cron-Protokoll.
+ */
+export async function aktualisiereWetter(tenantId: string, punkte: WetterPunkt[], opts: { erzwingen?: boolean; deadline?: number } = {}): Promise<{ aktualisiert: number; fehler: string[]; zeitAusgelassen: number; abrufFehler: number }> {
+  if (punkte.length === 0) return { aktualisiert: 0, fehler: [], zeitAusgelassen: 0, abrufFehler: 0 }
   const admin = createSupabaseAdminClient()
   const jetzt = new Date()
-  const fehler: string[] = []
-  let aktualisiert = 0
+  let aktualisiert = 0, zeitAusgelassen = 0, abrufFehler = 0
+  const deadline = opts.deadline
+  const abgelaufen = () => deadline !== undefined && Date.now() >= deadline
+  const signal = deadline === undefined ? undefined : AbortSignal.timeout(Math.max(1, deadline - Date.now()))
 
-  for (const p of punkte.slice(0, 12)) { // Schutz: höchstens 12 Punkte je Betrieb und Lauf
+  // Schutz: höchstens 12 Punkte je Betrieb und Lauf
+  const fehlerJePunkt = await mitHoechstens(punkte.slice(0, 12), PUNKTE_PARALLEL, async (p): Promise<string | null> => {
+    if (abgelaufen()) { zeitAusgelassen++; return null }
     try {
       // ── Rückblick (INCA) ──
       const { data: letzte } = await (admin.from('wetter_stunden') as any).select('zeit')
@@ -55,7 +72,7 @@ export async function aktualisiereWetter(tenantId: string, punkte: WetterPunkt[]
         const von = letzteZeit ? new Date(letzteZeit.getTime() + 3600000) : new Date(jetzt.getTime() - RUECKBLICK_TAGE * 86400000)
         const vonBegrenzt = new Date(Math.max(von.getTime(), jetzt.getTime() - RUECKBLICK_TAGE * 86400000))
         if (vonBegrenzt.getTime() < jetzt.getTime()) {
-          const werte = await holeRueckblick(p.lat, p.lon, vonBegrenzt, jetzt)
+          const werte = await holeRueckblick(p.lat, p.lon, vonBegrenzt, jetzt, signal)
           const zeilen = werte.filter(w => w.t2m !== null || w.rr !== null).map(w => ({
             tenant_id: tenantId, lat: p.lat, lon: p.lon, quelle: 'inca', zeit: w.zeit, rr: w.rr, t2m: w.t2m, rh2m: w.rh2m, wind_ms: w.wind_ms, boe_ms: null, abgerufen_am: jetzt.toISOString(),
           }))
@@ -71,7 +88,7 @@ export async function aktualisiereWetter(tenantId: string, punkte: WetterPunkt[]
         .eq('tenant_id', tenantId).eq('lat', p.lat).eq('lon', p.lon).eq('quelle', 'nwp').order('abgerufen_am', { ascending: false }).limit(1).maybeSingle()
       const progAlterMin = prog?.abgerufen_am ? (jetzt.getTime() - new Date(prog.abgerufen_am).getTime()) / 60000 : Infinity
       if (opts.erzwingen || progAlterMin >= 180) {
-        const { stunden } = await holePrognose(p.lat, p.lon)
+        const { stunden } = await holePrognose(p.lat, p.lon, signal)
         if (stunden.length > 0) {
           { const { error: e } = await (admin.from('wetter_stunden') as any).delete().eq('tenant_id', tenantId).eq('lat', p.lat).eq('lon', p.lon).eq('quelle', 'nwp')
             if (e) void ereignisMelden({ art: 'db', quelle: 'wetter/wetter_stunden', meldung: e.message }) }
@@ -83,14 +100,18 @@ export async function aktualisiereWetter(tenantId: string, punkte: WetterPunkt[]
           aktualisiert++
         }
       }
+      return null
     } catch (e) {
-      fehler.push(`${p.key}: ${(e as Error).message}`)
+      if (abgelaufen() || signal?.aborted) { zeitAusgelassen++; return `${p.key}: Zeitgrenze erreicht, Abruf abgebrochen` }
+      abrufFehler++
+      return `${p.key}: ${(e as Error).message}`
     }
-  }
+  })
+  const fehler = fehlerJePunkt.filter((f): f is string => f !== null)
   // Alte Rückblick-Zeilen ausdünnen (älter als 35 Tage)
   { const { error: e } = await (admin.from('wetter_stunden') as any).delete().eq('tenant_id', tenantId).eq('quelle', 'inca').lt('zeit', new Date(jetzt.getTime() - (RUECKBLICK_TAGE + 2) * 86400000).toISOString())
     if (e) void ereignisMelden({ art: 'db', quelle: 'wetter/wetter_stunden', meldung: e.message }) }
-  return { aktualisiert, fehler }
+  return { aktualisiert, fehler, zeitAusgelassen, abrufFehler }
 }
 
 /** Cache lesen (beliebiger Client mit Lesezugriff auf den Mandanten) */

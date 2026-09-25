@@ -9,6 +9,7 @@ import type { Befund } from '@/lib/wetter/regeln'
 import { alle } from '@/lib/supabase/alle'
 import { ereignisseLaden } from '@/lib/system/ereignis'
 import { weinbauBetriebsnummerFehlt } from '@/lib/betrieb/betriebsnummer'
+import { betriebeOhneMorgenberichtAmVortag } from './vortag'
 
 export type { Befund }
 export type Einstellungen = Awaited<ReturnType<typeof import('@/app/(dashboard)/dashboard/_shared/data').ladeEinstellungen>>
@@ -147,6 +148,17 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
         const top = [...quellen.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([q, n]) => `${q} (${n})`).join(', ')
         befunde.push({ key: 'system:fehler', bereich: 'System', stufe: ereignisse.length >= 10 ? 'hoch' : 'mittel', titel: `${ereignisse.length} Fehler in den letzten 24 Stunden (alle Betriebe)`, detail: top, href: '/admin/system' })
       }
+    } catch { /* Systembericht ist Zusatznutzen */ }
+    // 10b. KAN-123: Betriebe ohne Morgenbericht am Vortag (Cron ausgelassen oder abgebrochen) –
+    //      ausgenommen Demo-Betrieb, inaktive, deaktivierte, gesperrte und neu angelegte Betriebe
+    try {
+      const ohne = await betriebeOhneMorgenberichtAmVortag(heute)
+      if (ohne.length) befunde.push({
+        key: 'system:morgenbericht-vortag', bereich: 'System', stufe: 'mittel',
+        titel: `${ohne.length} ${ohne.length === 1 ? 'Betrieb' : 'Betriebe'} ohne Morgenbericht am Vortag`,
+        detail: ohne.slice(0, 4).map(b => b.name).join(', ') + (ohne.length > 4 ? ` +${ohne.length - 4}` : '') + ' – Cron-Lauf unter Administration → Systembericht prüfen',
+        href: '/admin/system',
+      })
     } catch { /* Systembericht ist Zusatznutzen */ }
   }
   void paket
