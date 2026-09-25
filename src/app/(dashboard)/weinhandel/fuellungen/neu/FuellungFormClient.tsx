@@ -109,7 +109,9 @@ export default function FuellungFormClient({
   // Schwundbuchung aktiv bestätigen (siehe Warnhinweis unten).
   const [abschliessen, setAbschliessen] = useState(false)
   // KAN-72: Vorschlag = genehmigter Antrag der Charge – die Liste enthält nur Anträge, deren
-  // Prüfnummer für den heutigen Bestand gilt (nach einem Verschnitt keiner mehr)
+  // Prüfnummer für den heutigen Bestand gilt (nach einem Verschnitt keiner mehr). Der Server
+  // prüft mit demselben Stand (Bestand, von dem die Füllung abgebucht wird), auch bei einem
+  // früheren Abfülldatum.
   const vorschlag = (chargeId: string) => dacAntraege.find(d => d.weinausbau_id === chargeId && d.status === 'genehmigt') ?? null
   const [selectedDacId, setSelectedDacId] = useState(() => (defaultChargeId ? vorschlag(defaultChargeId)?.id ?? '' : ''))
   const [pruefnummerVal, setPruefnummerVal] = useState(() => (defaultChargeId ? vorschlag(defaultChargeId)?.pruefnummer ?? '' : ''))
@@ -348,9 +350,10 @@ export default function FuellungFormClient({
                 )}
               </div>
             ) : freieEingabe ? (
-              // Bewusst erhalten (KAN-72): freie Prüfnummer für Füllungen ohne Charge (Altbestand)
-              // und Chargen ohne DAC-Antrag (z. B. Zukauf mit Prüfnummer des Lieferanten). Der
-              // Server lehnt eine Nummer ab, die zum Antrag einer anderen Charge gehört.
+              // Bewusst erhalten (KAN-72): freie Prüfnummer für Füllungen ohne Charge (Altbestand),
+              // Chargen ohne DAC-Antrag (z. B. Zukauf mit Prüfnummer des Lieferanten) und Umzugs-
+              // Chargen. Der Server lehnt jede Nummer eines DAC-Antrags des Betriebs ab – außer bei
+              // einer Umzugs-Charge die ihrer Antrags-Charge, wenn sie beim Umzug galt.
               <input aria-label="Prüfnummer (ohne DAC-Antrag)" name="pruefnummer_freitext" value={pruefnummerVal}
                 onChange={e => setPruefnummerVal(e.target.value)}
                 placeholder="z.B. AT 1234/2025" className={inputCls} />

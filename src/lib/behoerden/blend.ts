@@ -8,10 +8,11 @@
 // aktueller Bestand) – eine rechnerische Aufteilung, keine gebuchte Menge.
 //
 // Prüfnummer (KAN-72, 25.09.2026): Charge – nur eine heute gültige Nummer laut
-// pruefnummerGueltig() (lib/kellerbuch/pruefnummer.ts; nach Verschnitt, Zugang oder Zukauf
-// seit der Einreichung gilt sie nicht mehr, § 25 Abs. 6 WeinG), sonst Hinweiszeile und leere
+// pruefnummerGueltig() (lib/kellerbuch/pruefnummer.ts; nach Verschnitt, Zugang, Zukauf oder
+// Pressung seit der Einreichung gilt sie nicht mehr, § 25 Abs. 6 WeinG), sonst Hinweiszeile und leere
 // CSV-Spalte mit Warnung. Füllung – die Nummer der Füllung (Stichtag = Abfüllung), ersatzweise
-// die ihres genehmigten, aktiven DAC-Antrags. Der Dateiname enthält nie eine Prüfnummer.
+// die ihres genehmigten, aktiven DAC-Antrags derselben Charge. Der Dateiname enthält nie eine
+// Prüfnummer.
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 import { runden, STELLEN, wienHeute, type CsvSpalte } from '@/lib/csv'
@@ -119,7 +120,7 @@ export async function ladeBlendProtokoll(
   const warnungen: string[] = []
   if (p.art === 'fuellung') {
     const { data, error } = await (supabase.from('fuellungen') as any)
-      .select('id, name, chargennummer, pruefnummer, dac_antrag_id, jahrgang, rebsorte, qualitaet, datum, anzahl_flaschen, flaschengroesse_ml, menge_liter_gefuellt')
+      .select('id, name, chargennummer, pruefnummer, dac_antrag_id, weinausbau_id, jahrgang, rebsorte, qualitaet, datum, anzahl_flaschen, flaschengroesse_ml, menge_liter_gefuellt')
       .eq('tenant_id', tenantId)
       .eq('id', p.id)
       .maybeSingle()
@@ -127,7 +128,8 @@ export async function ladeBlendProtokoll(
     const f = data as R | null
     if (!f) return null
     // Prüfnummer der Füllung (Stichtag = Abfüllung); ohne eigene Nummer die des verknüpften,
-    // genehmigten und aktiven DAC-Antrags (Nummer erst nach der Abfüllung erteilt) – wie die TBS
+    // genehmigten und aktiven DAC-Antrags (Nummer erst nach der Abfüllung erteilt) – nur, wenn
+    // der Antrag zur Charge der Füllung gehört (in /dac umgehängt → keine Nummer) – wie die TBS
     let pruefnummer = text(f.pruefnummer)
     if (!pruefnummer && f.dac_antrag_id) {
       const { data: dac, error: dacErr } = await (supabase.from('dac_antrag') as any)
@@ -136,7 +138,7 @@ export async function ladeBlendProtokoll(
         .eq('id', f.dac_antrag_id)
         .maybeSingle()
       if (dacErr) throw new Error(`Blend-Protokoll: DAC-Antrag der Füllung konnte nicht geladen werden (${dacErr.message})`)
-      pruefnummer = dac ? pruefnummerAusAntrag(antragAusZeile(dac as R)) : null
+      pruefnummer = dac ? pruefnummerAusAntrag(antragAusZeile(dac as R), f.weinausbau_id ? String(f.weinausbau_id) : null) : null
     }
     const flaschen = numOderNull(f.anzahl_flaschen)
     const groesse = numOderNull(f.flaschengroesse_ml)

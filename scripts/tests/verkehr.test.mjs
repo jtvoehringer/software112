@@ -182,7 +182,8 @@ describe('verkehr-hilfen', () => {
 describe('transportbescheinigung', () => {
   test('Vorbelegung: Farbe aus Weinart/Rebsorte, Prüfnummer der Füllung, Trauben in kg mit KMW', () => {
     const hinweise = []
-    const f = tb.tbVorbelegung(POSTEN, CFG, { jeWeinausbau: { [WA1]: PN_WA1 }, jeDacAntrag: { 'dac-f1': 'N 5678/25' } }, '2026-09-24', hinweise)
+    const DAC_F1 = { id: 'dac-f1', weinausbauId: null, status: 'genehmigt', aktiv: true, pruefnummer: 'N 5678/25', mengeLiter: null, eingereichtAm: null, bescheidAm: null, angelegtAm: null }
+    const f = tb.tbVorbelegung(POSTEN, CFG, { jeWeinausbau: { [WA1]: PN_WA1 }, jeDacAntrag: { 'dac-f1': DAC_F1 } }, '2026-09-24', hinweise)
     assert.equal(f.positionen.length, 3)                          // „sonstiges“ braucht keine TB
     const [tank, flasche, trauben] = f.positionen
     assert.equal(tank.art, 'Rot')                                 // bisher fix „Weiß“

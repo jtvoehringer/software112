@@ -3,9 +3,10 @@
 --
 -- Regel wie src/lib/kellerbuch/pruefnummer.ts (pruefnummerGueltig): eine Prüfnummer gilt für
 -- eine Charge, wenn der zuletzt eingereichte Antrag genehmigt und aktiv ist, eine Nummer trägt,
--- nach eingereicht_am (am Einreichungstag: davor; ohne Datum: Anlagetag, dann Bescheidtag) kein
--- Verschnitt, Zukauf (aktiv) oder Zugang (Umzug aus einer anderen Charge, Pressung) mit der
--- Charge als ZIEL gebucht wurde und der Bestand höchstens beantragt − seither abgefüllt ist.
+-- nach eingereicht_am (am Einreichungstag: davor; ohne Datum: Entwurf keine Zugangsregel, sonst
+-- der frühere von Anlage- und Bescheidtag) kein Verschnitt, Zukauf (aktiv), Zugang per Umzug
+-- aus einer anderen Charge oder keine Pressung mit der Charge als ZIEL gebucht wurde und der
+-- Bestand höchstens beantragt − seither abgefüllt ist.
 --
 -- Ergebnis: eine Zeile je Betrieb und Befund mit Anzahl und gekürzten IDs („…“ + letzte 8
 -- Zeichen). Details: die letzte Abfrage durch „select * from befunde“ ersetzen.
@@ -15,12 +16,19 @@
 --   A2  Prüfnummer weicht von der des verknüpften Antrags ab
 --   A3  Prüfnummer gesetzt, verknüpfter Antrag aber nicht genehmigt/aktiv
 --   A4  freie Prüfnummer (ohne Antrag) gehört zum Antrag einer anderen Charge – bzw. ohne Charge
---       zu irgendeinem Antrag (typisch: beim Chargenwechsel stehen geblieben)
+--       zu irgendeinem Antrag (typisch: beim Chargenwechsel stehen geblieben); ohne direkten
+--       Umzug aus der Antrags-Charge
+--   A4u wie A4, aber die Charge der Füllung bekam direkt per Umzug Wein aus der Antrags-Charge
+--       (Info – seit KAN-72 zulässig, wenn die Nummer beim Umzug galt; Kette im Detail prüfen)
 --   A5  freie Prüfnummer auf einer Charge mit aktivem, nicht abgelehntem Antrag, aber nicht
 --       dessen Nummer
---   A6  Prüfnummer = Nummer eines Antrags der eigenen Charge, aber ohne dac_antrag_id (nur Info)
---   A7  Nummer eines Antrags der eigenen Charge, abgefüllt NACH einem Zugang/Verschnitt/Zukauf
---       seit dessen Einreichung (Nummer galt am Abfülltag nicht mehr)
+--   A6  Prüfnummer = Nummer eines genehmigten, aktiven Antrags der eigenen Charge, aber ohne
+--       dac_antrag_id (nur Info)
+--   A7  Nummer eines Antrags der eigenen Charge, zwischen Einreichung und Abfüllung (in beiden
+--       Richtungen: Abfüllung nach oder vor der Einreichung) ein Zugang/Verschnitt/Zukauf/
+--       Pressung – Flaschen und Probe enthalten verschiedenen Wein
+--   A8  freie Prüfnummer = Nummer eines inaktiven, abgelehnten oder nicht genehmigten Antrags
+--       der eigenen Charge
 -- Befunde Chargen:
 --   B1  angezeigte Nummer wäre nach der neuen Regel heute ungültig (Grund angehängt)
 --   B2  Blend-Protokoll zeigte bisher eine andere Nummer (jüngster Antrag mit Nummer, ohne Status)
@@ -29,7 +37,9 @@ with
 heute as (select (now() at time zone 'Europe/Vienna')::date as tag),
 antrag as (
   select a.*,
-         coalesce(a.eingereicht_am, (a.created_at at time zone 'Europe/Vienna')::date, a.bescheid_am) as beginn,
+         case when a.eingereicht_am is not null then a.eingereicht_am
+              when a.status = 'entwurf' then null
+              else least((a.created_at at time zone 'Europe/Vienna')::date, a.bescheid_am) end as beginn,
          upper(regexp_replace(coalesce(a.pruefnummer, ''), '\s', '', 'g')) as pn_norm,
          (a.status = 'genehmigt' and a.aktiv and nullif(btrim(a.pruefnummer), '') is not null) as genehmigt
   from dac_antrag a
@@ -42,7 +52,7 @@ zugang as (
   select z.tenant_id, z.ziel_weinausbau_id, z.datum, 'zukauf', 1
   from zukauf_posten z where z.aktiv and z.ziel_weinausbau_id is not null
   union all
-  select u.tenant_id, u.nach_weinausbau_id, u.datum, 'zugang', 2
+  select u.tenant_id, u.nach_weinausbau_id, u.datum, 'zugang', 3
   from keller_umzuege u
   where u.nach_weinausbau_id is not null and coalesce(u.zeilen_typ, '') <> 'quelle'
     and case
@@ -54,7 +64,7 @@ zugang as (
                          and q.von_weinausbau_id is distinct from u.nach_weinausbau_id)
         end
   union all
-  select p.tenant_id, pb.weinausbau_id, p.datum, 'zugang', 2
+  select p.tenant_id, pb.weinausbau_id, p.datum, 'pressung', 2
   from pressung_behaelter pb join pressungen p on p.id = pb.pressung_id
   where pb.weinausbau_id is not null
 ),
@@ -120,6 +130,18 @@ fuellung as (
   select f.*, upper(regexp_replace(coalesce(f.pruefnummer, ''), '\s', '', 'g')) as pn_norm
   from fuellungen f where f.aktiv
 ),
+-- direkte Umzüge: Wein aus Charge von → Charge nach (altes Format von/nach in einer Zeile, neues
+-- über die quelle-Zeilen des Batches)
+umzug_direkt as (
+  select u.tenant_id, u.von_weinausbau_id as von, u.nach_weinausbau_id as nach
+  from keller_umzuege u
+  where u.von_weinausbau_id is not null and u.nach_weinausbau_id is not null
+  union
+  select z.tenant_id, q.von_weinausbau_id, z.nach_weinausbau_id
+  from keller_umzuege z
+  join keller_umzuege q on q.tenant_id = z.tenant_id and q.umzug_batch_id = z.umzug_batch_id and q.zeilen_typ = 'quelle'
+  where z.zeilen_typ = 'ziel' and z.nach_weinausbau_id is not null and q.von_weinausbau_id is not null
+),
 befunde as (
   select f.tenant_id, 'A1 Füllung mit DAC-Antrag einer anderen Charge' as befund, f.id
   from fuellung f join dac_antrag a on a.id = f.dac_antrag_id
@@ -133,7 +155,12 @@ befunde as (
   from fuellung f join antrag a on a.id = f.dac_antrag_id
   where f.pn_norm <> '' and not a.genehmigt
   union all
-  select f.tenant_id, 'A4 freie Prüfnummer gehört zu einer anderen Charge', f.id
+  select f.tenant_id,
+         case when exists (select 1 from antrag a join umzug_direkt ud on ud.tenant_id = a.tenant_id and ud.von = a.weinausbau_id
+                            where a.tenant_id = f.tenant_id and a.pn_norm = f.pn_norm and ud.nach = f.weinausbau_id)
+              then 'A4u freie Prüfnummer der Charge, aus der per Umzug befüllt (Info)'
+              else 'A4 freie Prüfnummer gehört zu einer anderen Charge' end,
+         f.id
   from fuellung f
   where f.dac_antrag_id is null and f.pn_norm <> ''
     and exists (select 1 from antrag a where a.tenant_id = f.tenant_id and a.pn_norm = f.pn_norm
@@ -151,14 +178,23 @@ befunde as (
   from fuellung f
   where f.dac_antrag_id is null and f.pn_norm <> '' and f.weinausbau_id is not null
     and exists (select 1 from antrag a where a.tenant_id = f.tenant_id and a.weinausbau_id = f.weinausbau_id
-                  and a.pn_norm = f.pn_norm)
+                  and a.pn_norm = f.pn_norm and a.genehmigt)
   union all
-  select f.tenant_id, 'A7 abgefüllt nach Zugang seit Einreichung', f.id
+  select f.tenant_id, 'A8 freie Prüfnummer eines inaktiven/nicht genehmigten eigenen Antrags', f.id
+  from fuellung f
+  where f.dac_antrag_id is null and f.pn_norm <> '' and f.weinausbau_id is not null
+    and exists (select 1 from antrag a where a.tenant_id = f.tenant_id and a.weinausbau_id = f.weinausbau_id
+                  and a.pn_norm = f.pn_norm and not a.genehmigt)
+    and not exists (select 1 from antrag a where a.tenant_id = f.tenant_id and a.weinausbau_id = f.weinausbau_id
+                      and a.pn_norm = f.pn_norm and a.genehmigt)
+  union all
+  select f.tenant_id, 'A7 Zugang zwischen Einreichung und Abfüllung', f.id
   from fuellung f
   join antrag a on a.tenant_id = f.tenant_id and a.weinausbau_id = f.weinausbau_id
                and (a.id = f.dac_antrag_id or (f.pn_norm <> '' and a.pn_norm = f.pn_norm))
   where exists (select 1 from zugang z where z.tenant_id = f.tenant_id and z.charge = f.weinausbau_id
-                  and z.datum > a.beginn and z.datum <= f.datum)
+                  and ((z.datum > a.beginn and z.datum <= f.datum)
+                       or (f.datum < a.beginn and z.datum > f.datum and z.datum <= a.beginn)))
   union all
   select c.tenant_id, 'B1 Charge: Prüfnummer heute ungültig – ' || rtrim(split_part(c.grund, ' ', 1), ':'), c.charge
   from charge_ergebnis c where c.grund is not null

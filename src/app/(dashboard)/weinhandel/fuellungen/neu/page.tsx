@@ -46,24 +46,7 @@ export default async function NeueFuellungPage({
     .order('jahrgang', { ascending: false })),
   ])
 
-  // KAN-72: nur Anträge anbieten, die für den heutigen Bestand der Charge gelten – dieselbe
-  // Regel prüft createFuellung (fuellungAntragPruefen) mit dem Abfülldatum. Für Chargen, deren
-  // frühere Prüfnummer nicht mehr gilt, zeigt das Formular den Grund.
   const alleAntraege = (dacRaw ?? []) as R[]
-  const heute = wienHeute()
-  const pnDaten = tenantId
-    ? await ladePruefnummerDaten(supabase, tenantId, alleAntraege.map(d => d.weinausbau_id), { heute })
-    : new Map<string, PnChargeDaten>()
-  const waehlbar = new Set<string>()
-  const pnHinweise: Record<string, string> = {}
-  for (const [chargeId, daten] of pnDaten) {
-    for (const id of waehlbareAntraege(daten, heute)) waehlbar.add(id)
-    const hinweis = pruefnummerHinweis(pruefnummerGueltig(daten, heute))
-    if (hinweis) pnHinweise[chargeId] = hinweis
-  }
-  const dacAntraege = alleAntraege.filter(d => waehlbar.has(d.id))
-  // Chargen mit (aktivem, nicht abgelehntem) Antrag: keine freie Prüfnummer-Eingabe
-  const chargenMitAntrag = [...new Set(alleAntraege.map(d => d.weinausbau_id).filter(Boolean) as string[])]
   let chargen = (chargenRaw ?? []) as R[]
 
   // Eigene, vom Mandanten selbst angelegte Weinbaugebiete (Herkunft-Code-Selbstverwaltung)
@@ -78,6 +61,26 @@ export default async function NeueFuellungPage({
       .single()
     if (extraRaw) chargen = [extraRaw as R, ...chargen]
   }
+
+  // KAN-72: nur Anträge anbieten, die für den heutigen Bestand der Charge gelten – dieselbe
+  // Regel prüft createFuellung (fuellungAntragPruefen: Stand am Buchungstag, bei einem Abfüll-
+  // datum bis heute also heute). Für Chargen, deren frühere Prüfnummer nicht (mehr) gilt – auch
+  // nur mit inaktiven/abgelehnten Anträgen –, zeigt das Formular den Grund; der Lader liest dafür
+  // die Anträge aller angebotenen Chargen.
+  const heute = wienHeute()
+  const pnDaten = tenantId
+    ? await ladePruefnummerDaten(supabase, tenantId, [...chargen.map(c => c.id), ...alleAntraege.map(d => d.weinausbau_id)], { heute })
+    : new Map<string, PnChargeDaten>()
+  const waehlbar = new Set<string>()
+  const pnHinweise: Record<string, string> = {}
+  for (const [id, daten] of pnDaten) {
+    for (const a of waehlbareAntraege(daten, heute)) waehlbar.add(a)
+    const hinweis = pruefnummerHinweis(pruefnummerGueltig(daten, heute))
+    if (hinweis) pnHinweise[id] = hinweis
+  }
+  const dacAntraege = alleAntraege.filter(d => waehlbar.has(d.id))
+  // Chargen mit (aktivem, nicht abgelehntem) Antrag: keine freie Prüfnummer-Eingabe
+  const chargenMitAntrag = [...new Set(alleAntraege.map(d => d.weinausbau_id).filter(Boolean) as string[])]
 
   return (
     <div className="max-w-2xl">
