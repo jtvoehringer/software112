@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
+import { aboStandAktuell } from '@/lib/auth/sperren'
 import { createEaDauerauftrag, deaktiviereEaDauerauftrag } from '../actions'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import { fmtNum } from '@/lib/format'
@@ -28,6 +29,10 @@ export default async function DauerauftraegePage() {
   const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
     .select('modul_ea').eq('tenant_id', tenantId).maybeSingle()
   if (!einst?.modul_ea) redirect('/dashboard')
+
+  // KAN-5: Der tägliche Lauf (process_ea_dauerauftraege) bucht bei gesperrtem Abo nichts. Maßgeblich
+  // ist die Regel des Betriebs, nicht die Ausnahme des Betrachters – daher ohne Rolle abfragen.
+  const aboGesperrt = (await aboStandAktuell({ tenantId, role: null })).gesperrt
 
   const [{ data: dauerauftraege }, { data: kategorien }, { data: konten }, { data: log }] = await Promise.all([
     (supabase.from('ea_dauerauftraege') as any)
@@ -59,6 +64,14 @@ export default async function DauerauftraegePage() {
       <div className="flex items-center gap-3 mb-6">
         <h1 className="text-2xl font-semibold text-s112-text">Daueraufträge</h1>
       </div>
+
+      {aboGesperrt && (
+        <p role="status" className="mb-6 px-4 py-2.5 rounded-lg bg-s112-warn-bg border border-s112-warn/40 text-s112-warn-fg text-sm">
+          <strong className="font-semibold">Daueraufträge pausiert:</strong> Solange das Abo gesperrt ist, bucht der tägliche Lauf keine
+          fälligen Daueraufträge. Nach der Klärung unter <Link href="/abo" className="underline">Abo</Link> werden sie nachgeholt – eine
+          Fälligkeit je Tag und Dauerauftrag.
+        </p>
+      )}
 
       {/* Neuer Dauerauftrag */}
       <div className="bg-white rounded-xl border border-s112-border p-5 mb-6">
