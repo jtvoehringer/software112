@@ -2,7 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { minQualitaet, maxQualitaet, istNiedrigerAls, QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { minQualitaet, zusammenfuehrungsAbstufung, QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { chargenStufenAenderungFehler, qualitaetFehler } from '@/lib/wein/qualitaet'
 import { minHerkunft, maxHerkunft, istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
 import { weinartKonflikt, weinartBekannt, weinartAusFarbe, WEINART_LABEL } from '@/lib/keller/weinart'
@@ -496,7 +496,9 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   )
     if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (verschneidung_quellen): ${dbFehlerText(e)}`) }
 
-  // Niedrigste Qualitaetsstufe aus Quellen + Ziel bestimmen
+  // Niedrigste Qualitaetsstufe aus Quellen + Ziel bestimmen – KAN-73 (Runde 3): die höchste Stufe,
+  // die alle ohne Aufstufung erreichen (DAC + Eiswein → Qualitätswein statt Eiswein, Sonstiges +
+  // Kabinett → Sonstiges); DAC & Co. unter sich liefern wie bisher keine Stufe (Regel offen)
   const alleQualitaeten = [zielQualitaetVorher, ...quellenRows.map((q: R) => q.qualitaetsstufe as string | null)]
   const neueQualitaet = minQualitaet(alleQualitaeten)
   // Niedrigsten (breitesten) Herkunft-Code aus Quellen + Ziel bestimmen – kann durch Verschneiden
@@ -551,12 +553,9 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
 
   // Qualitäts-Abstufung: Vergleich gegen HÖCHSTE Qualität aller Beteiligten (Ziel + Quellen).
   // Beispiel: Ziel Kabinett + Quelle Auslese → Ergebnis Kabinett → Abstufung von Auslese auf Kabinett.
-  const alleQualitaetenBeteiligt = [zielQualitaetVorher, ...quellenRows.map((q: R) => q.qualitaetsstufe as string | null)]
-  const hoechsteQualitaet = maxQualitaet(alleQualitaetenBeteiligt)
-  const qualitaetAbgestuft: { von: string; nach: string } | null =
-    (neueQualitaet && hoechsteQualitaet && istNiedrigerAls(neueQualitaet, hoechsteQualitaet))
-      ? { von: hoechsteQualitaet, nach: neueQualitaet }
-      : null
+  // KAN-73 (Runde 3): auch DAC + Kabinett → Qualitätswein und Eiswein + Sonstiges → Sonstiges
+  // (zusammenfuehrungsAbstufung, dieselbe Regel wie minQualitaet oben)
+  const qualitaetAbgestuft = zusammenfuehrungsAbstufung(alleQualitaeten, neueQualitaet)
 
   // Herkunft-Abstufung: Vergleich gegen die ENGSTE Herkunftsstufe aller Beteiligten (Ziel + Quellen).
   const alleHerkuenfteBeteiligt = [zielHerkunftVorher, ...quellenRows.map((q: R) => q.herkunft_code as string | null)]

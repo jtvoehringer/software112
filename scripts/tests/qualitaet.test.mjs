@@ -15,9 +15,13 @@
 // (3) übrige Listen: QUALITAET_ORDER/QUALITAET_LABEL/PRAEDIKATSWEIN_ORDER, BKI-Kürzel,
 //     Serverprüfung qualitaetFehler(), keine lokalen Qualitätslisten und kein „tafelwein“ in src.
 // (4) Abstufungsregeln (Eiswein/Strohwein als eigene Zweige auf BA-Niveau, DAC & Co. auf
-//     Qualitätswein-Niveau), Auswahl von Füllung und Charge, Stufe neuer Pressungs-Chargen und
-//     die Kette Lese → Pressung → Charge → Füllung für jede Lese-Stufe.
-// (5) Formulare und Server Actions: jede Datei verwendet die Liste ihrer Zieltabelle (statisch).
+//     Qualitätswein-Niveau, Sekt/Perlwein/Sonstiges nur als sie selbst oder „Sonstiges“),
+//     Auswahl von Füllung und Charge (= Serverregel), Zusammenführen bei Verschnitt und Umzug
+//     (nie eine Aufstufung), Stufe neuer Pressungs-Chargen und die Kette Lese → Pressung →
+//     Charge → Füllung für jede Lese-Stufe.
+// (5) Formulare und Server Actions: jede Datei verwendet die Liste ihrer Zieltabelle, keine
+//     einzelne hart codierte Stufe außerhalb davon, und die Server Actions prüfen die Stufe vor
+//     dem ersten Schreibzugriff (statisch).
 
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
@@ -33,12 +37,13 @@ const {
   istLeseQualitaet, istChargenQualitaet, istFuellungQualitaet,
   qualitaetFehler, mitGespeichertemWert, qualitaetLabel,
   leseStufenBeiKmw, fuellungsStufenFuer, chargenStufenBis, chargenStufenAenderungFehler,
-  minQualitaet: minQualitaetUmzug,
+  leseKmwFehler, minQualitaet: minQualitaetUmzug,
 } = await import('../../src/lib/wein/qualitaet.ts')
 const {
   kmwZuQualitaet, QUALITAET_ORDER, QUALITAET_LABEL, PRAEDIKATSWEIN_ORDER, istNiedrigerAls,
   istMindestens, istPraedikatsStufe, minQualitaet, maxQualitaet, MINDEST_KMW, stufeMitKmwMoeglich,
   istAbstufung, istAufstufung, leseStufeFuerPressung, pressungsQualitaet,
+  zusammenfuehren, zusammenfuehrungsAbstufung,
 } = await import('../../src/lib/weinqualitaet.ts')
 const kuerzel = await import('../../src/lib/wein/bki_kuerzel.ts')
 
@@ -338,6 +343,22 @@ describe('(2) kmwZuQualitaet (lib/weinqualitaet.ts)', () => {
     assert.ok(stufeMitKmwMoeglich('trockenbeerenauslese', null), 'ohne KMW keine Prüfung')
     assert.ok(stufeMitKmwMoeglich('dac', 10), 'außerhalb der Skala keine Prüfung')
   })
+
+  test('leseKmwFehler: Serverprüfung von Lese und Traubenverkauf (dieselbe Regel wie die Auswahl)', () => {
+    assert.equal(leseKmwFehler(null, 10), null)
+    assert.equal(leseKmwFehler('', 10), null)
+    assert.equal(leseKmwFehler('kabinett', null), null, 'ohne KMW keine Prüfung')
+    assert.equal(leseKmwFehler('kabinett', Number.NaN), null)
+    assert.match(leseKmwFehler('trockenbeerenauslese', 15),
+      /^Die Qualitätsstufe „Trockenbeerenauslese \(TBA\)“ setzt mindestens 30 °KMW voraus – erfasst sind 15 °KMW\. Bitte eine niedrigere Stufe/)
+    assert.match(leseKmwFehler('eiswein', 24.95), /mindestens 25 °KMW .* erfasst sind 24,95 °KMW/)
+    for (let i = 0; i <= 400; i++) {
+      const kmw = i / 10
+      for (const o of LESE_QUALITAETEN) {
+        assert.equal(leseKmwFehler(o.value, kmw) == null, werte(leseStufenBeiKmw(kmw)).includes(o.value), `${o.value} bei ${kmw} °KMW`)
+      }
+    }
+  })
 })
 
 // ── (3) übrige Listen ─────────────────────────────────────────────────────────
@@ -422,16 +443,92 @@ describe('(4) Abstufungsregeln (lib/weinqualitaet.ts)', () => {
     assert.equal(minQualitaet(['eiswein', 'eiswein']), 'eiswein')
     assert.equal(minQualitaet(['eiswein', 'auslese']), 'auslese')
     assert.equal(minQualitaet(['trockenbeerenauslese', 'ausbruch']), 'ausbruch')
-    assert.equal(minQualitaet(['kabinett', 'dac', null, 'sonstiges']), 'kabinett', 'DAC & Co. wie bisher ignoriert')
-    assert.equal(minQualitaet(['dac', 'reserve']), null)
     assert.equal(minQualitaet([]), null)
-    // Verschnitt meldet die Abstufung gegen die höchste Stufe (kellerbuch/actions.ts)
+    assert.equal(minQualitaet([null, '']), null)
+    // Runde 3: DAC & Co. neben Prädikats-Stufen über das Niveau (vorher ignoriert: DAC + Kabinett
+    // ergab „Kabinett“, DAC + Eiswein „Eiswein“), Sekt/Perlwein/Sonstiges zählen mit
+    assert.equal(minQualitaet(['kabinett', 'dac', null]), 'qualitaetswein')
+    assert.equal(minQualitaet(['dac', 'eiswein']), 'qualitaetswein')
+    assert.equal(minQualitaet(['reserve', 'trockenbeerenauslese']), 'qualitaetswein')
+    assert.equal(minQualitaet(['dac', 'reserve', 'kabinett']), 'qualitaetswein')
+    assert.equal(minQualitaet(['dac', 'landwein']), 'landwein')
+    assert.equal(minQualitaet(['kabinett', 'sonstiges']), 'sonstiges')
+    assert.equal(minQualitaet(['sonstiges', 'eiswein']), 'sonstiges')
+    assert.equal(minQualitaet(['sekt', 'kabinett']), 'sekt')
+    assert.equal(minQualitaet(['sekt', 'wein']), 'sonstiges')
+    assert.equal(minQualitaet(['perlwein', 'wein']), 'perlwein')
+    // DAC & Co. unter sich (DAC + DAC, DAC + Reserve): Regel offen (eigenes Ticket) – wie bisher null
+    assert.equal(minQualitaet(['dac', 'reserve']), null)
+    assert.equal(minQualitaet(['dac', 'dac']), null)
+    assert.equal(minQualitaet(['dac', null]), null)
+    // Verschnitt meldet die Abstufung gegen die höchste Stufe, die ihre Bezeichnung verliert
+    assert.deepEqual(zusammenfuehrungsAbstufung(['eiswein', 'trockenbeerenauslese'], 'beerenauslese'), { von: 'eiswein', nach: 'beerenauslese' })
+    assert.deepEqual(zusammenfuehrungsAbstufung(['kabinett', 'auslese'], 'kabinett'), { von: 'auslese', nach: 'kabinett' })
+    assert.deepEqual(zusammenfuehrungsAbstufung(['dac', 'qualitaetswein'], 'qualitaetswein'), { von: 'dac', nach: 'qualitaetswein' })
+    assert.deepEqual(zusammenfuehrungsAbstufung(['dac', 'kabinett'], 'qualitaetswein'), { von: 'kabinett', nach: 'qualitaetswein' })
+    assert.deepEqual(zusammenfuehrungsAbstufung(['sonstiges', 'eiswein', null], 'sonstiges'), { von: 'eiswein', nach: 'sonstiges' })
+    assert.equal(zusammenfuehrungsAbstufung(['kabinett', 'kabinett', null], 'kabinett'), null)
+    assert.equal(zusammenfuehrungsAbstufung(['dac', 'reserve'], null), null)
     assert.ok(istNiedrigerAls(minQualitaet(['eiswein', 'trockenbeerenauslese']), maxQualitaet(['eiswein', 'trockenbeerenauslese'])))
-    // Umziehen (lib/wein/qualitaet.ts): auf der Skala gleiche Regel, sonst Rang wie bisher
+    // Umziehen (lib/wein/qualitaet.ts): dieselbe Regel; DAC & Co. unter sich wie bisher nach Rang
     assert.equal(minQualitaetUmzug('eiswein', 'trockenbeerenauslese'), 'beerenauslese')
     assert.equal(minQualitaetUmzug('strohwein', 'eiswein'), 'beerenauslese')
     assert.equal(minQualitaetUmzug('dac', 'qualitaetswein'), 'qualitaetswein')
     assert.equal(minQualitaetUmzug(null, 'kabinett'), 'kabinett')
+    assert.equal(minQualitaetUmzug('kabinett', 'dac'), 'qualitaetswein', 'vorher „Kabinett“ (Rang-Gleichstand)')
+    assert.equal(minQualitaetUmzug('erste_lage', 'auslese'), 'qualitaetswein', 'vorher „Auslese“')
+    assert.equal(minQualitaetUmzug('sekt', 'kabinett'), 'sekt')
+    assert.equal(minQualitaetUmzug('perlwein', 'wein'), 'perlwein', 'vorher „Wein“')
+    assert.equal(minQualitaetUmzug('sonstiges', 'eiswein'), 'sonstiges')
+    assert.equal(minQualitaetUmzug('dac', 'reserve'), 'dac', 'DAC & Co. unter sich: Rang wie bisher (Regel offen)')
+    assert.equal(minQualitaetUmzug('grosses_gewachs', 'erste_lage'), 'erste_lage')
+  })
+
+  test('Zusammenführen (Verschnitt, Umzug): nie eine Stufe, die eine Beteiligte nicht abfüllen dürfte', () => {
+    const alle = werte(QUALITAET_OPTS)
+    const dacUndCo = ['dac', 'reserve', 'erste_lage', 'grosses_gewachs']
+    const reicht = (x, m) => !istAufstufung(x, m)   // x darf als m abgefüllt werden
+    for (const a of alle) {
+      for (const b of alle) {
+        const m = zusammenfuehren(a, b)
+        assert.ok(istChargenQualitaet(m), `${a} + ${b} → ${m}: keine Chargen-Stufe`)
+        assert.equal(zusammenfuehren(b, a), m, `${a} + ${b}: nicht symmetrisch`)
+        assert.ok(reicht(a, m) && reicht(b, m), `${a} + ${b} → ${m}: Aufstufung`)
+        // höchste gemeinsame Stufe: was beide abfüllen dürften, darf auch das Ergebnis
+        for (const v of alle) {
+          if (reicht(a, v) && reicht(b, v)) assert.ok(reicht(m, v), `${a} + ${b} → ${m}: ${v} ginge aus beiden, aber nicht mehr aus ${m}`)
+        }
+        for (const c of alle) {
+          assert.equal(zusammenfuehren(zusammenfuehren(a, b), c), zusammenfuehren(a, zusammenfuehren(b, c)), `${a} + ${b} + ${c}: Reihenfolge ändert das Ergebnis`)
+        }
+        // Verschnitt und Umzug: dieselbe Regel (außer DAC & Co. unter sich – Regel offen)
+        for (const [name, erg] of [['Verschnitt', minQualitaet([a, b])], ['Umzug', minQualitaetUmzug(a, b)]]) {
+          if (dacUndCo.includes(a) && dacUndCo.includes(b)) {
+            if (erg != null) assert.ok(reicht(a, erg) && reicht(b, erg), `${name} ${a} + ${b} → ${erg}: Aufstufung`)
+            continue
+          }
+          assert.equal(erg, m, `${name} ${a} + ${b}`)
+        }
+      }
+      // leer zählt nicht
+      assert.equal(minQualitaetUmzug(a, null), a)
+      if (!dacUndCo.includes(a)) assert.equal(minQualitaet([a, null]), a)
+    }
+  })
+
+  test('Abstufungsregel ist transitiv: Charge ändern und danach abfüllen ergibt nie mehr als direkt', () => {
+    // leer ausgenommen: eine festgelegte Stufe lässt sich nicht entfernen (chargenStufenAenderungFehler)
+    const alle = [...werte(QUALITAET_OPTS), 'altwert']
+    for (const a of alle) for (const b of alle) {
+      if (istAufstufung(a, b)) continue
+      for (const c of alle) assert.ok(!istAufstufung(b, c) ? !istAufstufung(a, c) : true, `${a} → ${b} → ${c}`)
+    }
+    for (const basis of werte(QUALITAET_OPTS)) {
+      const direkt = new Set(werte(fuellungsStufenFuer(basis)))
+      for (const v of werte(chargenStufenBis(basis))) {
+        for (const f of werte(fuellungsStufenFuer(v))) assert.ok(direkt.has(f), `Charge ${basis} → ${v}, Füllung ${f}: direkt nicht erlaubt`)
+      }
+    }
   })
 
   test('Füllung: Auswahl je Charge = genau die Stufen, die der Server zulässt (istAufstufung)', () => {
@@ -444,10 +541,16 @@ describe('(4) Abstufungsregeln (lib/weinqualitaet.ts)', () => {
       }
       if (charge && alleWerte.includes(charge)) assert.ok(optionen.includes(charge), `${charge}: eigene Stufe fehlt`)
       assert.ok(optionen.includes('sonstiges'), `${charge}: Sonstiges fehlt`)
-      // vollständig: für Chargen mit Skala-Niveau (Prädikats-Skala, DAC & Co.) fehlt keine
-      // zulässige Stufe – sonst ließe sich z. B. eine Pressungs-Charge nie als DAC abfüllen
-      if (istPraedikatsStufe(charge) || ['dac', 'reserve', 'erste_lage', 'grosses_gewachs'].includes(charge)) {
-        assert.deepEqual(optionen, alleWerte.filter(v => !istAufstufung(charge, v)), `${charge}: zulässige Stufe fehlt`)
+      // vollständig und gleich der Serverregel – für JEDE Charge, auch ohne Skala-Niveau (Sekt,
+      // Perlwein, Sonstiges, Altwerte; Runde 3: dort ließ der Server vorher alles durch). Sonst
+      // ließe sich z. B. eine Pressungs-Charge nie als DAC abfüllen bzw. über den Assistenten mehr
+      // abfüllen als im Formular.
+      assert.deepEqual(optionen, alleWerte.filter(v => !istAufstufung(charge, v)), `${charge}: Formular ≠ Server`)
+    }
+    // Chargen ohne Niveau: Server = Formular = nur die eigene Stufe und „Sonstiges“
+    for (const charge of ['sekt', 'perlwein', 'sonstiges', 'altwert']) {
+      for (const v of alleWerte) {
+        assert.equal(istAufstufung(charge, v), v !== charge && v !== 'sonstiges', `${charge} → ${v}`)
       }
     }
     assert.deepEqual(werte(fuellungsStufenFuer(null)), alleWerte)
@@ -475,12 +578,16 @@ describe('(4) Abstufungsregeln (lib/weinqualitaet.ts)', () => {
       ['eiswein', 'ausbruch'], ['eiswein', 'trockenbeerenauslese'], ['strohwein', 'eiswein'], ['eiswein', 'strohwein'],
       ['wein', 'dac'], ['wein', 'reserve'], ['landwein', 'sekt'], ['landwein', 'erste_lage'],
       ['dac', 'kabinett'], ['dac', 'eiswein'], ['reserve', 'auslese'], ['qualitaetswein', 'kabinett'], ['wein', 'landwein'],
+      // Runde 3: Chargen ohne Niveau – vorher frei (Charge „Wein“ → „Sonstiges“, dann Füllung „Eiswein“)
+      ['sonstiges', 'eiswein'], ['sonstiges', 'dac'], ['sonstiges', 'wein'], ['sekt', 'kabinett'], ['sekt', 'qualitaetswein'],
+      ['perlwein', 'trockenbeerenauslese'], ['perlwein', 'wein'], ['sekt', 'perlwein'],
     ]) assert.ok(istAufstufung(von, nach), `${von} → ${nach} muss gesperrt sein`)
     for (const [von, nach] of [
       ['trockenbeerenauslese', 'ausbruch'], ['eiswein', 'beerenauslese'], ['eiswein', 'wein'],
       ['qualitaetswein', 'reserve'], ['qualitaetswein', 'sekt'], ['qualitaetswein', 'dac'],   // Bestand Musterhof: QW → Reserve/Sekt
       ['dac', 'qualitaetswein'], ['dac', 'reserve'], ['kabinett', 'dac'], ['wein', 'perlwein'], ['wein', 'sonstiges'],
-      ['sekt', 'kabinett'], ['sonstiges', 'kabinett'], [null, 'eiswein'], ['kabinett', 'kabinett'],
+      ['sekt', 'sonstiges'], ['perlwein', 'sonstiges'], ['sekt', 'sekt'], ['dac', 'dac'], ['reserve', 'reserve'],   // Bestand Gebeshuber: DAC → DAC, Reserve → Reserve
+      [null, 'eiswein'], ['kabinett', 'kabinett'],
     ]) assert.ok(!istAufstufung(von, nach), `${von} → ${nach} darf nicht gesperrt sein`)
     assert.ok(istAbstufung('dac', 'qualitaetswein') && istAbstufung('eiswein', 'beerenauslese'))
     assert.ok(!istAbstufung('qualitaetswein', 'reserve') && !istAbstufung('kabinett', 'kabinett'))
@@ -520,8 +627,12 @@ describe('(4) Abstufungsregeln (lib/weinqualitaet.ts)', () => {
       assert.ok(optionen.includes('qualitaetswein') && optionen.includes('dac'), basis)
     }
     assert.ok(werte(chargenStufenBis('kabinett')).includes('dac'), 'Kabinett → DAC bleibt erlaubt')
-    // ohne Skala-Niveau wie bisher nach Rang
-    assert.deepEqual(werte(chargenStufenBis('sekt')), ['wein', 'landwein', 'qualitaetswein', 'sekt', 'perlwein', 'sonstiges'])
+    // ohne Skala-Niveau (Runde 3): nur noch „Sonstiges“ – dieselbe Regel wie die Füllung
+    assert.deepEqual(werte(chargenStufenBis('sekt')), ['sekt', 'sonstiges'])
+    assert.deepEqual(werte(chargenStufenBis('perlwein')), ['perlwein', 'sonstiges'])
+    assert.deepEqual(werte(chargenStufenBis('sonstiges')), ['sonstiges'])
+    // … aber jede Charge mit Niveau darf auf „Sonstiges“ (und ab Qualitätswein auf Sekt)
+    assert.ok(werte(chargenStufenBis('wein')).includes('sonstiges') && werte(chargenStufenBis('qualitaetswein')).includes('sekt'))
   })
 
   test('Charge bearbeiten (updateWeinausbau): chargenStufenAenderungFehler – nur Abstufen, nie Entfernen', () => {
@@ -668,28 +779,85 @@ describe('(5) Formulare und Server Actions verwenden die Liste ihrer Zieltabelle
     'src/components/kellerbuch/WeinausbauForm.tsx':                            'charge',
     'src/app/(dashboard)/kellerbuch/actions.ts':                               'charge',
     'src/app/(dashboard)/kellerbuch/eroeffnungsbestand/[id]/edit/page.tsx':    'charge',
+    'src/app/(dashboard)/kellerbuch/gebinde-actions.ts':                       'charge',
     'src/app/(dashboard)/kellerbuch/gebinde/page.tsx':                         'charge',
     'src/app/(dashboard)/admin/import/ImportClient.tsx':                       'charge',
     'src/app/(dashboard)/weinhandel/zukauf/neu/page.tsx':                      'charge',
     'src/app/(dashboard)/weinhandel/zukauf/[id]/edit/ZukaufEditForm.tsx':      'charge',
   }
-  // Serverprüfung vor dem Schreiben: [Datei, Aufruf, Mindestanzahl]
+  // Serverprüfung vor dem Schreiben: [Datei, Funktion, Aufruf, weitere Schreibaufrufe (optional)].
+  // Der Aufruf muss im Rumpf der Funktion (ohne Kommentare) vor dem ersten Schreibzugriff stehen
+  // (.insert/.update/.upsert/.delete, rpc – z. B. Nummernkreise – bzw. die genannten Actions).
+  // Hilfsfunktionen ohne Schreibzugriff (…AusFormular, parse…) stehen mit ihrem Aufrufer hier.
   const SERVERPRUEFUNGEN = [
-    ['src/app/(dashboard)/erntemeldung/actions.ts', "qualitaetFehler('lese'", 3],   // Lese einzeln, mehrfach, Traubenverkauf
-    ['src/app/(dashboard)/erntemeldung/actions.ts', "if (fd.get('qualitaetsstufe'))", 1], // Pressung: keine Stufe von außen
-    ['src/app/(dashboard)/erntemeldung/actions.ts', 'stufeMitKmwMoeglich(', 1],     // Lese: Stufe passt zum KMW
-    ['src/app/(dashboard)/erntemeldung/actions.ts', 'pressungsQualitaet(', 1],      // Pressung: Lese-Stufe + KMW
-    ['src/app/(dashboard)/weinhandel/actions.ts', "qualitaetFehler('fuellung'", 1],
-    ['src/app/(dashboard)/weinhandel/actions.ts', 'istAufstufung(', 2],             // Füllung anlegen und ändern
-    ['src/app/(dashboard)/kellerbuch/actions.ts', "qualitaetFehler('charge'", 1],
-    ['src/app/(dashboard)/kellerbuch/actions.ts', 'chargenStufenAenderungFehler(', 1], // Charge ändern: nur abstufen, nicht leeren
-    ['src/app/(dashboard)/kellerbuch/gebinde-actions.ts', "qualitaetFehler('charge'", 2],
-    ['src/app/(dashboard)/weinhandel/zukauf/actions.ts', "qualitaetFehler('charge'", 1],
-    ['src/app/(dashboard)/weinhandel/traubenverkauf/actions.ts', "qualitaetFehler('lese'", 1],
-    ['src/app/(dashboard)/weinhandel/verkauf/actions.ts', "qualitaetFehler('lese'", 1],
-    ['src/lib/assistent/tools/ernte.ts', "qualitaetFehler('lese'", 1],
-    ['src/lib/assistent/tools/abfuellen.ts', "qualitaetFehler('fuellung'", 1],
+    ['src/app/(dashboard)/erntemeldung/actions.ts', 'upsertErnteParzelle', "qualitaetFehler('lese'"],
+    ['src/app/(dashboard)/erntemeldung/actions.ts', 'upsertErnteParzelle', 'leseKmwFehler('],          // Stufe passt zum KMW
+    ['src/app/(dashboard)/erntemeldung/actions.ts', 'createMultipleErnteParzellen', "qualitaetFehler('lese'"],
+    ['src/app/(dashboard)/erntemeldung/actions.ts', 'createTraubenverkauf', "qualitaetFehler('lese'"],
+    ['src/app/(dashboard)/erntemeldung/actions.ts', 'createTraubenverkauf', 'leseKmwFehler('],
+    ['src/app/(dashboard)/erntemeldung/actions.ts', 'upsertPressung', "if (fd.get('qualitaetsstufe'))"], // keine Stufe von außen
+    ['src/app/(dashboard)/weinhandel/actions.ts', 'fuellungQualitaetAusFormular', "qualitaetFehler('fuellung'"],
+    ['src/app/(dashboard)/weinhandel/actions.ts', 'createFuellung', 'fuellungQualitaetAusFormular('],
+    ['src/app/(dashboard)/weinhandel/actions.ts', 'createFuellung', 'istAufstufung('],
+    ['src/app/(dashboard)/weinhandel/actions.ts', 'updateFuellung', 'fuellungQualitaetAusFormular('],
+    ['src/app/(dashboard)/weinhandel/actions.ts', 'updateFuellung', 'istAufstufung('],
+    ['src/app/(dashboard)/kellerbuch/actions.ts', 'chargenQualitaetAusFormular', "qualitaetFehler('charge'"],
+    ['src/app/(dashboard)/kellerbuch/actions.ts', 'createWeinausbau', 'chargenQualitaetAusFormular('],
+    ['src/app/(dashboard)/kellerbuch/actions.ts', 'updateWeinausbau', 'chargenQualitaetAusFormular('],
+    ['src/app/(dashboard)/kellerbuch/actions.ts', 'updateWeinausbau', 'chargenStufenAenderungFehler('], // nur abstufen, nicht leeren
+    ['src/app/(dashboard)/kellerbuch/gebinde-actions.ts', 'insertEroeffnungsbestand', "qualitaetFehler('charge'"],
+    ['src/app/(dashboard)/kellerbuch/gebinde-actions.ts', 'eroeffnungsbestandSpeichern', "qualitaetFehler('charge'"],
+    ['src/app/(dashboard)/kellerbuch/gebinde-actions.ts', 'eroeffnungsbestandSpeichern', 'chargenStufenAenderungFehler('], // mit Folgebuchungen
+    ['src/app/(dashboard)/weinhandel/zukauf/actions.ts', 'parseZukaufFormData', "qualitaetFehler('charge'"],
+    ['src/app/(dashboard)/weinhandel/zukauf/actions.ts', 'createZukauf', 'parseZukaufFormData('],
+    ['src/app/(dashboard)/weinhandel/zukauf/actions.ts', 'updateZukauf', 'parseZukaufFormData('],
+    ['src/app/(dashboard)/weinhandel/traubenverkauf/actions.ts', 'upsertTraubenverkauf', "qualitaetFehler('lese'"],
+    ['src/app/(dashboard)/weinhandel/traubenverkauf/actions.ts', 'upsertTraubenverkauf', 'leseKmwFehler('],
+    ['src/app/(dashboard)/weinhandel/verkauf/actions.ts', 'pruefePositionen', "qualitaetFehler('lese'"],
+    ['src/app/(dashboard)/weinhandel/verkauf/actions.ts', 'pruefePositionen', 'leseKmwFehler('],
+    ['src/app/(dashboard)/weinhandel/verkauf/actions.ts', 'createVerkauf', 'pruefePositionen('],
+    ['src/lib/assistent/tools/ernte.ts', 'fuehreErnteErfassenAus', "qualitaetFehler('lese'", /\b(?:createJahrgang|createMultipleErnteParzellen|upsertErnteParzelle)\s*\(/],
+    ['src/lib/assistent/tools/abfuellen.ts', 'fuehreAbfuellenAus', "qualitaetFehler('fuellung'", /\bcreateFuellung\s*\(/],
   ]
+
+  /** JS/TS-Kommentare entfernen (// und /* *\/), Texte in '…', "…" und `…` bleiben – damit ein
+   *  auskommentierter Aufruf nicht als Prüfung zählt */
+  function ohneJsKommentare(text) {
+    let aus = ''
+    let offen = null   // offenes Anführungszeichen eines Texts
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i]
+      if (offen) {
+        aus += c
+        if (c === '\\') { aus += text[i + 1] ?? ''; i++ } else if (c === offen) offen = null
+        continue
+      }
+      const zwei = text.slice(i, i + 2)
+      if (zwei === '//') { const ende = text.indexOf('\n', i); i = (ende < 0 ? text.length : ende) - 1; continue }
+      if (zwei === '/*') { const ende = text.indexOf('*/', i + 2); i = (ende < 0 ? text.length : ende + 2) - 1; aus += ' '; continue }
+      if (c === "'" || c === '"' || c === '`') offen = c
+      aus += c
+    }
+    return aus
+  }
+
+  /** Rumpf einer Funktion auf oberster Ebene (bis zur ersten „}“ am Zeilenanfang) oder null */
+  function funktionsRumpf(text, name) {
+    const m = new RegExp(`\\bfunction\\s+${name}\\s*[(<]`).exec(text)
+    if (!m) return null
+    const ende = text.indexOf('\n}', m.index)
+    return text.slice(m.index, ende < 0 ? undefined : ende + 2)
+  }
+
+  test('ohneJsKommentare / funktionsRumpf (Hilfsfunktionen dieses Tests)', () => {
+    assert.equal(ohneJsKommentare("a() // qualitaetFehler('lese', x)\nb()"), 'a() \nb()')
+    assert.equal(ohneJsKommentare("a(/* qualitaetFehler('lese') */)"), 'a( )')
+    assert.equal(ohneJsKommentare("x = 'https://a' // c"), "x = 'https://a' ")
+    assert.equal(ohneJsKommentare('x = `it\'s // kein Kommentar`'), 'x = `it\'s // kein Kommentar`')
+    const text = 'export async function f(a: string): Promise<{ id: string }> {\n  g()\n  if (a) {\n    h()\n  }\n}\nfunction k() {}\n'
+    assert.equal(funktionsRumpf(text, 'f'), 'function f(a: string): Promise<{ id: string }> {\n  g()\n  if (a) {\n    h()\n  }\n}')
+    assert.equal(funktionsRumpf(text, 'fehlt'), null)
+  })
 
   /** Aus `modul` (z. B. lib/wein/qualitaet) importierte Namen einer Datei – benannte Importe
    *  und über einen Namespace-Import (import * as Q …) verwendete Namen (Q.LESE_QUALITAETEN) */
@@ -828,13 +996,38 @@ describe('(5) Formulare und Server Actions verwenden die Liste ihrer Zieltabelle
     assert.doesNotMatch(text, /kopf\.qualitaetsstufe/, 'chargenVorgabenErmitteln übernimmt wieder eine Stufe von außen')
   })
 
-  test('Server Actions prüfen die Stufe vor dem Schreiben', () => {
+  test('Server Actions prüfen die Stufe vor dem ersten Schreibzugriff', () => {
     const fehler = []
-    for (const [datei, aufruf, mindestens] of SERVERPRUEFUNGEN) {
-      const text = readFileSync(path.join(ROOT, ...datei.split('/')), 'utf8')
-      const anzahl = text.split(aufruf).length - 1
-      if (anzahl < mindestens) fehler.push(`${datei}: ${aufruf} ${anzahl}× statt mindestens ${mindestens}×`)
+    for (const [datei, funktion, aufruf, weitere] of SERVERPRUEFUNGEN) {
+      const text = ohneJsKommentare(readFileSync(path.join(ROOT, ...datei.split('/')), 'utf8'))
+      const rumpf = funktionsRumpf(text, funktion)
+      if (!rumpf) { fehler.push(`${datei}: Funktion ${funktion} nicht gefunden`); continue }
+      const pos = rumpf.indexOf(aufruf)
+      if (pos < 0) { fehler.push(`${datei} › ${funktion}: ${aufruf} fehlt`); continue }
+      const schreiben = [/\.(?:insert|update|upsert|delete)\s*\(/, /\brpc\b/, ...(weitere ? [weitere] : [])]
+        .map(re => rumpf.search(re)).filter(p => p >= 0)
+      const erstesSchreiben = schreiben.length > 0 ? Math.min(...schreiben) : Infinity
+      if (pos > erstesSchreiben) fehler.push(`${datei} › ${funktion}: ${aufruf} erst nach dem ersten Schreibzugriff`)
     }
     assert.deepEqual(fehler, [])
+  })
+
+  test('keine einzelne hart codierte Qualitätsstufe außerhalb der Liste der Zieltabelle', () => {
+    // Teil (3) findet erst Listen mit mehreren Prädikats-Codes – ein einzelnes
+    // <option value="dac"> in einem Lese-Formular brächte den 23514-Fehler unbemerkt zurück
+    const ZIEL_LISTE = { lese: LESE_QUALITAETEN, fuellung: FUELLUNG_QUALITAETEN, charge: QUALITAET_OPTS }
+    const stufen = new Set(werte(QUALITAET_OPTS))
+    const literale = text => [...ohneJsKommentare(text).matchAll(/\bvalue\s*(?:=\s*\{?\s*|:\s*)["'`]([a-z_]+)["'`]/g)].map(m => m[1])
+    assert.deepEqual(literale('<option value="">–</option><option value="dac">DAC</option>'), ['dac'])
+    assert.deepEqual(literale("{ value: 'handlese', label: 'Handlese' }, <option value={'sekt'} />"), ['handlese', 'sekt'])
+    assert.deepEqual(literale('// <option value="dac">'), [])
+    const funde = []
+    for (const [datei, ziel] of Object.entries(FORMULARE)) {
+      const erlaubt = new Set(werte(ZIEL_LISTE[ziel]))
+      for (const v of literale(readFileSync(path.join(ROOT, ...datei.split('/')), 'utf8'))) {
+        if (stufen.has(v) && !erlaubt.has(v)) funde.push(`${datei}: value „${v}“ ist keine Stufe für „${ziel}“`)
+      }
+    }
+    assert.deepEqual(funde, [])
   })
 })

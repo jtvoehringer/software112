@@ -2,8 +2,8 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { kmwZuQualitaet, leseStufeFuerPressung, MINDEST_KMW, pressungsQualitaet, QUALITAET_LABEL, stufeMitKmwMoeglich, type LeseStufe } from '@/lib/weinqualitaet'
-import { qualitaetFehler } from '@/lib/wein/qualitaet'
+import { kmwZuQualitaet, leseStufeFuerPressung, pressungsQualitaet, type LeseStufe } from '@/lib/weinqualitaet'
+import { leseKmwFehler, qualitaetFehler } from '@/lib/wein/qualitaet'
 import { findePassendeHerkunftsstufe, HERKUNFT_LABEL, minHerkunft } from '@/lib/herkunft'
 import { createVerkaufspostenFuerTrauben, ermittleQuellenName, upsertTraubenverkauf } from '@/app/(dashboard)/weinhandel/traubenverkauf/actions'
 import { stornoVerkauf } from '@/app/(dashboard)/weinhandel/verkauf/actions'
@@ -130,12 +130,8 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
   const kmwLese = formData.get('klosterneuburger') ? Number(dezimal((formData.get('klosterneuburger') as string))) : null
   // KAN-73: die Stufe muss zum erfassten Mostgewicht passen (z. B. Kabinett ab 17 °KMW, Eiswein
   // ab 25 °KMW) – geht in die AMA-Erntemeldung und das BKI-Datenblatt. Ohne KMW keine Prüfung.
-  if (qualitaetsstufe && !stufeMitKmwMoeglich(qualitaetsstufe, kmwLese)) {
-    throw new AktionsFehler(
-      `Die Qualitätsstufe „${QUALITAET_LABEL[qualitaetsstufe] ?? qualitaetsstufe}“ setzt mindestens ${fmtNum(MINDEST_KMW[qualitaetsstufe], { max: 1 })} °KMW voraus – erfasst sind ${fmtNum(kmwLese as number, { max: 2 })} °KMW. ` +
-      'Bitte eine niedrigere Stufe wählen oder den KMW-Wert prüfen.'
-    )
-  }
+  const kmwUnzulaessig = leseKmwFehler(qualitaetsstufe, kmwLese)
+  if (kmwUnzulaessig) throw new AktionsFehler(kmwUnzulaessig)
   const mengeKg = formData.get('menge_kg') ? Number(dezimal((formData.get('menge_kg') as string))) : null
   const mengeHl = mengeKg ? mengeKg / 130 : null  // 1 hl ≈ 130 kg
   const grundstueckId = (formData.get('grundstueck_id') as string) || null
@@ -1289,6 +1285,10 @@ export async function createTraubenverkauf(fd: FormData) {
   const qualitaetsstufe = (fd.get('qualitaetsstufe') as string) || null
   const qualitaetUnzulaessig = qualitaetFehler('lese', qualitaetsstufe)
   if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
+  // … und passt zum Mostgewicht wie bei der Lese (geht ins BKI-Datenblatt; KAN-73, Runde 3)
+  const kmwGrad = fd.get('kmw_grad') ? parseFloat(dezimal((fd.get('kmw_grad') as string))) : null
+  const kmwUnzulaessig = leseKmwFehler(qualitaetsstufe, kmwGrad)
+  if (kmwUnzulaessig) throw new AktionsFehler(kmwUnzulaessig)
 
   // Liefernummer auto-generieren
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1318,7 +1318,7 @@ export async function createTraubenverkauf(fd: FormData) {
     datum,
     menge_kg:        mengeKg,
     preis_per_kg:    preisPerKg,
-    kmw_grad:        fd.get('kmw_grad') ? parseFloat(dezimal((fd.get('kmw_grad') as string))) : null,
+    kmw_grad:        kmwGrad,
     qualitaetsstufe,
     gesundheit:      (fd.get('gesundheit') as string) || 'G',
     herkunft_code:   (fd.get('herkunft_code') as string) || null,

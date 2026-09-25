@@ -9,7 +9,7 @@ import { randomUUID } from 'crypto'
 import { syncEaEinnahmeFuerVerkauf } from '@/app/(dashboard)/buchhaltung/actions'
 import { fmtEur, fmtNum, dezimal } from '@/lib/format'
 import { AktionsFehler, dbFehlerText, fehlerText } from '@/lib/fehler'
-import { qualitaetFehler } from '@/lib/wein/qualitaet'
+import { leseKmwFehler, qualitaetFehler } from '@/lib/wein/qualitaet'
 import {
   bestandBuchenAllesOderNichts,
   bestandsBuchungenZuruecknehmen,
@@ -118,7 +118,9 @@ async function pruefePositionen(
     }
     if (p.typ === 'trauben') {
       // KAN-73: Trauben-Qualität = Stufen der Lese (traubenverkauf hat keinen CHECK)
+      // … und passt zum Mostgewicht wie bei der Lese (BKI-Datenblatt; KAN-73, Runde 3)
       const qualitaetUnzulaessig = qualitaetFehler('lese', p.trauben_qualitaetsstufe ?? null)
+        ?? leseKmwFehler(p.trauben_qualitaetsstufe ?? null, p.trauben_kmw_grad ?? null)
       if (qualitaetUnzulaessig) throw new AktionsFehler(`${nr}: ${qualitaetUnzulaessig}`)
     }
   })

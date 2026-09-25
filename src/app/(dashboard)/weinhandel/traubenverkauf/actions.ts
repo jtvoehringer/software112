@@ -9,7 +9,7 @@ import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
 import { verkaufspostenStornieren } from '@/lib/verkauf/bestand'
-import { qualitaetFehler } from '@/lib/wein/qualitaet'
+import { leseKmwFehler, qualitaetFehler } from '@/lib/wein/qualitaet'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -217,7 +217,9 @@ export async function upsertTraubenverkauf(formData: FormData) {
   // KAN-73: Trauben-Qualität = Stufen der Lese (LESE_QUALITAETEN; traubenverkauf hat keinen CHECK).
   // Ein unverändert gespeicherter Altwert (Bearbeiten) bleibt erlaubt – geprüft unten nach dem Laden.
   const qualitaetsstufe = (formData.get('qualitaetsstufe') as string) || null
-  const qualitaetUnzulaessig = qualitaetFehler('lese', qualitaetsstufe)
+  const kmwGrad = getNum('kmw_grad')
+  // … und die Stufe muss zum Mostgewicht passen wie bei der Lese (BKI-Datenblatt; KAN-73, Runde 3)
+  const qualitaetUnzulaessig = qualitaetFehler('lese', qualitaetsstufe) ?? leseKmwFehler(qualitaetsstufe, kmwGrad)
 
   // Bezeichnung der Quelle (eigener Weingarten ODER zugekaufter Posten) für die
   // Positionsbezeichnung im Verkaufsposten laden.
@@ -236,7 +238,7 @@ export async function upsertTraubenverkauf(formData: FormData) {
     datum,
     menge_kg:        mengeKg,
     preis_per_kg:    preisPerKg,
-    kmw_grad:        getNum('kmw_grad'),
+    kmw_grad:        kmwGrad,
     qualitaetsstufe,
     herkunft_code:   (formData.get('herkunft_code') as string) || null,
     gesundheit:      (formData.get('gesundheit') as string) || 'G',
@@ -248,13 +250,16 @@ export async function upsertTraubenverkauf(formData: FormData) {
     // Bestehenden Traubenverkauf laden (für verkaufsposten_id)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: tvAlt, error: tvAltErr } = await (supabase.from('traubenverkauf') as any)
-      .select('verkaufsposten_id, qualitaetsstufe')
+      .select('verkaufsposten_id, qualitaetsstufe, kmw_grad')
       .eq('id', existing_id)
       .eq('tenant_id', tenantId)
       .maybeSingle()
     if (tvAltErr) throw new AktionsFehler(dbFehlerText(tvAltErr, 'Traubenverkauf konnte nicht geladen werden'))
     if (!tvAlt) throw new AktionsFehler('Traubenverkauf nicht gefunden – bitte Seite neu laden.')
-    if (qualitaetUnzulaessig && qualitaetsstufe !== ((tvAlt as AR).qualitaetsstufe ?? null)) {
+    // unveränderte Stufe und unveränderte °KMW (Altdaten) bleiben speicherbar
+    const altKmw = (tvAlt as AR).kmw_grad == null ? null : Number((tvAlt as AR).kmw_grad)
+    const unveraendert = qualitaetsstufe === ((tvAlt as AR).qualitaetsstufe ?? null) && kmwGrad === altKmw
+    if (qualitaetUnzulaessig && !unveraendert) {
       throw new AktionsFehler(qualitaetUnzulaessig)
     }
     const altPostenId = (tvAlt as AR | null)?.verkaufsposten_id as string | null

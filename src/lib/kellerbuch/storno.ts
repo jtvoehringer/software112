@@ -67,6 +67,12 @@ export const OHNE_MENGENWIRKUNG: FolgebuchungArt[] = ['behandlung', 'analyse', '
  *  Kellerbehandlungen (keller_behandlungen.behaelter_id) sperren. */
 export const GEBINDEWECHSEL_OHNE: FolgebuchungArt[] = ['zukauf_ziel', 'analyse', 'dac']
 
+/** Folgebuchungen, die eine freie Korrektur der Qualitätsstufe eines Eröffnungsbestands NICHT
+ *  sperren (KAN-73): Kellerbehandlungen, Analysen und Schwund tragen die Stufe nicht weiter.
+ *  Umzüge, Verschnitte, Füllungen, Tankverkäufe, Zukäufe und DAC-Anträge sperren – danach gilt
+ *  dieselbe Regel wie „Charge bearbeiten“ (nur abstufen, chargenStufenAenderungFehler). */
+export const QUALITAETSKORREKTUR_OHNE: FolgebuchungArt[] = ['behandlung', 'analyse', 'schwund']
+
 export const GEGENBUCHUNG_HINWEIS =
   'Bitte die Korrektur als Gegenbuchung erfassen (Umzug zurück bzw. „Schwund buchen“ auf der Chargen-Seite).'
 

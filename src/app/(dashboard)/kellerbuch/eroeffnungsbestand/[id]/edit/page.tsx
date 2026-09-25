@@ -6,10 +6,10 @@ import { notFound } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { updateEroeffnungsbestand } from '../../../gebinde-actions'
 import { folgebuchungenDerCharge, folgebuchungenText, type Folgebuchung } from '@/lib/kellerbuch/folgebuchungen'
-import { OHNE_MENGENWIRKUNG, GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
+import { OHNE_MENGENWIRKUNG, GEBINDEWECHSEL_OHNE, QUALITAETSKORREKTUR_OHNE } from '@/lib/kellerbuch/storno'
 import { fmtNum } from '@/lib/format'
 import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
-import { QUALITAET_OPTS, mitGespeichertemWert } from '@/lib/wein/qualitaet'
+import { QUALITAET_OPTS, chargenStufenBis, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { Info } from 'lucide-react'
 import type { Metadata } from 'next'
 
@@ -19,7 +19,8 @@ export const dynamic = 'force-dynamic'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-// Eröffnungsbestand = Kellerbuch-Charge (weinausbau): zentrale Chargen-Liste QUALITAET_OPTS (KAN-73)
+// Eröffnungsbestand = Kellerbuch-Charge (weinausbau): zentrale Chargen-Liste QUALITAET_OPTS (KAN-73),
+// mit Folgebuchungen nur Abstufungen der gespeicherten Stufe (chargenStufenBis)
 
 export default async function EroeffnungsbestandEditPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ err?: string }> }) {
   const { id } = await params
@@ -71,6 +72,16 @@ export default async function EroeffnungsbestandEditPage({ params, searchParams 
   const gebindeSperre: string | null = folge === null
     ? nichtPruefbar
     : gebindeFolge.length > 0 ? text(gebindeFolge) : null
+  // KAN-73 (Runde 3): Qualitätsstufe frei nur ohne Folgebuchungen, die sie weitertragen – sonst wie
+  // „Charge bearbeiten“ nur abstufen und nicht entfernen (der Server prüft dasselbe)
+  const qualitaetFolge = folge?.filter(f => !QUALITAETSKORREKTUR_OHNE.includes(f.art)) ?? []
+  const gespeicherteStufe = (eintrag.qualitaetsstufe as string | null) ?? null
+  const qualitaetSperre: string | null = !gespeicherteStufe
+    ? null
+    : folge === null ? nichtPruefbar : qualitaetFolge.length > 0 ? text(qualitaetFolge) : null
+  const qualitaetOptionen = qualitaetSperre
+    ? mitGespeichertemWert(chargenStufenBis(gespeicherteStufe), gespeicherteStufe)
+    : mitGespeichertemWert(QUALITAET_OPTS, gespeicherteStufe)
 
   // Das aktuell zugeordnete Gebinde bleibt wählbar, auch wenn es inzwischen gesperrt wäre
   const gebinde = gebindeRows.map(b => ({ id: b.id, name: b.anzeigeName })) as R[]
@@ -154,11 +165,14 @@ export default async function EroeffnungsbestandEditPage({ params, searchParams 
           <div>
             <label className={labelCls}>Qualitätsstufe</label>
             <select aria-label="Qualitätsstufe" name="qualitaetsstufe" defaultValue={eintrag.qualitaetsstufe ?? ''} className={inputCls}>
-              <option value="">– keine –</option>
-              {mitGespeichertemWert(QUALITAET_OPTS, eintrag.qualitaetsstufe).map(q => (
+              {!qualitaetSperre && <option value="">– keine –</option>}
+              {qualitaetOptionen.map(q => (
                 <option key={q.value} value={q.value}>{q.label}</option>
               ))}
             </select>
+            {qualitaetSperre && (
+              <p className="text-xs text-s112-muted mt-1">Nur noch Abstufungen möglich: {qualitaetSperre}</p>
+            )}
           </div>
           <div>
             <label className={labelCls}>Referenz Altsystem</label>

@@ -29,8 +29,8 @@ Rotwein und Weißwein dürfen laut Weingesetz nicht miteinander verschnitten wer
 die Server Action automatisch und lehnt den Verschnitt in dem Fall ab.
 
 GANZ WICHTIG: Verschneiden kann automatisch eine Qualitäts- und/oder Herkunft-Abstufung der
-Ziel-Charge auslösen (die resultierende Charge übernimmt immer die niedrigste beteiligte
-Qualitätsstufe bzw. die weiteste Herkunftsstufe). Das Tool-Ergebnis enthält dazu
+Ziel-Charge auslösen (die resultierende Charge übernimmt immer die niedrigste gemeinsame
+Qualitätsstufe – z. B. DAC + Kabinett ergibt Qualitätswein – bzw. die weiteste Herkunftsstufe). Das Tool-Ergebnis enthält dazu
 qualitaet_abgestuft/herkunft_abgestuft, falls das passiert ist – diese Information MUSST du dem
 User nach dem Speichern explizit mitteilen (nicht nur "erledigt, danke"), da es sich um eine
 für den Betrieb rechtlich relevante automatische Änderung handelt.

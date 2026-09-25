@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { createVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
-import { QUALITAET_LABEL, QUALITAET_ORDER, istNiedrigerAls, minQualitaet } from '@/lib/weinqualitaet'
+import { QUALITAET_LABEL, minQualitaet } from '@/lib/weinqualitaet'
 import { HERKUNFT_LABEL, istNiedrigerAls as herkunftIstNiedrigerAls, minHerkunft } from '@/lib/herkunft'
 import { GitMerge, AlertTriangle, Ban, CheckCircle2, Info, X } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
@@ -93,17 +93,15 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
     zielCharge.qualitaetsstufe,
     ...selectedChargen.map(c => c.qualitaetsstufe),
   ]
-  // Niedrigste Qualitätsstufe aller beteiligten Chargen
+  // Niedrigste Qualitätsstufe aller beteiligten Chargen (dieselbe Regel wie der Server)
   const abstufungsZiel = selectedChargen.length > 0 ? minQualitaet(alleQualitaeten) : null
-  // Warnung wenn IRGENDEINE Charge (Quelle oder Ziel) eine höhere Stufe hat als das Minimum
+  // Warnung wenn IRGENDEINE Charge (Quelle oder Ziel) eine andere Stufe hat als das Ergebnis
   // → diese Charge verliert ihre Qualitätsbezeichnung durch die Verschneidung.
-  // KAN-73: Argumente richtig herum (Minimum niedriger als die Charge) – vorher war die Prüfung
-  // „Charge niedriger als Minimum“ nie erfüllt und die Warnung erschien nie; Eiswein + TBA
-  // ergibt seither Beerenauslese (lib/weinqualitaet.ts, minQualitaet).
-  const hatAbstufung = abstufungsZiel != null && (
-    istNiedrigerAls(abstufungsZiel, zielCharge.qualitaetsstufe ?? null) ||
-    selectedChargen.some(c => istNiedrigerAls(abstufungsZiel, c.qualitaetsstufe ?? null))
-  )
+  // KAN-73: Eiswein + TBA ergibt Beerenauslese, DAC + Kabinett Qualitätswein, Sonstiges +
+  // Kabinett Sonstiges (lib/weinqualitaet.ts, minQualitaet/zusammenfuehren) – verglichen wird
+  // deshalb auf Gleichheit, nicht nur auf der Prädikats-Skala.
+  const verliertStufe = (stufe: string | null | undefined) => abstufungsZiel != null && !!stufe && stufe !== abstufungsZiel
+  const hatAbstufung = verliertStufe(zielCharge.qualitaetsstufe) || selectedChargen.some(c => verliertStufe(c.qualitaetsstufe))
   // Herkunft-Code-Abstufungs-Check (analog Qualität) – nur Abstufungen möglich, nie Aufstufungen
   const alleHerkuenfte = [
     zielCharge.herkunft_code,
@@ -129,9 +127,9 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
 
   // Welche Chargen werden abgestuft?
   const betroffeneChargen = selectedChargen.length > 0 ? [
-    ...(istNiedrigerAls(abstufungsZiel, zielCharge.qualitaetsstufe ?? null) ? [zielCharge.name] : []),
+    ...(verliertStufe(zielCharge.qualitaetsstufe) ? [zielCharge.name] : []),
     ...selectedChargen
-      .filter(c => istNiedrigerAls(abstufungsZiel, c.qualitaetsstufe ?? null))
+      .filter(c => verliertStufe(c.qualitaetsstufe))
       .map(c => c.name),
   ] : []
 
@@ -227,9 +225,10 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
           const src = verfuegbar.find(c => c.id === q.weinausbau_id)
           const menge = parseFloat(dezimal(q.menge))
           const anteil = gesamtLiter > 0 && !isNaN(menge) ? Math.round(menge / gesamtLiter * 1000) / 10 : null
-          const srcQIdx = src?.qualitaetsstufe ? QUALITAET_ORDER.indexOf(src.qualitaetsstufe as typeof QUALITAET_ORDER[number]) : -1
-          const zielQIdx = zielCharge.qualitaetsstufe ? QUALITAET_ORDER.indexOf(zielCharge.qualitaetsstufe as typeof QUALITAET_ORDER[number]) : -1
-          const isNiederwertig = srcQIdx !== -1 && zielQIdx !== -1 && srcQIdx < zielQIdx
+          // Quelle stuft das Ziel ab (dieselbe Regel wie der Verschnitt: minQualitaet)
+          const zielQ = zielCharge.qualitaetsstufe ?? null
+          const mitQuelle = src?.qualitaetsstufe && zielQ ? minQualitaet([zielQ, src.qualitaetsstufe]) : null
+          const isNiederwertig = mitQuelle != null && mitQuelle !== zielQ
           return (
             <div key={i} className="flex items-center gap-2">
               <select

@@ -1,6 +1,6 @@
 // Österreichische Weinqualitätsstufen – aufsteigend nach Qualität
-// Wird für Verschneidungs-Abstufung (niedrigste Stufe gewinnt), die Stufe neuer
-// Pressungs-Chargen und die Abstufungsregeln von Charge und Füllung verwendet.
+// Wird für die Stufe nach Verschnitt und Umzug (zusammenfuehren: niedrigste gemeinsame Stufe),
+// die Stufe neuer Pressungs-Chargen und die Abstufungsregeln von Charge und Füllung verwendet.
 // Die Datei bleibt bewusst ohne Importe (node:test lädt sie direkt, lib/wein/qualitaet.ts importiert sie).
 
 export const QUALITAET_ORDER = [
@@ -104,17 +104,58 @@ function gemeinsameStufe(a: string, b: string): string {
   return gemeinsameStufe(ZWEIG_BASIS.get(a) ?? a, ZWEIG_BASIS.get(b) ?? b)
 }
 
+/** Eine der 18 Stufen (QUALITAET_ORDER oder „sonstiges“)? */
+function istBekannteStufe(s: string): boolean {
+  return s === 'sonstiges' || (QUALITAET_ORDER as readonly string[]).includes(s)
+}
+
+/**
+ * Stufe nach dem Zusammenführen zweier Stufen (Verschnitt, Umzug in eine belegte Charge;
+ * KAN-73, Runde 3): die höchste Stufe, die BEIDE ohne Aufstufung erreichen (istAufstufung) –
+ * aus keiner der beiden wird so je eine Stufe, die sie selbst nicht abfüllen dürfte.
+ *  - beide auf der Prädikats-Skala: gemeinsame Stufe (Eiswein + TBA → Beerenauslese)
+ *  - DAC, Reserve, Erste Lage, Großes Gewächs mit einer Prädikats-Stufe oder untereinander:
+ *    über das Niveau (DAC + Kabinett → Qualitätswein, Reserve + Eiswein → Qualitätswein,
+ *    DAC + Landwein → Landwein) – vorher wurde aus DAC + Kabinett still „Kabinett“.
+ *    DAC & Co. untereinander regeln die Aufrufer selbst (Regel offen, eigenes Ticket).
+ *  - Sekt, Perlwein, Sonstiges (ohne Niveau): bleibt, wenn die andere Stufe so abgefüllt werden
+ *    dürfte (Kabinett + Sekt → Sekt, Wein + Perlwein → Perlwein), sonst „Sonstiges“
+ *    (Sonstiges + Eiswein → Sonstiges; vorher zählte Sonstiges nicht und es blieb Eiswein).
+ */
+export function zusammenfuehren(a: string, b: string): string {
+  if (a === b) return a
+  const na = qualitaetsNiveau(a)
+  const nb = qualitaetsNiveau(b)
+  if (na && nb) return gemeinsameStufe(na, nb)
+  if (!na && istBekannteStufe(a) && !istAufstufung(b, a)) return a
+  if (!nb && istBekannteStufe(b) && !istAufstufung(a, b)) return b
+  return 'sonstiges'
+}
+
 /** Gibt den niedrigsten Qualitätslevel unter den übergebenen zurück – genauer die höchste
- *  Stufe, die alle erreichen (Eiswein + TBA → Beerenauslese, Eiswein + Eiswein → Eiswein).
- *  Berücksichtigt NUR die Prädikatswein-Stufen (keine DAC, Reserve etc.).
- *  Gibt null zurück wenn keine bekannte Prädikatswein-Stufe dabei ist. */
+ *  Stufe, die alle erreichen (zusammenfuehren: Eiswein + TBA → Beerenauslese, Eiswein + Eiswein
+ *  → Eiswein, DAC + Kabinett → Qualitätswein, Sonstiges + Eiswein → Sonstiges). Leere Stufen
+ *  zählen nicht. Verschnitt: stehen nur DAC, Reserve, Erste Lage bzw. Großes Gewächs zur Wahl
+ *  (DAC + DAC, DAC + Reserve), liefert sie wie bisher null – die Regel dafür ist offen (eigenes
+ *  Ticket). Gibt null zurück, wenn keine Stufe dabei ist. */
 export function minQualitaet(stufen: (string | null | undefined)[]): string | null {
-  let ergebnis: string | null = null
-  for (const s of stufen) {
-    if (!istPraedikatsStufe(s)) continue
-    ergebnis = ergebnis == null ? s : gemeinsameStufe(ergebnis, s)
-  }
-  return ergebnis
+  const werte = stufen.filter((s): s is string => typeof s === 'string' && s !== '')
+  if (werte.length === 0 || werte.every(istQualitaetsweinBezeichnung)) return null
+  return werte.reduce(zusammenfuehren)
+}
+
+/** Abstufungs-Vermerk einer Zusammenführung (Verschnitt): von der höchsten beteiligten Stufe,
+ *  die dabei ihre Bezeichnung verliert, auf `ergebnis` – null ohne Ergebnis bzw. ohne Änderung.
+ *  Auch DAC → Qualitätswein und Eiswein → Sonstiges werden so vermerkt (vorher nur Abstufungen
+ *  auf der Prädikats-Skala). */
+export function zusammenfuehrungsAbstufung(
+  beteiligte: (string | null | undefined)[],
+  ergebnis: string | null | undefined,
+): { von: string; nach: string } | null {
+  if (!ergebnis) return null
+  const betroffen = beteiligte.filter((s): s is string => typeof s === 'string' && s !== '' && s !== ergebnis)
+  if (betroffen.length === 0) return null
+  return { von: maxQualitaet(betroffen) ?? betroffen.find(istQualitaetsweinBezeichnung) ?? betroffen[0], nach: ergebnis }
 }
 
 /** Gibt den höchsten Qualitätslevel unter den übergebenen zurück.
@@ -180,7 +221,8 @@ function istQualitaetsweinBezeichnung(s: string): boolean {
 }
 
 /** Niveau einer Stufe auf der Prädikats-Skala – DAC & Co. auf Qualitätswein-Niveau, sonst null
- *  (Sekt, Perlwein, Sonstiges, leer, unbekannt: keine Skala, istAufstufung sperrt dann nichts) */
+ *  (Sekt, Perlwein, Sonstiges, leer, unbekannt: keine Skala – istAufstufung lässt dann nur die
+ *  eigene Stufe und „Sonstiges“ zu) */
 export function qualitaetsNiveau(s: string | null | undefined): string | null {
   if (!s) return null
   if (istPraedikatsStufe(s)) return s
@@ -199,15 +241,20 @@ export function istAbstufung(von: string | null | undefined, nach: string | null
 /** Aufstufung von `von` (Charge) auf `nach` (Füllung) – serverseitig hart gesperrt (KAN-73).
  *  Prädikats-Stufen verlangen, dass die Charge sie erreicht (Eiswein → Ausbruch/TBA ist eine
  *  Aufstufung); DAC, Reserve, Erste Lage, Großes Gewächs und Sekt verlangen mindestens
- *  Qualitätswein (eine Charge „Wein“ oder „Landwein“ wird nie DAC). Sonstiges, Perlwein und
- *  Chargen ohne Niveau (Sekt, Perlwein, Sonstiges, leer) sperren nichts – wie bisher. */
+ *  Qualitätswein (eine Charge „Wein“ oder „Landwein“ wird nie DAC). „Sonstiges“ und Perlwein
+ *  verlangen nichts. Chargen ohne Niveau (Sekt, Perlwein, Sonstiges, unbekannte Altwerte) nur
+ *  als dieselbe Stufe oder „Sonstiges“ (KAN-73, Runde 3: vorher sperrten sie nichts – eine Charge
+ *  „Wein“ auf „Sonstiges“ gestellt ließ sich so als Eiswein abfüllen). Das ist genau die
+ *  Auswahl der Füllung (fuellungsStufenFuer) und der Charge (chargenStufenBis). Eine Charge ohne
+ *  Stufe (leer) sperrt nichts – ihre erste Stufe ist frei. */
 export function istAufstufung(von: string | null | undefined, nach: string | null | undefined): boolean {
   if (!von || !nach || von === nach || nach === 'sonstiges') return false
   const basis = qualitaetsNiveau(von)
+  if (!basis) return true
   const mindestens = istPraedikatsStufe(nach)
     ? nach
     : (istQualitaetsweinBezeichnung(nach) || nach === 'sekt') ? 'qualitaetswein' : null
-  if (!basis || !mindestens) return false
+  if (!mindestens) return false
   return !istMindestens(basis, mindestens)
 }
 

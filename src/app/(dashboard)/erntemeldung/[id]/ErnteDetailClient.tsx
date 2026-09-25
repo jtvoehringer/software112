@@ -327,17 +327,27 @@ function ParzellForm({
   // abweicht, wurde händisch gewählt (z. B. Eiswein, auf „Wein“ abgestuft) – sie bleibt bei einer
   // KMW-Korrektur erhalten, solange das Mostgewicht sie trägt. Eine gespeicherte Stufe gleich der
   // Ableitung folgt dem KMW wie bisher.
-  const [qualitaetEdit, setQualitaetEdit] = useState<string | null>(
-    parzelle?.qualitaetsstufe && parzelle.qualitaetsstufe !== derivedQualitaetEdit ? parzelle.qualitaetsstufe : null,
+  // Trägt schon das gespeicherte Mostgewicht die gespeicherte Stufe nicht (Altdaten), gilt von
+  // Anfang an die Ableitung – der Server würde die Stufe ablehnen (KAN-73, Runde 3)
+  const gespeichertPasst = stufeMitKmwMoeglich(
+    parzelle?.qualitaetsstufe,
+    parzelle?.klosterneuburger != null ? Number(parzelle.klosterneuburger) : null,
   )
-  const [kmwStufenHinweis, setKmwStufenHinweis] = useState<string | null>(null)
+  const stufenHinweis = (stufe: string) =>
+    `„${qualitaetLabel(stufe)}“ setzt mindestens ${fmtNum(MINDEST_KMW[stufe], { max: 1 })} °KMW voraus – die Stufe wird wieder aus den °KMW abgeleitet.`
+  const [qualitaetEdit, setQualitaetEdit] = useState<string | null>(
+    parzelle?.qualitaetsstufe && parzelle.qualitaetsstufe !== derivedQualitaetEdit && gespeichertPasst ? parzelle.qualitaetsstufe : null,
+  )
+  const [kmwStufenHinweis, setKmwStufenHinweis] = useState<string | null>(
+    parzelle?.qualitaetsstufe && !gespeichertPasst ? stufenHinweis(parzelle.qualitaetsstufe) : null,
+  )
   const effectiveQualitaetEdit = qualitaetEdit ?? derivedQualitaetEdit
 
   function kmwGeaendert(eingabe: string) {
     const kmw = eingabe ? parseFloat(dezimal(eingabe)) : null
     setKmwEdit(kmw)
     if (qualitaetEdit != null && !stufeMitKmwMoeglich(qualitaetEdit, kmw)) {
-      setKmwStufenHinweis(`„${qualitaetLabel(qualitaetEdit)}“ setzt mindestens ${fmtNum(MINDEST_KMW[qualitaetEdit], { max: 1 })} °KMW voraus – die Stufe wird wieder aus den °KMW abgeleitet.`)
+      setKmwStufenHinweis(stufenHinweis(qualitaetEdit))
       setQualitaetEdit(null)
     } else {
       setKmwStufenHinweis(null)
@@ -438,7 +448,11 @@ function ParzellForm({
           <select aria-label="Qualitätsstufe" name="qualitaetsstufe" value={effectiveQualitaetEdit}
             onChange={e => { setQualitaetEdit(e.target.value); setKmwStufenHinweis(null) }}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
-            {mitGespeichertemWert(leseStufenBeiKmw(kmwEdit), parzelle?.qualitaetsstufe).map(o => (
+            {/* gespeicherter Altwert nur, solange die °KMW ihn tragen – sonst lehnt der Server ihn ab (KAN-73) */}
+            {mitGespeichertemWert(
+              leseStufenBeiKmw(kmwEdit),
+              stufeMitKmwMoeglich(parzelle?.qualitaetsstufe, kmwEdit) ? parzelle?.qualitaetsstufe : null,
+            ).map(o => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>

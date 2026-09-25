@@ -74,7 +74,8 @@ function fuellungQualitaetAusFormular(formData: FormData): string {
 /** Meldung bei einer Aufstufung gegenüber der Charge (KAN-73, istAufstufung) */
 function aufstufungsText(charge: string, fuellung: string): string {
   return `Die Qualitätsstufe kann nicht von ${QUALITAET_LABEL[charge] ?? charge} (Charge) auf ${QUALITAET_LABEL[fuellung] ?? fuellung} AUFgestuft werden. ` +
-    'Nur Abstufungen sind zulässig – Eiswein und Strohwein z. B. nur auf Beerenauslese und darunter, eine Charge „Wein“ oder „Landwein“ nicht auf DAC, Reserve oder Sekt.'
+    'Nur Abstufungen sind zulässig – Eiswein und Strohwein z. B. nur auf Beerenauslese und darunter, eine Charge „Wein“ oder „Landwein“ nicht auf DAC, Reserve oder Sekt, ' +
+    'eine Charge „Sekt“, „Perlwein“ oder „Sonstiges“ nur unter ihrer eigenen Stufe oder als „Sonstiges“.'
 }
 
 /** Notiz der Abschluss-Schwundzeile einer Füllung (deactivateFuellung erkennt sie am Anfang) */

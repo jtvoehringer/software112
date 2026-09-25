@@ -6,7 +6,8 @@
 // und prüft je Formular, welche Liste es verwendet):
 //   QUALITAET_OPTS        → weinausbau.qualitaetsstufe (Charge, Eröffnungsbestand, Datenimport,
 //                           Zukauf mit Zielcharge, Pressung) – weinausbau_qualitaetsstufe_check;
-//                           Charge bearbeiten: chargenStufenBis() / chargenStufenAenderungFehler()
+//                           Charge bearbeiten und Eröffnungsbestand mit Folgebuchungen:
+//                           chargenStufenBis() / chargenStufenAenderungFehler()
 //   LESE_QUALITAETEN      → ernte_parzellen.qualitaetsstufe (Lese) – ernte_parzellen_qualitaetsstufe_check;
 //                           dieselbe Liste für die Trauben-Qualität beim Traubenverkauf
 //                           (traubenverkauf.qualitaetsstufe, ohne CHECK); mit °KMW: leseStufenBeiKmw()
@@ -17,7 +18,7 @@
 // istAufstufung) stehen in lib/weinqualitaet.ts – die einzige Abhängigkeit dieser Datei. Charge
 // und Füllung bieten nie eine Stufe an, die istAufstufung sperrt (Test: qualitaet.test.mjs).
 
-import { istAufstufung, istPraedikatsStufe, minQualitaet as minPraedikat, qualitaetsNiveau, stufeMitKmwMoeglich } from '@/lib/weinqualitaet'
+import { istAufstufung, MINDEST_KMW, QUALITAETSWEIN_BEZEICHNUNGEN, stufeMitKmwMoeglich, zusammenfuehren } from '@/lib/weinqualitaet'
 
 export const QUALITAET_OPTS = [
   { value: 'wein',                 label: 'Wein (ohne Herkunft)',           rang: 0 },
@@ -70,9 +71,26 @@ export const LESE_QUALITAETEN: readonly QualitaetsOption[] = QUALITAET_OPTS
 export const FUELLUNG_QUALITAETEN: readonly QualitaetsOption[] = QUALITAET_OPTS
 
 /** Lese-Stufen, die das Mostgewicht `kmw` trägt (Mindest-°KMW laut Weingesetz, Eiswein ab
- *  25 °KMW); ohne KMW-Wert alle. Server: upsertErnteParzelle prüft dieselbe Regel. */
+ *  25 °KMW); ohne KMW-Wert alle. Server: upsertErnteParzelle prüft dieselbe Regel (leseKmwFehler). */
 export function leseStufenBeiKmw(kmw: number | null | undefined): readonly QualitaetsOption[] {
   return LESE_QUALITAETEN.filter(o => stufeMitKmwMoeglich(o.value, kmw))
+}
+
+/** Zahl für Meldungen im deutschen Format (höchstens 2 Nachkommastellen, ohne lib/format –
+ *  diese Datei bleibt ohne weitere Abhängigkeiten, node:test lädt sie direkt) */
+function zahlText(n: number): string {
+  return String(Math.round(n * 100) / 100).replace('.', ',')
+}
+
+/**
+ * Serverprüfung Mostgewicht (KAN-73) für Lese und Traubenverkauf: Meldung, wenn `stufe` mehr
+ * °KMW verlangt als `kmw` (Kabinett ab 17, Eiswein ab 25 °KMW …), sonst null. Ohne KMW-Wert bzw.
+ * ohne Stufe keine Prüfung. Die Stufe geht in die AMA-Erntemeldung und das BKI-Datenblatt.
+ */
+export function leseKmwFehler(stufe: string | null | undefined, kmw: number | null | undefined): string | null {
+  if (!stufe || stufeMitKmwMoeglich(stufe, kmw)) return null
+  return `Die Qualitätsstufe „${qualitaetLabel(stufe)}“ setzt mindestens ${zahlText(MINDEST_KMW[stufe])} °KMW voraus – erfasst sind ${zahlText(kmw as number)} °KMW. ` +
+    'Bitte eine niedrigere Stufe wählen oder den KMW-Wert prüfen.'
 }
 
 /** Auswahl der Füllung zu einer Charge der Stufe `chargeStufe` – genau die Stufen, die der
@@ -81,12 +99,9 @@ export function leseStufenBeiKmw(kmw: number | null | undefined): readonly Quali
  *  Großes Gewächs und Sekt (KAN-73, Runde 2: sonst ließe sich eine Pressungs-Charge – dort ist
  *  die Stufe gesperrt – nie als DAC abfüllen), dazu Perlwein und „Sonstiges“.
  *  Chargen ohne Skala-Niveau (Sekt, Perlwein, Sonstiges, Altwerte): nur die eigene Stufe und
- *  „Sonstiges“ wie bisher. Ohne Charge bzw. ohne Stufe alle. */
+ *  „Sonstiges“ wie bisher – seit Runde 3 sperrt das auch der Server. Ohne Charge bzw. ohne Stufe alle. */
 export function fuellungsStufenFuer(chargeStufe: string | null | undefined): readonly QualitaetsOption[] {
   if (!chargeStufe) return FUELLUNG_QUALITAETEN
-  if (qualitaetsNiveau(chargeStufe) == null) {
-    return FUELLUNG_QUALITAETEN.filter(o => o.value === chargeStufe || o.value === 'sonstiges')
-  }
   return FUELLUNG_QUALITAETEN.filter(o => !istAufstufung(chargeStufe, o.value))
 }
 
@@ -94,8 +109,12 @@ export function fuellungsStufenFuer(chargeStufe: string | null | undefined): rea
  *  bzw. Ableitung aus den °KMW), alles mit höchstens gleichem Rang, aber nie eine Stufe, die
  *  istAufstufung sperrt – dieselbe Regel wie bei der Füllung. Damit weder Eiswein/Strohwein nach
  *  Ausbruch, TBA oder zueinander noch DAC, Reserve, Erste Lage, Großes Gewächs auf ein Prädikat
- *  (KAN-73, Runde 2: DAC → Kabinett, dann Füllung „Kabinett“ umging die Sperre der Füllung).
- *  Ohne Obergrenze alle. updateWeinausbau prüft dieselbe Regel (chargenStufenAenderungFehler). */
+ *  (KAN-73, Runde 2: DAC → Kabinett, dann Füllung „Kabinett“ umging die Sperre der Füllung),
+ *  und Sekt, Perlwein bzw. Sonstiges nur noch auf „Sonstiges“ (Runde 3). DAC & Co. gibt es an
+ *  der Charge wie bisher nur bis zum Rang der bisherigen Stufe (DAC ab Kabinett, Reserve ab
+ *  Spätlese …), bei der Füllung schon ab Qualitätswein.
+ *  Ohne Obergrenze alle. updateWeinausbau und eroeffnungsbestandSpeichern (mit Folgebuchungen)
+ *  prüfen dieselbe Regel (chargenStufenAenderungFehler). */
 export function chargenStufenBis(basis: string | null | undefined): readonly QualitaetsOption[] {
   if (!basis) return QUALITAET_OPTS
   const maxRang = QUALITAET_OPTS.find(o => o.value === basis)?.rang ?? 99
@@ -104,8 +123,9 @@ export function chargenStufenBis(basis: string | null | undefined): readonly Qua
 
 /**
  * Serverprüfung „Charge bearbeiten“ (updateWeinausbau; Pressungs-Chargen sperrt die Action
- * vorher ganz): Meldung, wenn die Stufe von `alt` nicht auf `neu` geändert werden darf, sonst
- * null. Eine festgelegte Stufe lässt sich nur abstufen (chargenStufenBis), nicht entfernen –
+ * vorher ganz) und „Eröffnungsbestand bearbeiten“, sobald Folgebuchungen an der Charge hängen
+ * (eroeffnungsbestandSpeichern): Meldung, wenn die Stufe von `alt` nicht auf `neu` geändert
+ * werden darf, sonst null. Eine festgelegte Stufe lässt sich nur abstufen (chargenStufenBis), nicht entfernen –
  * über „leer“ ließe sich sonst danach jede Stufe setzen bzw. jede Stufe abfüllen (KAN-73,
  * Runde 2). Eine Charge ohne Stufe bekommt ihre erste Stufe frei.
  */
@@ -185,15 +205,21 @@ export function qualitaetLabel(value: string | null | undefined): string {
   return QUALITAET_OPTS.find(o => o.value === value)?.label ?? value
 }
 
-/** Gibt die niedrigere der beiden Qualitätsstufen zurück (Zusammenführung per Umziehen).
- *  Zwei Stufen der Prädikats-Skala: wie lib/weinqualitaet.ts (Eiswein + TBA → Beerenauslese,
- *  KAN-73); sonst nach Rang in QUALITAET_OPTS wie bisher. */
+/** Stufe nach der Zusammenführung per Umziehen: wie der Verschnitt die höchste Stufe, die beide
+ *  ohne Aufstufung erreichen (zusammenfuehren in lib/weinqualitaet.ts: Eiswein + TBA →
+ *  Beerenauslese, DAC + Kabinett → Qualitätswein, Sekt + Kabinett → Sekt, Sonstiges + Eiswein →
+ *  Sonstiges; KAN-73, Runde 3 – vorher nach Rang, DAC + Kabinett ergab so „Kabinett“).
+ *  Leer zählt nicht. DAC, Reserve, Erste Lage, Großes Gewächs untereinander: wie bisher der
+ *  niedrigere Rang (Regel offen, eigenes Ticket). */
 export function minQualitaet(a: string | null, b: string | null): string | null {
   if (!a && !b) return null
   if (!a) return b
   if (!b) return a
-  if (istPraedikatsStufe(a) && istPraedikatsStufe(b)) return minPraedikat([a, b])
-  const ra = QUALITAET_OPTS.find(o => o.value === a)?.rang ?? 99
-  const rb = QUALITAET_OPTS.find(o => o.value === b)?.rang ?? 99
-  return ra <= rb ? a : b
+  const dacUndCo = QUALITAETSWEIN_BEZEICHNUNGEN as readonly string[]
+  if (dacUndCo.includes(a) && dacUndCo.includes(b)) {
+    const ra = QUALITAET_OPTS.find(o => o.value === a)?.rang ?? 99
+    const rb = QUALITAET_OPTS.find(o => o.value === b)?.rang ?? 99
+    return ra <= rb ? a : b
+  }
+  return zusammenfuehren(a, b)
 }

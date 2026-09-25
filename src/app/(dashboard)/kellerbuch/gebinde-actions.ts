@@ -9,11 +9,12 @@ import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { fmtNum, dezimal, zahlAus } from '@/lib/format'
 import { AktionsFehler, dbFehlerText, fehlerText } from '@/lib/fehler'
-import { qualitaetFehler } from '@/lib/wein/qualitaet'
-import { sperreBeiFolgebuchungen } from '@/lib/kellerbuch/folgebuchungen'
+import { chargenStufenAenderungFehler, minQualitaet, qualitaetFehler } from '@/lib/wein/qualitaet'
+import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { folgebuchungenDerCharge, folgebuchungenText, sperreBeiFolgebuchungen } from '@/lib/kellerbuch/folgebuchungen'
 import {
   ladeUmzugZeilen, planeUmzugStorno, storniereUmzug, umzugSperrMeldung, umzugAlsEingabe, nurNotizenAenderbar,
-  OHNE_MENGENWIRKUNG, GEBINDEWECHSEL_OHNE, type UmzugStornoPlan, type UmzugEingabe,
+  OHNE_MENGENWIRKUNG, GEBINDEWECHSEL_OHNE, QUALITAETSKORREKTUR_OHNE, type UmzugStornoPlan, type UmzugEingabe,
 } from '@/lib/kellerbuch/storno'
 import { KORREKTUR_NACH_OBEN_HINWEIS, KORREKTUR_NACH_UNTEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
 
@@ -123,8 +124,9 @@ export async function createEroeffnungsbestandVonImport(formData: FormData) {
 // gemeinsam (vorher nur menge_liter – die Ansichten starten aber beim Anfangsbestand) und
 // nur, solange an der Charge keine Mengenbewegung hängt und der Bestand noch dem
 // Anfangsbestand entspricht. Ein Gebindewechsel ist nur ohne Folgebuchungen möglich
-// (sonst wäre es ein Umzug ohne Bewegungszeile). Bezeichnung, Jahrgang, KMW, Qualität,
-// Preis, Referenz und Notizen bleiben immer änderbar (Änderungen protokolliert die DB).
+// (sonst wäre es ein Umzug ohne Bewegungszeile). Bezeichnung, Jahrgang, KMW, Preis, Referenz
+// und Notizen bleiben immer änderbar (Änderungen protokolliert die DB); die Qualität frei nur
+// ohne Folgebuchungen, sonst nur abstufen wie bei „Charge bearbeiten“ (KAN-73).
 const EB_MENGE_HINWEIS = `${KORREKTUR_NACH_UNTEN_HINWEIS} ${KORREKTUR_NACH_OBEN_HINWEIS}`
 
 async function eroeffnungsbestandSpeichern(id: string, formData: FormData): Promise<void> {
@@ -132,7 +134,7 @@ async function eroeffnungsbestandSpeichern(id: string, formData: FormData): Prom
   const tenantId = await getTenantId()
 
   const { data: altRaw, error: ladeErr } = await (supabase.from('weinausbau') as any)
-    .select('id, menge_liter, anfangsbestand_liter, behaelter_id, aktiv')
+    .select('id, menge_liter, anfangsbestand_liter, behaelter_id, aktiv, qualitaetsstufe')
     .eq('id', id)
     .eq('ist_eroeffnungsbestand', true)
     .eq('tenant_id', tenantId)
@@ -145,6 +147,18 @@ async function eroeffnungsbestandSpeichern(id: string, formData: FormData): Prom
   const qualitaetsstufe = (formData.get('qualitaetsstufe') as string) || null
   const qualitaetUnzulaessig = qualitaetFehler('charge', qualitaetsstufe)
   if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
+  // KAN-73 (Runde 3): Ohne Folgebuchungen bleibt die Stufe des Anfangsbestands frei korrigierbar
+  // (Erfassungsfehler). Hängen schon Buchungen daran, die die Stufe weitertragen (Umzug, Verschnitt,
+  // Füllung, Verkauf, Zukauf, DAC-Antrag), gilt dieselbe Regel wie „Charge bearbeiten“: nur
+  // abstufen, nicht entfernen – sonst hob diese Seite z. B. die Abstufung eines Verschnitts wieder auf.
+  const altQualitaet = (alt.qualitaetsstufe as string | null) ?? null
+  if (qualitaetsstufe !== altQualitaet) {
+    const folge = await folgebuchungenDerCharge(supabase, id, { ohne: QUALITAETSKORREKTUR_OHNE })
+    const stufenFehler = folge.length > 0 ? chargenStufenAenderungFehler(altQualitaet, qualitaetsstufe) : null
+    if (stufenFehler) {
+      throw new AktionsFehler(`${stufenFehler} An der Charge ${folge.length === 1 && folge[0].anzahl === 1 ? 'hängt' : 'hängen'} bereits ${folgebuchungenText(folge)}; frei korrigierbar ist die Stufe eines Eröffnungsbestands nur ohne Folgebuchungen.`)
+    }
+  }
 
   const epRaw2 = dezimal(formData.get('einstandspreis_pro_liter') as string) ?? ''
   const payload: R = {
@@ -420,6 +434,13 @@ async function umzugAnlegen(
   // --- Ziele verarbeiten ---
   // Lot-Metadaten (Name, Jahrgang, …) von der ersten Quelle übernehmen
   const hauptQuelle = quellCharge.get(e.quellen[0].weinausbau_id)
+  // KAN-73 (Runde 3): Qualität wie umziehen() – die höchste Stufe, die alle Quellen ohne
+  // Aufstufung erreichen (vorher bekam das Ziel die Stufe der ersten Quelle, eine zusammen-
+  // geführte Charge „Wein“ + „Kabinett“ hieß so „Kabinett“)
+  const mischQualitaet = e.quellen.reduce<string | null>(
+    (q, x) => minQualitaet(q, (quellCharge.get(x.weinausbau_id)?.qualitaetsstufe as string | null) ?? null),
+    null,
+  )
 
   for (const z of e.ziele) {
     // Bestehendes Lot im Ziel-Gebinde suchen (Name + Jahrgang).
@@ -427,7 +448,7 @@ async function umzugAnlegen(
     // Chargen ohne Jahrgang (z.B. NV-Cuvées) muss .is() verwendet werden, sonst wird
     // nie das bestehende Lot gefunden und stattdessen jedes Mal ein neues angelegt.
     let existingQuery = (supabase.from('weinausbau') as any)
-      .select('id, menge_liter, rebsorte')
+      .select('id, menge_liter, rebsorte, qualitaetsstufe, notizen')
       .eq('behaelter_id', z.behaelter_id)
       .eq('name', hauptQuelle?.name ?? '')
       .eq('aktiv', true)
@@ -446,11 +467,24 @@ async function umzugAnlegen(
       existing = null
     }
     let nachWeinausbauId: string | null = null
+    let zielNotizen: string | null = null
 
     if (existing) {
       const altMenge = num(existing.menge_liter)
+      // KAN-73 (Runde 3): Zusammenführung wie umziehen() – Stufe nie über einer der beiden,
+      // Abstufung an Zielzeile und Charge vermerkt (so nimmt der Storno sie wieder zurück,
+      // lib/kellerbuch/storno.ts nimmAbstufungZurueck)
+      const altQualitaet = (existing.qualitaetsstufe as string | null) ?? null
+      const neueQualitaet = minQualitaet(altQualitaet, mischQualitaet)
+      const werte: R = { menge_liter: rund2(altMenge + z.menge_netto) }
+      if (neueQualitaet !== altQualitaet) werte.qualitaetsstufe = neueQualitaet
+      if (altQualitaet && neueQualitaet && neueQualitaet !== altQualitaet) {
+        zielNotizen = `Abstufung von ${QUALITAET_LABEL[altQualitaet] ?? altQualitaet} auf ${QUALITAET_LABEL[neueQualitaet] ?? neueQualitaet}`
+        const vermerk = `${zielNotizen} (Zusammenführung per Umziehen)`
+        werte.notizen = existing.notizen ? `${existing.notizen}\n${vermerk}` : vermerk
+      }
       { const { error: e2 } = await (supabase.from('weinausbau') as any)
-        .update({ menge_liter: rund2(altMenge + z.menge_netto) })
+        .update(werte)
         .eq('id', existing.id)
         .eq('tenant_id', tenantId)
         if (e2) throw new AktionsFehler(dbFehlerText(e2, 'Speichern fehlgeschlagen (weinausbau)')) }
@@ -462,7 +496,7 @@ async function umzugAnlegen(
           name:                 hauptQuelle?.name ?? 'Unbekannt',
           jahrgang:             hauptQuelle?.jahrgang ?? null,
           rebsorte:             hauptQuelle?.rebsorte ?? null,
-          qualitaetsstufe:      hauptQuelle?.qualitaetsstufe ?? null,
+          qualitaetsstufe:      mischQualitaet,
           status:               hauptQuelle?.status && hauptQuelle.status !== 'abgeschlossen' ? hauptQuelle.status : 'ausbau',
           behaelter_id:         z.behaelter_id,
           menge_liter:          z.menge_netto,
@@ -484,7 +518,7 @@ async function umzugAnlegen(
       menge_liter:        z.menge_netto,
       schwund_liter:      0,
       brutto_liter:       null,
-      notizen:            null,
+      notizen:            zielNotizen,
       umzug_batch_id:     batchId,
       zeilen_typ:         'ziel',
       ...typFeld,
