@@ -3,7 +3,7 @@
 import React, { useState, useTransition } from 'react'
 import { upsertErnteParzelle, deleteErnteParzelle, createOrUpdateAMAMeldung, createMultipleErnteParzellen } from '../actions'
 import { qualitaetLabel, leseStufenBeiKmw, mitGespeichertemWert } from '@/lib/wein/qualitaet'
-import { kmwZuQualitaet } from '@/lib/weinqualitaet'
+import { kmwZuQualitaet, MINDEST_KMW, stufeMitKmwMoeglich } from '@/lib/weinqualitaet'
 import type { ErnteParzelle, WeingartenOpt, GSTOpt, AMAMeldung, HektarhoechstertragStatus } from './page'
 import PressungSection from './PressungSection'
 import type { Pressung, WGOption, BehOption, WAOption, ZukaufTraubenOpt } from './PressungSection'
@@ -323,8 +323,26 @@ function ParzellForm({
   const [selWgId, setSelWgId] = useState<string>(parzelle?.weingarten_id ?? '')
   const [selGstId, setSelGstId] = useState<string>(parzelle?.grundstueck_id ?? '')
   const derivedQualitaetEdit = kmwEdit != null && Number.isFinite(kmwEdit) ? kmwZuQualitaet(kmwEdit) : 'qualitaetswein'
-  const [qualitaetEdit, setQualitaetEdit] = useState<string | null>(parzelle?.qualitaetsstufe ?? null)
+  // KAN-73 (Runde 2): Eine gespeicherte Stufe, die von der Ableitung aus den gespeicherten °KMW
+  // abweicht, wurde händisch gewählt (z. B. Eiswein, auf „Wein“ abgestuft) – sie bleibt bei einer
+  // KMW-Korrektur erhalten, solange das Mostgewicht sie trägt. Eine gespeicherte Stufe gleich der
+  // Ableitung folgt dem KMW wie bisher.
+  const [qualitaetEdit, setQualitaetEdit] = useState<string | null>(
+    parzelle?.qualitaetsstufe && parzelle.qualitaetsstufe !== derivedQualitaetEdit ? parzelle.qualitaetsstufe : null,
+  )
+  const [kmwStufenHinweis, setKmwStufenHinweis] = useState<string | null>(null)
   const effectiveQualitaetEdit = qualitaetEdit ?? derivedQualitaetEdit
+
+  function kmwGeaendert(eingabe: string) {
+    const kmw = eingabe ? parseFloat(dezimal(eingabe)) : null
+    setKmwEdit(kmw)
+    if (qualitaetEdit != null && !stufeMitKmwMoeglich(qualitaetEdit, kmw)) {
+      setKmwStufenHinweis(`„${qualitaetLabel(qualitaetEdit)}“ setzt mindestens ${fmtNum(MINDEST_KMW[qualitaetEdit], { max: 1 })} °KMW voraus – die Stufe wird wieder aus den °KMW abgeleitet.`)
+      setQualitaetEdit(null)
+    } else {
+      setKmwStufenHinweis(null)
+    }
+  }
   const verfuegbareGSTs = selWgId ? (gstByWeingarten[selWgId] ?? []) : []
   const [error, setError] = useState<string | null>(null)
 
@@ -412,18 +430,21 @@ function ParzellForm({
           <label className="block text-xs font-medium text-s112-text-2 mb-1">°KMW</label>
           <input aria-label="°KMW" name="klosterneuburger" type="text" inputMode="decimal"
             defaultValue={parzelle?.klosterneuburger ?? ''}
-            onChange={e => { setKmwEdit(e.target.value ? parseFloat(dezimal(e.target.value)) : null); setQualitaetEdit(null) }}
+            onChange={e => kmwGeaendert(e.target.value)}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Qualitätsstufe</label>
           <select aria-label="Qualitätsstufe" name="qualitaetsstufe" value={effectiveQualitaetEdit}
-            onChange={e => setQualitaetEdit(e.target.value)}
+            onChange={e => { setQualitaetEdit(e.target.value); setKmwStufenHinweis(null) }}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             {mitGespeichertemWert(leseStufenBeiKmw(kmwEdit), parzelle?.qualitaetsstufe).map(o => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
+          {kmwStufenHinweis && (
+            <p role="status" className="text-xs text-s112-warn-fg mt-0.5">{kmwStufenHinweis}</p>
+          )}
           {qualitaetEdit == null && (
             <p className="text-xs text-s112-muted mt-0.5">↑ Wird aus °KMW abgeleitet – bei Bedarf abstufen (Eiswein ab 25 °KMW)</p>
           )}

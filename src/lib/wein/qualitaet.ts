@@ -6,17 +6,18 @@
 // und prüft je Formular, welche Liste es verwendet):
 //   QUALITAET_OPTS        → weinausbau.qualitaetsstufe (Charge, Eröffnungsbestand, Datenimport,
 //                           Zukauf mit Zielcharge, Pressung) – weinausbau_qualitaetsstufe_check;
-//                           Charge bearbeiten: chargenStufenBis()
+//                           Charge bearbeiten: chargenStufenBis() / chargenStufenAenderungFehler()
 //   LESE_QUALITAETEN      → ernte_parzellen.qualitaetsstufe (Lese) – ernte_parzellen_qualitaetsstufe_check;
 //                           dieselbe Liste für die Trauben-Qualität beim Traubenverkauf
 //                           (traubenverkauf.qualitaetsstufe, ohne CHECK); mit °KMW: leseStufenBeiKmw()
 //   FUELLUNG_QUALITAETEN  → fuellungen.qualitaet (Füllung neu/bearbeiten) – fuellungen_qualitaet_check;
-//                           mit Charge: fuellungsStufenFuer() (nur Abstufung)
+//                           mit Charge: fuellungsStufenFuer() (keine Aufstufung)
 // Server Actions prüfen vor dem Schreiben mit qualitaetFehler() (verständliche Meldung statt 23514).
-// Abstufungsregeln (Eiswein/Strohwein als eigene Zweige, DAC & Co. auf Qualitätswein-Niveau)
-// stehen in lib/weinqualitaet.ts – die einzige Abhängigkeit dieser Datei.
+// Abstufungsregeln (Eiswein/Strohwein als eigene Zweige, DAC & Co. auf Qualitätswein-Niveau,
+// istAufstufung) stehen in lib/weinqualitaet.ts – die einzige Abhängigkeit dieser Datei. Charge
+// und Füllung bieten nie eine Stufe an, die istAufstufung sperrt (Test: qualitaet.test.mjs).
 
-import { istAbstufung, istMindestens, istPraedikatsStufe, minQualitaet as minPraedikat, stufeMitKmwMoeglich } from '@/lib/weinqualitaet'
+import { istAufstufung, istPraedikatsStufe, minQualitaet as minPraedikat, qualitaetsNiveau, stufeMitKmwMoeglich } from '@/lib/weinqualitaet'
 
 export const QUALITAET_OPTS = [
   { value: 'wein',                 label: 'Wein (ohne Herkunft)',           rang: 0 },
@@ -74,25 +75,49 @@ export function leseStufenBeiKmw(kmw: number | null | undefined): readonly Quali
   return LESE_QUALITAETEN.filter(o => stufeMitKmwMoeglich(o.value, kmw))
 }
 
-/** Auswahl der Füllung zu einer Charge der Stufe `chargeStufe`: dieselbe Stufe, echte
- *  Abstufungen (lib/weinqualitaet.ts, istAbstufung) und „Sonstiges“ – ohne Charge bzw. ohne
- *  Stufe alle. Der Server sperrt Aufstufungen (istAufstufung) unabhängig davon. */
+/** Auswahl der Füllung zu einer Charge der Stufe `chargeStufe` – genau die Stufen, die der
+ *  Server zulässt (istAufstufung, lib/weinqualitaet.ts): Abstufungen auf der Prädikats-Skala
+ *  (Eiswein/Strohwein bis Beerenauslese), ab Qualitätswein-Niveau auch DAC, Reserve, Erste Lage,
+ *  Großes Gewächs und Sekt (KAN-73, Runde 2: sonst ließe sich eine Pressungs-Charge – dort ist
+ *  die Stufe gesperrt – nie als DAC abfüllen), dazu Perlwein und „Sonstiges“.
+ *  Chargen ohne Skala-Niveau (Sekt, Perlwein, Sonstiges, Altwerte): nur die eigene Stufe und
+ *  „Sonstiges“ wie bisher. Ohne Charge bzw. ohne Stufe alle. */
 export function fuellungsStufenFuer(chargeStufe: string | null | undefined): readonly QualitaetsOption[] {
   if (!chargeStufe) return FUELLUNG_QUALITAETEN
-  return FUELLUNG_QUALITAETEN.filter(o =>
-    o.value === chargeStufe || o.value === 'sonstiges' || istAbstufung(chargeStufe, o.value))
+  if (qualitaetsNiveau(chargeStufe) == null) {
+    return FUELLUNG_QUALITAETEN.filter(o => o.value === chargeStufe || o.value === 'sonstiges')
+  }
+  return FUELLUNG_QUALITAETEN.filter(o => !istAufstufung(chargeStufe, o.value))
 }
 
 /** Auswahl der Charge (Kellerbuch, Charge bearbeiten): Obergrenze `basis` (gespeicherte Stufe
- *  bzw. Ableitung aus den °KMW) und alles mit höchstens gleichem Rang; zwischen zwei Stufen der
- *  Prädikats-Skala nur echte Abstufungen – Eiswein/Strohwein also nicht nach Ausbruch, TBA oder
- *  zueinander (KAN-73). Ohne Obergrenze alle. updateWeinausbau prüft dieselbe Regel. */
+ *  bzw. Ableitung aus den °KMW), alles mit höchstens gleichem Rang, aber nie eine Stufe, die
+ *  istAufstufung sperrt – dieselbe Regel wie bei der Füllung. Damit weder Eiswein/Strohwein nach
+ *  Ausbruch, TBA oder zueinander noch DAC, Reserve, Erste Lage, Großes Gewächs auf ein Prädikat
+ *  (KAN-73, Runde 2: DAC → Kabinett, dann Füllung „Kabinett“ umging die Sperre der Füllung).
+ *  Ohne Obergrenze alle. updateWeinausbau prüft dieselbe Regel (chargenStufenAenderungFehler). */
 export function chargenStufenBis(basis: string | null | undefined): readonly QualitaetsOption[] {
   if (!basis) return QUALITAET_OPTS
   const maxRang = QUALITAET_OPTS.find(o => o.value === basis)?.rang ?? 99
-  return QUALITAET_OPTS.filter(o => o.rang <= maxRang && (
-    o.value === basis || !istPraedikatsStufe(basis) || !istPraedikatsStufe(o.value) || istMindestens(basis, o.value)
-  ))
+  return QUALITAET_OPTS.filter(o => o.value === basis || (o.rang <= maxRang && !istAufstufung(basis, o.value)))
+}
+
+/**
+ * Serverprüfung „Charge bearbeiten“ (updateWeinausbau; Pressungs-Chargen sperrt die Action
+ * vorher ganz): Meldung, wenn die Stufe von `alt` nicht auf `neu` geändert werden darf, sonst
+ * null. Eine festgelegte Stufe lässt sich nur abstufen (chargenStufenBis), nicht entfernen –
+ * über „leer“ ließe sich sonst danach jede Stufe setzen bzw. jede Stufe abfüllen (KAN-73,
+ * Runde 2). Eine Charge ohne Stufe bekommt ihre erste Stufe frei.
+ */
+export function chargenStufenAenderungFehler(alt: string | null | undefined, neu: string | null | undefined): string | null {
+  const a = alt || null
+  const n = neu || null
+  if (a === n || a == null) return null
+  if (n == null) {
+    return `Die Qualitätsstufe „${qualitaetLabel(a)}“ ist festgelegt und lässt sich nur abstufen, nicht entfernen – die niedrigsten Stufen sind „${qualitaetLabel('wein')}“ und „${qualitaetLabel('sonstiges')}“.`
+  }
+  if (chargenStufenBis(a).some(o => o.value === n)) return null
+  return `Die Qualitätsstufe kann nicht von „${qualitaetLabel(a)}“ auf „${qualitaetLabel(n)}“ geändert werden – bei einer Charge sind nur Abstufungen zulässig.`
 }
 
 function inListe(liste: readonly QualitaetsOption[], wert: unknown): boolean {

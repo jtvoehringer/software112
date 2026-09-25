@@ -580,10 +580,11 @@ async function chargenVorgabenErmitteln(
   jahrgangId: string,
   jahr: number | null,
   weingaerten: WGZeile[],
-  kopf: { datum: string; weinbezeichnung: string | null; kmwGrad: number | null; qualitaetsstufe: string | null },
+  kopf: { datum: string; weinbezeichnung: string | null; kmwGrad: number | null },
 ): Promise<ChargenVorgaben> {
-  // Qualität: User-Input (nur direkter Aufruf) > Lese-Stufen der gepressten Parzellen,
-  // gedeckelt durch die Ableitung aus dem Ø-KMW (pressungsQualitaet, KAN-73) > 'qualitaetswein'.
+  // Qualität: Lese-Stufen der gepressten Parzellen, gedeckelt durch die Ableitung aus dem Ø-KMW
+  // (pressungsQualitaet, KAN-73) > 'qualitaetswein'. Keine Übersteuerung von außen (KAN-73,
+  // Runde 2: ein direkter Aufruf mit qualitaetsstufe hätte sonst ungedeckelt aufgestuft).
   // Die Charge übernimmt so die (ggf. abgestufte) Stufe der Lese: Lese „Wein“ → Charge „Wein“,
   // auch ohne KMW; Lese „Eiswein“ bei 26 °KMW → Charge „Eiswein“ (vorher Beerenauslese).
   // PressungSection zeigt dieselbe Rechnung als Vorschau.
@@ -617,7 +618,7 @@ async function chargenVorgabenErmitteln(
       ? null
       : leseStufeFuerPressung(lese, { weingartenId: w.weingarten_id, grundstueckId: w.grundstueck_id }, kopf.datum))
   }
-  const qualitaet = kopf.qualitaetsstufe ?? pressungsQualitaet(leseStufen, kmw)
+  const qualitaet = pressungsQualitaet(leseStufen, kmw)
 
   // Rebsorte + Weinart ableiten aus Weingarten-Tabelle
   const rebsortenAusForm = weingaerten.map(w => w.rebsorte).filter((r): r is string => !!r)
@@ -747,12 +748,13 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   const weinbezeichnung  = (fd.get('weinbezeichnung') as string) || null
   const kmwGrad          = zahlAus(fd.get('kmw_grad'))
   const notizen          = (fd.get('notizen') as string) || null
-  const qualitaetsstufeInput = (fd.get('qualitaetsstufe') as string) || null
   if (!datum) throw new AktionsFehler('Bitte das Datum der Pressung angeben.')
-  // KAN-73: die Stufe geht in die neue Kellerbuch-Charge (weinausbau) – vor jedem Schreiben prüfen.
-  // Das Formular schickt keine (Ableitung aus den °KMW), nur ein direkter Aufruf.
-  const qualitaetUnzulaessig = qualitaetFehler('charge', qualitaetsstufeInput)
-  if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
+  // KAN-73 (Runde 2): Die Stufe der neuen Charge leitet der Server immer aus Lese-Stufen und °KMW
+  // ab (chargenVorgabenErmitteln → pressungsQualitaet) – die Pressung stuft nie auf. Das Formular
+  // schickt keine Stufe; ein direkter Aufruf mit Stufe wird vor jedem Schreiben abgelehnt.
+  if (fd.get('qualitaetsstufe')) {
+    throw new AktionsFehler('Die Qualitätsstufe einer Pressungs-Charge ergibt sich aus Lese-Stufe und °KMW der Pressung und lässt sich nicht vorgeben – abstufen lässt sie sich bei der Füllung.')
+  }
 
   const weingaerten: WGZeile[] = leseFormularJson<PressungWGInput>(fd, 'weingaerten_json').map(w => ({
     id:               textOderNull(w.id),
@@ -1105,7 +1107,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   const fehlgeschlagen: string[] = []
   if (neuePb.length > 0) {
     const vorgaben = await chargenVorgabenErmitteln(supabase, tenantId, jahrgangId, (jg.jahrgang as number | null) ?? null, weingaerten,
-      { datum, weinbezeichnung, kmwGrad, qualitaetsstufe: qualitaetsstufeInput })
+      { datum, weinbezeichnung, kmwGrad })
     for (const b of neuePb) {
       try {
         neuChargen.push(await mostzeileMitChargeAnlegen(supabase, tenantId, pressId, b, vorgaben))

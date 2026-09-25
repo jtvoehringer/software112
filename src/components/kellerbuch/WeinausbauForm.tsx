@@ -161,13 +161,14 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
                 const basisQ = weinausbau?.qualitaetsstufe ?? maxQualitaetsstufe ?? null
                 // KAN-73: Charge = QUALITAET_OPTS (CHECK weinausbau) über chargenStufenBis – „Wein“
                 // (Rang 0) lässt nur Wein und Sonstiges zu, Eiswein/Strohwein nicht Ausbruch/TBA bzw.
-                // einander (updateWeinausbau prüft dieselbe Regel). Ein gespeicherter Wert außerhalb
-                // der Liste bleibt sichtbar.
+                // einander, DAC & Co. kein Prädikat (updateWeinausbau prüft dieselbe Regel). Ein
+                // gespeicherter Wert außerhalb der Liste bleibt sichtbar. „Noch nicht festgelegt“
+                // nur, solange keine Stufe gespeichert ist – entfernen lässt sie sich nicht.
                 const erlaubteOptionen = mitGespeichertemWert(chargenStufenBis(basisQ), weinausbau?.qualitaetsstufe)
                 return (
                   <>
                     <select name="qualitaetsstufe" defaultValue={weinausbau?.qualitaetsstufe ?? maxQualitaetsstufe ?? ''} className="form-input">
-                      <option value="">– noch nicht festgelegt –</option>
+                      {!weinausbau?.qualitaetsstufe && <option value="">– noch nicht festgelegt –</option>}
                       {erlaubteOptionen.map(o => (
                         <option key={o.value} value={o.value}>{o.label}</option>
                       ))}

@@ -179,8 +179,10 @@ function istQualitaetsweinBezeichnung(s: string): boolean {
   return (QUALITAETSWEIN_BEZEICHNUNGEN as readonly string[]).includes(s)
 }
 
-/** Niveau einer Stufe auf der Prädikats-Skala – DAC & Co. auf Qualitätswein-Niveau, sonst null */
-function niveau(s: string): string | null {
+/** Niveau einer Stufe auf der Prädikats-Skala – DAC & Co. auf Qualitätswein-Niveau, sonst null
+ *  (Sekt, Perlwein, Sonstiges, leer, unbekannt: keine Skala, istAufstufung sperrt dann nichts) */
+export function qualitaetsNiveau(s: string | null | undefined): string | null {
+  if (!s) return null
   if (istPraedikatsStufe(s)) return s
   return istQualitaetsweinBezeichnung(s) ? 'qualitaetswein' : null
 }
@@ -190,7 +192,7 @@ function niveau(s: string): string | null {
  *  Niveau oder darunter. Grundlage der Auswahlliste der Füllung und des Abstufungs-Vermerks. */
 export function istAbstufung(von: string | null | undefined, nach: string | null | undefined): boolean {
   if (!von || !nach || von === nach) return false
-  const basis = niveau(von)
+  const basis = qualitaetsNiveau(von)
   return basis != null && istPraedikatsStufe(nach) && istMindestens(basis, nach)
 }
 
@@ -201,7 +203,7 @@ export function istAbstufung(von: string | null | undefined, nach: string | null
  *  Chargen ohne Niveau (Sekt, Perlwein, Sonstiges, leer) sperren nichts – wie bisher. */
 export function istAufstufung(von: string | null | undefined, nach: string | null | undefined): boolean {
   if (!von || !nach || von === nach || nach === 'sonstiges') return false
-  const basis = niveau(von)
+  const basis = qualitaetsNiveau(von)
   const mindestens = istPraedikatsStufe(nach)
     ? nach
     : (istQualitaetsweinBezeichnung(nach) || nach === 'sekt') ? 'qualitaetswein' : null
@@ -221,11 +223,15 @@ export type LeseStufe = {
 }
 
 /**
- * Lese-Stufe einer Pressungszeile (Weingarten, ggf. GST): die Lese-Einträge desselben
- * Weingartens (mit GST: desselben GST) bis zum Pressungsdatum. Gibt es mehrere, zählt die
- * letzte Lese vor der Pressung (z. B. Eiswein im Dezember nach der Hauptlese im September);
- * mehrere Einträge an diesem Tag bzw. ohne Lesedatum → die niedrigste Stufe. null = keine
- * Lese-Stufe bekannt (dann gilt für diese Trauben die Ableitung aus den °KMW).
+ * Lese-Stufe einer Pressungszeile (Weingarten, ggf. GST) aus den Lese-Einträgen bis zum
+ * Pressungsdatum. Je Quelle zählt die letzte Lese vor der Pressung (z. B. Eiswein im Dezember
+ * nach der Hauptlese im September auf demselben GST); mehrere Einträge an diesem Tag bzw. ohne
+ * Lesedatum → die niedrigste Stufe. Quelle ist
+ *  - bei einer Zeile mit GST: die Lese dieses GST;
+ *  - bei einer Zeile ohne GST: die Lese des Weingartens ohne GST; gibt es keine, jeder GST des
+ *    Weingartens einzeln (je GST die letzte Lese) und davon die niedrigste Stufe – die späte
+ *    Lese eines GST hebt so nie die Trauben eines anderen an (KAN-73, Runde 2).
+ * null = keine Lese-Stufe bekannt (dann gilt für diese Trauben die Ableitung aus den °KMW).
  */
 export function leseStufeFuerPressung(
   lese: readonly LeseStufe[],
@@ -235,14 +241,25 @@ export function leseStufeFuerPressung(
   if (!zeile.weingartenId) return null
   const tag = (d: string | null | undefined) => (d ? String(d).slice(0, 10) : null)
   const bis = tag(pressungsDatum)
-  const passend = lese.filter(e =>
+  const bisPressung = lese.filter(e =>
     e.weingartenId === zeile.weingartenId
-    && (!zeile.grundstueckId || e.grundstueckId === zeile.grundstueckId)
     && (!bis || !tag(e.datum) || (tag(e.datum) as string) <= bis))
-  const datiert = passend.map(e => tag(e.datum)).filter((d): d is string => !!d)
-  const letzte = datiert.length > 0 ? datiert.reduce((a, b) => (b > a ? b : a)) : null
-  const gruppe = letzte ? passend.filter(e => !tag(e.datum) || tag(e.datum) === letzte) : passend
-  return minQualitaet(gruppe.map(e => e.stufe))
+  // letzte Lese einer Quelle; mehrere am selben Tag bzw. ohne Datum → die niedrigste
+  const letzteLese = (quelle: readonly LeseStufe[]): string | null => {
+    const datiert = quelle.map(e => tag(e.datum)).filter((d): d is string => !!d)
+    const letzte = datiert.length > 0 ? datiert.reduce((a, b) => (b > a ? b : a)) : null
+    const gruppe = letzte ? quelle.filter(e => !tag(e.datum) || tag(e.datum) === letzte) : quelle
+    return minQualitaet(gruppe.map(e => e.stufe))
+  }
+  if (zeile.grundstueckId) return letzteLese(bisPressung.filter(e => e.grundstueckId === zeile.grundstueckId))
+  const ohneGst = bisPressung.filter(e => !e.grundstueckId)
+  if (ohneGst.length > 0) return letzteLese(ohneGst)
+  const jeGst = new Map<string, LeseStufe[]>()
+  for (const e of bisPressung) {
+    const gst = e.grundstueckId as string
+    jeGst.set(gst, [...(jeGst.get(gst) ?? []), e])
+  }
+  return minQualitaet([...jeGst.values()].map(letzteLese))
 }
 
 /**

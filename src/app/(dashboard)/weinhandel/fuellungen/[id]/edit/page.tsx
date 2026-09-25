@@ -141,7 +141,8 @@ export default async function EditFuellungPage({
   // eine spätere Änderung an der Charge nicht mehr in der erlaubten Liste wäre
   // (verhindert Datenverlust beim Speichern).
   // KAN-73: fuellungsStufenFuer wie beim Anlegen (Eiswein/Strohwein nur bis Beerenauslese,
-  // DAC & Co. auch als Qualitätswein); updateFuellung lässt den unveränderten Wert zu.
+  // DAC & Co. auch als Qualitätswein, ab Qualitätswein auch DAC & Co. und Sekt);
+  // updateFuellung lässt den unveränderten Wert zu.
   const qualitaetOptionsEdit = (() => {
     const basis = fuellungsStufenFuer(waCeilingQualitaet)
     if (f.qualitaet && !basis.some(q => q.value === f.qualitaet)) {

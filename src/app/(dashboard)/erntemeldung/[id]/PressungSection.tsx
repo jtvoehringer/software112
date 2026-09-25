@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { Pencil, Trash2, X, ChevronDown, Plus } from 'lucide-react'
 import { upsertPressung, deletePressung } from '../actions'
 import { fmtProzent, fmtNum, dezimal } from '@/lib/format'
-import { kmwZuQualitaet, leseStufeFuerPressung, pressungsQualitaet, QUALITAET_LABEL, QUALITAET_ORDER, type LeseStufe } from '@/lib/weinqualitaet'
+import { leseStufeFuerPressung, pressungsQualitaet, QUALITAET_LABEL, type LeseStufe } from '@/lib/weinqualitaet'
 import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fehlerText } from '@/lib/fehler'
@@ -34,6 +34,8 @@ export type ZukaufTraubenOpt = {
 export type PressungBeh = {
   id: string; behaelter_id: string | null; behaelter_name: string | null
   weinausbau_id: string | null; weinausbau_name: string | null
+  /** Qualitätsstufe der verknüpften Charge (Anzeige in der Pressungsliste, KAN-73) */
+  weinausbau_qualitaet: string | null
   menge_liter: number | null; notizen: string | null
 }
 export type Pressung = {
@@ -757,6 +759,23 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
           {pressungen.map(p => {
             const pKg = p.weingaerten.reduce((s, w) => s + w.trauben_kg, 0)
             const pAusbeute = pKg > 0 && p.most_liter_gesamt ? (p.most_liter_gesamt / pKg) * 100 : null
+            // KAN-73: Stufe der entstandenen Charge(n) – nicht die reine KMW-Ableitung (Lese „Wein“
+            // bei 16 °KMW ergibt die Charge „Wein“, nicht „Qualitätswein“). Ohne verknüpfte Charge
+            // dieselbe Rechnung wie die Vorschau im Formular.
+            const pChargenStufen = [...new Set(p.behaelter
+              .filter(b => b.weinausbau_id && b.weinausbau_qualitaet)
+              .map(b => b.weinausbau_qualitaet as string))]
+            const pStufen = pChargenStufen.length > 0 ? pChargenStufen : [pressungsQualitaet(
+              p.weingaerten.map(w => w.zukauf_posten_id
+                ? null
+                : leseStufeFuerPressung(leseStufen, { weingartenId: w.weingarten_id, grundstueckId: w.grundstueck_id ?? null }, p.datum)),
+              p.kmw_grad)]
+            const pStufe = {
+              text: pStufen.map(s => QUALITAET_LABEL[s] ?? s).join(' / '),
+              titel: pChargenStufen.length > 0
+                ? 'Qualitätsstufe der Kellerbuch-Charge'
+                : 'Aus Lese-Stufe und °KMW (die niedrigere gilt) – keine Charge verknüpft',
+            }
             return (
               <div key={p.id}>
                 {editId === p.id ? (
@@ -788,12 +807,10 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                             {fmtProzent(pAusbeute)} %
                           </span>}
                         </>}
-                        {p.kmw_grad != null && (
-                          <span className="font-semibold text-s112-warn-fg bg-s112-warn-bg px-2 py-0.5 rounded-full">
-                            {p.kmw_grad.toString().replace('.', ',')} °KMW
-                            {' · '}{QUALITAET_LABEL[kmwZuQualitaet(p.kmw_grad)]}
-                          </span>
-                        )}
+                        <span title={pStufe.titel} className="font-semibold text-s112-warn-fg bg-s112-warn-bg px-2 py-0.5 rounded-full">
+                          {p.kmw_grad != null && <>{p.kmw_grad.toString().replace('.', ',')} °KMW{' · '}</>}
+                          {pStufe.text}
+                        </span>
                         <span className="flex items-center gap-2">
                           {writeOk && <button onClick={() => setEditId(p.id)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={14} /></button>}
                           {adminOk && <button onClick={() => handleDelete(p)} title="Löschen" aria-label="Löschen" className="text-s112-err hover:text-s112-err-fg"><Trash2 size={14} /></button>}

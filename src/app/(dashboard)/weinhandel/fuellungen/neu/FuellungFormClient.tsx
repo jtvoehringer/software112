@@ -115,8 +115,10 @@ export default function FuellungFormClient({
   // aktuelle Stufe der Charge und alle rechtlich niedrigeren Stufen (+ "Sonstiges"
   // als generischer Fallback ohne Schutzangabe). Ist keine Charge verknüpft,
   // stehen alle Stufen zur Auswahl (kein Bezugswert zum Einschränken vorhanden).
-  // KAN-73: fuellungsStufenFuer – Eiswein/Strohwein nur bis Beerenauslese, DAC/Reserve/
-  // Erste Lage/Großes Gewächs auch als Qualitätswein, Landwein oder Wein
+  // KAN-73: fuellungsStufenFuer = genau was createFuellung zulässt (istAufstufung) –
+  // Eiswein/Strohwein nur bis Beerenauslese, DAC/Reserve/Erste Lage/Großes Gewächs auch als
+  // Qualitätswein, Landwein oder Wein, ab Qualitätswein auch DAC, Reserve, Erste Lage,
+  // Großes Gewächs und Sekt (z. B. Pressungs-Charge „Qualitätswein“ → Füllung „DAC“)
   const qualitaetOptions = useMemo(
     () => fuellungsStufenFuer(selectedCharge?.qualitaetsstufe),
     [selectedCharge],
