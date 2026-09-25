@@ -1032,4 +1032,12 @@ describe('Verdrahtung (Quelltext)', () => {
     assert.match(s, /ersatzPruefnummer\(antrag, \{ datum: pnTag\(f\?\.datum\), chargeId \}/)
     assert.match(quelle('src/lib/behoerden/blend.ts'), /ersatzPruefnummer\(antrag, \{ datum: tag\(f\.datum\) \|\| null, chargeId \}, zugaenge\)/)
   })
+  test('updateFuellung: Charge eines anderen Betriebs (unbekannte ID) wird abgelehnt, nie gespeichert', () => {
+    const s = quelle('src/app/(dashboard)/weinhandel/actions.ts')
+    const teil = s.slice(s.indexOf('export async function updateFuellung'))
+    const laden = teil.slice(teil.indexOf("from('weinausbau')"), teil.indexOf("from('weinausbau')") + 600)
+    assert.match(laden, /\.eq\('tenant_id', tenantId\)\s*\.maybeSingle\(\)/)
+    assert.match(laden, /if \(waErr\) throw new AktionsFehler/)
+    assert.match(laden, /if \(!wa\) throw new AktionsFehler\('Die gewählte Kellerbuch-Charge wurde nicht gefunden\.'\)/)
+  })
 })

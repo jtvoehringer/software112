@@ -15,9 +15,11 @@
 //      entspricht (Sicherung gegen Mehrmengen ohne Zugangsbuchung).
 // Gelten mehrere genehmigte Anträge, zählt der zuletzt eingereichte bis zum Stichtag.
 //
-// Annahmen (offen, siehe KAN-38 – nicht hier entscheiden):
+// Entschieden (Jörgen, 25.09.2026, KAN-83):
 //   * Maßgeblich ist eingereicht_am, nicht bescheid_am: ein Verschnitt nach der Einreichung,
-//     aber vor dem Bescheid zählt schon. Ob das rechtlich bereits ein Verstoß ist, klärt KAN-38.
+//     aber vor dem Bescheid ist bereits ein Verstoß – der verschnittene Wein wurde nicht zur
+//     Prüfnummer eingereicht.
+// Annahmen (offen, siehe KAN-38 – nicht hier entscheiden):
 //   * Buchungen AM Einreichungstag gelten als davor (Probe nach dem letzten Verschnitt des
 //     Tages gezogen).
 //   * Fehlt eingereicht_am: bei einem Entwurf gibt es noch keine Probe – keine Zugangsregel,

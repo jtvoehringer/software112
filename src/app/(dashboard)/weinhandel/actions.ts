@@ -398,11 +398,14 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
   // Downgrade-only-Prüfung wie bei createFuellung: 'Qualitätswein' und 'Herkunft-Code (BKI)'
   // dürfen beim Bearbeiten einer Füllung nur abgestuft, nie aufgestuft werden (hart blockiert).
   if (weinausbauId) {
-    const { data: wa } = await (supabase.from('weinausbau') as any)
+    const { data: wa, error: waErr } = await (supabase.from('weinausbau') as any)
       .select('name, qualitaetsstufe, herkunft_code')
       .eq('id', weinausbauId)
       .eq('tenant_id', tenantId)
-      .single()
+      .maybeSingle()
+    // Wie createFuellung: eine Charge eines anderen Betriebs (bzw. eine unbekannte ID) nie speichern
+    if (waErr) throw new AktionsFehler(dbFehlerText(waErr, 'Charge konnte nicht geladen werden'))
+    if (!wa) throw new AktionsFehler('Die gewählte Kellerbuch-Charge wurde nicht gefunden.')
 
     // KAN-72: nachträglich (bzw. neu) zugeordnete Charge – Prüfnummer und DAC-Antrag der Füllung
     // müssen zu ihr und zum Abfülldatum passen, sonst umginge die Bearbeitung die Prüfung von createFuellung
