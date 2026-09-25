@@ -15,6 +15,7 @@ import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
 import { AktionsFehler } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
+import { weinbauBetriebsnummerPruefen } from '@/lib/betrieb/betriebsnummer'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -299,6 +300,9 @@ export async function removeMemberAdmin(membershipId: string, tenantId: string) 
 
 export async function saveBetriebEinstellungen(tenantId: string, formData: FormData) {
   await assertSystemAdmin(tenantId)
+  // Weinbau-Betriebsnummer ist Pflichtfeld (25.09.2026) – nur Ziffern, Leerzeichen werden entfernt
+  const betriebsnummer = weinbauBetriebsnummerPruefen(formData.get('betrieb_betriebsnummer'))
+  if (!betriebsnummer.ok) throw new AktionsFehler(betriebsnummer.fehler)
   const admin = createSupabaseAdminClient()
 
   const { error } = await (admin.from('tenant_einstellungen') as any)
@@ -312,7 +316,7 @@ export async function saveBetriebEinstellungen(tenantId: string, formData: FormD
       betrieb_email:             (formData.get('betrieb_email')   as string) || null,
       betrieb_website:           (formData.get('betrieb_website') as string) || null,
       betrieb_uid:               (formData.get('betrieb_uid')           as string) || null,
-      betrieb_betriebsnummer:    (formData.get('betrieb_betriebsnummer') as string) || null,
+      betrieb_betriebsnummer:    betriebsnummer.wert,
       rechnung_iban:             (formData.get('rechnung_iban')   as string) || null,
       rechnung_bic:              (formData.get('rechnung_bic')    as string) || null,
       // rechnung_zahlungsziel wird hier bewusst NICHT mehr geschrieben - das

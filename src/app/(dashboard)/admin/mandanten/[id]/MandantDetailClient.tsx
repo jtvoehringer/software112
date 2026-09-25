@@ -28,6 +28,7 @@ import {
   wendePaketVorgabenAn,
 } from './actions'
 import { PAKETE, PAKET_REIHENFOLGE, paketAusPlan, paketPriceId, preisText, type PaketKey } from '@/lib/pakete'
+import { BETRIEBSNUMMER_MUSTER, BETRIEBSNUMMER_ZWECK, weinbauBetriebsnummerFehlt } from '@/lib/betrieb/betriebsnummer'
 import { STRIPE_STATUS_META, STRIPE_PLAN_LABELS } from '@/lib/stripe/client'
 import type { TenantDetail, TenantSettings, TenantMember } from './page'
 import { bundeslandAusKundennummer } from '@/lib/tenant/kundennummer'
@@ -756,14 +757,22 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
   const router                     = useRouter()
   const [pending, startTransition] = useTransition()
   const [saved, setSaved]          = useState(false)
+  const [fehler, setFehler]        = useState<string | null>(null)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
+    setFehler(null)
     startTransition(async () => {
-      await saveBetriebEinstellungen(tenant.id, fd)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      try {
+        await saveBetriebEinstellungen(tenant.id, fd)
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2000)
+        router.refresh()
+      } catch (err) {
+        // z. B. Weinbau-Betriebsnummer fehlt bzw. ungültig (Pflichtfeld seit 25.09.2026)
+        setFehler(err instanceof Error ? err.message : String(err))
+      }
     })
   }
 
@@ -810,9 +819,13 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
               <input aria-label="UID-Nummer" name="betrieb_uid" defaultValue={settings.betrieb_uid ?? ''} className={inputCls()} placeholder="ATU12345678" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-s112-text-2 mb-1">Weinbau-Betriebsnummer</label>
-              <input aria-label="Weinbau-Betriebsnummer" name="betrieb_betriebsnummer" defaultValue={settings.betrieb_betriebsnummer ?? ''} className={inputCls()} placeholder="z.B. 4489781" />
-              <p className="text-[11px] text-s112-tertiary mt-0.5">Für Transportbescheinigung &amp; Prüfnummernantrag</p>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Weinbau-Betriebsnummer *</label>
+              <input aria-label="Weinbau-Betriebsnummer" name="betrieb_betriebsnummer" defaultValue={settings.betrieb_betriebsnummer ?? ''} required
+                inputMode="numeric" pattern={BETRIEBSNUMMER_MUSTER} title="Nur Ziffern, z. B. 4489781"
+                className={inputCls()} placeholder="z.B. 4489781" />
+              {weinbauBetriebsnummerFehlt(settings.betrieb_betriebsnummer)
+                ? <p className="text-[11px] text-s112-err-fg mt-0.5">Fehlt – bitte ergänzen. {BETRIEBSNUMMER_ZWECK}.</p>
+                : <p className="text-[11px] text-s112-tertiary mt-0.5">{BETRIEBSNUMMER_ZWECK}</p>}
             </div>
           </div>
         </div>
@@ -862,6 +875,7 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
         </button>
         {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
       </div>
+      {fehler && <p role="alert" className="text-sm text-s112-err-fg">{fehler}</p>}
     </form>
   )
 }
