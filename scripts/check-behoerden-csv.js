@@ -11,7 +11,7 @@
  *                       über die Route /meldungen/<id>/csv bzw. den CsvExportKnopf.
  *                       Ausnahme je Stelle: Zeilenkommentar „// csv-ignore: <Begründung>“ in
  *                       derselben Zeile oder allein in der Zeile davor (ohne Begründung = Fund).
- *                       Altfälle unter src/app/api/** (dort arbeitet KAN-54) stehen in ALTFAELLE.
+ *                       Übergangsweise geduldete Altfälle stehen in ALTFAELLE (seit KAN-54 leer).
  *  2. MARKER_UNBEKANNT  „// behoerdenmeldung: <id>, <id>“ nennt eine id, die es im Katalog nicht gibt.
  *  3. NICHT_VERDRAHTET  Eine Register-id wird nirgends in src/app bzw. src/components angeboten
  *                       (csvPfad('<id>' …), '/meldungen/<id>/csv' oder meldung="<id>").
@@ -36,13 +36,10 @@ const APP = path.join(SRC, 'app')
 
 // Dateien mit eigenem CSV-Code, die (noch) nicht angefasst werden dürfen – Pfad → Begründung.
 // Wird eine davon auf lib/csv umgestellt, meldet das Skript den Eintrag als überflüssig.
-const ALTFAELLE = {
-  'src/app/api/export/kontakte/route.ts': 'Datenexport Kontakte (keine Behördenmeldung, Komma-getrennt) – /api/** wird mit KAN-54 (2FA/API) in eigener Sitzung überarbeitet, danach auf lib/csv umstellen',
-  'src/app/api/export/firmen/route.ts': 'Datenexport Firmen (keine Behördenmeldung, Komma-getrennt) – /api/** gehört KAN-54, danach auf lib/csv umstellen',
-  'src/app/api/export/lager/route.ts': 'Datenexport Lagerbestand (keine Behördenmeldung) – /api/** gehört KAN-54, danach auf lib/csv umstellen',
-  'src/app/api/export/verkauf/route.ts': 'Datenexport Verkaufshistorie (keine Behördenmeldung) – /api/** gehört KAN-54, danach auf lib/csv umstellen',
-  'src/app/api/export/bmd/route.ts': 'BMD-Übergabe: Text aus lib/buchhaltung/bmd.ts (PROFIL_BMD), hier nur der Content-Type – /api/** gehört KAN-54',
-}
+// Seit KAN-54 (25.09.2026) leer: die Datenexporte unter src/app/api/export/ (kontakte, firmen,
+// lager, verkauf, bmd) laufen über csvDatei()/csvAntwort() aus src/lib/csv
+// (Zeilenaufbereitung in src/lib/export/datenexporte.ts). Neue Einträge nur übergangsweise.
+const ALTFAELLE = {}
 
 // Erlaubte Orte für CSV-Serialisierung und Download
 const ERLAUBT_PRAEFIX = ['src/lib/csv/']
@@ -353,4 +350,5 @@ if (funde.length) {
   console.error('Begründete Ausnahme je Zeile: // csv-ignore: <Grund>\n')
   process.exit(1)
 }
-console.log(`✓ check-behoerden-csv: ${katalog.size} Meldungen in ${katalogGruppen.length} Gruppen, alle mit CSV-Route, Druckseite und Marker; ${ausnahmen} begründete Ausnahme(n), ${altfallGesehen.size} Altfall/Altfälle unter src/app/api (KAN-54).`)
+const altfallText = altfallGesehen.size ? `, ${altfallGesehen.size} Altfall/Altfälle (ALTFAELLE)` : ''
+console.log(`✓ check-behoerden-csv: ${katalog.size} Meldungen in ${katalogGruppen.length} Gruppen, alle mit CSV-Route, Druckseite und Marker; ${ausnahmen} begründete Ausnahme(n)${altfallText}.`)

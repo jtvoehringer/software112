@@ -370,8 +370,8 @@ describe('bki-traubenverkauf', () => {
     traubenverkauf: [
       {
         id: 'v1', tenant_id: T, jahrgang_id: 'jg26', datum: '2026-09-05', liefernummer: 'TV-0001', menge_kg: 1250.5, kmw_grad: 17.4, qualitaetsstufe: 'qualitaetswein', herkunft_code: null,
-        weingarten: { name: 'Kaiserberg', rebsorte: 'Grüner Veltliner', trauben_herkunft_code: 'NÖ-KB', grundstuecke: [] },
-        grundstueck: { rebsorte: 'Riesling', trauben_herkunft_code: 'NÖ-G1' }, zukauf: null,
+        weingarten: { name: 'Kaiserberg', rebsorte: 'Grüner Veltliner', trauben_herkunft_code: 'wlnoe', grundstuecke: [] },
+        grundstueck: { rebsorte: 'Riesling', trauben_herkunft_code: 'thermenregion_ortswein' }, zukauf: null,
         kontakt: null, firma: { betrieb_nr: '7654321', name: 'Weingut Huber, Stiftung', strasse: 'Hauptstraße 3a', plz: '2170', ort: 'Poysdorf' },
         jahrgang: { jahrgang: 2026 },
       },
@@ -405,9 +405,10 @@ describe('bki-traubenverkauf', () => {
       '',
       'Betriebsnr_Empf;Name_Empf;Vorname_Empf;Strasse_Empf;Hausnr_Empf;PLZ_Empf;Ort_Empf;Betriebsnr_Vers;Name_Vers;Vorname_Vers;Strasse_Vers;Hausnr_Vers;PLZ_Vers;Ort_Vers;Datum_Lieferung;Menge_kg;Art;Weiss;Rot;Sorte1;Sorte2;Sorte3;Qualitaetsstufe;Jahrgang;Herkunft;KMW_Grad;Oechsle',
       // Menge_kg: ganze kg wie bisher ohne Komma (Schnittstelle „Menge int“), Bruchteil mit Dezimalkomma
-      `7654321;"Weingut Huber, Stiftung";;Hauptstraße;3a;2170;Poysdorf;${vers};05.09.2026;"1250,5";TB;J;;RR;;;QUW;2026;NÖ-G1;"17,4";`,
-      `;Gruber;Hans;Kellergasse;;3491;Straß im Straßertale;${vers};18.09.2026;980;TB;;J;ZW;;;;2026;Weinviertel;"21,0";`,
-      `;;;;;;;${vers};20.09.2026;300;TB;;;;;;QUW;2026;Südburgenland;;`,
+      // Herkunft nur als BKI-Kürzel (KAN-36): Stufe des Grundstücks → WLTH, Bezeichnung → WLWV, Freitext leer
+      `7654321;"Weingut Huber, Stiftung";;Hauptstraße;3a;2170;Poysdorf;${vers};05.09.2026;"1250,5";TB;J;;RR;;;QUW;2026;WLTH;"17,4";`,
+      `;Gruber;Hans;Kellergasse;;3491;Straß im Straßertale;${vers};18.09.2026;980;TB;;J;ZW;;;;2026;WLWV;"21,0";`,
+      `;;;;;;;${vers};20.09.2026;300;TB;;;;;;QUW;2026;;;`,
     ].join('\r\n'))
     const w = warnungen.join('\n')
     assert.match(w, /Abnehmer „Hans Gruber“ ohne BKI-Betriebsnummer .* \(1 Lieferung: TV-0002\)/)
@@ -417,6 +418,8 @@ describe('bki-traubenverkauf', () => {
     assert.match(w, /Kein Abnehmer erfasst/)
     assert.match(w, /Menge mit Nachkommastellen .* ganze kg .* \(1 Lieferung: TV-0001\)/)
     assert.match(w, /1 Traubenverkauf mit stornierter Rechnung ist nicht enthalten \(TV-0005\)/)
+    assert.match(w, /Herkunft „Südburgenland“ \(Zukauf\) ist kein BKI-Herkunftskürzel – Spalte leer gelassen\. \(1 Lieferung: Lieferung vom 20\.09\.2026\)/)
+    assert.doesNotMatch(w, /Herkunft[^\n]*TV-000[12]/)                         // WLTH und WLWV ohne Hinweis
   })
 
   test('Formelzeichen in Stammdaten: am Feldanfang entfernt und gemeldet (kein Apostroph im Upload)', () => {

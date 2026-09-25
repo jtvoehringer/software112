@@ -413,8 +413,9 @@ describe('PROFIL_BKI – EDV-Liste Weindatenbank', () => {
   const BETRIEB = { betrieb_betriebsnummer: '9988776', betrieb_name: 'Weingut Muster', betrieb_strasse: 'Rebenweg 1', betrieb_plz: '3500', betrieb_ort: 'Krems' }
   const firma = { betrieb_nr: '7654321', name: 'Weingut Huber, Stiftung', strasse: 'Hauptstraße 3a', plz: '2170', ort: 'Poysdorf' }
   const VERKAEUFE = [
-    { datum: '2026-09-05', liefernummer: 'TV-1', menge_kg: 1250, kmw_grad: 17.4, qualitaetsstufe: 'qualitaetswein', herkunft_code: 'NÖ', grundstueck: { rebsorte: 'Weißgipfler' }, firma, jahrgang: { jahrgang: 2026 } },
-    { datum: '2026-09-06', liefernummer: 'TV-2', menge_kg: 980.5, kmw_grad: 18, qualitaetsstufe: 'landwein', grundstueck: null, weingarten: { rebsorte: ' grüner   veltliner ', trauben_herkunft_code: 'KB' }, firma, jahrgang: { jahrgang: 2026 } },
+    // Herkunft (KAN-36): interne Stufen → BKI-Kürzel (wlnoe → WLNO, thermenregion_* → WLTH), Freitext leer
+    { datum: '2026-09-05', liefernummer: 'TV-1', menge_kg: 1250, kmw_grad: 17.4, qualitaetsstufe: 'qualitaetswein', herkunft_code: 'wlnoe', grundstueck: { rebsorte: 'Weißgipfler' }, firma, jahrgang: { jahrgang: 2026 } },
+    { datum: '2026-09-06', liefernummer: 'TV-2', menge_kg: 980.5, kmw_grad: 18, qualitaetsstufe: 'qualitaetswein', grundstueck: null, weingarten: { rebsorte: ' grüner   veltliner ', trauben_herkunft_code: 'thermenregion_gebietswein' }, firma, jahrgang: { jahrgang: 2026 } },
     { datum: '2026-09-07', liefernummer: 'TV-3', menge_kg: 500, kmw_grad: 19.2, qualitaetsstufe: 'kabinett', grundstueck: { rebsorte: 'Blauer Zweigelt' }, firma, jahrgang: { jahrgang: 2026 } },
     { datum: '2026-09-08', liefernummer: 'TV-4', menge_kg: 300, kmw_grad: 20.15, qualitaetsstufe: 'spaetlese', grundstueck: { rebsorte: 'Rosenmuskateller' }, firma, jahrgang: { jahrgang: 2026 } },
     { datum: '2026-09-09', liefernummer: 'TV-5', menge_kg: 120.25, kmw_grad: null, qualitaetsstufe: 'reserve', zukauf: { rebsorte: 'Uhudler', herkunft: 'Südburgenland' }, firma, jahrgang: { jahrgang: 2026 } },
@@ -431,11 +432,11 @@ describe('PROFIL_BKI – EDV-Liste Weindatenbank', () => {
       'EDV-Liste zum automatischen Einlesen in die Weindatenbank',
       '',
       KOPF.join(';'),
-      `${empf};${vers};05.09.2026;1250;TB;J;;GV;;;QUW;2026;NÖ;"17,4";`,          // Synonym Weißgipfler → GV, ganze kg ohne Komma
-      `${empf};${vers};06.09.2026;"980,5";TB;J;;GV;;;LDW;2026;KB;"18,0";`,       // Ried-Sorte, Schreibweise tolerant, Bruchteil mit Komma
+      `${empf};${vers};05.09.2026;1250;TB;J;;GV;;;QUW;2026;WLNO;"17,4";`,        // Synonym Weißgipfler → GV, ganze kg ohne Komma
+      `${empf};${vers};06.09.2026;"980,5";TB;J;;GV;;;QUW;2026;WLTH;"18,0";`,     // Ried-Sorte, Schreibweise tolerant, Bruchteil mit Komma; DAC-Herkunft zu Qualitätswein
       `${empf};${vers};07.09.2026;500;TB;;J;ZW;;;KAB;2026;;"19,2";`,              // Blauer Zweigelt → ZW, rot
       `${empf};${vers};08.09.2026;300;TB;;;RM;;;SPL;2026;;"20,2";`,               // Rosenmuskateller: Kürzel ja, Farbe nicht eindeutig
-      `${empf};${vers};09.09.2026;"120,25";TB;;;;;;QUW;2026;Südburgenland;;`,      // Zukauf „Uhudler“: kein amtliches Kürzel
+      `${empf};${vers};09.09.2026;"120,25";TB;;;;;;QUW;2026;;;`,                   // Zukauf „Uhudler“: kein amtliches Kürzel; Herkunft „Südburgenland“ kein BKI-Kürzel
     ].join('\r\n'))
     gleicheBytes(t, golden('bki_traubenverkauf.csv', () => t), 'BKI-EDV-Liste weicht von der Golden-File ab')
     const w = warnungen.join('\n')
@@ -443,6 +444,7 @@ describe('PROFIL_BKI – EDV-Liste Weindatenbank', () => {
     assert.match(w, /„Uhudler“ steht nicht in der BKI-Kürzelliste/)
     assert.match(w, /Menge mit Nachkommastellen .* \(2 Lieferungen: TV-2, TV-5\)/)
     assert.match(w, /1 Traubenverkauf mit stornierter Rechnung ist nicht enthalten \(TV-6\)/)
+    assert.match(w, /Herkunft „Südburgenland“ \(Zukauf\) ist kein BKI-Herkunftskürzel – Spalte leer gelassen\. \(1 Lieferung: TV-5\)/)
   })
 
   test('Leermeldung: Vorspann + Kopf, ohne abschließendes CRLF', () => {

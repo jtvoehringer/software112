@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
@@ -12,6 +12,8 @@ import {
 } from '@/lib/buchhaltung/bmd'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperre } from '@/lib/auth/sperren'
+import { wienHeute } from '@/lib/csv'
+import { csvAntwort, fehlerAntwort } from '@/lib/csv/antwort'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -43,6 +45,11 @@ type R = Record<string, any>
 // gespeicherte Nummer ergäbe beim nächsten Export eine zweite – doppelte Konten in der
 // Kanzlei). Kunden ohne Nummer laufen dann über das Sammelkonto (debitor_/kreditor_diverse).
 // Die Antwort meldet das in X-BMD-Protokolliert / X-BMD-Nur-Lesen / X-BMD-Sammelkonto.
+//
+// CSV (KAN-54, 25.09.2026): Der Text kommt unverändert aus bmdCsv()/personenkontenCsv()
+// (csvText mit PROFIL_BMD, byte-identisch laut Golden-Files); Download-Kopf (Content-Type CSV,
+// attachment mit filename*, no-store, nosniff, X-Dateiname/X-Zeilen) und Fehler-JSON
+// kommen aus lib/csv/antwort – die X-BMD-*-Header liest BmdClient wie bisher.
 
 const STANDARD_ZAHLUNGSZIEL = 14
 
@@ -51,8 +58,8 @@ export async function GET(req: NextRequest) {
   if (zweiFaktor) return zweiFaktor
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId
-  if (!tenantId) return NextResponse.json({ fehler: 'Nicht autorisiert' }, { status: 401 })
-  if (!(await hatModul('modul_ea'))) return NextResponse.json({ fehler: 'Modul E&A-Rechnung nicht freigeschaltet' }, { status: 403 })
+  if (!tenantId) return fehlerAntwort(401, 'Nicht autorisiert')
+  if (!(await hatModul('modul_ea'))) return fehlerAntwort(403, 'Modul E&A-Rechnung nicht freigeschaltet')
 
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -67,10 +74,10 @@ export async function GET(req: NextRequest) {
   const protokollieren = sp.get('protokollieren') === '1' && canWrite(membership.role, 'ea') && !nurLesen
 
   if (!['ausgangsrechnungen', 'eingangsbelege', 'stammdaten'].includes(art)) {
-    return NextResponse.json({ fehler: 'Unbekannte Übergabeart' }, { status: 400 })
+    return fehlerAntwort(400, 'Unbekannte Übergabeart')
   }
   if (art !== 'stammdaten' && (!/^\d{4}-\d{2}-\d{2}$/.test(von) || !/^\d{4}-\d{2}-\d{2}$/.test(bis))) {
-    return NextResponse.json({ fehler: 'Zeitraum (von/bis) fehlt' }, { status: 400 })
+    return fehlerAntwort(400, 'Zeitraum (von/bis) fehlt')
   }
 
   // Mapping des Mandanten
@@ -82,30 +89,30 @@ export async function GET(req: NextRequest) {
 
   let csv = ''
   let anzahl = 0
+  let csvZeilen = 0
   let summe = 0
   let belegIds: { verkaufsposten: string[]; ea: string[] } = { verkaufsposten: [], ea: [] }
 
   if (art === 'ausgangsrechnungen') {
     const r = await ausgangsrechnungen(supabase, tenantId, mapping, konten, von, bis, nurNeue)
-    csv = bmdCsv(r.zeilen); anzahl = r.anzahl; summe = r.summe; belegIds = r.ids
+    csv = bmdCsv(r.zeilen); anzahl = r.anzahl; csvZeilen = r.zeilen.length; summe = r.summe; belegIds = r.ids
   } else if (art === 'eingangsbelege') {
     const r = await eingangsbelege(supabase, tenantId, mapping, konten, von, bis, nurNeue)
-    csv = bmdCsv(r.zeilen); anzahl = r.anzahl; summe = r.summe; belegIds = r.ids
+    csv = bmdCsv(r.zeilen); anzahl = r.anzahl; csvZeilen = r.zeilen.length; summe = r.summe; belegIds = r.ids
   } else {
     const r = await stammdaten(supabase, tenantId)
-    csv = personenkontenCsv(r.zeilen); anzahl = r.zeilen.length
+    csv = personenkontenCsv(r.zeilen); anzahl = r.zeilen.length; csvZeilen = r.zeilen.length
   }
 
   if (anzahl === 0) {
-    return NextResponse.json({
-      fehler: art === 'stammdaten'
-        ? 'Noch keine Personenkonten vergeben - Nummern entstehen bei der ersten Übergabe von Ausgangsrechnungen bzw. Eingangsbelegen.'
-        : (nurNeue ? 'Keine noch nicht übergebenen Belege im Zeitraum.' : 'Keine Belege im Zeitraum.'),
-    }, { status: 404 })
+    return fehlerAntwort(404, art === 'stammdaten'
+      ? 'Noch keine Personenkonten vergeben - Nummern entstehen bei der ersten Übergabe von Ausgangsrechnungen bzw. Eingangsbelegen.'
+      : (nurNeue ? 'Keine noch nicht übergebenen Belege im Zeitraum.' : 'Keine Belege im Zeitraum.'))
   }
 
+  // Erstelldatum in Wiener Zeit (Vercel läuft in UTC – kurz vor Mitternacht sonst der Vortag)
   const dateiname = art === 'stammdaten'
-    ? `BMD_Personenkonten_${new Date().toISOString().slice(0, 10)}.csv`
+    ? `BMD_Personenkonten_${wienHeute()}.csv`
     : `BMD_${art === 'ausgangsrechnungen' ? 'AR' : 'ER'}_${von}_${bis}.csv`
 
   // Protokoll + Markierung "übergeben"
@@ -136,19 +143,14 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return new NextResponse(csv, {
-    headers: {
-      'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="${dateiname}"`,
-      'X-BMD-Anzahl': String(anzahl),
-      'X-BMD-Summe': String(Math.round(summe * 100) / 100),
-      'X-BMD-Dateiname': dateiname,
-      'X-BMD-Protokolliert': protokollieren ? '1' : '0',
-      'X-BMD-Nur-Lesen': nurLesen ? '1' : '0',
-      'X-BMD-Sammelkonto': String(konten.aufSammelkonto),
-      'Cache-Control': 'no-store',
-    },
-  })
+  const antwort = csvAntwort(csv, dateiname, csvZeilen)
+  antwort.headers.set('X-BMD-Anzahl', String(anzahl))
+  antwort.headers.set('X-BMD-Summe', String(Math.round(summe * 100) / 100))
+  antwort.headers.set('X-BMD-Dateiname', dateiname)
+  antwort.headers.set('X-BMD-Protokolliert', protokollieren ? '1' : '0')
+  antwort.headers.set('X-BMD-Nur-Lesen', nurLesen ? '1' : '0')
+  antwort.headers.set('X-BMD-Sammelkonto', String(konten.aufSammelkonto))
+  return antwort
 }
 
 function bloecke<T>(arr: T[], groesse = 500): T[][] {

@@ -4,7 +4,9 @@
 //
 // Zwei Arten:
 //   <CsvExportKnopf href={csvPfad('erntemeldung', { jahrgang })} />
-//       Server-CSV aus der zentralen Route /meldungen/<id>/csv (Regelfall)
+//       Server-CSV aus der zentralen Route /meldungen/<id>/csv (Regelfall); ebenso die
+//       Datenexporte <CsvExportKnopf href="/api/export/kontakte" /> (KAN-54, keine Behördenmeldung –
+//       eine leere Datei heißt dort nicht „Leermeldung“)
 //   <CsvExportKnopf erzeugen={() => ({ text: csvText(zeilen, SPALTEN), dateiname: csvDateiname([...]).utf8 })} />
 //       reine Client-Liste (Text mit csvText() aus lib/csv erzeugen)
 //
@@ -98,7 +100,7 @@ export default function CsvExportKnopf(props: CsvExportKnopfProps) {
     const warnungen = dekodieren(res.headers.get('X-Warnungen')).split('\n').map(w => w.trim()).filter(Boolean)
     const anzahl = Math.max(Number(res.headers.get('X-Warnungen-Anzahl')) || 0, warnungen.length)
     herunterladen(blob, dateiname)
-    return ergebnisMeldung(dateiname, zeilen, warnungen, anzahl, true)
+    return ergebnisMeldung(dateiname, zeilen, warnungen, anzahl, href.startsWith('/meldungen/'))
   }
 
   async function imBrowser(erzeugen: () => CsvErzeugt | Promise<CsvErzeugt>): Promise<Meldung> {
