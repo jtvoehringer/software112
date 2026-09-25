@@ -28,6 +28,8 @@ jobs:
         run: node scripts/check-seiten-betrieb.js
       - name: Schreibsperre-Guard ausführen (KAN-5, Nur-Lesen-Modus)
         run: node scripts/check-schreibsperre.js
+      - name: Replica-Guard ausführen (KAN-124, kein session_replication_role/DISABLE TRIGGER)
+        run: node scripts/check-replica.js
 
   abhaengigkeiten:
     # Sicherheits-Welle 1 (23.9.2026): bekannte Schwachstellen ab Stufe „hoch“ in
