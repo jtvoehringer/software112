@@ -255,7 +255,9 @@ describe('Parallelität (src/lib/utils/parallel.ts)', () => {
     // Start 4 frühestens nach einem Fenster, Start 7 nach zwei Fenstern
     assert.ok(starts[3] >= 95, `4. Start nach ${starts[3]} ms`)
     assert.ok(starts[6] >= 195, `7. Start nach ${starts[6]} ms`)
-    for (let i = 3; i < starts.length; i++) assert.ok(starts[i] - starts[i - 3] >= 95, `Fenster bei Start ${i + 1}`)
+    // Abstand je drei Starts: gemessen wird erst NACH dem await – ein früherer Start kann um die
+    // Timerauflösung (Windows ≈ 16 ms) später erfasst sein als der Takt ihn zählt; darum Toleranz
+    for (let i = 3; i < starts.length; i++) assert.ok(starts[i] - starts[i - 3] >= 80, `Fenster bei Start ${i + 1}: ${starts[i] - starts[i - 3]} ms`)
   })
 
   test('startTakt(): abgebrochenes Signal beendet das Warten', async () => {
