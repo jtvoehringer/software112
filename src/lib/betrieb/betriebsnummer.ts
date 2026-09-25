@@ -8,8 +8,10 @@
 
 export const BETRIEBSNUMMER_MAX_STELLEN = 10
 
-/** Muster für das pattern-Attribut der Eingabefelder (Leerzeichen erlaubt, werden beim Speichern entfernt) */
-export const BETRIEBSNUMMER_MUSTER = '[0-9 ]{1,20}'
+/** Muster für das pattern-Attribut der Eingabefelder: 1 bis 10 Ziffern, Leerzeichen dazwischen erlaubt
+ *  (werden beim Speichern entfernt) – deckungsgleich mit weinbauBetriebsnummerPruefen(), damit der
+ *  Browser schon vor dem Absenden meldet, was der Server ablehnen würde. Browser werten es mit v-Flag aus. */
+export const BETRIEBSNUMMER_MUSTER = ` *(?:[0-9] *){1,${BETRIEBSNUMMER_MAX_STELLEN}}`
 
 export const BETRIEBSNUMMER_ZWECK = 'Pflichtfeld – für Transportbescheinigung, Prüfnummernantrag und die Dateinamen der BKI-Berichte'
 

@@ -29,6 +29,7 @@ import {
 } from './actions'
 import { PAKETE, PAKET_REIHENFOLGE, paketAusPlan, paketPriceId, preisText, type PaketKey } from '@/lib/pakete'
 import { BETRIEBSNUMMER_MUSTER, BETRIEBSNUMMER_ZWECK, weinbauBetriebsnummerFehlt } from '@/lib/betrieb/betriebsnummer'
+import { fehlerText } from '@/lib/fehler'
 import { STRIPE_STATUS_META, STRIPE_PLAN_LABELS } from '@/lib/stripe/client'
 import type { TenantDetail, TenantSettings, TenantMember } from './page'
 import { bundeslandAusKundennummer } from '@/lib/tenant/kundennummer'
@@ -479,7 +480,7 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
         setSaved(true)
         router.refresh()
       } catch (err) {
-        setFehler(err instanceof Error ? err.message : String(err))
+        setFehler(fehlerText(err))
       }
     })
   }
@@ -770,8 +771,9 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
         setTimeout(() => setSaved(false), 2000)
         router.refresh()
       } catch (err) {
-        // z. B. Weinbau-Betriebsnummer fehlt bzw. ungültig (Pflichtfeld seit 25.09.2026)
-        setFehler(err instanceof Error ? err.message : String(err))
+        // z. B. Weinbau-Betriebsnummer fehlt bzw. ungültig (Pflichtfeld seit 25.09.2026);
+        // fehlerText liest die AktionsFehler-Meldung aus dem digest (err.message ist in Produktion maskiert)
+        setFehler(fehlerText(err))
       }
     })
   }
@@ -821,7 +823,7 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Weinbau-Betriebsnummer *</label>
               <input aria-label="Weinbau-Betriebsnummer" name="betrieb_betriebsnummer" defaultValue={settings.betrieb_betriebsnummer ?? ''} required
-                inputMode="numeric" pattern={BETRIEBSNUMMER_MUSTER} title="Nur Ziffern, z. B. 4489781"
+                inputMode="numeric" pattern={BETRIEBSNUMMER_MUSTER} title="Nur Ziffern (höchstens 10), z. B. 4489781"
                 className={inputCls()} placeholder="z.B. 4489781" />
               {weinbauBetriebsnummerFehlt(settings.betrieb_betriebsnummer)
                 ? <p className="text-[11px] text-s112-err-fg mt-0.5">Fehlt – bitte ergänzen. {BETRIEBSNUMMER_ZWECK}.</p>

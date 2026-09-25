@@ -43,11 +43,13 @@ describe('weinbauBetriebsnummerPruefen()', () => {
     assert.match(r.fehler, /höchstens 10 Stellen/)
   })
 
-  test('pattern-Attribut passt zur Prüfung (Ziffern und Leerzeichen)', () => {
-    const re = new RegExp(`^(?:${bnr.BETRIEBSNUMMER_MUSTER})$`)
-    assert.ok(re.test('4489781'))
-    assert.ok(re.test('448 9781'))
-    assert.ok(!re.test('AT4489781'))
+  test('pattern-Attribut ist deckungsgleich mit der Prüfung (Browser: v-Flag)', () => {
+    // Nach dem Muster würde der Browser das Absenden zulassen – dann muss auch der Server annehmen
+    // (sonst landet z. B. eine 11-stellige Nummer erst als Serverfehler beim Benutzer).
+    const re = new RegExp(`^(?:${bnr.BETRIEBSNUMMER_MUSTER})$`, 'v')
+    const faelle = ['4489781', '448 9781', ' 448 9781 ', '1234567890', '1 2 3 4 5 6 7 8 9 0', '12345678901',
+      '1234567890 1', 'AT4489781', '448-9781', '4489781.0', '', '   ', '0', '１２３']
+    for (const f of faelle) assert.equal(re.test(f), bnr.weinbauBetriebsnummerPruefen(f).ok, JSON.stringify(f))
   })
 
   test('weinbauBetriebsnummerFehlt()', () => {
@@ -73,5 +75,11 @@ describe('Verdrahtung', () => {
       assert.match(s, /Weinbau-Betriebsnummer \*/, p)
       assert.match(s, /name="betrieb_betriebsnummer"[^>]*required/, p)
     }
+  })
+
+  test('Mandantenverwaltung zeigt Aktionsfehler lesbar an (fehlerText statt maskierter err.message)', () => {
+    const s = quelle('src/app/(dashboard)/admin/mandanten/[id]/MandantDetailClient.tsx')
+    assert.match(s, /import \{ fehlerText \} from '@\/lib\/fehler'/)
+    assert.doesNotMatch(s, /err instanceof Error \? err\.message/)
   })
 })
