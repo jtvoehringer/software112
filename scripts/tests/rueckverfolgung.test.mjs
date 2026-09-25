@@ -12,11 +12,13 @@
 // 2. Randfälle: mehrere Lesen desselben GST im selben Jahr, Lese ohne GST, Maßnahme am
 //    Lesetag bzw. am Tag nach der vorigen Lese, Jahrgangswechsel, Eiswein des Vorjahrgangs,
 //    mehrtägige Maßnahmen, Maßnahmen nur am Weingarten, fremdes GST, Lese ohne Lesedatum
-//    (Erntemeldung bzw. Pressungsdatum), Sammelwarnungen.
+//    (Erntemeldung bzw. Pressungsdatum), Mehrfachlese mit vertippter bzw. fehlender Hauptlese
+//    in der Erntemeldung (Prüfrunde 2), Sammelwarnungen.
 // 3. Gemeinsame Ladefunktion gegen eine Attrappe des Supabase-Clients: Seite
 //    (ladeFuellungKette mit details) und CSV (Register „rueckverfolgung“) zeigen dieselben
-//    Maßnahmen; Mandantentrennung (fremde Lese, fremde Maßnahme und fremder Lese-Eintrag am
-//    selben GST bzw. Weingarten); Sonderfälle als X-Warnungen.
+//    Maßnahmen; Mandantentrennung (fremde Lese, fremde Maßnahme, fremder Lese-Eintrag und
+//    fremde Pressung am selben GST bzw. Weingarten); Mengenprüfung der Erntemeldung;
+//    Sonderfälle als X-Warnungen.
 // 4. Quelltextprüfung: Die Seite nutzt die gemeinsame Ladefunktion und lädt keine
 //    Maßnahmen selbst.
 // kellerbuch-hooks.mjs löst '@/…', Pfade ohne Endung und 'server-only' auf.
@@ -133,14 +135,16 @@ const SOLL = {
   '84e7c234-2307-4fda-8482-9501cd9783dc': [0, 48], 'a66846ca-1e20-4a21-adcb-437104b37eb4': [24, 48],
 }
 
-// Erntemeldung (ernte_parzellen, SELECT vom 25.09.2026): [Jahrgang, Weingarten, Lesedatum] – alle
-// ohne GST; 2024 ohne Einträge. Das Lesedatum stimmt bei jeder Lesezeile mit Eintrag mit
-// pw.ernte_datum überein (auch Rotwein mit späterer Pressung, z. B. Frechau 30.09. / 06.10.).
+// Erntemeldung (ernte_parzellen, SELECT vom 25.09.2026): [Jahrgang, Weingarten, Lesedatum, kg] –
+// alle ohne GST, je Weingarten und Jahrgang ein Eintrag; 2024 ohne Einträge. Das Lesedatum stimmt
+// bei jeder Lesezeile mit Eintrag mit pw.ernte_datum überein (auch Rotwein mit späterer Pressung,
+// z. B. Frechau 30.09. / 06.10.); die Menge deckt das Verpresste (Sandgrube: 17.500 kg erfasst,
+// 9.000 kg verpresst; Gebling GV ohne Pressung; kein Traubenverkauf).
 const ERNTEMELDUNG = [
-  [2025, '0a', '2025-09-08'], [2025, '0b', '2025-09-10'], [2025, '07', '2025-09-12'], [2025, '06', '2025-09-14'],
-  [2025, '04', '2025-09-16'], [2025, '05', '2025-09-18'], [2025, '03', '2025-09-22'], [2025, '0c', '2025-09-23'],
-  [2025, '09', '2025-09-24'], [2025, '01', '2025-09-28'], [2025, '08', '2025-09-30'], [2025, '02', '2025-10-02'],
-  [2026, '0a', '2026-09-02'], [2026, '0b', '2026-09-06'], [2026, '06', '2026-09-12'],
+  [2025, '0a', '2025-09-08', 2750], [2025, '0b', '2025-09-10', 5200], [2025, '07', '2025-09-12', 2570], [2025, '06', '2025-09-14', 4200],
+  [2025, '04', '2025-09-16', 17500], [2025, '05', '2025-09-18', 10200], [2025, '03', '2025-09-22', 11500], [2025, '0c', '2025-09-23', 4900],
+  [2025, '09', '2025-09-24', 2100], [2025, '01', '2025-09-28', 7200], [2025, '08', '2025-09-30', 10200], [2025, '02', '2025-10-02', 4250],
+  [2026, '0a', '2026-09-02', 2100], [2026, '0b', '2026-09-06', 1300], [2026, '06', '2026-09-12', 4000],
 ]
 const JG = jahr => `jg-${jahr}`
 
@@ -149,7 +153,9 @@ const lesenHelfer = LESEZEILEN.map(([pw, , pDatum, jahrgang, wg, gst, lese]) => 
   id: pw, grundstueckId: G(gst), weingartenId: W(wg), lesedatum: lese, pressungDatum: pDatum, jahrgang, jahrgangId: JG(jahrgang),
 }))
 const historieHelfer = lesenHelfer.map(l => ({ id: l.id, grundstueckId: l.grundstueckId, lesedatum: l.lesedatum, jahrgang: l.jahrgang }))
-const ernteHelfer = ERNTEMELDUNG.map(([jahr, wg, datum]) => ({ jahrgangId: JG(jahr), weingartenId: W(wg), grundstueckId: null, lesedatum: datum }))
+const ernteHelfer = ERNTEMELDUNG.map(([jahr, wg, datum, kg]) => ({ jahrgangId: JG(jahr), weingartenId: W(wg), grundstueckId: null, lesedatum: datum, mengeKg: kg }))
+// verpresste Trauben (Mengenprüfung des Ersatz-Lesedatums) = die Lesezeilen selbst
+const verpresstHelfer = LESEZEILEN.map(([pw, , pDatum, jahrgang, wg, gst, , , kg]) => ({ id: pw, jahrgangId: JG(jahrgang), weingartenId: W(wg), grundstueckId: G(gst), pressungDatum: pDatum, traubenKg: kg }))
 const massnahmenHelfer = MASSNAHMEN.map(([s, datum, bis, , wg, , gst]) => ({ id: B(s), datum, datumBis: bis, weingartenId: W(wg), grundstueckIds: gst.map(G) }))
 const gstJeWg = new Map()
 const wgJeGst = new Map()
@@ -221,7 +227,7 @@ describe('Musterhof – keine Maßnahme nach dem Lesedatum (Akzeptanz)', () => {
   test('Echtbetrieb ohne pw.ernte_datum: Lesedatum laut Erntemeldung → dieselben Fenster und Maßnahmen; 2024 ohne Eintrag bis zur Pressung', () => {
     const ohneDatum = lesenHelfer.map(l => ({ ...l, lesedatum: null }))
     const historie = ohneDatum.map(l => ({ id: l.id, grundstueckId: l.grundstueckId, lesedatum: null, jahrgang: l.jahrgang }))
-    const echt = fenster.ordneMassnahmenZu(ohneDatum, historie, massnahmenHelfer, gstJeWg, wgJeGst, ernteHelfer)
+    const echt = fenster.ordneMassnahmenZu(ohneDatum, historie, massnahmenHelfer, gstJeWg, wgJeGst, ernteHelfer, verpresstHelfer)
     let ausErnte = 0
     for (const z of echt) {
       const l = lesenHelfer.find(x => x.id === z.leseId)
@@ -240,6 +246,7 @@ describe('Musterhof – keine Maßnahme nach dem Lesedatum (Akzeptanz)', () => {
       assert.deepEqual(z.massnahmen.map(t => t.massnahme.id), soll.massnahmen.map(t => t.massnahme.id), z.leseId)
       for (const t of z.massnahmen) assert.ok(t.massnahme.datum <= l.lesedatum, `${t.massnahme.id} nach der Lese ${z.leseId}`)
       assert.match(z.hinweise[0], new RegExp(`^Lesedatum an der Pressung nicht erfasst – Zeitfenster bis zum Lesedatum laut Erntemeldung ${fenster.ttmmjjjj(l.lesedatum).replace(/\./g, '\\.')}`))
+      assert.equal(z.ersatz.grund, 'eindeutig', z.leseId)                // ein Lesetag, Menge deckt das Verpresste
     }
     assert.equal(ausErnte, 15)
     // Frechau Zweigelt (Lese 30.09., Pressung 06.10.): Fenster endet an der Lese, nicht an der Pressung
@@ -364,21 +371,27 @@ describe('Zeitfenster – Randfälle', () => {
     const [z] = fenster.ordneMassnahmenZu([zw], [], ms, GST_W1, WG_GST, ernte)
     assert.deepEqual(z.fenster, { von: '2026-01-01', bis: '2026-09-25', beginn: 'jahresbeginn', vorigeLese: null, bisAus: 'erntemeldung' })
     assert.deepEqual(ids(z), ['juli', 'lesetag'])
-    assert.deepEqual(z.hinweise, ['Lesedatum an der Pressung nicht erfasst – Zeitfenster bis zum Lesedatum laut Erntemeldung 25.09.2026 (spätester Lese-Eintrag bis zur Pressung am 10.10.2026).'])
+    assert.deepEqual(z.hinweise, ['Lesedatum an der Pressung nicht erfasst – Zeitfenster bis zum Lesedatum laut Erntemeldung 25.09.2026 (einziger passender Lesetag im Jahrgang, Pressung am 10.10.2026).'])
     // ohne Erntemeldung: bis zur Pressung, Kupfer dabei – aber mit Hinweis, nie still
     const [y] = fenster.ordneMassnahmenZu([zw], [], ms, GST_W1, WG_GST, [])
     assert.deepEqual(ids(y), ['juli', 'lesetag', 'kupfer'])
     assert.equal(y.fenster.bisAus, 'pressungsdatum')
   })
 
-  test('Lesedatum laut Erntemeldung: spätester passender Eintrag bis zur Pressung, im Zweifel keiner', () => {
+  test('Lesedatum laut Erntemeldung: nur ein eindeutiger Lesetag bis zur Pressung, im Zweifel keiner', () => {
     const e = (lesedatum, extra = {}) => ({ jahrgangId: 'jg25', weingartenId: 'w1', grundstueckId: 'gA', lesedatum, ...extra })
     const mitGst = lese('l', { lesedatum: null, pressungDatum: '2025-10-12', jahrgangId: 'jg25' })
     const ld = (l, eintraege) => fenster.lesedatumLautErntemeldung(l, eintraege)
-    // Vorlese und Spätlese am selben GST: die spätere bis zur Pressung; Einträge nach der Pressung zählen nicht
-    assert.equal(ld(mitGst, [e('2025-09-20'), e('2025-10-10'), e('2025-10-20')]), '2025-10-10')
-    // Eintrag ohne GST am Weingarten der Lesezeile zählt, anderes GST und anderer Jahrgang nicht
-    assert.equal(ld(mitGst, [e('2025-09-20'), e('2025-10-01', { grundstueckId: null })]), '2025-10-01')
+    // Vorlese und Spätlese am selben GST: offen, welche verpresst wurde → keiner (Pressungsdatum),
+    // auch wenn ein Eintrag nach der Pressung liegt
+    assert.equal(ld(mitGst, [e('2025-09-20'), e('2025-10-10'), e('2025-10-20')]), null)
+    assert.equal(ld(mitGst, [e('2025-09-20'), e('2025-10-10')]), null)
+    // zwei Einträge am selben Tag (z. B. Kabinett + Spätlese an einem Lesetag): ein Lesetag
+    assert.equal(ld(mitGst, [e('2025-10-10'), e('2025-10-10')]), '2025-10-10')
+    // Eintrag ohne GST am Weingarten der Lesezeile zählt mit (anderer Tag → nicht eindeutig),
+    // anderes GST und anderer Jahrgang nicht
+    assert.equal(ld(mitGst, [e('2025-09-20'), e('2025-10-01', { grundstueckId: null })]), null)
+    assert.equal(ld(mitGst, [e('2025-10-01', { grundstueckId: null })]), '2025-10-01')
     assert.equal(ld(mitGst, [e('2025-09-20'), e('2025-10-01', { grundstueckId: 'gB' }), e('2025-10-02', { jahrgangId: 'jg24' })]), '2025-09-20')
     assert.equal(ld(mitGst, [e('2025-10-01', { grundstueckId: null, weingartenId: 'w2' })]), null)
     // passender Eintrag ohne Datum: offen, welche Lese verpresst wurde → Pressungsdatum
@@ -389,7 +402,8 @@ describe('Zeitfenster – Randfälle', () => {
     assert.equal(ld({ ...mitGst, jahrgangId: null }, [e('2025-09-20')]), null)
     assert.equal(ld({ ...mitGst, pressungDatum: null }, [e('2025-09-20')]), null)
     // Lesezeile ohne GST: alle Einträge des Weingartens; ohne Weingarten und GST: keiner
-    assert.equal(ld({ ...mitGst, grundstueckId: null }, [e('2025-09-20'), e('2025-10-01', { grundstueckId: 'gB' })]), '2025-10-01')
+    assert.equal(ld({ ...mitGst, grundstueckId: null }, [e('2025-10-01'), e('2025-10-01', { grundstueckId: 'gB' })]), '2025-10-01')
+    assert.equal(ld({ ...mitGst, grundstueckId: null }, [e('2025-09-20'), e('2025-10-01', { grundstueckId: 'gB' })]), null)
     assert.equal(ld({ ...mitGst, grundstueckId: null, weingartenId: null }, [e('2025-09-20', { weingartenId: null, grundstueckId: null })]), null)
     // eigenes Lesedatum geht immer vor; der Ersatz verkürzt nie über eine vorige Lese
     const vorige = lese('v', { lesedatum: '2025-09-01', jahrgangId: 'jg25' })
@@ -398,6 +412,82 @@ describe('Zeitfenster – Randfälle', () => {
     assert.equal(z.fenster.von, '2025-01-01')
     assert.deepEqual(ids(z), ['aug'])
     assert.equal(fenster.leseFenster(vorige, [], [e('2025-10-10')]).bis, '2025-09-01')
+  })
+
+  // Prüfrunde 2: GST A, Vorlese 20.09. (500 kg, gepresst 21.09.), Hauptlese tatsächlich 05.10.
+  // (2.000 kg, gepresst 06.10.), Spritzung 28.09. – die Hauptlese ist in der Erntemeldung
+  // vertippt (15.10.) oder noch nicht erfasst. Vorher endete das Fenster an der Vorlese.
+  describe('Mehrfachlese: Vorlese + vertippte bzw. fehlende Hauptlese in der Erntemeldung', () => {
+    const e = (lesedatum, mengeKg, extra = {}) => ({ jahrgangId: 'jg26', weingartenId: 'w1', grundstueckId: 'gA', lesedatum, mengeKg, ...extra })
+    const vorlese = lese('vor', { lesedatum: null, pressungDatum: '2026-09-21', jahrgang: 2026, jahrgangId: 'jg26' })
+    const haupt = lese('haupt', { lesedatum: null, pressungDatum: '2026-10-06', jahrgang: 2026, jahrgangId: 'jg26' })
+    const v = (l, traubenKg, extra = {}) => ({ id: l.id, jahrgangId: 'jg26', weingartenId: 'w1', grundstueckId: 'gA', pressungDatum: l.pressungDatum, traubenKg, ...extra })
+    const verpresst = [v(vorlese, 500), v(haupt, 2000)]
+    const ms = [m('juli', '2026-07-01'), m('sprit2809', '2026-09-28'), m('nachPressung', '2026-10-07')]
+    const zu = (lesen, ernte, vp = verpresst) => fenster.ordneMassnahmenZu(lesen, [], ms, GST_W1, WG_GST, ernte, vp)
+
+    test('Hauptlese vertippt (15.10. nach der Pressung): mehrere Lesetage → bis zur Pressung, Spritzung 28.09. dabei', () => {
+      const [z] = zu([haupt], [e('2026-09-20', 500), e('2026-10-15', 2000)])
+      assert.deepEqual(z.fenster, { von: '2026-01-01', bis: '2026-10-06', beginn: 'jahresbeginn', vorigeLese: null, bisAus: 'pressungsdatum' })
+      assert.deepEqual(ids(z), ['juli', 'sprit2809'])
+      assert.equal(z.ersatz.grund, 'mehrere_lesetage')
+      assert.deepEqual(z.hinweise, ['Lesedatum an der Pressung nicht erfasst und laut Erntemeldung nicht eindeutig (mehrere Lesetage: 20.09.2026, 15.10.2026) – Zeitfenster bis zum Pressungsdatum 06.10.2026; Maßnahmen zwischen Lese und Pressung können mit aufgeführt sein.'])
+    })
+
+    test('Hauptlese noch nicht erfasst: Vorlese-Eintrag deckt die verpressten 2.500 kg nicht → bis zur Pressung', () => {
+      const [z] = zu([haupt], [e('2026-09-20', 500)])
+      assert.equal(z.fenster.bis, '2026-10-06')
+      assert.equal(z.fenster.bisAus, 'pressungsdatum')
+      assert.deepEqual(ids(z), ['juli', 'sprit2809'])
+      assert.deepEqual({ ...z.ersatz }, { datum: null, grund: 'menge_nicht_gedeckt', lesetage: ['2026-09-20'], erfasstKg: 500, verpresstKg: 2500 })
+      assert.deepEqual(z.hinweise, ['Lesedatum an der Pressung nicht erfasst und laut Erntemeldung nicht eindeutig (Lesetag 20.09.2026 mit 500 kg deckt die bis zur Pressung verpressten 2500 kg nicht – weitere Lese nicht erfasst?) – Zeitfenster bis zum Pressungsdatum 06.10.2026; Maßnahmen zwischen Lese und Pressung können mit aufgeführt sein.'])
+      // die Pressung der Vorlese selbst bleibt beim Lesetag (bis 21.09. nur 500 kg verpresst)
+      const [a] = zu([vorlese], [e('2026-09-20', 500)])
+      assert.equal(a.fenster.bis, '2026-09-20')
+      assert.equal(a.fenster.bisAus, 'erntemeldung')
+      assert.deepEqual(ids(a), ['juli'])
+      // Vorlese nicht verpresst (z. B. verkauft): die Hauptlese allein übersteigt die Erntemeldung
+      const [b] = zu([haupt], [e('2026-09-20', 500)], [v(haupt, 2000)])
+      assert.equal(b.ersatz.grund, 'menge_nicht_gedeckt')
+      assert.deepEqual(ids(b), ['juli', 'sprit2809'])
+    })
+
+    test('ein zusätzlicher richtiger Eintrag verschlechtert das Ergebnis nicht mehr', () => {
+      const ohneEintrag = zu([haupt], [])[0]
+      for (const ernte of [[e('2026-09-20', 500)], [e('2026-09-20', 500), e('2026-10-15', 2000)], [e('2026-09-20', 500), e('2026-10-05', 2000)]]) {
+        const [z] = zu([haupt], ernte)
+        assert.deepEqual(ids(z), ids(ohneEintrag))
+        assert.equal(z.fenster.bis, '2026-10-06')
+      }
+    })
+
+    test('Lesetag nach der Pressung, Eintrag ohne Menge, fremder Jahrgang und anderes GST', () => {
+      // einziger Lesetag nach der Pressung: Datenfehler → Pressungsdatum mit Grund
+      const [a] = zu([haupt], [e('2026-10-15', 2000)])
+      assert.equal(a.ersatz.grund, 'nach_pressung')
+      assert.match(a.hinweise[0], /nicht eindeutig \(Lesetag 15\.10\.2026 liegt nach der Pressung\)/)
+      // Eintrag ohne Menge deckt nichts
+      const [b] = zu([haupt], [e('2026-10-05', null)], [v(haupt, 2000)])
+      assert.equal(b.ersatz.grund, 'menge_nicht_gedeckt')
+      assert.match(b.hinweise[0], /Lesetag 05\.10\.2026 ohne Menge deckt die bis zur Pressung verpressten 2000 kg nicht/)
+      // Menge gedeckt, nur ein Lesetag: Lesetag gilt; Pressungen anderer GST, Jahrgänge und nach
+      // dieser Pressung zählen nicht mit
+      const [c] = zu([haupt], [e('2026-10-05', 2000)], [
+        v(haupt, 2000), v({ id: 'andererGst', pressungDatum: '2026-10-01' }, 9000, { grundstueckId: 'gB' }),
+        v({ id: 'vorjahr', pressungDatum: '2025-10-01' }, 9000, { jahrgangId: 'jg25' }), v({ id: 'spaeter', pressungDatum: '2026-10-20' }, 9000),
+      ])
+      assert.equal(c.fenster.bis, '2026-10-05')
+      assert.equal(c.ersatz.grund, 'eindeutig')
+      assert.deepEqual(ids(c), ['juli', 'sprit2809'])
+    })
+
+    test('X-Warnung nennt die nicht eindeutige Erntemeldung statt „weder … noch“', () => {
+      const lesen = [...zu([haupt], [e('2026-09-20', 500)]), ...zu([haupt], [])]
+      assert.deepEqual(fenster.leseWarnungen(lesen), [
+        '1 Lese hat weder an der Pressung noch in der Erntemeldung ein Lesedatum – Zeitfenster bis zum Pressungsdatum, Maßnahmen zwischen Lese und Pressung können mit aufgeführt sein.',
+        '1 Lese hat kein Lesedatum an der Pressung, und die Erntemeldung ist dafür nicht eindeutig (mehrere Lesetage, Lesetag nach der Pressung oder Menge nicht gedeckt) – Zeitfenster bis zum Pressungsdatum, Maßnahmen zwischen Lese und Pressung können mit aufgeführt sein.',
+      ])
+    })
   })
 
   test('Sammelwarnungen je Sonderfall (X-Warnungen der CSV)', () => {
@@ -544,9 +634,14 @@ function tabellen({ echtbetrieb = false } = {}) {
     { id: 'b-ohne-ort', tenant_id: T, datum: '2025-08-31', datum_bis: null, art: 'sonstiges', weingarten_id: null, psm: null, behandlung_grundstuecke: [] },
     { id: 'b-fremd', tenant_id: X, datum: '2025-08-15', datum_bis: null, art: 'spritzung', weingarten_id: W('0b'), psm: { name: 'Fremdmittel' }, behandlung_grundstuecke: [{ grundstueck_id: G('10'), flaeche_ha: '1' }] },
   )
-  const historie = lesen.map(z => ({ id: z[0], grundstueck_id: z[5] ? G(z[5]) : null, ernte_datum: echtbetrieb ? null : z[6], pressung: { tenant_id: T, jahrgang: { jahrgang: z[3] } } }))
-  // fremder Betrieb, selbes GST, früher im Jahr – dürfte das Fenster von Gebling Zweigelt nicht verkürzen
-  historie.push({ id: PW_FREMD, grundstueck_id: G('10'), ernte_datum: '2025-08-01', pressung: { tenant_id: X, jahrgang: { jahrgang: 2025 } } })
+  // Lese-Historie und verpresste Trauben (Mengenprüfung) – beides aus pressung_weingaerten
+  const historie = lesen.map(z => ({
+    id: z[0], weingarten_id: W(z[4]), grundstueck_id: z[5] ? G(z[5]) : null, trauben_kg: String(z[8]), ernte_datum: echtbetrieb ? null : z[6],
+    pressung: { tenant_id: T, datum: z[2], jahrgang_id: JG(z[3]), jahrgang: { jahrgang: z[3] } },
+  }))
+  // fremder Betrieb, selbes GST, früher im Jahr, große Menge – dürfte weder das Fenster von Gebling
+  // Zweigelt verkürzen noch dessen Erntemeldung „nicht gedeckt“ machen
+  historie.push({ id: PW_FREMD, weingarten_id: W('0b'), grundstueck_id: G('10'), trauben_kg: '99999', ernte_datum: '2025-08-01', pressung: { tenant_id: X, datum: '2025-08-01', jahrgang_id: JG(2025), jahrgang: { jahrgang: 2025 } } })
   return {
     weinausbau: [
       { id: C('0b'), tenant_id: T, name: 'Zweigelt Gebling 2025 I', jahrgang: 2025, rebsorte: 'Zweigelt' },
@@ -557,9 +652,9 @@ function tabellen({ echtbetrieb = false } = {}) {
     pressung_behaelter: pressungBehaelter,
     pressung_weingaerten: historie,
     ernte_parzellen: [
-      ...ERNTEMELDUNG.map(([jahr, wg, datum], i) => ({ id: `ep${i}`, jahrgang_id: JG(jahr), weingarten_id: W(wg), grundstueck_id: null, ernte_datum: datum, jahrgang: { tenant_id: T } })),
+      ...ERNTEMELDUNG.map(([jahr, wg, datum, kg], i) => ({ id: `ep${i}`, jahrgang_id: JG(jahr), weingarten_id: W(wg), grundstueck_id: null, ernte_datum: datum, menge_kg: String(kg), jahrgang: { tenant_id: T } })),
       // fremder Betrieb, später am Weingarten Gebling Zweigelt – darf das Fensterende nicht verschieben
-      { id: 'ep-fremd', jahrgang_id: JG(2025), weingarten_id: W('0b'), grundstueck_id: null, ernte_datum: '2025-09-12', jahrgang: { tenant_id: X } },
+      { id: 'ep-fremd', jahrgang_id: JG(2025), weingarten_id: W('0b'), grundstueck_id: null, ernte_datum: '2025-09-12', menge_kg: '100', jahrgang: { tenant_id: X } },
     ],
     grundstuecke: GRUNDSTUECKE.map(([g, w, nr]) => ({ id: G(g), tenant_id: T, weingarten_id: W(w), gst_nr: nr })),
     behandlungen,
@@ -680,22 +775,55 @@ describe('Gemeinsame Ladefunktion – Echtbetrieb ohne Lesedatum an der Pressung
       assert.equal(l.lese.ernte_datum, null)
       assert.equal(l.fenster.bisAus, 'erntemeldung', l.leseId)
       const soll = LESEZEILEN.find(z => z[0] === l.leseId)
-      // Lesezeilen mit GST: genau das Lesedatum; ohne GST: spätester Eintrag des Weingartens (16.09.)
+      // Lesezeilen mit GST: genau das Lesedatum; ohne GST: einziger Lesetag des Weingartens (16.09.)
       assert.equal(l.fenster.bis, l.leseId === PW_OHNE_GST ? '2025-09-16' : soll[6], l.leseId)
       assert.deepEqual(l.massnahmen.map(mm => mm.behandlung.id), mitDatum.get(l.leseId).massnahmen.map(mm => mm.behandlung.id), l.leseId)
       assert.match(l.hinweise[0], /^Lesedatum an der Pressung nicht erfasst – Zeitfenster bis zum Lesedatum laut Erntemeldung/)
+      assert.equal(l.ersatz.grund, 'eindeutig', l.leseId)
     }
-    // Gebling Zweigelt, gepresst 13.09.: fremder Lese-Eintrag vom 12.09. verschiebt das Ende nicht
-    assert.equal(lesen.find(l => l.leseId === '62796043-2710-49b8-a6ff-14fa445aea02').fenster.bis, '2025-09-10')
+    // Gebling Zweigelt, gepresst 13.09.: fremder Lese-Eintrag vom 12.09. verschiebt das Ende nicht,
+    // die 99.999 kg des fremden Betriebs zählen nicht (5.200 kg erfasst = 2.000 + 3.200 kg verpresst)
+    const gebling = lesen.find(l => l.leseId === '62796043-2710-49b8-a6ff-14fa445aea02')
+    assert.equal(gebling.fenster.bis, '2025-09-10')
+    assert.equal(gebling.ersatz.erfasstKg, 5200)
+    assert.equal(gebling.ersatz.verpresstKg, 5200)
+    // Sandgrube ohne GST (gepresst 18.09.): alle Pressungen des Weingartens bis dahin (9.000 + 1.000 kg)
+    assert.equal(lesen.find(l => l.leseId === PW_OHNE_GST).ersatz.verpresstKg, 10000)
   })
 
-  test('Abfrage der Erntemeldung mit Mandantenfilter über den Jahrgang', () => {
+  test('Abfrage der Erntemeldung und der verpressten Trauben mit Mandantenfilter über den Jahrgang', () => {
     const ep = sb.log.filter(l => l.tabelle === 'ernte_parzellen')
     assert.ok(ep.length > 0)
     for (const e of ep) {
       assert.ok(e.filter.some(([op, k, v]) => op === 'eq' && k === 'jahrgang.tenant_id' && v === T))
       assert.ok(e.filter.some(([op, k, v]) => op === 'in' && k === 'jahrgang_id' && v.length === 1 && v[0] === JG(2025)))
     }
+    const vp = sb.log.filter(l => l.tabelle === 'pressung_weingaerten' && l.filter.some(([op, k]) => op === 'in' && k === 'pressung.jahrgang_id'))
+    assert.ok(vp.length > 0)
+    for (const e of vp) {
+      assert.ok(e.filter.some(([op, k, v]) => op === 'eq' && k === 'pressung.tenant_id' && v === T))
+      assert.ok(e.filter.some(([op, k, v]) => op === 'in' && k === 'pressung.jahrgang_id' && v.length === 1 && v[0] === JG(2025)))
+    }
+  })
+
+  test('Erntemeldung deckt das Verpresste nicht (zweite Lese nicht erfasst): Pressung 13.09. bis zur Pressung, 10.09. bleibt', async () => {
+    const daten = tabellen({ echtbetrieb: true })
+    // Gebling Zweigelt: nur 2.000 kg erfasst, verpresst 2.000 kg am 10.09. und 3.200 kg am 13.09.
+    daten.ernte_parzellen = daten.ernte_parzellen.map(e => e.weingarten_id === W('0b') && e.jahrgang_id === JG(2025) && e.jahrgang.tenant_id === T ? { ...e, menge_kg: '2000' } : e)
+    const kette = await rueck.ladeFuellungKette(attrappe(daten), T, daten.fuellungen[0], { details: true })
+    const lesen = kette.chargen.flatMap(c => c.kette.lesen)
+    const erste = lesen.find(l => l.leseId === '3cd11817-f570-41ff-8219-22b4588f258e')
+    const zweite = lesen.find(l => l.leseId === '62796043-2710-49b8-a6ff-14fa445aea02')
+    assert.equal(erste.fenster.bis, '2025-09-10')
+    assert.equal(erste.fenster.bisAus, 'erntemeldung')
+    assert.equal(zweite.fenster.bis, '2025-09-13')
+    assert.equal(zweite.fenster.bisAus, 'pressungsdatum')
+    assert.equal(zweite.ersatz.grund, 'menge_nicht_gedeckt')
+    assert.match(zweite.hinweise[0], /Lesetag 10\.09\.2025 mit 2000 kg deckt die bis zur Pressung verpressten 5200 kg nicht/)
+    const p = M.rueckverfolgung.parameter(new URLSearchParams(''))
+    const { warnungen } = await M.rueckverfolgung.laden({ supabase: attrappe(daten), tenantId: T, membership: { tenantId: T, role: 'leser', schreibmodule: [] }, betrieb: { name: 'Musterhof', betriebsnummer: '1234567' } }, { ...p, fuellungId: 'f1' })
+    assert.ok(warnungen.includes('1 Lese hat kein Lesedatum an der Pressung, und die Erntemeldung ist dafür nicht eindeutig (mehrere Lesetage, Lesetag nach der Pressung oder Menge nicht gedeckt) – Zeitfenster bis zum Pressungsdatum, Maßnahmen zwischen Lese und Pressung können mit aufgeführt sein.'))
+    assert.ok(warnungen.includes('4 Lesen haben kein Lesedatum an der Pressung – Zeitfenster bis zum Lesedatum laut Erntemeldung.'))
   })
 
   test('CSV: Fensterende laut Erntemeldung, Hinweis je Zeile und als X-Warnung', () => {

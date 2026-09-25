@@ -8,8 +8,8 @@
 // Maßnahmen (KAN-75, 25.09.2026): je Lesezeile nur die des gelesenen Grundstücks im
 // Zeitfenster vom Tag nach der vorigen Lese dieses GST (sonst 01.01. des Jahrgangs) bis
 // einschließlich zum Lesedatum – fehlt es an der Lesezeile (im Echtbetrieb die Regel), bis zum
-// Lesedatum laut Erntemeldung, sonst bis zum Pressungsdatum. Regeln und offene Annahme (KAN-38)
-// in rueckverfolgungFenster.ts.
+// Lesedatum laut Erntemeldung (nur wenn eindeutig: ein Lesetag, Menge deckt das Verpresste),
+// sonst bis zum Pressungsdatum. Regeln und offene Annahme (KAN-38) in rueckverfolgungFenster.ts.
 // Bis dahin standen hier alle Maßnahmen aller GST der Weingärten ohne Datumsgrenze.
 // CSV: eine Zeile je Füllung × Ursprung (Charge × Pressung × Weingarten/GST), mit Anteil
 // der Charge an der Füllung und den Maßnahmen dieser Lese (Kette.lesen – dieselbe Zuordnung
@@ -25,7 +25,7 @@ import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 import { num, numOderNull, tag, text, type R } from './kellerbuch-hilfen'
 import {
   fensterBeginnText, ladebereich, leseFenster, leseWarnungen, ordneMassnahmenZu, ttmmjjjj,
-  type ErnteEintrag, type LeseHistorie, type LeseZeile, type MassnahmeOrt, type Zeitfenster,
+  type ErnteEintrag, type ErnteErsatz, type LeseHistorie, type LeseZeile, type MassnahmeOrt, type VerpressteTrauben, type Zeitfenster,
 } from './rueckverfolgungFenster'
 
 export const BEHANDLUNG_ART_LABEL: Record<string, string> = {
@@ -53,6 +53,8 @@ export type LeseMassnahmen = {
   lese: R
   pressungDatum: string | null
   fenster: Zeitfenster | null
+  /** Abgleich mit der Erntemeldung (Fensterende ohne Lesedatum an der Pressung), sonst null */
+  ersatz: ErnteErsatz | null
   massnahmen: LeseMassnahme[]
   hinweise: string[]
 }
@@ -116,7 +118,7 @@ export async function ladeLeseMassnahmen(supabase: any, tenantId: string, pressu
     .filter((x): x is string => !!x))]
 
   const leer = Promise.resolve({ data: [] as R[], error: null })
-  const [gstWgRes, gstLeseRes, histRes, ernteRes] = await Promise.all([
+  const [gstWgRes, gstLeseRes, histRes, ernteRes, verpresstRes] = await Promise.all([
     // alle GST der Weingärten (für Lesen ohne GST) …
     wgIds.length > 0
       ? alle<R>((supabase.from('grundstuecke') as any)
@@ -148,9 +150,19 @@ export async function ladeLeseMassnahmen(supabase: any, tenantId: string, pressu
     jgOhneLesedatum.length > 0
       // tenant-isolation-ignore: ernte_parzellen ohne tenant_id, Filter über den Jahrgang
       ? alle<R>((supabase.from('ernte_parzellen') as any)
-          .select('id, jahrgang_id, weingarten_id, grundstueck_id, ernte_datum, jahrgang:jahrgang_id!inner(tenant_id)')
+          .select('id, jahrgang_id, weingarten_id, grundstueck_id, ernte_datum, menge_kg, jahrgang:jahrgang_id!inner(tenant_id)')
           .eq('jahrgang.tenant_id', tenantId)
           .in('jahrgang_id', jgOhneLesedatum)
+          .order('id'))
+      : leer,
+    // Verpresste Trauben dieser Jahrgänge im Betrieb – Mengenprüfung des Ersatz-Lesedatums
+    // (deckt die Erntemeldung das Verpresste nicht, gilt das Pressungsdatum)
+    jgOhneLesedatum.length > 0
+      // tenant-isolation-ignore: pressung_weingaerten ohne tenant_id, Filter über die Pressung
+      ? alle<R>((supabase.from('pressung_weingaerten') as any)
+          .select('id, weingarten_id, grundstueck_id, trauben_kg, pressung:pressung_id!inner(tenant_id, datum, jahrgang_id)')
+          .eq('pressung.tenant_id', tenantId)
+          .in('pressung.jahrgang_id', jgOhneLesedatum)
           .order('id'))
       : leer,
   ])
@@ -179,13 +191,19 @@ export async function ladeLeseMassnahmen(supabase: any, tenantId: string, pressu
   }
   const ernte: ErnteEintrag[] = pruefen(ernteRes, 'Erntemeldung')
     .filter(e => (e.jahrgang as R | null)?.tenant_id === tenantId)
-    .map(e => ({ jahrgangId: text(e.jahrgang_id), weingartenId: text(e.weingarten_id), grundstueckId: text(e.grundstueck_id), lesedatum: tag(e.ernte_datum) || null }))
+    .map(e => ({ jahrgangId: text(e.jahrgang_id), weingartenId: text(e.weingarten_id), grundstueckId: text(e.grundstueck_id), lesedatum: tag(e.ernte_datum) || null, mengeKg: numOderNull(e.menge_kg) }))
+  const verpresst: VerpressteTrauben[] = pruefen(verpresstRes, 'Verpresste Trauben')
+    .filter(v => (v.pressung as R | null)?.tenant_id === tenantId)
+    .map(v => ({
+      id: String(v.id), jahrgangId: text((v.pressung as R).jahrgang_id), weingartenId: text(v.weingarten_id), grundstueckId: text(v.grundstueck_id),
+      pressungDatum: tag((v.pressung as R).datum) || null, traubenKg: numOderNull(v.trauben_kg),
+    }))
 
   // Maßnahmen des Betriebs im Gesamtbereich aller Fenster; Ort und Fenster prüft ordneMassnahmenZu.
   // Mehrtägige Maßnahmen, die vor dem Bereich beginnen und hineinreichen, zählen mit (datum_bis).
   let massnahmen: MassnahmeRoh[] = []
   if (gstIds.length > 0 || wgIds.length > 0) {
-    const bereich = ladebereich(eingaben.map(e => leseFenster(e, historie, ernte)))
+    const bereich = ladebereich(eingaben.map(e => leseFenster(e, historie, ernte, verpresst)))
     let q = (supabase.from('behandlungen') as any)
       .select(`
         id, datum, datum_bis, art, weingarten_id, aufwandmenge, aufwandmenge_einheit, schaderreger, witterung, notizen,
@@ -207,7 +225,7 @@ export async function ladeLeseMassnahmen(supabase: any, tenantId: string, pressu
     })
   }
 
-  const zuordnung = ordneMassnahmenZu(eingaben, historie, massnahmen, gstJeWeingarten, weingartenJeGst, ernte)
+  const zuordnung = ordneMassnahmenZu(eingaben, historie, massnahmen, gstJeWeingarten, weingartenJeGst, ernte, verpresst)
   const lesen: LeseMassnahmen[] = zuordnung.map(z => {
     const { lese, pressungDatum } = zeilen.get(z.leseId)!
     return {
@@ -215,6 +233,7 @@ export async function ladeLeseMassnahmen(supabase: any, tenantId: string, pressu
       lese,
       pressungDatum,
       fenster: z.fenster,
+      ersatz: z.ersatz,
       hinweise: z.hinweise,
       massnahmen: z.massnahmen.map(t => {
         const flaechen = t.grundstueckIds.map(g => t.massnahme.flaeche.get(g) ?? null).filter((f): f is number => f !== null)

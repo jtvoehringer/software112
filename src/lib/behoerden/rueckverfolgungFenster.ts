@@ -22,14 +22,27 @@
 //         gesetzt ist es nur in den Demo-Daten des Musterhofs. Im Echtbetrieb greift daher in
 //         der Regel der Ersatz, jeweils mit Hinweis (Lesedatum je Pressungszeile erfassen:
 //         Folgeticket):
-//         1. Lesedatum laut Erntemeldung (ernte_parzellen): der späteste passende Lese-Eintrag
-//            desselben Jahrgangs bis einschließlich zum Pressungsdatum
-//            (lesedatumLautErntemeldung). Die Pressung wählt ihre GST aus eben diesen
-//            Einträgen; der späteste bis zur Pressung liegt nie vor der Lese der verpressten
-//            Trauben, solange die Erntemeldung sie enthält. Im Musterhof stimmt er bei allen
-//            Lesezeilen mit Erntemeldung mit dem Lesedatum der Lesezeile überein.
+//         1. Lesedatum laut Erntemeldung (ernte_parzellen, ersatzAusErntemeldung) – nur wenn es
+//            eindeutig ist: Alle passenden Einträge desselben Jahrgangs (auch die nach der
+//            Pressung) nennen genau EINEN Lesetag, er liegt am oder vor dem Pressungsdatum, und
+//            ihre Menge deckt die bis dahin an diesem Ort verpressten Trauben (Mengenprüfung).
+//            Grund (Prüfrunde 2, 25.09.2026): Bei einer Mehrfachlese (Vorlese + Hauptlese,
+//            „Kabinett + Spätlese“) ist offen, welche Lese eine Pressung enthält – ist die
+//            Hauptlese in der Erntemeldung noch nicht erfasst oder mit einem Datum nach der
+//            Pressung vertippt, endete das Fenster sonst an der Vorlese und Maßnahmen zwischen
+//            Vorlese und Hauptlese fehlten; ein zusätzlicher richtiger Vorlese-Eintrag hätte
+//            das Ergebnis verschlechtert. Die Pressung prüft die kg serverseitig nicht, bietet
+//            aber jedes GST mit Lese-Eintrag an – die Mengenprüfung fängt die fehlende
+//            Hauptlese ab, sobald mehr verpresst ist, als die Erntemeldung ausweist
+//            (Traubenverkäufe zählen dabei nicht mit: notwendige, keine hinreichende
+//            Bedingung – eine nicht erfasste Hauptlese, die kleiner ist als die noch
+//            unverpresste Vorlese, bleibt unerkannt). Im Musterhof (ein Eintrag je Weingarten
+//            und Jahrgang, Menge = verpresst) stimmt der Ersatz bei allen Lesezeilen mit
+//            Erntemeldung mit dem Lesedatum der Lesezeile überein.
 //         2. sonst das Pressungsdatum (die Lese war spätestens dann) – Maßnahmen zwischen Lese
-//            und Pressung können dann mit aufgeführt sein; der Hinweis sagt das.
+//            und Pressung können dann mit aufgeführt sein; der Hinweis nennt den Grund (keine
+//            Angabe bzw. Erntemeldung nicht eindeutig: mehrere Lesetage, Lesetag nach der
+//            Pressung, Menge nicht gedeckt).
 //   von = Tag nach der vorigen Lese desselben Grundstücks (GST) im selben Jahrgang,
 //         sonst der 01.01. des Jahrgangs
 //   ANNAHME (offene Frage KAN-38, hier NICHT entschieden): Das Fenster „bis Ernte“ beginnt mit
@@ -101,6 +114,37 @@ export type ErnteEintrag = {
   grundstueckId: string | null
   /** 'JJJJ-MM-TT' oder null */
   lesedatum: string | null
+  /** ernte_parzellen.menge_kg (fehlt = 0) – für die Mengenprüfung */
+  mengeKg?: number | null
+}
+
+/**
+ * Verpresste Trauben einer Lesezeile (pressung_weingaerten samt Pressung) – nur für die
+ * Mengenprüfung des Ersatz-Lesedatums. Die Lesezeile selbst gehört mit dazu.
+ */
+export type VerpressteTrauben = {
+  /** pressung_weingaerten.id */
+  id: string
+  /** pressungen.jahrgang_id */
+  jahrgangId: string | null
+  weingartenId: string | null
+  grundstueckId: string | null
+  /** pressungen.datum ('JJJJ-MM-TT') */
+  pressungDatum: string | null
+  traubenKg: number | null
+}
+
+/** Abgleich einer Lesezeile ohne eigenes Lesedatum mit der Erntemeldung */
+export type ErnteErsatz = {
+  /** Fensterende laut Erntemeldung; null → Pressungsdatum */
+  datum: string | null
+  grund: 'eindeutig' | 'kein_eintrag' | 'mehrere_lesetage' | 'nach_pressung' | 'menge_nicht_gedeckt'
+  /** Lesetage der passenden Einträge ('JJJJ-MM-TT', aufsteigend) */
+  lesetage: string[]
+  /** Menge der passenden Einträge (kg) */
+  erfasstKg: number
+  /** am Ort der Lesezeile bis einschließlich zum Pressungsdatum verpresst (kg) */
+  verpresstKg: number
 }
 
 export type MassnahmeOrt = {
@@ -137,6 +181,8 @@ export type ZugeordneteMassnahme<M> = {
 export type LeseZuordnung<M> = {
   leseId: string
   fenster: Zeitfenster | null
+  /** Abgleich mit der Erntemeldung – nur bei Fensterende laut Erntemeldung bzw. Pressungsdatum */
+  ersatz: ErnteErsatz | null
   massnahmen: ZugeordneteMassnahme<M>[]
   hinweise: string[]
 }
@@ -167,38 +213,83 @@ function jahrVon(t: string | null): number | null {
   return t ? Number(t.slice(0, 4)) : null
 }
 
+function kg(v: unknown): number {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN
+  return Number.isFinite(n) ? n : 0
+}
+
 /**
- * Ersatz-Lesedatum aus der Erntemeldung für eine Lesezeile ohne eigenes Lesedatum: der
- * späteste passende Lese-Eintrag desselben Jahrgangs bis einschließlich zum Pressungsdatum.
+ * Abgleich einer Lesezeile ohne eigenes Lesedatum mit der Erntemeldung (Regeln im Dateikopf).
+ * Passend sind Einträge desselben Jahrgangs am Ort der Lesezeile:
  *   Lesezeile mit GST: Einträge genau dieses GST und Einträge ohne GST am Weingarten der Lesezeile
  *   Lesezeile ohne GST: alle Einträge des Weingartens
- * null (→ Pressungsdatum), wenn kein Eintrag passt oder ein passender Eintrag kein Lesedatum
- * hat – dann ist offen, welche Lese verpresst wurde, und das Fenster soll nicht zu früh enden.
+ * Ein Datum gibt es nur, wenn alle passenden Einträge (auch die nach der Pressung) denselben
+ * Lesetag nennen, dieser am oder vor dem Pressungsdatum liegt und ihre Menge die an diesem Ort
+ * (gleiche Ortsregel) bis einschließlich zum Pressungsdatum verpressten Trauben deckt. Sonst
+ * null (→ Pressungsdatum) mit Grund – auch wenn ein passender Eintrag kein Lesedatum hat:
+ * Dann ist offen, welche Lese verpresst wurde, und das Fenster soll nicht zu früh enden.
+ * verpresst: Lesezeilen des Betriebs im Jahrgang samt der Lesezeile selbst.
  */
-export function lesedatumLautErntemeldung(lese: LeseZeile, ernte: readonly ErnteEintrag[]): string | null {
+export function ersatzAusErntemeldung(
+  lese: LeseZeile,
+  ernte: readonly ErnteEintrag[],
+  verpresst: readonly VerpressteTrauben[] = [],
+): ErnteErsatz {
+  const ohne = (grund: ErnteErsatz['grund'], lesetage: string[] = [], erfasstKg = 0, verpresstKg = 0): ErnteErsatz =>
+    ({ datum: null, grund, lesetage, erfasstKg, verpresstKg })
   const pressung = kalendertag(lese.pressungDatum)
-  if (!pressung || !lese.jahrgangId || (!lese.grundstueckId && !lese.weingartenId)) return null
-  let spaetester: string | null = null
+  if (!pressung || !lese.jahrgangId || (!lese.grundstueckId && !lese.weingartenId)) return ohne('kein_eintrag')
+  const amOrt = (o: { grundstueckId: string | null; weingartenId: string | null }) => lese.grundstueckId
+    ? o.grundstueckId === lese.grundstueckId || (!o.grundstueckId && !!lese.weingartenId && o.weingartenId === lese.weingartenId)
+    : o.weingartenId === lese.weingartenId
+
+  const tage = new Set<string>()
+  let erfasstKg = 0
   for (const e of ernte) {
-    if (e.jahrgangId !== lese.jahrgangId) continue
-    const passt = lese.grundstueckId
-      ? e.grundstueckId === lese.grundstueckId || (!e.grundstueckId && !!lese.weingartenId && e.weingartenId === lese.weingartenId)
-      : e.weingartenId === lese.weingartenId
-    if (!passt) continue
+    if (e.jahrgangId !== lese.jahrgangId || !amOrt(e)) continue
     const d = kalendertag(e.lesedatum)
-    if (!d) return null
-    if (d <= pressung && (!spaetester || d > spaetester)) spaetester = d
+    if (!d) return ohne('kein_eintrag')
+    tage.add(d)
+    erfasstKg += kg(e.mengeKg)
   }
-  return spaetester
+  const lesetage = [...tage].sort()
+  if (lesetage.length === 0) return ohne('kein_eintrag')
+  if (lesetage.length > 1) return ohne('mehrere_lesetage', lesetage, erfasstKg)
+  if (lesetage[0] > pressung) return ohne('nach_pressung', lesetage, erfasstKg)
+
+  let verpresstKg = 0
+  for (const v of verpresst) {
+    if (v.jahrgangId !== lese.jahrgangId || !amOrt(v)) continue
+    const d = kalendertag(v.pressungDatum)
+    if (d && d > pressung) continue
+    verpresstKg += kg(v.traubenKg)
+  }
+  // Toleranz wie bei der Lesemengen-Prüfung der Erntemeldung (KAN-35)
+  if (verpresstKg > erfasstKg + 0.01) return ohne('menge_nicht_gedeckt', lesetage, erfasstKg, verpresstKg)
+  return { datum: lesetage[0], grund: 'eindeutig', lesetage, erfasstKg, verpresstKg }
+}
+
+/** Ersatz-Lesedatum aus der Erntemeldung oder null (→ Pressungsdatum) – siehe ersatzAusErntemeldung */
+export function lesedatumLautErntemeldung(
+  lese: LeseZeile,
+  ernte: readonly ErnteEintrag[],
+  verpresst: readonly VerpressteTrauben[] = [],
+): string | null {
+  return ersatzAusErntemeldung(lese, ernte, verpresst).datum
 }
 
 /**
  * Zeitfenster einer Lesezeile (Regeln im Dateikopf). null nur, wenn weder Lese- noch
  * Pressungsdatum bekannt ist (pressungen.datum ist NOT NULL – praktisch nie).
  */
-export function leseFenster(lese: LeseZeile, historie: readonly LeseHistorie[], ernte: readonly ErnteEintrag[] = []): Zeitfenster | null {
+export function leseFenster(
+  lese: LeseZeile,
+  historie: readonly LeseHistorie[],
+  ernte: readonly ErnteEintrag[] = [],
+  verpresst: readonly VerpressteTrauben[] = [],
+): Zeitfenster | null {
   const lesedatum = kalendertag(lese.lesedatum)
-  const ausErnte = lesedatum ? null : lesedatumLautErntemeldung(lese, ernte)
+  const ausErnte = lesedatum ? null : lesedatumLautErntemeldung(lese, ernte, verpresst)
   const bis = lesedatum ?? ausErnte ?? kalendertag(lese.pressungDatum)
   if (!bis) return null
   const bisAus: Zeitfenster['bisAus'] = lesedatum ? 'lesedatum' : ausErnte ? 'erntemeldung' : 'pressungsdatum'
@@ -245,11 +336,37 @@ export const HINWEIS_OHNE_ORT = 'Lesezeile ohne Weingarten und Grundstück (z. B
 export const HINWEIS_WEINGARTEN_OHNE_GST = 'Zum Weingarten sind keine Grundstücke erfasst – nur Maßnahmen, die am Weingarten erfasst sind.'
 export const HINWEIS_OHNE_FENSTER = 'Weder Lese- noch Pressungsdatum bekannt – Zeitfenster nicht bestimmbar, alle Maßnahmen des Grundstücks aufgeführt.'
 
+/** Menge für Hinweistexte: ganze kg bzw. eine Nachkommastelle mit Dezimalkomma */
+function kgText(v: number): string {
+  return `${String(Math.round(v * 10) / 10).replace('.', ',')} kg`
+}
+
+/** Hinweis zum Fensterende, wenn es nicht das Lesedatum der Lesezeile ist */
+function ersatzHinweis(f: Zeitfenster, ersatz: ErnteErsatz | null, pressungDatum: string | null): string | null {
+  if (f.bisAus === 'erntemeldung') {
+    return `Lesedatum an der Pressung nicht erfasst – Zeitfenster bis zum Lesedatum laut Erntemeldung ${ttmmjjjj(f.bis)} (einziger passender Lesetag im Jahrgang, Pressung am ${ttmmjjjj(kalendertag(pressungDatum))}).`
+  }
+  if (f.bisAus !== 'pressungsdatum') return null
+  const ende = `Zeitfenster bis zum Pressungsdatum ${ttmmjjjj(f.bis)}; Maßnahmen zwischen Lese und Pressung können mit aufgeführt sein.`
+  const tage = (ersatz?.lesetage ?? []).map(ttmmjjjj)
+  switch (ersatz?.grund) {
+    case 'mehrere_lesetage':
+      return `Lesedatum an der Pressung nicht erfasst und laut Erntemeldung nicht eindeutig (mehrere Lesetage: ${tage.join(', ')}) – ${ende}`
+    case 'nach_pressung':
+      return `Lesedatum an der Pressung nicht erfasst und laut Erntemeldung nicht eindeutig (Lesetag ${tage[0]} liegt nach der Pressung) – ${ende}`
+    case 'menge_nicht_gedeckt':
+      return `Lesedatum an der Pressung nicht erfasst und laut Erntemeldung nicht eindeutig (Lesetag ${tage[0]} ${ersatz.erfasstKg > 0 ? `mit ${kgText(ersatz.erfasstKg)}` : 'ohne Menge'} deckt die bis zur Pressung verpressten ${kgText(ersatz.verpresstKg)} nicht – weitere Lese nicht erfasst?) – ${ende}`
+    default:
+      return `Lesedatum weder an der Pressung noch in der Erntemeldung erfasst – ${ende}`
+  }
+}
+
 /**
  * Maßnahmen je Lesezeile im Zeitfenster „bis zur Lese“ (Regeln im Dateikopf).
  * grundstueckeJeWeingarten: alle GST je Weingarten (für Lesen ohne GST);
  * weingartenJeGrundstueck: Weingarten laut grundstuecke (für Maßnahmen nur am Weingarten);
- * ernte: Lese-Einträge der Erntemeldung (Ersatz für ein fehlendes Lesedatum).
+ * ernte: Lese-Einträge der Erntemeldung (Ersatz für ein fehlendes Lesedatum);
+ * verpresst: Lesezeilen des Betriebs in diesen Jahrgängen (Mengenprüfung des Ersatzes).
  * Maßnahmen je Lese nach Datum (dann id) sortiert.
  */
 export function ordneMassnahmenZu<M extends MassnahmeOrt>(
@@ -259,6 +376,7 @@ export function ordneMassnahmenZu<M extends MassnahmeOrt>(
   grundstueckeJeWeingarten: ReadonlyMap<string, readonly string[]>,
   weingartenJeGrundstueck: ReadonlyMap<string, string>,
   ernte: readonly ErnteEintrag[] = [],
+  verpresst: readonly VerpressteTrauben[] = [],
 ): LeseZuordnung<M>[] {
   const sortiert = [...massnahmen].sort((a, b) => (a.datum < b.datum ? -1 : a.datum > b.datum ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   return lesen.map(lese => {
@@ -269,13 +387,10 @@ export function ordneMassnahmenZu<M extends MassnahmeOrt>(
     if (gst && weingartenJeGrundstueck.get(gst)) weingaerten.add(weingartenJeGrundstueck.get(gst) as string)
 
     // Ohne GST verkürzt leseFenster nie über eine vorige Lese (Beginn 01.01. des Jahrgangs)
-    const fenster = leseFenster(lese, historie, ernte)
-    if (fenster?.bisAus === 'erntemeldung') {
-      hinweise.push(`Lesedatum an der Pressung nicht erfasst – Zeitfenster bis zum Lesedatum laut Erntemeldung ${ttmmjjjj(fenster.bis)} (spätester Lese-Eintrag bis zur Pressung am ${ttmmjjjj(kalendertag(lese.pressungDatum))}).`)
-    }
-    if (fenster?.bisAus === 'pressungsdatum') {
-      hinweise.push(`Lesedatum weder an der Pressung noch in der Erntemeldung erfasst – Zeitfenster bis zum Pressungsdatum ${ttmmjjjj(fenster.bis)}; Maßnahmen zwischen Lese und Pressung können mit aufgeführt sein.`)
-    }
+    const fenster = leseFenster(lese, historie, ernte, verpresst)
+    const ersatz = fenster && fenster.bisAus !== 'lesedatum' ? ersatzAusErntemeldung(lese, ernte, verpresst) : null
+    const zumEnde = fenster ? ersatzHinweis(fenster, ersatz, lese.pressungDatum) : null
+    if (zumEnde) hinweise.push(zumEnde)
     if (!fenster) hinweise.push(HINWEIS_OHNE_FENSTER)
 
     // Orte der Lese: GST (genau eines oder alle des Weingartens)
@@ -288,7 +403,7 @@ export function ordneMassnahmenZu<M extends MassnahmeOrt>(
       if (orte.size === 0) hinweise.push(HINWEIS_WEINGARTEN_OHNE_GST)
     } else {
       hinweise.push(HINWEIS_OHNE_ORT)
-      return { leseId: lese.id, fenster, massnahmen: [], hinweise }
+      return { leseId: lese.id, fenster, ersatz, massnahmen: [], hinweise }
     }
 
     const treffer: ZugeordneteMassnahme<M>[] = []
@@ -307,7 +422,7 @@ export function ordneMassnahmenZu<M extends MassnahmeOrt>(
         ? '1 Maßnahme ist nur am Weingarten erfasst (ohne Grundstück) und hier mit aufgeführt.'
         : `${nurWg} Maßnahmen sind nur am Weingarten erfasst (ohne Grundstück) und hier mit aufgeführt.`)
     }
-    return { leseId: lese.id, fenster, massnahmen: treffer, hinweise }
+    return { leseId: lese.id, fenster, ersatz, massnahmen: treffer, hinweise }
   })
 }
 
@@ -323,13 +438,22 @@ export function fensterBeginnText(f: Zeitfenster): string {
  * stehen je Zeile in „Hinweis Behandlungen“. Jede Lesezeile nur einmal übergeben.
  */
 export function leseWarnungen(
-  lesen: readonly { fenster: Zeitfenster | null; hinweise: readonly string[]; massnahmen: readonly { nurWeingarten: boolean }[] }[],
+  lesen: readonly {
+    fenster: Zeitfenster | null
+    ersatz?: Pick<ErnteErsatz, 'grund'> | null
+    hinweise: readonly string[]
+    massnahmen: readonly { nurWeingarten: boolean }[]
+  }[],
 ): string[] {
   const zaehle = (f: (l: (typeof lesen)[number]) => boolean) => lesen.filter(f).length
   const mitZahl = (n: number, eins: string, mehr: string) => `${n} ${n === 1 ? eins : mehr}`
   const warnungen: string[] = []
-  const pressung = zaehle(l => l.fenster?.bisAus === 'pressungsdatum')
+  // Fensterende am Pressungsdatum: ohne Angabe in der Erntemeldung bzw. weil sie nicht eindeutig ist
+  const unklar = zaehle(l => l.fenster?.bisAus === 'pressungsdatum'
+    && ['mehrere_lesetage', 'nach_pressung', 'menge_nicht_gedeckt'].includes(l.ersatz?.grund ?? ''))
+  const pressung = zaehle(l => l.fenster?.bisAus === 'pressungsdatum') - unklar
   if (pressung > 0) warnungen.push(`${mitZahl(pressung, 'Lese hat', 'Lesen haben')} weder an der Pressung noch in der Erntemeldung ein Lesedatum – Zeitfenster bis zum Pressungsdatum, Maßnahmen zwischen Lese und Pressung können mit aufgeführt sein.`)
+  if (unklar > 0) warnungen.push(`${mitZahl(unklar, 'Lese hat', 'Lesen haben')} kein Lesedatum an der Pressung, und die Erntemeldung ist dafür nicht eindeutig (mehrere Lesetage, Lesetag nach der Pressung oder Menge nicht gedeckt) – Zeitfenster bis zum Pressungsdatum, Maßnahmen zwischen Lese und Pressung können mit aufgeführt sein.`)
   const ernte = zaehle(l => l.fenster?.bisAus === 'erntemeldung')
   if (ernte > 0) warnungen.push(`${mitZahl(ernte, 'Lese hat', 'Lesen haben')} kein Lesedatum an der Pressung – Zeitfenster bis zum Lesedatum laut Erntemeldung.`)
   const ohneFenster = zaehle(l => l.hinweise.includes(HINWEIS_OHNE_FENSTER))
