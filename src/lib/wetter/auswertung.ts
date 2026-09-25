@@ -19,7 +19,7 @@ export async function ladeWetterAuswertung(
   client: any, tenantId: string, heute: Date, einst: WetterEinstellungen,
   // deadline (KAN-123): Zeitpunkt in ms, ab dem das Auffrischen keine weiteren Punkte beginnt (Morgenbericht-Cron)
   opts: { auffrischen?: boolean; erzwingen?: boolean; deadline?: number } = { auffrischen: true },
-): Promise<WetterAuswertung & { ohneKoordinaten: number; fehler: string[]; zeitAusgelassen: number }> {
+): Promise<WetterAuswertung & { ohneKoordinaten: number; fehler: string[]; zeitAusgelassen: number; abrufFehler: number }> {
   const seit = new Date(heute.getTime() - BEHANDLUNG_RUECKBLICK_TAGE * 86400000).toISOString().slice(0, 10)
   const [{ data: wgRaw }, { data: bhRaw }] = await Promise.all([
     (client.from('weingarten') as any).select('id, name, ried, zentrum_lat, zentrum_lon').eq('tenant_id', tenantId).eq('aktiv', true).order('name'),
@@ -34,11 +34,12 @@ export async function ladeWetterAuswertung(
   const punkte = wetterPunkte(rieden)
   const ohneKoordinaten = rieden.filter(r => r.lat === null || r.lon === null).length
 
-  let fehler: string[] = [], zeitAusgelassen = 0
+  let fehler: string[] = [], zeitAusgelassen = 0, abrufFehler = 0
   if (opts.auffrischen !== false && punkte.length > 0) {
     const r = await aktualisiereWetter(tenantId, punkte, { erzwingen: opts.erzwingen, deadline: opts.deadline })
     fehler = r.fehler
     zeitAusgelassen = r.zeitAusgelassen
+    abrufFehler = r.abrufFehler
   }
   const wetter = await ladeWetterdaten(client, tenantId, punkte)
 
@@ -55,5 +56,5 @@ export async function ladeWetterAuswertung(
     }
   })
   const aus = werteWetterAus({ rieden: regelRieden, wetter, heute, einst })
-  return { ...aus, ohneKoordinaten, fehler, zeitAusgelassen }
+  return { ...aus, ohneKoordinaten, fehler, zeitAusgelassen, abrufFehler }
 }

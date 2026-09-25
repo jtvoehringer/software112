@@ -39,20 +39,22 @@ export type WetterDaten = { punkt: WetterPunkt; rueckblick: WetterStunde[]; prog
 
 // KAN-123: höchstens 3 Punkte gleichzeitig (vorher nacheinander, je Abruf bis 25 s) – mit
 // 2 Betrieben gleichzeitig im Morgenbericht-Lauf höchstens 6 Abrufe parallel; der Start-Takt
-// in geosphere.ts hält das Rate-Limit des Data Hub ein (5 Anfragen/s, 240/h, Quelle dort).
+// in geosphere.ts hält das Sekundenlimit des Data Hub ein (5 Anfragen/s; Stundenlimit und
+// Quelle dort). Gilt auch für „Jetzt aktualisieren“ (ohne Zeitgrenze).
 const PUNKTE_PARALLEL = 3
 
 /**
  * Cache auffrischen (Service-Role). Fehler je Punkt werden gesammelt, nicht geworfen.
  * KAN-123: Mit `deadline` (ms) beginnt nach Ablauf kein weiterer Punkt, laufende Abrufe werden
  * abgebrochen; schon geschriebene Werte bleiben im Cache (best effort). `zeitAusgelassen` zählt
- * die Punkte, die deshalb nicht (vollständig) aufgefrischt wurden.
+ * die Punkte, die deshalb nicht (vollständig) aufgefrischt wurden, `abrufFehler` die übrigen
+ * gescheiterten Punkte (Zeitlimit je Abruf, HTTP-Fehler, Datenbank) – für das Cron-Protokoll.
  */
-export async function aktualisiereWetter(tenantId: string, punkte: WetterPunkt[], opts: { erzwingen?: boolean; deadline?: number } = {}): Promise<{ aktualisiert: number; fehler: string[]; zeitAusgelassen: number }> {
-  if (punkte.length === 0) return { aktualisiert: 0, fehler: [], zeitAusgelassen: 0 }
+export async function aktualisiereWetter(tenantId: string, punkte: WetterPunkt[], opts: { erzwingen?: boolean; deadline?: number } = {}): Promise<{ aktualisiert: number; fehler: string[]; zeitAusgelassen: number; abrufFehler: number }> {
+  if (punkte.length === 0) return { aktualisiert: 0, fehler: [], zeitAusgelassen: 0, abrufFehler: 0 }
   const admin = createSupabaseAdminClient()
   const jetzt = new Date()
-  let aktualisiert = 0, zeitAusgelassen = 0
+  let aktualisiert = 0, zeitAusgelassen = 0, abrufFehler = 0
   const deadline = opts.deadline
   const abgelaufen = () => deadline !== undefined && Date.now() >= deadline
   const signal = deadline === undefined ? undefined : AbortSignal.timeout(Math.max(1, deadline - Date.now()))
@@ -101,6 +103,7 @@ export async function aktualisiereWetter(tenantId: string, punkte: WetterPunkt[]
       return null
     } catch (e) {
       if (abgelaufen() || signal?.aborted) { zeitAusgelassen++; return `${p.key}: Zeitgrenze erreicht, Abruf abgebrochen` }
+      abrufFehler++
       return `${p.key}: ${(e as Error).message}`
     }
   })
@@ -108,7 +111,7 @@ export async function aktualisiereWetter(tenantId: string, punkte: WetterPunkt[]
   // Alte Rückblick-Zeilen ausdünnen (älter als 35 Tage)
   { const { error: e } = await (admin.from('wetter_stunden') as any).delete().eq('tenant_id', tenantId).eq('quelle', 'inca').lt('zeit', new Date(jetzt.getTime() - (RUECKBLICK_TAGE + 2) * 86400000).toISOString())
     if (e) void ereignisMelden({ art: 'db', quelle: 'wetter/wetter_stunden', meldung: e.message }) }
-  return { aktualisiert, fehler, zeitAusgelassen }
+  return { aktualisiert, fehler, zeitAusgelassen, abrufFehler }
 }
 
 /** Cache lesen (beliebiger Client mit Lesezugriff auf den Mandanten) */

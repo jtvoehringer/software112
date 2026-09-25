@@ -62,15 +62,17 @@ async function handle(req: NextRequest) {
 
   // 4. Systemprotokoll (Migration 222): Ergebnis des Laufs festhalten, alte Ereignisse bereinigen.
   //    KAN-123: Aus Zeitmangel übersprungene oder gekürzte Berichte zählen als Fehler, bewusste
-  //    Auslassungen (deaktiviert, Abo gesperrt, Demo-Betrieb) nicht.
+  //    Auslassungen (deaktiviert, Abo gesperrt, Demo-Betrieb) nicht. Gescheiterte Wetterabrufe
+  //    (GeoSphere-Zeitlimit, HTTP-Fehler – der Bericht nutzt dann den Cache) stehen in der Meldung,
+  //    zählen aber nicht als Fehler.
   const mb = laufBilanz(morgenbericht.ergebnis)
   const fehlerAnzahl = (daErr ? 1 : 0) + Number(da?.fehler ?? 0) + emailSpiegel.fehler.length + mb.alsFehler
-  const mbText = `${mb.erstellt} Morgenberichte${mb.bewusst ? ` (${mb.bewusst} bewusst ausgelassen)` : ''}${mb.zeitUebersprungen ? `, ${mb.zeitUebersprungen} aus Zeitmangel übersprungen` : ''}${mb.gekuerzt ? `, ${mb.gekuerzt} wegen der Zeitgrenze gekürzt` : ''}`
+  const mbText = `${mb.erstellt} Morgenberichte${mb.bewusst ? ` (${mb.bewusst} bewusst ausgelassen)` : ''}${mb.zeitUebersprungen ? `, ${mb.zeitUebersprungen} aus Zeitmangel übersprungen` : ''}${mb.gekuerzt ? `, ${mb.gekuerzt} wegen der Zeitgrenze gekürzt` : ''}${mb.wetterFehler ? `, ${mb.wetterFehler} ${mb.wetterFehler === 1 ? 'Wetterpunkt' : 'Wetterpunkte'} nicht abrufbar` : ''}`
   const bereinigt = await ereignisseBereinigen()
   await ereignisMelden({
     art: 'cron', quelle: TAEGLICH_QUELLE,
     meldung: `Täglicher Lauf: ${daErr ? 'Daueraufträge FEHLER' : `${da?.erstellt ?? 0} Daueraufträge`}, ${emailSpiegel.angelegt} E-Mails gespiegelt, ${mbText}, ${fehlerAnzahl} Fehler, ${Math.round((Date.now() - start) / 1000)} s`,
-    details: { fehler: fehlerAnzahl, dauerauftraege, emailSpiegel: { ...emailSpiegel, fehler: emailSpiegel.fehler.slice(0, 20) }, morgenbericht: { ...morgenbericht, ergebnis: morgenbericht.ergebnis.filter(e => ergebnisArt(e) !== 'ok') }, bereinigt },
+    details: { fehler: fehlerAnzahl, dauerauftraege, emailSpiegel: { ...emailSpiegel, fehler: emailSpiegel.fehler.slice(0, 20) }, morgenbericht: { ...morgenbericht, ergebnis: morgenbericht.ergebnis.filter(e => ergebnisArt(e) !== 'ok' || e.wetterFehler) }, bereinigt },
   })
 
   return NextResponse.json({ dauerMs: Date.now() - start, dauerauftraege, emailSpiegel, morgenbericht })

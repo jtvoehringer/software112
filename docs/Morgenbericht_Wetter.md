@@ -14,8 +14,9 @@ Zettelwirtschaft“. Konzept: Software112_Entwicklungspfad.md (Ideen → beschlo
    → Upsert `morgenberichte (tenant_id, datum)`. Zeitbudget, Reihenfolge und Parallelität: siehe
    „Zeitbudget (KAN-123)“. Der Demo-Musterhof bekommt kein tägliches Update.
 2. **Manuell**: „aktualisieren“ / „Jetzt erstellen“ (Betriebsleiter, Winzer) → Server-Aktion
-   `dashboard/morgenbericht/actions.ts` → gleiche Pipeline mit Service-Role, ohne Zeitgrenze
-   (auch im Demo-Musterhof möglich).
+   `dashboard/morgenbericht/actions.ts` → gleiche Pipeline mit Service-Role, ohne Zeitgrenze je
+   Betrieb und mit KI-Wiederholungen wie bisher; die Grenzen je Abruf (3 Wetterpunkte gleichzeitig,
+   Start-Takt, KI 20 s je Versuch) gelten auch hier (auch im Demo-Musterhof möglich).
 3. **Anzeige**: Karte auf `/dashboard` (Zusammenfassung, Zähler, 6 wichtigste Befunde,
    Wetterstreifen), Detail unter `/dashboard/morgenbericht` (alle Befunde nach Stufe,
    Rieden-Tabelle, Spritzfenster, Regeln). Glocke: dringende Befunde des Tages, die nicht
@@ -33,23 +34,37 @@ Regeln und Grenzen jetzt zentral in `src/lib/morgenbericht/zeitplan.ts` (ohne `@
   abzüglich 30 s Reserve (Bereinigung, Protokoll) und der schon verstrichenen Zeit. Die
   E-Mail-Spiegelung davor behält ihr festes Budget von 22 s.
 - **Reihenfolge:** Betriebe ohne Cron-Bericht bzw. mit dem ältesten letzten Cron-Bericht
-  (`morgenberichte.ausloeser = 'cron'`, letzte 14 Tage) zuerst, bei Gleichstand nach `created_at` –
-  wer gestern ausgelassen wurde, kommt heute zuerst dran.
+  (`morgenberichte.ausloeser = 'cron'`, letzte 14 Tage) zuerst – wer gestern ausgelassen wurde, kommt
+  heute zuerst dran. Bei Gleichstand zuerst, wessen letzter Bericht überhaupt (auch manuell) älter ist,
+  dann nach `created_at`. Hintergrund: „Jetzt aktualisieren“ überschreibt die Cron-Zeile des Tages per
+  Upsert (`ausloeser = 'manuell'`) – ohne den zweiten Schlüssel käme ein Betrieb mit Cron- und manuellem
+  Bericht vor einem wirklich ausgelassenen. Bewusst hingenommen: ein Betrieb, der jeden Tag nach dem
+  Cron manuell aktualisiert, gilt als „ohne Cron-Bericht“ und kommt früh dran (wird also nie ausgelassen).
 - **Parallelität:** höchstens 2 Betriebe gleichzeitig (`lauf.ts`), je Betrieb höchstens 3 Wetterpunkte
   gleichzeitig (`lib/wetter/daten.ts`). GeoSphere erlaubt laut Doku 5 Anfragen je Sekunde und 240 je
-  Stunde ([Request Limit](https://dataset.api.hub.geosphere.at/v1/docs/user-guide/request-limit.html),
-  sonst HTTP 429); `geosphere.ts` taktet deshalb höchstens 4 Starts je Sekunde, ein Betrieb braucht
-  höchstens 12 Punkte × 2 Abrufe = 24 je Lauf.
+  Stunde und Nutzer ([Request Limit](https://dataset.api.hub.geosphere.at/v1/docs/user-guide/request-limit.html),
+  sonst HTTP 429); `geosphere.ts` taktet deshalb höchstens 4 Starts je Sekunde. Das Stundenlimit gilt
+  für alle Abrufe der App zusammen (Cron über alle Betriebe plus manuelle Aktualisierungen), nicht je
+  Betrieb – derzeit 6 Punkte × 2 Abrufe = 12 im Cron. **Skalierungsgrenze:** bei 12 Punkten × 2 Abrufen
+  je Betrieb reicht es für etwa 10 Betriebe mit Wetter; davor ein gemeinsames Stundenbudget, einen
+  betriebsübergreifenden Punkte-Cache oder einen eigenen API-Zugang klären.
 - **Zeitgrenze je Betrieb:** 120 s (Gebeshuber brauchte bisher höchstens 46 s), nie über das Laufende;
   ein Betrieb beginnt nur mit mindestens 15 s Restzeit, sonst „Zeitbudget erschöpft“.
   Wetter: nach Grenze minus 30 s (Prüfungen, KI, Speichern) keine neuen Punkte, laufende Abrufe werden
-  abgebrochen, der Cache bleibt (best effort); Zeitlimit je GeoSphere-Abruf 10 s. KI: nur mit mindestens
-  22 s Restzeit, sonst Fallback-Text – dann auch keine Zählung im KI-Kontingent. Der Bericht wird immer
-  gespeichert; hängt ein Betrieb trotzdem, wartet der Lauf höchstens 10 s über die Grenze.
+  abgebrochen, der Cache bleibt (best effort); Zeitlimit je GeoSphere-Abruf weiter 25 s (einzelne Abrufe
+  brauchen gemessen bis 28 s; die Gesamtzeit begrenzt die Grenze des Betriebs). KI: nur mit mindestens
+  22 s Restzeit, sonst Fallback-Text – dann auch keine Zählung im KI-Kontingent; im Cron ohne
+  Wiederholungen. Der Bericht wird immer gespeichert. Überzieht ein Betrieb seine Grenze trotzdem um
+  mehr als 10 s (hängende Abfrage), meldet der Lauf ihn als Fehler, sein Platz im Pool bleibt aber belegt, bis er
+  fertig ist (höchstens bis zum Laufende) – es laufen also nie mehr als 2 Betriebe gleichzeitig; die
+  Meldung sagt, ob der Bericht verspätet gespeichert wurde oder bis zum Laufende nicht fertig war.
 - **Auslassungen:** „Morgenbericht deaktiviert“, „Abo gesperrt (Nur-Lesen-Modus)“ und
   „Demo-Betrieb: kein tägliches Update“ (Musterhof, Einmaldaten reichen) sind bewusst und zählen im
   Cron-Protokoll nicht als Fehler. „Zeitbudget erschöpft“, wegen der Zeitgrenze gekürzte Berichte
-  (Wetter unvollständig, KI ausgelassen) und abgebrochene Betriebe zählen als Fehler.
+  (Wetter unvollständig, KI ausgelassen) und Betriebe über der Zeitgrenze zählen als Fehler.
+  Wetterpunkte, deren Abruf aus anderen Gründen scheitert (GeoSphere-Zeitlimit, HTTP 429/5xx), nennt die
+  Meldung („N Wetterpunkte nicht abrufbar“, Details im Protokoll) – ohne sie als Fehler zu zählen, der
+  Bericht nutzt dann die Werte aus dem Cache.
 - **Sichtbarkeit:** `/admin/system` zeigt einen Hinweis, wenn es nach 05:30 UTC noch keinen
   Protokolleintrag des täglichen Crons von heute gibt (Abbruch vor dem Protokoll). Der
   Sandbox-Morgenbericht meldet „Betriebe ohne Morgenbericht am Vortag“ (siehe Prüfungen).
@@ -99,7 +114,9 @@ Regeln und Grenzen jetzt zentral in `src/lib/morgenbericht/zeitplan.ts` (ohne `@
 `check_und_increment_ki_abfrage` als eine Abfrage; Tokens über `increment_ki_tokens`.
 Modell: `MORGENBERICHT_MODEL` → `KI_ABFRAGE_MODEL` → Sonnet 4.5. Ohne Schlüssel, ohne
 KI-Modul oder bei erreichtem Limit: deterministischer Ein-Satz-Fallback. Aufruf mit Zeitlimit 20 s
-und ohne Wiederholungen (KAN-123); im Cron nur mit genug Restzeit (siehe Zeitbudget), sonst Fallback.
+je Versuch (KAN-123); im Cron ohne Wiederholungen und nur mit genug Restzeit (siehe Zeitbudget), sonst
+Fallback; manuell wie bisher mit zwei Wiederholungen. Scheitert der Aufruf, bleibt `ki_modell` leer –
+der Fallback-Text erscheint nicht als KI-Zusammenfassung (die Abfrage ist trotzdem gezählt).
 
 ## Offen / Ideen
 

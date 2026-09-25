@@ -7,16 +7,25 @@
 //
 // KAN-123 (25.09.2026): Rate-Limit laut Doku „5 requests per second and 240 requests per hour“
 // je Nutzer, darüber HTTP 429 (https://dataset.api.hub.geosphere.at/v1/docs/user-guide/request-limit.html,
-// abgerufen 25.09.2026). Der Morgenbericht-Lauf hat höchstens 2 Betriebe × 3 Wetterpunkte
+// abgerufen 25.09.2026; wie der Data Hub Nutzer erkennt, sagt die Doku nicht – ohne API-Schlüssel
+// vermutlich je IP). Der Morgenbericht-Lauf hat höchstens 2 Betriebe × 3 Wetterpunkte
 // gleichzeitig (lib/morgenbericht/zeitplan.ts, lib/wetter/daten.ts), je Punkt zwei Abrufe
 // nacheinander – der Takt unten hält die Starts dieser Instanz zusätzlich unter 5 je Sekunde.
-// Stundenlimit: je Betrieb höchstens 12 Punkte × 2 Abrufe = 24 je Lauf, weit unter 240.
-// Zeitlimit je Abruf 10 s (vorher 25 s), dazu optional ein Signal des Aufrufers (Zeitgrenze des Betriebs).
+// Das Stundenlimit gilt für ALLE Abrufe der App zusammen (Cron über alle Betriebe plus
+// „Jetzt aktualisieren“), nicht je Betrieb: derzeit täglich 6 Punkte (Gebeshuber) × 2 = 12 im
+// Cron. Bekannte Skalierungsgrenze: bei 12 Punkten × 2 Abrufen reichen 240/h für etwa
+// 10 Betriebe mit Wetter – davor ein gemeinsames Stundenbudget, einen betriebsübergreifenden
+// Punkte-Cache oder einen eigenen API-Zugang klären (429 landet sonst nur als Wetterfehler im Protokoll).
+// Zeitlimit je Abruf 25 s wie bisher: in Stichproben vom 25.09.2026 brauchten 7 von 25 Abrufen
+// über 10 s, bis 28 s (Antwortzeit des Servers, nicht Datenmenge – v. a. der 35-Tage-Rückblick
+// eines neuen Punkts), und im Cron brach am selben Tag um 05:01 UTC ein Abruf erst nach 25 s ab;
+// 10 s hätten viele sonst gelungene Abrufe abgebrochen. Die Gesamtzeit im Cron begrenzt das
+// Signal des Aufrufers (Zeitgrenze des Betriebs), das Zeitlimit hier nur den einzelnen Abruf.
 
 import { startTakt } from '@/lib/utils/parallel'
 
 const BASIS = 'https://dataset.api.hub.geosphere.at/v1'
-const ABRUF_TIMEOUT_MS = 10_000
+const ABRUF_TIMEOUT_MS = 25_000
 const takt = startTakt(4, 1000)
 
 export type WetterStunde = {

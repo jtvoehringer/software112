@@ -17,6 +17,8 @@ export const BETRIEB_MINDESTZEIT_MS = 15_000
 export const BETRIEB_NACHLAUF_MS = 10_000
 /** KI nur starten (und damit zählen), wenn noch so viel Zeit bleibt: Zeitlimit des Aufrufs 20 s (ki.ts) + Speichern */
 export const KI_MINDESTZEIT_MS = 22_000
+/** Wiederholungen des KI-Aufrufs ohne Zeitgrenze (manueller Bericht) – SDK-Standard wie vor KAN-123 */
+export const KI_WIEDERHOLUNGEN_MANUELL = 2
 /** Wetterpunkte nur bis zur Grenze abzüglich dieser Reserve beginnen (Prüfungen, KI, Speichern) */
 export const WETTER_RESERVE_MS = 30_000
 /** Höchstens so viele Betriebe gleichzeitig (Wetterpunkte je Betrieb: siehe lib/wetter/daten.ts) */
@@ -44,6 +46,8 @@ export type LaufErgebnis = {
   uebersprungen?: string
   /** Bericht gespeichert, aber wegen der Zeitgrenze gekürzt (Wetter nicht vollständig, KI ausgelassen) */
   zeitgrenze?: string
+  /** Wetterpunkte, deren Abruf aus anderen Gründen als der Zeitgrenze scheiterte (GeoSphere-Zeitlimit, HTTP-Fehler) */
+  wetterFehler?: number
 }
 
 /** Datum des Berichts in Wiener Zeit (Cron läuft 05:00 UTC = 07:00 MESZ) */
@@ -58,8 +62,8 @@ export function vortagVon(heute: Date): string {
 
 // ── Faire Reihenfolge ────────────────────────────────────────────────────────
 
-/** Letzter Cron-Bericht je Betrieb (größtes Datum) aus Zeilen { tenant_id, datum } */
-export function letzteCronBerichte(zeilen: readonly { tenant_id: string; datum: string }[]): Map<string, string> {
+/** Letzter Berichtstag je Betrieb (größtes Datum) aus Zeilen { tenant_id, datum } */
+export function letzteBerichtstage(zeilen: readonly { tenant_id: string; datum: string }[]): Map<string, string> {
   const m = new Map<string, string>()
   for (const z of zeilen) {
     const d = String(z.datum).slice(0, 10)
@@ -69,14 +73,22 @@ export function letzteCronBerichte(zeilen: readonly { tenant_id: string; datum: 
 }
 
 /**
- * Betriebe ohne Cron-Bericht zuerst, dann der mit dem ältesten letzten Cron-Bericht,
- * bei Gleichstand nach created_at – wer gestern ausgelassen wurde, kommt heute zuerst dran.
+ * Betriebe ohne Cron-Bericht zuerst, dann der mit dem ältesten letzten Cron-Bericht – wer gestern
+ * ausgelassen wurde, kommt heute zuerst dran. Bei Gleichstand zuerst, wessen letzter Bericht
+ * überhaupt (`letzterBericht`, auch manuell) älter ist, dann nach created_at.
+ * Warum zwei Schlüssel: „Jetzt aktualisieren“ überschreibt die Cron-Zeile des Tages per Upsert
+ * (ausloeser = 'manuell'). Nach dem Cron-Bericht allein sähe ein Betrieb mit Cron- und manuellem
+ * Bericht wie ausgelassen aus und käme per created_at vor den wirklich ausgelassenen; nach jedem
+ * Bericht allein verlöre ein ausgelassener Betrieb, der sich manuell behilft, jeden Gleichstand –
+ * den jüngsten träfe es dann wieder jeden Tag (wie vor KAN-123).
  */
-export function fairReihenfolge<T extends { id: string; created_at?: string | null }>(betriebe: readonly T[], letzterCron: ReadonlyMap<string, string>): T[] {
+export function fairReihenfolge<T extends { id: string; created_at?: string | null }>(betriebe: readonly T[], letzterCron: ReadonlyMap<string, string>, letzterBericht: ReadonlyMap<string, string> = new Map()): T[] {
   const angelegt = (b: T) => { const t = b.created_at ? Date.parse(b.created_at) : NaN; return Number.isNaN(t) ? Infinity : t }
   return betriebe.map((b, i) => ({ b, i })).sort((x, y) => {
     const a = letzterCron.get(x.b.id) ?? '', c = letzterCron.get(y.b.id) ?? ''
     if (a !== c) return a < c ? -1 : 1
+    const ma = letzterBericht.get(x.b.id) ?? '', mc = letzterBericht.get(y.b.id) ?? ''
+    if (ma !== mc) return ma < mc ? -1 : 1
     const ka = angelegt(x.b), kc = angelegt(y.b)
     if (ka !== kc) return ka < kc ? -1 : 1
     return x.i - y.i
@@ -97,19 +109,43 @@ export const wetterDeadline = (deadline: number | undefined) => deadline === und
 /** Reicht die Restzeit für einen KI-Aufruf? Ohne Grenze (manueller Bericht) immer. */
 export const kiStartErlaubt = (deadline: number | undefined, jetzt = Date.now()) => deadline === undefined || deadline - jetzt >= KI_MINDESTZEIT_MS
 
+/**
+ * Wiederholungen des KI-Aufrufs: im Cron (mit Grenze) keine – die Restzeit reicht nur für einen
+ * Versuch mit 20 s –, im manuellen Bericht wie bisher. Die Zählung im Kontingent bleibt davon
+ * unberührt (eine Abfrage je Bericht, vor dem Aufruf); Wiederholungen verhindern nur, dass ein
+ * einmaliger 429/529 eine gezählte Abfrage ohne Zusammenfassung hinterlässt.
+ */
+export const kiWiederholungen = (deadline: number | undefined) => deadline === undefined ? KI_WIEDERHOLUNGEN_MANUELL : 0
+
 export class ZeitgrenzeFehler extends Error {}
 
 /**
- * Wartet höchstens bis `bis` (ms) auf `p`, sonst ZeitgrenzeFehler. `p` läuft im Hintergrund
- * weiter (ein später gespeicherter Bericht schadet nicht), der Lauf kommt aber rechtzeitig
- * zum Protokoll.
+ * Wartet höchstens bis `bis` (ms) auf `p`, sonst ZeitgrenzeFehler. Bricht `p` nicht ab – es läuft
+ * weiter (siehe ausgangNachZeitgrenze), der Aufrufer kommt aber rechtzeitig weiter.
  */
-export async function mitZeitgrenze<T>(p: Promise<T>, bis: number, meldung = 'Zeitgrenze des Betriebs überschritten – Bericht abgebrochen'): Promise<T> {
+export async function mitZeitgrenze<T>(p: Promise<T>, bis: number, meldung = 'Zeitgrenze des Betriebs überschritten'): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
     return await Promise.race([p, new Promise<never>((_, nein) => { timer = setTimeout(() => nein(new ZeitgrenzeFehler(meldung)), Math.max(0, bis - Date.now())) })])
   } finally {
     clearTimeout(timer)
+  }
+}
+
+/**
+ * Nach überschrittener Zeitgrenze eines Betriebs (hängende Abfrage): wartet noch höchstens bis
+ * zum Laufende auf den Bericht und liefert die Meldung für das Protokoll (zählt als Fehler).
+ * Der Lauf gibt den Platz im Pool erst danach frei – so laufen nie mehr als BETRIEBE_PARALLEL
+ * Betriebe gleichzeitig, und das Protokoll sagt, ob der Bericht doch noch gespeichert wurde.
+ */
+export async function ausgangNachZeitgrenze(p: Promise<unknown>, laufEnde: number): Promise<string> {
+  try {
+    await mitZeitgrenze(p, laufEnde)
+    return 'Zeitgrenze des Betriebs überschritten – Bericht verspätet gespeichert'
+  } catch (e) {
+    return e instanceof ZeitgrenzeFehler
+      ? 'Zeitgrenze des Betriebs überschritten – Bericht bis zum Laufende nicht fertig (wird ggf. noch gespeichert)'
+      : `Zeitgrenze des Betriebs überschritten, danach Fehler: ${(e as Error).message}`
   }
 }
 
@@ -124,10 +160,14 @@ export function ergebnisArt(e: Pick<LaufErgebnis, 'fehler' | 'uebersprungen' | '
   return e.zeitgrenze ? 'zeit' : 'ok'
 }
 
-/** Zahlen für das Cron-Protokoll; alsFehler = alles außer ok und bewusst */
+/**
+ * Zahlen für das Cron-Protokoll; alsFehler = alles außer ok und bewusst. wetterFehler (gescheiterte
+ * GeoSphere-Abrufe, der Bericht nutzt dann den Cache) steht in der Meldung, zählt aber nicht als Fehler.
+ */
 export function laufBilanz(ergebnis: readonly LaufErgebnis[]) {
-  const b = { erstellt: 0, gekuerzt: 0, fehler: 0, zeitUebersprungen: 0, bewusst: 0, alsFehler: 0 }
+  const b = { erstellt: 0, gekuerzt: 0, fehler: 0, zeitUebersprungen: 0, bewusst: 0, alsFehler: 0, wetterFehler: 0 }
   for (const e of ergebnis) {
+    b.wetterFehler += e.wetterFehler ?? 0
     const art = ergebnisArt(e)
     if (art === 'bewusst') b.bewusst++
     else if (art === 'fehler') b.fehler++

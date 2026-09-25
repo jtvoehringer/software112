@@ -47,8 +47,36 @@ describe('fairReihenfolge()', () => {
     assert.deepEqual(eingabe.map(x => x.id), ['a', 'b', 'c'])
   })
 
-  test('letzteCronBerichte() nimmt je Betrieb das jüngste Datum', () => {
-    const m = z.letzteCronBerichte([
+  test('Gleichstand beim Cron-Bericht: wer auch manuell keinen neueren Bericht hat, kommt zuerst', () => {
+    // 24.09.: Gebeshuber bekommt den Cron-Bericht, danach „Jetzt aktualisieren“ (Upsert → ausloeser 'manuell');
+    // Spaetrot wird aus Zeitmangel übersprungen. Am 25.09. haben beide als letzten Cron-Bericht den 23.09.
+    const zeilen = [
+      { tenant_id: SANDBOX.id, datum: '2026-09-24', ausloeser: 'cron' },
+      { tenant_id: GEBESHUBER.id, datum: '2026-09-24', ausloeser: 'manuell' },
+      { tenant_id: GEBESHUBER.id, datum: '2026-09-23', ausloeser: 'cron' },
+      { tenant_id: SPAETROT.id, datum: '2026-09-23', ausloeser: 'cron' },
+    ]
+    const betriebe = [SANDBOX, GEBESHUBER, SPAETROT]
+    const cron = z.letzteBerichtstage(zeilen.filter(x => x.ausloeser === 'cron'))
+    assert.deepEqual(namen(z.fairReihenfolge(betriebe, cron)), ['Weingut Johannes Gebeshuber', 'Spaetrot Gebeshuber GmbH', 'Sandbox'], 'ohne zweiten Schlüssel entscheidet created_at')
+    assert.deepEqual(namen(z.fairReihenfolge(betriebe, cron, z.letzteBerichtstage(zeilen))), ['Spaetrot Gebeshuber GmbH', 'Weingut Johannes Gebeshuber', 'Sandbox'])
+  })
+
+  test('ausgelassener Betrieb, der sich manuell behilft, verliert nicht jeden Gleichstand', () => {
+    // Nur nach „irgendein Bericht“ sortiert, träfe es den jüngsten Betrieb jeden Tag wieder (wie vor KAN-123)
+    const zeilen = [
+      { tenant_id: SANDBOX.id, datum: '2026-09-24', ausloeser: 'cron' },
+      { tenant_id: GEBESHUBER.id, datum: '2026-09-24', ausloeser: 'cron' },
+      { tenant_id: SPAETROT.id, datum: '2026-09-24', ausloeser: 'manuell' },
+      { tenant_id: SPAETROT.id, datum: '2026-09-22', ausloeser: 'cron' },
+    ]
+    const betriebe = [SANDBOX, GEBESHUBER, SPAETROT]
+    const reihe = z.fairReihenfolge(betriebe, z.letzteBerichtstage(zeilen.filter(x => x.ausloeser === 'cron')), z.letzteBerichtstage(zeilen))
+    assert.equal(reihe[0].name, 'Spaetrot Gebeshuber GmbH')
+  })
+
+  test('letzteBerichtstage() nimmt je Betrieb das jüngste Datum', () => {
+    const m = z.letzteBerichtstage([
       { tenant_id: 'a', datum: '2026-09-22' }, { tenant_id: 'a', datum: '2026-09-24' }, { tenant_id: 'a', datum: '2026-09-23' },
       { tenant_id: 'b', datum: '2026-09-20T00:00:00' },
     ])
@@ -81,6 +109,12 @@ describe('Zeitgrenzen', () => {
     assert.equal(z.kiStartErlaubt(T - 1, T), false)
   })
 
+  test('kiWiederholungen(): im Cron keine, manuell wie bisher (SDK-Standard 2)', () => {
+    assert.equal(z.kiWiederholungen(T + 120_000), 0)
+    assert.equal(z.kiWiederholungen(undefined), 2)
+    assert.equal(z.KI_WIEDERHOLUNGEN_MANUELL, 2)
+  })
+
   test('wetterDeadline(): Reserve für Prüfungen, KI und Speichern', () => {
     assert.equal(z.wetterDeadline(undefined), undefined)
     assert.equal(z.wetterDeadline(T + 120_000), T + 120_000 - z.WETTER_RESERVE_MS)
@@ -97,6 +131,19 @@ describe('Zeitgrenzen', () => {
     const langsam = new Promise(r => setTimeout(() => r('zu spät'), 200))
     await assert.rejects(z.mitZeitgrenze(langsam, Date.now() + 20), (e) => e instanceof z.ZeitgrenzeFehler && /Zeitgrenze/.test(e.message))
     await assert.rejects(z.mitZeitgrenze(Promise.reject(new Error('DB weg')), Date.now() + 1000), /DB weg/)
+  })
+
+  test('ausgangNachZeitgrenze(): wartet bis zum Laufende und sagt, was aus dem Bericht wurde', async () => {
+    const spaet = new Promise(r => setTimeout(() => r('gespeichert'), 30))
+    assert.match(await z.ausgangNachZeitgrenze(spaet, Date.now() + 1000), /verspätet gespeichert/)
+    const haengt = new Promise(() => {})
+    const t0 = Date.now()
+    assert.match(await z.ausgangNachZeitgrenze(haengt, t0 + 40), /bis zum Laufende nicht fertig/)
+    assert.ok(Date.now() - t0 >= 35, 'wartet bis zum Laufende')
+    assert.match(await z.ausgangNachZeitgrenze(Promise.reject(new Error('DB weg')), Date.now() + 1000), /danach Fehler: DB weg/)
+    // Laufende schon vorbei: sofort, ein bereits fertiger Bericht zählt trotzdem als gespeichert
+    assert.match(await z.ausgangNachZeitgrenze(Promise.resolve(1), Date.now() - 5), /verspätet gespeichert/)
+    assert.equal(z.ergebnisArt({ tenant: 'x', fehler: await z.ausgangNachZeitgrenze(haengt, Date.now() - 5) }), 'fehler')
   })
 })
 
@@ -118,10 +165,18 @@ describe('Einordnung der Ergebnisse (Cron-Protokoll)', () => {
       { tenant: 'Gebeshuber', befunde: 9, zeitgrenze: 'Wetter: 2 Punkte nicht aufgefrischt' },
       { tenant: 'Musterhof', uebersprungen: z.GRUND.demo },
       { tenant: 'Spaetrot', uebersprungen: z.GRUND.zeitbudget },
-      { tenant: 'Neu', fehler: 'Zeitgrenze des Betriebs überschritten – Bericht abgebrochen' },
+      { tenant: 'Neu', fehler: 'Zeitgrenze des Betriebs überschritten – Bericht bis zum Laufende nicht fertig (wird ggf. noch gespeichert)' },
       { tenant: 'Aus', uebersprungen: z.GRUND.deaktiviert },
     ])
-    assert.deepEqual(b, { erstellt: 2, gekuerzt: 1, fehler: 1, zeitUebersprungen: 1, bewusst: 2, alsFehler: 3 })
+    assert.deepEqual(b, { erstellt: 2, gekuerzt: 1, fehler: 1, zeitUebersprungen: 1, bewusst: 2, alsFehler: 3, wetterFehler: 0 })
+  })
+
+  test('laufBilanz(): gescheiterte Wetterabrufe erscheinen, zählen aber nicht als Fehler', () => {
+    const erg = [{ tenant: 'Gebeshuber', befunde: 9, wetterFehler: 1 }, { tenant: 'Sandbox', befunde: 4 }, { tenant: 'X', befunde: 1, wetterFehler: 2, zeitgrenze: 'KI-Zusammenfassung ausgelassen' }]
+    const b = z.laufBilanz(erg)
+    assert.equal(b.wetterFehler, 3)
+    assert.equal(b.alsFehler, 1)
+    assert.equal(z.ergebnisArt(erg[0]), 'ok')
   })
 
   test('Gründe der Auslassung (Texte im Protokoll)', () => {
@@ -232,21 +287,25 @@ describe('Verdrahtung (Quelltext)', () => {
     assert.match(s, /spiegleMailboxen\(22000\)/)
   })
 
-  test('KI: Zeitlimit 20 s, keine Wiederholungen, Zeitprüfung vor der Zählung', () => {
+  test('KI: Zeitlimit 20 s, Wiederholungen nur ohne Grenze, Zeitprüfung vor der Zählung, kein Modell bei Fehler', () => {
     const s = quelle('src/lib/morgenbericht/ki.ts')
-    assert.match(s, /new Anthropic\(\{ apiKey: process\.env\.ANTHROPIC_API_KEY, timeout: 20_000, maxRetries: 0 \}\)/)
+    assert.match(s, /new Anthropic\(\{ apiKey: process\.env\.ANTHROPIC_API_KEY, timeout: 20_000, maxRetries: kiWiederholungen\(opts\.deadline\) \}\)/)
+    assert.match(s, /\} catch \{\s+return \{ text: null, modell: null, grund: 'fehler' \}/)
+    assert.doesNotMatch(s, /\{ text: null, modell, grund: 'fehler' \}/, 'Fallback-Text nie als KI-Zusammenfassung speichern')
     const pruefung = s.indexOf('if (!kiStartErlaubt(opts.deadline))')
     const zaehlung = s.indexOf("'check_und_increment_ki_abfrage'")
     assert.ok(pruefung > 0 && zaehlung > pruefung, 'Zeitprüfung muss vor check_und_increment_ki_abfrage stehen')
     assert.ok(z.KI_MINDESTZEIT_MS > 20_000, 'Mindestzeit muss das Zeitlimit des Aufrufs übersteigen')
   })
 
-  test('GeoSphere: Timeout 10 s, externes Signal, Takt unter dem Rate-Limit', () => {
+  test('GeoSphere: Timeout 25 s je Abruf, externes Signal, Takt unter dem Rate-Limit', () => {
     const s = quelle('src/lib/wetter/geosphere.ts')
-    assert.match(s, /const ABRUF_TIMEOUT_MS = 10_000/)
+    // 10 s brach in Stichproben rund jeden vierten Abruf ab (einzelne Abrufe bis 28 s); die Gesamtzeit begrenzt das Signal
+    assert.match(s, /const ABRUF_TIMEOUT_MS = 25_000/)
+    assert.ok(2 * 25_000 < z.BETRIEB_ZEITGRENZE_MS - z.WETTER_RESERVE_MS, 'beide Abrufe eines Punkts passen in die Wetter-Zeit eines Betriebs')
     assert.match(s, /AbortSignal\.any\(\[signal, zeitlimit\]\)/)
     assert.match(s, /request-limit\.html/)
-    assert.doesNotMatch(s, /AbortSignal\.timeout\(25000\)/)
+    assert.match(s, /Stundenlimit gilt für ALLE Abrufe der App zusammen/)
     const takt = s.match(/startTakt\((\d+), 1000\)/)
     assert.ok(takt && Number(takt[1]) < 5, 'höchstens 4 Starts je Sekunde (Limit 5/s)')
   })
@@ -269,8 +328,21 @@ describe('Verdrahtung (Quelltext)', () => {
     assert.match(s, /mitHoechstens\(reihe, BETRIEBE_PARALLEL/)
     assert.match(s, /fairReihenfolge\(/)
     assert.match(s, /'cron', new Date\(\), \{ deadline \}\)/)
-    assert.match(s, /tenant-isolation-ignore: letzter Cron-Bericht/)
-    assert.match(s, /\.eq\('ausloeser', 'cron'\)/)
+    assert.match(s, /tenant-isolation-ignore: letzte Berichte aller Betriebe/)
+    // eine Abfrage für beide Schlüssel: Cron-Berichte und Berichte jeder Art
+    assert.equal((s.match(/\.from\('morgenberichte'\)/g) ?? []).length, 1)
+    assert.match(s, /fairReihenfolge\([^\n]*letzteBerichtstage\(berichte\.filter\(b => b\.ausloeser === 'cron'\)\), letzteBerichtstage\(berichte\)\)/)
+    // überzogener Betrieb: Platz im Pool erst nach dem Ende des Berichts frei (höchstens Laufende)
+    assert.match(s, /e instanceof ZeitgrenzeFehler \? await ausgangNachZeitgrenze\(bericht, ende\)/)
+    assert.match(s, /wetterFehler: b\.wetterFehler/)
+  })
+
+  test('Cron-Protokoll: gescheiterte Wetterabrufe in Meldung und Details', () => {
+    const s = quelle('src/app/api/cron/taeglich/route.ts')
+    assert.match(s, /mb\.wetterFehler \? `, \$\{mb\.wetterFehler\}/)
+    assert.match(s, /ergebnisArt\(e\) !== 'ok' \|\| e\.wetterFehler/)
+    assert.match(quelle('src/lib/wetter/daten.ts'), /abrufFehler\+\+/)
+    assert.match(quelle('src/lib/morgenbericht/erstellen.ts'), /const \{ zeitAusgelassen, abrufFehler, \.\.\.aus \} = await ladeWetterAuswertung/)
   })
 
   test('Manueller Bericht unverändert (ohne Zeitgrenze), Cron-Zeitplan unverändert', () => {

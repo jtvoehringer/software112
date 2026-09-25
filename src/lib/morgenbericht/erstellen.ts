@@ -6,8 +6,10 @@
 // Winzer, ebenfalls Service-Role nach Rollenprüfung).
 // KAN-123: Der Cron gibt eine Zeitgrenze je Betrieb mit (opts.deadline) – das Wetter
 // beginnt danach keine Punkte mehr (Reserve für Prüfungen, KI und Speichern), die KI
-// startet nur mit genug Restzeit; gespeichert wird der Bericht in jedem Fall. Ohne
-// Grenze (Server-Aktion) läuft alles wie bisher.
+// startet nur mit genug Restzeit und ohne Wiederholungen; gespeichert wird der Bericht in
+// jedem Fall. Ohne Grenze (Server-Aktion) entfallen diese Kürzungen und die KI wiederholt
+// wie bisher; für beide Wege gelten aber die neuen Grenzen je Abruf: höchstens 3 Wetterpunkte
+// gleichzeitig mit Start-Takt (lib/wetter/daten.ts, geosphere.ts), KI-Zeitlimit 20 s je Versuch.
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { ladeEinstellungen, toDateStr, type Ctx, type R } from '@/app/(dashboard)/dashboard/_shared/data'
@@ -56,23 +58,26 @@ export function wetterErlaubt(einst: { wetterAktiv: boolean; modulWeingarten: bo
   return { erlaubt: true, grund: null }
 }
 
-export async function erstelleMorgenbericht(tenant: { id: string; name: string | null; stripe_plan?: string | null }, ausloeser: 'cron' | 'manuell', heute = new Date(), opts: ErstellOptionen = {}): Promise<Morgenbericht & { zeitgrenze?: string }> {
+export async function erstelleMorgenbericht(tenant: { id: string; name: string | null; stripe_plan?: string | null }, ausloeser: 'cron' | 'manuell', heute = new Date(), opts: ErstellOptionen = {}): Promise<Morgenbericht & { zeitgrenze?: string; wetterFehler?: number }> {
   const start = Date.now()
   const admin = createSupabaseAdminClient()
   const ctx = ctxFuerBetrieb(admin, tenant.id, tenant.name, heute)
   const einst = await ladeEinstellungen(ctx)
   const paket = paketAusPlan(tenant.stripe_plan)
   const gekuerzt: string[] = []   // KAN-123: was wegen der Zeitgrenze fehlt (Cron-Protokoll)
+  let wetterFehler = 0            // KAN-123: gescheiterte Wetterabrufe aus anderen Gründen (Cron-Protokoll)
 
   // Wetter (Standard/Premium, Weingarten-Modul, Rieden mit Koordinaten)
   let wetter: Morgenbericht['wetter'] = null
   const we = wetterErlaubt(einst, tenant.stripe_plan)
   if (we.erlaubt) {
     try {
-      const { zeitAusgelassen, ...aus } = await ladeWetterAuswertung(admin, tenant.id, heute, { abwaschMm: einst.wetterAbwaschMm, intervallTage: einst.wetterIntervallTage }, { auffrischen: true, deadline: wetterDeadline(opts.deadline) })
+      const { zeitAusgelassen, abrufFehler, ...aus } = await ladeWetterAuswertung(admin, tenant.id, heute, { abwaschMm: einst.wetterAbwaschMm, intervallTage: einst.wetterIntervallTage }, { auffrischen: true, deadline: wetterDeadline(opts.deadline) })
       wetter = { ...aus, erlaubt: true }
       if (zeitAusgelassen > 0) gekuerzt.push(`Wetter: ${zeitAusgelassen} ${zeitAusgelassen === 1 ? 'Punkt' : 'Punkte'} nicht aufgefrischt`)
+      wetterFehler = abrufFehler
     } catch (e) {
+      wetterFehler = 1
       wetter = { stand: null, prognoseStand: null, punkte: 0, jetzt: null, regen24h: 0, regen72h: 0, regen7d: 0, prognose: null, spritzfenster: [], rieden: [], empfehlungen: [], erlaubt: true, grund: `Wetterabruf fehlgeschlagen: ${(e as Error).message}` }
     }
   } else {
@@ -98,7 +103,7 @@ export async function erstelleMorgenbericht(tenant: { id: string; name: string |
   }
   const { data, error } = await (admin.from('morgenberichte') as any).upsert(zeile, { onConflict: 'tenant_id,datum' }).select('id').single()
   if (error) throw new Error(error.message)
-  return { id: (data as R).id, datum, erstelltAm: zeile.erstellt_am, ausloeser, befunde, wetter, zusammenfassung, kiModell: ki.modell, anzahl, ...(gekuerzt.length ? { zeitgrenze: gekuerzt.join(', ') } : {}) }
+  return { id: (data as R).id, datum, erstelltAm: zeile.erstellt_am, ausloeser, befunde, wetter, zusammenfassung, kiModell: ki.modell, anzahl, ...(gekuerzt.length ? { zeitgrenze: gekuerzt.join(', ') } : {}), ...(wetterFehler ? { wetterFehler } : {}) }
 }
 
 /** Jüngster Bericht (heute oder der letzte vorhandene) */

@@ -4,14 +4,16 @@
 // eine Abfrage gegen das KI-Kontingent des Pakets (check_und_increment_
 // ki_abfrage, Migration 194) - ist das Limit erreicht oder kein Schlüssel
 // gesetzt, bleibt der Bericht ohne Zusammenfassung (Fallback-Text).
-// KAN-123 (25.09.2026): Aufruf mit Zeitlimit 20 s und ohne Wiederholungen (SDK-Standard
-// 10 min + 2 Wiederholungen hätte den Cron blockiert); reicht die Restzeit des Betriebs
-// nicht (zeitplan.ts: KI_MINDESTZEIT_MS), startet die KI gar nicht und wird nicht gezählt.
+// KAN-123 (25.09.2026): Aufruf mit Zeitlimit 20 s je Versuch (SDK-Standard 10 min hätte den
+// Cron blockiert), im Cron ohne Wiederholungen, im manuellen Bericht wie bisher mit zwei
+// (zeitplan.ts: kiWiederholungen); reicht die Restzeit des Betriebs nicht (KI_MINDESTZEIT_MS),
+// startet die KI gar nicht und wird nicht gezählt. Scheitert der Aufruf, bleibt ki_modell leer –
+// die Seite zeigt den Fallback-Text dann nicht als KI-Zusammenfassung an.
 
 import Anthropic from '@anthropic-ai/sdk'
 import type { Befund } from '@/lib/wetter/regeln'
 import type { WetterAuswertung } from '@/lib/wetter/regeln'
-import { kiStartErlaubt } from './zeitplan'
+import { kiStartErlaubt, kiWiederholungen } from './zeitplan'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -53,13 +55,13 @@ Regeln: Nenne zuerst, was heute als Erstes zu tun ist (Stufe hoch), dann das Wic
   const user = `Datum: ${datum}\n\nBefunde:\n${befundText}\n\nWetter:\n${wetterText}`
 
   try {
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 20_000, maxRetries: 0 })
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 20_000, maxRetries: kiWiederholungen(opts.deadline) })
     const msg = await anthropic.messages.create({ model: modell, max_tokens: 400, system, messages: [{ role: 'user', content: user }] })
     const text = (msg.content[0] as R)?.text?.trim() as string | undefined
     await (client.rpc as any)('increment_ki_tokens', { p_tenant_id: tenantId, p_input_tokens: msg.usage.input_tokens, p_output_tokens: msg.usage.output_tokens })
-    return text ? { text, modell, grund: 'ok' } : { text: null, modell, grund: 'fehler' }
+    return text ? { text, modell, grund: 'ok' } : { text: null, modell: null, grund: 'fehler' }
   } catch {
-    return { text: null, modell, grund: 'fehler' }
+    return { text: null, modell: null, grund: 'fehler' }
   }
 }
 
