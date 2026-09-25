@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
+import { seitenBetriebFehler } from '@/lib/auth/seitenBetrieb'
 import { MAPPING_FELDER } from '@/lib/buchhaltung/bmd'
 
 // Konten-Mapping speichern (Migration 196): es werden nur Abweichungen von der
@@ -10,6 +11,8 @@ import { MAPPING_FELDER } from '@/lib/buchhaltung/bmd'
 export async function speichereKontenmapping(werte: Record<string, string>): Promise<{ ok: boolean; fehler?: string }> {
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) return { ok: false, fehler: 'Kein Mandant' }
+  const betriebGewechselt = await seitenBetriebFehler(membership.tenantId)   // KAN-30
+  if (betriebGewechselt) return { ok: false, fehler: betriebGewechselt }
   if (!canAdmin(membership.role)) return { ok: false, fehler: 'Nur Mandanten-Administratoren dürfen das Konten-Mapping ändern.' }
   const supabase = await createSupabaseServerClient()
   const tenantId = membership.tenantId
@@ -44,6 +47,8 @@ export async function speichereKontenmapping(werte: Record<string, string>): Pro
 export async function setzeKontenmappingZurueck(): Promise<{ ok: boolean; fehler?: string }> {
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) return { ok: false, fehler: 'Kein Mandant' }
+  const betriebGewechselt = await seitenBetriebFehler(membership.tenantId)   // KAN-30
+  if (betriebGewechselt) return { ok: false, fehler: betriebGewechselt }
   if (!canAdmin(membership.role)) return { ok: false, fehler: 'Nur Mandanten-Administratoren dürfen das Konten-Mapping ändern.' }
   const supabase = await createSupabaseServerClient()
   const { error } = await (supabase.from('buchhaltung_kontenmapping') as any).delete().eq('tenant_id', membership.tenantId)

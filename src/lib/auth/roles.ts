@@ -76,11 +76,17 @@ export const getCurrentMembership = cache(async function getCurrentMembership():
   // stattdessen getCurrentMembership() aufrufen statt diese Query zu duplizieren. Auch
   // hier auf user_id gefiltert (siehe Kommentar oben) - ansonsten dieselbe Gefahr einer
   // fremden Mitgliedschaftszeile, nur diesmal sogar potenziell eines FREMDEN Mandanten.
+  // KAN-33: deterministisch die älteste Mitgliedschaft (Sortierung wie die Abfrage in
+  // /betrieb-waehlen) – ohne ORDER BY lieferte Postgres „irgendeine“, der Fallback-Betrieb
+  // konnte also von Aufruf zu Aufruf wechseln (Layout zeigt A, die Action schreibt in B; der
+  // Betriebs-Wächter, KAN-30, verlässt sich auf einen stabilen Betrieb).
   // tenant-isolation-ignore: kanonischer Fallback ohne aktiven Tenant-Cookie, siehe Kommentar oben
   const { data } = await (supabase.from('tenant_memberships') as any)
     .select('tenant_id, role, schreibmodule')
     .eq('user_id', user.id)
     .eq('aktiv', true)
+    .order('created_at', { ascending: true })
+    .order('tenant_id')
     .limit(1)
     .maybeSingle()
   if (!data) return null

@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canWrite, canAdmin, isSystemAdmin } from '@/lib/auth/roles'
+import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import type { Zurechnung } from '@/lib/svs/berechnung'
 import { AktionsFehler } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
@@ -15,6 +16,7 @@ const ZURECHNUNGEN: Zurechnung[] = ['eigen', 'pacht_fremd', 'pacht_angehoerige',
 async function ctx(schreiben = true) {
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) throw new AktionsFehler('Kein Mandant')
+  await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   if (schreiben && !canWrite(membership.role, 'ea')) throw new AktionsFehler('Keine Berechtigung')
   const supabase = await createSupabaseServerClient()
   return { supabase, tenantId: membership.tenantId, role: membership.role }

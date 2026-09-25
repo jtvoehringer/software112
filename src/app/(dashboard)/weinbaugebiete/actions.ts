@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -16,6 +17,14 @@ async function getTenantId(): Promise<string> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   return membership.tenantId
+}
+
+// Für die schreibenden Actions (KAN-30): Seite aus einem anderen Betrieb? – nicht in
+// getTenantId(), weil ladeCustomWeinbaugebiete() auch beim Rendern der Seiten läuft.
+async function schreibTenantId(): Promise<string> {
+  const tenantId = await getTenantId()
+  await pruefeSeitenBetrieb(tenantId)
+  return tenantId
 }
 
 // Lädt die eigenen (aktiven) Weinbaugebiete des Mandanten – wird server-seitig
@@ -40,7 +49,7 @@ export async function createCustomWeinbaugebiet(name: string): Promise<CustomWei
   if (!trimmed) return null
 
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
+  const tenantId = await schreibTenantId()
 
   const { data: bestehend } = await (supabase.from('weinbaugebiete_custom') as any)
     .select('id, name, aktiv')
@@ -71,7 +80,7 @@ export async function createCustomWeinbaugebiet(name: string): Promise<CustomWei
 // zukünftige Erfassungen wird bereinigt).
 export async function deaktiviereCustomWeinbaugebiet(id: string): Promise<void> {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
+  const tenantId = await schreibTenantId()
   const { error } = await (supabase.from('weinbaugebiete_custom') as any)
     .update({ aktiv: false })
     .eq('id', id).eq('tenant_id', tenantId)

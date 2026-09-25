@@ -40,6 +40,17 @@ export function ladeTenantKopf(tenantId: string): Promise<TenantKopf> {
   })()
 }
 
+/** Name des Betriebs für Hinweise (KAN-30): Anzeigename wie in der Kopfleiste, sonst der Mandantenname */
+export function betriebsName(kopf: TenantKopf): string {
+  const anzeige = kopf.einstellungen?.anzeigename
+  return (typeof anzeige === 'string' && anzeige.trim()) || kopf.tenant?.name || 'Betrieb'
+}
+
+/** Mandantenname (tenants.name) – unterscheidet im Betriebs-Wächter Betriebe mit gleichem Anzeigenamen */
+export function mandantName(kopf: TenantKopf): string {
+  return kopf.tenant?.name?.trim() || ''
+}
+
 /** Nach Änderungen an tenant_einstellungen/tenants (Branding, Module, Abo) aufrufen. */
 export function tenantKopfInvalidieren(tenantId: string | null | undefined) {
   if (!tenantId) return

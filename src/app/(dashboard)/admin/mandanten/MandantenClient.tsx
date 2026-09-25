@@ -3,6 +3,7 @@
 import Link from '@/components/ui/Link'
 import { useState, useTransition } from 'react'
 import { createMandant } from './actions'
+import { wechselUrl } from '@/lib/tenant/waechter'
 
 // ── Neuer Mandant ─────────────────────────────────────────────────────────────
 
@@ -12,7 +13,12 @@ function NeuMandantForm({ onDone }: { onDone: () => void }) {
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    startTransition(async () => { await createMandant(fd); onDone() })
+    startTransition(async () => {
+      const { tenantId } = await createMandant(fd)
+      // Direkt in den neuen Betrieb wechseln – über den regulären Wechselweg (KAN-30)
+      if (tenantId) { window.location.assign(wechselUrl(tenantId, '/admin/mandanten')); return }
+      onDone()
+    })
   }
 
   return (

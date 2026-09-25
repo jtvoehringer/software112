@@ -6,11 +6,12 @@ import AppShell from '@/components/layout/AppShell'
 import ReleaseNotesModal from '@/components/ReleaseNotesModal'
 import SessionTimeout from '@/components/SessionTimeout'
 import AutoRefresh from '@/components/AutoRefresh'
+import BetriebsWaechter from '@/components/BetriebsWaechter'
 import NavigationsBalken from '@/components/NavigationsBalken'
 import { Suspense } from 'react'
 import AssistentWidget from '@/components/assistent/AssistentWidget'
 import Link from '@/components/ui/Link'
-import { ladeTenantKopf } from '@/lib/tenant/kopf'
+import { ladeTenantKopf, betriebsName, mandantName } from '@/lib/tenant/kopf'
 import { ladeMfaStand, MFA_PFLICHT_AB } from '@/lib/auth/mfa'
 import { barrierefreieAktionsfarbe } from '@/lib/farbe'
 
@@ -86,6 +87,9 @@ export default async function DashboardLayout({
   // zeigt aber eine Warnung mit Link zur Selbstverwaltung (/abo).
   let billingBlocked = false
   let billingWarnung = false
+  // Betrieb, mit dem diese Seite gerendert wird – für den Betriebs-Wächter (KAN-30)
+  let seitenBetriebName = ''
+  let seitenMandant = ''
   if (membership?.tenantId) {
     // Branding/Module/Abo-Status aus dem 60-s-Layout-Cache (lib/tenant/kopf.ts,
     // 17.9.2026) statt zwei Abfragen je Seitenaufruf. tenants.name nur für
@@ -94,6 +98,8 @@ export default async function DashboardLayout({
     const kopf = await ladeTenantKopf(membership.tenantId)
     const data = kopf.einstellungen
     const tenantRow = kopf.tenant
+    seitenBetriebName = betriebsName(kopf)
+    seitenMandant = mandantName(kopf)
 
     if (data) {
       const d = data as R
@@ -136,6 +142,8 @@ export default async function DashboardLayout({
       <ReleaseNotesModal />
       <SessionTimeout timeoutMinuten={(branding as any).session_timeout} />
       <AutoRefresh />
+      {/* Betriebswechsel in einem anderen Tab erkennen und diesen Tab sperren (KAN-30) */}
+      {membership?.tenantId && <BetriebsWaechter tenantId={membership.tenantId} name={seitenBetriebName} mandant={seitenMandant} />}
       {/* Ladebalken bei Seitenwechsel (useSearchParams braucht Suspense) */}
       <Suspense fallback={null}><NavigationsBalken /></Suspense>
       <AppShell

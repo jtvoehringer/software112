@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { AktionsFehler, dbFehlerText, fehlerText } from '@/lib/fehler'
@@ -32,6 +33,7 @@ const runde = (v: number) => Math.round(v * 10000) / 10000
 async function schreibKontext(): Promise<string> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
+  await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: vor den Rechten – sonst meldet ein veralteter Tab die Rechte des neuen Betriebs
   if (!canWrite(membership, 'warenwirtschaft')) {
     throw new AktionsFehler('Keine Berechtigung: Zukäufe erfassen, ändern und löschen dürfen nur Betriebs-Manager und Mitarbeiter mit Freigabe für die Warenwirtschaft.')
   }

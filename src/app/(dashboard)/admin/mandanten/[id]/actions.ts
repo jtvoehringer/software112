@@ -1,4 +1,5 @@
 'use server'
+// seiten-betrieb-ausnahme: Mandantenverwaltung – Ziel-Betrieb kommt ausdrücklich als tenantId-Parameter, nicht aus dem Cookie (KAN-30)
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'

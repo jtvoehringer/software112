@@ -2,12 +2,19 @@
 
 import { useEffect } from 'react'
 import { fehlerText } from '@/lib/fehler'
+import { BETRIEB_GEWECHSELT_MELDUNG } from '@/lib/tenant/waechter'
 
 // Fehlergrenze des Arbeitsbereichs (20.9.2026): statt der weißen Next-Seite eine
 // deutsche Meldung mit „Erneut versuchen“; der Fehler wird ans Systemprotokoll
 // gemeldet (Migration 222) und erscheint im Systembericht der Super-Admins.
+// Betriebswechsel in einem anderen Tab (KAN-30): Die Ablehnung einer Aktion aus einem
+// veralteten Tab ist gewollt – kein Systemfehler, daher nicht protokolliert; statt „Erneut
+// versuchen“ (reset rendert mit demselben veralteten Stand) wird die Seite neu geladen.
 export default function DashboardFehler({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  const betriebGewechselt = fehlerText(error, '') === BETRIEB_GEWECHSELT_MELDUNG
+
   useEffect(() => {
+    if (betriebGewechselt) return
     const text = fehlerText(error, 'Unbekannter Fehler')
     fetch('/api/system/ereignis', {
       method: 'POST',
@@ -15,7 +22,19 @@ export default function DashboardFehler({ error, reset }: { error: Error & { dig
       body: JSON.stringify({ meldung: text, digest: error.digest ?? null, pfad: window.location.pathname, name: error.name }),
       keepalive: true,
     }).catch(() => { /* Meldung ist Zusatznutzen */ })
-  }, [error])
+  }, [error, betriebGewechselt])
+
+  if (betriebGewechselt) {
+    return (
+      <div role="alert" className="max-w-xl mx-auto mt-16 bg-white border border-s112-border rounded-xl p-6">
+        <h1 className="text-lg font-semibold text-s112-text mb-2">Betrieb gewechselt</h1>
+        <p className="text-sm text-s112-text-1 mb-5">
+          {BETRIEB_GEWECHSELT_MELDUNG} Die Aktion wurde nicht ausgeführt, damit nichts im falschen Betrieb gespeichert wird.
+        </p>
+        <button type="button" onClick={() => window.location.reload()} className="px-4 py-2 rounded-lg bg-s112-teal text-white text-sm font-medium hover:opacity-90">Seite neu laden</button>
+      </div>
+    )
+  }
 
   const text = fehlerText(error, 'Beim Laden dieser Seite ist ein unerwarteter Fehler aufgetreten.')
 

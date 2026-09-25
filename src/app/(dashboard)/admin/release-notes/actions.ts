@@ -1,4 +1,5 @@
 'use server'
+// seiten-betrieb-ausnahme: Release Notes sind plattformweit, kein Bezug zum aktiven Betrieb (KAN-30)
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUserRole, isSystemAdmin } from '@/lib/auth/roles'

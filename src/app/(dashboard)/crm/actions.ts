@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { absenderIndexVerwerfen } from '@/lib/crm/absender'
 import { AktionsFehler } from '@/lib/fehler'
 import { pruefeEmailFelder, einzelneEmail } from '@/lib/crm/email'
@@ -16,6 +17,7 @@ type AR = Record<string, any>
 async function getTenantId(): Promise<string> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
+  await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb? (Kundennummernkreis)
   return membership.tenantId
 }
 

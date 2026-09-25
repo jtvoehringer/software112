@@ -10,6 +10,7 @@
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { BetriebsPruefMelder } from '@/components/BetriebsWaechter'
 
 type Modus = 'laden' | 'code' | 'einrichten' | 'aktiv'
 type Faktor = { id: string; status: string; friendly_name?: string | null; created_at?: string }
@@ -179,5 +180,11 @@ function ZweiFaktor() {
 }
 
 export default function ZweiFaktorSeite() {
-  return <Suspense fallback={null}><ZweiFaktor /></Suspense>
+  return (
+    <>
+      {/* KAN-30: Ziel der Zwei-Faktor-Pflicht nach einem Betriebswechsel – andere Tabs prüfen lassen */}
+      <BetriebsPruefMelder />
+      <Suspense fallback={null}><ZweiFaktor /></Suspense>
+    </>
+  )
 }

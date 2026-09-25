@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 
 export const dynamic = 'force-dynamic'
 
@@ -158,6 +159,11 @@ export async function POST(req: NextRequest) {
 
     const membership = await getCurrentMembership()
     if (!membership) return NextResponse.json({ fehler: 'Kein Betrieb gefunden' }, { status: 401 })
+    // KAN-30: Nachricht aus einem veralteten Tab (anderer Betrieb)? Vor dem Speichern und vor
+    // jedem Tool-Aufruf ablehnen – „Verkauf bestätigen“ o. ä. landete sonst im neuen Betrieb.
+    // (Die Tools prüfen zusätzlich über die Action-Helfer, der Header kommt vom Betriebs-Wächter.)
+    const konflikt = await seitenBetriebKonflikt(membership.tenantId)
+    if (konflikt) return konflikt
     if (!canWrite(membership.role, 'kellerbuch')) {
       return NextResponse.json({ fehler: 'Keine Berechtigung für den Assistenten' }, { status: 403 })
     }

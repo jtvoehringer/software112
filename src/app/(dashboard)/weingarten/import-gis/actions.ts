@@ -8,6 +8,7 @@
 import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { zentrum, type EamaFeldstueck, type EamaSchlag } from '@/lib/geo/eama'
 import { AktionsFehler } from '@/lib/fehler'
 
@@ -30,6 +31,7 @@ async function kontext() {
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) throw new AktionsFehler('Nicht angemeldet')
+  await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   if (!canWrite(membership.role, 'rieden')) throw new AktionsFehler('Keine Berechtigung')
   return { supabase, tenantId: membership.tenantId }
 }

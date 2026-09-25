@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { pruefeSeitenBetrieb, seitenBetriebFehler } from '@/lib/auth/seitenBetrieb'
 import { revalidatePath } from 'next/cache'
 import { AktionsFehler } from '@/lib/fehler'
 
@@ -14,6 +15,7 @@ type AR = Record<string, any>
 async function getTenantId(): Promise<string> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
+  await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   return membership.tenantId
 }
 
@@ -68,6 +70,8 @@ export async function deleteLage(id: string): Promise<{ error?: string }> {
     const supabase = await createSupabaseServerClient()
     const membership = await getCurrentMembership()
     if (!membership) return { error: 'Kein Betrieb gefunden' }
+    const betriebGewechselt = await seitenBetriebFehler(membership.tenantId)   // KAN-30
+    if (betriebGewechselt) return { error: betriebGewechselt }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('lagen') as any)

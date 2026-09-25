@@ -1,4 +1,5 @@
 'use server'
+// seiten-betrieb-ausnahme: Plattform-Admins verwalten – wirkt plattformweit, nicht auf den aktiven Betrieb (KAN-30)
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'

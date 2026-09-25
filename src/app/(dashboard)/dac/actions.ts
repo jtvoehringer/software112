@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { revalidatePath } from 'next/cache'
 import { AktionsFehler } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
@@ -14,6 +15,7 @@ export async function createDacAntrag(formData: FormData) {
   const membership = await getCurrentMembership()
   const tenantId  = membership?.tenantId ?? null
   if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
+  await pruefeSeitenBetrieb(tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
 
   const payload: R = {
     tenant_id:       tenantId,
@@ -41,6 +43,7 @@ export async function updateDacAntrag(id: string, formData: FormData) {
   const membership = await getCurrentMembership()
   const tenantId  = membership?.tenantId ?? null
   if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
+  await pruefeSeitenBetrieb(tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   const payload: R = {
     weinausbau_id:   (formData.get('weinausbau_id') as string) || null,
     bezeichnung:     formData.get('bezeichnung') as string,

@@ -105,6 +105,7 @@ function SonstigesKombo({ artikel, name, onNameChange, onArtikelSelect, onSpeich
   const [open, setOpen]     = useState(false)
   const [saving, setSaving] = useState(false)
   const [savedOk, setSavedOk] = useState(false)
+  const [speicherFehler, setSpeicherFehler] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
 
   const treffer = name.length < 1
@@ -165,9 +166,10 @@ function SonstigesKombo({ artikel, name, onNameChange, onArtikelSelect, onSpeich
                 type="button"
                 onClick={async () => {
                   setSaving(true)
-                  try { await onSpeichern(name.trim()) } catch { /* ignore */ }
+                  setSpeicherFehler(null)
+                  // Fehler anzeigen statt verschlucken (u. a. KAN-30: Betrieb in anderem Tab gewechselt)
+                  try { await onSpeichern(name.trim()); setSavedOk(true) } catch (e) { setSpeicherFehler(fehlerText(e)) }
                   setSaving(false)
-                  setSavedOk(true)
                 }}
                 disabled={saving}
                 className="text-xs text-s112-blue-700 hover:underline disabled:opacity-50"
@@ -178,6 +180,7 @@ function SonstigesKombo({ artikel, name, onNameChange, onArtikelSelect, onSpeich
           )}
         </div>
       )}
+      {speicherFehler && <p role="alert" className="text-xs text-s112-err-fg mt-1">{speicherFehler}</p>}
     </div>
   )
 }

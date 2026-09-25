@@ -1,4 +1,5 @@
 'use server'
+// seiten-betrieb-ausnahme: Schlüsseltausch über alle Mandanten (Super-Admin), kein Bezug zum aktiven Betrieb (KAN-30)
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUserRole } from '@/lib/auth/roles'

@@ -1,9 +1,9 @@
 'use server'
+// seiten-betrieb-ausnahme: Mandanten anlegen/umbenennen (Super-Admin) – Ziel ausdrücklich als Parameter bzw. neu; der Wechsel läuft über /auth/betrieb (KAN-30)
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole } from '@/lib/auth/roles'
-import { setActiveTenantCookie } from '@/lib/auth/activeTenant'
 import { revalidatePath } from 'next/cache'
 import { AktionsFehler } from '@/lib/fehler'
 
@@ -15,7 +15,9 @@ async function assertSystemAdmin() {
   if (role !== 'system_admin') throw new AktionsFehler('Nur system_admin erlaubt')
 }
 
-export async function createMandant(formData: FormData) {
+/** Legt den Mandanten an; tenantId = neuer Betrieb, auf den der Client anschließend wechselt
+ *  (null, wenn keine Mitgliedschaft angelegt wurde). */
+export async function createMandant(formData: FormData): Promise<{ tenantId: string | null }> {
   await assertSystemAdmin()
   const supabase = createSupabaseAdminClient()
   const name = formData.get('name') as string
@@ -42,6 +44,7 @@ export async function createMandant(formData: FormData) {
   // Mitgliedschaft gäbe es keinen Weg mehr, sich selbst dort einzuladen.
   const authClient = await createSupabaseServerClient()
   const { data: { user } } = await authClient.auth.getUser()
+  let neuerBetrieb: string | null = null
   if (user) {
     // upsert statt insert (24.9.2026): für Plattform-Admins legt der Trigger
     // tenants_plattform_admins (Migration 198) die Zeile bereits beim Anlegen des
@@ -58,10 +61,16 @@ export async function createMandant(formData: FormData) {
     // gegen den FALSCHEN (alten) Betrieb geprüft/ausgeführt - dort hat der User evtl. gar
     // keine Schreibrechte, was fälschlich wie ein Berechtigungsfehler aussieht, obwohl der
     // User auf dem neuen Mandanten korrekt system_admin ist.
-    await setActiveTenantCookie((tenant as AR).id)
+    // KAN-30: Der Wechsel läuft nicht mehr hier per Cookie im laufenden Tab, sondern über den
+    // regulären Wechselweg /auth/betrieb (MandantenClient navigiert mit dieser ID dorthin):
+    // die Seite lädt dann vollständig im neuen Betrieb, der Betriebs-Wächter meldet den Wechsel
+    // an die anderen Tabs – und sperrt diesen Tab nicht fälschlich, weil sein Layout plötzlich
+    // einen anderen Betrieb zeigt.
+    neuerBetrieb = (tenant as AR).id as string
   }
 
   revalidatePath('/admin/mandanten')
+  return { tenantId: neuerBetrieb }
 }
 
 export async function renameMandant(id: string, name: string) {

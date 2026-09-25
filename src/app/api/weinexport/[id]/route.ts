@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -36,6 +37,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId
   if (!tenantId) return fehler('Nicht autorisiert', 401)
+  const konflikt = await seitenBetriebKonflikt(tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  if (konflikt) return konflikt
   if (!canWrite(membership, 'warenwirtschaft')) return fehler('Keine Berechtigung', 403)
 
   let body: unknown

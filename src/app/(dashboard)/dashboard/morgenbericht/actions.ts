@@ -1,6 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import { seitenBetriebFehler } from '@/lib/auth/seitenBetrieb'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { erstelleMorgenbericht } from '@/lib/morgenbericht/erstellen'
 
@@ -11,6 +12,8 @@ type R = Record<string, any>
 export async function aktualisiereMorgenbericht(): Promise<{ ok: boolean; fehler?: string; befunde?: number }> {
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) return { ok: false, fehler: 'Kein Mandant' }
+  const betriebGewechselt = await seitenBetriebFehler(membership.tenantId)   // KAN-30 (KI-Kontingent des Betriebs)
+  if (betriebGewechselt) return { ok: false, fehler: betriebGewechselt }
   if (!canWrite(membership.role, 'betrieb')) return { ok: false, fehler: 'Nur Betriebs-Manager und Mitarbeiter können den Bericht neu erstellen.' }
   const admin = createSupabaseAdminClient()
   // tenant-isolation-ignore: tenants hat keine tenant_id-Spalte, Filter über die eigene id

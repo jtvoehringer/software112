@@ -7,6 +7,7 @@ import { PAKET_REIHENFOLGE, paketAusPlan, paketPriceId } from '@/lib/pakete'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { pruefeBenutzerlimit } from '@/lib/pakete-server'
 import AboClient from './AboClient'
+import { BetriebsPruefMelder } from '@/components/BetriebsWaechter'
 
 // Rückmeldung 31.8.2026 ("die Plattform soll sich selber abrechnen können,
 // damit wir zu unserem Geld kommen"): Ziel-/Hinweisseite der neuen
@@ -65,22 +66,27 @@ export default async function AboPage() {
   const einst = einstRow as R | null
 
   return (
-    <AboClient
-      aktuellesPaket={aktuellesPaket}
-      verfuegbarePakete={verfuegbarePakete}
-      benutzerAnzahl={limit.anzahl}
-      hardBlocked={hardBlocked}
-      trialAbgelaufen={trialAbgelaufen}
-      warned={warned}
-      darfVerwalten={canAdmin(role)}
-      hasCustomer={hasCustomer}
-      hatAbo={hatAbo}
-      planLabel={planLabel}
-      statusLabel={statusMeta?.label ?? null}
-      hatEa={!!einst?.modul_ea}
-      kundennummer={(t?.kundennummer as string | null) ?? null}
-      betriebName={(t?.name as string | null) ?? null}
-      buchhaltungsart={einst?.buchhaltungsart === 'doppik' ? 'doppik' : 'ea'}
-    />
+    <>
+      {/* KAN-30: Hierher leitet das Layout nach einem Wechsel in einen gesperrten Betrieb –
+          die anderen Tabs sollen den aktiven Betrieb prüfen (kein Wächter auf dieser Seite) */}
+      <BetriebsPruefMelder />
+      <AboClient
+        aktuellesPaket={aktuellesPaket}
+        verfuegbarePakete={verfuegbarePakete}
+        benutzerAnzahl={limit.anzahl}
+        hardBlocked={hardBlocked}
+        trialAbgelaufen={trialAbgelaufen}
+        warned={warned}
+        darfVerwalten={canAdmin(role)}
+        hasCustomer={hasCustomer}
+        hatAbo={hatAbo}
+        planLabel={planLabel}
+        statusLabel={statusMeta?.label ?? null}
+        hatEa={!!einst?.modul_ea}
+        kundennummer={(t?.kundennummer as string | null) ?? null}
+        betriebName={(t?.name as string | null) ?? null}
+        buchhaltungsart={einst?.buchhaltungsart === 'doppik' ? 'doppik' : 'ea'}
+      />
+    </>
   )
 }

@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin, canWrite } from '@/lib/auth/roles'
+import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { AktionsFehler } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
 
@@ -12,6 +13,7 @@ async function getCtx() {
   const supabase   = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) throw new AktionsFehler('Kein Mandant')
+  await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   return { supabase, tenantId: membership.tenantId, role: membership.role }
 }
 
